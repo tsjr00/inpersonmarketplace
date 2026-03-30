@@ -92,64 +92,67 @@ export async function GET(
       }>
     }> = []
 
-    const _loopDebug: Array<{ vendorId: string; vpFound: boolean; evlCount: number; listingCount: number; pushed: boolean; error?: string }> = []
+    // Batch approach: get ALL event_vendor_listings for this market in one query,
+    // then ALL listings in one query, then group by vendor in JS.
+    // This avoids the per-vendor loop query issue.
+    const { data: allEvlRows } = await supabase
+      .from('event_vendor_listings')
+      .select('vendor_profile_id, listing_id')
+      .eq('market_id', event.market_id)
+      .in('vendor_profile_id', acceptedVendorIds)
+
+    const allListingIds = [...new Set((allEvlRows || []).map(r => r.listing_id as string))]
+
+    // Fetch ALL listings in one call
+    const allListingMap: Record<string, typeof vendors[0]['listings'][0]> = {}
+    if (allListingIds.length > 0) {
+      const { data: allListingRows } = await supabase
+        .from('listings')
+        .select('id, title, description, price_cents, image_urls, quantity_available, listing_data')
+        .in('id', allListingIds)
+        .eq('status', 'published')
+        .is('deleted_at', null)
+
+      for (const l of allListingRows || []) {
+        const ld = (l.listing_data as Record<string, unknown>) || {}
+        allListingMap[l.id] = {
+          id: l.id,
+          title: l.title,
+          description: l.description,
+          price_cents: l.price_cents as number,
+          primary_image_url: (l.image_urls as string[] | null)?.[0] || null,
+          quantity_available: l.quantity_available as number | null,
+          unit_label: (ld.unit_label as string) || null,
+        }
+      }
+    }
+
+    // Group by vendor
+    const vendorListingsMap: Record<string, typeof vendors[0]['listings']> = {}
+    for (const evl of allEvlRows || []) {
+      const vid = evl.vendor_profile_id as string
+      const lid = evl.listing_id as string
+      const listing = allListingMap[lid]
+      if (!listing) continue
+      if (!vendorListingsMap[vid]) vendorListingsMap[vid] = []
+      vendorListingsMap[vid].push(listing)
+    }
+
+    // Build vendors array
     for (const vendorId of acceptedVendorIds) {
       const vp = vendorProfileMap[vendorId]
-      if (!vp) { _loopDebug.push({ vendorId, vpFound: false, evlCount: 0, listingCount: 0, pushed: false }); continue }
-
-        // Get vendor's event listing IDs (simple, no embed)
-        const { data: evlRows, error: evlError } = await supabase
-          .from('event_vendor_listings')
-          .select('listing_id')
-          .eq('market_id', event.market_id)
-          .eq('vendor_profile_id', vp.id)
-
-        // Debug: log any query errors
-        if (evlError) {
-          console.error(`[event-shop] evl query error for vendor ${vp.id}:`, evlError.message, evlError.code, evlError.hint)
-        }
-
-        const listingIds = (evlRows || []).map(r => r.listing_id as string)
-
-        // Fetch full listing details directly
-        let listings: typeof vendors[0]['listings'] = []
-        if (listingIds.length > 0) {
-          const { data: listingRows } = await supabase
-            .from('listings')
-            .select('id, title, description, price_cents, image_urls, quantity_available, listing_data')
-            .in('id', listingIds)
-            .eq('status', 'published')
-            .is('deleted_at', null)
-
-          listings = (listingRows || []).map(l => {
-            const ld = (l.listing_data as Record<string, unknown>) || {}
-            return {
-              id: l.id,
-              title: l.title,
-              description: l.description,
-              price_cents: l.price_cents as number,
-              primary_image_url: (l.image_urls as string[] | null)?.[0] || null,
-              quantity_available: l.quantity_available as number | null,
-              unit_label: (ld.unit_label as string) || null,
-            }
-          })
-        }
-
-        if (listings.length === 0) {
-          _loopDebug.push({ vendorId, vpFound: true, evlCount: listingIds.length, listingCount: 0, pushed: false })
-          continue
-        }
-
-        vendors.push({
-          id: vp.id,
-          business_name: (vp.profile_data?.business_name as string) || (vp.profile_data?.farm_name as string) || 'Vendor',
-          description: vp.description,
-          profile_image_url: vp.profile_image_url,
-          pickup_lead_minutes: vp.pickup_lead_minutes || 30,
-          listings,
-        })
-        _loopDebug.push({ vendorId, vpFound: true, evlCount: listingIds.length, listingCount: listings.length, pushed: true })
-      }
+      if (!vp) continue
+      const listings = vendorListingsMap[vendorId] || []
+      if (listings.length === 0) continue
+      vendors.push({
+        id: vp.id,
+        business_name: (vp.profile_data?.business_name as string) || (vp.profile_data?.farm_name as string) || 'Vendor',
+        description: vp.description,
+        profile_image_url: vp.profile_image_url,
+        pickup_lead_minutes: vp.pickup_lead_minutes || 30,
+        listings,
+      })
+    }
 
     const isFT = event.vertical_id === 'food_trucks'
 
@@ -159,7 +162,10 @@ export async function GET(
       acceptedVendorIds,
       profilesFound: Object.keys(vendorProfileMap).length,
       vendorsBuilt: vendors.length,
-      loopDebug: _loopDebug,
+      evlTotal: allEvlRows?.length ?? 0,
+      listingIdsFound: allListingIds.length,
+      listingsLoaded: Object.keys(allListingMap).length,
+      vendorListingsGroups: Object.keys(vendorListingsMap).length,
       // Test: full pipeline for first vendor
       evl_test: acceptedVendorIds.length > 0 ? await (async () => {
         const vid = acceptedVendorIds[0]
