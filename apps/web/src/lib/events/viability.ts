@@ -66,7 +66,10 @@ export interface VendorMatchInput {
   pickup_lead_minutes?: number       // 15 or 30 — affects wave duration recommendation
   vehicle_length_feet?: number
   requires_generator?: boolean
+  generator_type?: string            // 'quiet_inverter' | 'standard'
   strong_odors?: boolean
+  food_perishability?: string        // FT: immediate/within_15_min/can_sit_30_plus, FM: refrigerated/shade_required/shelf_stable
+  seating_recommended?: boolean      // FT: needs seating, FM: weather-sensitive (needs indoor)
 }
 
 export interface VendorMatchResult {
@@ -75,6 +78,8 @@ export interface VendorMatchResult {
   cuisine_match: ScoreLevel
   capacity_fit: ScoreLevel
   runtime_fit: ScoreLevel
+  deal_breakers: string[]            // red: reasons this vendor would ruin the event — excluded from auto-invite
+  warnings: string[]                 // yellow: concerns that need admin attention but don't exclude
   platform_score: number
   tier: string
   experienced: boolean
@@ -506,7 +511,8 @@ export function scoreCuisineMatch(
     return { level: 'green', detail: `Matches: ${matches.join(', ')}` }
   }
 
-  const CUISINE_SYNONYMS: Record<string, string[]> = {
+  // FT cuisine synonyms
+  const FT_SYNONYMS: Record<string, string[]> = {
     'bbq': ['barbecue', 'smoked', 'brisket', 'ribs'],
     'mexican': ['tacos', 'burritos', 'tex-mex', 'latin'],
     'asian': ['chinese', 'japanese', 'thai', 'korean', 'vietnamese', 'sushi', 'ramen'],
@@ -514,6 +520,22 @@ export function scoreCuisineMatch(
     'italian': ['pizza', 'pasta', 'mediterranean'],
     'seafood': ['fish', 'shrimp', 'lobster'],
   }
+
+  // FM category synonyms
+  const FM_SYNONYMS: Record<string, string[]> = {
+    'produce': ['vegetables', 'fruit', 'fresh', 'organic', 'farm', 'greens', 'tomatoes', 'berries'],
+    'meat & poultry': ['beef', 'chicken', 'pork', 'sausage', 'jerky', 'lamb', 'turkey', 'bacon'],
+    'dairy & eggs': ['cheese', 'milk', 'butter', 'yogurt', 'eggs', 'cream'],
+    'baked goods': ['bread', 'pastry', 'cookies', 'cake', 'muffins', 'pie', 'scones', 'sourdough'],
+    'pantry': ['jam', 'jelly', 'honey', 'sauce', 'salsa', 'pickles', 'preserves', 'spices', 'oil', 'vinegar'],
+    'prepared foods': ['ready to eat', 'meals', 'tamales', 'soup', 'dips', 'hummus', 'salad'],
+    'plants & flowers': ['plants', 'flowers', 'herbs', 'succulents', 'bouquet', 'garden'],
+    'health & wellness': ['soap', 'candles', 'lotion', 'essential oils', 'wellness', 'natural'],
+    'art & decor': ['art', 'pottery', 'woodwork', 'handmade', 'crafts', 'jewelry', 'decor'],
+    'home & functional': ['cutting board', 'kitchen', 'textiles', 'bags', 'baskets'],
+  }
+
+  const CUISINE_SYNONYMS = { ...FT_SYNONYMS, ...FM_SYNONYMS }
 
   for (const cat of vendorCatsLower) {
     const synonyms = CUISINE_SYNONYMS[cat] || []
@@ -527,7 +549,13 @@ export function scoreCuisineMatch(
     }
   }
 
-  return { level: 'yellow', detail: 'No direct cuisine match — admin judgment needed' }
+  // If organizer specified preferences and we found nothing, that's a real mismatch
+  // Yellow if preferences were vague (short text), red if specific (multiple words/categories)
+  const wordCount = cuisinePreferences.trim().split(/[\s,]+/).length
+  if (wordCount >= 3) {
+    return { level: 'red', detail: `No match for "${cuisinePreferences}" — vendor categories: ${vendorCategories.join(', ') || 'none'}` }
+  }
+  return { level: 'yellow', detail: 'No direct match — may still be a fit' }
 }
 
 export function scoreVendorMatch(
@@ -539,6 +567,8 @@ export function scoreVendorMatch(
     vendor_count: number
     event_start_time: string | null
     event_end_time: string | null
+    children_present?: boolean
+    event_type?: string | null
   }
 ): VendorMatchResult {
   const numWaves = calculateWaveCount(event.event_start_time, event.event_end_time)
@@ -581,6 +611,46 @@ export function scoreVendorMatch(
     ? '15-min service — faster throughput, better for events'
     : '30-min service — standard throughput'
 
+  // --- Deal-breaker checks (data-driven, based on captured fields) ---
+  const deal_breakers: string[] = []
+
+  // Strong odors at children's events — cooking smells can be overwhelming for kids
+  if (vendor.strong_odors && event.children_present) {
+    deal_breakers.push('Strong cooking odors at event with children present')
+  }
+
+  // Standard (loud) generator at corporate/indoor-likely events
+  if (vendor.requires_generator && vendor.generator_type === 'standard') {
+    const quietRequired = ['corporate_lunch', 'team_building', 'private_party']
+    if (event.event_type && quietRequired.includes(event.event_type)) {
+      deal_breakers.push('Loud generator at corporate/private event (quiet inverter required)')
+    }
+  }
+
+  // Perishable products + long event = food safety risk
+  const isLongEvent = eventHours >= 4
+  if (isLongEvent && vendor.food_perishability === 'immediate') {
+    deal_breakers.push('Immediate-perishability food at 4+ hour event — food safety risk')
+  }
+
+  // Warnings (tracked but not deal-breakers)
+  const warnings: string[] = []
+
+  if (isLongEvent && vendor.food_perishability === 'refrigerated') {
+    warnings.push('Refrigerated products at 4+ hour event — verify vendor has power/cooling plan')
+  }
+
+  // Weather-sensitive FM vendor at likely outdoor event — flag but don't exclude
+  const outdoorTypes = ['festival', 'grand_opening']
+  if (vendor.seating_recommended && event.event_type && outdoorTypes.includes(event.event_type)) {
+    warnings.push('Weather-sensitive setup at likely outdoor event — confirm covered space available')
+  }
+
+  // High cancellation rate = unreliable for events (events can't recover from no-shows)
+  if (vendor.cancellation_rate >= 25) {
+    deal_breakers.push(`High cancellation rate (${vendor.cancellation_rate}%) — event reliability risk`)
+  }
+
   const ratingScore = vendor.average_rating || 3.0
   const ratingWeight = Math.min(vendor.rating_count / 20, 1)
   const reliabilityScore = 5 * (1 - vendor.cancellation_rate / 100)
@@ -596,6 +666,8 @@ export function scoreVendorMatch(
     cuisine_match: cuisine.level,
     capacity_fit,
     runtime_fit,
+    deal_breakers,
+    warnings,
     platform_score: Math.min(platformScore, 5.0),
     tier: vendor.tier,
     experienced: vendor.has_event_experience,
