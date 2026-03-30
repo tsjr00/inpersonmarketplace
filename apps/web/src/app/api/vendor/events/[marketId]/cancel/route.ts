@@ -46,30 +46,26 @@ export async function POST(request: NextRequest, context: RouteContext) {
       )
     }
 
-    // Get vendor profile — find the one invited to THIS market (handles multi-vertical)
-    const { data: vendorProfiles } = await supabase
+    // Get vendor profile
+    const { data: vendorProfile } = await supabase
       .from('vendor_profiles')
       .select('id, profile_data')
       .eq('user_id', user.id)
+      .single()
 
-    if (!vendorProfiles || vendorProfiles.length === 0) {
+    if (!vendorProfile) {
       return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
     }
 
     const serviceClient = createServiceClient()
 
-    // Find which profile is invited to this market
-    const vpIds = vendorProfiles.map(vp => vp.id)
+    // Verify vendor has accepted this event
     const { data: marketVendor } = await serviceClient
       .from('market_vendors')
-      .select('id, response_status, vendor_profile_id')
+      .select('id, response_status')
       .eq('market_id', marketId)
-      .in('vendor_profile_id', vpIds)
+      .eq('vendor_profile_id', vendorProfile.id)
       .single()
-
-    const vendorProfile = marketVendor
-      ? vendorProfiles.find(vp => vp.id === marketVendor.vendor_profile_id) || vendorProfiles[0]
-      : vendorProfiles[0]
 
     if (!marketVendor || marketVendor.response_status !== 'accepted') {
       return NextResponse.json(
