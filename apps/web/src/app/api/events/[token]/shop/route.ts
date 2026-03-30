@@ -156,48 +156,7 @@ export async function GET(
 
     const isFT = event.vertical_id === 'food_trucks'
 
-    // Temporary debug info — remove after confirming fix
-    const _debug = {
-      market_id_used: event.market_id,
-      acceptedVendorIds,
-      profilesFound: Object.keys(vendorProfileMap).length,
-      vendorsBuilt: vendors.length,
-      evlTotal: allEvlRows?.length ?? 0,
-      listingIdsFound: allListingIds.length,
-      listingsLoaded: Object.keys(allListingMap).length,
-      vendorListingsGroups: Object.keys(vendorListingsMap).length,
-      // Test: full pipeline for first vendor
-      evl_test: acceptedVendorIds.length > 0 ? await (async () => {
-        const vid = acceptedVendorIds[0]
-        const vp = vendorProfileMap[vid]
-        const { data: evlData, error: evlErr } = await supabase
-          .from('event_vendor_listings')
-          .select('listing_id')
-          .eq('market_id', event.market_id)
-          .eq('vendor_profile_id', vid)
-        const ids = (evlData || []).map(r => r.listing_id as string)
-        let listingResult = null
-        if (ids.length > 0) {
-          const { data: lr, error: lErr } = await supabase
-            .from('listings')
-            .select('id, title, status, deleted_at')
-            .in('id', ids)
-          listingResult = { count: lr?.length ?? 'null', error: lErr?.message ?? 'none', sample: lr?.[0] ?? null }
-        }
-        return {
-          vendor_id: vid,
-          vp_id: vp?.id ?? 'missing',
-          vp_match: vid === vp?.id,
-          evl_count: evlData?.length ?? 'null',
-          evl_error: evlErr?.message ?? 'none',
-          listing_ids: ids,
-          listing_result: listingResult,
-        }
-      })() : 'no vendors',
-    }
-
     return NextResponse.json({
-      _debug,
       event: {
         company_name: event.company_name,
         event_date: event.event_date,
