@@ -6,7 +6,7 @@ import { LOCALE_COOKIE, isValidLocale } from '@/lib/locale'
 // Top-level routes that are NOT verticals (skip allowlist check for these)
 const NON_VERTICAL_PREFIXES = new Set([
   'api', 'admin', '_next', 'about', 'browse', 'contact', 'dashboard',
-  'login', 'privacy', 'signup', 'support', 'terms', 'vendor-signup', 'test-components',
+  'events', 'login', 'privacy', 'signup', 'support', 'terms', 'vendor-signup', 'test-components',
   'robots.txt', 'sitemap.xml', 'llms.txt',
 ])
 
