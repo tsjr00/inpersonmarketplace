@@ -43,75 +43,103 @@ export default async function EventPage({ params }: EventPageProps) {
   }> = []
 
   if (event.market_id) {
-    // Get accepted vendors
+    // Batch approach: avoids N+1 queries and PostgREST FK ambiguity on market_vendors
+    // (market_vendors has two FKs to vendor_profiles: vendor_profile_id + replaced_vendor_id)
+
+    // 1. Get accepted vendor IDs (simple query, no embed)
     const { data: marketVendors } = await supabase
       .from('market_vendors')
-      .select(`
-        vendor_profile_id,
-        response_status,
-        vendor_profiles:vendor_profile_id (
-          id,
-          profile_data,
-          profile_image_url,
-          description
-        )
-      `)
+      .select('vendor_profile_id')
       .eq('market_id', event.market_id)
       .eq('response_status', 'accepted')
 
-    if (marketVendors) {
-      for (const mv of marketVendors) {
-        const vp = mv.vendor_profiles as unknown as {
-          id: string
-          profile_data: Record<string, unknown>
-          profile_image_url: string | null
-          description: string | null
-        } | null
-        if (!vp) continue
+    const acceptedVendorIds = (marketVendors || []).map(mv => mv.vendor_profile_id as string)
 
-        // Get vendor's event-specific menu (from event_vendor_listings)
-        // Falls back to all catering-eligible listings if no selections exist yet
-        const { data: eventListings } = await supabase
-          .from('event_vendor_listings')
-          .select('listing:listings(id, title, description, price_cents, image_urls, listing_data)')
-          .eq('market_id', event.market_id)
-          .eq('vendor_profile_id', vp.id)
+    if (acceptedVendorIds.length > 0) {
+      // 2. Batch-fetch vendor profiles
+      const { data: profiles } = await supabase
+        .from('vendor_profiles')
+        .select('id, profile_data, profile_image_url, description')
+        .in('id', acceptedVendorIds)
+        .eq('status', 'approved')
+        .is('deleted_at', null)
 
-        let listings: Array<{ id: string; title: string; description: string | null; price_cents: number; image_urls: string[] | null; listing_data: Record<string, unknown> | null }> = []
+      const profileMap = new Map((profiles || []).map(p => [p.id, p]))
 
-        if (eventListings && eventListings.length > 0) {
-          // Use event-specific selections
-          listings = eventListings
-            .map(el => el.listing as unknown as typeof listings[0])
-            .filter(Boolean)
-        } else {
-          // Fallback: show all catering-eligible published listings
-          const { data: allListings } = await supabase
-            .from('listings')
-            .select('id, title, description, price_cents, image_urls, listing_data')
-            .eq('vendor_profile_id', vp.id)
-            .eq('status', 'published')
-            .is('deleted_at', null)
-            .order('created_at', { ascending: false })
+      // 3. Batch-fetch event_vendor_listings for this market
+      const { data: allEvlRows } = await supabase
+        .from('event_vendor_listings')
+        .select('vendor_profile_id, listing_id')
+        .eq('market_id', event.market_id)
+        .in('vendor_profile_id', acceptedVendorIds)
 
-          listings = (allListings || []).filter(l => {
-            const data = l.listing_data as Record<string, unknown> | null
-            return data?.event_menu_item === true
-          }) as typeof listings
+      const allListingIds = [...new Set((allEvlRows || []).map(r => r.listing_id as string))]
+
+      // 4. Batch-fetch all listings in one call
+      type ListingRow = { id: string; title: string; description: string | null; price_cents: number; image_urls: string[] | null; listing_data: Record<string, unknown> | null }
+      const listingMap = new Map<string, ListingRow>()
+
+      if (allListingIds.length > 0) {
+        const { data: listingRows } = await supabase
+          .from('listings')
+          .select('id, title, description, price_cents, image_urls, listing_data')
+          .in('id', allListingIds)
+          .eq('status', 'published')
+          .is('deleted_at', null)
+
+        for (const l of listingRows || []) {
+          listingMap.set(l.id, l as ListingRow)
         }
+      }
 
+      // 5. Group listings by vendor
+      const vendorListingsMap = new Map<string, ListingRow[]>()
+      for (const evl of allEvlRows || []) {
+        const vid = evl.vendor_profile_id as string
+        const lid = evl.listing_id as string
+        const listing = listingMap.get(lid)
+        if (!listing) continue
+        if (!vendorListingsMap.has(vid)) vendorListingsMap.set(vid, [])
+        vendorListingsMap.get(vid)!.push(listing)
+      }
+
+      // 6. For vendors with NO event_vendor_listings, fallback to catering-eligible items
+      const vendorsNeedingFallback = acceptedVendorIds.filter(id => !vendorListingsMap.has(id) && profileMap.has(id))
+      if (vendorsNeedingFallback.length > 0) {
+        const { data: fallbackListings } = await supabase
+          .from('listings')
+          .select('id, title, description, price_cents, image_urls, listing_data, vendor_profile_id')
+          .in('vendor_profile_id', vendorsNeedingFallback)
+          .eq('status', 'published')
+          .is('deleted_at', null)
+
+        for (const l of fallbackListings || []) {
+          const ld = l.listing_data as Record<string, unknown> | null
+          if (ld?.event_menu_item !== true) continue
+          const vid = l.vendor_profile_id as string
+          if (!vendorListingsMap.has(vid)) vendorListingsMap.set(vid, [])
+          vendorListingsMap.get(vid)!.push(l as ListingRow)
+        }
+      }
+
+      // 7. Build vendors array
+      for (const vendorId of acceptedVendorIds) {
+        const vp = profileMap.get(vendorId)
+        if (!vp) continue
+        const pd = vp.profile_data as Record<string, unknown>
+        const vListings = vendorListingsMap.get(vendorId) || []
         vendors.push({
           id: vp.id,
-          business_name: (vp.profile_data?.business_name as string) || (vp.profile_data?.farm_name as string) || 'Vendor',
+          business_name: (pd?.business_name as string) || (pd?.farm_name as string) || 'Vendor',
           description: vp.description,
           profile_image_url: vp.profile_image_url,
-          listings: (listings || []).map(l => ({
+          listings: vListings.map(l => ({
             id: l.id,
             title: l.title,
             description: l.description,
             price_cents: l.price_cents,
-            image_urls: l.image_urls as string[] | null,
-            listing_data: l.listing_data as Record<string, unknown> | null,
+            image_urls: l.image_urls,
+            listing_data: l.listing_data,
           })),
         })
       }

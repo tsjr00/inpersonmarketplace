@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
@@ -20,6 +20,12 @@ export async function GET(
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const { token } = await params
+
+    // Optional auth check — don't block unauthenticated access, but track for price filtering
+    const authClient = await createClient()
+    const { data: { user } } = await authClient.auth.getUser()
+    const isAuthenticated = !!user
+
     const supabase = createServiceClient()
 
     // Fetch event by token
@@ -63,6 +69,8 @@ export async function GET(
         .from('vendor_profiles')
         .select('id, profile_data, profile_image_url, description, pickup_lead_minutes')
         .in('id', acceptedVendorIds)
+        .eq('status', 'approved')
+        .is('deleted_at', null)
 
       for (const vp of profiles || []) {
         vendorProfileMap[vp.id] = {
@@ -119,9 +127,9 @@ export async function GET(
           id: l.id,
           title: l.title,
           description: l.description,
-          price_cents: l.price_cents as number,
+          price_cents: isAuthenticated ? (l.price_cents as number) : 0,
           primary_image_url: (l.image_urls as string[] | null)?.[0] || null,
-          quantity: l.quantity as number | null,
+          quantity: isAuthenticated ? (l.quantity as number | null) : null,
           unit_label: (ld.unit_label as string) || null,
         }
       }
