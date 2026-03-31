@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import { spacing, typography, radius, statusColors, sizing } from '@/lib/design-tokens'
+import { spacing, typography, radius, statusColors } from '@/lib/design-tokens'
 
 /**
  * Self-Service Event — Organizer Truck Selection Page
@@ -60,10 +60,6 @@ export default function EventSelectPage() {
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
 
-  useEffect(() => {
-    fetchData()
-  }, [token])
-
   async function fetchData() {
     try {
       const res = await fetch(`/api/events/${token}/select`)
@@ -81,6 +77,9 @@ export default function EventSelectPage() {
     }
     setLoading(false)
   }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchData() }, [token])
 
   function toggleVendor(vendorId: string) {
     setSelectedIds(prev => {

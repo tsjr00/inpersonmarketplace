@@ -167,9 +167,6 @@ export default function EventShopPage() {
     return items
   }, [vendors, quantities])
 
-  const selectedTotal = useMemo(() => {
-    return selectedItems.reduce((sum, item) => sum + calculateItemDisplayPrice(item.listing.price_cents) * item.qty, 0)
-  }, [selectedItems])
 
   function updateQty(listingId: string, delta: number, max: number | null) {
     setQuantities(prev => {
