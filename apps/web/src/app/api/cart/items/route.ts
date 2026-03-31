@@ -167,12 +167,16 @@ async function handleListingAdd(
     })
   }
 
-  // Validate preferred_pickup_time for food trucks
+  // Validate preferred_pickup_time for food trucks + event markets (both verticals)
+  // FT always requires a time slot. FM requires it only at events (day-of pickup window).
+  // FM events send preferredPickupTime from the shop page; regular FM orders don't.
   if (vertical === 'food_trucks') {
     if (!preferredPickupTime) {
       throw traced.validation('ERR_CART_009', 'Please select a pickup time slot')
     }
-    // Validate format: "HH:MM" and on 15-min boundary (vendors choose 15 or 30 min slots)
+  }
+  if (preferredPickupTime) {
+    // Validate format: "HH:MM" and on 15-min boundary (30-min slots land on :00/:30)
     const timeParts = (preferredPickupTime as string).split(':').map(Number)
     if (timeParts.length < 2 || isNaN(timeParts[0]) || isNaN(timeParts[1]) || (timeParts[1] % 15 !== 0)) {
       throw traced.validation('ERR_CART_009', 'Invalid pickup time slot')
