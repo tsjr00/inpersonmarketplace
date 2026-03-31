@@ -249,6 +249,8 @@ export async function POST(request: NextRequest) {
         cuisine_preferences: cuisine_preferences ? String(cuisine_preferences) : null,
         event_type: event_type || null,
         payment_model: payment_model || null,
+        children_present: !!children_present,
+        contact_email: String(contact_email).toLowerCase().trim(),
       }
 
       // Step 1: Auto-approve (create market + token + schedule)

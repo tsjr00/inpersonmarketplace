@@ -7,7 +7,7 @@ import {
   rateLimits,
 } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
-import { sendNotification } from '@/lib/notifications'
+import { sendNotification } from '@/lib/notifications/service'
 
 interface RouteContext {
   params: Promise<{ marketId: string }>
@@ -296,7 +296,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       // Get market + catering request for admin notification
       const { data: market } = await serviceClient
         .from('markets')
-        .select('name, catering_request_id, vertical_id')
+        .select('name, catering_request_id, vertical_id, event_start_date')
         .eq('id', marketId)
         .single()
 
@@ -327,7 +327,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
               {
                 companyName: vendorName,
                 responseAction: response_status,
-                eventDate: market.name,
+                eventDate: market.event_start_date || market.name,
               },
               { vertical: market.vertical_id }
             )
@@ -360,54 +360,59 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
               const allResponded = pendingCount === 0 && acceptedCount > 0
 
               if (thresholdMet || allResponded) {
-                // Build results email + send immediately (same logic as cron Phase 12)
-                const { getAppUrl } = await import('@/lib/environment')
-                const selectUrl = cReq.event_token
-                  ? `${getAppUrl(cReq.vertical_id)}/${cReq.vertical_id}/events/${cReq.event_token}/select`
-                  : null
-
-                const isFM = cReq.vertical_id === 'farmers_market'
-                const senderName = isFM ? 'Farmers Marketing' : "Food Truck'n"
-                const senderDomain = isFM ? 'mail.farmersmarketing.app' : 'mail.foodtruckn.app'
-                const accentColor = isFM ? '#2d5016' : '#ff5757'
-
-                const { Resend } = await import('resend')
-                const resend = new Resend(process.env.RESEND_API_KEY)
-
-                await resend.emails.send({
-                  from: `${senderName} <updates@${senderDomain}>`,
-                  to: cReq.contact_email,
-                  subject: `${acceptedCount} food truck${acceptedCount > 1 ? 's are' : ' is'} interested in your event!`,
-                  html: `
-                    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto">
-                      <h2 style="color:${accentColor};margin:0 0 8px">Your Event Results</h2>
-                      <p style="color:#374151;margin:0 0 16px">Hi ${cReq.contact_name || 'there'},</p>
-                      <p style="color:#4b5563;line-height:1.6;margin:0 0 20px">
-                        Great news! <strong>${acceptedCount}</strong> food truck${acceptedCount > 1 ? 's have' : ' has'} expressed interest in your event on <strong>${cReq.event_date}</strong> in ${cReq.city}, ${cReq.state}.
-                      </p>
-                      ${selectUrl ? `
-                      <div style="text-align:center;margin:0 0 24px">
-                        <a href="${selectUrl}" style="display:inline-block;padding:14px 28px;background:${accentColor};color:white;text-decoration:none;border-radius:8px;font-weight:600;font-size:16px">
-                          Select Your Trucks
-                        </a>
-                      </div>
-                      <p style="color:#6b7280;font-size:13px;margin:0 0 16px">
-                        Click above to review truck details, menus, and make your final selections.
-                      </p>
-                      ` : ''}
-                      <p style="color:#6b7280;font-size:13px;margin:0;border-top:1px solid #e5e7eb;padding-top:16px">
-                        Questions? Reply to this email.
-                      </p>
-                    </div>
-                  `,
-                })
-
-                // Update status to 'ready' so organizer can select
-                await serviceClient
+                // Atomic gate: only the first concurrent request to update status sends the email
+                const { data: statusUpdated } = await serviceClient
                   .from('catering_requests')
                   .update({ status: 'ready' })
                   .eq('id', cReq.id)
-                  .eq('status', 'approved') // Only if still approved (prevent double-send)
+                  .eq('status', 'approved') // Only succeeds once — prevents duplicate emails
+                  .select('id')
+
+                // Only send email if THIS request was the one that changed the status
+                if (statusUpdated && statusUpdated.length > 0) {
+                  const { getAppUrl } = await import('@/lib/environment')
+                  const selectUrl = cReq.event_token
+                    ? `${getAppUrl(cReq.vertical_id)}/${cReq.vertical_id}/events/${cReq.event_token}/select`
+                    : null
+
+                  const isFM = cReq.vertical_id === 'farmers_market'
+                  const senderName = isFM ? 'Farmers Marketing' : "Food Truck'n"
+                  const senderDomain = isFM ? 'mail.farmersmarketing.app' : 'mail.foodtruckn.app'
+                  const accentColor = isFM ? '#2d5016' : '#ff5757'
+                  const vendorNoun = isFM ? 'vendor' : 'food truck'
+                  const vendorNounPlural = isFM ? 'vendors' : 'food trucks'
+
+                  const { Resend } = await import('resend')
+                  const resend = new Resend(process.env.RESEND_API_KEY)
+
+                  await resend.emails.send({
+                    from: `${senderName} <updates@${senderDomain}>`,
+                    to: cReq.contact_email,
+                    subject: `${acceptedCount} ${acceptedCount > 1 ? vendorNounPlural + ' are' : vendorNoun + ' is'} interested in your event!`,
+                    html: `
+                      <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto">
+                        <h2 style="color:${accentColor};margin:0 0 8px">Your Event Results</h2>
+                        <p style="color:#374151;margin:0 0 16px">Hi ${cReq.contact_name || 'there'},</p>
+                        <p style="color:#4b5563;line-height:1.6;margin:0 0 20px">
+                          Great news! <strong>${acceptedCount}</strong> ${acceptedCount > 1 ? vendorNounPlural + ' have' : vendorNoun + ' has'} expressed interest in your event on <strong>${cReq.event_date}</strong> in ${cReq.city}, ${cReq.state}.
+                        </p>
+                        ${selectUrl ? `
+                        <div style="text-align:center;margin:0 0 24px">
+                          <a href="${selectUrl}" style="display:inline-block;padding:14px 28px;background:${accentColor};color:white;text-decoration:none;border-radius:8px;font-weight:600;font-size:16px">
+                            Select Your ${isFM ? 'Vendors' : 'Trucks'}
+                          </a>
+                        </div>
+                        <p style="color:#6b7280;font-size:13px;margin:0 0 16px">
+                          Click above to review ${vendorNoun} details, menus, and make your final selections.
+                        </p>
+                        ` : ''}
+                        <p style="color:#6b7280;font-size:13px;margin:0;border-top:1px solid #e5e7eb;padding-top:16px">
+                          Questions? Reply to this email.
+                        </p>
+                      </div>
+                    `,
+                  })
+                }
               }
             }
           }

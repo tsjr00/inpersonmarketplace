@@ -1952,7 +1952,7 @@ export async function GET(request: NextRequest) {
       // Find events happening tomorrow that are in ready/active status
       const { data: upcomingEvents } = await supabase
         .from('catering_requests')
-        .select('id, market_id, event_date, company_name, event_start_time, headcount')
+        .select('id, market_id, event_date, company_name, event_start_time, headcount, vertical_id')
         .in('status', ['ready', 'active'])
         .eq('event_date', tomorrowStr)
 
@@ -1990,7 +1990,7 @@ export async function GET(request: NextRequest) {
               headcount: event.headcount,
               headcountPerVendor,
               setupTime: event.event_start_time?.slice(0, 5) || undefined,
-            }, { vertical: 'food_trucks' })
+            }, { vertical: event.vertical_id || 'food_trucks' })
 
             eventReminders++
           }
@@ -2175,12 +2175,12 @@ export async function GET(request: NextRequest) {
           // Only alert if there's a gap
           if (accepted >= requested) continue
 
-          // Dedup: check if we already sent this alert for this event
+          // Dedup: check if we already sent this alert for THIS SPECIFIC event
           const { count: alreadySent } = await supabase
             .from('notifications')
             .select('id', { count: 'exact', head: true })
             .eq('type', 'event_vendor_gap_alert')
-            .like('action_url', `%/admin/events%`)
+            .like('action_url', `%/admin/events?id=${event.id}%`)
             .gte('created_at', new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString())
 
           if (alreadySent && alreadySent > 0) continue
@@ -2199,6 +2199,7 @@ export async function GET(request: NextRequest) {
                 pickupDate: eventDateFmt,
                 quantity: accepted,
                 pendingOrderCount: requested,
+                eventId: event.id,
               }, { vertical: event.vertical_id })
             }
             eventGapAlerts++

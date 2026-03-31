@@ -98,8 +98,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Check if cancellation is within 72hr penalty window
-    const eventDate = new Date(market.event_start_date + 'T00:00:00')
-    const hoursUntilEvent = (eventDate.getTime() - Date.now()) / (1000 * 60 * 60)
+    const eventDate = market.event_start_date
+      ? new Date(market.event_start_date + 'T00:00:00')
+      : null
+    const hoursUntilEvent = eventDate
+      ? (eventDate.getTime() - Date.now()) / (1000 * 60 * 60)
+      : Infinity
     const isLateCancellation = hoursUntilEvent < 72 && hoursUntilEvent > 0
 
     // 1. Update vendor status to cancelled
@@ -151,8 +155,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         await sendNotification(admin.user_id, 'catering_vendor_responded', {
           companyName: vendorName,
           responseAction: `cancelled${isLateCancellation ? ' (LATE)' : ''}`,
-          eventDate: market.name,
-          vertical: market.vertical_id,
+          eventDate: market.event_start_date || market.name,
         }, { vertical: market.vertical_id })
       }
     }
@@ -252,10 +255,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }
     }
 
-    // 6. Late cancellation tracking (for future vendor score impact)
+    // 6. Late cancellation tracking — persist to vendor_quality_findings
     if (isLateCancellation) {
       console.warn(`[LATE_CANCEL] Vendor ${vendorProfile.id} (${vendorName}) cancelled event ${marketId} within 72hr window. Hours until event: ${Math.round(hoursUntilEvent)}`)
-      // Future: decrement vendor reliability score, track in vendor_quality_findings
+      const { error: findingErr } = await serviceClient.from('vendor_quality_findings').insert({
+        vendor_profile_id: vendorProfile.id,
+        finding_type: 'late_event_cancellation',
+        severity: 'high',
+        description: `Cancelled event within 72hr window. Hours until event: ${Math.round(hoursUntilEvent)}. Reason: ${reason.trim().slice(0, 200)}`,
+        market_id: marketId,
+      })
+      if (findingErr) console.error('[late-cancel] Failed to persist finding:', findingErr)
     }
 
     return NextResponse.json({
