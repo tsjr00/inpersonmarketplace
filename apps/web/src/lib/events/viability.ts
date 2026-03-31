@@ -70,6 +70,8 @@ export interface VendorMatchInput {
   strong_odors?: boolean
   food_perishability?: string        // FT: immediate/within_15_min/can_sit_30_plus, FM: refrigerated/shade_required/shelf_stable
   seating_recommended?: boolean      // FT: needs seating, FM: weather-sensitive (needs indoor)
+  allergen_listing_count?: number    // Count of vendor's listings with contains_allergens flag
+  education_focused?: boolean        // Vendor focuses on education/learning (positive for children's events)
 }
 
 export interface VendorMatchResult {
@@ -614,12 +616,18 @@ export function scoreVendorMatch(
   // --- Deal-breaker checks (data-driven, based on captured fields) ---
   const deal_breakers: string[] = []
 
-  // Strong odors at children's events — cooking smells can be overwhelming for kids
-  if (vendor.strong_odors && event.children_present) {
-    deal_breakers.push('Strong cooking odors at event with children present')
+  // Alcohol vendor at children's event — exclusion
+  // FT: "Beverages" category as proxy (imperfect — not all beverage vendors serve alcohol)
+  // Future: add explicit serves_alcohol field to event readiness
+  if (event.children_present) {
+    const alcoholCategories = ['beverages']
+    const hasAlcoholCategory = vendor.listing_categories.some(c => alcoholCategories.includes(c.toLowerCase()))
+    if (hasAlcoholCategory) {
+      deal_breakers.push('Beverage vendor at event with children present — alcohol risk')
+    }
   }
 
-  // Standard (loud) generator at corporate/indoor-likely events
+  // Standard (loud) generator at corporate/indoor-likely events OR children's events
   if (vendor.requires_generator && vendor.generator_type === 'standard') {
     const quietRequired = ['corporate_lunch', 'team_building', 'private_party']
     if (event.event_type && quietRequired.includes(event.event_type)) {
@@ -633,8 +641,33 @@ export function scoreVendorMatch(
     deal_breakers.push('Immediate-perishability food at 4+ hour event — food safety risk')
   }
 
+  // High cancellation rate = unreliable for events (events can't recover from no-shows)
+  if (vendor.cancellation_rate >= 25) {
+    deal_breakers.push(`High cancellation rate (${vendor.cancellation_rate}%) — event reliability risk`)
+  }
+
   // Warnings (tracked but not deal-breakers)
   const warnings: string[] = []
+
+  // Children-present warnings (flags, not exclusions)
+  if (event.children_present) {
+    if (vendor.strong_odors) {
+      warnings.push('Strong cooking odors at event with children present')
+    }
+    if (vendor.requires_generator && vendor.generator_type === 'standard') {
+      warnings.push('Loud generator at event with children present')
+    }
+    // Sharp/fragile items — FM categories that may contain breakable or sharp products
+    const fragileCategories = ['art & decor', 'home & functional']
+    const hasFragileCategory = vendor.listing_categories.some(c => fragileCategories.includes(c.toLowerCase()))
+    if (hasFragileCategory) {
+      warnings.push('Art/decor/home products at event with children — verify display is child-safe')
+    }
+    // Allergen-heavy menu — vendor has multiple listings flagged as containing allergens
+    if (vendor.allergen_listing_count && vendor.allergen_listing_count >= 3) {
+      warnings.push('Multiple items with allergens — consider labeling for parents at children\'s event')
+    }
+  }
 
   if (isLongEvent && vendor.food_perishability === 'refrigerated') {
     warnings.push('Refrigerated products at 4+ hour event — verify vendor has power/cooling plan')
@@ -644,11 +677,6 @@ export function scoreVendorMatch(
   const outdoorTypes = ['festival', 'grand_opening']
   if (vendor.seating_recommended && event.event_type && outdoorTypes.includes(event.event_type)) {
     warnings.push('Weather-sensitive setup at likely outdoor event — confirm covered space available')
-  }
-
-  // High cancellation rate = unreliable for events (events can't recover from no-shows)
-  if (vendor.cancellation_rate >= 25) {
-    deal_breakers.push(`High cancellation rate (${vendor.cancellation_rate}%) — event reliability risk`)
   }
 
   const ratingScore = vendor.average_rating || 3.0
@@ -661,8 +689,16 @@ export function scoreVendorMatch(
   const matchAdj = levelPenalty(cuisine.level) + levelPenalty(capacity_fit) + levelPenalty(runtime_fit)
   // Experience bonus: +0.2 for vendors with event experience
   const expBonus = vendor.has_event_experience ? 0.2 : 0
+  // Children's event bonus: kid-friendly categories and education focus
+  let childBonus = 0
+  if (event.children_present) {
+    const kidFriendlyCategories = ['desserts & sweets', 'baked goods', 'plants & flowers']
+    const hasKidFriendly = vendor.listing_categories.some(c => kidFriendlyCategories.includes(c.toLowerCase()))
+    if (hasKidFriendly) childBonus += 0.2
+    if (vendor.education_focused) childBonus += 0.3
+  }
   const platformScore = Math.round(
-    (((ratingScore * ratingWeight + 3.0 * (1 - ratingWeight)) * 0.6 + reliabilityScore * 0.4) + leadBonus + matchAdj + expBonus) * 10
+    (((ratingScore * ratingWeight + 3.0 * (1 - ratingWeight)) * 0.6 + reliabilityScore * 0.4) + leadBonus + matchAdj + expBonus + childBonus) * 10
   ) / 10
 
   return {

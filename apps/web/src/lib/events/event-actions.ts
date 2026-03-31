@@ -154,6 +154,11 @@ export async function autoMatchAndInvite(
   request: CateringRequest,
   marketId: string
 ): Promise<AutoInviteResult> {
+  // Guard against invalid vendor_count (prevents Infinity in headcount calculations)
+  if (!request.vendor_count || request.vendor_count < 1) {
+    return { success: false, invited: 0, matched: 0, error: 'vendor_count must be at least 1' }
+  }
+
   // 1. Get all event-approved vendors for this vertical
   const { data: vendors } = await serviceClient
     .from('vendor_profiles')
@@ -175,20 +180,23 @@ export async function autoMatchAndInvite(
     .eq('status', 'published')
     .is('deleted_at', null)
 
-  // Build per-vendor category lists and catering item counts
+  // Build per-vendor category lists, catering item counts, and allergen counts
   const vendorCategories: Record<string, string[]> = {}
   const vendorCateringCount: Record<string, number> = {}
+  const vendorAllergenCount: Record<string, number> = {}
   if (listings) {
     for (const l of listings) {
       const vid = l.vendor_profile_id as string
       if (!vendorCategories[vid]) vendorCategories[vid] = []
       if (!vendorCateringCount[vid]) vendorCateringCount[vid] = 0
+      if (!vendorAllergenCount[vid]) vendorAllergenCount[vid] = 0
       if (l.category) {
         const cats = vendorCategories[vid]
         if (!cats.includes(l.category as string)) cats.push(l.category as string)
       }
       const ld = l.listing_data as Record<string, unknown> | null
       if (ld?.event_menu_item) vendorCateringCount[vid]++
+      if (ld?.contains_allergens) vendorAllergenCount[vid]++
     }
   }
 
@@ -246,6 +254,8 @@ export async function autoMatchAndInvite(
       strong_odors: !!(eventReadiness?.strong_odors),
       food_perishability: (eventReadiness?.food_perishability as string) || undefined,
       seating_recommended: !!(eventReadiness?.seating_recommended),
+      allergen_listing_count: vendorAllergenCount[v.id] || 0,
+      education_focused: !!(eventReadiness?.education_focused),
     }
 
     const score = scoreVendorMatch(matchInput, eventData)

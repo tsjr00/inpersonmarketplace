@@ -146,6 +146,7 @@ export interface NotificationTemplateData {
   eventToken?: string
   eventPageUrl?: string
   vendorCount?: number
+  eventId?: string
   // Order confirmation email enrichment
   brandName?: string
   marketAddress?: string
@@ -765,7 +766,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     audience: 'admin',
     title: () => 'Event Needs More Vendors',
     message: (d) => `Event "${d.vendorName || 'Unknown'}" on ${d.pickupDate || '?'} — ${d.quantity || 0} of ${d.pendingOrderCount || '?'} requested vendors accepted after 24 hours. Consider manual outreach or inviting additional vendors.`,
-    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/admin/events`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/admin/events?id=${d.eventId || ''}`,
   },
 
   listing_suspended: {
