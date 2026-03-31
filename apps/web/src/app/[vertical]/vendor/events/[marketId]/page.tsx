@@ -35,6 +35,9 @@ interface EventDetails {
   is_themed: boolean
   theme_description: string | null
   has_competing_vendors: boolean
+  event_max_orders_total: number | null
+  event_max_orders_per_wave: number | null
+  profile_max_headcount_per_wave: number | null
 }
 
 const verticalAccent: Record<string, string> = {
@@ -73,6 +76,11 @@ export default function VendorCateringDetailPage() {
   const [cateringListings, setCateringListings] = useState<Array<{ id: string; title: string; price_cents: number }>>([])
   const [selectedListingIds, setSelectedListingIds] = useState<Set<string>>(new Set())
   const [loadingListings, setLoadingListings] = useState(false)
+
+  // Event capacity state
+  const [maxOrdersTotal, setMaxOrdersTotal] = useState<number | ''>('')
+  const [maxOrdersPerWave, setMaxOrdersPerWave] = useState<number | ''>('')
+  const [useProfileWaveCapacity, setUseProfileWaveCapacity] = useState(true)
 
   // Contact organizer state
   const [showMessageForm, setShowMessageForm] = useState(false)
@@ -164,6 +172,15 @@ export default function VendorCateringDetailPage() {
       setActionMessage('Error: Please select at least one item')
       return
     }
+    if (!maxOrdersTotal || maxOrdersTotal < 1) {
+      setActionMessage('Error: Please enter your maximum order capacity for this event')
+      return
+    }
+    const isFT = vertical === 'food_trucks'
+    if (isFT && (!maxOrdersPerWave || maxOrdersPerWave < 1)) {
+      setActionMessage('Error: Please confirm your per-wave customer capacity')
+      return
+    }
     setResponding(true)
     setActionMessage(null)
     try {
@@ -174,6 +191,8 @@ export default function VendorCateringDetailPage() {
           response_status: 'accepted',
           response_notes: responseNotes.trim() || null,
           listing_ids: Array.from(selectedListingIds),
+          event_max_orders_total: maxOrdersTotal,
+          event_max_orders_per_wave: isFT ? maxOrdersPerWave : undefined,
         }),
       })
       if (res.ok) {
@@ -684,15 +703,172 @@ export default function VendorCateringDetailPage() {
               <p style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, margin: `0 0 ${spacing.sm}` }}>
                 {selectedListingIds.size} selected{vertical === 'food_trucks' ? ' (4-7 required)' : ''}
               </p>
+
+              {/* Event Capacity Section */}
+              <div style={{
+                padding: spacing.sm,
+                backgroundColor: '#eff6ff',
+                border: '1px solid #93c5fd',
+                borderRadius: radius.md,
+                marginBottom: spacing.sm,
+              }}>
+                <h4 style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: '#1e40af', margin: `0 0 ${spacing['2xs']}` }}>
+                  Your Event Capacity
+                </h4>
+                <p style={{ fontSize: typography.sizes.xs, color: '#3b82f6', margin: `0 0 ${spacing.xs}`, lineHeight: 1.5 }}>
+                  {vertical === 'food_trucks'
+                    ? 'Set the maximum number of customers you can serve at this event. Once your capacity is reached, your items will stop accepting pre-orders. This protects you from being overwhelmed on event day.'
+                    : 'Set the maximum number of orders you can prepare for this event. Once your capacity is reached, your items will stop accepting pre-orders. This ensures every order gets fulfilled.'
+                  }
+                </p>
+
+                {vertical === 'food_trucks' ? (
+                  <>
+                    {/* FT: Wave-aware capacity */}
+                    {(() => {
+                      const startTime = details.event_start_time
+                      const endTime = details.event_end_time
+                      let waveCount = 4 // default
+                      if (startTime && endTime) {
+                        const [sH, sM] = startTime.split(':').map(Number)
+                        const [eH, eM] = endTime.split(':').map(Number)
+                        const durationMin = (eH * 60 + eM) - (sH * 60 + sM)
+                        waveCount = durationMin > 0 ? Math.ceil(durationMin / 30) : 4
+                      }
+                      const profilePerWave = details.profile_max_headcount_per_wave
+
+                      if (!profilePerWave) {
+                        return (
+                          <div style={{ padding: spacing.xs, backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: radius.sm }}>
+                            <p style={{ fontSize: typography.sizes.sm, color: '#dc2626', margin: 0, lineHeight: 1.5 }}>
+                              Your profile is missing capacity data. Please update your event readiness questionnaire before accepting this event.
+                            </p>
+                            <Link
+                              href={`/${vertical}/vendor/dashboard`}
+                              style={{ display: 'inline-block', marginTop: spacing.xs, fontSize: typography.sizes.sm, color: accent, fontWeight: typography.weights.semibold }}
+                            >
+                              Go to Dashboard →
+                            </Link>
+                          </div>
+                        )
+                      }
+
+                      const calculatedTotal = (maxOrdersPerWave || profilePerWave) * waveCount
+
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+                          <p style={{ fontSize: typography.sizes.xs, color: '#374151', margin: 0, lineHeight: 1.5 }}>
+                            This event has <strong>{waveCount} waves</strong> (30-minute service windows).
+                            Each wave is a time slot that customers select when ordering.
+                            When a wave fills up, that time slot closes but others stay open.
+                          </p>
+                          <div>
+                            <label style={{ display: 'block', fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: '#374151', marginBottom: 4 }}>
+                              Customers you can serve per wave (30-min window)
+                            </label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: typography.sizes.xs, color: '#374151', cursor: 'pointer' }}>
+                                <input
+                                  type="radio"
+                                  checked={useProfileWaveCapacity}
+                                  onChange={() => { setUseProfileWaveCapacity(true); setMaxOrdersPerWave(profilePerWave) }}
+                                />
+                                Use my profile default ({profilePerWave})
+                              </label>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: typography.sizes.xs, color: '#374151', cursor: 'pointer' }}>
+                                <input
+                                  type="radio"
+                                  checked={!useProfileWaveCapacity}
+                                  onChange={() => setUseProfileWaveCapacity(false)}
+                                />
+                                Custom for this event:
+                              </label>
+                              {!useProfileWaveCapacity && (
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={500}
+                                  value={maxOrdersPerWave}
+                                  onChange={(e) => {
+                                    const v = parseInt(e.target.value) || ''
+                                    setMaxOrdersPerWave(v as number)
+                                    if (typeof v === 'number') setMaxOrdersTotal(v * waveCount)
+                                  }}
+                                  style={{
+                                    width: 70,
+                                    padding: '4px 8px',
+                                    border: `1px solid ${statusColors.neutral300}`,
+                                    borderRadius: radius.sm,
+                                    fontSize: typography.sizes.sm,
+                                  }}
+                                />
+                              )}
+                            </div>
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: '#374151', marginBottom: 4 }}>
+                              Total event capacity ({waveCount} waves &times; {maxOrdersPerWave || profilePerWave} per wave = {calculatedTotal})
+                            </label>
+                            <input
+                              type="number"
+                              min={1}
+                              max={5000}
+                              value={maxOrdersTotal === '' ? calculatedTotal : maxOrdersTotal}
+                              onChange={(e) => setMaxOrdersTotal(parseInt(e.target.value) || '')}
+                              onFocus={() => { if (maxOrdersTotal === '') setMaxOrdersTotal(calculatedTotal) }}
+                              style={{
+                                width: 100,
+                                padding: '6px 8px',
+                                border: `1px solid ${statusColors.neutral300}`,
+                                borderRadius: radius.sm,
+                                fontSize: typography.sizes.sm,
+                              }}
+                            />
+                            <p style={{ fontSize: 11, color: '#6b7280', margin: '4px 0 0', lineHeight: 1.4 }}>
+                              You can lower this if needed. Once this total is reached across all time slots, your items are removed from the event page.
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    })()}
+                  </>
+                ) : (
+                  /* FM: Simple total */
+                  <div>
+                    <label style={{ display: 'block', fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: '#374151', marginBottom: 4 }}>
+                      Maximum orders you can fulfill for this event *
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={5000}
+                      placeholder="e.g. 50"
+                      value={maxOrdersTotal}
+                      onChange={(e) => setMaxOrdersTotal(parseInt(e.target.value) || '')}
+                      style={{
+                        width: 120,
+                        padding: '6px 8px',
+                        border: `1px solid ${statusColors.neutral300}`,
+                        borderRadius: radius.sm,
+                        fontSize: typography.sizes.sm,
+                      }}
+                    />
+                    <p style={{ fontSize: 11, color: '#6b7280', margin: '4px 0 0', lineHeight: 1.4 }}>
+                      This is the total number of orders you can prepare and bring. Once reached, your items stop accepting pre-orders. Be realistic — every order you accept is a commitment to a customer.
+                    </p>
+                  </div>
+                )}
+              </div>
+
               <div style={{ display: 'flex', gap: spacing.sm }}>
                 <button
                   onClick={handleConfirmAccept}
-                  disabled={responding || selectedListingIds.size === 0}
+                  disabled={responding || selectedListingIds.size === 0 || (vertical === 'food_trucks' && !details.profile_max_headcount_per_wave)}
                   style={{
                     flex: 1,
                     ...sizing.cta,
                     fontWeight: typography.weights.semibold,
-                    backgroundColor: responding || selectedListingIds.size === 0 ? '#ccc' : statusColors.success,
+                    backgroundColor: responding || selectedListingIds.size === 0 || (vertical === 'food_trucks' && !details.profile_max_headcount_per_wave) ? '#ccc' : statusColors.success,
                     color: 'white',
                     border: 'none',
                     cursor: responding || selectedListingIds.size === 0 ? 'not-allowed' : 'pointer',

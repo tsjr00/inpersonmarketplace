@@ -2,6 +2,21 @@
 
 Last updated: 2026-03-20 (end of Session 62)
 
+## Priority 0.5 — Event System (from Session 66)
+
+### Event Capacity Safety
+- [ ] **Event order volume alert for unlimited-inventory vendors** — When a vendor with `quantity = NULL` listings accumulates event orders exceeding their stated `max_headcount_per_wave × wave_count`, send a proactive notification warning them. The data is in `event_readiness` JSONB on vendor_profiles. Without this, a vendor could get 200 pre-orders with no system-level cap. Regular markets are less risky (daily cadence + vendor can refuse in real-time), but events batch all orders before event day.
+
+### Schema Snapshot Refresh
+- [ ] **`market_vendors` table stale in SCHEMA_SNAPSHOT.md** — Shows 8 columns, actual table has 15+ (missing response_status, invited_at, is_backup, backup_priority, replaced_vendor_id, event_max_orders_total, event_max_orders_per_wave, etc.). Run REFRESH_SCHEMA.sql and rebuild structured tables.
+
+### Event System Cleanup (non-blocking, from code review)
+- [ ] **Admin PATCH duplicates approval logic** — `admin/events/[id]/route.ts` lines 112-173 duplicates `approveEventRequest()` from event-actions.ts. Should call the shared function instead.
+- [ ] **Phase 11 cron hardcodes vertical** — Line 1993 sends `vertical: 'food_trucks'` for all event prep reminders. Should use event's actual vertical_id.
+- [ ] **Phase 12 cron email uses FT language for FM** — Results email says "food trucks" regardless of vertical.
+- [ ] **Public event page footer hardcodes "Food Truck'n"** — `events/[token]/page.tsx` line 316. Should be vertical-aware.
+- [ ] **Public event page N+1 vendor queries** — Shop page already fixed with batch queries; event info page still loops per vendor.
+
 ## Priority 0 — Next Session
 
 ### Stripe Tax Implementation (BLOCKED — needs user action first)

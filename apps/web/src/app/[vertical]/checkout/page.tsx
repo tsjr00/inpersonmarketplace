@@ -241,6 +241,13 @@ export default function CheckoutPage() {
         return
       }
 
+      // Skip cross-sell for event orders — event listings are curated per-event
+      const hasEventItems = checkoutItems.some(item => item.market_type === 'event')
+      if (hasEventItems) {
+        setSuggestedProducts([])
+        return
+      }
+
       // Get unique vendor IDs and market IDs from cart
       const vendorIds = [...new Set(checkoutItems.map(item => item.vendor_profile_id).filter(Boolean))]
       const excludeIds = checkoutItems.map(item => item.listingId)

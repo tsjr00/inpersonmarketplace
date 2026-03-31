@@ -131,7 +131,7 @@
 
 | Migration File | Target Environments | Priority | Notes |
 |----------------|---------------------|----------|-------|
-| (None currently pending) | - | - | All migrations applied to all 3 envs as of 2026-02-20 |
+| (None currently pending) | - | - | All migrations applied to all 3 envs as of 2026-03-30 |
 
 ---
 

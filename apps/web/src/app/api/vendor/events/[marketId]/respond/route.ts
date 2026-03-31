@@ -40,10 +40,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
       const { marketId } = await context.params
       const body = await request.json()
-      const { response_status, listing_ids } = body as {
+      const { response_status, listing_ids, event_max_orders_total, event_max_orders_per_wave } = body as {
         response_status: string
         response_notes?: string
         listing_ids?: string[]
+        event_max_orders_total?: number
+        event_max_orders_per_wave?: number
       }
       let response_notes = (body as { response_notes?: string }).response_notes
 
@@ -103,6 +105,37 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
             { error: 'Maximum 7 menu items per event' },
             { status: 400 }
           )
+        }
+      }
+
+      // Event capacity cap — required on acceptance
+      if (response_status === 'accepted') {
+        if (!event_max_orders_total || typeof event_max_orders_total !== 'number' || event_max_orders_total < 1) {
+          return NextResponse.json(
+            { error: 'Please enter your maximum order capacity for this event' },
+            { status: 400 }
+          )
+        }
+        if (event_max_orders_total > 5000) {
+          return NextResponse.json(
+            { error: 'Maximum order capacity cannot exceed 5000' },
+            { status: 400 }
+          )
+        }
+        const isFT = vendorProfile.vertical_id === 'food_trucks'
+        if (isFT) {
+          if (!event_max_orders_per_wave || typeof event_max_orders_per_wave !== 'number' || event_max_orders_per_wave < 1) {
+            return NextResponse.json(
+              { error: 'Please confirm your per-wave customer capacity for this event' },
+              { status: 400 }
+            )
+          }
+          if (event_max_orders_per_wave > 500) {
+            return NextResponse.json(
+              { error: 'Per-wave capacity cannot exceed 500' },
+              { status: 400 }
+            )
+          }
         }
       }
 
@@ -183,15 +216,23 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         }
       }
 
-      // Update response
+      // Update response (include capacity caps for event acceptance)
+      const updateData: Record<string, unknown> = {
+        response_status,
+        response_notes: response_notes
+          ? String(response_notes).slice(0, 500)
+          : null,
+      }
+      if (response_status === 'accepted' && event_max_orders_total) {
+        updateData.event_max_orders_total = event_max_orders_total
+        if (event_max_orders_per_wave) {
+          updateData.event_max_orders_per_wave = event_max_orders_per_wave
+        }
+      }
+
       const { error: updateError } = await serviceClient
         .from('market_vendors')
-        .update({
-          response_status,
-          response_notes: response_notes
-            ? String(response_notes).slice(0, 500)
-            : null,
-        })
+        .update(updateData)
         .eq('id', marketVendor.id)
 
       if (updateError) {
