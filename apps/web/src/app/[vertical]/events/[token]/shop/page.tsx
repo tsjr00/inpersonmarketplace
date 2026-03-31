@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
-import { spacing, typography, radius, statusColors, sizing } from '@/lib/design-tokens'
+import { useCart } from '@/lib/hooks/useCart'
+import { spacing, typography, radius, statusColors } from '@/lib/design-tokens'
 import { calculateItemDisplayPrice, formatPrice } from '@/lib/pricing'
 
 // ── Types ──
@@ -81,8 +81,9 @@ function formatTime(t: string) {
 // ── Component ──
 export default function EventShopPage() {
   const params = useParams()
-  const router = useRouter()
+  const vertical = params.vertical as string
   const token = params.token as string
+  const { addToCart, itemCount, summary, items: cartItems } = useCart()
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -96,20 +97,24 @@ export default function EventShopPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [checkingAuth, setCheckingAuth] = useState(true)
 
-  // Cart state: { [listingId]: quantity }
+  // Per-listing quantity selection (before adding to cart)
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [pickupTime, setPickupTime] = useState<string>('')
   const [addingToCart, setAddingToCart] = useState<string | null>(null) // vendor id being added
   const [cartMessage, setCartMessage] = useState<string | null>(null)
-  const [vendorsAdded, setVendorsAdded] = useState<Set<string>>(new Set()) // vendors successfully added to cart
 
   // Check auth
   useEffect(() => {
-    const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setIsLoggedIn(!!user)
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/auth/me')
+        setIsLoggedIn(res.ok)
+      } catch {
+        setIsLoggedIn(false)
+      }
       setCheckingAuth(false)
-    })
+    }
+    checkAuth()
   }, [])
 
   // Fetch event data
@@ -137,25 +142,21 @@ export default function EventShopPage() {
     fetchData()
   }, [token])
 
-  // Compute time slots for FT (based on longest lead time among vendors with selected items)
+  // Compute time slots for FT
   const timeSlots = useMemo(() => {
     if (!isFT || !schedule?.start_time || !schedule?.end_time) return []
-
-    // Find the longest lead time among vendors that have items selected
     const vendorsWithSelections = vendors.filter(v =>
       v.listings.some(l => (quantities[l.id] || 0) > 0)
     )
-
     const maxLead = vendorsWithSelections.length > 0
       ? Math.max(...vendorsWithSelections.map(v => v.pickup_lead_minutes))
       : Math.max(...vendors.map(v => v.pickup_lead_minutes), 30)
-
     const interval = maxLead > 15 ? 30 : 15
     return generateSlots(schedule.start_time, schedule.end_time, interval)
   }, [isFT, schedule, vendors, quantities])
 
-  // Cart totals
-  const cartItems = useMemo(() => {
+  // Items currently selected (not yet added to cart)
+  const selectedItems = useMemo(() => {
     const items: Array<{ listing: Listing; vendor: Vendor; qty: number }> = []
     for (const v of vendors) {
       for (const l of v.listings) {
@@ -166,9 +167,9 @@ export default function EventShopPage() {
     return items
   }, [vendors, quantities])
 
-  const cartTotal = useMemo(() => {
-    return cartItems.reduce((sum, item) => sum + calculateItemDisplayPrice(item.listing.price_cents) * item.qty, 0)
-  }, [cartItems])
+  const selectedTotal = useMemo(() => {
+    return selectedItems.reduce((sum, item) => sum + calculateItemDisplayPrice(item.listing.price_cents) * item.qty, 0)
+  }, [selectedItems])
 
   function updateQty(listingId: string, delta: number, max: number | null) {
     setQuantities(prev => {
@@ -179,13 +180,18 @@ export default function EventShopPage() {
     })
   }
 
+  // Check if a listing is already in the server-side cart
+  function getCartQty(listingId: string): number {
+    const cartItem = cartItems.find(ci => ci.listingId === listingId)
+    return cartItem?.quantity || 0
+  }
+
   async function addVendorToCart(vendorId: string) {
     if (!event || !schedule || !pickupDate) return
 
-    const vendorItems = cartItems.filter(item => item.vendor.id === vendorId)
+    const vendorItems = selectedItems.filter(item => item.vendor.id === vendorId)
     if (vendorItems.length === 0) return
 
-    // FT requires pickup time
     if (isFT && !pickupTime) {
       setCartMessage('Please select a pickup time for your food')
       return
@@ -196,40 +202,27 @@ export default function EventShopPage() {
 
     try {
       for (const item of vendorItems) {
-        const res = await fetch('/api/cart/items', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            vertical: event.vertical_id,
-            listingId: item.listing.id,
-            marketId: event.market_id,
-            scheduleId: schedule.id,
-            pickupDate: pickupDate,
-            quantity: item.qty,
-            preferredPickupTime: isFT ? pickupTime : null,
-          }),
-        })
-
-        if (!res.ok) {
-          const err = await res.json()
-          setCartMessage(`Error: ${err.error || 'Failed to add item'}`)
-          setAddingToCart(null)
-          return
-        }
+        await addToCart(
+          item.listing.id,
+          item.qty,
+          event.market_id,
+          schedule.id,
+          pickupDate,
+          isFT ? pickupTime : undefined
+        )
       }
 
-      // Clear quantities for this vendor and mark vendor as added
+      // Clear selection quantities for this vendor (cart now has the real data)
       setQuantities(prev => {
         const next = { ...prev }
         for (const item of vendorItems) delete next[item.listing.id]
         return next
       })
-      setVendorsAdded(prev => new Set(prev).add(vendorId))
 
       const vendorName = vendors.find(v => v.id === vendorId)?.business_name || 'Vendor'
       setCartMessage(`Added ${vendorItems.length} item${vendorItems.length > 1 ? 's' : ''} from ${vendorName} to cart!`)
-    } catch {
-      setCartMessage('Error: Network error')
+    } catch (err) {
+      setCartMessage(`Error: ${err instanceof Error ? err.message : 'Failed to add item'}`)
     }
     setAddingToCart(null)
   }
@@ -299,7 +292,7 @@ export default function EventShopPage() {
             Sign in to see prices and pre-order items for this event
           </p>
           <Link
-            href={`/${event.vertical_id}/login?redirect=/events/${token}/shop`}
+            href={`/${vertical}/login?redirect=/${vertical}/events/${token}/shop`}
             style={{
               display: 'inline-block',
               padding: `${spacing['2xs']} ${spacing.md}`,
@@ -387,8 +380,8 @@ export default function EventShopPage() {
         </div>
       ) : (
         vendors.map(vendor => {
-          const vendorCartItems = vendor.listings.filter(l => (quantities[l.id] || 0) > 0)
-          const vendorTotal = vendorCartItems.reduce(
+          const vendorSelectedItems = vendor.listings.filter(l => (quantities[l.id] || 0) > 0)
+          const vendorSelectedTotal = vendorSelectedItems.reduce(
             (sum, l) => sum + calculateItemDisplayPrice(l.price_cents) * (quantities[l.id] || 0), 0
           )
           const isAdding = addingToCart === vendor.id
@@ -436,15 +429,16 @@ export default function EventShopPage() {
                 }}>
                   {vendor.listings.map(listing => {
                     const qty = quantities[listing.id] || 0
+                    const inCartQty = getCartQty(listing.id)
                     const maxQty = listing.quantity
                     const displayPrice = calculateItemDisplayPrice(listing.price_cents)
 
                     return (
                       <div key={listing.id} style={{
-                        border: `1px solid ${qty > 0 ? accent : statusColors.neutral200}`,
+                        border: `1px solid ${qty > 0 ? accent : inCartQty > 0 ? '#86efac' : statusColors.neutral200}`,
                         borderRadius: radius.md,
                         overflow: 'hidden',
-                        backgroundColor: qty > 0 ? `${accent}08` : 'white',
+                        backgroundColor: qty > 0 ? `${accent}08` : inCartQty > 0 ? '#f0fdf408' : 'white',
                         transition: 'border-color 0.2s',
                       }}>
                         {/* Image */}
@@ -479,6 +473,12 @@ export default function EventShopPage() {
                               {maxQty !== null && maxQty <= 10 && (
                                 <div style={{ fontSize: 10, color: '#d97706', marginTop: 1 }}>
                                   {maxQty} left
+                                </div>
+                              )}
+                              {/* In-cart indicator */}
+                              {inCartQty > 0 && qty === 0 && (
+                                <div style={{ fontSize: 10, color: '#166534', marginTop: 2 }}>
+                                  {inCartQty} in cart
                                 </div>
                               )}
                               {/* Quantity selector */}
@@ -535,8 +535,8 @@ export default function EventShopPage() {
                   })}
                 </div>
 
-                {/* Per-vendor Add to Cart / Added confirmation */}
-                {isLoggedIn && vendorCartItems.length > 0 ? (
+                {/* Per-vendor Add to Cart */}
+                {isLoggedIn && vendorSelectedItems.length > 0 && (
                   <button
                     onClick={() => addVendorToCart(vendor.id)}
                     disabled={isAdding}
@@ -556,37 +556,18 @@ export default function EventShopPage() {
                   >
                     {isAdding
                       ? 'Adding...'
-                      : `Add ${vendorCartItems.length} item${vendorCartItems.length > 1 ? 's' : ''} from ${vendor.business_name} — ${formatPrice(vendorTotal)}`
+                      : `Add ${vendorSelectedItems.length} item${vendorSelectedItems.length > 1 ? 's' : ''} from ${vendor.business_name} — ${formatPrice(vendorSelectedTotal)}`
                     }
                   </button>
-                ) : isLoggedIn && vendorsAdded.has(vendor.id) ? (
-                  <div style={{
-                    width: '100%',
-                    marginTop: spacing.sm,
-                    padding: spacing.xs,
-                    backgroundColor: '#f0fdf4',
-                    border: '1px solid #86efac',
-                    borderRadius: radius.sm,
-                    fontSize: typography.sizes.sm,
-                    fontWeight: typography.weights.semibold,
-                    color: '#166534',
-                    textAlign: 'center',
-                    minHeight: 44,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}>
-                    Items from {vendor.business_name} added to cart
-                  </div>
-                ) : null}
+                )}
               </div>
             </div>
           )
         })
       )}
 
-      {/* Sticky cart bar */}
-      {isLoggedIn && cartItems.length > 0 && (
+      {/* Sticky cart bar — shows server-side cart state */}
+      {isLoggedIn && itemCount > 0 && (
         <div style={{
           position: 'fixed',
           bottom: 0,
@@ -603,10 +584,10 @@ export default function EventShopPage() {
         }}>
           <div>
             <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: statusColors.neutral800 }}>
-              {cartItems.length} item{cartItems.length > 1 ? 's' : ''} selected
+              {itemCount} item{itemCount > 1 ? 's' : ''} in cart
             </span>
             <span style={{ fontSize: typography.sizes.sm, color: statusColors.neutral500, marginLeft: spacing.xs }}>
-              {formatPrice(cartTotal)}
+              {formatPrice(summary.total_cents)}
             </span>
             {isFT && pickupTime && (
               <span style={{ fontSize: typography.sizes.xs, color: accent, marginLeft: spacing.xs }}>
@@ -615,7 +596,7 @@ export default function EventShopPage() {
             )}
           </div>
           <Link
-            href={`/${event.vertical_id}/checkout`}
+            href={`/${vertical}/checkout`}
             style={{
               padding: `${spacing['2xs']} ${spacing.md}`,
               backgroundColor: accent,
@@ -626,7 +607,7 @@ export default function EventShopPage() {
               fontSize: typography.sizes.sm,
             }}
           >
-            View Cart
+            Checkout
           </Link>
         </div>
       )}

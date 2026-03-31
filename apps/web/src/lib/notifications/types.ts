@@ -728,7 +728,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: (_d, locale) => t('notif.event_feedback_request_title', locale),
     message: (d) => `The "${d.marketName}" event has ended. If you ordered, we'd love to hear about your experience! Leave a review for the vendors you bought from.`,
     actionUrl: (d) => d.eventToken
-      ? `/events/${d.eventToken}`
+      ? `/${d.vertical || 'food_trucks'}/events/${d.eventToken}`
       : `/${d.vertical || 'food_trucks'}/buyer/orders`,
   },
 

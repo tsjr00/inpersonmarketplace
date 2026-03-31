@@ -1113,11 +1113,11 @@ export default function AdminCateringPage() {
                 <Section title="Attendee Link">
                   <div style={{ display: 'flex', gap: spacing.sm, alignItems: 'center', flexWrap: 'wrap' }}>
                     <code style={{ fontSize: typography.sizes.xs, color: statusColors.neutral600, backgroundColor: statusColors.neutral50, padding: `${spacing['3xs']} ${spacing.xs}`, borderRadius: radius.sm, wordBreak: 'break-all' }}>
-                      {typeof window !== 'undefined' ? `${window.location.origin}/events/${selected.event_token}` : `/events/${selected.event_token}`}
+                      {typeof window !== 'undefined' ? `${window.location.origin}/${vertical}/events/${selected.event_token}` : `/${vertical}/events/${selected.event_token}`}
                     </code>
                     <button
                       onClick={() => {
-                        const url = `${window.location.origin}/events/${selected.event_token}`
+                        const url = `${window.location.origin}/${vertical}/events/${selected.event_token}`
                         navigator.clipboard.writeText(url)
                         setActionMessage('Event link copied!')
                       }}

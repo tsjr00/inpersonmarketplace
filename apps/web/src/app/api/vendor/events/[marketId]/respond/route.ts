@@ -363,7 +363,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
                 // Build results email + send immediately (same logic as cron Phase 12)
                 const { getAppUrl } = await import('@/lib/environment')
                 const selectUrl = cReq.event_token
-                  ? `${getAppUrl(cReq.vertical_id)}/events/${cReq.event_token}/select`
+                  ? `${getAppUrl(cReq.vertical_id)}/${cReq.vertical_id}/events/${cReq.event_token}/select`
                   : null
 
                 const isFM = cReq.vertical_id === 'farmers_market'

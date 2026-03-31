@@ -9,11 +9,11 @@ import EventFeedbackForm from '@/components/events/EventFeedbackForm'
 export const dynamic = 'force-dynamic'
 
 interface EventPageProps {
-  params: Promise<{ token: string }>
+  params: Promise<{ vertical: string; token: string }>
 }
 
 export default async function EventPage({ params }: EventPageProps) {
-  const { token } = await params
+  const { vertical, token } = await params
   const supabase = createServiceClient()
 
   // Fetch event by token
@@ -132,7 +132,7 @@ export default async function EventPage({ params }: EventPageProps) {
 
   const isCompleted = event.status === 'completed' || event.status === 'review'
   const isOrderable = event.status === 'ready' || event.status === 'active'
-  const verticalId = event.vertical_id || 'food_trucks'
+  const verticalId = vertical
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
@@ -313,7 +313,7 @@ export default async function EventPage({ params }: EventPageProps) {
         {/* Footer */}
         <div style={{ textAlign: 'center', marginTop: spacing.xl, paddingTop: spacing.md, borderTop: '1px solid #e5e7eb' }}>
           <p style={{ color: '#9ca3af', fontSize: typography.sizes.xs, margin: 0 }}>
-            Powered by <Link href="/" style={{ color: '#9ca3af' }}>Food Truck&apos;n</Link>
+            Powered by <Link href="/" style={{ color: '#9ca3af' }}>{verticalId === 'farmers_market' ? 'Farmers Marketing' : "Food Truck'n"}</Link>
           </p>
         </div>
       </div>

@@ -2063,7 +2063,7 @@ export async function GET(request: NextRequest) {
           const accentColor = isFM ? '#2d5016' : '#ff5757'
           const { getAppUrl } = await import('@/lib/environment')
           const selectUrl = event.event_token
-            ? `${getAppUrl(event.vertical_id)}/events/${event.event_token}/select`
+            ? `${getAppUrl(event.vertical_id)}/${event.vertical_id}/events/${event.event_token}/select`
             : null
 
           try {
