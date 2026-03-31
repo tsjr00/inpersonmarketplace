@@ -63,6 +63,9 @@ export async function POST(request: NextRequest) {
       service_level,
       vendor_preferences,
       vertical,
+      cutoff_hours,
+      event_allow_day_of_orders,
+      vendor_stay_policy,
     } = body
 
     // Validate vertical
@@ -214,6 +217,8 @@ export async function POST(request: NextRequest) {
           ? recurring_frequency : null,
         service_level: service_level === 'self_service' ? 'self_service' : 'full_service',
         vendor_preferences: Array.isArray(vendor_preferences) ? vendor_preferences : null,
+        vendor_stay_policy: ['may_leave_when_sold_out', 'stay_full_event', 'vendor_discretion'].includes(vendor_stay_policy)
+          ? vendor_stay_policy : null,
       })
       .select('id')
       .single()
@@ -251,6 +256,8 @@ export async function POST(request: NextRequest) {
         payment_model: payment_model || null,
         children_present: !!children_present,
         contact_email: String(contact_email).toLowerCase().trim(),
+        cutoff_hours: cutoff_hours ? Math.min(Math.max(parseInt(cutoff_hours, 10) || 24, 12), 168) : 24,
+        event_allow_day_of_orders: !!event_allow_day_of_orders,
       }
 
       // Step 1: Auto-approve (create market + token + schedule)
