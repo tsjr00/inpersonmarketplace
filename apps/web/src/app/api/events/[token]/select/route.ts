@@ -283,7 +283,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     // Send organizer the event page link
     const { getAppUrl } = await import('@/lib/environment')
-    const eventPageUrl = `${getAppUrl(event.vertical_id)}/events/${event.event_token}`
+    const eventPageUrl = `${getAppUrl(event.vertical_id)}/${event.vertical_id}/events/${event.event_token}`
 
     // Generate QR code for event page URL
     let qrCodeDataUrl = ''
