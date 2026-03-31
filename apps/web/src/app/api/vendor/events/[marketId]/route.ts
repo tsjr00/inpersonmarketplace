@@ -54,7 +54,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       // Get vendor profile for this user IN this vertical
       const { data: vendorProfile } = await supabase
         .from('vendor_profiles')
-        .select('id')
+        .select('id, profile_data')
         .eq('user_id', user.id)
         .eq('vertical_id', marketInfo.vertical_id)
         .single()
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       // Verify vendor is invited to this market
       const { data: marketVendor } = await serviceClient
         .from('market_vendors')
-        .select('response_status, response_notes, invited_at')
+        .select('response_status, response_notes, invited_at, event_max_orders_total, event_max_orders_per_wave')
         .eq('market_id', marketId)
         .eq('vendor_profile_id', vendorProfile.id)
         .single()
@@ -187,6 +187,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
           is_themed: cateringDetails.is_themed,
           theme_description: cateringDetails.theme_description,
           has_competing_vendors: cateringDetails.has_competing_vendors,
+          // Capacity data for acceptance UI
+          event_max_orders_total: marketVendor.event_max_orders_total || null,
+          event_max_orders_per_wave: marketVendor.event_max_orders_per_wave || null,
+          profile_max_headcount_per_wave: ((vendorProfile.profile_data as Record<string, unknown>)?.event_readiness as Record<string, unknown>)?.max_headcount_per_wave as number || null,
         },
       })
     }

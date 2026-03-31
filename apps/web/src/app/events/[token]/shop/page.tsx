@@ -101,6 +101,7 @@ export default function EventShopPage() {
   const [pickupTime, setPickupTime] = useState<string>('')
   const [addingToCart, setAddingToCart] = useState<string | null>(null) // vendor id being added
   const [cartMessage, setCartMessage] = useState<string | null>(null)
+  const [vendorsAdded, setVendorsAdded] = useState<Set<string>>(new Set()) // vendors successfully added to cart
 
   // Check auth
   useEffect(() => {
@@ -217,12 +218,13 @@ export default function EventShopPage() {
         }
       }
 
-      // Clear quantities for this vendor
+      // Clear quantities for this vendor and mark vendor as added
       setQuantities(prev => {
         const next = { ...prev }
         for (const item of vendorItems) delete next[item.listing.id]
         return next
       })
+      setVendorsAdded(prev => new Set(prev).add(vendorId))
 
       const vendorName = vendors.find(v => v.id === vendorId)?.business_name || 'Vendor'
       setCartMessage(`Added ${vendorItems.length} item${vendorItems.length > 1 ? 's' : ''} from ${vendorName} to cart!`)
@@ -533,8 +535,8 @@ export default function EventShopPage() {
                   })}
                 </div>
 
-                {/* Per-vendor Add to Cart */}
-                {isLoggedIn && vendorCartItems.length > 0 && (
+                {/* Per-vendor Add to Cart / Added confirmation */}
+                {isLoggedIn && vendorCartItems.length > 0 ? (
                   <button
                     onClick={() => addVendorToCart(vendor.id)}
                     disabled={isAdding}
@@ -557,7 +559,26 @@ export default function EventShopPage() {
                       : `Add ${vendorCartItems.length} item${vendorCartItems.length > 1 ? 's' : ''} from ${vendor.business_name} — ${formatPrice(vendorTotal)}`
                     }
                   </button>
-                )}
+                ) : isLoggedIn && vendorsAdded.has(vendor.id) ? (
+                  <div style={{
+                    width: '100%',
+                    marginTop: spacing.sm,
+                    padding: spacing.xs,
+                    backgroundColor: '#f0fdf4',
+                    border: '1px solid #86efac',
+                    borderRadius: radius.sm,
+                    fontSize: typography.sizes.sm,
+                    fontWeight: typography.weights.semibold,
+                    color: '#166534',
+                    textAlign: 'center',
+                    minHeight: 44,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    Items from {vendor.business_name} added to cart
+                  </div>
+                ) : null}
               </div>
             </div>
           )
