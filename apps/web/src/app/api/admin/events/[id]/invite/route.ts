@@ -168,10 +168,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
           vendor.user_id,
           'catering_vendor_invited',
           {
-            companyName: cateringReq.company_name,
+            // Privacy: vendor sees 'Private Event', not organizer identity
+            companyName: 'Private Event',
             headcount: cateringReq.headcount,
             eventDate,
-            eventAddress: `${cateringReq.address}, ${cateringReq.city}, ${cateringReq.state}`,
+            eventAddress: `${cateringReq.city}, ${cateringReq.state}`,
           },
           { vertical: cateringReq.vertical_id }
         )

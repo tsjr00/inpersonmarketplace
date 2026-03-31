@@ -135,7 +135,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
       return {
         vendor_profile_id: vid,
-        business_name: (pd.business_name as string) || (pd.farm_name as string) || 'Food Truck',
+        business_name: (pd.business_name as string) || (pd.farm_name as string) || 'Vendor',
         cuisine_categories: vendorCategories[vid] || [],
         avg_price_cents: avgPrice,
         average_rating: vp?.average_rating || null,
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     } = body
 
     if (!Array.isArray(selected_vendor_ids) || selected_vendor_ids.length === 0) {
-      return NextResponse.json({ error: 'Please select at least one truck' }, { status: 400 })
+      return NextResponse.json({ error: 'Please select at least one vendor' }, { status: 400 })
     }
 
     // Find the event
@@ -205,7 +205,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     if (selected_vendor_ids.length > event.vendor_count) {
-      return NextResponse.json({ error: `Maximum ${event.vendor_count} trucks allowed` }, { status: 400 })
+      return NextResponse.json({ error: `Maximum ${event.vendor_count} vendors allowed` }, { status: 400 })
     }
 
     // Verify all selected vendors are actually accepted for this event
@@ -217,7 +217,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .in('vendor_profile_id', selected_vendor_ids)
 
     if (!validVendors || validVendors.length !== selected_vendor_ids.length) {
-      return NextResponse.json({ error: 'One or more selected trucks are not available' }, { status: 400 })
+      return NextResponse.json({ error: 'One or more selected vendors are not available' }, { status: 400 })
     }
 
     // Mark non-selected accepted vendors as 'not_selected' (they stay as backups)
@@ -271,7 +271,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
       if (vp?.user_id) {
         await sendNotification(vp.user_id as string, 'catering_vendor_invited', {
-          companyName: 'Your event is confirmed!',
+          companyName: 'Event Confirmed',
           headcount: event.headcount,
           eventDate: event.event_date,
           eventAddress: `${event.city}, ${event.state}`,
@@ -404,7 +404,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({
       ok: true,
-      message: 'Trucks confirmed! Event page link sent to your email.',
+      message: 'Vendors confirmed! Event page link sent to your email.',
       event_page_url: eventPageUrl,
     })
   })
