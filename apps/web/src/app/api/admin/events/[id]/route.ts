@@ -218,8 +218,45 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       ).catch(err => console.error('[admin/catering] Event confirmed email error:', err))
     }
 
-    // On COMPLETED: send post-event feedback request to buyers + settlement to vendors
+    // On COMPLETED: check for unfulfilled orders, then send feedback + settlement
     if (status === 'completed' && cateringReq.market_id) {
+      // Check for orders not yet fulfilled — warn admin + notify vendors
+      const { data: unfulfilledItems } = await serviceClient
+        .from('order_items')
+        .select('id, status, vendor_profile_id, listing:listings(title)')
+        .eq('market_id', cateringReq.market_id)
+        .not('status', 'in', '("fulfilled","completed","cancelled")')
+
+      if (unfulfilledItems && unfulfilledItems.length > 0) {
+        // Group by vendor for targeted notifications
+        const vendorUnfulfilled: Record<string, string[]> = {}
+        for (const item of unfulfilledItems) {
+          const vid = item.vendor_profile_id as string
+          if (!vendorUnfulfilled[vid]) vendorUnfulfilled[vid] = []
+          const listing = item.listing as unknown as { title: string } | null
+          vendorUnfulfilled[vid].push(listing?.title || 'Unknown item')
+        }
+
+        // Notify each vendor with unfulfilled orders
+        for (const [vendorId, items] of Object.entries(vendorUnfulfilled)) {
+          const { data: vp } = await serviceClient
+            .from('vendor_profiles')
+            .select('user_id')
+            .eq('id', vendorId)
+            .single()
+
+          if (vp?.user_id) {
+            await sendNotification(vp.user_id as string, 'event_settlement_summary', {
+              marketName: `${cateringReq.company_name || 'Event'} — ${items.length} unfulfilled order${items.length > 1 ? 's' : ''} need attention`,
+              orderCount: items.length,
+            }, { vertical: cateringReq.vertical_id })
+          }
+        }
+
+        // Warn admin in the response (event still moves to completed — admin chose this)
+        console.warn(`[admin/events] Event ${id} marked completed with ${unfulfilledItems.length} unfulfilled order items`)
+      }
+
       // Fire-and-forget — don't block the response
       sendEventFeedbackNotifications(serviceClient, cateringReq.market_id, cateringReq.vertical_id).catch(
         (err) => console.error('[admin/catering] Feedback notification error:', err)
