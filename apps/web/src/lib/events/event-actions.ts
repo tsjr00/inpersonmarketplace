@@ -113,13 +113,18 @@ export async function approveEventRequest(
   const eventDate = new Date(request.event_date + 'T00:00:00')
   const dayOfWeek = eventDate.getUTCDay()
 
-  await serviceClient.from('market_schedules').insert({
+  const { error: scheduleError } = await serviceClient.from('market_schedules').insert({
     market_id: market.id,
     day_of_week: dayOfWeek,
     start_time: request.event_start_time || '11:00:00',
     end_time: request.event_end_time || '14:00:00',
     active: true,
   })
+
+  if (scheduleError) {
+    console.error('[event-actions] Failed to create market schedule:', scheduleError)
+    return { success: false, error: 'Failed to create market schedule' }
+  }
 
   return {
     success: true,

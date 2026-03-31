@@ -2211,9 +2211,12 @@ export async function GET(request: NextRequest) {
     }
 
     // ─── Phase 14: Auto-transition ready → active on event day ─────────
+    // Use CT (America/Chicago) for date comparison — matches SQL function's approach
+    // and the primary timezone where events operate. Prevents UTC midnight edge cases.
     let eventsActivated = 0
     try {
-      const todayStr = new Date().toISOString().split('T')[0]
+      const todayCT = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }))
+      const todayStr = `${todayCT.getFullYear()}-${String(todayCT.getMonth() + 1).padStart(2, '0')}-${String(todayCT.getDate()).padStart(2, '0')}`
 
       const { data: readyEvents } = await supabase
         .from('catering_requests')
@@ -2223,12 +2226,13 @@ export async function GET(request: NextRequest) {
 
       if (readyEvents && readyEvents.length > 0) {
         for (const event of readyEvents) {
-          await supabase
+          const { data: updated } = await supabase
             .from('catering_requests')
             .update({ status: 'active' })
             .eq('id', event.id)
-            .eq('status', 'ready') // Prevent race condition
-          eventsActivated++
+            .eq('status', 'ready')
+            .select('id')
+          if (updated && updated.length > 0) eventsActivated++
         }
       }
     } catch (phase14Error) {
@@ -2238,7 +2242,8 @@ export async function GET(request: NextRequest) {
     // ─── Phase 15: Auto-transition active → review after event ends ──────
     let eventsToReview = 0
     try {
-      const todayStr = new Date().toISOString().split('T')[0]
+      const todayCT = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }))
+      const todayStr = `${todayCT.getFullYear()}-${String(todayCT.getMonth() + 1).padStart(2, '0')}-${String(todayCT.getDate()).padStart(2, '0')}`
 
       // event_end_date < today means the event has fully ended
       const { data: endedEvents } = await supabase
@@ -2250,12 +2255,13 @@ export async function GET(request: NextRequest) {
         for (const event of endedEvents) {
           const endDate = event.event_end_date || event.event_date
           if (endDate && endDate < todayStr) {
-            await supabase
+            const { data: updated } = await supabase
               .from('catering_requests')
               .update({ status: 'review' })
               .eq('id', event.id)
-              .eq('status', 'active') // Prevent race condition
-            eventsToReview++
+              .eq('status', 'active')
+              .select('id')
+            if (updated && updated.length > 0) eventsToReview++
           }
         }
       }
