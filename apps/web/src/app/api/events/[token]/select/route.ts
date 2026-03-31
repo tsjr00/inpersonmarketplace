@@ -256,10 +256,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
         },
       }
     }
-    await serviceClient
+    // Atomic update — prevents double-submit from concurrent tabs
+    const { data: updatedEvent } = await serviceClient
       .from('catering_requests')
       .update(updateData)
       .eq('id', event.id)
+      .in('status', ['approved', 'ready'])
+      .select('id')
+
+    if (!updatedEvent || updatedEvent.length === 0) {
+      return NextResponse.json({ error: 'Selections have already been submitted' }, { status: 409 })
+    }
 
     // Notify selected vendors — prompt them to connect catering listings
     for (const vendorId of selected_vendor_ids) {

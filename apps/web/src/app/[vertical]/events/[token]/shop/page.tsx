@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -102,6 +102,7 @@ export default function EventShopPage() {
   const [pickupTime, setPickupTime] = useState<string>('')
   const [addingToCart, setAddingToCart] = useState<string | null>(null) // vendor id being added
   const [cartMessage, setCartMessage] = useState<string | null>(null)
+  const isSubmittingRef = useRef(false) // prevents double-click race condition
 
   // Check auth
   useEffect(() => {
@@ -120,11 +121,23 @@ export default function EventShopPage() {
   // Fetch event data
   useEffect(() => {
     async function fetchData() {
+      // Token format check
+      if (!token || token.length < 3 || !/^[a-z0-9-]+$/.test(token)) {
+        setError('Invalid event link. Please check the URL and try again.')
+        setLoading(false)
+        return
+      }
       try {
         const res = await fetch(`/api/events/${token}/shop`)
         if (!res.ok) {
-          const err = await res.json()
-          setError(err.error || 'Event not found')
+          const err = await res.json().catch(() => ({ error: '' }))
+          if (res.status === 404) {
+            setError('Event not found. The link may be incorrect or the event may no longer be available.')
+          } else if (res.status === 400) {
+            setError(err.error || 'This event is not currently open for pre-orders.')
+          } else {
+            setError('Something went wrong. Please try again later.')
+          }
           return
         }
         const data = await res.json()
@@ -134,7 +147,7 @@ export default function EventShopPage() {
         setIsFT(data.is_food_truck)
         setPickupDate(data.pickup_date)
       } catch {
-        setError('Failed to load event')
+        setError('Unable to connect. Please check your internet and try again.')
       } finally {
         setLoading(false)
       }
@@ -184,10 +197,12 @@ export default function EventShopPage() {
   }
 
   async function addVendorToCart(vendorId: string) {
+    if (isSubmittingRef.current) return
     if (!event || !schedule || !pickupDate) return
 
     const vendorItems = selectedItems.filter(item => item.vendor.id === vendorId)
     if (vendorItems.length === 0) return
+    isSubmittingRef.current = true
 
     if (isFT && !pickupTime) {
       setCartMessage('Please select a pickup time for your food')
@@ -222,6 +237,7 @@ export default function EventShopPage() {
       setCartMessage(`Error: ${err instanceof Error ? err.message : 'Failed to add item'}`)
     }
     setAddingToCart(null)
+    isSubmittingRef.current = false
   }
 
   // ── Render ──

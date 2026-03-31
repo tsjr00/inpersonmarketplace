@@ -76,6 +76,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
       )
     }
 
+    // Validate event_date is in the future
+    const eventDateObj = new Date(event_date + 'T00:00:00')
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    if (isNaN(eventDateObj.getTime()) || eventDateObj < today) {
+      return NextResponse.json(
+        { error: 'Event date must be today or in the future' },
+        { status: 400 }
+      )
+    }
+
     // Create new catering request copying company/location/preferences
     const { data: newRequest, error: insertError } = await serviceClient
       .from('catering_requests')

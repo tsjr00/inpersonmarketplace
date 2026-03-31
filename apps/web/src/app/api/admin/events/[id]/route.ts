@@ -169,6 +169,22 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       ).catch(err => console.error('[admin/catering] Event confirmed email error:', err))
     }
 
+    // On CANCELLED or DECLINED: clean up listing_markets rows (same as completed cleanup)
+    if ((status === 'cancelled' || status === 'declined') && cateringReq.market_id) {
+      const { data: eventListings } = await serviceClient
+        .from('event_vendor_listings')
+        .select('listing_id')
+        .eq('market_id', cateringReq.market_id)
+      if (eventListings && eventListings.length > 0) {
+        const listingIds = eventListings.map(el => el.listing_id as string)
+        await serviceClient
+          .from('listing_markets')
+          .delete()
+          .eq('market_id', cateringReq.market_id)
+          .in('listing_id', listingIds)
+      }
+    }
+
     // On COMPLETED: check for unfulfilled orders, then send feedback + settlement
     if (status === 'completed' && cateringReq.market_id) {
       // Check for orders not yet fulfilled — warn admin + notify vendors
