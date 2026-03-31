@@ -233,22 +233,24 @@ export function CartDrawer() {
             >
               {t('cart.proceed', locale)}
             </button>
-            <button
-              onClick={() => { setIsOpen(false); router.push(`/${vertical}/browse`) }}
-              style={{
-                width: '100%',
-                ...sizing.control,
-                padding: `${spacing.xs} ${spacing.md}`,
-                fontWeight: typography.weights.medium,
-                backgroundColor: 'transparent',
-                color: statusColors.neutral500,
-                border: `1px solid ${statusColors.neutral300}`,
-                cursor: 'pointer',
-                marginTop: spacing['2xs'],
-              }}
-            >
-              {t('cart.continue_shopping', locale)}
-            </button>
+            {!items.some(i => i.market_type === 'event') && (
+              <button
+                onClick={() => { setIsOpen(false); router.push(`/${vertical}/browse`) }}
+                style={{
+                  width: '100%',
+                  ...sizing.control,
+                  padding: `${spacing.xs} ${spacing.md}`,
+                  fontWeight: typography.weights.medium,
+                  backgroundColor: 'transparent',
+                  color: statusColors.neutral500,
+                  border: `1px solid ${statusColors.neutral300}`,
+                  cursor: 'pointer',
+                  marginTop: spacing['2xs'],
+                }}
+              >
+                {t('cart.continue_shopping', locale)}
+              </button>
+            )}
           </div>
         )}
       </div>
