@@ -65,7 +65,7 @@ export default function MarketScheduleSelector({
 
   const fetchSchedules = async () => {
     try {
-      const res = await fetch(`/api/vendor/markets/${marketId}/schedules`)
+      const res = await fetch(`/api/vendor/markets/${marketId}/schedules${vertical ? `?vertical=${vertical}` : ''}`)
       if (res.ok) {
         const data = await res.json()
         setSchedules(data.schedules || [])
@@ -99,7 +99,7 @@ export default function MarketScheduleSelector({
     }
 
     try {
-      const res = await fetch(`/api/vendor/markets/${marketId}/schedules`, {
+      const res = await fetch(`/api/vendor/markets/${marketId}/schedules${vertical ? `?vertical=${vertical}` : ''}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patchBody)
@@ -149,7 +149,7 @@ export default function MarketScheduleSelector({
     setError(null)
 
     try {
-      const res = await fetch(`/api/vendor/markets/${marketId}/schedules`, {
+      const res = await fetch(`/api/vendor/markets/${marketId}/schedules${vertical ? `?vertical=${vertical}` : ''}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

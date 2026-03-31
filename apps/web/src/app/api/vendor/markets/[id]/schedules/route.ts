@@ -69,18 +69,21 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     try {
       const { id: marketId } = await params
       const supabase = await createClient()
+      const { searchParams } = new URL(request.url)
+      const vertical = searchParams.get('vertical')
 
       const { data: { user }, error: authError } = await supabase.auth.getUser()
       if (authError || !user) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       }
 
-      // Get vendor profile
-      const { data: vendorProfile, error: vpError } = await supabase
+      // Get vendor profile (filter by vertical if provided — required for multi-vertical vendors)
+      let vpQuery = supabase
         .from('vendor_profiles')
         .select('id')
         .eq('user_id', user.id)
-        .single()
+      if (vertical) vpQuery = vpQuery.eq('vertical_id', vertical)
+      const { data: vendorProfile, error: vpError } = await vpQuery.single()
 
       if (vpError || !vendorProfile) {
         return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
@@ -160,6 +163,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     try {
       const { id: marketId } = await params
       const supabase = await createClient()
+      const { searchParams } = new URL(request.url)
+      const vertical = searchParams.get('vertical')
 
       const { data: { user }, error: authError } = await supabase.auth.getUser()
       if (authError || !user) {
@@ -173,12 +178,13 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         return NextResponse.json({ error: 'scheduleIds must be an array' }, { status: 400 })
       }
 
-      // Get vendor profile
-      const { data: vendorProfile, error: vpError } = await supabase
+      // Get vendor profile (filter by vertical if provided)
+      let vpQuery = supabase
         .from('vendor_profiles')
         .select('id')
         .eq('user_id', user.id)
-        .single()
+      if (vertical) vpQuery = vpQuery.eq('vertical_id', vertical)
+      const { data: vendorProfile, error: vpError } = await vpQuery.single()
 
       if (vpError || !vendorProfile) {
         return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
@@ -380,6 +386,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     try {
       const { id: marketId } = await params
       const supabase = await createClient()
+      const { searchParams } = new URL(request.url)
+      const vertical = searchParams.get('vertical')
 
       const { data: { user }, error: authError } = await supabase.auth.getUser()
       if (authError || !user) {
@@ -393,12 +401,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         return NextResponse.json({ error: 'scheduleId and isActive are required' }, { status: 400 })
       }
 
-      // Get vendor profile
-      const { data: vendorProfile, error: vpError } = await supabase
+      // Get vendor profile (filter by vertical if provided)
+      let vpQuery = supabase
         .from('vendor_profiles')
         .select('id')
         .eq('user_id', user.id)
-        .single()
+      if (vertical) vpQuery = vpQuery.eq('vertical_id', vertical)
+      const { data: vendorProfile, error: vpError } = await vpQuery.single()
 
       if (vpError || !vendorProfile) {
         return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
