@@ -155,18 +155,12 @@ export default function EventShopPage() {
     fetchData()
   }, [token])
 
-  // Compute time slots for FT
+  // Compute time slots for events (both FT and FM — 30-min intervals)
   const timeSlots = useMemo(() => {
-    if (!isFT || !schedule?.start_time || !schedule?.end_time) return []
-    const vendorsWithSelections = vendors.filter(v =>
-      v.listings.some(l => (quantities[l.id] || 0) > 0)
-    )
-    const maxLead = vendorsWithSelections.length > 0
-      ? Math.max(...vendorsWithSelections.map(v => v.pickup_lead_minutes))
-      : Math.max(...vendors.map(v => v.pickup_lead_minutes), 30)
-    const interval = maxLead > 15 ? 30 : 15
-    return generateSlots(schedule.start_time, schedule.end_time, interval)
-  }, [isFT, schedule, vendors, quantities])
+    if (!schedule?.start_time || !schedule?.end_time) return []
+    // All events use 30-min slots (consistent, avoids half-hour boundary overlap)
+    return generateSlots(schedule.start_time, schedule.end_time, 30)
+  }, [schedule])
 
   // Items currently selected (not yet added to cart)
   const selectedItems = useMemo(() => {
@@ -220,7 +214,7 @@ export default function EventShopPage() {
           event.market_id,
           schedule.id,
           pickupDate,
-          isFT ? pickupTime : undefined
+          pickupTime || undefined
         )
       }
 
@@ -325,8 +319,8 @@ export default function EventShopPage() {
         </div>
       )}
 
-      {/* FT: Pickup time selector */}
-      {isFT && isLoggedIn && timeSlots.length > 0 && (
+      {/* Pickup time selector — all event types (FT + FM) */}
+      {isLoggedIn && timeSlots.length > 0 && (
         <div style={{
           padding: spacing.sm,
           backgroundColor: statusColors.neutral50,
@@ -341,7 +335,7 @@ export default function EventShopPage() {
             color: statusColors.neutral700,
             marginBottom: spacing.xs,
           }}>
-            What time do you want your food ready?
+            {isFT ? 'What time do you want your food ready?' : 'When would you like to pick up your items?'}
           </label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing['2xs'] }}>
             {timeSlots.map(slot => (
@@ -602,7 +596,7 @@ export default function EventShopPage() {
             <span style={{ fontSize: typography.sizes.sm, color: statusColors.neutral500, marginLeft: spacing.xs }}>
               {formatPrice(summary.total_cents)}
             </span>
-            {isFT && pickupTime && (
+            {pickupTime && (
               <span style={{ fontSize: typography.sizes.xs, color: accent, marginLeft: spacing.xs }}>
                 Ready at {formatTime(pickupTime)}
               </span>

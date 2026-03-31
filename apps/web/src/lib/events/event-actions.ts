@@ -36,6 +36,9 @@ interface CateringRequest {
   payment_model: string | null
   children_present?: boolean
   contact_email?: string | null
+  cutoff_hours?: number | null
+  event_allow_day_of_orders?: boolean
+  vendor_stay_policy?: string | null
 }
 
 interface ApprovalResult {
@@ -93,7 +96,8 @@ export async function approveEventRequest(
       zip: request.zip,
       event_start_date: request.event_date,
       event_end_date: request.event_end_date || request.event_date,
-      cutoff_hours: 48,
+      cutoff_hours: Math.min(Math.max(request.cutoff_hours || 24, 12), 168),
+      event_allow_day_of_orders: request.event_allow_day_of_orders || false,
       status: 'active',
       active: true,
       approval_status: 'approved',

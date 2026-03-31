@@ -113,13 +113,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
         is_themed: false,
         theme_description: null as string | null,
         has_competing_vendors: false,
+        vendor_stay_policy: null as string | null,
       }
 
       if (market.catering_request_id) {
         const { data: cReq } = await serviceClient
           .from('catering_requests')
           .select(
-            'company_name, cuisine_preferences, dietary_notes, setup_instructions, vendor_count, event_start_time, event_end_time, event_type, payment_model, is_ticketed, children_present, is_themed, theme_description, has_competing_vendors'
+            'company_name, cuisine_preferences, dietary_notes, setup_instructions, vendor_count, event_start_time, event_end_time, event_type, payment_model, is_ticketed, children_present, is_themed, theme_description, has_competing_vendors, vendor_stay_policy'
           )
           .eq('id', market.catering_request_id)
           .single()
@@ -140,6 +141,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
             is_themed: !!(cReq.is_themed),
             theme_description: cReq.theme_description as string | null,
             has_competing_vendors: !!(cReq.has_competing_vendors),
+            vendor_stay_policy: (cReq.vendor_stay_policy as string) || null,
           }
         }
       }
@@ -187,6 +189,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
           is_themed: cateringDetails.is_themed,
           theme_description: cateringDetails.theme_description,
           has_competing_vendors: cateringDetails.has_competing_vendors,
+          vendor_stay_policy: cateringDetails.vendor_stay_policy,
           // Capacity data for acceptance UI
           event_max_orders_total: marketVendor.event_max_orders_total || null,
           event_max_orders_per_wave: marketVendor.event_max_orders_per_wave || null,
