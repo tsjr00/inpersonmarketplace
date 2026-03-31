@@ -7,6 +7,11 @@ Structured record of business and architecture decisions. Check here before aski
 | 2026-02-28 | Business | Vendor trial = 90 days, grace = 14 days | Industry standard, generous enough to prove value | Yes | 48 |
 | 2026-02-28 | Business | Trial auto-grants Basic tier (FT) | Lowest paid tier gives real value without giving everything away | Yes | 48 |
 | 2026-02-28 | Architecture | Market box payout at checkout, not per-pickup | Prepaid model — vendor should get paid when buyer pays | No (would require migration) | 48 |
+| 2026-03-30 | Architecture | Event pages under `[vertical]` layout | CartProvider required for server-synced cart state. `/events/[token]/*` had disconnected local state causing 5 UX bugs. | No (URLs changed, backend refs updated) | 66 |
+| 2026-03-30 | Architecture | Event order caps = per-vendor, not per-listing | Separate from inventory system. FM: total cap. FT: per-wave + total. Stored on `market_vendors`. | Yes | 66 |
+| 2026-03-30 | Architecture | Event lifecycle auto-transitions via cron | ready→active on event_start_date, active→review after event_end_date. Admin can override. | Yes | 66 |
+| 2026-03-30 | Process | Critical-path files require file-level approval | 13 files (cart, checkout, payments, pricing). Design approval ≠ file approval. Session 66 incident: cart broken in prod. | No (rule) | 66 |
+| 2026-03-30 | Architecture | Event cap enforcement NOT in cart API | Attempted and broke cart. Must use separate validation endpoint. cart/items/route.ts is never modified for event logic. | No (rule) | 66 |
 | 2026-03-05 | Business | FM Premium = $25/mo (was $24.99) | Clean number, user requested | Yes | 50 |
 | 2026-03-05 | Business | FT Pro = $25/mo (was $30), matches FM Premium | Unified pricing across verticals | Yes | 50 |
 | 2026-03-05 | Business | FT annual pricing = same as FM annual | Consistency: Basic $81.50/yr, Pro $208.15/yr, Boss $481.50/yr | Yes | 50 |
