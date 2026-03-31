@@ -30,8 +30,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     const { marketId } = await context.params
-    const body = await request.json()
-    const { message } = body
+    const { message } = await request.json() as { message: unknown }
 
     if (!message || typeof message !== 'string' || message.trim().length < 10 || message.trim().length > 1000) {
       return NextResponse.json(

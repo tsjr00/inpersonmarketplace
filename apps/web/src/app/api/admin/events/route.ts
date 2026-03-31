@@ -8,6 +8,7 @@ import {
   rateLimits,
 } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
+import { approveEventRequest } from '@/lib/events/event-actions'
 
 /**
  * GET /api/admin/events
@@ -246,16 +247,12 @@ export async function POST(request: NextRequest) {
 
     const serviceClient = createServiceClient()
 
-    // Generate event token
-    const tokenBase = company_name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30)
-    const tokenSuffix = Date.now().toString(36).slice(-6)
-    const eventToken = `${tokenBase}-${tokenSuffix}`
-
+    // Create catering request first (without token — approveEventRequest generates it)
     const { data: created, error: insertError } = await serviceClient
       .from('catering_requests')
       .insert({
         vertical_id: vertical || 'food_trucks',
-        status: 'approved',
+        status: 'new',
         company_name,
         contact_name: contact_name || 'Admin-created',
         contact_email: contact_email || user.email,
@@ -276,7 +273,6 @@ export async function POST(request: NextRequest) {
         setup_instructions: setup_instructions || null,
         additional_notes: additional_notes || null,
         admin_notes: 'Created by admin',
-        event_token: eventToken,
       })
       .select('*')
       .single()
@@ -286,50 +282,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create event' }, { status: 500 })
     }
 
-    // Auto-create event market (same logic as approval in PATCH)
-    const eventSuffix = (vertical || 'food_trucks') === 'farmers_market' ? 'Pop-Up Market' : 'Private Event'
-    const eventName = `${company_name} ${eventSuffix}`
-    const dayOfWeek = new Date(event_date + 'T00:00:00').getDay()
+    // Auto-approve: create market + schedule via shared function
+    const approval = await approveEventRequest(serviceClient, created)
 
-    const { data: market } = await serviceClient
-      .from('markets')
-      .insert({
-        vertical_id: vertical || 'food_trucks',
-        vendor_profile_id: null,
-        name: eventName,
-        market_type: 'event',
-        event_start_date: event_date,
-        event_end_date: event_end_date || event_date,
-        is_private: true,
-        address,
-        city,
-        state,
-        zip: zip || null,
-        headcount: parseInt(headcount),
-        cutoff_hours: 48,
-        status: 'active',
-        catering_request_id: created.id,
-      })
-      .select('id')
-      .single()
-
-    if (market) {
-      // Create schedule
-      await serviceClient.from('market_schedules').insert({
-        market_id: market.id,
-        day_of_week: dayOfWeek,
-        start_time: event_start_time || '11:00:00',
-        end_time: event_end_time || '14:00:00',
-        active: true,
-      })
-
-      // Link market to catering request
-      await serviceClient
-        .from('catering_requests')
-        .update({ market_id: market.id })
-        .eq('id', created.id)
+    if (!approval.success) {
+      console.error('[admin/events] Approval failed:', approval.error)
+      return NextResponse.json({ error: approval.error || 'Failed to create event market' }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, request: { ...created, market_id: market?.id || null } })
+    // Update catering request with token, market_id, and approved status
+    await serviceClient
+      .from('catering_requests')
+      .update({
+        status: 'approved',
+        event_token: approval.event_token,
+        market_id: approval.market_id,
+      })
+      .eq('id', created.id)
+
+    return NextResponse.json({ success: true, request: { ...created, market_id: approval.market_id, event_token: approval.event_token, status: 'approved' } })
   })
 }

@@ -2061,6 +2061,8 @@ export async function GET(request: NextRequest) {
           const senderName = isFM ? 'Farmers Marketing' : "Food Truck'n"
           const senderDomain = isFM ? 'mail.farmersmarketing.app' : 'mail.foodtruckn.app'
           const accentColor = isFM ? '#2d5016' : '#ff5757'
+          const vendorNoun = isFM ? 'vendor' : 'food truck'
+          const vendorNounPlural = isFM ? 'vendors' : 'food trucks'
           const { getAppUrl } = await import('@/lib/environment')
           const selectUrl = event.event_token
             ? `${getAppUrl(event.vertical_id)}/${event.vertical_id}/events/${event.event_token}/select`
@@ -2078,13 +2080,13 @@ export async function GET(request: NextRequest) {
                   <td style="padding:8px 12px;border-bottom:1px solid #eee">${v.leadTime <= 15 ? '15 min ⚡' : '30 min'}</td>
                 </tr>
               `).join('')
-              : '<tr><td colspan="3" style="padding:12px;color:#6b7280">No vendors responded to your event. Consider broadening your criteria and trying again.</td></tr>'
+              : `<tr><td colspan="3" style="padding:12px;color:#6b7280">No ${vendorNounPlural} responded to your event. Consider broadening your criteria and trying again.</td></tr>`
 
             await resend.emails.send({
               from: `${senderName} <updates@${senderDomain}>`,
               to: event.contact_email,
               subject: accepted.length > 0
-                ? `${accepted.length} food truck${accepted.length > 1 ? 's are' : ' is'} interested in your event!`
+                ? `${accepted.length} ${accepted.length > 1 ? vendorNounPlural + ' are' : vendorNoun + ' is'} interested in your event!`
                 : 'Update on your event request',
               html: `
                 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto">
@@ -2092,14 +2094,14 @@ export async function GET(request: NextRequest) {
                   <p style="color:#374151;margin:0 0 16px">Hi ${event.contact_name || 'there'},</p>
                   <p style="color:#4b5563;line-height:1.6;margin:0 0 16px">
                     ${accepted.length > 0
-                      ? `Great news! <strong>${accepted.length}</strong> food truck${accepted.length > 1 ? 's have' : ' has'} expressed interest in your event on <strong>${event.event_date}</strong> in ${event.city}, ${event.state}.`
-                      : `We sent your event details to qualified food trucks, but haven't received responses yet. This can happen with very specific criteria or dates. You're welcome to submit a new request with broader preferences.`
+                      ? `Great news! <strong>${accepted.length}</strong> ${accepted.length > 1 ? vendorNounPlural + ' have' : vendorNoun + ' has'} expressed interest in your event on <strong>${event.event_date}</strong> in ${event.city}, ${event.state}.`
+                      : `We sent your event details to qualified ${vendorNounPlural}, but haven't received responses yet. This can happen with very specific criteria or dates. You're welcome to submit a new request with broader preferences.`
                     }
                   </p>
                   ${accepted.length > 0 ? `
                   <table style="border-collapse:collapse;width:100%;margin:0 0 20px">
                     <tr style="background:#f9fafb">
-                      <th style="padding:8px 12px;text-align:left;font-size:13px;color:#374151">Truck</th>
+                      <th style="padding:8px 12px;text-align:left;font-size:13px;color:#374151">${isFM ? 'Vendor' : 'Truck'}</th>
                       <th style="padding:8px 12px;text-align:left;font-size:13px;color:#374151">Rating</th>
                       <th style="padding:8px 12px;text-align:left;font-size:13px;color:#374151">Service Speed</th>
                     </tr>
@@ -2108,11 +2110,11 @@ export async function GET(request: NextRequest) {
                   ${selectUrl ? `
                   <div style="text-align:center;margin:0 0 24px">
                     <a href="${selectUrl}" style="display:inline-block;padding:14px 28px;background:${accentColor};color:white;text-decoration:none;border-radius:8px;font-weight:600;font-size:16px">
-                      Select Your Trucks
+                      Select Your ${isFM ? 'Vendors' : 'Trucks'}
                     </a>
                   </div>
                   <p style="color:#6b7280;font-size:13px;margin:0 0 16px">
-                    Click above to review truck details, menus, and make your final selections.
+                    Click above to review ${vendorNoun} details, ${isFM ? 'products' : 'menus'}, and make your final selections.
                   </p>
                   ` : ''}
                   ` : ''}
@@ -2211,9 +2213,12 @@ export async function GET(request: NextRequest) {
     }
 
     // ─── Phase 14: Auto-transition ready → active on event day ─────────
+    // Use CT (America/Chicago) for date comparison — matches SQL function's approach
+    // and the primary timezone where events operate. Prevents UTC midnight edge cases.
     let eventsActivated = 0
     try {
-      const todayStr = new Date().toISOString().split('T')[0]
+      const todayCT = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }))
+      const todayStr = `${todayCT.getFullYear()}-${String(todayCT.getMonth() + 1).padStart(2, '0')}-${String(todayCT.getDate()).padStart(2, '0')}`
 
       const { data: readyEvents } = await supabase
         .from('catering_requests')
@@ -2223,12 +2228,13 @@ export async function GET(request: NextRequest) {
 
       if (readyEvents && readyEvents.length > 0) {
         for (const event of readyEvents) {
-          await supabase
+          const { data: updated } = await supabase
             .from('catering_requests')
             .update({ status: 'active' })
             .eq('id', event.id)
-            .eq('status', 'ready') // Prevent race condition
-          eventsActivated++
+            .eq('status', 'ready')
+            .select('id')
+          if (updated && updated.length > 0) eventsActivated++
         }
       }
     } catch (phase14Error) {
@@ -2238,7 +2244,8 @@ export async function GET(request: NextRequest) {
     // ─── Phase 15: Auto-transition active → review after event ends ──────
     let eventsToReview = 0
     try {
-      const todayStr = new Date().toISOString().split('T')[0]
+      const todayCT = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }))
+      const todayStr = `${todayCT.getFullYear()}-${String(todayCT.getMonth() + 1).padStart(2, '0')}-${String(todayCT.getDate()).padStart(2, '0')}`
 
       // event_end_date < today means the event has fully ended
       const { data: endedEvents } = await supabase
@@ -2250,12 +2257,13 @@ export async function GET(request: NextRequest) {
         for (const event of endedEvents) {
           const endDate = event.event_end_date || event.event_date
           if (endDate && endDate < todayStr) {
-            await supabase
+            const { data: updated } = await supabase
               .from('catering_requests')
               .update({ status: 'review' })
               .eq('id', event.id)
-              .eq('status', 'active') // Prevent race condition
-            eventsToReview++
+              .eq('status', 'active')
+              .select('id')
+            if (updated && updated.length > 0) eventsToReview++
           }
         }
       }

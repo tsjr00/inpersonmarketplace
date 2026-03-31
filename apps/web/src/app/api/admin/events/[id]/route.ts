@@ -9,6 +9,7 @@ import {
 } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications/service'
+import { approveEventRequest } from '@/lib/events/event-actions'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -108,69 +109,19 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (status) updates.status = status
     if (admin_notes !== undefined) updates.admin_notes = admin_notes
 
-    // On APPROVE: generate event token + auto-create event market
+    // On APPROVE: create event market + schedule via shared function
     if (status === 'approved' && cateringReq.status !== 'approved') {
-      // Generate unique event token for shareable URL
-      const tokenBase = cateringReq.company_name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '')
-        .slice(0, 30)
-      const tokenSuffix = Date.now().toString(36).slice(-6)
-      updates.event_token = `${tokenBase}-${tokenSuffix}`
-      // Create event market
-      const eventSuffix = cateringReq.vertical_id === 'farmers_market' ? 'Pop-Up Market' : 'Private Event'
-      const eventName = `${cateringReq.company_name} ${eventSuffix}`
-      const { data: market, error: marketError } = await serviceClient
-        .from('markets')
-        .insert({
-          vertical_id: cateringReq.vertical_id,
-          vendor_profile_id: null,
-          name: eventName,
-          market_type: 'event',
-          address: cateringReq.address,
-          city: cateringReq.city,
-          state: cateringReq.state,
-          zip: cateringReq.zip,
-          event_start_date: cateringReq.event_date,
-          event_end_date:
-            cateringReq.event_end_date || cateringReq.event_date,
-          cutoff_hours: 48,
-          status: 'active',
-          active: true,
-          approval_status: 'approved',
-          catering_request_id: cateringReq.id,
-          headcount: cateringReq.headcount,
-          is_private: true,
-        })
-        .select('id')
-        .single()
+      const approval = await approveEventRequest(serviceClient, cateringReq)
 
-      if (marketError) {
-        console.error(
-          '[admin/catering] Failed to create event market:',
-          marketError
-        )
+      if (!approval.success) {
         return NextResponse.json(
-          { error: 'Failed to create event market' },
+          { error: approval.error || 'Failed to create event market' },
           { status: 500 }
         )
       }
 
-      // Create a schedule entry for the event day
-      const eventDate = new Date(cateringReq.event_date + 'T00:00:00')
-      const dayOfWeek = eventDate.getUTCDay()
-
-      await serviceClient.from('market_schedules').insert({
-        market_id: market.id,
-        day_of_week: dayOfWeek,
-        start_time: cateringReq.event_start_time || '11:00:00',
-        end_time: cateringReq.event_end_time || '14:00:00',
-        active: true,
-      })
-
-      // Link catering request to the created market
-      updates.market_id = market.id
+      updates.event_token = approval.event_token
+      updates.market_id = approval.market_id
     }
 
     if (Object.keys(updates).length === 0) {
@@ -216,6 +167,22 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         eventPageUrl,
         updated.vertical_id
       ).catch(err => console.error('[admin/catering] Event confirmed email error:', err))
+    }
+
+    // On CANCELLED or DECLINED: clean up listing_markets rows (same as completed cleanup)
+    if ((status === 'cancelled' || status === 'declined') && cateringReq.market_id) {
+      const { data: eventListings } = await serviceClient
+        .from('event_vendor_listings')
+        .select('listing_id')
+        .eq('market_id', cateringReq.market_id)
+      if (eventListings && eventListings.length > 0) {
+        const listingIds = eventListings.map(el => el.listing_id as string)
+        await serviceClient
+          .from('listing_markets')
+          .delete()
+          .eq('market_id', cateringReq.market_id)
+          .in('listing_id', listingIds)
+      }
     }
 
     // On COMPLETED: check for unfulfilled orders, then send feedback + settlement
