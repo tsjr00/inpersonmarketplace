@@ -1,4 +1,4 @@
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
@@ -176,70 +176,6 @@ async function handleListingAdd(
     const timeParts = (preferredPickupTime as string).split(':').map(Number)
     if (timeParts.length < 2 || isNaN(timeParts[0]) || isNaN(timeParts[1]) || (timeParts[1] % 15 !== 0)) {
       throw traced.validation('ERR_CART_009', 'Invalid pickup time slot')
-    }
-  }
-
-  // Event order cap enforcement — check vendor hasn't exceeded their event commitment
-  crumb.logic('Checking event order caps', { marketId })
-  const serviceClient = createServiceClient()
-  const { data: marketData } = await serviceClient
-    .from('markets')
-    .select('market_type')
-    .eq('id', marketId)
-    .single()
-
-  if (marketData?.market_type === 'event') {
-    // Get the vendor for this listing
-    const { data: listingVendor } = await serviceClient
-      .from('listings')
-      .select('vendor_profile_id')
-      .eq('id', listingId)
-      .single()
-
-    if (listingVendor?.vendor_profile_id) {
-      // Get vendor's event cap from market_vendors
-      const { data: mvCap } = await serviceClient
-        .from('market_vendors')
-        .select('event_max_orders_total, event_max_orders_per_wave')
-        .eq('market_id', marketId)
-        .eq('vendor_profile_id', listingVendor.vendor_profile_id)
-        .eq('response_status', 'accepted')
-        .single()
-
-      if (mvCap?.event_max_orders_total) {
-        // Count existing order_items for this vendor at this event (exclude cancelled)
-        const { count: totalOrders } = await serviceClient
-          .from('order_items')
-          .select('id', { count: 'exact', head: true })
-          .eq('market_id', marketId)
-          .eq('vendor_profile_id', listingVendor.vendor_profile_id)
-          .not('status', 'in', '("cancelled")')
-
-        if ((totalOrders || 0) + (quantity as number) > mvCap.event_max_orders_total) {
-          throw traced.validation('ERR_CART_010',
-            'This vendor has reached their order capacity for this event. They cannot accept more pre-orders.',
-            { additionalContext: { marketId, vendorId: listingVendor.vendor_profile_id, cap: mvCap.event_max_orders_total, current: totalOrders } }
-          )
-        }
-
-        // FT: also check per-wave cap using preferred_pickup_time
-        if (vertical === 'food_trucks' && mvCap.event_max_orders_per_wave && preferredPickupTime) {
-          const { count: waveOrders } = await serviceClient
-            .from('order_items')
-            .select('id', { count: 'exact', head: true })
-            .eq('market_id', marketId)
-            .eq('vendor_profile_id', listingVendor.vendor_profile_id)
-            .eq('preferred_pickup_time', preferredPickupTime)
-            .not('status', 'in', '("cancelled")')
-
-          if ((waveOrders || 0) + (quantity as number) > mvCap.event_max_orders_per_wave) {
-            throw traced.validation('ERR_CART_011',
-              'This time slot is full for this vendor. Please select a different pickup time.',
-              { additionalContext: { marketId, vendorId: listingVendor.vendor_profile_id, waveCap: mvCap.event_max_orders_per_wave, current: waveOrders, time: preferredPickupTime } }
-            )
-          }
-        }
-      }
     }
   }
 
