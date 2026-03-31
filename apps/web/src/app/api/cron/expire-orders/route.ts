@@ -2209,6 +2209,59 @@ export async function GET(request: NextRequest) {
       console.error('Phase 13 error:', phase13Error instanceof Error ? phase13Error.message : 'Unknown error')
     }
 
+    // ─── Phase 14: Auto-transition ready → active on event day ─────────
+    let eventsActivated = 0
+    try {
+      const todayStr = new Date().toISOString().split('T')[0]
+
+      const { data: readyEvents } = await supabase
+        .from('catering_requests')
+        .select('id, event_date, market_id')
+        .eq('status', 'ready')
+        .lte('event_date', todayStr)
+
+      if (readyEvents && readyEvents.length > 0) {
+        for (const event of readyEvents) {
+          await supabase
+            .from('catering_requests')
+            .update({ status: 'active' })
+            .eq('id', event.id)
+            .eq('status', 'ready') // Prevent race condition
+          eventsActivated++
+        }
+      }
+    } catch (phase14Error) {
+      console.error('Phase 14 error:', phase14Error instanceof Error ? phase14Error.message : 'Unknown error')
+    }
+
+    // ─── Phase 15: Auto-transition active → review after event ends ──────
+    let eventsToReview = 0
+    try {
+      const todayStr = new Date().toISOString().split('T')[0]
+
+      // event_end_date < today means the event has fully ended
+      const { data: endedEvents } = await supabase
+        .from('catering_requests')
+        .select('id, event_end_date, event_date')
+        .eq('status', 'active')
+
+      if (endedEvents && endedEvents.length > 0) {
+        for (const event of endedEvents) {
+          const endDate = event.event_end_date || event.event_date
+          if (endDate && endDate < todayStr) {
+            await supabase
+              .from('catering_requests')
+              .update({ status: 'review' })
+              .eq('id', event.id)
+              .eq('status', 'active') // Prevent race condition
+            eventsToReview++
+          }
+        }
+      }
+    } catch (phase15Error) {
+      console.error('Phase 15 error:', phase15Error instanceof Error ? phase15Error.message : 'Unknown error')
+    }
+
     return NextResponse.json({
       success: true,
       message: `Processed ${totalProcessed} items`,
@@ -2226,6 +2279,8 @@ export async function GET(request: NextRequest) {
       eventReminders,
       selfServiceResultsSent,
       eventGapAlerts,
+      eventsActivated,
+      eventsToReview,
     })
   })
 }
