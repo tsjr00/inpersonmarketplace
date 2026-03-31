@@ -1,86 +1,74 @@
-# Current Task: Event System — End-to-End Shopping Flow
-Started: 2026-03-30 (Session 66)
+# Current Task: Audit Remediation — Batched Implementation
+Started: 2026-03-31 (Session 66 continued)
 
-## Status: WORKING — Cart + checkout flow verified on prod
+## Status: Batch 1 COMPLETE — Batches 2-5 remaining
 
-### What Was Accomplished This Session
+### Batch Progress
 
-**Cart validation fix (BLOCKER RESOLVED):**
-- Root cause: `get_available_pickup_dates()` generates dates via `generate_series(0, 7)` — 8-day window. Events >7 days away were excluded.
-- Fix: Migration 105 adds UNION to `date_series` CTE for event date ranges. Verified on prod: `validate_cart_item_schedule` returns TRUE, items add to cart correctly.
-- Rollback file: `supabase/migrations/ROLLBACK_105.sql` (verified against prod function source)
+| Batch | Status | Items | Focus |
+|-------|--------|-------|-------|
+| **1** | COMPLETE (committed, on staging) | C-1, C-2, C-3, C-4, M-2, M-3, M-4, L-1, L-2, L-3 | Data fixes, dedup, atomic threshold, children safety |
+| **2** | NOT STARTED | C-5+H-1, H-2 | Root cause refactor (approval duplication) + timezone |
+| **3** | NOT STARTED | H-4, H-5, H-6 | Language + privacy (FT→vertical-aware nouns, privacy model) |
+| **4** | NOT STARTED | H-7, H-8, M-13 | Query optimization (N+1), price filtering, vendor status check |
+| **5** | NOT STARTED | M-1, M-5, M-6, M-7, M-8, M-10, M-11, M-14, H-3, L-4, L-5, L-6 | UX + safety remaining items |
 
-**Event pages moved under [vertical] layout:**
-- `/events/[token]/*` → `/[vertical]/events/[token]/*`
-- Shop page rewritten to use `useCart()` from CartProvider (was using disconnected local state)
-- Fixes: sticky cart bar shows real server cart, "X in cart" per listing, correct item counts, "Checkout" label
-- URL references updated in 7 backend locations + middleware
+### Key Documents
+- **Audit report:** `.claude/session66_code_audit.md` — 34 findings (original audit)
+- **Audit response:** `.claude/audit_response_session66.md` — user-approved fixes with proposals for each item
+- **Day-of sales analysis:** `.claude/day_of_event_sales_analysis.md` — research on same-day event ordering (no code changes)
 
-**Event vendor order capacity caps (Migration 106):**
-- `event_max_orders_total` and `event_max_orders_per_wave` columns on `market_vendors`
-- Vendor acceptance UI: FM gets total field, FT gets wave-aware calculator with profile default
-- FT vendors missing event readiness data see error message, can't accept until profile updated
-- Cart enforcement REVERTED — was added to cart/items/route.ts and broke cart. Must be reimplemented via separate endpoint.
+### Batch 2 Plan (C-5+H-1 + H-2)
 
-**Event lifecycle automation (Cron Phases 14-15):**
-- Phase 14: `ready` → `active` on `event_start_date`
-- Phase 15: `active` → `review` after `event_end_date`
-- Admin can manually override both transitions
+**C-5+H-1: Root cause refactor**
+Three files duplicate event approval logic (token gen + market creation + schedule creation):
+1. `event-actions.ts:approveEventRequest()` (lines 65-129) — shared function
+2. `admin/events/[id]/route.ts` (lines 112-173) — DUPLICATES shared function
+3. `admin/events/route.ts` (lines 289-331) — ALSO DUPLICATES
 
-**Unfulfilled order check:**
-- When admin marks event `completed`, checks for non-fulfilled/completed/cancelled orders
-- Notifies affected vendors with count
-- Does not block transition — logs warning
+Fix:
+1. Add error handling to schedule insert in `event-actions.ts`
+2. Replace 62-line block in `admin/events/[id]/route.ts` with call to `approveEventRequest()`
+3. Replace 42-line block in `admin/events/route.ts` with same call
+4. Result: bug fixed once, applies everywhere
 
-**UX fixes:**
-- Cross-sell suppressed for event orders in checkout
-- "Continue Shopping" hidden in cart drawer for event orders
-- Event info page footer now vertical-aware (was hardcoded "Food Truck'n")
+**H-2: Timezone standardization**
+4 files use inconsistent timezone patterns:
+- `event-requests/route.ts:99` — local time
+- `cancel/route.ts:101` — mixed local/UTC (L-3 null check done in Batch 1)
+- `admin/events/[id]/route.ts:161` — local parse, UTC day
+- `expire-orders/route.ts` Phases 14-15 — UTC
+Fix: use UTC consistently or market timezone where available
 
-### Session 66 Incident: Cart API Broken in Production
+### Batch 3 Plan (H-4, H-5, H-6)
+8 locations with FT-specific language in FM events. Pattern: add `vendorNoun`/`vendorNounPlural` per `isFM`. Privacy model: default to 'Private Event' for all vendor-facing notifications.
 
-Event order cap enforcement code was added to `cart/items/route.ts` without explicitly flagging this as a critical-path file modification. The additional queries broke the cart — items were not saved to `cart_items` despite success messages in the UI. Discovered by user on prod.
+### Batch 4 Plan (H-7, H-8, M-13)
+H-7: Rewrite event info page to use batch queries (copy shop API pattern). Save vault state first for rollback.
+H-8: Server-side price filtering in shop API based on auth check.
+M-13: Add `.eq('status', 'approved').is('deleted_at', null)` to shop API vendor query.
 
-**Response:** Immediate revert from verified pre-session source. Cart restored.
+### Batch 5 Plan (remaining medium/low)
+M-1: useRef guard on add-to-cart (same pattern as checkout). M-5: FK constraint migration. M-6: Vertical config for item caps. M-7: Use event name in notification. M-8: Atomic update on select submission. M-10: listing_markets cleanup on cancelled/declined. M-11: Verify cron update succeeded. M-14: Future date validation on repeat. H-3: Clarifying label on settlement. L-4: Simplify message body parsing. L-5: Token format check. L-6: Differentiated error messages.
 
-**New safeguard:** `.claude/rules/critical-path-files.md` — 13 protected files listed. Mechanical gate: must name exact file path + state risk + show diff + get file-specific approval. Design approval ≠ file approval.
+### Session 66 Commits (so far)
+1. `8a4aa6c` — feat: event cart fix + vendor order capacity caps
+2. `240bc72` — revert: remove event cap enforcement from cart API
+3. `0fe2ff7` — refactor: move event pages under [vertical]
+4. `ac3117e` — fix: lint errors in moved event pages
+5. `438c6be` — fix: hide "Continue Shopping" for events
+6. `8e0577a` — feat: auto-transition event lifecycle
+7. `1fe5ea6` — docs: session 66 progress
+8. `36f1597` — docs: session 66 summary
+9. `e83a4ed` — fix: audit batch 1 (12 items)
 
-**Pending:** Cap enforcement needs reimplementation via a separate validation endpoint (not inside cart/items/route.ts).
+### Migrations Applied (Session 66)
+- `20260330_105_event_date_range_in_pickup_dates.sql` — all 3 envs
+- `20260330_106_event_vendor_order_caps.sql` — all 3 envs
 
-### Files Changed This Session
-- `apps/web/src/app/[vertical]/events/[token]/page.tsx` — MOVED from /events/, params updated, footer vertical-aware
-- `apps/web/src/app/[vertical]/events/[token]/shop/page.tsx` — REWRITTEN: useCart() instead of local state
-- `apps/web/src/app/[vertical]/events/[token]/select/page.tsx` — MOVED from /events/, lint fixes
-- `apps/web/src/app/api/events/[token]/shop/route.ts` — unchanged (API stays)
-- `apps/web/src/app/api/events/[token]/select/route.ts` — URL updated to include vertical
-- `apps/web/src/app/api/admin/events/[id]/route.ts` — URL updated + unfulfilled order check on completed
-- `apps/web/src/app/api/vendor/events/[marketId]/respond/route.ts` — capacity fields + URL update
-- `apps/web/src/app/api/vendor/events/[marketId]/route.ts` — returns profile capacity data
-- `apps/web/src/app/api/cron/expire-orders/route.ts` — Phases 14 + 15 + URL update
-- `apps/web/src/app/[vertical]/vendor/events/[marketId]/page.tsx` — capacity UI (FM + FT)
-- `apps/web/src/app/[vertical]/admin/events/page.tsx` — URL updated for event link
-- `apps/web/src/app/[vertical]/checkout/page.tsx` — cross-sell suppressed for events
-- `apps/web/src/components/cart/CartDrawer.tsx` — "Continue Shopping" hidden for events
-- `apps/web/src/lib/notifications/types.ts` — event feedback URL updated
-- `apps/web/src/middleware.ts` — removed 'events' from NON_VERTICAL_PREFIXES
-- `apps/web/.claude/rules/critical-path-files.md` — NEW: protected file list
-
-### Migrations Applied (All 3 Environments)
-- `20260330_105_event_date_range_in_pickup_dates.sql` — event dates in pickup function
-- `20260330_106_event_vendor_order_caps.sql` — capacity columns on market_vendors
-
-### Key Test Data
-- Event shop URL: `https://farmersmarketing.app/farmers_market/events/chef-prep-caapg2/shop`
-- Market ID: `6e328bc0-2704-49b9-a790-6984a26b1a6d`
-- Schedule ID: `c8a55720-fc01-42b7-b546-d520622f6392`
-- Event date: 2026-04-11
-
-### Backlog Additions from This Session
-- Event order cap enforcement via separate endpoint (NOT in cart/items/route.ts)
-- Event capacity alert for unlimited-inventory vendors
-- Schema snapshot refresh (market_vendors table stale)
-- Admin PATCH duplicates approval logic (should call shared function)
-- Phase 11 cron hardcodes `vertical: 'food_trucks'`
-- Phase 12 cron email FT language for all verticals
-- Public event page N+1 vendor queries
-- Event organizer "My Events" dashboard card (carried from session 65)
+### Critical Reminders for Next Session
+- **Cart API (`cart/items/route.ts`) is a PROTECTED FILE** — see `.claude/rules/critical-path-files.md`
+- Event order cap enforcement was REVERTED from cart API — needs reimplementation via separate endpoint
+- Batch 1 is on staging but NOT pushed to prod yet — needs user verification first
+- Dev environment missing event columns (migration 039 never applied to dev)
+- The `vendor_quality_findings` table is used in Batch 1 (M-4) — verify it exists on all envs
