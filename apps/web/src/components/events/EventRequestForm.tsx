@@ -51,6 +51,9 @@ interface FormData {
   theme_description: string
   estimated_spend_per_attendee: string
   preferred_vendor_categories: string[]
+  cutoff_hours: string
+  event_allow_day_of_orders: boolean
+  vendor_stay_policy: string
 }
 
 function getServiceLevels(vertical: string) {
@@ -227,6 +230,9 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
     is_recurring: false,
     recurring_frequency: '',
     service_level: 'self_service',
+    cutoff_hours: '24',
+    event_allow_day_of_orders: true,
+    vendor_stay_policy: 'vendor_discretion',
   })
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -314,6 +320,9 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
           is_recurring: form.is_recurring,
           recurring_frequency: form.is_recurring ? form.recurring_frequency || null : null,
           service_level: form.service_level || 'self_service',
+          cutoff_hours: form.cutoff_hours || '24',
+          event_allow_day_of_orders: form.event_allow_day_of_orders,
+          vendor_stay_policy: form.vendor_stay_policy || null,
           vendor_preferences: selectedVendors.length > 0
             ? selectedVendors.map((v, i) => ({ vendor_id: v.id, priority: i + 1 }))
             : null,
@@ -1085,6 +1094,83 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
                 style={{ ...inputStyle, marginLeft: 28 }}
               />
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* Section: Event Operations */}
+      <div style={sectionStyle}>
+        <h3 style={sectionTitleStyle}>Event Operations</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+
+          {/* Pre-order cutoff */}
+          <div>
+            <label style={labelStyle}>Pre-order cutoff (hours before event starts)</label>
+            <select
+              value={form.cutoff_hours}
+              onChange={(e) => updateField('cutoff_hours', e.target.value)}
+              style={inputStyle}
+            >
+              <option value="12">12 hours</option>
+              <option value="24">24 hours (recommended)</option>
+              <option value="48">48 hours (2 days)</option>
+              <option value="72">72 hours (3 days)</option>
+              <option value="168">168 hours (1 week)</option>
+            </select>
+            <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: statusColors.neutral500 }}>
+              Pre-orders will close this many hours before the event begins. Vendors use this time to prepare.
+            </p>
+          </div>
+
+          {/* Day-of ordering */}
+          <label style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, fontSize: typography.sizes.sm, color: statusColors.neutral700, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={form.event_allow_day_of_orders}
+              onChange={(e) => setForm(prev => ({ ...prev, event_allow_day_of_orders: e.target.checked }))}
+            />
+            Allow attendees to order during the event
+          </label>
+          <p style={{ margin: `-${spacing['2xs']} 0 0 28px`, fontSize: typography.sizes.xs, color: statusColors.neutral500 }}>
+            When enabled, attendees can browse menus and order from their phone while at the event. Orders are accepted until the event ends. Great for festivals, markets, and large gatherings.
+          </p>
+
+          {/* Vendor stay policy */}
+          <div>
+            <label style={labelStyle}>Vendor departure policy</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+              {[
+                { value: 'vendor_discretion', label: 'Vendor discretion', desc: 'Vendors decide when to leave based on demand' },
+                { value: 'may_leave_when_sold_out', label: 'May leave when sold out', desc: 'Vendors can leave once their inventory is gone' },
+                { value: 'stay_full_event', label: 'Stay for the full event', desc: 'Vendors should remain for the entire event duration' },
+              ].map(opt => (
+                <label key={opt.value} style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: spacing.xs,
+                  fontSize: typography.sizes.sm,
+                  color: statusColors.neutral700,
+                  cursor: 'pointer',
+                  padding: `${spacing['3xs']} 0`,
+                }}>
+                  <input
+                    type="radio"
+                    name="vendor_stay_policy"
+                    value={opt.value}
+                    checked={form.vendor_stay_policy === opt.value}
+                    onChange={(e) => updateField('vendor_stay_policy', e.target.value)}
+                    style={{ marginTop: 2 }}
+                  />
+                  <div>
+                    <strong>{opt.label}</strong>
+                    <div style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500 }}>{opt.desc}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
+            <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: statusColors.neutral500 }}>
+              This will be shared with vendors when they receive their invitation.
+            </p>
           </div>
         </div>
       </div>

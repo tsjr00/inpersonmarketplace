@@ -52,6 +52,7 @@ interface CateringRequest {
   has_competing_vendors: boolean
   estimated_spend_per_attendee_cents: number | null
   preferred_vendor_categories: string[] | null
+  vendor_stay_policy: string | null
   created_at: string
 }
 
@@ -1088,6 +1089,11 @@ export default function AdminCateringPage() {
                   {selected.children_present && <DetailRow label="Children Present" value="Yes" />}
                   {selected.is_themed && <DetailRow label="Themed Event" value={selected.theme_description || 'Yes (no theme specified)'} />}
                   {selected.has_competing_vendors && <DetailRow label="Competing Vendors" value={selected.competing_food_options || 'Yes (no details)'} />}
+                  {selected.vendor_stay_policy && <DetailRow label="Vendor Stay Policy" value={
+                    selected.vendor_stay_policy === 'may_leave_when_sold_out' ? 'May leave when sold out'
+                    : selected.vendor_stay_policy === 'stay_full_event' ? 'Stay for full event'
+                    : 'Vendor discretion'
+                  } />}
                 </Section>
               )}
 
