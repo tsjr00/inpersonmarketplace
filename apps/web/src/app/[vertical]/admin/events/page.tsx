@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import AdminNav from '@/components/admin/AdminNav'
 import Link from 'next/link'
 import { spacing, typography, radius, statusColors, sizing } from '@/lib/design-tokens'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { term } from '@/lib/vertical/terminology'
 import { calculateViability, scoreVendorMatch, type EventScoreInput, type ScoreLevel, type VendorMatchInput } from '@/lib/events/viability'
 
@@ -145,6 +146,8 @@ export default function AdminCateringPage() {
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>('all')
+
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
 
   // Pending event applications
   const [pendingApplications, setPendingApplications] = useState<Array<{
@@ -817,7 +820,32 @@ export default function AdminCateringPage() {
                       Mark Complete
                     </button>
                   )}
+
+                  {/* Cancel Event — available from any non-terminal status */}
+                  {selected.status && !['completed', 'cancelled', 'declined'].includes(selected.status) && (
+                    <button
+                      onClick={() => setShowCancelConfirm(true)}
+                      style={{ ...sizing.control, backgroundColor: statusColors.dangerLight, color: statusColors.danger, border: `1px solid ${statusColors.dangerBorder}`, cursor: 'pointer' }}
+                    >
+                      Cancel Event
+                    </button>
+                  )}
                 </div>
+
+                {/* Cancel confirmation dialog */}
+                <ConfirmDialog
+                  open={showCancelConfirm}
+                  title="Cancel Event"
+                  message={`Are you sure you want to cancel "${selected.company_name}"? This will clean up vendor listings and notify affected vendors. This action cannot be easily undone.`}
+                  confirmLabel="Cancel Event"
+                  cancelLabel="Keep Event"
+                  variant="danger"
+                  onConfirm={() => {
+                    setShowCancelConfirm(false)
+                    updateStatus(selected.id, 'cancelled')
+                  }}
+                  onCancel={() => setShowCancelConfirm(false)}
+                />
               </div>
 
               {/* Contact info */}
