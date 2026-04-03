@@ -250,8 +250,8 @@ export function LocationEntry({ vertical, initialCity, onLocationSet, locale }: 
             justifyContent: 'center',
             gap: '6px',
             padding: `${spacing.xs} ${spacing.sm}`,
-            backgroundColor: colors.primary,
-            color: colors.textInverse,
+            backgroundColor: isFM ? '#FF6B6B' : colors.primary,
+            color: isFM ? '#ffffff' : colors.textInverse,
             border: '2px solid transparent',
             borderRadius: radius.full,
             fontSize: typography.sizes.sm,
@@ -265,11 +265,11 @@ export function LocationEntry({ vertical, initialCity, onLocationSet, locale }: 
             whiteSpace: 'nowrap',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = colors.primaryDark
+            e.currentTarget.style.backgroundColor = isFM ? '#e85d5d' : colors.primaryDark
             e.currentTarget.style.transform = 'translateY(-1px)'
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = colors.primary
+            e.currentTarget.style.backgroundColor = isFM ? '#FF6B6B' : colors.primary
             e.currentTarget.style.transform = 'translateY(0)'
           }}
         >

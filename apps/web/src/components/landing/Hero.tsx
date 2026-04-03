@@ -8,6 +8,7 @@ import { spacing, typography, radius, containers, getVerticalColors } from '@/li
 import { term, getContent } from '@/lib/vertical'
 import { t } from '@/lib/locale/messages'
 import { LocationEntry } from './LocationEntry'
+import { DottedSeparator } from './DottedSeparator'
 
 // FM landing page watermelon palette (not in design-tokens — landing-only)
 const FM_WATERMELON = '#FF6B6B'
@@ -52,6 +53,9 @@ export function Hero({ vertical, initialCity, stats, locale }: HeroProps) {
   ] : []
 
   // FM: Watermelon hero — logo on watermelon bg, then white section with headline + zip + description
+  // Logo dark green sampled from FM logo circle: ~#558B2F
+  const FM_LOGO_GREEN = '#558B2F'
+
   if (isFM) {
     return (
       <section>
@@ -75,51 +79,59 @@ export function Hero({ vertical, initialCity, stats, locale }: HeroProps) {
           />
         </div>
 
-        {/* White section with headline, zip search, description */}
-        <div
-          style={{
-            backgroundColor: '#ffffff',
-            paddingTop: spacing.xl,
-            paddingBottom: spacing.xl,
-          }}
-        >
+        {/* White section: dotted line → headline → dotted line → zip + description */}
+        <div style={{ backgroundColor: '#ffffff' }}>
+          {/* Dotted line immediately below watermelon banner */}
+          <div style={{ paddingTop: spacing.xs }}>
+            <DottedSeparator color="#4CAF50" />
+          </div>
+
+          {/* Headline with equal padding above and below */}
           <div className="landing-container text-center">
-            <div>
-              {/* Headline */}
-              <h1
-                style={{
-                  fontSize: typography.sizes['3xl'],
-                  fontWeight: typography.weights.bold,
-                  lineHeight: typography.leading.tight,
-                  color: '#4CAF50',
-                  marginBottom: spacing.md,
-                }}
-              >
-                {hero.headline_line1}{' '}
-                {hero.headline_line2}
-              </h1>
+            <h1
+              style={{
+                fontSize: typography.sizes['3xl'],
+                fontWeight: typography.weights.bold,
+                lineHeight: typography.leading.tight,
+                color: FM_LOGO_GREEN,
+                paddingTop: spacing.md,
+                paddingBottom: spacing.md,
+                margin: 0,
+              }}
+            >
+              {hero.headline_line1}{' '}
+              {hero.headline_line2}
+            </h1>
+          </div>
 
-              {/* Location Entry */}
-              <LocationEntry
-                vertical={vertical}
-                initialCity={initialCity}
-                onLocationSet={setUserZipCode}
-                locale={locale}
-              />
+          {/* Dotted line below headline */}
+          <DottedSeparator color="#4CAF50" />
 
-              {/* Description */}
-              <p
-                style={{
-                  fontSize: typography.sizes.base,
-                  lineHeight: typography.leading.relaxed,
-                  color: '#4CAF50',
-                  marginTop: spacing.sm,
-                  textAlign: 'left',
-                }}
-              >
-                {hero.subtitle}
-              </p>
-            </div>
+          {/* Zip search + description */}
+          <div
+            className="landing-container text-center"
+            style={{ paddingTop: spacing.md, paddingBottom: spacing.lg }}
+          >
+            {/* Location Entry */}
+            <LocationEntry
+              vertical={vertical}
+              initialCity={initialCity}
+              onLocationSet={setUserZipCode}
+              locale={locale}
+            />
+
+            {/* Description */}
+            <p
+              style={{
+                fontSize: typography.sizes.base,
+                lineHeight: typography.leading.relaxed,
+                color: FM_LOGO_GREEN,
+                marginTop: spacing.sm,
+                textAlign: 'left',
+              }}
+            >
+              {hero.subtitle}
+            </p>
           </div>
         </div>
       </section>
