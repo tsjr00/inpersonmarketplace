@@ -29,7 +29,7 @@ export async function GET(
         booth_number,
         notes,
         created_at,
-        vendor_profiles(
+        vendor_profiles!market_vendors_vendor_profile_id_fkey(
           id,
           profile_data,
           status,

@@ -57,7 +57,7 @@ export async function PATCH(
       .eq('market_id', marketId)
       .select(`
         *,
-        vendor_profiles(
+        vendor_profiles!market_vendors_vendor_profile_id_fkey(
           id,
           profile_data,
           user_id
@@ -124,7 +124,7 @@ export async function DELETE(
       .from('market_vendors')
       .select(`
         id,
-        vendor_profiles(user_id)
+        vendor_profiles!market_vendors_vendor_profile_id_fkey(user_id)
       `)
       .eq('id', vendorId)
       .eq('market_id', marketId)
