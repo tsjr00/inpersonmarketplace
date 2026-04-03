@@ -40,9 +40,25 @@ export default function OrganizerEventActions({ eventId, eventName, eventToken, 
     }
   }
 
-  function handleCancel() {
-    // Organizer cancel sends a notification to admin — full cancel API in future session
-    setCancelResult('To cancel this event, please reply to your event confirmation email or contact support.')
+  async function handleCancel() {
+    if (cancelling || !eventToken) return
+    setCancelling(true)
+    setCancelResult(null)
+    try {
+      const res = await fetch(`/api/events/${eventToken}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setCancelResult('Event cancelled. Vendors have been notified.')
+      } else {
+        setCancelResult(`Error: ${data.error || 'Failed to cancel event'}`)
+      }
+    } catch {
+      setCancelResult('Error: Connection failed. Please try again.')
+    }
+    setCancelling(false)
     setShowCancel(false)
   }
 
