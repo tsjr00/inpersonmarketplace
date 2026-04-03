@@ -9,7 +9,7 @@ import { DottedSeparator } from './DottedSeparator'
 // FM landing page watermelon palette (landing-only)
 const FM_WATERMELON = '#FF6B6B'
 const FM_GREEN_DARK = '#2d5016'
-const FM_GREEN_VIBRANT_BG = '#66BB6A'
+const FM_GREEN_VIBRANT_BG = '#8BC34A'
 
 interface VendorPitchProps {
   vertical: string
