@@ -241,7 +241,7 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
             <section
               style={{
                 backgroundColor: '#ffffff',
-                paddingBottom: spacing.md,
+                paddingBottom: spacing.xs,
               }}
             >
               <Image
@@ -265,7 +265,7 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
                   style={{
                     fontSize: typography.sizes.base,
                     lineHeight: typography.leading.relaxed,
-                    color: '#4CAF50',
+                    color: '#558B2F',
                     textAlign: 'left',
                   }}
                 >
@@ -363,7 +363,7 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
                 style={{
                   fontSize: typography.sizes.base,
                   lineHeight: typography.leading.relaxed,
-                  color: '#4CAF50',
+                  color: '#558B2F',
                   textAlign: 'left',
                 }}
               >

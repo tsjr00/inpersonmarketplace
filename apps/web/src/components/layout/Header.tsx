@@ -117,6 +117,7 @@ export function Header({
         margin: '0 auto',
         padding: `0 ${spacing.sm}`,
         paddingTop: isOnLandingPage ? spacing['2xs'] : 0,
+        paddingBottom: (isOnLandingPage && vertical === 'farmers_market') ? spacing.sm : 0,
       }}>
         <div style={{
           display: 'flex',
