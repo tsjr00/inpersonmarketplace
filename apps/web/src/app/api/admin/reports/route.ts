@@ -850,7 +850,7 @@ async function generateVendorRoster(supabase: ReturnType<typeof createServiceCli
       created_at,
       user_id,
       vertical_id,
-      market_vendors (
+      market_vendors!market_vendors_vendor_profile_id_fkey (
         markets (name)
       ),
       listings (id)
