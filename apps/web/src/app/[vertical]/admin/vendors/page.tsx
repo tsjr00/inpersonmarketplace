@@ -73,7 +73,7 @@ export default async function AdminVendorsPage({ params, searchParams }: AdminVe
       orders_cancelled_after_confirm_count,
       stripe_account_id,
       event_approved,
-      market_vendors (
+      market_vendors!market_vendors_vendor_profile_id_fkey (
         market_id,
         markets (
           name
