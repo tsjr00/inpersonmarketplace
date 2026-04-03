@@ -3,6 +3,9 @@ import { spacing, typography, containers, getVerticalColors } from '@/lib/design
 import { getContent } from '@/lib/vertical'
 import { TrustStatsTagline } from './TrustStatsTagline'
 
+// FM landing page watermelon palette (landing-only)
+const FM_WATERMELON = '#FF6B6B'
+
 interface TrustStatsProps {
   vertical: string
   stats: {
@@ -17,6 +20,7 @@ export function TrustStats({ vertical, stats, locale }: TrustStatsProps) {
   const colors = getVerticalColors(vertical)
   const { trust_stats } = getContent(vertical, locale)
   const isFT = vertical === 'food_trucks'
+  const isFM = vertical === 'farmers_market'
 
   // Don't show stats section if platform has no real data yet
   const hasData = stats.listingCount > 0 || stats.vendorCount > 0 || stats.marketCount > 0
@@ -32,6 +36,95 @@ export function TrustStats({ vertical, stats, locale }: TrustStatsProps) {
     { icon: Users, value: stats.vendorCount, label: trust_stats.vendors_label },
     { icon: Store, value: stats.marketCount, label: trust_stats.markets_label },
   ].filter(s => s.value > 0)
+
+  // FM: Green banner with tagline + watermelon stat circles
+  if (isFM) {
+    return (
+      <section
+        style={{
+          backgroundColor: '#8BC34A',
+          padding: `${spacing.lg} 0`,
+        }}
+      >
+        <div
+          className="w-full"
+          style={{
+            maxWidth: containers.lg,
+            margin: '0 auto',
+            paddingLeft: 'clamp(20px, 5vw, 60px)',
+            paddingRight: 'clamp(20px, 5vw, 60px)',
+          }}
+        >
+          {/* Tagline */}
+          <p
+            className="text-center"
+            style={{
+              fontSize: typography.sizes.base,
+              fontWeight: typography.weights.semibold,
+              color: '#ffffff',
+              marginBottom: spacing.lg,
+            }}
+          >
+            Connecting you with the homemade, handmade, and homegrown products in your area
+          </p>
+
+          {/* Stat circles */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              gap: spacing.xl,
+            }}
+          >
+            {statItems.map((stat, index) => {
+              const Icon = stat.icon
+              return (
+                <div key={index} className="text-center">
+                  <div
+                    className="inline-flex items-center justify-center rounded-full"
+                    style={{
+                      width: 64,
+                      height: 64,
+                      backgroundColor: FM_WATERMELON,
+                      marginBottom: spacing.xs,
+                    }}
+                  >
+                    <Icon style={{
+                      width: 30,
+                      height: 30,
+                      color: '#ffffff',
+                    }} />
+                  </div>
+                  <div
+                    style={{
+                      fontSize: typography.sizes['2xl'],
+                      fontWeight: typography.weights.bold,
+                      color: '#ffffff',
+                      lineHeight: 1,
+                      marginBottom: spacing['3xs'],
+                    }}
+                  >
+                    {stat.value.toLocaleString()}+
+                  </div>
+                  <div
+                    style={{
+                      fontSize: typography.sizes.xs,
+                      color: 'rgba(255,255,255,0.9)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      fontWeight: typography.weights.medium,
+                    }}
+                  >
+                    {stat.label}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section

@@ -119,7 +119,9 @@ export function LocationEntry({ vertical, initialCity, onLocationSet, locale }: 
   }
 
   // If we have a saved location and not editing, show the saved state
-  if (savedLocation && !isEditing) {
+  // FM: always show the two-field form (no pill collapse)
+  const isFM = vertical === 'farmers_market'
+  if (savedLocation && !isEditing && !isFM) {
     return (
       <div
         style={{
@@ -201,6 +203,7 @@ export function LocationEntry({ vertical, initialCity, onLocationSet, locale }: 
           alignItems: 'stretch',
           justifyContent: 'center',
           gap: spacing.xs,
+          maxWidth: '100%',
         }}
       >
         <input
@@ -219,11 +222,12 @@ export function LocationEntry({ vertical, initialCity, onLocationSet, locale }: 
             borderRadius: radius.full,
             backgroundColor: colors.surfaceElevated,
             color: colors.textPrimary,
-            width: 200,
+            width: isFM ? 110 : 200,
             outline: 'none',
             transition: 'border-color 0.2s, box-shadow 0.2s',
             boxSizing: 'border-box',
             textAlign: 'center',
+            flexShrink: 0,
           }}
           onFocus={(e) => {
             if (!error) {
@@ -256,7 +260,7 @@ export function LocationEntry({ vertical, initialCity, onLocationSet, locale }: 
             transition: 'background-color 0.2s, transform 0.2s',
             boxShadow: shadows.sm,
             width: 'auto',
-            minWidth: 200,
+            minWidth: isFM ? 0 : 200,
             boxSizing: 'border-box',
             whiteSpace: 'nowrap',
           }}
@@ -287,32 +291,35 @@ export function LocationEntry({ vertical, initialCity, onLocationSet, locale }: 
         </p>
       )}
 
-      {/* Privacy note */}
-      <p
-        style={{
-          fontSize: typography.sizes.xs,
-          color: colors.textMuted,
-          marginTop: spacing.sm,
-        }}
-      >
-        {t('location.privacy_note', locale)}
-      </p>
+      {/* Privacy note + IP suggestion — not shown on FM landing */}
+      {!isFM && (
+        <>
+          <p
+            style={{
+              fontSize: typography.sizes.xs,
+              color: colors.textMuted,
+              marginTop: spacing.sm,
+            }}
+          >
+            {t('location.privacy_note', locale)}
+          </p>
 
-      {/* Show IP-based suggestion if available */}
-      {initialCity && !savedLocation && (
-        <p
-          style={{
-            fontSize: typography.sizes.xs,
-            color: colors.textMuted,
-            marginTop: spacing['2xs'],
-          }}
-        >
-          {(() => {
-            const msg = t('location.browse_all_in_area', locale, { city: '__CITY__' })
-            const [before, after] = msg.split('__CITY__')
-            return <>{before}<strong>{initialCity}</strong>{after}</>
-          })()}
-        </p>
+          {initialCity && !savedLocation && (
+            <p
+              style={{
+                fontSize: typography.sizes.xs,
+                color: colors.textMuted,
+                marginTop: spacing['2xs'],
+              }}
+            >
+              {(() => {
+                const msg = t('location.browse_all_in_area', locale, { city: '__CITY__' })
+                const [before, after] = msg.split('__CITY__')
+                return <>{before}<strong>{initialCity}</strong>{after}</>
+              })()}
+            </p>
+          )}
+        </>
       )}
     </div>
   )

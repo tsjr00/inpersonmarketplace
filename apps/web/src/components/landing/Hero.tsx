@@ -9,6 +9,9 @@ import { term, getContent } from '@/lib/vertical'
 import { t } from '@/lib/locale/messages'
 import { LocationEntry } from './LocationEntry'
 
+// FM landing page watermelon palette (not in design-tokens — landing-only)
+const FM_WATERMELON = '#FF6B6B'
+
 interface HeroProps {
   vertical: string
   initialCity?: string | null
@@ -25,6 +28,7 @@ export function Hero({ vertical, initialCity, stats, locale }: HeroProps) {
   const { hero, trust_stats } = getContent(vertical, locale)
   const [userZipCode, setUserZipCode] = useState<string | null>(null)
   const isFT = vertical === 'food_trucks'
+  const isFM = vertical === 'farmers_market'
 
   // Build URLs with location if available
   const browseUrl = userZipCode
@@ -47,6 +51,82 @@ export function Hero({ vertical, initialCity, stats, locale }: HeroProps) {
     { icon: MapPinIcon, value: stats.marketCount, label: trust_stats.markets_label },
   ] : []
 
+  // FM: Watermelon hero — logo on watermelon bg, then white section with headline + zip + description
+  if (isFM) {
+    return (
+      <section>
+        {/* Watermelon top section with centered logo */}
+        <div
+          className="flex justify-center"
+          style={{
+            backgroundColor: FM_WATERMELON,
+            paddingTop: spacing.xl,
+            paddingBottom: spacing['2xl'],
+          }}
+        >
+          <Image
+            src="/logos/farmersmarketing-logo.png"
+            alt="Farmers Marketing"
+            width={220}
+            height={220}
+            sizes="220px"
+            style={{ margin: '0 auto' }}
+            priority
+          />
+        </div>
+
+        {/* White section with headline, zip search, description */}
+        <div
+          style={{
+            backgroundColor: '#ffffff',
+            paddingTop: spacing.xl,
+            paddingBottom: spacing.xl,
+          }}
+        >
+          <div className="landing-container text-center">
+            <div>
+              {/* Headline */}
+              <h1
+                style={{
+                  fontSize: typography.sizes['3xl'],
+                  fontWeight: typography.weights.bold,
+                  lineHeight: typography.leading.tight,
+                  color: '#4CAF50',
+                  marginBottom: spacing.md,
+                }}
+              >
+                {hero.headline_line1}{' '}
+                {hero.headline_line2}
+              </h1>
+
+              {/* Location Entry */}
+              <LocationEntry
+                vertical={vertical}
+                initialCity={initialCity}
+                onLocationSet={setUserZipCode}
+                locale={locale}
+              />
+
+              {/* Description */}
+              <p
+                style={{
+                  fontSize: typography.sizes.base,
+                  lineHeight: typography.leading.relaxed,
+                  color: '#4CAF50',
+                  marginTop: spacing.sm,
+                  textAlign: 'left',
+                }}
+              >
+                {hero.subtitle}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  // FT + other verticals: existing layout
   return (
     <section
       className="relative flex items-center justify-center"
@@ -223,88 +303,47 @@ export function Hero({ vertical, initialCity, stats, locale }: HeroProps) {
           className="mx-auto text-center"
           style={{ maxWidth: '650px' }}
         >
-          {/* CTAs — FT: filled red pills, uppercase | FM: outlined pills */}
-          <div
-            className="flex flex-col sm:flex-row justify-center items-center"
-            style={{
-              gap: spacing.xs,
-              marginTop: isFT ? spacing['2xl'] : 0,
-              marginBottom: isFT ? spacing['2xl'] : spacing.xl,
-            }}
-          >
-            {[
-              { label: term(vertical, 'browse_products_cta', locale), href: browseUrl },
-              { label: term(vertical, 'find_vendors_cta', locale), href: vendorsUrl },
-              { label: term(vertical, 'find_markets_cta', locale), href: marketsUrl },
-            ].map((cta) => (
-              <Link
-                key={cta.label}
-                href={cta.href}
-                className="inline-flex items-center justify-center transition-all"
-                style={isFT ? {
-                  backgroundColor: colors.primary,
-                  color: '#ffffff',
-                  padding: `${spacing.sm} ${spacing.lg}`,
-                  borderRadius: radius.full,
-                  fontSize: typography.sizes.base,
-                  fontWeight: typography.weights.semibold,
-                  minWidth: '220px',
-                  border: 'none',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  whiteSpace: 'nowrap',
-                } : {
-                  backgroundColor: 'transparent',
-                  color: colors.primaryDark,
-                  padding: `${spacing.sm} ${spacing.lg}`,
-                  borderRadius: radius.full,
-                  fontSize: typography.sizes.base,
-                  fontWeight: typography.weights.semibold,
-                  minWidth: '180px',
-                  border: `2px solid ${colors.primary}`,
-                }}
-                onMouseEnter={(e) => {
-                  if (isFT) {
-                    e.currentTarget.style.backgroundColor = colors.primaryDark
-                  } else {
-                    e.currentTarget.style.backgroundColor = colors.primaryLight
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (isFT) {
-                    e.currentTarget.style.backgroundColor = colors.primary
-                  } else {
-                    e.currentTarget.style.backgroundColor = 'transparent'
-                  }
-                }}
-              >
-                {cta.label}
-              </Link>
-            ))}
-          </div>
-
-          {/* Trust indicators — FM only */}
-          {!isFT && (
+          {/* CTAs — FT: filled red pills, uppercase */}
+          {isFT && (
             <div
-              className="flex flex-wrap items-center justify-center"
+              className="flex flex-col sm:flex-row justify-center items-center"
               style={{
-                gap: spacing.md,
-                color: colors.textMuted,
-                fontSize: typography.sizes.sm,
+                gap: spacing.xs,
+                marginTop: spacing['2xl'],
+                marginBottom: spacing['2xl'],
               }}
             >
               {[
-                term(vertical, 'trust_vendors', locale),
-                term(vertical, 'trust_pickup', locale),
-                term(vertical, 'trust_payments', locale),
-              ].map((label) => (
-                <div key={label} className="flex items-center gap-2">
-                  <span
-                    className="rounded-full"
-                    style={{ width: 8, height: 8, backgroundColor: colors.primary }}
-                  />
-                  {label}
-                </div>
+                { label: term(vertical, 'browse_products_cta', locale), href: browseUrl },
+                { label: term(vertical, 'find_vendors_cta', locale), href: vendorsUrl },
+                { label: term(vertical, 'find_markets_cta', locale), href: marketsUrl },
+              ].map((cta) => (
+                <Link
+                  key={cta.label}
+                  href={cta.href}
+                  className="inline-flex items-center justify-center transition-all"
+                  style={{
+                    backgroundColor: colors.primary,
+                    color: '#ffffff',
+                    padding: `${spacing.sm} ${spacing.lg}`,
+                    borderRadius: radius.full,
+                    fontSize: typography.sizes.base,
+                    fontWeight: typography.weights.semibold,
+                    minWidth: '220px',
+                    border: 'none',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    whiteSpace: 'nowrap',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = colors.primaryDark
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = colors.primary
+                  }}
+                >
+                  {cta.label}
+                </Link>
               ))}
             </div>
           )}

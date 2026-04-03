@@ -1,6 +1,15 @@
 # Backlog
 
-Last updated: 2026-03-20 (end of Session 62)
+Last updated: 2026-04-02 (Session 66)
+
+## Priority 0.5 — Quick Fixes
+
+- [ ] **Locale switch fetch error unhandled** — `src/lib/locale/client.ts:24` `setClientLocale()` doesn't catch fetch failure. Sentry issue 7382469144.
+- [ ] **Organizer cancel API** — new route `POST /api/events/[token]/cancel` with organizer_user_id auth. Current button shows "contact support".
+- [ ] **Organizer pre-order detail** — expandable section on My Events card showing order breakdown per vendor.
+- [ ] **Event order cap enforcement** — reimplementation via separate validation endpoint (NOT cart/items/route.ts). DB columns exist (migration 106).
+- [ ] **Vendor guidance text** — capacity planning message on acceptance UI, pre-order count in prep reminders.
+- [ ] **Organization type field** — add to event request form (company, church, school, community group, government). Use "event organizer" instead of "company" generically.
 
 ## Priority 0.5 — Event System (from Session 66)
 
