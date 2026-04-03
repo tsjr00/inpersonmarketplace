@@ -239,53 +239,57 @@ export function Features({ vertical, locale }: FeaturesProps) {
             {features.map((feature, index) => {
               const Icon = feature.icon
               return (
-                <div
-                  key={index}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: spacing.md,
-                    padding: `${spacing.md} 0`,
-                  }}
-                >
-                  {/* Green circle icon */}
+                <div key={index}>
+                  {/* Green dotted separator above each item */}
+                  <DottedSeparator color="#4CAF50" />
                   <div
-                    className="flex-shrink-0 flex items-center justify-center rounded-full"
                     style={{
-                      width: 48,
-                      height: 48,
-                      backgroundColor: FM_GREEN,
-                      marginTop: 2,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: spacing.md,
+                      padding: `${spacing.md} 0`,
                     }}
                   >
-                    <Icon style={{ width: 24, height: 24, color: '#ffffff' }} />
-                  </div>
-                  {/* Text */}
-                  <div>
-                    <h3
+                    {/* Green circle icon — vertically centered */}
+                    <div
+                      className="flex-shrink-0 flex items-center justify-center rounded-full"
                       style={{
-                        fontSize: typography.sizes.lg,
-                        fontWeight: typography.weights.bold,
-                        color: FM_WATERMELON,
-                        marginBottom: spacing['3xs'],
+                        width: 48,
+                        height: 48,
+                        backgroundColor: FM_GREEN,
                       }}
                     >
-                      {feature.title}
-                    </h3>
-                    <p
-                      style={{
-                        fontSize: typography.sizes.sm,
-                        color: FM_GREEN_DARK,
-                        lineHeight: typography.leading.relaxed,
-                        margin: 0,
-                      }}
-                    >
-                      {feature.description}
-                    </p>
+                      <Icon style={{ width: 24, height: 24, color: '#ffffff' }} />
+                    </div>
+                    {/* Text */}
+                    <div>
+                      <h3
+                        style={{
+                          fontSize: typography.sizes.lg,
+                          fontWeight: typography.weights.bold,
+                          color: FM_WATERMELON,
+                          marginBottom: spacing['3xs'],
+                        }}
+                      >
+                        {feature.title}
+                      </h3>
+                      <p
+                        style={{
+                          fontSize: typography.sizes.sm,
+                          color: FM_GREEN_DARK,
+                          lineHeight: typography.leading.relaxed,
+                          margin: 0,
+                        }}
+                      >
+                        {feature.description}
+                      </p>
+                    </div>
                   </div>
                 </div>
               )
             })}
+            {/* Final dotted separator after last item */}
+            <DottedSeparator color="#4CAF50" />
           </div>
         </div>
       </section>

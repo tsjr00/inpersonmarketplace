@@ -187,30 +187,39 @@ export function Footer({ vertical, locale }: FooterProps) {
         }}
       >
         <div className="landing-container">
-          {/* Logo + text */}
+          {/* Logo + Tagline side by side (like FT footer) */}
           <div
-            className="flex items-center justify-center"
             style={{
+              display: 'flex',
+              alignItems: 'center',
               gap: spacing.md,
               marginBottom: spacing.lg,
             }}
           >
-            <Image
-              src="/logos/farmersmarketing-full-logo.png"
-              alt="Farmers Marketing"
-              width={60}
-              height={60}
-              style={{ borderRadius: '50%' }}
-            />
-            <span
+            <div style={{
+              width: 60,
+              height: 60,
+              borderRadius: '50%',
+              overflow: 'hidden',
+              flexShrink: 0,
+            }}>
+              <Image
+                src="/logos/farmersmarketing-full-logo.png"
+                alt="Farmers Marketing"
+                width={60}
+                height={60}
+                style={{ objectFit: 'cover' }}
+              />
+            </div>
+            <div
               style={{
-                fontSize: typography.sizes.lg,
-                fontWeight: typography.weights.bold,
-                color: '#ffffff',
+                fontSize: typography.sizes.sm,
+                color: 'rgba(255,255,255,0.9)',
+                lineHeight: typography.leading.relaxed,
               }}
             >
-              Farmers Marketing
-            </span>
+              Connecting you with homemade, handmade, and homegrown products in your area
+            </div>
           </div>
 
           {/* 3 Link columns */}
@@ -266,7 +275,7 @@ export function Footer({ vertical, locale }: FooterProps) {
                 color: 'rgba(255,255,255,0.85)',
               }}
             >
-              &copy; {currentYear} 815 Enterprises LLC d/b/a Farmers Marketing. {t('footer.all_rights_reserved', locale)}
+              &copy; {currentYear} Farmers Marketing
             </p>
           </div>
         </div>

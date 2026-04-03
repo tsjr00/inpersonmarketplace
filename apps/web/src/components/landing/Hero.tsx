@@ -60,12 +60,12 @@ export function Hero({ vertical, initialCity, stats, locale }: HeroProps) {
           className="flex justify-center"
           style={{
             backgroundColor: FM_WATERMELON,
-            paddingTop: 'clamp(80px, 12vh, 120px)',
+            paddingTop: spacing.xl,
             paddingBottom: spacing['2xl'],
           }}
         >
           <Image
-            src="/logos/farmersmarketing-full-logo.png"
+            src="/logos/farmersmarketing-logo.png"
             alt="Farmers Marketing"
             width={220}
             height={220}
@@ -77,46 +77,27 @@ export function Hero({ vertical, initialCity, stats, locale }: HeroProps) {
 
         {/* White section with headline, zip search, description */}
         <div
-          className="flex justify-center"
           style={{
             backgroundColor: '#ffffff',
             paddingTop: spacing.xl,
             paddingBottom: spacing.xl,
           }}
         >
-          <div
-            className="w-full text-center"
-            style={{
-              maxWidth: containers.lg,
-              paddingLeft: 'clamp(20px, 5vw, 60px)',
-              paddingRight: 'clamp(20px, 5vw, 60px)',
-            }}
-          >
-            <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+          <div className="landing-container text-center">
+            <div>
               {/* Headline */}
               <h1
                 style={{
                   fontSize: typography.sizes['3xl'],
                   fontWeight: typography.weights.bold,
                   lineHeight: typography.leading.tight,
-                  color: '#1a1a1a',
+                  color: '#4CAF50',
                   marginBottom: spacing.md,
                 }}
               >
                 {hero.headline_line1}{' '}
                 {hero.headline_line2}
               </h1>
-
-              {/* Zip search prompt */}
-              <p
-                style={{
-                  fontSize: typography.sizes.sm,
-                  color: '#4b5563',
-                  marginBottom: spacing.sm,
-                }}
-              >
-                Enter your zip code and find local vendors near you
-              </p>
 
               {/* Location Entry */}
               <LocationEntry
@@ -131,11 +112,9 @@ export function Hero({ vertical, initialCity, stats, locale }: HeroProps) {
                 style={{
                   fontSize: typography.sizes.base,
                   lineHeight: typography.leading.relaxed,
-                  color: '#4b5563',
-                  maxWidth: '540px',
-                  marginLeft: 'auto',
-                  marginRight: 'auto',
+                  color: '#4CAF50',
                   marginTop: spacing.sm,
+                  textAlign: 'left',
                 }}
               >
                 {hero.subtitle}

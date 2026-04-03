@@ -193,8 +193,8 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
               className="flex justify-center"
               style={{
                 backgroundColor: '#ffffff',
-                paddingTop: spacing.sm,
-                paddingBottom: spacing.lg,
+                paddingTop: spacing.md,
+                paddingBottom: spacing.md,
               }}
             >
               <div
@@ -241,7 +241,7 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
             <section
               style={{
                 backgroundColor: '#ffffff',
-                paddingBottom: spacing.xl,
+                paddingBottom: spacing.md,
               }}
             >
               <Image
@@ -258,20 +258,15 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
                 }}
               />
               <div
-                className="flex justify-center"
-                style={{
-                  paddingTop: spacing.lg,
-                  paddingLeft: 'clamp(20px, 5vw, 60px)',
-                  paddingRight: 'clamp(20px, 5vw, 60px)',
-                }}
+                className="landing-container"
+                style={{ paddingTop: spacing.md }}
               >
                 <p
-                  className="text-center"
                   style={{
                     fontSize: typography.sizes.base,
                     lineHeight: typography.leading.relaxed,
-                    color: '#4b5563',
-                    maxWidth: '640px',
+                    color: '#4CAF50',
+                    textAlign: 'left',
                   }}
                 >
                   Every dollar spent locally circulates back into your neighborhood, supporting the growers, makers, and families who make your community vibrant. We&apos;re here to make that connection easier.
@@ -298,7 +293,7 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
             className="flex justify-center"
             style={{
               backgroundColor: FM_WATERMELON,
-              padding: `${spacing.xl} 0`,
+              padding: `${spacing.md} 0`,
             }}
           >
             <div
@@ -311,10 +306,11 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
             >
               <h2
                 style={{
-                  fontSize: typography.sizes['2xl'],
+                  fontSize: typography.sizes.xl,
                   fontWeight: typography.weights.bold,
                   color: '#ffffff',
-                  marginBottom: spacing.md,
+                  marginBottom: spacing.sm,
+                  whiteSpace: 'nowrap',
                 }}
               >
                 Bring the Market to Your Event!
@@ -323,9 +319,9 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
                 href={`/${vertical}/events`}
                 className="inline-flex items-center justify-center transition-all"
                 style={{
-                  backgroundColor: FM_GREEN,
+                  backgroundColor: '#66BB6A',
                   color: '#ffffff',
-                  padding: `${spacing.sm} ${spacing.xl}`,
+                  padding: `${spacing['2xs']} ${spacing['2xl']}`,
                   borderRadius: radius.full,
                   fontSize: typography.sizes.base,
                   fontWeight: typography.weights.semibold,
@@ -360,20 +356,15 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
               }}
             />
             <div
-              className="flex justify-center"
-              style={{
-                paddingTop: spacing.lg,
-                paddingLeft: 'clamp(20px, 5vw, 60px)',
-                paddingRight: 'clamp(20px, 5vw, 60px)',
-              }}
+              className="landing-container"
+              style={{ paddingTop: spacing.md }}
             >
               <p
-                className="text-center"
                 style={{
                   fontSize: typography.sizes.base,
                   lineHeight: typography.leading.relaxed,
-                  color: '#4b5563',
-                  maxWidth: '640px',
+                  color: '#4CAF50',
+                  textAlign: 'left',
                 }}
               >
                 We curate and coordinate local farmers, market vendors, and artisans for your events or venue. From baked goods and fresh flowers to artisan products, we build a custom market for your guests. You tell us what you want — we handle the rest.
