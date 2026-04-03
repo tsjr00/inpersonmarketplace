@@ -37,13 +37,12 @@ export function TrustStats({ vertical, stats, locale }: TrustStatsProps) {
     { icon: Store, value: stats.marketCount, label: trust_stats.markets_label },
   ].filter(s => s.value > 0)
 
-  // FM: Watermelon circles on white background
+  // FM: Green banner with tagline + watermelon stat circles
   if (isFM) {
     return (
       <section
-        className="flex justify-center"
         style={{
-          backgroundColor: '#ffffff',
+          backgroundColor: '#8BC34A',
           padding: `${spacing.lg} 0`,
         }}
       >
@@ -51,10 +50,25 @@ export function TrustStats({ vertical, stats, locale }: TrustStatsProps) {
           className="w-full"
           style={{
             maxWidth: containers.lg,
+            margin: '0 auto',
             paddingLeft: 'clamp(20px, 5vw, 60px)',
             paddingRight: 'clamp(20px, 5vw, 60px)',
           }}
         >
+          {/* Tagline */}
+          <p
+            className="text-center"
+            style={{
+              fontSize: typography.sizes.base,
+              fontWeight: typography.weights.semibold,
+              color: '#ffffff',
+              marginBottom: spacing.lg,
+            }}
+          >
+            Connecting you with the homemade, handmade, and homegrown products in your area
+          </p>
+
+          {/* Stat circles */}
           <div
             style={{
               display: 'flex',
@@ -83,21 +97,25 @@ export function TrustStats({ vertical, stats, locale }: TrustStatsProps) {
                   </div>
                   <div
                     style={{
-                      fontSize: typography.sizes.sm,
-                      fontWeight: typography.weights.semibold,
-                      color: '#1a1a1a',
+                      fontSize: typography.sizes['2xl'],
+                      fontWeight: typography.weights.bold,
+                      color: '#ffffff',
+                      lineHeight: 1,
                       marginBottom: spacing['3xs'],
                     }}
                   >
-                    {stat.label}
+                    {stat.value.toLocaleString()}+
                   </div>
                   <div
                     style={{
-                      fontSize: typography.sizes.sm,
-                      color: '#4b5563',
+                      fontSize: typography.sizes.xs,
+                      color: 'rgba(255,255,255,0.9)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      fontWeight: typography.weights.medium,
                     }}
                   >
-                    {stat.value.toLocaleString()} {stat.label.toLowerCase()}
+                    {stat.label}
                   </div>
                 </div>
               )

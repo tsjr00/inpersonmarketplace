@@ -104,9 +104,9 @@ export function Header({
 
   return (
     <header style={{
-      backgroundColor: isOnLandingPage ? 'transparent' : colors.surfaceElevated,
+      backgroundColor: isOnLandingPage ? (vertical === 'farmers_market' ? '#ffffff' : 'transparent') : colors.surfaceElevated,
       borderBottom: isOnLandingPage ? 'none' : `1px solid ${colors.border}`,
-      position: isOnLandingPage ? 'absolute' : 'sticky',
+      position: isOnLandingPage ? (vertical === 'farmers_market' ? 'relative' : 'absolute') : 'sticky',
       top: 0,
       left: 0,
       right: 0,
