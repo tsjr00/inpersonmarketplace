@@ -81,9 +81,9 @@ export const farmersMarketConfig: VerticalTerminologyConfig = {
 
   content: {
     hero: {
-      headline_line1: 'Fresh, Local Food &',
-      headline_line2: 'Locally Made Products',
-      subtitle: 'Browse products from local farmers and artisans. Pre-order online and pick up at your neighborhood market.',
+      headline_line1: 'Online Market for Local',
+      headline_line2: 'Homemade, Handmade, & Homegrown Products',
+      subtitle: 'Browse products from local farmers and artisans. Place your order online and conveniently pick it up at your nearby market.',
     },
     how_it_works: {
       step1_title: 'Discover',
@@ -96,11 +96,10 @@ export const farmersMarketConfig: VerticalTerminologyConfig = {
       step4_text: 'Take your time browsing other vendors, meet friends, and enjoy being part of your local community.',
     },
     vendor_pitch: {
-      headline: 'Grow Your Business',
-      subtitle: 'Join local farmers, bakers, cottage food producers, and artisans already selling through our platform.',
+      headline: "Grow Your Farmer's Market Business",
+      subtitle: 'Join local farmers, bakers, cottage food producers, and artisans already selling through the platform.',
       benefits: [
-        'Pre-sell products before market day',
-        'Know what to bring, reduce waste',
+        'Pre-sell products before market day — know what to bring, reduce waste',
         'Manage orders and inventory easily',
         'Credit card fees already built in',
         'Build a loyal VIP customer base',
