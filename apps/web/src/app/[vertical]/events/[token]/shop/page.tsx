@@ -28,6 +28,24 @@ interface Vendor {
   listings: Listing[]
 }
 
+interface WaveData {
+  id: string
+  wave_number: number
+  start_time: string
+  end_time: string
+  capacity: number
+  reserved_count: number
+  remaining: number
+  status: string
+}
+
+interface WaveReservation {
+  id: string
+  wave_id: string
+  wave_number: number
+  status: string
+}
+
 interface EventData {
   company_name: string
   event_date: string
@@ -104,6 +122,19 @@ export default function EventShopPage() {
   const [cartMessage, setCartMessage] = useState<string | null>(null)
   const isSubmittingRef = useRef(false) // prevents double-click race condition
 
+  // Wave ordering state (company-paid events)
+  const [paymentModel, setPaymentModel] = useState<string>('attendee_paid')
+  const [waveOrderingEnabled, setWaveOrderingEnabled] = useState(false)
+  const [waves, setWaves] = useState<WaveData[]>([])
+  const [userReservation, setUserReservation] = useState<WaveReservation | null>(null)
+  const [, setSelectedWaveId] = useState<string | null>(null)
+  const [selectedListingId, setSelectedListingId] = useState<string | null>(null)
+  const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null)
+  const [reservingWave, setReservingWave] = useState(false)
+  const [placingOrder, setPlacingOrder] = useState(false)
+  const [orderResult, setOrderResult] = useState<{ order_number: string } | null>(null)
+  const [waveError, setWaveError] = useState<string | null>(null)
+
   // Check auth
   useEffect(() => {
     async function checkAuth() {
@@ -146,6 +177,11 @@ export default function EventShopPage() {
         setVendors(data.vendors)
         setIsFT(data.is_food_truck)
         setPickupDate(data.pickup_date)
+        // Wave ordering fields
+        if (data.payment_model) setPaymentModel(data.payment_model)
+        if (data.wave_ordering_enabled) setWaveOrderingEnabled(true)
+        if (data.waves) setWaves(data.waves)
+        if (data.user_reservation) setUserReservation(data.user_reservation)
       } catch {
         setError('Unable to connect. Please check your internet and try again.')
       } finally {
@@ -234,6 +270,118 @@ export default function EventShopPage() {
     isSubmittingRef.current = false
   }
 
+  // ── Wave ordering handlers (company-paid) ──
+  const isCompanyPaid = paymentModel === 'company_paid' && waveOrderingEnabled
+
+  async function handleReserveWave(waveId: string) {
+    if (reservingWave) return
+    setReservingWave(true)
+    setWaveError(null)
+    try {
+      const res = await fetch(`/api/events/${token}/waves/reserve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wave_id: waveId }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setWaveError(data.error || 'Failed to reserve time slot')
+        return
+      }
+      // Find the wave info for display
+      const wave = waves.find(w => w.id === waveId)
+      setUserReservation({
+        id: data.reservation_id,
+        wave_id: waveId,
+        wave_number: wave?.wave_number || 0,
+        status: 'reserved',
+      })
+      setSelectedWaveId(waveId)
+      // Update local wave counts
+      setWaves(prev => prev.map(w =>
+        w.id === waveId
+          ? { ...w, reserved_count: w.reserved_count + 1, remaining: w.remaining - 1, status: w.remaining - 1 <= 0 ? 'full' : 'open' }
+          : w
+      ))
+    } catch {
+      setWaveError('Connection error. Please try again.')
+    } finally {
+      setReservingWave(false)
+    }
+  }
+
+  async function handleCancelReservation() {
+    if (!userReservation || reservingWave) return
+    setReservingWave(true)
+    setWaveError(null)
+    try {
+      const res = await fetch(`/api/events/${token}/waves/reserve`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reservation_id: userReservation.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setWaveError(data.error || 'Failed to cancel reservation')
+        return
+      }
+      const oldWaveId = userReservation.wave_id
+      setUserReservation(null)
+      setSelectedWaveId(null)
+      setSelectedListingId(null)
+      setSelectedVendorId(null)
+      // Update local wave counts
+      setWaves(prev => prev.map(w =>
+        w.id === oldWaveId
+          ? { ...w, reserved_count: Math.max(0, w.reserved_count - 1), remaining: w.remaining + 1, status: 'open' }
+          : w
+      ))
+    } catch {
+      setWaveError('Connection error. Please try again.')
+    } finally {
+      setReservingWave(false)
+    }
+  }
+
+  async function handleConfirmOrder() {
+    if (!userReservation || !selectedListingId || !selectedVendorId || placingOrder) return
+    setPlacingOrder(true)
+    setWaveError(null)
+    try {
+      const res = await fetch(`/api/events/${token}/order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reservation_id: userReservation.id,
+          listing_id: selectedListingId,
+          vendor_profile_id: selectedVendorId,
+          wave_id: userReservation.wave_id,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setWaveError(data.error || 'Failed to place order')
+        return
+      }
+      setOrderResult({ order_number: data.order_number })
+      setUserReservation(prev => prev ? { ...prev, status: 'ordered' } : null)
+    } catch {
+      setWaveError('Connection error. Please try again.')
+    } finally {
+      setPlacingOrder(false)
+    }
+  }
+
+  // Find selected listing + vendor names for confirmation display
+  const selectedListing = useMemo(() => {
+    if (!selectedListingId) return null
+    for (const v of vendors) {
+      const l = v.listings.find(li => li.id === selectedListingId)
+      if (l) return { ...l, vendorName: v.business_name }
+    }
+    return null
+  }, [selectedListingId, vendors])
+
   // ── Render ──
   const accent = isFT ? '#ff5757' : '#2d5016'
 
@@ -319,8 +467,353 @@ export default function EventShopPage() {
         </div>
       )}
 
+      {/* ═══════ COMPANY-PAID WAVE FLOW ═══════ */}
+      {isCompanyPaid && isLoggedIn && !checkingAuth && (
+        <>
+          {/* Order complete — show pick ticket */}
+          {orderResult ? (
+            <div style={{
+              textAlign: 'center',
+              padding: `${spacing.xl} ${spacing.md}`,
+              backgroundColor: '#f0fdf4',
+              border: '2px solid #86efac',
+              borderRadius: radius.lg,
+            }}>
+              <div style={{ fontSize: 48, marginBottom: spacing.sm }}>&#10003;</div>
+              <h2 style={{ fontSize: typography.sizes.xl, fontWeight: typography.weights.bold, color: '#166534', margin: `0 0 ${spacing.xs}` }}>
+                Order Confirmed!
+              </h2>
+              <div style={{
+                fontSize: typography.sizes['3xl'],
+                fontWeight: typography.weights.bold,
+                color: accent,
+                padding: `${spacing.sm} ${spacing.md}`,
+                backgroundColor: 'white',
+                borderRadius: radius.md,
+                border: `2px solid ${accent}`,
+                display: 'inline-block',
+                margin: `${spacing.md} 0`,
+                letterSpacing: '0.05em',
+              }}>
+                {orderResult.order_number}
+              </div>
+              <p style={{ fontSize: typography.sizes.sm, color: '#4b5563', margin: `${spacing.sm} 0 0` }}>
+                Show this number at the event to pick up your order.
+              </p>
+              {userReservation && (
+                <p style={{ fontSize: typography.sizes.sm, color: '#6b7280', margin: `${spacing.xs} 0 0` }}>
+                  Your time slot: Wave {userReservation.wave_number}
+                  {selectedListing && <> &middot; {selectedListing.title} from {selectedListing.vendorName}</>}
+                </p>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* Wave error */}
+              {waveError && (
+                <div style={{
+                  padding: `${spacing['2xs']} ${spacing.sm}`,
+                  marginBottom: spacing.sm,
+                  borderRadius: radius.sm,
+                  backgroundColor: '#fef2f2',
+                  color: '#dc2626',
+                  fontSize: typography.sizes.sm,
+                }}>
+                  {waveError}
+                </div>
+              )}
+
+              {/* Step 1: Wave Selection */}
+              {!userReservation ? (
+                <div style={{
+                  padding: spacing.sm,
+                  backgroundColor: statusColors.neutral50,
+                  border: `1px solid ${statusColors.neutral200}`,
+                  borderRadius: radius.md,
+                  marginBottom: spacing.md,
+                }}>
+                  <h2 style={{
+                    fontSize: typography.sizes.base,
+                    fontWeight: typography.weights.semibold,
+                    color: statusColors.neutral700,
+                    margin: `0 0 ${spacing.xs}`,
+                  }}>
+                    Step 1: Select your time slot
+                  </h2>
+                  <p style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, margin: `0 0 ${spacing.sm}` }}>
+                    Choose when you&apos;d like to pick up your food. Each slot has limited capacity.
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+                    {waves.map(wave => {
+                      const isFull = wave.status === 'full' || wave.remaining <= 0
+                      const isClosed = wave.status === 'closed'
+                      const isLow = !isFull && !isClosed && wave.remaining <= Math.ceil(wave.capacity * 0.25)
+                      return (
+                        <button
+                          key={wave.id}
+                          onClick={() => !isFull && !isClosed && handleReserveWave(wave.id)}
+                          disabled={isFull || isClosed || reservingWave}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: `${spacing.xs} ${spacing.sm}`,
+                            borderRadius: radius.md,
+                            border: `1.5px solid ${isFull || isClosed ? statusColors.neutral200 : isLow ? '#f59e0b' : accent}`,
+                            backgroundColor: isFull || isClosed ? statusColors.neutral100 : 'white',
+                            cursor: isFull || isClosed || reservingWave ? 'not-allowed' : 'pointer',
+                            opacity: isFull || isClosed ? 0.6 : 1,
+                            minHeight: 48,
+                            transition: 'all 0.15s',
+                          }}
+                        >
+                          <div style={{ textAlign: 'left' }}>
+                            <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: statusColors.neutral800 }}>
+                              Wave {wave.wave_number}: {formatTime(wave.start_time)} &ndash; {formatTime(wave.end_time)}
+                            </div>
+                          </div>
+                          <div style={{
+                            fontSize: typography.sizes.xs,
+                            fontWeight: typography.weights.medium,
+                            color: isFull || isClosed ? statusColors.neutral400 : isLow ? '#d97706' : '#166534',
+                            whiteSpace: 'nowrap',
+                            marginLeft: spacing.sm,
+                          }}>
+                            {isClosed ? 'Closed' : isFull ? 'Full' : `${wave.remaining} spots left`}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {reservingWave && (
+                    <p style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, marginTop: spacing.xs, textAlign: 'center' }}>
+                      Reserving your spot...
+                    </p>
+                  )}
+                </div>
+              ) : (
+                /* Wave reserved — show summary with change option */
+                <div style={{
+                  padding: spacing.sm,
+                  backgroundColor: '#f0fdf4',
+                  border: '1px solid #86efac',
+                  borderRadius: radius.md,
+                  marginBottom: spacing.md,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}>
+                  <div>
+                    <div style={{ fontSize: typography.sizes.xs, color: '#166534', fontWeight: typography.weights.medium }}>
+                      Your time slot
+                    </div>
+                    <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: statusColors.neutral800 }}>
+                      Wave {userReservation.wave_number}
+                      {(() => {
+                        const w = waves.find(wv => wv.id === userReservation.wave_id)
+                        return w ? `: ${formatTime(w.start_time)} – ${formatTime(w.end_time)}` : ''
+                      })()}
+                    </div>
+                  </div>
+                  {userReservation.status === 'reserved' && (
+                    <button
+                      onClick={handleCancelReservation}
+                      disabled={reservingWave}
+                      style={{
+                        padding: `${spacing['3xs']} ${spacing.xs}`,
+                        border: `1px solid ${statusColors.neutral300}`,
+                        borderRadius: radius.sm,
+                        backgroundColor: 'white',
+                        color: statusColors.neutral600,
+                        fontSize: typography.sizes.xs,
+                        cursor: reservingWave ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      Change
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Step 2: Food Selection (only after wave reserved) */}
+              {userReservation && userReservation.status === 'reserved' && (
+                <>
+                  <div style={{
+                    padding: spacing.sm,
+                    backgroundColor: statusColors.neutral50,
+                    border: `1px solid ${statusColors.neutral200}`,
+                    borderRadius: radius.md,
+                    marginBottom: spacing.md,
+                  }}>
+                    <h2 style={{
+                      fontSize: typography.sizes.base,
+                      fontWeight: typography.weights.semibold,
+                      color: statusColors.neutral700,
+                      margin: `0 0 ${spacing.xs}`,
+                    }}>
+                      Step 2: Choose your meal
+                    </h2>
+                    <p style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, margin: 0 }}>
+                      Select one item from any vendor below.
+                    </p>
+                  </div>
+
+                  {vendors.map(vendor => (
+                    <div key={vendor.id} style={{
+                      marginBottom: spacing.md,
+                      backgroundColor: 'white',
+                      border: `1px solid ${statusColors.neutral200}`,
+                      borderRadius: radius.lg,
+                      overflow: 'hidden',
+                    }}>
+                      {/* Vendor header */}
+                      <div style={{
+                        padding: spacing.sm,
+                        backgroundColor: statusColors.neutral50,
+                        borderBottom: `1px solid ${statusColors.neutral200}`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: spacing.sm,
+                      }}>
+                        {vendor.profile_image_url && (
+                          <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
+                            <Image src={vendor.profile_image_url} alt={vendor.business_name} width={40} height={40} style={{ objectFit: 'cover' }} />
+                          </div>
+                        )}
+                        <h3 style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: statusColors.neutral800, margin: 0 }}>
+                          {vendor.business_name}
+                        </h3>
+                      </div>
+
+                      {/* Listings — radio-style selection (one item across all vendors) */}
+                      <div style={{ padding: spacing.sm }}>
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+                          gap: spacing.sm,
+                        }}>
+                          {vendor.listings.map(listing => {
+                            const isSelected = selectedListingId === listing.id
+                            return (
+                              <button
+                                key={listing.id}
+                                onClick={() => {
+                                  setSelectedListingId(listing.id)
+                                  setSelectedVendorId(vendor.id)
+                                }}
+                                style={{
+                                  border: `2px solid ${isSelected ? accent : statusColors.neutral200}`,
+                                  borderRadius: radius.md,
+                                  overflow: 'hidden',
+                                  backgroundColor: isSelected ? `${accent}0D` : 'white',
+                                  cursor: 'pointer',
+                                  textAlign: 'left',
+                                  padding: 0,
+                                  transition: 'border-color 0.15s',
+                                }}
+                              >
+                                {listing.primary_image_url ? (
+                                  <div style={{ width: '100%', height: 100, position: 'relative', backgroundColor: statusColors.neutral100 }}>
+                                    <Image src={listing.primary_image_url} alt={listing.title} fill style={{ objectFit: 'cover' }} />
+                                    {isSelected && (
+                                      <div style={{
+                                        position: 'absolute', top: 6, right: 6,
+                                        width: 24, height: 24, borderRadius: '50%',
+                                        backgroundColor: accent, color: 'white',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        fontSize: 14, fontWeight: 'bold',
+                                      }}>
+                                        &#10003;
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div style={{ width: '100%', height: 60, backgroundColor: statusColors.neutral100, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                                    <span style={{ fontSize: 24, opacity: 0.3 }}>&#127857;</span>
+                                    {isSelected && (
+                                      <div style={{
+                                        position: 'absolute', top: 6, right: 6,
+                                        width: 24, height: 24, borderRadius: '50%',
+                                        backgroundColor: accent, color: 'white',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        fontSize: 14, fontWeight: 'bold',
+                                      }}>
+                                        &#10003;
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                                <div style={{ padding: spacing['2xs'] }}>
+                                  <div style={{ fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: statusColors.neutral800, lineHeight: 1.3 }}>
+                                    {listing.title}
+                                  </div>
+                                  {listing.description && (
+                                    <div style={{ fontSize: 10, color: statusColors.neutral500, marginTop: 2, lineHeight: 1.3 }}>
+                                      {listing.description.length > 60 ? listing.description.slice(0, 60) + '...' : listing.description}
+                                    </div>
+                                  )}
+                                </div>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Confirm Order bar */}
+                  {selectedListingId && (
+                    <div style={{
+                      position: 'fixed',
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      backgroundColor: 'white',
+                      borderTop: `2px solid ${accent}`,
+                      padding: `${spacing.sm} ${spacing.md}`,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      zIndex: 100,
+                      boxShadow: '0 -4px 12px rgba(0,0,0,0.1)',
+                    }}>
+                      <div>
+                        <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: statusColors.neutral800 }}>
+                          {selectedListing?.title}
+                        </span>
+                        <span style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, marginLeft: spacing.xs }}>
+                          from {selectedListing?.vendorName}
+                        </span>
+                      </div>
+                      <button
+                        onClick={handleConfirmOrder}
+                        disabled={placingOrder}
+                        style={{
+                          padding: `${spacing['2xs']} ${spacing.md}`,
+                          backgroundColor: placingOrder ? statusColors.neutral300 : accent,
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: radius.sm,
+                          fontWeight: typography.weights.semibold,
+                          fontSize: typography.sizes.sm,
+                          cursor: placingOrder ? 'not-allowed' : 'pointer',
+                          minHeight: 44,
+                        }}
+                      >
+                        {placingOrder ? 'Placing Order...' : 'Confirm Order'}
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </>
+      )}
+
+      {/* ═══════ STANDARD ATTENDEE-PAID FLOW (existing) ═══════ */}
       {/* Pickup time selector — all event types (FT + FM) */}
-      {isLoggedIn && timeSlots.length > 0 && (
+      {!isCompanyPaid && isLoggedIn && timeSlots.length > 0 && (
         <div style={{
           padding: spacing.sm,
           backgroundColor: statusColors.neutral50,
@@ -361,8 +854,8 @@ export default function EventShopPage() {
         </div>
       )}
 
-      {/* Cart message */}
-      {cartMessage && (
+      {/* Cart message (attendee-paid only) */}
+      {!isCompanyPaid && cartMessage && (
         <div style={{
           padding: `${spacing['2xs']} ${spacing.sm}`,
           marginBottom: spacing.sm,
@@ -375,8 +868,8 @@ export default function EventShopPage() {
         </div>
       )}
 
-      {/* Vendors + Listings */}
-      {vendors.length === 0 ? (
+      {/* Vendors + Listings (attendee-paid flow) */}
+      {!isCompanyPaid && (vendors.length === 0 ? (
         <div style={{
           padding: spacing.lg,
           textAlign: 'center',
@@ -571,10 +1064,10 @@ export default function EventShopPage() {
             </div>
           )
         })
-      )}
+      ))}
 
-      {/* Sticky cart bar — shows server-side cart state */}
-      {isLoggedIn && itemCount > 0 && (
+      {/* Sticky cart bar — shows server-side cart state (attendee-paid only) */}
+      {!isCompanyPaid && isLoggedIn && itemCount > 0 && (
         <div style={{
           position: 'fixed',
           bottom: 0,
