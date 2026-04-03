@@ -31,7 +31,7 @@ export async function GET(
     // Fetch event by token
     const { data: event } = await supabase
       .from('catering_requests')
-      .select('id, company_name, event_date, event_end_date, event_start_time, event_end_time, headcount, address, city, state, zip, vertical_id, market_id, status, vendor_count, is_themed, theme_description, children_present')
+      .select('id, company_name, event_date, event_end_date, event_start_time, event_end_time, headcount, address, city, state, zip, vertical_id, market_id, status, vendor_count, is_themed, theme_description, children_present, payment_model')
       .eq('event_token', token)
       .in('status', ['approved', 'ready', 'active'])
       .single()
@@ -164,6 +164,59 @@ export async function GET(
 
     const isFT = event.vertical_id === 'food_trucks'
 
+    // Check if wave ordering is enabled for this event
+    const { data: market } = await supabase
+      .from('markets')
+      .select('wave_ordering_enabled')
+      .eq('id', event.market_id)
+      .single()
+
+    const waveOrderingEnabled = market?.wave_ordering_enabled === true
+
+    // Fetch waves if enabled
+    let waves: Array<{
+      id: string; wave_number: number; start_time: string; end_time: string
+      capacity: number; reserved_count: number; remaining: number; status: string
+    }> = []
+
+    if (waveOrderingEnabled) {
+      const { data: waveRows } = await supabase
+        .rpc('get_event_waves_with_availability', { p_market_id: event.market_id })
+
+      waves = (waveRows || []).map((w: Record<string, unknown>) => ({
+        id: w.wave_id as string,
+        wave_number: w.wave_number as number,
+        start_time: w.start_time as string,
+        end_time: w.end_time as string,
+        capacity: w.capacity as number,
+        reserved_count: w.reserved_count as number,
+        remaining: w.remaining as number,
+        status: w.status as string,
+      }))
+    }
+
+    // Fetch user's existing wave reservation (if authenticated)
+    let userReservation: { id: string; wave_id: string; wave_number: number; status: string } | null = null
+    if (user && waveOrderingEnabled) {
+      const { data: reservation } = await supabase
+        .from('event_wave_reservations')
+        .select('id, wave_id, status')
+        .eq('market_id', event.market_id)
+        .eq('user_id', user.id)
+        .neq('status', 'cancelled')
+        .maybeSingle()
+
+      if (reservation) {
+        const matchedWave = waves.find(w => w.id === reservation.wave_id)
+        userReservation = {
+          id: reservation.id,
+          wave_id: reservation.wave_id,
+          wave_number: matchedWave?.wave_number || 0,
+          status: reservation.status,
+        }
+      }
+    }
+
     return NextResponse.json({
       event: {
         company_name: event.company_name,
@@ -190,6 +243,10 @@ export async function GET(
       vendors,
       vendor_count: vendors.length,
       is_food_truck: isFT,
+      payment_model: event.payment_model || 'attendee_paid',
+      wave_ordering_enabled: waveOrderingEnabled,
+      waves,
+      user_reservation: userReservation,
     }, {
       headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' }
     })

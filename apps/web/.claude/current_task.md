@@ -1,94 +1,76 @@
-# Current Task: Session 66 Complete — Pending Testing + Next Session Items
-Updated: 2026-04-02
+# Current Task: Session 67 — FM Landing Page + Event Wave System
+Started: 2026-04-03
 
-## Status: Multiple features on staging awaiting verification before prod push
+## Goal
+1. ~~FM landing page corrections (3 rounds)~~ ✅
+2. Event system — wave-based ordering implementation (company-paid FT events)
 
-### On Staging (NOT yet on prod — need user verification):
-- Audit Batches 1-5 (30 audit items fixed)
-- Day-of event sales (migrations 108-109, form fields, SQL function)
-- FM time slots at events
-- Cancel event button (admin)
-- Multi-vertical vendor schedule fix
-- My Events organizer dashboard card + actions (copy link, cancel request)
+## Key Decisions Made
+- **FM logo**: Use `logo no words - color.png` (copied to public/logos/farmersmarketing-logo.png)
+- **FM text green**: `#558B2F` (matches dark portion of logo). `#4CAF50` was too light, `#2d5016` was too dark.
+- **FM banner green**: `#8BC34A` (matches design-tokens FM primary)
+- **Landing page architecture**: Use `landing-container` / `landing-section` CSS classes consistently (same as FT)
+- **Staging email URLs**: Use `VERCEL_ENV` not `NODE_ENV` to distinguish prod from preview
+- **PostgREST FK hints**: All market_vendors ↔ vendor_profiles queries need `!market_vendors_vendor_profile_id_fkey` hint (migration 107 added second FK)
+- **Wave ordering**: 30-min fixed waves, 1 item per attendee, company-paid MVP, walk-ups fill next available wave, no capacity rollover between waves, attendee cancellation deferred
+- **Wave plan**: Saved to `.claude/wave_ordering_plan.md`, cross-referenced with `.claude/event_system_deep_dive.md`
 
-### Already on Prod:
-- Migration 105 (event date range fix)
-- Migration 106 (vendor order caps)
-- Migration 107 (FK constraint)
-- Migrations 108-109 (day-of sales columns + SQL function)
-- Event pages under [vertical] layout
-- Cart useCart() rewrite
-- Event lifecycle automation (Phases 14-15)
-- Cross-sell suppression + Continue Shopping hide for events
-- Schedule fix for multi-vertical vendors (Chef Prep bug)
+## Critical Context (DO NOT FORGET)
+- `get_available_pickup_dates` SQL function ALREADY has event awareness (migrations 108-109). FM event ordering may already work. FT events blocked by vendor_market_schedules requirement in the function.
+- `cart/items/route.ts` is CRITICAL PATH — wave system bypasses it entirely for company-paid orders
+- Staging has 9 unpushed commits ahead of origin/main. NOT yet pushed to prod.
+- Session 66 features still on staging awaiting verification before prod push
+- User is currently testing events on staging
 
-### Deferred to Next Session
+## Completed (Session 67)
+- [x] FM landing page round 1 — logo, colors, layout, responsive patterns (10 files)
+- [x] FM landing page round 2 — correct logo, landing-container pattern, TrustStats numbers, privacy note removed
+- [x] FM landing page round 3 — dotted lines, hero text color, watermelon button, spacing
+- [x] PostgREST FK disambiguation — 7 queries across 6 files
+- [x] Staging email URL fix — VERCEL_ENV instead of NODE_ENV
+- [x] Wave ordering plan — finalized and saved
 
-**Organizer cancel API:**
-- Current cancel button shows "contact support" message
-- Need a new API route: `POST /api/events/[token]/cancel`
-- Authenticates via organizer_user_id (not admin role)
-- Triggers same cleanup as admin cancel (listing_markets, notifications)
+## Remaining (Session 67)
+- [ ] Wave ordering implementation step 1: Database migration (tables + columns + indexes)
+- [ ] Wave ordering implementation step 2: RPC functions (reserve, cancel, create order)
+- [ ] Wave ordering implementation step 3: RLS policies
+- [ ] Wave ordering implementation step 4: Wave generation logic (lib function)
+- [ ] Wave ordering implementation step 5: Admin generate-waves API
+- [ ] Wave ordering implementation step 6: Shop API modifications
+- [ ] Wave ordering implementation step 7: Wave reservation API
+- [ ] Wave ordering implementation step 8: Company-paid order API
+- [ ] Wave ordering implementation step 9: Shop page UI overhaul
+- [ ] Wave ordering implementation step 10: Order confirmation / pick-ticket view
+- [ ] Wave ordering implementation step 11: Settlement report updates
+- [ ] Wave ordering implementation step 12: Admin wave monitoring
 
-**Pre-order detail on organizer card:**
-- Expandable section showing order breakdown per vendor
-- Needs API call to fetch order_items by market_id grouped by vendor
-- Show: vendor name, item count, total amount
+## Files Modified (Session 67)
+- `apps/web/public/logos/farmersmarketing-logo.png` — replaced with correct no-words logo
+- `apps/web/src/lib/branding/defaults.ts` — logo_path updated
+- `apps/web/src/components/layout/Header.tsx` — FM landing: white bg, relative position, bottom padding
+- `apps/web/src/components/landing/Hero.tsx` — FM hero: correct logo, dotted separators, green text, layout
+- `apps/web/src/components/landing/LocationEntry.tsx` — FM: no pill collapse, smaller input, watermelon button, no privacy note
+- `apps/web/src/components/landing/TrustStats.tsx` — green banner bg, white text, numeral+plus format
+- `apps/web/src/components/landing/Features.tsx` — green dotted separators, centered icons
+- `apps/web/src/components/landing/VendorPitch.tsx` — vibrant green bg, white subtitle, split bullets to white
+- `apps/web/src/components/landing/Footer.tsx` — inline logo+tagline, simplified copyright
+- `apps/web/src/app/[vertical]/page.tsx` — text colors, landing-container, compact event CTA
+- `apps/web/src/app/[vertical]/admin/vendors/page.tsx` — FK hint
+- `apps/web/src/app/api/admin/reports/route.ts` — FK hint
+- `apps/web/src/app/api/markets/[id]/vendors/route.ts` — FK hint
+- `apps/web/src/app/api/markets/[id]/vendors/[vendorId]/route.ts` — FK hint (2 queries)
+- `apps/web/src/app/admin/markets/[id]/page.tsx` — FK hint
+- `apps/web/src/app/api/markets/[id]/route.ts` — FK hint
+- `apps/web/src/lib/environment.ts` — VERCEL_ENV fix
 
-**Event order cap enforcement:**
-- Migration 106 columns exist (event_max_orders_total, event_max_orders_per_wave)
-- Enforcement was REVERTED from cart/items/route.ts (Session 66 incident)
-- Must be reimplemented via SEPARATE validation endpoint
-- NEVER in cart/items/route.ts — see .claude/rules/critical-path-files.md
+## Commits (Session 67)
+1. `6026f9c` — feat: FM landing page redesign (prior session, already on main)
+2. `7fae136` — fix: FM landing page corrections round 1
+3. `921ec6f` — fix: FM landing page round 3 — dotted lines, colors, button, spacing
+4. `a8346d4` — fix: disambiguate PostgREST market_vendors ↔ vendor_profiles FK hints
+5. `60edca0` — fix: staging emails link to staging URL, not production domain
 
-**Remaining audit items:**
-- M-6: Vertical config for item caps (needs config system changes)
-- M-9: Cart validate mixed market types (needs manual testing)
-
-**Vendor guidance text:**
-- Event acceptance UI: capacity planning message
-- Prep reminder: include pre-order count
-- Vendor dashboard event card: show pre-order count
-
-**Event request form enhancements:**
-- Organization type field (company, church, school, community group, government)
-- H-6 decided: use "event organizer" instead of "company" for generic name
-
-### Key Rules Established This Session
-1. **Critical-path files** — `.claude/rules/critical-path-files.md` (13 protected files)
-2. **One push at a time** — never bundle staging + prod, each requires independent approval
-3. **Data-first** — always read the code before guessing (tutorial reset incident)
-
-### Session 66 Commits (total)
-1. `8a4aa6c` — event cart fix + vendor order capacity caps
-2. `240bc72` — revert: remove event cap enforcement from cart API
-3. `0fe2ff7` — refactor: move event pages under [vertical]
-4. `ac3117e` — fix: lint errors in moved event pages
-5. `438c6be` — fix: hide "Continue Shopping" for events
-6. `8e0577a` — feat: auto-transition event lifecycle
-7. `1fe5ea6` — docs: session 66 progress
-8. `36f1597` — docs: session 66 summary
-9. `e83a4ed` — audit batch 1 (12 items)
-10. `40aca21` — audit batch 2 (root cause refactor + timezone)
-11. `92c28e9` — audit batch 3 (language + privacy)
-12. `d388eda` — audit batch 4 (N+1 queries, price filter, vendor status)
-13. `754f820` — audit batch 5 (UX guards, cleanup, validation, FK)
-14. `d90ea2b` — migration 107 applied
-15. `cc1f446` — multi-vertical vendor schedule fix
-16. `0ff3109` — day-of sales: migration + wiring + vendor stay policy
-17. `da6c5fd` — day-of sales: SQL function (migration 109)
-18. `390d0b9` — migrations 108-109 applied
-19. `8fa4eb9` — FM time slots + cart pickup time validation
-20. `6f5028a` — event form + admin UI (cutoff, day-of, stay policy)
-21. `e55b149` — cancel event button on admin
-22. `ecde941` — My Events organizer dashboard
-23. `79cfd6e` — organizer event actions (copy link, cancel request)
-
-### Migrations Applied (Session 66)
-| Migration | All 3 Envs |
-|-----------|-----------|
-| 105 — event date range | Yes |
-| 106 — vendor order caps | Yes |
-| 107 — replaced_vendor FK | Yes |
-| 108 — day-of sales columns | Yes |
-| 109 — day-of cutoff function | Yes |
+## Gotchas / Watch Out For
+- Browser caches old logo aggressively on localhost — staging shows correct logo
+- Next.js dev server slow on cold compile (2-3 min per page) — use --turbo flag
+- Vercel sets NODE_ENV=production for ALL deploys (prod + preview) — use VERCEL_ENV to distinguish
