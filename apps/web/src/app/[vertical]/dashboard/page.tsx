@@ -18,6 +18,7 @@ import { DashboardNotifications } from '@/components/notifications/DashboardNoti
 import { term, isBuyerPremiumEnabled } from '@/lib/vertical'
 import { SUBSCRIPTION_PRICES } from '@/lib/stripe/config'
 import HelpSearchWidget from '@/components/help/HelpSearchWidget'
+import OrganizerEventActions from '@/components/events/OrganizerEventActions'
 import { getLocale } from '@/lib/locale/server'
 import { t } from '@/lib/locale/messages'
 
@@ -900,6 +901,15 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                         </Link>
                       )}
                     </div>
+
+                    {/* Client-side actions: copy link, cancel */}
+                    <OrganizerEventActions
+                      eventId={evt.id}
+                      eventName={evt.company_name}
+                      eventToken={evt.event_token}
+                      status={evt.status}
+                      vertical={vertical}
+                    />
                   </div>
                 )
               })}
