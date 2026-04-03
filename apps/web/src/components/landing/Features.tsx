@@ -8,7 +8,6 @@ import {
   Bell,
   CheckCircle,
   Clock,
-  Truck
 } from 'lucide-react'
 import Image from 'next/image'
 import { spacing, typography, radius, getVerticalColors, getVerticalShadows } from '@/lib/design-tokens'
@@ -224,7 +223,76 @@ export function Features({ vertical, locale }: FeaturesProps) {
     )
   }
 
-  // FM: Original 2-column card grid layout
+  // FM: Stacked list with green icons, watermelon headers, dark green descriptions
+  const FM_WATERMELON = '#FF6B6B'
+  const FM_GREEN = '#4CAF50'
+  const FM_GREEN_DARK = '#2d5016'
+
+  if (vertical === 'farmers_market') {
+    return (
+      <section
+        className="landing-section"
+        style={{ backgroundColor: '#ffffff' }}
+      >
+        <div className="landing-container">
+          <div style={{ maxWidth: 600, margin: '0 auto' }}>
+            {features.map((feature, index) => {
+              const Icon = feature.icon
+              return (
+                <div
+                  key={index}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: spacing.md,
+                    padding: `${spacing.md} 0`,
+                  }}
+                >
+                  {/* Green circle icon */}
+                  <div
+                    className="flex-shrink-0 flex items-center justify-center rounded-full"
+                    style={{
+                      width: 48,
+                      height: 48,
+                      backgroundColor: FM_GREEN,
+                      marginTop: 2,
+                    }}
+                  >
+                    <Icon style={{ width: 24, height: 24, color: '#ffffff' }} />
+                  </div>
+                  {/* Text */}
+                  <div>
+                    <h3
+                      style={{
+                        fontSize: typography.sizes.lg,
+                        fontWeight: typography.weights.bold,
+                        color: FM_WATERMELON,
+                        marginBottom: spacing['3xs'],
+                      }}
+                    >
+                      {feature.title}
+                    </h3>
+                    <p
+                      style={{
+                        fontSize: typography.sizes.sm,
+                        color: FM_GREEN_DARK,
+                        lineHeight: typography.leading.relaxed,
+                        margin: 0,
+                      }}
+                    >
+                      {feature.description}
+                    </p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  // Other verticals (non-FT, non-FM): Original 2-column card grid layout
   return (
     <section
       className="landing-section"

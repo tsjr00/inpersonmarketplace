@@ -7,6 +7,9 @@ import { term } from '@/lib/vertical'
 import { t } from '@/lib/locale/messages'
 import { DottedSeparator } from './DottedSeparator'
 
+// FM landing page watermelon palette (landing-only)
+const FM_WATERMELON = '#FF6B6B'
+
 interface FooterProps {
   vertical: string
   locale?: string
@@ -14,16 +17,17 @@ interface FooterProps {
 
 /**
  * Footer Section
- * FM: Dark green background, text-only brand column, 4-column layout
+ * FM: Watermelon background, white text, logo + 3-column layout
  * FT: Dark charcoal background, logo+tagline side by side at top, link columns below
  */
 export function Footer({ vertical, locale }: FooterProps) {
   const colors = getVerticalColors(vertical)
   const currentYear = new Date().getFullYear()
   const isFT = vertical === 'food_trucks'
+  const isFM = vertical === 'farmers_market'
 
-  // FT uses dark charcoal (not pure black). FM uses textPrimary (dark green).
-  const footerBg = isFT ? '#333333' : colors.textPrimary
+  // FM uses watermelon. FT uses dark charcoal. Others use textPrimary.
+  const footerBg = isFM ? FM_WATERMELON : isFT ? '#333333' : colors.textPrimary
 
   const footerSections = [
     {
@@ -171,7 +175,106 @@ export function Footer({ vertical, locale }: FooterProps) {
     )
   }
 
-  // FM: Original 4-column layout (brand + 3 link columns)
+  // FM: Watermelon background, white text, logo + 3-column layout
+  if (isFM) {
+    return (
+      <footer
+        className="flex justify-center"
+        style={{
+          backgroundColor: footerBg,
+          paddingTop: spacing.xl,
+          paddingBottom: spacing.md,
+        }}
+      >
+        <div className="landing-container">
+          {/* Logo + text */}
+          <div
+            className="flex items-center justify-center"
+            style={{
+              gap: spacing.md,
+              marginBottom: spacing.lg,
+            }}
+          >
+            <Image
+              src="/logos/farmersmarketing-full-logo.png"
+              alt="Farmers Marketing"
+              width={60}
+              height={60}
+              style={{ borderRadius: '50%' }}
+            />
+            <span
+              style={{
+                fontSize: typography.sizes.lg,
+                fontWeight: typography.weights.bold,
+                color: '#ffffff',
+              }}
+            >
+              Farmers Marketing
+            </span>
+          </div>
+
+          {/* 3 Link columns */}
+          <div
+            className="grid grid-cols-3"
+            style={{ gap: spacing.md, marginBottom: spacing.lg }}
+          >
+            {footerSections.map((section, index) => (
+              <div key={index}>
+                <h4
+                  style={{
+                    fontSize: typography.sizes.sm,
+                    fontWeight: typography.weights.semibold,
+                    color: '#ffffff',
+                    marginBottom: spacing.sm,
+                  }}
+                >
+                  {section.title}
+                </h4>
+                <ul style={{ listStyle: 'none' }}>
+                  {section.links.map((link, linkIndex) => (
+                    <li key={linkIndex} style={{ marginBottom: spacing['2xs'] }}>
+                      <Link
+                        href={link.href}
+                        className="transition-colors"
+                        style={{
+                          fontSize: typography.sizes.xs,
+                          color: 'rgba(255,255,255,0.85)',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.color = '#ffffff'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.color = 'rgba(255,255,255,0.85)'
+                        }}
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+
+          {/* Divider + Copyright */}
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.3)' }} />
+          <div style={{ paddingTop: spacing.md }}>
+            <p
+              className="text-center"
+              style={{
+                fontSize: typography.sizes.sm,
+                color: 'rgba(255,255,255,0.85)',
+              }}
+            >
+              &copy; {currentYear} 815 Enterprises LLC d/b/a Farmers Marketing. {t('footer.all_rights_reserved', locale)}
+            </p>
+          </div>
+        </div>
+      </footer>
+    )
+  }
+
+  // Other verticals: fallback 4-column layout
   return (
     <footer
       className="flex justify-center"
@@ -182,12 +285,10 @@ export function Footer({ vertical, locale }: FooterProps) {
       }}
     >
       <div className="landing-container">
-        {/* Main Footer Content */}
         <div
           className="grid grid-cols-2 md:grid-cols-4"
           style={{ gap: spacing.lg, marginBottom: spacing.lg }}
         >
-          {/* Brand Column */}
           <div className="col-span-2 md:col-span-1">
             <p
               style={{
@@ -200,7 +301,6 @@ export function Footer({ vertical, locale }: FooterProps) {
             </p>
           </div>
 
-          {/* Link Columns */}
           {footerSections.map((section, index) => (
             <div key={index}>
               <h4
@@ -241,7 +341,6 @@ export function Footer({ vertical, locale }: FooterProps) {
 
         <div style={{ borderTop: `1px solid ${colors.textSecondary}` }} />
 
-        {/* Copyright */}
         <div style={{ paddingTop: spacing.md }}>
           <p
             className="text-center"
