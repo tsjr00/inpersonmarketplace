@@ -179,6 +179,10 @@ export default function AdminCateringPage() {
   const [repeatEndTime, setRepeatEndTime] = useState('')
   const [repeating, setRepeating] = useState(false)
 
+  // Wave generation state
+  const [generatingWaves, setGeneratingWaves] = useState(false)
+  const [waveInfo, setWaveInfo] = useState<Record<string, { count: number; capacity: number } | null>>({})
+
   useEffect(() => {
     fetchData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -317,6 +321,28 @@ export default function AdminCateringPage() {
       setActionMessage('Network error')
     }
     setRepeating(false)
+  }
+
+  async function generateWaves(requestId: string) {
+    if (generatingWaves) return
+    setGeneratingWaves(true)
+    setActionMessage(null)
+    try {
+      const res = await fetch(`/api/admin/events/${requestId}/generate-waves`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setActionMessage(`Generated ${data.waves_created} waves (${data.capacity_per_wave} capacity each)`)
+        setWaveInfo(prev => ({ ...prev, [requestId]: { count: data.waves_created, capacity: data.capacity_per_wave } }))
+      } else {
+        setActionMessage(`Error: ${data.error}`)
+      }
+    } catch {
+      setActionMessage('Network error')
+    }
+    setGeneratingWaves(false)
   }
 
   async function handleCreateEvent(e: React.FormEvent) {
@@ -1222,7 +1248,42 @@ export default function AdminCateringPage() {
                     >
                       {showRepeatForm ? 'Cancel' : 'Repeat Event'}
                     </button>
+                    {/* Generate Waves button — for company-paid events with accepted vendors */}
+                    {selected.payment_model === 'company_paid' && (
+                      <button
+                        onClick={() => generateWaves(selected.id)}
+                        disabled={generatingWaves}
+                        style={{
+                          ...sizing.control,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: spacing['3xs'],
+                          backgroundColor: generatingWaves ? '#ccc' : '#8BC34A',
+                          color: 'white',
+                          border: 'none',
+                          fontWeight: typography.weights.semibold,
+                          fontSize: typography.sizes.xs,
+                          cursor: generatingWaves ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        {generatingWaves ? 'Generating...' : waveInfo[selected.id] ? `${waveInfo[selected.id]?.count} Waves ✓` : 'Generate Waves'}
+                      </button>
+                    )}
                   </div>
+                  {/* Wave info display */}
+                  {waveInfo[selected.id] && (
+                    <div style={{
+                      marginTop: spacing.xs,
+                      padding: `${spacing['2xs']} ${spacing.sm}`,
+                      backgroundColor: '#f0fdf4',
+                      border: '1px solid #86efac',
+                      borderRadius: radius.sm,
+                      fontSize: typography.sizes.xs,
+                      color: '#166534',
+                    }}>
+                      {waveInfo[selected.id]?.count} waves generated &middot; {waveInfo[selected.id]?.capacity} capacity per wave &middot; 30-min intervals
+                    </div>
+                  )}
                   {showRepeatForm && (
                     <div style={{
                       marginTop: spacing.sm,
