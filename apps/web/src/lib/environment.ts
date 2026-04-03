@@ -18,7 +18,8 @@ const VERTICAL_DOMAINS: Record<string, string> = {
  */
 export function getAppUrl(vertical?: string): string {
   // In production, use the vertical's dedicated domain
-  if (vertical && process.env.NODE_ENV === 'production' && VERTICAL_DOMAINS[vertical]) {
+  // VERCEL_ENV distinguishes 'production' from 'preview' (staging); NODE_ENV is 'production' for both
+  if (vertical && process.env.VERCEL_ENV === 'production' && VERTICAL_DOMAINS[vertical]) {
     return VERTICAL_DOMAINS[vertical]
   }
   if (process.env.NEXT_PUBLIC_APP_URL) {
