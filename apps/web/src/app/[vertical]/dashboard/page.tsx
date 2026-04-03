@@ -1,13 +1,13 @@
 export const dynamic = 'force-dynamic'
 
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import { hasAdminRole } from '@/lib/auth/admin'
 import { enforceVerticalAccess } from '@/lib/auth/vertical-gate'
 import Link from 'next/link'
 import Image from 'next/image'
-import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { colors, spacing, typography, radius, shadows, containers, statusColors } from '@/lib/design-tokens'
 import TutorialWrapper from '@/components/onboarding/TutorialWrapper'
 import FeedbackCard from '@/components/buyer/FeedbackCard'
 import VendorFeedbackCard from '@/components/vendor/VendorFeedbackCard'
@@ -128,6 +128,56 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
 
   const isVendor = !!vendorProfile
   const isApprovedVendor = vendorProfile?.status === 'approved'
+
+  // ── Organizer Events: link account + fetch events ──
+  const serviceClient = createServiceClient()
+
+  // Auto-link: if this user's email matches an event's contact_email, set organizer_user_id
+  await serviceClient
+    .from('catering_requests')
+    .update({ organizer_user_id: user.id })
+    .eq('contact_email', user.email!.toLowerCase())
+    .eq('vertical_id', vertical)
+    .is('organizer_user_id', null)
+
+  // Fetch organizer's events
+  const { data: organizerEvents } = await serviceClient
+    .from('catering_requests')
+    .select('id, company_name, event_date, event_end_date, status, market_id, event_token, vendor_count, headcount, service_level')
+    .eq('organizer_user_id', user.id)
+    .eq('vertical_id', vertical)
+    .order('event_date', { ascending: false })
+    .limit(10)
+
+  // Get vendor counts for organizer's events that have markets
+  const organizerMarketIds = (organizerEvents || []).filter(e => e.market_id).map(e => e.market_id as string)
+  const organizerVendorCounts: Record<string, number> = {}
+  const organizerOrderCounts: Record<string, number> = {}
+  if (organizerMarketIds.length > 0) {
+    const { data: vendorRows } = await serviceClient
+      .from('market_vendors')
+      .select('market_id')
+      .in('market_id', organizerMarketIds)
+      .eq('response_status', 'accepted')
+
+    for (const row of vendorRows || []) {
+      const mid = row.market_id as string
+      organizerVendorCounts[mid] = (organizerVendorCounts[mid] || 0) + 1
+    }
+
+    const { data: orderRows } = await serviceClient
+      .from('order_items')
+      .select('market_id')
+      .in('market_id', organizerMarketIds)
+      .not('status', 'in', '("cancelled")')
+
+    for (const row of orderRows || []) {
+      const mid = row.market_id as string
+      organizerOrderCounts[mid] = (organizerOrderCounts[mid] || 0) + 1
+    }
+  }
+
+  const hasOrganizerEvents = (organizerEvents || []).length > 0
 
   const isAdmin = userProfile ? hasAdminRole(userProfile) : false
   const buyerTier = (userProfile?.buyer_tier as string) || 'free'
@@ -717,6 +767,146 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
         )}
 
       </section>
+
+      {/* ========== MY EVENTS SECTION (for event organizers) ========== */}
+      {hasOrganizerEvents && (
+        <>
+          <div style={{ borderTop: `1px solid ${colors.border}`, marginBottom: spacing.lg }} />
+          <section style={{ marginBottom: spacing.lg }}>
+            <h2 style={{
+              fontSize: typography.sizes.xl,
+              fontWeight: typography.weights.semibold,
+              marginBottom: spacing.sm,
+              color: colors.textSecondary,
+              display: 'flex',
+              alignItems: 'center',
+              gap: spacing['2xs']
+            }}>
+              My Events
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+              {(organizerEvents || []).map(evt => {
+                const vendorAccepted = evt.market_id ? (organizerVendorCounts[evt.market_id] || 0) : 0
+                const preOrderCount = evt.market_id ? (organizerOrderCounts[evt.market_id] || 0) : 0
+                const eventDate = evt.event_date
+                  ? new Date(evt.event_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+                  : 'Date TBD'
+                const statusLabels: Record<string, string> = {
+                  new: 'Submitted',
+                  reviewing: 'Under Review',
+                  approved: 'Approved — Inviting Vendors',
+                  ready: 'Vendors Confirmed — Pre-Orders Open',
+                  active: 'Event Day',
+                  review: 'Event Ended — Collecting Feedback',
+                  completed: 'Completed',
+                  cancelled: 'Cancelled',
+                  declined: 'Declined',
+                }
+                const statusColors2: Record<string, { bg: string; text: string }> = {
+                  new: { bg: '#eff6ff', text: '#1e40af' },
+                  reviewing: { bg: '#fef3c7', text: '#92400e' },
+                  approved: { bg: '#f0fdf4', text: '#166534' },
+                  ready: { bg: '#f0fdf4', text: '#166534' },
+                  active: { bg: '#dcfce7', text: '#14532d' },
+                  review: { bg: '#f3e8ff', text: '#7e22ce' },
+                  completed: { bg: '#f3f4f6', text: '#374151' },
+                  cancelled: { bg: '#fef2f2', text: '#991b1b' },
+                  declined: { bg: '#fef2f2', text: '#991b1b' },
+                }
+                const sc = statusColors2[evt.status] || statusColors2.new
+
+                return (
+                  <div key={evt.id} style={{
+                    padding: spacing.sm,
+                    backgroundColor: 'white',
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: radius.lg,
+                    boxShadow: shadows.sm,
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing['2xs'] }}>
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: statusColors.neutral800 }}>
+                          {evt.company_name}
+                        </h3>
+                        <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.sm, color: statusColors.neutral500 }}>
+                          {eventDate}
+                        </p>
+                      </div>
+                      <span style={{
+                        padding: `2px ${spacing.xs}`,
+                        backgroundColor: sc.bg,
+                        color: sc.text,
+                        borderRadius: radius.sm,
+                        fontSize: typography.sizes.xs,
+                        fontWeight: typography.weights.semibold,
+                        whiteSpace: 'nowrap',
+                      }}>
+                        {statusLabels[evt.status] || evt.status}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: spacing.md, fontSize: typography.sizes.sm, color: statusColors.neutral500, marginBottom: spacing.xs }}>
+                      <span>{vendorAccepted} of {evt.vendor_count} vendors confirmed</span>
+                      {preOrderCount > 0 && <span>{preOrderCount} pre-order{preOrderCount !== 1 ? 's' : ''}</span>}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: spacing.xs, flexWrap: 'wrap' }}>
+                      {evt.event_token && ['approved', 'ready', 'active'].includes(evt.status) && (
+                        <Link
+                          href={`/${vertical}/events/${evt.event_token}`}
+                          style={{
+                            padding: `${spacing['3xs']} ${spacing.xs}`,
+                            backgroundColor: colors.primary,
+                            color: 'white',
+                            borderRadius: radius.sm,
+                            fontSize: typography.sizes.xs,
+                            fontWeight: typography.weights.semibold,
+                            textDecoration: 'none',
+                          }}
+                        >
+                          View Event Page
+                        </Link>
+                      )}
+                      {evt.event_token && evt.service_level === 'self_service' && ['approved', 'ready'].includes(evt.status) && (
+                        <Link
+                          href={`/${vertical}/events/${evt.event_token}/select`}
+                          style={{
+                            padding: `${spacing['3xs']} ${spacing.xs}`,
+                            backgroundColor: '#eff6ff',
+                            color: '#1e40af',
+                            borderRadius: radius.sm,
+                            fontSize: typography.sizes.xs,
+                            fontWeight: typography.weights.semibold,
+                            textDecoration: 'none',
+                          }}
+                        >
+                          Select Vendors
+                        </Link>
+                      )}
+                      {evt.event_token && ['ready', 'active'].includes(evt.status) && (
+                        <Link
+                          href={`/${vertical}/events/${evt.event_token}/shop`}
+                          style={{
+                            padding: `${spacing['3xs']} ${spacing.xs}`,
+                            backgroundColor: '#f0fdf4',
+                            color: '#166534',
+                            borderRadius: radius.sm,
+                            fontSize: typography.sizes.xs,
+                            fontWeight: typography.weights.semibold,
+                            textDecoration: 'none',
+                          }}
+                        >
+                          Shop Page
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+        </>
+      )}
 
       {/* ========== VENDOR SECTION PLACEHOLDER (for non-vendors) ========== */}
       {!isVendor && (
