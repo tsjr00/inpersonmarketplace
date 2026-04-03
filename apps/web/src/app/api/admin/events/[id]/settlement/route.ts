@@ -78,9 +78,27 @@ export async function GET(request: NextRequest, context: RouteContext) {
     // Fetch event market
     const { data: market } = await serviceClient
       .from('markets')
-      .select('id, name, address, city, state, zip, event_start_date, event_end_date, headcount')
+      .select('id, name, address, city, state, zip, event_start_date, event_end_date, headcount, wave_ordering_enabled')
       .eq('id', cateringReq.market_id)
       .single()
+
+    // Fetch wave data if wave ordering is enabled
+    let waveStats: Array<{ wave_number: number; start_time: string; end_time: string; capacity: number; reserved_count: number }> = []
+    if (market?.wave_ordering_enabled) {
+      const { data: waves } = await serviceClient
+        .from('event_waves')
+        .select('wave_number, start_time, end_time, capacity, reserved_count')
+        .eq('market_id', cateringReq.market_id)
+        .order('wave_number')
+      waveStats = waves || []
+    }
+
+    // Fetch company payments
+    const { data: companyPayments } = await serviceClient
+      .from('event_company_payments')
+      .select('id, payment_type, amount_cents, payment_method, status, paid_at')
+      .eq('market_id', cateringReq.market_id)
+      .order('created_at')
 
     // Fetch all order items for this market, joined with order + buyer + listing + vendor
     const { data: orderItems, error: itemsError } = await serviceClient
@@ -105,6 +123,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
           order_number,
           buyer_user_id,
           payment_method,
+          payment_model,
           status,
           tip_amount,
           tip_on_platform_fee_cents,
@@ -306,21 +325,32 @@ export async function GET(request: NextRequest, context: RouteContext) {
       totalVendorFeeCents + totalVendorFlatFeeCents
     const totalFulfilledOrders = (orderItems || []).filter(i => !!i.pickup_confirmed_at).length
 
-    // Orders paid by employee (stripe) vs external (company-paid)
+    // Orders paid by employee (stripe) vs external vs company-paid
     const employeePaidItems = (orderItems || []).filter(i => {
-      const o = i.orders as unknown as { payment_method: string }
-      return o.payment_method === 'stripe'
+      const o = i.orders as unknown as { payment_method: string; payment_model?: string }
+      return o.payment_method === 'stripe' && o.payment_model !== 'company_paid'
     })
     const externalPaidItems = (orderItems || []).filter(i => {
-      const o = i.orders as unknown as { payment_method: string }
-      return o.payment_method !== 'stripe'
+      const o = i.orders as unknown as { payment_method: string; payment_model?: string }
+      return o.payment_method !== 'stripe' && o.payment_model !== 'company_paid'
+    })
+    const companyPaidItems = (orderItems || []).filter(i => {
+      const o = i.orders as unknown as { payment_model?: string }
+      return o.payment_model === 'company_paid'
     })
 
     const employeePaidCents = employeePaidItems.reduce((s, i) => s + i.subtotal_cents, 0)
     const companyOwedCents = externalPaidItems.reduce((s, i) => s + i.subtotal_cents, 0)
+    const companyPaidCents = companyPaidItems.reduce((s, i) => s + i.subtotal_cents, 0)
 
     const totalStripeOrders = new Set(employeePaidItems.map(i => i.order_id)).size
     const totalExternalOrders = new Set(externalPaidItems.map(i => i.order_id)).size
+    const totalCompanyPaidOrders = new Set(companyPaidItems.map(i => i.order_id)).size
+
+    // Company payment totals
+    const totalCompanyPaymentsCents = (companyPayments || [])
+      .filter(p => p.status === 'paid')
+      .reduce((s, p) => s + p.amount_cents, 0)
 
     return NextResponse.json({
       cateringRequest: {
@@ -349,6 +379,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
       } : null,
       vendors: vendorList,
       acceptedVendorCount,
+      waveStats,
+      companyPayments: companyPayments || [],
+      paymentModel: cateringReq.payment_model || 'attendee_paid',
       summary: {
         totalOrders,
         totalItems,
@@ -364,6 +397,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
         totalVendorPayoutCents,
         employeePaidCents,
         companyOwedCents,
+        companyPaidCents,
+        totalCompanyPaidOrders,
+        totalCompanyPaymentsCents,
+        companyPaymentBalance: totalCompanyPaymentsCents - companyPaidCents,
         headcount: cateringReq.headcount,
         participationRate: cateringReq.headcount > 0
           ? Math.round((totalOrders / cateringReq.headcount) * 100)
