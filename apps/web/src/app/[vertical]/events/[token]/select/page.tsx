@@ -44,7 +44,13 @@ interface EventDetails {
 
 export default function EventSelectPage() {
   const params = useParams()
+  const vertical = params.vertical as string
   const token = params.token as string
+  const isFM = vertical === 'farmers_market'
+  const vendorTerm = isFM ? 'vendor' : 'truck'
+  const vendorTermPlural = isFM ? 'vendors' : 'trucks'
+  const vendorTermCap = isFM ? 'Vendor' : 'Truck'
+  const vendorTermPluralCap = isFM ? 'Vendors' : 'Trucks'
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -104,7 +110,7 @@ export default function EventSelectPage() {
     // Verify all selected vendors have menu reviewed
     const allReviewed = selectedIds.every(id => menusReviewed.has(id))
     if (!allReviewed) {
-      setError('Please confirm you have reviewed the catering menu for each selected truck.')
+      setError(`Please confirm you have reviewed the ${isFM ? 'event items' : 'catering menu'} for each selected ${vendorTerm}.`)
       return
     }
 
@@ -162,13 +168,13 @@ export default function EventSelectPage() {
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui, sans-serif' }}>
         <div style={{ textAlign: 'center', padding: spacing.lg, maxWidth: 500 }}>
           <div style={{ fontSize: '4rem', marginBottom: spacing.md }}>🎉</div>
-          <h2 style={{ color: statusColors.neutral900, margin: `0 0 ${spacing.sm}` }}>Your Trucks Are Confirmed!</h2>
+          <h2 style={{ color: statusColors.neutral900, margin: `0 0 ${spacing.sm}` }}>Your {vendorTermPluralCap} Are Confirmed!</h2>
           <p style={{ color: statusColors.neutral600, lineHeight: 1.6, margin: `0 0 ${spacing.md}` }}>
-            We&apos;re notifying your selected trucks now. They&apos;ll connect their catering menus to your event,
+            We&apos;re notifying your selected {vendorTermPlural} now. They&apos;ll connect their {isFM ? 'items' : 'catering menus'} to your event,
             and you&apos;ll receive your shareable event page link shortly.
           </p>
           <p style={{ color: statusColors.neutral500, fontSize: typography.sizes.sm }}>
-            Your attendees will be able to browse menus and pre-order through the event page.
+            Your attendees will be able to browse {isFM ? 'products' : 'menus'} and pre-order through the event page.
           </p>
         </div>
       </div>
@@ -186,10 +192,10 @@ export default function EventSelectPage() {
         {/* Header */}
         <div style={{ marginBottom: spacing.lg }}>
           <h1 style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: statusColors.neutral900, margin: `0 0 ${spacing.xs}` }}>
-            Select Your Food Trucks
+            Select Your {vendorTermPluralCap}
           </h1>
           <p style={{ color: statusColors.neutral600, margin: 0, lineHeight: 1.5 }}>
-            Event: <strong>{event.event_date}</strong> in {event.city}, {event.state} &bull; {event.headcount} guests &bull; {event.vendor_count} truck{event.vendor_count > 1 ? 's' : ''} needed
+            Event: <strong>{event.event_date}</strong> in {event.city}, {event.state} &bull; {event.headcount} guests &bull; {event.vendor_count} {event.vendor_count > 1 ? vendorTermPlural : vendorTerm} needed
           </p>
         </div>
 
@@ -223,7 +229,7 @@ export default function EventSelectPage() {
         ) : (
           <>
             <p style={{ color: statusColors.neutral500, fontSize: typography.sizes.sm, margin: `0 0 ${spacing.sm}` }}>
-              {vendors.length} truck{vendors.length > 1 ? 's' : ''} interested &bull; Select up to {event.vendor_count}
+              {vendors.length} {vendors.length > 1 ? vendorTermPlural : vendorTerm} interested &bull; Select up to {event.vendor_count}
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm, marginBottom: spacing.lg }}>
@@ -285,7 +291,7 @@ export default function EventSelectPage() {
                     {v.catering_items.length > 0 && (
                       <div style={{ marginBottom: spacing.xs }}>
                         <div style={{ fontSize: 11, fontWeight: typography.weights.semibold, color: statusColors.neutral500, marginBottom: spacing['3xs'] }}>
-                          CATERING MENU ({v.catering_items.length} items)
+                          {isFM ? 'EVENT ITEMS' : 'CATERING MENU'} ({v.catering_items.length} items)
                         </div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing['2xs'] }}>
                           {v.catering_items.map((item, i) => (
@@ -321,7 +327,7 @@ export default function EventSelectPage() {
                           minHeight: 36,
                         }}
                       >
-                        {isSelected ? '✓ Selected' : 'Select This Truck'}
+                        {isSelected ? '✓ Selected' : `Select This ${vendorTermCap}`}
                       </button>
 
                       {isSelected && (
@@ -338,7 +344,7 @@ export default function EventSelectPage() {
                             checked={isMenuReviewed}
                             onChange={() => toggleMenuReviewed(v.vendor_profile_id)}
                           />
-                          I have reviewed this truck&apos;s catering menu
+                          I have reviewed this {vendorTerm}&apos;s {isFM ? 'event items' : 'catering menu'}
                         </label>
                       )}
                     </div>
@@ -356,11 +362,11 @@ export default function EventSelectPage() {
               marginBottom: spacing.md,
             }}>
               <h3 style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: statusColors.neutral800, margin: `0 0 ${spacing.xs}` }}>
-                Communication with Trucks
+                Communication with {vendorTermPluralCap}
               </h3>
               <p style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, margin: `0 0 ${spacing.sm}`, lineHeight: 1.5 }}>
-                Would you like to share your contact information with your selected trucks so they can reach you directly for logistical questions?
-                If you choose not to, trucks can still send you messages through the platform.
+                Would you like to share your contact information with your selected {vendorTermPlural} so they can reach you directly for logistical questions?
+                If you choose not to, {vendorTermPlural} can still send you messages through the platform.
               </p>
               <label style={{
                 display: 'flex',
@@ -376,7 +382,7 @@ export default function EventSelectPage() {
                   checked={shareContact}
                   onChange={(e) => setShareContact(e.target.checked)}
                 />
-                Yes, share my contact information with selected trucks
+                Yes, share my contact information with selected {vendorTermPlural}
               </label>
               {shareContact && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs, paddingLeft: spacing.md }}>
@@ -428,14 +434,14 @@ export default function EventSelectPage() {
                 overflowY: 'auto',
               }}>
                 <p style={{ margin: `0 0 ${spacing.xs}` }}>
-                  By selecting food trucks through this platform, you acknowledge and agree that:
+                  By selecting {vendorTermPlural} through this platform, you acknowledge and agree that:
                 </p>
                 <ul style={{ margin: 0, paddingLeft: spacing.md }}>
-                  <li>This platform acts strictly as a facilitator connecting event organizers with food truck operators.</li>
-                  <li>The arrangement for food service is between you and the selected food truck operator(s).</li>
-                  <li>The platform is not responsible for food quality, vendor no-shows, preparation delays, or any issues arising from the event.</li>
-                  <li>You have reviewed the catering menu for each selected truck and understand what will be provided.</li>
-                  <li>Selected trucks will receive your contact information for logistical coordination.</li>
+                  <li>This platform acts strictly as a facilitator connecting event organizers with {vendorTermPlural}.</li>
+                  <li>The arrangement for {isFM ? 'products and services' : 'food service'} is between you and the selected {vendorTerm}(s).</li>
+                  <li>The platform is not responsible for {isFM ? 'product quality' : 'food quality'}, vendor no-shows, preparation delays, or any issues arising from the event.</li>
+                  <li>You have reviewed the {isFM ? 'event items' : 'catering menu'} for each selected {vendorTerm} and understand what will be provided.</li>
+                  <li>Selected {vendorTermPlural} will receive your contact information for logistical coordination.</li>
                   <li>Cancellations by either party should be communicated as early as possible. Vendors who cancel within 72 hours of the event may face platform penalties.</li>
                 </ul>
               </div>
@@ -474,12 +480,12 @@ export default function EventSelectPage() {
                 minHeight: 52,
               }}
             >
-              {submitting ? 'Confirming...' : `Confirm ${selectedIds.length} Truck${selectedIds.length !== 1 ? 's' : ''}`}
+              {submitting ? 'Confirming...' : `Confirm ${selectedIds.length} ${selectedIds.length !== 1 ? vendorTermPluralCap : vendorTermCap}`}
             </button>
 
             {selectedIds.length > 0 && !canSubmit && (
               <p style={{ textAlign: 'center', marginTop: spacing.xs, fontSize: typography.sizes.xs, color: statusColors.neutral400 }}>
-                {!termsAccepted ? 'Please accept the terms above' : 'Please confirm you reviewed each selected truck\'s menu'}
+                {!termsAccepted ? 'Please accept the terms above' : `Please confirm you reviewed each selected ${vendorTerm}'s ${isFM ? 'items' : 'menu'}`}
               </p>
             )}
           </>

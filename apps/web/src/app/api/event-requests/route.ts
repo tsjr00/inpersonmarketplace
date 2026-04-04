@@ -325,7 +325,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       message: isSelfService
-        ? "Your event request is live! We're notifying qualified food trucks now. You'll hear back within 48 hours."
+        ? (verticalId === 'farmers_market'
+          ? "Your event request is live! We're notifying qualified vendors now. You'll hear back within 48 hours."
+          : "Your event request is live! We're notifying qualified food trucks now. You'll hear back within 48 hours.")
         : "Thank you! We've received your event request. Our team will review it and get back to you shortly.",
     })
   })

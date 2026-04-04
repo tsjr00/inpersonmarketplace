@@ -121,9 +121,12 @@ export async function POST(
         const { Resend } = await import('resend')
         const resend = new Resend(apiKey)
         const adminEmail = process.env.ADMIN_EMAIL || 'admin@815enterprises.com'
+        const isFM = event.vertical_id === 'farmers_market'
+        const senderName = isFM ? 'Farmers Marketing' : "Food Truck'n"
+        const senderDomain = isFM ? 'mail.farmersmarketing.app' : 'mail.foodtruckn.app'
 
         await resend.emails.send({
-          from: 'Farmers Marketing <updates@mail.farmersmarketing.app>',
+          from: `${senderName} <updates@${senderDomain}>`,
           to: adminEmail,
           subject: `[Event Cancelled] ${event.company_name}`,
           html: `
