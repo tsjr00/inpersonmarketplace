@@ -506,6 +506,22 @@ export default function EventShopPage() {
                   {selectedListing && <> &middot; {selectedListing.title} from {selectedListing.vendorName}</>}
                 </p>
               )}
+              <Link
+                href={`/${vertical}/events/${token}/my-order`}
+                style={{
+                  display: 'inline-block',
+                  marginTop: spacing.md,
+                  padding: `${spacing['2xs']} ${spacing.md}`,
+                  backgroundColor: accent,
+                  color: 'white',
+                  textDecoration: 'none',
+                  borderRadius: radius.sm,
+                  fontWeight: typography.weights.semibold,
+                  fontSize: typography.sizes.sm,
+                }}
+              >
+                View Order &amp; QR Code
+              </Link>
             </div>
           ) : (
             <>
