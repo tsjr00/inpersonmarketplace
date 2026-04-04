@@ -403,92 +403,44 @@ export default function VendorCateringDetailPage() {
         </div>
       )}
 
-      {/* Key details cards */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: spacing.sm,
-          marginBottom: spacing.lg,
-        }}
-      >
-        <InfoCard
-          label="Event Date"
-          value={fmtDate(details.event_date)}
-          sub={
-            details.event_end_date && details.event_end_date !== details.event_date
-              ? `through ${fmtDate(details.event_end_date)}`
-              : undefined
-          }
-        />
-        <InfoCard
-          label="Your Est. Headcount"
-          value={`~${headcountPerVendor} people`}
-          sub={`${details.headcount} total / ${details.accepted_count || details.vendor_count} ${term(vertical, 'event_vendor_unit')}s`}
-        />
-        {(details.event_start_time || details.event_end_time) && (
-          <InfoCard
-            label="Time"
-            value={`${details.event_start_time?.slice(0, 5) || '?'} — ${details.event_end_time?.slice(0, 5) || '?'}`}
-          />
-        )}
-        <InfoCard
-          label="Location"
-          value={`${details.city}, ${details.state}`}
-          sub={details.address || (details.response_status !== 'accepted' ? 'Full address provided after acceptance' : undefined)}
-        />
-      </div>
-
-      {/* Event Context — helps vendor make informed decision */}
+      {/* Event Details — consolidated single card */}
       <div style={{
         padding: spacing.sm,
         backgroundColor: statusColors.neutral50,
         border: `1px solid ${statusColors.neutral200}`,
         borderRadius: radius.md,
         marginBottom: spacing.md,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: spacing['3xs'],
       }}>
-        <h3 style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: statusColors.neutral700, margin: 0 }}>
+        <h3 style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: statusColors.neutral700, margin: `0 0 ${spacing.xs}` }}>
           Event Details
         </h3>
-        {details.payment_model && (
-          <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, margin: 0, lineHeight: 1.5 }}>
-            <strong>Payment:</strong> {PAYMENT_MODEL_LABELS[details.payment_model] || details.payment_model}
-          </p>
-        )}
-        {details.is_ticketed && (
-          <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, margin: 0 }}>
-            <strong>Ticketed event</strong> — attendees have committed to attending
-          </p>
-        )}
-        {details.children_present && (
-          <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, margin: 0 }}>
-            <strong>Children will be present</strong> — consider family-friendly offerings
-          </p>
-        )}
-        {details.is_themed && (
-          <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, margin: 0 }}>
-            <strong>Themed event:</strong> {details.theme_description || 'Yes'}
-          </p>
-        )}
-        {details.has_competing_vendors && (
-          <p style={{ fontSize: typography.sizes.sm, color: '#d97706', margin: 0 }}>
-            Other vendors/shopping options at venue — attendee spending may be split
-          </p>
-        )}
-        {!details.has_competing_vendors && (
-          <p style={{ fontSize: typography.sizes.sm, color: '#059669', margin: 0 }}>
-            No competing vendors at this event — you&apos;ll have a captive audience
-          </p>
-        )}
-        <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral500, margin: 0 }}>
-          {details.accepted_count} of {details.vendor_count} vendor{details.vendor_count > 1 ? 's' : ''} confirmed so far
-        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
+          <DetailRow label="Date" value={`${fmtDate(details.event_date)}${details.event_end_date && details.event_end_date !== details.event_date ? ` — ${fmtDate(details.event_end_date)}` : ''}`} />
+          {(details.event_start_time || details.event_end_time) && (
+            <DetailRow label="Time" value={`${fmtTime12(details.event_start_time)} — ${fmtTime12(details.event_end_time)}`} />
+          )}
+          <DetailRow label="Location" value={details.address ? `${details.address}, ${details.city}, ${details.state}` : `${details.city}, ${details.state}${details.response_status !== 'accepted' ? ' (full address after acceptance)' : ''}`} />
+          <DetailRow label="Your est. headcount" value={`~${headcountPerVendor} people`} sub={`${details.headcount} total ÷ ${details.accepted_count || details.vendor_count} ${term(vertical, 'event_vendor_unit')}s`} />
+          {details.payment_model && (
+            <DetailRow label="Payment" value={PAYMENT_MODEL_LABELS[details.payment_model] || details.payment_model} />
+          )}
+          <DetailRow label="Vendors confirmed" value={`${details.accepted_count} of ${details.vendor_count}`} />
+          {details.is_ticketed && <DetailRow label="Ticketed" value="Yes — attendees have committed to attending" />}
+          {details.children_present && <DetailRow label="Children" value="Yes — consider family-friendly offerings" />}
+          {details.is_themed && <DetailRow label="Theme" value={details.theme_description || 'Yes'} />}
+          {details.has_competing_vendors ? (
+            <p style={{ fontSize: typography.sizes.xs, color: '#d97706', margin: `${spacing['2xs']} 0 0` }}>
+              ⚠ Other vendors/shopping options at venue — attendee spending may be split
+            </p>
+          ) : (
+            <p style={{ fontSize: typography.sizes.xs, color: '#059669', margin: `${spacing['2xs']} 0 0` }}>
+              ✓ No competing vendors — you&apos;ll have a captive audience
+            </p>
+          )}
+        </div>
       </div>
 
-      {/* Revenue Estimate */}
+      {/* Revenue Estimate — show the math */}
       {details.headcount > 0 && (
         <div style={{
           padding: spacing.sm,
@@ -497,15 +449,34 @@ export default function VendorCateringDetailPage() {
           borderRadius: radius.md,
           marginBottom: spacing.md,
         }}>
-          <h3 style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: '#166534', margin: `0 0 ${spacing['2xs']}` }}>
-            Revenue Opportunity
+          <h3 style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: '#166534', margin: `0 0 ${spacing.xs}` }}>
+            Revenue Estimate
           </h3>
-          <p style={{ fontSize: typography.sizes.sm, color: '#15803d', margin: 0, lineHeight: 1.6 }}>
-            {vertical === 'farmers_market'
-              ? `With ~${headcountPerVendor} expected shoppers browsing your booth, this event could generate approximately $${(headcountPerVendor * 8).toLocaleString()}-$${(headcountPerVendor * 20).toLocaleString()} in sales. Pre-orders let customers reserve items ahead of time — guaranteed sales before you arrive.`
-              : `With ~${headcountPerVendor} servings at an average of $10-15/plate, this event could generate approximately $${(headcountPerVendor * 10).toLocaleString()}-$${(headcountPerVendor * 15).toLocaleString()} in revenue. Pre-orders help you prep exactly what you need — less waste, more profit.`
-            }
-          </p>
+          {vertical === 'farmers_market' ? (
+            <div style={{ fontSize: typography.sizes.sm, color: '#15803d', lineHeight: 1.8 }}>
+              <div><strong>Your estimated shoppers:</strong> {details.headcount} total guests ÷ {details.accepted_count || details.vendor_count} vendors = <strong>~{headcountPerVendor} shoppers</strong></div>
+              <div><strong>Conservative estimate:</strong> {headcountPerVendor} shoppers × $8 avg spend = <strong>${(headcountPerVendor * 8).toLocaleString()}</strong></div>
+              <div><strong>Optimistic estimate:</strong> {headcountPerVendor} shoppers × $20 avg spend = <strong>${(headcountPerVendor * 20).toLocaleString()}</strong></div>
+              <div style={{ marginTop: spacing['2xs'], fontSize: typography.sizes.xs, color: '#166534' }}>
+                Platform fee: 6.5% | Your payout: 93.5% of sales
+              </div>
+              <div style={{ marginTop: spacing['2xs'], fontSize: typography.sizes.xs, color: '#4b5563' }}>
+                Pre-orders let customers reserve items before the event — guaranteed sales before you arrive.
+              </div>
+            </div>
+          ) : (
+            <div style={{ fontSize: typography.sizes.sm, color: '#15803d', lineHeight: 1.8 }}>
+              <div><strong>Your estimated servings:</strong> {details.headcount} total guests ÷ {details.accepted_count || details.vendor_count} trucks = <strong>~{headcountPerVendor} servings</strong></div>
+              <div><strong>Conservative estimate:</strong> {headcountPerVendor} servings × $10/plate = <strong>${(headcountPerVendor * 10).toLocaleString()}</strong></div>
+              <div><strong>Optimistic estimate:</strong> {headcountPerVendor} servings × $15/plate = <strong>${(headcountPerVendor * 15).toLocaleString()}</strong></div>
+              <div style={{ marginTop: spacing['2xs'], fontSize: typography.sizes.xs, color: '#166534' }}>
+                Platform fee: 6.5% | Your payout: 93.5% of sales
+              </div>
+              <div style={{ marginTop: spacing['2xs'], fontSize: typography.sizes.xs, color: '#4b5563' }}>
+                Pre-orders help you prep exactly what you need — less waste, more profit.
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1165,4 +1136,24 @@ function fmtDate(dateStr: string): string {
     month: 'short',
     day: 'numeric',
   })
+}
+
+function fmtTime12(time: string | null): string {
+  if (!time) return '?'
+  const [h, m] = time.split(':').map(Number)
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
+  return `${h12}:${String(m).padStart(2, '0')} ${ampm}`
+}
+
+function DetailRow({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: spacing.xs }}>
+      <span style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, flexShrink: 0 }}>{label}</span>
+      <div style={{ textAlign: 'right' }}>
+        <span style={{ fontSize: typography.sizes.sm, color: statusColors.neutral800, fontWeight: typography.weights.medium }}>{value}</span>
+        {sub && <span style={{ fontSize: typography.sizes.xs, color: statusColors.neutral400, marginLeft: spacing['2xs'] }}>({sub})</span>}
+      </div>
+    </div>
+  )
 }
