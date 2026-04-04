@@ -125,6 +125,16 @@ export default function VendorPickupPage() {
   const [selectedMarket, setSelectedMarket] = useState<string>(preselectedMarket || '')
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
+
+  // Event mode state
+  const [pickupTab, setPickupTab] = useState<'daily' | 'events'>('daily')
+  const [eventOrders, setEventOrders] = useState<Array<{
+    marketId: string; eventName: string; eventDate: string
+    orders: Array<{ order_number: string; item_title: string; quantity: number; fulfilled: boolean; wave_number: number | null; order_id: string }>
+    itemCounts: Array<{ title: string; total: number }>
+    totalOrders: number; fulfilledCount: number
+  }>>([])
+  const [eventLoading, setEventLoading] = useState(false)
   const [processingItem, setProcessingItem] = useState<string | null>(null)
   const [processingMBPickup, setProcessingMBPickup] = useState<string | null>(null)
   const [needsFulfillment, setNeedsFulfillment] = useState<number>(0)
@@ -287,6 +297,56 @@ export default function VendorPickupPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Fetch event orders for this vendor (all active/ready events)
+  const fetchEventOrders = async () => {
+    setEventLoading(true)
+    try {
+      // Get vendor's accepted events
+      const res = await fetch(`/api/vendor/orders?vertical=${vertical}&event_orders=true`)
+      if (res.ok) {
+        const data = await res.json()
+        // Group by market_id for event prep view
+        const eventMap: Record<string, typeof eventOrders[0]> = {}
+        for (const item of data.orderItems || []) {
+          const mid = item.market_id
+          if (!eventMap[mid]) {
+            eventMap[mid] = {
+              marketId: mid,
+              eventName: item.market_name || 'Event',
+              eventDate: item.pickup_date || '',
+              orders: [],
+              itemCounts: [],
+              totalOrders: 0,
+              fulfilledCount: 0,
+            }
+          }
+          eventMap[mid].orders.push({
+            order_number: item.order_number || '',
+            item_title: item.listing_title || '',
+            quantity: item.quantity,
+            fulfilled: !!item.vendor_confirmed_at,
+            wave_number: item.wave_number || null,
+            order_id: item.order_id,
+          })
+          eventMap[mid].totalOrders++
+          if (item.vendor_confirmed_at) eventMap[mid].fulfilledCount++
+        }
+        // Build item counts per event
+        for (const evt of Object.values(eventMap)) {
+          const counts: Record<string, number> = {}
+          for (const o of evt.orders) {
+            counts[o.item_title] = (counts[o.item_title] || 0) + o.quantity
+          }
+          evt.itemCounts = Object.entries(counts).map(([title, total]) => ({ title, total }))
+        }
+        setEventOrders(Object.values(eventMap))
+      }
+    } catch (err) {
+      console.error('Error fetching event orders:', err)
+    }
+    setEventLoading(false)
   }
 
   const fetchOrders = async () => {
@@ -522,6 +582,34 @@ export default function VendorPickupPage() {
           </Link>
         </div>
 
+        {/* Daily / Events Tab Toggle */}
+        <div style={{ display: 'flex', gap: 0, marginBottom: 12 }}>
+          {(['daily', 'events'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => {
+                setPickupTab(tab)
+                if (tab === 'events' && eventOrders.length === 0) fetchEventOrders()
+              }}
+              style={{
+                flex: 1,
+                padding: '8px 0',
+                border: 'none',
+                borderBottom: `2px solid ${pickupTab === tab ? '#ffffff' : 'rgba(255,255,255,0.2)'}`,
+                backgroundColor: 'transparent',
+                color: pickupTab === tab ? '#ffffff' : 'rgba(255,255,255,0.5)',
+                fontSize: 13,
+                fontWeight: pickupTab === tab ? 600 : 400,
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+            >
+              {tab === 'daily' ? 'Daily Orders' : 'Event Orders'}
+            </button>
+          ))}
+        </div>
+
+        {pickupTab === 'daily' && (<>
         {/* Market Selector */}
         <select
           value={selectedMarket}
@@ -587,7 +675,113 @@ export default function VendorPickupPage() {
             </button>
           )}
         </div>
+        </>)}
       </div>
+
+      {/* ═══ EVENT ORDERS TAB ═══ */}
+      {pickupTab === 'events' && (
+        <div style={{ padding: 16 }}>
+          {eventLoading ? (
+            <p style={{ textAlign: 'center', color: statusColors.neutral500, padding: 32 }}>Loading event orders...</p>
+          ) : eventOrders.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 32, color: statusColors.neutral500 }}>
+              <p style={{ fontSize: 16, fontWeight: 600, margin: '0 0 8px' }}>No event orders</p>
+              <p style={{ fontSize: 14, margin: 0 }}>When you accept an event and attendees place orders, they&apos;ll appear here.</p>
+            </div>
+          ) : (
+            eventOrders.map(evt => (
+              <div key={evt.marketId} style={{
+                marginBottom: 16,
+                backgroundColor: 'white',
+                borderRadius: 12,
+                border: `1px solid ${statusColors.neutral200}`,
+                overflow: 'hidden',
+              }}>
+                {/* Event header */}
+                <div style={{
+                  padding: '12px 16px',
+                  backgroundColor: statusColors.neutral50,
+                  borderBottom: `1px solid ${statusColors.neutral200}`,
+                }}>
+                  <div style={{ fontSize: 16, fontWeight: 600, color: statusColors.neutral800 }}>
+                    {evt.eventName}
+                  </div>
+                  <div style={{ fontSize: 13, color: statusColors.neutral500, marginTop: 2 }}>
+                    {evt.eventDate ? new Date(evt.eventDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : ''}
+                    &nbsp;&middot;&nbsp;
+                    {evt.fulfilledCount}/{evt.totalOrders} fulfilled
+                  </div>
+                </div>
+
+                {/* Prep summary — what to make */}
+                {evt.itemCounts.length > 0 && (
+                  <div style={{ padding: '8px 16px', borderBottom: `1px solid ${statusColors.neutral100}` }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: statusColors.neutral500, marginBottom: 4, textTransform: 'uppercase' }}>
+                      Prep Summary
+                    </div>
+                    {evt.itemCounts.map(ic => (
+                      <div key={ic.title} style={{
+                        display: 'flex', justifyContent: 'space-between',
+                        fontSize: 14, color: statusColors.neutral700, padding: '2px 0',
+                      }}>
+                        <span>{ic.title}</span>
+                        <strong>{ic.total}</strong>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Order list */}
+                <div style={{ padding: '4px 0' }}>
+                  {evt.orders.map((order, i) => (
+                    <div key={`${order.order_number}-${i}`} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '8px 16px',
+                      backgroundColor: order.fulfilled ? '#f0fdf408' : 'transparent',
+                      borderBottom: i < evt.orders.length - 1 ? `1px solid ${statusColors.neutral100}` : 'none',
+                    }}>
+                      <div>
+                        <span style={{ fontSize: 14, fontWeight: 600, fontFamily: 'monospace', color: order.fulfilled ? '#16a34a' : statusColors.neutral800 }}>
+                          {order.order_number}
+                        </span>
+                        <span style={{ fontSize: 13, color: statusColors.neutral500, marginLeft: 8 }}>
+                          {order.quantity > 1 ? `${order.quantity}x ` : ''}{order.item_title}
+                        </span>
+                        {order.wave_number && (
+                          <span style={{ fontSize: 11, color: statusColors.neutral400, marginLeft: 8 }}>
+                            W{order.wave_number}
+                          </span>
+                        )}
+                      </div>
+                      <span style={{
+                        fontSize: 12, padding: '2px 8px', borderRadius: 4,
+                        backgroundColor: order.fulfilled ? '#dcfce7' : '#dbeafe',
+                        color: order.fulfilled ? '#166534' : '#1e40af',
+                        fontWeight: 500,
+                      }}>
+                        {order.fulfilled ? '✓ Done' : 'Pending'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Link to full prep sheet */}
+                <div style={{ padding: '8px 16px', borderTop: `1px solid ${statusColors.neutral200}`, textAlign: 'center' }}>
+                  <Link
+                    href={`/${vertical}/vendor/events/${evt.marketId}/prep`}
+                    style={{ fontSize: 13, color: colors.primary, fontWeight: 600, textDecoration: 'none' }}
+                  >
+                    View Full Prep Sheet →
+                  </Link>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* ═══ DAILY ORDERS TAB ═══ */}
+      {pickupTab === 'daily' && (<>
 
       {/* Needs Fulfillment Alert - buyer acknowledged, vendor needs to click Fulfill */}
       {needsFulfillment > 0 && (
@@ -1249,6 +1443,8 @@ export default function VendorPickupPage() {
           </div>
         </div>
       )}
+
+      </>)}
 
       <StatusBanner />
 
