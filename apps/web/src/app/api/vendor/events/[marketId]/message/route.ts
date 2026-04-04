@@ -107,7 +107,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     const profileData = vendorProfile.profile_data as Record<string, unknown>
-    const vendorName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'A food truck vendor'
+    const isFMVertical = market.vertical_id === 'farmers_market'
+    const vendorName = (profileData?.business_name as string) || (profileData?.farm_name as string) || (isFMVertical ? 'A vendor' : 'A food truck vendor')
 
     // Send the message via email relay
     const isFM = market.vertical_id === 'farmers_market'
