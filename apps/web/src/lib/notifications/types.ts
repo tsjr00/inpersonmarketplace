@@ -578,7 +578,10 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     severity: 'warning',
     audience: 'vendor',
     title: (_d, locale) => t('notif.trial_reminder_7d_title', locale),
-    message: (d) => `Your free ${d.trialTier || 'Basic'} trial ends in 7 days. If you have more items or Chef Boxes than the Free plan allows, they will be paused after a 2-week grace period. Upgrade to keep them.`,
+    message: (d) => {
+      const boxTerm = d.vertical === 'farmers_market' ? 'Market Boxes' : 'Chef Boxes'
+      return `Your free ${d.trialTier || 'Basic'} trial ends in 7 days. If you have more items or ${boxTerm} than the Free plan allows, they will be paused after a 2-week grace period. Upgrade to keep them.`
+    },
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/dashboard/upgrade`,
   },
 
@@ -587,7 +590,10 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     severity: 'warning',
     audience: 'vendor',
     title: (_d, locale) => t('notif.trial_reminder_3d_title', locale),
-    message: (d) => `Your free ${d.trialTier || 'Basic'} trial ends in 3 days! Upgrade now to keep access to all your menu items, locations, and Chef Boxes.`,
+    message: (d) => {
+      const boxTerm = d.vertical === 'farmers_market' ? 'Market Boxes' : 'Chef Boxes'
+      return `Your free ${d.trialTier || 'Basic'} trial ends in 3 days! Upgrade now to keep access to all your items, locations, and ${boxTerm}.`
+    },
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/dashboard/upgrade`,
   },
 
@@ -738,7 +744,9 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     severity: 'info',
     audience: 'vendor',
     title: (_d, locale) => t('notif.vendor_event_approved_title', locale),
-    message: () => `Your food truck has been approved for Private Events! You can now mark menu items as event-ready from your listings page.`,
+    message: (d) => d.vertical === 'farmers_market'
+      ? 'Your vendor profile has been approved for Private Events! You can now mark items as event-ready from your listings page.'
+      : 'Your food truck has been approved for Private Events! You can now mark menu items as event-ready from your listings page.',
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/listings`,
   },
 
