@@ -322,17 +322,21 @@ async function sendEventSettlementNotifications(
     const vp = mv.vendor_profiles as unknown as { user_id: string } | null
     if (!vp?.user_id) continue
 
-    // Count this vendor's fulfilled orders at this event
-    const { count: orderCount } = await serviceClient
+    // Count this vendor's fulfilled orders + calculate payout
+    const { data: vendorItems } = await serviceClient
       .from('order_items')
-      .select('id', { count: 'exact', head: true })
+      .select('id, subtotal_cents, vendor_payout_cents')
       .eq('market_id', marketId)
       .eq('vendor_profile_id', mv.vendor_profile_id)
       .in('status', ['fulfilled', 'completed'])
 
+    const orderCount = vendorItems?.length || 0
+    const payoutCents = (vendorItems || []).reduce((sum, item) => sum + (item.vendor_payout_cents || item.subtotal_cents || 0), 0)
+
     await sendNotification(vp.user_id, 'event_settlement_summary', {
       marketName,
-      orderCount: orderCount || 0,
+      orderCount,
+      payoutAmount: (payoutCents / 100).toFixed(2),
     }, { vertical: verticalId })
   }
 }
