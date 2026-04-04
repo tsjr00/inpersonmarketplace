@@ -144,7 +144,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   // Fetch organizer's events
   const { data: organizerEvents } = await serviceClient
     .from('catering_requests')
-    .select('id, company_name, event_date, event_end_date, status, market_id, event_token, vendor_count, headcount, service_level')
+    .select('id, company_name, event_date, event_end_date, status, market_id, event_token, vendor_count, headcount, service_level, payment_model')
     .eq('organizer_user_id', user.id)
     .eq('vertical_id', vertical)
     .order('event_date', { ascending: false })
@@ -154,6 +154,8 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   const organizerMarketIds = (organizerEvents || []).filter(e => e.market_id).map(e => e.market_id as string)
   const organizerVendorCounts: Record<string, number> = {}
   const organizerOrderCounts: Record<string, number> = {}
+  const organizerOrderValues: Record<string, number> = {}
+  const organizerWaveData: Record<string, Array<{ wave_number: number; capacity: number; reserved: number; status: string }>> = {}
   if (organizerMarketIds.length > 0) {
     const { data: vendorRows } = await serviceClient
       .from('market_vendors')
@@ -175,6 +177,36 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
     for (const row of orderRows || []) {
       const mid = row.market_id as string
       organizerOrderCounts[mid] = (organizerOrderCounts[mid] || 0) + 1
+    }
+
+    // Get order value totals per market
+    const { data: valueRows } = await serviceClient
+      .from('order_items')
+      .select('market_id, subtotal_cents')
+      .in('market_id', organizerMarketIds)
+      .not('status', 'in', '("cancelled")')
+
+    for (const row of valueRows || []) {
+      const mid = row.market_id as string
+      organizerOrderValues[mid] = (organizerOrderValues[mid] || 0) + (row.subtotal_cents as number)
+    }
+
+    // Get wave data for markets with wave ordering
+    const { data: waveRows } = await serviceClient
+      .from('event_waves')
+      .select('market_id, wave_number, capacity, reserved_count, status')
+      .in('market_id', organizerMarketIds)
+      .order('wave_number')
+
+    for (const row of waveRows || []) {
+      const mid = row.market_id as string
+      if (!organizerWaveData[mid]) organizerWaveData[mid] = []
+      organizerWaveData[mid].push({
+        wave_number: row.wave_number as number,
+        capacity: row.capacity as number,
+        reserved: row.reserved_count as number,
+        status: row.status as string,
+      })
     }
   }
 
@@ -846,10 +878,47 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                       </span>
                     </div>
 
-                    <div style={{ display: 'flex', gap: spacing.md, fontSize: typography.sizes.sm, color: statusColors.neutral500, marginBottom: spacing.xs }}>
+                    <div style={{ display: 'flex', gap: spacing.md, fontSize: typography.sizes.sm, color: statusColors.neutral500, marginBottom: spacing.xs, flexWrap: 'wrap' }}>
                       <span>{vendorAccepted} of {evt.vendor_count} vendors confirmed</span>
                       {preOrderCount > 0 && <span>{preOrderCount} pre-order{preOrderCount !== 1 ? 's' : ''}</span>}
+                      {preOrderCount > 0 && evt.headcount > 0 && (
+                        <span>{Math.round((preOrderCount / evt.headcount) * 100)}% participation</span>
+                      )}
                     </div>
+
+                    {/* Wave utilization (company-paid events with waves) */}
+                    {evt.market_id && organizerWaveData[evt.market_id] && organizerWaveData[evt.market_id].length > 0 && (
+                      <div style={{ marginBottom: spacing.xs }}>
+                        <div style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, marginBottom: spacing['3xs'] }}>
+                          Time slot availability
+                        </div>
+                        <div style={{ display: 'flex', gap: spacing['2xs'], flexWrap: 'wrap' }}>
+                          {organizerWaveData[evt.market_id].map(w => {
+                            const pct = w.capacity > 0 ? Math.round((w.reserved / w.capacity) * 100) : 0
+                            const isFull = w.status === 'full' || pct >= 100
+                            return (
+                              <div key={w.wave_number} style={{
+                                padding: `${spacing['3xs']} ${spacing.xs}`,
+                                backgroundColor: isFull ? '#fef2f2' : pct > 75 ? '#fef3c7' : '#f0fdf4',
+                                border: `1px solid ${isFull ? '#fecaca' : pct > 75 ? '#fde68a' : '#bbf7d0'}`,
+                                borderRadius: radius.sm,
+                                fontSize: 11,
+                                color: isFull ? '#991b1b' : pct > 75 ? '#92400e' : '#166534',
+                              }}>
+                                W{w.wave_number}: {w.reserved}/{w.capacity} {isFull ? '(full)' : ''}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Order value summary (company-paid) */}
+                    {evt.market_id && (organizerOrderValues[evt.market_id] || 0) > 0 && evt.payment_model === 'company_paid' && (
+                      <div style={{ fontSize: typography.sizes.xs, color: statusColors.neutral600, marginBottom: spacing.xs }}>
+                        Total order value: <strong>${((organizerOrderValues[evt.market_id] || 0) / 100).toFixed(2)}</strong>
+                      </div>
+                    )}
 
                     <div style={{ display: 'flex', gap: spacing.xs, flexWrap: 'wrap' }}>
                       {evt.event_token && ['approved', 'ready', 'active'].includes(evt.status) && (
