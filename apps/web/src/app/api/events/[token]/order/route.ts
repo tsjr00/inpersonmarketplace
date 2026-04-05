@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { sendNotification } from '@/lib/notifications'
 
 interface RouteContext {
   params: Promise<{ token: string }>
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Verify event exists, is company_paid, and is accepting orders
     const { data: event } = await serviceClient
       .from('catering_requests')
-      .select('market_id, payment_model, status')
+      .select('market_id, payment_model, status, company_name, vertical_id')
       .eq('event_token', token)
       .in('status', ['approved', 'ready', 'active'])
       .single()
@@ -82,6 +83,36 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 400 })
     }
+
+    // Send notifications (non-blocking — sendNotification never throws)
+    const { data: listing } = await serviceClient
+      .from('listings')
+      .select('title, vendor_profiles!inner(user_id, profile_data)')
+      .eq('id', listing_id)
+      .single()
+
+    const vendorUserId = (listing as any)?.vendor_profiles?.user_id
+    const vendorName = (listing as any)?.vendor_profiles?.profile_data?.business_name || 'Vendor'
+    const eventName = event.company_name || 'Event'
+    const vertical = event.vertical_id || 'farmers_market'
+
+    // Notify vendor of new order
+    if (vendorUserId) {
+      await sendNotification(vendorUserId, 'new_paid_order', {
+        orderNumber: result.order_number || undefined,
+        itemTitle: listing?.title || undefined,
+        marketName: eventName,
+        buyerName: 'Event attendee',
+      }, { vertical })
+    }
+
+    // Notify buyer of confirmed order
+    await sendNotification(user.id, 'order_confirmed', {
+      orderNumber: result.order_number || undefined,
+      orderId: result.order_id || undefined,
+      vendorName,
+      itemTitle: listing?.title || undefined,
+    }, { vertical })
 
     return NextResponse.json({
       ok: true,
