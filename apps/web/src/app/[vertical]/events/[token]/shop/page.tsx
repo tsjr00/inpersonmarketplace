@@ -250,7 +250,7 @@ export default function EventShopPage() {
       if (capRes.ok) {
         const capData = await capRes.json()
         if (!capData.allowed) {
-          setCartMessage(`This vendor has reached their order capacity for this event (${capData.cap} orders). Please choose a different vendor.`)
+          setCartMessage(capData.reason || `This vendor has reached their order capacity for this event (${capData.cap} orders). Please choose a different vendor.`)
           setAddingToCart(null)
           isSubmittingRef.current = false
           return

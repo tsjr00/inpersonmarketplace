@@ -40,11 +40,22 @@ export async function GET(
       .from('catering_requests')
       .select('id, market_id, status')
       .eq('event_token', token)
-      .in('status', ['approved', 'ready', 'active'])
       .single()
 
     if (!event || !event.market_id) {
-      throw traced.notFound('ERR_VALIDATE_002', 'Event not found or not accepting orders')
+      throw traced.notFound('ERR_VALIDATE_002', 'Event not found')
+    }
+
+    const acceptingStatuses = ['approved', 'ready', 'active']
+    if (!acceptingStatuses.includes(event.status)) {
+      return NextResponse.json({
+        allowed: false,
+        remaining: 0,
+        cap: null,
+        reason: event.status === 'cancelled' ? 'This event has been cancelled'
+          : event.status === 'completed' ? 'This event has ended'
+          : 'This event is not currently accepting orders',
+      })
     }
 
     // Get vendor's declared capacity for this event

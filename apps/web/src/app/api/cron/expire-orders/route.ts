@@ -2213,28 +2213,29 @@ export async function GET(request: NextRequest) {
     }
 
     // ─── Phase 14: Auto-transition ready → active on event day ─────────
-    // Use CT (America/Chicago) for date comparison — matches SQL function's approach
-    // and the primary timezone where events operate. Prevents UTC midnight edge cases.
+    // Uses each market's timezone for correct date comparison (not hardcoded CT).
     let eventsActivated = 0
     try {
-      const todayCT = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }))
-      const todayStr = `${todayCT.getFullYear()}-${String(todayCT.getMonth() + 1).padStart(2, '0')}-${String(todayCT.getDate()).padStart(2, '0')}`
-
       const { data: readyEvents } = await supabase
         .from('catering_requests')
-        .select('id, event_date, market_id')
+        .select('id, event_date, market:markets!catering_requests_market_id_fkey(timezone)')
         .eq('status', 'ready')
-        .lte('event_date', todayStr)
 
       if (readyEvents && readyEvents.length > 0) {
         for (const event of readyEvents) {
-          const { data: updated } = await supabase
-            .from('catering_requests')
-            .update({ status: 'active' })
-            .eq('id', event.id)
-            .eq('status', 'ready')
-            .select('id')
-          if (updated && updated.length > 0) eventsActivated++
+          const tz = (event.market as any)?.timezone || 'America/Chicago'
+          const localNow = new Date(new Date().toLocaleString('en-US', { timeZone: tz }))
+          const todayStr = `${localNow.getFullYear()}-${String(localNow.getMonth() + 1).padStart(2, '0')}-${String(localNow.getDate()).padStart(2, '0')}`
+
+          if (event.event_date && event.event_date <= todayStr) {
+            const { data: updated } = await supabase
+              .from('catering_requests')
+              .update({ status: 'active' })
+              .eq('id', event.id)
+              .eq('status', 'ready')
+              .select('id')
+            if (updated && updated.length > 0) eventsActivated++
+          }
         }
       }
     } catch (phase14Error) {
@@ -2242,19 +2243,20 @@ export async function GET(request: NextRequest) {
     }
 
     // ─── Phase 15: Auto-transition active → review after event ends ──────
+    // Uses each market's timezone for correct date comparison.
     let eventsToReview = 0
     try {
-      const todayCT = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }))
-      const todayStr = `${todayCT.getFullYear()}-${String(todayCT.getMonth() + 1).padStart(2, '0')}-${String(todayCT.getDate()).padStart(2, '0')}`
-
-      // event_end_date < today means the event has fully ended
       const { data: endedEvents } = await supabase
         .from('catering_requests')
-        .select('id, event_end_date, event_date')
+        .select('id, event_end_date, event_date, market:markets!catering_requests_market_id_fkey(timezone)')
         .eq('status', 'active')
 
       if (endedEvents && endedEvents.length > 0) {
         for (const event of endedEvents) {
+          const tz = (event.market as any)?.timezone || 'America/Chicago'
+          const localNow = new Date(new Date().toLocaleString('en-US', { timeZone: tz }))
+          const todayStr = `${localNow.getFullYear()}-${String(localNow.getMonth() + 1).padStart(2, '0')}-${String(localNow.getDate()).padStart(2, '0')}`
+
           const endDate = event.event_end_date || event.event_date
           if (endDate && endDate < todayStr) {
             const { data: updated } = await supabase
