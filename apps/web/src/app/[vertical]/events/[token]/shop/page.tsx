@@ -236,6 +236,7 @@ export default function EventShopPage() {
 
     if (isFT && !pickupTime) {
       setCartMessage('Please select a pickup time for your food')
+      isSubmittingRef.current = false
       return
     }
 
@@ -243,6 +244,25 @@ export default function EventShopPage() {
     setCartMessage(null)
 
     try {
+      // Validate vendor has capacity before adding to cart
+      const totalQty = vendorItems.reduce((sum, i) => sum + i.qty, 0)
+      const capRes = await fetch(`/api/events/${token}/validate-capacity?vendor_profile_id=${vendorId}`)
+      if (capRes.ok) {
+        const capData = await capRes.json()
+        if (!capData.allowed) {
+          setCartMessage(`This vendor has reached their order capacity for this event (${capData.cap} orders). Please choose a different vendor.`)
+          setAddingToCart(null)
+          isSubmittingRef.current = false
+          return
+        }
+        if (capData.remaining !== null && totalQty > capData.remaining) {
+          setCartMessage(`This vendor can only accept ${capData.remaining} more order${capData.remaining === 1 ? '' : 's'} at this event.`)
+          setAddingToCart(null)
+          isSubmittingRef.current = false
+          return
+        }
+      }
+
       for (const item of vendorItems) {
         await addToCart(
           item.listing.id,

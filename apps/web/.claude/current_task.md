@@ -1,80 +1,80 @@
-# Current Task: Session 67 — Wrap Up + Next Session Plan
+# Current Task: Session 67 Complete
 Updated: 2026-04-04
 
-## Status: Major event system build complete. Form redesign + vendor invitation rework next.
+## Status: 21 commits on staging, NOT yet on prod. Schema verified.
 
-## Session 67 Commits (18 on staging, not yet on prod)
-1. FM landing page redesign (3 rounds of corrections)
-2. FK disambiguation (PostgREST market_vendors ↔ vendor_profiles)
-3. Staging email URL fix (VERCEL_ENV)
-4. Wave-based ordering (full system: DB + RPCs + APIs + shop page UI)
-5. Admin wave generation + settlement report company-paid support
-6. Organizer event cancel API
-7. FM notification language fixes (types.ts)
-8. Select page vertical awareness (15 edits)
-9. Email audit fixes (cancel route branding + vendor message fallback)
-10. Event request form overhaul (selections, skip logic, dedup)
-11. Attendee my-order page with QR code
-12. Vendor event prep sheet
-13. Settlement notification payout amount fix
-14. Organizer event card enhancement (waves, participation, value)
-15. Vendor Pickup Mode event tab
+## Session 67 Summary
 
-## NOT YET ON PROD — 18 commits ahead of origin/main
+### FM Landing Page (3 rounds)
+- Correct logo (no-words version), green palette (#558B2F text, #8BC34A banners)
+- landing-container CSS pattern, dotted separators, responsive layout
+- TrustStats numeral format, watermelon "Where Are Vendors Today" button
 
-## Next Session: Event Intake Redesign + Vendor Invitation Rework
+### Event Wave Ordering System (complete)
+- **DB:** Migrations 110 (3 tables + columns), 111 (5 RPCs), 112 (payout fee fix)
+- **Backend:** Wave generation, reserve/cancel RPCs, company-paid order API, availability endpoint
+- **Frontend:** Shop page two-step wave flow, attendee my-order page with QR, vendor prep sheet
+- **Admin:** Generate waves button, settlement report company-paid support
 
-### 1. Quick-Start Event Form (slim down from 38 fields to ~7)
-**Keep on the public form:**
-- Company/organizer name
-- Contact email
-- Event date
-- Estimated headcount
-- City + State
-- Indoor / Outdoor / Either
-- Vendor categories (checkbox pills)
+### Event Operations
+- Organizer cancel API (replaces "contact support" placeholder)
+- Organizer event card enhancement (participation %, wave utilization, order value)
+- Vendor Pickup Mode event tab (Daily/Events toggle)
+- Settlement notification now includes payout amount
+- Wave full error suggests next available wave with specific times
 
-**Move everything else to the organizer event card on dashboard.**
+### Vertical Language Audit
+- FM notifications: "Chef Boxes" → "Market Boxes", vendor event approved, trial reminders
+- Select page: 15 instances of hardcoded "trucks" → conditional terms
+- Emails: cancel route branding, vendor message fallback
+- Event request form: all "food trucks" refs → conditional
 
-**Confirmation screen shows:** "Based on your event details, we found **45 qualified vendors** in your area. Sign in to your event dashboard to narrow your options."
+### Event Form Redesign
+- Quick-start form: 1248 → 516 lines (7 fields + category pills)
+- Confirmation shows vendor match count + dashboard login CTA
+- Detail fields moved to organizer dashboard card (next session build)
 
-**Architecture changes needed:**
-- Simplify `EventRequestForm.tsx` to 7 fields
-- Run preliminary vendor match on submit (city + categories) and return count
-- New endpoint: `PATCH /api/events/[token]/details` for progressive updates from dashboard
-- Expand organizer event card with collapsible detail sections + completion progress bar
-- Auto-redirect organizers to event card on login
-- Gate vendor matching on data thresholds (location + type + budget = full match)
+### Vendor Invitation Rework
+- 4 info cards → single compact Event Details section
+- Revenue estimate shows explicit math (headcount ÷ vendors × price)
+- 24hr → 12hr AM/PM time format
 
-### 2. Vendor Event Invitation Rework
-**File:** `src/app/[vertical]/vendor/events/[marketId]/page.tsx`
+### Infrastructure
+- PostgREST FK disambiguation (7 queries, 6 files)
+- Staging email URLs: VERCEL_ENV instead of NODE_ENV
+- 28 new event business rules tests (1345 total)
 
-Three changes:
-- **Revenue estimate — show the math:** Instead of "could generate $X-$Y" show the equation:
-  - "Total guests: 200 ÷ 4 vendors = ~50 servings for you"
-  - "At your average item price of $12.50 × 50 servings = $625 estimated gross"
-  - "Platform fee: 6.5% = ~$41 | Your estimated payout: ~$584"
-- **24hr clock → 12hr AM/PM:** `event_start_time` and `event_end_time` currently show as "11:00 — 14:00". Change to "11:00 AM — 2:00 PM"
-- **Consolidate 4 info cards into Event Details section:** The 4 separate cards (Date, Headcount, Time, Location) take up too much space. Merge into the Event Details section as compact rows within one card.
+## NOT on Prod — 21 commits ahead of origin/main
+Migrations 110-112 on Dev + Staging only.
 
-### 3. Organizer Login → Event Dashboard
-- Check if user has organizer_user_id on any active catering_request
-- If yes, scroll to / prioritize event card on dashboard
-- Or redirect to a dedicated event management section
+## Next Session Priorities
+1. Progressive detail collection on organizer dashboard card
+2. Organizer login → event dashboard redirect
+3. Schema snapshot structured table rebuild (structured tables verified from column output but not rebuilt in SCHEMA_SNAPSHOT.md format — do at session start)
+4. Fix user_profiles.buyer_tier default discrepancy (Dev='free', Staging='standard')
+5. Push to prod after staging verification
 
-## Key Decisions Made This Session
-- Wave ordering: 30-min fixed waves, 1 item per attendee, company-paid MVP, walk-ups fill next available
-- QR codes: client-side rendering via `qrcode` package, displayed on my-order page
-- Pickup Mode: Daily/Events tab toggle, not separate page
-- Organizer dashboard: enhance existing card, not separate page
-- Event form redesign: quick-start + progressive dashboard collection (not big upfront form)
-- Vendor invitation: show revenue math explicitly, consolidate top cards
-
-## Migrations Applied This Session
+## Migrations Status
 | Migration | Dev | Staging | Prod |
 |-----------|-----|---------|------|
 | 110 — event_waves schema | ✅ | ✅ | ❌ |
 | 111 — wave RPC functions | ✅ | ✅ | ❌ |
-| 112 — fix company-paid payout (6.5% fee) | ✅ | ✅ | ❌ |
+| 112 — fix company-paid payout | ✅ | ✅ | ❌ |
 
-**Schema snapshot:** Changelog updated for 110-112. Structured tables STALE — need REFRESH_SCHEMA.SQL results to rebuild.
+## Session 67 Commits (21)
+1. FM landing page redesign
+2. FM landing page corrections round 1
+3. FM landing page round 3
+4. PostgREST FK disambiguation
+5. Staging email URL fix
+6. Wave-based ordering (full system)
+7. Admin wave generation + settlement company-paid
+8. Organizer event cancel API
+9. FM notifications + select page vertical language
+10. Email branding fixes
+11. Event request form overhaul (selections, skip logic, dedup)
+12. Attendee my-order page with QR + vendor prep sheet
+13. Settlement notification payout amount
+14. Organizer event card + Pickup Mode event tab
+15. Quick-start form + vendor invitation rework + tests + bug fixes
+16. Schema snapshot changelog
