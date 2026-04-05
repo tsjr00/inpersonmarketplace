@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
     const vertical = searchParams.get('vertical')
     const status = searchParams.get('status')
     const marketId = searchParams.get('market_id')
+    const eventOrders = searchParams.get('event_orders') === 'true'
 
     // Get vendor profile — scoped to vertical if provided
     let vpQuery = supabase
@@ -104,13 +105,16 @@ export async function GET(request: NextRequest) {
           title,
           image_urls
         ),
-        market:markets(
+        market:markets${eventOrders ? '!inner' : ''}(
           id,
           name,
           market_type,
           address,
           city,
           state
+        ),
+        wave:event_waves(
+          wave_number
         )
       `)
       .eq('vendor_profile_id', vendorProfile.id)
@@ -127,8 +131,11 @@ export async function GET(request: NextRequest) {
       // Filter by specific pickup date
       query = query.eq('pickup_date', pickupDate)
     }
-    if (dateFilter) {
+    if (dateFilter && !eventOrders) {
       query = query.gte('created_at', dateFilter.toISOString())
+    }
+    if (eventOrders) {
+      query = query.eq('market.market_type', 'event')
     }
 
     const { data: orderItems, error } = await query
@@ -257,7 +264,11 @@ export async function GET(request: NextRequest) {
       return {
         ...item,
         order: order || null,
-        customer_name: buyerNames[buyerId] || 'Customer'
+        order_number: order?.order_number || null,
+        customer_name: buyerNames[buyerId] || 'Customer',
+        market_name: item.market?.name || 'Pickup Location',
+        wave_number: item.wave?.wave_number || null,
+        listing_title: item.listing?.title || 'Unknown',
       }
     })
 

@@ -61,7 +61,7 @@ export async function POST(
       .select(`
         id, status, vendor_payout_cents, order_id, subtotal_cents, vendor_profile_id,
         buyer_confirmed_at, vendor_confirmed_at, confirmation_window_expires_at,
-        order:orders!inner(id, order_number, buyer_user_id, vertical_id, payment_method, tip_amount, tip_on_platform_fee_cents),
+        order:orders!inner(id, order_number, buyer_user_id, vertical_id, payment_method, payment_model, tip_amount, tip_on_platform_fee_cents),
         listing:listings(title, vendor_profiles(profile_data))
       `)
       .eq('id', orderItemId)
@@ -109,9 +109,10 @@ export async function POST(
       const isDev = !isProd
       const hasStripe = !!vendorProfile.stripe_account_id
       const isExternalPayment = orderData?.payment_method && orderData.payment_method !== 'stripe'
+      const isCompanyPaid = orderData?.payment_model === 'company_paid'
 
-      // Skip Stripe verification for external payment orders (no Stripe transfer needed)
-      if (!isExternalPayment && isProd && hasStripe && !vendorProfile.stripe_payouts_enabled) {
+      // Skip Stripe verification for external/company-paid orders (no Stripe transfer needed)
+      if (!isExternalPayment && !isCompanyPaid && isProd && hasStripe && !vendorProfile.stripe_payouts_enabled) {
         crumb.logic('Cached stripe_payouts_enabled is falsy, checking live status')
         try {
           const liveStatus = await getAccountStatus(vendorProfile.stripe_account_id)
@@ -144,6 +145,31 @@ export async function POST(
           confirmation_window_expires_at: null,
         })
         .eq('id', orderItemId)
+
+      // Company-paid event orders: no Stripe transfer, no external fee recording.
+      // Platform fee already calculated in create_company_paid_order RPC (6.5%).
+      // Vendor payout comes through organizer settlement, not Stripe transfer.
+      if (isCompanyPaid) {
+        crumb.logic('Company-paid event order — no Stripe transfer needed')
+
+        await supabase.rpc('atomic_complete_order_if_ready', { p_order_id: orderItem.order_id })
+
+        const cpListing = (orderItem as any).listing as any
+        const cpVendorName = cpListing?.vendor_profiles?.profile_data?.business_name || 'Vendor'
+        await sendNotification(orderData.buyer_user_id, 'order_fulfilled', {
+          orderNumber: orderData.order_number,
+          orderId: orderData.id,
+          vendorName: cpVendorName,
+          itemTitle: cpListing?.title,
+        }, { vertical: orderData.vertical_id })
+
+        return NextResponse.json({
+          success: true,
+          message: 'Order fulfilled. This is a company-paid event order.',
+          completed: true,
+          vendor_confirmed_at: now.toISOString()
+        })
+      }
 
       if (isExternalPayment) {
         // External payment: no Stripe transfer needed
