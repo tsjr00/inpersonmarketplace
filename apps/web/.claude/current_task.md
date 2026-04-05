@@ -1,76 +1,80 @@
-# Current Task: Session 67 — FM Landing Page + Event Wave System
-Started: 2026-04-03
+# Current Task: Session 67 — Wrap Up + Next Session Plan
+Updated: 2026-04-04
 
-## Goal
-1. ~~FM landing page corrections (3 rounds)~~ ✅
-2. Event system — wave-based ordering implementation (company-paid FT events)
+## Status: Major event system build complete. Form redesign + vendor invitation rework next.
 
-## Key Decisions Made
-- **FM logo**: Use `logo no words - color.png` (copied to public/logos/farmersmarketing-logo.png)
-- **FM text green**: `#558B2F` (matches dark portion of logo). `#4CAF50` was too light, `#2d5016` was too dark.
-- **FM banner green**: `#8BC34A` (matches design-tokens FM primary)
-- **Landing page architecture**: Use `landing-container` / `landing-section` CSS classes consistently (same as FT)
-- **Staging email URLs**: Use `VERCEL_ENV` not `NODE_ENV` to distinguish prod from preview
-- **PostgREST FK hints**: All market_vendors ↔ vendor_profiles queries need `!market_vendors_vendor_profile_id_fkey` hint (migration 107 added second FK)
-- **Wave ordering**: 30-min fixed waves, 1 item per attendee, company-paid MVP, walk-ups fill next available wave, no capacity rollover between waves, attendee cancellation deferred
-- **Wave plan**: Saved to `.claude/wave_ordering_plan.md`, cross-referenced with `.claude/event_system_deep_dive.md`
+## Session 67 Commits (18 on staging, not yet on prod)
+1. FM landing page redesign (3 rounds of corrections)
+2. FK disambiguation (PostgREST market_vendors ↔ vendor_profiles)
+3. Staging email URL fix (VERCEL_ENV)
+4. Wave-based ordering (full system: DB + RPCs + APIs + shop page UI)
+5. Admin wave generation + settlement report company-paid support
+6. Organizer event cancel API
+7. FM notification language fixes (types.ts)
+8. Select page vertical awareness (15 edits)
+9. Email audit fixes (cancel route branding + vendor message fallback)
+10. Event request form overhaul (selections, skip logic, dedup)
+11. Attendee my-order page with QR code
+12. Vendor event prep sheet
+13. Settlement notification payout amount fix
+14. Organizer event card enhancement (waves, participation, value)
+15. Vendor Pickup Mode event tab
 
-## Critical Context (DO NOT FORGET)
-- `get_available_pickup_dates` SQL function ALREADY has event awareness (migrations 108-109). FM event ordering may already work. FT events blocked by vendor_market_schedules requirement in the function.
-- `cart/items/route.ts` is CRITICAL PATH — wave system bypasses it entirely for company-paid orders
-- Staging has 9 unpushed commits ahead of origin/main. NOT yet pushed to prod.
-- Session 66 features still on staging awaiting verification before prod push
-- User is currently testing events on staging
+## NOT YET ON PROD — 18 commits ahead of origin/main
 
-## Completed (Session 67)
-- [x] FM landing page round 1 — logo, colors, layout, responsive patterns (10 files)
-- [x] FM landing page round 2 — correct logo, landing-container pattern, TrustStats numbers, privacy note removed
-- [x] FM landing page round 3 — dotted lines, hero text color, watermelon button, spacing
-- [x] PostgREST FK disambiguation — 7 queries across 6 files
-- [x] Staging email URL fix — VERCEL_ENV instead of NODE_ENV
-- [x] Wave ordering plan — finalized and saved
+## Next Session: Event Intake Redesign + Vendor Invitation Rework
 
-## Remaining (Session 67)
-- [ ] Wave ordering implementation step 1: Database migration (tables + columns + indexes)
-- [ ] Wave ordering implementation step 2: RPC functions (reserve, cancel, create order)
-- [ ] Wave ordering implementation step 3: RLS policies
-- [ ] Wave ordering implementation step 4: Wave generation logic (lib function)
-- [ ] Wave ordering implementation step 5: Admin generate-waves API
-- [ ] Wave ordering implementation step 6: Shop API modifications
-- [ ] Wave ordering implementation step 7: Wave reservation API
-- [ ] Wave ordering implementation step 8: Company-paid order API
-- [ ] Wave ordering implementation step 9: Shop page UI overhaul
-- [ ] Wave ordering implementation step 10: Order confirmation / pick-ticket view
-- [ ] Wave ordering implementation step 11: Settlement report updates
-- [ ] Wave ordering implementation step 12: Admin wave monitoring
+### 1. Quick-Start Event Form (slim down from 38 fields to ~7)
+**Keep on the public form:**
+- Company/organizer name
+- Contact email
+- Event date
+- Estimated headcount
+- City + State
+- Indoor / Outdoor / Either
+- Vendor categories (checkbox pills)
 
-## Files Modified (Session 67)
-- `apps/web/public/logos/farmersmarketing-logo.png` — replaced with correct no-words logo
-- `apps/web/src/lib/branding/defaults.ts` — logo_path updated
-- `apps/web/src/components/layout/Header.tsx` — FM landing: white bg, relative position, bottom padding
-- `apps/web/src/components/landing/Hero.tsx` — FM hero: correct logo, dotted separators, green text, layout
-- `apps/web/src/components/landing/LocationEntry.tsx` — FM: no pill collapse, smaller input, watermelon button, no privacy note
-- `apps/web/src/components/landing/TrustStats.tsx` — green banner bg, white text, numeral+plus format
-- `apps/web/src/components/landing/Features.tsx` — green dotted separators, centered icons
-- `apps/web/src/components/landing/VendorPitch.tsx` — vibrant green bg, white subtitle, split bullets to white
-- `apps/web/src/components/landing/Footer.tsx` — inline logo+tagline, simplified copyright
-- `apps/web/src/app/[vertical]/page.tsx` — text colors, landing-container, compact event CTA
-- `apps/web/src/app/[vertical]/admin/vendors/page.tsx` — FK hint
-- `apps/web/src/app/api/admin/reports/route.ts` — FK hint
-- `apps/web/src/app/api/markets/[id]/vendors/route.ts` — FK hint
-- `apps/web/src/app/api/markets/[id]/vendors/[vendorId]/route.ts` — FK hint (2 queries)
-- `apps/web/src/app/admin/markets/[id]/page.tsx` — FK hint
-- `apps/web/src/app/api/markets/[id]/route.ts` — FK hint
-- `apps/web/src/lib/environment.ts` — VERCEL_ENV fix
+**Move everything else to the organizer event card on dashboard.**
 
-## Commits (Session 67)
-1. `6026f9c` — feat: FM landing page redesign (prior session, already on main)
-2. `7fae136` — fix: FM landing page corrections round 1
-3. `921ec6f` — fix: FM landing page round 3 — dotted lines, colors, button, spacing
-4. `a8346d4` — fix: disambiguate PostgREST market_vendors ↔ vendor_profiles FK hints
-5. `60edca0` — fix: staging emails link to staging URL, not production domain
+**Confirmation screen shows:** "Based on your event details, we found **45 qualified vendors** in your area. Sign in to your event dashboard to narrow your options."
 
-## Gotchas / Watch Out For
-- Browser caches old logo aggressively on localhost — staging shows correct logo
-- Next.js dev server slow on cold compile (2-3 min per page) — use --turbo flag
-- Vercel sets NODE_ENV=production for ALL deploys (prod + preview) — use VERCEL_ENV to distinguish
+**Architecture changes needed:**
+- Simplify `EventRequestForm.tsx` to 7 fields
+- Run preliminary vendor match on submit (city + categories) and return count
+- New endpoint: `PATCH /api/events/[token]/details` for progressive updates from dashboard
+- Expand organizer event card with collapsible detail sections + completion progress bar
+- Auto-redirect organizers to event card on login
+- Gate vendor matching on data thresholds (location + type + budget = full match)
+
+### 2. Vendor Event Invitation Rework
+**File:** `src/app/[vertical]/vendor/events/[marketId]/page.tsx`
+
+Three changes:
+- **Revenue estimate — show the math:** Instead of "could generate $X-$Y" show the equation:
+  - "Total guests: 200 ÷ 4 vendors = ~50 servings for you"
+  - "At your average item price of $12.50 × 50 servings = $625 estimated gross"
+  - "Platform fee: 6.5% = ~$41 | Your estimated payout: ~$584"
+- **24hr clock → 12hr AM/PM:** `event_start_time` and `event_end_time` currently show as "11:00 — 14:00". Change to "11:00 AM — 2:00 PM"
+- **Consolidate 4 info cards into Event Details section:** The 4 separate cards (Date, Headcount, Time, Location) take up too much space. Merge into the Event Details section as compact rows within one card.
+
+### 3. Organizer Login → Event Dashboard
+- Check if user has organizer_user_id on any active catering_request
+- If yes, scroll to / prioritize event card on dashboard
+- Or redirect to a dedicated event management section
+
+## Key Decisions Made This Session
+- Wave ordering: 30-min fixed waves, 1 item per attendee, company-paid MVP, walk-ups fill next available
+- QR codes: client-side rendering via `qrcode` package, displayed on my-order page
+- Pickup Mode: Daily/Events tab toggle, not separate page
+- Organizer dashboard: enhance existing card, not separate page
+- Event form redesign: quick-start + progressive dashboard collection (not big upfront form)
+- Vendor invitation: show revenue math explicitly, consolidate top cards
+
+## Migrations Applied This Session
+| Migration | Dev | Staging | Prod |
+|-----------|-----|---------|------|
+| 110 — event_waves schema | ✅ | ✅ | ❌ |
+| 111 — wave RPC functions | ✅ | ✅ | ❌ |
+| 112 — fix company-paid payout (6.5% fee) | ✅ | ✅ | ❌ |
+
+**Schema snapshot:** Changelog updated for 110-112. Structured tables STALE — need REFRESH_SCHEMA.SQL results to rebuild.
