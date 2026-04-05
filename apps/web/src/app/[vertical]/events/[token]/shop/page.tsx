@@ -285,7 +285,22 @@ export default function EventShopPage() {
       })
       const data = await res.json()
       if (!res.ok) {
-        setWaveError(data.error || 'Failed to reserve time slot')
+        // If wave is full, suggest the next available wave
+        const isFullError = data.error?.includes('full') || data.error?.includes('no longer available')
+        if (isFullError) {
+          const attemptedWave = waves.find(w => w.id === waveId)
+          const nextOpen = waves.find(w => w.status === 'open' && w.wave_number > (attemptedWave?.wave_number || 0))
+          if (nextOpen) {
+            setWaveError(
+              `The vendors have reached their order fulfilment capacity for the timeframe from ${formatTime(attemptedWave?.start_time || '')} to ${formatTime(attemptedWave?.end_time || '')}. ` +
+              `The next available fulfilment timeframe is from ${formatTime(nextOpen.start_time)} to ${formatTime(nextOpen.end_time)} — please select that time slot.`
+            )
+          } else {
+            setWaveError('All time slots are currently full. Please check back later — slots may open if other attendees cancel.')
+          }
+        } else {
+          setWaveError(data.error || 'Failed to reserve time slot')
+        }
         return
       }
       // Find the wave info for display
