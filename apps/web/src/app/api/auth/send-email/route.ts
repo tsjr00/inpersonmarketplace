@@ -27,7 +27,7 @@ const DOMAIN_TO_VERTICAL: Record<string, string> = {
 /** Map auth action types to the correct redirect path within a vertical */
 const ACTION_REDIRECT_PATHS: Record<string, string> = {
   recovery: 'reset-password',
-  signup: 'dashboard',
+  signup: 'confirm-email',
   magiclink: 'dashboard',
   email_change: 'settings',
   invite: 'dashboard',
