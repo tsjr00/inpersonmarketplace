@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
       cutoff_hours,
       event_allow_day_of_orders,
       vendor_stay_policy,
+      company_max_per_attendee_cents,
     } = body
 
     // Validate vertical
@@ -217,6 +218,8 @@ export async function POST(request: NextRequest) {
         vendor_preferences: Array.isArray(vendor_preferences) ? vendor_preferences : null,
         vendor_stay_policy: ['may_leave_when_sold_out', 'stay_full_event', 'vendor_discretion'].includes(vendor_stay_policy)
           ? vendor_stay_policy : null,
+        company_max_per_attendee_cents: (payment_model === 'hybrid' && typeof company_max_per_attendee_cents === 'number' && company_max_per_attendee_cents > 0)
+          ? company_max_per_attendee_cents : null,
       })
       .select('id')
       .single()
@@ -263,13 +266,17 @@ export async function POST(request: NextRequest) {
 
       if (approval.success && approval.market_id && approval.event_token) {
         // Update the catering request with approval data
+        const approvalUpdate: Record<string, unknown> = {
+          status: 'approved',
+          market_id: approval.market_id,
+          event_token: approval.event_token,
+        }
+        if (approval.access_code) {
+          approvalUpdate.access_code = approval.access_code
+        }
         await supabase
           .from('catering_requests')
-          .update({
-            status: 'approved',
-            market_id: approval.market_id,
-            event_token: approval.event_token,
-          })
+          .update(approvalUpdate)
           .eq('id', requestId)
 
         // Step 2: Auto-match and invite vendors

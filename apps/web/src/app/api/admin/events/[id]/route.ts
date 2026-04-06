@@ -122,6 +122,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
       updates.event_token = approval.event_token
       updates.market_id = approval.market_id
+      if (approval.access_code) {
+        updates.access_code = approval.access_code
+      }
     }
 
     if (Object.keys(updates).length === 0) {

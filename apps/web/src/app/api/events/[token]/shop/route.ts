@@ -31,7 +31,7 @@ export async function GET(
     // Fetch event by token
     const { data: event } = await supabase
       .from('catering_requests')
-      .select('id, company_name, event_date, event_end_date, event_start_time, event_end_time, headcount, address, city, state, zip, vertical_id, market_id, status, vendor_count, is_themed, theme_description, children_present, payment_model')
+      .select('id, company_name, event_date, event_end_date, event_start_time, event_end_time, headcount, address, city, state, zip, vertical_id, market_id, status, vendor_count, is_themed, theme_description, children_present, payment_model, company_max_per_attendee_cents')
       .eq('event_token', token)
       .in('status', ['approved', 'ready', 'active'])
       .single()
@@ -244,6 +244,8 @@ export async function GET(
       vendor_count: vendors.length,
       is_food_truck: isFT,
       payment_model: event.payment_model || 'attendee_paid',
+      company_max_per_attendee_cents: event.company_max_per_attendee_cents || null,
+      requires_access_code: event.payment_model === 'company_paid' || event.payment_model === 'hybrid',
       wave_ordering_enabled: waveOrderingEnabled,
       waves,
       user_reservation: userReservation,

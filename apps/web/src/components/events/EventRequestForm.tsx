@@ -55,6 +55,7 @@ interface FormData {
   cutoff_hours: string
   event_allow_day_of_orders: boolean
   vendor_stay_policy: string
+  company_max_per_attendee: string
 }
 
 function getServiceLevels(vertical: string) {
@@ -186,6 +187,7 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
     cutoff_hours: '24',
     event_allow_day_of_orders: true,
     vendor_stay_policy: 'vendor_discretion',
+    company_max_per_attendee: '',
   })
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -277,6 +279,7 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
           cutoff_hours: form.cutoff_hours || '24',
           event_allow_day_of_orders: form.event_allow_day_of_orders,
           vendor_stay_policy: form.vendor_stay_policy || null,
+          company_max_per_attendee_cents: form.company_max_per_attendee ? Math.round(parseFloat(form.company_max_per_attendee) * 100) : null,
           vendor_preferences: null,
         }),
       })
@@ -427,6 +430,48 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
                 ))}
               </div>
             </div>
+
+            {/* Payment model */}
+            <div>
+              <label style={labelStyle}>Who&apos;s paying for the food?</label>
+              <div style={{ display: 'flex', gap: spacing.xs, flexWrap: 'wrap' }}>
+                {PAYMENT_MODELS.map(opt => (
+                  <button key={opt.value} type="button"
+                    onClick={() => updateField('payment_model', opt.value)}
+                    style={{
+                      flex: 1, minWidth: 140, padding: spacing['2xs'],
+                      borderRadius: radius.md,
+                      border: `1.5px solid ${form.payment_model === opt.value ? accent : statusColors.neutral300}`,
+                      backgroundColor: form.payment_model === opt.value ? accent : 'white',
+                      color: form.payment_model === opt.value ? 'white' : statusColors.neutral600,
+                      fontSize: typography.sizes.xs, fontWeight: typography.weights.medium,
+                      cursor: 'pointer', transition: 'all 0.15s',
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Hybrid: company cap per person */}
+            {form.payment_model === 'hybrid' && (
+              <div>
+                <label style={labelStyle}>How much will the company cover per person? *</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
+                  <span style={{ fontSize: typography.sizes.base, color: statusColors.neutral600 }}>$</span>
+                  <input type="number" placeholder="15.00" min="1" step="0.50"
+                    value={form.company_max_per_attendee}
+                    onChange={(e) => updateField('company_max_per_attendee', e.target.value)}
+                    style={{ ...inputStyle, width: 120 }}
+                    required />
+                  <span style={{ fontSize: typography.sizes.xs, color: statusColors.neutral400 }}>per person</span>
+                </div>
+                <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: statusColors.neutral400 }}>
+                  Each attendee gets one item up to this amount on the company. Additional items are paid by the individual.
+                </p>
+              </div>
+            )}
 
             {/* Vendor categories — what types are you looking for */}
             <div>
