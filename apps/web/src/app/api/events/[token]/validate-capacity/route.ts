@@ -29,7 +29,7 @@ export async function GET(
     const vendorProfileId = searchParams.get('vendor_profile_id')
 
     if (!vendorProfileId) {
-      throw traced.validation('ERR_VALIDATE_001', 'vendor_profile_id is required')
+      return NextResponse.json({ error: 'vendor_profile_id is required' }, { status: 400 })
     }
 
     const supabase = createServiceClient()

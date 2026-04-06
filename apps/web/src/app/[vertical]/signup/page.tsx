@@ -2,7 +2,7 @@
 
 import { useState, use, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding, VerticalBranding } from '@/lib/branding'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
@@ -33,6 +33,9 @@ export default function SignupPage({ params }: SignupPageProps) {
   const [configLoading, setConfigLoading] = useState(true)
   const [branding, setBranding] = useState<VerticalBranding>(defaultBranding[vertical] || defaultBranding.farmers_market)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const isEventRef = searchParams.get('ref') === 'event'
+  const dashboardUrl = `/${vertical}/dashboard${isEventRef ? '?section=events' : ''}`
   const supabase = createClient()
 
   useEffect(() => {
@@ -84,7 +87,7 @@ export default function SignupPage({ params }: SignupPageProps) {
           full_name: fullName,
           preferred_vertical: vertical,
         },
-        emailRedirectTo: `${window.location.origin}/${vertical}/dashboard`,
+        emailRedirectTo: `${window.location.origin}${dashboardUrl}`,
       },
     })
 
@@ -97,7 +100,7 @@ export default function SignupPage({ params }: SignupPageProps) {
     if (data.user) {
       setSuccess(true)
       setTimeout(() => {
-        router.push(`/${vertical}/dashboard`)
+        router.push(dashboardUrl)
         router.refresh()
       }, 2000)
     }

@@ -203,3 +203,104 @@ test.describe('API health', () => {
     expect(body.name).toBeTruthy()
   })
 })
+
+// ── Event Pages ─────────────────────────────────────────────────────
+
+test.describe('Event pages load', () => {
+  test('FM event request page', async ({ page }) => {
+    await page.goto('/farmers_market/events')
+    await expect(page.locator('h1').first()).toBeVisible()
+  })
+
+  test('FT event request page', async ({ page }) => {
+    await page.goto('/food_trucks/events')
+    await expect(page.locator('h1').first()).toBeVisible()
+  })
+
+  test('FM event request form has required fields', async ({ page }) => {
+    await page.goto('/farmers_market/events')
+    // Quick-start form should have company name and email inputs
+    await expect(page.locator('input[type="email"]').first()).toBeVisible()
+  })
+
+  test('FT event request form has required fields', async ({ page }) => {
+    await page.goto('/food_trucks/events')
+    await expect(page.locator('input[type="email"]').first()).toBeVisible()
+  })
+
+  test('invalid event token returns not found', async ({ page }) => {
+    await page.goto('/farmers_market/events/invalid-token-xyz')
+    // Should show error or not-found state (not crash)
+    await page.waitForLoadState('networkidle')
+    const content = await page.textContent('body')
+    expect(content).toBeTruthy()
+  })
+
+  test('invalid event token shop page handles gracefully', async ({ page }) => {
+    await page.goto('/farmers_market/events/invalid-token-xyz/shop')
+    await page.waitForLoadState('networkidle')
+    const content = await page.textContent('body')
+    expect(content).toBeTruthy()
+  })
+})
+
+// ── Event API Health ────────────────────────────────────────────────
+
+test.describe('Event API health', () => {
+  test('event-requests POST rejects empty body', async ({ request }) => {
+    const res = await request.post('/api/event-requests', {
+      data: {},
+    })
+    // Should return 400 (validation), not 500 (crash)
+    expect(res.status()).toBeLessThan(500)
+  })
+
+  test('event-approved-vendors GET requires vertical', async ({ request }) => {
+    const res = await request.get('/api/event-approved-vendors')
+    // Should return 400 (missing vertical), not 500
+    expect(res.status()).toBeLessThan(500)
+  })
+
+  test('event waves GET with invalid token returns 404', async ({ request }) => {
+    const res = await request.get('/api/events/invalid-token/waves')
+    expect(res.status()).toBe(404)
+  })
+
+  test('event shop GET with invalid token returns 404', async ({ request }) => {
+    const res = await request.get('/api/events/invalid-token/shop')
+    expect(res.status()).toBe(404)
+  })
+
+  test('event validate-capacity GET requires vendor_profile_id', async ({ request }) => {
+    const res = await request.get('/api/events/invalid-token/validate-capacity')
+    // Should return 400 or 404, not 500
+    expect(res.status()).toBeLessThan(500)
+  })
+
+  test('event order POST rejects unauthenticated', async ({ request }) => {
+    const res = await request.post('/api/events/invalid-token/order', {
+      data: { reservation_id: 'x', listing_id: 'x', vendor_profile_id: 'x', wave_id: 'x' },
+    })
+    expect(res.status()).toBe(401)
+  })
+
+  test('event cancel POST rejects unauthenticated', async ({ request }) => {
+    const res = await request.post('/api/events/invalid-token/cancel')
+    expect(res.status()).toBe(401)
+  })
+
+  test('event details GET rejects unauthenticated', async ({ request }) => {
+    const res = await request.get('/api/events/invalid-token/details')
+    expect(res.status()).toBe(401)
+  })
+
+  test('admin events GET rejects unauthenticated', async ({ request }) => {
+    const res = await request.get('/api/admin/events')
+    expect(res.status()).toBe(401)
+  })
+
+  test('admin event payments GET rejects unauthenticated', async ({ request }) => {
+    const res = await request.get('/api/admin/events/fake-id/payments')
+    expect(res.status()).toBe(401)
+  })
+})
