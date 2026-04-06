@@ -19,6 +19,8 @@ import { term, isBuyerPremiumEnabled } from '@/lib/vertical'
 import { SUBSCRIPTION_PRICES } from '@/lib/stripe/config'
 import HelpSearchWidget from '@/components/help/HelpSearchWidget'
 import OrganizerEventActions from '@/components/events/OrganizerEventActions'
+import OrganizerEventDetails from '@/components/events/OrganizerEventDetails'
+import ScrollToSection from '@/components/dashboard/ScrollToSection'
 import { getLocale } from '@/lib/locale/server'
 import { t } from '@/lib/locale/messages'
 
@@ -291,6 +293,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
       color: colors.textSecondary,
       padding: spacing.xl
     }}>
+      <ScrollToSection />
       {/* Page Title + Welcome */}
       <div className="dashboard-header" style={{
         display: 'flex',
@@ -805,7 +808,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
       {hasOrganizerEvents && (
         <>
           <div style={{ borderTop: `1px solid ${colors.border}`, marginBottom: spacing.lg }} />
-          <section style={{ marginBottom: spacing.lg }}>
+          <section id="events-section" style={{ marginBottom: spacing.lg }}>
             <h2 style={{
               fontSize: typography.sizes.xl,
               fontWeight: typography.weights.semibold,
@@ -970,6 +973,16 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                         </Link>
                       )}
                     </div>
+
+                    {/* Progressive detail collection */}
+                    {evt.event_token && (
+                      <OrganizerEventDetails
+                        eventToken={evt.event_token}
+                        status={evt.status}
+                        vertical={vertical}
+                        primaryColor={colors.primary}
+                      />
+                    )}
 
                     {/* Client-side actions: copy link, cancel */}
                     <OrganizerEventActions

@@ -289,10 +289,8 @@ test.describe('Event API health', () => {
     expect(res.status()).toBe(401)
   })
 
-  // Skipped: details endpoint uses cookie-based auth (createClient) which hangs
-  // on raw API requests without browser cookies. Auth guard tested via api-route-guards.test.ts.
-  test.skip('event details GET rejects unauthenticated', async ({ request }) => {
-    const res = await request.get('/api/events/invalid-token/details', { timeout: 20_000 })
+  test('event details GET rejects unauthenticated', async ({ request }) => {
+    const res = await request.get('/api/events/invalid-token/details')
     expect(res.status()).toBe(401)
   })
 

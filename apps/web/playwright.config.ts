@@ -67,4 +67,12 @@ export default defineConfig({
       use: { browserName: 'chromium' },
     },
   ],
+
+  // Auto-start dev server if not already running
+  webServer: {
+    command: 'npm run dev',
+    url: 'http://localhost:3002',
+    reuseExistingServer: true, // Skip startup if already running
+    timeout: 120_000,
+  },
 })
