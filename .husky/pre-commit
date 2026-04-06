@@ -1,5 +1,6 @@
 #!/bin/sh
-# Pre-commit hook - runs lint-staged (ESLint) then vitest
+# Pre-commit hook - runs lint-staged (ESLint), vitest, then Playwright e2e
 cd apps/web
 npx lint-staged
 npx vitest run
+npx playwright test

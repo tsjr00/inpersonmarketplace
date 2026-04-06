@@ -2,7 +2,7 @@
 
 import { useState, use, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding, VerticalBranding } from '@/lib/branding'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
@@ -28,6 +28,9 @@ export default function LoginPage({ params }: LoginPageProps) {
   const [configLoading, setConfigLoading] = useState(true)
   const [branding, setBranding] = useState<VerticalBranding>(defaultBranding[vertical] || defaultBranding.farmers_market)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const isEventRef = searchParams.get('ref') === 'event'
+  const dashboardSuffix = isEventRef ? '?section=events' : ''
   const supabase = createClient()
   const locale = getClientLocale()
 
@@ -111,13 +114,13 @@ export default function LoginPage({ params }: LoginPageProps) {
         if (!vendorProfile) {
           // User doesn't belong to this vertical — redirect to their home
           const homeVertical = userVerticals[0]
-          router.push(`/${homeVertical}/dashboard`)
+          router.push(`/${homeVertical}/dashboard${dashboardSuffix}`)
           router.refresh()
           return
         }
       }
 
-      router.push(`/${vertical}/dashboard`)
+      router.push(`/${vertical}/dashboard${dashboardSuffix}`)
       router.refresh()
     }
   }
