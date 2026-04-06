@@ -45,6 +45,7 @@ interface ApprovalResult {
   success: boolean
   market_id?: string
   event_token?: string
+  access_code?: string
   error?: string
 }
 
@@ -54,6 +55,22 @@ interface AutoInviteResult {
   matched: number
   error?: string
   skipped?: Array<{ name: string; reason: string }>
+}
+
+// --- Access Code Generation ---
+
+/**
+ * Generate an 8-character uppercase alphanumeric access code.
+ * Used for company-paid and hybrid events — attendees enter this
+ * to prove they're authorized for company-paid ordering.
+ */
+export function generateAccessCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // no 0/O/1/I to avoid confusion
+  let code = ''
+  for (let i = 0; i < 8; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)]
+  }
+  return code
 }
 
 // --- Event Approval (Market + Token + Schedule Creation) ---
@@ -130,10 +147,15 @@ export async function approveEventRequest(
     return { success: false, error: 'Failed to create market schedule' }
   }
 
+  // Generate access code for company-paid and hybrid events
+  const needsAccessCode = request.payment_model === 'company_paid' || request.payment_model === 'hybrid'
+  const access_code = needsAccessCode ? generateAccessCode() : undefined
+
   return {
     success: true,
     market_id: market.id,
     event_token,
+    access_code,
   }
 }
 
