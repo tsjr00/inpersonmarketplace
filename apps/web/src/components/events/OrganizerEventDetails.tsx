@@ -217,6 +217,37 @@ export default function OrganizerEventDetails({ eventToken, status, vertical, pr
             <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral500 }}>Loading details...</p>
           )}
 
+          {/* Access code (read-only, shown after approval for company-paid/hybrid) */}
+          {details && details.access_code && (
+            <div style={{
+              marginBottom: spacing.xs,
+              padding: spacing.xs,
+              backgroundColor: '#eff6ff',
+              borderRadius: radius.md,
+              border: '1px solid #bfdbfe',
+            }}>
+              <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: '#1e40af' }}>
+                Event Access Code
+              </span>
+              <div style={{
+                fontFamily: 'monospace',
+                fontSize: typography.sizes.xl,
+                fontWeight: typography.weights.bold,
+                letterSpacing: '0.2em',
+                color: '#1e3a8a',
+                margin: `${spacing['2xs']} 0`,
+              }}>
+                {details.access_code}
+              </div>
+              <p style={{ fontSize: typography.sizes.xs, color: '#3b82f6', margin: 0 }}>
+                Share this code with attendees so they can order their company-covered meal.
+                {details.company_max_per_attendee_cents && (
+                  <> Each person gets one item up to <strong>${(details.company_max_per_attendee_cents as number / 100).toFixed(2)}</strong>.</>
+                )}
+              </p>
+            </div>
+          )}
+
           {details && FIELD_GROUPS.map((group, gIdx) => {
             const filled = countFilledInGroup(details, group.fields)
             const total = countTotalInGroup(group.fields, details)

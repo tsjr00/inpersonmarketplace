@@ -122,6 +122,15 @@ export default function EventShopPage() {
   const [cartMessage, setCartMessage] = useState<string | null>(null)
   const isSubmittingRef = useRef(false) // prevents double-click race condition
 
+  // Access code + hybrid state
+  const [requiresAccessCode, setRequiresAccessCode] = useState(false)
+  const [accessCodeInput, setAccessCodeInput] = useState('')
+  const [accessCodeVerified, setAccessCodeVerified] = useState(false)
+  const [accessCodeError, setAccessCodeError] = useState<string | null>(null)
+  const [verifyingCode, setVerifyingCode] = useState(false)
+  const [companyCap, setCompanyCap] = useState<number | null>(null) // cents
+  const [companyAllowanceUsed, setCompanyAllowanceUsed] = useState(false)
+
   // Wave ordering state (company-paid events)
   const [paymentModel, setPaymentModel] = useState<string>('attendee_paid')
   const [waveOrderingEnabled, setWaveOrderingEnabled] = useState(false)
@@ -179,9 +188,18 @@ export default function EventShopPage() {
         setPickupDate(data.pickup_date)
         // Wave ordering fields
         if (data.payment_model) setPaymentModel(data.payment_model)
+        if (data.requires_access_code) setRequiresAccessCode(true)
+        if (data.company_max_per_attendee_cents) setCompanyCap(data.company_max_per_attendee_cents)
         if (data.wave_ordering_enabled) setWaveOrderingEnabled(true)
         if (data.waves) setWaves(data.waves)
-        if (data.user_reservation) setUserReservation(data.user_reservation)
+        if (data.user_reservation) {
+          setUserReservation(data.user_reservation)
+          // If user already has an ordered reservation, they've used their company allowance
+          if (data.user_reservation.status === 'ordered') {
+            setCompanyAllowanceUsed(true)
+            setAccessCodeVerified(true) // don't re-prompt for code
+          }
+        }
       } catch {
         setError('Unable to connect. Please check your internet and try again.')
       } finally {
@@ -290,8 +308,37 @@ export default function EventShopPage() {
     isSubmittingRef.current = false
   }
 
-  // ── Wave ordering handlers (company-paid) ──
-  const isCompanyPaid = paymentModel === 'company_paid' && waveOrderingEnabled
+  // ── Access code verification ──
+  async function verifyAccessCode() {
+    if (!accessCodeInput.trim()) return
+    setVerifyingCode(true)
+    setAccessCodeError(null)
+    try {
+      const res = await fetch(`/api/events/${token}/verify-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: accessCodeInput.trim() }),
+      })
+      const data = await res.json()
+      if (data.valid) {
+        setAccessCodeVerified(true)
+        if (data.company_max_per_attendee_cents) setCompanyCap(data.company_max_per_attendee_cents)
+      } else {
+        setAccessCodeError('Invalid access code. Please check with your event organizer.')
+      }
+    } catch {
+      setAccessCodeError('Unable to verify. Please try again.')
+    }
+    setVerifyingCode(false)
+  }
+
+  // ── Payment model logic ──
+  // Pure company-paid: all items company-paid (wave flow)
+  // Hybrid: one item ≤ cap company-paid, rest attendee-paid
+  // Attendee-paid: everything goes to cart
+  const isCompanyPaid = paymentModel === 'company_paid' && waveOrderingEnabled && accessCodeVerified && !companyAllowanceUsed
+  const isHybrid = paymentModel === 'hybrid' && accessCodeVerified
+  const canUseCompanyAllowance = isHybrid && !companyAllowanceUsed && waveOrderingEnabled
 
   async function handleReserveWave(waveId: string) {
     if (reservingWave) return
@@ -499,6 +546,104 @@ export default function EventShopPage() {
           <p style={{ fontSize: typography.sizes.xs, color: '#6b7280', margin: `${spacing.xs} 0 0` }}>
             New here? You can create an account in seconds.
           </p>
+        </div>
+      )}
+
+      {/* ═══════ ACCESS CODE ENTRY (company-paid + hybrid) ═══════ */}
+      {requiresAccessCode && isLoggedIn && !checkingAuth && !accessCodeVerified && (
+        <div style={{
+          padding: spacing.md,
+          backgroundColor: '#eff6ff',
+          border: '1px solid #bfdbfe',
+          borderRadius: radius.lg,
+          marginBottom: spacing.md,
+          textAlign: 'center',
+        }}>
+          <h3 style={{ margin: `0 0 ${spacing.xs}`, fontSize: typography.sizes.base, color: '#1e40af' }}>
+            Enter Your Event Access Code
+          </h3>
+          <p style={{ fontSize: typography.sizes.sm, color: '#3b82f6', margin: `0 0 ${spacing.sm}` }}>
+            {paymentModel === 'company_paid'
+              ? 'Your employer is covering this meal. Enter the access code shared by your event organizer.'
+              : `Your employer covers one item up to $${((companyCap || 0) / 100).toFixed(2)}. Enter the code to claim your meal.`}
+          </p>
+          <div style={{ display: 'flex', gap: spacing.xs, justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              placeholder="e.g. ACME2026"
+              value={accessCodeInput}
+              onChange={(e) => setAccessCodeInput(e.target.value.toUpperCase())}
+              maxLength={8}
+              style={{
+                padding: `${spacing['2xs']} ${spacing.sm}`,
+                border: `1px solid ${accessCodeError ? '#fca5a5' : '#93c5fd'}`,
+                borderRadius: radius.sm,
+                fontSize: typography.sizes.base,
+                fontFamily: 'monospace',
+                letterSpacing: '0.15em',
+                textAlign: 'center',
+                width: 160,
+                textTransform: 'uppercase',
+              }}
+              onKeyDown={(e) => { if (e.key === 'Enter') verifyAccessCode() }}
+            />
+            <button
+              onClick={verifyAccessCode}
+              disabled={verifyingCode || !accessCodeInput.trim()}
+              style={{
+                padding: `${spacing['2xs']} ${spacing.md}`,
+                backgroundColor: accent,
+                color: 'white',
+                border: 'none',
+                borderRadius: radius.sm,
+                fontWeight: typography.weights.semibold,
+                fontSize: typography.sizes.sm,
+                cursor: verifyingCode ? 'not-allowed' : 'pointer',
+                opacity: verifyingCode ? 0.7 : 1,
+              }}
+            >
+              {verifyingCode ? 'Verifying...' : 'Verify'}
+            </button>
+          </div>
+          {accessCodeError && (
+            <p style={{ fontSize: typography.sizes.xs, color: '#dc2626', margin: `${spacing.xs} 0 0` }}>
+              {accessCodeError}
+            </p>
+          )}
+          <p style={{ fontSize: typography.sizes.xs, color: '#6b7280', margin: `${spacing.sm} 0 0` }}>
+            Don&apos;t have a code? You can still browse and order — you&apos;ll pay at checkout.
+          </p>
+        </div>
+      )}
+
+      {/* Company allowance banner (hybrid — code verified, allowance available) */}
+      {isHybrid && !companyAllowanceUsed && isLoggedIn && (
+        <div style={{
+          padding: `${spacing['2xs']} ${spacing.sm}`,
+          backgroundColor: '#f0fdf4',
+          border: '1px solid #bbf7d0',
+          borderRadius: radius.md,
+          marginBottom: spacing.md,
+          fontSize: typography.sizes.sm,
+          color: '#166534',
+        }}>
+          Your company covers one item up to <strong>${((companyCap || 0) / 100).toFixed(2)}</strong>. Items marked &ldquo;Covered&rdquo; are free to you.
+          {!waveOrderingEnabled && ' Additional items will be added to your cart for checkout.'}
+        </div>
+      )}
+
+      {/* Company allowance used banner */}
+      {isHybrid && companyAllowanceUsed && isLoggedIn && (
+        <div style={{
+          padding: `${spacing['2xs']} ${spacing.sm}`,
+          backgroundColor: '#eff6ff',
+          border: '1px solid #bfdbfe',
+          borderRadius: radius.md,
+          marginBottom: spacing.md,
+          fontSize: typography.sizes.sm,
+          color: '#1e40af',
+        }}>
+          You&apos;ve used your company-covered meal. Additional items can be added to your cart for personal checkout.
         </div>
       )}
 

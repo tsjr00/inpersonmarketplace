@@ -66,6 +66,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         id, status, company_name, contact_name, contact_email,
         event_date, event_end_date, event_start_time, event_end_time,
         headcount, vendor_count, service_level, payment_model,
+        access_code, company_max_per_attendee_cents,
         cuisine_preferences, dietary_notes, preferred_vendor_categories,
         total_food_budget_cents, per_meal_budget_cents, estimated_spend_per_attendee_cents,
         expected_meal_count, budget_notes,

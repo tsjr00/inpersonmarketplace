@@ -352,6 +352,42 @@ export async function GET(request: NextRequest, context: RouteContext) {
       .filter(p => p.status === 'paid')
       .reduce((s, p) => s + p.amount_cents, 0)
 
+    // Separate order lists for organizer visibility
+    // Company-paid: organizer sees individual detail (their invoice)
+    // Attendee-paid: aggregate only (privacy — personal purchases)
+    const companyPaidOrderDetail = companyPaidItems.map(item => {
+      const order = item.orders as unknown as { order_number: string; buyer_user_id: string; created_at: string }
+      const listing = item.listings as unknown as { title: string }
+      const buyer = buyerMap.get(order.buyer_user_id)
+      return {
+        orderNumber: order.order_number,
+        buyerName: buyer?.name || 'Attendee',
+        item: listing.title,
+        quantity: item.quantity,
+        amountCents: item.subtotal_cents,
+        platformFeeCents: item.platform_fee_cents,
+        vendorPayoutCents: item.vendor_payout_cents,
+        status: item.status,
+        fulfilled: !!item.pickup_confirmed_at,
+        orderedAt: order.created_at,
+      }
+    })
+
+    const attendeePaidSummary = {
+      totalOrders: totalStripeOrders + totalExternalOrders,
+      totalItems: employeePaidItems.length + externalPaidItems.length,
+      totalRevenueCents: employeePaidCents + companyOwedCents,
+      uniqueAttendees: new Set([
+        ...employeePaidItems.map(i => (i.orders as unknown as { buyer_user_id: string }).buyer_user_id),
+        ...externalPaidItems.map(i => (i.orders as unknown as { buyer_user_id: string }).buyer_user_id),
+      ]).size,
+    }
+
+    // Total unique participants (across all payment types)
+    const totalParticipants = new Set(
+      (orderItems || []).map(i => (i.orders as unknown as { buyer_user_id: string }).buyer_user_id)
+    ).size
+
     return NextResponse.json({
       cateringRequest: {
         id: cateringReq.id,
@@ -382,6 +418,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
       waveStats,
       companyPayments: companyPayments || [],
       paymentModel: cateringReq.payment_model || 'attendee_paid',
+      companyPaidOrderDetail,
+      attendeePaidSummary,
+      totalParticipants,
       summary: {
         totalOrders,
         totalItems,
