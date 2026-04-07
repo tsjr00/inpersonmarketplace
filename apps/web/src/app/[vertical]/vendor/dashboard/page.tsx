@@ -589,7 +589,6 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               </div>
             )}
           </div>
-        </div>
 
         {/* ============================================= */}
         {/* YOUR EVENTS — only for event-approved vendors  */}
@@ -753,6 +752,8 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             </div>
           )
         })()}
+
+        </div>
 
         {/* ============================================= */}
         {/* ROW 2: Daily Ops - Orders, Listings, Market Boxes */}

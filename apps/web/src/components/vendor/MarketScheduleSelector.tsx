@@ -57,6 +57,7 @@ export default function MarketScheduleSelector({
 
   const isFT = vertical === 'food_trucks'
   const isEvent = marketType === 'event'
+  const isSingleDayEvent = isEvent && schedules.length <= 1
   const locationLabel = isEvent ? 'event' : isFT ? 'park' : 'market'
 
   useEffect(() => {
@@ -226,7 +227,9 @@ export default function MarketScheduleSelector({
           </h3>
           <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
             {isEvent
-              ? "Select the days you'll be at this event"
+              ? (schedules.length <= 1
+                ? "You're confirmed for this event"
+                : "Select which days you'll attend this multi-day event")
               : isFT
                 ? "Select the days you're at this park"
                 : 'Select the days you attend this market'}
@@ -250,8 +253,8 @@ export default function MarketScheduleSelector({
         )}
       </div>
 
-      {/* Warning if no schedules selected */}
-      {!hasAnyActive && (
+      {/* Warning if no schedules selected (skip for single-day events — always attending) */}
+      {!hasAnyActive && !isSingleDayEvent && (
         <div style={{
           padding: 12,
           backgroundColor: '#fef2f2',
@@ -310,9 +313,9 @@ export default function MarketScheduleSelector({
               >
                 <input
                   type="checkbox"
-                  checked={schedule.is_attending}
-                  disabled={saving === schedule.id}
-                  onChange={() => handleToggleSchedule(schedule.id, schedule.is_attending)}
+                  checked={isSingleDayEvent ? true : schedule.is_attending}
+                  disabled={saving === schedule.id || isSingleDayEvent}
+                  onChange={() => { if (!isSingleDayEvent) handleToggleSchedule(schedule.id, schedule.is_attending) }}
                   style={{
                     width: 20,
                     height: 20,
@@ -360,8 +363,8 @@ export default function MarketScheduleSelector({
                 )}
               </label>
 
-              {/* FT/Events: Vendor-specific time pickers (shown when attending) */}
-              {(isFT || isEvent) && schedule.is_attending && (
+              {/* FT only: Vendor-specific time pickers (events have fixed hours set by organizer) */}
+              {isFT && !isEvent && schedule.is_attending && (
                 <div style={{
                   padding: '12px 16px',
                   backgroundColor: '#f0fdf4',
@@ -439,7 +442,9 @@ export default function MarketScheduleSelector({
       }}>
         <strong>How this works:</strong>{' '}
         {isEvent
-          ? "When customers pre-order for this event, they'll pick a time slot within the hours you set. Only days you've selected will show as available."
+          ? (isSingleDayEvent
+            ? "You're confirmed for this event. Your items will be available to attendees during event hours. Pre-orders will appear on your prep sheet."
+            : "This is a multi-day event. Select which days you'll attend. Your items will be available to attendees on your selected days during event hours.")
           : isFT
             ? "When customers order from you at this park, they'll pick a time slot within the hours you set. Only days you've selected will show as available."
             : "When buyers order from you at this market, their pickup date will be calculated based on the days you've selected. Orders will be assigned to your next available market day."}
