@@ -1,80 +1,85 @@
-# Current Task: Session 67 Complete
-Updated: 2026-04-04
+# Current Task: Session 68 Complete
+Updated: 2026-04-07
 
-## Status: 21 commits on staging, NOT yet on prod. Schema verified.
+## Status: ~45 commits this session. Prod current. Migrations 110-113 on all 3 envs.
 
-## Session 67 Summary
+## Next Session Priority #1: Vendor Fee Discount System
 
-### FM Landing Page (3 rounds)
-- Correct logo (no-words version), green palette (#558B2F text, #8BC34A banners)
-- landing-container CSS pattern, dotted separators, responsive layout
-- TrustStats numeral format, watermelon "Where Are Vendors Today" button
+**Design approved — ready to build:**
+- `vendor_fee_override_percent` NUMERIC on vendor_profiles (nullable, floor 3.6%, default null = 6.5%)
+- `fee_discount_code` TEXT on vendor_profiles (vendor enters, admin reads)
+- `fee_discount_approved_by` UUID + `fee_discount_approved_at` TIMESTAMPTZ (audit trail)
+- Dual-factor: vendor enters code → admin sets actual fee rate
+- $0.15 flat fee NEVER changes (covers Stripe's $0.30 split with buyer)
+- Only the vendor % fee changes: 6.5% (standard) down to 3.6% (floor)
+- At 3.6%: vendor covers Stripe processing, platform makes $0 profit on vendor side
+- Buyer fees unchanged, display prices unchanged
+- Touches: pricing.ts (CRITICAL PATH), checkout route, vendor settings UI, admin vendor management
+- Must read vault before modifying pricing.ts
 
-### Event Wave Ordering System (complete)
-- **DB:** Migrations 110 (3 tables + columns), 111 (5 RPCs), 112 (payout fee fix)
-- **Backend:** Wave generation, reserve/cancel RPCs, company-paid order API, availability endpoint
-- **Frontend:** Shop page two-step wave flow, attendee my-order page with QR, vendor prep sheet
-- **Admin:** Generate waves button, settlement report company-paid support
+**Math ($10 item):**
+- Standard: vendor pays $0.65 + $0.15 = $0.80. Platform nets $0.99.
+- Max discount (3.6%): vendor pays $0.36 + $0.15 = $0.51. Platform nets $0.70.
+- Stripe always takes $0.61. Buyer always pays $10.80.
 
-### Event Operations
-- Organizer cancel API (replaces "contact support" placeholder)
-- Organizer event card enhancement (participation %, wave utilization, order value)
-- Vendor Pickup Mode event tab (Daily/Events toggle)
-- Settlement notification now includes payout amount
-- Wave full error suggests next available wave with specific times
+## Next Session Priority #2: Event Approved Vendor Filter (backlog)
+- Needs proper plan — three failed attempts this session
+- The vendor search page has two data paths (server initial + client nearby API)
+- Both paths must agree on the data shape
+- Filter must work alongside existing favorites filter, not replace it
+- Add to VendorFiltersPopup as a proper filter group, not a toggle
 
-### Vertical Language Audit
-- FM notifications: "Chef Boxes" → "Market Boxes", vendor event approved, trial reminders
-- Select page: 15 instances of hardcoded "trucks" → conditional terms
-- Emails: cancel route branding, vendor message fallback
-- Event request form: all "food trucks" refs → conditional
+## Session 68 Summary
 
-### Event Form Redesign
-- Quick-start form: 1248 → 516 lines (7 fields + category pills)
-- Confirmation shows vendor match count + dashboard login CTA
-- Detail fields moved to organizer dashboard card (next session build)
+### Schema Verification (Dev vs Staging)
+- All 10 REFRESH_SCHEMA sections verified matching
+- buyer_tier default fixed on Dev ('free' → 'standard')
+- SCHEMA_SNAPSHOT.md rebuilt: 51→54 tables, market_vendors 8→16 columns
+- Migration log updated for 100-113
 
-### Vendor Invitation Rework
-- 4 info cards → single compact Event Details section
-- Revenue estimate shows explicit math (headcount ÷ vendors × price)
-- 24hr → 12hr AM/PM time format
+### Event System Audit + Blockers Fixed
+- B-1: Pickup Mode Events tab — event_orders API param now works
+- B-2: Company-paid fulfillment — skip Stripe transfer for payment_model='company_paid'
+- B-3: Order cap validation endpoint + shop page integration
+- G-4: Company-paid order notifications (vendor + buyer)
+- G-5: Event status validation with clear reason messages
+- C-2: Cron Phase 14/15 uses market timezone instead of hardcoded CT
+- G-2: Admin company payments API (GET/POST/PATCH)
 
-### Infrastructure
-- PostgREST FK disambiguation (7 queries, 6 files)
-- Staging email URLs: VERCEL_ENV instead of NODE_ENV
-- 28 new event business rules tests (1345 total)
+### Hybrid Event System (designed + built)
+- Migration 113: access_code + company_max_per_attendee_cents
+- Access code verification endpoint + shop page gate
+- Dollar cap per attendee (Option C hybrid model)
+- Settlement report separates company-paid vs attendee-paid
 
-## NOT on Prod — 21 commits ahead of origin/main
-Migrations 110-112 on Dev + Staging only.
+### Progressive Event Details + Organizer Redirect
+- PATCH /api/events/[token]/details for organizer progressive form
+- OrganizerEventDetails component on dashboard (4 expandable sections)
+- Login/signup redirect with ?section=events for organizer flow
 
-## Next Session Priorities
-1. Progressive detail collection on organizer dashboard card
-2. Organizer login → event dashboard redirect
-3. Schema snapshot structured table rebuild (structured tables verified from column output but not rebuilt in SCHEMA_SNAPSHOT.md format — do at session start)
-4. Fix user_profiles.buyer_tier default discrepancy (Dev='free', Staging='standard')
-5. Push to prod after staging verification
+### Testing Infrastructure (major expansion)
+- Playwright: 30 → 46 tests, pre-commit hook integration, webServer auto-start
+- Flow integrity tests: 35 tests (auth paths, FK disambiguation, RPC usage, status reachability)
+- Cross-file business rules: 53 tests (13 business rules traced across full file chains)
+- Total: 50 files, 1433 tests + 46 Playwright
+
+### Production Hotfixes
+- FK disambiguation (cherry-pick)
+- Signup email confirmation loop (new confirm-email page)
+- Event markets excluded from regular listing/cart flow
+- Vendor profile cleanup (Book for Your Event removed, highlight button React component)
+- Event schedule UI (single-day auto-attend, no time picker for events)
+- Payment badges (Cards, Apple Pay, Google Pay, Cash App, Amazon Pay, Link)
+
+### Reverted (needs proper plan)
+- Event approved vendor filter — three attempts, all reverted. Backlogged.
 
 ## Migrations Status
 | Migration | Dev | Staging | Prod |
 |-----------|-----|---------|------|
-| 110 — event_waves schema | ✅ | ✅ | ❌ |
-| 111 — wave RPC functions | ✅ | ✅ | ❌ |
-| 112 — fix company-paid payout | ✅ | ✅ | ❌ |
+| 110-113 | ✅ | ✅ | ✅ |
 
-## Session 67 Commits (21)
-1. FM landing page redesign
-2. FM landing page corrections round 1
-3. FM landing page round 3
-4. PostgREST FK disambiguation
-5. Staging email URL fix
-6. Wave-based ordering (full system)
-7. Admin wave generation + settlement company-paid
-8. Organizer event cancel API
-9. FM notifications + select page vertical language
-10. Email branding fixes
-11. Event request form overhaul (selections, skip logic, dedup)
-12. Attendee my-order page with QR + vendor prep sheet
-13. Settlement notification payout amount
-14. Organizer event card + Pickup Mode event tab
-15. Quick-start form + vendor invitation rework + tests + bug fixes
-16. Schema snapshot changelog
+## Test Suite
+- 50 vitest files, 1433 tests
+- 46 Playwright e2e tests (45 pass, 1 skipped)
+- Pre-commit: lint-staged + vitest + playwright on every commit
