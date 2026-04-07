@@ -95,10 +95,10 @@
 | 20260331_107_replaced_vendor_fk.sql | ✅ | 2026-03-31 | ✅ | 2026-03-31 | FK: market_vendors.replaced_vendor_id → vendor_profiles. Applied to all 3 envs. Session 67. |
 | 20260331_108_day_of_sales_and_vendor_stay.sql | ✅ | 2026-03-31 | ✅ | 2026-03-31 | event_allow_day_of_orders on markets, vendor_stay_policy on catering_requests. Applied to all 3 envs. Session 67. |
 | 20260331_109_day_of_cutoff_function.sql | ✅ | 2026-03-31 | ✅ | 2026-03-31 | Day-of event ordering in get_available_pickup_dates(). Applied to all 3 envs. Session 67. |
-| 20260403_110_event_waves_schema.sql | ✅ | 2026-04-03 | ✅ | 2026-04-03 | 3 new tables (event_waves, event_wave_reservations, event_company_payments) + columns on markets/orders/order_items. Applied to Dev & Staging. Session 67. |
-| 20260403_111_wave_rpc_functions.sql | ✅ | 2026-04-03 | ✅ | 2026-04-03 | 5 RPCs: reserve/cancel wave, company-paid order, find next wave, wave availability. Applied to Dev & Staging. Session 67. |
-| 20260404_112_fix_company_paid_payout.sql | ✅ | 2026-04-04 | ✅ | 2026-04-04 | Fix create_company_paid_order: deduct 6.5% platform fee from vendor payout. Applied to Dev & Staging. Session 67. |
-| 20260405_113_hybrid_events_access_code.sql | ✅ | 2026-04-05 | ✅ | 2026-04-05 | access_code + company_max_per_attendee_cents on catering_requests. Hybrid event support. Applied to Dev & Staging. Session 68. |
+| 20260403_110_event_waves_schema.sql | ✅ | 2026-04-03 | ✅ | 2026-04-03 | 3 new tables (event_waves, event_wave_reservations, event_company_payments) + columns on markets/orders/order_items. Applied to all 3 envs (Prod 2026-04-06). Session 67/68. |
+| 20260403_111_wave_rpc_functions.sql | ✅ | 2026-04-03 | ✅ | 2026-04-03 | 5 RPCs: reserve/cancel wave, company-paid order, find next wave, wave availability. Applied to all 3 envs (Prod 2026-04-06). Session 67/68. |
+| 20260404_112_fix_company_paid_payout.sql | ✅ | 2026-04-04 | ✅ | 2026-04-04 | Fix create_company_paid_order: deduct 6.5% platform fee from vendor payout. Applied to all 3 envs (Prod 2026-04-06). Session 67/68. |
+| 20260405_113_hybrid_events_access_code.sql | ✅ | 2026-04-05 | ✅ | 2026-04-05 | access_code + company_max_per_attendee_cents on catering_requests. Hybrid event support. Applied to all 3 envs (Prod 2026-04-06). Session 68. |
 | 20260324_098_expand_fm_vendor_type_options.sql | ✅ | 2026-03-24 | ✅ | 2026-03-24 | Expand FM vendor_type options from 6 to 11 (match listing categories). Config JSONB update. Applied to all 3 envs. Session 63. |
 | 20260323_097_vendor_cover_image.sql | ✅ | 2026-03-23 | ✅ | 2026-03-23 | Add cover_image_url TEXT to vendor_profiles. Landscape photo display on vendor profile. Applied to all 3 envs. Session 63. |
 | 20260322_096_vendor_pickup_lead_minutes.sql | ✅ | 2026-03-22 | ✅ | 2026-03-22 | Add pickup_lead_minutes INTEGER DEFAULT 30 to vendor_profiles. CHECK (15 or 30). Vendor configurable prep time. Applied to all 3 envs. Session 63. |
