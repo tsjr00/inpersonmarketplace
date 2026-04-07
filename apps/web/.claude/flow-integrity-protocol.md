@@ -186,10 +186,23 @@ Not automated, but should be run periodically (every 5 sessions or after major f
 ## Running the Protocol
 
 ### Quick Check (every commit — automated)
-- Vitest business rules (1345 tests) ← existing
+- Vitest business rules tests ← existing
 - Playwright smoke tests (46 tests) ← existing  
-- Level 2 consistency tests ← NEW (add to vitest)
-- Level 3 missing handler tests ← NEW (add to vitest)
+- Level 2 consistency tests: `src/lib/__tests__/flow-integrity.test.ts` (35 tests)
+- Level 3 missing handler tests: included in flow-integrity.test.ts
+- Cross-file business rules: `src/lib/__tests__/cross-file-business-rules.test.ts` (50 tests)
+  - BR-1: Platform fee 6.5% consistent (pricing.ts, RPC, settlement, fulfill)
+  - BR-2: company_paid string consistent across full order chain
+  - BR-3: Company-paid fulfill skips Stripe completely
+  - BR-4: External payment 3.5% fee consistent
+  - BR-5: Wave capacity flows from vendor → generation → enforcement
+  - BR-6: Access code generated → stored → verified
+  - BR-7: Hybrid dollar cap flows from form → shop → settlement
+  - BR-8: Order notifications sent for ALL payment models
+  - BR-9: Settlement visibility rules (company=detail, attendee=aggregate)
+  - BR-10: Event cron uses per-market timezone
+  - BR-11: One company-paid item per attendee enforced
+  - BR-12: Vendor order cap validated before add-to-cart
 
 ### Pre-Push Check (before staging push)
 - All Quick Check tests
