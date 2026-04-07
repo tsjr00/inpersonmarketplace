@@ -77,17 +77,6 @@ export default function VendorFiltersPopup({
     })
   }
 
-  // Event approved filter
-  groups.push({
-    label: 'Events',
-    param: 'event_approved',
-    options: [
-      { value: '', label: 'All Vendors' },
-      { value: 'true', label: 'Event Approved Only' },
-    ],
-    current: searchParams.get('event_approved') || '',
-  })
-
   // Sort
   groups.push({
     label: t('vendors.sort_label', locale),

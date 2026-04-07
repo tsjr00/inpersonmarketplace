@@ -36,13 +36,12 @@ interface VendorsPageProps {
     sort?: string
     payment?: string
     favorites?: string
-    event_approved?: string
   }>
 }
 
 export default async function VendorsPage({ params, searchParams }: VendorsPageProps) {
   const { vertical } = await params
-  const { market, category, search, sort = 'rating', payment, favorites, event_approved } = await searchParams
+  const { market, category, search, sort = 'rating', payment, favorites } = await searchParams
   const supabase = await createClient()
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
@@ -64,8 +63,7 @@ export default async function VendorsPage({ params, searchParams }: VendorsPageP
         venmo_username,
         cashapp_cashtag,
         paypal_username,
-        accepts_cash_at_pickup,
-        event_approved
+        accepts_cash_at_pickup
       `)
       .eq('vertical_id', vertical)
       .eq('status', 'approved')
@@ -150,7 +148,6 @@ export default async function VendorsPage({ params, searchParams }: VendorsPageP
       listingCount,
       categories,
       markets: vendorMarkets,
-      eventApproved: (vendor.event_approved as boolean) || false,
       paymentMethods: {
         venmo: vendor.venmo_username as string | null,
         cashapp: vendor.cashapp_cashtag as string | null,
@@ -185,11 +182,6 @@ export default async function VendorsPage({ params, searchParams }: VendorsPageP
       v.name.toLowerCase().includes(searchLower) ||
       (v.description?.toLowerCase().includes(searchLower))
     )
-  }
-
-  // Filter by event approved
-  if (event_approved === 'true') {
-    filteredVendors = filteredVendors.filter(v => v.eventApproved)
   }
 
   // Filter by payment method
@@ -281,7 +273,6 @@ export default async function VendorsPage({ params, searchParams }: VendorsPageP
         currentSearch={search}
         currentSort={sort}
         currentPayment={payment}
-        currentEventApproved={event_approved}
         initialFavoritesFilter={favorites === 'true'}
         initialLocation={savedLocation}
         radiusOptions={getRadiusOptions(vertical)}
