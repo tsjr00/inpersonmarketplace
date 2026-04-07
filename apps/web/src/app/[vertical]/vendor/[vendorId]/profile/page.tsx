@@ -13,6 +13,7 @@ import { vendorProfileJsonLd } from '@/lib/marketing/json-ld'
 import PickupScheduleGrid from '@/components/vendor/PickupScheduleGrid'
 import { isBuyerPremiumEnabled, term } from '@/lib/vertical'
 import PaymentMethodBadges from '@/components/vendor/PaymentMethodBadges'
+import HighlightEventItems from '@/components/vendor/HighlightEventItems'
 import { colors } from '@/lib/design-tokens'
 import { getLocale } from '@/lib/locale/server'
 import { t } from '@/lib/locale/messages'
@@ -1386,54 +1387,8 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 : 'This vendor is approved for private events and pop-up markets.'}
             </p>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button
-                id="highlight-catering-btn"
-                type="button"
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: 'transparent',
-                  color: '#b45309',
-                  border: '1.5px solid #f59e0b',
-                  borderRadius: 6,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                }}
-              >
-                Show Event-Eligible Items
-              </button>
+              <HighlightEventItems />
             </div>
-            <script dangerouslySetInnerHTML={{ __html: `
-              if (typeof window !== 'undefined') {
-                // Wait for hydration to complete before attaching event listener
-                setTimeout(function() {
-                  var btn = document.getElementById('highlight-catering-btn');
-                  if (!btn || btn.dataset.bound) return;
-                  btn.dataset.bound = 'true';
-                  var active = false;
-                  btn.addEventListener('click', function() {
-                    active = !active;
-                    var cards = document.querySelectorAll('[data-catering="true"]');
-                    cards.forEach(function(card) {
-                      if (active) {
-                        card.style.setProperty('border', '2.5px solid #f59e0b', 'important');
-                        card.style.setProperty('box-shadow', '0 0 0 1px #f59e0b', 'important');
-                      } else {
-                        card.style.removeProperty('border');
-                        card.style.removeProperty('box-shadow');
-                      }
-                    });
-                    btn.style.backgroundColor = active ? '#f59e0b' : 'transparent';
-                    btn.style.color = active ? 'white' : '#b45309';
-                    btn.textContent = active ? 'Clear Highlight' : 'Show Event-Eligible Items';
-                    if (active && cards.length > 0) {
-                      cards[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }
-                  });
-                }, 500);
-              }
-            `}} />
           </div>
         )}
 
