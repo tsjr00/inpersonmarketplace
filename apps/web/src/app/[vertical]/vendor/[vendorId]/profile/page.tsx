@@ -1405,25 +1405,34 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
               </button>
             </div>
             <script dangerouslySetInnerHTML={{ __html: `
-              (function() {
-                var btn = document.getElementById('highlight-catering-btn');
-                if (!btn) return;
-                var active = false;
-                btn.addEventListener('click', function() {
-                  active = !active;
-                  var cards = document.querySelectorAll('[data-catering="true"]');
-                  cards.forEach(function(card) {
-                    card.style.border = active ? '2.5px solid #f59e0b' : '';
-                    card.style.boxShadow = active ? '0 0 0 1px #f59e0b' : '';
+              if (typeof window !== 'undefined') {
+                // Wait for hydration to complete before attaching event listener
+                setTimeout(function() {
+                  var btn = document.getElementById('highlight-catering-btn');
+                  if (!btn || btn.dataset.bound) return;
+                  btn.dataset.bound = 'true';
+                  var active = false;
+                  btn.addEventListener('click', function() {
+                    active = !active;
+                    var cards = document.querySelectorAll('[data-catering="true"]');
+                    cards.forEach(function(card) {
+                      if (active) {
+                        card.style.setProperty('border', '2.5px solid #f59e0b', 'important');
+                        card.style.setProperty('box-shadow', '0 0 0 1px #f59e0b', 'important');
+                      } else {
+                        card.style.removeProperty('border');
+                        card.style.removeProperty('box-shadow');
+                      }
+                    });
+                    btn.style.backgroundColor = active ? '#f59e0b' : 'transparent';
+                    btn.style.color = active ? 'white' : '#b45309';
+                    btn.textContent = active ? 'Clear Highlight' : 'Show Event-Eligible Items';
+                    if (active && cards.length > 0) {
+                      cards[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
                   });
-                  btn.style.backgroundColor = active ? '#f59e0b' : 'transparent';
-                  btn.style.color = active ? 'white' : '#b45309';
-                  btn.textContent = active ? 'Clear Highlight' : 'Show Event-Eligible Items';
-                  if (active && cards.length > 0) {
-                    cards[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  }
-                });
-              })();
+                }, 500);
+              }
             `}} />
           </div>
         )}
