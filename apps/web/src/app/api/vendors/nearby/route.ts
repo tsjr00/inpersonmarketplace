@@ -120,8 +120,7 @@ export async function GET(request: NextRequest) {
             venmo_username,
             cashapp_cashtag,
             paypal_username,
-            accepts_cash_at_pickup,
-            event_approved
+            accepts_cash_at_pickup
           `)
           .in('id', vendorIds)
           .eq('status', 'approved')
@@ -207,7 +206,6 @@ export async function GET(request: NextRequest) {
           categories,
           markets: vendorMarkets,
           distance_miles: distanceMap.get(vendor.id) ?? null,
-          eventApproved: (vendor.event_approved as boolean) || false,
           paymentMethods: {
             venmo: vendor.venmo_username as string | null,
             cashapp: vendor.cashapp_cashtag as string | null,
@@ -395,7 +393,7 @@ async function fallbackNearbyQuery(
   const [vendorsResult, listingsResult, marketsResult] = await Promise.all([
     supabase
       .from('vendor_profiles')
-      .select('id, profile_data, description, profile_image_url, tier, created_at, average_rating, rating_count, venmo_username, cashapp_cashtag, paypal_username, accepts_cash_at_pickup, event_approved')
+      .select('id, profile_data, description, profile_image_url, tier, created_at, average_rating, rating_count, venmo_username, cashapp_cashtag, paypal_username, accepts_cash_at_pickup')
       .in('id', vendorIds)
       .eq('status', 'approved')
       .is('deleted_at', null),
@@ -463,7 +461,6 @@ async function fallbackNearbyQuery(
       categories,
       markets: Array.from(marketMap.values()).sort((a, b) => a.distance_miles - b.distance_miles),
       distance_miles: Math.round((vendorDistances.get(vendor.id) ?? 0) * 10) / 10,
-      eventApproved: (vendor.event_approved as boolean) || false,
       paymentMethods: {
         venmo: vendor.venmo_username as string | null,
         cashapp: vendor.cashapp_cashtag as string | null,

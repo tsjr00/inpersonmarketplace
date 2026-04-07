@@ -41,7 +41,6 @@ interface EnrichedVendor {
   categories: string[]
   markets: VendorMarket[]
   distance_miles?: number | null
-  eventApproved?: boolean
   paymentMethods?: VendorPaymentMethods
 }
 
@@ -147,7 +146,6 @@ export default function VendorsWithLocation({
   // Favorites state
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set())
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(initialFavoritesFilter)
-  const [showEventApprovedOnly, setShowEventApprovedOnly] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   // Check for saved location on mount - ONLY if no initialLocation provided
@@ -449,29 +447,6 @@ export default function VendorsWithLocation({
             {t('vendors.favorites', locale, { count: String(favoriteIds.size) })}
           </button>
         )}
-        {/* Event approved filter toggle */}
-        {vendors.some(v => v.eventApproved) && (
-          <button
-            onClick={() => setShowEventApprovedOnly(prev => !prev)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: spacing['3xs'],
-              padding: `${spacing['3xs']} ${spacing.xs}`,
-              border: `1px solid ${showEventApprovedOnly ? '#f59e0b' : colors.border}`,
-              borderRadius: radiusToken.full,
-              backgroundColor: showEventApprovedOnly ? '#fef3c7' : colors.surfaceElevated,
-              color: showEventApprovedOnly ? '#92400e' : colors.textSecondary,
-              fontSize: typography.sizes.sm,
-              fontWeight: typography.weights.medium,
-              cursor: 'pointer',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            <span style={{ fontSize: 14 }}>🎪</span>
-            Event Approved
-          </button>
-        )}
       </div>
       <div style={{
         marginBottom: spacing.md,
@@ -514,12 +489,9 @@ export default function VendorsWithLocation({
 
       {/* Vendor Grid - show even while loading if we have vendors */}
       {(() => {
-        let displayVendors = showFavoritesOnly
+        const displayVendors = showFavoritesOnly
           ? vendors.filter(v => favoriteIds.has(v.id))
           : vendors
-        if (showEventApprovedOnly) {
-          displayVendors = displayVendors.filter(v => v.eventApproved)
-        }
         return displayVendors.length > 0 ? (
         <div
           className="vendors-grid"
