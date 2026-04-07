@@ -95,6 +95,7 @@ interface VendorsWithLocationProps {
   currentSearch?: string
   currentSort: string
   currentPayment?: string
+  currentEventApproved?: string
   /** Server-side location from cookie/profile - skips initial API call */
   initialLocation?: {
     latitude: number
@@ -118,6 +119,7 @@ export default function VendorsWithLocation({
   currentSearch,
   currentSort,
   currentPayment,
+  currentEventApproved,
   initialLocation,
   radiusOptions,
   filtersSlot,
@@ -278,6 +280,7 @@ export default function VendorsWithLocation({
       if (currentCategory) params.set('category', currentCategory)
       if (currentSearch) params.set('search', currentSearch)
       if (currentPayment) params.set('payment', currentPayment)
+      if (currentEventApproved) params.set('event_approved', currentEventApproved)
 
       const response = await fetch(`/api/vendors/nearby?${params}`)
       const data = await response.json()

@@ -31,7 +31,8 @@ export default function PaymentMethodBadges({
   size = 'sm',
 }: PaymentMethodBadgesProps) {
   // Stripe checkout accepts these methods (configured in Stripe Dashboard)
-  const methods: string[] = ['Cards', 'Cash App', 'Amazon Pay', 'Link']
+  // Apple Pay + Google Pay come through 'card' automatically when device supports them
+  const methods: string[] = ['Cards', 'Apple Pay', 'Google Pay', 'Cash App', 'Amazon Pay', 'Link']
 
   // External payment methods shown only when enabled (currently paused for tax compliance)
   if (EXTERNAL_PAYMENTS_ENABLED) {

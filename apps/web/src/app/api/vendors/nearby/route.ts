@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
       const search = searchParams.get('search')
       const sort = searchParams.get('sort') || 'rating'
       const payment = searchParams.get('payment')
+      const eventApproved = searchParams.get('event_approved')
 
       // Validate required params
       if (!lat || !lng) {
@@ -120,7 +121,8 @@ export async function GET(request: NextRequest) {
             venmo_username,
             cashapp_cashtag,
             paypal_username,
-            accepts_cash_at_pickup
+            accepts_cash_at_pickup,
+            event_approved
           `)
           .in('id', vendorIds)
           .eq('status', 'approved')
@@ -206,6 +208,7 @@ export async function GET(request: NextRequest) {
           categories,
           markets: vendorMarkets,
           distance_miles: distanceMap.get(vendor.id) ?? null,
+          eventApproved: (vendor.event_approved as boolean) || false,
           paymentMethods: {
             venmo: vendor.venmo_username as string | null,
             cashapp: vendor.cashapp_cashtag as string | null,
@@ -236,6 +239,11 @@ export async function GET(request: NextRequest) {
           v.name.toLowerCase().includes(searchLower) ||
           (v.description?.toLowerCase().includes(searchLower))
         )
+      }
+
+      // Filter by event approved
+      if (eventApproved === 'true') {
+        filteredVendors = filteredVendors.filter(v => !!(v as Record<string, unknown>).eventApproved)
       }
 
       // Filter by payment method

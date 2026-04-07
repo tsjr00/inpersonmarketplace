@@ -281,6 +281,7 @@ export default async function VendorsPage({ params, searchParams }: VendorsPageP
         currentSearch={search}
         currentSort={sort}
         currentPayment={payment}
+        currentEventApproved={event_approved}
         initialFavoritesFilter={favorites === 'true'}
         initialLocation={savedLocation}
         radiusOptions={getRadiusOptions(vertical)}
