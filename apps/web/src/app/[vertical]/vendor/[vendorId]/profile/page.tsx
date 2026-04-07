@@ -422,9 +422,9 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
     // Convert map to array, sorted by name
     allPickupLocations = Array.from(pickupLocationsMap.values())
       .filter(loc =>
-        // Show locations with schedules OR events with date ranges
-        (loc.schedules && loc.schedules.length > 0) ||
-        (loc.market_type === 'event' && loc.event_start_date)
+        // Show locations with schedules — exclude events (events have their own pages)
+        loc.market_type !== 'event' &&
+        (loc.schedules && loc.schedules.length > 0)
       )
       .sort((a, b) => a.name.localeCompare(b.name))
   }
@@ -1436,20 +1436,6 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
           paddingTop: 16,
           borderTop: '1px solid #e5e7eb',
         }}>
-          {/* Payment Methods */}
-          <div>
-            <h3 style={{ fontSize: 13, fontWeight: 600, color: '#374151', margin: '0 0 8px 0' }}>
-              {t('vp.accepted_payments', locale)}
-            </h3>
-            <PaymentMethodBadges
-              venmoUsername={vendor.venmo_username as string | null}
-              cashappCashtag={vendor.cashapp_cashtag as string | null}
-              paypalUsername={vendor.paypal_username as string | null}
-              acceptsCashAtPickup={vendor.accepts_cash_at_pickup as boolean}
-              size="md"
-            />
-          </div>
-
           {/* Categories */}
           {(allCategories.length > 0 || hasActiveMarketBoxes) && (
             <div style={{ paddingTop: 8, borderTop: '1px solid #f3f4f6' }}>
