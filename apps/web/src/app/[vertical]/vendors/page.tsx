@@ -63,7 +63,8 @@ export default async function VendorsPage({ params, searchParams }: VendorsPageP
         venmo_username,
         cashapp_cashtag,
         paypal_username,
-        accepts_cash_at_pickup
+        accepts_cash_at_pickup,
+        event_approved
       `)
       .eq('vertical_id', vertical)
       .eq('status', 'approved')
@@ -148,6 +149,7 @@ export default async function VendorsPage({ params, searchParams }: VendorsPageP
       listingCount,
       categories,
       markets: vendorMarkets,
+      eventApproved: (vendor.event_approved as boolean) || false,
       paymentMethods: {
         venmo: vendor.venmo_username as string | null,
         cashapp: vendor.cashapp_cashtag as string | null,

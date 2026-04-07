@@ -120,7 +120,8 @@ export async function GET(request: NextRequest) {
             venmo_username,
             cashapp_cashtag,
             paypal_username,
-            accepts_cash_at_pickup
+            accepts_cash_at_pickup,
+            event_approved
           `)
           .in('id', vendorIds)
           .eq('status', 'approved')
@@ -206,6 +207,7 @@ export async function GET(request: NextRequest) {
           categories,
           markets: vendorMarkets,
           distance_miles: distanceMap.get(vendor.id) ?? null,
+          eventApproved: (vendor.event_approved as boolean) || false,
           paymentMethods: {
             venmo: vendor.venmo_username as string | null,
             cashapp: vendor.cashapp_cashtag as string | null,
