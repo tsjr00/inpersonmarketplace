@@ -155,9 +155,10 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
 
   // Group pickup dates by market for display
   // SQL function returns flat list; we group for UI presentation
-  const marketPickupDates = groupPickupDatesByMarket(
-    (availablePickupDates as AvailablePickupDate[] | null) || []
-  )
+  // Filter out event markets — events have their own shopping flow at /events/[token]/shop
+  const nonEventDates = ((availablePickupDates as AvailablePickupDate[] | null) || [])
+    .filter(d => d.market_type !== 'event')
+  const marketPickupDates = groupPickupDatesByMarket(nonEventDates)
 
   if (error || !listing) {
     notFound()

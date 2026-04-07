@@ -81,11 +81,12 @@ export function AddToCartButton({
 
   const isFoodTruck = vertical === 'food_trucks'
 
-  // Group dates by market for display
-  const marketGroups = groupPickupDatesByMarket(availablePickupDates)
+  // Group dates by market for display — exclude event markets (events have their own shop page)
+  const nonEventDates = availablePickupDates.filter(d => d.market_type !== 'event')
+  const marketGroups = groupPickupDatesByMarket(nonEventDates)
 
   // Filter to only accepting dates
-  const acceptingDates = availablePickupDates.filter(d => d.is_accepting)
+  const acceptingDates = nonEventDates.filter(d => d.is_accepting)
   const hasAcceptingDates = acceptingDates.length > 0
   const hasMultipleOptions = acceptingDates.length > 1
 

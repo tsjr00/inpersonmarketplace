@@ -439,3 +439,24 @@ describe('BR-12: Vendor order cap enforced before add-to-cart', () => {
     expect(code).toContain('setCartMessage')
   })
 })
+
+// ── BR-13: Event Markets Excluded From Regular Shopping Flow ─────────
+// Event markets must NOT appear in the regular listing detail page or
+// AddToCartButton location selector. Events have their own shop page.
+
+describe('BR-13: Event markets excluded from regular shopping flow', () => {
+  it('listing detail page filters out event markets from pickup dates', () => {
+    const code = readFile('app/[vertical]/listing/[listingId]/page.tsx')
+    expect(code).toContain("market_type !== 'event'")
+  })
+
+  it('AddToCartButton filters out event markets from location selector', () => {
+    const code = readFile('components/cart/AddToCartButton.tsx')
+    expect(code).toContain("market_type !== 'event'")
+  })
+
+  it('event shop page exists as the dedicated event ordering flow', () => {
+    const shopPage = path.join(APP_DIR, '[vertical]/events/[token]/shop/page.tsx')
+    expect(fs.existsSync(shopPage)).toBe(true)
+  })
+})
