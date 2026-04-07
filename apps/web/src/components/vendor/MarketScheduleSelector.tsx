@@ -62,7 +62,14 @@ export default function MarketScheduleSelector({
 
   useEffect(() => {
     fetchSchedules()
-  }, [marketId])
+  }, [marketId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-activate single-day event schedules
+  useEffect(() => {
+    if (isSingleDayEvent && schedules.length === 1 && !schedules[0].is_attending && !saving) {
+      handleToggleSchedule(schedules[0].id, false)
+    }
+  }, [schedules.length, isSingleDayEvent]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchSchedules = async () => {
     try {
@@ -303,9 +310,9 @@ export default function MarketScheduleSelector({
                   alignItems: 'center',
                   gap: 12,
                   padding: '12px 16px',
-                  backgroundColor: schedule.is_attending ? colors.primaryLight : '#f9fafb',
-                  border: `2px solid ${schedule.is_attending ? colors.primary : '#e5e7eb'}`,
-                  borderRadius: (isFT || isEvent) && schedule.is_attending ? '8px 8px 0 0' : 8,
+                  backgroundColor: (schedule.is_attending || isSingleDayEvent) ? colors.primaryLight : '#f9fafb',
+                  border: `2px solid ${(schedule.is_attending || isSingleDayEvent) ? colors.primary : '#e5e7eb'}`,
+                  borderRadius: isFT && !isEvent && schedule.is_attending ? '8px 8px 0 0' : 8,
                   cursor: saving === schedule.id ? 'wait' : 'pointer',
                   opacity: saving === schedule.id ? 0.7 : 1,
                   transition: 'all 0.2s ease'
@@ -341,7 +348,7 @@ export default function MarketScheduleSelector({
                     }
                   </div>
                 </div>
-                {schedule.is_attending && (
+                {(schedule.is_attending || isSingleDayEvent) && (
                   <span style={{
                     padding: '4px 10px',
                     backgroundColor: colors.primary,

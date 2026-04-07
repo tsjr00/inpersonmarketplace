@@ -30,12 +30,12 @@ export default function PaymentMethodBadges({
   acceptsCashAtPickup,
   size = 'sm',
 }: PaymentMethodBadgesProps) {
-  const methods: string[] = ['Cards'] // Stripe/cards always available
+  // Stripe checkout accepts these methods (configured in Stripe Dashboard)
+  const methods: string[] = ['Cards', 'Cash App', 'Amazon Pay', 'Link']
 
-  // External payment methods hidden when disabled (tax compliance)
+  // External payment methods shown only when enabled (currently paused for tax compliance)
   if (EXTERNAL_PAYMENTS_ENABLED) {
     if (venmoUsername) methods.push('Venmo')
-    if (cashappCashtag) methods.push('Cash App')
     if (paypalUsername) methods.push('PayPal')
     if (acceptsCashAtPickup) methods.push('Cash')
   }
