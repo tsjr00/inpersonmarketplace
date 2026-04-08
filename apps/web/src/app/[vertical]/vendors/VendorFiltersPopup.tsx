@@ -84,7 +84,6 @@ export default function VendorFiltersPopup({
     options: [
       { value: 'rating', label: t('vendors.sort_rating', locale) },
       { value: 'name', label: t('vendors.sort_name', locale) },
-      { value: 'listings', label: t('vendors.sort_listings', locale) },
     ],
     current: currentSort,
   })

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import VendorActions from './VendorActions'
 import VendorLocationEditor from './VendorLocationEditor'
 import VendorVerificationWrapper from './VendorVerificationWrapper'
+import VendorFeeOverride from './VendorFeeOverride'
 
 interface VendorDetailPageProps {
   params: Promise<{ vendorId: string }>
@@ -414,6 +415,16 @@ export default async function VendorDetailPage({ params }: VendorDetailPageProps
             currentLatitude={vendorLatitude}
             currentLongitude={vendorLongitude}
           />
+
+          {/* Fee Discount Override */}
+          <div style={{ marginTop: 20 }}>
+            <VendorFeeOverride
+              vendorId={vendorId}
+              currentOverridePercent={vendor.vendor_fee_override_percent as number | null}
+              feeDiscountCode={vendor.fee_discount_code as string | null}
+              approvedAt={vendor.fee_discount_approved_at as string | null}
+            />
+          </div>
         </div>
       </div>
     </div>

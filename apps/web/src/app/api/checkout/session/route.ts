@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { createCheckoutSession } from '@/lib/stripe/payments'
 import { stripe } from '@/lib/stripe/config'
-import { calculateOrderPricing, FEES, calculateSmallOrderFee, getSmallOrderFeeConfig, proratedFlatFee } from '@/lib/pricing'
+import { calculateOrderPricing, FEES, calculateSmallOrderFee, getSmallOrderFeeConfig, proratedFlatFee, getEffectiveVendorFeePercent } from '@/lib/pricing'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { restoreOrderInventory } from '@/lib/inventory'
@@ -255,17 +255,23 @@ export async function POST(request: NextRequest) {
       throw traced.validation('ERR_CHECKOUT_001', 'Invalid items in checkout', { expected: items.length, got: listings.length })
     }
 
-    // Validate all vendors have Stripe accounts (required for card checkout)
+    // Validate all vendors have Stripe accounts + fetch fee overrides
+    const vendorFeeOverrides = new Map<string, number | null>()
     if (listings.length > 0) {
       const vendorProfileIds = [...new Set(listings.map(l => (l as Listing).vendor_profile_id))]
       const { data: vendors } = await supabase
         .from('vendor_profiles')
-        .select('id, stripe_account_id')
+        .select('id, stripe_account_id, vendor_fee_override_percent')
         .in('id', vendorProfileIds)
 
       const vendorsWithoutStripe = (vendors || []).filter(v => !v.stripe_account_id)
       if (vendorsWithoutStripe.length > 0) {
         throw traced.validation('ERR_CHECKOUT_003', 'One or more vendors cannot accept card payments. Please contact the vendor to set up payments.')
+      }
+
+      // Build vendor fee override map for discount system
+      for (const v of vendors || []) {
+        vendorFeeOverrides.set(v.id, v.vendor_fee_override_percent as number | null)
       }
     }
 
@@ -513,8 +519,11 @@ export async function POST(request: NextRequest) {
       const itemSubtotal = listing.price_cents * item.quantity
 
       // Per-item fees (percentage + prorated flat fee)
-      const itemPercentFee = Math.round(itemSubtotal * (FEES.buyerFeePercent + FEES.vendorFeePercent) / 100)
-      const vendorPercentFee = Math.round(itemSubtotal * FEES.vendorFeePercent / 100)
+      // Vendor fee may be reduced for grant/partner vendors (3.6%–6.5%)
+      const vendorOverride = vendorFeeOverrides.get(listing.vendor_profile_id) ?? null
+      const effectiveVendorFeePercent = getEffectiveVendorFeePercent(vendorOverride)
+      const itemPercentFee = Math.round(itemSubtotal * (FEES.buyerFeePercent + effectiveVendorFeePercent) / 100)
+      const vendorPercentFee = Math.round(itemSubtotal * effectiveVendorFeePercent / 100)
       const itemVendorFlatFee = proratedFlatFee(FEES.vendorFlatFeeCents, items.length, idx)
 
       // Get the pickup info from request or cart

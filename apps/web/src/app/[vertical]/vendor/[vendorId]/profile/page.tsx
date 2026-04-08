@@ -13,6 +13,7 @@ import { vendorProfileJsonLd } from '@/lib/marketing/json-ld'
 import PickupScheduleGrid from '@/components/vendor/PickupScheduleGrid'
 import { isBuyerPremiumEnabled, term } from '@/lib/vertical'
 import PaymentMethodBadges from '@/components/vendor/PaymentMethodBadges'
+import HighlightEventItems from '@/components/vendor/HighlightEventItems'
 import { colors } from '@/lib/design-tokens'
 import { getLocale } from '@/lib/locale/server'
 import { t } from '@/lib/locale/messages'
@@ -422,9 +423,9 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
     // Convert map to array, sorted by name
     allPickupLocations = Array.from(pickupLocationsMap.values())
       .filter(loc =>
-        // Show locations with schedules OR events with date ranges
-        (loc.schedules && loc.schedules.length > 0) ||
-        (loc.market_type === 'event' && loc.event_start_date)
+        // Show locations with schedules — exclude events (events have their own pages)
+        loc.market_type !== 'event' &&
+        (loc.schedules && loc.schedules.length > 0)
       )
       .sort((a, b) => a.name.localeCompare(b.name))
   }
@@ -1386,62 +1387,8 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 : 'This vendor is approved for private events and pop-up markets.'}
             </p>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <Link
-                href={`/${vertical}/events?vendor=${vendorId}`}
-                style={{
-                  display: 'inline-block',
-                  padding: '8px 16px',
-                  backgroundColor: 'transparent',
-                  color: '#545454',
-                  border: '1.5px solid #545454',
-                  borderRadius: 6,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  textDecoration: 'none',
-                }}
-              >
-                Book for Your Event
-              </Link>
-              <button
-                id="highlight-catering-btn"
-                type="button"
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: 'transparent',
-                  color: '#b45309',
-                  border: '1.5px solid #f59e0b',
-                  borderRadius: 6,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                }}
-              >
-                {vertical === 'food_trucks' ? 'Highlight Catering Menu' : 'Show Event Items'}
-              </button>
+              <HighlightEventItems />
             </div>
-            <script dangerouslySetInnerHTML={{ __html: `
-              (function() {
-                var btn = document.getElementById('highlight-catering-btn');
-                if (!btn) return;
-                var active = false;
-                btn.addEventListener('click', function() {
-                  active = !active;
-                  var cards = document.querySelectorAll('[data-catering="true"]');
-                  cards.forEach(function(card) {
-                    card.style.borderColor = active ? '#f59e0b' : '';
-                    card.style.borderWidth = active ? '2.5px' : '';
-                    card.style.boxShadow = active ? '0 0 0 1px #f59e0b' : '';
-                  });
-                  btn.style.backgroundColor = active ? '#f59e0b' : 'transparent';
-                  btn.style.color = active ? 'white' : '#b45309';
-                  btn.textContent = active ? 'Clear Highlight' : '${vertical === 'food_trucks' ? 'Highlight Catering Menu' : 'Show Event Items'}';
-                  if (active && cards.length > 0) {
-                    cards[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  }
-                });
-              })();
-            `}} />
           </div>
         )}
 
@@ -1453,20 +1400,6 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
           paddingTop: 16,
           borderTop: '1px solid #e5e7eb',
         }}>
-          {/* Payment Methods */}
-          <div>
-            <h3 style={{ fontSize: 13, fontWeight: 600, color: '#374151', margin: '0 0 8px 0' }}>
-              {t('vp.accepted_payments', locale)}
-            </h3>
-            <PaymentMethodBadges
-              venmoUsername={vendor.venmo_username as string | null}
-              cashappCashtag={vendor.cashapp_cashtag as string | null}
-              paypalUsername={vendor.paypal_username as string | null}
-              acceptsCashAtPickup={vendor.accepts_cash_at_pickup as boolean}
-              size="md"
-            />
-          </div>
-
           {/* Categories */}
           {(allCategories.length > 0 || hasActiveMarketBoxes) && (
             <div style={{ paddingTop: 8, borderTop: '1px solid #f3f4f6' }}>

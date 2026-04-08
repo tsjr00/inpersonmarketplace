@@ -1,80 +1,74 @@
-# Current Task: Session 67 Complete
-Updated: 2026-04-04
+# Current Task: Session 69 — Vendor Fee Discount System
+Updated: 2026-04-07
 
-## Status: 21 commits on staging, NOT yet on prod. Schema verified.
+## Status: All 6 implementation steps complete. Awaiting migration apply + commit.
 
-## Session 67 Summary
+## What Was Built
 
-### FM Landing Page (3 rounds)
-- Correct logo (no-words version), green palette (#558B2F text, #8BC34A banners)
-- landing-container CSS pattern, dotted separators, responsive layout
-- TrustStats numeral format, watermelon "Where Are Vendors Today" button
+### Vendor Fee Discount System (approved design from Session 68)
+Allows selective reduction of vendor platform fees (6.5% → 3.6% floor) for grant/partner vendors.
 
-### Event Wave Ordering System (complete)
-- **DB:** Migrations 110 (3 tables + columns), 111 (5 RPCs), 112 (payout fee fix)
-- **Backend:** Wave generation, reserve/cancel RPCs, company-paid order API, availability endpoint
-- **Frontend:** Shop page two-step wave flow, attendee my-order page with QR, vendor prep sheet
-- **Admin:** Generate waves button, settlement report company-paid support
+**Migration 114** — `20260407_114_vendor_fee_discount.sql`
+- `vendor_fee_override_percent` NUMERIC (nullable, CHECK 3.6–6.5)
+- `fee_discount_code` TEXT
+- `fee_discount_approved_by` UUID REFERENCES auth.users(id)
+- `fee_discount_approved_at` TIMESTAMPTZ
+- **STATUS: NOT YET APPLIED — need to run on Dev + Staging before testing**
 
-### Event Operations
-- Organizer cancel API (replaces "contact support" placeholder)
-- Organizer event card enhancement (participation %, wave utilization, order value)
-- Vendor Pickup Mode event tab (Daily/Events toggle)
-- Settlement notification now includes payout amount
-- Wave full error suggests next available wave with specific times
+**pricing.ts** (critical-path, additive only)
+- `VENDOR_FEE_FLOOR = 3.6` constant
+- `getEffectiveVendorFeePercent(overridePercent)` — clamps null→6.5, below floor→3.6, above max→6.5
 
-### Vertical Language Audit
-- FM notifications: "Chef Boxes" → "Market Boxes", vendor event approved, trial reminders
-- Select page: 15 instances of hardcoded "trucks" → conditional terms
-- Emails: cancel route branding, vendor message fallback
-- Event request form: all "food trucks" refs → conditional
+**checkout/session/route.ts** (critical-path)
+- Fetches `vendor_fee_override_percent` alongside existing Stripe account validation query
+- Uses `getEffectiveVendorFeePercent()` for vendor payout calculation
+- Buyer fees, flat fees, display prices all untouched
 
-### Event Form Redesign
-- Quick-start form: 1248 → 516 lines (7 fields + category pills)
-- Confirmation shows vendor match count + dashboard login CTA
-- Detail fields moved to organizer dashboard card (next session build)
+**Vendor Settings UI**
+- `ProfileEditForm.tsx` — "Partner / Grant Code" text input
+- `/api/vendor/profile` PATCH — accepts `fee_discount_code`
 
-### Vendor Invitation Rework
-- 4 info cards → single compact Event Details section
-- Revenue estimate shows explicit math (headcount ÷ vendors × price)
-- 24hr → 12hr AM/PM time format
+**Admin UI**
+- `VendorFeeOverride.tsx` component on admin vendor detail page
+- Shows discount code (if vendor entered one)
+- Input for fee rate (3.6%–6.5%) with Set/Clear buttons
+- Confirmation dialog before save
+- Records `fee_discount_approved_by` + `fee_discount_approved_at`
+- `PATCH /api/admin/vendors/[id]/fee-override` endpoint
 
-### Infrastructure
-- PostgREST FK disambiguation (7 queries, 6 files)
-- Staging email URLs: VERCEL_ENV instead of NODE_ENV
-- 28 new event business rules tests (1345 total)
+**Tests** — 19 new tests (1433 → 1452 total)
+- 11 unit tests for `getEffectiveVendorFeePercent` in pricing.test.ts
+- 7 cross-file BR-14 tests verifying floor consistency across pricing, migration, checkout
+- 1 constant test for VENDOR_FEE_FLOOR
 
-## NOT on Prod — 21 commits ahead of origin/main
-Migrations 110-112 on Dev + Staging only.
+## Files Modified
+- `supabase/migrations/20260407_114_vendor_fee_discount.sql` — NEW
+- `src/lib/pricing.ts` — added VENDOR_FEE_FLOOR + getEffectiveVendorFeePercent
+- `src/lib/__tests__/pricing.test.ts` — 11 new tests
+- `src/lib/__tests__/cross-file-business-rules.test.ts` — 7 new BR-14 tests
+- `src/app/api/checkout/session/route.ts` — vendor-specific fee rate in payout calc
+- `src/components/vendor/ProfileEditForm.tsx` — partner code input
+- `src/app/[vertical]/vendor/edit/page.tsx` — pass fee_discount_code to form
+- `src/app/api/vendor/profile/route.ts` — accept fee_discount_code
+- `src/app/api/admin/vendors/[id]/fee-override/route.ts` — NEW
+- `src/app/admin/vendors/[vendorId]/VendorFeeOverride.tsx` — NEW
+- `src/app/admin/vendors/[vendorId]/page.tsx` — import + render VendorFeeOverride
 
-## Next Session Priorities
-1. Progressive detail collection on organizer dashboard card
-2. Organizer login → event dashboard redirect
-3. Schema snapshot structured table rebuild (structured tables verified from column output but not rebuilt in SCHEMA_SNAPSHOT.md format — do at session start)
-4. Fix user_profiles.buyer_tier default discrepancy (Dev='free', Staging='standard')
-5. Push to prod after staging verification
+## What Does NOT Change
+- FEES.vendorFeePercent constant (6.5%) — stays as default
+- FEES.buyerFeePercent (6.5%) — never touched
+- Flat fees ($0.15 each) — never touched
+- Display prices — unchanged
+- Fulfillment/payout routes — use stored vendor_payout_cents
+- Settlement reports — read stored values
 
-## Migrations Status
-| Migration | Dev | Staging | Prod |
-|-----------|-----|---------|------|
-| 110 — event_waves schema | ✅ | ✅ | ❌ |
-| 111 — wave RPC functions | ✅ | ✅ | ❌ |
-| 112 — fix company-paid payout | ✅ | ✅ | ❌ |
+## Next Steps
+1. Apply migration 114 to Dev and Staging
+2. Commit all changes
+3. Push to staging for testing
+4. Test: set a vendor's fee override via admin, place an order, verify payout math
+5. Push to prod after staging verified
 
-## Session 67 Commits (21)
-1. FM landing page redesign
-2. FM landing page corrections round 1
-3. FM landing page round 3
-4. PostgREST FK disambiguation
-5. Staging email URL fix
-6. Wave-based ordering (full system)
-7. Admin wave generation + settlement company-paid
-8. Organizer event cancel API
-9. FM notifications + select page vertical language
-10. Email branding fixes
-11. Event request form overhaul (selections, skip logic, dedup)
-12. Attendee my-order page with QR + vendor prep sheet
-13. Settlement notification payout amount
-14. Organizer event card + Pickup Mode event tab
-15. Quick-start form + vendor invitation rework + tests + bug fixes
-16. Schema snapshot changelog
+## Rollback
+- Nuclear: `UPDATE vendor_profiles SET vendor_fee_override_percent = NULL;`
+- Per-step rollbacks documented in session conversation
