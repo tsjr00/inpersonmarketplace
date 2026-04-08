@@ -13,9 +13,10 @@ interface VendorActionsProps {
   vendorLongitude?: number | null
   eventApproved?: boolean
   verticalId?: string
+  onboardingComplete?: boolean
 }
 
-export default function VendorActions({ vendorId, currentStatus, vendorLatitude, vendorLongitude, eventApproved = false, verticalId }: VendorActionsProps) {
+export default function VendorActions({ vendorId, currentStatus, vendorLatitude, vendorLongitude, eventApproved = false, verticalId, onboardingComplete = false }: VendorActionsProps) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
@@ -65,8 +66,12 @@ export default function VendorActions({ vendorId, currentStatus, vendorLatitude,
     setLoading(false)
   }
 
+  const onboardingWarning = !onboardingComplete
+    ? '\n\n⚠️ This vendor has NOT completed onboarding documents. Approving them grants account access, but they will not be able to publish listings until their documents are verified.'
+    : ''
+
   const confirmMessages: Record<string, string> = {
-    approved: 'Approve this vendor? Their listings will become visible to buyers.',
+    approved: 'Approve this vendor? Their listings will become visible to buyers.' + onboardingWarning,
     rejected: 'Reject this vendor? They will need to reapply.',
     suspended: 'Suspend this vendor? Their listings will be hidden.'
   }
