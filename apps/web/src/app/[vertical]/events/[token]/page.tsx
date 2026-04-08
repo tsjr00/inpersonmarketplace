@@ -300,7 +300,7 @@ export default async function EventPage({ params }: EventPageProps) {
                           </div>
                         )
                         return isOrderable ? (
-                          <Link key={item.id} href={`/${verticalId}/listing/${item.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+                          <Link key={item.id} href={`/${verticalId}/events/${token}/shop`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
                             {itemContent}
                           </Link>
                         ) : (

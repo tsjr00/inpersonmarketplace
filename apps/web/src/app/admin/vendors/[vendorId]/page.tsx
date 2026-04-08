@@ -146,6 +146,7 @@ export default async function VendorDetailPage({ params }: VendorDetailPageProps
           vendorLongitude={vendorLongitude}
           eventApproved={!!(vendor.event_approved)}
           verticalId={verticalId}
+          onboardingComplete={!!verificationData?.onboarding_completed_at}
         />
       </div>
 
