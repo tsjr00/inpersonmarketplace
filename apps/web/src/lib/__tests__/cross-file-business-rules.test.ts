@@ -459,6 +459,13 @@ describe('BR-13: Event markets excluded from regular shopping flow', () => {
     const shopPage = path.join(APP_DIR, '[vertical]/events/[token]/shop/page.tsx')
     expect(fs.existsSync(shopPage)).toBe(true)
   })
+
+  it('event info page links to event shop, not regular listing detail', () => {
+    const code = readFile('app/[vertical]/events/[token]/page.tsx')
+    // Should link to events/token/shop, NOT to /listing/
+    expect(code).toContain('events/${token}/shop')
+    expect(code).not.toContain('listing/${item.id}')
+  })
 })
 
 // ── BR-14: Vendor Fee Discount Floor Consistency ───────────────────
