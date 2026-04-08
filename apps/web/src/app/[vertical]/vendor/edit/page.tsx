@@ -119,7 +119,8 @@ export default async function EditProfilePage({ params }: EditProfilePageProps) 
           vendorId={vendorProfile.id}
           currentData={{
             description: vendorProfile.description,
-            social_links: vendorProfile.social_links
+            social_links: vendorProfile.social_links,
+            fee_discount_code: vendorProfile.fee_discount_code,
           }}
         />
       </div>

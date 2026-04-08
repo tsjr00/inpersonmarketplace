@@ -31,7 +31,8 @@ export async function PATCH(request: NextRequest) {
         cashapp_cashtag,
         paypal_username,
         accepts_cash_at_pickup,
-        pickup_lead_minutes
+        pickup_lead_minutes,
+        fee_discount_code
       } = await request.json()
 
       // Verify vendor ownership
@@ -99,6 +100,11 @@ export async function PATCH(request: NextRequest) {
       // Update cash at pickup
       if (accepts_cash_at_pickup !== undefined) {
         updates.accepts_cash_at_pickup = Boolean(accepts_cash_at_pickup)
+      }
+
+      // Partner/grant discount code — free text, admin verifies
+      if (fee_discount_code !== undefined) {
+        updates.fee_discount_code = fee_discount_code || null
       }
 
       // Update pickup lead time (FT vendors: 15 or 30 minutes)

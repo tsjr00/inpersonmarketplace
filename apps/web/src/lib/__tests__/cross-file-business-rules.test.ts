@@ -460,3 +460,48 @@ describe('BR-13: Event markets excluded from regular shopping flow', () => {
     expect(fs.existsSync(shopPage)).toBe(true)
   })
 })
+
+// ── BR-14: Vendor Fee Discount Floor Consistency ───────────────────
+// The 3.6% floor and the getEffectiveVendorFeePercent function must be
+// used consistently across pricing.ts, checkout route, and the migration
+// constraint. The floor covers Stripe processing — going below it means
+// the platform loses money on vendor-side processing.
+
+describe('BR-14: Vendor fee discount floor consistent across all files', () => {
+  it('pricing.ts exports VENDOR_FEE_FLOOR = 3.6', () => {
+    const code = readFile('lib/pricing.ts')
+    expect(code).toContain('VENDOR_FEE_FLOOR = 3.6')
+  })
+
+  it('pricing.ts exports getEffectiveVendorFeePercent function', () => {
+    const code = readFile('lib/pricing.ts')
+    expect(code).toContain('export function getEffectiveVendorFeePercent')
+  })
+
+  it('getEffectiveVendorFeePercent uses VENDOR_FEE_FLOOR for clamping', () => {
+    const code = readFile('lib/pricing.ts')
+    expect(code).toContain('Math.max(VENDOR_FEE_FLOOR')
+  })
+
+  it('migration 114 constraint uses same floor value 3.6', () => {
+    const sql = readMigration('20260407_114_vendor_fee_discount.sql')
+    expect(sql).toContain('vendor_fee_override_percent >= 3.6')
+    expect(sql).toContain('vendor_fee_override_percent <= 6.5')
+  })
+
+  it('migration 114 adds vendor_fee_override_percent column', () => {
+    const sql = readMigration('20260407_114_vendor_fee_discount.sql')
+    expect(sql).toContain('ADD COLUMN vendor_fee_override_percent NUMERIC')
+  })
+
+  it('checkout route imports getEffectiveVendorFeePercent from pricing', () => {
+    const code = readFile('app/api/checkout/session/route.ts')
+    expect(code).toContain('getEffectiveVendorFeePercent')
+    expect(code).toContain("from '@/lib/pricing'")
+  })
+
+  it('checkout route reads vendor_fee_override_percent from vendor_profiles', () => {
+    const code = readFile('app/api/checkout/session/route.ts')
+    expect(code).toContain('vendor_fee_override_percent')
+  })
+})

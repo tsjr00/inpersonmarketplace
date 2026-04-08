@@ -20,9 +20,11 @@ import {
   formatPrice,
   calculateSmallOrderFee,
   getSmallOrderFeeConfig,
+  getEffectiveVendorFeePercent,
   FEES,
   DEFAULT_SMALL_ORDER_FEE,
   SMALL_ORDER_FEE_DEFAULTS,
+  VENDOR_FEE_FLOOR,
 } from '@/lib/pricing'
 
 // ── MP-R1: Buyer fee constants ──────────────────────────────────────
@@ -274,5 +276,64 @@ describe('MP-R13: getSmallOrderFeeConfig', () => {
   it('returns default when no vertical provided', () => {
     const config = getSmallOrderFeeConfig()
     expect(config).toEqual(DEFAULT_SMALL_ORDER_FEE)
+  })
+})
+
+// ── Vendor Fee Discount: getEffectiveVendorFeePercent ──────────────
+// Business rule: vendor fee can be reduced from 6.5% down to 3.6% floor.
+// 3.6% covers Stripe processing (~2.9%) + buffer. $0.15 flat fees never change.
+// Buyer fees are NEVER affected by vendor discount.
+
+describe('Vendor Fee Discount: VENDOR_FEE_FLOOR constant', () => {
+  it('floor is 3.6%', () => {
+    expect(VENDOR_FEE_FLOOR).toBe(3.6)
+  })
+
+  it('floor is less than standard vendor fee', () => {
+    expect(VENDOR_FEE_FLOOR).toBeLessThan(FEES.vendorFeePercent)
+  })
+})
+
+describe('Vendor Fee Discount: getEffectiveVendorFeePercent', () => {
+  it('returns standard rate (6.5%) when override is null', () => {
+    expect(getEffectiveVendorFeePercent(null)).toBe(6.5)
+  })
+
+  it('returns standard rate (6.5%) when override is undefined', () => {
+    expect(getEffectiveVendorFeePercent(undefined)).toBe(6.5)
+  })
+
+  it('returns override when within valid range', () => {
+    expect(getEffectiveVendorFeePercent(5.0)).toBe(5.0)
+  })
+
+  it('clamps to floor when override is below 3.6%', () => {
+    expect(getEffectiveVendorFeePercent(2.0)).toBe(3.6)
+  })
+
+  it('clamps to standard rate when override is above 6.5%', () => {
+    expect(getEffectiveVendorFeePercent(7.0)).toBe(6.5)
+  })
+
+  it('returns exact floor when override equals floor', () => {
+    expect(getEffectiveVendorFeePercent(3.6)).toBe(3.6)
+  })
+
+  it('returns exact max when override equals standard rate', () => {
+    expect(getEffectiveVendorFeePercent(6.5)).toBe(6.5)
+  })
+
+  it('handles mid-range values correctly', () => {
+    expect(getEffectiveVendorFeePercent(4.5)).toBe(4.5)
+    expect(getEffectiveVendorFeePercent(3.7)).toBe(3.7)
+    expect(getEffectiveVendorFeePercent(6.0)).toBe(6.0)
+  })
+
+  it('clamps negative values to floor', () => {
+    expect(getEffectiveVendorFeePercent(-1)).toBe(3.6)
+  })
+
+  it('clamps zero to floor', () => {
+    expect(getEffectiveVendorFeePercent(0)).toBe(3.6)
   })
 })

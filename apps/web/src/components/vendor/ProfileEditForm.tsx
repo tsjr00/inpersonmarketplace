@@ -7,6 +7,7 @@ interface Props {
   currentData: {
     description?: string | null
     social_links?: Record<string, string> | null
+    fee_discount_code?: string | null
   }
 }
 
@@ -15,7 +16,8 @@ export default function ProfileEditForm({ vendorId, currentData }: Props) {
     description: currentData.description || '',
     facebook: currentData.social_links?.facebook || '',
     instagram: currentData.social_links?.instagram || '',
-    website: currentData.social_links?.website || ''
+    website: currentData.social_links?.website || '',
+    fee_discount_code: currentData.fee_discount_code || '',
   })
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -35,7 +37,8 @@ export default function ProfileEditForm({ vendorId, currentData }: Props) {
             facebook: formData.facebook,
             instagram: formData.instagram,
             website: formData.website
-          }
+          },
+          fee_discount_code: formData.fee_discount_code || null,
         })
       })
 
@@ -159,6 +162,27 @@ export default function ProfileEditForm({ vendorId, currentData }: Props) {
             />
           </div>
         </div>
+      </div>
+
+      {/* Partner/Grant Code */}
+      <div style={{ marginTop: spacing.md }}>
+        <h3 style={{
+          margin: `0 0 ${spacing.sm}`,
+          fontSize: typography.sizes.base,
+          fontWeight: typography.weights.semibold,
+        }}>
+          Partner / Grant Code
+        </h3>
+        <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral500, margin: `0 0 ${spacing.sm} 0` }}>
+          If you received a partner or grant code, enter it here. Our team will verify and apply any applicable fee adjustments.
+        </p>
+        <input
+          type="text"
+          value={formData.fee_discount_code}
+          onChange={(e) => setFormData({ ...formData, fee_discount_code: e.target.value })}
+          placeholder="e.g. GRANT-2026-ABC"
+          style={urlInputStyle}
+        />
       </div>
 
       {/* Save Button */}

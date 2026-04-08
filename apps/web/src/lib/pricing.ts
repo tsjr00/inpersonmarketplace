@@ -253,3 +253,21 @@ export function amountToAvoidSmallOrderFee(subtotalCents: number, vertical?: str
   const displaySubtotalCents = Math.round(subtotalCents * (1 + FEES.buyerFeePercent / 100))
   return Math.max(0, config.thresholdCents - displaySubtotalCents)
 }
+
+// ── Vendor Fee Discount System ─────────────────────────────────────
+// Covers Stripe processing (~2.9%) + small buffer. Platform makes $0
+// profit on vendor side at this rate. Buyer-side fees are pure platform
+// revenue at max discount. $0.15 flat fees are never affected.
+export const VENDOR_FEE_FLOOR = 3.6
+
+/**
+ * Get the effective vendor fee percentage for a vendor.
+ * Returns the override if set and within bounds, otherwise the standard rate.
+ *
+ * @param overridePercent - vendor_fee_override_percent from vendor_profiles (null = standard)
+ * @returns Effective vendor fee percentage (3.6 to 6.5)
+ */
+export function getEffectiveVendorFeePercent(overridePercent: number | null | undefined): number {
+  if (overridePercent === null || overridePercent === undefined) return FEES.vendorFeePercent
+  return Math.max(VENDOR_FEE_FLOOR, Math.min(overridePercent, FEES.vendorFeePercent))
+}

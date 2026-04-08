@@ -1,85 +1,74 @@
-# Current Task: Session 68 Complete
+# Current Task: Session 69 — Vendor Fee Discount System
 Updated: 2026-04-07
 
-## Status: ~45 commits this session. Prod current. Migrations 110-113 on all 3 envs.
+## Status: All 6 implementation steps complete. Awaiting migration apply + commit.
 
-## Next Session Priority #1: Vendor Fee Discount System
+## What Was Built
 
-**Design approved — ready to build:**
-- `vendor_fee_override_percent` NUMERIC on vendor_profiles (nullable, floor 3.6%, default null = 6.5%)
-- `fee_discount_code` TEXT on vendor_profiles (vendor enters, admin reads)
-- `fee_discount_approved_by` UUID + `fee_discount_approved_at` TIMESTAMPTZ (audit trail)
-- Dual-factor: vendor enters code → admin sets actual fee rate
-- $0.15 flat fee NEVER changes (covers Stripe's $0.30 split with buyer)
-- Only the vendor % fee changes: 6.5% (standard) down to 3.6% (floor)
-- At 3.6%: vendor covers Stripe processing, platform makes $0 profit on vendor side
-- Buyer fees unchanged, display prices unchanged
-- Touches: pricing.ts (CRITICAL PATH), checkout route, vendor settings UI, admin vendor management
-- Must read vault before modifying pricing.ts
+### Vendor Fee Discount System (approved design from Session 68)
+Allows selective reduction of vendor platform fees (6.5% → 3.6% floor) for grant/partner vendors.
 
-**Math ($10 item):**
-- Standard: vendor pays $0.65 + $0.15 = $0.80. Platform nets $0.99.
-- Max discount (3.6%): vendor pays $0.36 + $0.15 = $0.51. Platform nets $0.70.
-- Stripe always takes $0.61. Buyer always pays $10.80.
+**Migration 114** — `20260407_114_vendor_fee_discount.sql`
+- `vendor_fee_override_percent` NUMERIC (nullable, CHECK 3.6–6.5)
+- `fee_discount_code` TEXT
+- `fee_discount_approved_by` UUID REFERENCES auth.users(id)
+- `fee_discount_approved_at` TIMESTAMPTZ
+- **STATUS: NOT YET APPLIED — need to run on Dev + Staging before testing**
 
-## Next Session Priority #2: Event Approved Vendor Filter (backlog)
-- Needs proper plan — three failed attempts this session
-- The vendor search page has two data paths (server initial + client nearby API)
-- Both paths must agree on the data shape
-- Filter must work alongside existing favorites filter, not replace it
-- Add to VendorFiltersPopup as a proper filter group, not a toggle
+**pricing.ts** (critical-path, additive only)
+- `VENDOR_FEE_FLOOR = 3.6` constant
+- `getEffectiveVendorFeePercent(overridePercent)` — clamps null→6.5, below floor→3.6, above max→6.5
 
-## Session 68 Summary
+**checkout/session/route.ts** (critical-path)
+- Fetches `vendor_fee_override_percent` alongside existing Stripe account validation query
+- Uses `getEffectiveVendorFeePercent()` for vendor payout calculation
+- Buyer fees, flat fees, display prices all untouched
 
-### Schema Verification (Dev vs Staging)
-- All 10 REFRESH_SCHEMA sections verified matching
-- buyer_tier default fixed on Dev ('free' → 'standard')
-- SCHEMA_SNAPSHOT.md rebuilt: 51→54 tables, market_vendors 8→16 columns
-- Migration log updated for 100-113
+**Vendor Settings UI**
+- `ProfileEditForm.tsx` — "Partner / Grant Code" text input
+- `/api/vendor/profile` PATCH — accepts `fee_discount_code`
 
-### Event System Audit + Blockers Fixed
-- B-1: Pickup Mode Events tab — event_orders API param now works
-- B-2: Company-paid fulfillment — skip Stripe transfer for payment_model='company_paid'
-- B-3: Order cap validation endpoint + shop page integration
-- G-4: Company-paid order notifications (vendor + buyer)
-- G-5: Event status validation with clear reason messages
-- C-2: Cron Phase 14/15 uses market timezone instead of hardcoded CT
-- G-2: Admin company payments API (GET/POST/PATCH)
+**Admin UI**
+- `VendorFeeOverride.tsx` component on admin vendor detail page
+- Shows discount code (if vendor entered one)
+- Input for fee rate (3.6%–6.5%) with Set/Clear buttons
+- Confirmation dialog before save
+- Records `fee_discount_approved_by` + `fee_discount_approved_at`
+- `PATCH /api/admin/vendors/[id]/fee-override` endpoint
 
-### Hybrid Event System (designed + built)
-- Migration 113: access_code + company_max_per_attendee_cents
-- Access code verification endpoint + shop page gate
-- Dollar cap per attendee (Option C hybrid model)
-- Settlement report separates company-paid vs attendee-paid
+**Tests** — 19 new tests (1433 → 1452 total)
+- 11 unit tests for `getEffectiveVendorFeePercent` in pricing.test.ts
+- 7 cross-file BR-14 tests verifying floor consistency across pricing, migration, checkout
+- 1 constant test for VENDOR_FEE_FLOOR
 
-### Progressive Event Details + Organizer Redirect
-- PATCH /api/events/[token]/details for organizer progressive form
-- OrganizerEventDetails component on dashboard (4 expandable sections)
-- Login/signup redirect with ?section=events for organizer flow
+## Files Modified
+- `supabase/migrations/20260407_114_vendor_fee_discount.sql` — NEW
+- `src/lib/pricing.ts` — added VENDOR_FEE_FLOOR + getEffectiveVendorFeePercent
+- `src/lib/__tests__/pricing.test.ts` — 11 new tests
+- `src/lib/__tests__/cross-file-business-rules.test.ts` — 7 new BR-14 tests
+- `src/app/api/checkout/session/route.ts` — vendor-specific fee rate in payout calc
+- `src/components/vendor/ProfileEditForm.tsx` — partner code input
+- `src/app/[vertical]/vendor/edit/page.tsx` — pass fee_discount_code to form
+- `src/app/api/vendor/profile/route.ts` — accept fee_discount_code
+- `src/app/api/admin/vendors/[id]/fee-override/route.ts` — NEW
+- `src/app/admin/vendors/[vendorId]/VendorFeeOverride.tsx` — NEW
+- `src/app/admin/vendors/[vendorId]/page.tsx` — import + render VendorFeeOverride
 
-### Testing Infrastructure (major expansion)
-- Playwright: 30 → 46 tests, pre-commit hook integration, webServer auto-start
-- Flow integrity tests: 35 tests (auth paths, FK disambiguation, RPC usage, status reachability)
-- Cross-file business rules: 53 tests (13 business rules traced across full file chains)
-- Total: 50 files, 1433 tests + 46 Playwright
+## What Does NOT Change
+- FEES.vendorFeePercent constant (6.5%) — stays as default
+- FEES.buyerFeePercent (6.5%) — never touched
+- Flat fees ($0.15 each) — never touched
+- Display prices — unchanged
+- Fulfillment/payout routes — use stored vendor_payout_cents
+- Settlement reports — read stored values
 
-### Production Hotfixes
-- FK disambiguation (cherry-pick)
-- Signup email confirmation loop (new confirm-email page)
-- Event markets excluded from regular listing/cart flow
-- Vendor profile cleanup (Book for Your Event removed, highlight button React component)
-- Event schedule UI (single-day auto-attend, no time picker for events)
-- Payment badges (Cards, Apple Pay, Google Pay, Cash App, Amazon Pay, Link)
+## Next Steps
+1. Apply migration 114 to Dev and Staging
+2. Commit all changes
+3. Push to staging for testing
+4. Test: set a vendor's fee override via admin, place an order, verify payout math
+5. Push to prod after staging verified
 
-### Reverted (needs proper plan)
-- Event approved vendor filter — three attempts, all reverted. Backlogged.
-
-## Migrations Status
-| Migration | Dev | Staging | Prod |
-|-----------|-----|---------|------|
-| 110-113 | ✅ | ✅ | ✅ |
-
-## Test Suite
-- 50 vitest files, 1433 tests
-- 46 Playwright e2e tests (45 pass, 1 skipped)
-- Pre-commit: lint-staged + vitest + playwright on every commit
+## Rollback
+- Nuclear: `UPDATE vendor_profiles SET vendor_fee_override_percent = NULL;`
+- Per-step rollbacks documented in session conversation
