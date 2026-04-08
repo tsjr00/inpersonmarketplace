@@ -76,6 +76,9 @@ export function isDbLoggingEnabled(): boolean {
  * Silently fails if Resend is not configured.
  */
 async function sendAdminAlert(error: TracedError): Promise<void> {
+  // Don't send alerts during test runs
+  if (process.env.NODE_ENV === 'test' || process.env.VITEST) return
+
   const apiKey = process.env.RESEND_API_KEY
   const adminEmail = process.env.ADMIN_ALERT_EMAIL
   if (!apiKey || !adminEmail) return
