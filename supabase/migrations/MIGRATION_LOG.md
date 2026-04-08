@@ -99,6 +99,7 @@
 | 20260403_111_wave_rpc_functions.sql | ✅ | 2026-04-03 | ✅ | 2026-04-03 | 5 RPCs: reserve/cancel wave, company-paid order, find next wave, wave availability. Applied to all 3 envs (Prod 2026-04-06). Session 67/68. |
 | 20260404_112_fix_company_paid_payout.sql | ✅ | 2026-04-04 | ✅ | 2026-04-04 | Fix create_company_paid_order: deduct 6.5% platform fee from vendor payout. Applied to all 3 envs (Prod 2026-04-06). Session 67/68. |
 | 20260405_113_hybrid_events_access_code.sql | ✅ | 2026-04-05 | ✅ | 2026-04-05 | access_code + company_max_per_attendee_cents on catering_requests. Hybrid event support. Applied to all 3 envs (Prod 2026-04-06). Session 68. |
+| 20260407_114_vendor_fee_discount.sql | ✅ | 2026-04-07 | ✅ | 2026-04-07 | vendor_fee_override_percent, fee_discount_code, fee_discount_approved_by/at on vendor_profiles. CHECK 3.6–6.5. Applied to all 3 envs. Session 69. |
 | 20260324_098_expand_fm_vendor_type_options.sql | ✅ | 2026-03-24 | ✅ | 2026-03-24 | Expand FM vendor_type options from 6 to 11 (match listing categories). Config JSONB update. Applied to all 3 envs. Session 63. |
 | 20260323_097_vendor_cover_image.sql | ✅ | 2026-03-23 | ✅ | 2026-03-23 | Add cover_image_url TEXT to vendor_profiles. Landscape photo display on vendor profile. Applied to all 3 envs. Session 63. |
 | 20260322_096_vendor_pickup_lead_minutes.sql | ✅ | 2026-03-22 | ✅ | 2026-03-22 | Add pickup_lead_minutes INTEGER DEFAULT 30 to vendor_profiles. CHECK (15 or 30). Vendor configurable prep time. Applied to all 3 envs. Session 63. |

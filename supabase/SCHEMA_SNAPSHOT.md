@@ -12,6 +12,7 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-04-07 | 20260407_114_vendor_fee_discount | **New columns on `vendor_profiles`:** `vendor_fee_override_percent` (NUMERIC, nullable — overrides standard 6.5% vendor fee, CHECK 3.6–6.5), `fee_discount_code` (TEXT, nullable — partner/grant code entered by vendor), `fee_discount_approved_by` (UUID FK→auth.users — admin who set the override), `fee_discount_approved_at` (TIMESTAMPTZ). **New constraint:** `ck_vendor_fee_override_floor` — ensures override is NULL or between 3.6% and 6.5%. Floor of 3.6% covers Stripe processing; buyer fees never affected. Applied to all 3 envs. |
 | 2026-04-05 | 20260405_113_hybrid_events_access_code | **New columns on `catering_requests`:** `access_code` (TEXT, UNIQUE partial index where NOT NULL — 8-char uppercase code for company-paid/hybrid event attendee verification), `company_max_per_attendee_cents` (INTEGER, CHECK > 0 when not null — dollar cap per attendee for hybrid events). Applied to all 3 envs (Prod 2026-04-06). |
 | 2026-04-05 | — (snapshot rebuild) | **Structured tables rebuilt from REFRESH_SCHEMA.sql output (Session 68).** Tables list: 51→54 (+event_waves, event_wave_reservations, event_company_payments, buyer_interests, catering_requests, event_vendor_listings, support_tickets, user_agreement_acceptances — some existed but were missing from list). market_vendors: 8→16 columns (+response_status, response_notes, invited_at, is_backup, backup_priority, replaced_vendor_id, event_max_orders_total, event_max_orders_per_wave). markets: +event_allow_day_of_orders, wave_ordering_enabled, wave_duration_minutes. orders: +payment_model, event_wave_reservation_id, market_id, vendor_payout_cents, buyer_fee_cents, service_fee_cents. order_items: +wave_id. FKs updated for market_vendors, markets, orders, order_items + 3 new tables. Check constraints: +15 missing entries. Dev vs Staging verified across all 10 REFRESH_SCHEMA sections — match except known Dev-out-of-sync issues (migration 039 never applied to Dev). |
 | 2026-04-04 | 20260404_112_fix_company_paid_payout | **Function update:** `create_company_paid_order()` — now deducts 6.5% platform fee from vendor payout. Previously set `vendor_payout_cents = base_price_cents` (full price, no fee). Now calculates `platform_fee_cents = ROUND(base_price_cents * 0.065)` and `vendor_payout_cents = base_price_cents - platform_fee_cents`. Also records `platform_fee_cents` and `vendor_payout_cents` on order_items. Bug found by business rules tests. Applied to all 3 envs (Prod 2026-04-06). |
@@ -1224,6 +1225,10 @@
 | trial_grace_ends_at | timestamptz | YES | - |
 | event_approved | bool | YES | false |
 | event_approved_at | timestamptz | YES | - |
+| vendor_fee_override_percent | numeric | YES | - |
+| fee_discount_code | text | YES | - |
+| fee_discount_approved_by | uuid | YES | - |
+| fee_discount_approved_at | timestamptz | YES | - |
 
 ### vendor_referral_credits
 | Column | Type | Nullable | Default |
