@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { isPremiumTier, getTierLimits } from '@/lib/vendor-limits'
+import { isPremiumTier, getTierLimits, getTraditionalMarketUsage } from '@/lib/vendor-limits'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
@@ -59,7 +59,6 @@ export async function GET(request: NextRequest) {
         m.market_type === 'traditional' || m.market_type === 'event' || m.vendor_profile_id === vendorProfile.id
       )
 
-      // Check vendor tier for home market restrictions
       const vendorTier = vendorProfile.tier || 'free'
       const isVendorPremium = isPremiumTier(vendorTier, vertical)
       const tierLimits = getTierLimits(vendorTier, vertical)
@@ -80,25 +79,30 @@ export async function GET(request: NextRequest) {
       const effectiveCount = listingId ? currentTotalListings - 1 : currentTotalListings
       const canAddMoreListings = effectiveCount < tierLimits.productListings
 
+      // Get the vendor's current unique traditional market count for per-tier cap enforcement.
+      // Session 70: replaces the stale home_market-based restriction.
+      const traditionalUsage = await getTraditionalMarketUsage(supabase, vendorProfile.id)
+      const usedTraditionalIds = new Set(traditionalUsage.marketIds)
+      const canAddNewTraditional = traditionalUsage.count < tierLimits.traditionalMarkets
+
       // Build market stats - now showing account total instead of per-market count
       const marketStats = relevantMarkets.map((market) => {
         const isHomeMarket = market.id === vendorProfile.home_market_id
         const isTraditionalMarket = market.market_type === 'traditional'
 
-        // Determine if vendor can select this market
+        // Determine if vendor can select this market:
+        // 1. Must have room under the total listing count cap
+        // 2. For NEW traditional markets (not already in vendor's usage),
+        //    must have room under the traditional market count cap
+        // 3. Premium vendors still get the cap, but their cap is higher
         let canAdd = canAddMoreListings
-        let homeMarketRestricted = false
+        let marketLimitReached = false
 
-        if (isTraditionalMarket && !isVendorPremium) {
-          // Standard vendor with traditional market
-          if (vendorProfile.home_market_id) {
-            // Has a home market - can only use that one
-            if (!isHomeMarket) {
-              canAdd = false
-              homeMarketRestricted = true
-            }
+        if (canAdd && isTraditionalMarket && !usedTraditionalIds.has(market.id)) {
+          if (!canAddNewTraditional) {
+            canAdd = false
+            marketLimitReached = true
           }
-          // If no home market yet, any traditional market can become home market (first use)
         }
 
         return {
@@ -116,7 +120,9 @@ export async function GET(request: NextRequest) {
           canAdd,
           isVendorOwned: market.vendor_profile_id === vendorProfile.id,
           isHomeMarket,
-          homeMarketRestricted // true if this market is blocked due to home market restriction
+          // Kept for backward compatibility with clients that still read it — always false now
+          homeMarketRestricted: false,
+          marketLimitReached, // true if this market is blocked due to traditional market count cap
         }
       })
 
@@ -140,6 +146,7 @@ export async function GET(request: NextRequest) {
         homeMarketId: vendorProfile.home_market_id,
         isPremium: isVendorPremium,
         totalListings: currentTotalListings,
+        traditionalMarketCount: traditionalUsage.count,
         tierLimits: {
           traditionalMarkets: tierLimits.traditionalMarkets,
           productListings: tierLimits.productListings

@@ -134,8 +134,11 @@ export async function GET(request: NextRequest) {
         ...m,
         market_schedules: schedules,
         isHomeMarket: m.id === vendorProfile.home_market_id,
-        canUse: isVendorPremium || !vendorProfile.home_market_id || m.id === vendorProfile.home_market_id,
-        homeMarketRestricted: !isVendorPremium && vendorProfile.home_market_id && m.id !== vendorProfile.home_market_id,
+        // Session 70: home_market_id no longer restricts which markets vendors
+        // can use. Tier-cap enforcement happens at listing save time via
+        // POST /api/vendor/listings/[listingId]/markets. Kept for backward compat.
+        canUse: true,
+        homeMarketRestricted: false,
         hasAttendance: marketsWithAttendance.has(m.id)
       }
     })
