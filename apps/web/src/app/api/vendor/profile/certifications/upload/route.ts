@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf']
@@ -28,16 +29,17 @@ export async function POST(request: NextRequest) {
       throw traced.auth('ERR_AUTH_001', 'Not authenticated')
     }
 
-    // Get vendor profile
+    // Multi-vertical safe vendor profile lookup via shared utility
+    const vertical = request.nextUrl.searchParams.get('vertical')
     crumb.supabase('select', 'vendor_profiles')
-    const { data: vendor, error: vpError } = await supabase
-      .from('vendor_profiles')
-      .select('id')
-      .eq('user_id', user.id)
-      .single()
+    const { profile: vendor, error: vpError } = await getVendorProfileForVertical(
+      supabase,
+      user.id,
+      vertical
+    )
 
     if (vpError || !vendor) {
-      throw traced.notFound('ERR_VENDOR_001', 'Vendor profile not found')
+      throw traced.notFound('ERR_VENDOR_001', vpError || 'Vendor profile not found')
     }
 
     // Parse form data

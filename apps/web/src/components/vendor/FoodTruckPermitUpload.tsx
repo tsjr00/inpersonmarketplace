@@ -31,9 +31,10 @@ interface Props {
     required?: boolean
   }>
   onUploaded: () => void
+  vertical: string
 }
 
-export default function FoodTruckPermitUpload({ categoryStatuses, onUploaded }: Props) {
+export default function FoodTruckPermitUpload({ categoryStatuses, onUploaded, vertical }: Props) {
   const [uploading, setUploading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
@@ -48,7 +49,7 @@ export default function FoodTruckPermitUpload({ categoryStatuses, onUploaded }: 
       formData.append('category', permitDocType)
       formData.append('doc_type', permitDocType)
 
-      const response = await fetch('/api/vendor/onboarding/category-documents', {
+      const response = await fetch(`/api/vendor/onboarding/category-documents?vertical=${vertical}`, {
         method: 'POST',
         body: formData,
       })

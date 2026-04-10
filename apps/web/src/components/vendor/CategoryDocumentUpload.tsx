@@ -30,9 +30,10 @@ interface Props {
   category: Category
   verification?: CategoryVerification
   onUploaded: () => void
+  vertical: string
 }
 
-export default function CategoryDocumentUpload({ category, verification, onUploaded }: Props) {
+export default function CategoryDocumentUpload({ category, verification, onUploaded, vertical }: Props) {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedDocType, setSelectedDocType] = useState<DocType | ''>('')
@@ -61,7 +62,7 @@ export default function CategoryDocumentUpload({ category, verification, onUploa
       formData.append('category', category)
       formData.append('doc_type', docType)
 
-      const response = await fetch('/api/vendor/onboarding/category-documents', {
+      const response = await fetch(`/api/vendor/onboarding/category-documents?vertical=${vertical}`, {
         method: 'POST',
         body: formData,
       })

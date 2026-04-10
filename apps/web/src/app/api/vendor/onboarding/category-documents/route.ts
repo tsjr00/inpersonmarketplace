@@ -10,6 +10,7 @@ import {
   type DocType,
   type FoodTruckDocType,
 } from '@/lib/onboarding/category-requirements'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf']
@@ -35,15 +36,16 @@ export async function POST(request: NextRequest) {
       throw traced.auth('ERR_AUTH_001', 'Not authenticated')
     }
 
-    // H12 FIX: Add vertical filter for multi-vertical safety
+    // Multi-vertical safe vendor profile lookup via shared utility
     const vertical = request.nextUrl.searchParams.get('vertical')
     crumb.supabase('select', 'vendor_profiles')
-    let vpQuery = supabase.from('vendor_profiles').select('id, vertical_id').eq('user_id', user.id)
-    if (vertical) vpQuery = vpQuery.eq('vertical_id', vertical)
-    const { data: vendor } = await vpQuery.single()
+    const { profile: vendor, error: vpError } = await getVendorProfileForVertical<{
+      id: string
+      vertical_id: string
+    }>(supabase, user.id, vertical, 'id, vertical_id')
 
-    if (!vendor) {
-      throw traced.notFound('ERR_VENDOR_001', 'Vendor profile not found')
+    if (vpError || !vendor) {
+      throw traced.notFound('ERR_VENDOR_001', vpError || 'Vendor profile not found')
     }
 
     const formData = await request.formData()

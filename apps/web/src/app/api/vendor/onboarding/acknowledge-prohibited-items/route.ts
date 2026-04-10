@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 /**
  * POST /api/vendor/onboarding/acknowledge-prohibited-items
@@ -22,15 +23,17 @@ export async function POST(request: NextRequest) {
       throw traced.auth('ERR_AUTH_001', 'Not authenticated')
     }
 
-    // H12 FIX: Add vertical filter for multi-vertical safety
+    // Multi-vertical safe vendor profile lookup via shared utility
     const vertical = request.nextUrl.searchParams.get('vertical')
     crumb.supabase('select', 'vendor_profiles')
-    let vpQuery = supabase.from('vendor_profiles').select('id').eq('user_id', user.id)
-    if (vertical) vpQuery = vpQuery.eq('vertical_id', vertical)
-    const { data: vendor } = await vpQuery.single()
+    const { profile: vendor, error: vpError } = await getVendorProfileForVertical(
+      supabase,
+      user.id,
+      vertical
+    )
 
-    if (!vendor) {
-      throw traced.notFound('ERR_VENDOR_001', 'Vendor profile not found')
+    if (vpError || !vendor) {
+      throw traced.notFound('ERR_VENDOR_001', vpError || 'Vendor profile not found')
     }
 
     crumb.supabase('update', 'vendor_verifications')

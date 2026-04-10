@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 interface Certification {
   type: string
@@ -58,16 +59,17 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // Get vendor profile
+    // Multi-vertical safe vendor profile lookup via shared utility
+    const vertical = request.nextUrl.searchParams.get('vertical')
     crumb.supabase('select', 'vendor_profiles')
-    const { data: vendorProfile, error: vpError } = await supabase
-      .from('vendor_profiles')
-      .select('id')
-      .eq('user_id', user.id)
-      .single()
+    const { profile: vendorProfile, error: vpError } = await getVendorProfileForVertical(
+      supabase,
+      user.id,
+      vertical
+    )
 
     if (vpError || !vendorProfile) {
-      throw traced.notFound('ERR_VENDOR_001', 'Vendor profile not found')
+      throw traced.notFound('ERR_VENDOR_001', vpError || 'Vendor profile not found')
     }
 
     // Sanitize certifications (remove any admin-only fields that might have been tampered with)
@@ -118,16 +120,16 @@ export async function GET(request: NextRequest) {
       throw traced.auth('ERR_AUTH_001', 'Not authenticated')
     }
 
-    // Get vendor profile with certifications
+    // Get vendor profile with certifications — multi-vertical safe
+    const vertical = request.nextUrl.searchParams.get('vertical')
     crumb.supabase('select', 'vendor_profiles')
-    const { data: vendorProfile, error: vpError } = await supabase
-      .from('vendor_profiles')
-      .select('certifications')
-      .eq('user_id', user.id)
-      .single()
+    const { profile: vendorProfile, error: vpError } = await getVendorProfileForVertical<{
+      certifications: unknown
+      vertical_id: string
+    }>(supabase, user.id, vertical, 'certifications')
 
     if (vpError || !vendorProfile) {
-      throw traced.notFound('ERR_VENDOR_001', 'Vendor profile not found')
+      throw traced.notFound('ERR_VENDOR_001', vpError || 'Vendor profile not found')
     }
 
     return NextResponse.json({

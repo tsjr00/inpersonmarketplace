@@ -4,6 +4,7 @@ import { getTierLimits } from '@/lib/vendor-limits'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { geocodeZipCode } from '@/lib/geocode'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -57,26 +58,29 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    crumb.supabase('select', 'vendor_profiles')
-    const { data: vendorProfile, error: vpError } = await supabase
-      .from('vendor_profiles')
-      .select('id, tier')
-      .eq('user_id', user.id)
-      .single()
-
-    if (vpError || !vendorProfile) {
-      throw traced.notFound('ERR_VENDOR_001', 'Vendor profile not found')
-    }
-
+    // Fetch market first to determine vertical — enables multi-vertical vendor lookup
     crumb.supabase('select', 'markets')
     const { data: market, error: marketError } = await supabase
       .from('markets')
       .select('*')
       .eq('id', marketId)
-      .eq('vendor_profile_id', vendorProfile.id)
       .single()
 
     if (marketError || !market) {
+      throw traced.notFound('ERR_MARKET_001', 'Market not found or unauthorized')
+    }
+
+    crumb.supabase('select', 'vendor_profiles')
+    const { profile: vendorProfile, error: vpError } = await getVendorProfileForVertical<{
+      id: string
+      tier: string
+    }>(supabase, user.id, market.vertical_id, 'id, tier')
+
+    if (vpError || !vendorProfile) {
+      throw traced.notFound('ERR_VENDOR_001', vpError || 'Vendor profile not found')
+    }
+
+    if (market.vendor_profile_id !== vendorProfile.id) {
       throw traced.notFound('ERR_MARKET_001', 'Market not found or unauthorized')
     }
 
@@ -226,26 +230,30 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       throw traced.auth('ERR_AUTH_001', 'Not authenticated')
     }
 
-    crumb.supabase('select', 'vendor_profiles')
-    const { data: vendorProfile, error: vpError } = await supabase
-      .from('vendor_profiles')
-      .select('id')
-      .eq('user_id', user.id)
-      .single()
-
-    if (vpError || !vendorProfile) {
-      throw traced.notFound('ERR_VENDOR_001', 'Vendor profile not found')
-    }
-
+    // Fetch market first to determine vertical — enables multi-vertical vendor lookup
     crumb.supabase('select', 'markets')
     const { data: market, error: marketError } = await supabase
       .from('markets')
       .select('*')
       .eq('id', marketId)
-      .eq('vendor_profile_id', vendorProfile.id)
       .single()
 
     if (marketError || !market) {
+      throw traced.notFound('ERR_MARKET_001', 'Market not found or unauthorized')
+    }
+
+    crumb.supabase('select', 'vendor_profiles')
+    const { profile: vendorProfile, error: vpError } = await getVendorProfileForVertical(
+      supabase,
+      user.id,
+      market.vertical_id
+    )
+
+    if (vpError || !vendorProfile) {
+      throw traced.notFound('ERR_VENDOR_001', vpError || 'Vendor profile not found')
+    }
+
+    if (market.vendor_profile_id !== vendorProfile.id) {
       throw traced.notFound('ERR_MARKET_001', 'Market not found or unauthorized')
     }
 
