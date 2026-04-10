@@ -20,7 +20,8 @@ type Market = {
   canAdd: boolean
   isVendorOwned: boolean
   isHomeMarket: boolean
-  homeMarketRestricted: boolean
+  homeMarketRestricted: boolean // Legacy — always false since Session 70
+  marketLimitReached?: boolean // true when blocked by tier traditional-market cap
 }
 
 type MarketStatsResponse = {
@@ -30,6 +31,7 @@ type MarketStatsResponse = {
   homeMarketId: string | null
   isPremium: boolean
   totalListings: number
+  traditionalMarketCount?: number
   tierLimits: {
     traditionalMarkets: number
     productListings: number
@@ -65,6 +67,8 @@ export default function MarketSelector({
   const [initialLoadDone, setInitialLoadDone] = useState(false)
   const [totalListings, setTotalListings] = useState(0)
   const [listingLimit, setListingLimit] = useState(5)
+  const [traditionalMarketCount, setTraditionalMarketCount] = useState(0)
+  const [traditionalMarketLimit, setTraditionalMarketLimit] = useState(3)
 
   useEffect(() => {
     fetchMarkets()
@@ -83,6 +87,8 @@ export default function MarketSelector({
       setMarkets(data.markets || [])
       setTotalListings(data.totalListings || 0)
       setListingLimit(data.tierLimits?.productListings || 5)
+      setTraditionalMarketCount(data.traditionalMarketCount || 0)
+      setTraditionalMarketLimit(data.tierLimits?.traditionalMarkets || 3)
 
       // Call onMarketsLoaded callback if provided
       if (onMarketsLoaded) {
@@ -210,6 +216,7 @@ export default function MarketSelector({
             {fixedMarkets.map(market => {
               const isSelected = selectedMarketIds.includes(market.id)
               const canSelect = market.canAdd || isSelected
+              const marketLimitReached = !!market.marketLimitReached
 
               return (
                 <label
@@ -219,13 +226,13 @@ export default function MarketSelector({
                     alignItems: 'flex-start',
                     padding: spacing.xs,
                     border: '1px solid',
-                    borderColor: isSelected ? primaryColor : market.homeMarketRestricted ? '#f3f4f6' : '#d1d5db',
+                    borderColor: isSelected ? primaryColor : marketLimitReached ? '#f3f4f6' : '#d1d5db',
                     borderRadius: radius.md,
                     cursor: canSelect && !disabled ? 'pointer' : 'not-allowed',
-                    backgroundColor: isSelected ? `${primaryColor}10` : market.homeMarketRestricted ? '#f9fafb' : '#fff',
+                    backgroundColor: isSelected ? `${primaryColor}10` : marketLimitReached ? '#f9fafb' : '#fff',
                     opacity: canSelect ? 1 : 0.5
                   }}
-                  title={market.homeMarketRestricted ? 'Upgrade to join multiple markets' : undefined}
+                  title={marketLimitReached ? `Market limit reached (${traditionalMarketCount}/${traditionalMarketLimit})` : undefined}
                 >
                   <input
                     type="checkbox"
@@ -264,14 +271,13 @@ export default function MarketSelector({
                         {DAYS[market.day_of_week]} {market.start_time} - {market.end_time}
                       </div>
                     )}
-                    {(market.homeMarketRestricted || (!canSelect && !isSelected)) && (
+                    {(!canSelect && !isSelected) && (
                       <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
-                        {market.homeMarketRestricted && (
+                        {marketLimitReached ? (
                           <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>
-                            Upgrade to join multiple markets
+                            Market limit reached ({traditionalMarketCount}/{traditionalMarketLimit}). Upgrade your plan to join more markets.
                           </span>
-                        )}
-                        {!canSelect && !isSelected && !market.homeMarketRestricted && (
+                        ) : (
                           <span style={{ color: '#dc2626' }}>
                             Listing limit reached
                           </span>

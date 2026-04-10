@@ -226,6 +226,65 @@ As the user gets busier, they need to delegate more. But the no-unauthorized-cha
 
 ---
 
+## Protocol 8: Error Log Review
+
+### Problem It Solves
+The error tracking system writes to the `error_logs` table via `withErrorTracing → logError → logErrorToDb`, but there is no admin UI that surfaces it. Errors accumulate silently. Past sessions have "fixed" issues that kept reappearing because no one noticed the prod error pattern climbing again. The tracking system was built but the visibility loop was never closed.
+
+**This was surfaced in Session 70**: the user thought errors were being tracked automatically (they are), but had no way to see them. A single prod query revealed an actively-broken route that had been failing for 24 hours with zero visibility.
+
+### The Protocol
+
+**At every session kickoff**, run (or ask the user to run) the following query against prod:
+
+```sql
+SELECT error_code, route, severity, COUNT(*) AS cnt,
+       MAX(created_at) AS last_seen,
+       MIN(created_at) AS first_seen
+FROM error_logs
+WHERE created_at > NOW() - INTERVAL '7 days'
+GROUP BY error_code, route, severity
+ORDER BY cnt DESC
+LIMIT 20;
+```
+
+Review the output with these questions:
+- **New error codes** — not seen in prior sessions? Investigate. Add to task list if real bugs.
+- **Climbing codes** — were they "fixed" in a prior session but reappearing? That's a regression. Stop and root-cause before doing anything else.
+- **High-severity codes** — `high` or `critical`? Flag immediately. These may warrant a hotfix this session.
+- **Active vs stale** — is `last_seen` within the last hour? That's an active issue. Within the last day? Recent. Older than a week? Historical.
+
+**At session end**, if new error codes were introduced or notable patterns resolved, document them in `apps/web/.claude/decisions.md`:
+- Error code
+- Root cause (one sentence)
+- Fix commit hash
+- How to recognize if it regresses (what route, what conditions)
+
+### User Prompts
+> "Run error log review."
+> "What's in error_logs?"
+> "Any new errors since last session?"
+
+### Claude's Responsibility
+- At every session kickoff, proactively offer: *"Want me to run an error log review? Takes 30 seconds and catches regressions from prior sessions."*
+- When a new error code appears on the list that wasn't there last session, flag it explicitly: *"New error code `ERR_XXX_NNN` on `[route]` — X occurrences since [date]. Want me to investigate before we start this session's scope?"*
+- Never skip the review because "the list looks the same" — the goal is to notice **changes**, not absolutes
+- Keep a running mental note of error code counts across sessions in the decision log so regressions are catchable
+
+### What This Does NOT Replace
+- **Sentry** for stack traces and exception context (high-severity errors also go there)
+- **`error_resolutions` table** — that tracks fix *attempts*, not errors themselves
+- **User bug reports** — these catch things users notice that don't throw errors
+- **Manual smoke testing** — catches UI/UX issues that pass through without errors
+
+### When This Protocol Fires
+Session kickoff, before any code work. If the kickoff protocol (Protocol 1) is being run, error log review is step 1.5 — after reading `current_task.md` / `backlog.md` but before agreeing on scope.
+
+### Future Enhancement (Backlog)
+An admin dashboard at `/admin/error-logs` would replace the SQL query with a click. Until then, SQL is the interface.
+
+---
+
 ## Quick Reference: Common Prompts
 
 | What You Want | What to Say |
@@ -241,6 +300,7 @@ As the user gets busier, they need to delegate more. But the no-unauthorized-cha
 | Let Claude commit + push staging | "Ship mode." |
 | Go back to default | "Report mode." |
 | Run post-deploy verification | "Running smoke test." |
+| Check what's breaking in prod | "Run error log review." |
 
 ---
 
@@ -257,3 +317,5 @@ Claude should redirect to these protocols when it observes:
 | About to commit multi-file changes | Protocol 5: Quality Gate |
 | User says "gotta go" or context is low | Protocol 6: End-of-Session Checkpoint |
 | User says "just handle it" or "fix it" | Protocol 7: Confirm Autonomy Mode |
+| Session kickoff begins | Protocol 8: Error Log Review (step 1.5) |
+| User mentions a bug that looks familiar | Protocol 8: Error Log Review (check if it's recurring) |

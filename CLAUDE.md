@@ -15,7 +15,7 @@
 
 **You MUST read `PROCESSES_AND_PROTOCOLS.md` at the start of every session.**
 
-This file defines 7 protocols that govern how sessions are run:
+This file defines 8 protocols that govern how sessions are run:
 1. **Session Kickoff** — Scope agreement before work begins
 2. **Backlog Management** — Track ideas without derailing current work
 3. **Pre-Push Smoke Test** — Structured post-deployment verification
@@ -23,6 +23,7 @@ This file defines 7 protocols that govern how sessions are run:
 5. **Pre-Commit Quality Gate** — Run full lint/type/test before committing
 6. **End-of-Session Checkpoint** — Capture state before session ends
 7. **Autonomy Modes** — Report / Fix / Ship delegation levels
+8. **Error Log Review** — Query `error_logs` at every kickoff to catch regressions
 
 **Claude's responsibility:** Proactively recommend and redirect the user to these protocols when the situation calls for them. These systems produce more consistent results than ad-hoc workflows.
 

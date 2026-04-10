@@ -360,36 +360,70 @@ export default function ListingForm({
 
     const savedListingId = result.data?.id
 
-    // Handle market associations if we have markets
+    // Session 70: use the server endpoint which enforces the per-tier
+    // traditional market cap. Fall back to direct insert only on 5xx.
     if (savedListingId && selectedMarketIds.length > 0) {
-      // If editing, delete existing market associations first
-      if (mode === 'edit') {
-        const { error: deleteError } = await supabase
-          .from('listing_markets')
-          .delete()
-          .eq('listing_id', savedListingId)
+      let marketAssignmentSucceeded = false
+      let shouldFallback = false
 
-        if (deleteError) {
-          console.error('Error deleting listing markets:', deleteError)
-          // Continue anyway - listing was saved
+      try {
+        const response = await fetch(
+          `/api/vendor/listings/${savedListingId}/markets`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ marketIds: selectedMarketIds }),
+          }
+        )
+
+        if (response.ok) {
+          marketAssignmentSucceeded = true
+        } else if (response.status >= 400 && response.status < 500) {
+          const data = await response.json().catch(() => ({ error: 'Unable to save market assignments' }))
+          setError(data.error || 'Unable to save market assignments')
+          setLoading(false)
+          return
+        } else {
+          console.warn(`[ListingForm] /markets endpoint returned ${response.status}, falling back to direct insert`)
+          shouldFallback = true
+        }
+      } catch (err) {
+        console.warn('[ListingForm] /markets endpoint failed, falling back to direct insert:', err)
+        shouldFallback = true
+      }
+
+      if (shouldFallback) {
+        // FALLBACK: direct Supabase insert (pre-Session 70 behavior).
+        // Does NOT enforce the tier cap but keeps vendors unblocked.
+        if (mode === 'edit') {
+          const { error: deleteError } = await supabase
+            .from('listing_markets')
+            .delete()
+            .eq('listing_id', savedListingId)
+
+          if (deleteError) {
+            console.error('Error deleting listing markets:', deleteError)
+          }
+        }
+
+        const listingMarkets = selectedMarketIds.map(marketId => ({
+          listing_id: savedListingId,
+          market_id: marketId
+        }))
+
+        const { error: insertError } = await supabase
+          .from('listing_markets')
+          .insert(listingMarkets)
+
+        if (insertError) {
+          console.error('Error creating listing markets:', insertError)
+          setError('Listing saved, but market assignments failed. Please edit the listing to reassign markets.')
+        } else {
+          marketAssignmentSucceeded = true
         }
       }
 
-      // Create new market associations
-      const listingMarkets = selectedMarketIds.map(marketId => ({
-        listing_id: savedListingId,
-        market_id: marketId
-      }))
-
-      const { error: insertError } = await supabase
-        .from('listing_markets')
-        .insert(listingMarkets)
-
-      if (insertError) {
-        console.error('Error creating listing markets:', insertError)
-        // Listing was saved but market associations failed — warn the vendor
-        setError('Listing saved, but market assignments failed. Please edit the listing to reassign markets.')
-      }
+      void marketAssignmentSucceeded // flag reserved for potential future telemetry
 
       // Auto-create vendor attendance records for traditional markets
       // This ensures the SQL function can find this vendor's attendance

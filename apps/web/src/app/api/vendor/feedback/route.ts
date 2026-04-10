@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 // POST - Submit vendor feedback
 export async function POST(request: NextRequest) {
@@ -32,13 +33,12 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid category' }, { status: 400 })
       }
 
-      // Get vendor profile
-      const { data: vendorProfile, error: vpError } = await supabase
-        .from('vendor_profiles')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('vertical_id', vertical)
-        .single()
+      // Multi-vertical safe vendor profile lookup via shared utility
+      const { profile: vendorProfile, error: vpError } = await getVendorProfileForVertical(
+        supabase,
+        user.id,
+        vertical
+      )
 
       if (vpError || !vendorProfile) {
         return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })

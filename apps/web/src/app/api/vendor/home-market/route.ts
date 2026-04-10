@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { setHomeMarket, getHomeMarket, canChangeHomeMarket, isPremiumTier } from '@/lib/vendor-limits'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 /**
  * GET /api/vendor/home-market
@@ -28,13 +29,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Vertical required' }, { status: 400 })
     }
 
-    // Get vendor profile
-    const { data: vendor } = await supabase
-      .from('vendor_profiles')
-      .select('id, tier, home_market_id')
-      .eq('user_id', user.id)
-      .eq('vertical_id', vertical)
-      .single()
+    // Multi-vertical safe vendor profile lookup via shared utility
+    const { profile: vendor } = await getVendorProfileForVertical<{
+      id: string
+      tier: string | null
+      home_market_id: string | null
+    }>(supabase, user.id, vertical, 'id, tier, home_market_id')
 
     if (!vendor) {
       return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
@@ -89,13 +89,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Vertical and marketId required' }, { status: 400 })
     }
 
-    // Get vendor profile
-    const { data: vendor } = await supabase
-      .from('vendor_profiles')
-      .select('id, tier, home_market_id')
-      .eq('user_id', user.id)
-      .eq('vertical_id', vertical)
-      .single()
+    // Multi-vertical safe vendor profile lookup via shared utility
+    const { profile: vendor } = await getVendorProfileForVertical<{
+      id: string
+      tier: string | null
+      home_market_id: string | null
+    }>(supabase, user.id, vertical, 'id, tier, home_market_id')
 
     if (!vendor) {
       return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })

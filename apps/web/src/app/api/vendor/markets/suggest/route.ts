@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { DEFAULT_CUTOFF_HOURS } from '@/lib/constants'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 // POST - Submit a traditional market suggestion for admin approval
 export async function POST(request: NextRequest) {
@@ -54,13 +55,12 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Get vendor profile
-      const { data: vendorProfile, error: vpError } = await supabase
-        .from('vendor_profiles')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('vertical_id', vertical)
-        .single()
+      // Multi-vertical safe vendor profile lookup via shared utility
+      const { profile: vendorProfile, error: vpError } = await getVendorProfileForVertical(
+        supabase,
+        user.id,
+        vertical
+      )
 
       if (vpError || !vendorProfile) {
         return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
