@@ -230,7 +230,7 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
                 cursor: 'pointer',
               }}
             >
-              Approve
+              Approve Business Docs
             </button>
             <button
               onClick={() => handleAction('verify', { action: 'reject', notes })}
@@ -245,7 +245,7 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
                 cursor: 'pointer',
               }}
             >
-              Reject
+              Reject Business Docs
             </button>
           </div>
         )}
@@ -335,7 +335,7 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
                           cursor: 'pointer',
                         }}
                       >
-                        Approve
+                        Approve {getCategoryLabel(cat, isFoodTruck)}
                       </button>
                       <button
                         onClick={() => handleAction('verify-category', { category: cat, action: 'reject', notes: categoryNotes[cat] })}
@@ -350,7 +350,7 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
                           cursor: 'pointer',
                         }}
                       >
-                        Reject
+                        Reject {getCategoryLabel(cat, isFoodTruck)}
                       </button>
                     </div>
                   )}
