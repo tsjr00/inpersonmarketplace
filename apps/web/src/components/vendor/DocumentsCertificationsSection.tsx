@@ -57,6 +57,11 @@ export default function DocumentsCertificationsSection({
 }: Props) {
   const isFoodTruck = vertical === 'food_trucks'
 
+  // === PROGRESS STATE ===
+  const [accountApproved, setAccountApproved] = useState(false)
+  const [stripeConnected, setStripeConnected] = useState(false)
+  const [canPublish, setCanPublish] = useState(false)
+
   // === GATE DOCS STATE ===
   const [gateStatuses, setGateStatuses] = useState<Record<string, GateDocStatus>>({})
   const [gateItems, setGateItems] = useState<string[]>([])
@@ -86,6 +91,9 @@ export default function DocumentsCertificationsSection({
         const data = await res.json()
         setGateStatuses(data.gate2?.categoryStatuses || {})
         setGateItems(data.gate2?.requestedCategories || [])
+        setAccountApproved(data.gate1?.status === 'approved')
+        setStripeConnected(!!data.gate4?.stripePayoutsEnabled)
+        setCanPublish(!!data.canPublishListings)
       }
     } catch {
       // Silent fail — section just won't show gate docs
@@ -303,13 +311,99 @@ export default function DocumentsCertificationsSection({
       }}>
         Documents & Certifications
       </h2>
-      <p style={{
-        margin: `0 0 ${spacing.md} 0`,
-        fontSize: typography.sizes.sm,
-        color: colors.textSecondary,
-      }}>
-        Your required permits and optional certifications in one place. Approved documents appear as badges on your public profile.
-      </p>
+      {/* ==================== ONBOARDING PROGRESS ==================== */}
+      {!gateLoading && (
+        <div style={{
+          marginBottom: spacing.md,
+          padding: spacing.sm,
+          backgroundColor: canPublish ? '#f0fdf4' : '#f9fafb',
+          border: `1px solid ${canPublish ? '#86efac' : colors.border}`,
+          borderRadius: radius.md,
+        }}>
+          {canPublish ? (
+            <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: '#166534' }}>
+              All steps complete — you can publish listings
+            </div>
+          ) : (
+            <>
+              <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing.xs }}>
+                Steps to publish listings
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+                {/* Step 1: Account Approval */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, fontSize: typography.sizes.sm }}>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    width: 22, height: 22, borderRadius: '50%', fontSize: 11, fontWeight: 700,
+                    backgroundColor: accountApproved ? '#166534' : '#e5e7eb',
+                    color: accountApproved ? 'white' : '#6b7280',
+                  }}>
+                    {accountApproved ? '\u2713' : '1'}
+                  </span>
+                  <span style={{ color: accountApproved ? '#166534' : colors.textPrimary }}>
+                    Account approved
+                  </span>
+                  {!accountApproved && (
+                    <span style={{ fontSize: typography.sizes.xs, color: '#9ca3af', fontStyle: 'italic' }}>
+                      Pending admin review
+                    </span>
+                  )}
+                </div>
+
+                {/* Step 2: Category Documents */}
+                {(() => {
+                  const approvedCount = requiredGateItems.filter(item => gateStatuses[item]?.status === 'approved').length
+                  const totalRequired = requiredGateItems.length
+                  const allApproved = totalRequired > 0 && approvedCount === totalRequired
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, fontSize: typography.sizes.sm }}>
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        width: 22, height: 22, borderRadius: '50%', fontSize: 11, fontWeight: 700,
+                        backgroundColor: allApproved ? '#166534' : '#e5e7eb',
+                        color: allApproved ? 'white' : '#6b7280',
+                      }}>
+                        {allApproved ? '\u2713' : '2'}
+                      </span>
+                      <span style={{ color: allApproved ? '#166534' : colors.textPrimary }}>
+                        {isFoodTruck ? 'Required permits' : 'Category documents'}
+                      </span>
+                      {totalRequired > 0 && (
+                        <span style={{
+                          fontSize: typography.sizes.xs,
+                          color: allApproved ? '#166534' : '#9ca3af',
+                        }}>
+                          {approvedCount} of {totalRequired} approved
+                        </span>
+                      )}
+                    </div>
+                  )
+                })()}
+
+                {/* Step 3: Stripe Connect */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, fontSize: typography.sizes.sm }}>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    width: 22, height: 22, borderRadius: '50%', fontSize: 11, fontWeight: 700,
+                    backgroundColor: stripeConnected ? '#166534' : '#e5e7eb',
+                    color: stripeConnected ? 'white' : '#6b7280',
+                  }}>
+                    {stripeConnected ? '\u2713' : '3'}
+                  </span>
+                  <span style={{ color: stripeConnected ? '#166534' : colors.textPrimary }}>
+                    Stripe payments connected
+                  </span>
+                  {!stripeConnected && (
+                    <span style={{ fontSize: typography.sizes.xs, color: '#9ca3af', fontStyle: 'italic' }}>
+                      Set up in Settings
+                    </span>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* ==================== REQUIRED DOCUMENTS ==================== */}
       {gateLoading ? (

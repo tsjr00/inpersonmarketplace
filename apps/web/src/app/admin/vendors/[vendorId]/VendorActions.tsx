@@ -71,8 +71,8 @@ export default function VendorActions({ vendorId, currentStatus, vendorLatitude,
     : ''
 
   const confirmMessages: Record<string, string> = {
-    approved: 'Approve this vendor? Their listings will become visible to buyers.' + onboardingWarning,
-    rejected: 'Reject this vendor? They will need to reapply.',
+    approved: 'Approve this vendor account? This confirms they are a legitimate business. They will still need to upload and have documents verified before publishing listings.' + onboardingWarning,
+    rejected: 'Reject this application? The vendor will need to reapply.',
     suspended: 'Suspend this vendor? Their listings will be hidden.'
   }
 
@@ -183,7 +183,7 @@ export default function VendorActions({ vendorId, currentStatus, vendorLatitude,
           <button
             onClick={() => updateStatus('approved')}
             disabled={loading || !hasValidCoordinates}
-            title={!hasValidCoordinates ? 'Set coordinates first' : 'Approve this vendor'}
+            title={!hasValidCoordinates ? 'Set coordinates first' : 'Preliminary approval — confirms legitimate business'}
             style={{
               padding: '10px 20px',
               backgroundColor: loading || !hasValidCoordinates ? '#ccc' : '#10b981',
@@ -195,7 +195,7 @@ export default function VendorActions({ vendorId, currentStatus, vendorLatitude,
               opacity: !hasValidCoordinates ? 0.7 : 1
             }}
           >
-            Approve
+            Approve Vendor Account
           </button>
           <button
             onClick={() => updateStatus('rejected')}
@@ -210,7 +210,7 @@ export default function VendorActions({ vendorId, currentStatus, vendorLatitude,
               cursor: loading ? 'not-allowed' : 'pointer'
             }}
           >
-            Reject
+            Reject Application
           </button>
         </>
       )}
@@ -257,7 +257,7 @@ export default function VendorActions({ vendorId, currentStatus, vendorLatitude,
         <button
           onClick={() => updateStatus('approved')}
           disabled={loading || !hasValidCoordinates}
-          title={!hasValidCoordinates ? 'Set coordinates first' : 'Approve this vendor'}
+          title={!hasValidCoordinates ? 'Set coordinates first' : 'Approve this vendor account'}
           style={{
             padding: '10px 20px',
             backgroundColor: loading || !hasValidCoordinates ? '#ccc' : '#10b981',
@@ -269,7 +269,7 @@ export default function VendorActions({ vendorId, currentStatus, vendorLatitude,
             opacity: !hasValidCoordinates ? 0.7 : 1
           }}
         >
-          Approve
+          Approve Vendor Account
         </button>
       )}
       </div>

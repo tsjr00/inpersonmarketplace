@@ -18,7 +18,9 @@ export default function OrganizerEventActions({ eventId, eventName, eventToken, 
   const [cancelling, setCancelling] = useState(false)
   const [cancelResult, setCancelResult] = useState<string | null>(null)
 
-  const eventUrl = eventToken ? `${window.location.origin}/${vertical}/events/${eventToken}` : null
+  const eventUrl = eventToken && typeof window !== 'undefined'
+    ? `${window.location.origin}/${vertical}/events/${eventToken}`
+    : null
   const canCancel = !['completed', 'cancelled', 'declined'].includes(status)
 
   async function handleCopyLink() {
