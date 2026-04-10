@@ -407,6 +407,7 @@ export default function EditMarketBoxPage() {
               imageUrl={imageUrl}
               onImageChange={setImageUrl}
               disabled={submitting}
+              vertical={vertical}
             />
 
             {/* Size / Amount */}

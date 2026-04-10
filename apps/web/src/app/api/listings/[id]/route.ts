@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 // DELETE - Delete listing (soft delete with deleted_at)
 export async function DELETE(
@@ -22,26 +23,26 @@ export async function DELETE(
 
     const { id: listingId } = await params
 
-    // Get vendor profile to verify ownership
-    const { data: vendorProfile, error: vpError } = await supabase
-      .from('vendor_profiles')
-      .select('id')
-      .eq('user_id', user.id)
-      .single()
-
-    if (vpError || !vendorProfile) {
-      return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
-    }
-
-    // Verify the listing belongs to this vendor
+    // Fetch listing first — need vertical_id for multi-vertical vendor lookup
     const { data: listing, error: listingError } = await supabase
       .from('listings')
-      .select('id, vendor_profile_id')
+      .select('id, vendor_profile_id, vertical_id')
       .eq('id', listingId)
       .single()
 
     if (listingError || !listing) {
       return NextResponse.json({ error: 'Listing not found' }, { status: 404 })
+    }
+
+    // Get vendor profile scoped to this listing's vertical
+    const { profile: vendorProfile, error: vpError } = await getVendorProfileForVertical(
+      supabase,
+      user.id,
+      listing.vertical_id
+    )
+
+    if (vpError || !vendorProfile) {
+      return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
     }
 
     if (listing.vendor_profile_id !== vendorProfile.id) {

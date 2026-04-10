@@ -4,6 +4,7 @@ import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { findScheduleConflicts, padTime, dayOfWeekName, formatTimeDisplay, type ScheduleSlot } from '@/lib/utils/schedule-overlap'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 /**
  * Check if a vendor has multiple_trucks enabled in their profile_data.
@@ -77,13 +78,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       }
 
-      // Get vendor profile (filter by vertical if provided — required for multi-vertical vendors)
-      let vpQuery = supabase
-        .from('vendor_profiles')
-        .select('id')
-        .eq('user_id', user.id)
-      if (vertical) vpQuery = vpQuery.eq('vertical_id', vertical)
-      const { data: vendorProfile, error: vpError } = await vpQuery.single()
+      // Multi-vertical safe vendor profile lookup via shared utility
+      const { profile: vendorProfile, error: vpError } = await getVendorProfileForVertical(
+        supabase,
+        user.id,
+        vertical
+      )
 
       if (vpError || !vendorProfile) {
         return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
@@ -178,13 +178,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         return NextResponse.json({ error: 'scheduleIds must be an array' }, { status: 400 })
       }
 
-      // Get vendor profile (filter by vertical if provided)
-      let vpQuery = supabase
-        .from('vendor_profiles')
-        .select('id')
-        .eq('user_id', user.id)
-      if (vertical) vpQuery = vpQuery.eq('vertical_id', vertical)
-      const { data: vendorProfile, error: vpError } = await vpQuery.single()
+      // Multi-vertical safe vendor profile lookup via shared utility
+      const { profile: vendorProfile, error: vpError } = await getVendorProfileForVertical(
+        supabase,
+        user.id,
+        vertical
+      )
 
       if (vpError || !vendorProfile) {
         return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
@@ -401,13 +400,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         return NextResponse.json({ error: 'scheduleId and isActive are required' }, { status: 400 })
       }
 
-      // Get vendor profile (filter by vertical if provided)
-      let vpQuery = supabase
-        .from('vendor_profiles')
-        .select('id')
-        .eq('user_id', user.id)
-      if (vertical) vpQuery = vpQuery.eq('vertical_id', vertical)
-      const { data: vendorProfile, error: vpError } = await vpQuery.single()
+      // Multi-vertical safe vendor profile lookup via shared utility
+      const { profile: vendorProfile, error: vpError } = await getVendorProfileForVertical(
+        supabase,
+        user.id,
+        vertical
+      )
 
       if (vpError || !vendorProfile) {
         return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })

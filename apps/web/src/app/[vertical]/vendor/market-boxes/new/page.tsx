@@ -380,6 +380,7 @@ export default function NewMarketBoxPage() {
                 imageUrl={imageUrl}
                 onImageChange={setImageUrl}
                 disabled={submitting}
+                vertical={vertical}
               />
 
               {/* Size / Amount */}

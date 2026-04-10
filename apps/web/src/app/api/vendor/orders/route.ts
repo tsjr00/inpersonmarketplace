@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/vendor/orders', 'GET', async () => {
@@ -27,18 +28,13 @@ export async function GET(request: NextRequest) {
     const marketId = searchParams.get('market_id')
     const eventOrders = searchParams.get('event_orders') === 'true'
 
-    // Get vendor profile — scoped to vertical if provided
-    let vpQuery = supabase
-      .from('vendor_profiles')
-      .select('id')
-      .eq('user_id', user.id)
-      .is('deleted_at', null)
-    if (vertical) {
-      vpQuery = vpQuery.eq('vertical_id', vertical)
-    }
-    const { data: vendorProfile } = await vpQuery.single()
+    // Get vendor profile — multi-vertical safe via shared utility
+    const { profile: vendorProfile } = await getVendorProfileForVertical<{
+      id: string
+      deleted_at: string | null
+    }>(supabase, user.id, vertical, 'id, deleted_at')
 
-    if (!vendorProfile) {
+    if (!vendorProfile || vendorProfile.deleted_at !== null) {
       return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
     }
     const pickupDate = searchParams.get('pickup_date') // Filter by specific pickup date (YYYY-MM-DD)

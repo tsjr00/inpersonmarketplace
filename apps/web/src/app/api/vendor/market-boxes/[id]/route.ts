@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { canActivateMarketBox, formatLimitError } from '@/lib/vendor-limits'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -26,18 +27,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get vendor profile
-    const { data: vendor } = await supabase
-      .from('vendor_profiles')
-      .select('id')
-      .eq('user_id', user.id)
-      .single()
-
-    if (!vendor) {
-      return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
-    }
-
-    // Get offering with market info
+    // Fetch offering first — need vertical_id for multi-vertical vendor lookup
     const { data: offering, error } = await supabase
       .from('market_box_offerings')
       .select(`
@@ -57,6 +47,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
         box_type,
         max_subscribers,
         active,
+        vendor_profile_id,
+        vertical_id,
         created_at,
         updated_at,
         market:markets (
@@ -69,10 +61,24 @@ export async function GET(request: NextRequest, context: RouteContext) {
         )
       `)
       .eq('id', offeringId)
-      .eq('vendor_profile_id', vendor.id)
       .single()
 
     if (error || !offering) {
+      return NextResponse.json({ error: 'Offering not found' }, { status: 404 })
+    }
+
+    // Get vendor profile scoped to this offering's vertical
+    const { profile: vendor } = await getVendorProfileForVertical(
+      supabase,
+      user.id,
+      offering.vertical_id
+    )
+
+    if (!vendor) {
+      return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
+    }
+
+    if (offering.vendor_profile_id !== vendor.id) {
       return NextResponse.json({ error: 'Offering not found' }, { status: 404 })
     }
 
@@ -141,25 +147,29 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get vendor profile with tier for limit checks
-    const { data: vendor } = await supabase
-      .from('vendor_profiles')
-      .select('id, tier, vertical_id')
-      .eq('user_id', user.id)
+    // Verify offering exists and get vertical_id for multi-vertical vendor lookup
+    const { data: existing } = await supabase
+      .from('market_box_offerings')
+      .select('id, vendor_profile_id, active, vertical_id')
+      .eq('id', offeringId)
       .single()
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Offering not found' }, { status: 404 })
+    }
+
+    // Get vendor profile scoped to this offering's vertical
+    const { profile: vendor } = await getVendorProfileForVertical<{
+      id: string
+      tier: string | null
+      vertical_id: string
+    }>(supabase, user.id, existing.vertical_id, 'id, tier, vertical_id')
 
     if (!vendor) {
       return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
     }
 
-    // Verify ownership and get current active state
-    const { data: existing } = await supabase
-      .from('market_box_offerings')
-      .select('id, vendor_profile_id, active')
-      .eq('id', offeringId)
-      .single()
-
-    if (!existing || existing.vendor_profile_id !== vendor.id) {
+    if (existing.vendor_profile_id !== vendor.id) {
       return NextResponse.json({ error: 'Offering not found' }, { status: 404 })
     }
 
@@ -282,25 +292,29 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get vendor profile
-    const { data: vendor } = await supabase
-      .from('vendor_profiles')
-      .select('id')
-      .eq('user_id', user.id)
+    // Verify offering exists and get vertical_id for multi-vertical vendor lookup
+    const { data: existing } = await supabase
+      .from('market_box_offerings')
+      .select('id, vendor_profile_id, vertical_id')
+      .eq('id', offeringId)
       .single()
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Offering not found' }, { status: 404 })
+    }
+
+    // Get vendor profile scoped to this offering's vertical
+    const { profile: vendor } = await getVendorProfileForVertical(
+      supabase,
+      user.id,
+      existing.vertical_id
+    )
 
     if (!vendor) {
       return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
     }
 
-    // Verify ownership
-    const { data: existing } = await supabase
-      .from('market_box_offerings')
-      .select('id, vendor_profile_id')
-      .eq('id', offeringId)
-      .single()
-
-    if (!existing || existing.vendor_profile_id !== vendor.id) {
+    if (existing.vendor_profile_id !== vendor.id) {
       return NextResponse.json({ error: 'Offering not found' }, { status: 404 })
     }
 

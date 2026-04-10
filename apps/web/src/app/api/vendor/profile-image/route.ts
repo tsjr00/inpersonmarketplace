@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/vendor/profile-image', 'POST', async () => {
@@ -18,12 +19,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       }
 
-      // Get vendor profile
-      const { data: vendor } = await supabase
-        .from('vendor_profiles')
-        .select('id')
-        .eq('user_id', user.id)
-        .single()
+      // Multi-vertical safe vendor profile lookup via shared utility
+      const vertical = request.nextUrl.searchParams.get('vertical')
+      const { profile: vendor } = await getVendorProfileForVertical(
+        supabase,
+        user.id,
+        vertical
+      )
 
       if (!vendor) {
         return NextResponse.json({ error: 'No vendor profile found' }, { status: 404 })

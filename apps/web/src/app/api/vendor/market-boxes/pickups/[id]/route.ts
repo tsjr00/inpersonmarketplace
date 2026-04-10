@@ -4,6 +4,7 @@ import { withErrorTracing } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { calculateWindowExpiry } from '@/lib/cron/order-timing'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -27,18 +28,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get vendor profile
-    const { data: vendor } = await supabase
-      .from('vendor_profiles')
-      .select('id, stripe_account_id, stripe_payouts_enabled')
-      .eq('user_id', user.id)
-      .single()
-
-    if (!vendor) {
-      return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
-    }
-
-    // Get pickup with full details
+    // Get pickup first — need offering.vertical_id for multi-vertical vendor lookup
     const { data: pickup, error } = await supabase
       .from('market_box_pickups')
       .select(`
@@ -63,7 +53,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
           offering:market_box_offerings (
             id,
             name,
-            vendor_profile_id
+            vendor_profile_id,
+            vertical_id
           )
         )
       `)
@@ -74,9 +65,23 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Pickup not found' }, { status: 404 })
     }
 
-    // Verify vendor owns this offering
     const offering = (pickup.subscription as any)?.offering
-    if (!offering || offering.vendor_profile_id !== vendor.id) {
+    if (!offering?.vertical_id) {
+      return NextResponse.json({ error: 'Pickup not found' }, { status: 404 })
+    }
+
+    // Get vendor profile scoped to this offering's vertical
+    const { profile: vendor } = await getVendorProfileForVertical<{
+      id: string
+      stripe_account_id: string | null
+      stripe_payouts_enabled: boolean | null
+    }>(supabase, user.id, offering.vertical_id, 'id, stripe_account_id, stripe_payouts_enabled')
+
+    if (!vendor) {
+      return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
+    }
+
+    if (offering.vendor_profile_id !== vendor.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
@@ -102,18 +107,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get vendor profile
-    const { data: vendor } = await supabase
-      .from('vendor_profiles')
-      .select('id, stripe_account_id, stripe_payouts_enabled')
-      .eq('user_id', user.id)
-      .single()
-
-    if (!vendor) {
-      return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
-    }
-
-    // Get pickup with offering info to verify ownership + confirmation state + buyer info for notifications
+    // Get pickup first — need offering.vertical_id for multi-vertical vendor lookup
     const { data: pickup } = await supabase
       .from('market_box_pickups')
       .select(`
@@ -143,9 +137,23 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Pickup not found' }, { status: 404 })
     }
 
-    // Verify vendor owns this offering
     const offering = (pickup.subscription as any)?.offering
-    if (!offering || offering.vendor_profile_id !== vendor.id) {
+    if (!offering?.vertical_id) {
+      return NextResponse.json({ error: 'Pickup not found' }, { status: 404 })
+    }
+
+    // Get vendor profile scoped to this offering's vertical
+    const { profile: vendor } = await getVendorProfileForVertical<{
+      id: string
+      stripe_account_id: string | null
+      stripe_payouts_enabled: boolean | null
+    }>(supabase, user.id, offering.vertical_id, 'id, stripe_account_id, stripe_payouts_enabled')
+
+    if (!vendor) {
+      return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
+    }
+
+    if (offering.vendor_profile_id !== vendor.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 

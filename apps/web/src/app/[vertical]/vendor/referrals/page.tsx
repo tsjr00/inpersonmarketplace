@@ -37,7 +37,7 @@ export default function VendorReferralsPage({ params }: { params: Promise<{ vert
   useEffect(() => {
     async function fetchReferralData() {
       try {
-        const res = await fetch('/api/vendor/referrals')
+        const res = await fetch(`/api/vendor/referrals?vertical=${vertical}`)
         if (res.ok) {
           const json = await res.json()
           setData(json)
@@ -49,7 +49,7 @@ export default function VendorReferralsPage({ params }: { params: Promise<{ vert
       }
     }
     fetchReferralData()
-  }, [])
+  }, [vertical])
 
   const handleCopy = async () => {
     if (!data?.referralCode) return
