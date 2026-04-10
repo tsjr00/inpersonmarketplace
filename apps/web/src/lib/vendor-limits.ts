@@ -167,18 +167,28 @@ export function isPremiumTier(tier: string, _vertical?: string): boolean {
 // ============================================================================
 
 /**
- * Get count of traditional markets where vendor has active listings or market boxes
+ * Get count of unique traditional markets where vendor has published listings
+ * (via listing_markets junction table) or active market boxes.
+ *
+ * Prior implementation queried `listings.market_id` which does not exist in
+ * the schema — it silently returned 0 for all vendors, making the entire
+ * traditional market cap unenforced. Fixed in Session 70.
  */
 export async function getTraditionalMarketUsage(
   supabase: SupabaseClient,
   vendorProfileId: string
 ): Promise<{ count: number; marketIds: string[] }> {
-  const { data: listingMarkets } = await supabase
-    .from('listings')
-    .select('market_id, markets!inner(market_type)')
-    .eq('vendor_profile_id', vendorProfileId)
-    .eq('status', 'published')
-    .not('market_id', 'is', null)
+  const { data: listingMarketRows } = await supabase
+    .from('listing_markets')
+    .select(`
+      market_id,
+      listings!inner(vendor_profile_id, status, deleted_at),
+      markets!inner(market_type)
+    `)
+    .eq('listings.vendor_profile_id', vendorProfileId)
+    .eq('listings.status', 'published')
+    .is('listings.deleted_at', null)
+    .eq('markets.market_type', 'traditional')
 
   const { data: boxMarkets } = await supabase
     .from('market_box_offerings')
@@ -188,11 +198,62 @@ export async function getTraditionalMarketUsage(
 
   const marketIds = new Set<string>()
 
-  if (listingMarkets) {
-    for (const listing of listingMarkets) {
-      const market = listing.markets as unknown as { market_type: string } | null
-      if (listing.market_id && market && market.market_type === 'traditional') {
-        marketIds.add(listing.market_id)
+  if (listingMarketRows) {
+    for (const row of listingMarketRows) {
+      if (row.market_id) {
+        marketIds.add(row.market_id as string)
+      }
+    }
+  }
+
+  if (boxMarkets) {
+    for (const box of boxMarkets) {
+      const market = box.markets as unknown as { market_type: string } | null
+      if (box.pickup_market_id && market && market.market_type === 'traditional') {
+        marketIds.add(box.pickup_market_id)
+      }
+    }
+  }
+
+  return { count: marketIds.size, marketIds: Array.from(marketIds) }
+}
+
+/**
+ * Exclude a specific listing's market contribution from the usage set.
+ * Used when editing a listing — we want to know the vendor's traditional
+ * market count ignoring the listing currently being saved, so the save
+ * check uses the "after" state.
+ */
+export async function getTraditionalMarketUsageExcludingListing(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+  excludeListingId: string
+): Promise<{ count: number; marketIds: string[] }> {
+  const { data: listingMarketRows } = await supabase
+    .from('listing_markets')
+    .select(`
+      market_id,
+      listings!inner(vendor_profile_id, status, deleted_at),
+      markets!inner(market_type)
+    `)
+    .eq('listings.vendor_profile_id', vendorProfileId)
+    .eq('listings.status', 'published')
+    .is('listings.deleted_at', null)
+    .eq('markets.market_type', 'traditional')
+    .neq('listing_id', excludeListingId)
+
+  const { data: boxMarkets } = await supabase
+    .from('market_box_offerings')
+    .select('pickup_market_id, markets!inner(market_type)')
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('active', true)
+
+  const marketIds = new Set<string>()
+
+  if (listingMarketRows) {
+    for (const row of listingMarketRows) {
+      if (row.market_id) {
+        marketIds.add(row.market_id as string)
       }
     }
   }
@@ -285,8 +346,8 @@ export async function canAddTraditionalMarket(
     allowed,
     current: usage.count,
     limit: limits.traditionalMarkets,
-    message: allowed ? undefined : `Limit reached: ${usage.count} of ${limits.traditionalMarkets} locations used.`,
-    upgradeMessage: allowed ? undefined : 'Upgrade to join more locations.',
+    message: allowed ? undefined : `Market limit reached (${usage.count}/${limits.traditionalMarkets}).`,
+    upgradeMessage: allowed ? undefined : 'Upgrade your plan to join more traditional markets.',
   }
 }
 
@@ -437,33 +498,11 @@ export async function isHomeMarket(
   return homeMarketId === marketId
 }
 
-export async function canUseTraditionalMarket(
-  supabase: SupabaseClient,
-  vendorProfileId: string,
-  marketId: string,
-  tier: string
-): Promise<{ allowed: boolean; reason?: string; isHomeMarket: boolean; shouldSetAsHome: boolean }> {
-  if (isPremiumTier(tier)) {
-    return { allowed: true, isHomeMarket: false, shouldSetAsHome: false }
-  }
-
-  const homeMarketId = await getHomeMarket(supabase, vendorProfileId)
-
-  if (!homeMarketId) {
-    return { allowed: true, isHomeMarket: true, shouldSetAsHome: true }
-  }
-
-  if (homeMarketId === marketId) {
-    return { allowed: true, isHomeMarket: true, shouldSetAsHome: false }
-  }
-
-  return {
-    allowed: false,
-    reason: 'Your current plan allows 3 locations. Upgrade to Pro for more.',
-    isHomeMarket: false,
-    shouldSetAsHome: false,
-  }
-}
+// NOTE: canUseTraditionalMarket was removed in Session 70. It implemented
+// the legacy "non-premium vendors can only use their home market" rule
+// which conflicts with the current TIER_LIMITS (free=3, pro=5, boss=8
+// traditional markets). It was also dead code — never called anywhere.
+// Use canAddTraditionalMarket() to enforce the modern per-tier cap.
 
 // ============================================================================
 // COMPREHENSIVE USAGE SUMMARY
