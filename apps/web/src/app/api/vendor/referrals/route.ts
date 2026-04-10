@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/vendor/referrals', 'GET', async () => {
@@ -19,15 +20,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get vendor profile
-    const { data: vendorProfile } = await supabase
-      .from('vendor_profiles')
-      .select('id, referral_code')
-      .eq('user_id', user.id)
-      .is('deleted_at', null)
-      .single()
+    // Multi-vertical safe vendor profile lookup via shared utility
+    const vertical = request.nextUrl.searchParams.get('vertical')
+    const { profile: vendorProfile } = await getVendorProfileForVertical<{
+      id: string
+      referral_code: string | null
+      deleted_at: string | null
+    }>(supabase, user.id, vertical, 'id, referral_code, deleted_at')
 
-    if (!vendorProfile) {
+    if (!vendorProfile || vendorProfile.deleted_at !== null) {
       return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
     }
 

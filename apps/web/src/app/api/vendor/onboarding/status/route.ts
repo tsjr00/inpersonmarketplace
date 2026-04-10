@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withErrorTracing } from '@/lib/errors'
 import { crumb } from '@/lib/errors/breadcrumbs'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import {
   getCategoryRequirement,
   requiresDocuments,
@@ -33,15 +34,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // H12 FIX: Add vertical filter for multi-vertical safety
+    // Multi-vertical safe vendor profile lookup via shared utility
     const vertical = request.nextUrl.searchParams.get('vertical')
     crumb.logic('Fetching vendor profile')
-    let vpQuery = supabase
-      .from('vendor_profiles')
-      .select('id, status, user_id, vertical_id, stripe_account_id, stripe_payouts_enabled')
-      .eq('user_id', user.id)
-    if (vertical) vpQuery = vpQuery.eq('vertical_id', vertical)
-    const { data: vendor } = await vpQuery.single()
+    const { profile: vendor } = await getVendorProfileForVertical<{
+      id: string
+      status: string
+      user_id: string
+      vertical_id: string
+      stripe_account_id: string | null
+      stripe_payouts_enabled: boolean | null
+    }>(supabase, user.id, vertical, 'id, status, user_id, vertical_id, stripe_account_id, stripe_payouts_enabled')
 
     if (!vendor) {
       return NextResponse.json({ error: 'No vendor profile found' }, { status: 404 })

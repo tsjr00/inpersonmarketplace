@@ -9,12 +9,14 @@ interface MarketBoxImageUploadProps {
   imageUrl: string | null
   onImageChange: (url: string | null) => void
   disabled?: boolean
+  vertical: string
 }
 
 export function MarketBoxImageUpload({
   imageUrl,
   onImageChange,
-  disabled = false
+  disabled = false,
+  vertical
 }: MarketBoxImageUploadProps) {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -51,7 +53,7 @@ export function MarketBoxImageUpload({
       const formData = new FormData()
       formData.append('image', resizedFile)
 
-      const response = await fetch('/api/vendor/market-box-image', {
+      const response = await fetch(`/api/vendor/market-box-image?vertical=${vertical}`, {
         method: 'POST',
         body: formData
       })

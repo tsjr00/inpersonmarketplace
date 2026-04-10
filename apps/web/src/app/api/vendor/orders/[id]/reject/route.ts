@@ -6,6 +6,7 @@ import { sendNotification } from '@/lib/notifications'
 import { restoreInventory } from '@/lib/inventory'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { FEES, proratedFlatFeeSimple } from '@/lib/pricing'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -30,17 +31,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get vendor profile
-    const { data: vendorProfile } = await supabase
-      .from('vendor_profiles')
-      .select('id')
-      .eq('user_id', user.id)
-      .single()
-
-    if (!vendorProfile) {
-      return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
-    }
-
     // Parse request body for reason (required for vendor rejection)
     let reason = ''
     try {
@@ -57,7 +47,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       )
     }
 
-    // Get the order item with buyer/order info for notification
+    // Get the order item first — the joined order row provides vertical_id for multi-vertical vendor lookup
     const { data: orderItem, error: fetchError } = await supabase
       .from('order_items')
       .select(`
@@ -77,6 +67,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     if (fetchError || !orderItem) {
       return NextResponse.json({ error: 'Order item not found' }, { status: 404 })
+    }
+
+    // Get vendor profile scoped to this order's vertical
+    const orderDataForVertical = (orderItem as any).order as { vertical_id: string }
+    const { profile: vendorProfile } = await getVendorProfileForVertical(
+      supabase,
+      user.id,
+      orderDataForVertical.vertical_id
+    )
+
+    if (!vendorProfile) {
+      return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
     }
 
     // Verify this item belongs to the current vendor

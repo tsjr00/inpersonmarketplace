@@ -5,6 +5,7 @@ import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { sendNotification } from '@/lib/notifications'
 import { validateEventReadiness } from '@/lib/vendor/event-readiness-validation'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 // PUT - Submit or update event readiness application
 export async function PUT(request: NextRequest) {
@@ -28,17 +29,17 @@ export async function PUT(request: NextRequest) {
       throw traced.validation('ERR_VALIDATION_001', validation.error!)
     }
 
-    // Get vendor profile — H13 FIX: add vertical filter for multi-vertical safety
+    // Get vendor profile — multi-vertical safe via shared utility
     crumb.supabase('select', 'vendor_profiles')
-    let vpQuery = supabase
-      .from('vendor_profiles')
-      .select('id, user_id, vertical_id, profile_data')
-      .eq('user_id', user.id)
-    if (vertical) vpQuery = vpQuery.eq('vertical_id', vertical)
-    const { data: vendor, error: vpError } = await vpQuery.single()
+    const { profile: vendor, error: vpError } = await getVendorProfileForVertical<{
+      id: string
+      user_id: string
+      vertical_id: string
+      profile_data: Record<string, unknown> | null
+    }>(supabase, user.id, vertical, 'id, user_id, vertical_id, profile_data')
 
     if (vpError || !vendor) {
-      throw traced.notFound('ERR_VENDOR_001', 'Vendor profile not found')
+      throw traced.notFound('ERR_VENDOR_001', vpError || 'Vendor profile not found')
     }
 
     const { isEventEnabled } = await import('@/lib/vertical')

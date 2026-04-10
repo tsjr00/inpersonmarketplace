@@ -141,7 +141,7 @@ export default function VendorMarketBoxDetailPage() {
 
   const fetchPickups = useCallback(async () => {
     try {
-      const res = await fetch(`/api/vendor/market-boxes/pickups?offering_id=${offeringId}`)
+      const res = await fetch(`/api/vendor/market-boxes/pickups?offering_id=${offeringId}&vertical=${vertical}`)
       const data = await res.json()
 
       if (!res.ok) {
@@ -152,7 +152,7 @@ export default function VendorMarketBoxDetailPage() {
     } catch (err) {
       console.error('Failed to load pickups:', err)
     }
-  }, [offeringId])
+  }, [offeringId, vertical])
 
   useEffect(() => {
     Promise.all([fetchOffering(), fetchPickups()]).finally(() => setLoading(false))

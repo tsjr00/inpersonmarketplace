@@ -155,7 +155,7 @@ export default function OnboardingChecklist({ vertical, vendorStatus }: Props) {
     try {
       const formData = new FormData()
       formData.append('document', file)
-      const res = await fetch('/api/vendor/onboarding/documents', {
+      const res = await fetch(`/api/vendor/onboarding/documents?vertical=${vertical}`, {
         method: 'POST',
         body: formData,
       })
@@ -173,7 +173,7 @@ export default function OnboardingChecklist({ vertical, vendorStatus }: Props) {
 
   const handleAcknowledgeProhibited = async () => {
     try {
-      const res = await fetch('/api/vendor/onboarding/acknowledge-prohibited-items', {
+      const res = await fetch(`/api/vendor/onboarding/acknowledge-prohibited-items?vertical=${vertical}`, {
         method: 'POST',
       })
       if (res.ok) {
@@ -380,8 +380,9 @@ export default function OnboardingChecklist({ vertical, vendorStatus }: Props) {
                   ? <FoodTruckPermitUpload
                       categoryStatuses={status.gate2.categoryStatuses}
                       onUploaded={fetchStatus}
+                      vertical={vertical}
                     />
-                  : <Gate2Content status={status} onUploaded={fetchStatus} />
+                  : <Gate2Content status={status} onUploaded={fetchStatus} vertical={vertical} />
               )}
               {gate.number === 3 && (
                 <Gate3Content status={status} onUploaded={fetchStatus} vertical={vertical} />
@@ -617,9 +618,11 @@ function Gate1Content({
 function Gate2Content({
   status,
   onUploaded,
+  vertical,
 }: {
   status: OnboardingStatus
   onUploaded: () => void
+  vertical: string
 }) {
   const categories = status.gate2.requestedCategories
 
@@ -645,6 +648,7 @@ function Gate2Content({
             notes?: string
           }}
           onUploaded={onUploaded}
+          vertical={vertical}
         />
       ))}
     </div>

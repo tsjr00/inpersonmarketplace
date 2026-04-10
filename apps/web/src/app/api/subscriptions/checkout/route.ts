@@ -4,6 +4,7 @@ import { stripe, SUBSCRIPTION_PRICES, areSubscriptionPricesConfigured, getFtPric
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
 import { isFoodTruckTier } from '@/lib/vendor-limits'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 export const maxDuration = 30
 
@@ -144,15 +145,20 @@ export async function POST(request: NextRequest) {
       const userEmail = user.email
 
       if (type === 'vendor') {
-        // Get vendor profile — filter by vertical if provided
-        let vpQuery = supabase
-          .from('vendor_profiles')
-          .select('id, stripe_customer_id, tier, stripe_subscription_id, profile_data, vertical_id')
-          .eq('user_id', user.id)
-        if (vertical) {
-          vpQuery = vpQuery.eq('vertical_id', vertical)
-        }
-        const { data: vendorProfile, error: vendorError } = await vpQuery.single()
+        // Multi-vertical safe vendor profile lookup via shared utility
+        const { profile: vendorProfile, error: vendorError } = await getVendorProfileForVertical<{
+          id: string
+          stripe_customer_id: string | null
+          tier: string | null
+          stripe_subscription_id: string | null
+          profile_data: Record<string, unknown> | null
+          vertical_id: string
+        }>(
+          supabase,
+          user.id,
+          vertical,
+          'id, stripe_customer_id, tier, stripe_subscription_id, profile_data, vertical_id'
+        )
 
         if (vendorError || !vendorProfile) {
           return NextResponse.json(

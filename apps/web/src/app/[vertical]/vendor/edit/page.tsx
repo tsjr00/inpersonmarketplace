@@ -102,6 +102,7 @@ export default async function EditProfilePage({ params }: EditProfilePageProps) 
       }}>
         <ProfileImageUpload
           currentImageUrl={vendorProfile.profile_image_url}
+          vertical={vertical}
         />
       </div>
 

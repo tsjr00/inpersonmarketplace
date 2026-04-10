@@ -7,6 +7,7 @@ import { restoreInventory } from '@/lib/inventory'
 import { shouldRestoreInventory } from '@/lib/inventory-rules'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { FEES, proratedFlatFeeSimple } from '@/lib/pricing'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -41,19 +42,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       throw traced.validation('ERR_ORDER_001', 'Invalid action. Must be "confirm_delivery" or "issue_refund".')
     }
 
-    // Get vendor profile
-    crumb.supabase('select', 'vendor_profiles')
-    const { data: vendorProfile } = await supabase
-      .from('vendor_profiles')
-      .select('id, profile_data, user_id')
-      .eq('user_id', user.id)
-      .single()
-
-    if (!vendorProfile) {
-      throw traced.notFound('ERR_AUTH_002', 'Vendor profile not found')
-    }
-
-    // Get the order item with issue data
+    // Fetch order item first — the joined order row provides vertical_id for multi-vertical vendor lookup
     crumb.supabase('select', 'order_items')
     const { data: orderItem } = await supabase
       .from('order_items')
@@ -63,10 +52,28 @@ export async function POST(request: NextRequest, context: RouteContext) {
         order:orders!inner(id, order_number, buyer_user_id, vertical_id, payment_method)
       `)
       .eq('id', orderItemId)
-      .eq('vendor_profile_id', vendorProfile.id)
       .single()
 
     if (!orderItem) {
+      throw traced.notFound('ERR_ORDER_001', 'Order item not found', { orderItemId })
+    }
+
+    const orderVerticalIdForProfile = (orderItem.order as unknown as { vertical_id: string }).vertical_id
+
+    // Get vendor profile scoped to this order's vertical
+    crumb.supabase('select', 'vendor_profiles')
+    const { profile: vendorProfile } = await getVendorProfileForVertical<{
+      id: string
+      profile_data: Record<string, unknown> | null
+      user_id: string
+    }>(supabase, user.id, orderVerticalIdForProfile, 'id, profile_data, user_id')
+
+    if (!vendorProfile) {
+      throw traced.notFound('ERR_AUTH_002', 'Vendor profile not found')
+    }
+
+    // Defense in depth — verify ownership
+    if (orderItem.vendor_profile_id !== vendorProfile.id) {
       throw traced.notFound('ERR_ORDER_001', 'Order item not found', { orderItemId })
     }
 

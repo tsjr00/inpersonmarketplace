@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 /**
  * GET /api/vendor/quality-findings?vertical=food_trucks
@@ -26,17 +27,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const vertical = searchParams.get('vertical')
 
-    // Get vendor profile
-    let profileQuery = supabase
-      .from('vendor_profiles')
-      .select('id')
-      .eq('user_id', user.id)
-
-    if (vertical) {
-      profileQuery = profileQuery.eq('vertical_id', vertical)
-    }
-
-    const { data: vendorProfile } = await profileQuery.maybeSingle()
+    // Multi-vertical safe vendor profile lookup via shared utility
+    const { profile: vendorProfile } = await getVendorProfileForVertical(
+      supabase,
+      user.id,
+      vertical
+    )
     if (!vendorProfile) {
       return NextResponse.json({ findings: [] })
     }

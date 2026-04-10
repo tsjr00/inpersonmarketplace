@@ -5,9 +5,10 @@ import Image from 'next/image'
 interface Props {
   currentImageUrl?: string | null
   onUploadSuccess?: (url: string) => void
+  vertical: string
 }
 
-export default function ProfileImageUpload({ currentImageUrl, onUploadSuccess }: Props) {
+export default function ProfileImageUpload({ currentImageUrl, onUploadSuccess, vertical }: Props) {
   const [uploading, setUploading] = useState(false)
   const [previewUrl, setPreviewUrl] = useState(currentImageUrl || '')
   const [error, setError] = useState('')
@@ -43,7 +44,7 @@ export default function ProfileImageUpload({ currentImageUrl, onUploadSuccess }:
       const formData = new FormData()
       formData.append('image', file)
 
-      const res = await fetch('/api/vendor/profile-image', {
+      const res = await fetch(`/api/vendor/profile-image?vertical=${vertical}`, {
         method: 'POST',
         body: formData
       })

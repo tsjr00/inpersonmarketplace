@@ -155,7 +155,7 @@ export default function DocumentsCertificationsSection({
       formData.append('category', itemKey)
       formData.append('doc_type', docType)
 
-      const res = await fetch('/api/vendor/onboarding/category-documents', {
+      const res = await fetch(`/api/vendor/onboarding/category-documents?vertical=${vertical}`, {
         method: 'POST',
         body: formData,
       })
@@ -179,7 +179,7 @@ export default function DocumentsCertificationsSection({
     const formData = new FormData()
     formData.append('document', file)
     try {
-      const res = await fetch('/api/vendor/profile/certifications/upload', {
+      const res = await fetch(`/api/vendor/profile/certifications/upload?vertical=${vertical}`, {
         method: 'POST',
         body: formData,
       })
@@ -249,7 +249,7 @@ export default function DocumentsCertificationsSection({
     setCertSaving(true)
     setCertMessage(null)
     try {
-      const res = await fetch('/api/vendor/profile/certifications', {
+      const res = await fetch(`/api/vendor/profile/certifications?vertical=${vertical}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ certifications }),

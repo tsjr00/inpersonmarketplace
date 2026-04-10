@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { sendNotification } from '@/lib/notifications/service'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -26,18 +27,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Get vendor profile with display name
-  const { data: vendor } = await supabase
-    .from('vendor_profiles')
-    .select('id, profile_data')
-    .eq('user_id', user.id)
-    .single()
-
-  if (!vendor) {
-    return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
-  }
-
-  // Get pickup with full details to verify ownership
+  // Get pickup first — need offering.vertical_id for multi-vertical vendor lookup
   const { data: pickup } = await supabase
     .from('market_box_pickups')
     .select(`
@@ -64,10 +54,23 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Pickup not found' }, { status: 404 })
   }
 
-  // Verify vendor owns this offering
   const subscription = pickup.subscription as any
   const offering = subscription?.offering
-  if (!offering || offering.vendor_profile_id !== vendor.id) {
+  if (!offering?.vertical_id) {
+    return NextResponse.json({ error: 'Pickup not found' }, { status: 404 })
+  }
+
+  // Get vendor profile scoped to this offering's vertical
+  const { profile: vendor } = await getVendorProfileForVertical<{
+    id: string
+    profile_data: Record<string, unknown> | null
+  }>(supabase, user.id, offering.vertical_id, 'id, profile_data')
+
+  if (!vendor) {
+    return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
+  }
+
+  if (offering.vendor_profile_id !== vendor.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 

@@ -9,6 +9,7 @@ import {
 import { withErrorTracing } from '@/lib/errors/with-error-tracing'
 import { TracedError } from '@/lib/errors/traced-error'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 import { getSubscriberDefault } from '@/lib/vendor-limits'
 
@@ -29,17 +30,13 @@ export async function GET(request: NextRequest) {
       throw new TracedError('ERR_AUTH_001', 'Unauthorized')
     }
 
-    // Get vendor profile — scoped to vertical if provided
+    // Get vendor profile — multi-vertical safe via shared utility
     const { searchParams } = new URL(request.url)
     const vertical = searchParams.get('vertical')
-    let vpQuery = supabase
-      .from('vendor_profiles')
-      .select('id, tier')
-      .eq('user_id', user.id)
-    if (vertical) {
-      vpQuery = vpQuery.eq('vertical_id', vertical)
-    }
-    const { data: vendor } = await vpQuery.single()
+    const { profile: vendor } = await getVendorProfileForVertical<{
+      id: string
+      tier: string
+    }>(supabase, user.id, vertical, 'id, tier')
 
     if (!vendor) {
       throw new TracedError('ERR_AUTH_003', 'Vendor not found', { userId: user.id })
@@ -168,14 +165,11 @@ export async function POST(request: NextRequest) {
     // Parse body once — reused below for offering fields
     const body = await request.json()
     const vertical = body.vertical
-    let vpPostQuery = supabase
-      .from('vendor_profiles')
-      .select('id, tier, vertical_id')
-      .eq('user_id', user.id)
-    if (vertical) {
-      vpPostQuery = vpPostQuery.eq('vertical_id', vertical)
-    }
-    const { data: vendor } = await vpPostQuery.single()
+    const { profile: vendor } = await getVendorProfileForVertical<{
+      id: string
+      tier: string
+      vertical_id: string
+    }>(supabase, user.id, vertical, 'id, tier, vertical_id')
 
     if (!vendor) {
       throw new TracedError('ERR_AUTH_003', 'Vendor not found', { userId: user.id })

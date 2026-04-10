@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 export async function POST(
   request: NextRequest,
@@ -24,41 +25,42 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get vendor profile with Stripe account status
-    const { data: vendorProfile } = await supabase
-      .from('vendor_profiles')
-      .select('id, stripe_account_id')
-      .eq('user_id', user.id)
-      .single()
-
-    if (!vendorProfile) {
-      return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
-    }
-
-    // Require Stripe setup before vendors can mark orders as ready (skip for external payment orders)
     const isProd = process.env.NODE_ENV === 'production'
-    // We'll check payment_method after fetching the order item below
 
-    // Verify vendor owns this order item and get buyer/order info for notification
+    // Fetch order item first — the joined order row provides vertical_id for multi-vertical vendor lookup
     const { data: orderItem } = await supabase
       .from('order_items')
       .select(`
         id,
         status,
+        vendor_profile_id,
         order:orders!inner(id, order_number, buyer_user_id, vertical_id, payment_method),
         listing:listings(title, vendor_profiles(profile_data)),
         market:markets!market_id(name)
       `)
       .eq('id', orderItemId)
-      .eq('vendor_profile_id', vendorProfile.id)
       .single()
 
     if (!orderItem) {
       return NextResponse.json({ error: 'Order item not found' }, { status: 404 })
     }
 
-    // Skip Stripe requirement for external payment orders
     const orderData = (orderItem as any).order as any
+
+    // Get vendor profile scoped to this order's vertical
+    const { profile: vendorProfile } = await getVendorProfileForVertical<{
+      id: string
+      stripe_account_id: string | null
+    }>(supabase, user.id, orderData.vertical_id, 'id, stripe_account_id')
+
+    if (!vendorProfile) {
+      return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
+    }
+
+    if (orderItem.vendor_profile_id !== vendorProfile.id) {
+      return NextResponse.json({ error: 'Order item not found' }, { status: 404 })
+    }
+
     const isExternalPayment = orderData?.payment_method && orderData.payment_method !== 'stripe'
     if (isProd && !isExternalPayment && !vendorProfile.stripe_account_id) {
       return NextResponse.json({

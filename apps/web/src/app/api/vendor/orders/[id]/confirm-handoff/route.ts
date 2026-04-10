@@ -10,6 +10,7 @@ import {
   calculateAutoDeductAmount,
   recordFeeCredit
 } from '@/lib/payments/vendor-fees'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -34,19 +35,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       throw traced.auth('ERR_AUTH_001', 'Not authenticated')
     }
 
-    // Get vendor profile with Stripe account status
-    crumb.supabase('select', 'vendor_profiles')
-    const { data: vendorProfile } = await supabase
-      .from('vendor_profiles')
-      .select('id, stripe_account_id, stripe_payouts_enabled')
-      .eq('user_id', user.id)
-      .single()
-
-    if (!vendorProfile) {
-      throw traced.notFound('ERR_ORDER_001', 'Vendor not found')
-    }
-
-    // Get order item with buyer/order info for notification
+    // Fetch order item first — the joined order row provides vertical_id for multi-vertical vendor lookup
     crumb.supabase('select', 'order_items')
     const { data: orderItem, error: fetchError } = await supabase
       .from('order_items')
@@ -57,10 +46,28 @@ export async function POST(request: NextRequest, context: RouteContext) {
         listing:listings(title, vendor_profiles(profile_data))
       `)
       .eq('id', orderItemId)
-      .eq('vendor_profile_id', vendorProfile.id)
       .single()
 
     if (fetchError || !orderItem) {
+      throw traced.notFound('ERR_ORDER_001', 'Order item not found', { orderItemId })
+    }
+
+    const orderVerticalId = ((orderItem as any).order as { vertical_id: string }).vertical_id
+
+    // Get vendor profile scoped to this order's vertical
+    crumb.supabase('select', 'vendor_profiles')
+    const { profile: vendorProfile } = await getVendorProfileForVertical<{
+      id: string
+      stripe_account_id: string | null
+      stripe_payouts_enabled: boolean | null
+    }>(supabase, user.id, orderVerticalId, 'id, stripe_account_id, stripe_payouts_enabled')
+
+    if (!vendorProfile) {
+      throw traced.notFound('ERR_ORDER_001', 'Vendor not found')
+    }
+
+    // Defense in depth — verify ownership
+    if (orderItem.vendor_profile_id !== vendorProfile.id) {
       throw traced.notFound('ERR_ORDER_001', 'Order item not found', { orderItemId })
     }
 
@@ -87,7 +94,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (!isExternalPayment && isProd && hasStripe && !vendorProfile.stripe_payouts_enabled) {
       crumb.logic('Cached stripe_payouts_enabled is falsy, checking live status')
       try {
-        const liveStatus = await getAccountStatus(vendorProfile.stripe_account_id)
+        const liveStatus = await getAccountStatus(vendorProfile.stripe_account_id!)
         await supabase
           .from('vendor_profiles')
           .update({
@@ -95,7 +102,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             stripe_payouts_enabled: liveStatus.payoutsEnabled,
             stripe_onboarding_complete: liveStatus.detailsSubmitted,
           })
-          .eq('user_id', user.id)
+          .eq('id', vendorProfile.id)
 
         if (!liveStatus.payoutsEnabled) {
           throw traced.validation('ERR_ORDER_005', 'Your Stripe account is not yet enabled for payouts. Please complete your Stripe verification before confirming handoffs.')
@@ -236,7 +243,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       try {
         const transfer = await transferToVendor({
           amount: actualPayoutCents,
-          destination: vendorProfile.stripe_account_id,
+          destination: vendorProfile.stripe_account_id!,
           orderId: orderItem.order_id,
           orderItemId: orderItem.id,
         })

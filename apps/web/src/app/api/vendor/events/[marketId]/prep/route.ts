@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 interface RouteContext {
   params: Promise<{ marketId: string }>
@@ -29,16 +30,26 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const { marketId } = await context.params
     const serviceClient = createServiceClient()
 
+    // Fetch the market's vertical so we can scope vendor_profiles lookup correctly for multi-vertical vendors
+    const { data: marketInfo } = await serviceClient
+      .from('markets')
+      .select('vertical_id')
+      .eq('id', marketId)
+      .single()
+
+    if (!marketInfo) {
+      return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+    }
+
     // Verify vendor is accepted at this event
-    const { data: vendorProfile } = await supabase
-      .from('vendor_profiles')
-      .select('id')
-      .eq('user_id', user.id)
-      .limit(1)
-      .maybeSingle()
+    const { profile: vendorProfile } = await getVendorProfileForVertical(
+      supabase,
+      user.id,
+      marketInfo.vertical_id
+    )
 
     if (!vendorProfile) {
-      return NextResponse.json({ error: 'Vendor profile not found' }, { status: 403 })
+      return NextResponse.json({ error: 'Vendor profile not found for this vertical' }, { status: 403 })
     }
 
     const { data: marketVendor } = await serviceClient

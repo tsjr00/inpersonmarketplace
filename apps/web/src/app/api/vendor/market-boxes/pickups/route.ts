@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 /**
  * GET /api/vendor/market-boxes/pickups
@@ -20,23 +21,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get vendor profile
-    const { data: vendor } = await supabase
-      .from('vendor_profiles')
-      .select('id')
-      .eq('user_id', user.id)
-      .single()
-
-    if (!vendor) {
-      return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
-    }
-
     // Get query params for filtering
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status') // single or comma-separated: scheduled,ready,picked_up,missed
     const offeringId = searchParams.get('offering_id')
     const marketId = searchParams.get('market_id') // filter by pickup market
     const upcoming = searchParams.get('upcoming') === 'true'
+    const vertical = searchParams.get('vertical')
+
+    // Multi-vertical safe vendor profile lookup via shared utility
+    const { profile: vendor } = await getVendorProfileForVertical(
+      supabase,
+      user.id,
+      vertical
+    )
+
+    if (!vendor) {
+      return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
+    }
 
     // Get vendor's offering IDs (optionally filtered by market)
     let offeringsQuery = supabase

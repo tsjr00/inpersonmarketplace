@@ -4,6 +4,7 @@ import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { restoreInventory } from '@/lib/inventory'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -34,18 +35,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       throw traced.auth('ERR_AUTH_001', 'Not authenticated')
     }
 
-    // Get vendor profile
-    const { data: vendorProfile } = await supabase
-      .from('vendor_profiles')
-      .select('id, profile_data, user_id')
-      .eq('user_id', user.id)
-      .single()
-
-    if (!vendorProfile) {
-      throw traced.notFound('ERR_AUTH_002', 'Vendor profile not found')
-    }
-
-    // Get the order
+    // Get the order first — need vertical_id for multi-vertical vendor lookup
     crumb.supabase('select', 'orders')
     const { data: order } = await supabase
       .from('orders')
@@ -55,6 +45,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     if (!order) {
       throw traced.notFound('ERR_ORDER_001', 'Order not found')
+    }
+
+    // Get vendor profile scoped to this order's vertical
+    const { profile: vendorProfile } = await getVendorProfileForVertical<{
+      id: string
+      profile_data: Record<string, unknown> | null
+      user_id: string
+    }>(supabase, user.id, order.vertical_id, 'id, profile_data, user_id')
+
+    if (!vendorProfile) {
+      throw traced.notFound('ERR_AUTH_002', 'Vendor profile not found')
     }
 
     // Must be external payment
