@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/config'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/vendor/subscription/downgrade-free', 'POST', async () => {
@@ -24,13 +25,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Vertical is required.' }, { status: 400 })
     }
 
-    // Get vendor profile
-    const { data: vendorProfile, error: vendorError } = await supabase
-      .from('vendor_profiles')
-      .select('id, tier, stripe_subscription_id')
-      .eq('user_id', user.id)
-      .eq('vertical_id', vertical)
-      .single()
+    // Multi-vertical safe vendor profile lookup via shared utility
+    const { profile: vendorProfile, error: vendorError } = await getVendorProfileForVertical<{
+      id: string
+      tier: string | null
+      stripe_subscription_id: string | null
+    }>(supabase, user.id, vertical, 'id, tier, stripe_subscription_id')
 
     if (vendorError || !vendorProfile) {
       return NextResponse.json({ error: 'Vendor profile not found.' }, { status: 404 })

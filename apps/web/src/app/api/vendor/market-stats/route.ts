@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { isPremiumTier, getTierLimits } from '@/lib/vendor-limits'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 // GET - Get market stats for vendor (used in listing form)
 export async function GET(request: NextRequest) {
@@ -27,16 +28,15 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Vertical required' }, { status: 400 })
       }
 
-      // Get vendor profile with home market
-      const { data: vendorProfile, error: vpError } = await supabase
-        .from('vendor_profiles')
-        .select('id, tier, home_market_id')
-        .eq('user_id', user.id)
-        .eq('vertical_id', vertical)
-        .is('deleted_at', null)
-        .single()
+      // Multi-vertical safe vendor profile lookup via shared utility
+      const { profile: vendorProfile, error: vpError } = await getVendorProfileForVertical<{
+        id: string
+        tier: string | null
+        home_market_id: string | null
+        deleted_at: string | null
+      }>(supabase, user.id, vertical, 'id, tier, home_market_id, deleted_at')
 
-      if (vpError || !vendorProfile) {
+      if (vpError || !vendorProfile || vendorProfile.deleted_at !== null) {
         return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
       }
 

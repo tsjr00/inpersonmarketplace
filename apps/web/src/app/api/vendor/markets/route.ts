@@ -6,6 +6,7 @@ import { TracedError } from '@/lib/errors/traced-error'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { geocodeZipCode } from '@/lib/geocode'
 import { DEFAULT_CUTOFF_HOURS } from '@/lib/constants'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 // GET - Get vendor's markets
 export async function GET(request: NextRequest) {
@@ -28,16 +29,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Vertical required' }, { status: 400 })
     }
 
-    // Get vendor profile for this vertical (including home_market_id)
-    const { data: vendorProfile, error: vpError } = await supabase
-      .from('vendor_profiles')
-      .select('id, tier, home_market_id, status')
-      .eq('user_id', user.id)
-      .eq('vertical_id', vertical)
-      .is('deleted_at', null)
-      .single()
+    // Get vendor profile for this vertical — multi-vertical safe via shared utility
+    const { profile: vendorProfile, error: vpError } = await getVendorProfileForVertical<{
+      id: string
+      tier: string | null
+      home_market_id: string | null
+      status: string
+      deleted_at: string | null
+    }>(supabase, user.id, vertical, 'id, tier, home_market_id, status, deleted_at')
 
-    if (vpError || !vendorProfile) {
+    if (vpError || !vendorProfile || vendorProfile.deleted_at !== null) {
       return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
     }
 
@@ -272,16 +273,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'At least one pickup window is required' }, { status: 400 })
     }
 
-    // Get vendor profile with tier to check window limit
-    const { data: vendorProfileForTier, error: tierError } = await supabase
-      .from('vendor_profiles')
-      .select('id, tier')
-      .eq('user_id', user.id)
-      .eq('vertical_id', vertical)
-      .is('deleted_at', null)
-      .single()
+    // Get vendor profile with tier to check window limit — multi-vertical safe
+    const { profile: vendorProfileForTier, error: tierError } = await getVendorProfileForVertical<{
+      id: string
+      tier: string | null
+      deleted_at: string | null
+    }>(supabase, user.id, vertical, 'id, tier, deleted_at')
 
-    if (tierError || !vendorProfileForTier) {
+    if (tierError || !vendorProfileForTier || vendorProfileForTier.deleted_at !== null) {
       return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
     }
 

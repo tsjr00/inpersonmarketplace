@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 // GET /api/vendor/reviews - Get reviews for the vendor
 export async function GET(request: NextRequest) {
@@ -25,16 +26,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Vertical is required' }, { status: 400 })
     }
 
-    // Get vendor profile
-    const { data: vendorProfile, error: vpError } = await supabase
-      .from('vendor_profiles')
-      .select('id, average_rating, rating_count')
-      .eq('user_id', user.id)
-      .eq('vertical_id', vertical)
-      .is('deleted_at', null)
-      .single()
+    // Multi-vertical safe vendor profile lookup via shared utility
+    const { profile: vendorProfile, error: vpError } = await getVendorProfileForVertical<{
+      id: string
+      average_rating: number | null
+      rating_count: number | null
+      deleted_at: string | null
+    }>(supabase, user.id, vertical, 'id, average_rating, rating_count, deleted_at')
 
-    if (vpError || !vendorProfile) {
+    if (vpError || !vendorProfile || vendorProfile.deleted_at !== null) {
       return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
     }
 
