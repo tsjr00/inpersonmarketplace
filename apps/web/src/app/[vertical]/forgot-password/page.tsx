@@ -181,8 +181,11 @@ export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) 
           {t('forgot.title', locale)}
         </h2>
 
-        <p style={{ marginBottom: spacing.md, color: colors.textMuted, fontSize: typography.sizes.sm }}>
+        <p style={{ marginBottom: spacing.sm, color: colors.textMuted, fontSize: typography.sizes.sm }}>
           {t('forgot.instructions', locale)}
+        </p>
+        <p style={{ marginBottom: spacing.md, color: colors.textMuted, fontSize: typography.sizes.xs, fontStyle: 'italic' }}>
+          Your password is shared across all 815 Enterprises platforms (Farmers Marketing, Food Truck{"'"}n). Resetting it here updates your password everywhere.
         </p>
 
         {error && (

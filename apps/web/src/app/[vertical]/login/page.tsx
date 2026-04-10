@@ -101,23 +101,14 @@ export default function LoginPage({ params }: LoginPageProps) {
 
       const userVerticals = (profile?.verticals as string[] | null) || []
 
-      // Admins can access any vertical. Users with no verticals are new (allow).
-      if (!isAdmin && userVerticals.length > 0 && !userVerticals.includes(vertical)) {
-        // Check vendor_profiles fallback
-        const { data: vendorProfile } = await supabase
-          .from('vendor_profiles')
-          .select('id')
+      // Auto-add this vertical to user's profile if not already present
+      // Enables cross-vertical login: one account, multiple verticals
+      if (!isAdmin && !userVerticals.includes(vertical)) {
+        const updatedVerticals = [...userVerticals, vertical]
+        await supabase
+          .from('user_profiles')
+          .update({ verticals: updatedVerticals })
           .eq('user_id', data.user.id)
-          .eq('vertical_id', vertical)
-          .maybeSingle()
-
-        if (!vendorProfile) {
-          // User doesn't belong to this vertical — redirect to their home
-          const homeVertical = userVerticals[0]
-          router.push(`/${homeVertical}/dashboard${dashboardSuffix}`)
-          router.refresh()
-          return
-        }
       }
 
       router.push(`/${vertical}/dashboard${dashboardSuffix}`)

@@ -97,6 +97,14 @@ export default function SignupPage({ params }: SignupPageProps) {
       return
     }
 
+    // Supabase returns a user with empty identities when the email already exists
+    // (security behavior to prevent email enumeration)
+    if (data.user && data.user.identities?.length === 0) {
+      setError(`An account with this email already exists. Log in with your existing password to start using ${branding.brand_name}. Your password is the same across all 815 Enterprises platforms.`)
+      setLoading(false)
+      return
+    }
+
     if (data.user) {
       setSuccess(true)
       setTimeout(() => {
