@@ -2,7 +2,7 @@
 
 **Purpose:** Help future Claude sessions understand this project quickly and avoid repeating mistakes.
 
-**Last Updated:** 2026-03-30 (Session 66)
+**Last Updated:** 2026-04-11 (Session 70)
 
 ---
 
@@ -392,6 +392,7 @@ Migrations 001–041 applied to Dev, Staging, and Production. All in `supabase/m
 | 63 | 03-22→27 | **Multi-day session: 15 commits, 4 migrations (100-103)**. Unified docs & certifications (combined gate docs + profile certs). Two-phase vendor tutorials (Getting Approved + Your Dashboard). Complete self-service event system: event-type-aware viability scoring (3 models), admin lifecycle stepper, auto-approve → auto-match → auto-invite pipeline, organizer selection page with terms + QR code + marketing kit, vendor conflict detection, backup vendor escalation, cancellation flow, message relay, contact sharing opt-in. In-form vendor search/select widget. Instant organizer notification on response threshold. Prod push window rule (9PM-7AM CT). Stripe webhook 307 fix (Vercel domain primary). Vercel Auth on staging. See `.claude/session63_summary.md` for full details. |
 | 65 | 03-29 | **Production testing session: 21 commits, 1 migration (104)**. Admin panel RLS bug (9 pages). FM event readiness validation. COI upload on edit profile. Trial system disabled (feature flag). Event form: 6 new consideration fields + category multi-select. Viability scoring: FM synonyms, deal-breakers, warnings, differentiated scores, FM-neutral language. Admin events: per-vendor scoring UI, re-run auto match, skip reasons, service level badge. Vendor event invite: anonymization, FM language, event context. Communications rewrite: organizer email per-vertical, vendor invite per-vertical. Cron Phase 13: vendor gap alert at 24hr. Migration 006 applied to prod. See `.claude/session65_summary.md`. |
 | 66 | 03-30 | **Event cart fix + architecture refactor, 7 commits, 2 migrations (105-106)**. Fixed `get_available_pickup_dates()` 8-day window excluding event dates (migration 105). Moved event pages under `[vertical]` layout for CartProvider access — shop page rewritten to use `useCart()`. Added vendor order capacity caps (migration 106): FM total cap, FT wave-aware cap with profile defaults. Event lifecycle automation: cron Phases 14-15 auto-transition ready→active→review. Unfulfilled order check on completed. Cross-sell suppressed for events. "Continue Shopping" hidden for event cart. **INCIDENT: Cart API broken in prod** — cap enforcement added to `cart/items/route.ts` without explicit file-level approval. Immediate revert. New rule: `critical-path-files.md` — 13 protected files with mechanical gate. |
+| 70 | 04-10→11 | **Live cleanup + audit, 11 commits, no migrations. NOT pushed to prod.** Shared `getVendorProfileForVertical` utility + 30-route ERR_VENDOR_001 sweep. `getTraditionalMarketUsage` rewritten to query `listing_markets` junction (was querying non-existent `listings.market_id`, silently returning 0 → tier cap unenforced). Per-tier traditional market cap enforced: free=3 / pro=5 / boss=8, via new `POST /api/vendor/listings/[listingId]/markets`. Market detail page "0 vendors" bug fixed by extracting vendors-with-listings to `src/lib/markets/` and bypassing the Vercel-Auth-blocked self-fetch (`1d695beb`). Protocol 8 added (Error Log Review at every kickoff). Playwright `actionTimeout` 10→30s. **INCIDENT (investigation, not code):** spent 4 rounds speculating about market-page bug root cause — filter mismatch, RLS, deleted_at, edge cache — all disproved. The fix (`1d695beb`) was already shipped; symptom was staging deploy propagation lag. Lesson: read direct page output before hypothesizing. See `feedback_verify_output_before_hypothesizing.md`. |
 
 ---
 
@@ -415,6 +416,9 @@ Migrations 001–041 applied to Dev, Staging, and Production. All in `supabase/m
 - **All branches synced**: main = origin/main = staging (as of Session 40)
 - **Dev out of sync**: Migrations 039-041 on Staging+Prod. Dev needs these applied. Also 105 failed on dev (missing event columns — migration 039 never applied to dev).
 - **Events feature**: Shopping flow working end-to-end on prod (Session 66). Lifecycle auto-transitions via cron. Vendor capacity caps designed + columns added, enforcement pending reimplementation.
+- **3 vendor routes still use direct `vendor_profiles .single()` (Session 70 finding, not fixed)**: `api/vendor/cover-image/route.ts:21`, `api/vendor/stripe/onboard/route.ts:28`, `api/vendor/stripe/status/route.ts:26`. Will 500 for multi-vertical users without `?vertical=` param. Same migration pattern as the 30 routes already shipped — pick up in a later session.
+- **Dead endpoint `/api/analytics/vitals`**: Web Vitals client reporter fires a 404 on every page load. Either add the route or remove the reporter.
+- **11 Session 70 commits on local main not on prod**: User chose not to push after the session spent time going in circles on an investigation. Ready to push after a confidence-building session.
 
 ---
 
