@@ -1,0 +1,7 @@
+#!/bin/sh
+# Pre-push hook — runs Playwright e2e smoke tests before pushing to any remote.
+# Moved here from pre-commit so commit velocity isn't blocked by Turbopack
+# cold-compile stalls in the Next.js dev server that Playwright spins up.
+# CI still runs the full suite regardless of local hooks.
+cd apps/web
+npx playwright test
