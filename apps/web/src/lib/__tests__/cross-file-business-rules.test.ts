@@ -244,7 +244,12 @@ describe('BR-6: Access code generated, stored, and verified consistently', () =>
   })
 
   it('shop API returns requires_access_code flag', () => {
-    const code = readFile('app/api/events/[token]/shop/route.ts')
+    // Session 70: shop data logic extracted to lib/events/shop-data.ts — the
+    // route is a thin wrapper, so field-presence assertions check both files.
+    const code =
+      readFile('app/api/events/[token]/shop/route.ts') +
+      '\n' +
+      readFile('lib/events/shop-data.ts')
     expect(code).toContain('requires_access_code')
   })
 })
@@ -264,7 +269,11 @@ describe('BR-7: Hybrid dollar cap flows from form to settlement', () => {
   })
 
   it('shop API returns company_max_per_attendee_cents', () => {
-    const code = readFile('app/api/events/[token]/shop/route.ts')
+    // Session 70: see note on BR-6 above — shop data logic extracted to lib.
+    const code =
+      readFile('app/api/events/[token]/shop/route.ts') +
+      '\n' +
+      readFile('lib/events/shop-data.ts')
     expect(code).toContain('company_max_per_attendee_cents')
   })
 

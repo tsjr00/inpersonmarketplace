@@ -162,16 +162,22 @@ describe('Frontend-backend param contracts', () => {
     expect(routeCode).toContain('vendor_profile_id')
   })
 
-  it('shop API returns payment_model in response', () => {
+  // Session 70: The shop API data logic was extracted to src/lib/events/shop-data.ts.
+  // The route file is now a thin HTTP wrapper — it calls the lib and spreads the
+  // result into the response. Field-presence assertions must check BOTH files
+  // because the string literals for the response fields now live in the lib.
+  const shopApiCode = () => {
     const routePath = path.join(APP_DIR, 'api/events/[token]/shop/route.ts')
-    const routeCode = fs.readFileSync(routePath, 'utf-8')
-    expect(routeCode).toContain('payment_model')
+    const libPath = path.join(APP_DIR, '..', 'lib', 'events', 'shop-data.ts')
+    return fs.readFileSync(routePath, 'utf-8') + '\n' + fs.readFileSync(libPath, 'utf-8')
+  }
+
+  it('shop API returns payment_model in response', () => {
+    expect(shopApiCode()).toContain('payment_model')
   })
 
   it('shop API returns company_max_per_attendee_cents for hybrid events', () => {
-    const routePath = path.join(APP_DIR, 'api/events/[token]/shop/route.ts')
-    const routeCode = fs.readFileSync(routePath, 'utf-8')
-    expect(routeCode).toContain('company_max_per_attendee_cents')
+    expect(shopApiCode()).toContain('company_max_per_attendee_cents')
   })
 })
 
