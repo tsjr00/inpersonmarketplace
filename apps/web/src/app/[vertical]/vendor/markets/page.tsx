@@ -466,7 +466,7 @@ export default function VendorMarketsPage() {
                         padding: '8px 12px',
                         borderBottom: idx < availableMarkets.length - 1 ? `1px solid ${statusColors.neutral100}` : 'none',
                         cursor: 'pointer',
-                        backgroundColor: market.hasAttendance ? statusColors.successLight : 'white'
+                        backgroundColor: market.hasListings ? statusColors.successLight : 'white'
                       }}
                       onClick={() => setExpandedMarketIds(prev => { const next = new Set(prev); next.add(market.id); return next })}
                     >
@@ -482,7 +482,7 @@ export default function VendorMarketsPage() {
                           {market.city}, {market.state}
                         </span>
                       </div>
-                      {market.hasAttendance && (
+                      {market.hasListings && (
                         <span style={{
                           fontSize: 11,
                           color: statusColors.success,

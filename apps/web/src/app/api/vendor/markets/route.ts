@@ -88,6 +88,34 @@ export async function GET(request: NextRequest) {
       (attendanceData || []).map(a => a.market_id as string)
     )
 
+    // Query markets where vendor actually has current commerce:
+    // published listings OR active market boxes. Drives the "Active" badge
+    // in the UI so vendors see which markets are producing sales right now
+    // vs. merely enrolled (attendance row only). Separate from the attendance
+    // set above, which persists across listing churn and drives FT pickup
+    // availability via get_available_pickup_dates.
+    const [listingMarketsRes, activeBoxesRes] = await Promise.all([
+      supabase
+        .from('listing_markets')
+        .select('market_id, listings!inner(vendor_profile_id, status, deleted_at)')
+        .eq('listings.vendor_profile_id', vendorProfile.id)
+        .eq('listings.status', 'published')
+        .is('listings.deleted_at', null),
+      supabase
+        .from('market_box_offerings')
+        .select('pickup_market_id')
+        .eq('vendor_profile_id', vendorProfile.id)
+        .eq('active', true),
+    ])
+
+    const marketsWithListings = new Set<string>()
+    for (const row of listingMarketsRes.data || []) {
+      if (row.market_id) marketsWithListings.add(row.market_id as string)
+    }
+    for (const box of activeBoxesRes.data || []) {
+      if (box.pickup_market_id) marketsWithListings.add(box.pickup_market_id as string)
+    }
+
     // Build a lookup of vendor-specific times by schedule_id
     const vendorTimesBySchedule = new Map<string, { start: string; end: string }>()
     for (const a of attendanceData || []) {
@@ -115,7 +143,8 @@ export async function GET(request: NextRequest) {
         return {
           ...m,
           market_schedules: schedules,
-          hasAttendance: marketsWithAttendance.has(m.id)
+          hasAttendance: marketsWithAttendance.has(m.id),
+          hasListings: marketsWithListings.has(m.id),
         }
       })
 
@@ -139,7 +168,8 @@ export async function GET(request: NextRequest) {
         // POST /api/vendor/listings/[listingId]/markets. Kept for backward compat.
         canUse: true,
         homeMarketRestricted: false,
-        hasAttendance: marketsWithAttendance.has(m.id)
+        hasAttendance: marketsWithAttendance.has(m.id),
+        hasListings: marketsWithListings.has(m.id),
       }
     })
 
