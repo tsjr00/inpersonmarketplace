@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/vendor/cover-image', 'POST', async () => {
@@ -16,14 +17,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get vendor profile (with vertical filter if provided)
     const vertical = request.nextUrl.searchParams.get('vertical')
-    let vpQuery = supabase.from('vendor_profiles').select('id').eq('user_id', user.id)
-    if (vertical) vpQuery = vpQuery.eq('vertical_id', vertical)
-    const { data: vendor } = await vpQuery.single()
+    const { profile: vendor, error: vpError } = await getVendorProfileForVertical<{ id: string }>(
+      supabase,
+      user.id,
+      vertical
+    )
 
-    if (!vendor) {
-      return NextResponse.json({ error: 'No vendor profile found' }, { status: 404 })
+    if (vpError || !vendor) {
+      return NextResponse.json(
+        { error: vpError || 'No vendor profile found', code: 'ERR_VENDOR_001' },
+        { status: 404 }
+      )
     }
 
     const formData = await request.formData()
