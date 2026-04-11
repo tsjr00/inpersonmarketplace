@@ -269,8 +269,17 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       throw traced.fromSupabase(countError, { operation: 'rpc', function: 'get_vendor_listing_count_at_market' })
     }
 
-    if (listingCount > 0) {
-      throw traced.validation('ERR_MARKET_002', 'Cannot delete market with active listings. Remove listings first.')
+    // Expired private pickups (one-time events) can be deleted with
+    // auto-unassignment of their listings. For non-expired markets, the
+    // vendor must manually remove listings first to avoid accidental
+    // data loss.
+    const isExpired = market.expires_at && new Date(market.expires_at as string) < new Date()
+
+    if (listingCount > 0 && !isExpired) {
+      throw traced.validation(
+        'ERR_MARKET_002',
+        'Cannot delete market with active listings. Remove listings first. (Expired one-time-event markets can be deleted — their listings will be automatically unassigned.)'
+      )
     }
 
     // Check for pending orders at this market (Phase 6: Schedule deletion protection)
@@ -292,6 +301,27 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         `Cannot delete this location while ${pendingOrderCount} order${pendingOrderCount !== 1 ? 's are' : ' is'} pending. Please fulfill or cancel pending orders first.`,
         { pendingOrderCount }
       )
+    }
+
+    // For expired markets with listings, auto-unassign the listings from
+    // this market before deleting. Listings continue to exist and may
+    // still reference other markets; if a listing is left with zero
+    // markets, it remains in the DB but will not appear in browse queries
+    // (they all join listing_markets). Vendor can reassign or delete it
+    // later from the listings page.
+    if (listingCount > 0 && isExpired) {
+      crumb.supabase('delete', 'listing_markets', { reason: 'market_expired' })
+      const { error: unassignError } = await supabase
+        .from('listing_markets')
+        .delete()
+        .eq('market_id', marketId)
+
+      if (unassignError) {
+        throw traced.fromSupabase(unassignError, {
+          table: 'listing_markets',
+          operation: 'delete',
+        })
+      }
     }
 
     crumb.supabase('delete', 'markets')
