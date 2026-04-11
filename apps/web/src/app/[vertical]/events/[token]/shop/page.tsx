@@ -868,17 +868,24 @@ export default function EventShopPage() {
                         backgroundColor: statusColors.neutral50,
                         borderBottom: `1px solid ${statusColors.neutral200}`,
                         display: 'flex',
-                        alignItems: 'center',
+                        alignItems: 'flex-start',
                         gap: spacing.sm,
                       }}>
                         {vendor.profile_image_url && (
-                          <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
-                            <Image src={vendor.profile_image_url} alt={vendor.business_name} width={40} height={40} style={{ objectFit: 'cover' }} />
+                          <div style={{ width: 48, height: 48, borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
+                            <Image src={vendor.profile_image_url} alt={vendor.business_name} width={48} height={48} style={{ objectFit: 'cover' }} />
                           </div>
                         )}
-                        <h3 style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: statusColors.neutral800, margin: 0 }}>
-                          {vendor.business_name}
-                        </h3>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <h3 style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: statusColors.neutral800, margin: 0 }}>
+                            {vendor.business_name}
+                          </h3>
+                          {vendor.description && (
+                            <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, margin: `4px 0 0`, lineHeight: 1.45 }}>
+                              {vendor.description.length > 200 ? vendor.description.slice(0, 200) + '...' : vendor.description}
+                            </p>
+                          )}
+                        </div>
                       </div>
 
                       {/* Listings — radio-style selection (one item across all vendors) */}
@@ -1096,21 +1103,21 @@ export default function EventShopPage() {
                 backgroundColor: statusColors.neutral50,
                 borderBottom: `1px solid ${statusColors.neutral200}`,
                 display: 'flex',
-                alignItems: 'center',
+                alignItems: 'flex-start',
                 gap: spacing.sm,
               }}>
                 {vendor.profile_image_url && (
-                  <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
-                    <Image src={vendor.profile_image_url} alt={vendor.business_name} width={40} height={40} style={{ objectFit: 'cover' }} />
+                  <div style={{ width: 48, height: 48, borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
+                    <Image src={vendor.profile_image_url} alt={vendor.business_name} width={48} height={48} style={{ objectFit: 'cover' }} />
                   </div>
                 )}
-                <div>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <h2 style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: statusColors.neutral800, margin: 0 }}>
                     {vendor.business_name}
                   </h2>
                   {vendor.description && (
-                    <p style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, margin: `2px 0 0`, lineHeight: 1.4 }}>
-                      {vendor.description.length > 100 ? vendor.description.slice(0, 100) + '...' : vendor.description}
+                    <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, margin: `4px 0 0`, lineHeight: 1.45 }}>
+                      {vendor.description.length > 200 ? vendor.description.slice(0, 200) + '...' : vendor.description}
                     </p>
                   )}
                 </div>
@@ -1173,8 +1180,8 @@ export default function EventShopPage() {
                               )}
                               {/* In-cart indicator */}
                               {inCartQty > 0 && qty === 0 && (
-                                <div style={{ fontSize: 10, color: '#166534', marginTop: 2 }}>
-                                  {inCartQty} in cart
+                                <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: '#166534', marginTop: 6 }}>
+                                  ✓ {inCartQty} in cart
                                 </div>
                               )}
                               {/* Quantity selector */}
