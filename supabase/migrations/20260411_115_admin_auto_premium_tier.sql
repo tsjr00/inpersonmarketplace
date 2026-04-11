@@ -27,9 +27,12 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  IF NEW.role IN ('admin', 'platform_admin')
-     OR 'admin' = ANY(COALESCE(NEW.roles, ARRAY[]::text[]))
-     OR 'platform_admin' = ANY(COALESCE(NEW.roles, ARRAY[]::text[]))
+  -- user_profiles.role is user_role (enum); user_profiles.roles is user_role[].
+  -- Use native enum comparisons (cast string literals to user_role) and the
+  -- array-overlap operator && to check if NEW.roles contains any admin role.
+  -- NULL roles are NULL-safe: NULL && anything = NULL = falsy in IF context.
+  IF NEW.role IN ('admin'::user_role, 'platform_admin'::user_role)
+     OR NEW.roles && ARRAY['admin', 'platform_admin']::user_role[]
   THEN
     NEW.buyer_tier := 'premium';
     NEW.buyer_tier_expires_at := NULL;
@@ -54,9 +57,8 @@ UPDATE public.user_profiles
 SET buyer_tier = 'premium',
     buyer_tier_expires_at = NULL
 WHERE (
-  role IN ('admin', 'platform_admin')
-  OR 'admin' = ANY(COALESCE(roles, ARRAY[]::text[]))
-  OR 'platform_admin' = ANY(COALESCE(roles, ARRAY[]::text[]))
+  role IN ('admin'::user_role, 'platform_admin'::user_role)
+  OR roles && ARRAY['admin', 'platform_admin']::user_role[]
 )
 AND (buyer_tier IS NULL OR buyer_tier != 'premium');
 
