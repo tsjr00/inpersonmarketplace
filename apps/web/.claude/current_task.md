@@ -1,74 +1,58 @@
-# Current Task: Session 69 — Vendor Fee Discount System
-Updated: 2026-04-07
+# Current Task: Session 70 — Live Cleanup and Audit
+Updated: 2026-04-11
 
-## Status: All 6 implementation steps complete. Awaiting migration apply + commit.
+## Goal
+Identify conflicts, gaps, and bad code affecting live users. Set up
+error/problem logging as an ongoing process. Fix recurring issues that
+prior sessions claimed to fix but didn't.
 
-## What Was Built
+## Status
+In progress. Most Session 70 commits shipped to staging via merge
+`22a31dfe`. None on origin/main (prod) yet.
 
-### Vendor Fee Discount System (approved design from Session 68)
-Allows selective reduction of vendor platform fees (6.5% → 3.6% floor) for grant/partner vendors.
+## Shipped on local main (not prod)
+- `5f3dc456` — shared `getVendorProfileForVertical` utility + unit tests
+- `20f3cd26` / `418d8f7c` / `95f0944f` — ERR_VENDOR_001 multi-vertical sweep (30+ routes + clients)
+- `8a145a4b` — 7 events routes adopt shared helper
+- `7de82c40` — `getTraditionalMarketUsage` now queries `listing_markets` junction (was querying non-existent `listings.market_id`, silently returning 0 → tier cap was unenforced)
+- `c35c4ba2` — per-tier traditional market cap: free=3 / pro=5 / boss=8. New `POST /api/vendor/listings/[listingId]/markets` endpoint. `market-stats` + `ListingForm` adopt new contract.
+- `40284ecb` — Playwright `actionTimeout` 10s → 30s
+- `1d695beb` — market detail page: extract vendors-with-listings to lib. **This was the real fix for the "market profile shows 0 vendors" bug.** Verified 2026-04-11 via live HTML response on staging: all 7 Amarillo vendors rendered, `x-vercel-cache: MISS`, function runs in `iad1`.
+- `dfd01923` — Protocol 8 (Error Log Review at every kickoff) added
+- Session 69 carryover: migration 114 (vendor fee discount) applied all 3 envs, verified in current code
 
-**Migration 114** — `20260407_114_vendor_fee_discount.sql`
-- `vendor_fee_override_percent` NUMERIC (nullable, CHECK 3.6–6.5)
-- `fee_discount_code` TEXT
-- `fee_discount_approved_by` UUID REFERENCES auth.users(id)
-- `fee_discount_approved_at` TIMESTAMPTZ
-- **STATUS: NOT YET APPLIED — need to run on Dev + Staging before testing**
+## Uncommitted working tree
+- `MarketSelector.tsx` — tooltip + tier-cap explainer box. User decision: "can it wait."
 
-**pricing.ts** (critical-path, additive only)
-- `VENDOR_FEE_FLOOR = 3.6` constant
-- `getEffectiveVendorFeePercent(overridePercent)` — clamps null→6.5, below floor→3.6, above max→6.5
+## Open findings from 2026-04-11 code review (nothing changed yet)
+- 3 routes still use direct `vendor_profiles.single()` and will 500 for multi-vertical users without `?vertical=` param:
+  - `src/app/api/vendor/cover-image/route.ts:21`
+  - `src/app/api/vendor/stripe/onboard/route.ts:28`
+  - `src/app/api/vendor/stripe/status/route.ts:26`
+- Dead endpoint: `POST /api/analytics/vitals` returns 404 on every page load (Web Vitals client reporter)
+- `/api/manifest` returns 14 KB Vercel SSO HTML on unauthenticated requests — breaks PWA manifest parser on staging before SSO cookie is set
+- CSP blocks `vercel.live/_next-live/feedback/feedback.js` — noisy console, not fatal
+- `CLAUDE_CONTEXT.md` last updated Session 66. No entries for 67/68/69/70. FM tier limits section is out of sync with unified free/pro/boss in `vendor-limits.ts`.
+- Backlog entry "market_vendors stale in SCHEMA_SNAPSHOT.md" is itself stale — snapshot was rebuilt 2026-04-05.
 
-**checkout/session/route.ts** (critical-path)
-- Fetches `vendor_fee_override_percent` alongside existing Stripe account validation query
-- Uses `getEffectiveVendorFeePercent()` for vendor payout calculation
-- Buyer fees, flat fees, display prices all untouched
+## Disproved during review (do not re-investigate without new evidence)
+Four hypotheses for "market profile shows 0 vendors" were raised and
+disproved by admin SQL + staging HTML inspection:
+1. `vendor_profiles.status='approved'` filter mismatch — all 7 vendors approved
+2. RLS on `vendor_profiles` blocking reads — public SELECT allows approved+not-deleted
+3. `vendor_profiles.deleted_at` set — all 7 null
+4. Force-dynamic / edge-cache theory — `x-vercel-cache: MISS`, function runs dynamically
 
-**Vendor Settings UI**
-- `ProfileEditForm.tsx` — "Partner / Grant Code" text input
-- `/api/vendor/profile` PATCH — accepts `fee_discount_code`
+The `1d695beb` refactor alone fixed the bug. Earlier staged
+`export const dynamic = 'force-dynamic'` on `page.tsx` was unnecessary
+and has been discarded. The "0 → 7" transition most likely reflects
+staging deploy propagation lag — unproven but no code change needed.
 
-**Admin UI**
-- `VendorFeeOverride.tsx` component on admin vendor detail page
-- Shows discount code (if vendor entered one)
-- Input for fee rate (3.6%–6.5%) with Set/Clear buttons
-- Confirmation dialog before save
-- Records `fee_discount_approved_by` + `fee_discount_approved_at`
-- `PATCH /api/admin/vendors/[id]/fee-override` endpoint
+## Decisions log entries added
+- 2026-04-10: Server components must not fetch their own API routes via HTTP (already in `decisions.md`)
 
-**Tests** — 19 new tests (1433 → 1452 total)
-- 11 unit tests for `getEffectiveVendorFeePercent` in pricing.test.ts
-- 7 cross-file BR-14 tests verifying floor consistency across pricing, migration, checkout
-- 1 constant test for VENDOR_FEE_FLOOR
+## Autonomy mode
+Report.
 
-## Files Modified
-- `supabase/migrations/20260407_114_vendor_fee_discount.sql` — NEW
-- `src/lib/pricing.ts` — added VENDOR_FEE_FLOOR + getEffectiveVendorFeePercent
-- `src/lib/__tests__/pricing.test.ts` — 11 new tests
-- `src/lib/__tests__/cross-file-business-rules.test.ts` — 7 new BR-14 tests
-- `src/app/api/checkout/session/route.ts` — vendor-specific fee rate in payout calc
-- `src/components/vendor/ProfileEditForm.tsx` — partner code input
-- `src/app/[vertical]/vendor/edit/page.tsx` — pass fee_discount_code to form
-- `src/app/api/vendor/profile/route.ts` — accept fee_discount_code
-- `src/app/api/admin/vendors/[id]/fee-override/route.ts` — NEW
-- `src/app/admin/vendors/[vendorId]/VendorFeeOverride.tsx` — NEW
-- `src/app/admin/vendors/[vendorId]/page.tsx` — import + render VendorFeeOverride
-
-## What Does NOT Change
-- FEES.vendorFeePercent constant (6.5%) — stays as default
-- FEES.buyerFeePercent (6.5%) — never touched
-- Flat fees ($0.15 each) — never touched
-- Display prices — unchanged
-- Fulfillment/payout routes — use stored vendor_payout_cents
-- Settlement reports — read stored values
-
-## Next Steps
-1. Apply migration 114 to Dev and Staging
-2. Commit all changes
-3. Push to staging for testing
-4. Test: set a vendor's fee override via admin, place an order, verify payout math
-5. Push to prod after staging verified
-
-## Rollback
-- Nuclear: `UPDATE vendor_profiles SET vendor_fee_override_percent = NULL;`
-- Per-step rollbacks documented in session conversation
+## Next step
+User decision: prod push of 10 shipped commits? Or continue with open findings?
