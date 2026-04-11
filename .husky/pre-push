@@ -3,5 +3,11 @@
 # Moved here from pre-commit so commit velocity isn't blocked by Turbopack
 # cold-compile stalls in the Next.js dev server that Playwright spins up.
 # CI still runs the full suite regardless of local hooks.
+#
+# --max-failures=1 stops the run after the first failing test. Without it,
+# a single broken test causes Playwright to plow through all remaining
+# tests hitting per-test timeouts, turning a 2-minute run into 20+ minutes
+# when things are flaky. One failure is all we need to know to fail the
+# push and diagnose.
 cd apps/web
-npx playwright test
+npx playwright test --max-failures=1
