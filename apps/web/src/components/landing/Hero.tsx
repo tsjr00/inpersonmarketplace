@@ -59,6 +59,29 @@ export function Hero({ vertical, initialCity, stats, locale }: HeroProps) {
   if (isFM) {
     return (
       <section>
+        {/*
+          Semantic page title — visually hidden, first in DOM.
+          The visually-prominent headline below is now an <h2> so this
+          stays the single page-level <h1>. Appears first in DOM for
+          reliable Playwright `locator('h1').first()` detection and
+          matches SEO best practice (h1 near top of document).
+        */}
+        <h1
+          style={{
+            position: 'absolute',
+            width: 1,
+            height: 1,
+            padding: 0,
+            margin: -1,
+            overflow: 'hidden',
+            clip: 'rect(0, 0, 0, 0)',
+            whiteSpace: 'nowrap',
+            border: 0,
+          }}
+        >
+          {hero.headline_line1} {hero.headline_line2}
+        </h1>
+
         {/* Watermelon top section with centered logo */}
         <div
           className="flex justify-center"
@@ -88,7 +111,7 @@ export function Hero({ vertical, initialCity, stats, locale }: HeroProps) {
 
           {/* Headline with equal padding above and below */}
           <div className="landing-container text-center">
-            <h1
+            <h2
               style={{
                 fontSize: typography.sizes['3xl'],
                 fontWeight: typography.weights.bold,
@@ -101,7 +124,7 @@ export function Hero({ vertical, initialCity, stats, locale }: HeroProps) {
             >
               {hero.headline_line1}{' '}
               {hero.headline_line2}
-            </h1>
+            </h2>
           </div>
 
           {/* Dotted line below headline */}
@@ -152,6 +175,26 @@ export function Hero({ vertical, initialCity, stats, locale }: HeroProps) {
         overflow: isFT ? 'hidden' : undefined,
       }}
     >
+      {/*
+        Semantic page title — visually hidden, first in DOM (same pattern
+        as the FM branch above). The visually-prominent headline below
+        is now an <h2>.
+      */}
+      <h1
+        style={{
+          position: 'absolute',
+          width: 1,
+          height: 1,
+          padding: 0,
+          margin: -1,
+          overflow: 'hidden',
+          clip: 'rect(0, 0, 0, 0)',
+          whiteSpace: 'nowrap',
+          border: 0,
+        }}
+      >
+        {hero.headline_line1} {hero.headline_line2}
+      </h1>
       <div
         className="w-full mx-auto"
         style={{
@@ -181,8 +224,8 @@ export function Hero({ vertical, initialCity, stats, locale }: HeroProps) {
             </>
           )}
 
-          {/* Headline */}
-          <h1
+          {/* Headline — visually an h2 (the sr-only h1 above is the semantic page title) */}
+          <h2
             style={{
               fontSize: typography.sizes['4xl'],
               fontWeight: typography.weights.bold,
@@ -201,7 +244,7 @@ export function Hero({ vertical, initialCity, stats, locale }: HeroProps) {
                 {hero.headline_line2}
               </span>
             </>
-          </h1>
+          </h2>
 
           {/* Location Entry */}
           <LocationEntry

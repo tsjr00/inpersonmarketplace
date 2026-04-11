@@ -228,7 +228,7 @@ test.describe('Event pages load', () => {
     await expect(page.locator('input[type="email"]').first()).toBeVisible()
   })
 
-  test('invalid event token returns not found', async ({ page }) => {
+  test('FM invalid event token returns not found', async ({ page }) => {
     await page.goto('/farmers_market/events/invalid-token-xyz')
     // Should show error or not-found state (not crash)
     await page.waitForLoadState('networkidle')
@@ -236,11 +236,38 @@ test.describe('Event pages load', () => {
     expect(content).toBeTruthy()
   })
 
-  test('invalid event token shop page handles gracefully', async ({ page }) => {
+  test('FM invalid event token shop page handles gracefully', async ({ page }) => {
     await page.goto('/farmers_market/events/invalid-token-xyz/shop')
     await page.waitForLoadState('networkidle')
     const content = await page.textContent('body')
     expect(content).toBeTruthy()
+  })
+
+  test('FT invalid event token returns not found', async ({ page }) => {
+    await page.goto('/food_trucks/events/invalid-token-xyz')
+    await page.waitForLoadState('networkidle')
+    const content = await page.textContent('body')
+    expect(content).toBeTruthy()
+  })
+
+  test('FT invalid event token shop page handles gracefully', async ({ page }) => {
+    await page.goto('/food_trucks/events/invalid-token-xyz/shop')
+    await page.waitForLoadState('networkidle')
+    const content = await page.textContent('body')
+    expect(content).toBeTruthy()
+  })
+
+  test('FM event shop page compiles (invalid token, check no server crash)', async ({ request }) => {
+    // Structural check: the shop page route must compile and respond.
+    // Uses request (not page) to avoid waiting on client hydration —
+    // we only care that the server didn't 5xx.
+    const res = await request.get('/farmers_market/events/invalid-token-xyz/shop')
+    expect(res.status()).toBeLessThan(500)
+  })
+
+  test('FT event shop page compiles (invalid token, check no server crash)', async ({ request }) => {
+    const res = await request.get('/food_trucks/events/invalid-token-xyz/shop')
+    expect(res.status()).toBeLessThan(500)
   })
 })
 
