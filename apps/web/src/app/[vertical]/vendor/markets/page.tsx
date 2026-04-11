@@ -489,7 +489,7 @@ export default function VendorMarketsPage() {
                           fontWeight: 600,
                           flexShrink: 0
                         }}>
-                          Active
+                          {vertical === 'food_trucks' ? 'Scheduled' : 'Active'}
                         </span>
                       )}
                     </div>

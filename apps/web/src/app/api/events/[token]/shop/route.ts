@@ -111,24 +111,31 @@ export async function GET(
 
     const allListingIds = [...new Set((allEvlRows || []).map(r => r.listing_id as string))]
 
-    // Fetch ALL listings in one call
+    // Fetch ALL listings in one call. Images come from the `listing_images`
+    // table (source of truth — same pattern the listing detail page, browse,
+    // and vendor profile use). The `listings.image_urls` text[] column is
+    // vestigial and is NOT populated by the current upload flow, so we
+    // embed listing_images via PostgREST nested select instead of reading
+    // it.
     const allListingMap: Record<string, typeof vendors[0]['listings'][0]> = {}
     if (allListingIds.length > 0) {
       const { data: allListingRows } = await supabase
         .from('listings')
-        .select('id, title, description, price_cents, image_urls, quantity, listing_data')
+        .select('id, title, description, price_cents, quantity, listing_data, listing_images (url, is_primary, display_order)')
         .in('id', allListingIds)
         .eq('status', 'published')
         .is('deleted_at', null)
 
       for (const l of allListingRows || []) {
         const ld = (l.listing_data as Record<string, unknown>) || {}
+        const images = (l.listing_images as { url: string; is_primary: boolean; display_order: number }[] | null) || []
+        const primary = images.find(img => img.is_primary) || images[0]
         allListingMap[l.id] = {
           id: l.id,
           title: l.title,
           description: l.description,
           price_cents: isAuthenticated ? (l.price_cents as number) : 0,
-          primary_image_url: (l.image_urls as string[] | null)?.[0] || null,
+          primary_image_url: primary?.url || null,
           quantity: isAuthenticated ? (l.quantity as number | null) : null,
           unit_label: (ld.unit_label as string) || null,
         }

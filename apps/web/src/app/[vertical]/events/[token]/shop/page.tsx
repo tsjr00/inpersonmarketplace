@@ -885,8 +885,8 @@ export default function EventShopPage() {
                       <div style={{ padding: spacing.sm }}>
                         <div style={{
                           display: 'grid',
-                          gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-                          gap: spacing.sm,
+                          gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                          gap: spacing.md,
                         }}>
                           {vendor.listings.map(listing => {
                             const isSelected = selectedListingId === listing.id
@@ -909,43 +909,43 @@ export default function EventShopPage() {
                                 }}
                               >
                                 {listing.primary_image_url ? (
-                                  <div style={{ width: '100%', height: 100, position: 'relative', backgroundColor: statusColors.neutral100 }}>
+                                  <div style={{ width: '100%', height: 180, position: 'relative', backgroundColor: statusColors.neutral100 }}>
                                     <Image src={listing.primary_image_url} alt={listing.title} fill style={{ objectFit: 'cover' }} />
                                     {isSelected && (
                                       <div style={{
-                                        position: 'absolute', top: 6, right: 6,
-                                        width: 24, height: 24, borderRadius: '50%',
+                                        position: 'absolute', top: 8, right: 8,
+                                        width: 28, height: 28, borderRadius: '50%',
                                         backgroundColor: accent, color: 'white',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        fontSize: 14, fontWeight: 'bold',
+                                        fontSize: 16, fontWeight: 'bold',
                                       }}>
                                         &#10003;
                                       </div>
                                     )}
                                   </div>
                                 ) : (
-                                  <div style={{ width: '100%', height: 60, backgroundColor: statusColors.neutral100, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                                    <span style={{ fontSize: 24, opacity: 0.3 }}>&#127857;</span>
+                                  <div style={{ width: '100%', height: 160, backgroundColor: statusColors.neutral100, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                                    <span style={{ fontSize: 48, opacity: 0.4 }}>&#127857;</span>
                                     {isSelected && (
                                       <div style={{
-                                        position: 'absolute', top: 6, right: 6,
-                                        width: 24, height: 24, borderRadius: '50%',
+                                        position: 'absolute', top: 8, right: 8,
+                                        width: 28, height: 28, borderRadius: '50%',
                                         backgroundColor: accent, color: 'white',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        fontSize: 14, fontWeight: 'bold',
+                                        fontSize: 16, fontWeight: 'bold',
                                       }}>
                                         &#10003;
                                       </div>
                                     )}
                                   </div>
                                 )}
-                                <div style={{ padding: spacing['2xs'] }}>
-                                  <div style={{ fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: statusColors.neutral800, lineHeight: 1.3 }}>
+                                <div style={{ padding: spacing.sm }}>
+                                  <div style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: statusColors.neutral800, lineHeight: 1.3 }}>
                                     {listing.title}
                                   </div>
                                   {listing.description && (
-                                    <div style={{ fontSize: 10, color: statusColors.neutral500, marginTop: 2, lineHeight: 1.3 }}>
-                                      {listing.description.length > 60 ? listing.description.slice(0, 60) + '...' : listing.description}
+                                    <div style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, marginTop: 6, lineHeight: 1.45 }}>
+                                      {listing.description.length > 200 ? listing.description.slice(0, 200) + '...' : listing.description}
                                     </div>
                                   )}
                                 </div>
@@ -1120,8 +1120,8 @@ export default function EventShopPage() {
               <div style={{ padding: spacing.sm }}>
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-                  gap: spacing.sm,
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                  gap: spacing.md,
                 }}>
                   {vendor.listings.map(listing => {
                     const qty = quantities[listing.id] || 0
@@ -1139,32 +1139,32 @@ export default function EventShopPage() {
                       }}>
                         {/* Image */}
                         {listing.primary_image_url ? (
-                          <div style={{ width: '100%', height: 100, position: 'relative', backgroundColor: statusColors.neutral100 }}>
+                          <div style={{ width: '100%', height: 180, position: 'relative', backgroundColor: statusColors.neutral100 }}>
                             <Image src={listing.primary_image_url} alt={listing.title} fill style={{ objectFit: 'cover' }} />
                           </div>
                         ) : (
-                          <div style={{ width: '100%', height: 60, backgroundColor: statusColors.neutral100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <span style={{ fontSize: 24, opacity: 0.3 }}>📦</span>
+                          <div style={{ width: '100%', height: 160, backgroundColor: statusColors.neutral100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <span style={{ fontSize: 48, opacity: 0.4 }}>📦</span>
                           </div>
                         )}
 
                         {/* Info */}
-                        <div style={{ padding: spacing['2xs'] }}>
-                          <h3 style={{ fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: statusColors.neutral800, margin: 0, lineHeight: 1.3 }}>
+                        <div style={{ padding: spacing.sm }}>
+                          <h3 style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: statusColors.neutral800, margin: 0, lineHeight: 1.3 }}>
                             {listing.title}
                           </h3>
                           {listing.description && (
-                            <p style={{ fontSize: 10, color: statusColors.neutral500, margin: `2px 0 0`, lineHeight: 1.3 }}>
-                              {listing.description.length > 60 ? listing.description.slice(0, 60) + '...' : listing.description}
+                            <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, margin: `6px 0 0`, lineHeight: 1.45 }}>
+                              {listing.description.length > 200 ? listing.description.slice(0, 200) + '...' : listing.description}
                             </p>
                           )}
 
                           {/* Price + quantity (logged in only) */}
                           {isLoggedIn ? (
-                            <div style={{ marginTop: spacing['2xs'] }}>
-                              <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: accent }}>
+                            <div style={{ marginTop: spacing.xs }}>
+                              <div style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: accent }}>
                                 {formatPrice(displayPrice)}
-                                {listing.unit_label && <span style={{ fontSize: 10, color: statusColors.neutral500, fontWeight: typography.weights.normal }}> / {listing.unit_label}</span>}
+                                {listing.unit_label && <span style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, fontWeight: typography.weights.normal }}> / {listing.unit_label}</span>}
                               </div>
                               {maxQty !== null && maxQty <= 10 && (
                                 <div style={{ fontSize: 10, color: '#d97706', marginTop: 1 }}>
