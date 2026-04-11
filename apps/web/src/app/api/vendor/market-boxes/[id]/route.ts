@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { canActivateMarketBox, formatLimitError } from '@/lib/vendor-limits'
+import {
+  canActivateMarketBox,
+  formatLimitError,
+  getTierLimits,
+  getTraditionalMarketUsage,
+} from '@/lib/vendor-limits'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
@@ -150,7 +155,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // Verify offering exists and get vertical_id for multi-vertical vendor lookup
     const { data: existing } = await supabase
       .from('market_box_offerings')
-      .select('id, vendor_profile_id, active, vertical_id')
+      .select('id, vendor_profile_id, active, vertical_id, pickup_market_id')
       .eq('id', offeringId)
       .single()
 
@@ -223,6 +228,41 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         return NextResponse.json({
           error: formatLimitError(activationCheck),
         }, { status: 403 })
+      }
+
+      // Also enforce per-tier traditional market cap on reactivation.
+      // canActivateMarketBox above only checks the total market box count;
+      // this check prevents reactivating a box at a traditional market when
+      // doing so would push the vendor's unique traditional market count
+      // past their tier cap. Same rules as the POST handler:
+      // over cap → block; at cap + new market → block; otherwise allow.
+      if (existing.pickup_market_id) {
+        const { data: targetMarket } = await supabase
+          .from('markets')
+          .select('market_type')
+          .eq('id', existing.pickup_market_id)
+          .single()
+
+        if (targetMarket?.market_type === 'traditional') {
+          // Current usage does NOT include this box (it's inactive right now)
+          const usage = await getTraditionalMarketUsage(supabase, vendor.id)
+          const tierLimits = getTierLimits(vendor.tier || 'free', vendor.vertical_id || undefined)
+
+          if (usage.count > tierLimits.traditionalMarkets) {
+            return NextResponse.json({
+              error: `You are currently at ${usage.count} traditional markets, over your ${tierLimits.traditionalMarkets} ${vendor.tier || 'free'} limit. Remove a listing or box from another market before reactivating.`,
+            }, { status: 403 })
+          }
+
+          if (
+            !usage.marketIds.includes(existing.pickup_market_id) &&
+            usage.count >= tierLimits.traditionalMarkets
+          ) {
+            return NextResponse.json({
+              error: `Market limit reached (${usage.count}/${tierLimits.traditionalMarkets}). Reactivating this box would bring you to ${usage.count + 1} traditional markets. Remove a listing or box from another market first, or upgrade your plan.`,
+            }, { status: 403 })
+          }
+        }
       }
     }
 
