@@ -30,6 +30,7 @@ export type Market = {
   canUse?: boolean
   homeMarketRestricted?: boolean
   hasAttendance?: boolean
+  hasListings?: boolean
   schedules?: Schedule[]
 }
 

@@ -5,6 +5,7 @@ import {
   canCreateMarketBox,
   canActivateMarketBox,
   formatLimitError,
+  getTraditionalMarketUsage,
 } from '@/lib/vendor-limits'
 import { withErrorTracing } from '@/lib/errors/with-error-tracing'
 import { TracedError } from '@/lib/errors/traced-error'
@@ -265,6 +266,31 @@ export async function POST(request: NextRequest) {
         pgCode: marketError?.code,
         pgDetail: marketError?.message,
       })
+    }
+
+    // For traditional markets, enforce the per-tier traditional market cap.
+    // The cap counts every unique traditional market where the vendor has
+    // published listings OR active market boxes. Creating a market box at a
+    // traditional market the vendor isn't already using would expand their
+    // footprint by one — reject if that would exceed the tier limit.
+    if (market.market_type === 'traditional') {
+      const usage = await getTraditionalMarketUsage(supabase, vendor.id)
+      if (!usage.marketIds.includes(pickup_market_id)) {
+        const tierLimits = getTierLimits(tier, vertical || undefined)
+        if (usage.count >= tierLimits.traditionalMarkets) {
+          throw new TracedError(
+            'ERR_MBOX_003',
+            `Market limit reached (${usage.count}/${tierLimits.traditionalMarkets}). Your ${tier} plan allows up to ${tierLimits.traditionalMarkets} traditional markets. Remove a listing or box from another market first, or upgrade your plan.`,
+            {
+              vendorId: vendor.id,
+              tier,
+              currentCount: usage.count,
+              limit: tierLimits.traditionalMarkets,
+              pickupMarketId: pickup_market_id,
+            }
+          )
+        }
+      }
     }
 
     // For traditional markets, validate that pickup schedule matches market's operating schedule

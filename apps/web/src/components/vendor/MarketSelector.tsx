@@ -212,6 +212,28 @@ export default function MarketSelector({
           <h4 style={{ fontSize: typography.sizes.sm, fontWeight: 600, marginBottom: spacing.xs, marginTop: 0, color: '#374151' }}>
             Traditional Markets
           </h4>
+          {/* Tier cap explainer — vendor-wide count across all listings. Only shown to non-premium
+              vendors, and only when there's more than one traditional market in the picker (otherwise
+              the cap isn't meaningful). */}
+          {fixedMarkets.length > 1 && traditionalMarketLimit > 0 && (
+            <div style={{
+              padding: spacing.xs,
+              marginBottom: spacing.xs,
+              backgroundColor: '#f3f4f6',
+              border: '1px solid #e5e7eb',
+              borderRadius: radius.md,
+              fontSize: typography.sizes.xs,
+              color: '#4b5563',
+              lineHeight: 1.5,
+            }}>
+              <strong style={{ color: '#374151' }}>
+                Your plan allows {traditionalMarketLimit} unique traditional market{traditionalMarketLimit !== 1 ? 's' : ''} across ALL your listings
+              </strong>
+              {' '}(currently using {traditionalMarketCount} of {traditionalMarketLimit}).
+              {traditionalMarketCount >= traditionalMarketLimit && ' To make a new market available, remove an existing market from every listing that uses it, then save.'}
+              {' '}Market availability updates after you save — changes in this form don&apos;t affect it until saved.
+            </div>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
             {fixedMarkets.map(market => {
               const isSelected = selectedMarketIds.includes(market.id)
@@ -275,7 +297,7 @@ export default function MarketSelector({
                       <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
                         {marketLimitReached ? (
                           <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>
-                            Market limit reached ({traditionalMarketCount}/{traditionalMarketLimit}). Upgrade your plan to join more markets.
+                            Already at your {traditionalMarketCount}/{traditionalMarketLimit} traditional market limit. See note above.
                           </span>
                         ) : (
                           <span style={{ color: '#dc2626' }}>
