@@ -1,6 +1,7 @@
 #!/bin/sh
-# Pre-commit hook - runs lint-staged (ESLint), vitest, then Playwright e2e
+# Pre-commit hook — runs lint-staged (ESLint) + vitest unit tests.
+# Playwright e2e moved to pre-push to avoid Turbopack cold-compile stalls
+# blocking rapid commits. See .husky/pre-push.
 cd apps/web
 npx lint-staged
 npx vitest run
-npx playwright test

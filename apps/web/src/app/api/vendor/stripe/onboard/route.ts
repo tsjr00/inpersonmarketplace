@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createConnectAccount, createAccountLink, getAccountStatus } from '@/lib/stripe/connect'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import Stripe from 'stripe'
 
 export async function POST(request: NextRequest) {
@@ -23,14 +24,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // H13 FIX: Add vertical filter for multi-vertical safety
     const vertical = request.nextUrl.searchParams.get('vertical')
-    let vpQuery = supabase.from('vendor_profiles').select('*').eq('user_id', user.id)
-    if (vertical) vpQuery = vpQuery.eq('vertical_id', vertical)
-    const { data: vendorProfile, error: vendorError } = await vpQuery.single()
+    const { profile: vendorProfile, error: vpError } = await getVendorProfileForVertical<{
+      id: string
+      stripe_account_id: string | null
+      vertical_id: string
+    }>(supabase, user.id, vertical, 'id, stripe_account_id, vertical_id')
 
-    if (vendorError || !vendorProfile) {
-      return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
+    if (vpError || !vendorProfile) {
+      return NextResponse.json(
+        { error: vpError || 'Vendor profile not found', code: 'ERR_VENDOR_001' },
+        { status: 404 }
+      )
     }
 
     try {

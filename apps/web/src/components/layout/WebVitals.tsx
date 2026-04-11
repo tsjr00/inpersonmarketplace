@@ -9,22 +9,21 @@ import { useReportWebVitals } from 'next/web-vitals'
  */
 export function WebVitals() {
   useReportWebVitals((metric) => {
-    // In production, send to analytics endpoint
-    if (process.env.NODE_ENV === 'production') {
-      // Send to /api/analytics/vitals if/when that endpoint exists
-      // For now, use navigator.sendBeacon for fire-and-forget
-      const body = JSON.stringify({
-        name: metric.name,
-        value: metric.value,
-        rating: metric.rating,
-        delta: metric.delta,
-        id: metric.id,
-      })
+    // No-op until NEXT_PUBLIC_VITALS_ENDPOINT is configured at build time.
+    const endpoint = process.env.NEXT_PUBLIC_VITALS_ENDPOINT
+    if (!endpoint) return
+    if (process.env.NODE_ENV !== 'production') return
+    if (!navigator.sendBeacon) return
 
-      if (navigator.sendBeacon) {
-        navigator.sendBeacon('/api/analytics/vitals', body)
-      }
-    }
+    const body = JSON.stringify({
+      name: metric.name,
+      value: metric.value,
+      rating: metric.rating,
+      delta: metric.delta,
+      id: metric.id,
+    })
+
+    navigator.sendBeacon(endpoint, body)
   })
 
   return null
