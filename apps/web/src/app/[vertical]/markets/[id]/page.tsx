@@ -12,6 +12,7 @@ import { term } from '@/lib/vertical'
 import { getLocale } from '@/lib/locale/server'
 import { t } from '@/lib/locale/messages'
 import ShareButton from '@/components/marketing/ShareButton'
+import { getMarketVendorsWithListings } from '@/lib/markets/vendors-with-listings'
 
 interface MarketDetailPageProps {
   params: Promise<{ vertical: string; id: string }>
@@ -56,20 +57,26 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
     return date.toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
   }
 
-  // Fetch vendors with listings from API
+  // baseUrl is still used below for the ShareButton's absolute URL
   const baseUrl = getAppUrl()
+
+  // Fetch vendors with listings by calling the shared lib directly.
+  // Session 70: previously used fetch(`${baseUrl}/api/...`), which is blocked
+  // by Vercel Deployment Protection on preview deployments. Querying via the
+  // server Supabase client bypasses the auth layer entirely and is faster
+  // (no internal HTTP round trip).
   let vendorsData: { vendors: VendorWithListings[]; categories: string[] } = { vendors: [], categories: [] }
 
   try {
-    const response = await fetch(`${baseUrl}/api/markets/${id}/vendors-with-listings`, {
-      cache: 'no-store'
-    })
-    if (response.ok) {
-      const data = await response.json()
-      vendorsData = { vendors: data.vendors || [], categories: data.categories || [] }
+    const result = await getMarketVendorsWithListings(supabase, id)
+    if (result.reason) {
+      console.error(
+        `[MarketDetailPage] vendors-with-listings returned empty — reason=${result.reason}${result.errorMessage ? ` message=${result.errorMessage}` : ''}`
+      )
     }
-  } catch {
-    // Silently fail - will show empty vendors
+    vendorsData = { vendors: result.vendors, categories: result.categories }
+  } catch (err) {
+    console.error('[MarketDetailPage] getMarketVendorsWithListings threw:', err)
   }
 
   // Get current user's vendor profile for this vertical (for apply button)
