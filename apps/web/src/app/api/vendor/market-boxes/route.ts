@@ -270,26 +270,43 @@ export async function POST(request: NextRequest) {
 
     // For traditional markets, enforce the per-tier traditional market cap.
     // The cap counts every unique traditional market where the vendor has
-    // published listings OR active market boxes. Creating a market box at a
-    // traditional market the vendor isn't already using would expand their
-    // footprint by one — reject if that would exceed the tier limit.
+    // published listings OR active market boxes.
+    //
+    // Rules:
+    // - Over cap already → block any new traditional box, even at markets
+    //   already in the footprint (don't let over-cap state perpetuate)
+    // - At cap + new market → block (would expand footprint past cap)
+    // - At cap + existing market → allow (no footprint expansion)
+    // - Under cap → always allow
     if (market.market_type === 'traditional') {
       const usage = await getTraditionalMarketUsage(supabase, vendor.id)
-      if (!usage.marketIds.includes(pickup_market_id)) {
-        const tierLimits = getTierLimits(tier, vertical || undefined)
-        if (usage.count >= tierLimits.traditionalMarkets) {
-          throw new TracedError(
-            'ERR_MBOX_003',
-            `Market limit reached (${usage.count}/${tierLimits.traditionalMarkets}). Your ${tier} plan allows up to ${tierLimits.traditionalMarkets} traditional markets. Remove a listing or box from another market first, or upgrade your plan.`,
-            {
-              vendorId: vendor.id,
-              tier,
-              currentCount: usage.count,
-              limit: tierLimits.traditionalMarkets,
-              pickupMarketId: pickup_market_id,
-            }
-          )
-        }
+      const tierLimits = getTierLimits(tier, vertical || undefined)
+
+      if (usage.count > tierLimits.traditionalMarkets) {
+        throw new TracedError(
+          'ERR_MBOX_003',
+          `You are currently at ${usage.count} traditional markets, over your ${tierLimits.traditionalMarkets} ${tier} limit. Remove a listing or box from another market before creating new ones.`,
+          {
+            vendorId: vendor.id,
+            tier,
+            currentCount: usage.count,
+            limit: tierLimits.traditionalMarkets,
+          }
+        )
+      }
+
+      if (!usage.marketIds.includes(pickup_market_id) && usage.count >= tierLimits.traditionalMarkets) {
+        throw new TracedError(
+          'ERR_MBOX_003',
+          `Market limit reached (${usage.count}/${tierLimits.traditionalMarkets}). Your ${tier} plan allows up to ${tierLimits.traditionalMarkets} traditional markets. Remove a listing or box from another market first, or upgrade your plan.`,
+          {
+            vendorId: vendor.id,
+            tier,
+            currentCount: usage.count,
+            limit: tierLimits.traditionalMarkets,
+            pickupMarketId: pickup_market_id,
+          }
+        )
       }
     }
 
