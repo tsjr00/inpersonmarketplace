@@ -58,7 +58,12 @@ export default defineConfig({
     video: 'off',
     // Reasonable timeouts
     navigationTimeout: 15_000,
-    actionTimeout: 10_000,
+    // Next.js dev mode compiles API routes on first access — cold compilation
+    // for routes with many dependencies (admin/events, etc.) regularly exceeds
+    // 10s. Session 70: smoke tests flaked on admin endpoints when the dev
+    // server was freshly spawned between commits. 30s is generous enough to
+    // absorb cold compilation without hiding real slow-response regressions.
+    actionTimeout: 30_000,
   },
 
   projects: [
