@@ -84,6 +84,12 @@ export default function AdminSidebar({ adminEmail, children }: AdminSidebarProps
           <Link href="/admin/order-issues" style={linkStyle} onClick={() => setOpen(false)}>
             Order Issues
           </Link>
+          <Link href="/admin/error-logs" style={linkStyle} onClick={() => setOpen(false)}>
+            Error Logs
+          </Link>
+          <Link href="/admin/event-ratings" style={linkStyle} onClick={() => setOpen(false)}>
+            Event Ratings
+          </Link>
 
           <div style={{
             borderTop: '1px solid rgba(255,255,255,0.2)',
