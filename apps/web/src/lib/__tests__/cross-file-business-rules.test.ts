@@ -103,7 +103,7 @@ describe('BR-2: company_paid payment model consistent across full chain', () => 
   })
 
   it('shop page uses same payment_model value for company-paid detection', () => {
-    const code = readFile('app/[vertical]/events/[token]/shop/page.tsx')
+    const code = readFile('app/[vertical]/events/[token]/shop/ShopClient.tsx')
     expect(code).toContain(`'${PAYMENT_MODEL_VALUE}'`)
   })
 })
@@ -238,7 +238,7 @@ describe('BR-6: Access code generated, stored, and verified consistently', () =>
   })
 
   it('shop page prompts for access code when required', () => {
-    const code = readFile('app/[vertical]/events/[token]/shop/page.tsx')
+    const code = readFile('app/[vertical]/events/[token]/shop/ShopClient.tsx')
     expect(code).toContain('requiresAccessCode')
     expect(code).toContain('accessCodeVerified')
   })
@@ -278,7 +278,7 @@ describe('BR-7: Hybrid dollar cap flows from form to settlement', () => {
   })
 
   it('shop page uses companyCap to gate company-paid vs attendee-paid items', () => {
-    const code = readFile('app/[vertical]/events/[token]/shop/page.tsx')
+    const code = readFile('app/[vertical]/events/[token]/shop/ShopClient.tsx')
     expect(code).toContain('companyCap')
     expect(code).toContain('companyAllowanceUsed')
   })
@@ -400,16 +400,21 @@ describe('BR-11: One company-paid item per attendee enforced', () => {
   })
 
   it('shop page tracks whether company allowance is used', () => {
-    const code = readFile('app/[vertical]/events/[token]/shop/page.tsx')
+    const code = readFile('app/[vertical]/events/[token]/shop/ShopClient.tsx')
     expect(code).toContain('companyAllowanceUsed')
     expect(code).toContain('setCompanyAllowanceUsed')
   })
 
   it('shop page detects existing ordered reservation as allowance used', () => {
-    const code = readFile('app/[vertical]/events/[token]/shop/page.tsx')
-    // When user_reservation.status === 'ordered', allowance is used
+    const code = readFile('app/[vertical]/events/[token]/shop/ShopClient.tsx')
+    // When user_reservation.status === 'ordered', allowance is used.
+    // Session 70 refactor: moved from a post-fetch imperative
+    // `setCompanyAllowanceUsed(true)` call to an initial-state
+    // derivation `useState(hasOrderedReservation)`. Same behavior,
+    // different syntactic pattern — the assertion target is updated
+    // to grep the new pattern.
     expect(code).toContain("status === 'ordered'")
-    expect(code).toContain('setCompanyAllowanceUsed(true)')
+    expect(code).toContain('useState(hasOrderedReservation)')
   })
 })
 
@@ -433,7 +438,7 @@ describe('BR-12: Vendor order cap enforced before add-to-cart', () => {
   })
 
   it('shop page calls validate-capacity before addToCart', () => {
-    const code = readFile('app/[vertical]/events/[token]/shop/page.tsx')
+    const code = readFile('app/[vertical]/events/[token]/shop/ShopClient.tsx')
     // validate-capacity must be called BEFORE addToCart in the code flow
     const validateIndex = code.indexOf('validate-capacity')
     const addToCartIndex = code.indexOf('await addToCart(')
@@ -443,7 +448,7 @@ describe('BR-12: Vendor order cap enforced before add-to-cart', () => {
   })
 
   it('shop page shows user-friendly message when cap reached', () => {
-    const code = readFile('app/[vertical]/events/[token]/shop/page.tsx')
+    const code = readFile('app/[vertical]/events/[token]/shop/ShopClient.tsx')
     expect(code).toContain('capData.allowed')
     expect(code).toContain('setCartMessage')
   })
@@ -465,7 +470,7 @@ describe('BR-13: Event markets excluded from regular shopping flow', () => {
   })
 
   it('event shop page exists as the dedicated event ordering flow', () => {
-    const shopPage = path.join(APP_DIR, '[vertical]/events/[token]/shop/page.tsx')
+    const shopPage = path.join(APP_DIR, '[vertical]/events/[token]/shop/ShopClient.tsx')
     expect(fs.existsSync(shopPage)).toBe(true)
   })
 

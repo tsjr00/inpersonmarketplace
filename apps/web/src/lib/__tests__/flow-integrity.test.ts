@@ -240,7 +240,7 @@ describe('Payment model completeness', () => {
   })
 
   it('hybrid payment model surfaces company cap on shop page', () => {
-    const shopPage = path.join(APP_DIR, '[vertical]/events/[token]/shop/page.tsx')
+    const shopPage = path.join(APP_DIR, '[vertical]/events/[token]/shop/ShopClient.tsx')
     const code = fs.readFileSync(shopPage, 'utf-8')
     expect(code).toContain('companyCap')
     expect(code).toContain('hybrid')

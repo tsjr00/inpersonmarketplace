@@ -29,7 +29,7 @@ export interface EventShopEvent {
   event_end_time: string | null
   city: string
   state: string
-  address: string
+  address: string | null
   vertical_id: string
   market_id: string
   status: string
@@ -305,7 +305,7 @@ export async function getEventShopData(
       event_end_time: event.event_end_time as string | null,
       city: event.city as string,
       state: event.state as string,
-      address: event.address as string,
+      address: event.address as string | null,
       vertical_id: event.vertical_id as string,
       market_id: event.market_id as string,
       status: event.status as string,
