@@ -302,6 +302,8 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
 
   if (submitted) {
     const vendorWord = vertical === 'farmers_market' ? 'vendors' : 'food trucks'
+    const signupUrl = `/${vertical}/signup?ref=event&email=${encodeURIComponent(form.contact_email)}`
+    const loginUrl = `/${vertical}/login?ref=event&email=${encodeURIComponent(form.contact_email)}`
     return (
       <div
         style={{
@@ -321,24 +323,53 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
             {matchCount} qualified {vendorWord} found in your area
           </p>
         )}
-        <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, lineHeight: 1.6, margin: `0 0 ${spacing.md}` }}>
-          Sign in to your event dashboard to refine your matches, add event details, and start planning. The more details you provide, the better we can match you with the right {vendorWord}.
+        <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, lineHeight: 1.6, margin: `0 0 ${spacing.sm}` }}>
+          Create a free account to manage your event from your personal dashboard.
         </p>
-        <a
-          href={`/${vertical}/login?ref=event&email=${encodeURIComponent(form.contact_email)}`}
-          style={{
-            display: 'inline-block',
-            padding: `${spacing.xs} ${spacing.lg}`,
-            backgroundColor: accent,
-            color: 'white',
-            textDecoration: 'none',
-            borderRadius: radius.md,
-            fontWeight: typography.weights.semibold,
-            fontSize: typography.sizes.sm,
-          }}
-        >
-          Sign In to Your Event Dashboard
-        </a>
+        <div style={{
+          textAlign: 'left',
+          display: 'inline-block',
+          margin: `0 auto ${spacing.md}`,
+          padding: `${spacing.sm} ${spacing.md}`,
+          backgroundColor: 'white',
+          borderRadius: radius.md,
+          border: `1px solid ${statusColors.successBorder}`,
+        }}>
+          <p style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: '#166534', margin: `0 0 ${spacing.xs}` }}>
+            With your account you can:
+          </p>
+          <ul style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, margin: 0, paddingLeft: '1.2em', lineHeight: 1.8 }}>
+            <li>Track your event status and {vendorWord} responses in real time</li>
+            <li>Review and approve {vendorWord} for your event</li>
+            <li>See pre-order volume and revenue as attendees shop</li>
+            {vertical === 'food_trucks' && <li>Monitor pickup wave reservations and capacity</li>}
+            <li>Edit event details and communicate with your {vendorWord}</li>
+            <li>Rate and review {vendorWord} after your event</li>
+          </ul>
+        </div>
+        <div>
+          <a
+            href={signupUrl}
+            style={{
+              display: 'inline-block',
+              padding: `${spacing.xs} ${spacing.lg}`,
+              backgroundColor: accent,
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: radius.md,
+              fontWeight: typography.weights.semibold,
+              fontSize: typography.sizes.base,
+            }}
+          >
+            Create Your Free Account
+          </a>
+        </div>
+        <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, marginTop: spacing.sm }}>
+          Already have an account?{' '}
+          <a href={loginUrl} style={{ color: accent, fontWeight: typography.weights.semibold, textDecoration: 'none' }}>
+            Sign in
+          </a>
+        </p>
       </div>
     )
   }

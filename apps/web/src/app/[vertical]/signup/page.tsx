@@ -35,8 +35,13 @@ export default function SignupPage({ params }: SignupPageProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const isEventRef = searchParams.get('ref') === 'event'
+  const prefillEmail = searchParams.get('email') || ''
   const dashboardUrl = `/${vertical}/dashboard${isEventRef ? '?section=events' : ''}`
   const supabase = createClient()
+
+  useEffect(() => {
+    if (prefillEmail && !email) setEmail(prefillEmail)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     async function loadConfig() {
