@@ -52,6 +52,7 @@ export async function logErrorToDb(error: TracedError): Promise<void> {
       method: error.context?.method || null,
       pg_code: error.context?.pgCode || null,
       severity: error.severity,
+      vertical_id: (error.context?.vertical_id as string) || null,
     })
 
     if (insertError) {

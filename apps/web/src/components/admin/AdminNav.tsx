@@ -31,6 +31,8 @@ export default function AdminNav({ type, vertical }: AdminNavProps) {
     { label: 'Issues', href: `/${vertical}/admin/order-issues`, icon: '⚠️' },
     { label: 'Reports', href: `/${vertical}/admin/reports`, icon: '📋' },
     { label: 'Feedback', href: `/${vertical}/admin/feedback`, icon: '💬' },
+    { label: 'Error Logs', href: `/${vertical}/admin/error-logs`, icon: '🔴' },
+    { label: 'Event Ratings', href: `/${vertical}/admin/event-ratings`, icon: '⭐' },
   ] : []
 
   // Platform admin links

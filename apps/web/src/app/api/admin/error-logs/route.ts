@@ -22,12 +22,14 @@ export async function GET(request: NextRequest) {
     const rateLimitResult = await checkRateLimit(`admin-error-logs:${clientIp}`, rateLimits.admin)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
-    const scope = await verifyAdminScope(null)
+    const { searchParams } = new URL(request.url)
+    const vertical = searchParams.get('vertical')
+
+    const scope = await verifyAdminScope(vertical)
     if (!scope?.authorized) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const { searchParams } = new URL(request.url)
     const days = Math.min(Math.max(parseInt(searchParams.get('days') || '7', 10) || 7, 1), 90)
     const severityFilter = searchParams.get('severity')
     const errorCodeFilter = searchParams.get('error_code')
@@ -48,6 +50,9 @@ export async function GET(request: NextRequest) {
     }
     if (errorCodeFilter) {
       query = query.ilike('error_code', `${errorCodeFilter}%`)
+    }
+    if (scope.effectiveVerticalId) {
+      query = query.eq('vertical_id', scope.effectiveVerticalId)
     }
 
     const { data: rows, error: queryError } = await query

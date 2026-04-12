@@ -21,12 +21,14 @@ export async function GET(request: NextRequest) {
     const rateLimitResult = await checkRateLimit(`admin-event-ratings:${clientIp}`, rateLimits.admin)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
-    const scope = await verifyAdminScope(null)
+    const { searchParams } = new URL(request.url)
+    const vertical = searchParams.get('vertical')
+
+    const scope = await verifyAdminScope(vertical)
     if (!scope?.authorized) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const { searchParams } = new URL(request.url)
     const statusFilter = searchParams.get('status')
 
     const serviceClient = createServiceClient()
@@ -61,6 +63,9 @@ export async function GET(request: NextRequest) {
 
     if (statusFilter) {
       query = query.eq('status', statusFilter)
+    }
+    if (scope.effectiveVerticalId) {
+      query = query.eq('catering_requests.vertical_id', scope.effectiveVerticalId)
     }
 
     const { data: ratings, error: queryError } = await query
@@ -128,6 +133,9 @@ export async function PATCH(request: NextRequest) {
     if (!scope?.authorized) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
+
+    // PATCH is platform-admin only (moderation applies across verticals).
+    // Vertical admins use the GET to view but cannot moderate.
 
     let id: string
     let newStatus: string

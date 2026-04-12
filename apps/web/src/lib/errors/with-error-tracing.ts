@@ -36,7 +36,8 @@ function shouldShowErrorDetails(): boolean {
 export async function withErrorTracing<T>(
   route: string,
   method: string,
-  handler: () => Promise<T>
+  handler: () => Promise<T>,
+  options?: { vertical?: string }
 ): Promise<T | NextResponse> {
   return startBreadcrumbTrail(async () => {
     // Add initial breadcrumb for the route
@@ -51,6 +52,9 @@ export async function withErrorTracing<T>(
         if (!error.context.route) {
           error.context.route = route
           error.context.method = method
+        }
+        if (options?.vertical && !error.context.vertical_id) {
+          error.context.vertical_id = options.vertical
         }
 
         // Log to console and database
