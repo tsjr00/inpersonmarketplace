@@ -1,58 +1,137 @@
-# Current Task: Session 70 — Live Cleanup and Audit
+# Current Task: Session 71 — Event Feedback Fix + Event-General Rating
 Updated: 2026-04-11
 
+## Session kickoff state
+- Session 70 (348 commits) pushed to prod this session. Protocol 8 error log
+  review showed zero new regressions post-push.
+- User reported broken event feedback form on prod: form shows "Missing
+  required fields" with no visible fields. Root cause traced to a
+  schema mismatch between the form body and the `/api/buyer/feedback`
+  endpoint — the form had never successfully saved a single submission
+  since Session 62.
+
 ## Goal
-Identify conflicts, gaps, and bad code affecting live users. Set up
-error/problem logging as an ongoing process. Fix recurring issues that
-prior sessions claimed to fix but didn't.
+Fix the broken event feedback form and give it a real destination. Scope
+expanded per user direction: also add a separate "How was the event
+overall?" rating that goes to the event organizer (moderated first).
 
-## Status
-In progress. Most Session 70 commits shipped to staging via merge
-`22a31dfe`. None on origin/main (prod) yet.
+## Key design decisions
+- **Vendor ratings from events use the existing `order_ratings` flow.**
+  Zero schema changes. Event attendees who ordered from a vendor hit
+  the same `/api/buyer/orders/[id]/rate` endpoint that regular buyers
+  use. One unified star rating per vendor, aggregated by the existing
+  `update_vendor_rating_stats` trigger.
+- **Event-general rating lives in a new `event_ratings` table.**
+  Separate from vendor ratings. Organizer + admin read approved rows.
+  Attendees insert with `status='pending'`; admin moderates.
+- **Form shows two sections to logged-in users:** Section A (per-vendor
+  rating cards, hidden if user has no completed event orders), Section
+  B (event-overall rating, always shown when logged in).
+- **Not-logged-in state** shows a login prompt with the current event
+  URL as the redirect target.
+- **Vertical-neutral heading:** "How was your experience?" replaces the
+  old FT-centric "How was the food?"
+- **Logout friction** (user raised the concern) — not solved this
+  session. Backlogged as a magic-link re-auth flow using Supabase
+  `admin.generateLink()` bound to post-event notification.
+- **Admin moderation UI** — deferred to next session. Pending rows can
+  be approved via SQL in the meantime.
+- **Organizer dashboard display** — deferred. RLS already allows
+  organizers to read approved rows for their own events; UI can be
+  built later.
 
-## Shipped on local main (not prod)
-- `5f3dc456` — shared `getVendorProfileForVertical` utility + unit tests
-- `20f3cd26` / `418d8f7c` / `95f0944f` — ERR_VENDOR_001 multi-vertical sweep (30+ routes + clients)
-- `8a145a4b` — 7 events routes adopt shared helper
-- `7de82c40` — `getTraditionalMarketUsage` now queries `listing_markets` junction (was querying non-existent `listings.market_id`, silently returning 0 → tier cap was unenforced)
-- `c35c4ba2` — per-tier traditional market cap: free=3 / pro=5 / boss=8. New `POST /api/vendor/listings/[listingId]/markets` endpoint. `market-stats` + `ListingForm` adopt new contract.
-- `40284ecb` — Playwright `actionTimeout` 10s → 30s
-- `1d695beb` — market detail page: extract vendors-with-listings to lib. **This was the real fix for the "market profile shows 0 vendors" bug.** Verified 2026-04-11 via live HTML response on staging: all 7 Amarillo vendors rendered, `x-vercel-cache: MISS`, function runs in `iad1`.
-- `dfd01923` — Protocol 8 (Error Log Review at every kickoff) added
-- Session 69 carryover: migration 114 (vendor fee discount) applied all 3 envs, verified in current code
+## Files changed
+### Database
+- `supabase/migrations/20260411_116_event_ratings_table.sql` (NEW,
+  PENDING apply)
+  - Creates `event_ratings` table: id, catering_request_id (FK→
+    catering_requests ON DELETE CASCADE), user_id (FK→auth.users ON
+    DELETE CASCADE), rating int2 (CHECK 1-5), comment text, status
+    text default 'pending' (CHECK 'pending'/'approved'/'hidden'),
+    created_at, updated_at, moderated_at, moderated_by, UNIQUE
+    (catering_request_id, user_id)
+  - 3 indexes (event, user, status)
+  - `update_event_ratings_updated_at` BEFORE UPDATE trigger
+  - 5 RLS policies:
+    - `users_insert_own_event_rating` — INSERT: `user_id=auth.uid()` +
+      event must be in active/review/completed status
+    - `users_update_own_event_rating` — UPDATE: own row, pending status
+      only (admin-approved rows are locked)
+    - `users_read_own_event_rating` — SELECT: own rows, any status
+    - `organizer_read_event_ratings` — SELECT: approved rows for
+      events where user is `organizer_user_id`
+    - `admin_all_event_ratings` — FOR ALL: via `is_platform_admin()`
 
-## Uncommitted working tree
-- `MarketSelector.tsx` — tooltip + tier-cap explainer box. User decision: "can it wait."
+### API routes (new)
+- `apps/web/src/app/api/buyer/events/[token]/rate/route.ts` — POST
+  - Auth required, rate-limited (`rateLimits.submit`)
+  - Resolves event_token → catering_requests, validates active/review/
+    completed status
+  - Content moderation on comment
+  - Upsert on `(catering_request_id, user_id)` with `status='pending'`
+  - Returns 201 with pending status message
 
-## Open findings from 2026-04-11 code review (nothing changed yet)
-- 3 routes still use direct `vendor_profiles.single()` and will 500 for multi-vertical users without `?vertical=` param:
-  - `src/app/api/vendor/cover-image/route.ts:21`
-  - `src/app/api/vendor/stripe/onboard/route.ts:28`
-  - `src/app/api/vendor/stripe/status/route.ts:26`
-- Dead endpoint: `POST /api/analytics/vitals` returns 404 on every page load (Web Vitals client reporter)
-- `/api/manifest` returns 14 KB Vercel SSO HTML on unauthenticated requests — breaks PWA manifest parser on staging before SSO cookie is set
-- CSP blocks `vercel.live/_next-live/feedback/feedback.js` — noisy console, not fatal
-- `CLAUDE_CONTEXT.md` last updated Session 66. No entries for 67/68/69/70. FM tier limits section is out of sync with unified free/pro/boss in `vendor-limits.ts`.
-- Backlog entry "market_vendors stale in SCHEMA_SNAPSHOT.md" is itself stale — snapshot was rebuilt 2026-04-05.
+- `apps/web/src/app/api/buyer/events/[token]/review-state/route.ts` — GET
+  - Auth required, rate-limited (`rateLimits.api`)
+  - Returns `{ rateable_orders, event_rating }` for the current user
+  - `rateable_orders`: completed orders at the event's market, grouped
+    by (order_id, vendor_profile_id), with existing `order_ratings` if
+    any (so the form can pre-populate edits)
+  - `event_rating`: the user's existing `event_ratings` row (or null)
 
-## Disproved during review (do not re-investigate without new evidence)
-Four hypotheses for "market profile shows 0 vendors" were raised and
-disproved by admin SQL + staging HTML inspection:
-1. `vendor_profiles.status='approved'` filter mismatch — all 7 vendors approved
-2. RLS on `vendor_profiles` blocking reads — public SELECT allows approved+not-deleted
-3. `vendor_profiles.deleted_at` set — all 7 null
-4. Force-dynamic / edge-cache theory — `x-vercel-cache: MISS`, function runs dynamically
+### Component rewrite
+- `apps/web/src/components/events/EventFeedbackForm.tsx`
+  - New props: `{ eventToken, vertical, isLoggedIn }` (removed `vendors`)
+  - Fetches `/review-state` on mount for logged-in users
+  - Three states: not logged in (login prompt), loading, loaded
+  - Section A — vendor rating cards that post to existing
+    `/api/buyer/orders/[id]/rate`
+  - Section B — single event rating card that posts to new
+    `/api/buyer/events/[token]/rate`
+  - `StarRating` + `VendorRatingCard` + `EventOverallRating` internal
+    sub-components
+  - Approved event ratings show a locked "✓ Thanks for rating this
+    event" state; pending ratings show an edit state
 
-The `1d695beb` refactor alone fixed the bug. Earlier staged
-`export const dynamic = 'force-dynamic'` on `page.tsx` was unnecessary
-and has been discarded. The "0 → 7" transition most likely reflects
-staging deploy propagation lag — unproven but no code change needed.
+### Page wiring
+- `apps/web/src/app/[vertical]/events/[token]/page.tsx`
+  - Added `createClient` import alongside `createServiceClient`
+  - Server-side auth check (`authClient.auth.getUser()`) to compute
+    `isLoggedIn` boolean
+  - Changed feedback form render: passes `vertical` + `isLoggedIn`
+    instead of `vendors`, and shows for `['active', 'review',
+    'completed']` statuses (was `['active', 'review']`)
 
-## Decisions log entries added
-- 2026-04-10: Server components must not fetch their own API routes via HTTP (already in `decisions.md`)
+## Verification
+- `npx tsc --noEmit` clean (no errors)
+- `npx vitest run` — 51 files / 1472 tests all passing
+- No cross-file contract tests affected — `EventFeedbackForm` is not
+  referenced by any test file (it's a UI-only component with no
+  business rule assertions)
+
+## Deployment sequence
+1. Commit migration file on local main (not pushed)
+2. Commit code changes on local main
+3. User applies migration 116 to **dev** first, verify clean
+4. Push local main → staging via branch chain
+5. User applies migration 116 to **staging**
+6. User tests on staging (log in, visit event, submit vendor rating,
+   submit event rating, re-submit to test upsert)
+7. User approves migration for **prod**
+8. User approves code push to prod (separate approval, after 9pm CT
+   window)
+9. After prod, update schema snapshot (changelog + regenerate
+   structured tables) + move migration 116 to `applied/` + update
+   MIGRATION_LOG.md
+
+## Open items (not this session)
+- Magic-link re-auth for post-event rating (logout friction fix)
+- Admin moderation UI at `/admin/event-ratings`
+- Organizer dashboard display for approved event ratings
+- Aggregate stats on `catering_requests` (average_rating, rating_count)
+  if we want public bragging
+- Session 70 `ERR_VENDOR_001` prod verification — re-run Protocol 8
+  query tomorrow to confirm no new errors since the push
 
 ## Autonomy mode
-Report.
-
-## Next step
-User decision: prod push of 10 shipped commits? Or continue with open findings?
+Report. Every commit/push/migration still requires explicit approval.

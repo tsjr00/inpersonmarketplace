@@ -1,6 +1,14 @@
 # Backlog
 
-Last updated: 2026-04-10 (Session 70)
+Last updated: 2026-04-11 (Session 71)
+
+## Priority 0.5 — Event Rating Follow-ups (Session 71)
+
+- [ ] **Admin moderation UI for `event_ratings`** — page at `/admin/event-ratings` with filters (pending/approved/hidden), approve / hide actions, ability to see the full event + user context. Until built, approve via SQL: `UPDATE event_ratings SET status='approved', moderated_at=now(), moderated_by=<admin_user_id> WHERE id='<id>';`
+- [ ] **Organizer dashboard: event rating display** — on the organizer's event detail page, show approved `event_ratings` rows with rating + comment. RLS already allows organizers to read approved rows for events where `organizer_user_id = auth.uid()` — just needs the UI.
+- [ ] **Magic-link re-auth for post-event rating** — logout friction fix. Post-event notification email includes a Supabase `admin.generateLink()` signed URL that auto-authenticates the attendee for a one-shot rating. Attach to the existing notification flow. User raised this concern in Session 71.
+- [ ] **Aggregate stats on `catering_requests`** — `average_rating` + `rating_count` columns + trigger on `event_ratings` so we can show "4.6 ★ from 23 attendees" publicly (if user wants aggregated bragging). Currently deferred — individual ratings stay private.
+- [ ] **Per-vendor "unrated event orders" nudge** — after event completes, notify buyers with an unrated completed order from the event so they rate via the dashboard (not just via the event page).
 
 ## Priority 0.5 — Quick Fixes
 

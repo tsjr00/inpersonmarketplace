@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import Image from 'next/image'
 import { formatDisplayPrice } from '@/lib/constants'
@@ -15,6 +15,12 @@ interface EventPageProps {
 export default async function EventPage({ params }: EventPageProps) {
   const { vertical, token } = await params
   const supabase = createServiceClient()
+
+  // Auth check is separate from the data fetch — used only to tell
+  // EventFeedbackForm whether to show the rating UI or the login prompt.
+  const authClient = await createClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  const isLoggedIn = !!user
 
   // Fetch event by token
   const { data: event } = await supabase
@@ -328,12 +334,12 @@ export default async function EventPage({ params }: EventPageProps) {
           </div>
         )}
 
-        {/* Feedback Form — shown during active and review phases */}
-        {['active', 'review'].includes(event.status) && vendors.length > 0 && (
+        {/* Feedback Form — shown during active, review, and completed phases */}
+        {['active', 'review', 'completed'].includes(event.status) && (
           <div style={{ marginTop: spacing.lg }}>
             <EventFeedbackForm
               eventToken={token}
-              vendors={vendors.map(v => ({ id: v.id, business_name: v.business_name }))}
+              isLoggedIn={isLoggedIn}
             />
           </div>
         )}
