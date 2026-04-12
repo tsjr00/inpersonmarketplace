@@ -329,7 +329,9 @@ export default async function EventPage({ params }: EventPageProps) {
               Vendors Being Confirmed
             </h2>
             <p style={{ color: '#9ca3af', fontSize: typography.sizes.base, margin: 0 }}>
-              We&apos;re coordinating food trucks for this event. Check back soon for the menu!
+              {vertical === 'food_trucks'
+                ? "We're coordinating food trucks for this event. Check back soon for the menu!"
+                : "We're connecting vendors for this event. Check back soon to see what's available!"}
             </p>
           </div>
         )}

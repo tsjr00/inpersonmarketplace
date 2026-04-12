@@ -89,53 +89,62 @@ export default async function CateringPage({ params, searchParams }: CateringPag
         >
           {term(vertical, 'event_hero_subtitle', locale)}
         </p>
-        {isFT && (
-          <p style={{
-            marginTop: 12,
-            fontSize: 13,
-            color: '#6b7280',
-            fontStyle: 'italic',
-          }}>
-            Trusted by local businesses for corporate lunches, team celebrations, and company events
-          </p>
-        )}
+        <p style={{
+          marginTop: 12,
+          fontSize: 13,
+          color: '#6b7280',
+          fontStyle: 'italic',
+        }}>
+          {isFT
+            ? 'Trusted by local businesses for corporate lunches, team celebrations, and company events'
+            : 'Trusted by community organizers, offices, and churches for market-style events'}
+        </p>
       </div>
 
-      {/* Cuisine showcase — shows breadth without exposing specific vendors */}
-      {isFT && (
-        <div style={{
-          marginBottom: spacing.lg,
-          display: 'flex',
-          flexWrap: 'wrap',
-          justifyContent: 'center',
-          gap: 8,
-        }}>
-          {[
-            '🌮 Tacos & Mexican',
-            '🍖 BBQ & Smokehouse',
-            '🍕 Pizza',
-            '🍔 Burgers & Sliders',
-            '🥡 Asian Fusion',
-            '🍗 Southern & Soul Food',
-            '🥙 Mediterranean',
-            '🌯 Tex-Mex',
-            '🧁 Desserts & Sweets',
-            '☕ Coffee & Beverages',
-          ].map(cuisine => (
-            <span key={cuisine} style={{
-              padding: '6px 14px',
-              backgroundColor: '#fff5f5',
-              color: '#991b1b',
-              borderRadius: 20,
-              fontSize: 13,
-              fontWeight: 600,
-              whiteSpace: 'nowrap',
-            }}>
-              {cuisine}
-            </span>
-          ))}
-        </div>
-      )}
+      {/* Category showcase — shows breadth without exposing specific vendors */}
+      <div style={{
+        marginBottom: spacing.lg,
+        display: 'flex',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+        gap: 8,
+      }}>
+        {(isFT ? [
+          '🌮 Tacos & Mexican',
+          '🍖 BBQ & Smokehouse',
+          '🍕 Pizza',
+          '🍔 Burgers & Sliders',
+          '🥡 Asian Fusion',
+          '🍗 Southern & Soul Food',
+          '🥙 Mediterranean',
+          '🌯 Tex-Mex',
+          '🧁 Desserts & Sweets',
+          '☕ Coffee & Beverages',
+        ] : [
+          '🥬 Fresh Produce',
+          '🍞 Baked Goods',
+          '🧀 Dairy & Cheese',
+          '🍯 Honey & Preserves',
+          '🌿 Herbs & Plants',
+          '🥩 Farm Meats',
+          '🍫 Artisan Chocolate',
+          '🧴 Handmade Goods',
+          '🌸 Flowers & Arrangements',
+          '🥚 Farm Fresh Eggs',
+        ]).map(item => (
+          <span key={item} style={{
+            padding: '6px 14px',
+            backgroundColor: isFT ? '#fff5f5' : '#f0fdf4',
+            color: isFT ? '#991b1b' : '#166534',
+            borderRadius: 20,
+            fontSize: 13,
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+          }}>
+            {item}
+          </span>
+        ))}
+      </div>
 
       {/* How it works */}
       <div
@@ -293,33 +302,37 @@ export default async function CateringPage({ params, searchParams }: CateringPag
       </div>
 
       {/* Why work with us — social proof + trust signals */}
-      {isFT && (
-        <div style={{
-          marginTop: 32,
-          padding: spacing.md,
-          backgroundColor: '#1a1a1a',
-          borderRadius: radius.lg,
-          color: 'white',
-        }}>
-          <h3 style={{ margin: `0 0 ${spacing.sm}`, fontSize: typography.sizes.base, fontWeight: 700, color: '#ff5757' }}>
-            Why Event Managers Choose Us
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {[
-              { icon: '✅', text: 'Every truck is verified, insured, and event-approved' },
-              { icon: '🍽️', text: 'Diverse cuisines — tacos, BBQ, Asian, pizza, Mediterranean, and more' },
-              { icon: '📱', text: 'Guests pre-order online so food is ready when they arrive' },
-              { icon: '📋', text: 'We handle truck coordination — you focus on your event' },
-              { icon: '💰', text: 'Transparent pricing with no hidden fees' },
-            ].map(item => (
-              <div key={item.text} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                <span style={{ fontSize: 16, flexShrink: 0 }}>{item.icon}</span>
-                <span style={{ fontSize: 14, color: '#d1d5db', lineHeight: 1.5 }}>{item.text}</span>
-              </div>
-            ))}
-          </div>
+      <div style={{
+        marginTop: 32,
+        padding: spacing.md,
+        backgroundColor: '#1a1a1a',
+        borderRadius: radius.lg,
+        color: 'white',
+      }}>
+        <h3 style={{ margin: `0 0 ${spacing.sm}`, fontSize: typography.sizes.base, fontWeight: 700, color: accent }}>
+          Why Event Managers Choose Us
+        </h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {(isFT ? [
+            { icon: '✅', text: 'Every truck is verified, insured, and event-approved' },
+            { icon: '🍽️', text: 'Diverse cuisines — tacos, BBQ, Asian, pizza, Mediterranean, and more' },
+            { icon: '📱', text: 'Guests pre-order online so food is ready when they arrive' },
+            { icon: '📋', text: 'We handle truck coordination — you focus on your event' },
+            { icon: '💰', text: 'Transparent pricing with no hidden fees' },
+          ] : [
+            { icon: '✅', text: 'Every vendor is verified, insured, and quality-checked' },
+            { icon: '🥬', text: 'Local produce, baked goods, artisan products — curated for your event' },
+            { icon: '🛒', text: 'Guests browse and buy at their own pace — a true market experience' },
+            { icon: '📋', text: 'We handle vendor coordination — you focus on your guests' },
+            { icon: '💰', text: 'Transparent pricing with no hidden fees' },
+          ]).map(item => (
+            <div key={item.text} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              <span style={{ fontSize: 16, flexShrink: 0 }}>{item.icon}</span>
+              <span style={{ fontSize: 14, color: '#d1d5db', lineHeight: 1.5 }}>{item.text}</span>
+            </div>
+          ))}
         </div>
-      )}
+      </div>
     </div>
   )
 }

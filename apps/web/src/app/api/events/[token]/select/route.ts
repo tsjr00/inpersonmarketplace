@@ -185,6 +185,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Please select at least one vendor' }, { status: 400 })
     }
 
+    const uniqueVendorIds = [...new Set(selected_vendor_ids as string[])]
+
     // Find the event
     const { data: event } = await serviceClient
       .from('catering_requests')
@@ -204,7 +206,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Event not set up' }, { status: 400 })
     }
 
-    if (selected_vendor_ids.length > event.vendor_count) {
+    if (uniqueVendorIds.length > event.vendor_count) {
       return NextResponse.json({ error: `Maximum ${event.vendor_count} vendors allowed` }, { status: 400 })
     }
 
@@ -214,9 +216,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .select('vendor_profile_id')
       .eq('market_id', event.market_id)
       .eq('response_status', 'accepted')
-      .in('vendor_profile_id', selected_vendor_ids)
+      .in('vendor_profile_id', uniqueVendorIds)
 
-    if (!validVendors || validVendors.length !== selected_vendor_ids.length) {
+    if (!validVendors || validVendors.length !== uniqueVendorIds.length) {
       return NextResponse.json({ error: 'One or more selected vendors are not available' }, { status: 400 })
     }
 
@@ -230,7 +232,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (allAccepted) {
       const notSelectedIds = allAccepted
         .map(mv => mv.vendor_profile_id as string)
-        .filter(id => !selected_vendor_ids.includes(id))
+        .filter(id => !uniqueVendorIds.includes(id))
 
       if (notSelectedIds.length > 0) {
         // Keep as accepted but mark as backup (they can still be escalated)
@@ -269,7 +271,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Notify selected vendors — prompt them to connect catering listings
-    for (const vendorId of selected_vendor_ids) {
+    for (const vendorId of uniqueVendorIds) {
       const { data: vp } = await serviceClient
         .from('vendor_profiles')
         .select('user_id')
@@ -305,7 +307,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const acceptedVendorData = validVendors || []
     // Build cuisine list from vendor categories (we already have this data)
     const cuisineTypes = new Set<string>()
-    for (const vId of selected_vendor_ids) {
+    for (const vId of uniqueVendorIds) {
       // Quick lookup from the vendors we already fetched in GET
       const { data: vListings } = await serviceClient
         .from('listings')
@@ -337,13 +339,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
       await resend.emails.send({
         from: `${senderName} <updates@${senderDomain}>`,
         to: event.contact_email,
-        subject: `Your event is confirmed — ${selected_vendor_ids.length} ${vendorLabel}${selected_vendor_ids.length > 1 ? 's' : ''} ready!`,
+        subject: `Your event is confirmed — ${uniqueVendorIds.length} ${vendorLabel}${uniqueVendorIds.length > 1 ? 's' : ''} ready!`,
         html: `
           <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto">
             <h2 style="color:${accentColor};margin:0 0 8px">Your Event Is Confirmed!</h2>
             <p style="color:#374151;margin:0 0 16px">Hi ${event.contact_name || 'there'},</p>
             <p style="color:#4b5563;line-height:1.6;margin:0 0 20px">
-              Your ${selected_vendor_ids.length} selected ${vendorLabel}${selected_vendor_ids.length > 1 ? 's are' : ' is'} confirmed for
+              Your ${uniqueVendorIds.length} selected ${vendorLabel}${uniqueVendorIds.length > 1 ? 's are' : ' is'} confirmed for
               <strong>${event.event_date}</strong>. They&rsquo;re connecting their menus to your event page now.
             </p>
 
