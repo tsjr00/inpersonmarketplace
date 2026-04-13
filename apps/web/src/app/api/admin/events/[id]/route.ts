@@ -180,7 +180,27 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
     }
 
-    // On READY: notify organizer that event is confirmed with shareable link
+    // On READY: auto-generate waves if not already generated + notify organizer
+    if (status === 'ready' && updated.market_id) {
+      // T2-3: Auto-generate waves for wave-ordering events
+      if (updated.payment_model === 'company_paid' || updated.wave_ordering_enabled) {
+        const { data: existingWaves } = await serviceClient
+          .from('event_waves')
+          .select('id')
+          .eq('market_id', updated.market_id)
+          .limit(1)
+
+        if (!existingWaves || existingWaves.length === 0) {
+          const { generateEventWaves } = await import('@/lib/events/wave-generation')
+          generateEventWaves(serviceClient, {
+            marketId: updated.market_id as string,
+            eventStartTime: updated.event_start_time || '11:00:00',
+            eventEndTime: updated.event_end_time || '14:00:00',
+          }).catch(err => console.error('[admin/events] Auto wave generation failed:', err))
+        }
+      }
+    }
+
     if (status === 'ready' && updated.event_token && updated.contact_email) {
       const { getAppUrl } = await import('@/lib/environment')
       const eventPageUrl = `${getAppUrl(updated.vertical_id)}/${updated.vertical_id}/events/${updated.event_token}`

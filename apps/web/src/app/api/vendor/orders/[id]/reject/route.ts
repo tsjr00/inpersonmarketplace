@@ -193,6 +193,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .from('orders')
         .update({ status: 'cancelled' })
         .eq('id', orderItem.order_id)
+
+      // T2-5: Free wave slot if this was an event order with a wave reservation
+      const waveCleanupClient = createServiceClient()
+      const { error: waveErr } = await waveCleanupClient.rpc('free_wave_on_order_cancel', {
+        p_order_id: orderItem.order_id,
+      })
+      if (waveErr) console.error('[vendor/reject] free_wave_on_order_cancel error:', waveErr.message)
     }
 
     // Track cancellation metrics — all rejections count toward vendor reliability

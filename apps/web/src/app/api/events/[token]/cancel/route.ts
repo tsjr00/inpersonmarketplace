@@ -142,6 +142,14 @@ export async function POST(
           .update({ status: 'cancelled' })
           .eq('market_id', event.market_id)
           .not('status', 'in', '("cancelled","refunded")')
+
+        // T2-5: Free wave slots for all cancelled event orders
+        for (const order of buyerOrders) {
+          const { error: waveErr } = await serviceClient.rpc('free_wave_on_order_cancel', {
+            p_order_id: order.id,
+          })
+          if (waveErr) console.error(`[event-cancel] free_wave error for order ${order.id}:`, waveErr.message)
+        }
       }
     }
 
