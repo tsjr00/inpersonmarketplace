@@ -31,7 +31,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const { token } = await context.params
     const body = await request.json()
-    const { reservation_id, listing_id, vendor_profile_id, wave_id } = body
+    const { reservation_id, listing_id, vendor_profile_id, wave_id, access_code } = body
 
     if (!reservation_id || !listing_id || !vendor_profile_id || !wave_id) {
       return NextResponse.json(
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Verify event exists, is company_paid, and is accepting orders
     const { data: event } = await serviceClient
       .from('catering_requests')
-      .select('market_id, payment_model, status, company_name, vertical_id')
+      .select('market_id, payment_model, status, company_name, vertical_id, access_code')
       .eq('event_token', token)
       .in('status', ['approved', 'ready', 'active'])
       .single()
@@ -59,6 +59,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
         { error: 'This endpoint is for company-paid events only' },
         { status: 400 }
       )
+    }
+
+    // T3-5: Server-side access code verification
+    if (event.access_code) {
+      const submittedCode = (access_code || '').toString().trim().toUpperCase()
+      if (!submittedCode || submittedCode !== (event.access_code as string).toUpperCase()) {
+        return NextResponse.json(
+          { error: 'Invalid access code' },
+          { status: 403 }
+        )
+      }
     }
 
     // Call the atomic order creation RPC
