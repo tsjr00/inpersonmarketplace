@@ -9,7 +9,7 @@ import {
 } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications/service'
-import { approveEventRequest } from '@/lib/events/event-actions'
+import { approveEventRequest, autoMatchAndInvite } from '@/lib/events/event-actions'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -149,6 +149,37 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       )
     }
 
+    // On APPROVED: auto-invite vendors for full-service events + notify organizer
+    if (status === 'approved' && cateringReq.status !== 'approved' && updated.market_id) {
+      // T3-1: Auto-invite vendors (full-service events only — self-service handles this in event-requests route)
+      if (updated.service_level !== 'self_service') {
+        autoMatchAndInvite(serviceClient, updated, updated.market_id as string).catch(err =>
+          console.error('[admin/events] Auto-invite failed:', err)
+        )
+      }
+
+      // T3-3: Notify organizer that we're working on their event
+      if (updated.contact_email) {
+        sendOrganizerStatusEmail(
+          updated.contact_name,
+          updated.contact_email,
+          updated.company_name,
+          updated.event_date,
+          updated.vertical_id,
+          'approved',
+          "We're matching vendors to your event. You'll hear from us as soon as they're confirmed."
+        ).catch(err => console.error('[admin/events] Approved email error:', err))
+      }
+
+      // If organizer has an account, also send in-app notification
+      if (updated.organizer_user_id) {
+        sendNotification(updated.organizer_user_id, 'event_confirmed', {
+          companyName: updated.company_name,
+          eventDate: updated.event_date,
+        }, { vertical: updated.vertical_id }).catch(() => {})
+      }
+    }
+
     // On READY: notify organizer that event is confirmed with shareable link
     if (status === 'ready' && updated.event_token && updated.contact_email) {
       const { getAppUrl } = await import('@/lib/environment')
@@ -218,6 +249,22 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           .eq('market_id', cateringReq.market_id)
           .not('status', 'in', '("cancelled","refunded")')
       }
+
+      // T3-2: Notify organizer on decline (and on admin-initiated cancel)
+      if (updated.contact_email) {
+        const reason = status === 'declined'
+          ? (updated.admin_notes || "We weren't able to accommodate your event at this time. Please reach out if you'd like to discuss alternatives.")
+          : 'Your event has been cancelled.'
+        sendOrganizerStatusEmail(
+          updated.contact_name,
+          updated.contact_email,
+          updated.company_name,
+          updated.event_date,
+          updated.vertical_id,
+          status,
+          reason
+        ).catch(err => console.error(`[admin/events] ${status} email error:`, err))
+      }
     }
 
     // On COMPLETED: check for unfulfilled orders, then send feedback + settlement
@@ -267,6 +314,19 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       sendEventSettlementNotifications(serviceClient, cateringReq.market_id, cateringReq.vertical_id, updated.company_name).catch(
         (err) => console.error('[admin/catering] Settlement notification error:', err)
       )
+      // T3-3: Notify organizer that event is complete
+      if (updated.contact_email) {
+        sendOrganizerStatusEmail(
+          updated.contact_name,
+          updated.contact_email,
+          updated.company_name,
+          updated.event_date,
+          updated.vertical_id,
+          'completed',
+          'Your event is complete! Thank you for choosing us. We hope your attendees enjoyed the experience.'
+        ).catch(err => console.error('[admin/events] Completed email error:', err))
+      }
+
       // Clean up listing_markets rows created for this event (Option B cleanup)
       // These were inserted when vendors accepted the invitation
       const { data: eventListings } = await serviceClient
@@ -429,5 +489,58 @@ async function sendEventConfirmedEmail(
     })
   } catch (err) {
     console.error('[admin/catering] Failed to send event confirmed email:', err)
+  }
+}
+
+async function sendOrganizerStatusEmail(
+  contactName: string,
+  contactEmail: string,
+  companyName: string,
+  eventDate: string,
+  verticalId: string,
+  eventStatus: string,
+  message: string
+) {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return
+
+  const isFM = verticalId === 'farmers_market'
+  const senderName = isFM ? 'Farmers Marketing' : "Food Truck'n"
+  const senderDomain = isFM ? 'mail.farmersmarketing.app' : 'mail.foodtruckn.app'
+  const accentColor = isFM ? '#2d5016' : '#ff5757'
+
+  const subjectMap: Record<string, string> = {
+    approved: `Event update — we're finding vendors for ${companyName}`,
+    declined: `Event update — ${companyName}`,
+    cancelled: `Event cancelled — ${companyName}`,
+    completed: `Event complete — ${companyName} on ${eventDate}`,
+  }
+
+  try {
+    const { Resend } = await import('resend')
+    const resend = new Resend(apiKey)
+
+    await resend.emails.send({
+      from: `${senderName} <updates@${senderDomain}>`,
+      to: contactEmail,
+      subject: subjectMap[eventStatus] || `Event update — ${companyName}`,
+      html: `
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto">
+          <h2 style="color:${accentColor};margin:0 0 8px">${companyName}</h2>
+          <p style="color:#374151;margin:0 0 16px;font-size:16px">Hi ${contactName || 'there'},</p>
+          <p style="color:#4b5563;line-height:1.6;margin:0 0 16px">
+            ${message}
+          </p>
+          <p style="color:#9ca3af;font-size:13px;margin:16px 0 0;border-top:1px solid #e5e7eb;padding-top:16px">
+            Event date: ${eventDate}
+          </p>
+          <p style="color:#6b7280;font-size:13px;margin:8px 0 0">
+            Questions? Reply to this email and our team will help.
+          </p>
+        </div>
+      `,
+    })
+  } catch (err) {
+    console.error(`[admin/events] Failed to send ${eventStatus} email to organizer:`, err)
   }
 }
