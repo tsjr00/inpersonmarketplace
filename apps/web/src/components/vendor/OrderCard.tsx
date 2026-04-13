@@ -168,6 +168,7 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
 
   // Get unique markets for this order (use display data when available)
   const markets = [...new Set(order.items.map(item => item.display?.market_name || item.market_name))]
+  const isEventOrder = order.items.some(item => item.market_type === 'event')
 
   // Calculate vendor's subtotal for this order (excluding cancelled items)
   const vendorSubtotal = order.items
@@ -312,6 +313,23 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
         <p style={{ fontSize: 13, fontWeight: 600, color: '#6b7280', marginBottom: 4, marginTop: 0 }}>
           Pickup Location{markets.length > 1 ? 's' : ''}:
         </p>
+        {isEventOrder && (
+          <span style={{
+            display: 'inline-block',
+            padding: '3px 8px',
+            backgroundColor: '#ede9fe',
+            color: '#6d28d9',
+            borderRadius: 6,
+            fontSize: 11,
+            fontWeight: 700,
+            marginRight: 8,
+            marginBottom: 4,
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+          }}>
+            Event Order
+          </span>
+        )}
         {markets.map((market, idx) => (
           <span key={idx} style={{
             display: 'inline-block',

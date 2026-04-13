@@ -146,7 +146,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   // Fetch organizer's events
   const { data: organizerEvents } = await serviceClient
     .from('catering_requests')
-    .select('id, company_name, event_date, event_end_date, status, market_id, event_token, vendor_count, headcount, service_level, payment_model')
+    .select('id, company_name, event_date, event_end_date, status, market_id, event_token, vendor_count, headcount, service_level, payment_model, access_code')
     .eq('organizer_user_id', user.id)
     .eq('vertical_id', vertical)
     .order('event_date', { ascending: false })
@@ -924,7 +924,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                     )}
 
                     <div style={{ display: 'flex', gap: spacing.xs, flexWrap: 'wrap' }}>
-                      {evt.event_token && ['approved', 'ready', 'active'].includes(evt.status) && (
+                      {evt.event_token && ['approved', 'ready', 'active', 'review', 'completed'].includes(evt.status) && (
                         <Link
                           href={`/${vertical}/events/${evt.event_token}`}
                           style={{
@@ -973,6 +973,22 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                         </Link>
                       )}
                     </div>
+
+                    {/* Access code display for company-paid events */}
+                    {evt.access_code && (evt.payment_model === 'company_paid' || evt.payment_model === 'hybrid') && (
+                      <div style={{
+                        marginTop: spacing.xs,
+                        padding: `${spacing['3xs']} ${spacing.xs}`,
+                        backgroundColor: '#fffbeb',
+                        border: '1px solid #fde68a',
+                        borderRadius: radius.sm,
+                        fontSize: typography.sizes.xs,
+                        color: '#92400e',
+                      }}>
+                        Access code: <strong style={{ letterSpacing: 2, fontFamily: 'monospace' }}>{evt.access_code}</strong>
+                        <span style={{ marginLeft: spacing.xs, color: '#b45309' }}> — share with attendees</span>
+                      </div>
+                    )}
 
                     {/* Progressive detail collection */}
                     {evt.event_token && (

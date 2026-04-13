@@ -366,7 +366,7 @@ export default function EventFeedbackForm({
         <h3 style={headingStyle}>How was your experience?</h3>
         <p style={subheadingStyle}>
           <Link
-            href={`/login?redirect=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : '')}`}
+            href={`/${typeof window !== 'undefined' ? window.location.pathname.split('/')[1] || 'farmers_market' : 'farmers_market'}/login?redirect=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : '')}`}
             style={{ color: '#92400e', fontWeight: 600 }}
           >
             Log in
@@ -392,7 +392,7 @@ export default function EventFeedbackForm({
         <p style={subheadingStyle}>
           Your session expired.{' '}
           <Link
-            href={`/login?redirect=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : '')}`}
+            href={`/${typeof window !== 'undefined' ? window.location.pathname.split('/')[1] || 'farmers_market' : 'farmers_market'}/login?redirect=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : '')}`}
             style={{ color: '#92400e', fontWeight: 600 }}
           >
             Log in
