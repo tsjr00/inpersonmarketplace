@@ -34,7 +34,7 @@ export async function POST(
     // Fetch event and verify organizer ownership
     const { data: event, error: fetchError } = await serviceClient
       .from('catering_requests')
-      .select('id, market_id, organizer_user_id, contact_email, company_name, vertical_id, status')
+      .select('id, market_id, organizer_user_id, contact_email, company_name, vertical_id, status, event_date')
       .eq('event_token', token)
       .single()
 
@@ -105,12 +105,43 @@ export async function POST(
           sendNotification(v.vendor_profile_id, 'catering_vendor_responded', {
             companyName: event.company_name,
             responseAction: 'has been cancelled by the organizer',
-            eventDate: event.company_name,
+            eventDate: event.event_date,
           }, { vertical: event.vertical_id }).catch(err =>
             console.error(`[event-cancel] Vendor notification failed for ${v.vendor_profile_id}:`, err)
           )
         )
         await Promise.all(vendorNotifications)
+      }
+
+      // Notify buyers who have orders at this event
+      const { data: buyerOrders } = await serviceClient
+        .from('orders')
+        .select('buyer_user_id, order_number, id')
+        .eq('market_id', event.market_id)
+        .not('status', 'in', '("cancelled","refunded")')
+
+      if (buyerOrders && buyerOrders.length > 0) {
+        const uniqueBuyerIds = [...new Set(buyerOrders.map(o => o.buyer_user_id as string))]
+        const buyerNotifications = uniqueBuyerIds.map(buyerId => {
+          const buyerOrder = buyerOrders.find(o => o.buyer_user_id === buyerId)
+          return sendNotification(buyerId, 'order_cancelled_by_vendor', {
+            companyName: event.company_name,
+            eventDate: event.event_date,
+            reason: 'The event has been cancelled by the organizer. If you paid via card, a refund will be processed.',
+            orderNumber: buyerOrder?.order_number as string,
+            orderId: buyerOrder?.id as string,
+          }, { vertical: event.vertical_id }).catch(err =>
+            console.error(`[event-cancel] Buyer notification failed for ${buyerId}:`, err)
+          )
+        })
+        await Promise.all(buyerNotifications)
+
+        // Mark buyer orders as cancelled
+        await serviceClient
+          .from('orders')
+          .update({ status: 'cancelled' })
+          .eq('market_id', event.market_id)
+          .not('status', 'in', '("cancelled","refunded")')
       }
     }
 

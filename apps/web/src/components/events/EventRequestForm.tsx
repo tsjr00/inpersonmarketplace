@@ -86,7 +86,6 @@ const EVENT_TYPES = [
 const PAYMENT_MODELS = [
   { value: 'company_paid', label: 'Our company pays for everyone' },
   { value: 'attendee_paid', label: 'Each person pays for themselves' },
-  { value: 'hybrid', label: 'Company covers a base meal, individuals can upgrade' },
 ]
 
 const RECURRING_OPTIONS = [

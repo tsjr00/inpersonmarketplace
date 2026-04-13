@@ -172,7 +172,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       ).catch(err => console.error('[admin/catering] Event confirmed email error:', err))
     }
 
-    // On CANCELLED or DECLINED: clean up listing_markets rows (same as completed cleanup)
+    // On CANCELLED or DECLINED: clean up listing_markets + notify buyers + cancel orders
     if ((status === 'cancelled' || status === 'declined') && cateringReq.market_id) {
       const { data: eventListings } = await serviceClient
         .from('event_vendor_listings')
@@ -185,6 +185,38 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           .delete()
           .eq('market_id', cateringReq.market_id)
           .in('listing_id', listingIds)
+      }
+
+      // Notify buyers who have orders at this event and cancel their orders
+      const { data: buyerOrders } = await serviceClient
+        .from('orders')
+        .select('buyer_user_id, order_number, id')
+        .eq('market_id', cateringReq.market_id)
+        .not('status', 'in', '("cancelled","refunded")')
+
+      if (buyerOrders && buyerOrders.length > 0) {
+        const uniqueBuyerIds = [...new Set(buyerOrders.map(o => o.buyer_user_id as string))]
+        const buyerNotifications = uniqueBuyerIds.map(buyerId => {
+          const buyerOrder = buyerOrders.find(o => o.buyer_user_id === buyerId)
+          return sendNotification(buyerId, 'order_cancelled_by_vendor', {
+            companyName: cateringReq.company_name,
+            eventDate: cateringReq.event_date,
+            reason: status === 'cancelled'
+              ? 'This event has been cancelled. If you paid via card, a refund will be processed.'
+              : 'This event has been declined. If you paid via card, a refund will be processed.',
+            orderNumber: buyerOrder?.order_number as string,
+            orderId: buyerOrder?.id as string,
+          }, { vertical: cateringReq.vertical_id }).catch(err =>
+            console.error(`[admin/events] Buyer cancel notification failed for ${buyerId}:`, err)
+          )
+        })
+        await Promise.all(buyerNotifications)
+
+        await serviceClient
+          .from('orders')
+          .update({ status: 'cancelled' })
+          .eq('market_id', cateringReq.market_id)
+          .not('status', 'in', '("cancelled","refunded")')
       }
     }
 
