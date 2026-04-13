@@ -200,6 +200,32 @@ async function handleListingAdd(
     })
   }
 
+  // Cross-event cart isolation: prevent mixing event items with other markets
+  crumb.logic('Checking cross-event cart isolation')
+  const { data: crossMarketItems } = await supabase
+    .from('cart_items')
+    .select('market_id')
+    .eq('cart_id', cartId)
+    .neq('market_id', marketId)
+    .limit(1)
+
+  if (crossMarketItems && crossMarketItems.length > 0) {
+    const conflictMarketIds = [marketId, crossMarketItems[0].market_id as string]
+    const { data: eventMarkets } = await supabase
+      .from('markets')
+      .select('id')
+      .in('id', conflictMarketIds)
+      .eq('market_type', 'event')
+      .limit(1)
+
+    if (eventMarkets && eventMarkets.length > 0) {
+      throw traced.validation('ERR_CART_010',
+        'Your cart has items from a different location. Event orders cannot be combined with other orders. Please clear your cart first.',
+        { additionalContext: { newMarketId: marketId, existingMarketId: crossMarketItems[0].market_id } }
+      )
+    }
+  }
+
   // Check for existing item (same listing + schedule + date)
   crumb.supabase('select', 'cart_items', { cartId, listingId, scheduleId, pickupDate })
   const { data: existingItem, error: checkError } = await supabase
