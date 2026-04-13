@@ -1,137 +1,196 @@
-# Current Task: Session 71 — Event Feedback Fix + Event-General Rating
-Updated: 2026-04-11
+# Current Task: Session 71 — Complete
+Updated: 2026-04-12
 
-## Session kickoff state
-- Session 70 (348 commits) pushed to prod this session. Protocol 8 error log
-  review showed zero new regressions post-push.
-- User reported broken event feedback form on prod: form shows "Missing
-  required fields" with no visible fields. Root cause traced to a
-  schema mismatch between the form body and the `/api/buyer/feedback`
-  endpoint — the form had never successfully saved a single submission
-  since Session 62.
+## What happened this session
 
-## Goal
-Fix the broken event feedback form and give it a real destination. Scope
-expanded per user direction: also add a separate "How was the event
-overall?" rating that goes to the event organizer (moderated first).
+Session 71 was a major events system session: fixed broken features,
+built new admin tooling, conducted a comprehensive E2E audit of all
+event payment flows, and systematically worked through 22 of 27
+identified issues organized into 7 clusters.
 
-## Key design decisions
-- **Vendor ratings from events use the existing `order_ratings` flow.**
-  Zero schema changes. Event attendees who ordered from a vendor hit
-  the same `/api/buyer/orders/[id]/rate` endpoint that regular buyers
-  use. One unified star rating per vendor, aggregated by the existing
-  `update_vendor_rating_stats` trigger.
-- **Event-general rating lives in a new `event_ratings` table.**
-  Separate from vendor ratings. Organizer + admin read approved rows.
-  Attendees insert with `status='pending'`; admin moderates.
-- **Form shows two sections to logged-in users:** Section A (per-vendor
-  rating cards, hidden if user has no completed event orders), Section
-  B (event-overall rating, always shown when logged in).
-- **Not-logged-in state** shows a login prompt with the current event
-  URL as the redirect target.
-- **Vertical-neutral heading:** "How was your experience?" replaces the
-  old FT-centric "How was the food?"
-- **Logout friction** (user raised the concern) — not solved this
-  session. Backlogged as a magic-link re-auth flow using Supabase
-  `admin.generateLink()` bound to post-event notification.
-- **Admin moderation UI** — deferred to next session. Pending rows can
-  be approved via SQL in the meantime.
-- **Organizer dashboard display** — deferred. RLS already allows
-  organizers to read approved rows for their own events; UI can be
-  built later.
+## Session 71 deliverables
 
-## Files changed
-### Database
-- `supabase/migrations/20260411_116_event_ratings_table.sql` (NEW,
-  PENDING apply)
-  - Creates `event_ratings` table: id, catering_request_id (FK→
-    catering_requests ON DELETE CASCADE), user_id (FK→auth.users ON
-    DELETE CASCADE), rating int2 (CHECK 1-5), comment text, status
-    text default 'pending' (CHECK 'pending'/'approved'/'hidden'),
-    created_at, updated_at, moderated_at, moderated_by, UNIQUE
-    (catering_request_id, user_id)
-  - 3 indexes (event, user, status)
-  - `update_event_ratings_updated_at` BEFORE UPDATE trigger
-  - 5 RLS policies:
-    - `users_insert_own_event_rating` — INSERT: `user_id=auth.uid()` +
-      event must be in active/review/completed status
-    - `users_update_own_event_rating` — UPDATE: own row, pending status
-      only (admin-approved rows are locked)
-    - `users_read_own_event_rating` — SELECT: own rows, any status
-    - `organizer_read_event_ratings` — SELECT: approved rows for
-      events where user is `organizer_user_id`
-    - `admin_all_event_ratings` — FOR ALL: via `is_platform_admin()`
+### 18 commits on staging (ahead of prod)
+### 6 migrations (116-121) applied to all 3 environments
+### 2 new admin pages (platform + vertical = 4 total page files)
+### 27-item event TODO list created, 22 items resolved
 
-### API routes (new)
-- `apps/web/src/app/api/buyer/events/[token]/rate/route.ts` — POST
-  - Auth required, rate-limited (`rateLimits.submit`)
-  - Resolves event_token → catering_requests, validates active/review/
-    completed status
-  - Content moderation on comment
-  - Upsert on `(catering_request_id, user_id)` with `status='pending'`
-  - Returns 201 with pending status message
+---
 
-- `apps/web/src/app/api/buyer/events/[token]/review-state/route.ts` — GET
-  - Auth required, rate-limited (`rateLimits.api`)
-  - Returns `{ rateable_orders, event_rating }` for the current user
-  - `rateable_orders`: completed orders at the event's market, grouped
-    by (order_id, vendor_profile_id), with existing `order_ratings` if
-    any (so the form can pre-populate edits)
-  - `event_rating`: the user's existing `event_ratings` row (or null)
+## Commits in order
 
-### Component rewrite
-- `apps/web/src/components/events/EventFeedbackForm.tsx`
-  - New props: `{ eventToken, vertical, isLoggedIn }` (removed `vendors`)
-  - Fetches `/review-state` on mount for logged-in users
-  - Three states: not logged in (login prompt), loading, loaded
-  - Section A — vendor rating cards that post to existing
-    `/api/buyer/orders/[id]/rate`
-  - Section B — single event rating card that posts to new
-    `/api/buyer/events/[token]/rate`
-  - `StarRating` + `VendorRatingCard` + `EventOverallRating` internal
-    sub-components
-  - Approved event ratings show a locked "✓ Thanks for rating this
-    event" state; pending ratings show an edit state
+| # | Hash | What |
+|---|------|------|
+| 1 | `89576a0a` | migration 116 — event_ratings table |
+| 2 | `761022bb` | fix: event feedback form — wire to working endpoints + event rating |
+| 3 | `11884d22` | docs: migration 116 applied, schema snapshot updated |
+| 4 | `33ece1f9` | feat: admin error logs dashboard + event ratings moderation (platform) |
+| 5 | `64110abf` | fix: organizer account nudge on event form success + signup email prefill |
+| 6 | `b48a291b` | feat: vertical admin error logs + event ratings pages + migration 117 |
+| 7 | `858311ea` | docs: migration 117 applied |
+| 8 | `a075cc5b` | migration 118 — 7 event indexes + FK + CHECK constraint |
+| 9 | `74284df4` | fix: dedup vendor select, FM event copy (H-1, H-2, H-3) |
+| 10 | `b9d64996` | docs: migration 118 applied |
+| 11 | `0de962db` | fix: T0 event safety — hide hybrid, notify buyers on cancel, fix date bug |
+| 12 | `dde5f8ba` | feat: admin event lifecycle — auto-invite, organizer notifications (Cluster D) |
+| 13 | `fab27505` | fix: company-paid financial controls — fees + cap + access code (Cluster B) |
+| 14 | `a7dbd119` | docs: migration 119 applied |
+| 15 | `96b6304b` | fix: wave system hardening — timeout + orphan cleanup + auto-gen (Cluster C) |
+| 16 | `2a030157` | docs: migration 120 applied |
+| 17 | `8cb10b10` | fix: cross-event cart isolation + order cap validation (Cluster E) |
+| 18 | `e688535c` | fix: event UX polish + data integrity (Clusters F + G) |
 
-### Page wiring
-- `apps/web/src/app/[vertical]/events/[token]/page.tsx`
-  - Added `createClient` import alongside `createServiceClient`
-  - Server-side auth check (`authClient.auth.getUser()`) to compute
-    `isLoggedIn` boolean
-  - Changed feedback form render: passes `vertical` + `isLoggedIn`
-    instead of `vendors`, and shows for `['active', 'review',
-    'completed']` statuses (was `['active', 'review']`)
+---
 
-## Verification
-- `npx tsc --noEmit` clean (no errors)
-- `npx vitest run` — 51 files / 1472 tests all passing
-- No cross-file contract tests affected — `EventFeedbackForm` is not
-  referenced by any test file (it's a UI-only component with no
-  business rule assertions)
+## Migrations applied (all 3 envs)
 
-## Deployment sequence
-1. Commit migration file on local main (not pushed)
-2. Commit code changes on local main
-3. User applies migration 116 to **dev** first, verify clean
-4. Push local main → staging via branch chain
-5. User applies migration 116 to **staging**
-6. User tests on staging (log in, visit event, submit vendor rating,
-   submit event rating, re-submit to test upsert)
-7. User approves migration for **prod**
-8. User approves code push to prod (separate approval, after 9pm CT
-   window)
-9. After prod, update schema snapshot (changelog + regenerate
-   structured tables) + move migration 116 to `applied/` + update
-   MIGRATION_LOG.md
+| # | File | What |
+|---|------|------|
+| 116 | event_ratings_table | New `event_ratings` table for event-general attendee feedback |
+| 117 | error_logs_vertical_id | `vertical_id` column on `error_logs` for vertical-scoped dashboards |
+| 118 | event_indexes_constraints | 7 indexes + FK on organizer_user_id + CHECK on wave reservations |
+| 119 | company_paid_fees_and_cap | RPC rewrite with fees (6.5%+$0.15 each side) + per-attendee cap + payment linkage column |
+| 120 | wave_system_hardening | expires_at on reservations + free_wave_on_order_cancel RPC + recalculate_wave_capacity RPC |
+| 121 | event_data_integrity | CHECK on event times + cleanup trigger for cancelled events + organizer RLS |
 
-## Open items (not this session)
-- Magic-link re-auth for post-event rating (logout friction fix)
-- Admin moderation UI at `/admin/event-ratings`
-- Organizer dashboard display for approved event ratings
-- Aggregate stats on `catering_requests` (average_rating, rating_count)
-  if we want public bragging
-- Session 70 `ERR_VENDOR_001` prod verification — re-run Protocol 8
-  query tomorrow to confirm no new errors since the push
+---
+
+## What was fixed (by cluster)
+
+### Cluster T0 — Cancel Safety
+- Hybrid payment option hidden from event form (dead-end flow)
+- Event cancellation now notifies buyers AND cancels their orders (was vendors-only)
+- Fixed eventDate bug in cancel notification (was sending company_name as date)
+
+### Cluster B — Company-Paid Financial Controls
+- `create_company_paid_order` RPC now charges standard platform fees (was $0 both sides)
+- Per-attendee spending cap enforced server-side (was frontend-only)
+- Server-side access code verification on the order endpoint
+- `event_company_payment_id` FK column on orders for reconciliation
+- Fee structure decision logged: standard fees always apply + per-vendor flat fee by engagement tier (TBD)
+
+### Cluster C — Wave System Hardening
+- Wave reservations now expire after 10 minutes (prevents slot hoarding)
+- `free_wave_on_order_cancel` RPC frees slots when orders are cancelled
+- `recalculate_wave_capacity` RPC for admin use when vendor caps change
+- Auto-generates waves on status→ready transition (was manual-only)
+
+### Cluster D — Admin Event Lifecycle
+- Full-service events now auto-invite vendors on admin approval
+- Organizer notified by email on approve, decline, cancel, and complete
+- In-app notification to organizer on approval (if they have an account)
+
+### Cluster E — Cart & Checkout Isolation
+- Cross-event cart isolation: can't mix items from different events or events with regular markets
+- New `GET /api/events/[token]/validate-order-cap` endpoint for pre-checkout cap validation
+
+### Cluster F — Data Integrity
+- CHECK constraint: event_date requires start + end times (wave generation was silently failing)
+- Cleanup trigger: cancelled/declined events auto-cancel wave reservations + deactivate market
+- Organizer RLS: can now SELECT wave reservations + order items for their own events
+
+### Cluster G — UX Polish
+- EventFeedbackForm login redirect now includes vertical prefix
+- Vendor OrderCard shows purple "Event Order" badge for event-type markets
+- Organizer dashboard: View Event Page link extended to review/completed statuses
+- Access code shown inline on company-paid event cards on organizer dashboard
+
+---
+
+## Also built this session (before the TODO list)
+
+### Broken EventFeedbackForm — complete rewrite
+- Old form posted to `/api/buyer/feedback` with wrong schema — every submission returned 400 since Session 62
+- New form has two sections: vendor ratings (via existing `order_ratings` flow) and event-general rating (via new `event_ratings` table + `/api/buyer/events/[token]/rate` endpoint)
+- New `GET /api/buyer/events/[token]/review-state` endpoint returns rateable orders + existing ratings
+
+### Admin dashboards — 4 new pages
+- `/admin/error-logs` — Protocol 8 replacement, aggregated error_logs by code/route/severity
+- `/admin/event-ratings` — moderation queue with approve/hide actions
+- `/[vertical]/admin/error-logs` — vertical-scoped version
+- `/[vertical]/admin/event-ratings` — vertical-scoped version (read-only, moderation in platform admin)
+- Nav links added to both AdminSidebar (platform) and AdminNav (vertical)
+
+### Organizer account conversion
+- Event form success screen rewritten: primary CTA is "Create Your Free Account" (was "Sign In")
+- Value proposition bullets listing what organizers can track via their dashboard
+- Signup page pre-fills email from `?email=` query param
+
+### Events E2E audit
+- 4 parallel research agents traced company-paid, hybrid, attendee-paid, and wave/admin flows
+- 27-item prioritized TODO list at `apps/web/.claude/events_comprehensive_todo.md`
+- Surface-level audit at `apps/web/.claude/events_e2e_review.md`
+
+### Prod push
+- Session 70's 348 commits pushed to prod at session start
+- Protocol 8 error log review confirmed ERR_VENDOR_001 stopped after push
+
+---
+
+## Items deferred to future sessions
+
+| ID | What | Why deferred |
+|----|------|-------------|
+| T1-4 | Automated vendor payouts for events | Manual process via settlement report until volume justifies automation |
+| T2-2 | Wave enforcement at Stripe checkout | Touches checkout/session/route.ts (critical-path file), needs dedicated focus |
+| T2-4 | Walk-up reservation UI | RPC exists (`find_next_available_wave`), needs UI |
+| T5-6 | Timezone awareness on event times | High complexity (migration + 5+ files), user deferred |
+| T0-1 | Hybrid payment flow implementation | Dead end at checkout — config works but order creation has zero hybrid logic. Hidden from form, needs full design session |
+
+---
+
+## Files created this session
+
+### New pages
+- `apps/web/src/app/admin/error-logs/page.tsx`
+- `apps/web/src/app/admin/event-ratings/page.tsx`
+- `apps/web/src/app/[vertical]/admin/error-logs/page.tsx`
+- `apps/web/src/app/[vertical]/admin/event-ratings/page.tsx`
+
+### New API routes
+- `apps/web/src/app/api/buyer/events/[token]/rate/route.ts`
+- `apps/web/src/app/api/buyer/events/[token]/review-state/route.ts`
+- `apps/web/src/app/api/admin/error-logs/route.ts`
+- `apps/web/src/app/api/admin/event-ratings/route.ts`
+- `apps/web/src/app/api/events/[token]/validate-order-cap/route.ts`
+
+### New migrations (all in applied/)
+- `supabase/migrations/applied/20260411_116_event_ratings_table.sql`
+- `supabase/migrations/applied/20260412_117_error_logs_vertical_id.sql`
+- `supabase/migrations/applied/20260412_118_event_indexes_constraints.sql`
+- `supabase/migrations/applied/20260412_119_company_paid_fees_and_cap.sql`
+- `supabase/migrations/applied/20260412_120_wave_system_hardening.sql`
+- `supabase/migrations/applied/20260412_121_event_data_integrity.sql`
+
+### Doc files
+- `apps/web/.claude/events_comprehensive_todo.md`
+- `apps/web/.claude/events_e2e_review.md`
+
+---
+
+## Key decisions made (logged in decisions.md)
+
+- Event fee structure: vendors always pay 6.5%+$0.15, buyers always pay 6.5%+$0.15. Full-service events add flat per-vendor fee by engagement-tier (3-4 tiers, pricing TBD). Self-service: no flat fee.
+- Organizer auth via email matching is BY DESIGN, protected by Supabase email confirmation requirement. Not a security vulnerability.
+- Hybrid events hidden from form until full split-payment checkout is built.
+
+---
+
+## Staging vs Prod status
+
+- **Staging:** 18 commits ahead of prod. All 6 migrations applied.
+- **Prod:** Session 70's push applied. Migrations 116-121 applied to prod DB. Code NOT pushed to prod yet — user wants to test staging first.
+- **To push prod:** Just `git push origin main` — no migration work needed, all already applied.
+
+---
 
 ## Autonomy mode
-Report. Every commit/push/migration still requires explicit approval.
+Report. Every commit/push/migration requires explicit approval.
+
+## Next session kickoff checklist
+1. Read this file
+2. `git log origin/staging --oneline -5` — confirm staging tip
+3. `git rev-list --count origin/main..main` — confirm commits ahead of prod
+4. Ask user if staging testing is complete → push to prod if yes
+5. Protocol 8 error log review on prod
+6. Check remaining deferred items (T1-4, T2-2, T2-4, T5-6, T0-1)
