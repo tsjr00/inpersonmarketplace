@@ -57,6 +57,12 @@ export type NotificationType =
   | 'order_cancelled_by_buyer'
   | 'vendor_approved'
   | 'vendor_rejected'
+  | 'business_verification_approved'
+  | 'business_verification_rejected'
+  | 'category_doc_approved'
+  | 'category_doc_rejected'
+  | 'coi_approved'
+  | 'coi_rejected'
   | 'market_approved'
   | 'pickup_confirmation_needed'
   | 'pickup_issue_reported'
@@ -452,6 +458,61 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: (_d, locale) => t('notif.vendor_rejected_title', locale),
     message: (d) => `Your vendor application was not approved at this time.${d.reason ? ` Reason: ${d.reason}` : ''} You may reapply after addressing any issues.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor-signup`,
+  },
+
+  // Gate-specific approval/rejection notifications (3-gate onboarding)
+  business_verification_approved: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: (_d, locale) => t('notif.business_verification_approved_title', locale),
+    message: () => 'Your business verification has been approved! Next step: upload your category-specific documents in your vendor dashboard.',
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard`,
+  },
+
+  business_verification_rejected: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: (_d, locale) => t('notif.business_verification_rejected_title', locale),
+    message: (d) => `Your business verification needs attention.${d.reason ? ` ${d.reason}` : ''} Please review and resubmit through your vendor dashboard.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard`,
+  },
+
+  category_doc_approved: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: (_d, locale) => t('notif.category_doc_approved_title', locale),
+    message: (d) => `Your ${d.category || 'category'} documentation has been approved! Once all your required documents are approved, you can start listing products.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard`,
+  },
+
+  category_doc_rejected: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: (_d, locale) => t('notif.category_doc_rejected_title', locale),
+    message: (d) => `Your ${d.category || 'category'} documentation needs revision.${d.reason ? ` ${d.reason}` : ''} Please review and resubmit.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard`,
+  },
+
+  coi_approved: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: (_d, locale) => t('notif.coi_approved_title', locale),
+    message: () => 'Your Certificate of Insurance has been approved! You\'re now eligible for event vendor opportunities.',
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard`,
+  },
+
+  coi_rejected: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: (_d, locale) => t('notif.coi_rejected_title', locale),
+    message: (d) => `Your Certificate of Insurance was not approved.${d.reason ? ` ${d.reason}` : ''} Please review and resubmit when ready.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard`,
   },
 
   market_approved: {

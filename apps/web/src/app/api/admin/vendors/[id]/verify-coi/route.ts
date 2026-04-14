@@ -117,7 +117,7 @@ export async function POST(
     if (vendor?.user_id) {
       await sendNotification(
         vendor.user_id,
-        action === 'approve' ? 'vendor_approved' : 'vendor_rejected',
+        action === 'approve' ? 'coi_approved' : 'coi_rejected',
         {},
         { vertical: vendor.vertical_id }
       )

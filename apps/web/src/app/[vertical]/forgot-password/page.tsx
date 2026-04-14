@@ -7,6 +7,7 @@ import { defaultBranding, VerticalBranding } from '@/lib/branding'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { getClientLocale } from '@/lib/locale/client'
 import { t } from '@/lib/locale/messages'
+import { Turnstile, useTurnstile } from '@/components/auth/Turnstile'
 
 interface ForgotPasswordPageProps {
   params: Promise<{ vertical: string }>
@@ -22,6 +23,7 @@ export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) 
   const [branding, setBranding] = useState<VerticalBranding>(defaultBranding[vertical] || defaultBranding.farmers_market)
   const supabase = createClient()
   const locale = getClientLocale()
+  const { token: turnstileToken, isVerified: captchaVerified, handleVerify, handleError: handleCaptchaError, handleExpire } = useTurnstile()
 
   useEffect(() => {
     async function loadConfig() {
@@ -49,6 +51,7 @@ export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) 
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/${vertical}/reset-password`,
+      captchaToken: turnstileToken || undefined,
     })
 
     if (error) {
@@ -224,21 +227,23 @@ export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) 
             />
           </div>
 
+          <Turnstile onVerify={handleVerify} onError={handleCaptchaError} onExpire={handleExpire} />
+
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || (!captchaVerified && !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)}
             style={{
               width: '100%',
               padding: spacing.xs,
               fontSize: typography.sizes.base,
               fontWeight: typography.weights.semibold,
-              backgroundColor: loading ? colors.textMuted : colors.primary,
+              backgroundColor: (loading || (!captchaVerified && !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)) ? colors.textMuted : colors.primary,
               color: colors.textInverse,
               border: 'none',
               borderRadius: radius.sm,
-              cursor: loading ? 'not-allowed' : 'pointer',
+              cursor: (loading || (!captchaVerified && !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)) ? 'not-allowed' : 'pointer',
               marginBottom: spacing.sm,
-              boxShadow: loading ? 'none' : shadows.primary
+              boxShadow: (loading || (!captchaVerified && !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)) ? 'none' : shadows.primary
             }}
           >
             {loading ? t('forgot.sending', locale) : t('forgot.submit', locale)}

@@ -315,9 +315,8 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
               >
                 Bring the Market to Your Event!
               </h2>
-              <Link
-                href={`/${vertical}/events`}
-                className="inline-flex items-center justify-center transition-all"
+              <span
+                className="inline-flex items-center justify-center"
                 style={{
                   backgroundColor: '#66BB6A',
                   color: '#ffffff',
@@ -326,10 +325,11 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
                   fontSize: typography.sizes.base,
                   fontWeight: typography.weights.semibold,
                   border: 'none',
+                  cursor: 'default',
                 }}
               >
-                Find Out More
-              </Link>
+                Coming Soon
+              </span>
             </div>
           </section>
         )}
@@ -442,8 +442,7 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
                 </div>
               </div>
               <div className="text-center" style={{ marginTop: spacing.md }}>
-                <a
-                  href={`/${vertical}/events`}
+                <span
                   style={{
                     display: 'inline-block',
                     padding: '10px 28px',
@@ -454,10 +453,11 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
                     fontSize: typography.sizes.sm,
                     fontWeight: typography.weights.semibold,
                     textDecoration: 'none',
+                    cursor: 'default',
                   }}
                 >
-                  Request a Quote
-                </a>
+                  Coming Soon
+                </span>
               </div>
             </div>
           </section>

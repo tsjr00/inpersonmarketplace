@@ -1,3 +1,25 @@
+// ============================================================================
+// NOT CURRENTLY IN USE — KEEP, DO NOT DELETE
+// ============================================================================
+// As of 2026-04-16: this route is not called by any UI in the app.
+// The active handoff flow uses /api/vendor/orders/[id]/fulfill instead, which
+// supports both buyer-first and vendor-first ordering.
+//
+// This route enforces a STRICT buyer-first sequence (vendor cannot
+// counter-confirm until buyer_confirmed_at is set). It exists as the
+// stricter alternative for a future product decision where mandatory
+// buyer-first acknowledgment is wanted.
+//
+// Reasons to keep this file rather than delete:
+//  1. The strict-ordering business logic is non-trivial; rewriting it
+//     later would re-introduce risk that's already been resolved here.
+//  2. Re-activation just requires pointing the UI at this route; no
+//     code changes needed inside this file.
+//
+// If you are in this file because of an investigation, the active flow
+// is in ./fulfill/route.ts — start there.
+// ============================================================================
+
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { transferToVendor } from '@/lib/stripe/payments'

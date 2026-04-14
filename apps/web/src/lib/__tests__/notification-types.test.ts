@@ -411,7 +411,11 @@ describe('Notification audience correctness', () => {
   const vendorTypes: NotificationType[] = [
     'new_paid_order', 'new_external_order', 'external_payment_reminder',
     'external_payment_auto_confirmed', 'order_cancelled_by_buyer',
-    'vendor_approved', 'vendor_rejected', 'market_approved',
+    'vendor_approved', 'vendor_rejected',
+    'business_verification_approved', 'business_verification_rejected',
+    'category_doc_approved', 'category_doc_rejected',
+    'coi_approved', 'coi_rejected',
+    'market_approved',
     'pickup_confirmation_needed', 'pickup_issue_reported',
     'inventory_low_stock', 'inventory_out_of_stock',
     'payout_processed', 'payout_failed',

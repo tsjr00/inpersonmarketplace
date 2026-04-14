@@ -108,16 +108,18 @@ export async function POST(request: NextRequest) {
   })
 }
 
-const verticalEmail: Record<string, { name: string; from: string; color: string; label: string }> = {
+const verticalEmail: Record<string, { name: string; from: string; adminTo: string; color: string; label: string }> = {
   food_trucks: {
     name: "Food Truck'n",
     from: 'updates@mail.foodtruckn.app',
+    adminTo: 'info@foodtruckn.app',
     color: '#ff5757',
     label: 'Food Truck Name',
   },
   farmers_market: {
     name: 'Farmers Marketing',
     from: 'updates@mail.farmersmarketing.app',
+    adminTo: 'info@farmersmarketing.app',
     color: '#e86452',
     label: 'Business Name',
   },
@@ -132,9 +134,8 @@ async function sendAdminEmail(
   phone: string,
   isDuplicate: boolean
 ) {
-  const adminEmail = process.env.ADMIN_ALERT_EMAIL
   const apiKey = process.env.RESEND_API_KEY
-  if (!adminEmail || !apiKey) return
+  if (!apiKey) return
 
   const v = verticalEmail[vertical] || verticalEmail.food_trucks
 
@@ -144,7 +145,7 @@ async function sendAdminEmail(
 
     await resend.emails.send({
       from: `${v.name} <${v.from}>`,
-      to: adminEmail,
+      to: v.adminTo,
       subject: `${isDuplicate ? '[DUPLICATE] ' : ''}New Vendor Lead: ${businessName}`,
       html: `
         <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto">
