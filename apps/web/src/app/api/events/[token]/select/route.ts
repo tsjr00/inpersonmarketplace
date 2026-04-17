@@ -341,6 +341,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         to: event.contact_email,
         subject: `Your event is confirmed — ${uniqueVendorIds.length} ${vendorLabel}${uniqueVendorIds.length > 1 ? 's' : ''} ready!`,
         html: `
+
           <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto">
             <h2 style="color:${accentColor};margin:0 0 8px">Your Event Is Confirmed!</h2>
             <p style="color:#374151;margin:0 0 16px">Hi ${event.contact_name || 'there'},</p>
@@ -407,6 +408,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
           </div>
         `,
       })
+
+      // Stamp timestamp to prevent duplicate email from admin ready-status transition
+      await serviceClient
+        .from('catering_requests')
+        .update({ selection_email_sent_at: new Date().toISOString() })
+        .eq('id', event.id)
     } catch (emailErr) {
       console.error('[event-select] Failed to send confirmation email:', emailErr)
     }

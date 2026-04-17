@@ -292,6 +292,14 @@ export async function GET(request: NextRequest) {
 
     after(async () => {
       try {
+        // Fetch buyer name for vendor notifications
+        const { data: buyerProfile } = await serviceClient
+          .from('user_profiles')
+          .select('display_name')
+          .eq('user_id', capturedUserId)
+          .single()
+        const buyerDisplayName = buyerProfile?.display_name || 'A customer'
+
         // Vendor notifications
         const { count: existingNotifCount } = await serviceClient
           .from('notifications')
@@ -334,6 +342,7 @@ export async function GET(request: NextRequest) {
               Array.from(vendorNotifications).map(([vendorUserId, info]) =>
                 sendNotification(vendorUserId, 'new_paid_order', {
                   orderNumber: capturedOrderNumber,
+                  buyerName: buyerDisplayName,
                   itemTitle: info.items.length === 1 ? info.items[0] : `${info.items.length} items`,
                   marketName: info.marketName,
                 }, { vertical: capturedVerticalId })

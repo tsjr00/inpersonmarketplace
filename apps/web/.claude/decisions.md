@@ -48,25 +48,31 @@ Structured record of business and architecture decisions. Check here before aski
 | 2026-03-24 | Tax | FT listings always taxable | Prepared food for immediate consumption is subject to TX sales tax. Sales tax checkbox forced on, greyed out for FT. Pre-packaged resale items blocked from publishing. | No | 63 |
 | 2026-03-24 | Tax | FM category-based tax rules | Per TX Comptroller 151.314: Produce/Dairy/Pantry = exempt. Prepared Foods/Plants/Wellness/Art/Home = taxable. Meat & Baked Goods = depends on preparation (trigger question for immediate consumption). | No | 63 |
 | 2026-03-24 | Tax | Platform is TX marketplace facilitator | Under TX Tax Code, platform collects, reports, and remits sales tax on all marketplace sales. Vendors don't collect tax on platform sales but still need their own TX sales tax permit. | No | 63 |
-| 2026-03-24 | Tax | Stripe Tax for tax calculation + collection | Use Stripe Tax (automatic_tax with liability:'self') instead of building own tax engine. Stripe handles rate lookup by jurisdiction, product tax code distinction, collection. 0.5% per transaction. Platform still files with Comptroller (via reports or TaxJar AutoFile at $35/filing). | No | 63 |
+| 2026-03-24 | Tax | ~~Stripe Tax for tax calculation + collection~~ **SUPERSEDED by Session 72 decision below** | ~~Use Stripe Tax (automatic_tax with liability:'self')~~ | ~~No~~ | 63 |
+| 2026-04-17 | Tax | TaxCloud replaces Stripe Tax as tax provider | TaxCloud (Certified Service Provider under SSUTA) handles: (1) rate calculation via API (free), (2) automated filing + remittance for SSUTA states AND non-SSUTA states including Texas (via ACH from linked bank account). TX is not an SSUTA member but TaxCloud files TX returns anyway — confirmed via TaxCloud support docs. Replaces Session 63 Stripe Tax decision ($0.50/txn → free). Platform responsibility: API integration, TIC code mapping to product categories, transaction reporting. TaxCloud handles the rest. Texas Comptroller registration in progress (taxpayer ID obtained, awaiting system processing). | No | 72 |
 | 2026-03-24 | Tax | External payments hidden pending tax resolution | EXTERNAL_PAYMENTS_ENABLED = false. All external payment UI (Venmo/CashApp/PayPal/Cash) hidden. Backend preserved. Risk: platform facilitates transactions without full visibility into tax-relevant details. Will re-enable after tax treatment is resolved. | Yes | 63 |
 | 2026-03-24 | Payments | Explicit payment methods: Card, Cash App, Amazon Pay, Link | Stripe checkout sessions list all methods explicitly so buyers see every option. Apple Pay + Google Pay come through 'card' automatically. All methods enabled in Stripe Dashboard for platform + connected accounts (on by default). | Yes | 63 |
 
-### Sales Tax Implementation Plan (Session 63)
+### Sales Tax Implementation Plan (Updated Session 72 — TaxCloud)
 
-**Status: PENDING — needs Texas Comptroller registration + Stripe Tax setup before code changes.**
+**Status: PENDING — TX Comptroller registration in progress, TaxCloud account needed.**
 
 **Prerequisites (user action required):**
-1. Register with Texas Comptroller as marketplace provider → get TX sales tax permit
-2. Add Texas as registration in Stripe Tax Dashboard (Settings → Tax → Registrations)
-3. Get Stripe product tax codes for "prepared food" (taxable) and "food and food ingredients" (exempt)
+1. ✅ Register with Texas Comptroller as marketplace facilitator → taxpayer ID obtained, awaiting processing
+2. ❌ Create TaxCloud account → get API ID + API Key
+3. ❌ Link bank account in TaxCloud for TX tax remittance (ACH)
+4. ❌ Register TX in TaxCloud dashboard
 
 **Code changes (after prerequisites):**
-1. Add `automatic_tax: { enabled: true, liability: { type: 'self' } }` to all checkout sessions
-2. Add `shipping_address_collection` or use pickup location zip for tax jurisdiction
-3. Map `is_taxable` flag to Stripe product tax codes per line item at checkout
-4. Withhold tax amount from vendor transfers (exclude tax_cents from transfer amount)
-5. Add `sales_tax_cents` tracking to orders/order_items for internal records
+1. Create `src/lib/tax/taxcloud.ts` — API client (Lookup, Captured, AuthorizedWithCapture, Returned)
+2. Map product categories to TIC codes (prepared food, food ingredients, non-food items, plants, etc.)
+3. At checkout: call TaxCloud Lookup with item TICs + pickup market address → get tax per item
+4. Display tax line item on checkout page
+5. Include tax in Stripe charge total (but NOT in vendor transfer — platform remits tax via TaxCloud)
+6. After successful checkout: call TaxCloud Captured to report the transaction
+7. On refund: call TaxCloud Returned to report the reversal
+8. Add `sales_tax_cents` column to orders/order_items for internal tracking
+9. Withhold tax amount from vendor transfers (exclude tax from vendor_payout_cents)
 6. Update accounting reports to include Stripe Tax data
 
 **Filing:**

@@ -201,7 +201,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
     }
 
-    if (status === 'ready' && updated.event_token && updated.contact_email) {
+    if (status === 'ready' && updated.event_token && updated.contact_email && !updated.selection_email_sent_at) {
       const { getAppUrl } = await import('@/lib/environment')
       const eventPageUrl = `${getAppUrl(updated.vertical_id)}/${updated.vertical_id}/events/${updated.event_token}`
       // Count confirmed vendors

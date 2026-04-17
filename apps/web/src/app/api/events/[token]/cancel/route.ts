@@ -103,9 +103,9 @@ export async function POST(
       if (acceptedVendors && acceptedVendors.length > 0) {
         const vendorNotifications = acceptedVendors.map(v =>
           sendNotification(v.vendor_profile_id, 'catering_vendor_responded', {
-            companyName: event.company_name,
-            responseAction: 'has been cancelled by the organizer',
-            eventDate: event.event_date,
+            vendorName: event.company_name,
+            responseAction: 'cancelled',
+            marketName: event.event_date ? `the ${event.event_date} event` : 'the event',
           }, { vertical: event.vertical_id }).catch(err =>
             console.error(`[event-cancel] Vendor notification failed for ${v.vendor_profile_id}:`, err)
           )

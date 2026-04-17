@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 
+const TURNSTILE_TIMEOUT_MS = 10_000 // Enable form after 10s if widget doesn't verify
+
 declare global {
   interface Window {
     turnstile?: {
@@ -48,14 +50,19 @@ export function Turnstile({
     if (!containerRef.current || !window.turnstile || !siteKey) return
     if (widgetIdRef.current) return // Already initialized
 
-    widgetIdRef.current = window.turnstile.render(containerRef.current, {
-      sitekey: siteKey,
-      callback: onVerify,
-      'error-callback': () => onError?.(),
-      'expired-callback': () => onExpire?.(),
-      theme,
-      size,
-    })
+    try {
+      widgetIdRef.current = window.turnstile.render(containerRef.current, {
+        sitekey: siteKey,
+        callback: onVerify,
+        'error-callback': () => onError?.(),
+        'expired-callback': () => onExpire?.(),
+        theme,
+        size,
+      })
+    } catch (err) {
+      console.error('[Turnstile] Widget render failed:', err)
+      onError?.()
+    }
   }, [onVerify, onError, onExpire, theme, size, siteKey])
 
   useEffect(() => {
@@ -97,6 +104,10 @@ export function Turnstile({
       'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad'
     script.async = true
     script.defer = true
+    script.onerror = () => {
+      console.error('[Turnstile] Failed to load Cloudflare script — CDN unreachable or blocked')
+      onError?.()
+    }
     document.head.appendChild(script)
 
     return () => {
@@ -134,30 +145,53 @@ export function Turnstile({
 export function useTurnstile() {
   const [token, setToken] = useState<string | null>(null)
   const [error, setError] = useState(false)
+  const [timedOut, setTimedOut] = useState(false)
+  const tokenRef = useRef<string | null>(null)
+
+  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+
+  // Timeout: if widget doesn't verify within 10s, allow form submission.
+  // The real security gate is Supabase's server-side CAPTCHA check —
+  // this timeout only affects the UI button state, not server validation.
+  useEffect(() => {
+    if (!siteKey) return
+    const timer = setTimeout(() => {
+      if (!tokenRef.current) {
+        setTimedOut(true)
+        console.warn('[Turnstile] Widget did not verify within 10 seconds — enabling form submission')
+      }
+    }, TURNSTILE_TIMEOUT_MS)
+    return () => clearTimeout(timer)
+  }, [siteKey])
 
   const handleVerify = useCallback((newToken: string) => {
     setToken(newToken)
+    tokenRef.current = newToken
     setError(false)
   }, [])
 
   const handleError = useCallback(() => {
     setToken(null)
+    tokenRef.current = null
     setError(true)
   }, [])
 
   const handleExpire = useCallback(() => {
     setToken(null)
+    tokenRef.current = null
   }, [])
 
   const reset = useCallback(() => {
     setToken(null)
+    tokenRef.current = null
     setError(false)
   }, [])
 
   return {
     token,
     error,
-    isVerified: !!token,
+    timedOut,
+    isVerified: !!token || timedOut,
     handleVerify,
     handleError,
     handleExpire,

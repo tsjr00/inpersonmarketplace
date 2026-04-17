@@ -31,17 +31,51 @@ Last updated: 2026-04-11 (Session 71)
 - [ ] **Public event page footer hardcodes "Food Truck'n"** — `events/[token]/page.tsx` line 316. Should be vertical-aware.
 - [ ] **Public event page N+1 vendor queries** — Shop page already fixed with batch queries; event info page still loops per vendor.
 
+## Priority 1 — Session 72 Findings
+
+### H3: Event completion with unfulfilled order items — refund/reconciliation logic
+- [ ] **COMPLEX — requires multi-scenario research + planning before code.**
+  
+  When admin marks an event 'completed', unfulfilled order items (pending/confirmed/ready) are logged but no refund or correction happens. The right behavior depends on the payment model:
+  
+  - **Company-paid (host pays for everything):** vendor should get a grace window to correct unconfirmed orders before completion finalizes. Unfulfilled items may represent vendor error (didn't confirm), not buyer no-show. Company already paid — refund goes back to company, not individual attendees.
+  - **Attendee-paid (Stripe checkout):** unfulfilled items could be buyer no-show (no refund deserved), vendor no-show (full refund deserved), or handoff failure (partial refund?). Each case has different financial treatment.
+  - **Hybrid (future):** combination of both — company portion refunded to company, attendee portion refunded to attendee. Most complex.
+  
+  **Work required:**
+  1. Map every order_items status that could exist at completion time, per payment model
+  2. Define the correct financial action for each (refund buyer, refund company, charge vendor, write off, etc.)
+  3. Design admin UI: show unfulfilled breakdown, require admin to choose action per item or per vendor before finalizing
+  4. Consider: vendor dispute window before completion (e.g., 24h after event to confirm any stragglers)
+  5. Consider: auto-complete vs manual-complete distinction (cron auto-complete should be stricter than admin manual)
+  
+  **Cited code:** `api/admin/events/[id]/route.ts:290-327` — current implementation queries unfulfilled items, notifies vendors, logs warning, proceeds without blocking or refunding.
+
+### Session 72 audit findings (backlog items)
+- [ ] **H1: Notification placeholder data gaps** — 9+ notification call sites pass incomplete template data. Buyers see "A customer" and "your vendor" instead of real names. Largest impact: `new_paid_order` at `checkout/success/route.ts:335` (every Stripe order). Full report in Session 72 conversation.
+- [ ] **H2: Duplicate organizer confirmation emails** — `admin/events/[id]/route.ts:204` (status→ready) and `events/[token]/select/route.ts:329` (vendor selection) both send nearly identical "X vendors ready" emails. Fix: add `selection_email_sent_at` column to gate duplicates.
+- [ ] **C2: Turnstile graceful degradation** — if Cloudflare CDN fails, signup button stays permanently disabled with no error message. Need timeout + fallback (enable button after 10s if widget doesn't load).
+- [ ] **M1: Cart isolation — move to DB trigger (Option C).** Current app-level check has race condition + silent bypass on query failure. Replace with BEFORE INSERT trigger on `cart_items` that enforces cross-event isolation atomically. Full risk analysis + implementation plan at `.claude/plans/cart-isolation-db-trigger-plan.md`. Deploy while volume is low — risk increases with scale.
+- [ ] **M2: Vendor cancel notification uses wrong template** — `events/[token]/cancel/route.ts:104` sends `catering_vendor_responded` (accept/decline template) for cancellations. Vendor sees grammatically broken message. Needs dedicated `event_cancelled_vendor` notification type.
+- [ ] **M4: Event-ratings admin optimistic UI count bug** — `admin/event-ratings/page.tsx:89` decrements wrong status count when moderating a rating while viewing a different one. Fix: capture oldStatus before update.
+- [ ] **Admin panel: show user/vendor names not just emails** — user request from Session 72.
+- [ ] **`column market_vendors.status does not exist`** — error in prod Postgres logs. Separate bug, not investigated.
+- [ ] **`column v.business_name does not exist`** — error in prod Postgres logs. Separate bug, not investigated.
+- [ ] **`/api/buyer/location` POST silently swallows profile-update errors** — cookie updates but profile doesn't. User's browse location stays stale.
+- [ ] **`browse/page.tsx:531` ignores query errors on rawListings** — root cause of silent empty browse page when RLS errored. Should check error and log.
+
 ## Priority 0 — Next Session
 
-### Stripe Tax Implementation (BLOCKED — needs user action first)
-- [ ] **TX Comptroller registration** — Register as marketplace provider, get sales tax permit. USER ACTION.
-- [ ] **Stripe Tax registration** — Add Texas in Stripe Dashboard → Tax → Registrations with permit number. USER ACTION.
-- [ ] **Get Stripe product tax codes** — Find codes for "prepared food" (taxable) and "food and food ingredients" (exempt). USER ACTION: browse Dashboard → Products → Tax codes, or run `stripe tax_codes list`.
-- [ ] **Code: Enable automatic_tax on checkout sessions** — Add `automatic_tax: { enabled: true, liability: { type: 'self' } }` to order, market box, and subscription checkout. Map `is_taxable` to Stripe product tax codes per line item.
-- [ ] **Code: Buyer address collection** — Add `shipping_address_collection` or pass pickup location zip for tax jurisdiction determination.
-- [ ] **Code: Withhold tax from vendor transfers** — Exclude tax amount from transfer to connected account. Tax stays with platform for remittance.
-- [ ] **Code: Track sales_tax_cents** — Add to orders/order_items for internal records + accounting reports.
-- [ ] **Filing setup** — Choose: manual filing with Stripe Tax location reports, or TaxJar AutoFile ($35/filing).
+### Sales Tax Implementation (UPDATED Session 72 — TaxCloud vs Stripe Tax decision pending)
+- [x] **TX Comptroller registration** — DONE. Taxpayer ID obtained, awaiting system processing.
+- [ ] **Tax provider decision** — TaxCloud Premium ($79/mo, free filing+audit) vs Stripe Tax (0.5%/txn, simpler integration). At <100 orders/mo Stripe Tax is cheaper. TaxCloud wins on compliance. See Session 72 cost analysis. USER DECISION.
+- [ ] **Provider account setup** — Either TaxCloud (API ID + API Key + bank link) or Stripe Tax (add TX registration in dashboard). USER ACTION.
+- [ ] **Code: Tax lookup at checkout** — API client skeleton at `src/lib/tax/taxcloud.ts` + TIC mapping at `src/lib/tax/tic-codes.ts` (ready for TaxCloud). Stripe Tax alternative: 2 lines in checkout config.
+- [ ] **Code: Display tax line item** — Show tax to buyer before payment.
+- [ ] **Code: Report transactions** — TaxCloud: call `captureTransaction()`. Stripe Tax: automatic.
+- [ ] **Code: Report refunds** — TaxCloud: call `reportReturn()`. Stripe Tax: automatic.
+- [ ] **Code: Withhold tax from vendor transfers** — Exclude tax from vendor_payout_cents.
+- [ ] **Code: Track sales_tax_cents** — Add column to orders/order_items.
 
 ### Pre-Launch Business Items
 - [ ] **Tax compliance consultation** — Partially done (Session 63 research). Remaining: confirm platform fee taxability, verify filing frequency, confirm marketplace facilitator registration process. CPA recommended.
