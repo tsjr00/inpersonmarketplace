@@ -229,6 +229,15 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
       return
     }
 
+    // Validate hybrid payment cap when hybrid is selected
+    if (form.payment_model === 'hybrid') {
+      const cap = parseFloat(form.company_max_per_attendee)
+      if (!form.company_max_per_attendee.trim() || isNaN(cap) || cap <= 0) {
+        setError('Company contribution per person is required for hybrid payment events.')
+        return
+      }
+    }
+
     setSubmitting(true)
 
     try {
