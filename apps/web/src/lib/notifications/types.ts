@@ -153,6 +153,8 @@ export interface NotificationTemplateData {
   eventPageUrl?: string
   vendorCount?: number
   eventId?: string
+  // Vendor onboarding gate notifications
+  category?: string
   // Order confirmation email enrichment
   brandName?: string
   marketAddress?: string
