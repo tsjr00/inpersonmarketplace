@@ -130,16 +130,20 @@ export default async function AdminListingsPage({ params, searchParams }: AdminL
     quantity: (listing as Record<string, unknown>).quantity as number | null,
     category: listing.category as string | null,
     created_at: listing.created_at as string,
-    vendor_profiles: Array.isArray(listing.vendor_profiles) && listing.vendor_profiles.length > 0
-      ? {
-          id: listing.vendor_profiles[0].id as string,
-          tier: listing.vendor_profiles[0].tier as string | null,
-          profile_data: listing.vendor_profiles[0].profile_data as {
-            business_name?: string
-            farm_name?: string
-          } | null
-        }
-      : null
+    vendor_profiles: (() => {
+      const vp = Array.isArray(listing.vendor_profiles)
+        ? listing.vendor_profiles[0]
+        : listing.vendor_profiles
+      if (!vp) return null
+      return {
+        id: (vp as Record<string, unknown>).id as string,
+        tier: (vp as Record<string, unknown>).tier as string | null,
+        profile_data: (vp as Record<string, unknown>).profile_data as {
+          business_name?: string
+          farm_name?: string
+        } | null,
+      }
+    })()
   }))
 
   const totalCount = count || 0
