@@ -133,7 +133,9 @@ export function hasAdminRole(profile: { role?: string | null; roles?: string[] |
  */
 export function hasPlatformAdminRole(profile: { role?: string | null; roles?: string[] | null }): boolean {
   return profile?.role === 'platform_admin' ||
+    profile?.role === 'admin' ||
     profile?.roles?.includes('platform_admin') ||
+    profile?.roles?.includes('admin') ||
     false
 }
 

@@ -69,18 +69,21 @@ export async function GET(request: NextRequest) {
 
     // Get user emails for feedback items
     const userIds = [...new Set((feedback || []).map(f => f.user_id))]
-    const userMap: Record<string, string> = {}
+    const userMap: Record<string, { email: string; name: string }> = {}
 
     if (userIds.length > 0) {
       const { data: users } = await serviceClient
         .from('user_profiles')
-        .select('user_id, email')
+        .select('user_id, email, display_name')
         .in('user_id', userIds)
         .is('deleted_at', null)
 
       if (users) {
         users.forEach(u => {
-          userMap[u.user_id] = u.email || 'Unknown'
+          userMap[u.user_id] = {
+            email: u.email || 'Unknown',
+            name: u.display_name || '',
+          }
         })
       }
     }
@@ -107,7 +110,8 @@ export async function GET(request: NextRequest) {
     // Transform to include user email and vendor name (for vendor feedback)
     const transformedFeedback = (feedback || []).map(f => ({
       ...f,
-      user_email: userMap[f.user_id] || 'Unknown',
+      user_email: userMap[f.user_id]?.email || 'Unknown',
+      user_name: userMap[f.user_id]?.name || '',
       vendor_name: source === 'vendor' ? (vendorMap[f.vendor_profile_id] || 'Unknown Vendor') : undefined
     }))
 

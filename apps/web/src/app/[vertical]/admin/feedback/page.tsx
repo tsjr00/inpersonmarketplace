@@ -16,6 +16,7 @@ interface Feedback {
   id: string
   user_id: string
   user_email: string
+  user_name?: string
   vendor_name?: string  // For vendor feedback
   vendor_profile_id?: string  // For vendor feedback
   vertical_id: string
@@ -695,7 +696,8 @@ export default function AdminFeedbackPage() {
                         </div>
                       )}
                       <div style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>
-                        {f.user_email}
+                        {f.user_name || f.user_email}
+                        {f.user_name && <span style={{ color: colors.textMuted, marginLeft: 4 }}>({f.user_email})</span>}
                       </div>
                       <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
                         {new Date(f.created_at).toLocaleDateString('en-US', {
@@ -807,7 +809,8 @@ export default function AdminFeedbackPage() {
                   </div>
                 )}
                 <div style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.medium }}>
-                  {selectedFeedback.user_email}
+                  {selectedFeedback.user_name || selectedFeedback.user_email}
+                  {selectedFeedback.user_name && <div style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>{selectedFeedback.user_email}</div>}
                 </div>
                 <div style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>
                   {new Date(selectedFeedback.created_at).toLocaleString()}

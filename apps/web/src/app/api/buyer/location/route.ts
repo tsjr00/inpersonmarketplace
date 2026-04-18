@@ -277,7 +277,8 @@ export async function DELETE(request: NextRequest) {
           })
           .eq('user_id', user.id)
       }
-    } catch {
+    } catch (err) {
+      console.error('[buyer/location] DELETE profile clear failed:', err instanceof Error ? err.message : err)
       // Best effort — cookie clear below still works for anonymous users
     }
 
