@@ -8,6 +8,7 @@ import { defaultBranding, VerticalBranding } from '@/lib/branding'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { getClientLocale } from '@/lib/locale/client'
 import { t } from '@/lib/locale/messages'
+import { Turnstile, useTurnstile } from '@/components/auth/Turnstile'
 
 interface LoginPageProps {
   params: Promise<{ vertical: string }>
@@ -33,6 +34,7 @@ export default function LoginPage({ params }: LoginPageProps) {
   const dashboardSuffix = isEventRef ? '?section=events' : ''
   const supabase = createClient()
   const locale = getClientLocale()
+  const { token: turnstileToken, isVerified: captchaVerified, handleVerify, handleError: handleCaptchaError, handleExpire } = useTurnstile()
 
   useEffect(() => {
     async function loadConfig() {
@@ -61,6 +63,9 @@ export default function LoginPage({ params }: LoginPageProps) {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
+      options: {
+        captchaToken: turnstileToken || undefined,
+      },
     })
 
     if (error) {
@@ -264,20 +269,22 @@ export default function LoginPage({ params }: LoginPageProps) {
             </div>
           </div>
 
+          <Turnstile onVerify={handleVerify} onError={handleCaptchaError} onExpire={handleExpire} />
+
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || (!captchaVerified && !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)}
             style={{
               width: '100%',
               padding: spacing.xs,
               fontSize: typography.sizes.base,
               fontWeight: typography.weights.semibold,
-              backgroundColor: loading ? colors.textMuted : colors.primary,
+              backgroundColor: (loading || (!captchaVerified && !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)) ? colors.textMuted : colors.primary,
               color: colors.textInverse,
               border: 'none',
               borderRadius: radius.sm,
-              cursor: loading ? 'not-allowed' : 'pointer',
-              boxShadow: loading ? 'none' : shadows.primary
+              cursor: (loading || (!captchaVerified && !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)) ? 'not-allowed' : 'pointer',
+              boxShadow: (loading || (!captchaVerified && !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)) ? 'none' : shadows.primary
             }}
           >
             {loading ? t('login.logging_in', locale) : t('login.submit', locale)}
