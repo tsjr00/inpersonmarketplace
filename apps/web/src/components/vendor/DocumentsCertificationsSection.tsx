@@ -656,18 +656,46 @@ export default function DocumentsCertificationsSection({
             })}
           </div>
         </div>
-      ) : !gateLoading ? (
-        <div style={{
-          padding: spacing.sm,
-          backgroundColor: colors.surfaceMuted,
-          borderRadius: radius.sm,
-          fontSize: typography.sizes.sm,
-          color: colors.textMuted,
-          marginBottom: spacing.md,
-        }}>
-          No required documents for your categories.
-        </div>
       ) : null}
+
+      {/* Exempt categories — show confirmation that no docs are needed */}
+      {!isFoodTruck && !gateLoading && gateItems.length > 0 && (() => {
+        const exemptItems = gateItems.filter(item => !requiresDocuments(item as Category))
+        if (exemptItems.length === 0) return null
+        return (
+          <div style={{
+            padding: spacing.sm,
+            backgroundColor: colors.surfaceMuted,
+            borderRadius: radius.sm,
+            marginBottom: spacing.md,
+          }}>
+            <div style={{
+              fontSize: typography.sizes.sm,
+              fontWeight: typography.weights.semibold,
+              color: colors.textSecondary,
+              marginBottom: spacing['2xs'],
+            }}>
+              {requiredGateItems.length > 0 ? 'Categories with no permit requirements' : 'No permits required for your categories'}
+            </div>
+            {exemptItems.map(key => {
+              const req = getCategoryRequirement(key as Category)
+              return (
+                <div key={key} style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: spacing['2xs'],
+                  padding: `${spacing['3xs']} 0`,
+                  fontSize: typography.sizes.xs,
+                  color: colors.textMuted,
+                }}>
+                  <span style={{ color: colors.accent, flexShrink: 0 }}>✓</span>
+                  <span><strong>{key}</strong> — {req.description}</span>
+                </div>
+              )
+            })}
+          </div>
+        )
+      })()}
 
       {/* ==================== OPTIONAL CERTIFICATIONS ==================== */}
       <div>

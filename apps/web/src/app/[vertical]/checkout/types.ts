@@ -38,7 +38,8 @@ export interface SuggestedProduct {
   id: string
   title: string
   price_cents: number
-  image_urls?: string[] | null
+  image_urls?: string[] | null  // Legacy — kept for backward compat
+  listing_images?: { url: string; is_primary: boolean; display_order: number }[] | null
   vendor_profile_id: string
   vendor_profiles?: {
     id: string

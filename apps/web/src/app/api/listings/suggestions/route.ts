@@ -25,12 +25,16 @@ export async function POST(request: NextRequest) {
           id,
           title,
           price_cents,
-          image_urls,
           vendor_profile_id,
           vendor_profiles (
             id,
             business_name:profile_data->business_name,
             tier
+          ),
+          listing_images (
+            url,
+            is_primary,
+            display_order
           ),
           listing_markets!inner (
             market_id

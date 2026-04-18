@@ -65,17 +65,22 @@ export function CrossSellSection({ products, vertical }: CrossSellSectionProps) 
               overflow: 'hidden',
               position: 'relative',
             }}>
-              {product.image_urls?.[0] ? (
-                <Image
-                  src={product.image_urls[0]}
-                  alt={product.title}
-                  fill
-                  sizes="64px"
-                  style={{ objectFit: 'cover' }}
-                />
-              ) : (
-                '📦'
-              )}
+              {(() => {
+                const primaryImg = product.listing_images?.find(img => img.is_primary)
+                  || product.listing_images?.[0]
+                const imgUrl = primaryImg?.url || product.image_urls?.[0]
+                return imgUrl ? (
+                  <Image
+                    src={imgUrl}
+                    alt={product.title}
+                    fill
+                    sizes="180px"
+                    style={{ objectFit: 'cover' }}
+                  />
+                ) : (
+                  '📦'
+                )
+              })()}
             </div>
 
             <h4 style={{
