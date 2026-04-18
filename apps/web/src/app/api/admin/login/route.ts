@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
 
@@ -11,18 +11,17 @@ export async function POST(request: NextRequest) {
     const rateLimitResult = await checkRateLimit(`admin-login:${clientIp}`, rateLimits.auth)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
-    const { email, password, captchaToken } = await request.json()
+    const { email, password } = await request.json()
 
     if (!email || !password) {
       return NextResponse.json({ error: 'Email and password required' }, { status: 400 })
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
-      options: captchaToken ? { captchaToken } : undefined,
     })
 
     if (error) {
