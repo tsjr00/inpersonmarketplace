@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { Turnstile, useTurnstile } from '@/components/auth/Turnstile'
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState('')
@@ -12,6 +13,7 @@ export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const supabase = createClient()
+  const { token: turnstileToken, isVerified: captchaVerified, handleVerify, handleError: handleCaptchaError, handleExpire } = useTurnstile()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -23,7 +25,7 @@ export default function AdminLoginPage() {
       const res = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, captchaToken: turnstileToken || undefined }),
       })
 
       const result = await res.json()
@@ -40,7 +42,11 @@ export default function AdminLoginPage() {
     }
 
     // API verified credentials + admin role. Now sign in client-side for session.
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+      options: { captchaToken: turnstileToken || undefined },
+    })
 
     if (error) {
       setError(error.message)
@@ -166,19 +172,21 @@ export default function AdminLoginPage() {
             />
           </div>
 
+          <Turnstile onVerify={handleVerify} onError={handleCaptchaError} onExpire={handleExpire} />
+
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || (!captchaVerified && !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)}
             style={{
               width: '100%',
               padding: 14,
-              backgroundColor: loading ? '#ccc' : '#333',
+              backgroundColor: (loading || (!captchaVerified && !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)) ? '#ccc' : '#333',
               color: 'white',
               border: 'none',
               borderRadius: 6,
               fontSize: 16,
               fontWeight: 600,
-              cursor: loading ? 'not-allowed' : 'pointer'
+              cursor: (loading || (!captchaVerified && !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)) ? 'not-allowed' : 'pointer'
             }}
           >
             {loading ? 'Signing in...' : 'Sign In'}

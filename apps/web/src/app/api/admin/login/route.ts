@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     const rateLimitResult = await checkRateLimit(`admin-login:${clientIp}`, rateLimits.auth)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
-    const { email, password } = await request.json()
+    const { email, password, captchaToken } = await request.json()
 
     if (!email || !password) {
       return NextResponse.json({ error: 'Email and password required' }, { status: 400 })
@@ -19,7 +19,11 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient()
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+      options: captchaToken ? { captchaToken } : undefined,
+    })
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 401 })
