@@ -23,8 +23,11 @@ export default function LanguageSelector({ locale: serverLocale, variant = 'comp
   async function handleChange(newLocale: Locale) {
     if (newLocale === currentLocale || switching) return
     setSwitching(true)
-    await setClientLocale(newLocale)
-    // Page reloads after setClientLocale, so no need to reset state
+    try {
+      await setClientLocale(newLocale)
+    } catch {
+      setSwitching(false)
+    }
   }
 
   if (variant === 'full') {

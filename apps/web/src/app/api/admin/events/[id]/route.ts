@@ -250,6 +250,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         const buyerNotifications = uniqueBuyerIds.map(buyerId => {
           const buyerOrder = buyerOrders.find(o => o.buyer_user_id === buyerId)
           return sendNotification(buyerId, 'order_cancelled_by_vendor', {
+            vendorName: cateringReq.company_name,
             companyName: cateringReq.company_name,
             eventDate: cateringReq.event_date,
             reason: status === 'cancelled'

@@ -211,11 +211,14 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
     location_text: string | null
   } | null = null
   if (user) {
-    const { data: userProfile } = await supabase
+    const { data: userProfile, error: userProfileError } = await supabase
       .from('user_profiles')
       .select('buyer_tier, preferred_latitude, preferred_longitude, location_source, location_text')
       .eq('user_id', user.id)
       .single()
+    if (userProfileError) {
+      console.error('[browse] user_profiles query failed:', userProfileError.message)
+    }
     isPremiumBuyer = userProfile?.buyer_tier === 'premium'
     profileLocation = userProfile
   }
@@ -225,7 +228,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
 
   // If viewing market boxes, fetch those instead
   if (currentView === 'market-boxes') {
-    const { data: marketBoxes } = await supabase
+    const { data: marketBoxes, error: marketBoxError } = await supabase
       .from('market_box_offerings')
       .select(`
         id,
@@ -258,16 +261,24 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
       .eq('vertical_id', vertical)
       .eq('active', true)
 
+    if (marketBoxError) {
+      console.error('[browse] market_box_offerings query failed:', marketBoxError.message)
+    }
+
     // Get all subscription counts in ONE query instead of N queries (N+1 fix)
     const offeringIds = (marketBoxes || []).map(o => o.id)
     const subscriptionCounts = new Map<string, number>()
 
     if (offeringIds.length > 0) {
-      const { data: subCounts } = await supabase
+      const { data: subCounts, error: subCountsError } = await supabase
         .from('market_box_subscriptions')
         .select('offering_id')
         .in('offering_id', offeringIds)
         .eq('status', 'active')
+
+      if (subCountsError) {
+        console.error('[browse] market_box_subscriptions query failed:', subCountsError.message)
+      }
 
       // Count subscriptions per offering
       for (const sub of subCounts || []) {
@@ -528,7 +539,17 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
     }
   }
 
-  const { data: rawListings } = await query
+  const { data: rawListings, error: listingsError } = await query
+
+  if (listingsError) {
+    console.error('[browse] listings query failed:', {
+      vertical,
+      category,
+      search,
+      error: listingsError.message,
+      code: listingsError.code,
+    })
+  }
 
   // Type assertion for listings
   const allListings = rawListings as unknown as Listing[] | null
@@ -567,11 +588,15 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
 
   // Source 1: URL ?zip= param
   if (zip) {
-    const { data: zipData } = await supabase
+    const { data: zipData, error: zipError } = await supabase
       .from('zip_codes')
       .select('latitude, longitude, city')
       .eq('zip', zip)
       .single()
+
+    if (zipError && zipError.code !== 'PGRST116') {
+      console.error('[browse] zip_codes lookup failed:', zipError.message)
+    }
 
     if (zipData?.latitude && zipData?.longitude) {
       resolvedLocation = {
@@ -657,6 +682,9 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
       const postgisIds = new Set(postgisListings.map((r: { listing_id: string }) => r.listing_id))
       listings = listings.filter(l => postgisIds.has(l.id))
     } else {
+      if (postgisError) {
+        console.error('[browse] PostGIS radius query failed, falling back to Haversine:', postgisError.message)
+      }
       // PostGIS failed or returned empty — fall back to JS Haversine
       // This preserves the exact pre-PostGIS behavior
       const distanceKm = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
@@ -693,11 +721,15 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
     uniqueCategories = FOOD_TRUCK_CATEGORIES
   } else {
     // Fall back to database config for other verticals
-    const { data: verticalData } = await supabase
+    const { data: verticalData, error: verticalError } = await supabase
       .from('verticals')
       .select('config')
       .eq('vertical_id', vertical)
       .single()
+
+    if (verticalError) {
+      console.error('[browse] verticals config query failed:', verticalError.message)
+    }
 
     const listingFields = (verticalData?.config as Record<string, unknown>)?.listing_fields as Array<Record<string, unknown>> || []
     const categoryField = listingFields.find(
@@ -727,9 +759,12 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
 
   if (isAvailableNow && listings && listings.length > 0) {
     // Fetch availability for ALL listings (needed to filter before pagination)
-    const { data: allAvailData } = await supabase.rpc('get_listings_accepting_status', {
+    const { data: allAvailData, error: allAvailError } = await supabase.rpc('get_listings_accepting_status', {
       p_listing_ids: listings.map(l => l.id)
     })
+    if (allAvailError) {
+      console.error('[browse] availability RPC failed (all listings):', allAvailError.message)
+    }
     if (allAvailData) {
       // Store ALL availability data — we'll reuse it for the paginated slice
       for (const a of allAvailData) {
@@ -750,9 +785,12 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
 
   // Fetch availability for paginated slice — only if not already fetched above
   if (paginatedListings.length > 0 && !isAvailableNow) {
-    const { data: availData } = await supabase.rpc('get_listings_accepting_status', {
+    const { data: availData, error: availError } = await supabase.rpc('get_listings_accepting_status', {
       p_listing_ids: paginatedListings.map(l => l.id)
     })
+    if (availError) {
+      console.error('[browse] availability RPC failed (page slice):', availError.message)
+    }
     if (availData) {
       for (const a of availData) {
         availabilityMap.set(a.listing_id, a)

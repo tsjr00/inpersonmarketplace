@@ -21,10 +21,17 @@ export function getClientLocale(): Locale {
  * Reloads the page after setting so server components pick up the new value.
  */
 export async function setClientLocale(locale: Locale): Promise<void> {
-  await fetch('/api/locale', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ locale }),
-  })
+  try {
+    const res = await fetch('/api/locale', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locale }),
+    })
+    if (!res.ok) {
+      console.error(`Locale switch failed: ${res.status}`)
+    }
+  } catch (err) {
+    console.error('Locale switch fetch error:', err)
+  }
   window.location.reload()
 }

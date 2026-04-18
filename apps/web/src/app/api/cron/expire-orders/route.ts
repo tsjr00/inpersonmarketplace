@@ -1990,7 +1990,7 @@ export async function GET(request: NextRequest) {
               headcount: event.headcount,
               headcountPerVendor,
               setupTime: event.event_start_time?.slice(0, 5) || undefined,
-            }, { vertical: event.vertical_id || 'food_trucks' })
+            }, { vertical: event.vertical_id || 'farmers_market' })
 
             eventReminders++
           }

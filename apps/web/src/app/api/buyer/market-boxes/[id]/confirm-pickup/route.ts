@@ -160,8 +160,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const offering = (subscription as any)?.offering
       const vendorUserId = offering?.vendor_profiles?.user_id
       if (vendorUserId) {
+        const { data: buyerProfile } = await supabase
+          .from('user_profiles')
+          .select('display_name')
+          .eq('user_id', user.id)
+          .single()
         await sendNotification(vendorUserId, 'pickup_confirmation_needed', {
           orderItemId: pickup_id,
+          buyerName: buyerProfile?.display_name || undefined,
+          orderNumber: `MB-${pickup_id.slice(0, 6).toUpperCase()}`,
         }, { vertical: offering?.vertical_id })
       }
 

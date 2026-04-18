@@ -4,6 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { formatDisplayPrice } from '@/lib/constants'
 import { spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { defaultBranding } from '@/lib/branding/defaults'
 import EventFeedbackForm from '@/components/events/EventFeedbackForm'
 
 export const dynamic = 'force-dynamic'
@@ -349,7 +350,7 @@ export default async function EventPage({ params }: EventPageProps) {
         {/* Footer */}
         <div style={{ textAlign: 'center', marginTop: spacing.xl, paddingTop: spacing.md, borderTop: '1px solid #e5e7eb' }}>
           <p style={{ color: '#9ca3af', fontSize: typography.sizes.xs, margin: 0 }}>
-            Powered by <Link href="/" style={{ color: '#9ca3af' }}>{verticalId === 'farmers_market' ? 'Farmers Marketing' : "Food Truck'n"}</Link>
+            Powered by <Link href="/" style={{ color: '#9ca3af' }}>{defaultBranding[verticalId]?.brand_name || "Food Truck'n"}</Link>
           </p>
         </div>
       </div>

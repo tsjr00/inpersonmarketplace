@@ -125,6 +125,7 @@ export async function POST(
         const buyerNotifications = uniqueBuyerIds.map(buyerId => {
           const buyerOrder = buyerOrders.find(o => o.buyer_user_id === buyerId)
           return sendNotification(buyerId, 'order_cancelled_by_vendor', {
+            vendorName: event.company_name,
             companyName: event.company_name,
             eventDate: event.event_date,
             reason: 'The event has been cancelled by the organizer. If you paid via card, a refund will be processed.',

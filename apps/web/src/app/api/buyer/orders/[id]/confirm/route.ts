@@ -295,8 +295,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .single()
 
       if (vendorProfile?.user_id) {
+        const { data: buyerProfile } = await supabase
+          .from('user_profiles')
+          .select('display_name')
+          .eq('user_id', user.id)
+          .single()
         await sendNotification(vendorProfile.user_id, 'pickup_confirmation_needed', {
           orderItemId,
+          buyerName: buyerProfile?.display_name || undefined,
+          orderNumber: (order as { order_number: string }).order_number,
         }, { vertical: (order as { vertical_id?: string }).vertical_id })
       }
 

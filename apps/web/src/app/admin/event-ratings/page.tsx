@@ -70,6 +70,7 @@ export default function EventRatingsModerationPage() {
 
   async function updateStatus(id: string, newStatus: string) {
     setActionLoading(true)
+    const oldStatus = data?.ratings.find(r => r.id === id)?.status || 'pending'
     try {
       const res = await fetch('/api/admin/event-ratings', {
         method: 'PATCH',
@@ -86,7 +87,7 @@ export default function EventRatingsModerationPage() {
             ),
             counts: {
               ...data.counts,
-              [selectedRating?.status || 'pending']: Math.max(0, (data.counts[selectedRating?.status || 'pending'] || 1) - 1),
+              [oldStatus]: Math.max(0, (data.counts[oldStatus] || 1) - 1),
               [newStatus]: (data.counts[newStatus] || 0) + 1,
             },
           })
