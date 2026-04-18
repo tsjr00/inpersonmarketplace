@@ -7,8 +7,15 @@ import { User } from "@supabase/supabase-js";
 import Link from "next/link";
 import { defaultBranding, VerticalBranding } from "@/lib/branding";
 import { getMarketLimit } from "@/lib/constants";
-import { colors, spacing, typography, radius, shadows } from "@/lib/design-tokens";
+import { colors, spacing, typography, radius, shadows, containers } from "@/lib/design-tokens";
+import { getVerticalCSSVars } from "@/lib/design-tokens";
 import { term } from "@/lib/vertical";
+import { getTaxNotice } from "@/lib/vendor/tax-notice";
+import { getCategoryRequirement, requiresDocuments, FOOD_TRUCK_PERMIT_REQUIREMENTS } from "@/lib/onboarding/category-requirements";
+import type { Category } from "@/lib/constants";
+import CategoryDocumentUpload from "@/components/vendor/CategoryDocumentUpload";
+import FoodTruckPermitUpload from "@/components/vendor/FoodTruckPermitUpload";
+import COIUpload from "@/components/vendor/COIUpload";
 
 type Field = {
   key: string;
@@ -42,6 +49,13 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
   // Referral tracking
   const [referralCode, setReferralCode] = useState<string | null>(null);
   const [referrerName, setReferrerName] = useState<string | null>(null);
+
+  // Step 2 state (post-submission: "Here's what you'll need")
+  const [step, setStep] = useState<1 | 2>(1);
+  const [vendorId, setVendorId] = useState<string | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [onboardingStatus, setOnboardingStatus] = useState<any>(null);
+  const [statusLoading, setStatusLoading] = useState(false);
 
   // Vendor acknowledgments
   const [acknowledgments, setAcknowledgments] = useState({
@@ -312,11 +326,24 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
         }
       }
 
-      // H-1 FIX: Redirect to success page with celebration + next-step guidance
-      const vendorType = (values.vendor_type as string) || ''
-      setTimeout(() => {
-        router.push(`/${vertical}/vendor-signup/success${vendorType ? `?type=${encodeURIComponent(vendorType)}` : ''}`);
-      }, 1500);
+      // Transition to step 2: "Here's what you'll need"
+      setVendorId(result.vendor_id);
+      setStep(2);
+      setSubmitting(false);
+      window.scrollTo(0, 0);
+
+      // Fetch onboarding status for upload components
+      setStatusLoading(true);
+      try {
+        const statusRes = await fetch(`/api/vendor/onboarding/status?vertical=${vertical}`);
+        if (statusRes.ok) {
+          const statusData = await statusRes.json();
+          setOnboardingStatus(statusData);
+        }
+      } catch {
+        // Non-blocking — vendor can still see the requirements info
+      }
+      setStatusLoading(false);
     } catch (err) {
       console.error("Submit error:", err);
       setSubmitting(false);
@@ -586,6 +613,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
         </div>
       </nav>
       <main style={mainStyle}>
+        {step === 1 && (<>
         {/* Referral Banner */}
         {referrerName && (
           <div style={{
@@ -1019,20 +1047,265 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
           </button>
         </form>
       )}
+      </>)}
 
-      {submitted ? (
-        <div style={{ ...cardStyle, marginTop: spacing.md, borderColor: colors.primary, backgroundColor: colors.primaryLight }}>
-          <h2 style={{ ...headingStyle, fontSize: typography.sizes.xl, color: colors.primaryDark }}>
-            Submitted Successfully!
-          </h2>
-          <p style={{ ...subheadingStyle, marginTop: spacing.xs }}>
-            Your vendor profile has been created. Redirecting to your vendor dashboard...
+      {/* ============================================================ */}
+      {/* STEP 2: "Here's What You'll Need" — post-submission */}
+      {/* ============================================================ */}
+      {step === 2 && (<>
+        {/* Success Header */}
+        <div style={{ textAlign: 'center', marginBottom: spacing.lg }}>
+          <div style={{
+            width: 80, height: 80, borderRadius: '50%',
+            backgroundColor: colors.primaryLight, margin: '0 auto',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            marginBottom: spacing.md,
+          }}>
+            <span style={{ fontSize: typography.sizes['3xl'], color: colors.primary }}>✓</span>
+          </div>
+          <h1 style={{ ...headingStyle, fontSize: typography.sizes['2xl'], marginBottom: spacing.xs }}>
+            Application Submitted!
+          </h1>
+          <p style={{ ...subheadingStyle, maxWidth: 500, margin: '0 auto' }}>
+            Our team will review your application, typically within 1-2 business days.
+            You&#39;ll receive an email when your account is approved.
           </p>
-          <Link href={`/${vertical}/vendor/dashboard`} style={{ ...buttonSecondaryStyle, marginTop: spacing.md }}>
-            Go to Vendor Dashboard
+        </div>
+
+        {/* Tax Notice */}
+        {(() => {
+          const vendorType = (values.vendor_type as string) || ''
+          const taxNotice = getTaxNotice(vertical, vendorType)
+          if (!taxNotice) return null
+          return (
+            <div style={{
+              ...cardStyle, marginBottom: spacing.md,
+              borderColor: '#f59e0b', backgroundColor: '#fffbeb',
+            }}>
+              <h3 style={{ margin: 0, fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: '#92400e' }}>
+                {taxNotice.title}
+              </h3>
+              <p style={{ margin: `${spacing.xs} 0 0 0`, fontSize: typography.sizes.sm, color: '#78350f', lineHeight: typography.leading.relaxed }}>
+                {taxNotice.message}
+              </p>
+            </div>
+          )
+        })()}
+
+        {/* Requirements Section */}
+        <div style={{ ...cardStyle, marginBottom: spacing.md }}>
+          <h2 style={{ margin: 0, fontSize: typography.sizes.xl, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing.xs }}>
+            Here&#39;s What You&#39;ll Need
+          </h2>
+          <p style={{ ...subheadingStyle, marginBottom: spacing.md }}>
+            You can upload these now or come back later from your dashboard. Your application will be reviewed in the meantime.
+          </p>
+
+          {/* Category-specific requirements */}
+          {vertical === 'food_trucks' ? (
+            // FT: Show all 5 permits
+            <div>
+              <h3 style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing.sm }}>
+                Required Permits
+              </h3>
+              <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, marginBottom: spacing.md }}>
+                Texas food truck operators need these permits to operate legally. Upload them here or from your dashboard.
+              </p>
+              {onboardingStatus?.gate2?.categoryStatuses ? (
+                <FoodTruckPermitUpload
+                  categoryStatuses={onboardingStatus.gate2.categoryStatuses}
+                  onUploaded={async () => {
+                    const res = await fetch(`/api/vendor/onboarding/status?vertical=${vertical}`)
+                    if (res.ok) setOnboardingStatus(await res.json())
+                  }}
+                  vertical={vertical}
+                />
+              ) : statusLoading ? (
+                <p style={{ color: colors.textMuted, fontSize: typography.sizes.sm }}>Loading permit requirements...</p>
+              ) : (
+                <div>
+                  {FOOD_TRUCK_PERMIT_REQUIREMENTS.map(permit => (
+                    <div key={permit.docType} style={{
+                      padding: spacing.sm, marginBottom: spacing.xs,
+                      backgroundColor: colors.surfaceMuted, borderRadius: radius.md,
+                      border: `1px solid ${colors.border}`,
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm }}>{permit.label}</span>
+                        <span style={{
+                          fontSize: typography.sizes.xs, padding: `${spacing['3xs']} ${spacing.xs}`,
+                          borderRadius: radius.sm,
+                          backgroundColor: permit.required ? '#fef3c7' : '#f0fdf4',
+                          color: permit.required ? '#92400e' : '#166534',
+                        }}>
+                          {permit.required ? 'Required' : 'Recommended'}
+                        </span>
+                      </div>
+                      <p style={{ margin: `${spacing['2xs']} 0 0 0`, fontSize: typography.sizes.xs, color: colors.textMuted }}>{permit.description}</p>
+                    </div>
+                  ))}
+                  <p style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing.xs }}>
+                    Upload buttons will appear once your profile is ready.
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : (
+            // FM: Show category-specific requirement
+            <div>
+              {(() => {
+                const vendorType = (values.vendor_type as string) || ''
+                if (!vendorType) return null
+                const category = vendorType as Category
+                const req = getCategoryRequirement(category)
+                const needsDocs = requiresDocuments(category)
+
+                return (
+                  <div>
+                    <h3 style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing.sm }}>
+                      Category Documents — {vendorType}
+                    </h3>
+                    {needsDocs ? (
+                      <>
+                        <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, marginBottom: spacing.sm }}>
+                          Your category requires documentation. You can upload now or from your dashboard later.
+                        </p>
+                        {req.referenceUrl && (
+                          <p style={{ fontSize: typography.sizes.xs, marginBottom: spacing.sm }}>
+                            <a href={req.referenceUrl} target="_blank" rel="noopener noreferrer" style={{ color: colors.primary }}>
+                              View Texas DSHS requirements
+                            </a>
+                          </p>
+                        )}
+                        {onboardingStatus?.gate2?.categoryStatuses?.[vendorType] ? (
+                          <CategoryDocumentUpload
+                            category={category}
+                            verification={onboardingStatus.gate2.categoryStatuses[vendorType]}
+                            onUploaded={async () => {
+                              const res = await fetch(`/api/vendor/onboarding/status?vertical=${vertical}`)
+                              if (res.ok) setOnboardingStatus(await res.json())
+                            }}
+                            vertical={vertical}
+                          />
+                        ) : statusLoading ? (
+                          <p style={{ color: colors.textMuted, fontSize: typography.sizes.sm }}>Loading...</p>
+                        ) : (
+                          <div style={{
+                            padding: spacing.sm, backgroundColor: colors.surfaceMuted,
+                            borderRadius: radius.md, border: `1px solid ${colors.border}`,
+                          }}>
+                            <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.textMuted }}>
+                              Accepted: {req.acceptedDocTypes.join(' or ')}
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div style={{
+                        padding: spacing.md, backgroundColor: '#f0fdf4',
+                        borderRadius: radius.md, border: '1px solid #bbf7d0',
+                      }}>
+                        <p style={{ margin: 0, fontSize: typography.sizes.sm, color: '#166534', fontWeight: typography.weights.medium }}>
+                          ✓ No additional permits required for {vendorType}
+                        </p>
+                        <p style={{ margin: `${spacing['2xs']} 0 0 0`, fontSize: typography.sizes.xs, color: '#15803d' }}>
+                          Your category does not require state permits or certifications to sell at markets.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+        </div>
+
+        {/* COI Section */}
+        <div style={{ ...cardStyle, marginBottom: spacing.md }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
+            <h2 style={{ margin: 0, fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
+              Certificate of Insurance (COI)
+            </h2>
+            <span style={{
+              fontSize: typography.sizes.xs, padding: `${spacing['3xs']} ${spacing.xs}`,
+              borderRadius: radius.sm, backgroundColor: '#f0fdf4', color: '#166534',
+            }}>
+              Optional for now
+            </span>
+          </div>
+          <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, marginBottom: spacing.sm, lineHeight: typography.leading.relaxed }}>
+            General liability insurance is required before participating in private events, but you can start selling without it.
+            Most vendors get a policy for <strong>$300-500/year</strong>.
+          </p>
+          <div style={{
+            padding: spacing.sm, backgroundColor: colors.surfaceMuted,
+            borderRadius: radius.md, border: `1px solid ${colors.border}`, marginBottom: spacing.sm,
+          }}>
+            <p style={{ margin: 0, fontSize: typography.sizes.xs, color: colors.textMuted, lineHeight: typography.leading.relaxed }}>
+              <strong>What to get:</strong> General liability, $1M per occurrence minimum.
+              Ask your insurer to name the market/event organizer as additional insured.
+              <br />
+              <strong>Where to look:</strong> FLIP Insurance, Next Insurance, or your local insurance agent.
+              Many offer same-day certificates for event vendors.
+            </p>
+          </div>
+          {onboardingStatus?.gate3 ? (
+            <COIUpload
+              coiStatus={onboardingStatus.gate3.coiStatus}
+              coiDocuments={onboardingStatus.gate3.coiDocuments || []}
+              coiVerifiedAt={onboardingStatus.gate3.coiVerifiedAt}
+              onUploaded={async () => {
+                const res = await fetch(`/api/vendor/onboarding/status?vertical=${vertical}`)
+                if (res.ok) setOnboardingStatus(await res.json())
+              }}
+              vertical={vertical}
+            />
+          ) : null}
+        </div>
+
+        {/* Stripe Section */}
+        <div style={{ ...cardStyle, marginBottom: spacing.md }}>
+          <h2 style={{ margin: 0, fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing.xs }}>
+            Get Paid — Stripe Connect
+          </h2>
+          <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, marginBottom: spacing.md, lineHeight: typography.leading.relaxed }}>
+            Connect your bank account so you can receive payouts for your sales. This takes about 5 minutes and is required before you can publish listings.
+          </p>
+          <Link
+            href={`/${vertical}/vendor/dashboard/stripe`}
+            style={{
+              ...buttonPrimaryStyle,
+              display: 'inline-block',
+              textAlign: 'center',
+              textDecoration: 'none',
+              padding: `${spacing.sm} ${spacing.lg}`,
+            }}
+          >
+            Set Up Stripe Connect
           </Link>
         </div>
-      ) : null}
+
+        {/* Go to Dashboard CTA */}
+        <div style={{ textAlign: 'center', marginTop: spacing.lg }}>
+          <Link
+            href={`/${vertical}/vendor/dashboard`}
+            style={{
+              ...buttonPrimaryStyle,
+              display: 'inline-block',
+              textAlign: 'center',
+              textDecoration: 'none',
+              padding: `${spacing.md} ${spacing.xl}`,
+              fontSize: typography.sizes.lg,
+              boxShadow: shadows.primary,
+            }}
+          >
+            Go to Dashboard
+          </Link>
+          <p style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing.sm }}>
+            You can always upload documents and complete setup from your dashboard.
+          </p>
+        </div>
+      </>)}
       </main>
     </div>
   );

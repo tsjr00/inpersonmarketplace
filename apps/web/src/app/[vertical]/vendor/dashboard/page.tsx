@@ -385,12 +385,11 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           </h1>
         </div>
 
-        {/* Onboarding Checklist — shown until vendor can publish listings */}
-        {vendorProfile.status !== 'approved' && (
-          <div style={{ marginBottom: spacing.md }}>
-            <OnboardingChecklist vertical={vertical} vendorStatus={vendorProfile.status} />
-          </div>
-        )}
+        {/* Onboarding Checklist — shown until vendor can publish listings.
+            Component self-hides with a condensed "complete" banner once canPublishListings is true. */}
+        <div style={{ marginBottom: spacing.md }}>
+          <OnboardingChecklist vertical={vertical} vendorStatus={vendorProfile.status} />
+        </div>
 
         {/* External Payment Banner — hidden when external payments disabled */}
 
