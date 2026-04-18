@@ -195,8 +195,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const vendorUserId = vendorProfile?.user_id
 
     if (vendorUserId) {
+      const { data: buyerProfile } = await supabase
+        .from('user_profiles')
+        .select('display_name')
+        .eq('user_id', user.id)
+        .single()
       await sendNotification(vendorUserId, 'order_cancelled_by_buyer', {
         orderNumber: order.order_number || undefined,
+        buyerName: buyerProfile?.display_name || undefined,
         reason: reason || undefined,
         itemTitle: listing?.title,
       }, { vertical: order.vertical_id })

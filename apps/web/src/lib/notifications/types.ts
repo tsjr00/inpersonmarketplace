@@ -90,6 +90,7 @@ export type NotificationType =
   | 'catering_request_received'
   | 'catering_vendor_invited'
   | 'catering_vendor_responded'
+  | 'event_cancelled_vendor'
   | 'event_confirmed'
   | 'event_feedback_request'
   | 'event_prep_reminder'
@@ -759,6 +760,15 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: (_d, locale) => t('notif.catering_vendor_responded_title', locale),
     message: (d) => `${d.vendorName} ${d.responseAction || 'responded to'} the event invitation for ${d.marketName}.`,
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/admin/events`,
+  },
+
+  event_cancelled_vendor: {
+    urgency: 'immediate',
+    severity: 'warning',
+    audience: 'vendor',
+    title: (_d, locale) => t('notif.event_cancelled_vendor_title', locale),
+    message: (d) => `The event on ${d.eventDate || 'the scheduled date'} organized by ${d.companyName || 'the organizer'} has been cancelled. Your participation is no longer needed.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard`,
   },
 
   // Sent to event organizer when admin advances event to 'ready' (vendors confirmed)

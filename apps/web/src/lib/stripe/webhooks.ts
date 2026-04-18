@@ -973,6 +973,7 @@ async function handleTransferFailed(transfer: Stripe.Transfer) {
       if (!alreadySent) {
         await sendNotification(vp.user_id, 'payout_failed', {
           amountCents: transfer.amount,
+          orderNumber: `MB-${mbSubscriptionId.slice(0, 6).toUpperCase()}`,
           reason: 'Transfer was reversed by Stripe',
         }, { vertical: vp.vertical_id })
       }
@@ -990,18 +991,19 @@ async function handleTransferFailed(transfer: Stripe.Transfer) {
   // Notify vendor that their payout was reversed
   const { data: orderItem } = await supabase
     .from('order_items')
-    .select('vendor_profiles!vendor_profile_id(user_id), order:orders(vertical_id)')
+    .select('vendor_profiles!vendor_profile_id(user_id), order:orders(vertical_id, order_number)')
     .eq('id', orderItemId)
     .single()
 
   const vendorProfile = (orderItem as unknown as { vendor_profiles: { user_id: string } | null })?.vendor_profiles
-  const orderData = (orderItem as unknown as { order: { vertical_id: string } | null })?.order
+  const orderData = (orderItem as unknown as { order: { vertical_id: string; order_number: string } | null })?.order
   if (vendorProfile?.user_id) {
     // H-6: Dedup
     const alreadySent = await wasNotificationSent(supabase, vendorProfile.user_id, 'payout_failed', orderItemId)
     if (!alreadySent) {
       await sendNotification(vendorProfile.user_id, 'payout_failed', {
         amountCents: transfer.amount,
+        orderNumber: orderData?.order_number,
         reason: 'Transfer was reversed by Stripe',
       }, { vertical: orderData?.vertical_id })
     }

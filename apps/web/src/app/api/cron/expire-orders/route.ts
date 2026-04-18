@@ -909,6 +909,7 @@ export async function GET(request: NextRequest) {
           if (orderData?.buyer_user_id) {
             await sendNotification(orderData.buyer_user_id, 'order_expired', {
               orderNumber: orderData.order_number,
+              orderId: item.order_id,
             }, { vertical: orderData.vertical_id })
           }
 

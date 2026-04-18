@@ -576,6 +576,7 @@ export const en: Record<string, string> = {
   'notif.issue_disputed_title': 'Vendor Disputed Buyer Issue',
   'notif.charge_dispute_title': 'Chargeback Received',
   'notif.catering_vendor_responded_title': 'Vendor Responded to Event Invite',
+  'notif.event_cancelled_vendor_title': 'Event Cancelled',
   'notif.event_prep_reminder_title': 'Event Tomorrow — Prep Reminder',
   'notif.event_settlement_summary_title': 'Event Settlement Complete',
   'notif.event_feedback_request_title': 'How Was the Event?',
