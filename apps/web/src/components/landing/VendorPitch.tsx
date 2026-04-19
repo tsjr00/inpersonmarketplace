@@ -76,7 +76,7 @@ export function VendorPitch({ vertical, locale }: VendorPitchProps) {
             {/* Watermelon CTA button */}
             <div className="text-center">
               <Link
-                href={`/${vertical}/vendor-signup`}
+                href={`/${vertical}/signup?returnTo=${encodeURIComponent(`/${vertical}/vendor-signup`)}`}
                 className="inline-flex items-center justify-center transition-all"
                 style={{
                   backgroundColor: FM_WATERMELON,
@@ -198,7 +198,7 @@ export function VendorPitch({ vertical, locale }: VendorPitchProps) {
         {/* CTA — placed above benefits for FT */}
         <div className="text-center" style={{ marginBottom: spacing.lg }}>
           <Link
-            href={`/${vertical}/vendor-signup`}
+            href={`/${vertical}/signup?returnTo=${encodeURIComponent(`/${vertical}/vendor-signup`)}`}
             className="inline-flex items-center justify-center transition-all"
             style={{
               backgroundColor: ctaBg,

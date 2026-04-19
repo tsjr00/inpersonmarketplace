@@ -44,7 +44,7 @@ export function Footer({ vertical, locale }: FooterProps) {
     {
       title: t('footer.for_vendors', locale),
       links: [
-        { label: t('footer.become_vendor', locale), href: `/${vertical}/vendor-signup` },
+        { label: t('footer.become_vendor', locale), href: `/${vertical}/signup?returnTo=${encodeURIComponent(`/${vertical}/vendor-signup`)}` },
         { label: t('footer.why_sell', locale), href: `/${vertical}/features#vendors` },
         { label: t('footer.vendor_faq', locale), href: `/${vertical}/help` },
       ]

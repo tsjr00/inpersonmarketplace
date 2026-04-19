@@ -406,7 +406,7 @@ export default function SignupPage({ params }: SignupPageProps) {
 
         <p style={{ marginTop: spacing.md, textAlign: 'center', color: colors.textMuted, fontSize: typography.sizes.base }}>
           {t('signup.already_have_account', locale)}{' '}
-          <Link href={`/${vertical}/login`} style={{ color: colors.primary, fontWeight: typography.weights.semibold }}>
+          <Link href={`/${vertical}/login${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ''}`} style={{ color: colors.primary, fontWeight: typography.weights.semibold }}>
             {t('header.login', locale)}
           </Link>
         </p>
