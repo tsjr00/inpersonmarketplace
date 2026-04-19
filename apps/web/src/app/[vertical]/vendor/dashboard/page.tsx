@@ -416,7 +416,8 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           gap: spacing.sm,
           marginBottom: spacing.md
         }}>
-          {/* Pickup Mode - Quick mobile-friendly order lookup */}
+          {/* Pickup Mode - Quick mobile-friendly order lookup (hidden pre-approval) */}
+          {vendorProfile.status === 'approved' && (
           <Link
             href={`/${vertical}/vendor/pickup`}
             style={{ textDecoration: 'none' }}
@@ -444,8 +445,10 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               </p>
             </div>
           </Link>
+          )}
 
-          {/* Upcoming Pickups — compact card, links to full prep workflow page */}
+          {/* Upcoming Pickups — compact card (hidden pre-approval) */}
+          {vendorProfile.status === 'approved' && (
           <Link
             href={`/${vertical}/vendor/upcoming`}
             style={{ textDecoration: 'none' }}
@@ -501,6 +504,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               })()}
             </div>
           </Link>
+          )}
 
           {/* Manage Locations - shows list of locations */}
           <div style={{
@@ -762,7 +766,8 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           gap: spacing.sm,
           marginBottom: spacing.md
         }}>
-          {/* Orders - highlight if there are unconfirmed handoffs */}
+          {/* Orders - highlight if there are unconfirmed handoffs (hidden pre-approval) */}
+          {vendorProfile.status === 'approved' && (
           <Link
             href={`/${vertical}/vendor/orders`}
             style={{ textDecoration: 'none' }}
@@ -812,6 +817,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               </p>
             </div>
           </Link>
+          )}
 
           {/* Your Listings - with stock warnings on the card */}
           <Link
@@ -862,8 +868,8 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             </div>
           </Link>
 
-          {/* Market Boxes */}
-          {(() => {
+          {/* Market Boxes (hidden pre-approval) */}
+          {vendorProfile.status === 'approved' && (() => {
             const mbLimit = getTierLimits(vendorProfile.tier || 'free', vertical).marketBoxes
             const isLocked = mbLimit === 0
             return (
@@ -905,6 +911,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             )
           })()}
         </div>
+
 
         {/* ============================================= */}
         {/* ROW 3: Business - Business Profile, Payments & Earnings, Analytics */}
@@ -987,6 +994,43 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               })()} Plan
             </p>
 
+            {/* Profile completeness nudge */}
+            {(() => {
+              const checks = [
+                { done: !!(vendorProfile as Record<string, unknown>).profile_image_url, label: 'Profile photo' },
+                { done: !!(vendorProfile as Record<string, unknown>).cover_image_url, label: 'Cover photo' },
+                { done: !!(profileData.description as string)?.trim(), label: 'Description' },
+              ]
+              const completed = checks.filter(c => c.done).length
+              if (completed >= checks.length) return null
+              const missing = checks.filter(c => !c.done)
+              return (
+                <div style={{
+                  margin: `${spacing.xs} 0 0 0`,
+                  padding: spacing.xs,
+                  backgroundColor: '#fffbeb',
+                  border: '1px solid #fde68a',
+                  borderRadius: radius.sm,
+                  fontSize: typography.sizes.xs,
+                  color: '#92400e',
+                }}>
+                  <span style={{ fontWeight: typography.weights.semibold }}>
+                    Profile {Math.round((completed / checks.length) * 100)}% complete
+                  </span>
+                  <span style={{ color: '#78350f' }}>
+                    {' — Add '}
+                    {missing.map((m, i) => (
+                      <span key={m.label}>
+                        {i > 0 && (i === missing.length - 1 ? ' and ' : ', ')}
+                        {m.label.toLowerCase()}
+                      </span>
+                    ))}
+                    {' to stand out to buyers.'}
+                  </span>
+                </div>
+              )
+            })()}
+
             {/* Cancellation rate warning */}
             {cancellationWarningLevel && (
               <p style={{
@@ -1022,8 +1066,8 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             }}
           />
 
-          {/* Analytics & Insights — consolidated card */}
-          {(() => {
+          {/* Analytics & Insights (hidden pre-approval) */}
+          {vendorProfile.status === 'approved' && (() => {
             const insightsLevel = vertical === 'food_trucks'
               ? getFtTierExtras(vendorProfile.tier || 'free').locationInsights
               : 'basic' // FM vendors get basic by default

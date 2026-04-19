@@ -238,10 +238,13 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
       return;
     }
 
-    // Validate phone format
+    // Validate phone format — strip non-digits, require exactly 10
     const phone = values.phone as string;
-    if (phone && !/^\d{10}$|^\d{3}-\d{3}-\d{4}$/.test(phone)) {
-      setFormError("Please enter a valid phone number (10 digits, e.g., 555-555-5555).");
+    const phoneDigits = phone ? phone.replace(/\D/g, '') : '';
+    // Strip leading country code '1' if 11 digits
+    const normalizedDigits = phoneDigits.length === 11 && phoneDigits.startsWith('1') ? phoneDigits.slice(1) : phoneDigits;
+    if (phone && normalizedDigits.length !== 10) {
+      setFormError("Please enter a valid 10-digit phone number.");
       return;
     }
 
@@ -809,10 +812,8 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
                         inputMode="tel"
                         value={(value as string) ?? ""}
                         onChange={(e) => setVal(f.key, e.target.value)}
-                        pattern="[0-9]{3}-?[0-9]{3}-?[0-9]{4}"
-                        title="Phone number format: 555-555-5555 or 5555555555"
-                        placeholder="555-555-5555"
-                        maxLength={12}
+                        placeholder="(555) 555-5555"
+                        maxLength={16}
                         style={inputStyle}
                       />
                     </div>
@@ -1235,19 +1236,26 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
             </span>
           </div>
           <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, marginBottom: spacing.sm, lineHeight: typography.leading.relaxed }}>
-            General liability insurance is required before participating in private events, but you can start selling without it.
-            Most vendors get a policy for <strong>$300-500/year</strong>.
+            General liability insurance protects you and the {vertical === 'food_trucks' ? 'parks and locations' : 'markets'} where you sell.
+            You can start selling without it, but it is required before participating in private events.
           </p>
           <div style={{
             padding: spacing.sm, backgroundColor: colors.surfaceMuted,
             borderRadius: radius.md, border: `1px solid ${colors.border}`, marginBottom: spacing.sm,
           }}>
             <p style={{ margin: 0, fontSize: typography.sizes.xs, color: colors.textMuted, lineHeight: typography.leading.relaxed }}>
-              <strong>What to get:</strong> General liability, $1M per occurrence minimum.
-              Ask your insurer to name the market/event organizer as additional insured.
-              <br />
-              <strong>Where to look:</strong> FLIP Insurance, Next Insurance, or your local insurance agent.
-              Many offer same-day certificates for event vendors.
+              Many {vertical === 'food_trucks' ? 'food truck parks and event organizers' : 'farmers markets'} require <strong>$1M or more</strong> in coverage.
+              Check with your {vertical === 'food_trucks' ? 'park or event organizer' : 'market organizer'} for their specific requirements.
+              Ask your insurer to name the market or event organizer as additional insured.
+            </p>
+            <p style={{ margin: `${spacing['2xs']} 0 0 0`, fontSize: typography.sizes.xs }}>
+              <a href="https://www.tdi.texas.gov/pubs/pc/pcgenliab.html" target="_blank" rel="noopener noreferrer" style={{ color: colors.primary }}>
+                Learn about general liability insurance (Texas Dept. of Insurance)
+              </a>
+              {' · '}
+              <a href="https://www.tdi.texas.gov/agent/agent-lookup.html" target="_blank" rel="noopener noreferrer" style={{ color: colors.primary }}>
+                Find a licensed insurance agent
+              </a>
             </p>
           </div>
           {onboardingStatus?.gate3 ? (

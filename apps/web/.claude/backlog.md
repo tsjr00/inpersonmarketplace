@@ -1,6 +1,10 @@
 # Backlog
 
-Last updated: 2026-04-11 (Session 71)
+Last updated: 2026-04-19 (Session 73)
+
+## Priority 0.5 — Vendor Onboarding (Session 73)
+
+- [ ] **Additive vendor categories with documentation gate** — Vendors should be able to add new product categories after signup (currently locked from signup form). When a vendor adds a category that requires documentation (e.g., adding Baked Goods to a Produce vendor), the system should: (1) allow the category to be added from their profile or listing form, (2) prompt for required documents per `category-requirements.ts`, (3) gate publishing of listings in the new category until docs are approved. Touches: listing form category selector, vendor_verifications.requested_categories, category document upload flow, OnboardingChecklist. Session 73 friction audit finding #14.
 
 ## Priority 0.5 — Event Rating Follow-ups (Session 71)
 

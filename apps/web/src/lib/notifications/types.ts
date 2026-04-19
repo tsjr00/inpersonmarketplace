@@ -450,7 +450,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     severity: 'info',
     audience: 'vendor',
     title: (_d, locale) => t('notif.vendor_approved_title', locale),
-    message: () => `Congratulations! Your vendor application has been approved. You can now start listing products.`,
+    message: () => `Congratulations! Your vendor application has been approved. You can now set up your locations, create listings, and connect them to your markets.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard`,
   },
 
@@ -469,7 +469,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     severity: 'info',
     audience: 'vendor',
     title: (_d, locale) => t('notif.business_verification_approved_title', locale),
-    message: () => 'Your business verification has been approved! Next step: upload your category-specific documents in your vendor dashboard.',
+    message: () => 'Your business verification has been approved! You can now set up your locations and create listings. Next step: upload any required category documents in your vendor dashboard.',
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard`,
   },
 

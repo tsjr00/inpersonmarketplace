@@ -135,10 +135,11 @@ export default function OnboardingChecklist({ vertical, vendorStatus }: Props) {
     },
     {
       number: 3,
-      title: 'Market Ready',
-      description: 'Upload Certificate of Insurance (COI)',
+      title: 'Certificate of Insurance',
+      description: 'Optional for now — required before participating in events',
       status: status.gate3.coiStatus,
       complete: status.gate3.coiStatus === 'approved',
+      optional: true,
     },
     {
       number: 4,
@@ -343,6 +344,19 @@ export default function OnboardingChecklist({ vertical, vendorStatus }: Props) {
                 color: colors.textPrimary,
               }}>
                 {gate.title}
+                {(gate as { optional?: boolean }).optional && (
+                  <span style={{
+                    marginLeft: spacing['2xs'],
+                    fontSize: typography.sizes.xs,
+                    fontWeight: typography.weights.medium,
+                    padding: `1px ${spacing['2xs']}`,
+                    borderRadius: radius.sm,
+                    backgroundColor: '#f0fdf4',
+                    color: '#166534',
+                  }}>
+                    Optional
+                  </span>
+                )}
               </div>
               <div style={{
                 fontSize: typography.sizes.xs,
@@ -665,13 +679,40 @@ function Gate3Content({
   vertical: string
 }) {
   return (
-    <COIUpload
-      coiStatus={status.gate3.coiStatus}
-      coiDocuments={status.gate3.coiDocuments}
-      coiVerifiedAt={status.gate3.coiVerifiedAt}
-      onUploaded={onUploaded}
-      vertical={vertical}
-    />
+    <div>
+      <div style={{
+        padding: spacing.sm,
+        backgroundColor: colors.surfaceMuted,
+        borderRadius: radius.md,
+        border: `1px solid ${colors.border}`,
+        marginBottom: spacing.sm,
+        fontSize: typography.sizes.xs,
+        color: colors.textMuted,
+        lineHeight: typography.leading.relaxed,
+      }}>
+        <p style={{ margin: 0 }}>
+          General liability insurance protects you and the {vertical === 'food_trucks' ? 'parks and locations' : 'markets'} where you sell.
+          Many {vertical === 'food_trucks' ? 'food truck parks and event organizers' : 'farmers markets'} require <strong>$1M or more</strong> in coverage.
+          Check with your {vertical === 'food_trucks' ? 'park or event organizer' : 'market organizer'} for their specific requirements.
+        </p>
+        <p style={{ margin: `${spacing['2xs']} 0 0 0` }}>
+          <a href="https://www.tdi.texas.gov/pubs/pc/pcgenliab.html" target="_blank" rel="noopener noreferrer" style={{ color: colors.primary }}>
+            Learn about general liability insurance (Texas Dept. of Insurance)
+          </a>
+          {' · '}
+          <a href="https://www.tdi.texas.gov/agent/agent-lookup.html" target="_blank" rel="noopener noreferrer" style={{ color: colors.primary }}>
+            Find a licensed insurance agent
+          </a>
+        </p>
+      </div>
+      <COIUpload
+        coiStatus={status.gate3.coiStatus}
+        coiDocuments={status.gate3.coiDocuments}
+        coiVerifiedAt={status.gate3.coiVerifiedAt}
+        onUploaded={onUploaded}
+        vertical={vertical}
+      />
+    </div>
   )
 }
 
