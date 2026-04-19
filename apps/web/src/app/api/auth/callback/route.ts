@@ -16,7 +16,7 @@ import { createServerClient } from '@supabase/ssr'
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl
   const code = searchParams.get('code')
-  const next = searchParams.get('next') || '/food_trucks/dashboard'
+  const next = searchParams.get('next') || '/farmers_market/dashboard'
 
   if (!code) {
     // No code — redirect to home

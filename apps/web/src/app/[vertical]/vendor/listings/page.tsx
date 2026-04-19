@@ -624,8 +624,11 @@ export default async function ListingsPage({ params, searchParams }: ListingsPag
             boxShadow: shadows.sm
           }}>
             <h3 style={{ marginBottom: spacing.sm, marginTop: 0, color: colors.textSecondary }}>No Listings Yet</h3>
-            <p style={{ marginBottom: spacing.sm, color: colors.textMuted }}>
+            <p style={{ marginBottom: spacing.xs, color: colors.textMuted }}>
               Create your first listing to start selling on {branding.brand_name}
+            </p>
+            <p style={{ marginBottom: spacing.sm, fontSize: typography.sizes.xs, color: colors.textMuted }}>
+              Tip: <Link href={`/${vertical}/vendor/markets`} style={{ color: colors.primary }}>Set up your {term(vertical, 'markets').toLowerCase()}</Link> first — each listing needs at least one {term(vertical, 'market').toLowerCase()} to be available at.
             </p>
             <Link
               href={`/${vertical}/vendor/listings/new`}
