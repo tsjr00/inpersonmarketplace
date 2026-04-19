@@ -37,7 +37,8 @@ export default function SignupPage({ params }: SignupPageProps) {
   const searchParams = useSearchParams()
   const isEventRef = searchParams.get('ref') === 'event'
   const prefillEmail = searchParams.get('email') || ''
-  const dashboardUrl = `/${vertical}/dashboard${isEventRef ? '?section=events' : ''}`
+  const returnTo = searchParams.get('returnTo')
+  const dashboardUrl = returnTo || `/${vertical}/dashboard${isEventRef ? '?section=events' : ''}`
   const supabase = createClient()
   const { token: turnstileToken, isVerified: captchaVerified, handleVerify, handleError: handleCaptchaError, handleExpire } = useTurnstile()
 
@@ -287,7 +288,7 @@ export default function SignupPage({ params }: SignupPageProps) {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={loading}
-                minLength={6}
+                minLength={9}
                 style={{
                   width: '100%',
                   padding: spacing.xs,
@@ -318,6 +319,24 @@ export default function SignupPage({ params }: SignupPageProps) {
                 {showPassword ? '🙈' : '👁'}
               </button>
             </div>
+            {password.length > 0 && (
+              <div style={{ marginTop: spacing['2xs'], display: 'grid', gridTemplateColumns: '1fr 1fr', gap: `${spacing['3xs']} ${spacing.sm}` }}>
+                {[
+                  { met: password.length >= 9, label: '9+ characters' },
+                  { met: /[A-Z]/.test(password), label: 'Uppercase letter' },
+                  { met: /[a-z]/.test(password), label: 'Lowercase letter' },
+                  { met: /[0-9]/.test(password), label: 'Number' },
+                  { met: /[^A-Za-z0-9]/.test(password), label: 'Special character' },
+                ].map(req => (
+                  <span key={req.label} style={{
+                    fontSize: typography.sizes.xs,
+                    color: req.met ? '#16a34a' : colors.textMuted,
+                  }}>
+                    {req.met ? '✓' : '○'} {req.label}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           <div style={{ marginBottom: spacing.md }}>

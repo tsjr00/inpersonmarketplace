@@ -180,12 +180,13 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
           setBranding(cfg.branding);
         }
 
-        // Initialize form values
+        // Initialize form values — auto-populate email from authenticated user
         const initial: Record<string, unknown> = {};
         for (const f of vendorFields) {
           if (f.type === "multi_select") initial[f.key] = [];
           else if (f.type === "boolean") initial[f.key] = false;
           else if (f.type === "date_range") initial[f.key] = { start: "", end: "" };
+          else if (f.key === "email" && user?.email) initial[f.key] = user.email;
           else initial[f.key] = "";
         }
         setValues(initial);
@@ -520,10 +521,10 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
               You must be logged in to register as a vendor.
             </p>
             <div style={{ marginTop: spacing.md, display: "flex", gap: spacing.sm }}>
-              <Link href={`/${vertical}/login`} style={buttonSecondaryStyle}>
+              <Link href={`/${vertical}/login?returnTo=${encodeURIComponent(`/${vertical}/vendor-signup`)}`} style={buttonSecondaryStyle}>
                 Login
               </Link>
-              <Link href={`/${vertical}/signup`} style={buttonPrimaryStyle}>
+              <Link href={`/${vertical}/signup?returnTo=${encodeURIComponent(`/${vertical}/vendor-signup`)}`} style={buttonPrimaryStyle}>
                 Create Account
               </Link>
             </div>

@@ -31,6 +31,7 @@ export default function LoginPage({ params }: LoginPageProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const isEventRef = searchParams.get('ref') === 'event'
+  const returnTo = searchParams.get('returnTo')
   const dashboardSuffix = isEventRef ? '?section=events' : ''
   const supabase = createClient()
   const locale = getClientLocale()
@@ -116,7 +117,7 @@ export default function LoginPage({ params }: LoginPageProps) {
           .eq('user_id', data.user.id)
       }
 
-      router.push(`/${vertical}/dashboard${dashboardSuffix}`)
+      router.push(returnTo || `/${vertical}/dashboard${dashboardSuffix}`)
       router.refresh()
     }
   }
