@@ -116,10 +116,11 @@ export default function SignupPage({ params }: SignupPageProps) {
 
     if (data.user) {
       setSuccess(true)
-      setTimeout(() => {
-        router.push(dashboardUrl)
-        router.refresh()
-      }, 2000)
+      // Save returnTo for after email confirmation
+      if (returnTo) {
+        localStorage.setItem('vendor_signup_returnTo', returnTo)
+      }
+      // Don't auto-redirect — user needs to confirm their email first
     }
   }
 
@@ -158,9 +159,22 @@ export default function SignupPage({ params }: SignupPageProps) {
           <h2 style={{ color: colors.accent, marginBottom: spacing.xs, fontSize: typography.sizes.xl }}>
             {t('signup.account_created', locale)}
           </h2>
-          <p style={{ color: colors.textSecondary, fontSize: typography.sizes.base }}>
+          <p style={{ color: colors.textSecondary, fontSize: typography.sizes.base, marginBottom: spacing.sm }}>
             {t('signup.welcome', locale, { brand: branding.brand_name })}
           </p>
+          <div style={{
+            padding: spacing.sm,
+            backgroundColor: '#eff6ff',
+            border: '1px solid #93c5fd',
+            borderRadius: radius.sm,
+          }}>
+            <p style={{ margin: 0, fontSize: typography.sizes.sm, color: '#1e40af', fontWeight: typography.weights.medium }}>
+              Check your email to confirm your account.
+            </p>
+            <p style={{ margin: `${spacing['2xs']} 0 0 0`, fontSize: typography.sizes.xs, color: '#1e40af' }}>
+              Click the confirmation link in the email we just sent you, then you&#39;ll be ready to go.
+            </p>
+          </div>
         </div>
       </div>
     )

@@ -46,9 +46,13 @@ export default function ConfirmEmailPage({ params }: ConfirmEmailPageProps) {
 
       setStatus('success')
 
-      // Redirect to dashboard after brief success message
+      // Check for returnTo (saved by signup page for vendor signup flow)
+      const returnTo = localStorage.getItem('vendor_signup_returnTo')
+      if (returnTo) localStorage.removeItem('vendor_signup_returnTo')
+
+      // Redirect after brief success message
       setTimeout(() => {
-        router.push(`/${vertical}/dashboard`)
+        router.push(returnTo || `/${vertical}/dashboard`)
         router.refresh()
       }, 2000)
     }
