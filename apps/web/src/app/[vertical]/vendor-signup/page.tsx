@@ -7,8 +7,7 @@ import { User } from "@supabase/supabase-js";
 import Link from "next/link";
 import { defaultBranding, VerticalBranding } from "@/lib/branding";
 import { getMarketLimit } from "@/lib/constants";
-import { colors, spacing, typography, radius, shadows, containers } from "@/lib/design-tokens";
-import { getVerticalCSSVars } from "@/lib/design-tokens";
+import { colors, spacing, typography, radius, shadows } from "@/lib/design-tokens";
 import { term } from "@/lib/vertical";
 import { getTaxNotice } from "@/lib/vendor/tax-notice";
 import { getCategoryRequirement, requiresDocuments, FOOD_TRUCK_PERMIT_REQUIREMENTS } from "@/lib/onboarding/category-requirements";
@@ -775,30 +774,8 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
                   );
                 }
 
-                if (f.type === "file") {
-                  return (
-                    <div key={f.key}>
-                      <label style={labelStyle}>
-                        {f.label} {f.required && <span style={{ color: colors.primary }}>*</span>}
-                      </label>
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,application/pdf"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            fileObjectsRef.current[f.key] = file;
-                            setVal(f.key, file.name);
-                          }
-                        }}
-                        style={{ ...inputStyle, padding: spacing.xs }}
-                      />
-                      <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
-                        Accepted: PDF, JPG, PNG (max 10MB)
-                      </div>
-                    </div>
-                  );
-                }
+                // File uploads handled on page 2 via the onboarding gate system
+                if (f.type === "file") return null;
 
                 // Phone field with validation
                 if (f.type === "phone") {
@@ -1054,7 +1031,15 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
       {/* ============================================================ */}
       {/* STEP 2: "Here's What You'll Need" — post-submission */}
       {/* ============================================================ */}
-      {step === 2 && (<>
+      {step === 2 && (() => {
+        const vendorCategories: string[] = Array.isArray(values.vendor_type)
+          ? values.vendor_type as string[]
+          : typeof values.vendor_type === 'string' && values.vendor_type
+            ? [values.vendor_type]
+            : []
+        const vendorType = vendorCategories[0] || ''
+        const taxNotice = getTaxNotice(vertical, vendorType)
+        return (<>
         {/* Success Header */}
         <div style={{ textAlign: 'center', marginBottom: spacing.lg }}>
           <div style={{
@@ -1075,11 +1060,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
         </div>
 
         {/* Tax Notice */}
-        {(() => {
-          const vendorType = (values.vendor_type as string) || ''
-          const taxNotice = getTaxNotice(vertical, vendorType)
-          if (!taxNotice) return null
-          return (
+        {taxNotice && (
             <div style={{
               ...cardStyle, marginBottom: spacing.md,
               borderColor: '#f59e0b', backgroundColor: '#fffbeb',
@@ -1091,8 +1072,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
                 {taxNotice.message}
               </p>
             </div>
-          )
-        })()}
+        )}
 
         {/* Requirements Section */}
         <div style={{ ...cardStyle, marginBottom: spacing.md }}>
@@ -1153,36 +1133,39 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
               )}
             </div>
           ) : (
-            // FM: Show category-specific requirement
+            // FM: Show requirements for ALL selected categories
             <div>
-              {(() => {
-                const vendorType = (values.vendor_type as string) || ''
-                if (!vendorType) return null
-                const category = vendorType as Category
+              <h3 style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing.sm }}>
+                Category Documents
+              </h3>
+              {vendorCategories.length === 0 ? (
+                <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>No categories selected.</p>
+              ) : vendorCategories.map(cat => {
+                const category = cat as Category
                 const req = getCategoryRequirement(category)
                 const needsDocs = requiresDocuments(category)
 
                 return (
-                  <div>
-                    <h3 style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing.sm }}>
-                      Category Documents — {vendorType}
-                    </h3>
+                  <div key={cat} style={{ marginBottom: spacing.md }}>
+                    <h4 style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing.xs }}>
+                      {cat}
+                    </h4>
                     {needsDocs ? (
                       <>
-                        <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, marginBottom: spacing.sm }}>
-                          Your category requires documentation. You can upload now or from your dashboard later.
+                        <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, marginBottom: spacing.xs }}>
+                          This category requires documentation. You can upload now or from your dashboard later.
                         </p>
                         {req.referenceUrl && (
-                          <p style={{ fontSize: typography.sizes.xs, marginBottom: spacing.sm }}>
+                          <p style={{ fontSize: typography.sizes.xs, marginBottom: spacing.xs }}>
                             <a href={req.referenceUrl} target="_blank" rel="noopener noreferrer" style={{ color: colors.primary }}>
                               View Texas DSHS requirements
                             </a>
                           </p>
                         )}
-                        {onboardingStatus?.gate2?.categoryStatuses?.[vendorType] ? (
+                        {onboardingStatus?.gate2?.categoryStatuses?.[cat] ? (
                           <CategoryDocumentUpload
                             category={category}
-                            verification={onboardingStatus.gate2.categoryStatuses[vendorType]}
+                            verification={onboardingStatus.gate2.categoryStatuses[cat]}
                             onUploaded={async () => {
                               const res = await fetch(`/api/vendor/onboarding/status?vertical=${vertical}`)
                               if (res.ok) setOnboardingStatus(await res.json())
@@ -1204,20 +1187,17 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
                       </>
                     ) : (
                       <div style={{
-                        padding: spacing.md, backgroundColor: '#f0fdf4',
+                        padding: spacing.sm, backgroundColor: '#f0fdf4',
                         borderRadius: radius.md, border: '1px solid #bbf7d0',
                       }}>
                         <p style={{ margin: 0, fontSize: typography.sizes.sm, color: '#166534', fontWeight: typography.weights.medium }}>
-                          ✓ No additional permits required for {vendorType}
-                        </p>
-                        <p style={{ margin: `${spacing['2xs']} 0 0 0`, fontSize: typography.sizes.xs, color: '#15803d' }}>
-                          Your category does not require state permits or certifications to sell at markets.
+                          ✓ No additional permits required for {cat}
                         </p>
                       </div>
                     )}
                   </div>
                 )
-              })()}
+              })}
             </div>
           )}
         </div>
@@ -1314,7 +1294,8 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
             You can always upload documents and complete setup from your dashboard.
           </p>
         </div>
-      </>)}
+      </>)
+      })()}
       </main>
     </div>
   );
