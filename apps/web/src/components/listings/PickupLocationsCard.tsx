@@ -97,13 +97,17 @@ export default function PickupLocationsCard({
           alignItems: 'center',
           gap: spacing['2xs']
         }}>
-          <span style={{ fontSize: 14 }}>📍</span>
+          <span style={{
+            fontWeight: typography.weights.bold,
+            color: colors.primary,
+            fontSize: typography.sizes.sm,
+          }}>1.</span>
           <span style={{
             fontWeight: typography.weights.semibold,
             color: colors.textPrimary,
             fontSize: typography.sizes.sm
           }}>
-            {t('listing.pickup_options', locale)}
+            Available Pickup Options
           </span>
         </div>
       </div>

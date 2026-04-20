@@ -38,6 +38,8 @@ interface AddToCartButtonProps {
   showMixedAvailabilityWarning?: boolean
   /** Vendor's configured prep time in minutes (15 or 30, default 30) */
   pickupLeadMinutes?: number
+  /** Payment method badges to render in section 3 */
+  paymentBadges?: React.ReactNode
 }
 
 interface PickupSelection {
@@ -57,7 +59,8 @@ export function AddToCartButton({
   ordersClosed = false,
   availablePickupDates = [],
   showMixedAvailabilityWarning = false,
-  pickupLeadMinutes
+  pickupLeadMinutes,
+  paymentBadges
 }: AddToCartButtonProps) {
   const locale = getClientLocale()
   const { addToCart, items } = useCart()
@@ -208,7 +211,7 @@ export function AddToCartButton({
             color: '#374151',
             marginBottom: 6
           }}>
-            <span style={{ color: primaryColor }}>✓</span>
+            <span style={{ fontWeight: 700, color: primaryColor }}>2.</span>
             {isFoodTruck ? t('atc.select_location', locale) : t('atc.select_date', locale)}
           </label>
           <div style={{ borderTop: '1px solid #e5e7eb', marginBottom: 8 }} />
@@ -568,6 +571,34 @@ export function AddToCartButton({
         </div>
       )}
 
+      {/* Section 3: Add to Cart */}
+      <div style={{
+        marginTop: 12,
+        border: `1px solid ${colors.border}`,
+        borderRadius: 6,
+        padding: 8,
+      }}>
+        <label style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          fontSize: 13,
+          fontWeight: 600,
+          color: '#374151',
+          marginBottom: 6,
+        }}>
+          <span style={{ fontWeight: 700, color: primaryColor }}>3.</span>
+          Add to Cart
+        </label>
+        <div style={{ borderTop: '1px solid #e5e7eb', marginBottom: 8 }} />
+
+        {/* Payment Methods */}
+        {paymentBadges && (
+          <div style={{ marginBottom: 10 }}>
+            {paymentBadges}
+          </div>
+        )}
+
       {/* Quantity Selector */}
       {!isSoldOut && availableToAdd > 0 && hasAcceptingDates && (
         <div style={{
@@ -696,6 +727,7 @@ export function AddToCartButton({
           ))}
         </div>
       )}
+      </div>{/* End Section 3 */}
     </div>
   )
 }

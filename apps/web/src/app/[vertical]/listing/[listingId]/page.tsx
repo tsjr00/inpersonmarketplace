@@ -401,39 +401,55 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
               </div>
             )}
 
-            {/* Pickup Section */}
+            {/* Purchase Flow — 3 numbered sections inside one outer border */}
             {marketPickupDates.length > 0 && (
               <div style={{
                 padding: spacing.sm,
                 backgroundColor: colors.surfaceElevated,
                 borderRadius: radius.md,
                 border: `1px solid ${colors.border}`,
-                marginBottom: spacing.sm
+                marginBottom: spacing.sm,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: spacing.sm,
               }}>
-                <div style={{ marginBottom: spacing.xs }}>
+                {/* Section 1: Available Pickup Options */}
+                <div style={{
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: radius.md,
+                  overflow: 'hidden',
+                }}>
                   <PickupLocationsCard
                     marketPickupDates={marketPickupDates}
                     primaryColor={branding.colors.primary}
                   />
                 </div>
-                <div style={{ marginBottom: spacing.xs }}>
-                  <PaymentMethodBadges
-                    venmoUsername={vendorProfile.venmo_username as string | null}
-                    cashappCashtag={vendorProfile.cashapp_cashtag as string | null}
-                    paypalUsername={vendorProfile.paypal_username as string | null}
-                    acceptsCashAtPickup={vendorProfile.accepts_cash_at_pickup as boolean}
-                    size="sm"
+
+                {/* Section 2: Select a Pickup Date */}
+                <div style={{
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: radius.md,
+                  padding: spacing.sm,
+                }}>
+                  <ListingPurchaseSection
+                    listingId={listingId}
+                    maxQuantity={listing.quantity}
+                    primaryColor={branding.colors.primary}
+                    vertical={vertical}
+                    isPremiumRestricted={isPremiumRestricted}
+                    availablePickupDates={(availablePickupDates as AvailablePickupDate[] | null) || []}
+                    pickupLeadMinutes={vendorProfile.pickup_lead_minutes as number | undefined}
+                    paymentBadges={
+                      <PaymentMethodBadges
+                        venmoUsername={vendorProfile.venmo_username as string | null}
+                        cashappCashtag={vendorProfile.cashapp_cashtag as string | null}
+                        paypalUsername={vendorProfile.paypal_username as string | null}
+                        acceptsCashAtPickup={vendorProfile.accepts_cash_at_pickup as boolean}
+                        size="sm"
+                      />
+                    }
                   />
                 </div>
-                <ListingPurchaseSection
-                  listingId={listingId}
-                  maxQuantity={listing.quantity}
-                  primaryColor={branding.colors.primary}
-                  vertical={vertical}
-                  isPremiumRestricted={isPremiumRestricted}
-                  availablePickupDates={(availablePickupDates as AvailablePickupDate[] | null) || []}
-                  pickupLeadMinutes={vendorProfile.pickup_lead_minutes as number | undefined}
-                />
               </div>
             )}
 
@@ -446,15 +462,6 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                 border: `1px solid ${colors.border}`,
                 marginBottom: spacing.sm
               }}>
-                <div style={{ marginBottom: spacing.xs }}>
-                  <PaymentMethodBadges
-                    venmoUsername={vendorProfile.venmo_username as string | null}
-                    cashappCashtag={vendorProfile.cashapp_cashtag as string | null}
-                    paypalUsername={vendorProfile.paypal_username as string | null}
-                    acceptsCashAtPickup={vendorProfile.accepts_cash_at_pickup as boolean}
-                    size="sm"
-                  />
-                </div>
                 <ListingPurchaseSection
                   listingId={listingId}
                   maxQuantity={listing.quantity}
@@ -463,6 +470,15 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                   isPremiumRestricted={isPremiumRestricted}
                   availablePickupDates={(availablePickupDates as AvailablePickupDate[] | null) || []}
                   pickupLeadMinutes={vendorProfile.pickup_lead_minutes as number | undefined}
+                  paymentBadges={
+                    <PaymentMethodBadges
+                      venmoUsername={vendorProfile.venmo_username as string | null}
+                      cashappCashtag={vendorProfile.cashapp_cashtag as string | null}
+                      paypalUsername={vendorProfile.paypal_username as string | null}
+                      acceptsCashAtPickup={vendorProfile.accepts_cash_at_pickup as boolean}
+                      size="sm"
+                    />
+                  }
                 />
               </div>
             )}

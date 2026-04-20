@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import Link from 'next/link'
 import { AddToCartButton } from '@/components/cart/AddToCartButton'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
@@ -24,6 +25,7 @@ interface ListingPurchaseSectionProps {
   isPremiumRestricted?: boolean
   availablePickupDates?: AvailablePickupDate[]
   pickupLeadMinutes?: number
+  paymentBadges?: React.ReactNode
 }
 
 export default function ListingPurchaseSection({
@@ -33,7 +35,8 @@ export default function ListingPurchaseSection({
   vertical = 'farmers_market',
   isPremiumRestricted = false,
   availablePickupDates = [],
-  pickupLeadMinutes
+  pickupLeadMinutes,
+  paymentBadges
 }: ListingPurchaseSectionProps) {
   const locale = getClientLocale()
 
@@ -102,6 +105,7 @@ export default function ListingPurchaseSection({
       ordersClosed={!hasAcceptingDates}
       showMixedAvailabilityWarning={hasMixedAvailability}
       pickupLeadMinutes={pickupLeadMinutes}
+      paymentBadges={paymentBadges}
     />
   )
 }
