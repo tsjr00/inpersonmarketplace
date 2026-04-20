@@ -199,9 +199,14 @@ export function AddToCartButton({
     <div>
       <ToastContainer />
 
-      {/* Pickup Selection - Show when accepting dates exist */}
+      {/* Section 2: Pickup Selection */}
       {hasAcceptingDates && (
-        <div style={{ marginBottom: 12 }}>
+        <div style={{
+          marginBottom: 12,
+          border: `1px solid ${colors.border}`,
+          borderRadius: 6,
+          padding: 8,
+        }}>
           <label style={{
             display: 'flex',
             alignItems: 'center',

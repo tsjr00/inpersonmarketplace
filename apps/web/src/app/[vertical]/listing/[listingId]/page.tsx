@@ -425,18 +425,13 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                   />
                 </div>
 
-                {/* Section 2: Select a Pickup Date */}
-                <div style={{
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: radius.md,
-                  padding: spacing.sm,
-                }}>
-                  <ListingPurchaseSection
-                    listingId={listingId}
-                    maxQuantity={listing.quantity}
-                    primaryColor={branding.colors.primary}
-                    vertical={vertical}
-                    isPremiumRestricted={isPremiumRestricted}
+                {/* Sections 2 & 3: Rendered by ListingPurchaseSection/AddToCartButton */}
+                <ListingPurchaseSection
+                  listingId={listingId}
+                  maxQuantity={listing.quantity}
+                  primaryColor={branding.colors.primary}
+                  vertical={vertical}
+                  isPremiumRestricted={isPremiumRestricted}
                     availablePickupDates={(availablePickupDates as AvailablePickupDate[] | null) || []}
                     pickupLeadMinutes={vendorProfile.pickup_lead_minutes as number | undefined}
                     paymentBadges={
@@ -449,7 +444,6 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                       />
                     }
                   />
-                </div>
               </div>
             )}
 
