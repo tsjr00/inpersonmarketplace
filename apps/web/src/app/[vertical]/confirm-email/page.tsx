@@ -46,13 +46,14 @@ export default function ConfirmEmailPage({ params }: ConfirmEmailPageProps) {
 
       setStatus('success')
 
-      // Check for returnTo (saved by signup page for vendor signup flow)
-      const returnTo = localStorage.getItem('vendor_signup_returnTo')
-      if (returnTo) localStorage.removeItem('vendor_signup_returnTo')
+      // Read redirect destination from user metadata (saved by signup page)
+      // Covers: vendors → /vendor-signup, event organizers → /dashboard?section=events, buyers → /dashboard
+      const { data: { user } } = await supabase.auth.getUser()
+      const redirectTo = user?.user_metadata?.signup_redirect_to as string | undefined
 
       // Redirect after brief success message
       setTimeout(() => {
-        router.push(returnTo || `/${vertical}/dashboard`)
+        router.push(redirectTo || `/${vertical}/dashboard`)
         router.refresh()
       }, 2000)
     }

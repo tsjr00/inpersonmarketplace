@@ -94,6 +94,7 @@ export default function SignupPage({ params }: SignupPageProps) {
         data: {
           full_name: fullName,
           preferred_vertical: vertical,
+          signup_redirect_to: dashboardUrl,
         },
         emailRedirectTo: `${window.location.origin}${dashboardUrl}`,
         captchaToken: turnstileToken || undefined,
@@ -116,11 +117,8 @@ export default function SignupPage({ params }: SignupPageProps) {
 
     if (data.user) {
       setSuccess(true)
-      // Save returnTo for after email confirmation
-      if (returnTo) {
-        localStorage.setItem('vendor_signup_returnTo', returnTo)
-      }
       // Don't auto-redirect — user needs to confirm their email first
+      // returnTo is stored in user_metadata (set above) and read by confirm-email page
     }
   }
 
