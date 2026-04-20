@@ -201,7 +201,12 @@ export function AddToCartButton({
 
       {/* Section 2: Pickup Selection */}
       {hasAcceptingDates && (
-        <div style={{ marginBottom: 12 }}>
+        <div style={{
+          marginBottom: 12,
+          border: `1px solid ${primaryColor}`,
+          borderRadius: 6,
+          padding: 8,
+        }}>
           <label style={{
             display: 'flex',
             alignItems: 'center',
@@ -211,7 +216,7 @@ export function AddToCartButton({
             color: '#374151',
             marginBottom: 6
           }}>
-            <span style={{ fontWeight: 700, color: primaryColor }}>2.</span>
+            <span style={{ fontWeight: 700, color: '#374151' }}>2.</span>
             {isFoodTruck ? t('atc.select_location', locale) : t('atc.select_date', locale)}
           </label>
           <div style={{ borderTop: '1px solid #e5e7eb', marginBottom: 8 }} />
@@ -219,7 +224,7 @@ export function AddToCartButton({
           {/* FOOD TRUCK same-day: Location-first flow (one date per market)
               FOOD TRUCK advance ordering: Falls through to FM-style date picker below */}
           {isFoodTruck && !marketGroups.some(m => m.dates.filter(d => d.is_accepting).length > 1) ? (
-            <div style={{ border: `1px solid ${colors.border}`, borderRadius: 6, padding: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {marketGroups.map(market => {
                 const acceptingMarketDates = market.dates.filter(d => d.is_accepting)
                 if (acceptingMarketDates.length === 0) return null
@@ -278,7 +283,7 @@ export function AddToCartButton({
             </div>
           ) : hasMultipleOptions ? (
             /* FARMERS MARKET: Date selection flow (unchanged) */
-            <div style={{ border: `1px solid ${colors.border}`, borderRadius: 6, padding: 8, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {marketGroups.map(market => {
                 // Only show markets with at least one accepting date
                 const acceptingMarketDates = market.dates.filter(d => d.is_accepting)
@@ -574,7 +579,7 @@ export function AddToCartButton({
       {/* Section 3: Add to Cart */}
       <div style={{
         marginTop: 12,
-        border: `1px solid ${colors.border}`,
+        border: `1px solid ${primaryColor}`,
         borderRadius: 6,
         padding: 8,
       }}>
@@ -587,7 +592,7 @@ export function AddToCartButton({
           color: '#374151',
           marginBottom: 6,
         }}>
-          <span style={{ fontWeight: 700, color: primaryColor }}>3.</span>
+          <span style={{ fontWeight: 700, color: '#374151' }}>3.</span>
           Add to Cart
         </label>
         <div style={{ borderTop: '1px solid #e5e7eb', marginBottom: 8 }} />

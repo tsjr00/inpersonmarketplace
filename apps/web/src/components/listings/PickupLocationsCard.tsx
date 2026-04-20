@@ -84,13 +84,14 @@ export default function PickupLocationsCard({
 
   return (
     <div style={{
-      borderRadius: radius.sm,
-      overflow: 'hidden'
+      borderRadius: 6,
+      border: `1px solid ${primaryColor}`,
+      overflow: 'hidden',
+      backgroundColor: colors.surfaceElevated,
     }}>
       {/* Header */}
       <div style={{
         padding: `${spacing['2xs']} ${spacing.xs}`,
-        backgroundColor: colors.surfaceElevated
       }}>
         <div style={{
           display: 'flex',
@@ -99,7 +100,7 @@ export default function PickupLocationsCard({
         }}>
           <span style={{
             fontWeight: typography.weights.bold,
-            color: colors.primary,
+            color: '#374151',
             fontSize: typography.sizes.sm,
           }}>1.</span>
           <span style={{
@@ -111,16 +112,14 @@ export default function PickupLocationsCard({
           </span>
         </div>
       </div>
+      <div style={{ borderTop: '1px solid #e5e7eb', margin: `0 ${spacing.xs}` }} />
 
       {/* Markets and their dates */}
       <div style={{
         padding: spacing['2xs'],
-        border: `1px solid ${primaryColor}`,
-        borderRadius: radius.sm,
         display: 'flex',
         flexDirection: 'column',
         gap: spacing.xs,
-        backgroundColor: colors.surfaceElevated
       }}>
         {marketPickupDates.map((market, marketIndex) => (
           <div key={market.market_id}>
