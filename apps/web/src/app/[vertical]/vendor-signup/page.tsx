@@ -199,6 +199,13 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
     load();
   }, [vertical]);
 
+  // Auto-populate email when user loads after fields are ready
+  useEffect(() => {
+    if (user?.email && fields.some(f => f.key === 'email') && !values.email) {
+      setValues(prev => ({ ...prev, email: user.email }))
+    }
+  }, [user, fields]) // eslint-disable-line react-hooks/exhaustive-deps
+
   function setVal(key: string, val: unknown) {
     setValues((prev) => ({ ...prev, [key]: val }));
   }
@@ -1053,9 +1060,9 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
           <h1 style={{ ...headingStyle, fontSize: typography.sizes['2xl'], marginBottom: spacing.xs }}>
             Application Submitted!
           </h1>
-          <p style={{ ...subheadingStyle, maxWidth: 500, margin: '0 auto' }}>
-            Our team will review your application, typically within 1-2 business days.
-            You&#39;ll receive an email when your account is approved.
+          <p style={{ ...subheadingStyle, maxWidth: 520, margin: '0 auto' }}>
+            Get a head start while we review your application — upload your documents now
+            and you&#39;ll be ready to go as soon as you&#39;re approved (typically 1-2 business days).
           </p>
         </div>
 
@@ -1075,14 +1082,69 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
         )}
 
         {/* Requirements Section */}
+        {/* Business Formation Documents (Gate 1) */}
         <div style={{ ...cardStyle, marginBottom: spacing.md }}>
           <h2 style={{ margin: 0, fontSize: typography.sizes.xl, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing.xs }}>
             Here&#39;s What You&#39;ll Need
           </h2>
           <p style={{ ...subheadingStyle, marginBottom: spacing.md }}>
-            You can upload these now or come back later from your dashboard. Your application will be reviewed in the meantime.
+            Upload what you have ready now. You can always come back to finish from your dashboard.
           </p>
 
+          <h3 style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing.xs }}>
+            Business Verification
+          </h3>
+          <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, marginBottom: spacing.sm }}>
+            Upload a document that verifies your business — business license, DBA filing, LLC articles, or similar.
+            This is the first thing our team reviews.
+          </p>
+          {onboardingStatus?.gate1 ? (
+            <div>
+              {onboardingStatus.gate1.status === 'approved' ? (
+                <div style={{ padding: spacing.sm, backgroundColor: '#f0fdf4', borderRadius: radius.md, border: '1px solid #bbf7d0' }}>
+                  <p style={{ margin: 0, fontSize: typography.sizes.sm, color: '#166534', fontWeight: typography.weights.medium }}>✓ Business documents uploaded</p>
+                </div>
+              ) : (
+                <label style={{
+                  display: 'block', padding: spacing.sm, backgroundColor: colors.surfaceMuted,
+                  borderRadius: radius.md, border: `1px solid ${colors.border}`, cursor: 'pointer',
+                  textAlign: 'center', fontSize: typography.sizes.sm, color: colors.primary,
+                  fontWeight: typography.weights.medium,
+                }}>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,application/pdf"
+                    style={{ display: 'none' }}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      const formData = new FormData()
+                      formData.append('document', file)
+                      await fetch(`/api/vendor/onboarding/documents?vertical=${vertical}`, { method: 'POST', body: formData })
+                      const res = await fetch(`/api/vendor/onboarding/status?vertical=${vertical}`)
+                      if (res.ok) setOnboardingStatus(await res.json())
+                    }}
+                  />
+                  Upload Business Document (PDF, JPG, PNG)
+                </label>
+              )}
+              {onboardingStatus.gate1.businessDocsUploaded && onboardingStatus.gate1.status !== 'approved' && (
+                <p style={{ margin: `${spacing.xs} 0 0 0`, fontSize: typography.sizes.xs, color: '#166534' }}>
+                  ✓ Document uploaded — pending review
+                </p>
+              )}
+            </div>
+          ) : statusLoading ? (
+            <p style={{ color: colors.textMuted, fontSize: typography.sizes.sm }}>Loading...</p>
+          ) : (
+            <p style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
+              You can upload this from your dashboard after setup.
+            </p>
+          )}
+        </div>
+
+        {/* Category Documents */}
+        <div style={{ ...cardStyle, marginBottom: spacing.md }}>
           {/* Category-specific requirements */}
           {vertical === 'food_trucks' ? (
             // FT: Show all 5 permits
@@ -1288,10 +1350,10 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
               boxShadow: shadows.primary,
             }}
           >
-            Go to Dashboard
+            Continue to Dashboard
           </Link>
-          <p style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing.sm }}>
-            You can always upload documents and complete setup from your dashboard.
+          <p style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, marginTop: spacing.sm, maxWidth: 400, margin: `${spacing.sm} auto 0` }}>
+            Your dashboard has everything you need to finish setup, upload documents, connect payments, and create your first listings.
           </p>
         </div>
       </>)

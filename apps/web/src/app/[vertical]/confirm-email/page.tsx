@@ -55,7 +55,7 @@ export default function ConfirmEmailPage({ params }: ConfirmEmailPageProps) {
       setTimeout(() => {
         router.push(redirectTo || `/${vertical}/dashboard`)
         router.refresh()
-      }, 2000)
+      }, 1000)
     }
 
     confirmEmail()
