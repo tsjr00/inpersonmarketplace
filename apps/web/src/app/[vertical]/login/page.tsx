@@ -31,7 +31,10 @@ export default function LoginPage({ params }: LoginPageProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const isEventRef = searchParams.get('ref') === 'event'
-  const returnTo = searchParams.get('returnTo')
+  // returnTo is intentionally NOT read here — existing users should always
+  // go to their dashboard. Only the confirm-email page uses returnTo (for
+  // new accounts via user_metadata). See vendor-signup login wall for the
+  // only place that links to /login?returnTo=...
   const dashboardSuffix = isEventRef ? '?section=events' : ''
   const supabase = createClient()
   const locale = getClientLocale()
@@ -117,7 +120,7 @@ export default function LoginPage({ params }: LoginPageProps) {
           .eq('user_id', data.user.id)
       }
 
-      router.push(returnTo || `/${vertical}/dashboard${dashboardSuffix}`)
+      router.push(`/${vertical}/dashboard${dashboardSuffix}`)
       router.refresh()
     }
   }

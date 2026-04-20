@@ -530,7 +530,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
               You must be logged in to register as a vendor.
             </p>
             <div style={{ marginTop: spacing.md, display: "flex", gap: spacing.sm }}>
-              <Link href={`/${vertical}/login?returnTo=${encodeURIComponent(`/${vertical}/vendor-signup`)}`} style={buttonSecondaryStyle}>
+              <Link href={`/${vertical}/login`} style={buttonSecondaryStyle}>
                 Login
               </Link>
               <Link href={`/${vertical}/signup?returnTo=${encodeURIComponent(`/${vertical}/vendor-signup`)}`} style={buttonPrimaryStyle}>
