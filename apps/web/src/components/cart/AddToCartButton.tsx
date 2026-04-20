@@ -201,12 +201,7 @@ export function AddToCartButton({
 
       {/* Section 2: Pickup Selection */}
       {hasAcceptingDates && (
-        <div style={{
-          marginBottom: 12,
-          border: `1px solid ${colors.border}`,
-          borderRadius: 6,
-          padding: 8,
-        }}>
+        <div style={{ marginBottom: 12 }}>
           <label style={{
             display: 'flex',
             alignItems: 'center',

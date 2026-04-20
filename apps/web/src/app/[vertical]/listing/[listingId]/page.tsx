@@ -414,16 +414,10 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                 gap: spacing.sm,
               }}>
                 {/* Section 1: Available Pickup Options */}
-                <div style={{
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: radius.md,
-                  overflow: 'hidden',
-                }}>
-                  <PickupLocationsCard
-                    marketPickupDates={marketPickupDates}
-                    primaryColor={branding.colors.primary}
-                  />
-                </div>
+                <PickupLocationsCard
+                  marketPickupDates={marketPickupDates}
+                  primaryColor={branding.colors.primary}
+                />
 
                 {/* Sections 2 & 3: Rendered by ListingPurchaseSection/AddToCartButton */}
                 <ListingPurchaseSection
