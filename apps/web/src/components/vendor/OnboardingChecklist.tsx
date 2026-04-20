@@ -510,7 +510,7 @@ export default function OnboardingChecklist({ vertical, vendorStatus }: Props) {
             fontSize: typography.sizes.sm,
             color: colors.primaryDark,
           }}>
-            All required documents uploaded! Your application is ready for admin review.
+            All required documents uploaded! Waiting for admin review.
           </div>
         </div>
       )}
@@ -561,7 +561,18 @@ function Gate1Content({
         Upload your business formation documents (business license, DBA, LLC articles, etc.)
       </div>
 
-      {docs && (
+      {docs && status.gate1.status !== 'approved' && (
+        <div style={{
+          padding: spacing.xs,
+          backgroundColor: '#fef3c7',
+          borderRadius: radius.sm,
+          fontSize: typography.sizes.xs,
+          color: '#92400e',
+        }}>
+          Pending Review
+        </div>
+      )}
+      {docs && status.gate1.status === 'approved' && (
         <div style={{
           padding: spacing.xs,
           backgroundColor: colors.primaryLight,
@@ -569,7 +580,7 @@ function Gate1Content({
           fontSize: typography.sizes.xs,
           color: colors.primaryDark,
         }}>
-          Business documents uploaded
+          Approved
         </div>
       )}
 

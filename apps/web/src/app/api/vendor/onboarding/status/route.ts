@@ -235,13 +235,14 @@ export async function GET(request: NextRequest) {
     steps++
     if (prohibitedItemsAcknowledged) completed++
 
-    // Step 3: Permit/category docs
+    // Step 3: Permit/category docs (partial credit for uploads pending review)
     if (isFoodTruck) {
       const requiredPermits = FOOD_TRUCK_PERMIT_REQUIREMENTS.filter((p) => p.required)
       steps += requiredPermits.length
       for (const p of requiredPermits) {
         const cv = categoryVerifications[p.docType]
         if (cv && cv.status === 'approved') completed++
+        else if (cv && cv.status === 'pending' && cv.documents && cv.documents.length > 0) completed += 0.5
       }
     } else {
       const catsNeedingDocs = gate2RequestedItems.filter((cat) => requiresDocuments(cat as Category))
@@ -249,16 +250,19 @@ export async function GET(request: NextRequest) {
       for (const cat of catsNeedingDocs) {
         const cv = categoryVerifications[cat]
         if (cv && cv.status === 'approved') completed++
+        else if (cv && cv.status === 'pending' && cv.documents && cv.documents.length > 0) completed += 0.5
       }
     }
 
-    // Step 4: Vendor approved
+    // Step 4: Vendor approved (partial credit when docs uploaded and pending)
     steps++
     if (verification.status === 'approved') completed++
+    else if (businessDocs.length > 0) completed += 0.5
 
-    // Step 5: COI uploaded & approved
+    // Step 5: COI uploaded (partial credit for upload pending review)
     steps++
     if (verification.coi_status === 'approved') completed++
+    else if (coiDocuments.length > 0) completed += 0.5
 
     // Step 6: Stripe Connect (Gate 4)
     steps++
