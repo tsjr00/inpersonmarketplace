@@ -90,17 +90,20 @@ export async function transferToVendor({
   destination,
   orderId,
   orderItemId,
+  sourceTransaction,
 }: {
   amount: number // cents
   destination: string // Stripe account ID
   orderId: string
   orderItemId: string
+  sourceTransaction?: string // Charge ID — ties transfer to specific payment, avoids balance_insufficient
 }) {
   const transfer = await stripe.transfers.create(
     {
       amount,
       currency: 'usd',
       destination,
+      ...(sourceTransaction ? { source_transaction: sourceTransaction } : {}),
       metadata: {
         order_id: orderId,
         order_item_id: orderItemId,
@@ -112,6 +115,19 @@ export async function transferToVendor({
   )
 
   return transfer
+}
+
+/**
+ * Get the charge ID from a payment intent.
+ * Used to pass source_transaction to vendor transfers.
+ */
+export async function getChargeIdFromPaymentIntent(paymentIntentId: string): Promise<string | null> {
+  try {
+    const pi = await stripe.paymentIntents.retrieve(paymentIntentId)
+    return (pi.latest_charge as string) || null
+  } catch {
+    return null
+  }
 }
 
 /**

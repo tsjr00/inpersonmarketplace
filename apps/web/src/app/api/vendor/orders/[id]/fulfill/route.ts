@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { transferToVendor } from '@/lib/stripe/payments'
+import { transferToVendor, getChargeIdFromPaymentIntent } from '@/lib/stripe/payments'
 import { getAccountStatus } from '@/lib/stripe/connect'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
@@ -286,8 +286,9 @@ export async function POST(
         // M-11 FIX: Insert payout record BEFORE transfer to prevent tracking gaps.
         // If transfer succeeds but DB insert fails, we'd have no record of the payment.
         // Pattern: insert 'pending' -> transfer -> update to 'processing' or 'failed'
+        // Uses serviceClient — vendor_payouts has no INSERT RLS policy (system-managed table)
         crumb.supabase('insert', 'vendor_payouts (pending)')
-        const { data: payoutRecord, error: payoutInsertErr } = await supabase.from('vendor_payouts').insert({
+        const { data: payoutRecord, error: payoutInsertErr } = await serviceClient.from('vendor_payouts').insert({
           order_item_id: orderItem.id,
           vendor_profile_id: vendorProfile.id,
           amount_cents: actualPayoutCents,
@@ -309,11 +310,25 @@ export async function POST(
         }
 
         try {
+          // Get charge ID from payment intent — allows transfer from pending funds
+          let chargeId: string | undefined
+          const { data: payment } = await serviceClient
+            .from('payments')
+            .select('stripe_payment_intent_id')
+            .eq('order_id', orderItem.order_id)
+            .eq('status', 'succeeded')
+            .maybeSingle()
+
+          if (payment?.stripe_payment_intent_id) {
+            chargeId = (await getChargeIdFromPaymentIntent(payment.stripe_payment_intent_id)) || undefined
+          }
+
           const transfer = await transferToVendor({
             amount: actualPayoutCents,
             destination: vendorProfile.stripe_account_id!,
             orderId: orderItem.order_id,
             orderItemId: orderItem.id,
+            sourceTransaction: chargeId,
           })
 
           // Record fee credit BEFORE updating payout (compensating transaction pattern)
@@ -333,7 +348,7 @@ export async function POST(
 
           crumb.supabase('update', 'vendor_payouts')
           if (payoutRecord) {
-            await supabase.from('vendor_payouts')
+            await serviceClient.from('vendor_payouts')
               .update({ stripe_transfer_id: transfer.id, status: 'processing', updated_at: new Date().toISOString() })
               .eq('id', payoutRecord.id)
           }
@@ -344,7 +359,7 @@ export async function POST(
           console.error('Stripe transfer failed:', transferError)
 
           if (payoutRecord) {
-            await supabase.from('vendor_payouts')
+            await serviceClient.from('vendor_payouts')
               .update({ status: 'failed', updated_at: new Date().toISOString() })
               .eq('id', payoutRecord.id)
           }
