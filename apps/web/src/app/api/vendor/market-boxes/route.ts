@@ -34,12 +34,13 @@ export async function GET(request: NextRequest) {
     // Get vendor profile — multi-vertical safe via shared utility
     const { searchParams } = new URL(request.url)
     const vertical = searchParams.get('vertical')
-    const { profile: vendor } = await getVendorProfileForVertical<{
+    const { profile: vendorProfile } = await getVendorProfileForVertical<{
       id: string
       tier: string
-    }>(supabase, user.id, vertical, 'id, tier')
+      market_box_frequency: string
+    }>(supabase, user.id, vertical, 'id, tier, market_box_frequency')
 
-    if (!vendor) {
+    if (!vendorProfile) {
       throw new TracedError('ERR_AUTH_003', 'Vendor not found', { userId: user.id })
     }
 
@@ -74,12 +75,12 @@ export async function GET(request: NextRequest) {
           state
         )
       `)
-      .eq('vendor_profile_id', vendor.id)
+      .eq('vendor_profile_id', vendorProfile.id)
       .order('created_at', { ascending: false })
 
     if (error) {
       throw new TracedError('ERR_MBOX_001', 'Failed to fetch market box offerings', {
-        vendorId: vendor.id,
+        vendorId: vendorProfile.id,
         pgCode: error.code,
         pgDetail: error.message,
       })
@@ -105,7 +106,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get tier for limits calculation
-    const tier = vendor.tier || 'free'
+    const tier = vendorProfile.tier || 'free'
 
     // Build response with counts from the map
     const offeringsWithCounts = (offerings || []).map((offering) => {
@@ -127,6 +128,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       offerings: offeringsWithCounts,
+      market_box_frequency: vendorProfile.market_box_frequency || 'weekly',
       limits: {
         tier,
         // Total market boxes (no separate active limit — vendors can activate all)
@@ -383,5 +385,76 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ offering }, { status: 201 })
+  })
+}
+
+/**
+ * PATCH /api/vendor/market-boxes
+ * Update vendor-level market box settings (e.g., pickup frequency)
+ */
+export async function PATCH(request: NextRequest) {
+  return withErrorTracing('/api/vendor/market-boxes', 'PATCH', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = await checkRateLimit(`vendor-market-boxes-patch:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      throw new TracedError('ERR_AUTH_001', 'Not authenticated')
+    }
+
+    const body = await request.json()
+    const { vertical, market_box_frequency } = body
+
+    if (!vertical) {
+      throw new TracedError('ERR_MBOX_020', 'Vertical is required')
+    }
+
+    if (!market_box_frequency || !['weekly', 'biweekly'].includes(market_box_frequency)) {
+      throw new TracedError('ERR_MBOX_021', 'Invalid frequency. Must be "weekly" or "biweekly".')
+    }
+
+    // Get vendor profile
+    const { profile: vendor } = await getVendorProfileForVertical<{ id: string }>(supabase, user.id, vertical, 'id')
+    if (!vendor) {
+      throw new TracedError('ERR_VENDOR_001', 'Vendor profile not found for this vertical')
+    }
+
+    // Block frequency changes while active subscriptions exist
+    const { data: vendorOfferings } = await supabase
+      .from('market_box_offerings')
+      .select('id')
+      .eq('vendor_profile_id', vendor.id)
+
+    const offeringIds = vendorOfferings?.map(o => o.id) || []
+    let activeSubCount = 0
+    if (offeringIds.length > 0) {
+      const { count } = await supabase
+        .from('market_box_subscriptions')
+        .select('id', { count: 'exact', head: true })
+        .in('offering_id', offeringIds)
+        .eq('status', 'active')
+      activeSubCount = count || 0
+    }
+
+    if (activeSubCount > 0) {
+      return NextResponse.json(
+        { error: 'Cannot change frequency while active subscriptions exist. Wait for current subscriptions to complete.' },
+        { status: 409 }
+      )
+    }
+
+    // Update frequency
+    const { error: updateError } = await supabase
+      .from('vendor_profiles')
+      .update({ market_box_frequency })
+      .eq('id', vendor.id)
+
+    if (updateError) {
+      throw new TracedError('ERR_MBOX_022', `Failed to update frequency: ${updateError.message}`)
+    }
+
+    return NextResponse.json({ success: true, market_box_frequency })
   })
 }

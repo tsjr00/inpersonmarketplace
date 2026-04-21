@@ -20,6 +20,8 @@ interface AvailableTerm {
   label: string
   price_cents: number
   price_per_week_cents: number
+  price_per_pickup_cents?: number
+  num_pickups?: number
   savings_cents: number
   savings_percent: number
 }
@@ -47,6 +49,7 @@ interface MarketBoxData {
     pickup_day_of_week: number
     pickup_start_time: string
     pickup_end_time: string
+    pickup_frequency?: string
   }
   vendor: {
     id: string
@@ -375,7 +378,7 @@ export default function MarketBoxDetailClient() {
                           {formatPrice(termOption.price_cents)}
                         </span>
                         <span style={{ fontSize: 11, color: '#6b7280' }}>
-                          ({formatPrice(termOption.price_per_week_cents)}{t('mbd.per_week', locale)})
+                          ({formatPrice(termOption.price_per_pickup_cents || termOption.price_per_week_cents)}/pickup{termOption.num_pickups ? ` · ${termOption.num_pickups} pickups` : ''})
                         </span>
                       </span>
                     </button>
@@ -431,7 +434,11 @@ export default function MarketBoxDetailClient() {
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                 <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>•</span>
-                <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>{t('mbd.return_weekly', locale, { day: dayName(offering.pickup_day_of_week), weeks: String(selectedTermWeeks) })}</span>
+                <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>
+                  {offering.pickup_frequency === 'biweekly'
+                    ? `Pick up every other ${dayName(offering.pickup_day_of_week)} for ${selectedTermWeeks} weeks (${selectedTermWeeks / 2} pickups)`
+                    : t('mbd.return_weekly', locale, { day: dayName(offering.pickup_day_of_week), weeks: String(selectedTermWeeks) })}
+                </span>
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                 <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>•</span>

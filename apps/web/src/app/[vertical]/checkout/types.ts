@@ -32,6 +32,7 @@ export interface CheckoutItem {
   pickupDayOfWeek?: number | null
   pickupStartTime?: string | null
   pickupEndTime?: string | null
+  pickupFrequency?: string | null
 }
 
 export interface SuggestedProduct {

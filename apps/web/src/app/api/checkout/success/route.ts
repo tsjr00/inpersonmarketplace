@@ -211,6 +211,7 @@ export async function GET(request: NextRequest) {
             startDate?: string
             priceCents: number
             basePriceCents?: number // M9: included from unified checkout metadata
+            pickupFrequency?: string // Migration 124: weekly or biweekly
           }>
 
           for (const mbItem of marketBoxItems) {
@@ -224,6 +225,7 @@ export async function GET(request: NextRequest) {
                 p_start_date: mbItem.startDate || new Date().toISOString().split('T')[0],
                 p_term_weeks: mbItem.termWeeks,
                 p_stripe_payment_intent_id: paymentIntentId,
+                p_pickup_frequency: mbItem.pickupFrequency || 'weekly',
               })
 
             if (rpcError) {

@@ -45,6 +45,7 @@ export function CheckoutMarketBoxItem({ item, onRemove }: CheckoutMarketBoxItemP
           </div>
           <p style={{ color: colors.textMuted, fontSize: typography.sizes.sm, margin: `0 0 ${spacing['2xs']} 0` }}>
             {item.vendor_name} · {t('cart.subscription', locale, { term: termParam })}
+            {item.pickupFrequency === 'biweekly' && ' · Bi-Weekly'}
           </p>
 
           {/* Pickup schedule */}

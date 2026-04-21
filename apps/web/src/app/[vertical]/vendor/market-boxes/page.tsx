@@ -63,6 +63,7 @@ export default function VendorMarketBoxesPage() {
 
   const [offerings, setOfferings] = useState<MarketBoxOffering[]>([])
   const [limits, setLimits] = useState<Limits | null>(null)
+  const [frequency, setFrequency] = useState<'weekly' | 'biweekly'>('weekly')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<{ message: string; code?: string; traceId?: string } | null>(null)
   const [baseUrl, setBaseUrl] = useState('')
@@ -90,6 +91,7 @@ export default function VendorMarketBoxesPage() {
 
       setOfferings(data.offerings || [])
       setLimits(data.limits || null)
+      if (data.market_box_frequency) setFrequency(data.market_box_frequency)
     } catch (err) {
       setError({ message: err instanceof Error ? err.message : 'Failed to load market boxes' })
     } finally {
@@ -205,6 +207,61 @@ export default function VendorMarketBoxesPage() {
             </div>
           </div>
         )}
+
+        {/* Pickup Frequency Setting */}
+        <div style={{
+          marginBottom: 16,
+          padding: '12px 16px',
+          backgroundColor: '#f9fafb',
+          border: '1px solid #e5e7eb',
+          borderRadius: 8,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+        }}>
+          <div>
+            <strong style={{ fontSize: 14, color: '#374151' }}>Pickup Frequency</strong>
+            <p style={{ margin: '2px 0 0 0', fontSize: 12, color: '#6b7280' }}>
+              {frequency === 'biweekly' ? 'Subscribers pick up every 2 weeks' : 'Subscribers pick up every week'}
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {(['weekly', 'biweekly'] as const).map(f => (
+              <button
+                key={f}
+                type="button"
+                onClick={async () => {
+                  if (f === frequency) return
+                  const res = await fetch('/api/vendor/market-boxes', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vertical, market_box_frequency: f }),
+                  })
+                  if (res.ok) {
+                    setFrequency(f)
+                    showBanner('success', `Frequency updated to ${f === 'biweekly' ? 'bi-weekly' : 'weekly'}`)
+                  } else {
+                    const err = await res.json()
+                    showBanner('error', err.error || 'Failed to update frequency')
+                  }
+                }}
+                style={{
+                  padding: '6px 14px',
+                  fontSize: 13,
+                  fontWeight: f === frequency ? 600 : 400,
+                  border: f === frequency ? `2px solid ${branding.colors.primary}` : '1px solid #d1d5db',
+                  borderRadius: 6,
+                  backgroundColor: f === frequency ? `${branding.colors.primary}10` : 'white',
+                  color: f === frequency ? branding.colors.primary : '#374151',
+                  cursor: 'pointer',
+                }}
+              >
+                {f === 'biweekly' ? 'Bi-Weekly' : 'Weekly'}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* Create New Button */}
         {limits?.can_create_more && (

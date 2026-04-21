@@ -50,7 +50,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
           tier,
           profile_data,
           description,
-          profile_image_url
+          profile_image_url,
+          market_box_frequency
         ),
         market:markets (
           id,
@@ -148,32 +149,44 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const nextStartDateStr = nextStartDate.toISOString().split('T')[0]
 
     // Build available terms
+    const pickupFrequency = (vendor?.market_box_frequency as string) || 'weekly'
+    const isBiweekly = pickupFrequency === 'biweekly'
     const price4Week = offering.price_4week_cents || offering.price_cents
     // Food trucks: 1-month only (no 8-week option)
     const price8Week = offering.vertical_id === 'food_trucks' ? null : offering.price_8week_cents
+
+    // Bi-weekly: same price per pickup, half the pickups = half the total
+    const adjustedPrice4Week = isBiweekly ? Math.round(price4Week / 2) : price4Week
+    const adjustedPrice8Week = price8Week && isBiweekly ? Math.round(price8Week / 2) : price8Week
+    const pickups4Week = isBiweekly ? 2 : 4
+    const pickups8Week = isBiweekly ? 4 : 8
 
     const availableTerms = [
       {
         weeks: 4,
         label: '1 Month',
-        price_cents: price4Week,
-        price_per_week_cents: Math.round(price4Week / 4),
+        price_cents: adjustedPrice4Week,
+        price_per_week_cents: Math.round(adjustedPrice4Week / pickups4Week),
+        price_per_pickup_cents: Math.round(adjustedPrice4Week / pickups4Week),
+        num_pickups: pickups4Week,
         savings_cents: 0,
         savings_percent: 0,
       }
     ]
 
-    if (price8Week) {
+    if (adjustedPrice8Week) {
       // Calculate savings vs buying 2x 4-week terms
-      const twoTermPrice = price4Week * 2
-      const savingsCents = twoTermPrice - price8Week
+      const twoTermPrice = adjustedPrice4Week * 2
+      const savingsCents = twoTermPrice - adjustedPrice8Week
       const savingsPercent = Math.round((savingsCents / twoTermPrice) * 100)
 
       availableTerms.push({
         weeks: 8,
         label: '2 Months',
-        price_cents: price8Week,
-        price_per_week_cents: Math.round(price8Week / 8),
+        price_cents: adjustedPrice8Week,
+        price_per_week_cents: Math.round(adjustedPrice8Week / pickups8Week),
+        price_per_pickup_cents: Math.round(adjustedPrice8Week / pickups8Week),
+        num_pickups: pickups8Week,
         savings_cents: savingsCents,
         savings_percent: savingsPercent,
       })
@@ -185,9 +198,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
         name: offering.name,
         description: offering.description,
         image_urls: offering.image_urls,
-        price_cents: price4Week,
-        price_4week_cents: price4Week,
-        price_8week_cents: price8Week,
+        price_cents: adjustedPrice4Week,
+        price_4week_cents: adjustedPrice4Week,
+        price_8week_cents: adjustedPrice8Week,
+        pickup_frequency: pickupFrequency,
         quantity_amount: offering.quantity_amount,
         quantity_unit: offering.quantity_unit,
         pickup_day_of_week: offering.pickup_day_of_week,

@@ -242,9 +242,9 @@ export async function POST(request: NextRequest) {
       hasMarketBoxes
         ? supabase
             .from('market_box_offerings')
-            .select('id, name, description, price_4week_cents, price_8week_cents, vendor_profile_id, vertical_id, pickup_market_id, active')
+            .select('id, name, description, price_4week_cents, price_8week_cents, vendor_profile_id, vertical_id, pickup_market_id, active, vendor_profiles!inner(market_box_frequency)')
             .in('id', marketBoxItems!.map(i => i.offeringId))
-        : Promise.resolve({ data: [] as Array<{ id: string; name: string; description: string | null; price_4week_cents: number; price_8week_cents: number | null; vendor_profile_id: string; vertical_id: string; pickup_market_id: string | null; active: boolean }>, error: null })
+        : Promise.resolve({ data: [] as Array<{ id: string; name: string; description: string | null; price_4week_cents: number; price_8week_cents: number | null; vendor_profile_id: string; vertical_id: string; pickup_market_id: string | null; active: boolean; vendor_profiles: { market_box_frequency: string } }>, error: null })
     ])
 
     const listings = listingsResult.data || []
@@ -630,14 +630,19 @@ export async function POST(request: NextRequest) {
     if (hasMarketBoxes) {
       for (const mbItem of marketBoxItems!) {
         const offering = marketBoxOfferings.find(o => o.id === mbItem.offeringId)!
-        const termPrice = mbItem.termWeeks === 8
+        const vendorFrequency = ((offering as unknown as { vendor_profiles: { market_box_frequency: string } }).vendor_profiles)?.market_box_frequency || 'weekly'
+        const weeklyTermPrice = mbItem.termWeeks === 8
           ? (offering.price_8week_cents || offering.price_4week_cents)
           : offering.price_4week_cents
+        // Bi-weekly: half the pickups = half the total price
+        const termPrice = vendorFrequency === 'biweekly' ? Math.round(weeklyTermPrice / 2) : weeklyTermPrice
         const priceWithPercentFee = Math.round(termPrice * (1 + FEES.buyerFeePercent / 100))
+        const numPickups = vendorFrequency === 'biweekly' ? mbItem.termWeeks / 2 : mbItem.termWeeks
+        const frequencyLabel = vendorFrequency === 'biweekly' ? 'Bi-Weekly' : 'Weekly'
 
         checkoutItems.push({
-          name: `${offering.name} - ${mbItem.termWeeks} Week Market Box`,
-          description: `Prepaid ${mbItem.termWeeks}-week subscription`,
+          name: `${offering.name} - ${mbItem.termWeeks} Week ${frequencyLabel} Market Box`,
+          description: `Prepaid ${mbItem.termWeeks}-week subscription (${numPickups} pickups)`,
           amount: priceWithPercentFee,
           quantity: 1,
         })
@@ -688,12 +693,14 @@ export async function POST(request: NextRequest) {
           const basePriceCents = mb.termWeeks === 8
             ? (offering.price_8week_cents || offering.price_4week_cents)
             : offering.price_4week_cents
+          const vendorProfile = (offering as unknown as { vendor_profiles: { market_box_frequency: string } }).vendor_profiles
           return {
             offeringId: mb.offeringId,
             termWeeks: mb.termWeeks,
             startDate: mb.startDate,
             priceCents: mb.priceCents,
             basePriceCents,
+            pickupFrequency: vendorProfile?.market_box_frequency || 'weekly',
           }
         })),
       } : undefined,

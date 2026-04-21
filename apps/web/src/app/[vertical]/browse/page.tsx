@@ -248,7 +248,8 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
         vendor_profiles!inner (
           id,
           profile_data,
-          tier
+          tier,
+          market_box_frequency
         ),
         market:markets!market_box_offerings_pickup_market_id_fkey (
           id,
@@ -1462,7 +1463,14 @@ function MarketBoxCard({
         )}
       </div>
       <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing['2xs'] }}>
-        for 4 weeks ({formatDisplayPrice(offering.price_cents / 4)}/week)
+        {(() => {
+          const vp = Array.isArray(offering.vendor_profiles) ? offering.vendor_profiles[0] : offering.vendor_profiles
+          const freq = (vp as Record<string, unknown>)?.market_box_frequency as string || 'weekly'
+          if (freq === 'biweekly') {
+            return `for 4 weeks · 2 pickups (${formatDisplayPrice(offering.price_cents / 2)}/pickup)`
+          }
+          return `for 4 weeks (${formatDisplayPrice(offering.price_cents / 4)}/week)`
+        })()}
       </div>
 
       {/* Pickup Info */}
