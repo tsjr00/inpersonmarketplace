@@ -141,13 +141,10 @@ export default function PaymentMethodsCard({
     setIsEditing(false)
   }
 
-  // Count enabled methods
+  // Count enabled methods (only count external methods when feature is enabled)
   const methodCount = [
     stripeConnected,
-    !!venmoUsername,
-    !!cashappCashtag,
-    !!paypalUsername,
-    acceptsCash
+    ...(EXTERNAL_PAYMENTS_ENABLED ? [!!venmoUsername, !!cashappCashtag, !!paypalUsername, acceptsCash] : [])
   ].filter(Boolean).length
 
   return (

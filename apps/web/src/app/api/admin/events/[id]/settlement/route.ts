@@ -165,16 +165,19 @@ export async function GET(request: NextRequest, context: RouteContext) {
       (buyerProfiles || []).map(b => [b.user_id, { name: b.display_name || 'Unknown', email: b.email || '' }])
     )
 
-    // Fetch vendor profiles
+    // Fetch vendor profiles (business_name is inside profile_data JSONB, not a top-level column)
     const { data: vendorProfiles } = vendorIds.size > 0
       ? await serviceClient
           .from('vendor_profiles')
-          .select('id, business_name')
+          .select('id, profile_data')
           .in('id', Array.from(vendorIds))
       : { data: [] }
 
     const vendorMap = new Map(
-      (vendorProfiles || []).map(v => [v.id, v.business_name || 'Unknown Vendor'])
+      (vendorProfiles || []).map(v => {
+        const pd = v.profile_data as Record<string, unknown> | null
+        return [v.id, (pd?.business_name as string) || (pd?.farm_name as string) || 'Unknown Vendor']
+      })
     )
 
     // Fetch market_vendors for response status

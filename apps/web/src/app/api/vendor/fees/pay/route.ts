@@ -38,13 +38,15 @@ export async function POST(request: NextRequest) {
       // Verify ownership
       const { data: vendor } = await supabase
         .from('vendor_profiles')
-        .select('id, user_id, business_name')
+        .select('id, user_id, profile_data')
         .eq('id', vendor_id)
         .single()
 
       if (!vendor || vendor.user_id !== user.id) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
       }
+
+      const businessName = (vendor.profile_data as Record<string, unknown>)?.business_name as string || 'your vendor account'
 
       // Get balance
       const { balanceCents } = await getVendorFeeBalance(supabase, vendor_id)
@@ -76,7 +78,7 @@ export async function POST(request: NextRequest) {
                 currency: 'usd',
                 product_data: {
                   name: 'Platform Fee Balance',
-                  description: `Outstanding platform fees for ${vendor.business_name || 'your vendor account'}`
+                  description: `Outstanding platform fees for ${businessName}`
                 },
                 unit_amount: balanceCents
               },
