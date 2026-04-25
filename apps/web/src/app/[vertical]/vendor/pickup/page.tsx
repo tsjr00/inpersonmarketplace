@@ -1,5 +1,22 @@
 'use client'
 
+/**
+ * Pickup Mode page — vendors use this on market day to fulfill walk-up
+ * pickups in real time. THIS PAGE ONLY SHOWS:
+ *   - Regular order items with status='ready' AND pickup scheduled today
+ *   - Market box pickups with status='ready' AND scheduled_date = today
+ *
+ * Do NOT relax these filters. Items not yet marked ready, or scheduled for
+ * a future date, belong on the vendor's per-feature management pages
+ * (orders list / market-boxes / pickups list), NOT here. The whole purpose
+ * of pickup mode is to be a single, focused worklist for "right now."
+ *
+ * If you find yourself thinking "let's also show scheduled items so the
+ * vendor can mark them ready from here" — that's what the per-feature
+ * pages are for. Adding more states here breaks the single-purpose model
+ * and creates confusion at the market.
+ */
+
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -361,7 +378,9 @@ export default function VendorPickupPage() {
 
       const [ordersRes, mbRes] = await Promise.all([
         fetch(`/api/vendor/orders?${params.toString()}`),
-        fetch(`/api/vendor/market-boxes/pickups?vertical=${vertical}&market_id=${selectedMarket}&status=scheduled,ready`),
+        // Pickup mode shows ONLY ready pickups for today — see file header.
+        // Per-feature management pages handle scheduled / future-dated pickups.
+        fetch(`/api/vendor/market-boxes/pickups?vertical=${vertical}&market_id=${selectedMarket}&status=ready`),
       ])
 
       if (ordersRes.ok) {
@@ -371,7 +390,13 @@ export default function VendorPickupPage() {
 
       if (mbRes.ok) {
         const data = await mbRes.json()
-        setMarketBoxPickups(data.pickups || [])
+        // Filter to today's ready pickups only — the API returns all ready
+        // pickups regardless of date, but pickup mode is "right now" only.
+        const today = new Date().toISOString().split('T')[0]
+        const todayPickups = (data.pickups || []).filter(
+          (p: { scheduled_date?: string }) => p.scheduled_date === today
+        )
+        setMarketBoxPickups(todayPickups)
       }
     } catch (error) {
       console.error('Error fetching orders:', error)

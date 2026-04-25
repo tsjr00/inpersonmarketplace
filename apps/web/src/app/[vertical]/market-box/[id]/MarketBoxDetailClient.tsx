@@ -448,8 +448,8 @@ export default function MarketBoxDetailClient() {
                 <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>•</span>
                 <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>
                   {offering.pickup_frequency === 'biweekly'
-                    ? `Pick up every other ${dayName(offering.pickup_day_of_week)} for ${selectedTermWeeks} weeks (${selectedTermWeeks / 2} pickups)`
-                    : t('mbd.return_weekly', locale, { day: dayName(offering.pickup_day_of_week), weeks: String(selectedTermWeeks) })}
+                    ? `${selectedTerm?.num_pickups || (selectedTermWeeks / 2)} bi-weekly pickups, every other ${dayName(offering.pickup_day_of_week)}`
+                    : `${selectedTerm?.num_pickups || selectedTermWeeks} weekly pickups, every ${dayName(offering.pickup_day_of_week)}`}
                 </span>
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>

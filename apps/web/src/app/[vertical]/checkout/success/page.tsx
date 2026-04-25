@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { FullPageLoading } from '@/components/shared/Spinner'
 import { formatQuantityDisplay } from '@/lib/constants'
+import { calculateBuyerPrice } from '@/lib/pricing'
 import { useCart } from '@/lib/hooks/useCart'
 import { getMapsUrl } from '@/lib/utils/maps-link'
 import { term } from '@/lib/vertical'
@@ -358,7 +359,7 @@ export default function CheckoutSuccessPage() {
                         {sub.pickup_count
                           ? `${sub.term_weeks === 8 ? '2 Months' : '1 Month'} · ${sub.pickup_count} ${sub.pickup_frequency === 'biweekly' ? 'bi-weekly' : 'weekly'} pickups`
                           : t('cart.subscription', locale, { term: String(sub.term_weeks) })
-                        } &bull; ${(sub.total_paid_cents / 100).toFixed(2)}
+                        } &bull; ${(calculateBuyerPrice(sub.total_paid_cents) / 100).toFixed(2)}
                       </p>
                       <p style={{
                         margin: `${spacing['2xs']} 0 0`,

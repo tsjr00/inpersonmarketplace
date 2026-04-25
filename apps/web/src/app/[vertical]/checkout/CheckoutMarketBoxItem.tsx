@@ -15,6 +15,12 @@ export function CheckoutMarketBoxItem({ item, onRemove }: CheckoutMarketBoxItemP
   const locale = getClientLocale()
   const termParam = String(item.termWeeks === 8 ? 8 : 4)
   const displayPrice = calculateDisplayPrice(item.termPriceCents || item.price_cents || 0)
+  // Option A framing: lead with pickup count + cadence + duration
+  const termWeeks = item.termWeeks || 4
+  const isBiweekly = item.pickupFrequency === 'biweekly'
+  const pickupCount = isBiweekly ? Math.floor(termWeeks / 2) : termWeeks
+  const cadenceWord = isBiweekly ? 'bi-weekly' : 'weekly'
+  const durationLabel = termWeeks === 8 ? '2 Months' : '1 Month'
 
   return (
     <div
@@ -56,7 +62,7 @@ export function CheckoutMarketBoxItem({ item, onRemove }: CheckoutMarketBoxItemP
             )}
           </div>
           <p style={{ color: colors.textMuted, fontSize: typography.sizes.sm, margin: `0 0 ${spacing['2xs']} 0` }}>
-            {item.vendor_name} · {t('cart.subscription', locale, { term: termParam })}
+            {item.vendor_name} · {pickupCount} {cadenceWord} pickups · {durationLabel}
           </p>
 
           {/* Pickup schedule */}
@@ -95,7 +101,7 @@ export function CheckoutMarketBoxItem({ item, onRemove }: CheckoutMarketBoxItemP
             {formatPrice(displayPrice)}
           </p>
           <p style={{ fontSize: typography.sizes.xs, color: colors.textMuted, margin: `0 0 ${spacing['2xs']} 0` }}>
-            {t('cart.week_total', locale, { term: termParam })}
+            {durationLabel} total
           </p>
           <button
             onClick={() => item.offeringId && onRemove(item.offeringId)}

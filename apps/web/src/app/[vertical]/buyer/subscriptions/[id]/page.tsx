@@ -35,7 +35,10 @@ interface Subscription {
   term_weeks?: number
   extended_weeks?: number
   total_weeks?: number
+  pickup_frequency?: string
+  pickup_count?: number
   total_paid_cents: number
+  buyer_paid_cents?: number
   created_at: string
   offering: {
     id: string
@@ -265,6 +268,11 @@ export default function BuyerSubscriptionDetailPage() {
   )
   const termWeeks = subscription.term_weeks || 4
   const totalWeeks = subscription.total_weeks || (termWeeks + (subscription.extended_weeks || 0))
+  // Buyer-facing prices include buyer fees. Falls back to total_paid_cents
+  // (food subtotal) if buyer_paid_cents isn't returned by the API.
+  const buyerPaidCents = subscription.buyer_paid_cents ?? subscription.total_paid_cents
+  const pickupCount = subscription.pickup_count || (subscription.pickups?.length ?? totalWeeks)
+  const isBiweekly = subscription.pickup_frequency === 'biweekly'
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: branding.colors.background, color: branding.colors.text }}>
@@ -279,10 +287,23 @@ export default function BuyerSubscriptionDetailPage() {
           </Link>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 16, flexWrap: 'wrap', gap: 16 }}>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                 <h1 style={{ color: branding.colors.primary, margin: 0, fontSize: 28 }}>
                   {subscription.offering.name}
                 </h1>
+                {isBiweekly && (
+                  <span style={{
+                    padding: '4px 12px',
+                    backgroundColor: '#fce7f3',
+                    color: '#9d174d',
+                    borderRadius: 4,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    textTransform: 'uppercase'
+                  }}>
+                    {t('mbd.cadence_biweekly', locale)}
+                  </span>
+                )}
                 <span style={{
                   padding: '4px 12px',
                   backgroundColor: statusColor.bg,
@@ -301,10 +322,10 @@ export default function BuyerSubscriptionDetailPage() {
             </div>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: 24, fontWeight: 700, color: branding.colors.primary }}>
-                {formatPrice(subscription.total_paid_cents)}
+                {formatPrice(buyerPaidCents)}
               </div>
               <div style={{ fontSize: 13, color: '#6b7280' }}>
-                {t('sub_detail.weeks_completed', locale, { completed: String(subscription.weeks_completed), total: String(totalWeeks) })}
+                {t('subs.pickups_progress', locale, { completed: String(subscription.weeks_completed), total: String(pickupCount) })}
               </div>
             </div>
           </div>
@@ -563,11 +584,11 @@ export default function BuyerSubscriptionDetailPage() {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: '#6b7280' }}>{t('sub_detail.total_paid', locale)}</span>
-              <span style={{ color: '#374151', fontWeight: 600 }}>{formatPrice(subscription.total_paid_cents)}</span>
+              <span style={{ color: '#374151', fontWeight: 600 }}>{formatPrice(buyerPaidCents)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#6b7280' }}>{t('sub_detail.per_week', locale)}</span>
-              <span style={{ color: '#374151' }}>{formatPrice(subscription.total_paid_cents / termWeeks)}</span>
+              <span style={{ color: '#6b7280' }}>{t('sub_detail.per_pickup', locale)}</span>
+              <span style={{ color: '#374151' }}>{formatPrice(Math.round(buyerPaidCents / pickupCount))}</span>
             </div>
           </div>
         </div>

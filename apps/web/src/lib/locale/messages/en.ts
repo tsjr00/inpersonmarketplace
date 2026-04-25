@@ -1286,6 +1286,7 @@ export const en: Record<string, string> = {
   'sub_detail.started': 'Started',
   'sub_detail.total_paid': 'Total Paid',
   'sub_detail.per_week': 'Per Week',
+  'sub_detail.per_pickup': 'Per Pickup',
   'sub_detail.status_scheduled': 'Scheduled',
   'sub_detail.status_ready': 'Ready for Pickup',
   'sub_detail.status_picked_up': 'Picked Up',

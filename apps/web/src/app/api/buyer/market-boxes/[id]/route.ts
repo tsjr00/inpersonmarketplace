@@ -36,9 +36,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
         weeks_completed,
         term_weeks,
         extended_weeks,
+        pickup_frequency,
+        order_id,
         created_at,
         completed_at,
         cancelled_at,
+        order:orders!order_id (
+          total_cents
+        ),
         offering:market_box_offerings (
           id,
           name,
@@ -119,17 +124,26 @@ export async function GET(request: NextRequest, context: RouteContext) {
     endDate.setDate(startDate.getDate() + (totalWeeks - 1) * 7)
     const endDateStr = endDate.toISOString().split('T')[0]
 
+    // Buyer-inclusive total = what the buyer actually paid (food + buyer fees).
+    // Falls back to calculating from food subtotal if order isn't joined for some reason.
+    const orderRow = (subscription as any).order as { total_cents?: number } | null
+    const buyerPaidCents = orderRow?.total_cents
+      ?? Math.round((subscription.total_paid_cents as number) * 1.065) + 15
+
     return NextResponse.json({
       subscription: {
         id: subscription.id,
         status: subscription.status,
         total_paid_cents: subscription.total_paid_cents,
+        buyer_paid_cents: buyerPaidCents,
         start_date: subscription.start_date,
         end_date: endDateStr,
         weeks_completed: subscription.weeks_completed,
         term_weeks: termWeeks,
         extended_weeks: extendedWeeks,
         total_weeks: totalWeeks,
+        pickup_frequency: ((subscription as any).pickup_frequency as string) || 'weekly',
+        pickup_count: pickups.length,
         weeks_remaining: totalWeeks - (subscription.weeks_completed || 0),
         created_at: subscription.created_at,
         completed_at: subscription.completed_at,

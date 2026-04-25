@@ -751,8 +751,12 @@ export default function BuyerOrdersPage() {
             const isReady = order.status === 'ready'
             const isCompleted = ['completed', 'fulfilled'].includes(order.status)
             const isCancelled = ['cancelled'].includes(order.status)
-            const progressPercent = mb.total_weeks > 0
-              ? Math.round((mb.weeks_completed / mb.total_weeks) * 100)
+            // Progress percent uses actual pickup count when available so
+            // biweekly subs (2 pickups in 1 month) fill correctly — otherwise
+            // 1 of 2 pickups would show as 25% instead of 50%.
+            const progressDenominator = mb.pickup_count || mb.total_weeks || 1
+            const progressPercent = progressDenominator > 0
+              ? Math.round((mb.weeks_completed / progressDenominator) * 100)
               : 0
 
             return (
@@ -907,7 +911,7 @@ export default function BuyerOrdersPage() {
                         fontSize: typography.sizes.xs,
                         color: colors.textMuted,
                       }}>
-                        {t('orders.weeks_completed', locale, { completed: String(mb.weeks_completed), total: String(mb.total_weeks) })}
+                        {t('subs.pickups_progress', locale, { completed: String(mb.weeks_completed), total: String(mb.pickup_count || mb.total_weeks) })}
                       </p>
                       {mb.next_pickup && (
                         <p style={{

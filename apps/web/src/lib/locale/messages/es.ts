@@ -1286,6 +1286,7 @@ export const es: Record<string, string> = {
   'sub_detail.started': 'Inicio',
   'sub_detail.total_paid': 'Total Pagado',
   'sub_detail.per_week': 'Por Semana',
+  'sub_detail.per_pickup': 'Por Recogida',
   'sub_detail.status_scheduled': 'Programado',
   'sub_detail.status_ready': 'Listo para Recoger',
   'sub_detail.status_picked_up': 'Recogido',
