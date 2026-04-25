@@ -498,9 +498,15 @@ export async function POST(request: NextRequest) {
           throw traced.validation('ERR_CHECKOUT_020', 'Food truck subscriptions are 4-week (1 month) only')
         }
         const offering = marketBoxOfferings.find(o => o.id === mbItem.offeringId)!
-        const termPrice = mbItem.termWeeks === 8
+        const baseTermPrice = mbItem.termWeeks === 8
           ? (offering.price_8week_cents || offering.price_4week_cents)
           : offering.price_4week_cents
+        // Bi-weekly halves the price — matches the Stripe line-items loop
+        // below and the cart route. Keeps order totals consistent with what
+        // Stripe actually charges; otherwise orders.total_cents would be 2x
+        // for biweekly subs.
+        const vendorFrequency = ((offering as unknown as { vendor_profiles: { market_box_frequency: string } }).vendor_profiles)?.market_box_frequency || 'weekly'
+        const termPrice = vendorFrequency === 'biweekly' ? Math.round(baseTermPrice / 2) : baseTermPrice
         pricingItems.push({ price_cents: termPrice, quantity: 1 })
       }
     }
