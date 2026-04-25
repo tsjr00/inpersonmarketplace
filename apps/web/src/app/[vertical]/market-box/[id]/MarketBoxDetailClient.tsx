@@ -76,6 +76,7 @@ interface MarketBoxData {
   purchase: {
     can_purchase: boolean
     block_reason: string | null
+    warning?: string | null
     next_start_date: string
     weeks: number
     total_price_cents: number
@@ -633,6 +634,19 @@ export default function MarketBoxDetailClient() {
                 fontSize: 14
               }}>
                 {purchase.block_reason}
+              </div>
+            )}
+            {!purchase.block_reason && purchase.warning && (
+              <div style={{
+                padding: 12,
+                marginBottom: 16,
+                backgroundColor: '#dbeafe',
+                border: '1px solid #93c5fd',
+                borderRadius: 8,
+                color: '#1e40af',
+                fontSize: 14
+              }}>
+                {purchase.warning}
               </div>
             )}
 

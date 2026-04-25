@@ -1253,7 +1253,7 @@ export const en: Record<string, string> = {
   'subs.extended': '+{count} extended',
   'subs.at_market': 'at {name}',
   'subs.view_details': 'View Details →',
-  'subs.week': 'Week {number}',
+  'subs.week': 'Pickup {number}',
   'subs.extension': 'Extension',
   'subs.ready': 'READY',
   'subs.skipped': 'SKIPPED',

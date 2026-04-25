@@ -762,7 +762,7 @@ export default function BuyerOrdersPage() {
             return (
               <div
                 key={order.id}
-                onClick={() => router.push(`/${vertical}/buyer/subscriptions/${order.id}`)}
+                onClick={() => router.push(`/${vertical}/buyer/subscriptions/${order.id}?from=orders`)}
                 style={{
                   backgroundColor: colors.surfaceElevated,
                   borderRadius: radius.md,

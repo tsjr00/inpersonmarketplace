@@ -42,7 +42,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
         completed_at,
         cancelled_at,
         order:orders!order_id (
-          total_cents
+          total_cents,
+          order_number
         ),
         offering:market_box_offerings (
           id,
@@ -126,7 +127,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     // Buyer-inclusive total = what the buyer actually paid (food + buyer fees).
     // Falls back to calculating from food subtotal if order isn't joined for some reason.
-    const orderRow = (subscription as any).order as { total_cents?: number } | null
+    const orderRow = (subscription as any).order as { total_cents?: number; order_number?: string } | null
     const buyerPaidCents = orderRow?.total_cents
       ?? Math.round((subscription.total_paid_cents as number) * 1.065) + 15
 
@@ -134,6 +135,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       subscription: {
         id: subscription.id,
         status: subscription.status,
+        order_number: orderRow?.order_number || null,
         total_paid_cents: subscription.total_paid_cents,
         buyer_paid_cents: buyerPaidCents,
         start_date: subscription.start_date,

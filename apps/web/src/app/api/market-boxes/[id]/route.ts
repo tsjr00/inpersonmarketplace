@@ -114,13 +114,17 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const { data: { user } } = await supabase.auth.getUser()
     let canPurchase = false
     let purchaseBlockReason: string | null = null
+    // Soft warning — informs the buyer they already have an active subscription
+    // but does NOT block another purchase. Buyers can subscribe more than once
+    // (e.g., gifting, doubling up on a product they love).
+    let purchaseWarning: string | null = null
 
     if (!user) {
       purchaseBlockReason = 'Login required to purchase market boxes'
     } else if (!isAvailable) {
       purchaseBlockReason = 'This market box is currently at capacity'
     } else {
-      // Check if user already has an active subscription to this offering
+      // Soft-warn (not block) when an active subscription already exists.
       crumb.supabase('select', 'market_box_subscriptions (existing check)')
       const { count: existingSub } = await supabase
         .from('market_box_subscriptions')
@@ -130,10 +134,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
         .eq('status', 'active')
 
       if ((existingSub || 0) > 0) {
-        purchaseBlockReason = 'You already have an active subscription to this market box'
-      } else {
-        canPurchase = true
+        purchaseWarning = 'You already have an active subscription to this market box. You can still subscribe again if you want a second one.'
       }
+      canPurchase = true
     }
 
     // Calculate next available start date (next occurrence of pickup_day_of_week)
@@ -234,6 +237,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       purchase: {
         can_purchase: canPurchase,
         block_reason: purchaseBlockReason,
+        warning: purchaseWarning,
         next_start_date: nextStartDateStr,
         weeks: 4,
         total_price_cents: adjustedPrice4Week,

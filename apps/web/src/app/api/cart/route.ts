@@ -317,6 +317,7 @@ export async function GET(request: NextRequest) {
           termWeeks,
           startDate: item.start_date,
           termPriceCents: priceCents,
+          pickupFrequency,
           vendor_name: vendorName,
           quantity_available: null,
           status: offering?.active ? 'active' : 'inactive',

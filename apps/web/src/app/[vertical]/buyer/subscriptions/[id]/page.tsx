@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { useParams } from 'next/navigation'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
@@ -29,6 +29,7 @@ interface Pickup {
 
 interface Subscription {
   id: string
+  order_number?: string | null
   start_date: string
   status: string
   weeks_completed: number
@@ -65,6 +66,15 @@ interface Subscription {
 
 export default function BuyerSubscriptionDetailPage() {
   const params = useParams()
+  const searchParams = useSearchParams()
+  // When the buyer arrives via the orders page (?from=orders), the back arrow
+  // takes them back there. Otherwise default to the subscriptions list.
+  const fromOrders = searchParams.get('from') === 'orders'
+  const backHref = useMemo(
+    () => `/${params.vertical as string}/buyer/${fromOrders ? 'orders' : 'subscriptions'}`,
+    [params.vertical, fromOrders]
+  )
+  const backLabel = fromOrders ? '← Back to Orders' : null  // null falls back to localized default
   const vertical = params.vertical as string
   const subscriptionId = params.id as string
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
@@ -280,10 +290,10 @@ export default function BuyerSubscriptionDetailPage() {
         {/* Header */}
         <div style={{ marginBottom: 24 }}>
           <Link
-            href={`/${vertical}/buyer/subscriptions`}
+            href={backHref}
             style={{ color: branding.colors.primary, textDecoration: 'none', fontSize: 14 }}
           >
-            {t('sub_detail.back', locale)}
+            {backLabel || t('sub_detail.back', locale)}
           </Link>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 16, flexWrap: 'wrap', gap: 16 }}>
             <div>
@@ -319,6 +329,11 @@ export default function BuyerSubscriptionDetailPage() {
               <p style={{ color: '#666', margin: '8px 0 0 0', fontSize: 14 }}>
                 {t('subs.by_vendor', locale, { name: subscription.offering.vendor?.name || 'Vendor' })}
               </p>
+              {subscription.order_number && (
+                <p style={{ color: '#9ca3af', margin: '4px 0 0 0', fontSize: 12, fontFamily: 'monospace', letterSpacing: 0.5 }}>
+                  Order #{subscription.order_number}
+                </p>
+              )}
             </div>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: 24, fontWeight: 700, color: branding.colors.primary }}>
