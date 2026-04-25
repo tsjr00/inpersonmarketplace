@@ -192,6 +192,7 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
           termWeeks: number
           startDate?: string
           priceCents: number
+          pickupFrequency?: string
         }>
 
         // H5 FIX: Use RPC with capacity check instead of direct INSERT
@@ -205,6 +206,7 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
               p_start_date: mbItem.startDate || new Date().toISOString().split('T')[0],
               p_term_weeks: mbItem.termWeeks,
               p_stripe_payment_intent_id: paymentIntentId,
+              p_pickup_frequency: mbItem.pickupFrequency || 'weekly',
             })
 
           if (rpcError) {
@@ -372,6 +374,10 @@ async function handleMarketBoxCheckoutComplete(session: Stripe.Checkout.Session)
       p_start_date: startDate,
       p_term_weeks: termWeeks,
       p_stripe_payment_intent_id: paymentIntentId,
+      // Standalone metadata doesn't carry pickup_frequency yet — defaults to
+      // 'weekly' to disambiguate the overload. See backlog: biweekly support
+      // for standalone path needs vendor_profile lookup before RPC call.
+      p_pickup_frequency: 'weekly',
     })
 
   if (rpcError) {

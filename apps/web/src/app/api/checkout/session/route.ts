@@ -687,20 +687,28 @@ export async function POST(request: NextRequest) {
       vertical,
       metadata: hasMarketBoxes ? {
         has_market_boxes: 'true',
-        // M9 FIX: Include basePriceCents for reliable vendor payout calculation
+        // priceCents stores the actual food subtotal the buyer paid for this
+        // item — frequency-adjusted, pre-fee. This is what calculateVendorPayout
+        // needs. basePriceCents kept as the unadjusted weekly reference for audit.
         market_box_items: JSON.stringify(marketBoxItems!.map(mb => {
           const offering = marketBoxOfferings.find(o => o.id === mb.offeringId)!
           const basePriceCents = mb.termWeeks === 8
             ? (offering.price_8week_cents || offering.price_4week_cents)
             : offering.price_4week_cents
           const vendorProfile = (offering as unknown as { vendor_profiles: { market_box_frequency: string } }).vendor_profiles
+          const pickupFrequency = vendorProfile?.market_box_frequency || 'weekly'
+          // Frequency-adjusted food subtotal = what the line-items loop above
+          // sent to Stripe as termPrice (pre-fee). Source of truth for downstream.
+          const termPriceCents = pickupFrequency === 'biweekly'
+            ? Math.round(basePriceCents / 2)
+            : basePriceCents
           return {
             offeringId: mb.offeringId,
             termWeeks: mb.termWeeks,
             startDate: mb.startDate,
-            priceCents: mb.priceCents,
+            priceCents: termPriceCents,
             basePriceCents,
-            pickupFrequency: vendorProfile?.market_box_frequency || 'weekly',
+            pickupFrequency,
           }
         })),
       } : undefined,
