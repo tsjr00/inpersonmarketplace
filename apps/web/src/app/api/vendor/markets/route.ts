@@ -36,7 +36,8 @@ export async function GET(request: NextRequest) {
       home_market_id: string | null
       status: string
       deleted_at: string | null
-    }>(supabase, user.id, vertical, 'id, tier, home_market_id, status, deleted_at')
+      market_box_frequency: string | null
+    }>(supabase, user.id, vertical, 'id, tier, home_market_id, status, deleted_at, market_box_frequency')
 
     if (vpError || !vendorProfile || vendorProfile.deleted_at !== null) {
       return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
@@ -231,6 +232,7 @@ export async function GET(request: NextRequest) {
       privatePickupMarkets: vendorMarkets,
       marketSuggestions: transformedSuggestions,
       homeMarketId: vendorProfile.home_market_id,
+      marketBoxFrequency: vendorProfile.market_box_frequency === 'biweekly' ? 'biweekly' : 'weekly',
       vendorTier: tier,
       vendorStatus: vendorProfile.status || 'pending',
       isPremium: isVendorPremium,

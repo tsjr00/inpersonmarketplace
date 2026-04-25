@@ -88,6 +88,7 @@ export default function EditMarketBoxPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [vendorFrequency, setVendorFrequency] = useState<'weekly' | 'biweekly'>('weekly')
 
   const [formData, setFormData] = useState({
     name: '',
@@ -158,6 +159,7 @@ export default function EditMarketBoxPage() {
         ...(data.privatePickupMarkets || [])
       ]
       setMarkets(allMarkets)
+      setVendorFrequency(data.marketBoxFrequency === 'biweekly' ? 'biweekly' : 'weekly')
     }
   }, [vertical])
 
@@ -279,6 +281,12 @@ export default function EditMarketBoxPage() {
     )
   }
 
+  const isBiweekly = vendorFrequency === 'biweekly'
+  const cadenceWord = isBiweekly ? 'bi-weekly' : 'weekly'
+  const cadenceLabel = isBiweekly ? 'Bi-Weekly' : 'Weekly'
+  const pickup4 = isBiweekly ? 2 : 4
+  const pickup8 = isBiweekly ? 4 : 8
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: branding.colors.background, color: branding.colors.text }}>
       <div style={{ maxWidth: 600, margin: '0 auto', padding: '24px 16px' }}>
@@ -293,6 +301,19 @@ export default function EditMarketBoxPage() {
           <h1 style={{ color: branding.colors.primary, margin: '16px 0 8px 0', fontSize: 28 }}>
             {`Edit ${term(vertical, 'market_box')}`}
           </h1>
+        </div>
+
+        {/* Frequency reminder */}
+        <div style={{
+          marginBottom: 24,
+          padding: '10px 14px',
+          backgroundColor: isBiweekly ? '#fce7f3' : '#eff6ff',
+          border: `1px solid ${isBiweekly ? '#f9a8d4' : '#bfdbfe'}`,
+          borderRadius: 8,
+          fontSize: 13,
+          color: isBiweekly ? '#9d174d' : '#1e40af',
+        }}>
+          This box is <strong>{cadenceLabel}</strong> — change at <Link href={`/${vertical}/vendor/market-boxes`} style={{ color: 'inherit', textDecoration: 'underline' }}>your {term(vertical, 'market_boxes')} list</Link>.
         </div>
 
         {error && (
@@ -388,7 +409,7 @@ export default function EditMarketBoxPage() {
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Describe what's typically included in each weekly box..."
+                placeholder={`Describe what's typically included in each ${cadenceWord} box...`}
                 rows={3}
                 style={{
                   width: '100%',
@@ -496,7 +517,7 @@ export default function EditMarketBoxPage() {
                 />
               </div>
               <p style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
-                Total charged for 4 weekly pickups
+                Total for the 1-month term — buyers receive {pickup4} {cadenceWord} pickups
               </p>
             </div>
 
@@ -511,13 +532,13 @@ export default function EditMarketBoxPage() {
                   style={{ width: 18, height: 18 }}
                 />
                 <span style={{ fontWeight: 500, color: '#374151' }}>
-                  Also offer 2-month (8 week) option
+                  Also offer 2-month option
                 </span>
               </label>
               {formData.offer_8week && (
                 <div style={{ marginTop: 12, paddingLeft: 26 }}>
                   <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, color: '#374151' }}>
-                    2-Month Price (8 weeks) *
+                    2-Month Price *
                   </label>
                   <div style={{ position: 'relative' }}>
                     <span style={{
@@ -698,7 +719,7 @@ export default function EditMarketBoxPage() {
                       })}
                     </select>
                     <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#6b7280' }}>
-                      Subscribers must pick up at this exact time each week
+                      Subscribers must pick up at this exact time {isBiweekly ? 'every 2 weeks' : 'each week'}
                     </p>
                   </div>
                 ) : (

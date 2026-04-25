@@ -66,6 +66,7 @@ interface Pickup {
   confirmation_window_expires_at: string | null
   subscription: {
     id: string
+    start_date: string
     term_weeks: number
     extended_weeks: number
     buyer: {
@@ -361,9 +362,9 @@ export default function VendorMarketBoxDetailPage() {
                 )}
               </div>
               <p style={{ color: '#666', margin: '8px 0 0 0', fontSize: 14 }}>
-                {formatPrice(offering.price_4week_cents || offering.price_cents)} · 1 Month
+                {formatPrice(offering.price_4week_cents || offering.price_cents)} · 1 Month ({marketBoxFrequency === 'biweekly' ? 2 : 4} {marketBoxFrequency === 'biweekly' ? 'bi-weekly' : 'weekly'} pickups)
                 {offering.price_8week_cents && (
-                  <> · {formatPrice(offering.price_8week_cents)} · 2 Months</>
+                  <> · {formatPrice(offering.price_8week_cents)} · 2 Months ({marketBoxFrequency === 'biweekly' ? 4 : 8} {marketBoxFrequency === 'biweekly' ? 'bi-weekly' : 'weekly'} pickups)</>
                 )}
               </p>
             </div>
@@ -804,15 +805,30 @@ export default function VendorMarketBoxDetailPage() {
               width: '100%',
               boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
             }}>
-              <h3 style={{ margin: '0 0 16px 0', color: '#374151' }}>Skip This Week?</h3>
-              <p style={{ color: '#6b7280', margin: '0 0 16px 0', fontSize: 14 }}>
-                Skipping Week {skipModalPickup.week_number} for {skipModalPickup.subscription?.buyer?.display_name || 'this subscriber'} will:
-              </p>
-              <ul style={{ color: '#6b7280', fontSize: 14, margin: '0 0 16px 0', paddingLeft: 20 }}>
-                <li>Mark this pickup as skipped</li>
-                <li>Add an extra week to the end of their subscription</li>
-                <li>The subscriber will be notified</li>
-              </ul>
+              {(() => {
+                const isBi = marketBoxFrequency === 'biweekly'
+                const interval = isBi ? 14 : 7
+                const sub = skipModalPickup.subscription
+                const startMs = new Date(sub.start_date + 'T00:00:00').getTime()
+                const currentEndMs = startMs + (sub.term_weeks * 7 + sub.extended_weeks * interval) * 86400000
+                const newEndMs = currentEndMs + interval * 86400000
+                const newEndLabel = new Date(newEndMs).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                const extensionWords = isBi ? '2 weeks' : '1 week'
+                const promptHeading = isBi ? 'Skip This Pickup?' : 'Skip This Week?'
+                return (
+                  <>
+                    <h3 style={{ margin: '0 0 16px 0', color: '#374151' }}>{promptHeading}</h3>
+                    <p style={{ color: '#6b7280', margin: '0 0 16px 0', fontSize: 14 }}>
+                      Skipping pickup {skipModalPickup.week_number} for {skipModalPickup.subscription?.buyer?.display_name || 'this subscriber'} will:
+                    </p>
+                    <ul style={{ color: '#6b7280', fontSize: 14, margin: '0 0 16px 0', paddingLeft: 20 }}>
+                      <li>Mark this pickup as skipped</li>
+                      <li>Add an extra {extensionWords} (extend end date to {newEndLabel})</li>
+                      <li>The subscriber will be notified</li>
+                    </ul>
+                  </>
+                )
+              })()}
 
               <div style={{ marginBottom: 16 }}>
                 <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, color: '#374151', fontSize: 14 }}>

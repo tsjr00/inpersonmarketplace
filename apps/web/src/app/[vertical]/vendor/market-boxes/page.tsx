@@ -361,6 +361,18 @@ export default function VendorMarketBoxesPage() {
                   <div style={{ flex: 1, minWidth: 200 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
                       <h3 style={{ margin: 0, fontSize: 18, color: '#374151' }}>{offering.name}</h3>
+                      {frequency === 'biweekly' && (
+                        <span style={{
+                          padding: '2px 8px',
+                          backgroundColor: '#fce7f3',
+                          color: '#9d174d',
+                          borderRadius: 4,
+                          fontSize: 11,
+                          fontWeight: 600
+                        }}>
+                          BI-WEEKLY
+                        </span>
+                      )}
                       {offering.box_type && BOX_TYPE_LABELS[offering.box_type] && (
                         <span style={{
                           padding: '2px 8px',
@@ -407,7 +419,7 @@ export default function VendorMarketBoxesPage() {
 
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, fontSize: 13, color: '#666' }}>
                       <div>
-                        <strong>Price:</strong> {formatPrice(offering.price_cents)} for 4 weeks
+                        <strong>Price:</strong> {formatPrice(offering.price_cents)} for 1-month term ({frequency === 'biweekly' ? 2 : 4} {frequency === 'biweekly' ? 'bi-weekly' : 'weekly'} pickups)
                       </div>
                       <div>
                         <strong>Pickup:</strong> {DAYS[offering.pickup_day_of_week]}s {formatTime(offering.pickup_start_time)}-{formatTime(offering.pickup_end_time)}

@@ -68,6 +68,7 @@ export default function NewMarketBoxPage() {
   const [error, setError] = useState<string | null>(null)
   const [homeMarketId, setHomeMarketId] = useState<string | null>(null)
   const [isPremium, setIsPremium] = useState(false)
+  const [vendorFrequency, setVendorFrequency] = useState<'weekly' | 'biweekly'>('weekly')
 
   const [formData, setFormData] = useState({
     name: '',
@@ -154,6 +155,7 @@ export default function NewMarketBoxPage() {
       setMarkets(allMarkets)
       setHomeMarketId(data.homeMarketId || null)
       setIsPremium(data.isPremium || false)
+      setVendorFrequency(data.marketBoxFrequency === 'biweekly' ? 'biweekly' : 'weekly')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load markets')
     } finally {
@@ -237,6 +239,12 @@ export default function NewMarketBoxPage() {
     )
   }
 
+  const isBiweekly = vendorFrequency === 'biweekly'
+  const cadenceWord = isBiweekly ? 'bi-weekly' : 'weekly'
+  const cadenceLabel = isBiweekly ? 'Bi-Weekly' : 'Weekly'
+  const pickup4 = isBiweekly ? 2 : 4
+  const pickup8 = isBiweekly ? 4 : 8
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: branding.colors.background, color: branding.colors.text }}>
       <div style={{ maxWidth: 600, margin: '0 auto', padding: '24px 16px' }}>
@@ -252,8 +260,21 @@ export default function NewMarketBoxPage() {
             {`Create ${term(vertical, 'market_box')}`}
           </h1>
           <p style={{ color: '#666', margin: 0, fontSize: 14 }}>
-            Set up a weekly subscription bundle for {isBuyerPremiumEnabled(vertical) ? 'premium buyers' : 'your customers'} (1 or 2 month terms)
+            Set up a subscription bundle for {isBuyerPremiumEnabled(vertical) ? 'premium buyers' : 'your customers'} (1 or 2 month terms)
           </p>
+        </div>
+
+        {/* Frequency reminder */}
+        <div style={{
+          marginBottom: 24,
+          padding: '10px 14px',
+          backgroundColor: isBiweekly ? '#fce7f3' : '#eff6ff',
+          border: `1px solid ${isBiweekly ? '#f9a8d4' : '#bfdbfe'}`,
+          borderRadius: 8,
+          fontSize: 13,
+          color: isBiweekly ? '#9d174d' : '#1e40af',
+        }}>
+          This box will be <strong>{cadenceLabel}</strong> — change at <Link href={`/${vertical}/vendor/market-boxes`} style={{ color: 'inherit', textDecoration: 'underline' }}>your {term(vertical, 'market_boxes')} list</Link>.
         </div>
 
         {error && (
@@ -469,7 +490,7 @@ export default function NewMarketBoxPage() {
                   />
                 </div>
                 <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#6b7280' }}>
-                  Total for 4 weekly pickups ({formData.price_4week_dollars ? `$${(parseFloat(formData.price_4week_dollars) / 4).toFixed(2)}/week` : '$0.00/week'})
+                  Total for the 1-month term — buyers receive {pickup4} {cadenceWord} pickups
                 </p>
               </div>
 
@@ -523,7 +544,7 @@ export default function NewMarketBoxPage() {
                       />
                     </div>
                     <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#6b7280' }}>
-                      Total for 8 weekly pickups ({formData.price_8week_dollars ? `$${(parseFloat(formData.price_8week_dollars) / 8).toFixed(2)}/week` : '$0.00/week'})
+                      Total for the 2-month term — buyers receive {pickup8} {cadenceWord} pickups
                     </p>
                     {formData.price_4week_dollars && (
                       <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#059669' }}>
@@ -728,7 +749,7 @@ export default function NewMarketBoxPage() {
                 <ul style={{ margin: 0, paddingLeft: 20, color: '#1e40af', fontSize: 13 }}>
                   <li>Offer 1-month (4 weeks) or 2-month (8 weeks) subscriptions</li>
                   <li>{isBuyerPremiumEnabled(vertical) ? 'Premium buyers pay' : 'Customers pay'} the full price upfront</li>
-                  <li>They pick up one box each week</li>
+                  <li>They pick up one box {isBiweekly ? 'every 2 weeks' : 'each week'}</li>
                   <li>Same day, time, and location every week</li>
                   <li>If you need to skip a week (weather, etc.), their subscription extends automatically</li>
                 </ul>
