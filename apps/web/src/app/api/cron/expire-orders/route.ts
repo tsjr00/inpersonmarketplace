@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { notifyOrderExpired, sendNotification } from '@/lib/notifications'
-import { createRefund, transferToVendor, transferMarketBoxPayout } from '@/lib/stripe/payments'
+import { createRefund, transferToVendor, transferMarketBoxPayout, getChargeIdFromPaymentIntent } from '@/lib/stripe/payments'
 import { restoreInventory, restoreOrderInventory } from '@/lib/inventory'
 import { timingSafeEqual } from 'crypto'
 import { withErrorTracing } from '@/lib/errors'
@@ -1201,6 +1201,9 @@ export async function GET(request: NextRequest) {
             stripe_account_id,
             stripe_payouts_enabled,
             user_id
+          ),
+          market_box_subscriptions!inner (
+            stripe_payment_intent_id
           )
         `)
         .eq('status', 'failed')
@@ -1217,16 +1220,24 @@ export async function GET(request: NextRequest) {
             stripe_payouts_enabled: boolean
             user_id: string
           }
+          const sub = payout.market_box_subscriptions as unknown as {
+            stripe_payment_intent_id: string | null
+          }
 
           if (!vp?.stripe_account_id || !vp.stripe_payouts_enabled) continue
 
           payoutsRetried++
           stripeTransfersUsed++
           try {
+            let chargeId: string | undefined
+            if (sub?.stripe_payment_intent_id) {
+              chargeId = (await getChargeIdFromPaymentIntent(sub.stripe_payment_intent_id)) || undefined
+            }
             const transfer = await transferMarketBoxPayout({
               amount: payout.amount_cents,
               destination: vp.stripe_account_id,
               subscriptionId: payout.market_box_subscription_id!,
+              sourceTransaction: chargeId,
             })
 
             await supabase
@@ -1264,6 +1275,9 @@ export async function GET(request: NextRequest) {
             stripe_account_id,
             stripe_payouts_enabled,
             user_id
+          ),
+          market_box_subscriptions!inner (
+            stripe_payment_intent_id
           )
         `)
         .eq('status', 'pending_stripe_setup')
@@ -1279,16 +1293,24 @@ export async function GET(request: NextRequest) {
             stripe_payouts_enabled: boolean
             user_id: string
           }
+          const sub = payout.market_box_subscriptions as unknown as {
+            stripe_payment_intent_id: string | null
+          }
 
           if (!vp?.stripe_account_id || !vp.stripe_payouts_enabled) continue
 
           payoutsRetried++
           stripeTransfersUsed++
           try {
+            let chargeId: string | undefined
+            if (sub?.stripe_payment_intent_id) {
+              chargeId = (await getChargeIdFromPaymentIntent(sub.stripe_payment_intent_id)) || undefined
+            }
             const transfer = await transferMarketBoxPayout({
               amount: payout.amount_cents,
               destination: vp.stripe_account_id,
               subscriptionId: payout.market_box_subscription_id!,
+              sourceTransaction: chargeId,
             })
 
             await supabase

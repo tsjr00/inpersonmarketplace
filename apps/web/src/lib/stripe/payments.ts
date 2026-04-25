@@ -212,16 +212,19 @@ export async function transferMarketBoxPayout({
   amount,
   destination,
   subscriptionId,
+  sourceTransaction,
 }: {
   amount: number // cents
   destination: string // Stripe account ID
   subscriptionId: string // market_box_subscriptions.id
+  sourceTransaction?: string // Charge ID — ties transfer to specific payment, avoids balance_insufficient
 }) {
   const transfer = await stripe.transfers.create(
     {
       amount,
       currency: 'usd',
       destination,
+      ...(sourceTransaction ? { source_transaction: sourceTransaction } : {}),
       metadata: {
         market_box_subscription_id: subscriptionId,
       },

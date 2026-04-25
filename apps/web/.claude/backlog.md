@@ -1,6 +1,10 @@
 # Backlog
 
-Last updated: 2026-04-19 (Session 73)
+Last updated: 2026-04-24
+
+## Priority 0.5 — Stripe payout
+
+- [ ] **Order-side cron retry missing `source_transaction`** — `apps/web/src/app/api/cron/expire-orders/route.ts:1089-1094` calls `transferToVendor` without `source_transaction` in the order-side Phase 5 retry block. Commit `121b3d5e` fixed the inline `fulfill` route only — the cron retry path was not touched. Same `balance_insufficient` failure mode as the original Jennifer/Chef Prep incident applies here when funds haven't settled. One-line fix mirroring the order fulfill pattern: look up charge ID from `payments.stripe_payment_intent_id` for the payout's `order_item.order_id`, pass as `sourceTransaction`. Found while auditing the market box payout flow on 2026-04-24.
 
 ## Priority 0.5 — Vendor Onboarding (Session 73)
 

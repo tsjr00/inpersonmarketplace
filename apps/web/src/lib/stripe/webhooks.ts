@@ -1,13 +1,12 @@
 import { stripe } from './config'
-import { createRefund, transferMarketBoxPayout } from './payments'
+import { createRefund } from './payments'
+import { processMarketBoxPayout } from './market-box-payout'
 import Stripe from 'stripe'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendNotification } from '@/lib/notifications'
 import { TracedError } from '@/lib/errors/traced-error'
 import { logError } from '@/lib/errors/logger'
 import { crumb } from '@/lib/errors/breadcrumbs'
-import { calculateVendorPayout } from '@/lib/pricing'
-import { selectBasePriceForTermWeeks } from '@/lib/stripe/webhook-utils'
 
 /**
  * H-6: Dedup helper — check if a notification was already sent recently.
@@ -352,13 +351,13 @@ async function handleMarketBoxCheckoutComplete(session: Stripe.Checkout.Session)
   if (existing) {
     crumb.stripe(`Market box subscription already exists: ${existing.id}`)
     // Still process payout if it hasn't been created yet (idempotent)
-    await processMarketBoxVendorPayout(supabase, {
+    await processMarketBoxPayout({
+      serviceClient: supabase,
       subscriptionId: existing.id,
       offeringId,
-      termWeeks,
-      basePriceCentsFromMeta: session.metadata?.base_price_cents
-        ? parseInt(session.metadata.base_price_cents, 10)
-        : undefined,
+      actualPaidCents: priceCents,
+      paymentIntentId,
+      source: 'stripe-webhook',
     })
     return
   }
@@ -410,158 +409,20 @@ async function handleMarketBoxCheckoutComplete(session: Stripe.Checkout.Session)
     crumb.stripe(`Market box subscription created via RPC: ${result?.id}`)
   }
 
-  // Pay vendor the full prepaid amount at checkout time
+  // Pay vendor the prepaid amount the buyer actually paid
   const subscriptionId = result?.id as string | undefined
   if (subscriptionId) {
-    await processMarketBoxVendorPayout(supabase, {
+    await processMarketBoxPayout({
+      serviceClient: supabase,
       subscriptionId,
       offeringId,
-      termWeeks,
-      basePriceCentsFromMeta: session.metadata?.base_price_cents
-        ? parseInt(session.metadata.base_price_cents, 10)
-        : undefined,
+      actualPaidCents: priceCents,
+      paymentIntentId,
+      source: 'stripe-webhook',
     })
   }
 }
 
-/**
- * Process vendor payout for a market box subscription.
- * Called from both webhook and checkout success route.
- * Idempotent: checks for existing payout before creating.
- */
-async function processMarketBoxVendorPayout(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
-  opts: {
-    subscriptionId: string
-    offeringId: string
-    termWeeks: number
-    basePriceCentsFromMeta?: number
-  }
-) {
-  const { subscriptionId, offeringId, termWeeks, basePriceCentsFromMeta } = opts
-
-  // Check for existing payout (idempotency — webhook + success route may both fire)
-  const { data: existingPayout } = await supabase
-    .from('vendor_payouts')
-    .select('id')
-    .eq('market_box_subscription_id', subscriptionId)
-    .not('status', 'in', '("failed","cancelled")')
-    .maybeSingle()
-
-  if (existingPayout) {
-    crumb.stripe(`Market box payout already exists for subscription ${subscriptionId}`)
-    return
-  }
-
-  // Get offering to determine base price and vendor
-  const { data: offering, error: offeringError } = await supabase
-    .from('market_box_offerings')
-    .select('price_cents, price_4week_cents, price_8week_cents, vendor_profile_id')
-    .eq('id', offeringId)
-    .single()
-
-  if (offeringError || !offering) {
-    await logError(new TracedError('ERR_PAYOUT_001', `Failed to fetch offering for market box payout: ${offeringError?.message}`, {
-      route: '/webhooks/stripe', method: 'POST', offeringId, subscriptionId,
-    }))
-    return
-  }
-
-  // Use metadata base price if available, otherwise query offering
-  const basePriceCents = selectBasePriceForTermWeeks(
-    { basePriceCentsFromMeta },
-    offering,
-    termWeeks,
-  )
-
-  if (basePriceCents <= 0) {
-    crumb.stripe(`Market box base price is 0 — skipping payout for subscription ${subscriptionId}`)
-    return
-  }
-
-  const vendorPayoutCents = calculateVendorPayout(basePriceCents)
-
-  // Get vendor Stripe info
-  const { data: vendor, error: vendorError } = await supabase
-    .from('vendor_profiles')
-    .select('id, stripe_account_id, stripe_payouts_enabled, user_id, vertical_id')
-    .eq('id', offering.vendor_profile_id)
-    .single()
-
-  if (vendorError || !vendor) {
-    await logError(new TracedError('ERR_PAYOUT_002', `Failed to fetch vendor for market box payout: ${vendorError?.message}`, {
-      route: '/webhooks/stripe', method: 'POST', vendorProfileId: offering.vendor_profile_id, subscriptionId,
-    }))
-    return
-  }
-
-  if (vendor.stripe_account_id && vendor.stripe_payouts_enabled) {
-    // M-11 FIX: Insert payout record BEFORE transfer to prevent tracking gaps
-    // If transfer succeeds but DB insert fails, we'd have no record of the payment.
-    // Pattern: insert 'pending' -> transfer -> update to 'processing' or 'failed'
-    const { data: payoutRecord, error: insertErr } = await supabase.from('vendor_payouts').insert({
-      market_box_subscription_id: subscriptionId,
-      vendor_profile_id: vendor.id,
-      amount_cents: vendorPayoutCents,
-      stripe_transfer_id: null,
-      status: 'pending',
-    }).select('id').single()
-
-    if (insertErr) {
-      // Unique index violation means another process already created the payout
-      if (insertErr.code === '23505') {
-        crumb.stripe(`Market box payout already exists (concurrent insert) for subscription ${subscriptionId}`)
-        return
-      }
-      await logError(new TracedError('ERR_PAYOUT_003', `Failed to insert pending payout record: ${insertErr.message}`, {
-        route: '/webhooks/stripe', method: 'POST', subscriptionId,
-      }))
-      return
-    }
-
-    try {
-      const transfer = await transferMarketBoxPayout({
-        amount: vendorPayoutCents,
-        destination: vendor.stripe_account_id,
-        subscriptionId,
-      })
-
-      await supabase.from('vendor_payouts')
-        .update({ stripe_transfer_id: transfer.id, status: 'processing', updated_at: new Date().toISOString() })
-        .eq('id', payoutRecord.id)
-
-      crumb.stripe(`Market box payout initiated: ${vendorPayoutCents}c to vendor ${vendor.id} for subscription ${subscriptionId}`)
-    } catch (transferErr) {
-      console.error('[MARKET_BOX_PAYOUT] Transfer failed:', transferErr)
-      // Update to failed for retry in Phase 5 cron
-      await supabase.from('vendor_payouts')
-        .update({ status: 'failed', updated_at: new Date().toISOString() })
-        .eq('id', payoutRecord.id)
-    }
-  } else {
-    // Vendor doesn't have Stripe ready — record as pending
-    const { error: pendingInsertErr } = await supabase.from('vendor_payouts').insert({
-      market_box_subscription_id: subscriptionId,
-      vendor_profile_id: vendor.id,
-      amount_cents: vendorPayoutCents,
-      stripe_transfer_id: null,
-      status: 'pending_stripe_setup',
-    })
-    if (pendingInsertErr && pendingInsertErr.code === '23505') {
-      crumb.stripe(`Market box payout already exists (concurrent insert) for subscription ${subscriptionId}`)
-      return
-    }
-    crumb.stripe(`Market box payout pending Stripe setup for vendor ${vendor.id}, subscription ${subscriptionId}`)
-  }
-
-  // Notify vendor about incoming payout
-  if (vendor.user_id) {
-    await sendNotification(vendor.user_id, 'payout_processed', {
-      amountCents: vendorPayoutCents,
-    }, { vertical: vendor.vertical_id })
-  }
-}
 
 /**
  * Handle subscription updates (status changes, renewals)
