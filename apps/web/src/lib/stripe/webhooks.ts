@@ -364,6 +364,20 @@ async function handleMarketBoxCheckoutComplete(session: Stripe.Checkout.Session)
     return
   }
 
+  // LOW-2 FIX: Look up vendor frequency for biweekly support in standalone path.
+  // On lookup failure, falls back to 'weekly' (preserves prior behavior).
+  let standalonePickupFrequency: 'weekly' | 'biweekly' = 'weekly'
+  const { data: vendorFreqRow } = await supabase
+    .from('market_box_offerings')
+    .select('vendor_profiles!inner(market_box_frequency)')
+    .eq('id', offeringId)
+    .single()
+  const vp = vendorFreqRow?.vendor_profiles as { market_box_frequency?: string } | { market_box_frequency?: string }[] | undefined
+  const vpRow = Array.isArray(vp) ? vp[0] : vp
+  if (vpRow?.market_box_frequency === 'biweekly') {
+    standalonePickupFrequency = 'biweekly'
+  }
+
   // H5 FIX: Use RPC with capacity check instead of direct INSERT
   const { data: result, error: rpcError } = await supabase
     .rpc('subscribe_to_market_box_if_capacity', {
@@ -374,10 +388,7 @@ async function handleMarketBoxCheckoutComplete(session: Stripe.Checkout.Session)
       p_start_date: startDate,
       p_term_weeks: termWeeks,
       p_stripe_payment_intent_id: paymentIntentId,
-      // Standalone metadata doesn't carry pickup_frequency yet — defaults to
-      // 'weekly' to disambiguate the overload. See backlog: biweekly support
-      // for standalone path needs vendor_profile lookup before RPC call.
-      p_pickup_frequency: 'weekly',
+      p_pickup_frequency: standalonePickupFrequency,
     })
 
   if (rpcError) {
