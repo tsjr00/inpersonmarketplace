@@ -182,7 +182,8 @@ export async function GET(request: NextRequest) {
           active,
           vendor_profiles (
             id,
-            profile_data
+            profile_data,
+            market_box_frequency
           ),
           markets:markets!pickup_market_id (
             id,
@@ -293,9 +294,16 @@ export async function GET(request: NextRequest) {
         const offeringMarket = offering?.markets as unknown as CartItemMarket | null
 
         const termWeeks = item.term_weeks || 4
-        const priceCents = termWeeks === 8
+        const baseTermPriceCents = termWeeks === 8
           ? (offering?.price_8week_cents || offering?.price_4week_cents || 0)
           : (offering?.price_4week_cents || 0)
+        // Bi-weekly halves the price (half the pickups, half the cost) —
+        // matches /api/market-boxes/[id]/route.ts and the line items the
+        // checkout/session route sends to Stripe.
+        const pickupFrequency = (offering?.vendor_profiles as unknown as { market_box_frequency?: string } | null)?.market_box_frequency || 'weekly'
+        const priceCents = pickupFrequency === 'biweekly'
+          ? Math.round(baseTermPriceCents / 2)
+          : baseTermPriceCents
 
         return {
           id: item.id,
