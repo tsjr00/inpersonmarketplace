@@ -15,6 +15,8 @@ interface MarketBoxOffering {
   description: string | null
   image_urls: string[]
   price_cents: number
+  price_4week_cents: number
+  price_8week_cents: number | null
   quantity_amount: number | null
   quantity_unit: string | null
   pickup_day_of_week: number
@@ -86,6 +88,7 @@ export default function VendorMarketBoxDetailPage() {
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   const [offering, setOffering] = useState<MarketBoxOffering | null>(null)
+  const [marketBoxFrequency, setMarketBoxFrequency] = useState<'weekly' | 'biweekly'>('weekly')
   const [subscribers, setSubscribers] = useState<Subscriber[]>([])
   const [activeSubscriberCount, setActiveSubscriberCount] = useState(0)
   const [pickups, setPickups] = useState<Pickup[]>([])
@@ -115,6 +118,7 @@ export default function VendorMarketBoxDetailPage() {
       }
 
       setOffering(data.offering)
+      setMarketBoxFrequency(data.market_box_frequency === 'biweekly' ? 'biweekly' : 'weekly')
       setActiveSubscriberCount(data.active_count || 0)
 
       // Transform subscriptions into Subscriber shape for the subscribers tab
@@ -327,10 +331,22 @@ export default function VendorMarketBoxDetailPage() {
           </Link>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 16, flexWrap: 'wrap', gap: 16 }}>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                 <h1 style={{ color: branding.colors.primary, margin: 0, fontSize: 28 }}>
                   {offering.name}
                 </h1>
+                {marketBoxFrequency === 'biweekly' && (
+                  <span style={{
+                    padding: '4px 12px',
+                    backgroundColor: '#fce7f3',
+                    color: '#9d174d',
+                    borderRadius: 4,
+                    fontSize: 12,
+                    fontWeight: 600
+                  }}>
+                    BI-WEEKLY
+                  </span>
+                )}
                 {!offering.active && (
                   <span style={{
                     padding: '4px 12px',
@@ -345,7 +361,10 @@ export default function VendorMarketBoxDetailPage() {
                 )}
               </div>
               <p style={{ color: '#666', margin: '8px 0 0 0', fontSize: 14 }}>
-                {formatPrice(offering.price_cents)} for 4 weeks
+                {formatPrice(offering.price_4week_cents || offering.price_cents)} · 1 Month
+                {offering.price_8week_cents && (
+                  <> · {formatPrice(offering.price_8week_cents)} · 2 Months</>
+                )}
               </p>
             </div>
             <Link
@@ -402,9 +421,35 @@ export default function VendorMarketBoxDetailPage() {
 
               <div style={{ display: 'grid', gap: 12, fontSize: 14 }}>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <span style={{ color: '#6b7280', minWidth: 120 }}>Price:</span>
-                  <span style={{ color: '#374151', fontWeight: 500 }}>{formatPrice(offering.price_cents)} for 4 weeks</span>
+                  <span style={{ color: '#6b7280', minWidth: 120 }}>Cadence:</span>
+                  <span style={{ color: '#374151', fontWeight: 500 }}>
+                    {marketBoxFrequency === 'biweekly' ? 'Bi-Weekly (every 14 days)' : 'Weekly (every 7 days)'}
+                  </span>
                 </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <span style={{ color: '#6b7280', minWidth: 120 }}>1 Month price:</span>
+                  <span style={{ color: '#374151', fontWeight: 500 }}>
+                    {formatPrice(offering.price_4week_cents || offering.price_cents)}
+                    {marketBoxFrequency === 'biweekly' && (
+                      <span style={{ color: '#6b7280', fontWeight: 400, marginLeft: 8 }}>
+                        (buyers pay {formatPrice(Math.round((offering.price_4week_cents || offering.price_cents) / 2))} for 2 bi-weekly pickups)
+                      </span>
+                    )}
+                  </span>
+                </div>
+                {offering.price_8week_cents && (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <span style={{ color: '#6b7280', minWidth: 120 }}>2 Months price:</span>
+                    <span style={{ color: '#374151', fontWeight: 500 }}>
+                      {formatPrice(offering.price_8week_cents)}
+                      {marketBoxFrequency === 'biweekly' && (
+                        <span style={{ color: '#6b7280', fontWeight: 400, marginLeft: 8 }}>
+                          (buyers pay {formatPrice(Math.round(offering.price_8week_cents / 2))} for 4 bi-weekly pickups)
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                )}
                 {formatQuantityDisplay(offering.quantity_amount, offering.quantity_unit) && (
                   <div style={{ display: 'flex', gap: 8 }}>
                     <span style={{ color: '#6b7280', minWidth: 120 }}>Size / Amount:</span>

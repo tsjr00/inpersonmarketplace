@@ -161,10 +161,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const pickups4Week = isBiweekly ? 2 : 4
     const pickups8Week = isBiweekly ? 4 : 8
 
+    // Pickup-count-first labels: lead with duration + cadence + pickup count.
+    // Buyer mental model: "1 Month subscription with N pickups" regardless of cadence.
+    const cadenceLabel = isBiweekly ? 'bi-weekly' : 'weekly'
     const availableTerms = [
       {
         weeks: 4,
-        label: '1 Month',
+        label: `1 Month · ${pickups4Week} ${cadenceLabel} pickups`,
+        duration_label: '1 Month',
+        cadence: pickupFrequency,
         price_cents: adjustedPrice4Week,
         price_per_week_cents: Math.round(adjustedPrice4Week / pickups4Week),
         price_per_pickup_cents: Math.round(adjustedPrice4Week / pickups4Week),
@@ -182,7 +187,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
       availableTerms.push({
         weeks: 8,
-        label: '2 Months',
+        label: `2 Months · ${pickups8Week} ${cadenceLabel} pickups`,
+        duration_label: '2 Months',
+        cadence: pickupFrequency,
         price_cents: adjustedPrice8Week,
         price_per_week_cents: Math.round(adjustedPrice8Week / pickups8Week),
         price_per_pickup_cents: Math.round(adjustedPrice8Week / pickups8Week),
@@ -229,7 +236,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         block_reason: purchaseBlockReason,
         next_start_date: nextStartDateStr,
         weeks: 4,
-        total_price_cents: price4Week,
+        total_price_cents: adjustedPrice4Week,
       },
     })
   })

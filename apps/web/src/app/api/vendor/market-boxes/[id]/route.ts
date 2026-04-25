@@ -73,10 +73,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     // Get vendor profile scoped to this offering's vertical
-    const { profile: vendor } = await getVendorProfileForVertical(
+    const { profile: vendor } = await getVendorProfileForVertical<{
+      id: string
+      market_box_frequency?: string
+    }>(
       supabase,
       user.id,
-      offering.vertical_id
+      offering.vertical_id,
+      'id, market_box_frequency'
     )
 
     if (!vendor) {
@@ -128,6 +132,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({
       offering,
+      market_box_frequency: vendor.market_box_frequency || 'weekly',
       subscriptions: subscriptions || [],
       active_count: (subscriptions || []).filter(s => s.status === 'active').length,
     })

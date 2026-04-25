@@ -288,6 +288,18 @@ export default function MarketBoxDetailClient() {
               }}>
                 {t('mbd.prepaid_sub', locale)}
               </span>
+              {offering.pickup_frequency === 'biweekly' && (
+                <span style={{
+                  padding: '4px 12px',
+                  backgroundColor: '#fce7f3',
+                  color: '#9d174d',
+                  borderRadius: 16,
+                  fontSize: 12,
+                  fontWeight: 600
+                }}>
+                  {t('mbd.cadence_biweekly', locale)}
+                </span>
+              )}
               {isAtCapacity ? (
                 <span style={{
                   padding: '4px 12px',

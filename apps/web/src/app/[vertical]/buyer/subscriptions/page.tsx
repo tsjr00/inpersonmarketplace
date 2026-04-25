@@ -31,6 +31,7 @@ interface Subscription {
   term_weeks: number
   extended_weeks: number
   total_weeks: number
+  pickup_frequency?: string
   total_paid_cents: number
   offering: {
     id: string
@@ -340,6 +341,19 @@ export default function BuyerSubscriptionsPage() {
                         <h3 style={{ margin: 0, fontSize: 18, color: '#374151' }}>
                           {subscription.offering.name}
                         </h3>
+                        {subscription.pickup_frequency === 'biweekly' && (
+                          <span style={{
+                            padding: '2px 8px',
+                            backgroundColor: '#fce7f3',
+                            color: '#9d174d',
+                            borderRadius: 4,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            textTransform: 'uppercase'
+                          }}>
+                            {t('mbd.cadence_biweekly', locale)}
+                          </span>
+                        )}
                         <span style={{
                           padding: '2px 8px',
                           backgroundColor: statusColor.bg,
@@ -361,7 +375,10 @@ export default function BuyerSubscriptionsPage() {
                         {formatPrice(subscription.total_paid_cents)}
                       </div>
                       <div style={{ fontSize: 12, color: '#6b7280' }}>
-                        {t('subs.weeks_progress', locale, { completed: String(subscription.weeks_completed), total: String(subscription.total_weeks || subscription.term_weeks || 4) })}
+                        {t('subs.pickups_progress', locale, {
+                          completed: String(subscription.weeks_completed),
+                          total: String(subscription.pickups?.length || subscription.total_weeks || subscription.term_weeks || 4)
+                        })}
                         {subscription.extended_weeks > 0 && (
                           <span style={{ display: 'block', fontSize: 11, color: colors.primary }}>
                             {t('subs.extended', locale, { count: String(subscription.extended_weeks) })}

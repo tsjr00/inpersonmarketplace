@@ -50,6 +50,8 @@ interface Order {
     total_weeks: number
     term_weeks: number
     extended_weeks: number
+    pickup_frequency?: string
+    pickup_count?: number
     next_pickup: { date: string; status: string; week_number: number } | null
     has_ready_pickup: boolean
     pickup_day_of_week: number | null
@@ -826,8 +828,20 @@ export default function BuyerOrdersPage() {
                           fontSize: typography.sizes.xs,
                           fontWeight: typography.weights.medium,
                         }}>
-                          {t('orders.week_of', locale, { current: String(mb.weeks_completed), total: String(mb.total_weeks) })}
+                          {t('subs.pickups_progress', locale, { completed: String(mb.weeks_completed), total: String(mb.pickup_count || mb.total_weeks) })}
                         </span>
+                        {mb.pickup_frequency === 'biweekly' && (
+                          <span style={{
+                            padding: `${spacing['3xs']} ${spacing.xs}`,
+                            backgroundColor: '#fce7f3',
+                            color: '#9d174d',
+                            borderRadius: radius.full,
+                            fontSize: typography.sizes.xs,
+                            fontWeight: typography.weights.medium,
+                          }}>
+                            {t('mbd.cadence_biweekly', locale)}
+                          </span>
+                        )}
                         <span style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>
                           {new Date(order.created_at).toLocaleDateString('en-US', {
                             month: 'short', day: 'numeric', year: 'numeric',

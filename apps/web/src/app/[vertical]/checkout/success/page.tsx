@@ -65,6 +65,8 @@ interface OrderItem {
 interface MarketBoxSubscription {
   id: string
   term_weeks: number
+  pickup_frequency?: string
+  pickup_count?: number
   start_date: string
   total_paid_cents: number
   status: string
@@ -334,11 +336,29 @@ export default function CheckoutSuccessPage() {
                         borderLeft: `3px solid ${colors.primary}`,
                       }}
                     >
-                      <p style={{ margin: 0, fontWeight: typography.weights.medium, color: colors.textPrimary }}>
-                        {sub.offering_name}
-                      </p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], flexWrap: 'wrap' }}>
+                        <p style={{ margin: 0, fontWeight: typography.weights.medium, color: colors.textPrimary }}>
+                          {sub.offering_name}
+                        </p>
+                        {sub.pickup_frequency === 'biweekly' && (
+                          <span style={{
+                            padding: `${spacing['3xs']} ${spacing.xs}`,
+                            backgroundColor: '#fce7f3',
+                            color: '#9d174d',
+                            borderRadius: radius.full,
+                            fontSize: typography.sizes.xs,
+                            fontWeight: typography.weights.semibold,
+                          }}>
+                            {t('mbd.cadence_biweekly', locale)}
+                          </span>
+                        )}
+                      </div>
                       <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: colors.textMuted }}>
-                        {sub.vendor_name} &bull; {t('cart.subscription', locale, { term: String(sub.term_weeks) })} &bull; ${(sub.total_paid_cents / 100).toFixed(2)}
+                        {sub.vendor_name} &bull;{' '}
+                        {sub.pickup_count
+                          ? `${sub.term_weeks === 8 ? '2 Months' : '1 Month'} · ${sub.pickup_count} ${sub.pickup_frequency === 'biweekly' ? 'bi-weekly' : 'weekly'} pickups`
+                          : t('cart.subscription', locale, { term: String(sub.term_weeks) })
+                        } &bull; ${(sub.total_paid_cents / 100).toFixed(2)}
                       </p>
                       <p style={{
                         margin: `${spacing['2xs']} 0 0`,
@@ -617,6 +637,8 @@ function transformOrder(raw: Record<string, unknown>, rawMarketBoxSubs?: Array<R
     return {
       id: sub.id as string,
       term_weeks: sub.term_weeks as number,
+      pickup_frequency: (sub.pickup_frequency as string) || 'weekly',
+      pickup_count: Array.isArray(sub.pickups) ? (sub.pickups as unknown[]).length : undefined,
       start_date: sub.start_date as string,
       total_paid_cents: sub.total_paid_cents as number,
       status: sub.status as string,

@@ -511,6 +511,7 @@ export async function GET(request: NextRequest) {
         .select(`
           id,
           term_weeks,
+          pickup_frequency,
           start_date,
           total_paid_cents,
           status,
@@ -521,7 +522,8 @@ export async function GET(request: NextRequest) {
             pickup_end_time,
             vendor_profiles(profile_data),
             markets:markets!pickup_market_id(name, city, state)
-          )
+          ),
+          pickups:market_box_pickups(id)
         `)
         .eq('order_id', orderId)
 

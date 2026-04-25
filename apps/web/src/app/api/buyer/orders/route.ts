@@ -119,6 +119,7 @@ export async function GET(request: NextRequest) {
         weeks_completed,
         term_weeks,
         extended_weeks,
+        pickup_frequency,
         created_at,
         completed_at,
         cancelled_at,
@@ -447,6 +448,8 @@ export async function GET(request: NextRequest) {
           total_weeks: totalWeeks,
           term_weeks: termWeeks,
           extended_weeks: extendedWeeks,
+          pickup_frequency: ((sub as any).pickup_frequency as string) || 'weekly',
+          pickup_count: pickups.length,
           next_pickup: nextPickup ? {
             date: nextPickup.scheduled_date as string,
             status: nextPickup.status as string,

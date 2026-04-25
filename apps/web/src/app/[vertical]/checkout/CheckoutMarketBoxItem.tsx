@@ -33,7 +33,7 @@ export function CheckoutMarketBoxItem({ item, onRemove }: CheckoutMarketBoxItemP
         gap: spacing.xs,
       }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], marginBottom: spacing['3xs'] }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], marginBottom: spacing['3xs'], flexWrap: 'wrap' }}>
             <span style={{ fontSize: typography.sizes.sm }}>📦</span>
             <h3 style={{
               margin: 0,
@@ -42,10 +42,21 @@ export function CheckoutMarketBoxItem({ item, onRemove }: CheckoutMarketBoxItemP
             }}>
               {item.offeringName || item.title}
             </h3>
+            {item.pickupFrequency === 'biweekly' && (
+              <span style={{
+                padding: `${spacing['3xs']} ${spacing.xs}`,
+                backgroundColor: '#fce7f3',
+                color: '#9d174d',
+                borderRadius: radius.full,
+                fontSize: typography.sizes.xs,
+                fontWeight: typography.weights.semibold,
+              }}>
+                {t('mbd.cadence_biweekly', locale)}
+              </span>
+            )}
           </div>
           <p style={{ color: colors.textMuted, fontSize: typography.sizes.sm, margin: `0 0 ${spacing['2xs']} 0` }}>
             {item.vendor_name} · {t('cart.subscription', locale, { term: termParam })}
-            {item.pickupFrequency === 'biweekly' && ' · Bi-Weekly'}
           </p>
 
           {/* Pickup schedule */}
