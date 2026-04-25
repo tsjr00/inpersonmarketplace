@@ -154,13 +154,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
     // Build available terms
     const pickupFrequency = (vendor?.market_box_frequency as string) || 'weekly'
     const isBiweekly = pickupFrequency === 'biweekly'
+    // Vendor's stated price is the buyer's pre-fee price for the term.
+    // System never reduces it. Cadence affects pickup count, not price.
     const price4Week = offering.price_4week_cents || offering.price_cents
     // Food trucks: 1-month only (no 8-week option)
     const price8Week = offering.vertical_id === 'food_trucks' ? null : offering.price_8week_cents
-
-    // Bi-weekly: same price per pickup, half the pickups = half the total
-    const adjustedPrice4Week = isBiweekly ? Math.round(price4Week / 2) : price4Week
-    const adjustedPrice8Week = price8Week && isBiweekly ? Math.round(price8Week / 2) : price8Week
     const pickups4Week = isBiweekly ? 2 : 4
     const pickups8Week = isBiweekly ? 4 : 8
 
@@ -173,19 +171,19 @@ export async function GET(request: NextRequest, context: RouteContext) {
         label: `1 Month · ${pickups4Week} ${cadenceLabel} pickups`,
         duration_label: '1 Month',
         cadence: pickupFrequency,
-        price_cents: adjustedPrice4Week,
-        price_per_week_cents: Math.round(adjustedPrice4Week / pickups4Week),
-        price_per_pickup_cents: Math.round(adjustedPrice4Week / pickups4Week),
+        price_cents: price4Week,
+        price_per_week_cents: Math.round(price4Week / pickups4Week),
+        price_per_pickup_cents: Math.round(price4Week / pickups4Week),
         num_pickups: pickups4Week,
         savings_cents: 0,
         savings_percent: 0,
       }
     ]
 
-    if (adjustedPrice8Week) {
+    if (price8Week) {
       // Calculate savings vs buying 2x 4-week terms
-      const twoTermPrice = adjustedPrice4Week * 2
-      const savingsCents = twoTermPrice - adjustedPrice8Week
+      const twoTermPrice = price4Week * 2
+      const savingsCents = twoTermPrice - price8Week
       const savingsPercent = Math.round((savingsCents / twoTermPrice) * 100)
 
       availableTerms.push({
@@ -193,9 +191,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
         label: `2 Months · ${pickups8Week} ${cadenceLabel} pickups`,
         duration_label: '2 Months',
         cadence: pickupFrequency,
-        price_cents: adjustedPrice8Week,
-        price_per_week_cents: Math.round(adjustedPrice8Week / pickups8Week),
-        price_per_pickup_cents: Math.round(adjustedPrice8Week / pickups8Week),
+        price_cents: price8Week,
+        price_per_week_cents: Math.round(price8Week / pickups8Week),
+        price_per_pickup_cents: Math.round(price8Week / pickups8Week),
         num_pickups: pickups8Week,
         savings_cents: savingsCents,
         savings_percent: savingsPercent,
@@ -208,9 +206,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
         name: offering.name,
         description: offering.description,
         image_urls: offering.image_urls,
-        price_cents: adjustedPrice4Week,
-        price_4week_cents: adjustedPrice4Week,
-        price_8week_cents: adjustedPrice8Week,
+        price_cents: price4Week,
+        price_4week_cents: price4Week,
+        price_8week_cents: price8Week,
         pickup_frequency: pickupFrequency,
         quantity_amount: offering.quantity_amount,
         quantity_unit: offering.quantity_unit,
@@ -240,7 +238,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         warning: purchaseWarning,
         next_start_date: nextStartDateStr,
         weeks: 4,
-        total_price_cents: adjustedPrice4Week,
+        total_price_cents: price4Week,
       },
     })
   })

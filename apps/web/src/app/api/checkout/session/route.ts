@@ -498,15 +498,11 @@ export async function POST(request: NextRequest) {
           throw traced.validation('ERR_CHECKOUT_020', 'Food truck subscriptions are 4-week (1 month) only')
         }
         const offering = marketBoxOfferings.find(o => o.id === mbItem.offeringId)!
-        const baseTermPrice = mbItem.termWeeks === 8
+        // Vendor's stated term price is the buyer's pre-fee price for that
+        // term, regardless of cadence. System never reduces it.
+        const termPrice = mbItem.termWeeks === 8
           ? (offering.price_8week_cents || offering.price_4week_cents)
           : offering.price_4week_cents
-        // Bi-weekly halves the price — matches the Stripe line-items loop
-        // below and the cart route. Keeps order totals consistent with what
-        // Stripe actually charges; otherwise orders.total_cents would be 2x
-        // for biweekly subs.
-        const vendorFrequency = ((offering as unknown as { vendor_profiles: { market_box_frequency: string } }).vendor_profiles)?.market_box_frequency || 'weekly'
-        const termPrice = vendorFrequency === 'biweekly' ? Math.round(baseTermPrice / 2) : baseTermPrice
         pricingItems.push({ price_cents: termPrice, quantity: 1 })
       }
     }
@@ -637,11 +633,10 @@ export async function POST(request: NextRequest) {
       for (const mbItem of marketBoxItems!) {
         const offering = marketBoxOfferings.find(o => o.id === mbItem.offeringId)!
         const vendorFrequency = ((offering as unknown as { vendor_profiles: { market_box_frequency: string } }).vendor_profiles)?.market_box_frequency || 'weekly'
-        const weeklyTermPrice = mbItem.termWeeks === 8
+        // Vendor's stated price stands. Cadence affects pickup count, not price.
+        const termPrice = mbItem.termWeeks === 8
           ? (offering.price_8week_cents || offering.price_4week_cents)
           : offering.price_4week_cents
-        // Bi-weekly: half the pickups = half the total price
-        const termPrice = vendorFrequency === 'biweekly' ? Math.round(weeklyTermPrice / 2) : weeklyTermPrice
         const priceWithPercentFee = Math.round(termPrice * (1 + FEES.buyerFeePercent / 100))
         const numPickups = vendorFrequency === 'biweekly' ? mbItem.termWeeks / 2 : mbItem.termWeeks
         const frequencyLabel = vendorFrequency === 'biweekly' ? 'Bi-Weekly' : 'Weekly'
@@ -693,27 +688,22 @@ export async function POST(request: NextRequest) {
       vertical,
       metadata: hasMarketBoxes ? {
         has_market_boxes: 'true',
-        // priceCents stores the actual food subtotal the buyer paid for this
-        // item — frequency-adjusted, pre-fee. This is what calculateVendorPayout
-        // needs. basePriceCents kept as the unadjusted weekly reference for audit.
+        // priceCents stores the vendor's stated term price (pre-fee). This is
+        // what calculateVendorPayout consumes downstream. Cadence does not
+        // change this value — vendor's price stands as-is.
         market_box_items: JSON.stringify(marketBoxItems!.map(mb => {
           const offering = marketBoxOfferings.find(o => o.id === mb.offeringId)!
-          const basePriceCents = mb.termWeeks === 8
+          const termPriceCents = mb.termWeeks === 8
             ? (offering.price_8week_cents || offering.price_4week_cents)
             : offering.price_4week_cents
           const vendorProfile = (offering as unknown as { vendor_profiles: { market_box_frequency: string } }).vendor_profiles
           const pickupFrequency = vendorProfile?.market_box_frequency || 'weekly'
-          // Frequency-adjusted food subtotal = what the line-items loop above
-          // sent to Stripe as termPrice (pre-fee). Source of truth for downstream.
-          const termPriceCents = pickupFrequency === 'biweekly'
-            ? Math.round(basePriceCents / 2)
-            : basePriceCents
           return {
             offeringId: mb.offeringId,
             termWeeks: mb.termWeeks,
             startDate: mb.startDate,
             priceCents: termPriceCents,
-            basePriceCents,
+            basePriceCents: termPriceCents,
             pickupFrequency,
           }
         })),

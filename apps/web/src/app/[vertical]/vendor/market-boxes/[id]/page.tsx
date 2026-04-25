@@ -432,7 +432,7 @@ export default function VendorMarketBoxDetailPage() {
                     {formatPrice(offering.price_4week_cents || offering.price_cents)}
                     {marketBoxFrequency === 'biweekly' && (
                       <span style={{ color: '#6b7280', fontWeight: 400, marginLeft: 8 }}>
-                        (buyers pay {formatPrice(Math.round((offering.price_4week_cents || offering.price_cents) / 2))} for 2 bi-weekly pickups)
+                        (2 bi-weekly pickups)
                       </span>
                     )}
                   </span>
@@ -444,7 +444,7 @@ export default function VendorMarketBoxDetailPage() {
                       {formatPrice(offering.price_8week_cents)}
                       {marketBoxFrequency === 'biweekly' && (
                         <span style={{ color: '#6b7280', fontWeight: 400, marginLeft: 8 }}>
-                          (buyers pay {formatPrice(Math.round(offering.price_8week_cents / 2))} for 4 bi-weekly pickups)
+                          (4 bi-weekly pickups)
                         </span>
                       )}
                     </span>
