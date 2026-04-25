@@ -91,6 +91,7 @@ export default function CheckoutPage() {
           pickupDayOfWeek: item.pickupDayOfWeek,
           pickupStartTime: item.pickupStartTime,
           pickupEndTime: item.pickupEndTime,
+          pickupFrequency: item.pickupFrequency,
           pickup_display: item.pickup_display,
         }))
 
@@ -201,6 +202,7 @@ export default function CheckoutPage() {
             termWeeks: item.termWeeks,
             startDate: item.startDate,
             termPriceCents: item.termPriceCents,
+            pickupFrequency: item.pickupFrequency,
           }))
         ])
       } finally {

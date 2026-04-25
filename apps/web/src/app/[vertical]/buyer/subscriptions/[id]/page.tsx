@@ -377,7 +377,7 @@ export default function BuyerSubscriptionDetailPage() {
                 fontWeight: 600,
                 color: '#374151'
               }}>
-                {t('sub_detail.week_of', locale, { current: String(nextPickup.week_number), total: String(totalWeeks) })}
+                {t('sub_detail.pickup_of', locale, { current: String(nextPickup.week_number), total: String(pickupCount) })}
               </div>
             </div>
           </div>
@@ -601,9 +601,8 @@ export default function BuyerSubscriptionDetailPage() {
               <span style={{ color: '#6b7280' }}>{t('sub_detail.total_paid', locale)}</span>
               <span style={{ color: '#374151', fontWeight: 600 }}>{formatPrice(buyerPaidCents)}</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#6b7280' }}>{t('sub_detail.per_pickup', locale)}</span>
-              <span style={{ color: '#374151' }}>{formatPrice(Math.round(buyerPaidCents / pickupCount))}</span>
+            <div style={{ fontSize: 12, color: '#6b7280', textAlign: 'right', marginTop: -4 }}>
+              {t('sub_detail.paid_upfront_note', locale, { count: String(pickupCount) })}
             </div>
           </div>
         </div>

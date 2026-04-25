@@ -48,6 +48,7 @@ export interface CartItem {
   pickupDayOfWeek?: number | null
   pickupStartTime?: string | null
   pickupEndTime?: string | null
+  pickupFrequency?: string | null
 }
 
 interface CartSummary {

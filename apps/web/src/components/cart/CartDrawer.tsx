@@ -445,6 +445,11 @@ function MarketBoxCartItemCard({
 }) {
   const locale = getClientLocale()
   const displayPrice = calculateDisplayPrice(item.termPriceCents || item.price_cents || 0)
+  const termWeeks = item.termWeeks || 4
+  const isBiweekly = item.pickupFrequency === 'biweekly'
+  const pickupCount = isBiweekly ? Math.floor(termWeeks / 2) : termWeeks
+  const cadenceWord = isBiweekly ? 'bi-weekly' : 'weekly'
+  const durationLabel = termWeeks === 8 ? '2 Months' : '1 Month'
   const hasIssue = Boolean(item.schedule_issue)
 
   return (
@@ -483,6 +488,7 @@ function MarketBoxCartItemCard({
             alignItems: 'center',
             gap: 6,
             marginBottom: 4,
+            flexWrap: 'wrap',
           }}>
             <span style={{ fontSize: 14 }}>📦</span>
             <h4 style={{
@@ -495,13 +501,25 @@ function MarketBoxCartItemCard({
             }}>
               {item.offeringName || item.title || 'Market Box'}
             </h4>
+            {isBiweekly && (
+              <span style={{
+                padding: '2px 6px',
+                backgroundColor: '#fce7f3',
+                color: '#9d174d',
+                borderRadius: 999,
+                fontSize: 10,
+                fontWeight: 600,
+              }}>
+                {t('mbd.cadence_biweekly', locale)}
+              </span>
+            )}
           </div>
           <p style={{
             margin: '2px 0 0',
             fontSize: 13,
             color: '#888',
           }}>
-            {item.vendor_name} · {t('cart.subscription', locale, { term: String(item.termWeeks === 8 ? 8 : 4) })}
+            {item.vendor_name} · {pickupCount} {cadenceWord} pickups · {durationLabel}
           </p>
         </div>
         <button
@@ -553,7 +571,7 @@ function MarketBoxCartItemCard({
         alignItems: 'center',
       }}>
         <span style={{ fontSize: 12, color: '#6b7280' }}>
-          {t('cart.week_total', locale, { term: String(item.termWeeks === 8 ? 8 : 4) })}
+          {durationLabel} total
         </span>
         <span style={{ fontSize: 16, fontWeight: 'bold' }}>
           {formatPrice(displayPrice)}
