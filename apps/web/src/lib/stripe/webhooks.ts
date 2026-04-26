@@ -238,6 +238,19 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
                 route: '/webhooks/stripe', method: 'POST', amount: mbItem.priceCents,
               }))
             }
+          } else if (result?.id) {
+            // Subscription created (new or already_existed) — ensure vendor payout exists.
+            // Mirrors checkout/success/route.ts so the webhook backup path doesn't leave
+            // vendor unpaid when success route doesn't run. Helper is idempotent —
+            // safe if success route already created the payout.
+            await processMarketBoxPayout({
+              serviceClient: supabase,
+              subscriptionId: result.id,
+              offeringId: mbItem.offeringId,
+              actualPaidCents: mbItem.priceCents,
+              paymentIntentId,
+              source: 'stripe-webhook',
+            })
           }
         }
         crumb.stripe(`Created ${marketBoxItems.length} market box subscription(s) for order ${orderId}`)
