@@ -747,10 +747,10 @@ export default function NewMarketBoxPage() {
               }}>
                 <h4 style={{ margin: '0 0 8px 0', color: '#1e40af', fontSize: 14 }}>{`How ${term(vertical, 'market_boxes')} Work`}</h4>
                 <ul style={{ margin: 0, paddingLeft: 20, color: '#1e40af', fontSize: 13 }}>
-                  <li>Offer 1-month (4 weeks) or 2-month (8 weeks) subscriptions</li>
+                  <li>{vertical === 'food_trucks' ? 'Offer 1-month subscriptions' : 'Offer 1-month or 2-month subscriptions'}</li>
                   <li>{isBuyerPremiumEnabled(vertical) ? 'Premium buyers pay' : 'Customers pay'} the full price upfront</li>
                   <li>They pick up one box {isBiweekly ? 'every 2 weeks' : 'each week'}</li>
-                  <li>Same day, time, and location every week</li>
+                  <li>Same day, time, and location {isBiweekly ? 'every 2 weeks' : 'every week'}</li>
                   <li>If you need to skip a week (weather, etc.), their subscription extends automatically</li>
                 </ul>
               </div>
