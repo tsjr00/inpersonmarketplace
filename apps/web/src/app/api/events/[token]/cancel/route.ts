@@ -112,12 +112,25 @@ export async function POST(
         await Promise.all(vendorNotifications)
       }
 
-      // Notify buyers who have orders at this event
-      const { data: buyerOrders } = await serviceClient
-        .from('orders')
-        .select('buyer_user_id, order_number, id')
+      // Notify buyers who have orders at this event.
+      // Resolve order IDs via order_items.market_id (orders.market_id does not
+      // exist; the link from event/market to orders is per-item). Earlier
+      // attempts queried .from('orders').eq('market_id', ...) which silently
+      // returned null, causing the entire cancel flow to no-op.
+      const { data: orderItemRows } = await serviceClient
+        .from('order_items')
+        .select('order_id')
         .eq('market_id', event.market_id)
-        .not('status', 'in', '("cancelled","refunded")')
+
+      const orderIds = [...new Set((orderItemRows || []).map(r => r.order_id as string))]
+
+      const { data: buyerOrders } = orderIds.length > 0
+        ? await serviceClient
+            .from('orders')
+            .select('buyer_user_id, order_number, id')
+            .in('id', orderIds)
+            .not('status', 'in', '("cancelled","refunded","completed")')
+        : { data: [] }
 
       if (buyerOrders && buyerOrders.length > 0) {
         const uniqueBuyerIds = [...new Set(buyerOrders.map(o => o.buyer_user_id as string))]
@@ -136,12 +149,12 @@ export async function POST(
         })
         await Promise.all(buyerNotifications)
 
-        // Mark buyer orders as cancelled
+        // Mark buyer orders as cancelled (preserve completed/refunded/already-cancelled)
         await serviceClient
           .from('orders')
           .update({ status: 'cancelled' })
-          .eq('market_id', event.market_id)
-          .not('status', 'in', '("cancelled","refunded")')
+          .in('id', buyerOrders.map(o => o.id as string))
+          .not('status', 'in', '("cancelled","refunded","completed")')
 
         // T2-5: Free wave slots for all cancelled event orders
         for (const order of buyerOrders) {
