@@ -1,196 +1,199 @@
-# Current Task: Session 71 — Complete
-Updated: 2026-04-12
-
-## What happened this session
-
-Session 71 was a major events system session: fixed broken features,
-built new admin tooling, conducted a comprehensive E2E audit of all
-event payment flows, and systematically worked through 22 of 27
-identified issues organized into 7 clusters.
-
-## Session 71 deliverables
-
-### 18 commits on staging (ahead of prod)
-### 6 migrations (116-121) applied to all 3 environments
-### 2 new admin pages (platform + vertical = 4 total page files)
-### 27-item event TODO list created, 22 items resolved
+# Current Task: Market Box Hardening + "Find the Money" Investigation — End of Session 74
+**Updated:** 2026-04-26 (early morning)
+**Mode:** Report by default for next session. All currently planned work is shipped to staging.
 
 ---
 
-## Commits in order
+## START HERE — Read in this order
 
-| # | Hash | What |
-|---|------|------|
-| 1 | `89576a0a` | migration 116 — event_ratings table |
-| 2 | `761022bb` | fix: event feedback form — wire to working endpoints + event rating |
-| 3 | `11884d22` | docs: migration 116 applied, schema snapshot updated |
-| 4 | `33ece1f9` | feat: admin error logs dashboard + event ratings moderation (platform) |
-| 5 | `64110abf` | fix: organizer account nudge on event form success + signup email prefill |
-| 6 | `b48a291b` | feat: vertical admin error logs + event ratings pages + migration 117 |
-| 7 | `858311ea` | docs: migration 117 applied |
-| 8 | `a075cc5b` | migration 118 — 7 event indexes + FK + CHECK constraint |
-| 9 | `74284df4` | fix: dedup vendor select, FM event copy (H-1, H-2, H-3) |
-| 10 | `b9d64996` | docs: migration 118 applied |
-| 11 | `0de962db` | fix: T0 event safety — hide hybrid, notify buyers on cancel, fix date bug |
-| 12 | `dde5f8ba` | feat: admin event lifecycle — auto-invite, organizer notifications (Cluster D) |
-| 13 | `fab27505` | fix: company-paid financial controls — fees + cap + access code (Cluster B) |
-| 14 | `a7dbd119` | docs: migration 119 applied |
-| 15 | `96b6304b` | fix: wave system hardening — timeout + orphan cleanup + auto-gen (Cluster C) |
-| 16 | `2a030157` | docs: migration 120 applied |
-| 17 | `8cb10b10` | fix: cross-event cart isolation + order cap validation (Cluster E) |
-| 18 | `e688535c` | fix: event UX polish + data integrity (Clusters F + G) |
+1. This file
+2. `apps/web/.claude/backlog.md` — **NEW Priority 0 section at the top** — 4 items discovered Session 74 that should be addressed before starting other work:
+   - **Pass platform order # to Stripe metadata** (operational reconciliation gap — vendor/admin can't trace Stripe transactions to orders)
+   - **`processMarketBoxPayout` catch-all eats errors silently** (made the Order #FA-2026-34616411 bug invisible — fix is ~5 lines)
+   - **Schema snapshot wrong about 4 columns on `orders` table** (phantom columns may be referenced in code — needs grep before any DB work)
+   - **Audit other webhook handlers for the `if (!existingPayment)` anti-pattern** (the bug we fixed in handleCheckoutComplete may exist elsewhere)
+3. `CLAUDE.md` (project root) — has a NEW Mechanical Gate section under "Database Schema Reference - MANDATORY". READ IT before composing any SQL. Snapshot alone is no longer sufficient — you must escalate to `information_schema.columns` if the snapshot fails or is marked stale.
+4. `apps/web/.claude/market_box_audit_v2.md` — original audit; most items are now shipped (see "Audit status" below)
 
 ---
 
-## Migrations applied (all 3 envs)
+## Critical context (don't lose this)
 
-| # | File | What |
-|---|------|------|
-| 116 | event_ratings_table | New `event_ratings` table for event-general attendee feedback |
-| 117 | error_logs_vertical_id | `vertical_id` column on `error_logs` for vertical-scoped dashboards |
-| 118 | event_indexes_constraints | 7 indexes + FK on organizer_user_id + CHECK on wave reservations |
-| 119 | company_paid_fees_and_cap | RPC rewrite with fees (6.5%+$0.15 each side) + per-attendee cap + payment linkage column |
-| 120 | wave_system_hardening | expires_at on reservations + free_wave_on_order_cancel RPC + recalculate_wave_capacity RPC |
-| 121 | event_data_integrity | CHECK on event times + cleanup trigger for cancelled events + organizer RLS |
+### The user's pricing principle (overrides any earlier code patterns)
 
----
+> Vendor sets the price. System adds platform fees. System NEVER reduces or transforms the vendor's stated price. Cadence affects pickup count, NOT price. Vendor knows what cadence they're offering when they set the price; do not compare biweekly vs weekly per-pickup or draw correlations between them.
 
-## What was fixed (by cluster)
+### The user's surface-visibility rule
 
-### Cluster T0 — Cancel Safety
-- Hybrid payment option hidden from event form (dead-end flow)
-- Event cancellation now notifies buyers AND cancels their orders (was vendors-only)
-- Fixed eventDate bug in cancel notification (was sending company_name as date)
+- **Buyer-facing surfaces** show buyer-fee-inclusive prices (`base × 1.065 + 0.15`).
+- **Vendor-only surfaces** (vendor list, vendor box detail, edit form) show the raw vendor-stated price. They know fees apply on top.
 
-### Cluster B — Company-Paid Financial Controls
-- `create_company_paid_order` RPC now charges standard platform fees (was $0 both sides)
-- Per-attendee spending cap enforced server-side (was frontend-only)
-- Server-side access code verification on the order endpoint
-- `event_company_payment_id` FK column on orders for reconciliation
-- Fee structure decision logged: standard fees always apply + per-vendor flat fee by engagement tier (TBD)
+### Option A duration (locked in via migration 125)
 
-### Cluster C — Wave System Hardening
-- Wave reservations now expire after 10 minutes (prevents slot hoarding)
-- `free_wave_on_order_cancel` RPC frees slots when orders are cancelled
-- `recalculate_wave_capacity` RPC for admin use when vendor caps change
-- Auto-generates waves on status→ready transition (was manual-only)
+- `4-week` term = 1 Month duration (28 days) regardless of cadence.
+- `8-week` term = 2 Months duration (56 days) regardless of cadence.
+- Weekly: 4 or 8 pickups across the term.
+- Biweekly: 2 or 4 pickups across the term.
+- `original_end_date = start_date + (term_weeks * 7)`.
 
-### Cluster D — Admin Event Lifecycle
-- Full-service events now auto-invite vendors on admin approval
-- Organizer notified by email on approve, decline, cancel, and complete
-- In-app notification to organizer on approval (if they have an account)
+### Skip-a-week semantics
 
-### Cluster E — Cart & Checkout Isolation
-- Cross-event cart isolation: can't mix items from different events or events with regular markets
-- New `GET /api/events/[token]/validate-order-cap` endpoint for pre-checkout cap validation
-
-### Cluster F — Data Integrity
-- CHECK constraint: event_date requires start + end times (wave generation was silently failing)
-- Cleanup trigger: cancelled/declined events auto-cancel wave reservations + deactivate market
-- Organizer RLS: can now SELECT wave reservations + order items for their own events
-
-### Cluster G — UX Polish
-- EventFeedbackForm login redirect now includes vertical prefix
-- Vendor OrderCard shows purple "Event Order" badge for event-type markets
-- Organizer dashboard: View Event Page link extended to review/completed statuses
-- Access code shown inline on company-paid event cards on organizer dashboard
+- For biweekly, extension adds 14 days (one biweekly period). Cadence-aware.
+- Skip modal copy is now frequency-aware ("Skip This Pickup?" for biweekly) and shows the new computed end date — Batch 2.
 
 ---
 
-## Also built this session (before the TODO list)
+## Session 74 — Everything shipped to staging
 
-### Broken EventFeedbackForm — complete rewrite
-- Old form posted to `/api/buyer/feedback` with wrong schema — every submission returned 400 since Session 62
-- New form has two sections: vendor ratings (via existing `order_ratings` flow) and event-general rating (via new `event_ratings` table + `/api/buyer/events/[token]/rate` endpoint)
-- New `GET /api/buyer/events/[token]/review-state` endpoint returns rateable orders + existing ratings
+### Commits (in order, all on `staging`, all pending Prod)
 
-### Admin dashboards — 4 new pages
-- `/admin/error-logs` — Protocol 8 replacement, aggregated error_logs by code/route/severity
-- `/admin/event-ratings` — moderation queue with approve/hide actions
-- `/[vertical]/admin/error-logs` — vertical-scoped version
-- `/[vertical]/admin/event-ratings` — vertical-scoped version (read-only, moderation in platform admin)
-- Nav links added to both AdminSidebar (platform) and AdminNav (vertical)
+| # | SHA prefix | Title | Notes |
+|---|---|---|---|
+| 1 | `abfb1b72` | Migration revert — 124/125/126 from `applied/` back to `migrations/` | Bookkeeping correction (file moves shouldn't have happened until Prod was applied) |
+| 2 | `96d1ab75` | Buyer-side display: cart→checkout pickupFrequency pipe + cart drawer chip + "Pickup X of Y" + remove Per Pickup row (Batch 1) | CRIT-1, CRIT-2, CRIT-3, CRIT-4 from market_box_audit_v2.md |
+| 3 | `3cebfae4` | Vendor-side display: forms, list, detail subtitles + biweekly badge + skip prompt copy (Batch 2) | HIGH-1 through HIGH-4 + MED-3. Includes 1-line API change to `/api/vendor/markets` to expose `marketBoxFrequency` |
+| 4 | `4efda92c` | Browse card per-pickup framing + standalone webhook biweekly fix (Batch 3 + LOW-2) | MED-1 + LOW-2 |
+| 5 | `7b5dcc50` | Webhook missing market box payout call (vendor never paid when webhook ran alone) | First half of "find the money" fix |
+| 6 | `114d70f1` | Webhook market box processing now idempotent across deliveries (resend-safe) | Restructure — moved market box block out of `if (!existingPayment)` guard |
+| 7 | `274ac535` | Migration 127: vendor_payouts constraint accepts market_box_subscription_id | The actual bug; constraint pre-dated the column |
 
-### Organizer account conversion
-- Event form success screen rewritten: primary CTA is "Create Your Free Account" (was "Sign In")
-- Value proposition bullets listing what organizers can track via their dashboard
-- Signup page pre-fills email from `?email=` query param
+**Local main is 35 commits ahead of `origin/main` (Prod).**
 
-### Events E2E audit
-- 4 parallel research agents traced company-paid, hybrid, attendee-paid, and wave/admin flows
-- 27-item prioritized TODO list at `apps/web/.claude/events_comprehensive_todo.md`
-- Surface-level audit at `apps/web/.claude/events_e2e_review.md`
+### Migrations status
 
-### Prod push
-- Session 70's 348 commits pushed to prod at session start
-- Protocol 8 error log review confirmed ERR_VENDOR_001 stopped after push
+| Migration | Description | Dev | Staging | Prod |
+|---|---|---|---|---|
+| 124 | market_box_biweekly_frequency (columns + 4 function rewrites) | ✅ 2026-04-24 | ✅ 2026-04-24 | ❌ Pending |
+| 125 | market_box_term_duration (Option A: original_end_date = start + term_weeks*7) | ✅ 2026-04-25 | ✅ 2026-04-25 | ❌ Pending |
+| 126 | unified_market_box_tier_limits (DB trigger now matches app vendor-limits.ts) | ✅ 2026-04-25 | ✅ 2026-04-25 | ❌ Pending |
+| 127 | vendor_payouts constraint accepts market_box_subscription_id | ✅ 2026-04-26 | ✅ 2026-04-26 | ❌ Pending |
 
----
+All 4 migration files are in `supabase/migrations/` (NOT in `applied/`) — they move only when ALL THREE envs are confirmed.
 
-## Items deferred to future sessions
+### Audit status (`market_box_audit_v2.md`)
 
-| ID | What | Why deferred |
-|----|------|-------------|
-| T1-4 | Automated vendor payouts for events | Manual process via settlement report until volume justifies automation |
-| T2-2 | Wave enforcement at Stripe checkout | Touches checkout/session/route.ts (critical-path file), needs dedicated focus |
-| T2-4 | Walk-up reservation UI | RPC exists (`find_next_available_wave`), needs UI |
-| T5-6 | Timezone awareness on event times | High complexity (migration + 5+ files), user deferred |
-| T0-1 | Hybrid payment flow implementation | Dead end at checkout — config works but order creation has zero hybrid logic. Hidden from form, needs full design session |
+All Critical, High, and most Medium items are **shipped**. Remaining:
+- **MED-2** (cart_items doesn't capture pickup_frequency at add time) — deferred. Transparency gap, not financial.
+- **MED-4** (extended_weeks semantics broken for biweekly across consumer pages) — deferred.
+- **LOW-1** (7-arg `subscribe_to_market_box_if_capacity` overload is dead) — separate cleanup migration.
+- **LOW-3** (refund-on-RPC-failure amount math) — backlog already.
+- **LOW-4** (refactor for shared subscribe + payout) — defer indefinitely.
 
 ---
 
-## Files created this session
+## "Find the Money" investigation chain (Order #FA-2026-34616411)
 
-### New pages
-- `apps/web/src/app/admin/error-logs/page.tsx`
-- `apps/web/src/app/admin/event-ratings/page.tsx`
-- `apps/web/src/app/[vertical]/admin/error-logs/page.tsx`
-- `apps/web/src/app/[vertical]/admin/event-ratings/page.tsx`
+**Order details:**
+- Order: `295bb0bb-e494-4511-9cf0-e0df4bf5ef7d`, number `FA-2026-34616411`, status `paid`, total $106.65
+- Subscription: `c6acffda-b05a-42e0-b010-978695c2197b`, biweekly, 4-week term, `total_paid_cents=10000` (vendor's $100 stated price)
+- Buyer: `69fe5512-68a3-40dc-b524-635f1adc66c6`, `cottagevendor1+test@test.com`
+- Vendor: `farmersmarketingapp+vegvendor1@gmail.com`, profile `ee3c259c-2bbd-4589-a21b-e48eb998a58e`, `acct_1T4ManADPKYoCTbQ`
+- Payment intent: `pi_3TQFncAUXdXt3w5T39TvUQzZ` (test mode → `cs_test_b1cb2PFd3xrZVbxehFHSZUIBLm8u3FCE3SzNDz0n7GNbgnm9xTN1sSw3es`)
+- Pickup #1: confirmed end-to-end at 2026-04-25 23:46
 
-### New API routes
-- `apps/web/src/app/api/buyer/events/[token]/rate/route.ts`
-- `apps/web/src/app/api/buyer/events/[token]/review-state/route.ts`
-- `apps/web/src/app/api/admin/error-logs/route.ts`
-- `apps/web/src/app/api/admin/event-ratings/route.ts`
-- `apps/web/src/app/api/events/[token]/validate-order-cap/route.ts`
+**The chain of bugs (each blocking the next):**
 
-### New migrations (all in applied/)
-- `supabase/migrations/applied/20260411_116_event_ratings_table.sql`
-- `supabase/migrations/applied/20260412_117_error_logs_vertical_id.sql`
-- `supabase/migrations/applied/20260412_118_event_indexes_constraints.sql`
-- `supabase/migrations/applied/20260412_119_company_paid_fees_and_cap.sql`
-- `supabase/migrations/applied/20260412_120_wave_system_hardening.sql`
-- `supabase/migrations/applied/20260412_121_event_data_integrity.sql`
+1. **User couldn't find Stripe transaction** — Resolved: Stripe sandbox vs legacy test mode confusion. Sandbox showed it. Existing transaction was always there. Buyer was never overcharged or anything; just visibility.
 
-### Doc files
-- `apps/web/.claude/events_comprehensive_todo.md`
-- `apps/web/.claude/events_e2e_review.md`
+2. **`vendor_payouts` had zero rows for the subscription** — Bug: webhook (`handleCheckoutComplete` in `webhooks.ts`) creates the subscription but never called `processMarketBoxPayout`. Only the `checkout/success` route called the helper. When the webhook ran alone (success route never reached, e.g. Vercel mid-deploy when buyer redirected), vendor was never paid.
+   - **Fix:** commit `7b5dcc50` added the helper call.
+   - **Verification:** resend the Stripe event after deploy to backfill.
 
----
+3. **Resend produced no payout** — Bug: my fix at #2 was inside `if (!existingPayment)` guard. On resend, payment row already existed → entire market box block was skipped → helper not called.
+   - **Fix:** commit `114d70f1` restructured the function to move market box processing OUT of the existingPayment guard. Both subscribe RPC and payout helper are idempotent — safe.
+   - **Verification:** resend again.
 
-## Key decisions made (logged in decisions.md)
+4. **Helper threw `ERR_PAYOUT_003`** — Bug: `vendor_payouts_has_reference` CHECK constraint only allowed `order_item_id IS NOT NULL OR market_box_pickup_id IS NOT NULL`. Constraint pre-dated the `market_box_subscription_id` column. Helper inserted with only that column set → constraint violated → silent skip.
+   - **Fix:** migration 127 (`274ac535`) drops + recreates the constraint to include `market_box_subscription_id`.
+   - **Verification:** vendor got paid $93.35, transfer `tr_3TQFncAUXdXt3w5T3UAhepiq`. Vendor dashboard "Payments & Earnings" card now correctly shows Pending Payouts = $109.36 ($93.35 today + $16.01 yesterday's regular order, both `processing`).
 
-- Event fee structure: vendors always pay 6.5%+$0.15, buyers always pay 6.5%+$0.15. Full-service events add flat per-vendor fee by engagement-tier (3-4 tiers, pricing TBD). Self-service: no flat fee.
-- Organizer auth via email matching is BY DESIGN, protected by Supabase email confirmation requirement. Not a security vulnerability.
-- Hybrid events hidden from form until full split-payment checkout is built.
+**Why this matters for next session:** the bug pattern was "success path handles A+B, webhook handles A only." If you find similar patterns in other flows (regular orders, refunds, anything with a webhook backup), check whether the webhook's processing is gated behind `if (!existingPayment)` — that's the trap.
 
 ---
 
-## Staging vs Prod status
+## New issues discovered this session (in backlog.md)
 
-- **Staging:** 18 commits ahead of prod. All 6 migrations applied.
-- **Prod:** Session 70's push applied. Migrations 116-121 applied to prod DB. Code NOT pushed to prod yet — user wants to test staging first.
-- **To push prod:** Just `git push origin main` — no migration work needed, all already applied.
+1. **Vendor analytics page doesn't show today's sales** — Found while reconciling the $109.36. Hypotheses: date-filter off-by-one, UTC vs CT boundary, ISR not refreshed, or different table. Not fixed; backlogged.
+
+2. **`weeks_completed` not incrementing when pickup confirmed** — Subscription `c6acffda-...` has pickup #1 fully `picked_up` with both confirmations, but `weeks_completed` on the parent subscription is still 0. The `check_subscription_completion` trigger (rewritten in migration 124) appears to not be updating `weeks_completed` — verify trigger is firing AFTER UPDATE on `market_box_pickups` and that it actually bumps the column (may only be flipping status to `completed`).
+
+3. **Pre-existing baseline lint error in `OrganizerEventDetails.tsx:110`** — `react-hooks/set-state-in-effect`. Slipping past pre-commit because lint-staged only checks staged files. Worth a separate fix sometime.
+
+4. **Two webhook endpoints in Stripe** — One has Protection Bypass (works), other doesn't (401s on every delivery). Add bypass to the broken one OR delete it. Cosmetic but pollutes the Events log.
+
+5. **Snapshot inaccuracy** — Live staging `orders` table is MISSING these columns that `SCHEMA_SNAPSHOT.md` claimed exist:
+   - `vendor_payout_cents`
+   - `buyer_fee_cents`
+   - `service_fee_cents`
+   - `market_id`
+
+   These columns DO exist on `order_items` but not on `orders`. The Apr 5 snapshot rebuild that added them to the orders section was wrong. Worth: regenerate the snapshot via REFRESH_SCHEMA.sql (the user can run it next time they have a SQL editor open). Marked the live-DB ground-truth issue in the new CLAUDE.md gate (rule b).
 
 ---
 
-## Autonomy mode
-Report. Every commit/push/migration requires explicit approval.
+## What was NOT shipped this session (still in backlog)
 
-## Next session kickoff checklist
-1. Read this file
-2. `git log origin/staging --oneline -5` — confirm staging tip
-3. `git rev-list --count origin/main..main` — confirm commits ahead of prod
-4. Ask user if staging testing is complete → push to prod if yes
-5. Protocol 8 error log review on prod
-6. Check remaining deferred items (T1-4, T2-2, T2-4, T5-6, T0-1)
+- Pass platform `order_number` to Stripe metadata (Issue 2 from session start)
+- Buyer notification deep link when vendor marks pickup ready before scheduled date (Issue 1)
+- Order-side cron retry missing `source_transaction` (`expire-orders/route.ts:1089`)
+- Various previously backlogged items
+
+---
+
+## Operating mode for next session
+
+- **Report by default.** Read first, cite file:line, summarize what the code does. Wait for explicit user direction before any edit.
+- **Present-Before-Changing protocol** for any edit (your last message must contain a `?` asking permission).
+- **Critical-path files** (per `.claude/rules/critical-path-files.md`) need per-file approval even within a batch.
+- **NEW: Schema gate** — before any SQL with column names, your immediately preceding tool call must be a Read of the snapshot OR an `information_schema.columns` query. If the snapshot fails or is marked stale, escalate to `information_schema` — don't trust it.
+
+---
+
+## Uncommitted state (working tree)
+
+`git status` shows only:
+- `apps/web/.claude/backlog.md` — modified (today's additions)
+- `apps/web/.claude/current_task.md` — modified (THIS rewrite)
+- `apps/web/.claude/settings.local.json` — local-only, never commit
+- `apps/web/.claude/rules/schema-check-before-sql.md` — DELETED (moved to inline gate in CLAUDE.md)
+- `CLAUDE.md` (project root) — modified (new mechanical gate section)
+
+These are documentation-only changes that don't ship to staging. Suggest committing them in one cleanup commit when the user wraps OR leave for next session to decide.
+
+---
+
+## Files modified or created this session (summary)
+
+### Code (all shipped)
+- `src/lib/hooks/useCart.tsx` — `pickupFrequency` field on CartItem
+- `src/app/[vertical]/checkout/page.tsx` — pass `pickupFrequency` through both maps
+- `src/app/[vertical]/checkout/CheckoutMarketBoxItem.tsx` — already correctly read it
+- `src/app/[vertical]/buyer/subscriptions/[id]/page.tsx` — Pickup X of Y, remove per-pickup row
+- `src/components/cart/CartDrawer.tsx` — biweekly chip, frequency-aware subtitle, duration label
+- `src/lib/locale/messages/en.ts` + `es.ts` — `sub_detail.pickup_of`, `sub_detail.paid_upfront_note`
+- `src/app/api/vendor/markets/route.ts` — exposes `marketBoxFrequency`
+- `src/app/[vertical]/vendor/market-boxes/new/page.tsx` — frequency reminder + labels
+- `src/app/[vertical]/vendor/market-boxes/[id]/edit/page.tsx` — same treatment
+- `src/app/[vertical]/vendor/market-boxes/page.tsx` — list subtitle + per-box BI-WEEKLY badge
+- `src/app/[vertical]/vendor/market-boxes/[id]/page.tsx` — detail subtitle + skip-week modal
+- `src/app/[vertical]/browse/page.tsx` — pickup-count framing
+- `src/lib/stripe/webhooks.ts` — added helper call (commit 7b5dcc50) + restructured guard (commit 114d70f1) + standalone biweekly lookup (Batch 5)
+
+### Migrations
+- `supabase/migrations/20260426_127_vendor_payouts_market_box_subscription_constraint.sql` (NEW, applied dev+staging)
+
+### Bookkeeping
+- `supabase/MIGRATION_LOG.md` — entry for 127
+- `supabase/SCHEMA_SNAPSHOT.md` — changelog entry for 127
+- `CLAUDE.md` — new Mechanical Gate section under "Database Schema Reference - MANDATORY"
+- `apps/web/.claude/backlog.md` — Priority 0 (URGENT) entry resolved + 2 new entries (analytics, weeks_completed)
+- `apps/web/.claude/rules/schema-check-before-sql.md` — DELETED (gate moved inline into CLAUDE.md)
+
+---
+
+## When you're ready to push to Prod
+
+1. 35 commits + 4 migrations are queued
+2. Window: 9pm–7am CT only
+3. Order matters: apply migrations 124, 125, 126, 127 (in order) on Prod via Supabase SQL Editor BEFORE pushing the code commits, otherwise code may try to use columns/RPC signatures that don't exist on Prod yet
+4. After Prod is confirmed: move all 4 migration files to `supabase/migrations/applied/` and update MIGRATION_LOG + SCHEMA_SNAPSHOT to mark them "Applied to all 3 envs"

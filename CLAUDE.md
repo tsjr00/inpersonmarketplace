@@ -769,6 +769,43 @@ This file contains the actual database schema including:
 
 ### Rules:
 
+#### Mechanical Gate — Cannot Be Overridden
+
+**Before composing ANY SQL that references a public-schema table column, the immediately preceding tool call (or an earlier read in this session, if no migration has been applied since) MUST be either:**
+
+**(a)** A `Read` of `supabase/SCHEMA_SNAPSHOT.md` for the affected tables, OR
+**(b)** A successful `information_schema.columns` query result for those tables
+
+This applies equally to:
+- SQL Claude runs via Bash
+- SQL Claude gives the user to paste into the Supabase SQL Editor
+- SQL embedded in code, comments, or migrations
+
+**What does NOT count:**
+- Memory of column names from prior conversations
+- Code that uses the column (the code may be using a column that doesn't exist on this branch)
+- TypeScript types (these are also just code)
+- "I'm pretty sure" or "this is a standard column"
+
+**Snapshot-may-be-wrong escalation:** if the snapshot fails — column missing from a live query result that the snapshot claimed exists, OR the snapshot has a "STALE" warning for the affected tables — STOP and run `information_schema.columns` discovery against the live database before composing any further SQL. The snapshot is best-effort; only `information_schema` is authoritative for the live env.
+
+**Self-check before any tool call that produces SQL:**
+1. List the tables the SQL touches.
+2. For each table: have I read its section in `SCHEMA_SNAPSHOT.md` in this session, or seen it in a successful `information_schema.columns` result?
+3. If ANY table answer is no → STOP. Do the discovery first.
+4. For each column the SQL references: did I see it in the verified column list?
+5. If ANY column answer is no → STOP. Either find it in the schema or remove it.
+
+**`information_schema.columns` discovery queries** (looking up Postgres metadata) are exempt from the gate — that's the gate's escape hatch. The result then qualifies as a fresh read for the tables it covered.
+
+**Incidents (existing despite repeated correction — gate added 2026-04-26):**
+- Session 73: Changed code based on belief about DB structure without checking snapshot. Caught by user. Memory file `feedback_verify_schema_before_changing.md` written then.
+- Session 74: Drafted regression SQL with `o.payment_status` (column doesn't exist on `orders`). User asked "why do we have a schema snapshot file?" Re-tried with snapshot read, but next query used `o.vendor_payout_cents` which the snapshot claimed exists but live staging disagreed. Two failed queries before the user backlogged the investigation. Cost: ~30 min on an urgent regression. The snapshot itself was wrong about 4 columns on `orders` — proving rule (b) above is necessary, not just (a).
+
+This gate cannot be overridden by autonomy mode, time pressure, urgency of the issue under investigation, or "just a quick query." Speed that produces wrong queries is slower than accuracy. The cost of the gate is one tool call.
+
+#### Standard Rules
+
 1. **Before ANY database/schema work:**
    - Read `supabase/SCHEMA_SNAPSHOT.md` first
    - If the file seems outdated or you need to verify, ask user to query the database
