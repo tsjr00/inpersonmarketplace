@@ -808,11 +808,18 @@ export default function VendorMarketBoxDetailPage() {
               {(() => {
                 const isBi = marketBoxFrequency === 'biweekly'
                 const interval = isBi ? 14 : 7
-                const sub = skipModalPickup.subscription
-                const startMs = new Date(sub.start_date + 'T00:00:00').getTime()
-                const currentEndMs = startMs + (sub.term_weeks * 7 + sub.extended_weeks * interval) * 86400000
-                const newEndMs = currentEndMs + interval * 86400000
-                const newEndLabel = new Date(newEndMs).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                // Find the current last pickup for this subscription; the extension
+                // adds a new pickup at last_date + interval (matches vendor_skip_week
+                // function in migration 124).
+                const subPickupDates = pickups
+                  .filter(p => p.subscription?.id === skipModalPickup.subscription?.id)
+                  .map(p => p.scheduled_date)
+                  .sort()
+                const lastPickupDate = subPickupDates.at(-1)
+                const newLastPickupLabel = lastPickupDate
+                  ? new Date(new Date(lastPickupDate + 'T00:00:00').getTime() + interval * 86400000)
+                      .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                  : null
                 const extensionWords = isBi ? '2 weeks' : '1 week'
                 const promptHeading = isBi ? 'Skip This Pickup?' : 'Skip This Week?'
                 return (
@@ -823,7 +830,7 @@ export default function VendorMarketBoxDetailPage() {
                     </p>
                     <ul style={{ color: '#6b7280', fontSize: 14, margin: '0 0 16px 0', paddingLeft: 20 }}>
                       <li>Mark this pickup as skipped</li>
-                      <li>Add an extra {extensionWords} (extend end date to {newEndLabel})</li>
+                      <li>Add an extra {extensionWords}{newLastPickupLabel ? ` (last pickup will be ${newLastPickupLabel})` : ''}</li>
                       <li>The subscriber will be notified</li>
                     </ul>
                   </>
