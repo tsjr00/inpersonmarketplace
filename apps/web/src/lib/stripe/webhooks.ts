@@ -157,14 +157,14 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
     .eq('stripe_payment_intent_id', paymentIntentId)
     .single()
 
-  if (!existingPayment) {
-    // Get platform fee from order for accurate record
-    const { data: order } = await supabase
-      .from('orders')
-      .select('platform_fee_cents, buyer_user_id')
-      .eq('id', orderId)
-      .single()
+  // Get order info — needed for both payment insert AND market box processing
+  const { data: order } = await supabase
+    .from('orders')
+    .select('platform_fee_cents, buyer_user_id')
+    .eq('id', orderId)
+    .single()
 
+  if (!existingPayment) {
     const { error: insertError } = await supabase.from('payments').insert({
       order_id: orderId,
       stripe_payment_intent_id: paymentIntentId,
@@ -178,85 +178,91 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
     if (insertError) {
       if (insertError.code === '23505') {
         crumb.stripe('Payment record already exists (concurrent success route), skipping')
-        return // success route handles the rest
+        // Fall through to market box processing — helpers below are idempotent
+        // and ensure the vendor_payouts row exists even if success route ran
+        // the subscribe RPC but didn't reach the payout call.
+      } else {
+        await logError(new TracedError('ERR_WEBHOOK_010', `Payment insert failed: ${insertError.message}`, { route: '/webhooks/stripe', method: 'POST' }))
+        return
       }
-      await logError(new TracedError('ERR_WEBHOOK_010', `Payment insert failed: ${insertError.message}`, { route: '/webhooks/stripe', method: 'POST' }))
-      return
     }
+  }
 
-    // Process market box subscriptions from unified checkout (idempotent)
-    if (session.metadata?.has_market_boxes === 'true' && session.metadata?.market_box_items && order?.buyer_user_id) {
-      try {
-        const marketBoxItems = JSON.parse(session.metadata.market_box_items) as Array<{
-          offeringId: string
-          termWeeks: number
-          startDate?: string
-          priceCents: number
-          pickupFrequency?: string
-        }>
+  // Market box processing runs on EVERY webhook delivery for idempotent backfill.
+  // Both the subscribe RPC and processMarketBoxPayout are idempotent — safe on
+  // resends/retries. This ensures the helper fires when only the webhook delivers
+  // (success route never reached) AND on Stripe event resends.
+  if (session.metadata?.has_market_boxes === 'true' && session.metadata?.market_box_items && order?.buyer_user_id) {
+    try {
+      const marketBoxItems = JSON.parse(session.metadata.market_box_items) as Array<{
+        offeringId: string
+        termWeeks: number
+        startDate?: string
+        priceCents: number
+        pickupFrequency?: string
+      }>
 
-        // H5 FIX: Use RPC with capacity check instead of direct INSERT
-        for (const mbItem of marketBoxItems) {
-          const { data: result, error: rpcError } = await supabase
-            .rpc('subscribe_to_market_box_if_capacity', {
-              p_offering_id: mbItem.offeringId,
-              p_buyer_user_id: order.buyer_user_id,
-              p_order_id: orderId,
-              p_total_paid_cents: mbItem.priceCents,
-              p_start_date: mbItem.startDate || new Date().toISOString().split('T')[0],
-              p_term_weeks: mbItem.termWeeks,
-              p_stripe_payment_intent_id: paymentIntentId,
-              p_pickup_frequency: mbItem.pickupFrequency || 'weekly',
-            })
+      // H5 FIX: Use RPC with capacity check instead of direct INSERT
+      for (const mbItem of marketBoxItems) {
+        const { data: result, error: rpcError } = await supabase
+          .rpc('subscribe_to_market_box_if_capacity', {
+            p_offering_id: mbItem.offeringId,
+            p_buyer_user_id: order.buyer_user_id,
+            p_order_id: orderId,
+            p_total_paid_cents: mbItem.priceCents,
+            p_start_date: mbItem.startDate || new Date().toISOString().split('T')[0],
+            p_term_weeks: mbItem.termWeeks,
+            p_stripe_payment_intent_id: paymentIntentId,
+            p_pickup_frequency: mbItem.pickupFrequency || 'weekly',
+          })
 
-          if (rpcError) {
-            crumb.stripe(`Market box RPC error for offering ${mbItem.offeringId}: ${rpcError.message}`)
-            // C-3 FIX: Auto-refund on RPC failure — buyer paid but subscription wasn't created
-            await logError(new TracedError('ERR_WEBHOOK_010', `Market box subscription RPC failed in webhook: ${rpcError.message}`, {
+        if (rpcError) {
+          crumb.stripe(`Market box RPC error for offering ${mbItem.offeringId}: ${rpcError.message}`)
+          // C-3 FIX: Auto-refund on RPC failure — buyer paid but subscription wasn't created
+          await logError(new TracedError('ERR_WEBHOOK_010', `Market box subscription RPC failed in webhook: ${rpcError.message}`, {
+            route: '/webhooks/stripe', method: 'POST',
+            offeringId: mbItem.offeringId, orderId, paymentIntentId,
+          }))
+          try {
+            await createRefund(paymentIntentId, mbItem.priceCents)
+            crumb.stripe(`Auto-refund issued for failed market box RPC: ${mbItem.offeringId}`)
+          } catch (refundErr) {
+            // Critical: refund also failed — needs manual intervention
+            await logError(new TracedError('ERR_WEBHOOK_011', `CRITICAL: Market box RPC failed AND refund failed — manual refund needed`, {
               route: '/webhooks/stripe', method: 'POST',
               offeringId: mbItem.offeringId, orderId, paymentIntentId,
+              refundError: refundErr instanceof Error ? refundErr.message : String(refundErr),
             }))
-            try {
-              await createRefund(paymentIntentId, mbItem.priceCents)
-              crumb.stripe(`Auto-refund issued for failed market box RPC: ${mbItem.offeringId}`)
-            } catch (refundErr) {
-              // Critical: refund also failed — needs manual intervention
-              await logError(new TracedError('ERR_WEBHOOK_011', `CRITICAL: Market box RPC failed AND refund failed — manual refund needed`, {
-                route: '/webhooks/stripe', method: 'POST',
-                offeringId: mbItem.offeringId, orderId, paymentIntentId,
-                refundError: refundErr instanceof Error ? refundErr.message : String(refundErr),
-              }))
-            }
-          } else if (result && !result.success) {
-            crumb.stripe(`Market box at capacity: ${mbItem.offeringId}`)
-            // F6 FIX: Refund buyer for at-capacity market box
-            try {
-              await createRefund(paymentIntentId, mbItem.priceCents)
-              crumb.stripe(`Refund issued for at-capacity market box: ${mbItem.offeringId}`)
-            } catch (refundErr) {
-              await logError(new TracedError('ERR_WEBHOOK_008', `Failed to refund at-capacity market box ${mbItem.offeringId}`, {
-                route: '/webhooks/stripe', method: 'POST', amount: mbItem.priceCents,
-              }))
-            }
-          } else if (result?.id) {
-            // Subscription created (new or already_existed) — ensure vendor payout exists.
-            // Mirrors checkout/success/route.ts so the webhook backup path doesn't leave
-            // vendor unpaid when success route doesn't run. Helper is idempotent —
-            // safe if success route already created the payout.
-            await processMarketBoxPayout({
-              serviceClient: supabase,
-              subscriptionId: result.id,
-              offeringId: mbItem.offeringId,
-              actualPaidCents: mbItem.priceCents,
-              paymentIntentId,
-              source: 'stripe-webhook',
-            })
           }
+        } else if (result && !result.success) {
+          crumb.stripe(`Market box at capacity: ${mbItem.offeringId}`)
+          // F6 FIX: Refund buyer for at-capacity market box
+          try {
+            await createRefund(paymentIntentId, mbItem.priceCents)
+            crumb.stripe(`Refund issued for at-capacity market box: ${mbItem.offeringId}`)
+          } catch (refundErr) {
+            await logError(new TracedError('ERR_WEBHOOK_008', `Failed to refund at-capacity market box ${mbItem.offeringId}`, {
+              route: '/webhooks/stripe', method: 'POST', amount: mbItem.priceCents,
+            }))
+          }
+        } else if (result?.id) {
+          // Subscription created (new or already_existed) — ensure vendor payout exists.
+          // Mirrors checkout/success/route.ts so the webhook backup path doesn't leave
+          // vendor unpaid when success route doesn't run. Helper is idempotent —
+          // safe if success route already created the payout.
+          await processMarketBoxPayout({
+            serviceClient: supabase,
+            subscriptionId: result.id,
+            offeringId: mbItem.offeringId,
+            actualPaidCents: mbItem.priceCents,
+            paymentIntentId,
+            source: 'stripe-webhook',
+          })
         }
-        crumb.stripe(`Created ${marketBoxItems.length} market box subscription(s) for order ${orderId}`)
-      } catch {
-        await logError(new TracedError('ERR_WEBHOOK_007', 'Failed to parse market box items metadata', { route: '/webhooks/stripe', method: 'POST' }))
       }
+      crumb.stripe(`Created ${marketBoxItems.length} market box subscription(s) for order ${orderId}`)
+    } catch {
+      await logError(new TracedError('ERR_WEBHOOK_007', 'Failed to parse market box items metadata', { route: '/webhooks/stripe', method: 'POST' }))
     }
   }
 }
