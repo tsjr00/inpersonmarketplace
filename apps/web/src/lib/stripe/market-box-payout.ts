@@ -142,6 +142,11 @@ export async function processMarketBoxPayout(opts: ProcessMarketBoxPayoutOpts): 
       }, { vertical: vendor.vertical_id })
     }
   } catch (err) {
-    console.error('[MARKET_BOX_PAYOUT] Error in processMarketBoxPayout:', err)
+    await logError(new TracedError('ERR_PAYOUT_004', `Unhandled error in processMarketBoxPayout: ${err instanceof Error ? err.message : String(err)}`, {
+      route: source === 'checkout-success' ? '/api/checkout/success' : '/webhooks/stripe',
+      method: source === 'checkout-success' ? 'GET' : 'POST',
+      subscriptionId,
+      offeringId,
+    }))
   }
 }
