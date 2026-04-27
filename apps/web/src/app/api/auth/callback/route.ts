@@ -16,13 +16,16 @@ import { createServerClient } from '@supabase/ssr'
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl
   const code = searchParams.get('code')
-  const next = searchParams.get('next') || '/farmers_market/dashboard'
+  const explicitNext = searchParams.get('next')
 
   if (!code) {
     // No code — redirect to home
     return NextResponse.redirect(new URL('/', origin))
   }
 
+  // Default redirect target. We may override after we know who the user is
+  // (so the FT vendor doesn't land on /farmers_market when `next` is missing).
+  let next = explicitNext || '/'
   const response = NextResponse.redirect(new URL(next, origin))
 
   const supabase = createServerClient(
@@ -47,11 +50,31 @@ export async function GET(request: NextRequest) {
   if (error) {
     // Code exchange failed — redirect to forgot-password with error indicator
     // Extract vertical from the next param (e.g., /food_trucks/reset-password → food_trucks)
-    const segments = next.split('/').filter(Boolean)
+    // Falls back to food_trucks (the most common signup vertical) when next is missing.
+    const segments = (explicitNext || '').split('/').filter(Boolean)
     const vertical = segments[0] || 'food_trucks'
     return NextResponse.redirect(
       new URL(`/${vertical}/forgot-password?error=expired`, origin)
     )
+  }
+
+  // If caller didn't specify `next`, look up the user's vertical so we send
+  // an FT vendor to /food_trucks/dashboard (not /farmers_market/dashboard).
+  if (!explicitNext) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { data: vp } = await supabase
+        .from('vendor_profiles')
+        .select('vertical_id')
+        .eq('user_id', user.id)
+        .limit(1)
+        .maybeSingle()
+      if (vp?.vertical_id) {
+        next = `/${vp.vertical_id}/dashboard`
+        return NextResponse.redirect(new URL(next, origin), { headers: response.headers })
+      }
+    }
+    // No vendor profile — leave at '/' (homepage with vertical chooser)
   }
 
   return response

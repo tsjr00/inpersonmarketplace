@@ -75,6 +75,17 @@ export async function POST(request: NextRequest) {
     const validTipAmount = Math.min(Math.max(0, Math.round(tipAmountCents as number)), MAX_TIP_CENTS)
     const validTipPercentage = Math.max(0, Math.round(tipPercentage as number))
 
+    // B4 FIX: Tips on market-box-only carts have no fulfill route to distribute
+    // through. The fulfill handler divides tip across order_items rows, but a
+    // market-box-only order has zero order_items, so the tip would be charged
+    // and never reach the vendor. The UI hides the tip selector in this case;
+    // this server-side check prevents direct API bypass.
+    const hasOnlyMarketBoxes = items.length === 0 && hasMarketBoxes
+    if (hasOnlyMarketBoxes && validTipAmount > 0) {
+      throw traced.validation('ERR_CHECKOUT_TIP_MB_ONLY',
+        'Tips are not yet supported on market-box-only orders.')
+    }
+
     crumb.auth('Checking user authentication')
     const {
       data: { user },

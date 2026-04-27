@@ -863,8 +863,12 @@ export default function CheckoutPage() {
                   </div>
                 )}
 
-                {/* Tip Selector — Food trucks only */}
-                {vertical === 'food_trucks' && baseSubtotal > 0 && (
+                {/* Tip Selector — Food trucks only.
+                    Hidden for market-box-only carts: tip distribution math in
+                    fulfill route divides tip across order_items, but a
+                    market-box-only order has zero order_items, so the tip would
+                    be charged to the buyer and never reach the vendor. */}
+                {vertical === 'food_trucks' && baseSubtotal > 0 && listingItems.length > 0 && (
                   <TipSelector
                     tipPercentage={tipPercentage}
                     onTipChange={setTipPercentage}

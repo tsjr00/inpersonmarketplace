@@ -225,6 +225,11 @@ export default function VendorMarketBoxesPage() {
             <p style={{ margin: '2px 0 0 0', fontSize: 12, color: '#6b7280' }}>
               {frequency === 'biweekly' ? 'Subscribers pick up every 2 weeks' : 'Subscribers pick up every week'}
             </p>
+            {frequency === 'biweekly' && (
+              <p style={{ margin: '6px 0 0 0', fontSize: 11, color: '#92400e', backgroundColor: '#fef3c7', padding: '6px 8px', borderRadius: 4, lineHeight: 1.4 }}>
+                <strong>Heads up:</strong> each subscriber&apos;s 2-week cycle starts when they subscribe, so different subscribers may land on different weeks. If you want everyone on the same wave, you&apos;ll need to coordinate manually (skip + extend a pickup to shift them) until we add wave-alignment to the platform.
+              </p>
+            )}
           </div>
           <div style={{ display: 'flex', gap: 4 }}>
             {(['weekly', 'biweekly'] as const).map(f => (

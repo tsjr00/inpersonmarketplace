@@ -54,6 +54,17 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      // Vertical is required for vendor subscriptions. Without it, the webhook
+      // handlers can't safely scope updates to the right vendor_profiles row —
+      // multi-vertical vendors would have BOTH verticals' tier overwritten on
+      // upgrade/cancel. Fail-fast at session creation rather than risk it.
+      if (type === 'vendor' && !vertical) {
+        return NextResponse.json(
+          { error: 'vertical is required for vendor subscriptions' },
+          { status: 400 }
+        )
+      }
+
       // Determine if this is a food truck vendor subscription
       const isFtVendor = type === 'vendor' && vertical === 'food_trucks'
 

@@ -294,8 +294,22 @@ async function handleSubscriptionCheckoutComplete(session: Stripe.Checkout.Sessi
     const targetTier = session.metadata?.tier || 'premium'
     const vertical = session.metadata?.vertical || ''
 
+    // A3 FIX: Vertical MUST be present to safely scope the update to one
+    // vendor_profiles row. Without it, a multi-vertical vendor's other
+    // vertical(s) would have their tier overwritten. Refuse the update and
+    // log loudly so admin can investigate why session metadata was missing
+    // vertical (subscriptions/checkout/route.ts now rejects vendor sessions
+    // without vertical, so this should never fire — but guard just in case).
+    if (!vertical) {
+      await logError(new TracedError('ERR_WEBHOOK_VERTICAL_MISSING',
+        `Subscription checkout missing vertical metadata for user ${userId}, sub ${subscriptionId}. Refusing tier update.`,
+        { route: '/webhooks/stripe', method: 'POST', userId, subscriptionId }
+      ))
+      return
+    }
+
     // Update vendor profile (clear trial fields if upgrading from trial)
-    let vpQuery = supabase
+    const { error } = await supabase
       .from('vendor_profiles')
       .update({
         tier: targetTier,
@@ -308,10 +322,7 @@ async function handleSubscriptionCheckoutComplete(session: Stripe.Checkout.Sessi
         trial_grace_ends_at: null,
       })
       .eq('user_id', userId)
-    if (vertical) {
-      vpQuery = vpQuery.eq('vertical_id', vertical)
-    }
-    const { error } = await vpQuery
+      .eq('vertical_id', vertical)
 
     if (error) {
       await logError(new TracedError('ERR_WEBHOOK_002', 'Failed to update vendor tier', { route: '/webhooks/stripe', method: 'POST', userId }))
@@ -485,6 +496,15 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     const targetTier = subData.metadata?.tier || 'premium'
     const vertical = subData.metadata?.vertical || ''
 
+    // A3 FIX: Vertical required to scope the update — see handleSubscriptionCheckoutComplete.
+    if (!vertical) {
+      await logError(new TracedError('ERR_WEBHOOK_VERTICAL_MISSING',
+        `Subscription updated missing vertical metadata for user ${userId}, sub ${subscription.id}. Refusing update.`,
+        { route: '/webhooks/stripe', method: 'POST', userId, subscriptionId: subscription.id }
+      ))
+      return
+    }
+
     const updateData: Record<string, unknown> = {
       subscription_status: status,
       tier_expires_at: currentPeriodEnd,
@@ -498,14 +518,11 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
       updateData.tier = targetTier
     }
 
-    let vpQuery = supabase
+    await supabase
       .from('vendor_profiles')
       .update(updateData)
       .eq('user_id', userId)
-    if (vertical) {
-      vpQuery = vpQuery.eq('vertical_id', vertical)
-    }
-    await vpQuery
+      .eq('vertical_id', vertical)
   } else if (subscriptionType === 'buyer') {
     const updateData: Record<string, unknown> = {
       subscription_status: status,
@@ -547,7 +564,16 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
     const downgradeTier = 'free'
     const vertical = subData.metadata?.vertical || ''
 
-    let vpQuery = supabase
+    // A3 FIX: Vertical required to scope the downgrade — see handleSubscriptionCheckoutComplete.
+    if (!vertical) {
+      await logError(new TracedError('ERR_WEBHOOK_VERTICAL_MISSING',
+        `Subscription deleted missing vertical metadata for user ${userId}, sub ${subscription.id}. Refusing downgrade.`,
+        { route: '/webhooks/stripe', method: 'POST', userId, subscriptionId: subscription.id }
+      ))
+      return
+    }
+
+    await supabase
       .from('vendor_profiles')
       .update({
         tier: downgradeTier,
@@ -556,10 +582,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
         tier_expires_at: new Date().toISOString(),
       })
       .eq('user_id', userId)
-    if (vertical) {
-      vpQuery = vpQuery.eq('vertical_id', vertical)
-    }
-    await vpQuery
+      .eq('vertical_id', vertical)
 
     // M-1 FIX: Auto-pause excess listings on tier downgrade.
     // Without this, vendors keep premium listings live after cancelling.

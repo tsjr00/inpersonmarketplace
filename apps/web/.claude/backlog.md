@@ -24,6 +24,75 @@ Last updated: 2026-04-26
 
 - [ ] **Premium buyer upgrade returns "Not authenticated"** — Found 2026-04-26 by user testing. User tried to upgrade buyer to premium and received `Not authenticated` error from the upgrade endpoint. The user WAS authenticated (had to be to reach the upgrade page). Investigation: find the buyer premium upgrade endpoint (likely under `/api/buyer/premium/...` or `/api/buyer/upgrade/...`), check whether it uses `supabase.auth.getUser()` or session check correctly. May be missing the auth context cookie pass-through, or the endpoint may have an auth check that's looking for a `vendor` role when buyer doesn't have one. Cross-reference: this also surfaced the error-reporting form bug (C) — see Priority 0.5 — Market Box UX duplicate-subscription entry. Fix the auth bug AND the form bug together since they're paired in user experience.
 
+## Priority 0 — Stripe Refund Cleanup for Market Box Subscriptions (A4 from Session 75)
+
+- [ ] **Stripe Dashboard refund of a market box subscription doesn't cancel the subscription, future pickups, or reverse the vendor's payout** — `apps/web/src/lib/stripe/webhooks.ts:914-1009` (`handleChargeRefunded`). When admin refunds a charge via Stripe Dashboard, the handler currently:
+  - ✅ Marks `orders.status = 'refunded'`
+  - ✅ Marks `order_items.status = 'refunded'`
+  - ✅ Marks `payments.status = 'refunded'`
+  - ✅ Notifies buyer + vendors
+  - ❌ Does NOT update `market_box_subscriptions` (status stays 'active')
+  - ❌ Does NOT cancel future `market_box_pickups`
+  - ❌ Does NOT reverse the vendor's Stripe transfer
+  - ❌ Vendor was paid upfront via `processMarketBoxPayout` and keeps the money for boxes never delivered
+
+  **Plan drafted in Session 75** (~50 LOC, scoped diff already prepared) but held for a separate session because of three caveats that need product decisions:
+
+  1. **`vendor_payouts.status = 'reversed'` is a new status value** — schema may have a CHECK constraint or enum that doesn't allow it. Need to verify on staging via:
+     ```sql
+     SELECT pg_get_constraintdef(oid)
+     FROM pg_constraint
+     WHERE conrelid = 'public.vendor_payouts'::regclass
+       AND contype = 'c';
+     ```
+     Decision: (a) reuse existing `'cancelled'` status, (b) ship a small migration adding `'reversed'`, or (c) other. `'cancelled'` is probably fine — semantically the payout is no longer happening, regardless of why.
+
+  2. **Mixed orders (listings + market box)** — full refund of a mixed order would cancel ALL market box subscriptions in that order under the simple `isFullRefund` check. If admin only meant to refund the damaged listing, the market box gets nuked too. May be acceptable for v1 (admin can re-create the market box manually) but worth deciding before shipping.
+
+  3. **`payout_failed` notification template reuse** — the existing `payout_failed` template may have wording specific to "Stripe transfer was reversed by Stripe" that doesn't quite fit the "buyer was refunded by admin" case. Either tweak the template's `reason` parameter handling, or add a new `payout_reversed` notification type.
+
+  **Operational interim:** until A4 ships, when admin refunds a market box charge via Stripe Dashboard they MUST also manually:
+  - Cancel the subscription in Supabase (`UPDATE market_box_subscriptions SET status='cancelled', cancelled_at=now() WHERE stripe_payment_intent_id = ?`)
+  - Cancel future pickups (`UPDATE market_box_pickups SET status='cancelled' WHERE subscription_id = ? AND status IN ('scheduled','ready')`)
+  - Reverse the Stripe transfer manually if the vendor was already paid (Stripe Dashboard → Connect → Reverse Transfer)
+  - This is exactly the kind of multi-step manual cleanup that A4 was designed to automate. Document the runbook for now.
+
+  Found 2026-04-26 during Session 75 fresh code audit. Plan + diff captured in `apps/web/.claude/session75_fresh_audit.md`.
+
+## Priority 0.5 — Market Box Wave-Anchor Mechanism (NEEDS DESIGN)
+
+- [ ] **Biweekly market box subscribers can land on different pickup waves (C9 from Session 75 audit)** — Currently when a biweekly vendor accepts new subscribers, each subscriber's `start_date` is computed as "next occurrence of vendor's pickup_day_of_week" (`api/market-boxes/[id]/route.ts:142-152` and `api/cart/items/route.ts:417-427`). For weekly vendors this is fine — every subscriber lands on the same weekly cadence. For biweekly vendors, two subscribers who join in different weeks end up on opposite 2-week waves. Buyer A (joined Mon Jan 6) gets pickups Jan 7 / Jan 21 / Feb 4 / Feb 18. Buyer C (joined Thu Jan 23) gets pickups Jan 28 / Feb 11 / Feb 25. Vendor has to either prep every Tuesday (defeating "biweekly" promise) or have some buyers' pickups go undelivered (auto-marked `missed` by cron Phase 4.7, buyer charged for box not received because `weeks_completed` counts `missed` as resolved per migration 124's `check_subscription_completion` trigger).
+
+  **Why this is on backlog and not a blocking fix:** the system has no concept of a vendor "wave" today. Vendors set a single pickup day-of-week (e.g., Tuesday) and a frequency flag (weekly or biweekly). There's no `anchor_date` — no way for the system to know which Tuesdays are "delivery weeks" and which are "off weeks." The biweekly assumption is implicit in the trigger that schedules pickups every 14 days starting from each subscriber's individual `start_date`. There may also be vendors who genuinely DON'T have a wave (each subscriber gets independent biweekly cadence is fine for them). Need design decision before writing code.
+
+  **Proposed mechanism — vendor wave anchor (sketch):**
+
+  1. **Add `vendors-set anchor` to the offering or vendor profile.** Two design choices:
+     - (a) Per-vendor anchor on `vendor_profiles.market_box_wave_anchor_date DATE` — single anchor for all the vendor's biweekly offerings. Simpler; matches the per-vendor `market_box_frequency` setting.
+     - (b) Per-offering anchor on `market_box_offerings.wave_anchor_date DATE` — vendor can run different offerings on different waves. More flexible; more complex.
+     Recommend (a) for v1.
+
+  2. **Add `wave_mode` to `vendor_profiles`** — `'aligned'` (all biweekly subs use the same wave) or `'independent'` (each sub gets its own 14-day cadence from their start_date — current behavior). Default `'independent'` so existing behavior preserved. Vendors who want aligned waves opt in.
+
+  3. **Update `next_start_date` computation** in `api/market-boxes/[id]/route.ts` and `api/cart/items/route.ts`:
+     - If `wave_mode === 'aligned'` AND vendor has `wave_anchor_date`: compute next valid wave date = `anchor_date + N*14` where N is smallest integer making the date >= today.
+     - Else: current behavior (next pickup_day_of_week within 7 days).
+
+  4. **Update vendor UI** — when vendor selects biweekly + aligned wave mode, prompt them to set the anchor date (or auto-derive from existing active subscribers).
+
+  5. **Migration considerations:**
+     - Existing biweekly subs (currently zero on prod per `current_task.md`) keep their independent cadences — no backfill needed.
+     - New biweekly subscribers under aligned mode snap to the wave.
+     - If vendor switches modes mid-stream while subs exist, document that existing subs keep their original cadence and only new subs use the new mode.
+
+  6. **`subscribe_to_market_box_if_capacity` RPC update:** validate that for aligned-mode vendors, the supplied `p_start_date` matches a valid wave date. Reject otherwise (defense in depth — the API layer should already snap correctly).
+
+  **Scope estimate:** 1 migration (2 columns + check constraint), 2-3 API routes touched, 1 vendor UI panel for anchor configuration, RPC update. Probably 3-4 hours implementation + testing. Worth scheduling for the next market-box-feature iteration; not urgent for this prod push because biweekly is freshly launched and there are zero biweekly subs in prod today (per `current_task.md`).
+
+  **Stopgap shipped:** vendor UI on `/vendor/market-boxes` page now shows a warning when biweekly is selected explaining that each subscriber's wave starts independently. Vendors can decide whether to (a) accept the operational reality of per-subscriber waves, (b) coordinate manually via skip+extend on out-of-phase subscribers, or (c) wait for the wave-anchor mechanism. (Session 75 fix.)
+
+  Found 2026-04-26 during Session 75 fresh code audit.
+
 ## Priority 0.5 — Notification Routing (NEEDS DESIGN DISCUSSION)
 
 - [ ] **Notification deep-link routing for market box pickups is wrong for early/off-day pickups** — Found 2026-04-26 by user testing. When a buyer confirms a market box pickup, the vendor receives an in-app notification. Clicking it currently routes the vendor to **Pickup Mode** (`/[vertical]/vendor/pickup`), which is filtered to show only TODAY's `status='ready'` pickups (per the comment added in Commit C). If the buyer confirms pickup early (vendor marked ready before scheduled date), pickup mode page shows nothing — vendor can't find the pickup, the 30-second confirmation window expires, buyer gets a "vendor missed window" notification, and the cascade gets ugly.
