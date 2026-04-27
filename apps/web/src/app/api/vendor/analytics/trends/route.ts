@@ -61,22 +61,43 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Group by period in JS
-    const dateStats: Record<string, { date: string; revenue: number; orders: number }> = {}
-    for (const item of orderItems || []) {
-      const date = new Date(item.created_at)
-      let periodKey: string
+    // Also include market box subscriptions (separate table; revenue recognized
+    // at subscription creation since vendor was paid upfront — see overview
+    // route for the full reasoning).
+    const { data: vendorOfferings } = await supabase
+      .from('market_box_offerings')
+      .select('id')
+      .eq('vendor_profile_id', vendorId)
 
+    const offeringIds = (vendorOfferings || []).map(o => o.id as string)
+
+    const { data: subscriptions } = offeringIds.length > 0
+      ? await supabase
+          .from('market_box_subscriptions')
+          .select('id, status, total_paid_cents, created_at')
+          .in('offering_id', offeringIds)
+          .gte('created_at', `${startDate}T00:00:00`)
+          .lte('created_at', `${endDate}T23:59:59`)
+      : { data: [] }
+
+    // Period bucketing helper — applies to both order_items and subscriptions
+    const periodKeyFor = (createdAt: string): string => {
+      const date = new Date(createdAt)
       if (period === 'week') {
         const day = date.getUTCDay()
         const diff = date.getUTCDate() - day + (day === 0 ? -6 : 1)
         const weekStart = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), diff))
-        periodKey = weekStart.toISOString().split('T')[0]
+        return weekStart.toISOString().split('T')[0]
       } else if (period === 'month') {
-        periodKey = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-01`
-      } else {
-        periodKey = date.toISOString().split('T')[0]
+        return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-01`
       }
+      return date.toISOString().split('T')[0]
+    }
+
+    // Group by period in JS
+    const dateStats: Record<string, { date: string; revenue: number; orders: number }> = {}
+    for (const item of orderItems || []) {
+      const periodKey = periodKeyFor(item.created_at)
 
       if (!dateStats[periodKey]) {
         dateStats[periodKey] = { date: periodKey, revenue: 0, orders: 0 }
@@ -84,6 +105,21 @@ export async function GET(request: NextRequest) {
       dateStats[periodKey].orders++
       if (item.status === 'fulfilled' || item.status === 'completed') {
         dateStats[periodKey].revenue += item.subtotal_cents || 0
+      }
+    }
+
+    // Bucket market box subscriptions into the same period grouping.
+    // Status mapping matches overview route: 'active'/'completed' count as
+    // revenue (vendor paid upfront). All subs count toward orders.
+    for (const sub of subscriptions || []) {
+      const periodKey = periodKeyFor(sub.created_at)
+
+      if (!dateStats[periodKey]) {
+        dateStats[periodKey] = { date: periodKey, revenue: 0, orders: 0 }
+      }
+      dateStats[periodKey].orders++
+      if (sub.status === 'active' || sub.status === 'completed') {
+        dateStats[periodKey].revenue += sub.total_paid_cents || 0
       }
     }
 

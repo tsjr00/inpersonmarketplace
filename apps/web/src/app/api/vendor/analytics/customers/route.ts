@@ -69,11 +69,45 @@ export async function GET(request: NextRequest) {
     }
     const { data: previousItems } = previousResult
 
+    // Also include market box subscriptions (separate table; buyer_user_id
+    // is on the subscription row directly — no orders join needed). See
+    // overview route for the full reasoning on why subscriptions count here.
+    const { data: vendorOfferings } = await supabase
+      .from('market_box_offerings')
+      .select('id')
+      .eq('vendor_profile_id', vendorId)
+
+    const offeringIds = (vendorOfferings || []).map(o => o.id as string)
+
+    const [currentSubsResult, previousSubsResult]: [
+      { data: { buyer_user_id: string }[] | null },
+      { data: { buyer_user_id: string }[] | null },
+    ] = offeringIds.length > 0
+      ? await Promise.all([
+          supabase
+            .from('market_box_subscriptions')
+            .select('buyer_user_id')
+            .in('offering_id', offeringIds)
+            .gte('created_at', `${startDate}T00:00:00`)
+            .lte('created_at', `${endDate}T23:59:59`),
+          supabase
+            .from('market_box_subscriptions')
+            .select('buyer_user_id')
+            .in('offering_id', offeringIds)
+            .lt('created_at', `${startDate}T00:00:00`),
+        ])
+      : [{ data: [] }, { data: [] }]
+
+    const currentSubs = currentSubsResult.data || []
+    const previousSubs = previousSubsResult.data || []
+
     const previousCustomers = new Set(
       (previousItems || []).map((item: any) => {
         const order = Array.isArray(item.order) ? item.order[0] : item.order
         return order?.buyer_user_id
-      }).filter(Boolean)
+      })
+        .concat(previousSubs.map(s => s.buyer_user_id))
+        .filter(Boolean)
     )
 
     // Calculate customer metrics
@@ -81,16 +115,9 @@ export async function GET(request: NextRequest) {
     const newCustomerIds = new Set<string>()
     const returningCustomerIds = new Set<string>()
 
-    for (const item of currentItems || []) {
-      const orderData = (item as any).order
-      const order = Array.isArray(orderData) ? orderData[0] : orderData
-      const buyerId = order?.buyer_user_id
-      if (!buyerId) continue
-
-      // Count orders per customer
+    const recordEncounter = (buyerId: string | undefined | null) => {
+      if (!buyerId) return
       customerOrders[buyerId] = (customerOrders[buyerId] || 0) + 1
-
-      // Determine if new or returning
       if (previousCustomers.has(buyerId)) {
         returningCustomerIds.add(buyerId)
       } else {
@@ -100,10 +127,22 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    for (const item of currentItems || []) {
+      const orderData = (item as any).order
+      const order = Array.isArray(orderData) ? orderData[0] : orderData
+      recordEncounter(order?.buyer_user_id)
+    }
+
+    // Each market box subscription = 1 customer encounter (matches the
+    // "subscription = 1 order" decision from the overview route).
+    for (const sub of currentSubs) {
+      recordEncounter(sub.buyer_user_id)
+    }
+
     const totalCustomers = Object.keys(customerOrders).length
     const returningCustomers = returningCustomerIds.size
     const newCustomers = newCustomerIds.size
-    const totalOrders = currentItems?.length || 0
+    const totalOrders = (currentItems?.length || 0) + currentSubs.length
     const averageOrdersPerCustomer = totalCustomers > 0
       ? Math.round((totalOrders / totalCustomers) * 100) / 100
       : 0
