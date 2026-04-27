@@ -60,6 +60,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // Also include market box subscriptions (separate table — they don't create
+    // order_items rows). Vendor revenue is recognized at subscription creation
+    // since the buyer prepays the full term and the vendor receives the Stripe
+    // transfer at checkout (per processMarketBoxPayout helper).
+    const { data: vendorOfferings } = await supabase
+      .from('market_box_offerings')
+      .select('id')
+      .eq('vendor_profile_id', vendorId)
+
+    const offeringIds = (vendorOfferings || []).map(o => o.id as string)
+
+    const { data: subscriptions } = offeringIds.length > 0
+      ? await supabase
+          .from('market_box_subscriptions')
+          .select('id, status, total_paid_cents, created_at')
+          .in('offering_id', offeringIds)
+          .gte('created_at', `${startDate}T00:00:00`)
+          .lte('created_at', `${endDate}T23:59:59`)
+      : { data: [] }
+
     // Calculate metrics from order_items
     let totalRevenue = 0
     let completedOrders = 0
@@ -77,7 +97,20 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const totalOrders = (orderItems || []).length
+    // Market box subscriptions: 'active' and 'completed' both count as revenue
+    // (paid upfront — vendor already received transfer). 'cancelled' goes to the
+    // cancelled bucket. total_paid_cents is the vendor's stated price (gross
+    // before vendor fee), matching order_items.subtotal_cents semantic.
+    for (const sub of subscriptions || []) {
+      if (sub.status === 'active' || sub.status === 'completed') {
+        completedOrders++
+        totalRevenue += sub.total_paid_cents || 0
+      } else if (sub.status === 'cancelled') {
+        cancelledOrders++
+      }
+    }
+
+    const totalOrders = (orderItems || []).length + (subscriptions || []).length
     const averageOrderValue = completedOrders > 0 ? Math.round(totalRevenue / completedOrders) : 0
 
     return NextResponse.json({
