@@ -256,7 +256,7 @@ export default function AdminResponsiveStyles() {
         padding: 16px 8px;
       }
 
-      @media (min-width: 568px) {
+      @media (min-width: 480px), (orientation: landscape) {
         .admin-page {
           padding: 40px 20px;
         }
@@ -268,8 +268,10 @@ export default function AdminResponsiveStyles() {
       /* ============================================= */
 
       /* Default: mobile-first — show compressed list, hide table.
-         Breakpoint at 568px so phones in landscape (iPhone 6+ = 667px wide,
-         iPhone 13/14 = 844px wide) flip to the desktop table for more density. */
+         Combined rule below: switch to desktop table on (a) any device 480px+
+         wide, OR (b) any device in landscape orientation regardless of width.
+         The orientation backup catches phones that should switch on rotation
+         but might be narrower than 480px or whose viewport reports oddly. */
       .admin-list-table {
         display: none;
       }
@@ -281,8 +283,7 @@ export default function AdminResponsiveStyles() {
            layout. */
       }
 
-      @media (min-width: 568px) {
-        /* Landscape phone + tablet+ — show full table, hide compressed list */
+      @media (min-width: 480px), (orientation: landscape) {
         .admin-list-table {
           display: block;
         }

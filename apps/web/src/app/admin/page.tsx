@@ -221,42 +221,33 @@ export default async function AdminDashboardPage() {
 
       <h1 style={{ marginBottom: spacing.lg, color: '#333', fontSize: typography.sizes['2xl'] }}>Admin Dashboard</h1>
 
-      {/* Stats Grid */}
-      <div className="admin-grid-3" style={{
+      {/* Stats — Desktop: 3-column grid of big cards. Mobile: compact one-row-per-stat list. */}
+      <div className="admin-list-table admin-grid-3" style={{
         gap: spacing.md,
         marginBottom: spacing.xl
       }}>
-        <StatCard
-          title="Total Users"
-          value={totalUsers || 0}
-          color="#0070f3"
-        />
-        <StatCard
-          title="Total Vendors"
-          value={totalVendors || 0}
-          color="#10b981"
-        />
-        <StatCard
-          title="Pending Approval"
-          value={pendingVendors || 0}
-          color="#f59e0b"
-          href="/admin/vendors/pending"
-        />
-        <StatCard
-          title="Approved Vendors"
-          value={approvedVendors || 0}
-          color="#10b981"
-        />
-        <StatCard
-          title="Total Listings"
-          value={totalListings || 0}
-          color="#8b5cf6"
-        />
-        <StatCard
-          title="Published Listings"
-          value={publishedListings || 0}
-          color="#8b5cf6"
-        />
+        <StatCard title="Total Users" value={totalUsers || 0} color="#0070f3" />
+        <StatCard title="Total Vendors" value={totalVendors || 0} color="#10b981" />
+        <StatCard title="Pending Approval" value={pendingVendors || 0} color="#f59e0b" href="/admin/vendors/pending" />
+        <StatCard title="Approved Vendors" value={approvedVendors || 0} color="#10b981" />
+        <StatCard title="Total Listings" value={totalListings || 0} color="#8b5cf6" />
+        <StatCard title="Published Listings" value={publishedListings || 0} color="#8b5cf6" />
+      </div>
+
+      {/* Stats compact list — mobile only */}
+      <div className="admin-list-mobile" style={{
+        backgroundColor: 'white',
+        borderRadius: radius.md,
+        boxShadow: shadows.sm,
+        marginBottom: spacing.md,
+        overflow: 'hidden',
+      }}>
+        <CompactStatRow title="Total Users" value={totalUsers || 0} color="#0070f3" />
+        <CompactStatRow title="Total Vendors" value={totalVendors || 0} color="#10b981" />
+        <CompactStatRow title="Pending Approval" value={pendingVendors || 0} color="#f59e0b" href="/admin/vendors/pending" />
+        <CompactStatRow title="Approved Vendors" value={approvedVendors || 0} color="#10b981" />
+        <CompactStatRow title="Total Listings" value={totalListings || 0} color="#8b5cf6" />
+        <CompactStatRow title="Published Listings" value={publishedListings || 0} color="#8b5cf6" />
       </div>
 
       {/* Pending Approvals */}
@@ -408,6 +399,53 @@ function StatCard({
   if (href) {
     return (
       <Link href={href} style={{ textDecoration: 'none' }}>
+        {content}
+      </Link>
+    )
+  }
+
+  return content
+}
+
+/**
+ * Compact one-row-per-stat layout for the mobile dashboard.
+ * One ~40px row per stat instead of an ~80px tall card. Saves ~50%
+ * vertical space when all 6 stats are stacked.
+ */
+function CompactStatRow({
+  title,
+  value,
+  color,
+  href
+}: {
+  title: string
+  value: number
+  color: string
+  href?: string
+}) {
+  const content = (
+    <div style={{
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: '12px 14px',
+      borderLeft: `4px solid ${color}`,
+      borderBottom: '1px solid #e5e7eb',
+      textDecoration: 'none',
+      color: 'inherit',
+      minHeight: 44,
+    }}>
+      <span style={{ color: '#374151', fontSize: typography.sizes.sm }}>{title}</span>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ color: '#111', fontSize: typography.sizes.lg, fontWeight: typography.weights.bold }}>{value}</span>
+        {href && <span style={{ color: '#9ca3af', fontSize: 18, lineHeight: 1 }}>›</span>}
+      </span>
+    </div>
+  )
+
+  if (href) {
+    return (
+      <Link href={href} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
         {content}
       </Link>
     )
