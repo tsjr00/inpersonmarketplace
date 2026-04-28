@@ -276,40 +276,26 @@ export default function VendorActivityClient({
   }
 
   return (
-    <div style={{
-      display: 'flex',
-      gap: spacing.lg,
-    }}>
-      {/* Side Navigation */}
-      <div style={{
-        width: 180,
-        flexShrink: 0,
-      }}>
-        <nav style={{
-          backgroundColor: colors.surfaceElevated,
-          borderRadius: radius.md,
-          border: `1px solid ${colors.border}`,
-          overflow: 'hidden',
-          position: 'sticky',
-          top: spacing.md,
-        }}>
+    <div className="admin-tabbed-layout">
+      {/* Tab Navigation — vertical sidebar on desktop, horizontal tabs on mobile */}
+      <div className="admin-tab-nav">
+        <nav className="admin-tab-nav-buttons">
           <button
             onClick={() => setActiveTab('activity')}
             style={{
-              width: '100%',
               padding: `${spacing.sm} ${spacing.md}`,
               backgroundColor: activeTab === 'activity' ? colors.primary : 'transparent',
               color: activeTab === 'activity' ? colors.textInverse : colors.textPrimary,
               border: 'none',
-              borderBottom: `1px solid ${colors.border}`,
               fontSize: typography.sizes.sm,
               fontWeight: activeTab === 'activity' ? typography.weights.semibold : typography.weights.medium,
               cursor: 'pointer',
-              textAlign: 'left',
               display: 'flex',
               alignItems: 'center',
+              justifyContent: 'center',
               gap: spacing.xs,
               transition: 'all 0.2s',
+              minHeight: 44,
             }}
           >
             <span>🚩</span> Activity Flags
@@ -317,7 +303,6 @@ export default function VendorActivityClient({
           <button
             onClick={() => setActiveTab('referrals')}
             style={{
-              width: '100%',
               padding: `${spacing.sm} ${spacing.md}`,
               backgroundColor: activeTab === 'referrals' ? colors.primary : 'transparent',
               color: activeTab === 'referrals' ? colors.textInverse : colors.textPrimary,
@@ -325,11 +310,12 @@ export default function VendorActivityClient({
               fontSize: typography.sizes.sm,
               fontWeight: activeTab === 'referrals' ? typography.weights.semibold : typography.weights.medium,
               cursor: 'pointer',
-              textAlign: 'left',
               display: 'flex',
               alignItems: 'center',
+              justifyContent: 'center',
               gap: spacing.xs,
               transition: 'all 0.2s',
+              minHeight: 44,
             }}
           >
             <span>🎁</span> Referrals

@@ -428,6 +428,85 @@ export default function AdminResponsiveStyles() {
         font-size: 14px;
       }
 
+      /* List card wrapper — replaces inline padding:spacing.lg on outer
+         table+filters wrappers (vertical-level vendors + listings). Mobile
+         gets 8px padding so compressed rows extend wider; tablet+ keeps
+         the 24px breathing room. */
+      .admin-list-card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        padding: 8px;
+      }
+
+      @media (min-width: 480px), (orientation: landscape) {
+        .admin-list-card {
+          padding: 24px;
+        }
+      }
+
+      /* Tabbed layout (vendor-activity) — vertical tabs on side at desktop,
+         horizontal tabs on top at mobile. */
+      .admin-tabbed-layout {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      @media (min-width: 768px) {
+        .admin-tabbed-layout {
+          flex-direction: row;
+          gap: 24px;
+        }
+      }
+
+      .admin-tab-nav {
+        flex-shrink: 0;
+      }
+
+      @media (min-width: 768px) {
+        .admin-tab-nav {
+          width: 180px;
+        }
+      }
+
+      .admin-tab-nav-buttons {
+        display: flex;
+        flex-direction: row;
+        background: white;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        overflow: hidden;
+      }
+
+      .admin-tab-nav-buttons > button {
+        flex: 1;
+        border-bottom: none !important;
+        border-right: 1px solid #e5e7eb;
+      }
+
+      .admin-tab-nav-buttons > button:last-child {
+        border-right: none;
+      }
+
+      @media (min-width: 768px) {
+        .admin-tab-nav-buttons {
+          flex-direction: column;
+          position: sticky;
+          top: 16px;
+        }
+
+        .admin-tab-nav-buttons > button {
+          flex: none;
+          border-right: none;
+          border-bottom: 1px solid #e5e7eb !important;
+        }
+
+        .admin-tab-nav-buttons > button:last-child {
+          border-bottom: none !important;
+        }
+      }
+
       /* STACKED layout — used when row has an inline rightAction (Suspend,
          Reactivate). Title gets its own line (no truncation contention with
          button). Status + action live on a bottom row. */

@@ -31,7 +31,13 @@ export default async function AdminLayout({
 
   return (
     <>
-      {children}
+      {/* Overflow safety net: any inline-styled child that exceeds container
+          width is clipped instead of pushing the page horizontally past the
+          viewport. Inner scroll wrappers (.admin-table-wrap) still scroll
+          within their own bounds. */}
+      <div style={{ overflowX: 'hidden', minWidth: 0, width: '100%' }}>
+        {children}
+      </div>
       <AdminResponsiveStyles />
     </>
   )

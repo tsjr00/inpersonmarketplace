@@ -203,12 +203,7 @@ export default function ListingsTableClient({
   }
 
   return (
-    <div style={{
-      backgroundColor: colors.surfaceElevated,
-      borderRadius: radius.md,
-      padding: spacing.lg,
-      boxShadow: shadows.sm
-    }}>
+    <div className="admin-list-card">
       {/* Filters */}
       <div style={{
         display: 'flex',
