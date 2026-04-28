@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import AdminNav from '@/components/admin/AdminNav'
+import AdminMobileRow from '@/components/admin/AdminMobileRow'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { useStatusBanner } from '@/hooks/useStatusBanner'
@@ -1218,6 +1219,8 @@ export default function AdminMarketsPage() {
                   )}
                 </div>
               ) : (
+                <>
+                <div className="admin-list-table">
                 <div className="admin-table-wrap">
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
@@ -1484,6 +1487,54 @@ export default function AdminMarketsPage() {
                   </tbody>
                 </table>
                 </div>
+                </div>
+
+                <div className="admin-list-mobile">
+                  {filteredMarkets.map((market) => {
+                    const typeLabel = market.market_type === 'event' ? '🎪 Event'
+                      : market.market_type === 'traditional' ? 'Traditional'
+                      : 'Private Pickup'
+                    const statusBadge = (
+                      <span style={{
+                        padding: `${spacing['3xs']} ${spacing.xs}`,
+                        borderRadius: radius.sm,
+                        fontSize: typography.sizes.xs,
+                        fontWeight: typography.weights.semibold,
+                        backgroundColor:
+                          market.approval_status === 'pending' ? '#fef3c7' :
+                          market.status === 'active' ? '#d1fae5' :
+                          market.status === 'suspended' ? '#fee2e2' :
+                          '#f3f4f6',
+                        color:
+                          market.approval_status === 'pending' ? '#92400e' :
+                          market.status === 'active' ? '#065f46' :
+                          market.status === 'suspended' ? '#991b1b' :
+                          '#6b7280'
+                      }}>
+                        {market.approval_status === 'pending' ? 'pending' : market.status}
+                      </span>
+                    )
+                    return (
+                      <AdminMobileRow
+                        key={market.id}
+                        title={market.name}
+                        statusBadge={statusBadge}
+                        secondary={
+                          <>
+                            {typeLabel}
+                            {' · '}
+                            {market.city}, {market.state}
+                            {market.submitted_by_name && <> · suggested by {market.submitted_by_name}</>}
+                          </>
+                        }
+                      />
+                    )
+                  })}
+                  <div style={{ padding: '12px 14px', fontSize: typography.sizes.xs, color: colors.textSecondary, fontStyle: 'italic', borderTop: '1px solid #e5e7eb' }}>
+                    Rotate to landscape to manage markets (approve, edit, suspend, delete).
+                  </div>
+                </div>
+                </>
               )}
             </div>
           </>

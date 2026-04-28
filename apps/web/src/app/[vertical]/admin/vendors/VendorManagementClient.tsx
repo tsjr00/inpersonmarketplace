@@ -5,11 +5,33 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useDebounce } from '@/lib/hooks/useDebounce'
 import Pagination from '@/components/admin/Pagination'
+import AdminMobileRow from '@/components/admin/AdminMobileRow'
 import VendorVerificationPanel from '@/components/admin/VendorVerificationPanel'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { exportToCSV, formatDateForExport } from '@/lib/export-csv'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 import { useStatusBanner } from '@/hooks/useStatusBanner'
+
+function VertVendorStatusChip({ status }: { status: string }) {
+  const display = (status === 'submitted' || status === 'draft') ? 'pending' : status
+  return (
+    <span style={{
+      display: 'inline-block',
+      padding: `${spacing['3xs']} ${spacing['2xs']}`,
+      borderRadius: radius.full,
+      fontSize: typography.sizes.xs,
+      fontWeight: typography.weights.medium,
+      backgroundColor:
+        status === 'approved' ? '#dcfce7' :
+        status === 'rejected' ? '#fee2e2' : '#fef3c7',
+      color:
+        status === 'approved' ? '#166534' :
+        status === 'rejected' ? '#991b1b' : '#92400e'
+    }}>
+      {display}
+    </span>
+  )
+}
 
 interface Vendor {
   id: string
@@ -370,6 +392,8 @@ export default function VendorManagementClient({
           )}
         </div>
       ) : (
+        <>
+        <div className="admin-list-table">
         <div className="admin-table-wrap">
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
@@ -411,6 +435,45 @@ export default function VendorManagementClient({
             </tbody>
           </table>
         </div>
+        </div>
+
+        <div className="admin-list-mobile">
+          {vendors.map((vendor) => {
+            const isStale = vendor.days_pending >= 2 &&
+              (vendor.status === 'submitted' || vendor.status === 'draft')
+            const businessName = vendor.profile_data?.business_name || 'Unnamed'
+            const tierLabel = vendor.tier || 'free'
+            const marketCount = vendor.markets?.length || 0
+            const cancelled = vendor.orders_cancelled_after_confirm_count || 0
+            const confirmed = vendor.orders_confirmed_count || 0
+            const cancelRate = confirmed >= 10 ? Math.round((cancelled / confirmed) * 100) : null
+
+            return (
+              <AdminMobileRow
+                key={vendor.id}
+                href={`/${vertical}/admin/vendors/${vendor.id}`}
+                title={businessName}
+                statusBadge={<VertVendorStatusChip status={vendor.status} />}
+                secondary={
+                  <span style={isStale ? { color: '#92400e', fontWeight: 500 } : undefined}>
+                    {tierLabel}
+                    {' · '}
+                    📦 {vendor.listing_count}
+                    {' · '}
+                    {marketCount} market{marketCount !== 1 ? 's' : ''}
+                    {vendor.event_approved && <> · 🎪</>}
+                    {!vendor.stripe_connected && <> · <span style={{ color: '#991b1b' }}>no Stripe</span></>}
+                    {cancelRate !== null && cancelRate >= 10 && (
+                      <> · <span style={{ color: cancelRate >= 20 ? '#991b1b' : '#9a3412', fontWeight: 600 }}>{cancelRate}% cancel</span></>
+                    )}
+                    {isStale && <> · <span style={{ color: '#92400e', fontWeight: 600 }}>{vendor.days_pending}d pending</span></>}
+                  </span>
+                }
+              />
+            )
+          })}
+        </div>
+        </>
       )}
 
       {/* Pagination */}

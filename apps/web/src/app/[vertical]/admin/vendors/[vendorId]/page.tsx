@@ -145,6 +145,8 @@ export default async function VerticalAdminVendorDetailPage({ params }: VendorDe
 
   const fieldRow: React.CSSProperties = {
     display: 'flex',
+    flexWrap: 'wrap',
+    gap: '4px 12px',
     borderBottom: `1px solid ${colors.borderMuted}`,
     paddingBottom: spacing.xs,
     marginBottom: spacing.xs,
@@ -164,12 +166,25 @@ export default async function VerticalAdminVendorDetailPage({ params }: VendorDe
         <div style={{ marginBottom: spacing.lg }}>
           <Link
             href={`/${vertical}/admin/vendors`}
-            style={{ color: colors.primary, textDecoration: 'none', fontSize: typography.sizes.sm }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '8px 14px',
+              color: colors.primary,
+              textDecoration: 'none',
+              fontSize: typography.sizes.sm,
+              fontWeight: typography.weights.medium,
+              border: `1px solid ${colors.primary}`,
+              borderRadius: radius.sm,
+              backgroundColor: 'white',
+              minHeight: 36,
+            }}
           >
             ← Back to Vendors
           </Link>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: spacing.sm }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginTop: spacing.sm }}>
             <div>
               <h1 style={{ color: colors.primary, margin: 0, fontSize: typography.sizes['2xl'] }}>
                 {businessName}
@@ -204,30 +219,30 @@ export default async function VerticalAdminVendorDetailPage({ params }: VendorDe
               <h2 style={sectionTitle}>Business Information</h2>
               <div style={fieldRow}>
                 <div style={{ width: 160, color: colors.textMuted, fontSize: typography.sizes.sm }}>Business Name</div>
-                <div style={{ flex: 1, color: colors.textPrimary, fontSize: typography.sizes.sm }}>{businessName}</div>
+                <div style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', color: colors.textPrimary, fontSize: typography.sizes.sm }}>{businessName}</div>
               </div>
               {!!profileData.legal_name && String(profileData.legal_name) !== businessName && (
                 <div style={fieldRow}>
                   <div style={{ width: 160, color: colors.textMuted, fontSize: typography.sizes.sm }}>Legal Name</div>
-                  <div style={{ flex: 1, color: colors.textPrimary, fontSize: typography.sizes.sm }}>{String(profileData.legal_name)}</div>
+                  <div style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', color: colors.textPrimary, fontSize: typography.sizes.sm }}>{String(profileData.legal_name)}</div>
                 </div>
               )}
               {!!profileData.email && (
                 <div style={fieldRow}>
                   <div style={{ width: 160, color: colors.textMuted, fontSize: typography.sizes.sm }}>Email</div>
-                  <div style={{ flex: 1, color: colors.textPrimary, fontSize: typography.sizes.sm }}>{String(profileData.email)}</div>
+                  <div style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', color: colors.textPrimary, fontSize: typography.sizes.sm }}>{String(profileData.email)}</div>
                 </div>
               )}
               {!!profileData.phone && (
                 <div style={fieldRow}>
                   <div style={{ width: 160, color: colors.textMuted, fontSize: typography.sizes.sm }}>Phone</div>
-                  <div style={{ flex: 1, color: colors.textPrimary, fontSize: typography.sizes.sm }}>{String(profileData.phone)}</div>
+                  <div style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', color: colors.textPrimary, fontSize: typography.sizes.sm }}>{String(profileData.phone)}</div>
                 </div>
               )}
               {!!profileData.vendor_type && (
                 <div style={fieldRow}>
                   <div style={{ width: 160, color: colors.textMuted, fontSize: typography.sizes.sm }}>Type</div>
-                  <div style={{ flex: 1, color: colors.textPrimary, fontSize: typography.sizes.sm }}>
+                  <div style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', color: colors.textPrimary, fontSize: typography.sizes.sm }}>
                     {Array.isArray(profileData.vendor_type) ? (profileData.vendor_type as string[]).join(', ') : String(profileData.vendor_type)}
                   </div>
                 </div>
@@ -235,7 +250,7 @@ export default async function VerticalAdminVendorDetailPage({ params }: VendorDe
               {!!profileData.description && (
                 <div style={{ ...fieldRow, borderBottom: 'none' }}>
                   <div style={{ width: 160, color: colors.textMuted, fontSize: typography.sizes.sm }}>Description</div>
-                  <div style={{ flex: 1, color: colors.textPrimary, fontSize: typography.sizes.sm }}>{String(profileData.description)}</div>
+                  <div style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', color: colors.textPrimary, fontSize: typography.sizes.sm }}>{String(profileData.description)}</div>
                 </div>
               )}
               {/* Link to public profile */}
@@ -278,7 +293,7 @@ export default async function VerticalAdminVendorDetailPage({ params }: VendorDe
                   {eventReadinessFields.map((field, i) => (
                     <div key={i} style={fieldRow}>
                       <div style={{ width: 200, color: colors.textMuted, fontSize: typography.sizes.sm }}>{field.label}</div>
-                      <div style={{ flex: 1, color: colors.textPrimary, fontSize: typography.sizes.sm }}>{String(field.value)}</div>
+                      <div style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', color: colors.textPrimary, fontSize: typography.sizes.sm }}>{String(field.value)}</div>
                     </div>
                   ))}
                 </div>
@@ -314,15 +329,15 @@ export default async function VerticalAdminVendorDetailPage({ params }: VendorDe
                 <h2 style={sectionTitle}>User Account</h2>
                 <div style={fieldRow}>
                   <div style={{ width: 160, color: colors.textMuted, fontSize: typography.sizes.sm }}>Email</div>
-                  <div style={{ flex: 1, color: colors.textPrimary, fontSize: typography.sizes.sm }}>{userAccount.email as string}</div>
+                  <div style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', color: colors.textPrimary, fontSize: typography.sizes.sm }}>{userAccount.email as string}</div>
                 </div>
                 <div style={fieldRow}>
                   <div style={{ width: 160, color: colors.textMuted, fontSize: typography.sizes.sm }}>Display Name</div>
-                  <div style={{ flex: 1, color: colors.textPrimary, fontSize: typography.sizes.sm }}>{(userAccount.display_name as string) || 'N/A'}</div>
+                  <div style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', color: colors.textPrimary, fontSize: typography.sizes.sm }}>{(userAccount.display_name as string) || 'N/A'}</div>
                 </div>
                 <div style={{ ...fieldRow, borderBottom: 'none' }}>
                   <div style={{ width: 160, color: colors.textMuted, fontSize: typography.sizes.sm }}>Account Created</div>
-                  <div style={{ flex: 1, color: colors.textPrimary, fontSize: typography.sizes.sm }}>{new Date(userAccount.created_at as string).toLocaleDateString()}</div>
+                  <div style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', color: colors.textPrimary, fontSize: typography.sizes.sm }}>{new Date(userAccount.created_at as string).toLocaleDateString()}</div>
                 </div>
               </div>
             )}

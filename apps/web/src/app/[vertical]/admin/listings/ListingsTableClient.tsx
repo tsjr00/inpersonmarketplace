@@ -5,9 +5,29 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useDebounce } from '@/lib/hooks/useDebounce'
 import Pagination from '@/components/admin/Pagination'
+import AdminMobileRow from '@/components/admin/AdminMobileRow'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { exportToCSV, formatDateForExport, formatCentsForExport } from '@/lib/export-csv'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+
+function ListingStatusChip({ status }: { status: string }) {
+  return (
+    <span style={{
+      padding: `${spacing['3xs']} ${spacing['2xs']}`,
+      borderRadius: radius.sm,
+      fontSize: typography.sizes.xs,
+      fontWeight: typography.weights.semibold,
+      backgroundColor:
+        status === 'published' ? '#dcfce7' :
+        status === 'draft' ? '#fef3c7' : '#f3f4f6',
+      color:
+        status === 'published' ? '#166534' :
+        status === 'draft' ? '#92400e' : '#6b7280'
+    }}>
+      {status}
+    </span>
+  )
+}
 
 interface Listing {
   id: string
@@ -291,6 +311,8 @@ export default function ListingsTableClient({
           )}
         </div>
       ) : (
+        <>
+        <div className="admin-list-table">
         <div className="admin-table-wrap">
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
@@ -439,6 +461,79 @@ export default function ListingsTableClient({
           </tbody>
         </table>
         </div>
+        </div>
+
+        <div className="admin-list-mobile">
+          {listings.map((listing) => {
+            const vendorName = listing.vendor_profiles?.profile_data?.business_name ||
+                              listing.vendor_profiles?.profile_data?.farm_name || 'Unknown'
+            const isPublished = listing.status === 'published'
+            const isPaused = listing.status === 'paused'
+            const showSuspend = isPublished
+            const showUnsuspend = isPaused
+            const outOfStock = isPublished && listing.quantity === 0
+            const lowStock = isPublished && listing.quantity !== null && listing.quantity > 0 && listing.quantity <= 5
+
+            const action = showSuspend ? (
+              <button
+                onClick={() => setSuspendTarget({ id: listing.id, title: listing.title, action: 'suspend' })}
+                disabled={moderating === listing.id}
+                style={{
+                  padding: '6px 10px',
+                  fontSize: typography.sizes.xs,
+                  fontWeight: typography.weights.semibold,
+                  backgroundColor: 'white',
+                  color: '#991b1b',
+                  border: '1px solid #fca5a5',
+                  borderRadius: radius.sm,
+                  cursor: moderating === listing.id ? 'not-allowed' : 'pointer',
+                  minHeight: 36,
+                }}
+              >
+                Suspend
+              </button>
+            ) : showUnsuspend ? (
+              <button
+                onClick={() => setSuspendTarget({ id: listing.id, title: listing.title, action: 'unsuspend' })}
+                disabled={moderating === listing.id}
+                style={{
+                  padding: '6px 10px',
+                  fontSize: typography.sizes.xs,
+                  fontWeight: typography.weights.semibold,
+                  backgroundColor: 'white',
+                  color: '#166534',
+                  border: '1px solid #86efac',
+                  borderRadius: radius.sm,
+                  cursor: moderating === listing.id ? 'not-allowed' : 'pointer',
+                  minHeight: 36,
+                }}
+              >
+                Unsuspend
+              </button>
+            ) : null
+
+            return (
+              <AdminMobileRow
+                key={listing.id}
+                title={listing.title}
+                statusBadge={<ListingStatusChip status={listing.status} />}
+                rightAction={action}
+                secondary={
+                  <>
+                    {vendorName}
+                    {' · '}
+                    {listing.category || 'Uncategorized'}
+                    {' · '}
+                    {formatPrice(listing.price_cents)}
+                    {outOfStock && <> · <span style={{ color: '#991b1b', fontWeight: 600 }}>⚠️ Out of stock</span></>}
+                    {lowStock && <> · <span style={{ color: '#9a3412', fontWeight: 600 }}>Low ({listing.quantity})</span></>}
+                  </>
+                }
+              />
+            )
+          })}
+        </div>
+        </>
       )}
 
       {/* Pagination */}
