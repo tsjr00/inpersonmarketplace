@@ -5,8 +5,33 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useDebounce } from '@/lib/hooks/useDebounce'
 import Pagination from '@/components/admin/Pagination'
+import AdminMobileRow from '@/components/admin/AdminMobileRow'
 import { exportToCSV, formatDateForExport } from '@/lib/export-csv'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+
+// Reusable status + tier chip JSX — used in both desktop table cells and
+// mobile compressed rows so styling stays in sync.
+function VendorStatusChip({ status }: { status: string }) {
+  const display = status === 'submitted' || status === 'draft' ? 'pending' : status
+  return (
+    <span style={{
+      padding: `${spacing['3xs']} ${spacing['2xs']}`,
+      borderRadius: radius.sm,
+      fontSize: typography.sizes.xs,
+      fontWeight: typography.weights.semibold,
+      backgroundColor:
+        status === 'approved' ? '#dcfce7' :
+        status === 'submitted' || status === 'draft' ? '#fef3c7' :
+        status === 'rejected' ? '#fee2e2' : '#f3f4f6',
+      color:
+        status === 'approved' ? '#166534' :
+        status === 'submitted' || status === 'draft' ? '#92400e' :
+        status === 'rejected' ? '#991b1b' : '#6b7280'
+    }}>
+      {display}
+    </span>
+  )
+}
 
 interface Vendor {
   id: string
@@ -264,6 +289,7 @@ export default function VendorsTableClient({
         borderRadius: radius.md,
         boxShadow: shadows.sm,
       }}>
+      <div className="admin-list-table">
       <div className="admin-table-wrap">
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
@@ -324,22 +350,7 @@ export default function VendorsTableClient({
                       </span>
                     </td>
                     <td style={tdStyle}>
-                      <span style={{
-                        padding: `${spacing['3xs']} ${spacing['2xs']}`,
-                        borderRadius: radius.sm,
-                        fontSize: typography.sizes.xs,
-                        fontWeight: typography.weights.semibold,
-                        backgroundColor:
-                          vendorStatus === 'approved' ? '#dcfce7' :
-                          vendorStatus === 'submitted' || vendorStatus === 'draft' ? '#fef3c7' :
-                          vendorStatus === 'rejected' ? '#fee2e2' : '#f3f4f6',
-                        color:
-                          vendorStatus === 'approved' ? '#166534' :
-                          vendorStatus === 'submitted' || vendorStatus === 'draft' ? '#92400e' :
-                          vendorStatus === 'rejected' ? '#991b1b' : '#6b7280'
-                      }}>
-                        {vendorStatus === 'submitted' || vendorStatus === 'draft' ? 'pending' : vendorStatus}
-                      </span>
+                      <VendorStatusChip status={vendorStatus} />
                     </td>
                     <td style={tdStyle}>
                       <span style={{
@@ -403,6 +414,38 @@ export default function VendorsTableClient({
             )}
           </tbody>
         </table>
+      </div>
+      </div>
+
+      <div className="admin-list-mobile">
+        {vendors.length === 0 ? (
+          <div className="admin-mobile-empty">No vendors found matching your filters</div>
+        ) : (
+          vendors.map((vendor) => {
+            const profileData = vendor.profile_data
+            const businessName = profileData?.business_name || profileData?.legal_name || 'Unknown'
+            const vendorStatus = vendor.status
+            const vendorTier = vendor.tier || 'free'
+            const tierLabel = vendorTier.charAt(0).toUpperCase() + vendorTier.slice(1)
+            return (
+              <AdminMobileRow
+                key={vendor.id}
+                href={`/admin/vendors/${vendor.id}`}
+                title={businessName}
+                statusBadge={<VendorStatusChip status={vendorStatus} />}
+                secondary={
+                  <>
+                    {profileData?.email || '—'}
+                    {' · '}
+                    {tierLabel}
+                    {' · '}
+                    {vendor.vertical_id}
+                  </>
+                }
+              />
+            )
+          })
+        )}
       </div>
 
         {/* Pagination */}
