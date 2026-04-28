@@ -501,12 +501,8 @@ export default function VerticalAdminAnalyticsPage() {
 
                 {overview ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
-                    {/* Status Cards */}
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(3, 1fr)',
-                      gap: spacing.xs
-                    }}>
+                    {/* Status Cards — responsive: 1 col mobile, 2 col tablet, 3 col desktop */}
+                    <div className="admin-grid-3">
                       <div style={{
                         padding: spacing.sm,
                         backgroundColor: '#dcfce7',

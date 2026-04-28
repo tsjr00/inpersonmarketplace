@@ -178,7 +178,7 @@ export default function KnowledgeEditor({ initialArticles, vertical }: Knowledge
           </h3>
 
           <div style={{ display: 'grid', gap: 16 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div className="admin-form-grid">
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 4, color: '#374151' }}>Title</label>
                 <input

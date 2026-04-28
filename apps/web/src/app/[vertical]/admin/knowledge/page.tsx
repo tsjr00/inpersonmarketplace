@@ -47,13 +47,15 @@ export default async function AdminKnowledgePage({ params }: AdminKnowledgePageP
     .order('sort_order')
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 20px' }}>
+    <div className="admin-page">
       <AdminNav type="vertical" vertical={vertical} />
 
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: 12,
         marginBottom: 20
       }}>
         <div>
