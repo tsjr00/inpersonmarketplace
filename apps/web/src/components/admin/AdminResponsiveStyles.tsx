@@ -196,6 +196,12 @@ export default function AdminResponsiveStyles() {
 
       .admin-main-content {
         width: 100%;
+        /* Safety net: prevent any inline-styled child (fixed-width labels,
+           wide tables, hard-coded grids) from making the page horizontally
+           scrollable. Inner scroll wrappers (.admin-table-wrap) can still
+           horizontally scroll within their own bounds. */
+        overflow-x: hidden;
+        min-width: 0;
       }
 
       @media (min-width: 768px) {
@@ -244,6 +250,67 @@ export default function AdminResponsiveStyles() {
 
       .admin-form-grid .full-width {
         grid-column: 1 / -1;
+      }
+
+      /* ============================================= */
+      /* DETAIL PAGE LAYOUTS                           */
+      /* ============================================= */
+
+      /* Main + side layout: stacked on mobile, 2fr/1fr on desktop.
+         Used by vendor detail, market detail etc. */
+      .admin-detail-main-side {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: 1fr;
+      }
+
+      @media (min-width: 768px) {
+        .admin-detail-main-side {
+          grid-template-columns: 2fr 1fr;
+          gap: 30px;
+        }
+      }
+
+      /* Label/value data row that stacks on mobile, side-by-side on desktop.
+         Replaces inline display:flex + width:150 patterns that overflow
+         on narrow screens. */
+      .admin-data-row {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 4px;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 10px;
+        margin-bottom: 10px;
+        min-width: 0;
+      }
+
+      .admin-data-row:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+        margin-bottom: 0;
+      }
+
+      .admin-data-row-label {
+        color: #666;
+        font-size: 13px;
+        text-transform: capitalize;
+      }
+
+      .admin-data-row-value {
+        color: #333;
+        font-size: 14px;
+        word-break: break-word;
+        min-width: 0;
+      }
+
+      @media (min-width: 480px), (orientation: landscape) {
+        .admin-data-row {
+          grid-template-columns: 150px 1fr;
+          gap: 12px;
+        }
+        .admin-data-row-label {
+          font-size: 14px;
+        }
       }
 
       /* ============================================= */

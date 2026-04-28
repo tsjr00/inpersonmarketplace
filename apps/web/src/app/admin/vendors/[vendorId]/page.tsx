@@ -79,6 +79,8 @@ export default async function VendorDetailPage({ params }: VendorDetailPageProps
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
+        flexWrap: 'wrap',
+        gap: 12,
         marginBottom: 30
       }}>
         <div>
@@ -163,9 +165,9 @@ export default async function VendorDetailPage({ params }: VendorDetailPageProps
         />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 30 }}>
+      <div className="admin-detail-main-side">
         {/* Main Info */}
-        <div>
+        <div style={{ minWidth: 0 }}>
           {/* Profile Data */}
           <div style={{
             backgroundColor: 'white',
@@ -178,20 +180,11 @@ export default async function VendorDetailPage({ params }: VendorDetailPageProps
 
             <div style={{ display: 'grid', gap: 15 }}>
               {Object.entries(profileData).map(([key, value]) => (
-                <div key={key} style={{
-                  display: 'flex',
-                  borderBottom: '1px solid #eee',
-                  paddingBottom: 10
-                }}>
-                  <div style={{
-                    width: 150,
-                    color: '#666',
-                    fontSize: 14,
-                    textTransform: 'capitalize'
-                  }}>
+                <div key={key} className="admin-data-row">
+                  <div className="admin-data-row-label">
                     {key.replace(/_/g, ' ')}
                   </div>
-                  <div style={{ flex: 1, color: '#333' }}>
+                  <div className="admin-data-row-value">
                     {String(value) || 'N/A'}
                   </div>
                 </div>
@@ -306,9 +299,9 @@ export default async function VendorDetailPage({ params }: VendorDetailPageProps
                 </summary>
                 <div style={{ display: 'grid', gap: 10, marginTop: 15 }}>
                   {fieldRows.map((row, i) => (
-                    <div key={i} style={{ display: 'flex', borderBottom: '1px solid #eee', paddingBottom: 8 }}>
-                      <div style={{ width: 200, color: '#666', fontSize: 14 }}>{row.label}</div>
-                      <div style={{ flex: 1, color: '#333', fontSize: 14 }}>{row.value}</div>
+                    <div key={i} className="admin-data-row">
+                      <div className="admin-data-row-label">{row.label}</div>
+                      <div className="admin-data-row-value">{row.value}</div>
                     </div>
                   ))}
                 </div>
@@ -342,17 +335,17 @@ export default async function VendorDetailPage({ params }: VendorDetailPageProps
               <h2 style={{ color: '#333', marginBottom: 20 }}>User Account</h2>
 
               <div style={{ display: 'grid', gap: 15 }}>
-                <div style={{ display: 'flex', borderBottom: '1px solid #eee', paddingBottom: 10 }}>
-                  <div style={{ width: 150, color: '#666', fontSize: 14 }}>Email</div>
-                  <div style={{ flex: 1, color: '#333' }}>{userProfile.email as string}</div>
+                <div className="admin-data-row">
+                  <div className="admin-data-row-label">Email</div>
+                  <div className="admin-data-row-value">{userProfile.email as string}</div>
                 </div>
-                <div style={{ display: 'flex', borderBottom: '1px solid #eee', paddingBottom: 10 }}>
-                  <div style={{ width: 150, color: '#666', fontSize: 14 }}>Display Name</div>
-                  <div style={{ flex: 1, color: '#333' }}>{(userProfile.display_name as string) || 'N/A'}</div>
+                <div className="admin-data-row">
+                  <div className="admin-data-row-label">Display Name</div>
+                  <div className="admin-data-row-value">{(userProfile.display_name as string) || 'N/A'}</div>
                 </div>
-                <div style={{ display: 'flex' }}>
-                  <div style={{ width: 150, color: '#666', fontSize: 14 }}>Account Created</div>
-                  <div style={{ flex: 1, color: '#333' }}>
+                <div className="admin-data-row">
+                  <div className="admin-data-row-label">Account Created</div>
+                  <div className="admin-data-row-value">
                     {new Date(userProfile.created_at as string).toLocaleDateString()}
                   </div>
                 </div>
