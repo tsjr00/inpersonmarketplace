@@ -427,6 +427,32 @@ export default function AdminResponsiveStyles() {
         color: #9ca3af;
         font-size: 14px;
       }
+
+      /* STACKED layout — used when row has an inline rightAction (Suspend,
+         Reactivate). Title gets its own line (no truncation contention with
+         button). Status + action live on a bottom row. */
+      .admin-mobile-row-stacked {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .admin-mobile-row-title-block {
+        font-weight: 600;
+        font-size: 15px;
+        color: #111;
+        word-break: break-word;
+        line-height: 1.3;
+      }
+
+      .admin-mobile-row-bottom {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 4px;
+      }
     `}</style>
   )
 }

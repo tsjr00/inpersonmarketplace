@@ -42,17 +42,53 @@ export default function AdminMobileRow({
   href,
   rightAction,
 }: AdminMobileRowProps) {
+  // When the row has a `rightAction` (action mode — Suspend, Reactivate,
+  // etc.), use a STACKED layout: title alone on line 1 (full width, no
+  // truncation contention with status chip / button), secondary on line 2,
+  // status chip + action button on line 3. Without this, title gets squeezed
+  // on phones because chip + button reserve 100-120px on the right.
+  //
+  // For drill-in rows (no rightAction), keep the COMPACT layout: title +
+  // status chip + chevron all on line 1. There's no button, so the title
+  // gets enough room.
+  if (rightAction) {
+    const inner = (
+      <>
+        <div className="admin-mobile-row-title-block">{title}</div>
+        <div className="admin-mobile-row-line2">{secondary}</div>
+        <div className="admin-mobile-row-bottom">
+          {statusBadge ? (
+            <span className="admin-mobile-row-status">{statusBadge}</span>
+          ) : <span />}
+          <span className="admin-mobile-row-action">{rightAction}</span>
+        </div>
+      </>
+    )
+
+    if (href) {
+      return (
+        <Link href={href} className="admin-mobile-row admin-mobile-row-stacked">
+          {inner}
+        </Link>
+      )
+    }
+
+    return (
+      <div className="admin-mobile-row admin-mobile-row-stacked">
+        {inner}
+      </div>
+    )
+  }
+
+  // Compact layout (drill-in or no action)
   const line1 = (
     <div className="admin-mobile-row-line1">
       <span className="admin-mobile-row-title">{title}</span>
       {statusBadge && (
         <span className="admin-mobile-row-status">{statusBadge}</span>
       )}
-      {href && !rightAction && (
+      {href && (
         <span className="admin-mobile-row-chevron" aria-hidden="true">›</span>
-      )}
-      {rightAction && (
-        <span className="admin-mobile-row-action">{rightAction}</span>
       )}
     </div>
   )
