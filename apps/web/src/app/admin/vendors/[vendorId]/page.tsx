@@ -84,9 +84,22 @@ export default async function VendorDetailPage({ params }: VendorDetailPageProps
         <div>
           <Link
             href="/admin/vendors"
-            style={{ color: '#0070f3', textDecoration: 'none', fontSize: 14 }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '8px 14px',
+              color: '#0070f3',
+              textDecoration: 'none',
+              fontSize: 14,
+              fontWeight: 500,
+              border: '1px solid #0070f3',
+              borderRadius: 6,
+              backgroundColor: 'white',
+              minHeight: 36,
+            }}
           >
-            Back to Vendors
+            ← Back to Vendors
           </Link>
           <h1 style={{ color: '#333', marginTop: 10 }}>{businessName}</h1>
           <span style={{

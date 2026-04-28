@@ -45,6 +45,7 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
       vertical_id,
       status,
       tier,
+      event_approved,
       created_at,
       profile_data,
       orders_confirmed_count,
@@ -109,7 +110,7 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
   const totalPages = Math.ceil(totalCount / pageSize)
 
   return (
-    <div style={{ maxWidth: 1400, margin: '0 auto', padding: '40px 20px' }}>
+    <div className="admin-page">
       <AdminNav type="platform" />
 
       {/* Query error banner */}

@@ -39,6 +39,7 @@ interface Vendor {
   vertical_id: string
   status: string
   tier: string | null
+  event_approved: boolean | null
   created_at: string
   profile_data: {
     business_name?: string
@@ -435,11 +436,10 @@ export default function VendorsTableClient({
                 statusBadge={<VendorStatusChip status={vendorStatus} />}
                 secondary={
                   <>
-                    {profileData?.email || '—'}
+                    {vendor.vertical_id}
                     {' · '}
                     {tierLabel}
-                    {' · '}
-                    {vendor.vertical_id}
+                    {vendor.event_approved && <> · <span style={{ color: '#065f46', fontWeight: 600 }}>✓ events</span></>}
                   </>
                 }
               />

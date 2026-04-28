@@ -247,11 +247,29 @@ export default function AdminResponsiveStyles() {
       }
 
       /* ============================================= */
+      /* PAGE CONTAINER — responsive horizontal padding */
+      /* ============================================= */
+
+      .admin-page {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 16px 8px;
+      }
+
+      @media (min-width: 568px) {
+        .admin-page {
+          padding: 40px 20px;
+        }
+      }
+
+      /* ============================================= */
       /* LIST VIEW (compressed rows on mobile, table   */
       /*           on tablet/desktop)                  */
       /* ============================================= */
 
-      /* Default: mobile-first — show compressed list, hide table */
+      /* Default: mobile-first — show compressed list, hide table.
+         Breakpoint at 568px so phones in landscape (iPhone 6+ = 667px wide,
+         iPhone 13/14 = 844px wide) flip to the desktop table for more density. */
       .admin-list-table {
         display: none;
       }
@@ -263,8 +281,8 @@ export default function AdminResponsiveStyles() {
            layout. */
       }
 
-      @media (min-width: 640px) {
-        /* Tablet+ — show full table, hide compressed list */
+      @media (min-width: 568px) {
+        /* Landscape phone + tablet+ — show full table, hide compressed list */
         .admin-list-table {
           display: block;
         }
@@ -276,7 +294,7 @@ export default function AdminResponsiveStyles() {
       /* Compressed row — entire row is the tap target */
       .admin-mobile-row {
         display: block;
-        padding: 14px 16px;
+        padding: 12px 14px;
         border-bottom: 1px solid #e5e7eb;
         text-decoration: none;
         color: inherit;
