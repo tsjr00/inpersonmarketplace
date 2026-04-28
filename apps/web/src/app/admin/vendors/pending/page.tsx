@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth/admin'
 import Link from 'next/link'
+import AdminMobileRow from '@/components/admin/AdminMobileRow'
 
 export default async function PendingVendorsPage() {
   await requireAdmin()
@@ -46,6 +47,7 @@ export default async function PendingVendorsPage() {
           borderRadius: 8,
           boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
         }}>
+        <div className="admin-list-table">
         <div className="admin-table-wrap">
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
@@ -112,6 +114,50 @@ export default async function PendingVendorsPage() {
               })}
             </tbody>
           </table>
+        </div>
+        </div>
+
+        <div className="admin-list-mobile">
+          {pendingVendors.map((vendor) => {
+            const vendorId = vendor.id as string
+            const profileData = vendor.profile_data as Record<string, unknown>
+            const businessName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'Unknown'
+            const contactName = (profileData?.legal_name as string) || ''
+            const email = (profileData?.email as string) || ''
+            const verticalId = vendor.vertical_id as string
+            const createdAt = vendor.created_at as string
+
+            const statusBadge = (
+              <span style={{
+                padding: '2px 8px',
+                backgroundColor: '#fef3c7',
+                color: '#92400e',
+                borderRadius: 4,
+                fontSize: 11,
+                fontWeight: 600,
+              }}>
+                pending
+              </span>
+            )
+
+            return (
+              <AdminMobileRow
+                key={vendorId}
+                href={`/admin/vendors/${vendorId}`}
+                title={businessName}
+                statusBadge={statusBadge}
+                secondary={
+                  <>
+                    {verticalId}
+                    {contactName && <> · {contactName}</>}
+                    {email && <> · {email}</>}
+                    {' · applied '}
+                    {new Date(createdAt).toLocaleDateString()}
+                  </>
+                }
+              />
+            )
+          })}
         </div>
         </div>
       ) : (

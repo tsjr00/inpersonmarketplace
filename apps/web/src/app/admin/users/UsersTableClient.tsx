@@ -5,9 +5,25 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useDebounce } from '@/lib/hooks/useDebounce'
 import Pagination from '@/components/admin/Pagination'
+import AdminMobileRow from '@/components/admin/AdminMobileRow'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { exportToCSV, formatDateForExport } from '@/lib/export-csv'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+
+function UserRoleChip({ isAdmin, isVendor, label }: { isAdmin: boolean; isVendor: boolean; label: string }) {
+  return (
+    <span style={{
+      padding: `${spacing['3xs']} ${spacing['2xs']}`,
+      backgroundColor: isAdmin ? '#e0e7ff' : isVendor ? '#dbeafe' : '#f3f4f6',
+      color: isAdmin ? '#3730a3' : isVendor ? '#1e40af' : '#666',
+      borderRadius: radius.sm,
+      fontSize: typography.sizes.xs,
+      fontWeight: typography.weights.semibold
+    }}>
+      {label}
+    </span>
+  )
+}
 
 interface VendorProfile {
   id: string
@@ -350,6 +366,7 @@ export default function UsersTableClient({
         borderRadius: radius.md,
         boxShadow: shadows.sm,
       }}>
+      <div className="admin-list-table">
       <div className="admin-table-wrap">
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
@@ -515,6 +532,58 @@ export default function UsersTableClient({
             )}
           </tbody>
         </table>
+      </div>
+      </div>
+
+      <div className="admin-list-mobile">
+        {users.length === 0 ? (
+          <div className="admin-mobile-empty">No users found matching your filters</div>
+        ) : (
+          users.map((user) => {
+            const roleInfo = getDisplayRole(user)
+            const title = user.display_name || user.email || 'User'
+            const isSuspended = !!user.deleted_at
+            const verticalsLabel = user.verticals && user.verticals.length > 0 ? user.verticals.join(', ') : null
+            const buyerTier = user.buyer_tier || 'free'
+            const action = (
+              <button
+                onClick={() => setSuspendTarget({ userId: user.user_id, name: title, action: isSuspended ? 'reactivate' : 'suspend' })}
+                style={{
+                  padding: '6px 10px',
+                  fontSize: typography.sizes.xs,
+                  fontWeight: typography.weights.semibold,
+                  backgroundColor: 'white',
+                  color: isSuspended ? '#166534' : '#991b1b',
+                  border: `1px solid ${isSuspended ? '#86efac' : '#fca5a5'}`,
+                  borderRadius: radius.sm,
+                  cursor: 'pointer',
+                  minHeight: 36,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {isSuspended ? 'Reactivate' : 'Suspend'}
+              </button>
+            )
+
+            return (
+              <AdminMobileRow
+                key={user.id}
+                title={title}
+                statusBadge={<UserRoleChip isAdmin={roleInfo.isAdmin} isVendor={roleInfo.isVendor} label={roleInfo.label} />}
+                rightAction={action}
+                secondary={
+                  <>
+                    {user.email}
+                    {verticalsLabel && <> · {verticalsLabel}</>}
+                    {buyerTier === 'premium' && <> · <span style={{ color: '#92400e', fontWeight: 600 }}>premium</span></>}
+                    {' · '}
+                    Joined {new Date(user.created_at).toLocaleDateString()}
+                  </>
+                }
+              />
+            )
+          })
+        )}
       </div>
 
         {/* Pagination */}

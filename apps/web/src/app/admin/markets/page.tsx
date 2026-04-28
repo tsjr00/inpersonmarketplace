@@ -3,7 +3,8 @@ import { requireAdmin } from '@/lib/auth/admin'
 import Link from 'next/link'
 import MarketAdminFilters from './MarketAdminFilters'
 import DeleteMarketButton from './DeleteMarketButton'
-import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import AdminMobileRow from '@/components/admin/AdminMobileRow'
+import { spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface MarketsAdminPageProps {
   searchParams: Promise<{ vertical?: string; type?: string; active?: string }>
@@ -91,6 +92,7 @@ export default async function MarketsAdminPage({ searchParams }: MarketsAdminPag
           borderRadius: radius.md,
           boxShadow: shadows.sm,
         }}>
+        <div className="admin-list-table">
         <div className="admin-table-wrap">
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
@@ -208,6 +210,45 @@ export default async function MarketsAdminPage({ searchParams }: MarketsAdminPag
               ))}
             </tbody>
           </table>
+        </div>
+        </div>
+
+        <div className="admin-list-mobile">
+          {transformedMarkets.map((market) => {
+            const location = [market.city, market.state].filter(Boolean).join(', ')
+            const typeLabel = market.type === 'traditional' ? 'Traditional' : 'Private Pickup'
+            const statusBadge = (
+              <span style={{
+                padding: `${spacing['3xs']} ${spacing['2xs']}`,
+                borderRadius: radius.sm,
+                fontSize: typography.sizes.xs,
+                fontWeight: typography.weights.semibold,
+                backgroundColor: market.active ? '#d4edda' : '#f8d7da',
+                color: market.active ? '#155724' : '#721c24',
+              }}>
+                {market.active ? 'Active' : 'Inactive'}
+              </span>
+            )
+
+            return (
+              <AdminMobileRow
+                key={market.id}
+                href={`/admin/markets/${market.id}`}
+                title={market.name}
+                statusBadge={statusBadge}
+                secondary={
+                  <>
+                    {market.vertical_id}
+                    {' · '}
+                    {typeLabel}
+                    {location && <> · {location}</>}
+                    {' · '}
+                    {market.vendor_count} vendor{market.vendor_count !== 1 ? 's' : ''}
+                  </>
+                }
+              />
+            )
+          })}
         </div>
         </div>
       ) : (
