@@ -442,6 +442,38 @@ async function handleMarketBoxAdd(
     })
   }
 
+  // P1-1: Cross-event cart isolation for market boxes. Mirrors the
+  // listing-side check at lines 203-227. Wrapped in `if (newMarketId)` so
+  // offerings with no pickup_market_id fail open (skip the check) rather than
+  // throwing. Same shape as ERR_CART_010 thrown for listings.
+  const newMarketId = offering.pickup_market_id as string | null
+  if (newMarketId) {
+    crumb.logic('Checking cross-event cart isolation (market box)')
+    const { data: crossMarketItems } = await supabase
+      .from('cart_items')
+      .select('market_id')
+      .eq('cart_id', cartId)
+      .neq('market_id', newMarketId)
+      .limit(1)
+
+    if (crossMarketItems && crossMarketItems.length > 0) {
+      const conflictMarketIds = [newMarketId, crossMarketItems[0].market_id as string]
+      const { data: eventMarkets } = await supabase
+        .from('markets')
+        .select('id')
+        .in('id', conflictMarketIds)
+        .eq('market_type', 'event')
+        .limit(1)
+
+      if (eventMarkets && eventMarkets.length > 0) {
+        throw traced.validation('ERR_CART_010',
+          'Your cart has items from a different location. Event orders cannot be combined with other orders. Please clear your cart first.',
+          { additionalContext: { newMarketId, existingMarketId: crossMarketItems[0].market_id } }
+        )
+      }
+    }
+  }
+
   // Check if this offering is already in cart (unique index will also enforce)
   crumb.supabase('select', 'cart_items (market_box existing)')
   const { data: existingCartItem, error: cartCheckError } = await supabase

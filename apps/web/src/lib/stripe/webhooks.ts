@@ -1077,13 +1077,18 @@ async function handleChargeDisputeCreated(dispute: Stripe.Dispute) {
 
   if (admins && admins.length > 0) {
     await Promise.all(
-      admins.map((admin) =>
-        sendNotification(admin.user_id, 'charge_dispute_created', {
+      admins.map(async (admin) => {
+        // P1-2 dedup: Stripe retries webhooks; without this gate, admins are
+        // re-notified of the same dispute on every retry. Mirrors the pattern
+        // already used in handleChargeRefunded (line 1022).
+        const alreadySent = await wasNotificationSent(supabase, admin.user_id, 'charge_dispute_created', dispute.id)
+        if (alreadySent) return
+        await sendNotification(admin.user_id, 'charge_dispute_created', {
           orderNumber,
           disputeAmountCents: disputeAmount,
           disputeReason,
         }, { vertical })
-      )
+      })
     )
   }
 

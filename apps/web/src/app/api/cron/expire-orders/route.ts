@@ -1086,11 +1086,29 @@ export async function GET(request: NextRequest) {
           stripeTransfersUsed++
 
           try {
+            // P0-2: Look up charge ID for source_transaction. Without it,
+            // Stripe attempts the transfer against platform balance, which
+            // fails with balance_insufficient before the charge has settled
+            // (caused the $16.01 stuck-payout incident from Session 74).
+            // Mirrors the working pattern at vendor/orders/[id]/fulfill/route.ts:312-324.
+            let chargeId: string | undefined
+            const { data: payment } = await supabase
+              .from('payments')
+              .select('stripe_payment_intent_id')
+              .eq('order_id', orderItem.order_id)
+              .eq('status', 'succeeded')
+              .maybeSingle()
+
+            if (payment?.stripe_payment_intent_id) {
+              chargeId = (await getChargeIdFromPaymentIntent(payment.stripe_payment_intent_id)) || undefined
+            }
+
             const transfer = await transferToVendor({
               amount: payout.amount_cents,
               destination: vendorProfile.stripe_account_id,
               orderId: orderItem.order_id,
               orderItemId: payout.order_item_id,
+              sourceTransaction: chargeId,
             })
 
             await supabase
