@@ -29,9 +29,9 @@ import type { Category } from '@/lib/constants'
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ listingId: string }> }
 ) {
-  return withErrorTracing('/api/vendor/listings/[id]/publish', 'POST', async () => {
+  return withErrorTracing('/api/vendor/listings/[listingId]/publish', 'POST', async () => {
     const clientIp = getClientIp(request)
     const rl = await checkRateLimit(`listing-publish:${clientIp}`, rateLimits.api)
     if (!rl.success) return rateLimitResponse(rl)
@@ -44,7 +44,7 @@ export async function POST(
       throw traced.auth('ERR_AUTH_001', 'Not authenticated')
     }
 
-    const { id: listingId } = await params
+    const { listingId } = await params
 
     // Fetch listing first — need vertical_id for multi-vertical vendor lookup
     crumb.supabase('select', 'listings')
