@@ -39,16 +39,27 @@ export async function GET(
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     }
 
-    // Get user's order for this event market
-    const { data: order } = await serviceClient
-      .from('orders')
-      .select('id, order_number, status, payment_model, event_wave_reservation_id, created_at')
+    // Resolve user's order for this event via order_items.market_id (orders.market_id
+    // does not exist; the link from event/market to orders is per-item).
+    // Same pattern as events/[token]/cancel/route.ts:120-133.
+    const { data: itemRows } = await serviceClient
+      .from('order_items')
+      .select('order_id')
       .eq('market_id', event.market_id)
-      .eq('user_id', user.id)
-      .not('status', 'eq', 'cancelled')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+
+    const orderIds = [...new Set((itemRows || []).map(r => r.order_id as string))]
+
+    const { data: order } = orderIds.length > 0
+      ? await serviceClient
+          .from('orders')
+          .select('id, order_number, status, payment_model, event_wave_reservation_id, created_at')
+          .in('id', orderIds)
+          .eq('buyer_user_id', user.id)
+          .not('status', 'eq', 'cancelled')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : { data: null }
 
     if (!order) {
       return NextResponse.json({ error: 'No order found for this event' }, { status: 404 })

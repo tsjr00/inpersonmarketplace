@@ -568,8 +568,22 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     severity: 'info',
     audience: 'vendor',
     title: (_d, locale) => t('notif.payout_processed_title', locale),
-    message: (d) => `A payout${d.amountCents ? ` of $${(d.amountCents / 100).toFixed(2)}` : ''} has been sent to your account.`,
-    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/orders`,
+    message: (d) => {
+      const amount = d.amountCents ? ` of $${(d.amountCents / 100).toFixed(2)}` : ''
+      // Market-box subscriptions get richer context so the vendor knows WHO
+      // subscribed and to WHICH offering, not just "you got paid $X".
+      if (d.sourceType === 'market_box_subscription' && d.offeringName) {
+        const who = d.buyerName ? ` from ${d.buyerName}` : ''
+        return `New subscription to "${d.offeringName}"${who} — payout${amount} sent.`
+      }
+      return `A payout${amount} has been sent to your account.`
+    },
+    actionUrl: (d) => {
+      if (d.sourceType === 'market_box_subscription') {
+        return `/${d.vertical || 'farmers_market'}/vendor/market-boxes`
+      }
+      return `/${d.vertical || 'farmers_market'}/vendor/orders`
+    },
   },
 
   payout_failed: {

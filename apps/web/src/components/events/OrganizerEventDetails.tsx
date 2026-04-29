@@ -107,8 +107,10 @@ export default function OrganizerEventDetails({ eventToken, status, vertical, pr
   }
 
   useEffect(() => {
-    if (expanded && !details) loadDetails()
-  }, [expanded]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (expanded && !details) {
+      queueMicrotask(() => { void loadDetails() })
+    }
+  }, [expanded, details])
 
   function startEditing(groupIdx: number) {
     if (!details) return

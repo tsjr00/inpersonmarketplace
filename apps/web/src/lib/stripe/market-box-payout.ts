@@ -137,8 +137,35 @@ export async function processMarketBoxPayout(opts: ProcessMarketBoxPayoutOpts): 
     }
 
     if (vendor.user_id) {
+      // Best-effort enrichment so the vendor sees offering + buyer name in the
+      // notification (P1-3). Lookup failures fall back to the generic payout
+      // message — never block the notification on a name lookup.
+      let offeringName: string | undefined
+      let buyerName: string | undefined
+      try {
+        const [{ data: offeringRow }, { data: subRow }] = await Promise.all([
+          serviceClient.from('market_box_offerings').select('name').eq('id', offeringId).maybeSingle(),
+          serviceClient.from('market_box_subscriptions').select('buyer_user_id').eq('id', subscriptionId).maybeSingle(),
+        ])
+        offeringName = (offeringRow?.name as string) || undefined
+        if (subRow?.buyer_user_id) {
+          const { data: buyerProfile } = await serviceClient
+            .from('user_profiles')
+            .select('display_name')
+            .eq('user_id', subRow.buyer_user_id)
+            .maybeSingle()
+          buyerName = (buyerProfile?.display_name as string) || undefined
+        }
+      } catch {
+        // Swallow lookup errors — notification still fires with generic text
+      }
+
       await sendNotification(vendor.user_id, 'payout_processed', {
         amountCents: vendorPayoutCents,
+        sourceType: 'market_box_subscription',
+        offeringName,
+        buyerName,
+        subscriptionId,
       }, { vertical: vendor.vertical_id })
     }
   } catch (err) {

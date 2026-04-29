@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { useStatusBanner } from '@/hooks/useStatusBanner'
 
 interface PublishButtonProps {
@@ -13,7 +12,6 @@ interface PublishButtonProps {
 export default function PublishButton({ listingId, currentStatus }: PublishButtonProps) {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
   const { showBanner, StatusBanner } = useStatusBanner()
 
   // Only show for draft listings
@@ -26,16 +24,15 @@ export default function PublishButton({ listingId, currentStatus }: PublishButto
 
     setLoading(true)
 
-    const { error } = await supabase
-      .from('listings')
-      .update({
-        status: 'published',
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', listingId)
+    // Server-side route enforces canPublishListings gate (P1-7 fix). Replaces
+    // the prior client-side direct Supabase update which bypassed the gate.
+    const res = await fetch(`/api/vendor/listings/${listingId}/publish`, {
+      method: 'POST',
+    })
 
-    if (error) {
-      showBanner('error', 'Failed to publish listing: ' + error.message)
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      showBanner('error', body.error || 'Failed to publish listing')
       setLoading(false)
       return
     }
