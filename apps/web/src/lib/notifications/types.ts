@@ -122,6 +122,9 @@ export interface NotificationTemplateData {
   confirmedCount?: number
   offeringName?: string
   subscriptionId?: string
+  // Discriminator for payout_processed template branching (P1-3 enrichment).
+  // Currently only 'market_box_subscription'; expand union if more sources emerge.
+  sourceType?: 'market_box_subscription'
   resolution?: string
   paymentMethod?: string
   pendingOrderCount?: number
