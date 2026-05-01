@@ -1,13 +1,20 @@
 #!/bin/sh
-# Pre-push hook — runs Playwright e2e smoke tests before pushing to any remote.
-# Moved here from pre-commit so commit velocity isn't blocked by Turbopack
-# cold-compile stalls in the Next.js dev server that Playwright spins up.
-# CI still runs the full suite regardless of local hooks.
+# Pre-push hook — runs `npm run build` (matches Vercel) THEN Playwright e2e.
 #
-# --max-failures=1 stops the run after the first failing test. Without it,
-# a single broken test causes Playwright to plow through all remaining
-# tests hitting per-test timeouts, turning a 2-minute run into 20+ minutes
-# when things are flaky. One failure is all we need to know to fail the
-# push and diagnose.
+# Build first, fail fast: `next build` is what Vercel runs and is stricter than
+# `tsc --noEmit` or the dev server Playwright spins up. Multiple Vercel deploys
+# silently failed in late April 2026 because broken-type commits passed
+# pre-commit (lint-staged + vitest) and pre-push (Playwright on `next dev`)
+# but were rejected by Vercel's `next build`. Adding `npm run build` here
+# closes that gap — push is blocked locally for any error Vercel would reject.
+#
+# Build cost: 30-60 sec on warm cache, longer cold. Acceptable for the
+# infrequent push cadence; the prior alternative was 4-day stale staging.
+#
+# Playwright runs only if build passes (set -e). --max-failures=1 stops after
+# the first failing test so a single broken test doesn't cascade into 20+
+# minutes of timeouts. CI still runs the full suite regardless of local hooks.
+set -e
 cd apps/web
+npm run build
 npx playwright test --max-failures=1

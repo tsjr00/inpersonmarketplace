@@ -137,26 +137,39 @@ When a meaningful decision is made during a session, Claude records it in `apps/
 ## Protocol 5: Pre-Commit Quality Gate
 
 ### Problem It Solves
-CI has failed multiple times because changes passed local `lint-staged` (only staged files) but failed full `npm run lint` (all files, which is what CI runs). The password validation mismatch also sat unnoticed because there was no consistency check.
+CI/Vercel has rejected commits that passed local checks because the local checks didn't match what production build runs:
+- `lint-staged` (pre-commit) only checks staged files; full `npm run lint` checks everything (matches CI)
+- `tsc --noEmit` is more permissive than `next build` — Vercel's production build catches type errors on component props, template-data interfaces, and discriminated unions that raw tsc lets through
+- Multiple Vercel deploys silently failed in late April 2026 because `8a2a5a1f` introduced `d.sourceType` on a `NotificationTemplateData` interface that didn't have the property; `tsc --noEmit` passed, Vercel rejected. Staging served the prior commit for 4 days while we ran "smoke tests" on unchanged old code thinking we were validating new fixes.
 
 ### The Protocol
 Before committing, Claude runs (or recommends running):
 
-1. **`npm run lint`** — full project lint (matches CI), not just staged files
-2. **`npx tsc --noEmit`** — type check
-3. **`npx vitest run`** — test suite
+1. **`npm run lint`** — full project lint (matches CI), not just staged files — REQUIRED
+2. **`npm run build`** — full Next.js production build, matches what Vercel runs — REQUIRED for any commit that touches types, component props, template interfaces, or shared module exports. Optional for doc-only / config-only commits.
+3. **`npx vitest run`** — test suite — REQUIRED
+4. **`npx tsc --noEmit`** — optional sanity check; faster than `npm run build` but does NOT catch everything Vercel catches. Useful when iterating; do NOT rely on it as the gate before push.
 
-### Current Pre-Commit Hook
-`.husky/pre-commit` runs `lint-staged` + `vitest` — this catches staged-file issues but NOT full-project lint errors that CI will catch.
+### Current Hooks
+- **`.husky/pre-commit`** runs `lint-staged` + `vitest`. Catches staged-file lint issues + unit-test regressions.
+- **`.husky/pre-push`** runs `npm run build` THEN `npx playwright test --max-failures=1`. Build first, fail fast — push is blocked locally for any error Vercel would reject. Playwright runs only if build passes.
 
 ### Claude's Responsibility
-- Before any commit that touches more than 2-3 files, run `npm run lint` in the `apps/web` directory
-- If lint/type errors exist, fix them before committing — don't push and hope CI passes
-- If the user says "just commit it," flag: *"There are lint errors that will fail CI. Fix first?"*
+- Before any commit that touches types/templates/shared interfaces, run `npm run build` in the `apps/web` directory
+- For doc-only or trivial config commits, `npm run lint` + `vitest` is sufficient
+- If lint/type/build errors exist, fix them before pushing — don't push and hope Vercel passes
+- If the user says "just commit it," flag: *"There are build errors that will fail Vercel. Fix first?"*
+- After staging push, verify Vercel BUILD STATUS, not just origin ref-update. The push reaching origin is necessary but not sufficient — Vercel must successfully build the commit for staging to actually update.
+
+### Why `next build` not just `tsc --noEmit`
+- `next build` runs through SWC/Babel which performs additional strictness checks beyond raw TypeScript
+- `next build` evaluates the full module graph; `tsc --noEmit` may skip some incremental compilation paths
+- `next build` is what Vercel runs — local parity guarantees no surprises in production deploy
 
 ### User Prompt
 > "Run quality checks."
 > "Is this safe to commit?"
+> "Did Vercel build pass?"
 
 ---
 
