@@ -46,18 +46,20 @@ export default async function CateringPage({ params, searchParams }: CateringPag
 
   const accent = isFT ? '#ff5757' : '#2d5016'
 
-  // Compute average vendor throughput from the event-approved vendor pool.
-  // Used by the form to suggest a sensible vendor_count default based on REAL
-  // vendor capacity data rather than a hardcoded constant. Falls back to the
-  // platform default (30) if the pool is empty or no vendors have declared
-  // their max_headcount_per_wave.
+  // Compute pool-derived data the form uses to suggest vendor_count:
+  //   1. avgVendorThroughput — orders/30-min wave (capacity layer)
+  //   2. avgCategoriesPerVendor — distinct categories per vendor (variety layer,
+  //      respects that some vendors cover multiple cuisines so we don't blindly
+  //      multiply suggestion by category count)
+  // Both fall back to safe defaults when the pool is empty.
   let avgVendorThroughput = 30
+  let avgCategoriesPerVendor = 1
   let vendorPoolSize = 0
   try {
     const sb = await createClient()
     const { data: vendorPool } = await sb
       .from('vendor_profiles')
-      .select('profile_data')
+      .select('id, profile_data')
       .eq('vertical_id', vertical)
       .eq('status', 'approved')
       .eq('event_approved', true)
@@ -73,6 +75,31 @@ export default async function CateringPage({ params, searchParams }: CateringPag
 
       if (throughputs.length > 0) {
         avgVendorThroughput = Math.round(throughputs.reduce((a, b) => a + b, 0) / throughputs.length)
+      }
+
+      // Variety layer: count distinct categories each vendor covers via their
+      // published listings. A vendor with [BBQ, Tex-Mex] satisfies 2 of the
+      // organizer's selected categories, so the variety floor accounts for
+      // multi-category vendors instead of demanding 1 vendor per category.
+      const vendorIds = vendorPool.map(v => v.id as string)
+      const { data: poolListings } = await sb
+        .from('listings')
+        .select('vendor_profile_id, category')
+        .in('vendor_profile_id', vendorIds)
+        .eq('status', 'published')
+        .is('deleted_at', null)
+
+      if (poolListings && poolListings.length > 0) {
+        const distinctPerVendor = new Map<string, Set<string>>()
+        for (const l of poolListings) {
+          const vid = l.vendor_profile_id as string
+          if (!distinctPerVendor.has(vid)) distinctPerVendor.set(vid, new Set())
+          if (l.category) distinctPerVendor.get(vid)!.add(l.category as string)
+        }
+        const counts = [...distinctPerVendor.values()].map(s => s.size).filter(n => n > 0)
+        if (counts.length > 0) {
+          avgCategoriesPerVendor = Math.max(1, counts.reduce((a, b) => a + b, 0) / counts.length)
+        }
       }
     }
   } catch {
@@ -336,6 +363,7 @@ export default async function CateringPage({ params, searchParams }: CateringPag
           vertical={vertical}
           vendorPreference={vendorPreference}
           avgVendorThroughput={avgVendorThroughput}
+          avgCategoriesPerVendor={avgCategoriesPerVendor}
           vendorPoolSize={vendorPoolSize}
         />
       </div>

@@ -11,9 +11,13 @@ interface EventRequestFormProps {
   vertical: string
   vendorPreference?: string | null
   // Server-computed average max_headcount_per_wave from the event-approved
-  // vendor pool. Used to pre-fill vendor_count with a real-data suggestion.
+  // vendor pool. Used by the capacity layer of the vendor_count suggestion.
   avgVendorThroughput: number
-  // Size of the pool used to compute the average. Drives helper text wording.
+  // Server-computed average distinct categories per vendor in the pool.
+  // Used by the variety layer — accounts for multi-category vendors so the
+  // suggestion doesn't demand 1 vendor per cuisine the organizer picks.
+  avgCategoriesPerVendor: number
+  // Size of the pool used to compute averages. Drives helper text wording.
   vendorPoolSize: number
 }
 
@@ -146,7 +150,7 @@ const rowStyle: React.CSSProperties = {
   gap: spacing.sm,
 }
 
-export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughput, vendorPoolSize }: EventRequestFormProps) {
+export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughput, avgCategoriesPerVendor, vendorPoolSize }: EventRequestFormProps) {
   const accent = verticalAccent[vertical] || verticalAccent.farmers_market
   const locale = getClientLocale()
   const [form, setForm] = useState<FormData>({
@@ -198,6 +202,9 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
   // Track whether the user has manually edited vendor_count so the auto-suggest
   // useEffect doesn't overwrite their value when other fields change.
   const [vendorCountManuallyEdited, setVendorCountManuallyEdited] = useState(false)
+  // Tracks the system's computed suggestion separately from form.vendor_count.
+  // Helper text reads from this so it doesn't follow the user's manual edits.
+  const [systemSuggested, setSystemSuggested] = useState<number | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [matchCount, setMatchCount] = useState(0)
@@ -208,20 +215,28 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
-  // Auto-suggest vendor_count based on event_type + headcount + (optional) times,
-  // using the vertical-scoped average vendor throughput from the server.
-  // Buyer rate per event_type:
-  //   corporate_lunch / team_building → 100% (captive audience)
-  //   private_party                   → 90%
-  //   grand_opening / festival        → 20% (crowd, low conversion)
-  //   other                           → 60%
-  // Doesn't fire if user has manually typed a value.
+  // Layered vendor_count suggestion. See session75_event_consolidated_plan.md
+  // and the formula write-up for full reasoning. Layers:
+  //   1. Demand:    estimatedOrders = headcount × buyerRate (event_type-driven)
+  //   2. Timing:    numWaves = ceil(eventMinutes / 30)
+  //   3. Peak load: peakLoadPerWave varies by event_type's demand profile
+  //                 (concentrated lunch/party vs sustained team_building vs spread crowd)
+  //   4. Capacity:  capacityVendors = ceil(peakLoadPerWave / avgVendorThroughput)
+  //   5. Variety:   categoryVendors = ceil(numCategories / avgCategoriesPerVendor)
+  //                 — multi-category-aware so we don't blindly demand 1 per cuisine
+  //   6. Combine:   suggested = clamp(max(capacity, variety), 1, 20)
   useEffect(() => {
-    if (vendorCountManuallyEdited) return
-    if (!form.event_type || !form.headcount) return
+    if (!form.event_type || !form.headcount) {
+      setSystemSuggested(null)
+      return
+    }
     const headcount = parseInt(form.headcount, 10)
-    if (isNaN(headcount) || headcount < 1) return
+    if (isNaN(headcount) || headcount < 1) {
+      setSystemSuggested(null)
+      return
+    }
 
+    // Layer 1 — buyer rate by event_type
     let buyerRate = 0.6
     switch (form.event_type) {
       case 'corporate_lunch':
@@ -235,32 +250,68 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
       case 'festival':
         buyerRate = 0.2
         break
-      case 'other':
       default:
         buyerRate = 0.6
     }
+    const estimatedOrders = Math.round(headcount * buyerRate)
 
-    // Wave count from times if known, else assume 4 waves (2hr × 2 per hour)
+    // Layer 2 — wave count from times (else assume 2hr / 4 waves)
     let numWaves = 4
     if (form.event_start_time && form.event_end_time) {
       const sParts = form.event_start_time.split(':').map(Number)
       const eParts = form.event_end_time.split(':').map(Number)
       if (sParts.length >= 2 && eParts.length >= 2 && !sParts.some(isNaN) && !eParts.some(isNaN)) {
         const minutes = (eParts[0] * 60 + eParts[1]) - (sParts[0] * 60 + sParts[1])
-        if (minutes > 0) numWaves = Math.ceil(minutes / 30)
+        if (minutes > 0) numWaves = Math.max(1, Math.ceil(minutes / 30))
       }
     }
 
-    const estimatedOrders = Math.round(headcount * buyerRate)
-    const servicableOrdersPerVendor = Math.max(1, avgVendorThroughput) * numWaves
-    const suggested = Math.max(1, Math.min(20, Math.ceil(estimatedOrders / servicableOrdersPerVendor)))
+    // Layer 3 — peak load per wave by demand profile
+    let peakLoadPerWave: number
+    if (form.event_type === 'corporate_lunch' || form.event_type === 'private_party' || form.event_type === 'other') {
+      // CONCENTRATED: ~50% of orders compress into a single peak 30-min wave
+      peakLoadPerWave = estimatedOrders * 0.5
+    } else if (form.event_type === 'team_building') {
+      // SUSTAINED: 50% of orders cluster in peak ~25% of event
+      const peakWaves = Math.max(1, Math.ceil(numWaves * 0.25))
+      peakLoadPerWave = (estimatedOrders * 0.5) / peakWaves
+    } else {
+      // SPREAD (grand_opening, festival): foot traffic distributed evenly
+      peakLoadPerWave = estimatedOrders / numWaves
+    }
 
-    // queueMicrotask defers the state update out of the render-effect synchronous
-    // path — same pattern as the P1-6 fix in OrganizerEventDetails.tsx.
-    queueMicrotask(() => {
-      setForm(prev => ({ ...prev, vendor_count: String(suggested) }))
-    })
-  }, [form.event_type, form.headcount, form.event_start_time, form.event_end_time, avgVendorThroughput, vendorCountManuallyEdited])
+    // Layer 4 — capacity-driven vendor count
+    const capacityVendors = Math.ceil(peakLoadPerWave / Math.max(1, avgVendorThroughput))
+
+    // Layer 5 — variety floor (multi-category-aware)
+    const numCategories = form.preferred_vendor_categories.length
+    const categoryVendors = numCategories > 0
+      ? Math.max(1, Math.ceil(numCategories / Math.max(1, avgCategoriesPerVendor)))
+      : 0
+
+    // Layer 6 — combine, clamp to [1, 20]
+    const suggested = Math.max(1, Math.min(20, Math.max(capacityVendors, categoryVendors)))
+
+    setSystemSuggested(suggested)
+
+    // Pre-fill the input only when user hasn't manually edited yet
+    if (!vendorCountManuallyEdited) {
+      // queueMicrotask defers the state update out of the render-effect
+      // synchronous path — same pattern as P1-6 in OrganizerEventDetails.tsx
+      queueMicrotask(() => {
+        setForm(prev => ({ ...prev, vendor_count: String(suggested) }))
+      })
+    }
+  }, [
+    form.event_type,
+    form.headcount,
+    form.event_start_time,
+    form.event_end_time,
+    form.preferred_vendor_categories,
+    avgVendorThroughput,
+    avgCategoriesPerVendor,
+    vendorCountManuallyEdited,
+  ])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -695,18 +746,29 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
               </p>
             </div>
 
-            {/* Vendor count — auto-suggested from event_type + headcount + vendor pool throughput */}
+            {/* Vendor count — auto-suggested from event_type + headcount + times +
+                category coverage + vendor pool throughput. Helper text reads from
+                systemSuggested (separate from form.vendor_count) so it doesn't follow
+                user manual edits. */}
             <div>
               <label style={labelStyle}>How many vendors do you want?</label>
               <input type="number" min={1} max={20} value={form.vendor_count}
                 onChange={(e) => updateField('vendor_count', e.target.value)}
                 style={{ ...inputStyle, maxWidth: 120 }} />
               <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: statusColors.neutral400 }}>
-                {form.event_type && form.headcount && form.vendor_count
-                  ? (vendorPoolSize > 0
-                      ? `Suggested ${form.vendor_count} based on ${form.headcount} attendees and our ${vendorPoolSize} event-approved ${isFM ? 'vendors' : 'food trucks'} (avg ${avgVendorThroughput} orders / 30-min wave). Adjust if needed.`
-                      : `Suggested ${form.vendor_count} based on typical ${form.event_type.replace('_', ' ')} events. Adjust if needed.`)
-                  : 'Pick an event type and headcount above and we’ll suggest a starting number.'}
+                {systemSuggested == null ? (
+                  'Pick an event type and headcount above and we’ll suggest a starting number.'
+                ) : (
+                  <>
+                    {vendorPoolSize > 0
+                      ? `Based on ${form.headcount} ${parseInt(form.headcount, 10) === 1 ? 'attendee' : 'attendees'} and ${form.preferred_vendor_categories.length} ${form.preferred_vendor_categories.length === 1 ? 'cuisine' : 'cuisines'} at a ${form.event_type.replace('_', ' ')} event, balanced against our ${vendorPoolSize} event-approved ${isFM ? 'vendors' : 'food trucks'} (avg ${avgVendorThroughput} orders / 30-min wave, avg ${avgCategoriesPerVendor.toFixed(1)} cuisines per vendor), we suggest `
+                      : `For a ${form.headcount}-person ${form.event_type.replace('_', ' ')} event with ${form.preferred_vendor_categories.length} ${form.preferred_vendor_categories.length === 1 ? 'cuisine' : 'cuisines'}, we suggest `}
+                    <strong>{systemSuggested} {systemSuggested === 1 ? 'vendor' : 'vendors'}</strong>
+                    {form.vendor_count && parseInt(form.vendor_count, 10) !== systemSuggested
+                      ? ` — you’re using ${form.vendor_count}.`
+                      : '. Adjust if needed.'}
+                  </>
+                )}
               </p>
             </div>
           </div>
