@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import AdminMobileRow from '@/components/admin/AdminMobileRow'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { useStatusBanner } from '@/hooks/useStatusBanner'
 
@@ -147,6 +148,8 @@ export default function VerticalErrorLogsDashboard() {
           </div>
 
           <div className={`admin-detail-split ${selectedGroup ? 'has-detail' : ''}`}>
+            <div>
+            <div className="admin-list-table">
             <div className="admin-table-wrap">
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: typography.sizes.sm }}>
                 <thead>
@@ -177,6 +180,44 @@ export default function VerticalErrorLogsDashboard() {
                   })}
                 </tbody>
               </table>
+            </div>
+            </div>
+
+            <div className="admin-list-mobile">
+              {data.groups.map((g, i) => {
+                const sevColor = severityColors[g.severity] || severityColors.low
+                const isSelected = selectedGroup === g
+                return (
+                  <AdminMobileRow
+                    key={i}
+                    onClick={() => setSelectedGroup(isSelected ? null : g)}
+                    selected={isSelected}
+                    title={g.error_code || '(no code)'}
+                    statusBadge={
+                      <span style={{
+                        padding: `2px ${spacing['2xs']}`,
+                        borderRadius: radius.sm,
+                        fontSize: typography.sizes.xs,
+                        fontWeight: 600,
+                        backgroundColor: sevColor.bg,
+                        color: sevColor.text
+                      }}>
+                        {g.severity}
+                      </span>
+                    }
+                    secondary={
+                      <>
+                        <span style={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>{g.route || '—'}</span>
+                        {' · '}
+                        <span style={{ fontWeight: 700 }}>{g.count}</span> occurrence{g.count !== 1 ? 's' : ''}
+                        {' · '}
+                        last seen {timeAgo(g.last_seen)}
+                      </>
+                    }
+                  />
+                )
+              })}
+            </div>
             </div>
 
             {selectedGroup && (

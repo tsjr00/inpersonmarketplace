@@ -7,6 +7,7 @@ import { colors, spacing, typography, radius, shadows } from '@/lib/design-token
 import { term } from '@/lib/vertical'
 import { useStatusBanner } from '@/hooks/useStatusBanner'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
+import AdminMobileRow from '@/components/admin/AdminMobileRow'
 
 interface VerticalAdmin {
   id: string
@@ -297,6 +298,7 @@ export default function VerticalAdminManagementPage() {
         borderRadius: radius.md,
         boxShadow: shadows.sm,
       }}>
+      <div className="admin-list-table">
       <div className="admin-table-wrap">
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
@@ -362,6 +364,68 @@ export default function VerticalAdminManagementPage() {
             )}
           </tbody>
         </table>
+      </div>
+      </div>
+
+      {/* Mobile compressed rows — sibling of admin-list-table; visibility flipped via CSS */}
+      <div className="admin-list-mobile">
+        {admins.length === 0 ? (
+          <p style={{ padding: spacing.md, textAlign: 'center', color: colors.textMuted }}>
+            No vertical admins found
+          </p>
+        ) : (
+          admins.map((admin) => {
+            const isSelf = admin.user_id === currentUserId
+            const canRemove = !isSelf && (isPlatformAdmin || (isChiefVerticalAdmin && !admin.is_chief))
+            const roleBadge = (
+              <span style={{
+                padding: `2px ${spacing['2xs']}`,
+                borderRadius: radius.sm,
+                fontSize: typography.sizes.xs,
+                fontWeight: typography.weights.semibold,
+                backgroundColor: admin.is_chief ? '#fef3c7' : '#e0e7ff',
+                color: admin.is_chief ? '#92400e' : '#3730a3',
+              }}>
+                {admin.is_chief ? 'Chief Admin' : 'Admin'}
+              </span>
+            )
+            const rightAction = canRemove ? (
+              <button
+                onClick={() => handleRemoveAdmin(admin.id, admin.email)}
+                style={{
+                  padding: `${spacing['3xs']} ${spacing.xs}`,
+                  backgroundColor: '#fee2e2',
+                  color: '#991b1b',
+                  border: 'none',
+                  borderRadius: radius.sm,
+                  fontSize: typography.sizes.sm,
+                  cursor: 'pointer',
+                }}
+              >
+                Remove
+              </button>
+            ) : isSelf ? (
+              <span style={{ color: colors.textMuted, fontSize: typography.sizes.xs, fontStyle: 'italic' }}>
+                (You)
+              </span>
+            ) : null
+            return (
+              <AdminMobileRow
+                key={admin.id}
+                title={admin.display_name || admin.email}
+                statusBadge={roleBadge}
+                secondary={
+                  <>
+                    <span style={{ wordBreak: 'break-all' }}>{admin.email}</span>
+                    {' · '}
+                    <span>added {new Date(admin.granted_at).toLocaleDateString()}</span>
+                  </>
+                }
+                rightAction={rightAction}
+              />
+            )
+          })
+        )}
       </div>
       </div>
 

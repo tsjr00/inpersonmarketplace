@@ -33,6 +33,11 @@ interface AdminMobileRowProps {
   href?: string
   /** Action mode: this element is rendered on the right; row is not tappable. */
   rightAction?: ReactNode
+  /** State-toggle mode: tap fires this handler (no navigation). Used for
+      master/detail pages that show a side panel rather than navigating. */
+  onClick?: () => void
+  /** Highlights the row (used together with onClick for selected state). */
+  selected?: boolean
 }
 
 export default function AdminMobileRow({
@@ -41,7 +46,10 @@ export default function AdminMobileRow({
   statusBadge,
   href,
   rightAction,
+  onClick,
+  selected,
 }: AdminMobileRowProps) {
+  const selectedStyle = selected ? { backgroundColor: '#eff6ff' } : undefined
   // When the row has a `rightAction` (action mode — Suspend, Reactivate,
   // etc.), use a STACKED layout: title alone on line 1 (full width, no
   // truncation contention with status chip / button), secondary on line 2,
@@ -67,27 +75,27 @@ export default function AdminMobileRow({
 
     if (href) {
       return (
-        <Link href={href} className="admin-mobile-row admin-mobile-row-stacked">
+        <Link href={href} className="admin-mobile-row admin-mobile-row-stacked" style={selectedStyle}>
           {inner}
         </Link>
       )
     }
 
     return (
-      <div className="admin-mobile-row admin-mobile-row-stacked">
+      <div className="admin-mobile-row admin-mobile-row-stacked" style={selectedStyle}>
         {inner}
       </div>
     )
   }
 
-  // Compact layout (drill-in or no action)
+  // Compact layout (drill-in, click-to-toggle, or no action)
   const line1 = (
     <div className="admin-mobile-row-line1">
       <span className="admin-mobile-row-title">{title}</span>
       {statusBadge && (
         <span className="admin-mobile-row-status">{statusBadge}</span>
       )}
-      {href && (
+      {(href || onClick) && (
         <span className="admin-mobile-row-chevron" aria-hidden="true">›</span>
       )}
     </div>
@@ -97,15 +105,36 @@ export default function AdminMobileRow({
 
   if (href) {
     return (
-      <Link href={href} className="admin-mobile-row">
+      <Link href={href} className="admin-mobile-row" style={selectedStyle}>
         {line1}
         {line2}
       </Link>
     )
   }
 
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="admin-mobile-row"
+        style={{
+          ...selectedStyle,
+          width: '100%',
+          textAlign: 'left',
+          border: 'none',
+          font: 'inherit',
+          cursor: 'pointer',
+        }}
+      >
+        {line1}
+        {line2}
+      </button>
+    )
+  }
+
   return (
-    <div className="admin-mobile-row">
+    <div className="admin-mobile-row" style={selectedStyle}>
       {line1}
       {line2}
     </div>
