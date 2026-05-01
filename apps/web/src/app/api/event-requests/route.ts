@@ -67,6 +67,7 @@ export async function POST(request: NextRequest) {
       event_allow_day_of_orders,
       vendor_stay_policy,
       company_max_per_attendee_cents,
+      event_setting,
     } = body
 
     // Validate vertical
@@ -78,10 +79,18 @@ export async function POST(request: NextRequest) {
       !company_name ||
       !contact_name ||
       !contact_email ||
+      !event_type ||
       !event_date ||
+      !event_start_time ||
+      !event_end_time ||
       !headcount ||
       !city ||
-      !state
+      !state ||
+      !zip ||
+      !event_setting ||
+      !preferred_vendor_categories ||
+      !Array.isArray(preferred_vendor_categories) ||
+      preferred_vendor_categories.length === 0
     ) {
       return NextResponse.json(
         { error: 'Missing required fields' },
@@ -95,6 +104,43 @@ export async function POST(request: NextRequest) {
         { error: 'Invalid email format' },
         { status: 400 }
       )
+    }
+
+    // Validate event_setting value
+    if (!['indoor', 'outdoor', 'either'].includes(event_setting)) {
+      return NextResponse.json(
+        { error: 'event_setting must be indoor, outdoor, or either' },
+        { status: 400 }
+      )
+    }
+
+    // Validate event_type value
+    const validEventTypeValues = ['corporate_lunch', 'team_building', 'grand_opening', 'festival', 'private_party', 'other']
+    if (!validEventTypeValues.includes(event_type)) {
+      return NextResponse.json(
+        { error: 'Invalid event_type' },
+        { status: 400 }
+      )
+    }
+
+    // Validate event time range
+    {
+      const startParts = String(event_start_time).split(':').map(Number)
+      const endParts = String(event_end_time).split(':').map(Number)
+      if (startParts.length < 2 || endParts.length < 2 || startParts.some(isNaN) || endParts.some(isNaN)) {
+        return NextResponse.json(
+          { error: 'Invalid event time format' },
+          { status: 400 }
+        )
+      }
+      const startMin = startParts[0] * 60 + startParts[1]
+      const endMin = endParts[0] * 60 + endParts[1]
+      if (endMin <= startMin) {
+        return NextResponse.json(
+          { error: 'Event end time must be after start time' },
+          { status: 400 }
+        )
+      }
     }
 
     // Validate event_date is not in the past
@@ -156,7 +202,6 @@ export async function POST(request: NextRequest) {
     const supabase = createServiceClient()
 
     // Validate new structured fields
-    const validEventTypes = ['corporate_lunch', 'team_building', 'grand_opening', 'festival', 'private_party', 'other']
     const validPaymentModels = ['company_paid', 'attendee_paid', 'hybrid']
     const validRecurringFreqs = ['weekly', 'biweekly', 'monthly', 'quarterly']
 
@@ -170,12 +215,12 @@ export async function POST(request: NextRequest) {
         contact_phone: contact_phone
           ? String(contact_phone).slice(0, 30)
           : null,
-        event_type: event_type && validEventTypes.includes(event_type) ? event_type : null,
+        event_type,
         payment_model: payment_model && validPaymentModels.includes(payment_model) ? payment_model : null,
         event_date,
         event_end_date: event_end_date || null,
-        event_start_time: event_start_time || null,
-        event_end_time: event_end_time || null,
+        event_start_time,
+        event_end_time,
         headcount: hc,
         expected_meal_count: expected_meal_count ? Math.min(Math.max(parseInt(expected_meal_count, 10) || 0, 0), 5000) : null,
         total_food_budget_cents: total_food_budget_cents ? Math.max(parseInt(total_food_budget_cents, 10) || 0, 0) : null,
@@ -188,11 +233,13 @@ export async function POST(request: NextRequest) {
         is_themed: !!is_themed,
         theme_description: is_themed && theme_description ? String(theme_description).slice(0, 500) : null,
         estimated_spend_per_attendee_cents: estimated_spend_per_attendee_cents ? Math.max(parseInt(estimated_spend_per_attendee_cents, 10) || 0, 0) : null,
-        preferred_vendor_categories: Array.isArray(preferred_vendor_categories) ? preferred_vendor_categories : null,
-        address: String(address).slice(0, 500),
+        preferred_vendor_categories,
+        // address is optional at Stage 1; required to advance to 'approved' (enforced in admin/events PATCH)
+        address: address ? String(address).slice(0, 500) : null,
         city: String(city).slice(0, 100),
         state: String(state).slice(0, 50),
         zip: String(zip).slice(0, 10),
+        event_setting,
         cuisine_preferences: cuisine_preferences
           ? String(cuisine_preferences).slice(0, 500)
           : null,
@@ -235,25 +282,34 @@ export async function POST(request: NextRequest) {
     const requestId = (insertedRow as { id: string }).id
     const isSelfService = service_level === 'self_service'
 
-    // Self-service: auto-approve → auto-match → auto-invite (no admin involvement)
-    if (isSelfService) {
+    // Self-service: auto-approve → auto-match → auto-invite (no admin involvement).
+    // Address is required for status to advance to 'approved' (matches admin gate).
+    // If organizer skipped optional address at Stage 1, self-service skips auto-approval
+    // and leaves the request in 'new' state. Organizer can fill in address from their
+    // dashboard, then admin or a follow-up flow can approve.
+    const hasAddress = address && String(address).trim().length > 0
+    if (isSelfService && !hasAddress) {
+      console.log(`[self-service] Event ${requestId}: address missing — skipping auto-approval`)
+    }
+    if (isSelfService && hasAddress) {
       const requestData = {
         id: requestId,
         vertical_id: verticalId,
         company_name: String(company_name),
         event_date,
         event_end_date: event_end_date || null,
-        event_start_time: event_start_time || null,
-        event_end_time: event_end_time || null,
+        event_start_time,
+        event_end_time,
         headcount: hc,
         expected_meal_count: expected_meal_count ? parseInt(expected_meal_count, 10) : null,
-        address: String(address),
+        address: address ? String(address) : '',
         city: String(city),
         state: String(state),
         zip: String(zip),
         vendor_count: vendor_count ? Math.min(parseInt(vendor_count, 10) || 2, 20) : 2,
         cuisine_preferences: cuisine_preferences ? String(cuisine_preferences) : null,
-        event_type: event_type || null,
+        event_type,
+        event_setting,
         payment_model: payment_model || null,
         children_present: !!children_present,
         contact_email: String(contact_email).toLowerCase().trim(),

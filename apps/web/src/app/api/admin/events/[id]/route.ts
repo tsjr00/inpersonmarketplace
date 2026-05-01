@@ -111,6 +111,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     // On APPROVE: create event market + schedule via shared function
     if (status === 'approved' && cateringReq.status !== 'approved') {
+      // Address required for approval — Stage 2 mandatory gate.
+      // Stage 1 form makes address optional; admin/organizer must provide a real
+      // address before the event can advance. The market created downstream uses
+      // this address for vendor logistics.
+      if (!cateringReq.address || !String(cateringReq.address).trim()) {
+        return NextResponse.json(
+          { error: 'Cannot approve event without a street address. Ask the organizer to add one via their dashboard.' },
+          { status: 400 }
+        )
+      }
+
       const approval = await approveEventRequest(serviceClient, cateringReq)
 
       if (!approval.success) {

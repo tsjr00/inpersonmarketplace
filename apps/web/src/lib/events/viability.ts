@@ -571,6 +571,7 @@ export function scoreVendorMatch(
     event_end_time: string | null
     children_present?: boolean
     event_type?: string | null
+    event_setting?: 'indoor' | 'outdoor' | 'either' | null
   }
 ): VendorMatchResult {
   const numWaves = calculateWaveCount(event.event_start_time, event.event_end_time)
@@ -627,11 +628,15 @@ export function scoreVendorMatch(
     }
   }
 
-  // Standard (loud) generator at corporate/indoor-likely events OR children's events
+  // Standard (loud) generator at indoor or quiet events.
+  // Prefer explicit event_setting; fall back to event_type inference for legacy
+  // requests that predate the event_setting column.
   if (vendor.requires_generator && vendor.generator_type === 'standard') {
-    const quietRequired = ['corporate_lunch', 'team_building', 'private_party']
-    if (event.event_type && quietRequired.includes(event.event_type)) {
-      deal_breakers.push('Loud generator at corporate/private event (quiet inverter required)')
+    const settingRequiresQuiet = event.event_setting === 'indoor' || event.event_setting === 'either'
+    const quietRequiredByType = ['corporate_lunch', 'team_building', 'private_party']
+    const typeRequiresQuiet = event.event_type ? quietRequiredByType.includes(event.event_type) : false
+    if (settingRequiresQuiet || (event.event_setting == null && typeRequiresQuiet)) {
+      deal_breakers.push('Loud generator at indoor/quiet event (quiet inverter required)')
     }
   }
 
@@ -673,9 +678,12 @@ export function scoreVendorMatch(
     warnings.push('Refrigerated products at 4+ hour event — verify vendor has power/cooling plan')
   }
 
-  // Weather-sensitive FM vendor at likely outdoor event — flag but don't exclude
-  const outdoorTypes = ['festival', 'grand_opening']
-  if (vendor.seating_recommended && event.event_type && outdoorTypes.includes(event.event_type)) {
+  // Weather-sensitive vendor at likely-outdoor event — flag but don't exclude.
+  // Prefer explicit event_setting; fall back to event_type inference for legacy rows.
+  const outdoorTypesInferred = ['festival', 'grand_opening']
+  const settingIsOutdoor = event.event_setting === 'outdoor' || event.event_setting === 'either'
+  const typeIsOutdoorish = event.event_type ? outdoorTypesInferred.includes(event.event_type) : false
+  if (vendor.seating_recommended && (settingIsOutdoor || (event.event_setting == null && typeIsOutdoorish))) {
     warnings.push('Weather-sensitive setup at likely outdoor event — confirm covered space available')
   }
 

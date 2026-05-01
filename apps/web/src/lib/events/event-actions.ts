@@ -34,6 +34,7 @@ interface CateringRequest {
   cuisine_preferences: string | null
   event_type: string | null
   payment_model: string | null
+  event_setting?: 'indoor' | 'outdoor' | 'either' | null
   children_present?: boolean
   contact_email?: string | null
   cutoff_hours?: number | null
@@ -241,6 +242,7 @@ export async function autoMatchAndInvite(
     event_end_time: request.event_end_time,
     children_present: !!request.children_present,
     event_type: request.event_type,
+    event_setting: request.event_setting ?? null,
   }
 
   const scoredVendors: Array<{ vendor: typeof vendors[0]; score: ReturnType<typeof scoreVendorMatch>; cateringItems: number }> = []

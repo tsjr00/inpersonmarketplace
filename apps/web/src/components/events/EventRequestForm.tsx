@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { spacing, typography, radius, sizing, statusColors } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
 import { getClientLocale } from '@/lib/locale/client'
@@ -10,6 +10,11 @@ import { CATEGORIES, FOOD_TRUCK_CATEGORIES } from '@/lib/constants'
 interface EventRequestFormProps {
   vertical: string
   vendorPreference?: string | null
+  // Server-computed average max_headcount_per_wave from the event-approved
+  // vendor pool. Used to pre-fill vendor_count with a real-data suggestion.
+  avgVendorThroughput: number
+  // Size of the pool used to compute the average. Drives helper text wording.
+  vendorPoolSize: number
 }
 
 interface FormData {
@@ -35,6 +40,7 @@ interface FormData {
   city: string
   state: string
   zip: string
+  event_setting: string
   cuisine_preferences: string
   dietary_restrictions: string[]
   dietary_other: string
@@ -140,7 +146,7 @@ const rowStyle: React.CSSProperties = {
   gap: spacing.sm,
 }
 
-export function EventRequestForm({ vertical, vendorPreference }: EventRequestFormProps) {
+export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughput, vendorPoolSize }: EventRequestFormProps) {
   const accent = verticalAccent[vertical] || verticalAccent.farmers_market
   const locale = getClientLocale()
   const [form, setForm] = useState<FormData>({
@@ -171,13 +177,14 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
     city: '',
     state: '',
     zip: '',
+    event_setting: '',
     cuisine_preferences: '',
     dietary_restrictions: [],
     dietary_other: '',
     budget_notes: '',
     beverages_provided: false,
     dessert_provided: false,
-    vendor_count: '2',
+    vendor_count: '',
     setup_instructions: '',
     additional_notes: vendorPreference ? `Preferred vendor: ${vendorPreference}` : '',
     is_recurring: false,
@@ -188,31 +195,94 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
     vendor_stay_policy: 'vendor_discretion',
     company_max_per_attendee: '',
   })
+  // Track whether the user has manually edited vendor_count so the auto-suggest
+  // useEffect doesn't overwrite their value when other fields change.
+  const [vendorCountManuallyEdited, setVendorCountManuallyEdited] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [matchCount, setMatchCount] = useState(0)
   const [error, setError] = useState<string | null>(null)
 
   function updateField(field: keyof FormData, value: string) {
+    if (field === 'vendor_count') setVendorCountManuallyEdited(true)
     setForm((prev) => ({ ...prev, [field]: value }))
   }
+
+  // Auto-suggest vendor_count based on event_type + headcount + (optional) times,
+  // using the vertical-scoped average vendor throughput from the server.
+  // Buyer rate per event_type:
+  //   corporate_lunch / team_building → 100% (captive audience)
+  //   private_party                   → 90%
+  //   grand_opening / festival        → 20% (crowd, low conversion)
+  //   other                           → 60%
+  // Doesn't fire if user has manually typed a value.
+  useEffect(() => {
+    if (vendorCountManuallyEdited) return
+    if (!form.event_type || !form.headcount) return
+    const headcount = parseInt(form.headcount, 10)
+    if (isNaN(headcount) || headcount < 1) return
+
+    let buyerRate = 0.6
+    switch (form.event_type) {
+      case 'corporate_lunch':
+      case 'team_building':
+        buyerRate = 1.0
+        break
+      case 'private_party':
+        buyerRate = 0.9
+        break
+      case 'grand_opening':
+      case 'festival':
+        buyerRate = 0.2
+        break
+      case 'other':
+      default:
+        buyerRate = 0.6
+    }
+
+    // Wave count from times if known, else assume 4 waves (2hr × 2 per hour)
+    let numWaves = 4
+    if (form.event_start_time && form.event_end_time) {
+      const sParts = form.event_start_time.split(':').map(Number)
+      const eParts = form.event_end_time.split(':').map(Number)
+      if (sParts.length >= 2 && eParts.length >= 2 && !sParts.some(isNaN) && !eParts.some(isNaN)) {
+        const minutes = (eParts[0] * 60 + eParts[1]) - (sParts[0] * 60 + sParts[1])
+        if (minutes > 0) numWaves = Math.ceil(minutes / 30)
+      }
+    }
+
+    const estimatedOrders = Math.round(headcount * buyerRate)
+    const servicableOrdersPerVendor = Math.max(1, avgVendorThroughput) * numWaves
+    const suggested = Math.max(1, Math.min(20, Math.ceil(estimatedOrders / servicableOrdersPerVendor)))
+
+    // queueMicrotask defers the state update out of the render-effect synchronous
+    // path — same pattern as the P1-6 fix in OrganizerEventDetails.tsx.
+    queueMicrotask(() => {
+      setForm(prev => ({ ...prev, vendor_count: String(suggested) }))
+    })
+  }, [form.event_type, form.headcount, form.event_start_time, form.event_end_time, avgVendorThroughput, vendorCountManuallyEdited])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (submitting) return
     setError(null)
 
-    // Validate required fields
+    // Validate required fields. Address is OPTIONAL at Stage 1 (per design); it
+    // becomes required at the dashboard side / for status to advance to 'approved'.
     if (
       !form.company_name.trim() ||
       !form.contact_name.trim() ||
       !form.contact_email.trim() ||
+      !form.event_type ||
       !form.event_date ||
+      !form.event_start_time ||
+      !form.event_end_time ||
       !form.headcount ||
-      !form.address.trim() ||
       !form.city.trim() ||
       !form.state.trim() ||
-      !form.zip.trim()
+      !form.zip.trim() ||
+      !form.event_setting ||
+      form.preferred_vendor_categories.length === 0
     ) {
       setError(t('erf.required_fields', locale))
       return
@@ -223,13 +293,26 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
       return
     }
 
+    // Validate end_time > start_time
+    {
+      const sParts = form.event_start_time.split(':').map(Number)
+      const eParts = form.event_end_time.split(':').map(Number)
+      if (sParts.length >= 2 && eParts.length >= 2 && !sParts.some(isNaN) && !eParts.some(isNaN)) {
+        if (eParts[0] * 60 + eParts[1] <= sParts[0] * 60 + sParts[1]) {
+          setError('Event end time must be after start time.')
+          return
+        }
+      }
+    }
+
     const hc = parseInt(form.headcount, 10)
     if (isNaN(hc) || hc < 10 || hc > 5000) {
       setError(t('erf.headcount_range', locale))
       return
     }
 
-    // Validate hybrid payment cap when hybrid is selected
+    // Validate hybrid payment cap when hybrid is selected (hybrid is currently
+    // hidden from PAYMENT_MODELS — kept for future build-out).
     if (form.payment_model === 'hybrid') {
       const cap = parseFloat(form.company_max_per_attendee)
       if (!form.company_max_per_attendee.trim() || isNaN(cap) || cap <= 0) {
@@ -269,17 +352,24 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
           theme_description: form.is_themed ? (form.theme_description.trim() || null) : null,
           estimated_spend_per_attendee_cents: form.estimated_spend_per_attendee ? Math.round(parseFloat(form.estimated_spend_per_attendee) * 100) : null,
           preferred_vendor_categories: form.preferred_vendor_categories.length > 0 ? form.preferred_vendor_categories : null,
-          address: form.address.trim(),
+          // Stage 1: address is optional; send as null when empty so admin gate
+          // for 'approved' status can detect it's missing. City/state/zip are
+          // required and trimmed as before.
+          address: form.address.trim() || null,
           city: form.city.trim(),
           state: form.state.trim(),
           zip: form.zip.trim(),
+          // event_setting (indoor/outdoor/either) — separate from setup_instructions
+          // free-text. Was previously misused as the same column.
+          event_setting: form.event_setting,
           cuisine_preferences: form.preferred_vendor_categories.length > 0 ? form.preferred_vendor_categories.join(', ') : (form.cuisine_preferences.trim() || null),
           dietary_notes: [...form.dietary_restrictions, ...(form.dietary_other.trim() ? [form.dietary_other.trim()] : [])].join(', ') || null,
           budget_notes: form.budget_notes.trim() || null,
           beverages_provided: form.beverages_provided,
           dessert_provided: form.dessert_provided,
           vendor_count: form.vendor_count || null,
-          setup_instructions: form.setup_instructions.trim() || null,
+          // Free-text setup notes — Stage 2 dashboard collects this.
+          setup_instructions: null,
           additional_notes: form.additional_notes.trim() || null,
           is_recurring: form.is_recurring,
           recurring_frequency: form.is_recurring ? form.recurring_frequency || null : null,
@@ -393,6 +483,33 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
           Start with the basics — you can add more details from your event dashboard after signing in.
         </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+            {/* Event type — sets context for downstream matching (deal-breakers, buyer rate, kid bonuses, etc.) */}
+            <div>
+              <label style={labelStyle}>What kind of event is this? *</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing['2xs'] }}>
+                {EVENT_TYPES.map(et => {
+                  const selected = form.event_type === et.value
+                  return (
+                    <button key={et.value} type="button"
+                      onClick={() => updateField('event_type', et.value)}
+                      style={{
+                        padding: `${spacing['3xs']} ${spacing.xs}`,
+                        borderRadius: radius.full,
+                        border: `1.5px solid ${selected ? accent : statusColors.neutral300}`,
+                        backgroundColor: selected ? accent : 'white',
+                        color: selected ? 'white' : statusColors.neutral600,
+                        fontSize: typography.sizes.xs,
+                        fontWeight: selected ? typography.weights.semibold : typography.weights.normal,
+                        cursor: 'pointer', transition: 'all 0.15s',
+                      }}
+                    >
+                      {selected ? '✓ ' : ''}{et.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
             {/* Company + Contact */}
             <div>
               <label style={labelStyle}>Your name *</label>
@@ -412,7 +529,7 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
               </div>
             </div>
 
-            {/* Event basics */}
+            {/* Event date + headcount */}
             <div style={rowStyle}>
               <div>
                 <label style={labelStyle}>Event date *</label>
@@ -429,8 +546,22 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
               </div>
             </div>
 
-            {/* Location */}
+            {/* Event start + end time — required for capacity, wave generation, and lunch detection */}
             <div style={rowStyle}>
+              <div>
+                <label style={labelStyle}>Start time *</label>
+                <input type="time" value={form.event_start_time}
+                  onChange={(e) => updateField('event_start_time', e.target.value)} style={inputStyle} required />
+              </div>
+              <div>
+                <label style={labelStyle}>End time *</label>
+                <input type="time" value={form.event_end_time}
+                  onChange={(e) => updateField('event_end_time', e.target.value)} style={inputStyle} required />
+              </div>
+            </div>
+
+            {/* Location: city + state + zip */}
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: spacing.sm }}>
               <div>
                 <label style={labelStyle}>City *</label>
                 <input type="text" placeholder="City" value={form.city}
@@ -441,11 +572,26 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
                 <input type="text" placeholder="TX" maxLength={2} value={form.state}
                   onChange={(e) => updateField('state', e.target.value.toUpperCase())} style={inputStyle} required />
               </div>
+              <div>
+                <label style={labelStyle}>Zip *</label>
+                <input type="text" placeholder="79111" maxLength={10} value={form.zip}
+                  onChange={(e) => updateField('zip', e.target.value)} style={inputStyle} required />
+              </div>
             </div>
 
-            {/* Indoor / Outdoor */}
+            {/* Address — Stage 1 optional, required before event approval */}
             <div>
-              <label style={labelStyle}>Event setting</label>
+              <label style={labelStyle}>Street address</label>
+              <input type="text" placeholder="123 Main St" value={form.address}
+                onChange={(e) => updateField('address', e.target.value)} style={inputStyle} />
+              <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: statusColors.neutral400 }}>
+                Recommended now; required before your event can be approved
+              </p>
+            </div>
+
+            {/* Event setting (indoor/outdoor/either) — separate column from setup_instructions free-text */}
+            <div>
+              <label style={labelStyle}>Event setting *</label>
               <div style={{ display: 'flex', gap: spacing.xs }}>
                 {[
                   { value: 'outdoor', label: 'Outdoor' },
@@ -453,13 +599,13 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
                   { value: 'either', label: 'Either / Both' },
                 ].map(opt => (
                   <button key={opt.value} type="button"
-                    onClick={() => updateField('setup_instructions', opt.value)}
+                    onClick={() => updateField('event_setting', opt.value)}
                     style={{
                       flex: 1, padding: spacing['2xs'],
                       borderRadius: radius.md,
-                      border: `1.5px solid ${form.setup_instructions === opt.value ? accent : statusColors.neutral300}`,
-                      backgroundColor: form.setup_instructions === opt.value ? accent : 'white',
-                      color: form.setup_instructions === opt.value ? 'white' : statusColors.neutral600,
+                      border: `1.5px solid ${form.event_setting === opt.value ? accent : statusColors.neutral300}`,
+                      backgroundColor: form.event_setting === opt.value ? accent : 'white',
+                      color: form.event_setting === opt.value ? 'white' : statusColors.neutral600,
                       fontSize: typography.sizes.sm, fontWeight: typography.weights.medium,
                       cursor: 'pointer', transition: 'all 0.15s',
                     }}
@@ -546,6 +692,21 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
               </div>
               <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: statusColors.neutral400 }}>
                 Select all that interest you — helps us find the best matches
+              </p>
+            </div>
+
+            {/* Vendor count — auto-suggested from event_type + headcount + vendor pool throughput */}
+            <div>
+              <label style={labelStyle}>How many vendors do you want?</label>
+              <input type="number" min={1} max={20} value={form.vendor_count}
+                onChange={(e) => updateField('vendor_count', e.target.value)}
+                style={{ ...inputStyle, maxWidth: 120 }} />
+              <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: statusColors.neutral400 }}>
+                {form.event_type && form.headcount && form.vendor_count
+                  ? (vendorPoolSize > 0
+                      ? `Suggested ${form.vendor_count} based on ${form.headcount} attendees and our ${vendorPoolSize} event-approved ${isFM ? 'vendors' : 'food trucks'} (avg ${avgVendorThroughput} orders / 30-min wave). Adjust if needed.`
+                      : `Suggested ${form.vendor_count} based on typical ${form.event_type.replace('_', ' ')} events. Adjust if needed.`)
+                  : 'Pick an event type and headcount above and we’ll suggest a starting number.'}
               </p>
             </div>
           </div>

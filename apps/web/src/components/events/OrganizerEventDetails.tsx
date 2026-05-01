@@ -33,12 +33,26 @@ interface EventDetails {
   has_competing_vendors: boolean
   is_ticketed: boolean
   vendor_count: number
+  // Event Basics group — surfaced from Stage 1 + corrections allowed in Stage 2
+  event_type: string | null
+  event_start_time: string | null
+  event_end_time: string | null
+  event_setting: string | null
+  address: string | null
+  is_recurring: boolean
+  recurring_frequency: string | null
+  contact_phone: string | null
 }
 
 const EDITABLE_STATUSES = ['new', 'reviewing', 'approved', 'ready']
 
 // Field groups for progressive disclosure
 const FIELD_GROUPS = [
+  {
+    label: 'Event Basics',
+    description: 'Type, timing, and location — affects vendor matching. Address required before approval.',
+    fields: ['event_type', 'event_start_time', 'event_end_time', 'event_setting', 'address', 'contact_phone'],
+  },
   {
     label: 'Food Preferences',
     description: 'Helps us match you with the right vendors',
@@ -52,7 +66,7 @@ const FIELD_GROUPS = [
   {
     label: 'Event Context',
     description: 'Helps vendors prepare for your specific event',
-    fields: ['beverages_provided', 'dessert_provided', 'competing_food_options', 'has_competing_vendors', 'is_themed', 'theme_description', 'children_present', 'is_ticketed'],
+    fields: ['beverages_provided', 'dessert_provided', 'competing_food_options', 'has_competing_vendors', 'is_themed', 'theme_description', 'children_present', 'is_ticketed', 'is_recurring', 'recurring_frequency'],
   },
   {
     label: 'Logistics',
@@ -91,7 +105,34 @@ export default function OrganizerEventDetails({ eventToken, status, vertical, pr
   // Local form state
   const [formData, setFormData] = useState<Record<string, unknown>>({})
 
+  // Re-match banner state. Set when API PATCH response says matchingChanged.
+  // Cleared when user clicks "Refresh" or "Skip", or when banner action completes.
+  const [showRefreshBanner, setShowRefreshBanner] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshMessage, setRefreshMessage] = useState<string | null>(null)
+
   const isEditable = EDITABLE_STATUSES.includes(status)
+
+  async function handleRefreshMatches() {
+    if (refreshing) return
+    setRefreshing(true)
+    setRefreshMessage(null)
+    try {
+      const res = await fetch(`/api/events/${eventToken}/refresh-matches`, {
+        method: 'POST',
+      })
+      const body = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setRefreshMessage(body.message || 'Matches refreshed.')
+        setShowRefreshBanner(false)
+      } else {
+        setRefreshMessage(body.error || 'Could not refresh matches.')
+      }
+    } catch {
+      setRefreshMessage('Network error refreshing matches.')
+    }
+    setRefreshing(false)
+  }
 
   async function loadDetails() {
     if (details) return // already loaded
@@ -157,6 +198,7 @@ export default function OrganizerEventDetails({ eventToken, status, vertical, pr
       })
 
       if (res.ok) {
+        const saveResult = await res.json().catch(() => ({}))
         // Refresh details
         const refresh = await fetch(`/api/events/${eventToken}/details`)
         if (refresh.ok) {
@@ -165,6 +207,13 @@ export default function OrganizerEventDetails({ eventToken, status, vertical, pr
         }
         setSaveMessage('Saved!')
         setEditGroup(null)
+        // If the save changed any matching-affecting field, surface a banner so
+        // the organizer can choose to re-run the vendor match. Manual button —
+        // not auto — to avoid spamming vendors with re-invites on every tweak.
+        if (saveResult.matchingChanged) {
+          setShowRefreshBanner(true)
+          setRefreshMessage(null)
+        }
       } else {
         const err = await res.json()
         setSaveMessage(`Error: ${err.error}`)
@@ -248,6 +297,64 @@ export default function OrganizerEventDetails({ eventToken, status, vertical, pr
                 )}
               </p>
             </div>
+          )}
+
+          {/* Refresh-matches banner — appears after a Stage 2 save changes a matching-affecting field */}
+          {showRefreshBanner && (
+            <div style={{
+              marginBottom: spacing.xs,
+              padding: spacing.xs,
+              backgroundColor: '#fef3c7',
+              borderRadius: radius.md,
+              border: '1px solid #fde68a',
+            }}>
+              <p style={{ fontSize: typography.sizes.sm, color: '#92400e', margin: `0 0 ${spacing['2xs']}` }}>
+                Your changes affect vendor matching. Refresh matches now?
+              </p>
+              <div style={{ display: 'flex', gap: spacing.xs }}>
+                <button
+                  onClick={handleRefreshMatches}
+                  disabled={refreshing}
+                  style={{
+                    padding: `${spacing['3xs']} ${spacing.sm}`,
+                    backgroundColor: primaryColor,
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: radius.sm,
+                    fontSize: typography.sizes.xs,
+                    fontWeight: typography.weights.semibold,
+                    cursor: refreshing ? 'not-allowed' : 'pointer',
+                    opacity: refreshing ? 0.7 : 1,
+                  }}
+                >
+                  {refreshing ? 'Refreshing...' : 'Refresh matches'}
+                </button>
+                <button
+                  onClick={() => { setShowRefreshBanner(false); setRefreshMessage(null) }}
+                  style={{
+                    padding: `${spacing['3xs']} ${spacing.sm}`,
+                    backgroundColor: 'white',
+                    color: '#92400e',
+                    border: '1px solid #fde68a',
+                    borderRadius: radius.sm,
+                    fontSize: typography.sizes.xs,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Skip
+                </button>
+              </div>
+              {refreshMessage && (
+                <p style={{ fontSize: typography.sizes.xs, color: '#92400e', marginTop: spacing['2xs'] }}>
+                  {refreshMessage}
+                </p>
+              )}
+            </div>
+          )}
+          {!showRefreshBanner && refreshMessage && (
+            <p style={{ fontSize: typography.sizes.xs, color: '#166534', marginBottom: spacing.xs }}>
+              {refreshMessage}
+            </p>
           )}
 
           {details && FIELD_GROUPS.map((group, gIdx) => {
@@ -406,8 +513,39 @@ function fieldLabel(field: string): string {
     estimated_dwell_hours: 'Average Attendee Stay (hours)',
     vendor_count: 'Number of Vendors Wanted',
     additional_notes: 'Additional Notes',
+    // Event Basics group
+    event_type: 'Event Type',
+    event_start_time: 'Start Time',
+    event_end_time: 'End Time',
+    event_setting: 'Event Setting',
+    address: 'Street Address',
+    contact_phone: 'Phone',
+    is_recurring: 'Recurring Event?',
+    recurring_frequency: 'How Often?',
   }
   return labels[field] || field.replace(/_/g, ' ')
+}
+
+// Display labels for the event_type / event_setting / recurring_frequency enums.
+// Match the values stored in the DB (and accepted by the API validation).
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  corporate_lunch: 'Corporate Lunch / Team Meal',
+  team_building: 'Team Building / Employee Appreciation',
+  grand_opening: 'Grand Opening / Promotional Event',
+  festival: 'Festival / Community Event',
+  private_party: 'Private Party / Celebration',
+  other: 'Other',
+}
+const EVENT_SETTING_LABELS: Record<string, string> = {
+  indoor: 'Indoor',
+  outdoor: 'Outdoor',
+  either: 'Either / Both',
+}
+const RECURRING_FREQ_LABELS: Record<string, string> = {
+  weekly: 'Weekly',
+  biweekly: 'Every 2 weeks',
+  monthly: 'Monthly',
+  quarterly: 'Quarterly',
 }
 
 function formatFieldValue(field: string, val: unknown): string {
@@ -423,6 +561,9 @@ function formatFieldValue(field: string, val: unknown): string {
     }
     return map[val as string] || String(val)
   }
+  if (field === 'event_type') return EVENT_TYPE_LABELS[val as string] || String(val)
+  if (field === 'event_setting') return EVENT_SETTING_LABELS[val as string] || String(val)
+  if (field === 'recurring_frequency') return RECURRING_FREQ_LABELS[val as string] || String(val)
   return String(val)
 }
 
@@ -436,8 +577,82 @@ const inputStyle = {
 }
 
 function renderField(field: string, value: unknown, onChange: (v: unknown) => void) {
+  // Time inputs
+  if (field === 'event_start_time' || field === 'event_end_time') {
+    return (
+      <input
+        type="time"
+        value={(value as string) || ''}
+        onChange={(e) => onChange(e.target.value)}
+        style={inputStyle}
+      />
+    )
+  }
+
+  // Event type select
+  if (field === 'event_type') {
+    return (
+      <select
+        value={(value as string) || ''}
+        onChange={(e) => onChange(e.target.value || null)}
+        style={inputStyle}
+      >
+        <option value="">-- Select event type --</option>
+        {Object.entries(EVENT_TYPE_LABELS).map(([v, label]) => (
+          <option key={v} value={v}>{label}</option>
+        ))}
+      </select>
+    )
+  }
+
+  // Event setting select
+  if (field === 'event_setting') {
+    return (
+      <select
+        value={(value as string) || ''}
+        onChange={(e) => onChange(e.target.value || null)}
+        style={inputStyle}
+      >
+        <option value="">-- Select setting --</option>
+        {Object.entries(EVENT_SETTING_LABELS).map(([v, label]) => (
+          <option key={v} value={v}>{label}</option>
+        ))}
+      </select>
+    )
+  }
+
+  // Recurring frequency select
+  if (field === 'recurring_frequency') {
+    return (
+      <select
+        value={(value as string) || ''}
+        onChange={(e) => onChange(e.target.value || null)}
+        style={inputStyle}
+      >
+        <option value="">-- Select frequency --</option>
+        {Object.entries(RECURRING_FREQ_LABELS).map(([v, label]) => (
+          <option key={v} value={v}>{label}</option>
+        ))}
+      </select>
+    )
+  }
+
+  // Phone input
+  if (field === 'contact_phone') {
+    return (
+      <input
+        type="tel"
+        placeholder="555-555-5555"
+        value={(value as string) || ''}
+        onChange={(e) => onChange(e.target.value)}
+        style={inputStyle}
+      />
+    )
+  }
+
+  // is_recurring also boolean — added to the boolean list below
   // Boolean fields
-  if (['beverages_provided', 'dessert_provided', 'is_themed', 'children_present', 'has_competing_vendors', 'is_ticketed'].includes(field)) {
+  if (['beverages_provided', 'dessert_provided', 'is_themed', 'children_present', 'has_competing_vendors', 'is_ticketed', 'is_recurring'].includes(field)) {
     return (
       <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], fontSize: typography.sizes.sm }}>
         <input

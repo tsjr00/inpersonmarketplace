@@ -17,7 +17,7 @@ interface RouteContext {
  * Only allows updates to detail fields — never status, market_id, or event_token.
  */
 
-// Stage 1 detail fields: matching quality + logistics
+// Stage 2 detail fields: matching quality + logistics + corrections to Stage 1 entries
 const ALLOWED_FIELDS = [
   'cuisine_preferences',
   'dietary_notes',
@@ -40,7 +40,33 @@ const ALLOWED_FIELDS = [
   'has_competing_vendors',
   'is_ticketed',
   'vendor_count',
+  // Stage 2 — corrections to Stage 1 entries + fields hidden from Stage 1
+  'event_type',
+  'event_start_time',
+  'event_end_time',
+  'event_end_date',
+  'event_setting',
+  'address',
+  'is_recurring',
+  'recurring_frequency',
+  'company_max_per_attendee_cents',
+  'contact_phone',
 ]
+
+// Fields that, when changed, may produce different vendor matches.
+// PATCH response sets `matchingChanged: true` so the dashboard can surface a
+// "Refresh matches" banner. Non-matching fields (notes, budget, etc.) save silently.
+const MATCHING_AFFECTING_FIELDS = new Set([
+  'event_type',
+  'event_start_time',
+  'event_end_time',
+  'event_setting',
+  'children_present',
+  'preferred_vendor_categories',
+  'cuisine_preferences',
+  'expected_meal_count',
+  'vendor_count',
+])
 
 // Statuses where organizer can still update details
 const EDITABLE_STATUSES = ['new', 'reviewing', 'approved', 'ready']
@@ -63,17 +89,20 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const { data: event } = await serviceClient
       .from('catering_requests')
       .select(`
-        id, status, company_name, contact_name, contact_email,
+        id, status, company_name, contact_name, contact_email, contact_phone,
+        event_type, event_setting,
         event_date, event_end_date, event_start_time, event_end_time,
         headcount, vendor_count, service_level, payment_model,
         access_code, company_max_per_attendee_cents,
+        address, city, state, zip,
         cuisine_preferences, dietary_notes, preferred_vendor_categories,
         total_food_budget_cents, per_meal_budget_cents, estimated_spend_per_attendee_cents,
         expected_meal_count, budget_notes,
         beverages_provided, dessert_provided, competing_food_options,
         setup_instructions, additional_notes,
         vendor_stay_policy, estimated_dwell_hours,
-        is_themed, theme_description, children_present, has_competing_vendors, is_ticketed
+        is_themed, theme_description, children_present, has_competing_vendors, is_ticketed,
+        is_recurring, recurring_frequency
       `)
       .eq('event_token', token)
       .single()
@@ -160,6 +189,44 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         throw traced.validation('ERR_EVENT_DETAIL_002', 'Invalid vendor_stay_policy')
       }
     }
+    if (updateData.event_type !== undefined && updateData.event_type !== null) {
+      const valid = ['corporate_lunch', 'team_building', 'grand_opening', 'festival', 'private_party', 'other']
+      if (!valid.includes(updateData.event_type as string)) {
+        throw traced.validation('ERR_EVENT_DETAIL_003', 'Invalid event_type')
+      }
+    }
+    if (updateData.event_setting !== undefined && updateData.event_setting !== null) {
+      const valid = ['indoor', 'outdoor', 'either']
+      if (!valid.includes(updateData.event_setting as string)) {
+        throw traced.validation('ERR_EVENT_DETAIL_004', 'Invalid event_setting')
+      }
+    }
+    if (updateData.recurring_frequency !== undefined && updateData.recurring_frequency !== null) {
+      const valid = ['weekly', 'biweekly', 'monthly', 'quarterly']
+      if (!valid.includes(updateData.recurring_frequency as string)) {
+        throw traced.validation('ERR_EVENT_DETAIL_005', 'Invalid recurring_frequency')
+      }
+    }
+    // If both times provided in this update OR being changed alongside an existing time, validate end > start
+    if (updateData.event_start_time !== undefined || updateData.event_end_time !== undefined) {
+      // Need current values for cross-field validation
+      const { data: current } = await serviceClient
+        .from('catering_requests')
+        .select('event_start_time, event_end_time')
+        .eq('id', event.id)
+        .single()
+      const newStart = (updateData.event_start_time ?? current?.event_start_time) as string | null
+      const newEnd = (updateData.event_end_time ?? current?.event_end_time) as string | null
+      if (newStart && newEnd) {
+        const sParts = String(newStart).split(':').map(Number)
+        const eParts = String(newEnd).split(':').map(Number)
+        if (sParts.length >= 2 && eParts.length >= 2 && !sParts.some(isNaN) && !eParts.some(isNaN)) {
+          if (eParts[0] * 60 + eParts[1] <= sParts[0] * 60 + sParts[1]) {
+            throw traced.validation('ERR_EVENT_DETAIL_006', 'event_end_time must be after event_start_time')
+          }
+        }
+      }
+    }
 
     // Also link organizer_user_id if not set
     if (!event.organizer_user_id && isOrganizerByEmail) {
@@ -176,6 +243,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ ok: true, updated: Object.keys(updateData) })
+    // Tell the caller whether their changes affected vendor matching, so the
+    // dashboard can offer a "Refresh matches" banner. Notes-only edits won't
+    // produce a banner; type/time/categories changes will.
+    const matchingChanged = Object.keys(updateData).some(k => MATCHING_AFFECTING_FIELDS.has(k))
+
+    return NextResponse.json({ ok: true, updated: Object.keys(updateData), matchingChanged })
   })
 }

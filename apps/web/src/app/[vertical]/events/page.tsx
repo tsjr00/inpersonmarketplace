@@ -6,6 +6,7 @@ import { term } from '@/lib/vertical/terminology'
 import { defaultBranding } from '@/lib/branding'
 import { getLocale } from '@/lib/locale/server'
 import { t } from '@/lib/locale/messages'
+import { createClient } from '@/lib/supabase/server'
 
 interface CateringPageProps {
   params: Promise<{ vertical: string }>
@@ -44,6 +45,39 @@ export default async function CateringPage({ params, searchParams }: CateringPag
   const isFT = vertical === 'food_trucks'
 
   const accent = isFT ? '#ff5757' : '#2d5016'
+
+  // Compute average vendor throughput from the event-approved vendor pool.
+  // Used by the form to suggest a sensible vendor_count default based on REAL
+  // vendor capacity data rather than a hardcoded constant. Falls back to the
+  // platform default (30) if the pool is empty or no vendors have declared
+  // their max_headcount_per_wave.
+  let avgVendorThroughput = 30
+  let vendorPoolSize = 0
+  try {
+    const sb = await createClient()
+    const { data: vendorPool } = await sb
+      .from('vendor_profiles')
+      .select('profile_data')
+      .eq('vertical_id', vertical)
+      .eq('status', 'approved')
+      .eq('event_approved', true)
+
+    if (vendorPool && vendorPool.length > 0) {
+      vendorPoolSize = vendorPool.length
+      const throughputs = vendorPool
+        .map(v => {
+          const er = (v.profile_data as Record<string, unknown> | null)?.event_readiness as Record<string, unknown> | undefined
+          return er?.max_headcount_per_wave as number | undefined
+        })
+        .filter((n): n is number => typeof n === 'number' && n > 0)
+
+      if (throughputs.length > 0) {
+        avgVendorThroughput = Math.round(throughputs.reduce((a, b) => a + b, 0) / throughputs.length)
+      }
+    }
+  } catch {
+    // Non-fatal — form falls back to defaults
+  }
 
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', padding: '40px 20px' }}>
@@ -298,7 +332,12 @@ export default async function CateringPage({ params, searchParams }: CateringPag
         >
           {term(vertical, 'event_request_heading', locale)}
         </h2>
-        <EventRequestForm vertical={vertical} vendorPreference={vendorPreference} />
+        <EventRequestForm
+          vertical={vertical}
+          vendorPreference={vendorPreference}
+          avgVendorThroughput={avgVendorThroughput}
+          vendorPoolSize={vendorPoolSize}
+        />
       </div>
 
       {/* Why work with us — social proof + trust signals */}
