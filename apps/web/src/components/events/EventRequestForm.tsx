@@ -150,6 +150,17 @@ const rowStyle: React.CSSProperties = {
   gap: spacing.sm,
 }
 
+// Injected once at form root — collapses 2-col / 3-col grids to single column
+// on phone widths. The form is otherwise inline-styled (no CSS framework here),
+// so this is the smallest pattern that gives us a real mobile breakpoint.
+const FORM_RESPONSIVE_CSS = `
+  @media (max-width: 600px) {
+    .event-row-2col, .event-row-3col {
+      grid-template-columns: 1fr !important;
+    }
+  }
+`
+
 export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughput, avgCategoriesPerVendor, vendorPoolSize }: EventRequestFormProps) {
   const accent = verticalAccent[vertical] || verticalAccent.farmers_market
   const locale = getClientLocale()
@@ -527,6 +538,7 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
 
   return (
     <form onSubmit={handleSubmit}>
+      <style dangerouslySetInnerHTML={{ __html: FORM_RESPONSIVE_CSS }} />
       {/* Quick-Start: Company & Contact */}
       <div style={sectionStyle}>
         <h3 style={sectionTitleStyle}>Tell us about your event</h3>
@@ -567,7 +579,7 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
               <input type="text" placeholder="Full name" value={form.contact_name}
                 onChange={(e) => updateField('contact_name', e.target.value)} style={inputStyle} required />
             </div>
-            <div style={rowStyle}>
+            <div className="event-row-2col" style={rowStyle}>
               <div>
                 <label style={labelStyle}>Organization / Company *</label>
                 <input type="text" placeholder={isFM ? 'Company, church, school, etc.' : 'Company or organization name'}
@@ -581,7 +593,7 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
             </div>
 
             {/* Event date + headcount */}
-            <div style={rowStyle}>
+            <div className="event-row-2col" style={rowStyle}>
               <div>
                 <label style={labelStyle}>Event date *</label>
                 <input type="date" value={form.event_date}
@@ -598,7 +610,7 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
             </div>
 
             {/* Event start + end time — required for capacity, wave generation, and lunch detection */}
-            <div style={rowStyle}>
+            <div className="event-row-2col" style={rowStyle}>
               <div>
                 <label style={labelStyle}>Start time *</label>
                 <input type="time" value={form.event_start_time}
@@ -612,7 +624,7 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
             </div>
 
             {/* Location: city + state + zip */}
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: spacing.sm }}>
+            <div className="event-row-3col" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: spacing.sm }}>
               <div>
                 <label style={labelStyle}>City *</label>
                 <input type="text" placeholder="City" value={form.city}
@@ -760,9 +772,19 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
                   'Pick an event type and headcount above and we’ll suggest a starting number.'
                 ) : (
                   <>
-                    {vendorPoolSize > 0
-                      ? `Based on ${form.headcount} ${parseInt(form.headcount, 10) === 1 ? 'attendee' : 'attendees'} and ${form.preferred_vendor_categories.length} ${form.preferred_vendor_categories.length === 1 ? 'cuisine' : 'cuisines'} at a ${form.event_type.replace('_', ' ')} event, balanced against our ${vendorPoolSize} event-approved ${isFM ? 'vendors' : 'food trucks'} (avg ${avgVendorThroughput} orders / 30-min wave, avg ${avgCategoriesPerVendor.toFixed(1)} cuisines per vendor), we suggest `
-                      : `For a ${form.headcount}-person ${form.event_type.replace('_', ' ')} event with ${form.preferred_vendor_categories.length} ${form.preferred_vendor_categories.length === 1 ? 'cuisine' : 'cuisines'}, we suggest `}
+                    {(() => {
+                      const catCount = form.preferred_vendor_categories.length
+                      const catUnit = catCount === 1
+                        ? term(vertical, 'event_preference_unit_singular')
+                        : term(vertical, 'event_preference_unit_plural')
+                      const vendorWord = term(vertical, 'vendors').toLowerCase()
+                      const throughputPhrase = isFM
+                        ? `avg ${avgVendorThroughput} orders per vendor`
+                        : `avg ${avgVendorThroughput} orders / 30-min wave`
+                      return vendorPoolSize > 0
+                        ? `Based on ${form.headcount} ${parseInt(form.headcount, 10) === 1 ? 'attendee' : 'attendees'} and ${catCount} ${catUnit} at a ${form.event_type.replace('_', ' ')} event, balanced against our ${vendorPoolSize} event-approved ${vendorWord} (${throughputPhrase}, avg ${avgCategoriesPerVendor.toFixed(1)} ${term(vertical, 'event_preference_unit_plural')} per vendor), we suggest `
+                        : `For a ${form.headcount}-person ${form.event_type.replace('_', ' ')} event with ${catCount} ${catUnit}, we suggest `
+                    })()}
                     <strong>{systemSuggested} {systemSuggested === 1 ? 'vendor' : 'vendors'}</strong>
                     {form.vendor_count && parseInt(form.vendor_count, 10) !== systemSuggested
                       ? ` — you’re using ${form.vendor_count}.`

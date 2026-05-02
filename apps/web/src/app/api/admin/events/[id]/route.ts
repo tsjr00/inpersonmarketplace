@@ -341,8 +341,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
             .single()
 
           if (vp?.user_id) {
-            await sendNotification(vp.user_id as string, 'event_settlement_summary', {
-              marketName: `${cateringReq.company_name || 'Event'} — ${items.length} unfulfilled order${items.length > 1 ? 's' : ''} need attention`,
+            await sendNotification(vp.user_id as string, 'event_force_completed_with_unfulfilled', {
+              marketName: cateringReq.company_name || 'Event',
               orderCount: items.length,
             }, { vertical: cateringReq.vertical_id })
           }

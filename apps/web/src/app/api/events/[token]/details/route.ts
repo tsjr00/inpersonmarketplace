@@ -90,6 +90,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       .from('catering_requests')
       .select(`
         id, status, company_name, contact_name, contact_email, contact_phone,
+        organizer_user_id,
         event_type, event_setting,
         event_date, event_end_date, event_start_time, event_end_time,
         headcount, vendor_count, service_level, payment_model,
@@ -111,9 +112,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     }
 
-    // Verify organizer identity
-    const isOrganizer = event.contact_email?.toLowerCase() === user.email?.toLowerCase()
-    if (!isOrganizer) {
+    // Verify organizer identity — match PATCH's two-way auth: id OR email.
+    // Without the id check, an organizer who signed up with a different email
+    // than contact_email could PATCH (which links organizer_user_id) but be
+    // 403'd from GET on the next page load.
+    const isOrganizerById = event.organizer_user_id === user.id
+    const isOrganizerByEmail = event.contact_email?.toLowerCase() === user.email?.toLowerCase()
+    if (!isOrganizerById && !isOrganizerByEmail) {
       return NextResponse.json({ error: 'Only the event organizer can view these details' }, { status: 403 })
     }
 

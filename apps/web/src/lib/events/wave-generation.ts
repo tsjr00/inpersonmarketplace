@@ -112,11 +112,24 @@ export async function generateEventWaves(
     }
   }
 
-  // Sum per-wave capacity across all accepted vendors
-  // If a vendor hasn't set event_max_orders_per_wave, use a default of 25
-  const capacityPerWave = acceptedVendors.reduce((sum, v) => {
-    return sum + (v.event_max_orders_per_wave || 25)
-  }, 0)
+  // Hard-error if any accepted vendor lacks per-wave capacity. Per
+  // session 76 audit (D1) — silent fallbacks mask incomplete vendor onboarding
+  // and risk over- or under-promising buyer slots. Capacity validation lives
+  // in vendor/events/[marketId]/respond at acceptance time (FT only); this
+  // is the defensive backstop if data ever sneaks through, OR if wave
+  // generation is mistakenly triggered for an FM event (FM doesn't use waves).
+  const vendorsMissingCapacity = acceptedVendors
+    .filter(v => !v.event_max_orders_per_wave || v.event_max_orders_per_wave < 1)
+    .map(v => v.vendor_profile_id as string)
+  if (vendorsMissingCapacity.length > 0) {
+    return {
+      success: false,
+      wavesCreated: 0,
+      capacityPerWave: 0,
+      error: `Cannot generate waves — ${vendorsMissingCapacity.length} accepted vendor(s) have not declared per-wave capacity. Vendor profile IDs: ${vendorsMissingCapacity.join(', ')}. This usually means a non-FT vendor was invited to a wave-using event, or vendor onboarding is incomplete.`,
+    }
+  }
+  const capacityPerWave = acceptedVendors.reduce((sum, v) => sum + (v.event_max_orders_per_wave as number), 0)
 
   // Build wave rows
   const waves = []

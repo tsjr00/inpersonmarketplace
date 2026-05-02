@@ -15,6 +15,7 @@
  */
 
 import { t } from '@/lib/locale/messages'
+import { term } from '@/lib/vertical/terminology'
 
 // ── Channel & Urgency Types ──────────────────────────────────────────
 
@@ -95,6 +96,7 @@ export type NotificationType =
   | 'event_feedback_request'
   | 'event_prep_reminder'
   | 'event_settlement_summary'
+  | 'event_force_completed_with_unfulfilled'
   | 'vendor_event_approved'
   | 'vendor_event_application_submitted'
   | 'vendor_event_application_received'
@@ -746,9 +748,9 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     urgency: 'standard',
     severity: 'info',
     audience: 'admin',
-    title: (d) => d.vertical === 'farmers_market' ? 'New Pop-Up Market Request' : 'New Event Request',
+    title: (d) => `New ${term(d.vertical || 'farmers_market', 'event_request_name_suffix')} Request`,
     message: (d) => {
-      const requestType = d.vertical === 'farmers_market' ? 'pop-up market request' : 'event request'
+      const requestType = `${term(d.vertical || 'farmers_market', 'event_request_name_suffix').toLowerCase()} request`
       return `${d.companyName} submitted a ${requestType} for ${d.headcount} people on ${d.eventDate}.`
     },
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/admin/events`,
@@ -760,14 +762,15 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     audience: 'vendor',
     title: () => 'New Event Opportunity',
     message: (d) => {
-      const vendorWord = d.vertical === 'farmers_market' ? 'vendors' : 'food trucks'
+      const vendorWord = term(d.vertical || 'farmers_market', 'vendors').toLowerCase()
       const timeRange = d.reason ? ` from ${d.reason}` : ''
       const acceptInstructions = d.vertical === 'farmers_market'
-        ? "If you accept, you'll select the items from your event-ready items for the event manager to review. We recommend updating your item descriptions to make sure they are accurate for what you plan to sell."
-        : "If you accept, you'll select from 4 to 7 items from your catering menu for the event manager to review. We recommend updating your menu item descriptions to make sure they are accurate for what you plan to serve."
-      return `We have matched you with an upcoming private event opportunity. A ${d.eventAddress || ''} event organizer is looking for ${vendorWord} for ${d.headcount} people on ${d.eventDate}${timeRange}. ${acceptInstructions} Tap to view details and respond.`
+        ? "If you accept, you'll choose which of your event-ready items to feature for the organizer to review. We recommend updating those items now so descriptions match what you plan to sell."
+        : "If you accept, you'll select from 4 to 7 items from your catering menu for the organizer to review. We recommend updating your menu item descriptions to make sure they are accurate for what you plan to serve."
+      const location = d.eventAddress ? `in ${d.eventAddress}` : 'in your area'
+      return `We've matched you with an upcoming private event opportunity. An event organizer ${location} is looking for ${vendorWord} for ${d.headcount} people on ${d.eventDate}${timeRange}. ${acceptInstructions} Tap to view details and respond.`
     },
-    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/events/${d.marketName}`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/events/${d.marketId}`,
   },
 
   catering_vendor_responded: {
@@ -784,7 +787,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     severity: 'warning',
     audience: 'vendor',
     title: (_d, locale) => t('notif.event_cancelled_vendor_title', locale),
-    message: (d) => `The event on ${d.eventDate || 'the scheduled date'} organized by ${d.companyName || 'the organizer'} has been cancelled. Your participation is no longer needed.`,
+    message: (d) => `The event on ${d.eventDate || 'the scheduled date'} organized by ${d.companyName || 'the organizer'} has been cancelled. We appreciated your willingness to participate and will keep matching you to future opportunities.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard`,
   },
 
@@ -794,7 +797,16 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     severity: 'info',
     audience: 'buyer', // organizer is external — uses email delivery, audience doesn't matter for routing
     title: () => 'Your event is confirmed!',
-    message: (d) => `Great news — ${d.vendorCount || 'your'} vendor${(d.vendorCount || 0) > 1 ? 's are' : ' is'} confirmed for your event on ${d.eventDate}! Share this link with your team so they can browse menus and pre-order: ${d.eventPageUrl || '(link pending)'}`,
+    message: (d) => {
+      const count = d.vendorCount || 0
+      const word = count === 1
+        ? term(d.vertical || 'farmers_market', 'vendor').toLowerCase()
+        : term(d.vertical || 'farmers_market', 'vendors').toLowerCase()
+      const subject = count > 0
+        ? `${count} ${word}${count > 1 ? ' are' : ' is'}`
+        : `your ${word} is`
+      return `Great news — ${subject} confirmed for your event on ${d.eventDate}! Share this link with your team so they can browse and pre-order: ${d.eventPageUrl || '(link pending)'}`
+    },
     actionUrl: (d) => d.eventPageUrl || '/',
   },
 
@@ -815,6 +827,20 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     audience: 'vendor',
     title: (_d, locale) => t('notif.event_settlement_summary_title', locale),
     message: (d) => `Settlement for "${d.marketName}" is complete. ${d.orderCount || 0} order${(d.orderCount || 0) !== 1 ? 's' : ''} fulfilled${d.payoutAmount ? ` — $${d.payoutAmount} paid out` : ''}. Thank you for participating!`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/orders`,
+  },
+
+  // Sent when admin force-completes an event that still has unfulfilled order items.
+  // Distinct from event_settlement_summary so the vendor sees a corrective tone instead of "thank you".
+  event_force_completed_with_unfulfilled: {
+    urgency: 'immediate',
+    severity: 'warning',
+    audience: 'vendor',
+    title: () => 'Event Closed With Unfulfilled Orders',
+    message: (d) => {
+      const count = d.orderCount || 0
+      return `The event "${d.marketName || 'your event'}" has been closed by an admin while ${count} order${count !== 1 ? 's' : ''} from you ${count !== 1 ? 'were' : 'was'} still unfulfilled. Please review and resolve these orders — refund or fulfill as appropriate. Contact support if you need help.`
+    },
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/orders`,
   },
 

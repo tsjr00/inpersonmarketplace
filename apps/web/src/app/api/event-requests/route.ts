@@ -8,6 +8,7 @@ import {
 } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors/with-error-tracing'
 import { approveEventRequest, autoMatchAndInvite } from '@/lib/events/event-actions'
+import { term } from '@/lib/vertical/terminology'
 
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/event-requests', 'POST', async () => {
@@ -427,7 +428,7 @@ async function sendAdminEmail(
   const senderName = isFM ? 'Farmers Marketing' : "Food Truck'n"
   const senderDomain = isFM ? 'mail.farmersmarketing.app' : 'mail.foodtruckn.app'
   const accentColor = isFM ? '#2d5016' : '#ff5757'
-  const requestType = isFM ? 'Pop-Up Market Request' : 'Event Request'
+  const requestType = `${term(verticalId, 'event_request_name_suffix')} Request`
 
   try {
     const { Resend } = await import('resend')
@@ -499,7 +500,7 @@ async function sendOrganizerConfirmation(
       Thank you for choosing Farmers Marketing to help with your event.
     </p>
     <p style="color:#4b5563;line-height:1.7;margin:0 0 16px">
-      Our system is matching your request with qualified vendors right now based on the event details you provided and confirming their interest and availability. As available vendors respond you will be updated. We aim to have all available vendors respond within 48 hours and then present you with information about the items they will offer at the popup market, as well as details about their space &amp; setup needs.
+      Our system is matching your request with qualified vendors right now based on the event details you provided and confirming their interest and availability. As available vendors respond you will be updated. We aim to have all available vendors respond within 48 hours and then present you with information about the items they will offer at your event, as well as details about their space &amp; setup needs.
     </p>
     <p style="color:#4b5563;line-height:1.7;margin:0 0 16px">
       Please create an account using the link below so you can see your event details before they are published, and you can start sharing your event page. On your user dashboard you will find a section titled &ldquo;My Events&rdquo; that will have all the information you need to make your final selections for which vendors you want at your event. Please watch your inbox as well as your in-app notifications for additional information.

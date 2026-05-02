@@ -36,15 +36,18 @@ export const farmersMarketEsConfig: VerticalTerminologyConfig = {
     events: 'Eventos',
     event_icon_emoji: '🎪',
     // Event system
-    event_feature_name: 'Mercados Emergentes',
-    event_request_heading: 'Organiza un Mercado Emergente',
+    event_feature_name: 'Eventos de Vendedores',
+    event_request_heading: 'Organiza un Evento de Vendedores',
     event_vendor_count_label: 'Número de Vendedores',
     event_vendor_unit: 'vendedor',
     event_preference_label: 'Preferencias de Tipo de Vendedor',
     event_preference_placeholder: 'Frutas y verduras, pan artesanal, mermeladas, artesanías, etc.',
-    event_hero_subtitle: 'Organiza un mercado emergente en tu oficina, vecindario o evento comunitario. Los vendedores traen productos frescos, pan artesanal y productos artesanales para que tus invitados exploren y compren.',
-    event_submit_button: 'Enviar Solicitud',
+    event_preference_unit_singular: 'categoría',
+    event_preference_unit_plural: 'categorías',
+    event_hero_subtitle: 'Organiza un evento de vendedores en tu oficina, vecindario o evento comunitario. Los vendedores traen productos frescos, pan artesanal y productos artesanales para que tus invitados exploren y compren.',
+    event_submit_button: 'Enviar Solicitud de Evento',
     event_success_message: 'opciones de vendedores',
+    event_request_name_suffix: 'Evento de Vendedores',
 
     // Descriptive phrases
     product_examples: 'frutas y verduras frescas, pan artesanal, miel, mermeladas y productos artesanales — incluyendo productos caseros',

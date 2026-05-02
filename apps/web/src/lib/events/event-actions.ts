@@ -13,6 +13,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendNotification } from '@/lib/notifications/service'
 import { scoreVendorMatch, type VendorMatchInput } from './viability'
+import { term } from '@/lib/vertical/terminology'
 
 // --- Types ---
 
@@ -96,9 +97,8 @@ export async function approveEventRequest(
   const tokenSuffix = Date.now().toString(36).slice(-6)
   const event_token = `${tokenBase}-${tokenSuffix}`
 
-  // Create event market
-  const isFM = request.vertical_id === 'farmers_market'
-  const eventSuffix = isFM ? 'Pop-Up Market' : 'Private Event'
+  // Create event market — name pulled from per-vertical terminology config
+  const eventSuffix = term(request.vertical_id, 'event_request_name_suffix')
   const eventName = `${request.company_name} ${eventSuffix}`
 
   const { data: market, error: marketError } = await serviceClient

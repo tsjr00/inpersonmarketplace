@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { spacing, typography, radius, statusColors } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical/terminology'
 
 interface OrganizerEventDetailsProps {
   eventToken: string
@@ -407,7 +408,7 @@ export default function OrganizerEventDetails({ eventToken, status, vertical, pr
                     {group.fields.map(f => {
                       if (!isFieldFilled(details, f)) return null
                       const val = details[f]
-                      const label = fieldLabel(f)
+                      const label = fieldLabel(f, vertical)
                       const display = formatFieldValue(f, val)
                       return (
                         <div key={f} style={{ marginBottom: 2 }}>
@@ -422,7 +423,7 @@ export default function OrganizerEventDetails({ eventToken, status, vertical, pr
                 {isEditingThis && (
                   <div style={{ marginTop: spacing.xs }}>
                     {group.fields.map(f => {
-                      const label = fieldLabel(f)
+                      const label = fieldLabel(f, vertical)
                       const val = formData[f]
                       return (
                         <div key={f} style={{ marginBottom: spacing.xs }}>
@@ -490,9 +491,9 @@ export default function OrganizerEventDetails({ eventToken, status, vertical, pr
 
 // ── Field helpers ──
 
-function fieldLabel(field: string): string {
+function fieldLabel(field: string, vertical: string): string {
   const labels: Record<string, string> = {
-    cuisine_preferences: 'Cuisine Preferences',
+    cuisine_preferences: term(vertical, 'event_preference_label'),
     dietary_notes: 'Dietary Requirements',
     preferred_vendor_categories: 'Preferred Vendor Types',
     total_food_budget_cents: 'Total Food Budget',

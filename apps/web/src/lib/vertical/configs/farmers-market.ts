@@ -35,16 +35,19 @@ export const farmersMarketConfig: VerticalTerminologyConfig = {
     event: 'Event',
     events: 'Events',
     event_icon_emoji: '🎪',
-    // Event system (pop-up markets)
-    event_feature_name: 'Pop-Up Markets',
-    event_request_heading: 'Host a Pop-Up Market',
+    // Event system (vendor events)
+    event_feature_name: 'Vendor Events',
+    event_request_heading: 'Host a Vendor Event',
     event_vendor_count_label: 'Number of Vendors',
     event_vendor_unit: 'vendor',
     event_preference_label: 'Vendor Type Preferences',
     event_preference_placeholder: 'Produce, baked goods, artisan crafts, jams & preserves, etc.',
-    event_hero_subtitle: 'Host a pop-up market at your office, neighborhood, or community event. Vendors bring fresh produce, baked goods, and artisan products for your guests to browse and buy.',
-    event_submit_button: 'Submit Pop-Up Request',
+    event_preference_unit_singular: 'category',
+    event_preference_unit_plural: 'categories',
+    event_hero_subtitle: 'Host a vendor event at your office, neighborhood, or community event. Vendors bring fresh produce, baked goods, and artisan products for your guests to browse and buy.',
+    event_submit_button: 'Submit Event Request',
     event_success_message: 'vendor options',
+    event_request_name_suffix: 'Vendor Event',
 
     // Descriptive phrases
     product_examples: 'fresh produce, baked goods, honey, jams, and artisan products — including cottage food and homemade goods',

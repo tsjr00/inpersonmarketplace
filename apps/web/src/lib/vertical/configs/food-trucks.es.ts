@@ -42,9 +42,12 @@ export const foodTrucksEsConfig: VerticalTerminologyConfig = {
     event_vendor_unit: 'truck',
     event_preference_label: 'Preferencias de Cocina',
     event_preference_placeholder: 'BBQ, mexicana, fusión asiática, etc.',
+    event_preference_unit_singular: 'cocina',
+    event_preference_unit_plural: 'cocinas',
     event_hero_subtitle: 'Lleva food trucks a tu oficina, evento o reunión. Tus empleados ordenan y recogen su comida — sin bandejas de catering, sin sobras, solo buena comida.',
     event_submit_button: 'Enviar Solicitud de Evento',
     event_success_message: 'opciones de food trucks',
+    event_request_name_suffix: 'Evento Privado',
 
     // Descriptive phrases
     product_examples: 'tacos, BBQ, pizza, hamburguesas y comida callejera de cocinas de todo el mundo',
