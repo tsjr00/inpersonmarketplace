@@ -17,8 +17,12 @@
 -- No data migration needed (Q4: no real events on prod).
 -- Reversal: restore the COALESCE(..., 25) form from migration 120.
 
+-- Preserve the original return shape from migration 120
+-- (TABLE(waves_updated INTEGER, new_capacity INTEGER)) so any future caller
+-- that expects the row format keeps working. CREATE OR REPLACE cannot change
+-- the return type, but the shape here matches the original — no DROP needed.
 CREATE OR REPLACE FUNCTION public.recalculate_wave_capacity(p_market_id UUID)
-RETURNS INTEGER AS $$
+RETURNS TABLE(waves_updated INTEGER, new_capacity INTEGER) AS $$
 DECLARE
   v_missing_count INTEGER;
   v_capacity INTEGER;
@@ -47,7 +51,7 @@ BEGIN
   WHERE market_id = p_market_id;
 
   GET DIAGNOSTICS v_updated = ROW_COUNT;
-  RETURN v_updated;
+  RETURN QUERY SELECT v_updated, v_capacity;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
