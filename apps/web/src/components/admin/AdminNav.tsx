@@ -33,6 +33,7 @@ export default function AdminNav({ type, vertical }: AdminNavProps) {
     { label: 'Feedback', href: `/${vertical}/admin/feedback`, icon: '💬' },
     { label: 'Error Logs', href: `/${vertical}/admin/error-logs`, icon: '🔴' },
     { label: 'Event Ratings', href: `/${vertical}/admin/event-ratings`, icon: '⭐' },
+    { label: 'Stripe Reconcile', href: `/${vertical}/admin/stripe-reconcile`, icon: '💳' },
   ] : []
 
   // Platform admin links

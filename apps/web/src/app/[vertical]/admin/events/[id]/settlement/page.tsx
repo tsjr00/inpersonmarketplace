@@ -411,7 +411,21 @@ export default function SettlementReportPage() {
                 <tbody>
                   {vendor.orders.map((order, idx) => (
                     <tr key={idx} style={{ borderBottom: `1px solid ${statusColors.neutral100}` }}>
-                      <td style={tdStyle}>{order.orderNumber}</td>
+                      <td style={tdStyle}>
+                        {order.orderNumber}
+                        <Link
+                          href={`/${vertical}/admin/stripe-reconcile?q=${encodeURIComponent(order.orderNumber)}`}
+                          title="Trace this order's Stripe transactions"
+                          style={{
+                            marginLeft: 6,
+                            color: statusColors.neutral400,
+                            textDecoration: 'none',
+                            fontSize: typography.sizes.xs,
+                          }}
+                        >
+                          🔍
+                        </Link>
+                      </td>
                       <td style={tdStyle}>{order.buyerName}</td>
                       <td style={{ ...tdStyle, fontSize: typography.sizes.xs }}>{order.buyerEmail}</td>
                       <td style={tdStyle}>{order.items}</td>
