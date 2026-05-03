@@ -107,6 +107,9 @@ export interface PayoutAuditResult {
     /** Match for the source object — null for fee/payout/adjustment lines that
      *  aren't tied to a charge/transfer/refund */
     match: MatchResult | null
+    /** When match is null, a short reason string for surface in the UI.
+     *  Lets the user see WHY a row didn't match instead of guessing. */
+    diagnostic?: string
   }>
   totals: {
     grossCents: number
@@ -704,6 +707,13 @@ export async function reconcilePayout(
   let feeCents = 0
   let netCents = 0
 
+  // Cap how many extra source retrievals we'll do (when expand didn't inline
+  // the source). Protects against runaway API calls on giant payouts. Past
+  // this many unmatched-with-string-source lines we stop retrieving and
+  // surface a "retrieve cap reached" diagnostic.
+  const MAX_SOURCE_RETRIEVES = 50
+  let retrievesUsed = 0
+
   for (const bt of bts.data) {
     // Skip the payout BT itself when computing totals — it's a negative sweep
     // that cancels everything (gross == fees, net == 0 otherwise).
@@ -713,31 +723,68 @@ export async function reconcilePayout(
       netCents += bt.net
     }
 
-    // Resolve sourceId (may be either a string ID or, when expanded, an object)
+    // Resolve sourceId. After expand, source SHOULD be an object — but the
+    // Stripe API doesn't always honor expand for every source type, so we
+    // handle both string and object forms here.
     let sourceId: string | null = null
     let chargePaymentIntentId: string | null = null
+    let sourceWasExpanded = false
     if (bt.source) {
       if (typeof bt.source === 'string') {
         sourceId = bt.source
       } else {
+        sourceWasExpanded = true
         const sourceObj = bt.source as { id?: string; payment_intent?: string | null }
         sourceId = sourceObj.id || null
         chargePaymentIntentId = (sourceObj.payment_intent as string) || null
       }
     }
 
-    // Reconcile charge / transfer sources to local records
+    // Treat both 'charge' (legacy + non-Connect) and 'payment' (newer
+    // PaymentIntent-driven, common on Connect platforms) BT types as
+    // charge-like. Source may use 'ch_' prefix or 'py_' prefix (the
+    // latter is the Connect "payment" alias for Charge).
+    const isChargeLike = bt.type === 'charge' || bt.type === 'payment'
+
     let match: MatchResult | null = null
-    if (bt.type === 'charge' && chargePaymentIntentId) {
-      // Look up by PI across all 3 charge-producing tables
-      const r = await matchByPaymentIntent(serviceClient, chargePaymentIntentId, scope)
-      if (r) {
-        match = {
-          stripeObject: null,
-          matchedOrders: [r],
-          metadataCompleteness: evaluateMetadata({}),
-          warnings: [],
+    let diagnostic: string | undefined = undefined
+
+    if (isChargeLike) {
+      // If we don't have the PI yet (source wasn't expanded into an object),
+      // retrieve the charge to get it.
+      if (!chargePaymentIntentId && sourceId) {
+        if (retrievesUsed < MAX_SOURCE_RETRIEVES) {
+          retrievesUsed += 1
+          try {
+            const charge = await stripe.charges.retrieve(sourceId)
+            chargePaymentIntentId = (charge.payment_intent as string) || null
+            if (!chargePaymentIntentId) {
+              diagnostic = `${bt.type} ${sourceId} has no payment_intent (probably a manual charge or pre-PI legacy)`
+            }
+          } catch (err) {
+            diagnostic = `Failed to retrieve charge ${sourceId}: ${err instanceof Error ? err.message : String(err)}`
+          }
+        } else {
+          diagnostic = `Source not expanded and retrieve cap reached (${MAX_SOURCE_RETRIEVES} per payout)`
         }
+      } else if (!chargePaymentIntentId && sourceWasExpanded) {
+        diagnostic = `Source expanded but no payment_intent field — likely a refund or non-charge object`
+      }
+
+      if (chargePaymentIntentId) {
+        const r = await matchByPaymentIntent(serviceClient, chargePaymentIntentId, scope)
+        if (r) {
+          match = {
+            stripeObject: null,
+            matchedOrders: [r],
+            metadataCompleteness: evaluateMetadata({}),
+            warnings: [],
+          }
+        } else {
+          diagnostic = `PI ${chargePaymentIntentId} found on Stripe but no matching row in payments / market_box_subscriptions / event_company_payments`
+        }
+      } else if (!diagnostic) {
+        diagnostic = 'No payment_intent ID available for matching'
       }
     } else if (bt.type === 'transfer' && sourceId) {
       const r = await lookupVendorPayoutByTransfer(serviceClient, sourceId, scope)
@@ -748,9 +795,14 @@ export async function reconcilePayout(
           metadataCompleteness: evaluateMetadata({}),
           warnings: [],
         }
+      } else {
+        diagnostic = `Transfer ${sourceId} has no matching vendor_payouts row (stripe_transfer_id may not have been recorded)`
       }
+    } else if (bt.type === 'payout') {
+      diagnostic = 'Payout sweep — not matched to an order by design'
+    } else {
+      diagnostic = `BT type "${bt.type}" not currently matched`
     }
-    // Refunds, payment_failure_refunds, payout BT, stripe_fee BT etc. left unmatched in v1
 
     lines.push({
       balanceTransactionId: bt.id,
@@ -760,6 +812,7 @@ export async function reconcilePayout(
       feeCents: bt.fee,
       sourceId,
       match,
+      diagnostic,
     })
   }
 

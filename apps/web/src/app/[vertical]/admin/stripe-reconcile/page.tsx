@@ -66,6 +66,7 @@ interface PayoutLine {
   feeCents: number
   sourceId: string | null
   match: MatchResult | null
+  diagnostic?: string
 }
 
 interface PayoutResult {
@@ -573,7 +574,16 @@ function PayoutAuditView({ result, vertical }: { result: PayoutResult; vertical:
                         {m.orderNumber || m.orderId?.slice(0, 8) || '—'}
                         {m.buyerName && <span style={{ color: statusColors.neutral500, marginLeft: 6, fontSize: 11 }}>{m.buyerName}</span>}
                       </span>
-                    ) : '—'}
+                    ) : (
+                      <span style={{ color: statusColors.neutral500 }}>
+                        —
+                        {line.diagnostic && (
+                          <div style={{ fontSize: 11, color: statusColors.neutral400, marginTop: 2, fontStyle: 'italic' }}>
+                            {line.diagnostic}
+                          </div>
+                        )}
+                      </span>
+                    )}
                   </td>
                 </tr>
               )
