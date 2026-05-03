@@ -53,6 +53,10 @@ export interface MatchedOrder {
   buyerEmail: string | null
   vendorName: string | null
   amountCents: number | null
+  /** Platform-retained fee for this order (Stripe-side). Null for non-order
+   *  matches (market_box / event_company_payment) — those track revenue
+   *  differently. */
+  platformFeeCents: number | null
   vertical: string | null
   status: string | null
   /** How the match was made — one of the pipeline step labels */
@@ -179,8 +183,8 @@ async function lookupOrderById(
   const { data: order } = await serviceClient
     .from('orders')
     .select(`
-      id, order_number, status, total_cents, vertical_id, buyer_user_id,
-      payments:payments(stripe_payment_intent_id, stripe_charge_id),
+      id, order_number, status, total_cents, platform_fee_cents, vertical_id, buyer_user_id,
+      payments:payments(stripe_payment_intent_id, stripe_charge_id, platform_fee_cents),
       order_items:order_items(vendor_payouts:vendor_payouts(stripe_transfer_id))
     `)
     .eq('id', orderId)
@@ -203,11 +207,16 @@ async function lookupOrderById(
     buyerName = (buyer?.display_name as string) || null
   }
 
-  const payments = (order.payments as unknown as Array<{ stripe_payment_intent_id: string | null; stripe_charge_id: string | null }>) || []
+  const payments = (order.payments as unknown as Array<{ stripe_payment_intent_id: string | null; stripe_charge_id: string | null; platform_fee_cents: number | null }>) || []
   const orderItems = (order.order_items as unknown as Array<{ vendor_payouts: Array<{ stripe_transfer_id: string | null }> }>) || []
   const transferIds = orderItems
     .flatMap(oi => (oi.vendor_payouts || []).map(vp => vp.stripe_transfer_id))
     .filter((x): x is string => !!x)
+
+  // Prefer the per-order platform fee from `orders` (computed at order creation).
+  // Fall back to the payments row if for some reason the orders column is null.
+  const platformFeeCents = (order.platform_fee_cents as number | null) ??
+    (payments[0]?.platform_fee_cents ?? null)
 
   return {
     orderType: 'order',
@@ -217,6 +226,7 @@ async function lookupOrderById(
     buyerEmail,
     vendorName: null, // multi-vendor possible — populated only on request
     amountCents: order.total_cents as number,
+    platformFeeCents,
     vertical: order.vertical_id as string | null,
     status: order.status as string,
     matchedVia,
@@ -302,6 +312,7 @@ async function lookupMarketBoxSubByPI(
     buyerEmail,
     vendorName,
     amountCents: null, // MB amount tracking is on the order
+    platformFeeCents: null, // see MatchedOrder.platformFeeCents — null for non-order types
     vertical,
     status: sub.status as string,
     matchedVia: 'market_box_subscription_payment_intent',
@@ -338,6 +349,7 @@ async function lookupEventCompanyPaymentByPI(
     buyerEmail: catering?.contact_email || null,
     vendorName: null,
     amountCents: ecp.amount_cents as number,
+    platformFeeCents: null, // see MatchedOrder.platformFeeCents — null for non-order types
     vertical: catering?.vertical_id || null,
     status: ecp.status as string,
     matchedVia: 'event_company_payment_intent',
@@ -671,10 +683,18 @@ export async function reconcilePayout(
 
   const stripeObject = await buildReconcileStripeObject('payout', payout as unknown as Record<string, unknown>)
 
-  // List balance transactions in this payout (max 100/page; expand for larger payouts in future)
+  // List balance transactions in this payout. `expand: ['data.source']` inlines
+  // the source object so we can read charge.payment_intent without a per-line
+  // extra API call. Still 1 list call total (max 100 BTs per page).
+  // Note: `payments.stripe_charge_id` is currently never populated by webhooks
+  // or checkout-success (verified Session 76); matching MUST go via PI ID.
   let bts
   try {
-    bts = await stripe.balanceTransactions.list({ payout: payoutId, limit: 100 })
+    bts = await stripe.balanceTransactions.list({
+      payout: payoutId,
+      limit: 100,
+      expand: ['data.source'],
+    })
   } catch (err) {
     return { error: err instanceof Error ? err.message : String(err) }
   }
@@ -685,47 +705,52 @@ export async function reconcilePayout(
   let netCents = 0
 
   for (const bt of bts.data) {
-    grossCents += bt.amount
-    feeCents += bt.fee
-    netCents += bt.net
-    const sourceId = (bt.source as string) || null
+    // Skip the payout BT itself when computing totals — it's a negative sweep
+    // that cancels everything (gross == fees, net == 0 otherwise).
+    if (bt.type !== 'payout') {
+      grossCents += bt.amount
+      feeCents += bt.fee
+      netCents += bt.net
+    }
 
-    // Only reconcile charge / transfer / refund sources
+    // Resolve sourceId (may be either a string ID or, when expanded, an object)
+    let sourceId: string | null = null
+    let chargePaymentIntentId: string | null = null
+    if (bt.source) {
+      if (typeof bt.source === 'string') {
+        sourceId = bt.source
+      } else {
+        const sourceObj = bt.source as { id?: string; payment_intent?: string | null }
+        sourceId = sourceObj.id || null
+        chargePaymentIntentId = (sourceObj.payment_intent as string) || null
+      }
+    }
+
+    // Reconcile charge / transfer sources to local records
     let match: MatchResult | null = null
-    if (sourceId && /^(ch_|tr_|re_|py_)/.test(sourceId)) {
-      // Avoid extra Stripe calls — go straight to DB lookups using the BT type
-      if (bt.type === 'charge') {
-        // BT charge → look up by charge ID (we may have stored stripe_charge_id, or
-        // alternatively retrieve PI from Stripe — keep simple: try DB by charge_id)
-        const { data: pay } = await serviceClient
-          .from('payments')
-          .select('order_id, stripe_payment_intent_id')
-          .eq('stripe_charge_id', sourceId)
-          .maybeSingle()
-        if (pay?.order_id) {
-          const r = await lookupOrderById(serviceClient, pay.order_id as string, scope, 'payments_payment_intent')
-          if (r && !('skipped' in r)) {
-            match = {
-              stripeObject: null,
-              matchedOrders: [r],
-              metadataCompleteness: evaluateMetadata({}),
-              warnings: [],
-            }
-          }
-        }
-      } else if (bt.type === 'transfer') {
-        const r = await lookupVendorPayoutByTransfer(serviceClient, sourceId, scope)
-        if (r && !('skipped' in r)) {
-          match = {
-            stripeObject: null,
-            matchedOrders: [r],
-            metadataCompleteness: evaluateMetadata({}),
-            warnings: [],
-          }
+    if (bt.type === 'charge' && chargePaymentIntentId) {
+      // Look up by PI across all 3 charge-producing tables
+      const r = await matchByPaymentIntent(serviceClient, chargePaymentIntentId, scope)
+      if (r) {
+        match = {
+          stripeObject: null,
+          matchedOrders: [r],
+          metadataCompleteness: evaluateMetadata({}),
+          warnings: [],
         }
       }
-      // Refunds, payment_failure_refunds, etc. left unmatched in v1
+    } else if (bt.type === 'transfer' && sourceId) {
+      const r = await lookupVendorPayoutByTransfer(serviceClient, sourceId, scope)
+      if (r && !('skipped' in r)) {
+        match = {
+          stripeObject: null,
+          matchedOrders: [r],
+          metadataCompleteness: evaluateMetadata({}),
+          warnings: [],
+        }
+      }
     }
+    // Refunds, payment_failure_refunds, payout BT, stripe_fee BT etc. left unmatched in v1
 
     lines.push({
       balanceTransactionId: bt.id,
@@ -743,4 +768,37 @@ export async function reconcilePayout(
     lines,
     totals: { grossCents, feeCents, netCents },
   }
+}
+
+/**
+ * Look up a PaymentIntent ID across all 3 charge-producing tables in priority
+ * order: payments (regular orders) → market_box_subscriptions → event_company_payments.
+ * Used by the payout audit's per-line charge matcher (where we have the PI from
+ * the expanded BT source).
+ */
+async function matchByPaymentIntent(
+  serviceClient: SupabaseClient,
+  paymentIntentId: string,
+  scope: ScopeFilter,
+): Promise<MatchedOrder | null> {
+  // Regular order
+  const { data: pay } = await serviceClient
+    .from('payments')
+    .select('order_id')
+    .eq('stripe_payment_intent_id', paymentIntentId)
+    .maybeSingle()
+  if (pay?.order_id) {
+    const r = await lookupOrderById(serviceClient, pay.order_id as string, scope, 'payments_payment_intent')
+    if (r && !('skipped' in r)) return r
+  }
+
+  // Market box subscription
+  const mb = await lookupMarketBoxSubByPI(serviceClient, paymentIntentId, scope)
+  if (mb && !('skipped' in mb)) return mb
+
+  // Event company payment
+  const ecp = await lookupEventCompanyPaymentByPI(serviceClient, paymentIntentId, scope)
+  if (ecp && !('skipped' in ecp)) return ecp
+
+  return null
 }

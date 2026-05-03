@@ -26,6 +26,7 @@ interface MatchedOrder {
   buyerEmail: string | null
   vendorName: string | null
   amountCents: number | null
+  platformFeeCents: number | null
   vertical: string | null
   status: string | null
   matchedVia: string
@@ -404,6 +405,7 @@ function SingleResultView({
                 <th style={{ padding: spacing['2xs'] }}>Buyer</th>
                 <th style={{ padding: spacing['2xs'] }}>Vendor</th>
                 <th style={{ padding: spacing['2xs'], textAlign: 'right' }}>Amount</th>
+                <th style={{ padding: spacing['2xs'], textAlign: 'right' }}>Platform revenue</th>
                 <th style={{ padding: spacing['2xs'] }}>Status</th>
                 <th style={{ padding: spacing['2xs'] }}>Vertical</th>
                 <th style={{ padding: spacing['2xs'] }}>Matched via</th>
@@ -424,6 +426,7 @@ function SingleResultView({
                   </td>
                   <td style={{ padding: spacing['2xs'] }}>{m.vendorName || '—'}</td>
                   <td style={{ padding: spacing['2xs'], textAlign: 'right', fontFamily: 'monospace' }}>{fmtCents(m.amountCents)}</td>
+                  <td style={{ padding: spacing['2xs'], textAlign: 'right', fontFamily: 'monospace' }}>{fmtCents(m.platformFeeCents)}</td>
                   <td style={{ padding: spacing['2xs'] }}>{m.status || '—'}</td>
                   <td style={{ padding: spacing['2xs'], fontSize: typography.sizes.xs }}>{m.vertical || '—'}</td>
                   <td style={{ padding: spacing['2xs'], fontSize: typography.sizes.xs, color: statusColors.neutral500 }}>{m.matchedVia}</td>
@@ -492,18 +495,39 @@ function PayoutAuditView({ result, vertical }: { result: PayoutResult; vertical:
           </>
         )}
 
-        <div style={{
-          marginTop: spacing.sm,
-          padding: spacing.sm,
-          backgroundColor: statusColors.neutral50,
-          borderRadius: radius.sm,
-          fontSize: typography.sizes.sm,
-        }}>
-          <strong>Totals:</strong>{' '}
-          gross {fmtCents(result.totals.grossCents)}{' · '}
-          fees {fmtCents(result.totals.feeCents)}{' · '}
-          net {fmtCents(result.totals.netCents)}
-        </div>
+        {/* Totals — payout BT itself excluded so net != 0. Platform revenue
+            sums each unique matched order's platform_fee_cents (orders.platform_fee_cents),
+            de-duplicated by order id so multi-vendor orders aren't counted twice. */}
+        {(() => {
+          const seenOrderIds = new Set<string>()
+          let platformRevenueCents = 0
+          for (const line of result.lines) {
+            const m = line.match?.matchedOrders[0]
+            if (!m || !m.orderId || m.platformFeeCents == null) continue
+            if (seenOrderIds.has(m.orderId)) continue
+            seenOrderIds.add(m.orderId)
+            platformRevenueCents += m.platformFeeCents
+          }
+          return (
+            <div style={{
+              marginTop: spacing.sm,
+              padding: spacing.sm,
+              backgroundColor: statusColors.neutral50,
+              borderRadius: radius.sm,
+              fontSize: typography.sizes.sm,
+            }}>
+              <strong>Totals:</strong>{' '}
+              gross {fmtCents(result.totals.grossCents)}{' · '}
+              Stripe fees {fmtCents(result.totals.feeCents)}{' · '}
+              net {fmtCents(result.totals.netCents)}{' · '}
+              <strong>platform revenue {fmtCents(platformRevenueCents)}</strong>
+              <div style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, marginTop: 4 }}>
+                Platform revenue is per-order Stripe-side fees retained (orders.platform_fee_cents).
+                External-payment orders never reach Stripe and are not included.
+              </div>
+            </div>
+          )
+        })()}
       </Card>
 
       {/* Lines */}
@@ -513,8 +537,9 @@ function PayoutAuditView({ result, vertical }: { result: PayoutResult; vertical:
             <tr style={{ borderBottom: `1px solid ${statusColors.neutral200}`, textAlign: 'left' }}>
               <th style={{ padding: spacing['2xs'] }}>Type</th>
               <th style={{ padding: spacing['2xs'], textAlign: 'right' }}>Amount</th>
-              <th style={{ padding: spacing['2xs'], textAlign: 'right' }}>Fee</th>
+              <th style={{ padding: spacing['2xs'], textAlign: 'right' }} title="Stripe processing fee. Platform fee is the difference between charge and transfer amounts.">Stripe fee</th>
               <th style={{ padding: spacing['2xs'], textAlign: 'right' }}>Net</th>
+              <th style={{ padding: spacing['2xs'], textAlign: 'right' }}>Platform revenue</th>
               <th style={{ padding: spacing['2xs'] }}>Source</th>
               <th style={{ padding: spacing['2xs'] }}>Matched order</th>
             </tr>
@@ -528,6 +553,13 @@ function PayoutAuditView({ result, vertical }: { result: PayoutResult; vertical:
                   <td style={{ padding: spacing['2xs'], textAlign: 'right', fontFamily: 'monospace' }}>{fmtCents(line.amountCents)}</td>
                   <td style={{ padding: spacing['2xs'], textAlign: 'right', fontFamily: 'monospace', color: statusColors.neutral500 }}>{fmtCents(line.feeCents)}</td>
                   <td style={{ padding: spacing['2xs'], textAlign: 'right', fontFamily: 'monospace' }}>{fmtCents(line.netCents)}</td>
+                  <td style={{ padding: spacing['2xs'], textAlign: 'right', fontFamily: 'monospace' }}>
+                    {/* Show platform revenue only on the charge row — transfer rows
+                        don't add to platform revenue (they reduce it). */}
+                    {line.type === 'charge' && m?.platformFeeCents != null
+                      ? fmtCents(m.platformFeeCents)
+                      : '—'}
+                  </td>
                   <td style={{ padding: spacing['2xs'], fontFamily: 'monospace', fontSize: 11 }}>
                     {line.sourceId ? (
                       <Link href={`/${vertical}/admin/stripe-reconcile?q=${line.sourceId}`} style={{ color: '#2563eb' }}>
