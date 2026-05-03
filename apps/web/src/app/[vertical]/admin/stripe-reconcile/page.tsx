@@ -32,7 +32,6 @@ interface MatchedOrder {
   matchedVia: string
   stripeIds: {
     payment_intent_id?: string | null
-    charge_id?: string | null
     transfer_ids?: string[]
   }
 }

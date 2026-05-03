@@ -71,13 +71,25 @@ export interface MatchedOrder {
     | 'vendor_payouts_transfer'
     | 'reverse_lookup_order_number'
     | 'reverse_lookup_email'
-  /** Stripe IDs already known for this match (from DB) */
+  /** Stripe IDs already known for this match (from DB).
+   *  charge_id is intentionally absent — payments table only stores
+   *  stripe_payment_intent_id; charge IDs come from Stripe API at runtime. */
   stripeIds: {
     payment_intent_id?: string | null
-    charge_id?: string | null
     transfer_ids?: string[]
   }
 }
+
+/**
+ * Internal lookup outcome — distinguishes the three reasons a DB lookup
+ * may not return a match. The reconcile orchestrator uses this to produce
+ * accurate per-line diagnostics in the audit UI.
+ */
+type LookupOutcome =
+  | { kind: 'matched'; order: MatchedOrder }
+  | { kind: 'not_found' }
+  | { kind: 'cross_vertical' }
+  | { kind: 'query_error'; message: string }
 
 export interface MetadataCompleteness {
   has_order_number: boolean
@@ -182,20 +194,23 @@ async function lookupOrderById(
   orderId: string,
   scope: ScopeFilter,
   matchedVia: MatchedOrder['matchedVia'],
-): Promise<MatchedOrder | { skipped: 'cross_vertical' } | null> {
-  const { data: order } = await serviceClient
+): Promise<LookupOutcome> {
+  // Note: payments.stripe_charge_id does NOT exist (only stripe_payment_intent_id).
+  // Verified against schema. Selecting it would silently fail the entire query.
+  const { data: order, error } = await serviceClient
     .from('orders')
     .select(`
       id, order_number, status, total_cents, platform_fee_cents, vertical_id, buyer_user_id,
-      payments:payments(stripe_payment_intent_id, stripe_charge_id, platform_fee_cents),
+      payments:payments(stripe_payment_intent_id, platform_fee_cents),
       order_items:order_items(vendor_payouts:vendor_payouts(stripe_transfer_id))
     `)
     .eq('id', orderId)
     .maybeSingle()
 
-  if (!order) return null
+  if (error) return { kind: 'query_error', message: `orders lookup: ${error.message}` }
+  if (!order) return { kind: 'not_found' }
   if (!visibleToScope(order.vertical_id as string | null, scope)) {
-    return { skipped: 'cross_vertical' }
+    return { kind: 'cross_vertical' }
   }
 
   let buyerEmail: string | null = null
@@ -210,7 +225,7 @@ async function lookupOrderById(
     buyerName = (buyer?.display_name as string) || null
   }
 
-  const payments = (order.payments as unknown as Array<{ stripe_payment_intent_id: string | null; stripe_charge_id: string | null; platform_fee_cents: number | null }>) || []
+  const payments = (order.payments as unknown as Array<{ stripe_payment_intent_id: string | null; platform_fee_cents: number | null }>) || []
   const orderItems = (order.order_items as unknown as Array<{ vendor_payouts: Array<{ stripe_transfer_id: string | null }> }>) || []
   const transferIds = orderItems
     .flatMap(oi => (oi.vendor_payouts || []).map(vp => vp.stripe_transfer_id))
@@ -218,25 +233,31 @@ async function lookupOrderById(
 
   // Prefer the per-order platform fee from `orders` (computed at order creation).
   // Fall back to the payments row if for some reason the orders column is null.
+  // NOTE: this is the vendor-side platform fee only. Settlement page computes
+  // total platform revenue as buyer_fee + buyer_flat_fee + platform_fee_cents
+  // + vendor_flat_fee. Reconcile-tool number may understate by ~$0.30/order
+  // until aligned with settlement math (separate refinement).
   const platformFeeCents = (order.platform_fee_cents as number | null) ??
     (payments[0]?.platform_fee_cents ?? null)
 
   return {
-    orderType: 'order',
-    orderNumber: order.order_number as string,
-    orderId: order.id as string,
-    buyerName,
-    buyerEmail,
-    vendorName: null, // multi-vendor possible — populated only on request
-    amountCents: order.total_cents as number,
-    platformFeeCents,
-    vertical: order.vertical_id as string | null,
-    status: order.status as string,
-    matchedVia,
-    stripeIds: {
-      payment_intent_id: payments[0]?.stripe_payment_intent_id || null,
-      charge_id: payments[0]?.stripe_charge_id || null,
-      transfer_ids: transferIds,
+    kind: 'matched',
+    order: {
+      orderType: 'order',
+      orderNumber: order.order_number as string,
+      orderId: order.id as string,
+      buyerName,
+      buyerEmail,
+      vendorName: null, // multi-vendor possible — populated only on request
+      amountCents: order.total_cents as number,
+      platformFeeCents,
+      vertical: order.vertical_id as string | null,
+      status: order.status as string,
+      matchedVia,
+      stripeIds: {
+        payment_intent_id: payments[0]?.stripe_payment_intent_id || null,
+        transfer_ids: transferIds,
+      },
     },
   }
 }
@@ -246,14 +267,15 @@ async function lookupOrderByNumber(
   orderNumber: string,
   scope: ScopeFilter,
   matchedVia: MatchedOrder['matchedVia'],
-): Promise<MatchedOrder | { skipped: 'cross_vertical' } | null> {
-  const { data: order } = await serviceClient
+): Promise<LookupOutcome> {
+  const { data: order, error } = await serviceClient
     .from('orders')
     .select('id')
     .eq('order_number', orderNumber)
     .maybeSingle()
 
-  if (!order) return null
+  if (error) return { kind: 'query_error', message: `orders lookup: ${error.message}` }
+  if (!order) return { kind: 'not_found' }
   return lookupOrderById(serviceClient, order.id as string, scope, matchedVia)
 }
 
@@ -261,20 +283,23 @@ async function lookupMarketBoxSubByPI(
   serviceClient: SupabaseClient,
   paymentIntentId: string,
   scope: ScopeFilter,
-): Promise<MatchedOrder | { skipped: 'cross_vertical' } | null> {
-  const { data: sub } = await serviceClient
+): Promise<LookupOutcome> {
+  // Note: market_box_subscriptions does NOT have a vertical_id column —
+  // vertical comes from the joined offering. Verified against schema.
+  const { data: sub, error } = await serviceClient
     .from('market_box_subscriptions')
     .select(`
-      id, status, term_weeks, buyer_user_id, offering_id, order_id, vertical_id,
+      id, status, term_weeks, buyer_user_id, offering_id, order_id,
       offerings:market_box_offerings!offering_id(name, vertical_id, vendor_profile_id, vendor_profiles:vendor_profiles!vendor_profile_id(profile_data))
     `)
     .eq('stripe_payment_intent_id', paymentIntentId)
     .maybeSingle()
 
-  if (!sub) return null
+  if (error) return { kind: 'query_error', message: `market_box_subscriptions lookup: ${error.message}` }
+  if (!sub) return { kind: 'not_found' }
   const offering = sub.offerings as unknown as { name: string; vertical_id: string; vendor_profiles: { profile_data: Record<string, unknown> } } | null
-  const vertical = (sub.vertical_id as string | null) || offering?.vertical_id || null
-  if (!visibleToScope(vertical, scope)) return { skipped: 'cross_vertical' }
+  const vertical = offering?.vertical_id || null
+  if (!visibleToScope(vertical, scope)) return { kind: 'cross_vertical' }
 
   let buyerEmail: string | null = null
   let buyerName: string | null = null
@@ -308,20 +333,23 @@ async function lookupMarketBoxSubByPI(
     .eq('market_box_subscription_id', sub.id)
 
   return {
-    orderType: 'market_box_subscription',
-    orderNumber,
-    orderId: sub.order_id as string | null,
-    buyerName,
-    buyerEmail,
-    vendorName,
-    amountCents: null, // MB amount tracking is on the order
-    platformFeeCents: null, // see MatchedOrder.platformFeeCents — null for non-order types
-    vertical,
-    status: sub.status as string,
-    matchedVia: 'market_box_subscription_payment_intent',
-    stripeIds: {
-      payment_intent_id: paymentIntentId,
-      transfer_ids: (payouts || []).map(p => p.stripe_transfer_id as string).filter(Boolean),
+    kind: 'matched',
+    order: {
+      orderType: 'market_box_subscription',
+      orderNumber,
+      orderId: sub.order_id as string | null,
+      buyerName,
+      buyerEmail,
+      vendorName,
+      amountCents: null, // MB amount tracking is on the order
+      platformFeeCents: null, // see MatchedOrder.platformFeeCents — null for non-order types
+      vertical,
+      status: sub.status as string,
+      matchedVia: 'market_box_subscription_payment_intent',
+      stripeIds: {
+        payment_intent_id: paymentIntentId,
+        transfer_ids: (payouts || []).map(p => p.stripe_transfer_id as string).filter(Boolean),
+      },
     },
   }
 }
@@ -330,8 +358,8 @@ async function lookupEventCompanyPaymentByPI(
   serviceClient: SupabaseClient,
   paymentIntentId: string,
   scope: ScopeFilter,
-): Promise<MatchedOrder | { skipped: 'cross_vertical' } | null> {
-  const { data: ecp } = await serviceClient
+): Promise<LookupOutcome> {
+  const { data: ecp, error } = await serviceClient
     .from('event_company_payments')
     .select(`
       id, status, amount_cents, payment_type,
@@ -340,23 +368,27 @@ async function lookupEventCompanyPaymentByPI(
     .eq('stripe_payment_intent_id', paymentIntentId)
     .maybeSingle()
 
-  if (!ecp) return null
+  if (error) return { kind: 'query_error', message: `event_company_payments lookup: ${error.message}` }
+  if (!ecp) return { kind: 'not_found' }
   const catering = ecp.catering as unknown as { id: string; company_name: string; contact_email: string; vertical_id: string; status: string } | null
-  if (!visibleToScope(catering?.vertical_id ?? null, scope)) return { skipped: 'cross_vertical' }
+  if (!visibleToScope(catering?.vertical_id ?? null, scope)) return { kind: 'cross_vertical' }
 
   return {
-    orderType: 'event_company_payment',
-    orderNumber: null,
-    orderId: catering?.id || null,
-    buyerName: catering?.company_name || null,
-    buyerEmail: catering?.contact_email || null,
-    vendorName: null,
-    amountCents: ecp.amount_cents as number,
-    platformFeeCents: null, // see MatchedOrder.platformFeeCents — null for non-order types
-    vertical: catering?.vertical_id || null,
-    status: ecp.status as string,
-    matchedVia: 'event_company_payment_intent',
-    stripeIds: { payment_intent_id: paymentIntentId },
+    kind: 'matched',
+    order: {
+      orderType: 'event_company_payment',
+      orderNumber: null,
+      orderId: catering?.id || null,
+      buyerName: catering?.company_name || null,
+      buyerEmail: catering?.contact_email || null,
+      vendorName: null,
+      amountCents: ecp.amount_cents as number,
+      platformFeeCents: null, // see MatchedOrder.platformFeeCents — null for non-order types
+      vertical: catering?.vertical_id || null,
+      status: ecp.status as string,
+      matchedVia: 'event_company_payment_intent',
+      stripeIds: { payment_intent_id: paymentIntentId },
+    },
   }
 }
 
@@ -364,39 +396,42 @@ async function lookupVendorPayoutByTransfer(
   serviceClient: SupabaseClient,
   transferId: string,
   scope: ScopeFilter,
-): Promise<MatchedOrder | { skipped: 'cross_vertical' } | null> {
-  const { data: payout } = await serviceClient
+): Promise<LookupOutcome> {
+  const { data: payout, error } = await serviceClient
     .from('vendor_payouts')
     .select('id, order_item_id, market_box_subscription_id, amount_cents, vendor_profile_id')
     .eq('stripe_transfer_id', transferId)
     .maybeSingle()
 
-  if (!payout) return null
+  if (error) return { kind: 'query_error', message: `vendor_payouts lookup: ${error.message}` }
+  if (!payout) return { kind: 'not_found' }
 
   // Resolve to either an order or a market box subscription
   if (payout.order_item_id) {
-    const { data: oi } = await serviceClient
+    const { data: oi, error: oiErr } = await serviceClient
       .from('order_items')
       .select('order_id')
       .eq('id', payout.order_item_id)
       .maybeSingle()
+    if (oiErr) return { kind: 'query_error', message: `order_items lookup: ${oiErr.message}` }
     if (oi?.order_id) {
       return lookupOrderById(serviceClient, oi.order_id as string, scope, 'vendor_payouts_transfer')
     }
   }
 
   if (payout.market_box_subscription_id) {
-    const { data: sub } = await serviceClient
+    const { data: sub, error: subErr } = await serviceClient
       .from('market_box_subscriptions')
       .select('stripe_payment_intent_id')
       .eq('id', payout.market_box_subscription_id)
       .maybeSingle()
+    if (subErr) return { kind: 'query_error', message: `market_box_subscriptions lookup: ${subErr.message}` }
     if (sub?.stripe_payment_intent_id) {
       return lookupMarketBoxSubByPI(serviceClient, sub.stripe_payment_intent_id as string, scope)
     }
   }
 
-  return null
+  return { kind: 'not_found' }
 }
 
 // ── Orchestrator: reconcile a Stripe object ──────────────────────────
@@ -489,82 +524,84 @@ export async function reconcileStripeObject(
 
   const completeness = evaluateMetadata(metadata)
   const matched: MatchedOrder[] = []
+  // Track the most informative non-success outcome from the pipeline so we
+  // can surface a useful warning if all pipeline steps fail.
+  let lastReason: LookupOutcome | null = null
+
+  // Helper: try a lookup; on success push it; on failure track the reason
+  function processOutcome(outcome: LookupOutcome): boolean {
+    if (outcome.kind === 'matched') {
+      matched.push(outcome.order)
+      return true
+    }
+    // query_error trumps cross_vertical trumps not_found in informativeness
+    if (outcome.kind === 'query_error') {
+      lastReason = outcome
+    } else if (outcome.kind === 'cross_vertical' && lastReason?.kind !== 'query_error') {
+      lastReason = outcome
+    } else if (outcome.kind === 'not_found' && !lastReason) {
+      lastReason = outcome
+    }
+    return false
+  }
 
   // Pipeline step 1: metadata.order_number
   if (metadata.order_number) {
-    const r = await lookupOrderByNumber(serviceClient, metadata.order_number, scope, 'metadata_order_number')
-    if (r && 'skipped' in r) {
-      warnings.push('Object exists in Stripe but maps to a different vertical you do not have access to.')
-    } else if (r) {
-      matched.push(r)
-    }
+    processOutcome(await lookupOrderByNumber(serviceClient, metadata.order_number, scope, 'metadata_order_number'))
   }
 
-  // Pipeline step 2: metadata.order_id (skip if already matched in step 1)
+  // Pipeline step 2: metadata.order_id
   if (matched.length === 0 && metadata.order_id) {
-    const r = await lookupOrderById(serviceClient, metadata.order_id, scope, 'metadata_order_id')
-    if (r && 'skipped' in r) {
-      warnings.push('Object exists in Stripe but maps to a different vertical you do not have access to.')
-    } else if (r) {
-      matched.push(r)
-    }
+    processOutcome(await lookupOrderById(serviceClient, metadata.order_id, scope, 'metadata_order_id'))
   }
 
   // Pipeline step 3: client_reference_id (UUID parse)
   if (matched.length === 0 && clientReferenceId && /^[0-9a-f-]{36}$/i.test(clientReferenceId)) {
-    const r = await lookupOrderById(serviceClient, clientReferenceId, scope, 'client_reference_id_uuid')
-    if (r && !('skipped' in r)) matched.push(r)
+    processOutcome(await lookupOrderById(serviceClient, clientReferenceId, scope, 'client_reference_id_uuid'))
   }
 
   // Pipeline step 4: market_box_subscriptions.stripe_payment_intent_id
   if (matched.length === 0 && paymentIntentId) {
-    const r = await lookupMarketBoxSubByPI(serviceClient, paymentIntentId, scope)
-    if (r && 'skipped' in r) {
-      warnings.push('Object exists in Stripe but maps to a different vertical you do not have access to.')
-    } else if (r) {
-      matched.push(r)
-    }
+    processOutcome(await lookupMarketBoxSubByPI(serviceClient, paymentIntentId, scope))
   }
 
   // Pipeline step 5: payments.stripe_payment_intent_id (regular orders)
   if (matched.length === 0 && paymentIntentId) {
-    const { data: pay } = await serviceClient
+    const { data: pay, error: payErr } = await serviceClient
       .from('payments')
       .select('order_id')
       .eq('stripe_payment_intent_id', paymentIntentId)
       .maybeSingle()
-    if (pay?.order_id) {
-      const r = await lookupOrderById(serviceClient, pay.order_id as string, scope, 'payments_payment_intent')
-      if (r && 'skipped' in r) {
-        warnings.push('Object exists in Stripe but maps to a different vertical you do not have access to.')
-      } else if (r) {
-        matched.push(r)
-      }
+    if (payErr) {
+      lastReason = { kind: 'query_error', message: `payments lookup: ${payErr.message}` }
+    } else if (pay?.order_id) {
+      processOutcome(await lookupOrderById(serviceClient, pay.order_id as string, scope, 'payments_payment_intent'))
     }
   }
 
   // Pipeline step 6: event_company_payments
   if (matched.length === 0 && paymentIntentId) {
-    const r = await lookupEventCompanyPaymentByPI(serviceClient, paymentIntentId, scope)
-    if (r && 'skipped' in r) {
-      warnings.push('Object exists in Stripe but maps to a different vertical you do not have access to.')
-    } else if (r) {
-      matched.push(r)
-    }
+    processOutcome(await lookupEventCompanyPaymentByPI(serviceClient, paymentIntentId, scope))
   }
 
   // Pipeline step 7: vendor_payouts (transfers only)
   if (matched.length === 0 && transferId) {
-    const r = await lookupVendorPayoutByTransfer(serviceClient, transferId, scope)
-    if (r && 'skipped' in r) {
-      warnings.push('Object exists in Stripe but maps to a different vertical you do not have access to.')
-    } else if (r) {
-      matched.push(r)
-    }
+    processOutcome(await lookupVendorPayoutByTransfer(serviceClient, transferId, scope))
   }
 
   if (matched.length === 0) {
-    warnings.push('Stripe object found, but no matching record in our database. Possible orphan or unrelated transaction.')
+    // TS narrowing struggles with the union here (lastReason is mutated inside
+    // a closure in processOutcome) — extract the kind explicitly to avoid the
+    // 'never' inference confusion.
+    const reasonKind: LookupOutcome['kind'] | null = lastReason ? lastReason.kind : null
+    if (reasonKind === 'query_error') {
+      const msg = lastReason && lastReason.kind === 'query_error' ? lastReason.message : 'unknown'
+      warnings.push(`Database query error: ${msg}`)
+    } else if (reasonKind === 'cross_vertical') {
+      warnings.push('Object exists in our database but is in a different vertical than you have access to.')
+    } else {
+      warnings.push('Stripe object found, but no matching record in our database. Possible orphan or unrelated transaction.')
+    }
   }
 
   return {
@@ -583,27 +620,23 @@ export async function reconcileByOrderNumber(
   scope: ScopeFilter,
 ): Promise<MatchResult> {
   const r = await lookupOrderByNumber(serviceClient, orderNumber, scope, 'reverse_lookup_order_number')
-  if (!r) {
+  if (r.kind === 'matched') {
     return {
       stripeObject: null,
-      matchedOrders: [],
+      matchedOrders: [r.order],
       metadataCompleteness: evaluateMetadata({}),
-      warnings: [`No order found with number "${orderNumber}".`],
+      warnings: [],
     }
   }
-  if ('skipped' in r) {
-    return {
-      stripeObject: null,
-      matchedOrders: [],
-      metadataCompleteness: evaluateMetadata({}),
-      warnings: ['Order exists but is in a different vertical than you have access to.'],
-    }
-  }
+  const warning =
+    r.kind === 'query_error' ? `Database query error: ${r.message}` :
+    r.kind === 'cross_vertical' ? 'Order exists but is in a different vertical than you have access to.' :
+    `No order found with number "${orderNumber}".`
   return {
     stripeObject: null,
-    matchedOrders: [r],
+    matchedOrders: [],
     metadataCompleteness: evaluateMetadata({}),
-    warnings: [],
+    warnings: [warning],
   }
 }
 
@@ -654,7 +687,7 @@ export async function reconcileByEmail(
   const matches: MatchedOrder[] = []
   for (const o of orders) {
     const r = await lookupOrderById(serviceClient, o.id as string, scope, 'reverse_lookup_email')
-    if (r && !('skipped' in r)) matches.push(r)
+    if (r.kind === 'matched') matches.push(r.order)
   }
 
   return {
@@ -772,29 +805,33 @@ export async function reconcilePayout(
       }
 
       if (chargePaymentIntentId) {
-        const r = await matchByPaymentIntent(serviceClient, chargePaymentIntentId, scope)
-        if (r) {
+        const result = await matchByPaymentIntentDetailed(serviceClient, chargePaymentIntentId, scope)
+        if (result.outcome === 'matched') {
           match = {
             stripeObject: null,
-            matchedOrders: [r],
+            matchedOrders: [result.order],
             metadataCompleteness: evaluateMetadata({}),
             warnings: [],
           }
         } else {
-          diagnostic = `PI ${chargePaymentIntentId} found on Stripe but no matching row in payments / market_box_subscriptions / event_company_payments`
+          diagnostic = result.reason
         }
       } else if (!diagnostic) {
         diagnostic = 'No payment_intent ID available for matching'
       }
     } else if (bt.type === 'transfer' && sourceId) {
       const r = await lookupVendorPayoutByTransfer(serviceClient, sourceId, scope)
-      if (r && !('skipped' in r)) {
+      if (r.kind === 'matched') {
         match = {
           stripeObject: null,
-          matchedOrders: [r],
+          matchedOrders: [r.order],
           metadataCompleteness: evaluateMetadata({}),
           warnings: [],
         }
+      } else if (r.kind === 'query_error') {
+        diagnostic = `Transfer ${sourceId} lookup failed: ${r.message}`
+      } else if (r.kind === 'cross_vertical') {
+        diagnostic = `Transfer ${sourceId} maps to a different vertical than you have access to`
       } else {
         diagnostic = `Transfer ${sourceId} has no matching vendor_payouts row (stripe_transfer_id may not have been recorded)`
       }
@@ -826,32 +863,60 @@ export async function reconcilePayout(
 /**
  * Look up a PaymentIntent ID across all 3 charge-producing tables in priority
  * order: payments (regular orders) → market_box_subscriptions → event_company_payments.
- * Used by the payout audit's per-line charge matcher (where we have the PI from
- * the expanded BT source).
+ * Returns either the match OR an explanation string suitable for the diagnostic
+ * column. The explanation distinguishes "not found anywhere" from "found but
+ * cross-vertical" from "DB query failed" so the user can act on the right cause.
  */
-async function matchByPaymentIntent(
+async function matchByPaymentIntentDetailed(
   serviceClient: SupabaseClient,
   paymentIntentId: string,
   scope: ScopeFilter,
-): Promise<MatchedOrder | null> {
-  // Regular order
-  const { data: pay } = await serviceClient
+): Promise<{ outcome: 'matched'; order: MatchedOrder } | { outcome: 'no_match'; reason: string }> {
+  const visited: Array<{ table: string; outcome: LookupOutcome }> = []
+
+  // 1. Regular order via payments table
+  const { data: pay, error: payErr } = await serviceClient
     .from('payments')
     .select('order_id')
     .eq('stripe_payment_intent_id', paymentIntentId)
     .maybeSingle()
-  if (pay?.order_id) {
+  if (payErr) {
+    visited.push({ table: 'payments', outcome: { kind: 'query_error', message: payErr.message } })
+  } else if (pay?.order_id) {
     const r = await lookupOrderById(serviceClient, pay.order_id as string, scope, 'payments_payment_intent')
-    if (r && !('skipped' in r)) return r
+    if (r.kind === 'matched') return { outcome: 'matched', order: r.order }
+    visited.push({ table: 'orders (via payments)', outcome: r })
+  } else {
+    visited.push({ table: 'payments', outcome: { kind: 'not_found' } })
   }
 
-  // Market box subscription
+  // 2. Market box subscription
   const mb = await lookupMarketBoxSubByPI(serviceClient, paymentIntentId, scope)
-  if (mb && !('skipped' in mb)) return mb
+  if (mb.kind === 'matched') return { outcome: 'matched', order: mb.order }
+  visited.push({ table: 'market_box_subscriptions', outcome: mb })
 
-  // Event company payment
+  // 3. Event company payment
   const ecp = await lookupEventCompanyPaymentByPI(serviceClient, paymentIntentId, scope)
-  if (ecp && !('skipped' in ecp)) return ecp
+  if (ecp.kind === 'matched') return { outcome: 'matched', order: ecp.order }
+  visited.push({ table: 'event_company_payments', outcome: ecp })
 
-  return null
+  // Compose a diagnostic from the most informative outcome
+  const errors = visited.filter(v => v.outcome.kind === 'query_error') as Array<{ table: string; outcome: { kind: 'query_error'; message: string } }>
+  if (errors.length > 0) {
+    return {
+      outcome: 'no_match',
+      reason: `PI ${paymentIntentId} lookup hit DB error(s): ${errors.map(e => `${e.table}: ${e.outcome.message}`).join('; ')}`,
+    }
+  }
+  const crossVerticals = visited.filter(v => v.outcome.kind === 'cross_vertical')
+  if (crossVerticals.length > 0) {
+    return {
+      outcome: 'no_match',
+      reason: `PI ${paymentIntentId} found in ${crossVerticals.map(v => v.table).join(' and ')} but maps to a different vertical than you have access to`,
+    }
+  }
+  return {
+    outcome: 'no_match',
+    reason: `PI ${paymentIntentId} found on Stripe but no matching row in payments, market_box_subscriptions, or event_company_payments`,
+  }
 }
