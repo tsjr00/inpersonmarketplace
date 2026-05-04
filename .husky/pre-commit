@@ -2,6 +2,35 @@
 # Pre-commit hook — runs lint-staged (ESLint) + vitest unit tests.
 # Playwright e2e moved to pre-push to avoid Turbopack cold-compile stalls
 # blocking rapid commits. See .husky/pre-push.
+
+# ── Mechanical gate: migration files require SCHEMA_SNAPSHOT.md update ──
+# Per CLAUDE.md "After EVERY confirmed successful migration → update snapshot."
+# Repeated skips of this rule (4+ times by Session 77) prompted this gate.
+# It catches at minimum the changelog entry. Structured-table regen still
+# requires a separate REFRESH_SCHEMA.sql run.
+STAGED=$(git diff --cached --name-only)
+if echo "$STAGED" | grep -qE "^supabase/migrations/.*\.sql$"; then
+  if ! echo "$STAGED" | grep -qE "^supabase/SCHEMA_SNAPSHOT\.md$"; then
+    echo ""
+    echo "❌ ERROR: Migration file staged without SCHEMA_SNAPSHOT.md update."
+    echo ""
+    echo "   Migration files in this commit:"
+    echo "$STAGED" | grep -E "^supabase/migrations/.*\.sql$" | sed 's/^/     /'
+    echo ""
+    echo "   Per CLAUDE.md, every migration requires at minimum:"
+    echo "     1. A changelog entry in supabase/SCHEMA_SNAPSHOT.md"
+    echo "        (date + migration filename + what changed)"
+    echo "     2. Updated function descriptions if any function logic changed"
+    echo "     3. Structured-table regen if columns/tables/FKs/indexes changed"
+    echo "        (run supabase/REFRESH_SCHEMA.sql, paste output, rebuild tables)"
+    echo ""
+    echo "   Stage the snapshot edit + retry the commit."
+    echo "   Bypass (rare — emergency fixes only): git commit --no-verify"
+    echo ""
+    exit 1
+  fi
+fi
+
 cd apps/web
 npx lint-staged
 npx vitest run
