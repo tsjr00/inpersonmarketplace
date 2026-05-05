@@ -173,6 +173,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
             headcount: cateringReq.headcount,
             eventDate,
             eventAddress: `${cateringReq.city}, ${cateringReq.state}`,
+            // marketId required by notification actionUrl (Session 78 P1 fix —
+            // sibling callers in event-actions.ts:374, events/[token]/select:288,
+            // and vendor/events/[marketId]/cancel:253 all pass this; this admin
+            // manual-invite path was the missed caller. Without it, the in-app
+            // notification's "View Event" link goes to /vendor/events/undefined.)
+            marketId: cateringReq.market_id,
           },
           { vertical: cateringReq.vertical_id }
         )
