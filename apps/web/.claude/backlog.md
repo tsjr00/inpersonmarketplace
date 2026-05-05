@@ -1,6 +1,10 @@
 # Backlog
 
-Last updated: 2026-04-26
+Last updated: 2026-05-04
+
+## Priority 0.5 — Dev environment catch-up (Session 78)
+
+- [ ] **Dev is missing migrations 039 and 040 (event date columns) and possibly more** — Discovered 2026-05-04 while verifying migration 131 on Dev. The function `get_available_pickup_dates` errored at runtime with `column m.event_end_date does not exist`. `information_schema.columns` confirmed Dev's `markets` table is missing `event_start_date`, `event_end_date`, and `event_url` (Staging has all three). Per `CLAUDE_CONTEXT.md` Known Issues: "Dev out of sync: Migrations 039-041 on Staging+Prod. Dev needs these applied. Also 105 failed on dev (missing event columns — migration 039 never applied to dev)." This means `get_available_pickup_dates` has been silently broken on Dev for any caller — the browse page's `console.error` swallows it; listing detail returns empty, etc. Audit needed: query Dev's `information_schema` against the migration history (or against Staging) to identify ALL missing migrations, then apply them in order. Files to consider: 039, 040, 041, 110 (event_waves_schema adds more event columns), and any others. Don't apply blindly — some Dev-skipped migrations might have prerequisites that were also skipped. Until Dev is current, Dev cannot be reliably used to verify migration changes that touch event-related code. For migration 131's specific case, runtime verification was done on Staging only and that was sufficient because Staging is the env that mirrors Prod. **Not blocking** the Prod push of migration 131. Found 2026-05-04. Session 78.
 
 ## Priority 0 — Cross-Vertical Audit
 
@@ -206,6 +210,8 @@ Last updated: 2026-04-26
 - [ ] **Per-vendor "unrated event orders" nudge** — after event completes, notify buyers with an unrated completed order from the event so they rate via the dashboard (not just via the event page).
 
 ## Priority 0.5 — Quick Fixes
+
+- [ ] **Browse availability RPC references phantom column `m.event_end_date`** — Surfaced 2026-05-01 during pre-push Playwright run for commit `eea40abd`. Each browse page slice load logs: `[browse] availability RPC failed (page slice): column m.event_end_date does not exist`. The page falls back gracefully (test still passed, no user-visible break), but every browse load fails its availability RPC and likely degrades sort/filter accuracy. Investigation: find the `get_available_pickup_dates()` (or related) function definition; the `m.event_end_date` reference must be either renamed (column was renamed?) or the function predates a column drop. Likely related to the schema phantom-columns issue (P1-8 — `orders.market_id` family). Adjacent question: does `markets.event_end_date` actually exist on the live DB? Schema snapshot shows `markets.event_allow_day_of_orders` and `wave_ordering_enabled` and `wave_duration_minutes` (migration 110) — `event_end_date` was added per migration 110 changelog but on `markets`, so the column should exist. Maybe the alias `m` doesn't bind to markets in that query context. Quick investigation, likely a 1-line fix in the RPC.
 
 - [ ] **Locale switch fetch error unhandled** — `src/lib/locale/client.ts:24` `setClientLocale()` doesn't catch fetch failure. Sentry issue 7382469144.
 - [ ] **Organizer cancel API** — new route `POST /api/events/[token]/cancel` with organizer_user_id auth. Current button shows "contact support".

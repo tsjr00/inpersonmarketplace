@@ -1,8 +1,8 @@
-# Current Task: Sessions 75–77 — Wrap (Audit, Events Review, Stripe Reconcile)
+# Current Task: Sessions 75–78 — Wrap (Audit, Events Review, Stripe Reconcile, FM Vendor Attendance Fix)
 
-**Updated:** 2026-05-03 (after Stripe reconcile fix push `76f4a69e`)
-**Mode:** Report by default. User has tested reconcile tool and confirmed math is correct.
-**Vercel build status for staging tip `76f4a69e`:** GREEN
+**Updated:** 2026-05-04 (Session 78 — migration 131 applied to Dev + Staging, awaiting Prod)
+**Mode:** Report. Migration 131 verified on Staging.
+**Vercel build status for staging tip `76f4a69e`:** GREEN (note: 131 not yet committed — only the SQL migration was applied; no code changes)
 
 ---
 
@@ -29,6 +29,51 @@ All work below is on staging. Origin/main (Prod) is 25 commits behind.
 | 128 — `event_setting` column | ✅ 2026-04-30 | ✅ 2026-04-30 | ⏳ Pending | Session 75 |
 | 129 — `address` DROP NOT NULL | ✅ 2026-05-01 | ✅ 2026-05-01 | ⏳ Pending | Session 75 |
 | 130 — `recalculate_wave_capacity` no silent fallback | ✅ 2026-05-01 | ✅ 2026-05-01 | ⏳ Pending | Session 76 |
+| 131 — `get_available_pickup_dates` require active vms | ⚠️ 2026-05-04 (DDL only — runtime broken on Dev, env drift) | ✅ 2026-05-04 | ⏳ Pending | Session 78 |
+
+---
+
+## Session 78 — FM vendor attendance fix (in progress 2026-05-04)
+
+**Trigger:** User test on Staging — buyer added Sweet Rise Bakery's "Jalapeño Cornbread" to cart at Amarillo Community Market via the listing detail page (showed green pickup date), then cart blocked with "Some items need attention / pickup time changes" and checkout greyed out with "Remove unavailable items". Vendor profile confirmed the market was missing (vendor had deactivated `vendor_market_schedules.is_active`).
+
+**Root cause:** 3-way inconsistency between
+- `get_available_pickup_dates` SQL function (lenient — FM exempt from vms requirement)
+- Cart validator at `api/cart/route.ts:222-239` (strict — vms required for all traditional)
+- Vendor profile at `vendor/[vendorId]/profile/page.tsx:381-397, 425-429` (strict — vms required)
+
+The function exempted FM via `vertical_id != 'food_trucks'` in the WHERE clause of `listing_schedules` CTE. That meant inactive/missing vms rows were ignored for FM, while cart and profile correctly enforced them.
+
+**Fix:** Migration 131 — `supabase/migrations/20260504_131_pickup_dates_require_active_vms.sql`. Single-line WHERE clause change: traditional markets in ALL verticals now require `vms.id IS NOT NULL` (active row). Function body otherwise verbatim from migration 109. SECURITY DEFINER SET search_path = public preserved.
+
+**Pre-fix audit:** Query A returned 6 rows — 3 listings × 2 markets × 1 vendor (Sweet Rise Bakery), all `inactive_vms_count=1, missing_vms_count=0`. No backfill needed (no FM listings rely on the "no vms row exists" branch of the prior exemption).
+
+**Verification on Staging:**
+```sql
+SELECT market_name, pickup_date, is_accepting
+FROM get_available_pickup_dates('b6d14489-251a-4db6-a23f-d64a1cf5bbe2')
+ORDER BY market_name, pickup_date;
+```
+Returned: Anew Perspective Pop-Up Market only. Amarillo + Canyon (inactive vms) correctly excluded. User confirmed listing detail page no longer shows green dates for those markets.
+
+**Dev runtime broken (pre-existing, NOT caused by 131):** Dev is missing migrations 039/040 (event date columns on `markets`). `get_available_pickup_dates` errors at runtime on Dev with `column m.event_end_date does not exist`. The error existed in migration 109 and earlier; 131 only inherited it. Browse page and listing detail tolerate via `console.error` + empty fallback. Backlog item added.
+
+**Bookkeeping done:**
+- ✅ `MIGRATION_LOG.md` row added
+- ✅ `SCHEMA_SNAPSHOT.md` changelog entry + function description updated
+- ✅ Backlog item: "Dev environment catch-up" (Priority 0.5)
+
+**NOT done:**
+- ❌ Not committed yet (awaiting user approval)
+- ❌ Not yet pushed to staging (no code changes — migration runs in Supabase SQL editor, not via deploy)
+- ❌ Migration file still in `supabase/migrations/` (will move to `applied/` only after Prod)
+- ❌ Follow-up fixes deferred:
+  - Cross-sell suggestions filter (`api/listings/suggestions/route.ts`)
+  - Market detail page vendor list filter (`lib/markets/vendors-with-listings.ts`)
+  - Browse radius RPC tightening (`get_listings_within_radius`)
+  - `get_listing_market_availability` rewrite
+
+**Pending Prod:** apply migration 131 to Prod after migrations 128, 129, 130 (those were already pending). Within 9pm-7am CT push window.
 
 ---
 
