@@ -87,8 +87,11 @@ export function Header({
     setDropdownOpen(false)
     setMobileMenuOpen(false)
     await supabase.auth.signOut()
-    router.push(`/${vertical}`)
-    router.refresh()
+    // Full page reload (not router.push) — clears all client-side React state
+    // including useCart's items array. Without this, the next user logging in
+    // in the same tab sees the prior user's cart until they hard-refresh.
+    // Session 78 bug: cart staleness across user switch in the same tab.
+    window.location.href = `/${vertical}`
   }
 
   // Detect landing page: path is exactly /{vertical} (no subpath)
