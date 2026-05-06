@@ -18,18 +18,18 @@
 
 ---
 
-## origin/staging tip: `76f4a69e`
+## origin/main tip: `1d6de257` (in sync with staging)
 
-All work below is on staging. Origin/main (Prod) is 25 commits behind.
+Production push completed 2026-05-05. All 28 commits + 4 migrations (128, 129, 130, 131) live on Prod. Tier 2 smoke test passed.
 
 ### Migration status
 
 | Migration | Dev | Staging | Prod | Notes |
 |---|---|---|---|---|
-| 128 — `event_setting` column | ✅ 2026-04-30 | ✅ 2026-04-30 | ⏳ Pending | Session 75 |
-| 129 — `address` DROP NOT NULL | ✅ 2026-05-01 | ✅ 2026-05-01 | ⏳ Pending | Session 75 |
-| 130 — `recalculate_wave_capacity` no silent fallback | ✅ 2026-05-01 | ✅ 2026-05-01 | ⏳ Pending | Session 76 |
-| 131 — `get_available_pickup_dates` require active vms | ⚠️ 2026-05-04 (DDL only — runtime broken on Dev, env drift) | ✅ 2026-05-04 | ⏳ Pending | Session 78 |
+| 128 — `event_setting` column | ✅ 2026-04-30 | ✅ 2026-04-30 | ✅ 2026-05-05 | Session 75 |
+| 129 — `address` DROP NOT NULL | ✅ 2026-05-01 | ✅ 2026-05-01 | ✅ 2026-05-05 | Session 75 |
+| 130 — `recalculate_wave_capacity` no silent fallback | ✅ 2026-05-01 | ✅ 2026-05-01 | ✅ 2026-05-05 | Session 76 |
+| 131 — `get_available_pickup_dates` require active vms | ⚠️ 2026-05-04 (DDL only — runtime broken on Dev, env drift) | ✅ 2026-05-04 | ✅ 2026-05-05 | Session 78 |
 
 ---
 
