@@ -1,6 +1,10 @@
 # Backlog
 
-Last updated: 2026-05-04
+Last updated: 2026-05-05
+
+## Priority 1 — Market Manager v1 (FM only)
+
+- [ ] **Market Manager dashboard + invite flow** — Pitch: free dashboard for FM market managers (vendor list with booth + attendance, aggregate market transactions, "invite a vendor" link, schedule view, support card) in exchange for them promoting the platform to their vendors and the public. Mirrors event organizer pattern (same human, different email; buyer dashboard card; admin-assigned via market admin UI). 1:1 manager:market for v1; FT park operator deferred. **Full plan + schema + 9-phase build order:** `apps/web/.claude/market_manager_v1_plan.md`. Awaiting user feedback from 1-2 friendly market managers (Amarillo / Canyon) before kickoff. Estimated 1-2 development sessions for end-to-end MVP. Drafted Session 78 (2026-05-05).
 
 ## Priority 0.5 — Dev environment catch-up (Session 78)
 
