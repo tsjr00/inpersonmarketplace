@@ -38,7 +38,7 @@ export function trackMetric(
     name,
     duration,
     timestamp: new Date(),
-    metadata
+    ...(metadata !== undefined ? { metadata } : {}),
   })
 
   // Prune old entries if over limit

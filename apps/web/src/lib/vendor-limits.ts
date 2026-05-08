@@ -346,8 +346,10 @@ export async function canAddTraditionalMarket(
     allowed,
     current: usage.count,
     limit: limits.traditionalMarkets,
-    message: allowed ? undefined : `Market limit reached (${usage.count}/${limits.traditionalMarkets}).`,
-    upgradeMessage: allowed ? undefined : 'Upgrade your plan to join more traditional markets.',
+    ...(allowed ? {} : {
+      message: `Market limit reached (${usage.count}/${limits.traditionalMarkets}).`,
+      upgradeMessage: 'Upgrade your plan to join more traditional markets.',
+    }),
   }
 }
 
@@ -364,8 +366,10 @@ export async function canAddPrivatePickup(
     allowed,
     current: usage.count,
     limit: limits.privatePickupLocations,
-    message: allowed ? undefined : `Limit reached: ${usage.count} of ${limits.privatePickupLocations} private pickup locations used.`,
-    upgradeMessage: allowed ? undefined : 'Upgrade to add more pickup locations.',
+    ...(allowed ? {} : {
+      message: `Limit reached: ${usage.count} of ${limits.privatePickupLocations} private pickup locations used.`,
+      upgradeMessage: 'Upgrade to add more pickup locations.',
+    }),
   }
 }
 
@@ -382,8 +386,10 @@ export async function canCreateMarketBox(
     allowed,
     current: usage.total,
     limit: limits.marketBoxes,
-    message: allowed ? undefined : `Limit reached: ${usage.total} of ${limits.marketBoxes} boxes maximum.`,
-    upgradeMessage: allowed ? undefined : 'Upgrade to create more boxes.',
+    ...(allowed ? {} : {
+      message: `Limit reached: ${usage.total} of ${limits.marketBoxes} boxes maximum.`,
+      upgradeMessage: 'Upgrade to create more boxes.',
+    }),
   }
 }
 
@@ -415,8 +421,10 @@ export async function canCreateListing(
     allowed,
     current: usage.count,
     limit: limits.productListings,
-    message: allowed ? undefined : `Limit reached: ${usage.count} of ${limits.productListings} listings used.`,
-    upgradeMessage: allowed ? undefined : `Upgrade to get more listings.`,
+    ...(allowed ? {} : {
+      message: `Limit reached: ${usage.count} of ${limits.productListings} listings used.`,
+      upgradeMessage: `Upgrade to get more listings.`,
+    }),
   }
 }
 

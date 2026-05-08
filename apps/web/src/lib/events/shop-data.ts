@@ -131,7 +131,11 @@ export async function getEventShopData(
     .single()
 
   if (eventError || !event || !event.market_id) {
-    return { ...empty, reason: 'not_found', errorMessage: eventError?.message }
+    return {
+      ...empty,
+      reason: 'not_found',
+      ...(eventError?.message ? { errorMessage: eventError.message } : {}),
+    }
   }
 
   // Get market schedule (needed for cart's schedule_id + pickup_date)

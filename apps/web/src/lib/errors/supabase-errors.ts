@@ -58,12 +58,12 @@ export function parseSupabaseError(
 
   return new TracedError(errorCode, message, {
     ...context,
-    table,
-    policyName,
-    pgCode: pgCode || undefined,
-    pgDetail: error.details || undefined,
-    pgHint: error.hint || undefined,
     originalError: error,
+    ...(table !== undefined ? { table } : {}),
+    ...(policyName !== undefined ? { policyName } : {}),
+    ...(pgCode ? { pgCode } : {}),
+    ...(error.details ? { pgDetail: error.details } : {}),
+    ...(error.hint ? { pgHint: error.hint } : {}),
   })
 }
 
@@ -140,7 +140,7 @@ export const traced = {
     new TracedError('ERR_RLS_002', `Access denied to ${table}`, {
       ...context,
       table,
-      operation: operation as ErrorContext['operation'],
+      operation: operation as NonNullable<ErrorContext['operation']>,
     }),
 
   /**

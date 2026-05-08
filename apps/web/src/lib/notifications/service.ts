@@ -374,7 +374,7 @@ async function sendPush(
     return {
       channel: 'push',
       success: successCount > 0,
-      error: successCount === 0 ? 'All push subscriptions failed' : undefined,
+      ...(successCount === 0 ? { error: 'All push subscriptions failed' } : {}),
     }
   } catch (err) {
     return {
@@ -443,7 +443,10 @@ export async function sendNotification(
 
   // Generate content from templates (locale applied after profile fetch, see below)
   // title + message assigned after profile fetch so locale is available
-  const actionUrl = config.actionUrl({ ...templateData, vertical: options?.vertical })
+  const actionUrl = config.actionUrl({
+    ...templateData,
+    ...(options?.vertical !== undefined ? { vertical: options.vertical } : {}),
+  })
 
   // Determine channels based on per-vertical urgency (NI-R19)
   const urgency = getNotificationUrgency(type, options?.vertical)
@@ -602,7 +605,7 @@ export async function sendNotification(
   return {
     notificationType: type,
     channels: results,
-    inAppNotificationId,
+    ...(inAppNotificationId !== undefined ? { inAppNotificationId } : {}),
   }
 }
 
@@ -645,8 +648,8 @@ export async function sendNotificationBatch(
       const profile = profileMap.get(userId)
       return sendNotification(userId, type, templateData, {
         ...options,
-        userEmail: profile?.email,
-        userPhone: profile?.phone,
+        ...(profile?.email !== undefined ? { userEmail: profile.email } : {}),
+        ...(profile?.phone !== undefined ? { userPhone: profile.phone } : {}),
       })
     })
   )

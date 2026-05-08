@@ -301,7 +301,7 @@ export async function markResolutionVerified(
   return verifyResolution(resolutionId, {
     worked: true,
     method: 'manual',
-    verifiedBy,
+    ...(verifiedBy !== undefined ? { verifiedBy } : {}),
   })
 }
 
@@ -359,23 +359,21 @@ export async function getResolutionSummary(
   const failed = rows.filter((r) => r.status === 'failed')
   const pending = rows.filter((r) => r.status === 'pending')
 
-  const latestVerified = verified[0]
-    ? {
-        description: verified[0].attempted_fix,
-        migrationFile: verified[0].migration_file,
-        verifiedAt: verified[0].verified_at,
-        verifiedBy: verified[0].verified_by || 'unknown',
-      }
-    : undefined
-
   return {
     errorCode,
     totalAttempts: rows.length,
     verifiedCount: verified.length,
     failedCount: failed.length,
     pendingCount: pending.length,
-    latestVerified,
     failedApproaches: failed.map((f) => f.attempted_fix),
+    ...(verified[0] ? {
+      latestVerified: {
+        description: verified[0].attempted_fix,
+        migrationFile: verified[0].migration_file,
+        verifiedAt: verified[0].verified_at,
+        verifiedBy: verified[0].verified_by || 'unknown',
+      },
+    } : {}),
   }
 }
 
@@ -430,28 +428,28 @@ export async function printResolutionSummary(errorCode: string): Promise<void> {
 // ============================================================================
 
 function mapRowToResolution(row: Record<string, unknown>): ErrorResolution {
+  const optionalFields: Partial<ErrorResolution> = {}
+  if (row.trace_id != null) optionalFields.traceId = row.trace_id as string
+  if (row.migration_file != null) optionalFields.migrationFile = row.migration_file as string
+  if (row.code_changes != null) optionalFields.codeChanges = row.code_changes as string
+  if (row.failure_reason != null) optionalFields.failureReason = row.failure_reason as string
+  if (row.partial_notes != null) optionalFields.partialNotes = row.partial_notes as string
+  if (row.verification_method != null) {
+    optionalFields.verificationMethod = row.verification_method as 'manual' | 'query' | 'api_test' | 'automated'
+  }
+  if (row.verification_query != null) optionalFields.verificationQuery = row.verification_query as string
+  if (row.verification_result != null) optionalFields.verificationResult = row.verification_result as string
+  if (row.verified_at != null) optionalFields.verifiedAt = row.verified_at as string
+  if (row.verified_by != null) optionalFields.verifiedBy = row.verified_by as string
+  if (row.created_by != null) optionalFields.createdBy = row.created_by as string
+
   return {
     id: row.id as string,
     errorCode: row.error_code as string,
-    traceId: row.trace_id as string | undefined,
     attemptedFix: row.attempted_fix as string,
-    migrationFile: row.migration_file as string | undefined,
-    codeChanges: row.code_changes as string | undefined,
     status: row.status as ResolutionStatus,
-    failureReason: row.failure_reason as string | undefined,
-    partialNotes: row.partial_notes as string | undefined,
-    verificationMethod: row.verification_method as
-      | 'manual'
-      | 'query'
-      | 'api_test'
-      | 'automated'
-      | undefined,
-    verificationQuery: row.verification_query as string | undefined,
-    verificationResult: row.verification_result as string | undefined,
-    verifiedAt: row.verified_at as string | undefined,
-    verifiedBy: row.verified_by as string | undefined,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
-    createdBy: row.created_by as string | undefined,
+    ...optionalFields,
   }
 }

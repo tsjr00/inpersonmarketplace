@@ -50,8 +50,8 @@ export function addBreadcrumb(
       timestamp: Date.now(),
       category,
       message,
-      data,
       level,
+      ...(data !== undefined ? { data } : {}),
     })
 
     // Limit trail length to prevent memory issues

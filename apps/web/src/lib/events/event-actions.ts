@@ -150,13 +150,12 @@ export async function approveEventRequest(
 
   // Generate access code for company-paid and hybrid events
   const needsAccessCode = request.payment_model === 'company_paid' || request.payment_model === 'hybrid'
-  const access_code = needsAccessCode ? generateAccessCode() : undefined
 
   return {
     success: true,
     market_id: market.id,
     event_token,
-    access_code,
+    ...(needsAccessCode ? { access_code: generateAccessCode() } : {}),
   }
 }
 
@@ -283,12 +282,12 @@ export async function autoMatchAndInvite(
       tier: (v.tier || 'free') as string,
       pickup_lead_minutes: (v.pickup_lead_minutes || 30) as number,
       requires_generator: !!(eventReadiness?.requires_generator),
-      generator_type: (eventReadiness?.generator_type as string) || undefined,
       strong_odors: !!(eventReadiness?.strong_odors),
-      food_perishability: (eventReadiness?.food_perishability as string) || undefined,
       seating_recommended: !!(eventReadiness?.seating_recommended),
       allergen_listing_count: vendorAllergenCount[v.id] || 0,
       education_focused: !!(eventReadiness?.education_focused),
+      ...(eventReadiness?.generator_type ? { generator_type: eventReadiness.generator_type as string } : {}),
+      ...(eventReadiness?.food_perishability ? { food_perishability: eventReadiness.food_perishability as string } : {}),
     }
 
     const score = scoreVendorMatch(matchInput, eventData)
