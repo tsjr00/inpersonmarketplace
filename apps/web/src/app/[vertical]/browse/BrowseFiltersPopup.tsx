@@ -12,7 +12,7 @@ interface BrowseFiltersPopupProps {
   vertical: string
   currentView: 'listings' | 'market-boxes'
   isAvailableNow: boolean
-  currentMenu?: string
+  currentMenu?: string | undefined
   branding: VerticalBranding
 }
 

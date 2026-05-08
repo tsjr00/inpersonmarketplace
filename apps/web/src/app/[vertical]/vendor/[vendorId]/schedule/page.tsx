@@ -94,11 +94,11 @@ export default async function VendorSchedulePage({ params }: SchedulePageProps) 
   let allPickupLocations: {
     id: string
     name: string
-    address?: string
-    city?: string
-    state?: string
-    market_type?: 'private_pickup' | 'traditional' | 'event'
-    schedules?: { day_of_week: number; start_time: string; end_time: string }[]
+    address?: string | undefined
+    city?: string | undefined
+    state?: string | undefined
+    market_type?: 'private_pickup' | 'traditional' | 'event' | undefined
+    schedules?: { day_of_week: number; start_time: string; end_time: string }[] | undefined
   }[] = []
 
   if (listingIds.length > 0) {

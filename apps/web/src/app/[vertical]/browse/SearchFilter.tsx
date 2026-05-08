@@ -10,13 +10,13 @@ import { t } from '@/lib/locale/messages'
 interface SearchFilterProps {
   vertical: string
   categories: string[]
-  currentCategory?: string
-  currentSearch?: string
-  currentZip?: string
-  currentAvailable?: string
-  currentMenu?: string
+  currentCategory?: string | undefined
+  currentSearch?: string | undefined
+  currentZip?: string | undefined
+  currentAvailable?: string | undefined
+  currentMenu?: string | undefined
   branding: VerticalBranding
-  children?: React.ReactNode
+  children?: React.ReactNode | undefined
 }
 
 export default function SearchFilter({

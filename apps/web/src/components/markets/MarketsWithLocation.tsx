@@ -36,19 +36,19 @@ interface MarketsWithLocationProps {
   vertical: string
   initialMarkets: Market[]
   cities: string[]
-  currentCity?: string
-  currentSearch?: string
+  currentCity?: string | undefined
+  currentSearch?: string | undefined
   /** Server-side location from cookie/profile - skips initial API call */
   initialLocation?: {
     latitude: number
     longitude: number
     locationText: string
     radius?: number
-  } | null
+  } | null | undefined
   /** Custom radius options per vertical */
-  radiusOptions?: number[]
+  radiusOptions?: number[] | undefined
   /** Optional content rendered between location bar and results (e.g. filters) */
-  filtersSlot?: React.ReactNode
+  filtersSlot?: React.ReactNode | undefined
 }
 
 export default function MarketsWithLocation({

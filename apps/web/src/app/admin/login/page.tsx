@@ -45,7 +45,7 @@ export default function AdminLoginPage() {
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
-      options: { captchaToken: turnstileToken || undefined },
+      ...(turnstileToken ? { options: { captchaToken: turnstileToken } } : {}),
     })
 
     if (error) {

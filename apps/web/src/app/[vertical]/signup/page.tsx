@@ -97,7 +97,7 @@ export default function SignupPage({ params }: SignupPageProps) {
           signup_redirect_to: dashboardUrl,
         },
         emailRedirectTo: `${window.location.origin}${dashboardUrl}`,
-        captchaToken: turnstileToken || undefined,
+        ...(turnstileToken ? { captchaToken: turnstileToken } : {}),
       },
     })
 

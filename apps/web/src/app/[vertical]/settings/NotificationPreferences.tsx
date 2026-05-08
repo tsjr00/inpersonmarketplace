@@ -133,10 +133,16 @@ export default function NotificationPreferences({ primaryColor, initialPhone, in
           return
         }
 
+        const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+        if (!vapidKey) {
+          setPushLoading(false)
+          return
+        }
+
         const registration = await navigator.serviceWorker.ready
         const subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+          applicationServerKey: vapidKey,
         })
 
         const sub = subscription.toJSON()

@@ -19,13 +19,13 @@ import { t } from '@/lib/locale/messages'
 
 interface ListingPurchaseSectionProps {
   listingId: string
-  maxQuantity?: number | null
-  primaryColor?: string
-  vertical?: string
-  isPremiumRestricted?: boolean
-  availablePickupDates?: AvailablePickupDate[]
-  pickupLeadMinutes?: number
-  paymentBadges?: React.ReactNode
+  maxQuantity?: number | null | undefined
+  primaryColor?: string | undefined
+  vertical?: string | undefined
+  isPremiumRestricted?: boolean | undefined
+  availablePickupDates?: AvailablePickupDate[] | undefined
+  pickupLeadMinutes?: number | undefined
+  paymentBadges?: React.ReactNode | undefined
 }
 
 export default function ListingPurchaseSection({

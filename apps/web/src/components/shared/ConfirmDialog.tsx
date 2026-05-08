@@ -9,14 +9,14 @@ interface ConfirmDialogProps {
   open: boolean
   title: string
   message: string
-  confirmLabel?: string
-  cancelLabel?: string
-  variant?: 'default' | 'danger'
+  confirmLabel?: string | undefined
+  cancelLabel?: string | undefined
+  variant?: 'default' | 'danger' | undefined
   /** When true, shows a text input for the user to provide a reason/description */
-  showInput?: boolean
-  inputLabel?: string
-  inputPlaceholder?: string
-  inputRequired?: boolean
+  showInput?: boolean | undefined
+  inputLabel?: string | undefined
+  inputPlaceholder?: string | undefined
+  inputRequired?: boolean | undefined
   onConfirm: (inputValue?: string) => void
   onCancel: () => void
 }

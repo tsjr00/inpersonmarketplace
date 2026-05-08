@@ -9,9 +9,9 @@ import { t } from '@/lib/locale/messages'
 
 interface LocationEntryProps {
   vertical: string
-  initialCity?: string | null
-  onLocationSet?: (zipCode: string) => void
-  locale?: string
+  initialCity?: string | null | undefined
+  onLocationSet?: ((zipCode: string) => void) | undefined
+  locale?: string | undefined
 }
 
 const STORAGE_KEY = 'user_location'

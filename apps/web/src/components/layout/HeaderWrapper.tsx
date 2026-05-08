@@ -40,7 +40,7 @@ export async function HeaderWrapper({ vertical, isLandingPage }: HeaderWrapperPr
   return (
     <Header
       vertical={vertical}
-      user={user ? { id: user.id, email: user.email } : null}
+      user={user ? { id: user.id, ...(user.email !== undefined ? { email: user.email } : {}) } : null}
       userProfile={userProfile}
       vendorProfile={vendorProfile}
       branding={branding}

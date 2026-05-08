@@ -40,13 +40,13 @@ type MarketStatsResponse = {
 
 type MarketSelectorProps = {
   vertical: string
-  listingId?: string
+  listingId?: string | undefined
   selectedMarketIds: string[]
   onChange: (marketIds: string[]) => void
-  onMarketsLoaded?: (markets: Market[]) => void
-  onMetadataLoaded?: (vendorTier: string, homeMarketId: string | null) => void
-  disabled?: boolean
-  primaryColor?: string
+  onMarketsLoaded?: ((markets: Market[]) => void) | undefined
+  onMetadataLoaded?: ((vendorTier: string, homeMarketId: string | null) => void) | undefined
+  disabled?: boolean | undefined
+  primaryColor?: string | undefined
 }
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']

@@ -9,7 +9,7 @@ import { CATEGORIES, FOOD_TRUCK_CATEGORIES } from '@/lib/constants'
 
 interface EventRequestFormProps {
   vertical: string
-  vendorPreference?: string | null
+  vendorPreference?: string | null | undefined
   // Server-computed average max_headcount_per_wave from the event-approved
   // vendor pool. Used by the capacity layer of the vendor_count suggestion.
   avgVendorThroughput: number

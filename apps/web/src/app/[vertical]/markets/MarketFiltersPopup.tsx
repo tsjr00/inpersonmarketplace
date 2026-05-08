@@ -7,11 +7,11 @@ import { getClientLocale } from '@/lib/locale/client'
 import { t } from '@/lib/locale/messages'
 
 interface MarketFiltersPopupProps {
-  vertical?: string
-  currentState?: string
-  currentCity?: string
-  currentType?: string
-  currentSearch?: string
+  vertical?: string | undefined
+  currentState?: string | undefined
+  currentCity?: string | undefined
+  currentType?: string | undefined
+  currentSearch?: string | undefined
   states: string[]
   cities: string[]
 }

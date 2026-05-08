@@ -8,11 +8,11 @@ import { t } from '@/lib/locale/messages'
 import MarketFiltersPopup from './MarketFiltersPopup'
 
 interface MarketFiltersProps {
-  vertical?: string
-  currentCity?: string
-  currentSearch?: string
-  currentState?: string
-  currentType?: string
+  vertical?: string | undefined
+  currentCity?: string | undefined
+  currentSearch?: string | undefined
+  currentState?: string | undefined
+  currentType?: string | undefined
   cities: string[]
   states: string[]
 }

@@ -67,9 +67,7 @@ export default function LoginPage({ params }: LoginPageProps) {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
-      options: {
-        captchaToken: turnstileToken || undefined,
-      },
+      ...(turnstileToken ? { options: { captchaToken: turnstileToken } } : {}),
     })
 
     if (error) {

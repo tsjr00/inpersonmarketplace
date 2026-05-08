@@ -83,8 +83,8 @@ const nextConfig: NextConfig = {
 // H-8: Sentry wraps the config — auto-disables when DSN env vars are not set
 export default withSentryConfig(analyzeBundles(nextConfig), {
   silent: true, // Suppress Sentry webpack plugin logs during build
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
+  ...(process.env.SENTRY_ORG ? { org: process.env.SENTRY_ORG } : {}),
+  ...(process.env.SENTRY_PROJECT ? { project: process.env.SENTRY_PROJECT } : {}),
   // Only upload source maps when auth token is present
   ...(process.env.SENTRY_AUTH_TOKEN ? {} : { disableServerWebpackPlugin: true, disableClientWebpackPlugin: true }),
 });

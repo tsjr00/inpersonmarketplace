@@ -3,8 +3,8 @@
 import { colors, spacing, typography } from '@/lib/design-tokens'
 
 interface SpinnerProps {
-  size?: 'sm' | 'md' | 'lg'
-  color?: string
+  size?: 'sm' | 'md' | 'lg' | undefined
+  color?: string | undefined
 }
 
 const SIZES = {

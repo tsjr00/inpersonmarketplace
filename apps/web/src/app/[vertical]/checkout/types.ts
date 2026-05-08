@@ -1,38 +1,38 @@
 export interface CheckoutItem {
-  itemType?: 'listing' | 'market_box'
+  itemType?: 'listing' | 'market_box' | undefined
   listingId: string | null
   quantity: number
   title: string
   price_cents: number
   vendor_name: string
-  vendor_profile_id?: string
+  vendor_profile_id?: string | undefined
   available: boolean
   available_quantity: number | null
-  market_id?: string
-  market_name?: string
-  market_type?: string
-  market_city?: string
-  market_state?: string
+  market_id?: string | undefined
+  market_name?: string | undefined
+  market_type?: string | undefined
+  market_city?: string | undefined
+  market_state?: string | undefined
   // Pickup scheduling fields
-  schedule_id?: string | null
-  pickup_date?: string | null  // YYYY-MM-DD format
+  schedule_id?: string | null | undefined
+  pickup_date?: string | null | undefined  // YYYY-MM-DD format
   pickup_display?: {
     date_formatted: string
     time_formatted: string | null
     day_name: string | null
-  } | null
+  } | null | undefined
   // Catering / advance ordering
-  advance_order_days?: number
+  advance_order_days?: number | undefined
   // Market box fields
-  offeringId?: string | null
-  offeringName?: string | null
-  termWeeks?: number | null
-  startDate?: string | null
-  termPriceCents?: number | null
-  pickupDayOfWeek?: number | null
-  pickupStartTime?: string | null
-  pickupEndTime?: string | null
-  pickupFrequency?: string | null
+  offeringId?: string | null | undefined
+  offeringName?: string | null | undefined
+  termWeeks?: number | null | undefined
+  startDate?: string | null | undefined
+  termPriceCents?: number | null | undefined
+  pickupDayOfWeek?: number | null | undefined
+  pickupStartTime?: string | null | undefined
+  pickupEndTime?: string | null | undefined
+  pickupFrequency?: string | null | undefined
 }
 
 export interface SuggestedProduct {

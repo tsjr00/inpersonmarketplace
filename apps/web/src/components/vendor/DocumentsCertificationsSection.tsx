@@ -228,9 +228,9 @@ export default function DocumentsCertificationsSection({
       label,
       registration_number: newCert.registration_number,
       state: newCert.state.toUpperCase(),
-      expires_at: newCert.expires_at || undefined,
       verified: false,
-      document_url: documentUrl,
+      ...(newCert.expires_at ? { expires_at: newCert.expires_at } : {}),
+      ...(documentUrl !== undefined ? { document_url: documentUrl } : {}),
     }
 
     setCertifications([...certifications, cert])

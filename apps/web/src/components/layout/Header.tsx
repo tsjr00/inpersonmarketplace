@@ -20,12 +20,12 @@ import type { Locale } from '@/lib/locale'
 
 interface HeaderProps {
   vertical: string
-  user?: { id: string; email?: string } | null
-  userProfile?: { display_name?: string; role?: string; roles?: string[] } | null
-  vendorProfile?: { id: string; status: string } | null
+  user?: { id: string; email?: string | undefined } | null | undefined
+  userProfile?: { display_name?: string | undefined; role?: string | undefined; roles?: string[] | undefined } | null | undefined
+  vendorProfile?: { id: string; status: string } | null | undefined
   branding: {
     brand_name: string
-    logo_path?: string
+    logo_path?: string | undefined
     colors: {
       primary: string
       secondary: string
@@ -33,8 +33,8 @@ interface HeaderProps {
       text: string
     }
   }
-  isLandingPage?: boolean
-  locale?: Locale
+  isLandingPage?: boolean | undefined
+  locale?: Locale | undefined
 }
 
 export function Header({

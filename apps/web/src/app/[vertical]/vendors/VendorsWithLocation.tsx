@@ -90,24 +90,24 @@ const PAGE_SIZE = 35
 interface VendorsWithLocationProps {
   vertical: string
   initialVendors: EnrichedVendor[]
-  currentMarket?: string
-  currentCategory?: string
-  currentSearch?: string
+  currentMarket?: string | undefined
+  currentCategory?: string | undefined
+  currentSearch?: string | undefined
   currentSort: string
-  currentPayment?: string
+  currentPayment?: string | undefined
   /** Server-side location from cookie/profile - skips initial API call */
   initialLocation?: {
     latitude: number
     longitude: number
     locationText: string
     radius?: number
-  } | null
+  } | null | undefined
   /** Custom radius options per vertical */
-  radiusOptions?: number[]
+  radiusOptions?: number[] | undefined
   /** Optional content rendered between location bar and results (e.g. filters) */
-  filtersSlot?: React.ReactNode
+  filtersSlot?: React.ReactNode | undefined
   /** Start with favorites filter active (from ?favorites=true query param) */
-  initialFavoritesFilter?: boolean
+  initialFavoritesFilter?: boolean | undefined
 }
 
 export default function VendorsWithLocation({

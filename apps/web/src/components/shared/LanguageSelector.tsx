@@ -7,9 +7,9 @@ import type { Locale } from '@/lib/locale'
 
 interface LanguageSelectorProps {
   /** Current locale (pass from server to avoid hydration mismatch) */
-  locale?: Locale
+  locale?: Locale | undefined
   /** Visual style variant */
-  variant?: 'compact' | 'full'
+  variant?: 'compact' | 'full' | undefined
 }
 
 /**

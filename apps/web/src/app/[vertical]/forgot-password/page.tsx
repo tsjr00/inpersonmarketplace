@@ -51,7 +51,7 @@ export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) 
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/${vertical}/reset-password`,
-      captchaToken: turnstileToken || undefined,
+      ...(turnstileToken ? { captchaToken: turnstileToken } : {}),
     })
 
     if (error) {

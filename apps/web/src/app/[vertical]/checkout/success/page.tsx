@@ -46,28 +46,28 @@ function formatPickupTime(startTime: string | null | undefined, endTime: string 
 interface OrderItem {
   id: string
   title: string
-  quantity_amount?: number | null
-  quantity_unit?: string | null
+  quantity_amount?: number | null | undefined
+  quantity_unit?: string | null | undefined
   quantity: number
   subtotal_cents: number
   vendor_name: string
-  market_id?: string
-  market_name?: string
-  market_type?: string
-  market_address?: string
-  market_city?: string
-  market_state?: string
-  pickup_date?: string | null
-  confirmed_pickup_time?: string | null
-  pickup_start_time?: string | null
-  pickup_end_time?: string | null
+  market_id?: string | undefined
+  market_name?: string | undefined
+  market_type?: string | undefined
+  market_address?: string | undefined
+  market_city?: string | undefined
+  market_state?: string | undefined
+  pickup_date?: string | null | undefined
+  confirmed_pickup_time?: string | null | undefined
+  pickup_start_time?: string | null | undefined
+  pickup_end_time?: string | null | undefined
 }
 
 interface MarketBoxSubscription {
   id: string
   term_weeks: number
-  pickup_frequency?: string
-  pickup_count?: number
+  pickup_frequency?: string | undefined
+  pickup_count?: number | undefined
   start_date: string
   total_paid_cents: number
   status: string

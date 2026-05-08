@@ -262,14 +262,14 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
   let allPickupLocations: {
     id: string
     name: string
-    address?: string
-    city?: string
-    state?: string
-    description?: string
-    market_type?: 'private_pickup' | 'traditional' | 'event'
-    event_start_date?: string | null
-    event_end_date?: string | null
-    schedules?: { day_of_week: number; start_time: string; end_time: string }[]
+    address?: string | undefined
+    city?: string | undefined
+    state?: string | undefined
+    description?: string | undefined
+    market_type?: 'private_pickup' | 'traditional' | 'event' | undefined
+    event_start_date?: string | null | undefined
+    event_end_date?: string | null | undefined
+    schedules?: { day_of_week: number; start_time: string; end_time: string }[] | undefined
   }[] = []
 
   if (listingIds.length > 0) {

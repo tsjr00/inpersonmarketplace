@@ -8,18 +8,18 @@ import { t } from '@/lib/locale/messages'
 const DEFAULT_RADIUS_OPTIONS = [10, 25, 50, 100]
 
 interface LocationSearchInlineProps {
-  onLocationSet?: (lat: number, lng: number, source: 'gps' | 'manual', locationText?: string) => void
-  hasLocation?: boolean
-  locationText?: string
-  onClear?: () => void
+  onLocationSet?: ((lat: number, lng: number, source: 'gps' | 'manual', locationText?: string) => void) | undefined
+  hasLocation?: boolean | undefined
+  locationText?: string | undefined
+  onClear?: (() => void) | undefined
   /** Label prefix for green bar, e.g., "Markets nearby" or "Vendors nearby" */
-  labelPrefix?: string
+  labelPrefix?: string | undefined
   /** Current radius in miles */
-  radius?: number
+  radius?: number | undefined
   /** Called when user changes radius */
-  onRadiusChange?: (radius: number) => void
+  onRadiusChange?: ((radius: number) => void) | undefined
   /** Custom radius options per vertical (e.g., [2, 5, 10, 25] for food trucks) */
-  radiusOptions?: number[]
+  radiusOptions?: number[] | undefined
 }
 
 export default function LocationSearchInline({

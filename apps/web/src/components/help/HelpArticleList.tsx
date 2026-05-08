@@ -15,8 +15,8 @@ interface Article {
 
 interface HelpArticleListProps {
   articles: Article[]
-  initialQuery?: string
-  initialArticleId?: string
+  initialQuery?: string | undefined
+  initialArticleId?: string | undefined
 }
 
 export default function HelpArticleList({

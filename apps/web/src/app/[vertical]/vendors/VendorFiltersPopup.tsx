@@ -8,9 +8,9 @@ import { t } from '@/lib/locale/messages'
 import { EXTERNAL_PAYMENTS_ENABLED } from '@/lib/constants'
 
 interface VendorFiltersPopupProps {
-  currentMarket?: string
-  currentSort?: string
-  currentPayment?: string
+  currentMarket?: string | undefined
+  currentSort?: string | undefined
+  currentPayment?: string | undefined
   markets: { id: string; name: string }[]
 }
 

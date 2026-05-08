@@ -173,11 +173,15 @@ export default function BuyerOrdersPage() {
 
   const orders: Order[] = swrData?.orders || []
   const markets: Market[] = marketsData?.markets || []
-  const error = swrError ? {
-    message: (swrError as Error & { info?: { error?: string } })?.info?.error || 'Failed to fetch orders',
-    code: (swrError as Error & { info?: { code?: string } })?.info?.code,
-    traceId: (swrError as Error & { info?: { traceId?: string } })?.info?.traceId,
-  } : null
+  const error = swrError ? (() => {
+    const code = (swrError as Error & { info?: { code?: string } })?.info?.code
+    const traceId = (swrError as Error & { info?: { traceId?: string } })?.info?.traceId
+    return {
+      message: (swrError as Error & { info?: { error?: string } })?.info?.error || 'Failed to fetch orders',
+      ...(code !== undefined ? { code } : {}),
+      ...(traceId !== undefined ? { traceId } : {}),
+    }
+  })() : null
 
   // Handle penalty-free cancel for external payment orders
   const handleCancelForPaymentIssue = async (orderId: string) => {

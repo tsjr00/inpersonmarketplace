@@ -243,7 +243,7 @@ export default function VendorStripePage() {
   )
 }
 
-function StatusItem({ label, enabled }: { label: string; enabled?: boolean }) {
+function StatusItem({ label, enabled }: { label: string; enabled?: boolean | undefined }) {
   return (
     <div style={{
       display: 'flex',

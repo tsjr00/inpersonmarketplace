@@ -218,7 +218,7 @@ describe('LOC-4: LocationSearchInline radius buttons are wired to onRadiusChange
 
   it('accepts onRadiusChange as an optional prop', () => {
     const source = inline()
-    expect(source).toContain('onRadiusChange?: (radius: number) => void')
+    expect(source).toContain('onRadiusChange?: ((radius: number) => void) | undefined')
   })
 })
 

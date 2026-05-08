@@ -7,13 +7,13 @@ import { getMapsUrl } from '@/lib/utils/maps-link'
 interface PickupLocation {
   id: string
   name: string
-  address?: string
-  city?: string
-  state?: string
-  market_type?: 'private_pickup' | 'traditional' | 'event'
-  event_start_date?: string | null
-  event_end_date?: string | null
-  schedules?: { day_of_week: number; start_time: string; end_time: string }[]
+  address?: string | undefined
+  city?: string | undefined
+  state?: string | undefined
+  market_type?: 'private_pickup' | 'traditional' | 'event' | undefined
+  event_start_date?: string | null | undefined
+  event_end_date?: string | null | undefined
+  schedules?: { day_of_week: number; start_time: string; end_time: string }[] | undefined
 }
 
 interface PickupScheduleGridProps {

@@ -33,12 +33,13 @@ export async function getVerticalConfig(verticalId: string): Promise<VerticalCon
       return getVerticalConfigFallback(verticalId)
     }
 
+    const vendorFields = config?.vendor_fields as VerticalConfig['vendor_fields']
     return {
       vertical_id: vertical.vertical_id,
       name_public: vertical.name_public,
       branding,
-      vendor_fields: config?.vendor_fields as VerticalConfig['vendor_fields'],
-      config: config || undefined
+      ...(vendorFields !== undefined ? { vendor_fields: vendorFields } : {}),
+      ...(config ? { config } : {}),
     }
   } catch (error) {
     console.error(`Error loading vertical config for ${verticalId}:`, error)
@@ -155,12 +156,13 @@ export async function getAllVerticals(): Promise<VerticalConfig[]> {
     return verticals
       .map(v => {
         const config = v.config as Record<string, unknown> | null
+        const vendorFields = config?.vendor_fields as VerticalConfig['vendor_fields']
         return {
           vertical_id: v.vertical_id,
           name_public: v.name_public,
           branding: config?.branding as VerticalBranding,
-          vendor_fields: config?.vendor_fields as VerticalConfig['vendor_fields'],
-          config: config || undefined
+          ...(vendorFields !== undefined ? { vendor_fields: vendorFields } : {}),
+          ...(config ? { config } : {}),
         }
       })
       .filter(v => v.branding != null) // Only include verticals with branding

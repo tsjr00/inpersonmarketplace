@@ -5,12 +5,12 @@ import { colors, spacing, typography, radius, shadows } from '@/lib/design-token
 import { lookupError } from '@/lib/errors/error-catalog'
 
 interface ErrorFeedbackProps {
-  errorCode?: string
-  traceId?: string
-  errorMessage?: string
-  verticalId?: string
-  pageUrl?: string
-  onClose?: () => void
+  errorCode?: string | undefined
+  traceId?: string | undefined
+  errorMessage?: string | undefined
+  verticalId?: string | undefined
+  pageUrl?: string | undefined
+  onClose?: (() => void) | undefined
 }
 
 /**

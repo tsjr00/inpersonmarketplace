@@ -120,8 +120,8 @@ export function validateEventReadiness(data: Record<string, unknown>, vertical?:
   if (isFT) {
     sanitized.max_runtime_hours = Math.round(data.max_runtime_hours as number)
     if (data.requires_generator) {
-      sanitized.generator_type = data.generator_type as EventReadinessData['generator_type']
-      sanitized.generator_fuel = data.generator_fuel as EventReadinessData['generator_fuel']
+      sanitized.generator_type = data.generator_type as NonNullable<EventReadinessData['generator_type']>
+      sanitized.generator_fuel = data.generator_fuel as NonNullable<EventReadinessData['generator_fuel']>
     }
   }
 

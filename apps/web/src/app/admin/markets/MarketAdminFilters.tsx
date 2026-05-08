@@ -4,9 +4,9 @@ import { useRouter, usePathname } from 'next/navigation'
 import { useCallback } from 'react'
 
 interface MarketAdminFiltersProps {
-  currentVertical?: string
-  currentType?: string
-  currentActive?: string
+  currentVertical?: string | undefined
+  currentType?: string | undefined
+  currentActive?: string | undefined
   verticals: { vertical_id: string; name_public: string }[]
 }
 

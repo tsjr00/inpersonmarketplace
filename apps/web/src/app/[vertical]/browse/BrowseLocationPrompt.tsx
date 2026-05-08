@@ -11,11 +11,11 @@ import { t } from '@/lib/locale/messages'
 interface BrowseLocationPromptProps {
   vertical: string
   /** When true, shows the green "location set" bar with radius controls */
-  hasLocation?: boolean
+  hasLocation?: boolean | undefined
   /** Display text for current location (ZIP or "Current location") */
-  locationText?: string
+  locationText?: string | undefined
   /** Current radius from cookie */
-  currentRadius?: number
+  currentRadius?: number | undefined
 }
 
 export default function BrowseLocationPrompt({ vertical, hasLocation, locationText, currentRadius }: BrowseLocationPromptProps) {

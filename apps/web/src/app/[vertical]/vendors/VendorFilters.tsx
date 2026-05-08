@@ -8,11 +8,11 @@ import { t } from '@/lib/locale/messages'
 import VendorFiltersPopup from './VendorFiltersPopup'
 
 interface VendorFiltersProps {
-  currentMarket?: string
-  currentCategory?: string
-  currentSearch?: string
-  currentSort?: string
-  currentPayment?: string
+  currentMarket?: string | undefined
+  currentCategory?: string | undefined
+  currentSearch?: string | undefined
+  currentSort?: string | undefined
+  currentPayment?: string | undefined
   markets: { id: string; name: string }[]
   categories: string[]
 }

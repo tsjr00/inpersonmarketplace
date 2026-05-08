@@ -29,17 +29,17 @@ import { t } from '@/lib/locale/messages'
 
 interface AddToCartButtonProps {
   listingId: string
-  maxQuantity?: number | null
-  primaryColor?: string
-  vertical?: string
-  ordersClosed?: boolean
-  availablePickupDates?: AvailablePickupDate[]
+  maxQuantity?: number | null | undefined
+  primaryColor?: string | undefined
+  vertical?: string | undefined
+  ordersClosed?: boolean | undefined
+  availablePickupDates?: AvailablePickupDate[] | undefined
   /** Show warning when some dates are closed but others are open */
-  showMixedAvailabilityWarning?: boolean
+  showMixedAvailabilityWarning?: boolean | undefined
   /** Vendor's configured prep time in minutes (15 or 30, default 30) */
-  pickupLeadMinutes?: number
+  pickupLeadMinutes?: number | undefined
   /** Payment method badges to render in section 3 */
-  paymentBadges?: React.ReactNode
+  paymentBadges?: React.ReactNode | undefined
 }
 
 interface PickupSelection {
