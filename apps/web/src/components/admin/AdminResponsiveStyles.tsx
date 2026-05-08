@@ -12,8 +12,8 @@
  * Grid classes:
  *   .admin-grid-2  → 1-col mobile, 2-col tablet+
  *   .admin-grid-3  → 1-col mobile, 2-col tablet, 3-col desktop
- *   .admin-grid-4  → 1-col mobile, 2-col tablet, 4-col desktop
- *   .admin-grid-6  → 1-col mobile, 2-col tablet, 3-col desktop (6 metric cards)
+ *   .admin-grid-4  → 2-col mobile, 2-col tablet, 4-col desktop (many small metric cards — denser on mobile)
+ *   .admin-grid-6  → 2-col mobile, 2-col tablet, 3-col desktop (6 metric cards — denser on mobile)
  *
  * Layout classes:
  *   .admin-detail-split  → 1-col mobile (detail replaces list), side-by-side desktop
@@ -39,7 +39,19 @@ export default function AdminResponsiveStyles() {
       .admin-grid-6 {
         display: grid;
         gap: 12px;
+      }
+
+      /* admin-grid-2 + admin-grid-3 stack to 1-col on mobile (fewer, larger cards). */
+      .admin-grid-2,
+      .admin-grid-3 {
         grid-template-columns: 1fr;
+      }
+
+      /* admin-grid-4 + admin-grid-6 default to 2-col on mobile (many small metric cards
+         read better in pairs than stacked full-width). */
+      .admin-grid-4,
+      .admin-grid-6 {
+        grid-template-columns: repeat(2, 1fr);
       }
 
       @media (min-width: 640px) {
