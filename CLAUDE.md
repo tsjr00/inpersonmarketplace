@@ -201,6 +201,24 @@ Research agents, prior audits, documentation, and memory files are useful for **
 
 ---
 
+## ABSOLUTE RULE: Build Before Commit (when code changed)
+
+**Priority: ABSOLUTE — applies before any commit that includes TypeScript/JavaScript or any other file that participates in the Next.js build.**
+
+Before composing any tool call that produces a commit including `.ts`/`.tsx`/`.js`/`.jsx` files, you MUST first have run `npm run build` to completion with exit code 0 since the most recent edit to those files. The pre-commit husky hook (`lint-staged + vitest`) does NOT catch TypeScript build errors. `tsc --noEmit` does NOT catch what `next build` catches and is explicitly forbidden as the gate (Protocol 5). The pre-push hook catches errors but at 5-8 min per cycle plus history-rewriting fallout — use it as a backstop, never as the primary gate.
+
+### Forbidden Chain Shape
+
+Any commit-producing chain MUST begin with `npm run build && \` as the first link when staged files include code. The shape `git checkout main && git add ... && git commit ...` (no build) is FORBIDDEN unless the user gives an explicit per-chain override in the same conversation turn.
+
+### Failure Response
+
+If a build fails before commit: fix the underlying issue, rerun build, repeat until clean, THEN commit. If the pre-push hook catches a build error after a commit was made: STOP. Do NOT use `git rebase`, `--amend`, or `--fixup` to rewrite history to preserve commit count. Make a NEW commit fixing the error. Vercel cost is per push, not per commit — adding a commit costs nothing.
+
+**Full protocol:** See `apps/web/.claude/rules/build-before-commit.md`
+
+---
+
 ## Data-First Policy - NO ASSUMPTIONS
 
 **CRITICAL: Never make assumptions when data is available.**
