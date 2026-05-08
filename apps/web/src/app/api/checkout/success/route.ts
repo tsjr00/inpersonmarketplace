@@ -176,21 +176,22 @@ export async function GET(request: NextRequest) {
                 const vName = (vpData?.business_name as string) || (vpData?.farm_name as string) || undefined
                 const verticalId = vp?.vertical_id || 'farmers-market'
 
+                const cityForActivity = marketCityByListing.get(listing.id)
                 activityPromises.push(logPublicActivityEvent({
                   vertical_id: verticalId,
                   event_type: 'purchase',
-                  city: marketCityByListing.get(listing.id) || undefined,
-                  item_name: listing.title || undefined,
-                  vendor_display_name: vName,
-                  item_category: listing.category || undefined,
+                  ...(cityForActivity ? { city: cityForActivity } : {}),
+                  ...(listing.title ? { item_name: listing.title } : {}),
+                  ...(vName !== undefined ? { vendor_display_name: vName } : {}),
+                  ...(listing.category ? { item_category: listing.category } : {}),
                 }))
 
                 if (listing.quantity === 0) {
                   activityPromises.push(logPublicActivityEvent({
                     vertical_id: verticalId,
                     event_type: 'sold_out',
-                    item_name: listing.title || undefined,
-                    vendor_display_name: vName,
+                    ...(listing.title ? { item_name: listing.title } : {}),
+                    ...(vName !== undefined ? { vendor_display_name: vName } : {}),
                   }))
                 }
               }
@@ -432,13 +433,13 @@ export async function GET(request: NextRequest) {
           await sendNotification(capturedUserId, 'order_placed', {
             orderNumber: capturedOrderNumber,
             orderId,
-            vendorName,
             brandName: branding?.brand_name || "Food Truck'n",
             itemTitle: itemTitles.length === 1 ? itemTitles[0] : `${itemTitles.length} items`,
             marketName,
             marketAddress,
             pickupDate,
             pickupTime,
+            ...(vendorName !== undefined ? { vendorName } : {}),
           }, { vertical: capturedVerticalId })
         }
       } catch {

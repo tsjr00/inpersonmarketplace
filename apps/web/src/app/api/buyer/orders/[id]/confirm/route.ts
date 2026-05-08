@@ -300,11 +300,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
           .select('display_name')
           .eq('user_id', user.id)
           .single()
+        const verticalId = (order as { vertical_id?: string }).vertical_id
         await sendNotification(vendorProfile.user_id, 'pickup_confirmation_needed', {
           orderItemId,
-          buyerName: buyerProfile?.display_name || undefined,
           orderNumber: (order as { order_number: string }).order_number,
-        }, { vertical: (order as { vertical_id?: string }).vertical_id })
+          ...(buyerProfile?.display_name ? { buyerName: buyerProfile.display_name } : {}),
+        }, verticalId !== undefined ? { vertical: verticalId } : {})
       }
 
       return NextResponse.json({

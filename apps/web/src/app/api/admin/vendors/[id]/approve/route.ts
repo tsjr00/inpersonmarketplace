@@ -122,12 +122,12 @@ export async function POST(
         vendorId: vendorId,
         trialTier: trialTierLabel,
         trialDays: 90,
-      }, { vertical: data.vertical_id, userEmail: vendorEmail || undefined })
+      }, { vertical: data.vertical_id, ...(vendorEmail ? { userEmail: vendorEmail } : {}) })
     } else {
       await sendNotification(data.user_id, 'vendor_approved', {
         vendorName: businessName,
         vendorId: vendorId,
-      }, { vertical: data.vertical_id, userEmail: vendorEmail || undefined })
+      }, { vertical: data.vertical_id, ...(vendorEmail ? { userEmail: vendorEmail } : {}) })
     }
 
     return NextResponse.json({

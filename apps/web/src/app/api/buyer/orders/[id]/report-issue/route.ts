@@ -103,10 +103,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     if (vendorProfile?.user_id) {
       crumb.logic('Sending pickup issue notification to vendor')
+      const verticalId = (order as { vertical_id?: string }).vertical_id
       await sendNotification(vendorProfile.user_id, 'pickup_issue_reported', {
         orderNumber: (order as { order_number?: string }).order_number || orderItemId.slice(0, 8),
         reason: description,
-      }, { vertical: (order as { vertical_id?: string }).vertical_id })
+      }, verticalId !== undefined ? { vertical: verticalId } : {})
     }
 
     return NextResponse.json({

@@ -923,9 +923,9 @@ async function handleTransferFailed(transfer: Stripe.Transfer) {
     if (!alreadySent) {
       await sendNotification(vendorProfile.user_id, 'payout_failed', {
         amountCents: transfer.amount,
-        orderNumber: orderData?.order_number,
         reason: 'Transfer was reversed by Stripe',
-      }, { vertical: orderData?.vertical_id })
+        ...(orderData?.order_number ? { orderNumber: orderData.order_number } : {}),
+      }, orderData?.vertical_id ? { vertical: orderData.vertical_id } : {})
     }
   }
 }
@@ -1084,10 +1084,10 @@ async function handleChargeDisputeCreated(dispute: Stripe.Dispute) {
         const alreadySent = await wasNotificationSent(supabase, admin.user_id, 'charge_dispute_created', dispute.id)
         if (alreadySent) return
         await sendNotification(admin.user_id, 'charge_dispute_created', {
-          orderNumber,
           disputeAmountCents: disputeAmount,
           disputeReason,
-        }, { vertical })
+          ...(orderNumber ? { orderNumber } : {}),
+        }, vertical ? { vertical } : {})
       })
     )
   }

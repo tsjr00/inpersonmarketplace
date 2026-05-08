@@ -1108,7 +1108,7 @@ export async function GET(request: NextRequest) {
               destination: vendorProfile.stripe_account_id,
               orderId: orderItem.order_id,
               orderItemId: payout.order_item_id,
-              sourceTransaction: chargeId,
+              ...(chargeId !== undefined ? { sourceTransaction: chargeId } : {}),
             })
 
             await supabase
@@ -1255,7 +1255,7 @@ export async function GET(request: NextRequest) {
               amount: payout.amount_cents,
               destination: vp.stripe_account_id,
               subscriptionId: payout.market_box_subscription_id!,
-              sourceTransaction: chargeId,
+              ...(chargeId !== undefined ? { sourceTransaction: chargeId } : {}),
             })
 
             await supabase
@@ -1328,7 +1328,7 @@ export async function GET(request: NextRequest) {
               amount: payout.amount_cents,
               destination: vp.stripe_account_id,
               subscriptionId: payout.market_box_subscription_id!,
-              sourceTransaction: chargeId,
+              ...(chargeId !== undefined ? { sourceTransaction: chargeId } : {}),
             })
 
             await supabase
@@ -1898,7 +1898,7 @@ export async function GET(request: NextRequest) {
           const expiredTierLabel = vendor.vertical_id === 'food_trucks' ? 'Basic' : 'Standard'
           await sendNotification(vendor.user_id, 'trial_expired', {
             trialTier: expiredTierLabel,
-            trialEndsAt: graceEnd,
+            ...(graceEnd !== undefined ? { trialEndsAt: graceEnd } : {}),
           }, { vertical: vendor.vertical_id })
 
           trialExpired++
@@ -2114,7 +2114,7 @@ export async function GET(request: NextRequest) {
             const resend = new Resend(process.env.RESEND_API_KEY)
 
             const vendorListHtml = vendorDetails.length > 0
-              ? vendorDetails.map((v: { name: string; rating?: number | null; ratingCount: number; tier: string; leadTime: number }, i: number) => `
+              ? vendorDetails.map((v: { name: string; rating: number | null | undefined; ratingCount: number; tier: string; leadTime: number }, i: number) => `
                 <tr>
                   <td style="padding:8px 12px;border-bottom:1px solid #eee">${i + 1}. <strong>${v.name}</strong></td>
                   <td style="padding:8px 12px;border-bottom:1px solid #eee">${v.rating ? `${v.rating.toFixed(1)}★ (${v.ratingCount})` : 'New'}</td>

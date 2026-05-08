@@ -117,8 +117,8 @@ export async function POST(
     await sendNotification(data.user_id, 'vendor_rejected', {
       vendorName: businessName,
       vendorId: vendorId,
-      reason: reason || undefined,
-    }, { vertical: data.vertical_id, userEmail: vendorEmail || undefined })
+      ...(reason ? { reason } : {}),
+    }, { vertical: data.vertical_id, ...(vendorEmail ? { userEmail: vendorEmail } : {}) })
 
     return NextResponse.json({
       success: true,

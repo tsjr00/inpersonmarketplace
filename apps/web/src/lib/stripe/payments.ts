@@ -247,7 +247,7 @@ export async function createRefund(paymentIntentId: string, amount?: number) {
   const refund = await stripe.refunds.create(
     {
       payment_intent: paymentIntentId,
-      amount,
+      ...(amount !== undefined ? { amount } : {}),
     },
     {
       idempotencyKey,

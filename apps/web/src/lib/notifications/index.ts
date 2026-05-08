@@ -45,8 +45,8 @@ export async function notifyVendorNewOrder(
   options?: { vertical?: string; vendorEmail?: string }
 ) {
   return sendNotification(vendorUserId, 'new_paid_order', data, {
-    vertical: options?.vertical,
-    userEmail: options?.vendorEmail,
+    ...(options?.vertical !== undefined ? { vertical: options.vertical } : {}),
+    ...(options?.vendorEmail !== undefined ? { userEmail: options.vendorEmail } : {}),
   })
 }
 
@@ -59,8 +59,8 @@ export async function notifyBuyerOrderConfirmed(
   options?: { vertical?: string; buyerEmail?: string }
 ) {
   return sendNotification(buyerUserId, 'order_confirmed', data, {
-    vertical: options?.vertical,
-    userEmail: options?.buyerEmail,
+    ...(options?.vertical !== undefined ? { vertical: options.vertical } : {}),
+    ...(options?.buyerEmail !== undefined ? { userEmail: options.buyerEmail } : {}),
   })
 }
 
@@ -73,9 +73,9 @@ export async function notifyBuyerOrderReady(
   options?: { vertical?: string; buyerEmail?: string; buyerPhone?: string }
 ) {
   return sendNotification(buyerUserId, 'order_ready', data, {
-    vertical: options?.vertical,
-    userEmail: options?.buyerEmail,
-    userPhone: options?.buyerPhone,
+    ...(options?.vertical !== undefined ? { vertical: options.vertical } : {}),
+    ...(options?.buyerEmail !== undefined ? { userEmail: options.buyerEmail } : {}),
+    ...(options?.buyerPhone !== undefined ? { userPhone: options.buyerPhone } : {}),
   })
 }
 
@@ -88,9 +88,9 @@ export async function notifyBuyerOrderCancelled(
   options?: { vertical?: string; buyerEmail?: string; buyerPhone?: string }
 ) {
   return sendNotification(buyerUserId, 'order_cancelled_by_vendor', data, {
-    vertical: options?.vertical,
-    userEmail: options?.buyerEmail,
-    userPhone: options?.buyerPhone,
+    ...(options?.vertical !== undefined ? { vertical: options.vertical } : {}),
+    ...(options?.buyerEmail !== undefined ? { userEmail: options.buyerEmail } : {}),
+    ...(options?.buyerPhone !== undefined ? { userPhone: options.buyerPhone } : {}),
   })
 }
 
@@ -103,8 +103,8 @@ export async function notifyVendorOrderCancelled(
   options?: { vertical?: string; vendorEmail?: string }
 ) {
   return sendNotification(vendorUserId, 'order_cancelled_by_buyer', data, {
-    vertical: options?.vertical,
-    userEmail: options?.vendorEmail,
+    ...(options?.vertical !== undefined ? { vertical: options.vertical } : {}),
+    ...(options?.vendorEmail !== undefined ? { userEmail: options.vendorEmail } : {}),
   })
 }
 
@@ -117,7 +117,7 @@ export async function notifyOrderExpired(
   options?: { vertical?: string; userEmail?: string }
 ) {
   return sendNotification(userId, 'order_expired', data, {
-    vertical: options?.vertical,
-    userEmail: options?.userEmail,
+    ...(options?.vertical !== undefined ? { vertical: options.vertical } : {}),
+    ...(options?.userEmail !== undefined ? { userEmail: options.userEmail } : {}),
   })
 }

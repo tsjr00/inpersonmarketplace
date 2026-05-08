@@ -201,10 +201,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .eq('user_id', user.id)
         .single()
       await sendNotification(vendorUserId, 'order_cancelled_by_buyer', {
-        orderNumber: order.order_number || undefined,
-        buyerName: buyerProfile?.display_name || undefined,
-        reason: reason || undefined,
         itemTitle: listing?.title,
+        ...(order.order_number ? { orderNumber: order.order_number } : {}),
+        ...(buyerProfile?.display_name ? { buyerName: buyerProfile.display_name } : {}),
+        ...(reason ? { reason } : {}),
       }, { vertical: order.vertical_id })
     }
 

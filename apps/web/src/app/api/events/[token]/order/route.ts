@@ -110,19 +110,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Notify vendor of new order
     if (vendorUserId) {
       await sendNotification(vendorUserId, 'new_paid_order', {
-        orderNumber: result.order_number || undefined,
-        itemTitle: listing?.title || undefined,
         marketName: eventName,
         buyerName: 'Event attendee',
+        ...(result.order_number ? { orderNumber: result.order_number } : {}),
+        ...(listing?.title ? { itemTitle: listing.title } : {}),
       }, { vertical })
     }
 
     // Notify buyer of confirmed order
     await sendNotification(user.id, 'order_confirmed', {
-      orderNumber: result.order_number || undefined,
-      orderId: result.order_id || undefined,
       vendorName,
-      itemTitle: listing?.title || undefined,
+      ...(result.order_number ? { orderNumber: result.order_number } : {}),
+      ...(result.order_id ? { orderId: result.order_id } : {}),
+      ...(listing?.title ? { itemTitle: listing.title } : {}),
     }, { vertical })
 
     return NextResponse.json({

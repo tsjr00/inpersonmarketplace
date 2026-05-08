@@ -94,7 +94,7 @@ describe('selectBasePriceForTermWeeks', () => {
 
   it('undefined metadata falls through to offering', () => {
     const result = selectBasePriceForTermWeeks(
-      { basePriceCentsFromMeta: undefined },
+      {},
       offering,
       4,
     )

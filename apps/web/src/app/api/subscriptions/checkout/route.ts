@@ -242,14 +242,14 @@ export async function POST(request: NextRequest) {
         // Create Stripe customer if needed
         if (!stripeCustomerId) {
           const customer = await stripe.customers.create({
-            email: userEmail,
-            name: businessName || undefined,
             metadata: {
               user_id: user.id,
               vendor_profile_id: vendorProfile.id,
               type: 'vendor',
               vertical: vertical || '',
             },
+            ...(userEmail ? { email: userEmail } : {}),
+            ...(businessName ? { name: businessName } : {}),
           })
           stripeCustomerId = customer.id
 
@@ -287,12 +287,12 @@ export async function POST(request: NextRequest) {
         // Create Stripe customer if needed
         if (!stripeCustomerId) {
           const customer = await stripe.customers.create({
-            email: userEmail,
-            name: userProfile.display_name || undefined,
             metadata: {
               user_id: user.id,
               type: 'buyer',
             },
+            ...(userEmail ? { email: userEmail } : {}),
+            ...(userProfile.display_name ? { name: userProfile.display_name } : {}),
           })
           stripeCustomerId = customer.id
 

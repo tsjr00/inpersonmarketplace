@@ -104,7 +104,7 @@ export async function processMarketBoxPayout(opts: ProcessMarketBoxPayoutOpts): 
           amount: vendorPayoutCents,
           destination: vendor.stripe_account_id,
           subscriptionId,
-          sourceTransaction: chargeId,
+          ...(chargeId !== undefined ? { sourceTransaction: chargeId } : {}),
         })
 
         await serviceClient
@@ -163,9 +163,9 @@ export async function processMarketBoxPayout(opts: ProcessMarketBoxPayoutOpts): 
       await sendNotification(vendor.user_id, 'payout_processed', {
         amountCents: vendorPayoutCents,
         sourceType: 'market_box_subscription',
-        offeringName,
-        buyerName,
         subscriptionId,
+        ...(offeringName !== undefined ? { offeringName } : {}),
+        ...(buyerName !== undefined ? { buyerName } : {}),
       }, { vertical: vendor.vertical_id })
     }
   } catch (err) {

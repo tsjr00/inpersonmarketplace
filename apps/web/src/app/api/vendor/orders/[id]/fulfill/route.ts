@@ -328,7 +328,7 @@ export async function POST(
             destination: vendorProfile.stripe_account_id!,
             orderId: orderItem.order_id,
             orderItemId: orderItem.id,
-            sourceTransaction: chargeId,
+            ...(chargeId !== undefined ? { sourceTransaction: chargeId } : {}),
           })
 
           // Record fee credit BEFORE updating payout (compensating transaction pattern)

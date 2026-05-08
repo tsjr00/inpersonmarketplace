@@ -38,7 +38,7 @@ export default function ShareButton({
   const menuRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
-  const shareData: ShareData = { url, title, text }
+  const shareData: ShareData = { url, title, ...(text !== undefined ? { text } : {}) }
 
   // Close menu when clicking outside
   useEffect(() => {

@@ -196,7 +196,7 @@ export async function POST(request: NextRequest) {
       brandDomain,
       verificationUrl,
       vertical,
-      locale: userLocale,
+      ...(userLocale !== undefined ? { locale: userLocale } : {}),
     })
 
     // Send via Resend

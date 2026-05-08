@@ -143,7 +143,7 @@ export async function PATCH(
         vendor.user_id,
         'vendor_event_approved',
         {},
-        { vertical: vendor.vertical_id, userEmail: vendorEmail || undefined }
+        { vertical: vendor.vertical_id, ...(vendorEmail ? { userEmail: vendorEmail } : {}) }
       )
     }
 

@@ -38,10 +38,16 @@ export default function PushOptInCard({ vertical, compact = false }: PushOptInCa
         return
       }
 
+      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+      if (!vapidKey) {
+        setLoading(false)
+        return
+      }
+
       const registration = await navigator.serviceWorker.ready
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+        applicationServerKey: vapidKey,
       })
 
       const sub = subscription.toJSON()

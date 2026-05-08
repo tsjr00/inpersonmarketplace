@@ -849,7 +849,7 @@ export async function reconcilePayout(
       feeCents: bt.fee,
       sourceId,
       match,
-      diagnostic,
+      ...(diagnostic !== undefined ? { diagnostic } : {}),
     })
   }
 

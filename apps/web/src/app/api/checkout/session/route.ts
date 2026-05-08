@@ -696,29 +696,31 @@ export async function POST(request: NextRequest) {
       items: checkoutItems,
       successUrl,
       cancelUrl,
-      vertical,
-      metadata: hasMarketBoxes ? {
-        has_market_boxes: 'true',
-        // priceCents stores the vendor's stated term price (pre-fee). This is
-        // what calculateVendorPayout consumes downstream. Cadence does not
-        // change this value — vendor's price stands as-is.
-        market_box_items: JSON.stringify(marketBoxItems!.map(mb => {
-          const offering = marketBoxOfferings.find(o => o.id === mb.offeringId)!
-          const termPriceCents = mb.termWeeks === 8
-            ? (offering.price_8week_cents || offering.price_4week_cents)
-            : offering.price_4week_cents
-          const vendorProfile = (offering as unknown as { vendor_profiles: { market_box_frequency: string } }).vendor_profiles
-          const pickupFrequency = vendorProfile?.market_box_frequency || 'weekly'
-          return {
-            offeringId: mb.offeringId,
-            termWeeks: mb.termWeeks,
-            startDate: mb.startDate,
-            priceCents: termPriceCents,
-            basePriceCents: termPriceCents,
-            pickupFrequency,
-          }
-        })),
-      } : undefined,
+      ...(vertical !== undefined ? { vertical } : {}),
+      ...(hasMarketBoxes ? {
+        metadata: {
+          has_market_boxes: 'true',
+          // priceCents stores the vendor's stated term price (pre-fee). This is
+          // what calculateVendorPayout consumes downstream. Cadence does not
+          // change this value — vendor's price stands as-is.
+          market_box_items: JSON.stringify(marketBoxItems!.map(mb => {
+            const offering = marketBoxOfferings.find(o => o.id === mb.offeringId)!
+            const termPriceCents = mb.termWeeks === 8
+              ? (offering.price_8week_cents || offering.price_4week_cents)
+              : offering.price_4week_cents
+            const vendorProfile = (offering as unknown as { vendor_profiles: { market_box_frequency: string } }).vendor_profiles
+            const pickupFrequency = vendorProfile?.market_box_frequency || 'weekly'
+            return {
+              offeringId: mb.offeringId,
+              termWeeks: mb.termWeeks,
+              startDate: mb.startDate,
+              priceCents: termPriceCents,
+              basePriceCents: termPriceCents,
+              pickupFrequency,
+            }
+          })),
+        },
+      } : {}),
     })
 
     if (!session) {
