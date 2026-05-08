@@ -33,4 +33,11 @@ fi
 
 cd apps/web
 npx lint-staged
+# tsc --noEmit catches TypeScript errors at commit time. Combined with
+# `exactOptionalPropertyTypes` (enabled Session 80) this closes the
+# Protocol 5 gap class where tsc-passes-but-next-build-fails type errors
+# previously slipped to the pre-push hook (5-8 min cycle, history rewrite).
+# The pre-push hook still runs `npm run build` as a backstop for the
+# rare Next-only failures (SWC quirks, module-load errors during SSG).
+npx tsc --noEmit
 npx vitest run

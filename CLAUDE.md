@@ -201,19 +201,27 @@ Research agents, prior audits, documentation, and memory files are useful for **
 
 ---
 
-## ABSOLUTE RULE: Build Before Commit (when code changed)
+## RULE: Build Discipline (post Session 80 reform)
 
-**Priority: ABSOLUTE — applies before any commit that includes TypeScript/JavaScript or any other file that participates in the Next.js build.**
+**Priority: HIGH — applies to every commit that includes code.**
 
-Before composing any tool call that produces a commit including `.ts`/`.tsx`/`.js`/`.jsx` files, you MUST first have run `npm run build` to completion with exit code 0 since the most recent edit to those files. The pre-commit husky hook (`lint-staged + vitest`) does NOT catch TypeScript build errors. `tsc --noEmit` does NOT catch what `next build` catches and is explicitly forbidden as the gate (Protocol 5). The pre-push hook catches errors but at 5-8 min per cycle plus history-rewriting fallout — use it as a backstop, never as the primary gate.
+After Session 80, the chain shape is **simpler**, not stricter. Pre-commit hook now runs `tsc --noEmit` (combined with `exactOptionalPropertyTypes` from Phase 2 of the tsconfig audit, this closes the Protocol 5 gap class). The chain MUST NOT include `npm run build` — pre-push hook is the backstop for the rare Next-only failures.
 
-### Forbidden Chain Shape
+### Required Chain Shape
 
-Any commit-producing chain MUST begin with `npm run build && \` as the first link when staged files include code. The shape `git checkout main && git add ... && git commit ...` (no build) is FORBIDDEN unless the user gives an explicit per-chain override in the same conversation turn.
+```sh
+git checkout main && git add <files> && git commit -m "..." && git checkout staging && git merge main --ff-only && git push origin staging && git checkout main
+```
+
+No `npm run build` link. The pre-commit hook (`lint-staged + tsc --noEmit + vitest`) catches TypeScript and unit-test failures at commit time. The pre-push hook (`npm run build + Playwright`) catches the rare Next-only failures.
+
+### Manual Escape Valve
+
+For changes that *might* break the Next.js build but pass the type system — config files (`tsconfig.json`, `next.config.ts`, `.husky/*`, `package.json` dependency bumps), large refactors, anything that "feels" risky — run `npm run build` manually before composing the chain. This is judgment, not a maintenance-list mandate.
 
 ### Failure Response
 
-If a build fails before commit: fix the underlying issue, rerun build, repeat until clean, THEN commit. If the pre-push hook catches a build error after a commit was made: STOP. Do NOT use `git rebase`, `--amend`, or `--fixup` to rewrite history to preserve commit count. Make a NEW commit fixing the error. Vercel cost is per push, not per commit — adding a commit costs nothing.
+History rewriting after pre-push failure is FORBIDDEN. Make a NEW commit to fix forward. Never `--amend`, `--fixup`, or `rebase` to preserve commit count. Vercel deploy cost is per-push, not per-commit; an extra commit costs nothing.
 
 **Full protocol:** See `apps/web/.claude/rules/build-before-commit.md`
 

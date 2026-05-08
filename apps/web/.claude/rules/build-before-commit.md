@@ -1,105 +1,95 @@
-# RULE: Build Before Commit (when code changed)
+# RULE: Build Discipline (post Session 80 reform)
 
-**Priority: ABSOLUTE — applies before any commit that includes TypeScript, JavaScript, or any other file that participates in the Next.js build.**
+**Priority: HIGH — applies to every commit that includes code.**
 
-## The Rule
+## What This Rule Says Now
 
-Before opening Bash to run `git commit` (or composing any chain that includes `git commit`), if ANY file about to be staged is `.ts`, `.tsx`, `.js`, `.jsx`, or otherwise affects the Next.js build (config files, etc.), you MUST first have run `npm run build` to completion with exit code 0 since the most recent edit to those files.
+After Session 80, the chain shape is **simpler**, not stricter:
 
-## The Mechanical Gate
+1. **DO NOT include `npm run build` in the commit chain.** The pre-commit hook now runs `tsc --noEmit` (added Session 80) which catches TypeScript errors at commit time. The pre-push hook runs `npm run build + Playwright` as a backstop for the rare Next-only failures.
 
-Before every tool call that produces a commit, execute this self-check:
+2. **The required chain shape is:**
+   ```sh
+   git checkout main && \
+   git add <explicit file paths> && \
+   git commit -m "..." && \
+   git checkout staging && \
+   git merge main --ff-only && \
+   git push origin staging && \
+   git checkout main
+   ```
+   Seven operations, one chain. No `npm run build` link.
 
-1. List the files about to be staged
-2. Are any TypeScript/JavaScript or otherwise build-affecting?
-3. If yes:
-   - Have I run `npm run build` since my most recent edit to any of those files in this session?
-   - Did it exit with code 0 (no type errors, no compile errors)?
-4. If either answer is no → **STOP.** Run `npm run build`. Wait for completion. Verify clean. THEN commit.
-5. If both answers are yes → proceed.
+3. **History rewriting after pre-push failure is FORBIDDEN.** If the pre-push hook (build + Playwright) catches an error, make a NEW commit to fix forward. Never `--amend`, `--fixup`, or `rebase` to preserve commit count.
 
-## Forbidden Chain Shape
+## Why The Reversal
 
-Any chain command that produces a commit involving code files MUST begin with `npm run build && \` as the first link. Chains of this shape are **FORBIDDEN** when any staged file is `.ts`/`.tsx`/`.js`/`.jsx` or build-affecting:
+Session 79 added `npm run build` to the chain after a real incident (4 bug-fix commits bundled, pre-push caught a TypeScript error, history-rewriting attempt to preserve commit count). That fix worked — but it solved the symptom, not the root cause. Root cause: `tsc --noEmit` had a gap that let TypeScript errors slip through to `next build`.
+
+Session 80 closed the gap at the type-system level by enabling `exactOptionalPropertyTypes` (Protocol 5 incident class) and adding `tsc --noEmit` to the pre-commit hook. Those two changes together eliminate ~95% of the cases that previously fell through to the pre-push hook.
+
+With the gap closed, including `npm run build` in every chain became a tax on every commit (30-60s warm cache, longer cold) for marginal protection. Removing it from the chain reduces commit-cycle friction without giving up safety — the pre-push hook is still there as the backstop.
+
+## When To Run `npm run build` Manually (escape valve)
+
+The rule doesn't *require* `npm run build` in the chain, but it doesn't *forbid* you from running it. For changes you suspect could break the Next.js build but not the type system, run it before committing:
+
+- **Config-affecting changes:** `tsconfig.json`, `next.config.ts`, `next.config.js`, `package.json` dependency bumps, anything in `.husky/`
+- **Large refactors:** changes spanning ≥10 files or touching server/client boundaries
+- **Anything that "feels" risky:** trust your judgment; the cost of a manual build is 30-60s, the cost of a pre-push failure is 5-8 min plus the fix-forward commit
+
+This is your call, not a maintenance-list mandate. Lists rot; judgment doesn't.
 
 ```sh
-# FORBIDDEN: no build step
-git checkout main && git add <files> && git commit -m "..." && git checkout staging && ...
-
-# FORBIDDEN: build step in the wrong position (after commit)
-git checkout main && git add <files> && git commit && npm run build && ...
+cd apps/web && npm run build  # 30-60s warm cache, before composing the commit chain
 ```
 
-The required shape is:
+## What Each Hook Catches
 
-```sh
-npm run build && \
-git checkout main && \
-git add <files> && \
-git commit -m "..." && \
-git checkout staging && \
-git merge main --ff-only && \
-git push origin staging && \
-git checkout main
-```
+| Stage | Tool | Catches | Cost |
+|---|---|---|---|
+| Pre-commit (gate) | `lint-staged` | ESLint errors on staged files | <1s |
+| Pre-commit (gate) | `tsc --noEmit` | TypeScript errors (incl. exactOptionalPropertyTypes) | ~6s |
+| Pre-commit (gate) | `vitest run` | Unit + business-rule + flow-integrity test failures | ~9s |
+| Pre-push (backstop) | `npm run build` | SWC compilation, SSG runtime errors, manifest issues | 30-60s |
+| Pre-push (backstop) | `playwright --max-failures=1` | E2E smoke tests | 1-2 min |
 
-The build runs first; if it fails, no commits are made, no pushes happen, no time is spent on a doomed pre-push hook cycle.
-
-### Override
-
-The forbidden-chain shape can ONLY be used with an **explicit user override in the same conversation turn**:
-
-- User must say something like "skip the build" or "just commit, I'll deal with the hook" or equivalent in the message that approves the chain
-- User approval from an earlier turn — even earlier in the same session — does **NOT** count
-- The override must be documented in the commit message body (e.g., "User-approved override: build skipped per session direction.")
-
-## What does NOT count as the gate
-
-- **`tsc --noEmit`** — Protocol 5 in `PROCESSES_AND_PROTOCOLS.md` explicitly says "do NOT rely on tsc --noEmit as the gate before push." It misses things `next build` catches (SWC strictness, full module graph evaluation, template type checks). When the rule says "build," it means `npm run build`, not `tsc`.
-- **Pre-commit husky hook** — runs `lint-staged + vitest`. Neither catches TypeScript build errors.
-- **Pre-push husky hook** — runs `npm run build`, but at the END of the chain, after commits already exist. If it fails, you're left with broken commits in local history and need to either retry the whole 5-8 min cycle or do history surgery. Use it as a backstop, never as the primary gate.
-- **"I edited only one line"** — small changes break types just as easily as large ones.
-- **"I'm in a hurry"** — speed is the trap that creates the violation. The 30-60 seconds of build time is investment, not waste.
-
-## Why This Exists
-
-Session 79 incident: I bundled 4 bug fixes (admin grid CSS, vendor=organizer email block drop, fast-track endpoint, fast-track button) into one commit chain without running `npm run build` first. The pre-push hook caught a TypeScript error (`'update (fast-track)'` not in the union type for `traced.fromSupabase` operation field) after a 5-8 minute build+playwright cycle. Instead of running `npm run build` locally to verify the fix, I reached for `git rebase --fixup --autosquash` to preserve the user's "no more than 2 commits" directive. The next push attempt failed with another TypeScript error (`supabaseService` referenced after I deleted its declaration in the dual-role drop). Two consecutive failures, two history-rewriting attempts, ~30 minutes of wasted hook cycles, and ultimately a full rollback because the user (correctly) didn't trust commits made without testing.
-
-The actual fix would have been one local `npm run build` (30-60 seconds) before the first commit. It would have caught both errors immediately, in sequence, with full file-and-line detail, before any commit existed.
+The pre-commit hook is the primary gate. Pre-push is the backstop for cases the type system can't see.
 
 ## Failure Response
 
-### When `npm run build` fails before commit
+### Pre-commit hook fails
 
-1. Read the error carefully — file, line, column, message
-2. Fix the underlying issue (not a workaround; not a type signature loosening unless it's actually wrong; not a `// @ts-ignore`)
-3. Re-run `npm run build`
-4. Repeat until clean
-5. THEN commit
+Fix the error (lint, type, or test), re-stage, retry the chain. Never `--no-verify` to bypass.
 
-### When the pre-push hook catches a build error AFTER a commit was made
+### Pre-push hook fails AFTER commit was made
 
-This means the gate above was bypassed (rule violation occurred). Recovery:
+This means a Next-only issue slipped past pre-commit (rare after Session 80). Recovery:
 
-1. **STOP.** Do NOT reach for `git rebase`, `git commit --amend`, or any history rewriting
-2. Run `npm run build` locally to reproduce
-3. Fix the error
-4. Make a **NEW commit** fixing the error (yes, this adds a commit — but it's honest)
-5. Push
+1. **STOP.** Do NOT reach for `git rebase`, `--amend`, or any history rewriting.
+2. Run `npm run build` locally to reproduce.
+3. Fix the error.
+4. Make a **NEW commit** fixing it (yes, this adds a commit — but it's honest).
+5. Push.
 
-**The "no history rewriting under failure" clause is non-negotiable.** Rewriting history to preserve commit count when you've shipped broken code is the symptom of treating commit count as more important than correctness. Vercel deploys cost is **per push, not per commit**. 3 commits in 1 push costs the same as 2. If you find yourself reaching for `--fixup`, `--amend`, or `rebase` to preserve commit count after a hook failure, you're solving the wrong problem.
+**The "no history rewriting under failure" clause is non-negotiable.** Vercel deploy cost is per-push, not per-commit. Adding a commit costs nothing. Treating commit count as more important than correctness is the symptom of the wrong priorities (Session 79 incident).
 
-If a user asks for ≤N commits, the right response when N is exceeded due to a fix is: ship the N+1 commits and explain the additional commit was a typecheck fix (which has zero deploy cost). Do not silently rewrite history to make the count match.
+If the user asks for ≤N commits and a fix-forward exceeds N, ship the N+1 commits and explain the additional commit was a typecheck or build fix.
 
 ## Interaction With Other Rules
 
-- **`git-workflow-chain.md`** — the explicit branch chain pattern remains required. When the chain produces a code commit, `npm run build && \` becomes the first link, before `git checkout main`. The git-workflow chain and this rule reinforce each other: explicit branch state + verified build state = predictable, mergeable, push-able commits.
-- **`present-before-changing.md`** — orthogonal. That rule gates the EDIT (`?` in preceding message before opening Edit/Write); this rule gates the COMMIT (build verified before opening Bash with `git commit`).
-- **`no-unauthorized-changes.md`** — also orthogonal. Approval to make changes is not approval to commit broken changes.
-- **`PROCESSES_AND_PROTOCOLS.md` Protocol 5** — this rule operationalizes Protocol 5's "REQUIRED" clause for `npm run build` with a mechanical gate.
+- **`git-workflow-chain.md`** — the explicit branch chain pattern remains required. No `npm run build` link, but the explicit `git checkout main → ... → git checkout main` framing is unchanged.
+- **`present-before-changing.md`** — orthogonal; gates the EDIT, not the commit.
+- **`PROCESSES_AND_PROTOCOLS.md` Protocol 5** — Protocol 5's pre-Session-80 wording said "do NOT rely on tsc --noEmit." That guidance is now superseded by this rule for the post-Session-80 codebase, where `tsc --noEmit` runs as the pre-commit gate AND `exactOptionalPropertyTypes` is enabled. Update Protocol 5 if it's referenced elsewhere.
 
 ## Cannot Be Overridden
 
-No autonomy mode, no time pressure, no "just one line," no "user is waiting" overrides this rule. Speed that produces broken commits is slower than speed that runs build first. The pre-push hook is a backstop for unforeseen issues, not a primary gate.
+Pre-commit and pre-push hooks must NOT be skipped (`--no-verify`) without explicit user instruction in the same conversation turn. The hooks are the safety net.
 
-The only override path is the explicit per-chain user instruction documented in the "Override" section above. Any other "I'll skip it just this once" reasoning is the same reasoning that produced Session 79.
+History rewriting after pre-push failure remains FORBIDDEN regardless of mode, urgency, or instruction. The only legitimate response is a fix-forward commit.
+
+## Why Sessions Need This Doc
+
+Future sessions reading this rule will land mid-conversation, often without context for why the chain looks the way it does. The TL;DR: pre-commit catches type errors fast (~15s total for lint+tsc+vitest), pre-push catches Next-only build issues as a backstop, the chain is short, and the type system has been hardened so the backstop fires rarely.
+
+If a session is tempted to add `npm run build` back to the chain "just to be safe," the answer is: that's what the manual escape valve and the pre-push backstop are for. Adding build to every chain makes every commit slower without measurable benefit after Session 80's hardening.
