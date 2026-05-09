@@ -6,6 +6,7 @@ import { colors, spacing, typography, radius, containers } from '@/lib/design-to
 import VendorBoothList from '@/components/market-manager/VendorBoothList'
 import BoothInventoryManager from '@/components/market-manager/BoothInventoryManager'
 import BoothPlaceholderManager from '@/components/market-manager/BoothPlaceholderManager'
+import OptinManager from '@/components/market-manager/OptinManager'
 
 interface PageProps {
   params: Promise<{ vertical: string; marketId: string }>
@@ -182,6 +183,39 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           market. Off-platform vendor placeholders ship in a later update.
         </p>
         <VendorBoothList marketId={marketId} />
+      </div>
+
+      {/* Opt-in vendor agreement statements — manager picks which ones
+          apply to their market */}
+      <div style={{
+        padding: spacing.md,
+        backgroundColor: colors.surfaceElevated,
+        border: `1px solid ${colors.border}`,
+        borderRadius: radius.md,
+        marginBottom: spacing.md,
+      }}>
+        <h2 style={{
+          marginTop: 0,
+          marginBottom: spacing.xs,
+          fontSize: typography.sizes.lg,
+          fontWeight: typography.weights.semibold,
+          color: colors.textPrimary,
+        }}>
+          Vendor agreement statements
+        </h2>
+        <p style={{
+          margin: 0,
+          marginBottom: spacing.sm,
+          color: colors.textMuted,
+          fontSize: typography.sizes.sm,
+          lineHeight: 1.5,
+        }}>
+          Select which opt-in statements vendors must accept when they sign
+          up to your market. Statements with placeholders (in curly braces)
+          let you fill in values specific to your market — these get
+          substituted into the vendor-facing text at signup.
+        </p>
+        <OptinManager marketId={marketId} />
       </div>
 
       {/* What's still coming */}
