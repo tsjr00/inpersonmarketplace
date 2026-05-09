@@ -312,3 +312,87 @@ describe('Event status reachability', () => {
     })
   }
 })
+
+// ── Level 4: Market manager permission boundary ─────────────────────
+
+describe('Market manager permission boundary', () => {
+  // The rule (Session 81 Consolidated Roadmap §4):
+  //
+  //   Manager CANNOT disassociate a vendor from a market if the vendor
+  //   associated themselves first. Manager CAN edit booth_number on
+  //   market_vendors rows (booth assignment is the manager's job).
+  //
+  // The market_vendors row records a vendor's relationship to a market.
+  // Deletion of that row is the disassociation operation. Per the rule,
+  // managers must never have a path that deletes from market_vendors.
+  //
+  // Currently this is enforced by API surface design: the manager API
+  // (src/app/api/market-manager/**) exposes booth_number PATCH only,
+  // with no DELETE endpoint touching market_vendors. This test asserts
+  // that boundary mechanically — it fails if a future change adds a
+  // .from('market_vendors').delete() call anywhere under the manager
+  // API.
+  //
+  // Admin path at src/app/api/markets/[id]/vendors/[vendorId]/route.ts
+  // can delete (intentional — admin and self-removal allowed). That
+  // path is outside this directory and not subject to this rule.
+  it('no manager API endpoint deletes from market_vendors', () => {
+    const managerApiDir = path.join(APP_DIR, 'api/market-manager')
+    if (!fs.existsSync(managerApiDir)) {
+      // Phase A precondition — directory must exist
+      expect.fail('Manager API directory missing — flow expectation broken')
+    }
+
+    const violations: Array<{ file: string; line: number; text: string }> = []
+
+    function walk(d: string) {
+      for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
+        const fullPath = path.join(d, entry.name)
+        if (entry.isDirectory()) {
+          walk(fullPath)
+        } else if (entry.isFile() && (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx'))) {
+          const content = fs.readFileSync(fullPath, 'utf-8')
+          // Only flag files that actually reference market_vendors AND .delete().
+          // Either form of quote is checked, multiline-tolerant via simple
+          // contains rather than regex line-matching (so chained calls with
+          // .from on one line and .delete on the next still trip the check).
+          const referencesMarketVendors =
+            content.includes(".from('market_vendors')") ||
+            content.includes('.from("market_vendors")')
+          if (!referencesMarketVendors) continue
+
+          // Find the index of any .from('market_vendors') call, then look
+          // for .delete() within ~10 lines downstream of it. Catches both
+          // single-line chains and multi-line chains.
+          const lines = content.split('\n')
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i]
+            if (
+              !line.includes(".from('market_vendors')") &&
+              !line.includes('.from("market_vendors")')
+            ) continue
+            const window = lines.slice(i, Math.min(lines.length, i + 12)).join('\n')
+            if (window.includes('.delete()')) {
+              violations.push({ file: fullPath, line: i + 1, text: line.trim() })
+            }
+          }
+        }
+      }
+    }
+
+    walk(managerApiDir)
+
+    if (violations.length > 0) {
+      const details = violations
+        .map((v) => `  ${path.relative(SRC_DIR, v.file)}:${v.line}: ${v.text}`)
+        .join('\n')
+      expect.fail(
+        'Market manager API endpoint deletes from market_vendors. ' +
+        'Per the permission boundary rule, managers cannot disassociate ' +
+        'vendors from markets — only edit booth_number on existing rows. ' +
+        'Use the admin path at src/app/api/markets/[id]/vendors/[vendorId] ' +
+        'if a true disassociation is needed.\n' + details
+      )
+    }
+  })
+})
