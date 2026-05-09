@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import { useStatusBanner } from '@/hooks/useStatusBanner'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import {
   DOC_TYPE_LABELS,
   FOOD_TRUCK_DOC_TYPE_LABELS,
@@ -56,6 +57,7 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
   const [notes, setNotes] = useState('')
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [categoryNotes, setCategoryNotes] = useState<Record<string, string>>({})
+  const [fastTrackDialogOpen, setFastTrackDialogOpen] = useState(false)
   const { showBanner, StatusBanner } = useStatusBanner()
 
   const isFoodTruck = vertical === 'food_trucks'
@@ -63,7 +65,31 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
   useEffect(() => {
     setNotes('')
     setCategoryNotes({})
+    setFastTrackDialogOpen(false)
   }, [vendorId])
+
+  const handleFastTrack = async (overrideNotes?: string) => {
+    setFastTrackDialogOpen(false)
+    setActionLoading('fast-track')
+    try {
+      const res = await fetch(`/api/admin/vendors/${vendorId}/fast-track`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(overrideNotes ? { notes: overrideNotes } : {}),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        showBanner('error', data.error || 'Fast-track failed')
+      } else {
+        showBanner('success', 'Vendor fast-tracked: all 3 gates approved + onboarding complete')
+      }
+      onRefresh()
+    } catch {
+      showBanner('error', 'Network error')
+    } finally {
+      setActionLoading(null)
+    }
+  }
 
   if (!verification) {
     return (
@@ -439,6 +465,69 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
           </div>
         )}
       </div>
+
+      {/* Admin override — bypasses all 3 gates. Hidden once onboarding is complete
+          since fast-track has no effect on already-onboarded vendors. */}
+      {!verification.onboarding_completed_at && (
+        <div style={{
+          padding: spacing.sm,
+          backgroundColor: '#fef3c7',
+          border: '1px solid #f59e0b',
+          borderRadius: radius.md,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: spacing.xs,
+        }}>
+          <div style={{
+            fontSize: typography.sizes.sm,
+            fontWeight: typography.weights.semibold,
+            color: '#92400e',
+          }}>
+            Admin override — fast-track approval
+          </div>
+          <div style={{
+            fontSize: typography.sizes.xs,
+            color: '#78350f',
+            lineHeight: 1.4,
+          }}>
+            Skip all three verification gates and mark onboarding complete. Use when
+            you have already reviewed the vendor in person (e.g., onboarding event)
+            and have seen their paperwork. This action is logged with your admin ID
+            and a note in the verification record. Trial eligibility is preserved.
+          </div>
+          <button
+            onClick={() => setFastTrackDialogOpen(true)}
+            disabled={!!actionLoading}
+            style={{
+              alignSelf: 'flex-start',
+              padding: `${spacing['3xs']} ${spacing.sm}`,
+              backgroundColor: '#f59e0b',
+              color: 'white',
+              border: 'none',
+              borderRadius: radius.sm,
+              fontSize: typography.sizes.xs,
+              fontWeight: typography.weights.semibold,
+              cursor: actionLoading ? 'not-allowed' : 'pointer',
+              opacity: actionLoading ? 0.6 : 1,
+            }}
+          >
+            Fast-track approve
+          </button>
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={fastTrackDialogOpen}
+        title="Fast-track this vendor?"
+        message="This will mark all three onboarding gates approved (business verification, category documents, COI) and stamp onboarding_completed_at. The override will be recorded in the verification notes with your admin ID."
+        confirmLabel="Fast-track approve"
+        variant="default"
+        showInput
+        inputLabel="Optional reason (will be appended to verification notes)"
+        inputPlaceholder="e.g., Verified paperwork at March 12 onboarding event"
+        onConfirm={(reason) => handleFastTrack(reason)}
+        onCancel={() => setFastTrackDialogOpen(false)}
+      />
       <StatusBanner />
     </div>
   )
