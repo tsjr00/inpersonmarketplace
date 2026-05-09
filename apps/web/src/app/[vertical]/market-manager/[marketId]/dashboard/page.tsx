@@ -5,6 +5,7 @@ import { isMarketManager } from '@/lib/markets/manager-auth'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import VendorBoothList from '@/components/market-manager/VendorBoothList'
 import BoothInventoryManager from '@/components/market-manager/BoothInventoryManager'
+import BoothPlaceholderManager from '@/components/market-manager/BoothPlaceholderManager'
 
 interface PageProps {
   params: Promise<{ vertical: string; marketId: string }>
@@ -120,6 +121,39 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
         <BoothInventoryManager marketId={marketId} />
       </div>
 
+      {/* Off-platform vendor booth placeholders — track occupancy without
+          on-platform vendor identity */}
+      <div style={{
+        padding: spacing.md,
+        backgroundColor: colors.surfaceElevated,
+        border: `1px solid ${colors.border}`,
+        borderRadius: radius.md,
+        marginBottom: spacing.md,
+      }}>
+        <h2 style={{
+          marginTop: 0,
+          marginBottom: spacing.xs,
+          fontSize: typography.sizes.lg,
+          fontWeight: typography.weights.semibold,
+          color: colors.textPrimary,
+        }}>
+          Off-platform booth placeholders
+        </h2>
+        <p style={{
+          margin: 0,
+          marginBottom: spacing.sm,
+          color: colors.textMuted,
+          fontSize: typography.sizes.sm,
+          lineHeight: 1.5,
+        }}>
+          Track booths occupied by vendors who are not on the platform. No
+          vendor identity is captured — just the booth number and (optionally)
+          which size tier it counts against. Useful when you have existing
+          vendors who haven&apos;t onboarded yet.
+        </p>
+        <BoothPlaceholderManager marketId={marketId} />
+      </div>
+
       {/* Vendors at this market — assign / edit booth numbers */}
       <div style={{
         padding: spacing.md,
@@ -173,7 +207,6 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           fontSize: typography.sizes.sm,
           lineHeight: 1.6,
         }}>
-          <li>Off-platform vendor booth placeholders</li>
           <li>Weekly booth rental bookings + payment via the platform</li>
           <li>Aggregate market activity (order count, pickup volume)</li>
           <li>Post-market vendor + buyer surveys</li>
