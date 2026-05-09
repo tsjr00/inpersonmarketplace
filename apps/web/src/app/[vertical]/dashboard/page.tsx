@@ -148,6 +148,21 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
     .eq('vertical_id', vertical)
     .is('organizer_user_id', null)
 
+  // Auto-link: same pattern for market managers — if admin assigned by email
+  // before the user signed up, backfill manager_user_id + manager_accepted_at.
+  // Case-insensitive match via ilike (functional index on LOWER(manager_email)
+  // supports this). FM-only since v1 manager scope is farmers_market.
+  if (user.email && vertical === 'farmers_market') {
+    await serviceClient
+      .from('markets')
+      .update({
+        manager_user_id: user.id,
+        manager_accepted_at: new Date().toISOString(),
+      })
+      .ilike('manager_email', user.email)
+      .is('manager_user_id', null)
+  }
+
   // Fetch organizer's events
   const { data: organizerEvents } = await serviceClient
     .from('catering_requests')
