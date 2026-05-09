@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
+import VendorBoothList from '@/components/market-manager/VendorBoothList'
+import BoothInventoryManager from '@/components/market-manager/BoothInventoryManager'
 
 interface PageProps {
   params: Promise<{ vertical: string; marketId: string }>
@@ -87,11 +89,13 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
         </p>
       )}
 
+      {/* Booth inventory — manage size tiers + per-week prices */}
       <div style={{
         padding: spacing.md,
         backgroundColor: colors.surfaceElevated,
         border: `1px solid ${colors.border}`,
         borderRadius: radius.md,
+        marginBottom: spacing.md,
       }}>
         <h2 style={{
           marginTop: 0,
@@ -100,7 +104,7 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           fontWeight: typography.weights.semibold,
           color: colors.textPrimary,
         }}>
-          Market manager dashboard — coming soon
+          Booth inventory
         </h2>
         <p style={{
           margin: 0,
@@ -109,10 +113,59 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           fontSize: typography.sizes.sm,
           lineHeight: 1.5,
         }}>
-          You&apos;re recognized as the assigned manager of this market.
-          The dashboard surfaces below are being built and will roll in
-          over the next several updates:
+          Configure the booth size tiers at your market — how many of each size
+          you have and the weekly rental price. This is the foundation for the
+          weekly vendor booking flow.
         </p>
+        <BoothInventoryManager marketId={marketId} />
+      </div>
+
+      {/* Vendors at this market — assign / edit booth numbers */}
+      <div style={{
+        padding: spacing.md,
+        backgroundColor: colors.surfaceElevated,
+        border: `1px solid ${colors.border}`,
+        borderRadius: radius.md,
+        marginBottom: spacing.md,
+      }}>
+        <h2 style={{
+          marginTop: 0,
+          marginBottom: spacing.xs,
+          fontSize: typography.sizes.lg,
+          fontWeight: typography.weights.semibold,
+          color: colors.textPrimary,
+        }}>
+          Vendors at this market
+        </h2>
+        <p style={{
+          margin: 0,
+          marginBottom: spacing.sm,
+          color: colors.textMuted,
+          fontSize: typography.sizes.sm,
+          lineHeight: 1.5,
+        }}>
+          Assign booth numbers to vendors who are on the platform and at this
+          market. Off-platform vendor placeholders ship in a later update.
+        </p>
+        <VendorBoothList marketId={marketId} />
+      </div>
+
+      {/* What's still coming */}
+      <div style={{
+        padding: spacing.md,
+        backgroundColor: colors.surfaceBase,
+        border: `1px dashed ${colors.border}`,
+        borderRadius: radius.md,
+      }}>
+        <h2 style={{
+          marginTop: 0,
+          marginBottom: spacing.xs,
+          fontSize: typography.sizes.base,
+          fontWeight: typography.weights.semibold,
+          color: colors.textMuted,
+        }}>
+          Coming soon
+        </h2>
         <ul style={{
           margin: 0,
           paddingLeft: spacing.md,
@@ -120,13 +173,12 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           fontSize: typography.sizes.sm,
           lineHeight: 1.6,
         }}>
-          <li>Vendor list with booth assignments and attendance status</li>
-          <li>Weekly booth rental bookings and payment status</li>
-          <li>Aggregate market activity (order count and pickup volume)</li>
+          <li>Off-platform vendor booth placeholders</li>
+          <li>Weekly booth rental bookings + payment via the platform</li>
+          <li>Aggregate market activity (order count, pickup volume)</li>
           <li>Post-market vendor + buyer surveys</li>
-          <li>Vendor invite link and onboarding referral</li>
-          <li>Share tools for promoting market days on social media</li>
-          <li>Market schedule and support resources</li>
+          <li>Vendor invite / onboarding referral link</li>
+          <li>Share tools for market-day social promotion</li>
         </ul>
       </div>
 
