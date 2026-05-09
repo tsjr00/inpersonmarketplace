@@ -5,6 +5,7 @@ import Link from 'next/link'
 import ScheduleDisplay from '@/components/markets/ScheduleDisplay'
 import ScheduleManager from './ScheduleManager'
 import VendorManager from './VendorManager'
+import MarketManagerAssignment from './MarketManagerAssignment'
 
 interface MarketDetailPageProps {
   params: Promise<{ id: string }>
@@ -181,6 +182,28 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
           </div>
         </div>
       </div>
+
+      {/* Market Manager — FM only for v1 */}
+      {market.vertical_id === 'farmers_market' && (
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: 12,
+          padding: 24,
+          marginBottom: 20,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+        }}>
+          <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 600, color: '#333' }}>
+            Market Manager
+          </h2>
+          <MarketManagerAssignment
+            marketId={id}
+            managerEmail={market.manager_email as string | null}
+            managerUserId={market.manager_user_id as string | null}
+            managerInvitedAt={market.manager_invited_at as string | null}
+            managerAcceptedAt={market.manager_accepted_at as string | null}
+          />
+        </div>
+      )}
 
       {/* Schedules - Required for ALL market types */}
       <div style={{

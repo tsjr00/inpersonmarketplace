@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getAnalyticsLimits } from '@/lib/vendor-limits'
+import { calculateVendorPayout } from '@/lib/pricing'
 
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/vendor/analytics/trends', 'GET', async () => {
@@ -48,10 +49,13 @@ export async function GET(request: NextRequest) {
     const earliest = new Date(Date.now() - analyticsLimits.analyticsDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     if (startDate < earliest) startDate = earliest
 
-    // C7 FIX: Query order_items directly instead of legacy RPC on transactions table
+    // C7 FIX: Query order_items directly instead of legacy RPC on transactions table.
+    // Session 80: revenue source switched from subtotal_cents to
+    // vendor_payout_cents so trend chart matches the vendor's Stripe
+    // Connect dashboard (transfers received, net of platform fees).
     const { data: orderItems, error } = await supabase
       .from('order_items')
-      .select('id, status, subtotal_cents, created_at')
+      .select('id, status, vendor_payout_cents, created_at')
       .eq('vendor_profile_id', vendorId)
       .gte('created_at', `${startDate}T00:00:00`)
       .lte('created_at', `${endDate}T23:59:59`)
@@ -104,13 +108,15 @@ export async function GET(request: NextRequest) {
       }
       dateStats[periodKey].orders++
       if (item.status === 'fulfilled' || item.status === 'completed') {
-        dateStats[periodKey].revenue += item.subtotal_cents || 0
+        dateStats[periodKey].revenue += item.vendor_payout_cents || 0
       }
     }
 
     // Bucket market box subscriptions into the same period grouping.
     // Status mapping matches overview route: 'active'/'completed' count as
     // revenue (vendor paid upfront). All subs count toward orders.
+    // Vendor revenue is the actual transfer amount (net of 6.5% + $0.15
+    // vendor fee), computed via calculateVendorPayout() to match Stripe.
     for (const sub of subscriptions || []) {
       const periodKey = periodKeyFor(sub.created_at)
 
@@ -119,7 +125,7 @@ export async function GET(request: NextRequest) {
       }
       dateStats[periodKey].orders++
       if (sub.status === 'active' || sub.status === 'completed') {
-        dateStats[periodKey].revenue += sub.total_paid_cents || 0
+        dateStats[periodKey].revenue += calculateVendorPayout(sub.total_paid_cents || 0)
       }
     }
 

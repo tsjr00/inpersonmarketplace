@@ -2,10 +2,6 @@
 
 Last updated: 2026-05-08
 
-## Priority 1 — Vendor analytics: align with Stripe Connect dashboard
-
-- [ ] **Vendor analytics revenue currently uses `subtotal_cents` instead of `vendor_payout_cents`** — `apps/web/src/app/api/vendor/analytics/overview/route.ts` and `apps/web/src/app/api/vendor/analytics/trends/route.ts` sum `order_items.subtotal_cents` for fulfilled/completed items. That number is the gross product subtotal (before vendor-side fees). The vendor's Stripe Connect dashboard shows the actual transfer amount = `vendor_payout_cents` (subtotal minus vendor's 6.5% platform fee). Per Session 80 user direction: "vendors should see the revenue numbers that will match their stripe dashboard when possible." Fix: switch the revenue sum on both vendor analytics routes to `order_items.vendor_payout_cents`. Also verify the metric label on the vendor analytics page reads "Net Earnings" or "Stripe Payout Total" rather than "Total Revenue" so it's unambiguous. Found Session 80 (2026-05-08) while fixing the parallel admin-side analytics bug (admin should see gross sales, vendor should see Stripe-matching net — different semantic, different field). Out of scope for the admin fix; flagged for follow-up.
-
 ## Priority 1 — Market Manager v1 (FM only)
 
 - [ ] **Market Manager dashboard + invite flow** — Pitch: free dashboard for FM market managers (vendor list with booth + attendance, aggregate market transactions, "invite a vendor" link, schedule view, support card) in exchange for them promoting the platform to their vendors and the public. Mirrors event organizer pattern (same human, different email; buyer dashboard card; admin-assigned via market admin UI). 1:1 manager:market for v1; FT park operator deferred. **Full plan + schema + 9-phase build order:** `apps/web/.claude/market_manager_v1_plan.md`. Awaiting user feedback from 1-2 friendly market managers (Amarillo / Canyon) before kickoff. Estimated 1-2 development sessions for end-to-end MVP. Drafted Session 78 (2026-05-05).

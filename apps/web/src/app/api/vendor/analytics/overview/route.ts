@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getAnalyticsLimits } from '@/lib/vendor-limits'
+import { calculateVendorPayout } from '@/lib/pricing'
 
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/vendor/analytics/overview', 'GET', async () => {
@@ -48,10 +49,14 @@ export async function GET(request: NextRequest) {
     const earliest = new Date(Date.now() - maxDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     if (startDate < earliest) startDate = earliest
 
-    // C7 FIX: Query order_items instead of legacy transactions table
+    // C7 FIX: Query order_items instead of legacy transactions table.
+    // Session 80: revenue source switched from subtotal_cents to
+    // vendor_payout_cents so totals match what the vendor sees in their
+    // Stripe Connect dashboard (transfers received, net of platform fees).
+    // Label on the page now reads "Net Earnings" to make the semantic clear.
     const { data: orderItems, error } = await supabase
       .from('order_items')
-      .select('id, status, subtotal_cents, created_at')
+      .select('id, status, vendor_payout_cents, created_at')
       .eq('vendor_profile_id', vendorId)
       .gte('created_at', `${startDate}T00:00:00`)
       .lte('created_at', `${endDate}T23:59:59`)
@@ -89,7 +94,7 @@ export async function GET(request: NextRequest) {
     for (const item of orderItems || []) {
       if (item.status === 'fulfilled' || item.status === 'completed') {
         completedOrders++
-        totalRevenue += item.subtotal_cents || 0
+        totalRevenue += item.vendor_payout_cents || 0
       } else if (['paid', 'confirmed', 'ready'].includes(item.status)) {
         pendingOrders++
       } else if (['cancelled', 'refunded'].includes(item.status)) {
@@ -99,12 +104,13 @@ export async function GET(request: NextRequest) {
 
     // Market box subscriptions: 'active' and 'completed' both count as revenue
     // (paid upfront — vendor already received transfer). 'cancelled' goes to the
-    // cancelled bucket. total_paid_cents is the vendor's stated price (gross
-    // before vendor fee), matching order_items.subtotal_cents semantic.
+    // cancelled bucket. total_paid_cents is the buyer's gross; the vendor's
+    // actual transfer is net of the 6.5% + $0.15 vendor fee, computed via
+    // calculateVendorPayout() to match the Stripe Connect dashboard amount.
     for (const sub of subscriptions || []) {
       if (sub.status === 'active' || sub.status === 'completed') {
         completedOrders++
-        totalRevenue += sub.total_paid_cents || 0
+        totalRevenue += calculateVendorPayout(sub.total_paid_cents || 0)
       } else if (sub.status === 'cancelled') {
         cancelledOrders++
       }

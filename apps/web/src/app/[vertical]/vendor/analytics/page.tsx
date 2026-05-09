@@ -510,7 +510,7 @@ export default function VendorAnalyticsPage() {
               marginBottom: spacing.md
             }}>
               <MetricCard
-                label="Total Revenue"
+                label="Net Earnings (after fees)"
                 value={overview?.totalRevenue || 0}
                 format="currency"
                 icon="💰"
