@@ -3,34 +3,46 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 /**
  * Manager onboarding progress for a market.
  *
- * Computed read-only from the data the manager has entered (no separate
- * "completed" flag — Option A from the Session 81 plan). The dashboard's
- * "Setup checklist" card and the onboarding step pages both use this to
- * decide what's done and what's next.
+ * Computed read-only from the data the manager has entered (no
+ * separate "completed" flag — Option A from the Session 81 plan).
  *
- * Steps tracked:
- *   1. Booth inventory — at least one tier in market_booth_inventory
- *   2. Off-platform placeholders — informational only (optional; treated
- *      as "seen" so it doesn't block progress)
- *   3. Opt-in statements — at least one statement selected
+ * Tracked items:
+ *   - Booth inventory (REQUIRED): at least one tier in
+ *     market_booth_inventory
+ *   - Vendor agreement statements (REQUIRED): at least one selection in
+ *     market_optin_selections
+ *   - Off-platform placeholders (OPTIONAL): manager-tracked occupancy;
+ *     count is reported but doesn't gate "setup complete"
+ *
+ * Required completion drives the dashboard "Setup complete" state and
+ * the wizard's confirm-step warnings. Placeholders are reported via
+ * `placeholders_count` so callers can render "(N tracked)" copy or a
+ * checkmark when count > 0.
  */
 export interface OnboardingProgress {
   inventory_done: boolean
-  placeholders_seen: boolean
+  placeholders_count: number
   optin_done: boolean
-  total_complete: number
-  total_steps: 3
+  /** Number of REQUIRED steps complete (0..2) — inventory + optin. */
+  required_complete: number
+  /** Always 2. Kept as a field so the UI can render "X of N" without
+   *  hardcoding the denominator in multiple places. */
+  required_total: 2
 }
 
-/** Reads the data the manager has entered and returns a progress summary.
- *  No side effects. Two parallel HEAD-count queries — cheap. */
+/** Reads the data the manager has entered and returns a progress
+ *  summary. No side effects. Three parallel HEAD-count queries. */
 export async function getOnboardingProgress(
   supabase: SupabaseClient,
   marketId: string
 ): Promise<OnboardingProgress> {
-  const [invResult, selResult] = await Promise.all([
+  const [invResult, placeholdersResult, optinResult] = await Promise.all([
     supabase
       .from('market_booth_inventory')
+      .select('id', { count: 'exact', head: true })
+      .eq('market_id', marketId),
+    supabase
+      .from('market_booth_placeholders')
       .select('id', { count: 'exact', head: true })
       .eq('market_id', marketId),
     supabase
@@ -40,21 +52,18 @@ export async function getOnboardingProgress(
   ])
 
   const inventory_done = (invResult.count ?? 0) > 0
-  const optin_done = (selResult.count ?? 0) > 0
-  // Placeholders are optional, so we don't gate progress on having any.
-  // Treated as "seen" for the progress count — informational step only.
-  const placeholders_seen = true
+  const placeholders_count = placeholdersResult.count ?? 0
+  const optin_done = (optinResult.count ?? 0) > 0
 
-  let total_complete = 0
-  if (inventory_done) total_complete++
-  if (placeholders_seen) total_complete++
-  if (optin_done) total_complete++
+  let required_complete = 0
+  if (inventory_done) required_complete++
+  if (optin_done) required_complete++
 
   return {
     inventory_done,
-    placeholders_seen,
+    placeholders_count,
     optin_done,
-    total_complete,
-    total_steps: 3,
+    required_complete,
+    required_total: 2,
   }
 }

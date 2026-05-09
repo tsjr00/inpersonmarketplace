@@ -12,14 +12,13 @@ interface OnboardingChecklistProps {
  * Dashboard card showing the manager's setup checklist progress + entry
  * point into the guided wizard.
  *
- * Renders as a short summary when all required steps are complete; as a
- * fuller "Continue setup" prompt when anything is missing.
+ * Renders as a short summary when both required steps are complete; as
+ * a fuller "Continue setup" prompt when anything required is missing.
  *
- * Required steps (per onboarding-progress.ts):
- *  - Booth inventory: at least one tier
- *  - Opt-in statements: at least one selected
- *
- * Off-platform placeholders are optional — they don't gate completion.
+ * Required steps: booth inventory + opt-in statements (each needs at
+ * least one row). Off-platform placeholders are optional — reported in
+ * the list with their count but they don't gate the "Setup complete"
+ * state.
  */
 export default function OnboardingChecklist({
   vertical,
@@ -28,9 +27,13 @@ export default function OnboardingChecklist({
 }: OnboardingChecklistProps) {
   const allRequiredDone = progress.inventory_done && progress.optin_done
 
-  // When everything is in place, render a low-key "review setup" link.
-  // When something's missing, render a more visible call to action.
+  // When everything required is in place, render a low-key "review setup"
+  // line. Mention placeholder count if there are any.
   if (allRequiredDone) {
+    const placeholderSuffix =
+      progress.placeholders_count > 0
+        ? ` (plus ${progress.placeholders_count} off-platform placeholder${progress.placeholders_count === 1 ? '' : 's'})`
+        : ''
     return (
       <div style={{
         padding: spacing.sm,
@@ -45,7 +48,7 @@ export default function OnboardingChecklist({
         gap: spacing.xs,
       }}>
         <div style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
-          ✓ Setup complete — booth inventory and vendor agreement statements are configured
+          ✓ Setup complete — booth inventory and vendor agreement statements are configured{placeholderSuffix}
         </div>
         <Link
           href={`/${vertical}/market-manager/${marketId}/onboarding`}
@@ -80,7 +83,7 @@ export default function OnboardingChecklist({
           Set up your market
         </h3>
         <span style={{ fontSize: typography.sizes.xs, color: '#713f12' }}>
-          {progress.total_complete} of {progress.total_steps} steps done
+          {progress.required_complete} of {progress.required_total} required steps done
         </span>
       </div>
       <p style={{
@@ -107,8 +110,12 @@ export default function OnboardingChecklist({
           <span>Booth inventory{progress.inventory_done ? '' : ' — add at least one size tier'}</span>
         </li>
         <li style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], marginBottom: spacing['3xs'] }}>
-          <span>○</span>
-          <span style={{ fontStyle: 'italic' }}>Off-platform placeholders (optional)</span>
+          <span>{progress.placeholders_count > 0 ? '✓' : '○'}</span>
+          <span style={{ fontStyle: progress.placeholders_count > 0 ? 'normal' : 'italic' }}>
+            {progress.placeholders_count > 0
+              ? `Off-platform placeholders — ${progress.placeholders_count} tracked`
+              : 'Off-platform placeholders (optional)'}
+          </span>
         </li>
         <li style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
           <span>{progress.optin_done ? '✓' : '○'}</span>

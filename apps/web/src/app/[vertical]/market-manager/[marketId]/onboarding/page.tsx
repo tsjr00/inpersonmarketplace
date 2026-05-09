@@ -40,12 +40,24 @@ export default async function OnboardingLandingPage({ params }: PageProps) {
 
   const progress = await getOnboardingProgress(supabase, marketId)
 
+  // Numbered, status-tracked steps. The "Confirm and review" step is
+  // rendered as a separate CTA below — it has no done/not-done state of
+  // its own (Option A: no completion column). That fixes the "5/5 step
+  // never marks complete" loop.
   const steps = [
     { slug: 'identity', label: 'Confirm your market', description: 'Make sure the market info is correct.', done: true },
     { slug: 'booths', label: 'Booth inventory', description: 'Set up size tiers and weekly prices.', done: progress.inventory_done },
-    { slug: 'placeholders', label: 'Off-platform placeholders', description: 'Track booths occupied by vendors not on the platform. Optional.', done: progress.placeholders_seen, optional: true },
+    {
+      slug: 'placeholders',
+      label: 'Off-platform placeholders',
+      description:
+        progress.placeholders_count > 0
+          ? `${progress.placeholders_count} tracked. Add more or remove if needed.`
+          : 'Track booths occupied by vendors not on the platform. Optional.',
+      done: progress.placeholders_count > 0,
+      optional: true,
+    },
     { slug: 'optin', label: 'Vendor agreement statements', description: 'Pick the opt-in statements vendors must accept.', done: progress.optin_done },
-    { slug: 'confirm', label: 'Review and finish', description: 'Verify everything looks right.', done: false },
   ]
 
   return (
@@ -144,6 +156,34 @@ export default async function OnboardingLandingPage({ params }: PageProps) {
             <div style={{ color: colors.textMuted, fontSize: typography.sizes.sm }}>→</div>
           </Link>
         ))}
+      </div>
+
+      {/* Review-and-finish CTA (separate from numbered steps so it
+          doesn't get a done/not-done state of its own) */}
+      <div style={{ marginTop: spacing.lg, textAlign: 'center' }}>
+        <Link
+          href={`/${vertical}/market-manager/${marketId}/onboarding/confirm`}
+          style={{
+            display: 'inline-block',
+            padding: `${spacing.sm} ${spacing.lg}`,
+            backgroundColor: colors.primary,
+            color: 'white',
+            textDecoration: 'none',
+            borderRadius: radius.md,
+            fontSize: typography.sizes.base,
+            fontWeight: typography.weights.semibold,
+          }}
+        >
+          Review and finish →
+        </Link>
+        <p style={{
+          margin: 0,
+          marginTop: spacing.xs,
+          color: colors.textMuted,
+          fontSize: typography.sizes.xs,
+        }}>
+          You can come back to any step from the dashboard.
+        </p>
       </div>
     </div>
   )

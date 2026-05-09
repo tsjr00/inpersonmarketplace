@@ -274,9 +274,17 @@ export default async function OnboardingStepPage({ params }: PageProps) {
                 </span>
               </li>
               <li style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs }}>
-                <span style={{ color: colors.textMuted, fontSize: typography.sizes.lg }}>○</span>
-                <span style={{ color: colors.textMuted }}>
-                  <strong>Off-platform placeholders</strong> — optional
+                <span style={{
+                  color: progress.placeholders_count > 0 ? colors.primary : colors.textMuted,
+                  fontSize: typography.sizes.lg,
+                }}>
+                  {progress.placeholders_count > 0 ? '✓' : '○'}
+                </span>
+                <span style={{ color: progress.placeholders_count > 0 ? colors.textPrimary : colors.textMuted }}>
+                  <strong>Off-platform placeholders</strong>
+                  {progress.placeholders_count > 0
+                    ? ` — ${progress.placeholders_count} tracked`
+                    : ' — none added (optional)'}
                 </span>
               </li>
               <li style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs }}>
