@@ -329,7 +329,7 @@ export default function AdminAnalyticsPage() {
               marginBottom: spacing.md
             }}>
               <MetricCard
-                label="Total Revenue"
+                label="Gross Sales (excl. fees)"
                 value={overview?.totalRevenue || 0}
                 format="currency"
                 icon="💰"
@@ -373,7 +373,7 @@ export default function AdminAnalyticsPage() {
                 icon="📈"
               />
               <MetricCard
-                label="Avg Order Value"
+                label="Avg Completed Order Value"
                 value={overview?.averageOrderValue || 0}
                 format="currency"
                 icon="📊"
