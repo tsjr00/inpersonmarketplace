@@ -21,6 +21,8 @@ import HelpSearchWidget from '@/components/help/HelpSearchWidget'
 import OrganizerEventActions from '@/components/events/OrganizerEventActions'
 import OrganizerEventDetails from '@/components/events/OrganizerEventDetails'
 import ScrollToSection from '@/components/dashboard/ScrollToSection'
+import MarketManagerCard from '@/components/market-manager/MarketManagerCard'
+import { getMarketsManagedBy } from '@/lib/markets/manager-queries'
 import { getLocale } from '@/lib/locale/server'
 import { t } from '@/lib/locale/messages'
 
@@ -50,6 +52,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
     { count: orderCount },
     { data: readyOrders },
     { data: ordersNeedingConfirmation },
+    managedMarkets,
   ] = await Promise.all([
     // Get vendor profile for THIS vertical (if exists) — only need status + tier
     supabase
@@ -127,6 +130,8 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
       .is('order_items.cancelled_at', null)
       .is('order_items.issue_reported_at', null)
       .limit(10),
+    // Markets where this user is the assigned manager (FM only for v1)
+    getMarketsManagedBy(supabase, user),
   ])
 
   const isVendor = !!vendorProfile
@@ -691,6 +696,9 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 : 'Find open markets and vendors near you today'}
             </p>
           </Link>
+
+          {/* My Markets Card — only renders if user is assigned manager of any market (FM v1) */}
+          <MarketManagerCard vertical={vertical} markets={managedMarkets} />
 
           {/* Notifications Card */}
           <DashboardNotifications vertical={vertical} limit={3} />
