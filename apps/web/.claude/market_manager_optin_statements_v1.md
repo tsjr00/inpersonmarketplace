@@ -1,5 +1,7 @@
 # Market Manager Opt-In Vendor Agreement Statements — v1 starter set
 
+> **STATUS (Session 81, 2026-05-09): LOCKED at 15 statements.** Seeded into the database via migration 136 (`market_optin_statement_catalog` table). This catalog is the input to the manager onboarding wizard's opt-in selection step (Phase A of `market_manager_v2_plan.md`). No expansion needed before build. Future additions go through the catalog table, not this doc.
+
 **Status:** Drafted Session 80 (2026-05-08). 15 statements across 5 categories — `product/quality`, `conduct`, `insurance`, `fees`, `compliance`.
 
 ## Purpose

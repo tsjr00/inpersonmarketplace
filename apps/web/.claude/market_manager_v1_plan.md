@@ -1,5 +1,7 @@
 # Market Manager v1 — Build Plan
 
+> **STATUS (Session 81, 2026-05-09):** Superseded by `market_manager_v2_plan.md` + the Session 81 Consolidated Roadmap at the top of that file. Kept here as historical reference for the original v1 dashboard scope and Session 78 decision rationale. Do not use this file for current build sequencing — go to v2.
+
 **Status:** Drafted 2026-05-05 (Session 78 wrap-up). Awaiting validation with friendly market managers before kickoff.
 **Vertical:** `farmers_market` only for v1. FT park operator is a separate persona, deferred.
 
