@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import {
   summarizeBoothInventory,
   type BoothInventoryRow,
@@ -52,6 +53,10 @@ export default function BoothInventoryManager({ marketId }: BoothInventoryManage
   })
   const [rowLoading, setRowLoading] = useState<string | null>(null)
   const [rowError, setRowError] = useState<Record<string, string>>({})
+
+  // Delete-confirmation dialog state. Browser confirm() is blocked on
+  // mobile, so we route through ConfirmDialog instead.
+  const [confirmingDelete, setConfirmingDelete] = useState<{ id: string; label: string } | null>(null)
 
   const loadInventory = async () => {
     try {
@@ -182,8 +187,14 @@ export default function BoothInventoryManager({ marketId }: BoothInventoryManage
     }
   }
 
-  const handleDelete = async (id: string, label: string) => {
-    if (!confirm(`Remove the "${label}" tier? This does not affect any vendor booth assignments.`)) return
+  const requestDelete = (id: string, label: string) => {
+    setConfirmingDelete({ id, label })
+  }
+
+  const performDelete = async () => {
+    if (!confirmingDelete) return
+    const { id } = confirmingDelete
+    setConfirmingDelete(null)
     setRowLoading(id)
     setRowError((s) => ({ ...s, [id]: '' }))
     try {
@@ -301,7 +312,7 @@ export default function BoothInventoryManager({ marketId }: BoothInventoryManage
                         Edit
                       </button>
                       <button
-                        onClick={() => handleDelete(row.id, row.size_label)}
+                        onClick={() => requestDelete(row.id, row.size_label)}
                         disabled={isLoading}
                         style={{
                           padding: `${spacing['3xs']} ${spacing.sm}`,
@@ -474,6 +485,16 @@ export default function BoothInventoryManager({ marketId }: BoothInventoryManage
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!confirmingDelete}
+        title="Remove tier?"
+        message={`Remove the "${confirmingDelete?.label ?? ''}" tier? This does not affect any vendor booth assignments.`}
+        variant="danger"
+        confirmLabel="Remove"
+        onConfirm={performDelete}
+        onCancel={() => setConfirmingDelete(null)}
+      />
     </div>
   )
 }

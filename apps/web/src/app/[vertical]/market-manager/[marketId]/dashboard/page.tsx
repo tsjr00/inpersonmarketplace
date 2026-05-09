@@ -2,11 +2,13 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
+import { getOnboardingProgress } from '@/lib/markets/onboarding-progress'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import VendorBoothList from '@/components/market-manager/VendorBoothList'
 import BoothInventoryManager from '@/components/market-manager/BoothInventoryManager'
 import BoothPlaceholderManager from '@/components/market-manager/BoothPlaceholderManager'
 import OptinManager from '@/components/market-manager/OptinManager'
+import OnboardingChecklist from '@/components/market-manager/OnboardingChecklist'
 
 interface PageProps {
   params: Promise<{ vertical: string; marketId: string }>
@@ -52,6 +54,8 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
     redirect(`/${vertical}/dashboard`)
   }
 
+  const onboardingProgress = await getOnboardingProgress(supabase, marketId)
+
   return (
     <div style={{
       maxWidth: containers.lg,
@@ -90,6 +94,11 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           {[market.address, market.city, market.state].filter(Boolean).join(' · ')}
         </p>
       )}
+
+      {/* Setup checklist — links into the onboarding wizard if anything
+          is incomplete; collapses to a thin "Setup complete" line once
+          required steps are done */}
+      <OnboardingChecklist vertical={vertical} marketId={marketId} progress={onboardingProgress} />
 
       {/* Booth inventory — manage size tiers + per-week prices */}
       <div style={{

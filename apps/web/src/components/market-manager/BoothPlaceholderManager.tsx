@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import type { BoothPlaceholderRow, BoothPlaceholderInput } from '@/lib/markets/placeholder-types'
 import type { BoothInventoryRow } from '@/lib/markets/booth-types'
 
@@ -57,6 +58,10 @@ export default function BoothPlaceholderManager({ marketId }: BoothPlaceholderMa
   })
   const [rowLoading, setRowLoading] = useState<string | null>(null)
   const [rowError, setRowError] = useState<Record<string, string>>({})
+
+  // Delete-confirmation dialog state. Browser confirm() is blocked on
+  // mobile, so we route through ConfirmDialog instead.
+  const [confirmingDelete, setConfirmingDelete] = useState<{ id: string; boothNumber: string } | null>(null)
 
   const loadAll = async () => {
     try {
@@ -175,8 +180,14 @@ export default function BoothPlaceholderManager({ marketId }: BoothPlaceholderMa
     }
   }
 
-  const handleDelete = async (id: string, boothNumber: string) => {
-    if (!confirm(`Remove the placeholder for booth "${boothNumber}"?`)) return
+  const requestDelete = (id: string, boothNumber: string) => {
+    setConfirmingDelete({ id, boothNumber })
+  }
+
+  const performDelete = async () => {
+    if (!confirmingDelete) return
+    const { id } = confirmingDelete
+    setConfirmingDelete(null)
     setRowLoading(id)
     setRowError((s) => ({ ...s, [id]: '' }))
     try {
@@ -311,7 +322,7 @@ export default function BoothPlaceholderManager({ marketId }: BoothPlaceholderMa
                         Edit
                       </button>
                       <button
-                        onClick={() => handleDelete(row.id, row.booth_number)}
+                        onClick={() => requestDelete(row.id, row.booth_number)}
                         disabled={isLoading}
                         style={{
                           padding: `${spacing['3xs']} ${spacing.sm}`,
@@ -476,6 +487,16 @@ export default function BoothPlaceholderManager({ marketId }: BoothPlaceholderMa
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!confirmingDelete}
+        title="Remove placeholder?"
+        message={`Remove the placeholder for booth "${confirmingDelete?.boothNumber ?? ''}"?`}
+        variant="danger"
+        confirmLabel="Remove"
+        onConfirm={performDelete}
+        onCancel={() => setConfirmingDelete(null)}
+      />
     </div>
   )
 }
