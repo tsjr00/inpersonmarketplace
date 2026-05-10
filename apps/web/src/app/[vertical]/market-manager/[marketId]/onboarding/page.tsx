@@ -38,7 +38,7 @@ export default async function OnboardingLandingPage({ params }: PageProps) {
 
   if (!market) redirect(`/${vertical}/dashboard`)
 
-  const progress = await getOnboardingProgress(supabase, marketId)
+  const progress = await getOnboardingProgress(marketId)
 
   // Numbered, status-tracked steps. The "Confirm and review" step is
   // rendered as a separate CTA below — it has no done/not-done state of
@@ -47,6 +47,20 @@ export default async function OnboardingLandingPage({ params }: PageProps) {
   const steps = [
     { slug: 'identity', label: 'Confirm your market', description: 'Make sure the market info is correct.', done: true },
     { slug: 'booths', label: 'Booth inventory', description: 'Set up size tiers and weekly prices.', done: progress.inventory_done },
+    {
+      slug: 'vendors',
+      label: 'Vendor booth assignments',
+      description:
+        progress.vendors_at_market_count === 0
+          ? 'No on-platform vendors at this market yet — come back after they join. Optional.'
+          : progress.vendors_with_booth_count > 0
+            ? `${progress.vendors_with_booth_count} of ${progress.vendors_at_market_count} vendors assigned.`
+            : `${progress.vendors_at_market_count} vendors at this market — assign booth numbers. Optional.`,
+      // Considered "done" when at least one is assigned OR there are zero
+      // vendors to assign (clean slate is a valid state)
+      done: progress.vendors_with_booth_count > 0 || progress.vendors_at_market_count === 0,
+      optional: true,
+    },
     {
       slug: 'placeholders',
       label: 'Off-platform placeholders',

@@ -54,7 +54,7 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
     redirect(`/${vertical}/dashboard`)
   }
 
-  const onboardingProgress = await getOnboardingProgress(supabase, marketId)
+  const onboardingProgress = await getOnboardingProgress(marketId)
 
   return (
     <div style={{

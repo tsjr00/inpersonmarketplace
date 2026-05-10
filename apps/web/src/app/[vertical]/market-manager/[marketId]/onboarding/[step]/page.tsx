@@ -7,13 +7,15 @@ import { colors, spacing, typography, radius, containers } from '@/lib/design-to
 import BoothInventoryManager from '@/components/market-manager/BoothInventoryManager'
 import BoothPlaceholderManager from '@/components/market-manager/BoothPlaceholderManager'
 import OptinManager from '@/components/market-manager/OptinManager'
+import VendorBoothList from '@/components/market-manager/VendorBoothList'
 
-const STEPS = ['identity', 'booths', 'placeholders', 'optin', 'confirm'] as const
+const STEPS = ['identity', 'booths', 'vendors', 'placeholders', 'optin', 'confirm'] as const
 type StepSlug = typeof STEPS[number]
 
 const STEP_LABELS: Record<StepSlug, string> = {
   identity: 'Confirm your market',
   booths: 'Booth inventory',
+  vendors: 'Vendor booth assignments',
   placeholders: 'Off-platform placeholders',
   optin: 'Vendor agreement statements',
   confirm: 'Review and finish',
@@ -64,7 +66,7 @@ export default async function OnboardingStepPage({ params }: PageProps) {
 
   if (!market) redirect(`/${vertical}/dashboard`)
 
-  const progress = await getOnboardingProgress(supabase, marketId)
+  const progress = await getOnboardingProgress(marketId)
 
   const stepIdx = STEPS.indexOf(stepSlug)
   const prevStep = stepIdx > 0 ? STEPS[stepIdx - 1] : null
@@ -195,6 +197,41 @@ export default async function OnboardingStepPage({ params }: PageProps) {
           </div>
         )}
 
+        {stepSlug === 'vendors' && (
+          <div style={{
+            padding: spacing.md,
+            backgroundColor: colors.surfaceElevated,
+            border: `1px solid ${colors.border}`,
+            borderRadius: radius.md,
+          }}>
+            <p style={{
+              margin: 0,
+              marginBottom: spacing.sm,
+              color: colors.textMuted,
+              fontSize: typography.sizes.sm,
+              lineHeight: 1.5,
+            }}>
+              Assign booth numbers to vendors who are on the platform and already attending this market. The vendor list below shows everyone associated with the market.
+            </p>
+            {progress.vendors_at_market_count === 0 && (
+              <p style={{
+                margin: 0,
+                marginBottom: spacing.sm,
+                padding: spacing.sm,
+                backgroundColor: '#fefce8',
+                border: '1px solid #fde047',
+                borderRadius: radius.sm,
+                color: '#713f12',
+                fontSize: typography.sizes.sm,
+                lineHeight: 1.5,
+              }}>
+                <strong>No on-platform vendors at this market yet.</strong> That&apos;s fine — once vendors join via your referral link (or apply directly to this market), they&apos;ll appear here and you can assign booth numbers. You can skip this step for now.
+              </p>
+            )}
+            <VendorBoothList marketId={marketId} />
+          </div>
+        )}
+
         {stepSlug === 'placeholders' && (
           <div style={{
             padding: spacing.md,
@@ -271,6 +308,28 @@ export default async function OnboardingStepPage({ params }: PageProps) {
                   {progress.inventory_done
                     ? ' — configured'
                     : ' — no tiers yet, vendors won\'t be able to book booths'}
+                </span>
+              </li>
+              <li style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs }}>
+                <span style={{
+                  color: progress.vendors_with_booth_count > 0 || progress.vendors_at_market_count === 0
+                    ? colors.primary
+                    : colors.textMuted,
+                  fontSize: typography.sizes.lg,
+                }}>
+                  {progress.vendors_with_booth_count > 0 || progress.vendors_at_market_count === 0 ? '✓' : '○'}
+                </span>
+                <span style={{
+                  color: progress.vendors_with_booth_count > 0 || progress.vendors_at_market_count === 0
+                    ? colors.textPrimary
+                    : colors.textMuted,
+                }}>
+                  <strong>Vendor booth assignments</strong>
+                  {progress.vendors_at_market_count === 0
+                    ? ' — no on-platform vendors yet (optional)'
+                    : progress.vendors_with_booth_count > 0
+                      ? ` — ${progress.vendors_with_booth_count} of ${progress.vendors_at_market_count} assigned`
+                      : ` — ${progress.vendors_at_market_count} not yet assigned (optional)`}
                 </span>
               </li>
               <li style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs }}>

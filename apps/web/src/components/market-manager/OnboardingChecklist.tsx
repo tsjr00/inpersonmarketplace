@@ -110,6 +110,18 @@ export default function OnboardingChecklist({
           <span>Booth inventory{progress.inventory_done ? '' : ' — add at least one size tier'}</span>
         </li>
         <li style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], marginBottom: spacing['3xs'] }}>
+          <span>
+            {progress.vendors_with_booth_count > 0 || progress.vendors_at_market_count === 0 ? '✓' : '○'}
+          </span>
+          <span style={{ fontStyle: progress.vendors_at_market_count === 0 ? 'italic' : 'normal' }}>
+            {progress.vendors_at_market_count === 0
+              ? 'Vendor booth assignments — no vendors yet (optional)'
+              : progress.vendors_with_booth_count > 0
+                ? `Vendor booth assignments — ${progress.vendors_with_booth_count} of ${progress.vendors_at_market_count} assigned`
+                : `Vendor booth assignments — ${progress.vendors_at_market_count} not yet assigned (optional)`}
+          </span>
+        </li>
+        <li style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], marginBottom: spacing['3xs'] }}>
           <span>{progress.placeholders_count > 0 ? '✓' : '○'}</span>
           <span style={{ fontStyle: progress.placeholders_count > 0 ? 'normal' : 'italic' }}>
             {progress.placeholders_count > 0
