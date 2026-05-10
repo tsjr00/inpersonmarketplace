@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 
 interface MarketManagerAssignmentProps {
   marketId: string
@@ -9,6 +10,16 @@ interface MarketManagerAssignmentProps {
   managerUserId: string | null
   managerInvitedAt: string | null
   managerAcceptedAt: string | null
+  /**
+   * Optional callback fired after a successful assign or clear.
+   *
+   * The component already calls `router.refresh()` to re-render server
+   * components with fresh DB data — that's enough for the platform admin
+   * detail page (server component). Client-rendered hosts that fetch
+   * data via their own `fetch()` calls (e.g., the vertical admin markets
+   * list) can pass `onChange` to be notified and re-run their fetch.
+   */
+  onChange?: () => void
 }
 
 /**
@@ -30,6 +41,7 @@ export default function MarketManagerAssignment({
   managerUserId,
   managerInvitedAt,
   managerAcceptedAt,
+  onChange,
 }: MarketManagerAssignmentProps) {
   const router = useRouter()
   const [email, setEmail] = useState('')
@@ -37,6 +49,7 @@ export default function MarketManagerAssignment({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [confirmingClear, setConfirmingClear] = useState(false)
 
   const isAssigned = !!managerEmail
   const isLinked = !!managerUserId
@@ -72,6 +85,7 @@ export default function MarketManagerAssignment({
         setEmail('')
         setEditing(false)
         router.refresh()
+        onChange?.()
       }
     } catch {
       setError('Network error — please try again')
@@ -80,8 +94,8 @@ export default function MarketManagerAssignment({
     }
   }
 
-  const handleClear = async () => {
-    if (!confirm('Remove this market manager? They will lose dashboard access immediately.')) return
+  const performClear = async () => {
+    setConfirmingClear(false)
     setError(null)
     setSuccess(null)
     setLoading(true)
@@ -98,6 +112,7 @@ export default function MarketManagerAssignment({
         setSuccess('Manager cleared')
         setEditing(true)
         router.refresh()
+        onChange?.()
       }
     } catch {
       setError('Network error — please try again')
@@ -220,7 +235,7 @@ export default function MarketManagerAssignment({
             Reassign
           </button>
           <button
-            onClick={handleClear}
+            onClick={() => setConfirmingClear(true)}
             disabled={loading}
             style={{
               padding: '8px 14px',
@@ -275,6 +290,16 @@ export default function MarketManagerAssignment({
         ask them to register with this email). They&apos;ll see a &ldquo;My Markets&rdquo; card
         on their buyer dashboard with a link to manage this market.
       </p>
+
+      <ConfirmDialog
+        open={confirmingClear}
+        title="Remove market manager?"
+        message="They will lose dashboard access immediately. The booth inventory, placeholders, and opt-in selections this market has set up will remain and be available again the next time a manager is assigned."
+        variant="danger"
+        confirmLabel="Remove"
+        onConfirm={performClear}
+        onCancel={() => setConfirmingClear(false)}
+      />
     </div>
   )
 }

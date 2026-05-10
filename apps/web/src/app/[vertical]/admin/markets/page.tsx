@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import AdminNav from '@/components/admin/AdminNav'
 import AdminMobileRow from '@/components/admin/AdminMobileRow'
+import MarketManagerAssignment from '@/components/market-manager/MarketManagerAssignment'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { useStatusBanner } from '@/hooks/useStatusBanner'
@@ -38,6 +39,11 @@ type Market = {
   rejection_reason?: string
   vendor_sells_at_market?: boolean
   schedules?: Schedule[]
+  // Market manager v1 (FM only) — populated by /api/admin/markets via select('*')
+  manager_email?: string | null
+  manager_user_id?: string | null
+  manager_invited_at?: string | null
+  manager_accepted_at?: string | null
 }
 
 type FormSchedule = {
@@ -1021,6 +1027,51 @@ export default function AdminMarketsPage() {
                 </select>
               </div>
 
+              {/* Market Manager assignment — FM + traditional + editing only.
+                  Manager partnership is a v1 feature for ongoing FM markets;
+                  doesn't apply to event markets or non-FM verticals.
+                  Only shown when EDITING (not when creating) because the
+                  market needs a real id for the assignment endpoint. */}
+              {editingMarket
+                && vertical === 'farmers_market'
+                && editingMarket.market_type === 'traditional' && (
+                <div style={{
+                  padding: spacing.md,
+                  backgroundColor: colors.surfaceSubtle,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: radius.md,
+                }}>
+                  <h3 style={{
+                    margin: 0,
+                    marginBottom: spacing.xs,
+                    fontSize: typography.sizes.base,
+                    fontWeight: typography.weights.semibold,
+                    color: colors.textPrimary,
+                  }}>
+                    Market Manager
+                  </h3>
+                  <p style={{
+                    margin: 0,
+                    marginBottom: spacing.sm,
+                    fontSize: typography.sizes.sm,
+                    color: colors.textSecondary,
+                    lineHeight: 1.5,
+                  }}>
+                    Assign a partner who will run this market through the platform.
+                    They&apos;ll get a manager dashboard with booth inventory, vendor
+                    list, off-platform placeholders, and opt-in agreement statements.
+                  </p>
+                  <MarketManagerAssignment
+                    marketId={editingMarket.id}
+                    managerEmail={editingMarket.manager_email ?? null}
+                    managerUserId={editingMarket.manager_user_id ?? null}
+                    managerInvitedAt={editingMarket.manager_invited_at ?? null}
+                    managerAcceptedAt={editingMarket.manager_accepted_at ?? null}
+                    onChange={fetchMarkets}
+                  />
+                </div>
+              )}
+
               <div style={{ display: 'flex', gap: spacing.sm }}>
                 <button
                   type="submit"
@@ -1514,6 +1565,32 @@ export default function AdminMarketsPage() {
                         {market.approval_status === 'pending' ? 'pending' : market.status}
                       </span>
                     )
+                    // Edit button on mobile: only for traditional markets
+                    // (matches the desktop logic at the row Actions column).
+                    // Tapping opens the inline form which scrolls into view at
+                    // the top of the page; the form is responsive (stacks
+                    // 1-col on mobile via .admin-form-grid).
+                    const editAction = market.market_type === 'traditional' ? (
+                      <button
+                        onClick={() => {
+                          handleEdit(market)
+                          // Scroll to top so the form is visible immediately.
+                          window.scrollTo({ top: 0, behavior: 'smooth' })
+                        }}
+                        style={{
+                          padding: `${spacing['3xs']} ${spacing.sm}`,
+                          backgroundColor: colors.primary,
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: radius.sm,
+                          fontSize: typography.sizes.xs,
+                          fontWeight: typography.weights.semibold,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Edit
+                      </button>
+                    ) : undefined
                     return (
                       <AdminMobileRow
                         key={market.id}
@@ -1527,11 +1604,12 @@ export default function AdminMarketsPage() {
                             {market.submitted_by_name && <> · suggested by {market.submitted_by_name}</>}
                           </>
                         }
+                        rightAction={editAction}
                       />
                     )
                   })}
                   <div style={{ padding: '12px 14px', fontSize: typography.sizes.xs, color: colors.textSecondary, fontStyle: 'italic', borderTop: '1px solid #e5e7eb' }}>
-                    Rotate to landscape to manage markets (approve, edit, suspend, delete).
+                    Tap Edit on a traditional market to manage details (including manager assignment for FM). Rotate to landscape for approve / suspend / delete actions.
                   </div>
                 </div>
                 </>

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import ScheduleDisplay from '@/components/markets/ScheduleDisplay'
 import ScheduleManager from './ScheduleManager'
 import VendorManager from './VendorManager'
-import MarketManagerAssignment from './MarketManagerAssignment'
+import MarketManagerAssignment from '@/components/market-manager/MarketManagerAssignment'
 
 interface MarketDetailPageProps {
   params: Promise<{ id: string }>
