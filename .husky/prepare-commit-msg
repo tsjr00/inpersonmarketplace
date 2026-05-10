@@ -1,0 +1,76 @@
+#!/bin/sh
+# prepare-commit-msg — primary amend detection.
+# Per apps/web/.claude/rules/git-and-deployment.md Rule 3:
+# never rewrite commits already on origin/main or origin/staging.
+#
+# Catches amend modes: --amend --no-edit, --amend (open editor), --amend -C, --amend -c.
+# Does NOT catch `git commit --amend -m "..."` — that gap is covered by the
+# heuristic in .husky/pre-commit (compares GIT_AUTHOR_DATE to HEAD's date,
+# which amend preserves).
+#
+# Override (rare, intentional history rewrite — judgment required):
+#   REWRITE_OVERRIDE=cleanup git commit --amend ...
+
+# Source arg ($2) is "commit" when message comes from an existing commit
+# (which means: --amend, --amend --no-edit, -C <sha>, -c <sha>, etc.)
+if [ "$2" != "commit" ]; then
+  exit 0
+fi
+
+# Resolve the commit being amended ($3 may be "HEAD" or a SHA)
+sha_arg="$3"
+[ -z "$sha_arg" ] && exit 0
+sha=$(git rev-parse "$sha_arg" 2>/dev/null) || exit 0
+
+# Check reachability from origin/main and origin/staging.
+# Uses local refs without fetching first (would add 1-3s per amend).
+# If origin was advanced from another machine and you haven't fetched,
+# the check could miss. Run `git fetch origin` if uncertain.
+on_main=false
+on_staging=false
+if git rev-parse --quiet --verify origin/main >/dev/null 2>&1; then
+  if git merge-base --is-ancestor "$sha" origin/main 2>/dev/null; then
+    on_main=true
+  fi
+fi
+if git rev-parse --quiet --verify origin/staging >/dev/null 2>&1; then
+  if git merge-base --is-ancestor "$sha" origin/staging 2>/dev/null; then
+    on_staging=true
+  fi
+fi
+
+if [ "$on_main" = "false" ] && [ "$on_staging" = "false" ]; then
+  exit 0
+fi
+
+# Commit IS on a remote tracking branch — block unless override
+if [ -n "$REWRITE_OVERRIDE" ]; then
+  echo ""
+  echo "⚠️  REWRITE_OVERRIDE=$REWRITE_OVERRIDE — bypassing pushed-commit rewrite check."
+  echo "    Commit $sha is on origin/main=$on_main origin/staging=$on_staging."
+  echo "    Per git-and-deployment.md Rule 3, this should be exceptional."
+  echo ""
+  exit 0
+fi
+
+echo ""
+echo "❌ ERROR: Cannot amend a commit already pushed to a remote tracking branch."
+echo ""
+echo "    Commit being amended: $sha"
+echo "    Found on origin/main:    $on_main"
+echo "    Found on origin/staging: $on_staging"
+echo ""
+echo "    Per apps/web/.claude/rules/git-and-deployment.md Rule 3:"
+echo "    History rewriting after a push is FORBIDDEN. Other consumers of"
+echo "    origin (CI, other dev machines, Vercel) have already fetched this"
+echo "    commit. Rewriting it creates parallel histories."
+echo ""
+echo "    What to do instead:"
+echo "      Make a NEW commit fixing the issue. Fix-forward commits cost"
+echo "      nothing (Vercel deploys are per-push, not per-commit) and"
+echo "      preserve an honest history."
+echo ""
+echo "    Override (rare, intentional history rewrite — explain why):"
+echo "      REWRITE_OVERRIDE=cleanup git commit --amend ..."
+echo ""
+exit 1

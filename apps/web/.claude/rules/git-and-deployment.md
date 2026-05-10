@@ -132,13 +132,40 @@ Not just `.next/dev/cache`. Stale `.next/dev/types/routes.d.ts` from a killed de
 
 ---
 
-## Rule 3: No History Rewriting After Pre-Push Failure
+## Rule 3: No History Rewriting of Pushed Commits
+
+### THE GATE — Mechanically enforced by 3 hooks
+
+**`.husky/prepare-commit-msg`** blocks `git commit --amend --no-edit`, `git commit --amend` (open editor), and `git commit --amend -C/-c` when the commit being amended is reachable from `origin/main` or `origin/staging`.
+
+**`.husky/pre-commit`** includes a heuristic check that catches `git commit --amend -m "..."` (the case prepare-commit-msg cannot detect) by comparing `GIT_AUTHOR_DATE` to HEAD's author date — amend preserves it.
+
+**`.husky/pre-rebase`** blocks `git rebase` if any commit about to be rewritten is reachable from `origin/main` or `origin/staging`.
+
+### Override (intentional rewrite — judgment required, document why)
+
+```sh
+REWRITE_OVERRIDE=cleanup git commit --amend ...
+REWRITE_OVERRIDE=cleanup git rebase ...
+```
+
+The override prints a warning naming the override value. Use sparingly.
+
+### Known limitation
+
+The hooks use local `origin/main` and `origin/staging` refs without fetching first (would add 1-3s to every amend). If origin was advanced from another machine and you haven't fetched, the check could miss. Run `git fetch origin` if uncertain.
+
+### The Rule
 
 **The "no history rewriting under failure" clause is non-negotiable.**
 
 Vercel deploy cost is per-push, not per-commit. Adding a commit costs nothing. Treating commit count as more important than correctness is the symptom of the wrong priorities (Session 79 incident).
 
 If the user asks for ≤N commits and a fix-forward exceeds N, ship the N+1 commits and explain the additional commit was a typecheck or build fix.
+
+### Why this is mechanical now
+
+Amend after pre-push failure is one of the most common bad patterns — pre-push fails, frustration is high, `git commit --amend` looks like a clean fix. The mechanical hooks make the rule unforgettable: any amend or rebase touching a pushed commit triggers a clear block with the rationale and the override path.
 
 History rewriting after pre-push failure remains FORBIDDEN regardless of mode, urgency, or instruction. The only legitimate response is a fix-forward commit.
 

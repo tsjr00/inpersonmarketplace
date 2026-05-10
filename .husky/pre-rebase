@@ -1,0 +1,74 @@
+#!/bin/sh
+# pre-rebase — block rebase that would rewrite commits already on
+# origin/main or origin/staging.
+# Per apps/web/.claude/rules/git-and-deployment.md Rule 3.
+#
+# Override (rare, intentional cleanup before initial push):
+#   REWRITE_OVERRIDE=cleanup git rebase ...
+
+upstream="$1"
+branch="${2:-HEAD}"
+
+if [ -z "$upstream" ]; then
+  exit 0
+fi
+
+# List commits about to be rewritten by the rebase
+commits=$(git rev-list "$upstream..$branch" 2>/dev/null)
+if [ -z "$commits" ]; then
+  exit 0
+fi
+
+# Check each commit for reachability from origin/main or origin/staging.
+# Uses local refs without fetching first (would add latency to every rebase).
+blocked_commits=""
+for sha in $commits; do
+  hit=""
+  if git rev-parse --quiet --verify origin/main >/dev/null 2>&1; then
+    if git merge-base --is-ancestor "$sha" origin/main 2>/dev/null; then
+      hit="origin/main"
+    fi
+  fi
+  if [ -z "$hit" ] && git rev-parse --quiet --verify origin/staging >/dev/null 2>&1; then
+    if git merge-base --is-ancestor "$sha" origin/staging 2>/dev/null; then
+      hit="origin/staging"
+    fi
+  fi
+  if [ -n "$hit" ]; then
+    blocked_commits="${blocked_commits}      $(git rev-parse --short "$sha") on $hit
+"
+  fi
+done
+
+if [ -z "$blocked_commits" ]; then
+  exit 0
+fi
+
+if [ -n "$REWRITE_OVERRIDE" ]; then
+  echo ""
+  echo "⚠️  REWRITE_OVERRIDE=$REWRITE_OVERRIDE — bypassing rebase-of-pushed check."
+  echo "    Pushed commits about to be rewritten:"
+  printf '%s' "$blocked_commits"
+  echo ""
+  exit 0
+fi
+
+echo ""
+echo "❌ ERROR: Rebase would rewrite commits already pushed to a remote tracking branch."
+echo ""
+echo "    Pushed commits about to be rewritten:"
+printf '%s' "$blocked_commits"
+echo ""
+echo "    Per apps/web/.claude/rules/git-and-deployment.md Rule 3:"
+echo "    History rewriting after a push is FORBIDDEN. Other consumers of"
+echo "    origin (CI, other dev machines, Vercel) have already fetched these"
+echo "    commits. Rewriting them creates parallel histories."
+echo ""
+echo "    What to do instead:"
+echo "      If you need to undo a pushed change, use \`git revert\` (creates a"
+echo "      new commit that reverses the change while preserving history)."
+echo ""
+echo "    Override (rare, intentional history rewrite — explain why):"
+echo "      REWRITE_OVERRIDE=cleanup git rebase ..."
+echo ""
+exit 1

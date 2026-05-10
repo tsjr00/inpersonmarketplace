@@ -31,6 +31,57 @@ if echo "$STAGED" | grep -qE "^supabase/migrations/.*\.sql$"; then
   fi
 fi
 
+# ── Mechanical gate: amend-of-pushed-commit (heuristic for `git commit --amend -m`) ──
+# Per apps/web/.claude/rules/git-and-deployment.md Rule 3.
+# prepare-commit-msg catches most amend modes via $2="commit", but cannot
+# distinguish `git commit --amend -m "..."` from a plain commit. Heuristic:
+# amend preserves the original commit's author date in GIT_AUTHOR_DATE. If
+# that matches HEAD's author date AND HEAD is on a remote, it's almost
+# certainly an amend. False positive: two real commits within the same
+# second targeting a pushed commit. Essentially never.
+if [ -n "$GIT_AUTHOR_DATE" ]; then
+  hook_date=${GIT_AUTHOR_DATE#@}
+  hook_date=${hook_date% *}
+  head_date=$(git log -1 --format=%at HEAD 2>/dev/null)
+  if [ -n "$head_date" ] && [ "$hook_date" = "$head_date" ]; then
+    head_sha=$(git rev-parse HEAD)
+    on_main=false
+    on_staging=false
+    if git rev-parse --quiet --verify origin/main >/dev/null 2>&1; then
+      git merge-base --is-ancestor "$head_sha" origin/main 2>/dev/null && on_main=true
+    fi
+    if git rev-parse --quiet --verify origin/staging >/dev/null 2>&1; then
+      git merge-base --is-ancestor "$head_sha" origin/staging 2>/dev/null && on_staging=true
+    fi
+    if [ "$on_main" = "true" ] || [ "$on_staging" = "true" ]; then
+      if [ -n "$REWRITE_OVERRIDE" ]; then
+        echo ""
+        echo "⚠️  REWRITE_OVERRIDE=$REWRITE_OVERRIDE — bypassing amend-of-pushed check (pre-commit heuristic)."
+        echo ""
+      else
+        echo ""
+        echo "❌ ERROR: Detected git commit --amend -m of a pushed commit."
+        echo ""
+        echo "   Commit being amended: $head_sha"
+        echo "   Found on origin/main:    $on_main"
+        echo "   Found on origin/staging: $on_staging"
+        echo ""
+        echo "   (Detected via GIT_AUTHOR_DATE matching HEAD's author date,"
+        echo "   which is preserved on amend. False positive only if two real"
+        echo "   commits within the same second target a pushed commit.)"
+        echo ""
+        echo "   Per apps/web/.claude/rules/git-and-deployment.md Rule 3:"
+        echo "   Make a NEW commit instead. Fix-forward commits cost nothing."
+        echo ""
+        echo "   Override (rare, intentional history rewrite):"
+        echo "     REWRITE_OVERRIDE=cleanup git commit --amend -m ..."
+        echo ""
+        exit 1
+      fi
+    fi
+  fi
+fi
+
 cd apps/web
 npx lint-staged
 # tsc --noEmit catches TypeScript errors at commit time. Combined with
