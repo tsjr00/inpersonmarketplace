@@ -13,7 +13,7 @@
  *
  * ABSOLUTE RULE: These tests assert what the performance baseline SHOULD be.
  * If the code violates a baseline, THAT IS A REGRESSION — not a reason to
- * update the test. See .claude/rules/no-performance-regression.md.
+ * update the test. See .claude/rules/code-stability.md.
  *
  * To update baselines: Record before/after measurements, get user approval,
  * update PERFORMANCE_BASELINE.md, THEN update these tests.
@@ -172,8 +172,8 @@ describe('PERF-R6: Performance infrastructure files exist', () => {
     expect(fileExists('.claude/PERFORMANCE_BASELINE.md')).toBe(true)
   })
 
-  it('no-performance-regression rule exists', () => {
-    expect(fileExists('.claude/rules/no-performance-regression.md')).toBe(true)
+  it('code-stability rule exists (contains performance-regression rule)', () => {
+    expect(fileExists('.claude/rules/code-stability.md')).toBe(true)
   })
 
   it('this test file exists (self-protecting)', () => {
@@ -194,9 +194,9 @@ describe('PERF-R6: Performance infrastructure files exist', () => {
     expect(content).toContain('Change Log')
   })
 
-  it('no-performance-regression rule contains action-bias warning', () => {
+  it('code-stability rule contains action-bias warning', () => {
     const content = fs.readFileSync(
-      path.join(APPS_WEB, '.claude', 'rules', 'no-performance-regression.md'),
+      path.join(APPS_WEB, '.claude', 'rules', 'code-stability.md'),
       'utf-8'
     )
     expect(content).toContain('Action does not need to be taken just because it can be')
@@ -207,9 +207,13 @@ describe('PERF-R6: Performance infrastructure files exist', () => {
 // ─── PERF-R7: Bundle Size Guard ────────────────────────────────────
 
 describe('PERF-R7: Client bundle size guard', () => {
-  it('total client JS chunks should not exceed 150', () => {
+  it('total client JS chunks should not exceed 200', () => {
     // Baseline: 118 chunks as of 2026-03-16
-    // Ceiling: 150 (25% headroom for new features)
+    // Current:  152 chunks as of 2026-05-10 (Phase A market manager added ~10 pages)
+    // Ceiling:  200 (raised from 150 on 2026-05-10 — organic growth from feature
+    //           additions consumed prior 25% headroom; new ceiling restores ~32%
+    //           headroom for continued growth. Bundle growth = 128 pages + 203 API
+    //           routes; no single bad import. User-authorized via session 2026-05-10.)
     const chunksDir = path.join(APPS_WEB, '.next', 'static', 'chunks')
     if (!fs.existsSync(chunksDir)) {
       // .next may not exist in CI before build — skip gracefully
@@ -217,7 +221,7 @@ describe('PERF-R7: Client bundle size guard', () => {
       return
     }
     const chunks = fs.readdirSync(chunksDir).filter(f => f.endsWith('.js'))
-    expect(chunks.length).toBeLessThanOrEqual(150)
+    expect(chunks.length).toBeLessThanOrEqual(200)
   })
 })
 
@@ -256,7 +260,7 @@ describe('PERF-R8: Schema snapshot must document applied migrations', () => {
         `SCHEMA_SNAPSHOT.md is STALE — ${missing.length} applied migration(s) not in changelog:\n` +
         missing.map(f => `  - ${f}`).join('\n') +
         '\n\nUpdate supabase/SCHEMA_SNAPSHOT.md before committing. ' +
-        'See .claude/rules/schema-snapshot-mandatory.md'
+        'See .claude/rules/verification-discipline.md (Rule 3)'
       )
     }
   })
@@ -265,6 +269,62 @@ describe('PERF-R8: Schema snapshot must document applied migrations', () => {
     const content = fs.readFileSync(SNAPSHOT_PATH, 'utf-8')
     // Must contain a date in "Last Verified: YYYY-MM-DD" format
     expect(content).toMatch(/\*\*Last Verified:\*\*\s*\d{4}-\d{2}-\d{2}/)
+  })
+
+  // Catches the "logic-only migration" pattern: a migration that creates or
+  // replaces a function/trigger but the snapshot is never updated to mention
+  // the new/changed function. Migration 026 incident was the canonical example.
+  // Only checks migrations newer than the "Last Verified" date — historical
+  // technical debt acknowledged in the STALE warning at the top of the
+  // snapshot is exempted (the snapshot itself documents what's pending).
+  // See .claude/rules/verification-discipline.md (Rule 3).
+  it('migrations that create/replace functions or triggers must mention them in SCHEMA_SNAPSHOT.md', () => {
+    if (!fs.existsSync(APPLIED_DIR)) return
+
+    const snapshotContent = fs.readFileSync(SNAPSHOT_PATH, 'utf-8')
+    const appliedFiles = fs.readdirSync(APPLIED_DIR)
+      .filter(f => f.endsWith('.sql') && MIGRATION_PATTERN.test(f))
+
+    // Only check migrations newer than the "Last Verified" date.
+    // Format: **Last Verified:** YYYY-MM-DD
+    const verifiedMatch = snapshotContent.match(/\*\*Last Verified:\*\*\s*(\d{4}-\d{2}-\d{2})/)
+    const verifiedDateStr = verifiedMatch ? verifiedMatch[1].replace(/-/g, '') : '00000000'
+
+    const issues: string[] = []
+    for (const file of appliedFiles) {
+      // Migration filename starts with YYYYMMDD
+      const fileDate = file.substring(0, 8)
+      if (fileDate <= verifiedDateStr) continue
+
+      const filePath = path.join(APPLIED_DIR, file)
+      const content = fs.readFileSync(filePath, 'utf-8')
+
+      // Extract function/trigger names that are created or replaced
+      const names = new Set<string>()
+      const fnRegex = /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(?:public\.)?(\w+)/gi
+      const trigRegex = /CREATE\s+(?:OR\s+REPLACE\s+)?TRIGGER\s+(\w+)/gi
+      let m
+      while ((m = fnRegex.exec(content)) !== null) names.add(m[1])
+      while ((m = trigRegex.exec(content)) !== null) names.add(m[1])
+
+      if (names.size === 0) continue
+
+      // For each name, verify it appears somewhere in the snapshot
+      const missing = [...names].filter(name => !snapshotContent.includes(name))
+      if (missing.length > 0) {
+        issues.push(`${file}: ${missing.join(', ')}`)
+      }
+    }
+
+    if (issues.length > 0) {
+      throw new Error(
+        `SCHEMA_SNAPSHOT.md does not mention these functions/triggers from recent migrations:\n` +
+        issues.map(s => `  - ${s}`).join('\n') +
+        '\n\nFor each, either update the Functions/Triggers section, or update the ' +
+        'changelog entry to name the function explicitly. ' +
+        'See .claude/rules/verification-discipline.md (Rule 3).'
+      )
+    }
   })
 })
 
@@ -295,7 +355,7 @@ describe('PERF-R9: Performance baseline must not go stale', () => {
         throw new Error(
           `PERFORMANCE_BASELINE.md is STALE — last measured ${match[1]} (${daysSince} days ago).\n` +
           'Re-measure baselines and update the "Last measured" date.\n' +
-          'See .claude/rules/no-performance-regression.md'
+          'See .claude/rules/code-stability.md (Rule 2)'
         )
       }
     }

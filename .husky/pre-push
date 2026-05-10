@@ -1,5 +1,6 @@
 #!/bin/sh
-# Pre-push hook — runs `npm run build` (matches Vercel) THEN Playwright e2e.
+# Pre-push hook — runs production push-window check, then `npm run build`
+# (matches Vercel) THEN Playwright e2e.
 #
 # Build first, fail fast: `next build` is what Vercel runs and is stricter than
 # `tsc --noEmit` or the dev server Playwright spins up. Multiple Vercel deploys
@@ -14,6 +15,82 @@
 # Playwright runs only if build passes (set -e). --max-failures=1 stops after
 # the first failing test so a single broken test doesn't cascade into 20+
 # minutes of timeouts. CI still runs the full suite regardless of local hooks.
+
+# ── Mechanical gate: production push window (9 PM – 7 AM CT) ──
+# Per apps/web/.claude/rules/git-and-deployment.md Rule 5.
+# Only enforces for pushes to origin/main (production). Staging and other
+# remotes are unaffected.
+# Emergency hotfix override:
+#   PUSH_WINDOW_OVERRIDE=hotfix git push origin main
+remote="$1"
+push_refs=$(cat)
+
+# Detect any ref being pushed to refs/heads/main on origin (excluding deletions).
+# pre-push stdin format: <local_ref> <local_sha> <remote_ref> <remote_sha>
+push_to_main_origin=false
+if [ "$remote" = "origin" ]; then
+  # Use a here-doc to feed lines into the loop without subshell scoping issues
+  while IFS=' ' read -r local_ref local_sha remote_ref remote_sha; do
+    [ -z "$local_ref" ] && continue
+    # Skip deletions (local_sha is all zeros)
+    [ "$local_sha" = "0000000000000000000000000000000000000000" ] && continue
+    if [ "$remote_ref" = "refs/heads/main" ]; then
+      push_to_main_origin=true
+      break
+    fi
+  done <<HEREEND
+$push_refs
+HEREEND
+fi
+
+if [ "$push_to_main_origin" = "true" ]; then
+  if [ -n "$PUSH_WINDOW_OVERRIDE" ]; then
+    echo ""
+    echo "⚠️  PUSH_WINDOW_OVERRIDE=$PUSH_WINDOW_OVERRIDE — bypassing production push window."
+    echo "    This must be an emergency hotfix per git-and-deployment.md Rule 5."
+    echo ""
+  else
+    # Get current hour in Chicago time. Falls back to local clock with warning
+    # if TZ database is missing (rare on Git Bash but possible).
+    ct_hour=$(TZ='America/Chicago' date +%H 2>/dev/null)
+    if [ -z "$ct_hour" ]; then
+      echo "⚠️  Could not determine America/Chicago time — TZ database may be missing."
+      echo "    Falling back to local clock. Verify your local time is correct."
+      ct_hour=$(date +%H)
+    fi
+
+    # 10# prefix forces decimal interpretation (08, 09 are not valid octal).
+    h=$((10#$ct_hour))
+    in_window=false
+    # Window: 21:00-23:59 OR 00:00-06:59 (9 PM – 7 AM CT)
+    if [ "$h" -ge 21 ] || [ "$h" -lt 7 ]; then
+      in_window=true
+    fi
+
+    if [ "$in_window" = "false" ]; then
+      echo ""
+      echo "❌ ERROR: Production push outside window."
+      echo ""
+      echo "    Current Chicago time: ${ct_hour}:xx (hour ${h})"
+      echo "    Allowed window:       21:00-06:59 CT (9 PM – 7 AM CT)"
+      echo ""
+      echo "    Per apps/web/.claude/rules/git-and-deployment.md Rule 5, prod"
+      echo "    pushes are restricted to overnight hours to avoid disrupting"
+      echo "    active user sessions. Emergency hotfixes are the only exception."
+      echo ""
+      echo "    Options:"
+      echo "      1. Wait until 9 PM CT and retry."
+      echo "      2. Push to staging now, prod later:"
+      echo "           git push origin staging"
+      echo "      3. Override (emergency hotfix only — explicitly justify):"
+      echo "           PUSH_WINDOW_OVERRIDE=hotfix git push origin main"
+      echo ""
+      exit 1
+    fi
+  fi
+fi
+
+# ── Build + Playwright (existing checks) ──
 set -e
 cd apps/web
 npm run build
