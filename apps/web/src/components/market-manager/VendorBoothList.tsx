@@ -12,6 +12,7 @@ interface Vendor {
   response_status: string | null
   vendor_status: string | null
   on_platform: true
+  is_active_schedule: boolean
 }
 
 interface VendorBoothListProps {
@@ -24,6 +25,10 @@ interface VendorBoothListProps {
  * Save button. Save is per-row (no bulk batch in v1) — keeps the UX
  * simple and the failure modes obvious.
  *
+ * Default view filters to "active" vendors: approved at this market AND
+ * has an active schedule entry (vendor_market_schedules.is_active=true).
+ * Toggle above the list reveals all vendors (including pending/dormant).
+ *
  * Read-only fields: name, status. Editable: booth_number.
  *
  * Calls:
@@ -33,6 +38,7 @@ interface VendorBoothListProps {
 export default function VendorBoothList({ marketId }: VendorBoothListProps) {
   const [vendors, setVendors] = useState<Vendor[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [showAll, setShowAll] = useState(false)
 
   // Per-row state: edited booth value + save status + per-row error
   const [edits, setEdits] = useState<Record<string, string>>({})
@@ -127,89 +133,152 @@ export default function VendorBoothList({ marketId }: VendorBoothListProps) {
     )
   }
 
+  // Active = approved at this market AND has an active schedule entry.
+  // Manager default view focuses on currently-attending approved vendors.
+  const activeVendors = vendors.filter((v) => v.approved && v.is_active_schedule)
+  const displayedVendors = showAll ? vendors : activeVendors
+  const hiddenCount = vendors.length - activeVendors.length
+
+  const toggleButtonStyle: React.CSSProperties = {
+    background: 'none',
+    border: 'none',
+    color: colors.primary,
+    cursor: 'pointer',
+    fontSize: typography.sizes.xs,
+    fontWeight: typography.weights.semibold,
+    padding: 0,
+    textDecoration: 'underline',
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-      {vendors.map((v) => {
-        const isSaving = savingId === v.vendor_profile_id
-        const editedValue = edits[v.vendor_profile_id] ?? ''
-        const dirty = editedValue !== (v.booth_number ?? '')
-        return (
-          <div
-            key={v.vendor_profile_id}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: spacing.xs,
-              padding: spacing.xs,
-              backgroundColor: colors.surfaceBase,
-              border: `1px solid ${colors.border}`,
-              borderRadius: radius.sm,
-              flexWrap: 'wrap',
-            }}
-          >
-            <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-              <div style={{ fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm, color: colors.textPrimary }}>
-                {v.business_name}
-              </div>
-              <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, display: 'flex', gap: spacing['2xs'], flexWrap: 'wrap' }}>
-                <span>{v.approved ? '✅ Approved' : '⏳ Pending approval'}</span>
-                {v.response_status && <span>· {v.response_status.replace(/_/g, ' ')}</span>}
-              </div>
-            </div>
+      {/* Filter toggle */}
+      <div style={{
+        fontSize: typography.sizes.xs,
+        color: colors.textMuted,
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing['2xs'],
+        flexWrap: 'wrap',
+      }}>
+        {showAll ? (
+          <>
+            <span>Showing all {vendors.length} vendors</span>
+            {activeVendors.length < vendors.length && (
+              <>
+                <span>·</span>
+                <button onClick={() => setShowAll(false)} style={toggleButtonStyle}>
+                  Show active only ({activeVendors.length})
+                </button>
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            <span>
+              Showing {activeVendors.length} active vendor{activeVendors.length === 1 ? '' : 's'}
+            </span>
+            {hiddenCount > 0 && (
+              <>
+                <span>·</span>
+                <button onClick={() => setShowAll(true)} style={toggleButtonStyle}>
+                  Show all ({vendors.length})
+                </button>
+              </>
+            )}
+          </>
+        )}
+      </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-              <input
-                type="text"
-                value={editedValue}
-                onChange={(e) => setEdits((s) => ({ ...s, [v.vendor_profile_id]: e.target.value }))}
-                placeholder="Booth #"
-                disabled={isSaving}
-                maxLength={50}
-                style={{
-                  width: 110,
-                  padding: `${spacing['3xs']} ${spacing.xs}`,
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: radius.sm,
-                  fontSize: typography.sizes.sm,
-                }}
-              />
-              <button
-                onClick={() => handleSave(v.vendor_profile_id)}
-                disabled={isSaving || !dirty}
-                style={{
-                  padding: `${spacing['3xs']} ${spacing.sm}`,
-                  backgroundColor: dirty ? colors.primary : colors.surfaceMuted,
-                  color: dirty ? 'white' : colors.textMuted,
-                  border: 'none',
-                  borderRadius: radius.sm,
+      {/* Empty state when filter excludes everything */}
+      {displayedVendors.length === 0 ? (
+        <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm, padding: spacing.xs }}>
+          No active vendors at this market right now. Use &quot;Show all&quot; above to see {vendors.length} pending or dormant vendor{vendors.length === 1 ? '' : 's'}.
+        </p>
+      ) : (
+        displayedVendors.map((v) => {
+          const isSaving = savingId === v.vendor_profile_id
+          const editedValue = edits[v.vendor_profile_id] ?? ''
+          const dirty = editedValue !== (v.booth_number ?? '')
+          return (
+            <div
+              key={v.vendor_profile_id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: spacing.xs,
+                padding: spacing.xs,
+                backgroundColor: colors.surfaceBase,
+                border: `1px solid ${colors.border}`,
+                borderRadius: radius.sm,
+                flexWrap: 'wrap',
+              }}
+            >
+              <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+                <div style={{ fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm, color: colors.textPrimary }}>
+                  {v.business_name}
+                </div>
+                <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, display: 'flex', gap: spacing['2xs'], flexWrap: 'wrap' }}>
+                  <span>{v.approved ? '✅ Approved' : '⏳ Pending approval'}</span>
+                  {v.response_status && <span>· {v.response_status.replace(/_/g, ' ')}</span>}
+                  {!v.is_active_schedule && <span>· not scheduled</span>}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
+                <input
+                  type="text"
+                  value={editedValue}
+                  onChange={(e) => setEdits((s) => ({ ...s, [v.vendor_profile_id]: e.target.value }))}
+                  placeholder="Booth #"
+                  disabled={isSaving}
+                  maxLength={50}
+                  style={{
+                    width: 110,
+                    padding: `${spacing['3xs']} ${spacing.xs}`,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: radius.sm,
+                    fontSize: typography.sizes.sm,
+                  }}
+                />
+                <button
+                  onClick={() => handleSave(v.vendor_profile_id)}
+                  disabled={isSaving || !dirty}
+                  style={{
+                    padding: `${spacing['3xs']} ${spacing.sm}`,
+                    backgroundColor: dirty ? colors.primary : colors.surfaceMuted,
+                    color: dirty ? 'white' : colors.textMuted,
+                    border: 'none',
+                    borderRadius: radius.sm,
+                    fontSize: typography.sizes.xs,
+                    fontWeight: typography.weights.semibold,
+                    cursor: isSaving || !dirty ? 'not-allowed' : 'pointer',
+                    opacity: isSaving ? 0.6 : 1,
+                  }}
+                >
+                  {isSaving ? 'Saving…' : 'Save'}
+                </button>
+                {rowSuccess[v.vendor_profile_id] && (
+                  <span style={{ color: colors.primary, fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold }}>
+                    ✓ Saved
+                  </span>
+                )}
+              </div>
+
+              {rowError[v.vendor_profile_id] && (
+                <div style={{
+                  width: '100%',
                   fontSize: typography.sizes.xs,
-                  fontWeight: typography.weights.semibold,
-                  cursor: isSaving || !dirty ? 'not-allowed' : 'pointer',
-                  opacity: isSaving ? 0.6 : 1,
-                }}
-              >
-                {isSaving ? 'Saving…' : 'Save'}
-              </button>
-              {rowSuccess[v.vendor_profile_id] && (
-                <span style={{ color: colors.primary, fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold }}>
-                  ✓ Saved
-                </span>
+                  color: '#991b1b',
+                  marginTop: spacing['3xs'],
+                }}>
+                  {rowError[v.vendor_profile_id]}
+                </div>
               )}
             </div>
-
-            {rowError[v.vendor_profile_id] && (
-              <div style={{
-                width: '100%',
-                fontSize: typography.sizes.xs,
-                color: '#991b1b',
-                marginTop: spacing['3xs'],
-              }}>
-                {rowError[v.vendor_profile_id]}
-              </div>
-            )}
-          </div>
-        )
-      })}
+          )
+        })
+      )}
     </div>
   )
 }

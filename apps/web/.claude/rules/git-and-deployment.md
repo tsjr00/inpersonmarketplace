@@ -247,6 +247,67 @@ If the user has approved a staging push, that does not authorize a production pu
 
 ---
 
+## Rule 7: Explain Git Operations to User (Teaching Mode)
+
+**Active until user says to disable.** Added 2026-05-10 because the mechanical hooks (Rules 1-6) introduce behaviors the user is still learning. The user explicitly requested this explainer mode to internalize the new commit/push mechanics.
+
+### THE GATE — Run before any git commit, amend, rebase, or push
+
+Before executing the command, send a one-paragraph explanation covering:
+
+1. **Type of operation** — plain commit / amend / rebase / staging push / prod push
+2. **Which hooks will fire** — pre-commit, prepare-commit-msg, pre-push, etc.
+3. **Which rules apply** — staging-first, push window, no rewriting pushed commits
+4. **Risk level** — what could go wrong + what blocks/passes
+5. **What to watch for** in the output (build error, hook block, etc.)
+
+The explanation goes in the SAME message as the action approval question (so the user can decide informed). Brief — one paragraph, not a wall.
+
+### Example: plain commit
+
+> "About to commit on `main`. **Plain commit** (no amend, no rebase). Pre-commit runs lint + tsc + vitest (~15s). No remote operation, no risk to anyone else. Watch for hook failures (lint/type/test errors)."
+
+### Example: staging push
+
+> "About to push `main` → `staging`. **Staging-first deploy** — Vercel preview will rebuild. Pre-push runs `npm run build` + Playwright (~3 min). Push-window check does NOT fire (only checks pushes to `main`). Production unaffected. Watch for build errors or Playwright timeouts (Turbopack flake — fix is `rm -rf apps/web/.next` and retry)."
+
+### Example: production push
+
+> "About to push `main` → `origin/main`. **Production deploy.** Push-window check WILL fire — current CT time is X, window is 21:00-06:59. If outside window, the push is blocked (override: `PUSH_WINDOW_OVERRIDE=hotfix git push origin main`). Pre-push runs build + Playwright again. Once pushed, this commit cannot be amended (rewriting-pushed-commits hook will block any amend). Real users will see the change immediately."
+
+### Example: amend
+
+> "About to `git commit --amend`. The commit being amended is `<sha>` — let me check if it's on origin... [if yes] prepare-commit-msg WILL block this (override: `REWRITE_OVERRIDE=cleanup git commit --amend ...`). [if no] Amend proceeds normally on local-only commit. Per Rule 3, amends are forbidden on pushed commits because other consumers (CI, other dev machines) have already fetched."
+
+### Example: rebase
+
+> "About to `git rebase <upstream>`. This will rewrite commits in the range `<upstream>..HEAD`. Pre-rebase hook will scan each commit; if any are reachable from origin/main or origin/staging, blocked (override: `REWRITE_OVERRIDE=cleanup git rebase ...`). Local-only rebases proceed normally."
+
+### What counts as a git operation requiring explanation
+
+- `git commit` (new), `git commit --amend` (any form)
+- `git rebase` (interactive or not)
+- `git push` (any target)
+- `git reset --hard`, `git checkout -- <file>`, other destructive ops
+
+### What does NOT require explanation
+
+- `git status`, `git log`, `git diff`, `git branch` (read-only)
+- `git checkout <branch>` (no data loss, just navigation)
+- `git fetch` (read-only, doesn't modify your work)
+- `git add` / `git stage` (staging files for next commit, no commit yet)
+
+### How to disable this rule
+
+When you no longer need the explanations, say one of:
+- "stop explaining git operations"
+- "disable teaching mode"
+- "remove rule 7"
+
+Claude will remove this entire rule from this file in the next commit.
+
+---
+
 ## Cannot Be Overridden
 
 No autonomy mode, no time pressure, no "it's just a one-line fix" justification overrides the chain. If a commit needs to ship, the chain is how it ships. Pre-commit and pre-push hooks must NOT be skipped (`--no-verify`) without explicit user instruction in the same conversation turn. The hooks are the safety net.

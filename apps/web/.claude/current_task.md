@@ -89,7 +89,7 @@ Confirm step shows ✓/○ for each step with status copy. Required steps drive 
    - Confirm empty-state copy renders when no on-platform vendors
    - `git push origin main` once verified
 
-2. **Backlog Task #6 (still pending):** Phase A vendor list polish — active filter + upcoming pickup count on the VendorBoothList component. Small change (~1 file).
+2. **Backlog Task #6 — active filter DONE 2026-05-10.** `VendorBoothList` now defaults to showing approved+scheduled vendors, with a toggle to show all. API extended to query `vendor_market_schedules.is_active`. Pickup count was descoped — per-vendor isn't useful to managers; aggregate "X orders for next market day" moved to Phase D.
 
 3. **Off-platform vendor placeholders UX polish?** Currently shows correctly post-fix. No outstanding bugs.
 
@@ -115,6 +115,7 @@ Confirm step shows ✓/○ for each step with status copy. Required steps drive 
 - Support card (KB + email)
 - Weekly bookings list
 - Booth occupancy grid view
+- **Aggregate "X orders for next market day" count** (resets after each market day) — moved here from original Backlog Task #6 scope per 2026-05-10 design discussion; manager doesn't need per-vendor granularity
 
 ### Phase E — surveys + share
 
