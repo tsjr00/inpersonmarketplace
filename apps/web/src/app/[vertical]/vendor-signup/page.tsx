@@ -49,6 +49,11 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
   const [referralCode, setReferralCode] = useState<string | null>(null);
   const [referrerName, setReferrerName] = useState<string | null>(null);
 
+  // Manager invite tracking (?market=<id>) — Phase B co-branded signup.
+  // When set, renders a banner identifying the inviting market. Signup
+  // behavior is otherwise unchanged.
+  const [marketName, setMarketName] = useState<string | null>(null);
+
   // Step 2 state (post-submission: "Here's what you'll need")
   const [step, setStep] = useState<1 | 2>(1);
   const [vendorId, setVendorId] = useState<string | null>(null);
@@ -97,6 +102,27 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
     }
     checkReferral();
   }, [searchParams, supabase]);
+
+  // Manager invite tracking — fetch market name if ?market=<id> present.
+  // Banner is informational only; signup behavior is unchanged. Auto-
+  // creating market_vendors row on signup is deferred to a later Phase B
+  // step (needs design discussion about manager approval workflow).
+  useEffect(() => {
+    async function checkMarketInvite() {
+      const marketId = searchParams.get('market');
+      if (!marketId) return;
+      try {
+        const res = await fetch(`/api/markets/${marketId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const name = data?.name;
+        if (typeof name === 'string') setMarketName(name);
+      } catch {
+        // Silent — banner just doesn't render. No blocking.
+      }
+    }
+    checkMarketInvite();
+  }, [searchParams]);
 
   // Check authentication and market limits
   useEffect(() => {
@@ -624,6 +650,41 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
       </nav>
       <main style={mainStyle}>
         {step === 1 && (<>
+        {/* Manager Invite Banner — Phase B co-branded signup */}
+        {marketName && (
+          <div style={{
+            marginBottom: spacing.md,
+            padding: spacing.md,
+            background: `linear-gradient(135deg, ${colors.primaryLight} 0%, ${colors.primaryLight} 100%)`,
+            borderRadius: radius.lg,
+            border: `2px solid ${colors.primary}`,
+            display: 'flex',
+            alignItems: 'center',
+            gap: spacing.sm,
+          }}>
+            <div style={{
+              width: 48,
+              height: 48,
+              backgroundColor: colors.primary,
+              borderRadius: radius.full,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 24,
+              flexShrink: 0,
+            }}>
+              🛒
+            </div>
+            <div>
+              <p style={{ margin: 0, fontWeight: typography.weights.bold, color: colors.primaryDark, fontSize: typography.sizes.base }}>
+                You&apos;re signing up to sell at {marketName}
+              </p>
+              <p style={{ margin: 0, color: colors.primaryDark, fontSize: typography.sizes.sm, marginTop: spacing['3xs'] }}>
+                Complete the standard vendor signup below. Your market manager will see you in their dashboard once you&apos;re added to the market.
+              </p>
+            </div>
+          </div>
+        )}
         {/* Referral Banner */}
         {referrerName && (
           <div style={{

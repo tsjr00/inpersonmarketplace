@@ -9,6 +9,7 @@ import BoothInventoryManager from '@/components/market-manager/BoothInventoryMan
 import BoothPlaceholderManager from '@/components/market-manager/BoothPlaceholderManager'
 import OptinManager from '@/components/market-manager/OptinManager'
 import OnboardingChecklist from '@/components/market-manager/OnboardingChecklist'
+import InviteVendorLink from '@/components/market-manager/InviteVendorLink'
 
 interface PageProps {
   params: Promise<{ vertical: string; marketId: string }>
@@ -194,6 +195,35 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
         <VendorBoothList marketId={marketId} />
       </div>
 
+      {/* Invite a vendor — copy-able co-branded signup link */}
+      <div style={{
+        padding: spacing.md,
+        backgroundColor: colors.surfaceElevated,
+        border: `1px solid ${colors.border}`,
+        borderRadius: radius.md,
+        marginBottom: spacing.md,
+      }}>
+        <h2 style={{
+          marginTop: 0,
+          marginBottom: spacing.xs,
+          fontSize: typography.sizes.lg,
+          fontWeight: typography.weights.semibold,
+          color: colors.textPrimary,
+        }}>
+          Invite a vendor
+        </h2>
+        <p style={{
+          margin: 0,
+          marginBottom: spacing.sm,
+          color: colors.textMuted,
+          fontSize: typography.sizes.sm,
+          lineHeight: 1.5,
+        }}>
+          Share this link with a vendor you&apos;d like to bring to your market. They&apos;ll see a banner identifying your market on the standard signup page.
+        </p>
+        <InviteVendorLink vertical={vertical} marketId={marketId} marketName={market.name as string} />
+      </div>
+
       {/* Opt-in vendor agreement statements — manager picks which ones
           apply to their market */}
       <div style={{
@@ -253,7 +283,6 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           <li>Weekly booth rental bookings + payment via the platform</li>
           <li>Aggregate market activity (order count, pickup volume)</li>
           <li>Post-market vendor + buyer surveys</li>
-          <li>Vendor invite / onboarding referral link</li>
           <li>Share tools for market-day social promotion</li>
         </ul>
       </div>

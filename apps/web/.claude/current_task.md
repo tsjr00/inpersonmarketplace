@@ -93,12 +93,17 @@ Confirm step shows ✓/○ for each step with status copy. Required steps drive 
 
 3. **Off-platform vendor placeholders UX polish?** Currently shows correctly post-fix. No outstanding bugs.
 
-### Phase B (next major chunk)
+### Phase B (kicked off 2026-05-10)
 
-- **Co-branded vendor onboarding** at `/[vertical]/vendor-signup?market=<id>&ref=manager`
+**Shipped (3 quick wins, no migration/payment/critical-path):**
+- ✅ **Invite-a-vendor link** on manager dashboard — `InviteVendorLink.tsx` shows copy-able URL `${origin}/${vertical}/vendor-signup?market=<id>`. Note: used `?market=` ALONE, NOT `?ref=manager` — the `ref` param is already consumed by the vendor-to-vendor referral system (`vendor-signup/page.tsx:80-99`); reusing it would collide.
+- ✅ **Co-branded vendor signup banner** — `vendor-signup/page.tsx` reads `?market=<id>`, fetches market name from `/api/markets/[id]`, renders banner above the form. Signup behavior unchanged.
+- ✅ **"Needs booth #" filter** — `VendorBoothList.tsx` toggle is now 3-state (Active / Needs booth # / All). Per-row "needs booth #" badge appears when applicable.
+
+**Remaining Phase B (deeper work, separate sessions):**
 - **Vendor weekly booking flow** (modeled on event organizer flow) — pick market → pick week → pick size → see price → see opt-in agreement → "complete booking" placeholder (no payment yet)
-- **Invite-a-vendor link** on manager dashboard — prefilled signup URL
-- **Manager dashboard "needs booth #" task list** — surfaces unassigned bookings
+- **Auto-create market_vendors row on co-branded signup** — design discussion needed about manager approval workflow (currently the banner is informational only)
+- **"Needs booth #" deeper version** — currently a filter; could become its own card with quick-add booth #
 - **New migration:** `vendor_market_agreement_acceptances` table + `weekly_booth_rentals` table
 
 ### Phase C (critical-path territory — heavy approval needed)

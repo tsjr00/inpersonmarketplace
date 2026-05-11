@@ -19,15 +19,22 @@ interface VendorBoothListProps {
   marketId: string
 }
 
+type FilterMode = 'active' | 'needs_booth' | 'all'
+
 /**
  * Manager-side list of vendors at a market with inline booth-number
  * editing. Each row: business name, status badge, booth_number input,
  * Save button. Save is per-row (no bulk batch in v1) — keeps the UX
  * simple and the failure modes obvious.
  *
- * Default view filters to "active" vendors: approved at this market AND
- * has an active schedule entry (vendor_market_schedules.is_active=true).
- * Toggle above the list reveals all vendors (including pending/dormant).
+ * Filter modes (toggle above the list):
+ *   - active       — approved at this market AND has an active schedule
+ *                    entry (vendor_market_schedules.is_active=true).
+ *                    Default view; what managers care about day-to-day.
+ *   - needs_booth  — subset of active where booth_number is null.
+ *                    Quick "what still needs assignment" view.
+ *   - all          — every vendor associated with this market, no
+ *                    filter. Useful for pending/dormant cleanup.
  *
  * Read-only fields: name, status. Editable: booth_number.
  *
@@ -38,7 +45,7 @@ interface VendorBoothListProps {
 export default function VendorBoothList({ marketId }: VendorBoothListProps) {
   const [vendors, setVendors] = useState<Vendor[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [showAll, setShowAll] = useState(false)
+  const [filter, setFilter] = useState<FilterMode>('active')
 
   // Per-row state: edited booth value + save status + per-row error
   const [edits, setEdits] = useState<Record<string, string>>({})
@@ -134,10 +141,12 @@ export default function VendorBoothList({ marketId }: VendorBoothListProps) {
   }
 
   // Active = approved at this market AND has an active schedule entry.
-  // Manager default view focuses on currently-attending approved vendors.
   const activeVendors = vendors.filter((v) => v.approved && v.is_active_schedule)
-  const displayedVendors = showAll ? vendors : activeVendors
-  const hiddenCount = vendors.length - activeVendors.length
+  const needsBoothVendors = activeVendors.filter((v) => !v.booth_number)
+  const displayedVendors =
+    filter === 'all' ? vendors :
+    filter === 'needs_booth' ? needsBoothVendors :
+    activeVendors
 
   const toggleButtonStyle: React.CSSProperties = {
     background: 'none',
@@ -150,9 +159,26 @@ export default function VendorBoothList({ marketId }: VendorBoothListProps) {
     textDecoration: 'underline',
   }
 
+  const activeChipStyle: React.CSSProperties = {
+    fontWeight: typography.weights.bold,
+    color: colors.textPrimary,
+    fontSize: typography.sizes.xs,
+  }
+
+  const renderFilterChip = (key: FilterMode, label: string, count: number) => {
+    if (filter === key) {
+      return <span style={activeChipStyle}>{label} ({count})</span>
+    }
+    return (
+      <button onClick={() => setFilter(key)} style={toggleButtonStyle}>
+        {label} ({count})
+      </button>
+    )
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-      {/* Filter toggle */}
+      {/* Filter toggle — 3 states */}
       <div style={{
         fontSize: typography.sizes.xs,
         color: colors.textMuted,
@@ -161,39 +187,22 @@ export default function VendorBoothList({ marketId }: VendorBoothListProps) {
         gap: spacing['2xs'],
         flexWrap: 'wrap',
       }}>
-        {showAll ? (
-          <>
-            <span>Showing all {vendors.length} vendors</span>
-            {activeVendors.length < vendors.length && (
-              <>
-                <span>·</span>
-                <button onClick={() => setShowAll(false)} style={toggleButtonStyle}>
-                  Show active only ({activeVendors.length})
-                </button>
-              </>
-            )}
-          </>
-        ) : (
-          <>
-            <span>
-              Showing {activeVendors.length} active vendor{activeVendors.length === 1 ? '' : 's'}
-            </span>
-            {hiddenCount > 0 && (
-              <>
-                <span>·</span>
-                <button onClick={() => setShowAll(true)} style={toggleButtonStyle}>
-                  Show all ({vendors.length})
-                </button>
-              </>
-            )}
-          </>
-        )}
+        <span>Show:</span>
+        {renderFilterChip('active', 'Active', activeVendors.length)}
+        <span>·</span>
+        {renderFilterChip('needs_booth', 'Needs booth #', needsBoothVendors.length)}
+        <span>·</span>
+        {renderFilterChip('all', 'All', vendors.length)}
       </div>
 
       {/* Empty state when filter excludes everything */}
       {displayedVendors.length === 0 ? (
         <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm, padding: spacing.xs }}>
-          No active vendors at this market right now. Use &quot;Show all&quot; above to see {vendors.length} pending or dormant vendor{vendors.length === 1 ? '' : 's'}.
+          {filter === 'needs_booth'
+            ? `All ${activeVendors.length} active vendor${activeVendors.length === 1 ? ' has' : 's have'} a booth number assigned. ✓`
+            : filter === 'active'
+            ? `No active vendors right now. ${vendors.length} pending or dormant vendor${vendors.length === 1 ? '' : 's'} — switch to "All" to see them.`
+            : 'No vendors match the current filter.'}
         </p>
       ) : (
         displayedVendors.map((v) => {
@@ -222,6 +231,7 @@ export default function VendorBoothList({ marketId }: VendorBoothListProps) {
                   <span>{v.approved ? '✅ Approved' : '⏳ Pending approval'}</span>
                   {v.response_status && <span>· {v.response_status.replace(/_/g, ' ')}</span>}
                   {!v.is_active_schedule && <span>· not scheduled</span>}
+                  {!v.booth_number && v.approved && v.is_active_schedule && <span>· needs booth #</span>}
                 </div>
               </div>
 
