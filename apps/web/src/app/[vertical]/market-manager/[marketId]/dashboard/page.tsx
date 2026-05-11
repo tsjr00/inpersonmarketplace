@@ -10,6 +10,8 @@ import BoothPlaceholderManager from '@/components/market-manager/BoothPlaceholde
 import OptinManager from '@/components/market-manager/OptinManager'
 import OnboardingChecklist from '@/components/market-manager/OnboardingChecklist'
 import InviteVendorLink from '@/components/market-manager/InviteVendorLink'
+import ManagerActionSummary from '@/components/market-manager/ManagerActionSummary'
+import { getManagerDashboardStats } from '@/lib/markets/manager-dashboard-stats'
 
 interface PageProps {
   params: Promise<{ vertical: string; marketId: string }>
@@ -47,7 +49,7 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
   // User is the manager — fetch the market row for display
   const { data: market } = await supabase
     .from('markets')
-    .select('id, name, address, city, state, market_type')
+    .select('id, name, address, city, state, market_type, timezone')
     .eq('id', marketId)
     .single()
 
@@ -56,6 +58,7 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
   }
 
   const onboardingProgress = await getOnboardingProgress(marketId)
+  const dashboardStats = await getManagerDashboardStats(marketId, (market.timezone as string | null) ?? null)
 
   return (
     <div style={{
@@ -100,6 +103,16 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           is incomplete; collapses to a thin "Setup complete" line once
           required steps are done */}
       <OnboardingChecklist vertical={vertical} marketId={marketId} progress={onboardingProgress} />
+
+      {/* Action summary — surfaces "needs booth #" count + next market
+          day stat. Renders nothing during onboarding (defers to checklist)
+          or when there's nothing actionable. */}
+      <ManagerActionSummary
+        vertical={vertical}
+        marketId={marketId}
+        progress={onboardingProgress}
+        stats={dashboardStats}
+      />
 
       {/* Booth inventory — manage size tiers + per-week prices */}
       <div style={{
@@ -166,12 +179,13 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
       </div>
 
       {/* Vendors at this market — assign / edit booth numbers */}
-      <div style={{
+      <div id="vendors-at-market" style={{
         padding: spacing.md,
         backgroundColor: colors.surfaceElevated,
         border: `1px solid ${colors.border}`,
         borderRadius: radius.md,
         marginBottom: spacing.md,
+        scrollMarginTop: spacing.md,
       }}>
         <h2 style={{
           marginTop: 0,
@@ -179,8 +193,24 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           fontSize: typography.sizes.lg,
           fontWeight: typography.weights.semibold,
           color: colors.textPrimary,
+          display: 'flex',
+          alignItems: 'baseline',
+          gap: spacing.xs,
+          flexWrap: 'wrap',
         }}>
-          Vendors at this market
+          <span>Vendors at this market</span>
+          {dashboardStats.activeVendorsNeedingBooth > 0 && (
+            <span style={{
+              fontSize: typography.sizes.xs,
+              fontWeight: typography.weights.semibold,
+              color: '#92400e',
+              backgroundColor: '#fef3c7',
+              padding: `${spacing['3xs']} ${spacing.xs}`,
+              borderRadius: radius.sm,
+            }}>
+              {dashboardStats.activeVendorsNeedingBooth} need{dashboardStats.activeVendorsNeedingBooth === 1 ? 's' : ''} booth #
+            </span>
+          )}
         </h2>
         <p style={{
           margin: 0,

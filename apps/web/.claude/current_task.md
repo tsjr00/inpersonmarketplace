@@ -95,15 +95,17 @@ Confirm step shows ✓/○ for each step with status copy. Required steps drive 
 
 ### Phase B (kicked off 2026-05-10)
 
-**Shipped (3 quick wins, no migration/payment/critical-path):**
-- ✅ **Invite-a-vendor link** on manager dashboard — `InviteVendorLink.tsx` shows copy-able URL `${origin}/${vertical}/vendor-signup?market=<id>`. Note: used `?market=` ALONE, NOT `?ref=manager` — the `ref` param is already consumed by the vendor-to-vendor referral system (`vendor-signup/page.tsx:80-99`); reusing it would collide.
-- ✅ **Co-branded vendor signup banner** — `vendor-signup/page.tsx` reads `?market=<id>`, fetches market name from `/api/markets/[id]`, renders banner above the form. Signup behavior unchanged.
-- ✅ **"Needs booth #" filter** — `VendorBoothList.tsx` toggle is now 3-state (Active / Needs booth # / All). Per-row "needs booth #" badge appears when applicable.
+**Shipped (6 quick wins, no migration/payment/critical-path):**
+- ✅ **Win 1: Invite-a-vendor link** on manager dashboard — `InviteVendorLink.tsx` shows copy-able URL `${origin}/${vertical}/vendor-signup?market=<id>`. Note: used `?market=` ALONE, NOT `?ref=manager` — the `ref` param is already consumed by the vendor-to-vendor referral system (`vendor-signup/page.tsx:80-99`); reusing it would collide.
+- ✅ **Win 2: Co-branded vendor signup banner** — `vendor-signup/page.tsx` reads `?market=<id>`, fetches market name from `/api/markets/[id]`, renders banner above the form. Signup behavior unchanged.
+- ✅ **Win 3: "Needs booth #" filter** — `VendorBoothList.tsx` toggle is now 3-state (Active / Needs booth # / All). Per-row "needs booth #" badge appears when applicable.
+- ✅ **Win 4: "Needs booth #" badge in Vendors header** — count badge on the "Vendors at this market" h2; scroll anchor `#vendors-at-market` for jump-to from the action summary.
+- ✅ **Win 5: Next market day stat** — surfaced in the Manager Action Summary card (Win #6) as a bullet showing date + scheduled order count. Bundled with Win #6 per user's option-B choice 2026-05-10 (rather than as a separate header line).
+- ✅ **Win 6: Manager Action Summary card** — `ManagerActionSummary.tsx` renders below `OnboardingChecklist` only when there are actionable items (needs-booth count > 0 OR upcoming market day). Defers to checklist during setup. New helper `manager-dashboard-stats.ts` powers it; uses the canonical cron pattern (`expire-orders/route.ts:2267-2269`) for market-local "next market day" computation via `markets.timezone`.
 
 **Remaining Phase B (deeper work, separate sessions):**
 - **Vendor weekly booking flow** (modeled on event organizer flow) — pick market → pick week → pick size → see price → see opt-in agreement → "complete booking" placeholder (no payment yet)
 - **Auto-create market_vendors row on co-branded signup** — design discussion needed about manager approval workflow (currently the banner is informational only)
-- **"Needs booth #" deeper version** — currently a filter; could become its own card with quick-add booth #
 - **New migration:** `vendor_market_agreement_acceptances` table + `weekly_booth_rentals` table
 
 ### Phase C (critical-path territory — heavy approval needed)
