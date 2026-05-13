@@ -311,7 +311,6 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           lineHeight: 1.6,
         }}>
           <li>Weekly booth rental bookings + payment via the platform</li>
-          <li>Aggregate market activity (order count, pickup volume)</li>
           <li>Post-market vendor + buyer surveys</li>
           <li>Share tools for market-day social promotion</li>
         </ul>

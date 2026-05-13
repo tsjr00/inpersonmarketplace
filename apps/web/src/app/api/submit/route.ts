@@ -193,6 +193,42 @@ export async function POST(request: NextRequest) {
             });
         }
 
+        // Manager-invite auto-association — Phase B Win 2 follow-through.
+        // When vendor arrived via /vendor-signup?market=<id> (manager's
+        // invite link), auto-create the market_vendors row as approved=false
+        // so the manager can review + activate from their dashboard.
+        // Non-blocking — signup succeeds even if this insert fails.
+        if (!error && vendor && body.market_id_from_invite) {
+          const marketIdFromInvite = body.market_id_from_invite as string;
+          // Validate market exists before inserting (defensive against
+          // spoofed URL or stale invite link). One extra read but protects
+          // against orphan rows.
+          const { data: marketExists } = await supabaseAdmin
+            .from("markets")
+            .select("id")
+            .eq("id", marketIdFromInvite)
+            .maybeSingle();
+
+          if (marketExists) {
+            const { error: mvError } = await supabaseAdmin
+              .from("market_vendors")
+              .upsert(
+                {
+                  market_id: marketIdFromInvite,
+                  vendor_profile_id: vendor.id,
+                  approved: false,
+                },
+                { onConflict: "market_id,vendor_profile_id" }
+              );
+            if (mvError) {
+              // Non-blocking — signup still succeeds. Log for debugging.
+              console.warn(
+                `[vendor_signup] market_vendors auto-create failed for vendor ${vendor.id} market ${marketIdFromInvite}: ${mvError.message}`
+              );
+            }
+          }
+        }
+
         if (error) {
           console.error("Supabase error:", error);
           return NextResponse.json(

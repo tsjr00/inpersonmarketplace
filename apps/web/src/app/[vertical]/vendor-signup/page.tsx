@@ -293,6 +293,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
       user_id: string;
       data: Record<string, unknown>;
       referral_code?: string;
+      market_id_from_invite?: string;
     } = {
       kind: "vendor_signup",
       vertical,
@@ -309,6 +310,16 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
     // Include referral code if present
     if (referralCode) {
       payload.referral_code = referralCode;
+    }
+
+    // Include manager invite market_id if present in URL. Server validates
+    // that the market exists before auto-creating the market_vendors row.
+    // Phase B Win 2 follow-through: closes the loop where vendor signs up
+    // via manager's invite link → manager sees them in their vendor list
+    // (as approved=false, pending review).
+    const marketIdFromInvite = searchParams.get('market');
+    if (marketIdFromInvite) {
+      payload.market_id_from_invite = marketIdFromInvite;
     }
 
     setSubmitting(true);

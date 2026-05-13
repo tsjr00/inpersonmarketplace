@@ -103,10 +103,15 @@ Confirm step shows ✓/○ for each step with status copy. Required steps drive 
 - ✅ **Win 5: Next market day stat** — surfaced in the Manager Action Summary card (Win #6) as a bullet showing date + scheduled order count. Bundled with Win #6 per user's option-B choice 2026-05-10 (rather than as a separate header line).
 - ✅ **Win 6: Manager Action Summary card** — `ManagerActionSummary.tsx` renders below `OnboardingChecklist` only when there are actionable items (needs-booth count > 0 OR upcoming market day). Defers to checklist during setup. New helper `manager-dashboard-stats.ts` powers it; uses the canonical cron pattern (`expire-orders/route.ts:2267-2269`) for market-local "next market day" computation via `markets.timezone`.
 
+**Phase B follow-through shipped 2026-05-12:**
+- ✅ **Auto-create `market_vendors` row on co-branded signup** — `?market=<id>` URL param now flows through to `/api/submit/route.ts`. Vendor signup creates a `market_vendors` row with `approved=false` (pending manager review). Idempotent via upsert on the existing UNIQUE constraint (`market_vendors_market_id_vendor_profile_id_key`). Market existence validated server-side before insert. Decision locked: `approved=false`, not auto-approve — manager reviews/confirms because vendor may not have provided correct info for that specific market.
+- ✅ **Migration drafts** for `vendor_market_agreement_acceptances` + `weekly_booth_rentals` written to `supabase/migrations/` (NOT applied). Drafts only — design review before apply. See Change Log entry in `SCHEMA_SNAPSHOT.md` for full schema description.
+- ✅ **Dashboard "Coming soon" cleanup** — removed "Aggregate market activity (order count, pickup volume)" line (partially fulfilled by Manager Action Summary shipping the next-market-day order count).
+
 **Remaining Phase B (deeper work, separate sessions):**
-- **Vendor weekly booking flow** (modeled on event organizer flow) — pick market → pick week → pick size → see price → see opt-in agreement → "complete booking" placeholder (no payment yet)
-- **Auto-create market_vendors row on co-branded signup** — design discussion needed about manager approval workflow (currently the banner is informational only)
-- **New migration:** `vendor_market_agreement_acceptances` table + `weekly_booth_rentals` table
+- **Vendor weekly booking flow** (modeled on event organizer flow) — pick market → pick week → pick size → see price → see opt-in agreement → "complete booking" placeholder (no payment yet). Requires migration 139 to be applied first.
+- **Vendor signup opt-in checklist UI** — manager's selected statements rendered as required checkbox list at signup. Requires migration 138 to be applied first.
+- **Apply migrations 138 + 139** — when ready, apply to Dev/Staging/Prod in standard sequence; update SCHEMA_SNAPSHOT structured tables.
 
 ### Phase C (critical-path territory — heavy approval needed)
 
