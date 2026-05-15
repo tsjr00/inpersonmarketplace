@@ -32,6 +32,10 @@ export interface ManagerDashboardStats {
    *  =true) AND lack a booth_number. The actionable subset for "needs
    *  booth #" promotion. */
   activeVendorsNeedingBooth: number
+  /** Count of market_vendors rows at this market with approved=false.
+   *  Surfaces vendors who came in via the co-branded signup link (auto-
+   *  created with approved=false) and need manager review. */
+  pendingApprovalCount: number
 }
 
 export async function getManagerDashboardStats(
@@ -51,14 +55,16 @@ export async function getManagerDashboardStats(
   const nextMarketDate = computeNextMarketDate(schedules ?? [], tz)
   const nextMarketDateStr = nextMarketDate ? formatLocalDate(nextMarketDate) : null
 
-  // Three parallel queries:
+  // Four parallel queries:
   //  1. vendor_market_schedules with is_active=true at this market
   //  2. market_vendors approved + booth_number IS NULL at this market
   //  3. order_items at this market with pickup_date = next market day,
   //     status NOT in {fulfilled, cancelled, refunded}
+  //  4. market_vendors approved=false count (pending manager review)
   // Queries 1+2 merged in JS to compute "active AND needs booth #".
   // Query 3 deduplicates by order_id (one order can have multiple items).
-  const [activeScheduleVendors, marketVendorsNoBooth, orderItemsResult] = await Promise.all([
+  // Query 4 is a HEAD count (fast; no row data needed).
+  const [activeScheduleVendors, marketVendorsNoBooth, orderItemsResult, pendingApprovalResult] = await Promise.all([
     serviceClient
       .from('vendor_market_schedules')
       .select('vendor_profile_id')
@@ -78,6 +84,11 @@ export async function getManagerDashboardStats(
           .eq('pickup_date', nextMarketDateStr)
           .in('status', ['pending', 'confirmed', 'ready'])
       : Promise.resolve({ data: [] as Array<{ order_id: string }>, error: null }),
+    serviceClient
+      .from('market_vendors')
+      .select('id', { count: 'exact', head: true })
+      .eq('market_id', marketId)
+      .eq('approved', false),
   ])
 
   const activeScheduleSet = new Set(
@@ -92,10 +103,13 @@ export async function getManagerDashboardStats(
   )
   const nextMarketDayOrderCount = distinctOrderIds.size
 
+  const pendingApprovalCount = pendingApprovalResult.count ?? 0
+
   return {
     nextMarketDate,
     nextMarketDayOrderCount,
     activeVendorsNeedingBooth,
+    pendingApprovalCount,
   }
 }
 

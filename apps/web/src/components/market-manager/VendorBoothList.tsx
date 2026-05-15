@@ -19,37 +19,47 @@ interface VendorBoothListProps {
   marketId: string
 }
 
-type FilterMode = 'active' | 'needs_booth' | 'all'
+type FilterMode = 'active' | 'needs_booth' | 'pending_approval' | 'all'
 
 /**
  * Manager-side list of vendors at a market with inline booth-number
- * editing. Each row: business name, status badge, booth_number input,
- * Save button. Save is per-row (no bulk batch in v1) — keeps the UX
- * simple and the failure modes obvious.
+ * editing and approve/revoke actions.
  *
  * Filter modes (toggle above the list):
- *   - active       — approved at this market AND has an active schedule
- *                    entry (vendor_market_schedules.is_active=true).
- *                    Default view; what managers care about day-to-day.
- *   - needs_booth  — subset of active where booth_number is null.
- *                    Quick "what still needs assignment" view.
- *   - all          — every vendor associated with this market, no
- *                    filter. Useful for pending/dormant cleanup.
+ *   - active            — approved + has active schedule entry. Default
+ *                         view; what managers care about day-to-day.
+ *   - needs_booth       — subset of active where booth_number is null.
+ *                         Quick "what still needs assignment" view.
+ *   - pending_approval  — approved=false. Vendors who came in via the
+ *                         co-branded signup link and need manager review,
+ *                         or vendors whose approval was revoked.
+ *   - all               — every vendor associated with this market.
  *
- * Read-only fields: name, status. Editable: booth_number.
+ * Per-row actions:
+ *   - Pending vendors (approved=false) — show "Approve" button. Clicking
+ *     PATCHes /api/market-manager/[marketId]/vendor-approval with
+ *     approved=true. Booth controls are hidden until approval.
+ *   - Approved vendors — show booth_number input + Save. Clicking PATCHes
+ *     /api/market-manager/[marketId]/vendor-booth.
+ *
+ * Read-only fields: name, status. Editable: approved (via Approve button),
+ * booth_number (after approval).
  *
  * Calls:
- *  - GET  /api/market-manager/[marketId]/vendors           on mount
- *  - PATCH /api/market-manager/[marketId]/vendor-booth     per row save
+ *  - GET   /api/market-manager/[marketId]/vendors            on mount
+ *  - PATCH /api/market-manager/[marketId]/vendor-booth       per row save
+ *  - PATCH /api/market-manager/[marketId]/vendor-approval    per row approve
  */
 export default function VendorBoothList({ marketId }: VendorBoothListProps) {
   const [vendors, setVendors] = useState<Vendor[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [filter, setFilter] = useState<FilterMode>('active')
 
-  // Per-row state: edited booth value + save status + per-row error
+  // Per-row state: edited booth value + save status + per-row error +
+  // per-row approval-in-flight state.
   const [edits, setEdits] = useState<Record<string, string>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
+  const [approvingId, setApprovingId] = useState<string | null>(null)
   const [rowError, setRowError] = useState<Record<string, string>>({})
   const [rowSuccess, setRowSuccess] = useState<Record<string, boolean>>({})
 
@@ -114,6 +124,42 @@ export default function VendorBoothList({ marketId }: VendorBoothListProps) {
     }
   }
 
+  const handleApprove = async (vendorProfileId: string, nextApproved: boolean) => {
+    setApprovingId(vendorProfileId)
+    setRowError((s) => ({ ...s, [vendorProfileId]: '' }))
+    setRowSuccess((s) => ({ ...s, [vendorProfileId]: false }))
+    try {
+      const res = await fetch(`/api/market-manager/${marketId}/vendor-approval`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vendor_profile_id: vendorProfileId,
+          approved: nextApproved,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setRowError((s) => ({ ...s, [vendorProfileId]: data.error || 'Approval update failed' }))
+      } else {
+        setRowSuccess((s) => ({ ...s, [vendorProfileId]: true }))
+        setVendors((vs) =>
+          (vs || []).map((v) =>
+            v.vendor_profile_id === vendorProfileId
+              ? { ...v, approved: !!data.approved }
+              : v
+          )
+        )
+        setTimeout(() => {
+          setRowSuccess((s) => ({ ...s, [vendorProfileId]: false }))
+        }, 1500)
+      }
+    } catch {
+      setRowError((s) => ({ ...s, [vendorProfileId]: 'Network error' }))
+    } finally {
+      setApprovingId(null)
+    }
+  }
+
   if (vendors === null) {
     return <div style={{ color: colors.textMuted, fontSize: typography.sizes.sm }}>Loading vendors…</div>
   }
@@ -140,12 +186,14 @@ export default function VendorBoothList({ marketId }: VendorBoothListProps) {
     )
   }
 
-  // Active = approved at this market AND has an active schedule entry.
+  // Filter computations
   const activeVendors = vendors.filter((v) => v.approved && v.is_active_schedule)
   const needsBoothVendors = activeVendors.filter((v) => !v.booth_number)
+  const pendingApprovalVendors = vendors.filter((v) => !v.approved)
   const displayedVendors =
     filter === 'all' ? vendors :
     filter === 'needs_booth' ? needsBoothVendors :
+    filter === 'pending_approval' ? pendingApprovalVendors :
     activeVendors
 
   const toggleButtonStyle: React.CSSProperties = {
@@ -178,7 +226,7 @@ export default function VendorBoothList({ marketId }: VendorBoothListProps) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-      {/* Filter toggle — 3 states */}
+      {/* Filter toggle — 4 states */}
       <div style={{
         fontSize: typography.sizes.xs,
         color: colors.textMuted,
@@ -192,6 +240,8 @@ export default function VendorBoothList({ marketId }: VendorBoothListProps) {
         <span>·</span>
         {renderFilterChip('needs_booth', 'Needs booth #', needsBoothVendors.length)}
         <span>·</span>
+        {renderFilterChip('pending_approval', 'Pending approval', pendingApprovalVendors.length)}
+        <span>·</span>
         {renderFilterChip('all', 'All', vendors.length)}
       </div>
 
@@ -200,6 +250,8 @@ export default function VendorBoothList({ marketId }: VendorBoothListProps) {
         <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm, padding: spacing.xs }}>
           {filter === 'needs_booth'
             ? `All ${activeVendors.length} active vendor${activeVendors.length === 1 ? ' has' : 's have'} a booth number assigned. ✓`
+            : filter === 'pending_approval'
+            ? 'No vendors pending approval. ✓'
             : filter === 'active'
             ? `No active vendors right now. ${vendors.length} pending or dormant vendor${vendors.length === 1 ? '' : 's'} — switch to "All" to see them.`
             : 'No vendors match the current filter.'}
@@ -207,6 +259,7 @@ export default function VendorBoothList({ marketId }: VendorBoothListProps) {
       ) : (
         displayedVendors.map((v) => {
           const isSaving = savingId === v.vendor_profile_id
+          const isApproving = approvingId === v.vendor_profile_id
           const editedValue = edits[v.vendor_profile_id] ?? ''
           const dirty = editedValue !== (v.booth_number ?? '')
           return (
@@ -235,45 +288,74 @@ export default function VendorBoothList({ marketId }: VendorBoothListProps) {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-                <input
-                  type="text"
-                  value={editedValue}
-                  onChange={(e) => setEdits((s) => ({ ...s, [v.vendor_profile_id]: e.target.value }))}
-                  placeholder="Booth #"
-                  disabled={isSaving}
-                  maxLength={50}
-                  style={{
-                    width: 110,
-                    padding: `${spacing['3xs']} ${spacing.xs}`,
-                    border: `1px solid ${colors.border}`,
-                    borderRadius: radius.sm,
-                    fontSize: typography.sizes.sm,
-                  }}
-                />
-                <button
-                  onClick={() => handleSave(v.vendor_profile_id)}
-                  disabled={isSaving || !dirty}
-                  style={{
-                    padding: `${spacing['3xs']} ${spacing.sm}`,
-                    backgroundColor: dirty ? colors.primary : colors.surfaceMuted,
-                    color: dirty ? 'white' : colors.textMuted,
-                    border: 'none',
-                    borderRadius: radius.sm,
-                    fontSize: typography.sizes.xs,
-                    fontWeight: typography.weights.semibold,
-                    cursor: isSaving || !dirty ? 'not-allowed' : 'pointer',
-                    opacity: isSaving ? 0.6 : 1,
-                  }}
-                >
-                  {isSaving ? 'Saving…' : 'Save'}
-                </button>
-                {rowSuccess[v.vendor_profile_id] && (
-                  <span style={{ color: colors.primary, fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold }}>
-                    ✓ Saved
-                  </span>
-                )}
-              </div>
+              {/* Pending vendors get an Approve button. Approved vendors get
+                  booth controls. Keeps row UX focused on the next action. */}
+              {!v.approved ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
+                  <button
+                    onClick={() => handleApprove(v.vendor_profile_id, true)}
+                    disabled={isApproving}
+                    style={{
+                      padding: `${spacing['3xs']} ${spacing.sm}`,
+                      backgroundColor: colors.primary,
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: radius.sm,
+                      fontSize: typography.sizes.xs,
+                      fontWeight: typography.weights.semibold,
+                      cursor: isApproving ? 'not-allowed' : 'pointer',
+                      opacity: isApproving ? 0.6 : 1,
+                    }}
+                  >
+                    {isApproving ? 'Approving…' : 'Approve'}
+                  </button>
+                  {rowSuccess[v.vendor_profile_id] && (
+                    <span style={{ color: colors.primary, fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold }}>
+                      ✓ Approved
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
+                  <input
+                    type="text"
+                    value={editedValue}
+                    onChange={(e) => setEdits((s) => ({ ...s, [v.vendor_profile_id]: e.target.value }))}
+                    placeholder="Booth #"
+                    disabled={isSaving}
+                    maxLength={50}
+                    style={{
+                      width: 110,
+                      padding: `${spacing['3xs']} ${spacing.xs}`,
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: radius.sm,
+                      fontSize: typography.sizes.sm,
+                    }}
+                  />
+                  <button
+                    onClick={() => handleSave(v.vendor_profile_id)}
+                    disabled={isSaving || !dirty}
+                    style={{
+                      padding: `${spacing['3xs']} ${spacing.sm}`,
+                      backgroundColor: dirty ? colors.primary : colors.surfaceMuted,
+                      color: dirty ? 'white' : colors.textMuted,
+                      border: 'none',
+                      borderRadius: radius.sm,
+                      fontSize: typography.sizes.xs,
+                      fontWeight: typography.weights.semibold,
+                      cursor: isSaving || !dirty ? 'not-allowed' : 'pointer',
+                      opacity: isSaving ? 0.6 : 1,
+                    }}
+                  >
+                    {isSaving ? 'Saving…' : 'Save'}
+                  </button>
+                  {rowSuccess[v.vendor_profile_id] && (
+                    <span style={{ color: colors.primary, fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold }}>
+                      ✓ Saved
+                    </span>
+                  )}
+                </div>
+              )}
 
               {rowError[v.vendor_profile_id] && (
                 <div style={{

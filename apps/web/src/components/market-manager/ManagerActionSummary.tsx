@@ -36,11 +36,12 @@ export default function ManagerActionSummary({
   const setupIncomplete = !progress.inventory_done || !progress.optin_done
   if (setupIncomplete) return null
 
+  const hasPendingApproval = stats.pendingApprovalCount > 0
   const hasNeedsBooth = stats.activeVendorsNeedingBooth > 0
   const hasNextMarket = stats.nextMarketDate !== null
 
   // Nothing to surface — keep the dashboard quiet.
-  if (!hasNeedsBooth && !hasNextMarket) return null
+  if (!hasPendingApproval && !hasNeedsBooth && !hasNextMarket) return null
 
   return (
     <div style={{
@@ -67,6 +68,32 @@ export default function ManagerActionSummary({
         flexDirection: 'column',
         gap: spacing.xs,
       }}>
+        {hasPendingApproval && (
+          <li style={{
+            fontSize: typography.sizes.sm,
+            color: colors.textPrimary,
+            display: 'flex',
+            alignItems: 'baseline',
+            gap: spacing['2xs'],
+            flexWrap: 'wrap',
+          }}>
+            <span>📥</span>
+            <span>
+              <strong>{stats.pendingApprovalCount}</strong> vendor{stats.pendingApprovalCount === 1 ? '' : 's'} pending your approval.
+            </span>
+            <Link
+              href={`/${vertical}/market-manager/${marketId}/dashboard#vendors-at-market`}
+              style={{
+                color: colors.primary,
+                textDecoration: 'underline',
+                fontWeight: typography.weights.semibold,
+                fontSize: typography.sizes.xs,
+              }}
+            >
+              Review →
+            </Link>
+          </li>
+        )}
         {hasNeedsBooth && (
           <li style={{
             fontSize: typography.sizes.sm,

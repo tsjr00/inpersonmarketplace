@@ -108,6 +108,9 @@ Confirm step shows ✓/○ for each step with status copy. Required steps drive 
 - ✅ **Migration drafts** for `vendor_market_agreement_acceptances` + `weekly_booth_rentals` written to `supabase/migrations/` (NOT applied). Drafts only — design review before apply. See Change Log entry in `SCHEMA_SNAPSHOT.md` for full schema description.
 - ✅ **Dashboard "Coming soon" cleanup** — removed "Aggregate market activity (order count, pickup volume)" line (partially fulfilled by Manager Action Summary shipping the next-market-day order count).
 
+**Phase B approval loop closed 2026-05-14:**
+- ✅ **Manager vendor-approval API + UI** — Closes the gap opened by the auto-create commit on 2026-05-12 (vendors auto-associated with `approved=false` had no manager-side action path). New endpoint `PATCH /api/market-manager/[marketId]/vendor-approval` flips approved bool (allows both approve and revoke; mirrors vendor-booth security pattern via `isMarketManager` + service client). `VendorBoothList` now 4-state filter (Active / Needs booth # / Pending approval / All) with conditional row UI: pending vendors show Approve button only (no distracting booth controls); approved vendors show booth assignment controls. `ManagerActionSummary` surfaces pending count + Review link at top of action list. New `pendingApprovalCount` field added to `manager-dashboard-stats.ts` via 4th parallel HEAD-count query.
+
 **Remaining Phase B (deeper work, separate sessions):**
 - **Vendor weekly booking flow** (modeled on event organizer flow) — pick market → pick week → pick size → see price → see opt-in agreement → "complete booking" placeholder (no payment yet). Requires migration 139 to be applied first.
 - **Vendor signup opt-in checklist UI** — manager's selected statements rendered as required checkbox list at signup. Requires migration 138 to be applied first.
