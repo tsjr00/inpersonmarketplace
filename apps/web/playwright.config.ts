@@ -73,9 +73,17 @@ export default defineConfig({
     },
   ],
 
-  // Auto-start dev server if not already running
+  // Auto-start production server (next start) so smoke tests run against
+  // the same artifact Vercel ships. Pre-push hook builds first (npm run
+  // build), so .next/ exists by the time Playwright starts the server.
+  //
+  // Why not `npm run dev`: Turbopack dev mode (Next 16.1.6) hangs compiling
+  // /[vertical]/signup on this codebase — investigated 2026-05-15, confirmed
+  // by webpack-dev compiling the same page in 4.5s. Production build
+  // (also Turbopack, but production mode) is unaffected. Smoke tests
+  // belong against the production artifact anyway.
   webServer: {
-    command: 'npm run dev',
+    command: 'npm run start',
     url: 'http://localhost:3002',
     reuseExistingServer: true, // Skip startup if already running
     timeout: 120_000,
