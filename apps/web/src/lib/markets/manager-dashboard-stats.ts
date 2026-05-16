@@ -170,3 +170,146 @@ function formatLocalDate(d: Date): string {
   const day = String(d.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 }
+
+/**
+ * Aggregate transaction stats for a market over 7-day, 30-day, and
+ * "season" windows. Phase D.1 (2026-05-16) — manager dashboard card.
+ *
+ * Filters: order_items.market_id = marketId, status NOT IN
+ * ('cancelled', 'refunded'). Distinct orders counted by order_id.
+ * Distinct vendors counted by vendor_profile_id.
+ *
+ * Season window:
+ *   - If markets.season_start AND season_end are set, use them.
+ *   - Else default to last 90 days from today.
+ *
+ * Money note: this shows GROSS sales (subtotal_cents sum) at the
+ * market — the manager doesn't earn it (vendors do), but it's the
+ * activity signal they care about. Phase C will add a separate
+ * "booth rental income" card for what the manager actually collects.
+ */
+export interface MarketTransactionsWindow {
+  order_count: number
+  total_cents: number
+  vendor_count: number
+}
+
+export interface MarketTransactionsAggregates {
+  last_7_days: MarketTransactionsWindow
+  last_30_days: MarketTransactionsWindow
+  season: MarketTransactionsWindow & {
+    /** "2026 season", "Apr 1 – Oct 31, 2026", or "last 90 days" — for UI. */
+    range_label: string
+    range_start: string  // YYYY-MM-DD
+    range_end: string  // YYYY-MM-DD
+  }
+}
+
+interface OrderItemRow {
+  order_id: string
+  vendor_profile_id: string
+  subtotal_cents: number
+  pickup_date: string | null
+}
+
+export async function getMarketTransactionsAggregates(
+  marketId: string,
+  marketTimezone: string | null,
+  seasonStart: string | null,
+  seasonEnd: string | null
+): Promise<MarketTransactionsAggregates> {
+  const tz = marketTimezone || 'America/Chicago'
+  const serviceClient = createServiceClient()
+
+  // Today in market-local time — same canonical pattern as cron.
+  const localNow = new Date(new Date().toLocaleString('en-US', { timeZone: tz }))
+  const today = new Date(localNow)
+  today.setHours(0, 0, 0, 0)
+
+  const sevenDaysAgo = new Date(today)
+  sevenDaysAgo.setDate(today.getDate() - 7)
+  const thirtyDaysAgo = new Date(today)
+  thirtyDaysAgo.setDate(today.getDate() - 30)
+  const ninetyDaysAgo = new Date(today)
+  ninetyDaysAgo.setDate(today.getDate() - 90)
+
+  // Compute season window
+  let seasonRangeStart: Date
+  let seasonRangeEnd: Date
+  let seasonLabel: string
+  if (seasonStart && seasonEnd) {
+    seasonRangeStart = new Date(seasonStart + 'T00:00:00')
+    seasonRangeEnd = new Date(seasonEnd + 'T00:00:00')
+    const startMonth = seasonRangeStart.toLocaleString('en-US', { month: 'short' })
+    const endMonth = seasonRangeEnd.toLocaleString('en-US', { month: 'short' })
+    const startDay = seasonRangeStart.getDate()
+    const endDay = seasonRangeEnd.getDate()
+    const endYear = seasonRangeEnd.getFullYear()
+    seasonLabel = `${startMonth} ${startDay} – ${endMonth} ${endDay}, ${endYear}`
+  } else {
+    seasonRangeStart = ninetyDaysAgo
+    seasonRangeEnd = today
+    seasonLabel = 'Last 90 days'
+  }
+
+  // Query a single chunk covering the broadest window (season). Bucket
+  // in JS — one round trip, simpler logic, small data volume per market.
+  const broadestStart = formatLocalDate(
+    seasonRangeStart < ninetyDaysAgo ? seasonRangeStart : ninetyDaysAgo
+  )
+  const broadestEnd = formatLocalDate(
+    seasonRangeEnd > today ? seasonRangeEnd : today
+  )
+
+  const { data: itemsRaw } = await serviceClient
+    .from('order_items')
+    .select('order_id, vendor_profile_id, subtotal_cents, pickup_date')
+    .eq('market_id', marketId)
+    .not('status', 'in', '(cancelled,refunded)')
+    .gte('pickup_date', broadestStart)
+    .lte('pickup_date', broadestEnd)
+
+  const items: OrderItemRow[] = (itemsRaw ?? []).map((r) => ({
+    order_id: r.order_id as string,
+    vendor_profile_id: r.vendor_profile_id as string,
+    subtotal_cents: (r.subtotal_cents as number) || 0,
+    pickup_date: (r.pickup_date as string | null) ?? null,
+  }))
+
+  const bucket = (
+    rangeStart: Date,
+    rangeEnd: Date
+  ): MarketTransactionsWindow => {
+    const startStr = formatLocalDate(rangeStart)
+    const endStr = formatLocalDate(rangeEnd)
+    const inRange = items.filter(
+      (i) => i.pickup_date !== null && i.pickup_date >= startStr && i.pickup_date <= endStr
+    )
+    const orderIds = new Set<string>()
+    const vendorIds = new Set<string>()
+    let total = 0
+    for (const i of inRange) {
+      orderIds.add(i.order_id)
+      vendorIds.add(i.vendor_profile_id)
+      total += i.subtotal_cents
+    }
+    return {
+      order_count: orderIds.size,
+      total_cents: total,
+      vendor_count: vendorIds.size,
+    }
+  }
+
+  const seasonAgg = bucket(seasonRangeStart, seasonRangeEnd)
+
+  return {
+    last_7_days: bucket(sevenDaysAgo, today),
+    last_30_days: bucket(thirtyDaysAgo, today),
+    season: {
+      ...seasonAgg,
+      range_label: seasonLabel,
+      range_start: formatLocalDate(seasonRangeStart),
+      range_end: formatLocalDate(seasonRangeEnd),
+    },
+  }
+}

@@ -10,9 +10,12 @@ import BoothPlaceholderManager from '@/components/market-manager/BoothPlaceholde
 import OptinManager from '@/components/market-manager/OptinManager'
 import OnboardingChecklist from '@/components/market-manager/OnboardingChecklist'
 import MarketBrandingCard from '@/components/market-manager/MarketBrandingCard'
+import MarketTransactionsCard from '@/components/market-manager/MarketTransactionsCard'
+import MarketScheduleCard from '@/components/market-manager/MarketScheduleCard'
+import ManagerSupportCard from '@/components/market-manager/ManagerSupportCard'
 import InviteVendorLink from '@/components/market-manager/InviteVendorLink'
 import ManagerActionSummary from '@/components/market-manager/ManagerActionSummary'
-import { getManagerDashboardStats } from '@/lib/markets/manager-dashboard-stats'
+import { getManagerDashboardStats, getMarketTransactionsAggregates } from '@/lib/markets/manager-dashboard-stats'
 
 interface PageProps {
   params: Promise<{ vertical: string; marketId: string }>
@@ -49,9 +52,11 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
 
   // User is the manager — fetch the market row for display.
   // `logo_url` (mig 140) + `description` power the Branding card.
+  // `season_start` + `season_end` define the season window for the
+  // Market activity card (D.1) — fall back to last 90 days if null.
   const { data: market } = await supabase
     .from('markets')
-    .select('id, name, address, city, state, market_type, timezone, logo_url, description')
+    .select('id, name, address, city, state, market_type, timezone, logo_url, description, season_start, season_end')
     .eq('id', marketId)
     .single()
 
@@ -61,6 +66,26 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
 
   const onboardingProgress = await getOnboardingProgress(marketId)
   const dashboardStats = await getManagerDashboardStats(marketId, (market.timezone as string | null) ?? null)
+  const transactionsAggregates = await getMarketTransactionsAggregates(
+    marketId,
+    (market.timezone as string | null) ?? null,
+    (market.season_start as string | null) ?? null,
+    (market.season_end as string | null) ?? null,
+  )
+
+  // Market schedules for the read-only schedule card (D.2). Service-client
+  // not needed — markets is publicly readable; schedules are nested via the
+  // existing RLS policy. Manager auth already verified above.
+  const { data: schedulesRaw } = await supabase
+    .from('market_schedules')
+    .select('day_of_week, start_time, end_time, active')
+    .eq('market_id', marketId)
+  const schedules = (schedulesRaw ?? []).map((s) => ({
+    day_of_week: s.day_of_week as number,
+    start_time: (s.start_time as string | null) ?? null,
+    end_time: (s.end_time as string | null) ?? null,
+    active: (s.active as boolean | null) ?? null,
+  }))
 
   return (
     <div style={{
@@ -115,6 +140,10 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
         progress={onboardingProgress}
         stats={dashboardStats}
       />
+
+      {/* Aggregate transactions — gross sales activity across 3 windows.
+          Phase D.1 (2026-05-16). Renders nothing if all windows are empty. */}
+      <MarketTransactionsCard aggregates={transactionsAggregates} />
 
       {/* Branding — upload logo for public market profile + invite landing
           (mig 140, Phase B 2026-05-16). Optional; no setup gating. */}
@@ -301,6 +330,12 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
         </p>
         <OptinManager marketId={marketId} />
       </div>
+
+      {/* Read-only schedule view (D.2 2026-05-16) */}
+      <MarketScheduleCard schedules={schedules} />
+
+      {/* Static support card (D.3 2026-05-16) */}
+      <ManagerSupportCard vertical={vertical} />
 
       {/* What's still coming */}
       <div style={{

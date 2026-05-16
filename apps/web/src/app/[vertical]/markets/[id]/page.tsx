@@ -290,17 +290,21 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
             </p>
           )}
 
-          {/* Share button for events */}
-          {isEvent && (
-            <div style={{ marginBottom: spacing.xs }}>
-              <ShareButton
-                url={`${baseUrl}/${vertical}/markets/${id}`}
-                title={market.name}
-                text={`Check out ${market.name}${eventStartDate ? ` on ${new Date(eventStartDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}` : ''}`}
-                variant="compact"
-              />
-            </div>
-          )}
+          {/* Share button — events get a date-aware blurb, traditional
+              markets get a generic "check out [market]" blurb (Phase E.5
+              2026-05-16). Previously gated behind isEvent only. */}
+          <div style={{ marginBottom: spacing.xs }}>
+            <ShareButton
+              url={`${baseUrl}/${vertical}/markets/${id}`}
+              title={market.name}
+              text={
+                isEvent && eventStartDate
+                  ? `Check out ${market.name} on ${new Date(eventStartDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`
+                  : `Check out ${market.name} — find local vendors, see what's in season, and pre-order.`
+              }
+              variant="compact"
+            />
+          </div>
 
           {/* Event dates */}
           {isEvent && eventStartDate && eventEndDate && (
