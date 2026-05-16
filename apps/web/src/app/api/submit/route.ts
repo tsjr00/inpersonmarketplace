@@ -225,6 +225,33 @@ export async function POST(request: NextRequest) {
               console.warn(
                 `[vendor_signup] market_vendors auto-create failed for vendor ${vendor.id} market ${marketIdFromInvite}: ${mvError.message}`
               );
+            } else if (body.market_agreement_accepted === true) {
+              // Phase B agreement loop: vendor checked the agreement
+              // checkbox on the co-branded signup page. Capture the
+              // acceptance snapshot in vendor_market_agreement_acceptances
+              // (mig 138). Non-atomic with the market_vendors upsert
+              // above — if this insert fails, the vendor is associated
+              // but no signature is on file; logged for follow-up.
+              // Re-prompt via dashboard load (future polish).
+              const { fetchMarketOptinForVendor } = await import(
+                "@/lib/markets/optin-public"
+              );
+              const { snapshot } = await fetchMarketOptinForVendor(
+                marketIdFromInvite
+              );
+              const { error: vmaaError } = await supabaseAdmin
+                .from("vendor_market_agreement_acceptances")
+                .insert({
+                  vendor_profile_id: vendor.id,
+                  market_id: marketIdFromInvite,
+                  statements_snapshot: snapshot,
+                  agreement_version: null,
+                });
+              if (vmaaError && vmaaError.code !== "23505") {
+                console.warn(
+                  `[vendor_signup] acceptance row write failed for vendor ${vendor.id} market ${marketIdFromInvite}: ${vmaaError.message}`
+                );
+              }
             }
           }
         }

@@ -31,11 +31,22 @@ export default function LoginPage({ params }: LoginPageProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const isEventRef = searchParams.get('ref') === 'event'
-  // returnTo is intentionally NOT read here — existing users should always
-  // go to their dashboard. Only the confirm-email page uses returnTo (for
-  // new accounts via user_metadata). See vendor-signup login wall for the
-  // only place that links to /login?returnTo=...
+  // returnTo is generally NOT read here — existing users should always go
+  // to their dashboard. The ONE narrow exception (2026-05-15, Phase B
+  // agreement loop): when returnTo points to /[vertical]/vendor-signup
+  // with a ?market= param, this is an existing buyer/vendor arriving via
+  // a manager's invite link. Honor it so the user lands back on the
+  // vendor-signup invite page (logged in) and the page renders States B/C/D
+  // with the agreement block. All other returnTo values are still ignored —
+  // pattern is narrow enough not to leak into other flows.
+  const returnToParam = searchParams.get('returnTo')
+  const isMarketInviteReturn = !!returnToParam
+    && returnToParam.startsWith(`/${vertical}/vendor-signup`)
+    && returnToParam.includes('market=')
   const dashboardSuffix = isEventRef ? '?section=events' : ''
+  const postLoginUrl = isMarketInviteReturn
+    ? (returnToParam as string)
+    : `/${vertical}/dashboard${dashboardSuffix}`
   const supabase = createClient()
   const locale = getClientLocale()
   const { token: turnstileToken, isVerified: captchaVerified, handleVerify, handleError: handleCaptchaError, handleExpire } = useTurnstile()
@@ -118,7 +129,7 @@ export default function LoginPage({ params }: LoginPageProps) {
           .eq('user_id', data.user.id)
       }
 
-      router.push(`/${vertical}/dashboard${dashboardSuffix}`)
+      router.push(postLoginUrl)
       router.refresh()
     }
   }

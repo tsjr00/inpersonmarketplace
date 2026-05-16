@@ -1,6 +1,6 @@
 # Performance Baseline
 
-**Last measured: 2026-03-16 (Session 59)**
+**Last measured: 2026-05-15 (Session 82)**
 **Purpose:** Source of truth for performance metrics. Any session proposing performance changes must measure against these baselines and demonstrate improvement before committing.
 
 ---
@@ -36,6 +36,9 @@ These metrics are derived from code analysis. They do not depend on network cond
 | Largest chunk | 553 KB | 2026-05-10 | Next.js framework chunk (router/BloomFilter); not addressable |
 | Total client JS (`.next/static/chunks/`) | 5.4 MB | 2026-05-10 | up from 4.3 MB; tracks page-count growth |
 | **Chunk count ceiling** | **200** | **2026-05-10** | **raised from 150; ~32% headroom for continued feature growth** |
+| Total client JS chunk count | 153 | 2026-05-15 | +1 from Phase B agreement loop (MarketAgreementBlock component + 2 new API routes). No structural growth. |
+| Largest chunk | 553 KB | 2026-05-15 | Unchanged — same Next.js framework chunk. |
+| Total client JS (`.next/static/chunks/`) | 5.4 MB | 2026-05-15 | Unchanged at MB granularity. |
 
 **Rule:** Total client JS must not increase beyond 5% (4.5 MB ceiling) without justification. Chunk count ceiling enforced by `performance-baseline.test.ts` PERF-R7.
 
@@ -77,3 +80,4 @@ These metrics are derived from code analysis. They do not depend on network cond
 | 2026-03-16 | 59 | Dashboard: parallelize 5 data queries into Promise.all | 6 sequential, 0 parallel, depth 6 | 3 sequential, 5 parallel, depth 3 | Code analysis (query count) |
 | 2026-03-16 | 59 | Compress oversized logos + hero images | fastwrks 1.2MB, FM 968KB, heroes 761KB+747KB | fastwrks 62KB, FM 93KB, heroes 202KB+194KB | File size measurement |
 | 2026-03-16 | 59 | Browse page ISR: anonSupabase, auth/tier/locale to client overlay | 7 queries (3 seq + 2 parallel), depth 5, every request dynamic | 2-3 queries, depth 2-3, ISR-cached at CDN (5 min) | Code analysis + architecture change |
+| 2026-05-15 | 82 | Phase B agreement loop ship | 152 chunks / 5.4 MB / 553 KB largest | 153 chunks / 5.4 MB / 553 KB largest | Bundle measurement (`ls .next/static/chunks/`). Query structure unchanged on browse/markets/vendors/listing/dashboard — no perf-sensitive paths touched. |

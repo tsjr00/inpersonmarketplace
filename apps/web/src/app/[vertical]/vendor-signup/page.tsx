@@ -15,6 +15,7 @@ import type { Category } from "@/lib/constants";
 import CategoryDocumentUpload from "@/components/vendor/CategoryDocumentUpload";
 import FoodTruckPermitUpload from "@/components/vendor/FoodTruckPermitUpload";
 import COIUpload from "@/components/vendor/COIUpload";
+import MarketAgreementBlock from "@/components/market-manager/MarketAgreementBlock";
 
 type Field = {
   key: string;
@@ -53,6 +54,24 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
   // When set, renders a banner identifying the inviting market. Signup
   // behavior is otherwise unchanged.
   const [marketName, setMarketName] = useState<string | null>(null);
+
+  // Phase B agreement loop — extra state for the 4 user states the
+  // invite link handles. See market_manager_v2_plan.md §5 and
+  // phase_b_agreement_loop_plan_2026-05-15.md §5.
+  /** User's vendor_profile.id in this vertical, if one exists. Used to
+   *  distinguish State C (existing vendor not at market) from State B
+   *  (logged-in buyer with no vendor profile). */
+  const [vendorProfileId, setVendorProfileId] = useState<string | null>(null);
+  /** Whether the existing-vendor user is already at the inviting market.
+   *  null = unknown / not applicable. State D renders when true. */
+  const [isVendorAtThisMarket, setIsVendorAtThisMarket] = useState<boolean | null>(null);
+  /** Submit gate when ?market=<id> is set. Tracks the MarketAgreementBlock
+   *  checkbox value. */
+  const [agreementAccepted, setAgreementAccepted] = useState(false);
+  /** Loading state for the State C "Join this market" button. */
+  const [joiningMarket, setJoiningMarket] = useState(false);
+  /** Error state for the State C "Join this market" button. */
+  const [joinError, setJoinError] = useState<string | null>(null);
 
   // Step 2 state (post-submission: "Here's what you'll need")
   const [step, setStep] = useState<1 | 2>(1);
@@ -152,17 +171,40 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
           limit
         });
 
-        // If already in this market, redirect to vendor dashboard
-        if (alreadyInMarket) {
+        // Capture vendor profile id for THIS vertical — used by Phase B
+        // invite flow to detect State C (existing vendor not at this
+        // market) vs State D (existing vendor at this market).
+        const verticalProfile = existingProfiles.find(p => p.vertical_id === vertical);
+        const vpid = (verticalProfile?.id as string) ?? null;
+        if (vpid) setVendorProfileId(vpid);
+
+        const marketIdParam = searchParams.get('market');
+
+        // Standard flow: already a vendor here AND no manager invite →
+        // their dashboard. Phase B invite flow (marketIdParam set) skips
+        // this redirect so the page can render States C or D below.
+        if (alreadyInMarket && !marketIdParam) {
           router.push(`/${vertical}/vendor/dashboard`);
           return;
+        }
+
+        // Phase B invite flow: existing vendor + ?market= → check if
+        // already at this market (State D) or not (State C).
+        if (alreadyInMarket && marketIdParam && vpid) {
+          const { data: mvRow } = await supabase
+            .from('market_vendors')
+            .select('id')
+            .eq('vendor_profile_id', vpid)
+            .eq('market_id', marketIdParam)
+            .maybeSingle();
+          setIsVendorAtThisMarket(!!mvRow);
         }
       }
 
       setAuthLoading(false);
     }
     checkAuthAndLimits();
-  }, [supabase, vertical, router]);
+  }, [supabase, vertical, router, searchParams]);
 
   useEffect(() => {
     async function load() {
@@ -236,6 +278,39 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
     setValues((prev) => ({ ...prev, [key]: val }));
   }
 
+  // Phase B State C handler — existing vendor self-joining a managed
+  // market via the invite link. Calls the new /api/vendor/markets/[id]/join
+  // endpoint which writes BOTH market_vendors and a
+  // vendor_market_agreement_acceptances row.
+  async function handleJoinMarket(marketIdParam: string) {
+    if (joiningMarket) return;
+    setJoinError(null);
+    if (!agreementAccepted) {
+      setJoinError("Please accept this market's agreement before joining.");
+      return;
+    }
+    setJoiningMarket(true);
+    try {
+      const res = await fetch(`/api/vendor/markets/${marketIdParam}/join`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agreement_accepted: true }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setJoinError(data.error || "Could not join this market");
+        setJoiningMarket(false);
+        return;
+      }
+      // Success — redirect to vendor dashboard. Manager will see this
+      // vendor in their "Pending approval" list.
+      router.push(`/${vertical}/vendor/dashboard`);
+    } catch {
+      setJoinError("Network error — please try again");
+      setJoiningMarket(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
@@ -287,6 +362,17 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
       return;
     }
 
+    // Phase B invite-flow gate: if signing up via a manager's invite link
+    // (?market=<id>), the market agreement checkbox must be checked.
+    // MarketAgreementBlock auto-fires onChange(true) when the manager has
+    // no statements, so this gate only bites when there's a real agreement
+    // to accept.
+    const marketIdParamForGate = searchParams.get('market');
+    if (marketIdParamForGate && !agreementAccepted) {
+      setFormError("Please accept this market's agreement before submitting.");
+      return;
+    }
+
     const payload: {
       kind: string;
       vertical: string;
@@ -294,6 +380,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
       data: Record<string, unknown>;
       referral_code?: string;
       market_id_from_invite?: string;
+      market_agreement_accepted?: boolean;
     } = {
       kind: "vendor_signup",
       vertical,
@@ -320,6 +407,10 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
     const marketIdFromInvite = searchParams.get('market');
     if (marketIdFromInvite) {
       payload.market_id_from_invite = marketIdFromInvite;
+      // Phase B agreement loop: signal acceptance so the server writes a
+      // vendor_market_agreement_acceptances row alongside the
+      // market_vendors auto-association.
+      payload.market_agreement_accepted = agreementAccepted;
     }
 
     setSubmitting(true);
@@ -550,8 +641,145 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
     );
   }
 
-  // Not logged in state
+  // Phase B States C + D — existing vendor in this vertical, landing via
+  // ?market=<id> invite link. The checkAuthAndLimits effect skipped the
+  // dashboard redirect and queried market_vendors to determine which.
+  {
+    const marketIdParam = searchParams.get('market');
+    if (
+      user &&
+      vendorProfileId &&
+      marketIdParam &&
+      isVendorAtThisMarket !== null
+    ) {
+      // State D — already at this market. Friendly informational page.
+      if (isVendorAtThisMarket) {
+        return (
+          <div style={pageStyle}>
+            <nav style={navStyle}>
+              <Link href={`/${vertical}`} style={logoStyle}>
+                {branding.brand_name}
+              </Link>
+              <Link
+                href={`/${vertical}/vendor/dashboard`}
+                style={{ color: colors.primary, textDecoration: 'none', fontWeight: typography.weights.semibold }}
+              >
+                Vendor Dashboard
+              </Link>
+            </nav>
+            <main style={mainStyle}>
+              <div style={cardStyle}>
+                <h1 style={headingStyle}>
+                  You&apos;re already at {marketName || 'this market'}
+                </h1>
+                <p style={subheadingStyle}>
+                  No action needed — you&apos;re associated with this market.
+                  Visit your vendor dashboard to manage your listings and see
+                  pickup details.
+                </p>
+                <div style={{ marginTop: spacing.md }}>
+                  <Link
+                    href={`/${vertical}/vendor/dashboard`}
+                    style={buttonPrimaryStyle}
+                  >
+                    Go to vendor dashboard
+                  </Link>
+                </div>
+              </div>
+            </main>
+          </div>
+        );
+      }
+
+      // State C — existing vendor NOT at this market yet. Show co-branded
+      // "Join [Market]" landing with agreement block + Join button.
+      return (
+        <div style={pageStyle}>
+          <nav style={navStyle}>
+            <Link href={`/${vertical}`} style={logoStyle}>
+              {branding.brand_name}
+            </Link>
+            <Link
+              href={`/${vertical}/vendor/dashboard`}
+              style={{ color: colors.primary, textDecoration: 'none', fontWeight: typography.weights.semibold }}
+            >
+              Vendor Dashboard
+            </Link>
+          </nav>
+          <main style={mainStyle}>
+            <div style={cardStyle}>
+              <h1 style={headingStyle}>
+                {marketName ? `${marketName} invited you` : "You're invited to join a market"}
+              </h1>
+              <p style={subheadingStyle}>
+                You&apos;re already a vendor on the platform.
+                {marketName ? ` ${marketName} ` : ' This market '}
+                requires every vendor to accept their agreement before they
+                appear in the manager&apos;s official vendor list. Review and
+                accept below — the manager reviews your association before
+                activating it.
+              </p>
+
+              <MarketAgreementBlock
+                marketId={marketIdParam}
+                onChange={setAgreementAccepted}
+              />
+
+              {joinError && (
+                <div style={{
+                  marginTop: spacing.sm,
+                  padding: spacing.sm,
+                  backgroundColor: '#f8d7da',
+                  color: '#721c24',
+                  border: '1px solid #f5c6cb',
+                  borderRadius: radius.sm,
+                  fontSize: typography.sizes.sm,
+                }}>
+                  {joinError}
+                </div>
+              )}
+
+              <div style={{ marginTop: spacing.md, display: 'flex', gap: spacing.sm, flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => handleJoinMarket(marketIdParam)}
+                  disabled={!agreementAccepted || joiningMarket}
+                  style={{
+                    ...buttonPrimaryStyle,
+                    opacity: (!agreementAccepted || joiningMarket) ? 0.6 : 1,
+                    cursor: (!agreementAccepted || joiningMarket) ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {joiningMarket ? 'Joining…' : `Join ${marketName || 'this market'}`}
+                </button>
+                <Link
+                  href={`/${vertical}/vendor/dashboard`}
+                  style={{
+                    ...buttonSecondaryStyle,
+                    backgroundColor: 'transparent',
+                  }}
+                >
+                  Skip for now
+                </Link>
+              </div>
+            </div>
+          </main>
+        </div>
+      );
+    }
+  }
+
+  // Not logged in state. Two variants:
+  //   - With ?market=<id> (State A — invite-flow landing): co-branded
+  //     "[Market] invited you" copy + agreement preview + Login/Create
+  //     Account buttons whose returnTo preserves the market id.
+  //   - Without ?market=<id> (default): the existing "Login Required" gate.
   if (!user) {
+    const marketIdParam = searchParams.get('market');
+    const targetPath = marketIdParam
+      ? `/${vertical}/vendor-signup?market=${marketIdParam}`
+      : `/${vertical}/vendor-signup`;
+    const returnTo = encodeURIComponent(targetPath);
+
     return (
       <div style={pageStyle}>
         <nav style={navStyle}>
@@ -562,15 +790,42 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
         </nav>
         <main style={mainStyle}>
           <div style={cardStyle}>
-            <h1 style={headingStyle}>Login Required</h1>
-            <p style={subheadingStyle}>
-              You must be logged in to register as a vendor.
-            </p>
+            {marketIdParam ? (
+              <>
+                <h1 style={headingStyle}>
+                  {marketName ? `${marketName} invited you` : "You're invited to join a market"}
+                </h1>
+                <p style={subheadingStyle}>
+                  Create an account to sign up as a vendor{marketName ? ` at ${marketName}` : ''}.
+                  After you finish your profile, the market manager reviews you
+                  before you appear in their official vendor list.
+                </p>
+                <p style={{ ...subheadingStyle, marginTop: spacing.sm, fontSize: typography.sizes.sm }}>
+                  Already have an account on the platform? Login below — your
+                  existing vendor profile will be associated with this market
+                  after you accept the agreement.
+                </p>
+                {/* Show statements info-only so they preview what they'll agree to.
+                    Actual acceptance is captured AFTER login when they hit the
+                    main signup form (Path 2). */}
+                <MarketAgreementBlock
+                  marketId={marketIdParam}
+                  onChange={() => {}}
+                />
+              </>
+            ) : (
+              <>
+                <h1 style={headingStyle}>Login Required</h1>
+                <p style={subheadingStyle}>
+                  You must be logged in to register as a vendor.
+                </p>
+              </>
+            )}
             <div style={{ marginTop: spacing.md, display: "flex", gap: spacing.sm }}>
-              <Link href={`/${vertical}/login`} style={buttonSecondaryStyle}>
+              <Link href={`/${vertical}/login?returnTo=${returnTo}`} style={buttonSecondaryStyle}>
                 Login
               </Link>
-              <Link href={`/${vertical}/signup?returnTo=${encodeURIComponent(`/${vertical}/vendor-signup`)}`} style={buttonPrimaryStyle}>
+              <Link href={`/${vertical}/signup?returnTo=${returnTo}`} style={buttonPrimaryStyle}>
                 Create Account
               </Link>
             </div>
@@ -1087,22 +1342,48 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
             </div>
           )}
 
+          {/* Phase B agreement loop — State B (logged-in buyer signing up
+              as a vendor via manager invite). MarketAgreementBlock renders
+              the manager's selected statements + a single "I agree" checkbox.
+              When the manager has no statements, the block auto-fires
+              onChange(true) and renders nothing — the gate then passes
+              automatically. */}
+          {(() => {
+            const mid = searchParams.get('market');
+            if (!mid) return null;
+            return (
+              <MarketAgreementBlock
+                marketId={mid}
+                onChange={setAgreementAccepted}
+              />
+            );
+          })()}
+
           {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={!Object.values(acknowledgments).every(v => v) || submitting}
-            style={{
-              ...buttonPrimaryStyle,
-              width: '100%',
-              padding: spacing.md,
-              fontSize: typography.sizes.lg,
-              opacity: (Object.values(acknowledgments).every(v => v) && !submitting) ? 1 : 0.6,
-              cursor: (Object.values(acknowledgments).every(v => v) && !submitting) ? "pointer" : "not-allowed",
-              boxShadow: (Object.values(acknowledgments).every(v => v) && !submitting) ? shadows.primary : 'none',
-            }}
-          >
-            {submitting ? "Submitting..." : "Submit Application"}
-          </button>
+          {(() => {
+            const inviteFlow = !!searchParams.get('market');
+            const allOk =
+              Object.values(acknowledgments).every(v => v) &&
+              !submitting &&
+              (!inviteFlow || agreementAccepted);
+            return (
+              <button
+                type="submit"
+                disabled={!allOk}
+                style={{
+                  ...buttonPrimaryStyle,
+                  width: '100%',
+                  padding: spacing.md,
+                  fontSize: typography.sizes.lg,
+                  opacity: allOk ? 1 : 0.6,
+                  cursor: allOk ? "pointer" : "not-allowed",
+                  boxShadow: allOk ? shadows.primary : 'none',
+                }}
+              >
+                {submitting ? "Submitting..." : "Submit Application"}
+              </button>
+            );
+          })()}
         </form>
       )}
       </>)}
