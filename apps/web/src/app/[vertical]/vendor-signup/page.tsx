@@ -93,6 +93,22 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
    *  determines whether their existing onboarding docs are visible to
    *  the manager. Stored alongside the market opt-in acceptance. */
   const [infoSharingAccepted, setInfoSharingAccepted] = useState(false);
+  /** B-close-3 (2026-05-16) — staleness of the vendor's latest acceptance
+   *  for this market. When `is_stale=true`, State D renders the re-accept
+   *  block instead of the "you're already here" friendly message.
+   *  null = not yet fetched / not applicable. */
+  const [agreementStaleness, setAgreementStaleness] = useState<{
+    is_stale: boolean;
+    current_version: string;
+    last_accepted_version: string | null;
+    has_any_acceptance: boolean;
+  } | null>(null);
+  /** State D re-accept button loading state. */
+  const [reAccepting, setReAccepting] = useState(false);
+  /** State D re-accept error message. */
+  const [reAcceptError, setReAcceptError] = useState<string | null>(null);
+  /** State D re-accept success — flips render to a "you're up to date" thank-you. */
+  const [reAcceptDone, setReAcceptDone] = useState(false);
 
   // Step 2 state (post-submission: "Here's what you'll need")
   const [step, setStep] = useState<1 | 2>(1);
@@ -228,6 +244,24 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
             .eq('market_id', marketIdParam)
             .maybeSingle();
           setIsVendorAtThisMarket(!!mvRow);
+          // B-close-3: when vendor IS at this market, check whether
+          // their latest acceptance is stale vs the manager's current
+          // statements. If stale, State D renders a re-accept block
+          // instead of the friendly message.
+          if (mvRow) {
+            try {
+              const statusRes = await fetch(
+                `/api/vendor/markets/${marketIdParam}/agreement-status`
+              );
+              if (statusRes.ok) {
+                const status = await statusRes.json();
+                setAgreementStaleness(status);
+              }
+            } catch {
+              // Best-effort — if the staleness check fails, State D
+              // falls back to the friendly "you're already here" view.
+            }
+          }
         }
       }
 
@@ -345,6 +379,47 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
     }
   }
 
+  // Phase B State D handler — re-accept the updated agreement. Same
+  // endpoint as the initial join (idempotent on UNIQUE constraint),
+  // info_sharing_accepted=false so we don't overwrite the existing
+  // info-sharing consent record on file. Vendor stays at the market
+  // either way (market_vendors row already exists).
+  async function handleReAccept(marketIdParam: string) {
+    if (reAccepting) return;
+    setReAcceptError(null);
+    if (!agreementAccepted) {
+      setReAcceptError("Please accept the updated agreement before continuing.");
+      return;
+    }
+    setReAccepting(true);
+    try {
+      const res = await fetch(`/api/vendor/markets/${marketIdParam}/join`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agreement_accepted: true,
+          // Do NOT re-send info_sharing_accepted=true here — that would
+          // append another synthetic snapshot entry. Existing consent
+          // (if granted previously) is preserved by the prior row.
+          info_sharing_accepted: false,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setReAcceptError(data.error || "Could not record acceptance");
+        setReAccepting(false);
+        return;
+      }
+      setReAcceptDone(true);
+      // Refresh staleness so the page reflects the new fresh state.
+      setAgreementStaleness((prev) => prev ? { ...prev, is_stale: false, last_accepted_version: prev.current_version } : prev);
+      setReAccepting(false);
+    } catch {
+      setReAcceptError("Network error — please try again");
+      setReAccepting(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
@@ -397,13 +472,19 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
     }
 
     // Phase B invite-flow gate: if signing up via a manager's invite link
-    // (?market=<id>), the market agreement checkbox must be checked.
+    // (?market=<id>), both consent checkboxes must be checked — the
+    // market agreement AND the info-sharing authorization. Mirrors State C
+    // gating so the new-vendor path captures the same consent shape.
     // MarketAgreementBlock auto-fires onChange(true) when the manager has
-    // no statements, so this gate only bites when there's a real agreement
-    // to accept.
+    // no statements, so the agreement gate only bites when there's a real
+    // agreement to accept.
     const marketIdParamForGate = searchParams.get('market');
     if (marketIdParamForGate && !agreementAccepted) {
       setFormError("Please accept this market's agreement before submitting.");
+      return;
+    }
+    if (marketIdParamForGate && !infoSharingAccepted) {
+      setFormError("Please authorize info sharing with the market manager before submitting.");
       return;
     }
 
@@ -415,6 +496,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
       referral_code?: string;
       market_id_from_invite?: string;
       market_agreement_accepted?: boolean;
+      info_sharing_accepted?: boolean;
     } = {
       kind: "vendor_signup",
       vertical,
@@ -443,8 +525,11 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
       payload.market_id_from_invite = marketIdFromInvite;
       // Phase B agreement loop: signal acceptance so the server writes a
       // vendor_market_agreement_acceptances row alongside the
-      // market_vendors auto-association.
+      // market_vendors auto-association. info_sharing_accepted carries
+      // the second consent — when true, /api/submit appends the synthetic
+      // `_info_sharing_consent` entry to the snapshot (mirrors State C).
       payload.market_agreement_accepted = agreementAccepted;
+      payload.info_sharing_accepted = infoSharingAccepted;
     }
 
     setSubmitting(true);
@@ -686,8 +771,16 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
       marketIdParam &&
       isVendorAtThisMarket !== null
     ) {
-      // State D — already at this market. Friendly informational page.
+      // State D — already at this market. Three sub-states based on
+      // B-close-3 staleness check:
+      //   - reAcceptDone     → "Thanks, you're up to date" + dashboard link
+      //   - staleness.is_stale (and has any acceptance OR not)
+      //                      → re-accept block with the updated agreement
+      //   - default          → friendly "you're already here" message
       if (isVendorAtThisMarket) {
+        const marketLabelD = marketName || 'this market';
+        const showReAccept =
+          agreementStaleness !== null && agreementStaleness.is_stale && !reAcceptDone;
         return (
           <div style={pageStyle}>
             <nav style={navStyle}>
@@ -703,22 +796,81 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
             </nav>
             <main style={mainStyle}>
               <div style={cardStyle}>
-                <h1 style={headingStyle}>
-                  You&apos;re already at {marketName || 'this market'}
-                </h1>
-                <p style={subheadingStyle}>
-                  No action needed — you&apos;re associated with this market.
-                  Visit your vendor dashboard to manage your listings and see
-                  pickup details.
-                </p>
-                <div style={{ marginTop: spacing.md }}>
-                  <Link
-                    href={`/${vertical}/vendor/dashboard`}
-                    style={buttonPrimaryStyle}
-                  >
-                    Go to vendor dashboard
-                  </Link>
-                </div>
+                {showReAccept ? (
+                  <>
+                    <h1 style={headingStyle}>
+                      {marketLabelD} updated their agreement
+                    </h1>
+                    <p style={subheadingStyle}>
+                      The manager has updated the agreement statements for
+                      this market. Please review and re-accept to keep your
+                      association current. Your existing association and any
+                      info-sharing consent you&apos;ve granted stay in place.
+                    </p>
+                    <MarketAgreementBlock
+                      marketId={marketIdParam}
+                      onChange={setAgreementAccepted}
+                    />
+                    {reAcceptError && (
+                      <div style={{
+                        marginTop: spacing.sm,
+                        padding: spacing.sm,
+                        backgroundColor: '#f8d7da',
+                        color: '#721c24',
+                        border: '1px solid #f5c6cb',
+                        borderRadius: radius.sm,
+                        fontSize: typography.sizes.sm,
+                      }}>
+                        {reAcceptError}
+                      </div>
+                    )}
+                    <div style={{ marginTop: spacing.md, display: 'flex', gap: spacing.sm, flexWrap: 'wrap' }}>
+                      <button
+                        onClick={() => handleReAccept(marketIdParam)}
+                        disabled={reAccepting || !agreementAccepted}
+                        style={{
+                          ...buttonPrimaryStyle,
+                          opacity: (reAccepting || !agreementAccepted) ? 0.6 : 1,
+                          cursor: (reAccepting || !agreementAccepted) ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        {reAccepting ? 'Saving…' : 'Re-accept updated agreement'}
+                      </button>
+                      <Link
+                        href={`/${vertical}/vendor/dashboard`}
+                        style={{
+                          ...buttonPrimaryStyle,
+                          backgroundColor: 'transparent',
+                          color: colors.textMuted,
+                          border: `1px solid ${colors.border}`,
+                        }}
+                      >
+                        Skip for now
+                      </Link>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <h1 style={headingStyle}>
+                      {reAcceptDone
+                        ? `Thanks — you're up to date at ${marketLabelD}`
+                        : `You're already at ${marketLabelD}`}
+                    </h1>
+                    <p style={subheadingStyle}>
+                      {reAcceptDone
+                        ? 'Your acceptance was recorded. Visit your vendor dashboard to manage your listings.'
+                        : 'No action needed — you’re associated with this market. Visit your vendor dashboard to manage your listings and see pickup details.'}
+                    </p>
+                    <div style={{ marginTop: spacing.md }}>
+                      <Link
+                        href={`/${vertical}/vendor/dashboard`}
+                        style={buttonPrimaryStyle}
+                      >
+                        Go to vendor dashboard
+                      </Link>
+                    </div>
+                  </>
+                )}
               </div>
             </main>
           </div>
@@ -1455,19 +1607,56 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
           )}
 
           {/* Phase B agreement loop — State B (logged-in buyer signing up
-              as a vendor via manager invite). MarketAgreementBlock renders
-              the manager's selected statements + a single "I agree" checkbox.
-              When the manager has no statements, the block auto-fires
-              onChange(true) and renders nothing — the gate then passes
-              automatically. */}
+              as a vendor via manager invite). Two consent checkboxes:
+              info-sharing authorization (mirrors State C) + the market
+              agreement block. MarketAgreementBlock auto-fires
+              onChange(true) when the manager has no statements; the
+              info-sharing checkbox is always shown for invite flows
+              regardless of the manager's agreement state. */}
           {(() => {
             const mid = searchParams.get('market');
             if (!mid) return null;
+            const marketLabel = marketName ?? 'this market';
             return (
-              <MarketAgreementBlock
-                marketId={mid}
-                onChange={setAgreementAccepted}
-              />
+              <>
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: spacing.xs,
+                  marginTop: spacing.md,
+                  marginBottom: spacing.sm,
+                  padding: spacing.sm,
+                  backgroundColor: colors.surfaceElevated,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: radius.sm,
+                  cursor: 'pointer',
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={infoSharingAccepted}
+                    onChange={(e) => setInfoSharingAccepted(e.target.checked)}
+                    style={{
+                      marginTop: 3,
+                      width: 18,
+                      height: 18,
+                      cursor: 'pointer',
+                    }}
+                  />
+                  <span style={{
+                    fontSize: typography.sizes.sm,
+                    color: colors.textPrimary,
+                    fontWeight: typography.weights.semibold,
+                    lineHeight: 1.4,
+                  }}>
+                    I authorize {branding.brand_name} to share my vendor
+                    onboarding information with the manager of {marketLabel}.
+                  </span>
+                </label>
+                <MarketAgreementBlock
+                  marketId={mid}
+                  onChange={setAgreementAccepted}
+                />
+              </>
             );
           })()}
 
@@ -1477,7 +1666,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
             const allOk =
               Object.values(acknowledgments).every(v => v) &&
               !submitting &&
-              (!inviteFlow || agreementAccepted);
+              (!inviteFlow || (agreementAccepted && infoSharingAccepted));
             return (
               <button
                 type="submit"

@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { sendNotification } from '@/lib/notifications'
 
 /**
  * PATCH /api/market-manager/[marketId]/vendor-approval
@@ -82,6 +83,60 @@ export async function PATCH(
         { error: 'Vendor not associated with this market' },
         { status: 404 }
       )
+    }
+
+    // B-close-2 (2026-05-16): notify the vendor when their approval was
+    // GRANTED (false → true). Silent on revoke (true → false) — revokes
+    // are corrective actions the manager takes; no vendor-facing alert
+    // beyond the dashboard state change. sendNotification is non-throwing
+    // and uses fire-and-await pattern per existing call sites.
+    if (approved === true) {
+      // Look up vendor's user_id + market metadata for the notification.
+      crumb.supabase('select', 'vendor_profiles')
+      const { data: vp } = await serviceClient
+        .from('vendor_profiles')
+        .select('user_id, vertical_id, profile_data')
+        .eq('id', vendorProfileId)
+        .maybeSingle()
+
+      crumb.supabase('select', 'markets')
+      const { data: market } = await serviceClient
+        .from('markets')
+        .select('name, vertical_id')
+        .eq('id', marketId)
+        .maybeSingle()
+
+      // Vendor email is in auth.users (not vendor_profiles.profile_data
+      // reliably) — fetch separately for the email channel.
+      let vendorEmail: string | null = null
+      if (vp?.user_id) {
+        const { data: authUser } = await serviceClient.auth.admin.getUserById(
+          vp.user_id as string
+        )
+        vendorEmail = authUser?.user?.email ?? null
+      }
+
+      if (vp?.user_id) {
+        const profileData = (vp.profile_data || {}) as Record<string, unknown>
+        const vendorName =
+          (profileData.business_name as string | undefined) ||
+          (profileData.farm_name as string | undefined) ||
+          undefined
+
+        await sendNotification(
+          vp.user_id as string,
+          'vendor_market_approval_granted',
+          {
+            marketName: (market?.name as string | undefined) || 'the market',
+            ...(vendorName ? { vendorName } : {}),
+            marketId,
+          },
+          {
+            vertical: (market?.vertical_id as string | undefined) || (vp.vertical_id as string | undefined) || 'farmers_market',
+            ...(vendorEmail ? { userEmail: vendorEmail } : {}),
+          }
+        )
+      }
     }
 
     return NextResponse.json({

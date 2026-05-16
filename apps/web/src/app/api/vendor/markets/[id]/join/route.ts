@@ -4,6 +4,7 @@ import { withErrorTracing, traced, crumb, logError } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import { fetchMarketOptinForVendor } from '@/lib/markets/optin-public'
+import { computeAgreementVersionFromSnapshot } from '@/lib/markets/agreement-version'
 
 /**
  * POST /api/vendor/markets/[id]/join
@@ -70,10 +71,17 @@ export async function POST(
     if (body?.agreement_accepted !== true) {
       throw traced.validation('ERR_VALIDATION_001', 'agreement_accepted must be true')
     }
-    const agreementVersion: string | null =
+    // B-close-3 (2026-05-16): agreement_version is now AUTO-COMPUTED from
+    // the current statements snapshot — caller's body.agreement_version
+    // (if supplied) is ignored. Deterministic hash makes re-acceptance
+    // of the same statement set idempotent (UNIQUE conflict caught
+    // below as 23505 → treated as success). Different statements → new
+    // hash → new row inserted, audit trail preserved.
+    const _ignoredClientVersion: string | null =
       typeof body?.agreement_version === 'string' && body.agreement_version.length > 0
         ? body.agreement_version
         : null
+    void _ignoredClientVersion
     // Phase B State C captures a second consent: info-sharing
     // authorization (the existing-vendor "we can fast-track by sharing
     // your onboarding docs with the manager — authorize us"). Recorded
@@ -111,6 +119,12 @@ export async function POST(
 
     // Build the acceptance snapshot from the manager's current selections.
     const { snapshot } = await fetchMarketOptinForVendor(marketId)
+
+    // Auto-compute agreement version from the snapshot's statement IDs.
+    // Synthetic entries (statement_id starting with '_') are excluded
+    // from the hash so info-sharing-only changes don't trigger
+    // re-acceptance of the agreement itself.
+    const agreementVersion = computeAgreementVersionFromSnapshot(snapshot)
 
     // If info-sharing was authorized, append a synthetic snapshot entry
     // so the consent is captured in the same JSONB record as the opt-in

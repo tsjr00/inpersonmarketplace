@@ -65,6 +65,7 @@ export type NotificationType =
   | 'coi_approved'
   | 'coi_rejected'
   | 'market_approved'
+  | 'vendor_market_approval_granted'
   | 'pickup_confirmation_needed'
   | 'pickup_issue_reported'
   | 'inventory_low_stock'
@@ -529,6 +530,23 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     audience: 'vendor',
     title: (_d, locale) => t('notif.market_approved_title', locale),
     message: (d) => `Your market "${d.marketName}" has been approved and is now live.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/markets`,
+  },
+
+  // B-close-2 (2026-05-16): manager approved this vendor for their market.
+  // Fires from /api/market-manager/[marketId]/vendor-approval when the
+  // manager flips approved=true. Distinct from `vendor_approved` (which
+  // is platform-level onboarding approval); this is per-market.
+  vendor_market_approval_granted: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: (d) =>
+      d.marketName
+        ? `You're approved at ${d.marketName}`
+        : `You're approved at a new market`,
+    message: (d) =>
+      `The manager of ${d.marketName || 'the market'} approved your vendor association. You're now active and visible to buyers at this market.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/markets`,
   },
 

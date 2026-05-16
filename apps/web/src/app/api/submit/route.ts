@@ -236,16 +236,45 @@ export async function POST(request: NextRequest) {
               const { fetchMarketOptinForVendor } = await import(
                 "@/lib/markets/optin-public"
               );
+              const { computeAgreementVersionFromSnapshot } = await import(
+                "@/lib/markets/agreement-version"
+              );
               const { snapshot } = await fetchMarketOptinForVendor(
                 marketIdFromInvite
               );
+              // B-close-1 (2026-05-16): mirror State C info-sharing
+              // capture on the new-vendor path. When info_sharing_accepted
+              // is true, append the synthetic `_info_sharing_consent`
+              // entry so manager-side consent detection works uniformly
+              // across both join flows (vendor-docs route + vendors
+              // route check the same snapshot shape).
+              const finalSnapshot =
+                body.info_sharing_accepted === true
+                  ? [
+                      ...snapshot,
+                      {
+                        statement_id: "_info_sharing_consent",
+                        category: "_meta",
+                        statement_text:
+                          "Vendor authorizes the platform to share their onboarding documentation with the market manager.",
+                        placeholder_values: {},
+                      },
+                    ]
+                  : snapshot;
+              // B-close-3 (2026-05-16): auto-compute agreement_version
+              // from the snapshot's real statement_ids (synthetic
+              // entries excluded). Matches the State C join path so
+              // both vendor-creation flows produce identical version
+              // strings for identical statement sets.
+              const autoVersion =
+                computeAgreementVersionFromSnapshot(snapshot);
               const { error: vmaaError } = await supabaseAdmin
                 .from("vendor_market_agreement_acceptances")
                 .insert({
                   vendor_profile_id: vendor.id,
                   market_id: marketIdFromInvite,
-                  statements_snapshot: snapshot,
-                  agreement_version: null,
+                  statements_snapshot: finalSnapshot,
+                  agreement_version: autoVersion,
                 });
               if (vmaaError && vmaaError.code !== "23505") {
                 console.warn(
