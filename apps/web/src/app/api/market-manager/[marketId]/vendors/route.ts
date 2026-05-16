@@ -92,6 +92,24 @@ export async function GET(
       (scheduleRows ?? []).map((r) => r.vendor_profile_id as string)
     )
 
+    // Phase B A1 (2026-05-16): fetch which vendors have authorized
+    // info-sharing for this market (synthetic `_info_sharing_consent`
+    // entry in the snapshot). Drives the "View docs" link in the
+    // manager UI vendor row + access gate to /vendor-docs/...
+    crumb.supabase('select', 'vendor_market_agreement_acceptances')
+    const { data: acceptanceRows } = await serviceClient
+      .from('vendor_market_agreement_acceptances')
+      .select('vendor_profile_id, statements_snapshot')
+      .eq('market_id', marketId)
+
+    const consentSet = new Set<string>()
+    for (const r of acceptanceRows ?? []) {
+      const snap = r.statements_snapshot as Array<{ statement_id?: string }> | null
+      if (Array.isArray(snap) && snap.some((s) => s?.statement_id === '_info_sharing_consent')) {
+        consentSet.add(r.vendor_profile_id as string)
+      }
+    }
+
     const vendors = (rows || []).map((row) => {
       const vp = row.vendor_profiles as unknown as
         | { id: string; status: string; profile_data: Record<string, unknown> | null }
@@ -112,6 +130,7 @@ export async function GET(
         vendor_status: (profile?.status as string | null) ?? null,
         on_platform: true as const,
         is_active_schedule: activeScheduleSet.has(row.vendor_profile_id as string),
+        has_info_sharing_consent: consentSet.has(row.vendor_profile_id as string),
         created_at: row.created_at as string,
       }
     })

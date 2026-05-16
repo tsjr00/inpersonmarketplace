@@ -13,10 +13,16 @@ interface Vendor {
   vendor_status: string | null
   on_platform: true
   is_active_schedule: boolean
+  has_info_sharing_consent: boolean
 }
 
 interface VendorBoothListProps {
   marketId: string
+  /** When set, the component renders a "View docs" link for each vendor
+   *  whose has_info_sharing_consent is true. The link points to
+   *  /[vertical]/market-manager/[marketId]/vendor-docs/[vendorProfileId].
+   *  Component-internal so the dashboard caller doesn't need to wire it. */
+  vertical?: string
 }
 
 type FilterMode = 'active' | 'needs_booth' | 'pending_approval' | 'all'
@@ -50,7 +56,7 @@ type FilterMode = 'active' | 'needs_booth' | 'pending_approval' | 'all'
  *  - PATCH /api/market-manager/[marketId]/vendor-booth       per row save
  *  - PATCH /api/market-manager/[marketId]/vendor-approval    per row approve
  */
-export default function VendorBoothList({ marketId }: VendorBoothListProps) {
+export default function VendorBoothList({ marketId, vertical }: VendorBoothListProps) {
   const [vendors, setVendors] = useState<Vendor[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [filter, setFilter] = useState<FilterMode>('active')
@@ -277,8 +283,24 @@ export default function VendorBoothList({ marketId }: VendorBoothListProps) {
               }}
             >
               <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-                <div style={{ fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm, color: colors.textPrimary }}>
-                  {v.business_name}
+                <div style={{ fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm, color: colors.textPrimary, display: 'flex', alignItems: 'baseline', gap: spacing['2xs'], flexWrap: 'wrap' }}>
+                  <span>{v.business_name}</span>
+                  {/* "View docs" link — only renders when the vendor has
+                      authorized info-sharing for this market via the
+                      State C info-sharing checkbox (A1, 2026-05-16). */}
+                  {v.has_info_sharing_consent && vertical && (
+                    <a
+                      href={`/${vertical}/market-manager/${marketId}/vendor-docs/${v.vendor_profile_id}`}
+                      style={{
+                        fontSize: typography.sizes.xs,
+                        color: colors.primary,
+                        textDecoration: 'underline',
+                        fontWeight: typography.weights.normal,
+                      }}
+                    >
+                      View docs →
+                    </a>
+                  )}
                 </div>
                 <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, display: 'flex', gap: spacing['2xs'], flexWrap: 'wrap' }}>
                   <span>{v.approved ? '✅ Approved' : '⏳ Pending approval'}</span>

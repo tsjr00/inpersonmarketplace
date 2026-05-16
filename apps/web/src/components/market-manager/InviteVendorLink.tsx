@@ -7,6 +7,12 @@ interface InviteVendorLinkProps {
   vertical: string
   marketId: string
   marketName: string
+  /** When false, the copy button is disabled and a "complete setup
+   *  first" notice is shown. Prevents managers from inviting vendors
+   *  before they've selected booth inventory + opt-in statements
+   *  (which would result in an incomplete invite landing for the
+   *  vendor). Locked decision from Phase B planning. */
+  onboardingComplete?: boolean
 }
 
 /**
@@ -24,7 +30,7 @@ interface InviteVendorLinkProps {
  * referrals; reusing the param would cause confusion. The presence of
  * `?market=` alone is the signal that this came from a manager invite.
  */
-export default function InviteVendorLink({ vertical, marketId, marketName }: InviteVendorLinkProps) {
+export default function InviteVendorLink({ vertical, marketId, marketName, onboardingComplete = true }: InviteVendorLinkProps) {
   const [url, setUrl] = useState('')
   const [copied, setCopied] = useState(false)
 
@@ -33,7 +39,7 @@ export default function InviteVendorLink({ vertical, marketId, marketName }: Inv
   }, [vertical, marketId])
 
   const handleCopy = async () => {
-    if (!url) return
+    if (!url || !onboardingComplete) return
     try {
       await navigator.clipboard.writeText(url)
       setCopied(true)
@@ -42,6 +48,30 @@ export default function InviteVendorLink({ vertical, marketId, marketName }: Inv
       // Clipboard API may fail in older browsers / non-https contexts;
       // user can still select-all-and-copy from the input directly.
     }
+  }
+
+  // Gated state — manager hasn't finished setup. The invite landing
+  // would render an incomplete agreement (or none at all) so we don't
+  // let them share the URL until the wizard is done.
+  if (!onboardingComplete) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+        <div style={{
+          padding: spacing.sm,
+          backgroundColor: '#fef3c7',
+          border: '1px solid #fde047',
+          borderRadius: radius.sm,
+          fontSize: typography.sizes.sm,
+          color: '#713f12',
+          lineHeight: 1.5,
+        }}>
+          <strong>Complete your setup first.</strong> The invite link will be
+          available once you&apos;ve added booth inventory and selected at
+          least one vendor agreement statement. Until then, the invite
+          landing wouldn&apos;t show vendors what they&apos;re agreeing to.
+        </div>
+      </div>
+    )
   }
 
   return (

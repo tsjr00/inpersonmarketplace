@@ -48,10 +48,10 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
   }
 
   // User is the manager — fetch the market row for display.
-  // `logo_url` (mig 140) powers the Branding card.
+  // `logo_url` (mig 140) + `description` power the Branding card.
   const { data: market } = await supabase
     .from('markets')
-    .select('id, name, address, city, state, market_type, timezone, logo_url')
+    .select('id, name, address, city, state, market_type, timezone, logo_url, description')
     .eq('id', marketId)
     .single()
 
@@ -121,6 +121,7 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
       <MarketBrandingCard
         marketId={marketId}
         initialLogoUrl={(market.logo_url as string | null) ?? null}
+        initialDescription={(market.description as string | null) ?? null}
       />
 
       {/* Booth inventory — manage size tiers + per-week prices */}
@@ -231,7 +232,7 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           Assign booth numbers to vendors who are on the platform and at this
           market. Off-platform vendor placeholders ship in a later update.
         </p>
-        <VendorBoothList marketId={marketId} />
+        <VendorBoothList marketId={marketId} vertical={vertical} />
       </div>
 
       {/* Invite a vendor — copy-able co-branded signup link */}
@@ -260,7 +261,12 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
         }}>
           Share this link with a vendor you&apos;d like to bring to your market. They&apos;ll see a banner identifying your market on the standard signup page.
         </p>
-        <InviteVendorLink vertical={vertical} marketId={marketId} marketName={market.name as string} />
+        <InviteVendorLink
+          vertical={vertical}
+          marketId={marketId}
+          marketName={market.name as string}
+          onboardingComplete={onboardingProgress.required_complete === onboardingProgress.required_total}
+        />
       </div>
 
       {/* Opt-in vendor agreement statements — manager picks which ones

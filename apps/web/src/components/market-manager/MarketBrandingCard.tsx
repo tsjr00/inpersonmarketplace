@@ -5,25 +5,30 @@ import { useRouter } from 'next/navigation'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 
 /**
- * Manager dashboard card for market co-branding. v1 scope (Phase B):
- *   - Upload / replace / remove a logo image
- *   - Logo renders on the public market profile page and on the
- *     vendor invite landing
+ * Manager dashboard card for market co-branding.
  *
- * Description editing and color theming are deferred — `markets.description`
- * is editable via the admin path today; a separate manager-side description
- * editor can land in a follow-up.
+ * Sections:
+ *   1. Logo — upload / replace / remove. Renders on public market
+ *      profile + vendor invite landing.
+ *   2. Description (A3, 2026-05-16) — short text the manager controls.
+ *      Renders on public market profile + invite landing intro.
  *
- * API: POST/DELETE /api/market-manager/[marketId]/logo
+ * APIs:
+ *   POST/DELETE /api/market-manager/[marketId]/logo
+ *   PATCH       /api/market-manager/[marketId]/branding   (description)
  */
 interface MarketBrandingCardProps {
   marketId: string
   initialLogoUrl: string | null
+  initialDescription: string | null
 }
+
+const DESCRIPTION_MAX = 1000
 
 export default function MarketBrandingCard({
   marketId,
   initialLogoUrl,
+  initialDescription,
 }: MarketBrandingCardProps) {
   const router = useRouter()
   const [logoUrl, setLogoUrl] = useState<string | null>(initialLogoUrl)
@@ -31,6 +36,12 @@ export default function MarketBrandingCard({
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // Description editor state
+  const [description, setDescription] = useState<string>(initialDescription ?? '')
+  const [savedDescription, setSavedDescription] = useState<string>(initialDescription ?? '')
+  const [savingDescription, setSavingDescription] = useState(false)
+  const [descriptionError, setDescriptionError] = useState<string | null>(null)
+  const [descriptionSavedFlash, setDescriptionSavedFlash] = useState(false)
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -66,6 +77,38 @@ export default function MarketBrandingCard({
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const handleSaveDescription = async () => {
+    setDescriptionError(null)
+    setDescriptionSavedFlash(false)
+    if (description.length > DESCRIPTION_MAX) {
+      setDescriptionError(`Description must be ${DESCRIPTION_MAX} characters or fewer.`)
+      return
+    }
+    setSavingDescription(true)
+    try {
+      const res = await fetch(`/api/market-manager/${marketId}/branding`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: description.trim() || null }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setDescriptionError(data.error || 'Failed to save description')
+        return
+      }
+      const saved = (data.description ?? '') as string
+      setDescription(saved)
+      setSavedDescription(saved)
+      setDescriptionSavedFlash(true)
+      setTimeout(() => setDescriptionSavedFlash(false), 2000)
+      router.refresh()
+    } catch {
+      setDescriptionError('Network error — please try again')
+    } finally {
+      setSavingDescription(false)
     }
   }
 
@@ -245,6 +288,112 @@ export default function MarketBrandingCard({
       }}>
         JPG, PNG, GIF, or WebP. Max 3 MB. Square images render best.
       </p>
+
+      {/* Description editor (A3, 2026-05-16). Writes to markets.description
+          via PATCH /api/market-manager/[marketId]/branding. Renders on the
+          public market profile page + the vendor invite landing intro. */}
+      <div style={{
+        marginTop: spacing.lg,
+        paddingTop: spacing.md,
+        borderTop: `1px solid ${colors.border}`,
+      }}>
+        <h3 style={{
+          marginTop: 0,
+          marginBottom: spacing['2xs'],
+          fontSize: typography.sizes.base,
+          fontWeight: typography.weights.semibold,
+          color: colors.textPrimary,
+        }}>
+          Market description
+        </h3>
+        <p style={{
+          margin: 0,
+          marginBottom: spacing.sm,
+          fontSize: typography.sizes.sm,
+          color: colors.textMuted,
+          lineHeight: 1.5,
+        }}>
+          A short blurb about your market — what makes it special, what
+          vendors should know. Appears on your public market profile and
+          on the vendor invite page.
+        </p>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="What makes your market special? Who comes? What do you focus on?"
+          rows={4}
+          maxLength={DESCRIPTION_MAX}
+          disabled={savingDescription}
+          style={{
+            width: '100%',
+            padding: spacing.xs,
+            fontSize: typography.sizes.sm,
+            border: `1px solid ${colors.border}`,
+            borderRadius: radius.sm,
+            fontFamily: 'inherit',
+            resize: 'vertical',
+            boxSizing: 'border-box',
+            color: colors.textPrimary,
+            backgroundColor: colors.surfaceBase,
+          }}
+        />
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginTop: spacing['2xs'],
+          gap: spacing.sm,
+          flexWrap: 'wrap',
+        }}>
+          <span style={{
+            fontSize: typography.sizes.xs,
+            color: colors.textMuted,
+          }}>
+            {description.length}/{DESCRIPTION_MAX}
+          </span>
+          <div style={{ display: 'flex', gap: spacing.xs, alignItems: 'center' }}>
+            {descriptionSavedFlash && (
+              <span style={{
+                fontSize: typography.sizes.xs,
+                color: '#155724',
+                fontWeight: typography.weights.semibold,
+              }}>
+                ✓ Saved
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={handleSaveDescription}
+              disabled={savingDescription || description === savedDescription}
+              style={{
+                padding: `${spacing['3xs']} ${spacing.sm}`,
+                backgroundColor: (savingDescription || description === savedDescription) ? colors.surfaceBase : colors.primary,
+                color: (savingDescription || description === savedDescription) ? colors.textMuted : 'white',
+                border: `1px solid ${(savingDescription || description === savedDescription) ? colors.border : colors.primary}`,
+                borderRadius: radius.sm,
+                fontSize: typography.sizes.sm,
+                fontWeight: typography.weights.semibold,
+                cursor: (savingDescription || description === savedDescription) ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {savingDescription ? 'Saving…' : 'Save description'}
+            </button>
+          </div>
+        </div>
+        {descriptionError && (
+          <div style={{
+            marginTop: spacing.xs,
+            padding: spacing.xs,
+            backgroundColor: '#f8d7da',
+            color: '#721c24',
+            border: '1px solid #f5c6cb',
+            borderRadius: radius.sm,
+            fontSize: typography.sizes.sm,
+          }}>
+            {descriptionError}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
