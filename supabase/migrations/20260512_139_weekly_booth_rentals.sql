@@ -1,5 +1,30 @@
 -- Migration 139: weekly_booth_rentals
 --
+-- =============================================================================
+-- ROLLBACK
+-- =============================================================================
+-- To revert this migration on any environment, run as a single transaction:
+--
+--   BEGIN;
+--   DROP TRIGGER IF EXISTS trg_wbr_inventory_market ON weekly_booth_rentals;
+--   DROP TRIGGER IF EXISTS trg_wbr_updated_at ON weekly_booth_rentals;
+--   DROP FUNCTION IF EXISTS check_weekly_booth_rental_inventory_market();
+--   DROP FUNCTION IF EXISTS update_weekly_booth_rentals_updated_at();
+--   DROP TABLE IF EXISTS weekly_booth_rentals CASCADE;
+--   NOTIFY pgrst, 'reload schema';
+--   COMMIT;
+--
+-- Risk profile:
+--   PRE-application or DEV-only: zero data loss; safe.
+--   POST-application on Staging/Prod where vendors have placed bookings:
+--     ROLLBACK DELETES ALL BOOKING HISTORY. Coordinate with the user
+--     before running — there is no undo for the booking record loss.
+--   The CASCADE handles Phase C dependents (Stripe column data, etc.).
+--
+-- Dependency: mig 138 (vendor_market_agreement_acceptances) MUST be
+--   applied first — agreement_acceptance_id FK below depends on it.
+-- =============================================================================
+--
 -- Tracks weekly booth rental bookings (vendor → market → week → booth
 -- inventory tier). Per Market Manager v2 plan §5 — foundation for the
 -- Phase B booking flow + Phase C payment integration.

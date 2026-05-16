@@ -11,6 +11,7 @@ import OptinManager from '@/components/market-manager/OptinManager'
 import OnboardingChecklist from '@/components/market-manager/OnboardingChecklist'
 import MarketBrandingCard from '@/components/market-manager/MarketBrandingCard'
 import MarketTransactionsCard from '@/components/market-manager/MarketTransactionsCard'
+import WeeklyBookingsCard from '@/components/market-manager/WeeklyBookingsCard'
 import MarketScheduleCard from '@/components/market-manager/MarketScheduleCard'
 import ManagerSupportCard from '@/components/market-manager/ManagerSupportCard'
 import InviteVendorLink from '@/components/market-manager/InviteVendorLink'
@@ -144,6 +145,11 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
       {/* Aggregate transactions — gross sales activity across 3 windows.
           Phase D.1 (2026-05-16). Renders nothing if all windows are empty. */}
       <MarketTransactionsCard aggregates={transactionsAggregates} />
+
+      {/* Weekly booth rental bookings (Phase C Stage 1, 2026-05-16).
+          Renders nothing when no bookings exist. Read-only display in
+          this stage — booth-number editor + payment ship in next stages. */}
+      <WeeklyBookingsCard marketId={marketId} marketTimezone={(market.timezone as string | null) ?? null} />
 
       {/* Branding — upload logo for public market profile + invite landing
           (mig 140, Phase B 2026-05-16). Optional; no setup gating. */}
@@ -360,7 +366,8 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           fontSize: typography.sizes.sm,
           lineHeight: 1.6,
         }}>
-          <li>Weekly booth rental bookings + payment via the platform</li>
+          <li>Online payment for booth rentals (Stripe Connect for managers — coming in the next update)</li>
+          <li>Manager-side booth number assignment for new bookings</li>
           <li>Post-market vendor + buyer surveys</li>
           <li>Share tools for market-day social promotion</li>
         </ul>
