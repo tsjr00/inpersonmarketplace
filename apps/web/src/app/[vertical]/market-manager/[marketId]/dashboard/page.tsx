@@ -9,6 +9,7 @@ import BoothInventoryManager from '@/components/market-manager/BoothInventoryMan
 import BoothPlaceholderManager from '@/components/market-manager/BoothPlaceholderManager'
 import OptinManager from '@/components/market-manager/OptinManager'
 import OnboardingChecklist from '@/components/market-manager/OnboardingChecklist'
+import MarketBrandingCard from '@/components/market-manager/MarketBrandingCard'
 import InviteVendorLink from '@/components/market-manager/InviteVendorLink'
 import ManagerActionSummary from '@/components/market-manager/ManagerActionSummary'
 import { getManagerDashboardStats } from '@/lib/markets/manager-dashboard-stats'
@@ -46,10 +47,11 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
     redirect(`/${vertical}/dashboard`)
   }
 
-  // User is the manager — fetch the market row for display
+  // User is the manager — fetch the market row for display.
+  // `logo_url` (mig 140) powers the Branding card.
   const { data: market } = await supabase
     .from('markets')
-    .select('id, name, address, city, state, market_type, timezone')
+    .select('id, name, address, city, state, market_type, timezone, logo_url')
     .eq('id', marketId)
     .single()
 
@@ -112,6 +114,13 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
         marketId={marketId}
         progress={onboardingProgress}
         stats={dashboardStats}
+      />
+
+      {/* Branding — upload logo for public market profile + invite landing
+          (mig 140, Phase B 2026-05-16). Optional; no setup gating. */}
+      <MarketBrandingCard
+        marketId={marketId}
+        initialLogoUrl={(market.logo_url as string | null) ?? null}
       />
 
       {/* Booth inventory — manage size tiers + per-week prices */}

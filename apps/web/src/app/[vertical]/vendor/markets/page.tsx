@@ -513,16 +513,11 @@ export default function VendorMarketsPage() {
           fetchMarkets={fetchMarkets}
         />
 
-        <EventMarketsSection
-          vertical={vertical}
-          eventMarkets={eventMarkets}
-          setError={setError}
-          fetchMarkets={fetchMarkets}
-          selectedMarketForSchedule={selectedMarketForSchedule}
-          setSelectedMarketForSchedule={setSelectedMarketForSchedule}
-        />
-
-        {/* Private pickups at bottom for FM (FT renders them at top) */}
+        {/* Private pickups for FM (FT renders them at top, see above).
+            Order (FM): Traditional → Private pickups → Events at bottom.
+            User staging-review 2026-05-16: events should be at the bottom
+            because they're one-off opportunities, not recurring market
+            relationships. */}
         {!isFoodTruck && (
           <PrivatePickupSection
             vertical={vertical}
@@ -534,6 +529,15 @@ export default function VendorMarketsPage() {
             fetchMarkets={fetchMarkets}
           />
         )}
+
+        <EventMarketsSection
+          vertical={vertical}
+          eventMarkets={eventMarkets}
+          setError={setError}
+          fetchMarkets={fetchMarkets}
+          selectedMarketForSchedule={selectedMarketForSchedule}
+          setSelectedMarketForSchedule={setSelectedMarketForSchedule}
+        />
       </div>
     </div>
   )

@@ -15,19 +15,19 @@ export function getTaxNotice(vertical: string, vendorType: string): { title: str
   if (type.includes('produce') || type.includes('dairy')) {
     return {
       title: 'Sales Tax Information',
-      message: 'Fresh produce, dairy, and eggs sold for home consumption are generally exempt from Texas sales tax. However, if you also sell prepared foods, baked goods for immediate consumption, or non-food items, those may be subject to sales tax. You will set the tax status per item when creating listings. Please make sure you understand the tax rules that apply to your products and are prepared to comply with all applicable Texas tax laws.',
+      message: 'Fresh produce, dairy, and eggs sold for home consumption are generally exempt from Texas sales tax. However, if you also sell prepared foods, baked goods for immediate consumption, or non-food items, those may be subject to sales tax. You will set the tax status per item when creating listings. Please make sure you understand the tax rules that apply to your products and are prepared to comply with all applicable tax laws for your state.',
     }
   }
   if (type.includes('meat')) {
     return {
       title: 'Sales Tax Information',
-      message: 'Raw and frozen meats sold for home consumption are generally exempt from Texas sales tax. However, cooked or ready-to-eat meat products (e.g., smoked brisket plates, rotisserie chicken) are taxable as prepared food. You will set the tax status per item when creating listings. Please ensure you understand which of your products are taxable and are prepared to comply with all applicable Texas tax laws.',
+      message: 'Raw and frozen meats sold for home consumption are generally exempt from Texas sales tax. However, cooked or ready-to-eat meat products (e.g., smoked brisket plates, rotisserie chicken) are taxable as prepared food. You will set the tax status per item when creating listings. Please ensure you understand which of your products are taxable and are prepared to comply with all applicable tax laws for your state.',
     }
   }
   if (type.includes('baked')) {
     return {
       title: 'Sales Tax Information',
-      message: 'Baked goods sold for home consumption (loaves of bread, bags of cookies, whole pies) are generally exempt from Texas sales tax. However, items sold as individual servings for immediate consumption (a slice of pie with a fork, a cupcake with a napkin) are taxable. You will set the tax status per item when creating listings. Please ensure you understand the distinction and are prepared to comply with all applicable Texas tax laws.',
+      message: 'Baked goods sold for home consumption (loaves of bread, bags of cookies, whole pies) are generally exempt from Texas sales tax. However, items sold as individual servings for immediate consumption (a slice of pie with a fork, a cupcake with a napkin) are taxable. You will set the tax status per item when creating listings. Please ensure you understand the distinction and are prepared to comply with all applicable tax laws for your state.',
     }
   }
   if (type.includes('prepared')) {
@@ -39,6 +39,6 @@ export function getTaxNotice(vertical: string, vendorType: string): { title: str
   // "Other" or unrecognized
   return {
     title: 'Sales Tax Information',
-    message: 'Texas sales tax rules vary by product type. Food items sold for home consumption are generally exempt, while prepared foods, plants, crafts, and non-food items are typically taxable. You will set the tax status per item when creating your listings. Please make sure you understand the tax rules that apply to your specific products and are prepared to comply with all applicable Texas tax laws.',
+    message: 'Texas sales tax rules vary by product type. Food items sold for home consumption are generally exempt, while prepared foods, plants, crafts, and non-food items are typically taxable. You will set the tax status per item when creating your listings. Please make sure you understand the tax rules that apply to your specific products and are prepared to comply with all applicable tax laws for your state.',
   }
 }

@@ -74,6 +74,13 @@ export async function POST(
       typeof body?.agreement_version === 'string' && body.agreement_version.length > 0
         ? body.agreement_version
         : null
+    // Phase B State C captures a second consent: info-sharing
+    // authorization (the existing-vendor "we can fast-track by sharing
+    // your onboarding docs with the manager — authorize us"). Recorded
+    // as a synthetic entry in statements_snapshot JSONB so no schema
+    // change is required. Future code can scan for this id to find
+    // vendors who consented to info sharing.
+    const infoSharingAccepted: boolean = body?.info_sharing_accepted === true
 
     crumb.supabase('select', 'markets')
     const { data: market, error: marketErr } = await supabase
@@ -105,6 +112,22 @@ export async function POST(
     // Build the acceptance snapshot from the manager's current selections.
     const { snapshot } = await fetchMarketOptinForVendor(marketId)
 
+    // If info-sharing was authorized, append a synthetic snapshot entry
+    // so the consent is captured in the same JSONB record as the opt-in
+    // acceptance. Schema unchanged; future queries:
+    //   WHERE statements_snapshot @> '[{"statement_id":"_info_sharing_consent"}]'
+    const finalSnapshot = infoSharingAccepted
+      ? [
+          ...snapshot,
+          {
+            statement_id: '_info_sharing_consent',
+            category: '_meta',
+            statement_text: 'Vendor authorizes the platform to share their onboarding documentation with the market manager.',
+            placeholder_values: {},
+          },
+        ]
+      : snapshot
+
     const serviceClient = createServiceClient()
 
     // 1) Upsert market_vendors row (idempotent on existing UNIQUE).
@@ -135,7 +158,7 @@ export async function POST(
       .insert({
         vendor_profile_id: profile.id,
         market_id: marketId,
-        statements_snapshot: snapshot,
+        statements_snapshot: finalSnapshot,
         agreement_version: agreementVersion,
       })
       .select('id')

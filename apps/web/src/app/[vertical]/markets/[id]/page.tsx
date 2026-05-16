@@ -214,7 +214,25 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
             marginBottom: spacing.xs,
             flexWrap: 'wrap'
           }}>
-            <span style={{ fontSize: 28, flexShrink: 0 }}>{isEvent ? '🎪' : term(vertical, 'market_icon_emoji')}</span>
+            {/* Logo (mig 140 co-branding) replaces the default emoji icon
+                when the manager has uploaded one. Square 40x40 to match
+                the emoji visual weight without dominating the header. */}
+            {market.logo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={market.logo_url as string}
+                alt={`${market.name} logo`}
+                style={{
+                  width: 40,
+                  height: 40,
+                  objectFit: 'contain',
+                  borderRadius: radius.sm,
+                  flexShrink: 0,
+                }}
+              />
+            ) : (
+              <span style={{ fontSize: 28, flexShrink: 0 }}>{isEvent ? '🎪' : term(vertical, 'market_icon_emoji')}</span>
+            )}
             {isEvent && (
               <span style={{
                 padding: `${spacing['3xs']} ${spacing.xs}`,

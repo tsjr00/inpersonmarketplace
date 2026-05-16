@@ -16,6 +16,7 @@ import CategoryDocumentUpload from "@/components/vendor/CategoryDocumentUpload";
 import FoodTruckPermitUpload from "@/components/vendor/FoodTruckPermitUpload";
 import COIUpload from "@/components/vendor/COIUpload";
 import MarketAgreementBlock from "@/components/market-manager/MarketAgreementBlock";
+import MarketDetailBlock from "@/components/market-manager/MarketDetailBlock";
 
 type Field = {
   key: string;
@@ -33,7 +34,6 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
 
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [title, setTitle] = useState<string>("Vendor Signup");
   const [fields, setFields] = useState<Field[]>([]);
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [submitted, setSubmitted] = useState<Record<string, unknown> | null>(null);
@@ -55,6 +55,21 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
   // behavior is otherwise unchanged.
   const [marketName, setMarketName] = useState<string | null>(null);
 
+  // Phase B (2026-05-16): fuller market detail for the invite landing
+  // intro card. Fetched from /api/markets/[id]/optin-public alongside
+  // the agreement statements (MarketAgreementBlock makes its own fetch
+  // for those; this state just powers the welcome copy + location/
+  // schedule lines on the State A and State C landings).
+  const [marketDetail, setMarketDetail] = useState<{
+    description: string | null;
+    address: string | null;
+    city: string | null;
+    state: string | null;
+    website: string | null;
+    logo_url: string | null;
+    schedules: Array<{ day_of_week: number; start_time: string | null; end_time: string | null }>;
+  } | null>(null);
+
   // Phase B agreement loop — extra state for the 4 user states the
   // invite link handles. See market_manager_v2_plan.md §5 and
   // phase_b_agreement_loop_plan_2026-05-15.md §5.
@@ -72,6 +87,12 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
   const [joiningMarket, setJoiningMarket] = useState(false);
   /** Error state for the State C "Join this market" button. */
   const [joinError, setJoinError] = useState<string | null>(null);
+  /** State C only — info-sharing authorization (the SECOND checkbox on
+   *  the existing-vendor landing). Forward-looking consent: when the
+   *  manager-side document visibility feature ships later, this consent
+   *  determines whether their existing onboarding docs are visible to
+   *  the manager. Stored alongside the market opt-in acceptance. */
+  const [infoSharingAccepted, setInfoSharingAccepted] = useState(false);
 
   // Step 2 state (post-submission: "Here's what you'll need")
   const [step, setStep] = useState<1 | 2>(1);
@@ -122,22 +143,31 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
     checkReferral();
   }, [searchParams, supabase]);
 
-  // Manager invite tracking — fetch market name if ?market=<id> present.
-  // Banner is informational only; signup behavior is unchanged. Auto-
-  // creating market_vendors row on signup is deferred to a later Phase B
-  // step (needs design discussion about manager approval workflow).
+  // Manager invite tracking — fetch market name + detail if ?market=<id>
+  // present. Uses /api/markets/[id]/optin-public which is the public-read
+  // endpoint that also returns the agreement statements (those are
+  // separately fetched by MarketAgreementBlock — small duplication, but
+  // keeps the agreement component self-contained).
   useEffect(() => {
     async function checkMarketInvite() {
       const marketId = searchParams.get('market');
       if (!marketId) return;
       try {
-        const res = await fetch(`/api/markets/${marketId}`);
+        const res = await fetch(`/api/markets/${marketId}/optin-public`);
         if (!res.ok) return;
         const data = await res.json();
-        const name = data?.name;
-        if (typeof name === 'string') setMarketName(name);
+        if (typeof data?.market_name === 'string') setMarketName(data.market_name);
+        setMarketDetail({
+          description: data?.description ?? null,
+          address: data?.address ?? null,
+          city: data?.city ?? null,
+          state: data?.state ?? null,
+          website: data?.website ?? null,
+          logo_url: data?.logo_url ?? null,
+          schedules: Array.isArray(data?.schedules) ? data.schedules : [],
+        });
       } catch {
-        // Silent — banner just doesn't render. No blocking.
+        // Silent — landing falls back to generic copy. No blocking.
       }
     }
     checkMarketInvite();
@@ -234,13 +264,10 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
 
         setFields(vendorFields);
 
-        // Set title
-        const prettyTitle =
-          cfg?.vertical_name_public && cfg?.nouns?.vendor_singular
-            ? `${cfg.vertical_name_public} — ${cfg.nouns.vendor_singular} Signup`
-            : `${vertical} — Vendor Signup`;
-
-        setTitle(prettyTitle);
+        // Title is rendered as a hardcoded "Become a vendor on {brand_name}"
+        // (see Header Card below). The dynamic title from config was removed
+        // 2026-05-16 — it said "Farmers Market — Vendor Signup" which was
+        // misleading (sounded like the market's signup, not the app's).
 
         // Set branding if available
         if (cfg?.branding) {
@@ -289,12 +316,19 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
       setJoinError("Please accept this market's agreement before joining.");
       return;
     }
+    if (!infoSharingAccepted) {
+      setJoinError("Please authorize info sharing with the market manager.");
+      return;
+    }
     setJoiningMarket(true);
     try {
       const res = await fetch(`/api/vendor/markets/${marketIdParam}/join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agreement_accepted: true }),
+        body: JSON.stringify({
+          agreement_accepted: true,
+          info_sharing_accepted: true,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -691,8 +725,18 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
         );
       }
 
-      // State C — existing vendor NOT at this market yet. Show co-branded
-      // "Join [Market]" landing with agreement block + Join button.
+      // State C — existing vendor NOT at this market yet. Show
+      // welcoming "Congrats, [Market] invited you" landing + market
+      // detail + info-sharing authorization + agreement block + Join.
+      //
+      // Two checkboxes gate the Join button:
+      //   1. Info-sharing authorization (forward-looking — the
+      //      manager-side document-visibility feature ships later)
+      //   2. Market opt-in agreement (already enforced by Phase B loop)
+      //
+      // Copy rewritten 2026-05-16 per staging review.
+      const marketLabel = marketName ?? 'this market';
+      const canJoin = agreementAccepted && infoSharingAccepted && !joiningMarket;
       return (
         <div style={pageStyle}>
           <nav style={navStyle}>
@@ -709,16 +753,64 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
           <main style={mainStyle}>
             <div style={cardStyle}>
               <h1 style={headingStyle}>
-                {marketName ? `${marketName} invited you` : "You're invited to join a market"}
+                Congratulations — {marketLabel} has invited you to join their market!
               </h1>
               <p style={subheadingStyle}>
-                You&apos;re already a vendor on the platform.
-                {marketName ? ` ${marketName} ` : ' This market '}
-                requires every vendor to accept their agreement before they
-                appear in the manager&apos;s official vendor list. Review and
-                accept below — the manager reviews your association before
-                activating it.
+                {marketLabel} partners with {branding.brand_name} to facilitate
+                vendor applications and onboarding. Because you&apos;re already
+                a {branding.brand_name} vendor, we can fast-track your
+                application by sharing the onboarding documentation you
+                already provided us with — but we need your authorization
+                to do so.
               </p>
+              <p style={{ ...subheadingStyle, marginTop: spacing.sm }}>
+                Once you authorize us to share your onboarding info with the
+                market manager for {marketLabel} AND accept the market&apos;s
+                vendor agreement below, your application will be sent to
+                the market manager for review.
+              </p>
+
+              {marketDetail && (
+                <MarketDetailBlock detail={marketDetail} marketLabel={marketLabel} />
+              )}
+
+              {/* Info-sharing authorization checkbox (G3). Forward-looking
+                  consent — the manager-side document-visibility surface is
+                  a separate future build. Capturing intent now lays the
+                  groundwork. */}
+              <label style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: spacing.xs,
+                marginTop: spacing.md,
+                marginBottom: spacing.sm,
+                padding: spacing.sm,
+                backgroundColor: colors.surfaceElevated,
+                border: `1px solid ${colors.border}`,
+                borderRadius: radius.sm,
+                cursor: 'pointer',
+              }}>
+                <input
+                  type="checkbox"
+                  checked={infoSharingAccepted}
+                  onChange={(e) => setInfoSharingAccepted(e.target.checked)}
+                  style={{
+                    marginTop: 3,
+                    width: 18,
+                    height: 18,
+                    cursor: 'pointer',
+                  }}
+                />
+                <span style={{
+                  fontSize: typography.sizes.sm,
+                  color: colors.textPrimary,
+                  fontWeight: typography.weights.semibold,
+                  lineHeight: 1.4,
+                }}>
+                  I authorize {branding.brand_name} to share my vendor
+                  onboarding information with the manager of {marketLabel}.
+                </span>
+              </label>
 
               <MarketAgreementBlock
                 marketId={marketIdParam}
@@ -742,14 +834,14 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
               <div style={{ marginTop: spacing.md, display: 'flex', gap: spacing.sm, flexWrap: 'wrap' }}>
                 <button
                   onClick={() => handleJoinMarket(marketIdParam)}
-                  disabled={!agreementAccepted || joiningMarket}
+                  disabled={!canJoin}
                   style={{
                     ...buttonPrimaryStyle,
-                    opacity: (!agreementAccepted || joiningMarket) ? 0.6 : 1,
-                    cursor: (!agreementAccepted || joiningMarket) ? 'not-allowed' : 'pointer',
+                    opacity: canJoin ? 1 : 0.6,
+                    cursor: canJoin ? 'pointer' : 'not-allowed',
                   }}
                 >
-                  {joiningMarket ? 'Joining…' : `Join ${marketName || 'this market'}`}
+                  {joiningMarket ? 'Joining…' : `Join ${marketLabel}`}
                 </button>
                 <Link
                   href={`/${vertical}/vendor/dashboard`}
@@ -769,16 +861,23 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
   }
 
   // Not logged in state. Two variants:
-  //   - With ?market=<id> (State A — invite-flow landing): co-branded
-  //     "[Market] invited you" copy + agreement preview + Login/Create
-  //     Account buttons whose returnTo preserves the market id.
+  //   - With ?market=<id> (State A — invite-flow landing): welcoming
+  //     "Congrats, you've been invited to apply to [Market]" copy +
+  //     market detail card + 3 bullets explaining next steps + agreement
+  //     preview + Login/Create Account buttons whose returnTo preserves
+  //     the market id.
   //   - Without ?market=<id> (default): the existing "Login Required" gate.
+  //
+  // State A copy rewritten 2026-05-16 per staging review — the prior
+  // generic "You're invited to join a market" felt cold and didn't tell
+  // the vendor anything about the inviting market.
   if (!user) {
     const marketIdParam = searchParams.get('market');
     const targetPath = marketIdParam
       ? `/${vertical}/vendor-signup?market=${marketIdParam}`
       : `/${vertical}/vendor-signup`;
     const returnTo = encodeURIComponent(targetPath);
+    const marketLabel = marketName ?? 'this market';
 
     return (
       <div style={pageStyle}>
@@ -793,21 +892,45 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
             {marketIdParam ? (
               <>
                 <h1 style={headingStyle}>
-                  {marketName ? `${marketName} invited you` : "You're invited to join a market"}
+                  Congratulations — you&apos;ve been invited to apply to {marketLabel}!
                 </h1>
                 <p style={subheadingStyle}>
-                  Create an account to sign up as a vendor{marketName ? ` at ${marketName}` : ''}.
-                  After you finish your profile, the market manager reviews you
-                  before you appear in their official vendor list.
+                  {marketLabel} partners with {branding.brand_name} to facilitate
+                  vendor applications, onboarding, and to give you more options
+                  for how you sell your products to the community.
                 </p>
-                <p style={{ ...subheadingStyle, marginTop: spacing.sm, fontSize: typography.sizes.sm }}>
-                  Already have an account on the platform? Login below — your
-                  existing vendor profile will be associated with this market
-                  after you accept the agreement.
-                </p>
-                {/* Show statements info-only so they preview what they'll agree to.
-                    Actual acceptance is captured AFTER login when they hit the
-                    main signup form (Path 2). */}
+
+                {marketDetail && (
+                  <MarketDetailBlock detail={marketDetail} marketLabel={marketLabel} />
+                )}
+
+                <h3 style={{
+                  marginTop: spacing.md,
+                  marginBottom: spacing.xs,
+                  fontSize: typography.sizes.base,
+                  fontWeight: typography.weights.semibold,
+                  color: colors.textPrimary,
+                }}>
+                  Next steps
+                </h3>
+                <ul style={{
+                  margin: 0,
+                  paddingLeft: spacing.md,
+                  fontSize: typography.sizes.sm,
+                  color: colors.textPrimary,
+                  lineHeight: 1.6,
+                }}>
+                  <li>
+                    If you are <strong>already a vendor</strong> on {branding.brand_name}, log in below and your account will be connected with {marketLabel}.
+                  </li>
+                  <li>
+                    If you <strong>don&apos;t have a vendor account</strong> with {branding.brand_name}, create your account below and your application will be forwarded to the market manager for approval.
+                  </li>
+                  <li>
+                    Once your account is created and you finish your profile, you will appear in the vendor list for {marketLabel}.
+                  </li>
+                </ul>
+
                 <MarketAgreementBlock
                   marketId={marketIdParam}
                   onChange={() => {}}
@@ -916,39 +1039,39 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
       </nav>
       <main style={mainStyle}>
         {step === 1 && (<>
-        {/* Manager Invite Banner — Phase B co-branded signup */}
+        {/* Header Card — Section 1: App vendor account.
+            User's staging-review feedback (2026-05-16): the original
+            "Farmers Market — Vendor Signup" title was misleading because
+            it suggested this signup was for THE MARKET, when it's actually
+            for THE APP. Section 2 (the market application card) is below
+            and only renders for invite-flow vendors. The two cards share
+            visual style and parallel copy so the distinction is clear. */}
+        <div style={{ ...cardStyle, marginBottom: spacing.md }}>
+          <h1 style={headingStyle}>Become a vendor on {branding.brand_name}</h1>
+          <p style={subheadingStyle}>
+            Logged in as: <strong style={{ color: colors.textPrimary }}>{user.email}</strong>
+          </p>
+          <p style={{ ...subheadingStyle, marginTop: spacing.xs }}>
+            Fill out the form below to register as a vendor on the {branding.brand_name} app.
+          </p>
+        </div>
+
+        {/* Section 2: Market application — parallels the Section 1 app
+            header card above (same cardStyle). Only renders for the
+            invite flow (?market=<id>). Distinguishes "you're applying to
+            THIS MARKET" from "you're creating an APP account" so the
+            vendor understands the two-tier model. */}
         {marketName && (
-          <div style={{
-            marginBottom: spacing.md,
-            padding: spacing.md,
-            background: `linear-gradient(135deg, ${colors.primaryLight} 0%, ${colors.primaryLight} 100%)`,
-            borderRadius: radius.lg,
-            border: `2px solid ${colors.primary}`,
-            display: 'flex',
-            alignItems: 'center',
-            gap: spacing.sm,
-          }}>
-            <div style={{
-              width: 48,
-              height: 48,
-              backgroundColor: colors.primary,
-              borderRadius: radius.full,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 24,
-              flexShrink: 0,
+          <div style={{ ...cardStyle, marginBottom: spacing.md }}>
+            <h2 style={{
+              ...headingStyle,
+              fontSize: typography.sizes.xl,
             }}>
-              🛒
-            </div>
-            <div>
-              <p style={{ margin: 0, fontWeight: typography.weights.bold, color: colors.primaryDark, fontSize: typography.sizes.base }}>
-                You&apos;re signing up to sell at {marketName}
-              </p>
-              <p style={{ margin: 0, color: colors.primaryDark, fontSize: typography.sizes.sm, marginTop: spacing['3xs'] }}>
-                Complete the standard vendor signup below. Your market manager will see you in their dashboard once you&apos;re added to the market.
-              </p>
-            </div>
+              Apply to sell at {marketName}
+            </h2>
+            <p style={{ ...subheadingStyle, marginTop: spacing.xs }}>
+              Fill out the form below to register as a vendor at {marketName}, where you will sell your items in-person. The market manager reviews every application before activating your association.
+            </p>
           </div>
         )}
         {/* Referral Banner */}
@@ -986,17 +1109,6 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
             </div>
           </div>
         )}
-
-        {/* Header Card */}
-        <div style={{ ...cardStyle, marginBottom: spacing.md }}>
-          <h1 style={headingStyle}>{title}</h1>
-          <p style={subheadingStyle}>
-            Logged in as: <strong style={{ color: colors.textPrimary }}>{user.email}</strong>
-          </p>
-          <p style={{ ...subheadingStyle, marginTop: spacing.xs }}>
-            Fill out the form below to register as a vendor.
-          </p>
-        </div>
 
       {fields.length === 0 ? (
         <div style={{ ...cardStyle, borderColor: colors.accent }}>

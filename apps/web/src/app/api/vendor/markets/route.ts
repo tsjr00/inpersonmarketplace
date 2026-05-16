@@ -37,7 +37,8 @@ export async function GET(request: NextRequest) {
       status: string
       deleted_at: string | null
       market_box_frequency: string | null
-    }>(supabase, user.id, vertical, 'id, tier, home_market_id, status, deleted_at, market_box_frequency')
+      profile_data: Record<string, unknown> | null
+    }>(supabase, user.id, vertical, 'id, tier, home_market_id, status, deleted_at, market_box_frequency, profile_data')
 
     if (vpError || !vendorProfile || vendorProfile.deleted_at !== null) {
       return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
@@ -128,10 +129,61 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Phase B (2026-05-16) geographic filter: show only markets within
+    // ~100 miles of the vendor's location. Vendor location is derived
+    // from their profile_data.zip (set during signup). If we can't
+    // geocode (no zip, unrecognized zip), we skip filtering — graceful
+    // fallback so vendors with incomplete profiles still see something.
+    //
+    // Markets the vendor is already attending or has listings at are
+    // ALWAYS kept regardless of distance — we don't yank visibility
+    // from established relationships.
+    //
+    // Private pickup markets are vendor-owned, never filtered.
+    const VENDOR_MARKET_RADIUS_MILES = 100
+    let vendorLat: number | null = null
+    let vendorLng: number | null = null
+    const profileData = (vendorProfile.profile_data || {}) as Record<string, unknown>
+    const profileZipRaw =
+      (profileData.zip ?? profileData.zip_code ?? profileData.postal_code ?? null) as
+        | string
+        | null
+    if (typeof profileZipRaw === 'string' && profileZipRaw.trim().length > 0) {
+      try {
+        const geo = await geocodeZipCode(profileZipRaw.trim())
+        if (geo) {
+          vendorLat = geo.latitude
+          vendorLng = geo.longitude
+        }
+      } catch {
+        // Silent — fall through to no-filter.
+      }
+    }
+
+    // Predicate: should this market be visible to this vendor?
+    // True if no vendor location, market has no coordinates, vendor
+    // already has a relationship with it, or within radius.
+    const isWithinRadius = (
+      mLat: number | null | undefined,
+      mLng: number | null | undefined,
+      marketId: string
+    ): boolean => {
+      if (vendorLat === null || vendorLng === null) return true // no filter
+      if (marketsWithAttendance.has(marketId) || marketsWithListings.has(marketId)) {
+        return true // preserve existing relationships
+      }
+      if (mLat === null || mLat === undefined || mLng === null || mLng === undefined) {
+        return true // market has no coords — show by default
+      }
+      const distance = haversineMiles(vendorLat, vendorLng, Number(mLat), Number(mLng))
+      return distance <= VENDOR_MARKET_RADIUS_MILES
+    }
+
     // Get event markets (future events only — past events auto-filtered)
     const today = new Date().toISOString().split('T')[0]
     const eventMarkets = (allMarkets || [])
       .filter(m => m.market_type === 'event' && m.event_end_date >= today)
+      .filter(m => isWithinRadius(m.latitude as number, m.longitude as number, m.id as string))
       .map(m => {
         const schedules = (m.market_schedules || []).map((s: any) => {
           const vendorTimes = vendorTimesBySchedule.get(s.id)
@@ -149,7 +201,10 @@ export async function GET(request: NextRequest) {
         }
       })
 
-    const fixedMarkets = (allMarkets || []).filter(m => m.market_type === 'traditional').map(m => {
+    const fixedMarkets = (allMarkets || [])
+      .filter(m => m.market_type === 'traditional')
+      .filter(m => isWithinRadius(m.latitude as number, m.longitude as number, m.id as string))
+      .map(m => {
       // Merge vendor-specific times into market schedules
       const schedules = (m.market_schedules || []).map((s: any) => {
         const vendorTimes = vendorTimesBySchedule.get(s.id)
@@ -433,4 +488,23 @@ export async function POST(request: NextRequest) {
       traceId: `market-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 8)}`
     }, { status: 500 })
   }
+}
+
+/**
+ * Haversine distance between two lat/lng pairs in miles.
+ * Used to filter markets to a vendor's local area (Phase B 2026-05-16).
+ * Inline copy — also exists in src/app/api/markets/nearby/route.ts;
+ * extract to a shared lib if a third caller appears.
+ */
+function haversineMiles(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 3959 // Earth's radius in miles
+  const toRad = (deg: number): number => deg * (Math.PI / 180)
+  const dLat = toRad(lat2 - lat1)
+  const dLon = toRad(lon2 - lon1)
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return R * c
 }
