@@ -30,17 +30,23 @@ interface PageProps {
   params: Promise<{ vertical: string; marketId: string; vendorProfileId: string }>
 }
 
-interface CategoryDoc {
-  url?: string
-  category?: string
-  uploaded_at?: string
-  name?: string
+/** Per-category verification entry shape stored under
+ *  vendor_verifications.category_verifications JSONB.
+ *  Mirrors the type used by admin vendor management code
+ *  (src/app/[vertical]/admin/vendors/page.tsx:172). */
+interface CategoryVerification {
+  status: string
+  doc_type?: string
+  documents?: Array<{ url: string; filename: string; doc_type: string }>
+  notes?: string
+  reviewed_at?: string
 }
 
+/** Shape of each entry in vendor_verifications.coi_documents JSONB. */
 interface CoiDoc {
   url?: string
+  filename?: string
   uploaded_at?: string
-  name?: string
 }
 
 function formatDate(iso: string | null | undefined): string {
@@ -153,13 +159,14 @@ export default async function VendorDocsPage({ params }: PageProps) {
   // Fetch verification data
   const { data: verification } = await serviceClient
     .from('vendor_verifications')
-    .select('requested_categories, category_verifications, documents, coi_status, coi_documents, coi_verified_at, prohibited_items_acknowledged_at, onboarding_completed_at, submitted_at')
+    // Docs live inside category_verifications[cat].documents (see
+    // admin path src/app/[vertical]/admin/vendors/page.tsx:172).
+    .select('requested_categories, category_verifications, coi_status, coi_documents, coi_verified_at, prohibited_items_acknowledged_at, onboarding_completed_at, submitted_at')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle()
 
   const categories = (verification?.requested_categories as string[] | null) ?? []
-  const categoryVerifications = (verification?.category_verifications as Record<string, string> | null) ?? {}
-  const documents = (verification?.documents as CategoryDoc[] | null) ?? []
+  const categoryVerifications = (verification?.category_verifications as Record<string, CategoryVerification> | null) ?? {}
   const coiStatus = (verification?.coi_status as string | null) ?? 'not_submitted'
   const coiDocuments = (verification?.coi_documents as CoiDoc[] | null) ?? []
 
@@ -234,7 +241,12 @@ export default async function VendorDocsPage({ params }: PageProps) {
         ) : (
           <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
             {categories.map((cat) => {
-              const status = categoryVerifications[cat] || 'pending'
+              // category_verifications is keyed by category name; each
+              // value is { status, doc_type?, documents?, notes?, reviewed_at? }.
+              // Pull status + documents from the nested object.
+              const verification = categoryVerifications[cat]
+              const status = verification?.status || 'pending'
+              const docs = verification?.documents || []
               const colorPair = statusBadgeColors(status)
               return (
                 <li key={cat} style={{
@@ -253,58 +265,52 @@ export default async function VendorDocsPage({ params }: PageProps) {
                       fontWeight: typography.weights.semibold,
                     }}>{status}</span>
                   </div>
-                  {/* Docs filtered to this category, if present. The
-                      `documents` JSONB may not have a `category` field
-                      on older records — those show under "Other docs". */}
-                  <ul style={{
-                    margin: `${spacing['2xs']} 0 0 0`,
-                    paddingLeft: spacing.md,
-                    fontSize: typography.sizes.sm,
-                  }}>
-                    {documents
-                      .filter((d) => d.category === cat)
-                      .map((d, i) => (
+                  {docs.length === 0 ? (
+                    <p style={{
+                      margin: `${spacing['2xs']} 0 0 ${spacing.md}`,
+                      fontSize: typography.sizes.xs,
+                      color: colors.textMuted,
+                      fontStyle: 'italic',
+                    }}>
+                      No documents uploaded for this category.
+                    </p>
+                  ) : (
+                    <ul style={{
+                      margin: `${spacing['2xs']} 0 0 0`,
+                      paddingLeft: spacing.md,
+                      fontSize: typography.sizes.sm,
+                    }}>
+                      {docs.map((d, i) => (
                         <li key={i} style={{ marginBottom: spacing['3xs'] }}>
                           {d.url ? (
                             <a href={d.url} target="_blank" rel="noopener noreferrer" style={{ color: colors.primary, textDecoration: 'underline' }}>
-                              {d.name || `Document ${i + 1}`}
+                              {d.filename || `Document ${i + 1}`}
                             </a>
                           ) : (
                             <span style={{ color: colors.textMuted }}>(no URL)</span>
                           )}
-                          {d.uploaded_at && (
+                          {d.doc_type && (
                             <span style={{ marginLeft: spacing.xs, color: colors.textMuted, fontSize: typography.sizes.xs }}>
-                              uploaded {formatDate(d.uploaded_at)}
+                              ({d.doc_type})
                             </span>
                           )}
                         </li>
                       ))}
-                  </ul>
+                    </ul>
+                  )}
+                  {verification?.notes && (
+                    <p style={{
+                      margin: `${spacing['2xs']} 0 0 ${spacing.md}`,
+                      fontSize: typography.sizes.xs,
+                      color: colors.textMuted,
+                    }}>
+                      Admin notes: {verification.notes}
+                    </p>
+                  )}
                 </li>
               )
             })}
           </ul>
-        )}
-        {/* Any documents without a category tag */}
-        {documents.filter((d) => !d.category).length > 0 && (
-          <div style={{ marginTop: spacing.sm }}>
-            <h3 style={{
-              margin: 0, marginBottom: spacing['2xs'],
-              fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold,
-              color: colors.textMuted,
-            }}>Other documents</h3>
-            <ul style={{ margin: 0, paddingLeft: spacing.md, fontSize: typography.sizes.sm }}>
-              {documents.filter((d) => !d.category).map((d, i) => (
-                <li key={i}>
-                  {d.url ? (
-                    <a href={d.url} target="_blank" rel="noopener noreferrer" style={{ color: colors.primary, textDecoration: 'underline' }}>
-                      {d.name || `Document ${i + 1}`}
-                    </a>
-                  ) : <span style={{ color: colors.textMuted }}>(no URL)</span>}
-                </li>
-              ))}
-            </ul>
-          </div>
         )}
       </div>
 
@@ -346,7 +352,7 @@ export default async function VendorDocsPage({ params }: PageProps) {
               <li key={i} style={{ marginBottom: spacing['3xs'] }}>
                 {d.url ? (
                   <a href={d.url} target="_blank" rel="noopener noreferrer" style={{ color: colors.primary, textDecoration: 'underline' }}>
-                    {d.name || `COI document ${i + 1}`}
+                    {d.filename || `COI document ${i + 1}`}
                   </a>
                 ) : <span style={{ color: colors.textMuted }}>(no URL)</span>}
                 {d.uploaded_at && (

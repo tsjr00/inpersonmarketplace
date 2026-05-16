@@ -100,7 +100,9 @@ export async function GET(
     crumb.supabase('select', 'vendor_verifications')
     const { data: verification } = await serviceClient
       .from('vendor_verifications')
-      .select('requested_categories, category_verifications, documents, coi_status, coi_documents, coi_verified_at, prohibited_items_acknowledged_at, onboarding_completed_at, submitted_at')
+      // Docs live inside category_verifications[cat].documents per the
+      // admin verification flow (not as a separate top-level field).
+      .select('requested_categories, category_verifications, coi_status, coi_documents, coi_verified_at, prohibited_items_acknowledged_at, onboarding_completed_at, submitted_at')
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle()
 
@@ -111,9 +113,12 @@ export async function GET(
       market_vendor_approved: !!mvRow.approved,
       // Verification data (may be empty if vendor hasn't onboarded yet)
       requested_categories: (verification?.requested_categories as string[] | null) ?? [],
-      category_verifications: (verification?.category_verifications as Record<string, string> | null) ?? {},
-      documents: (verification?.documents as Array<Record<string, unknown>> | null) ?? [],
+      // category_verifications JSONB shape per admin code at
+      // src/app/[vertical]/admin/vendors/page.tsx:172:
+      //   Record<string, { status, doc_type?, documents?, notes?, reviewed_at? }>
+      category_verifications: (verification?.category_verifications as Record<string, unknown> | null) ?? {},
       coi_status: (verification?.coi_status as string | null) ?? 'not_submitted',
+      // coi_documents shape: Array<{ url, filename, uploaded_at }>
       coi_documents: (verification?.coi_documents as Array<Record<string, unknown>> | null) ?? [],
       coi_verified_at: (verification?.coi_verified_at as string | null) ?? null,
       prohibited_items_acknowledged_at:
