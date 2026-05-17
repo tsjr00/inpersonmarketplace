@@ -138,6 +138,15 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
     return
   }
 
+  // Phase C Stage 3 (2026-05-17): booth rental checkout.
+  // Dispatched here before the regular-product fall-through so a
+  // booth_rental session doesn't accidentally route to the order
+  // handler (which would silently exit on missing order_id).
+  if (session.metadata?.type === 'booth_rental') {
+    await handleBoothRentalCheckoutComplete(session)
+    return
+  }
+
   // Handle regular product checkout (may include market box items)
   const orderId = session.metadata?.order_id
   if (!orderId) return
@@ -1093,4 +1102,90 @@ async function handleChargeDisputeCreated(dispute: Stripe.Dispute) {
   }
 
   crumb.stripe(`charge.dispute.created processed: dispute ${dispute.id}${orderNumber ? `, order #${orderNumber}` : ''}, $${(disputeAmount / 100).toFixed(2)} — admins notified`)
+}
+
+/**
+ * Phase C Stage 3 (2026-05-17). Handle a successful booth-rental
+ * Stripe Checkout session — flip the corresponding weekly_booth_rentals
+ * row from 'pending_payment' to 'paid' and persist the payment intent.
+ *
+ * Idempotency: this handler can run multiple times for the same event
+ * (Stripe retries any non-2xx). Guarded two ways:
+ *   1. Early return if existing.status === 'paid'.
+ *   2. .neq('status', 'paid') on the UPDATE — defense-in-depth at the
+ *      DB level in case two webhook deliveries race past the early
+ *      return check.
+ *
+ * No notifications wired here yet — vendor + manager notifications
+ * ship as a follow-up so this critical-path change stays focused on
+ * data integrity.
+ */
+async function handleBoothRentalCheckoutComplete(session: Stripe.Checkout.Session) {
+  const supabase = createServiceClient()
+
+  // Resolve rental_id from metadata (primary) or client_reference_id
+  // (fallback). Both are set by createBoothRentalCheckoutSession; we
+  // check both for defense-in-depth against metadata being stripped
+  // by Stripe edge cases (size limits, etc.).
+  const rentalId = session.metadata?.rental_id ||
+    (session.client_reference_id?.startsWith('booth_rental_')
+      ? session.client_reference_id.slice('booth_rental_'.length)
+      : null)
+
+  if (!rentalId) {
+    await logError(new TracedError(
+      'ERR_WEBHOOK_011',
+      `booth_rental session missing rental_id (session ${session.id})`,
+      { route: '/webhooks/stripe', method: 'POST' }
+    ))
+    return
+  }
+
+  // Look up the rental row. If absent (e.g., DB rollback after Stripe
+  // session created), surface to admin — money may have been charged
+  // with no row to record it.
+  const { data: existing } = await supabase
+    .from('weekly_booth_rentals')
+    .select('id, status')
+    .eq('id', rentalId)
+    .maybeSingle()
+
+  if (!existing) {
+    await logError(new TracedError(
+      'ERR_WEBHOOK_012',
+      `booth_rental row not found for rental_id ${rentalId} (charged but unmatched)`,
+      { route: '/webhooks/stripe', method: 'POST' }
+    ))
+    return
+  }
+
+  // Idempotency guard. Stripe retries webhooks on any non-2xx; this
+  // makes the second+ delivery a no-op.
+  if (existing.status === 'paid') {
+    crumb.stripe(`Booth rental ${rentalId} already paid — idempotent skip`)
+    return
+  }
+
+  const paymentIntentId = (session.payment_intent as string) || null
+
+  const { error: updateErr } = await supabase
+    .from('weekly_booth_rentals')
+    .update({
+      status: 'paid',
+      stripe_payment_intent_id: paymentIntentId,
+      paid_at: new Date().toISOString(),
+    })
+    .eq('id', rentalId)
+    .neq('status', 'paid')
+
+  if (updateErr) {
+    await logError(new TracedError(
+      'ERR_WEBHOOK_013',
+      `booth_rental status update failed for ${rentalId}: ${updateErr.message}`,
+      { route: '/webhooks/stripe', method: 'POST' }
+    ))
+    return
+  }
+
+  crumb.stripe(`booth_rental ${rentalId} flipped to paid (payment_intent ${paymentIntentId ?? 'unknown'})`)
 }
