@@ -43,6 +43,8 @@ function safeCompare(a: string, b: string): boolean {
  * Phase 8: Expire vendor/buyer tier subscriptions past tier_expires_at
  * Phase 9: Data retention — delete old error_logs (90d), read notifications (60d), activity_events (30d)
  * Phase 10: Vendor trial lifecycle — reminders, trial expiry, grace period auto-unpublish
+ * Phase 16: Expire abandoned booth rental bookings (Phase C Stage 3)
+ *           — orphans (no Stripe session) after 30 min, stale sessions after 24h
  *
  * Called by Vercel Cron daily at 12pm UTC / ~6am CT (configured in vercel.json)
  */
@@ -2314,6 +2316,65 @@ export async function GET(request: NextRequest) {
       console.error('Phase 15 error:', phase15Error instanceof Error ? phase15Error.message : 'Unknown error')
     }
 
+    // ============================================================
+    // PHASE 16: Expire abandoned booth rental bookings (Phase C Stage 3)
+    //
+    // Two cohorts to cancel:
+    //   (a) Orphans — booking row exists, Stripe session was never
+    //       created (API failed mid-flight). After 30 min, safe to free.
+    //   (b) Stale Stripe sessions — session created, vendor never
+    //       completed. Stripe sessions default-expire at 24h; we mirror
+    //       that here so the UNIQUE constraint frees up for re-booking.
+    //
+    // Status flip: pending_payment → cancelled, cancelled_at = now().
+    // No notifications fired here — see backlog for "failed booth
+    // rental purchase notification" (Step 4.5 follow-up).
+    // ============================================================
+    let boothRentalsCancelledOrphan = 0
+    let boothRentalsCancelledStale = 0
+    try {
+      const nowIso = new Date().toISOString()
+      const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+
+      // Cohort (a): orphans (no Stripe session created)
+      const { data: orphans, error: orphanErr } = await supabase
+        .from('weekly_booth_rentals')
+        .update({ status: 'cancelled', cancelled_at: nowIso })
+        .eq('status', 'pending_payment')
+        .is('stripe_checkout_session_id', null)
+        .lt('booked_at', thirtyMinAgo)
+        .select('id')
+      if (orphanErr) {
+        console.error('Phase 16 orphan sweep error:', orphanErr.message)
+      } else {
+        boothRentalsCancelledOrphan = orphans?.length ?? 0
+      }
+
+      // Cohort (b): stale Stripe sessions (vendor abandoned Checkout)
+      const { data: stale, error: staleErr } = await supabase
+        .from('weekly_booth_rentals')
+        .update({ status: 'cancelled', cancelled_at: nowIso })
+        .eq('status', 'pending_payment')
+        .not('stripe_checkout_session_id', 'is', null)
+        .lt('booked_at', twentyFourHoursAgo)
+        .select('id')
+      if (staleErr) {
+        console.error('Phase 16 stale-session sweep error:', staleErr.message)
+      } else {
+        boothRentalsCancelledStale = stale?.length ?? 0
+      }
+
+      const totalCancelled = boothRentalsCancelledOrphan + boothRentalsCancelledStale
+      if (totalCancelled > 0) {
+        console.log(`Phase 16: cancelled ${totalCancelled} abandoned booth rental(s) (${boothRentalsCancelledOrphan} orphan, ${boothRentalsCancelledStale} stale)`)
+        totalProcessed += totalCancelled
+      }
+    } catch (phase16Error) {
+      console.error('Phase 16 error:', phase16Error instanceof Error ? phase16Error.message : 'Unknown error')
+      totalErrors++
+    }
+
     return NextResponse.json({
       success: true,
       message: `Processed ${totalProcessed} items`,
@@ -2328,6 +2389,7 @@ export async function GET(request: NextRequest) {
       tierExpirations: { vendors: vendorTiersExpired, buyers: buyerTiersExpired },
       dataRetention: { errorLogs: errorLogsDeleted, notifications: notificationsDeleted, activityEvents: activityEventsDeleted },
       trialLifecycle: { reminders: trialReminders, expired: trialExpired, graceProcessed: trialGraceProcessed },
+      boothRentals: { orphansCancelled: boothRentalsCancelledOrphan, staleSessionsCancelled: boothRentalsCancelledStale },
       eventReminders,
       selfServiceResultsSent,
       eventGapAlerts,

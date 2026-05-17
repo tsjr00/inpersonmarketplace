@@ -1,6 +1,18 @@
 # Backlog
 
-Last updated: 2026-05-08
+Last updated: 2026-05-17
+
+## Priority 1 — Phase C Stage 3 follow-ups (Session 82)
+
+- [ ] **Notification: failed booth rental purchase** — When a vendor abandons a Stripe Checkout session (orphan or stale), Phase 16 of the cron cancels the row silently. No notification fires. **Add** vendor-facing notification when `weekly_booth_rentals.status` flips from `pending_payment` → `cancelled` via the cron sweep (distinct from manager-initiated cancellation). New notification type in `notifications/types.ts` (bumps NI-014 tripwire). Optional: also notify manager — "vendor X started booking week of Y but didn't complete payment." Trigger point: inside `expire-orders/route.ts` Phase 16 update block, after the SELECT returns IDs. Requires looking up vendor_profile_id → user_id + market name for templateData. Raised by user 2026-05-17. **Estimate:** 30-45 min.
+
+- [ ] **Notification: vendor + manager when booth rental is PAID** (Step 4.5 from Stage 3 plan) — When `handleBoothRentalCheckoutComplete` flips status to `paid`, send: (1) vendor — "your booking at [Market] for week of [Date] is confirmed"; (2) manager — "[Vendor] paid for a booth at your market for [Week] — $[amount]". Two new notification types — bumps NI-014 by 2. Inside `stripe/webhooks.ts` after the successful UPDATE. Raised in Stage 3 plan; deferred from Step 4 commit to keep critical-path file change focused.
+
+- [ ] **Migrations 138 + 139 + 141 to Prod** — Application order: 138 first (mig 139 has FK to vendor_market_agreement_acceptances), then 139, then 141 (independent). After all three: full bookkeeping commit (move files to applied/, regenerate SCHEMA_SNAPSHOT structured tables via REFRESH_SCHEMA.sql). Then push all 15+ staging-ahead commits to Prod.
+
+- [ ] **Stage 3 amount reconciliation** — Webhook handler currently trusts `session.amount_total` matches expected `vendor_pays_cents`. Add a defensive check that flags discrepancies via TracedError. Low priority — destination charge model guarantees consistency unless Stripe mid-flight changes our `transfer_data.amount`, which it doesn't.
+
+- [ ] **Stage 3 `account.updated` webhook → markets.stripe_* sync** — Currently lazy-sync via the status route works fine. Webhook-driven sync would be marginally faster for status changes but adds complexity. Defer until real ops experience shows it's needed.
 
 ## Priority 1 — Market Manager v1 (FM only)
 
