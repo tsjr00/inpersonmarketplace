@@ -5,6 +5,8 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import { fetchMarketOptinForVendor } from '@/lib/markets/optin-public'
 import { computeAgreementVersionFromSnapshot } from '@/lib/markets/agreement-version'
+import { calculateBoothRentalFees } from '@/lib/pricing'
+import { createBoothRentalCheckoutSession } from '@/lib/stripe/payments'
 
 /**
  * POST /api/vendor/markets/[id]/book
@@ -117,7 +119,7 @@ export async function POST(
     crumb.supabase('select', 'markets')
     const { data: market, error: marketErr } = await supabase
       .from('markets')
-      .select('id, vertical_id, timezone, name')
+      .select('id, vertical_id, timezone, name, stripe_account_id, stripe_charges_enabled')
       .eq('id', marketId)
       .maybeSingle()
 
@@ -314,12 +316,85 @@ export async function POST(
       })
     }
 
+    // Phase C Stage 3 (2026-05-17): if the manager has completed Stripe
+    // Connect onboarding (account exists AND charges_enabled), create a
+    // Stripe Checkout session and return its URL so the vendor UI can
+    // redirect. If Stripe isn't ready, fall through to the Stage 1
+    // shape (rental created, status=pending_payment, no checkout_url) —
+    // manager will coordinate payment offline until they finish onboarding.
+    //
+    // This dual-mode behavior intentionally relaxes the locked decision
+    // C.7 ("hide booking CTA entirely when Stripe not ready") so existing
+    // managers without Connect can still receive bookings during the
+    // transition. The vendor UI (booking page) gates the CTA separately.
+    const stripeAccountId = market.stripe_account_id as string | null
+    const stripeChargesEnabled = market.stripe_charges_enabled as boolean | null
+    let checkoutUrl: string | null = null
+
+    if (stripeAccountId && stripeChargesEnabled === true) {
+      try {
+        const fees = calculateBoothRentalFees(rental.price_cents as number)
+        const baseUrl = request.nextUrl.origin
+        const vertical = (market.vertical_id as string) || 'farmers_market'
+        const successUrl = `${baseUrl}/${vertical}/markets/${marketId}/book?session=success&rental=${rental.id}`
+        const cancelUrl = `${baseUrl}/${vertical}/markets/${marketId}/book?session=cancel`
+
+        const session = await createBoothRentalCheckoutSession({
+          rentalId: rental.id as string,
+          marketId,
+          marketName: (market.name as string) || 'this market',
+          managerStripeAccountId: stripeAccountId,
+          weekStartDate: rental.week_start_date as string,
+          basePriceCents: rental.price_cents as number,
+          vendorPaysCents: fees.vendorPaysCents,
+          managerReceivesCents: fees.managerReceivesCents,
+          successUrl,
+          cancelUrl,
+          vertical,
+        })
+
+        checkoutUrl = session.url
+
+        // Persist the session ID so the webhook handler (Step 4) can
+        // resolve the event to this rental row. Failure here is logged
+        // but non-blocking — vendor still gets the checkout URL; webhook
+        // matching falls back to client_reference_id.
+        crumb.supabase('update', 'weekly_booth_rentals')
+        const { error: sidErr } = await serviceClient
+          .from('weekly_booth_rentals')
+          .update({ stripe_checkout_session_id: session.id })
+          .eq('id', rental.id)
+
+        if (sidErr) {
+          logError(traced.fromSupabase(sidErr, {
+            table: 'weekly_booth_rentals',
+            operation: 'update',
+          }))
+        }
+      } catch (stripeError) {
+        // Stripe session creation failed. The rental row stands with
+        // status=pending_payment and no session_id — the cron (Step 6)
+        // will expire it after the timeout window. Vendor sees a clear
+        // error and can retry (which will collide on UNIQUE and prompt
+        // them to wait or contact the manager).
+        console.error('[vendor/markets/book] Stripe session creation failed:', stripeError)
+        return NextResponse.json(
+          {
+            error: 'Could not start the payment flow. Please try again in a few minutes, or reach out to the market manager.',
+            rental_id: rental.id,
+          },
+          { status: 502 }
+        )
+      }
+    }
+
     return NextResponse.json({
       rental_id: rental.id,
       acceptance_id: acceptanceId,
       price_cents: rental.price_cents,
       status: rental.status,
       week_start_date: rental.week_start_date,
+      ...(checkoutUrl ? { checkout_url: checkoutUrl } : {}),
     })
   })
 }
