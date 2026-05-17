@@ -112,10 +112,25 @@ export async function GET(request: NextRequest) {
 
     type TruckEntry = typeof trucks[number]
 
+    // Phase C follow-up (2026-05-17): dedupe by (vendor_id, market_id,
+    // start_time, end_time). A vendor could legitimately appear twice
+    // for the same market on the same day if the market has multiple
+    // schedule slots (morning + afternoon) — those will have different
+    // start_time/end_time and survive. But identical-time duplicates
+    // (data dupes from legacy schedule rows) collapse to one entry.
+    const dedupedTrucks: TruckEntry[] = []
+    const seenKeys = new Set<string>()
+    for (const t of trucks) {
+      const key = `${t.vendor_id}|${t.market_id}|${t.start_time || ''}|${t.end_time || ''}`
+      if (seenKeys.has(key)) continue
+      seenKeys.add(key)
+      dedupedTrucks.push(t)
+    }
+
     // Sort: group by vendor, earliest start_time first within each vendor,
     // then order vendor groups by their earliest start_time
     const vendorGroups = new Map<string, TruckEntry[]>()
-    for (const t of trucks) {
+    for (const t of dedupedTrucks) {
       const group = vendorGroups.get(t.vendor_id) || []
       group.push(t)
       vendorGroups.set(t.vendor_id, group)

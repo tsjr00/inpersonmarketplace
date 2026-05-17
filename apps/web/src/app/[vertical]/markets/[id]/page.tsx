@@ -51,6 +51,11 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
   const eventStartDate = market.event_start_date as string | null
   const eventEndDate = market.event_end_date as string | null
   const eventUrl = market.event_url as string | null
+  // Phase C follow-up (2026-05-17): hide the "not affiliated with market
+  // management" disclaimer when an actual manager is linked to this
+  // market — once manager_user_id is set, we DO have a real affiliation
+  // and the legacy disclaimer becomes misleading.
+  const hasActiveManager = !!market.manager_user_id
 
   const formatEventDate = (dateStr: string) => {
     const date = new Date(dateStr + 'T00:00:00')
@@ -504,27 +509,31 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
           )}
         </div>
 
-        {/* Legal Disclaimer */}
-        <div style={{
-          padding: spacing.sm,
-          backgroundColor: '#f5f5f5',
-          borderRadius: radius.md,
-          border: '1px solid #e0e0e0',
-          marginBottom: spacing.md
-        }}>
-          <p style={{
-            margin: 0,
-            fontSize: typography.sizes.sm,
-            color: colors.textMuted,
-            textAlign: 'center',
-            lineHeight: typography.leading.relaxed
+        {/* Legal Disclaimer — only when the market has no linked manager.
+            Once a manager is associated (manager_user_id set), the
+            "not affiliated" copy is misleading. Hidden in that case. */}
+        {!hasActiveManager && (
+          <div style={{
+            padding: spacing.sm,
+            backgroundColor: '#f5f5f5',
+            borderRadius: radius.md,
+            border: '1px solid #e0e0e0',
+            marginBottom: spacing.md
           }}>
-            {vertical === 'food_trucks'
-              ? t('market_detail.disclaimer_ft', locale, { market: term(vertical, 'traditional_market', locale).toLowerCase() })
-              : t('market_detail.disclaimer_fm', locale)
-            }
-          </p>
-        </div>
+            <p style={{
+              margin: 0,
+              fontSize: typography.sizes.sm,
+              color: colors.textMuted,
+              textAlign: 'center',
+              lineHeight: typography.leading.relaxed
+            }}>
+              {vertical === 'food_trucks'
+                ? t('market_detail.disclaimer_ft', locale, { market: term(vertical, 'traditional_market', locale).toLowerCase() })
+                : t('market_detail.disclaimer_fm', locale)
+              }
+            </p>
+          </div>
+        )}
 
         {/* Vendors Section */}
         <div style={{
