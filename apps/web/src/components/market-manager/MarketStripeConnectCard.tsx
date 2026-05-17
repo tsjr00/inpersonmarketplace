@@ -78,17 +78,34 @@ export default function MarketStripeConnectCard({ marketId }: MarketStripeConnec
     }
   }, [marketId])
 
-  // Initial load + react to return-from-Stripe query flags
+  // Initial load + react to return-from-Stripe query flags.
+  // Both the flash setter and fetchStatus (which transitively calls
+  // setState after its await) trip react-hooks/set-state-in-effect
+  // if invoked synchronously inside the effect body. Defer with
+  // queueMicrotask so React sees both on the next tick.
   useEffect(() => {
     const flag = searchParams.get('stripe')
-    if (flag === 'complete' || flag === 'refresh') {
-      setReturnFlash(flag as 'complete' | 'refresh')
-      // Auto-clear the flash after 4 seconds
-      const t = setTimeout(() => setReturnFlash(null), 4000)
+    let cleared = false
+    let timer: ReturnType<typeof setTimeout> | null = null
+
+    queueMicrotask(() => {
+      if (cleared) return
+      if (flag === 'complete' || flag === 'refresh') {
+        setReturnFlash(flag as 'complete' | 'refresh')
+      }
       fetchStatus()
-      return () => clearTimeout(t)
+    })
+
+    if (flag === 'complete' || flag === 'refresh') {
+      timer = setTimeout(() => {
+        if (!cleared) setReturnFlash(null)
+      }, 4000)
     }
-    fetchStatus()
+
+    return () => {
+      cleared = true
+      if (timer) clearTimeout(timer)
+    }
   }, [searchParams, fetchStatus])
 
   const handleOnboard = async () => {
