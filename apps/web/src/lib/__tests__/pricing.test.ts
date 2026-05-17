@@ -21,7 +21,9 @@ import {
   calculateSmallOrderFee,
   getSmallOrderFeeConfig,
   getEffectiveVendorFeePercent,
+  calculateBoothRentalFees,
   FEES,
+  BOOTH_RENTAL_FEES,
   DEFAULT_SMALL_ORDER_FEE,
   SMALL_ORDER_FEE_DEFAULTS,
   VENDOR_FEE_FLOOR,
@@ -335,5 +337,105 @@ describe('Vendor Fee Discount: getEffectiveVendorFeePercent', () => {
 
   it('clamps zero to floor', () => {
     expect(getEffectiveVendorFeePercent(0)).toBe(3.6)
+  })
+})
+
+// ── MP-R14: Booth-rental fees (Phase C Stage 3) ─────────────────────
+// 6.5% × 2 markup on weekly booth rentals at managed markets.
+// Pure percentage math, no flat fees.
+describe('MP-R14: Booth rental fee constants', () => {
+  it('vendor markup is 6.5%', () => {
+    expect(BOOTH_RENTAL_FEES.vendorMarkupPercent).toBe(6.5)
+  })
+  it('manager markup is 6.5%', () => {
+    expect(BOOTH_RENTAL_FEES.managerMarkupPercent).toBe(6.5)
+  })
+})
+
+describe('MP-R14: calculateBoothRentalFees — golden-path cases', () => {
+  it('$25 booth: vendor pays $26.63, manager gets $23.37, platform $3.26', () => {
+    const r = calculateBoothRentalFees(2500)
+    expect(r.basePriceCents).toBe(2500)
+    expect(r.vendorPaysCents).toBe(2663)        // round(2500 × 1.065) = round(2662.5) = 2663
+    expect(r.managerReceivesCents).toBe(2337)   // 2500 - round(162.5)  = 2500 - 163
+    expect(r.platformKeepsCents).toBe(326)      // 2663 - 2337
+  })
+
+  it('$50 booth: vendor $53.25, manager $46.75, platform $6.50', () => {
+    const r = calculateBoothRentalFees(5000)
+    expect(r.vendorPaysCents).toBe(5325)
+    expect(r.managerReceivesCents).toBe(4675)
+    expect(r.platformKeepsCents).toBe(650)
+  })
+
+  it('$100 booth: vendor $106.50, manager $93.50, platform $13.00', () => {
+    const r = calculateBoothRentalFees(10000)
+    expect(r.vendorPaysCents).toBe(10650)
+    expect(r.managerReceivesCents).toBe(9350)
+    expect(r.platformKeepsCents).toBe(1300)
+  })
+
+  it('$1 booth: penny-rounding edge — vendor $1.07, manager $0.93, platform $0.14', () => {
+    const r = calculateBoothRentalFees(100)
+    expect(r.vendorPaysCents).toBe(107)         // round(106.5) = 107
+    expect(r.managerReceivesCents).toBe(93)     // 100 - round(6.5) = 100 - 7
+    expect(r.platformKeepsCents).toBe(14)
+  })
+
+  it('$0 booth: all sides are 0', () => {
+    const r = calculateBoothRentalFees(0)
+    expect(r.basePriceCents).toBe(0)
+    expect(r.vendorPaysCents).toBe(0)
+    expect(r.managerReceivesCents).toBe(0)
+    expect(r.platformKeepsCents).toBe(0)
+  })
+
+  it('negative price defensively returns all zeros (no silent wraparound)', () => {
+    const r = calculateBoothRentalFees(-100)
+    expect(r.basePriceCents).toBe(0)
+    expect(r.vendorPaysCents).toBe(0)
+    expect(r.managerReceivesCents).toBe(0)
+    expect(r.platformKeepsCents).toBe(0)
+  })
+})
+
+describe('MP-R14: calculateBoothRentalFees — math invariants', () => {
+  // The derived platformKeepsCents must always equal the sum of the
+  // two markups (vendor-side surcharge + manager-side deduction).
+  // Property test across many price points.
+  it('vendor_pays - manager_receives == platform_keeps (always)', () => {
+    const prices = [25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 12345, 99999]
+    for (const p of prices) {
+      const r = calculateBoothRentalFees(p)
+      expect(r.vendorPaysCents - r.managerReceivesCents).toBe(r.platformKeepsCents)
+    }
+  })
+
+  it('platform keeps >= 0 for any non-negative price', () => {
+    const prices = [1, 25, 100, 1000, 10000, 99999]
+    for (const p of prices) {
+      const r = calculateBoothRentalFees(p)
+      expect(r.platformKeepsCents).toBeGreaterThanOrEqual(0)
+    }
+  })
+
+  it('vendor pays more than the base price for any realistic booth price', () => {
+    // 25 cents is the floor where both 6.5% calculations produce
+    // a non-zero markup (round(25 × 0.065) = round(1.625) = 2). Below
+    // that the markup rounds to 0 and invariants are degenerate (1c
+    // booth is not a real scenario — no farmers market charges that).
+    const prices = [25, 100, 1000, 2500, 5000, 10000, 99999]
+    for (const p of prices) {
+      const r = calculateBoothRentalFees(p)
+      expect(r.vendorPaysCents).toBeGreaterThan(p)
+    }
+  })
+
+  it('manager receives less than the base price for any realistic booth price', () => {
+    const prices = [25, 100, 1000, 2500, 5000, 10000, 99999]
+    for (const p of prices) {
+      const r = calculateBoothRentalFees(p)
+      expect(r.managerReceivesCents).toBeLessThan(p)
+    }
   })
 })
