@@ -30,6 +30,10 @@ interface BookBoothFormProps {
   /** Pre-computed Sunday YYYY-MM-DD strings from the server. */
   weeks: string[]
   inventory: InventoryRow[]
+  /** Return-from-Stripe flash (Phase C Stage 3). When set, the form
+   *  renders a confirmation/cancellation state instead of the booking
+   *  form. Server reads ?session= query param and passes the flag in. */
+  returnFlash?: 'success' | 'cancel'
 }
 
 function formatWeekLabel(yyyyMmDd: string): string {
@@ -54,6 +58,7 @@ export default function BookBoothForm({
   vertical,
   weeks,
   inventory,
+  returnFlash,
 }: BookBoothFormProps) {
   const [selectedWeek, setSelectedWeek] = useState<string>(weeks[0] ?? '')
   const [selectedInventoryId, setSelectedInventoryId] = useState<string>(inventory[0]?.id ?? '')
@@ -106,6 +111,15 @@ export default function BookBoothForm({
         setSubmitting(false)
         return
       }
+      // Phase C Stage 3 (2026-05-17): when the manager's Stripe is
+      // ready, the API returns a checkout_url and we redirect the
+      // vendor to Stripe-hosted Checkout. Otherwise (Stage 1 mode —
+      // manager not yet onboarded), fall through to the offline-
+      // payment success state.
+      if (typeof data.checkout_url === 'string' && data.checkout_url.length > 0) {
+        window.location.href = data.checkout_url
+        return
+      }
       setSuccess({
         week: data.week_start_date,
         size: selectedInventory?.size_label ?? '',
@@ -116,6 +130,115 @@ export default function BookBoothForm({
       setError('Network error — please try again.')
       setSubmitting(false)
     }
+  }
+
+  // Phase C Stage 3 (2026-05-17) — return-from-Stripe flash rendering.
+  // success path: vendor completed Stripe Checkout; webhook will flip
+  // status='paid' if it hasn't already. Send them to their dashboard.
+  // cancel path: vendor backed out at Stripe; offer to retry or leave.
+  if (returnFlash === 'success') {
+    return (
+      <div style={{
+        padding: spacing.md,
+        backgroundColor: colors.surfaceElevated,
+        border: `1px solid ${colors.border}`,
+        borderRadius: radius.md,
+      }}>
+        <h2 style={{
+          marginTop: 0,
+          marginBottom: spacing.xs,
+          fontSize: typography.sizes.lg,
+          fontWeight: typography.weights.semibold,
+          color: colors.textPrimary,
+        }}>
+          ✓ Payment received
+        </h2>
+        <p style={{ margin: 0, marginBottom: spacing.sm, color: colors.textPrimary, fontSize: typography.sizes.sm, lineHeight: 1.6 }}>
+          Thanks — your booth booking at <strong>{marketName}</strong> is confirmed.
+          The manager will reach out with a booth number assignment before
+          your market day.
+        </p>
+        <p style={{ margin: 0, marginBottom: spacing.md, color: colors.textMuted, fontSize: typography.sizes.sm, lineHeight: 1.5 }}>
+          Your booking should appear on your dashboard within a minute as
+          Stripe finishes processing. You&apos;ll also get an email receipt.
+        </p>
+        <Link
+          href={`/${vertical}/vendor/dashboard`}
+          style={{
+            display: 'inline-block',
+            padding: `${spacing.sm} ${spacing.md}`,
+            backgroundColor: colors.primary,
+            color: 'white',
+            borderRadius: radius.sm,
+            fontSize: typography.sizes.sm,
+            fontWeight: typography.weights.semibold,
+            textDecoration: 'none',
+          }}
+        >
+          Go to vendor dashboard
+        </Link>
+      </div>
+    )
+  }
+
+  if (returnFlash === 'cancel') {
+    return (
+      <div style={{
+        padding: spacing.md,
+        backgroundColor: '#fff3cd',
+        border: '1px solid #ffeeba',
+        borderRadius: radius.md,
+        marginBottom: spacing.md,
+        color: '#856404',
+      }}>
+        <h2 style={{
+          marginTop: 0,
+          marginBottom: spacing.xs,
+          fontSize: typography.sizes.base,
+          fontWeight: typography.weights.semibold,
+        }}>
+          You stepped away from payment
+        </h2>
+        <p style={{ margin: 0, marginBottom: spacing.sm, fontSize: typography.sizes.sm, lineHeight: 1.5 }}>
+          No charge was made. Your booking is still on file as pending —
+          it will be released automatically in about 30 minutes if you
+          don&apos;t come back to complete payment.
+        </p>
+        <div style={{ display: 'flex', gap: spacing.sm, flexWrap: 'wrap' }}>
+          <Link
+            href={`/${vertical}/markets/${marketId}/book`}
+            style={{
+              display: 'inline-block',
+              padding: `${spacing.sm} ${spacing.md}`,
+              backgroundColor: colors.primary,
+              color: 'white',
+              borderRadius: radius.sm,
+              fontSize: typography.sizes.sm,
+              fontWeight: typography.weights.semibold,
+              textDecoration: 'none',
+            }}
+          >
+            Try again
+          </Link>
+          <Link
+            href={`/${vertical}/vendor/dashboard`}
+            style={{
+              display: 'inline-block',
+              padding: `${spacing.sm} ${spacing.md}`,
+              backgroundColor: 'transparent',
+              color: colors.textMuted,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.sm,
+              fontSize: typography.sizes.sm,
+              fontWeight: typography.weights.semibold,
+              textDecoration: 'none',
+            }}
+          >
+            Back to dashboard
+          </Link>
+        </div>
+      </div>
+    )
   }
 
   if (success) {

@@ -1,4 +1,3 @@
-import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
@@ -21,6 +20,10 @@ import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
  */
 interface PageProps {
   params: Promise<{ vertical: string; id: string }>
+  /** Phase C Stage 3 (2026-05-17): Stripe sets these on return.
+   *  ?session=success&rental=<id>  → vendor completed Checkout.
+   *  ?session=cancel               → vendor stepped away from Checkout. */
+  searchParams: Promise<{ session?: string; rental?: string }>
 }
 
 interface InventoryRow {
@@ -52,8 +55,13 @@ function nextSundays(timezone: string, count: number): string[] {
   return sundays
 }
 
-export default async function BookBoothPage({ params }: PageProps) {
+export default async function BookBoothPage({ params, searchParams }: PageProps) {
   const { vertical, id: marketId } = await params
+  const { session: sessionFlag } = await searchParams
+  const returnFlash: 'success' | 'cancel' | undefined =
+    sessionFlag === 'success' ? 'success'
+    : sessionFlag === 'cancel' ? 'cancel'
+    : undefined
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -229,6 +237,7 @@ export default async function BookBoothPage({ params }: PageProps) {
         vertical={vertical}
         weeks={weeks}
         inventory={inventory}
+        {...(returnFlash ? { returnFlash } : {})}
       />
     </div>
   )
