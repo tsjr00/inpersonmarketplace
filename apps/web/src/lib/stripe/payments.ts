@@ -256,3 +256,94 @@ export async function createRefund(paymentIntentId: string, amount?: number) {
 
   return refund
 }
+
+/**
+ * Create Stripe Checkout session for a weekly booth rental.
+ *
+ * Phase C Stage 3 (2026-05-17). Uses Stripe's destination-charge model
+ * (`transfer_data.destination`) so the manager's portion auto-routes to
+ * their Connect account at payment time — single API call, no later
+ * transfer needed. Different from product orders (which use the
+ * separate-transfer pattern via transferToVendor) because booth rental
+ * is 1:1 with no fulfillment delay.
+ *
+ * Math (vendorPaysCents, managerReceivesCents) comes from
+ * calculateBoothRentalFees() in pricing.ts — this function does no math
+ * of its own. Caller is responsible for passing pre-computed amounts.
+ *
+ * Idempotency key `booth-rental-${rentalId}` is deterministic; retries
+ * resolve to the same session. Distinct from `checkout-${orderId}` and
+ * `market-box-${...}` namespaces — no collisions across transaction types.
+ *
+ * metadata.type='booth_rental' is the webhook routing signal (Step 4).
+ * The webhook handler in stripe/webhooks.ts will inspect this field to
+ * dispatch the `checkout.session.completed` event to the booth-rental
+ * status-flip path.
+ */
+export async function createBoothRentalCheckoutSession({
+  rentalId,
+  marketId,
+  marketName,
+  managerStripeAccountId,
+  weekStartDate,
+  basePriceCents,
+  vendorPaysCents,
+  managerReceivesCents,
+  successUrl,
+  cancelUrl,
+  vertical,
+}: {
+  rentalId: string
+  marketId: string
+  marketName: string
+  managerStripeAccountId: string  // markets.stripe_account_id
+  weekStartDate: string            // YYYY-MM-DD
+  basePriceCents: number           // for audit metadata only
+  vendorPaysCents: number          // unit_amount on the line item
+  managerReceivesCents: number     // transfer_data.amount
+  successUrl: string
+  cancelUrl: string
+  vertical?: string
+}) {
+  const idempotencyKey = `booth-rental-${rentalId}`
+
+  const session = await stripe.checkout.sessions.create(
+    {
+      payment_method_types: ['card', 'cashapp', 'amazon_pay', 'link'],
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: `Booth rental — ${marketName}`,
+            description: `Week of ${weekStartDate}`,
+          },
+          unit_amount: vendorPaysCents,
+        },
+        quantity: 1,
+      }],
+      mode: 'payment',
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      client_reference_id: `booth_rental_${rentalId}`,
+      payment_intent_data: {
+        statement_descriptor_suffix: getStatementSuffix(vertical),
+        transfer_data: {
+          destination: managerStripeAccountId,
+          amount: managerReceivesCents,
+        },
+      },
+      metadata: {
+        type: 'booth_rental',
+        rental_id: rentalId,
+        market_id: marketId,
+        week_start_date: weekStartDate,
+        base_price_cents: basePriceCents.toString(),
+        vendor_pays_cents: vendorPaysCents.toString(),
+        manager_receives_cents: managerReceivesCents.toString(),
+      },
+    },
+    { idempotencyKey }
+  )
+
+  return session
+}
