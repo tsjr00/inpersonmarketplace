@@ -1,9 +1,11 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import WeeklyBookingsList, { type WeeklyBookingRow } from '@/components/market-manager/WeeklyBookingsList'
 
 /**
  * Manager dashboard card showing weekly booth rental bookings at this
- * market. Phase C Stage 1 (2026-05-16) — read-only display.
+ * market. Phase C Stage 1 (2026-05-16); Stage 1A (2026-05-17) added
+ * inline booth-number editor via the client child <WeeklyBookingsList>.
  *
  * Source: weekly_booth_rentals (mig 139). Joined client-side to
  * vendor_profiles (for business_name) and market_booth_inventory (for
@@ -14,9 +16,7 @@ import { colors, spacing, typography, radius } from '@/lib/design-tokens'
  * Renders nothing when there are no bookings — keeps the dashboard quiet
  * before vendors start booking.
  *
- * Stage 1 scope: display only. No inline booth-number editor (separate
- * piece — next session). No payment information (payment ships in
- * Stage 3 via Stripe).
+ * Payment information NOT shown — payment ships in Stage 3 via Stripe.
  *
  * RLS: weekly_booth_rentals is default-deny — service client mandatory.
  * Auth verified UPSTREAM by the dashboard page's isMarketManager() check.
@@ -39,36 +39,6 @@ interface RentalRow {
   price_cents: number
   status: RentalStatus
   booked_at: string
-}
-
-function statusBadge(status: RentalStatus): { bg: string; fg: string; label: string } {
-  switch (status) {
-    case 'paid':
-      return { bg: '#d4edda', fg: '#155724', label: 'Paid' }
-    case 'pending_payment':
-      return { bg: '#fff3cd', fg: '#856404', label: 'Pending payment' }
-    case 'cancelled':
-      return { bg: '#f8d7da', fg: '#721c24', label: 'Cancelled' }
-    case 'completed':
-      return { bg: '#cce5ff', fg: '#004085', label: 'Completed' }
-    default:
-      return { bg: '#e9ecef', fg: '#495057', label: status }
-  }
-}
-
-function formatWeek(yyyyMmDd: string): string {
-  const [y, m, d] = yyyyMmDd.split('-').map(Number)
-  const dt = new Date(y, m - 1, d)
-  return dt.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-}
-
-function formatPrice(cents: number): string {
-  return `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
 }
 
 export default async function WeeklyBookingsCard({ marketId }: WeeklyBookingsCardProps) {
@@ -152,57 +122,21 @@ export default async function WeeklyBookingsCard({ marketId }: WeeklyBookingsCar
       }}>
         Bookings vendors have placed at your market. Online payment is
         coming — for now coordinate payment directly with each vendor.
+        Use the booth # field on each row to assign a booth to a booking.
         The most recent 50 bookings shown.
       </p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-        {rentals.map((r) => {
-          const vendorName = vendorNameById.get(r.vendor_profile_id) || 'Unknown vendor'
-          const sizeLabel = sizeLabelById.get(r.inventory_id) || '—'
-          const badge = statusBadge(r.status)
-          return (
-            <div
-              key={r.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: spacing.sm,
-                padding: spacing.xs,
-                backgroundColor: colors.surfaceBase,
-                border: `1px solid ${colors.border}`,
-                borderRadius: radius.sm,
-                flexWrap: 'wrap',
-              }}
-            >
-              <div style={{ flex: '1 1 220px', minWidth: 0 }}>
-                <div style={{
-                  fontWeight: typography.weights.semibold,
-                  fontSize: typography.sizes.sm,
-                  color: colors.textPrimary,
-                }}>
-                  {vendorName}
-                </div>
-                <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
-                  Week of {formatWeek(r.week_start_date)} · {sizeLabel} · {formatPrice(r.price_cents)}
-                  {r.booth_number && (
-                    <> · Booth #{r.booth_number}</>
-                  )}
-                </div>
-              </div>
-              <span style={{
-                padding: `${spacing['3xs']} ${spacing.xs}`,
-                backgroundColor: badge.bg,
-                color: badge.fg,
-                borderRadius: radius.sm,
-                fontSize: typography.sizes.xs,
-                fontWeight: typography.weights.semibold,
-                whiteSpace: 'nowrap',
-              }}>
-                {badge.label}
-              </span>
-            </div>
-          )
-        })}
-      </div>
+      <WeeklyBookingsList
+        marketId={marketId}
+        bookings={rentals.map<WeeklyBookingRow>((r) => ({
+          id: r.id,
+          vendor_name: vendorNameById.get(r.vendor_profile_id) || 'Unknown vendor',
+          week_start_date: r.week_start_date,
+          size_label: sizeLabelById.get(r.inventory_id) || '—',
+          booth_number: r.booth_number,
+          price_cents: r.price_cents,
+          status: r.status,
+        }))}
+      />
     </div>
   )
 }

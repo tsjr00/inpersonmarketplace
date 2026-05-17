@@ -1,6 +1,37 @@
 import { stripe } from './config'
 
 /**
+ * Create Stripe Connect Express account for a MARKET (manager-side).
+ *
+ * Phase C Stage 2 (2026-05-17). Separate from `createConnectAccount`
+ * (vendor-side) so the idempotency keys don't collide when the same
+ * human is both a vendor and a manager — they get distinct Connect
+ * accounts under different keys. Same SDK call otherwise.
+ *
+ * Idempotency key: `connect-account-market-${marketId}` — deterministic,
+ * safe to retry on network failure without creating dupes.
+ */
+export async function createMarketConnectAccount(email: string, marketId: string) {
+  const idempotencyKey = `connect-account-market-${marketId}`
+
+  const account = await stripe.accounts.create(
+    {
+      type: 'express',
+      email,
+      capabilities: {
+        card_payments: { requested: true },
+        transfers: { requested: true },
+      },
+    },
+    {
+      idempotencyKey,
+    }
+  )
+
+  return account
+}
+
+/**
  * Create Stripe Connect Express account for vendor
  * Uses idempotency key to prevent duplicate accounts on retry
  */

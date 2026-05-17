@@ -12,6 +12,7 @@ import OnboardingChecklist from '@/components/market-manager/OnboardingChecklist
 import MarketBrandingCard from '@/components/market-manager/MarketBrandingCard'
 import MarketTransactionsCard from '@/components/market-manager/MarketTransactionsCard'
 import WeeklyBookingsCard from '@/components/market-manager/WeeklyBookingsCard'
+import MarketStripeConnectCard from '@/components/market-manager/MarketStripeConnectCard'
 import MarketScheduleCard from '@/components/market-manager/MarketScheduleCard'
 import ManagerSupportCard from '@/components/market-manager/ManagerSupportCard'
 import InviteVendorLink from '@/components/market-manager/InviteVendorLink'
@@ -150,6 +151,12 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           Renders nothing when no bookings exist. Read-only display in
           this stage — booth-number editor + payment ship in next stages. */}
       <WeeklyBookingsCard marketId={marketId} marketTimezone={(market.timezone as string | null) ?? null} />
+
+      {/* Stripe Connect onboarding (Phase C Stage 2, 2026-05-17). Sits
+          right after bookings so the "you have bookings → here's how to
+          get paid" narrative flow is clear. Self-fetches status; renders
+          start/continue/under-review/active depending on Stripe state. */}
+      <MarketStripeConnectCard marketId={marketId} />
 
       {/* Branding — upload logo for public market profile + invite landing
           (mig 140, Phase B 2026-05-16). Optional; no setup gating. */}
@@ -366,8 +373,7 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           fontSize: typography.sizes.sm,
           lineHeight: 1.6,
         }}>
-          <li>Online payment for booth rentals (Stripe Connect for managers — coming in the next update)</li>
-          <li>Manager-side booth number assignment for new bookings</li>
+          <li>Online checkout for booth rentals (vendors pay through the platform → manager Connect account)</li>
           <li>Post-market vendor + buyer surveys</li>
           <li>Share tools for market-day social promotion</li>
         </ul>
