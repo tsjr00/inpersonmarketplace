@@ -405,6 +405,27 @@ export default function VendorMarketsPage() {
                     >
                       {!market.hasAttendance ? 'Set Schedule' : 'Manage Schedule'}
                     </button>
+                    {/* Phase C Stage 1 (2026-05-17): Book a Booth Space CTA.
+                        Links to the universal booking page which handles
+                        all auth/approval/inventory gating itself. Outline
+                        style mirrors the Prep Sheet button for a
+                        consistent secondary-action treatment. */}
+                    <Link
+                      href={`/${vertical}/markets/${market.id}/book`}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: 'transparent',
+                        color: colors.primary,
+                        border: `1px solid ${colors.primary}`,
+                        borderRadius: 6,
+                        fontSize: 13,
+                        fontWeight: 600,
+                        textDecoration: 'none',
+                        display: 'inline-block'
+                      }}
+                    >
+                      Book a Booth Space
+                    </Link>
                     <Link
                       href={`/${vertical}/vendor/markets/${market.id}/prep`}
                       style={{
