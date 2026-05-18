@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 
 /**
  * Manager dashboard card for market co-branding.
@@ -42,6 +43,9 @@ export default function MarketBrandingCard({
   const [savingDescription, setSavingDescription] = useState(false)
   const [descriptionError, setDescriptionError] = useState<string | null>(null)
   const [descriptionSavedFlash, setDescriptionSavedFlash] = useState(false)
+  // window.confirm is blocked on mobile — gate logo removal via ConfirmDialog
+  // (matches BoothInventoryManager / BoothPlaceholderManager pattern).
+  const [confirmingRemove, setConfirmingRemove] = useState(false)
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -112,12 +116,14 @@ export default function MarketBrandingCard({
     }
   }
 
-  const handleRemove = async () => {
+  const requestRemove = () => {
     setError(null)
     setSuccess(null)
-    if (!confirm('Remove the current logo? The default platform branding will be used in its place.')) {
-      return
-    }
+    setConfirmingRemove(true)
+  }
+
+  const performRemove = async () => {
+    setConfirmingRemove(false)
     setUploading(true)
     try {
       const res = await fetch(`/api/market-manager/${marketId}/logo`, {
@@ -206,7 +212,7 @@ export default function MarketBrandingCard({
             </button>
             <button
               type="button"
-              onClick={handleRemove}
+              onClick={requestRemove}
               disabled={uploading}
               style={{
                 padding: `${spacing.xs} ${spacing.md}`,
@@ -394,6 +400,16 @@ export default function MarketBrandingCard({
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmingRemove}
+        title="Remove logo?"
+        message="Remove the current logo? The default platform branding will be used in its place. You can upload a new logo any time."
+        variant="danger"
+        confirmLabel="Remove"
+        onConfirm={performRemove}
+        onCancel={() => setConfirmingRemove(false)}
+      />
     </div>
   )
 }

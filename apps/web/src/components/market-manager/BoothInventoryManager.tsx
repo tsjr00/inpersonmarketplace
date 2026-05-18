@@ -489,7 +489,7 @@ export default function BoothInventoryManager({ marketId }: BoothInventoryManage
       <ConfirmDialog
         open={!!confirmingDelete}
         title="Remove tier?"
-        message={`Remove the "${confirmingDelete?.label ?? ''}" tier? This does not affect any vendor booth assignments.`}
+        message={`Remove the "${confirmingDelete?.label ?? ''}" tier? Tiers with active bookings cannot be removed — vendors with paid or pending rentals must finish or cancel first. Vendors already assigned a booth number from this size keep their booth assignment.`}
         variant="danger"
         confirmLabel="Remove"
         onConfirm={performDelete}

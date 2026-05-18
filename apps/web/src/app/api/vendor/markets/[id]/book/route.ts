@@ -394,16 +394,35 @@ export async function POST(
           }))
         }
       } catch (stripeError) {
-        // Stripe session creation failed. The rental row stands with
-        // status=pending_payment and no session_id — the cron (Step 6)
-        // will expire it after the timeout window. Vendor sees a clear
-        // error and can retry (which will collide on UNIQUE and prompt
-        // them to wait or contact the manager).
+        // Stripe session creation failed. Without remediation the rental
+        // row sits with status=pending_payment + no stripe_checkout_session_id
+        // until cron Phase 16 sweeps it (~30 min) — during that window the
+        // vendor cannot retry because the UNIQUE (vendor, market, week)
+        // constraint blocks the insert. Delete the row eagerly so retry
+        // works immediately. WHERE conditions belt-and-suspender to ensure
+        // we only delete the row we just made, not a row that a concurrent
+        // retry might have created.
         console.error('[vendor/markets/book] Stripe session creation failed:', stripeError)
+        const { error: cleanupErr } = await serviceClient
+          .from('weekly_booth_rentals')
+          .delete()
+          .eq('id', rental.id)
+          .eq('status', 'pending_payment')
+          .is('stripe_checkout_session_id', null)
+        if (cleanupErr) {
+          // Logged, not thrown — the original Stripe error is what we want
+          // to surface. Cron sweep is the safety net if cleanup also failed.
+          logError(traced.fromSupabase(cleanupErr, {
+            table: 'weekly_booth_rentals',
+            operation: 'delete',
+          }))
+        }
+        // Note: agreement_acceptance row is left intact — it's idempotent
+        // on the version hash, so a retry will reuse it via the 23505
+        // catch path above.
         return NextResponse.json(
           {
             error: 'Could not start the payment flow. Please try again in a few minutes, or reach out to the market manager.',
-            rental_id: rental.id,
           },
           { status: 502 }
         )

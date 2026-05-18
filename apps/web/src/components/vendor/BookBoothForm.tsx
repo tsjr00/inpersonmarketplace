@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import MarketAgreementBlock from '@/components/market-manager/MarketAgreementBlock'
+import { calculateBoothRentalFees } from '@/lib/pricing'
 
 /**
  * Vendor weekly booth booking form. Phase C Stage 1 (2026-05-16).
@@ -30,6 +31,13 @@ interface BookBoothFormProps {
   /** Pre-computed Sunday YYYY-MM-DD strings from the server. */
   weeks: string[]
   inventory: InventoryRow[]
+  /** True when the manager has completed Stripe Connect onboarding AND
+   *  charges_enabled is true. Drives:
+   *   - Price display: shows vendor-pays breakdown ($25 + $1.63 fee = $26.63)
+   *     so the vendor sees the same total at Stripe Checkout.
+   *   - Submit button label: "Continue to payment" vs offline-mode copy.
+   *  Source: markets.stripe_charges_enabled column, passed from server. */
+  stripeReady: boolean
   /** Return-from-Stripe flash (Phase C Stage 3). When set, the form
    *  renders a confirmation/cancellation state instead of the booking
    *  form. Server reads ?session= query param and passes the flag in. */
@@ -58,6 +66,7 @@ export default function BookBoothForm({
   vertical,
   weeks,
   inventory,
+  stripeReady,
   returnFlash,
 }: BookBoothFormProps) {
   const [selectedWeek, setSelectedWeek] = useState<string>(weeks[0] ?? '')
@@ -360,31 +369,59 @@ export default function BookBoothForm({
         </select>
       </label>
 
-      {/* Price display */}
-      {selectedInventory && (
-        <div style={{
-          padding: spacing.sm,
-          backgroundColor: colors.surfaceBase,
-          border: `1px solid ${colors.border}`,
-          borderRadius: radius.sm,
-          marginBottom: spacing.md,
-        }}>
-          <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing['3xs'] }}>
-            You&apos;ll be charged
-          </div>
+      {/* Price display — when Stripe is ready, show the breakdown so the
+          vendor sees the same number at Stripe Checkout that we quote
+          here. When Stripe is NOT ready (offline-payment mode), the
+          manager will coordinate the base price directly. */}
+      {selectedInventory && (() => {
+        const basePrice = selectedInventory.weekly_price_cents
+        const fees = stripeReady ? calculateBoothRentalFees(basePrice) : null
+        return (
           <div style={{
-            fontSize: typography.sizes['2xl'],
-            fontWeight: typography.weights.bold,
-            color: colors.textPrimary,
-            lineHeight: 1.1,
+            padding: spacing.sm,
+            backgroundColor: colors.surfaceBase,
+            border: `1px solid ${colors.border}`,
+            borderRadius: radius.sm,
+            marginBottom: spacing.md,
           }}>
-            {formatPrice(selectedInventory.weekly_price_cents)}
+            <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing['3xs'] }}>
+              You&apos;ll be charged
+            </div>
+            <div style={{
+              fontSize: typography.sizes['2xl'],
+              fontWeight: typography.weights.bold,
+              color: colors.textPrimary,
+              lineHeight: 1.1,
+            }}>
+              {fees ? formatPrice(fees.vendorPaysCents) : formatPrice(basePrice)}
+            </div>
+            {fees && (
+              <div style={{
+                marginTop: spacing.xs,
+                paddingTop: spacing.xs,
+                borderTop: `1px solid ${colors.border}`,
+                fontSize: typography.sizes.xs,
+                color: colors.textMuted,
+                lineHeight: 1.5,
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Booth fee</span>
+                  <span>{formatPrice(basePrice)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Platform fee (6.5%)</span>
+                  <span>{formatPrice(fees.vendorPaysCents - basePrice)}</span>
+                </div>
+              </div>
+            )}
+            <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing.xs }}>
+              {fees
+                ? 'Booth fee is locked at booking. You’ll complete payment through Stripe on the next step.'
+                : 'Booth fee is locked at booking. This market isn’t set up for online payment yet — the manager will coordinate payment with you directly.'}
+            </div>
           </div>
-          <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
-            Locked at booking. Payment coordinated separately for now.
-          </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Agreement block */}
       <MarketAgreementBlock
@@ -421,7 +458,11 @@ export default function BookBoothForm({
           opacity: (submitting || !agreementAccepted) ? 0.6 : 1,
         }}
       >
-        {submitting ? 'Booking…' : 'Complete booking (payment coming soon)'}
+        {submitting
+          ? 'Booking…'
+          : stripeReady
+            ? 'Continue to payment →'
+            : 'Complete booking'}
       </button>
     </form>
   )

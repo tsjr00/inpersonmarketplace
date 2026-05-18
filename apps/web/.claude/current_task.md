@@ -68,9 +68,10 @@
 |---|---|---|---|---|
 | 138 | vendor_market_agreement_acceptances | ✅ | ✅ | ❌ pending |
 | 139 | weekly_booth_rentals | ✅ | ✅ | ❌ pending |
+| 140 | market_branding (markets.logo_url) | ✅ | ✅ | ❌ pending |
 | 141 | markets.stripe_connect_* | ✅ | ✅ | ❌ pending |
 
-**Apply order to Prod:** 138 → 139 (FK depends on 138) → 141 (independent). Then bookkeeping commit (file moves + REFRESH_SCHEMA.sql regen of structured tables).
+**Apply order to Prod:** 138 → 139 (FK depends on 138) → 140 (independent) → 141 (independent). Then bookkeeping commit (file moves + REFRESH_SCHEMA.sql regen of structured tables).
 
 ---
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 
 interface Vendor {
   market_vendor_id: string
@@ -68,6 +69,13 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [rowError, setRowError] = useState<Record<string, string>>({})
   const [rowSuccess, setRowSuccess] = useState<Record<string, boolean>>({})
+  // Revoke flow: manager confirms before flipping approved=false (the API
+  // supports both directions, but UI guards revoke behind a dialog because
+  // it's the destructive side of the toggle).
+  const [confirmingRevoke, setConfirmingRevoke] = useState<{
+    vendorProfileId: string
+    businessName: string
+  } | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -128,6 +136,17 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
     } finally {
       setSavingId(null)
     }
+  }
+
+  const requestRevoke = (vendorProfileId: string, businessName: string) => {
+    setConfirmingRevoke({ vendorProfileId, businessName })
+  }
+
+  const performRevoke = async () => {
+    if (!confirmingRevoke) return
+    const { vendorProfileId } = confirmingRevoke
+    setConfirmingRevoke(null)
+    await handleApprove(vendorProfileId, false)
   }
 
   const handleApprove = async (vendorProfileId: string, nextApproved: boolean) => {
@@ -250,6 +269,16 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
         <span>·</span>
         {renderFilterChip('all', 'All', vendors.length)}
       </div>
+
+      <ConfirmDialog
+        open={!!confirmingRevoke}
+        title="Revoke approval?"
+        message={`Revoke approval for ${confirmingRevoke?.businessName ?? ''}? Existing bookings stay on the books. The vendor moves to the "Pending approval" filter and won't show up in your action summary or active filter. You can re-approve them later.`}
+        variant="danger"
+        confirmLabel="Revoke"
+        onConfirm={performRevoke}
+        onCancel={() => setConfirmingRevoke(null)}
+      />
 
       {/* Empty state when filter excludes everything */}
       {displayedVendors.length === 0 ? (
@@ -376,6 +405,23 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                       ✓ Saved
                     </span>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => requestRevoke(v.vendor_profile_id, v.business_name)}
+                    disabled={isSaving || approvingId === v.vendor_profile_id}
+                    title="Revoke approval (vendor moves to Pending Approval)"
+                    style={{
+                      padding: `${spacing['3xs']} ${spacing.xs}`,
+                      backgroundColor: 'transparent',
+                      color: colors.textMuted,
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: radius.sm,
+                      fontSize: typography.sizes.xs,
+                      cursor: (isSaving || approvingId === v.vendor_profile_id) ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    Revoke
+                  </button>
                 </div>
               )}
 

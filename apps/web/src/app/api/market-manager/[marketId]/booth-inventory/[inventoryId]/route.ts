@@ -146,6 +146,19 @@ export async function DELETE(
         .eq('id', inventoryId)
 
       if (error) {
+        // FK violation from weekly_booth_rentals.inventory_id (ON DELETE
+        // RESTRICT, mig 139). Translate to a friendly 409 so the manager
+        // sees a useful message instead of a generic "Delete failed".
+        // Placeholders link via ON DELETE SET NULL, so they never trigger
+        // this branch.
+        if (error.code === '23503') {
+          return NextResponse.json(
+            {
+              error: 'This booth size has active bookings. Cancel or wait for them to complete before removing the tier.',
+            },
+            { status: 409 }
+          )
+        }
         throw traced.fromSupabase(error, {
           table: 'market_booth_inventory',
           operation: 'delete',

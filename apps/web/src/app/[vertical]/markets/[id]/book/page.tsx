@@ -70,7 +70,7 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
   // copy ("you need to be a vendor at <market name> to book").
   const { data: market } = await supabase
     .from('markets')
-    .select('id, name, vertical_id, timezone, address, city, state')
+    .select('id, name, vertical_id, timezone, address, city, state, stripe_charges_enabled')
     .eq('id', marketId)
     .maybeSingle()
 
@@ -187,9 +187,10 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
       <h1 style={headingStyle}>Book a booth at {market.name}</h1>
       <p style={mutedStyle}>
         Pick a week and a booth size. Your price is locked once you book — the
-        manager can&apos;t change it after the fact. Online payment is coming
-        soon; for now you&apos;ll complete the booking and the manager will
-        coordinate payment with you directly.
+        manager can&apos;t change it after the fact.{' '}
+        {market.stripe_charges_enabled === true
+          ? 'Payment is collected at booking via Stripe; the manager receives their portion automatically.'
+          : 'This market isn’t set up for online payment yet — the manager will coordinate payment with you directly after you submit the booking.'}
       </p>
       <BookBoothForm
         marketId={marketId}
@@ -197,6 +198,7 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
         vertical={vertical}
         weeks={weeks}
         inventory={inventory}
+        stripeReady={market.stripe_charges_enabled === true}
         {...(returnFlash ? { returnFlash } : {})}
       />
     </div>
