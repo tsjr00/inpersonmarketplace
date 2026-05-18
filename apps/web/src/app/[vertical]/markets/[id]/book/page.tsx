@@ -136,54 +136,14 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
     )
   }
 
-  // Service client — market_vendors and market_booth_inventory are
-  // RLS-deny for non-managers; we've already auth-verified the user
-  // owns this vendor_profile_id.
+  // Phase C Stage 3 design correction (2026-05-17): booth booking is an
+  // open marketplace — no manager pre-approval gate. The vendor profile
+  // + market existence are the only association checks. Availability +
+  // payment enforce supply.
+  // Service client — market_booth_inventory is RLS-deny for non-managers.
   const serviceClient = createServiceClient()
 
-  const { data: mvRow } = await serviceClient
-    .from('market_vendors')
-    .select('id, approved')
-    .eq('market_id', marketId)
-    .eq('vendor_profile_id', profile.id)
-    .maybeSingle()
-
-  if (!mvRow) {
-    return (
-      <Centered>
-        <h1 style={headingStyle}>Apply to {market.name} first</h1>
-        <p style={mutedStyle}>
-          You&apos;re not yet associated with this market. Submit your application
-          via the market&apos;s vendor invite link — once the manager approves, you
-          can book booths here.
-        </p>
-        <Link
-          href={`/${vertical}/vendor-signup?market=${marketId}`}
-          style={primaryButtonStyle}
-        >
-          Apply at {market.name}
-        </Link>
-      </Centered>
-    )
-  }
-
-  if (!mvRow.approved) {
-    return (
-      <Centered>
-        <h1 style={headingStyle}>Waiting on manager approval</h1>
-        <p style={mutedStyle}>
-          Your application to {market.name} is pending the manager&apos;s review.
-          Once they approve, you&apos;ll be able to book booths here. Check your
-          notifications — you&apos;ll get an email when you&apos;re approved.
-        </p>
-        <Link href={`/${vertical}/vendor/markets`} style={primaryButtonStyle}>
-          Back to your markets
-        </Link>
-      </Centered>
-    )
-  }
-
-  // Approved — fetch the inventory tiers + compute week options.
+  // Fetch the inventory tiers + compute week options.
   const { data: inventoryRaw } = await serviceClient
     .from('market_booth_inventory')
     .select('id, size_label, dimensions, weekly_price_cents')

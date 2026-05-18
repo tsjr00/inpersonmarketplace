@@ -17,9 +17,24 @@ export async function GET(request: NextRequest) {
     const dayOffset = parseInt(sp.get('offset') || '0')
     const vertical = sp.get('vertical') || 'food_trucks'
 
-    const targetDate = new Date()
-    targetDate.setDate(targetDate.getDate() + dayOffset)
-    const dayOfWeek = targetDate.getDay()
+    // Prefer client-supplied day_of_week + date (2026-05-17 fix for the
+    // UTC-vs-CT timezone bug: client knows what day it labeled "Today"
+    // in its tz; server doesn't and the late-evening UTC rollover used
+    // to shift everything by one day). Fall back to legacy server-derived
+    // values when the client didn't send them.
+    const clientDow = sp.get('day_of_week')
+    const clientDate = sp.get('date')
+    let dayOfWeek: number
+    let dateStr: string
+    if (clientDow !== null && /^\d{4}-\d{2}-\d{2}$/.test(clientDate || '')) {
+      dayOfWeek = parseInt(clientDow)
+      dateStr = clientDate as string
+    } else {
+      const targetDate = new Date()
+      targetDate.setDate(targetDate.getDate() + dayOffset)
+      dayOfWeek = targetDate.getDay()
+      dateStr = targetDate.toISOString().split('T')[0]
+    }
 
     // Query vendor_market_schedules joined to market_schedules (has day_of_week)
     const { data: schedules } = await supabase
@@ -61,7 +76,7 @@ export async function GET(request: NextRequest) {
       .eq('vendor_profiles.vertical_id', vertical)
 
     if (!schedules || schedules.length === 0) {
-      return NextResponse.json({ date: targetDate.toISOString().split('T')[0], day_of_week: dayOfWeek, trucks: [], total: 0 })
+      return NextResponse.json({ date: dateStr, day_of_week: dayOfWeek, trucks: [], total: 0 })
     }
 
     // Filter by day_of_week from the joined schedule
@@ -146,7 +161,7 @@ export async function GET(request: NextRequest) {
     const sortedTrucks = sortedGroups.flat()
 
     return NextResponse.json({
-      date: targetDate.toISOString().split('T')[0],
+      date: dateStr,
       day_of_week: dayOfWeek,
       trucks: sortedTrucks,
       total: sortedTrucks.length,

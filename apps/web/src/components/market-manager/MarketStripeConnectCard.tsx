@@ -63,11 +63,18 @@ export default function MarketStripeConnectCard({ marketId }: MarketStripeConnec
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [returnFlash, setReturnFlash] = useState<'complete' | 'refresh' | null>(null)
+  // Track when status was last fetched + whether a refresh is in flight.
+  // Without these, a manual "Refresh status" click that finds no change
+  // at Stripe looks like the button did nothing.
+  const [refreshing, setRefreshing] = useState(false)
+  const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null)
 
   const fetchStatus = useCallback(async () => {
+    setRefreshing(true)
     try {
       const res = await fetch(`/api/market-manager/${marketId}/stripe/status`)
       const data = (await res.json().catch(() => ({}))) as StatusResponse & { error?: string }
+      setLastCheckedAt(new Date())
       if (!res.ok) {
         setState({ kind: 'error', message: data.error || 'Could not load Stripe status' })
         return
@@ -75,8 +82,14 @@ export default function MarketStripeConnectCard({ marketId }: MarketStripeConnec
       setState(classifyStatus(data))
     } catch {
       setState({ kind: 'error', message: 'Network error checking Stripe status' })
+    } finally {
+      setRefreshing(false)
     }
   }, [marketId])
+
+  function formatCheckedAt(d: Date): string {
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  }
 
   // Initial load + react to return-from-Stripe query flags.
   // Both the flash setter and fetchStatus (which transitively calls
@@ -237,13 +250,21 @@ export default function MarketStripeConnectCard({ marketId }: MarketStripeConnec
             need to do anything; we&apos;ll update this card once Stripe
             enables charges + payouts.
           </p>
-          <button
-            type="button"
-            onClick={fetchStatus}
-            style={refreshButtonStyle}
-          >
-            Refresh status
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap', marginTop: spacing.sm }}>
+            <button
+              type="button"
+              onClick={fetchStatus}
+              disabled={refreshing}
+              style={{ ...refreshButtonStyle, marginTop: 0, opacity: refreshing ? 0.6 : 1 }}
+            >
+              {refreshing ? 'Checking…' : 'Refresh status'}
+            </button>
+            {lastCheckedAt && !refreshing && (
+              <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                Still under review · last checked at {formatCheckedAt(lastCheckedAt)}
+              </span>
+            )}
+          </div>
         </div>
       )}
       {state.kind === 'active' && (

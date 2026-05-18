@@ -70,10 +70,21 @@ export default function WhereTodayPage() {
   const fetchTrucks = async () => {
     setLoading(true)
     try {
+      // Compute the target day-of-week in CLIENT local time and send it
+      // explicitly. Server-side re-derivation from offset used UTC and
+      // could shift by 1 day for users in negative-offset timezones
+      // after ~6-7 PM local. Fix: client sends what it labels.
+      const targetDate = new Date()
+      targetDate.setDate(targetDate.getDate() + dayOffset)
+      const clientDayOfWeek = targetDate.getDay()
+      const clientYmd = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`
+
       const params = new URLSearchParams({
         vertical,
         offset: String(dayOffset),
         radius: String(currentRadius),
+        day_of_week: String(clientDayOfWeek),
+        date: clientYmd,
       })
       if (hasLocation) {
         params.set('lat', String(userLat))

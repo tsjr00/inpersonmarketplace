@@ -141,40 +141,26 @@ export async function POST(
       )
     }
 
-    // --- Gate 4: vendor must be approved at this market. ---
+    // Phase C Stage 3 design correction (2026-05-17): booth booking
+    // does NOT require manager pre-approval. Per user direction:
+    // "approving each rental wouldn't save the manager time — if there
+    // are open booths and the vendor agrees + pays, the system should
+    // let them." Manager controls supply (booth inventory + placeholders);
+    // demand routes through automatically.
+    //
+    // The market_vendors relationship is for REGULAR vendors with
+    // permanent booth assignments. A booth-rental booking does not need
+    // it. Manager sees rentals in WeeklyBookingsCard regardless of
+    // whether the vendor has a market_vendors row.
 
     const serviceClient = createServiceClient()
 
-    crumb.supabase('select', 'market_vendors')
-    const { data: mvRow, error: mvErr } = await serviceClient
-      .from('market_vendors')
-      .select('id, approved')
-      .eq('market_id', marketId)
-      .eq('vendor_profile_id', profile.id)
-      .maybeSingle()
-
-    if (mvErr) {
-      throw traced.fromSupabase(mvErr, { table: 'market_vendors', operation: 'select' })
-    }
-    if (!mvRow) {
-      return NextResponse.json(
-        { error: `You are not yet associated with ${market.name || 'this market'}. Apply via the market's invite link first.` },
-        { status: 403 }
-      )
-    }
-    if (!mvRow.approved) {
-      return NextResponse.json(
-        { error: `Your association with ${market.name || 'this market'} is pending manager approval. You'll be able to book once the manager approves you.` },
-        { status: 403 }
-      )
-    }
-
-    // --- Gate 5: inventory tier exists + belongs to this market. ---
+    // --- Gate 4: inventory tier exists + belongs to this market. ---
 
     crumb.supabase('select', 'market_booth_inventory')
     const { data: inventory, error: invErr } = await serviceClient
       .from('market_booth_inventory')
-      .select('id, market_id, size_label, weekly_price_cents')
+      .select('id, market_id, size_label, weekly_price_cents, count')
       .eq('id', inventoryId)
       .maybeSingle()
 
@@ -224,6 +210,42 @@ export async function POST(
       return NextResponse.json(
         { error: 'week_start_date must be today or in the future', field: 'week_start_date' },
         { status: 400 }
+      )
+    }
+
+    // --- Gate 5: availability — don't overbook. ---
+    //
+    // Capacity = inventory.count − placeholders for this size at this
+    // market (placeholders are always-taken off-platform vendors) −
+    // pending/paid rentals at this market + this size + this week.
+    // If the result is <= 0, reject. UNIQUE (vendor, market, week)
+    // already prevents the SAME vendor from double-booking; this gate
+    // prevents the SAME tier from over-allocation across all vendors.
+
+    const totalSlots = (inventory.count as number) || 0
+    crumb.supabase('select', 'market_booth_placeholders')
+    const { count: placeholderCount } = await serviceClient
+      .from('market_booth_placeholders')
+      .select('id', { count: 'exact', head: true })
+      .eq('market_id', marketId)
+      .eq('inventory_id', inventoryId)
+    crumb.supabase('select', 'weekly_booth_rentals')
+    const { count: takenThisWeek } = await serviceClient
+      .from('weekly_booth_rentals')
+      .select('id', { count: 'exact', head: true })
+      .eq('market_id', marketId)
+      .eq('inventory_id', inventoryId)
+      .eq('week_start_date', weekStartDate)
+      .in('status', ['pending_payment', 'paid'])
+
+    const remainingSlots = totalSlots - (placeholderCount ?? 0) - (takenThisWeek ?? 0)
+    if (remainingSlots <= 0) {
+      return NextResponse.json(
+        {
+          error: `All ${inventory.size_label} booths for the week of ${weekStartDate} are taken. Try a different week or size.`,
+          field: 'week_start_date',
+        },
+        { status: 409 }
       )
     }
 
