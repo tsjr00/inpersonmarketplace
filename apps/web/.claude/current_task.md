@@ -1,261 +1,225 @@
-# Current Task: Session 81 wrap — Phase A live in prod, regression fix on staging
+# Current Task: Phase C complete on staging — review before prod batch
 
-**Updated:** 2026-05-10 (end of Session 81)
-**Mode:** Fix (most recent — was switched from Report during the staging→prod review)
+**Updated:** 2026-05-17 (end of session 82+)
+**Mode:** Fix (per recent user-approved commits)
 
 ---
 
 ## TL;DR for next session
 
-**Session 81 shipped Phase A (Market Manager wizard) to prod plus two follow-ups.** All migrations 132–137 applied to all 3 envs. One regression fix is on staging but **not yet on prod** — awaiting verification.
-
-**State of remotes:**
-- `origin/main` (prod) at **`c7d0b3ec`** — Session 80 + Phase A + vertical admin manager assignment
-- `origin/staging` at **`9318bda1`** — adds: RLS-blocked progress query fix + vendors wizard step
-- 1 commit on staging not yet on prod (`9318bda1`) — the regression fix described below
-
----
-
-## What landed in Session 81 (chronological)
-
-### Phase A — Market Manager onboarding (shipped to prod 2026-05-09 at `7470e1d5`)
-
-| Commit | What |
-|---|---|
-| `7eefadb2` | A1: migrations 135 (off-platform placeholders) + 136 (opt-in catalog + 15 seeded statements) + types/helpers + Session 81 roadmap in v2 plan |
-| `54fd0335` | A2: booth-placeholders CRUD API + dashboard card |
-| `74ed8c07` | A3: opt-in catalog + selections API + manager UI (15-statement picker with placeholder substitution) |
-| `a5b2dfcf` | A4: onboarding wizard (5 steps) + ConfirmDialog fix in booth components |
-| `d802506c` | A5: permission boundary flow-integrity test (manager can't delete from market_vendors) |
-| `7c466329` | Onboarding progress consistency fix (placeholders + Review-and-finish step) |
-| `7470e1d5` | **Bookkeeping commit — migrations 132–137 moved to applied/, SCHEMA_SNAPSHOT + MIGRATION_LOG updated, Phase A live on prod** |
-
-### Post-Phase-A follow-up — vertical admin gap (prod 2026-05-09 at `c7d0b3ec`)
-
-User reported the manager assignment UI only existed on platform admin (`/admin/markets/[id]`) — vertical admins had no path to it.
-
-| Commit | What |
-|---|---|
-| `c7d0b3ec` | **Vertical admin manager assignment + mobile Edit button on /[vertical]/admin/markets.** Moved `MarketManagerAssignment` to `src/components/market-manager/`. Added section to inline Edit form (FM + traditional only). Added Edit button to mobile rows via `AdminMobileRow.rightAction` for portrait usage. Pushed to prod. |
-
-### Regression fix + vendors wizard step (staging only — `9318bda1`)
-
-User reported on prod: "set up market box shows 0 of 2 required and no items completed, even though I have completed and saved all on boarding categories." Plus: "in the onboarding wizard it did not ask me to assign booth numbers to vendors already on the platform."
-
-**Root cause of progress bug:** migration 137 enabled RLS on all 4 market-manager tables with no policies (default-deny except service_role). `getOnboardingProgress` was taking the authenticated user's supabase client and querying those tables for counts — blocked by RLS, always returned 0. The CRUD operations all work because the API routes use `createServiceClient()`. The progress reader was the only path using the wrong client.
-
-| Commit | What |
-|---|---|
-| `9318bda1` | (1) `getOnboardingProgress` now uses `createServiceClient()` internally (auth verified upstream via `isMarketManager`). Dropped the supabase param from 3 callers. (2) New wizard step `vendors` inserted between booths and placeholders. Uses existing `VendorBoothList` component. Optional — doesn't gate required completion. Shows ✓ if any vendor has a booth assigned OR if no vendors are at the market yet. Empty-state warning copy. Dashboard checklist and confirm step both show the new line. **On staging, NOT prod.** |
+**Staging is 18 commits ahead of prod.** Phase B closeout + Phase C Stages 1/1A/2/3 all shipped to staging across this session, plus tonight's testing-driven fixes. Migs 138, 139, 141 are on Dev + Staging — **NOT on Prod.** Prod push is gated on:
+1. Apply mig 138 to Prod
+2. Apply mig 139 to Prod
+3. Apply mig 141 to Prod
+4. Push staging branch tip to `origin/main`
+5. Bookkeeping commit (move 3 mig files to `applied/`, regenerate SCHEMA_SNAPSHOT structured tables)
 
 ---
 
-## Migrations status (all applied to all 3 envs as of 2026-05-09)
+## What's on staging (commit `74154b2d`)
 
-| # | What | Files moved to applied/ | In `SCHEMA_SNAPSHOT.md` changelog |
-|---|---|---|---|
-| 132 | Drop legacy analytics functions | ✓ | ✓ |
-| 133 | Market manager v1 schema | ✓ | ✓ |
-| 134 | market_booth_inventory table | ✓ | ✓ |
-| 135 | market_booth_placeholders table | ✓ | ✓ |
-| 136 | Opt-in catalog + selections + 15 seed statements | ✓ | ✓ |
-| 137 | Enable RLS on all 4 market manager tables (default-deny) | ✓ | ✓ |
+### Phase B closeout (3 items)
+- **B-close-1** — Info-sharing consent checkbox on new-vendor signup (mirrors State C). `/api/submit` appends synthetic `_info_sharing_consent` snapshot entry when flag is true. Submit gated on both checkboxes when `?market=` present.
+- **B-close-2** — Manager approval triggers `vendor_market_approval_granted` notification (email + in-app) to the approved vendor. Silent on revoke. Bumped NI-014 tripwire to 64.
+- **B-close-3** — Auto-hash `agreement_version` from current statement set. New helper `src/lib/markets/agreement-version.ts`. Both `/api/vendor/markets/[id]/join` and `/api/submit` write deterministic version hashes. State D of vendor-signup detects staleness via new `GET /api/vendor/markets/[id]/agreement-status` and renders a re-accept block.
 
-**Schema snapshot structured tables are still STALE as of 2026-04-24.** Backlog item to regenerate via `REFRESH_SCHEMA.sql`. Doesn't block work.
+### Phase C Stage 1 — Booth booking flow (no payment)
+- **Mig 139** (`weekly_booth_rentals`) — applied Dev + Staging. Stripe columns present but unused at this stage.
+- **API:** `POST /api/vendor/markets/[id]/book` writes rental row with `status='pending_payment'`.
+- **Vendor UI:** new page `/[vertical]/markets/[id]/book` + `BookBoothForm` client component. Week picker (next 8 Sundays in market tz), inventory dropdown, agreement block, submit.
+- **Manager UI:** `<WeeklyBookingsCard>` on dashboard — read-only list.
+- **CTA:** "Book a Booth Space" button on `/[vertical]/vendor/markets` between Manage Schedule + Prep Sheet.
 
----
+### Phase C Stage 1A — Manager booth-# editor
+- New PATCH `/api/market-manager/[marketId]/weekly-rental/[rentalId]` — set/clear booth_number.
+- `<WeeklyBookingsCard>` refactored: server-side fetch + stitching, client child `<WeeklyBookingsList>` for the inline editor.
+- Cancelled bookings show read-only (no editor).
 
-## State of the onboarding wizard (post-9318bda1)
+### Phase C Stage 2 — Manager Stripe Connect onboarding
+- **Mig 141** (`markets.stripe_account_id`, `stripe_onboarding_complete`, `stripe_charges_enabled`, `stripe_payouts_enabled` + partial index) — applied Dev + Staging.
+- **New lib function:** `createMarketConnectAccount(email, marketId)` in `src/lib/stripe/connect.ts` — separate idempotency namespace from vendor (`connect-account-market-{marketId}`).
+- **APIs:** `POST /api/market-manager/[marketId]/stripe/onboard` (creates account if absent, returns hosted onboarding URL) + `GET /api/market-manager/[marketId]/stripe/status` (lazy-syncs Stripe state to DB).
+- **UI:** `<MarketStripeConnectCard>` on manager dashboard with 4 states (not_connected / in_progress / under_review / active). Handles `?stripe=complete` and `?stripe=refresh` return flags.
 
-Steps in order:
-1. `identity` — confirm market details (read-only)
-2. `booths` — booth inventory CRUD (size tiers + prices) — REQUIRED
-3. `vendors` — assign booth numbers to on-platform vendors at this market — optional, NEW Session 81
-4. `placeholders` — off-platform vendor booth occupancy — optional
-5. `optin` — pick from 15 vendor agreement statements + fill placeholders — REQUIRED
-6. `confirm` — review summary
+### Phase C Stage 3 — Payment integration (all 3 critical-path files modified)
+- **Step 1 — `pricing.ts`:** `calculateBoothRentalFees(weeklyPriceCents)` — 6.5% × 2 markup, pure math, 13 vitest cases.
+- **Step 2 — `stripe/payments.ts`:** `createBoothRentalCheckoutSession({...})` — Stripe destination-charge model (`transfer_data.destination + amount`), idempotency key `booth-rental-{rentalId}`, metadata.type='booth_rental' for webhook routing.
+- **Step 3 — `/api/vendor/markets/[id]/book`** orchestrator: when manager Stripe is ready, creates Checkout session + returns `checkout_url`. When not, falls through to Stage 1 shape.
+- **Step 4 — `stripe/webhooks.ts`:** `handleBoothRentalCheckoutComplete` — resolves rental_id, idempotent status flip pending_payment → paid, populates payment_intent_id + paid_at. Three TracedError codes (ERR_WEBHOOK_011/012/013).
+- **Step 5 — `BookBoothForm`:** redirect to `checkout_url` on submit when present. Handles `?session=success|cancel` return-from-Stripe flash.
+- **Step 6 — Cron Phase 16:** sweeps abandoned bookings. Two cohorts: orphans (no Stripe session, 30 min timeout) + stale sessions (24h timeout). Status flipped to cancelled, cancelled_at set.
 
-Confirm step shows ✓/○ for each step with status copy. Required steps drive "Setup complete" state on the dashboard checklist.
+### Tonight's testing-driven fixes (commits `625de7eb` + `74154b2d`)
 
----
+**Earlier batch (items 1 + 5 from first round of testing):**
+- **Where-Today dedup** — `(vendor_id, market_id, start_time, end_time)` dedup before sort. Legit multi-time-slot vendors still render multiply.
+- **Conditional disclaimer** — "This market is listed as a pickup location… not affiliated" disclaimer on market profile NOW hidden when `markets.manager_user_id IS NOT NULL`.
 
-## Outstanding work (in priority order)
-
-### Immediate next-session candidates
-
-1. **Verify `9318bda1` on staging then push to prod.**
-   - Confirm dashboard checklist shows ✓ for previously-saved data
-   - Confirm new `vendors` wizard step renders + transitions correctly
-   - Confirm empty-state copy renders when no on-platform vendors
-   - `git push origin main` once verified
-
-2. **Backlog Task #6 — active filter DONE 2026-05-10.** `VendorBoothList` now defaults to showing approved+scheduled vendors, with a toggle to show all. API extended to query `vendor_market_schedules.is_active`. Pickup count was descoped — per-vendor isn't useful to managers; aggregate "X orders for next market day" moved to Phase D.
-
-3. **Off-platform vendor placeholders UX polish?** Currently shows correctly post-fix. No outstanding bugs.
-
-### Phase B (kicked off 2026-05-10)
-
-**Shipped (6 quick wins, no migration/payment/critical-path):**
-- ✅ **Win 1: Invite-a-vendor link** on manager dashboard — `InviteVendorLink.tsx` shows copy-able URL `${origin}/${vertical}/vendor-signup?market=<id>`. Note: used `?market=` ALONE, NOT `?ref=manager` — the `ref` param is already consumed by the vendor-to-vendor referral system (`vendor-signup/page.tsx:80-99`); reusing it would collide.
-- ✅ **Win 2: Co-branded vendor signup banner** — `vendor-signup/page.tsx` reads `?market=<id>`, fetches market name from `/api/markets/[id]`, renders banner above the form. Signup behavior unchanged.
-- ✅ **Win 3: "Needs booth #" filter** — `VendorBoothList.tsx` toggle is now 3-state (Active / Needs booth # / All). Per-row "needs booth #" badge appears when applicable.
-- ✅ **Win 4: "Needs booth #" badge in Vendors header** — count badge on the "Vendors at this market" h2; scroll anchor `#vendors-at-market` for jump-to from the action summary.
-- ✅ **Win 5: Next market day stat** — surfaced in the Manager Action Summary card (Win #6) as a bullet showing date + scheduled order count. Bundled with Win #6 per user's option-B choice 2026-05-10 (rather than as a separate header line).
-- ✅ **Win 6: Manager Action Summary card** — `ManagerActionSummary.tsx` renders below `OnboardingChecklist` only when there are actionable items (needs-booth count > 0 OR upcoming market day). Defers to checklist during setup. New helper `manager-dashboard-stats.ts` powers it; uses the canonical cron pattern (`expire-orders/route.ts:2267-2269`) for market-local "next market day" computation via `markets.timezone`.
-
-**Phase B follow-through shipped 2026-05-12:**
-- ✅ **Auto-create `market_vendors` row on co-branded signup** — `?market=<id>` URL param now flows through to `/api/submit/route.ts`. Vendor signup creates a `market_vendors` row with `approved=false` (pending manager review). Idempotent via upsert on the existing UNIQUE constraint (`market_vendors_market_id_vendor_profile_id_key`). Market existence validated server-side before insert. Decision locked: `approved=false`, not auto-approve — manager reviews/confirms because vendor may not have provided correct info for that specific market.
-- ✅ **Migration drafts** for `vendor_market_agreement_acceptances` + `weekly_booth_rentals` written to `supabase/migrations/` (NOT applied). Drafts only — design review before apply. See Change Log entry in `SCHEMA_SNAPSHOT.md` for full schema description.
-- ✅ **Dashboard "Coming soon" cleanup** — removed "Aggregate market activity (order count, pickup volume)" line (partially fulfilled by Manager Action Summary shipping the next-market-day order count).
-
-**Phase B approval loop closed 2026-05-14:**
-- ✅ **Manager vendor-approval API + UI** — Closes the gap opened by the auto-create commit on 2026-05-12 (vendors auto-associated with `approved=false` had no manager-side action path). New endpoint `PATCH /api/market-manager/[marketId]/vendor-approval` flips approved bool (allows both approve and revoke; mirrors vendor-booth security pattern via `isMarketManager` + service client). `VendorBoothList` now 4-state filter (Active / Needs booth # / Pending approval / All) with conditional row UI: pending vendors show Approve button only (no distracting booth controls); approved vendors show booth assignment controls. `ManagerActionSummary` surfaces pending count + Review link at top of action list. New `pendingApprovalCount` field added to `manager-dashboard-stats.ts` via 4th parallel HEAD-count query.
-
-**Remaining Phase B (deeper work, separate sessions):**
-- **Vendor weekly booking flow** (modeled on event organizer flow) — pick market → pick week → pick size → see price → see opt-in agreement → "complete booking" placeholder (no payment yet). Requires migration 139 to be applied first.
-- **Vendor signup opt-in checklist UI** — manager's selected statements rendered as required checkbox list at signup. Requires migration 138 to be applied first.
-- **Apply migrations 138 + 139** — when ready, apply to Dev/Staging/Prod in standard sequence; update SCHEMA_SNAPSHOT structured tables.
-
-### Phase C (critical-path territory — heavy approval needed)
-
-- Manager "market" Stripe Connect account onboarding
-- Booth-rental Stripe Checkout with 6.5% × 2 markup
-- Payout flow to manager Connect account
-- Electronic-signature record snapshot at payment confirmation
-
-### Phase D — dashboard fill-out
-
-- Aggregate transactions card (7d / 30d / season)
-- Schedule view (read-only `market_schedules`)
-- Support card (KB + email)
-- Weekly bookings list
-- Booth occupancy grid view
-- **Aggregate "X orders for next market day" count** (resets after each market day) — moved here from original Backlog Task #6 scope per 2026-05-10 design discussion; manager doesn't need per-vendor granularity
-
-### Phase E — surveys + share
-
-- Migration: `market_surveys` table
-- Post-market survey cron with evening-vs-next-morning logic
-- Delivery: in-app + email (locked decision)
-- Aggregate ratings + responses on manager dashboard
-- Share button + templates on market profile
+**Later batch (items 3 + 4 + 5 from second round of testing):**
+- **Item 5 — Where-Today timezone fix (the day-off-by-one bug):** client now sends `day_of_week` + `date` URL params explicitly. Server uses them. Fixes pre-existing UTC bug surfaced in evening CT.
+- **Item 3 — Refresh status button:** added "Checking…" / "Still under review · last checked at HH:MM AM/PM" feedback. Button now visibly responds to clicks.
+- **Item 4 — Drop booth-booking approval gate + add availability check:** booking no longer requires `market_vendors.approved=true`. New Gate 5 in API: `inventory.count - placeholders_for_size - pending+paid_rentals_this_week > 0` else 409 "All [size] booths for the week of X are taken". Book page dropped the "Apply to market first" and "Waiting on manager approval" branches.
 
 ---
 
-## Critical context — DO NOT FORGET
+## Migrations status
 
-### RLS model on market manager tables (migration 137)
-All 4 tables — `market_booth_inventory`, `market_booth_placeholders`, `market_optin_statement_catalog`, `market_optin_selections` — have RLS enabled with **no policies**. Only `service_role` (used by `createServiceClient()`) bypasses RLS. **The authenticated user's client (`createClient()`) is blocked.**
+| # | Description | Dev | Staging | Prod |
+|---|---|---|---|---|
+| 138 | vendor_market_agreement_acceptances | ✅ | ✅ | ❌ pending |
+| 139 | weekly_booth_rentals | ✅ | ✅ | ❌ pending |
+| 141 | markets.stripe_connect_* | ✅ | ✅ | ❌ pending |
 
-**Pattern:** All API routes under `src/app/api/market-manager/` use service client. Any server component that needs to READ these tables must also use service client (via `createServiceClient()`), with auth verified upstream by `isMarketManager()`. Do NOT add an RLS policy that allows authenticated reads without a separate design discussion — the default-deny model is intentional.
-
-### Permission boundary rule (flow-integrity test in commit d802506c)
-Manager cannot disassociate a vendor from a market if the vendor associated themselves first. Currently enforced by API surface (manager API has no DELETE on market_vendors). Test at `src/lib/__tests__/flow-integrity.test.ts` walks `src/app/api/market-manager/` and fails if any file calls `.from('market_vendors').delete()`. **If you add a DELETE to manager API, that test will block the commit.**
-
-### Critical-path files NOT touched in Session 81
-- `src/app/api/cart/*`
-- `src/app/api/checkout/external/*`
-- `src/lib/pricing.ts`
-- `src/lib/vendor-limits.ts` (touched in mig 137 era but only TSConfig type cleanup, no logic change)
-
-### Foreground pushes only
-Per user preference (and `feedback_verify_push_by_remote_tip.md`), pre-push hooks run foreground so failures are visible. Background runs hide Playwright flakes that need `rm -rf .next` retries.
-
-### Production push window
-**9 PM – 7 AM CT only** per CLAUDE.md. Both prod pushes in Session 81 were authorized within this window or explicitly approved out-of-window by the user.
-
-### Mobile UX nuance
-The `/[vertical]/admin/markets` page now has an Edit button as `rightAction` on each mobile row (portrait works). Rotation landscape-switch should also work via CSS at `AdminResponsiveStyles.tsx:365` but the user reported it doesn't on their device — separate device-side issue, not a code bug.
+**Apply order to Prod:** 138 → 139 (FK depends on 138) → 141 (independent). Then bookkeeping commit (file moves + REFRESH_SCHEMA.sql regen of structured tables).
 
 ---
 
-## Open design questions
+## Branch state
 
-1. **Should vendor booth assignment count toward "required" progress?** Currently optional. User indicated they expected it to count, but committing to "required" means a manager can't reach "Setup complete" until they have at least one on-platform vendor (chicken-and-egg). Current design: optional, but ✓ when "vendors at market = 0" (clean slate is valid).
-
-2. **Phase B vendor signup `?market=&ref=manager` flow** — should it create a `market_vendors` row automatically on signup, or wait until vendor explicitly books a week? Probably the latter, but worth confirming.
-
-3. **Surveys timing logic** — locked at "evening of market purchase OR next morning if late event." Cron needs market-close-time-aware logic. Not built yet.
-
----
-
-## File locations / quick reference
-
-### Market manager v1 core
-- `src/lib/markets/manager-auth.ts` — dual-key auth helper
-- `src/lib/markets/manager-queries.ts` — getMarketsManagedBy (FM-scoped)
-- `src/lib/markets/booth-types.ts` — inventory types + helpers
-- `src/lib/markets/placeholder-types.ts` — placeholder types + validators
-- `src/lib/markets/optin-types.ts` — opt-in types + render/validate/group helpers
-- `src/lib/markets/onboarding-progress.ts` — **uses service client internally now**
-
-### Manager UI
-- `src/components/market-manager/MarketManagerCard.tsx` — buyer dashboard card
-- `src/components/market-manager/MarketManagerAssignment.tsx` — admin assignment UI (shared between platform + vertical admin)
-- `src/components/market-manager/BoothInventoryManager.tsx` — tier CRUD with ConfirmDialog
-- `src/components/market-manager/BoothPlaceholderManager.tsx` — placeholder CRUD with ConfirmDialog
-- `src/components/market-manager/VendorBoothList.tsx` — vendor list with booth_number editor
-- `src/components/market-manager/OptinManager.tsx` — statement picker with placeholder substitution
-- `src/components/market-manager/OnboardingChecklist.tsx` — dashboard yellow card (4 line items now)
-
-### Manager pages
-- `src/app/[vertical]/market-manager/[marketId]/dashboard/page.tsx` — main dashboard
-- `src/app/[vertical]/market-manager/[marketId]/onboarding/page.tsx` — wizard landing
-- `src/app/[vertical]/market-manager/[marketId]/onboarding/[step]/page.tsx` — wizard step dispatcher (6 steps now)
-- `src/app/[vertical]/market-manager-program/page.tsx` — public landing
-- `src/app/admin/markets/[id]/page.tsx` — platform admin market detail (uses MarketManagerAssignment)
-- `src/app/[vertical]/admin/markets/page.tsx` — vertical admin (uses MarketManagerAssignment in inline Edit form)
-
-### Manager API
-- `src/app/api/market-manager/[marketId]/booth-inventory/` — GET/POST + [id] PATCH/DELETE
-- `src/app/api/market-manager/[marketId]/booth-placeholders/` — GET/POST + [id] PATCH/DELETE
-- `src/app/api/market-manager/[marketId]/optin/catalog/` — GET (catalog)
-- `src/app/api/market-manager/[marketId]/optin/selections/` — GET + PUT (replace whole set)
-- `src/app/api/market-manager/[marketId]/vendor-booth/` — PATCH (booth_number only)
-- `src/app/api/market-manager/[marketId]/vendors/` — GET vendor list
-- `src/app/api/admin/markets/[id]/manager/` — POST assign/clear
-
-### Tests
-- `src/lib/__tests__/flow-integrity.test.ts` — 36 tests including market manager permission boundary
-
-### Planning docs
-- `apps/web/.claude/market_manager_v2_plan.md` — strategic plan with Session 81 Consolidated Roadmap at top
-- `apps/web/.claude/market_manager_v1_plan.md` — historical reference (superseded banner at top)
-- `apps/web/.claude/market_manager_optin_statements_v1.md` — locked at 15 statements
+- `origin/staging`: `74154b2d` (latest)
+- `origin/main` (prod): `c7d0b3ec` (Session 81 end)
+- Local `main`: matches staging
+- **18 commits to push to prod** when ready
 
 ---
 
-## Pending — TOP OF NEXT SESSION
+## Open testing findings from this session
 
-1. **Verify `9318bda1` on staging** — dashboard checklist accurate, wizard `vendors` step works, empty-state copy clean
-2. **Push `9318bda1` to prod** — `git push origin main` from main; uses pre-push hook (Playwright). Within 9 PM – 7 AM CT window.
-3. **After prod confirmed:** clean working state — no migrations pending, no commits stranded.
+| # | Finding | Status |
+|---|---|---|
+| 1 | Does mktmgr need to be a vendor? | **Answered — no.** dual-key auth checks `manager_user_id` / `manager_email` only |
+| 2 | Admin should see manager name/phone/backup contact | **Open** — needs mig 142 + UI. Not built yet. |
+| 3 | Refresh Stripe status button "does nothing" | ✅ **Fixed** — visible feedback added |
+| 4 | Booking sent to /vendor-signup | ✅ **Fixed** — design corrected, booking is open marketplace + capacity check |
+| 5 | Day-of-week off-by-one on /where-today | ✅ **Fixed** — client sends day_of_week explicitly |
 
-Then the user picks the next direction: Phase B kickoff, Task #6 vendor list polish, or something else.
+Earlier testing batch (items 1 + 5 from first round):
+- ✅ Vendor duplication on /where-today — dedup shipped
+- ✅ "Not affiliated" disclaimer conditional on `manager_user_id`
+
+Still on the backlog (already noted in `apps/web/.claude/backlog.md`):
+- Failed booth rental purchase notification
+- Vendor + manager payment-complete notifications (Step 4.5)
+- Migs 138/139/141 → Prod + bookkeeping commit
+- Stage 3 amount reconciliation (optional)
+- account.updated webhook → markets.stripe_* sync (optional)
 
 ---
 
-## Working tree state at end of Session 81
+## Item 2 design — admin sees manager name/phone/backup contact (needs work next session)
 
-```
-M apps/web/.claude/settings.local.json     (gitignored)
-+ many pre-existing untracked planning docs in .claude/ (intentional, historical)
-```
+**Scope:**
+- **Mig 142:** add to `markets`:
+  - `manager_name TEXT`
+  - `manager_phone TEXT`
+  - `backup_contact_name TEXT`
+  - `backup_contact_email TEXT`
+  - `backup_contact_phone TEXT`
+- **UI:** edits in 3 places:
+  - Platform admin: `/admin/markets/[id]` (full form)
+  - Vertical admin: `/[vertical]/admin/markets` inline Edit form
+  - **Optional:** manager-side edit on their own dashboard (let them update their info)
+- **Display:** admin Markets list shows name + phone alongside email; admin Market detail shows full backup contact block.
 
-All session work is committed. Local `main` matches `origin/main` (= prod). `origin/staging` has one extra commit (`9318bda1`).
+Not started. Single migration + ~80-120 lines UI. Non-critical-path.
+
+---
+
+## What's NOT in this session's work
+
+- Item 2 (admin manager contact fields) — designed but not built
+- Manager-editable schedule (`<MarketScheduleCard>` still read-only with "coming soon" copy)
+- Proactive manager application form (`/market-manager-program` is marketing only)
+- Vendor "My Bookings" dashboard section (Stage 1 leftover)
+- Notification implementations (vendor approved-at-market is shipped; payment-complete + booking-cancelled are not)
+
+---
+
+## Critical context for next session
+
+### RLS posture (unchanged from before)
+All Phase B / C tables (mig 138/139/141 columns, plus mig 134-137 manager tables) are RLS default-deny with no policies — service-client only. Auth verified upstream by `isMarketManager()` for manager routes; by `getVendorProfileForVertical()` for vendor routes.
+
+### Phase B agreement-version model
+`agreement_version` is auto-computed as `v1:<count>:<hash>` from sorted statement IDs (synthetic entries excluded). Helper at `src/lib/markets/agreement-version.ts`. Same statement set = same hash = idempotent UNIQUE conflict on (vendor, market, version) = treated as success. Different set = new row written.
+
+### Phase C math model
+6.5% × 2 markup. Math centralized in `src/lib/pricing.ts` (`calculateBoothRentalFees`). Caller passes amounts to `createBoothRentalCheckoutSession`. Stripe's destination charge (`transfer_data: { destination, amount }`) auto-routes the manager's portion at payment time — no separate transfer call. Platform retains the spread.
+
+### Idempotency keys (Phase C)
+- Stripe Checkout session: `booth-rental-${rentalId}` (deterministic)
+- Manager Connect account creation: `connect-account-market-${marketId}` (distinct namespace from vendor)
+
+### Cron Phase 16 expiry windows
+- Orphan (no Stripe session): 30 min after `booked_at`
+- Stale (has Stripe session, no payment): 24h after `booked_at` (mirrors Stripe's default session TTL)
+
+### Per-file approval history (Rule 3)
+All 3 critical-path files in `pricing.ts`/`stripe/payments.ts`/`stripe/webhooks.ts` received explicit per-file approval before each modification. Pattern: present diff + risk → user approves naming the file → commit.
+
+---
+
+## Files modified this session (chronological)
+
+1. `apps/web/src/app/[vertical]/vendor-signup/page.tsx` — B-close-1, B-close-3 State D
+2. `apps/web/src/app/api/submit/route.ts` — B-close-1 info-sharing, B-close-3 auto-hash
+3. `apps/web/src/app/api/market-manager/[marketId]/vendor-approval/route.ts` — B-close-2 notification
+4. `apps/web/src/lib/notifications/types.ts` — `vendor_market_approval_granted`
+5. `apps/web/src/lib/__tests__/cutoff-and-sort-functional.test.ts` — NI-014 bump 63 → 64
+6. `apps/web/src/lib/markets/agreement-version.ts` — NEW helper
+7. `apps/web/src/app/api/vendor/markets/[id]/agreement-status/route.ts` — NEW endpoint
+8. `apps/web/src/app/api/vendor/markets/[id]/join/route.ts` — auto-hash version
+9. `apps/web/src/app/api/vendor/markets/[id]/book/route.ts` — Stage 1 + Stage 3 + Item 4 fix
+10. `apps/web/src/app/[vertical]/markets/[id]/book/page.tsx` — booking page + return-flash + Item 4 fix
+11. `apps/web/src/components/vendor/BookBoothForm.tsx` — booking form + Stripe redirect
+12. `apps/web/src/components/market-manager/WeeklyBookingsCard.tsx` — refactored server wrapper
+13. `apps/web/src/components/market-manager/WeeklyBookingsList.tsx` — NEW client list w/ booth-# editor
+14. `apps/web/src/app/api/market-manager/[marketId]/weekly-rental/[rentalId]/route.ts` — NEW PATCH
+15. `apps/web/src/lib/stripe/connect.ts` — `createMarketConnectAccount`
+16. `apps/web/src/app/api/market-manager/[marketId]/stripe/onboard/route.ts` — NEW
+17. `apps/web/src/app/api/market-manager/[marketId]/stripe/status/route.ts` — NEW
+18. `apps/web/src/components/market-manager/MarketStripeConnectCard.tsx` — NEW + Item 3 fix
+19. `apps/web/src/app/[vertical]/market-manager/[marketId]/dashboard/page.tsx` — wired Connect + Bookings cards
+20. `apps/web/src/app/[vertical]/vendor/markets/page.tsx` — "Book a Booth Space" CTA
+21. `apps/web/src/lib/pricing.ts` — `calculateBoothRentalFees`
+22. `apps/web/src/lib/__tests__/pricing.test.ts` — 13 booth-rental cases
+23. `apps/web/src/lib/stripe/payments.ts` — `createBoothRentalCheckoutSession`
+24. `apps/web/src/lib/stripe/webhooks.ts` — `handleBoothRentalCheckoutComplete` + dispatch
+25. `apps/web/src/app/api/cron/expire-orders/route.ts` — Phase 16 sweep
+26. `apps/web/src/app/api/trucks/where-today/route.ts` — dedup + timezone fix
+27. `apps/web/src/app/[vertical]/where-today/page.tsx` — client sends day_of_week
+28. `apps/web/.claude/backlog.md` — Priority 1 — Phase C Stage 3 follow-ups
+29. `supabase/migrations/20260512_139_weekly_booth_rentals.sql` — rollback comment block
+30. `supabase/migrations/20260517_141_markets_stripe_connect.sql` — NEW migration
+31. `supabase/SCHEMA_SNAPSHOT.md` — changelog entries for migs 139 + 141
+
+Plus planning docs:
+- `apps/web/.claude/phase_b_agreement_loop_plan_2026-05-15.md`
+- `apps/web/.claude/phase_c_payment_loop_plan_2026-05-16.md`
+
+---
+
+## Smoke test plan after Vercel rebuild
+
+See full Phase B + C test plan in the prior session message — items 1-45 covered Stripe Connect onboarding, vendor booking, manager dashboard, agreement re-acceptance, cancellation, idempotency, where-today dedup, conditional disclaimer.
+
+Tonight's three fixes add these checks:
+- **Item 5 (timezone):** evening test — click "Friday" in `/where-today` → should now show Friday markets
+- **Item 3 (refresh button):** as manager with Stripe Under Review → click Refresh status → see "Checking…" then "Still under review · last checked at HH:MM"
+- **Item 4 (open booking):** as vendor with no `market_vendors` row → book → form renders. Overbook attempt → 409.
 
 ---
 
 ## When this gets picked up
 
 Read in order:
-1. This file (`current_task.md`) — you're here
-2. `CLAUDE.md` (root) — project rules
-3. `apps/web/.claude/market_manager_v2_plan.md` — Session 81 Consolidated Roadmap at top
-4. `apps/web/.claude/rules/verification-discipline.md` (Rule 1) + `apps/web/.claude/rules/change-discipline.md` (Rule 1) — recent user reinforcements about accuracy and not editing without explicit approval
+1. This file
+2. `apps/web/.claude/backlog.md` Priority 1 section
+3. `apps/web/.claude/phase_c_payment_loop_plan_2026-05-16.md` (if continuing Phase C)
+4. The 5 themed rule files in `apps/web/.claude/rules/` (always)
 
-User's working preferences this session:
-- **Foreground pushes only** (background hides Playwright flakes that need `.next` clear)
-- **Slow down, accuracy over speed** — verify with code reads, don't guess
-- **Cite file:line in claims** — don't quote behavior from memory
-- **`.next` clear before every chain** to dodge the Turbopack flake — has worked consistently
+**Top-of-next-session priorities:**
+1. User smoke-tests staging covering the 5 fixes shipped today
+2. Decide when to push migrations 138/139/141 to Prod + push 18 commits to `origin/main`
+3. Item 2 (admin manager contact fields) — mig 142 + UI work
+4. Backlog items: notifications on payment / cancellation
