@@ -172,6 +172,27 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
     )
   }
 
+  // Stripe-only booking model (2026-05-18). If the manager hasn't completed
+  // Stripe Connect, vendors can't book through the platform — no offline-
+  // payment fallback. The manager is free to take cash directly outside
+  // the platform; that's just not handled here.
+  if (market.stripe_charges_enabled !== true) {
+    return (
+      <Centered>
+        <h1 style={headingStyle}>Online booking not available yet</h1>
+        <p style={mutedStyle}>
+          {market.name} isn&apos;t set up to accept online booth rentals yet
+          — the manager hasn&apos;t finished their payment setup. Check back
+          soon, or reach out to the market manager directly if you want to
+          arrange a booth in the meantime.
+        </p>
+        <Link href={`/${vertical}/markets/${marketId}`} style={primaryButtonStyle}>
+          Back to {market.name}
+        </Link>
+      </Centered>
+    )
+  }
+
   const weeks = nextSundays((market.timezone as string | null) || 'America/Chicago', 8)
 
   return (
@@ -187,10 +208,8 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
       <h1 style={headingStyle}>Book a booth at {market.name}</h1>
       <p style={mutedStyle}>
         Pick a week and a booth size. Your price is locked once you book — the
-        manager can&apos;t change it after the fact.{' '}
-        {market.stripe_charges_enabled === true
-          ? 'Payment is collected at booking via Stripe; the manager receives their portion automatically.'
-          : 'This market isn’t set up for online payment yet — the manager will coordinate payment with you directly after you submit the booking.'}
+        manager can&apos;t change it after the fact. Payment is collected at
+        booking via Stripe; the manager receives their portion automatically.
       </p>
       <BookBoothForm
         marketId={marketId}
@@ -198,7 +217,6 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
         vertical={vertical}
         weeks={weeks}
         inventory={inventory}
-        stripeReady={market.stripe_charges_enabled === true}
         {...(returnFlash ? { returnFlash } : {})}
       />
     </div>

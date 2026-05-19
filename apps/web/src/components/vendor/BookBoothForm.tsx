@@ -31,13 +31,6 @@ interface BookBoothFormProps {
   /** Pre-computed Sunday YYYY-MM-DD strings from the server. */
   weeks: string[]
   inventory: InventoryRow[]
-  /** True when the manager has completed Stripe Connect onboarding AND
-   *  charges_enabled is true. Drives:
-   *   - Price display: shows vendor-pays breakdown ($25 + $1.63 fee = $26.63)
-   *     so the vendor sees the same total at Stripe Checkout.
-   *   - Submit button label: "Continue to payment" vs offline-mode copy.
-   *  Source: markets.stripe_charges_enabled column, passed from server. */
-  stripeReady: boolean
   /** Return-from-Stripe flash (Phase C Stage 3). When set, the form
    *  renders a confirmation/cancellation state instead of the booking
    *  form. Server reads ?session= query param and passes the flag in. */
@@ -66,7 +59,6 @@ export default function BookBoothForm({
   vertical,
   weeks,
   inventory,
-  stripeReady,
   returnFlash,
 }: BookBoothFormProps) {
   const [selectedWeek, setSelectedWeek] = useState<string>(weeks[0] ?? '')
@@ -74,11 +66,6 @@ export default function BookBoothForm({
   const [agreementAccepted, setAgreementAccepted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<{
-    week: string
-    size: string
-    price_cents: number
-  } | null>(null)
 
   const selectedInventory = useMemo(
     () => inventory.find((i) => i.id === selectedInventoryId) ?? null,
@@ -129,11 +116,11 @@ export default function BookBoothForm({
         window.location.href = data.checkout_url
         return
       }
-      setSuccess({
-        week: data.week_start_date,
-        size: selectedInventory?.size_label ?? '',
-        price_cents: data.price_cents,
-      })
+      // Stripe-only model (2026-05-18): API should always return a
+      // checkout_url on success. If it doesn't, treat as a server error
+      // — don't fall through to a "manager will coordinate" success
+      // state since that path no longer exists.
+      setError('Something went wrong setting up your payment. Please try again, or reach out to the market manager.')
       setSubmitting(false)
     } catch {
       setError('Network error — please try again.')
@@ -250,58 +237,6 @@ export default function BookBoothForm({
     )
   }
 
-  if (success) {
-    return (
-      <div style={{
-        padding: spacing.md,
-        backgroundColor: colors.surfaceElevated,
-        border: `1px solid ${colors.border}`,
-        borderRadius: radius.md,
-      }}>
-        <h2 style={{
-          marginTop: 0,
-          marginBottom: spacing.xs,
-          fontSize: typography.sizes.lg,
-          fontWeight: typography.weights.semibold,
-          color: colors.textPrimary,
-        }}>
-          ✓ Booking submitted
-        </h2>
-        <p style={{ margin: 0, marginBottom: spacing.sm, color: colors.textPrimary, fontSize: typography.sizes.sm, lineHeight: 1.6 }}>
-          Your booking at <strong>{marketName}</strong> is recorded:
-        </p>
-        <ul style={{ margin: 0, marginBottom: spacing.md, paddingLeft: spacing.md, color: colors.textPrimary, fontSize: typography.sizes.sm, lineHeight: 1.6 }}>
-          <li>Week of {formatWeekLabel(success.week)}</li>
-          <li>Booth size: {success.size}</li>
-          <li>Price: {formatPrice(success.price_cents)}</li>
-          <li>Status: <em>pending payment</em></li>
-        </ul>
-        <p style={{ margin: 0, marginBottom: spacing.md, color: colors.textMuted, fontSize: typography.sizes.sm, lineHeight: 1.5 }}>
-          Online payment is coming soon. For now, the manager will reach
-          out to coordinate payment directly. Your price ({formatPrice(success.price_cents)})
-          is locked in — they can&apos;t change it after the fact.
-        </p>
-        <div style={{ display: 'flex', gap: spacing.sm, flexWrap: 'wrap' }}>
-          <Link
-            href={`/${vertical}/vendor/dashboard`}
-            style={{
-              display: 'inline-block',
-              padding: `${spacing.sm} ${spacing.md}`,
-              backgroundColor: colors.primary,
-              color: 'white',
-              borderRadius: radius.sm,
-              fontSize: typography.sizes.sm,
-              fontWeight: typography.weights.semibold,
-              textDecoration: 'none',
-            }}
-          >
-            Back to vendor dashboard
-          </Link>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <form
       onSubmit={handleSubmit}
@@ -369,13 +304,15 @@ export default function BookBoothForm({
         </select>
       </label>
 
-      {/* Price display — when Stripe is ready, show the breakdown so the
-          vendor sees the same number at Stripe Checkout that we quote
-          here. When Stripe is NOT ready (offline-payment mode), the
-          manager will coordinate the base price directly. */}
+      {/* Price display — Stripe-only model (revised 2026-05-18). The booth
+          booking form is the single pre-checkout screen (combines product-
+          page + cart + final-confirmation), so it follows the existing
+          "one all-inclusive number, no breakdown" convention from
+          CartDrawer.tsx:218 and the calculateDisplayPrice helper in
+          src/lib/constants.ts ("what buyer sees"). The number shown is
+          what Stripe will charge on the next step — no surprises. */}
       {selectedInventory && (() => {
-        const basePrice = selectedInventory.weekly_price_cents
-        const fees = stripeReady ? calculateBoothRentalFees(basePrice) : null
+        const fees = calculateBoothRentalFees(selectedInventory.weekly_price_cents)
         return (
           <div style={{
             padding: spacing.sm,
@@ -385,7 +322,7 @@ export default function BookBoothForm({
             marginBottom: spacing.md,
           }}>
             <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing['3xs'] }}>
-              You&apos;ll be charged
+              You&apos;ll pay
             </div>
             <div style={{
               fontSize: typography.sizes['2xl'],
@@ -393,31 +330,10 @@ export default function BookBoothForm({
               color: colors.textPrimary,
               lineHeight: 1.1,
             }}>
-              {fees ? formatPrice(fees.vendorPaysCents) : formatPrice(basePrice)}
+              {formatPrice(fees.vendorPaysCents)}
             </div>
-            {fees && (
-              <div style={{
-                marginTop: spacing.xs,
-                paddingTop: spacing.xs,
-                borderTop: `1px solid ${colors.border}`,
-                fontSize: typography.sizes.xs,
-                color: colors.textMuted,
-                lineHeight: 1.5,
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Booth fee</span>
-                  <span>{formatPrice(basePrice)}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Platform fee (6.5%)</span>
-                  <span>{formatPrice(fees.vendorPaysCents - basePrice)}</span>
-                </div>
-              </div>
-            )}
             <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing.xs }}>
-              {fees
-                ? 'Booth fee is locked at booking. You’ll complete payment through Stripe on the next step.'
-                : 'Booth fee is locked at booking. This market isn’t set up for online payment yet — the manager will coordinate payment with you directly.'}
+              Locked at booking. You&apos;ll complete payment through Stripe on the next step.
             </div>
           </div>
         )
@@ -458,11 +374,7 @@ export default function BookBoothForm({
           opacity: (submitting || !agreementAccepted) ? 0.6 : 1,
         }}
       >
-        {submitting
-          ? 'Booking…'
-          : stripeReady
-            ? 'Continue to payment →'
-            : 'Complete booking'}
+        {submitting ? 'Booking…' : 'Continue to payment →'}
       </button>
     </form>
   )

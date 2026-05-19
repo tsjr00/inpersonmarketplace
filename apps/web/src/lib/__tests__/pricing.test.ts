@@ -340,9 +340,10 @@ describe('Vendor Fee Discount: getEffectiveVendorFeePercent', () => {
   })
 })
 
-// ── MP-R14: Booth-rental fees (Phase C Stage 3) ─────────────────────
-// 6.5% × 2 markup on weekly booth rentals at managed markets.
-// Pure percentage math, no flat fees.
+// ── MP-R14: Booth-rental fees (Phase C Stage 3, revised 2026-05-18) ─
+// 6.5% × 2 markup on weekly booth rentals at managed markets, PLUS
+// a $0.15 flat fee added to vendor's pay (matches product-order shape).
+// Manager-side is still pure percentage.
 describe('MP-R14: Booth rental fee constants', () => {
   it('vendor markup is 6.5%', () => {
     expect(BOOTH_RENTAL_FEES.vendorMarkupPercent).toBe(6.5)
@@ -350,39 +351,42 @@ describe('MP-R14: Booth rental fee constants', () => {
   it('manager markup is 6.5%', () => {
     expect(BOOTH_RENTAL_FEES.managerMarkupPercent).toBe(6.5)
   })
+  it('vendor-side flat fee is $0.15 (15 cents)', () => {
+    expect(BOOTH_RENTAL_FEES.vendorFlatFeeCents).toBe(15)
+  })
 })
 
 describe('MP-R14: calculateBoothRentalFees — golden-path cases', () => {
-  it('$25 booth: vendor pays $26.63, manager gets $23.37, platform $3.26', () => {
+  it('$25 booth: vendor pays $26.78, manager gets $23.37, platform $3.41', () => {
     const r = calculateBoothRentalFees(2500)
     expect(r.basePriceCents).toBe(2500)
-    expect(r.vendorPaysCents).toBe(2663)        // round(2500 × 1.065) = round(2662.5) = 2663
-    expect(r.managerReceivesCents).toBe(2337)   // 2500 - round(162.5)  = 2500 - 163
-    expect(r.platformKeepsCents).toBe(326)      // 2663 - 2337
+    expect(r.vendorPaysCents).toBe(2678)        // round(2500 × 1.065) + 15 = 2663 + 15
+    expect(r.managerReceivesCents).toBe(2337)   // 2500 - round(162.5) = 2500 - 163
+    expect(r.platformKeepsCents).toBe(341)      // 2678 - 2337
   })
 
-  it('$50 booth: vendor $53.25, manager $46.75, platform $6.50', () => {
+  it('$50 booth: vendor $53.40, manager $46.75, platform $6.65', () => {
     const r = calculateBoothRentalFees(5000)
-    expect(r.vendorPaysCents).toBe(5325)
+    expect(r.vendorPaysCents).toBe(5340)        // 5325 + 15
     expect(r.managerReceivesCents).toBe(4675)
-    expect(r.platformKeepsCents).toBe(650)
+    expect(r.platformKeepsCents).toBe(665)      // 5340 - 4675
   })
 
-  it('$100 booth: vendor $106.50, manager $93.50, platform $13.00', () => {
+  it('$100 booth: vendor $106.65, manager $93.50, platform $13.15', () => {
     const r = calculateBoothRentalFees(10000)
-    expect(r.vendorPaysCents).toBe(10650)
+    expect(r.vendorPaysCents).toBe(10665)       // 10650 + 15
     expect(r.managerReceivesCents).toBe(9350)
-    expect(r.platformKeepsCents).toBe(1300)
+    expect(r.platformKeepsCents).toBe(1315)     // 10665 - 9350
   })
 
-  it('$1 booth: penny-rounding edge — vendor $1.07, manager $0.93, platform $0.14', () => {
+  it('$1 booth: penny-rounding edge — vendor $1.22, manager $0.93, platform $0.29', () => {
     const r = calculateBoothRentalFees(100)
-    expect(r.vendorPaysCents).toBe(107)         // round(106.5) = 107
+    expect(r.vendorPaysCents).toBe(122)         // round(106.5) + 15 = 107 + 15
     expect(r.managerReceivesCents).toBe(93)     // 100 - round(6.5) = 100 - 7
-    expect(r.platformKeepsCents).toBe(14)
+    expect(r.platformKeepsCents).toBe(29)       // 122 - 93
   })
 
-  it('$0 booth: all sides are 0', () => {
+  it('$0 booth: all sides are 0 (flat fee not applied to free booths)', () => {
     const r = calculateBoothRentalFees(0)
     expect(r.basePriceCents).toBe(0)
     expect(r.vendorPaysCents).toBe(0)

@@ -273,15 +273,19 @@ export function getEffectiveVendorFeePercent(overridePercent: number | null | un
 }
 
 // ── Booth Rental Fee System ─────────────────────────────────────────
-// Phase C Stage 3 (2026-05-17). 6.5% × 2 markup applied to weekly
-// booth rentals at managed markets. Distinct from buyer/vendor PRODUCT
-// fees (those involve $0.15 flat fees + per-vertical small-order rules);
-// booth rental is pure percentage on both sides, no flat fees.
+// Phase C Stage 3 (2026-05-17), revised 2026-05-18: 6.5% × 2 markup +
+// $0.15 vendor-side flat fee. Matches product-order pricing shape
+// (vendor side = "buyer" of the booth-rental transaction, pays markup
+// + flat). Manager side is pure percentage — no flat fee deducted from
+// what the manager receives.
 //
-// Math model (locked decision C.* in phase_c_payment_loop_plan_2026-05-16):
-//   - Vendor pays:    Math.round(weekly_price × 1.065)
+// Math model:
+//   - Vendor pays:    Math.round(weekly_price × 1.065) + 15
 //   - Manager gets:   weekly_price - Math.round(weekly_price × 0.065)
-//   - Platform keeps: vendor_pays - manager_gets (= sum of both markups)
+//   - Platform keeps: vendor_pays - manager_gets (= sum of both
+//                     markups + the $0.15 flat fee)
+//
+// Free booths ($0): every side returns 0 — no fee on a $0 transaction.
 //
 // Penny-rounding philosophy: Math.round on each side independently.
 // Cent discrepancies (e.g., 2500 × 0.065 = 162.5 → 163 on both sides)
@@ -289,8 +293,9 @@ export function getEffectiveVendorFeePercent(overridePercent: number | null | un
 // the order-pricing model's treatment.
 
 export const BOOTH_RENTAL_FEES = {
-  vendorMarkupPercent: 6.5,   // vendor pays this much over base price
-  managerMarkupPercent: 6.5,  // platform takes this from manager's side
+  vendorMarkupPercent: 6.5,    // vendor pays this much over base price
+  managerMarkupPercent: 6.5,   // platform takes this from manager's side
+  vendorFlatFeeCents: 15,      // $0.15 flat added on top of vendor's pay
 } as const
 
 export interface BoothRentalPricing {
@@ -308,12 +313,13 @@ export interface BoothRentalPricing {
  * math, so this is the single source of truth.
  *
  * For a $25.00 booth (2500 cents):
- *   - Vendor pays:    Math.round(2500 × 1.065) = 2663  ($26.63)
- *   - Manager fee:    Math.round(2500 × 0.065) = 163   ($1.63)
- *   - Manager gets:   2500 - 163 = 2337                 ($23.37)
- *   - Platform keeps: 2663 - 2337 = 326                 ($3.26)
+ *   - Vendor pays:    Math.round(2500 × 1.065) + 15 = 2678  ($26.78)
+ *   - Manager fee:    Math.round(2500 × 0.065) = 163        ($1.63)
+ *   - Manager gets:   2500 - 163 = 2337                      ($23.37)
+ *   - Platform keeps: 2678 - 2337 = 341                      ($3.41)
  *
- * For a $0 booth (free): all three return 0 — no fee on a $0 transaction.
+ * For a $0 booth (free): all sides return 0 — no fee on a $0 transaction
+ * (the flat $0.15 doesn't apply to free booths either).
  */
 export function calculateBoothRentalFees(weeklyPriceCents: number): BoothRentalPricing {
   if (weeklyPriceCents <= 0) {
@@ -324,7 +330,9 @@ export function calculateBoothRentalFees(weeklyPriceCents: number): BoothRentalP
       platformKeepsCents: 0,
     }
   }
-  const vendorPaysCents = Math.round(weeklyPriceCents * (1 + BOOTH_RENTAL_FEES.vendorMarkupPercent / 100))
+  const vendorPaysCents =
+    Math.round(weeklyPriceCents * (1 + BOOTH_RENTAL_FEES.vendorMarkupPercent / 100)) +
+    BOOTH_RENTAL_FEES.vendorFlatFeeCents
   const managerFeeCents = Math.round(weeklyPriceCents * (BOOTH_RENTAL_FEES.managerMarkupPercent / 100))
   const managerReceivesCents = weeklyPriceCents - managerFeeCents
   const platformKeepsCents = vendorPaysCents - managerReceivesCents

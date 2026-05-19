@@ -153,44 +153,47 @@ export async function PUT(
       }
     }
 
-    // Replace the whole set — delete first, insert second.
-    crumb.supabase('delete', 'market_optin_selections')
-    const { error: deleteErr } = await serviceClient
-      .from('market_optin_selections')
-      .delete()
-      .eq('market_id', marketId)
+    // Atomic replace via mig 143 RPC — delete + insert run inside a single
+    // transaction. Either both complete or the prior state is preserved.
+    // Avoids the half-save case where the market ends up with zero
+    // selections and triggers fake re-acceptance prompts for every vendor.
+    crumb.supabase('rpc', 'replace_market_optin_selections')
+    const { data, error: rpcErr } = await serviceClient.rpc(
+      'replace_market_optin_selections',
+      {
+        p_market_id: marketId,
+        p_selections: cleaned.map((s) => ({
+          statement_id: s.statement_id,
+          placeholder_values: s.placeholder_values ?? {},
+        })),
+      }
+    )
 
-    if (deleteErr) {
-      throw traced.fromSupabase(deleteErr, {
+    if (rpcErr) {
+      throw traced.fromSupabase(rpcErr, {
         table: 'market_optin_selections',
-        operation: 'delete',
+        operation: 'rpc',
       })
     }
 
-    if (cleaned.length === 0) {
-      // Cleared all selections — return empty list
-      return NextResponse.json({ selections: [] as OptinSelection[] })
+    // RPC returns rows with `selection_*` prefixed columns (to avoid
+    // PL/pgSQL name shadowing). Map back to the OptinSelection shape
+    // the route's response contract expects.
+    type RpcRow = {
+      selection_id: string
+      selection_market_id: string
+      selection_statement_id: string
+      selection_placeholder_values: Record<string, string | number>
+      selection_selected_at: string
     }
-
-    crumb.supabase('insert', 'market_optin_selections')
-    const insertRows = cleaned.map((s) => ({
-      market_id: marketId,
-      statement_id: s.statement_id,
-      placeholder_values: s.placeholder_values ?? {},
+    const selections: OptinSelection[] = ((data ?? []) as RpcRow[]).map((r) => ({
+      id: r.selection_id,
+      market_id: r.selection_market_id,
+      statement_id: r.selection_statement_id,
+      placeholder_values: r.selection_placeholder_values,
+      selected_at: r.selection_selected_at,
     }))
 
-    const { data, error: insertErr } = await serviceClient
-      .from('market_optin_selections')
-      .insert(insertRows)
-      .select('*')
-
-    if (insertErr) {
-      throw traced.fromSupabase(insertErr, {
-        table: 'market_optin_selections',
-        operation: 'insert',
-      })
-    }
-
-    return NextResponse.json({ selections: (data || []) as OptinSelection[] })
+    return NextResponse.json({ selections })
   })
 }

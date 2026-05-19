@@ -42,11 +42,11 @@
 - **UI:** `<MarketStripeConnectCard>` on manager dashboard with 4 states (not_connected / in_progress / under_review / active). Handles `?stripe=complete` and `?stripe=refresh` return flags.
 
 ### Phase C Stage 3 — Payment integration (all 3 critical-path files modified)
-- **Step 1 — `pricing.ts`:** `calculateBoothRentalFees(weeklyPriceCents)` — 6.5% × 2 markup, pure math, 13 vitest cases.
+- **Step 1 — `pricing.ts`:** `calculateBoothRentalFees(weeklyPriceCents)` — 6.5% × 2 markup + $0.15 vendor-side flat fee (revised 2026-05-18). Pure math, 14 vitest cases (3 constants, 6 golden-path, 5 invariants).
 - **Step 2 — `stripe/payments.ts`:** `createBoothRentalCheckoutSession({...})` — Stripe destination-charge model (`transfer_data.destination + amount`), idempotency key `booth-rental-{rentalId}`, metadata.type='booth_rental' for webhook routing.
-- **Step 3 — `/api/vendor/markets/[id]/book`** orchestrator: when manager Stripe is ready, creates Checkout session + returns `checkout_url`. When not, falls through to Stage 1 shape.
+- **Step 3 — `/api/vendor/markets/[id]/book`** orchestrator: Stripe-only model (revised 2026-05-18). If `markets.stripe_charges_enabled !== true` → returns 409 before any DB write. Otherwise creates Checkout session and returns `checkout_url`. No offline fallback.
 - **Step 4 — `stripe/webhooks.ts`:** `handleBoothRentalCheckoutComplete` — resolves rental_id, idempotent status flip pending_payment → paid, populates payment_intent_id + paid_at. Three TracedError codes (ERR_WEBHOOK_011/012/013).
-- **Step 5 — `BookBoothForm`:** redirect to `checkout_url` on submit when present. Handles `?session=success|cancel` return-from-Stripe flash.
+- **Step 5 — `BookBoothForm`:** always shows the marked-up price breakdown (base + 6.5% + $0.15 = total). Submit redirects to `checkout_url`. Handles `?session=success|cancel` return-from-Stripe flash. `book/page.tsx` gates the form on `stripe_charges_enabled` and shows a "this market isn't set up for online booth rentals yet" bail-out when false.
 - **Step 6 — Cron Phase 16:** sweeps abandoned bookings. Two cohorts: orphans (no Stripe session, 30 min timeout) + stale sessions (24h timeout). Status flipped to cancelled, cancelled_at set.
 
 ### Tonight's testing-driven fixes (commits `625de7eb` + `74154b2d`)

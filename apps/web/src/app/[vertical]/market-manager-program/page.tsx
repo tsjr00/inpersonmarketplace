@@ -286,10 +286,11 @@ export default function MarketManagerProgramPage() {
             lineHeight: 1.7,
           }}>
             <li>
-              <strong>Booth rentals:</strong> 6.5% on each side. The vendor pays
-              your booth fee plus 6.5%; you receive your booth fee minus 6.5%.
-              We keep the difference. (For a $25 booth: vendor pays $26.63,
-              you receive $23.38.)
+              <strong>Booth rentals:</strong> 6.5% on each side plus a $0.15
+              flat fee from the vendor. The vendor pays your booth fee + 6.5%
+              + $0.15; you receive your booth fee minus 6.5%. We keep the
+              difference. (For a $25 booth: vendor pays $26.78, you receive
+              $23.37.)
             </li>
             <li>
               <strong>Pre-order transactions at your market:</strong> 6.5% on each

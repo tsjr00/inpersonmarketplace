@@ -130,6 +130,19 @@ export async function POST(
       return NextResponse.json({ error: 'Market not found' }, { status: 404 })
     }
 
+    // Stripe-only booking model (revised 2026-05-18): booth rentals
+    // require the manager to have completed Stripe Connect onboarding.
+    // No offline-payment fallback. Reject early — before any DB writes
+    // or expensive validation — so vendor gets a clear bail-out message.
+    if (market.stripe_charges_enabled !== true) {
+      return NextResponse.json(
+        {
+          error: `${(market.name as string) || 'This market'} isn't set up for online booth rentals yet — the manager hasn't finished their payment setup. Try again later or contact the market manager directly.`,
+        },
+        { status: 409 }
+      )
+    }
+
     const { profile, error: profErr } = await getVendorProfileForVertical<{
       id: string
     }>(supabase, user.id, market.vertical_id as string, 'id')
@@ -213,45 +226,17 @@ export async function POST(
       )
     }
 
-    // --- Gate 5: availability — don't overbook. ---
-    //
-    // Capacity = inventory.count − placeholders for this size at this
-    // market (placeholders are always-taken off-platform vendors) −
-    // pending/paid rentals at this market + this size + this week.
-    // If the result is <= 0, reject. UNIQUE (vendor, market, week)
-    // already prevents the SAME vendor from double-booking; this gate
-    // prevents the SAME tier from over-allocation across all vendors.
+    // --- Gates 1-4 passed. Capacity check + rental insert handled atomically
+    //     by mig 142 book_weekly_booth_atomic RPC (race-safe under
+    //     pg_advisory_xact_lock). The RPC RAISEs:
+    //       - P0001 OVERBOOKED        : all slots taken for this week+size
+    //       - P0002 DUPLICATE         : this vendor already booked this week
+    //       - P0003 INVENTORY_NOT_FOUND : inventory_id missing for this market
+    //     Translated below to the same HTTP shape the prior inline checks
+    //     returned. ---
 
-    const totalSlots = (inventory.count as number) || 0
-    crumb.supabase('select', 'market_booth_placeholders')
-    const { count: placeholderCount } = await serviceClient
-      .from('market_booth_placeholders')
-      .select('id', { count: 'exact', head: true })
-      .eq('market_id', marketId)
-      .eq('inventory_id', inventoryId)
-    crumb.supabase('select', 'weekly_booth_rentals')
-    const { count: takenThisWeek } = await serviceClient
-      .from('weekly_booth_rentals')
-      .select('id', { count: 'exact', head: true })
-      .eq('market_id', marketId)
-      .eq('inventory_id', inventoryId)
-      .eq('week_start_date', weekStartDate)
-      .in('status', ['pending_payment', 'paid'])
-
-    const remainingSlots = totalSlots - (placeholderCount ?? 0) - (takenThisWeek ?? 0)
-    if (remainingSlots <= 0) {
-      return NextResponse.json(
-        {
-          error: `All ${inventory.size_label} booths for the week of ${weekStartDate} are taken. Try a different week or size.`,
-          field: 'week_start_date',
-        },
-        { status: 409 }
-      )
-    }
-
-    // --- All gates passed. Begin write sequence. ---
-
-    // Step 1: snapshot + version
+    // Step 1: snapshot + version (must happen BEFORE the RPC because the
+    //         acceptance_id is passed in).
     const { snapshot } = await fetchMarketOptinForVendor(marketId)
     const agreementVersion = computeAgreementVersionFromSnapshot(snapshot)
 
@@ -298,135 +283,157 @@ export async function POST(
       acceptanceId = insertedAcceptance.id as string
     }
 
-    // Step 3 + 4: snapshot price + insert rental row
-    const priceCents = inventory.weekly_price_cents as number
+    // Step 3: atomic capacity check + rental insert via mig 142 RPC.
+    // Replaces the prior inline check-then-insert race condition.
+    crumb.supabase('rpc', 'book_weekly_booth_atomic')
+    const { data: rentalRows, error: rpcErr } = await serviceClient.rpc(
+      'book_weekly_booth_atomic',
+      {
+        p_vendor_profile_id: profile.id,
+        p_market_id: marketId,
+        p_inventory_id: inventoryId,
+        p_week_start_date: weekStartDate,
+        p_acceptance_id: acceptanceId,
+      }
+    )
 
-    crumb.supabase('insert', 'weekly_booth_rentals')
-    const { data: rental, error: rentalErr } = await serviceClient
-      .from('weekly_booth_rentals')
-      .insert({
-        vendor_profile_id: profile.id,
-        market_id: marketId,
-        week_start_date: weekStartDate,
-        inventory_id: inventoryId,
-        price_cents: priceCents,
-        status: 'pending_payment',
-        agreement_acceptance_id: acceptanceId,
-      })
-      .select('id, status, price_cents, week_start_date')
-      .single()
-
-    if (rentalErr) {
-      if (rentalErr.code === '23505') {
+    if (rpcErr) {
+      // Match on message — custom SQLSTATE codes P0001-P0003 also work
+      // but message is the authoritative signal (P0001 is the default
+      // for any RAISE EXCEPTION without explicit ERRCODE).
+      const msg = rpcErr.message || ''
+      if (msg.includes('OVERBOOKED')) {
         return NextResponse.json(
           {
-            error: 'You already have a booking for this week. Cancel the existing booking before booking again.',
+            error: `All ${inventory.size_label} booths for the week of ${weekStartDate} are taken. Try a different week or size.`,
             field: 'week_start_date',
           },
           { status: 409 }
         )
       }
-      // The insert failed AFTER the acceptance row was written. The
-      // acceptance is recoverable (same hash = idempotent on retry).
-      logError(traced.fromSupabase(rentalErr, {
+      if (msg.includes('DUPLICATE')) {
+        return NextResponse.json(
+          {
+            error: 'You already have a booking for this week. If you need to change anything, contact the market manager.',
+            field: 'week_start_date',
+          },
+          { status: 409 }
+        )
+      }
+      if (msg.includes('INVENTORY_NOT_FOUND')) {
+        return NextResponse.json(
+          { error: 'Booth size tier not found for this market', field: 'inventory_id' },
+          { status: 404 }
+        )
+      }
+      logError(traced.fromSupabase(rpcErr, {
         table: 'weekly_booth_rentals',
-        operation: 'insert',
+        operation: 'rpc',
       }))
-      throw traced.fromSupabase(rentalErr, {
+      throw traced.fromSupabase(rpcErr, {
         table: 'weekly_booth_rentals',
-        operation: 'insert',
+        operation: 'rpc',
       })
     }
 
-    // Phase C Stage 3 (2026-05-17): if the manager has completed Stripe
-    // Connect onboarding (account exists AND charges_enabled), create a
-    // Stripe Checkout session and return its URL so the vendor UI can
-    // redirect. If Stripe isn't ready, fall through to the Stage 1
-    // shape (rental created, status=pending_payment, no checkout_url) —
-    // manager will coordinate payment offline until they finish onboarding.
-    //
-    // This dual-mode behavior intentionally relaxes the locked decision
-    // C.7 ("hide booking CTA entirely when Stripe not ready") so existing
-    // managers without Connect can still receive bookings during the
-    // transition. The vendor UI (booking page) gates the CTA separately.
-    const stripeAccountId = market.stripe_account_id as string | null
-    const stripeChargesEnabled = market.stripe_charges_enabled as boolean | null
+    const rentalRow = (rentalRows as Array<{
+      rental_id: string
+      rental_price_cents: number
+      rental_status: string
+      rental_week_start_date: string
+    }>)?.[0]
+    if (!rentalRow) {
+      // RPC returned no rows AND no error — defense-in-depth (shouldn't
+      // happen given the function contract, but don't silently 200).
+      console.error('[vendor/markets/book] book_weekly_booth_atomic returned empty result')
+      return NextResponse.json(
+        { error: 'Could not complete booking. Please try again.' },
+        { status: 500 }
+      )
+    }
+
+    // Re-shape to match the rest of the route's expected `rental` shape.
+    const rental = {
+      id: rentalRow.rental_id,
+      price_cents: rentalRow.rental_price_cents,
+      status: rentalRow.rental_status,
+      week_start_date: rentalRow.rental_week_start_date,
+    }
+
+    // Phase C Stage 3 (revised 2026-05-18): booth rentals are Stripe-only.
+    // The early gate at the top of this route guarantees stripe_charges_enabled
+    // is true; this block is now unconditional. Create the Stripe Checkout
+    // session and return its URL. If session creation fails, delete the
+    // freshly-created rental row so the vendor can retry immediately
+    // (otherwise UNIQUE on (vendor, market, week) would block them until
+    // the cron orphan-sweep runs ~30 min later).
+    const stripeAccountId = market.stripe_account_id as string
     let checkoutUrl: string | null = null
 
-    if (stripeAccountId && stripeChargesEnabled === true) {
-      try {
-        const fees = calculateBoothRentalFees(rental.price_cents as number)
-        const baseUrl = request.nextUrl.origin
-        const vertical = (market.vertical_id as string) || 'farmers_market'
-        const successUrl = `${baseUrl}/${vertical}/markets/${marketId}/book?session=success&rental=${rental.id}`
-        const cancelUrl = `${baseUrl}/${vertical}/markets/${marketId}/book?session=cancel`
+    try {
+      const fees = calculateBoothRentalFees(rental.price_cents as number)
+      const baseUrl = request.nextUrl.origin
+      const vertical = (market.vertical_id as string) || 'farmers_market'
+      const successUrl = `${baseUrl}/${vertical}/markets/${marketId}/book?session=success&rental=${rental.id}`
+      const cancelUrl = `${baseUrl}/${vertical}/markets/${marketId}/book?session=cancel`
 
-        const session = await createBoothRentalCheckoutSession({
-          rentalId: rental.id as string,
-          marketId,
-          marketName: (market.name as string) || 'this market',
-          managerStripeAccountId: stripeAccountId,
-          weekStartDate: rental.week_start_date as string,
-          basePriceCents: rental.price_cents as number,
-          vendorPaysCents: fees.vendorPaysCents,
-          managerReceivesCents: fees.managerReceivesCents,
-          successUrl,
-          cancelUrl,
-          vertical,
-        })
+      const session = await createBoothRentalCheckoutSession({
+        rentalId: rental.id as string,
+        marketId,
+        marketName: (market.name as string) || 'this market',
+        managerStripeAccountId: stripeAccountId,
+        weekStartDate: rental.week_start_date as string,
+        basePriceCents: rental.price_cents as number,
+        vendorPaysCents: fees.vendorPaysCents,
+        managerReceivesCents: fees.managerReceivesCents,
+        successUrl,
+        cancelUrl,
+        vertical,
+      })
 
-        checkoutUrl = session.url
+      checkoutUrl = session.url
 
-        // Persist the session ID so the webhook handler (Step 4) can
-        // resolve the event to this rental row. Failure here is logged
-        // but non-blocking — vendor still gets the checkout URL; webhook
-        // matching falls back to client_reference_id.
-        crumb.supabase('update', 'weekly_booth_rentals')
-        const { error: sidErr } = await serviceClient
-          .from('weekly_booth_rentals')
-          .update({ stripe_checkout_session_id: session.id })
-          .eq('id', rental.id)
+      // Persist the session ID so the webhook handler can resolve the event
+      // to this rental row. Failure here is logged but non-blocking —
+      // vendor still gets the checkout URL; webhook matching falls back
+      // to client_reference_id.
+      crumb.supabase('update', 'weekly_booth_rentals')
+      const { error: sidErr } = await serviceClient
+        .from('weekly_booth_rentals')
+        .update({ stripe_checkout_session_id: session.id })
+        .eq('id', rental.id)
 
-        if (sidErr) {
-          logError(traced.fromSupabase(sidErr, {
-            table: 'weekly_booth_rentals',
-            operation: 'update',
-          }))
-        }
-      } catch (stripeError) {
-        // Stripe session creation failed. Without remediation the rental
-        // row sits with status=pending_payment + no stripe_checkout_session_id
-        // until cron Phase 16 sweeps it (~30 min) — during that window the
-        // vendor cannot retry because the UNIQUE (vendor, market, week)
-        // constraint blocks the insert. Delete the row eagerly so retry
-        // works immediately. WHERE conditions belt-and-suspender to ensure
-        // we only delete the row we just made, not a row that a concurrent
-        // retry might have created.
-        console.error('[vendor/markets/book] Stripe session creation failed:', stripeError)
-        const { error: cleanupErr } = await serviceClient
-          .from('weekly_booth_rentals')
-          .delete()
-          .eq('id', rental.id)
-          .eq('status', 'pending_payment')
-          .is('stripe_checkout_session_id', null)
-        if (cleanupErr) {
-          // Logged, not thrown — the original Stripe error is what we want
-          // to surface. Cron sweep is the safety net if cleanup also failed.
-          logError(traced.fromSupabase(cleanupErr, {
-            table: 'weekly_booth_rentals',
-            operation: 'delete',
-          }))
-        }
-        // Note: agreement_acceptance row is left intact — it's idempotent
-        // on the version hash, so a retry will reuse it via the 23505
-        // catch path above.
-        return NextResponse.json(
-          {
-            error: 'Could not start the payment flow. Please try again in a few minutes, or reach out to the market manager.',
-          },
-          { status: 502 }
-        )
+      if (sidErr) {
+        logError(traced.fromSupabase(sidErr, {
+          table: 'weekly_booth_rentals',
+          operation: 'update',
+        }))
       }
+    } catch (stripeError) {
+      // Delete the orphan rental row so vendor can retry immediately.
+      // WHERE conditions belt-and-suspender to ensure we only delete the
+      // row we just made.
+      console.error('[vendor/markets/book] Stripe session creation failed:', stripeError)
+      const { error: cleanupErr } = await serviceClient
+        .from('weekly_booth_rentals')
+        .delete()
+        .eq('id', rental.id)
+        .eq('status', 'pending_payment')
+        .is('stripe_checkout_session_id', null)
+      if (cleanupErr) {
+        logError(traced.fromSupabase(cleanupErr, {
+          table: 'weekly_booth_rentals',
+          operation: 'delete',
+        }))
+      }
+      // agreement_acceptance row is left intact — idempotent on the
+      // version hash, so a retry will reuse it via the 23505 catch path.
+      return NextResponse.json(
+        {
+          error: 'Could not start the payment flow. Please try again in a few minutes, or reach out to the market manager.',
+        },
+        { status: 502 }
+      )
     }
 
     return NextResponse.json({
