@@ -7,6 +7,7 @@ import { sendNotification } from '@/lib/notifications'
 import { TracedError } from '@/lib/errors/traced-error'
 import { logError } from '@/lib/errors/logger'
 import { crumb } from '@/lib/errors/breadcrumbs'
+import { calculateBoothRentalFees } from '@/lib/pricing'
 
 /**
  * H-6: Dedup helper — check if a notification was already sent recently.
@@ -1188,4 +1189,120 @@ async function handleBoothRentalCheckoutComplete(session: Stripe.Checkout.Sessio
   }
 
   crumb.stripe(`booth_rental ${rentalId} flipped to paid (payment_intent ${paymentIntentId ?? 'unknown'})`)
+
+  // Phase C Stage 3 follow-up (2026-05-19): fire vendor + manager
+  // payment-complete notifications. Sits AFTER the status flip so payment
+  // data integrity is unaffected by any failure here. Wrapped in try/catch
+  // as belt-and-suspender — sendNotification is non-throwing by contract,
+  // but a notification failure must never cause this handler to return
+  // non-2xx (Stripe would retry against an already-paid row).
+  try {
+    // Pull full rental row for notification payload — initial SELECT
+    // only got id, status.
+    const { data: rental } = await supabase
+      .from('weekly_booth_rentals')
+      .select('vendor_profile_id, market_id, week_start_date, price_cents')
+      .eq('id', rentalId)
+      .maybeSingle()
+
+    if (rental) {
+      const fees = calculateBoothRentalFees(rental.price_cents as number)
+
+      // Format week_start_date — DATE column is timezone-naive; parse
+      // as local to avoid one-day-off display.
+      const [y, m, d] = (rental.week_start_date as string).split('-').map(Number)
+      const weekDate = new Date(y, m - 1, d).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+
+      const [vpResult, marketResult] = await Promise.all([
+        supabase
+          .from('vendor_profiles')
+          .select('user_id, profile_data, vertical_id')
+          .eq('id', rental.vendor_profile_id as string)
+          .maybeSingle(),
+        supabase
+          .from('markets')
+          .select('name, manager_user_id, manager_email, vertical_id')
+          .eq('id', rental.market_id as string)
+          .maybeSingle(),
+      ])
+
+      const vp = vpResult.data
+      const market = marketResult.data
+
+      const profileData = (vp?.profile_data || {}) as Record<string, unknown>
+      const vendorName =
+        (profileData.business_name as string | undefined) ||
+        (profileData.farm_name as string | undefined) ||
+        undefined
+      const marketName = (market?.name as string | undefined) || 'the market'
+      const vertical =
+        (market?.vertical_id as string | undefined) ||
+        (vp?.vertical_id as string | undefined) ||
+        'farmers_market'
+
+      // Vendor's auth email for the email channel of the notification.
+      let vendorEmail: string | null = null
+      if (vp?.user_id) {
+        const { data: authUser } = await supabase.auth.admin.getUserById(vp.user_id as string)
+        vendorEmail = authUser?.user?.email ?? null
+      }
+      // Manager's email — try the markets.manager_email column first
+      // (admin can pre-assign by email before user signs up); fall back to
+      // auth.users lookup if manager_user_id is linked.
+      let managerEmail: string | null = (market?.manager_email as string | null) ?? null
+      if (!managerEmail && market?.manager_user_id) {
+        const { data: managerAuth } = await supabase.auth.admin.getUserById(
+          market.manager_user_id as string
+        )
+        managerEmail = managerAuth?.user?.email ?? null
+      }
+
+      // Vendor-paid notification.
+      if (vp?.user_id) {
+        await sendNotification(
+          vp.user_id as string,
+          'booth_rental_paid_vendor',
+          {
+            marketName,
+            weekStartDate: weekDate,
+            amountCents: fees.vendorPaysCents,
+            marketId: rental.market_id as string,
+          },
+          {
+            vertical,
+            ...(vendorEmail ? { userEmail: vendorEmail } : {}),
+          }
+        )
+      }
+
+      // Manager-paid notification — only if manager_user_id is known.
+      // (manager_email alone isn't enough — sendNotification needs a user_id
+      // for the in-app channel; email-only delivery isn't supported here.)
+      if (market?.manager_user_id) {
+        await sendNotification(
+          market.manager_user_id as string,
+          'booth_rental_paid_manager',
+          {
+            marketName,
+            weekStartDate: weekDate,
+            managerReceivesAmountCents: fees.managerReceivesCents,
+            marketId: rental.market_id as string,
+            ...(vendorName ? { vendorName } : {}),
+          },
+          {
+            vertical,
+            ...(managerEmail ? { userEmail: managerEmail } : {}),
+          }
+        )
+      }
+    }
+  } catch (notifErr) {
+    // Logged but never re-thrown. Status flip already succeeded — Stripe
+    // sees 2xx, no retry.
+    console.error('[handleBoothRentalCheckoutComplete] notification block failed:', notifErr instanceof Error ? notifErr.message : 'Unknown')
+  }
 }

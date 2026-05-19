@@ -2327,8 +2327,8 @@ export async function GET(request: NextRequest) {
     //       that here so the UNIQUE constraint frees up for re-booking.
     //
     // Status flip: pending_payment → cancelled, cancelled_at = now().
-    // No notifications fired here — see backlog for "failed booth
-    // rental purchase notification" (Step 4.5 follow-up).
+    // After both UPDATEs, fire booth_rental_payment_failed_vendor
+    // notification per cancelled row (Phase C Stage 3 follow-up, 2026-05-19).
     // ============================================================
     let boothRentalsCancelledOrphan = 0
     let boothRentalsCancelledStale = 0
@@ -2337,14 +2337,15 @@ export async function GET(request: NextRequest) {
       const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
-      // Cohort (a): orphans (no Stripe session created)
+      // Cohort (a): orphans (no Stripe session created). Expanded select
+      // to include the fields needed for the failed-payment notification.
       const { data: orphans, error: orphanErr } = await supabase
         .from('weekly_booth_rentals')
         .update({ status: 'cancelled', cancelled_at: nowIso })
         .eq('status', 'pending_payment')
         .is('stripe_checkout_session_id', null)
         .lt('booked_at', thirtyMinAgo)
-        .select('id')
+        .select('id, vendor_profile_id, market_id, week_start_date')
       if (orphanErr) {
         console.error('Phase 16 orphan sweep error:', orphanErr.message)
       } else {
@@ -2358,7 +2359,7 @@ export async function GET(request: NextRequest) {
         .eq('status', 'pending_payment')
         .not('stripe_checkout_session_id', 'is', null)
         .lt('booked_at', twentyFourHoursAgo)
-        .select('id')
+        .select('id, vendor_profile_id, market_id, week_start_date')
       if (staleErr) {
         console.error('Phase 16 stale-session sweep error:', staleErr.message)
       } else {
@@ -2369,6 +2370,91 @@ export async function GET(request: NextRequest) {
       if (totalCancelled > 0) {
         console.log(`Phase 16: cancelled ${totalCancelled} abandoned booth rental(s) (${boothRentalsCancelledOrphan} orphan, ${boothRentalsCancelledStale} stale)`)
         totalProcessed += totalCancelled
+
+        // Fire failed-payment notification per cancelled row. Both cohorts
+        // collapse to the same notification — "we released your booking".
+        // Wrapped in try/catch so any failure here doesn't fail the whole
+        // cron run (notifications are non-throwing per contract; this is
+        // belt-and-suspender).
+        try {
+          interface CancelledRow {
+            id: string
+            vendor_profile_id: string
+            market_id: string
+            week_start_date: string
+          }
+          const allCancelled: CancelledRow[] = [
+            ...((orphans ?? []) as CancelledRow[]),
+            ...((stale ?? []) as CancelledRow[]),
+          ]
+          const vendorIds = Array.from(new Set(allCancelled.map((r) => r.vendor_profile_id)))
+          const marketIds = Array.from(new Set(allCancelled.map((r) => r.market_id)))
+
+          const [vpResult, marketResult] = await Promise.all([
+            supabase
+              .from('vendor_profiles')
+              .select('id, user_id, vertical_id, profile_data')
+              .in('id', vendorIds),
+            supabase
+              .from('markets')
+              .select('id, name, vertical_id')
+              .in('id', marketIds),
+          ])
+
+          const vpMap = new Map<string, { user_id: string | null; vertical_id: string | null; profile_data: Record<string, unknown> | null }>()
+          for (const v of vpResult.data ?? []) {
+            vpMap.set(v.id as string, {
+              user_id: (v.user_id as string | null) ?? null,
+              vertical_id: (v.vertical_id as string | null) ?? null,
+              profile_data: (v.profile_data as Record<string, unknown> | null) ?? null,
+            })
+          }
+          const marketMap = new Map<string, { name: string; vertical_id: string | null }>()
+          for (const m of marketResult.data ?? []) {
+            marketMap.set(m.id as string, {
+              name: (m.name as string) ?? 'the market',
+              vertical_id: (m.vertical_id as string | null) ?? null,
+            })
+          }
+
+          for (const row of allCancelled) {
+            const vp = vpMap.get(row.vendor_profile_id)
+            const market = marketMap.get(row.market_id)
+            if (!vp?.user_id || !market) continue
+
+            // Format week_start_date — DATE column is timezone-naive, parse
+            // in local time to avoid one-day-off display.
+            const [y, m, d] = row.week_start_date.split('-').map(Number)
+            const weekDate = new Date(y, m - 1, d).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            })
+
+            // Vendor email for the email-channel of the notification.
+            let vendorEmail: string | null = null
+            const { data: authUser } = await supabase.auth.admin.getUserById(vp.user_id)
+            vendorEmail = authUser?.user?.email ?? null
+
+            const vertical = market.vertical_id || vp.vertical_id || 'farmers_market'
+
+            await sendNotification(
+              vp.user_id,
+              'booth_rental_payment_failed_vendor',
+              {
+                marketName: market.name,
+                weekStartDate: weekDate,
+                marketId: row.market_id,
+              },
+              {
+                vertical,
+                ...(vendorEmail ? { userEmail: vendorEmail } : {}),
+              }
+            )
+          }
+        } catch (notifErr) {
+          console.error('Phase 16 notification block failed:', notifErr instanceof Error ? notifErr.message : 'Unknown')
+        }
       }
     } catch (phase16Error) {
       console.error('Phase 16 error:', phase16Error instanceof Error ? phase16Error.message : 'Unknown error')

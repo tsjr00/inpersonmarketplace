@@ -159,7 +159,7 @@ export default function BookBoothForm({
           Stripe finishes processing. You&apos;ll also get an email receipt.
         </p>
         <Link
-          href={`/${vertical}/vendor/dashboard`}
+          href={`/${vertical}/vendor/bookings`}
           style={{
             display: 'inline-block',
             padding: `${spacing.sm} ${spacing.md}`,
@@ -171,7 +171,7 @@ export default function BookBoothForm({
             textDecoration: 'none',
           }}
         >
-          Go to vendor dashboard
+          View my bookings →
         </Link>
       </div>
     )

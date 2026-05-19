@@ -66,6 +66,10 @@ export type NotificationType =
   | 'coi_rejected'
   | 'market_approved'
   | 'vendor_market_approval_granted'
+  // Booth rental payment lifecycle (Phase C Stage 3 follow-ups, 2026-05-19)
+  | 'booth_rental_paid_vendor'
+  | 'booth_rental_paid_manager'
+  | 'booth_rental_payment_failed_vendor'
   | 'pickup_confirmation_needed'
   | 'pickup_issue_reported'
   | 'inventory_low_stock'
@@ -166,6 +170,15 @@ export interface NotificationTemplateData {
   brandName?: string
   marketAddress?: string
   pickupTime?: string
+  // Booth rental payment notifications (Phase C Stage 3 follow-ups)
+  /** Display-formatted week-of date for booth rental notifications,
+   *  e.g. "Jun 7, 2026". Pre-formatted by the caller because the
+   *  weekly_booth_rentals.week_start_date column is a plain DATE (no
+   *  timezone), and the manager + vendor both expect a localized label. */
+  weekStartDate?: string
+  /** Manager's portion of the booth rental in cents. Distinct from
+   *  amountCents (vendor's pay) — manager-paid notifications use this. */
+  managerReceivesAmountCents?: number
 }
 
 export type NotificationSeverity = 'critical' | 'warning' | 'info'
@@ -548,6 +561,61 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     message: (d) =>
       `The manager of ${d.marketName || 'the market'} approved your vendor association. You're now active and visible to buyers at this market.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/markets`,
+  },
+
+  // Phase C Stage 3 follow-ups (2026-05-19): booth rental payment lifecycle.
+  // Fires from handleBoothRentalCheckoutComplete in stripe/webhooks.ts after
+  // the status flip pending_payment → paid. Vendor-side confirmation.
+  booth_rental_paid_vendor: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: (d) => `Booking confirmed at ${d.marketName || 'the market'}`,
+    message: (d) => {
+      const amount = d.amountCents ? ` ($${(d.amountCents / 100).toFixed(2)})` : ''
+      return `Your booth booking at ${d.marketName || 'the market'} for the week of ${d.weekStartDate || 'the selected date'} is confirmed${amount}. The manager will reach out with a booth number assignment before market day.`
+    },
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/markets`,
+  },
+
+  // Manager-side confirmation when a vendor's booth rental payment lands.
+  // Includes the manager's portion ($amount they receive) so they can
+  // reconcile against their Stripe Connect deposits.
+  booth_rental_paid_manager: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor', // managers operate from a vendor-adjacent role; closest fit
+    title: (d) =>
+      d.vendorName
+        ? `${d.vendorName} booked a booth at ${d.marketName || 'your market'}`
+        : `A vendor booked a booth at ${d.marketName || 'your market'}`,
+    message: (d) => {
+      const amount = d.managerReceivesAmountCents
+        ? ` Your portion ($${(d.managerReceivesAmountCents / 100).toFixed(2)}) will arrive in your Stripe account.`
+        : ' Your portion will arrive in your Stripe account.'
+      return `${d.vendorName || 'A vendor'} paid for a booth at ${d.marketName || 'your market'} for the week of ${d.weekStartDate || 'the booked date'}.${amount}`
+    },
+    actionUrl: (d) =>
+      d.marketId
+        ? `/${d.vertical || 'farmers_market'}/market-manager/${d.marketId}/dashboard`
+        : `/${d.vertical || 'farmers_market'}/dashboard`,
+  },
+
+  // Fires from cron Phase 16 (expire-orders/route.ts) when an abandoned
+  // booth rental gets swept — vendor never completed payment within the
+  // 30-min orphan window or the 24-h stale-session window. The UNIQUE
+  // constraint now frees so they can re-book.
+  booth_rental_payment_failed_vendor: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'vendor',
+    title: (d) => `We released your booking at ${d.marketName || 'the market'}`,
+    message: (d) =>
+      `We released your booth booking at ${d.marketName || 'the market'} for the week of ${d.weekStartDate || 'the selected date'} — payment wasn't completed within the allowed window. Re-book if you still want the slot.`,
+    actionUrl: (d) =>
+      d.marketId
+        ? `/${d.vertical || 'farmers_market'}/markets/${d.marketId}/book`
+        : `/${d.vertical || 'farmers_market'}/vendor/markets`,
   },
 
   pickup_confirmation_needed: {

@@ -910,6 +910,40 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               </Link>
             )
           })()}
+
+          {/* Booth Bookings — FM-only (booth rentals only exist on FM markets
+              per Phase C scope). Vendor-facing read of weekly_booth_rentals. */}
+          {vertical === 'farmers_market' && (
+            <Link
+              href={`/${vertical}/vendor/bookings`}
+              style={{ textDecoration: 'none' }}
+            >
+              <div style={{
+                padding: spacing.sm,
+                backgroundColor: colors.surfaceElevated,
+                color: colors.textPrimary,
+                border: `1px solid ${colors.border}`,
+                borderRadius: radius.md,
+                cursor: 'pointer',
+                height: '100%',
+                minHeight: 120,
+                boxShadow: shadows.sm,
+              }}>
+                <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>🪑</div>
+                <h3 style={{
+                  color: colors.primary,
+                  margin: `0 0 ${spacing['2xs']} 0`,
+                  fontSize: typography.sizes.base,
+                  fontWeight: typography.weights.semibold,
+                }}>
+                  My Booth Bookings
+                </h3>
+                <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
+                  Weekly booth rentals at managed markets
+                </p>
+              </div>
+            </Link>
+          )}
         </div>
 
 
