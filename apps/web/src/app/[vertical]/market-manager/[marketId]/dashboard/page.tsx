@@ -386,7 +386,6 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           fontSize: typography.sizes.sm,
           lineHeight: 1.6,
         }}>
-          <li>Online checkout for booth rentals (vendors pay through the platform → manager Connect account)</li>
           <li>Post-market vendor + buyer surveys</li>
           <li>Share tools for market-day social promotion</li>
         </ul>

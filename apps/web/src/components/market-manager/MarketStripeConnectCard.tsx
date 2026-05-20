@@ -221,7 +221,7 @@ export default function MarketStripeConnectCard({ marketId }: MarketStripeConnec
       {state.kind === 'not_connected' && (
         <Action
           headline="No Stripe account yet"
-          body="Vendors can book booths at your market right now, but you can't receive online payment until you finish Stripe onboarding."
+          body="Vendors can't book booths at your market until you finish Stripe onboarding. Once Stripe is connected and active, vendors can pay through the platform and your share is deposited automatically."
           buttonLabel={busy ? 'Working…' : 'Start Stripe onboarding'}
           onClick={handleOnboard}
           busy={busy}
@@ -276,8 +276,8 @@ export default function MarketStripeConnectCard({ marketId }: MarketStripeConnec
             color: colors.textPrimary,
             lineHeight: 1.5,
           }}>
-            Stripe is connected and ready to receive booth rental payments.
-            Online checkout for vendors will go live in the next update.
+            Stripe is connected. Vendors can book booths at your market and
+            pay through the platform — your share is deposited automatically.
           </p>
           <button
             type="button"

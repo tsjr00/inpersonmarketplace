@@ -92,16 +92,21 @@ export default async function OnboardingStepPage({ params }: PageProps) {
         </Link>
       </div>
 
-      <div style={{
-        marginBottom: spacing.md,
-        fontSize: typography.sizes.xs,
-        color: colors.textMuted,
-        textTransform: 'uppercase',
-        letterSpacing: '0.5px',
-        fontWeight: typography.weights.semibold,
-      }}>
-        Step {stepIdx + 1} of {STEPS.length}
-      </div>
+      {/* Step counter — only on numbered steps. The landing page renders
+          "confirm" as a separate "Review and finish" CTA outside the
+          numbered sequence, so don't show "Step 6 of 6" here. */}
+      {stepSlug !== 'confirm' && (
+        <div style={{
+          marginBottom: spacing.md,
+          fontSize: typography.sizes.xs,
+          color: colors.textMuted,
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px',
+          fontWeight: typography.weights.semibold,
+        }}>
+          Step {stepIdx + 1} of {STEPS.length - 1}
+        </div>
+      )}
 
       <h1 style={{
         margin: 0,

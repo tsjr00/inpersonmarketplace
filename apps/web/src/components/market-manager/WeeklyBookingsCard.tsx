@@ -120,10 +120,9 @@ export default async function WeeklyBookingsCard({ marketId }: WeeklyBookingsCar
         fontSize: typography.sizes.sm,
         lineHeight: 1.5,
       }}>
-        Bookings vendors have placed at your market. Online payment is
-        coming — for now coordinate payment directly with each vendor.
-        Use the booth # field on each row to assign a booth to a booking.
-        The most recent 50 bookings shown.
+        Bookings vendors have placed at your market. Use the booth # field
+        on each row to assign a booth to a booking. The most recent 50
+        bookings shown.
       </p>
       <WeeklyBookingsList
         marketId={marketId}

@@ -41,11 +41,16 @@ export async function getMarketsManagedBy(
     .eq('manager_user_id', user.id)
     .eq('vertical_id', 'farmers_market')
 
+  // Use .eq with a lowercased value so the query hits the partial
+  // functional index `idx_markets_manager_email ON markets(LOWER(manager_email))`
+  // from migration 133. The admin assignment route always writes lowercase
+  // (admin/markets/[id]/manager/route.ts:125), so equality on the lowered
+  // value is safe and avoids the per-row scan that ILIKE would force.
   const emailMatchPromise = user.email
     ? supabase
         .from('markets')
         .select('id, name, city, state, vertical_id')
-        .ilike('manager_email', user.email)
+        .eq('manager_email', user.email.toLowerCase())
         .eq('vertical_id', 'farmers_market')
     : Promise.resolve({ data: [], error: null })
 

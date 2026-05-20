@@ -366,6 +366,35 @@ export async function PUT(
         if (vp?.user_id) recipientUserIds.add(vp.user_id)
       }
 
+      // Also fan out to booth renters for the current or upcoming weeks.
+      // The schedule editor is recurring per day-of-week, so any save
+      // potentially affects every upcoming booth renter at this market.
+      // week_start_date is a Sunday — we filter on "this week's Sunday"
+      // so an in-progress renter (their week isn't over yet) is still
+      // included. The recipientUserIds Set dedups when a vendor is both
+      // an approved market_vendor AND a paid booth renter.
+      const localNow = new Date()
+      const dayIdx = localNow.getDay() // 0 = Sun
+      const thisWeekStart = new Date(localNow)
+      thisWeekStart.setDate(localNow.getDate() - dayIdx)
+      const thisWeekStartStr = thisWeekStart.toISOString().slice(0, 10)
+
+      crumb.supabase('select', 'weekly_booth_rentals')
+      const { data: paidRenters } = await serviceClient
+        .from('weekly_booth_rentals')
+        .select(`
+          vendor_profile_id,
+          vendor_profiles!inner ( user_id )
+        `)
+        .eq('market_id', marketId)
+        .eq('status', 'paid')
+        .gte('week_start_date', thisWeekStartStr)
+
+      for (const r of (paidRenters ?? []) as VendorRow[]) {
+        const vp = Array.isArray(r.vendor_profiles) ? r.vendor_profiles[0] : r.vendor_profiles
+        if (vp?.user_id) recipientUserIds.add(vp.user_id)
+      }
+
       // Fire notifications in parallel, but bounded — for a typical FM
       // market this is 5-20 vendors. No backpressure needed at that scale.
       await Promise.all(

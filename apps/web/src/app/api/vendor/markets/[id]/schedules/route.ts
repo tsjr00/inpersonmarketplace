@@ -430,12 +430,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         return NextResponse.json({ error: 'This market is not currently active' }, { status: 400 })
       }
 
-      // Verify schedule exists and belongs to this market
+      // Verify schedule exists, belongs to this market, AND is active.
+      // The PUT branch enforces this via the active-schedules pre-fetch
+      // (line 211-216); the PATCH branch needs its own guard so a vendor
+      // can't re-activate attendance on a schedule the manager has
+      // soft-deleted (active=false). Matches the schema-intent design
+      // for the manager-editable schedule editor (mig 20260128_001
+      // trigger handle_market_schedule_deactivation deactivates vendor
+      // attendance when active flips true→false; this guard prevents
+      // the vendor from undoing that).
       const { data: schedule, error: scheduleError } = await supabase
         .from('market_schedules')
-        .select('id, market_id, start_time, end_time')
+        .select('id, market_id, start_time, end_time, active')
         .eq('id', scheduleId)
         .eq('market_id', marketId)
+        .eq('active', true)
         .single()
 
       if (scheduleError || !schedule) {

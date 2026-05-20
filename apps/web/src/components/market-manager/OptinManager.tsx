@@ -139,7 +139,12 @@ export default function OptinManager({ marketId }: OptinManagerProps) {
       if (!s?.checked) continue
       const validationError = validateOptinSelection(stmt, s.values)
       if (validationError) {
-        setSaveError(`"${stmt.id}": ${validationError}`)
+        // Show the rendered statement text (truncated) instead of the
+        // internal stmt.id so the manager recognizes which row they need
+        // to finish filling in.
+        const preview = renderOptinStatement(stmt.statement, s.values)
+        const truncated = preview.length > 80 ? preview.slice(0, 80) + '…' : preview
+        setSaveError(`${validationError} in "${truncated}"`)
         return
       }
       // Only include keys the statement actually declares
