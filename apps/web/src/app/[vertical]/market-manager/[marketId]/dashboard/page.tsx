@@ -149,8 +149,13 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
 
       {/* Weekly booth rental bookings (Phase C Stage 1, 2026-05-16).
           Renders nothing when no bookings exist. Read-only display in
-          this stage — booth-number editor + payment ship in next stages. */}
-      <WeeklyBookingsCard marketId={marketId} marketTimezone={(market.timezone as string | null) ?? null} />
+          this stage — booth-number editor + payment ship in next stages.
+          Wrapped with id="weekly-bookings" + scrollMarginTop so the
+          booth_rental_paid_manager notification's anchor link scrolls
+          here cleanly (2026-05-19). */}
+      <div id="weekly-bookings" style={{ scrollMarginTop: spacing.md }}>
+        <WeeklyBookingsCard marketId={marketId} marketTimezone={(market.timezone as string | null) ?? null} />
+      </div>
 
       {/* Stripe Connect onboarding (Phase C Stage 2, 2026-05-17). Sits
           right after bookings so the "you have bookings → here's how to
@@ -344,8 +349,16 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
         <OptinManager marketId={marketId} />
       </div>
 
-      {/* Read-only schedule view (D.2 2026-05-16) */}
-      <MarketScheduleCard schedules={schedules} />
+      {/* Manager-editable schedule (D.2 2026-05-16; editable since 2026-05-19).
+          Manager edits day/time/active + season start/end. Saving requires
+          acknowledgment of vendor-refund responsibility + fires a
+          market_schedule_changed notification to every approved vendor. */}
+      <MarketScheduleCard
+        marketId={marketId}
+        initialSchedules={schedules}
+        initialSeasonStart={(market.season_start as string | null) ?? null}
+        initialSeasonEnd={(market.season_end as string | null) ?? null}
+      />
 
       {/* Static support card (D.3 2026-05-16) */}
       <ManagerSupportCard vertical={vertical} />

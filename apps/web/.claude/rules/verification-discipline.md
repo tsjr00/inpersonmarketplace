@@ -205,6 +205,68 @@ Spent 4 rounds speculating about a market-page bug root cause — filter mismatc
 
 ---
 
+## Rule 5: Schema Intent Gate — Read the Design Signals Before CRUD Operations
+
+### THE GATE — Run before writing any DELETE, replace-all, or destructive CRUD pattern
+
+Rule 2 (the Schema Mechanical Gate) is about reading column NAMES before composing SQL. **This rule is about reading column INTENT and FK consequences before designing CRUD operations.** Both gates are required.
+
+Before writing code that DELETEs rows from a table, or designing a "replace the whole set" save pattern, run these three checks:
+
+#### Check 1 — Soft-delete column present?
+
+Open the relevant migration (or query `information_schema.columns`). Does the target table have any of:
+
+- `active`, `is_active`
+- `deleted_at`, `archived_at`, `removed_at`
+- `is_deleted`, `is_archived`, `is_removed`
+- `status` column with values like `'inactive'`, `'archived'`, `'deleted'`
+
+If YES → **the schema designer expected soft-delete.** The column exists for exactly this purpose. DELETE is wrong; UPDATE-the-flag is right.
+
+#### Check 2 — Cascade FK present?
+
+Does any OTHER table reference this one via FK with `ON DELETE CASCADE`? Grep the migration files for the pattern `REFERENCES <target_table>.*ON DELETE CASCADE`. If yes, DELETE here triggers silent data loss in those other tables — possibly across many rows.
+
+#### Check 3 — Pattern reuse without diff?
+
+If reusing a pattern from a recent build (especially within the same session — **pattern momentum is the #1 source of design mistakes**), state EXPLICITLY: "this is similar to X build I did earlier" — then ask "what's different about THIS table?"
+
+Force the comparison. Common differences that matter:
+- Soft-delete column presence (the recent build didn't have one; this one does)
+- FK direction with CASCADE (one is referenced; the other isn't)
+- Vendor-facing vs internal-only data
+- Whether downstream tables hold "history" or "current state"
+
+### What to do when checks reveal a problem
+
+- **Soft-delete column present** → Design as UPDATE-the-flag. Never DELETE rows. Vendor / downstream history is preserved; toggle on/off without losing data.
+- **CASCADE FK present** → Either (a) design as UPDATE-the-flag (preferred), OR (b) explicitly enumerate every cascade consequence in the design doc + the user-facing copy. If the user-facing copy needs an acknowledgment dialog warning about radiating data loss, **the design is wrong; redesign**. Acknowledgment dialogs are not a substitute for non-destructive design.
+- **Pattern reuse without diff** → Stop. Read the target table's schema. Re-run Checks 1 and 2 explicitly. Document the "what's different" answer in code comments before writing the new pattern.
+
+### Incident: Session 83 (2026-05-19)
+
+Manager-editable schedule built with a delete-and-replace pattern on `market_schedules`. The table had `active BOOLEAN` (visible in the same migration I had just read). The FK from `vendor_market_schedules.schedule_id` to `market_schedules.id` was `ON DELETE CASCADE` (also visible in that same migration). The pattern was reused from `replace_market_optin_selections` (mig 143) built earlier in the same session — which had neither signal.
+
+All three gates failed silently:
+1. **Check 1 missed.** Saw `active` column, didn't read its intent.
+2. **Check 2 missed.** Saw CASCADE FK, treated it as a feature to acknowledge rather than a destructive cascade to design away from.
+3. **Check 3 missed.** Reused the optin-selections pattern without asking what was different.
+
+The acknowledgment dialog was designed AROUND the destructive cascade ("vendors at this market will get a notification of the change and may request a refund from you") instead of designing AWAY from it. The destruction was treated as a feature to be acknowledged, not as a flaw to be eliminated.
+
+Caught by user before shipping. Code reverted via `git checkout HEAD --`.
+
+**Root cause:** pattern momentum from optin selections; failure to read the `active` column's intent; failure to read the FK CASCADE as a destructive signal that demanded redesign rather than acknowledgment.
+
+**The information was not hidden.** Both signals were in the same migration file I had read in the same session. The cost of running the three checks: ~30 seconds each. The cost of skipping them: an entire feature that would have silently destroyed vendor attendance data on every Save click.
+
+### This rule does not lift in "Fix" mode
+
+Fix mode authorizes code changes without per-change approval. It does NOT authorize skipping design verification. The user's "proceed" is approval to build; it is not approval to skip Checks 1, 2, 3. Those checks happen BEFORE the build begins. They are the design phase, not the implementation phase.
+
+---
+
 ## Cannot Be Overridden
 
 No autonomy mode, no time pressure, no "just give me a quick summary" overrides the requirements above. Speed that produces wrong answers is slower than accuracy. A 10-finding report with 3 wrong findings is worse than a 7-finding report that's 100% correct — the user now has to verify everything because trust is broken.

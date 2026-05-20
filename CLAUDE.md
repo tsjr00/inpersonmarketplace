@@ -23,7 +23,7 @@ Every session, in this order:
 | File | What it covers | Key incidents |
 |---|---|---|
 | `apps/web/.claude/rules/change-discipline.md` | Permission before action: present-before-changing, no-unauthorized-changes, critical-path-files | Sessions 63, 65, 66 |
-| `apps/web/.claude/rules/verification-discipline.md` | Cite the code, not your memory: cite-or-verify, schema mechanical gate, schema snapshot, data-first | Sessions 63, 70, 73, 74 |
+| `apps/web/.claude/rules/verification-discipline.md` | Cite the code, not your memory: cite-or-verify, schema mechanical gate, schema snapshot, data-first, schema-intent gate (read soft-delete + cascade signals before destructive CRUD) | Sessions 63, 70, 73, 74, 83 |
 | `apps/web/.claude/rules/test-integrity.md` | Tests are the spec: never change BR test, never skip, never pre-plan, flow integrity | Sessions 55, 56, 59, 68 |
 | `apps/web/.claude/rules/git-and-deployment.md` | Memory drifts, mechanical chains don't: branch chain, build discipline, staging-first, push window | Sessions 70, 76, 79, 80 |
 | `apps/web/.claude/rules/code-stability.md` | Working code is sacred: vault protocol, no performance regressions | Session 59 |

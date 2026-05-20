@@ -70,6 +70,9 @@ export type NotificationType =
   | 'booth_rental_paid_vendor'
   | 'booth_rental_paid_manager'
   | 'booth_rental_payment_failed_vendor'
+  // Market manager schedule edits (2026-05-19) — notify all approved vendors
+  // at the market when manager changes hours / active days / season window.
+  | 'market_schedule_changed'
   | 'pickup_confirmation_needed'
   | 'pickup_issue_reported'
   | 'inventory_low_stock'
@@ -575,7 +578,9 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       const amount = d.amountCents ? ` ($${(d.amountCents / 100).toFixed(2)})` : ''
       return `Your booth booking at ${d.marketName || 'the market'} for the week of ${d.weekStartDate || 'the selected date'} is confirmed${amount}. The manager will reach out with a booth number assignment before market day.`
     },
-    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/markets`,
+    // Lands on the vendor's My Bookings page so they can see the new
+    // row immediately (introduced 2026-05-19 alongside the page itself).
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/bookings`,
   },
 
   // Manager-side confirmation when a vendor's booth rental payment lands.
@@ -595,10 +600,28 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
         : ' Your portion will arrive in your Stripe account.'
       return `${d.vendorName || 'A vendor'} paid for a booth at ${d.marketName || 'your market'} for the week of ${d.weekStartDate || 'the booked date'}.${amount}`
     },
+    // Anchor link drops the manager right at the Weekly bookings card
+    // (id="weekly-bookings" on the dashboard wrapper).
     actionUrl: (d) =>
       d.marketId
-        ? `/${d.vertical || 'farmers_market'}/market-manager/${d.marketId}/dashboard`
+        ? `/${d.vertical || 'farmers_market'}/market-manager/${d.marketId}/dashboard#weekly-bookings`
         : `/${d.vertical || 'farmers_market'}/dashboard`,
+  },
+
+  // Fires when a market manager saves changes to the market schedule
+  // (day-of-week active toggles, time edits, season start/end). Goes to
+  // every approved vendor at the market (market_vendors.approved=true).
+  // Manager confirmed an acknowledgment dialog BEFORE the change saved,
+  // taking responsibility for direct vendor outreach + refunds — see
+  // PUT /api/market-manager/[marketId]/schedules.
+  market_schedule_changed: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'vendor',
+    title: (d) => `Schedule change at ${d.marketName || 'the market'}`,
+    message: (d) =>
+      `The schedule at ${d.marketName || 'the market'} has been updated by the market manager. Review the new times in your vendor markets list and contact the market manager directly with any questions or refund requests — the platform doesn't issue refunds for schedule changes.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/markets`,
   },
 
   // Fires from cron Phase 16 (expire-orders/route.ts) when an abandoned
