@@ -2,7 +2,14 @@
 
 **Purpose:** Help future Claude sessions understand this project quickly and avoid repeating mistakes.
 
-**Last Updated:** 2026-04-26 (Session 74)
+**Last Updated:** 2026-05-19 (Session 83)
+
+## Session 83 highlights (2026-05-19)
+
+- **Phase C feature-complete on staging.** Stripe-only booth rentals; $0.15 vendor-side flat fee; atomic booking + optin RPCs (migs 142 + 143); three payment-lifecycle notifications; vendor "My Bookings" page; manager-editable schedule.
+- **New rule: Schema Intent Gate** (`apps/web/.claude/rules/verification-discipline.md` Rule 5). Before any DELETE or replace-all CRUD, check for (1) soft-delete columns, (2) cascade FKs, (3) pattern-reuse-without-diff. Incident: built schedule editor with delete-and-replace despite the `active` column + cascade FK both being visible; user caught it. Rebuilt with soft-delete pattern.
+- **Locked design decisions** added to `decisions.md`: Schema Intent Gate; market schedule = soft-delete via `active` flag; booth rental math = base + 6.5% + $0.15; booth rentals are Stripe-only (no offline fallback); schedule changes require manager acknowledgment dialog; booking form shows one all-inclusive price.
+- **23 commits ahead of Prod** after this session. Migrations 138–143 ready to apply to Prod when user approves.
 
 ---
 

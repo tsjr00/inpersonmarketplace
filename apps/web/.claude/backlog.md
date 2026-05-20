@@ -1,18 +1,51 @@
 # Backlog
 
-Last updated: 2026-05-17
+Last updated: 2026-05-19 (Session 83 end)
 
-## Priority 1 — Phase C Stage 3 follow-ups (Session 82)
+## Priority 1 — Phase C Prod deploy + Session 83 follow-ups
 
-- [ ] **Notification: failed booth rental purchase** — When a vendor abandons a Stripe Checkout session (orphan or stale), Phase 16 of the cron cancels the row silently. No notification fires. **Add** vendor-facing notification when `weekly_booth_rentals.status` flips from `pending_payment` → `cancelled` via the cron sweep (distinct from manager-initiated cancellation). New notification type in `notifications/types.ts` (bumps NI-014 tripwire). Optional: also notify manager — "vendor X started booking week of Y but didn't complete payment." Trigger point: inside `expire-orders/route.ts` Phase 16 update block, after the SELECT returns IDs. Requires looking up vendor_profile_id → user_id + market name for templateData. Raised by user 2026-05-17. **Estimate:** 30-45 min.
+- [ ] **Migrations 138/139/140/141/142/143 to Prod + push 23 commits to `origin/main`** — Application order: 138 → 139 (FK to 138) → 140 (independent, adds `markets.logo_url`) → 141 (independent, adds `markets.stripe_*`) → 142 (adds `book_weekly_booth_atomic` RPC) → 143 (adds `replace_market_optin_selections` RPC). After all six applied, bookkeeping commit (move files to `applied/`, regenerate SCHEMA_SNAPSHOT structured tables via `REFRESH_SCHEMA.sql`). Then push `staging` to `origin/main` during the 9 PM–7 AM CT push window. ~30 min plus migration-application time.
 
-- [ ] **Notification: vendor + manager when booth rental is PAID** (Step 4.5 from Stage 3 plan) — When `handleBoothRentalCheckoutComplete` flips status to `paid`, send: (1) vendor — "your booking at [Market] for week of [Date] is confirmed"; (2) manager — "[Vendor] paid for a booth at your market for [Week] — $[amount]". Two new notification types — bumps NI-014 by 2. Inside `stripe/webhooks.ts` after the successful UPDATE. Raised in Stage 3 plan; deferred from Step 4 commit to keep critical-path file change focused.
+- [x] ~~Notification: failed booth rental purchase~~ — Shipped in commit `e4c5206c` (Session 83). Fires `booth_rental_payment_failed_vendor` from cron Phase 16.
 
-- [ ] **Migrations 138 + 139 + 141 to Prod** — Application order: 138 first (mig 139 has FK to vendor_market_agreement_acceptances), then 139, then 141 (independent). After all three: full bookkeeping commit (move files to applied/, regenerate SCHEMA_SNAPSHOT structured tables via REFRESH_SCHEMA.sql). Then push all 15+ staging-ahead commits to Prod.
+- [x] ~~Notification: vendor + manager when booth rental is PAID~~ — Shipped in commit `e4c5206c` (Session 83). Fires `booth_rental_paid_vendor` + `booth_rental_paid_manager` from webhook.
+
+- [ ] **Booth-renter notification gap on schedule changes** — `market_schedule_changed` notification fires only to `market_vendors.approved=true`. Does NOT notify vendors who have paid `weekly_booth_rentals` for future weeks at the market. They're affected by schedule changes too — they paid for a specific week and would want to know if the hours changed. Fix: expand the recipient query in `src/app/api/market-manager/[marketId]/schedules/route.ts` PUT to also include vendors with `weekly_booth_rentals.status='paid'` AND `week_start_date >= today` at the market. Dedupe by `vendor_profile_id`. **Estimate:** 15 LOC. Session 83 deferred per user direction.
+
+- [ ] **Refund policy notice on booking form** — Locked design: "Once you book and pay, the booth is yours for the selected week. If the market is closed or cancelled for that week, the market manager will either refund you or invite you to set up on a future market date — their call." Placement: below the price card, above the agreement block in `BookBoothForm.tsx`. The block was built then reverted mid-session — re-add when ready. **Estimate:** 15 LOC.
 
 - [ ] **Stage 3 amount reconciliation** — Webhook handler currently trusts `session.amount_total` matches expected `vendor_pays_cents`. Add a defensive check that flags discrepancies via TracedError. Low priority — destination charge model guarantees consistency unless Stripe mid-flight changes our `transfer_data.amount`, which it doesn't.
 
 - [ ] **Stage 3 `account.updated` webhook → markets.stripe_* sync** — Currently lazy-sync via the status route works fine. Webhook-driven sync would be marginally faster for status changes but adds complexity. Defer until real ops experience shows it's needed.
+
+## Priority 1.5 — Booth allocation time-awareness (gap G13 from session83_mm_audit.md)
+
+- [ ] **Off-platform booth placeholders aren't time-aware + same-week double-booking is possible** — Two connected problems:
+  1. `market_booth_placeholders` is time-invariant. A placeholder for booth #5 reduces capacity EVERY week, even if the off-platform vendor only shows up some weeks. Schema change needed: add `week_start_date DATE NULL` to `market_booth_placeholders` (NULL = always-occupied today's default; specific date = that-week-only). Update the capacity check in `/api/vendor/markets/[id]/book` accordingly. Also update `market_booth_placeholders` UNIQUE constraint from `(market_id, booth_number)` to allow multiple rows for the same booth on different weeks. Tricky: needs `UNIQUE NULLS NOT DISTINCT` semantics or partial index.
+  2. Manager assigns `booth_number` AFTER booking — two paid bookings for the same week + same size could both get the same booth_number with no system check. Add `UNIQUE (market_id, week_start_date, booth_number) WHERE booth_number IS NOT NULL` partial index on `weekly_booth_rentals`.
+  Raised by user 2026-05-19. ~2 hr work. Session 83.
+
+- [ ] **Two-vendors-share-a-booth edge case** (task #31 — see notes there). User has flagged this as a real case (e.g., two vendors splitting one booth on different days of a market week or rotating). Currently no system support — manager just assigns same booth_number to two vendors and the UI doesn't surface the share. Needs design pass before code. Session 83 noted.
+
+## Priority 1.5 — Pre-existing reader gaps for `market_schedules.active`
+
+Surfaced by Session 83 Agent A's comprehensive scan; all pre-existing, none made worse by the soft-delete redesign. None affect data integrity. File one ticket per fix; small.
+
+- [ ] **R15 — vendor PATCH allows attendance on inactive schedule** — `/api/vendor/markets/[id]/schedules` PATCH handler at line 434-439 does `.eq('id', scheduleId)` without filtering for active=true. A vendor could re-activate `vendor_market_schedules.is_active=true` for a schedule the manager has deactivated. Fix: add `.eq('active', true)` to the schedule lookup in that handler. ~3 LOC.
+
+- [ ] **R7 — admin GET `/api/markets/[id]/schedules` returns inactive + is cached `s-maxage=600`** — Admin-only today, but cache is `public,s-maxage=600`. If a buyer-side consumer is ever added, they'd see inactive schedule rows. Either filter active or remove the public cache directive.
+
+- [ ] **R24 — `/api/market-boxes/[id]` returns inactive schedule rows** — Decorative; market box pickup decisions come from `market_box_offerings.pickup_*` columns, not the schedule.
+
+- [ ] **R25 — `/api/buyer/orders/[id]` returns inactive schedule rows in `display.schedules`** — Decorative; `order_items.pickup_snapshot` is the source of truth for display.
+
+- [ ] **R29 / R30 — count selects include inactive** — `src/app/admin/markets/page.tsx:23` and `src/app/api/markets/route.ts:28` use `market_schedules(count)` without filter. Cosmetic.
+
+- [ ] **R40 — `src/lib/events/shop-data.ts:142-147` event market schedule lookup ignores active** — Event markets typically have one schedule row, low risk. Add `.eq('active', true)` for defense.
+
+## Priority 1 — Market Manager v1 (FM only)
+
+- [ ] **Market Manager dashboard + invite flow** — Pitch: free dashboard for FM market managers (vendor list with booth + attendance, aggregate market transactions, "invite a vendor" link, schedule view, support card) in exchange for them promoting the platform to their vendors and the public. Mirrors event organizer pattern (same human, different email; buyer dashboard card; admin-assigned via market admin UI). 1:1 manager:market for v1; FT park operator deferred. **Full plan + schema + 9-phase build order:** `apps/web/.claude/market_manager_v1_plan.md`. Awaiting user feedback from 1-2 friendly market managers (Amarillo / Canyon) before kickoff. Estimated 1-2 development sessions for end-to-end MVP. Drafted Session 78 (2026-05-05).
 
 ## Priority 1 — Market Manager v1 (FM only)
 
