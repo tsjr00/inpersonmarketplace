@@ -182,6 +182,10 @@ export interface NotificationTemplateData {
   /** Manager's portion of the booth rental in cents. Distinct from
    *  amountCents (vendor's pay) — manager-paid notifications use this. */
   managerReceivesAmountCents?: number
+  /** Auto-assigned booth label (mig 144). Surfaced in vendor + manager
+   *  paid-confirmation notifications. Falls back to "manager will reach
+   *  out" copy when absent (legacy data or pre-mig-144 bookings). */
+  boothNumber?: string
 }
 
 export type NotificationSeverity = 'critical' | 'warning' | 'info'
@@ -576,7 +580,14 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: (d) => `Booking confirmed at ${d.marketName || 'the market'}`,
     message: (d) => {
       const amount = d.amountCents ? ` ($${(d.amountCents / 100).toFixed(2)})` : ''
-      return `Your booth booking at ${d.marketName || 'the market'} for the week of ${d.weekStartDate || 'the selected date'} is confirmed${amount}. The manager will reach out with a booth number assignment before market day.`
+      // Mig 144: when boothNumber is provided (auto-assigned at booking
+      // time), tell the vendor their booth label directly. Pre-mig-144
+      // bookings have no booth_number yet — fall back to the legacy
+      // "manager will reach out" copy.
+      const boothLine = d.boothNumber
+        ? ` Your booth is ${d.boothNumber}. See you there.`
+        : ' The manager will reach out with a booth number assignment before market day.'
+      return `Your booth booking at ${d.marketName || 'the market'} for the week of ${d.weekStartDate || 'the selected date'} is confirmed${amount}.${boothLine}`
     },
     // Lands on the vendor's My Bookings page so they can see the new
     // row immediately (introduced 2026-05-19 alongside the page itself).
@@ -598,7 +609,11 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       const amount = d.managerReceivesAmountCents
         ? ` Your portion ($${(d.managerReceivesAmountCents / 100).toFixed(2)}) will arrive in your Stripe account.`
         : ' Your portion will arrive in your Stripe account.'
-      return `${d.vendorName || 'A vendor'} paid for a booth at ${d.marketName || 'your market'} for the week of ${d.weekStartDate || 'the booked date'}.${amount}`
+      // Mig 144: include auto-assigned booth label when available so the
+      // manager can sync their physical-layout records without checking
+      // the dashboard.
+      const boothPart = d.boothNumber ? ` (booth ${d.boothNumber})` : ''
+      return `${d.vendorName || 'A vendor'} paid for a booth${boothPart} at ${d.marketName || 'your market'} for the week of ${d.weekStartDate || 'the booked date'}.${amount}`
     },
     // Anchor link drops the manager right at the Weekly bookings card
     // (id="weekly-bookings" on the dashboard wrapper).

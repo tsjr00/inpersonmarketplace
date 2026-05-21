@@ -79,6 +79,19 @@ export async function PATCH(
       .maybeSingle()
 
     if (error) {
+      // Same-week booth-number uniqueness (mig 144 partial UNIQUE index
+      // idx_wbr_market_week_booth). Translate to a friendly 409 so the
+      // manager understands why their override was rejected.
+      if (error.code === '23505') {
+        return NextResponse.json(
+          {
+            error: boothNumber
+              ? `Booth ${boothNumber} is already assigned to another vendor for this week. Pick a different label or move the other vendor first.`
+              : 'Booth number conflict for this week.',
+          },
+          { status: 409 }
+        )
+      }
       throw traced.fromSupabase(error, { table: 'weekly_booth_rentals', operation: 'update' })
     }
 

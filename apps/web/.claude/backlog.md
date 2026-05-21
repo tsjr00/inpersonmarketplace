@@ -27,6 +27,15 @@ Last updated: 2026-05-19 (Session 83 end)
 
 - [ ] **Two-vendors-share-a-booth edge case** (task #31 — see notes there). User has flagged this as a real case (e.g., two vendors splitting one booth on different days of a market week or rotating). Currently no system support — manager just assigns same booth_number to two vendors and the UI doesn't surface the share. Needs design pass before code. Session 83 noted.
 
+- [ ] **Booth label range can drift from inventory total after initial save (mig 144 follow-up)** — The PUT /booth-labels validator enforces `range count === sum(market_booth_inventory.count)` at save time. But the booth-inventory routes (POST / PATCH / DELETE on `/api/market-manager/[marketId]/booth-inventory/...`) have NO equivalent check. Sequence that drifts the state: manager saves labels `"1"..."8"` when total inventory is 8 → later adds another size tier with 2 more booths → inventory total = 10 but range is still 1..8. At booking time the RPC raises `LABELS_EXHAUSTED` (P0004) once the 9th vendor tries to book, OR if either column is NULL the RPC silently falls back to defaults. Manager sees no warning until the failed booking surfaces in `error_logs`. Surfaced 2026-05-20 (Session 84) alongside mig 144 (`apps/web/.claude/booth_auto_assignment_plan.md` § Known edge cases).
+
+  **Fix options (decide before code):**
+  1. **Validate on inventory mutation** — booth-inventory POST/PATCH/DELETE routes check whether the new total matches the configured range. If not, return 409 telling the manager to re-save labels first, OR auto-clear labels with a returned warning. ~30 LOC.
+  2. **Auto-extend on growth** — if inventory total grows and the prefix is purely numeric, auto-extend `booth_label_end` by the delta. Doesn't handle shrinks or non-numeric prefixes cleanly. ~20 LOC.
+  3. **Dashboard warning banner** — surface "Booth labels are out of sync with your inventory (range covers 8 booths, you have 10)" on the manager dashboard. Doesn't fix the broken-booking failure mode but makes the inconsistency visible. ~25 LOC.
+
+  Recommendation: ship option 1 (auto-clear with explanation) as the v1 fix — simple, deterministic, surfaces the problem at the moment the manager caused it.
+
 ## Priority 1.5 — Pre-existing reader gaps for `market_schedules.active`
 
 Surfaced by Session 83 Agent A's comprehensive scan; all pre-existing, none made worse by the soft-delete redesign. None affect data integrity. File one ticket per fix; small.

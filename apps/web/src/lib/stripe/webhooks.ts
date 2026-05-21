@@ -1198,10 +1198,12 @@ async function handleBoothRentalCheckoutComplete(session: Stripe.Checkout.Sessio
   // non-2xx (Stripe would retry against an already-paid row).
   try {
     // Pull full rental row for notification payload — initial SELECT
-    // only got id, status.
+    // only got id, status. booth_number added in mig 144 (auto-assigned
+    // at booking time inside the book_weekly_booth_atomic RPC); surfaced
+    // in both vendor + manager confirmation notifications.
     const { data: rental } = await supabase
       .from('weekly_booth_rentals')
-      .select('vendor_profile_id, market_id, week_start_date, price_cents')
+      .select('vendor_profile_id, market_id, week_start_date, price_cents, booth_number')
       .eq('id', rentalId)
       .maybeSingle()
 
@@ -1261,6 +1263,11 @@ async function handleBoothRentalCheckoutComplete(session: Stripe.Checkout.Sessio
         managerEmail = managerAuth?.user?.email ?? null
       }
 
+      // Mig 144: pass the auto-assigned booth label into both
+      // notifications. Falls through to the template's legacy copy
+      // ("manager will reach out") when null (pre-mig-144 legacy rows).
+      const boothNumber = (rental.booth_number as string | null) ?? null
+
       // Vendor-paid notification.
       if (vp?.user_id) {
         await sendNotification(
@@ -1271,6 +1278,7 @@ async function handleBoothRentalCheckoutComplete(session: Stripe.Checkout.Sessio
             weekStartDate: weekDate,
             amountCents: fees.vendorPaysCents,
             marketId: rental.market_id as string,
+            ...(boothNumber ? { boothNumber } : {}),
           },
           {
             vertical,
@@ -1292,6 +1300,7 @@ async function handleBoothRentalCheckoutComplete(session: Stripe.Checkout.Sessio
             managerReceivesAmountCents: fees.managerReceivesCents,
             marketId: rental.market_id as string,
             ...(vendorName ? { vendorName } : {}),
+            ...(boothNumber ? { boothNumber } : {}),
           },
           {
             vertical,

@@ -72,8 +72,9 @@ Rule documented at `apps/web/.claude/rules/verification-discipline.md` Rule 5. C
 | 141 | markets.stripe_connect_* | ✅ | ✅ | ❌ pending |
 | 142 | book_weekly_booth_atomic (RPC) | ✅ | ✅ | ❌ pending |
 | 143 | replace_market_optin_selections (RPC) | ✅ | ✅ | ❌ pending |
+| 144 | booth_auto_assignment (markets.booth_label_*, partial UNIQUE on weekly_booth_rentals, replaces book_weekly_booth_atomic RPC) | ✅ | ✅ | ❌ pending |
 
-**Apply order to Prod:** 138 → 139 (FK to 138) → 140 → 141 → 142 → 143. Then bookkeeping commit (file moves to `applied/` + regenerate SCHEMA_SNAPSHOT structured tables via `supabase/REFRESH_SCHEMA.sql`).
+**Apply order to Prod:** 138 → 139 (FK to 138) → 140 → 141 → 142 → 143 → 144 (depends on 142's signature for the DROP). Then bookkeeping commit (file moves to `applied/` + regenerate SCHEMA_SNAPSHOT structured tables via `supabase/REFRESH_SCHEMA.sql`).
 
 ---
 

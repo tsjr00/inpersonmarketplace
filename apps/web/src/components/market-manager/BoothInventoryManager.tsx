@@ -8,6 +8,10 @@ import {
   type BoothInventoryRow,
   type BoothInventoryInput,
 } from '@/lib/markets/booth-types'
+import {
+  generateBoothLabelSequence,
+  validateBoothLabelRange,
+} from '@/lib/markets/booth-labels'
 
 interface BoothInventoryManagerProps {
   marketId: string
@@ -17,6 +21,7 @@ interface BoothInventoryManagerProps {
  * Manager-side CRUD for booth size tiers (market_booth_inventory rows).
  *
  * Layout:
+ *   - Booth numbering section: first + last label (mig 144 auto-assignment)
  *   - Summary row: total booths, # of size tiers, max-per-week revenue
  *   - List: existing tiers with inline edit / delete
  *   - Add tier form: size_label / dimensions / count / weekly_price (in dollars,
@@ -28,10 +33,22 @@ interface BoothInventoryManagerProps {
  *   - POST   /api/market-manager/[marketId]/booth-inventory
  *   - PATCH  /api/market-manager/[marketId]/booth-inventory/[id]
  *   - DELETE /api/market-manager/[marketId]/booth-inventory/[id]
+ *   - GET/PUT /api/market-manager/[marketId]/booth-labels      (mig 144)
  */
 export default function BoothInventoryManager({ marketId }: BoothInventoryManagerProps) {
   const [rows, setRows] = useState<BoothInventoryRow[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+
+  // Booth-label state (mig 144). Loaded alongside inventory; saved via a
+  // separate PUT to the booth-labels route. Both fields are optional —
+  // leaving them blank lets the auto-assignment RPC fall back to defaults.
+  const [labelStart, setLabelStart] = useState<string>('')
+  const [labelEnd, setLabelEnd] = useState<string>('')
+  const [savedLabelStart, setSavedLabelStart] = useState<string | null>(null)
+  const [savedLabelEnd, setSavedLabelEnd] = useState<string | null>(null)
+  const [labelsLoading, setLabelsLoading] = useState(false)
+  const [labelsError, setLabelsError] = useState<string | null>(null)
+  const [labelsSavedFlash, setLabelsSavedFlash] = useState(false)
 
   // Add-form state
   const [addForm, setAddForm] = useState({
@@ -74,8 +91,28 @@ export default function BoothInventoryManager({ marketId }: BoothInventoryManage
     }
   }
 
+  const loadLabels = async () => {
+    try {
+      const res = await fetch(`/api/market-manager/${marketId}/booth-labels`)
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        // Non-fatal — labels load failure doesn't block the inventory UI.
+        return
+      }
+      const start = (data.booth_label_start as string | null) ?? null
+      const end = (data.booth_label_end as string | null) ?? null
+      setSavedLabelStart(start)
+      setSavedLabelEnd(end)
+      setLabelStart(start ?? '')
+      setLabelEnd(end ?? '')
+    } catch {
+      // Silent — same reason as above.
+    }
+  }
+
   useEffect(() => {
     loadInventory()
+    loadLabels()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [marketId])
 
@@ -214,6 +251,63 @@ export default function BoothInventoryManager({ marketId }: BoothInventoryManage
     }
   }
 
+  const handleSaveLabels = async () => {
+    setLabelsError(null)
+    setLabelsSavedFlash(false)
+
+    const startTrim = labelStart.trim()
+    const endTrim = labelEnd.trim()
+    const bothBlank = startTrim === '' && endTrim === ''
+
+    // Client-side validation when both are set; defer mismatched-total
+    // check to the server (it has authoritative inventory data).
+    if (!bothBlank) {
+      if (startTrim === '' || endTrim === '') {
+        setLabelsError('Provide both first and last labels, or clear both to use defaults.')
+        return
+      }
+      // Local pre-check against the inventory rows we've loaded. Server
+      // re-validates with the live inventory total in case rows changed.
+      const localTotal = (rows ?? []).reduce((sum, r) => sum + (r.count || 0), 0)
+      if (localTotal > 0) {
+        const localErr = validateBoothLabelRange(startTrim, endTrim, { totalCount: localTotal })
+        if (localErr) {
+          setLabelsError(localErr)
+          return
+        }
+      }
+    }
+
+    setLabelsLoading(true)
+    try {
+      const res = await fetch(`/api/market-manager/${marketId}/booth-labels`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          booth_label_start: bothBlank ? null : startTrim,
+          booth_label_end: bothBlank ? null : endTrim,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setLabelsError(data.error || 'Failed to save booth labels')
+        return
+      }
+      const savedStart = (data.booth_label_start as string | null) ?? null
+      const savedEnd = (data.booth_label_end as string | null) ?? null
+      setSavedLabelStart(savedStart)
+      setSavedLabelEnd(savedEnd)
+      setLabelStart(savedStart ?? '')
+      setLabelEnd(savedEnd ?? '')
+      setLabelsSavedFlash(true)
+      setTimeout(() => setLabelsSavedFlash(false), 2000)
+    } catch {
+      setLabelsError('Network error — please try again')
+    } finally {
+      setLabelsLoading(false)
+    }
+  }
+
   if (rows === null) {
     return <div style={{ color: colors.textMuted, fontSize: typography.sizes.sm }}>Loading booth inventory…</div>
   }
@@ -234,8 +328,132 @@ export default function BoothInventoryManager({ marketId }: BoothInventoryManage
 
   const summary = summarizeBoothInventory(rows)
 
+  // Booth-label section state derivation (for the preview + save-button
+  // disabling). Both fields blank = "use defaults" save. Both set + valid
+  // = computed sequence preview. Otherwise = no preview (validation msg).
+  const labelStartTrim = labelStart.trim()
+  const labelEndTrim = labelEnd.trim()
+  const labelsBothBlank = labelStartTrim === '' && labelEndTrim === ''
+  const labelsDirty =
+    (labelStartTrim || '') !== (savedLabelStart ?? '') ||
+    (labelEndTrim || '') !== (savedLabelEnd ?? '')
+  const previewSequence = labelsBothBlank
+    ? []
+    : generateBoothLabelSequence(labelStartTrim, labelEndTrim)
+  const previewSnippet =
+    previewSequence.length === 0
+      ? ''
+      : previewSequence.length <= 4
+      ? previewSequence.join(', ')
+      : `${previewSequence.slice(0, 3).join(', ')}, …, ${previewSequence[previewSequence.length - 1]}`
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+      {/* Booth numbering section (mig 144 — auto-assignment range). */}
+      <div style={{
+        padding: spacing.sm,
+        backgroundColor: colors.surfaceBase,
+        border: `1px solid ${colors.border}`,
+        borderRadius: radius.sm,
+      }}>
+        <div style={{ fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm, marginBottom: spacing['3xs'] }}>
+          Booth numbering
+        </div>
+        <p style={{
+          margin: 0,
+          marginBottom: spacing.xs,
+          color: colors.textMuted,
+          fontSize: typography.sizes.xs,
+          lineHeight: 1.5,
+        }}>
+          Tell us the first and last booth label at your market. We&apos;ll
+          assign these labels automatically as vendors book — no work for
+          you on each booking. Leave both blank to use the default
+          (1 to {summary.total_booths || 'N'}). Same letters/format for
+          both — examples: <strong>1</strong> &amp; <strong>{summary.total_booths || 8}</strong>,
+          {' '}<strong>A1</strong> &amp; <strong>A{summary.total_booths || 8}</strong>,
+          {' '}<strong>Booth-1</strong> &amp; <strong>Booth-{summary.total_booths || 8}</strong>.
+        </p>
+        <div style={{ display: 'flex', gap: spacing.xs, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <div style={{ flex: '1 1 140px' }}>
+            <label style={{ display: 'block', fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing['3xs'] }}>
+              First booth label
+            </label>
+            <input
+              type="text"
+              value={labelStart}
+              onChange={(e) => setLabelStart(e.target.value)}
+              placeholder="e.g., 1 or A1"
+              disabled={labelsLoading}
+              maxLength={50}
+              style={{
+                width: '100%',
+                padding: `${spacing['3xs']} ${spacing.xs}`,
+                border: `1px solid ${colors.border}`,
+                borderRadius: radius.sm,
+                fontSize: typography.sizes.sm,
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+          <div style={{ flex: '1 1 140px' }}>
+            <label style={{ display: 'block', fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing['3xs'] }}>
+              Last booth label
+            </label>
+            <input
+              type="text"
+              value={labelEnd}
+              onChange={(e) => setLabelEnd(e.target.value)}
+              placeholder="e.g., 8 or A8"
+              disabled={labelsLoading}
+              maxLength={50}
+              style={{
+                width: '100%',
+                padding: `${spacing['3xs']} ${spacing.xs}`,
+                border: `1px solid ${colors.border}`,
+                borderRadius: radius.sm,
+                fontSize: typography.sizes.sm,
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+          <button
+            onClick={handleSaveLabels}
+            disabled={labelsLoading || !labelsDirty}
+            style={{
+              padding: `${spacing['3xs']} ${spacing.sm}`,
+              backgroundColor: labelsDirty ? colors.primary : colors.surfaceBase,
+              color: labelsDirty ? 'white' : colors.textMuted,
+              border: labelsDirty ? 'none' : `1px solid ${colors.border}`,
+              borderRadius: radius.sm,
+              fontSize: typography.sizes.xs,
+              fontWeight: typography.weights.semibold,
+              cursor: labelsLoading || !labelsDirty ? 'not-allowed' : 'pointer',
+              opacity: labelsLoading ? 0.6 : 1,
+              minHeight: 32,
+            }}
+          >
+            {labelsLoading ? 'Saving…' : 'Save labels'}
+          </button>
+          {labelsSavedFlash && (
+            <span style={{ color: '#155724', fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, alignSelf: 'center' }}>
+              ✓ Saved
+            </span>
+          )}
+        </div>
+        {previewSnippet && (
+          <div style={{ marginTop: spacing['2xs'], fontSize: typography.sizes.xs, color: colors.textMuted }}>
+            Generated sequence: <span style={{ color: colors.textPrimary, fontFamily: 'monospace' }}>{previewSnippet}</span>
+            {' '}({previewSequence.length} label{previewSequence.length === 1 ? '' : 's'})
+          </div>
+        )}
+        {labelsError && (
+          <div style={{ marginTop: spacing['2xs'], color: '#991b1b', fontSize: typography.sizes.xs }}>
+            {labelsError}
+          </div>
+        )}
+      </div>
+
       {/* Summary row */}
       <div style={{
         display: 'flex',
