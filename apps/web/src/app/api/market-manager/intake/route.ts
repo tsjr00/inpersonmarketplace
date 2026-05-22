@@ -155,27 +155,12 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServiceClient()
 
-    // ── Dedup: one market per manager email ─────────────────────────
-    // The partial functional index `idx_markets_manager_email ON
-    // markets(LOWER(manager_email)) WHERE manager_email IS NOT NULL`
-    // (mig 133) handles this query cheaply.
-    crumb.supabase('select', 'markets')
-    const { data: existing } = await supabase
-      .from('markets')
-      .select('id, name, vertical_id, status')
-      .eq('manager_email', email)
-      .maybeSingle()
-
-    if (existing) {
-      return NextResponse.json(
-        {
-          error: `You already have a market set up under this email (${existing.name as string}). Sign in to your dashboard to manage it.`,
-          field: 'email',
-          existing_market_id: existing.id as string,
-        },
-        { status: 409 }
-      )
-    }
+    // Multi-market managers are supported (Session 84). One manager_email
+    // can own multiple markets — getMarketsManagedBy returns an array,
+    // MarketManagerCard renders the list, isMarketManager works
+    // per-market. Each market is independently set up + admin-approved.
+    // (1:1 was the original v1 scope per market_manager_v2_plan.md but
+    // reopened — no Stripe / auth / notification surface needs change.)
 
     // ── Insert the market in pending status ─────────────────────────
     // Required NOT NULL columns: vertical_id, name, market_type.
@@ -204,6 +189,29 @@ export async function POST(request: NextRequest) {
     const marketId = inserted.id as string
     const verticalId = (inserted.vertical_id as string) || 'farmers_market'
 
+    // ── Fuzzy duplicate check (feedback #6) ─────────────────────────
+    // Strict match: same name + same city (case-insensitive). Different
+    // city = different market regardless of name. We surface matches to
+    // admin in the notification email so they can verify the new manager
+    // is the legitimate one before approving (booth-rental fraud guard).
+    crumb.supabase('select', 'markets')
+    const { data: dupes } = await supabase
+      .from('markets')
+      .select('id, name, city, state, status, manager_email')
+      .ilike('name', marketName)
+      .ilike('city', city)
+      .neq('id', marketId)
+
+    const possibleDuplicates =
+      (dupes ?? []).map((d) => ({
+        id: d.id as string,
+        name: d.name as string,
+        city: (d.city as string | null) ?? '',
+        state: (d.state as string | null) ?? '',
+        status: (d.status as string | null) ?? 'unknown',
+        manager_email: (d.manager_email as string | null) ?? null,
+      })) ?? []
+
     // ── Notifications (non-blocking) ───────────────────────────────
     // Both emails are best-effort. If they fail the row is still
     // created, the admin sees the new pending market in their queue
@@ -218,6 +226,7 @@ export async function POST(request: NextRequest) {
         phone,
         notes,
         marketId,
+        possibleDuplicates,
       }),
       sendManagerConfirmation({
         managerName,
@@ -250,6 +259,15 @@ function escapeHtml(s: string): string {
     .replace(/'/g, '&#39;')
 }
 
+interface PossibleDuplicate {
+  id: string
+  name: string
+  city: string
+  state: string
+  status: string
+  manager_email: string | null
+}
+
 interface AdminNotificationArgs {
   managerName: string
   email: string
@@ -259,6 +277,7 @@ interface AdminNotificationArgs {
   phone: string | null
   notes: string | null
   marketId: string
+  possibleDuplicates: PossibleDuplicate[]
 }
 
 async function sendAdminNotification(args: AdminNotificationArgs): Promise<void> {
@@ -269,6 +288,30 @@ async function sendAdminNotification(args: AdminNotificationArgs): Promise<void>
     return
   }
 
+  const hasDupes = args.possibleDuplicates.length > 0
+  const subjectPrefix = hasDupes ? '⚠️ Possible duplicate — ' : ''
+
+  const dupeBlock = hasDupes
+    ? `
+      <div style="margin:16px 0;padding:14px 16px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;color:#664d03">
+        <p style="margin:0 0 10px;font-weight:bold;font-size:14px">⚠️ Possible duplicate / claim of existing market</p>
+        <p style="margin:0 0 10px;font-size:13px;line-height:1.5">A market with the same name + city already exists. Before approving this intake, verify the prospective manager is legitimate. Common verification steps:</p>
+        <ul style="margin:0 0 12px;padding-left:20px;font-size:13px;line-height:1.6;color:#664d03">
+          <li>Email the prospective manager and ask for ownership proof (LLC docs, market website with their name, signed letter from the market organization)</li>
+          <li>Request a Certificate of Insurance naming the market as additional insured (if applicable)</li>
+          <li>Contact the existing market's manager_email (if set) to confirm or deny the new request</li>
+          <li>Do NOT approve until verified — booth rental payments route through Stripe and reversing a fraudulent activation is costly</li>
+        </ul>
+        <p style="margin:0;font-size:13px;font-weight:bold">Existing market${args.possibleDuplicates.length === 1 ? '' : 's'} with the same name + city:</p>
+        <table style="border-collapse:collapse;width:100%;margin-top:8px;background:#fffaf0">
+          ${args.possibleDuplicates.map((d) => `
+            <tr><td style="padding:6px 10px;font-size:13px;border-bottom:1px solid #f5e6c2;font-family:monospace">${escapeHtml(d.id)}</td><td style="padding:6px 10px;font-size:13px;border-bottom:1px solid #f5e6c2"><strong>${escapeHtml(d.name)}</strong> · ${escapeHtml(d.city)}${d.state ? ', ' + escapeHtml(d.state) : ''} · status=<code>${escapeHtml(d.status)}</code>${d.manager_email ? ' · current manager: <a href="mailto:' + escapeHtml(d.manager_email) + '">' + escapeHtml(d.manager_email) + '</a>' : ' · no manager_email on file'}</td></tr>
+          `).join('')}
+        </table>
+      </div>
+    `
+    : ''
+
   try {
     const { Resend } = await import('resend')
     const resend = new Resend(apiKey)
@@ -276,11 +319,12 @@ async function sendAdminNotification(args: AdminNotificationArgs): Promise<void>
     await resend.emails.send({
       from: 'Farmers Marketing <updates@mail.farmersmarketing.app>',
       to: adminEmail,
-      subject: `New market manager intake: ${args.marketName} (${args.city}, ${args.state})`,
+      subject: `${subjectPrefix}New market manager intake: ${args.marketName} (${args.city}, ${args.state})`,
       html: `
         <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto">
           <h2 style="color:#2d5016;margin:0 0 16px">New market manager intake</h2>
           <p style="color:#737373;font-size:13px;margin:0 0 16px">Market is in <strong>pending</strong> status and hidden from public browse. Flip status to <strong>active</strong> when ready.</p>
+          ${dupeBlock}
           <table style="border-collapse:collapse;width:100%">
             <tr><td style="padding:8px 12px;font-weight:bold;border-bottom:1px solid #eee;width:140px">Market name</td><td style="padding:8px 12px;border-bottom:1px solid #eee">${escapeHtml(args.marketName)}</td></tr>
             <tr><td style="padding:8px 12px;font-weight:bold;border-bottom:1px solid #eee">Manager</td><td style="padding:8px 12px;border-bottom:1px solid #eee">${escapeHtml(args.managerName)}</td></tr>
@@ -310,12 +354,14 @@ async function sendManagerConfirmation(args: ManagerConfirmationArgs): Promise<v
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) return
 
-  // Public-facing signup URL — applicant signs up with the same email
-  // they just submitted; the existing email-to-user-id backfill flow
-  // links manager_user_id on their first authenticated dashboard load
-  // (admin/markets/[id]/manager/route.ts:46-49 references this pattern).
+  // Public-facing signup URL — points directly at the signup route
+  // (not login) so the manager doesn't have to click a "sign up here"
+  // toggle. The signup page pre-fills the email via the ?email= param
+  // (see src/app/[vertical]/signup/page.tsx — searchParams.get('email')).
+  // After signup the existing email-to-user-id backfill flow links
+  // manager_user_id on their first authenticated dashboard load.
   const appBase = process.env.NEXT_PUBLIC_APP_URL || 'https://farmersmarketing.app'
-  const signupUrl = `${appBase}/${args.verticalId}/login?signup=true&email=${encodeURIComponent(args.email)}`
+  const signupUrl = `${appBase}/${args.verticalId}/signup?email=${encodeURIComponent(args.email)}`
 
   try {
     const { Resend } = await import('resend')

@@ -69,6 +69,31 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
   const pendingVendors = vendors?.filter((v: { approved: boolean }) => !v.approved) || []
   const approvedVendors = vendors?.filter((v: { approved: boolean }) => v.approved) || []
 
+  // Possible-duplicate check (intake fraud guard). Same logic as the
+  // intake route's post-insert query — same name + same city, excluding
+  // this market. Only relevant for `status='pending'` (active markets
+  // are already approved and live, no need to re-warn). Different cities
+  // are always different markets (per user direction, Session 84).
+  const marketStatus = (market.status as string | null) || 'active'
+  const isPending = marketStatus === 'pending'
+  let possibleDuplicates: Array<{
+    id: string
+    name: string
+    city: string | null
+    state: string | null
+    status: string | null
+    manager_email: string | null
+  }> = []
+  if (isPending && market.name && market.city) {
+    const { data: dupes } = await supabase
+      .from('markets')
+      .select('id, name, city, state, status, manager_email')
+      .ilike('name', market.name as string)
+      .ilike('city', market.city as string)
+      .neq('id', id)
+    possibleDuplicates = (dupes ?? []) as typeof possibleDuplicates
+  }
+
   return (
     <div>
       {/* Back link */}
@@ -89,6 +114,60 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
         </svg>
         Back to Markets
       </Link>
+
+      {/* Possible-duplicate warning — only for pending markets where
+          another market shares this exact (name + city). The intake
+          route surfaced this in the admin email too; this banner makes
+          sure the admin sees it again when they open the detail page. */}
+      {isPending && possibleDuplicates.length > 0 && (
+        <div style={{
+          padding: '14px 16px',
+          marginBottom: 20,
+          backgroundColor: '#fff3cd',
+          border: '1px solid #ffc107',
+          borderRadius: 8,
+          color: '#664d03',
+        }}>
+          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>
+            ⚠️ Possible duplicate / claim of existing market
+          </div>
+          <div style={{ fontSize: 13, lineHeight: 1.5, marginBottom: 10 }}>
+            Another market with the same name and city already exists. Before approving this intake, verify the prospective manager is legitimate.
+          </div>
+          <ul style={{ margin: '0 0 10px', paddingLeft: 20, fontSize: 13, lineHeight: 1.6, color: '#664d03' }}>
+            <li>Email the prospective manager and ask for ownership proof (LLC docs, market website with their name, signed letter from the market organization).</li>
+            <li>Request a Certificate of Insurance naming the market as additional insured (if applicable).</li>
+            <li>Contact the existing market&apos;s manager_email (if set) to confirm or deny the new request.</li>
+            <li>Do not approve until verified — booth rental payments route through Stripe and reversing a fraudulent activation is costly.</li>
+          </ul>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
+            Existing market{possibleDuplicates.length === 1 ? '' : 's'} with the same name + city:
+          </div>
+          <table style={{ borderCollapse: 'collapse', width: '100%', background: '#fffaf0' }}>
+            <tbody>
+              {possibleDuplicates.map((d) => (
+                <tr key={d.id}>
+                  <td style={{ padding: '6px 10px', fontSize: 12, fontFamily: 'monospace', borderBottom: '1px solid #f5e6c2' }}>
+                    <Link href={`/admin/markets/${d.id}`} style={{ color: '#664d03', textDecoration: 'underline' }}>
+                      {d.id}
+                    </Link>
+                  </td>
+                  <td style={{ padding: '6px 10px', fontSize: 13, borderBottom: '1px solid #f5e6c2' }}>
+                    <strong>{d.name}</strong>
+                    {' · '}
+                    {d.city}{d.state ? `, ${d.state}` : ''}
+                    {' · status='}
+                    <code>{d.status ?? 'unknown'}</code>
+                    {d.manager_email
+                      ? <> · current manager: <a href={`mailto:${d.manager_email}`} style={{ color: '#664d03' }}>{d.manager_email}</a></>
+                      : ' · no manager_email on file'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>

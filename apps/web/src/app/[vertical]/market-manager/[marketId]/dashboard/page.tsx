@@ -358,6 +358,7 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
         initialSchedules={schedules}
         initialSeasonStart={(market.season_start as string | null) ?? null}
         initialSeasonEnd={(market.season_end as string | null) ?? null}
+        hasScheduleChangeRecipients={dashboardStats.hasScheduleChangeRecipients}
       />
 
       {/* Static support card (D.3 2026-05-16) */}

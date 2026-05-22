@@ -36,6 +36,27 @@ Last updated: 2026-05-19 (Session 83 end)
 
   Recommendation: ship option 1 (auto-clear with explanation) as the v1 fix — simple, deterministic, surfaces the problem at the moment the manager caused it.
 
+- [ ] **Require booth-tier selection when adding off-platform + on-platform vendors (feedback item #4, Session 84)** — Surfaced from manager testing 2026-05-22. Currently:
+  - `market_booth_placeholders.inventory_id` is OPTIONAL ("— No size —" in the dropdown); manager can save an off-platform placeholder without declaring which size tier it occupies. Capacity math correctly subtracts the placeholder from the relevant tier ONLY when `inventory_id` is set; un-tiered placeholders just reduce the total count without telling the system WHICH tier is full.
+  - On-platform vendors via `market_vendors` have a `booth_number TEXT` but no link to a booth-inventory tier — manager has no way to declare "Smith Farm is in the 10×10 row." The auto-assignment / capacity check has no way to know which tier each existing vendor occupies, so the "how many of each tier remain" math is fuzzy.
+
+  Fix (needs code review before changing):
+  1. Make `inventory_id` REQUIRED on placeholders. UI: dropdown defaults to "— Select size tier —"; Save disabled until selected. API: route returns 400 if missing.
+  2. Add a tier selector to on-platform vendor rows in `VendorBoothList`. Schema change needed: `market_vendors.inventory_id UUID NULL REFERENCES market_booth_inventory(id) ON DELETE SET NULL` + same-market integrity trigger (mirror mig 135 pattern).
+  3. Existing rows: backfill to NULL initially; UI shows "tier not set" warning. Manager fills in over time.
+
+  Estimate: ~1-2 hr work (schema migration + UI for both placeholders and vendors). Session 84.
+
+- [ ] **Structured manager-verification docs upload (feedback item #6 follow-up, Session 84)** — When the intake form's fuzzy match flags a possible duplicate (same name + city as an existing market), admins are currently told to email the prospective manager and request ownership proof, COI, etc. manually. A v2 build would add a structured docs-upload UI on the manager dashboard (similar to the vendor 3-gate verification system at `src/app/[vertical]/vendor/onboarding/`) so the prospective manager can upload ownership docs + COI directly, admin reviews via a queue UI, and approval moves the market from `pending` → `active`. Scope when ready: new `manager_verification_docs` JSONB column on `markets` (or a separate table), upload UI, admin review queue, decline-with-reason flow. Until then, the email warning + admin detail-page banner cover v1. Session 84.
+
+- [ ] **Existing-vendors step required in onboarding wizard (feedback item #5, Session 84)** — Surfaced from manager testing 2026-05-22. Currently the onboarding wizard's "vendors" step + "placeholders" step are both optional (manager can skip and reach Setup Complete without declaring any vendors). User wants:
+  - Make both steps required to complete onboarding.
+  - Add an explicit escape checkbox per step: "I don't have any existing vendors at my market yet" (placeholders) / "I don't have any of my market's vendors on the platform yet" (on-platform). Checking the box skips the step legitimately; not checking it means the manager must add at least one entry.
+
+  Fix (needs code review before changing): touch `OnboardingChecklist`, `onboarding/[step]/page.tsx`, possibly `getOnboardingProgress` to add a "skip acknowledged" boolean per step. Probably a new column on markets — `onboarding_no_existing_vendors_ack BOOLEAN`, `onboarding_no_placeholders_ack BOOLEAN` — or store ack values in a JSONB column. Decide schema shape during code review.
+
+  Estimate: ~1 hr work. Session 84.
+
 ## Priority 1.5 — Pre-existing reader gaps for `market_schedules.active`
 
 Surfaced by Session 83 Agent A's comprehensive scan; all pre-existing, none made worse by the soft-delete redesign. None affect data integrity. File one ticket per fix; small.

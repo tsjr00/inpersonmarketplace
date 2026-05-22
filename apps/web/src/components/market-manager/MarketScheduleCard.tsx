@@ -40,6 +40,12 @@ interface MarketScheduleCardProps {
   initialSchedules: ScheduleRow[]
   initialSeasonStart: string | null
   initialSeasonEnd: string | null
+  /** True when a schedule change would notify someone (approved
+   *  market_vendors OR paid weekly_booth_rentals for upcoming weeks).
+   *  When false, save bypasses the acknowledgment dialog — the
+   *  responsibility/refund warning copy doesn't apply to a market
+   *  with no active stakeholders. Defaults to true (conservative). */
+  hasScheduleChangeRecipients?: boolean
 }
 
 const DAYS = [
@@ -100,6 +106,7 @@ export default function MarketScheduleCard({
   initialSchedules,
   initialSeasonStart,
   initialSeasonEnd,
+  hasScheduleChangeRecipients = true,
 }: MarketScheduleCardProps) {
   const router = useRouter()
 
@@ -162,12 +169,27 @@ export default function MarketScheduleCard({
       return
     }
     setError(null)
+    // Skip the acknowledgment dialog when no one would be notified by
+    // the change. The dialog's bullets are about vendor outreach +
+    // refund responsibility — none of that applies to a market with
+    // zero approved vendors and zero paid booth renters (typically a
+    // brand-new market mid-onboarding).
+    if (!hasScheduleChangeRecipients) {
+      // No dialog — no one to notify, no responsibility copy to read.
+      // performSaveCore skips the acknowledgment-state gate.
+      void performSaveCore()
+      return
+    }
     setAcknowledged(false)
     setConfirming(true)
   }
 
   async function performSave() {
     if (!acknowledged) return
+    await performSaveCore()
+  }
+
+  async function performSaveCore() {
     setConfirming(false)
     setSaving(true)
     setError(null)
@@ -495,10 +517,18 @@ function AcknowledgmentDialog({
         <p style={{ margin: `0 0 ${spacing.xs} 0`, fontSize: typography.sizes.sm, color: colors.textPrimary, lineHeight: 1.5 }}>
           Before you save:
         </p>
-        <ul style={{ margin: `0 0 ${spacing.sm} 0`, paddingLeft: spacing.md, fontSize: typography.sizes.sm, color: colors.textPrimary, lineHeight: 1.5 }}>
-          <li><strong>You</strong> are responsible for contacting the affected vendors directly.</li>
-          <li>Vendors at this market will get an automatic notification of the change and may request a refund from you.</li>
-          <li>The platform does <strong>NOT</strong> issue refunds for schedule changes — refunds are between you and the affected vendors.</li>
+        <ul style={{
+          margin: `0 0 ${spacing.sm} 0`,
+          paddingLeft: spacing.md,
+          fontSize: typography.sizes.sm,
+          color: colors.textPrimary,
+          lineHeight: 1.5,
+          listStyleType: 'disc',   // Explicit so global CSS resets don't hide the bullet markers.
+          listStylePosition: 'outside',
+        }}>
+          <li style={{ marginBottom: spacing['3xs'] }}>You are responsible for contacting the affected vendors directly.</li>
+          <li style={{ marginBottom: spacing['3xs'] }}>Vendors at this market will get an automatic notification of the change and may request a refund from you.</li>
+          <li style={{ marginBottom: spacing['3xs'] }}>The platform does not issue refunds for schedule changes — refunds are between you and the affected vendors.</li>
           <li>Turning a day off keeps your hours saved — you can re-enable it later without re-entering anything. Vendor attendance on that day is deactivated (not deleted); vendors must re-opt in if you turn the day back on.</li>
         </ul>
 

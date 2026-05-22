@@ -45,7 +45,7 @@ export default function MarketManagerProgramPage() {
             color: colors.textPrimary,
             lineHeight: 1.2,
           }}>
-            Run your market with us — keep the margin you&apos;d lose to a software bill.
+            Built for farmers market managers, by people who got tired of watching them do the same paperwork by hand every week.
           </h1>
           <p style={{
             margin: 0,
@@ -57,9 +57,9 @@ export default function MarketManagerProgramPage() {
             marginLeft: 'auto',
             marginRight: 'auto',
           }}>
-            We help farmers market managers fill weekly booth spots, vet vendors,
-            track attendance, and capture post-market feedback. No subscription.
-            We make money when your booth rentals and on-platform transactions do.
+            Weekly booth rentals, vendor onboarding, attendance, post-market surveys.
+            You don&apos;t pay us a subscription. We take a small percentage of the
+            booth fees and the on-platform transactions at your market.
           </p>
           <div style={{ display: 'flex', gap: spacing.sm, justifyContent: 'center', flexWrap: 'wrap', alignItems: 'center' }}>
             <a
@@ -105,7 +105,7 @@ export default function MarketManagerProgramPage() {
             fontWeight: typography.weights.bold,
             color: colors.textPrimary,
           }}>
-            The week-to-week vendor problem
+            Why we built this
           </h2>
           <p style={{
             margin: 0,
@@ -113,22 +113,22 @@ export default function MarketManagerProgramPage() {
             color: colors.textMuted,
             lineHeight: 1.6,
           }}>
-            Most markets try to lock vendors in for the whole season. Some markets
-            can&apos;t fill all their spots that way — climate, crop variety,
-            vendor mix, or the manager&apos;s overhead just doesn&apos;t support
-            it. Those weekly drop-in vendors are real revenue, but tracking who
-            paid for which week, who&apos;s set up where, and what they sold gets
-            messy fast.
+            Lots of farmers markets can&apos;t fill all their booths with season-long
+            contracts — weather, crop timing, vendor mix, or just how the manager
+            prefers to run things. So weekly drop-in vendors fill those spots. But
+            the paperwork is awkward: who paid for which week, who&apos;s where in
+            the layout, what they sold. Some markets keep it in a notebook; some
+            don&apos;t track it at all.
           </p>
           <p style={{
             margin: 0,
             color: colors.textMuted,
             lineHeight: 1.6,
           }}>
-            That&apos;s the problem we solve. You point your weekly vendors at our
-            platform, they pay for a booth and a week through us, you get the spot
-            assigned and the receipt — and you keep doing what you already do, just
-            with less paperwork.
+            This tool takes that part off your plate. Weekly vendors book and pay
+            through us. You get the booking, the receipt, and the booth assigned.
+            You&apos;re still the one running your market — there&apos;s just less
+            to chase down.
           </p>
         </section>
 
@@ -152,27 +152,27 @@ export default function MarketManagerProgramPage() {
             {[
               {
                 title: '🌾 Manager dashboard',
-                body: 'Vendor list with booth assignments, attendance, weekly bookings, aggregate transaction count, and post-market surveys. Built for the operations side of running a market.',
+                body: 'Vendor list with booth assignments, attendance, weekly bookings, transaction summary, post-market surveys. The operations view of your market.',
               },
               {
                 title: '✅ Vendor vetting',
-                body: 'Three-gate verification (business, category-specific permits, insurance) plus the per-market opt-in agreement statements you select during onboarding. Skip the back-and-forth with new vendor applications.',
+                body: 'Three-step verification (business info, category permits, insurance) plus the per-market opt-in statements you select. New vendors arrive already vetted.',
               },
               {
                 title: '📅 Weekly booth bookings',
-                body: 'Vendors pay you weekly through the platform. Pricing per booth size that you set. Booth assignment is yours to control — auto or manual, your call.',
+                body: 'Vendors book and pay weekly through the platform. You set the price per booth size; we handle the payment and route your share to your Stripe account.',
               },
               {
                 title: '📣 Share tools',
-                body: 'One-tap share buttons for your market profile and market-day vendor lineup. Built-in templates for social posts.',
+                body: 'One-tap share buttons for your market profile and your market-day vendor lineup. Built-in templates for social posts.',
               },
               {
-                title: '📊 Survey-driven feedback',
-                body: 'After each market day, the platform pushes a star + comment survey to every vendor and to every shopper who picked up an order at your market. Aggregate ratings, individual comments, real signal on what worked.',
+                title: '📊 Post-market surveys',
+                body: 'After each market day we push a star + comment survey to every vendor who attended and every shopper who picked up an order at your market. You see the aggregate and the individual responses.',
               },
               {
                 title: '🤝 No subscription',
-                body: 'You pay nothing to us. We collect a 6.5% fee on each side of the booth rental and the transactions. Vendors and shoppers each see a small platform fee on their receipt — same as every other tool in this space, but no monthly seat charge to you.',
+                body: 'Nothing to pay us monthly. We charge a percentage of each booth rental and each on-platform transaction at your market. Receipts show the fee.',
               },
             ].map((card) => (
               <div
@@ -228,33 +228,30 @@ export default function MarketManagerProgramPage() {
             fontSize: typography.sizes.base,
           }}>
             <li style={{ marginBottom: spacing.sm }}>
-              <strong style={{ color: colors.textPrimary }}>Reach out.</strong> Email us at the address below.
-              We&apos;ll set up a call to walk through your market and confirm fit.
+              <strong style={{ color: colors.textPrimary }}>Sign up.</strong> Fill out
+              the form below — name, email, market name, location. Takes a minute.
             </li>
             <li style={{ marginBottom: spacing.sm }}>
-              <strong style={{ color: colors.textPrimary }}>We assign you to your market.</strong> Once you have an account,
-              you&apos;ll see a &ldquo;My Markets&rdquo; card on your dashboard with a
-              link to your manager dashboard. Your manager role is separate from
-              any vendor role you might also have on the platform — they don&apos;t
-              cross-contaminate.
+              <strong style={{ color: colors.textPrimary }}>Set up your dashboard.</strong>{' '}
+              We email you a link. You configure your booth inventory (sizes, count,
+              weekly price), pick the vendor agreement statements that fit how your
+              market runs, and connect a Stripe account.
             </li>
             <li style={{ marginBottom: spacing.sm }}>
-              <strong style={{ color: colors.textPrimary }}>Onboard your market.</strong> Set up your booth inventory
-              (count + sizes + weekly prices). Pick the opt-in vendor agreement
-              statements that fit how your market operates. Connect a Stripe
-              account so we can pay you booth rental revenue.
+              <strong style={{ color: colors.textPrimary }}>We review and activate.</strong>{' '}
+              Usually within one business day. Your market goes public; vendors can
+              find it.
             </li>
             <li style={{ marginBottom: spacing.sm }}>
-              <strong style={{ color: colors.textPrimary }}>Refer your vendors.</strong> Use the &ldquo;invite a
-              vendor&rdquo; link to send vendors a co-branded onboarding flow —
-              your market name shown alongside Farmers Marketing. They sign up,
-              accept your agreement, pay for a booth, and you assign them to a
-              spot.
+              <strong style={{ color: colors.textPrimary }}>Refer your vendors.</strong>{' '}
+              Use the &ldquo;invite a vendor&rdquo; link to send your existing vendors
+              a co-branded signup flow — your market name shown alongside Farmers
+              Marketing.
             </li>
             <li style={{ marginBottom: spacing.sm }}>
-              <strong style={{ color: colors.textPrimary }}>Run your market.</strong> Vendors pay weekly. Buyers
-              pre-order from those vendors. Surveys go out after market day.
-              You see the data; we send you your booth rental income.
+              <strong style={{ color: colors.textPrimary }}>Run your market.</strong>{' '}
+              Vendors pay weekly. Buyers pre-order. Surveys go out after market day.
+              We deposit booth rental income to your Stripe account.
             </li>
           </ol>
         </section>
@@ -289,7 +286,9 @@ export default function MarketManagerProgramPage() {
             fontSize: typography.sizes.base,
             lineHeight: 1.5,
           }}>
-            A few fields to get you in the door — we&apos;ll email you a setup link, you finish the rest from your dashboard. We review and activate your public market listing within one business day.
+            A few fields here gets you a dashboard. You finish setup there
+            (booth inventory, vendor agreement statements, Stripe). We review
+            and activate your public listing within one business day.
           </p>
           <ManagerIntakeForm />
         </section>
@@ -317,7 +316,7 @@ export default function MarketManagerProgramPage() {
             color: colors.textPrimary,
             lineHeight: 1.6,
           }}>
-            <strong>Zero subscription. Zero seat fee. Zero per-vendor charge to you as the manager.</strong>
+            Nothing to you up front. No subscription, no seat fee, no per-vendor charge.
           </p>
           <p style={{
             margin: 0,
@@ -325,7 +324,7 @@ export default function MarketManagerProgramPage() {
             color: colors.textPrimary,
             lineHeight: 1.6,
           }}>
-            We make money in two places, both transparent on every receipt:
+            We make money in two places. Both show on the receipts:
           </p>
           <ul style={{
             margin: 0,
@@ -337,14 +336,14 @@ export default function MarketManagerProgramPage() {
               <strong>Booth rentals:</strong> 6.5% on each side plus a $0.15
               flat fee from the vendor. The vendor pays your booth fee + 6.5%
               + $0.15; you receive your booth fee minus 6.5%. We keep the
-              difference. (For a $25 booth: vendor pays $26.78, you receive
-              $23.37.)
+              difference. For a $25 booth: vendor pays $26.78, you receive
+              $23.37.
             </li>
             <li>
-              <strong>Pre-order transactions at your market:</strong> 6.5% on each
-              side, same as our standard pre-order flow. This is the same fee
-              every vendor and shopper already sees on the platform — your
-              market is now where some of those transactions happen.
+              <strong>Pre-order transactions at your market:</strong> 6.5% on
+              each side, same as our standard pre-order flow. Same fee every
+              vendor and buyer already sees on the platform — your market is
+              now where some of those transactions happen.
             </li>
           </ul>
         </section>
@@ -372,9 +371,9 @@ export default function MarketManagerProgramPage() {
             color: colors.textMuted,
             fontSize: typography.sizes.base,
           }}>
-            We&apos;re onboarding a small group of friendly markets to start.
-            Tell us about your market, set up your dashboard, and we&apos;ll
-            review your listing within one business day.
+            We&apos;re onboarding markets a few at a time so we can do it right.
+            Tell us about yours below — setup takes about a minute, and
+            we&apos;ll have your dashboard active within one business day.
           </p>
           <div style={{ display: 'flex', gap: spacing.sm, justifyContent: 'center', flexWrap: 'wrap', alignItems: 'center' }}>
             <a

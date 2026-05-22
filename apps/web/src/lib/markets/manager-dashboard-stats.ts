@@ -36,6 +36,12 @@ export interface ManagerDashboardStats {
    *  Surfaces vendors who came in via the co-branded signup link (auto-
    *  created with approved=false) and need manager review. */
   pendingApprovalCount: number
+  /** True when a schedule change at this market would notify someone —
+   *  i.e., there's at least one approved market_vendor OR at least one
+   *  paid weekly_booth_rental for the current/upcoming weeks. Used by
+   *  MarketScheduleCard to skip the acknowledgment dialog entirely for
+   *  brand-new markets where the warning copy doesn't apply. */
+  hasScheduleChangeRecipients: boolean
 }
 
 export async function getManagerDashboardStats(
@@ -55,16 +61,34 @@ export async function getManagerDashboardStats(
   const nextMarketDate = computeNextMarketDate(schedules ?? [], tz)
   const nextMarketDateStr = nextMarketDate ? formatLocalDate(nextMarketDate) : null
 
-  // Four parallel queries:
+  // Today in the market's local timezone — used by query 6 to filter
+  // booth rentals for current/upcoming weeks only.
+  const todayMarketLocal = formatLocalDate(
+    new Date(new Date().toLocaleString('en-US', { timeZone: tz }))
+  )
+
+  // Six parallel queries:
   //  1. vendor_market_schedules with is_active=true at this market
   //  2. market_vendors approved + booth_number IS NULL at this market
   //  3. order_items at this market with pickup_date = next market day,
   //     status NOT in {fulfilled, cancelled, refunded}
   //  4. market_vendors approved=false count (pending manager review)
+  //  5. market_vendors approved=true HEAD count (would receive
+  //     schedule-change notifications)
+  //  6. weekly_booth_rentals paid + week_start_date >= today HEAD count
+  //     (would also receive schedule-change notifications)
   // Queries 1+2 merged in JS to compute "active AND needs booth #".
   // Query 3 deduplicates by order_id (one order can have multiple items).
-  // Query 4 is a HEAD count (fast; no row data needed).
-  const [activeScheduleVendors, marketVendorsNoBooth, orderItemsResult, pendingApprovalResult] = await Promise.all([
+  // Queries 4/5/6 are HEAD counts (fast; no row data needed).
+  // Queries 5+6 power hasScheduleChangeRecipients — TRUE if either > 0.
+  const [
+    activeScheduleVendors,
+    marketVendorsNoBooth,
+    orderItemsResult,
+    pendingApprovalResult,
+    approvedVendorsResult,
+    paidRentersResult,
+  ] = await Promise.all([
     serviceClient
       .from('vendor_market_schedules')
       .select('vendor_profile_id')
@@ -89,6 +113,17 @@ export async function getManagerDashboardStats(
       .select('id', { count: 'exact', head: true })
       .eq('market_id', marketId)
       .eq('approved', false),
+    serviceClient
+      .from('market_vendors')
+      .select('id', { count: 'exact', head: true })
+      .eq('market_id', marketId)
+      .eq('approved', true),
+    serviceClient
+      .from('weekly_booth_rentals')
+      .select('id', { count: 'exact', head: true })
+      .eq('market_id', marketId)
+      .eq('status', 'paid')
+      .gte('week_start_date', todayMarketLocal),
   ])
 
   const activeScheduleSet = new Set(
@@ -104,12 +139,17 @@ export async function getManagerDashboardStats(
   const nextMarketDayOrderCount = distinctOrderIds.size
 
   const pendingApprovalCount = pendingApprovalResult.count ?? 0
+  const approvedVendorCount = approvedVendorsResult.count ?? 0
+  const paidUpcomingRentalCount = paidRentersResult.count ?? 0
+  const hasScheduleChangeRecipients =
+    approvedVendorCount > 0 || paidUpcomingRentalCount > 0
 
   return {
     nextMarketDate,
     nextMarketDayOrderCount,
     activeVendorsNeedingBooth,
     pendingApprovalCount,
+    hasScheduleChangeRecipients,
   }
 }
 
