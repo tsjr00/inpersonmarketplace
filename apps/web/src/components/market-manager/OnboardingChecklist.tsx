@@ -12,28 +12,31 @@ interface OnboardingChecklistProps {
  * Dashboard card showing the manager's setup checklist progress + entry
  * point into the guided wizard.
  *
- * Renders as a short summary when both required steps are complete; as
- * a fuller "Continue setup" prompt when anything required is missing.
+ * Renders as a short summary when all required steps are complete; as a
+ * fuller "Continue setup" prompt when anything required is missing.
  *
- * Required steps: booth inventory + opt-in statements (each needs at
- * least one row). Off-platform placeholders are optional — reported in
- * the list with their count but they don't gate the "Setup complete"
- * state.
+ * Mig 145 grew the required-steps list from 2 to 4:
+ *   1. Booth inventory (at least one size tier)
+ *   2. Vendor agreement statements (at least one selection)
+ *   3. On-platform vendors — at least one OR ack "I have none yet"
+ *   4. Off-platform placeholders — at least one OR ack "I have none yet"
+ *
+ * The acks let new markets legitimately skip steps 3 + 4 without lying
+ * about the data — manager checks a box on each step that says "I have
+ * no existing X at this market yet."
  */
 export default function OnboardingChecklist({
   vertical,
   marketId,
   progress,
 }: OnboardingChecklistProps) {
-  const allRequiredDone = progress.inventory_done && progress.optin_done
+  const allRequiredDone =
+    progress.inventory_done &&
+    progress.optin_done &&
+    progress.vendors_step_done &&
+    progress.placeholders_step_done
 
-  // When everything required is in place, render a low-key "review setup"
-  // line. Mention placeholder count if there are any.
   if (allRequiredDone) {
-    const placeholderSuffix =
-      progress.placeholders_count > 0
-        ? ` (plus ${progress.placeholders_count} off-platform placeholder${progress.placeholders_count === 1 ? '' : 's'})`
-        : ''
     return (
       <div style={{
         padding: spacing.sm,
@@ -48,7 +51,7 @@ export default function OnboardingChecklist({
         gap: spacing.xs,
       }}>
         <div style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
-          ✓ Setup complete — booth inventory and vendor agreement statements are configured{placeholderSuffix}
+          ✓ Setup complete — all 4 required steps configured
         </div>
         <Link
           href={`/${vertical}/market-manager/${marketId}/onboarding`}
@@ -110,23 +113,23 @@ export default function OnboardingChecklist({
           <span>Booth inventory{progress.inventory_done ? '' : ' — add at least one size tier'}</span>
         </li>
         <li style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], marginBottom: spacing['3xs'] }}>
+          <span>{progress.vendors_step_done ? '✓' : '○'}</span>
           <span>
-            {progress.vendors_with_booth_count > 0 || progress.vendors_at_market_count === 0 ? '✓' : '○'}
-          </span>
-          <span style={{ fontStyle: progress.vendors_at_market_count === 0 ? 'italic' : 'normal' }}>
-            {progress.vendors_at_market_count === 0
-              ? 'Vendor booth assignments — no vendors yet (optional)'
-              : progress.vendors_with_booth_count > 0
-                ? `Vendor booth assignments — ${progress.vendors_with_booth_count} of ${progress.vendors_at_market_count} assigned`
-                : `Vendor booth assignments — ${progress.vendors_at_market_count} not yet assigned (optional)`}
+            {progress.no_existing_vendors_ack
+              ? 'On-platform vendors — acknowledged none yet'
+              : progress.vendors_at_market_count > 0
+                ? `On-platform vendors — ${progress.vendors_at_market_count} at this market${progress.vendors_with_booth_count > 0 ? ` (${progress.vendors_with_booth_count} with booth #)` : ''}`
+                : 'On-platform vendors — add at least one or check "I have none yet"'}
           </span>
         </li>
         <li style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], marginBottom: spacing['3xs'] }}>
-          <span>{progress.placeholders_count > 0 ? '✓' : '○'}</span>
-          <span style={{ fontStyle: progress.placeholders_count > 0 ? 'normal' : 'italic' }}>
-            {progress.placeholders_count > 0
-              ? `Off-platform placeholders — ${progress.placeholders_count} tracked`
-              : 'Off-platform placeholders (optional)'}
+          <span>{progress.placeholders_step_done ? '✓' : '○'}</span>
+          <span>
+            {progress.no_placeholders_ack
+              ? 'Off-platform placeholders — acknowledged none yet'
+              : progress.placeholders_count > 0
+                ? `Off-platform placeholders — ${progress.placeholders_count} tracked`
+                : 'Off-platform placeholders — add at least one or check "I have none yet"'}
           </span>
         </li>
         <li style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>

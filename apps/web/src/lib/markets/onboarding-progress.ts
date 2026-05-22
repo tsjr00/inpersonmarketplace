@@ -29,16 +29,28 @@ import { createServiceClient } from '@/lib/supabase/server'
 export interface OnboardingProgress {
   inventory_done: boolean
   placeholders_count: number
+  /** Mig 145: TRUE when manager has at least one placeholder row OR
+   *  has explicitly acknowledged "I have no off-platform vendors yet"
+   *  via the no_placeholders_ack flag. */
+  placeholders_step_done: boolean
+  /** Mig 145: the manager-toggled ack flag itself (markets column). */
+  no_placeholders_ack: boolean
   optin_done: boolean
   /** Total vendors with a market_vendors row for this market. */
   vendors_at_market_count: number
   /** Subset of vendors_at_market_count whose booth_number is non-null. */
   vendors_with_booth_count: number
-  /** Number of REQUIRED steps complete (0..2) — inventory + optin. */
+  /** Mig 145: TRUE when manager has at least one on-platform vendor OR
+   *  has explicitly acknowledged "I have no existing vendors yet" via
+   *  the no_existing_vendors_ack flag. */
+  vendors_step_done: boolean
+  /** Mig 145: the manager-toggled ack flag itself (markets column). */
+  no_existing_vendors_ack: boolean
+  /** Number of REQUIRED steps complete (0..4) — inventory + optin +
+   *  vendors + placeholders. Mig 145 grew this from 2 to 4. */
   required_complete: number
-  /** Always 2. Kept as a field so the UI can render "X of N" without
-   *  hardcoding the denominator in multiple places. */
-  required_total: 2
+  /** Always 4 since mig 145 (was 2). UI uses it to render "X of N". */
+  required_total: 4
 }
 
 /** Reads progress for the market using a service client (RLS is
@@ -49,7 +61,18 @@ export async function getOnboardingProgress(
 ): Promise<OnboardingProgress> {
   const serviceClient = createServiceClient()
 
-  const [invResult, placeholdersResult, optinResult, vendorsAllResult, vendorsWithBoothResult] = await Promise.all([
+  // Mig 145: also fetch the two ack flags from markets so we can compute
+  // step_done for vendors + placeholders. Acks let the manager skip a
+  // step legitimately when they truly have no existing vendors or
+  // placeholders yet.
+  const [
+    invResult,
+    placeholdersResult,
+    optinResult,
+    vendorsAllResult,
+    vendorsWithBoothResult,
+    marketResult,
+  ] = await Promise.all([
     serviceClient
       .from('market_booth_inventory')
       .select('id', { count: 'exact', head: true })
@@ -71,6 +94,11 @@ export async function getOnboardingProgress(
       .select('id', { count: 'exact', head: true })
       .eq('market_id', marketId)
       .not('booth_number', 'is', null),
+    serviceClient
+      .from('markets')
+      .select('onboarding_no_existing_vendors_ack, onboarding_no_placeholders_ack')
+      .eq('id', marketId)
+      .maybeSingle(),
   ])
 
   const inventory_done = (invResult.count ?? 0) > 0
@@ -78,18 +106,33 @@ export async function getOnboardingProgress(
   const optin_done = (optinResult.count ?? 0) > 0
   const vendors_at_market_count = vendorsAllResult.count ?? 0
   const vendors_with_booth_count = vendorsWithBoothResult.count ?? 0
+  const no_existing_vendors_ack =
+    !!(marketResult.data?.onboarding_no_existing_vendors_ack as boolean | null)
+  const no_placeholders_ack =
+    !!(marketResult.data?.onboarding_no_placeholders_ack as boolean | null)
+
+  // Mig 145: vendors + placeholders are now required steps. Done when
+  // the manager has at least one row OR has acknowledged the skip.
+  const vendors_step_done = vendors_at_market_count > 0 || no_existing_vendors_ack
+  const placeholders_step_done = placeholders_count > 0 || no_placeholders_ack
 
   let required_complete = 0
   if (inventory_done) required_complete++
   if (optin_done) required_complete++
+  if (vendors_step_done) required_complete++
+  if (placeholders_step_done) required_complete++
 
   return {
     inventory_done,
     placeholders_count,
+    placeholders_step_done,
+    no_placeholders_ack,
     optin_done,
     vendors_at_market_count,
     vendors_with_booth_count,
+    vendors_step_done,
+    no_existing_vendors_ack,
     required_complete,
-    required_total: 2,
+    required_total: 4,
   }
 }

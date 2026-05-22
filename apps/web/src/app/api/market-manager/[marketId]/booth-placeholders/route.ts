@@ -100,6 +100,16 @@ export async function POST(
     if (validationError) {
       throw traced.validation('ERR_VALIDATION_001', validationError)
     }
+    // Mig 145 / feedback #4: tier selection is REQUIRED when adding a
+    // placeholder. The system needs to know which size tier each
+    // off-platform booth occupies for accurate per-tier capacity math
+    // and for the occupancy grid view.
+    if (!input.inventory_id) {
+      throw traced.validation(
+        'ERR_VALIDATION_002',
+        'Booth size tier is required — pick the size this booth belongs to.'
+      )
+    }
 
     const serviceClient = createServiceClient()
 

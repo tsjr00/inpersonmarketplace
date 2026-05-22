@@ -8,6 +8,7 @@ import BoothInventoryManager from '@/components/market-manager/BoothInventoryMan
 import BoothPlaceholderManager from '@/components/market-manager/BoothPlaceholderManager'
 import OptinManager from '@/components/market-manager/OptinManager'
 import VendorBoothList from '@/components/market-manager/VendorBoothList'
+import OnboardingSkipAckCheckbox from '@/components/market-manager/OnboardingSkipAckCheckbox'
 
 const STEPS = ['identity', 'booths', 'vendors', 'placeholders', 'optin', 'confirm'] as const
 type StepSlug = typeof STEPS[number]
@@ -216,23 +217,17 @@ export default async function OnboardingStepPage({ params }: PageProps) {
               fontSize: typography.sizes.sm,
               lineHeight: 1.5,
             }}>
-              Assign booth numbers to vendors who are on the platform and already attending this market. The vendor list below shows everyone associated with the market.
+              Assign booth numbers + size tier to vendors who are on the platform and already attending this market. The list below shows everyone associated with the market.
             </p>
-            {progress.vendors_at_market_count === 0 && (
-              <p style={{
-                margin: 0,
-                marginBottom: spacing.sm,
-                padding: spacing.sm,
-                backgroundColor: '#fefce8',
-                border: '1px solid #fde047',
-                borderRadius: radius.sm,
-                color: '#713f12',
-                fontSize: typography.sizes.sm,
-                lineHeight: 1.5,
-              }}>
-                <strong>No on-platform vendors at this market yet.</strong> That&apos;s fine — once vendors join via your referral link (or apply directly to this market), they&apos;ll appear here and you can assign booth numbers. You can skip this step for now.
-              </p>
-            )}
+            {/* Mig 145: required step with explicit skip ack. The ack
+                checkbox flips markets.onboarding_no_existing_vendors_ack;
+                onboarding-progress treats this step as complete when
+                count > 0 OR ack=true. */}
+            <OnboardingSkipAckCheckbox
+              marketId={marketId}
+              ackType="no_existing_vendors_ack"
+              initialValue={progress.no_existing_vendors_ack}
+            />
             <VendorBoothList marketId={marketId} />
           </div>
         )}
@@ -251,8 +246,14 @@ export default async function OnboardingStepPage({ params }: PageProps) {
               fontSize: typography.sizes.sm,
               lineHeight: 1.5,
             }}>
-              Optional. Track booths occupied by vendors who are not on the platform yet. No vendor identity is captured — just the booth number and (optionally) which size tier it counts against. Skip this step if all your vendors are already on the platform.
+              Track booths occupied by vendors who are not on the platform yet. No vendor identity is captured — just the booth number and the size tier it occupies (required). If all your vendors are already on the platform, check the box below to mark this step done.
             </p>
+            {/* Mig 145: required step with explicit skip ack. */}
+            <OnboardingSkipAckCheckbox
+              marketId={marketId}
+              ackType="no_placeholders_ack"
+              initialValue={progress.no_placeholders_ack}
+            />
             <BoothPlaceholderManager marketId={marketId} />
           </div>
         )}

@@ -7,6 +7,7 @@ import { colors, spacing, typography, radius, containers } from '@/lib/design-to
 import VendorBoothList from '@/components/market-manager/VendorBoothList'
 import BoothInventoryManager from '@/components/market-manager/BoothInventoryManager'
 import BoothPlaceholderManager from '@/components/market-manager/BoothPlaceholderManager'
+import BoothOccupancyGrid from '@/components/market-manager/BoothOccupancyGrid'
 import OptinManager from '@/components/market-manager/OptinManager'
 import OnboardingChecklist from '@/components/market-manager/OnboardingChecklist'
 import MarketBrandingCard from '@/components/market-manager/MarketBrandingCard'
@@ -201,6 +202,15 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
         </p>
         <BoothInventoryManager marketId={marketId} />
       </div>
+
+      {/* Booth occupancy grid — current week, per tier. Combines
+          off-platform placeholders, on-platform vendors with a tier,
+          and paid weekly_booth_rentals for the current week. Rendered
+          after inventory because it depends on tier definitions. */}
+      <BoothOccupancyGrid
+        marketId={marketId}
+        marketTimezone={(market.timezone as string | null) ?? null}
+      />
 
       {/* Off-platform vendor booth placeholders — track occupancy without
           on-platform vendor identity */}

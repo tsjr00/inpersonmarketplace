@@ -57,6 +57,7 @@ export async function GET(
         approved,
         response_status,
         booth_number,
+        inventory_id,
         created_at,
         vendor_profiles!market_vendors_vendor_profile_id_fkey (
           id,
@@ -125,6 +126,7 @@ export async function GET(
         vendor_profile_id: row.vendor_profile_id as string,
         business_name: businessName,
         booth_number: (row.booth_number as string | null) ?? null,
+        inventory_id: (row.inventory_id as string | null) ?? null,
         approved: !!row.approved,
         response_status: (row.response_status as string | null) ?? null,
         vendor_status: (profile?.status as string | null) ?? null,

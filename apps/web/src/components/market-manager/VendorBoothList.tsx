@@ -9,12 +9,18 @@ interface Vendor {
   vendor_profile_id: string
   business_name: string
   booth_number: string | null
+  inventory_id: string | null
   approved: boolean
   response_status: string | null
   vendor_status: string | null
   on_platform: true
   is_active_schedule: boolean
   has_info_sharing_consent: boolean
+}
+
+interface TierOption {
+  id: string
+  size_label: string
 }
 
 interface VendorBoothListProps {
@@ -62,13 +68,19 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
   const [loadError, setLoadError] = useState<string | null>(null)
   const [filter, setFilter] = useState<FilterMode>('active')
 
-  // Per-row state: edited booth value + save status + per-row error +
-  // per-row approval-in-flight state.
+  // Per-row state: edited booth value + edited tier value + save status
+  // + per-row error + per-row approval-in-flight state.
   const [edits, setEdits] = useState<Record<string, string>>({})
+  // Mig 145: per-row tier edits. Keyed by vendor_profile_id. Empty
+  // string means "no tier selected" (saved as NULL).
+  const [tierEdits, setTierEdits] = useState<Record<string, string>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [rowError, setRowError] = useState<Record<string, string>>({})
   const [rowSuccess, setRowSuccess] = useState<Record<string, boolean>>({})
+  // Booth size tiers for this market — loaded once on mount; used to
+  // populate the per-row tier <select>.
+  const [tiers, setTiers] = useState<TierOption[]>([])
   // Revoke flow: manager confirms before flipping approved=false (the API
   // supports both directions, but UI guards revoke behind a dialog because
   // it's the destructive side of the toggle).
@@ -80,19 +92,33 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch(`/api/market-manager/${marketId}/vendors`)
-        const data = await res.json().catch(() => ({}))
-        if (!res.ok) {
+        // Vendors + tiers in parallel — tiers feed the per-row tier
+        // dropdown added in mig 145 (feedback #4).
+        const [vRes, tRes] = await Promise.all([
+          fetch(`/api/market-manager/${marketId}/vendors`),
+          fetch(`/api/market-manager/${marketId}/booth-inventory`),
+        ])
+        const data = await vRes.json().catch(() => ({}))
+        if (!vRes.ok) {
           setLoadError(data.error || 'Failed to load vendors')
           setVendors([])
           return
         }
         setVendors(data.vendors || [])
-        const initial: Record<string, string> = {}
+        const initialBooth: Record<string, string> = {}
+        const initialTier: Record<string, string> = {}
         for (const v of data.vendors || []) {
-          initial[v.vendor_profile_id] = v.booth_number ?? ''
+          initialBooth[v.vendor_profile_id] = v.booth_number ?? ''
+          initialTier[v.vendor_profile_id] = v.inventory_id ?? ''
         }
-        setEdits(initial)
+        setEdits(initialBooth)
+        setTierEdits(initialTier)
+
+        if (tRes.ok) {
+          const tierData = await tRes.json().catch(() => ({}))
+          const rows = (tierData.rows as Array<{ id: string; size_label: string }>) ?? []
+          setTiers(rows.map((r) => ({ id: r.id, size_label: r.size_label })))
+        }
       } catch {
         setLoadError('Network error loading vendors')
         setVendors([])
@@ -106,12 +132,16 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
     setRowError((s) => ({ ...s, [vendorProfileId]: '' }))
     setRowSuccess((s) => ({ ...s, [vendorProfileId]: false }))
     try {
+      // Mig 145: send both booth_number and inventory_id in one call.
+      // vendor-booth route was extended to accept inventory_id (empty
+      // string clears, absent field leaves untouched).
       const res = await fetch(`/api/market-manager/${marketId}/vendor-booth`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           vendor_profile_id: vendorProfileId,
           booth_number: edits[vendorProfileId] ?? '',
+          inventory_id: tierEdits[vendorProfileId] ?? '',
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -119,11 +149,15 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
         setRowError((s) => ({ ...s, [vendorProfileId]: data.error || 'Save failed' }))
       } else {
         setRowSuccess((s) => ({ ...s, [vendorProfileId]: true }))
-        // Reflect server-normalized value back into the row
+        // Reflect server-normalized values back into the row
         setVendors((vs) =>
           (vs || []).map((v) =>
             v.vendor_profile_id === vendorProfileId
-              ? { ...v, booth_number: data.booth_number ?? null }
+              ? {
+                  ...v,
+                  booth_number: data.booth_number ?? null,
+                  inventory_id: data.inventory_id ?? null,
+                }
               : v
           )
         )
@@ -296,7 +330,11 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
           const isSaving = savingId === v.vendor_profile_id
           const isApproving = approvingId === v.vendor_profile_id
           const editedValue = edits[v.vendor_profile_id] ?? ''
-          const dirty = editedValue !== (v.booth_number ?? '')
+          const editedTier = tierEdits[v.vendor_profile_id] ?? ''
+          // Mig 145: dirty if EITHER booth_number OR inventory_id changed.
+          const dirty =
+            editedValue !== (v.booth_number ?? '') ||
+            editedTier !== (v.inventory_id ?? '')
           return (
             <div
               key={v.vendor_profile_id}
@@ -336,6 +374,11 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                   {v.response_status && <span>· {v.response_status.replace(/_/g, ' ')}</span>}
                   {!v.is_active_schedule && <span>· not scheduled</span>}
                   {!v.booth_number && v.approved && v.is_active_schedule && <span>· needs booth #</span>}
+                  {/* Mig 145: surface "tier not set" for approved vendors
+                      missing inventory_id. Doesn't block bookings (tier
+                      is informational for capacity math + occupancy
+                      grid) but signals data quality. */}
+                  {!v.inventory_id && v.approved && <span style={{ color: '#a16207' }}>· tier not set</span>}
                 </div>
               </div>
 
@@ -367,7 +410,7 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                   )}
                 </div>
               ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], flexWrap: 'wrap' }}>
                   <input
                     type="text"
                     value={editedValue}
@@ -376,13 +419,38 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                     disabled={isSaving}
                     maxLength={50}
                     style={{
-                      width: 110,
+                      width: 90,
                       padding: `${spacing['3xs']} ${spacing.xs}`,
                       border: `1px solid ${colors.border}`,
                       borderRadius: radius.sm,
                       fontSize: typography.sizes.sm,
                     }}
                   />
+                  {/* Mig 145: per-row tier selector. Tied to
+                      market_vendors.inventory_id; required by data
+                      quality + occupancy grid. Existing rows may have
+                      NULL tier until manager fills in. */}
+                  <select
+                    value={editedTier}
+                    onChange={(e) => setTierEdits((s) => ({ ...s, [v.vendor_profile_id]: e.target.value }))}
+                    disabled={isSaving || tiers.length === 0}
+                    title={tiers.length === 0 ? 'Set up booth inventory tiers first' : 'Booth size tier'}
+                    style={{
+                      maxWidth: 140,
+                      padding: `${spacing['3xs']} ${spacing.xs}`,
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: radius.sm,
+                      fontSize: typography.sizes.sm,
+                      backgroundColor: 'white',
+                    }}
+                  >
+                    <option value="">— Tier —</option>
+                    {tiers.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.size_label}
+                      </option>
+                    ))}
+                  </select>
                   <button
                     onClick={() => handleSave(v.vendor_profile_id)}
                     disabled={isSaving || !dirty}

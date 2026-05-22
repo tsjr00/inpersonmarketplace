@@ -111,6 +111,11 @@ export default function BoothPlaceholderManager({ marketId }: BoothPlaceholderMa
       setAddError('Booth number is required')
       return
     }
+    // Mig 145 / feedback #4: tier selection is required.
+    if (!input.inventory_id) {
+      setAddError('Pick the booth size tier this booth belongs to.')
+      return
+    }
 
     setAddLoading(true)
     try {
@@ -155,6 +160,11 @@ export default function BoothPlaceholderManager({ marketId }: BoothPlaceholderMa
     }
     if (!input.booth_number) {
       setRowError((s) => ({ ...s, [id]: 'Booth number is required' }))
+      return
+    }
+    // Mig 145 / feedback #4: tier selection is required.
+    if (!input.inventory_id) {
+      setRowError((s) => ({ ...s, [id]: 'Pick the booth size tier this booth belongs to.' }))
       return
     }
 
@@ -357,7 +367,7 @@ export default function BoothPlaceholderManager({ marketId }: BoothPlaceholderMa
                         disabled={isLoading}
                         style={{ flex: '1 1 160px', padding: `${spacing['3xs']} ${spacing.xs}`, border: `1px solid ${colors.border}`, borderRadius: radius.sm, fontSize: typography.sizes.sm, backgroundColor: 'white' }}
                       >
-                        <option value="">— No size —</option>
+                        <option value="">— Select size tier —</option>
                         {tiers.map((tier) => (
                           <option key={tier.id} value={tier.id}>
                             {tier.size_label}
@@ -447,7 +457,7 @@ export default function BoothPlaceholderManager({ marketId }: BoothPlaceholderMa
             disabled={addLoading || tiers.length === 0}
             style={{ flex: '1 1 160px', padding: `${spacing['3xs']} ${spacing.xs}`, border: `1px solid ${colors.border}`, borderRadius: radius.sm, fontSize: typography.sizes.sm, backgroundColor: 'white' }}
           >
-            <option value="">{tiers.length === 0 ? '(set up booth inventory first)' : '— No size —'}</option>
+            <option value="">{tiers.length === 0 ? '(set up booth inventory first)' : '— Select size tier —'}</option>
             {tiers.map((tier) => (
               <option key={tier.id} value={tier.id}>
                 {tier.size_label}

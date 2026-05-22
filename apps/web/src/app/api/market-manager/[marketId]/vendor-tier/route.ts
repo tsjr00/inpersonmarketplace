@@ -5,33 +5,29 @@ import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/li
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 
 /**
- * PATCH /api/market-manager/[marketId]/vendor-booth
+ * PATCH /api/market-manager/[marketId]/vendor-tier
  *
- * Assigns or clears a booth number for a vendor at this market. Updates
- * `market_vendors.booth_number` for the (market_id, vendor_profile_id)
- * row.
+ * Sets or clears `market_vendors.inventory_id` for a vendor at this
+ * market — the size tier the vendor occupies. Mig 145 added the column
+ * + the same-market integrity trigger; this route is the manager-facing
+ * write surface.
  *
  * Body:
- *   { vendor_profile_id: string, booth_number: string | null }
+ *   { vendor_profile_id: string, inventory_id: string | null }
  *
- * Auth: caller must be the assigned manager of the market.
+ * Auth: assigned manager of the market.
  *
- * Validation:
- *   - booth_number: max 50 chars, trimmed (loose policy — markets vary
- *     in their numbering schemes so we don't constrain format).
- *     Pass `null` (or empty string after trim) to clear the booth.
- *
- * No uniqueness check across vendors at the same market. Two vendors
- * with the same booth_number is allowed (managers occasionally share
- * booths). Surface duplicates in the manager dashboard if needed.
+ * Same shape as vendor-booth — separate endpoint because tier and
+ * booth_number are independent attributes (manager may set tier
+ * without yet assigning a booth_number, or vice versa).
  */
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ marketId: string }> }
 ) {
-  return withErrorTracing('/api/market-manager/[marketId]/vendor-booth', 'PATCH', async () => {
+  return withErrorTracing('/api/market-manager/[marketId]/vendor-tier', 'PATCH', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = await checkRateLimit(`mm:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`mm-vendor-tier:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()
@@ -52,46 +48,27 @@ export async function PATCH(
       throw traced.validation('ERR_VALIDATION_001', 'vendor_profile_id is required')
     }
 
-    // Normalize booth_number: trim, treat empty as null, cap at 50 chars
-    const rawBooth = typeof body?.booth_number === 'string' ? body.booth_number.trim() : null
-    const boothNumber: string | null = rawBooth && rawBooth.length > 0 ? rawBooth : null
-    if (boothNumber !== null && boothNumber.length > 50) {
-      throw traced.validation('ERR_VALIDATION_002', 'booth_number must be 50 characters or fewer')
-    }
-
-    // Mig 145: optional inventory_id update in the same call. Omitted
-    // when the caller is only changing booth_number (legacy clients).
-    // Empty string is interpreted as "clear the tier"; absent field
-    // means "don't touch the tier."
-    const inventoryIdProvided = Object.prototype.hasOwnProperty.call(body ?? {}, 'inventory_id')
-    let inventoryId: string | null | undefined = undefined
-    if (inventoryIdProvided) {
-      const rawInv = body?.inventory_id
-      inventoryId =
-        rawInv === null || rawInv === ''
-          ? null
-          : typeof rawInv === 'string' && rawInv.length > 0
-            ? rawInv
-            : undefined
-    }
+    // inventory_id: null means clear; string means set
+    const rawInventory = body?.inventory_id
+    const inventoryId: string | null =
+      rawInventory === null
+        ? null
+        : typeof rawInventory === 'string' && rawInventory.length > 0
+          ? rawInventory
+          : null
 
     const serviceClient = createServiceClient()
-
-    const updates: Record<string, unknown> = {
-      booth_number: boothNumber,
-      updated_at: new Date().toISOString(),
-    }
-    if (inventoryIdProvided) {
-      updates.inventory_id = inventoryId
-    }
 
     crumb.supabase('update', 'market_vendors')
     const { data, error } = await serviceClient
       .from('market_vendors')
-      .update(updates)
+      .update({
+        inventory_id: inventoryId,
+        updated_at: new Date().toISOString(),
+      })
       .eq('market_id', marketId)
       .eq('vendor_profile_id', vendorProfileId)
-      .select('id, vendor_profile_id, booth_number, inventory_id')
+      .select('id, vendor_profile_id, inventory_id')
       .maybeSingle()
 
     if (error) {
@@ -116,7 +93,6 @@ export async function PATCH(
       success: true,
       market_vendor_id: data.id,
       vendor_profile_id: data.vendor_profile_id,
-      booth_number: data.booth_number,
       inventory_id: data.inventory_id,
     })
   })

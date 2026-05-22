@@ -96,6 +96,13 @@ export async function PATCH(
       if (validationError) {
         throw traced.validation('ERR_VALIDATION_001', validationError)
       }
+      // Mig 145 / feedback #4: tier selection is REQUIRED on placeholders.
+      if (!input.inventory_id) {
+        throw traced.validation(
+          'ERR_VALIDATION_002',
+          'Booth size tier is required — pick the size this booth belongs to.'
+        )
+      }
 
       const serviceClient = createServiceClient()
 
