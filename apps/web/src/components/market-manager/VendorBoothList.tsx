@@ -116,7 +116,12 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
 
         if (tRes.ok) {
           const tierData = await tRes.json().catch(() => ({}))
-          const rows = (tierData.rows as Array<{ id: string; size_label: string }>) ?? []
+          // GET /booth-inventory returns `{ inventory: BoothInventoryRow[] }`
+          // (NOT `rows`). Original draft used `tierData.rows`, which left
+          // tiers as an empty array and kept the per-vendor tier <select>
+          // permanently disabled (`disabled={... || tiers.length === 0}`).
+          // Caught in Session 84 manager testing — Test 3.
+          const rows = (tierData.inventory as Array<{ id: string; size_label: string }>) ?? []
           setTiers(rows.map((r) => ({ id: r.id, size_label: r.size_label })))
         }
       } catch {
