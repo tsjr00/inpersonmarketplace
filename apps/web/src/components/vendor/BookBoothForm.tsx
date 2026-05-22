@@ -339,6 +339,27 @@ export default function BookBoothForm({
         )
       })()}
 
+      {/* Refund policy notice — locked design from Session 83. Once a
+          booth is paid for, it belongs to the vendor for the selected
+          week. Market closures are handled off-platform by the manager
+          (refund OR reschedule, manager's call). The platform does not
+          issue refunds for booth rentals. */}
+      <div style={{
+        padding: spacing.sm,
+        backgroundColor: '#fff7e6',
+        border: '1px solid #ffd57a',
+        borderRadius: radius.sm,
+        fontSize: typography.sizes.sm,
+        color: '#664d03',
+        lineHeight: 1.5,
+        marginBottom: spacing.md,
+      }}>
+        <strong>Refund policy:</strong> Once you book and pay, the booth
+        is yours for the selected week. If the market is closed or
+        cancelled for that week, the market manager will either refund
+        you or invite you to set up on a future market date — their call.
+      </div>
+
       {/* Agreement block */}
       <MarketAgreementBlock
         marketId={marketId}

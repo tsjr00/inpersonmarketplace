@@ -72,6 +72,21 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
   // (no internal HTTP round trip).
   let vendorsData: { vendors: VendorWithListings[]; categories: string[] } = { vendors: [], categories: [] }
 
+  // Market-day awareness for the share button (Session 84): if today is
+  // one of the market's active operating days (in the market's local
+  // timezone), the share text becomes a market-day pitch with the top
+  // few vendors named; otherwise it stays generic. Mirrors the
+  // canonical timezone pattern from cron Phase 14/15 + dashboard stats.
+  const marketTz = (market.timezone as string | null) || 'America/Chicago'
+  const localNow = new Date(new Date().toLocaleString('en-US', { timeZone: marketTz }))
+  const todayDayOfWeek = localNow.getDay() // 0=Sun
+  const schedulesArr = Array.isArray(market.market_schedules)
+    ? (market.market_schedules as Array<{ day_of_week: number; active: boolean | null }>)
+    : []
+  const isMarketDayToday = !isEvent && schedulesArr.some(
+    (s) => s?.active !== false && s?.day_of_week === todayDayOfWeek
+  )
+
   try {
     const result = await getMarketVendorsWithListings(supabase, id)
     if (result.reason) {
@@ -295,18 +310,28 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
             </p>
           )}
 
-          {/* Share button — events get a date-aware blurb, traditional
-              markets get a generic "check out [market]" blurb (Phase E.5
-              2026-05-16). Previously gated behind isEvent only. */}
+          {/* Share button — three templates (Session 84):
+              1. Event with date → "Check out X on Aug 12"
+              2. Market-day today (traditional market currently operating today)
+                 → "X is open today! Featuring Vendor A, Vendor B, and N more vendors. Come stop by."
+              3. Generic (other days, or no vendors yet) → "Check out X — find local vendors..."
+              Vendor list pulls from vendorsData (already fetched above). */}
           <div style={{ marginBottom: spacing.xs }}>
             <ShareButton
               url={`${baseUrl}/${vertical}/markets/${id}`}
               title={market.name}
-              text={
-                isEvent && eventStartDate
-                  ? `Check out ${market.name} on ${new Date(eventStartDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`
-                  : `Check out ${market.name} — find local vendors, see what's in season, and pre-order.`
-              }
+              text={(() => {
+                if (isEvent && eventStartDate) {
+                  return `Check out ${market.name} on ${new Date(eventStartDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`
+                }
+                if (isMarketDayToday && vendorsData.vendors.length > 0) {
+                  const topNames = vendorsData.vendors.slice(0, 3).map((v) => v.business_name).join(', ')
+                  const remaining = vendorsData.vendors.length - 3
+                  const tail = remaining > 0 ? ` and ${remaining} more vendor${remaining === 1 ? '' : 's'}` : ''
+                  return `${market.name} is open today! Featuring ${topNames}${tail}. Come stop by.`
+                }
+                return `Check out ${market.name} — find local vendors, see what's in season, and pre-order.`
+              })()}
               variant="compact"
             />
           </div>

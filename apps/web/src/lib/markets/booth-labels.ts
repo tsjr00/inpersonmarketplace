@@ -109,6 +109,44 @@ export function validateBoothLabelRange(
 }
 
 /**
+ * Server-side drift check for inventory mutations.
+ *
+ * If the manager has configured a booth-label range (start + end on
+ * `markets`) and then mutates `market_booth_inventory` (POST a new
+ * tier, PATCH a tier's count, DELETE a tier), the new inventory total
+ * may no longer match the range count. At booking time the RPC would
+ * raise `LABELS_EXHAUSTED` (P0004) when v_remaining > 0 but no label
+ * is available — confusing failure mode for the vendor.
+ *
+ * This helper returns a drift descriptor so the route can:
+ *   - Auto-clear the manager's label range, AND
+ *   - Surface a warning in the response body asking them to re-save
+ *
+ * Returns:
+ *   null            — no drift (labels not set, or counts match)
+ *   { rangeCount, totalCount } — drift exists; counts differ
+ */
+export function detectBoothLabelDrift(
+  start: string | null,
+  end: string | null,
+  totalCount: number
+): { rangeCount: number; totalCount: number } | null {
+  if (start === null || end === null) return null
+  if (totalCount < 0) return null
+
+  const parsedStart = parseBoothLabel(start)
+  const parsedEnd = parseBoothLabel(end)
+  if (!parsedStart || !parsedEnd) return null
+  if (parsedStart.prefix !== parsedEnd.prefix) return null
+  if (parsedEnd.number < parsedStart.number) return null
+
+  const rangeCount = parsedEnd.number - parsedStart.number + 1
+  if (rangeCount === totalCount) return null
+
+  return { rangeCount, totalCount }
+}
+
+/**
  * Builds the full label sequence for display/preview purposes (e.g., the
  * client UI showing "Generated: A1, A2, A3, …, A8"). Server-side label
  * generation lives inside the RPC and bypasses this helper.

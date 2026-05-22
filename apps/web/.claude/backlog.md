@@ -65,15 +65,15 @@ Surfaced by Session 83 Agent A's comprehensive scan; all pre-existing, none made
 
 - [ ] **R15 — vendor PATCH allows attendance on inactive schedule** — `/api/vendor/markets/[id]/schedules` PATCH handler at line 434-439 does `.eq('id', scheduleId)` without filtering for active=true. A vendor could re-activate `vendor_market_schedules.is_active=true` for a schedule the manager has deactivated. Fix: add `.eq('active', true)` to the schedule lookup in that handler. ~3 LOC.
 
-- [ ] **R7 — admin GET `/api/markets/[id]/schedules` returns inactive + is cached `s-maxage=600`** — Admin-only today, but cache is `public,s-maxage=600`. If a buyer-side consumer is ever added, they'd see inactive schedule rows. Either filter active or remove the public cache directive.
+- [x] ~~**R7 — admin GET `/api/markets/[id]/schedules` returns inactive**~~ — Fixed Session 84 batch. Added `.eq('active', true)`.
 
-- [ ] **R24 — `/api/market-boxes/[id]` returns inactive schedule rows** — Decorative; market box pickup decisions come from `market_box_offerings.pickup_*` columns, not the schedule.
+- [x] ~~**R24 — `/api/market-boxes/[id]` returns inactive schedule rows**~~ — Fixed Session 84 batch. JS-side filter on the embedded array.
 
-- [ ] **R25 — `/api/buyer/orders/[id]` returns inactive schedule rows in `display.schedules`** — Decorative; `order_items.pickup_snapshot` is the source of truth for display.
+- [x] ~~**R25 — `/api/buyer/orders/[id]` returns inactive schedule rows in `display.schedules`**~~ — Fixed Session 84 batch. JS-side filter on the embedded array.
 
-- [ ] **R29 / R30 — count selects include inactive** — `src/app/admin/markets/page.tsx:23` and `src/app/api/markets/route.ts:28` use `market_schedules(count)` without filter. Cosmetic.
+- [ ] **R29 / R30 — count selects include inactive** — `src/app/admin/markets/page.tsx:23` and `src/app/api/markets/route.ts:28` use `market_schedules(count)` without filter. Cosmetic. **Not fixed in Session 84 batch** because PostgREST embed-count can't return "all parent rows + filtered embed count" cleanly — would need either a separate query per market (N+1) or a denormalized `active_schedule_count` column. Defer to product decision.
 
-- [ ] **R40 — `src/lib/events/shop-data.ts:142-147` event market schedule lookup ignores active** — Event markets typically have one schedule row, low risk. Add `.eq('active', true)` for defense.
+- [x] ~~**R40 — `src/lib/events/shop-data.ts:142-147` event market schedule lookup ignores active**~~ — Fixed Session 84 batch. Added `.eq('active', true)`.
 
 ## Priority 1 — Market Manager v1 (FM only)
 

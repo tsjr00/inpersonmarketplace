@@ -138,11 +138,16 @@ export async function getEventShopData(
     }
   }
 
-  // Get market schedule (needed for cart's schedule_id + pickup_date)
+  // Get market schedule (needed for cart's schedule_id + pickup_date).
+  // R40 from Session 83 audit: filter to active rows so a soft-deleted
+  // schedule can't be returned as the event-market's pickup target.
+  // Event markets typically have one schedule row so low risk, but
+  // defensive filter is cheap.
   const { data: schedule } = await serviceClient
     .from('market_schedules')
     .select('id, start_time, end_time, day_of_week')
     .eq('market_id', event.market_id)
+    .eq('active', true)
     .limit(1)
     .single()
 

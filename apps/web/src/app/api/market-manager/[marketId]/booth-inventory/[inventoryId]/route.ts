@@ -4,6 +4,7 @@ import { isMarketManager } from '@/lib/markets/manager-auth'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { validateBoothInventoryInput, type BoothInventoryRow } from '@/lib/markets/booth-types'
+import { reconcileBoothLabelsAfterInventoryChange } from '@/lib/markets/booth-label-drift-server'
 
 /**
  * PATCH /api/market-manager/[marketId]/booth-inventory/[inventoryId]
@@ -120,7 +121,12 @@ export async function PATCH(
         })
       }
 
-      return NextResponse.json({ row: data as BoothInventoryRow })
+      const labelWarning = await reconcileBoothLabelsAfterInventoryChange(serviceClient, marketId)
+
+      return NextResponse.json({
+        row: data as BoothInventoryRow,
+        ...(labelWarning ? { warning: labelWarning } : {}),
+      })
     }
   )
 }
@@ -165,7 +171,12 @@ export async function DELETE(
         })
       }
 
-      return NextResponse.json({ success: true })
+      const labelWarning = await reconcileBoothLabelsAfterInventoryChange(serviceClient, marketId)
+
+      return NextResponse.json({
+        success: true,
+        ...(labelWarning ? { warning: labelWarning } : {}),
+      })
     }
   )
 }

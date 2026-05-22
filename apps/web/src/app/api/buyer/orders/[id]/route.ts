@@ -81,10 +81,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
             zip,
             contact_email,
             contact_phone,
-            market_schedules (
+            market_schedules!left (
               day_of_week,
               start_time,
-              end_time
+              end_time,
+              active
             )
           )
         )
@@ -155,7 +156,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
             zip: market?.zip,
             contact_email: market?.contact_email,
             contact_phone: market?.contact_phone,
-            schedules: market?.market_schedules || []
+            // R25 from Session 83 audit: filter out soft-deleted schedule
+            // rows so the buyer order detail doesn't display inactive
+            // schedule data. Decorative; `pickup_snapshot` is the
+            // source of truth for the pickup time displayed.
+            schedules: Array.isArray(market?.market_schedules)
+              ? (market.market_schedules as Array<{ active?: boolean }>).filter((s) => s?.active !== false)
+              : []
           },
           pickup_date: item.pickup_date,
           preferred_pickup_time: item.preferred_pickup_time || null,

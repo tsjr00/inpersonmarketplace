@@ -38,6 +38,10 @@ interface BoothInventoryManagerProps {
 export default function BoothInventoryManager({ marketId }: BoothInventoryManagerProps) {
   const [rows, setRows] = useState<BoothInventoryRow[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  // Server-returned warning when an inventory mutation triggered the
+  // label-drift auto-clear (booth-label-drift-server). Surfaced as a
+  // yellow banner at the top of the card.
+  const [driftWarning, setDriftWarning] = useState<string | null>(null)
 
   // Booth-label state (mig 144). Loaded alongside inventory; saved via a
   // separate PUT to the booth-labels route. Both fields are optional —
@@ -158,6 +162,12 @@ export default function BoothInventoryManager({ marketId }: BoothInventoryManage
         setAddError(data.error || 'Failed to add tier')
       } else {
         setAddForm({ size_label: '', dimensions: '', count: '', weekly_price_dollars: '' })
+        if (data.warning) {
+          setDriftWarning(data.warning as string)
+          // Re-load labels (server may have cleared them) so the UI
+          // matches DB state next time the manager visits Booth numbering.
+          await loadLabels()
+        }
         await loadInventory()
       }
     } catch {
@@ -215,6 +225,10 @@ export default function BoothInventoryManager({ marketId }: BoothInventoryManage
         setRowError((s) => ({ ...s, [id]: data.error || 'Save failed' }))
       } else {
         setEditingId(null)
+        if (data.warning) {
+          setDriftWarning(data.warning as string)
+          await loadLabels()
+        }
         await loadInventory()
       }
     } catch {
@@ -242,6 +256,10 @@ export default function BoothInventoryManager({ marketId }: BoothInventoryManage
       if (!res.ok) {
         setRowError((s) => ({ ...s, [id]: data.error || 'Delete failed' }))
       } else {
+        if (data.warning) {
+          setDriftWarning(data.warning as string)
+          await loadLabels()
+        }
         await loadInventory()
       }
     } catch {
@@ -349,6 +367,43 @@ export default function BoothInventoryManager({ marketId }: BoothInventoryManage
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+      {/* Drift warning — appears when the server auto-cleared the
+          booth-label range because an inventory edit made the range
+          count != total inventory. Dismissable; reappears if drift
+          re-occurs on the next mutation. */}
+      {driftWarning && (
+        <div style={{
+          padding: spacing.sm,
+          backgroundColor: '#fff3cd',
+          color: '#664d03',
+          border: '1px solid #ffc107',
+          borderRadius: radius.sm,
+          fontSize: typography.sizes.sm,
+          lineHeight: 1.5,
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: spacing.xs,
+        }}>
+          <div style={{ flex: 1 }}>⚠️ {driftWarning}</div>
+          <button
+            type="button"
+            onClick={() => setDriftWarning(null)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#664d03',
+              fontSize: typography.sizes.lg,
+              cursor: 'pointer',
+              padding: 0,
+              lineHeight: 1,
+            }}
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Booth numbering section (mig 144 — auto-assignment range). */}
       <div style={{
         padding: spacing.sm,

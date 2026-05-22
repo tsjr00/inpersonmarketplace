@@ -4,6 +4,7 @@ import { isMarketManager } from '@/lib/markets/manager-auth'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { validateBoothInventoryInput, type BoothInventoryRow } from '@/lib/markets/booth-types'
+import { reconcileBoothLabelsAfterInventoryChange } from '@/lib/markets/booth-label-drift-server'
 
 /**
  * GET /api/market-manager/[marketId]/booth-inventory
@@ -128,6 +129,14 @@ export async function POST(
       })
     }
 
-    return NextResponse.json({ row: data as BoothInventoryRow }, { status: 201 })
+    // After-mutation: if the manager has booth labels configured and the
+    // new inventory total no longer matches the range, auto-clear the
+    // labels and return a warning. See booth-label-drift-server.ts.
+    const labelWarning = await reconcileBoothLabelsAfterInventoryChange(serviceClient, marketId)
+
+    return NextResponse.json(
+      { row: data as BoothInventoryRow, ...(labelWarning ? { warning: labelWarning } : {}) },
+      { status: 201 }
+    )
   })
 }

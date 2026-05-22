@@ -28,11 +28,15 @@ export async function GET(
       return NextResponse.json({ error: 'Market not found' }, { status: 404 })
     }
 
-    // Get schedules
+    // Get schedules — filter to active rows only. R7 from Session 83
+    // audit: this route is admin-context but cached `public,s-maxage=600`
+    // so a future buyer-side consumer would see soft-deleted schedules.
+    // Adding the active filter closes that exposure.
     const { data: schedules, error } = await supabase
       .from('market_schedules')
       .select('*')
       .eq('market_id', marketId)
+      .eq('active', true)
       .order('day_of_week', { ascending: true })
 
     if (error) {

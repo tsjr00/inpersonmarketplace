@@ -63,10 +63,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
           zip,
           contact_email,
           contact_phone,
-          market_schedules (
+          market_schedules!left (
             day_of_week,
             start_time,
-            end_time
+            end_time,
+            active
           )
         )
       `)
@@ -224,7 +225,18 @@ export async function GET(request: NextRequest, context: RouteContext) {
         profile_image_url: vendor?.profile_image_url,
         tier: tier,
       },
-      market: offering.market,
+      // R24 from Session 83 audit: filter out soft-deleted schedule
+      // rows before returning. Cast through unknown because the
+      // embedded type inference is array-shaped here (matches the
+      // existing `offering.vendor as any` pattern on line 100).
+      market: (() => {
+        const m = offering.market as unknown as { market_schedules?: Array<{ active?: boolean }> } | null
+        if (!m) return null
+        const schedules = Array.isArray(m.market_schedules)
+          ? m.market_schedules.filter((s) => s?.active !== false)
+          : []
+        return { ...m, market_schedules: schedules }
+      })(),
       availability: {
         is_available: isAvailable,
         active_subscribers: activeSubscribers,
