@@ -113,6 +113,29 @@ export async function POST(
 
     const serviceClient = createServiceClient()
 
+    // Mig 146 Issue 1: booth_number uniqueness pre-flight (friendly error
+    // before the DB trigger fires). Also catches the within-table
+    // duplicate that the UNIQUE constraint would catch — slightly nicer
+    // wording.
+    const { checkBoothNumberAvailable, checkTierCapacity } = await import('@/lib/markets/booth-conflict-checks')
+    const conflict = await checkBoothNumberAvailable(serviceClient, {
+      marketId,
+      boothNumber: input.booth_number,
+    })
+    if (conflict) {
+      return NextResponse.json({ error: conflict.message }, { status: 409 })
+    }
+
+    // Mig 146 Issue 2: tier capacity check. inventory_id is required
+    // (mig 145), so we always have a target tier here.
+    const cap = await checkTierCapacity(serviceClient, {
+      marketId,
+      inventoryId: input.inventory_id as string,
+    })
+    if (!cap.ok) {
+      return NextResponse.json({ error: cap.message }, { status: 409 })
+    }
+
     crumb.supabase('insert', 'market_booth_placeholders')
     const { data, error } = await serviceClient
       .from('market_booth_placeholders')
@@ -126,18 +149,26 @@ export async function POST(
       .single()
 
     if (error) {
-      // UNIQUE (market_id, booth_number) violation
+      // UNIQUE (market_id, booth_number) violation — caught by pre-flight
+      // but kept as a backstop.
       if (error.code === '23505') {
         return NextResponse.json(
           { error: `Booth "${input.booth_number}" already has a placeholder for this market.` },
           { status: 409 }
         )
       }
-      // Cross-market inventory_id raised by trigger
+      // Cross-market inventory_id raised by mig 135 trigger.
       if (error.code === 'P0001' && error.message.includes('does not belong to market')) {
         return NextResponse.json(
           { error: 'Selected booth size tier does not belong to this market.' },
           { status: 400 }
+        )
+      }
+      // Mig 146 booth_number cross-table conflict raised by trigger.
+      if (error.code === 'P0005' && error.message.startsWith('BOOTH_CONFLICT')) {
+        return NextResponse.json(
+          { error: error.message.replace(/^BOOTH_CONFLICT:\s*/, '') },
+          { status: 409 }
         )
       }
       throw traced.fromSupabase(error, {

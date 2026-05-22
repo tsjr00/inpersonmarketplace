@@ -77,6 +77,52 @@ export async function PATCH(
 
     const serviceClient = createServiceClient()
 
+    // Resolve the existing market_vendors row so we can self-exclude
+    // from the booth-# uniqueness + capacity checks below. Also gives
+    // us the prior inventory_id so we know whether the tier is changing.
+    const { data: existingMv } = await serviceClient
+      .from('market_vendors')
+      .select('id, inventory_id')
+      .eq('market_id', marketId)
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle()
+
+    if (!existingMv) {
+      return NextResponse.json(
+        { error: 'Vendor not associated with this market' },
+        { status: 404 }
+      )
+    }
+
+    // Mig 146 Issue 1: booth_number uniqueness pre-flight (friendly
+    // error before the DB trigger fires).
+    if (boothNumber !== null) {
+      const { checkBoothNumberAvailable } = await import('@/lib/markets/booth-conflict-checks')
+      const conflict = await checkBoothNumberAvailable(serviceClient, {
+        marketId,
+        boothNumber,
+        excludeSelf: { kind: 'market_vendors', id: existingMv.id as string },
+      })
+      if (conflict) {
+        return NextResponse.json({ error: conflict.message }, { status: 409 })
+      }
+    }
+
+    // Mig 146 Issue 2: tier capacity check. Only runs when the tier is
+    // CHANGING to a non-null value (no need to re-check if vendor stays
+    // in the same tier — they were already counted). Excludes self.
+    if (inventoryIdProvided && typeof inventoryId === 'string' && inventoryId !== existingMv.inventory_id) {
+      const { checkTierCapacity } = await import('@/lib/markets/booth-conflict-checks')
+      const cap = await checkTierCapacity(serviceClient, {
+        marketId,
+        inventoryId,
+        excludeSelf: { kind: 'market_vendors', id: existingMv.id as string },
+      })
+      if (!cap.ok) {
+        return NextResponse.json({ error: cap.message }, { status: 409 })
+      }
+    }
+
     const updates: Record<string, unknown> = {
       booth_number: boothNumber,
       updated_at: new Date().toISOString(),
@@ -100,6 +146,16 @@ export async function PATCH(
         return NextResponse.json(
           { error: 'Selected booth size tier does not belong to this market.' },
           { status: 400 }
+        )
+      }
+      // Booth_number conflict raised by mig 146 trigger. Should have
+      // been caught by the pre-flight check above, but the trigger is
+      // the canonical safety net (handles races + any caller that
+      // bypasses the helper).
+      if (error.code === 'P0005' && error.message.startsWith('BOOTH_CONFLICT')) {
+        return NextResponse.json(
+          { error: error.message.replace(/^BOOTH_CONFLICT:\s*/, '') },
+          { status: 409 }
         )
       }
       throw traced.fromSupabase(error, { table: 'market_vendors', operation: 'update' })

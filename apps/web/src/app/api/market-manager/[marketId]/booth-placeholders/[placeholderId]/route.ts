@@ -106,6 +106,39 @@ export async function PATCH(
 
       const serviceClient = createServiceClient()
 
+      // Fetch the current row so we know whether tier is changing
+      // (capacity check only needs to run on tier-change INTO a new tier).
+      const { data: existing } = await serviceClient
+        .from('market_booth_placeholders')
+        .select('id, inventory_id')
+        .eq('id', placeholderId)
+        .maybeSingle()
+
+      // Mig 146 Issue 1: booth_number uniqueness pre-flight.
+      const { checkBoothNumberAvailable, checkTierCapacity } = await import('@/lib/markets/booth-conflict-checks')
+      const conflict = await checkBoothNumberAvailable(serviceClient, {
+        marketId,
+        boothNumber: input.booth_number,
+        excludeSelf: { kind: 'market_booth_placeholders', id: placeholderId },
+      })
+      if (conflict) {
+        return NextResponse.json({ error: conflict.message }, { status: 409 })
+      }
+
+      // Mig 146 Issue 2: tier capacity check. Only run when moving INTO
+      // a tier that's different from the current one (no need to re-check
+      // if the row stays in its existing tier — already counted).
+      if (input.inventory_id && input.inventory_id !== (existing?.inventory_id ?? null)) {
+        const cap = await checkTierCapacity(serviceClient, {
+          marketId,
+          inventoryId: input.inventory_id,
+          excludeSelf: { kind: 'market_booth_placeholders', id: placeholderId },
+        })
+        if (!cap.ok) {
+          return NextResponse.json({ error: cap.message }, { status: 409 })
+        }
+      }
+
       crumb.supabase('update', 'market_booth_placeholders')
       const { data, error } = await serviceClient
         .from('market_booth_placeholders')
@@ -129,6 +162,13 @@ export async function PATCH(
           return NextResponse.json(
             { error: 'Selected booth size tier does not belong to this market.' },
             { status: 400 }
+          )
+        }
+        // Mig 146 booth_number cross-table conflict raised by trigger.
+        if (error.code === 'P0005' && error.message.startsWith('BOOTH_CONFLICT')) {
+          return NextResponse.json(
+            { error: error.message.replace(/^BOOTH_CONFLICT:\s*/, '') },
+            { status: 409 }
           )
         }
         throw traced.fromSupabase(error, {

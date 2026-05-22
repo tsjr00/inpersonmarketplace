@@ -176,19 +176,21 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone }: B
       borderRadius: radius.md,
       marginBottom: spacing.md,
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.xs }}>
-        <h2 style={{
-          margin: 0,
-          fontSize: typography.sizes.lg,
-          fontWeight: typography.weights.semibold,
-          color: colors.textPrimary,
-        }}>
-          Booth occupancy — this week
-        </h2>
-        <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
-          Week of {formatDisplayDate(weekStart)}
+      <h2 style={{
+        margin: 0,
+        marginBottom: spacing.xs,
+        fontSize: typography.sizes.lg,
+        fontWeight: typography.weights.semibold,
+        color: colors.textPrimary,
+      }}>
+        {/* Date inline after the heading per Session 84 testing —
+            previously the "Week of <date>" floated to the far right in
+            small muted text and managers missed it. */}
+        Booth occupancy — this week:{' '}
+        <span style={{ fontWeight: typography.weights.normal, color: colors.textMuted }}>
+          {formatDisplayDate(weekStart)}
         </span>
-      </div>
+      </h2>
       <p style={{
         margin: 0,
         marginBottom: spacing.sm,
@@ -202,7 +204,7 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone }: B
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
-        {tiers.map((tier) => {
+        {tiers.map((tier, idx) => {
           const occupants = byTier.get(tier.id) ?? []
           const filled = occupants.length
           const total = tier.count
@@ -221,6 +223,12 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone }: B
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.xs }}>
                 <div style={{ fontWeight: typography.weights.semibold, fontSize: typography.sizes.base, color: colors.textPrimary }}>
+                  {/* "Tier N: <size_label>" prefix makes it obvious the
+                      cards group by tier, not by individual booth — the
+                      first revision showed only `size_label` and managers
+                      read the card as "a list of booths" instead of
+                      "the small tier, the medium tier, etc." Session 84. */}
+                  <span style={{ color: colors.textMuted, fontWeight: typography.weights.normal }}>Tier {idx + 1}:</span>{' '}
                   {tier.size_label}
                   {tier.dimensions && (
                     <span style={{ marginLeft: spacing['2xs'], color: colors.textMuted, fontSize: typography.sizes.sm, fontWeight: typography.weights.normal }}>
