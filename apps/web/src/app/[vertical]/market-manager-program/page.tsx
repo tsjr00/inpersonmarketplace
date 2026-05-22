@@ -3,6 +3,7 @@
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
+import ManagerIntakeForm from '@/components/landing/ManagerIntakeForm'
 
 /**
  * Public landing page for the Market Manager Program.
@@ -60,21 +61,33 @@ export default function MarketManagerProgramPage() {
             track attendance, and capture post-market feedback. No subscription.
             We make money when your booth rentals and on-platform transactions do.
           </p>
-          <a
-            href={contactMailto}
-            style={{
-              display: 'inline-block',
-              padding: `${spacing.sm} ${spacing.lg}`,
-              backgroundColor: colors.primary,
-              color: 'white',
-              textDecoration: 'none',
-              borderRadius: radius.md,
-              fontSize: typography.sizes.base,
-              fontWeight: typography.weights.semibold,
-            }}
-          >
-            Contact us about onboarding your market
-          </a>
+          <div style={{ display: 'flex', gap: spacing.sm, justifyContent: 'center', flexWrap: 'wrap', alignItems: 'center' }}>
+            <a
+              href="#get-started"
+              style={{
+                display: 'inline-block',
+                padding: `${spacing.sm} ${spacing.lg}`,
+                backgroundColor: colors.primary,
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: radius.md,
+                fontSize: typography.sizes.base,
+                fontWeight: typography.weights.semibold,
+              }}
+            >
+              Get started →
+            </a>
+            <a
+              href={contactMailto}
+              style={{
+                color: colors.textMuted,
+                fontSize: typography.sizes.sm,
+                textDecoration: 'underline',
+              }}
+            >
+              Have questions? Email us
+            </a>
+          </div>
         </section>
 
         {/* The wedge — what's broken about the status quo */}
@@ -246,6 +259,41 @@ export default function MarketManagerProgramPage() {
           </ol>
         </section>
 
+        {/* Intake form — captures the basics so the manager can start
+            setting up their dashboard. Admin approves to make the
+            market public-visible (status: 'pending' → 'active'). */}
+        <section
+          id="get-started"
+          style={{
+            marginBottom: spacing.xl,
+            padding: spacing.lg,
+            backgroundColor: colors.surfaceElevated,
+            border: `2px solid ${colors.primary}`,
+            borderRadius: radius.md,
+            scrollMarginTop: spacing.lg,
+          }}
+        >
+          <h2 style={{
+            marginTop: 0,
+            marginBottom: spacing['2xs'],
+            fontSize: typography.sizes.xl,
+            fontWeight: typography.weights.bold,
+            color: colors.textPrimary,
+          }}>
+            Set up your market
+          </h2>
+          <p style={{
+            margin: 0,
+            marginBottom: spacing.md,
+            color: colors.textMuted,
+            fontSize: typography.sizes.base,
+            lineHeight: 1.5,
+          }}>
+            A few fields to get you in the door — we&apos;ll email you a setup link, you finish the rest from your dashboard. We review and activate your public market listing within one business day.
+          </p>
+          <ManagerIntakeForm />
+        </section>
+
         {/* Pricing transparency */}
         <section style={{
           marginBottom: spacing.xl,
@@ -316,7 +364,7 @@ export default function MarketManagerProgramPage() {
             fontWeight: typography.weights.bold,
             color: colors.textPrimary,
           }}>
-            Want to talk?
+            Ready to go?
           </h2>
           <p style={{
             margin: 0,
@@ -325,24 +373,36 @@ export default function MarketManagerProgramPage() {
             fontSize: typography.sizes.base,
           }}>
             We&apos;re onboarding a small group of friendly markets to start.
-            Reach out, tell us about your market, and we&apos;ll see if it&apos;s
-            a fit.
+            Tell us about your market, set up your dashboard, and we&apos;ll
+            review your listing within one business day.
           </p>
-          <a
-            href={contactMailto}
-            style={{
-              display: 'inline-block',
-              padding: `${spacing.sm} ${spacing.lg}`,
-              backgroundColor: colors.primary,
-              color: 'white',
-              textDecoration: 'none',
-              borderRadius: radius.md,
-              fontSize: typography.sizes.base,
-              fontWeight: typography.weights.semibold,
-            }}
-          >
-            updates@mail.farmersmarketing.app
-          </a>
+          <div style={{ display: 'flex', gap: spacing.sm, justifyContent: 'center', flexWrap: 'wrap', alignItems: 'center' }}>
+            <a
+              href="#get-started"
+              style={{
+                display: 'inline-block',
+                padding: `${spacing.sm} ${spacing.lg}`,
+                backgroundColor: colors.primary,
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: radius.md,
+                fontSize: typography.sizes.base,
+                fontWeight: typography.weights.semibold,
+              }}
+            >
+              Get started →
+            </a>
+            <a
+              href={contactMailto}
+              style={{
+                color: colors.textMuted,
+                fontSize: typography.sizes.sm,
+                textDecoration: 'underline',
+              }}
+            >
+              Or email us
+            </a>
+          </div>
         </section>
 
         <div style={{ textAlign: 'center', marginTop: spacing.lg }}>

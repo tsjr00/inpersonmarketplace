@@ -6,6 +6,7 @@ import ScheduleDisplay from '@/components/markets/ScheduleDisplay'
 import ScheduleManager from './ScheduleManager'
 import VendorManager from './VendorManager'
 import MarketManagerAssignment from '@/components/market-manager/MarketManagerAssignment'
+import ApproveStatusButton from './ApproveStatusButton'
 
 interface MarketDetailPageProps {
   params: Promise<{ id: string }>
@@ -114,21 +115,42 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
             }}>
               {market.active ? 'Active' : 'Inactive'}
             </span>
+            {/* Status badge — separate from `active` boolean. Surfaces
+                the `markets.status` column (pending / active / inactive
+                / rejected / suspended). Pending markets come in via the
+                public intake form (/api/market-manager/intake) and stay
+                hidden from public browse until admin flips status to
+                'active' via the approve button below. */}
+            {market.status && market.status !== 'active' && (
+              <span style={{
+                padding: '4px 10px',
+                borderRadius: 4,
+                fontSize: 12,
+                fontWeight: 600,
+                backgroundColor: market.status === 'pending' ? '#fff3cd' : '#f5c6cb',
+                color: market.status === 'pending' ? '#856404' : '#721c24',
+              }}>
+                Status: {market.status}
+              </span>
+            )}
           </div>
         </div>
-        <Link
-          href={`/admin/markets/${id}/edit`}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: '#0070f3',
-            color: 'white',
-            textDecoration: 'none',
-            borderRadius: 8,
-            fontSize: 14,
-          }}
-        >
-          Edit Market
-        </Link>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <ApproveStatusButton marketId={id} status={(market.status as string) || 'active'} />
+          <Link
+            href={`/admin/markets/${id}/edit`}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#0070f3',
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: 8,
+              fontSize: 14,
+            }}
+          >
+            Edit Market
+          </Link>
+        </div>
       </div>
 
       {/* Market Info */}
