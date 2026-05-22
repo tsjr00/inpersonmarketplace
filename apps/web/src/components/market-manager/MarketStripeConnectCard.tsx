@@ -33,6 +33,13 @@ import { colors, spacing, typography, radius } from '@/lib/design-tokens'
  */
 interface MarketStripeConnectCardProps {
   marketId: string
+  /** The market's current `markets.status` value. When 'pending' (waiting
+   *  for platform/admin approval), Stripe Connect is locked — the card
+   *  renders a "review pending" state instead of the start-onboarding
+   *  CTA, and the server-side onboard route also returns 403. This
+   *  prevents a fraudulent intake from routing booth-rental payments
+   *  before admin verification. */
+  marketStatus?: string | null
 }
 
 interface StatusResponse {
@@ -57,8 +64,9 @@ function classifyStatus(s: StatusResponse): CardState {
   return { kind: 'under_review' }
 }
 
-export default function MarketStripeConnectCard({ marketId }: MarketStripeConnectCardProps) {
+export default function MarketStripeConnectCard({ marketId, marketStatus }: MarketStripeConnectCardProps) {
   const searchParams = useSearchParams()
+  const marketIsPending = marketStatus === 'pending'
   const [state, setState] = useState<CardState>({ kind: 'loading' })
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -172,6 +180,31 @@ export default function MarketStripeConnectCard({ marketId }: MarketStripeConnec
         we never see your bank details.
       </p>
 
+      {/* Pending review = Stripe locked. Skips the rest of the card body
+          to prevent the manager from kicking off Stripe onboarding before
+          admin has verified them (booth-rental fraud guard). Server-side
+          route also returns 403, but the UI gate avoids a confusing
+          button + error round-trip. */}
+      {marketIsPending ? (
+        <div style={{
+          padding: spacing.md,
+          backgroundColor: '#fff3cd',
+          color: '#664d03',
+          border: '1px solid #ffc107',
+          borderRadius: radius.sm,
+          fontSize: typography.sizes.sm,
+          lineHeight: 1.5,
+        }}>
+          <div style={{ fontWeight: typography.weights.semibold, marginBottom: spacing['3xs'] }}>
+            🔒 Locked until your market is approved
+          </div>
+          Your market is under platform review (usually within one business day).
+          Once approved you can connect a Stripe account here to receive booth
+          rental payments. In the meantime you can keep setting up your booth
+          inventory, vendor agreement statements, and branding.
+        </div>
+      ) : (
+      <>
       {returnFlash === 'complete' && (
         <div style={{
           padding: spacing.sm,
@@ -302,6 +335,8 @@ export default function MarketStripeConnectCard({ marketId }: MarketStripeConnec
         }}>
           {actionError}
         </div>
+      )}
+      </>
       )}
     </div>
   )

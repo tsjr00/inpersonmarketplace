@@ -69,11 +69,17 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
   const pendingVendors = vendors?.filter((v: { approved: boolean }) => !v.approved) || []
   const approvedVendors = vendors?.filter((v: { approved: boolean }) => v.approved) || []
 
-  // Possible-duplicate check (intake fraud guard). Same logic as the
-  // intake route's post-insert query — same name + same city, excluding
-  // this market. Only relevant for `status='pending'` (active markets
-  // are already approved and live, no need to re-warn). Different cities
-  // are always different markets (per user direction, Session 84).
+  // Possible-duplicate check (intake fraud guard). Mirrors the intake
+  // route's post-insert query — same name + same city, excluding this
+  // market. Only relevant for `status='pending'`; active markets are
+  // already approved and live, no need to re-warn.
+  //
+  // Implementation: fetch every market in the same city (ilike — city
+  // values are uniform enough), then normalize-and-filter the name in
+  // JS. Normalization strips everything except a-z/0-9 and lowercases
+  // so we catch "Farmer's" vs "Farmers", whitespace, punctuation, etc.
+  // A pure ilike on name misses real duplicates that have subtle data
+  // differences — which is what happened in Session 84 testing.
   const marketStatus = (market.status as string | null) || 'active'
   const isPending = marketStatus === 'pending'
   let possibleDuplicates: Array<{
@@ -85,13 +91,26 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
     manager_email: string | null
   }> = []
   if (isPending && market.name && market.city) {
-    const { data: dupes } = await supabase
+    const normalizeName = (s: string): string =>
+      s.toLowerCase().replace(/[^a-z0-9]/g, '')
+    const targetNormalized = normalizeName(market.name as string)
+
+    const { data: cityCandidates } = await supabase
       .from('markets')
       .select('id, name, city, state, status, manager_email')
-      .ilike('name', market.name as string)
       .ilike('city', market.city as string)
       .neq('id', id)
-    possibleDuplicates = (dupes ?? []) as typeof possibleDuplicates
+
+    possibleDuplicates = (cityCandidates ?? [])
+      .filter((c) => normalizeName((c.name as string | null) ?? '') === targetNormalized)
+      .map((c) => ({
+        id: c.id as string,
+        name: c.name as string,
+        city: (c.city as string | null) ?? null,
+        state: (c.state as string | null) ?? null,
+        status: (c.status as string | null) ?? null,
+        manager_email: (c.manager_email as string | null) ?? null,
+      }))
   }
 
   return (

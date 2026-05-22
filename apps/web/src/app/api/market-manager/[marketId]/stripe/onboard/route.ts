@@ -74,7 +74,7 @@ export async function POST(
     crumb.supabase('select', 'markets')
     const { data: market, error: marketErr } = await serviceClient
       .from('markets')
-      .select('id, name, vertical_id, stripe_account_id')
+      .select('id, name, vertical_id, status, stripe_account_id')
       .eq('id', marketId)
       .maybeSingle()
 
@@ -83,6 +83,22 @@ export async function POST(
     }
     if (!market) {
       return NextResponse.json({ error: 'Market not found' }, { status: 404 })
+    }
+
+    // Stripe Connect is locked until admin approves the market.
+    // Otherwise a fraudulent intake could route booth-rental payments
+    // away from the legitimate manager before the duplicate gets caught.
+    // Status 'pending' = waiting for admin review; anything else
+    // (active, suspended, etc.) is treated as approved for this gate.
+    const marketStatus = (market.status as string | null) || 'active'
+    if (marketStatus === 'pending') {
+      return NextResponse.json(
+        {
+          error:
+            "Stripe Connect is locked until your market is approved by the platform. We're reviewing your intake — usually within one business day. Once approved, you can connect a Stripe account to receive booth rental payments.",
+        },
+        { status: 403 }
+      )
     }
 
     let stripeAccountId = market.stripe_account_id as string | null

@@ -58,7 +58,7 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
   // Market activity card (D.1) — fall back to last 90 days if null.
   const { data: market } = await supabase
     .from('markets')
-    .select('id, name, address, city, state, market_type, timezone, logo_url, description, season_start, season_end')
+    .select('id, name, address, city, state, market_type, status, timezone, logo_url, description, season_start, season_end')
     .eq('id', marketId)
     .single()
 
@@ -161,7 +161,7 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           right after bookings so the "you have bookings → here's how to
           get paid" narrative flow is clear. Self-fetches status; renders
           start/continue/under-review/active depending on Stripe state. */}
-      <MarketStripeConnectCard marketId={marketId} />
+      <MarketStripeConnectCard marketId={marketId} marketStatus={(market.status as string | null) ?? null} />
 
       {/* Branding — upload logo for public market profile + invite landing
           (mig 140, Phase B 2026-05-16). Optional; no setup gating. */}

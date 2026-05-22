@@ -526,10 +526,11 @@ function AcknowledgmentDialog({
           listStyleType: 'disc',   // Explicit so global CSS resets don't hide the bullet markers.
           listStylePosition: 'outside',
         }}>
-          <li style={{ marginBottom: spacing['3xs'] }}>You are responsible for contacting the affected vendors directly.</li>
-          <li style={{ marginBottom: spacing['3xs'] }}>Vendors at this market will get an automatic notification of the change and may request a refund from you.</li>
-          <li style={{ marginBottom: spacing['3xs'] }}>The platform does not issue refunds for schedule changes — refunds are between you and the affected vendors.</li>
-          <li>Turning a day off keeps your hours saved — you can re-enable it later without re-entering anything. Vendor attendance on that day is deactivated (not deleted); vendors must re-opt in if you turn the day back on.</li>
+          <li style={{ marginBottom: spacing['3xs'] }}>Changing a market schedule may cause some vendors to be unable to attend.</li>
+          <li style={{ marginBottom: spacing['3xs'] }}>Vendors at this market will get an automatic notification of the change and may request a refund from you if the change causes them to be unable to attend.</li>
+          <li style={{ marginBottom: spacing['3xs'] }}>Even though we notify vendors, they could miss the message. You are responsible for contacting the vendors directly and communicating the change in market schedule.</li>
+          <li style={{ marginBottom: spacing['3xs'] }}>The platform does not issue refunds for schedule changes — refunds are between the market management and the affected vendors.</li>
+          <li>Turning a day off keeps your hours saved — you can re-enable those days later without re-entering anything. Vendor attendance on that day is deactivated (not deleted); vendors must re-opt in if you turn the day back on.</li>
         </ul>
 
         <label style={{

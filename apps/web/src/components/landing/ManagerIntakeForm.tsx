@@ -86,8 +86,10 @@ export default function ManagerIntakeForm() {
   const [managerName, setManagerName] = useState('')
   const [email, setEmail] = useState('')
   const [marketName, setMarketName] = useState('')
+  const [address, setAddress] = useState('')
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
+  const [zip, setZip] = useState('')
   const [phone, setPhone] = useState('')
   const [notes, setNotes] = useState('')
   const [formState, setFormState] = useState<FormState>({ kind: 'idle' })
@@ -103,8 +105,10 @@ export default function ManagerIntakeForm() {
     const trimmedName = managerName.trim()
     const trimmedEmail = email.trim()
     const trimmedMarket = marketName.trim()
+    const trimmedAddress = address.trim()
     const trimmedCity = city.trim()
     const trimmedState = state.trim()
+    const trimmedZip = zip.trim().replace(/\s/g, '')
 
     if (!trimmedName) {
       setFormState({ kind: 'error', message: 'Your name is required', field: 'manager_name' })
@@ -122,12 +126,24 @@ export default function ManagerIntakeForm() {
       setFormState({ kind: 'error', message: 'Market name is required', field: 'market_name' })
       return
     }
+    if (!trimmedAddress) {
+      setFormState({ kind: 'error', message: 'Street address is required', field: 'address' })
+      return
+    }
     if (!trimmedCity) {
       setFormState({ kind: 'error', message: 'City is required', field: 'city' })
       return
     }
     if (!trimmedState) {
       setFormState({ kind: 'error', message: 'State is required', field: 'state' })
+      return
+    }
+    if (!trimmedZip) {
+      setFormState({ kind: 'error', message: 'ZIP code is required', field: 'zip' })
+      return
+    }
+    if (!/^\d{5}(-\d{4})?$/.test(trimmedZip)) {
+      setFormState({ kind: 'error', message: 'ZIP code must be 5 digits (or ZIP+4)', field: 'zip' })
       return
     }
 
@@ -141,8 +157,10 @@ export default function ManagerIntakeForm() {
           manager_name: trimmedName,
           email: trimmedEmail,
           market_name: trimmedMarket,
+          address: trimmedAddress,
           city: trimmedCity,
           state: trimmedState,
+          zip: trimmedZip,
           phone: phone.trim() || undefined,
           notes: notes.trim() || undefined,
         }),
@@ -251,20 +269,38 @@ export default function ManagerIntakeForm() {
         </FieldWrapper>
       </div>
 
-      {/* Market name + City row */}
+      {/* Market name — full width */}
+      <FieldWrapper label="Market name" required errored={errorField === 'market_name'}>
+        <input
+          type="text"
+          value={marketName}
+          onChange={(e) => setMarketName(e.target.value)}
+          disabled={submitting}
+          maxLength={100}
+          autoComplete="organization"
+          placeholder="Westgate Farmers Market"
+          style={inputStyle(errorField === 'market_name')}
+        />
+      </FieldWrapper>
+
+      {/* Street address — full width. Required so we can geocode the
+          market for buyer geographic search + use it as a stronger
+          duplicate signal at intake time. */}
+      <FieldWrapper label="Street address" required errored={errorField === 'address'}>
+        <input
+          type="text"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          disabled={submitting}
+          maxLength={200}
+          autoComplete="street-address"
+          placeholder="123 Main St"
+          style={inputStyle(errorField === 'address')}
+        />
+      </FieldWrapper>
+
+      {/* City + State + ZIP row */}
       <div style={fieldRowStyle}>
-        <FieldWrapper label="Market name" required errored={errorField === 'market_name'}>
-          <input
-            type="text"
-            value={marketName}
-            onChange={(e) => setMarketName(e.target.value)}
-            disabled={submitting}
-            maxLength={100}
-            autoComplete="organization"
-            placeholder="Westgate Farmers Market"
-            style={inputStyle(errorField === 'market_name')}
-          />
-        </FieldWrapper>
         <FieldWrapper label="City" required errored={errorField === 'city'}>
           <input
             type="text"
@@ -277,10 +313,6 @@ export default function ManagerIntakeForm() {
             style={inputStyle(errorField === 'city')}
           />
         </FieldWrapper>
-      </div>
-
-      {/* State + Phone row */}
-      <div style={fieldRowStyle}>
         <FieldWrapper label="State" required errored={errorField === 'state'}>
           <select
             value={state}
@@ -296,19 +328,34 @@ export default function ManagerIntakeForm() {
             ))}
           </select>
         </FieldWrapper>
-        <FieldWrapper label="Phone (optional)" errored={false}>
+        <FieldWrapper label="ZIP" required errored={errorField === 'zip'}>
           <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            type="text"
+            value={zip}
+            onChange={(e) => setZip(e.target.value)}
             disabled={submitting}
-            maxLength={30}
-            autoComplete="tel"
-            placeholder="(555) 123-4567"
-            style={inputStyle(false)}
+            maxLength={10}
+            inputMode="numeric"
+            autoComplete="postal-code"
+            placeholder="79101"
+            style={inputStyle(errorField === 'zip')}
           />
         </FieldWrapper>
       </div>
+
+      {/* Phone — full width (optional) */}
+      <FieldWrapper label="Phone (optional)" errored={false}>
+        <input
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          disabled={submitting}
+          maxLength={30}
+          autoComplete="tel"
+          placeholder="(555) 123-4567"
+          style={inputStyle(false)}
+        />
+      </FieldWrapper>
 
       {/* Notes — full width */}
       <FieldWrapper label="Anything we should know? (optional)" errored={false}>

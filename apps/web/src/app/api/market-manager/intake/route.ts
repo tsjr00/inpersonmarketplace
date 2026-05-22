@@ -29,8 +29,10 @@ import { withErrorTracing, traced, crumb } from '@/lib/errors'
  *     manager_name: string   // required; admin email only (not stored on markets)
  *     email: string          // required; normalized to lowercase
  *     market_name: string    // required
+ *     address: string        // required; market street address (for geocoding + duplicate detection)
  *     city: string           // required
  *     state: string          // required (2-letter US state)
+ *     zip: string            // required; 5-digit US ZIP (for geocoding)
  *     phone?: string         // optional; admin email only
  *     notes?: string         // optional; admin email only
  *   }
@@ -67,9 +69,13 @@ export async function POST(request: NextRequest) {
       typeof body?.email === 'string' ? body.email.trim().toLowerCase() : ''
     const marketName =
       typeof body?.market_name === 'string' ? body.market_name.trim() : ''
+    const address =
+      typeof body?.address === 'string' ? body.address.trim() : ''
     const city = typeof body?.city === 'string' ? body.city.trim() : ''
     const state =
       typeof body?.state === 'string' ? body.state.trim().toUpperCase() : ''
+    const zip =
+      typeof body?.zip === 'string' ? body.zip.trim().replace(/\s/g, '') : ''
     const phone =
       typeof body?.phone === 'string' && body.phone.trim().length > 0
         ? body.phone.trim().slice(0, 30)
@@ -140,12 +146,37 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+    if (!address) {
+      return NextResponse.json(
+        { error: 'Street address is required', field: 'address' },
+        { status: 400 }
+      )
+    }
+    if (address.length < 3 || address.length > 200) {
+      return NextResponse.json(
+        { error: 'Street address must be between 3 and 200 characters', field: 'address' },
+        { status: 400 }
+      )
+    }
+    if (!zip) {
+      return NextResponse.json(
+        { error: 'ZIP code is required', field: 'zip' },
+        { status: 400 }
+      )
+    }
+    if (!/^\d{5}(-\d{4})?$/.test(zip)) {
+      return NextResponse.json(
+        { error: 'ZIP code must be 5 digits (or ZIP+4 like 79101-1234)', field: 'zip' },
+        { status: 400 }
+      )
+    }
 
     // ── Content moderation on text fields (matches event-requests pattern) ──
     const { checkFields } = await import('@/lib/content-moderation')
     const modCheck = checkFields({
       manager_name: managerName,
       market_name: marketName,
+      address: address,
       city: city,
       ...(notes ? { notes } : {}),
     })
@@ -162,6 +193,25 @@ export async function POST(request: NextRequest) {
     // (1:1 was the original v1 scope per market_manager_v2_plan.md but
     // reopened — no Stripe / auth / notification surface needs change.)
 
+    // ── Geocode the ZIP (non-fatal on failure) ──────────────────────
+    // Uses the existing static lookup + Census + Nominatim chain in
+    // src/lib/geocode.ts. Geographic search needs lat/lng to surface
+    // this market in buyer browse; admin can backfill manually via the
+    // market edit form if geocoding misses.
+    const zip5 = zip.split('-')[0] // strip ZIP+4 suffix for geocoding
+    const { geocodeZipCode } = await import('@/lib/geocode')
+    let geocodedLat: number | null = null
+    let geocodedLng: number | null = null
+    try {
+      const geo = await geocodeZipCode(zip5)
+      if (geo) {
+        geocodedLat = geo.latitude
+        geocodedLng = geo.longitude
+      }
+    } catch (err) {
+      console.warn('[mm-intake] geocodeZipCode failed (non-fatal):', err instanceof Error ? err.message : err)
+    }
+
     // ── Insert the market in pending status ─────────────────────────
     // Required NOT NULL columns: vertical_id, name, market_type.
     // status='pending' keeps it hidden from public browse / nearby /
@@ -174,8 +224,12 @@ export async function POST(request: NextRequest) {
         name: marketName.slice(0, 200),
         market_type: 'traditional',
         status: 'pending',
+        address: address.slice(0, 200),
         city: city.slice(0, 100),
         state: state,
+        zip: zip.slice(0, 10),
+        latitude: geocodedLat,
+        longitude: geocodedLng,
         manager_email: email,
         manager_invited_at: new Date().toISOString(),
       })
@@ -190,27 +244,43 @@ export async function POST(request: NextRequest) {
     const verticalId = (inserted.vertical_id as string) || 'farmers_market'
 
     // ── Fuzzy duplicate check (feedback #6) ─────────────────────────
-    // Strict match: same name + same city (case-insensitive). Different
-    // city = different market regardless of name. We surface matches to
-    // admin in the notification email so they can verify the new manager
-    // is the legitimate one before approving (booth-rental fraud guard).
+    // Strict match: same name + same city. Different city = different
+    // market regardless of name. We surface matches to admin so they
+    // can verify the new manager is the legitimate one before approving
+    // (booth-rental fraud guard).
+    //
+    // Important: an earlier version used .ilike() on both columns, but
+    // that misses real duplicates with subtle data differences ("Farmer's"
+    // vs "Farmers", trailing whitespace, etc.). Instead we fetch every
+    // market in the same city (ilike on city — city values are uniform
+    // enough) and normalize-then-compare the name in JS. Normalization
+    // strips everything except a-z and 0-9 and lowercases — handles
+    // apostrophes, whitespace, "the", punctuation.
+    function normalizeName(s: string): string {
+      return s.toLowerCase().replace(/[^a-z0-9]/g, '')
+    }
+    const normalizedTarget = normalizeName(marketName)
+
     crumb.supabase('select', 'markets')
-    const { data: dupes } = await supabase
+    const { data: cityCandidates } = await supabase
       .from('markets')
       .select('id, name, city, state, status, manager_email')
-      .ilike('name', marketName)
       .ilike('city', city)
       .neq('id', marketId)
 
-    const possibleDuplicates =
-      (dupes ?? []).map((d) => ({
+    const possibleDuplicates = (cityCandidates ?? [])
+      .filter((d) => {
+        const candidateName = (d.name as string | null) ?? ''
+        return normalizeName(candidateName) === normalizedTarget
+      })
+      .map((d) => ({
         id: d.id as string,
         name: d.name as string,
         city: (d.city as string | null) ?? '',
         state: (d.state as string | null) ?? '',
         status: (d.status as string | null) ?? 'unknown',
         manager_email: (d.manager_email as string | null) ?? null,
-      })) ?? []
+      }))
 
     // ── Notifications (non-blocking) ───────────────────────────────
     // Both emails are best-effort. If they fail the row is still
@@ -221,8 +291,10 @@ export async function POST(request: NextRequest) {
         managerName,
         email,
         marketName,
+        address,
         city,
         state,
+        zip,
         phone,
         notes,
         marketId,
@@ -272,8 +344,10 @@ interface AdminNotificationArgs {
   managerName: string
   email: string
   marketName: string
+  address: string
   city: string
   state: string
+  zip: string
   phone: string | null
   notes: string | null
   marketId: string
@@ -284,7 +358,16 @@ async function sendAdminNotification(args: AdminNotificationArgs): Promise<void>
   const adminEmail = process.env.ADMIN_ALERT_EMAIL
   const apiKey = process.env.RESEND_API_KEY
   if (!adminEmail || !apiKey) {
-    console.warn('[mm-intake] ADMIN_ALERT_EMAIL or RESEND_API_KEY not set — skipping admin email')
+    // Logged as console.error (not warn) so missing env config is
+    // visible in Vercel function logs without grep'ing through noise.
+    // Same env vars the event-requests route uses — if you don't see
+    // admin emails for either intake or event requests, set
+    // ADMIN_ALERT_EMAIL on the staging/prod Vercel project.
+    console.error(
+      `[mm-intake] ADMIN notification skipped — env missing: ` +
+      `ADMIN_ALERT_EMAIL=${adminEmail ? 'set' : 'MISSING'} ` +
+      `RESEND_API_KEY=${apiKey ? 'set' : 'MISSING'}`
+    )
     return
   }
 
@@ -330,7 +413,8 @@ async function sendAdminNotification(args: AdminNotificationArgs): Promise<void>
             <tr><td style="padding:8px 12px;font-weight:bold;border-bottom:1px solid #eee">Manager</td><td style="padding:8px 12px;border-bottom:1px solid #eee">${escapeHtml(args.managerName)}</td></tr>
             <tr><td style="padding:8px 12px;font-weight:bold;border-bottom:1px solid #eee">Email</td><td style="padding:8px 12px;border-bottom:1px solid #eee"><a href="mailto:${escapeHtml(args.email)}">${escapeHtml(args.email)}</a></td></tr>
             ${args.phone ? `<tr><td style="padding:8px 12px;font-weight:bold;border-bottom:1px solid #eee">Phone</td><td style="padding:8px 12px;border-bottom:1px solid #eee">${escapeHtml(args.phone)}</td></tr>` : ''}
-            <tr><td style="padding:8px 12px;font-weight:bold;border-bottom:1px solid #eee">Location</td><td style="padding:8px 12px;border-bottom:1px solid #eee">${escapeHtml(args.city)}, ${escapeHtml(args.state)}</td></tr>
+            <tr><td style="padding:8px 12px;font-weight:bold;border-bottom:1px solid #eee">Address</td><td style="padding:8px 12px;border-bottom:1px solid #eee">${escapeHtml(args.address)}</td></tr>
+            <tr><td style="padding:8px 12px;font-weight:bold;border-bottom:1px solid #eee">City / State / ZIP</td><td style="padding:8px 12px;border-bottom:1px solid #eee">${escapeHtml(args.city)}, ${escapeHtml(args.state)} ${escapeHtml(args.zip)}</td></tr>
             <tr><td style="padding:8px 12px;font-weight:bold;border-bottom:1px solid #eee">Market ID</td><td style="padding:8px 12px;border-bottom:1px solid #eee;font-family:monospace;font-size:12px">${escapeHtml(args.marketId)}</td></tr>
             ${args.notes ? `<tr><td style="padding:8px 12px;font-weight:bold;border-bottom:1px solid #eee;vertical-align:top">Notes</td><td style="padding:8px 12px;border-bottom:1px solid #eee;white-space:pre-wrap">${escapeHtml(args.notes)}</td></tr>` : ''}
           </table>
