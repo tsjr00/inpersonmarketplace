@@ -12,6 +12,10 @@
     {
       "path": "/api/cron/vendor-quality-checks",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/surveys",
+      "schedule": "0 * * * *"
     }
   ]
 }

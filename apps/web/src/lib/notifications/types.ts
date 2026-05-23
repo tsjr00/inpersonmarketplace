@@ -73,6 +73,9 @@ export type NotificationType =
   // Market manager schedule edits (2026-05-19) — notify all approved vendors
   // at the market when manager changes hours / active days / season window.
   | 'market_schedule_changed'
+  // Post-market surveys (Phase E Stage 2, mig 147)
+  | 'survey_request_vendor'
+  | 'survey_request_buyer'
   | 'pickup_confirmation_needed'
   | 'pickup_issue_reported'
   | 'inventory_low_stock'
@@ -186,6 +189,19 @@ export interface NotificationTemplateData {
    *  paid-confirmation notifications. Falls back to "manager will reach
    *  out" copy when absent (legacy data or pre-mig-144 bookings). */
   boothNumber?: string
+  // Post-market surveys (Phase E Stage 2)
+  /** Survey row UUID for vendor surveys; used to build the action URL
+   *  /[vertical]/vendor/survey/[surveyId]. */
+  surveyId?: string
+  /** Opaque 32-char access token for buyer surveys; embedded in the
+   *  URL /[vertical]/survey/[accessToken]. */
+  accessToken?: string
+  /** Display-formatted market date the survey is FOR, e.g. "Sat, May 17, 2026". */
+  surveyDate?: string
+  /** Count of prior unfilled surveys this user has at any market — when
+   *  > 0, the email body and in-app message mention them with a link to
+   *  the surveys-list page. */
+  priorPendingCount?: number
 }
 
 export type NotificationSeverity = 'critical' | 'warning' | 'info'
@@ -637,6 +653,49 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     message: (d) =>
       `The schedule at ${d.marketName || 'the market'} has been updated by the market manager. Review the new times in your vendor markets list and contact the market manager directly with any questions or refund requests — the platform doesn't issue refunds for schedule changes.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/markets`,
+  },
+
+  // Phase E Stage 2 (mig 147 follow-up). Cron generates one row per
+  // attended vendor after each market day; this notification has the
+  // survey UUID and a clear action URL. Standard urgency = in_app +
+  // email. Email body is the registry default; the cron also sends a
+  // custom-HTML email separately (with market logo if uploaded) — that
+  // ships as a Resend call from src/lib/surveys/email.ts. The in_app
+  // notification text below covers the dashboard banner case.
+  survey_request_vendor: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: (d) =>
+      `Quick survey — how did ${d.marketName || 'the market'} go${d.surveyDate ? ` on ${d.surveyDate}` : ''}?`,
+    message: (d) => {
+      const prior = (d.priorPendingCount ?? 0) > 0
+        ? ` You also have ${d.priorPendingCount} survey${d.priorPendingCount === 1 ? '' : 's'} pending from prior market days — your dashboard has the full list.`
+        : ''
+      return `Take 30 seconds to rate the market — your feedback helps the manager + funders. Ratings stay anonymous to other vendors.${prior}`
+    },
+    actionUrl: (d) =>
+      d.surveyId
+        ? `/${d.vertical || 'farmers_market'}/vendor/survey/${d.surveyId}`
+        : `/${d.vertical || 'farmers_market'}/vendor/surveys`,
+  },
+
+  survey_request_buyer: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'buyer',
+    title: (d) =>
+      `How was your visit to ${d.marketName || 'the market'}${d.surveyDate ? ` on ${d.surveyDate}` : ''}?`,
+    message: (d) => {
+      const prior = (d.priorPendingCount ?? 0) > 0
+        ? ` (You also have ${d.priorPendingCount} survey${d.priorPendingCount === 1 ? '' : 's'} pending from prior visits.)`
+        : ''
+      return `Share a few quick ratings — it helps the market improve and helps us prove the market's impact to funders.${prior}`
+    },
+    actionUrl: (d) =>
+      d.accessToken
+        ? `/${d.vertical || 'farmers_market'}/survey/${d.accessToken}`
+        : `/${d.vertical || 'farmers_market'}/`,
   },
 
   // Fires from cron Phase 16 (expire-orders/route.ts) when an abandoned
