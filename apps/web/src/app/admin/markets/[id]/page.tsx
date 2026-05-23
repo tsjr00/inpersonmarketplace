@@ -7,6 +7,7 @@ import ScheduleManager from './ScheduleManager'
 import VendorManager from './VendorManager'
 import MarketManagerAssignment from '@/components/market-manager/MarketManagerAssignment'
 import ApproveStatusButton from './ApproveStatusButton'
+import SurveyResultsCard from '@/components/market-manager/SurveyResultsCard'
 
 interface MarketDetailPageProps {
   params: Promise<{ id: string }>
@@ -401,6 +402,11 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
           <p style={{ color: '#666', margin: 0 }}>No approved vendors yet.</p>
         )}
       </div>
+
+      {/* Survey results — same component as the manager dashboard.
+          Admin gets a per-market view of vendor + buyer survey
+          aggregates. Phase E Stage 5. */}
+      <SurveyResultsCard marketId={id} />
     </div>
   )
 }

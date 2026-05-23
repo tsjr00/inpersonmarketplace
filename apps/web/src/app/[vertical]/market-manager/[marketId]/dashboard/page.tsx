@@ -8,6 +8,7 @@ import VendorBoothList from '@/components/market-manager/VendorBoothList'
 import BoothInventoryManager from '@/components/market-manager/BoothInventoryManager'
 import BoothPlaceholderManager from '@/components/market-manager/BoothPlaceholderManager'
 import BoothOccupancyGrid from '@/components/market-manager/BoothOccupancyGrid'
+import SurveyResultsCard from '@/components/market-manager/SurveyResultsCard'
 import OptinManager from '@/components/market-manager/OptinManager'
 import OnboardingChecklist from '@/components/market-manager/OnboardingChecklist'
 import MarketBrandingCard from '@/components/market-manager/MarketBrandingCard'
@@ -370,6 +371,10 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
         initialSeasonEnd={(market.season_end as string | null) ?? null}
         hasScheduleChangeRecipients={dashboardStats.hasScheduleChangeRecipients}
       />
+
+      {/* Survey results card (Phase E Stage 5) — empty state until
+          cron Stage 2 starts populating market_surveys rows. */}
+      <SurveyResultsCard marketId={marketId} />
 
       {/* Static support card (D.3 2026-05-16) */}
       <ManagerSupportCard vertical={vertical} />
