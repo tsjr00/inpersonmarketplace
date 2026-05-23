@@ -22,6 +22,7 @@ import OrganizerEventActions from '@/components/events/OrganizerEventActions'
 import OrganizerEventDetails from '@/components/events/OrganizerEventDetails'
 import ScrollToSection from '@/components/dashboard/ScrollToSection'
 import MarketManagerCard from '@/components/market-manager/MarketManagerCard'
+import PendingSurveysCard from '@/components/surveys/PendingSurveysCard'
 import { getMarketsManagedBy } from '@/lib/markets/manager-queries'
 import { getLocale } from '@/lib/locale/server'
 import { t } from '@/lib/locale/messages'
@@ -1197,6 +1198,14 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
 
               {/* Help & FAQ Search Widget */}
               <HelpSearchWidget vertical={vertical} />
+
+              {/* Pending market surveys (Phase E Stage 3) — always
+                  shows; muted state when zero pending. Links to the
+                  /vendor/surveys list. */}
+              <PendingSurveysCard
+                vendorProfileId={vendorProfile.id as string}
+                vertical={vertical}
+              />
 
               {/* Vendor Feedback Card */}
               <VendorFeedbackCard vertical={vertical} />
