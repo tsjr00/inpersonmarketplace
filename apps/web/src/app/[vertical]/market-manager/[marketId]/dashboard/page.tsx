@@ -11,6 +11,7 @@ import BoothOccupancyGrid from '@/components/market-manager/BoothOccupancyGrid'
 import SurveyResultsCard from '@/components/market-manager/SurveyResultsCard'
 import OptinManager from '@/components/market-manager/OptinManager'
 import OnboardingChecklist from '@/components/market-manager/OnboardingChecklist'
+import VerificationDocumentsCard from '@/components/market-manager/VerificationDocumentsCard'
 import MarketBrandingCard from '@/components/market-manager/MarketBrandingCard'
 import MarketTransactionsCard from '@/components/market-manager/MarketTransactionsCard'
 import WeeklyBookingsCard from '@/components/market-manager/WeeklyBookingsCard'
@@ -134,6 +135,14 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           is incomplete; collapses to a thin "Setup complete" line once
           required steps are done */}
       <OnboardingChecklist vertical={vertical} marketId={marketId} progress={onboardingProgress} />
+
+      {/* Verification documents (NEW-7, mig 148) — manager uploads
+          ownership/COI/venue-proof docs that the platform admin reviews
+          during the status=pending → active approval workflow. Placed
+          immediately below the onboarding checklist so it's high-visibility
+          for managers who just signed up. Files are private; signed-URL
+          access only. */}
+      <VerificationDocumentsCard marketId={marketId} />
 
       {/* Action summary — surfaces "needs booth #" count + next market
           day stat. Renders nothing during onboarding (defers to checklist)
