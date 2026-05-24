@@ -59,6 +59,38 @@ export async function PATCH(
 
     const serviceClient = createServiceClient()
 
+    // Mig 146 Issue 2: tier capacity hard-block — match the pattern in
+    // vendor-booth + booth-placeholders. Only checks when moving INTO a
+    // tier (non-null inventoryId); clearing (null) bypasses the check.
+    // Self-exclusion handled by the helper so an in-tier no-op doesn't
+    // false-trigger over-capacity. Mig 146 DB trigger enforces booth #
+    // uniqueness but NOT tier capacity — without this guard the manager
+    // could push vendors into already-full tiers via the per-row tier
+    // dropdown on VendorBoothList.
+    if (inventoryId !== null) {
+      const { data: existingMv } = await serviceClient
+        .from('market_vendors')
+        .select('id, inventory_id')
+        .eq('market_id', marketId)
+        .eq('vendor_profile_id', vendorProfileId)
+        .maybeSingle()
+
+      // Only run the capacity check when actually changing tiers.
+      // Staying in the same tier (or no prior row) skips — same logic
+      // as vendor-booth/route.ts:114.
+      if (existingMv && inventoryId !== existingMv.inventory_id) {
+        const { checkTierCapacity } = await import('@/lib/markets/booth-conflict-checks')
+        const cap = await checkTierCapacity(serviceClient, {
+          marketId,
+          inventoryId,
+          excludeSelf: { kind: 'market_vendors', id: existingMv.id as string },
+        })
+        if (!cap.ok) {
+          return NextResponse.json({ error: cap.message }, { status: 409 })
+        }
+      }
+    }
+
     crumb.supabase('update', 'market_vendors')
     const { data, error } = await serviceClient
       .from('market_vendors')

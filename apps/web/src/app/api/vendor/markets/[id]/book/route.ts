@@ -326,6 +326,19 @@ export async function POST(
           { status: 404 }
         )
       }
+      if (msg.includes('LABELS_EXHAUSTED')) {
+        // Mig 144 RPC RAISE: manager's declared booth label range
+        // (markets.booth_label_start/end) is shorter than the configured
+        // inventory total. Capacity exists but no label is available.
+        // Vendor can't self-fix this — they need the manager to update
+        // their booth label range.
+        return NextResponse.json(
+          {
+            error: `${(market.name as string) || 'This market'} can't accept new bookings right now — the manager needs to update their booth label range. Please contact the market manager directly.`,
+          },
+          { status: 409 }
+        )
+      }
       logError(traced.fromSupabase(rpcErr, {
         table: 'weekly_booth_rentals',
         operation: 'rpc',

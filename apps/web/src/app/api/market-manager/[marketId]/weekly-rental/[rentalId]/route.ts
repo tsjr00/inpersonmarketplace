@@ -92,6 +92,15 @@ export async function PATCH(
           { status: 409 }
         )
       }
+      // Cross-table booth conflict from mig 146 trigger (vs market_vendors
+      // or market_booth_placeholders at this market). Translate to 409
+      // mirroring vendor-booth + booth-placeholders error handling.
+      if (error.code === 'P0005' && error.message.startsWith('BOOTH_CONFLICT')) {
+        return NextResponse.json(
+          { error: error.message.replace(/^BOOTH_CONFLICT:\s*/, '') },
+          { status: 409 }
+        )
+      }
       throw traced.fromSupabase(error, { table: 'weekly_booth_rentals', operation: 'update' })
     }
 
