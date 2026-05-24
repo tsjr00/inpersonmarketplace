@@ -9,6 +9,7 @@ import MarketManagerAssignment from '@/components/market-manager/MarketManagerAs
 import ApproveStatusButton from './ApproveStatusButton'
 import SurveyResultsCard from '@/components/market-manager/SurveyResultsCard'
 import DuplicateMarketBanner from '@/components/markets/DuplicateMarketBanner'
+import MarketDocumentsViewer from '@/components/markets/MarketDocumentsViewer'
 
 interface MarketDetailPageProps {
   params: Promise<{ id: string }>
@@ -143,6 +144,18 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
           Banner JSX lives in components/markets/DuplicateMarketBanner.tsx
           so the vertical admin can render the same UI. */}
       {isPending && <DuplicateMarketBanner duplicates={possibleDuplicates} />}
+
+      {/* Verification documents (NEW-7) — manager-uploaded evidence the
+          admin reviews during the status=pending → active approval flow.
+          Always rendered for visibility; client component fetches via
+          /api/admin/markets/[id]/documents on mount. For pending intake
+          markets this is the primary review surface; for active markets
+          it serves as ongoing reference. */}
+      <MarketDocumentsViewer
+        marketId={id}
+        heading="Verification Documents (manager-uploaded)"
+        showEmptyState={isPending}
+      />
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>

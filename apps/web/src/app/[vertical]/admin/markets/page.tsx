@@ -12,6 +12,7 @@ import { term } from '@/lib/vertical'
 import { formatState, formatZip } from '@/lib/validation'
 import DuplicateMarketBanner, { type DuplicateMarketSummary } from '@/components/markets/DuplicateMarketBanner'
 import ApproveStatusButton from '@/app/admin/markets/[id]/ApproveStatusButton'
+import MarketDocumentsViewer from '@/components/markets/MarketDocumentsViewer'
 
 type Schedule = {
   id: string
@@ -682,6 +683,15 @@ export default function AdminMarketsPage() {
                 ) : (
                   <DuplicateMarketBanner duplicates={editingDuplicates} />
                 )}
+                {/* Verification documents (NEW-7). For pending-intake markets
+                    this is the primary review surface — manager-uploaded
+                    docs the admin checks before approving. Fetches via
+                    /api/admin/markets/[id]/documents on mount. */}
+                <MarketDocumentsViewer
+                  marketId={editingMarket.id}
+                  heading="Verification Documents (manager-uploaded)"
+                  showEmptyState={true}
+                />
               </div>
             )}
 
