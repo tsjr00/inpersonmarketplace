@@ -10,6 +10,8 @@ import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { useStatusBanner } from '@/hooks/useStatusBanner'
 import { term } from '@/lib/vertical'
 import { formatState, formatZip } from '@/lib/validation'
+import DuplicateMarketBanner, { type DuplicateMarketSummary } from '@/components/markets/DuplicateMarketBanner'
+import ApproveStatusButton from '@/app/admin/markets/[id]/ApproveStatusButton'
 
 type Schedule = {
   id: string
@@ -63,6 +65,13 @@ export default function AdminMarketsPage() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingMarket, setEditingMarket] = useState<Market | null>(null)
+  // Intake-pending duplicates surfacing (Bug 6). Fetched on-demand when
+  // the admin opens the edit form for a market with status='pending' so
+  // the same duplicate-detection UX the platform admin detail page
+  // shows is available here. Empty array = no duplicates OR not fetched
+  // yet; we don't render the banner from a stale prior open.
+  const [editingDuplicates, setEditingDuplicates] = useState<DuplicateMarketSummary[]>([])
+  const [editingDuplicatesLoading, setEditingDuplicatesLoading] = useState(false)
 
   // Filter states
   const [searchTerm, setSearchTerm] = useState('')
@@ -100,6 +109,40 @@ export default function AdminMarketsPage() {
     fetchMarkets()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vertical])
+
+  // Fetch duplicate-detection list whenever the admin opens the edit form
+  // for a market with status='pending' (Bug 6). Mirrors the platform admin
+  // detail page's server-side computation but exposed via the
+  // /api/admin/markets/[id]/duplicates endpoint so this client surface can
+  // fetch on demand. Reset on close of the form.
+  useEffect(() => {
+    if (!editingMarket || editingMarket.status !== 'pending') {
+      setEditingDuplicates([])
+      setEditingDuplicatesLoading(false)
+      return
+    }
+    let cancelled = false
+    const fetchDuplicates = async () => {
+      setEditingDuplicatesLoading(true)
+      try {
+        const res = await fetch(`/api/admin/markets/${editingMarket.id}/duplicates`)
+        if (!res.ok) {
+          if (!cancelled) setEditingDuplicates([])
+          return
+        }
+        const data = await res.json().catch(() => ({}))
+        if (!cancelled) {
+          setEditingDuplicates(Array.isArray(data.duplicates) ? data.duplicates : [])
+        }
+      } catch {
+        if (!cancelled) setEditingDuplicates([])
+      } finally {
+        if (!cancelled) setEditingDuplicatesLoading(false)
+      }
+    }
+    fetchDuplicates()
+    return () => { cancelled = true }
+  }, [editingMarket])
 
   const fetchMarkets = async () => {
     try {
@@ -436,6 +479,11 @@ export default function AdminMarketsPage() {
 
   // Count pending for alert badge
   const pendingCount = markets.filter(m => m.approval_status === 'pending').length
+  // Mig 133 + intake form (Bug 6): pending intakes are a SEPARATE bucket
+  // from vendor-suggested markets (approval_status='pending'). These come
+  // from the public market-manager-program intake form and live in
+  // markets.status='pending' until an admin flips them to 'active'.
+  const pendingIntakeCount = markets.filter(m => m.status === 'pending').length
 
   return (
     <div style={{
@@ -533,6 +581,46 @@ export default function AdminMarketsPage() {
           </div>
         )}
 
+        {/* Pending Intake Alert (Bug 6) — separate bucket from the
+            "approval_status=pending" alert above. These are markets that
+            came in through the public intake form and need admin review
+            before going live. Clicking "Review Intakes" filters the list
+            to status='pending'; clicking Edit on a row opens the inline
+            form with the duplicate banner + Approve button. */}
+        {pendingIntakeCount > 0 && !showForm && (
+          <div style={{
+            backgroundColor: '#fff3cd',
+            border: '1px solid #ffc107',
+            borderRadius: radius.md,
+            padding: spacing.sm,
+            marginBottom: spacing.md,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: spacing.xs,
+          }}>
+            <span style={{ color: '#664d03', fontWeight: typography.weights.medium }}>
+              📥 {pendingIntakeCount} market intake{pendingIntakeCount !== 1 ? 's' : ''} pending review
+            </span>
+            <button
+              onClick={() => setStatusFilter('pending')}
+              style={{
+                padding: `${spacing['3xs']} ${spacing.xs}`,
+                backgroundColor: '#ffc107',
+                color: '#664d03',
+                border: 'none',
+                borderRadius: radius.sm,
+                cursor: 'pointer',
+                fontSize: typography.sizes.sm,
+                fontWeight: typography.weights.semibold,
+              }}
+            >
+              Review Intakes
+            </button>
+          </div>
+        )}
+
         {/* Create/Edit Form */}
         {showForm && (
           <div style={{
@@ -546,6 +634,56 @@ export default function AdminMarketsPage() {
             <h2 style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, marginBottom: spacing.md, marginTop: 0 }}>
               {editingMarket ? 'Edit Market' : 'Create New Market'}
             </h2>
+
+            {/* Bug 6: pending intake review block. Shown only when editing
+                an existing market whose status='pending' (came in via the
+                public intake form). Reuses DuplicateMarketBanner +
+                ApproveStatusButton — both also rendered on the platform
+                admin detail page so behavior stays consistent. */}
+            {editingMarket?.status === 'pending' && (
+              <div style={{
+                marginBottom: spacing.md,
+                padding: spacing.sm,
+                backgroundColor: '#fffaf0',
+                border: '1px solid #ffd57a',
+                borderRadius: radius.md,
+              }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: spacing.xs,
+                  flexWrap: 'wrap',
+                  marginBottom: spacing.sm,
+                }}>
+                  <span style={{
+                    padding: '4px 10px',
+                    borderRadius: 4,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    backgroundColor: '#fff3cd',
+                    color: '#856404',
+                  }}>
+                    Status: pending intake
+                  </span>
+                  <ApproveStatusButton
+                    marketId={editingMarket.id}
+                    status={editingMarket.status}
+                  />
+                </div>
+                {editingDuplicatesLoading ? (
+                  <p style={{
+                    margin: 0,
+                    fontSize: typography.sizes.sm,
+                    color: colors.textMuted,
+                  }}>
+                    Checking for possible duplicates…
+                  </p>
+                ) : (
+                  <DuplicateMarketBanner duplicates={editingDuplicates} />
+                )}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
               {/* Market Type */}
@@ -1146,12 +1284,13 @@ export default function AdminMarketsPage() {
                   fontSize: typography.sizes.sm,
                   border: `1px solid ${colors.border}`,
                   borderRadius: radius.sm,
-                  backgroundColor: 'white',
+                  backgroundColor: statusFilter === 'pending' ? '#fff3cd' : 'white',
                   minWidth: 130
                 }}
               >
                 <option value="all">All Statuses</option>
                 <option value="active">Active</option>
+                <option value="pending">Pending Intake</option>
                 <option value="inactive">Inactive</option>
                 <option value="suspended">Suspended</option>
               </select>
