@@ -66,6 +66,11 @@ export type NotificationType =
   | 'coi_rejected'
   | 'market_approved'
   | 'vendor_market_approval_granted'
+  // Manager-initiated vendor invitation to a standard market (NEW-8,
+  // Session 85). Distinct from catering_vendor_invited which is for
+  // event/catering opportunities — this is the everyday "join my
+  // weekly farmers market" invitation flow.
+  | 'market_vendor_invited'
   // Booth rental payment lifecycle (Phase C Stage 3 follow-ups, 2026-05-19)
   | 'booth_rental_paid_vendor'
   | 'booth_rental_paid_manager'
@@ -583,6 +588,27 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
         : `You're approved at a new market`,
     message: (d) =>
       `The manager of ${d.marketName || 'the market'} approved your vendor association. You're now active and visible to buyers at this market.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/markets`,
+  },
+
+  // Manager-initiated invitation to a standard (non-catering) market (NEW-8).
+  // Fires from POST /api/market-manager/[marketId]/vendor-invitations when
+  // a manager bulk-invites nearby platform vendors from their dashboard.
+  // Vendor responds via PATCH /api/vendor/markets/[id]/respond — on accept,
+  // market_vendors.approved auto-flips to true (manager already chose them).
+  // Includes a link to the market's public profile so the vendor can review
+  // before responding.
+  market_vendor_invited: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: (d) =>
+      d.marketName
+        ? `${d.marketName} invited you to join`
+        : 'A market invited you to join',
+    message: (d) =>
+      `The manager of ${d.marketName || 'a market'} invited you to join their market. ` +
+      `Review the market profile and accept or decline from your vendor dashboard.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/markets`,
   },
 

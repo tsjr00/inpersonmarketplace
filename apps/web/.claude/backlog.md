@@ -1,6 +1,16 @@
 # Backlog
 
-Last updated: 2026-05-19 (Session 83 end)
+Last updated: 2026-05-25 (Session 85 — NEW-8 backend ship)
+
+## Priority 2 — Manager-initiated invitation revoke (deferred from NEW-8 Commit 5)
+
+- [ ] **Allow manager to revoke a pending invitation they sent** — User's design intent (2026-05-25): "if a manager invites a vendor to the market they can uninvite them — but they cannot remove them from the market on the app. that is a separate issue." Captures the carve-out that should exist: managers MAY revoke an invitation while it's still in `response_status='invited' AND approved=false`, but MAY NOT remove an active vendor (any other state).
+  - **Current blocker:** flow-integrity test at `src/lib/__tests__/flow-integrity.test.ts:340-397` enforces a blanket "no manager API endpoint deletes from market_vendors" rule. The rule was written before manager-initiated invitations existed and doesn't anticipate the pre-response-revoke carve-out.
+  - **Two options at design time:**
+    - **(A) Soft-revoke** — add `'revoked'` as a 4th `response_status` value. Manager PATCH sets it instead of DELETE. Row stays for audit (admin can see manager invited then revoked). Test passes unchanged. Manager re-inviting same vendor flips the revoked row back to `'invited'`. **Recommended.**
+    - **(B) Hard-delete with rule refinement** — update flow-integrity test to allow DELETE only when `response_status='invited' AND approved=false`. Weakens the boundary slightly but reflects user's stated intent more directly.
+  - **Without revoke (today's state):** vendors who never respond get auto-declined by cron Phase 17 after 30 days. Clutters the manager's pending-invitations view for up to 30 days but is self-cleaning.
+  - **Estimate:** ~1hr for A, ~30 min for B.
 
 ## Priority 1 — Phase C Prod deploy + Session 83 follow-ups
 

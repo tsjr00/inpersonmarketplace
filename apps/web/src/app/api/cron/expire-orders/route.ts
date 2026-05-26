@@ -2461,6 +2461,53 @@ export async function GET(request: NextRequest) {
       totalErrors++
     }
 
+    // ============================================================
+    // PHASE 17: Auto-decline stale manager-initiated vendor invitations (NEW-8)
+    //
+    // When a manager invites a platform vendor via POST
+    // /api/market-manager/[marketId]/vendor-invitations, the row is created
+    // with response_status='invited' + invited_at=NOW(). If the vendor
+    // doesn't respond within 30 days, the invite stays pending forever,
+    // cluttering the manager's "Pending Invitations" bucket.
+    //
+    // This phase flips stale invitations to response_status='declined' so:
+    //   - Manager's pending-invitations view stays clean
+    //   - Manager can re-invite later (existence check on insert path
+    //     still skips because a row exists; manager must first DELETE
+    //     the declined row via revoke route OR we relax the existence
+    //     check to allow re-invite after decline — TBD if managers ask)
+    //
+    // No notification sent — the vendor implicitly chose to ignore.
+    // ============================================================
+    let staleInvitationsExpired = 0
+    try {
+      const thirtyDaysAgoIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+      const { data: expired, error: expireErr } = await supabase
+        .from('market_vendors')
+        .update({
+          response_status: 'declined',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('response_status', 'invited')
+        .eq('approved', false)
+        .lt('invited_at', thirtyDaysAgoIso)
+        .select('id')
+
+      if (expireErr) {
+        console.error('Phase 17 sweep error:', expireErr.message)
+        totalErrors++
+      } else {
+        staleInvitationsExpired = expired?.length ?? 0
+        if (staleInvitationsExpired > 0) {
+          console.log(`Phase 17: auto-declined ${staleInvitationsExpired} stale invitation(s)`)
+          totalProcessed += staleInvitationsExpired
+        }
+      }
+    } catch (phase17Error) {
+      console.error('Phase 17 error:', phase17Error instanceof Error ? phase17Error.message : 'Unknown error')
+      totalErrors++
+    }
+
     return NextResponse.json({
       success: true,
       message: `Processed ${totalProcessed} items`,
@@ -2476,6 +2523,7 @@ export async function GET(request: NextRequest) {
       dataRetention: { errorLogs: errorLogsDeleted, notifications: notificationsDeleted, activityEvents: activityEventsDeleted },
       trialLifecycle: { reminders: trialReminders, expired: trialExpired, graceProcessed: trialGraceProcessed },
       boothRentals: { orphansCancelled: boothRentalsCancelledOrphan, staleSessionsCancelled: boothRentalsCancelledStale },
+      staleInvitations: { expired: staleInvitationsExpired },
       eventReminders,
       selfServiceResultsSent,
       eventGapAlerts,
