@@ -133,8 +133,14 @@ export default function AdminResponsiveStyles() {
         -webkit-overflow-scrolling: touch;
       }
 
+      /* Force tables wider than the typical desktop viewport so the
+         wrapper's horizontal scroll actually engages. Previously 600px,
+         which on desktop let the table shrink to fit and clip the
+         right-side action column (Bug found 2026-05-25 testing on
+         /admin/vendors). Mobile compressed-row view (.admin-list-mobile)
+         is unaffected — it doesn't render the table. */
       .admin-table-wrap table {
-        min-width: 600px;
+        min-width: 1100px;
       }
 
       /* ============================================= */

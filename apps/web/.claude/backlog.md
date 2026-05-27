@@ -1,6 +1,13 @@
 # Backlog
 
-Last updated: 2026-05-25 (Session 85 — NEW-8 backend ship)
+Last updated: 2026-05-26 (Session 85 — NEW-8 testing fixes)
+
+## Priority 2 — Broadcast to existing market vendors (deferred from NEW-8 Commit 7)
+
+- [ ] **Manager broadcast surface for already-affiliated vendors** — Session 85 design intent (2026-05-26): when a manager wants vendors who are ALREADY at their market to know about new platform capabilities (e.g., "you can now book booths week-by-week via the platform"), the invitation flow can't reach them — they're filtered out by spam protection that excludes any vendor with an existing `market_vendors` row at the market. A separate one-off announcement / broadcast surface is needed.
+  - **Options to consider:** (a) in-app banner on `/[vertical]/vendor/markets` shown to vendors at managed markets ("Your market manager mentions: ..."), (b) one-shot manager-initiated email blast via existing notification template registry, (c) market-profile-page banner visible to anyone affiliated with the market.
+  - **Out of scope for v1 NEW-8** — invitation flow is for NEW affiliations only; this is informational outreach to EXISTING affiliations.
+  - **Estimate:** depends on approach; in-app banner ~30 min, email blast ~1.5hr with rate-limit safeguards.
 
 ## Priority 2 — Manager-initiated invitation revoke (deferred from NEW-8 Commit 5)
 

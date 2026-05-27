@@ -44,6 +44,11 @@ function formatInvitedAt(iso: string | null): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+interface JustAcceptedEntry {
+  market_id: string
+  market_name: string
+}
+
 export default function PendingMarketInvitations({
   vertical,
   invitations,
@@ -51,12 +56,17 @@ export default function PendingMarketInvitations({
 }: PendingMarketInvitationsProps) {
   const [respondingId, setRespondingId] = useState<string | null>(null)
   const [rowFlash, setRowFlash] = useState<Record<string, string>>({})
-  // Track invitations we've already responded to in this render so the
-  // row visually drops away without waiting for the parent refresh.
+  // Decline hides the row immediately; accept keeps the row visible as a
+  // "next steps" panel until parent refresh removes it from the
+  // `invitations` prop (the new market will then appear in fixedMarkets).
   const [hidden, setHidden] = useState<Set<string>>(new Set())
+  const [justAccepted, setJustAccepted] = useState<Record<string, JustAcceptedEntry>>({})
 
-  // Don't render the card at all when there's nothing to show.
-  const visible = invitations.filter((i) => !hidden.has(i.market_vendor_id))
+  // Don't render the card at all when there's nothing to show — neither
+  // pending invitations nor still-visible "just accepted" panels.
+  const visible = invitations.filter(
+    (i) => !hidden.has(i.market_vendor_id) || justAccepted[i.market_vendor_id]
+  )
   if (visible.length === 0) return null
 
   const handleRespond = async (
@@ -79,13 +89,25 @@ export default function PendingMarketInvitations({
         }))
         return
       }
-      // Hide the row optimistically; parent refresh will catch up on next
-      // mount/refetch.
-      setHidden((prev) => {
-        const next = new Set(prev)
-        next.add(inv.market_vendor_id)
-        return next
-      })
+      if (responseStatus === 'accepted') {
+        // Keep the row visible as a next-steps panel. Parent refresh runs
+        // below; when the invitations prop updates (this row drops out),
+        // the panel disappears naturally on next render.
+        setJustAccepted((s) => ({
+          ...s,
+          [inv.market_vendor_id]: {
+            market_id: inv.market_id,
+            market_name: inv.market_name,
+          },
+        }))
+      } else {
+        // Decline → just hide.
+        setHidden((prev) => {
+          const next = new Set(prev)
+          next.add(inv.market_vendor_id)
+          return next
+        })
+      }
       if (onAfterRespond) {
         await onAfterRespond()
       }
@@ -104,14 +126,44 @@ export default function PendingMarketInvitations({
       <h2 style={headingStyle}>
         📥 Pending Market Invitations ({visible.length})
       </h2>
-      <p style={mutedTextStyle}>
-        These markets have invited you to join. Review each market&apos;s profile,
-        then accept or decline. On accept you&apos;re immediately active at the
-        market — the manager has already approved you.
-      </p>
+      {/* Explainer block — addresses user's design intent (2026-05-26):
+          "put an explainer box in the process so the vendor accepting
+          the invitation understands what they are accepting." Spells out
+          exactly what acceptance means + what's required to actually
+          sell, before the vendor commits either way. */}
+      <div style={explainerBoxStyle}>
+        <div style={explainerHeadingStyle}>What happens if you accept?</div>
+        <ul style={explainerListStyle}>
+          <li>You become <strong>affiliated</strong> with the market — the manager has already approved you, so no further approval is needed on their side.</li>
+          <li>Acceptance does <strong>NOT</strong> automatically add your products to the market or book you a booth. Those are separate steps you control.</li>
+          <li>To actually sell at this market, you&apos;ll still need to:
+            <ul style={explainerSubListStyle}>
+              <li>Add this market to your product listings</li>
+              <li>Book a booth for an upcoming week (per-week, via the platform — pricing set by the manager)</li>
+            </ul>
+          </li>
+          <li>If you already pay the manager directly for a booth (off-platform), that arrangement still works — you just won&apos;t use the platform&apos;s booth-rental flow.</li>
+        </ul>
+      </div>
 
       <ul style={listStyle}>
         {visible.map((inv) => {
+          const acceptedEntry = justAccepted[inv.market_vendor_id]
+          // Just-accepted: render the next-steps panel instead of the
+          // accept/decline buttons. Stays visible until parent refresh
+          // updates the invitations prop (this row drops out, panel
+          // disappears on next render).
+          if (acceptedEntry) {
+            return (
+              <li key={inv.market_vendor_id}>
+                <NextStepsPanel
+                  vertical={vertical}
+                  marketId={acceptedEntry.market_id}
+                  marketName={acceptedEntry.market_name}
+                />
+              </li>
+            )
+          }
           const isResponding = respondingId === inv.market_vendor_id
           const flash = rowFlash[inv.market_vendor_id]
           const locationLine = [inv.market_city, inv.market_state]
@@ -176,6 +228,66 @@ export default function PendingMarketInvitations({
   )
 }
 
+// ---------------------------------------------------------------------------
+// Next-steps panel (rendered in-place of the accepted row, until parent
+// refresh removes it from the invitations prop)
+// ---------------------------------------------------------------------------
+
+function NextStepsPanel({
+  vertical,
+  marketId,
+  marketName,
+}: {
+  vertical: string
+  marketId: string
+  marketName: string
+}) {
+  return (
+    <div style={nextStepsCardStyle}>
+      <div style={nextStepsHeadingStyle}>
+        ✓ You&apos;re affiliated with {marketName}
+      </div>
+      <p style={{ margin: 0, marginBottom: 12, fontSize: 13, color: '#1f2937', lineHeight: 1.55 }}>
+        Welcome aboard. To start selling here, complete these two steps —
+        you can do them in any order, at your own pace.
+      </p>
+      <ul style={nextStepsListStyle}>
+        <li>
+          <div style={{ fontWeight: 600, marginBottom: 2 }}>
+            ⏳ Add your products to this market
+          </div>
+          <div style={{ fontSize: 12, color: '#4b5563', marginBottom: 6 }}>
+            Edit each listing you want available here. Without this, buyers
+            won&apos;t see your products on {marketName}&apos;s page.
+          </div>
+          <Link
+            href={`/${vertical}/vendor/listings`}
+            style={inlineLinkStyle}
+          >
+            Go to my listings →
+          </Link>
+        </li>
+        <li style={{ marginTop: 10 }}>
+          <div style={{ fontWeight: 600, marginBottom: 2 }}>
+            ⏳ Book a booth for an upcoming week
+          </div>
+          <div style={{ fontSize: 12, color: '#4b5563', marginBottom: 6 }}>
+            Pick a week, pay through the platform, and you&apos;re confirmed.
+            If you already pay the manager directly off-platform, you can
+            skip this and continue your existing arrangement.
+          </div>
+          <Link
+            href={`/${vertical}/markets/${marketId}/book`}
+            style={inlineLinkStyle}
+          >
+            Book a booth at {marketName} →
+          </Link>
+        </li>
+      </ul>
+    </div>
+  )
+}
+
 const cardStyle: React.CSSProperties = {
   padding: spacing.md,
   backgroundColor: '#fff7e6',
@@ -192,12 +304,70 @@ const headingStyle: React.CSSProperties = {
   color: '#664d03',
 }
 
-const mutedTextStyle: React.CSSProperties = {
-  margin: 0,
+const explainerBoxStyle: React.CSSProperties = {
+  padding: spacing.sm,
   marginBottom: spacing.md,
+  backgroundColor: 'white',
+  border: `1px solid #e5d4a8`,
+  borderRadius: radius.sm,
+}
+
+const explainerHeadingStyle: React.CSSProperties = {
   fontSize: typography.sizes.sm,
-  color: '#664d03',
-  lineHeight: 1.5,
+  fontWeight: typography.weights.semibold,
+  color: colors.textPrimary,
+  marginBottom: spacing['2xs'],
+}
+
+const explainerListStyle: React.CSSProperties = {
+  margin: 0,
+  paddingLeft: 18,
+  fontSize: typography.sizes.sm,
+  color: colors.textPrimary,
+  lineHeight: 1.55,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: spacing['3xs'],
+}
+
+const explainerSubListStyle: React.CSSProperties = {
+  margin: `${spacing['3xs']} 0 0 0`,
+  paddingLeft: 16,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 2,
+}
+
+// Next-steps panel styles (greener, success-toned card to distinguish from
+// the cream invitation card it sits inside).
+const nextStepsCardStyle: React.CSSProperties = {
+  padding: spacing.sm,
+  backgroundColor: '#f0fdf4',
+  border: '1px solid #86efac',
+  borderRadius: radius.sm,
+}
+
+const nextStepsHeadingStyle: React.CSSProperties = {
+  fontSize: typography.sizes.base,
+  fontWeight: typography.weights.semibold,
+  color: '#166534',
+  marginBottom: spacing['2xs'],
+}
+
+const nextStepsListStyle: React.CSSProperties = {
+  margin: 0,
+  padding: 0,
+  listStyle: 'none',
+  fontSize: typography.sizes.sm,
+  color: colors.textPrimary,
+  lineHeight: 1.55,
+}
+
+const inlineLinkStyle: React.CSSProperties = {
+  color: colors.primary,
+  fontWeight: typography.weights.semibold,
+  fontSize: typography.sizes.sm,
+  textDecoration: 'underline',
 }
 
 const listStyle: React.CSSProperties = {

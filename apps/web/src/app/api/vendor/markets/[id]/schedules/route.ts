@@ -192,7 +192,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       // Verify market exists and is a traditional market (not private pickup)
       const { data: market, error: marketError } = await supabase
         .from('markets')
-        .select('id, market_type, status')
+        .select('id, market_type, status, vertical_id')
         .eq('id', marketId)
         .single()
 
@@ -268,8 +268,17 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
             if (allConflicts.length > 0) {
               const c = allConflicts[0]
+              // Vertical-aware suffix: "Multiple Trucks" is FT-only (toggle
+              // gated by vertical === 'food_trucks' in EditProfileForm).
+              // FM vendors have no equivalent "be in two places at once"
+              // setting, so the message ends after the deactivation prompt.
+              const isFt = market.vertical_id === 'food_trucks'
+              const baseMsg = `Schedule conflict: you're already at "${c.marketName}" on ${dayOfWeekName(c.dayOfWeek)}s from ${formatTimeDisplay(c.startTime)} - ${formatTimeDisplay(c.endTime)}.`
+              const suffix = isFt
+                ? ' Deactivate that schedule first, or enable "Multiple Trucks" in your profile.'
+                : ' Deactivate that schedule first to add this one.'
               return NextResponse.json({
-                error: `Schedule conflict: you're already at "${c.marketName}" on ${dayOfWeekName(c.dayOfWeek)}s from ${formatTimeDisplay(c.startTime)} - ${formatTimeDisplay(c.endTime)}. Deactivate that schedule first, or enable "Multiple Trucks" in your profile.`,
+                error: baseMsg + suffix,
                 code: 'ERR_SCHEDULE_CONFLICT',
                 conflicts: allConflicts
               }, { status: 409 })
@@ -414,7 +423,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       // Verify market exists and is a traditional market
       const { data: market, error: marketError } = await supabase
         .from('markets')
-        .select('id, market_type, status')
+        .select('id, market_type, status, vertical_id')
         .eq('id', marketId)
         .single()
 
@@ -497,8 +506,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             const conflicts = findScheduleConflicts(candidate, otherSlots)
             if (conflicts.length > 0) {
               const c = conflicts[0].existing
+              // Vertical-aware suffix — see PUT branch comment for the
+              // same rationale. "Multiple Trucks" is FT-only.
+              const isFt = market.vertical_id === 'food_trucks'
+              const baseMsg = `Schedule conflict: you're already at "${c.marketName}" on ${dayOfWeekName(c.dayOfWeek)}s from ${formatTimeDisplay(c.startTime)} - ${formatTimeDisplay(c.endTime)}.`
+              const suffix = isFt
+                ? ' Deactivate that schedule first, or enable "Multiple Trucks" in your profile.'
+                : ' Deactivate that schedule first to add this one.'
               return NextResponse.json({
-                error: `Schedule conflict: you're already at "${c.marketName}" on ${dayOfWeekName(c.dayOfWeek)}s from ${formatTimeDisplay(c.startTime)} - ${formatTimeDisplay(c.endTime)}. Deactivate that schedule first, or enable "Multiple Trucks" in your profile.`,
+                error: baseMsg + suffix,
                 code: 'ERR_SCHEDULE_CONFLICT',
                 conflicts: conflicts.map(cf => ({
                   marketName: cf.existing.marketName,
