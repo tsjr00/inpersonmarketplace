@@ -19,6 +19,7 @@ import MarketStripeConnectCard from '@/components/market-manager/MarketStripeCon
 import MarketScheduleCard from '@/components/market-manager/MarketScheduleCard'
 import ManagerSupportCard from '@/components/market-manager/ManagerSupportCard'
 import InviteVendorLink from '@/components/market-manager/InviteVendorLink'
+import InviteVendorBrowser from '@/components/market-manager/InviteVendorBrowser'
 import ManagerActionSummary from '@/components/market-manager/ManagerActionSummary'
 import { getManagerDashboardStats, getMarketTransactionsAggregates } from '@/lib/markets/manager-dashboard-stats'
 
@@ -61,7 +62,7 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
   // Market activity card (D.1) — fall back to last 90 days if null.
   const { data: market } = await supabase
     .from('markets')
-    .select('id, name, address, city, state, market_type, status, timezone, logo_url, description, season_start, season_end')
+    .select('id, name, address, city, state, market_type, status, timezone, logo_url, description, season_start, season_end, latitude, longitude')
     .eq('id', marketId)
     .single()
 
@@ -335,6 +336,20 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           onboardingComplete={onboardingProgress.required_complete === onboardingProgress.required_total}
         />
       </div>
+
+      {/* NEW-8: bulk-invite browser for on-platform vendors near this
+          market. Same onboarding gate as InviteVendorLink — invite landing
+          would render an incomplete agreement otherwise. Component handles
+          the "no coordinates yet" empty state internally. */}
+      {onboardingProgress.required_complete === onboardingProgress.required_total && (
+        <InviteVendorBrowser
+          marketId={marketId}
+          marketName={market.name as string}
+          marketLat={(market.latitude as number | null) ?? null}
+          marketLng={(market.longitude as number | null) ?? null}
+          vertical={vertical}
+        />
+      )}
 
       {/* Opt-in vendor agreement statements — manager picks which ones
           apply to their market */}

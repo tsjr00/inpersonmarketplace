@@ -281,11 +281,58 @@ export async function GET(request: NextRequest) {
       market_schedules: undefined
     }))
 
+    // NEW-8: pending manager-initiated invitations to this vendor.
+    // Market_vendors rows with response_status='invited' AND approved=false.
+    // Surfaced on /[vertical]/vendor/markets via PendingMarketInvitations
+    // card. Includes market metadata so the card can render without a
+    // second round-trip.
+    const { data: invitationRows } = await supabase
+      .from('market_vendors')
+      .select(`
+        id,
+        market_id,
+        invited_at,
+        markets!inner (
+          id, name, address, city, state, zip, market_type, vertical_id
+        )
+      `)
+      .eq('vendor_profile_id', vendorProfile.id)
+      .eq('response_status', 'invited')
+      .eq('approved', false)
+      .order('invited_at', { ascending: false })
+
+    const pendingInvitations = (invitationRows || [])
+      .map((row) => {
+        const m = row.markets as unknown as
+          | { id: string; name: string; address: string | null; city: string | null; state: string | null; zip: string | null; market_type: string; vertical_id: string }
+          | { id: string; name: string; address: string | null; city: string | null; state: string | null; zip: string | null; market_type: string; vertical_id: string }[]
+          | null
+        const market = Array.isArray(m) ? m[0] : m
+        if (!market) return null
+        // Scope to this vendor's vertical — defensive, the join already
+        // matches via vendor_profile_id but markets can be in different
+        // verticals if the vendor has cross-vertical profiles.
+        if (market.vertical_id !== vertical) return null
+        return {
+          market_vendor_id: row.id as string,
+          market_id: row.market_id as string,
+          invited_at: (row.invited_at as string | null) ?? null,
+          market_name: market.name,
+          market_address: market.address,
+          market_city: market.city,
+          market_state: market.state,
+          market_zip: market.zip,
+          market_type: market.market_type,
+        }
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null)
+
     return NextResponse.json({
       fixedMarkets,
       eventMarkets,
       privatePickupMarkets: vendorMarkets,
       marketSuggestions: transformedSuggestions,
+      pendingInvitations,
       homeMarketId: vendorProfile.home_market_id,
       marketBoxFrequency: vendorProfile.market_box_frequency === 'biweekly' ? 'biweekly' : 'weekly',
       vendorTier: tier,

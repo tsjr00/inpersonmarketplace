@@ -32,7 +32,7 @@ interface VendorBoothListProps {
   vertical?: string
 }
 
-type FilterMode = 'active' | 'needs_booth' | 'pending_approval' | 'all'
+type FilterMode = 'active' | 'needs_booth' | 'pending_approval' | 'invited' | 'all'
 
 /**
  * Manager-side list of vendors at a market with inline booth-number
@@ -253,11 +253,21 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
   // Filter computations
   const activeVendors = vendors.filter((v) => v.approved && v.is_active_schedule)
   const needsBoothVendors = activeVendors.filter((v) => !v.booth_number)
-  const pendingApprovalVendors = vendors.filter((v) => !v.approved)
+  // NEW-8: pending-approval bucket excludes manager-initiated invitations
+  // (response_status='invited') so those don't double-count. Self-joined
+  // vendors awaiting manager approval have response_status=NULL.
+  const pendingApprovalVendors = vendors.filter(
+    (v) => !v.approved && v.response_status !== 'invited'
+  )
+  // NEW-8: manager-initiated invitations awaiting vendor response.
+  const invitedVendors = vendors.filter(
+    (v) => !v.approved && v.response_status === 'invited'
+  )
   const displayedVendors =
     filter === 'all' ? vendors :
     filter === 'needs_booth' ? needsBoothVendors :
     filter === 'pending_approval' ? pendingApprovalVendors :
+    filter === 'invited' ? invitedVendors :
     activeVendors
 
   const toggleButtonStyle: React.CSSProperties = {
@@ -306,6 +316,8 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
         <span>·</span>
         {renderFilterChip('pending_approval', 'Pending approval', pendingApprovalVendors.length)}
         <span>·</span>
+        {renderFilterChip('invited', 'Invited', invitedVendors.length)}
+        <span>·</span>
         {renderFilterChip('all', 'All', vendors.length)}
       </div>
 
@@ -326,6 +338,8 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
             ? `All ${activeVendors.length} active vendor${activeVendors.length === 1 ? ' has' : 's have'} a booth number assigned. ✓`
             : filter === 'pending_approval'
             ? 'No vendors pending approval. ✓'
+            : filter === 'invited'
+            ? 'No outstanding invitations. Use the Invite Vendors card above to invite nearby on-platform vendors.'
             : filter === 'active'
             ? `No active vendors right now. ${vendors.length} pending or dormant vendor${vendors.length === 1 ? '' : 's'} — switch to "All" to see them.`
             : 'No vendors match the current filter.'}
@@ -375,8 +389,17 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                   )}
                 </div>
                 <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, display: 'flex', gap: spacing['2xs'], flexWrap: 'wrap' }}>
-                  <span>{v.approved ? '✅ Approved' : '⏳ Pending approval'}</span>
-                  {v.response_status && <span>· {v.response_status.replace(/_/g, ' ')}</span>}
+                  {/* NEW-8: invited vendors are a distinct status from
+                      "pending approval" (self-joined). Show their own
+                      status line so manager can tell at a glance. */}
+                  {v.response_status === 'invited' && !v.approved ? (
+                    <span>📤 Waiting on vendor response</span>
+                  ) : (
+                    <span>{v.approved ? '✅ Approved' : '⏳ Pending approval'}</span>
+                  )}
+                  {v.response_status && v.response_status !== 'invited' && (
+                    <span>· {v.response_status.replace(/_/g, ' ')}</span>
+                  )}
                   {!v.is_active_schedule && <span>· not scheduled</span>}
                   {!v.booth_number && v.approved && v.is_active_schedule && <span>· needs booth #</span>}
                   {/* Mig 145: surface "tier not set" for approved vendors
@@ -388,8 +411,14 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
               </div>
 
               {/* Pending vendors get an Approve button. Approved vendors get
-                  booth controls. Keeps row UX focused on the next action. */}
-              {!v.approved ? (
+                  booth controls. NEW-8: invited vendors get NEITHER — they
+                  haven't responded yet, so there's nothing for the manager
+                  to do except wait (or rely on Phase 17 auto-decline). */}
+              {v.response_status === 'invited' && !v.approved ? (
+                <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, fontStyle: 'italic' }}>
+                  No action — vendor must respond
+                </div>
+              ) : !v.approved ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
                   <button
                     onClick={() => handleApprove(v.vendor_profile_id, true)}

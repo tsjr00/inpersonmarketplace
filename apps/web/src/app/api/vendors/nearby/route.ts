@@ -42,6 +42,12 @@ export async function GET(request: NextRequest) {
       const search = searchParams.get('search')
       const sort = searchParams.get('sort') || 'rating'
       const payment = searchParams.get('payment')
+      // NEW-8: when set, hide vendors that already have ANY market_vendors
+      // row at the named market (any status: invited/accepted/declined/
+      // approved/legacy). Used by the manager invitation browser so the
+      // manager doesn't see vendors they've already invited or who are
+      // already at their market.
+      const excludeMarket = searchParams.get('exclude_market')
 
       // Validate required params
       if (!lat || !lng) {
@@ -79,7 +85,7 @@ export async function GET(request: NextRequest) {
       // If PostGIS function fails (e.g., not available), fall back to cache-based method
       if (postgisError) {
         console.warn('[Vendors Nearby] PostGIS function failed, using fallback:', postgisError.message)
-        return await fallbackNearbyQuery(supabase, latitude, longitude, radiusMiles, limit, offset, vertical, market, category, search, sort, payment)
+        return await fallbackNearbyQuery(supabase, latitude, longitude, radiusMiles, limit, offset, vertical, market, category, search, sort, payment, excludeMarket)
       }
 
       if (!nearbyVendors || nearbyVendors.length === 0) {
@@ -224,6 +230,20 @@ export async function GET(request: NextRequest) {
         )
       }
 
+      // NEW-8: exclude vendors already at the named market (used by
+      // manager invitation browser). Fetch the set of vendor_profile_ids
+      // already in market_vendors for excludeMarket — any status counts.
+      if (excludeMarket) {
+        const { data: existingMv } = await supabase
+          .from('market_vendors')
+          .select('vendor_profile_id')
+          .eq('market_id', excludeMarket)
+        const excludeSet = new Set(
+          (existingMv ?? []).map((r) => r.vendor_profile_id as string)
+        )
+        filteredVendors = filteredVendors.filter((v) => !excludeSet.has(v.id))
+      }
+
       if (category) {
         filteredVendors = filteredVendors.filter(v =>
           v.categories.includes(category)
@@ -322,7 +342,8 @@ async function fallbackNearbyQuery(
   category: string | null,
   search: string | null,
   sort: string,
-  payment: string | null
+  payment: string | null,
+  excludeMarket: string | null = null
 ) {
   // Haversine formula for distance between two points
   const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -472,6 +493,17 @@ async function fallbackNearbyQuery(
 
   let filteredVendors = enrichedVendors.filter(v => v.listingCount > 0)
   if (market) filteredVendors = filteredVendors.filter(v => v.markets.some(m => m.id === market))
+  // NEW-8 exclude_market also applied on the fallback path.
+  if (excludeMarket) {
+    const { data: existingMv } = await supabase
+      .from('market_vendors')
+      .select('vendor_profile_id')
+      .eq('market_id', excludeMarket)
+    const excludeSet = new Set(
+      (existingMv ?? []).map((r) => r.vendor_profile_id as string)
+    )
+    filteredVendors = filteredVendors.filter((v) => !excludeSet.has(v.id))
+  }
   if (category) filteredVendors = filteredVendors.filter(v => v.categories.includes(category))
   if (search) {
     const searchLower = search.toLowerCase()

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import MarketScheduleSelector from '@/components/vendor/MarketScheduleSelector'
 import ErrorDisplay from '@/components/shared/ErrorDisplay'
+import PendingMarketInvitations, { type PendingInvitation } from '@/components/vendor/PendingMarketInvitations'
 import { term } from '@/lib/vertical'
 import { colors, statusColors } from '@/lib/design-tokens'
 import type { Market, MarketSuggestion, MarketLimits, ErrorState } from '@/components/vendor/markets/types'
@@ -24,6 +25,7 @@ export default function VendorMarketsPage() {
   const [eventMarkets, setEventMarkets] = useState<Market[]>([])
   const [privatePickupMarkets, setPrivatePickupMarkets] = useState<Market[]>([])
   const [marketSuggestions, setMarketSuggestions] = useState<MarketSuggestion[]>([])
+  const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([])
   const [limits, setLimits] = useState<MarketLimits | null>(null)
   const [homeMarketId, setHomeMarketId] = useState<string | null>(null)
   const [vendorTier, setVendorTier] = useState<string>('standard')
@@ -48,6 +50,7 @@ export default function VendorMarketsPage() {
         setEventMarkets(data.eventMarkets || [])
         setPrivatePickupMarkets(data.privatePickupMarkets || [])
         setMarketSuggestions(data.marketSuggestions || [])
+        setPendingInvitations(data.pendingInvitations || [])
         setLimits(data.limits)
         setHomeMarketId(data.homeMarketId || null)
         setVendorTier(data.vendorTier || 'free')
@@ -153,6 +156,15 @@ export default function VendorMarketsPage() {
             onDismiss={() => setError(null)}
           />
         )}
+
+        {/* NEW-8: pending manager-initiated invitations. Renders nothing
+            when invitations list is empty. After accept/decline the
+            component refetches via onAfterRespond → fetchMarkets(). */}
+        <PendingMarketInvitations
+          vertical={vertical}
+          invitations={pendingInvitations}
+          onAfterRespond={fetchMarkets}
+        />
 
         {/* Onboarding Banner for Non-Approved Vendors */}
         {vendorStatus !== 'approved' && (
