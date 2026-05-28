@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getMarketVendorCounts } from '@/lib/db/markets'
+import { getFullyOnboardedMarketIds } from '@/lib/markets/visible-markets'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
@@ -85,8 +86,24 @@ export async function GET(request: NextRequest) {
         return await fallbackNearbyQuery(supabase, latitude, longitude, radiusMiles, limit, offset, vertical, type, city, search)
       }
 
+      // Apply visibility filter to traditional markets only (mirror of
+      // migration 131's pickup-availability rule): a traditional market is
+      // visible iff ≥1 vendor has BOTH a published listing connected via
+      // listing_markets AND an active vendor_market_schedules row at the
+      // market. Events are exempt. Same rule as the server-rendered list at
+      // src/app/[vertical]/markets/page.tsx.
+      const rawMarkets = (markets || []) as Array<Record<string, unknown>>
+      const traditionalIds = rawMarkets
+        .filter((m) => m.market_type === 'traditional')
+        .map((m) => m.id as string)
+      const visibleSet = traditionalIds.length > 0
+        ? await getFullyOnboardedMarketIds(supabase, traditionalIds)
+        : new Set<string>()
+      const allMarkets = rawMarkets.filter((m) =>
+        m.market_type !== 'traditional' || visibleSet.has(m.id as string)
+      )
+
       // Apply pagination to PostGIS results (already sorted by distance)
-      const allMarkets = markets || []
       const total = allMarkets.length
       const paginatedMarkets = allMarkets.slice(offset, offset + limit)
       const hasMore = offset + paginatedMarkets.length < total
@@ -196,9 +213,21 @@ async function fallbackNearbyQuery(
     vendor_count: vendorCounts.get(market.id) || 0
   }))
 
+  // Apply visibility filter to traditional markets only — same rule as the
+  // PostGIS path + server-rendered list (mirror of mig 131).
+  const traditionalIds = marketsWithVendorCounts
+    .filter((m: any) => m.market_type === 'traditional')
+    .map((m: any) => m.id as string)
+  const visibleSet = traditionalIds.length > 0
+    ? await getFullyOnboardedMarketIds(supabase, traditionalIds)
+    : new Set<string>()
+  const visibleMarkets = marketsWithVendorCounts.filter((m: any) =>
+    m.market_type !== 'traditional' || visibleSet.has(m.id as string)
+  )
+
   // Apply pagination
-  const total = marketsWithVendorCounts.length
-  const paginatedMarkets = marketsWithVendorCounts.slice(offset, offset + limit)
+  const total = visibleMarkets.length
+  const paginatedMarkets = visibleMarkets.slice(offset, offset + limit)
   const hasMore = offset + paginatedMarkets.length < total
 
   // Cache key for edge caching

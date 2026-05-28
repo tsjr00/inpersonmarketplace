@@ -7,6 +7,7 @@ import MarketsWithLocation from '@/components/markets/MarketsWithLocation'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import { term, getRadiusOptions } from '@/lib/vertical'
 import { getMarketVendorCounts } from '@/lib/db/markets'
+import { getFullyOnboardedMarketIds } from '@/lib/markets/visible-markets'
 import { getServerLocation } from '@/lib/location/server'
 import { getLocale } from '@/lib/locale/server'
 import { t } from '@/lib/locale/messages'
@@ -158,6 +159,18 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
     vendor_count: vendorCounts.get(market.id) || 0,
     market_schedules: undefined,
   })) || []
+
+  // Visibility rule (mirror of migration 131's pickup-availability rule):
+  // a traditional market shows on this public list only if ≥1 vendor has BOTH
+  //   (a) a published listing connected via listing_markets, AND
+  //   (b) an active vendor_market_schedules row at the market.
+  // Events are handled separately via the eventMarkets path and are not
+  // subject to this filter.
+  const visibleMarketIds = await getFullyOnboardedMarketIds(
+    supabase,
+    transformedMarkets.map(m => m.id)
+  )
+  const visibleMarkets = transformedMarkets.filter(m => visibleMarketIds.has(m.id))
 
   // Get event vendor counts
   const eventIds = eventMarkets?.map(m => m.id) || []
@@ -358,7 +371,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
       {locationType !== 'event' && (
         <MarketsWithLocation
           vertical={vertical}
-          initialMarkets={transformedMarkets}
+          initialMarkets={visibleMarkets}
           cities={cities}
           currentCity={city}
           currentSearch={search}
