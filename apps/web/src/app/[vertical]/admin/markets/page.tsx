@@ -82,7 +82,7 @@ export default function AdminMarketsPage() {
 
   const [formData, setFormData] = useState({
     name: '',
-    market_type: 'traditional' as 'traditional' | 'event',
+    market_type: 'traditional' as 'traditional' | 'event' | 'private_pickup',
     address: '',
     city: '',
     state: '',
@@ -333,7 +333,14 @@ export default function AdminMarketsPage() {
 
     setFormData({
       name: market.name,
-      market_type: (market.market_type === 'event' ? 'event' : 'traditional') as 'traditional' | 'event',
+      // Preserve the actual market_type from the DB. Previously coerced any
+      // non-event value to 'traditional', which silently re-classified
+      // private_pickup markets on edit (P1-C).
+      market_type: ((['traditional', 'event', 'private_pickup'] as const).includes(
+        market.market_type as 'traditional' | 'event' | 'private_pickup'
+      )
+        ? (market.market_type as 'traditional' | 'event' | 'private_pickup')
+        : 'traditional') as 'traditional' | 'event' | 'private_pickup',
       address: market.address,
       city: market.city,
       state: market.state,
@@ -703,7 +710,7 @@ export default function AdminMarketsPage() {
                 </label>
                 <select
                   value={formData.market_type}
-                  onChange={(e) => setFormData({ ...formData, market_type: e.target.value as 'traditional' | 'event' })}
+                  onChange={(e) => setFormData({ ...formData, market_type: e.target.value as 'traditional' | 'event' | 'private_pickup' })}
                   style={{
                     width: '100%',
                     padding: `${spacing.xs} ${spacing.sm}`,
@@ -715,6 +722,7 @@ export default function AdminMarketsPage() {
                   }}
                 >
                   <option value="traditional">{term(vertical, 'traditional_market')}</option>
+                  <option value="private_pickup">🏠 Private Pickup</option>
                   <option value="event">🎪 Event (Festival, Fair, Concert)</option>
                 </select>
               </div>

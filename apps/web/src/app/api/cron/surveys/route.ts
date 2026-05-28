@@ -166,15 +166,15 @@ async function processMarket(
     if (!fire) continue
     if (nowLocal < fire.fireAtLocalIso) continue
 
-    // Dedup: any existing market_surveys for this market_date?
-    const { count } = await serviceClient
-      .from('market_surveys')
-      .select('id', { head: true, count: 'exact' })
-      .eq('market_id', market.id)
-      .eq('market_date', cand.marketDate)
-
-    if ((count ?? 0) > 0) continue // already processed
-
+    // Idempotency is per-row via the UNIQUE constraints on market_surveys
+    // (uq_market_surveys_vendor + uq_market_surveys_buyer). The INSERT calls
+    // inside generateForMarketDay catch Postgres 23505 silently and continue,
+    // so repeated cron runs converge to the same final set of survey rows.
+    //
+    // A previous outer "count > 0 → skip whole market_date" gate was removed:
+    // if Vercel timed out mid-loop after some vendor surveys inserted but
+    // before buyer surveys finished, the next cron run would skip the entire
+    // market_date and the buyer surveys would never be created.
     await generateForMarketDay(market, cand.marketDate, cand.dayOfWeek, serviceClient, summary)
     summary.marketDaysGenerated++
   }

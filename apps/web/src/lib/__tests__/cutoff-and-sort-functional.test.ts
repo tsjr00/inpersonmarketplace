@@ -141,11 +141,11 @@ describe('VT-013: FT tier sort priority (unified: boss first)', () => {
 })
 
 // =============================================================================
-// NI-014: Notification type count = 70
+// NI-014: Notification type count = 72
 // =============================================================================
 
-describe('NI-014: Total notification types = 71', () => {
-  it('NOTIFICATION_REGISTRY has exactly 71 types', () => {
+describe('NI-014: Total notification types = 72', () => {
+  it('NOTIFICATION_REGISTRY has exactly 72 types', () => {
     // Bumped 63 → 64 on 2026-05-16 when vendor_market_approval_granted
     // was added (Phase B B-close-2). Bumped 64 → 67 on 2026-05-19 when
     // booth_rental_paid_vendor + booth_rental_paid_manager +
@@ -156,8 +156,11 @@ describe('NI-014: Total notification types = 71', () => {
     // survey_request_buyer were added (Phase E Stage 2 post-market
     // surveys — mig 147 follow-up). Bumped 70 → 71 on 2026-05-25 when
     // market_vendor_invited was added (NEW-8 manager-initiated invitation).
+    // Bumped 71 → 72 on 2026-05-27 when manager_vendor_invitation_responded
+    // was added (P1-B audit fix — dedicated template for standard market
+    // invite responses, replacing the wrong catering_vendor_responded reuse).
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(71)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(72)
   })
 
   it('includes all buyer-facing types', () => {

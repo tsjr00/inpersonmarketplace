@@ -194,17 +194,17 @@ export async function PATCH(
           (profileData.farm_name as string | undefined) ||
           'A vendor'
 
-        // Reuse the existing catering_vendor_responded template — it's
-        // generic enough ("vendor responded to invitation for market").
-        // The template currently targets the admin audience but the
-        // shape works for managers too. If we want a manager-specific
-        // template later, register a new type.
+        // Dedicated standard-market template (P1-B fix). Previously this
+        // reused catering_vendor_responded whose copy referenced a
+        // "catering event" that the manager never created — confusing for
+        // managers on the everyday market-vendor invitation flow.
         await sendNotification(
           market.manager_user_id as string,
-          'catering_vendor_responded',
+          'manager_vendor_invitation_responded',
           {
             vendorName,
             marketName: (market.name as string) || 'your market',
+            marketId,
             responseAction:
               responseStatus === 'accepted' ? 'accepted' : 'declined',
           },

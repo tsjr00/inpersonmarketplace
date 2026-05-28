@@ -1177,7 +1177,7 @@ async function handleBoothRentalCheckoutComplete(session: Stripe.Checkout.Sessio
       paid_at: new Date().toISOString(),
     })
     .eq('id', rentalId)
-    .neq('status', 'paid')
+    .eq('status', 'pending_payment')
 
   if (updateErr) {
     await logError(new TracedError(

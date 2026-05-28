@@ -229,8 +229,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         }
       }
 
-      // Schedule conflict check: block single-truck vendors from overlapping at different markets
-      if (scheduleIds.length > 0) {
+      // Schedule conflict check: FT-only. Single-truck food trucks can't
+      // physically be in two places at once; the multiple_trucks toggle is the
+      // FT-specific opt-out. FM vendors are exempt — a farm/baker/maker can
+      // staff multiple markets simultaneously. Cross-market product conflicts
+      // for FM are caught downstream at listing-publish time, not here.
+      if (scheduleIds.length > 0 && market.vertical_id === 'food_trucks') {
         const multiTruck = await isMultiTruckVendor(supabase, vendorProfile.id)
         if (!multiTruck) {
           // Get day_of_week + times for each schedule being activated
@@ -479,8 +483,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }
       }
 
-      // Schedule conflict check: block single-truck vendors from overlapping at different markets
-      if (isActive) {
+      // Schedule conflict check: FT-only (see PUT branch above for rationale).
+      // FM vendors exempt; cross-market product conflicts are caught at
+      // listing-publish time, not here.
+      if (isActive && market.vertical_id === 'food_trucks') {
         const multiTruck = await isMultiTruckVendor(supabase, vendorProfile.id)
         if (!multiTruck) {
           // Get the day_of_week for this schedule

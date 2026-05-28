@@ -71,6 +71,11 @@ export type NotificationType =
   // event/catering opportunities — this is the everyday "join my
   // weekly farmers market" invitation flow.
   | 'market_vendor_invited'
+  // Manager-side notification when a vendor responds (accept/decline) to a
+  // market_vendor_invited invitation. Distinct from catering_vendor_responded
+  // which targets catering EVENT invites — that template's copy mentions
+  // "catering event" which is wrong for a standard market invitation.
+  | 'manager_vendor_invitation_responded'
   // Booth rental payment lifecycle (Phase C Stage 3 follow-ups, 2026-05-19)
   | 'booth_rental_paid_vendor'
   | 'booth_rental_paid_manager'
@@ -610,6 +615,35 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       `The manager of ${d.marketName || 'a market'} invited you to join their market. ` +
       `Review the market profile and accept or decline from your vendor dashboard.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/markets`,
+  },
+
+  // Manager-side response to market_vendor_invited. Fires from PATCH
+  // /api/vendor/markets/[id]/respond when the vendor accepts or declines.
+  // Audience is the market manager — `manager_user_id` on markets is the
+  // user_id we send to. Lands on the manager's dashboard so they can see
+  // the updated vendor list.
+  manager_vendor_invitation_responded: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor', // managers operate from a vendor-adjacent role
+    title: (d) => {
+      const verb = d.responseAction === 'accepted' ? 'accepted' : 'declined'
+      return d.vendorName
+        ? `${d.vendorName} ${verb} your invitation`
+        : `A vendor ${verb} your invitation`
+    },
+    message: (d) => {
+      const verb = d.responseAction === 'accepted' ? 'accepted' : 'declined'
+      const marketPart = d.marketName ? ` to ${d.marketName}` : ''
+      const followup = d.responseAction === 'accepted'
+        ? ' They are now affiliated with your market.'
+        : ''
+      return `${d.vendorName || 'A vendor'} ${verb} your invitation${marketPart}.${followup}`
+    },
+    actionUrl: (d) =>
+      d.marketId
+        ? `/${d.vertical || 'farmers_market'}/market-manager/${d.marketId}/dashboard`
+        : `/${d.vertical || 'farmers_market'}/dashboard`,
   },
 
   // Phase C Stage 3 follow-ups (2026-05-19): booth rental payment lifecycle.
