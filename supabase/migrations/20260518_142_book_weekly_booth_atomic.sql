@@ -1,6 +1,32 @@
 -- Migration 142: book_weekly_booth_atomic — race-safe booth booking
 --
 -- =============================================================================
+-- !!! POST-PROD-APPLICATION REMINDER (added 2026-05-31, mig 149 session) !!!
+-- =============================================================================
+-- When this migration is applied to PROD, it CREATEs the
+-- `book_weekly_booth_atomic(uuid, uuid, uuid, date, uuid)` function with
+-- the default Postgres EXECUTE grant — which includes the `anon` role.
+-- That re-opens a security hole that Migration 149 closed on Dev/Staging on
+-- 2026-05-31 (Supabase advisor flagged it as SECURITY DEFINER callable by
+-- anon via /rest/v1/rpc/book_weekly_booth_atomic).
+--
+-- AFTER applying this migration to Prod, run (in the same session):
+--
+--   REVOKE EXECUTE ON FUNCTION
+--     public.book_weekly_booth_atomic(uuid, uuid, uuid, date, uuid)
+--   FROM anon;
+--
+-- Or just re-run the full Migration 149 — REVOKE is idempotent on
+-- already-revoked grants. File:
+--   supabase/migrations/20260531_149_revoke_anon_from_financial_rpcs.sql
+-- (or supabase/migrations/applied/ if 149 has been moved by then).
+--
+-- Claude review note: surface this reminder to the user before they push
+-- migs 138-148 to prod. Don't let the prod application happen without the
+-- follow-up REVOKE in the same session.
+-- =============================================================================
+--
+-- =============================================================================
 -- ROLLBACK
 -- =============================================================================
 -- To revert this migration on any environment, run:
