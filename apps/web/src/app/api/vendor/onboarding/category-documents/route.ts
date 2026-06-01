@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { CATEGORIES, type Category } from '@/lib/constants'
@@ -99,8 +99,12 @@ export async function POST(request: NextRequest) {
       ? `permit-docs/${vendor.id}/${category}/${fileName}`
       : `category-docs/${vendor.id}/${category.replace(/\s+/g, '-').toLowerCase()}/${fileName}`
 
+    // Storage writes go through service client (X2 hardening, mig 150).
+    // Auth + vendor ownership + category validation already done above.
+    const serviceClient = createServiceClient()
+
     crumb.logic('Uploading document')
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await serviceClient.storage
       .from('vendor-documents')
       .upload(storagePath, file, { contentType: file.type, upsert: false })
 
@@ -108,7 +112,7 @@ export async function POST(request: NextRequest) {
       throw traced.fromSupabase(uploadError, { table: 'storage', operation: 'insert' })
     }
 
-    const { data: { publicUrl } } = supabase.storage
+    const { data: { publicUrl } } = serviceClient.storage
       .from('vendor-documents')
       .getPublicUrl(storagePath)
 

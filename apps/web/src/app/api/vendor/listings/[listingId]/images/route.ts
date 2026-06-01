@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
@@ -117,13 +117,17 @@ export async function POST(
         )
       }
 
+      // Storage writes go through service client (X2 hardening, mig 150).
+      // Auth + ownership already verified above.
+      const serviceClient = createServiceClient()
+
       // Generate unique image ID and path
       const imageId = crypto.randomUUID()
       const fileExt = file.type === 'image/webp' ? 'webp' : 'jpg'
       const filePath = `listings/${listingId}/${imageId}.${fileExt}`
 
       // Upload to Supabase Storage
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError } = await serviceClient.storage
         .from('listing-images')
         .upload(filePath, file, {
           contentType: file.type,
@@ -136,7 +140,7 @@ export async function POST(
       }
 
       // Get public URL
-      const { data: { publicUrl } } = supabase.storage
+      const { data: { publicUrl } } = serviceClient.storage
         .from('listing-images')
         .getPublicUrl(filePath)
 
@@ -145,7 +149,7 @@ export async function POST(
       const modResult = await moderateStorageImage(publicUrl)
       if (!modResult.passed) {
         // Delete the uploaded file — it failed moderation
-        await supabase.storage.from('listing-images').remove([filePath])
+        await serviceClient.storage.from('listing-images').remove([filePath])
         return NextResponse.json({ error: modResult.reason }, { status: 400 })
       }
 
@@ -168,7 +172,7 @@ export async function POST(
 
       if (insertError) {
         // Clean up uploaded file if DB insert fails
-        await supabase.storage.from('listing-images').remove([filePath])
+        await serviceClient.storage.from('listing-images').remove([filePath])
         console.error('Insert error:', insertError)
         return NextResponse.json({ error: 'Failed to save image record' }, { status: 500 })
       }
@@ -242,8 +246,10 @@ export async function DELETE(
         return NextResponse.json({ error: 'Image not found' }, { status: 404 })
       }
 
-      // Delete from storage
-      const { error: storageError } = await supabase.storage
+      // Delete from storage via service client (X2 hardening, mig 150).
+      // Auth + ownership already verified above via vendor_profiles.user_id check.
+      const serviceClient = createServiceClient()
+      const { error: storageError } = await serviceClient.storage
         .from('listing-images')
         .remove([image.storage_path])
 

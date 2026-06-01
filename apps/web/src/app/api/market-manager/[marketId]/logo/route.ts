@@ -78,8 +78,12 @@ export async function POST(
 
     const supabase = await createClient()
 
+    // Storage writes go through service client (X2 hardening, mig 150).
+    // Manager auth already verified upstream via isMarketManager.
+    const serviceClient = createServiceClient()
+
     crumb.supabase('insert', 'storage:vendor-images')
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await serviceClient.storage
       .from('vendor-images')
       .upload(filePath, file, {
         contentType: file.type,
@@ -93,7 +97,7 @@ export async function POST(
       })
     }
 
-    const { data: { publicUrl } } = supabase.storage
+    const { data: { publicUrl } } = serviceClient.storage
       .from('vendor-images')
       .getPublicUrl(filePath)
 
@@ -101,13 +105,11 @@ export async function POST(
     const { moderateStorageImage } = await import('@/lib/image-moderation')
     const modResult = await moderateStorageImage(publicUrl)
     if (!modResult.passed) {
-      await supabase.storage.from('vendor-images').remove([filePath])
+      await serviceClient.storage.from('vendor-images').remove([filePath])
       throw traced.validation('ERR_VALIDATION_004', modResult.reason || 'Image failed moderation')
     }
 
-    // Write the URL to markets.logo_url via service client (markets RLS
-    // varies; manager auth already verified above).
-    const serviceClient = createServiceClient()
+    // Write the URL to markets.logo_url (re-uses the same service client).
     crumb.supabase('update', 'markets')
     const { error: updateErr } = await serviceClient
       .from('markets')

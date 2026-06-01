@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
@@ -48,11 +48,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'File must be under 3MB' }, { status: 400 })
     }
 
+    // Storage writes go through the service client (X2 hardening — see
+    // mig 150). Auth already verified above.
+    const serviceClient = createServiceClient()
+
     const fileExt = file.name.split('.').pop()
     const fileName = `${vendor.id}-cover-${Date.now()}.${fileExt}`
     const filePath = `vendor-profiles/${fileName}`
 
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await serviceClient.storage
       .from('vendor-images')
       .upload(filePath, file, {
         contentType: file.type,
@@ -64,7 +68,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to upload image' }, { status: 500 })
     }
 
-    const { data: { publicUrl } } = supabase.storage
+    const { data: { publicUrl } } = serviceClient.storage
       .from('vendor-images')
       .getPublicUrl(filePath)
 
@@ -72,7 +76,7 @@ export async function POST(request: NextRequest) {
     const { moderateStorageImage } = await import('@/lib/image-moderation')
     const modResult = await moderateStorageImage(publicUrl)
     if (!modResult.passed) {
-      await supabase.storage.from('vendor-images').remove([filePath])
+      await serviceClient.storage.from('vendor-images').remove([filePath])
       return NextResponse.json({ error: modResult.reason }, { status: 400 })
     }
 
