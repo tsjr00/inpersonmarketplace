@@ -10,7 +10,7 @@ interface Props {
 
 export default function COISection({ vertical }: Props) {
   const [coiStatus, setCoiStatus] = useState<string>('not_submitted')
-  const [coiDocuments, setCoiDocuments] = useState<Array<{ url: string; filename: string; uploaded_at: string }>>([])
+  const [coiDocuments, setCoiDocuments] = useState<Array<{ url: string; path: string; filename: string; uploaded_at: string }>>([])
   const [coiVerifiedAt, setCoiVerifiedAt] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 

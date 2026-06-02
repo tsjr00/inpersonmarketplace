@@ -28,7 +28,7 @@ interface OnboardingStatus {
   }
   gate3: {
     coiStatus: string
-    coiDocuments: Array<{ url: string; filename: string; uploaded_at: string }>
+    coiDocuments: Array<{ url: string; path: string; filename: string; uploaded_at: string }>
     coiVerifiedAt: string | null
   }
   gate4?: {
@@ -668,7 +668,7 @@ function Gate2Content({
           verification={status.gate2.categoryStatuses[cat] as unknown as {
             status: string
             doc_type?: string
-            documents?: Array<{ url: string; filename: string; doc_type: string; uploaded_at: string }>
+            documents?: Array<{ url: string; path: string; filename: string; doc_type: string; uploaded_at: string }>
             reviewed_at?: string
             notes?: string
           }}

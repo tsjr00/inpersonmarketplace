@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import VendorDocLink, { extractVendorDocPathFromPublicUrl } from '@/components/shared/VendorDocLink'
 
 // Predefined certification types with display info
 const CERTIFICATION_TYPES = [
@@ -322,25 +323,39 @@ export default function CertificationsForm({
                 }}>
                   {cert.document_url ? (
                     <>
-                      <a
-                        href={cert.document_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: spacing['3xs'],
-                          padding: `${spacing['3xs']} ${spacing.xs}`,
-                          backgroundColor: colors.primaryLight,
-                          color: colors.primaryDark,
-                          borderRadius: radius.sm,
-                          fontSize: typography.sizes.xs,
-                          fontWeight: typography.weights.medium,
-                          textDecoration: 'none'
-                        }}
-                      >
-                        {getFileExtLabel(cert.document_url)} attached — View
-                      </a>
+                      {(() => {
+                        const certPath = extractVendorDocPathFromPublicUrl(cert.document_url)
+                        if (!certPath) {
+                          return (
+                            <span style={{
+                              fontSize: typography.sizes.xs,
+                              color: colors.textMuted,
+                              fontStyle: 'italic',
+                            }}>
+                              Document unavailable
+                            </span>
+                          )
+                        }
+                        return (
+                          <VendorDocLink
+                            path={certPath}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: spacing['3xs'],
+                              padding: `${spacing['3xs']} ${spacing.xs}`,
+                              backgroundColor: colors.primaryLight,
+                              color: colors.primaryDark,
+                              borderRadius: radius.sm,
+                              fontSize: typography.sizes.xs,
+                              fontWeight: typography.weights.medium,
+                              textDecoration: 'none'
+                            }}
+                          >
+                            {getFileExtLabel(cert.document_url)} attached — View
+                          </VendorDocLink>
+                        )
+                      })()}
                       <button
                         onClick={() => fileInputRefs.current[index]?.click()}
                         disabled={isUploading}

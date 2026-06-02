@@ -165,13 +165,13 @@ export default async function AdminVendorsPage({ params, searchParams }: AdminVe
   // Build a map of vendorId → verification data
   const verificationsMap: Record<string, {
     status: string
-    documents: Array<{ url: string; filename: string; type: string; uploaded_at: string }>
+    documents: Array<{ url: string; path: string; filename: string; type: string; uploaded_at: string }>
     notes: string | null
     reviewed_at: string | null
     requested_categories: string[]
-    category_verifications: Record<string, { status: string; doc_type?: string; documents?: Array<{ url: string; filename: string; doc_type: string }>; notes?: string; reviewed_at?: string }>
+    category_verifications: Record<string, { status: string; doc_type?: string; documents?: Array<{ url: string; path: string; filename: string; doc_type: string }>; notes?: string; reviewed_at?: string }>
     coi_status: string
-    coi_documents: Array<{ url: string; filename: string; uploaded_at: string }>
+    coi_documents: Array<{ url: string; path: string; filename: string; uploaded_at: string }>
     coi_verified_at: string | null
     prohibited_items_acknowledged_at: string | null
     onboarding_completed_at: string | null
@@ -179,13 +179,13 @@ export default async function AdminVendorsPage({ params, searchParams }: AdminVe
   for (const v of (verifications || [])) {
     verificationsMap[v.vendor_profile_id as string] = {
       status: (v.status as string) || 'pending',
-      documents: Array.isArray(v.documents) ? v.documents as Array<{ url: string; filename: string; type: string; uploaded_at: string }> : [],
+      documents: Array.isArray(v.documents) ? v.documents as Array<{ url: string; path: string; filename: string; type: string; uploaded_at: string }> : [],
       notes: v.notes as string | null,
       reviewed_at: v.reviewed_at as string | null,
       requested_categories: (v.requested_categories || []) as string[],
-      category_verifications: (v.category_verifications || {}) as Record<string, { status: string; doc_type?: string; documents?: Array<{ url: string; filename: string; doc_type: string }>; notes?: string; reviewed_at?: string }>,
+      category_verifications: (v.category_verifications || {}) as Record<string, { status: string; doc_type?: string; documents?: Array<{ url: string; path: string; filename: string; doc_type: string }>; notes?: string; reviewed_at?: string }>,
       coi_status: (v.coi_status as string) || 'not_submitted',
-      coi_documents: Array.isArray(v.coi_documents) ? v.coi_documents as Array<{ url: string; filename: string; uploaded_at: string }> : [],
+      coi_documents: Array.isArray(v.coi_documents) ? v.coi_documents as Array<{ url: string; path: string; filename: string; uploaded_at: string }> : [],
       coi_verified_at: v.coi_verified_at as string | null,
       prohibited_items_acknowledged_at: v.prohibited_items_acknowledged_at as string | null,
       onboarding_completed_at: v.onboarding_completed_at as string | null,

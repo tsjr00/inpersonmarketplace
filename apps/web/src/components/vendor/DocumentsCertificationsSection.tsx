@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import VendorDocLink, { extractVendorDocPathFromPublicUrl } from '@/components/shared/VendorDocLink'
 import {
   getCategoryRequirement,
   requiresDocuments,
@@ -24,7 +25,7 @@ interface GateDocStatus {
   requirementLevel: string
   status: 'not_required' | 'not_submitted' | 'pending' | 'approved' | 'rejected'
   label: string
-  documents: Array<{ url: string; filename: string; doc_type: string; uploaded_at?: string }>
+  documents: Array<{ url: string; path: string; filename: string; doc_type: string; uploaded_at?: string }>
   required?: boolean
   notes?: string
 }
@@ -451,7 +452,7 @@ export default function DocumentsCertificationsSection({
               const statusStyle = STATUS_STYLES[docStatus.status] || STATUS_STYLES.not_submitted
               const badge = docStatus.status === 'approved' ? getGateBadge(key, docStatus) : null
               const isUploading = uploadingGate === key
-              const docs = (docStatus.documents || []) as Array<{ url: string; filename: string; doc_type: string }>
+              const docs = (docStatus.documents || []) as Array<{ url: string; path: string; filename: string; doc_type: string }>
 
               // Doc type selector for FM categories with multiple accepted types
               const requirement = !isFoodTruck ? getCategoryRequirement(key as Category) : null
@@ -560,11 +561,9 @@ export default function DocumentsCertificationsSection({
                   {docs.length > 0 && (
                     <div style={{ marginTop: spacing.xs, display: 'flex', flexWrap: 'wrap', gap: spacing['2xs'] }}>
                       {docs.map((doc, i) => (
-                        <a
+                        <VendorDocLink
                           key={i}
-                          href={doc.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                          path={doc.path}
                           style={{
                             display: 'inline-flex',
                             alignItems: 'center',
@@ -579,7 +578,7 @@ export default function DocumentsCertificationsSection({
                           }}
                         >
                           {doc.filename || 'Document'} — View
-                        </a>
+                        </VendorDocLink>
                       ))}
                     </div>
                   )}
@@ -791,25 +790,39 @@ export default function DocumentsCertificationsSection({
                   <div style={{ marginTop: spacing.xs, display: 'flex', alignItems: 'center', gap: spacing.xs }}>
                     {cert.document_url ? (
                       <>
-                        <a
-                          href={cert.document_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: spacing['3xs'],
-                            padding: `${spacing['3xs']} ${spacing.xs}`,
-                            backgroundColor: colors.primaryLight,
-                            color: colors.primaryDark,
-                            borderRadius: radius.sm,
-                            fontSize: typography.sizes.xs,
-                            fontWeight: typography.weights.medium,
-                            textDecoration: 'none',
-                          }}
-                        >
-                          {getFileExtLabel(cert.document_url)} attached — View
-                        </a>
+                        {(() => {
+                          const certPath = extractVendorDocPathFromPublicUrl(cert.document_url)
+                          if (!certPath) {
+                            return (
+                              <span style={{
+                                fontSize: typography.sizes.xs,
+                                color: colors.textMuted,
+                                fontStyle: 'italic',
+                              }}>
+                                Document unavailable
+                              </span>
+                            )
+                          }
+                          return (
+                            <VendorDocLink
+                              path={certPath}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: spacing['3xs'],
+                                padding: `${spacing['3xs']} ${spacing.xs}`,
+                                backgroundColor: colors.primaryLight,
+                                color: colors.primaryDark,
+                                borderRadius: radius.sm,
+                                fontSize: typography.sizes.xs,
+                                fontWeight: typography.weights.medium,
+                                textDecoration: 'none',
+                              }}
+                            >
+                              {getFileExtLabel(cert.document_url)} attached — View
+                            </VendorDocLink>
+                          )
+                        })()}
                         <button
                           onClick={() => certFileRefs.current[index]?.click()}
                           disabled={isUploading}

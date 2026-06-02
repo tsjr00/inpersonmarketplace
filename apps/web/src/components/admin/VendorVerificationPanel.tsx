@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import { useStatusBanner } from '@/hooks/useStatusBanner'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
+import VendorDocLink from '@/components/shared/VendorDocLink'
 import {
   DOC_TYPE_LABELS,
   FOOD_TRUCK_DOC_TYPE_LABELS,
@@ -14,19 +15,19 @@ import {
 
 interface Verification {
   status: string
-  documents: Array<{ url: string; filename: string; type: string; uploaded_at: string }>
+  documents: Array<{ url: string; path: string; filename: string; type: string; uploaded_at: string }>
   notes: string | null
   reviewed_at: string | null
   requested_categories: string[]
   category_verifications: Record<string, {
     status: string
     doc_type?: string
-    documents?: Array<{ url: string; filename: string; doc_type: string }>
+    documents?: Array<{ url: string; path: string; filename: string; doc_type: string }>
     notes?: string
     reviewed_at?: string
   }>
   coi_status: string
-  coi_documents: Array<{ url: string; filename: string; uploaded_at: string }>
+  coi_documents: Array<{ url: string; path: string; filename: string; uploaded_at: string }>
   coi_verified_at: string | null
   prohibited_items_acknowledged_at: string | null
   onboarding_completed_at: string | null
@@ -191,11 +192,9 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
           <div style={{ marginBottom: spacing.xs }}>
             <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing['3xs'] }}>Documents:</div>
             {verification.documents.map((doc, i) => (
-              <a
+              <VendorDocLink
                 key={i}
-                href={doc.url}
-                target="_blank"
-                rel="noopener noreferrer"
+                path={doc.path}
                 style={{
                   display: 'inline-block',
                   marginRight: spacing['2xs'],
@@ -209,7 +208,7 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
                 }}
               >
                 {doc.filename || `Document ${i + 1}`}
-              </a>
+              </VendorDocLink>
             ))}
           </div>
         ) : (
@@ -311,11 +310,9 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
                   {docs.length > 0 && (
                     <div style={{ marginTop: spacing['3xs'] }}>
                       {docs.map((doc, i) => (
-                        <a
+                        <VendorDocLink
                           key={i}
-                          href={doc.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                          path={doc.path}
                           style={{
                             display: 'inline-block',
                             marginRight: spacing['2xs'],
@@ -328,7 +325,7 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
                           }}
                         >
                           {doc.filename} ({getDocLabel(doc.doc_type, isFoodTruck)})
-                        </a>
+                        </VendorDocLink>
                       ))}
                     </div>
                   )}
@@ -404,11 +401,9 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
         {verification.coi_documents.length > 0 ? (
           <div style={{ marginBottom: spacing.xs }}>
             {verification.coi_documents.map((doc, i) => (
-              <a
+              <VendorDocLink
                 key={i}
-                href={doc.url}
-                target="_blank"
-                rel="noopener noreferrer"
+                path={doc.path}
                 style={{
                   display: 'inline-block',
                   marginRight: spacing['2xs'],
@@ -421,7 +416,7 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
                 }}
               >
                 {doc.filename || `COI ${i + 1}`}
-              </a>
+              </VendorDocLink>
             ))}
           </div>
         ) : (

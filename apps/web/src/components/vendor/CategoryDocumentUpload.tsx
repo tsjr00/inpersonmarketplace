@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import VendorDocLink from '@/components/shared/VendorDocLink'
 import {
   getCategoryRequirement,
   requiresDocuments,
@@ -13,6 +14,7 @@ import type { Category } from '@/lib/constants'
 
 interface CategoryDoc {
   url: string
+  path: string
   filename: string
   doc_type: string
   uploaded_at: string
@@ -185,10 +187,8 @@ export default function CategoryDocumentUpload({ category, verification, onUploa
               gap: spacing['2xs'],
               marginTop: i > 0 ? spacing['3xs'] : 0,
             }}>
-              <a
-                href={doc.url}
-                target="_blank"
-                rel="noopener noreferrer"
+              <VendorDocLink
+                path={doc.path}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -203,7 +203,7 @@ export default function CategoryDocumentUpload({ category, verification, onUploa
                 }}
               >
                 {doc.filename || 'Document'} — View
-              </a>
+              </VendorDocLink>
               {doc.doc_type && (
                 <span style={{
                   fontSize: typography.sizes.xs,

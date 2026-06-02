@@ -2,9 +2,11 @@
 
 import { useState, useRef } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import VendorDocLink from '@/components/shared/VendorDocLink'
 
 interface COIDoc {
   url: string
+  path: string
   filename: string
   uploaded_at: string
 }
@@ -107,10 +109,8 @@ export default function COIUpload({ coiStatus, coiDocuments, coiVerifiedAt, onUp
               gap: spacing['2xs'],
               marginTop: i > 0 ? spacing['3xs'] : 0,
             }}>
-              <a
-                href={doc.url}
-                target="_blank"
-                rel="noopener noreferrer"
+              <VendorDocLink
+                path={doc.path}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -125,7 +125,7 @@ export default function COIUpload({ coiStatus, coiDocuments, coiVerifiedAt, onUp
                 }}
               >
                 {doc.filename || 'COI Document'} — View
-              </a>
+              </VendorDocLink>
             </div>
           ))}
         </div>

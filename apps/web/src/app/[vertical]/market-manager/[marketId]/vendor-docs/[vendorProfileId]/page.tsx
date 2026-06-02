@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
+import VendorDocLink from '@/components/shared/VendorDocLink'
 
 /**
  * Manager view of one vendor's onboarding documentation. Phase B A1
@@ -37,7 +38,7 @@ interface PageProps {
 interface CategoryVerification {
   status: string
   doc_type?: string
-  documents?: Array<{ url: string; filename: string; doc_type: string }>
+  documents?: Array<{ url: string; path: string; filename: string; doc_type: string }>
   notes?: string
   reviewed_at?: string
 }
@@ -45,6 +46,7 @@ interface CategoryVerification {
 /** Shape of each entry in vendor_verifications.coi_documents JSONB. */
 interface CoiDoc {
   url?: string
+  path?: string
   filename?: string
   uploaded_at?: string
 }
@@ -282,10 +284,14 @@ export default async function VendorDocsPage({ params }: PageProps) {
                     }}>
                       {docs.map((d, i) => (
                         <li key={i} style={{ marginBottom: spacing['3xs'] }}>
-                          {d.url ? (
-                            <a href={d.url} target="_blank" rel="noopener noreferrer" style={{ color: colors.primary, textDecoration: 'underline' }}>
+                          {d.path ? (
+                            <VendorDocLink
+                              path={d.path}
+                              marketId={marketId}
+                              style={{ color: colors.primary, textDecoration: 'underline' }}
+                            >
                               {d.filename || `Document ${i + 1}`}
-                            </a>
+                            </VendorDocLink>
                           ) : (
                             <span style={{ color: colors.textMuted }}>(no URL)</span>
                           )}
@@ -350,10 +356,14 @@ export default async function VendorDocsPage({ params }: PageProps) {
           <ul style={{ margin: 0, paddingLeft: spacing.md, fontSize: typography.sizes.sm }}>
             {coiDocuments.map((d, i) => (
               <li key={i} style={{ marginBottom: spacing['3xs'] }}>
-                {d.url ? (
-                  <a href={d.url} target="_blank" rel="noopener noreferrer" style={{ color: colors.primary, textDecoration: 'underline' }}>
+                {d.path ? (
+                  <VendorDocLink
+                    path={d.path}
+                    marketId={marketId}
+                    style={{ color: colors.primary, textDecoration: 'underline' }}
+                  >
                     {d.filename || `COI document ${i + 1}`}
-                  </a>
+                  </VendorDocLink>
                 ) : <span style={{ color: colors.textMuted }}>(no URL)</span>}
                 {d.uploaded_at && (
                   <span style={{ marginLeft: spacing.xs, color: colors.textMuted, fontSize: typography.sizes.xs }}>

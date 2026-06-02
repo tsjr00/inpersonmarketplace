@@ -1,0 +1,76 @@
+-- Migration 151: Flip vendor-documents bucket to private + drop broad SELECT (X3)
+--
+-- =============================================================================
+-- ROLLBACK
+-- =============================================================================
+-- To revert this migration on any environment, run as a single transaction.
+-- WARNING: rollback re-opens the security hole — anyone can list and download
+-- every vendor verification document (COIs, IDs, business licenses, food
+-- permits). Do NOT roll back unless explicitly directed.
+--
+--   BEGIN;
+--     UPDATE storage.buckets SET public = true WHERE id = 'vendor-documents';
+--     CREATE POLICY "vendor_documents_select"
+--       ON storage.objects FOR SELECT
+--       USING (bucket_id = 'vendor-documents');
+--   COMMIT;
+--
+-- Risk profile:
+--   This migration changes ONLY the vendor-documents bucket's public flag
+--   and removes the unconditional SELECT policy. No tables, columns, or
+--   data are touched. Existing files remain in place.
+--
+--   Companion code change (same commit) replaces all `<a href={doc.url}>`
+--   usages with `<VendorDocLink path={doc.path}>` which fetches a 1-hour
+--   signed URL from /api/vendor-documents/signed-url. The signed-URL
+--   endpoint authorizes the caller (vendor-owns / admin / manager+consent)
+--   before minting via service client.
+--
+--   After this migration: anonymous .list() returns nothing; previously
+--   published public URLs return 400 (object not found via public path).
+--   Only signed URLs (1-hour TTL, minted by the API after auth check) work.
+--
+--   Verified consumers refactored to VendorDocLink:
+--     - VendorVerificationPanel.tsx (admin: business docs, category docs, COI — 3 sites)
+--     - DocumentsCertificationsSection.tsx (vendor's own view — 2 sites)
+--     - COIUpload.tsx (vendor COI list)
+--     - CertificationsForm.tsx (vendor cert form)
+--     - FoodTruckPermitUpload.tsx (vendor FT permit list)
+--     - CategoryDocumentUpload.tsx (vendor category doc list)
+--     - market-manager/[id]/vendor-docs/[vpId]/page.tsx (manager view, 2 sites)
+--
+--   If a consumer was missed (still uses public URL), the symptom is broken
+--   doc links — clicking yields a 400 from Supabase Storage. Rollback by
+--   re-creating the policy + flipping public=true restores the prior state.
+--
+-- Dependencies: companion code change (signed-URL endpoint +
+--   <VendorDocLink> component + 8 consumer file refactors) must deploy
+--   BEFORE this migration applies, otherwise every doc link breaks
+--   immediately.
+--
+-- Env compatibility: same SQL applies cleanly to Dev / Staging / Prod.
+-- =============================================================================
+
+-- ----------------------------------------------------------------------------
+-- 1. Flip vendor-documents bucket to PRIVATE
+-- ----------------------------------------------------------------------------
+-- Existing files keep their storage paths; new uploads still go through the
+-- service-client routes (X2 mig 150 already moved writes off the auth client).
+-- After this flip, public URLs of the form
+--   https://<project>.supabase.co/storage/v1/object/public/vendor-documents/<path>
+-- return 400. Only signed URLs work.
+
+UPDATE storage.buckets SET public = false WHERE id = 'vendor-documents';
+
+-- ----------------------------------------------------------------------------
+-- 2. Drop the broad SELECT policy that allowed any client to .list() files
+-- ----------------------------------------------------------------------------
+-- The policy `vendor_documents_select` permitted `bucket_id = 'vendor-documents'`
+-- for any caller. After dropping, only service_role can read storage.objects
+-- for this bucket — exactly matches the signed-URL minting flow.
+
+DROP POLICY IF EXISTS "vendor_documents_select" ON storage.objects;
+
+-- ----------------------------------------------------------------------------
+-- Note: no NOTIFY pgrst is needed (no schema cache change for PostgREST).
+-- ----------------------------------------------------------------------------

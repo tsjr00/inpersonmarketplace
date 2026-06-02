@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import VendorDocLink from '@/components/shared/VendorDocLink'
 import {
   FOOD_TRUCK_PERMIT_REQUIREMENTS,
   FOOD_TRUCK_DOC_TYPE_LABELS,
@@ -10,6 +11,7 @@ import {
 
 interface PermitDoc {
   url: string
+  path: string
   filename: string
   doc_type: string
   uploaded_at: string
@@ -147,10 +149,8 @@ export default function FoodTruckPermitUpload({ categoryStatuses, onUploaded, ve
                     gap: spacing['2xs'],
                     marginTop: i > 0 ? spacing['3xs'] : 0,
                   }}>
-                    <a
-                      href={doc.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <VendorDocLink
+                      path={doc.path}
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -165,7 +165,7 @@ export default function FoodTruckPermitUpload({ categoryStatuses, onUploaded, ve
                       }}
                     >
                       {doc.filename || 'Document'} — View
-                    </a>
+                    </VendorDocLink>
                   </div>
                 ))}
               </div>

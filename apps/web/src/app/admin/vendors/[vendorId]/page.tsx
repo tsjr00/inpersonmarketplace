@@ -6,6 +6,7 @@ import VendorActions from './VendorActions'
 import VendorLocationEditor from './VendorLocationEditor'
 import VendorVerificationWrapper from './VendorVerificationWrapper'
 import VendorFeeOverride from './VendorFeeOverride'
+import VendorDocLink, { extractVendorDocPathFromPublicUrl } from '@/components/shared/VendorDocLink'
 
 interface VendorDetailPageProps {
   params: Promise<{ vendorId: string }>
@@ -60,13 +61,13 @@ export default async function VendorDetailPage({ params }: VendorDetailPageProps
 
   const verificationData = verification ? {
     status: (verification.status as string) || 'pending',
-    documents: Array.isArray(verification.documents) ? verification.documents as Array<{ url: string; filename: string; type: string; uploaded_at: string }> : [],
+    documents: Array.isArray(verification.documents) ? verification.documents as Array<{ url: string; path: string; filename: string; type: string; uploaded_at: string }> : [],
     notes: verification.notes as string | null,
     reviewed_at: verification.reviewed_at as string | null,
     requested_categories: (verification.requested_categories || []) as string[],
-    category_verifications: (verification.category_verifications || {}) as Record<string, { status: string; doc_type?: string; documents?: Array<{ url: string; filename: string; doc_type: string }>; notes?: string; reviewed_at?: string }>,
+    category_verifications: (verification.category_verifications || {}) as Record<string, { status: string; doc_type?: string; documents?: Array<{ url: string; path: string; filename: string; doc_type: string }>; notes?: string; reviewed_at?: string }>,
     coi_status: (verification.coi_status as string) || 'not_submitted',
-    coi_documents: Array.isArray(verification.coi_documents) ? verification.coi_documents as Array<{ url: string; filename: string; uploaded_at: string }> : [],
+    coi_documents: Array.isArray(verification.coi_documents) ? verification.coi_documents as Array<{ url: string; path: string; filename: string; uploaded_at: string }> : [],
     coi_verified_at: verification.coi_verified_at as string | null,
     prohibited_items_acknowledged_at: verification.prohibited_items_acknowledged_at as string | null,
     onboarding_completed_at: verification.onboarding_completed_at as string | null,
@@ -234,23 +235,33 @@ export default async function VendorDetailPage({ params }: VendorDetailPageProps
                     </div>
                     {cert.document_url ? (
                       <div style={{ marginTop: 8 }}>
-                        <a
-                          href={cert.document_url as string}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{
-                            display: 'inline-block',
-                            padding: '4px 10px',
-                            backgroundColor: '#0070f3',
-                            color: 'white',
-                            borderRadius: 4,
-                            fontSize: 12,
-                            textDecoration: 'none',
-                            fontWeight: 500
-                          }}
-                        >
-                          View Document {(cert.document_url as string).endsWith('.pdf') ? '(PDF)' : '(Image)'}
-                        </a>
+                        {(() => {
+                          const certPath = extractVendorDocPathFromPublicUrl(cert.document_url as string)
+                          if (!certPath) {
+                            return (
+                              <span style={{ fontSize: 12, color: '#6b7280', fontStyle: 'italic' }}>
+                                Document unavailable
+                              </span>
+                            )
+                          }
+                          return (
+                            <VendorDocLink
+                              path={certPath}
+                              style={{
+                                display: 'inline-block',
+                                padding: '4px 10px',
+                                backgroundColor: '#0070f3',
+                                color: 'white',
+                                borderRadius: 4,
+                                fontSize: 12,
+                                textDecoration: 'none',
+                                fontWeight: 500
+                              }}
+                            >
+                              View Document {(cert.document_url as string).endsWith('.pdf') ? '(PDF)' : '(Image)'}
+                            </VendorDocLink>
+                          )
+                        })()}
                       </div>
                     ) : null}
                   </div>
