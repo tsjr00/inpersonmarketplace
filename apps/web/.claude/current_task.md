@@ -7,14 +7,17 @@
 
 ## 🔴 IMMEDIATE NEXT STEP (when picking this up)
 
-**Bug to fix:** existing COI view on vendor edit page (`/farmers_market/vendor/edit`) gives "Invalid document path" error after X3 deploy + mig 151. Hypothesis: legacy COI rows in `vendor_verifications.coi_documents` JSONB were uploaded before the `path` field started being stored — they only have `{ url, filename, uploaded_at }`. My `<VendorDocLink path={doc.path}>` receives `path=undefined`, signed-URL endpoint parses 'undefined' string → 400.
+**Resolved in-flight:** Mig 151 was applied to Prod on 2026-06-01 without the X3 code being deployed to Prod. Result: every vendor-document view on Prod broke because the OLD code opened public URLs and the bucket was newly private. **The fix shipped to staging** in commit `b87bd437` (VendorDocLink accepts `url` as a legacy fallback for COI rows without `path`). **Mig 151 was rolled back on Prod** the same day to restore doc viewing.
 
-**Fix to verify and apply:**
-1. Check vendor_verifications.coi_documents JSONB for any rows missing `path` field (SQL query on staging).
-2. If confirmed: update each consumer (COIUpload, OnboardingChecklist, etc.) to fall back to `extractVendorDocPathFromPublicUrl(doc.url)` when `doc.path` is undefined — same pattern already used in CertificationsForm.tsx for `cert.document_url` (URL-only legacy data).
-3. Test → commit → push.
+**State:**
+- Mig 151 applied: Dev + Staging only.
+- X3 code shipped to staging: `522de706` (initial X3) + `b87bd437` (legacy URL fallback for COI). 51 commits ahead of `origin/main`.
+- Prod is at `c7d0b3ec` (pre-X3, pre-X2 application code), with mig 149 + mig 150 applied (X1a + X2 DB changes done) but mig 151 rolled back.
 
-**The fix is small** (~5 LOC in VendorDocLink to accept a `url` prop as fallback, OR ~10 LOC across 4-5 consumers to compute the path inline). Most of the work is testing.
+**What's next:** the Prod push (Priority 1 below). Mig 151 ships to Prod ONLY as part of that push — applied AFTER the code deploys, in the same session as migs 138-148. Trying to apply 151 first again will just break Prod doc views again.
+
+**Grandfathered COI placeholder rows (separate UX issue, NOT a security bug):**
+On staging, ~19 of 20 `vendor_verifications.coi_documents` entries had both `url` and `path` empty/null with filenames like `grandfathered_coi`, `test_coi`, `coi_2026.pdf`. These are placeholder marker rows for vendors approved without uploading an actual COI. OLD code rendered them as `<a href="">` which silently reloaded the current page when clicked. NEW VendorDocLink renders "Document unavailable" (italic grey) instead — correct behavior, no broken link. Vendors on those rows can't see an Upload button either (separate pre-existing UX gap). Backlog item: decide whether to hide placeholder rows, show a "Grandfathered" badge + upload-replacement option, or leave with "Document unavailable" label.
 
 ---
 
@@ -159,7 +162,7 @@ WHERE coi_documents @> '[{"path": null}]' OR (
 | 148 | market_documents | ✅ | ✅ | ❌ | NEW-7 |
 | 149 | revoke_anon_from_financial_rpcs | ✅ | ✅ | ✅ | X1a — applied 2026-05-31, file in `applied/` |
 | 150 | drop_storage_wide_open_policies | ✅ | ✅ | ✅ | X2 — applied 2026-06-01, file in `applied/` |
-| 151 | vendor_documents_private | ✅ | ✅ | ❌ | X3 — file in `supabase/migrations/`, Prod pending after open bug fix |
+| 151 | vendor_documents_private | ✅ | ✅ | ⏸ (rolled back) | X3 — applied to Prod 2026-06-01 then rolled back same day because X3 code wasn't deployed to Prod. Re-apply ONLY as part of the larger Prod push (after migs 138-148 + code deploy + mig 149 re-run). File in `supabase/migrations/`. |
 
 ---
 
