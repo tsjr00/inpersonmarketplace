@@ -195,6 +195,7 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
               <VendorDocLink
                 key={i}
                 path={doc.path}
+                url={doc.url}
                 style={{
                   display: 'inline-block',
                   marginRight: spacing['2xs'],
@@ -313,6 +314,7 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
                         <VendorDocLink
                           key={i}
                           path={doc.path}
+                          url={doc.url}
                           style={{
                             display: 'inline-block',
                             marginRight: spacing['2xs'],
@@ -404,6 +406,7 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
               <VendorDocLink
                 key={i}
                 path={doc.path}
+                url={doc.url}
                 style={{
                   display: 'inline-block',
                   marginRight: spacing['2xs'],

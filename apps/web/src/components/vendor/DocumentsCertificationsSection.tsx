@@ -564,6 +564,7 @@ export default function DocumentsCertificationsSection({
                         <VendorDocLink
                           key={i}
                           path={doc.path}
+                          url={doc.url}
                           style={{
                             display: 'inline-flex',
                             alignItems: 'center',

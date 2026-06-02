@@ -284,9 +284,10 @@ export default async function VendorDocsPage({ params }: PageProps) {
                     }}>
                       {docs.map((d, i) => (
                         <li key={i} style={{ marginBottom: spacing['3xs'] }}>
-                          {d.path ? (
+                          {(d.path || d.url) ? (
                             <VendorDocLink
                               path={d.path}
+                              url={d.url}
                               marketId={marketId}
                               style={{ color: colors.primary, textDecoration: 'underline' }}
                             >
@@ -356,9 +357,10 @@ export default async function VendorDocsPage({ params }: PageProps) {
           <ul style={{ margin: 0, paddingLeft: spacing.md, fontSize: typography.sizes.sm }}>
             {coiDocuments.map((d, i) => (
               <li key={i} style={{ marginBottom: spacing['3xs'] }}>
-                {d.path ? (
+                {(d.path || d.url) ? (
                   <VendorDocLink
                     path={d.path}
+                    url={d.url}
                     marketId={marketId}
                     style={{ color: colors.primary, textDecoration: 'underline' }}
                   >

@@ -151,6 +151,7 @@ export default function FoodTruckPermitUpload({ categoryStatuses, onUploaded, ve
                   }}>
                     <VendorDocLink
                       path={doc.path}
+                      url={doc.url}
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',

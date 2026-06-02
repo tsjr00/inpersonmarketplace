@@ -21,11 +21,19 @@ import { useState } from 'react'
  */
 
 export interface VendorDocLinkProps {
-  /** Storage path within the vendor-documents bucket (e.g., `coi/<vp_id>/<filename>`). */
-  path: string
+  /** Storage path within the vendor-documents bucket (e.g., `coi/<vp_id>/<filename>`).
+   *  Preferred — newer uploads store path alongside url in the doc JSONB. */
+  path?: string | undefined
+  /** Legacy fallback — stored public URL (e.g., from older COI rows or
+   *  certification document_url fields). If `path` is empty/missing, the
+   *  component parses the path out of this URL via
+   *  extractVendorDocPathFromPublicUrl(). At least one of path or url
+   *  must resolve to a valid path; otherwise the component renders
+   *  "Document unavailable" instead of a clickable link. */
+  url?: string | undefined
   /** Optional: pass when the caller is a market manager — required for the
    *  consent gate. Omit for vendor or admin contexts. */
-  marketId?: string
+  marketId?: string | undefined
   /** Display text for the link. Defaults to "View". */
   children?: React.ReactNode
   /** Optional className passthrough for styling. */
@@ -58,6 +66,7 @@ export function extractVendorDocPathFromPublicUrl(url: string | null | undefined
 
 export default function VendorDocLink({
   path,
+  url,
   marketId,
   children,
   className,
@@ -66,13 +75,38 @@ export default function VendorDocLink({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Resolve the effective storage path. Prefer the explicit `path` prop.
+  // Fall back to extracting from `url` (legacy data — older COI rows + cert
+  // document_url fields where only the public URL was stored). If neither
+  // resolves, render a "Document unavailable" placeholder instead of a
+  // broken link.
+  const trimmedPath = typeof path === 'string' ? path.trim() : ''
+  const effectivePath: string | null = trimmedPath
+    ? trimmedPath
+    : (url ? extractVendorDocPathFromPublicUrl(url) : null)
+
+  if (!effectivePath) {
+    return (
+      <span
+        className={className}
+        style={{
+          ...style,
+          color: '#6b7280',
+          fontStyle: 'italic',
+        }}
+      >
+        Document unavailable
+      </span>
+    )
+  }
+
   const handleClick = async (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault()
     if (busy) return
     setBusy(true)
     setError(null)
     try {
-      const qs = new URLSearchParams({ path })
+      const qs = new URLSearchParams({ path: effectivePath })
       if (marketId) qs.set('marketId', marketId)
       const res = await fetch(`/api/vendor-documents/signed-url?${qs.toString()}`)
       const data = await res.json().catch(() => ({}))

@@ -189,6 +189,7 @@ export default function CategoryDocumentUpload({ category, verification, onUploa
             }}>
               <VendorDocLink
                 path={doc.path}
+                url={doc.url}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',

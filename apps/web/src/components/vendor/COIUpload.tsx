@@ -111,6 +111,7 @@ export default function COIUpload({ coiStatus, coiDocuments, coiVerifiedAt, onUp
             }}>
               <VendorDocLink
                 path={doc.path}
+                url={doc.url}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
