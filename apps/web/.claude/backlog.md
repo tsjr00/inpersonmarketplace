@@ -19,9 +19,16 @@ Last updated: 2026-05-26 (Session 85 — NEW-8 testing fixes)
   - **Without revoke (today's state):** vendors who never respond get auto-declined by cron Phase 17 after 30 days. Clutters the manager's pending-invitations view for up to 30 days but is self-cleaning.
   - **Estimate:** ~1hr for A, ~30 min for B.
 
+## Priority 1 — COI upload button hidden for vendors with grandfathered placeholders (Session 87, 2026-06-02)
+
+- [ ] **Vendors with grandfathered_coi placeholder rows can't see an Upload COI button** — Discovered during the Session 87 Prod smoke test. The vendor's `vendor_verifications.coi_documents` JSONB array contains rows where both `url` and `path` are null/empty (filenames like `grandfathered_coi`, `test_coi`, `coi_2026.pdf`) — placeholders inserted when admin approved the vendor without an actual file upload. `coiStatus` ends up `'approved'` (because the verification record is approved), and `COIUpload.tsx:146` hides the upload button entirely when `coiStatus === 'approved'`. New `VendorDocLink` (X3) correctly renders "Document unavailable" for the placeholder row, replacing the prior `<a href="">` no-op clickable link. Net effect: vendor can SEE that the doc is missing but has NO way to upload a real COI without admin intervention. On staging ~19 of 20 COI rows are placeholders; likely similar on Prod.
+  - **Recommended fix (Option A from session 87 discussion):** relax `COIUpload.tsx:146` condition from `coiStatus !== 'approved'` to also show the upload button when every `coiDocuments[]` entry lacks both `path` AND a parseable `url` (i.e., all rows are placeholders). When the vendor uploads, status flips to `'pending'` and admin re-reviews the real file. Button label switches to `'+ Upload COI'` (not `'Replace COI'`) when only placeholders exist. **Estimate:** ~15 min, one-file frontend change.
+  - **Alternative (Option B):** correct the status server-side at `/api/vendor/onboarding/status` — return `coiStatus='not_submitted'` when all docs are placeholders. Touches an API consumed by several callers. ~30 min.
+  - **Independent of mig 151** — upload button visibility is purely client-side; signed-URL / private-bucket changes don't affect it.
+
 ## Priority 1 — Phase C Prod deploy + Session 83 follow-ups
 
-- [ ] **Migrations 138/139/140/141/142/143 to Prod + push 23 commits to `origin/main`** — Application order: 138 → 139 (FK to 138) → 140 (independent, adds `markets.logo_url`) → 141 (independent, adds `markets.stripe_*`) → 142 (adds `book_weekly_booth_atomic` RPC) → 143 (adds `replace_market_optin_selections` RPC). After all six applied, bookkeeping commit (move files to `applied/`, regenerate SCHEMA_SNAPSHOT structured tables via `REFRESH_SCHEMA.sql`). Then push `staging` to `origin/main` during the 9 PM–7 AM CT push window. ~30 min plus migration-application time.
+- [x] ~~**Migrations 138/139/140/141/142/143 to Prod + push 23 commits to `origin/main`**~~ — Shipped Session 87 (2026-06-02). Actual scope ended up larger: migs 138-148 + 149 re-run + 152 (new — REVOKE FROM PUBLIC closing the X1a inheritance gap) applied to Prod; 52 commits pushed via `PUSH_WINDOW_OVERRIDE=hotfix`; mig 151 application + bookkeeping commit pending in same session.
 
 - [x] ~~Notification: failed booth rental purchase~~ — Shipped in commit `e4c5206c` (Session 83). Fires `booth_rental_payment_failed_vendor` from cron Phase 16.
 

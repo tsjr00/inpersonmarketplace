@@ -2,7 +2,19 @@
 
 **Purpose:** Help future Claude sessions understand this project quickly and avoid repeating mistakes.
 
-**Last Updated:** 2026-05-19 (Session 83)
+**Last Updated:** 2026-05-23 (Session 84)
+
+## Session 84 highlights (2026-05-22 → 2026-05-23)
+
+- **v1 is feature-complete on staging.** 37 commits ahead of Prod, 10 migrations (138–147) pending Prod application.
+- **Phase E (post-market surveys) shipped end-to-end (mig 147)** — schema + cron + vendor flow + buyer flow + manager/admin results card. Cron runs hourly, fires per-market based on close time (18:00 same-day or 08:00 next-day). Custom HTML email with market logo if uploaded. Buyer one-click email unsubscribe.
+- **Booth-# uniqueness + tier capacity guards (mig 146)** — DB trigger `check_booth_number_uniqueness()` mounted on all 3 occupant tables (market_vendors, placeholders, weekly_booth_rentals); raises BOOTH_CONFLICT (P0005). App-layer pre-flight in vendor-booth + booth-placeholders routes. RPC `book_weekly_booth_atomic` updated to exclude on-platform vendor booth numbers from auto-assignment.
+- **Booth-tier + onboarding acks (mig 145)** — `market_vendors.inventory_id` required; `OnboardingSkipAckCheckbox` for "I have no existing X yet" on the vendors + placeholders wizard steps; required_total grew from 2 to 4.
+- **New `BoothOccupancyGrid` dashboard component** — per-tier cards titled "Tier N: \<size_label\>" with this-week occupant pills (placeholder + on-platform + paid-this-week badges). Date inline with heading.
+- **Public intake page polish round 2** — multi-market manager support, founder-voice marketing copy rewrite, required street address + ZIP with auto-geocode, fuzzy duplicate detection (normalized name + city), Stripe Connect locked until admin approval.
+- **Polish bundle** — refund policy notice re-added on booking form, booth label drift auto-clear with UI banner, 4 of 6 schedule-active reader gaps fixed (R29/R30 deferred — PostgREST count limitation), share button market-day awareness (3 templates including top-3-vendor list).
+- **Test data cleanup** — 5 test markets + ~70 test users wiped from Dev + Staging (29 users remaining on staging = 21 keep-list + 8 demo seeds). Cleaned via iterative SQL cleanup with FK discovery via pg_catalog.
+- **3 new feedback memory files:** work-cadence-role-split (authorized batch → execute all without re-asking), test-instructions-specificity (URL + card title + widget), preserve-pasted-content (quote back user pastes that arrive via system-reminder wrapper).
 
 ## Session 83 highlights (2026-05-19)
 
