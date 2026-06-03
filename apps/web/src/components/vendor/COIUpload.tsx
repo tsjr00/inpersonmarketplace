@@ -62,6 +62,14 @@ export default function COIUpload({ coiStatus, coiDocuments, coiVerifiedAt, onUp
 
   const statusInfo = statusColors[coiStatus] || statusColors.not_submitted
 
+  // Grandfathered placeholder rows have empty path AND empty url — no actual
+  // file behind them. When ALL existing docs are placeholders, allow upload
+  // even if coiStatus is 'approved' so the vendor can attach a real COI.
+  const hasRealDoc = coiDocuments.some(
+    (d) => Boolean(d.path?.trim()) || Boolean(d.url?.trim())
+  )
+  const showUploadButton = coiStatus !== 'approved' || !hasRealDoc
+
   return (
     <div style={{
       padding: spacing.sm,
@@ -142,8 +150,8 @@ export default function COIUpload({ coiStatus, coiDocuments, coiVerifiedAt, onUp
         </div>
       )}
 
-      {/* Upload button (show when not approved) */}
-      {coiStatus !== 'approved' && (
+      {/* Upload button — shown when not approved, OR when approved but no real doc on file (grandfathered placeholder) */}
+      {showUploadButton && (
         <div style={{ marginTop: spacing.xs }}>
           <button
             type="button"
@@ -159,7 +167,7 @@ export default function COIUpload({ coiStatus, coiDocuments, coiVerifiedAt, onUp
               cursor: uploading ? 'wait' : 'pointer',
             }}
           >
-            {uploading ? 'Uploading...' : coiDocuments.length > 0 ? 'Replace COI' : '+ Upload COI'}
+            {uploading ? 'Uploading...' : hasRealDoc ? 'Replace COI' : '+ Upload COI'}
           </button>
           <input
             ref={fileInputRef}
