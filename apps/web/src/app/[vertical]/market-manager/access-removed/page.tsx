@@ -95,7 +95,7 @@ export default async function AccessRemovedPage({ params, searchParams }: PagePr
           <p
             style={{
               margin: `0 0 ${spacing.md} 0`,
-              fontSize: typography.sizes.md,
+              fontSize: typography.sizes.base,
               color: colors.textSecondary,
               lineHeight: 1.6,
             }}
@@ -107,7 +107,7 @@ export default async function AccessRemovedPage({ params, searchParams }: PagePr
           <p
             style={{
               margin: `0 0 ${spacing.md} 0`,
-              fontSize: typography.sizes.md,
+              fontSize: typography.sizes.base,
               color: colors.textSecondary,
               lineHeight: 1.6,
             }}

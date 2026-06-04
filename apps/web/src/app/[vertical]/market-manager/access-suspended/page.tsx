@@ -73,7 +73,7 @@ export default async function AccessSuspendedPage({ params, searchParams }: Page
         <p
           style={{
             margin: `0 0 ${spacing.md} 0`,
-            fontSize: typography.sizes.md,
+            fontSize: typography.sizes.base,
             color: colors.textSecondary,
             lineHeight: 1.6,
           }}
