@@ -2,7 +2,18 @@
 
 **Purpose:** Help future Claude sessions understand this project quickly and avoid repeating mistakes.
 
-**Last Updated:** 2026-05-23 (Session 84)
+**Last Updated:** 2026-06-03 (Session 89)
+
+## Session 89 highlights (2026-06-03)
+
+- **Process diagnostic + cleanup — no code/schema/migration changes.** Diagnosed why sessions slowed; findings at `apps/web/.claude/session89_diagnostic_findings.md`. Root cause: ~27k tokens of rules + memory loaded every turn, much of it duplicated across rule files, `feedback_*.md` memories, and the MEMORY index.
+- **Cuts executed:** pruned `settings.local.json` allowlist 251→58 entries (removed two embedded `service_role` keys — user to rotate); slimmed `git-and-deployment.md` Rule 7 (teaching mode) 58→7 lines; archived 23 now-codified feedback memories to `memory/archive/` + rewrote `MEMORY.md` index; added a query-driven-enumeration rule to `verification-discipline.md` Rule 4 and a low-risk-additive migration fast path to `migration-workflow.md`; archived 34 historical `session*.md` docs to `apps/web/.claude/archive/`.
+
+## Session 87-88 highlights (2026-06-01 → 2026-06-03)
+
+- **Session 88:** Market-manager lockout **Phase 1A** shipped to staging — mig 154 (`market_manager_history` table + `markets.manager_status` column), `[marketId]/layout.tsx` guard, access-removed/suspended pages, `src/lib/markets/manager-auth.ts`. Prod intentionally held to bundle with Phase 1B. Plans authored: `manager_export_and_lockout_plan.md`, `session88_prod_readiness_audit.md`, `docs/staging_test_checklist.md`. Commits `6ae50a3d`, `68638348`.
+- **Session 87:** Security hardening — mig 149 revoked anon `EXECUTE` on 18 financial/write RPCs; mig 150 moved storage writes to service client + dropped wide-open policies; mig 151 made `vendor-documents` private + added signed-URL endpoint. COI grandfather-row fix. Bookkeeping: 13 migs moved to `applied/`. Commits `fddbc75b`, `57b0c2e0`, `522de706`, `4fc2356f`, `5f4f9dd1`.
+- **Sessions 85-86:** Code audit research (`apps/web/.claude/archive/session85_code_audit_research.md`); mig 151 prod rollback recorded (`8caf174c`). See `git log` for detail.
 
 ## Session 84 highlights (2026-05-22 → 2026-05-23)
 

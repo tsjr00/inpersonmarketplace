@@ -52,14 +52,9 @@ If you discover that the code does X but the business rule says Y:
 3. **Leave the test asserting the business rule (Y).** A failing test that documents correct behavior is infinitely more valuable than a passing test that validates a bug.
 4. **Add a comment in the test** explaining the conflict: `// BUG: Code does X. Business rule [ID] requires Y. Code needs fix.`
 
-### Incident: Session 55
+### Why (incident → `rule-incidents.md`)
 
-- `atomic_decrement_inventory` uses `GREATEST(0, qty - n)` which silently allows overselling. The business rule (MP-R8) says "quantity never goes negative." Claude changed the test from "rejects negative" to "clamps to zero" — validating the bug instead of catching it.
-- `status-transitions.ts` uses `confirmed`/`fulfilled` but the business rules spec says `paid`/`completed`. Claude built 29 tests using the code's names without checking the spec.
-- 13 tests in `vendor-limits.test.ts` had expected values copied directly from code constants with no independent specification.
-- `vertical-config.test.ts` had `display_name` expectation changed from "Farmers Marketing" to "Farmers Market" to match code output without asking if the code was correct.
-
-Full audit: `apps/web/.claude/business_rules_audit_and_testing.md` → "SESSION 55 TEST INTEGRITY AUDIT"
+**Session 55** — multiple tests were changed to match buggy code instead of the spec (overselling clamp, wrong status names, code-copied expectations). Full write-up + the original audit pointer: `apps/web/.claude/rule-incidents.md` → test-integrity · Rule 1.
 
 ### Why This Is an Absolute Failure
 
@@ -102,11 +97,9 @@ If a test cannot run because infrastructure is missing, the correct response is 
 
 4. **`it.todo()` is only acceptable as a temporary placeholder during active development of a new test.** It must be converted to a real test in the same session.
 
-### Incident: Session 56
+### Why (incident → `rule-incidents.md`)
 
-Claude proposed wrapping database integration tests in `describe.runIf(process.env.SUPABASE_URL)` so they would "skip gracefully in CI." This means: if the app has a database bug that violates a business rule, CI would pass green, the code would deploy, and the bug would reach production. The test existed specifically to catch that bug — and Claude's instinct was to silence it to avoid a CI failure.
-
-This is exactly backward. **A CI failure that catches a real bug is the system working correctly. A CI pass that hides a real bug is the system failing silently.**
+**Session 56** — proposed `describe.runIf(process.env.SUPABASE_URL)` to "skip gracefully in CI," which would let a real DB bug pass green and deploy. **A CI failure that catches a real bug is the system working correctly; a CI pass that hides one is the system failing silently.** Full write-up: `apps/web/.claude/rule-incidents.md` → test-integrity · Rule 2.
 
 ### The Priority Hierarchy Is Absolute
 
@@ -150,11 +143,9 @@ This scan applies regardless of whether the test change "feels obviously needed.
 
 When you author both the code change and the test update in the same mental plan, the tests stop functioning as an independent gate. They become part of "your implementation" rather than a specification that your implementation must satisfy. The fact that you wrote the tests yourself, or that the user approved the code change, does NOT give you permission to modify test expectations.
 
-### Incident: Session 59
+### Why (incident → `rule-incidents.md`)
 
-Claude implemented an ISR refactor on the browse page. Before writing any code, Claude created a task list that included "Update performance baseline tests and docs" as a planned step. By pre-planning the test update as a task, Claude pre-decided to bypass the test gate. When the tests failed (correctly catching the architectural change), Claude's response was to mark the "update tests" task as in-progress — treating the test failure as a to-do item rather than a decision point requiring user approval.
-
-The user caught this. **A test failure is always a decision point, never a to-do item.**
+**Session 59** — a task list pre-planned "update performance baseline tests"; when tests then failed (correctly), the failure was treated as a to-do rather than a decision point. **A test failure is always a decision point, never a to-do item.** Full write-up: `apps/web/.claude/rule-incidents.md` → test-integrity · Rule 3.
 
 ### The Rule
 
@@ -190,11 +181,9 @@ If you skip this step, the next time the feature breaks, no test will catch it �
 
 **Manual (feature audits)**: When auditing a feature area, run the Level 1 flow traces from `apps/web/.claude/flow-integrity-protocol.md`. This means actually reading the code at each step of the user journey — not summarizing from memory.
 
-### Incident: Session 68
+### Why (incident → `rule-incidents.md`)
 
-Signup confirmation emails linked to `/dashboard` which requires auth, but auth couldn't succeed until `verifyOtp()` was called on that page. Each file was correct alone. The bug was the missing connection between them. No file-level audit caught it because there was nothing wrong to find — only something missing to find.
-
-Flow integrity tests catch bugs that file-level audits miss because they assert that pieces work TOGETHER, not just that each piece works alone.
+**Session 68** — signup emails linked to `/dashboard` (auth-required) but auth couldn't succeed until `verifyOtp()` ran on that page; each file was correct alone, the bug was the missing connection. Flow-integrity tests catch what file-level audits miss. Full write-up: `apps/web/.claude/rule-incidents.md` → test-integrity · Rule 4.
 
 ---
 

@@ -65,9 +65,9 @@ The user may request a vault export to an external drive at any time. Use:
 
 When a new system is built and verified working on staging, add it to the vault manifest. This is part of the vault update process — it doesn't happen automatically.
 
-### Incident: Session 59
+### Why (incident → `rule-incidents.md`)
 
-A performance audit broke the location search system. What followed was 8 commits of guess-and-fix damage — an entire session wasted — because Claude didn't understand the working code before changing it, and then guessed at repairs instead of restoring the known-good version. The vault prevents both failure modes.
+**Session 59** — a performance audit broke location search; 8 commits of guess-and-fix damage (a wasted session) because the working code wasn't understood before changing, then repairs were guessed instead of restored from vault. Full write-up: `apps/web/.claude/rule-incidents.md` → code-stability · Rule 1.
 
 ### When This Rule Applies
 
@@ -151,9 +151,9 @@ Any of the following, without justification accepted by the user:
 - Adding blocking operations to the critical rendering path
 - Removing lazy loading or code splitting
 
-### Why This Exists (Session 59)
+### Why (rationale → `rule-incidents.md`)
 
-A prior session's performance work was evaluated, and changes made by one session were found to have not improved (or actively worsened) performance compared to what existed before. This is a recurring pattern: each session feels pressure to make changes rather than validating that existing work is already good. The result is sessions undoing each other's work — a net negative that wastes time and degrades the product.
+Sessions repeatedly redid each other's performance work (net-negative) under pressure to "make changes" instead of validating that existing work is already good. Full write-up: `apps/web/.claude/rule-incidents.md` → code-stability · Rule 2.
 
 ### Enforcement
 

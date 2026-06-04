@@ -64,21 +64,9 @@ Agents are NOT a substitute for:
 - Verifying that a claimed behavior exists in the current code
 - Confirming that a previously-documented bug still exists
 
-### Incident: Session 63
+### Why (incidents → `rule-incidents.md`)
 
-Claude was asked to "review the code base" for go-live readiness. Instead of reading the code, Claude delegated to research agents and presented their findings as verified facts. Multiple claims were wrong:
-
-1. **"Inventory overselling via GREATEST(0, qty-n)"** — Migration 078 had already rewritten the function to RAISE EXCEPTION. The fix was visible at line 736 of `checkout/session/route.ts`: `"C-1 FIX: RPC now RAISES EXCEPTION if insufficient stock"`. Claude would have seen this in 2 seconds of reading.
-
-2. **"Market boxes are premium-exclusive"** — The cart API has zero premium checks for market box subscriptions. Claude wrote "Only premium members can subscribe" on the upgrade page based on existing (wrong) translation text and an agent's summary, without reading the 30-line function that handles market box cart adds.
-
-3. **"Vendors see your premium badge on orders"** — The vendor orders API doesn't fetch buyer_tier. Claude wrote this as a feature claim without checking whether any code implements it.
-
-In each case, reading the actual code would have taken less time than the incorrect work that followed.
-
-### Incident: Session 65
-
-Claude was asked "how will the app handle this?" — a request for analysis. Claude found a bug and edited 4 production files without reading more of the code or asking. The "find the bug" reasoning relied on memory and pattern-matching rather than verified reads. The user had to demand a revert.
+**Session 63** — a "review the code base" request was answered with agents' conclusions presented as verified facts; multiple were wrong (a fix already shipped, a premium check that didn't exist, a feature claim with no implementation) — each disprovable in seconds of reading. **Session 65** — "how will the app handle this?" (an analysis request) was answered by editing 4 production files on memory/pattern-matching; required a revert. Full write-ups: `apps/web/.claude/rule-incidents.md` → verification-discipline · Rule 1.
 
 ---
 
@@ -120,15 +108,9 @@ If the snapshot fails — column missing from a live query result that the snaps
 
 `information_schema.columns` discovery queries are exempt from the gate — that's the gate's escape hatch. The result then qualifies as a fresh read for the tables it covered.
 
-### Incident: Session 73
+### Why (incidents → `rule-incidents.md`)
 
-Changed code based on belief about DB structure without checking snapshot. Caught by user. Memory file `feedback_verify_schema_before_changing.md` written then.
-
-### Incident: Session 74
-
-Drafted regression SQL with `o.payment_status` (column doesn't exist on `orders`). User asked "why do we have a schema snapshot file?" Re-tried with snapshot read, but next query used `o.vendor_payout_cents` which the snapshot claimed exists but live staging disagreed. Two failed queries before the user backlogged the investigation. Cost: ~30 min on an urgent regression.
-
-**Both Session 74 failures occurred AFTER the gate existed.** They worked because the gate had a memory loophole — Claude believed a prior read in the same session satisfied it. The 2026-05-10 amendment closes that loophole. The snapshot itself was wrong about 4 columns on `orders`, proving rule (b) above is necessary, not just (a).
+**Session 73** — changed code on a belief about DB structure without checking the snapshot; caught by user. **Session 74** — drafted regression SQL with `o.payment_status` (nonexistent), then `o.vendor_payout_cents` which the snapshot claimed but live staging lacked — two failed queries on an urgent regression. Both occurred AFTER the gate existed, via a memory loophole (closed 2026-05-10); the snapshot was itself wrong about 4 columns, proving rule (b) is necessary, not just (a). Full write-ups: `apps/web/.claude/rule-incidents.md` → verification-discipline · Rule 2.
 
 This gate cannot be overridden by autonomy mode, time pressure, urgency of the issue under investigation, or "just a quick query." Speed that produces wrong queries is slower than accuracy. The cost of the gate is one tool call.
 
@@ -199,9 +181,15 @@ When you need information (schema, configuration, business rules):
 
 Assumptions waste time and tokens when data exists. Wrong assumptions cause bugs that cost business. Example: hard-coding 24hr cutoff when `cutoff_hours` column existed in the database.
 
-### Incident: Session 70
+### Why (incident → `rule-incidents.md`)
 
-Spent 4 rounds speculating about a market-page bug root cause — filter mismatch, RLS, deleted_at, edge cache — all disproved. The fix was already shipped; the symptom was staging deploy propagation lag. Lesson: read direct page output (raw HTML/JSON/SQL result) BEFORE hypothesizing about filters, RLS, cache, or rendering.
+**Session 70** — 4 rounds speculating about a market-page bug (filter/RLS/deleted_at/cache), all disproved; the fix was already shipped and the symptom was deploy lag. **Read direct page output (raw HTML/JSON/SQL) BEFORE hypothesizing about filters, RLS, cache, or rendering.** Full write-up: `apps/web/.claude/rule-incidents.md` → verification-discipline · Rule 4.
+
+### Enumerate multi-item sets by query, never from memory
+
+When a task is "apply X to **all** the rows/functions/tables that match Y" (e.g. REVOKE on every anon-executable function, ALTER every table with column Z, update every route that calls W), **generate the list from the source and operate on that output** — do not type the list from memory. A `SELECT` against `information_schema`/`pg_catalog`, or a `Grep`, produces the authoritative set; an enumerated-from-memory list silently drops items.
+
+Session 88 incident: mig 152 was meant to REVOKE on all anon-executable cart-validation functions, but `validate_cart_item_schedule` was dropped from the hand-written list and shipped incomplete. A query would have included it.
 
 ---
 
@@ -244,22 +232,9 @@ Force the comparison. Common differences that matter:
 - **CASCADE FK present** → Either (a) design as UPDATE-the-flag (preferred), OR (b) explicitly enumerate every cascade consequence in the design doc + the user-facing copy. If the user-facing copy needs an acknowledgment dialog warning about radiating data loss, **the design is wrong; redesign**. Acknowledgment dialogs are not a substitute for non-destructive design.
 - **Pattern reuse without diff** → Stop. Read the target table's schema. Re-run Checks 1 and 2 explicitly. Document the "what's different" answer in code comments before writing the new pattern.
 
-### Incident: Session 83 (2026-05-19)
+### Why (incident → `rule-incidents.md`)
 
-Manager-editable schedule built with a delete-and-replace pattern on `market_schedules`. The table had `active BOOLEAN` (visible in the same migration I had just read). The FK from `vendor_market_schedules.schedule_id` to `market_schedules.id` was `ON DELETE CASCADE` (also visible in that same migration). The pattern was reused from `replace_market_optin_selections` (mig 143) built earlier in the same session — which had neither signal.
-
-All three gates failed silently:
-1. **Check 1 missed.** Saw `active` column, didn't read its intent.
-2. **Check 2 missed.** Saw CASCADE FK, treated it as a feature to acknowledge rather than a destructive cascade to design away from.
-3. **Check 3 missed.** Reused the optin-selections pattern without asking what was different.
-
-The acknowledgment dialog was designed AROUND the destructive cascade ("vendors at this market will get a notification of the change and may request a refund from you") instead of designing AWAY from it. The destruction was treated as a feature to be acknowledged, not as a flaw to be eliminated.
-
-Caught by user before shipping. Code reverted via `git checkout HEAD --`.
-
-**Root cause:** pattern momentum from optin selections; failure to read the `active` column's intent; failure to read the FK CASCADE as a destructive signal that demanded redesign rather than acknowledgment.
-
-**The information was not hidden.** Both signals were in the same migration file I had read in the same session. The cost of running the three checks: ~30 seconds each. The cost of skipping them: an entire feature that would have silently destroyed vendor attendance data on every Save click.
+**Session 83** — a manager-schedule editor built with delete-and-replace on `market_schedules` despite an `active BOOLEAN` soft-delete column AND an `ON DELETE CASCADE` FK both visible in the same migration; the pattern was carried over from a build (optin selections) that had neither signal. The acknowledgment dialog was designed AROUND the destructive cascade instead of away from it. Caught by user before shipping. **The information was not hidden — the three checks cost ~30s each; skipping them would have destroyed vendor attendance data on every Save.** Full write-up: `apps/web/.claude/rule-incidents.md` → verification-discipline · Rule 5.
 
 ### This rule does not lift in "Fix" mode
 

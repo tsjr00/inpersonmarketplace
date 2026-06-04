@@ -62,15 +62,9 @@ Before EVERY Edit/Write tool call, execute this check:
 3. Did the user respond with explicit approval?
 4. If EITHER answer is no → **STOP. Send a text message with your proposal and a question.**
 
-### Incident: Session 65
+### Why (incidents → `rule-incidents.md`)
 
-The user asked: "how will the app handle this?" Claude read the code, found the bug, and edited 4 production files without presenting findings or asking permission. The user had to demand a revert. The code change was already live in production.
-
-The user asked a question. Claude heard an instruction. **A question is never an instruction.** The user's words were "how will the app handle this" — a request for analysis. Claude's response should have been an explanation with options. Instead, Claude shipped code to production that the user would not have approved.
-
-### Incident: Session 63
-
-Claude edited 4 route files without explaining why. Claude fixed an RLS bug before presenting the diagnosis. Both should have followed the same sequence: explain → propose → ask → implement.
+**Session 65** — a user question ("how will the app handle this?") was treated as an instruction; Claude edited 4 production files without asking, requiring a revert. **A question is never an instruction.** **Session 63** — Claude edited 4 route files and fixed an RLS bug before presenting. Full write-ups: `apps/web/.claude/rule-incidents.md` → change-discipline · Rule 1.
 
 ### Why This Matters More Than Being Helpful
 
@@ -151,13 +145,9 @@ Before opening Edit or Write on ANY file in this list:
 
 All four steps. Every time. No exceptions.
 
-### Incident: Session 66
+### Why (incident → `rule-incidents.md`)
 
-Claude added 60 lines of event order cap enforcement to `cart/items/route.ts`. The design was approved, but modifying this specific file was never called out. The change broke the entire cart — items were not being saved. The user discovered it in production. Zero items in `cart_items` after multiple add-to-cart attempts that showed success messages.
-
-The root cause was not the code logic — it was the decision to put new code inside a critical path file without flagging the elevated risk. The cart API had been working. The change was unnecessary in that location. A separate validation endpoint would have achieved the same result without touching proven infrastructure.
-
-**Design approval ≠ file-level approval.** Approving "enforce order caps at cart-add time" does not authorize modifying `cart/items/route.ts`. The WHERE matters as much as the WHAT.
+**Session 66** — 60 lines of event-cap logic added to `cart/items/route.ts` (design approved, but the file was never called out) broke the entire cart in production: items silently not saved. **Design approval ≠ file-level approval — the WHERE matters as much as the WHAT.** Full write-up: `apps/web/.claude/rule-incidents.md` → change-discipline · Rule 3.
 
 ### When New Features Need Critical Path Changes
 

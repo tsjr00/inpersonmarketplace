@@ -44,17 +44,9 @@ For commits that do NOT ship to staging (e.g., local-only work in progress), sti
 git checkout main && git add <files> && git commit -m "..."
 ```
 
-### Incident: Session 70 (three failures in one session)
+### Why (incident → `rule-incidents.md`)
 
-1. **Commit landed on staging instead of main.** Claude had previously run `git checkout staging && git merge main && git push origin staging` for a prior commit, which left the working branch as `staging`. The next commit was meant for main but landed on `staging` because no explicit `git checkout main` ran before it.
-
-2. **Push from wrong branch.** Claude was on `main`, committed a fix, then ran `git push origin staging`. Git pushes from the **local** staging branch, not from `main`. Local staging didn't have the new commit → "Everything up-to-date." The commit never reached the remote even though the push exit code was 0 and Playwright ran successfully.
-
-3. **Pre-push hook passed both times, masking the failure.** Playwright still ran on pre-push (the hook fires on any push command), exit code was 0, notification reported success. Only explicit verification via `git log origin/staging --oneline` caught the drift.
-
-User feedback: *"I don't think more careful is going to work — it's already happened several times. You don't get tired so there's another root cause — what is it?"*
-
-The root cause: **Claude's mental model of "what branch I was on last" drifts from actual git state.** Memory is the broken thing. The chain is a mechanical replacement for memory.
+**Session 70** — three branch-state failures in one session (commit landed on staging not main; push from the wrong local branch reported "up-to-date" while nothing shipped; pre-push passed both times, masking it). **Claude's mental model of "what branch I was on" drifts from actual git state — the chain is a mechanical replacement for memory.** Full write-up: `apps/web/.claude/rule-incidents.md` → git-and-deployment · Rule 1.
 
 ### Background Execution
 
@@ -102,11 +94,9 @@ For changes that *might* break the Next.js build but pass the type system — co
 cd apps/web && npm run build  # 30-60s warm cache, before composing the commit chain
 ```
 
-### Why The Reform (Session 80)
+### Why The Reform (Session 80 → `rule-incidents.md`)
 
-Session 79 added `npm run build` to the chain after a real incident (4 bug-fix commits bundled, pre-push caught a TypeScript error, history-rewriting attempt to preserve commit count). That fix worked — but it solved the symptom, not the root cause. Root cause: `tsc --noEmit` had a gap that let TypeScript errors slip through to `next build`.
-
-Session 80 closed the gap at the type-system level by enabling `exactOptionalPropertyTypes` (Protocol 5 incident class) and adding `tsc --noEmit` to the pre-commit hook. Those two changes together eliminate ~95% of the cases that previously fell through to the pre-push hook. With the gap closed, including `npm run build` in every chain became a tax on every commit (30-60s warm cache, longer cold) for marginal protection.
+Session 79 added `npm run build` to the chain after a TypeScript error slipped past `tsc --noEmit`; Session 80 closed that gap at the type-system level (`exactOptionalPropertyTypes` + `tsc --noEmit` in pre-commit), so build-in-chain became a per-commit tax for marginal gain — hence the reform. Full write-up: `apps/web/.claude/rule-incidents.md` → git-and-deployment · Rule 2.
 
 ### Failure Response
 
