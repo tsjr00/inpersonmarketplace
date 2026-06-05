@@ -154,10 +154,18 @@ export async function DELETE(
       )
     }
 
-    // Delete schedule
+    // Soft-delete (deactivate) — NEVER hard-delete. market_schedules.active is
+    // the designed soft-delete signal. vendor_market_schedules.schedule_id is
+    // ON DELETE CASCADE and order_items/cart_items.schedule_id are SET NULL, so
+    // a hard DELETE would destroy this schedule's vendor attendance opt-ins and
+    // orphan historical order/cart references. Setting active=false fires
+    // trigger_market_schedule_deactivation, which deactivates (not deletes)
+    // vendor_market_schedules — matching this route's own "Deactivate it
+    // instead" guard above and the market-manager schedules PUT pattern. The
+    // admin schedule list filters to active rows, so the window disappears.
     const { error } = await supabase
       .from('market_schedules')
-      .delete()
+      .update({ active: false })
       .eq('id', scheduleId)
       .eq('market_id', marketId)
 
@@ -165,6 +173,6 @@ export async function DELETE(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, message: 'Schedule deleted' })
+    return NextResponse.json({ success: true, message: 'Schedule removed' })
   })
 }

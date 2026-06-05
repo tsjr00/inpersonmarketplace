@@ -10,6 +10,7 @@
  * See: event_system_deep_dive.md Parts 12-15
  */
 
+import { randomBytes } from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendNotification } from '@/lib/notifications/service'
 import { scoreVendorMatch, type VendorMatchInput } from './viability'
@@ -94,7 +95,21 @@ export async function approveEventRequest(
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
     .slice(0, 30)
-  const tokenSuffix = Date.now().toString(36).slice(-6)
+  // High-entropy suffix. The event_token is the organizer's ONLY credential
+  // for the events/[token]/* management routes (an organizer may have no
+  // account), so it must be unguessable. Previously this was
+  // Date.now().toString(36).slice(-6) — derived from the approval timestamp
+  // and therefore partially brute-forceable when combined with a public
+  // company name. Now 18 url-safe chars from ~108 bits of randomness, matching
+  // the survey-token pattern (src/lib/surveys/token.ts). Additive change:
+  // tokens already issued to organizers stay valid; only NEW events get the
+  // strong token.
+  const tokenSuffix = randomBytes(15)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '')
+    .slice(0, 18)
   const event_token = `${tokenBase}-${tokenSuffix}`
 
   // Create event market — name pulled from per-vertical terminology config

@@ -47,6 +47,14 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
     notFound()
   }
 
+  // Only show ACTIVE schedules. Schedules are soft-deleted (active=false) by
+  // the single-schedule DELETE route — the row is preserved so cascade FKs
+  // (vendor_market_schedules / order_items / cart_items) keep their links, but
+  // an inactive window should look "gone" to the admin.
+  const activeSchedules = (market.market_schedules || []).filter(
+    (s: { active?: boolean }) => s.active !== false
+  )
+
   // Transform vendors
   const vendors = market.market_vendors?.map((mv: {
     id: string
@@ -307,7 +315,7 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
         </h2>
 
         {/* Warning if no schedules */}
-        {(!market.market_schedules || market.market_schedules.length === 0) && (
+        {activeSchedules.length === 0 && (
           <div style={{
             padding: '12px 16px',
             backgroundColor: '#fef2f2',
@@ -331,10 +339,10 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
           </div>
         )}
 
-        <ScheduleDisplay schedules={market.market_schedules || []} />
+        <ScheduleDisplay schedules={activeSchedules} />
 
         <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid #eee' }}>
-          <ScheduleManager marketId={id} schedules={market.market_schedules || []} />
+          <ScheduleManager marketId={id} schedules={activeSchedules} />
         </div>
       </div>
 

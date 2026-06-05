@@ -68,9 +68,9 @@ export default function ScheduleManager({ marketId, schedules }: ScheduleManager
   const handleDelete = (scheduleId: string) => {
     setConfirmDialog({
       open: true,
-      title: 'Delete Schedule',
-      message: 'Delete this schedule? This action cannot be undone.',
-      confirmLabel: 'Delete',
+      title: 'Remove Schedule',
+      message: 'Remove this schedule? It will stop appearing as a pickup option. Existing orders and vendor attendance records are preserved, and you can re-add the same day/time later.',
+      confirmLabel: 'Remove',
       variant: 'danger',
       onConfirm: () => executeDelete(scheduleId),
     })

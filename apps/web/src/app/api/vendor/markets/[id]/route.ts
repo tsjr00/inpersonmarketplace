@@ -140,22 +140,38 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     // For private pickup markets, update the schedules
     if (market.market_type === 'private_pickup' && pickup_windows) {
-      // Phase 6: Check for pending orders before modifying schedules
-      // Get existing schedules
+      // SOFT-UPSERT — never DELETE. market_schedules.active is the designed
+      // soft-delete signal; vendor_market_schedules.schedule_id is ON DELETE
+      // CASCADE and order_items/cart_items.schedule_id are ON DELETE SET NULL,
+      // so a blanket DELETE would destroy vendor attendance opt-ins and orphan
+      // order/cart references — even for windows the vendor kept. Match by
+      // (day, start, end) normalized to HH:MM (DB stores HH:MM:SS, the client
+      // sends HH:MM — the previous code compared the two unnormalized, so the
+      // match always failed; with delete-all+insert that was masked). UPDATE
+      // active in place (fires trigger_market_schedule_deactivation), INSERT
+      // new windows, set active=false on removed ones. Key by day+start+end
+      // (Session 90 decision B) to support multiple windows per day.
+      const normTime = (t: string) => String(t).slice(0, 5)
+      const keyOf = (d: number | string, s: string, e: string) =>
+        `${parseInt(String(d))}|${normTime(s)}|${normTime(e)}`
+
       crumb.supabase('select', 'market_schedules', { check: 'existing' })
       const { data: existingSchedules } = await supabase
         .from('market_schedules')
-        .select('id, day_of_week, start_time, end_time')
+        .select('id, day_of_week, start_time, end_time, active')
         .eq('market_id', marketId)
 
-      // Find schedules being removed (not in new pickup_windows)
       const newWindowKeys = new Set(
-        pickup_windows.map((w: { day_of_week: number; start_time: string; end_time: string }) =>
-          `${w.day_of_week}|${w.start_time}|${w.end_time}`
+        (pickup_windows as Array<{ day_of_week: number; start_time: string; end_time: string }>).map(w =>
+          keyOf(w.day_of_week, w.start_time, w.end_time)
         )
       )
+
+      // Active windows being removed (not in new set). Only active rows carry
+      // live pickup availability, so only they need the pending-order guard.
       const schedulesBeingRemoved = (existingSchedules || []).filter(s =>
-        !newWindowKeys.has(`${s.day_of_week}|${s.start_time}|${s.end_time}`)
+        s.active !== false &&
+        !newWindowKeys.has(keyOf(s.day_of_week as number, s.start_time as string, s.end_time as string))
       )
 
       if (schedulesBeingRemoved.length > 0) {
@@ -181,31 +197,61 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         }
       }
 
-      crumb.supabase('delete', 'market_schedules')
-      const { error: deleteSchedulesError } = await supabase
-        .from('market_schedules')
-        .delete()
-        .eq('market_id', marketId)
-
-      if (deleteSchedulesError) {
-        throw traced.fromSupabase(deleteSchedulesError, { table: 'market_schedules', operation: 'delete' })
+      const existingByKey = new Map<string, { id: string; active: boolean }>()
+      for (const s of existingSchedules || []) {
+        existingByKey.set(
+          keyOf(s.day_of_week as number, s.start_time as string, s.end_time as string),
+          { id: s.id as string, active: s.active !== false }
+        )
       }
 
-      crumb.supabase('insert', 'market_schedules')
-      const schedules = pickup_windows.map((window: { day_of_week: number; start_time: string; end_time: string }) => ({
-        market_id: marketId,
-        day_of_week: parseInt(String(window.day_of_week)),
-        start_time: window.start_time,
-        end_time: window.end_time,
-        active: true
-      }))
+      // Reactivate/keep windows in the new set; insert genuinely new ones.
+      const seenKeys = new Set<string>()
+      for (const w of pickup_windows as Array<{ day_of_week: number; start_time: string; end_time: string }>) {
+        const k = keyOf(w.day_of_week, w.start_time, w.end_time)
+        seenKeys.add(k)
+        const existing = existingByKey.get(k)
+        if (existing) {
+          if (!existing.active) {
+            crumb.supabase('update', 'market_schedules')
+            const { error: reactErr } = await supabase
+              .from('market_schedules')
+              .update({ active: true })
+              .eq('id', existing.id)
+            if (reactErr) {
+              throw traced.fromSupabase(reactErr, { table: 'market_schedules', operation: 'update' })
+            }
+          }
+        } else {
+          crumb.supabase('insert', 'market_schedules')
+          const { error: insErr } = await supabase
+            .from('market_schedules')
+            .insert({
+              market_id: marketId,
+              day_of_week: parseInt(String(w.day_of_week)),
+              start_time: w.start_time,
+              end_time: w.end_time,
+              active: true,
+            })
+          if (insErr) {
+            throw traced.fromSupabase(insErr, { table: 'market_schedules', operation: 'insert' })
+          }
+        }
+      }
 
-      const { error: scheduleError } = await supabase
-        .from('market_schedules')
-        .insert(schedules)
-
-      if (scheduleError) {
-        throw traced.fromSupabase(scheduleError, { table: 'market_schedules', operation: 'insert' })
+      // Deactivate windows that are gone (soft-delete; the deactivation trigger
+      // cascades is_active=false to vendor_market_schedules without deleting).
+      for (const [k, row] of existingByKey) {
+        if (!seenKeys.has(k) && row.active) {
+          crumb.supabase('update', 'market_schedules')
+          const { error: deactErr } = await supabase
+            .from('market_schedules')
+            .update({ active: false })
+            .eq('id', row.id)
+          if (deactErr) {
+            throw traced.fromSupabase(deactErr, { table: 'market_schedules', operation: 'update' })
+          }
+        }
       }
     }
 

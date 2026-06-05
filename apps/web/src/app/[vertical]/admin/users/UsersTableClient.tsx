@@ -84,6 +84,7 @@ export default function UsersTableClient({
   const [exporting, setExporting] = useState(false)
   const [suspendTarget, setSuspendTarget] = useState<{ userId: string; name: string; action: 'suspend' | 'reactivate' } | null>(null)
   const [suspending, setSuspending] = useState(false)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
   const handleSuspendAction = async () => {
     if (!suspendTarget) return
@@ -98,10 +99,10 @@ export default function UsersTableClient({
         router.refresh()
       } else {
         const data = await res.json()
-        alert(data.error || 'Failed')
+        setToast({ message: data.error || 'Something went wrong — the change was not saved. Please try again.', type: 'error' })
       }
     } catch {
-      alert('Network error')
+      setToast({ message: 'Network error — the change was not saved. Check your connection and try again.', type: 'error' })
     }
     setSuspending(false)
     setSuspendTarget(null)
@@ -548,6 +549,28 @@ export default function UsersTableClient({
         onConfirm={handleSuspendAction}
         onCancel={() => setSuspendTarget(null)}
       />
+
+      {toast && (
+        <div
+          onClick={() => setToast(null)}
+          style={{
+            position: 'fixed',
+            bottom: 20,
+            right: 20,
+            padding: `${spacing.xs} ${spacing.md}`,
+            backgroundColor: toast.type === 'success' ? '#d1fae5' : '#fee2e2',
+            border: `1px solid ${toast.type === 'success' ? '#10b981' : '#ef4444'}`,
+            borderRadius: radius.md,
+            color: toast.type === 'success' ? '#065f46' : '#991b1b',
+            fontSize: typography.sizes.sm,
+            zIndex: 1000,
+            boxShadow: shadows.lg,
+            cursor: 'pointer',
+          }}
+        >
+          {toast.message}
+        </div>
+      )}
     </>
   )
 }

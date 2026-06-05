@@ -149,33 +149,87 @@ export async function PUT(
         }
       }
 
-      // Delete existing schedules and insert new ones (use service client)
-      const { error: deleteError } = await serviceClient
+      // SOFT-UPSERT — never DELETE. `market_schedules.active` is the designed
+      // soft-delete signal. Three FKs reference market_schedules(id):
+      // vendor_market_schedules.schedule_id (ON DELETE CASCADE),
+      // cart_items.schedule_id + order_items.schedule_id (ON DELETE SET NULL).
+      // A blanket DELETE here would cascade-destroy every vendor's attendance
+      // opt-in for this market and orphan existing order/cart references. So we
+      // match existing rows by (day, start, end), UPDATE in place (preserving
+      // id and firing trigger_market_schedule_deactivation, which deactivates —
+      // not deletes — vendor_market_schedules when active flips true→false),
+      // INSERT genuinely new windows, and set active=false on windows that are
+      // gone. Key by day+start+end (Session 90 decision B) so multiple windows
+      // per day are supported; editing a window's time deactivates the old one
+      // and inserts the new. Mirrors market-manager/[marketId]/schedules PUT.
+      const normTime = (t: string) => String(t).slice(0, 5) // HH:MM[:SS] -> HH:MM
+      const keyOf = (d: number, s: string, e: string) => `${d}|${normTime(s)}|${normTime(e)}`
+
+      const { data: existingRows, error: existingErr } = await serviceClient
         .from('market_schedules')
-        .delete()
+        .select('id, day_of_week, start_time, end_time, active')
         .eq('market_id', marketId)
 
-      if (deleteError) {
-        console.error('Error deleting old schedules:', deleteError)
+      if (existingErr) {
+        console.error('Error loading existing schedules:', existingErr)
         return NextResponse.json({ error: 'Failed to update schedules' }, { status: 500 })
       }
 
-      // Insert new schedules
-      const scheduleInserts = schedules.map((s: { day_of_week: number | string; start_time: string; end_time: string; active?: boolean }) => ({
-        market_id: marketId,
-        day_of_week: typeof s.day_of_week === 'string' ? parseInt(s.day_of_week) : s.day_of_week,
-        start_time: s.start_time,
-        end_time: s.end_time,
-        active: s.active !== false
-      }))
+      const existingByKey = new Map<string, { id: string; active: boolean }>()
+      for (const row of existingRows || []) {
+        existingByKey.set(
+          keyOf(row.day_of_week as number, row.start_time as string, row.end_time as string),
+          { id: row.id as string, active: row.active !== false }
+        )
+      }
 
-      const { error: insertError } = await serviceClient
-        .from('market_schedules')
-        .insert(scheduleInserts)
+      const seenKeys = new Set<string>()
+      for (const s of schedules as Array<{ day_of_week: number | string; start_time: string; end_time: string; active?: boolean }>) {
+        const day = typeof s.day_of_week === 'string' ? parseInt(s.day_of_week) : s.day_of_week
+        const wantActive = s.active !== false
+        const k = keyOf(day, s.start_time, s.end_time)
+        seenKeys.add(k)
+        const existing = existingByKey.get(k)
+        if (existing) {
+          if (existing.active !== wantActive) {
+            const { error: updErr } = await serviceClient
+              .from('market_schedules')
+              .update({ active: wantActive })
+              .eq('id', existing.id)
+            if (updErr) {
+              console.error('Error updating schedule:', updErr)
+              return NextResponse.json({ error: 'Failed to update schedules' }, { status: 500 })
+            }
+          }
+        } else if (wantActive) {
+          const { error: insErr } = await serviceClient
+            .from('market_schedules')
+            .insert({
+              market_id: marketId,
+              day_of_week: day,
+              start_time: s.start_time,
+              end_time: s.end_time,
+              active: true,
+            })
+          if (insErr) {
+            console.error('Error inserting schedule:', insErr)
+            return NextResponse.json({ error: 'Failed to create schedules' }, { status: 500 })
+          }
+        }
+      }
 
-      if (insertError) {
-        console.error('Error inserting schedules:', insertError)
-        return NextResponse.json({ error: 'Failed to create schedules' }, { status: 500 })
+      // Deactivate windows no longer present (soft-delete, not DELETE)
+      for (const [k, row] of existingByKey) {
+        if (!seenKeys.has(k) && row.active) {
+          const { error: deactErr } = await serviceClient
+            .from('market_schedules')
+            .update({ active: false })
+            .eq('id', row.id)
+          if (deactErr) {
+            console.error('Error deactivating schedule:', deactErr)
+            return NextResponse.json({ error: 'Failed to update schedules' }, { status: 500 })
+          }
+        }
       }
     }
 

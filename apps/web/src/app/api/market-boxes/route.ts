@@ -21,6 +21,17 @@ export async function GET(request: NextRequest) {
     const marketId = searchParams.get('market')
     const dayOfWeek = searchParams.get('day') // 0-6
 
+    // A marketplace must be specified so we only return boxes for the
+    // marketplace you're browsing (keeps Farmers Market and Food Truck
+    // listings separate). Without it we'd mix verticals — so we ask for it
+    // rather than guess. Nothing is broken; just add ?vertical=... to the URL.
+    if (!verticalId) {
+      return NextResponse.json(
+        { error: 'Please choose a marketplace first — boxes are shown per marketplace, so this request needs a "vertical" (e.g. farmers_market or food_trucks). Nothing went wrong on your end.' },
+        { status: 400 }
+      )
+    }
+
     // Build query for active offerings
     let query = supabase
       .from('market_box_offerings')
@@ -54,10 +65,9 @@ export async function GET(request: NextRequest) {
       `)
       .eq('active', true)
 
-    // Apply filters
-    if (verticalId) {
-      query = query.eq('vertical_id', verticalId)
-    }
+    // Apply filters — vertical_id is always enforced (guarded above) so we
+    // never leak offerings across marketplaces.
+    query = query.eq('vertical_id', verticalId)
 
     if (marketId) {
       query = query.eq('pickup_market_id', marketId)

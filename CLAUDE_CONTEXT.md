@@ -448,7 +448,7 @@ Migrations 001–041 applied to Dev, Staging, and Production. All in `supabase/m
 - **All branches synced**: main = origin/main = staging (as of Session 40)
 - **Dev out of sync**: Migrations 039-041 on Staging+Prod. Dev needs these applied. Also 105 failed on dev (missing event columns — migration 039 never applied to dev).
 - **Events feature**: Shopping flow working end-to-end on prod (Session 66). Lifecycle auto-transitions via cron. Vendor capacity caps designed + columns added, enforcement pending reimplementation.
-- **3 vendor routes still use direct `vendor_profiles .single()` (Session 70 finding, not fixed)**: `api/vendor/cover-image/route.ts:21`, `api/vendor/stripe/onboard/route.ts:28`, `api/vendor/stripe/status/route.ts:26`. Will 500 for multi-vertical users without `?vertical=` param. Same migration pattern as the 30 routes already shipped — pick up in a later session.
+- **3 vendor routes single() — FIXED** (verified Session 90): `api/vendor/cover-image/route.ts:21`, `api/vendor/stripe/onboard/route.ts:28`, `api/vendor/stripe/status/route.ts:26` now all use `getVendorProfileForVertical` (the `?vertical=` aware helper). The Session 70 "not fixed" note was stale.
 - **Dead endpoint `/api/analytics/vitals`**: FIXED Session 70 — env-var gated, 404 noise silenced.
 - **Session 70 commits pushed to prod**: DONE Session 71 — ERR_VENDOR_001 confirmed stopped.
 - **Hybrid event payment model**: Hidden from event form (Session 71). Entire checkout/order flow is a dead end — config works but no split-payment logic exists. Needs dedicated design session to implement.

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 import { useStatusBanner } from '@/hooks/useStatusBanner'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 
 type TabType = 'activity' | 'referrals'
 
@@ -128,6 +129,7 @@ export default function VendorActivityClient({
   const [processingId, setProcessingId] = useState<string | null>(null)
   const [actionNotes, setActionNotes] = useState('')
   const [showNotesModal, setShowNotesModal] = useState<{ flagId: string; action: string } | null>(null)
+  const [showBulkDismiss, setShowBulkDismiss] = useState(false)
 
   // Referrals state
   const [referralStats, setReferralStats] = useState<ReferralStats | null>(null)
@@ -398,19 +400,7 @@ export default function VendorActivityClient({
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: spacing.sm }}>
           {statusFilter === 'pending' && flags.length > 0 && (
             <button
-              onClick={async () => {
-                if (!confirm(`Dismiss all ${flags.length} visible pending flags?`)) return
-                setProcessingId('bulk')
-                for (const flag of flags) {
-                  await fetch(`/api/admin/vendor-activity/flags/${flag.id}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'dismiss', notes: 'Bulk dismissed' })
-                  })
-                }
-                setProcessingId(null)
-                await fetchFlags()
-              }}
+              onClick={() => setShowBulkDismiss(true)}
               disabled={processingId === 'bulk'}
               style={{
                 padding: `${spacing['2xs']} ${spacing.sm}`,
@@ -1049,6 +1039,28 @@ export default function VendorActivityClient({
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={showBulkDismiss}
+        title="Dismiss all visible flags?"
+        message={`This will dismiss all ${flags.length} visible pending flag${flags.length === 1 ? '' : 's'}.`}
+        confirmLabel="Dismiss All"
+        variant="danger"
+        onConfirm={async () => {
+          setShowBulkDismiss(false)
+          setProcessingId('bulk')
+          for (const flag of flags) {
+            await fetch(`/api/admin/vendor-activity/flags/${flag.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'dismiss', notes: 'Bulk dismissed' })
+            })
+          }
+          setProcessingId(null)
+          await fetchFlags()
+        }}
+        onCancel={() => setShowBulkDismiss(false)}
+      />
     </div>
   )
 }

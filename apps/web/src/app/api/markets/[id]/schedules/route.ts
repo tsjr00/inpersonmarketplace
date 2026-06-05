@@ -127,6 +127,37 @@ export async function POST(
       )
     }
 
+    // Reactivate-or-insert. Schedules are soft-deleted (active=false) by the
+    // DELETE route, so a re-add of the same day/time should revive the existing
+    // row — preserving its id and any historical FK links (order_items /
+    // cart_items / vendor_market_schedules) — rather than create a duplicate.
+    const normTime = (t: string) => String(t).slice(0, 5)
+    const { data: sameDayRows } = await supabase
+      .from('market_schedules')
+      .select('id, start_time, end_time')
+      .eq('market_id', marketId)
+      .eq('day_of_week', day_of_week)
+
+    const match = (sameDayRows || []).find(
+      r => normTime(r.start_time as string) === normTime(start_time) &&
+           normTime(r.end_time as string) === normTime(end_time)
+    )
+
+    if (match) {
+      const { data: schedule, error } = await supabase
+        .from('market_schedules')
+        .update({ active })
+        .eq('id', match.id)
+        .select()
+        .single()
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+
+      return NextResponse.json({ schedule }, { status: 200 })
+    }
+
     // Create schedule
     const { data: schedule, error } = await supabase
       .from('market_schedules')

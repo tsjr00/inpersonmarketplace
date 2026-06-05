@@ -1,0 +1,108 @@
+-- Migration 153: Revoke PUBLIC + anon EXECUTE on validate_cart_item_schedule (X1b follow-up)
+--
+-- =============================================================================
+-- ROLLBACK
+-- =============================================================================
+-- To revert this migration on any environment, run as a single transaction.
+-- WARNING: rollback re-opens the security hole — anon callers will again be
+-- able to invoke this SECURITY DEFINER function via /rest/v1/rpc/<name>
+-- because PUBLIC includes the anon role.
+--
+--   BEGIN;
+--     GRANT EXECUTE ON FUNCTION public.validate_cart_item_schedule(uuid, uuid, date) TO PUBLIC;
+--   COMMIT;
+--
+-- =============================================================================
+-- WHY THIS MIGRATION EXISTS
+-- =============================================================================
+-- Migrations 149 + 152 closed the anon-callable-SECURITY-DEFINER advisor
+-- warning for 18 financial / write / cart functions — INCLUDING the two
+-- sibling cart validators validate_cart_item_inventory(uuid, integer) and
+-- validate_cart_item_market(uuid, uuid). But the THIRD cart validator,
+-- validate_cart_item_schedule(uuid, uuid, date), was overlooked in both
+-- migrations' scope. It still appears in the Supabase advisor's
+-- `anon_security_definer_function_executable` list (confirmed Session 87
+-- Prod advisor; carried as Session 88 current_task lingering note 1).
+--
+-- The function is SECURITY DEFINER (defined in
+-- 20260205_002_pickup_scheduling_functions.sql, LANGUAGE plpgsql STABLE
+-- SECURITY DEFINER SET search_path = public). The default Postgres behavior
+-- on CREATE FUNCTION is to GRANT EXECUTE TO PUBLIC, and `anon` inherits
+-- EXECUTE through PUBLIC. This migration revokes from BOTH PUBLIC and anon
+-- in one step (mig 149 → 152 needed two passes because 149 only removed the
+-- direct anon grant and left PUBLIC inheritance; doing both here avoids that).
+--
+-- After this:
+--   - PUBLIC:        no EXECUTE
+--   - anon:          no EXECUTE
+--   - authenticated: EXECUTE retained (explicit grant in proacl)
+--   - service_role:  EXECUTE retained (explicit grant in proacl)
+--   - owner:         EXECUTE retained (always)
+--
+-- =============================================================================
+-- VERIFIED CALLER AUDIT (Session 90, 2026-06-05)
+-- =============================================================================
+-- Requirement: "must run with role = authenticated OR service_role (not anon)".
+-- Grep of apps/web/src for validate_cart_item_schedule found exactly ONE
+-- caller:
+--
+--   validate_cart_item_schedule:
+--     - cart/items POST listing-add (auth-gated). The route calls
+--       supabase.auth.getUser() and returns 401 ERR_AUTH_001 for anon
+--       (verified at cart/items/route.ts:27-30) BEFORE reaching the
+--       .rpc('validate_cart_item_schedule', ...) call at cart/items/route.ts:152.
+--       So the RPC only ever executes as the `authenticated` role.
+--
+-- This is the identical situation to its two siblings
+-- (validate_cart_item_inventory, validate_cart_item_market) already revoked
+-- safely by mig 152 from the same cart flow. The function is also called
+-- internally by validate_cart_contents() (same file, line ~324) — an
+-- internal SECURITY DEFINER → SECURITY DEFINER call that runs as the function
+-- owner, unaffected by anon/PUBLIC EXECUTE grants. No anon code path exists.
+--
+-- =============================================================================
+-- ENV COMPATIBILITY
+-- =============================================================================
+-- validate_cart_item_schedule is a repo migration function (20260205_002), so
+-- it exists on Dev, Staging, and Prod. The DO block with to_regprocedure() is
+-- belt-and-suspenders: it makes the file a clean no-op on any env where the
+-- function is (unexpectedly) absent, matching the mig 152 pattern.
+--
+-- =============================================================================
+-- IDEMPOTENCY
+-- =============================================================================
+-- REVOKE on a privilege the role doesn't have is a no-op. This file can be
+-- re-run any number of times safely.
+-- =============================================================================
+
+DO $$
+BEGIN
+  IF to_regprocedure('public.validate_cart_item_schedule(uuid, uuid, date)') IS NOT NULL THEN
+    REVOKE EXECUTE ON FUNCTION public.validate_cart_item_schedule(uuid, uuid, date) FROM PUBLIC;
+    REVOKE EXECUTE ON FUNCTION public.validate_cart_item_schedule(uuid, uuid, date) FROM anon;
+  END IF;
+END $$;
+
+-- ----------------------------------------------------------------------------
+-- Note: no NOTIFY pgrst is needed — REVOKE doesn't change the schema cache.
+-- PostgREST will pick up the new permissions on its next request.
+-- ----------------------------------------------------------------------------
+
+-- ============================================================================
+-- VERIFICATION (run AFTER the migration. Expect: no rows.)
+-- ============================================================================
+-- Returns a row ONLY if PUBLIC still has EXECUTE (the empty-grantee `=X/...`
+-- entry is still in proacl). After this migration applies, expect ZERO rows.
+--
+--   SELECT n.nspname AS schema,
+--          p.proname AS function_name,
+--          pg_catalog.array_to_string(p.proacl, ', ') AS acl
+--   FROM pg_proc p
+--   JOIN pg_namespace n ON n.oid = p.pronamespace
+--   WHERE n.nspname = 'public'
+--     AND p.proname = 'validate_cart_item_schedule'
+--     AND EXISTS (
+--       SELECT 1 FROM unnest(p.proacl) AS acl_entry
+--       WHERE acl_entry::text LIKE '=%'  -- empty grantee = PUBLIC
+--          OR acl_entry::text LIKE 'anon=%'
+--     );
