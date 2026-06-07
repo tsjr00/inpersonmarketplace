@@ -13,7 +13,9 @@ Full code/systems review done (findings + verification in `apps/web/.claude/sess
 - **Item 3 (security, LOW)** — `api/market-boxes/route.ts` vertical_id filter now required + friendly 400.
 - **Item 4 (UI)** — confirm()→ConfirmDialog (VendorActivityClient), alert()→Toast pattern (both UsersTableClient variants, mirrors ListingsTableClient).
 
-**Pending user approval:** (a) mig 153 (revoke validate_cart_item_schedule from PUBLIC+anon — plan presented, caller audit done: only auth-gated cart/items:152 calls it); (b) doc-line fix CLAUDE_CONTEXT.md:451 (stale — 3 vendor routes already fixed); (c) staging push of Items 1-4.
+**Done:** Items 1-4 committed + pushed to staging (commit `12ee9069`, pre-push build+Playwright green). Doc-line CLAUDE_CONTEXT.md:451 fixed. **mig 153 APPLIED to all 3 envs 2026-06-05** (Dev + Staging + Prod; verified `has_function_privilege('anon',...)`=false on each) → file moved to `applied/`, SCHEMA_SNAPSHOT changelog marked applied.
+
+**Remaining:** (a) bookkeeping commit (snapshot + 153 file move + this file) → staging; (b) Items 1-4 + bookkeeping prod push after user tests staging (respect 9PM-7AM CT window).
 
 ---
 
