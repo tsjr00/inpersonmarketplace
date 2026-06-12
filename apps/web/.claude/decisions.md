@@ -94,6 +94,8 @@ Structured record of business and architecture decisions. Check here before aski
 
 **DO NOT modify any of these files without understanding the full flow first.**
 
+> **Mechanically enforced since Session 92 (2026-06-11):** these files (plus the critical-path list, `constants.ts`, this file, and the enforcement layer itself) are in `apps/web/.claude/protected-paths.txt`. A PreToolUse hook (`.claude/settings.json` → `apps/web/scripts/hooks/protected-paths-check.mjs`) DENIES Claude's first Edit/Write attempt per session on each protected path and instructs it to read the governing decision and verify the change before retrying — the gate redirects Claude's judgment; it does not prompt the user. When a future decision protects more files, ADD THEM TO THE LIST in the same session. Context: Session 92 incident — external-payment files were modified without this section having been read (EXTERNAL_PAYMENTS_ENABLED=false was missed entirely).
+
 **Flow:**
 1. **Checkout** (`api/checkout/external/route.ts`): Creates order with `vendor_payout_cents = subtotal` (full amount). Buyer charged `subtotal + 6.5%`. No vendor fee recorded yet — vendor hasn't received payment.
 2. **Vendor confirms payment** (`api/vendor/orders/[id]/confirm-external-payment/route.ts:106-123`): For non-cash methods (Venmo/CashApp/PayPal), calls `recordExternalPaymentFee()` which writes 3.5% vendor fee to `vendor_fee_ledger`. Cash orders skip this — deferred to fulfill.

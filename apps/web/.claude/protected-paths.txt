@@ -1,0 +1,47 @@
+# Protected paths — enforced mechanically by the PreToolUse hook
+# (.claude/settings.json -> apps/web/scripts/hooks/protected-paths-check.mjs).
+# The FIRST Edit/Write attempt per session on a matching path is DENIED with an
+# instruction to Claude: read the governing decision, verify the change, retry.
+# The conscious retry proceeds. This redirects Claude's judgment at the moment
+# of action — it does not prompt the user.
+#
+# Format: <path substring> :: <hint naming the governing decision>
+# Matching: case-insensitive substring against the normalized (forward-slash)
+# absolute target path. '#' starts a comment.
+#
+# MAINTENANCE RULE: when a decision in apps/web/.claude/decisions.md declares
+# files protected (or a feature flag freezes a subsystem), add those files here
+# in the same session. This list is the enforcement point; decisions.md is the
+# record.
+
+# --- Decision-log protected: External Payment Fee Flow (dormant subsystem)
+src/lib/payments/vendor-fees.ts :: decisions.md "External Payment Fee Flow — Protected Architecture" (Session 62) + "External payments hidden" EXTERNAL_PAYMENTS_ENABLED=false (Session 63)
+src/app/api/checkout/external/route.ts :: decisions.md "External Payment Fee Flow — Protected Architecture" (Session 62) + EXTERNAL_PAYMENTS_ENABLED=false (Session 63)
+src/app/api/vendor/orders/[id]/confirm-external-payment/route.ts :: decisions.md "External Payment Fee Flow — Protected Architecture" (Session 62) + EXTERNAL_PAYMENTS_ENABLED=false (Session 63)
+
+# --- Feature-flag home
+src/lib/constants.ts :: holds platform feature flags (EXTERNAL_PAYMENTS_ENABLED etc.) — check decisions.md before changing any flag or constant
+
+# --- The decision log itself
+apps/web/.claude/decisions.md :: the decision record — additive entries only; never rewrite/delete past decisions without explicit user direction
+
+# --- The enforcement layer itself (self-protecting)
+apps/web/.claude/protected-paths.txt :: the enforcement list — additions are routine (maintenance rule above); REMOVALS require explicit user direction
+apps/web/scripts/hooks/protected-paths-check.mjs :: the enforcement hook — changing it weakens the gate; requires explicit user direction
+.claude/settings.json :: hook wiring — removing/altering the PreToolUse hook disables the gate; requires explicit user direction
+
+# --- Critical-path files (change-discipline.md Rule 3 — money/inventory/fulfillment)
+src/app/api/cart/items/route.ts :: change-discipline.md Rule 3 critical path — file-level approval required (Session 66 cart incident)
+src/app/api/cart/items/[id]/route.ts :: change-discipline.md Rule 3 critical path — file-level approval required
+src/app/api/cart/validate/route.ts :: change-discipline.md Rule 3 critical path — file-level approval required
+src/app/api/checkout/session/route.ts :: change-discipline.md Rule 3 critical path — file-level approval required
+src/app/api/checkout/success/route.ts :: change-discipline.md Rule 3 critical path — file-level approval required
+src/lib/stripe/payments.ts :: change-discipline.md Rule 3 critical path — file-level approval required
+src/lib/stripe/webhooks.ts :: change-discipline.md Rule 3 critical path — file-level approval required
+src/app/api/vendor/orders/[id]/reject/route.ts :: change-discipline.md Rule 3 critical path — file-level approval required
+src/app/api/vendor/orders/[id]/fulfill/route.ts :: change-discipline.md Rule 3 critical path — file-level approval required + decisions.md External Payment Fee Flow (cash-fee branch)
+src/app/api/vendor/payouts/route.ts :: change-discipline.md Rule 3 critical path — file-level approval required
+src/lib/pricing.ts :: change-discipline.md Rule 3 critical path — single source of truth for all fees
+src/lib/vendor-limits.ts :: change-discipline.md Rule 3 critical path — tier limits + TRIAL_SYSTEM_ENABLED flag
+
+# Gate live-verified Session 92 (settings at apps/web/.claude/settings.json — the session project dir; a repo-root copy exists for sessions launched there).
