@@ -101,30 +101,12 @@ export async function POST(
     // Get service client for fee recording
     const serviceClient = createServiceClient()
 
-    // Record platform fees owed for each vendor's portion
-    // Cash orders: fees deferred to fulfill time (vendor hasn't received payment yet)
-    if (order.payment_method !== 'cash') {
-      crumb.logic('Recording platform fees')
-      for (const item of orderItems) {
-        const result = await recordExternalPaymentFee(
-          serviceClient,
-          item.vendor_profile_id,
-          orderId,
-          item.subtotal_cents
-        )
-
-        if (!result.success) {
-          console.error('Failed to record fee:', result.error)
-          // Continue anyway - don't block order confirmation
-        }
-      }
-    } else {
-      crumb.logic('Cash order — fees deferred to fulfill time')
-    }
-
     // M-15 FIX: Atomic update with double-confirmation guard.
     // The WHERE clause includes `external_payment_confirmed_at IS NULL` so concurrent
     // requests can't both succeed — only the first one matches.
+    // Claim-first (Session 92): this runs BEFORE fee recording so a concurrent
+    // double-click can't record fees twice — the loser exits here before the
+    // fee loop. The vendor_fee_ledger unique index (mig 155) is the backstop.
     crumb.supabase('update', 'orders')
     const { data: updatedOrder, error: updateError } = await supabase
       .from('orders')
@@ -145,6 +127,28 @@ export async function POST(
 
     if (!updatedOrder) {
       throw traced.validation('ERR_ORDER_003', 'Payment was already confirmed by another request')
+    }
+
+    // Record platform fees owed for each vendor's portion
+    // Cash orders: fees deferred to fulfill time (vendor hasn't received payment yet)
+    if (order.payment_method !== 'cash') {
+      crumb.logic('Recording platform fees')
+      for (const item of orderItems) {
+        const result = await recordExternalPaymentFee(
+          serviceClient,
+          item.vendor_profile_id,
+          orderId,
+          item.id,
+          item.subtotal_cents
+        )
+
+        if (!result.success) {
+          console.error('Failed to record fee:', result.error)
+          // Continue anyway - don't block order confirmation
+        }
+      }
+    } else {
+      crumb.logic('Cash order — fees deferred to fulfill time')
     }
 
     // Update order_items status to confirmed (matches the order's paid status)

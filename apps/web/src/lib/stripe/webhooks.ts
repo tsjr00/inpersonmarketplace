@@ -234,7 +234,7 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
             offeringId: mbItem.offeringId, orderId, paymentIntentId,
           }))
           try {
-            await createRefund(paymentIntentId, mbItem.priceCents)
+            await createRefund(paymentIntentId, mbItem.offeringId, mbItem.priceCents)
             crumb.stripe(`Auto-refund issued for failed market box RPC: ${mbItem.offeringId}`)
           } catch (refundErr) {
             // Critical: refund also failed — needs manual intervention
@@ -248,7 +248,7 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
           crumb.stripe(`Market box at capacity: ${mbItem.offeringId}`)
           // F6 FIX: Refund buyer for at-capacity market box
           try {
-            await createRefund(paymentIntentId, mbItem.priceCents)
+            await createRefund(paymentIntentId, mbItem.offeringId, mbItem.priceCents)
             crumb.stripe(`Refund issued for at-capacity market box: ${mbItem.offeringId}`)
           } catch (refundErr) {
             await logError(new TracedError('ERR_WEBHOOK_008', `Failed to refund at-capacity market box ${mbItem.offeringId}`, {
@@ -435,7 +435,7 @@ async function handleMarketBoxCheckoutComplete(session: Stripe.Checkout.Session)
     // C-3 FIX: Auto-refund on RPC failure — buyer paid but subscription wasn't created
     await logError(new TracedError('ERR_WEBHOOK_005', 'Failed to create market box subscription via RPC', { route: '/webhooks/stripe', method: 'POST', userId, error: rpcError.message }))
     try {
-      await createRefund(paymentIntentId, priceCents)
+      await createRefund(paymentIntentId, offeringId, priceCents)
       crumb.stripe(`Auto-refund issued for failed standalone market box RPC: ${offeringId}`)
     } catch (refundErr) {
       await logError(new TracedError('ERR_WEBHOOK_011', `CRITICAL: Standalone market box RPC failed AND refund failed — manual refund needed`, {
@@ -450,7 +450,7 @@ async function handleMarketBoxCheckoutComplete(session: Stripe.Checkout.Session)
     crumb.stripe(`Market box at capacity for offering ${offeringId}`)
     // F6 FIX: Refund buyer for at-capacity market box (standalone checkout)
     try {
-      await createRefund(paymentIntentId, priceCents)
+      await createRefund(paymentIntentId, offeringId, priceCents)
       crumb.stripe(`Refund issued for at-capacity standalone market box: ${offeringId}`)
     } catch (refundErr) {
       await logError(new TracedError('ERR_WEBHOOK_009', `Failed to refund at-capacity standalone market box ${offeringId}`, {

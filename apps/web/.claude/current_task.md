@@ -1,7 +1,33 @@
-# Current Task: Session 90 — full review + audit fixes (Items 1-4)
+# Current Task: Session 92 — fresh review fixes (F1/F2/F4/F5) → then Stripe LIVE rotation
 
-**Updated:** 2026-06-05 (Session 90, in progress)
-**Mode:** Fix (audit-fix batch)
+**Updated:** 2026-06-11 (Session 92)
+**Mode:** Fix (user-approved batch: F1 full version, F2 cap=100, F4 logError now + admin-notif to backlog, F6 to backlog)
+
+## Session 92 plan/state
+
+Fresh end-to-end review done (NO prior audit files read, per user direction). Findings + verification: `apps/web/.claude/session92_fresh_review_research.md`. Error-log review: prod clean; staging = resolved Resend incident + benign auth blip.
+
+**Approved fix batch (one commit → staging):**
+- **F5** createRefund idempotency-key collision (payments.ts:245). Fix: required `idempotencySuffix` param; 10 call sites enumerated by grep: cancel:225, expire-orders:228, reject:165, resolve-issue:186, webhooks:237/251/438/453, success:240/257. Suffix = order-item id (order paths) / offeringId (MB paths)
+- **F4** failed-refund catches console-only → logError, shared code ERR_REFUND_001 (5 sites): expire-orders:229-236, cancel:233-242, reject:173-180, resolve-issue:191-193, success:262-268. Admin notification → backlog
+- **F1** vendor_fee_ledger double-billing: **mig 155** (order_item_id col + partial unique idx WHERE type='debit') + recordExternalPaymentFee gains required orderItemId + 23505→benign no-op; claim-first reorder in cron Phase 3.6 (:556-575) AND confirm-external-payment (:108-148). Callers: confirm-external:109 (item.id), fulfill:188 (orderItem id), cron 3.6:558 (item.id)
+- **F2** tipPercentage clamp to 100 (session/route.ts:76)
+
+**⚠️ SEQUENCING:** mig 155 must be applied to Dev+Staging BEFORE staging code push (code inserts order_item_id; old schema would break fee recording). Prod: mig before prod push.
+
+**IMPLEMENTED (uncommitted, 2026-06-11):** all of F1/F2/F4/F5 code + mig 155 file (`20260611_155_vendor_fee_ledger_item_idempotency.sql`). 11 files modified: payments.ts (suffix param), webhooks.ts (4 callers), checkout/success (2 callers + ERR_REFUND_001 catch), reject + resolve-issue + cancel (caller + ERR_REFUND_001 catch each), expire-orders (caller + catch + Phase 3.6 claim-first + ERR_FEE_001), confirm-external-payment (claim-first reorder + item.id), fulfill (item.id arg), vendor-fees.ts (orderItemId param + 23505 no-op), checkout/session (tip pct clamp 100). Critical-path approvals given by user for all 6 protected files. **Gates: tsc clean, vitest 1493/1493 green, lint = 1 PRE-EXISTING error in EventRequestForm.tsx:241 (untouched by this batch; react-hooks/set-state-in-effect — will fail full-lint CI; flag to user).**
+**NEXT:** user applies mig 155 to Dev + Staging → verify → commit chain → staging push → user tests → (later, in window) mig 155 to Prod + prod push. Note: untracked `apps/web/src/lib/tax/` dir exists, predates session, untouched.
+
+**After fixes:** Stripe LIVE secret key + webhook secret rotation (runbook in Session 90/91 section below).
+
+---
+
+# Prior: Session 90 — full review + audit fixes (Items 1-4)
+
+**Updated:** 2026-06-10 (Session 91 — Prod Supabase service-role rotated + verified; full codebase review done)
+**Mode:** Fix (audit-fix batch + secret rotation)
+
+> **NEXT SESSION — quick state:** Secret rotation is the active work. **DONE (rotated + verified):** Twilio, CRON, Resend (incl. prod), Google Vision, Upstash token, **Prod Supabase service-role** (Session 91 — migrated Prod to new sb_publishable/sb_secret keys + disabled legacy JWT-based keys; verified zero user disruption). **REMAINING:** **Stripe LIVE secret key + webhook secret (Prod) — flagged exposed in Vercel, HIGHEST stakes, rotating Session 91**; Staging + Dev Supabase projects (Staging also needs the 3 GitHub Actions CI secrets updated, since CI runs against Staging). Stripe price IDs + publishable key = not secrets (no action). CI does NOT use Stripe (ci.yml only injects Supabase vars). Plus: bookkeeping commit `a6056031` is local-only/unpushed (E2E flake), and Items 1-4 (`12ee9069`) await USER staging-test before prod. Details below in the "Secret Rotation" section. The `current_task.md` edits + `a6056031` are uncommitted/unpushed.
 
 ## Session 90 status
 
@@ -15,7 +41,61 @@ Full code/systems review done (findings + verification in `apps/web/.claude/sess
 
 **Done:** Items 1-4 committed + pushed to staging (commit `12ee9069`, pre-push build+Playwright green). Doc-line CLAUDE_CONTEXT.md:451 fixed. **mig 153 APPLIED to all 3 envs 2026-06-05** (Dev + Staging + Prod; verified `has_function_privilege('anon',...)`=false on each) → file moved to `applied/`, SCHEMA_SNAPSHOT changelog marked applied.
 
-**Remaining:** (a) bookkeeping commit (snapshot + 153 file move + this file) → staging; (b) Items 1-4 + bookkeeping prod push after user tests staging (respect 9PM-7AM CT window).
+**Remaining (Items 1-4):** USER to TEST Items 1-4 on staging (now live at `12ee9069`) before any prod push. Bookkeeping commit `a6056031` is LOCAL-ONLY (see rotation section). Prod push only after staging test + approval + 9PM-7AM CT window.
+
+---
+
+## Secret Rotation (Session 90 — 2026-06-06/07)
+
+Context: Vercel flagged ~12 env vars as "value visible to anyone with access." Rotating the real secrets and (where possible) marking Sensitive.
+
+### ⚠️ NEXT — HIGHEST PRIORITY: Stripe LIVE secret key + webhook secret (deferred to a focused session, Session 91)
+
+Both `STRIPE_SECRET_KEY` (`sk_live_…`, `src/lib/stripe/config.ts:5`) and `STRIPE_WEBHOOK_SECRET` (`whsec_…`, `src/app/api/webhooks/stripe/route.ts:25`) are flagged **"needs attention" (exposed)** in Vercel. These are the **highest-stakes secrets — the live payment path** — so the rotation was **intentionally deferred to a dedicated, focused session** (do NOT rush at the end of a long session). Empty platform = ideal window. **LIVE = PROD ONLY** (staging/dev use `sk_test_…`, separate + lower-stakes, rotate later). **CI does NOT use Stripe** (`ci.yml` injects only Supabase vars). NOT secrets, skip: `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (`pk_live`, public by design) + all `STRIPE_*_PRICE_ID` (`price_…` identifiers).
+
+**RUNBOOK (use Stripe's built-in grace/overlap so there's always a fallback):**
+- **A. Secret key** — Stripe (LIVE mode) → Developers → API keys → **Roll key** → set the OLD key's expiry to a **SHORT grace window (~1 hour, NOT "immediately")** → copy new `sk_live_…` → Vercel **Production**: **delete + re-create `STRIPE_SECRET_KEY` as Sensitive** with the new value.
+- **B. Webhook secret** — Stripe → Developers → Webhooks → select the **PROD endpoint** (Session 63 note: prod webhook uses the **Vercel domain** as primary — pick that one, not staging; if multiple endpoints, roll ONLY the prod one) → **Roll secret** with a **~24h overlap** (old + new both valid during transition → no missed payment events) → copy new `whsec_…` → Vercel **Production**: **delete + re-create `STRIPE_WEBHOOK_SECRET` as Sensitive**.
+- **C.** ONE **redeploy** of prod (latest/live deployment, fresh build).
+- **D. VERIFY with a real small test transaction** on the live site: payment **succeeds** (proves new secret key) AND the order flips to **`paid`** (proves the new webhook secret verified the event). Resend-incident lesson — confirm the deployed build actually uses the new values; don't assume.
+- **E.** Old key + old webhook secret **auto-expire** on their windows — nothing to manually revoke.
+- **PRE-CHECK:** confirm `.env.local` does NOT hold the **live** `sk_live_…` (dev should use `sk_test_…`). If it does, that copy goes dead after the roll — clean it up.
+
+
+### DONE — rotated + verified
+- **TWILIO_AUTH_TOKEN** — rotated via Twilio secondary token → promoted to primary (old killed). Account SID + From number unchanged. (Decided to KEEP Twilio on — $1.23/mo, turning off risks re-paying $20 setup.)
+- **CRON_SECRET** — regenerated (randomBytes), set in Vercel (all envs), redeployed. Old auto-dead (Vercel Cron + routes read current value). `.env.local` left as placeholder (only used for local cron tests).
+- **RESEND_API_KEY** — new key in BOTH Vercel entries (Production + "all nonproduction") + `.env.local`; old keys DELETED in Resend. **VERIFIED end-to-end** via a real staging transaction (email arrived + logged in Resend) after the deployment fix below. **Prod email confirmed working 2026-06-09.** RESEND_FROM_EMAIL (not a secret) + RESEND_WEBHOOK_SECRET (no roll option, low stakes) left as-is.
+- **GOOGLE_CLOUD_VISION_API_KEY** (2026-06-09) — new key created in GCP (Application restrictions = None; API restriction = Cloud Vision API only), set in all Vercel scopes + `.env.local`, prod + staging redeployed, old key DELETED. Verification skipped by choice (moderation is fail-open — `image-moderation.ts:10-12,45-49` — a bad key only silently skips moderation, never breaks uploads).
+- **UPSTASH_REDIS_REST_TOKEN** (2026-06-09) — rotated via Upstash "Reset Credentials" (rotates the TOKEN only, NOT the URL — confirmed: local URL unchanged). New token in the editable Vercel token var + `.env.local`; both envs redeployed; old token auto-killed by the reset. The `UPSTASH_REDIS_REST_URL` var is integration-managed/locked in Vercel (won't save manual edits) — left untouched, correctly. Low-risk (rate-limit falls back to in-memory if Upstash unreachable, `rate-limit.ts:181-186`).
+- **SUPABASE_SERVICE_ROLE_KEY — Prod** (2026-06-10, Session 91) — migrated the Prod project to the new API key system: created an `sb_secret_…` key + used the existing `sb_publishable_…`. Swapped both into Vercel **Production** scope (service-role **re-created as Sensitive**, publishable plain). Redeployed prod with a **fresh build (no cache)** so the `NEXT_PUBLIC_` publishable key re-inlined. Verified logged-out browse + login + admin/service-client + session intact. Then **Disabled legacy JWT-based API keys** in Supabase (NOT the JWT secret) → old exposed legacy `service_role` is now dead, **zero user disruption** (stayed logged in through the disable = JWT secret untouched). Consumers cleared first: Sentry (no DB key), Playwright (never prod — `playwright.config.ts:10-11`), CI (Staging project — `.github/workflows/ci.yml`). **Staging + Dev projects NOT yet rotated.**
+- **SENTRY_AUTH_TOKEN** (2026-06-10, Session 91) — personal token (NOT integration-managed). Created a new personal token (scopes: **Releases=Admin, Project=Read, all else None**), swapped into the plain Vercel `SENTRY_AUTH_TOKEN` var, prod redeployed. Verified via Sentry → **Settings → Source Maps** showing a fresh **315-file upload** at deploy time (build logs are silent by design — `next.config.ts:85` `silent:true`, so log output is NOT a valid check). New token confirmed working → old personal token safe to revoke. Non-secrets left as-is: `SENTRY_ORG`/`SENTRY_PROJECT` (slugs), `NEXT_PUBLIC_SENTRY_DSN` (public by design — ships in client bundle).
+
+### Vercel "Sensitive" note
+Marking an EXISTING var Sensitive is blocked (it's a create-time, one-way setting — would need delete+recreate). Integration-managed vars (Upstash, Sentry) can't be toggled at all. For a SOLO dev the Sensitive flag is low value (only hides values from OTHER people with Vercel access). Decision: rotation is the real win; not chasing Sensitive.
+
+### The email incident — ROOT CAUSE + LESSON
+After the Resend rotation, transaction confirmation emails stopped (in-app worked, nothing in Resend). Proven NOT the key (direct Resend API send with the key SUCCEEDED), NOT the domain (both `mail.*` domains verified), NOT the account (email present + `email_order_updates:true`). **Actual cause: a stale/wrong STAGING deployment** — an accidental "Redeploy of old commit `4fc2356`" had reverted staging to old code and that deployment lacked the new key effective. Fix: redeploy the CORRECT commit `12ee9069` → fresh build picked up current env (new key) → email worked.
+**Lessons:** (1) env-var changes need a fresh deploy of the CORRECT/latest commit — redeploying an OLD deployment reverts code + may carry stale env. (2) Test on the SAME env you redeployed (use the staging alias URL, not a pinned old-deploy URL). (3) A direct provider API call isolates "key works" from "deployment uses it."
+
+### TODO TOMORROW
+1. ~~VERIFY PROD EMAIL~~ — **DONE 2026-06-09**, prod email confirmed working (redeployed `4fc2356` to pick up new Resend key).
+2. **Push bookkeeping commit `a6056031`** (local-only: mig 153 → applied/, snapshot "applied" note, this file). Blocked by pre-push E2E **Supabase-connectivity timeouts in the local test runner** (environmental, not code — build compiled fine). Retry the staging chain when connectivity returns, OR `--no-verify` (docs-only commit; needs explicit user OK per rules).
+3. **Continue rotating remaining flagged secrets** (priority):
+   - ~~GOOGLE_CLOUD_VISION_API_KEY~~ — **DONE 2026-06-09** (new restricted key, old deleted).
+   - ~~UPSTASH_REDIS_REST_TOKEN~~ — **DONE 2026-06-09** via Upstash "Reset Credentials" (rotates token only, NOT the URL). New token pasted into the editable Vercel token var + `.env.local`; both envs redeployed. The URL var is integration-managed/locked (won't save manual edits) — left alone, correctly. Low-risk: rate-limit falls back to in-memory if Upstash unreachable (`rate-limit.ts:181-186`).
+   - ~~SENTRY_AUTH_TOKEN~~ — **DONE 2026-06-10 (Session 91)** (see DONE section — personal token, not integration-managed; verified via the Source Maps page, since build logs are silenced).
+   - UPSTASH_REDIS_REST_URL — not a secret → skip/leave.
+   - RESEND_WEBHOOK_SECRET — **SKIP** (no roll in Resend; low-stakes email-event verification only).
+   - VAPID_PRIVATE_KEY — **SKIP unless leak suspected** (rotating invalidates ALL push subscriptions + needs NEXT_PUBLIC_VAPID_PUBLIC_KEY changed too).
+   - ~~SUPABASE_SERVICE_ROLE_KEY (Prod)~~ — **DONE 2026-06-10 (Session 91)** via new-key migration + disable legacy JWT-based keys (see DONE section). **REMAINING: Staging + Dev projects.** Staging rotation must update BOTH the Vercel **Preview** scope AND the 3 **GitHub Actions** CI secrets (CI runs tests against Staging). Dev = `.env.local` (low urgency — no real data). NOTE: `.env.local` currently holds all 3 projects' keys — the Prod line is now a **dead string**; decide whether to trim it to Dev-only or keep all 3 + secure the file (BitLocker on, keep out of OneDrive/File History).
+4. **Backup hygiene** — `apps/web/.env.local` holds ~15 real secrets and is the only secret-bearing file in the repo (gitignored, but copied by any full-folder backup/thumb drive). Confirm BitLocker is on + keep that folder out of OneDrive/File History.
+5. **USER: test Items 1-4 on staging** (`12ee9069`) before any prod push.
+
+### Git/deploy state at handoff
+- Local `main` = `a6056031` (Items 1-4 + bookkeeping) — bookkeeping NOT pushed.
+- `origin/staging` = `12ee9069` (Items 1-4). Staging LIVE deploy = redeploy of `12ee9069` (+ new key). ✅
+- `origin/main` (prod) = `4fc2356` (no Items 1-4; new-key status UNVERIFIED → TODO #1).
 
 ---
 

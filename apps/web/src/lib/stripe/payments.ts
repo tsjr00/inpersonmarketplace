@@ -239,10 +239,14 @@ export async function transferMarketBoxPayout({
 
 /**
  * Create refund
- * Uses idempotency key to prevent duplicate refunds on retry
+ * Uses idempotency key to prevent duplicate refunds on retry.
+ * idempotencySuffix MUST be unique per refund within the payment intent
+ * (order item id, offering id). Without it, two same-priced items on one
+ * order produced identical keys and Stripe silently returned the first
+ * refund's cached response — the second refund was never created.
  */
-export async function createRefund(paymentIntentId: string, amount?: number) {
-  const idempotencyKey = `refund-${paymentIntentId}-${amount ?? 'full'}`
+export async function createRefund(paymentIntentId: string, idempotencySuffix: string, amount?: number) {
+  const idempotencyKey = `refund-${paymentIntentId}-${idempotencySuffix}-${amount ?? 'full'}`
 
   const refund = await stripe.refunds.create(
     {

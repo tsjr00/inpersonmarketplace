@@ -4,7 +4,7 @@ import { notifyOrderExpired, sendNotification } from '@/lib/notifications'
 import { createRefund, transferToVendor, transferMarketBoxPayout, getChargeIdFromPaymentIntent } from '@/lib/stripe/payments'
 import { restoreInventory, restoreOrderInventory } from '@/lib/inventory'
 import { timingSafeEqual } from 'crypto'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, TracedError, logError } from '@/lib/errors'
 import { FEES, proratedFlatFeeSimple } from '@/lib/pricing'
 import { getTierLimits, TRIAL_SYSTEM_ENABLED } from '@/lib/vendor-limits'
 import { recordExternalPaymentFee } from '@/lib/payments/vendor-fees'
@@ -225,14 +225,16 @@ export async function GET(request: NextRequest) {
 
               if (payment?.stripe_payment_intent_id) {
                 try {
-                  await createRefund(payment.stripe_payment_intent_id, buyerPaidForItem)
+                  await createRefund(payment.stripe_payment_intent_id, item.id, buyerPaidForItem)
                 } catch (refundError) {
-                  console.error('[REFUND_FAILED] Stripe refund failed for expired item:', {
-                    orderItemId: item.id,
+                  // Continue processing — refund needs manual admin attention.
+                  // Must reach error_logs (console.error is invisible to the
+                  // error-log review; item is already cancelled so no retry).
+                  await logError(new TracedError('ERR_REFUND_001', `Stripe refund failed for expired item: ${refundError instanceof Error ? refundError.message : String(refundError)}`, {
+                    route: '/api/cron/expire-orders', method: 'GET',
+                    orderItemId: item.id, orderId: item.order_id,
                     amountCents: buyerPaidForItem,
-                    error: refundError instanceof Error ? refundError.message : refundError
-                  })
-                  // Continue processing — refund needs manual admin attention
+                  }))
                 }
               }
             }
@@ -553,18 +555,12 @@ export async function GET(request: NextRequest) {
 
             const now = new Date().toISOString()
 
-            // Record platform fees
-            for (const item of activeItems) {
-              await recordExternalPaymentFee(
-                supabase,
-                item.vendor_profile_id,
-                order.id,
-                item.subtotal_cents
-              )
-            }
-
-            // Auto-confirm: update order status to paid
-            await supabase
+            // Claim-first: flip the order to paid BEFORE recording fees.
+            // The conditional WHERE means a retry (or overlapping run) matches
+            // zero rows and skips — previously fees were recorded first, so a
+            // failure between fee-insert and this update re-billed the vendor
+            // on the next hourly run (vendor_fee_ledger had no idempotency).
+            const { data: claimedOrder } = await supabase
               .from('orders')
               .update({
                 status: 'paid',
@@ -573,6 +569,15 @@ export async function GET(request: NextRequest) {
                 updated_at: now,
               })
               .eq('id', order.id)
+              .eq('status', 'pending')
+              .is('external_payment_confirmed_at', null)
+              .select('id')
+              .maybeSingle()
+
+            if (!claimedOrder) {
+              console.log(`[Phase 3.6] Order ${order.id} already claimed by concurrent run, skipping`)
+              continue
+            }
 
             // Update order items to confirmed
             await supabase
@@ -583,6 +588,26 @@ export async function GET(request: NextRequest) {
               })
               .eq('order_id', order.id)
               .is('cancelled_at', null)
+
+            // Record platform fees (after the claim; per-item idempotency via
+            // vendor_fee_ledger.order_item_id unique index, mig 155)
+            for (const item of activeItems) {
+              const feeResult = await recordExternalPaymentFee(
+                supabase,
+                item.vendor_profile_id,
+                order.id,
+                item.id,
+                item.subtotal_cents
+              )
+              if (!feeResult.success) {
+                await logError(new TracedError('ERR_FEE_001', `Fee recording failed for auto-confirmed external order: ${feeResult.error}`, {
+                  route: '/api/cron/expire-orders', method: 'GET',
+                  orderItemId: item.id, orderId: order.id,
+                  vendorProfileId: item.vendor_profile_id,
+                  subtotalCents: item.subtotal_cents,
+                }))
+              }
+            }
 
             // Notify vendor
             const firstVendor = activeItems[0]?.vendor_profiles

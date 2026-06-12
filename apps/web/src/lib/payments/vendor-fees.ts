@@ -116,15 +116,18 @@ export async function getVendorFeeBalance(
  * @param supabase - Supabase client (service role)
  * @param vendorProfileId - Vendor profile ID
  * @param orderId - Order ID
- * @param subtotalCents - Order subtotal in cents
+ * @param orderItemId - Order item ID (idempotency key — one debit per item,
+ *   enforced by the partial unique index on vendor_fee_ledger.order_item_id, mig 155)
+ * @param subtotalCents - Order item subtotal in cents
  * @returns Ledger entry
  */
 export async function recordExternalPaymentFee(
   supabase: SupabaseClient,
   vendorProfileId: string,
   orderId: string,
+  orderItemId: string,
   subtotalCents: number
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; duplicate?: boolean; error?: string }> {
   const totalFee = calculateTotalExternalFee(subtotalCents)
 
   const { error } = await supabase
@@ -132,12 +135,18 @@ export async function recordExternalPaymentFee(
     .insert({
       vendor_profile_id: vendorProfileId,
       order_id: orderId,
+      order_item_id: orderItemId,
       amount_cents: totalFee,
       type: 'debit',
       description: `Platform fee for external payment order`
     })
 
   if (error) {
+    // 23505 = debit already recorded for this item (retry/concurrent caller).
+    // The unique index doing its job — treat as a benign no-op.
+    if (error.code === '23505') {
+      return { success: true, duplicate: true }
+    }
     return { success: false, error: error.message }
   }
 

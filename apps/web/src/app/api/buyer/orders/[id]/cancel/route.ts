@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { createRefund, transferToVendor } from '@/lib/stripe/payments'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, TracedError, logError } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { restoreInventory } from '@/lib/inventory'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
@@ -222,7 +222,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (payment?.stripe_payment_intent_id) {
       try {
         crumb.logic('Processing Stripe refund')
-        const refund = await createRefund(payment.stripe_payment_intent_id, refundAmountCents)
+        const refund = await createRefund(payment.stripe_payment_intent_id, orderItemId, refundAmountCents)
         stripeRefundId = refund.id
 
         // M4 FIX: Update status to 'refunded' after successful Stripe refund
@@ -231,14 +231,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
           .update({ status: 'refunded' })
           .eq('id', orderItemId)
       } catch (refundError) {
-        console.error('[REFUND_FAILED] Stripe refund failed for buyer cancellation:', {
-          orderItemId: orderItem.id,
-          orderId: order.id,
-          amountCents: refundAmountCents,
-          error: refundError instanceof Error ? refundError.message : refundError
-        })
         // DB is already updated as cancelled. Refund needs manual processing.
-        // TODO: Send admin notification for failed refund
+        // Must reach error_logs (console.error is invisible to the error-log review).
+        // Admin notification on failed refunds: backlogged (Session 92).
+        await logError(new TracedError('ERR_REFUND_001', `Stripe refund failed for buyer cancellation: ${refundError instanceof Error ? refundError.message : String(refundError)}`, {
+          route: '/api/buyer/orders/[id]/cancel', method: 'POST',
+          orderItemId: orderItem.id, orderId: order.id,
+          amountCents: refundAmountCents,
+        }))
       }
     }
 

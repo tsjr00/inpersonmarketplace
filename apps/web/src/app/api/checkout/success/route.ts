@@ -237,7 +237,7 @@ export async function GET(request: NextRequest) {
                 offeringId: mbItem.offeringId, orderId, paymentIntentId,
               }))
               try {
-                await createRefund(paymentIntentId, mbItem.priceCents)
+                await createRefund(paymentIntentId, mbItem.offeringId, mbItem.priceCents)
                 crumb.logic('Auto-refund issued for failed market box RPC', {
                   offeringId: mbItem.offeringId,
                   refundCents: mbItem.priceCents,
@@ -254,17 +254,19 @@ export async function GET(request: NextRequest) {
               crumb.logic('Market box at capacity, subscription not created', { offeringId: mbItem.offeringId, ...result })
               // F6 FIX: Refund buyer for at-capacity market box
               try {
-                await createRefund(paymentIntentId, mbItem.priceCents)
+                await createRefund(paymentIntentId, mbItem.offeringId, mbItem.priceCents)
                 crumb.logic('Refund issued for at-capacity market box', {
                   offeringId: mbItem.offeringId,
                   refundCents: mbItem.priceCents,
                 })
               } catch (refundErr) {
-                console.error('[MARKET_BOX_REFUND] Failed to refund at-capacity market box:', {
-                  offeringId: mbItem.offeringId,
-                  amount: mbItem.priceCents,
-                  error: refundErr instanceof Error ? refundErr.message : refundErr,
-                })
+                // Refund failed — buyer paid for an at-capacity box. Must reach
+                // error_logs (console.error is invisible to the error-log review).
+                await logError(new TracedError('ERR_REFUND_001', `Stripe refund failed for at-capacity market box: ${refundErr instanceof Error ? refundErr.message : String(refundErr)}`, {
+                  route: '/api/checkout/success', method: 'GET',
+                  offeringId: mbItem.offeringId, orderId, paymentIntentId,
+                  amountCents: mbItem.priceCents,
+                }))
               }
             } else if (result?.already_existed) {
               crumb.logic('Market box subscription already exists (idempotent)', { offeringId: mbItem.offeringId })

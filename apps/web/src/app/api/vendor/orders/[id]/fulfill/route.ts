@@ -189,6 +189,7 @@ export async function POST(
             feeServiceClient,
             (orderItem as any).vendor_profile_id,
             orderItem.order_id,
+            orderItem.id,
             (orderItem as any).subtotal_cents
           )
         }

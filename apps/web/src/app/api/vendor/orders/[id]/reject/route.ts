@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { createRefund } from '@/lib/stripe/payments'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, TracedError, logError } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { restoreInventory } from '@/lib/inventory'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
@@ -162,7 +162,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     if (payment?.stripe_payment_intent_id) {
       try {
-        const refund = await createRefund(payment.stripe_payment_intent_id, buyerPaidForItem)
+        const refund = await createRefund(payment.stripe_payment_intent_id, orderItem.id, buyerPaidForItem)
         stripeRefundId = refund.id
 
         // M4 FIX: Update status to 'refunded' after successful Stripe refund
@@ -171,12 +171,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
           .update({ status: 'refunded' })
           .eq('id', orderItemId)
       } catch (refundError) {
-        console.error('[REFUND_FAILED] Stripe refund failed for vendor rejection:', {
-          orderItemId: orderItem.id,
+        // DB already updated as cancelled — refund needs manual processing.
+        // Must reach error_logs (console.error is invisible to the error-log review).
+        await logError(new TracedError('ERR_REFUND_001', `Stripe refund failed for vendor rejection: ${refundError instanceof Error ? refundError.message : String(refundError)}`, {
+          route: '/api/vendor/orders/[id]/reject', method: 'POST',
+          orderItemId: orderItem.id, orderId: orderItem.order_id,
           amountCents: buyerPaidForItem,
-          error: refundError instanceof Error ? refundError.message : refundError
-        })
-        // DB already updated — refund needs manual processing
+        }))
       }
     }
 

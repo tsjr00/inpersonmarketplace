@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { createRefund } from '@/lib/stripe/payments'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, TracedError, logError } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { restoreInventory } from '@/lib/inventory'
 import { shouldRestoreInventory } from '@/lib/inventory-rules'
@@ -183,13 +183,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
         if (payment?.stripe_payment_intent_id) {
           try {
-            await createRefund(payment.stripe_payment_intent_id, buyerPaidForItem)
+            await createRefund(payment.stripe_payment_intent_id, orderItemId, buyerPaidForItem)
             await supabase
               .from('order_items')
               .update({ status: 'refunded' })
               .eq('id', orderItemId)
           } catch (refundError) {
-            console.error('[resolve-issue] Stripe refund failed:', refundError)
+            // Refund failed — must reach error_logs (console.error is invisible
+            // to the error-log review). Needs manual processing.
+            await logError(new TracedError('ERR_REFUND_001', `Stripe refund failed for issue resolution: ${refundError instanceof Error ? refundError.message : String(refundError)}`, {
+              route: '/api/vendor/orders/[id]/resolve-issue', method: 'POST',
+              orderItemId, orderId: order.id,
+              amountCents: buyerPaidForItem,
+            }))
           }
         }
       }

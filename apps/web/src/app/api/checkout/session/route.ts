@@ -73,7 +73,10 @@ export async function POST(request: NextRequest) {
     // Validate tip — F5 FIX: cap at $50 (5000 cents)
     const MAX_TIP_CENTS = 5000
     const validTipAmount = Math.min(Math.max(0, Math.round(tipAmountCents as number)), MAX_TIP_CENTS)
-    const validTipPercentage = Math.max(0, Math.round(tipPercentage as number))
+    // Cap percentage at 100 — an unbounded client value shifted the entire tip
+    // split to the vendor (tipOnPlatformFeeCents = 0) and persisted garbage to
+    // orders.tip_percentage (Session 92 F2).
+    const validTipPercentage = Math.min(Math.max(0, Math.round(tipPercentage as number)), 100)
 
     // B4 FIX: Tips on market-box-only carts have no fulfill route to distribute
     // through. The fulfill handler divides tip across order_items rows, but a
