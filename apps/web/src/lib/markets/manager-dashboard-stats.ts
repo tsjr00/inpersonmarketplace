@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { calculateBoothRentalFees } from '@/lib/pricing'
 
 /**
  * Stats surfaced on the manager dashboard above the existing onboarding
@@ -351,5 +352,118 @@ export async function getMarketTransactionsAggregates(
       range_start: formatLocalDate(seasonRangeStart),
       range_end: formatLocalDate(seasonRangeEnd),
     },
+  }
+}
+
+/**
+ * Manager booth-rental earnings — the card the GMV card's doc comment
+ * promised ("Phase C will add a separate booth-rental income card for
+ * what the manager actually collects"). Session 92 Phase A2.
+ *
+ * Money note: per-row net = calculateBoothRentalFees(price_cents)
+ * .managerReceivesCents (pricing.ts — the single source of truth used at
+ * booking AND Stripe session creation). Statuses 'paid' and 'completed'
+ * both represent collected money; pending_payment and cancelled excluded.
+ *
+ * Time bucketing: by paid_at converted to the market's local date (falls
+ * back to week_start_date for any legacy row missing paid_at). Same 7d /
+ * 30d / season windows as the transactions card, plus all-time.
+ */
+export interface ManagerEarningsWindow {
+  booking_count: number
+  net_cents: number
+}
+
+export interface ManagerEarningsAggregates {
+  last_7_days: ManagerEarningsWindow
+  last_30_days: ManagerEarningsWindow
+  season: ManagerEarningsWindow & {
+    range_label: string
+  }
+  all_time: ManagerEarningsWindow
+}
+
+export async function getManagerEarningsAggregates(
+  marketId: string,
+  marketTimezone: string | null,
+  seasonStart: string | null,
+  seasonEnd: string | null
+): Promise<ManagerEarningsAggregates> {
+  const tz = marketTimezone || 'America/Chicago'
+  const serviceClient = createServiceClient()
+
+  const localNow = new Date(new Date().toLocaleString('en-US', { timeZone: tz }))
+  const today = new Date(localNow)
+  today.setHours(0, 0, 0, 0)
+  const sevenDaysAgo = new Date(today)
+  sevenDaysAgo.setDate(today.getDate() - 7)
+  const thirtyDaysAgo = new Date(today)
+  thirtyDaysAgo.setDate(today.getDate() - 30)
+  const ninetyDaysAgo = new Date(today)
+  ninetyDaysAgo.setDate(today.getDate() - 90)
+
+  let seasonRangeStart: Date
+  let seasonRangeEnd: Date
+  let seasonLabel: string
+  if (seasonStart && seasonEnd) {
+    seasonRangeStart = new Date(seasonStart + 'T00:00:00')
+    seasonRangeEnd = new Date(seasonEnd + 'T00:00:00')
+    const startMonth = seasonRangeStart.toLocaleString('en-US', { month: 'short' })
+    const endMonth = seasonRangeEnd.toLocaleString('en-US', { month: 'short' })
+    seasonLabel = `${startMonth} ${seasonRangeStart.getDate()} – ${endMonth} ${seasonRangeEnd.getDate()}, ${seasonRangeEnd.getFullYear()}`
+  } else {
+    seasonRangeStart = ninetyDaysAgo
+    seasonRangeEnd = today
+    seasonLabel = 'Last 90 days'
+  }
+
+  // All collected rentals for this market — all-time is a wanted window,
+  // so no date filter on the query. Volume per market is small (one row
+  // per vendor per week).
+  const { data: rentalsRaw } = await serviceClient
+    .from('weekly_booth_rentals')
+    .select('price_cents, status, paid_at, week_start_date')
+    .eq('market_id', marketId)
+    .in('status', ['paid', 'completed'])
+
+  interface RentalRow {
+    netCents: number
+    /** YYYY-MM-DD in market-local time, for window comparison. */
+    localDate: string
+  }
+  const rows: RentalRow[] = (rentalsRaw ?? []).map((r) => {
+    const priceCents = (r.price_cents as number) || 0
+    const paidAt = (r.paid_at as string | null) ?? null
+    const localDate = paidAt
+      ? formatLocalDate(new Date(new Date(paidAt).toLocaleString('en-US', { timeZone: tz })))
+      : ((r.week_start_date as string | null) ?? formatLocalDate(today))
+    return {
+      netCents: calculateBoothRentalFees(priceCents).managerReceivesCents,
+      localDate,
+    }
+  })
+
+  const bucketEarnings = (rangeStart: Date | null, rangeEnd: Date | null): ManagerEarningsWindow => {
+    const startStr = rangeStart ? formatLocalDate(rangeStart) : null
+    const endStr = rangeEnd ? formatLocalDate(rangeEnd) : null
+    let count = 0
+    let net = 0
+    for (const row of rows) {
+      if (startStr && row.localDate < startStr) continue
+      if (endStr && row.localDate > endStr) continue
+      count++
+      net += row.netCents
+    }
+    return { booking_count: count, net_cents: net }
+  }
+
+  return {
+    last_7_days: bucketEarnings(sevenDaysAgo, today),
+    last_30_days: bucketEarnings(thirtyDaysAgo, today),
+    season: {
+      ...bucketEarnings(seasonRangeStart, seasonRangeEnd),
+      range_label: seasonLabel,
+    },
+    all_time: bucketEarnings(null, null),
   }
 }

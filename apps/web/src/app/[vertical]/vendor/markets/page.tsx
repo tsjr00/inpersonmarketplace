@@ -370,6 +370,34 @@ export default function VendorMarketsPage() {
                     )
                   })()}
 
+                  {/* Open-booth snapshot (Session 92 A3) — only present on
+                      markets this vendor is connected to with online booking
+                      enabled. Display-only; the booking flow is authoritative. */}
+                  {market.boothAvailability && (
+                    <div style={{
+                      padding: '4px 8px',
+                      backgroundColor: market.boothAvailability.open_count > 0 ? statusColors.successLight : statusColors.neutral100,
+                      borderRadius: 4,
+                      fontSize: 11,
+                      color: market.boothAvailability.open_count > 0 ? statusColors.success : statusColors.neutral500,
+                      marginBottom: 8,
+                      marginLeft: 6,
+                      display: 'inline-block'
+                    }}>
+                      {market.boothAvailability.open_count > 0 ? (
+                        <>
+                          <strong>{market.boothAvailability.open_count} booth{market.boothAvailability.open_count === 1 ? '' : 's'} open</strong>
+                          {' '}for week of {new Date(market.boothAvailability.week_start + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          {market.boothAvailability.from_price_cents !== null && (
+                            <> · from ${(market.boothAvailability.from_price_cents / 100).toFixed(0)}/week</>
+                          )}
+                        </>
+                      ) : (
+                        <>Booths fully booked for week of {new Date(market.boothAvailability.week_start + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</>
+                      )}
+                    </div>
+                  )}
+
                   {/* Attendance prompt for markets without schedule set */}
                   {!market.hasAttendance && (
                     <div style={{
@@ -515,6 +543,15 @@ export default function VendorMarketsPage() {
                           {market.city}, {market.state}
                         </span>
                       </div>
+                      {(market.boothAvailability?.open_count ?? 0) > 0 && (
+                        <span style={{
+                          fontSize: 11,
+                          color: statusColors.neutral500,
+                          flexShrink: 0
+                        }}>
+                          {market.boothAvailability!.open_count} booth{market.boothAvailability!.open_count === 1 ? '' : 's'} open
+                        </span>
+                      )}
                       {market.hasListings && (
                         <span style={{
                           fontSize: 11,

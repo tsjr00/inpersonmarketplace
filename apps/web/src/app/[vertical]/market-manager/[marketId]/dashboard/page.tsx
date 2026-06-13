@@ -21,7 +21,10 @@ import ManagerSupportCard from '@/components/market-manager/ManagerSupportCard'
 import InviteVendorLink from '@/components/market-manager/InviteVendorLink'
 import InviteVendorBrowser from '@/components/market-manager/InviteVendorBrowser'
 import ManagerActionSummary from '@/components/market-manager/ManagerActionSummary'
-import { getManagerDashboardStats, getMarketTransactionsAggregates } from '@/lib/markets/manager-dashboard-stats'
+import MarketVisibilityCard from '@/components/market-manager/MarketVisibilityCard'
+import ManagerEarningsCard from '@/components/market-manager/ManagerEarningsCard'
+import { getManagerDashboardStats, getMarketTransactionsAggregates, getManagerEarningsAggregates } from '@/lib/markets/manager-dashboard-stats'
+import { getMarketVisibilityStatus } from '@/lib/markets/market-visibility'
 
 interface PageProps {
   params: Promise<{ vertical: string; marketId: string }>
@@ -78,6 +81,18 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
     (market.season_start as string | null) ?? null,
     (market.season_end as string | null) ?? null,
   )
+  // Session 92 A2 — manager-net booth revenue (the money that's actually theirs)
+  const earningsAggregates = await getManagerEarningsAggregates(
+    marketId,
+    (market.timezone as string | null) ?? null,
+    (market.season_start as string | null) ?? null,
+    (market.season_end as string | null) ?? null,
+  )
+  // Session 92 A1 — buyer-visibility gate status. Traditional markets only;
+  // events are exempt from the visibility rule (different vendor model).
+  const visibilityStatus = market.market_type === 'traditional'
+    ? await getMarketVisibilityStatus(marketId)
+    : null
 
   // Market schedules for the read-only schedule card (D.2). Service-client
   // not needed — markets is publicly readable; schedules are nested via the
@@ -137,6 +152,12 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           required steps are done */}
       <OnboardingChecklist vertical={vertical} marketId={marketId} progress={onboardingProgress} />
 
+      {/* Buyer-visibility gate status (Session 92 A1) — names the
+          listing+schedule rule and shows the live per-vendor breakdown
+          so a new manager knows exactly why their market isn't in the
+          public directory yet and what activates it. */}
+      {visibilityStatus && <MarketVisibilityCard status={visibilityStatus} />}
+
       {/* Verification documents (NEW-7, mig 148) — manager uploads
           ownership/COI/venue-proof docs that the platform admin reviews
           during the status=pending → active approval workflow. Placed
@@ -154,6 +175,12 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
         progress={onboardingProgress}
         stats={dashboardStats}
       />
+
+      {/* Manager booth-rental earnings (Session 92 A2) — the manager's
+          OWN money, net of platform fees. Renders nothing until the
+          first rental is collected. Placed before the gross-GMV card so
+          "your money" reads before "your vendors' money". */}
+      <ManagerEarningsCard aggregates={earningsAggregates} />
 
       {/* Aggregate transactions — gross sales activity across 3 windows.
           Phase D.1 (2026-05-16). Renders nothing if all windows are empty. */}

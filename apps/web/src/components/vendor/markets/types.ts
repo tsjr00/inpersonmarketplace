@@ -6,6 +6,18 @@ export type Schedule = {
   active?: boolean
 }
 
+/**
+ * Open-booth snapshot for the next bookable week (Session 92 A3).
+ * Only present on traditional markets the vendor has a connection to
+ * (market_vendors row / attendance / listings) with online booking
+ * enabled. Display-only — availability is authoritative at booking time.
+ */
+export type BoothAvailability = {
+  week_start: string  // YYYY-MM-DD (next bookable Sunday, market-local)
+  open_count: number
+  from_price_cents: number | null  // cheapest tier with an open booth
+}
+
 export type Market = {
   id: string
   name: string
@@ -31,6 +43,7 @@ export type Market = {
   homeMarketRestricted?: boolean
   hasAttendance?: boolean
   hasListings?: boolean
+  boothAvailability?: BoothAvailability | null
   schedules?: Schedule[]
 }
 

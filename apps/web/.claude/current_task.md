@@ -1,4 +1,10 @@
-# Current Task: Session 92 — fresh review fixes (F1/F2/F4/F5) → then Stripe LIVE rotation
+# Current Task: Session 92 — growth build Phase A (after: review fixes ✓, Stripe rotation ✓)
+
+**ACTIVE (2026-06-12):** Growth feature build per `growth_build_plan.md` (phasing A→B→1B→C→D→E, hybrid mode). Phase A (visibility card + earnings card + connected-market open-booth snapshot) implemented + gates green → committing to staging. Next: user staging-tests Phase A; then Phase B (market_favorites + market_broadcasts migs, follows, market-day notification, broadcast). Deep-dive findings: `session92_events_mm_growth_research.md`; decisions logged (composable roles, season prepay).
+
+---
+
+# Prior: Session 92 — fresh review fixes (F1/F2/F4/F5) → then Stripe LIVE rotation
 
 **Updated:** 2026-06-11 (Session 92)
 **Mode:** Fix (user-approved batch: F1 full version, F2 cap=100, F4 logError now + admin-notif to backlog, F6 to backlog)
@@ -18,7 +24,7 @@ Fresh end-to-end review done (NO prior audit files read, per user direction). Fi
 **IMPLEMENTED (uncommitted, 2026-06-11):** all of F1/F2/F4/F5 code + mig 155 file (`20260611_155_vendor_fee_ledger_item_idempotency.sql`). 11 files modified: payments.ts (suffix param), webhooks.ts (4 callers), checkout/success (2 callers + ERR_REFUND_001 catch), reject + resolve-issue + cancel (caller + ERR_REFUND_001 catch each), expire-orders (caller + catch + Phase 3.6 claim-first + ERR_FEE_001), confirm-external-payment (claim-first reorder + item.id), fulfill (item.id arg), vendor-fees.ts (orderItemId param + 23505 no-op), checkout/session (tip pct clamp 100). Critical-path approvals given by user for all 6 protected files. **Gates: tsc clean, vitest 1493/1493 green, lint = 1 PRE-EXISTING error in EventRequestForm.tsx:241 (untouched by this batch; react-hooks/set-state-in-effect — will fail full-lint CI; flag to user).**
 **NEXT:** user applies mig 155 to Dev + Staging → verify → commit chain → staging push → user tests → (later, in window) mig 155 to Prod + prod push. Note: untracked `apps/web/src/lib/tax/` dir exists, predates session, untouched.
 
-**After fixes:** Stripe LIVE secret key + webhook secret rotation (runbook in Session 90/91 section below).
+**DONE 2026-06-12 — Stripe LIVE rotation (Session 92):** `STRIPE_SECRET_KEY` (sk_live) + `STRIPE_WEBHOOK_SECRET` rolled in Stripe (key ~1h grace, webhook ~24h overlap), both deleted + re-created as Sensitive in Vercel Production, ONE fresh redeploy of `4fc2356`. **VERIFIED:** (1) sk_live — buyer-premium upgrade reached live checkout.stripe.com (session created server-side via config.ts:5); (2) webhook secret — completed a real buyer-premium purchase (user's own card → platform account, no vendor needed); tier flipped to premium = event received + signature verified with the new secret + handler processed (old env var deleted, so deployment could only hold the new value — overlap ambiguity eliminated); (3) prod error_logs 1-hour window = zero rows. Old key + old whsec auto-expire. **Follow-ups:** (a) cancel (+ optionally refund) the test premium subscription — RENEWS MONTHLY if left; (b) refresh the LOCAL test-mode STRIPE_WEBHOOK_SECRET in .env.local (value accidentally printed into Session 92 chat — test-mode, low stakes); (c) remaining rotation backlog: Staging + Dev Supabase service-role (+ 3 GitHub Actions CI secrets with Staging), sk_test Stripe keys (low stakes).
 
 ---
 

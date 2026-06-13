@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getTierLimits, isPremiumTier } from '@/lib/vendor-limits'
 import { withErrorTracing } from '@/lib/errors/with-error-tracing'
 import { TracedError } from '@/lib/errors/traced-error'
@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
     // vs. merely enrolled (attendance row only). Separate from the attendance
     // set above, which persists across listing churn and drives FT pickup
     // availability via get_available_pickup_dates.
-    const [listingMarketsRes, activeBoxesRes] = await Promise.all([
+    const [listingMarketsRes, activeBoxesRes, marketVendorRes] = await Promise.all([
       supabase
         .from('listing_markets')
         .select('market_id, listings!inner(vendor_profile_id, status, deleted_at)')
@@ -108,6 +108,16 @@ export async function GET(request: NextRequest) {
         .select('pickup_market_id')
         .eq('vendor_profile_id', vendorProfile.id)
         .eq('active', true),
+      // Session 92 A3 — markets where this vendor has a market_vendors
+      // relationship (invited/accepted/approved; declined excluded).
+      // Drives the "connected" set for the open-booth snapshot: we only
+      // surface availability at markets the vendor already has a
+      // connection to (user decision 2026-06-12 — no cross-market
+      // vendor poaching via availability surfacing).
+      supabase
+        .from('market_vendors')
+        .select('market_id, response_status')
+        .eq('vendor_profile_id', vendorProfile.id),
     ])
 
     const marketsWithListings = new Set<string>()
@@ -229,6 +239,129 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // ============================================================
+    // Session 92 A3: open-booth snapshot for CONNECTED markets.
+    // Connected = market_vendors row (non-declined) OR attendance OR
+    // listings at the market. Only traditional markets with online
+    // booking enabled (stripe_charges_enabled) get a snapshot.
+    //
+    // Math mirrors the book flow's capacity model: per tier,
+    //   open = count − placeholders(tier) − non-cancelled rentals(tier, week)
+    // Untiered placeholders are ignored here, matching the booking RPC's
+    // per-tier check (known modeling gap, see backlog "booth-tier
+    // required" item). Display-only — the RPC remains authoritative at
+    // booking time.
+    //
+    // Service client: booth tables are RLS-deny for non-managers (same
+    // pattern as the book page, which is also vendor-facing). Auth was
+    // enforced above (user + vendor profile).
+    // ============================================================
+    const connectedMarketIds = new Set<string>()
+    for (const row of marketVendorRes.data || []) {
+      if ((row.response_status as string | null) !== 'declined') {
+        connectedMarketIds.add(row.market_id as string)
+      }
+    }
+    for (const id of marketsWithAttendance) connectedMarketIds.add(id)
+    for (const id of marketsWithListings) connectedMarketIds.add(id)
+
+    // Next bookable Sunday (strictly future) in a market's local timezone.
+    // Mirrors the book page's nextSundays() week math.
+    const nextBookableSunday = (timezone: string): string => {
+      const localNow = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }))
+      const daysUntil = (7 - localNow.getDay()) % 7 || 7
+      const d = new Date(localNow)
+      d.setDate(localNow.getDate() + daysUntil)
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    }
+
+    type BoothAvailabilityEntry = { week_start: string; open_count: number; from_price_cents: number | null }
+    const boothAvailabilityByMarket = new Map<string, BoothAvailabilityEntry>()
+
+    const bookableConnected = (allMarkets || []).filter(m =>
+      m.market_type === 'traditional' &&
+      connectedMarketIds.has(m.id as string) &&
+      m.stripe_charges_enabled === true
+    )
+
+    if (bookableConnected.length > 0) {
+      const serviceClient = createServiceClient()
+      const ids = bookableConnected.map(m => m.id as string)
+      const weekByMarket = new Map<string, string>(
+        bookableConnected.map(m => [
+          m.id as string,
+          nextBookableSunday((m.timezone as string | null) || 'America/Chicago'),
+        ])
+      )
+      const weekDates = [...new Set(weekByMarket.values())]
+
+      const [inventoryRes, placeholdersRes, rentalsRes] = await Promise.all([
+        serviceClient
+          .from('market_booth_inventory')
+          .select('id, market_id, count, weekly_price_cents')
+          .in('market_id', ids),
+        serviceClient
+          .from('market_booth_placeholders')
+          .select('market_id, inventory_id')
+          .in('market_id', ids)
+          .not('inventory_id', 'is', null),
+        serviceClient
+          .from('weekly_booth_rentals')
+          .select('market_id, inventory_id, week_start_date, status')
+          .in('market_id', ids)
+          .in('week_start_date', weekDates)
+          .in('status', ['pending_payment', 'paid']),
+      ])
+
+      const placeholderCountByTier = new Map<string, number>()
+      for (const p of placeholdersRes.data || []) {
+        const key = p.inventory_id as string
+        placeholderCountByTier.set(key, (placeholderCountByTier.get(key) || 0) + 1)
+      }
+
+      const rentalCountByTierWeek = new Map<string, number>()
+      for (const r of rentalsRes.data || []) {
+        const key = `${r.inventory_id}|${r.week_start_date}`
+        rentalCountByTierWeek.set(key, (rentalCountByTierWeek.get(key) || 0) + 1)
+      }
+
+      const tiersByMarket = new Map<string, Array<{ id: string; count: number; price: number }>>()
+      for (const t of inventoryRes.data || []) {
+        const mid = t.market_id as string
+        const list = tiersByMarket.get(mid) || []
+        list.push({ id: t.id as string, count: (t.count as number) || 0, price: t.weekly_price_cents as number })
+        tiersByMarket.set(mid, list)
+      }
+
+      for (const mid of ids) {
+        const tiers = tiersByMarket.get(mid)
+        if (!tiers || tiers.length === 0) continue // no inventory → no snapshot
+        const week = weekByMarket.get(mid)!
+        let openTotal = 0
+        let fromPrice: number | null = null
+        for (const tier of tiers) {
+          const taken =
+            (placeholderCountByTier.get(tier.id) || 0) +
+            (rentalCountByTierWeek.get(`${tier.id}|${week}`) || 0)
+          const open = Math.max(0, tier.count - taken)
+          openTotal += open
+          if (open > 0 && (fromPrice === null || tier.price < fromPrice)) {
+            fromPrice = tier.price
+          }
+        }
+        boothAvailabilityByMarket.set(mid, {
+          week_start: week,
+          open_count: openTotal,
+          from_price_cents: fromPrice,
+        })
+      }
+    }
+
+    const fixedMarketsWithBooths = fixedMarkets.map(m => ({
+      ...m,
+      boothAvailability: boothAvailabilityByMarket.get(m.id as string) ?? null,
+    }))
+
     // Count current fixed markets for this vendor
     const { data: currentCount } = await supabase
       .rpc('get_vendor_fixed_market_count', {
@@ -328,7 +461,7 @@ export async function GET(request: NextRequest) {
       .filter((x): x is NonNullable<typeof x> => x !== null)
 
     return NextResponse.json({
-      fixedMarkets,
+      fixedMarkets: fixedMarketsWithBooths,
       eventMarkets,
       privatePickupMarkets: vendorMarkets,
       marketSuggestions: transformedSuggestions,

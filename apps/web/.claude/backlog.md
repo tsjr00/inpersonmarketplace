@@ -1,6 +1,16 @@
 # Backlog
 
-Last updated: 2026-06-11 (Session 92 — fresh-review deferrals)
+Last updated: 2026-06-12 (Session 92 — growth feature set added)
+
+## Priority 1 — Growth feature set: Regional-Manager / market-operations (Session 92 deep dive)
+
+Full spec + user decisions: `apps/web/.claude/session92_events_mm_growth_research.md` §J (+ §H/§I for the RM model corrections). Composable-roles principle: roles stack, never merge. FUTURE build — user-approved direction, not yet scheduled.
+
+- [ ] **Phase 1B (manager suspend/restore + history UI)** — already designed (`manager_export_and_lockout_plan.md`); PRIORITY BUMPED: it's the RM governance + future license-fee enforcement lever (`manager_status` = the off-switch). Includes mig 154 → Prod.
+- [ ] **Build-now candidates** (small/low-risk, ~½-1 session each): manager visibility-gate transparency card; manager-net earnings card (calculateBoothRentalFees().managerReceivesCents over paid rentals); open-booth counts on vendor's CONNECTED markets only; market follows (mirror vendor_favorites) + market-day-morning + special-date notifications w/ audience-resolution helper; manager broadcast (one-way, rate-limited, existing rails — supersedes the Session 85 "broadcast to existing market vendors" item below).
+- [ ] **Design-first**: (a) per-market rental granularity (weekly|daily|half-day) + SEASON PREPAY (user design 2026-06-12: manager-set prepay window, X-day refund cap, cancelled-day counter, season-end settlement menu: make-up days via date-overrides / rollover credit / booth upgrade / cross-market credit / cash last resort — vendor picks from manager's offers; ONE Stripe checkout, NO subscriptions — avoids destination-charge clawback exposure); (b) market_date_overrides (cancel-a-date + special dates; booth fees → credit, buyer product orders → existing refund machinery — user-accepted exception); (c) vendor check-ins: start/stop day, server timestamp, Geolocation API + distance-from-market, self-attestation primary; OPEN: FT-law jurisdiction requirements + whether manager counter-signature is needed.
+- [ ] **Survey-proof pipeline** — cron already LIVE (vercel.json:17-19 hourly, verified Session 92); once real data accumulates: exportable stats (pairs w/ manager_export plan) + optional public market-profile badge (manager acquisition + non-profit funding numbers).
+- [ ] **Deferred within this set**: VIP customer tagging (launch with flash sales, not before); market templates ("copy from my other market"); RM program pitch page + license fee model (user decision pending — geo/population-protected territory).
 
 ## Priority 1.5 — Session 92 fresh-review deferrals
 
