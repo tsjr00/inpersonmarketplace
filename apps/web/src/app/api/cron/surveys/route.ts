@@ -12,6 +12,7 @@ import {
   parseYMD,
 } from '@/lib/surveys/cron-helpers'
 import { generateSurveyToken } from '@/lib/surveys/token'
+import { resolveMarketAudience } from '@/lib/markets/market-audience'
 import {
   buildVendorSurveyEmailSubject,
   buildVendorSurveyEmailHtml,
@@ -65,8 +66,164 @@ export async function GET(request: NextRequest) {
     }
 
     const summary = await runSurveyCron()
-    return NextResponse.json(summary)
+    // Session 92 Phase B — market-day reminders to followers. Runs in the
+    // same hourly cron; independent of the survey logic above. Failures are
+    // captured into its own summary block, never aborting the survey run.
+    const marketDay = await runMarketDayNotifications()
+    return NextResponse.json({ ...summary, marketDay })
   })
+}
+
+interface MarketDaySummary {
+  marketsConsidered: number
+  marketDaysNotified: number
+  followersNotified: number
+  errors: string[]
+}
+
+/**
+ * Market-day reminder phase (Session 92 Phase B). On the morning of a
+ * market's operating day (8:00–11:59 local), notify the market's followers
+ * that it's open today. Dedup'd per (market, market_date) via
+ * market_day_notification_log: the cron claims the marker with an
+ * INSERT ... ON CONFLICT DO NOTHING and only sends if it actually claimed
+ * the row — race-safe across overlapping/retried runs.
+ */
+async function runMarketDayNotifications(): Promise<MarketDaySummary> {
+  const summary: MarketDaySummary = {
+    marketsConsidered: 0,
+    marketDaysNotified: 0,
+    followersNotified: 0,
+    errors: [],
+  }
+  const serviceClient = createServiceClient()
+
+  const { data: markets, error: marketsErr } = await serviceClient
+    .from('markets')
+    .select('id, name, vertical_id, timezone, market_type, active, status')
+    .eq('active', true)
+    .eq('status', 'active')
+    .eq('market_type', 'traditional')
+
+  if (marketsErr) {
+    summary.errors.push(`Failed to load markets: ${marketsErr.message}`)
+    return summary
+  }
+
+  for (const market of markets ?? []) {
+    summary.marketsConsidered++
+    try {
+      await notifyMarketDayFollowers(market as MarketDayRow, serviceClient, summary)
+    } catch (err) {
+      summary.errors.push(
+        `Market ${(market as MarketDayRow).id}: ${err instanceof Error ? err.message : 'Unknown'}`
+      )
+    }
+  }
+
+  return summary
+}
+
+interface MarketDayRow {
+  id: string
+  name: string
+  vertical_id: string
+  timezone: string | null
+}
+
+/** Format two HH:MM:SS strings into "8:00 AM – 1:00 PM"; null on parse fail. */
+function formatHoursRange(start: string | null, end: string | null): string | null {
+  const fmt = (t: string | null): string | null => {
+    if (!t) return null
+    const m = t.match(/^(\d{1,2}):(\d{2})/)
+    if (!m) return null
+    let hh = parseInt(m[1]!, 10)
+    const mm = m[2]!
+    const ampm = hh >= 12 ? 'PM' : 'AM'
+    hh = hh % 12
+    if (hh === 0) hh = 12
+    return `${hh}:${mm} ${ampm}`
+  }
+  const s = fmt(start)
+  const e = fmt(end)
+  if (!s || !e) return null
+  return `${s} – ${e}`
+}
+
+async function notifyMarketDayFollowers(
+  market: MarketDayRow,
+  serviceClient: ReturnType<typeof createServiceClient>,
+  summary: MarketDaySummary
+): Promise<void> {
+  const tz = market.timezone || 'America/Chicago'
+  const nowLocal = new Date(new Date().toLocaleString('en-US', { timeZone: tz }))
+  const localHour = nowLocal.getHours()
+  // Morning window only — a "market is open today" ping is useless in the
+  // afternoon/evening. 8:00–11:59 local. Hourly cron → first run in-window
+  // claims the dedup marker; later runs skip it.
+  if (localHour < 8 || localHour >= 12) return
+
+  const todayDayOfWeek = nowLocal.getDay()
+  const todayYMD = `${nowLocal.getFullYear()}-${String(nowLocal.getMonth() + 1).padStart(2, '0')}-${String(nowLocal.getDate()).padStart(2, '0')}`
+
+  // Is today an operating day?
+  const { data: schedules } = await serviceClient
+    .from('market_schedules')
+    .select('start_time, end_time')
+    .eq('market_id', market.id)
+    .eq('day_of_week', todayDayOfWeek)
+    .eq('active', true)
+    .limit(1)
+
+  if (!schedules || schedules.length === 0) return // not a market day
+
+  // Claim the dedup marker. If the row already exists (already sent today),
+  // the insert returns no row → skip. Race-safe.
+  const { data: claimed } = await serviceClient
+    .from('market_day_notification_log')
+    .upsert(
+      { market_id: market.id, market_date: todayYMD, recipient_count: 0 },
+      { onConflict: 'market_id,market_date', ignoreDuplicates: true }
+    )
+    .select('id')
+  if (!claimed || claimed.length === 0) return // already notified today
+
+  const followers = await resolveMarketAudience(market.id, ['followers'])
+  if (followers.size === 0) {
+    summary.marketDaysNotified++
+    return
+  }
+
+  const vertical = market.vertical_id || 'farmers_market'
+  const hours = formatHoursRange(
+    (schedules[0].start_time as string | null) ?? null,
+    (schedules[0].end_time as string | null) ?? null
+  )
+
+  let sent = 0
+  for (const userId of followers) {
+    await sendNotification(
+      userId,
+      'market_day_today',
+      {
+        marketName: market.name,
+        marketId: market.id,
+        ...(hours ? { marketDayHours: hours } : {}),
+      },
+      { vertical }
+    )
+    sent++
+  }
+
+  // Record the recipient count on the marker (best-effort).
+  await serviceClient
+    .from('market_day_notification_log')
+    .update({ recipient_count: sent })
+    .eq('market_id', market.id)
+    .eq('market_date', todayYMD)
+
+  summary.marketDaysNotified++
+  summary.followersNotified += sent
 }
 
 interface CronSummary {

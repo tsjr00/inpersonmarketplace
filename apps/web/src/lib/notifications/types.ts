@@ -83,6 +83,11 @@ export type NotificationType =
   // Market manager schedule edits (2026-05-19) — notify all approved vendors
   // at the market when manager changes hours / active days / season window.
   | 'market_schedule_changed'
+  // Market-day reminder to followers (Session 92 Phase B) — fires on the
+  // morning of a market's operating day to buyers who follow the market.
+  | 'market_day_today'
+  // One-way manager broadcast to a market's vendors (Session 92 Phase B).
+  | 'market_broadcast'
   // Post-market surveys (Phase E Stage 2, mig 147)
   | 'survey_request_vendor'
   | 'survey_request_buyer'
@@ -212,6 +217,15 @@ export interface NotificationTemplateData {
    *  > 0, the email body and in-app message mention them with a link to
    *  the surveys-list page. */
   priorPendingCount?: number
+  // Market-day reminder + manager broadcast (Session 92 Phase B)
+  /** Display-formatted operating hours for the market-day reminder,
+   *  e.g. "8:00 AM – 1:00 PM". Optional — omitted when unparseable. */
+  marketDayHours?: string
+  /** Manager broadcast subject line (optional) — used as the notification
+   *  title when present. */
+  broadcastSubject?: string
+  /** Manager broadcast body — the announcement text. */
+  broadcastBody?: string
 }
 
 export type NotificationSeverity = 'critical' | 'warning' | 'info'
@@ -712,6 +726,40 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: (d) => `Schedule change at ${d.marketName || 'the market'}`,
     message: (d) =>
       `The schedule at ${d.marketName || 'the market'} has been updated by the market manager. Review the new times in your vendor markets list and contact the market manager directly with any questions or refund requests — the platform doesn't issue refunds for schedule changes.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/markets`,
+  },
+
+  // Session 92 Phase B — market-day reminder to followers. Fires on the
+  // morning of an operating day to buyers who follow the market
+  // (market_favorites). Standard urgency = in_app + email. Dedup'd per
+  // (market, date) via market_day_notification_log so it sends once.
+  market_day_today: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'buyer',
+    title: (d) => `${d.marketName || 'A market you follow'} is open today`,
+    message: (d) => {
+      const hours = d.marketDayHours ? ` (${d.marketDayHours})` : ''
+      return `${d.marketName || 'A market you follow'} is open today${hours}. Browse what your favorite vendors are bringing and pre-order for pickup.`
+    },
+    actionUrl: (d) =>
+      d.marketId
+        ? `/${d.vertical || 'farmers_market'}/markets/${d.marketId}`
+        : `/${d.vertical || 'farmers_market'}/markets`,
+  },
+
+  // Session 92 Phase B — one-way manager broadcast to a market's vendors.
+  // Sent to approved vendors + vendors with paid upcoming booth rentals.
+  // Subject (when present) becomes the title; body is the announcement.
+  market_broadcast: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: (d) =>
+      d.broadcastSubject
+        ? `${d.marketName || 'Your market'}: ${d.broadcastSubject}`
+        : `Announcement from ${d.marketName || 'your market'}`,
+    message: (d) => d.broadcastBody || 'Your market manager sent an announcement.',
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/markets`,
   },
 

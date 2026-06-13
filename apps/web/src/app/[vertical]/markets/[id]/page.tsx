@@ -12,6 +12,7 @@ import { term } from '@/lib/vertical'
 import { getLocale } from '@/lib/locale/server'
 import { t } from '@/lib/locale/messages'
 import ShareButton from '@/components/marketing/ShareButton'
+import FollowMarketButton from './FollowMarketButton'
 import { getMarketVendorsWithListings } from '@/lib/markets/vendors-with-listings'
 
 interface MarketDetailPageProps {
@@ -64,6 +65,21 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
 
   // baseUrl is still used below for the ShareButton's absolute URL
   const baseUrl = getAppUrl()
+
+  // Follow state (Session 92 Phase B) — only meaningful for traditional
+  // markets (events are one-off). One cheap query; logged-out users get a
+  // sign-in redirect from the button itself.
+  const { data: { user: currentUser } } = await supabase.auth.getUser()
+  let isFollowingMarket = false
+  if (currentUser && !isEvent) {
+    const { data: favRow } = await supabase
+      .from('market_favorites')
+      .select('id')
+      .eq('user_id', currentUser.id)
+      .eq('market_id', id)
+      .maybeSingle()
+    isFollowingMarket = !!favRow
+  }
 
   // Fetch vendors with listings by calling the shared lib directly.
   // Session 70: previously used fetch(`${baseUrl}/api/...`), which is blocked
@@ -316,7 +332,18 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
                  → "X is open today! Featuring Vendor A, Vendor B, and N more vendors. Come stop by."
               3. Generic (other days, or no vendors yet) → "Check out X — find local vendors..."
               Vendor list pulls from vendorsData (already fetched above). */}
-          <div style={{ marginBottom: spacing.xs }}>
+          <div style={{ marginBottom: spacing.xs, display: 'flex', gap: spacing.xs, alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* Follow (Session 92 Phase B) — traditional markets only.
+                Followers get a "market is open today" notification each
+                operating morning. */}
+            {!isEvent && (
+              <FollowMarketButton
+                vertical={vertical}
+                marketId={id}
+                initialFollowing={isFollowingMarket}
+                isLoggedIn={!!currentUser}
+              />
+            )}
             <ShareButton
               url={`${baseUrl}/${vertical}/markets/${id}`}
               title={market.name}
