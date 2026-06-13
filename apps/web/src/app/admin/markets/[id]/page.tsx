@@ -6,6 +6,7 @@ import ScheduleDisplay from '@/components/markets/ScheduleDisplay'
 import ScheduleManager from './ScheduleManager'
 import VendorManager from './VendorManager'
 import MarketManagerAssignment from '@/components/market-manager/MarketManagerAssignment'
+import ManagerHistoryPanel, { type ManagerHistoryRow } from '@/components/admin/ManagerHistoryPanel'
 import ApproveStatusButton from './ApproveStatusButton'
 import SurveyResultsCard from '@/components/market-manager/SurveyResultsCard'
 import DuplicateMarketBanner from '@/components/markets/DuplicateMarketBanner'
@@ -45,6 +46,19 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
 
   if (error || !market) {
     notFound()
+  }
+
+  // Phase 1B — manager assignment history (newest first). Service client
+  // because market_manager_history is RLS default-deny. FM only (the
+  // Market Manager section below is FM-gated).
+  let managerHistory: ManagerHistoryRow[] = []
+  if (market.vertical_id === 'farmers_market') {
+    const { data: histRows } = await supabase
+      .from('market_manager_history')
+      .select('manager_email_snapshot, assigned_at, ended_at, end_reason')
+      .eq('market_id', id)
+      .order('assigned_at', { ascending: false })
+    managerHistory = (histRows || []) as ManagerHistoryRow[]
   }
 
   // Only show ACTIVE schedules. Schedules are soft-deleted (active=false) by
@@ -298,7 +312,16 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
             managerUserId={market.manager_user_id as string | null}
             managerInvitedAt={market.manager_invited_at as string | null}
             managerAcceptedAt={market.manager_accepted_at as string | null}
+            managerStatus={market.manager_status as string | null}
           />
+
+          {/* Phase 1B — assignment history audit trail */}
+          <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid #eee' }}>
+            <h3 style={{ margin: '0 0 12px 0', fontSize: 14, fontWeight: 600, color: '#555' }}>
+              Assignment history
+            </h3>
+            <ManagerHistoryPanel history={managerHistory} />
+          </div>
         </div>
       )}
 

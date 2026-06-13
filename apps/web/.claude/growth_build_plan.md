@@ -19,6 +19,8 @@ Amendment: broadcast moved A→B (needs market_broadcasts audit table; keeps A m
 
 ## Phase 1B — Manager suspend/restore (already designed: manager_export_and_lockout_plan.md)
 - suspend/restore actions on admin manager route + history writes + ManagerHistoryPanel + 3 notification templates + mig 154 → Prod (couples to a prod push).
+- User decision 2026-06-13: suspension STAYS until admin restores (no auto-restore).
+- IMPLEMENTED 2026-06-13 (uncommitted). 6 files: notifications/types.ts (+3 types manager_access_removed/_suspended/_restored, buyer audience, configs); cutoff-and-sort test tripwire 74→77 (user-flagged); admin/markets/[id]/manager/route.ts (rewritten — suspend/restore actions, market_manager_history writes on assign[close+open]/clear[close]/, notifications to affected manager; suspend/restore toggle manager_status only, history unchanged); MarketManagerAssignment.tsx (suspend/restore buttons + suspended badge + confirm dialog); admin/ManagerHistoryPanel.tsx (new, read-only audit); admin/markets/[id]/page.tsx (history fetch via service client + wiring + managerStatus prop). NO new migration (mig 154 already on Dev+Staging). NO protected/critical-path files. Gates: tsc clean, eslint clean, vitest 1493/1493. mig 154 → Prod required for the eventual prod push (states unreachable in prod until then).
 
 ## Phase C — Date overrides (focused design pass FIRST — touches get_available_pickup_dates RPC, mig-131 history)
 - market_date_overrides (market_id, date, status cancelled|special, times) + manager UI + notifications + booth credit flagging + availability RPC rewrite migration.

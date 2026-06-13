@@ -10,6 +10,9 @@ interface MarketManagerAssignmentProps {
   managerUserId: string | null
   managerInvitedAt: string | null
   managerAcceptedAt: string | null
+  /** markets.manager_status — 'active' | 'suspended' (mig 154). Drives the
+   *  suspend/restore controls (Phase 1B). */
+  managerStatus?: string | null
   /**
    * Optional callback fired after a successful assign or clear.
    *
@@ -41,6 +44,7 @@ export default function MarketManagerAssignment({
   managerUserId,
   managerInvitedAt,
   managerAcceptedAt,
+  managerStatus,
   onChange,
 }: MarketManagerAssignmentProps) {
   const router = useRouter()
@@ -50,9 +54,38 @@ export default function MarketManagerAssignment({
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [confirmingClear, setConfirmingClear] = useState(false)
+  const [confirmingSuspend, setConfirmingSuspend] = useState(false)
 
   const isAssigned = !!managerEmail
   const isLinked = !!managerUserId
+  const isSuspended = managerStatus === 'suspended'
+
+  // Phase 1B — suspend/restore. Shares the same POST endpoint as assign/clear.
+  const performAction = async (action: 'suspend' | 'restore') => {
+    setConfirmingSuspend(false)
+    setError(null)
+    setSuccess(null)
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/admin/markets/${marketId}/manager`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setError(data.error || `Failed to ${action} manager`)
+      } else {
+        setSuccess(action === 'suspend' ? 'Manager access suspended' : 'Manager access restored')
+        router.refresh()
+        onChange?.()
+      }
+    } catch {
+      setError('Network error — please try again')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const formatDate = (iso: string | null): string => {
     if (!iso) return '—'
@@ -127,7 +160,18 @@ export default function MarketManagerAssignment({
         <div style={{ marginBottom: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 15, fontWeight: 600, color: '#333' }}>{managerEmail}</span>
-            {isLinked ? (
+            {isSuspended ? (
+              <span style={{
+                padding: '3px 8px',
+                backgroundColor: '#f8d7da',
+                color: '#721c24',
+                borderRadius: 4,
+                fontSize: 11,
+                fontWeight: 600,
+              }}>
+                Suspended
+              </span>
+            ) : isLinked ? (
               <span style={{
                 padding: '3px 8px',
                 backgroundColor: '#d4edda',
@@ -234,6 +278,45 @@ export default function MarketManagerAssignment({
           >
             Reassign
           </button>
+          {/* Phase 1B — suspend (when active) / restore (when suspended).
+              Pause access without unassigning; manager stays on the market. */}
+          {isSuspended ? (
+            <button
+              onClick={() => performAction('restore')}
+              disabled={loading}
+              style={{
+                padding: '8px 14px',
+                backgroundColor: '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: 6,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.6 : 1,
+              }}
+            >
+              {loading ? 'Working...' : 'Restore access'}
+            </button>
+          ) : (
+            <button
+              onClick={() => setConfirmingSuspend(true)}
+              disabled={loading}
+              style={{
+                padding: '8px 14px',
+                backgroundColor: '#e0a800',
+                color: 'white',
+                border: 'none',
+                borderRadius: 6,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.6 : 1,
+              }}
+            >
+              Suspend access
+            </button>
+          )}
           <button
             onClick={() => setConfirmingClear(true)}
             disabled={loading}
@@ -299,6 +382,16 @@ export default function MarketManagerAssignment({
         confirmLabel="Remove"
         onConfirm={performClear}
         onCancel={() => setConfirmingClear(false)}
+      />
+
+      <ConfirmDialog
+        open={confirmingSuspend}
+        title="Suspend manager access?"
+        message="The manager will be locked out of their dashboard until you restore access. They stay assigned to this market — nothing they've set up is removed. Use this to pause access pending review."
+        variant="danger"
+        confirmLabel="Suspend"
+        onConfirm={() => performAction('suspend')}
+        onCancel={() => setConfirmingSuspend(false)}
       />
     </div>
   )

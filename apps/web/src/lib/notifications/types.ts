@@ -88,6 +88,11 @@ export type NotificationType =
   | 'market_day_today'
   // One-way manager broadcast to a market's vendors (Session 92 Phase B).
   | 'market_broadcast'
+  // Manager access lifecycle (Phase 1B) — fired to the affected manager
+  // when an admin removes / suspends / restores their market access.
+  | 'manager_access_removed'
+  | 'manager_access_suspended'
+  | 'manager_access_restored'
   // Post-market surveys (Phase E Stage 2, mig 147)
   | 'survey_request_vendor'
   | 'survey_request_buyer'
@@ -727,6 +732,47 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     message: (d) =>
       `The schedule at ${d.marketName || 'the market'} has been updated by the market manager. Review the new times in your vendor markets list and contact the market manager directly with any questions or refund requests — the platform doesn't issue refunds for schedule changes.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/markets`,
+  },
+
+  // Phase 1B — manager access lifecycle. Fired to the affected manager
+  // (their user_id) when an admin changes their access. Buyer audience
+  // because managers log in via the buyer dashboard.
+  manager_access_removed: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'buyer',
+    title: (d) => `Your manager access for ${d.marketName || 'a market'} was removed`,
+    message: (d) => {
+      const reason = d.reason ? ` Reason: ${d.reason}.` : ''
+      return `An administrator removed your market manager access for ${d.marketName || 'the market'}.${reason} If you think this is a mistake, reach out via the support page.`
+    },
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/dashboard`,
+  },
+  manager_access_suspended: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'buyer',
+    title: (d) => `Your manager access for ${d.marketName || 'a market'} was suspended`,
+    message: (d) => {
+      const reason = d.reason ? ` Reason: ${d.reason}.` : ''
+      return `Your market manager access for ${d.marketName || 'the market'} has been temporarily suspended pending review.${reason} You remain assigned — access is paused, not removed.`
+    },
+    actionUrl: (d) =>
+      d.marketId
+        ? `/${d.vertical || 'farmers_market'}/market-manager/${d.marketId}/dashboard`
+        : `/${d.vertical || 'farmers_market'}/dashboard`,
+  },
+  manager_access_restored: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'buyer',
+    title: (d) => `Your manager access for ${d.marketName || 'a market'} was restored`,
+    message: (d) =>
+      `Your market manager access for ${d.marketName || 'the market'} has been restored. You can manage your market again from your dashboard.`,
+    actionUrl: (d) =>
+      d.marketId
+        ? `/${d.vertical || 'farmers_market'}/market-manager/${d.marketId}/dashboard`
+        : `/${d.vertical || 'farmers_market'}/dashboard`,
   },
 
   // Session 92 Phase B — market-day reminder to followers. Fires on the
