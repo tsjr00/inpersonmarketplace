@@ -18,6 +18,7 @@ import WeeklyBookingsCard from '@/components/market-manager/WeeklyBookingsCard'
 import MarketStripeConnectCard from '@/components/market-manager/MarketStripeConnectCard'
 import MarketScheduleCard from '@/components/market-manager/MarketScheduleCard'
 import ManagerSupportCard from '@/components/market-manager/ManagerSupportCard'
+import MarketBroadcastCard from '@/components/market-manager/MarketBroadcastCard'
 import InviteVendorLink from '@/components/market-manager/InviteVendorLink'
 import InviteVendorBrowser from '@/components/market-manager/InviteVendorBrowser'
 import ManagerActionSummary from '@/components/market-manager/ManagerActionSummary'
@@ -422,6 +423,12 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
         initialSeasonEnd={(market.season_end as string | null) ?? null}
         hasScheduleChangeRecipients={dashboardStats.hasScheduleChangeRecipients}
       />
+
+      {/* Manager broadcast (Session 92 Phase B) — one-way announcement to
+          vendors (approved + paid upcoming renters). Send-only; server
+          rate-limits to 2 per 7 days. Placed after the schedule card since
+          both are manager→vendor communication surfaces. */}
+      <MarketBroadcastCard marketId={marketId} />
 
       {/* Survey results card (Phase E Stage 5) — empty state until
           cron Stage 2 starts populating market_surveys rows. */}
