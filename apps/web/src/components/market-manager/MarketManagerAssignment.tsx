@@ -220,6 +220,7 @@ export default function MarketManagerAssignment({
             }}
           />
           <button
+            type="button"
             onClick={handleAssign}
             disabled={loading}
             style={{
@@ -238,6 +239,7 @@ export default function MarketManagerAssignment({
           </button>
           {isAssigned && (
             <button
+              type="button"
               onClick={() => {
                 setEditing(false)
                 setEmail('')
@@ -263,6 +265,7 @@ export default function MarketManagerAssignment({
       {!editing && isAssigned && (
         <div style={{ display: 'flex', gap: 8 }}>
           <button
+            type="button"
             onClick={() => setEditing(true)}
             disabled={loading}
             style={{
@@ -282,6 +285,7 @@ export default function MarketManagerAssignment({
               Pause access without unassigning; manager stays on the market. */}
           {isSuspended ? (
             <button
+              type="button"
               onClick={() => performAction('restore')}
               disabled={loading}
               style={{
@@ -300,6 +304,7 @@ export default function MarketManagerAssignment({
             </button>
           ) : (
             <button
+              type="button"
               onClick={() => setConfirmingSuspend(true)}
               disabled={loading}
               style={{
@@ -318,6 +323,7 @@ export default function MarketManagerAssignment({
             </button>
           )}
           <button
+            type="button"
             onClick={() => setConfirmingClear(true)}
             disabled={loading}
             style={{

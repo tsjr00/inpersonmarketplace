@@ -187,6 +187,7 @@ export default function ConfirmDialog({
           flexWrap: 'wrap',
         }}>
           <button
+            type="button"
             onClick={handleCancel}
             style={{
               padding: `${spacing['2xs']} ${spacing.md}`,
@@ -204,6 +205,7 @@ export default function ConfirmDialog({
             {cancelText}
           </button>
           <button
+            type="button"
             onClick={handleConfirm}
             disabled={showInput && inputRequired && !inputValue.trim()}
             style={{
