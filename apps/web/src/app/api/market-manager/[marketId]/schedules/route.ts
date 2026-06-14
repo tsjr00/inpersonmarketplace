@@ -346,15 +346,22 @@ export async function PUT(
       const vertical =
         (marketInfo?.vertical_id as string | undefined) || 'farmers_market'
 
+      // FK hint REQUIRED: market_vendors has two FKs to vendor_profiles
+      // (vendor_profile_id + replaced_vendor_id). A bare embed is ambiguous
+      // and errors → null → zero recipients (silently). This had been
+      // sending schedule-change notifications to nobody. (Session 92 fix.)
       crumb.supabase('select', 'market_vendors')
-      const { data: approvedVendors } = await serviceClient
+      const { data: approvedVendors, error: approvedErr } = await serviceClient
         .from('market_vendors')
         .select(`
           vendor_profile_id,
-          vendor_profiles!inner ( user_id )
+          vendor_profiles!market_vendors_vendor_profile_id_fkey ( user_id )
         `)
         .eq('market_id', marketId)
         .eq('approved', true)
+      if (approvedErr) {
+        console.error('[schedules] approved-vendors recipient query failed:', approvedErr.message)
+      }
 
       type VendorRow = {
         vendor_profile_id: string

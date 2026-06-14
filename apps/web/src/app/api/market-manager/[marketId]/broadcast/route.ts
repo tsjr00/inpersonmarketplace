@@ -106,12 +106,19 @@ export async function POST(
 
     // Recipients: approved vendors + paid renters for current/upcoming weeks.
     // Same fan-out as the schedule-change notification.
+    // FK hint is REQUIRED: market_vendors has two FKs to vendor_profiles
+    // (vendor_profile_id + replaced_vendor_id), so a bare embed is ambiguous
+    // and errors → null → 0 recipients (silently). Matches the proven pattern
+    // in markets/[id]/vendors/[vendorId]/route.ts.
     crumb.supabase('select', 'market_vendors')
-    const { data: approvedVendors } = await serviceClient
+    const { data: approvedVendors, error: approvedErr } = await serviceClient
       .from('market_vendors')
-      .select('vendor_profile_id, vendor_profiles!inner ( user_id )')
+      .select('vendor_profile_id, vendor_profiles!market_vendors_vendor_profile_id_fkey ( user_id )')
       .eq('market_id', marketId)
       .eq('approved', true)
+    if (approvedErr) {
+      console.error('[broadcast] approved-vendors recipient query failed:', approvedErr.message)
+    }
 
     const recipientUserIds = new Set<string>()
     for (const v of (approvedVendors ?? []) as VendorRow[]) {
@@ -124,13 +131,18 @@ export async function POST(
     thisWeekStart.setDate(thisWeekStart.getDate() - dayIdx)
     const thisWeekStartStr = thisWeekStart.toISOString().slice(0, 10)
 
+    // weekly_booth_rentals has a single FK to vendor_profiles — embed is
+    // unambiguous here (unlike market_vendors above).
     crumb.supabase('select', 'weekly_booth_rentals')
-    const { data: paidRenters } = await serviceClient
+    const { data: paidRenters, error: paidErr } = await serviceClient
       .from('weekly_booth_rentals')
       .select('vendor_profile_id, vendor_profiles!inner ( user_id )')
       .eq('market_id', marketId)
       .eq('status', 'paid')
       .gte('week_start_date', thisWeekStartStr)
+    if (paidErr) {
+      console.error('[broadcast] paid-renters recipient query failed:', paidErr.message)
+    }
 
     for (const r of (paidRenters ?? []) as VendorRow[]) {
       const vp = Array.isArray(r.vendor_profiles) ? r.vendor_profiles[0] : r.vendor_profiles
