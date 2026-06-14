@@ -1,6 +1,17 @@
 # Backlog
 
-Last updated: 2026-06-12 (Session 92 — growth feature set added)
+Last updated: 2026-06-13 (Session 92 — vendor product categories added)
+
+## Priority 1 — Vendor product categories: keep selling exclusive, capture booth revenue (Session 92, 2026-06-13)
+
+Full concept + phased plan + locked decisions: `apps/web/.claude/vendor_product_categories_concept.md`. FUTURE build, not scheduled.
+
+Principle (verified): selling and booth-renting are separate code paths — add a `sell_eligible` selling gate, leave booth-rent open. 4 categories: 1 Homemade/Handmade/Homegrown + 2 Hand-finished/Personalized = sell-eligible; 3 Personal-design/machine-produced + 4 Retail/Resale/Pre-owned = NOT sell-eligible (booth rent only). Strict cat 1&2; self-categorize at first interest before onboarding; no retro-classify existing vendors.
+
+- [ ] **Phase 1 — Exclusivity gate (priority, ships alone):** signup front-step self-categorization (cat 3/4 blocked from selling, reinforced messaging); `vendor_profiles.production_category TEXT[]` + `sell_eligible` (1 mig); enforce `sell_eligible` at listing-publish + market-box-create (airtight — every selling entry point); opt-in clause "products must stay in supported categories / may be removed without notice"; manager-onboarding messaging (platform for cat 1&2; invite cat 3&4 for booth rent only — use judgment).
+- [ ] **Phase 2 — Option C booth revenue:** manager attaches a booth-rent payment link to an off-platform `market_booth_placeholders` row → vendor pays no-login → webhook records. Reuses `calculateBoothRentalFees` + destination-charge pattern. ~1 mig + manager UI + no-auth payment page + webhook.
+- [ ] **Phase 3 (later) — Option B:** lite self-serve booth accounts for cat 3/4 (`sell_eligible=false`, selling UI hidden, buyer-invisible, bookings-only dashboard). Re-decide COI then.
+- To draft when picked up: exact cat-3/4 rejection copy; signup placement; whether event vendors are gated too.
 
 ## Priority 1 — Growth feature set: Regional-Manager / market-operations (Session 92 deep dive)
 

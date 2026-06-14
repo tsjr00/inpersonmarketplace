@@ -1,6 +1,40 @@
-# Current Task: Session 92 — growth build Phase A (after: review fixes ✓, Stripe rotation ✓)
+# Current Task: Session 92 — growth build + design pass + help content (NEXT SESSION READ THIS)
 
-**ACTIVE (2026-06-12):** Growth feature build per `growth_build_plan.md` (phasing A→B→1B→C→D→E, hybrid mode). Phase A (visibility card + earnings card + connected-market open-booth snapshot) implemented + gates green → committing to staging. Next: user staging-tests Phase A; then Phase B (market_favorites + market_broadcasts migs, follows, market-day notification, broadcast). Deep-dive findings: `session92_events_mm_growth_research.md`; decisions logged (composable roles, season prepay).
+**Updated:** 2026-06-14 (Session 92 end-of-session checkpoint). **Mode:** Fix (hybrid build).
+
+## QUICK STATE FOR NEXT SESSION
+Long session. Everything below is on `origin/staging` (15 commits ahead of prod `4fc2356`), all tsc/lint/vitest green, NOT on prod yet. Prod push deferred to a 9PM–7AM CT window.
+
+**Staging commits since prod `4fc2356`:** 12ee9069 (Items1-4), a6056031 (mig153 bookkeeping), eeb847fa (refund/fee F1/F2/F4/F5), 6cd16002 (protected-paths gate), 12b0eb9c (growth-A: visibility+earnings+open-booth cards), 52ab733d (growth-B-follows), f2ed2606 (growth-B-broadcast), 81199f61 (growth-1B suspend/restore+history), 6186f2f7 (type=button dialog-submit fix), ea1fd98d (market_vendors→vendor_profiles embed disambig — fixed broadcast 0-recipients + schedule-change-notifies-nobody), 91b1db08 (managerStatus wired into vertical-admin page + local suspend state), 4b3da05f (mm-design pass 1: sticky jump nav + ManagerCard wrapper + money-font fix).
+
+**USER-CONFIRMED on staging:** refund/tip (F5+F2), Phase A, broadcast (rate-limit+delivery), follows button, suspend/unsuspend. Design pass 1 + help content NOT yet visually reviewed.
+
+## OPEN ITEMS (next session)
+1. **mig 158 help-articles seed — built, NOT applied, NOT committed yet at checkpoint time → committing now.** File `supabase/migrations/20260614_158_seed_help_articles_mm_events.sql`: 23 knowledge_articles (Market Managers 11 / Booth Rentals 3 / Events 6 / Joining a Market 3). First paste attempt errored ("relation time does not exist") → rewrote with dollar-quoting ($art$); validated balanced. NEXT: user applies to Dev+Staging → review `/farmers_market/help` + `/food_trucks/help` (events are global) → ships to Prod with the push.
+2. **Design pass COMMIT 2 (not built):** convert remaining MM dashboard cards to `ManagerCard` for full consistency: MarketVisibilityCard, ManagerActionSummary, WeeklyBookingsCard, MarketStripeConnectCard, MarketBrandingCard, MarketScheduleCard, SurveyResultsCard, MarketBroadcastCard, OnboardingChecklist, BoothOccupancy/Inventory/Placeholder, InviteVendorLink/Browser. Plan: `growth_build_plan.md`-adjacent / proposal in chat. User decided: sticky=yes, gap=16px, shared wrapper. **OPEN Q for user after staging review:** does sticky nav overlap any global header (adjust `top` offset in ManagerJumpNav if so).
+3. **PROD PUSH PREP (see "BEFORE PROD PUSH" checklist below):** (a) run the prod migration-check query → confirm which of 154/155/156/157/158 pending (153 already on prod); (b) apply pending migs IN ORDER 154→155→156→157→158 to Prod (additive, safe to apply during prep before the code push); (c) `git push origin main` in window; (d) verify Vercel built green; (e) prod smoke test.
+4. **Form-button scan: DONE/clean** (ConfirmDialog + MarketManagerAssignment were the only offenders, both fixed).
+5. **Backlog future builds (not this push):** vendor product categories (`vendor_product_categories_concept.md` — Phase 1 exclusivity gate / Phase 2 Option C booth-payment-link / Phase 3 Option B), RM/market-operations growth set, F6 cron N+1, admin-notif on failed refunds.
+
+## DECISIONS LOGGED THIS SESSION (decisions.md): composable roles (stack never merge); season prepay no-subscriptions; (+ vendor categories strict cat1&2, Option C first → B later — in concept doc).
+
+---
+
+# Prior: Session 92 — growth build (A + B + 1B shipped to staging)
+
+**ACTIVE (2026-06-13):** Growth feature build per `growth_build_plan.md` (phasing A→B→1B→C→D→E, hybrid mode). Phases A, B (follows + market-day notif + broadcast), 1B (manager suspend/restore + history) all on staging. Deep-dive findings: `session92_events_mm_growth_research.md`; decisions logged (composable roles, season prepay).
+
+## ⚠️ BEFORE PROD PUSH (tonight, 9PM–7AM CT window) — checklist
+1. **SCAN: ConfirmDialog / action buttons inside `<form>`** — grep app for `<form` hosts that contain `ConfirmDialog` or action `<button>`s lacking `type="button"`. Root cause of the manager-card dialog bug (fixed `6186f2f7`): default `type=submit` submits the host form. The `[vertical]/admin/markets/page.tsx` market-edit form was the one found; check for siblings (other admin edit forms, vendor/event forms). Fix any with `type="button"`. (ConfirmDialog's OWN buttons already hardened in `6186f2f7`.)
+2. **Verify migration state on Prod** (don't trust memory): which of 153/154/155/156/157 are already on Prod vs pending. Apply pending ones IN ORDER before the code push.
+3. **Staging tests cleared:** refund/tip (eeb847fa ✓ F5+F2), Phase A (✓), follows/broadcast/1B (⬜ user to test).
+4. Push window 9PM–7AM CT; one coordinated `git push origin main` chain; smoke-test prod critical path after.
+
+Staging stack since prod `4fc2356` (13 commits): 12ee9069, a6056031, eeb847fa, 6cd16002, 12b0eb9c, 52ab733d, f2ed2606, 81199f61, 6186f2f7, ea1fd98d (+ earlier). `6186f2f7` = type=button dialog-submit fix (admin manager card). `ea1fd98d` = market_vendors→vendor_profiles embed disambiguation — fixes broadcast 0-recipients AND a PRE-EXISTING prod bug where schedule-change notifications silently went to zero approved vendors (bare ambiguous embed errored → null). Both found during staging testing of B-broadcast/1B.
+
+**Bugs found+fixed during staging testing (all on staging):** 6186f2f7 dialog-form-submit; ea1fd98d broadcast 0-recipients + schedule-change-notifies-nobody (market_vendors embed); 91b1db08 stuck suspend button (vertical-admin page missing managerStatus prop). Stack now 14 commits since prod.
+
+**CONFIRMED working on staging (user):** broadcast (rate limit + delivery, 2 mgr/vendor combos). **Re-tests open after 91b1db08 deploys:** suspend→Restore button flips + restore works; follows button; schedule-change notifies. Then prod push.
 
 ---
 
