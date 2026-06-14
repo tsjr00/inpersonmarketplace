@@ -58,7 +58,10 @@ export default function MarketManagerAssignment({
 
   const isAssigned = !!managerEmail
   const isLinked = !!managerUserId
-  const isSuspended = managerStatus === 'suspended'
+  // Local state (seeded from the prop) so the badge + Suspend/Restore button
+  // flip immediately on action, without depending on the host re-fetching its
+  // market snapshot (the vertical-admin page holds a stale editingMarket copy).
+  const [isSuspended, setIsSuspended] = useState(managerStatus === 'suspended')
 
   // Phase 1B — suspend/restore. Shares the same POST endpoint as assign/clear.
   const performAction = async (action: 'suspend' | 'restore') => {
@@ -76,6 +79,7 @@ export default function MarketManagerAssignment({
       if (!res.ok) {
         setError(data.error || `Failed to ${action} manager`)
       } else {
+        setIsSuspended(action === 'suspend')
         setSuccess(action === 'suspend' ? 'Manager access suspended' : 'Manager access restored')
         router.refresh()
         onChange?.()

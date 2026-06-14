@@ -47,6 +47,7 @@ type Market = {
   manager_user_id?: string | null
   manager_invited_at?: string | null
   manager_accepted_at?: string | null
+  manager_status?: string | null
 }
 
 type FormSchedule = {
@@ -1223,6 +1224,7 @@ export default function AdminMarketsPage() {
                     managerUserId={editingMarket.manager_user_id ?? null}
                     managerInvitedAt={editingMarket.manager_invited_at ?? null}
                     managerAcceptedAt={editingMarket.manager_accepted_at ?? null}
+                    managerStatus={editingMarket.manager_status ?? null}
                     onChange={fetchMarkets}
                   />
                 </div>
