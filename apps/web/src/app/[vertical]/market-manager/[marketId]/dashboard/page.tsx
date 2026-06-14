@@ -19,6 +19,8 @@ import MarketStripeConnectCard from '@/components/market-manager/MarketStripeCon
 import MarketScheduleCard from '@/components/market-manager/MarketScheduleCard'
 import ManagerSupportCard from '@/components/market-manager/ManagerSupportCard'
 import MarketBroadcastCard from '@/components/market-manager/MarketBroadcastCard'
+import ManagerCard, { MANAGER_NAV_OFFSET } from '@/components/market-manager/ManagerCard'
+import ManagerJumpNav from '@/components/market-manager/ManagerJumpNav'
 import InviteVendorLink from '@/components/market-manager/InviteVendorLink'
 import InviteVendorBrowser from '@/components/market-manager/InviteVendorBrowser'
 import ManagerActionSummary from '@/components/market-manager/ManagerActionSummary'
@@ -113,9 +115,9 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
     <div style={{
       maxWidth: containers.lg,
       margin: '0 auto',
-      padding: spacing.md,
+      padding: spacing.sm,
     }}>
-      <div style={{ marginBottom: spacing.md }}>
+      <div style={{ marginBottom: spacing.xs }}>
         <Link
           href={`/${vertical}/dashboard`}
           style={{
@@ -130,8 +132,8 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
 
       <h1 style={{
         margin: 0,
-        marginBottom: spacing['2xs'],
-        fontSize: typography.sizes['2xl'],
+        marginBottom: spacing['3xs'],
+        fontSize: typography.sizes.xl,
         fontWeight: typography.weights.bold,
         color: colors.textPrimary,
       }}>
@@ -140,18 +142,24 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
       {(market.city || market.state) && (
         <p style={{
           margin: 0,
-          marginBottom: spacing.lg,
+          marginBottom: spacing.xs,
           color: colors.textMuted,
-          fontSize: typography.sizes.base,
+          fontSize: typography.sizes.sm,
         }}>
           {[market.address, market.city, market.state].filter(Boolean).join(' · ')}
         </p>
       )}
 
+      {/* Sticky in-page jump nav (Session 92 design pass) — chips scroll to
+          each section group; ids must match the group-leader cards below. */}
+      <ManagerJumpNav />
+
       {/* Setup checklist — links into the onboarding wizard if anything
           is incomplete; collapses to a thin "Setup complete" line once
           required steps are done */}
-      <OnboardingChecklist vertical={vertical} marketId={marketId} progress={onboardingProgress} />
+      <div id="setup" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
+        <OnboardingChecklist vertical={vertical} marketId={marketId} progress={onboardingProgress} />
+      </div>
 
       {/* Buyer-visibility gate status (Session 92 A1) — names the
           listing+schedule rule and shows the live per-vendor breakdown
@@ -180,8 +188,11 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
       {/* Manager booth-rental earnings (Session 92 A2) — the manager's
           OWN money, net of platform fees. Renders nothing until the
           first rental is collected. Placed before the gross-GMV card so
-          "your money" reads before "your vendors' money". */}
-      <ManagerEarningsCard aggregates={earningsAggregates} />
+          "your money" reads before "your vendors' money". Anchors the
+          "Money" jump-nav group. */}
+      <div id="money" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
+        <ManagerEarningsCard aggregates={earningsAggregates} />
+      </div>
 
       {/* Aggregate transactions — gross sales activity across 3 windows.
           Phase D.1 (2026-05-16). Renders nothing if all windows are empty. */}
@@ -193,7 +204,7 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           Wrapped with id="weekly-bookings" + scrollMarginTop so the
           booth_rental_paid_manager notification's anchor link scrolls
           here cleanly (2026-05-19). */}
-      <div id="weekly-bookings" style={{ scrollMarginTop: spacing.md }}>
+      <div id="weekly-bookings" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
         <WeeklyBookingsCard marketId={marketId} marketTimezone={(market.timezone as string | null) ?? null} />
       </div>
 
@@ -211,36 +222,15 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
         initialDescription={(market.description as string | null) ?? null}
       />
 
-      {/* Booth inventory — manage size tiers + per-week prices */}
-      <div style={{
-        padding: spacing.md,
-        backgroundColor: colors.surfaceElevated,
-        border: `1px solid ${colors.border}`,
-        borderRadius: radius.md,
-        marginBottom: spacing.md,
-      }}>
-        <h2 style={{
-          marginTop: 0,
-          marginBottom: spacing.xs,
-          fontSize: typography.sizes.lg,
-          fontWeight: typography.weights.semibold,
-          color: colors.textPrimary,
-        }}>
-          Booth inventory
-        </h2>
-        <p style={{
-          margin: 0,
-          marginBottom: spacing.sm,
-          color: colors.textMuted,
-          fontSize: typography.sizes.sm,
-          lineHeight: 1.5,
-        }}>
-          Configure the booth size tiers at your market — how many of each size
-          you have and the weekly rental price. This is the foundation for the
-          weekly vendor booking flow.
-        </p>
+      {/* Booth inventory — manage size tiers + per-week prices. Anchors
+          the "Booths" jump-nav group. */}
+      <ManagerCard
+        id="booths"
+        title="Booth inventory"
+        description="Configure the booth size tiers at your market — how many of each size you have and the weekly rental price. This is the foundation for the weekly vendor booking flow."
+      >
         <BoothInventoryManager marketId={marketId} />
-      </div>
+      </ManagerCard>
 
       {/* Booth occupancy grid — current week, per tier. Combines
           off-platform placeholders, on-platform vendors with a tier,
@@ -253,117 +243,47 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
 
       {/* Off-platform vendor booth placeholders — track occupancy without
           on-platform vendor identity */}
-      <div style={{
-        padding: spacing.md,
-        backgroundColor: colors.surfaceElevated,
-        border: `1px solid ${colors.border}`,
-        borderRadius: radius.md,
-        marginBottom: spacing.md,
-      }}>
-        <h2 style={{
-          marginTop: 0,
-          marginBottom: spacing.xs,
-          fontSize: typography.sizes.lg,
-          fontWeight: typography.weights.semibold,
-          color: colors.textPrimary,
-        }}>
-          Off-platform booth placeholders
-        </h2>
-        <p style={{
-          margin: 0,
-          marginBottom: spacing.sm,
-          color: colors.textMuted,
-          fontSize: typography.sizes.sm,
-          lineHeight: 1.5,
-        }}>
-          Track booths occupied by vendors who are not on the platform. No
-          vendor identity is captured — just the booth number and (optionally)
-          which size tier it counts against. Useful when you have existing
-          vendors who haven&apos;t onboarded yet.
-        </p>
+      <ManagerCard
+        title="Off-platform booth placeholders"
+        description="Track booths occupied by vendors who are not on the platform. No vendor identity is captured — just the booth number and (optionally) which size tier it counts against. Useful when you have existing vendors who haven't onboarded yet."
+      >
         <BoothPlaceholderManager marketId={marketId} />
-      </div>
+      </ManagerCard>
 
-      {/* Vendors at this market — assign / edit booth numbers */}
-      <div id="vendors-at-market" style={{
-        padding: spacing.md,
-        backgroundColor: colors.surfaceElevated,
-        border: `1px solid ${colors.border}`,
-        borderRadius: radius.md,
-        marginBottom: spacing.md,
-        scrollMarginTop: spacing.md,
-      }}>
-        <h2 style={{
-          marginTop: 0,
-          marginBottom: spacing.xs,
-          fontSize: typography.sizes.lg,
-          fontWeight: typography.weights.semibold,
-          color: colors.textPrimary,
-          display: 'flex',
-          alignItems: 'baseline',
-          gap: spacing.xs,
-          flexWrap: 'wrap',
-        }}>
-          <span>Vendors at this market</span>
-          {dashboardStats.activeVendorsNeedingBooth > 0 && (
-            <span style={{
-              fontSize: typography.sizes.xs,
-              fontWeight: typography.weights.semibold,
-              color: '#92400e',
-              backgroundColor: '#fef3c7',
-              padding: `${spacing['3xs']} ${spacing.xs}`,
-              borderRadius: radius.sm,
-            }}>
-              {dashboardStats.activeVendorsNeedingBooth} need{dashboardStats.activeVendorsNeedingBooth === 1 ? 's' : ''} booth #
-            </span>
-          )}
-        </h2>
-        <p style={{
-          margin: 0,
-          marginBottom: spacing.sm,
-          color: colors.textMuted,
-          fontSize: typography.sizes.sm,
-          lineHeight: 1.5,
-        }}>
-          Assign booth numbers to vendors who are on the platform and at this
-          market. Off-platform vendor placeholders ship in a later update.
-        </p>
+      {/* Vendors at this market — assign / edit booth numbers. Anchors the
+          "Vendors" jump-nav group. */}
+      <ManagerCard
+        id="vendors"
+        title="Vendors at this market"
+        description="Assign booth numbers to vendors who are on the platform and at this market. Off-platform vendor placeholders ship in a later update."
+        headerAccessory={dashboardStats.activeVendorsNeedingBooth > 0 ? (
+          <span style={{
+            fontSize: typography.sizes.xs,
+            fontWeight: typography.weights.semibold,
+            color: '#92400e',
+            backgroundColor: '#fef3c7',
+            padding: `${spacing['3xs']} ${spacing.xs}`,
+            borderRadius: radius.sm,
+          }}>
+            {dashboardStats.activeVendorsNeedingBooth} need{dashboardStats.activeVendorsNeedingBooth === 1 ? 's' : ''} booth #
+          </span>
+        ) : undefined}
+      >
         <VendorBoothList marketId={marketId} vertical={vertical} />
-      </div>
+      </ManagerCard>
 
       {/* Invite a vendor — copy-able co-branded signup link */}
-      <div style={{
-        padding: spacing.md,
-        backgroundColor: colors.surfaceElevated,
-        border: `1px solid ${colors.border}`,
-        borderRadius: radius.md,
-        marginBottom: spacing.md,
-      }}>
-        <h2 style={{
-          marginTop: 0,
-          marginBottom: spacing.xs,
-          fontSize: typography.sizes.lg,
-          fontWeight: typography.weights.semibold,
-          color: colors.textPrimary,
-        }}>
-          Invite a vendor
-        </h2>
-        <p style={{
-          margin: 0,
-          marginBottom: spacing.sm,
-          color: colors.textMuted,
-          fontSize: typography.sizes.sm,
-          lineHeight: 1.5,
-        }}>
-          Share this link with a vendor you&apos;d like to bring to your market. They&apos;ll see a banner identifying your market on the standard signup page.
-        </p>
+      <ManagerCard
+        title="Invite a vendor"
+        description="Share this link with a vendor you'd like to bring to your market. They'll see a banner identifying your market on the standard signup page."
+      >
         <InviteVendorLink
           vertical={vertical}
           marketId={marketId}
           marketName={market.name as string}
           onboardingComplete={onboardingProgress.required_complete === onboardingProgress.required_total}
         />
-      </div>
+      </ManagerCard>
 
       {/* NEW-8: bulk-invite browser for on-platform vendors near this
           market. Same onboarding gate as InviteVendorLink — invite landing
@@ -381,58 +301,40 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
 
       {/* Opt-in vendor agreement statements — manager picks which ones
           apply to their market */}
-      <div style={{
-        padding: spacing.md,
-        backgroundColor: colors.surfaceElevated,
-        border: `1px solid ${colors.border}`,
-        borderRadius: radius.md,
-        marginBottom: spacing.md,
-      }}>
-        <h2 style={{
-          marginTop: 0,
-          marginBottom: spacing.xs,
-          fontSize: typography.sizes.lg,
-          fontWeight: typography.weights.semibold,
-          color: colors.textPrimary,
-        }}>
-          Vendor agreement statements
-        </h2>
-        <p style={{
-          margin: 0,
-          marginBottom: spacing.sm,
-          color: colors.textMuted,
-          fontSize: typography.sizes.sm,
-          lineHeight: 1.5,
-        }}>
-          Select which opt-in statements vendors must accept when they sign
-          up to your market. Statements with placeholders (in curly braces)
-          let you fill in values specific to your market — these get
-          substituted into the vendor-facing text at signup.
-        </p>
+      <ManagerCard
+        title="Vendor agreement statements"
+        description="Select which opt-in statements vendors must accept when they sign up to your market. Statements with placeholders (in curly braces) let you fill in values specific to your market — these get substituted into the vendor-facing text at signup."
+      >
         <OptinManager marketId={marketId} />
-      </div>
+      </ManagerCard>
 
       {/* Manager-editable schedule (D.2 2026-05-16; editable since 2026-05-19).
           Manager edits day/time/active + season start/end. Saving requires
           acknowledgment of vendor-refund responsibility + fires a
           market_schedule_changed notification to every approved vendor. */}
-      <MarketScheduleCard
-        marketId={marketId}
-        initialSchedules={schedules}
-        initialSeasonStart={(market.season_start as string | null) ?? null}
-        initialSeasonEnd={(market.season_end as string | null) ?? null}
-        hasScheduleChangeRecipients={dashboardStats.hasScheduleChangeRecipients}
-      />
+      <div id="schedule" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
+        <MarketScheduleCard
+          marketId={marketId}
+          initialSchedules={schedules}
+          initialSeasonStart={(market.season_start as string | null) ?? null}
+          initialSeasonEnd={(market.season_end as string | null) ?? null}
+          hasScheduleChangeRecipients={dashboardStats.hasScheduleChangeRecipients}
+        />
+      </div>
 
       {/* Manager broadcast (Session 92 Phase B) — one-way announcement to
           vendors (approved + paid upcoming renters). Send-only; server
           rate-limits to 2 per 7 days. Placed after the schedule card since
-          both are manager→vendor communication surfaces. */}
-      <MarketBroadcastCard marketId={marketId} />
+          both are manager→vendor communication surfaces. Anchors "Announce". */}
+      <div id="announce" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
+        <MarketBroadcastCard marketId={marketId} />
+      </div>
 
       {/* Survey results card (Phase E Stage 5) — empty state until
-          cron Stage 2 starts populating market_surveys rows. */}
-      <SurveyResultsCard marketId={marketId} />
+          cron Stage 2 starts populating market_surveys rows. Anchors "Surveys". */}
+      <div id="surveys" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
+        <SurveyResultsCard marketId={marketId} />
+      </div>
 
       {/* Static support card (D.3 2026-05-16) */}
       <ManagerSupportCard vertical={vertical} />

@@ -97,7 +97,7 @@ export default function ManagerEarningsCard({ aggregates }: ManagerEarningsCardP
               </div>
             )}
             <div style={{
-              fontSize: typography.sizes['2xl'],
+              fontSize: typography.sizes.lg,
               fontWeight: typography.weights.bold,
               color: colors.textPrimary,
               lineHeight: 1.2,
