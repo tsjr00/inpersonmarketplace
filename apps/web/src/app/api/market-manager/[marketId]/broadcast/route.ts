@@ -193,3 +193,54 @@ export async function POST(
     return NextResponse.json({ success: true, recipient_count: recipientUserIds.size })
   })
 }
+
+/**
+ * GET /api/market-manager/[marketId]/broadcast
+ *
+ * Returns the market's recent announcements (newest first, capped at 10) plus
+ * the count sent in the trailing rate-limit window — so the dashboard can show
+ * a "Recent announcements" history list and an "X of N used this week" line.
+ * Manager-auth gated (same dual-key check as POST).
+ */
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ marketId: string }> }
+) {
+  return withErrorTracing('/api/market-manager/[marketId]/broadcast', 'GET', async () => {
+    const { marketId } = await params
+
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw traced.auth('ERR_AUTH_001', 'Not authenticated')
+
+    const allowed = await isMarketManager(supabase, marketId, user)
+    if (!allowed) {
+      return NextResponse.json({ error: 'Not the manager of this market' }, { status: 403 })
+    }
+
+    const serviceClient = createServiceClient()
+    crumb.supabase('select', 'market_broadcasts')
+    const { data: rows, error } = await serviceClient
+      .from('market_broadcasts')
+      .select('id, subject, body, recipient_count, created_at')
+      .eq('market_id', marketId)
+      .order('created_at', { ascending: false })
+      .limit(10)
+    if (error) {
+      throw traced.fromSupabase(error, { table: 'market_broadcasts', operation: 'select' })
+    }
+
+    // Trailing-window count drives the "X of N used this week" hint. The
+    // rate limit caps sends at RATE_MAX_PER_WINDOW, so this is always ≤ the
+    // fetched page — counting from `rows` is accurate.
+    const windowStart = new Date(Date.now() - RATE_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString()
+    const sentThisWindow = (rows ?? []).filter((r) => (r.created_at as string) >= windowStart).length
+
+    return NextResponse.json({
+      broadcasts: rows ?? [],
+      sentThisWindow,
+      maxPerWindow: RATE_MAX_PER_WINDOW,
+      windowDays: RATE_WINDOW_DAYS,
+    })
+  })
+}

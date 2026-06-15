@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
+import ManagerCard from './ManagerCard'
 
 /**
  * Manager dashboard card for market co-branding.
@@ -145,33 +146,10 @@ export default function MarketBrandingCard({
   }
 
   return (
-    <div style={{
-      padding: spacing.md,
-      backgroundColor: colors.surfaceElevated,
-      border: `1px solid ${colors.border}`,
-      borderRadius: radius.md,
-      marginBottom: spacing.md,
-    }}>
-      <h2 style={{
-        marginTop: 0,
-        marginBottom: spacing.xs,
-        fontSize: typography.sizes.lg,
-        fontWeight: typography.weights.semibold,
-        color: colors.textPrimary,
-      }}>
-        Branding
-      </h2>
-      <p style={{
-        margin: 0,
-        marginBottom: spacing.sm,
-        color: colors.textMuted,
-        fontSize: typography.sizes.sm,
-        lineHeight: 1.5,
-      }}>
-        Upload your market&apos;s logo. It will appear on your public market
-        profile and on the co-branded vendor invite page.
-      </p>
-
+    <ManagerCard
+      title="Branding"
+      description="Upload your market's logo. It will appear on your public market profile and on the co-branded vendor invite page."
+    >
       {logoUrl ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, flexWrap: 'wrap', marginBottom: spacing.sm }}>
           {/* Logo preview — keep it small enough to fit on mobile but
@@ -410,6 +388,6 @@ export default function MarketBrandingCard({
         onConfirm={performRemove}
         onCancel={() => setConfirmingRemove(false)}
       />
-    </div>
+    </ManagerCard>
   )
 }

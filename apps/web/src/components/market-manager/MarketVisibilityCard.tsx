@@ -26,7 +26,7 @@ export default function MarketVisibilityCard({ status }: MarketVisibilityCardPro
         backgroundColor: '#f0fdf4',
         border: '1px solid #bbf7d0',
         borderRadius: radius.md,
-        marginBottom: spacing.md,
+        marginBottom: spacing.sm,
         display: 'flex',
         alignItems: 'baseline',
         gap: spacing.xs,
@@ -53,7 +53,7 @@ export default function MarketVisibilityCard({ status }: MarketVisibilityCardPro
       backgroundColor: '#fffbeb',
       border: '1px solid #fde68a',
       borderRadius: radius.md,
-      marginBottom: spacing.md,
+      marginBottom: spacing.sm,
     }}>
       <h2 style={{
         marginTop: 0,

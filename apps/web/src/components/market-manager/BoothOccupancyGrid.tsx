@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import ManagerCard from '@/components/market-manager/ManagerCard'
 
 interface BoothOccupancyGridProps {
   marketId: string
@@ -169,40 +170,10 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone }: B
   }
 
   return (
-    <div style={{
-      padding: spacing.md,
-      backgroundColor: colors.surfaceElevated,
-      border: `1px solid ${colors.border}`,
-      borderRadius: radius.md,
-      marginBottom: spacing.md,
-    }}>
-      <h2 style={{
-        margin: 0,
-        marginBottom: spacing.xs,
-        fontSize: typography.sizes.lg,
-        fontWeight: typography.weights.semibold,
-        color: colors.textPrimary,
-      }}>
-        {/* Date inline after the heading per Session 84 testing —
-            previously the "Week of <date>" floated to the far right in
-            small muted text and managers missed it. */}
-        Booth occupancy — this week:{' '}
-        <span style={{ fontWeight: typography.weights.normal, color: colors.textMuted }}>
-          {formatDisplayDate(weekStart)}
-        </span>
-      </h2>
-      <p style={{
-        margin: 0,
-        marginBottom: spacing.sm,
-        fontSize: typography.sizes.sm,
-        color: colors.textMuted,
-        lineHeight: 1.5,
-      }}>
-        Per-tier view of who&apos;s at the market this week — combines
-        off-platform placeholders, on-platform vendors, and paid weekly
-        bookings. Manage each source from the cards below.
-      </p>
-
+    <ManagerCard
+      title={<>Booth occupancy — this week:{' '}<span style={{ fontWeight: typography.weights.normal, color: colors.textMuted }}>{formatDisplayDate(weekStart)}</span></>}
+      description="Per-tier view of who's at the market this week — combines off-platform placeholders, on-platform vendors, and paid weekly bookings. Manage each source from the cards below."
+    >
       <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
         {tiers.map((tier, idx) => {
           const occupants = byTier.get(tier.id) ?? []
@@ -298,7 +269,7 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone }: B
           </div>
         )}
       </div>
-    </div>
+    </ManagerCard>
   )
 }
 

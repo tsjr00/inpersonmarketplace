@@ -17,7 +17,7 @@ interface ManagerCardProps {
   /** Anchor id for the jump-nav (e.g. 'money', 'vendors'). */
   id?: string
   /** Section header (rendered at lg/semibold). Omit for headerless cards. */
-  title?: string
+  title?: ReactNode
   /** Optional sub-text under the header (sm/muted). */
   description?: ReactNode
   /** Optional node rendered at the right of the header row (badge, count). */

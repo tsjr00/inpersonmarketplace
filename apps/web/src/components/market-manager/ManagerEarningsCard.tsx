@@ -1,4 +1,5 @@
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import ManagerCard from './ManagerCard'
 import type { ManagerEarningsAggregates } from '@/lib/markets/manager-dashboard-stats'
 
 /**
@@ -36,35 +37,10 @@ export default function ManagerEarningsCard({ aggregates }: ManagerEarningsCardP
   ]
 
   return (
-    <div style={{
-      padding: spacing.md,
-      backgroundColor: colors.surfaceElevated,
-      border: `1px solid ${colors.border}`,
-      borderRadius: radius.md,
-      marginBottom: spacing.md,
-    }}>
-      <h2 style={{
-        marginTop: 0,
-        marginBottom: spacing.xs,
-        fontSize: typography.sizes.lg,
-        fontWeight: typography.weights.semibold,
-        color: colors.textPrimary,
-      }}>
-        Your booth revenue
-      </h2>
-      <p style={{
-        margin: 0,
-        marginBottom: spacing.md,
-        color: colors.textMuted,
-        fontSize: typography.sizes.sm,
-        lineHeight: 1.5,
-      }}>
-        What you collect from weekly booth rentals after the platform&apos;s
-        percentage — this is <strong>your</strong> money, paid out through your
-        Stripe account. (Market activity below shows your vendors&apos; sales,
-        which you don&apos;t collect.)
-      </p>
-
+    <ManagerCard
+      title="Your booth revenue"
+      description={<>What you collect from weekly booth rentals after the platform&apos;s percentage — this is <strong>your</strong> money, paid out through your Stripe account. (Market activity below shows your vendors&apos; sales, which you don&apos;t collect.)</>}
+    >
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
@@ -114,6 +90,6 @@ export default function ManagerEarningsCard({ aggregates }: ManagerEarningsCardP
           </div>
         ))}
       </div>
-    </div>
+    </ManagerCard>
   )
 }

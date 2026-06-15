@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
+import ManagerCard from './ManagerCard'
 import {
   DOCUMENT_TYPE_DEFINITIONS,
   getDocumentTypeLabel,
@@ -190,34 +191,10 @@ export default function VerificationDocumentsCard({ marketId }: VerificationDocu
   const currentTypeDef = DOCUMENT_TYPE_DEFINITIONS.find((d) => d.value === documentType)
 
   return (
-    <div style={{
-      padding: spacing.md,
-      backgroundColor: colors.surfaceElevated,
-      border: `1px solid ${colors.border}`,
-      borderRadius: radius.md,
-      marginBottom: spacing.md,
-    }}>
-      <h2 style={{
-        margin: 0,
-        marginBottom: spacing.xs,
-        fontSize: typography.sizes.lg,
-        fontWeight: typography.weights.semibold,
-        color: colors.textPrimary,
-      }}>
-        Verification Documents
-      </h2>
-      <p style={{
-        margin: 0,
-        marginBottom: spacing.md,
-        fontSize: typography.sizes.sm,
-        color: colors.textMuted,
-        lineHeight: 1.5,
-      }}>
-        Upload documents that help the platform admin verify your market is legitimate.
-        Keeps your booth-rental payments safe and speeds up approval. Files are private —
-        only you and the platform admin can view them.
-      </p>
-
+    <ManagerCard
+      title="Verification Documents"
+      description="Upload documents that help the platform admin verify your market is legitimate. Keeps your booth-rental payments safe and speeds up approval. Files are private — only you and the platform admin can view them."
+    >
       {/* Upload form */}
       <form
         onSubmit={handleUpload}
@@ -413,7 +390,7 @@ export default function VerificationDocumentsCard({ marketId }: VerificationDocu
         onConfirm={performRemove}
         onCancel={() => setConfirmingRemove(null)}
       />
-    </div>
+    </ManagerCard>
   )
 }
 

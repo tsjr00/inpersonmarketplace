@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import ManagerCard from './ManagerCard'
 import {
   CATEGORY_DEFINITIONS,
   type MarketSurveyRow,
@@ -69,12 +70,11 @@ export default async function SurveyResultsCard({
     // dashboard has plenty of other cards; survey failure shouldn't
     // blank the whole page.
     return (
-      <Card>
-        <Heading>Survey results — last {windowDays} days</Heading>
+      <ManagerCard title={`Survey results — last ${windowDays} days`}>
         <p style={mutedTextStyle}>
           Could not load surveys for this period.
         </p>
-      </Card>
+      </ManagerCard>
     )
   }
 
@@ -91,8 +91,7 @@ export default async function SurveyResultsCard({
     buyerStats.totalNotified > 0
 
   return (
-    <Card>
-      <Heading>Survey results — last {windowDays} days</Heading>
+    <ManagerCard title={`Survey results — last ${windowDays} days`}>
 
       {!hasAnyData && (
         <p style={mutedTextStyle}>
@@ -142,7 +141,7 @@ export default async function SurveyResultsCard({
           )}
         </>
       )}
-    </Card>
+    </ManagerCard>
   )
 }
 
@@ -181,34 +180,6 @@ function computeStats(rows: MarketSurveyRow[], kind: SurveyKind): KindStats {
 // ---------------------------------------------------------------------------
 // Subcomponents
 // ---------------------------------------------------------------------------
-
-function Card({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{
-      padding: spacing.md,
-      backgroundColor: colors.surfaceElevated,
-      border: `1px solid ${colors.border}`,
-      borderRadius: radius.md,
-      marginBottom: spacing.md,
-    }}>
-      {children}
-    </div>
-  )
-}
-
-function Heading({ children }: { children: React.ReactNode }) {
-  return (
-    <h2 style={{
-      margin: 0,
-      marginBottom: spacing.sm,
-      fontSize: typography.sizes.lg,
-      fontWeight: typography.weights.semibold,
-      color: colors.textPrimary,
-    }}>
-      {children}
-    </h2>
-  )
-}
 
 const mutedTextStyle = {
   margin: 0,

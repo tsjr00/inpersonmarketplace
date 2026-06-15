@@ -1,4 +1,5 @@
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import ManagerCard from './ManagerCard'
 import type { MarketTransactionsAggregates } from '@/lib/markets/manager-dashboard-stats'
 
 /**
@@ -50,34 +51,10 @@ export default function MarketTransactionsCard({ aggregates }: MarketTransaction
   ]
 
   return (
-    <div style={{
-      padding: spacing.md,
-      backgroundColor: colors.surfaceElevated,
-      border: `1px solid ${colors.border}`,
-      borderRadius: radius.md,
-      marginBottom: spacing.md,
-    }}>
-      <h2 style={{
-        marginTop: 0,
-        marginBottom: spacing.xs,
-        fontSize: typography.sizes.lg,
-        fontWeight: typography.weights.semibold,
-        color: colors.textPrimary,
-      }}>
-        Market activity
-      </h2>
-      <p style={{
-        margin: 0,
-        marginBottom: spacing.md,
-        color: colors.textMuted,
-        fontSize: typography.sizes.sm,
-        lineHeight: 1.5,
-      }}>
-        Gross sales placed at your market through the platform. The
-        platform takes its fee from vendors and buyers — these numbers
-        reflect activity, not your earnings.
-      </p>
-
+    <ManagerCard
+      title="Market activity"
+      description="Gross sales placed at your market through the platform. The platform takes its fee from vendors and buyers — these numbers reflect activity, not your earnings."
+    >
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
@@ -129,6 +106,6 @@ export default function MarketTransactionsCard({ aggregates }: MarketTransaction
           </div>
         ))}
       </div>
-    </div>
+    </ManagerCard>
   )
 }

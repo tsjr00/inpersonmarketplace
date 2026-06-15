@@ -1,6 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import WeeklyBookingsList, { type WeeklyBookingRow } from '@/components/market-manager/WeeklyBookingsList'
+import ManagerCard from '@/components/market-manager/ManagerCard'
 
 /**
  * Manager dashboard card showing weekly booth rental bookings at this
@@ -97,33 +97,10 @@ export default async function WeeklyBookingsCard({ marketId }: WeeklyBookingsCar
   }
 
   return (
-    <div style={{
-      padding: spacing.md,
-      backgroundColor: colors.surfaceElevated,
-      border: `1px solid ${colors.border}`,
-      borderRadius: radius.md,
-      marginBottom: spacing.md,
-    }}>
-      <h2 style={{
-        marginTop: 0,
-        marginBottom: spacing.xs,
-        fontSize: typography.sizes.lg,
-        fontWeight: typography.weights.semibold,
-        color: colors.textPrimary,
-      }}>
-        Weekly booth bookings
-      </h2>
-      <p style={{
-        margin: 0,
-        marginBottom: spacing.sm,
-        color: colors.textMuted,
-        fontSize: typography.sizes.sm,
-        lineHeight: 1.5,
-      }}>
-        Bookings vendors have placed at your market. Use the booth # field
-        on each row to assign a booth to a booking. The most recent 50
-        bookings shown.
-      </p>
+    <ManagerCard
+      title="Weekly booth bookings"
+      description="Bookings vendors have placed at your market. Use the booth # field on each row to assign a booth to a booking. The most recent 50 bookings shown."
+    >
       <WeeklyBookingsList
         marketId={marketId}
         bookings={rentals.map<WeeklyBookingRow>((r) => ({
@@ -136,6 +113,6 @@ export default async function WeeklyBookingsCard({ marketId }: WeeklyBookingsCar
           status: r.status,
         }))}
       />
-    </div>
+    </ManagerCard>
   )
 }

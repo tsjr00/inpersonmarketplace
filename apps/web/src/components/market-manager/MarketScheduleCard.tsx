@@ -607,11 +607,11 @@ function AcknowledgmentDialog({
 // ── Shared styles ────────────────────────────────────────────────────
 
 const cardOuterStyle: React.CSSProperties = {
-  padding: spacing.md,
+  padding: spacing.sm,
   backgroundColor: colors.surfaceElevated,
   border: `1px solid ${colors.border}`,
   borderRadius: radius.md,
-  marginBottom: spacing.md,
+  marginBottom: spacing.sm,
 }
 
 const cardHeaderRowStyle: React.CSSProperties = {

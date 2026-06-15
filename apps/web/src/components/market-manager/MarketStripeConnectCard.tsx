@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import ManagerCard from './ManagerCard'
 
 /**
  * Manager dashboard card for Stripe Connect onboarding + status.
@@ -151,34 +152,10 @@ export default function MarketStripeConnectCard({ marketId, marketStatus }: Mark
   }
 
   return (
-    <div style={{
-      padding: spacing.md,
-      backgroundColor: colors.surfaceElevated,
-      border: `1px solid ${colors.border}`,
-      borderRadius: radius.md,
-      marginBottom: spacing.md,
-    }}>
-      <h2 style={{
-        marginTop: 0,
-        marginBottom: spacing.xs,
-        fontSize: typography.sizes.lg,
-        fontWeight: typography.weights.semibold,
-        color: colors.textPrimary,
-      }}>
-        Booth rental payments
-      </h2>
-      <p style={{
-        margin: 0,
-        marginBottom: spacing.sm,
-        color: colors.textMuted,
-        fontSize: typography.sizes.sm,
-        lineHeight: 1.5,
-      }}>
-        Connect a Stripe account to receive booth rental payments from
-        vendors who book at your market. Your account is separate from
-        your vendor account (if you have one) — handled by Stripe directly,
-        we never see your bank details.
-      </p>
+    <ManagerCard
+      title="Booth rental payments"
+      description="Connect a Stripe account to receive booth rental payments from vendors who book at your market. Your account is separate from your vendor account (if you have one) — handled by Stripe directly, we never see your bank details."
+    >
 
       {/* Pending review = Stripe locked. Skips the rest of the card body
           to prevent the manager from kicking off Stripe onboarding before
@@ -338,7 +315,7 @@ export default function MarketStripeConnectCard({ marketId, marketStatus }: Mark
       )}
       </>
       )}
-    </div>
+    </ManagerCard>
   )
 }
 

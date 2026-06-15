@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import ManagerCard from './ManagerCard'
 
 /**
  * Manager-facing browser of nearby platform vendors with bulk invite (NEW-8).
@@ -156,27 +157,21 @@ export default function InviteVendorBrowser({
   // Loading
   if (vendors === null) {
     return (
-      <div style={cardStyle}>
-        <h2 style={headingStyle}>Invite Vendors</h2>
+      <ManagerCard title="Invite Vendors">
         <div style={{ color: colors.textMuted, fontSize: typography.sizes.sm }}>
           Loading nearby vendors…
         </div>
-      </div>
+      </ManagerCard>
     )
   }
 
   const allSelected = vendors.length > 0 && selectedIds.size === vendors.length
 
   return (
-    <div style={cardStyle}>
-      <h2 style={headingStyle}>Invite Vendors</h2>
-      <p style={mutedTextStyle}>
-        Browse on-platform vendors near <strong>{marketName}</strong> and invite
-        them to join your market. They&apos;ll get an in-app notification and email
-        with a link to your market profile. On accept they&apos;re auto-approved —
-        no extra step on your side.
-      </p>
-
+    <ManagerCard
+      title="Invite Vendors"
+      description={<>Browse on-platform vendors near <strong>{marketName}</strong> and invite them to join your market. They&apos;ll get an in-app notification and email with a link to your market profile. On accept they&apos;re auto-approved — no extra step on your side.</>}
+    >
       {/* Controls */}
       <div style={controlsRowStyle}>
         <div style={controlGroupStyle}>
@@ -296,24 +291,8 @@ export default function InviteVendorBrowser({
           })}
         </ul>
       )}
-    </div>
+    </ManagerCard>
   )
-}
-
-const cardStyle: React.CSSProperties = {
-  padding: spacing.md,
-  backgroundColor: colors.surfaceElevated,
-  border: `1px solid ${colors.border}`,
-  borderRadius: radius.md,
-  marginBottom: spacing.md,
-}
-
-const headingStyle: React.CSSProperties = {
-  margin: 0,
-  marginBottom: spacing.xs,
-  fontSize: typography.sizes.lg,
-  fontWeight: typography.weights.semibold,
-  color: colors.textPrimary,
 }
 
 const mutedTextStyle: React.CSSProperties = {

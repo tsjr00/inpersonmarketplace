@@ -1,4 +1,5 @@
-import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { colors, spacing, typography } from '@/lib/design-tokens'
+import ManagerCard from './ManagerCard'
 
 /**
  * Static support card on the manager dashboard. Phase D.3 (2026-05-16).
@@ -17,32 +18,10 @@ const SUPPORT_EMAIL = 'support@farmersmarketing.app'
 
 export default function ManagerSupportCard({ vertical }: ManagerSupportCardProps) {
   return (
-    <div style={{
-      padding: spacing.md,
-      backgroundColor: colors.surfaceElevated,
-      border: `1px solid ${colors.border}`,
-      borderRadius: radius.md,
-      marginBottom: spacing.md,
-    }}>
-      <h2 style={{
-        marginTop: 0,
-        marginBottom: spacing.xs,
-        fontSize: typography.sizes.lg,
-        fontWeight: typography.weights.semibold,
-        color: colors.textPrimary,
-      }}>
-        Need help?
-      </h2>
-      <p style={{
-        margin: 0,
-        marginBottom: spacing.sm,
-        color: colors.textMuted,
-        fontSize: typography.sizes.sm,
-        lineHeight: 1.5,
-      }}>
-        Questions about your dashboard, vendor onboarding, or how the
-        platform handles your market? Reach out and we&apos;ll help.
-      </p>
+    <ManagerCard
+      title="Need help?"
+      description="Questions about your dashboard, vendor onboarding, or how the platform handles your market? Reach out and we'll help."
+    >
       <ul style={{
         margin: 0,
         padding: 0,
@@ -80,6 +59,6 @@ export default function ManagerSupportCard({ vertical }: ManagerSupportCardProps
           </a>
         </li>
       </ul>
-    </div>
+    </ManagerCard>
   )
 }

@@ -43,7 +43,7 @@ export default function OnboardingChecklist({
         backgroundColor: colors.surfaceBase,
         border: `1px solid ${colors.border}`,
         borderRadius: radius.md,
-        marginBottom: spacing.md,
+        marginBottom: spacing.sm,
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -74,7 +74,7 @@ export default function OnboardingChecklist({
       backgroundColor: '#fefce8',
       border: '1px solid #fde047',
       borderRadius: radius.md,
-      marginBottom: spacing.md,
+      marginBottom: spacing.sm,
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.xs }}>
         <h3 style={{

@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { colors, spacing, typography } from '@/lib/design-tokens'
+import ManagerCard from './ManagerCard'
 import type { OnboardingProgress } from '@/lib/markets/onboarding-progress'
 import type { ManagerDashboardStats } from '@/lib/markets/manager-dashboard-stats'
 
@@ -44,22 +45,7 @@ export default function ManagerActionSummary({
   if (!hasPendingApproval && !hasNeedsBooth && !hasNextMarket) return null
 
   return (
-    <div style={{
-      padding: spacing.md,
-      backgroundColor: colors.surfaceBase,
-      border: `1px solid ${colors.border}`,
-      borderRadius: radius.md,
-      marginBottom: spacing.md,
-    }}>
-      <h2 style={{
-        marginTop: 0,
-        marginBottom: spacing.sm,
-        fontSize: typography.sizes.base,
-        fontWeight: typography.weights.semibold,
-        color: colors.textPrimary,
-      }}>
-        What&apos;s on your plate
-      </h2>
+    <ManagerCard title="What's on your plate">
       <ul style={{
         margin: 0,
         padding: 0,
@@ -151,6 +137,6 @@ export default function ManagerActionSummary({
           </li>
         )}
       </ul>
-    </div>
+    </ManagerCard>
   )
 }
