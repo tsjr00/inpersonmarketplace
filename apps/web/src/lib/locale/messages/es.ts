@@ -30,6 +30,7 @@ export const es: Record<string, string> = {
   'footer.become_vendor': 'Conviértete en Vendedor',
   'footer.why_sell': 'Por Qué Vender Con Nosotros',
   'footer.vendor_faq': 'Preguntas de Vendedores',
+  'footer.market_managers': 'Gerentes de Mercado',
   'footer.about_us': 'Sobre Nosotros',
   'footer.contact_us': 'Contáctanos',
   'footer.privacy_policy': 'Política de Privacidad',

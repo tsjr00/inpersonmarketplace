@@ -30,6 +30,7 @@ export const en: Record<string, string> = {
   'footer.become_vendor': 'Become a Vendor',
   'footer.why_sell': 'Why Sell With Us',
   'footer.vendor_faq': 'Vendor FAQ',
+  'footer.market_managers': 'Market Mgrs.',
   'footer.about_us': 'About Us',
   'footer.contact_us': 'Contact Us',
   'footer.privacy_policy': 'Privacy Policy',
