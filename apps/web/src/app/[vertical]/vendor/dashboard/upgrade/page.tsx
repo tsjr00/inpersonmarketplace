@@ -97,7 +97,7 @@ export default function UpgradePage() {
             tier,
             cycle: billingCycle,
             vertical,
-            subscriptionType: 'vendor',
+            type: 'vendor',
           })
         })
 
