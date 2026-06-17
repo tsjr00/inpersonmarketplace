@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import ManagerCard from './ManagerCard'
+import SurveyExportButton from './SurveyExportButton'
 import {
   CATEGORY_DEFINITIONS,
   type MarketSurveyRow,
@@ -91,7 +92,10 @@ export default async function SurveyResultsCard({
     buyerStats.totalNotified > 0
 
   return (
-    <ManagerCard title={`Survey results — last ${windowDays} days`}>
+    <ManagerCard
+      title={`Survey results — last ${windowDays} days`}
+      headerAccessory={hasAnyData ? <SurveyExportButton rows={surveys} /> : undefined}
+    >
 
       {!hasAnyData && (
         <p style={mutedTextStyle}>
