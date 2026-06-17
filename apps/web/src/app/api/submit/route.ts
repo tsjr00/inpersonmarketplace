@@ -112,6 +112,26 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        // Part A — production-category enforcement (Option A: server hard-reject).
+        // FM signups declare production_category (TEXT[] of '1'..'4') at the front
+        // gate. Selling is limited to categories 1 & 2; cat 3/4 must NOT create a
+        // vendor profile (the front gate is client-side — this is the trust
+        // boundary). Verticals that don't send the field (food_trucks) leave
+        // sell_eligible at its DB default (TRUE).
+        const declaredCategories: string[] = Array.isArray((data as Record<string, unknown>)?.production_category)
+          ? ((data as Record<string, unknown>).production_category as unknown[]).map(String)
+          : [];
+        if (declaredCategories.length > 0 && !declaredCategories.every((c) => c === '1' || c === '2')) {
+          return NextResponse.json(
+            {
+              ok: false,
+              error:
+                "Thanks for your interest in selling with us! Farmers Marketing is built for homemade, handmade, homegrown, and hand-finished or personalized goods that you make yourself. Based on your answers, your products aren't a fit for selling on the platform right now. You can still join a market in person — reach out to a market manager about renting booth space. And if what you make changes down the road, we'd love to have you apply again.",
+            },
+            { status: 400 }
+          );
+        }
+
         // Create vendor profile with user_id (if provided)
         const insertData: {
           vertical_id: string;
@@ -119,6 +139,8 @@ export async function POST(request: NextRequest) {
           status: string;
           user_id?: string;
           referred_by_vendor_id?: string;
+          production_category?: string[];
+          sell_eligible?: boolean;
         } = {
           vertical_id: vertical,
           profile_data: data,
@@ -131,6 +153,12 @@ export async function POST(request: NextRequest) {
 
         if (referredByVendorId) {
           insertData.referred_by_vendor_id = referredByVendorId;
+        }
+
+        // Eligible FM declaration (cat 1/2 only — 3/4 rejected above).
+        if (declaredCategories.length > 0) {
+          insertData.production_category = declaredCategories;
+          insertData.sell_eligible = true;
         }
 
         const { data: vendor, error } = await supabaseAdmin

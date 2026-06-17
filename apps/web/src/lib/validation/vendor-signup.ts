@@ -21,6 +21,9 @@ const profileDataSchema = z.object({
   state: z.string().max(50).optional(),
   zip: z.string().max(10).optional(),
   website: z.string().url().max(500).optional().or(z.literal('')),
+  // Part A — FM production-category declaration (keys '1'..'4'). Server
+  // recomputes sell_eligible and rejects cat 3/4; never trusted as authority.
+  production_category: z.array(z.string()).max(4).optional(),
 }).passthrough()
 
 export const vendorSignupSchema = z.object({

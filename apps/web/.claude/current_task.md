@@ -11,11 +11,12 @@
 - `96620976` — Part B: survey CSV export ("Download CSV" on SurveyResultsCard). COMPLETE. (committed local, unpushed)
 - **Part A foundation (UNCOMMITTED at checkpoint → committing now):** mig 159 (`vendor_profiles.production_category TEXT[]` + `sell_eligible BOOLEAN DEFAULT TRUE`) + backstop `sell_eligible` gates at `listings/[id]/publish/route.ts:152` and `market-boxes/route.ts` POST. Both gates are **INERT** (everyone defaults sell_eligible=TRUE). Event selling covered transitively (sales require vendor + published listing).
 
-**Part A REMAINING (next session, focused — see `vendor_categories_and_survey_export_plan.md`):**
-1. **Signup front-gate** — the qualifying category question in `[vertical]/vendor-signup/page.tsx` that weeds out cat 3/4 BEFORE a vendor profile is created (existing buyer stays a buyer). Cat 1/2 → existing form. Cat 3/4 → block screen with the CHOSEN copy (Option A, in the plan A2). This is the actual behavior change; the rest is inert until it lands.
-2. **`/api/submit`** records `production_category` + computes `sell_eligible` for cat 1/2.
-3. Deferred fast-follow: A4 opt-in catalog statement + A5 manager messaging.
-- **SEQUENCING:** mig 159 must be applied to Dev+Staging BEFORE the gate code is pushed to staging (the gates `select ... sell_eligible`; without the column the publish + market-box routes would error). So: build front-gate → apply mig 159 (Dev+Staging) → push all of `main` to staging → user tests → prod.
+**Part A — front-gate BUILT 2026-06-16 (uncommitted; decisions R1=Option A, R2=FM-only — see `vendor_signup_impact_research.md`):**
+1. ✅ **Signup front-gate** — FM-only production-category question in `[vertical]/vendor-signup/page.tsx` (new early return after login/error, before step-1 form; gate state `productionCategory`/`gatePassed`/`gateBlocked`). Multi-select 4 options; all picks ∈{1,2} → Continue unlocks form; any 3/4 → block screen (Option A copy). `production_category` rides in submit `data` (FM only). food_trucks unchanged.
+2. ✅ **`/api/submit`** Option A enforcement — reads `production_category`, hard-rejects (4xx, no profile) if not all ∈{1,2}; else inserts `production_category` + `sell_eligible=true`. FT/absent → DB default. Zod `profileDataSchema` now allows `production_category`.
+3. ⬜ Deferred fast-follow: A4 opt-in catalog statement + A5 manager messaging.
+- **Gates:** tsc clean, lint 0 errors (3 pre-existing warnings), vitest 1493/1493. Files: page.tsx, api/submit/route.ts, lib/validation/vendor-signup.ts. NOT committed.
+- **SEQUENCING (unchanged):** mig 159 must be applied to Dev+Staging BEFORE this code is pushed (publish + market-box routes `select sell_eligible`). NEXT: user applies mig 159 (Dev+Staging) → commit Part A → push all of `main` to staging → user tests → prod.
 
 ---
 

@@ -110,6 +110,14 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
   /** State D re-accept success — flips render to a "you're up to date" thank-you. */
   const [reAcceptDone, setReAcceptDone] = useState(false);
 
+  // Part A — FM-only production-category front gate. A new farmers_market
+  // vendor declares what they make BEFORE the business-info form. Cat 3/4
+  // (mass-produced / resale) are weeded out here: no vendor profile is
+  // created, they stay a buyer. Cat 1/2 proceed. food_trucks skips the gate.
+  const [productionCategory, setProductionCategory] = useState<string[]>([]);
+  const [gatePassed, setGatePassed] = useState(false);
+  const [gateBlocked, setGateBlocked] = useState(false);
+
   // Step 2 state (post-submission: "Here's what you'll need")
   const [step, setStep] = useState<1 | 2>(1);
   const [vendorId, setVendorId] = useState<string | null>(null);
@@ -503,6 +511,10 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
       user_id: user.id,
       data: {
         ...values,
+        // Part A — FM declares production_category at the front gate. The
+        // server (/api/submit) recomputes sell_eligible and hard-rejects
+        // cat 3/4 (Option A); this client value only reaches here for cat 1/2.
+        ...(vertical === 'farmers_market' ? { production_category: productionCategory } : {}),
         acknowledgments: {
           ...acknowledgments,
           accepted_at: new Date().toISOString()
@@ -1150,6 +1162,145 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
             </p>
             <button onClick={() => window.location.reload()} style={{ ...buttonSecondaryStyle, marginTop: spacing.md }}>
               Retry
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Part A — FM-only production-category front gate. Renders for new
+  // farmers_market vendors after login, before the business-info form.
+  // (All early returns above — auth, market-limit, invite States C/D,
+  // login, loading, error — take precedence, so existing vendors and the
+  // invite flow are untouched.) food_trucks is unchanged. Cat 3/4 → block
+  // screen (no profile created); cat 1/2 → Continue unlocks the form.
+  if (vertical === 'farmers_market' && !gatePassed) {
+    const productionCategoryOptions = [
+      { key: '1', label: 'Homemade, handmade, or homegrown', help: 'Food, crafts, or goods I make or grow myself' },
+      { key: '2', label: 'Hand-finished or personalized', help: 'Items I customize, decorate, or finish by hand' },
+      { key: '3', label: 'Designed by me, but machine- or mass-produced', help: 'e.g. a design I send to a print or manufacturing service' },
+      { key: '4', label: 'Retail, resale, or pre-owned', help: 'Items I buy to resell, or second-hand goods' },
+    ];
+    const toggleCategory = (key: string) => {
+      setProductionCategory((prev) =>
+        prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+      );
+    };
+    const onGateContinue = () => {
+      const eligible =
+        productionCategory.length > 0 &&
+        productionCategory.every((k) => k === '1' || k === '2');
+      if (eligible) setGatePassed(true);
+      else setGateBlocked(true);
+    };
+
+    if (gateBlocked) {
+      return (
+        <div style={pageStyle}>
+          <nav style={navStyle}>
+            <Link href={`/${vertical}`} style={logoStyle}>
+              {branding.brand_name}
+            </Link>
+            <Link href="/" style={{ color: colors.textMuted, textDecoration: 'none' }}>Home</Link>
+          </nav>
+          <main style={mainStyle}>
+            <div style={cardStyle}>
+              <h1 style={headingStyle}>Thanks for your interest in selling with us!</h1>
+              <p style={{ ...subheadingStyle, marginTop: spacing.sm }}>
+                {branding.brand_name} is built for homemade, handmade, homegrown, and
+                hand-finished or personalized goods that you make yourself. Based on your
+                answers, your products aren&apos;t a fit for selling on the platform right now.
+              </p>
+              <p style={{ ...subheadingStyle, marginTop: spacing.sm }}>
+                You can still join a market in person — reach out to a market manager about
+                renting booth space. And if what you make changes down the road, we&apos;d
+                love to have you apply again.
+              </p>
+              <div style={{ marginTop: spacing.md, display: 'flex', gap: spacing.sm, flexWrap: 'wrap' }}>
+                <Link href={`/${vertical}`} style={buttonPrimaryStyle}>
+                  Back to {branding.brand_name}
+                </Link>
+                <button
+                  onClick={() => setGateBlocked(false)}
+                  style={{
+                    ...buttonSecondaryStyle,
+                    backgroundColor: 'transparent',
+                    color: colors.textMuted,
+                    border: `1px solid ${colors.border}`,
+                  }}
+                >
+                  Change my answer
+                </button>
+              </div>
+            </div>
+          </main>
+        </div>
+      );
+    }
+
+    const canContinue = productionCategory.length > 0;
+    return (
+      <div style={pageStyle}>
+        <nav style={navStyle}>
+          <Link href={`/${vertical}`} style={logoStyle}>
+            {branding.brand_name}
+          </Link>
+          <Link href="/" style={{ color: colors.textMuted, textDecoration: 'none' }}>Home</Link>
+        </nav>
+        <main style={mainStyle}>
+          <div style={cardStyle}>
+            <h1 style={headingStyle}>What kind of products do you make?</h1>
+            <p style={{ ...subheadingStyle, marginTop: spacing.xs }}>
+              {branding.brand_name} is for makers. Select everything that describes what you&apos;d sell.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm, marginTop: spacing.md }}>
+              {productionCategoryOptions.map((opt) => {
+                const checked = productionCategory.includes(opt.key);
+                return (
+                  <label
+                    key={opt.key}
+                    style={{
+                      display: 'flex',
+                      gap: spacing.sm,
+                      alignItems: 'flex-start',
+                      cursor: 'pointer',
+                      padding: spacing.sm,
+                      backgroundColor: checked ? colors.primaryLight : colors.surfaceMuted,
+                      border: `1px solid ${checked ? colors.primary : colors.border}`,
+                      borderRadius: radius.md,
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleCategory(opt.key)}
+                      style={{ marginTop: 2, width: 18, height: 18, flexShrink: 0, accentColor: colors.primary }}
+                    />
+                    <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, lineHeight: typography.leading.relaxed }}>
+                      <strong style={{ color: colors.textPrimary }}>{opt.label}</strong>
+                      <br />
+                      {opt.help}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+            <button
+              onClick={onGateContinue}
+              disabled={!canContinue}
+              style={{
+                ...buttonPrimaryStyle,
+                width: '100%',
+                marginTop: spacing.md,
+                padding: spacing.md,
+                fontSize: typography.sizes.lg,
+                opacity: canContinue ? 1 : 0.6,
+                cursor: canContinue ? 'pointer' : 'not-allowed',
+              }}
+            >
+              Continue
             </button>
           </div>
         </main>
