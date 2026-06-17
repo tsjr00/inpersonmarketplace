@@ -1,6 +1,23 @@
 # Current Task: Session 92 — growth build + design pass + help content (NEXT SESSION READ THIS)
 
-**Updated:** 2026-06-14 (Session 92 end-of-session checkpoint). **Mode:** Fix (hybrid build).
+**Updated:** 2026-06-16 (checkpoint). **Mode:** Fix (hybrid build).
+
+## ⭐ LATEST CHECKPOINT (2026-06-15/16) — READ FIRST
+
+**Prod push DONE:** `528cbba3` shipped to prod 2026-06-15 (the 17-commit growth/design/refund stack + migs 154–158 applied to Prod + the `subscriptionType→type` vendor-upgrade fix). User smoke-testing.
+
+**On `main` but NOT pushed (deferred by user):**
+- `a7543556` — FM-only "Market Mgrs." footer link → `/[vertical]/market-manager-program` (on staging, prod push deferred).
+- `96620976` — Part B: survey CSV export ("Download CSV" on SurveyResultsCard). COMPLETE. (committed local, unpushed)
+- **Part A foundation (UNCOMMITTED at checkpoint → committing now):** mig 159 (`vendor_profiles.production_category TEXT[]` + `sell_eligible BOOLEAN DEFAULT TRUE`) + backstop `sell_eligible` gates at `listings/[id]/publish/route.ts:152` and `market-boxes/route.ts` POST. Both gates are **INERT** (everyone defaults sell_eligible=TRUE). Event selling covered transitively (sales require vendor + published listing).
+
+**Part A REMAINING (next session, focused — see `vendor_categories_and_survey_export_plan.md`):**
+1. **Signup front-gate** — the qualifying category question in `[vertical]/vendor-signup/page.tsx` that weeds out cat 3/4 BEFORE a vendor profile is created (existing buyer stays a buyer). Cat 1/2 → existing form. Cat 3/4 → block screen with the CHOSEN copy (Option A, in the plan A2). This is the actual behavior change; the rest is inert until it lands.
+2. **`/api/submit`** records `production_category` + computes `sell_eligible` for cat 1/2.
+3. Deferred fast-follow: A4 opt-in catalog statement + A5 manager messaging.
+- **SEQUENCING:** mig 159 must be applied to Dev+Staging BEFORE the gate code is pushed to staging (the gates `select ... sell_eligible`; without the column the publish + market-box routes would error). So: build front-gate → apply mig 159 (Dev+Staging) → push all of `main` to staging → user tests → prod.
+
+---
 
 ## QUICK STATE FOR NEXT SESSION
 Long session. Everything below is on `origin/staging` (15 commits ahead of prod `4fc2356`), all tsc/lint/vitest green, NOT on prod yet. Prod push deferred to a 9PM–7AM CT window.

@@ -172,10 +172,21 @@ export async function POST(request: NextRequest) {
       id: string
       tier: string
       vertical_id: string
-    }>(supabase, user.id, vertical, 'id, tier, vertical_id')
+      sell_eligible: boolean | null
+    }>(supabase, user.id, vertical, 'id, tier, vertical_id, sell_eligible')
 
     if (!vendor) {
       throw new TracedError('ERR_AUTH_003', 'Vendor not found', { userId: user.id })
+    }
+
+    // Product-category gate (Phase 1 backstop): only sell-eligible vendors
+    // (categories 1 & 2) may create market boxes. See publish/route.ts for the
+    // full rationale. `=== false` fails open on a null (NOT NULL column) — the
+    // signup front gate is the real mechanism.
+    if (vendor.sell_eligible === false) {
+      throw new TracedError('ERR_MBOX_009',
+        'Your vendor account is set up for booth rentals only, so market boxes can\'t be created.',
+        { userId: user.id })
     }
 
     const tier = vendor.tier || 'free'

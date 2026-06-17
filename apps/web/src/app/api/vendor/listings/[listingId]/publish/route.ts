@@ -68,7 +68,8 @@ export async function POST(
       id: string
       vertical_id: string
       stripe_payouts_enabled: boolean | null
-    }>(supabase, user.id, listing.vertical_id, 'id, vertical_id, stripe_payouts_enabled')
+      sell_eligible: boolean | null
+    }>(supabase, user.id, listing.vertical_id, 'id, vertical_id, stripe_payouts_enabled, sell_eligible')
 
     if (!vendorProfile) {
       throw traced.notFound('ERR_VENDOR_001', 'Vendor profile not found')
@@ -147,6 +148,16 @@ export async function POST(
         isFoodTruck
           ? 'One or more required permits have not been approved yet.'
           : 'Documentation for one or more of your product categories has not been approved yet.')
+    }
+
+    // Product-category gate (Phase 1 backstop): only sell-eligible vendors
+    // (categories 1 & 2) may publish sellable listings. sell_eligible defaults
+    // TRUE (grandfathered + cat-1/2 signups); cat 3/4 are weeded out pre-signup
+    // and never reach here. `=== false` so a null (shouldn't occur on NOT NULL
+    // column) fails open — the signup front gate is the real mechanism.
+    if (vendorProfile.sell_eligible === false) {
+      throw traced.validation('ERR_LISTING_GATE',
+        'Your vendor account is set up for booth rentals only, so listings can\'t be published. Contact support if this looks wrong.')
     }
 
     // All gates passed — flip listing to published
