@@ -163,8 +163,11 @@ describe('NI-014: Total notification types = 72', () => {
     // were added (Session 92 Phase B — market follows + manager broadcast).
     // Bumped 74 → 77 on 2026-06-13 when manager_access_removed/_suspended/
     // _restored were added (Session 92 Phase 1B — manager lockout lifecycle).
+    // Bumped 77 → 79 on 2026-06-21 when market_date_cancelled_buyer +
+    // market_date_cancelled_vendor were added (Session 92 Phase C — cancel a
+    // market day; per-audience because copy + action URL differ).
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(77)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(79)
   })
 
   it('includes all buyer-facing types', () => {

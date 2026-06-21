@@ -16,6 +16,7 @@ const SECTIONS: Array<{ id: string; label: string }> = [
   { id: 'booths', label: 'Booths' },
   { id: 'vendors', label: 'Vendors' },
   { id: 'schedule', label: 'Schedule' },
+  { id: 'cancel-date', label: 'Cancel day' },
   { id: 'announce', label: 'Announce' },
   { id: 'surveys', label: 'Surveys' },
 ]

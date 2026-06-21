@@ -88,6 +88,11 @@ export type NotificationType =
   | 'market_day_today'
   // One-way manager broadcast to a market's vendors (Session 92 Phase B).
   | 'market_broadcast'
+  // Cancel-a-market-day (Session 92 Phase C) — split by audience because the
+  // action URL + copy differ: buyers (their refunded order) vs booth renters
+  // (credit/reschedule of their booth fee).
+  | 'market_date_cancelled_buyer'
+  | 'market_date_cancelled_vendor'
   // Manager access lifecycle (Phase 1B) — fired to the affected manager
   // when an admin removes / suspends / restores their market access.
   | 'manager_access_removed'
@@ -231,6 +236,13 @@ export interface NotificationTemplateData {
   broadcastSubject?: string
   /** Manager broadcast body — the announcement text. */
   broadcastBody?: string
+  // Cancel-a-market-day (Session 92 Phase C)
+  /** Display-formatted cancelled market date, e.g. "Saturday, June 27". */
+  marketDate?: string
+  /** Manager's booth-renter disposition for a cancelled date: 'credit' | 'reschedule'. */
+  boothDisposition?: string
+  /** Make-up date (YYYY-MM-DD) when boothDisposition='reschedule' (advisory in v1). */
+  rescheduleDate?: string
 }
 
 export type NotificationSeverity = 'critical' | 'warning' | 'info'
@@ -732,6 +744,32 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     message: (d) =>
       `The schedule at ${d.marketName || 'the market'} has been updated by the market manager. Review the new times in your vendor markets list and contact the market manager directly with any questions or refund requests — the platform doesn't issue refunds for schedule changes.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/markets`,
+  },
+
+  // Phase C — a market day was cancelled by the manager. Buyer variant: their
+  // order for that date was auto-refunded.
+  market_date_cancelled_buyer: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'buyer',
+    title: (d) => `${d.marketName || 'A market'} cancelled ${d.marketDate || 'an upcoming date'}`,
+    message: (d) =>
+      `${d.marketName || 'The market'} is closed on ${d.marketDate || 'your pickup date'}, so your order for that date has been cancelled and refunded. The refund returns to your original payment method.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
+  },
+
+  // Phase C — booth-renter variant: their booth fee for the cancelled date is
+  // credited or rescheduled per the manager's choice.
+  market_date_cancelled_vendor: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'vendor',
+    title: (d) => `${d.marketName || 'A market'} cancelled ${d.marketDate || 'an upcoming date'}`,
+    message: (d) =>
+      d.boothDisposition === 'reschedule'
+        ? `${d.marketName || 'The market'} is closed on ${d.marketDate || 'an upcoming market day'}. The manager plans a make-up market day${d.rescheduleDate ? ` on ${d.rescheduleDate}` : ''} — they'll be in touch with details.`
+        : `${d.marketName || 'The market'} is closed on ${d.marketDate || 'an upcoming market day'}. Your booth fee for that day will be credited — the manager will reach out with details.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/bookings`,
   },
 
   // Phase 1B — manager access lifecycle. Fired to the affected manager

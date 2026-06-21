@@ -17,6 +17,7 @@ import MarketTransactionsCard from '@/components/market-manager/MarketTransactio
 import WeeklyBookingsCard from '@/components/market-manager/WeeklyBookingsCard'
 import MarketStripeConnectCard from '@/components/market-manager/MarketStripeConnectCard'
 import MarketScheduleCard from '@/components/market-manager/MarketScheduleCard'
+import MarketCancelDateCard from '@/components/market-manager/MarketCancelDateCard'
 import ManagerSupportCard from '@/components/market-manager/ManagerSupportCard'
 import MarketBroadcastCard from '@/components/market-manager/MarketBroadcastCard'
 import MarketAttendanceCard from '@/components/market-manager/MarketAttendanceCard'
@@ -322,6 +323,12 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           hasScheduleChangeRecipients={dashboardStats.hasScheduleChangeRecipients}
         />
       </div>
+
+      {/* Cancel-a-market-day (Phase C) — close a single upcoming date; refunds
+          buyers + credits/reschedules booth renters + credits market-box
+          pickups server-side. ManagerCard sets its own id="cancel-date" +
+          scroll offset (mirrors MarketAttendanceCard). */}
+      <MarketCancelDateCard marketId={marketId} />
 
       {/* Manager broadcast (Session 92 Phase B) — one-way announcement to
           vendors (approved + paid upcoming renters). Send-only; server
