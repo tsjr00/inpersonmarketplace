@@ -20,6 +20,7 @@ import UpcomingPickupItem from './UpcomingPickupItem'
 import ExternalPaymentBanner from '@/components/vendor/ExternalPaymentBanner'
 import QualityAlertBanner from '@/components/vendor/QualityAlertBanner'
 import TrialStatusBanner from '@/components/vendor/TrialStatusBanner'
+import MarketCheckInPrompt from '@/components/vendor/MarketCheckInPrompt'
 
 interface VendorDashboardPageProps {
   params: Promise<{ vertical: string }>
@@ -538,6 +539,8 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                 Edit
               </Link>
             </div>
+
+            <MarketCheckInPrompt vertical={vertical} />
 
             {vendorProfile.status !== 'approved' ? (
               <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.textMuted }}>
