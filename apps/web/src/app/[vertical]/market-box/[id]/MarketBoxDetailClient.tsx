@@ -73,6 +73,8 @@ interface MarketBoxData {
     spots_remaining: number | null
   }
   available_terms: AvailableTerm[]
+  /** Phase C: upcoming manager-cancelled market dates (YYYY-MM-DD). */
+  cancelled_pickup_dates?: string[]
   purchase: {
     can_purchase: boolean
     block_reason: string | null
@@ -151,14 +153,23 @@ export default function MarketBoxDetailClient() {
     return `${displayHour}:${minutes} ${ampm}`
   }
 
-  // Calculate next pickup date based on day of week
+  // Calculate next pickup date based on day of week, skipping manager-cancelled
+  // dates (Phase C) so the label matches the generation trigger (mig 163).
   const getNextPickupDate = (dayOfWeek: number) => {
+    const cancelled = data?.cancelled_pickup_dates ?? []
+    const ymd = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     const today = new Date()
     const todayDay = today.getDay()
     let daysUntil = dayOfWeek - todayDay
     if (daysUntil <= 0) daysUntil += 7
     const nextDate = new Date(today)
     nextDate.setDate(today.getDate() + daysUntil)
+    let guard = 0
+    while (guard < 60 && cancelled.includes(ymd(nextDate))) {
+      nextDate.setDate(nextDate.getDate() + 7)
+      guard++
+    }
     return nextDate.toLocaleDateString(locale === 'es' ? 'es-US' : 'en-US', {
       weekday: 'long',
       month: 'long',

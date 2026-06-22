@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getSubscriberDefault } from '@/lib/vendor-limits'
@@ -140,7 +140,22 @@ export async function GET(request: NextRequest, context: RouteContext) {
       canPurchase = true
     }
 
-    // Calculate next available start date (next occurrence of pickup_day_of_week)
+    // Phase C: upcoming manager-cancelled dates for this market. RLS on
+    // market_date_overrides is service-only, so read with the service client.
+    // Surfaced so the first-pickup projection (here + the client) skips them,
+    // matching the generation trigger (mig 163).
+    const todayYmd = new Date().toISOString().split('T')[0]
+    const serviceClient = createServiceClient()
+    const { data: overrideRows } = await serviceClient
+      .from('market_date_overrides')
+      .select('override_date')
+      .eq('market_id', offering.pickup_market_id)
+      .eq('status', 'cancelled')
+      .gte('override_date', todayYmd)
+    const cancelledDates = new Set((overrideRows ?? []).map((o) => o.override_date as string))
+
+    // Calculate next available start date (next occurrence of pickup_day_of_week),
+    // skipping cancelled dates a week at a time.
     const today = new Date()
     const currentDay = today.getDay()
     const pickupDay = offering.pickup_day_of_week
@@ -150,6 +165,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
     const nextStartDate = new Date(today)
     nextStartDate.setDate(today.getDate() + daysUntilPickup)
+    let startGuard = 0
+    while (startGuard < 60 && cancelledDates.has(nextStartDate.toISOString().split('T')[0])) {
+      nextStartDate.setDate(nextStartDate.getDate() + 7)
+      startGuard++
+    }
     const nextStartDateStr = nextStartDate.toISOString().split('T')[0]
 
     // Build available terms
@@ -244,6 +264,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
         spots_remaining: maxSubscribers === null ? null : Math.max(0, maxSubscribers - activeSubscribers),
       },
       available_terms: availableTerms,
+      // Phase C: upcoming cancelled market dates (YYYY-MM-DD) so the client's
+      // first-pickup projection skips them. Authoritative pickup generation is
+      // the mig-163 trigger; this is display alignment.
+      cancelled_pickup_dates: [...cancelledDates],
       purchase: {
         can_purchase: canPurchase,
         block_reason: purchaseBlockReason,
