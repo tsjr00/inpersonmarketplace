@@ -29,7 +29,7 @@ export interface CancelDateCascadeResult {
   refundedItemCount: number
   refundFailures: number
   buyerUserIds: string[]
-  orderVendorUserIds: string[]
+  orderVendorNotifs: VendorOrderNotif[]
   boothRenterUserIds: string[]
   marketBoxCredited: number
 }
@@ -42,6 +42,7 @@ export function weekStartSunday(dateStr: string): string {
   return dt.toISOString().slice(0, 10)
 }
 
+type OrderEmbed = { id: string; buyer_user_id: string | null; order_number: string | null }
 type OrderItemRow = {
   id: string
   order_id: string
@@ -49,8 +50,11 @@ type OrderItemRow = {
   quantity: number | null
   subtotal_cents: number
   vendor_profile_id: string | null
-  order: { id: string; buyer_user_id: string | null } | { id: string; buyer_user_id: string | null }[] | null
+  order: OrderEmbed | OrderEmbed[] | null
 }
+
+/** One notification per (vendor, order) so the vendor can reconcile by order #. */
+export type VendorOrderNotif = { vendorUserId: string; orderNumber: string }
 
 /** A. Refund buyer product orders for the cancelled date (no vendor penalty). */
 async function refundProductOrders(
@@ -58,15 +62,16 @@ async function refundProductOrders(
   marketId: string,
   overrideDate: string,
   reason: string,
-): Promise<{ refundedItemCount: number; refundFailures: number; buyerUserIds: Set<string>; vendorUserIds: Set<string> }> {
+): Promise<{ refundedItemCount: number; refundFailures: number; buyerUserIds: Set<string>; vendorNotifs: VendorOrderNotif[] }> {
   const buyerUserIds = new Set<string>()
-  const vendorProfileIds = new Set<string>()
+  // key = `${vendorProfileId}|${orderId}` → dedup multiple items, same vendor+order.
+  const vendorOrderKeys = new Map<string, { vendorProfileId: string; orderNumber: string }>()
   let refundedItemCount = 0
   let refundFailures = 0
 
   const { data: items, error: itemsErr } = await service
     .from('order_items')
-    .select('id, order_id, listing_id, quantity, subtotal_cents, vendor_profile_id, order:orders!inner ( id, buyer_user_id )')
+    .select('id, order_id, listing_id, quantity, subtotal_cents, vendor_profile_id, order:orders!inner ( id, buyer_user_id, order_number )')
     .eq('market_id', marketId)
     .eq('pickup_date', overrideDate)
     .is('cancelled_at', null)
@@ -158,8 +163,14 @@ async function refundProductOrders(
     if (ord?.buyer_user_id) buyerUserIds.add(ord.buyer_user_id)
     // The vendor who would have fulfilled this order is notified too (their
     // order vanished through no fault of theirs — mirrors how buyer-cancel
-    // notifies the vendor). Reliability metric stays untouched.
-    if (item.vendor_profile_id) vendorProfileIds.add(item.vendor_profile_id)
+    // notifies the vendor, WITH the order # so they can reconcile orders +
+    // inventory). Reliability metric stays untouched. Deduped per vendor+order.
+    if (item.vendor_profile_id) {
+      vendorOrderKeys.set(`${item.vendor_profile_id}|${item.order_id}`, {
+        vendorProfileId: item.vendor_profile_id,
+        orderNumber: ord?.order_number ? String(ord.order_number) : '',
+      })
+    }
   }
 
   // Roll up any fully-cancelled orders + free event-wave slots.
@@ -176,19 +187,25 @@ async function refundProductOrders(
     }
   }
 
-  // Resolve affected vendors' user ids for notification.
-  const vendorUserIds = new Set<string>()
-  if (vendorProfileIds.size > 0) {
+  // Resolve each affected vendor profile → user id; emit one notif per (vendor, order).
+  const vendorNotifs: VendorOrderNotif[] = []
+  const profileIds = [...new Set([...vendorOrderKeys.values()].map((v) => v.vendorProfileId))]
+  if (profileIds.length > 0) {
     const { data: vps } = await service
       .from('vendor_profiles')
-      .select('user_id')
-      .in('id', [...vendorProfileIds])
+      .select('id, user_id')
+      .in('id', profileIds)
+    const userByProfile = new Map<string, string>()
     for (const vp of vps ?? []) {
-      if (vp.user_id) vendorUserIds.add(vp.user_id as string)
+      if (vp.user_id) userByProfile.set(vp.id as string, vp.user_id as string)
+    }
+    for (const { vendorProfileId, orderNumber } of vendorOrderKeys.values()) {
+      const uid = userByProfile.get(vendorProfileId)
+      if (uid) vendorNotifs.push({ vendorUserId: uid, orderNumber })
     }
   }
 
-  return { refundedItemCount, refundFailures, buyerUserIds, vendorUserIds }
+  return { refundedItemCount, refundFailures, buyerUserIds, vendorNotifs }
 }
 
 /** B. Paid booth renters whose rented week contains the cancelled date. */
@@ -265,7 +282,7 @@ export async function runCancelDateCascade(
     refundedItemCount: refunds.refundedItemCount,
     refundFailures: refunds.refundFailures,
     buyerUserIds: [...refunds.buyerUserIds],
-    orderVendorUserIds: [...refunds.vendorUserIds],
+    orderVendorNotifs: refunds.vendorNotifs,
     boothRenterUserIds: [...boothRenterUserIds],
     marketBoxCredited,
   }

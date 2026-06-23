@@ -782,9 +782,9 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     urgency: 'standard',
     severity: 'warning',
     audience: 'vendor',
-    title: (d) => `Order cancelled — ${d.marketName || 'a market'} closed ${d.marketDate || 'an upcoming date'}`,
+    title: (d) => `Order ${d.orderNumber ? `#${d.orderNumber} ` : ''}cancelled — ${d.marketName || 'a market'} closed`,
     message: (d) =>
-      `${d.marketName || 'A market'} is closed on ${d.marketDate || 'an upcoming market day'}, so an order you were going to fulfill that day was cancelled and the buyer refunded. No action needed.`,
+      `${d.marketName || 'A market'} is closed on ${d.marketDate || 'an upcoming market day'}, so ${d.orderNumber ? `order #${d.orderNumber}` : 'an order'} you were going to fulfill that day was cancelled and the buyer refunded. No action needed — inventory has been restored.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/orders`,
   },
 

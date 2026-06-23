@@ -143,10 +143,11 @@ export async function POST(
         }),
         // Vendors whose product orders were cancelled by the closure — every
         // other cancellation path tells the counterparty, so this one does too.
-        ...result.orderVendorUserIds.map(async (uid) => {
-          const email = await emailFor(uid)
-          return sendNotification(uid, 'market_date_cancelled_order_vendor',
-            { marketName, marketId, marketDate: dateLabel },
+        // One per (vendor, order) with the order # for reconciliation.
+        ...result.orderVendorNotifs.map(async ({ vendorUserId, orderNumber }) => {
+          const email = await emailFor(vendorUserId)
+          return sendNotification(vendorUserId, 'market_date_cancelled_order_vendor',
+            { marketName, marketId, marketDate: dateLabel, ...(orderNumber ? { orderNumber } : {}) },
             { vertical, ...(email ? { userEmail: email } : {}) })
         }),
       ])
@@ -159,7 +160,7 @@ export async function POST(
       date,
       refundedItems: result.refundedItemCount,
       refundFailures: result.refundFailures,
-      orderVendorsNotified: result.orderVendorUserIds.length,
+      orderVendorsNotified: result.orderVendorNotifs.length,
       boothRentersNotified: result.boothRenterUserIds.length,
       marketBoxCredited: result.marketBoxCredited,
     })
