@@ -77,9 +77,6 @@ async function refundProductOrders(
   if (itemsErr) throw itemsErr
 
   const rows = (items ?? []) as OrderItemRow[]
-  // TEMP DIAGNOSTIC (remove after confirming the cancel-date refund path) —
-  // proves exactly what the DEPLOYED code received + matched, in Vercel logs.
-  console.log(`[cancel-date-diag] marketId=${marketId} overrideDate=${overrideDate} matchedItems=${rows.length}`)
   // Count items per order once (prorated flat-fee denominator = ALL items in the order).
   const orderIds = [...new Set(rows.map((r) => r.order_id))]
   const itemsPerOrder = new Map<string, number>()
@@ -98,19 +95,28 @@ async function refundProductOrders(
     const buyerPaidForItem = item.subtotal_cents + buyerPercentFee + itemFlatFee
 
     // Conditional update — only the request that wins the race proceeds.
-    const { data: updated } = await service
+    // cancelled_by must satisfy order_items_cancelled_by_check ('buyer' |
+    // 'vendor' | 'system'). We use 'system' for a market-day cancellation —
+    // so 'system' here is NOT only cron-expiry; it ALSO covers a manager
+    // cancelling the market day. The cancellation_reason ("Market day cancelled
+    // by manager") is what distinguishes the two in the data.
+    const { data: updated, error: updErr } = await service
       .from('order_items')
       .update({
         status: 'cancelled',
         cancelled_at: new Date().toISOString(),
-        cancelled_by: 'market',
+        cancelled_by: 'system',
         cancellation_reason: reason,
         refund_amount_cents: buyerPaidForItem,
       })
       .eq('id', item.id)
       .is('cancelled_at', null)
       .select('id')
-    if (!updated || updated.length === 0) continue // already cancelled concurrently
+    // A failed flip (constraint/validation/etc.) MUST surface — never let it
+    // look like an "already cancelled" skip, which is how the 'market' →
+    // cancelled_by_check 400 silently produced "0 refunded".
+    if (updErr) throw updErr
+    if (!updated || updated.length === 0) continue // genuinely already cancelled
 
     refundedItemCount++
 
@@ -119,14 +125,21 @@ async function refundProductOrders(
     }
 
     // Refund (skip pay-at-pickup orders with no succeeded payment).
-    const { data: payment } = await service
+    const { data: payment, error: payErr } = await service
       .from('payments')
       .select('stripe_payment_intent_id')
       .eq('order_id', item.order_id)
       .eq('status', 'succeeded')
       .maybeSingle()
 
-    if (payment?.stripe_payment_intent_id) {
+    if (payErr) {
+      // Surface a lookup failure as a logged refund failure — never let it
+      // silently skip a refund on an item we've already marked cancelled.
+      refundFailures++
+      await logError(new TracedError('ERR_REFUND_001',
+        `Cancel-date payment lookup failed for order ${item.order_id}: ${payErr.message}`,
+        { route: '/api/market-manager/[marketId]/cancel-date', method: 'POST', orderItemId: item.id, orderId: item.order_id }))
+    } else if (payment?.stripe_payment_intent_id) {
       try {
         await createRefund(payment.stripe_payment_intent_id, item.id, buyerPaidForItem)
         await service.from('order_items').update({ status: 'refunded' }).eq('id', item.id)
