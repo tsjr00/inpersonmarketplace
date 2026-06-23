@@ -30,10 +30,25 @@ function fmtTime(iso: string | null): string {
  * operating today. Geolocation is opt-in (advisory); check-in always works
  * via self-attestation even if location is denied.
  */
+type PosReason = 'denied' | 'unavailable' | 'timeout' | 'unsupported'
+type PosResult =
+  | { ok: true; latitude: number; longitude: number; accuracy: number }
+  | { ok: false; reason: PosReason }
+
+// Shown after a successful check-in when location couldn't be captured — so the
+// vendor knows why (and the manager attendance flag says "no location").
+const LOCATION_MESSAGES: Record<PosReason, string> = {
+  denied: 'Checked in — but location was blocked. Allow location for this site (address-bar settings) to record where you checked in.',
+  unavailable: "Checked in — but location is unavailable. Turn on your device's location services to record it.",
+  timeout: "Checked in — but couldn't get your location in time. Try again to record it.",
+  unsupported: "Checked in — this browser can't share location.",
+}
+
 export default function MarketCheckInPrompt({ vertical }: { vertical: string }) {
   const [markets, setMarkets] = useState<EligibleMarket[]>([])
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [locationNote, setLocationNote] = useState<string | null>(null)
 
   async function load() {
     try {
@@ -51,16 +66,25 @@ export default function MarketCheckInPrompt({ vertical }: { vertical: string }) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vertical])
 
-  function getPosition(): Promise<{ latitude: number; longitude: number; accuracy: number } | null> {
+  function getPosition(): Promise<PosResult> {
     return new Promise((resolve) => {
-      if (!navigator.geolocation) return resolve(null)
+      if (!navigator.geolocation) return resolve({ ok: false, reason: 'unsupported' })
       navigator.geolocation.getCurrentPosition(
         (pos) => resolve({
+          ok: true,
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude,
           accuracy: pos.coords.accuracy,
         }),
-        () => resolve(null), // denied/unavailable → self-attest only
+        // Capture WHY so the vendor gets a reason (denied/unavailable/timeout)
+        // instead of a silent self-attest. Never blocks check-in.
+        (err) => resolve({
+          ok: false,
+          reason:
+            err.code === err.PERMISSION_DENIED ? 'denied'
+            : err.code === err.TIMEOUT ? 'timeout'
+            : 'unavailable',
+        }),
         // Advisory 250m geofence — coarse + forgiving beats a precise GPS fix
         // that times out on a first "allow this time" grant (esp. mobile).
         { enableHighAccuracy: false, timeout: 20000, maximumAge: 60000 },
@@ -71,17 +95,20 @@ export default function MarketCheckInPrompt({ vertical }: { vertical: string }) 
   async function checkIn(marketId: string) {
     setBusy(marketId)
     setError(null)
+    setLocationNote(null)
     const pos = await getPosition()
+    const coords = pos.ok ? { latitude: pos.latitude, longitude: pos.longitude, accuracy: pos.accuracy } : {}
     try {
       const res = await fetch('/api/vendor/checkins', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'checkin', vertical, marketId, ...(pos ?? {}) }),
+        body: JSON.stringify({ action: 'checkin', vertical, marketId, ...coords }),
       })
       if (!res.ok) {
         const d = await res.json().catch(() => ({}))
         setError(d.error || 'Could not check in. Please try again.')
       } else {
+        if (!pos.ok) setLocationNote(LOCATION_MESSAGES[pos.reason])
         await load()
       }
     } catch {
@@ -95,11 +122,12 @@ export default function MarketCheckInPrompt({ vertical }: { vertical: string }) 
     setBusy(marketId)
     setError(null)
     const pos = await getPosition()
+    const coords = pos.ok ? { latitude: pos.latitude, longitude: pos.longitude, accuracy: pos.accuracy } : {}
     try {
       const res = await fetch('/api/vendor/checkins', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'checkout', vertical, marketId, ...(pos ?? {}) }),
+        body: JSON.stringify({ action: 'checkout', vertical, marketId, ...coords }),
       })
       if (!res.ok) {
         const d = await res.json().catch(() => ({}))
@@ -187,6 +215,9 @@ export default function MarketCheckInPrompt({ vertical }: { vertical: string }) 
         })}
         {error && (
           <span style={{ fontSize: typography.sizes.xs, color: statusDanger }}>{error}</span>
+        )}
+        {locationNote && (
+          <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted, lineHeight: 1.3 }}>{locationNote}</span>
         )}
         <span style={{ fontSize: typography.sizes.xs, color: colors.primaryDark, lineHeight: 1.3 }}>
           {ATTESTATION}
