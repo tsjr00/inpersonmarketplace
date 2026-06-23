@@ -61,7 +61,9 @@ export default function MarketCheckInPrompt({ vertical }: { vertical: string }) 
           accuracy: pos.coords.accuracy,
         }),
         () => resolve(null), // denied/unavailable → self-attest only
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 },
+        // Advisory 250m geofence — coarse + forgiving beats a precise GPS fix
+        // that times out on a first "allow this time" grant (esp. mobile).
+        { enableHighAccuracy: false, timeout: 20000, maximumAge: 60000 },
       )
     })
   }
