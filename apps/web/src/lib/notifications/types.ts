@@ -93,6 +93,8 @@ export type NotificationType =
   // (credit/reschedule of their booth fee).
   | 'market_date_cancelled_buyer'
   | 'market_date_cancelled_vendor'
+  // Phase C — product-order vendor whose order was cancelled by the closure.
+  | 'market_date_cancelled_order_vendor'
   // Manager access lifecycle (Phase 1B) — fired to the affected manager
   // when an admin removes / suspends / restores their market access.
   | 'manager_access_removed'
@@ -770,6 +772,20 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
         ? `${d.marketName || 'The market'} is closed on ${d.marketDate || 'an upcoming market day'}. The manager plans a make-up market day${d.rescheduleDate ? ` on ${d.rescheduleDate}` : ''} — they'll be in touch with details.`
         : `${d.marketName || 'The market'} is closed on ${d.marketDate || 'an upcoming market day'}. Your booth fee for that day will be credited — the manager will reach out with details.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/bookings`,
+  },
+
+  // Phase C — product-order vendor variant: an order they were going to fulfill
+  // was cancelled because the market day was cancelled (mirrors how buyer-cancel
+  // notifies the vendor). The buyer's refund is handled separately; this is a
+  // heads-up so the vendor isn't left expecting a pickup that won't happen.
+  market_date_cancelled_order_vendor: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'vendor',
+    title: (d) => `Order cancelled — ${d.marketName || 'a market'} closed ${d.marketDate || 'an upcoming date'}`,
+    message: (d) =>
+      `${d.marketName || 'A market'} is closed on ${d.marketDate || 'an upcoming market day'}, so an order you were going to fulfill that day was cancelled and the buyer refunded. No action needed.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/orders`,
   },
 
   // Phase 1B — manager access lifecycle. Fired to the affected manager

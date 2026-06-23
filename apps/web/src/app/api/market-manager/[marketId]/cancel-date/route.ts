@@ -141,6 +141,14 @@ export async function POST(
             { marketName, marketId, marketDate: dateLabel, boothDisposition: boothDisposition || undefined, rescheduleDate: rescheduleDate || undefined },
             { vertical, ...(email ? { userEmail: email } : {}) })
         }),
+        // Vendors whose product orders were cancelled by the closure — every
+        // other cancellation path tells the counterparty, so this one does too.
+        ...result.orderVendorUserIds.map(async (uid) => {
+          const email = await emailFor(uid)
+          return sendNotification(uid, 'market_date_cancelled_order_vendor',
+            { marketName, marketId, marketDate: dateLabel },
+            { vertical, ...(email ? { userEmail: email } : {}) })
+        }),
       ])
     } catch (notifErr) {
       console.error('[cancel-date] notification block failed:', notifErr instanceof Error ? notifErr.message : 'Unknown')
@@ -151,6 +159,7 @@ export async function POST(
       date,
       refundedItems: result.refundedItemCount,
       refundFailures: result.refundFailures,
+      orderVendorsNotified: result.orderVendorUserIds.length,
       boothRentersNotified: result.boothRenterUserIds.length,
       marketBoxCredited: result.marketBoxCredited,
     })

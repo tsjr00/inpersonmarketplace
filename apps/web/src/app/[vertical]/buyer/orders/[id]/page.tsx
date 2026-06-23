@@ -843,6 +843,14 @@ export default function BuyerOrderDetailPage() {
                       text: t('order.banner_cancelled_buyer_refund', locale)
                     }
                   }
+                  // System cancellations (e.g. market day cancelled by manager,
+                  // or an expiry) are NOT the vendor's doing — don't blame them.
+                  if (systemCancelled) {
+                    return {
+                      bg: '#fef2f2', border: '#fca5a5', color: '#991b1b',
+                      text: t('order.banner_cancelled_system_refund', locale)
+                    }
+                  }
                   return {
                     bg: '#fef2f2', border: '#fca5a5', color: '#991b1b',
                     text: t('order.banner_cancelled_vendor_refund', locale, { vendor: primaryVendorName })
@@ -1142,7 +1150,11 @@ export default function BuyerOrderDetailPage() {
                         marginTop: spacing['2xs']
                       }}>
                         <p style={{ margin: 0, fontWeight: typography.weights.semibold }}>
-                          {item.cancelled_by === 'vendor' ? t('order.cancelled_by_vendor', locale) : t('order.cancelled_by_you', locale)}
+                          {item.cancelled_by === 'vendor'
+                            ? t('order.cancelled_by_vendor', locale)
+                            : item.cancelled_by === 'system'
+                              ? t('order.cancelled_system', locale)
+                              : t('order.cancelled_by_you', locale)}
                         </p>
                         {item.cancellation_reason && (
                           <p style={{ margin: `${spacing['3xs']} 0 0 0` }}>

@@ -29,6 +29,7 @@ export interface CancelDateCascadeResult {
   refundedItemCount: number
   refundFailures: number
   buyerUserIds: string[]
+  orderVendorUserIds: string[]
   boothRenterUserIds: string[]
   marketBoxCredited: number
 }
@@ -47,6 +48,7 @@ type OrderItemRow = {
   listing_id: string | null
   quantity: number | null
   subtotal_cents: number
+  vendor_profile_id: string | null
   order: { id: string; buyer_user_id: string | null } | { id: string; buyer_user_id: string | null }[] | null
 }
 
@@ -56,14 +58,15 @@ async function refundProductOrders(
   marketId: string,
   overrideDate: string,
   reason: string,
-): Promise<{ refundedItemCount: number; refundFailures: number; buyerUserIds: Set<string> }> {
+): Promise<{ refundedItemCount: number; refundFailures: number; buyerUserIds: Set<string>; vendorUserIds: Set<string> }> {
   const buyerUserIds = new Set<string>()
+  const vendorProfileIds = new Set<string>()
   let refundedItemCount = 0
   let refundFailures = 0
 
   const { data: items, error: itemsErr } = await service
     .from('order_items')
-    .select('id, order_id, listing_id, quantity, subtotal_cents, order:orders!inner ( id, buyer_user_id )')
+    .select('id, order_id, listing_id, quantity, subtotal_cents, vendor_profile_id, order:orders!inner ( id, buyer_user_id )')
     .eq('market_id', marketId)
     .eq('pickup_date', overrideDate)
     .is('cancelled_at', null)
@@ -153,6 +156,10 @@ async function refundProductOrders(
 
     const ord = Array.isArray(item.order) ? item.order[0] : item.order
     if (ord?.buyer_user_id) buyerUserIds.add(ord.buyer_user_id)
+    // The vendor who would have fulfilled this order is notified too (their
+    // order vanished through no fault of theirs — mirrors how buyer-cancel
+    // notifies the vendor). Reliability metric stays untouched.
+    if (item.vendor_profile_id) vendorProfileIds.add(item.vendor_profile_id)
   }
 
   // Roll up any fully-cancelled orders + free event-wave slots.
@@ -169,7 +176,19 @@ async function refundProductOrders(
     }
   }
 
-  return { refundedItemCount, refundFailures, buyerUserIds }
+  // Resolve affected vendors' user ids for notification.
+  const vendorUserIds = new Set<string>()
+  if (vendorProfileIds.size > 0) {
+    const { data: vps } = await service
+      .from('vendor_profiles')
+      .select('user_id')
+      .in('id', [...vendorProfileIds])
+    for (const vp of vps ?? []) {
+      if (vp.user_id) vendorUserIds.add(vp.user_id as string)
+    }
+  }
+
+  return { refundedItemCount, refundFailures, buyerUserIds, vendorUserIds }
 }
 
 /** B. Paid booth renters whose rented week contains the cancelled date. */
@@ -246,6 +265,7 @@ export async function runCancelDateCascade(
     refundedItemCount: refunds.refundedItemCount,
     refundFailures: refunds.refundFailures,
     buyerUserIds: [...refunds.buyerUserIds],
+    orderVendorUserIds: [...refunds.vendorUserIds],
     boothRenterUserIds: [...boothRenterUserIds],
     marketBoxCredited,
   }
