@@ -61,13 +61,20 @@ async function refundProductOrders(
   let refundedItemCount = 0
   let refundFailures = 0
 
-  const { data: items } = await service
+  const { data: items, error: itemsErr } = await service
     .from('order_items')
     .select('id, order_id, listing_id, quantity, subtotal_cents, order:orders!inner ( id, buyer_user_id )')
     .eq('market_id', marketId)
     .eq('pickup_date', overrideDate)
     .is('cancelled_at', null)
-    .in('status', ['pending', 'paid', 'confirmed', 'ready'])
+    // order_item_status enum = pending|confirmed|ready|fulfilled|cancelled|refunded.
+    // Refund pre-fulfillment items only. ('paid' is an ORDER status, not an
+    // item status — including it threw an invalid-enum error that silently
+    // returned 0 items, so cancellations refunded nobody.)
+    .in('status', ['pending', 'confirmed', 'ready'])
+  // Never silently no-op a refund lookup — surface the failure instead of
+  // treating an errored query as "no items to refund".
+  if (itemsErr) throw itemsErr
 
   const rows = (items ?? []) as OrderItemRow[]
   // Count items per order once (prorated flat-fee denominator = ALL items in the order).
