@@ -77,6 +77,9 @@ async function refundProductOrders(
   if (itemsErr) throw itemsErr
 
   const rows = (items ?? []) as OrderItemRow[]
+  // TEMP DIAGNOSTIC (remove after confirming the cancel-date refund path) —
+  // proves exactly what the DEPLOYED code received + matched, in Vercel logs.
+  console.log(`[cancel-date-diag] marketId=${marketId} overrideDate=${overrideDate} matchedItems=${rows.length}`)
   // Count items per order once (prorated flat-fee denominator = ALL items in the order).
   const orderIds = [...new Set(rows.map((r) => r.order_id))]
   const itemsPerOrder = new Map<string, number>()
