@@ -1,8 +1,42 @@
 # Current Task: Session 92 — growth build + design pass + help content (NEXT SESSION READ THIS)
 
-**Updated:** 2026-06-16 (checkpoint). **Mode:** Fix (hybrid build).
+**Updated:** 2026-06-22 (checkpoint). **Mode:** Fix (hybrid build).
 
-## ⭐ LATEST CHECKPOINT (2026-06-15/16) — READ FIRST
+## ⭐ LATEST CHECKPOINT (2026-06-24) — READ FIRST
+
+**✅ SHIPPED TO PROD 2026-06-24.** The full Phase C/D + vendor-categories stack (14 commits `528cbba3..8f64c89a`, migs 159–163) is **live on prod** — user-authorized out-of-window push, Vercel green, smoke test passed. migs 159–163 applied to all 3 envs; files moved to `migrations/applied/`; snapshot changelog updated. Bookkeeping commit pending below. The detailed sections below describe the stack as it was built/verified on staging.
+
+**Deferred / next:** Phase D attendance CSV export (optional fast-follow); pickup-date display off-by-one (logged follow-up, UTC formatter — data correct); Phase E (season prepay, design-first) is the next major growth phase. Notification tripwire = 80.
+
+### Staging stack (commits since prod `528cbba3`, oldest→newest)
+Vendor-categories Part A (`a7543556` footer, `96620976` survey CSV, `5a634414` Part A foundation, `88847bbd` front-gate) → `1bbad153` Phase D check-ins → `d5615550` Phase C cancel-a-day → `2a936141` Option B (market-box skip cancelled) → `932ecf29` geo reliability → `3133bdab` geo feedback → `3517b9aa` cancel-date refund fix #1 → `b290f93f` temp diagnostic → `855f55eb` cancel-date refund fix #2 → `a00f4067` status/notification fixes.
+
+### Migrations pending PROD (apply in order before/with the push)
+**159** (vendor_profiles production_category + sell_eligible) · **160** (market_day_checkins) · **161** (market_date_overrides) · **162** (get_available_pickup_dates +NOT EXISTS cancelled) · **163** (create_market_box_pickups skip cancelled). All applied Dev+Staging; SCHEMA_SNAPSHOT changelog current.
+
+### Verification status (staging)
+- **Phase D check-ins** ✅ tested (check-in + geolocation, after the geo fixes). Vendor check-in button is INLINE in the dashboard "Manage Locations" card, only on a day the market operates.
+- **Phase C cancel-a-date** ✅ availability filter (product date drops), ✅ market-box credit, ✅ re-cancel 409 guard, ✅ **buyer auto-refund** (after the two stacked bug fixes below — verified: "2 buyer items refunded" + Stripe refunds, per-item idempotency proven on same-price items).
+- **Option B** ✅ verified (Amarillo-cancel didn't touch Westgate boxes; scoping correct).
+- **Status/notification fixes (`a00f4067`)** ⬜ user about to verify: buyer order detail reads neutral for system-cancel; product-vendor notification on next fresh cancel.
+
+### The cancel-date bug saga (all fixed — root cause was swallowed Supabase errors)
+1. **Refund bug #1** (`3517b9aa`): status filter included `'paid'`, which is NOT an `order_item_status` enum value (it's an ORDER status) → query threw invalid-enum → swallowed by `items ?? []` → 0 refunded silently. Fix: filter `pending|confirmed|ready` + throw on query error.
+2. **Refund bug #2** (`855f55eb`): `cancelled_by='market'` violated `order_items_cancelled_by_check` (allows `buyer|vendor|system`) → UPDATE 400 → swallowed by `if (!updated) continue` → 0 refunded silently. Found via an instrumented Vercel-log test (GET order_items 200, PATCH order_items 400). Fix: `cancelled_by='system'` (a market-day cancel IS a platform action; `cancellation_reason` distinguishes from cron-expiry) + throw on update error + harden payment lookup. **Lesson: every swallow-spot (`data ?? []`) in the cascade now throws/logs.**
+3. **Display bug** (`a00f4067`): buyer order detail mislabeled a `system` cancellation as "You cancelled this item" / "{vendor} was unable to fulfill." Fix: added `system` case to the per-item label + Stripe banner with neutral i18n (`order.cancelled_system`, `order.banner_cancelled_system_refund`, en+es).
+4. **Notification gap** (`a00f4067`): the product-order vendor whose order was cancelled got NO notification (every other cancel path notifies the counterparty). Fix: cascade collects vendor user_ids; route fires new `market_date_cancelled_order_vendor`. **Notification tripwire now 80** (was 77 at session start: +buyer/+vendor=79, +order_vendor=80).
+
+### Remaining
+- **User verifies** `a00f4067` (buyer display reads neutral; vendor notif on next cancel).
+- **Phase D attendance CSV export** — deferred fast-follow (reuse `lib/export-csv.ts`), optional, would close Phase D.
+- **PROD PUSH** — coordinated: apply migs 159–163 to Prod in order → `git push origin main` in 9PM–7AM CT window → Vercel green → smoke test. Sizable (≈12 commits + 5 migs).
+
+### Logged follow-up (NOT fixed — separate from cancel work)
+- **Pickup-date display off-by-one**: order-confirmation shows `pickup_date` a day early (a plain `DATE` parsed as UTC midnight, rendered in CT → prior evening). Data is correct (verified June 24 stored); display only. Audit the checkout/confirmation date formatter.
+
+---
+
+## ⭐ Prior checkpoint (2026-06-15/16)
 
 **Prod push DONE:** `528cbba3` shipped to prod 2026-06-15 (the 17-commit growth/design/refund stack + migs 154–158 applied to Prod + the `subscriptionType→type` vendor-upgrade fix). User smoke-testing.
 
@@ -16,7 +50,31 @@
 2. ✅ **`/api/submit`** Option A enforcement — reads `production_category`, hard-rejects (4xx, no profile) if not all ∈{1,2}; else inserts `production_category` + `sell_eligible=true`. FT/absent → DB default. Zod `profileDataSchema` now allows `production_category`.
 3. ⬜ Deferred fast-follow: A4 opt-in catalog statement + A5 manager messaging.
 - **Gates:** tsc clean, lint 0 errors (3 pre-existing warnings), vitest 1493/1493. Files: page.tsx, api/submit/route.ts, lib/validation/vendor-signup.ts. NOT committed.
-- **SEQUENCING (unchanged):** mig 159 must be applied to Dev+Staging BEFORE this code is pushed (publish + market-box routes `select sell_eligible`). NEXT: user applies mig 159 (Dev+Staging) → commit Part A → push all of `main` to staging → user tests → prod.
+- **SHIPPED to staging** as commit `88847bbd` (2026-06-16; mig 159 already on Dev+Staging). **USER-CONFIRMED on staging 2026-06-17:** gate appears + cat 1/2 → form, cat 3/4 → block screen (test 1 ✓); real cat-1/2 signup completes (test 2 ✓); existing FM vendor still redirects to dashboard (test 4 ✓). Test 3 (FT signup unchanged) NOT visually checked — code-guarded by `vertical === 'farmers_market'`, low risk.
+- **REMAINING for PROD:** (a) apply mig 159 to Prod; (b) `git push origin main` in 9PM–7AM CT window (ships footer `a7543556` + Part B `96620976` + Part A foundation `5a634414` + Part A front-gate `88847bbd` = local main is 4 ahead of prod `528cbba3`); (c) verify Vercel green; (d) prod smoke test.
+
+## ⭐ GROWTH PHASE D — Vendor Market-Day Check-Ins (BUILT 2026-06-17, UNCOMMITTED)
+Design doc: `phase_d_checkins_plan.md`. Decisions: entry on "My Locations" card; capture booth #; manager VIEW access (no counter-sign UI, columns added); ALL attendance paths; geofence **250 m** advisory; today-only; self-attestation + opt-in geolocation.
+- **mig 160** `20260617_160_market_day_checkins.sql` — new table + 3 vendor own-row RLS policies + indexes + updated_at trigger. **NOT applied to any env.**
+- **Files:** `lib/markets/checkin-eligibility.ts` (helper: eligibility across approved market_vendors + paid weekly_booth_rentals; operates-today via market_schedules DOW / event date range, market-local tz; meters-haversine; RADIUS 250). `api/vendor/checkins/route.ts` (GET today's eligible + status; POST checkin/checkout, self-attest + advisory distance). `api/market-manager/[marketId]/attendance/route.ts` (GET, isMarketManager-gated, date-selectable). `components/vendor/MarketCheckInPrompt.tsx` (in Manage Locations card). `components/market-manager/MarketAttendanceCard.tsx` (read-only attendance, date picker) wired into manager dashboard after broadcast card. Dashboard pages wired.
+- **Gates:** tsc clean, lint clean, vitest 1493/1493.
+- **DEFERRED fast-follow:** attendance CSV export (reuse `lib/export-csv.ts`).
+- **SHIPPED 2026-06-21:** mig 160 applied Dev+Staging (user) + documented in SCHEMA_SNAPSHOT changelog. Phase D committed `1bbad153` → **on staging** (pre-push build + Playwright 49/49 green). NOT on prod. **User to staging-test** (market day → vendor "Manage Locations" check-in button → manager "Vendor attendance" card).
+
+## ⭐ GROWTH PHASE C — Cancel-a-Date (DESIGN COMPLETE + migs drafted, 2026-06-21)
+Design doc: `phase_c_date_overrides_plan.md` (fully grounded in verified code; review pass done). Phasing A→B→1B→C→D→E; **C built before E because E's season-prepay cancelled-day counter is fed by cancel-a-date** (decisions.md 2026-06-12).
+- **Locked (user 2026-06-21):** v1 = cancel-a-date only (add-special-date deferred); un-cancel = NO (one-way); cancel-ahead window = **8 weeks** (matches booth booking horizon `book/page.tsx:196`); buyer orders → **immediate auto-refund** (reuse reject cascade MINUS `increment_vendor_cancelled` penalty — verified `reject:207`); credit-vs-reschedule = single choice for whole date; market box → **credit** via existing `vendor_skip_week` RPC (skip+extend, verified mig 124).
+- **3-path cancel cascade:** buyer product orders → auto-refund (full buyer-paid: subtotal+6.5%+prorated $0.15); paid booth rentals → flag `booth_disposition` credit/reschedule (no money move; feeds E); market-box pickups → `vendor_skip_week` per affected pickup (MB→market linkage via `market_box_offerings.pickup_market_id`).
+- **RPC = ONE function (review correction):** `validate_cart_item_schedule` WRAPS `get_available_pickup_dates`, so a single `NOT EXISTS(cancelled override)` filter in get_available_pickup_dates propagates to display + cart + checkout. No re-revoke (it's in mig-149 public-browse allowlist).
+- **migs 161+162 APPLIED to Dev+Staging 2026-06-21** (user) + SCHEMA_SNAPSHOT changelog updated. Booth `reschedule` = ADVISORY in v1 (user chose "a"): records reschedule_date + notifies vendor; becomes a real operating date when add-special-date ships.
+- **BUILT 2026-06-21 (UNCOMMITTED) — gates GREEN (tsc clean, eslint clean, vitest 1493/1493):**
+  - `lib/markets/cancel-date-cascade.ts` — self-contained 3-path cascade (refund buyer orders MINUS `increment_vendor_cancelled` penalty, cancelled_by='market'; flag paid booth renters by week; credit MB pickups via `vendor_skip_week`). Touches NO existing money-path file.
+  - `api/market-manager/[marketId]/cancel-date/route.ts` — isMarketManager + ack gate + 8-week/future window → insert override (23505→409) → run cascade → notify buyers+renters (try/catch).
+  - `notifications/types.ts` — 2 new types `market_date_cancelled_buyer`/`_vendor` (+ 3 template-data fields). Tripwire bumped 77→79 (`cutoff-and-sort-functional.test.ts:167`, user-approved).
+  - `components/market-manager/MarketCancelDateCard.tsx` — date picker + reason + credit/reschedule radio + confirm modal w/ ack checkbox. Wired into manager dashboard after schedule card; ManagerJumpNav +"Cancel day".
+  - `components/vendor/BookBoothForm.tsx` — updated stale "closures off-platform" copy → in-app credit/reschedule.
+- **NEXT:** user reviews → commit Phase C → push staging → user tests. Prod: migs 161+162 + Phase C code with the next prod push (after Phase D).
+- **Deferred follow-up:** add-special-date (status='special') — enables real make-up dates + E's settlement "make-up days".
 
 ---
 
