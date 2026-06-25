@@ -2,6 +2,20 @@
 
 **Updated:** 2026-06-22 (checkpoint). **Mode:** Fix (hybrid build).
 
+## ⭐ PHASE E — DESIGN COMPLETE, AWAITING BUILD SESSION (2026-06-24) — READ FIRST
+
+**No code/migrations written. Design-only, user-approved to hold here for a build session.** Full design: `apps/web/.claude/phase_e_booth_granularity_prepay_plan.md` (READ IT — all decisions + verified code citations live there).
+
+**What Phase E is:** booth **season + partial prepay** at **week grain** (NOT per-day, NOT period-type rewrite — both rejected as too risky). A new `booth_booking_groups` parent ties N existing `weekly_booth_rentals` together, paid in ONE Stripe checkout (destination charge, transfer summed, webhook flips the group by `group_id`). The proven booking RPC / booth-assignment / conflict triggers are **reused unchanged**; one-off rentals stay untouched (`group_id` null).
+
+**6 decisions RESOLVED (user):** O1 derive-season-days+confirm+reconcile; O2 cap = 10% floor / 15% platform ceiling, per-market; O3 all-or-nothing partial booking w/ message; O4 settlement = rollover-credit + booth-upgrade only (make-up-days + cash-refund deferred); O5 vendor self-cancel = full credit pre-start / penalty+credit post-start (NEVER cash — supersedes "no mid-season refunds": credit not cash). Credit = store-credit balance vs future booths at that market (`booth_credits` ledger).
+
+**BEFORE BUILD (plan §10, do NOT skip):** (1) **O1 pre-build discussion** — cutoff/day coupling: changing a schedule day is live-computed (no migration) but moves buyer order cutoffs (`availability-status.ts:8-40`, `constants.ts:32-37`); design the manager disclosure together. (2) Money-path pass (`payments.ts`+`webhooks.ts` season fns + credit redemption accounting) = critical/protected, per-file approval + exact diffs. (3) Build-time verifies: manager approval flow for schedule-confirm gate; `get_listings_accepting_status()` next-market-day computation; `market_schedules.day_of_week`. (4) Confirm penalty % (25% product default vs booth-specific). Build phasing in plan §9 (migs first).
+
+**Key verified citations (this session):** rental unit `20260512_139…sql:59-84`; price per size `20260508_134…sql:31`; atomic RPC `20260518_142…sql` / `20260522_146…sql:163-331`; booth checkout destination charge `payments.ts:312,332-347`; webhook booth flip `webhooks.ts:146,1127-1303`; product cancellation model `cancellation-fees.ts:63-108` + `cancel/route.ts:15-17`.
+
+---
+
 ## ⭐ LATEST CHECKPOINT (2026-06-24) — READ FIRST
 
 **✅ SHIPPED TO PROD 2026-06-24.** The full Phase C/D + vendor-categories stack (14 commits `528cbba3..8f64c89a`, migs 159–163) is **live on prod** — user-authorized out-of-window push, Vercel green, smoke test passed. migs 159–163 applied to all 3 envs; files moved to `migrations/applied/`; snapshot changelog updated. Bookkeeping commit pending below. The detailed sections below describe the stack as it was built/verified on staging.
