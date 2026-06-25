@@ -55,7 +55,15 @@ export async function processMarketBoxPayout(opts: ProcessMarketBoxPayoutOpts): 
       .eq('id', offeringId)
       .single()
 
-    if (!offering) return
+    if (!offering) {
+      await logError(new TracedError('ERR_PAYOUT_006', `market box payout: offering ${offeringId} not found for paid subscription ${subscriptionId}`, {
+        route: source === 'checkout-success' ? '/api/checkout/success' : '/webhooks/stripe',
+        method: source === 'checkout-success' ? 'GET' : 'POST',
+        subscriptionId,
+        offeringId,
+      }))
+      return
+    }
 
     const { data: vendor } = await serviceClient
       .from('vendor_profiles')
@@ -63,7 +71,15 @@ export async function processMarketBoxPayout(opts: ProcessMarketBoxPayoutOpts): 
       .eq('id', offering.vendor_profile_id)
       .single()
 
-    if (!vendor) return
+    if (!vendor) {
+      await logError(new TracedError('ERR_PAYOUT_007', `market box payout: vendor ${offering.vendor_profile_id} not found for paid subscription ${subscriptionId}`, {
+        route: source === 'checkout-success' ? '/api/checkout/success' : '/webhooks/stripe',
+        method: source === 'checkout-success' ? 'GET' : 'POST',
+        subscriptionId,
+        offeringId,
+      }))
+      return
+    }
 
     // Vendor share comes off the actual amount paid, not the full weekly price
     const vendorPayoutCents = calculateVendorPayout(actualPaidCents)
