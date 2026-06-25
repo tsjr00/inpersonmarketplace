@@ -542,7 +542,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                             fontSize: typography.sizes.xs,
                             marginTop: spacing['3xs']
                           }}>
-                            {new Date(pickup.pickup_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                            {new Date(pickup.pickup_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                             {pickup.pickup_start_time && pickup.pickup_end_time && (
                               <span>
                                 {' · '}

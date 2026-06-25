@@ -93,7 +93,10 @@ interface Order {
 // Format pickup date for display
 function formatPickupDate(dateStr: string | null | undefined): string | null {
   if (!dateStr) return null
-  const date = new Date(dateStr)
+  // pickup_date is a plain DATE; parse as LOCAL midnight so a Central-time user
+  // doesn't see UTC midnight render as the prior evening (off-by-one).
+  const localStr = dateStr.includes('T') ? dateStr : `${dateStr}T00:00:00`
+  const date = new Date(localStr)
   if (isNaN(date.getTime())) return null
   return date.toLocaleDateString('en-US', {
     weekday: 'short',
