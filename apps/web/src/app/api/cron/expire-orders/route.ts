@@ -12,6 +12,8 @@ import { isCleanupDay, calculateRetentionCutoffs } from '@/lib/cron/retention'
 import { REMINDER_DELAY_MS, DEFAULT_REMINDER_DELAY_MS, isOrderOldEnoughForReminder, getAutoConfirmCutoffDate, areAllItemsPastPickupWindow, formatPaymentMethodLabel } from '@/lib/cron/external-payment'
 import { calculateNoShowPayout, shouldTriggerNoShow } from '@/lib/cron/no-show'
 import { STRIPE_CHECKOUT_EXPIRY_MS, PAYOUT_RETRY_MAX_DAYS, STALE_CONFIRMATION_WINDOW_MS, isStripeCheckoutExpired, isConfirmationWindowStale } from '@/lib/cron/order-timing'
+import { getSeasonCheckoutSessionState } from '@/lib/stripe/session-status'
+import { sendSeasonPaidNotifications } from '@/lib/markets/season-notifications'
 
 /**
  * Timing-safe string comparison to prevent timing attacks
@@ -2351,6 +2353,11 @@ export async function GET(request: NextRequest) {
     //       completed. Stripe sessions default-expire at 24h; we mirror
     //       that here so the UNIQUE constraint frees up for re-booking.
     //
+    // NOTE (Phase E): grouped season children (group_id NOT NULL) are EXCLUDED
+    // from both cohorts — they never carry a stripe_checkout_session_id (it lives
+    // on the parent booth_booking_groups row) so they'd be mis-swept as orphans.
+    // Their lifecycle is handled by Phase 18 (group-aware, Stripe-checked).
+    //
     // Status flip: pending_payment → cancelled, cancelled_at = now().
     // After both UPDATEs, fire booth_rental_payment_failed_vendor
     // notification per cancelled row (Phase C Stage 3 follow-up, 2026-05-19).
@@ -2369,6 +2376,7 @@ export async function GET(request: NextRequest) {
         .update({ status: 'cancelled', cancelled_at: nowIso })
         .eq('status', 'pending_payment')
         .is('stripe_checkout_session_id', null)
+        .is('group_id', null)
         .lt('booked_at', thirtyMinAgo)
         .select('id, vendor_profile_id, market_id, week_start_date')
       if (orphanErr) {
@@ -2383,6 +2391,7 @@ export async function GET(request: NextRequest) {
         .update({ status: 'cancelled', cancelled_at: nowIso })
         .eq('status', 'pending_payment')
         .not('stripe_checkout_session_id', 'is', null)
+        .is('group_id', null)
         .lt('booked_at', twentyFourHoursAgo)
         .select('id, vendor_profile_id, market_id, week_start_date')
       if (staleErr) {
@@ -2533,6 +2542,107 @@ export async function GET(request: NextRequest) {
       totalErrors++
     }
 
+    // ============================================================
+    // PHASE 18: Reconcile pending season booth groups (Phase E)
+    //
+    // Season children (weekly_booth_rentals.group_id NOT NULL) are excluded from
+    // Phase 16 — their lifecycle follows the parent booth_booking_groups row,
+    // whose payment is confirmed by the Stripe webhook. This phase is the safety
+    // net for that path:
+    //   - group has NO Stripe session + >30min old → orphan (API died before
+    //     checkout) → cancel_season_group.
+    //   - group HAS a Stripe session → ask Stripe (source of truth):
+    //       paid                  → confirm_season_paid (recovers a missed/failed
+    //                               webhook) + fire the paid notifications.
+    //       expired (or >24h old) → cancel_season_group.
+    //       still open & <24h     → leave it (vendor mid-checkout).
+    // Budget-capped so the Stripe round-trips stay within maxDuration; any
+    // deferred groups are picked up on the next run.
+    // ============================================================
+    let seasonGroupsConfirmed = 0
+    let seasonGroupsCancelled = 0
+    try {
+      const SEASON_RECONCILE_BUDGET = 25
+      const thirtyMinAgoIso = new Date(Date.now() - 30 * 60 * 1000).toISOString()
+      const twentyFourHoursAgoIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+
+      const { data: pendingGroups, error: pendingErr } = await supabase
+        .from('booth_booking_groups')
+        .select('id, stripe_checkout_session_id, created_at')
+        .eq('status', 'pending_payment')
+        .order('created_at', { ascending: true })
+
+      if (pendingErr) {
+        console.error('Phase 18 pending-groups query error:', pendingErr.message)
+        totalErrors++
+      } else {
+        const groups = pendingGroups ?? []
+        let stripeLookups = 0
+        for (let i = 0; i < groups.length; i++) {
+          const g = groups[i]
+          const sessionId = g.stripe_checkout_session_id as string | null
+          const createdAt = g.created_at as string
+
+          // Orphan: no Stripe session was ever created (API died pre-checkout).
+          if (!sessionId) {
+            if (createdAt < thirtyMinAgoIso) {
+              const { data: res } = await supabase.rpc('cancel_season_group', {
+                p_group_id: g.id,
+                p_reason: 'orphan_no_session',
+              })
+              if (res === 'cancelled') seasonGroupsCancelled++
+            }
+            continue
+          }
+
+          // Has a session — Stripe is the source of truth. Budget the lookups.
+          if (stripeLookups >= SEASON_RECONCILE_BUDGET) {
+            console.log(`Phase 18: budget (${SEASON_RECONCILE_BUDGET}) reached; ${groups.length - i} group(s) deferred to next run`)
+            break
+          }
+          stripeLookups++
+
+          let sessionState
+          try {
+            sessionState = await getSeasonCheckoutSessionState(sessionId)
+          } catch (lookupErr) {
+            console.error(`Phase 18: Stripe lookup failed for group ${g.id}:`, lookupErr instanceof Error ? lookupErr.message : 'Unknown')
+            totalErrors++
+            continue
+          }
+
+          if (sessionState.paymentStatus === 'paid') {
+            const { data: res } = await supabase.rpc('confirm_season_paid', {
+              p_group_id: g.id,
+              p_payment_intent: sessionState.paymentIntentId,
+            })
+            if (res === 'confirmed') {
+              seasonGroupsConfirmed++
+              await sendSeasonPaidNotifications(supabase, g.id as string)
+            } else if (res === 'cancelled_conflict') {
+              await logError(new TracedError('ERR_RECONCILE_001', `Season group ${g.id} paid in Stripe but cancelled in DB — manual reconciliation needed`, { route: '/api/cron/expire-orders', method: 'GET' }))
+            }
+          } else if (sessionState.status === 'expired' || createdAt < twentyFourHoursAgoIso) {
+            const { data: res } = await supabase.rpc('cancel_season_group', {
+              p_group_id: g.id,
+              p_reason: 'unpaid_expired',
+            })
+            if (res === 'cancelled') seasonGroupsCancelled++
+          }
+          // else: session still open and <24h old — vendor mid-checkout, leave it.
+        }
+
+        const totalReconciled = seasonGroupsConfirmed + seasonGroupsCancelled
+        if (totalReconciled > 0) {
+          console.log(`Phase 18: reconciled ${totalReconciled} season group(s) (${seasonGroupsConfirmed} confirmed, ${seasonGroupsCancelled} cancelled)`)
+          totalProcessed += totalReconciled
+        }
+      }
+    } catch (phase18Error) {
+      console.error('Phase 18 error:', phase18Error instanceof Error ? phase18Error.message : 'Unknown error')
+      totalErrors++
+    }
+
     return NextResponse.json({
       success: true,
       message: `Processed ${totalProcessed} items`,
@@ -2548,6 +2658,7 @@ export async function GET(request: NextRequest) {
       dataRetention: { errorLogs: errorLogsDeleted, notifications: notificationsDeleted, activityEvents: activityEventsDeleted },
       trialLifecycle: { reminders: trialReminders, expired: trialExpired, graceProcessed: trialGraceProcessed },
       boothRentals: { orphansCancelled: boothRentalsCancelledOrphan, staleSessionsCancelled: boothRentalsCancelledStale },
+      seasonGroups: { confirmed: seasonGroupsConfirmed, cancelled: seasonGroupsCancelled },
       staleInvitations: { expired: staleInvitationsExpired },
       eventReminders,
       selfServiceResultsSent,

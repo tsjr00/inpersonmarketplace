@@ -8,6 +8,7 @@ import { TracedError } from '@/lib/errors/traced-error'
 import { logError } from '@/lib/errors/logger'
 import { crumb } from '@/lib/errors/breadcrumbs'
 import { calculateBoothRentalFees } from '@/lib/pricing'
+import { sendSeasonPaidNotifications } from '@/lib/markets/season-notifications'
 
 /**
  * H-6: Dedup helper — check if a notification was already sent recently.
@@ -1370,124 +1371,38 @@ async function handleSeasonBoothCheckoutComplete(session: Stripe.Checkout.Sessio
 
   const paymentIntentId = (session.payment_intent as string) || null
 
-  // Flip the group.
-  const { error: groupErr } = await supabase
-    .from('booth_booking_groups')
-    .update({ status: 'paid', stripe_payment_intent_id: paymentIntentId })
-    .eq('id', groupId)
-    .eq('status', 'pending_payment')
+  // Atomically flip the group + all its pending children to paid (mig 167).
+  // FOR UPDATE inside the RPC serializes concurrent deliveries; a real DB error
+  // throws → route returns 500 → Stripe retries (the RPC is idempotent).
+  const { data: confirmResult, error: confirmErr } = await supabase
+    .rpc('confirm_season_paid', { p_group_id: groupId, p_payment_intent: paymentIntentId })
 
-  if (groupErr) {
-    await logError(new TracedError(
+  if (confirmErr) {
+    throw new TracedError(
       'ERR_WEBHOOK_013',
-      `booth_season group status update failed for ${groupId}: ${groupErr.message}`,
+      `confirm_season_paid failed for group ${groupId}: ${confirmErr.message}`,
+      { route: '/webhooks/stripe', method: 'POST' }
+    )
+  }
+
+  if (confirmResult === 'cancelled_conflict') {
+    // Paid in Stripe but the group is cancelled in our DB — never silently
+    // re-activate (children may have been freed/re-booked). Flag for a human.
+    await logError(new TracedError(
+      'ERR_WEBHOOK_014',
+      `booth_season group ${groupId} paid in Stripe but CANCELLED in DB — manual reconciliation needed (payment_intent ${paymentIntentId ?? 'unknown'})`,
       { route: '/webhooks/stripe', method: 'POST' }
     ))
     return
   }
 
-  // Flip all child rentals to paid.
-  const { error: childErr } = await supabase
-    .from('weekly_booth_rentals')
-    .update({
-      status: 'paid',
-      stripe_payment_intent_id: paymentIntentId,
-      paid_at: new Date().toISOString(),
-    })
-    .eq('group_id', groupId)
-    .eq('status', 'pending_payment')
-
-  if (childErr) {
-    // Group is already 'paid'; a re-delivery idempotency-skips the group but
-    // re-runs this child update. Surface for admin in the meantime.
-    await logError(new TracedError(
-      'ERR_WEBHOOK_013',
-      `booth_season child rentals update failed for group ${groupId}: ${childErr.message}`,
-      { route: '/webhooks/stripe', method: 'POST' }
-    ))
+  if (confirmResult === 'already_paid') {
+    crumb.stripe(`booth season ${groupId} already paid — idempotent skip`)
+    return
   }
 
   crumb.stripe(`booth season ${groupId} flipped to paid (payment_intent ${paymentIntentId ?? 'unknown'})`)
 
-  // One summary notification to vendor + manager. Best-effort — wrapped so a
-  // notification failure can never return non-2xx (Stripe would retry an
-  // already-paid group).
-  try {
-    const [vpResult, marketResult] = await Promise.all([
-      supabase
-        .from('vendor_profiles')
-        .select('user_id, profile_data, vertical_id')
-        .eq('id', group.vendor_profile_id as string)
-        .maybeSingle(),
-      supabase
-        .from('markets')
-        .select('name, manager_user_id, manager_email, vertical_id')
-        .eq('id', group.market_id as string)
-        .maybeSingle(),
-    ])
-
-    const vp = vpResult.data
-    const market = marketResult.data
-    const profileData = (vp?.profile_data || {}) as Record<string, unknown>
-    const vendorName =
-      (profileData.business_name as string | undefined) ||
-      (profileData.farm_name as string | undefined) ||
-      undefined
-    const marketName = (market?.name as string | undefined) || 'the market'
-    const vertical =
-      (market?.vertical_id as string | undefined) ||
-      (vp?.vertical_id as string | undefined) ||
-      'farmers_market'
-    const weekCount = (group.week_count as number) ?? 0
-
-    let vendorEmail: string | null = null
-    if (vp?.user_id) {
-      const { data: authUser } = await supabase.auth.admin.getUserById(vp.user_id as string)
-      vendorEmail = authUser?.user?.email ?? null
-    }
-    let managerEmail: string | null = (market?.manager_email as string | null) ?? null
-    if (!managerEmail && market?.manager_user_id) {
-      const { data: managerAuth } = await supabase.auth.admin.getUserById(
-        market.manager_user_id as string
-      )
-      managerEmail = managerAuth?.user?.email ?? null
-    }
-
-    if (vp?.user_id) {
-      await sendNotification(
-        vp.user_id as string,
-        'booth_season_paid_vendor',
-        {
-          marketName,
-          weekCount,
-          amountCents: group.total_vendor_cents as number,
-          marketId: group.market_id as string,
-        },
-        {
-          vertical,
-          ...(vendorEmail ? { userEmail: vendorEmail } : {}),
-        }
-      )
-    }
-
-    if (market?.manager_user_id) {
-      await sendNotification(
-        market.manager_user_id as string,
-        'booth_season_paid_manager',
-        {
-          marketName,
-          weekCount,
-          managerReceivesAmountCents: group.total_manager_cents as number,
-          marketId: group.market_id as string,
-          ...(vendorName ? { vendorName } : {}),
-        },
-        {
-          vertical,
-          ...(managerEmail ? { userEmail: managerEmail } : {}),
-        }
-      )
-    }
-  } catch (notifErr) {
-    console.error('[handleSeasonBoothCheckoutComplete] notification block failed:', notifErr instanceof Error ? notifErr.message : 'Unknown')
-  }
+  // Vendor + manager "season paid" notifications (best-effort; never throws).
+  await sendSeasonPaidNotifications(supabase, groupId)
 }

@@ -1,6 +1,17 @@
 # Current Task: Session 92 — growth build + design pass + help content (NEXT SESSION READ THIS)
 
-**Updated:** 2026-06-25 (Phase E handoff — see block below). **Mode:** Fix (hybrid build).
+**Updated:** 2026-06-26 (Phase E payment-safety fix — see block below). **Mode:** Fix (hybrid build).
+
+## 🔧 PHASE E PAYMENT-SAFETY FIX (2026-06-26, IN PROGRESS — comprehensive-review follow-up)
+Review found a 3-part gap in the season-prepay confirmation path (staging-only, pre-prod). Plan: `phase_e_season_payment_safety_plan.md`. Research: `comprehensive_review_research.md`.
+- **F1 (HIGH):** expire-orders Phase 16 cancelled paid/in-flight season children (children never carry `stripe_checkout_session_id` — it lives on the group). **F2 (MED):** webhook child-flip failure left group/children permanently divergent (group idempotency guard blocked the retry). **F3 (MED):** no recovery if the webhook never arrives.
+- **DONE this session — gates green (tsc 0, lint 0 err, vitest 1493/1493):**
+  - mig **167** `confirm_season_paid` + `cancel_season_group` (atomic, `FOR UPDATE`, REVOKE PUBLIC/anon + service_role only) — **APPLIED Dev+Staging 2026-06-26**; SCHEMA_SNAPSHOT changelog updated. Prod PENDING (apply AFTER 164→165→166).
+  - `lib/stripe/session-status.ts` (new) — `getSeasonCheckoutSessionState` (imports the shared stripe client from `stripe/config`; `payments.ts` untouched).
+  - `lib/markets/season-notifications.ts` (new) — `sendSeasonPaidNotifications` shared helper (best-effort, never throws).
+  - `expire-orders/route.ts`: Phase 16 both cohorts now `.is('group_id', null)` (F1); new **Phase 18** group-aware reconciliation — orphan(no-session,>30m)→cancel; has-session→ask Stripe→confirm+notify / expired→cancel; budget 25 Stripe lookups/run (F3).
+  - **C3 `webhooks.ts` (PROTECTED) — DONE** (user-approved per-file 2026-06-26): `handleSeasonBoothCheckoutComplete` now calls `confirm_season_paid` RPC (throws on real error → 500 → Stripe retry; handles already_paid / cancelled_conflict) + `sendSeasonPaidNotifications` shared helper. Gates re-run green (tsc 0, lint 0 err, vitest 1493/1493).
+- **REMAINING:** commit (all on `main`, then merge→staging→push) — **awaiting user OK**. Files: mig 167, `lib/stripe/session-status.ts` (new), `lib/markets/season-notifications.ts` (new), `lib/stripe/webhooks.ts`, `api/cron/expire-orders/route.ts`, `SCHEMA_SNAPSHOT.md`, `phase_e_season_payment_safety_plan.md`, `comprehensive_review_research.md`, `current_task.md`. Then user runs 4-test staging plan (book+pay; book+abandon→Phase 18 cancel; missed-webhook→Phase 18 reconcile+confirm; one-off rental still expires via Phase 16). Prod push bundles mig 167 AFTER 164→165→166.
 
 ## ⭐ PHASE E — SEASON PREPAY: NEXT-SESSION HANDOFF (updated 2026-06-25) — READ FIRST
 
