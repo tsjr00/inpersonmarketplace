@@ -104,21 +104,31 @@ market_seasons
   start_date DATE
   end_date DATE
   declared_market_days INTEGER NULL  -- manager declares, OR derive from schedules (Open O1)
-  prepay_open BOOLEAN DEFAULT false  -- manager opens/closes the prepay window
-  prepay_opens_at / prepay_closes_at TIMESTAMPTZ NULL
+  prepay_open BOOLEAN DEFAULT false  -- manager-flipped (O6); only settable within MAX_PRESALE_LEAD_DAYS of start_date
+  prepay_opened_at TIMESTAMPTZ NULL  -- when the manager opened it
+  prepay_closes_at TIMESTAMPTZ NULL  -- = start_date + PRESALE_GRACE_DAYS (auto), or earlier if sold out
   refund_cap_days INTEGER            -- O2: floor(10% of declared_market_days), min 1; platform ceiling = 15% of season days
   status TEXT CHECK (status IN ('draft','open','active','ended','settled'))
   created_at / updated_at
 ```
 
-- **Week enumeration:** the weeks in `[start_date, end_date]` whose `day_of_week` matches an active `market_schedules` row, minus cancelled overrides. Manager either declares the count or we derive it (Open O1).
-- **Prepay window:** vendor can buy a season only while `prepay_open` and within the window. After it closes, vendors fall back to one-off (offering #2) or partial (#3).
+Constants: `MAX_PRESALE_LEAD_DAYS = 60`, `PRESALE_GRACE_DAYS = 14`.
+
+- **Week enumeration:** the weeks in `[start_date, end_date]` whose `day_of_week` matches an active `market_schedules` row, minus cancelled overrides. Derive the count, manager confirms (O1).
+- **Presale window (O6, RESOLVED 2026-06-25):**
+  - **Opens** — manager flips `prepay_open` on (manual), but the platform REJECTS opening earlier than `start_date − MAX_PRESALE_LEAD_DAYS` (60 days). Guards against "too far ahead."
+  - **One season ahead only** — at most ONE season per market may have `prepay_open=true` at a time (the nearest upcoming one). Enforce in the open-route (reject if another open season exists) + ideally a partial unique index.
+  - **Closes** — automatically at `start_date + PRESALE_GRACE_DAYS` (14 days), OR when booths sell out, whichever first. The 14-day grace catches late buyers while booths remain.
+  - **Late buyer (purchase during days 0–14 of the season)** — buys the **FULL season: ALL week-rows incl. already-elapsed weeks**, full price = sum of all weeks (normal per-week math; `group total = sum of children` invariant intact — NOT pro-rated, NOT a partial). Elapsed-week rows are harmless historical records (the uniqueness trigger only checks `week_start_date >= today`, mig `146:117`). The lateness cost is automatic — they paid for weeks they can't attend; no penalty logic to write. Past `start_date` → O5 penalty-+-credit applies to any later cancel.
+  - After the window closes, vendors fall back to one-off (offering #2) or partial (#3).
+  - **Purchase-screen copy (defuses refund anger):** "You're committing to [season]. Cancel before the season starts → full booth credit at this market (not cash). Cancel after it starts → credit minus a cancellation fee." (O5 + bounded window together.)
 
 ### Part F — Cancelled-day counter (DERIVED, no new infra)
 
 At season end, per paid group:
 `cancelled_days = COUNT(market_date_overrides WHERE market_id=$ AND status='cancelled' AND date ∈ group's week set)`.
 Compare to `market_seasons.refund_cap_days`. **No materialized counter** — Phase C already stores the source of truth.
+**Late-buyer refinement (2026-06-25):** for a group purchased after `season_start`, count only overrides with `override_date >= the group's purchase date` — a late buyer gets no settlement credit for days cancelled before they bought in.
 
 ### Part G — Settlement + vendor self-cancel (credit-first) — RESOLVED
 
@@ -200,10 +210,14 @@ Apply Dev+Staging before code push; Prod with the push. Update `SCHEMA_SNAPSHOT.
 - **O3 — Partial-group failure:** ✅ **all-or-nothing**, with a message listing the blocked week(s) so the vendor can adjust their selection.
 - **O4 — Settlement v1 scope:** ✅ **rollover-credit + booth-upgrade only.** Make-up-days + cash-refund deferred. (Part G.)
 - **O5 — Vendor self-cancel:** ✅ before season start = **full credit, no penalty**; after start = **penalty + remaining value as credit** (never cash). (Part G — supersedes the "no mid-season refunds" decision: credit, not cash.)
+- **O6 — Season model + presale window (2026-06-25):** ✅ `market_seasons` = **separate table (Option B)**; existing `markets.season_start/end` stays the availability gate. Presales: **manager-flips open**, platform-capped to ≤60 days before `start_date` (`MAX_PRESALE_LEAD_DAYS`); **one season ahead only**; **auto-close at `start_date + 14 days`** (`PRESALE_GRACE_DAYS`) or sold-out, whichever first. **Late buyer (days 0–14) buys the FULL season — all week-rows incl. elapsed, full price = sum of all weeks** (NOT pro-rated; keeps group-total=sum-of-children; lateness cost is automatic). Settlement counts cancellations only from the group's purchase date forward. (Parts E + F.)
 
 ## 10. PRE-BUILD DISCUSSION ITEMS (do not skip)
 
-- **O1 cutoff/day coupling.** Listing availability + order cutoff are derived live from `cutoff_hours` + the operating `day_of_week` via `get_listings_accepting_status()` (`availability-status.ts:8-40`, `constants.ts:32-37`). Changing a schedule day during the reconcile is **live-computed (no migration)** but **moves the buyer-facing order cutoff**. Design the manager-facing disclosure ("changing this day also moves your order cutoff to X hours before [new day]") together before building. Verify the RPC's "next market day" computation at build.
+- **O1 cutoff/day coupling — VERIFIED 2026-06-24.** `get_available_pickup_dates` (mig `109`) computes pickup dates as the calendar dates whose `EXTRACT(DOW)` matches `market_schedules.day_of_week` (`:135`); the order cutoff is `pickup_start_utc − cutoff_hours` (`:154`), evaluated live (`is_accepting = NOW() < cutoff_at`, `:171`). So changing a schedule's `day_of_week` during the O1 reconcile shifts BOTH the pickup dates and every order cutoff immediately — **no migration, but instantly buyer-visible.** Still TODO before build: design the manager-facing disclosure ("changing this day also moves your order cutoff to ~X h before [new day]"). The mechanism is no longer an open question — only the UX copy is.
+- **⚠️ NEW (VERIFIED 2026-06-24) — reconcile season columns.** `markets` ALREADY has `season_start` / `season_end` (mig `109:78-79`) gating availability. The plan's proposed `market_seasons` table must reconcile with these: does a Phase E "season" reuse `markets.season_start/end`, or is `market_seasons` a separate prepay-window concept layered on top? **Decide before writing the migration.** (Lean: `market_seasons` is the prepay/settlement record; `markets.season_start/end` stays the availability gate — but confirm with user.)
+- **`market_schedules.day_of_week` CONFIRMED** (`int4 NOT NULL`, indexed `idx_market_schedules_day` — `SCHEMA_SNAPSHOT:638`). Season week-enumeration can key off it + `active=true`.
+- **Manager schedule-confirm gate (O1)** — manager assignment lives at `admin/markets/[id]/manager/route.ts`; the schedule-confirm requirement more naturally belongs on manager onboarding/dashboard. Locate the onboarding step at build.
 - **Money-path pass** (`payments.ts` + `webhooks.ts` season functions, credit redemption accounting) — exact diffs + per-file approval before editing (critical/protected paths).
 - **Penalty %** for after-start self-cancel — confirm 25% (product default) or a booth-specific value.
 
