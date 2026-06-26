@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import BookBoothForm from '@/components/vendor/BookBoothForm'
+import SeasonBookingSection from '@/components/vendor/SeasonBookingSection'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 /**
@@ -219,6 +220,10 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
         inventory={inventory}
         {...(returnFlash ? { returnFlash } : {})}
       />
+
+      {/* Phase E — season pre-sale picker. Renders only when this market has
+          OPEN seasons; otherwise the component returns null. */}
+      <SeasonBookingSection marketId={marketId} />
     </div>
   )
 }

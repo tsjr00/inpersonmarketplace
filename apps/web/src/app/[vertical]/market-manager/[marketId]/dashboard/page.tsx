@@ -18,6 +18,7 @@ import WeeklyBookingsCard from '@/components/market-manager/WeeklyBookingsCard'
 import MarketStripeConnectCard from '@/components/market-manager/MarketStripeConnectCard'
 import MarketScheduleCard from '@/components/market-manager/MarketScheduleCard'
 import MarketCancelDateCard from '@/components/market-manager/MarketCancelDateCard'
+import MarketSeasonCard from '@/components/market-manager/MarketSeasonCard'
 import ManagerSupportCard from '@/components/market-manager/ManagerSupportCard'
 import MarketBroadcastCard from '@/components/market-manager/MarketBroadcastCard'
 import MarketAttendanceCard from '@/components/market-manager/MarketAttendanceCard'
@@ -329,6 +330,11 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           pickups server-side. ManagerCard sets its own id="cancel-date" +
           scroll offset (mirrors MarketAttendanceCard). */}
       <MarketCancelDateCard marketId={marketId} />
+
+      {/* Season pre-sales (Phase E) — create a season + open a pre-sale window;
+          vendors prepay a whole season (or a partial set of weeks) in one
+          checkout. ManagerCard sets its own id="seasons" + scroll offset. */}
+      <MarketSeasonCard marketId={marketId} />
 
       {/* Manager broadcast (Session 92 Phase B) — one-way announcement to
           vendors (approved + paid upcoming renters). Send-only; server
