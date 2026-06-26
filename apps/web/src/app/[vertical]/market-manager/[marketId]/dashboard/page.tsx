@@ -334,7 +334,11 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
       {/* Season pre-sales (Phase E) — create a season + open a pre-sale window;
           vendors prepay a whole season (or a partial set of weeks) in one
           checkout. ManagerCard sets its own id="seasons" + scroll offset. */}
-      <MarketSeasonCard marketId={marketId} />
+      <MarketSeasonCard
+        marketId={marketId}
+        adminSeasonStart={(market.season_start as string | null) ?? null}
+        adminSeasonEnd={(market.season_end as string | null) ?? null}
+      />
 
       {/* Manager broadcast (Session 92 Phase B) — one-way announcement to
           vendors (approved + paid upcoming renters). Send-only; server
