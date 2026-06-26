@@ -351,3 +351,76 @@ export async function createBoothRentalCheckoutSession({
 
   return session
 }
+
+/**
+ * Phase E — Stripe Checkout for a SEASON/PARTIAL booth purchase (one payment,
+ * N weeks). Sibling to createBoothRentalCheckoutSession; same destination-charge
+ * model, generalized to one line item per week with a single summed transfer to
+ * the manager. The webhook (type='booth_rental_season') flips the whole group +
+ * its child rentals to paid by group_id.
+ *
+ * Per-week vendorPaysCents come from calculateBoothRentalFees per week (per-week
+ * rounding, matching the one-off line items); managerReceivesTotalCents is the
+ * sum of the per-week manager shares. Idempotency key is deterministic.
+ */
+export async function createSeasonBoothCheckoutSession({
+  groupId,
+  marketId,
+  marketName,
+  managerStripeAccountId,
+  weeks,
+  managerReceivesTotalCents,
+  successUrl,
+  cancelUrl,
+  vertical,
+}: {
+  groupId: string
+  marketId: string
+  marketName: string
+  managerStripeAccountId: string                       // markets.stripe_account_id
+  weeks: Array<{ weekStartDate: string; vendorPaysCents: number }>
+  managerReceivesTotalCents: number                    // transfer_data.amount (sum)
+  successUrl: string
+  cancelUrl: string
+  vertical?: string
+}) {
+  const idempotencyKey = `booth-season-${groupId}`
+
+  const session = await stripe.checkout.sessions.create(
+    {
+      payment_method_types: ['card', 'cashapp', 'amazon_pay', 'link'],
+      line_items: weeks.map((w) => ({
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: `Booth rental — ${marketName}`,
+            description: `Week of ${w.weekStartDate}`,
+          },
+          unit_amount: w.vendorPaysCents,
+        },
+        quantity: 1,
+      })),
+      mode: 'payment',
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      client_reference_id: `booth_season_${groupId}`,
+      payment_intent_data: {
+        statement_descriptor_suffix: getStatementSuffix(vertical),
+        transfer_data: {
+          destination: managerStripeAccountId,
+          amount: managerReceivesTotalCents,
+        },
+      },
+      metadata: {
+        type: 'booth_rental_season',
+        group_id: groupId,
+        market_id: marketId,
+        week_count: weeks.length.toString(),
+        manager_receives_total_cents: managerReceivesTotalCents.toString(),
+      },
+    },
+    { idempotencyKey }
+  )
+
+  return session
+}

@@ -79,6 +79,9 @@ export type NotificationType =
   // Booth rental payment lifecycle (Phase C Stage 3 follow-ups, 2026-05-19)
   | 'booth_rental_paid_vendor'
   | 'booth_rental_paid_manager'
+  // Phase E: season/partial booth purchase (one payment, N weeks)
+  | 'booth_season_paid_vendor'
+  | 'booth_season_paid_manager'
   | 'booth_rental_payment_failed_vendor'
   // Market manager schedule edits (2026-05-19) — notify all approved vendors
   // at the market when manager changes hours / active days / season window.
@@ -209,6 +212,8 @@ export interface NotificationTemplateData {
    *  weekly_booth_rentals.week_start_date column is a plain DATE (no
    *  timezone), and the manager + vendor both expect a localized label. */
   weekStartDate?: string
+  /** Number of weeks in a season/partial booth purchase (Phase E). */
+  weekCount?: number
   /** Manager's portion of the booth rental in cents. Distinct from
    *  amountCents (vendor's pay) — manager-paid notifications use this. */
   managerReceivesAmountCents?: number
@@ -726,6 +731,43 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     },
     // Anchor link drops the manager right at the Weekly bookings card
     // (id="weekly-bookings" on the dashboard wrapper).
+    actionUrl: (d) =>
+      d.marketId
+        ? `/${d.vertical || 'farmers_market'}/market-manager/${d.marketId}/dashboard#weekly-bookings`
+        : `/${d.vertical || 'farmers_market'}/dashboard`,
+  },
+
+  // Phase E: vendor confirmation when a season/partial booth purchase is paid
+  // (one payment, N weeks). Summary — booth numbers are per-week, shown on My Bookings.
+  booth_season_paid_vendor: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: (d) => `Season booking confirmed at ${d.marketName || 'the market'}`,
+    message: (d) => {
+      const amount = d.amountCents ? ` ($${(d.amountCents / 100).toFixed(2)})` : ''
+      const weeks = d.weekCount ? `${d.weekCount} week${d.weekCount === 1 ? '' : 's'}` : 'your selected weeks'
+      return `Your booth is locked in for ${weeks} at ${d.marketName || 'the market'}${amount}. Booth numbers are assigned per week — see My Bookings for the details.`
+    },
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/bookings`,
+  },
+
+  // Phase E: manager confirmation when a vendor's season/partial booth payment lands.
+  booth_season_paid_manager: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor', // managers operate from a vendor-adjacent role; closest fit
+    title: (d) =>
+      d.vendorName
+        ? `${d.vendorName} booked a season at ${d.marketName || 'your market'}`
+        : `A vendor booked a season at ${d.marketName || 'your market'}`,
+    message: (d) => {
+      const amount = d.managerReceivesAmountCents
+        ? ` Your portion ($${(d.managerReceivesAmountCents / 100).toFixed(2)}) will arrive in your Stripe account.`
+        : ' Your portion will arrive in your Stripe account.'
+      const weeks = d.weekCount ? `${d.weekCount} week${d.weekCount === 1 ? '' : 's'}` : 'multiple weeks'
+      return `${d.vendorName || 'A vendor'} paid for ${weeks} at ${d.marketName || 'your market'}.${amount}`
+    },
     actionUrl: (d) =>
       d.marketId
         ? `/${d.vertical || 'farmers_market'}/market-manager/${d.marketId}/dashboard#weekly-bookings`

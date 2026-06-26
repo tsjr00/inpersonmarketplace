@@ -148,6 +148,13 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
     return
   }
 
+  // Phase E: season/partial booth purchase (one payment, N weeks). Flips the
+  // whole booth_booking_groups row + its child weekly_booth_rentals to paid.
+  if (session.metadata?.type === 'booth_rental_season') {
+    await handleSeasonBoothCheckoutComplete(session)
+    return
+  }
+
   // Handle regular product checkout (may include market box items)
   const orderId = session.metadata?.order_id
   if (!orderId) return
@@ -1313,5 +1320,174 @@ async function handleBoothRentalCheckoutComplete(session: Stripe.Checkout.Sessio
     // Logged but never re-thrown. Status flip already succeeded — Stripe
     // sees 2xx, no retry.
     console.error('[handleBoothRentalCheckoutComplete] notification block failed:', notifErr instanceof Error ? notifErr.message : 'Unknown')
+  }
+}
+
+/**
+ * Phase E — handle a successful SEASON/PARTIAL booth checkout (type=
+ * 'booth_rental_season'). Flips the booth_booking_groups row AND all its child
+ * weekly_booth_rentals from 'pending_payment' to 'paid' by group_id, then fires
+ * ONE summary notification to vendor + manager. Idempotent: group already paid
+ * -> skip; .eq('status','pending_payment') on both updates guards races.
+ */
+async function handleSeasonBoothCheckoutComplete(session: Stripe.Checkout.Session) {
+  const supabase = createServiceClient()
+
+  const groupId = session.metadata?.group_id ||
+    (session.client_reference_id?.startsWith('booth_season_')
+      ? session.client_reference_id.slice('booth_season_'.length)
+      : null)
+
+  if (!groupId) {
+    await logError(new TracedError(
+      'ERR_WEBHOOK_011',
+      `booth_rental_season session missing group_id (session ${session.id})`,
+      { route: '/webhooks/stripe', method: 'POST' }
+    ))
+    return
+  }
+
+  const { data: group } = await supabase
+    .from('booth_booking_groups')
+    .select('id, status, vendor_profile_id, market_id, week_count, total_vendor_cents, total_manager_cents')
+    .eq('id', groupId)
+    .maybeSingle()
+
+  if (!group) {
+    await logError(new TracedError(
+      'ERR_WEBHOOK_012',
+      `booth_booking_groups row not found for group_id ${groupId} (charged but unmatched)`,
+      { route: '/webhooks/stripe', method: 'POST' }
+    ))
+    return
+  }
+
+  // Idempotency: Stripe retries any non-2xx; second+ delivery is a no-op.
+  if (group.status === 'paid') {
+    crumb.stripe(`booth season ${groupId} already paid — idempotent skip`)
+    return
+  }
+
+  const paymentIntentId = (session.payment_intent as string) || null
+
+  // Flip the group.
+  const { error: groupErr } = await supabase
+    .from('booth_booking_groups')
+    .update({ status: 'paid', stripe_payment_intent_id: paymentIntentId })
+    .eq('id', groupId)
+    .eq('status', 'pending_payment')
+
+  if (groupErr) {
+    await logError(new TracedError(
+      'ERR_WEBHOOK_013',
+      `booth_season group status update failed for ${groupId}: ${groupErr.message}`,
+      { route: '/webhooks/stripe', method: 'POST' }
+    ))
+    return
+  }
+
+  // Flip all child rentals to paid.
+  const { error: childErr } = await supabase
+    .from('weekly_booth_rentals')
+    .update({
+      status: 'paid',
+      stripe_payment_intent_id: paymentIntentId,
+      paid_at: new Date().toISOString(),
+    })
+    .eq('group_id', groupId)
+    .eq('status', 'pending_payment')
+
+  if (childErr) {
+    // Group is already 'paid'; a re-delivery idempotency-skips the group but
+    // re-runs this child update. Surface for admin in the meantime.
+    await logError(new TracedError(
+      'ERR_WEBHOOK_013',
+      `booth_season child rentals update failed for group ${groupId}: ${childErr.message}`,
+      { route: '/webhooks/stripe', method: 'POST' }
+    ))
+  }
+
+  crumb.stripe(`booth season ${groupId} flipped to paid (payment_intent ${paymentIntentId ?? 'unknown'})`)
+
+  // One summary notification to vendor + manager. Best-effort — wrapped so a
+  // notification failure can never return non-2xx (Stripe would retry an
+  // already-paid group).
+  try {
+    const [vpResult, marketResult] = await Promise.all([
+      supabase
+        .from('vendor_profiles')
+        .select('user_id, profile_data, vertical_id')
+        .eq('id', group.vendor_profile_id as string)
+        .maybeSingle(),
+      supabase
+        .from('markets')
+        .select('name, manager_user_id, manager_email, vertical_id')
+        .eq('id', group.market_id as string)
+        .maybeSingle(),
+    ])
+
+    const vp = vpResult.data
+    const market = marketResult.data
+    const profileData = (vp?.profile_data || {}) as Record<string, unknown>
+    const vendorName =
+      (profileData.business_name as string | undefined) ||
+      (profileData.farm_name as string | undefined) ||
+      undefined
+    const marketName = (market?.name as string | undefined) || 'the market'
+    const vertical =
+      (market?.vertical_id as string | undefined) ||
+      (vp?.vertical_id as string | undefined) ||
+      'farmers_market'
+    const weekCount = (group.week_count as number) ?? 0
+
+    let vendorEmail: string | null = null
+    if (vp?.user_id) {
+      const { data: authUser } = await supabase.auth.admin.getUserById(vp.user_id as string)
+      vendorEmail = authUser?.user?.email ?? null
+    }
+    let managerEmail: string | null = (market?.manager_email as string | null) ?? null
+    if (!managerEmail && market?.manager_user_id) {
+      const { data: managerAuth } = await supabase.auth.admin.getUserById(
+        market.manager_user_id as string
+      )
+      managerEmail = managerAuth?.user?.email ?? null
+    }
+
+    if (vp?.user_id) {
+      await sendNotification(
+        vp.user_id as string,
+        'booth_season_paid_vendor',
+        {
+          marketName,
+          weekCount,
+          amountCents: group.total_vendor_cents as number,
+          marketId: group.market_id as string,
+        },
+        {
+          vertical,
+          ...(vendorEmail ? { userEmail: vendorEmail } : {}),
+        }
+      )
+    }
+
+    if (market?.manager_user_id) {
+      await sendNotification(
+        market.manager_user_id as string,
+        'booth_season_paid_manager',
+        {
+          marketName,
+          weekCount,
+          managerReceivesAmountCents: group.total_manager_cents as number,
+          marketId: group.market_id as string,
+          ...(vendorName ? { vendorName } : {}),
+        },
+        {
+          vertical,
+          ...(managerEmail ? { userEmail: managerEmail } : {}),
+        }
+      )
+    }
+  } catch (notifErr) {
+    console.error('[handleSeasonBoothCheckoutComplete] notification block failed:', notifErr instanceof Error ? notifErr.message : 'Unknown')
   }
 }

@@ -169,8 +169,11 @@ describe('NI-014: Total notification types = 72', () => {
     // Bumped 79 → 80 on 2026-06-22 when market_date_cancelled_order_vendor was
     // added (Phase C — notify the product-order vendor whose order the closure
     // cancelled, mirroring how buyer-cancel notifies the vendor).
+    // Bumped 80 → 82 on 2026-06-25 when booth_season_paid_vendor +
+    // booth_season_paid_manager were added (Phase E — season/partial booth
+    // prepay; one summary notification per side). User-approved.
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(80)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(82)
   })
 
   it('includes all buyer-facing types', () => {
