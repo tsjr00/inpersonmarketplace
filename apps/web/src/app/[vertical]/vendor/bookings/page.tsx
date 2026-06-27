@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import { calculateBoothRentalFees } from '@/lib/pricing'
+import CancelSeasonButton from '@/components/vendor/CancelSeasonButton'
 
 /**
  * Vendor "My Bookings" page — read-only list of the authenticated vendor's
@@ -47,6 +48,19 @@ interface RentalRow {
   status: RentalStatus
   booked_at: string
   paid_at: string | null
+  group_id: string | null
+}
+
+type GroupStatus = 'pending_payment' | 'paid' | 'cancelled'
+
+interface GroupRow {
+  id: string
+  market_id: string
+  inventory_id: string
+  kind: string
+  week_count: number
+  total_vendor_cents: number
+  status: GroupStatus
 }
 
 function statusBadge(status: string): { bg: string; fg: string; label: string } {
@@ -100,7 +114,7 @@ export default async function VendorBookingsPage({ params }: PageProps) {
 
   const { data: rentalsRaw } = await serviceClient
     .from('weekly_booth_rentals')
-    .select('id, market_id, week_start_date, inventory_id, booth_number, price_cents, status, booked_at, paid_at')
+    .select('id, market_id, week_start_date, inventory_id, booth_number, price_cents, status, booked_at, paid_at, group_id')
     .eq('vendor_profile_id', vendorProfile.id)
     .order('week_start_date', { ascending: false })
     .limit(100)
@@ -115,6 +129,7 @@ export default async function VendorBookingsPage({ params }: PageProps) {
     status: r.status as RentalStatus,
     booked_at: r.booked_at as string,
     paid_at: (r.paid_at as string | null) ?? null,
+    group_id: (r.group_id as string | null) ?? null,
   }))
 
   // Empty state
@@ -173,9 +188,15 @@ export default async function VendorBookingsPage({ params }: PageProps) {
   const marketIds = Array.from(new Set(rentals.map((r) => r.market_id)))
   const inventoryIds = Array.from(new Set(rentals.map((r) => r.inventory_id)))
 
-  const [marketsResult, inventoryResult] = await Promise.all([
+  const [marketsResult, inventoryResult, groupsResult] = await Promise.all([
     serviceClient.from('markets').select('id, name').in('id', marketIds),
     serviceClient.from('market_booth_inventory').select('id, size_label').in('id', inventoryIds),
+    serviceClient
+      .from('booth_booking_groups')
+      .select('id, market_id, inventory_id, kind, week_count, total_vendor_cents, status')
+      .eq('vendor_profile_id', vendorProfile.id)
+      .order('created_at', { ascending: false })
+      .limit(100),
   ])
 
   const marketNameById = new Map<string, string>()
@@ -186,6 +207,29 @@ export default async function VendorBookingsPage({ params }: PageProps) {
   for (const inv of inventoryResult.data ?? []) {
     sizeLabelById.set(inv.id as string, inv.size_label as string)
   }
+
+  const groups: GroupRow[] = (groupsResult.data ?? []).map((g) => ({
+    id: g.id as string,
+    market_id: g.market_id as string,
+    inventory_id: g.inventory_id as string,
+    kind: g.kind as string,
+    week_count: g.week_count as number,
+    total_vendor_cents: g.total_vendor_cents as number,
+    status: g.status as GroupStatus,
+  }))
+
+  // A group's date range comes from its child rentals (each carries group_id).
+  function groupWeekRange(groupId: string): { first: string; last: string } | null {
+    const weeks = rentals
+      .filter((r) => r.group_id === groupId)
+      .map((r) => r.week_start_date)
+      .sort()
+    if (weeks.length === 0) return null
+    return { first: weeks[0], last: weeks[weeks.length - 1] }
+  }
+
+  // Season/partial weeks render under their group card; the flat list shows one-offs only.
+  const oneOffRentals = rentals.filter((r) => r.group_id === null)
 
   return (
     <div style={{ maxWidth: containers.lg, margin: '0 auto', padding: spacing.md }}>
@@ -214,13 +258,111 @@ export default async function VendorBookingsPage({ params }: PageProps) {
         fontSize: typography.sizes.base,
         lineHeight: 1.5,
       }}>
-        All of your weekly booth rentals across markets, most recent first.
-        {' '}
-        {rentals.length} total.
+        {groups.length > 0
+          ? 'Your booth bookings across markets. Season purchases are grouped below; any single-week bookings follow.'
+          : `All of your weekly booth rentals across markets, most recent first. ${oneOffRentals.length} total.`}
       </p>
 
+      {groups.length > 0 && (
+        <section style={{ marginBottom: spacing.md }}>
+          <h2 style={{
+            margin: `0 0 ${spacing.xs} 0`,
+            fontSize: typography.sizes.lg,
+            fontWeight: typography.weights.bold,
+            color: colors.textPrimary,
+          }}>
+            Season bookings
+          </h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+            {groups.map((g) => {
+              const badge = statusBadge(g.status)
+              const marketName = marketNameById.get(g.market_id) ?? 'Unknown market'
+              const sizeLabel = sizeLabelById.get(g.inventory_id) ?? '—'
+              const range = groupWeekRange(g.id)
+              const kindLabel = g.kind === 'season' ? 'Season' : 'Partial'
+              return (
+                <div
+                  key={g.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: spacing.sm,
+                    padding: spacing.sm,
+                    backgroundColor: colors.surfaceElevated,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: radius.md,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <div style={{ flex: '1 1 240px', minWidth: 0 }}>
+                    <div style={{
+                      fontWeight: typography.weights.semibold,
+                      fontSize: typography.sizes.base,
+                      color: colors.textPrimary,
+                    }}>
+                      {marketName}
+                    </div>
+                    <div style={{
+                      fontSize: typography.sizes.sm,
+                      color: colors.textMuted,
+                      marginTop: spacing['3xs'],
+                    }}>
+                      {kindLabel} · {g.week_count} {g.week_count === 1 ? 'week' : 'weeks'}
+                      {range ? ` · ${formatWeek(range.first)} – ${formatWeek(range.last)}` : ''} · {sizeLabel}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{
+                      fontSize: typography.sizes.sm,
+                      fontWeight: typography.weights.semibold,
+                      color: colors.textPrimary,
+                    }}>
+                      {formatPrice(g.total_vendor_cents)}
+                    </div>
+                    <div style={{
+                      fontSize: typography.sizes.xs,
+                      color: colors.textMuted,
+                      marginTop: spacing['3xs'],
+                    }}>
+                      total
+                    </div>
+                  </div>
+                  <span style={{
+                    padding: `${spacing['3xs']} ${spacing.xs}`,
+                    backgroundColor: badge.bg,
+                    color: badge.fg,
+                    borderRadius: radius.sm,
+                    fontSize: typography.sizes.xs,
+                    fontWeight: typography.weights.semibold,
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {badge.label}
+                  </span>
+                  {g.status === 'paid' && (
+                    <div style={{ flex: '1 1 100%', display: 'flex', justifyContent: 'flex-end' }}>
+                      <CancelSeasonButton groupId={g.id} />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
+      {oneOffRentals.length > 0 && groups.length > 0 && (
+        <h2 style={{
+          margin: `0 0 ${spacing.xs} 0`,
+          fontSize: typography.sizes.lg,
+          fontWeight: typography.weights.bold,
+          color: colors.textPrimary,
+        }}>
+          Single-week bookings
+        </h2>
+      )}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-        {rentals.map((r) => {
+        {oneOffRentals.map((r) => {
           const badge = statusBadge(r.status)
           const marketName = marketNameById.get(r.market_id) ?? 'Unknown market'
           const sizeLabel = sizeLabelById.get(r.inventory_id) ?? '—'

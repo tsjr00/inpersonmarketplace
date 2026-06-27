@@ -13,10 +13,13 @@ const POST_START_PENALTY_PCT = 25
  *
  * Phase E (O5) — vendor self-cancels a PAID season/partial booth purchase.
  * Credit-first, no Stripe (the manager already holds the money from the
- * destination charge):
- *   - BEFORE the season starts → full credit (total_vendor_cents), no penalty.
- *   - AFTER it starts → credit for the REMAINING (not-yet-elapsed) weeks minus
- *     a 25% penalty; elapsed weeks stay as-is.
+ * destination charge). Credit is on the MANAGER-HELD BASE basis
+ * (managerReceivesCents) — the only cash the manager actually holds and can fund
+ * a future-booking discount with, so the platform never loses its fee on
+ * redemption (decision 2026-06-27):
+ *   - BEFORE the season starts → full manager-held base of all paid weeks, no penalty.
+ *   - AFTER it starts → manager-held base of the REMAINING (not-yet-elapsed) weeks
+ *     minus a 25% penalty; elapsed weeks stay as-is.
  * Writes a booth_credits row, cancels the group + the affected child rentals.
  */
 export async function POST(request: NextRequest, { params }: { params: Promise<{ groupId: string }> }) {
@@ -89,13 +92,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     let idsToCancel: string[]
 
     if (beforeStart) {
-      creditCents = group.total_vendor_cents as number
+      // Manager-held base value of all paid weeks (the manager funds redemption from this).
+      creditCents = rows.reduce((sum, r) => sum + calculateBoothRentalFees(r.price_cents).managerReceivesCents, 0)
       source = 'vendor_cancel_pre'
       idsToCancel = rows.map((r) => r.id)
     } else {
-      // Remaining (not-yet-elapsed) weeks → value minus penalty.
+      // Remaining (not-yet-elapsed) weeks → manager-held base value minus penalty.
       const remaining = rows.filter((r) => r.week_start_date >= today)
-      const remainingValue = remaining.reduce((sum, r) => sum + calculateBoothRentalFees(r.price_cents).vendorPaysCents, 0)
+      const remainingValue = remaining.reduce((sum, r) => sum + calculateBoothRentalFees(r.price_cents).managerReceivesCents, 0)
       creditCents = Math.round(remainingValue * (1 - POST_START_PENALTY_PCT / 100))
       source = 'vendor_cancel_post'
       idsToCancel = remaining.map((r) => r.id)

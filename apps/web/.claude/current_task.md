@@ -4,6 +4,11 @@
 
 ---
 
+## 🔧 PHASE E REMAINING BUILD (2026-06-27, IN PROGRESS) — plan: `phase_e_remaining_build_plan.md`
+Full-app code review done (`fullapp_review_research.md`) — only significant gap = Phase E end-of-life actions (known). Settlement design fully locked with user (manager-only + whole-group-vendor-cancel credits; managerReceives base basis; Option A value-first, ZERO platform-fronted cash; make-up-dates first; clean close, no rollover; $100 cap = Option B backlog). Market-box no-cancel = BY DESIGN.
+- **Item 1 — DONE, UNCOMMITTED, gates green (tsc 0, lint 0, vitest 1493/1493).** Vendor "Cancel my season" button + grouped season view on `vendor/bookings`, and switched the cancel route credit to the managerReceives base basis. Files: `api/vendor/booth-groups/[groupId]/cancel/route.ts` (credit basis: full→managerReceives, before-start sum of weeks' managerReceives, after-start ×0.75), `components/vendor/CancelSeasonButton.tsx` (NEW client), `app/[vertical]/vendor/bookings/page.tsx` (groups fetch + Season bookings section + one-off list). No migration, no protected/money-path file. **Awaiting user review → commit → push staging.**
+- **Next:** Item 2 (manager settlement value-first + cancel-day make-up), Item 3 (season flow-integrity tests), then prod push. Item 4 (credit redemption, money path) = own session.
+
 ## ⭐⭐ NEXT SESSION — START HERE (handoff for 2026-06-27)
 
 ### State in one paragraph
@@ -31,6 +36,7 @@ The 3 UX fixes from this session: (a) season card "payment setup incomplete" war
 **KICKOFF DECISION:** finish the rest of the build (items 1–3) THEN push everything to prod as one complete feature — OR push what's on staging now (booking + safety + UX is coherent/safe; settlement is end-of-season manager work, not time-critical) and build settlement after. Lean: finish 1–3 + push; treat #4 (credit redemption) as its own design-first session.
 
 ### Backlog (not urgent, independent)
+- **Phase E settlement Option B (balance-limited cash-out)** — v1 ships Option A (value-first, ZERO platform-fronted cash; see `phase_e_remaining_build_plan.md`). Revisit later: optionally let the platform pass through up to $100 cash to a vendor at season close, pulled from the manager's *verified current Connect balance* in the same step (net-zero float). Only worth it if managers commonly hold balance at close. Needs Stripe balance-check + reverse_transfer/transfer plumbing.
 - **Browse `event_end_date` RPC error** — Playwright web-server logs `[browse] availability RPC failed: column m.event_end_date does not exist`. ODD: `markets.event_end_date` DOES exist (SCHEMA_SNAPSHOT:714) → likely a stale DB function or alias issue; unsized until root cause found.
 - **Two flaky tests** (S–M): `rate-limit.test.ts` (timing/Redis), `subscription-lifecycle.integration.test.ts` (DB connectivity) — pass on isolated re-run, cause spurious pre-commit chain failures.
 - **Comprehensive-review lesser items** (`comprehensive_review_research.md`): `/api/markets` optional vertical filter (S); market-box payout uses `console.error` not `logError` (S, observability); refunds have NO auto-retry (M — payouts do, refunds don't; all logged though).
