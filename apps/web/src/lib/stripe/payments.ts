@@ -386,20 +386,33 @@ export async function createSeasonBoothCheckoutSession({
 }) {
   const idempotencyKey = `booth-season-${groupId}`
 
+  // One consolidated line item for the whole season (the vendor pays once).
+  // Total = sum of the per-week vendor amounts — identical charge to itemizing
+  // each week; only the checkout/receipt display collapses to a single line.
+  const totalVendorPaysCents = weeks.reduce((sum, w) => sum + w.vendorPaysCents, 0)
+  const firstWeek = weeks[0]?.weekStartDate
+  const lastWeek = weeks[weeks.length - 1]?.weekStartDate
+  const rangeLabel =
+    firstWeek && lastWeek && firstWeek !== lastWeek
+      ? ` (${firstWeek} – ${lastWeek})`
+      : firstWeek ? ` (${firstWeek})` : ''
+
   const session = await stripe.checkout.sessions.create(
     {
       payment_method_types: ['card', 'cashapp', 'amazon_pay', 'link'],
-      line_items: weeks.map((w) => ({
-        price_data: {
-          currency: 'usd',
-          product_data: {
-            name: `Booth rental — ${marketName}`,
-            description: `Week of ${w.weekStartDate}`,
+      line_items: [
+        {
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: `Booth season — ${marketName}`,
+              description: `${weeks.length} week${weeks.length === 1 ? '' : 's'}${rangeLabel}`,
+            },
+            unit_amount: totalVendorPaysCents,
           },
-          unit_amount: w.vendorPaysCents,
+          quantity: 1,
         },
-        quantity: 1,
-      })),
+      ],
       mode: 'payment',
       success_url: successUrl,
       cancel_url: cancelUrl,

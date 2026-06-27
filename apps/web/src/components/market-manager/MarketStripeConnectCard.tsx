@@ -43,11 +43,20 @@ interface MarketStripeConnectCardProps {
   marketStatus?: string | null
 }
 
+interface StripeRequirements {
+  currently_due?: string[]
+  past_due?: string[]
+  eventually_due?: string[]
+  disabled_reason?: string | null
+  errors?: Array<{ code?: string; reason?: string; requirement?: string }>
+}
+
 interface StatusResponse {
   connected: boolean
   chargesEnabled?: boolean
   payoutsEnabled?: boolean
   detailsSubmitted?: boolean
+  requirements?: StripeRequirements
 }
 
 type CardState =
@@ -55,6 +64,7 @@ type CardState =
   | { kind: 'error'; message: string }
   | { kind: 'not_connected' }
   | { kind: 'in_progress' }
+  | { kind: 'action_required'; reason: string | null }
   | { kind: 'under_review' }
   | { kind: 'active' }
 
@@ -62,6 +72,21 @@ function classifyStatus(s: StatusResponse): CardState {
   if (!s.connected) return { kind: 'not_connected' }
   if (!s.detailsSubmitted) return { kind: 'in_progress' }
   if (s.chargesEnabled && s.payoutsEnabled) return { kind: 'active' }
+  // Details submitted but charges/payouts not enabled. Distinguish a BLOCKED
+  // account that needs the manager to act (Stripe wants more info / a document)
+  // from one that's passively pending Stripe review. 'pending_verification' is
+  // passive (Stripe is checking a submitted doc); everything else due/errored
+  // requires the manager to return to onboarding.
+  const r = s.requirements
+  const needsAction =
+    !!r &&
+    (((r.past_due?.length ?? 0) > 0) ||
+      ((r.currently_due?.length ?? 0) > 0) ||
+      ((r.errors?.length ?? 0) > 0) ||
+      (!!r.disabled_reason && r.disabled_reason !== 'requirements.pending_verification'))
+  if (needsAction) {
+    return { kind: 'action_required', reason: r?.errors?.[0]?.reason ?? null }
+  }
   return { kind: 'under_review' }
 }
 
@@ -245,6 +270,61 @@ export default function MarketStripeConnectCard({ marketId, marketStatus }: Mark
           onClick={handleOnboard}
           busy={busy}
         />
+      )}
+      {state.kind === 'action_required' && (
+        <div>
+          <StatusBadge bg="#f8d7da" fg="#721c24" label="Action required" />
+          <p style={{
+            margin: `${spacing.sm} 0 0 0`,
+            fontSize: typography.sizes.sm,
+            color: colors.textPrimary,
+            lineHeight: 1.5,
+          }}>
+            Stripe couldn&apos;t finish verifying your account and needs more information
+            before it can enable booth-rental payments — often a photo ID matching the name
+            and date of birth you entered. Vendors can&apos;t book booths (single weeks or
+            whole seasons) until this is resolved.
+          </p>
+          {state.reason && (
+            <p style={{
+              margin: `${spacing['2xs']} 0 0 0`,
+              fontSize: typography.sizes.sm,
+              color: colors.textMuted,
+              fontStyle: 'italic',
+              lineHeight: 1.5,
+            }}>
+              Stripe says: {state.reason}
+            </p>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap', marginTop: spacing.sm }}>
+            <button
+              type="button"
+              onClick={handleOnboard}
+              disabled={busy}
+              style={{
+                padding: `${spacing.sm} ${spacing.md}`,
+                backgroundColor: colors.primary,
+                color: 'white',
+                border: 'none',
+                borderRadius: radius.sm,
+                fontSize: typography.sizes.sm,
+                fontWeight: typography.weights.semibold,
+                cursor: busy ? 'not-allowed' : 'pointer',
+                opacity: busy ? 0.6 : 1,
+              }}
+            >
+              {busy ? 'Working…' : 'Continue verification'}
+            </button>
+            <button
+              type="button"
+              onClick={fetchStatus}
+              disabled={refreshing}
+              style={{ ...refreshButtonStyle, marginTop: 0, opacity: refreshing ? 0.6 : 1 }}
+            >
+              {refreshing ? 'Checking…' : 'Refresh status'}
+            </button>
+          </div>
+        </div>
       )}
       {state.kind === 'under_review' && (
         <div>

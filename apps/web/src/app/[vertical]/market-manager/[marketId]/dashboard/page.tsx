@@ -71,7 +71,7 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
   // Market activity card (D.1) — fall back to last 90 days if null.
   const { data: market } = await supabase
     .from('markets')
-    .select('id, name, address, city, state, market_type, status, timezone, logo_url, description, season_start, season_end, latitude, longitude')
+    .select('id, name, address, city, state, market_type, status, timezone, logo_url, description, season_start, season_end, latitude, longitude, stripe_charges_enabled')
     .eq('id', marketId)
     .single()
 
@@ -338,6 +338,7 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
         marketId={marketId}
         adminSeasonStart={(market.season_start as string | null) ?? null}
         adminSeasonEnd={(market.season_end as string | null) ?? null}
+        stripeChargesEnabled={(market.stripe_charges_enabled as boolean | null) ?? false}
       />
 
       {/* Manager broadcast (Session 92 Phase B) — one-way announcement to

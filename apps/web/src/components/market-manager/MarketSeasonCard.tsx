@@ -111,10 +111,14 @@ export default function MarketSeasonCard({
   marketId,
   adminSeasonStart = null,
   adminSeasonEnd = null,
+  stripeChargesEnabled = true,
 }: {
   marketId: string
   adminSeasonStart?: string | null
   adminSeasonEnd?: string | null
+  /** markets.stripe_charges_enabled — booth rentals (weekly + season) can't be
+   *  paid until this is true, so we warn the manager up front. */
+  stripeChargesEnabled?: boolean
 }) {
   const [seasons, setSeasons] = useState<Season[]>([])
   const [loading, setLoading] = useState(true)
@@ -231,6 +235,22 @@ export default function MarketSeasonCard({
     >
       {error && (
         <div style={{ marginBottom: spacing.sm, fontSize: typography.sizes.sm, color: DANGER }}>{error}</div>
+      )}
+
+      {stripeChargesEnabled !== true && (
+        <div style={{
+          backgroundColor: WARN_BG, border: `1px solid ${WARN_BORDER}`, borderRadius: radius.sm,
+          padding: spacing.sm, fontSize: typography.sizes.sm, color: WARN_TEXT, marginBottom: spacing.sm,
+          display: 'flex', flexDirection: 'column', gap: spacing['2xs'],
+        }}>
+          <strong>⚠️ Payment setup incomplete — vendors can&apos;t book yet.</strong>
+          <div>
+            Your market&apos;s Stripe payment setup isn&apos;t finished, so booth rentals — single
+            weeks and whole-season pre-sales — can&apos;t be paid for. You can set a season up now,
+            but vendors won&apos;t be able to reserve until you finish Stripe in the
+            &ldquo;Booth rental payments&rdquo; card above.
+          </div>
+        </div>
       )}
 
       {/* Existing seasons */}
