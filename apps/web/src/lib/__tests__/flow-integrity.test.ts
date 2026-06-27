@@ -396,3 +396,56 @@ describe('Market manager permission boundary', () => {
     }
   })
 })
+
+// ── Level 3D: Phase E season prepay flow integrity ──────────────────
+
+describe('Phase E season flow integrity', () => {
+  const read = (p: string) => fs.readFileSync(p, 'utf-8')
+
+  it('webhook season handler confirms payment via confirm_season_paid', () => {
+    const code = read(path.join(SRC_DIR, 'lib/stripe/webhooks.ts'))
+    expect(code).toContain('handleSeasonBoothCheckoutComplete')
+    expect(code).toContain('confirm_season_paid')
+  })
+
+  it('cron Phase 18 reconciles pending groups via confirm_season_paid + cancel_season_group', () => {
+    const code = read(path.join(APP_DIR, 'api/cron/expire-orders/route.ts'))
+    expect(code).toContain('confirm_season_paid')
+    expect(code).toContain('cancel_season_group')
+  })
+
+  it('cron Phase 16 excludes grouped rentals so season children are not swept (F1)', () => {
+    const code = read(path.join(APP_DIR, 'api/cron/expire-orders/route.ts'))
+    // Season children carry group_id; the one-off sweep must skip them.
+    expect(code).toContain("'group_id', null")
+  })
+
+  it('season booking orchestration uses the book_season_atomic RPC', () => {
+    const code = read(path.join(SRC_DIR, 'lib/markets/season-booking.ts'))
+    expect(code).toContain('book_season_atomic')
+  })
+
+  it('settlement route writes a season_settlement booth_credits row', () => {
+    const code = read(path.join(APP_DIR, 'api/market-manager/[marketId]/seasons/[seasonId]/settlement/route.ts'))
+    expect(code).toContain('booth_credits')
+    expect(code).toContain('season_settlement')
+  })
+
+  it('vendor cancel grants credit on the managerReceives base basis', () => {
+    const code = read(path.join(APP_DIR, 'api/vendor/booth-groups/[groupId]/cancel/route.ts'))
+    expect(code).toContain('booth_credits')
+    // Locked 2026-06-27: credit is the manager-held base, not full vendorPays.
+    expect(code).toContain('managerReceivesCents')
+  })
+
+  it('manager settlement card calls the settlement endpoint (no backend without UI)', () => {
+    const code = read(path.join(SRC_DIR, 'components/market-manager/MarketSeasonSettlementCard.tsx'))
+    expect(code).toContain('/settlement')
+  })
+
+  it('vendor cancel button calls the booth-group cancel endpoint', () => {
+    const code = read(path.join(SRC_DIR, 'components/vendor/CancelSeasonButton.tsx'))
+    expect(code).toContain('booth-groups')
+    expect(code).toContain('/cancel')
+  })
+})
