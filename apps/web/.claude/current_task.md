@@ -1,6 +1,52 @@
-# Current Task: Session 92 — growth build + design pass + help content (NEXT SESSION READ THIS)
+# Current Task: Phase E season prepay — finish + ship (NEXT SESSION READ THIS)
 
-**Updated:** 2026-06-26 (Phase E payment-safety fix — see block below). **Mode:** Fix (hybrid build).
+**Updated:** 2026-06-26 EOD. **Mode:** Report (default; await goals at kickoff).
+
+---
+
+## ⭐⭐ NEXT SESSION — START HERE (handoff for 2026-06-27)
+
+### State in one paragraph
+Phase E (booth **season/partial prepay**, week-grain, credit-first settlement) is **built + payment-safe + UX-polished, ALL on `origin/staging`, NOTHING on prod.** Migrations **164→165→166→167 applied Dev+Staging only** (prod pending). Season prepay is **verified working end-to-end on staging** (manager creates+opens a season → vendor sees "Reserve a whole season" → pays once → ONE Stripe destination charge). Prod baseline = `8f64c89a` (migs 159–163 already on prod). Everything below is the Phase E stack on top of that.
+
+### Staging commit stack (Phase E, oldest→newest), all ahead of prod
+`83c01879` design finalize · `b5160ada` backend booking (migs 164/165) · `7e9c991b` season UI (manager card + vendor picker) · `09166e75` settlement backend (mig 166 booth_credits + cancelled-days + vendor self-cancel route) · `a2d66e1d` docs · **`a9e7705f`** payment-safety (mig 167 + webhook atomic confirm + cron Phase 18 reconcile) · **`4ba7dab6`** season-date sync warning (admin vs manager dates) · **`d631c535`** manager Stripe-readiness UX + one-line season checkout. Bold = this session.
+
+### Migrations — apply to PROD in this order with the push (additive, low risk)
+**164** (market_seasons, booth_booking_groups, weekly_booth_rentals.group_id, markets.schedule_confirmed_at) → **165** (book_season_atomic) → **166** (booth_credits) → **167** (confirm_season_paid + cancel_season_group). All have ROLLBACK blocks; SCHEMA_SNAPSHOT changelog current.
+
+### Verified working on staging ✅
+Season create (incl. schedule-confirm gate) → open pre-sales → vendor picker → pay → ONE charge with consolidated line; webhook flips group+children paid. Manager Stripe "Action required" recovery path exists (was the unblock for a verification-failed account).
+
+### Needs user verification on staging ⬜ (quick)
+The 3 UX fixes from this session: (a) season card "payment setup incomplete" warning on a non-Stripe-ready market; (b) Stripe card "Action required → Continue verification" (vs old stuck "Under review"); (c) single-line season checkout. Plus a clean vendor season purchase once Westgate (e33b5b54) Stripe charges are enabled.
+
+### NEXT SESSION — work remaining (priority + size; estimates)
+1. **Vendor "Cancel my season" button** — **S**. Backend route already exists (`api/vendor/booth-groups/[groupId]/cancel`); pure UI on the vendor bookings page (button + ConfirmDialog + show credit result).
+2. **Manager season-end settlement panel** — **M**. New manager route + ManagerCard + 2 notif types; writes `booth_credits` (table exists, no migration, no money path). ⚠️ OPEN DESIGN Q: how "booth upgrade" is recorded (note vs ledger row) — decide at kickoff.
+3. **Flow-integrity tests (season path)** — **S–M**. Add to `flow-integrity.test.ts`: checkout→webhook→children-paid; reconcile confirms/cancels; settlement→ledger.
+4. **Credit redemption at booking** — **L, own session**. ⚠️ MONEY PATH (`payments.ts` protected, per-file approval). Needs the platform-spread accounting DESIGNED FIRST (how credit interacts with 6.5%+$0.15 split + the manager transfer), then careful build + tests.
+5. **PROD PUSH** — **M (coordination)**. Apply migs 164→165→166→167 in order → push the Phase E stack (`b5160ada..d631c535`) in the **9 PM–7 AM CT** window → verify Vercel green → smoke test.
+
+**KICKOFF DECISION:** finish the rest of the build (items 1–3) THEN push everything to prod as one complete feature — OR push what's on staging now (booking + safety + UX is coherent/safe; settlement is end-of-season manager work, not time-critical) and build settlement after. Lean: finish 1–3 + push; treat #4 (credit redemption) as its own design-first session.
+
+### Backlog (not urgent, independent)
+- **Browse `event_end_date` RPC error** — Playwright web-server logs `[browse] availability RPC failed: column m.event_end_date does not exist`. ODD: `markets.event_end_date` DOES exist (SCHEMA_SNAPSHOT:714) → likely a stale DB function or alias issue; unsized until root cause found.
+- **Two flaky tests** (S–M): `rate-limit.test.ts` (timing/Redis), `subscription-lifecycle.integration.test.ts` (DB connectivity) — pass on isolated re-run, cause spurious pre-commit chain failures.
+- **Comprehensive-review lesser items** (`comprehensive_review_research.md`): `/api/markets` optional vertical filter (S); market-box payout uses `console.error` not `logError` (S, observability); refunds have NO auto-retry (M — payouts do, refunds don't; all logged though).
+
+### Key gotchas / anchors (so next session doesn't re-derive)
+- **Booth booking requires the MARKET's own Stripe Connect** charge-enabled (`markets.stripe_charges_enabled=true`) — SEPARATE from vendor product-sale Stripe and from "market accepts orders." Booth checkout pays the market's `stripe_account_id` as destination. Book page gates on this (`book/page.tsx:180`); vendor seasons API too (`vendor/.../seasons/route.ts:32`). NO manager-approval gate on booth booking (open marketplace, `book/page.tsx:140-143`).
+- **Season + vendor booking must be the SAME market.** A market id can exist in Dev/Staging with the same value — don't assume. Manager dashboard URL contains the marketId; the season lives on whatever market that dashboard is for. (This session: season was on **Westgate e33b5b54**; testing happened on **Amarillo 98b55c73** — different markets — which caused a long false chase.)
+- **`isMarketManager`/`getMarketManagerState`** (manager-auth.ts) = dual-key (`manager_user_id`==user.id OR `manager_email`==user.email) AND `manager_status='active'`. Dashboard layout + every manager API route use it identically; ERR_AUTH_002 from a manager API = that account isn't that market's manager.
+- **Phase E confirm/cancel are atomic RPCs** (mig 167): webhook calls `confirm_season_paid` (idempotent, throws→Stripe-retry); cron Phase 18 reconciles pending groups vs Stripe (confirm if paid / cancel if orphan/expired) + `cancel_season_group` refuses to cancel a paid group.
+- **Season children never carry `stripe_checkout_session_id`** (it's on the group) — that's why Phase 16 now excludes `group_id IS NOT NULL` and Phase 18 handles grouped rentals.
+- **Fee math lives ONLY in `pricing.ts`**; child rental `status` is the source of truth; credit-first settlement = `booth_credits` ledger only (no Stripe clawback).
+
+### Docs
+Plan/design: `phase_e_booth_granularity_prepay_plan.md` (O1–O6) + `phase_e_season_payment_safety_plan.md` (F1–F3 fix). Review: `comprehensive_review_research.md`. Detailed per-fix notes for this session are in the dated blocks below.
+
+---
 
 ## 🔧 PHASE E PAYMENT-SAFETY FIX (2026-06-26, IN PROGRESS — comprehensive-review follow-up)
 Review found a 3-part gap in the season-prepay confirmation path (staging-only, pre-prod). Plan: `phase_e_season_payment_safety_plan.md`. Research: `comprehensive_review_research.md`.

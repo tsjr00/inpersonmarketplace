@@ -2,7 +2,15 @@
 
 **Purpose:** Help future Claude sessions understand this project quickly and avoid repeating mistakes.
 
-**Last Updated:** 2026-06-03 (Session 89)
+**Last Updated:** 2026-06-26 (Phase E season prepay)
+
+## Session highlights (2026-06-26) — Phase E season prepay
+
+- **Phase E (booth season/partial prepay) built + payment-safe + UX-polished, all on `origin/staging`, nothing on prod.** Verified working end-to-end on staging (manager creates+opens season → vendor "Reserve a whole season" → one Stripe charge → webhook flips group+children paid). Active handoff: `apps/web/.claude/current_task.md` top block.
+- **New migrations 164→165→166→167** (market_seasons, booth_booking_groups, weekly_booth_rentals.group_id, markets.schedule_confirmed_at; book_season_atomic; booth_credits ledger; confirm_season_paid + cancel_season_group) — **applied Dev+Staging only, PROD PENDING** (apply in order with the Phase E push).
+- **Comprehensive review** (`comprehensive_review_research.md`) found + fixed a Phase E payment-confirmation cluster (F1/F2/F3): the daily cron could cancel paid/in-flight season bookings, a webhook child-flip failure left group/children divergent, and a missed webhook was unrecoverable. Fix = atomic confirm/cancel RPCs (mig 167) + webhook uses `confirm_season_paid` (idempotent, throws→Stripe-retry) + cron Phase 18 reconciles pending groups against Stripe; Phase 16 now excludes grouped rentals.
+- **Lessons / durable gotchas:** booth booking requires the MARKET's own Stripe Connect (`markets.stripe_charges_enabled=true`) — separate from vendor Stripe and from product ordering; season + vendor booking must be on the SAME market (ids can collide across env DBs); `isMarketManager` is dual-key (manager_user_id OR manager_email) + status='active'.
+- **Remaining Phase E (next session):** vendor cancel-season button (S, backend exists), manager settlement panel (M), flow-integrity tests (S–M), credit redemption (L — money path, design-first), then the coordinated prod push. Sizes + kickoff decision in `current_task.md`.
 
 ## Session 89 highlights (2026-06-03)
 
