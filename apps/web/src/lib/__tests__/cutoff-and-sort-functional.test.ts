@@ -172,8 +172,10 @@ describe('NI-014: Total notification types = 72', () => {
     // Bumped 80 → 82 on 2026-06-25 when booth_season_paid_vendor +
     // booth_season_paid_manager were added (Phase E — season/partial booth
     // prepay; one summary notification per side). User-approved.
+    // Bumped 82 → 83 on 2026-06-27 when booth_season_settled_vendor was added
+    // (Phase E — manager season-end settlement notice). User-approved.
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(82)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(83)
   })
 
   it('includes all buyer-facing types', () => {

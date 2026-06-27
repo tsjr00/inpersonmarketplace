@@ -82,6 +82,9 @@ export type NotificationType =
   // Phase E: season/partial booth purchase (one payment, N weeks)
   | 'booth_season_paid_vendor'
   | 'booth_season_paid_manager'
+  // Phase E season-end settlement (2026-06-27): manager resolved a vendor's
+  // cancelled-days shortfall as a booth credit or off-platform.
+  | 'booth_season_settled_vendor'
   | 'booth_rental_payment_failed_vendor'
   // Market manager schedule edits (2026-05-19) — notify all approved vendors
   // at the market when manager changes hours / active days / season window.
@@ -772,6 +775,22 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       d.marketId
         ? `/${d.vertical || 'farmers_market'}/market-manager/${d.marketId}/dashboard#weekly-bookings`
         : `/${d.vertical || 'farmers_market'}/dashboard`,
+  },
+
+  // Phase E: season-end settlement notice to the vendor. amountCents present =
+  // a booth credit was granted; absent = the manager settled off-platform.
+  booth_season_settled_vendor: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: (d) => `Season settled at ${d.marketName || 'the market'}`,
+    message: (d) => {
+      if (d.amountCents) {
+        return `Some market days you prepaid for were cancelled beyond the season's cap. A booth credit of $${(d.amountCents / 100).toFixed(2)} has been added toward a future booking at ${d.marketName || 'the market'} — see My Bookings.`
+      }
+      return `Some market days you prepaid for were cancelled beyond the season's cap. The manager has arranged to make it right with you directly — reach out with any questions.`
+    },
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/bookings`,
   },
 
   // Fires when a market manager saves changes to the market schedule
