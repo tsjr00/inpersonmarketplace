@@ -2,7 +2,15 @@
 
 **Purpose:** Help future Claude sessions understand this project quickly and avoid repeating mistakes.
 
-**Last Updated:** 2026-06-26 (Phase E season prepay)
+**Last Updated:** 2026-06-27 (Phase E remaining build SHIPPED to prod)
+
+## Session highlights (2026-06-27) — full-app review + Phase E end-of-life shipped to PROD
+
+- **Phase E season-prepay is now FULLY LIVE on prod** (`8f64c89a..426deff4`; migs 164→167 applied to all 3 envs). This session built + shipped the "end-of-life" half: vendor cancel-season, manager settlement, flow-integrity tests.
+- **Full-app CODE-ONLY review** (`apps/web/.claude/fullapp_review_research.md`) — 7 parallel Explore agents mapped every subsystem from source (prior audits intentionally ignored), then Claude verified each candidate by reading the code. **Result: no new significant gaps.** Many agent-flagged "criticals" were false alarms (caught by reading: Phase 3.6 cron DOES notify; partner agreement IS prompted in onboarding; events DO auto-transition via cron Phase 14/15; attendee-paid orders DO carry market_id; MB skipped-completion handled by mig 123; wave reservations have a 10-min TTL; company-paid payouts recorded via mig 112). Money path, auth/RLS, pricing single-source all verified sound.
+- **What shipped (Items 1–3 + refinements):** (1) vendor "Cancel my season" button + grouped season view on `vendor/bookings` (`CancelSeasonButton.tsx`); cancel route credit switched to the **managerReceives base basis**. (2) manager **season-end settlement** panel (`MarketSeasonSettlementCard.tsx` + `seasons/[seasonId]/settlement` route) — **off-platform-only v1**; per-day-prorated owed value shown. (3) 8 season flow-integrity contract tests. + no-cash-refund vendor copy + a persistence fix (cancel confirmation no longer auto-refreshes away).
+- **Key locked decisions (also in `decisions.md`):** credits only from manager-cancellation OR whole-group vendor-cancel (single-week/no-show = nothing); **managerReceives base basis**; **base parity** (platform always keeps its fee, manager funds the offset, NO platform-fronted cash = "Option A"); **make-up-dates-first**; **clean season close, no rollover**; **vendor-cancel credit expires at season end**; **in-platform settlement credit DEFERRED** to the future season make-up/extend-a-season feature (where credits get runway + somewhere to spend); **manager-issued monetary refund** → backlog; **market-box no-cancellation = BY DESIGN** (farmers spend upfront cash on crops; refunds off-platform).
+- **Next (future sessions):** season **make-up / extend-a-season** feature (unblocks in-platform settlement credit + redemption-on-make-up-days); **Item 4** credit redemption at booking + expiry enforcement (MONEY PATH, design-first); manager monetary refund; B2 off-platform-settlement E2E (needs a real ended season w/ cancellations to test).
 
 ## Session highlights (2026-06-26) — Phase E season prepay
 

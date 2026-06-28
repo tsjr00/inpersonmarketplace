@@ -1,6 +1,19 @@
-# Current Task: Phase E season prepay — finish + ship (NEXT SESSION READ THIS)
+# Current Task: Phase E SHIPPED to prod — next is make-up/extend + Item 4 (NEXT SESSION READ THIS)
 
-**Updated:** 2026-06-26 EOD. **Mode:** Report (default; await goals at kickoff).
+**Updated:** 2026-06-27 EOD (Phase E remaining build shipped to prod). **Mode:** Report (await goals at kickoff).
+
+---
+
+## ⭐ POST-COMPACTION RECOVERY — READ FIRST
+**This session (2026-06-27):** ran a full-app, CODE-ONLY review (`fullapp_review_research.md`, prior audits intentionally ignored) → the only significant gap was Phase E end-of-life actions → designed them with the user, built Items 1–3 + refinements, and SHIPPED the whole Phase E stack to prod.
+
+**Git state:** prod (`origin/main`) = `426deff4`. Local `main` = `origin/staging` = `9aba365b`, which is **1 commit AHEAD of prod** = the migration-bookkeeping docs commit (file moves + snapshot changelog); it rides to prod with the next feature push — **no action needed**. Working tree shows long-standing untracked/deleted `.claude/session*_audit.md` + modified `settings.local.json` — pre-existing, untouched all session, **ignore**.
+
+**DB:** migs **164→165→166→167 applied to ALL 3 envs** (Dev+Staging+Prod); files in `migrations/applied/`; SCHEMA_SNAPSHOT changelog current.
+
+**DO NOT re-push or re-apply anything** — Phase E is live + verified (Vercel green + smoke test passed). Begin next session by awaiting user goals.
+
+**Key docs:** `phase_e_remaining_build_plan.md` (build plan + ALL locked decisions), `fullapp_review_research.md` (the review + findings), `phase_e_booth_granularity_prepay_plan.md` + `phase_e_season_payment_safety_plan.md` (original design), `decisions.md` (logged decisions).
 
 ---
 
@@ -19,7 +32,7 @@ Full-app code review done (`fullapp_review_research.md`) — only significant ga
 - **DECISIONS (user, 2026-06-27):** (1) vendor-cancel credit **expires at season end** (enforcement + redemption = Item 4). (2) **In-platform settlement credit DEFERRED to the season make-up / extend-a-season feature** — a cancelled day is made up with a real date there, giving credits runway + somewhere to spend, which dissolves the "credit born at season-end vs expires at season-end" conflict. Off-platform is the v1 escape hatch for heavy-cancellation seasons. (3) **Manager-issued monetary refund** → backlog (deliberate credit-first exception, needs reverse_transfer plumbing + platform-risk handling).
 - **Next:** prod push (Items 1–3 + 2b, 9 PM–7 AM CT, user call, after staging verification). Item 4 (credit redemption + expiry enforcement) + the season make-up/extend feature (which carries in-platform settlement credit) = future sessions.
 
-## ⭐⭐ NEXT SESSION — START HERE (handoff for 2026-06-27)
+## ~~⭐⭐ NEXT SESSION — START HERE (handoff for 2026-06-27)~~ — SUPERSEDED (Phase E shipped; see recovery block at top)
 
 ### State in one paragraph
 Phase E (booth **season/partial prepay**, week-grain, credit-first settlement) is **built + payment-safe + UX-polished, ALL on `origin/staging`, NOTHING on prod.** Migrations **164→165→166→167 applied Dev+Staging only** (prod pending). Season prepay is **verified working end-to-end on staging** (manager creates+opens a season → vendor sees "Reserve a whole season" → pays once → ONE Stripe destination charge). Prod baseline = `8f64c89a` (migs 159–163 already on prod). Everything below is the Phase E stack on top of that.
