@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { spacing, typography, radius } from '@/lib/design-tokens'
 
@@ -14,10 +13,9 @@ interface CancelSeasonButtonProps {
  * Calls POST /api/vendor/booth-groups/[groupId]/cancel (credit-first, no Stripe).
  * The route computes the booth credit on the manager-held base basis (full
  * before the season starts; remaining weeks minus a 25% fee after) and returns
- * the granted amount, which we surface before refreshing the list.
+ * the granted amount, which we surface and keep on screen (no auto-refresh).
  */
 export default function CancelSeasonButton({ groupId }: CancelSeasonButtonProps) {
-  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null)
@@ -36,8 +34,9 @@ export default function CancelSeasonButton({ groupId }: CancelSeasonButtonProps)
       const creditDollars = ((data.credit_cents as number) / 100).toFixed(2)
       setResult({ ok: true, message: `Season cancelled. A booth credit of $${creditDollars} (credit only — not a cash refund) was added toward a future booth booking at this market, usable until the season ends.` })
       setOpen(false)
-      // Let the user read the result, then refresh so the status badge updates.
-      setTimeout(() => router.refresh(), 1800)
+      // Leave the confirmation visible (it replaces the button). The status badge
+      // updates on the next page load — we intentionally do NOT auto-refresh, so
+      // the credit amount stays on screen for the vendor to read.
     } catch {
       setResult({ ok: false, message: 'Something went wrong. Please try again.' })
       setSubmitting(false)
