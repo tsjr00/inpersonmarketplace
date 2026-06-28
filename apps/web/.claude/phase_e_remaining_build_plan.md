@@ -169,6 +169,77 @@ value once; no money flows backward; the vendor is made whole in booth value.
 **Sequenced last** so Items 1–3 (which create credits + let users see them) ship and bake before we
 touch the money path that spends them.
 
+---
+
+#### FINALIZED DESIGN — locked 2026-06-28 (build spec)
+
+**Foundations already shipped (this session, on staging):** `boothCreditBalance(rows)`
+(`lib/markets/booth-credit-balance.ts`) = the balance reader; `computeCancelCredit`
+(`lib/markets/cancel-credit.ts`) = the grant side. Item 4 adds the redemption + the release.
+
+**Decisions (D1–D5):**
+- **D1 — reserve-at-creation.** Redeem (write the negative ledger row) atomically when the discounted
+  checkout is created; release it if the booking is never paid. NOT consume-at-payment (the Stripe
+  charge amount is locked at creation, so a deferred consume can't prevent over-discounting).
+- **D2 — auto-apply max.** `appliedCredit = min(balance, requested)`; no opt-in toggle. UI shows
+  "Credit applied −$X.XX".
+- **D3 — v1 scope = season/partial only** (`book-season` route + `createSeasonBoothCheckoutSession`).
+  One-off weekly rentals = **Item 4b**, high-priority fast-follow (backlog; user wants cancel credit
+  spendable on weekly rentals SOON).
+- **D4 — Stripe-minimum cap.** Clamp `appliedCredit` so the residual vendor charge stays
+  ≥ Stripe's ~$0.50 minimum (`appliedCredit = min(balance, requested, vendorPaysTotal − STRIPE_MIN)`).
+  Normal residual ≥ platform fee (~$3.41), so this only bites on near-$0/free booths.
+- **D5 — cancelling a redeemed booking = release + net-base grant.** (1) Release the spent credit
+  (`+appliedCredit`). (2) Grant the cancel credit on the manager's NET (post-discount) receipts for
+  the cancelled weeks, NOT the gross base — else credit the manager never received is conjured and the
+  manager goes negative. `appliedCredit` allocates proportionally across the group's weeks so
+  after-start partial cancels use each remaining week's net base. Worked: $10 credit on a $25/wk
+  booking (manager base $23.37) → charged $16.78, manager $13.37. Cancel before start = release $10 +
+  grant $13.37 = $23.37 total; manager even; platform keeps $3.41.
+
+**New RPC `redeem_booth_credit(p_vendor_profile_id uuid, p_market_id uuid, p_group_id uuid,
+p_requested_cents int) RETURNS int`** (SECURITY DEFINER, search_path=public, REVOKE PUBLIC/anon, GRANT
+service_role — mirror mig 167):
+- `pg_advisory_xact_lock(hashtext(p_vendor_profile_id || ':' || p_market_id))` to serialize concurrent
+  redemptions for the same vendor+market (a SUM balance can't be cleanly `FOR UPDATE`d).
+- `balance = SUM(amount_cents)` over `booth_credits` for (vendor, market).
+- `applied = LEAST(balance, p_requested_cents)`; if `applied <= 0` RETURN 0.
+- INSERT a `-applied` row, `source='redeemed'`, `related_group_id=p_group_id`.
+- RETURN `applied`. (Caller passes the already-D4-capped `requested`.)
+
+**Extend `cancel_season_group` (mig 167) to RELEASE:** when it transitions a group to cancelled, sum
+the group's `redeemed` rows and, if any, INSERT a compensating `+` row (`source='redeemed'`,
+note='release', `related_group_id`=group). Idempotent (only fires on the actual pending→cancelled
+transition; a paid or already-cancelled group is untouched). This covers Phase-18 abandonment for free.
+
+**`book-season` route changes** (NOT a protected file):
+- After `createSeasonBookingGroup`, compute `requested = booking.totalManagerCents`, apply the D4 cap,
+  call `redeem_booth_credit(profile.id, marketId, groupId, cappedRequested)` → `applied`.
+- Pass `applied` into the checkout (below). Surface `applied` in the JSON for the UI.
+- **Stripe-fail cleanup (`book-season route:240-250`)**: today it raw-`DELETE`s the group; change to call
+  `cancel_season_group` (which now releases the credit) BEFORE/instead of the delete, so a failed
+  session doesn't strand the redeemed row (`related_group_id` is `SET NULL` on delete → −amount lost).
+
+**`payments.ts createSeasonBoothCheckoutSession` (PROTECTED — exact diff + per-file approval at edit
+time):** add `appliedCreditCents` param; `unit_amount = totalVendorPaysCents − appliedCreditCents`;
+`transfer_data.amount = managerReceivesTotalCents − appliedCreditCents`. Idempotency key stays
+`booth-season-${groupId}` (deterministic, per-group). Add `applied_credit_cents` to metadata for audit.
+Invariant: platform keep = unchanged (both sides drop by C).
+
+**Cancel route / `computeCancelCredit` (D5):** extend the cancel flow to (1) read the group's redeemed
+total and release it via the same compensating-row mechanism, (2) pass each week's net base
+(`managerReceives − allocatedAppliedShare`) into the grant. Add the proportional allocation helper to
+`cancel-credit.ts` (pure, unit-tested — extends this session's foundation).
+
+**UI:** `SeasonBookingSection.tsx` (+ book page) shows the vendor's balance and "Credit applied
+−$X.XX" + reduced total when `applied > 0`.
+
+**Build order:** (1) migration: `redeem_booth_credit` + `cancel_season_group` release — user applies
+Dev→Staging. (2) book-season route + redeem wiring. (3) `payments.ts` diff → **per-file approval**.
+(4) D5 cancel-route + `cancel-credit.ts` net-base + release. (5) UI. (6) tests: redeem RPC (balance
+clamp, advisory-lock serialization, D4 cap), D5 net-base allocation, release-on-cancel. Run BR tests —
+a failing test is a decision point, never edited to pass.
+
 ### Item 5 — PROD push of the Phase E stack  ·  size M (coordination)
 - Apply migs **164 → 165 → 166 → 167 in order** to Prod (user applies), then push the staging Phase
   E commit stack, in the **9 PM–7 AM CT** window, with explicit approval. Verify Vercel green +

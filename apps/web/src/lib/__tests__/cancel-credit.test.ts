@@ -72,3 +72,32 @@ describe('computeCancelCredit — after season start', () => {
     })
   })
 })
+
+describe('computeCancelCredit — D5 net-base when a credit was redeemed', () => {
+  const oneWeek = [{ id: 'w1', weekStartDate: '2026-05-03', priceCents: 2500 }]
+
+  it('before start, FULL redemption → net grant is 0 (the release is handled by the route)', () => {
+    const r = computeCancelCredit(oneWeek, '2026-04-15', '2026-05-03', PENALTY, MGR)
+    expect(r.creditCents).toBe(0)
+    expect(r.source).toBe('vendor_cancel_pre')
+  })
+
+  it('before start, PARTIAL redemption → net grant = gross − applied', () => {
+    const r = computeCancelCredit(oneWeek, '2026-04-15', '2026-05-03', PENALTY, 1000)
+    expect(r.creditCents).toBe(MGR - 1000) // 1337
+  })
+
+  it('after start, allocates the applied credit proportionally to the cancelled weeks, then penalizes', () => {
+    // 4 weeks; today 2026-05-12 ⇒ w3,w4 remain (half the group's manager base).
+    // applied 2000 → allocated 2000 × (4674/9348) = 1000; net 4674 − 1000 = 3674; ×0.75 = 2756.
+    const r = computeCancelCredit(weeks, '2026-05-12', '2026-05-03', PENALTY, 2000)
+    expect(r.creditCents).toBe(2756)
+    expect(r.idsToCancel).toEqual(['w3', 'w4'])
+  })
+
+  it('appliedCredit=0 matches the no-redemption result (backward compatible)', () => {
+    const withZero = computeCancelCredit(weeks, '2026-05-12', '2026-05-03', PENALTY, 0)
+    const without = computeCancelCredit(weeks, '2026-05-12', '2026-05-03', PENALTY)
+    expect(withZero).toEqual(without)
+  })
+})

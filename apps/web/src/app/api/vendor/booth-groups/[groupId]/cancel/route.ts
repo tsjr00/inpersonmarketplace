@@ -85,11 +85,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       referenceStart = rows.reduce<string | null>((min, r) => (!min || r.week_start_date < min ? r.week_start_date : min), null)
     }
 
+    // D5: any credit redeemed against this group is RELEASED (returned to the
+    // vendor) and the cancel credit is granted only on the manager's NET receipts.
+    const { data: redeemedRows } = await service
+      .from('booth_credits')
+      .select('amount_cents')
+      .eq('related_group_id', groupId)
+      .eq('source', 'redeemed')
+    const redeemedSum = (redeemedRows ?? []).reduce((sum, r) => sum + (r.amount_cents as number), 0)
+    const appliedCreditCents = redeemedSum < 0 ? -redeemedSum : 0
+
     const { beforeStart, creditCents, source, idsToCancel } = computeCancelCredit(
       rows.map((r) => ({ id: r.id, weekStartDate: r.week_start_date, priceCents: r.price_cents })),
       today,
       referenceStart,
       POST_START_PENALTY_PCT,
+      appliedCreditCents,
     )
 
     // Grant the credit (positive ledger row).
@@ -104,6 +115,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         note: beforeStart ? 'Season cancelled before start — full credit' : `Season cancelled after start — ${POST_START_PENALTY_PCT}% penalty applied`,
       })
       if (credErr) throw traced.fromSupabase(credErr, { table: 'booth_credits', operation: 'insert' })
+    }
+
+    // D5: release the redeemed credit back to the vendor's balance.
+    if (appliedCreditCents > 0) {
+      crumb.supabase('insert', 'booth_credits')
+      const { error: relErr } = await service.from('booth_credits').insert({
+        vendor_profile_id: group.vendor_profile_id,
+        market_id: group.market_id,
+        amount_cents: appliedCreditCents,
+        source: 'redeemed',
+        related_group_id: groupId,
+        note: 'Released — booking cancelled by vendor',
+      })
+      if (relErr) throw traced.fromSupabase(relErr, { table: 'booth_credits', operation: 'insert' })
     }
 
     // Cancel the affected child rentals + the group.
@@ -123,7 +148,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({
       cancelled: true,
       before_start: beforeStart,
-      credit_cents: creditCents,
+      credit_cents: creditCents + appliedCreditCents,
       penalty_pct: beforeStart ? 0 : POST_START_PENALTY_PCT,
     })
   })

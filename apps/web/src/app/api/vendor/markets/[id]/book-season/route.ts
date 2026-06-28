@@ -205,6 +205,32 @@ export async function POST(
       throw err
     }
 
+    // --- Apply any booth credit (Item 4). Reserve atomically against this group;
+    // cancel_season_group releases it if the booking is never paid. Cap the
+    // request so the residual vendor charge stays >= Stripe's minimum (D4) and the
+    // manager transfer can't go negative (credit <= manager total). ---
+    const STRIPE_MIN_CHARGE_CENTS = 50
+    const creditRequest = Math.min(
+      booking.totalManagerCents,
+      booking.totalVendorCents - STRIPE_MIN_CHARGE_CENTS,
+    )
+    let appliedCreditCents = 0
+    if (creditRequest > 0) {
+      const { data: redeemed, error: redeemErr } = await serviceClient.rpc('redeem_booth_credit', {
+        p_vendor_profile_id: profile.id,
+        p_market_id: marketId,
+        p_group_id: booking.groupId,
+        p_requested_cents: creditRequest,
+      })
+      if (redeemErr) {
+        // Best-effort: a redeem failure leaves the ledger intact (tx rolled back);
+        // proceed without a discount rather than block the booking.
+        logError(traced.fromSupabase(redeemErr, { table: 'booth_credits', operation: 'rpc' }))
+      } else if (typeof redeemed === 'number') {
+        appliedCreditCents = redeemed
+      }
+    }
+
     // --- One Stripe checkout for the whole group. ---
     let checkoutUrl: string | null = null
     try {
@@ -224,6 +250,7 @@ export async function POST(
         managerStripeAccountId: market.stripe_account_id as string,
         weeks: lineItems,
         managerReceivesTotalCents: booking.totalManagerCents,
+        appliedCreditCents,
         successUrl,
         cancelUrl,
         vertical,
@@ -238,12 +265,11 @@ export async function POST(
         .eq('id', booking.groupId)
       if (sidErr) logError(traced.fromSupabase(sidErr, { table: 'booth_booking_groups', operation: 'update' }))
     } catch (stripeError) {
-      // Clean up so the vendor can retry: delete the children then the group
-      // (group_id is ON DELETE SET NULL, so the group must go after the children
-      // to avoid orphaning them as one-offs).
+      // Clean up so the vendor can retry: cancel the group (mig 168's
+      // cancel_season_group also RELEASES any booth credit reserved for it, so the
+      // vendor's balance is restored). The cancelled group + children are inert.
       console.error('[book-season] Stripe session creation failed:', stripeError)
-      await serviceClient.from('weekly_booth_rentals').delete().eq('group_id', booking.groupId).eq('status', 'pending_payment')
-      await serviceClient.from('booth_booking_groups').delete().eq('id', booking.groupId).eq('status', 'pending_payment')
+      await serviceClient.rpc('cancel_season_group', { p_group_id: booking.groupId, p_reason: 'stripe_session_failed' })
       return NextResponse.json({
         error: 'Could not start the payment flow. Please try again in a few minutes, or reach out to the market manager.',
       }, { status: 502 })
@@ -254,6 +280,7 @@ export async function POST(
       kind,
       week_count: booking.children.length,
       total_vendor_cents: booking.totalVendorCents,
+      applied_credit_cents: appliedCreditCents,
       ...(checkoutUrl ? { checkout_url: checkoutUrl } : {}),
     })
   })

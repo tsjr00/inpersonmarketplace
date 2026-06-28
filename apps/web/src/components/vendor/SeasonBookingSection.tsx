@@ -43,6 +43,7 @@ export default function SeasonBookingSection({ marketId }: { marketId: string })
   const [agree, setAgree] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [creditBalanceCents, setCreditBalanceCents] = useState(0)
   const fetched = useRef(false)
 
   useEffect(() => {
@@ -55,6 +56,7 @@ export default function SeasonBookingSection({ marketId }: { marketId: string })
         if (res.ok) {
           setSeasons((data.seasons ?? []) as SeasonOpt[])
           setInventory((data.inventory ?? []) as InvOpt[])
+          setCreditBalanceCents((data.creditBalanceCents ?? 0) as number)
         }
       } catch {
         // Non-fatal: the section just won't render. The one-off form still works.
@@ -70,7 +72,14 @@ export default function SeasonBookingSection({ marketId }: { marketId: string })
   const season = seasons.find((s) => s.id === seasonId)
   const inv = inventory.find((i) => i.id === inventoryId)
   const perWeekCents = inv ? calculateBoothRentalFees(inv.weekly_price_cents).vendorPaysCents : 0
+  const perWeekManagerCents = inv ? calculateBoothRentalFees(inv.weekly_price_cents).managerReceivesCents : 0
   const totalCents = season ? perWeekCents * season.weekCount : 0
+  const managerTotalCents = season ? perWeekManagerCents * season.weekCount : 0
+  // Mirror the server's auto-apply + caps (D2/D4): credit can't exceed the manager
+  // base or drop the residual charge below Stripe's ~$0.50 minimum. Estimate only —
+  // the server reserves the authoritative amount at checkout.
+  const appliedCents = Math.max(0, Math.min(creditBalanceCents, managerTotalCents, totalCents - 50))
+  const netCents = totalCents - appliedCents
 
   async function reserve() {
     setError(null)
@@ -125,6 +134,12 @@ export default function SeasonBookingSection({ marketId }: { marketId: string })
         through the end of the season. It is a credit, not a money-back refund.
       </p>
 
+      {creditBalanceCents > 0 && (
+        <p style={{ margin: `0 0 ${spacing.md} 0`, padding: `${spacing['2xs']} ${spacing.xs}`, fontSize: typography.sizes.sm, color: '#155724', backgroundColor: '#d4edda', borderRadius: radius.sm }}>
+          You have <strong>{money(creditBalanceCents)}</strong> in booth credit at this market — it’s applied automatically at checkout.
+        </p>
+      )}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm, maxWidth: 460 }}>
         <label style={{ display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
           <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>Season</span>
@@ -158,6 +173,16 @@ export default function SeasonBookingSection({ marketId }: { marketId: string })
             <div style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, color: colors.primary }}>
               Season total: {money(totalCents)}
             </div>
+            {appliedCents > 0 && (
+              <>
+                <div style={{ fontSize: typography.sizes.sm, color: '#155724', marginTop: spacing['3xs'] }}>
+                  Credit applied: −{money(appliedCents)}
+                </div>
+                <div style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
+                  You pay now: {money(netCents)}
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -176,7 +201,7 @@ export default function SeasonBookingSection({ marketId }: { marketId: string })
           borderRadius: radius.sm, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold,
           cursor: submitting ? 'wait' : 'pointer',
         }}>
-          {submitting ? 'Starting checkout…' : season && inv ? `Reserve season — ${money(totalCents)}` : 'Reserve season'}
+          {submitting ? 'Starting checkout…' : season && inv ? `Reserve season — ${money(appliedCents > 0 ? netCents : totalCents)}` : 'Reserve season'}
         </button>
       </div>
     </section>

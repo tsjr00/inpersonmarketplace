@@ -370,6 +370,7 @@ export async function createSeasonBoothCheckoutSession({
   managerStripeAccountId,
   weeks,
   managerReceivesTotalCents,
+  appliedCreditCents = 0,
   successUrl,
   cancelUrl,
   vertical,
@@ -380,6 +381,7 @@ export async function createSeasonBoothCheckoutSession({
   managerStripeAccountId: string                       // markets.stripe_account_id
   weeks: Array<{ weekStartDate: string; vendorPaysCents: number }>
   managerReceivesTotalCents: number                    // transfer_data.amount (sum)
+  appliedCreditCents?: number                          // booth credit applied (reduces BOTH sides)
   successUrl: string
   cancelUrl: string
   vertical?: string
@@ -390,6 +392,12 @@ export async function createSeasonBoothCheckoutSession({
   // Total = sum of the per-week vendor amounts — identical charge to itemizing
   // each week; only the checkout/receipt display collapses to a single line.
   const totalVendorPaysCents = weeks.reduce((sum, w) => sum + w.vendorPaysCents, 0)
+  // Item 4: apply booth credit equally to both sides so the platform fee stays
+  // invariant. Caller guarantees appliedCreditCents <= managerReceivesTotalCents
+  // (redeem RPC caps to balance; route caps requested to the manager total), so
+  // neither amount goes negative.
+  const chargedVendorCents = totalVendorPaysCents - appliedCreditCents
+  const transferCents = managerReceivesTotalCents - appliedCreditCents
   const firstWeek = weeks[0]?.weekStartDate
   const lastWeek = weeks[weeks.length - 1]?.weekStartDate
   const rangeLabel =
@@ -408,7 +416,7 @@ export async function createSeasonBoothCheckoutSession({
               name: `Booth season — ${marketName}`,
               description: `${weeks.length} week${weeks.length === 1 ? '' : 's'}${rangeLabel}`,
             },
-            unit_amount: totalVendorPaysCents,
+            unit_amount: chargedVendorCents,
           },
           quantity: 1,
         },
@@ -421,7 +429,7 @@ export async function createSeasonBoothCheckoutSession({
         statement_descriptor_suffix: getStatementSuffix(vertical),
         transfer_data: {
           destination: managerStripeAccountId,
-          amount: managerReceivesTotalCents,
+          amount: transferCents,
         },
       },
       metadata: {
@@ -430,6 +438,7 @@ export async function createSeasonBoothCheckoutSession({
         market_id: marketId,
         week_count: weeks.length.toString(),
         manager_receives_total_cents: managerReceivesTotalCents.toString(),
+        applied_credit_cents: appliedCreditCents.toString(),
       },
     },
     { idempotencyKey }

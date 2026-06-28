@@ -448,6 +448,25 @@ describe('Phase E season flow integrity', () => {
     expect(code).toContain('booth-groups')
     expect(code).toContain('/cancel')
   })
+
+  // Item 4 — credit redemption wiring
+  it('book-season route reserves booth credit via redeem_booth_credit before checkout', () => {
+    const code = read(path.join(APP_DIR, 'api/vendor/markets/[id]/book-season/route.ts'))
+    expect(code).toContain('redeem_booth_credit')
+    expect(code).toContain('appliedCreditCents')
+  })
+
+  it('season checkout applies the credit to BOTH the charge and the manager transfer', () => {
+    const code = read(path.join(SRC_DIR, 'lib/stripe/payments.ts'))
+    expect(code).toContain('chargedVendorCents')
+    expect(code).toContain('transferCents')
+  })
+
+  it('vendor cancel releases redeemed credit and grants on the net base (D5)', () => {
+    const code = read(path.join(APP_DIR, 'api/vendor/booth-groups/[groupId]/cancel/route.ts'))
+    expect(code).toContain("source: 'redeemed'")
+    expect(code).toContain('appliedCreditCents')
+  })
 })
 
 describe('Phase E season status lifecycle', () => {

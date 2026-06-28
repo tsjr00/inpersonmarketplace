@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced } from '@/lib/errors'
 import { getSeasonBookableWeeks } from '@/lib/markets/season-weeks'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 /**
  * GET /api/vendor/markets/[id]/seasons
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const { data: market } = await service
       .from('markets')
-      .select('id, stripe_charges_enabled')
+      .select('id, vertical_id, stripe_charges_enabled')
       .eq('id', marketId)
       .maybeSingle()
     if (!market) return NextResponse.json({ error: 'Market not found' }, { status: 404 })
@@ -68,6 +69,20 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .order('weekly_price_cents', { ascending: true })
     if (invErr) throw traced.fromSupabase(invErr, { table: 'market_booth_inventory', operation: 'select' })
 
-    return NextResponse.json({ seasons, inventory: inventory ?? [], stripeReady: true })
+    // Vendor's booth-credit balance at this market (auto-applied at checkout).
+    let creditBalanceCents = 0
+    const { profile } = await getVendorProfileForVertical<{ id: string }>(
+      supabase, user.id, market.vertical_id as string, 'id'
+    )
+    if (profile) {
+      const { data: creditRows } = await service
+        .from('booth_credits')
+        .select('amount_cents')
+        .eq('vendor_profile_id', profile.id)
+        .eq('market_id', marketId)
+      creditBalanceCents = (creditRows ?? []).reduce((sum, r) => sum + (r.amount_cents as number), 0)
+    }
+
+    return NextResponse.json({ seasons, inventory: inventory ?? [], stripeReady: true, creditBalanceCents })
   })
 }

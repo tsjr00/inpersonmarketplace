@@ -15,6 +15,13 @@ import { calculateBoothRentalFees } from '@/lib/pricing'
  *   - AFTER it starts → manager-held base of the REMAINING (week_start >= today)
  *     weeks × (1 − penalty%), rounded; elapsed weeks keep no credit and are not
  *     cancelled.
+ *
+ * D5 (Item 4): if a booth credit was already REDEEMED against this group, the
+ * manager only received (gross − appliedCredit), so the cancel credit is granted
+ * on the manager's NET receipts — appliedCredit is allocated to the cancelled
+ * weeks in proportion to their share of the group's gross manager base. The route
+ * separately RELEASES the redeemed amount back to the vendor. appliedCreditCents=0
+ * → net == gross (no redemption; original behavior, unit-tested).
  */
 
 export interface CancelCreditWeek {
@@ -35,18 +42,23 @@ export function computeCancelCredit(
   today: string,
   referenceStart: string | null,
   postStartPenaltyPct: number,
+  appliedCreditCents = 0,
 ): CancelCreditResult {
   const beforeStart = !referenceStart || today < referenceStart
+  const mgr = (w: CancelCreditWeek) => calculateBoothRentalFees(w.priceCents).managerReceivesCents
+
+  // Weeks being cancelled: all before start; only not-yet-elapsed weeks after.
+  const cancelledWeeks = beforeStart ? weeks : weeks.filter((w) => w.weekStartDate >= today)
+
+  // Grant on the manager's NET receipts for the cancelled weeks (D5).
+  const grossTotal = weeks.reduce((sum, w) => sum + mgr(w), 0)
+  const grossCancelled = cancelledWeeks.reduce((sum, w) => sum + mgr(w), 0)
+  const allocated = grossTotal > 0 ? Math.round(appliedCreditCents * (grossCancelled / grossTotal)) : 0
+  const netCancelled = Math.max(0, grossCancelled - allocated)
 
   if (beforeStart) {
-    // Manager-held base value of all paid weeks (the manager funds redemption from this).
-    const creditCents = weeks.reduce((sum, w) => sum + calculateBoothRentalFees(w.priceCents).managerReceivesCents, 0)
-    return { beforeStart: true, creditCents, source: 'vendor_cancel_pre', idsToCancel: weeks.map((w) => w.id) }
+    return { beforeStart: true, creditCents: netCancelled, source: 'vendor_cancel_pre', idsToCancel: cancelledWeeks.map((w) => w.id) }
   }
-
-  // Remaining (not-yet-elapsed) weeks → manager-held base value minus penalty.
-  const remaining = weeks.filter((w) => w.weekStartDate >= today)
-  const remainingValue = remaining.reduce((sum, w) => sum + calculateBoothRentalFees(w.priceCents).managerReceivesCents, 0)
-  const creditCents = Math.round(remainingValue * (1 - postStartPenaltyPct / 100))
-  return { beforeStart: false, creditCents, source: 'vendor_cancel_post', idsToCancel: remaining.map((w) => w.id) }
+  const creditCents = Math.round(netCancelled * (1 - postStartPenaltyPct / 100))
+  return { beforeStart: false, creditCents, source: 'vendor_cancel_post', idsToCancel: cancelledWeeks.map((w) => w.id) }
 }
