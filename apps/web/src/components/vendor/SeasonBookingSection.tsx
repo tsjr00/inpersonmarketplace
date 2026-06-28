@@ -118,8 +118,11 @@ export default function SeasonBookingSection({ marketId }: { marketId: string })
       </h2>
       <p style={{ margin: 0, marginBottom: spacing.md, fontSize: typography.sizes.sm, color: colors.textMuted, lineHeight: 1.5 }}>
         Commit to a full season and lock your booth for every market week in one payment.
-        Cancel before the season starts and your payment becomes booth credit at this market (not a cash refund);
-        cancel after it starts and a cancellation fee applies to the credit.
+        {' '}
+        <strong>Season payments are not refundable as cash through the platform.</strong> If you cancel,
+        your payment becomes a booth credit at this market — full value before the season starts, or the
+        remaining weeks minus a 25% fee after — usable only toward future booth bookings here and only
+        through the end of the season. It is a credit, not a money-back refund.
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm, maxWidth: 460 }}>

@@ -34,7 +34,7 @@ export default function CancelSeasonButton({ groupId }: CancelSeasonButtonProps)
         return
       }
       const creditDollars = ((data.credit_cents as number) / 100).toFixed(2)
-      setResult({ ok: true, message: `Season cancelled. A booth credit of $${creditDollars} was added for use on a future booking at this market.` })
+      setResult({ ok: true, message: `Season cancelled. A booth credit of $${creditDollars} (credit only — not a cash refund) was added toward a future booth booking at this market, usable until the season ends.` })
       setOpen(false)
       // Let the user read the result, then refresh so the status badge updates.
       setTimeout(() => router.refresh(), 1800)
@@ -93,7 +93,7 @@ export default function CancelSeasonButton({ groupId }: CancelSeasonButtonProps)
         variant="danger"
         title="Cancel this season?"
         message={
-          'You will receive a booth credit toward a future booking at this market — the full value if the season has not started, or the remaining weeks minus a 25% cancellation fee if it has. This frees your booth for the manager to re-rent and cannot be undone.'
+          'Cancelling does NOT refund money to your card — there is no monetary refund through the platform. You will receive a booth credit instead: the full value if the season has not started, or the remaining weeks minus a 25% cancellation fee if it has. The credit has no cash value, can only be applied to future booth bookings at this market, and must be used before the season ends. This frees your booth for the manager to re-rent and cannot be undone.'
         }
         confirmLabel="Cancel season"
         cancelLabel="Keep booking"

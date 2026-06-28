@@ -172,8 +172,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const groupId = typeof body?.groupId === 'string' ? body.groupId : ''
     const resolution = typeof body?.resolution === 'string' ? body.resolution : ''
     if (!groupId) return NextResponse.json({ error: 'groupId is required' }, { status: 400 })
-    if (resolution !== 'rollover_credit' && resolution !== 'off_platform') {
-      return NextResponse.json({ error: 'resolution must be rollover_credit or off_platform' }, { status: 400 })
+    // v1: off-platform only. In-platform settlement credit is deferred to the
+    // season make-up / extend-a-season feature — a cancelled day is made up with a
+    // real date there, which gives any credit somewhere to be spent + runway (it
+    // also sidesteps the "credit expires at season end vs. born at season end"
+    // conflict). For now the manager makes the vendor whole directly and records it.
+    if (resolution !== 'off_platform') {
+      return NextResponse.json({ error: 'resolution must be off_platform' }, { status: 400 })
     }
 
     const service = createServiceClient()
@@ -204,19 +209,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Cancelled days are within the refund cap — nothing is owed for this group.' }, { status: 400 })
     }
 
-    const amountCents = resolution === 'rollover_credit' ? owedCents : 0
-    if (resolution === 'rollover_credit' && amountCents <= 0) {
-      return NextResponse.json({ error: 'Computed credit is $0 — nothing to grant.' }, { status: 400 })
-    }
-
-    const note = resolution === 'rollover_credit'
-      ? `Season settlement: ${owedDays} day(s) beyond the ${refundCapDays}-day cap`
-      : `Settled off-platform by manager: ${owedDays} day(s) beyond the ${refundCapDays}-day cap`
+    // Off-platform resolution = a 0-amount marker row (no balance change) that
+    // records the group as settled and drives the clean-close gate.
+    const note = `Settled off-platform by manager: ${owedDays} day(s) beyond the ${refundCapDays}-day cap`
 
     const { error: insErr } = await service.from('booth_credits').insert({
       vendor_profile_id: group.vendor_profile_id,
       market_id: marketId,
-      amount_cents: amountCents,
+      amount_cents: 0,
       source: 'season_settlement',
       related_group_id: groupId,
       note,
@@ -233,7 +233,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         'booth_season_settled_vendor',
         {
           marketName: (marketRow?.name as string | undefined) || 'the market',
-          ...(amountCents > 0 ? { amountCents } : {}),
         },
         { vertical: (marketRow?.vertical_id as string | undefined) || 'farmers_market' },
       )

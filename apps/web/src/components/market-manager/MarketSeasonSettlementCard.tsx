@@ -21,7 +21,7 @@ interface SeasonView {
   groups: GroupView[]
 }
 
-type Resolution = 'rollover_credit' | 'off_platform'
+type Resolution = 'off_platform'
 
 interface Pending {
   seasonId: string
@@ -106,9 +106,7 @@ export default function MarketSeasonSettlementCard({ marketId }: { marketId: str
       if (!res.ok) {
         setNotice(data.error || 'Could not settle this group.')
       } else {
-        setNotice(pending.resolution === 'rollover_credit'
-          ? `Granted a ${fmtPrice(pending.owedCents)} credit to ${pending.vendorName}.`
-          : `Marked ${pending.vendorName} settled off-platform.`)
+        setNotice(`Marked ${pending.vendorName} settled off-platform.`)
         await load()
       }
     } catch {
@@ -125,7 +123,7 @@ export default function MarketSeasonSettlementCard({ marketId }: { marketId: str
     <ManagerCard
       id="settlement"
       title="Season settlement"
-      description="Resolve cancelled-day shortfalls for ended seasons. Vendors are made whole in booth value or a credit — no money moves backward."
+      description="For ended seasons where a vendor lost more than the refund cap to manager-cancelled days: make them whole directly and record it here. (In-platform credit / make-up-date resolution arrives with the season make-up feature.)"
     >
       {loading && <p style={muted}>Loading…</p>}
       {error && <p style={{ ...muted, color: '#721c24' }}>{error}</p>}
@@ -195,42 +193,23 @@ export default function MarketSeasonSettlementCard({ marketId }: { marketId: str
                         Settled
                       </span>
                     ) : (
-                      <div style={{ display: 'flex', gap: spacing.xs, flexWrap: 'wrap' }}>
-                        <button
-                          type="button"
-                          onClick={() => setPending({ seasonId: season.id, groupId: g.groupId, resolution: 'rollover_credit', owedCents: g.owedCents, vendorName: g.vendorName })}
-                          style={{
-                            padding: `${spacing['2xs']} ${spacing.sm}`,
-                            backgroundColor: colors.primary,
-                            color: '#fff',
-                            border: 'none',
-                            borderRadius: radius.sm,
-                            fontSize: typography.sizes.sm,
-                            fontWeight: typography.weights.semibold,
-                            cursor: 'pointer',
-                            minHeight: 44,
-                          }}
-                        >
-                          Grant credit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setPending({ seasonId: season.id, groupId: g.groupId, resolution: 'off_platform', owedCents: g.owedCents, vendorName: g.vendorName })}
-                          style={{
-                            padding: `${spacing['2xs']} ${spacing.sm}`,
-                            backgroundColor: 'transparent',
-                            color: colors.textSecondary,
-                            border: `1px solid ${colors.border}`,
-                            borderRadius: radius.sm,
-                            fontSize: typography.sizes.sm,
-                            fontWeight: typography.weights.semibold,
-                            cursor: 'pointer',
-                            minHeight: 44,
-                          }}
-                        >
-                          Settled off-platform
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setPending({ seasonId: season.id, groupId: g.groupId, resolution: 'off_platform', owedCents: g.owedCents, vendorName: g.vendorName })}
+                        style={{
+                          padding: `${spacing['2xs']} ${spacing.sm}`,
+                          backgroundColor: colors.primary,
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: radius.sm,
+                          fontSize: typography.sizes.sm,
+                          fontWeight: typography.weights.semibold,
+                          cursor: 'pointer',
+                          minHeight: 44,
+                        }}
+                      >
+                        Settled off-platform
+                      </button>
                     )}
                   </div>
                 ))}
@@ -242,10 +221,8 @@ export default function MarketSeasonSettlementCard({ marketId }: { marketId: str
 
       <ConfirmDialog
         open={!!pending}
-        title={pending?.resolution === 'rollover_credit' ? 'Grant booth credit?' : 'Mark settled off-platform?'}
-        message={pending?.resolution === 'rollover_credit'
-          ? `Add a ${fmtPrice(pending?.owedCents ?? 0)} booth credit for ${pending?.vendorName ?? 'this vendor'} toward a future booking at this market. It's funded from the booth payment you already received — no money moves backward.`
-          : `Record that you've made ${pending?.vendorName ?? 'this vendor'} whole directly, outside the platform. No credit will be added here.`}
+        title="Mark settled off-platform?"
+        message={`Record that you've made ${pending?.vendorName ?? 'this vendor'} whole directly, outside the platform (about ${fmtPrice(pending?.owedCents ?? 0)} for the days beyond the cap). No credit is added here.`}
         confirmLabel={submitting ? 'Working…' : 'Confirm'}
         cancelLabel="Cancel"
         onConfirm={confirmResolve}
