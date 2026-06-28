@@ -62,3 +62,22 @@ export function computeCancelCredit(
   const creditCents = Math.round(netCancelled * (1 - postStartPenaltyPct / 100))
   return { beforeStart: false, creditCents, source: 'vendor_cancel_post', idsToCancel: cancelledWeeks.map((w) => w.id) }
 }
+
+/**
+ * Expiry for a vendor-cancel booth credit (Item 2). Season-tied → the season end
+ * date + 1 day (usable THROUGH the last day). Non-season (ad-hoc partial) → the
+ * latest booked week + 7 days (end of that week). Returns an ISO timestamp, or
+ * null when there's nothing to anchor to (no expiry). When the season make-up /
+ * extend feature ships, season-tied expiry can extend to the last make-up date.
+ */
+export function computeCreditExpiry(seasonEndDate: string | null, weekStartDates: string[]): string | null {
+  const plusDaysIso = (dateStr: string, days: number): string => {
+    const d = new Date(`${dateStr}T00:00:00Z`)
+    d.setUTCDate(d.getUTCDate() + days)
+    return d.toISOString()
+  }
+  if (seasonEndDate) return plusDaysIso(seasonEndDate, 1)
+  if (weekStartDates.length === 0) return null
+  const last = weekStartDates.reduce((max, w) => (w > max ? w : max), weekStartDates[0])
+  return plusDaysIso(last, 7)
+}

@@ -85,6 +85,9 @@ export type NotificationType =
   // Phase E season-end settlement (2026-06-27): manager resolved a vendor's
   // cancelled-days shortfall as a booth credit or off-platform.
   | 'booth_season_settled_vendor'
+  // Phase E Item 2 (2026-06-28): weekly use-it-or-lose-it nudge — vendor holds a
+  // booth credit over $50 with an expiry approaching (expire-orders Phase 19).
+  | 'booth_credit_expiring_vendor'
   | 'booth_rental_payment_failed_vendor'
   // Market manager schedule edits (2026-05-19) — notify all approved vendors
   // at the market when manager changes hours / active days / season window.
@@ -790,6 +793,18 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       }
       return `Some market days you prepaid for were cancelled beyond the season's cap. The manager has arranged to make it right with you directly — reach out with any questions.`
     },
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/bookings`,
+  },
+
+  // Phase E Item 2: weekly use-it-or-lose-it nudge — vendor holds a booth credit
+  // over $50 with an expiry approaching. Sent by expire-orders Phase 19.
+  booth_credit_expiring_vendor: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'vendor',
+    title: (d) => `Booth credit expiring at ${d.marketName || 'a market'}`,
+    message: (d) =>
+      `You have a booth credit of $${((d.amountCents || 0) / 100).toFixed(2)} at ${d.marketName || 'a market'} that expires soon. Apply it toward a booth booking before it's gone — see My Bookings.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/bookings`,
   },
 

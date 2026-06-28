@@ -2400,6 +2400,30 @@ export async function GET(request: NextRequest) {
         boothRentalsCancelledStale = stale?.length ?? 0
       }
 
+      // Item 4b: release any booth credit redeemed against a now-cancelled one-off
+      // rental (the FK SET-NULLs these otherwise, stranding the −amount). Runs once
+      // per rental — the conditional UPDATE only flips pending→cancelled once.
+      const cancelledRentals = [...(orphans ?? []), ...(stale ?? [])]
+      if (cancelledRentals.length > 0) {
+        const rentalIds = cancelledRentals.map((r) => r.id as string)
+        const { data: redeemedForRentals } = await supabase
+          .from('booth_credits')
+          .select('related_rental_id, vendor_profile_id, market_id, amount_cents')
+          .in('related_rental_id', rentalIds)
+          .eq('source', 'redeemed')
+          .lt('amount_cents', 0)
+        for (const r of redeemedForRentals ?? []) {
+          await supabase.from('booth_credits').insert({
+            vendor_profile_id: r.vendor_profile_id,
+            market_id: r.market_id,
+            amount_cents: -(r.amount_cents as number),
+            source: 'redeemed',
+            related_rental_id: r.related_rental_id,
+            note: 'Released — rental abandoned',
+          })
+        }
+      }
+
       const totalCancelled = boothRentalsCancelledOrphan + boothRentalsCancelledStale
       if (totalCancelled > 0) {
         console.log(`Phase 16: cancelled ${totalCancelled} abandoned booth rental(s) (${boothRentalsCancelledOrphan} orphan, ${boothRentalsCancelledStale} stale)`)
@@ -2640,6 +2664,90 @@ export async function GET(request: NextRequest) {
       }
     } catch (phase18Error) {
       console.error('Phase 18 error:', phase18Error instanceof Error ? phase18Error.message : 'Unknown error')
+      totalErrors++
+    }
+
+    // ─── Phase 19: Booth credit expiry sweep + use-it/lose-it notifications ──
+    // Active expiry (Item 2, mig 169): when ALL of a (vendor, market)'s grant
+    // credits are past expires_at and a positive balance remains, write one
+    // −balance 'expired' row to zero it (balance stays a plain SUM, never goes
+    // negative). Warn vendors with a balance over $50 and an expiry within 14 days.
+    try {
+      type CreditRow = { vendor_profile_id: string; market_id: string; amount_cents: number; source: string; expires_at: string | null }
+      const { data: allCredits } = await supabase
+        .from('booth_credits')
+        .select('vendor_profile_id, market_id, amount_cents, source, expires_at')
+
+      const creditRows = (allCredits ?? []) as CreditRow[]
+      if (creditRows.length > 0) {
+        const nowMs = Date.now()
+        const WARN_WINDOW_MS = 14 * 24 * 60 * 60 * 1000
+        const WARN_THRESHOLD_CENTS = 5000
+
+        const groups = new Map<string, CreditRow[]>()
+        for (const c of creditRows) {
+          const key = `${c.vendor_profile_id}|${c.market_id}`
+          const arr = groups.get(key)
+          if (arr) arr.push(c)
+          else groups.set(key, [c])
+        }
+
+        let expiredZeroed = 0
+        const warnings: { vendorProfileId: string; marketId: string; balanceCents: number }[] = []
+
+        for (const [key, rows] of groups) {
+          const balance = rows.reduce((s, r) => s + r.amount_cents, 0)
+          if (balance <= 0) continue
+          const vendorProfileId = key.slice(0, key.indexOf('|'))
+          const marketId = key.slice(key.indexOf('|') + 1)
+
+          // Expiries of the positive GRANT rows only (ignore redeemed/expired/release).
+          const grantExpiries = rows
+            .filter((r) => r.amount_cents > 0 && r.source !== 'redeemed' && r.source !== 'expired')
+            .map((r) => (r.expires_at ? new Date(r.expires_at).getTime() : null))
+
+          // A NULL or future grant expiry keeps the whole balance alive (generous, v1).
+          const hasLiveGrant = grantExpiries.length === 0 || grantExpiries.some((e) => e === null || e >= nowMs)
+
+          if (!hasLiveGrant) {
+            const { error: expErr } = await supabase.from('booth_credits').insert({
+              vendor_profile_id: vendorProfileId,
+              market_id: marketId,
+              amount_cents: -balance,
+              source: 'expired',
+              note: 'Booth credit expired',
+            })
+            if (!expErr) expiredZeroed++
+            else console.error('Phase 19 expiry insert error:', expErr.message)
+          } else if (balance >= WARN_THRESHOLD_CENTS) {
+            const nearest = grantExpiries
+              .filter((e): e is number => e !== null && e >= nowMs)
+              .sort((a, b) => a - b)[0]
+            if (nearest !== undefined && nearest - nowMs <= WARN_WINDOW_MS) {
+              warnings.push({ vendorProfileId, marketId, balanceCents: balance })
+            }
+          }
+        }
+
+        for (const w of warnings) {
+          const { data: vp } = await supabase.from('vendor_profiles').select('user_id').eq('id', w.vendorProfileId).maybeSingle()
+          const { data: mk } = await supabase.from('markets').select('name, vertical_id').eq('id', w.marketId).maybeSingle()
+          const uid = vp?.user_id as string | undefined
+          if (uid) {
+            await sendNotification(uid, 'booth_credit_expiring_vendor', {
+              marketName: (mk?.name as string | undefined) || 'a market',
+              amountCents: w.balanceCents,
+            }, { vertical: (mk?.vertical_id as string | undefined) || 'farmers_market' })
+          }
+        }
+
+        if (expiredZeroed > 0 || warnings.length > 0) {
+          console.log(`Phase 19: expired ${expiredZeroed} balance(s), warned ${warnings.length}`)
+          totalProcessed += expiredZeroed
+        }
+      }
+    } catch (phase19Error) {
+      console.error('Phase 19 error:', phase19Error instanceof Error ? phase19Error.message : 'Unknown error')
       totalErrors++
     }
 

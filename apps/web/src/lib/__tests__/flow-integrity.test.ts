@@ -467,6 +467,38 @@ describe('Phase E season flow integrity', () => {
     expect(code).toContain("source: 'redeemed'")
     expect(code).toContain('appliedCreditCents')
   })
+
+  // Item 2 — credit expiry
+  it('vendor cancel sets an expiry on the granted credit', () => {
+    const code = read(path.join(APP_DIR, 'api/vendor/booth-groups/[groupId]/cancel/route.ts'))
+    expect(code).toContain('computeCreditExpiry')
+    expect(code).toContain('expires_at')
+  })
+
+  it('expire-orders runs a booth-credit expiry sweep (Phase 19)', () => {
+    const code = read(path.join(APP_DIR, 'api/cron/expire-orders/route.ts'))
+    expect(code).toContain('Phase 19')
+    expect(code).toContain("source: 'expired'")
+  })
+
+  // Item 4b — one-off weekly redemption
+  it('one-off book route redeems booth credit by rental', () => {
+    const code = read(path.join(APP_DIR, 'api/vendor/markets/[id]/book/route.ts'))
+    expect(code).toContain('redeem_booth_credit')
+    expect(code).toContain('p_rental_id')
+  })
+
+  it('both season and one-off checkout functions apply the credit to both sides', () => {
+    const code = read(path.join(SRC_DIR, 'lib/stripe/payments.ts'))
+    const occurrences = (code.match(/chargedVendorCents/g) || []).length
+    expect(occurrences).toBeGreaterThanOrEqual(2) // season + one-off
+  })
+
+  it('expire-orders Phase 16 releases redeemed credit on abandoned one-off rentals', () => {
+    const code = read(path.join(APP_DIR, 'api/cron/expire-orders/route.ts'))
+    expect(code).toContain('related_rental_id')
+    expect(code).toContain('rental abandoned')
+  })
 })
 
 describe('Phase E season status lifecycle', () => {

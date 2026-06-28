@@ -3,7 +3,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
-import { computeCancelCredit } from '@/lib/markets/cancel-credit'
+import { computeCancelCredit, computeCreditExpiry } from '@/lib/markets/cancel-credit'
 
 // O5: after-start self-cancel penalty (product-order default; plan §8 TBC).
 const POST_START_PENALTY_PCT = 25
@@ -76,10 +76,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const rows = (children ?? []) as Array<{ id: string; week_start_date: string; price_cents: number }>
 
     let referenceStart: string | null = null
+    let seasonEndDate: string | null = null
     if (group.season_id) {
       const { data: season } = await service
-        .from('market_seasons').select('start_date').eq('id', group.season_id as string).maybeSingle()
+        .from('market_seasons').select('start_date, end_date').eq('id', group.season_id as string).maybeSingle()
       referenceStart = (season?.start_date as string | null) ?? null
+      seasonEndDate = (season?.end_date as string | null) ?? null
     }
     if (!referenceStart) {
       referenceStart = rows.reduce<string | null>((min, r) => (!min || r.week_start_date < min ? r.week_start_date : min), null)
@@ -103,8 +105,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       appliedCreditCents,
     )
 
-    // Grant the credit (positive ledger row).
+    // Grant the credit (positive ledger row, with expiry — Item 2).
     if (creditCents > 0) {
+      const expiresAt = computeCreditExpiry(seasonEndDate, rows.map((r) => r.week_start_date))
       crumb.supabase('insert', 'booth_credits')
       const { error: credErr } = await service.from('booth_credits').insert({
         vendor_profile_id: group.vendor_profile_id,
@@ -113,6 +116,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         source,
         related_group_id: groupId,
         note: beforeStart ? 'Season cancelled before start — full credit' : `Season cancelled after start — ${POST_START_PENALTY_PCT}% penalty applied`,
+        expires_at: expiresAt,
       })
       if (credErr) throw traced.fromSupabase(credErr, { table: 'booth_credits', operation: 'insert' })
     }

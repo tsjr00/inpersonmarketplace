@@ -293,6 +293,7 @@ export async function createBoothRentalCheckoutSession({
   basePriceCents,
   vendorPaysCents,
   managerReceivesCents,
+  appliedCreditCents = 0,
   successUrl,
   cancelUrl,
   vertical,
@@ -305,11 +306,17 @@ export async function createBoothRentalCheckoutSession({
   basePriceCents: number           // for audit metadata only
   vendorPaysCents: number          // unit_amount on the line item
   managerReceivesCents: number     // transfer_data.amount
+  appliedCreditCents?: number      // booth credit applied (reduces BOTH sides)
   successUrl: string
   cancelUrl: string
   vertical?: string
 }) {
   const idempotencyKey = `booth-rental-${rentalId}`
+
+  // Item 4b: apply booth credit equally to both sides → platform fee invariant.
+  // Caller caps appliedCreditCents <= managerReceivesCents, so neither goes negative.
+  const chargedVendorCents = vendorPaysCents - appliedCreditCents
+  const transferCents = managerReceivesCents - appliedCreditCents
 
   const session = await stripe.checkout.sessions.create(
     {
@@ -321,7 +328,7 @@ export async function createBoothRentalCheckoutSession({
             name: `Booth rental — ${marketName}`,
             description: `Week of ${weekStartDate}`,
           },
-          unit_amount: vendorPaysCents,
+          unit_amount: chargedVendorCents,
         },
         quantity: 1,
       }],
@@ -333,7 +340,7 @@ export async function createBoothRentalCheckoutSession({
         statement_descriptor_suffix: getStatementSuffix(vertical),
         transfer_data: {
           destination: managerStripeAccountId,
-          amount: managerReceivesCents,
+          amount: transferCents,
         },
       },
       metadata: {
@@ -344,6 +351,7 @@ export async function createBoothRentalCheckoutSession({
         base_price_cents: basePriceCents.toString(),
         vendor_pays_cents: vendorPaysCents.toString(),
         manager_receives_cents: managerReceivesCents.toString(),
+        applied_credit_cents: appliedCreditCents.toString(),
       },
     },
     { idempotencyKey }

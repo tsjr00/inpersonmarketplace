@@ -373,6 +373,28 @@ export async function POST(
       week_start_date: rentalRow.rental_week_start_date,
     }
 
+    // --- Apply any booth credit (Item 4b). Reserve atomically against this
+    // rental; released by Phase 16 if it's abandoned unpaid. Cap so the residual
+    // charge stays >= Stripe's minimum (D4) and the transfer can't go negative. ---
+    const fees = calculateBoothRentalFees(rental.price_cents as number)
+    const STRIPE_MIN_CHARGE_CENTS = 50
+    const creditRequest = Math.min(fees.managerReceivesCents, fees.vendorPaysCents - STRIPE_MIN_CHARGE_CENTS)
+    let appliedCreditCents = 0
+    if (creditRequest > 0) {
+      const { data: redeemed, error: redeemErr } = await serviceClient.rpc('redeem_booth_credit', {
+        p_vendor_profile_id: profile.id,
+        p_market_id: marketId,
+        p_group_id: null,
+        p_requested_cents: creditRequest,
+        p_rental_id: rental.id,
+      })
+      if (redeemErr) {
+        logError(traced.fromSupabase(redeemErr, { table: 'booth_credits', operation: 'rpc' }))
+      } else if (typeof redeemed === 'number') {
+        appliedCreditCents = redeemed
+      }
+    }
+
     // Phase C Stage 3 (revised 2026-05-18): booth rentals are Stripe-only.
     // The early gate at the top of this route guarantees stripe_charges_enabled
     // is true; this block is now unconditional. Create the Stripe Checkout
@@ -384,7 +406,6 @@ export async function POST(
     let checkoutUrl: string | null = null
 
     try {
-      const fees = calculateBoothRentalFees(rental.price_cents as number)
       const baseUrl = request.nextUrl.origin
       const vertical = (market.vertical_id as string) || 'farmers_market'
       const successUrl = `${baseUrl}/${vertical}/markets/${marketId}/book?session=success&rental=${rental.id}`
@@ -399,6 +420,7 @@ export async function POST(
         basePriceCents: rental.price_cents as number,
         vendorPaysCents: fees.vendorPaysCents,
         managerReceivesCents: fees.managerReceivesCents,
+        appliedCreditCents,
         successUrl,
         cancelUrl,
         vertical,
@@ -427,6 +449,18 @@ export async function POST(
       // WHERE conditions belt-and-suspender to ensure we only delete the
       // row we just made.
       console.error('[vendor/markets/book] Stripe session creation failed:', stripeError)
+      // Release any booth credit reserved for this rental before deleting it
+      // (delete SET-NULLs the FK and would strand the −amount otherwise).
+      if (appliedCreditCents > 0) {
+        await serviceClient.from('booth_credits').insert({
+          vendor_profile_id: profile.id,
+          market_id: marketId,
+          amount_cents: appliedCreditCents,
+          source: 'redeemed',
+          related_rental_id: rental.id,
+          note: 'Released — booking cancelled unpaid',
+        })
+      }
       const { error: cleanupErr } = await serviceClient
         .from('weekly_booth_rentals')
         .delete()

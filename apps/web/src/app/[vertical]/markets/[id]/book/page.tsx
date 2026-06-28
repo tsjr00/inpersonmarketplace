@@ -196,6 +196,14 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
 
   const weeks = nextSundays((market.timezone as string | null) || 'America/Chicago', 8)
 
+  // Vendor's booth-credit balance at this market (auto-applied at checkout).
+  const { data: creditRows } = await serviceClient
+    .from('booth_credits')
+    .select('amount_cents')
+    .eq('vendor_profile_id', profile.id)
+    .eq('market_id', marketId)
+  const creditBalanceCents = (creditRows ?? []).reduce((sum, r) => sum + (r.amount_cents as number), 0)
+
   return (
     <div style={{ maxWidth: containers.lg, margin: '0 auto', padding: spacing.md }}>
       <div style={{ marginBottom: spacing.md }}>
@@ -218,6 +226,7 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
         vertical={vertical}
         weeks={weeks}
         inventory={inventory}
+        creditBalanceCents={creditBalanceCents}
         {...(returnFlash ? { returnFlash } : {})}
       />
 

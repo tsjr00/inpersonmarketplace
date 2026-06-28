@@ -11,7 +11,7 @@
  *    rounded; elapsed weeks earn nothing and are not cancelled.
  */
 import { describe, it, expect } from 'vitest'
-import { computeCancelCredit } from '@/lib/markets/cancel-credit'
+import { computeCancelCredit, computeCreditExpiry } from '@/lib/markets/cancel-credit'
 
 const PENALTY = 25 // POST_START_PENALTY_PCT (cancel route)
 const MGR = 2337   // $25.00/week manager-held base (pricing.ts)
@@ -99,5 +99,19 @@ describe('computeCancelCredit — D5 net-base when a credit was redeemed', () =>
     const withZero = computeCancelCredit(weeks, '2026-05-12', '2026-05-03', PENALTY, 0)
     const without = computeCancelCredit(weeks, '2026-05-12', '2026-05-03', PENALTY)
     expect(withZero).toEqual(without)
+  })
+})
+
+describe('computeCreditExpiry (Item 2)', () => {
+  it('season-tied credit expires the day after the season end (usable through the last day)', () => {
+    expect(computeCreditExpiry('2026-08-31', ['2026-05-03'])).toBe('2026-09-01T00:00:00.000Z')
+  })
+
+  it('non-season credit expires 7 days after the latest booked week', () => {
+    expect(computeCreditExpiry(null, ['2026-05-03', '2026-05-10'])).toBe('2026-05-17T00:00:00.000Z')
+  })
+
+  it('no anchor (no season, no weeks) → null (no expiry)', () => {
+    expect(computeCreditExpiry(null, [])).toBeNull()
   })
 })

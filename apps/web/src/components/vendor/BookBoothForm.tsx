@@ -31,6 +31,8 @@ interface BookBoothFormProps {
   /** Pre-computed Sunday YYYY-MM-DD strings from the server. */
   weeks: string[]
   inventory: InventoryRow[]
+  /** Vendor's booth-credit balance at this market (auto-applied at checkout). */
+  creditBalanceCents?: number
   /** Return-from-Stripe flash (Phase C Stage 3). When set, the form
    *  renders a confirmation/cancellation state instead of the booking
    *  form. Server reads ?session= query param and passes the flag in. */
@@ -59,6 +61,7 @@ export default function BookBoothForm({
   vertical,
   weeks,
   inventory,
+  creditBalanceCents = 0,
   returnFlash,
 }: BookBoothFormProps) {
   const [selectedWeek, setSelectedWeek] = useState<string>(weeks[0] ?? '')
@@ -247,6 +250,19 @@ export default function BookBoothForm({
         borderRadius: radius.md,
       }}
     >
+      {creditBalanceCents > 0 && (
+        <div style={{
+          padding: `${spacing['2xs']} ${spacing.xs}`,
+          marginBottom: spacing.md,
+          fontSize: typography.sizes.sm,
+          color: '#155724',
+          backgroundColor: '#d4edda',
+          borderRadius: radius.sm,
+        }}>
+          You have <strong>{formatPrice(creditBalanceCents)}</strong> in booth credit here — it&apos;s applied automatically at checkout.
+        </div>
+      )}
+
       {/* Week picker */}
       <label style={{ display: 'block', marginBottom: spacing.md }}>
         <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing['2xs'] }}>
@@ -313,6 +329,8 @@ export default function BookBoothForm({
           what Stripe will charge on the next step — no surprises. */}
       {selectedInventory && (() => {
         const fees = calculateBoothRentalFees(selectedInventory.weekly_price_cents)
+        const applied = Math.max(0, Math.min(creditBalanceCents, fees.managerReceivesCents, fees.vendorPaysCents - 50))
+        const net = fees.vendorPaysCents - applied
         return (
           <div style={{
             padding: spacing.sm,
@@ -330,8 +348,13 @@ export default function BookBoothForm({
               color: colors.textPrimary,
               lineHeight: 1.1,
             }}>
-              {formatPrice(fees.vendorPaysCents)}
+              {formatPrice(net)}
             </div>
+            {applied > 0 && (
+              <div style={{ fontSize: typography.sizes.xs, color: '#155724', marginTop: spacing['3xs'] }}>
+                Booth credit applied: −{formatPrice(applied)} (was {formatPrice(fees.vendorPaysCents)})
+              </div>
+            )}
             <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing.xs }}>
               Locked at booking. You&apos;ll complete payment through Stripe on the next step.
             </div>
