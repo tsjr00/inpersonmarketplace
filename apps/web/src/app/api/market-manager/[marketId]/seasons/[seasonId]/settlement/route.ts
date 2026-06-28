@@ -4,6 +4,7 @@ import { withErrorTracing, traced } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { getGroupCancelledDays } from '@/lib/markets/cancelled-days'
+import { owedForGroup, isSeasonFullyResolved } from '@/lib/markets/settlement-math'
 import { sendNotification } from '@/lib/notifications'
 
 /**
@@ -40,21 +41,6 @@ interface PaidGroup {
   vendor_profile_id: string
   week_count: number
   total_manager_cents: number
-}
-
-function owedForGroup(
-  totalManagerCents: number,
-  weekCount: number,
-  activeDaysPerWeek: number,
-  cancelledDays: number,
-  refundCapDays: number,
-): { owedDays: number; owedCents: number } {
-  const owedDays = Math.max(0, cancelledDays - refundCapDays)
-  if (owedDays === 0) return { owedDays: 0, owedCents: 0 }
-  const totalPrepaidDays = weekCount * activeDaysPerWeek
-  if (totalPrepaidDays <= 0) return { owedDays, owedCents: 0 }
-  const perDayBase = totalManagerCents / totalPrepaidDays
-  return { owedDays, owedCents: Math.round(owedDays * perDayBase) }
 }
 
 async function loadContext(service: ReturnType<typeof createServiceClient>, marketId: string, seasonId: string) {
@@ -254,8 +240,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       )
       return { id: g.id, hasShortfall: od > 0 }
     }))
-    const anyUnresolved = shortfallGroups.some((g) => g.hasShortfall && !resolvedIds.has(g.id))
-    if (!anyUnresolved && season.status !== 'settled') {
+    const allResolved = isSeasonFullyResolved(shortfallGroups, resolvedIds)
+    if (allResolved && season.status !== 'settled') {
       const { error: updErr } = await service
         .from('market_seasons')
         .update({ status: 'settled' })

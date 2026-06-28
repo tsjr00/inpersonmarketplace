@@ -3,7 +3,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
-import { calculateBoothRentalFees } from '@/lib/pricing'
+import { computeCancelCredit } from '@/lib/markets/cancel-credit'
 
 // O5: after-start self-cancel penalty (product-order default; plan §8 TBC).
 const POST_START_PENALTY_PCT = 25
@@ -85,25 +85,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       referenceStart = rows.reduce<string | null>((min, r) => (!min || r.week_start_date < min ? r.week_start_date : min), null)
     }
 
-    const beforeStart = !referenceStart || today < referenceStart
-
-    let creditCents: number
-    let source: 'vendor_cancel_pre' | 'vendor_cancel_post'
-    let idsToCancel: string[]
-
-    if (beforeStart) {
-      // Manager-held base value of all paid weeks (the manager funds redemption from this).
-      creditCents = rows.reduce((sum, r) => sum + calculateBoothRentalFees(r.price_cents).managerReceivesCents, 0)
-      source = 'vendor_cancel_pre'
-      idsToCancel = rows.map((r) => r.id)
-    } else {
-      // Remaining (not-yet-elapsed) weeks → manager-held base value minus penalty.
-      const remaining = rows.filter((r) => r.week_start_date >= today)
-      const remainingValue = remaining.reduce((sum, r) => sum + calculateBoothRentalFees(r.price_cents).managerReceivesCents, 0)
-      creditCents = Math.round(remainingValue * (1 - POST_START_PENALTY_PCT / 100))
-      source = 'vendor_cancel_post'
-      idsToCancel = remaining.map((r) => r.id)
-    }
+    const { beforeStart, creditCents, source, idsToCancel } = computeCancelCredit(
+      rows.map((r) => ({ id: r.id, weekStartDate: r.week_start_date, priceCents: r.price_cents })),
+      today,
+      referenceStart,
+      POST_START_PENALTY_PCT,
+    )
 
     // Grant the credit (positive ledger row).
     if (creditCents > 0) {
