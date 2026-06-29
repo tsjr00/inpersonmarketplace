@@ -1,19 +1,25 @@
-# Current Task: Phase E SHIPPED to prod — next is make-up/extend + Item 4 (NEXT SESSION READ THIS)
+# Current Task: Phase E credit lifecycle (Item 4/4b/2) + RM projection tool ON STAGING — prod push pending
 
-**Updated:** 2026-06-27 EOD (Phase E remaining build shipped to prod). **Mode:** Report (await goals at kickoff).
+**Updated:** 2026-06-28 EOD. **Mode:** Report (await goals at kickoff).
 
 ---
 
 ## ⭐ POST-COMPACTION RECOVERY — READ FIRST
-**This session (2026-06-27):** ran a full-app, CODE-ONLY review (`fullapp_review_research.md`, prior audits intentionally ignored) → the only significant gap was Phase E end-of-life actions → designed them with the user, built Items 1–3 + refinements, and SHIPPED the whole Phase E stack to prod.
+**This session (2026-06-28)** shipped to **STAGING (not prod)** the full Phase E booth-credit lifecycle — **earn → spend → expire** — plus a new RM revenue-projection tool:
+- **Item 4** (season/partial credit redemption), **Item 4b** (one-off weekly redemption), **Item 2** (credit expiry + weekly use-it/lose-it sweep). Also: the derisking test pass, the `'ended'`-status reservation, and the `event_end_date` dev-drift triage (see backlog — CONFIRMED dev-only).
+- **Operator revenue projection tool** — public calculator at `/[vertical]/operator-projection` (concept + refinement backlog: `operator_projection_tool.md`).
 
-**Git state:** prod (`origin/main`) = `426deff4`. Local `main` = `origin/staging` = `9aba365b`, which is **1 commit AHEAD of prod** = the migration-bookkeeping docs commit (file moves + snapshot changelog); it rides to prod with the next feature push — **no action needed**. Working tree shows long-standing untracked/deleted `.claude/session*_audit.md` + modified `settings.local.json` — pre-existing, untouched all session, **ignore**.
+**Git state:** prod (`origin/main`) = `426deff4` (unchanged this session). `origin/staging` = **`9a7e4cac`** (Item 4 → 4b/expiry → projection tool). Local `main` is ~1 ahead = this session's docs commit (unpushed). Long-standing `.claude/session*_audit.md` deletions + `settings.local.json` in the tree are pre-existing — **ignore**.
 
-**DB:** migs **164→165→166→167 applied to ALL 3 envs** (Dev+Staging+Prod); files in `migrations/applied/`; SCHEMA_SNAPSHOT changelog current.
+**DB:** migs **168 + 169 applied Dev+Staging ONLY — Prod PENDING.** 164–167 are on all 3 envs.
 
-**DO NOT re-push or re-apply anything** — Phase E is live + verified (Vercel green + smoke test passed). Begin next session by awaiting user goals.
+**PROD PUSH (pending, do when ready):** apply **migs 168 AND 169 to Prod** (after 164–167), then push the staging stack `426deff4..9a7e4cac` in the **9 PM–7 AM CT** window → verify Vercel green → smoke test. **DO NOT push prod without user go.**
 
-**Key docs:** `phase_e_remaining_build_plan.md` (build plan + ALL locked decisions), `fullapp_review_research.md` (the review + findings), `phase_e_booth_granularity_prepay_plan.md` + `phase_e_season_payment_safety_plan.md` (original design), `decisions.md` (logged decisions).
+**STAGING VERIFICATION (pending, user):** (1) season redemption + (2) one-off weekly redemption — both need a vendor holding a booth credit at a Stripe-ready market; (3) the projection tool at `/farmers_market/operator-projection`. Expiry is time/cron-based.
+
+**Key docs:** `phase_e_remaining_build_plan.md` (Item 4/4b/expiry spec + locked decisions), `operator_projection_tool.md` (RM tool concept + backlog), `decisions.md`.
+
+**Next ideas (NOT started):** season make-up / extend-a-season (wires `'ended'` + in-platform settlement credit); RM incentive **tier rules** + the per-market keep-rate money-path implementation; link the projection tool from `market-manager-program`; dev-schema reconciliation before any events rework.
 
 ---
 

@@ -2,7 +2,19 @@
 
 **Purpose:** Help future Claude sessions understand this project quickly and avoid repeating mistakes.
 
-**Last Updated:** 2026-06-27 (Phase E remaining build SHIPPED to prod)
+**Last Updated:** 2026-06-28 (Phase E credit lifecycle + RM projection tool → staging)
+
+## Session highlights (2026-06-28) — Phase E credit lifecycle (Item 4/4b/2) + RM projection tool → STAGING
+
+- **Phase E booth-credit lifecycle is now complete on STAGING (NOT prod): earn → spend → expire.**
+  - **Item 4** — redemption on SEASON/partial checkout. `redeem_booth_credit` RPC (advisory-locked per vendor+market → no double-spend) + `cancel_season_group` release-on-abandon (mig 168). `payments.ts createSeasonBoothCheckoutSession` subtracts the credit from BOTH the vendor charge and the manager transfer (platform fee invariant). **D5:** cancelling a redeemed booking releases the spent credit + grants on the manager's NET receipts (no value conjured).
+  - **Item 4b** — same for ONE-OFF weekly rentals. `booth_credits.related_rental_id` + `redeem_booth_credit(p_rental_id)` (mig 169); `payments.ts createBoothRentalCheckoutSession`; release on abandonment (cron Phase 16).
+  - **Item 2** — credit EXPIRY (`computeCreditExpiry`: season end+1 / non-season last-week+7) + a weekly use-it/lose-it sweep (cron **Phase 19** zeroes lapsed balances via an `'expired'` row, warns balances >$50). New `booth_credit_expiring_vendor` notif (tripwire 84).
+  - Earlier: a derisking unit-test pass (settlement/cancel-credit math → pure tested modules), the `'ended'` season-status reservation, and the `event_end_date` browse-error triage — **CONFIRMED dev-only schema drift** (dev missing the column; staging/prod fine).
+- **Operator revenue projection tool** — NEW public calculator at `/[vertical]/operator-projection` for RM onboarding + market-manager transition. The **operator-keep % is a tunable field** (default 93.5% = current rate; raise toward 100% to model a switch incentive — platform still earns the vendor-side 6.5%+$0.15/booth). Concept + refinement backlog: `apps/web/.claude/operator_projection_tool.md`.
+- **DB:** migs **168 + 169 applied Dev+Staging only — Prod PENDING** (prod push needs both, after 164–167). Booth fee math in prod unchanged.
+- **Decisions (`decisions.md`):** RM/operator economics ($1k license, no product-sale share, FT spaces = same booth math, owner-share = RM cost, tunable keep-% lever with tier rules deferred); `'ended'` status reserved for make-up/extend.
+- **Next:** prod push (Item 4/4b/2 + tool); season **make-up / extend-a-season** (wires `'ended'` + in-platform settlement credit); RM incentive **tier rules** + the per-market keep-rate money-path build; dev-schema reconciliation before any events rework.
 
 ## Session highlights (2026-06-27) — full-app review + Phase E end-of-life shipped to PROD
 
