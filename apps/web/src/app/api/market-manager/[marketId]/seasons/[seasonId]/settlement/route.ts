@@ -18,12 +18,11 @@ import { sendNotification } from '@/lib/notifications'
  *   owedDays   = max(0, cancelledDays - refund_cap_days)
  *   owedCents  = round(owedDays * perDayBase)
  *
- * Resolution (v1, migration-free):
- *   'rollover_credit' — insert a positive booth_credits row (source season_settlement)
- *   'off_platform'    — insert a 0-amount marker row (manager settles directly)
- * Either marks the group resolved; when every shortfall group is resolved the
- * season flips to status='settled'. Make-up dates + a distinct upgrade source are
- * deferred to Item 4 (add-special-date dependency / redemption design).
+ * Resolution (v1, migration-free) — both 0-amount markers that resolve a group:
+ *   'off_platform' — manager settles the vendor directly off-platform.
+ *   'made_up'      — the cancelled days were covered by scheduled make-up days
+ *                    (Phase E make-up feature); the vendor is notified accordingly.
+ * When every shortfall group is resolved the season flips to status='settled'.
  */
 
 async function authManager(request: NextRequest, marketId: string) {
@@ -158,13 +157,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const groupId = typeof body?.groupId === 'string' ? body.groupId : ''
     const resolution = typeof body?.resolution === 'string' ? body.resolution : ''
     if (!groupId) return NextResponse.json({ error: 'groupId is required' }, { status: 400 })
-    // v1: off-platform only. In-platform settlement credit is deferred to the
-    // season make-up / extend-a-season feature — a cancelled day is made up with a
-    // real date there, which gives any credit somewhere to be spent + runway (it
-    // also sidesteps the "credit expires at season end vs. born at season end"
-    // conflict). For now the manager makes the vendor whole directly and records it.
-    if (resolution !== 'off_platform') {
-      return NextResponse.json({ error: 'resolution must be off_platform' }, { status: 400 })
+    // v1 resolutions: 'off_platform' (manager settles the vendor directly) or
+    // 'made_up' (the cancelled days were covered by scheduled make-up days — the
+    // Phase E make-up feature). Both write a 0-amount marker that resolves the
+    // group; no in-platform credit and no Stripe money moves.
+    if (resolution !== 'off_platform' && resolution !== 'made_up') {
+      return NextResponse.json({ error: "resolution must be 'off_platform' or 'made_up'" }, { status: 400 })
     }
 
     const service = createServiceClient()
@@ -195,9 +193,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Cancelled days are within the refund cap — nothing is owed for this group.' }, { status: 400 })
     }
 
-    // Off-platform resolution = a 0-amount marker row (no balance change) that
-    // records the group as settled and drives the clean-close gate.
-    const note = `Settled off-platform by manager: ${owedDays} day(s) beyond the ${refundCapDays}-day cap`
+    // A 0-amount marker row (no balance change) records the group as resolved
+    // and drives the clean-close gate; the note distinguishes how it was settled.
+    const note = resolution === 'made_up'
+      ? `Made up with scheduled make-up days: ${owedDays} day(s) beyond the ${refundCapDays}-day cap`
+      : `Settled off-platform by manager: ${owedDays} day(s) beyond the ${refundCapDays}-day cap`
 
     const { error: insErr } = await service.from('booth_credits').insert({
       vendor_profile_id: group.vendor_profile_id,
@@ -216,7 +216,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (vendorUserId) {
       await sendNotification(
         vendorUserId,
-        'booth_season_settled_vendor',
+        resolution === 'made_up' ? 'booth_makeup_settled_vendor' : 'booth_season_settled_vendor',
         {
           marketName: (marketRow?.name as string | undefined) || 'the market',
         },

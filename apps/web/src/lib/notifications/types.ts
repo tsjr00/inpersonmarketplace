@@ -88,6 +88,12 @@ export type NotificationType =
   // Phase E Item 2 (2026-06-28): weekly use-it-or-lose-it nudge — vendor holds a
   // booth credit over $50 with an expiry approaching (expire-orders Phase 19).
   | 'booth_credit_expiring_vendor'
+  // Phase E make-up days (2026-06-29): manager scheduled a post-close make-up
+  // market day; vendors come sell a booth day they prepaid for.
+  | 'booth_makeup_scheduled_vendor'
+  // Phase E make-up days: a season's cancelled-day shortfall was covered by
+  // scheduled make-up days (manager 'made_up' resolution at settlement).
+  | 'booth_makeup_settled_vendor'
   | 'booth_rental_payment_failed_vendor'
   // Market manager schedule edits (2026-05-19) — notify all approved vendors
   // at the market when manager changes hours / active days / season window.
@@ -805,6 +811,30 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: (d) => `Booth credit expiring at ${d.marketName || 'a market'}`,
     message: (d) =>
       `You have a booth credit of $${((d.amountCents || 0) / 100).toFixed(2)} at ${d.marketName || 'a market'} that expires soon. Apply it toward a booth booking before it's gone — see My Bookings.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/bookings`,
+  },
+
+  // Phase E make-up days: manager scheduled a post-close make-up market day.
+  // Goes to vendors holding a paid booth in the (ended) season.
+  booth_makeup_scheduled_vendor: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: (d) => `Make-up market day scheduled at ${d.marketName || 'the market'}`,
+    message: (d) =>
+      `A make-up market day on ${d.marketDate || 'a new date'} has been scheduled at ${d.marketName || 'the market'} — come sell a booth day you prepaid for this season. See My Bookings.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/bookings`,
+  },
+
+  // Phase E make-up days: a vendor's cancelled-day shortfall was covered by
+  // scheduled make-up days (manager 'made_up' settlement resolution, Step 4).
+  booth_makeup_settled_vendor: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: (d) => `Season made whole at ${d.marketName || 'the market'}`,
+    message: (d) =>
+      `The market days you prepaid for that were cancelled have been covered by scheduled make-up days. Your season at ${d.marketName || 'the market'} is settled — thanks for your patience. See My Bookings.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/bookings`,
   },
 

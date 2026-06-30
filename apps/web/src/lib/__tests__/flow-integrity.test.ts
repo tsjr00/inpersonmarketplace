@@ -540,3 +540,69 @@ describe('Phase E season status lifecycle', () => {
     })
   }
 })
+
+// ── Phase E make-up days (booth-only fulfillment) flow integrity ─────
+describe('Phase E make-up days flow integrity', () => {
+  const read = (p: string) => fs.readFileSync(p, 'utf-8')
+  const makeupRoute = path.join(APP_DIR, 'api/market-manager/[marketId]/seasons/[seasonId]/makeup-dates/route.ts')
+  const seasonsRoute = path.join(APP_DIR, 'api/market-manager/[marketId]/seasons/route.ts')
+  const settlementRoute = path.join(APP_DIR, 'api/market-manager/[marketId]/seasons/[seasonId]/settlement/route.ts')
+  const cronRoute = path.join(APP_DIR, 'api/cron/expire-orders/route.ts')
+
+  it('make-up scheduling only while the season is in the make-up window (status=ended)', () => {
+    const code = read(makeupRoute)
+    expect(code).toContain("season.status !== 'ended'")
+  })
+
+  it('make-up date is a special override, post-close, capped by potential_makeup_days', () => {
+    const code = read(makeupRoute)
+    expect(code).toContain("status: 'special'")
+    expect(code).toContain('potential_makeup_days')
+    expect(code).toContain('season.end_date') // must be after the season's close
+  })
+
+  it('make-up scheduling notifies the season vendors and touches NO money path (fulfillment only)', () => {
+    const code = read(makeupRoute)
+    expect(code).toContain('booth_makeup_scheduled_vendor')
+    // Fulfillment, not a booking/redemption — no Stripe / credit-spend wiring.
+    expect(code).not.toContain('redeem_booth_credit')
+    expect(code.toLowerCase()).not.toContain('stripe')
+  })
+
+  it('seasons route wires active→ended via the end_season action', () => {
+    const code = read(seasonsRoute)
+    expect(code).toContain('end_season')
+    expect(code).toContain("'ended'")
+  })
+
+  it('open_prepay is blocked while a prior season is unsettled (ended) — enforcement', () => {
+    const code = read(seasonsRoute)
+    expect(code).toContain('before opening pre-sales for a new season')
+  })
+
+  it('the cron auto-end backstop (Phase 20) uses the shared debt check', () => {
+    const code = read(cronRoute)
+    expect(code).toContain('Phase 20')
+    expect(code).toContain('seasonHasOutstandingDebt')
+  })
+
+  it('route and cron share one debt-check helper (no divergent logic)', () => {
+    const helper = read(path.join(SRC_DIR, 'lib/markets/season-debt.ts'))
+    expect(helper).toContain('seasonHasOutstandingDebt')
+    expect(helper).toContain('owedForGroup')
+    expect(read(seasonsRoute)).toContain('seasonHasOutstandingDebt')
+    expect(read(cronRoute)).toContain('seasonHasOutstandingDebt')
+  })
+
+  it("settlement accepts 'made_up' and fires the make-up settlement notice", () => {
+    const code = read(settlementRoute)
+    expect(code).toContain("'made_up'")
+    expect(code).toContain('booth_makeup_settled_vendor')
+  })
+
+  it('both make-up notification types are registered', () => {
+    const types = read(path.join(SRC_DIR, 'lib/notifications/types.ts'))
+    expect(types).toContain('booth_makeup_scheduled_vendor')
+    expect(types).toContain('booth_makeup_settled_vendor')
+  })
+})
