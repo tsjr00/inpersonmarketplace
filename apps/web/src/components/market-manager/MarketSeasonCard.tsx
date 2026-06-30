@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import ManagerCard from './ManagerCard'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
+import MarketSeasonMakeupWindow from './MarketSeasonMakeupWindow'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 
 const DANGER = '#dc2626'
@@ -16,6 +18,7 @@ interface Season {
   end_date: string
   declared_market_days: number | null
   refund_cap_days: number | null
+  potential_makeup_days: number | null
   prepay_open: boolean
   prepay_opened_at: string | null
   prepay_closes_at: string | null
@@ -28,6 +31,13 @@ function fmtDate(d: string | null): string {
   if (!d) return '—'
   const date = new Date(`${d}T00:00:00`)
   return Number.isNaN(date.getTime()) ? d : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+/** Today as YYYY-MM-DD (local), for the "season has reached its end" check. */
+function todayStr(): string {
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
 /** Human range that tolerates a one-sided admin season (NULL = open-ended that side). */
@@ -97,6 +107,61 @@ function SeasonSyncWarning({
 }
 
 /**
+ * Inline editor for a season's make-up buffer (potential_makeup_days). Opt-in:
+ * 0 or >= 2. Editable until the season ends (PATCH set_makeup_days).
+ */
+function MakeupBufferEditor({ marketId, season, onSaved }: { marketId: string; season: Season; onSaved: () => void }) {
+  const current = String(season.potential_makeup_days ?? 0)
+  const [val, setVal] = useState(current)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  async function save() {
+    const n = Number(val)
+    if (!Number.isInteger(n) || (n !== 0 && n < 2)) { setErr('0 or 2+'); return }
+    setBusy(true); setErr(null)
+    try {
+      const res = await fetch(`/api/market-manager/${marketId}/seasons`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seasonId: season.id, action: 'set_makeup_days', potential_makeup_days: n }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) setErr(data.error || 'Failed')
+      else onSaved()
+    } catch {
+      setErr('Network error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], fontSize: typography.sizes.xs, color: colors.textMuted }}>
+      <span>Make-up buffer (0 or 2+):</span>
+      <input
+        type="number" min={0} value={val} onChange={(e) => setVal(e.target.value)}
+        style={{
+          width: 56, padding: `2px ${spacing['3xs']}`, border: `1px solid ${colors.border}`,
+          borderRadius: radius.sm, fontSize: typography.sizes.xs, color: colors.textPrimary,
+          backgroundColor: colors.surfaceElevated,
+        }}
+      />
+      {val !== current && (
+        <button type="button" onClick={save} disabled={busy} style={{
+          padding: `2px ${spacing.xs}`, minHeight: 28, backgroundColor: colors.primary, color: '#fff',
+          border: 'none', borderRadius: radius.sm, fontSize: typography.sizes.xs,
+          cursor: busy ? 'wait' : 'pointer',
+        }}>
+          {busy ? '…' : 'Save'}
+        </button>
+      )}
+      {err && <span style={{ color: '#721c24' }}>{err}</span>}
+    </div>
+  )
+}
+
+/**
  * Phase E — manager season pre-sale setup. Create a season (the system derives
  * the market-day count + a 10% refund cap), then open the pre-sale window
  * (allowed within 60 days of start; one open season per market at a time; auto-
@@ -127,11 +192,13 @@ export default function MarketSeasonCard({
   const [name, setName] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [makeupDays, setMakeupDays] = useState('0')
   const [creating, setCreating] = useState(false)
   const [needsScheduleConfirm, setNeedsScheduleConfirm] = useState(false)
   const [scheduleConfirmChecked, setScheduleConfirmChecked] = useState(false)
 
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [endingId, setEndingId] = useState<string | null>(null)
   const [ackedSeasons, setAckedSeasons] = useState<Set<string>>(new Set())
   const fetched = useRef(false)
 
@@ -176,6 +243,7 @@ export default function MarketSeasonCard({
           name: name.trim(),
           start_date: startDate,
           end_date: endDate,
+          potential_makeup_days: Number(makeupDays) || 0,
           ...(scheduleConfirmChecked ? { scheduleConfirmed: true } : {}),
         }),
       })
@@ -184,7 +252,7 @@ export default function MarketSeasonCard({
         if (data.needsScheduleConfirm) { setNeedsScheduleConfirm(true); setError(null) }
         else setError(data.error || 'Could not create the season.')
       } else {
-        setName(''); setStartDate(''); setEndDate('')
+        setName(''); setStartDate(''); setEndDate(''); setMakeupDays('0')
         setNeedsScheduleConfirm(false); setScheduleConfirmChecked(false)
         await load()
       }
@@ -195,7 +263,7 @@ export default function MarketSeasonCard({
     }
   }
 
-  async function act(seasonId: string, action: 'open_prepay' | 'close_prepay') {
+  async function act(seasonId: string, action: 'open_prepay' | 'close_prepay' | 'end_season') {
     setError(null)
     setBusyId(seasonId)
     try {
@@ -266,6 +334,10 @@ export default function MarketSeasonCard({
             const outOfSync = datesOutOfSync(adminSeasonStart, adminSeasonEnd, s.start_date, s.end_date)
             const acked = ackedSeasons.has(s.id)
             const openBlocked = outOfSync && !acked
+            const pastEnd = !!s.end_date && s.end_date <= todayStr()
+            const isEnded = s.status === 'ended'
+            const isSettled = s.status === 'settled'
+            const canEnd = s.status === 'active' && pastEnd && !s.prepay_open
             return (
               <div key={s.id} style={{
                 padding: spacing.xs, border: `1px solid ${colors.border}`, borderRadius: radius.sm,
@@ -294,17 +366,41 @@ export default function MarketSeasonCard({
                       )}
                     </div>
                     <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
-                      {fmtDate(s.start_date)} – {fmtDate(s.end_date)} · {s.declared_market_days ?? '?'} market days · cap {s.refund_cap_days ?? '?'} days
+                      {fmtDate(s.start_date)} – {fmtDate(s.end_date)} · {s.declared_market_days ?? '?'} market days · cap {s.refund_cap_days ?? '?'} days · make-up buffer {s.potential_makeup_days ?? 0}
                       {s.prepay_open && s.prepay_closes_at ? ` · closes ${fmtDate(s.prepay_closes_at.slice(0, 10))}` : ''}
                     </div>
                   </div>
-                  {s.prepay_open ? (
+                  {isSettled ? (
+                    <span style={{
+                      padding: `${spacing['2xs']} ${spacing.sm}`, fontSize: typography.sizes.sm,
+                      color: colors.textMuted, fontWeight: typography.weights.medium,
+                    }}>
+                      Settled
+                    </span>
+                  ) : isEnded ? (
+                    <span style={{
+                      padding: `0 ${spacing['2xs']}`, borderRadius: radius.full, fontSize: typography.sizes.xs,
+                      fontWeight: typography.weights.medium, backgroundColor: '#ecfdf5', color: '#065f46',
+                      border: '1px solid #10b981',
+                    }}>
+                      Make-up window
+                    </span>
+                  ) : s.prepay_open ? (
                     <button onClick={() => act(s.id, 'close_prepay')} disabled={busyId === s.id} style={{
                       padding: `${spacing['2xs']} ${spacing.sm}`, backgroundColor: colors.surfaceBase,
                       color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: radius.sm,
                       fontSize: typography.sizes.sm, cursor: busyId === s.id ? 'wait' : 'pointer',
                     }}>
                       {busyId === s.id ? '…' : 'Close pre-sales'}
+                    </button>
+                  ) : canEnd ? (
+                    <button onClick={() => setEndingId(s.id)} disabled={busyId === s.id} style={{
+                      padding: `${spacing['2xs']} ${spacing.sm}`, minHeight: 44, backgroundColor: colors.primary,
+                      color: '#fff', border: 'none', borderRadius: radius.sm,
+                      fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold,
+                      cursor: busyId === s.id ? 'wait' : 'pointer',
+                    }}>
+                      {busyId === s.id ? '…' : 'End season & open make-up window'}
                     </button>
                   ) : (
                     <button onClick={() => act(s.id, 'open_prepay')} disabled={busyId === s.id || openBlocked} style={{
@@ -334,6 +430,13 @@ export default function MarketSeasonCard({
                     <span>I understand the season dates don&apos;t match — I&apos;ve contacted my admin to align them before renting booths.</span>
                   </label>
                 )}
+
+                {!isEnded && !isSettled && (
+                  <MakeupBufferEditor marketId={marketId} season={s} onSaved={load} />
+                )}
+                {isEnded && (
+                  <MarketSeasonMakeupWindow marketId={marketId} seasonId={s.id} />
+                )}
               </div>
             )
           })}
@@ -357,6 +460,14 @@ export default function MarketSeasonCard({
             <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={inputStyle} />
           </label>
         </div>
+
+        <label style={{ display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
+          <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
+            Make-up days buffer (0, or 2+) — how many post-close make-up days your climate &amp; community could
+            support if you have to cancel market days. Leave at 0 for none.
+          </span>
+          <input type="number" min={0} value={makeupDays} onChange={(e) => setMakeupDays(e.target.value)} style={inputStyle} />
+        </label>
 
         {createOutOfSync && (
           <SeasonSyncWarning
@@ -385,6 +496,16 @@ export default function MarketSeasonCard({
           {creating ? 'Creating…' : 'Create season'}
         </button>
       </div>
+
+      <ConfirmDialog
+        open={!!endingId}
+        title="End this season?"
+        message="This closes the season. If no make-up days are owed it settles right away; otherwise the make-up window opens so you can schedule make-up dates and settle owed days in Season settlement. You can't reopen pre-sales for it afterward."
+        confirmLabel="End season"
+        cancelLabel="Cancel"
+        onConfirm={async () => { const id = endingId; setEndingId(null); if (id) await act(id, 'end_season') }}
+        onCancel={() => setEndingId(null)}
+      />
     </ManagerCard>
   )
 }

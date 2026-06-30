@@ -49,7 +49,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const service = createServiceClient()
     const { data: seasons, error } = await service
       .from('market_seasons')
-      .select('id, name, start_date, end_date, declared_market_days, refund_cap_days, prepay_open, prepay_opened_at, prepay_closes_at, status, created_at')
+      .select('id, name, start_date, end_date, declared_market_days, refund_cap_days, potential_makeup_days, prepay_open, prepay_opened_at, prepay_closes_at, status, created_at')
       .eq('market_id', marketId)
       .order('start_date', { ascending: false })
     if (error) throw traced.fromSupabase(error, { table: 'market_seasons', operation: 'select' })
@@ -77,8 +77,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const startDate = typeof body?.start_date === 'string' ? body.start_date.trim() : ''
     const endDate = typeof body?.end_date === 'string' ? body.end_date.trim() : ''
     const scheduleConfirmed = body?.scheduleConfirmed === true
+    // Make-up buffer (Phase E make-up days): opt-in, 0 or >= 2 (matches the
+    // market_seasons CHECK). Default 0 = no buffer for this season.
+    const potentialMakeupDays = Number.isInteger(body?.potential_makeup_days) ? body.potential_makeup_days : 0
 
     if (!name) return NextResponse.json({ error: 'A season name is required', field: 'name' }, { status: 400 })
+    if (potentialMakeupDays !== 0 && potentialMakeupDays < 2) {
+      return NextResponse.json({ error: 'Make-up days must be 0 or at least 2.', field: 'potential_makeup_days' }, { status: 400 })
+    }
     if (!DATE_RE.test(startDate) || Number.isNaN(Date.parse(startDate))) {
       return NextResponse.json({ error: 'start_date must be a valid YYYY-MM-DD', field: 'start_date' }, { status: 400 })
     }
@@ -129,6 +135,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         end_date: endDate,
         declared_market_days: declaredMarketDays,
         refund_cap_days: refundCapDays,
+        potential_makeup_days: potentialMakeupDays,
         status: 'draft',
       })
       .select('id, name, start_date, end_date, declared_market_days, refund_cap_days, prepay_open, status')
@@ -145,6 +152,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
  *                           set prepay_closes_at = start_date + 14 days.
  *   action='close_prepay' — manual early close.
  *   action='set_cap'      — body.refund_cap_days, clamped to the 15% ceiling.
+ *   action='set_makeup_days' — body.potential_makeup_days (0 or >=2), editable
+ *                           until the season ends.
  *   action='end_season'   — at/after end_date: close the season → 'ended' (opens
  *                           the make-up window) or 'settled' if no debt is owed.
  */
@@ -229,6 +238,23 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       const { error: updErr } = await service
         .from('market_seasons')
         .update({ prepay_open: false, status })
+        .eq('id', seasonId)
+      if (updErr) throw traced.fromSupabase(updErr, { table: 'market_seasons', operation: 'update' })
+      return NextResponse.json({ ok: true })
+    }
+
+    if (action === 'set_makeup_days') {
+      const status = season.status as string
+      if (status === 'ended' || status === 'settled') {
+        return NextResponse.json({ error: "The make-up buffer can't be changed after the season has ended." }, { status: 409 })
+      }
+      const requested = Number(body?.potential_makeup_days)
+      if (!Number.isInteger(requested) || (requested !== 0 && requested < 2)) {
+        return NextResponse.json({ error: 'Make-up days must be 0 or at least 2.' }, { status: 400 })
+      }
+      const { error: updErr } = await service
+        .from('market_seasons')
+        .update({ potential_makeup_days: requested })
         .eq('id', seasonId)
       if (updErr) throw traced.fromSupabase(updErr, { table: 'market_seasons', operation: 'update' })
       return NextResponse.json({ ok: true })

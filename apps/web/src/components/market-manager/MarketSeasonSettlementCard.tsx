@@ -21,7 +21,7 @@ interface SeasonView {
   groups: GroupView[]
 }
 
-type Resolution = 'off_platform'
+type Resolution = 'off_platform' | 'made_up'
 
 interface Pending {
   seasonId: string
@@ -106,7 +106,9 @@ export default function MarketSeasonSettlementCard({ marketId }: { marketId: str
       if (!res.ok) {
         setNotice(data.error || 'Could not settle this group.')
       } else {
-        setNotice(`Marked ${pending.vendorName} settled off-platform.`)
+        setNotice(pending.resolution === 'made_up'
+          ? `Marked ${pending.vendorName} made whole with make-up days.`
+          : `Marked ${pending.vendorName} settled off-platform.`)
         await load()
       }
     } catch {
@@ -123,7 +125,7 @@ export default function MarketSeasonSettlementCard({ marketId }: { marketId: str
     <ManagerCard
       id="settlement"
       title="Season settlement"
-      description="For ended seasons where a vendor lost more than the refund cap to manager-cancelled days: make them whole directly and record it here. (In-platform credit / make-up-date resolution arrives with the season make-up feature.)"
+      description="For ended seasons where a vendor lost more than the refund cap to manager-cancelled days: cover the owed days with scheduled make-up days, or make the vendor whole directly off-platform. No money moves backward — the manager already holds the booth payment."
     >
       {loading && <p style={muted}>Loading…</p>}
       {error && <p style={{ ...muted, color: '#721c24' }}>{error}</p>}
@@ -193,23 +195,42 @@ export default function MarketSeasonSettlementCard({ marketId }: { marketId: str
                         Settled
                       </span>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => setPending({ seasonId: season.id, groupId: g.groupId, resolution: 'off_platform', owedCents: g.owedCents, vendorName: g.vendorName })}
-                        style={{
-                          padding: `${spacing['2xs']} ${spacing.sm}`,
-                          backgroundColor: colors.primary,
-                          color: '#fff',
-                          border: 'none',
-                          borderRadius: radius.sm,
-                          fontSize: typography.sizes.sm,
-                          fontWeight: typography.weights.semibold,
-                          cursor: 'pointer',
-                          minHeight: 44,
-                        }}
-                      >
-                        Settled off-platform
-                      </button>
+                      <div style={{ display: 'flex', gap: spacing.xs, flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          onClick={() => setPending({ seasonId: season.id, groupId: g.groupId, resolution: 'made_up', owedCents: g.owedCents, vendorName: g.vendorName })}
+                          style={{
+                            padding: `${spacing['2xs']} ${spacing.sm}`,
+                            backgroundColor: colors.primary,
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: radius.sm,
+                            fontSize: typography.sizes.sm,
+                            fontWeight: typography.weights.semibold,
+                            cursor: 'pointer',
+                            minHeight: 44,
+                          }}
+                        >
+                          Made up with make-up days
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPending({ seasonId: season.id, groupId: g.groupId, resolution: 'off_platform', owedCents: g.owedCents, vendorName: g.vendorName })}
+                          style={{
+                            padding: `${spacing['2xs']} ${spacing.sm}`,
+                            backgroundColor: colors.surfaceBase,
+                            color: colors.textPrimary,
+                            border: `1px solid ${colors.border}`,
+                            borderRadius: radius.sm,
+                            fontSize: typography.sizes.sm,
+                            fontWeight: typography.weights.semibold,
+                            cursor: 'pointer',
+                            minHeight: 44,
+                          }}
+                        >
+                          Settled off-platform
+                        </button>
+                      </div>
                     )}
                   </div>
                 ))}
@@ -221,8 +242,10 @@ export default function MarketSeasonSettlementCard({ marketId }: { marketId: str
 
       <ConfirmDialog
         open={!!pending}
-        title="Mark settled off-platform?"
-        message={`Record that you've made ${pending?.vendorName ?? 'this vendor'} whole directly, outside the platform (about ${fmtPrice(pending?.owedCents ?? 0)} for the days beyond the cap). No credit is added here.`}
+        title={pending?.resolution === 'made_up' ? 'Mark made up with make-up days?' : 'Mark settled off-platform?'}
+        message={pending?.resolution === 'made_up'
+          ? `Record that ${pending?.vendorName ?? 'this vendor'}'s cancelled days (about ${fmtPrice(pending?.owedCents ?? 0)} beyond the cap) were covered by the scheduled make-up days. The vendor is notified; no credit or cash moves.`
+          : `Record that you've made ${pending?.vendorName ?? 'this vendor'} whole directly, outside the platform (about ${fmtPrice(pending?.owedCents ?? 0)} for the days beyond the cap). No credit is added here.`}
         confirmLabel={submitting ? 'Working…' : 'Confirm'}
         cancelLabel="Cancel"
         onConfirm={confirmResolve}
