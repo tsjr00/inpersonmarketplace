@@ -507,20 +507,10 @@ describe('Phase E season status lifecycle', () => {
   //   draft   — create (api/market-manager/[marketId]/seasons POST, insert)
   //   open    — open pre-sales (same route, action=open_prepay)
   //   active  — close pre-sales after the season start (action=close_prepay)
-  //   settled — manager settlement route
-  const liveStatuses = ['draft', 'open', 'active', 'settled']
-
-  // 'ended' is RESERVED — intentionally not yet wired (documented 2026-06-28).
-  // Origin: the foundation enum mirrored the event lifecycle
-  // (ready→active→review). For seasons, settlement keys off the DATE
-  // (end_date <= today && status !== 'settled', MarketSeasonSettlementCard.tsx),
-  // so the active→ended transition was never built. 'ended' is EARMARKED as the
-  // settlement trigger for the season make-up / extend-a-season feature: once a
-  // make-up date can fall AFTER end_date, date-based eligibility breaks, and an
-  // explicit 'ended' (set only when ALL dates are truly done) is the robust
-  // signal. When that feature wires active→ended, move 'ended' into liveStatuses
-  // and delete the reserved-status test below.
-  const reservedStatuses = ['ended']
+  //   ended   — manager ends the season (same route, action=end_season) → opens
+  //             the make-up window; wired by the make-up/extend feature 2026-06-29
+  //   settled — manager settlement route (or end_season when no debt is owed)
+  const liveStatuses = ['draft', 'open', 'active', 'ended', 'settled']
 
   function findSeasonStatusSetter(status: string): boolean {
     const apiDir = path.join(APP_DIR, 'api')
@@ -549,12 +539,4 @@ describe('Phase E season status lifecycle', () => {
       expect(findSeasonStatusSetter(status)).toBe(true)
     })
   }
-
-  it('reserved season status "ended" is not yet wired (earmarked for make-up/extend)', () => {
-    // Locks the documented reality. When the make-up/extend feature wires
-    // active→ended, delete this test and move 'ended' to liveStatuses.
-    for (const status of reservedStatuses) {
-      expect(findSeasonStatusSetter(status)).toBe(false)
-    }
-  })
 })

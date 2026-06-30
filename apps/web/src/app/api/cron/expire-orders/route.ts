@@ -14,6 +14,7 @@ import { calculateNoShowPayout, shouldTriggerNoShow } from '@/lib/cron/no-show'
 import { STRIPE_CHECKOUT_EXPIRY_MS, PAYOUT_RETRY_MAX_DAYS, STALE_CONFIRMATION_WINDOW_MS, isStripeCheckoutExpired, isConfirmationWindowStale } from '@/lib/cron/order-timing'
 import { getSeasonCheckoutSessionState } from '@/lib/stripe/session-status'
 import { sendSeasonPaidNotifications } from '@/lib/markets/season-notifications'
+import { seasonHasOutstandingDebt } from '@/lib/markets/season-debt'
 
 /**
  * Timing-safe string comparison to prevent timing attacks
@@ -46,6 +47,7 @@ function safeCompare(a: string, b: string): boolean {
  * Phase 9: Data retention — delete old error_logs (90d), read notifications (60d), activity_events (30d)
  * Phase 10: Vendor trial lifecycle — reminders, trial expiry, grace period auto-unpublish
  * Phase 16: Expire abandoned booth rental bookings (Phase C Stage 3)
+ * Phase 20: Auto-end seasons past end_date (Phase E make-up backstop)
  *           — orphans (no Stripe session) after 30 min, stale sessions after 24h
  *
  * Called by Vercel Cron daily at 12pm UTC / ~6am CT (configured in vercel.json)
@@ -2751,6 +2753,44 @@ export async function GET(request: NextRequest) {
       totalErrors++
     }
 
+    // ─── Phase 20: auto-end seasons whose end_date has passed (Phase E) ──────
+    // Manager-clicked end_season is the primary path; this backstop keeps the
+    // lifecycle from freezing in 'active'. No-debt seasons settle directly;
+    // seasons that owe settlement go to 'ended' (opens the make-up window).
+    let seasonsAutoEnded = 0
+    let seasonsAutoSettled = 0
+    try {
+      const todayStr = new Date().toISOString().slice(0, 10)
+      const { data: activeSeasons } = await supabase
+        .from('market_seasons')
+        .select('id, market_id, refund_cap_days')
+        .eq('status', 'active')
+        .lt('end_date', todayStr)
+      for (const s of activeSeasons ?? []) {
+        const hasDebt = await seasonHasOutstandingDebt(
+          supabase, s.market_id as string, s.id as string, (s.refund_cap_days as number) ?? 0,
+        )
+        const newStatus = hasDebt ? 'ended' : 'settled'
+        const { error: updErr } = await supabase
+          .from('market_seasons')
+          .update({ status: newStatus, prepay_open: false })
+          .eq('id', s.id)
+          .eq('status', 'active') // guard against a concurrent manual end_season
+        if (!updErr) {
+          if (newStatus === 'ended') seasonsAutoEnded++
+          else seasonsAutoSettled++
+        }
+      }
+      const n = seasonsAutoEnded + seasonsAutoSettled
+      if (n > 0) {
+        console.log(`Phase 20: auto-ended ${n} season(s) (${seasonsAutoEnded} to make-up window, ${seasonsAutoSettled} settled no-debt)`)
+        totalProcessed += n
+      }
+    } catch (phase20Error) {
+      console.error('Phase 20 error:', phase20Error instanceof Error ? phase20Error.message : 'Unknown error')
+      totalErrors++
+    }
+
     return NextResponse.json({
       success: true,
       message: `Processed ${totalProcessed} items`,
@@ -2767,6 +2807,7 @@ export async function GET(request: NextRequest) {
       trialLifecycle: { reminders: trialReminders, expired: trialExpired, graceProcessed: trialGraceProcessed },
       boothRentals: { orphansCancelled: boothRentalsCancelledOrphan, staleSessionsCancelled: boothRentalsCancelledStale },
       seasonGroups: { confirmed: seasonGroupsConfirmed, cancelled: seasonGroupsCancelled },
+      seasonLifecycle: { autoEnded: seasonsAutoEnded, autoSettled: seasonsAutoSettled },
       staleInvitations: { expired: staleInvitationsExpired },
       eventReminders,
       selfServiceResultsSent,

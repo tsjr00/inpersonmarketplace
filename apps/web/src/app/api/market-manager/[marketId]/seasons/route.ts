@@ -4,6 +4,7 @@ import { withErrorTracing, traced } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { getSeasonBookableWeeks } from '@/lib/markets/season-weeks'
+import { seasonHasOutstandingDebt } from '@/lib/markets/season-debt'
 
 // Phase E (O6) presale constants.
 const MAX_PRESALE_LEAD_DAYS = 60   // can't open a season's prepay earlier than this before start
@@ -144,6 +145,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
  *                           set prepay_closes_at = start_date + 14 days.
  *   action='close_prepay' — manual early close.
  *   action='set_cap'      — body.refund_cap_days, clamped to the 15% ceiling.
+ *   action='end_season'   — at/after end_date: close the season → 'ended' (opens
+ *                           the make-up window) or 'settled' if no debt is owed.
  */
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ marketId: string }> }) {
   return withErrorTracing('/api/market-manager/[marketId]/seasons', 'PATCH', async () => {
@@ -158,7 +161,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const service = createServiceClient()
     const { data: season } = await service
       .from('market_seasons')
-      .select('id, market_id, start_date, declared_market_days, prepay_open')
+      .select('id, market_id, start_date, end_date, declared_market_days, prepay_open, status, refund_cap_days')
       .eq('id', seasonId)
       .maybeSingle()
     if (!season || season.market_id !== marketId) {
@@ -170,6 +173,23 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const start = parseUtc(season.start_date as string)
 
     if (action === 'open_prepay') {
+      // Enforcement: a prior season that ended with settlement still open must be
+      // settled before a new season's pre-sales can open — ties future booth
+      // revenue to handling owed time, and prevents debt/credit rollover.
+      const { data: unsettled } = await service
+        .from('market_seasons')
+        .select('id, name')
+        .eq('market_id', marketId)
+        .eq('status', 'ended')
+        .neq('id', seasonId)
+        .limit(1)
+        .maybeSingle()
+      if (unsettled) {
+        return NextResponse.json(
+          { error: `Settle "${unsettled.name}" before opening pre-sales for a new season.` },
+          { status: 409 }
+        )
+      }
       // 60-day lead cap: can't open earlier than start - 60 days.
       if (today < addDaysUtc(start, -MAX_PRESALE_LEAD_DAYS)) {
         return NextResponse.json(
@@ -212,6 +232,30 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         .eq('id', seasonId)
       if (updErr) throw traced.fromSupabase(updErr, { table: 'market_seasons', operation: 'update' })
       return NextResponse.json({ ok: true })
+    }
+
+    if (action === 'end_season') {
+      const status = season.status as string
+      if (status === 'ended' || status === 'settled') {
+        return NextResponse.json({ error: 'This season has already been ended.' }, { status: 409 })
+      }
+      const end = parseUtc(season.end_date as string)
+      if (today < end) {
+        return NextResponse.json({ error: "You can't end a season before its end date." }, { status: 409 })
+      }
+
+      // No outstanding debt (no paid group owes settlement value beyond the cap)
+      // → settle directly so the no-cancellation case is one frictionless click.
+      const refundCapDays = (season.refund_cap_days as number) ?? 0
+      const hasDebt = await seasonHasOutstandingDebt(service, marketId, seasonId, refundCapDays)
+
+      const newStatus = hasDebt ? 'ended' : 'settled'
+      const { error: updErr } = await service
+        .from('market_seasons')
+        .update({ status: newStatus, prepay_open: false })
+        .eq('id', seasonId)
+      if (updErr) throw traced.fromSupabase(updErr, { table: 'market_seasons', operation: 'update' })
+      return NextResponse.json({ ok: true, status: newStatus, makeup_window_open: newStatus === 'ended' })
     }
 
     if (action === 'set_cap') {
