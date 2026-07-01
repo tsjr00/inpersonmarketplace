@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 
@@ -127,6 +127,54 @@ export async function GET(request: NextRequest) {
 
     type TruckEntry = typeof trucks[number]
 
+    // FT park-manager P2: a PAID park-spot booking puts a truck on the map for
+    // its booked date automatically (booking = attendance). park_spot_bookings
+    // is RLS default-deny, so read via the service client — scoped to paid rows
+    // on this date + public-safe fields (this route already exposes truck
+    // locations publicly). Only ADD trucks not already shown via a free schedule
+    // declaration (dedupe by vendor+market), so a truck that's both declared and
+    // booked isn't listed twice.
+    const serviceClient = createServiceClient()
+    const { data: paidBookings } = await serviceClient
+      .from('park_spot_bookings')
+      .select(`
+        booking_date,
+        vendor_profiles:vendor_profile_id ( id, profile_data, profile_image_url, status, vertical_id ),
+        markets:market_id ( id, name, address, city, state, zip, latitude, longitude, status, start_time, end_time )
+      `)
+      .eq('status', 'paid')
+      .eq('booking_date', dateStr)
+
+    const scheduledPairs = new Set(trucks.map(t => `${t.vendor_id}|${t.market_id}`))
+    const bookedTrucks: TruckEntry[] = (paidBookings ?? [])
+      .map((b): TruckEntry | null => {
+        const vp = b.vendor_profiles as unknown as { id: string; profile_data: Record<string, unknown>; profile_image_url: string | null; status: string; vertical_id: string } | null
+        const m = b.markets as unknown as { id: string; name: string; address: string; city: string; state: string; zip: string; latitude: number; longitude: number; status: string; start_time: string; end_time: string } | null
+        if (!vp || !m) return null
+        if (vp.status !== 'approved' || vp.vertical_id !== vertical) return null
+        if (m.status !== 'active') return null
+        if (scheduledPairs.has(`${vp.id}|${m.id}`)) return null
+        const dist = hasLocation && m.latitude && m.longitude
+          ? distanceKm(lat, lng, Number(m.latitude), Number(m.longitude))
+          : null
+        if (hasLocation && dist !== null && dist > maxDistKm) return null
+        return {
+          vendor_id: vp.id,
+          truck_name: (vp.profile_data?.business_name as string) || (vp.profile_data?.farm_name as string) || 'Vendor',
+          profile_image_url: vp.profile_image_url,
+          location_name: m.name,
+          address: [m.address, m.city, m.state].filter(Boolean).join(', ') + (m.zip ? ' ' + m.zip : ''),
+          city: m.city,
+          start_time: m.start_time,
+          end_time: m.end_time,
+          distance_miles: dist ? Math.round(dist / 1.609 * 10) / 10 : null,
+          market_id: m.id,
+        }
+      })
+      .filter((x): x is TruckEntry => x !== null)
+
+    const allTrucks = [...trucks, ...bookedTrucks]
+
     // Phase C follow-up (2026-05-17): dedupe by (vendor_id, market_id,
     // start_time, end_time). A vendor could legitimately appear twice
     // for the same market on the same day if the market has multiple
@@ -135,7 +183,7 @@ export async function GET(request: NextRequest) {
     // (data dupes from legacy schedule rows) collapse to one entry.
     const dedupedTrucks: TruckEntry[] = []
     const seenKeys = new Set<string>()
-    for (const t of trucks) {
+    for (const t of allTrucks) {
       const key = `${t.vendor_id}|${t.market_id}|${t.start_time || ''}|${t.end_time || ''}`
       if (seenKeys.has(key)) continue
       seenKeys.add(key)

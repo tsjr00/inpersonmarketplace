@@ -156,6 +156,13 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
     return
   }
 
+  // FT park-manager P2: park spot booking (one payment, one spot, N dates).
+  // Flips park_spot_bookings by booking_group_id to paid.
+  if (session.metadata?.type === 'park_spot') {
+    await handleParkSpotCheckoutComplete(session)
+    return
+  }
+
   // Handle regular product checkout (may include market box items)
   const orderId = session.metadata?.order_id
   if (!orderId) return
@@ -1405,4 +1412,82 @@ async function handleSeasonBoothCheckoutComplete(session: Stripe.Checkout.Sessio
 
   // Vendor + manager "season paid" notifications (best-effort; never throws).
   await sendSeasonPaidNotifications(supabase, groupId)
+}
+
+/**
+ * FT park-manager P2 — handle a successful park-spot checkout (type='park_spot').
+ * Flips every park_spot_bookings row in the booking_group_id bundle from
+ * 'pending_payment' to 'paid'. Idempotent (already-paid → skip; no-pending →
+ * flag for reconciliation). Notifications deferred (mirrors the original
+ * booth_rental handler — data integrity first).
+ */
+async function handleParkSpotCheckoutComplete(session: Stripe.Checkout.Session) {
+  const supabase = createServiceClient()
+
+  const groupId = session.metadata?.group_id ||
+    (session.client_reference_id?.startsWith('park_spot_')
+      ? session.client_reference_id.slice('park_spot_'.length)
+      : null)
+
+  if (!groupId) {
+    await logError(new TracedError(
+      'ERR_WEBHOOK_011',
+      `park_spot session missing group_id (session ${session.id})`,
+      { route: '/webhooks/stripe', method: 'POST' }
+    ))
+    return
+  }
+
+  const { data: bookings } = await supabase
+    .from('park_spot_bookings')
+    .select('id, status')
+    .eq('booking_group_id', groupId)
+
+  if (!bookings || bookings.length === 0) {
+    await logError(new TracedError(
+      'ERR_WEBHOOK_012',
+      `park_spot bookings not found for group_id ${groupId} (charged but unmatched)`,
+      { route: '/webhooks/stripe', method: 'POST' }
+    ))
+    return
+  }
+
+  // Idempotency: Stripe retries any non-2xx; second+ delivery is a no-op.
+  if (bookings.some((b) => b.status === 'paid')) {
+    crumb.stripe(`park_spot group ${groupId} already paid — idempotent skip`)
+    return
+  }
+
+  // Paid in Stripe but no pending rows (all cancelled) — never silently
+  // re-activate; flag for a human.
+  if (!bookings.some((b) => b.status === 'pending_payment')) {
+    await logError(new TracedError(
+      'ERR_WEBHOOK_014',
+      `park_spot group ${groupId} paid in Stripe but no pending rows (cancelled?) — manual reconciliation`,
+      { route: '/webhooks/stripe', method: 'POST' }
+    ))
+    return
+  }
+
+  const paymentIntentId = (session.payment_intent as string) || null
+
+  const { error: updateErr } = await supabase
+    .from('park_spot_bookings')
+    .update({
+      status: 'paid',
+      stripe_payment_intent_id: paymentIntentId,
+      paid_at: new Date().toISOString(),
+    })
+    .eq('booking_group_id', groupId)
+    .eq('status', 'pending_payment')
+
+  if (updateErr) {
+    throw new TracedError(
+      'ERR_WEBHOOK_013',
+      `park_spot status update failed for group ${groupId}: ${updateErr.message}`,
+      { route: '/webhooks/stripe', method: 'POST' }
+    )
+  }
+
+  crumb.stripe(`park_spot group ${groupId} flipped to paid (payment_intent ${paymentIntentId ?? 'unknown'})`)
 }

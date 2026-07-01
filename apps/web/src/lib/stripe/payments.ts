@@ -454,3 +454,91 @@ export async function createSeasonBoothCheckoutSession({
 
   return session
 }
+
+/**
+ * FT park-manager P2 — Stripe Checkout for a park SPOT booking (one payment,
+ * one spot, N dates). Sibling to createSeasonBoothCheckoutSession: a
+ * consolidated single-line destination charge with a summed transfer to the
+ * operator. The webhook (type='park_spot') flips park_spot_bookings by
+ * booking_group_id to paid. No booth-credit path (FT has none).
+ *
+ * Does NO math of its own — per-date vendorPaysCents + managerReceivesTotalCents
+ * are pre-computed by the caller via pricing.ts calculateBoothRentalFees (same
+ * contract as the booth functions). Idempotency key `park-spot-${groupId}` is
+ * deterministic (single-date bookings get a group-of-one id from the route).
+ */
+export async function createParkSpotCheckoutSession({
+  groupId,
+  marketId,
+  marketName,
+  spotLabel,
+  managerStripeAccountId,
+  dates,
+  managerReceivesTotalCents,
+  successUrl,
+  cancelUrl,
+  vertical,
+}: {
+  groupId: string
+  marketId: string
+  marketName: string
+  spotLabel: string
+  managerStripeAccountId: string                      // markets.stripe_account_id
+  dates: Array<{ bookingDate: string; vendorPaysCents: number }>
+  managerReceivesTotalCents: number                   // transfer_data.amount (sum)
+  successUrl: string
+  cancelUrl: string
+  vertical?: string
+}) {
+  const idempotencyKey = `park-spot-${groupId}`
+
+  // One consolidated line for the whole booking (single day or prepay-week).
+  // Total = sum of the per-day vendor amounts — identical charge to itemizing.
+  const totalVendorPaysCents = dates.reduce((sum, d) => sum + d.vendorPaysCents, 0)
+  const firstDate = dates[0]?.bookingDate
+  const lastDate = dates[dates.length - 1]?.bookingDate
+  const rangeLabel =
+    firstDate && lastDate && firstDate !== lastDate
+      ? ` (${firstDate} – ${lastDate})`
+      : firstDate ? ` (${firstDate})` : ''
+
+  const session = await stripe.checkout.sessions.create(
+    {
+      payment_method_types: ['card', 'cashapp', 'amazon_pay', 'link'],
+      line_items: [
+        {
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: `Spot rental — ${marketName}`,
+              description: `${spotLabel} · ${dates.length} day${dates.length === 1 ? '' : 's'}${rangeLabel}`,
+            },
+            unit_amount: totalVendorPaysCents,
+          },
+          quantity: 1,
+        },
+      ],
+      mode: 'payment',
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      client_reference_id: `park_spot_${groupId}`,
+      payment_intent_data: {
+        statement_descriptor_suffix: getStatementSuffix(vertical),
+        transfer_data: {
+          destination: managerStripeAccountId,
+          amount: managerReceivesTotalCents,
+        },
+      },
+      metadata: {
+        type: 'park_spot',
+        group_id: groupId,
+        market_id: marketId,
+        day_count: dates.length.toString(),
+        manager_receives_total_cents: managerReceivesTotalCents.toString(),
+      },
+    },
+    { idempotencyKey }
+  )
+
+  return session
+}
