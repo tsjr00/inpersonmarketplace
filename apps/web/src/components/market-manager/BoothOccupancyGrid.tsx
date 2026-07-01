@@ -1,10 +1,12 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import ManagerCard from '@/components/market-manager/ManagerCard'
+import { term } from '@/lib/vertical/terminology'
 
 interface BoothOccupancyGridProps {
   marketId: string
   marketTimezone: string | null
+  vertical: string
 }
 
 interface TierRow {
@@ -62,7 +64,7 @@ type Occupant = PlaceholderOccupant | OnPlatformOccupant | PaidRentalOccupant
  *     NULL (legacy data). Manager fixes by setting tier in the
  *     respective management card.
  */
-export default async function BoothOccupancyGrid({ marketId, marketTimezone }: BoothOccupancyGridProps) {
+export default async function BoothOccupancyGrid({ marketId, marketTimezone, vertical }: BoothOccupancyGridProps) {
   const tz = marketTimezone || 'America/Chicago'
   const todayLocal = new Date(new Date().toLocaleString('en-US', { timeZone: tz }))
   const weekStart = mondayOf(todayLocal)
@@ -171,8 +173,8 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone }: B
 
   return (
     <ManagerCard
-      title={<>Booth occupancy — this week:{' '}<span style={{ fontWeight: typography.weights.normal, color: colors.textMuted }}>{formatDisplayDate(weekStart)}</span></>}
-      description="Per-tier view of who's at the market this week — combines off-platform placeholders, on-platform vendors, and paid weekly bookings. Manage each source from the cards below."
+      title={<>{term(vertical, 'booth')} occupancy — this week:{' '}<span style={{ fontWeight: typography.weights.normal, color: colors.textMuted }}>{formatDisplayDate(weekStart)}</span></>}
+      description={`Per-tier view of who's at the ${term(vertical, 'market').toLowerCase()} this week — combines off-platform placeholders, on-platform ${term(vertical, 'vendors').toLowerCase()}, and paid weekly bookings. Manage each source from the cards below.`}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
         {tiers.map((tier, idx) => {
@@ -220,7 +222,7 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone }: B
 
               {occupants.length === 0 ? (
                 <div style={{ fontSize: typography.sizes.sm, color: colors.textMuted, fontStyle: 'italic' }}>
-                  No occupants yet — vendors can book this tier.
+                  No occupants yet — {term(vertical, 'vendors').toLowerCase()} can book this tier.
                 </div>
               ) : (
                 <ul style={{
@@ -236,7 +238,7 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone }: B
                     .sort(sortByBoothNumber)
                     .map((occ, idx) => (
                       <li key={`${occ.source}-${idx}-${occ.booth_number ?? ''}`}>
-                        <OccupantPill occ={occ} />
+                        <OccupantPill occ={occ} vertical={vertical} />
                       </li>
                     ))}
                 </ul>
@@ -262,7 +264,7 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone }: B
             <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: spacing['2xs'] }}>
               {unknownTier.sort(sortByBoothNumber).map((occ, idx) => (
                 <li key={`unknown-${idx}-${occ.booth_number ?? ''}`}>
-                  <OccupantPill occ={occ} />
+                  <OccupantPill occ={occ} vertical={vertical} />
                 </li>
               ))}
             </ul>
@@ -273,7 +275,7 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone }: B
   )
 }
 
-function OccupantPill({ occ }: { occ: Occupant }) {
+function OccupantPill({ occ, vertical }: { occ: Occupant; vertical: string }) {
   const badgeBg =
     occ.source === 'weekly_paid'
       ? '#dbeafe'
@@ -306,7 +308,7 @@ function OccupantPill({ occ }: { occ: Occupant }) {
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: spacing['2xs'] }}>
         <span style={{ fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {occ.booth_number ? `#${occ.booth_number}` : 'no booth #'}
+          {occ.booth_number ? `#${occ.booth_number}` : `no ${term(vertical, 'booth').toLowerCase()} #`}
         </span>
         <span style={{
           fontSize: 10,

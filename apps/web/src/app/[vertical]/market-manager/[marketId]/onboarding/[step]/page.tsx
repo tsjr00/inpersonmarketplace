@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { getOnboardingProgress } from '@/lib/markets/onboarding-progress'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical/terminology'
 import BoothInventoryManager from '@/components/market-manager/BoothInventoryManager'
 import BoothPlaceholderManager from '@/components/market-manager/BoothPlaceholderManager'
 import OptinManager from '@/components/market-manager/OptinManager'
@@ -197,9 +198,9 @@ export default async function OnboardingStepPage({ params }: PageProps) {
               fontSize: typography.sizes.sm,
               lineHeight: 1.5,
             }}>
-              Set up the booth size tiers at your market — how many of each size you have and the weekly rental price. This is the foundation for the weekly vendor booking flow. You need at least one tier to continue.
+              Set up the {term(vertical, 'booth').toLowerCase()} size tiers at your {term(vertical, 'market').toLowerCase()} — how many of each size you have and the weekly rental price. This is the foundation for the weekly {term(vertical, 'vendor').toLowerCase()} booking flow. You need at least one tier to continue.
             </p>
-            <BoothInventoryManager marketId={marketId} />
+            <BoothInventoryManager marketId={marketId} vertical={vertical} />
           </div>
         )}
 
@@ -217,7 +218,7 @@ export default async function OnboardingStepPage({ params }: PageProps) {
               fontSize: typography.sizes.sm,
               lineHeight: 1.5,
             }}>
-              Assign booth numbers + size tier to vendors who are on the platform and already attending this market. The list below shows everyone associated with the market.
+              Assign {term(vertical, 'booth').toLowerCase()} numbers + size tier to {term(vertical, 'vendors').toLowerCase()} who are on the platform and already attending this {term(vertical, 'market').toLowerCase()}. The list below shows everyone associated with the {term(vertical, 'market').toLowerCase()}.
             </p>
             {/* Mig 145: required step with explicit skip ack. The ack
                 checkbox flips markets.onboarding_no_existing_vendors_ack;
@@ -228,7 +229,7 @@ export default async function OnboardingStepPage({ params }: PageProps) {
               ackType="no_existing_vendors_ack"
               initialValue={progress.no_existing_vendors_ack}
             />
-            <VendorBoothList marketId={marketId} />
+            <VendorBoothList marketId={marketId} vertical={vertical} />
           </div>
         )}
 
@@ -246,7 +247,7 @@ export default async function OnboardingStepPage({ params }: PageProps) {
               fontSize: typography.sizes.sm,
               lineHeight: 1.5,
             }}>
-              Track booths occupied by vendors who are not on the platform yet. No vendor identity is captured — just the booth number and the size tier it occupies (required). If all your vendors are already on the platform, check the box below to mark this step done.
+              Track {term(vertical, 'booths').toLowerCase()} occupied by {term(vertical, 'vendors').toLowerCase()} who are not on the platform yet. No {term(vertical, 'vendor').toLowerCase()} identity is captured — just the {term(vertical, 'booth').toLowerCase()} number and the size tier it occupies (required). If all your {term(vertical, 'vendors').toLowerCase()} are already on the platform, check the box below to mark this step done.
             </p>
             {/* Mig 145: required step with explicit skip ack. */}
             <OnboardingSkipAckCheckbox
@@ -254,7 +255,7 @@ export default async function OnboardingStepPage({ params }: PageProps) {
               ackType="no_placeholders_ack"
               initialValue={progress.no_placeholders_ack}
             />
-            <BoothPlaceholderManager marketId={marketId} />
+            <BoothPlaceholderManager marketId={marketId} vertical={vertical} />
           </div>
         )}
 

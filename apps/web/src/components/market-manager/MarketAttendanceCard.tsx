@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import ManagerCard from './ManagerCard'
 import { colors, spacing, typography, radius, statusColors } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical/terminology'
 
 interface AttendanceRow {
   vendorProfileId: string
@@ -44,7 +45,7 @@ function locationFlag(row: AttendanceRow): { label: string; color: string } {
  * a date (default today), scoped server-side by isMarketManager. A date picker
  * supports weekly attendance monitoring.
  */
-export default function MarketAttendanceCard({ marketId }: { marketId: string }) {
+export default function MarketAttendanceCard({ marketId, vertical }: { marketId: string; vertical: string }) {
   const [date, setDate] = useState<string>('')
   const [rows, setRows] = useState<AttendanceRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -74,8 +75,8 @@ export default function MarketAttendanceCard({ marketId }: { marketId: string })
   return (
     <ManagerCard
       id="attendance"
-      title="Vendor attendance"
-      description="Who's checked in today. Pick a date for past market days. Self-attested; location is advisory."
+      title={`${term(vertical, 'vendor')} attendance`}
+      description={`Who's checked in today. Pick a date for past ${term(vertical, 'market').toLowerCase()} days. Self-attested; location is advisory.`}
       headerAccessory={
         <input
           type="date"
@@ -118,7 +119,7 @@ export default function MarketAttendanceCard({ marketId }: { marketId: string })
               >
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
-                    {r.vendorName}{r.boothNumber ? ` · booth ${r.boothNumber}` : ''}
+                    {r.vendorName}{r.boothNumber ? ` · ${term(vertical, 'booth').toLowerCase()} ${r.boothNumber}` : ''}
                   </div>
                   <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
                     {fmtTime(r.checkedInAt)} – {fmtTime(r.checkedOutAt)} · {duration(r.checkedInAt, r.checkedOutAt)}

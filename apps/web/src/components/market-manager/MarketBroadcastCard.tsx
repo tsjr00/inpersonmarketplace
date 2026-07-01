@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { colors, spacing, typography, radius, statusColors } from '@/lib/design-tokens'
 import ManagerCard from './ManagerCard'
+import { term } from '@/lib/vertical/terminology'
 
 /**
  * Manager broadcast composer + history (Session 92 Phase B-broadcast). One-way
@@ -12,6 +13,7 @@ import ManagerCard from './ManagerCard'
  */
 interface MarketBroadcastCardProps {
   marketId: string
+  vertical: string
 }
 
 interface BroadcastRow {
@@ -29,7 +31,7 @@ function formatSentAt(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-export default function MarketBroadcastCard({ marketId }: MarketBroadcastCardProps) {
+export default function MarketBroadcastCard({ marketId, vertical }: MarketBroadcastCardProps) {
   const [subject, setSubject] = useState('')
   const [bodyText, setBodyText] = useState('')
   const [busy, setBusy] = useState(false)
@@ -73,7 +75,7 @@ export default function MarketBroadcastCard({ marketId }: MarketBroadcastCardPro
       if (res.ok) {
         setResult({
           type: 'success',
-          text: `Sent to ${data.recipient_count ?? 0} vendor${data.recipient_count === 1 ? '' : 's'}.`,
+          text: `Sent to ${data.recipient_count ?? 0} ${term(vertical, 'vendor').toLowerCase()}${data.recipient_count === 1 ? '' : 's'}.`,
         })
         setSubject('')
         setBodyText('')
@@ -95,7 +97,7 @@ export default function MarketBroadcastCard({ marketId }: MarketBroadcastCardPro
   return (
     <ManagerCard
       title="Send an announcement"
-      description="Send a one-way message to the vendors at your market (everyone approved, plus anyone with a paid booth this week or later). They get an in-app notification and an email. Vendors can't reply here — share contact details in the message if you want responses. Up to 2 announcements per 7 days."
+      description={`Send a one-way message to the ${term(vertical, 'vendors').toLowerCase()} at your ${term(vertical, 'market').toLowerCase()} (everyone approved, plus anyone with a paid ${term(vertical, 'booth').toLowerCase()} this week or later). They get an in-app notification and an email. ${term(vertical, 'vendors')} can't reply here — share contact details in the message if you want responses. Up to 2 announcements per 7 days.`}
     >
       <input
         type="text"
@@ -116,7 +118,7 @@ export default function MarketBroadcastCard({ marketId }: MarketBroadcastCardPro
       <textarea
         value={bodyText}
         onChange={(e) => setBodyText(e.target.value.slice(0, MAX_BODY))}
-        placeholder="Your announcement to vendors…"
+        placeholder={`Your announcement to ${term(vertical, 'vendors').toLowerCase()}…`}
         rows={4}
         disabled={busy}
         style={{

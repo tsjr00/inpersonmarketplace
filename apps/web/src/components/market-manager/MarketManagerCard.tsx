@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import type { ManagedMarket } from '@/lib/markets/manager-queries'
+import { term } from '@/lib/vertical/terminology'
 
 interface MarketManagerCardProps {
   vertical: string
@@ -41,7 +42,7 @@ export default function MarketManagerCard({ vertical, markets }: MarketManagerCa
           fontWeight: typography.weights.semibold,
         }}
       >
-        🌾 My Markets
+        🌾 My {term(vertical, 'markets')}
       </h3>
       <p
         style={{
@@ -52,8 +53,8 @@ export default function MarketManagerCard({ vertical, markets }: MarketManagerCa
         }}
       >
         {markets.length === 1
-          ? 'You manage 1 market on the platform.'
-          : `You manage ${markets.length} markets on the platform.`}
+          ? `You manage 1 ${term(vertical, 'market').toLowerCase()} on the platform.`
+          : `You manage ${markets.length} ${term(vertical, 'markets').toLowerCase()} on the platform.`}
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
         {markets.map((m) => (

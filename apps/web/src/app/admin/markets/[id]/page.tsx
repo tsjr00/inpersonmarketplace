@@ -405,7 +405,7 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
       {/* Survey results — same component as the manager dashboard.
           Admin gets a per-market view of vendor + buyer survey
           aggregates. Phase E Stage 5. */}
-      <SurveyResultsCard marketId={id} />
+      <SurveyResultsCard marketId={id} vertical={market.vertical_id as string} />
     </div>
   )
 }

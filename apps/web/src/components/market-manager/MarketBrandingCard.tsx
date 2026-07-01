@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import ManagerCard from './ManagerCard'
+import { term } from '@/lib/vertical/terminology'
 
 /**
  * Manager dashboard card for market co-branding.
@@ -21,6 +22,7 @@ import ManagerCard from './ManagerCard'
  */
 interface MarketBrandingCardProps {
   marketId: string
+  vertical: string
   initialLogoUrl: string | null
   initialDescription: string | null
 }
@@ -29,6 +31,7 @@ const DESCRIPTION_MAX = 1000
 
 export default function MarketBrandingCard({
   marketId,
+  vertical,
   initialLogoUrl,
   initialDescription,
 }: MarketBrandingCardProps) {
@@ -148,7 +151,7 @@ export default function MarketBrandingCard({
   return (
     <ManagerCard
       title="Branding"
-      description="Upload your market's logo. It will appear on your public market profile and on the co-branded vendor invite page."
+      description={`Upload your ${term(vertical, 'market').toLowerCase()}'s logo. It will appear on your public ${term(vertical, 'market').toLowerCase()} profile and on the co-branded ${term(vertical, 'vendor').toLowerCase()} invite page.`}
     >
       {logoUrl ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, flexWrap: 'wrap', marginBottom: spacing.sm }}>
@@ -159,7 +162,7 @@ export default function MarketBrandingCard({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={logoUrl}
-            alt="Market logo"
+            alt={`${term(vertical, 'market')} logo`}
             style={{
               width: 120,
               height: 120,
@@ -288,7 +291,7 @@ export default function MarketBrandingCard({
           fontWeight: typography.weights.semibold,
           color: colors.textPrimary,
         }}>
-          Market description
+          {term(vertical, 'market')} description
         </h3>
         <p style={{
           margin: 0,
@@ -297,14 +300,12 @@ export default function MarketBrandingCard({
           color: colors.textMuted,
           lineHeight: 1.5,
         }}>
-          A short blurb about your market — what makes it special, what
-          vendors should know. Appears on your public market profile and
-          on the vendor invite page.
+          {`A short blurb about your ${term(vertical, 'market').toLowerCase()} — what makes it special, what ${term(vertical, 'vendors').toLowerCase()} should know. Appears on your public ${term(vertical, 'market').toLowerCase()} profile and on the ${term(vertical, 'vendor').toLowerCase()} invite page.`}
         </p>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="What makes your market special? Who comes? What do you focus on?"
+          placeholder={`What makes your ${term(vertical, 'market').toLowerCase()} special? Who comes? What do you focus on?`}
           rows={4}
           maxLength={DESCRIPTION_MAX}
           disabled={savingDescription}

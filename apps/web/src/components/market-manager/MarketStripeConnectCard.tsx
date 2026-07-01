@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import ManagerCard from './ManagerCard'
+import { term } from '@/lib/vertical/terminology'
 
 /**
  * Manager dashboard card for Stripe Connect onboarding + status.
@@ -34,6 +35,7 @@ import ManagerCard from './ManagerCard'
  */
 interface MarketStripeConnectCardProps {
   marketId: string
+  vertical: string
   /** The market's current `markets.status` value. When 'pending' (waiting
    *  for platform/admin approval), Stripe Connect is locked — the card
    *  renders a "review pending" state instead of the start-onboarding
@@ -90,7 +92,7 @@ function classifyStatus(s: StatusResponse): CardState {
   return { kind: 'under_review' }
 }
 
-export default function MarketStripeConnectCard({ marketId, marketStatus }: MarketStripeConnectCardProps) {
+export default function MarketStripeConnectCard({ marketId, vertical, marketStatus }: MarketStripeConnectCardProps) {
   const searchParams = useSearchParams()
   const marketIsPending = marketStatus === 'pending'
   const [state, setState] = useState<CardState>({ kind: 'loading' })
@@ -178,8 +180,8 @@ export default function MarketStripeConnectCard({ marketId, marketStatus }: Mark
 
   return (
     <ManagerCard
-      title="Booth rental payments"
-      description="Connect a Stripe account to receive booth rental payments from vendors who book at your market. Your account is separate from your vendor account (if you have one) — handled by Stripe directly, we never see your bank details."
+      title={`${term(vertical, 'booth')} rental payments`}
+      description={`Connect a Stripe account to receive ${term(vertical, 'booth').toLowerCase()} rental payments from ${term(vertical, 'vendors').toLowerCase()} who book at your ${term(vertical, 'market').toLowerCase()}. Your account is separate from your ${term(vertical, 'vendor').toLowerCase()} account (if you have one) — handled by Stripe directly, we never see your bank details.`}
     >
 
       {/* Pending review = Stripe locked. Skips the rest of the card body
@@ -198,12 +200,12 @@ export default function MarketStripeConnectCard({ marketId, marketStatus }: Mark
           lineHeight: 1.5,
         }}>
           <div style={{ fontWeight: typography.weights.semibold, marginBottom: spacing['3xs'] }}>
-            🔒 Locked until your market is approved
+            🔒 Locked until your {term(vertical, 'market').toLowerCase()} is approved
           </div>
-          Your market is under platform review (usually within one business day).
-          Once approved you can connect a Stripe account here to receive booth
-          rental payments. In the meantime you can keep setting up your booth
-          inventory, vendor agreement statements, and branding.
+          Your {term(vertical, 'market').toLowerCase()} is under platform review (usually within one business day).
+          Once approved you can connect a Stripe account here to receive {term(vertical, 'booth').toLowerCase()}
+          rental payments. In the meantime you can keep setting up your {term(vertical, 'booth').toLowerCase()}
+          inventory, {term(vertical, 'vendor').toLowerCase()} agreement statements, and branding.
         </div>
       ) : (
       <>
@@ -256,7 +258,7 @@ export default function MarketStripeConnectCard({ marketId, marketStatus }: Mark
       {state.kind === 'not_connected' && (
         <Action
           headline="No Stripe account yet"
-          body="Vendors can't book booths at your market until you finish Stripe onboarding. Once Stripe is connected and active, vendors can pay through the platform and your share is deposited automatically."
+          body={`${term(vertical, 'vendors')} can't book ${term(vertical, 'booths').toLowerCase()} at your ${term(vertical, 'market').toLowerCase()} until you finish Stripe onboarding. Once Stripe is connected and active, ${term(vertical, 'vendors').toLowerCase()} can pay through the platform and your share is deposited automatically.`}
           buttonLabel={busy ? 'Working…' : 'Start Stripe onboarding'}
           onClick={handleOnboard}
           busy={busy}
@@ -281,8 +283,8 @@ export default function MarketStripeConnectCard({ marketId, marketStatus }: Mark
             lineHeight: 1.5,
           }}>
             Stripe couldn&apos;t finish verifying your account and needs more information
-            before it can enable booth-rental payments — often a photo ID matching the name
-            and date of birth you entered. Vendors can&apos;t book booths (single weeks or
+            before it can enable {term(vertical, 'booth').toLowerCase()}-rental payments — often a photo ID matching the name
+            and date of birth you entered. {term(vertical, 'vendors')} can&apos;t book {term(vertical, 'booths').toLowerCase()} (single weeks or
             whole seasons) until this is resolved.
           </p>
           {state.reason && (
@@ -366,7 +368,7 @@ export default function MarketStripeConnectCard({ marketId, marketStatus }: Mark
             color: colors.textPrimary,
             lineHeight: 1.5,
           }}>
-            Stripe is connected. Vendors can book booths at your market and
+            Stripe is connected. {term(vertical, 'vendors')} can book {term(vertical, 'booths').toLowerCase()} at your {term(vertical, 'market').toLowerCase()} and
             pay through the platform — your share is deposited automatically.
           </p>
           <button

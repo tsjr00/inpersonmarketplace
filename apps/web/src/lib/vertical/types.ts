@@ -17,6 +17,11 @@ export type TerminologyKey =
   | 'event_preference_unit_singular' | 'event_preference_unit_plural'
   | 'event_hero_subtitle' | 'event_submit_button' | 'event_success_message'
   | 'event_request_name_suffix'
+  // Market-manager / booth-rental domain (FT park-operator port, 2026-07-01).
+  // 'season'/'week'/'weekly' FT values are PROVISIONAL — pending the FT
+  // rental-unit (day vs week) + season-support decisions.
+  | 'booth' | 'booths' | 'manager'
+  | 'season' | 'seasons' | 'week' | 'weekly'
   // CTAs & nav labels
   | 'browse_products_cta' | 'find_markets_cta' | 'find_vendors_cta'
   | 'vendor_signup_cta' | 'my_listings_nav' | 'create_listing_cta'

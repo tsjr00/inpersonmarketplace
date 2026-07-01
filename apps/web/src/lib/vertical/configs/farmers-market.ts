@@ -80,6 +80,15 @@ export const farmersMarketConfig: VerticalTerminologyConfig = {
     trust_vendors: 'Verified Vendors',
     trust_pickup: 'Local Pickup',
     trust_payments: 'Secure Payments',
+
+    // Market-manager / booth-rental domain
+    booth: 'Booth',
+    booths: 'Booths',
+    manager: 'Manager',
+    season: 'Season',
+    seasons: 'Seasons',
+    week: 'Week',
+    weekly: 'Weekly',
   },
 
   content: {

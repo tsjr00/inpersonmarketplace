@@ -1,25 +1,43 @@
-# Current Task: Phase E credit lifecycle (Item 4/4b/2) + RM projection tool ON STAGING — prod push pending
+# Current Task: FM season MAKE-UP DAYS shipped to STAGING (Steps 1–6) — prod push pending · NEXT SESSION = FT park-manager port
 
-**Updated:** 2026-06-28 EOD. **Mode:** Report (await goals at kickoff).
+**Updated:** 2026-07-01 EOD. **Mode:** Report.
 
 ---
 
-## ⭐ POST-COMPACTION RECOVERY — READ FIRST
-**This session (2026-06-28)** shipped to **STAGING (not prod)** the full Phase E booth-credit lifecycle — **earn → spend → expire** — plus a new RM revenue-projection tool:
-- **Item 4** (season/partial credit redemption), **Item 4b** (one-off weekly redemption), **Item 2** (credit expiry + weekly use-it/lose-it sweep). Also: the derisking test pass, the `'ended'`-status reservation, and the `event_end_date` dev-drift triage (see backlog — CONFIRMED dev-only).
-- **Operator revenue projection tool** — public calculator at `/[vertical]/operator-projection` (concept + refinement backlog: `operator_projection_tool.md`).
+## 🏗️ 2026-07-01 — FT PORT: manager-surface TERMINOLOGY wiring (shipped to staging)
+First slice of the FT park-operator port. Routed manager-surface domain nouns through `term(vertical, key)` so the market-manager UI reads correctly for FT (booth→**Spot**, vendor→**Food Truck**, market→**Location**, manager→**Park Manager**). FM renders **byte-identical** (each FM config value = the prior word; `.toLowerCase()` where mid-sentence). Gates green: tsc 0, lint 0, vitest 1557/1557. Full review + rationale: `ft_port_familiarity_research.md`.
+- **Decisions (user):** FT 'booth'→'spot'; keep 'Location' for FT market; park-manager = 'Park Manager' (FT `vendor_person` already = 'Operator', so NOT reused). **week/weekly/season vocab left hardcoded + season cards untouched** — held pending FT rental-unit (day-vs-week) + season-support data the user is awaiting.
+- **Done:** types.ts +7 keys (booth/booths/manager/season/seasons/week/weekly; season/week/weekly FT = PROVISIONAL); 4 configs; dashboard page; MarketManagerCard; 22 components (3 agents); onboarding [step] copy; MarketBrandingCard; all parent `vertical` prop-threading.
+- **⚠️ SKIPPED / REMAINING (do not overlook — itemized so a future pass finishes "full terminology"):**
+  1. `MarketVisibilityCard.tsx` — DEFERRED (whitespace-sensitive multi-node JSX w/ embedded `<strong>`/`<a>`; needs careful `{' '}` handling + `vertical` prop + dashboard thread).
+  2. Onboarding `STEP_LABELS` module-const (`onboarding/[step]/page.tsx` ~:16-20: "Booth inventory","Vendor booth assignments"…) — module-level; needs a fn or in-component move.
+  3. `MarketDetailBlock.tsx`, `MarketAgreementBlock.tsx`, `MarketManagerAssignment.tsx` (admin) — not yet wired.
+  4. **Season family** (MarketSeasonCard/SettlementCard/MakeupWindow) — DELIBERATELY held pending FT rental-unit data; wire season/week vocab only after that decision.
+  5. Emojis (🌾 in MarketManagerCard; 🧺/📍 icons) + `support@farmersmarketing.app` (ManagerSupportCard) + intake emails/branding — separate FT-**branding** task (port plan §B4), not terminology.
+- **Also still pending (unchanged):** FM season make-up-days PROD push (mig 170 + `426deff4..2c6357d7`); the FT rental-unit fork decision (research doc has the 3 options a/b/c).
 
-**Git state:** prod (`origin/main`) = `426deff4` (unchanged this session). `origin/staging` = **`9a7e4cac`** (Item 4 → 4b/expiry → projection tool). Local `main` is ~1 ahead = this session's docs commit (unpushed). Long-standing `.claude/session*_audit.md` deletions + `settings.local.json` in the tree are pre-existing — **ignore**.
+---
 
-**DB:** migs **168 + 169 applied Dev+Staging ONLY — Prod PENDING.** 164–167 are on all 3 envs.
+## ⭐ NEXT SESSION — START HERE (handoff 2026-06-29)
 
-**PROD PUSH (pending, do when ready):** apply **migs 168 AND 169 to Prod** (after 164–167), then push the staging stack `426deff4..9a7e4cac` in the **9 PM–7 AM CT** window → verify Vercel green → smoke test. **DO NOT push prod without user go.**
+### Tonight (2026-06-29): FM season make-up days — FULLY BUILT, ON STAGING (Steps 1–6)
+Booth-only **fulfillment** model (a make-up day = delivered booth time, NOT a redeemed credit; **NO money path touched**). Wires the reserved `market_seasons.status='ended'` as the make-up-window state + adds the FIRST real settlement enforcement. Plan: `phase_e_makeup_days_plan.md`. Decisions: `decisions.md` 2026-06-29 (2 rows). Per-step detail in the `🏗️ 2026-06-29` blocks below.
+- **What it does:** manager ends a season → `ended` (or `settled` if no debt) → schedules post-close make-up dates (capped by new `market_seasons.potential_makeup_days`, opt-in 0 or ≥2) → paid-booth vendors notified → settles owed groups as `made_up`. Cron **Phase 20** auto-ends past-end seasons. Opening a NEW season's pre-sales is **blocked** while a prior season is unsettled (the first real enforcement).
+- **Git (staging):** `27d83e78` (steps 1–2: mig 170 + lifecycle) → `76eeebf7` (3–5: scheduling, `made_up` settlement, +9 flow-integrity) → `2c6357d7` (6: manager UI). Prod (`origin/main`) STILL `426deff4`. Every push: pre-commit vitest 1557 + pre-push build + Playwright 49 green.
+- **DB:** mig **170** (`potential_makeup_days`) on **Dev + Staging ONLY — Prod PENDING.** 164–169 on all 3 envs.
+- **STAGING VERIFICATION (pending, user):** create a season w/ buffer ≥2; end it (no-debt→settled, debt→make-up window); schedule a make-up date (test invalid: before end_date / over buffer / not-ended); settle a group `made_up`; confirm next-season open is blocked while a prior is unsettled.
+- **PROD PUSH (pending, user go, 9 PM–7 AM CT):** apply migs **168, 169, 170** to Prod in order (after 164–167) → push `426deff4..2c6357d7` (bundles the credit lifecycle + projection tool + make-up days) → Vercel green → smoke test. **DO NOT push prod without user go.**
 
-**STAGING VERIFICATION (pending, user):** (1) season redemption + (2) one-off weekly redemption — both need a vendor holding a booth credit at a Stripe-ready market; (3) the projection tool at `/farmers_market/operator-projection`. Expiry is time/cron-based.
+### NEXT SESSION'S WORK: integrate the manager functionality into the FT (food-trucks) vertical
+**Read `ft_park_manager_port_plan.md` FIRST.** Tonight's cross-vertical survey (3 agents + verification) found the entire market-manager + booth/season system is **already vertical-agnostic** (all tables key on `market_id`; money path + auth vertical-neutral) and **FT truck parks already exist as data** (`FT_SEED_PART_A.sql` — `market_type='traditional'`, `vertical_id='food_trucks'`). FM-only is a THIN code scoping: blocker = `manager-queries.ts:42,54` (hardcoded `vertical_id='farmers_market'`) + intake hardcode (`intake/route.ts:223`) + missing FT terminology keys + cosmetic branding. **It's a PORT, not a rebuild.** BUT several pieces need FT-specific design (don't force): truck-spot inventory shape (length/utilities, not 10×10 booths); weekly-first (season prepay secondary for rotating trucks); FT-authored agreement statements (mobile-food permits/propane/generator); coexistence with FT's existing events/wave system + the free "where-trucks-today" attendance. **The FT port == the RM operator-keep-% money-path build** (same surface — `decisions.md` 2026-06-28). 7-phase sequence + 5 open questions are in the plan doc. (Caveat the user flagged: there is real existing FT functionality I under-knew at first — next session should dig into FT events/waves/attendance before scoping.)
 
-**Key docs:** `phase_e_remaining_build_plan.md` (Item 4/4b/expiry spec + locked decisions), `operator_projection_tool.md` (RM tool concept + backlog), `decisions.md`.
+### Carryover (still pending, older)
+- **Phase E credit lifecycle (Item 4/4b/2) + RM projection tool** — on staging (folded into the `426deff4..2c6357d7` stack); migs 168+169 prod-pending (apply with 170 in the SAME prod push). Credit-redemption staging verification still pending (needs a vendor holding a booth credit at a Stripe-ready market). Specs: `phase_e_remaining_build_plan.md`, `operator_projection_tool.md`.
+- **Dev-schema reconciliation** (`markets.event_end_date` missing on Dev) before any events rework — CONFIRMED dev-only, not a prod bug.
 
-**Next ideas (NOT started):** season make-up / extend-a-season (wires `'ended'` + in-platform settlement credit); RM incentive **tier rules** + the per-market keep-rate money-path implementation; link the projection tool from `market-manager-program`; dev-schema reconciliation before any events rework.
+**Key docs:** `ft_park_manager_port_plan.md` (NEXT), `phase_e_makeup_days_plan.md`, `market_manager_v2_plan.md` (FM manager build — defers FT to its Phase 6+), `decisions.md`, `phase_e_remaining_build_plan.md`, `operator_projection_tool.md`.
+
+**Next ideas (NOT started):** RM incentive **tier rules** + per-market keep-rate money-path (couple with FT port); link the projection tool from `market-manager-program`.
 
 ---
 
@@ -36,7 +54,7 @@ Plan: `phase_e_makeup_days_plan.md`. Decisions: `decisions.md` 2026-06-29 (2 row
 - **Step 5 — flow-integrity contract tests — DONE, UNCOMMITTED (gates green tsc0/eslint0/vitest 1557).** New `describe('Phase E make-up days flow integrity')` in `flow-integrity.test.ts` — 9 static contracts: makeup route gates on status='ended', special override + post-close + potential_makeup_days cap, notifies vendors + NO money path (asserts absence of stripe/redeem), end_season wires active→ended, open_prepay enforcement gate, cron Phase 20 uses shared debt check, route+cron share `seasonHasOutstandingDebt`, settlement accepts 'made_up' + fires booth_makeup_settled_vendor, both notif types registered. Assert business rule, not code. flow-integrity now 66 tests; suite 1548→1557.
 - **ON STAGING:** Steps 1–2 = `27d83e78`; Steps 3+4+5 = `76eeebf7` (pushed 2026-06-29; pre-push build✓ + Playwright 49 passed). Prod (`origin/main`) still `426deff4`. Mig 170 on Dev+Staging only (Prod PENDING). **Whole booth-only make-up feature (Steps 1–5) is on staging.**
 - **Step 6 — UI — DONE, UNCOMMITTED (gates green tsc0/eslint0/vitest 1557).** (a) **Backend gap closed:** seasons route now SETS `potential_makeup_days` — create POST accepts it (0 or ≥2), new PATCH `set_makeup_days` (editable until ended), GET returns it. (b) **MarketSeasonCard:** create-form make-up-buffer field; inline `MakeupBufferEditor` per non-ended season; **"End season & open make-up window"** button (status=active & past end_date) via ConfirmDialog → PATCH `end_season`; renders `MarketSeasonMakeupWindow` for ended seasons; status badges for ended/settled. (c) NEW `MarketSeasonMakeupWindow.tsx` — lists scheduled make-up dates + remaining, date input + "Schedule make-up day" (GET/POST `…/makeup-dates`). (d) **MarketSeasonSettlementCard:** added **"Made up with make-up days"** button (resolution `made_up`) beside "Settled off-platform"; confirm copy + notice vary. No protected/money-path file; no migration. NOT yet build-verified locally (pre-push hook will run `npm run build`).
-- **ON STAGING:** Steps 1–2 = `27d83e78`; Steps 3+4+5 = `76eeebf7`. Step 6 = UNCOMMITTED. Prod (`origin/main`) still `426deff4`. Mig 170 on Dev+Staging only (Prod PENDING).
+- **ON STAGING — WHOLE FEATURE (Steps 1–6):** `27d83e78` (1–2) → `76eeebf7` (3–5) → `2c6357d7` (6, UI). All pushed 2026-06-29 (pre-push build✓ + Playwright 49 passed each). Prod (`origin/main`) still `426deff4`. Mig 170 on Dev+Staging only (Prod PENDING).
 - **NEXT:** commit Step 6 to staging → user staging verification → **PROD push** (mig 170 + `426deff4..<step6>`, 9 PM–7 AM CT).
 - **STAGING VERIFICATION (pending, user):** with an `'ended'` season — POST a make-up date (capped by potential_makeup_days; rejected if season not ended / 0 buffer / date ≤ end_date), confirm vendors notified; settle a shortfall group as `made_up`; confirm open_prepay is blocked while a prior season is unsettled.
 

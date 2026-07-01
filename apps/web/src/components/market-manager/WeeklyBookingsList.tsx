@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical/terminology'
 
 /**
  * Interactive list of weekly booth rental bookings. Phase C Stage 1A
@@ -32,6 +33,7 @@ export interface WeeklyBookingRow {
 
 interface WeeklyBookingsListProps {
   marketId: string
+  vertical: string
   bookings: WeeklyBookingRow[]
 }
 
@@ -65,7 +67,7 @@ function formatPrice(cents: number): string {
   return `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
 }
 
-export default function WeeklyBookingsList({ marketId, bookings: initialBookings }: WeeklyBookingsListProps) {
+export default function WeeklyBookingsList({ marketId, vertical, bookings: initialBookings }: WeeklyBookingsListProps) {
   const [bookings, setBookings] = useState<WeeklyBookingRow[]>(initialBookings)
   const [edits, setEdits] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {}
@@ -149,7 +151,7 @@ export default function WeeklyBookingsList({ marketId, bookings: initialBookings
                   type="text"
                   value={editedValue}
                   onChange={(e) => setEdits((s) => ({ ...s, [b.id]: e.target.value }))}
-                  placeholder="Booth #"
+                  placeholder={`${term(vertical, 'booth')} #`}
                   disabled={isSaving}
                   maxLength={50}
                   style={{
@@ -187,7 +189,7 @@ export default function WeeklyBookingsList({ marketId, bookings: initialBookings
               // Cancelled bookings: show the booth_number (if any) but no
               // editor. Cancelled-row corrections aren't expected.
               <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, fontStyle: 'italic' }}>
-                {b.booth_number ? `Booth #${b.booth_number}` : 'No booth assigned'}
+                {b.booth_number ? `${term(vertical, 'booth')} #${b.booth_number}` : `No ${term(vertical, 'booth').toLowerCase()} assigned`}
               </div>
             )}
 

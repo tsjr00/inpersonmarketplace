@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
+import { term } from '@/lib/vertical/terminology'
 import ManagerCard from './ManagerCard'
 import {
   DOCUMENT_TYPE_DEFINITIONS,
@@ -35,6 +36,7 @@ import {
  */
 
 interface VerificationDocumentsCardProps {
+  vertical: string
   marketId: string
 }
 
@@ -51,7 +53,7 @@ function formatUploadedAt(iso: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-export default function VerificationDocumentsCard({ marketId }: VerificationDocumentsCardProps) {
+export default function VerificationDocumentsCard({ vertical, marketId }: VerificationDocumentsCardProps) {
   const [documents, setDocuments] = useState<MarketDocumentRow[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
 
@@ -193,7 +195,7 @@ export default function VerificationDocumentsCard({ marketId }: VerificationDocu
   return (
     <ManagerCard
       title="Verification Documents"
-      description="Upload documents that help the platform admin verify your market is legitimate. Keeps your booth-rental payments safe and speeds up approval. Files are private — only you and the platform admin can view them."
+      description={`Upload documents that help the platform admin verify your ${term(vertical, 'market').toLowerCase()} is legitimate. Keeps your ${term(vertical, 'booth').toLowerCase()}-rental payments safe and speeds up approval. Files are private — only you and the platform admin can view them.`}
     >
       {/* Upload form */}
       <form

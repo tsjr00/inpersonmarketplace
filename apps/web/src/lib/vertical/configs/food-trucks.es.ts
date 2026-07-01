@@ -80,6 +80,16 @@ export const foodTrucksEsConfig: VerticalTerminologyConfig = {
     trust_vendors: 'Trucks Verificados',
     trust_pickup: 'Sin Filas',
     trust_payments: 'Pagos Seguros',
+
+    // Market-manager / booth-rental domain. FM 'booth' → FT 'spot'.
+    // season/week/weekly PROVISIONAL — pending FT rental-unit + season decisions.
+    booth: 'Espacio',
+    booths: 'Espacios',
+    manager: 'Gerente del Parque',
+    season: 'Temporada',
+    seasons: 'Temporadas',
+    week: 'Semana',
+    weekly: 'Semanal',
   },
 
   content: {

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
+import { term } from '@/lib/vertical/terminology'
 
 interface Vendor {
   market_vendor_id: string
@@ -29,7 +30,7 @@ interface VendorBoothListProps {
    *  whose has_info_sharing_consent is true. The link points to
    *  /[vertical]/market-manager/[marketId]/vendor-docs/[vendorProfileId].
    *  Component-internal so the dashboard caller doesn't need to wire it. */
-  vertical?: string
+  vertical: string
 }
 
 type FilterMode = 'active' | 'needs_booth' | 'pending_approval' | 'invited' | 'all'
@@ -100,7 +101,7 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
         ])
         const data = await vRes.json().catch(() => ({}))
         if (!vRes.ok) {
-          setLoadError(data.error || 'Failed to load vendors')
+          setLoadError(data.error || `Failed to load ${term(vertical, 'vendors').toLowerCase()}`)
           setVendors([])
           return
         }
@@ -130,7 +131,7 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
       }
     }
     load()
-  }, [marketId])
+  }, [marketId, vertical])
 
   const handleSave = async (vendorProfileId: string) => {
     setSavingId(vendorProfileId)
@@ -225,7 +226,7 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
   }
 
   if (vendors === null) {
-    return <div style={{ color: colors.textMuted, fontSize: typography.sizes.sm }}>Loading vendors…</div>
+    return <div style={{ color: colors.textMuted, fontSize: typography.sizes.sm }}>Loading {term(vertical, 'vendors').toLowerCase()}…</div>
   }
 
   if (loadError) {
@@ -245,7 +246,7 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
   if (vendors.length === 0) {
     return (
       <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-        No vendors are associated with this market yet.
+        No {term(vertical, 'vendors').toLowerCase()} are associated with this {term(vertical, 'market').toLowerCase()} yet.
       </p>
     )
   }
@@ -312,7 +313,7 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
         <span>Show:</span>
         {renderFilterChip('active', 'Active', activeVendors.length)}
         <span>·</span>
-        {renderFilterChip('needs_booth', 'Needs booth #', needsBoothVendors.length)}
+        {renderFilterChip('needs_booth', `Needs ${term(vertical, 'booth').toLowerCase()} #`, needsBoothVendors.length)}
         <span>·</span>
         {renderFilterChip('pending_approval', 'Pending approval', pendingApprovalVendors.length)}
         <span>·</span>
@@ -324,7 +325,7 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
       <ConfirmDialog
         open={!!confirmingRevoke}
         title="Revoke approval?"
-        message={`Revoke approval for ${confirmingRevoke?.businessName ?? ''}? Existing bookings stay on the books. The vendor moves to the "Pending approval" filter and won't show up in your action summary or active filter. You can re-approve them later.`}
+        message={`Revoke approval for ${confirmingRevoke?.businessName ?? ''}? Existing bookings stay on the books. The ${term(vertical, 'vendor').toLowerCase()} moves to the "Pending approval" filter and won't show up in your action summary or active filter. You can re-approve them later.`}
         variant="danger"
         confirmLabel="Revoke"
         onConfirm={performRevoke}
@@ -335,14 +336,14 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
       {displayedVendors.length === 0 ? (
         <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm, padding: spacing.xs }}>
           {filter === 'needs_booth'
-            ? `All ${activeVendors.length} active vendor${activeVendors.length === 1 ? ' has' : 's have'} a booth number assigned. ✓`
+            ? `All ${activeVendors.length} active ${term(vertical, 'vendor').toLowerCase()}${activeVendors.length === 1 ? ' has' : 's have'} a ${term(vertical, 'booth').toLowerCase()} number assigned. ✓`
             : filter === 'pending_approval'
-            ? 'No vendors pending approval. ✓'
+            ? `No ${term(vertical, 'vendors').toLowerCase()} pending approval. ✓`
             : filter === 'invited'
-            ? 'No outstanding invitations. Use the Invite Vendors card above to invite nearby on-platform vendors.'
+            ? `No outstanding invitations. Use the Invite ${term(vertical, 'vendors')} card above to invite nearby on-platform ${term(vertical, 'vendors').toLowerCase()}.`
             : filter === 'active'
-            ? `No active vendors right now. ${vendors.length} pending or dormant vendor${vendors.length === 1 ? '' : 's'} — switch to "All" to see them.`
-            : 'No vendors match the current filter.'}
+            ? `No active ${term(vertical, 'vendors').toLowerCase()} right now. ${vendors.length} pending or dormant ${term(vertical, 'vendor').toLowerCase()}${vendors.length === 1 ? '' : 's'} — switch to "All" to see them.`
+            : `No ${term(vertical, 'vendors').toLowerCase()} match the current filter.`}
         </p>
       ) : (
         displayedVendors.map((v) => {
@@ -393,7 +394,7 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                       "pending approval" (self-joined). Show their own
                       status line so manager can tell at a glance. */}
                   {v.response_status === 'invited' && !v.approved ? (
-                    <span>📤 Waiting on vendor response</span>
+                    <span>📤 Waiting on {term(vertical, 'vendor').toLowerCase()} response</span>
                   ) : (
                     <span>{v.approved ? '✅ Approved' : '⏳ Pending approval'}</span>
                   )}
@@ -401,7 +402,7 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                     <span>· {v.response_status.replace(/_/g, ' ')}</span>
                   )}
                   {!v.is_active_schedule && <span>· not scheduled</span>}
-                  {!v.booth_number && v.approved && v.is_active_schedule && <span>· needs booth #</span>}
+                  {!v.booth_number && v.approved && v.is_active_schedule && <span>· needs {term(vertical, 'booth').toLowerCase()} #</span>}
                   {/* Mig 145: surface "tier not set" for approved vendors
                       missing inventory_id. Doesn't block bookings (tier
                       is informational for capacity math + occupancy
@@ -416,7 +417,7 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                   to do except wait (or rely on Phase 17 auto-decline). */}
               {v.response_status === 'invited' && !v.approved ? (
                 <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, fontStyle: 'italic' }}>
-                  No action — vendor must respond
+                  No action — {term(vertical, 'vendor').toLowerCase()} must respond
                 </div>
               ) : !v.approved ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
@@ -449,7 +450,7 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                     type="text"
                     value={editedValue}
                     onChange={(e) => setEdits((s) => ({ ...s, [v.vendor_profile_id]: e.target.value }))}
-                    placeholder="Booth #"
+                    placeholder={`${term(vertical, 'booth')} #`}
                     disabled={isSaving}
                     maxLength={50}
                     style={{
@@ -468,7 +469,7 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                     value={editedTier}
                     onChange={(e) => setTierEdits((s) => ({ ...s, [v.vendor_profile_id]: e.target.value }))}
                     disabled={isSaving || tiers.length === 0}
-                    title={tiers.length === 0 ? 'Set up booth inventory tiers first' : 'Booth size tier'}
+                    title={tiers.length === 0 ? `Set up ${term(vertical, 'booth').toLowerCase()} inventory tiers first` : `${term(vertical, 'booth')} size tier`}
                     style={{
                       maxWidth: 140,
                       padding: `${spacing['3xs']} ${spacing.xs}`,
@@ -511,7 +512,7 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                     type="button"
                     onClick={() => requestRevoke(v.vendor_profile_id, v.business_name)}
                     disabled={isSaving || approvingId === v.vendor_profile_id}
-                    title="Revoke approval (vendor moves to Pending Approval)"
+                    title={`Revoke approval (${term(vertical, 'vendor').toLowerCase()} moves to Pending Approval)`}
                     style={{
                       padding: `${spacing['3xs']} ${spacing.xs}`,
                       backgroundColor: 'transparent',

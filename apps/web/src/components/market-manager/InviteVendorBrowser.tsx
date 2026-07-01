@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical/terminology'
 import ManagerCard from './ManagerCard'
 
 /**
@@ -65,7 +66,7 @@ export default function InviteVendorBrowser({
     if (marketLat === null || marketLng === null) {
       setVendors([])
       setLoadError(
-        'This market has no geocoded location yet. Set the market address to enable nearby-vendor search.'
+        `This ${term(vertical, 'market').toLowerCase()} has no geocoded location yet. Set the ${term(vertical, 'market').toLowerCase()} address to enable nearby-${term(vertical, 'vendor').toLowerCase()} search.`
       )
       return
     }
@@ -122,7 +123,7 @@ export default function InviteVendorBrowser({
   const handleInvite = async () => {
     if (selectedIds.size === 0) return
     if (selectedIds.size > 50) {
-      setInviteFlash('You can only invite 50 vendors at a time. Trim the selection and try again.')
+      setInviteFlash(`You can only invite 50 ${term(vertical, 'vendors').toLowerCase()} at a time. Trim the selection and try again.`)
       return
     }
     setInviting(true)
@@ -142,7 +143,7 @@ export default function InviteVendorBrowser({
       const skipped = (data.skipped as number) ?? 0
       let msg = `Sent ${inv} invitation${inv === 1 ? '' : 's'}.`
       if (skipped > 0) {
-        msg += ` Skipped ${skipped} (already at market or not eligible).`
+        msg += ` Skipped ${skipped} (already at ${term(vertical, 'market').toLowerCase()} or not eligible).`
       }
       setInviteFlash(msg)
       setSelectedIds(new Set())
@@ -157,9 +158,9 @@ export default function InviteVendorBrowser({
   // Loading
   if (vendors === null) {
     return (
-      <ManagerCard title="Invite Vendors">
+      <ManagerCard title={`Invite ${term(vertical, 'vendors')}`}>
         <div style={{ color: colors.textMuted, fontSize: typography.sizes.sm }}>
-          Loading nearby vendors…
+          Loading nearby {term(vertical, 'vendors').toLowerCase()}…
         </div>
       </ManagerCard>
     )
@@ -169,8 +170,8 @@ export default function InviteVendorBrowser({
 
   return (
     <ManagerCard
-      title="Invite Vendors"
-      description={<>Browse on-platform vendors near <strong>{marketName}</strong> and invite them to join your market. They&apos;ll get an in-app notification and email with a link to your market profile. On accept they&apos;re auto-approved — no extra step on your side.</>}
+      title={`Invite ${term(vertical, 'vendors')}`}
+      description={<>Browse on-platform {term(vertical, 'vendors').toLowerCase()} near <strong>{marketName}</strong> and invite them to join your {term(vertical, 'market').toLowerCase()}. They&apos;ll get an in-app notification and email with a link to your {term(vertical, 'market').toLowerCase()} profile. On accept they&apos;re auto-approved — no extra step on your side.</>}
     >
       {/* Controls */}
       <div style={controlsRowStyle}>
@@ -232,7 +233,7 @@ export default function InviteVendorBrowser({
       {vendors.length === 0 ? (
         <div style={mutedTextStyle}>
           {loadError ? '' : (
-            <>No nearby vendors found within {radiusMiles} miles. Try a wider radius, or check back later as more vendors join the platform.</>
+            <>No nearby {term(vertical, 'vendors').toLowerCase()} found within {radiusMiles} miles. Try a wider radius, or check back later as more {term(vertical, 'vendors').toLowerCase()} join the platform.</>
           )}
         </div>
       ) : (

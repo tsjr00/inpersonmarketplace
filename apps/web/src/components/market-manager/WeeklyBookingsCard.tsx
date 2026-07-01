@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import WeeklyBookingsList, { type WeeklyBookingRow } from '@/components/market-manager/WeeklyBookingsList'
 import ManagerCard from '@/components/market-manager/ManagerCard'
+import { term } from '@/lib/vertical/terminology'
 
 /**
  * Manager dashboard card showing weekly booth rental bookings at this
@@ -23,6 +24,7 @@ import ManagerCard from '@/components/market-manager/ManagerCard'
  */
 interface WeeklyBookingsCardProps {
   marketId: string
+  vertical: string
   /** Market's IANA timezone — used to format week labels with no
    *  UTC-shift surprises. Optional; falls back to America/Chicago. */
   marketTimezone?: string | null
@@ -41,7 +43,7 @@ interface RentalRow {
   booked_at: string
 }
 
-export default async function WeeklyBookingsCard({ marketId }: WeeklyBookingsCardProps) {
+export default async function WeeklyBookingsCard({ marketId, vertical }: WeeklyBookingsCardProps) {
   const serviceClient = createServiceClient()
 
   // 1. Bookings at this market, ordered by week_start_date DESC so
@@ -98,11 +100,12 @@ export default async function WeeklyBookingsCard({ marketId }: WeeklyBookingsCar
 
   return (
     <ManagerCard
-      title="Weekly booth bookings"
-      description="Bookings vendors have placed at your market. Use the booth # field on each row to assign a booth to a booking. The most recent 50 bookings shown."
+      title={`Weekly ${term(vertical, 'booth').toLowerCase()} bookings`}
+      description={`Bookings ${term(vertical, 'vendors').toLowerCase()} have placed at your ${term(vertical, 'market').toLowerCase()}. Use the ${term(vertical, 'booth').toLowerCase()} # field on each row to assign a ${term(vertical, 'booth').toLowerCase()} to a booking. The most recent 50 bookings shown.`}
     >
       <WeeklyBookingsList
         marketId={marketId}
+        vertical={vertical}
         bookings={rentals.map<WeeklyBookingRow>((r) => ({
           id: r.id,
           vendor_name: vendorNameById.get(r.vendor_profile_id) || 'Unknown vendor',

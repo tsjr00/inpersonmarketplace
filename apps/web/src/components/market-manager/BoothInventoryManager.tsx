@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
+import { term } from '@/lib/vertical/terminology'
 import {
   summarizeBoothInventory,
   type BoothInventoryRow,
@@ -15,6 +16,7 @@ import {
 
 interface BoothInventoryManagerProps {
   marketId: string
+  vertical: string
 }
 
 /**
@@ -35,7 +37,7 @@ interface BoothInventoryManagerProps {
  *   - DELETE /api/market-manager/[marketId]/booth-inventory/[id]
  *   - GET/PUT /api/market-manager/[marketId]/booth-labels      (mig 144)
  */
-export default function BoothInventoryManager({ marketId }: BoothInventoryManagerProps) {
+export default function BoothInventoryManager({ marketId, vertical }: BoothInventoryManagerProps) {
   const [rows, setRows] = useState<BoothInventoryRow[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   // Server-returned warning when an inventory mutation triggered the
@@ -84,7 +86,7 @@ export default function BoothInventoryManager({ marketId }: BoothInventoryManage
       const res = await fetch(`/api/market-manager/${marketId}/booth-inventory`)
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setLoadError(data.error || 'Failed to load booth inventory')
+        setLoadError(data.error || `Failed to load ${term(vertical, 'booth').toLowerCase()} inventory`)
         setRows([])
         return
       }
@@ -327,7 +329,7 @@ export default function BoothInventoryManager({ marketId }: BoothInventoryManage
   }
 
   if (rows === null) {
-    return <div style={{ color: colors.textMuted, fontSize: typography.sizes.sm }}>Loading booth inventory…</div>
+    return <div style={{ color: colors.textMuted, fontSize: typography.sizes.sm }}>Loading {term(vertical, 'booth').toLowerCase()} inventory…</div>
   }
 
   if (loadError) {
@@ -412,7 +414,7 @@ export default function BoothInventoryManager({ marketId }: BoothInventoryManage
         borderRadius: radius.sm,
       }}>
         <div style={{ fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm, marginBottom: spacing['3xs'] }}>
-          Booth numbering
+          {term(vertical, 'booth')} numbering
         </div>
         <p style={{
           margin: 0,
@@ -421,18 +423,18 @@ export default function BoothInventoryManager({ marketId }: BoothInventoryManage
           fontSize: typography.sizes.xs,
           lineHeight: 1.5,
         }}>
-          Tell us the first and last booth label at your market. We&apos;ll
-          assign these labels automatically as vendors book — no work for
+          Tell us the first and last {term(vertical, 'booth').toLowerCase()} label at your {term(vertical, 'market').toLowerCase()}. We&apos;ll
+          assign these labels automatically as {term(vertical, 'vendors').toLowerCase()} book — no work for
           you on each booking. Leave both blank to use the default
           (1 to {summary.total_booths || 'N'}). Same letters/format for
           both — examples: <strong>1</strong> &amp; <strong>{summary.total_booths || 8}</strong>,
           {' '}<strong>A1</strong> &amp; <strong>A{summary.total_booths || 8}</strong>,
-          {' '}<strong>Booth-1</strong> &amp; <strong>Booth-{summary.total_booths || 8}</strong>.
+          {' '}<strong>{term(vertical, 'booth')}-1</strong> &amp; <strong>{term(vertical, 'booth')}-{summary.total_booths || 8}</strong>.
         </p>
         <div style={{ display: 'flex', gap: spacing.xs, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div style={{ flex: '1 1 140px' }}>
             <label style={{ display: 'block', fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing['3xs'] }}>
-              First booth label
+              First {term(vertical, 'booth').toLowerCase()} label
             </label>
             <input
               type="text"
@@ -453,7 +455,7 @@ export default function BoothInventoryManager({ marketId }: BoothInventoryManage
           </div>
           <div style={{ flex: '1 1 140px' }}>
             <label style={{ display: 'block', fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing['3xs'] }}>
-              Last booth label
+              Last {term(vertical, 'booth').toLowerCase()} label
             </label>
             <input
               type="text"
@@ -521,7 +523,7 @@ export default function BoothInventoryManager({ marketId }: BoothInventoryManage
         fontSize: typography.sizes.sm,
       }}>
         <div>
-          <div style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>Total booths</div>
+          <div style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>Total {term(vertical, 'booths').toLowerCase()}</div>
           <div style={{ fontWeight: typography.weights.semibold }}>{summary.total_booths}</div>
         </div>
         <div>
@@ -565,7 +567,7 @@ export default function BoothInventoryManager({ marketId }: BoothInventoryManage
                         )}
                       </div>
                       <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
-                        {row.count} {row.count === 1 ? 'booth' : 'booths'} · {formatPriceFromCents(row.weekly_price_cents)}/week each
+                        {row.count} {row.count === 1 ? term(vertical, 'booth').toLowerCase() : term(vertical, 'booths').toLowerCase()} · {formatPriceFromCents(row.weekly_price_cents)}/week each
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: spacing['2xs'] }}>
@@ -696,7 +698,7 @@ export default function BoothInventoryManager({ marketId }: BoothInventoryManage
         borderRadius: radius.sm,
       }}>
         <div style={{ fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm, marginBottom: spacing.xs }}>
-          Add a booth size tier
+          Add a {term(vertical, 'booth').toLowerCase()} size tier
         </div>
         <div style={{ display: 'flex', gap: spacing.xs, flexWrap: 'wrap' }}>
           <input
@@ -762,7 +764,7 @@ export default function BoothInventoryManager({ marketId }: BoothInventoryManage
       <ConfirmDialog
         open={!!confirmingDelete}
         title="Remove tier?"
-        message={`Remove the "${confirmingDelete?.label ?? ''}" tier? Tiers with active bookings cannot be removed — vendors with paid or pending rentals must finish or cancel first. Vendors already assigned a booth number from this size keep their booth assignment.`}
+        message={`Remove the "${confirmingDelete?.label ?? ''}" tier? Tiers with active bookings cannot be removed — ${term(vertical, 'vendors').toLowerCase()} with paid or pending rentals must finish or cancel first. ${term(vertical, 'vendors')} already assigned a ${term(vertical, 'booth').toLowerCase()} number from this size keep their ${term(vertical, 'booth').toLowerCase()} assignment.`}
         variant="danger"
         confirmLabel="Remove"
         onConfirm={performDelete}

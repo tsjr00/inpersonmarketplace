@@ -1,4 +1,5 @@
 import { colors, spacing, typography } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical/terminology'
 import ManagerCard from './ManagerCard'
 
 /**
@@ -20,7 +21,7 @@ export default function ManagerSupportCard({ vertical }: ManagerSupportCardProps
   return (
     <ManagerCard
       title="Need help?"
-      description="Questions about your dashboard, vendor onboarding, or how the platform handles your market? Reach out and we'll help."
+      description={`Questions about your dashboard, ${term(vertical, 'vendor').toLowerCase()} onboarding, or how the platform handles your ${term(vertical, 'market').toLowerCase()}? Reach out and we'll help.`}
     >
       <ul style={{
         margin: 0,

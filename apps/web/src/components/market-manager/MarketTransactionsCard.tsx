@@ -1,5 +1,6 @@
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import ManagerCard from './ManagerCard'
+import { term } from '@/lib/vertical/terminology'
 import type { MarketTransactionsAggregates } from '@/lib/markets/manager-dashboard-stats'
 
 /**
@@ -18,13 +19,14 @@ import type { MarketTransactionsAggregates } from '@/lib/markets/manager-dashboa
  */
 interface MarketTransactionsCardProps {
   aggregates: MarketTransactionsAggregates
+  vertical: string
 }
 
 function formatCents(cents: number): string {
   return `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
 }
 
-export default function MarketTransactionsCard({ aggregates }: MarketTransactionsCardProps) {
+export default function MarketTransactionsCard({ aggregates, vertical }: MarketTransactionsCardProps) {
   const allEmpty =
     aggregates.last_7_days.order_count === 0 &&
     aggregates.last_30_days.order_count === 0 &&
@@ -52,8 +54,8 @@ export default function MarketTransactionsCard({ aggregates }: MarketTransaction
 
   return (
     <ManagerCard
-      title="Market activity"
-      description="Gross sales placed at your market through the platform. The platform takes its fee from vendors and buyers — these numbers reflect activity, not your earnings."
+      title={`${term(vertical, 'market')} activity`}
+      description={`Gross sales placed at your ${term(vertical, 'market').toLowerCase()} through the platform. The platform takes its fee from ${term(vertical, 'vendors').toLowerCase()} and buyers — these numbers reflect activity, not your earnings.`}
     >
       <div style={{
         display: 'grid',
@@ -101,7 +103,7 @@ export default function MarketTransactionsCard({ aggregates }: MarketTransaction
               lineHeight: 1.4,
             }}>
               {w.data.order_count} order{w.data.order_count === 1 ? '' : 's'} ·{' '}
-              {w.data.vendor_count} vendor{w.data.vendor_count === 1 ? '' : 's'}
+              {w.data.vendor_count} {term(vertical, 'vendor').toLowerCase()}{w.data.vendor_count === 1 ? '' : 's'}
             </div>
           </div>
         ))}

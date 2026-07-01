@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { colors, spacing, typography } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical/terminology'
 import ManagerCard from './ManagerCard'
 import type { OnboardingProgress } from '@/lib/markets/onboarding-progress'
 import type { ManagerDashboardStats } from '@/lib/markets/manager-dashboard-stats'
@@ -65,7 +66,7 @@ export default function ManagerActionSummary({
           }}>
             <span>📥</span>
             <span>
-              <strong>{stats.pendingApprovalCount}</strong> vendor{stats.pendingApprovalCount === 1 ? '' : 's'} pending your approval.
+              <strong>{stats.pendingApprovalCount}</strong> {stats.pendingApprovalCount === 1 ? term(vertical, 'vendor').toLowerCase() : term(vertical, 'vendors').toLowerCase()} pending your approval.
             </span>
             <Link
               href={`/${vertical}/market-manager/${marketId}/dashboard#vendors-at-market`}
@@ -91,7 +92,7 @@ export default function ManagerActionSummary({
           }}>
             <span>📋</span>
             <span>
-              <strong>{stats.activeVendorsNeedingBooth}</strong> active vendor{stats.activeVendorsNeedingBooth === 1 ? ' needs' : 's need'} a booth number assigned.
+              <strong>{stats.activeVendorsNeedingBooth}</strong> active {stats.activeVendorsNeedingBooth === 1 ? `${term(vertical, 'vendor').toLowerCase()} needs` : `${term(vertical, 'vendors').toLowerCase()} need`} a {term(vertical, 'booth').toLowerCase()} number assigned.
             </span>
             <Link
               href={`/${vertical}/market-manager/${marketId}/dashboard#vendors-at-market`}
@@ -117,7 +118,7 @@ export default function ManagerActionSummary({
           }}>
             <span>📅</span>
             <span>
-              Next market day:{' '}
+              Next {term(vertical, 'market').toLowerCase()} day:{' '}
               <strong>
                 {stats.nextMarketDate.toLocaleDateString('en-US', {
                   weekday: 'short',

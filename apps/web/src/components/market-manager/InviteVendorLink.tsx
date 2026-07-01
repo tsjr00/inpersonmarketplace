@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical/terminology'
 
 interface InviteVendorLinkProps {
   vertical: string
@@ -66,9 +67,9 @@ export default function InviteVendorLink({ vertical, marketId, marketName, onboa
           lineHeight: 1.5,
         }}>
           <strong>Complete your setup first.</strong> The invite link will be
-          available once you&apos;ve added booth inventory and selected at
-          least one vendor agreement statement. Until then, the invite
-          landing wouldn&apos;t show vendors what they&apos;re agreeing to.
+          available once you&apos;ve added {term(vertical, 'booth').toLowerCase()} inventory and selected at
+          least one {term(vertical, 'vendor').toLowerCase()} agreement statement. Until then, the invite
+          landing wouldn&apos;t show {term(vertical, 'vendors').toLowerCase()} what they&apos;re agreeing to.
         </div>
       </div>
     )
@@ -82,7 +83,7 @@ export default function InviteVendorLink({ vertical, marketId, marketName, onboa
           value={url}
           readOnly
           onFocus={(e) => e.target.select()}
-          aria-label="Vendor invite URL"
+          aria-label={`${term(vertical, 'vendor')} invite URL`}
           style={{
             flex: '1 1 280px',
             minWidth: 0,
@@ -120,8 +121,8 @@ export default function InviteVendorLink({ vertical, marketId, marketName, onboa
         color: colors.textMuted,
         lineHeight: 1.5,
       }}>
-        When opened, the vendor sees a banner identifying <strong>{marketName}</strong> as the inviting market.
-        They complete the standard vendor signup; once they&apos;re added to {marketName} they appear in the vendor list above.
+        When opened, the {term(vertical, 'vendor').toLowerCase()} sees a banner identifying <strong>{marketName}</strong> as the inviting {term(vertical, 'market').toLowerCase()}.
+        They complete the standard {term(vertical, 'vendor').toLowerCase()} signup; once they&apos;re added to {marketName} they appear in the {term(vertical, 'vendor').toLowerCase()} list above.
       </p>
     </div>
   )

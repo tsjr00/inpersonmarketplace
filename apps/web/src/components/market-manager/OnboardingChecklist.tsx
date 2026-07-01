@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical/terminology'
 import type { OnboardingProgress } from '@/lib/markets/onboarding-progress'
 
 interface OnboardingChecklistProps {
@@ -83,7 +84,7 @@ export default function OnboardingChecklist({
           fontWeight: typography.weights.semibold,
           color: '#713f12',
         }}>
-          Set up your market
+          Set up your {term(vertical, 'market').toLowerCase()}
         </h3>
         <span style={{ fontSize: typography.sizes.xs, color: '#713f12' }}>
           {progress.required_complete} of {progress.required_total} required steps done
@@ -96,8 +97,8 @@ export default function OnboardingChecklist({
         color: '#713f12',
         lineHeight: 1.5,
       }}>
-        Walk through a short setup process to configure your booth inventory
-        and the vendor agreement statements. You can edit any of these from
+        Walk through a short setup process to configure your {term(vertical, 'booth').toLowerCase()} inventory
+        and the {term(vertical, 'vendor').toLowerCase()} agreement statements. You can edit any of these from
         the dashboard later.
       </p>
       <ul style={{
@@ -110,16 +111,16 @@ export default function OnboardingChecklist({
       }}>
         <li style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], marginBottom: spacing['3xs'] }}>
           <span>{progress.inventory_done ? '✓' : '○'}</span>
-          <span>Booth inventory{progress.inventory_done ? '' : ' — add at least one size tier'}</span>
+          <span>{term(vertical, 'booth')} inventory{progress.inventory_done ? '' : ' — add at least one size tier'}</span>
         </li>
         <li style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], marginBottom: spacing['3xs'] }}>
           <span>{progress.vendors_step_done ? '✓' : '○'}</span>
           <span>
             {progress.no_existing_vendors_ack
-              ? 'On-platform vendors — acknowledged none yet'
+              ? `On-platform ${term(vertical, 'vendors').toLowerCase()} — acknowledged none yet`
               : progress.vendors_at_market_count > 0
-                ? `On-platform vendors — ${progress.vendors_at_market_count} at this market${progress.vendors_with_booth_count > 0 ? ` (${progress.vendors_with_booth_count} with booth #)` : ''}`
-                : 'On-platform vendors — add at least one or check "I have none yet"'}
+                ? `On-platform ${term(vertical, 'vendors').toLowerCase()} — ${progress.vendors_at_market_count} at this ${term(vertical, 'market').toLowerCase()}${progress.vendors_with_booth_count > 0 ? ` (${progress.vendors_with_booth_count} with ${term(vertical, 'booth').toLowerCase()} #)` : ''}`
+                : `On-platform ${term(vertical, 'vendors').toLowerCase()} — add at least one or check "I have none yet"`}
           </span>
         </li>
         <li style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], marginBottom: spacing['3xs'] }}>
@@ -134,7 +135,7 @@ export default function OnboardingChecklist({
         </li>
         <li style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
           <span>{progress.optin_done ? '✓' : '○'}</span>
-          <span>Vendor agreement statements{progress.optin_done ? '' : ' — pick at least one'}</span>
+          <span>{term(vertical, 'vendor')} agreement statements{progress.optin_done ? '' : ' — pick at least one'}</span>
         </li>
       </ul>
       <Link

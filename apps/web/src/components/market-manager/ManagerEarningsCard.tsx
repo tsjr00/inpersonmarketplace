@@ -1,5 +1,6 @@
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import ManagerCard from './ManagerCard'
+import { term } from '@/lib/vertical/terminology'
 import type { ManagerEarningsAggregates } from '@/lib/markets/manager-dashboard-stats'
 
 /**
@@ -15,13 +16,14 @@ import type { ManagerEarningsAggregates } from '@/lib/markets/manager-dashboard-
  */
 interface ManagerEarningsCardProps {
   aggregates: ManagerEarningsAggregates
+  vertical: string
 }
 
 function formatCents(cents: number): string {
   return `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
-export default function ManagerEarningsCard({ aggregates }: ManagerEarningsCardProps) {
+export default function ManagerEarningsCard({ aggregates, vertical }: ManagerEarningsCardProps) {
   if (aggregates.all_time.booking_count === 0) return null
 
   const windows: Array<{
@@ -38,8 +40,8 @@ export default function ManagerEarningsCard({ aggregates }: ManagerEarningsCardP
 
   return (
     <ManagerCard
-      title="Your booth revenue"
-      description={<>What you collect from weekly booth rentals after the platform&apos;s percentage — this is <strong>your</strong> money, paid out through your Stripe account. (Market activity below shows your vendors&apos; sales, which you don&apos;t collect.)</>}
+      title={`Your ${term(vertical, 'booth').toLowerCase()} revenue`}
+      description={<>What you collect from weekly {term(vertical, 'booth').toLowerCase()} rentals after the platform&apos;s percentage — this is <strong>your</strong> money, paid out through your Stripe account. ({term(vertical, 'market')} activity below shows your {term(vertical, 'vendors').toLowerCase()}&apos; sales, which you don&apos;t collect.)</>}
     >
       <div style={{
         display: 'grid',

@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical/terminology'
 import ManagerCard from './ManagerCard'
 import SurveyExportButton from './SurveyExportButton'
 import {
@@ -9,6 +10,7 @@ import {
 } from '@/lib/surveys/types'
 
 interface SurveyResultsCardProps {
+  vertical: string
   marketId: string
   /** "Last N days" window. Default 30. Manager view caps at 30; admin
    *  view may want a wider lookback later (param exposed for that). */
@@ -37,6 +39,7 @@ interface KindStats {
  * isMarketManager(); admin pages run requireAdmin()).
  */
 export default async function SurveyResultsCard({
+  vertical,
   marketId,
   windowDays = 30,
 }: SurveyResultsCardProps) {
@@ -99,7 +102,7 @@ export default async function SurveyResultsCard({
 
       {!hasAnyData && (
         <p style={mutedTextStyle}>
-          No surveys yet. After each market day, vendors who attended and
+          No surveys yet. After each {term(vertical, 'market').toLowerCase()} day, {term(vertical, 'vendors').toLowerCase()} who attended and
           shoppers who picked up an order will receive a short survey.
           Responses show up here.
         </p>
@@ -113,8 +116,8 @@ export default async function SurveyResultsCard({
             gap: spacing.md,
             marginBottom: spacing.md,
           }}>
-            <KindSection kind="vendor" stats={vendorStats} />
-            <KindSection kind="buyer" stats={buyerStats} />
+            <KindSection kind="vendor" stats={vendorStats} vertical={vertical} />
+            <KindSection kind="buyer" stats={buyerStats} vertical={vertical} />
           </div>
 
           {recentComments.length > 0 && (
@@ -137,7 +140,7 @@ export default async function SurveyResultsCard({
               }}>
                 {recentComments.map((s) => (
                   <li key={s.id}>
-                    <CommentItem survey={s} />
+                    <CommentItem survey={s} vertical={vertical} />
                   </li>
                 ))}
               </ul>
@@ -192,8 +195,8 @@ const mutedTextStyle = {
   lineHeight: 1.5,
 }
 
-function KindSection({ kind, stats }: { kind: SurveyKind; stats: KindStats }) {
-  const heading = kind === 'vendor' ? 'Vendor surveys' : 'Buyer surveys'
+function KindSection({ kind, stats, vertical }: { kind: SurveyKind; stats: KindStats; vertical: string }) {
+  const heading = kind === 'vendor' ? `${term(vertical, 'vendor')} surveys` : 'Buyer surveys'
   const categoriesForKind = CATEGORY_DEFINITIONS.filter((c) => c.kinds.includes(kind))
 
   // Order: shared "overall" first (the headline), then specifics
@@ -287,8 +290,8 @@ function CategoryRow({
   )
 }
 
-function CommentItem({ survey }: { survey: MarketSurveyRow }) {
-  const kindLabel = survey.kind === 'vendor' ? 'Vendor' : 'Buyer'
+function CommentItem({ survey, vertical }: { survey: MarketSurveyRow; vertical: string }) {
+  const kindLabel = survey.kind === 'vendor' ? term(vertical, 'vendor') : 'Buyer'
   const kindBg = survey.kind === 'vendor' ? '#dcfce7' : '#dbeafe'
   const kindColor = survey.kind === 'vendor' ? '#166534' : '#1e40af'
   const overall = survey.rating_overall

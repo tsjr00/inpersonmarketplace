@@ -1,4 +1,5 @@
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical/terminology'
 import { MANAGER_NAV_OFFSET } from './ManagerCard'
 
 /**
@@ -10,19 +11,23 @@ import { MANAGER_NAV_OFFSET } from './ManagerCard'
  * respects each card's scrollMarginTop. Server component (no interactivity).
  * The chip ids must match the `id` on the first ManagerCard of each group.
  */
-const SECTIONS: Array<{ id: string; label: string }> = [
-  { id: 'setup', label: 'Setup' },
-  { id: 'money', label: 'Money' },
-  { id: 'booths', label: 'Booths' },
-  { id: 'vendors', label: 'Vendors' },
-  { id: 'schedule', label: 'Schedule' },
-  { id: 'cancel-date', label: 'Cancel day' },
-  { id: 'seasons', label: 'Seasons' },
-  { id: 'announce', label: 'Announce' },
-  { id: 'surveys', label: 'Surveys' },
-]
+interface ManagerJumpNavProps {
+  vertical: string
+}
 
-export default function ManagerJumpNav() {
+export default function ManagerJumpNav({ vertical }: ManagerJumpNavProps) {
+  const SECTIONS: Array<{ id: string; label: string }> = [
+    { id: 'setup', label: 'Setup' },
+    { id: 'money', label: 'Money' },
+    { id: 'booths', label: term(vertical, 'booths') },
+    { id: 'vendors', label: term(vertical, 'vendors') },
+    { id: 'schedule', label: 'Schedule' },
+    { id: 'cancel-date', label: 'Cancel day' },
+    { id: 'seasons', label: 'Seasons' },
+    { id: 'announce', label: 'Announce' },
+    { id: 'surveys', label: 'Surveys' },
+  ]
+
   return (
     <nav
       aria-label="Dashboard sections"

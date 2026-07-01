@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical/terminology'
 
 /**
  * Manager-editable schedule card on the manager dashboard.
@@ -37,6 +38,7 @@ interface ScheduleRow {
 
 interface MarketScheduleCardProps {
   marketId: string
+  vertical: string
   initialSchedules: ScheduleRow[]
   initialSeasonStart: string | null
   initialSeasonEnd: string | null
@@ -103,6 +105,7 @@ function buildDayStates(rows: ScheduleRow[]): DayState[] {
 
 export default function MarketScheduleCard({
   marketId,
+  vertical,
   initialSchedules,
   initialSeasonStart,
   initialSeasonEnd,
@@ -251,7 +254,7 @@ export default function MarketScheduleCard({
     return (
       <div style={cardOuterStyle}>
         <div style={cardHeaderRowStyle}>
-          <h2 style={cardHeaderStyle}>Market schedule</h2>
+          <h2 style={cardHeaderStyle}>{term(vertical, 'market')} schedule</h2>
           <button
             type="button"
             onClick={startEdit}
@@ -261,7 +264,7 @@ export default function MarketScheduleCard({
           </button>
         </div>
         <p style={cardSubStyle}>
-          Your published schedule + season window. Vendors at this market
+          Your published schedule + season window. {term(vertical, 'vendors')} at this {term(vertical, 'market').toLowerCase()}
           see the same info; changes go out as an in-app + email
           notification.
         </p>
@@ -289,7 +292,7 @@ export default function MarketScheduleCard({
             fontStyle: 'italic',
           }}>
             No active schedule entries. Click &ldquo;Edit schedule&rdquo; to set
-            your market days.
+            your {term(vertical, 'market').toLowerCase()} days.
           </p>
         ) : (
           <ul style={daysListStyle}>
@@ -305,7 +308,7 @@ export default function MarketScheduleCard({
         )}
 
         {savedFlash && (
-          <div style={successFlashStyle}>✓ Schedule saved and vendors notified</div>
+          <div style={successFlashStyle}>✓ Schedule saved and {term(vertical, 'vendors').toLowerCase()} notified</div>
         )}
       </div>
     )
@@ -315,7 +318,7 @@ export default function MarketScheduleCard({
   return (
     <div style={cardOuterStyle}>
       <div style={cardHeaderRowStyle}>
-        <h2 style={cardHeaderStyle}>Market schedule</h2>
+        <h2 style={cardHeaderStyle}>{term(vertical, 'market')} schedule</h2>
         <div style={{ display: 'flex', gap: spacing.xs }}>
           <button
             type="button"
@@ -336,9 +339,9 @@ export default function MarketScheduleCard({
         </div>
       </div>
       <p style={cardSubStyle}>
-        Toggle the days your market operates and set the times for each.
+        Toggle the days your {term(vertical, 'market').toLowerCase()} operates and set the times for each.
         Use the season window to limit when this schedule applies. Saving
-        sends a notification to every approved vendor at this market.
+        sends a notification to every approved {term(vertical, 'vendor').toLowerCase()} at this {term(vertical, 'market').toLowerCase()}.
       </p>
 
       {/* Season window editor */}
@@ -419,6 +422,7 @@ export default function MarketScheduleCard({
       )}
 
       <AcknowledgmentDialog
+        vertical={vertical}
         open={confirming}
         acknowledged={acknowledged}
         onAcknowledgeChange={setAcknowledged}
@@ -441,6 +445,7 @@ export default function MarketScheduleCard({
 // fixed-position overlay.
 
 interface AcknowledgmentDialogProps {
+  vertical: string
   open: boolean
   acknowledged: boolean
   onAcknowledgeChange: (next: boolean) => void
@@ -449,6 +454,7 @@ interface AcknowledgmentDialogProps {
 }
 
 function AcknowledgmentDialog({
+  vertical,
   open,
   acknowledged,
   onAcknowledgeChange,
@@ -526,11 +532,11 @@ function AcknowledgmentDialog({
           listStyleType: 'disc',   // Explicit so global CSS resets don't hide the bullet markers.
           listStylePosition: 'outside',
         }}>
-          <li style={{ marginBottom: spacing['3xs'] }}>Changing a market schedule may cause some vendors to be unable to attend.</li>
-          <li style={{ marginBottom: spacing['3xs'] }}>Vendors at this market will get an automatic notification of the change and may request a refund from you if the change causes them to be unable to attend.</li>
-          <li style={{ marginBottom: spacing['3xs'] }}>Even though we notify vendors, they could miss the message. You are responsible for contacting the vendors directly and communicating the change in market schedule.</li>
-          <li style={{ marginBottom: spacing['3xs'] }}>The platform does not issue refunds for schedule changes — refunds are between the market management and the affected vendors.</li>
-          <li>Turning a day off keeps your hours saved — you can re-enable those days later without re-entering anything. Vendor attendance on that day is deactivated (not deleted); vendors must re-opt in if you turn the day back on.</li>
+          <li style={{ marginBottom: spacing['3xs'] }}>Changing a {term(vertical, 'market').toLowerCase()} schedule may cause some {term(vertical, 'vendors').toLowerCase()} to be unable to attend.</li>
+          <li style={{ marginBottom: spacing['3xs'] }}>{term(vertical, 'vendors')} at this {term(vertical, 'market').toLowerCase()} will get an automatic notification of the change and may request a refund from you if the change causes them to be unable to attend.</li>
+          <li style={{ marginBottom: spacing['3xs'] }}>Even though we notify {term(vertical, 'vendors').toLowerCase()}, they could miss the message. You are responsible for contacting the {term(vertical, 'vendors').toLowerCase()} directly and communicating the change in {term(vertical, 'market').toLowerCase()} schedule.</li>
+          <li style={{ marginBottom: spacing['3xs'] }}>The platform does not issue refunds for schedule changes — refunds are between the {term(vertical, 'market').toLowerCase()} management and the affected {term(vertical, 'vendors').toLowerCase()}.</li>
+          <li>Turning a day off keeps your hours saved — you can re-enable those days later without re-entering anything. {term(vertical, 'vendor')} attendance on that day is deactivated (not deleted); {term(vertical, 'vendors').toLowerCase()} must re-opt in if you turn the day back on.</li>
         </ul>
 
         <label style={{

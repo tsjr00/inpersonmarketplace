@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
+import { term } from '@/lib/vertical/terminology'
 import type { BoothPlaceholderRow, BoothPlaceholderInput } from '@/lib/markets/placeholder-types'
 import type { BoothInventoryRow } from '@/lib/markets/booth-types'
 
 interface BoothPlaceholderManagerProps {
   marketId: string
+  vertical: string
 }
 
 /**
@@ -35,7 +37,7 @@ interface BoothPlaceholderManagerProps {
  * managers can leave it unset if they don't track size on a particular
  * placeholder.
  */
-export default function BoothPlaceholderManager({ marketId }: BoothPlaceholderManagerProps) {
+export default function BoothPlaceholderManager({ marketId, vertical }: BoothPlaceholderManagerProps) {
   const [rows, setRows] = useState<BoothPlaceholderRow[] | null>(null)
   const [tiers, setTiers] = useState<BoothInventoryRow[]>([])
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -108,12 +110,12 @@ export default function BoothPlaceholderManager({ marketId }: BoothPlaceholderMa
       notes: addForm.notes.trim() || null,
     }
     if (!input.booth_number) {
-      setAddError('Booth number is required')
+      setAddError(`${term(vertical, 'booth')} number is required`)
       return
     }
     // Mig 145 / feedback #4: tier selection is required.
     if (!input.inventory_id) {
-      setAddError('Pick the booth size tier this booth belongs to.')
+      setAddError(`Pick the ${term(vertical, 'booth').toLowerCase()} size tier this ${term(vertical, 'booth').toLowerCase()} belongs to.`)
       return
     }
 
@@ -159,12 +161,12 @@ export default function BoothPlaceholderManager({ marketId }: BoothPlaceholderMa
       notes: editForm.notes.trim() || null,
     }
     if (!input.booth_number) {
-      setRowError((s) => ({ ...s, [id]: 'Booth number is required' }))
+      setRowError((s) => ({ ...s, [id]: `${term(vertical, 'booth')} number is required` }))
       return
     }
     // Mig 145 / feedback #4: tier selection is required.
     if (!input.inventory_id) {
-      setRowError((s) => ({ ...s, [id]: 'Pick the booth size tier this booth belongs to.' }))
+      setRowError((s) => ({ ...s, [id]: `Pick the ${term(vertical, 'booth').toLowerCase()} size tier this ${term(vertical, 'booth').toLowerCase()} belongs to.` }))
       return
     }
 
@@ -302,7 +304,7 @@ export default function BoothPlaceholderManager({ marketId }: BoothPlaceholderMa
                   <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' }}>
                     <div style={{ flex: '1 1 200px', minWidth: 0 }}>
                       <div style={{ fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm }}>
-                        Booth {row.booth_number}
+                        {term(vertical, 'booth')} {row.booth_number}
                         {row.inventory_id && (
                           <span style={{ marginLeft: spacing['2xs'], color: colors.textMuted, fontWeight: typography.weights.normal }}>
                             · {tierLabelFor(row.inventory_id) || '(unknown size)'}
@@ -356,7 +358,7 @@ export default function BoothPlaceholderManager({ marketId }: BoothPlaceholderMa
                         type="text"
                         value={editForm.booth_number}
                         onChange={(e) => setEditForm((s) => ({ ...s, booth_number: e.target.value }))}
-                        placeholder="Booth number"
+                        placeholder={`${term(vertical, 'booth')} number`}
                         disabled={isLoading}
                         maxLength={50}
                         style={{ flex: '1 1 140px', padding: `${spacing['3xs']} ${spacing.xs}`, border: `1px solid ${colors.border}`, borderRadius: radius.sm, fontSize: typography.sizes.sm }}
@@ -439,14 +441,14 @@ export default function BoothPlaceholderManager({ marketId }: BoothPlaceholderMa
         borderRadius: radius.sm,
       }}>
         <div style={{ fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm, marginBottom: spacing.xs }}>
-          Add an off-platform booth placeholder
+          Add an off-platform {term(vertical, 'booth').toLowerCase()} placeholder
         </div>
         <div style={{ display: 'flex', gap: spacing.xs, flexWrap: 'wrap', marginBottom: spacing.xs }}>
           <input
             type="text"
             value={addForm.booth_number}
             onChange={(e) => setAddForm((s) => ({ ...s, booth_number: e.target.value }))}
-            placeholder="Booth number (e.g., 12, A3)"
+            placeholder={`${term(vertical, 'booth')} number (e.g., 12, A3)`}
             disabled={addLoading}
             maxLength={50}
             style={{ flex: '1 1 160px', padding: `${spacing['3xs']} ${spacing.xs}`, border: `1px solid ${colors.border}`, borderRadius: radius.sm, fontSize: typography.sizes.sm }}
@@ -457,7 +459,7 @@ export default function BoothPlaceholderManager({ marketId }: BoothPlaceholderMa
             disabled={addLoading || tiers.length === 0}
             style={{ flex: '1 1 160px', padding: `${spacing['3xs']} ${spacing.xs}`, border: `1px solid ${colors.border}`, borderRadius: radius.sm, fontSize: typography.sizes.sm, backgroundColor: 'white' }}
           >
-            <option value="">{tiers.length === 0 ? '(set up booth inventory first)' : '— Select size tier —'}</option>
+            <option value="">{tiers.length === 0 ? `(set up ${term(vertical, 'booth').toLowerCase()} inventory first)` : '— Select size tier —'}</option>
             {tiers.map((tier) => (
               <option key={tier.id} value={tier.id}>
                 {tier.size_label}
@@ -469,7 +471,7 @@ export default function BoothPlaceholderManager({ marketId }: BoothPlaceholderMa
           type="text"
           value={addForm.notes}
           onChange={(e) => setAddForm((s) => ({ ...s, notes: e.target.value }))}
-          placeholder="Notes (optional, e.g., vendor name for your records)"
+          placeholder={`Notes (optional, e.g., ${term(vertical, 'vendor').toLowerCase()} name for your records)`}
           disabled={addLoading}
           maxLength={500}
           style={{ width: '100%', padding: `${spacing['3xs']} ${spacing.xs}`, border: `1px solid ${colors.border}`, borderRadius: radius.sm, fontSize: typography.sizes.sm, marginBottom: spacing.xs, boxSizing: 'border-box' }}
@@ -501,7 +503,7 @@ export default function BoothPlaceholderManager({ marketId }: BoothPlaceholderMa
       <ConfirmDialog
         open={!!confirmingDelete}
         title="Remove placeholder?"
-        message={`Remove the placeholder for booth "${confirmingDelete?.boothNumber ?? ''}"?`}
+        message={`Remove the placeholder for ${term(vertical, 'booth').toLowerCase()} "${confirmingDelete?.boothNumber ?? ''}"?`}
         variant="danger"
         confirmLabel="Remove"
         onConfirm={performDelete}
