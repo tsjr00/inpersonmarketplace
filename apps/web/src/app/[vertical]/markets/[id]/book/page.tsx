@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import BookBoothForm from '@/components/vendor/BookBoothForm'
@@ -83,6 +84,12 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
         <Link href={`/${vertical}`} style={primaryButtonStyle}>Back to home</Link>
       </Centered>
     )
+  }
+
+  // FT park-manager P2.5: food-truck parks use the per-day spot flow. Send the
+  // vendor to /book-spot instead of the FM weekly booth booking page.
+  if (market.vertical_id === 'food_trucks') {
+    redirect(`/${vertical}/markets/${marketId}/book-spot`)
   }
 
   if (!user) {

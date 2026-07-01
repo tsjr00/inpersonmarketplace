@@ -269,18 +269,18 @@ function NextStepsPanel({
         </li>
         <li style={{ marginTop: 10 }}>
           <div style={{ fontWeight: 600, marginBottom: 2 }}>
-            ⏳ Book a booth for an upcoming week
+            ⏳ {vertical === 'food_trucks' ? 'Book a spot' : 'Book a booth for an upcoming week'}
           </div>
           <div style={{ fontSize: 12, color: '#4b5563', marginBottom: 6 }}>
-            Pick a week, pay through the platform, and you&apos;re confirmed.
-            If you already pay the manager directly off-platform, you can
-            skip this and continue your existing arrangement.
+            {vertical === 'food_trucks'
+              ? 'Pick a day (or a week), pay through the platform, and you\'re confirmed. If you already pay the operator directly off-platform, you can skip this and continue your existing arrangement.'
+              : 'Pick a week, pay through the platform, and you\'re confirmed. If you already pay the manager directly off-platform, you can skip this and continue your existing arrangement.'}
           </div>
           <Link
-            href={`/${vertical}/markets/${marketId}/book`}
+            href={`/${vertical}/markets/${marketId}/${vertical === 'food_trucks' ? 'book-spot' : 'book'}`}
             style={inlineLinkStyle}
           >
-            Book a booth at {marketName} →
+            {vertical === 'food_trucks' ? 'Book a spot' : 'Book a booth'} at {marketName} →
           </Link>
         </li>
       </ul>

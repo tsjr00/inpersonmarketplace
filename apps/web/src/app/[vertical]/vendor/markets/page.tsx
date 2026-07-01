@@ -451,7 +451,7 @@ export default function VendorMarketsPage() {
                         style mirrors the Prep Sheet button for a
                         consistent secondary-action treatment. */}
                     <Link
-                      href={`/${vertical}/markets/${market.id}/book`}
+                      href={`/${vertical}/markets/${market.id}/${isFoodTruck ? 'book-spot' : 'book'}`}
                       style={{
                         padding: '6px 12px',
                         backgroundColor: 'transparent',
@@ -464,7 +464,7 @@ export default function VendorMarketsPage() {
                         display: 'inline-block'
                       }}
                     >
-                      Book a Booth Space
+                      {isFoodTruck ? 'Book a Spot' : 'Book a Booth Space'}
                     </Link>
                     <Link
                       href={`/${vertical}/vendor/markets/${market.id}/prep`}

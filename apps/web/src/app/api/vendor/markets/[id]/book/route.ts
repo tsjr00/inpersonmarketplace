@@ -130,6 +130,17 @@ export async function POST(
       return NextResponse.json({ error: 'Market not found' }, { status: 404 })
     }
 
+    // FT park-manager P2.5: food-truck parks use the per-day spot booking flow
+    // (/book-spot → park_spot_bookings), NOT the FM weekly booth model. Reject
+    // here so a stray FM booking can't land at an FT park (this is what created
+    // an orphan weekly_booth_rentals row at a park during testing).
+    if (market.vertical_id === 'food_trucks') {
+      return NextResponse.json(
+        { error: 'This is a food-truck park — book a spot from the park page instead.', code: 'USE_SPOT_BOOKING' },
+        { status: 409 }
+      )
+    }
+
     // Stripe-only booking model (revised 2026-05-18): booth rentals
     // require the manager to have completed Stripe Connect onboarding.
     // No offline-payment fallback. Reject early — before any DB writes

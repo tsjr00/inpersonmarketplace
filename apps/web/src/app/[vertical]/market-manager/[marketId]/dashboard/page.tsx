@@ -56,6 +56,9 @@ interface PageProps {
  */
 export default async function MarketManagerDashboardPage({ params }: PageProps) {
   const { vertical, marketId } = await params
+  // FT parks use the per-day spot model — hide FM booth/weekly/season-only
+  // manager surfaces (P2.5; see ft_park_manager_design.md).
+  const isFoodTrucks = vertical === 'food_trucks'
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -160,12 +163,14 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           each section group; ids must match the group-leader cards below. */}
       <ManagerJumpNav vertical={vertical} />
 
-      {/* Setup checklist — links into the onboarding wizard if anything
-          is incomplete; collapses to a thin "Setup complete" line once
-          required steps are done */}
-      <div id="setup" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
-        <OnboardingChecklist vertical={vertical} marketId={marketId} progress={onboardingProgress} />
-      </div>
+      {/* Setup checklist — links into the onboarding wizard. HIDDEN for FT
+          parks (P2.5): it tracks market_booth_inventory completion, which FT
+          parks don't use (they use park_spots), so it would never complete. */}
+      {!isFoodTrucks && (
+        <div id="setup" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
+          <OnboardingChecklist vertical={vertical} marketId={marketId} progress={onboardingProgress} />
+        </div>
+      )}
 
       {/* Buyer-visibility gate status (Session 92 A1) — names the
           listing+schedule rule and shows the live per-vendor breakdown
@@ -191,28 +196,27 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
         stats={dashboardStats}
       />
 
-      {/* Manager booth-rental earnings (Session 92 A2) — the manager's
-          OWN money, net of platform fees. Renders nothing until the
-          first rental is collected. Placed before the gross-GMV card so
-          "your money" reads before "your vendors' money". Anchors the
-          "Money" jump-nav group. */}
-      <div id="money" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
-        <ManagerEarningsCard aggregates={earningsAggregates} vertical={vertical} />
-      </div>
+      {/* Manager booth-rental earnings (Session 92 A2). HIDDEN for FT parks
+          (P2.5): sums weekly_booth_rentals; FT spot earnings (park_spot_bookings)
+          get their own card in a later phase. */}
+      {!isFoodTrucks && (
+        <div id="money" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
+          <ManagerEarningsCard aggregates={earningsAggregates} vertical={vertical} />
+        </div>
+      )}
 
       {/* Aggregate transactions — gross sales activity across 3 windows.
           Phase D.1 (2026-05-16). Renders nothing if all windows are empty. */}
       <MarketTransactionsCard aggregates={transactionsAggregates} vertical={vertical} />
 
-      {/* Weekly booth rental bookings (Phase C Stage 1, 2026-05-16).
-          Renders nothing when no bookings exist. Read-only display in
-          this stage — booth-number editor + payment ship in next stages.
-          Wrapped with id="weekly-bookings" + scrollMarginTop so the
-          booth_rental_paid_manager notification's anchor link scrolls
-          here cleanly (2026-05-19). */}
-      <div id="weekly-bookings" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
-        <WeeklyBookingsCard marketId={marketId} marketTimezone={(market.timezone as string | null) ?? null} vertical={vertical} />
-      </div>
+      {/* Weekly booth rental bookings (Phase C Stage 1). HIDDEN for FT parks
+          (P2.5): reads weekly_booth_rentals; the FT spot-bookings card
+          (park_spot_bookings) ships in a later phase. */}
+      {!isFoodTrucks && (
+        <div id="weekly-bookings" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
+          <WeeklyBookingsCard marketId={marketId} marketTimezone={(market.timezone as string | null) ?? null} vertical={vertical} />
+        </div>
+      )}
 
       {/* Stripe Connect onboarding (Phase C Stage 2, 2026-05-17). Sits
           right after bookings so the "you have bookings → here's how to
@@ -355,19 +359,20 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           scroll offset (mirrors MarketAttendanceCard). */}
       <MarketCancelDateCard marketId={marketId} vertical={vertical} />
 
-      {/* Season pre-sales (Phase E) — create a season + open a pre-sale window;
-          vendors prepay a whole season (or a partial set of weeks) in one
-          checkout. ManagerCard sets its own id="seasons" + scroll offset. */}
-      <MarketSeasonCard
-        marketId={marketId}
-        adminSeasonStart={(market.season_start as string | null) ?? null}
-        adminSeasonEnd={(market.season_end as string | null) ?? null}
-        stripeChargesEnabled={(market.stripe_charges_enabled as boolean | null) ?? false}
-      />
+      {/* Season pre-sales + settlement (Phase E). HIDDEN for FT parks (P2.5):
+          the FT season model is on hold pending the rental-unit decision. */}
+      {!isFoodTrucks && (
+        <>
+          <MarketSeasonCard
+            marketId={marketId}
+            adminSeasonStart={(market.season_start as string | null) ?? null}
+            adminSeasonEnd={(market.season_end as string | null) ?? null}
+            stripeChargesEnabled={(market.stripe_charges_enabled as boolean | null) ?? false}
+          />
 
-      {/* Season settlement (Phase E) — resolve cancelled-day shortfalls for ended
-          seasons via booth credit or off-platform. ManagerCard sets id="settlement". */}
-      <MarketSeasonSettlementCard marketId={marketId} />
+          <MarketSeasonSettlementCard marketId={marketId} />
+        </>
+      )}
 
       {/* Manager broadcast (Session 92 Phase B) — one-way announcement to
           vendors (approved + paid upcoming renters). Send-only; server
