@@ -1184,13 +1184,13 @@ export default function AdminMarketsPage() {
                 </select>
               </div>
 
-              {/* Market Manager assignment — FM + traditional + editing only.
-                  Manager partnership is a v1 feature for ongoing FM markets;
-                  doesn't apply to event markets or non-FM verticals.
-                  Only shown when EDITING (not when creating) because the
-                  market needs a real id for the assignment endpoint. */}
+              {/* Market Manager assignment — traditional markets, editing only.
+                  Manager partnership is vertical-agnostic (auth + route key on
+                  market_id, not vertical): FM market managers AND FT park
+                  operators. Doesn't apply to event markets. Only shown when
+                  EDITING (not creating) because the assignment endpoint needs a
+                  real market id. */}
               {editingMarket
-                && vertical === 'farmers_market'
                 && editingMarket.market_type === 'traditional' && (
                 <div style={{
                   padding: spacing.md,
@@ -1214,9 +1214,7 @@ export default function AdminMarketsPage() {
                     color: colors.textSecondary,
                     lineHeight: 1.5,
                   }}>
-                    Assign a partner who will run this market through the platform.
-                    They&apos;ll get a manager dashboard with booth inventory, vendor
-                    list, off-platform placeholders, and opt-in agreement statements.
+                    {`Assign a partner who will run this ${term(vertical, 'market').toLowerCase()} through the platform. They'll get a manager dashboard with ${term(vertical, 'booth').toLowerCase()} inventory, ${term(vertical, 'vendor').toLowerCase()} list, off-platform placeholders, and opt-in agreement statements.`}
                   </p>
                   <MarketManagerAssignment
                     marketId={editingMarket.id}
