@@ -131,8 +131,8 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
       .is('order_items.cancelled_at', null)
       .is('order_items.issue_reported_at', null)
       .limit(10),
-    // Markets where this user is the assigned manager (FM only for v1)
-    getMarketsManagedBy(supabase, user),
+    // Markets where this user is the assigned manager (vertical-scoped)
+    getMarketsManagedBy(supabase, user, vertical),
   ])
 
   const isVendor = !!vendorProfile

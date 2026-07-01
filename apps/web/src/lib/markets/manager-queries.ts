@@ -14,8 +14,8 @@ export interface ManagedMarket {
  * Used by the buyer dashboard MarketManagerCard. If the result is empty,
  * the card renders nothing (the user isn't a manager of any market).
  *
- * Filter scope: `vertical_id = 'farmers_market'` for v1 (FT park-operator
- * persona is deferred per market_manager_v2_plan.md).
+ * Filter scope: `vertical_id = vertical` — each vertical's buyer dashboard
+ * surfaces only its own managed markets (FM markets on FM, FT parks on FT).
  *
  * Dual-key match (OR): manager_user_id === user.id OR LOWER(manager_email)
  * === LOWER(user.email). See manager-auth.ts for why the email branch
@@ -27,7 +27,8 @@ export interface ManagedMarket {
  */
 export async function getMarketsManagedBy(
   supabase: SupabaseClient,
-  user: Pick<User, 'id' | 'email'> | null
+  user: Pick<User, 'id' | 'email'> | null,
+  vertical: string
 ): Promise<ManagedMarket[]> {
   if (!user) return []
 
@@ -39,7 +40,7 @@ export async function getMarketsManagedBy(
     .from('markets')
     .select('id, name, city, state, vertical_id')
     .eq('manager_user_id', user.id)
-    .eq('vertical_id', 'farmers_market')
+    .eq('vertical_id', vertical)
 
   // Use .eq with a lowercased value so the query hits the partial
   // functional index `idx_markets_manager_email ON markets(LOWER(manager_email))`
@@ -51,7 +52,7 @@ export async function getMarketsManagedBy(
         .from('markets')
         .select('id, name, city, state, vertical_id')
         .eq('manager_email', user.email.toLowerCase())
-        .eq('vertical_id', 'farmers_market')
+        .eq('vertical_id', vertical)
     : Promise.resolve({ data: [], error: null })
 
   const [idResult, emailResult] = await Promise.all([idMatchPromise, emailMatchPromise])

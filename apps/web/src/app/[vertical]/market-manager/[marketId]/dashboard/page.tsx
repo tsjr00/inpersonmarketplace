@@ -8,6 +8,7 @@ import VendorBoothList from '@/components/market-manager/VendorBoothList'
 import BoothInventoryManager from '@/components/market-manager/BoothInventoryManager'
 import BoothPlaceholderManager from '@/components/market-manager/BoothPlaceholderManager'
 import BoothOccupancyGrid from '@/components/market-manager/BoothOccupancyGrid'
+import ParkSpotsManager from '@/components/market-manager/ParkSpotsManager'
 import SurveyResultsCard from '@/components/market-manager/SurveyResultsCard'
 import OptinManager from '@/components/market-manager/OptinManager'
 import OnboardingChecklist from '@/components/market-manager/OnboardingChecklist'
@@ -73,7 +74,7 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
   // Market activity card (D.1) — fall back to last 90 days if null.
   const { data: market } = await supabase
     .from('markets')
-    .select('id, name, address, city, state, market_type, status, timezone, logo_url, description, season_start, season_end, latitude, longitude, stripe_charges_enabled')
+    .select('id, name, address, city, state, market_type, status, timezone, logo_url, description, season_start, season_end, latitude, longitude, stripe_charges_enabled, park_mode')
     .eq('id', marketId)
     .single()
 
@@ -228,34 +229,52 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
         initialDescription={(market.description as string | null) ?? null}
       />
 
-      {/* Booth inventory — manage size tiers + per-week prices. Anchors
-          the "Booths" jump-nav group. */}
-      <ManagerCard
-        id="booths"
-        title={`${term(vertical, 'booth')} inventory`}
-        description={`Configure the ${term(vertical, 'booth').toLowerCase()} size tiers at your ${term(vertical, 'market').toLowerCase()} — how many of each size you have and the weekly rental price. This is the foundation for the weekly ${term(vertical, 'vendor').toLowerCase()} booking flow.`}
-      >
-        <BoothInventoryManager marketId={marketId} vertical={vertical} />
-      </ManagerCard>
+      {vertical === 'food_trucks' ? (
+        /* FT parks: individual spot inventory replaces the FM booth cards.
+           Keeps id="booths" so the JumpNav "Spots" chip scrolls here.
+           (FT park-manager P1 — ft_park_manager_design.md.) */
+        <ManagerCard
+          id="booths"
+          title="Spot inventory"
+          description="Set up the individual truck spots at your park — length, power, water, and the per-day price. Switch the park to paid to let trucks book and pay for spots."
+        >
+          <ParkSpotsManager
+            marketId={marketId}
+            initialParkMode={(market.park_mode as 'free' | 'paid' | null) ?? 'free'}
+          />
+        </ManagerCard>
+      ) : (
+        <>
+          {/* Booth inventory — manage size tiers + per-week prices. Anchors
+              the "Booths" jump-nav group. */}
+          <ManagerCard
+            id="booths"
+            title={`${term(vertical, 'booth')} inventory`}
+            description={`Configure the ${term(vertical, 'booth').toLowerCase()} size tiers at your ${term(vertical, 'market').toLowerCase()} — how many of each size you have and the weekly rental price. This is the foundation for the weekly ${term(vertical, 'vendor').toLowerCase()} booking flow.`}
+          >
+            <BoothInventoryManager marketId={marketId} vertical={vertical} />
+          </ManagerCard>
 
-      {/* Booth occupancy grid — current week, per tier. Combines
-          off-platform placeholders, on-platform vendors with a tier,
-          and paid weekly_booth_rentals for the current week. Rendered
-          after inventory because it depends on tier definitions. */}
-      <BoothOccupancyGrid
-        marketId={marketId}
-        marketTimezone={(market.timezone as string | null) ?? null}
-        vertical={vertical}
-      />
+          {/* Booth occupancy grid — current week, per tier. Combines
+              off-platform placeholders, on-platform vendors with a tier,
+              and paid weekly_booth_rentals for the current week. Rendered
+              after inventory because it depends on tier definitions. */}
+          <BoothOccupancyGrid
+            marketId={marketId}
+            marketTimezone={(market.timezone as string | null) ?? null}
+            vertical={vertical}
+          />
 
-      {/* Off-platform vendor booth placeholders — track occupancy without
-          on-platform vendor identity */}
-      <ManagerCard
-        title={`Off-platform ${term(vertical, 'booth').toLowerCase()} placeholders`}
-        description={`Track ${term(vertical, 'booths').toLowerCase()} occupied by ${term(vertical, 'vendors').toLowerCase()} who are not on the platform. No ${term(vertical, 'vendor').toLowerCase()} identity is captured — just the ${term(vertical, 'booth').toLowerCase()} number and (optionally) which size tier it counts against. Useful when you have existing ${term(vertical, 'vendors').toLowerCase()} who haven't onboarded yet.`}
-      >
-        <BoothPlaceholderManager marketId={marketId} vertical={vertical} />
-      </ManagerCard>
+          {/* Off-platform vendor booth placeholders — track occupancy without
+              on-platform vendor identity */}
+          <ManagerCard
+            title={`Off-platform ${term(vertical, 'booth').toLowerCase()} placeholders`}
+            description={`Track ${term(vertical, 'booths').toLowerCase()} occupied by ${term(vertical, 'vendors').toLowerCase()} who are not on the platform. No ${term(vertical, 'vendor').toLowerCase()} identity is captured — just the ${term(vertical, 'booth').toLowerCase()} number and (optionally) which size tier it counts against. Useful when you have existing ${term(vertical, 'vendors').toLowerCase()} who haven't onboarded yet.`}
+          >
+            <BoothPlaceholderManager marketId={marketId} vertical={vertical} />
+          </ManagerCard>
+        </>
+      )}
 
       {/* Vendors at this market — assign / edit booth numbers. Anchors the
           "Vendors" jump-nav group. */}
