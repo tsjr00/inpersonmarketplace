@@ -26,6 +26,7 @@ interface SpotRow {
   power: 'shore' | 'generator_ok' | 'none'
   has_water: boolean
   base_price_cents: number
+  recurring_eligible: boolean
 }
 
 export default async function BookParkSpotPage({ params }: PageProps) {
@@ -68,7 +69,7 @@ export default async function BookParkSpotPage({ params }: PageProps) {
 
   const { data: spotsRaw } = await supabase
     .from('park_spots')
-    .select('id, label, max_length_ft, power, has_water, base_price_cents')
+    .select('id, label, max_length_ft, power, has_water, base_price_cents, recurring_eligible')
     .eq('market_id', id)
     .eq('active', true)
     .order('label')
@@ -80,6 +81,7 @@ export default async function BookParkSpotPage({ params }: PageProps) {
     power: s.power as SpotRow['power'],
     has_water: s.has_water as boolean,
     base_price_cents: s.base_price_cents as number,
+    recurring_eligible: (s.recurring_eligible as boolean | null) ?? false,
   }))
 
   if (spots.length === 0) {

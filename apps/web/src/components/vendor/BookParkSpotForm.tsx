@@ -20,7 +20,10 @@ interface SpotRow {
   power: 'shore' | 'generator_ok' | 'none'
   has_water: boolean
   base_price_cents: number
+  recurring_eligible: boolean
 }
+
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 interface BookParkSpotFormProps {
   marketId: string
@@ -117,6 +120,12 @@ export default function BookParkSpotForm({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Recurring weekly-hold request (P4a) — independent of the pay/booking flow.
+  const [recurringDow, setRecurringDow] = useState<number>(scheduleDows[0] ?? 0)
+  const [recurringSubmitting, setRecurringSubmitting] = useState(false)
+  const [recurringMessage, setRecurringMessage] = useState<string | null>(null)
+  const [recurringError, setRecurringError] = useState<string | null>(null)
+
   const selectedSpot = useMemo(
     () => spots.find((s) => s.id === selectedSpotId) ?? null,
     [spots, selectedSpotId]
@@ -176,6 +185,34 @@ export default function BookParkSpotForm({
     } catch {
       setError('Network error — please try again.')
       setSubmitting(false)
+    }
+  }
+
+  const handleRecurringRequest = async () => {
+    if (recurringSubmitting) return
+    setRecurringError(null)
+    setRecurringMessage(null)
+    if (!selectedSpotId) {
+      setRecurringError('Please pick a spot.')
+      return
+    }
+    setRecurringSubmitting(true)
+    try {
+      const res = await fetch(`/api/vendor/markets/${marketId}/standing-reservation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spot_id: selectedSpotId, day_of_week: recurringDow }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setRecurringError(data.error || 'Could not send your request. Please try again.')
+        return
+      }
+      setRecurringMessage('✓ Requested — the park operator will review it.')
+    } catch {
+      setRecurringError('Network error — please try again.')
+    } finally {
+      setRecurringSubmitting(false)
     }
   }
 
@@ -375,6 +412,80 @@ export default function BookParkSpotForm({
               )
             })}
           </div>
+        </div>
+      )}
+
+      {/* Recurring weekly-hold request (P4a) — only for eligible spots. Separate
+          from the pay/booking flow: this just asks the operator to reserve the
+          spot every week. */}
+      {selectedSpot?.recurring_eligible && scheduleDows.length > 0 && (
+        <div style={{
+          padding: spacing.sm,
+          marginBottom: spacing.md,
+          border: `1px dashed ${colors.border}`,
+          borderRadius: radius.sm,
+          backgroundColor: colors.surfaceBase,
+        }}>
+          <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing['3xs'] }}>
+            Request a weekly hold
+          </div>
+          <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing.xs }}>
+            Ask the park to reserve this spot for you every week. The operator reviews and approves it.
+          </div>
+          <div style={{ display: 'flex', gap: spacing.xs, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <label style={{ flex: 1, minWidth: 140 }}>
+              <div style={{ fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing['3xs'] }}>
+                Day of week
+              </div>
+              <select
+                value={recurringDow}
+                onChange={(e) => setRecurringDow(Number(e.target.value))}
+                disabled={recurringSubmitting}
+                style={{
+                  width: '100%',
+                  padding: spacing.xs,
+                  fontSize: typography.sizes.sm,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: radius.sm,
+                  backgroundColor: colors.surfaceElevated,
+                  color: colors.textPrimary,
+                }}
+              >
+                {scheduleDows.map((d) => (
+                  <option key={d} value={d}>{WEEKDAYS[d] ?? `Day ${d}`}</option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={handleRecurringRequest}
+              disabled={recurringSubmitting}
+              style={{
+                padding: `${spacing.xs} ${spacing.md}`,
+                backgroundColor: colors.primary,
+                color: 'white',
+                border: 'none',
+                borderRadius: radius.sm,
+                fontSize: typography.sizes.sm,
+                fontWeight: typography.weights.semibold,
+                cursor: recurringSubmitting ? 'not-allowed' : 'pointer',
+                opacity: recurringSubmitting ? 0.6 : 1,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {recurringSubmitting ? 'Sending…' : 'Request weekly hold'}
+            </button>
+          </div>
+          {recurringMessage && (
+            <div style={{ fontSize: typography.sizes.sm, color: '#155724', marginTop: spacing.xs }}>
+              {recurringMessage}
+            </div>
+          )}
+          {recurringError && (
+            <div style={{ fontSize: typography.sizes.sm, color: '#721c24', marginTop: spacing.xs }}>
+              {recurringError}
+            </div>
+          )}
         </div>
       )}
 

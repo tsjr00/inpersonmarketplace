@@ -24,6 +24,7 @@ import MarketSeasonSettlementCard from '@/components/market-manager/MarketSeason
 import ManagerSupportCard from '@/components/market-manager/ManagerSupportCard'
 import MarketBroadcastCard from '@/components/market-manager/MarketBroadcastCard'
 import MarketAttendanceCard from '@/components/market-manager/MarketAttendanceCard'
+import StandingReservationsCard from '@/components/market-manager/StandingReservationsCard'
 import ManagerCard, { MANAGER_NAV_OFFSET } from '@/components/market-manager/ManagerCard'
 import ManagerJumpNav from '@/components/market-manager/ManagerJumpNav'
 import InviteVendorLink from '@/components/market-manager/InviteVendorLink'
@@ -385,6 +386,9 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
       {/* Vendor attendance (Phase D) — read-only check-in/out for this market,
           date-selectable for weekly monitoring. Anchors "attendance". */}
       <MarketAttendanceCard marketId={marketId} vertical={vertical} />
+
+      {/* FT recurring/standing spot holds (P4a) — manager approves/revokes. */}
+      {isFoodTrucks && <StandingReservationsCard marketId={marketId} />}
 
       {/* Survey results card (Phase E Stage 5) — empty state until
           cron Stage 2 starts populating market_surveys rows. Anchors "Surveys". */}
