@@ -28,7 +28,7 @@ export async function GET(
 
     const { data: market } = await service
       .from('markets')
-      .select('timezone')
+      .select('timezone, vertical_id')
       .eq('id', marketId)
       .maybeSingle()
 
@@ -63,6 +63,37 @@ export async function GET(
       }
     })
 
-    return NextResponse.json({ date, attendance })
+    // FT park no-show roster (P3c): trucks with a PAID spot booking for this
+    // date who have NOT checked in. FM markets don't get this (weekly model).
+    const noShows: Array<{ vendorProfileId: string; vendorName: string; spotLabel: string | null }> = []
+    if ((market?.vertical_id as string | null) === 'food_trucks') {
+      const checkedInIds = new Set(attendance.map((a) => a.vendorProfileId))
+      const { data: booked } = await service
+        .from('park_spot_bookings')
+        .select(`
+          vendor_profile_id,
+          park_spots:spot_id ( label ),
+          vendor_profiles:vendor_profile_id ( profile_data )
+        `)
+        .eq('market_id', marketId)
+        .eq('booking_date', date)
+        .eq('status', 'paid')
+      const seen = new Set<string>()
+      for (const b of booked ?? []) {
+        const vpid = b.vendor_profile_id as string
+        if (checkedInIds.has(vpid) || seen.has(vpid)) continue
+        seen.add(vpid)
+        const vp = b.vendor_profiles as unknown as { profile_data: Record<string, unknown> | null } | null
+        const pd = vp?.profile_data ?? null
+        const spot = b.park_spots as unknown as { label: string } | null
+        noShows.push({
+          vendorProfileId: vpid,
+          vendorName: (pd?.business_name as string) || (pd?.farm_name as string) || 'Food truck',
+          spotLabel: spot?.label ?? null,
+        })
+      }
+    }
+
+    return NextResponse.json({ date, attendance, noShows })
   })
 }

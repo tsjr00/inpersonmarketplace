@@ -16,6 +16,13 @@ interface AttendanceRow {
   withinGeofence: boolean | null
 }
 
+// FT (P3c): a truck with a paid spot booking for the date that hasn't checked in.
+interface NoShowRow {
+  vendorProfileId: string
+  vendorName: string
+  spotLabel: string | null
+}
+
 function fmtTime(iso: string | null): string {
   if (!iso) return '—'
   try {
@@ -48,6 +55,7 @@ function locationFlag(row: AttendanceRow): { label: string; color: string } {
 export default function MarketAttendanceCard({ marketId, vertical }: { marketId: string; vertical: string }) {
   const [date, setDate] = useState<string>('')
   const [rows, setRows] = useState<AttendanceRow[]>([])
+  const [noShows, setNoShows] = useState<NoShowRow[]>([])
   const [loading, setLoading] = useState(true)
   const [resolvedDate, setResolvedDate] = useState<string>('')
 
@@ -62,6 +70,7 @@ export default function MarketAttendanceCard({ marketId, vertical }: { marketId:
         const data = await res.json()
         if (cancelled) return
         setRows(Array.isArray(data.attendance) ? data.attendance : [])
+        setNoShows(Array.isArray(data.noShows) ? data.noShows : [])
         setResolvedDate(data.date || '')
         if (!date && data.date) setDate(data.date)
       } finally {
@@ -131,6 +140,38 @@ export default function MarketAttendanceCard({ marketId, vertical }: { marketId:
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* FT no-show roster (P3c): booked-but-not-checked-in. */}
+      {!loading && noShows.length > 0 && (
+        <div style={{ marginTop: spacing.sm }}>
+          <div style={{ fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: statusColors.warningDark, marginBottom: spacing['3xs'] }}>
+            Booked but not checked in ({noShows.length})
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
+            {noShows.map((n) => (
+              <div
+                key={n.vendorProfileId}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: spacing.xs,
+                  padding: `${spacing['3xs']} ${spacing.sm}`,
+                  backgroundColor: colors.surfaceMuted,
+                  borderRadius: radius.sm,
+                }}
+              >
+                <span style={{ fontSize: typography.sizes.sm, color: colors.textPrimary }}>
+                  {n.vendorName}{n.spotLabel ? ` · ${n.spotLabel}` : ''}
+                </span>
+                <span style={{ fontSize: typography.sizes.xs, color: statusColors.warningDark, whiteSpace: 'nowrap' }}>
+                  no-show
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </ManagerCard>
