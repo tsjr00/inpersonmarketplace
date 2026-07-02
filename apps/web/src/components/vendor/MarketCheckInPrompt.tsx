@@ -44,11 +44,26 @@ const LOCATION_MESSAGES: Record<PosReason, string> = {
   unsupported: "Checked in — this browser can't share location.",
 }
 
+// FT compliance (P3a): food trucks are asked to log where they operated each
+// day. When location is off, warn and make the vendor choose BEFORE completing
+// the check-in (deliberate confirm-through — never a hard block, per mig 160).
+const FT_LOCATION_PROMPT: Record<PosReason, string> = {
+  denied: 'Location is blocked. Food trucks are asked to log where they operate each day — checking in without location may not satisfy the state requirement.',
+  unavailable: "Location is unavailable. Turn on your device's location services — food trucks are asked to log where they operate each day.",
+  timeout: "Couldn't get your location in time. Food trucks are asked to log where they operate — retry to attach it.",
+  unsupported: "This browser can't share location. Food trucks are asked to log where they operate each day.",
+}
+const FT_NO_LOCATION_NOTE =
+  '⚠️ Checked in WITHOUT location — this record may not satisfy the state location-logging requirement. Enable location next time to attach it.'
+
 export default function MarketCheckInPrompt({ vertical }: { vertical: string }) {
+  const isFoodTrucks = vertical === 'food_trucks'
   const [markets, setMarkets] = useState<EligibleMarket[]>([])
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [locationNote, setLocationNote] = useState<string | null>(null)
+  // FT compliance: when location fails, hold the check-in and surface a choice.
+  const [pendingNoLoc, setPendingNoLoc] = useState<{ marketId: string; reason: PosReason } | null>(null)
 
   async function load() {
     try {
@@ -92,11 +107,11 @@ export default function MarketCheckInPrompt({ vertical }: { vertical: string }) 
     })
   }
 
-  async function checkIn(marketId: string) {
+  async function submitCheckIn(marketId: string, pos: PosResult) {
     setBusy(marketId)
     setError(null)
     setLocationNote(null)
-    const pos = await getPosition()
+    setPendingNoLoc(null)
     const coords = pos.ok ? { latitude: pos.latitude, longitude: pos.longitude, accuracy: pos.accuracy } : {}
     try {
       const res = await fetch('/api/vendor/checkins', {
@@ -108,7 +123,7 @@ export default function MarketCheckInPrompt({ vertical }: { vertical: string }) 
         const d = await res.json().catch(() => ({}))
         setError(d.error || 'Could not check in. Please try again.')
       } else {
-        if (!pos.ok) setLocationNote(LOCATION_MESSAGES[pos.reason])
+        if (!pos.ok) setLocationNote(isFoodTrucks ? FT_NO_LOCATION_NOTE : LOCATION_MESSAGES[pos.reason])
         await load()
       }
     } catch {
@@ -116,6 +131,22 @@ export default function MarketCheckInPrompt({ vertical }: { vertical: string }) 
     } finally {
       setBusy(null)
     }
+  }
+
+  async function checkIn(marketId: string) {
+    setBusy(marketId)
+    setError(null)
+    setLocationNote(null)
+    setPendingNoLoc(null)
+    const pos = await getPosition()
+    // FT compliance: don't silently self-attest without location — surface the
+    // warning + choice first (retry with location, or proceed without it).
+    if (!pos.ok && isFoodTrucks) {
+      setBusy(null)
+      setPendingNoLoc({ marketId, reason: pos.reason })
+      return
+    }
+    await submitCheckIn(marketId, pos)
   }
 
   async function checkOut(marketId: string) {
@@ -157,6 +188,50 @@ export default function MarketCheckInPrompt({ vertical }: { vertical: string }) 
           const label = m.marketName || (m.marketType === 'event' ? 'your event' : 'your market')
           const isBusy = busy === m.marketId
           if (!m.checkedInAt) {
+            // FT compliance: location failed — show the warning + choice
+            // instead of silently checking in without a location record.
+            if (pendingNoLoc?.marketId === m.marketId) {
+              return (
+                <div key={m.marketId} style={{ display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
+                  <span style={{ fontSize: typography.sizes.xs, color: statusDanger, lineHeight: 1.3 }}>
+                    ⚠️ {FT_LOCATION_PROMPT[pendingNoLoc.reason]}
+                  </span>
+                  <div style={{ display: 'flex', gap: spacing['2xs'], flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => checkIn(m.marketId)}
+                      disabled={isBusy}
+                      style={{
+                        padding: `${spacing['3xs']} ${spacing.xs}`,
+                        backgroundColor: colors.primary,
+                        color: colors.surfaceElevated,
+                        border: 'none',
+                        borderRadius: radius.sm,
+                        fontSize: typography.sizes.xs,
+                        fontWeight: typography.weights.semibold,
+                        cursor: isBusy ? 'wait' : 'pointer',
+                      }}
+                    >
+                      {isBusy ? '…' : 'Enable location & retry'}
+                    </button>
+                    <button
+                      onClick={() => submitCheckIn(m.marketId, { ok: false, reason: pendingNoLoc.reason })}
+                      disabled={isBusy}
+                      style={{
+                        padding: `${spacing['3xs']} ${spacing.xs}`,
+                        backgroundColor: colors.surfaceElevated,
+                        color: colors.textMuted,
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: radius.sm,
+                        fontSize: typography.sizes.xs,
+                        cursor: isBusy ? 'wait' : 'pointer',
+                      }}
+                    >
+                      Check in without location
+                    </button>
+                  </div>
+                </div>
+              )
+            }
             return (
               <button
                 key={m.marketId}

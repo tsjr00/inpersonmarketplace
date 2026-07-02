@@ -68,11 +68,22 @@ export default async function OnboardingStepPage({ params }: PageProps) {
 
   if (!market) redirect(`/${vertical}/dashboard`)
 
+  // FT parks use the per-day spot model — the FM booth/vendor/placeholder
+  // wizard steps don't apply (spots are set up on the dashboard via
+  // ParkSpotsManager, P2.5). Skip them from the FT wizard + redirect anyone
+  // who lands on one directly, so an operator can't write FM booth inventory.
+  const isFoodTrucks = vertical === 'food_trucks'
+  const FT_SKIP_STEPS: StepSlug[] = ['booths', 'vendors', 'placeholders']
+  if (isFoodTrucks && FT_SKIP_STEPS.includes(stepSlug)) {
+    redirect(`/${vertical}/market-manager/${marketId}/dashboard#booths`)
+  }
+  const steps = isFoodTrucks ? STEPS.filter((s) => !FT_SKIP_STEPS.includes(s)) : STEPS
+
   const progress = await getOnboardingProgress(marketId)
 
-  const stepIdx = STEPS.indexOf(stepSlug)
-  const prevStep = stepIdx > 0 ? STEPS[stepIdx - 1] : null
-  const nextStep = stepIdx < STEPS.length - 1 ? STEPS[stepIdx + 1] : null
+  const stepIdx = steps.indexOf(stepSlug)
+  const prevStep = stepIdx > 0 ? steps[stepIdx - 1] : null
+  const nextStep = stepIdx < steps.length - 1 ? steps[stepIdx + 1] : null
 
   return (
     <div style={{
@@ -106,7 +117,7 @@ export default async function OnboardingStepPage({ params }: PageProps) {
           letterSpacing: '0.5px',
           fontWeight: typography.weights.semibold,
         }}>
-          Step {stepIdx + 1} of {STEPS.length - 1}
+          Step {stepIdx + 1} of {steps.length - 1}
         </div>
       )}
 

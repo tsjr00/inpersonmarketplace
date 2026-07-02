@@ -16,6 +16,9 @@ interface ManagerJumpNavProps {
 }
 
 export default function ManagerJumpNav({ vertical }: ManagerJumpNavProps) {
+  // FT parks hide the Setup / Money / Seasons cards (P2.5), so drop their chips.
+  const isFoodTrucks = vertical === 'food_trucks'
+  const hiddenForFt = new Set(['setup', 'money', 'seasons'])
   const SECTIONS: Array<{ id: string; label: string }> = [
     { id: 'setup', label: 'Setup' },
     { id: 'money', label: 'Money' },
@@ -26,7 +29,7 @@ export default function ManagerJumpNav({ vertical }: ManagerJumpNavProps) {
     { id: 'seasons', label: 'Seasons' },
     { id: 'announce', label: 'Announce' },
     { id: 'surveys', label: 'Surveys' },
-  ]
+  ].filter((s) => !isFoodTrucks || !hiddenForFt.has(s.id))
 
   return (
     <nav

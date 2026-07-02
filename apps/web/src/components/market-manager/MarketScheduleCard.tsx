@@ -269,8 +269,8 @@ export default function MarketScheduleCard({
           notification.
         </p>
 
-        {/* Season window (if set) */}
-        {(savedSeasonStart || savedSeasonEnd) && (
+        {/* Season window (if set). Hidden for FT parks (P2.5 — season held). */}
+        {vertical !== 'food_trucks' && (savedSeasonStart || savedSeasonEnd) && (
           <div style={{
             fontSize: typography.sizes.sm,
             color: colors.textPrimary,
@@ -344,7 +344,8 @@ export default function MarketScheduleCard({
         sends a notification to every approved {term(vertical, 'vendor').toLowerCase()} at this {term(vertical, 'market').toLowerCase()}.
       </p>
 
-      {/* Season window editor */}
+      {/* Season window editor. Hidden for FT parks (P2.5 — season held). */}
+      {vertical !== 'food_trucks' && (
       <div style={{
         display: 'flex',
         gap: spacing.sm,
@@ -376,6 +377,7 @@ export default function MarketScheduleCard({
           />
         </div>
       </div>
+      )}
 
       {/* Per-day editor */}
       <ul style={daysListStyle}>

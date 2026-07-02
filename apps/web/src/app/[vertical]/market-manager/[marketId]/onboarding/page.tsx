@@ -74,6 +74,13 @@ export default async function OnboardingLandingPage({ params }: PageProps) {
     { slug: 'optin', label: 'Vendor agreement statements', description: 'Pick the opt-in statements vendors must accept.', done: progress.optin_done },
   ]
 
+  // FT parks skip the FM booth/vendor/placeholder steps — spots are set up on
+  // the dashboard via ParkSpotsManager (P2.5).
+  const isFoodTrucks = vertical === 'food_trucks'
+  const visibleSteps = isFoodTrucks
+    ? steps.filter((s) => !['booths', 'vendors', 'placeholders'].includes(s.slug))
+    : steps
+
   return (
     <div style={{
       maxWidth: containers.lg,
@@ -113,7 +120,7 @@ export default async function OnboardingLandingPage({ params }: PageProps) {
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-        {steps.map((step, idx) => (
+        {visibleSteps.map((step, idx) => (
           <Link
             key={step.slug}
             href={`/${vertical}/market-manager/${marketId}/onboarding/${step.slug}`}
