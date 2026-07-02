@@ -542,6 +542,22 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
 
             <MarketCheckInPrompt vertical={vertical} />
 
+            {/* FT compliance (P3b): link to the exportable location log. */}
+            {vertical === 'food_trucks' && (
+              <Link
+                href={`/${vertical}/vendor/location-log`}
+                style={{
+                  display: 'block',
+                  marginBottom: spacing.xs,
+                  fontSize: typography.sizes.xs,
+                  color: colors.primary,
+                  textDecoration: 'none',
+                }}
+              >
+                📄 My location log (attendance history) →
+              </Link>
+            )}
+
             {vendorProfile.status !== 'approved' ? (
               <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.textMuted }}>
                 Available after approval
