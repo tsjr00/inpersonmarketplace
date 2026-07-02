@@ -110,6 +110,9 @@ export type NotificationType =
   | 'market_date_cancelled_vendor'
   // Phase C — product-order vendor whose order was cancelled by the closure.
   | 'market_date_cancelled_order_vendor'
+  // FT park-manager P4b — standing (recurring) spot holds.
+  | 'park_standing_occurrence_ready'
+  | 'park_standing_suspended'
   // Manager access lifecycle (Phase 1B) — fired to the affected manager
   // when an admin removes / suspends / restores their market access.
   | 'manager_access_removed'
@@ -262,6 +265,11 @@ export interface NotificationTemplateData {
   boothDisposition?: string
   /** Make-up date (YYYY-MM-DD) when boothDisposition='reschedule' (advisory in v1). */
   rescheduleDate?: string
+  // FT park-manager P4b — standing (recurring) spot holds.
+  /** Park spot label, e.g. "Spot A". */
+  spotLabel?: string
+  /** Pay-by cutoff date (YYYY-MM-DD) for a generated recurring occurrence. */
+  payByDate?: string
 }
 
 export type NotificationSeverity = 'critical' | 'warning' | 'info'
@@ -878,6 +886,29 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
         ? `${d.marketName || 'The market'} is closed on ${d.marketDate || 'an upcoming market day'}. The manager plans a make-up market day${d.rescheduleDate ? ` on ${d.rescheduleDate}` : ''} — they'll be in touch with details.`
         : `${d.marketName || 'The market'} is closed on ${d.marketDate || 'an upcoming market day'}. Your booth fee for that day will be credited — the manager will reach out with details.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/bookings`,
+  },
+
+  // FT P4b — a recurring occurrence was generated; the truck must prepay by the
+  // cutoff or the hold releases + takes a strike.
+  park_standing_occurrence_ready: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: (d) => `Pay to keep ${d.spotLabel || 'your spot'} on ${d.marketDate || 'your recurring day'}`,
+    message: (d) =>
+      `Your recurring hold at ${d.marketName || 'the park'} has ${d.spotLabel || 'your spot'} reserved for ${d.marketDate || 'your next day'}. Pay by ${d.payByDate || 'the cutoff'} to keep it — otherwise it opens back up and counts as a missed week.`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/markets/${d.marketId || ''}/book-spot`,
+  },
+
+  // FT P4b — a standing hold was auto-suspended after hitting the strike limit.
+  park_standing_suspended: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'vendor',
+    title: (d) => `Your recurring hold at ${d.marketName || 'the park'} was paused`,
+    message: (d) =>
+      `Your recurring hold${d.spotLabel ? ` on ${d.spotLabel}` : ''} at ${d.marketName || 'the park'} was paused after too many missed weeks, so the spot is open to others again. You can still book days individually, and the operator can reinstate your recurring hold.`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/markets/${d.marketId || ''}/book-spot`,
   },
 
   // Phase C — product-order vendor variant: an order they were going to fulfill

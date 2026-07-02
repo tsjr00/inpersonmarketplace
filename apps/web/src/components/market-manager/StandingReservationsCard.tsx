@@ -3,15 +3,21 @@
 import { useEffect, useState } from 'react'
 import ManagerCard from './ManagerCard'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
-import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { colors, spacing, typography, radius, statusColors } from '@/lib/design-tokens'
 
 interface StandingReservation {
   id: string
   dayOfWeek: number
-  status: string
+  status: 'requested' | 'active' | 'suspended'
   spotLabel: string | null
   truckName: string | null
   approvedAt: string | null
+  strikes: number
+}
+
+interface StandingReservationsResponse {
+  reservations: StandingReservation[]
+  strikeLimit: number
 }
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -26,15 +32,37 @@ function describe(r: StandingReservation): string {
   return `${truck} · ${spot} · every ${weekdayName(r.dayOfWeek)}`
 }
 
+function StrikeBadge({ strikes, limit }: { strikes: number; limit: number }) {
+  return (
+    <span
+      style={{
+        fontSize: typography.sizes.xs,
+        fontWeight: typography.weights.semibold,
+        color: statusColors.warningDark,
+        backgroundColor: statusColors.warningLight,
+        border: `1px solid ${statusColors.warningBorder}`,
+        borderRadius: radius.sm,
+        padding: `0 ${spacing['3xs']}`,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      ⚠ {strikes}/{limit} missed
+    </span>
+  )
+}
+
 /**
- * FT (P4a) — manager view of recurring weekly spot holds for a park.
+ * FT (P4a/P4b) — manager view of recurring weekly spot holds for a park.
  * Requests (status 'requested') can be approved or denied; active holds
  * (status 'active') can be revoked. Both denial and revoke go through a
- * ConfirmDialog (window.confirm is blocked on mobile). Self-fetches on mount
- * and re-fetches after each action.
+ * ConfirmDialog (window.confirm is blocked on mobile). Paused holds
+ * (status 'suspended') released their spot after too many missed weeks and
+ * can be reinstated (non-destructive, no confirm). Self-fetches on mount and
+ * re-fetches after each action.
  */
 export default function StandingReservationsCard({ marketId }: { marketId: string }) {
   const [reservations, setReservations] = useState<StandingReservation[]>([])
+  const [strikeLimit, setStrikeLimit] = useState<number>(0)
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<{ id: string; label: string; message: string } | null>(null)
@@ -44,8 +72,9 @@ export default function StandingReservationsCard({ marketId }: { marketId: strin
     try {
       const res = await fetch(`/api/market-manager/${marketId}/standing-reservations`)
       if (!res.ok) { setReservations([]); return }
-      const data = await res.json()
+      const data = await res.json() as StandingReservationsResponse
       setReservations(Array.isArray(data.reservations) ? data.reservations : [])
+      setStrikeLimit(typeof data.strikeLimit === 'number' ? data.strikeLimit : 0)
     } finally {
       setLoading(false)
     }
@@ -58,8 +87,11 @@ export default function StandingReservationsCard({ marketId }: { marketId: strin
       try {
         const res = await fetch(`/api/market-manager/${marketId}/standing-reservations`)
         if (!res.ok) { if (!cancelled) setReservations([]); return }
-        const data = await res.json()
-        if (!cancelled) setReservations(Array.isArray(data.reservations) ? data.reservations : [])
+        const data = await res.json() as StandingReservationsResponse
+        if (!cancelled) {
+          setReservations(Array.isArray(data.reservations) ? data.reservations : [])
+          setStrikeLimit(typeof data.strikeLimit === 'number' ? data.strikeLimit : 0)
+        }
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -68,7 +100,7 @@ export default function StandingReservationsCard({ marketId }: { marketId: strin
     return () => { cancelled = true }
   }, [marketId])
 
-  async function act(reservationId: string, action: 'approve' | 'revoke') {
+  async function act(reservationId: string, action: 'approve' | 'revoke' | 'reinstate') {
     setBusyId(reservationId)
     try {
       const res = await fetch(`/api/market-manager/${marketId}/standing-reservations`, {
@@ -84,6 +116,7 @@ export default function StandingReservationsCard({ marketId }: { marketId: strin
 
   const requests = reservations.filter((r) => r.status === 'requested')
   const active = reservations.filter((r) => r.status === 'active')
+  const paused = reservations.filter((r) => r.status === 'suspended')
 
   const buttonStyle = (variant: 'primary' | 'muted' | 'danger') => ({
     padding: `${spacing['3xs']} ${spacing.sm}`,
@@ -165,8 +198,9 @@ export default function StandingReservationsCard({ marketId }: { marketId: strin
               <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
                 {active.map((r) => (
                   <div key={r.id} style={rowStyle}>
-                    <span style={{ fontSize: typography.sizes.sm, color: colors.textPrimary, minWidth: 0 }}>
-                      {describe(r)}
+                    <span style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, fontSize: typography.sizes.sm, color: colors.textPrimary, minWidth: 0, flexWrap: 'wrap' }}>
+                      <span>{describe(r)}</span>
+                      {r.strikes > 0 && <StrikeBadge strikes={r.strikes} limit={strikeLimit} />}
                     </span>
                     <button
                       type="button"
@@ -175,6 +209,35 @@ export default function StandingReservationsCard({ marketId }: { marketId: strin
                       style={buttonStyle('danger')}
                     >
                       Revoke
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {paused.length > 0 && (
+            <div>
+              <div style={{ fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: colors.textSecondary, marginBottom: spacing['3xs'] }}>
+                Paused ({paused.length})
+              </div>
+              <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing['2xs'] }}>
+                A paused hold released its spot after too many missed weeks. Reinstating reopens the hold and clears its strikes.
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+                {paused.map((r) => (
+                  <div key={r.id} style={rowStyle}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, fontSize: typography.sizes.sm, color: colors.textPrimary, minWidth: 0, flexWrap: 'wrap' }}>
+                      <span>{describe(r)}</span>
+                      {r.strikes > 0 && <StrikeBadge strikes={r.strikes} limit={strikeLimit} />}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={busyId === r.id}
+                      onClick={() => act(r.id, 'reinstate')}
+                      style={buttonStyle('primary')}
+                    >
+                      Reinstate
                     </button>
                   </div>
                 ))}

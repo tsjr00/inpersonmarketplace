@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import BookParkSpotForm from '@/components/vendor/BookParkSpotForm'
 
@@ -27,6 +28,13 @@ interface SpotRow {
   has_water: boolean
   base_price_cents: number
   recurring_eligible: boolean
+}
+
+interface PendingOccurrence {
+  id: string
+  bookingDate: string
+  spotLabel: string | null
+  priceCents: number
 }
 
 export default async function BookParkSpotPage({ params }: PageProps) {
@@ -103,6 +111,38 @@ export default async function BookParkSpotPage({ params }: PageProps) {
     new Set((schedulesRaw ?? []).map((r) => r.day_of_week as number))
   ).sort((a, b) => a - b)
 
+  // Recurring occurrences awaiting payment for THIS vendor at this park (P4b).
+  // Auth-gated: anonymous visitors / non-FT vendors simply see none.
+  let pendingOccurrences: PendingOccurrence[] = []
+  const authClient = await createClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  if (user) {
+    const { profile } = await getVendorProfileForVertical<{ id: string }>(
+      authClient, user.id, 'food_trucks', 'id'
+    )
+    if (profile) {
+      const { data: occRaw } = await supabase
+        .from('park_spot_bookings')
+        .select('id, booking_date, price_cents, park_spots:spot_id ( label )')
+        .eq('market_id', id)
+        .eq('vendor_profile_id', profile.id)
+        .eq('status', 'pending_payment')
+        .not('standing_reservation_id', 'is', null)
+        .order('booking_date', { ascending: true })
+
+      pendingOccurrences = (occRaw ?? []).map((o) => {
+        const rel = o.park_spots as { label: string | null } | { label: string | null }[] | null
+        const spotLabel = Array.isArray(rel) ? (rel[0]?.label ?? null) : (rel?.label ?? null)
+        return {
+          id: o.id as string,
+          bookingDate: o.booking_date as string,
+          spotLabel,
+          priceCents: o.price_cents as number,
+        }
+      })
+    }
+  }
+
   return (
     <div style={{ maxWidth: containers.lg, margin: '0 auto', padding: spacing.md }}>
       <div style={{ marginBottom: spacing.md }}>
@@ -125,6 +165,7 @@ export default async function BookParkSpotPage({ params }: PageProps) {
         timezone={(market.timezone as string | null) ?? 'America/Chicago'}
         spots={spots}
         scheduleDows={scheduleDows}
+        pendingOccurrences={pendingOccurrences}
       />
     </div>
   )

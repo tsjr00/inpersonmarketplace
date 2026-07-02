@@ -15,6 +15,7 @@ import { STRIPE_CHECKOUT_EXPIRY_MS, PAYOUT_RETRY_MAX_DAYS, STALE_CONFIRMATION_WI
 import { getSeasonCheckoutSessionState } from '@/lib/stripe/session-status'
 import { sendSeasonPaidNotifications } from '@/lib/markets/season-notifications'
 import { seasonHasOutstandingDebt } from '@/lib/markets/season-debt'
+import { runStandingOccurrenceSweep } from '@/lib/markets/park-standing'
 
 /**
  * Timing-safe string comparison to prevent timing attacks
@@ -93,7 +94,7 @@ export async function GET(request: NextRequest) {
 
     // ── Quick-check: skip all phases if no work exists ──────────
     // 4 lightweight count queries (head: true = no data transfer)
-    const [activeItems, pendingOrders, failedPayouts, trialVendors] = await Promise.all([
+    const [activeItems, pendingOrders, failedPayouts, trialVendors, standingHolds, pendingStandingOcc] = await Promise.all([
       supabase.from('order_items').select('*', { count: 'exact', head: true })
         .in('status', ['pending', 'confirmed', 'ready']),
       supabase.from('orders').select('*', { count: 'exact', head: true })
@@ -102,10 +103,17 @@ export async function GET(request: NextRequest) {
         .in('status', ['failed', 'pending_stripe_setup']),
       supabase.from('vendor_profiles').select('*', { count: 'exact', head: true })
         .eq('subscription_status', 'trialing'),
+      // FT P4b: active standing holds drive occurrence generation + strike checks;
+      // lingering pending occurrences need cutoff-release even if the hold ended.
+      supabase.from('park_standing_reservations').select('*', { count: 'exact', head: true })
+        .eq('status', 'active'),
+      supabase.from('park_spot_bookings').select('*', { count: 'exact', head: true })
+        .eq('status', 'pending_payment').not('standing_reservation_id', 'is', null),
     ])
 
     const workCount = (activeItems.count ?? 0) + (pendingOrders.count ?? 0)
       + (failedPayouts.count ?? 0) + (trialVendors.count ?? 0)
+      + (standingHolds.count ?? 0) + (pendingStandingOcc.count ?? 0)
 
     if (workCount === 0) {
       return NextResponse.json({
@@ -2791,11 +2799,31 @@ export async function GET(request: NextRequest) {
       totalErrors++
     }
 
+    // ─── Phase 21: FT standing (recurring) spot reservations (P4b) ───────────
+    // Generate the next occurrence for each active hold, release past-cutoff
+    // unpaid occurrences (+ missed-prepay strike), auto-suspend at the limit.
+    const standingSweep = { generated: 0, expired: 0, suspended: 0 }
+    try {
+      const r = await runStandingOccurrenceSweep(supabase, new Date())
+      standingSweep.generated = r.generated
+      standingSweep.expired = r.expired
+      standingSweep.suspended = r.suspended
+      const n = r.generated + r.expired + r.suspended
+      if (n > 0) {
+        console.log(`Phase 21: standing holds — generated ${r.generated}, released ${r.expired}, suspended ${r.suspended}`)
+        totalProcessed += n
+      }
+    } catch (phase21Error) {
+      console.error('Phase 21 error:', phase21Error instanceof Error ? phase21Error.message : 'Unknown error')
+      totalErrors++
+    }
+
     return NextResponse.json({
       success: true,
       message: `Processed ${totalProcessed} items`,
       processed: totalProcessed,
       errors: totalErrors,
+      standingReservations: standingSweep,
       payouts: { retried: payoutsRetried, succeeded: payoutsSucceeded, cancelled: payoutsCancelled },
       externalPayments: { reminders: externalReminders, autoConfirmed: externalAutoConfirmed },
       errorDigest: { reportsSummarized: errorReportsSummarized },

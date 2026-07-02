@@ -25,6 +25,13 @@ interface SpotRow {
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
+interface PendingOccurrence {
+  id: string
+  bookingDate: string
+  spotLabel: string | null
+  priceCents: number
+}
+
 interface BookParkSpotFormProps {
   marketId: string
   vertical: string
@@ -32,6 +39,7 @@ interface BookParkSpotFormProps {
   timezone: string
   spots: SpotRow[]
   scheduleDows: number[]
+  pendingOccurrences?: PendingOccurrence[]
 }
 
 const MIN_TOTAL_CENTS = 500
@@ -80,6 +88,7 @@ export default function BookParkSpotForm({
   timezone,
   spots,
   scheduleDows,
+  pendingOccurrences = [],
 }: BookParkSpotFormProps) {
   const searchParams = useSearchParams()
   const sessionFlag = searchParams.get('session')
@@ -125,6 +134,10 @@ export default function BookParkSpotForm({
   const [recurringSubmitting, setRecurringSubmitting] = useState(false)
   const [recurringMessage, setRecurringMessage] = useState<string | null>(null)
   const [recurringError, setRecurringError] = useState<string | null>(null)
+
+  // Pay-to-keep for approved recurring occurrences (P4b) — per-row Stripe checkout.
+  const [payingId, setPayingId] = useState<string | null>(null)
+  const [payError, setPayError] = useState<{ id: string; message: string } | null>(null)
 
   const selectedSpot = useMemo(
     () => spots.find((s) => s.id === selectedSpotId) ?? null,
@@ -216,7 +229,99 @@ export default function BookParkSpotForm({
     }
   }
 
+  const handlePay = async (occId: string) => {
+    if (payingId) return
+    setPayError(null)
+    setPayingId(occId)
+    try {
+      const res = await fetch(`/api/vendor/park-occurrences/${occId}/pay`, { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setPayError({ id: occId, message: data.error || 'Could not start checkout. Please try again.' })
+        setPayingId(null)
+        return
+      }
+      if (typeof data.url === 'string' && data.url.length > 0) {
+        window.location.href = data.url
+        return
+      }
+      setPayError({ id: occId, message: 'Something went wrong setting up your payment. Please try again.' })
+      setPayingId(null)
+    } catch {
+      setPayError({ id: occId, message: 'Network error — please try again.' })
+      setPayingId(null)
+    }
+  }
+
   return (
+    <>
+      {pendingOccurrences.length > 0 && (
+        <div style={{
+          padding: spacing.md,
+          marginBottom: spacing.md,
+          backgroundColor: colors.surfaceElevated,
+          border: `2px solid ${colors.primary}`,
+          borderRadius: radius.md,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+        }}>
+          <div style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.bold, color: colors.textPrimary, marginBottom: spacing['3xs'] }}>
+            Pay to keep your recurring spot{pendingOccurrences.length === 1 ? '' : 's'}
+          </div>
+          <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing.sm }}>
+            These weekly holds are approved and waiting on payment. Pay now to lock in each date.
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+            {pendingOccurrences.map((occ) => (
+              <div key={occ.id}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: spacing.sm,
+                  padding: spacing.sm,
+                  backgroundColor: colors.surfaceBase,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: radius.sm,
+                  flexWrap: 'wrap',
+                }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
+                      {occ.spotLabel || 'Your spot'} · {formatDayLabel(occ.bookingDate)}
+                    </div>
+                    <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
+                      from {formatPrice(occ.priceCents)} (fees added at checkout)
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handlePay(occ.id)}
+                    disabled={payingId === occ.id}
+                    style={{
+                      padding: `${spacing.xs} ${spacing.md}`,
+                      backgroundColor: colors.primary,
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: radius.sm,
+                      fontSize: typography.sizes.sm,
+                      fontWeight: typography.weights.semibold,
+                      cursor: payingId === occ.id ? 'not-allowed' : 'pointer',
+                      opacity: payingId === occ.id ? 0.6 : 1,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {payingId === occ.id ? 'Starting…' : 'Pay now'}
+                  </button>
+                </div>
+                {payError?.id === occ.id && (
+                  <div style={{ fontSize: typography.sizes.xs, color: '#721c24', marginTop: spacing['3xs'] }}>
+                    {payError.message}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     <form
       onSubmit={handleSubmit}
       style={{
@@ -552,5 +657,6 @@ export default function BookParkSpotForm({
         {submitting ? 'Starting checkout…' : `Book & pay at ${marketName}`}
       </button>
     </form>
+    </>
   )
 }

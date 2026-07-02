@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { getStrikeCountsForReservations, PARK_STANDING_STRIKE_LIMIT } from '@/lib/markets/park-standing'
 
 /**
  * GET   /api/market-manager/[marketId]/standing-reservations
@@ -42,15 +43,22 @@ export async function GET(
     const { data, error } = await service
       .from('park_standing_reservations')
       .select(`
-        id, day_of_week, status, approved_at,
+        id, day_of_week, status, approved_at, strikes_reset_at,
         park_spots:spot_id ( label ),
         vendor_profiles:vendor_profile_id ( profile_data )
       `)
       .eq('market_id', marketId)
-      .in('status', ['requested', 'active'])
+      .in('status', ['requested', 'active', 'suspended'])
       .order('status', { ascending: true })
 
     if (error) throw traced.fromSupabase(error, { table: 'park_standing_reservations', operation: 'select' })
+
+    const todayISO = new Date().toISOString().slice(0, 10)
+    const strikes = await getStrikeCountsForReservations(
+      service,
+      (data ?? []).map((r) => ({ id: r.id as string, strikes_reset_at: (r.strikes_reset_at as string | null) ?? null })),
+      todayISO,
+    )
 
     const reservations = (data ?? []).map((r) => {
       const vp = r.vendor_profiles as unknown as { profile_data: Record<string, unknown> | null } | null
@@ -63,10 +71,11 @@ export async function GET(
         approvedAt: (r.approved_at as string | null) ?? null,
         spotLabel: spot?.label ?? null,
         truckName: (pd?.business_name as string) || (pd?.farm_name as string) || 'Food truck',
+        strikes: strikes.get(r.id as string) ?? 0,
       }
     })
 
-    return NextResponse.json({ reservations })
+    return NextResponse.json({ reservations, strikeLimit: PARK_STANDING_STRIKE_LIMIT })
   })
 }
 
@@ -104,7 +113,9 @@ export async function PATCH(
         ? { status: 'active', approved_by: auth.userId, approved_at: new Date().toISOString() }
         : action === 'revoke'
           ? { status: 'revoked' }
-          : { status: 'active' } // reinstate
+          // reinstate: clear the strike window so the next sweep doesn't
+          // immediately re-suspend on the strikes that caused the suspension.
+          : { status: 'active', strikes_reset_at: new Date().toISOString() }
 
     crumb.supabase('update', 'park_standing_reservations')
     const { data, error } = await service
