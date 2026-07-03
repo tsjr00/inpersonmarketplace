@@ -65,6 +65,11 @@ type FilterMode = 'active' | 'needs_booth' | 'pending_approval' | 'invited' | 'a
  *  - PATCH /api/market-manager/[marketId]/vendor-approval    per row approve
  */
 export default function VendorBoothList({ marketId, vertical }: VendorBoothListProps) {
+  // FT parks don't use the FM booth model (booth_number / inventory tier) — spots
+  // + their bookings live in park_spots / park_spot_bookings. Suppress the FM-only
+  // "needs spot #" / "tier not set" labels so a truck that booked a park spot
+  // isn't shown as unassigned/untiered.
+  const isFoodTruck = vertical === 'food_trucks'
   const [vendors, setVendors] = useState<Vendor[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [filter, setFilter] = useState<FilterMode>('active')
@@ -402,12 +407,12 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                     <span>· {v.response_status.replace(/_/g, ' ')}</span>
                   )}
                   {!v.is_active_schedule && <span>· not scheduled</span>}
-                  {!v.booth_number && v.approved && v.is_active_schedule && <span>· needs {term(vertical, 'booth').toLowerCase()} #</span>}
+                  {!isFoodTruck && !v.booth_number && v.approved && v.is_active_schedule && <span>· needs {term(vertical, 'booth').toLowerCase()} #</span>}
                   {/* Mig 145: surface "tier not set" for approved vendors
                       missing inventory_id. Doesn't block bookings (tier
                       is informational for capacity math + occupancy
-                      grid) but signals data quality. */}
-                  {!v.inventory_id && v.approved && <span style={{ color: '#a16207' }}>· tier not set</span>}
+                      grid) but signals data quality. FT parks have no tiers. */}
+                  {!isFoodTruck && !v.inventory_id && v.approved && <span style={{ color: '#a16207' }}>· tier not set</span>}
                 </div>
               </div>
 

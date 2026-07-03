@@ -48,10 +48,10 @@ const LOCATION_MESSAGES: Record<PosReason, string> = {
 // day. When location is off, warn and make the vendor choose BEFORE completing
 // the check-in (deliberate confirm-through — never a hard block, per mig 160).
 const FT_LOCATION_PROMPT: Record<PosReason, string> = {
-  denied: 'Location is blocked. Food trucks are asked to log where they operate each day — checking in without location may not satisfy the state requirement.',
-  unavailable: "Location is unavailable. Turn on your device's location services — food trucks are asked to log where they operate each day.",
-  timeout: "Couldn't get your location in time. Food trucks are asked to log where they operate — retry to attach it.",
-  unsupported: "This browser can't share location. Food trucks are asked to log where they operate each day.",
+  denied: 'Location permission is off for this site. Allow location in your browser AND make sure your device location is on, then tap Retry — or check in without it (still recorded, but may not satisfy the state location log).',
+  unavailable: "Your device couldn't provide a location. Turn on device/OS location services, then tap Retry — or check in without it (still recorded, may not satisfy the state log).",
+  timeout: 'Getting your location timed out. Tap Retry to attach it — or check in without it (still recorded, may not satisfy the state log).',
+  unsupported: "This browser can't share location. Check in without it (still recorded, but may not satisfy the state location log).",
 }
 const FT_NO_LOCATION_NOTE =
   '⚠️ Checked in WITHOUT location — this record may not satisfy the state location-logging requirement. Enable location next time to attach it.'
@@ -211,7 +211,7 @@ export default function MarketCheckInPrompt({ vertical }: { vertical: string }) 
                         cursor: isBusy ? 'wait' : 'pointer',
                       }}
                     >
-                      {isBusy ? '…' : 'Enable location & retry'}
+                      {isBusy ? '…' : 'Retry with location'}
                     </button>
                     <button
                       onClick={() => submitCheckIn(m.marketId, { ok: false, reason: pendingNoLoc.reason })}
