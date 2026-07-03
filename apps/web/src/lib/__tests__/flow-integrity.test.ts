@@ -606,3 +606,117 @@ describe('Phase E make-up days flow integrity', () => {
     expect(types).toContain('booth_makeup_settled_vendor')
   })
 })
+
+// ── FT park-manager (P2b money path + P4 recurring/strikes + P4b-2 + P5) ─────
+describe('FT park-manager flow integrity', () => {
+  const read = (p: string) => fs.readFileSync(p, 'utf-8')
+  const bookRoute = path.join(APP_DIR, 'api/vendor/markets/[id]/book-park-spot/route.ts')
+  const payRoute = path.join(APP_DIR, 'api/vendor/park-occurrences/[bookingId]/pay/route.ts')
+  const payments = path.join(SRC_DIR, 'lib/stripe/payments.ts')
+  const webhooks = path.join(SRC_DIR, 'lib/stripe/webhooks.ts')
+  const standing = path.join(SRC_DIR, 'lib/markets/park-standing.ts')
+  const reminders = path.join(SRC_DIR, 'lib/markets/park-checkin-reminders.ts')
+  const cron = path.join(APP_DIR, 'api/cron/expire-orders/route.ts')
+  const surveysCron = path.join(APP_DIR, 'api/cron/surveys/route.ts')
+  const mgrStanding = path.join(APP_DIR, 'api/market-manager/[marketId]/standing-reservations/route.ts')
+  const attendance = path.join(APP_DIR, 'api/market-manager/[marketId]/attendance/route.ts')
+  const attendanceCard = path.join(SRC_DIR, 'components/market-manager/MarketAttendanceCard.tsx')
+  const catalogRoute = path.join(APP_DIR, 'api/market-manager/[marketId]/optin/catalog/route.ts')
+  const selectionsRoute = path.join(APP_DIR, 'api/market-manager/[marketId]/optin/selections/route.ts')
+  const optinMig = path.resolve(SRC_DIR, '../../../supabase/migrations/20260702_175_ft_optin_vertical_tag.sql')
+
+  // ── P2b money path ──
+  it('booking route books atomically then charges via the park_spot checkout', () => {
+    const code = read(bookRoute)
+    expect(code).toContain('book_park_spot_atomic')
+    expect(code).toContain('createParkSpotCheckoutSession')
+  })
+
+  it('park_spot checkout is a destination charge with a deterministic idempotency key', () => {
+    const code = read(payments)
+    expect(code).toContain('createParkSpotCheckoutSession')
+    expect(code).toContain('park-spot-') // idempotencyKey = `park-spot-${groupId}` (not Date.now())
+    expect(code).toContain('transfer_data')
+    expect(code).toContain("type: 'park_spot'")
+  })
+
+  it('webhook flips park_spot bookings by booking_group_id', () => {
+    const code = read(webhooks)
+    expect(code).toContain('handleParkSpotCheckoutComplete')
+    expect(code).toContain("type === 'park_spot'")
+    expect(code).toContain('booking_group_id')
+  })
+
+  it('paid park_spot booking notifies the truck and the operator (non-throwing)', () => {
+    const code = read(webhooks)
+    expect(code).toContain('park_spot_paid_vendor')
+    expect(code).toContain('park_spot_paid_manager')
+    const types = read(path.join(SRC_DIR, 'lib/notifications/types.ts'))
+    expect(types).toContain('park_spot_paid_vendor')
+    expect(types).toContain('park_spot_paid_manager')
+  })
+
+  it('pay-occurrence route derives a deterministic group from the booking id (concurrency-safe)', () => {
+    const code = read(payRoute)
+    expect(code).toContain('createParkSpotCheckoutSession')
+    expect(code).toContain('|| bookingId') // same idempotency key under concurrent pays → one charge
+  })
+
+  // ── P4 recurring + strike engine ──
+  it('strike engine counts BOTH missed-prepay (expired) and no-show (paid + no check-in)', () => {
+    const code = read(standing)
+    expect(code).toContain("'expired'")
+    expect(code).toContain("'paid'")
+    expect(code).toContain('market_day_checkins') // no-show = paid occurrence with no check-in row
+    expect(code).toContain('isNoShowStrike')
+  })
+
+  it('strike counts are shared by the manager display AND the cron auto-suspend (one source)', () => {
+    expect(read(standing)).toContain('getStrikeCountsForReservations')
+    expect(read(mgrStanding)).toContain('getStrikeCountsForReservations')
+  })
+
+  it('daily sweep (Phase 21) generates occurrences, releases past-cutoff, auto-suspends', () => {
+    expect(read(cron)).toContain('runStandingOccurrenceSweep')
+    const code = read(standing)
+    expect(code).toContain("status: 'expired'") // release past-cutoff pending
+    expect(code).toContain("status: 'suspended'") // auto-suspend at the limit
+  })
+
+  it('manager reinstate stamps strikes_reset_at so the next sweep does not re-suspend', () => {
+    expect(read(mgrStanding)).toContain('strikes_reset_at')
+  })
+
+  // ── P4b-2 reminders + manager-present override ──
+  it('check-in reminders run in the hourly surveys cron and dedup via notifications', () => {
+    expect(read(surveysCron)).toContain('runParkCheckinReminders')
+    const code = read(reminders)
+    expect(code).toContain('checkinReminderWindow')
+    expect(code).toContain('park_checkin_reminder')
+    expect(code).toContain("from('notifications')") // idempotency dedup
+  })
+
+  it('park_checkin_reminder notification type is registered', () => {
+    expect(read(path.join(SRC_DIR, 'lib/notifications/types.ts'))).toContain('park_checkin_reminder')
+  })
+
+  it('manager "mark present" writes a manager_confirmed check-in (cancels the no-show)', () => {
+    const code = read(attendance)
+    expect(code).toContain('manager_confirmed')
+    expect(code).toContain('market_day_checkins')
+    expect(read(attendanceCard)).toContain('Mark present')
+  })
+
+  // ── P5 vertical-scoped agreement statements ──
+  it('opt-in catalog + selections routes filter by market vertical (no FM/FT cross-pollination)', () => {
+    expect(read(catalogRoute)).toContain('vertical_id.is.null')
+    expect(read(selectionsRoute)).toContain('vertical_id.is.null')
+  })
+
+  it('mig 175 seeds FT-tagged agreement statements', () => {
+    const sql = read(optinMig)
+    expect(sql).toContain('vertical_id')
+    expect(sql).toContain("'food_trucks'")
+    expect(sql).toContain('ft-propane-inspection')
+  })
+})

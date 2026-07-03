@@ -1440,7 +1440,7 @@ async function handleParkSpotCheckoutComplete(session: Stripe.Checkout.Session) 
 
   const { data: bookings } = await supabase
     .from('park_spot_bookings')
-    .select('id, status')
+    .select('id, status, market_id, vendor_profile_id, spot_id, booking_date')
     .eq('booking_group_id', groupId)
 
   if (!bookings || bookings.length === 0) {
@@ -1490,4 +1490,75 @@ async function handleParkSpotCheckoutComplete(session: Stripe.Checkout.Session) 
   }
 
   crumb.stripe(`park_spot group ${groupId} flipped to paid (payment_intent ${paymentIntentId ?? 'unknown'})`)
+
+  // Paid confirmations (non-throwing — the status flip already succeeded, so a
+  // notification failure must NOT fail the webhook; Stripe would otherwise
+  // retry a completed booking). Mirrors handleBoothRentalCheckoutComplete.
+  try {
+    const first = bookings[0]
+    const marketId = first.market_id as string
+    const vendorProfileId = first.vendor_profile_id as string
+    const spotId = first.spot_id as string
+    const dayCount = bookings.length
+
+    const [vpResult, marketResult, spotResult] = await Promise.all([
+      supabase.from('vendor_profiles').select('user_id, profile_data, vertical_id').eq('id', vendorProfileId).maybeSingle(),
+      supabase.from('markets').select('name, manager_user_id, manager_email, vertical_id').eq('id', marketId).maybeSingle(),
+      supabase.from('park_spots').select('label').eq('id', spotId).maybeSingle(),
+    ])
+    const vp = vpResult.data
+    const market = marketResult.data
+    const spotLabel = (spotResult.data?.label as string | undefined) || undefined
+    const profileData = (vp?.profile_data || {}) as Record<string, unknown>
+    const vendorName =
+      (profileData.business_name as string | undefined) ||
+      (profileData.farm_name as string | undefined) ||
+      undefined
+    const marketName = (market?.name as string | undefined) || 'the park'
+    const vertical =
+      (market?.vertical_id as string | undefined) ||
+      (vp?.vertical_id as string | undefined) ||
+      'food_trucks'
+
+    let vendorEmail: string | null = null
+    if (vp?.user_id) {
+      const { data: authUser } = await supabase.auth.admin.getUserById(vp.user_id as string)
+      vendorEmail = authUser?.user?.email ?? null
+    }
+    let managerEmail: string | null = (market?.manager_email as string | null) ?? null
+    if (!managerEmail && market?.manager_user_id) {
+      const { data: managerAuth } = await supabase.auth.admin.getUserById(market.manager_user_id as string)
+      managerEmail = managerAuth?.user?.email ?? null
+    }
+
+    if (vp?.user_id) {
+      await sendNotification(
+        vp.user_id as string,
+        'park_spot_paid_vendor',
+        {
+          marketName,
+          marketId,
+          dayCount,
+          ...(spotLabel ? { spotLabel } : {}),
+        },
+        { vertical, ...(vendorEmail ? { userEmail: vendorEmail } : {}) }
+      )
+    }
+    if (market?.manager_user_id) {
+      await sendNotification(
+        market.manager_user_id as string,
+        'park_spot_paid_manager',
+        {
+          marketName,
+          marketId,
+          dayCount,
+          ...(vendorName ? { vendorName } : {}),
+          ...(spotLabel ? { spotLabel } : {}),
+        },
+        { vertical, ...(managerEmail ? { userEmail: managerEmail } : {}) }
+      )
+    }
+  } catch (notifErr) {
+    console.error('[handleParkSpotCheckoutComplete] notification block failed:', notifErr instanceof Error ? notifErr.message : 'Unknown')
+  }
 }

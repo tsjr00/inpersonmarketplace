@@ -115,6 +115,9 @@ export type NotificationType =
   | 'park_standing_suspended'
   // FT park-manager P4b-2 — day-of check-in reminder (open/midday/pre-close).
   | 'park_checkin_reminder'
+  // FT park-manager P2b fast-follow — paid park-spot booking confirmations.
+  | 'park_spot_paid_vendor'
+  | 'park_spot_paid_manager'
   // Manager access lifecycle (Phase 1B) — fired to the affected manager
   // when an admin removes / suspends / restores their market access.
   | 'manager_access_removed'
@@ -274,6 +277,8 @@ export interface NotificationTemplateData {
   payByDate?: string
   /** P4b-2 check-in reminder window: 'open' | 'midday' | 'close'. */
   window?: string
+  /** P2b park-spot paid confirmation: number of days in the booking group. */
+  dayCount?: number
 }
 
 export type NotificationSeverity = 'critical' | 'warning' | 'info'
@@ -915,6 +920,36 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     message: (d) =>
       `You have ${d.spotLabel || 'a spot'} booked at ${d.marketName || 'the park'} today. Tap "Confirm I'm here" to check in — it keeps your recurring hold in good standing and records your location for the state log.`,
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/dashboard`,
+  },
+
+  // FT P2b fast-follow — a park-spot booking (one-off / prepay-week / paid
+  // recurring occurrence) was paid. Confirmation to the truck + heads-up to the
+  // operator; mirrors booth_rental_paid_*. Manager uses audience 'vendor' (no
+  // 'manager' audience — managers are vendor-adjacent, per booth_rental_paid_manager).
+  park_spot_paid_vendor: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: (d) => `Your spot at ${d.marketName || 'the park'} is confirmed`,
+    message: (d) => {
+      const n = d.dayCount || 1
+      return `Payment received — ${d.spotLabel || 'your spot'} at ${d.marketName || 'the park'} is booked for ${n} day${n === 1 ? '' : 's'}. Check in through the platform on each day you operate.`
+    },
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/dashboard`,
+  },
+  park_spot_paid_manager: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: (d) => `New spot booking at ${d.marketName || 'your park'}`,
+    message: (d) => {
+      const n = d.dayCount || 1
+      return `${d.vendorName || 'A food truck'} booked ${d.spotLabel || 'a spot'} at ${d.marketName || 'your park'} for ${n} day${n === 1 ? '' : 's'}.`
+    },
+    actionUrl: (d) =>
+      d.marketId
+        ? `/${d.vertical || 'food_trucks'}/market-manager/${d.marketId}/dashboard`
+        : `/${d.vertical || 'food_trucks'}/dashboard`,
   },
 
   // FT P4b — a standing hold was auto-suspended after hitting the strike limit.
