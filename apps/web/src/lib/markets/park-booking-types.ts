@@ -2,7 +2,7 @@
  * Types + constants for FT park-spot bookings (migration 172).
  */
 
-export type ParkSpotBookingStatus = 'pending_payment' | 'paid' | 'cancelled' | 'completed'
+export type ParkSpotBookingStatus = 'pending_payment' | 'paid' | 'cancelled' | 'completed' | 'expired'
 
 /** Row shape from the `park_spot_bookings` table. */
 export interface ParkSpotBookingRow {

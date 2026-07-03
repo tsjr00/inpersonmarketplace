@@ -93,8 +93,11 @@ export async function POST(
       )
     }
 
-    // Reuse a prior group if this row already had one; else mint one.
-    const groupId = (booking.booking_group_id as string | null) || crypto.randomUUID()
+    // Deterministic per-occurrence group: derive from the booking's own id so two
+    // concurrent pay requests compute the SAME idempotency key (park-spot-${groupId})
+    // and dedupe to ONE Stripe charge, instead of minting divergent random groups.
+    // A generated occurrence has no prior group; reuse one only if already set.
+    const groupId = (booking.booking_group_id as string | null) || bookingId
     const bookingDate = booking.booking_date as string
 
     let checkoutUrl: string | null = null
