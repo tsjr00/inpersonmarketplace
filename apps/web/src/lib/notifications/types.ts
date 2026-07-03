@@ -113,6 +113,8 @@ export type NotificationType =
   // FT park-manager P4b — standing (recurring) spot holds.
   | 'park_standing_occurrence_ready'
   | 'park_standing_suspended'
+  // FT park-manager P4b-2 — day-of check-in reminder (open/midday/pre-close).
+  | 'park_checkin_reminder'
   // Manager access lifecycle (Phase 1B) — fired to the affected manager
   // when an admin removes / suspends / restores their market access.
   | 'manager_access_removed'
@@ -270,6 +272,8 @@ export interface NotificationTemplateData {
   spotLabel?: string
   /** Pay-by cutoff date (YYYY-MM-DD) for a generated recurring occurrence. */
   payByDate?: string
+  /** P4b-2 check-in reminder window: 'open' | 'midday' | 'close'. */
+  window?: string
 }
 
 export type NotificationSeverity = 'critical' | 'warning' | 'info'
@@ -898,6 +902,19 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     message: (d) =>
       `Your recurring hold at ${d.marketName || 'the park'} has ${d.spotLabel || 'your spot'} reserved for ${d.marketDate || 'your next day'}. Pay by ${d.payByDate || 'the cutoff'} to keep it — otherwise it opens back up and counts as a missed week.`,
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/markets/${d.marketId || ''}/book-spot`,
+  },
+
+  // FT P4b-2 — day-of reminder to check in (fires open / midday / pre-close to a
+  // truck with a paid spot that day who hasn't checked in). Guards false no-show
+  // strikes + doubles as the state location-log nudge. `window` = open|midday|close.
+  park_checkin_reminder: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: (d) => `Check in at ${d.marketName || 'the park'} today`,
+    message: (d) =>
+      `You have ${d.spotLabel || 'a spot'} booked at ${d.marketName || 'the park'} today. Tap "Confirm I'm here" to check in — it keeps your recurring hold in good standing and records your location for the state log.`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/dashboard`,
   },
 
   // FT P4b — a standing hold was auto-suspended after hitting the strike limit.

@@ -97,3 +97,90 @@ export async function GET(
     return NextResponse.json({ date, attendance, noShows })
   })
 }
+
+/**
+ * POST /api/market-manager/[marketId]/attendance
+ * Body { vendor_profile_id, date? } — FT P4b-2 "mark present" override. The
+ * operator confirms a truck was on-site for a date it holds a PAID spot but
+ * didn't self-check-in. Writes/updates a market_day_checkins row with
+ * manager_confirmed=true, which cancels that day's no-show strike (the strike
+ * engine reads check-in-row presence). Manager-gated; only trucks with a paid
+ * booking that day are eligible (prevents marking arbitrary vendors present).
+ */
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ marketId: string }> },
+) {
+  return withErrorTracing('/api/market-manager/[marketId]/attendance', 'POST', async () => {
+    const { marketId } = await params
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) throw traced.auth('ERR_AUTH_001', 'Not authenticated')
+    if (!(await isMarketManager(supabase, marketId, user))) {
+      throw traced.auth('ERR_AUTH_002', 'Not the manager of this market')
+    }
+
+    const body = await request.json().catch(() => ({}))
+    const vendorProfileId = typeof body?.vendor_profile_id === 'string' ? body.vendor_profile_id : ''
+    if (!vendorProfileId) {
+      return NextResponse.json({ error: 'vendor_profile_id is required' }, { status: 400 })
+    }
+
+    const service = createServiceClient()
+    const { data: market } = await service
+      .from('markets')
+      .select('timezone')
+      .eq('id', marketId)
+      .maybeSingle()
+    const date = (typeof body?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date))
+      ? body.date
+      : marketLocalDate((market?.timezone as string) ?? null)
+
+    // Eligibility: the truck must hold a PAID spot at this park that date.
+    const { data: booking } = await service
+      .from('park_spot_bookings')
+      .select('id, park_spots:spot_id ( label )')
+      .eq('market_id', marketId)
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('booking_date', date)
+      .eq('status', 'paid')
+      .maybeSingle()
+    if (!booking) {
+      return NextResponse.json(
+        { error: 'That truck has no paid spot at this park on that date.' },
+        { status: 404 },
+      )
+    }
+    const spotLabel = (booking.park_spots as unknown as { label: string } | null)?.label ?? null
+    const nowIso = new Date().toISOString()
+
+    const { error: insErr } = await service.from('market_day_checkins').insert({
+      market_id: marketId,
+      vendor_profile_id: vendorProfileId,
+      market_date: date,
+      method: 'manager',
+      self_attested: false,
+      manager_confirmed: true,
+      manager_confirmed_by: user.id,
+      manager_confirmed_at: nowIso,
+      ...(spotLabel ? { booth_number: spotLabel } : {}),
+    })
+    if (insErr) {
+      if (insErr.code === '23505') {
+        // A row already exists (the truck did check in) — just stamp the
+        // manager confirmation; don't clobber their real check-in method.
+        const { error: updErr } = await service
+          .from('market_day_checkins')
+          .update({ manager_confirmed: true, manager_confirmed_by: user.id, manager_confirmed_at: nowIso })
+          .eq('market_id', marketId)
+          .eq('vendor_profile_id', vendorProfileId)
+          .eq('market_date', date)
+        if (updErr) throw traced.fromSupabase(updErr, { table: 'market_day_checkins', operation: 'update' })
+      } else {
+        throw traced.fromSupabase(insErr, { table: 'market_day_checkins', operation: 'insert' })
+      }
+    }
+
+    return NextResponse.json({ ok: true, date, vendorProfileId })
+  })
+}

@@ -13,6 +13,7 @@ import {
 } from '@/lib/surveys/cron-helpers'
 import { generateSurveyToken } from '@/lib/surveys/token'
 import { resolveMarketAudience } from '@/lib/markets/market-audience'
+import { runParkCheckinReminders } from '@/lib/markets/park-checkin-reminders'
 import {
   buildVendorSurveyEmailSubject,
   buildVendorSurveyEmailHtml,
@@ -70,7 +71,15 @@ export async function GET(request: NextRequest) {
     // same hourly cron; independent of the survey logic above. Failures are
     // captured into its own summary block, never aborting the survey run.
     const marketDay = await runMarketDayNotifications()
-    return NextResponse.json({ ...summary, marketDay })
+    // FT P4b-2 — day-of check-in reminders (open/midday/pre-close) to paid
+    // park trucks who haven't checked in. Also independent; failures isolated.
+    let parkCheckinReminders
+    try {
+      parkCheckinReminders = await runParkCheckinReminders(createServiceClient())
+    } catch (err) {
+      parkCheckinReminders = { parksConsidered: 0, remindersSent: 0, errors: [err instanceof Error ? err.message : 'Unknown'] }
+    }
+    return NextResponse.json({ ...summary, marketDay, parkCheckinReminders })
   })
 }
 

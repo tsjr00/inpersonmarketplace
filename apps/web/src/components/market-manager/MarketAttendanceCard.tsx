@@ -58,6 +58,8 @@ export default function MarketAttendanceCard({ marketId, vertical }: { marketId:
   const [noShows, setNoShows] = useState<NoShowRow[]>([])
   const [loading, setLoading] = useState(true)
   const [resolvedDate, setResolvedDate] = useState<string>('')
+  const [marking, setMarking] = useState<string | null>(null)
+  const [reloadTick, setReloadTick] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -79,7 +81,21 @@ export default function MarketAttendanceCard({ marketId, vertical }: { marketId:
     }
     load()
     return () => { cancelled = true }
-  }, [marketId, date])
+  }, [marketId, date, reloadTick])
+
+  async function markPresent(vendorProfileId: string) {
+    setMarking(vendorProfileId)
+    try {
+      const res = await fetch(`/api/market-manager/${marketId}/attendance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vendor_profile_id: vendorProfileId, date: resolvedDate || date }),
+      })
+      if (res.ok) setReloadTick((t) => t + 1)
+    } finally {
+      setMarking(null)
+    }
+  }
 
   return (
     <ManagerCard
@@ -166,9 +182,25 @@ export default function MarketAttendanceCard({ marketId, vertical }: { marketId:
                 <span style={{ fontSize: typography.sizes.sm, color: colors.textPrimary }}>
                   {n.vendorName}{n.spotLabel ? ` · ${n.spotLabel}` : ''}
                 </span>
-                <span style={{ fontSize: typography.sizes.xs, color: statusColors.warningDark, whiteSpace: 'nowrap' }}>
-                  no-show
-                </span>
+                <button
+                  type="button"
+                  onClick={() => markPresent(n.vendorProfileId)}
+                  disabled={marking === n.vendorProfileId}
+                  style={{
+                    fontSize: typography.sizes.xs,
+                    fontWeight: typography.weights.semibold,
+                    color: statusColors.successDark,
+                    backgroundColor: 'transparent',
+                    border: `1px solid ${statusColors.successDark}`,
+                    borderRadius: radius.sm,
+                    padding: `${spacing['3xs']} ${spacing.xs}`,
+                    cursor: marking === n.vendorProfileId ? 'default' : 'pointer',
+                    opacity: marking === n.vendorProfileId ? 0.6 : 1,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {marking === n.vendorProfileId ? 'Marking…' : 'Mark present'}
+                </button>
               </div>
             ))}
           </div>

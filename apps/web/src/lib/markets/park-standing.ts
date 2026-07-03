@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendNotification } from '@/lib/notifications'
+import { nowInTimezoneAsLocalIso } from '@/lib/surveys/cron-helpers'
 
 /**
  * FT park-manager P4b — standing (recurring) reservation occurrence engine.
@@ -80,12 +81,33 @@ export function countLiveStrikes(
 export interface StandingReservationLite {
   id: string
   strikes_reset_at: string | null
+  market_id: string
+  vendor_profile_id: string
+  timezone: string | null      // market timezone — gates the no-show "day over" test
 }
 
 /**
- * Live strike count per reservation id. Reads 'expired' occurrences
- * (missed-prepay) attributed via park_spot_bookings.standing_reservation_id.
- * (P4b-2 adds paid-but-no-check-in no-shows here.)
+ * A paid standing occurrence becomes a no-show strike once its operating day is
+ * fully over (market-local) and no check-in exists for it. Pure — unit-testable.
+ * A manager "mark present" writes a market_day_checkins row, so hasCheckin=true
+ * cancels the strike (decision #4: day-over + no-checkin + not-manager-confirmed).
+ */
+export function isNoShowStrike(
+  bookingDateISO: string,
+  marketLocalTodayISO: string,
+  hasCheckin: boolean,
+): boolean {
+  if (hasCheckin) return false
+  return bookingDateISO < marketLocalTodayISO
+}
+
+/**
+ * Live strike count per reservation id. Two sources (design P4):
+ *   - missed-prepay: an 'expired' occurrence (attributed via standing_reservation_id);
+ *   - no-show: a 'paid' occurrence whose operating day is fully over (market-local)
+ *     with NO market_day_checkins row for (market, vendor, booking_date).
+ * Both event dates feed countLiveStrikes (rolling 32d, reset-aware). Shared by the
+ * manager display + the cron auto-suspend, so both see no-shows automatically.
  */
 export async function getStrikeCountsForReservations(
   serviceClient: SupabaseClient,
@@ -96,19 +118,79 @@ export async function getStrikeCountsForReservations(
   const ids = reservations.map((r) => r.id)
   if (ids.length === 0) return counts
 
-  const { data } = await serviceClient
+  // Source 1 — missed-prepay ('expired') occurrences.
+  const { data: expiredRows } = await serviceClient
     .from('park_spot_bookings')
-    .select('standing_reservation_id, booking_date, status')
+    .select('standing_reservation_id, booking_date')
     .in('standing_reservation_id', ids)
     .eq('status', 'expired')
 
-  const byRes = new Map<string, string[]>()
-  for (const row of data ?? []) {
+  // Source 2 — paid occurrences (no-show candidates).
+  const { data: paidRows } = await serviceClient
+    .from('park_spot_bookings')
+    .select('standing_reservation_id, booking_date, market_id, vendor_profile_id')
+    .in('standing_reservation_id', ids)
+    .eq('status', 'paid')
+
+  // Keep only paid occurrences whose day is fully over in the market's local
+  // time — those are the ones a missing check-in can strike. Memoize per tz.
+  const resById = new Map(reservations.map((r) => [r.id, r]))
+  const localTodayByTz = new Map<string, string>()
+  const localTodayFor = (tz: string | null): string => {
+    const key = tz || 'America/Chicago'
+    let v = localTodayByTz.get(key)
+    if (v === undefined) {
+      v = nowInTimezoneAsLocalIso(key).slice(0, 10)
+      localTodayByTz.set(key, v)
+    }
+    return v
+  }
+
+  const pastPaid: Array<{ rid: string; market_id: string; vendor_profile_id: string; booking_date: string }> = []
+  for (const row of paidRows ?? []) {
     const rid = row.standing_reservation_id as string
+    const res = resById.get(rid)
+    if (!res) continue
+    if ((row.booking_date as string) < localTodayFor(res.timezone)) {
+      pastPaid.push({
+        rid,
+        market_id: row.market_id as string,
+        vendor_profile_id: row.vendor_profile_id as string,
+        booking_date: row.booking_date as string,
+      })
+    }
+  }
+
+  // Batch check-in lookup for the past-paid candidates → set of "present" keys.
+  const presentKeys = new Set<string>()
+  if (pastPaid.length > 0) {
+    const { data: checkins } = await serviceClient
+      .from('market_day_checkins')
+      .select('market_id, vendor_profile_id, market_date')
+      .in('market_id', Array.from(new Set(pastPaid.map((p) => p.market_id))))
+      .in('vendor_profile_id', Array.from(new Set(pastPaid.map((p) => p.vendor_profile_id))))
+      .in('market_date', Array.from(new Set(pastPaid.map((p) => p.booking_date))))
+    for (const c of checkins ?? []) {
+      presentKeys.add(`${c.market_id}|${c.vendor_profile_id}|${c.market_date}`)
+    }
+  }
+
+  // Assemble strike event-dates per reservation (expired + un-attended no-shows).
+  const byRes = new Map<string, string[]>()
+  const push = (rid: string, date: string) => {
     const arr = byRes.get(rid) ?? []
-    arr.push(row.booking_date as string)
+    arr.push(date)
     byRes.set(rid, arr)
   }
+  for (const row of expiredRows ?? []) {
+    push(row.standing_reservation_id as string, row.booking_date as string)
+  }
+  for (const p of pastPaid) {
+    if (!presentKeys.has(`${p.market_id}|${p.vendor_profile_id}|${p.booking_date}`)) {
+      push(p.rid, p.booking_date)
+    }
+  }
+
   for (const r of reservations) {
     counts.set(r.id, countLiveStrikes(byRes.get(r.id) ?? [], todayISO, r.strikes_reset_at))
   }
@@ -167,7 +249,7 @@ export async function runStandingOccurrenceSweep(
     .select(`
       id, market_id, vendor_profile_id, spot_id, day_of_week, strikes_reset_at,
       park_spots:spot_id ( label, base_price_cents, active ),
-      markets:market_id ( name, vertical_id ),
+      markets:market_id ( name, vertical_id, timezone ),
       vendor_profiles:vendor_profile_id ( user_id )
     `)
     .eq('status', 'active')
@@ -234,6 +316,9 @@ export async function runStandingOccurrenceSweep(
   const activeLite: StandingReservationLite[] = (active ?? []).map((r) => ({
     id: r.id as string,
     strikes_reset_at: (r.strikes_reset_at as string | null) ?? null,
+    market_id: r.market_id as string,
+    vendor_profile_id: r.vendor_profile_id as string,
+    timezone: (r.markets as unknown as { timezone: string | null } | null)?.timezone ?? null,
   }))
   const strikeCounts = await getStrikeCountsForReservations(serviceClient, activeLite, todayISO)
   for (const r of active ?? []) {

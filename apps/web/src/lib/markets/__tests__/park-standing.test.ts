@@ -5,6 +5,7 @@ import {
   prepayCutoffISO,
   isPastPrepayCutoff,
   countLiveStrikes,
+  isNoShowStrike,
   PARK_STANDING_PREPAY_CUTOFF_DAYS,
   PARK_STANDING_STRIKE_WINDOW_DAYS,
 } from '@/lib/markets/park-standing'
@@ -74,5 +75,24 @@ describe('countLiveStrikes', () => {
 
   it('returns 0 for no events', () => {
     expect(countLiveStrikes([], today, null)).toBe(0)
+  })
+})
+
+describe('isNoShowStrike (P4b-2 no-show source)', () => {
+  const localToday = '2026-07-10'
+
+  it('strikes a paid occurrence whose day is fully over with no check-in', () => {
+    expect(isNoShowStrike('2026-07-09', localToday, false)).toBe(true)
+    expect(isNoShowStrike('2026-07-01', localToday, false)).toBe(true)
+  })
+
+  it('does NOT strike if the truck checked in (or was manager-confirmed)', () => {
+    // A manager "mark present" writes a check-in row → hasCheckin true → no strike.
+    expect(isNoShowStrike('2026-07-09', localToday, true)).toBe(false)
+  })
+
+  it('does NOT strike before the day is fully over (today or future)', () => {
+    expect(isNoShowStrike('2026-07-10', localToday, false)).toBe(false) // today — day not over
+    expect(isNoShowStrike('2026-07-11', localToday, false)).toBe(false) // future
   })
 })

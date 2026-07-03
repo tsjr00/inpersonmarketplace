@@ -43,8 +43,9 @@ export async function GET(
     const { data, error } = await service
       .from('park_standing_reservations')
       .select(`
-        id, day_of_week, status, approved_at, strikes_reset_at,
+        id, day_of_week, status, approved_at, strikes_reset_at, market_id, vendor_profile_id,
         park_spots:spot_id ( label ),
+        markets:market_id ( timezone ),
         vendor_profiles:vendor_profile_id ( profile_data )
       `)
       .eq('market_id', marketId)
@@ -56,7 +57,13 @@ export async function GET(
     const todayISO = new Date().toISOString().slice(0, 10)
     const strikes = await getStrikeCountsForReservations(
       service,
-      (data ?? []).map((r) => ({ id: r.id as string, strikes_reset_at: (r.strikes_reset_at as string | null) ?? null })),
+      (data ?? []).map((r) => ({
+        id: r.id as string,
+        strikes_reset_at: (r.strikes_reset_at as string | null) ?? null,
+        market_id: r.market_id as string,
+        vendor_profile_id: r.vendor_profile_id as string,
+        timezone: (r.markets as unknown as { timezone: string | null } | null)?.timezone ?? null,
+      })),
       todayISO,
     )
 

@@ -183,8 +183,11 @@ describe('NI-014: Total notification types = 72', () => {
     // Bumped 86 → 88 on 2026-07-01 when park_standing_occurrence_ready +
     // park_standing_suspended were added (FT park-manager P4b-1 — recurring
     // spot holds: prepay-by-cutoff occurrence + auto-suspend). User-approved.
+    // Bumped 88 → 89 on 2026-07-02 when park_checkin_reminder was added
+    // (FT park-manager P4b-2 — day-of check-in reminder open/midday/pre-close,
+    // guards false no-show strikes). User-approved.
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(88)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(89)
   })
 
   it('includes all buyer-facing types', () => {
