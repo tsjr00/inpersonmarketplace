@@ -1,6 +1,59 @@
-# Current Task: FM season MAKE-UP DAYS shipped to STAGING (Steps 1–6) — prod push pending · NEXT SESSION = FT park-manager port
+# Current Task: FT PARK-MANAGER PORT — P0→P5 + fast-follows shipped to STAGING · NEXT = prod push and/or P6 · prod push pending
 
-**Updated:** 2026-07-01 EOD. **Mode:** Report.
+**Updated:** 2026-07-02 EOD. **Mode:** Report (Fix was active 2026-07-02 for the P4b-2/P5/fast-follow builds).
+
+---
+
+## ⭐⭐ NEXT SESSION — START HERE (FT park-manager port, handoff 2026-07-01)
+
+**Goal:** port the FM market-manager surface to the FT (food-truck) vertical as a **park operator** experience. Authoritative design + phase plan: **`ft_park_manager_design.md`**. Detailed per-phase build notes are in the `⭐ FT PARK-MANAGER` blocks further down this file. It's a PORT (FM system is already vertical-agnostic), reshaped where FT differs (individual date-native spots, no FM season stack, recurring holds, hard-geo attendance for TX compliance, **no buyer-sales integration**).
+
+### Phase status
+| Phase | What | Status |
+|---|---|---|
+| P0a | Un-gate manager dashboard for FT (`getMarketsManagedBy` vertical param) | ✅ staging |
+| P0b/c | FT self-serve intake + branding | ⏸ deferred (admin can assign an operator today — vertical-agnostic) |
+| P1 | Spot inventory (`park_spots`, `markets.park_mode`) — mig 171 | ✅ staging |
+| P2a/b | Date-native paid spot booking + money path — mig 172 | ✅ staging |
+| P2.5 | "De-FM" the FT manager surface (stop FM booth/weekly/season leaking into FT parks) | ✅ staging |
+| P3a/b/c | Attendance/compliance check-in (FT-only geo + noncompliance warning, location log + CSV, no-show roster) | ✅ staging |
+| P4a | Recurring reservation lifecycle backbone (request→approve→revoke/reinstate) — mig 173 | ✅ staging |
+| **P4b-1** | Occurrence generator + prepay-cutoff release + compute-on-read strike engine + pay-occurrence route + card strikes/paused UI — mig 174 | ✅ staging |
+| **P4b-2** | no-show strike + 3 check-in reminders + `manager_confirmed` override | ✅ staging (`a9438c0b`) |
+| **P5** | FT agreement statements — vertical-scoped opt-in catalog (16 FT statements) — mig 175 | ✅ staging (`444db411`) |
+| **Fast-follows** | park_spot paid notifications (webhook) + 14 FT flow-integrity contracts | ✅ staging (`453574f5`) |
+| P6 | RM operator-keep-% money path (`markets.operator_keep_pct`) | ⬜ not started (joint w/ RM build; ⚠ money path) |
+
+### Immediate next action = **staging verification → FT-port PROD push**, then optionally P6
+The whole FT park-manager module (P0→P5 + fast-follows) is on staging, nothing on prod. Two paths:
+1. **Prod push (user-gated, 9 PM–7 AM CT):** apply migs **171→172→173→174→175** to Prod in order, then push range `426deff4..453574f5` to `origin/main`. Verify Vercel build + smoke test. Bundle-or-separate from the pending FM make-up-days stack (migs 168/169/170 + `426deff4..2c6357d7`) is a user decision. **DO NOT push prod without user go + staging verification.**
+2. **P6 — RM operator-keep-% money path** (⚠ money path, critical-path `payments.ts`): `markets.operator_keep_pct` read by the park-spot checkout to raise `transfer_data.amount`. Joint with the RM build — best as its own focused session, not tail-end.
+
+**Staging verification checklist (pending user):** FT operator dashboard — agreement statement picker shows universal + 16 FT statements (propane/DSHS/generator), FM shows only universal + FM; "Mark present" on the attendance no-show roster clears a no-show; standing-reservation strike badges/paused/reinstate. **Cron-driven pieces (no-show finalize, 3 reminders, occurrence generation) run ONLY in prod** — not staging-smoke-testable without a seeded row.
+
+### 2026-07-02 session build detail (all on staging)
+- **Occurrence-pay concurrency fix + `expired` status type** (`1474935a`): `park-occurrences/[bookingId]/pay` derives the Stripe group from the booking's own id (concurrent pays → one idempotency key → one charge, was minting divergent random groups). `ParkSpotBookingStatus` += `'expired'`. No migration; no money-path file edits.
+- **P4b-2** (`a9438c0b`, no migration): `getStrikeCountsForReservations` gains a 2nd strike source — a `paid` standing occurrence past (market-local) with no `market_day_checkins` row + not manager-confirmed (pure `isNoShowStrike`); `StandingReservationLite` += market_id/vendor_profile_id/timezone (sweep + manager GET supply them). `park-checkin-reminders.ts` (pure `checkinReminderWindow` + `runParkCheckinReminders`) wired into the **hourly surveys cron** (independent block), 1 notif type `park_checkin_reminder`, dedup via `notifications` (no migration). Attendance route +POST "mark present" (writes `manager_confirmed` check-in) + `MarketAttendanceCard` "Mark present" button. Tests: +3 isNoShowStrike, +6 checkinReminderWindow.
+- **P5** (`444db411`, **mig 175**): `market_optin_statement_catalog` += nullable `vertical_id` (NULL=universal → existing 15 untouched; `food_trucks` = FT-only). Seeds **16 FT statements** (HB2844/DSHS license+display+lapse+location-list, propane/LP-gas inspection, fire suppression, food certs, commissary; generator/power/grease/cleanup/checkin/spot-fit conduct; menu consistency; auto insurance). Catalog + selections routes filter by `(vertical_id IS NULL OR = market vertical)`. Statements draft: `ft_p5_agreement_statements.md`.
+- **Fast-follows** (`453574f5`, no migration): `handleParkSpotCheckoutComplete` (critical-path `webhooks.ts`, user-approved) sends `park_spot_paid_vendor`+`park_spot_paid_manager` in a non-throwing post-flip block (paid park-spot booking previously notified no one). +14 FT flow-integrity contracts (P2b money path, P4 strike engine, P4b-2, P5). NI-014 tripwire 88→**91** (3 new notif types this session).
+- **Decisions (user 2026-07-02):** flat-fee-per-period on prepay-week = **leave as-is** (matches FM season; reworking a proven money calc for $0.15 = net-negative risk); per-DOW spot pricing = **deferred** (single flat daily rate; backlog); opt-in catalog vertical tagging = **add `vertical_id`** (recommended over global to avoid FM/FT cross-pollination). See `decisions.md`.
+
+### ⚠️ Key caveats for the next session
+- **Generator is prod-cron-only:** `expire-orders/route.ts:61` early-returns when `VERCEL_ENV !== 'production'`, so the Phase 21 sweep (occurrence generation, cutoff-release, auto-suspend) **does NOT run on staging**. Full loop is only exercised in prod OR by manually seeding a `pending_payment` `park_spot_bookings` row with `standing_reservation_id` on staging (offer the user SQL). Manager card lifecycle (approve/deny/revoke/reinstate) IS testable on staging.
+- **Cutoff = 2 whole days** before the occurrence date (user-confirmed, constant `PARK_STANDING_PREPAY_CUTOFF_DAYS`). Strike limit 3, window 32d, generation horizon 7d.
+- **Money discipline held:** P2b + P4b-1 reuse `createParkSpotCheckoutSession` / the `park_spot` webhook branch — the two protected files (`payments.ts`, `webhooks.ts`) got per-file-approved edits in P2b only; P4b-1 added NO edits to them.
+- **`markets.event_end_date` missing on DEV** (pre-existing, dev-only) — surfaces as a browse RPC warning in build logs; not a prod bug, not from this work.
+
+### Git / deploy state
+- **All FT-port work is on `staging`**, tip **`453574f5`**. This session's commits (oldest→newest): `1474935a` (pay concurrency fix + expired type) → `a9438c0b` (P4b-2) → `444db411` (P5 + mig 175) → `453574f5` (fast-follows: paid notifications + flow-integrity). Prior FT-port: P2.5 → P3a/b/c → P4a (`effac4ba`) → P4b-1 (`cf0fd432`).
+- **Prod (`origin/main`) still `426deff4`** — NOTHING from the FT port is in prod yet (25 commits behind).
+- **Migrations Dev+Staging applied, Prod PENDING:** 171, 172, 173, 174, **175** (FT port) + 168, 169, 170 (FM Phase E credit/projection/make-up days, older carryover).
+- **FT-port PROD push (future, user-gated, 9 PM–7 AM CT):** apply migs **171→172→173→174→175** to Prod in order, then push range `426deff4..453574f5` to `origin/main`. Bundle-or-separate from the pending FM make-up-days push (migs 168/169/170 + `426deff4..2c6357d7`) is a decision for the user. **DO NOT push prod without user go + staging verification.**
+
+### Deferred (noted, not lost)
+- VendorBoothList booth-# trim for FT (cosmetic); MarketCancelDateCard FT-aware cascade (credit `park_spot_bookings` not `weekly_booth_rentals` — pair with FT cancellation work); P0b/c FT intake + branding; MarketVisibilityCard + STEP_LABELS + admin-block terminology tail (see P2.5 "SKIPPED/REMAINING" block below).
+
+---
 
 ---
 
@@ -40,9 +93,10 @@ First slice of the FT park-operator port. Routed manager-surface domain nouns th
 
 ---
 
-## ⭐ NEXT SESSION — START HERE (handoff 2026-06-29)
+## 📦 CARRYOVER (older, still valid) — FM make-up days on staging + prod-pending stack
+*(Superseded as "start here" by the FT-port handoff at the top. This block remains for the pending FM Phase E prod push.)*
 
-### Tonight (2026-06-29): FM season make-up days — FULLY BUILT, ON STAGING (Steps 1–6)
+### 2026-06-29: FM season make-up days — FULLY BUILT, ON STAGING (Steps 1–6)
 Booth-only **fulfillment** model (a make-up day = delivered booth time, NOT a redeemed credit; **NO money path touched**). Wires the reserved `market_seasons.status='ended'` as the make-up-window state + adds the FIRST real settlement enforcement. Plan: `phase_e_makeup_days_plan.md`. Decisions: `decisions.md` 2026-06-29 (2 rows). Per-step detail in the `🏗️ 2026-06-29` blocks below.
 - **What it does:** manager ends a season → `ended` (or `settled` if no debt) → schedules post-close make-up dates (capped by new `market_seasons.potential_makeup_days`, opt-in 0 or ≥2) → paid-booth vendors notified → settles owed groups as `made_up`. Cron **Phase 20** auto-ends past-end seasons. Opening a NEW season's pre-sales is **blocked** while a prior season is unsettled (the first real enforcement).
 - **Git (staging):** `27d83e78` (steps 1–2: mig 170 + lifecycle) → `76eeebf7` (3–5: scheduling, `made_up` settlement, +9 flow-integrity) → `2c6357d7` (6: manager UI). Prod (`origin/main`) STILL `426deff4`. Every push: pre-commit vitest 1557 + pre-push build + Playwright 49 green.
@@ -50,8 +104,8 @@ Booth-only **fulfillment** model (a make-up day = delivered booth time, NOT a re
 - **STAGING VERIFICATION (pending, user):** create a season w/ buffer ≥2; end it (no-debt→settled, debt→make-up window); schedule a make-up date (test invalid: before end_date / over buffer / not-ended); settle a group `made_up`; confirm next-season open is blocked while a prior is unsettled.
 - **PROD PUSH (pending, user go, 9 PM–7 AM CT):** apply migs **168, 169, 170** to Prod in order (after 164–167) → push `426deff4..2c6357d7` (bundles the credit lifecycle + projection tool + make-up days) → Vercel green → smoke test. **DO NOT push prod without user go.**
 
-### NEXT SESSION'S WORK: integrate the manager functionality into the FT (food-trucks) vertical
-**Read `ft_park_manager_port_plan.md` FIRST.** Tonight's cross-vertical survey (3 agents + verification) found the entire market-manager + booth/season system is **already vertical-agnostic** (all tables key on `market_id`; money path + auth vertical-neutral) and **FT truck parks already exist as data** (`FT_SEED_PART_A.sql` — `market_type='traditional'`, `vertical_id='food_trucks'`). FM-only is a THIN code scoping: blocker = `manager-queries.ts:42,54` (hardcoded `vertical_id='farmers_market'`) + intake hardcode (`intake/route.ts:223`) + missing FT terminology keys + cosmetic branding. **It's a PORT, not a rebuild.** BUT several pieces need FT-specific design (don't force): truck-spot inventory shape (length/utilities, not 10×10 booths); weekly-first (season prepay secondary for rotating trucks); FT-authored agreement statements (mobile-food permits/propane/generator); coexistence with FT's existing events/wave system + the free "where-trucks-today" attendance. **The FT port == the RM operator-keep-% money-path build** (same surface — `decisions.md` 2026-06-28). 7-phase sequence + 5 open questions are in the plan doc. (Caveat the user flagged: there is real existing FT functionality I under-knew at first — next session should dig into FT events/waves/attendance before scoping.)
+### ~~NEXT SESSION'S WORK: integrate the manager functionality into the FT vertical~~ (DONE — this became the FT port, P0→P4b-1 shipped; see top handoff. Original scoping notes kept below for reference.)
+**Original note — `ft_park_manager_port_plan.md` (superseded by `ft_park_manager_design.md`).** Tonight's cross-vertical survey (3 agents + verification) found the entire market-manager + booth/season system is **already vertical-agnostic** (all tables key on `market_id`; money path + auth vertical-neutral) and **FT truck parks already exist as data** (`FT_SEED_PART_A.sql` — `market_type='traditional'`, `vertical_id='food_trucks'`). FM-only is a THIN code scoping: blocker = `manager-queries.ts:42,54` (hardcoded `vertical_id='farmers_market'`) + intake hardcode (`intake/route.ts:223`) + missing FT terminology keys + cosmetic branding. **It's a PORT, not a rebuild.** BUT several pieces need FT-specific design (don't force): truck-spot inventory shape (length/utilities, not 10×10 booths); weekly-first (season prepay secondary for rotating trucks); FT-authored agreement statements (mobile-food permits/propane/generator); coexistence with FT's existing events/wave system + the free "where-trucks-today" attendance. **The FT port == the RM operator-keep-% money-path build** (same surface — `decisions.md` 2026-06-28). 7-phase sequence + 5 open questions are in the plan doc. (Caveat the user flagged: there is real existing FT functionality I under-knew at first — next session should dig into FT events/waves/attendance before scoping.)
 
 ### Carryover (still pending, older)
 - **Phase E credit lifecycle (Item 4/4b/2) + RM projection tool** — on staging (folded into the `426deff4..2c6357d7` stack); migs 168+169 prod-pending (apply with 170 in the SAME prod push). Credit-redemption staging verification still pending (needs a vendor holding a booth credit at a Stripe-ready market). Specs: `phase_e_remaining_build_plan.md`, `operator_projection_tool.md`.
