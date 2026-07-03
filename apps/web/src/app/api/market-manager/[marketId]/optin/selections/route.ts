@@ -126,14 +126,24 @@ export async function PUT(
 
     const serviceClient = createServiceClient()
 
-    // Validate every statement_id exists and is active in the catalog.
+    // Validate every statement_id exists, is active, AND is in this market's
+    // vertical scope (universal or the market's vertical) — a manager can't
+    // smuggle in an out-of-vertical statement via a crafted request (mig 175).
     if (cleaned.length > 0) {
+      const { data: market } = await serviceClient
+        .from('markets')
+        .select('vertical_id')
+        .eq('id', marketId)
+        .maybeSingle()
+      const vertical = (market?.vertical_id as string | null) || 'farmers_market'
+
       crumb.supabase('select', 'market_optin_statement_catalog')
       const ids = cleaned.map((s) => s.statement_id)
       const { data: catalogRows, error: catalogErr } = await serviceClient
         .from('market_optin_statement_catalog')
         .select('id')
         .eq('active', true)
+        .or(`vertical_id.is.null,vertical_id.eq.${vertical}`)
         .in('id', ids)
 
       if (catalogErr) {

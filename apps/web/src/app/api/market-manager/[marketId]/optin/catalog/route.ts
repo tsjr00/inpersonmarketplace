@@ -47,11 +47,22 @@ export async function GET(
 
     const serviceClient = createServiceClient()
 
+    // Scope the catalog to this market's vertical: universal statements
+    // (vertical_id NULL) plus any tagged for the market's vertical. Keeps
+    // FT-specific statements off FM markets and vice versa (mig 175).
+    const { data: market } = await serviceClient
+      .from('markets')
+      .select('vertical_id')
+      .eq('id', marketId)
+      .maybeSingle()
+    const vertical = (market?.vertical_id as string | null) || 'farmers_market'
+
     crumb.supabase('select', 'market_optin_statement_catalog')
     const { data, error } = await serviceClient
       .from('market_optin_statement_catalog')
       .select('id, category, statement, placeholders, active, sort_order')
       .eq('active', true)
+      .or(`vertical_id.is.null,vertical_id.eq.${vertical}`)
       .order('sort_order', { ascending: true })
       .order('id', { ascending: true })
 
