@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { getOnboardingProgress } from '@/lib/markets/onboarding-progress'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
@@ -25,6 +25,7 @@ import ManagerSupportCard from '@/components/market-manager/ManagerSupportCard'
 import MarketBroadcastCard from '@/components/market-manager/MarketBroadcastCard'
 import MarketAttendanceCard from '@/components/market-manager/MarketAttendanceCard'
 import StandingReservationsCard from '@/components/market-manager/StandingReservationsCard'
+import ParkWeekCard from '@/components/market-manager/ParkWeekCard'
 import ManagerCard, { MANAGER_NAV_OFFSET } from '@/components/market-manager/ManagerCard'
 import ManagerJumpNav from '@/components/market-manager/ManagerJumpNav'
 import InviteVendorLink from '@/components/market-manager/InviteVendorLink'
@@ -33,6 +34,7 @@ import ManagerActionSummary from '@/components/market-manager/ManagerActionSumma
 import MarketVisibilityCard from '@/components/market-manager/MarketVisibilityCard'
 import ManagerEarningsCard from '@/components/market-manager/ManagerEarningsCard'
 import { getManagerDashboardStats, getMarketTransactionsAggregates, getManagerEarningsAggregates } from '@/lib/markets/manager-dashboard-stats'
+import { getParkWeekSchedule } from '@/lib/markets/park-week-schedule'
 import { getMarketVisibilityStatus } from '@/lib/markets/market-visibility'
 import { term } from '@/lib/vertical/terminology'
 
@@ -120,6 +122,13 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
     end_time: (s.end_time as string | null) ?? null,
     active: (s.active as boolean | null) ?? null,
   }))
+
+  // FT parks: day-scoped week schedule (who's booked, which spot, paid?) for
+  // the "This week at your park" card. Service client — park tables are
+  // service-only (RLS no-policy); manager auth verified above.
+  const parkWeek = isFoodTrucks
+    ? await getParkWeekSchedule(createServiceClient(), marketId, (market.timezone as string | null) ?? null)
+    : null
 
   return (
     <div style={{
@@ -279,6 +288,32 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
             <BoothPlaceholderManager marketId={marketId} vertical={vertical} />
           </ManagerCard>
         </>
+      )}
+
+      {/* FT parks: day-scoped "this week" occupancy view — who's booked, which
+          spot, and whether they've paid, over the next 7 operating days. Sits
+          above the roster (which is where approvals live). */}
+      {isFoodTrucks && parkWeek && (
+        <ManagerCard
+          id="week"
+          title="This week at your park"
+          description="Who's booked over the next 7 operating days. Tap a day to see the trucks, their spot, and whether they've paid."
+          headerAccessory={parkWeek.needingApproval > 0 ? (
+            <a
+              href="#vendors"
+              style={{
+                fontSize: typography.sizes.xs,
+                fontWeight: typography.weights.semibold,
+                color: colors.primary,
+                textDecoration: 'underline',
+              }}
+            >
+              {parkWeek.needingApproval} truck{parkWeek.needingApproval === 1 ? '' : 's'} need approval →
+            </a>
+          ) : undefined}
+        >
+          <ParkWeekCard schedule={parkWeek} />
+        </ManagerCard>
       )}
 
       {/* Vendors at this market — assign / edit booth numbers. Anchors the
