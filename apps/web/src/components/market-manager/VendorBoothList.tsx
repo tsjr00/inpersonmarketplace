@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { term } from '@/lib/vertical/terminology'
+import type { VendorSpotAssignment } from '@/lib/markets/park-vendor-spots'
 
 interface Vendor {
   market_vendor_id: string
@@ -17,6 +18,55 @@ interface Vendor {
   on_platform: true
   is_active_schedule: boolean
   has_info_sharing_consent: boolean
+  /** FT parks only: the truck's active standing hold(s) + upcoming spot
+   *  bookings, resolved server-side from park_spot_bookings /
+   *  park_standing_reservations. null for FM markets (booth_number model). */
+  spot_assignments: VendorSpotAssignment | null
+}
+
+/** Format a YYYY-MM-DD booking date as "Jul 6" without a timezone shift
+ *  (build the Date from parts so it stays in local time). */
+function formatSpotDate(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  if (!y || !m || !d) return iso
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+/** FT parks: compact read-only summary of a truck's spot assignment. Shows
+ *  the active standing hold if any (e.g. "Spot A · weekly (Sat)"), else the
+ *  next upcoming booked spot ("Spot A · Jul 6"), with "+N more" when there
+ *  are additional holds/bookings. Nothing to assign here — trucks pick and
+ *  pay for a spot in the booking flow. */
+function SpotAssignmentSummary({ assignment }: { assignment: VendorSpotAssignment | null }) {
+  const standing = assignment?.standing ?? []
+  const upcoming = assignment?.upcoming ?? []
+
+  let primary: string | null = null
+  let moreCount = 0
+  if (standing.length > 0) {
+    primary = `${standing[0].spotLabel} · weekly (${standing[0].dayAbbr})`
+    moreCount = standing.length - 1
+  } else if (upcoming.length > 0) {
+    primary = `${upcoming[0].spotLabel} · ${formatSpotDate(upcoming[0].bookingDate)}`
+    moreCount = upcoming.length - 1
+  }
+
+  if (!primary) {
+    return (
+      <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted, fontStyle: 'italic' }}>
+        No upcoming spot booked
+      </span>
+    )
+  }
+  return (
+    <span style={{ fontSize: typography.sizes.sm, color: colors.textPrimary, display: 'inline-flex', alignItems: 'center', gap: spacing['3xs'] }}>
+      <span aria-hidden>🅿</span>
+      <span>{primary}</span>
+      {moreCount > 0 && (
+        <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>+{moreCount} more</span>
+      )}
+    </span>
+  )
 }
 
 interface TierOption {
@@ -317,8 +367,14 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
       }}>
         <span>Show:</span>
         {renderFilterChip('active', 'Active', activeVendors.length)}
-        <span>·</span>
-        {renderFilterChip('needs_booth', `Needs ${term(vertical, 'booth').toLowerCase()} #`, needsBoothVendors.length)}
+        {/* FT parks have no booth-number model — spots live in park_spot_bookings.
+            Hide the "Needs spot #" filter for FT. */}
+        {!isFoodTruck && (
+          <>
+            <span>·</span>
+            {renderFilterChip('needs_booth', `Needs ${term(vertical, 'booth').toLowerCase()} #`, needsBoothVendors.length)}
+          </>
+        )}
         <span>·</span>
         {renderFilterChip('pending_approval', 'Pending approval', pendingApprovalVendors.length)}
         <span>·</span>
@@ -451,6 +507,10 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                 </div>
               ) : (
                 <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], flexWrap: 'wrap' }}>
+                  {isFoodTruck ? (
+                    <SpotAssignmentSummary assignment={v.spot_assignments} />
+                  ) : (
+                  <>
                   <input
                     type="text"
                     value={editedValue}
@@ -512,6 +572,8 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                     <span style={{ color: colors.primary, fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold }}>
                       ✓ Saved
                     </span>
+                  )}
+                  </>
                   )}
                   <button
                     type="button"

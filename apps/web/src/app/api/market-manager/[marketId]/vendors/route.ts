@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { getVendorSpotAssignments, type VendorSpotAssignment } from '@/lib/markets/park-vendor-spots'
 
 /**
  * GET /api/market-manager/[marketId]/vendors
@@ -111,6 +112,24 @@ export async function GET(
       }
     }
 
+    // FT parks: a truck's spot lives in park_spot_bookings / standing
+    // reservations, NOT market_vendors.booth_number (null for every truck).
+    // Resolve each truck's upcoming + standing spot assignment so the manager
+    // card can show it. FM markets skip this — booth_number is their model.
+    const { data: marketRow } = await serviceClient
+      .from('markets')
+      .select('vertical_id, timezone')
+      .eq('id', marketId)
+      .maybeSingle()
+    let spotAssignments: Record<string, VendorSpotAssignment> = {}
+    if (marketRow?.vertical_id === 'food_trucks') {
+      spotAssignments = await getVendorSpotAssignments(
+        serviceClient,
+        marketId,
+        (marketRow.timezone as string | null) ?? null
+      )
+    }
+
     const vendors = (rows || []).map((row) => {
       const vp = row.vendor_profiles as unknown as
         | { id: string; status: string; profile_data: Record<string, unknown> | null }
@@ -133,6 +152,7 @@ export async function GET(
         on_platform: true as const,
         is_active_schedule: activeScheduleSet.has(row.vendor_profile_id as string),
         has_info_sharing_consent: consentSet.has(row.vendor_profile_id as string),
+        spot_assignments: spotAssignments[row.vendor_profile_id as string] ?? null,
         created_at: row.created_at as string,
       }
     })

@@ -286,8 +286,10 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
       <ManagerCard
         id="vendors"
         title={`${term(vertical, 'vendors')} at this ${term(vertical, 'market').toLowerCase()}`}
-        description={`Assign ${term(vertical, 'booth').toLowerCase()} numbers to ${term(vertical, 'vendors').toLowerCase()} who are on the platform and at this ${term(vertical, 'market').toLowerCase()}. Off-platform ${term(vertical, 'vendor').toLowerCase()} placeholders ship in a later update.`}
-        headerAccessory={dashboardStats.activeVendorsNeedingBooth > 0 ? (
+        description={isFoodTrucks
+          ? `Approve ${term(vertical, 'vendors').toLowerCase()} for your ${term(vertical, 'market').toLowerCase()} and manage their status. ${term(vertical, 'booth')} assignments come from each ${term(vertical, 'vendor').toLowerCase()}'s booking — trucks pick and pay for a ${term(vertical, 'booth').toLowerCase()} in the booking flow.`
+          : `Assign ${term(vertical, 'booth').toLowerCase()} numbers to ${term(vertical, 'vendors').toLowerCase()} who are on the platform and at this ${term(vertical, 'market').toLowerCase()}. Off-platform ${term(vertical, 'vendor').toLowerCase()} placeholders ship in a later update.`}
+        headerAccessory={!isFoodTrucks && dashboardStats.activeVendorsNeedingBooth > 0 ? (
           <span style={{
             fontSize: typography.sizes.xs,
             fontWeight: typography.weights.semibold,

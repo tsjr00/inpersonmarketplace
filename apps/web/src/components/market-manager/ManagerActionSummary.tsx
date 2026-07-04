@@ -39,7 +39,10 @@ export default function ManagerActionSummary({
   if (setupIncomplete) return null
 
   const hasPendingApproval = stats.pendingApprovalCount > 0
-  const hasNeedsBooth = stats.activeVendorsNeedingBooth > 0
+  // FT parks have no booth-number model — a truck's spot lives in
+  // park_spot_bookings, so activeVendorsNeedingBooth (booth_number IS NULL)
+  // counts every truck. Suppress the "needs a spot number assigned" nag for FT.
+  const hasNeedsBooth = vertical !== 'food_trucks' && stats.activeVendorsNeedingBooth > 0
   const hasNextMarket = stats.nextMarketDate !== null
 
   // Nothing to surface — keep the dashboard quiet.
