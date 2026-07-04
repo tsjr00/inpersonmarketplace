@@ -662,6 +662,13 @@ describe('FT park-manager flow integrity', () => {
     expect(code).toContain('|| bookingId') // same idempotency key under concurrent pays → one charge
   })
 
+  it('P6: park-spot checkout applies the per-market operator_keep_pct rebate via pricing.ts', () => {
+    expect(read(bookRoute)).toContain('operator_keep_pct')
+    expect(read(payRoute)).toContain('operator_keep_pct')
+    // pricing.ts is the single source that consumes the keep rate.
+    expect(read(path.join(SRC_DIR, 'lib/pricing.ts'))).toContain('operatorKeepPct')
+  })
+
   // ── P4 recurring + strike engine ──
   it('strike engine counts BOTH missed-prepay (expired) and no-show (paid + no check-in)', () => {
     const code = read(standing)

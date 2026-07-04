@@ -49,7 +49,7 @@ export async function POST(
     // --- Market + payment gates. ---
     const { data: market } = await supabase
       .from('markets')
-      .select('id, name, vertical_id, timezone, stripe_charges_enabled, stripe_account_id, park_mode')
+      .select('id, name, vertical_id, timezone, stripe_charges_enabled, stripe_account_id, park_mode, operator_keep_pct')
       .eq('id', marketId)
       .maybeSingle()
     if (!market) {
@@ -134,7 +134,7 @@ export async function POST(
     }
 
     // --- Fees (every date is the spot's per-day price). ---
-    const fees = calculateBoothRentalFees(spot.base_price_cents as number)
+    const fees = calculateBoothRentalFees(spot.base_price_cents as number, market.operator_keep_pct as number)
     const totalVendorPaysCents = fees.vendorPaysCents * dates.length
     const totalManagerReceivesCents = fees.managerReceivesCents * dates.length
     if (totalVendorPaysCents < PARK_SPOT_MIN_CHARGE_CENTS) {

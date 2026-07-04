@@ -1,7 +1,7 @@
 # P6 — Operator-Keep-% Money Path (RM lever) — Design & Build Plan
 
 **Created:** 2026-07-03. **Mode:** Report (planning; NO code until each phase is approved).
-**Status:** Plan drafted. Build not started. ⚠️ **MONEY PATH — touches critical-path `payments.ts` (per-file approval, exact diffs, before/after math).**
+**Status:** ✅ **BUILT P6.1–P6.3 (2026-07-04), gates green (tsc 0 / lint clean / vitest 1595), shipping to staging.** ⚠️ MONEY PATH — touched critical-path `pricing.ts` (per-file approved; `payments.ts` UNTOUCHED). Float-safe fee-% derivation `round((1-keep)*1000)/10`; default byte-identical (test-locked — a float bug caught in re-review before shipping). Mig 177 on Dev+Staging. Admin sets the rate on the admin→markets edit form. FT-only; FM booth/season on backlog.
 **Grounding (verified, cite-don't-trust):** current fee math `pricing.ts:295-345`; park checkout `payments.ts:470-544`; economics `operator_projection_tool.md:16-29`; decisions `decisions.md` 2026-06-28 (RM economics). Design hook: `ft_park_manager_design.md` P6.
 
 ---

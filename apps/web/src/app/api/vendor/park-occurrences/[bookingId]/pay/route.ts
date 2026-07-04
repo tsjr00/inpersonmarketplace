@@ -55,7 +55,7 @@ export async function POST(
     // Market + payment gates.
     const { data: market } = await service
       .from('markets')
-      .select('id, name, vertical_id, stripe_charges_enabled, stripe_account_id, park_mode')
+      .select('id, name, vertical_id, stripe_charges_enabled, stripe_account_id, park_mode, operator_keep_pct')
       .eq('id', booking.market_id)
       .maybeSingle()
     if (!market) return NextResponse.json({ error: 'Park not found' }, { status: 404 })
@@ -85,7 +85,7 @@ export async function POST(
     const spotLabel = (spot?.label as string) || 'your spot'
 
     // Fees (single day = the spot's per-day price).
-    const fees = calculateBoothRentalFees(booking.price_cents as number)
+    const fees = calculateBoothRentalFees(booking.price_cents as number, market.operator_keep_pct as number)
     if (fees.vendorPaysCents < PARK_SPOT_MIN_CHARGE_CENTS) {
       return NextResponse.json(
         { error: `This spot is below the $${(PARK_SPOT_MIN_CHARGE_CENTS / 100).toFixed(0)} minimum for a single day — contact the operator.` },

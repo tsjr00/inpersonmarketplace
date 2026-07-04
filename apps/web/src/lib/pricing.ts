@@ -321,7 +321,10 @@ export interface BoothRentalPricing {
  * For a $0 booth (free): all sides return 0 — no fee on a $0 transaction
  * (the flat $0.15 doesn't apply to free booths either).
  */
-export function calculateBoothRentalFees(weeklyPriceCents: number): BoothRentalPricing {
+export function calculateBoothRentalFees(
+  weeklyPriceCents: number,
+  operatorKeepPct?: number,
+): BoothRentalPricing {
   if (weeklyPriceCents <= 0) {
     return {
       basePriceCents: 0,
@@ -333,7 +336,16 @@ export function calculateBoothRentalFees(weeklyPriceCents: number): BoothRentalP
   const vendorPaysCents =
     Math.round(weeklyPriceCents * (1 + BOOTH_RENTAL_FEES.vendorMarkupPercent / 100)) +
     BOOTH_RENTAL_FEES.vendorFlatFeeCents
-  const managerFeeCents = Math.round(weeklyPriceCents * (BOOTH_RENTAL_FEES.managerMarkupPercent / 100))
+  // Operator-side fee percent. Default = built-in 6.5%. If a per-market
+  // operator_keep_pct (P6 rebate lever) is supplied, derive the fee percent
+  // float-safely: round((1-keep)*1000)/10 recovers the exact 1-decimal percent
+  // (avoids 1-0.935 = 0.06499... drifting the payout by a cent). At keep=0.935
+  // this is exactly 6.5 => byte-identical to the default; at 1.0 it's 0.
+  const operatorFeePercent =
+    operatorKeepPct !== undefined
+      ? Math.round((1 - operatorKeepPct) * 1000) / 10
+      : BOOTH_RENTAL_FEES.managerMarkupPercent
+  const managerFeeCents = Math.round(weeklyPriceCents * (operatorFeePercent / 100))
   const managerReceivesCents = weeklyPriceCents - managerFeeCents
   const platformKeepsCents = vendorPaysCents - managerReceivesCents
   return {

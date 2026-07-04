@@ -34,6 +34,7 @@ type Market = {
   longitude?: number | null
   season_start?: string | null
   season_end?: string | null
+  operator_keep_pct?: number | null
   status: string
   approval_status?: 'pending' | 'approved' | 'rejected'
   submitted_by_vendor_id?: string
@@ -97,6 +98,7 @@ export default function AdminMarketsPage() {
     event_end_date: '',
     event_url: '',
     cutoff_hours: '',
+    operator_keep_pct: '',
     status: 'active'
   })
   const [submitting, setSubmitting] = useState(false)
@@ -261,6 +263,7 @@ export default function AdminMarketsPage() {
       schedules: formData.schedules,
       season_start: formData.season_start || null,
       season_end: formData.season_end || null,
+      operator_keep_pct: formData.operator_keep_pct ? parseFloat(formData.operator_keep_pct) : 0.935,
       status: formData.status
     }
 
@@ -355,6 +358,7 @@ export default function AdminMarketsPage() {
       event_end_date: (market as Record<string, unknown>).event_end_date as string || '',
       event_url: (market as Record<string, unknown>).event_url as string || '',
       cutoff_hours: (market as Record<string, unknown>).cutoff_hours ? String((market as Record<string, unknown>).cutoff_hours) : '',
+      operator_keep_pct: market.operator_keep_pct != null ? String(market.operator_keep_pct) : '',
       status: market.status
     })
     setShowForm(true)
@@ -397,6 +401,7 @@ export default function AdminMarketsPage() {
       event_end_date: '',
       event_url: '',
       cutoff_hours: '',
+      operator_keep_pct: '',
       status: 'active'
     })
   }
@@ -1159,6 +1164,32 @@ export default function AdminMarketsPage() {
               <p style={{ fontSize: typography.sizes.xs, color: colors.textSecondary, marginTop: `-${spacing.xs}` }}>
                 Leave blank for year-round markets. Set dates if the market is seasonal.
               </p>
+
+              <div>
+                <label style={{ display: 'block', fontWeight: typography.weights.medium, marginBottom: spacing.xs, fontSize: typography.sizes.sm }}>
+                  Operator keep rate <span style={{ fontWeight: typography.weights.normal, color: colors.textSecondary }}>(booth/spot rentals · 0.935 default … 1.000 full rebate)</span>
+                </label>
+                <input
+                  type="number"
+                  min="0.935"
+                  max="1"
+                  step="0.001"
+                  placeholder="0.935"
+                  value={formData.operator_keep_pct}
+                  onChange={(e) => setFormData({ ...formData, operator_keep_pct: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: `${spacing.xs} ${spacing.sm}`,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: radius.sm,
+                    boxSizing: 'border-box',
+                    fontSize: typography.sizes.sm
+                  }}
+                />
+                <p style={{ fontSize: typography.sizes.xs, color: colors.textSecondary, marginTop: spacing.xs }}>
+                  Fraction of base the operator keeps on paid FT park spots. 0.935 = platform keeps the operator-side 6.5%; 1.000 = full rebate (operator keeps 100% of base). Vendor charge is unaffected.
+                </p>
+              </div>
 
               <div>
                 <label style={{ display: 'block', fontWeight: typography.weights.medium, marginBottom: spacing.xs, fontSize: typography.sizes.sm }}>

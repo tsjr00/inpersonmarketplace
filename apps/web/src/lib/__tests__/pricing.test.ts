@@ -443,3 +443,40 @@ describe('MP-R14: calculateBoothRentalFees — math invariants', () => {
     }
   })
 })
+
+describe('MP-R14 / P6: calculateBoothRentalFees — operator-keep rebate lever', () => {
+  it('default (no arg) is byte-identical to operator_keep_pct = 0.935', () => {
+    const base = calculateBoothRentalFees(2500)
+    const explicit = calculateBoothRentalFees(2500, 0.935)
+    expect(explicit).toEqual(base)               // guards the 1 - 0.935 float trap
+    expect(explicit.managerReceivesCents).toBe(2337)
+    expect(explicit.platformKeepsCents).toBe(341)
+  })
+
+  it('operator_keep_pct = 1.0: operator keeps full base, platform keeps only the vendor side', () => {
+    const r = calculateBoothRentalFees(2500, 1.0)
+    expect(r.vendorPaysCents).toBe(2678)         // unchanged
+    expect(r.managerReceivesCents).toBe(2500)    // full base
+    expect(r.platformKeepsCents).toBe(178)       // 2678 - 2500 = vendor-side markup only
+  })
+
+  it('vendor charge is unchanged across keep rates (only the operator/platform split moves)', () => {
+    for (const keep of [0.935, 0.95, 0.97, 1.0]) {
+      expect(calculateBoothRentalFees(2500, keep).vendorPaysCents).toBe(2678)
+    }
+  })
+
+  it('raising the keep rate raises operator payout and lowers platform keep', () => {
+    const lo = calculateBoothRentalFees(2500, 0.935)
+    const hi = calculateBoothRentalFees(2500, 1.0)
+    expect(hi.managerReceivesCents).toBeGreaterThan(lo.managerReceivesCents)
+    expect(hi.platformKeepsCents).toBeLessThan(lo.platformKeepsCents)
+  })
+
+  it('platform-fee invariant holds at every keep rate', () => {
+    for (const keep of [0.935, 0.96, 0.98, 1.0]) {
+      const r = calculateBoothRentalFees(2500, keep)
+      expect(r.vendorPaysCents - r.managerReceivesCents).toBe(r.platformKeepsCents)
+    }
+  })
+})

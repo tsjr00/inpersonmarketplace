@@ -55,7 +55,7 @@ export async function PUT(
 
     const { id: marketId } = await params
     const body = await request.json()
-    const { name, address, city, state, zip, latitude, longitude, schedules, season_start, season_end, status, approval_status, rejection_reason } = body
+    const { name, address, city, state, zip, latitude, longitude, schedules, season_start, season_end, status, approval_status, rejection_reason, operator_keep_pct } = body
 
     // Use service client to bypass RLS for admin operations
     const serviceClient = createServiceClient()
@@ -119,6 +119,15 @@ export async function PUT(
     if (status !== undefined) updateData.status = status
     if (approval_status !== undefined) updateData.approval_status = approval_status
     if (rejection_reason !== undefined) updateData.rejection_reason = rejection_reason
+    // P6: operator keep rate (RM rebate lever). Admin-set; the DB CHECK enforces
+    // 0.935–1.000, but validate here for a clean error message.
+    if (operator_keep_pct !== undefined) {
+      const keep = Number(operator_keep_pct)
+      if (!Number.isFinite(keep) || keep < 0.935 || keep > 1) {
+        return NextResponse.json({ error: 'operator_keep_pct must be between 0.935 and 1.000' }, { status: 400 })
+      }
+      updateData.operator_keep_pct = keep
+    }
 
     // Update market fields if any (use service client for admin operations)
     // Note: private_pickup markets are handled above and returned early,
