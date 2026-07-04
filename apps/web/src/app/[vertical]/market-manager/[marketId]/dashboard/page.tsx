@@ -31,6 +31,7 @@ import ManagerJumpNav from '@/components/market-manager/ManagerJumpNav'
 import InviteVendorLink from '@/components/market-manager/InviteVendorLink'
 import InviteVendorBrowser from '@/components/market-manager/InviteVendorBrowser'
 import ManagerActionSummary from '@/components/market-manager/ManagerActionSummary'
+import FtParkDashboardBody from '@/components/market-manager/FtParkDashboardBody'
 import MarketVisibilityCard from '@/components/market-manager/MarketVisibilityCard'
 import ManagerEarningsCard from '@/components/market-manager/ManagerEarningsCard'
 import { getManagerDashboardStats, getMarketTransactionsAggregates, getManagerEarningsAggregates } from '@/lib/markets/manager-dashboard-stats'
@@ -172,6 +173,20 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
       {/* Sticky in-page jump nav (Session 92 design pass) — chips scroll to
           each section group; ids must match the group-leader cards below. */}
       <ManagerJumpNav vertical={vertical} />
+
+      {isFoodTrucks ? (
+        <FtParkDashboardBody
+          vertical={vertical}
+          marketId={marketId}
+          market={market as Record<string, unknown>}
+          onboardingProgress={onboardingProgress}
+          dashboardStats={dashboardStats}
+          parkWeek={parkWeek}
+          schedules={schedules}
+          visibilityStatus={visibilityStatus}
+        />
+      ) : (
+      <>
 
       {/* Setup checklist — links into the onboarding wizard. HIDDEN for FT
           parks (P2.5): it tracks market_booth_inventory completion, which FT
@@ -474,6 +489,8 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
         your {term(vertical, 'market').toLowerCase()}? Reply to your most recent platform email or reach
         out via the support page.
       </p>
+      </>
+      )}
     </div>
   )
 }

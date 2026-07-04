@@ -24,51 +24,6 @@ interface Vendor {
   spot_assignments: VendorSpotAssignment | null
 }
 
-/** Format a YYYY-MM-DD booking date as "Jul 6" without a timezone shift
- *  (build the Date from parts so it stays in local time). */
-function formatSpotDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number)
-  if (!y || !m || !d) return iso
-  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-}
-
-/** FT parks: compact read-only summary of a truck's spot assignment. Shows
- *  the active standing hold if any (e.g. "Spot A · weekly (Sat)"), else the
- *  next upcoming booked spot ("Spot A · Jul 6"), with "+N more" when there
- *  are additional holds/bookings. Nothing to assign here — trucks pick and
- *  pay for a spot in the booking flow. */
-function SpotAssignmentSummary({ assignment }: { assignment: VendorSpotAssignment | null }) {
-  const standing = assignment?.standing ?? []
-  const upcoming = assignment?.upcoming ?? []
-
-  let primary: string | null = null
-  let moreCount = 0
-  if (standing.length > 0) {
-    primary = `${standing[0].spotLabel} · weekly (${standing[0].dayAbbr})`
-    moreCount = standing.length - 1
-  } else if (upcoming.length > 0) {
-    primary = `${upcoming[0].spotLabel} · ${formatSpotDate(upcoming[0].bookingDate)}`
-    moreCount = upcoming.length - 1
-  }
-
-  if (!primary) {
-    return (
-      <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted, fontStyle: 'italic' }}>
-        No upcoming spot booked
-      </span>
-    )
-  }
-  return (
-    <span style={{ fontSize: typography.sizes.sm, color: colors.textPrimary, display: 'inline-flex', alignItems: 'center', gap: spacing['3xs'] }}>
-      <span aria-hidden>🅿</span>
-      <span>{primary}</span>
-      {moreCount > 0 && (
-        <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>+{moreCount} more</span>
-      )}
-    </span>
-  )
-}
-
 interface TierOption {
   id: string
   size_label: string
@@ -507,9 +462,7 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                 </div>
               ) : (
                 <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], flexWrap: 'wrap' }}>
-                  {isFoodTruck ? (
-                    <SpotAssignmentSummary assignment={v.spot_assignments} />
-                  ) : (
+                  {!isFoodTruck && (
                   <>
                   <input
                     type="text"
