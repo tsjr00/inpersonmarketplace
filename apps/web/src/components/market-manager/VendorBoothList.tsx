@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { term } from '@/lib/vertical/terminology'
-import type { VendorSpotAssignment } from '@/lib/markets/park-vendor-spots'
 
 interface Vendor {
   market_vendor_id: string
@@ -18,10 +17,6 @@ interface Vendor {
   on_platform: true
   is_active_schedule: boolean
   has_info_sharing_consent: boolean
-  /** FT parks only: the truck's active standing hold(s) + upcoming spot
-   *  bookings, resolved server-side from park_spot_bookings /
-   *  park_standing_reservations. null for FM markets (booth_number model). */
-  spot_assignments: VendorSpotAssignment | null
 }
 
 interface TierOption {

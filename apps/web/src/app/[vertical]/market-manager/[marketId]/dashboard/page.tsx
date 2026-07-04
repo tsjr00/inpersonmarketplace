@@ -25,7 +25,6 @@ import ManagerSupportCard from '@/components/market-manager/ManagerSupportCard'
 import MarketBroadcastCard from '@/components/market-manager/MarketBroadcastCard'
 import MarketAttendanceCard from '@/components/market-manager/MarketAttendanceCard'
 import StandingReservationsCard from '@/components/market-manager/StandingReservationsCard'
-import ParkWeekCard from '@/components/market-manager/ParkWeekCard'
 import ManagerCard, { MANAGER_NAV_OFFSET } from '@/components/market-manager/ManagerCard'
 import ManagerJumpNav from '@/components/market-manager/ManagerJumpNav'
 import InviteVendorLink from '@/components/market-manager/InviteVendorLink'
@@ -303,32 +302,6 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
             <BoothPlaceholderManager marketId={marketId} vertical={vertical} />
           </ManagerCard>
         </>
-      )}
-
-      {/* FT parks: day-scoped "this week" occupancy view — who's booked, which
-          spot, and whether they've paid, over the next 7 operating days. Sits
-          above the roster (which is where approvals live). */}
-      {isFoodTrucks && parkWeek && (
-        <ManagerCard
-          id="week"
-          title="This week at your park"
-          description="Who's booked over the next 7 operating days. Tap a day to see the trucks, their spot, and whether they've paid."
-          headerAccessory={parkWeek.needingApproval > 0 ? (
-            <a
-              href="#vendors"
-              style={{
-                fontSize: typography.sizes.xs,
-                fontWeight: typography.weights.semibold,
-                color: colors.primary,
-                textDecoration: 'underline',
-              }}
-            >
-              {parkWeek.needingApproval} truck{parkWeek.needingApproval === 1 ? '' : 's'} need approval →
-            </a>
-          ) : undefined}
-        >
-          <ParkWeekCard schedule={parkWeek} />
-        </ManagerCard>
       )}
 
       {/* Vendors at this market — assign / edit booth numbers. Anchors the
