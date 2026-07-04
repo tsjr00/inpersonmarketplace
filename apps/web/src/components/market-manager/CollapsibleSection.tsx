@@ -6,10 +6,12 @@ import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import { MANAGER_NAV_OFFSET } from './ManagerCard'
 
 /**
- * A titled, collapsible group wrapper for the manager dashboard. Used to
- * fold occasional-use groups (e.g. FT "Park setup") out of the daily eyeline
- * without removing them. Server renders the children (cards); this client
- * island only owns the collapse toggle.
+ * A titled, collapsible group wrapper for the manager dashboard. Reads as a
+ * single outlined, obviously-expandable box (accent rail + large disclosure
+ * triangle + Show/Hide pill) so a collapsed group doesn't look like a stray
+ * heading. Used to fold occasional-use groups (e.g. FT "Park setup") out of
+ * the daily eyeline. Server renders the children (cards); this client island
+ * only owns the collapse toggle.
  */
 export default function CollapsibleSection({
   id,
@@ -26,48 +28,71 @@ export default function CollapsibleSection({
 }) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
   return (
-    <section id={id} style={{ scrollMarginTop: MANAGER_NAV_OFFSET, marginBottom: spacing.sm }}>
+    <section
+      id={id}
+      style={{
+        scrollMarginTop: MANAGER_NAV_OFFSET,
+        marginTop: spacing.md,
+        marginBottom: spacing.sm,
+        border: `2px solid ${colors.border}`,
+        borderRadius: radius.md,
+        overflow: 'hidden',
+      }}
+    >
       <button
         onClick={() => setCollapsed((c) => !c)}
         aria-expanded={!collapsed}
         style={{
           width: '100%',
           display: 'flex',
-          alignItems: 'baseline',
-          gap: spacing['2xs'],
-          padding: `${spacing.xs} 0`,
-          background: 'none',
+          alignItems: 'center',
+          gap: spacing.sm,
+          padding: spacing.sm,
+          background: colors.surfaceMuted,
           border: 'none',
-          borderBottom: `1px solid ${colors.border}`,
+          borderLeft: `4px solid ${colors.primary}`,
           cursor: 'pointer',
           textAlign: 'left',
         }}
       >
-        <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted, width: 12 }}>
-          {collapsed ? '▸' : '▾'}
+        <span style={{
+          display: 'inline-block',
+          fontSize: 20,
+          lineHeight: 1,
+          color: colors.primary,
+          transition: 'transform 0.15s ease',
+          transform: collapsed ? 'none' : 'rotate(180deg)',
+        }}>
+          ▾
         </span>
-        <span style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
-          {title}
+        <div style={{ flex: '1 1 auto', minWidth: 0 }}>
+          <div style={{ fontSize: typography.sizes.xl, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
+            {title}
+          </div>
+          {subtitle && (
+            <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: 2 }}>{subtitle}</div>
+          )}
+        </div>
+        <span style={{
+          fontSize: typography.sizes.sm,
+          fontWeight: typography.weights.semibold,
+          color: colors.primary,
+          border: `1px solid ${colors.primary}`,
+          borderRadius: radius.sm,
+          padding: `${spacing['3xs']} ${spacing.sm}`,
+          whiteSpace: 'nowrap',
+        }}>
+          {collapsed ? 'Show' : 'Hide'}
         </span>
-        {subtitle && (
-          <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>{subtitle}</span>
-        )}
-        {collapsed && (
-          <span style={{
-            marginLeft: 'auto',
-            fontSize: typography.sizes.xs,
-            fontWeight: typography.weights.semibold,
-            color: colors.primary,
-            border: `1px solid ${colors.border}`,
-            borderRadius: radius.sm,
-            padding: `${spacing['3xs']} ${spacing.xs}`,
-          }}>
-            Show
-          </span>
-        )}
       </button>
       {!collapsed && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm, marginTop: spacing.sm }}>
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: spacing.sm,
+          padding: spacing.sm,
+          backgroundColor: colors.surfaceBase,
+        }}>
           {children}
         </div>
       )}

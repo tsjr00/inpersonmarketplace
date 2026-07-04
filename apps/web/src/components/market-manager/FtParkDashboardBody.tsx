@@ -50,8 +50,8 @@ interface FtParkDashboardBodyProps {
 
 function GroupHeading({ id, title, subtitle, accessory }: { id?: string; title: string; subtitle?: string; accessory?: ReactNode }) {
   return (
-    <div id={id} style={{ scrollMarginTop: MANAGER_NAV_OFFSET, marginTop: spacing.md, marginBottom: spacing.xs, display: 'flex', alignItems: 'baseline', gap: spacing.xs, flexWrap: 'wrap', borderBottom: `1px solid ${colors.border}`, paddingBottom: spacing.xs }}>
-      <span style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.bold, color: colors.textPrimary }}>{title}</span>
+    <div id={id} style={{ scrollMarginTop: MANAGER_NAV_OFFSET, marginTop: spacing.md, marginBottom: spacing.xs, display: 'flex', alignItems: 'baseline', gap: spacing.xs, flexWrap: 'wrap', borderLeft: `4px solid ${colors.primary}`, paddingLeft: spacing.sm, paddingBottom: spacing.xs, borderBottom: `1px solid ${colors.border}` }}>
+      <span style={{ fontSize: typography.sizes.xl, fontWeight: typography.weights.bold, color: colors.textPrimary }}>{title}</span>
       {subtitle && <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>{subtitle}</span>}
       {accessory && <span style={{ marginLeft: 'auto' }}>{accessory}</span>}
     </div>
