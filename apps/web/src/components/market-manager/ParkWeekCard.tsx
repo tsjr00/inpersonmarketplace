@@ -104,7 +104,7 @@ function DayRow({
               No trucks booked for this day yet.
             </span>
           ) : (
-            day.trucks.map((t, i) => <TruckRow key={`${t.spotLabel}-${t.vendorProfileId}-${i}`} truck={t} />)
+            day.trucks.map((t, i) => <TruckRow key={`${t.spotLabel}-${t.vendorProfileId}-${i}`} truck={t} showCheckin={day.isToday} />)
           )}
         </div>
       )}
@@ -112,7 +112,7 @@ function DayRow({
   )
 }
 
-function TruckRow({ truck }: { truck: WeekTruck }) {
+function TruckRow({ truck, showCheckin }: { truck: WeekTruck; showCheckin: boolean }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], flexWrap: 'wrap' }}>
       <span style={{ fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm, color: colors.textPrimary }}>
@@ -125,7 +125,25 @@ function TruckRow({ truck }: { truck: WeekTruck }) {
         </span>
       )}
       <StatusChip status={truck.status} />
+      {/* Check-in status — only shown for Today (no pre-check-in). Scheduled
+          (not-yet-booked) holds have no check-in expectation, so skip them. */}
+      {showCheckin && truck.status !== 'scheduled' && <CheckinChip present={!!truck.checkedIn} />}
     </div>
+  )
+}
+
+function CheckinChip({ present }: { present: boolean }) {
+  return (
+    <span style={{
+      fontSize: typography.sizes.xs,
+      fontWeight: typography.weights.semibold,
+      color: present ? '#166534' : colors.textMuted,
+      backgroundColor: present ? '#dcfce7' : colors.surfaceMuted,
+      padding: `${spacing['3xs']} ${spacing.xs}`,
+      borderRadius: radius.sm,
+    }}>
+      {present ? '✓ Here' : 'Not checked in'}
+    </span>
   )
 }
 

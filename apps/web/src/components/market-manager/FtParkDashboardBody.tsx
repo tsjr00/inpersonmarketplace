@@ -2,6 +2,7 @@ import type { ComponentProps, ReactNode } from 'react'
 import { colors, spacing, typography } from '@/lib/design-tokens'
 import ManagerCard, { MANAGER_NAV_OFFSET } from './ManagerCard'
 import CollapsibleSection from './CollapsibleSection'
+import TabbedCard from './TabbedCard'
 import ManagerActionSummary from './ManagerActionSummary'
 import ParkWeekCard from './ParkWeekCard'
 import MarketAttendanceCard from './MarketAttendanceCard'
@@ -95,31 +96,53 @@ export default function FtParkDashboardBody({
       <MarketAttendanceCard marketId={marketId} vertical={vertical} />
       <MarketCancelDateCard marketId={marketId} vertical={vertical} />
 
-      {/* ③ YOUR TRUCKS — relationships */}
-      <GroupHeading id="vendors-group" title="Your trucks" subtitle="Approvals, recurring holds, and invites" />
-      <ManagerCard
+      {/* ③ YOUR TRUCKS — relationships (tabbed: roster / recurring / invite) */}
+      <TabbedCard
         id="vendors"
-        title="Your trucks & approvals"
-        description="Trucks you've invited or approved for your park, their status, and their agreement docs. Trucks book and pay for a spot in the booking flow — spot assignments show in the week view above."
-      >
-        <VendorBoothList marketId={marketId} vertical={vertical} />
-      </ManagerCard>
-      <StandingReservationsCard marketId={marketId} />
-      <ManagerCard
-        title="Invite a food truck"
-        description="Share this link with a food truck you'd like to bring to your park. They'll see a banner identifying your park on the standard signup page."
-      >
-        <InviteVendorLink vertical={vertical} marketId={marketId} marketName={marketName} onboardingComplete={onboardingComplete} />
-      </ManagerCard>
-      {onboardingComplete && (
-        <InviteVendorBrowser
-          marketId={marketId}
-          marketName={marketName}
-          marketLat={(market.latitude as number | null) ?? null}
-          marketLng={(market.longitude as number | null) ?? null}
-          vertical={vertical}
-        />
-      )}
+        title="Your trucks"
+        tabs={[
+          {
+            id: 'approved',
+            label: 'Approved',
+            content: (
+              <ManagerCard
+                title="Your trucks & approvals"
+                description="Trucks you've invited or approved for your park, their status, and their agreement docs. Trucks book and pay for a spot in the booking flow — spot assignments show in the week view above."
+              >
+                <VendorBoothList marketId={marketId} vertical={vertical} />
+              </ManagerCard>
+            ),
+          },
+          {
+            id: 'recurring',
+            label: 'Recurring holds',
+            content: <StandingReservationsCard marketId={marketId} />,
+          },
+          {
+            id: 'invite',
+            label: 'Invite',
+            content: (
+              <>
+                <ManagerCard
+                  title="Invite a food truck"
+                  description="Share this link with a food truck you'd like to bring to your park. They'll see a banner identifying your park on the standard signup page."
+                >
+                  <InviteVendorLink vertical={vertical} marketId={marketId} marketName={marketName} onboardingComplete={onboardingComplete} />
+                </ManagerCard>
+                {onboardingComplete && (
+                  <InviteVendorBrowser
+                    marketId={marketId}
+                    marketName={marketName}
+                    marketLat={(market.latitude as number | null) ?? null}
+                    marketLng={(market.longitude as number | null) ?? null}
+                    vertical={vertical}
+                  />
+                )}
+              </>
+            ),
+          },
+        ]}
+      />
 
       {/* ④ PARK SETUP — collapsible (occasional config) */}
       <CollapsibleSection id="setup" title="Park setup" subtitle="Payments, spots, schedule, agreements, branding" defaultCollapsed>

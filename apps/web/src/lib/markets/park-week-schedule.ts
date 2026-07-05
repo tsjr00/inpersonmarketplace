@@ -42,6 +42,9 @@ export interface WeekTruck {
    *  be open). */
   status: WeekTruckStatus
   recurring: boolean
+  /** Whether the truck has checked in. Only set for TODAY (check-in is daily
+   *  and there's no pre-check-in) — undefined for every other day. */
+  checkedIn?: boolean
 }
 
 export interface WeekDay {
@@ -267,6 +270,19 @@ export async function getParkWeekSchedule(
   const days = assembleParkWeekDays({
     dates, todayISO, bookings, standing, spotLabelById, activeSpotIds, vendorNameById,
   })
+
+  // Attendance for TODAY only — check-in is daily and there's no pre-check-in,
+  // so only today's row reflects who's actually here.
+  const todayDay = days.find((d) => d.isToday)
+  if (todayDay && todayDay.trucks.length > 0) {
+    const { data: checkins } = await serviceClient
+      .from('market_day_checkins')
+      .select('vendor_profile_id')
+      .eq('market_id', marketId)
+      .eq('market_date', todayISO)
+    const present = new Set((checkins ?? []).map((c) => c.vendor_profile_id as string))
+    for (const t of todayDay.trucks) t.checkedIn = present.has(t.vendorProfileId)
+  }
 
   return { spotsTotal, needingApproval, days }
 }
