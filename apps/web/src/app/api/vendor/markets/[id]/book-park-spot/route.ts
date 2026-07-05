@@ -47,6 +47,11 @@ export async function POST(
     if (!Array.isArray(rawDates) || rawDates.length === 0) {
       return NextResponse.json({ error: 'booking_dates is required', field: 'booking_dates' }, { status: 400 })
     }
+    // B1 — compliance acknowledgment is required to book (docs themselves are
+    // NOT required at booking time; book-then-vet).
+    if (body?.doc_ack_accepted !== true) {
+      return NextResponse.json({ error: 'doc_ack_accepted must be true to book', field: 'doc_ack_accepted' }, { status: 400 })
+    }
 
     // --- Market + payment gates. ---
     const { data: market } = await supabase
@@ -146,10 +151,40 @@ export async function POST(
       )
     }
 
-    // --- Record the vendor's acceptance of the park's opt-in agreement BEFORE
-    //     booking (mirrors the FM booth flow, book/route.ts). Snapshot is
-    //     self-contained; idempotent on the per-version UNIQUE (23505). ---
+    // --- B2: auto-affiliate — ensure a market_vendors row so the truck lands
+    //     on the operator's roster to be vetted (book-then-vet). Idempotent;
+    //     best-effort (booking still proceeds if this fails). ---
+    crumb.supabase('insert', 'market_vendors')
+    const { error: mvErr } = await serviceClient
+      .from('market_vendors')
+      .upsert(
+        { market_id: marketId, vendor_profile_id: profile.id, approved: false },
+        { onConflict: 'market_id,vendor_profile_id', ignoreDuplicates: true }
+      )
+    if (mvErr) {
+      logError(traced.fromSupabase(mvErr, { table: 'market_vendors', operation: 'insert' }))
+    }
+
+    // --- B1: record acceptance of the park's opt-in agreement + the compliance
+    //     acknowledgment + info-sharing consent (unlocks manager doc review).
+    //     Synthetic `_` entries are excluded from the version hash (mirrors
+    //     join/route.ts). Idempotent on the per-version UNIQUE (23505). ---
     const { snapshot } = await fetchMarketOptinForVendor(marketId)
+    const finalSnapshot = [
+      ...snapshot,
+      {
+        statement_id: '_info_sharing_consent',
+        category: '_meta',
+        statement_text: 'Vendor authorizes the platform to share their compliance documentation with the park operator.',
+        placeholder_values: {},
+      },
+      {
+        statement_id: '_park_doc_acknowledgment',
+        category: '_meta',
+        statement_text: 'Truck acknowledges it must upload every required document, keep them unexpired and valid before the rented time, and that missing/expired/inaccurate docs may result in cancellation without refund and declined future bookings.',
+        placeholder_values: {},
+      },
+    ]
     const agreementVersion = computeAgreementVersionFromSnapshot(snapshot)
     crumb.supabase('insert', 'vendor_market_agreement_acceptances')
     let acceptanceId: string
@@ -158,7 +193,7 @@ export async function POST(
       .insert({
         vendor_profile_id: profile.id,
         market_id: marketId,
-        statements_snapshot: snapshot,
+        statements_snapshot: finalSnapshot,
         agreement_version: agreementVersion,
       })
       .select('id')

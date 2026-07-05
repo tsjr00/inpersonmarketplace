@@ -133,6 +133,10 @@ export default function BookParkSpotForm({
   // and the recurring-hold request. MarketAgreementBlock auto-accepts when the
   // operator has selected no statements, so unconfigured parks aren't blocked.
   const [agreementAccepted, setAgreementAccepted] = useState(false)
+  // B1 — park compliance acknowledgment: doc-responsibility + info-sharing
+  // consent. Required to book; the docs themselves are NOT required at booking
+  // (book-then-vet). Also gates the recurring-hold request.
+  const [docAckAccepted, setDocAckAccepted] = useState(false)
 
   // Recurring weekly-hold request (P4a) — independent of the pay/booking flow.
   const [recurringDow, setRecurringDow] = useState<number>(scheduleDows[0] ?? 0)
@@ -181,6 +185,10 @@ export default function BookParkSpotForm({
       setError("Please accept the park's agreement before booking.")
       return
     }
+    if (!docAckAccepted) {
+      setError('Please confirm the compliance acknowledgment before booking.')
+      return
+    }
 
     setSubmitting(true)
     try {
@@ -190,6 +198,7 @@ export default function BookParkSpotForm({
         body: JSON.stringify({
           spot_id: selectedSpotId,
           booking_dates: selectedDates,
+          doc_ack_accepted: true,
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -222,12 +231,16 @@ export default function BookParkSpotForm({
       setRecurringError("Please accept the park's agreement before requesting.")
       return
     }
+    if (!docAckAccepted) {
+      setRecurringError('Please confirm the compliance acknowledgment before requesting.')
+      return
+    }
     setRecurringSubmitting(true)
     try {
       const res = await fetch(`/api/vendor/markets/${marketId}/standing-reservation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ spot_id: selectedSpotId, day_of_week: recurringDow }),
+        body: JSON.stringify({ spot_id: selectedSpotId, day_of_week: recurringDow, doc_ack_accepted: true }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -538,6 +551,35 @@ export default function BookParkSpotForm({
           flow). Renders nothing + auto-accepts if the park selected none. */}
       <MarketAgreementBlock marketId={marketId} onChange={setAgreementAccepted} />
 
+      {/* B1 — park compliance acknowledgment (doc responsibility + info-sharing
+          consent). Required to book/request; docs are NOT required at booking. */}
+      <label style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: spacing.xs,
+        padding: spacing.sm,
+        marginBottom: spacing.md,
+        backgroundColor: colors.surfaceBase,
+        border: `1px solid ${colors.border}`,
+        borderRadius: radius.sm,
+        cursor: 'pointer',
+      }}>
+        <input
+          type="checkbox"
+          checked={docAckAccepted}
+          onChange={(e) => setDocAckAccepted(e.target.checked)}
+          style={{ marginTop: 3, width: 18, height: 18, cursor: 'pointer' }}
+        />
+        <span style={{ fontSize: typography.sizes.sm, color: colors.textPrimary, lineHeight: 1.4 }}>
+          I understand it&apos;s my responsibility to upload every document this park requires
+          (licenses, permits, insurance), keep them unexpired, and make sure they&apos;re valid
+          before my rented time begins — this is a requirement of the park. If my documents are
+          missing, expired, inaccurate, or not provided before my booking starts, the operator may
+          cancel my booking <strong>without a refund</strong> and may decline my future bookings
+          here. I authorize this park to view my compliance documents.
+        </span>
+      </label>
+
       {/* Recurring weekly-hold request (P4a) — only for eligible spots. Separate
           from the pay/booking flow: this just asks the operator to reserve the
           spot every week. */}
@@ -582,7 +624,7 @@ export default function BookParkSpotForm({
             <button
               type="button"
               onClick={handleRecurringRequest}
-              disabled={recurringSubmitting || !agreementAccepted}
+              disabled={recurringSubmitting || !agreementAccepted || !docAckAccepted}
               style={{
                 padding: `${spacing.xs} ${spacing.md}`,
                 backgroundColor: colors.primary,
@@ -591,8 +633,8 @@ export default function BookParkSpotForm({
                 borderRadius: radius.sm,
                 fontSize: typography.sizes.sm,
                 fontWeight: typography.weights.semibold,
-                cursor: (recurringSubmitting || !agreementAccepted) ? 'not-allowed' : 'pointer',
-                opacity: (recurringSubmitting || !agreementAccepted) ? 0.6 : 1,
+                cursor: (recurringSubmitting || !agreementAccepted || !docAckAccepted) ? 'not-allowed' : 'pointer',
+                opacity: (recurringSubmitting || !agreementAccepted || !docAckAccepted) ? 0.6 : 1,
                 whiteSpace: 'nowrap',
               }}
             >
@@ -659,7 +701,7 @@ export default function BookParkSpotForm({
 
       <button
         type="submit"
-        disabled={submitting || belowMinimum || selectedDates.length === 0 || !agreementAccepted}
+        disabled={submitting || belowMinimum || selectedDates.length === 0 || !agreementAccepted || !docAckAccepted}
         style={{
           padding: `${spacing.sm} ${spacing.md}`,
           backgroundColor: colors.primary,
@@ -668,8 +710,8 @@ export default function BookParkSpotForm({
           borderRadius: radius.sm,
           fontSize: typography.sizes.base,
           fontWeight: typography.weights.semibold,
-          cursor: (submitting || belowMinimum || selectedDates.length === 0 || !agreementAccepted) ? 'not-allowed' : 'pointer',
-          opacity: (submitting || belowMinimum || selectedDates.length === 0 || !agreementAccepted) ? 0.6 : 1,
+          cursor: (submitting || belowMinimum || selectedDates.length === 0 || !agreementAccepted || !docAckAccepted) ? 'not-allowed' : 'pointer',
+          opacity: (submitting || belowMinimum || selectedDates.length === 0 || !agreementAccepted || !docAckAccepted) ? 0.6 : 1,
         }}
       >
         {submitting ? 'Starting checkout…' : `Book & pay at ${marketName}`}

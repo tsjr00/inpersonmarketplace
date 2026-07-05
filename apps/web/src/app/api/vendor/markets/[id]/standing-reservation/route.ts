@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, logError } from '@/lib/errors'
 import { fetchMarketOptinForVendor } from '@/lib/markets/optin-public'
 import { computeAgreementVersionFromSnapshot } from '@/lib/markets/agreement-version'
 
@@ -36,6 +36,10 @@ export async function POST(
     if (!spotId) return NextResponse.json({ error: 'spot_id is required', field: 'spot_id' }, { status: 400 })
     if (!Number.isInteger(dow) || dow < 0 || dow > 6) {
       return NextResponse.json({ error: 'day_of_week must be 0–6', field: 'day_of_week' }, { status: 400 })
+    }
+    // B1 — compliance acknowledgment required (docs not required; book-then-vet).
+    if (body?.doc_ack_accepted !== true) {
+      return NextResponse.json({ error: 'doc_ack_accepted must be true', field: 'doc_ack_accepted' }, { status: 400 })
     }
 
     const { data: market } = await supabase
@@ -87,11 +91,28 @@ export async function POST(
       return NextResponse.json({ error: "The park isn't open on that day.", field: 'day_of_week' }, { status: 400 })
     }
 
-    // Record the vendor's acceptance of the park's opt-in agreement at request
-    // time (mirrors the booking flow). The reservation has no link column — the
-    // acceptance row is vendor+market scoped and is the compliance record.
-    // Idempotent on the per-version UNIQUE (23505 = already accepted this version).
+    // B2: auto-affiliate — ensure a market_vendors row so the truck lands on the
+    // operator's roster to be vetted. Idempotent; best-effort.
+    crumb.supabase('insert', 'market_vendors')
+    const { error: mvErr } = await service
+      .from('market_vendors')
+      .upsert(
+        { market_id: marketId, vendor_profile_id: profile.id, approved: false },
+        { onConflict: 'market_id,vendor_profile_id', ignoreDuplicates: true }
+      )
+    if (mvErr) {
+      logError(traced.fromSupabase(mvErr, { table: 'market_vendors', operation: 'insert' }))
+    }
+
+    // B1: record acceptance of the park's opt-in agreement + compliance
+    // acknowledgment + info-sharing consent (unlocks manager doc review).
+    // Synthetic `_` entries are excluded from the version hash. Idempotent (23505).
     const { snapshot } = await fetchMarketOptinForVendor(marketId)
+    const finalSnapshot = [
+      ...snapshot,
+      { statement_id: '_info_sharing_consent', category: '_meta', statement_text: 'Vendor authorizes the platform to share their compliance documentation with the park operator.', placeholder_values: {} },
+      { statement_id: '_park_doc_acknowledgment', category: '_meta', statement_text: 'Truck acknowledges it must upload every required document, keep them unexpired and valid before the rented time, and that missing/expired/inaccurate docs may result in cancellation without refund and declined future bookings.', placeholder_values: {} },
+    ]
     const agreementVersion = computeAgreementVersionFromSnapshot(snapshot)
     crumb.supabase('insert', 'vendor_market_agreement_acceptances')
     const { error: vmaaErr } = await service
@@ -99,7 +120,7 @@ export async function POST(
       .insert({
         vendor_profile_id: profile.id,
         market_id: marketId,
-        statements_snapshot: snapshot,
+        statements_snapshot: finalSnapshot,
         agreement_version: agreementVersion,
       })
     if (vmaaErr && vmaaErr.code !== '23505') {
