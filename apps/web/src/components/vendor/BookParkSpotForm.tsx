@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import { calculateBoothRentalFees } from '@/lib/pricing'
+import MarketAgreementBlock from '@/components/market-manager/MarketAgreementBlock'
 
 /**
  * Vendor food-truck park-spot booking form (FT-only).
@@ -128,6 +129,10 @@ export default function BookParkSpotForm({
   const [selectedWeekKey, setSelectedWeekKey] = useState<string>(weeks[0]?.key ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Vendor's acceptance of the park's opt-in agreement — gates both booking
+  // and the recurring-hold request. MarketAgreementBlock auto-accepts when the
+  // operator has selected no statements, so unconfigured parks aren't blocked.
+  const [agreementAccepted, setAgreementAccepted] = useState(false)
 
   // Recurring weekly-hold request (P4a) — independent of the pay/booking flow.
   const [recurringDow, setRecurringDow] = useState<number>(scheduleDows[0] ?? 0)
@@ -172,6 +177,10 @@ export default function BookParkSpotForm({
       setError('Minimum booking is $5 — add more days.')
       return
     }
+    if (!agreementAccepted) {
+      setError("Please accept the park's agreement before booking.")
+      return
+    }
 
     setSubmitting(true)
     try {
@@ -207,6 +216,10 @@ export default function BookParkSpotForm({
     setRecurringMessage(null)
     if (!selectedSpotId) {
       setRecurringError('Please pick a spot.')
+      return
+    }
+    if (!agreementAccepted) {
+      setRecurringError("Please accept the park's agreement before requesting.")
       return
     }
     setRecurringSubmitting(true)
@@ -520,6 +533,11 @@ export default function BookParkSpotForm({
         </div>
       )}
 
+      {/* Park agreement — the vendor accepts the operator's opt-in statements
+          before booking OR requesting a recurring hold (mirrors the FM booth
+          flow). Renders nothing + auto-accepts if the park selected none. */}
+      <MarketAgreementBlock marketId={marketId} onChange={setAgreementAccepted} />
+
       {/* Recurring weekly-hold request (P4a) — only for eligible spots. Separate
           from the pay/booking flow: this just asks the operator to reserve the
           spot every week. */}
@@ -564,7 +582,7 @@ export default function BookParkSpotForm({
             <button
               type="button"
               onClick={handleRecurringRequest}
-              disabled={recurringSubmitting}
+              disabled={recurringSubmitting || !agreementAccepted}
               style={{
                 padding: `${spacing.xs} ${spacing.md}`,
                 backgroundColor: colors.primary,
@@ -573,8 +591,8 @@ export default function BookParkSpotForm({
                 borderRadius: radius.sm,
                 fontSize: typography.sizes.sm,
                 fontWeight: typography.weights.semibold,
-                cursor: recurringSubmitting ? 'not-allowed' : 'pointer',
-                opacity: recurringSubmitting ? 0.6 : 1,
+                cursor: (recurringSubmitting || !agreementAccepted) ? 'not-allowed' : 'pointer',
+                opacity: (recurringSubmitting || !agreementAccepted) ? 0.6 : 1,
                 whiteSpace: 'nowrap',
               }}
             >
@@ -641,7 +659,7 @@ export default function BookParkSpotForm({
 
       <button
         type="submit"
-        disabled={submitting || belowMinimum || selectedDates.length === 0}
+        disabled={submitting || belowMinimum || selectedDates.length === 0 || !agreementAccepted}
         style={{
           padding: `${spacing.sm} ${spacing.md}`,
           backgroundColor: colors.primary,
@@ -650,8 +668,8 @@ export default function BookParkSpotForm({
           borderRadius: radius.sm,
           fontSize: typography.sizes.base,
           fontWeight: typography.weights.semibold,
-          cursor: (submitting || belowMinimum || selectedDates.length === 0) ? 'not-allowed' : 'pointer',
-          opacity: (submitting || belowMinimum || selectedDates.length === 0) ? 0.6 : 1,
+          cursor: (submitting || belowMinimum || selectedDates.length === 0 || !agreementAccepted) ? 'not-allowed' : 'pointer',
+          opacity: (submitting || belowMinimum || selectedDates.length === 0 || !agreementAccepted) ? 0.6 : 1,
         }}
       >
         {submitting ? 'Starting checkout…' : `Book & pay at ${marketName}`}

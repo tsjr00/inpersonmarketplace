@@ -3,6 +3,8 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { fetchMarketOptinForVendor } from '@/lib/markets/optin-public'
+import { computeAgreementVersionFromSnapshot } from '@/lib/markets/agreement-version'
 
 /**
  * POST /api/vendor/markets/[id]/standing-reservation
@@ -83,6 +85,25 @@ export async function POST(
     const activeDows = new Set((scheds ?? []).map((s) => s.day_of_week as number))
     if (!activeDows.has(dow)) {
       return NextResponse.json({ error: "The park isn't open on that day.", field: 'day_of_week' }, { status: 400 })
+    }
+
+    // Record the vendor's acceptance of the park's opt-in agreement at request
+    // time (mirrors the booking flow). The reservation has no link column — the
+    // acceptance row is vendor+market scoped and is the compliance record.
+    // Idempotent on the per-version UNIQUE (23505 = already accepted this version).
+    const { snapshot } = await fetchMarketOptinForVendor(marketId)
+    const agreementVersion = computeAgreementVersionFromSnapshot(snapshot)
+    crumb.supabase('insert', 'vendor_market_agreement_acceptances')
+    const { error: vmaaErr } = await service
+      .from('vendor_market_agreement_acceptances')
+      .insert({
+        vendor_profile_id: profile.id,
+        market_id: marketId,
+        statements_snapshot: snapshot,
+        agreement_version: agreementVersion,
+      })
+    if (vmaaErr && vmaaErr.code !== '23505') {
+      throw traced.fromSupabase(vmaaErr, { table: 'vendor_market_agreement_acceptances', operation: 'insert' })
     }
 
     crumb.supabase('insert', 'park_standing_reservations')

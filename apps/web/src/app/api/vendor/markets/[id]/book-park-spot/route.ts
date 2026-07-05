@@ -6,6 +6,8 @@ import { withErrorTracing, traced, crumb, logError } from '@/lib/errors'
 import { calculateBoothRentalFees } from '@/lib/pricing'
 import { createParkSpotCheckoutSession } from '@/lib/stripe/payments'
 import { PARK_SPOT_MIN_CHARGE_CENTS, PARK_SPOT_MAX_DATES } from '@/lib/markets/park-booking-types'
+import { fetchMarketOptinForVendor } from '@/lib/markets/optin-public'
+import { computeAgreementVersionFromSnapshot } from '@/lib/markets/agreement-version'
 
 /**
  * POST /api/vendor/markets/[id]/book-park-spot
@@ -144,6 +146,47 @@ export async function POST(
       )
     }
 
+    // --- Record the vendor's acceptance of the park's opt-in agreement BEFORE
+    //     booking (mirrors the FM booth flow, book/route.ts). Snapshot is
+    //     self-contained; idempotent on the per-version UNIQUE (23505). ---
+    const { snapshot } = await fetchMarketOptinForVendor(marketId)
+    const agreementVersion = computeAgreementVersionFromSnapshot(snapshot)
+    crumb.supabase('insert', 'vendor_market_agreement_acceptances')
+    let acceptanceId: string
+    const { data: insertedAcceptance, error: vmaaErr } = await serviceClient
+      .from('vendor_market_agreement_acceptances')
+      .insert({
+        vendor_profile_id: profile.id,
+        market_id: marketId,
+        statements_snapshot: snapshot,
+        agreement_version: agreementVersion,
+      })
+      .select('id')
+      .single()
+    if (vmaaErr) {
+      if (vmaaErr.code === '23505') {
+        crumb.supabase('select', 'vendor_market_agreement_acceptances')
+        const { data: existing, error: fetchErr } = await serviceClient
+          .from('vendor_market_agreement_acceptances')
+          .select('id')
+          .eq('vendor_profile_id', profile.id)
+          .eq('market_id', marketId)
+          .eq('agreement_version', agreementVersion)
+          .maybeSingle()
+        if (fetchErr || !existing) {
+          throw traced.fromSupabase(
+            fetchErr || new Error('Could not locate prior acceptance row'),
+            { table: 'vendor_market_agreement_acceptances', operation: 'select' }
+          )
+        }
+        acceptanceId = existing.id as string
+      } else {
+        throw traced.fromSupabase(vmaaErr, { table: 'vendor_market_agreement_acceptances', operation: 'insert' })
+      }
+    } else {
+      acceptanceId = insertedAcceptance.id as string
+    }
+
     // --- Book atomically (all-or-nothing across the dates). ---
     const groupId = crypto.randomUUID()
     crumb.supabase('rpc', 'book_park_spot_atomic')
@@ -153,7 +196,7 @@ export async function POST(
       p_spot_id: spotId,
       p_booking_dates: dates,
       p_group_id: groupId,
-      p_acceptance_id: null,
+      p_acceptance_id: acceptanceId,
     })
 
     if (rpcErr) {
