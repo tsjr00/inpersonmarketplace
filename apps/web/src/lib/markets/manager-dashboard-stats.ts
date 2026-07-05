@@ -467,3 +467,97 @@ export async function getManagerEarningsAggregates(
     all_time: bucketEarnings(null, null),
   }
 }
+
+/**
+ * FT park operator's SPOT-RENTAL revenue (the parallel of
+ * getManagerEarningsAggregates for parks). Same windows + same net math
+ * (`calculateBoothRentalFees(...).managerReceivesCents`), but over paid/
+ * completed `park_spot_bookings` and honoring the park's `operator_keep_pct`
+ * (mig 177). Does NOT include food sales (parks have no buyer-order revenue).
+ * Kept as a parallel function rather than refactoring the FM one (working
+ * code — no deconstruction).
+ */
+export async function getParkManagerEarningsAggregates(
+  marketId: string,
+  marketTimezone: string | null,
+  seasonStart: string | null,
+  seasonEnd: string | null
+): Promise<ManagerEarningsAggregates> {
+  const tz = marketTimezone || 'America/Chicago'
+  const serviceClient = createServiceClient()
+
+  const localNow = new Date(new Date().toLocaleString('en-US', { timeZone: tz }))
+  const today = new Date(localNow)
+  today.setHours(0, 0, 0, 0)
+  const sevenDaysAgo = new Date(today)
+  sevenDaysAgo.setDate(today.getDate() - 7)
+  const thirtyDaysAgo = new Date(today)
+  thirtyDaysAgo.setDate(today.getDate() - 30)
+  const ninetyDaysAgo = new Date(today)
+  ninetyDaysAgo.setDate(today.getDate() - 90)
+
+  let seasonRangeStart: Date
+  let seasonRangeEnd: Date
+  let seasonLabel: string
+  if (seasonStart && seasonEnd) {
+    seasonRangeStart = new Date(seasonStart + 'T00:00:00')
+    seasonRangeEnd = new Date(seasonEnd + 'T00:00:00')
+    const startMonth = seasonRangeStart.toLocaleString('en-US', { month: 'short' })
+    const endMonth = seasonRangeEnd.toLocaleString('en-US', { month: 'short' })
+    seasonLabel = `${startMonth} ${seasonRangeStart.getDate()} – ${endMonth} ${seasonRangeEnd.getDate()}, ${seasonRangeEnd.getFullYear()}`
+  } else {
+    seasonRangeStart = ninetyDaysAgo
+    seasonRangeEnd = today
+    seasonLabel = 'Last 90 days'
+  }
+
+  const { data: mk } = await serviceClient
+    .from('markets')
+    .select('operator_keep_pct')
+    .eq('id', marketId)
+    .maybeSingle()
+  const keepPct = (mk?.operator_keep_pct as number | null) ?? undefined
+
+  const { data: bookingsRaw } = await serviceClient
+    .from('park_spot_bookings')
+    .select('price_cents, status, paid_at, booking_date')
+    .eq('market_id', marketId)
+    .in('status', ['paid', 'completed'])
+
+  interface BookingRow {
+    netCents: number
+    localDate: string
+  }
+  const rows: BookingRow[] = (bookingsRaw ?? []).map((r) => {
+    const priceCents = (r.price_cents as number) || 0
+    const paidAt = (r.paid_at as string | null) ?? null
+    const localDate = paidAt
+      ? formatLocalDate(new Date(new Date(paidAt).toLocaleString('en-US', { timeZone: tz })))
+      : ((r.booking_date as string | null) ?? formatLocalDate(today))
+    return {
+      netCents: calculateBoothRentalFees(priceCents, keepPct).managerReceivesCents,
+      localDate,
+    }
+  })
+
+  const bucket = (rangeStart: Date | null, rangeEnd: Date | null): ManagerEarningsWindow => {
+    const startStr = rangeStart ? formatLocalDate(rangeStart) : null
+    const endStr = rangeEnd ? formatLocalDate(rangeEnd) : null
+    let count = 0
+    let net = 0
+    for (const row of rows) {
+      if (startStr && row.localDate < startStr) continue
+      if (endStr && row.localDate > endStr) continue
+      count++
+      net += row.netCents
+    }
+    return { booking_count: count, net_cents: net }
+  }
+
+  return {
+    last_7_days: bucket(sevenDaysAgo, today),
+    last_30_days: bucket(thirtyDaysAgo, today),
+    season: { ...bucket(seasonRangeStart, seasonRangeEnd), range_label: seasonLabel },
+    all_time: bucket(null, null),
+  }
+}

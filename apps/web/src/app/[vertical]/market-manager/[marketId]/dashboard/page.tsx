@@ -3,40 +3,13 @@ import Link from 'next/link'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { getOnboardingProgress } from '@/lib/markets/onboarding-progress'
-import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
-import VendorBoothList from '@/components/market-manager/VendorBoothList'
-import BoothInventoryManager from '@/components/market-manager/BoothInventoryManager'
-import BoothPlaceholderManager from '@/components/market-manager/BoothPlaceholderManager'
-import BoothOccupancyGrid from '@/components/market-manager/BoothOccupancyGrid'
-import ParkSpotsManager from '@/components/market-manager/ParkSpotsManager'
-import SurveyResultsCard from '@/components/market-manager/SurveyResultsCard'
-import OptinManager from '@/components/market-manager/OptinManager'
-import OnboardingChecklist from '@/components/market-manager/OnboardingChecklist'
-import VerificationDocumentsCard from '@/components/market-manager/VerificationDocumentsCard'
-import MarketBrandingCard from '@/components/market-manager/MarketBrandingCard'
-import MarketTransactionsCard from '@/components/market-manager/MarketTransactionsCard'
-import WeeklyBookingsCard from '@/components/market-manager/WeeklyBookingsCard'
-import MarketStripeConnectCard from '@/components/market-manager/MarketStripeConnectCard'
-import MarketScheduleCard from '@/components/market-manager/MarketScheduleCard'
-import MarketCancelDateCard from '@/components/market-manager/MarketCancelDateCard'
-import MarketSeasonCard from '@/components/market-manager/MarketSeasonCard'
-import MarketSeasonSettlementCard from '@/components/market-manager/MarketSeasonSettlementCard'
-import ManagerSupportCard from '@/components/market-manager/ManagerSupportCard'
-import MarketBroadcastCard from '@/components/market-manager/MarketBroadcastCard'
-import MarketAttendanceCard from '@/components/market-manager/MarketAttendanceCard'
-import StandingReservationsCard from '@/components/market-manager/StandingReservationsCard'
-import ManagerCard, { MANAGER_NAV_OFFSET } from '@/components/market-manager/ManagerCard'
+import { colors, spacing, typography, containers } from '@/lib/design-tokens'
 import ManagerJumpNav from '@/components/market-manager/ManagerJumpNav'
-import InviteVendorLink from '@/components/market-manager/InviteVendorLink'
-import InviteVendorBrowser from '@/components/market-manager/InviteVendorBrowser'
-import ManagerActionSummary from '@/components/market-manager/ManagerActionSummary'
 import FtParkDashboardBody from '@/components/market-manager/FtParkDashboardBody'
-import MarketVisibilityCard from '@/components/market-manager/MarketVisibilityCard'
-import ManagerEarningsCard from '@/components/market-manager/ManagerEarningsCard'
-import { getManagerDashboardStats, getMarketTransactionsAggregates, getManagerEarningsAggregates } from '@/lib/markets/manager-dashboard-stats'
+import FmDashboardBody from '@/components/market-manager/FmDashboardBody'
+import { getManagerDashboardStats, getMarketTransactionsAggregates, getManagerEarningsAggregates, getParkManagerEarningsAggregates } from '@/lib/markets/manager-dashboard-stats'
 import { getParkWeekSchedule } from '@/lib/markets/park-week-schedule'
 import { getMarketVisibilityStatus } from '@/lib/markets/market-visibility'
-import { term } from '@/lib/vertical/terminology'
 
 interface PageProps {
   params: Promise<{ vertical: string; marketId: string }>
@@ -130,6 +103,17 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
     ? await getParkWeekSchedule(createServiceClient(), marketId, (market.timezone as string | null) ?? null)
     : null
 
+  // FT parks: operator's spot-rental revenue (NOT food sales). Same net math
+  // as FM earnings, over paid park_spot_bookings + operator_keep_pct.
+  const parkEarnings = isFoodTrucks
+    ? await getParkManagerEarningsAggregates(
+        marketId,
+        (market.timezone as string | null) ?? null,
+        (market.season_start as string | null) ?? null,
+        (market.season_end as string | null) ?? null,
+      )
+    : null
+
   return (
     <div style={{
       maxWidth: containers.lg,
@@ -181,288 +165,22 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           onboardingProgress={onboardingProgress}
           dashboardStats={dashboardStats}
           parkWeek={parkWeek}
+          parkEarnings={parkEarnings}
           schedules={schedules}
           visibilityStatus={visibilityStatus}
         />
       ) : (
-      <>
-
-      {/* Setup checklist — links into the onboarding wizard. HIDDEN for FT
-          parks (P2.5): it tracks market_booth_inventory completion, which FT
-          parks don't use (they use park_spots), so it would never complete. */}
-      {!isFoodTrucks && (
-        <div id="setup" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
-          <OnboardingChecklist vertical={vertical} marketId={marketId} progress={onboardingProgress} />
-        </div>
-      )}
-
-      {/* Buyer-visibility gate status (Session 92 A1) — names the
-          listing+schedule rule and shows the live per-vendor breakdown
-          so a new manager knows exactly why their market isn't in the
-          public directory yet and what activates it. */}
-      {visibilityStatus && <MarketVisibilityCard status={visibilityStatus} />}
-
-      {/* Verification documents (NEW-7, mig 148) — manager uploads
-          ownership/COI/venue-proof docs that the platform admin reviews
-          during the status=pending → active approval workflow. Placed
-          immediately below the onboarding checklist so it's high-visibility
-          for managers who just signed up. Files are private; signed-URL
-          access only. */}
-      <VerificationDocumentsCard marketId={marketId} vertical={vertical} />
-
-      {/* Action summary — surfaces "needs booth #" count + next market
-          day stat. Renders nothing during onboarding (defers to checklist)
-          or when there's nothing actionable. */}
-      <ManagerActionSummary
-        vertical={vertical}
-        marketId={marketId}
-        progress={onboardingProgress}
-        stats={dashboardStats}
-      />
-
-      {/* Manager booth-rental earnings (Session 92 A2). HIDDEN for FT parks
-          (P2.5): sums weekly_booth_rentals; FT spot earnings (park_spot_bookings)
-          get their own card in a later phase. */}
-      {!isFoodTrucks && (
-        <div id="money" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
-          <ManagerEarningsCard aggregates={earningsAggregates} vertical={vertical} />
-        </div>
-      )}
-
-      {/* Aggregate transactions — gross sales activity across 3 windows.
-          Phase D.1 (2026-05-16). Renders nothing if all windows are empty. */}
-      <MarketTransactionsCard aggregates={transactionsAggregates} vertical={vertical} />
-
-      {/* Weekly booth rental bookings (Phase C Stage 1). HIDDEN for FT parks
-          (P2.5): reads weekly_booth_rentals; the FT spot-bookings card
-          (park_spot_bookings) ships in a later phase. */}
-      {!isFoodTrucks && (
-        <div id="weekly-bookings" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
-          <WeeklyBookingsCard marketId={marketId} marketTimezone={(market.timezone as string | null) ?? null} vertical={vertical} />
-        </div>
-      )}
-
-      {/* Stripe Connect onboarding (Phase C Stage 2, 2026-05-17). Sits
-          right after bookings so the "you have bookings → here's how to
-          get paid" narrative flow is clear. Self-fetches status; renders
-          start/continue/under-review/active depending on Stripe state. */}
-      <MarketStripeConnectCard marketId={marketId} marketStatus={(market.status as string | null) ?? null} vertical={vertical} />
-
-      {/* Branding — upload logo for public market profile + invite landing
-          (mig 140, Phase B 2026-05-16). Optional; no setup gating. */}
-      <MarketBrandingCard
-        marketId={marketId}
-        vertical={vertical}
-        initialLogoUrl={(market.logo_url as string | null) ?? null}
-        initialDescription={(market.description as string | null) ?? null}
-      />
-
-      {vertical === 'food_trucks' ? (
-        /* FT parks: individual spot inventory replaces the FM booth cards.
-           Keeps id="booths" so the JumpNav "Spots" chip scrolls here.
-           (FT park-manager P1 — ft_park_manager_design.md.) */
-        <ManagerCard
-          id="booths"
-          title="Spot inventory"
-          description="Set up the individual truck spots at your park — length, power, water, and the per-day price. Switch the park to paid to let trucks book and pay for spots."
-        >
-          <ParkSpotsManager
-            marketId={marketId}
-            initialParkMode={(market.park_mode as 'free' | 'paid' | null) ?? 'free'}
-          />
-        </ManagerCard>
-      ) : (
-        <>
-          {/* Booth inventory — manage size tiers + per-week prices. Anchors
-              the "Booths" jump-nav group. */}
-          <ManagerCard
-            id="booths"
-            title={`${term(vertical, 'booth')} inventory`}
-            description={`Configure the ${term(vertical, 'booth').toLowerCase()} size tiers at your ${term(vertical, 'market').toLowerCase()} — how many of each size you have and the weekly rental price. This is the foundation for the weekly ${term(vertical, 'vendor').toLowerCase()} booking flow.`}
-          >
-            <BoothInventoryManager marketId={marketId} vertical={vertical} />
-          </ManagerCard>
-
-          {/* Booth occupancy grid — current week, per tier. Combines
-              off-platform placeholders, on-platform vendors with a tier,
-              and paid weekly_booth_rentals for the current week. Rendered
-              after inventory because it depends on tier definitions. */}
-          <BoothOccupancyGrid
-            marketId={marketId}
-            marketTimezone={(market.timezone as string | null) ?? null}
-            vertical={vertical}
-          />
-
-          {/* Off-platform vendor booth placeholders — track occupancy without
-              on-platform vendor identity */}
-          <ManagerCard
-            title={`Off-platform ${term(vertical, 'booth').toLowerCase()} placeholders`}
-            description={`Track ${term(vertical, 'booths').toLowerCase()} occupied by ${term(vertical, 'vendors').toLowerCase()} who are not on the platform. No ${term(vertical, 'vendor').toLowerCase()} identity is captured — just the ${term(vertical, 'booth').toLowerCase()} number and (optionally) which size tier it counts against. Useful when you have existing ${term(vertical, 'vendors').toLowerCase()} who haven't onboarded yet.`}
-          >
-            <BoothPlaceholderManager marketId={marketId} vertical={vertical} />
-          </ManagerCard>
-        </>
-      )}
-
-      {/* Vendors at this market — assign / edit booth numbers. Anchors the
-          "Vendors" jump-nav group. */}
-      <ManagerCard
-        id="vendors"
-        title={`${term(vertical, 'vendors')} at this ${term(vertical, 'market').toLowerCase()}`}
-        description={isFoodTrucks
-          ? `Approve ${term(vertical, 'vendors').toLowerCase()} for your ${term(vertical, 'market').toLowerCase()} and manage their status. ${term(vertical, 'booth')} assignments come from each ${term(vertical, 'vendor').toLowerCase()}'s booking — trucks pick and pay for a ${term(vertical, 'booth').toLowerCase()} in the booking flow.`
-          : `Assign ${term(vertical, 'booth').toLowerCase()} numbers to ${term(vertical, 'vendors').toLowerCase()} who are on the platform and at this ${term(vertical, 'market').toLowerCase()}. Off-platform ${term(vertical, 'vendor').toLowerCase()} placeholders ship in a later update.`}
-        headerAccessory={!isFoodTrucks && dashboardStats.activeVendorsNeedingBooth > 0 ? (
-          <span style={{
-            fontSize: typography.sizes.xs,
-            fontWeight: typography.weights.semibold,
-            color: '#92400e',
-            backgroundColor: '#fef3c7',
-            padding: `${spacing['3xs']} ${spacing.xs}`,
-            borderRadius: radius.sm,
-          }}>
-            {dashboardStats.activeVendorsNeedingBooth} need{dashboardStats.activeVendorsNeedingBooth === 1 ? 's' : ''} {term(vertical, 'booth').toLowerCase()} #
-          </span>
-        ) : undefined}
-      >
-        <VendorBoothList marketId={marketId} vertical={vertical} />
-      </ManagerCard>
-
-      {/* Invite a vendor — copy-able co-branded signup link */}
-      <ManagerCard
-        title={`Invite a ${term(vertical, 'vendor').toLowerCase()}`}
-        description={`Share this link with a ${term(vertical, 'vendor').toLowerCase()} you'd like to bring to your ${term(vertical, 'market').toLowerCase()}. They'll see a banner identifying your ${term(vertical, 'market').toLowerCase()} on the standard signup page.`}
-      >
-        <InviteVendorLink
+        <FmDashboardBody
           vertical={vertical}
           marketId={marketId}
-          marketName={market.name as string}
-          onboardingComplete={onboardingProgress.required_complete === onboardingProgress.required_total}
+          market={market as Record<string, unknown>}
+          onboardingProgress={onboardingProgress}
+          dashboardStats={dashboardStats}
+          earningsAggregates={earningsAggregates}
+          transactionsAggregates={transactionsAggregates}
+          schedules={schedules}
+          visibilityStatus={visibilityStatus}
         />
-      </ManagerCard>
-
-      {/* NEW-8: bulk-invite browser for on-platform vendors near this
-          market. Same onboarding gate as InviteVendorLink — invite landing
-          would render an incomplete agreement otherwise. Component handles
-          the "no coordinates yet" empty state internally. */}
-      {onboardingProgress.required_complete === onboardingProgress.required_total && (
-        <InviteVendorBrowser
-          marketId={marketId}
-          marketName={market.name as string}
-          marketLat={(market.latitude as number | null) ?? null}
-          marketLng={(market.longitude as number | null) ?? null}
-          vertical={vertical}
-        />
-      )}
-
-      {/* Opt-in vendor agreement statements — manager picks which ones
-          apply to their market */}
-      <ManagerCard
-        title={`${term(vertical, 'vendor')} agreement statements`}
-        description={`Select which opt-in statements ${term(vertical, 'vendors').toLowerCase()} must accept when they sign up to your ${term(vertical, 'market').toLowerCase()}. Statements with placeholders (in curly braces) let you fill in values specific to your ${term(vertical, 'market').toLowerCase()} — these get substituted into the ${term(vertical, 'vendor').toLowerCase()}-facing text at signup.`}
-      >
-        <OptinManager marketId={marketId} />
-      </ManagerCard>
-
-      {/* Manager-editable schedule (D.2 2026-05-16; editable since 2026-05-19).
-          Manager edits day/time/active + season start/end. Saving requires
-          acknowledgment of vendor-refund responsibility + fires a
-          market_schedule_changed notification to every approved vendor. */}
-      <div id="schedule" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
-        <MarketScheduleCard
-          marketId={marketId}
-          vertical={vertical}
-          initialSchedules={schedules}
-          initialSeasonStart={(market.season_start as string | null) ?? null}
-          initialSeasonEnd={(market.season_end as string | null) ?? null}
-          hasScheduleChangeRecipients={dashboardStats.hasScheduleChangeRecipients}
-        />
-      </div>
-
-      {/* Cancel-a-market-day (Phase C) — close a single upcoming date; refunds
-          buyers + credits/reschedules booth renters + credits market-box
-          pickups server-side. ManagerCard sets its own id="cancel-date" +
-          scroll offset (mirrors MarketAttendanceCard). */}
-      <MarketCancelDateCard marketId={marketId} vertical={vertical} />
-
-      {/* Season pre-sales + settlement (Phase E). HIDDEN for FT parks (P2.5):
-          the FT season model is on hold pending the rental-unit decision. */}
-      {!isFoodTrucks && (
-        <>
-          <MarketSeasonCard
-            marketId={marketId}
-            adminSeasonStart={(market.season_start as string | null) ?? null}
-            adminSeasonEnd={(market.season_end as string | null) ?? null}
-            stripeChargesEnabled={(market.stripe_charges_enabled as boolean | null) ?? false}
-          />
-
-          <MarketSeasonSettlementCard marketId={marketId} />
-        </>
-      )}
-
-      {/* Manager broadcast (Session 92 Phase B) — one-way announcement to
-          vendors (approved + paid upcoming renters). Send-only; server
-          rate-limits to 2 per 7 days. Placed after the schedule card since
-          both are manager→vendor communication surfaces. Anchors "Announce". */}
-      <div id="announce" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
-        <MarketBroadcastCard marketId={marketId} vertical={vertical} />
-      </div>
-
-      {/* Vendor attendance (Phase D) — read-only check-in/out for this market,
-          date-selectable for weekly monitoring. Anchors "attendance". */}
-      <MarketAttendanceCard marketId={marketId} vertical={vertical} />
-
-      {/* FT recurring/standing spot holds (P4a) — manager approves/revokes. */}
-      {isFoodTrucks && <StandingReservationsCard marketId={marketId} />}
-
-      {/* Survey results card (Phase E Stage 5) — empty state until
-          cron Stage 2 starts populating market_surveys rows. Anchors "Surveys". */}
-      <div id="surveys" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
-        <SurveyResultsCard marketId={marketId} vertical={vertical} />
-      </div>
-
-      {/* Static support card (D.3 2026-05-16) */}
-      <ManagerSupportCard vertical={vertical} />
-
-      {/* What's still coming */}
-      <div style={{
-        padding: spacing.md,
-        backgroundColor: colors.surfaceBase,
-        border: `1px dashed ${colors.border}`,
-        borderRadius: radius.md,
-      }}>
-        <h2 style={{
-          marginTop: 0,
-          marginBottom: spacing.xs,
-          fontSize: typography.sizes.base,
-          fontWeight: typography.weights.semibold,
-          color: colors.textMuted,
-        }}>
-          Coming soon
-        </h2>
-        <ul style={{
-          margin: 0,
-          paddingLeft: spacing.md,
-          color: colors.textMuted,
-          fontSize: typography.sizes.sm,
-          lineHeight: 1.6,
-        }}>
-          <li>Post-{term(vertical, 'market').toLowerCase()} {term(vertical, 'vendor').toLowerCase()} + buyer surveys</li>
-          <li>Share tools for {term(vertical, 'market').toLowerCase()}-day social promotion</li>
-        </ul>
-      </div>
-
-      <p style={{
-        marginTop: spacing.md,
-        fontSize: typography.sizes.xs,
-        color: colors.textMuted,
-        fontStyle: 'italic',
-      }}>
-        Have feedback on what would make this dashboard most useful for
-        your {term(vertical, 'market').toLowerCase()}? Reply to your most recent platform email or reach
-        out via the support page.
-      </p>
-      </>
       )}
     </div>
   )

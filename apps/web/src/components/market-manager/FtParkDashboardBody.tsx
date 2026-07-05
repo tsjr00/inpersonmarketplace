@@ -4,6 +4,7 @@ import ManagerCard, { MANAGER_NAV_OFFSET } from './ManagerCard'
 import CollapsibleSection from './CollapsibleSection'
 import TabbedCard from './TabbedCard'
 import ManagerActionSummary from './ManagerActionSummary'
+import ManagerEarningsCard from './ManagerEarningsCard'
 import ParkWeekCard from './ParkWeekCard'
 import MarketAttendanceCard from './MarketAttendanceCard'
 import MarketCancelDateCard from './MarketCancelDateCard'
@@ -22,7 +23,7 @@ import MarketBroadcastCard from './MarketBroadcastCard'
 import SurveyResultsCard from './SurveyResultsCard'
 import ManagerSupportCard from './ManagerSupportCard'
 import type { OnboardingProgress } from '@/lib/markets/onboarding-progress'
-import type { ManagerDashboardStats } from '@/lib/markets/manager-dashboard-stats'
+import type { ManagerDashboardStats, ManagerEarningsAggregates } from '@/lib/markets/manager-dashboard-stats'
 import type { ParkWeekSchedule } from '@/lib/markets/park-week-schedule'
 
 /**
@@ -45,6 +46,7 @@ interface FtParkDashboardBodyProps {
   onboardingProgress: OnboardingProgress
   dashboardStats: ManagerDashboardStats
   parkWeek: ParkWeekSchedule | null
+  parkEarnings: ManagerEarningsAggregates | null
   schedules: Array<{ day_of_week: number; start_time: string | null; end_time: string | null; active: boolean | null }>
   visibilityStatus: ComponentProps<typeof MarketVisibilityCard>['status'] | null
 }
@@ -66,6 +68,7 @@ export default function FtParkDashboardBody({
   onboardingProgress,
   dashboardStats,
   parkWeek,
+  parkEarnings,
   schedules,
   visibilityStatus,
 }: FtParkDashboardBodyProps) {
@@ -143,6 +146,15 @@ export default function FtParkDashboardBody({
           },
         ]}
       />
+
+      {/* ⑤ MONEY — spot-rental revenue (operator's cut; NOT food sales).
+          Hidden until there's at least one paid booking. */}
+      {parkEarnings && parkEarnings.all_time.booking_count > 0 && (
+        <>
+          <GroupHeading title="Money" subtitle="Your spot rental revenue" />
+          <ManagerEarningsCard aggregates={parkEarnings} vertical={vertical} />
+        </>
+      )}
 
       {/* ④ PARK SETUP — collapsible (occasional config) */}
       <CollapsibleSection id="setup" title="Park setup" subtitle="Payments, spots, schedule, agreements, branding" defaultCollapsed>

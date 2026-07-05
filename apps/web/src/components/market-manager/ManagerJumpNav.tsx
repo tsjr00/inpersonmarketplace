@@ -25,16 +25,13 @@ export default function ManagerJumpNav({ vertical }: ManagerJumpNavProps) {
     { id: 'setup', label: 'Setup' },
     { id: 'announce', label: 'Communicate' },
   ]
+  // FM uses the grouped layout (FmDashboardBody) — chips map to the groups.
   const FM_SECTIONS: Array<{ id: string; label: string }> = [
-    { id: 'setup', label: 'Setup' },
-    { id: 'money', label: 'Money' },
     { id: 'booths', label: term(vertical, 'booths') },
     { id: 'vendors', label: term(vertical, 'vendors') },
-    { id: 'schedule', label: 'Schedule' },
-    { id: 'cancel-date', label: 'Cancel day' },
-    { id: 'seasons', label: 'Seasons' },
-    { id: 'announce', label: 'Announce' },
-    { id: 'surveys', label: 'Surveys' },
+    { id: 'setup', label: 'Setup' },
+    { id: 'money', label: 'Money' },
+    { id: 'announce', label: 'Communicate' },
   ]
   const SECTIONS = isFoodTrucks ? FT_SECTIONS : FM_SECTIONS
 
