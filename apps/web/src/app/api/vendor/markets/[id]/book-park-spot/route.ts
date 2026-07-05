@@ -87,6 +87,21 @@ export async function POST(
 
     const serviceClient = createServiceClient()
 
+    // B3 — book-then-vet: a truck the operator blocked can't make new bookings.
+    // Fail-open if the vetting row is absent (blocking is the exception).
+    const { data: vetting } = await serviceClient
+      .from('park_vendor_vetting')
+      .select('blocked')
+      .eq('market_id', marketId)
+      .eq('vendor_profile_id', profile.id)
+      .maybeSingle()
+    if (vetting?.blocked === true) {
+      return NextResponse.json(
+        { error: `${(market.name as string) || 'This park'} has blocked new bookings from your food truck. Contact the operator for details.` },
+        { status: 403 }
+      )
+    }
+
     // --- Spot exists + belongs to this park + active. ---
     crumb.supabase('select', 'park_spots')
     const { data: spot } = await serviceClient

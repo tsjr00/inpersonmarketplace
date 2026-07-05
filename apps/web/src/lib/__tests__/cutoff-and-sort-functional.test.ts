@@ -190,7 +190,7 @@ describe('NI-014: Total notification types = 72', () => {
     // park_spot_paid_manager were added (FT P2b fast-follow — paid park-spot
     // booking confirmations, mirrors booth_rental_paid_*). User-approved.
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(91)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(93)
   })
 
   it('includes all buyer-facing types', () => {

@@ -64,6 +64,20 @@ export async function POST(
 
     const service = createServiceClient()
 
+    // B3 — a blocked truck can't request a recurring hold either. Fail-open.
+    const { data: vetting } = await service
+      .from('park_vendor_vetting')
+      .select('blocked')
+      .eq('market_id', marketId)
+      .eq('vendor_profile_id', profile.id)
+      .maybeSingle()
+    if (vetting?.blocked === true) {
+      return NextResponse.json(
+        { error: `${(market.name as string) || 'This park'} has blocked new bookings from your food truck.` },
+        { status: 403 }
+      )
+    }
+
     crumb.supabase('select', 'park_spots')
     const { data: spot } = await service
       .from('park_spots')

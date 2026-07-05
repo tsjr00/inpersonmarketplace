@@ -45,6 +45,11 @@ export interface WeekTruck {
   /** Whether the truck has checked in. Only set for TODAY (check-in is daily
    *  and there's no pre-check-in) — undefined for every other day. */
   checkedIn?: boolean
+  /** park_spot_bookings.id — present for concrete (paid/unpaid) bookings; absent
+   *  for a projected standing hold. Enables the manager "cancel booking" (bar) action. */
+  bookingId?: string
+  /** True when the operator has barred this booking (no refund; slot not resold). */
+  barred?: boolean
 }
 
 export interface WeekDay {
@@ -95,11 +100,13 @@ export function buildOperatingDates(
 }
 
 export interface BookingLite {
+  id: string
   vendor_profile_id: string
   spot_id: string
   booking_date: string
   status: string // 'paid' | 'pending_payment' | ... (only paid/pending used)
   standing_reservation_id: string | null
+  manager_barred_at?: string | null
 }
 
 export interface StandingLite {
@@ -153,6 +160,8 @@ export function assembleParkWeekDays(args: {
       spotLabel: label,
       status: b.status === 'paid' ? 'paid' : 'unpaid',
       recurring: b.standing_reservation_id != null,
+      bookingId: b.id,
+      barred: b.manager_barred_at != null,
     })
     occupied(b.booking_date).add(b.spot_id)
   }
@@ -238,7 +247,7 @@ export async function getParkWeekSchedule(
 
   const [bookingRes, standingRes] = await Promise.all([
     serviceClient.from('park_spot_bookings')
-      .select('vendor_profile_id, spot_id, booking_date, status, standing_reservation_id')
+      .select('id, vendor_profile_id, spot_id, booking_date, status, standing_reservation_id, manager_barred_at')
       .eq('market_id', marketId)
       .in('booking_date', dates)
       .in('status', ['paid', 'pending_payment']),

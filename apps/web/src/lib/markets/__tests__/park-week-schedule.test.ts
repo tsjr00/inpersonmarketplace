@@ -53,12 +53,12 @@ describe('assembleParkWeekDays', () => {
   const dates = ['2026-07-04', '2026-07-05'] // Sat, Sun
 
   const bookings: BookingLite[] = [
-    { vendor_profile_id: 'v1', spot_id: 's1', booking_date: '2026-07-04', status: 'paid', standing_reservation_id: null },
-    { vendor_profile_id: 'v2', spot_id: 's2', booking_date: '2026-07-04', status: 'pending_payment', standing_reservation_id: null },
+    { id: 'b1', vendor_profile_id: 'v1', spot_id: 's1', booking_date: '2026-07-04', status: 'paid', standing_reservation_id: null },
+    { id: 'b2', vendor_profile_id: 'v2', spot_id: 's2', booking_date: '2026-07-04', status: 'pending_payment', standing_reservation_id: null },
     // out of window — must be ignored
-    { vendor_profile_id: 'v1', spot_id: 's1', booking_date: '2026-07-11', status: 'paid', standing_reservation_id: null },
+    { id: 'b3', vendor_profile_id: 'v1', spot_id: 's1', booking_date: '2026-07-11', status: 'paid', standing_reservation_id: null },
     // a materialized recurring occurrence on Sunday for spot s2
-    { vendor_profile_id: 'v2', spot_id: 's2', booking_date: '2026-07-05', status: 'paid', standing_reservation_id: 'sr1' },
+    { id: 'b4', vendor_profile_id: 'v2', spot_id: 's2', booking_date: '2026-07-05', status: 'paid', standing_reservation_id: 'sr1' },
   ]
   const standing: StandingLite[] = [
     { vendor_profile_id: 'v2', spot_id: 's2', day_of_week: 0 }, // Sun — already booked 07-05 → dedup
@@ -81,8 +81,8 @@ describe('assembleParkWeekDays', () => {
 
   it('maps paid + pending bookings with correct status and recurrence', () => {
     expect(sat.trucks).toEqual([
-      { vendorProfileId: 'v1', vendorName: 'Bao Down', spotLabel: 'Spot A', status: 'paid', recurring: false },
-      { vendorProfileId: 'v2', vendorName: 'Taco Truck', spotLabel: 'Spot B', status: 'unpaid', recurring: false },
+      { vendorProfileId: 'v1', vendorName: 'Bao Down', spotLabel: 'Spot A', status: 'paid', recurring: false, bookingId: 'b1', barred: false },
+      { vendorProfileId: 'v2', vendorName: 'Taco Truck', spotLabel: 'Spot B', status: 'unpaid', recurring: false, bookingId: 'b2', barred: false },
     ])
     expect(sat.trucksCount).toBe(2)
     expect(sat.spotsFilled).toBe(2)
@@ -98,8 +98,10 @@ describe('assembleParkWeekDays', () => {
   it('projects an active standing hold onto a free spot+date', () => {
     // Sunday: v1/s1 projected as scheduled; v2/s2 is the materialized booking.
     expect(sun.trucks).toEqual([
+      // v1 is a PROJECTED standing hold (no concrete booking → no bookingId/barred).
       { vendorProfileId: 'v1', vendorName: 'Bao Down', spotLabel: 'Spot A', status: 'scheduled', recurring: true },
-      { vendorProfileId: 'v2', vendorName: 'Taco Truck', spotLabel: 'Spot B', status: 'paid', recurring: true },
+      // v2 is the materialized paid booking b4.
+      { vendorProfileId: 'v2', vendorName: 'Taco Truck', spotLabel: 'Spot B', status: 'paid', recurring: true, bookingId: 'b4', barred: false },
     ])
   })
 

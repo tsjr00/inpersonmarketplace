@@ -93,7 +93,7 @@ export default function FtParkDashboardBody({
             </a>
           ) : undefined}
         >
-          <ParkWeekCard schedule={parkWeek} />
+          <ParkWeekCard schedule={parkWeek} marketId={marketId} />
         </ManagerCard>
       )}
       <MarketAttendanceCard marketId={marketId} vertical={vertical} />

@@ -118,6 +118,9 @@ export type NotificationType =
   // FT park-manager P2b fast-follow — paid park-spot booking confirmations.
   | 'park_spot_paid_vendor'
   | 'park_spot_paid_manager'
+  // FT park-manager B3 — book-then-vet enforcement (operator discretion).
+  | 'park_vendor_blocked'
+  | 'park_booking_barred'
   // Manager access lifecycle (Phase 1B) — fired to the affected manager
   // when an admin removes / suspends / restores their market access.
   | 'manager_access_removed'
@@ -950,6 +953,27 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       d.marketId
         ? `/${d.vertical || 'food_trucks'}/market-manager/${d.marketId}/dashboard`
         : `/${d.vertical || 'food_trucks'}/dashboard`,
+  },
+
+  // FT B3 — operator blocked the truck from FUTURE bookings at this park (any reason).
+  park_vendor_blocked: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'vendor',
+    title: (d) => `You've been blocked from booking at ${d.marketName || 'this park'}`,
+    message: (d) =>
+      `The operator of ${d.marketName || 'this park'} has blocked your food truck from making new bookings${d.reason ? `: ${d.reason}` : '.'} Existing paid bookings are not affected. Contact the operator with any questions.`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/dashboard`,
+  },
+  // FT B3 — operator barred a specific paid booking (no refund; slot not resold).
+  park_booking_barred: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'vendor',
+    title: (d) => `Your booking at ${d.marketName || 'the park'} was cancelled`,
+    message: (d) =>
+      `The operator of ${d.marketName || 'the park'} cancelled your booking${d.marketDate ? ` on ${d.marketDate}` : ''}${d.reason ? `: ${d.reason}` : '.'} Per the terms you accepted at booking, this is without a refund. Contact the operator with any questions.`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/dashboard`,
   },
 
   // FT P4b — a standing hold was auto-suspended after hitting the strike limit.

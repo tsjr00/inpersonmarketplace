@@ -17,6 +17,9 @@ interface Vendor {
   on_platform: true
   is_active_schedule: boolean
   has_info_sharing_consent: boolean
+  /** FT park vetting (B3): blocked from future bookings + doc review status. */
+  blocked: boolean
+  review_status: string
 }
 
 interface TierOption {
@@ -94,6 +97,13 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
     vendorProfileId: string
     businessName: string
   } | null>(null)
+  // B3 — FT park: block/unblock a truck from FUTURE bookings (manager discretion,
+  // any reason). Blocking is confirmed behind a dialog (destructive-ish).
+  const [confirmingBlock, setConfirmingBlock] = useState<{
+    vendorProfileId: string
+    businessName: string
+  } | null>(null)
+  const [blockingId, setBlockingId] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -192,6 +202,62 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
     const { vendorProfileId } = confirmingRevoke
     setConfirmingRevoke(null)
     await handleApprove(vendorProfileId, false)
+  }
+
+  const setBlocked = async (vendorProfileId: string, nextBlocked: boolean) => {
+    setBlockingId(vendorProfileId)
+    setRowError((s) => ({ ...s, [vendorProfileId]: '' }))
+    try {
+      const res = await fetch(`/api/market-manager/${marketId}/park-vetting/${vendorProfileId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blocked: nextBlocked }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setRowError((s) => ({ ...s, [vendorProfileId]: data.error || 'Update failed' }))
+      } else {
+        setVendors((vs) =>
+          (vs || []).map((v) =>
+            v.vendor_profile_id === vendorProfileId ? { ...v, blocked: nextBlocked } : v
+          )
+        )
+      }
+    } catch {
+      setRowError((s) => ({ ...s, [vendorProfileId]: 'Network error' }))
+    } finally {
+      setBlockingId(null)
+    }
+  }
+
+  const performBlock = async () => {
+    if (!confirmingBlock) return
+    const { vendorProfileId } = confirmingBlock
+    setConfirmingBlock(null)
+    await setBlocked(vendorProfileId, true)
+  }
+
+  const setReview = async (vendorProfileId: string, status: string) => {
+    setRowError((s) => ({ ...s, [vendorProfileId]: '' }))
+    try {
+      const res = await fetch(`/api/market-manager/${marketId}/park-vetting/${vendorProfileId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ review_status: status }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setRowError((s) => ({ ...s, [vendorProfileId]: data.error || 'Update failed' }))
+      } else {
+        setVendors((vs) =>
+          (vs || []).map((v) =>
+            v.vendor_profile_id === vendorProfileId ? { ...v, review_status: status } : v
+          )
+        )
+      }
+    } catch {
+      setRowError((s) => ({ ...s, [vendorProfileId]: 'Network error' }))
+    }
   }
 
   const handleApprove = async (vendorProfileId: string, nextApproved: boolean) => {
@@ -343,6 +409,16 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
         onCancel={() => setConfirmingRevoke(null)}
       />
 
+      <ConfirmDialog
+        open={!!confirmingBlock}
+        title="Block this truck?"
+        message={`Block ${confirmingBlock?.businessName ?? 'this truck'} from making new bookings at this park? Existing paid bookings are not affected. The truck is notified, and you can unblock them later.`}
+        variant="danger"
+        confirmLabel="Block"
+        onConfirm={performBlock}
+        onCancel={() => setConfirmingBlock(null)}
+      />
+
       {/* Empty state when filter excludes everything */}
       {displayedVendors.length === 0 ? (
         <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm, padding: spacing.xs }}>
@@ -399,6 +475,20 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                       View docs →
                     </a>
                   )}
+                  {/* B3 — FT: mark the truck's docs reviewed (vetting record). */}
+                  {isFoodTruck && (
+                    v.review_status === 'reviewed' ? (
+                      <span style={{ fontSize: typography.sizes.xs, color: '#166534', fontWeight: typography.weights.semibold }}>reviewed ✓</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setReview(v.vendor_profile_id, 'reviewed')}
+                        style={{ fontSize: typography.sizes.xs, color: colors.primary, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontWeight: typography.weights.normal }}
+                      >
+                        Mark reviewed
+                      </button>
+                    )
+                  )}
                 </div>
                 <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, display: 'flex', gap: spacing['2xs'], flexWrap: 'wrap' }}>
                   {/* NEW-8: invited vendors are a distinct status from
@@ -419,6 +509,7 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                       is informational for capacity math + occupancy
                       grid) but signals data quality. FT parks have no tiers. */}
                   {!isFoodTruck && !v.inventory_id && v.approved && <span style={{ color: '#a16207' }}>· tier not set</span>}
+                  {isFoodTruck && v.blocked && <span style={{ color: '#991b1b', fontWeight: typography.weights.semibold }}>· 🚫 Blocked from booking</span>}
                 </div>
               </div>
 
@@ -453,6 +544,29 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                     <span style={{ color: colors.primary, fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold }}>
                       ✓ Approved
                     </span>
+                  )}
+                  {/* B3 — block a pending FT truck too (approve = vetted-good; block = vetted-bad). */}
+                  {isFoodTruck && (
+                    <button
+                      type="button"
+                      onClick={() => v.blocked
+                        ? setBlocked(v.vendor_profile_id, false)
+                        : setConfirmingBlock({ vendorProfileId: v.vendor_profile_id, businessName: v.business_name })}
+                      disabled={blockingId === v.vendor_profile_id}
+                      title={v.blocked ? 'Unblock this truck from booking' : 'Block this truck from future bookings'}
+                      style={{
+                        padding: `${spacing['3xs']} ${spacing.xs}`,
+                        backgroundColor: v.blocked ? '#991b1b' : 'transparent',
+                        color: v.blocked ? 'white' : '#991b1b',
+                        border: `1px solid ${v.blocked ? '#991b1b' : '#f5c6cb'}`,
+                        borderRadius: radius.sm,
+                        fontSize: typography.sizes.xs,
+                        cursor: blockingId === v.vendor_profile_id ? 'not-allowed' : 'pointer',
+                        opacity: blockingId === v.vendor_profile_id ? 0.6 : 1,
+                      }}
+                    >
+                      {blockingId === v.vendor_profile_id ? '…' : v.blocked ? 'Unblock' : 'Block'}
+                    </button>
                   )}
                 </div>
               ) : (
@@ -540,6 +654,30 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                   >
                     Revoke
                   </button>
+                  {/* B3 — FT park: block/unblock this truck from FUTURE bookings
+                      (any reason; existing paid bookings unaffected). */}
+                  {isFoodTruck && (
+                    <button
+                      type="button"
+                      onClick={() => v.blocked
+                        ? setBlocked(v.vendor_profile_id, false)
+                        : setConfirmingBlock({ vendorProfileId: v.vendor_profile_id, businessName: v.business_name })}
+                      disabled={blockingId === v.vendor_profile_id}
+                      title={v.blocked ? 'Unblock this truck from booking' : 'Block this truck from future bookings'}
+                      style={{
+                        padding: `${spacing['3xs']} ${spacing.xs}`,
+                        backgroundColor: v.blocked ? '#991b1b' : 'transparent',
+                        color: v.blocked ? 'white' : '#991b1b',
+                        border: `1px solid ${v.blocked ? '#991b1b' : '#f5c6cb'}`,
+                        borderRadius: radius.sm,
+                        fontSize: typography.sizes.xs,
+                        cursor: blockingId === v.vendor_profile_id ? 'not-allowed' : 'pointer',
+                        opacity: blockingId === v.vendor_profile_id ? 0.6 : 1,
+                      }}
+                    >
+                      {blockingId === v.vendor_profile_id ? '…' : v.blocked ? 'Unblock' : 'Block'}
+                    </button>
+                  )}
                 </div>
               )}
 

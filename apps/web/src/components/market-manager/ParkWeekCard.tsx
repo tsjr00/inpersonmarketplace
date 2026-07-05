@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import type { ParkWeekSchedule, WeekDay, WeekTruck } from '@/lib/markets/park-week-schedule'
 
@@ -13,7 +14,7 @@ import type { ParkWeekSchedule, WeekDay, WeekTruck } from '@/lib/markets/park-we
  * live on the separate roster card; recurrence is managed on the standing-
  * reservations card. Data comes from getParkWeekSchedule (server).
  */
-export default function ParkWeekCard({ schedule }: { schedule: ParkWeekSchedule }) {
+export default function ParkWeekCard({ schedule, marketId }: { schedule: ParkWeekSchedule; marketId: string }) {
   const initialOpen = () => {
     const today = schedule.days.find((d) => d.isToday)
     if (today) return new Set([today.date])
@@ -47,6 +48,7 @@ export default function ParkWeekCard({ schedule }: { schedule: ParkWeekSchedule 
           spotsTotal={schedule.spotsTotal}
           expanded={open.has(day.date)}
           onToggle={() => toggle(day.date)}
+          marketId={marketId}
         />
       ))}
     </div>
@@ -58,11 +60,13 @@ function DayRow({
   spotsTotal,
   expanded,
   onToggle,
+  marketId,
 }: {
   day: WeekDay
   spotsTotal: number
   expanded: boolean
   onToggle: () => void
+  marketId: string
 }) {
   return (
     <div style={{ border: `1px solid ${colors.border}`, borderRadius: radius.sm, overflow: 'hidden' }}>
@@ -104,7 +108,7 @@ function DayRow({
               No trucks booked for this day yet.
             </span>
           ) : (
-            day.trucks.map((t, i) => <TruckRow key={`${t.spotLabel}-${t.vendorProfileId}-${i}`} truck={t} showCheckin={day.isToday} />)
+            day.trucks.map((t, i) => <TruckRow key={`${t.spotLabel}-${t.vendorProfileId}-${i}`} truck={t} showCheckin={day.isToday} marketId={marketId} />)
           )}
         </div>
       )}
@@ -112,22 +116,103 @@ function DayRow({
   )
 }
 
-function TruckRow({ truck, showCheckin }: { truck: WeekTruck; showCheckin: boolean }) {
+function TruckRow({ truck, showCheckin, marketId }: { truck: WeekTruck; showCheckin: boolean; marketId: string }) {
+  const router = useRouter()
+  const [barOpen, setBarOpen] = useState(false)
+  const [reason, setReason] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // B3 — a manager can bar a specific PAID booking (no refund; the paid row
+  // stays so the slot is NOT resold).
+  const canBar = !!truck.bookingId && truck.status === 'paid' && !truck.barred
+
+  const confirmBar = async () => {
+    if (!truck.bookingId || !reason.trim()) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/market-manager/${marketId}/park-bookings/${truck.bookingId}/bar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: reason.trim() }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setError(data.error || 'Could not cancel the booking')
+        setSubmitting(false)
+        return
+      }
+      setBarOpen(false)
+      router.refresh()
+    } catch {
+      setError('Network error — please try again.')
+      setSubmitting(false)
+    }
+  }
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], flexWrap: 'wrap' }}>
-      <span style={{ fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm, color: colors.textPrimary }}>
-        🅿 {truck.spotLabel}
-      </span>
-      <span style={{ fontSize: typography.sizes.sm, color: colors.textPrimary }}>{truck.vendorName}</span>
-      {truck.recurring && (
-        <span title="Recurring weekly" style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
-          ♻
+    <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], flexWrap: 'wrap' }}>
+        <span style={{ fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm, color: truck.barred ? colors.textMuted : colors.textPrimary, textDecoration: truck.barred ? 'line-through' : 'none' }}>
+          🅿 {truck.spotLabel}
         </span>
+        <span style={{ fontSize: typography.sizes.sm, color: truck.barred ? colors.textMuted : colors.textPrimary }}>{truck.vendorName}</span>
+        {truck.recurring && (
+          <span title="Recurring weekly" style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>♻</span>
+        )}
+        {truck.barred ? (
+          <span style={{ fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: '#991b1b', backgroundColor: '#fde2e2', padding: `${spacing['3xs']} ${spacing.xs}`, borderRadius: radius.sm }}>
+            Cancelled · no refund
+          </span>
+        ) : (
+          <>
+            <StatusChip status={truck.status} />
+            {/* Check-in only for Today (no pre-check-in); scheduled holds skipped. */}
+            {showCheckin && truck.status !== 'scheduled' && <CheckinChip present={!!truck.checkedIn} />}
+          </>
+        )}
+        {canBar && !barOpen && (
+          <button
+            type="button"
+            onClick={() => setBarOpen(true)}
+            title="Cancel this booking (no refund; the spot is not resold)"
+            style={{ marginLeft: 'auto', fontSize: typography.sizes.xs, color: '#991b1b', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+      {barOpen && (
+        <div style={{ display: 'flex', gap: spacing['2xs'], flexWrap: 'wrap', alignItems: 'center', padding: spacing['2xs'], backgroundColor: '#fff5f5', border: '1px solid #f5c6cb', borderRadius: radius.sm }}>
+          <input
+            type="text"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Reason (required) — the truck is notified"
+            maxLength={500}
+            disabled={submitting}
+            style={{ flex: '1 1 180px', padding: `${spacing['3xs']} ${spacing.xs}`, border: `1px solid ${colors.border}`, borderRadius: radius.sm, fontSize: typography.sizes.sm }}
+          />
+          <button
+            type="button"
+            onClick={confirmBar}
+            disabled={submitting || !reason.trim()}
+            style={{ padding: `${spacing['3xs']} ${spacing.sm}`, backgroundColor: '#991b1b', color: 'white', border: 'none', borderRadius: radius.sm, fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, cursor: (submitting || !reason.trim()) ? 'not-allowed' : 'pointer', opacity: (submitting || !reason.trim()) ? 0.6 : 1 }}
+          >
+            {submitting ? 'Cancelling…' : 'Confirm cancel · no refund'}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setBarOpen(false); setError(null) }}
+            disabled={submitting}
+            style={{ padding: `${spacing['3xs']} ${spacing.xs}`, background: 'none', border: `1px solid ${colors.border}`, borderRadius: radius.sm, fontSize: typography.sizes.xs, cursor: 'pointer', color: colors.textMuted }}
+          >
+            Keep
+          </button>
+          {error && <span style={{ width: '100%', fontSize: typography.sizes.xs, color: '#991b1b' }}>{error}</span>}
+        </div>
       )}
-      <StatusChip status={truck.status} />
-      {/* Check-in status — only shown for Today (no pre-check-in). Scheduled
-          (not-yet-booked) holds have no check-in expectation, so skip them. */}
-      {showCheckin && truck.status !== 'scheduled' && <CheckinChip present={!!truck.checkedIn} />}
     </div>
   )
 }

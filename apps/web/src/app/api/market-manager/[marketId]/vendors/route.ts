@@ -111,6 +111,21 @@ export async function GET(
       }
     }
 
+    // B3 — park vetting status (blocked / review) per truck. FT parks only;
+    // the table is empty for FM markets, so this is a cheap no-op there.
+    crumb.supabase('select', 'park_vendor_vetting')
+    const { data: vettingRows } = await serviceClient
+      .from('park_vendor_vetting')
+      .select('vendor_profile_id, blocked, review_status')
+      .eq('market_id', marketId)
+    const vettingByVendor = new Map<string, { blocked: boolean; review_status: string }>()
+    for (const v of vettingRows ?? []) {
+      vettingByVendor.set(v.vendor_profile_id as string, {
+        blocked: v.blocked === true,
+        review_status: (v.review_status as string | null) ?? 'pending',
+      })
+    }
+
     const vendors = (rows || []).map((row) => {
       const vp = row.vendor_profiles as unknown as
         | { id: string; status: string; profile_data: Record<string, unknown> | null }
@@ -133,6 +148,8 @@ export async function GET(
         on_platform: true as const,
         is_active_schedule: activeScheduleSet.has(row.vendor_profile_id as string),
         has_info_sharing_consent: consentSet.has(row.vendor_profile_id as string),
+        blocked: vettingByVendor.get(row.vendor_profile_id as string)?.blocked ?? false,
+        review_status: vettingByVendor.get(row.vendor_profile_id as string)?.review_status ?? 'pending',
         created_at: row.created_at as string,
       }
     })
