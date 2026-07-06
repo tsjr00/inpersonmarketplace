@@ -16,6 +16,10 @@
     {
       "path": "/api/cron/surveys",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/park-docs-review",
+      "schedule": "0 12-23,0-2 * * *"
     }
   ]
 }

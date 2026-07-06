@@ -121,6 +121,7 @@ export type NotificationType =
   // FT park-manager B3 — book-then-vet enforcement (operator discretion).
   | 'park_vendor_blocked'
   | 'park_booking_barred'
+  | 'park_truck_docs_to_review'
   // Manager access lifecycle (Phase 1B) — fired to the affected manager
   // when an admin removes / suspends / restores their market access.
   | 'manager_access_removed'
@@ -974,6 +975,20 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     message: (d) =>
       `The operator of ${d.marketName || 'the park'} cancelled your booking${d.marketDate ? ` on ${d.marketDate}` : ''}${d.reason ? `: ${d.reason}` : '.'} Per the terms you accepted at booking, this is without a refund. Contact the operator with any questions.`,
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/dashboard`,
+  },
+
+  // FT B3 — a truck's compliance docs changed; nudge the operator to review.
+  park_truck_docs_to_review: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: (d) => `New documents to review at ${d.marketName || 'your park'}`,
+    message: (d) =>
+      `${d.vendorName || 'A food truck'} updated their compliance documents at ${d.marketName || 'your park'}. Review them in your "Your trucks" list.`,
+    actionUrl: (d) =>
+      d.marketId
+        ? `/${d.vertical || 'food_trucks'}/market-manager/${d.marketId}/dashboard#vendors`
+        : `/${d.vertical || 'food_trucks'}/dashboard`,
   },
 
   // FT P4b — a standing hold was auto-suspended after hitting the strike limit.
