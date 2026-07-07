@@ -1,6 +1,15 @@
 # Current Task: FT PARK-MANAGER — full stack on STAGING, awaiting user testing → then timezone fix
 
-**Updated:** 2026-07-06 (round 3: FT manager auto-link + weekly-hold truck UX). **Mode:** Report.
+**Updated:** 2026-07-06 (round 4: help/KB content for manager+operator surfaces). **Mode:** Report.
+
+---
+
+## ⭐ 2026-07-06 ROUND 4 — help/KB coverage for manager/operator + park/booth flows, WRITTEN, UNCOMMITTED, mig 183 NOT applied, awaiting user review
+
+Review found: the `knowledge_articles` help system (mig 013 table + mig 062 seed, surfaced at `/[vertical]/help`) has **52 buyer/vendor articles, zero manager/operator content** — `ManagerSupportCard` links managers to a help center that has nothing for them (its own comment admits it). No audience/role column — articles filter by vertical + category only.
+
+- **Mig 183 (WRITTEN, NOT APPLIED):** `20260706_183_seed_manager_operator_knowledge.sql` — DATA-ONLY, idempotent (INSERT…WHERE NOT EXISTS, mirrors mig 062). **29 new articles / 4 new categories:** food_trucks → "For Park Operators" (10) + "Booking a Park Spot" (5); farmers_market → "For Market Managers" (11) + "Booth & Season Booking" (3). Bodies in mig-062 voice, grounded in current behavior, no hard-coded thresholds. Apostrophe escaping verified clean. **No code/UI change** — help page + ManagerSupportCard already surface by category. User will **review the content later**, then apply + commit.
+- Both verticals covered (user chose both even though FM has no live users); dashboard-linked categories per the existing pattern.
 
 ---
 
