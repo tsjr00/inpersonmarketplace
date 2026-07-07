@@ -180,7 +180,7 @@ export default function MarketStripeConnectCard({ marketId, vertical, marketStat
 
   return (
     <ManagerCard
-      title={`${term(vertical, 'booth')} rental payments`}
+      title={vertical === 'food_trucks' ? 'Stripe Payment Account' : `${term(vertical, 'booth')} rental payments`}
       description={`Connect a Stripe account to receive ${term(vertical, 'booth').toLowerCase()} rental payments from ${term(vertical, 'vendors').toLowerCase()} who book at your ${term(vertical, 'market').toLowerCase()}. Your account is separate from your ${term(vertical, 'vendor').toLowerCase()} account (if you have one) — handled by Stripe directly, we never see your bank details.`}
     >
 

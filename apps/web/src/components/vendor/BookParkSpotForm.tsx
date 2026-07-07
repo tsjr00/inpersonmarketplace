@@ -13,6 +13,14 @@ import MarketAgreementBlock from '@/components/market-manager/MarketAgreementBlo
  * server page does all the park-readiness checks; this form collects a
  * spot, a booking mode (single day vs prepay a week), and the day(s),
  * then posts to the booking API which returns a Stripe Checkout URL.
+ *
+ * Two tabs decouple the two actions (a truck kept trying to reconcile how
+ * they related when they were stacked in one form):
+ *   - "Book a day"    — pay for one day or prepay a week (the primary flow).
+ *   - "Weekly hold"   — request a recurring standing reservation. Unlocks only
+ *                       AFTER the truck has paid for a rental here at least once
+ *                       (hasPriorPaidRental); disabled with an explainer before
+ *                       that. Pending approved-occurrence payments live here too.
  */
 interface SpotRow {
   id: string
@@ -41,6 +49,10 @@ interface BookParkSpotFormProps {
   spots: SpotRow[]
   scheduleDows: number[]
   pendingOccurrences?: PendingOccurrence[]
+  /** C1 — true once the truck has a paid/completed booking at this park.
+   *  Gates the "Weekly hold" tab (standing reservations are a reward for a
+   *  proven, paying relationship, not a first-touch option). */
+  hasPriorPaidRental?: boolean
 }
 
 const MIN_TOTAL_CENTS = 500
@@ -85,11 +97,13 @@ function formatPrice(cents: number): string {
 
 export default function BookParkSpotForm({
   marketId,
+  vertical,
   marketName,
   timezone,
   spots,
   scheduleDows,
   pendingOccurrences = [],
+  hasPriorPaidRental = false,
 }: BookParkSpotFormProps) {
   const searchParams = useSearchParams()
   const sessionFlag = searchParams.get('session')
@@ -129,6 +143,8 @@ export default function BookParkSpotForm({
   const [selectedWeekKey, setSelectedWeekKey] = useState<string>(weeks[0]?.key ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Which action tab is active — 'book' (pay for a day) or 'hold' (standing request).
+  const [activeTab, setActiveTab] = useState<'book' | 'hold'>('book')
   // Vendor's acceptance of the park's opt-in agreement — gates both booking
   // and the recurring-hold request. MarketAgreementBlock auto-accepts when the
   // operator has selected no statements, so unconfigured parks aren't blocked.
@@ -163,6 +179,8 @@ export default function BookParkSpotForm({
     : 0
   const totalCents = perDayCents * selectedDates.length
   const belowMinimum = totalCents < MIN_TOTAL_CENTS
+
+  const docsHref = `/${vertical}/vendor/edit`
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -279,95 +297,42 @@ export default function BookParkSpotForm({
     }
   }
 
+  const holdEligibleSpot = !!(selectedSpot?.recurring_eligible && scheduleDows.length > 0)
+
   return (
     <>
-      {pendingOccurrences.length > 0 && (
+      {/* C2 — post-payment success state (keyed off the Stripe redirect). */}
+      {sessionFlag === 'success' && (
         <div style={{
           padding: spacing.md,
           marginBottom: spacing.md,
-          backgroundColor: colors.surfaceElevated,
-          border: `2px solid ${colors.primary}`,
-          borderRadius: radius.md,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-        }}>
-          <div style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.bold, color: colors.textPrimary, marginBottom: spacing['3xs'] }}>
-            Pay to keep your recurring spot{pendingOccurrences.length === 1 ? '' : 's'}
-          </div>
-          <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing.sm }}>
-            These weekly holds are approved and waiting on payment. Pay now to lock in each date.
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-            {pendingOccurrences.map((occ) => (
-              <div key={occ.id}>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  gap: spacing.sm,
-                  padding: spacing.sm,
-                  backgroundColor: colors.surfaceBase,
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: radius.sm,
-                  flexWrap: 'wrap',
-                }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
-                      {occ.spotLabel || 'Your spot'} · {formatDayLabel(occ.bookingDate)}
-                    </div>
-                    <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
-                      from {formatPrice(occ.priceCents)} (fees added at checkout)
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handlePay(occ.id)}
-                    disabled={payingId === occ.id}
-                    style={{
-                      padding: `${spacing.xs} ${spacing.md}`,
-                      backgroundColor: colors.primary,
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: radius.sm,
-                      fontSize: typography.sizes.sm,
-                      fontWeight: typography.weights.semibold,
-                      cursor: payingId === occ.id ? 'not-allowed' : 'pointer',
-                      opacity: payingId === occ.id ? 0.6 : 1,
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {payingId === occ.id ? 'Starting…' : 'Pay now'}
-                  </button>
-                </div>
-                {payError?.id === occ.id && (
-                  <div style={{ fontSize: typography.sizes.xs, color: '#721c24', marginTop: spacing['3xs'] }}>
-                    {payError.message}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    <form
-      onSubmit={handleSubmit}
-      style={{
-        padding: spacing.md,
-        backgroundColor: colors.surfaceElevated,
-        border: `1px solid ${colors.border}`,
-        borderRadius: radius.md,
-      }}
-    >
-      {sessionFlag === 'success' && (
-        <div style={{
-          padding: spacing.sm,
-          marginBottom: spacing.md,
-          fontSize: typography.sizes.sm,
-          color: '#155724',
           backgroundColor: '#d4edda',
           border: '1px solid #c3e6cb',
-          borderRadius: radius.sm,
+          borderRadius: radius.md,
         }}>
-          Booking confirmed — you&apos;re set for your spot.
+          <div style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.bold, color: '#155724', marginBottom: spacing['3xs'] }}>
+            Booking confirmed — you&apos;re set for your spot.
+          </div>
+          <div style={{ fontSize: typography.sizes.sm, color: '#155724', marginBottom: spacing.sm, lineHeight: 1.5 }}>
+            Your payment went through and your spot is booked. Next: make sure your required
+            documents (licenses, permits, insurance) are uploaded and current before your rented
+            day — the park operator reviews them once they&apos;re on file.
+          </div>
+          <a
+            href={docsHref}
+            style={{
+              display: 'inline-block',
+              padding: `${spacing.xs} ${spacing.md}`,
+              backgroundColor: colors.primary,
+              color: 'white',
+              borderRadius: radius.sm,
+              fontSize: typography.sizes.sm,
+              fontWeight: typography.weights.semibold,
+              textDecoration: 'none',
+            }}
+          >
+            Upload your required documents →
+          </a>
         </div>
       )}
       {sessionFlag === 'cancel' && (
@@ -384,137 +349,28 @@ export default function BookParkSpotForm({
         </div>
       )}
 
-      {/* Spot picker */}
-      <div style={{ marginBottom: spacing.md }}>
-        <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing.xs }}>
-          Pick a spot
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-          {spots.map((spot) => {
-            const selected = spot.id === selectedSpotId
-            return (
-              <label
-                key={spot.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: spacing.sm,
-                  padding: spacing.sm,
-                  border: `1px solid ${selected ? colors.primary : colors.border}`,
-                  borderRadius: radius.sm,
-                  backgroundColor: selected ? colors.surfaceBase : 'transparent',
-                  cursor: 'pointer',
-                }}
-              >
-                <input
-                  type="radio"
-                  name="spot"
-                  value={spot.id}
-                  checked={selected}
-                  onChange={() => setSelectedSpotId(spot.id)}
-                  disabled={submitting}
-                  style={{ marginTop: 3 }}
-                />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
-                    {spot.label}
-                  </div>
-                  <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
-                    {[
-                      spot.max_length_ft ? `Fits up to ${spot.max_length_ft} ft` : null,
-                      powerLabel(spot.power),
-                      spot.has_water ? 'Water' : null,
-                    ].filter(Boolean).join(' · ')}
-                  </div>
-                </div>
-                <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, whiteSpace: 'nowrap' }}>
-                  {formatPrice(spot.base_price_cents)}/day
-                </div>
-              </label>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Booking mode toggle */}
-      <div style={{ marginBottom: spacing.md }}>
-        <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing.xs }}>
-          Booking
-        </div>
-        <div style={{ display: 'flex', gap: spacing.xs }}>
-          {(['single', 'week'] as const).map((m) => {
-            const active = mode === m
-            return (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setMode(m)}
-                disabled={submitting}
-                style={{
-                  flex: 1,
-                  padding: `${spacing.xs} ${spacing.sm}`,
-                  fontSize: typography.sizes.sm,
-                  fontWeight: typography.weights.semibold,
-                  color: active ? 'white' : colors.textPrimary,
-                  backgroundColor: active ? colors.primary : colors.surfaceBase,
-                  border: `1px solid ${active ? colors.primary : colors.border}`,
-                  borderRadius: radius.sm,
-                  cursor: submitting ? 'not-allowed' : 'pointer',
-                }}
-              >
-                {m === 'single' ? 'Single day' : 'Prepay a week'}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Date picker */}
-      {operatingDates.length === 0 ? (
-        <div style={{ fontSize: typography.sizes.sm, color: colors.textMuted, marginBottom: spacing.md }}>
-          No operating days are scheduled in the next 8 weeks.
-        </div>
-      ) : mode === 'single' ? (
-        <label style={{ display: 'block', marginBottom: spacing.md }}>
-          <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing['2xs'] }}>
-            Day
-          </div>
-          <select
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            disabled={submitting}
-            style={{
-              width: '100%',
-              padding: spacing.xs,
-              fontSize: typography.sizes.sm,
-              border: `1px solid ${colors.border}`,
-              borderRadius: radius.sm,
-              backgroundColor: colors.surfaceBase,
-              color: colors.textPrimary,
-            }}
-          >
-            {operatingDates.map((d) => (
-              <option key={d} value={d}>{formatDayLabel(d)}</option>
-            ))}
-          </select>
-        </label>
-      ) : (
+      <div
+        style={{
+          padding: spacing.md,
+          backgroundColor: colors.surfaceElevated,
+          border: `1px solid ${colors.border}`,
+          borderRadius: radius.md,
+        }}
+      >
+        {/* Spot picker — shared by both booking a day and requesting a hold. */}
         <div style={{ marginBottom: spacing.md }}>
           <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing.xs }}>
-            Week
+            Pick a spot
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-            {weeks.map((w) => {
-              const selected = w.key === selectedWeekKey
-              const first = w.dates[0]
-              const last = w.dates[w.dates.length - 1]
-              const range = first === last ? formatShort(first) : `${formatShort(first)} – ${formatShort(last)}`
+            {spots.map((spot) => {
+              const selected = spot.id === selectedSpotId
               return (
                 <label
-                  key={w.key}
+                  key={spot.id}
                   style={{
                     display: 'flex',
-                    alignItems: 'center',
+                    alignItems: 'flex-start',
                     gap: spacing.sm,
                     padding: spacing.sm,
                     border: `1px solid ${selected ? colors.primary : colors.border}`,
@@ -525,198 +381,441 @@ export default function BookParkSpotForm({
                 >
                   <input
                     type="radio"
-                    name="week"
-                    value={w.key}
+                    name="spot"
+                    value={spot.id}
                     checked={selected}
-                    onChange={() => setSelectedWeekKey(w.key)}
+                    onChange={() => setSelectedSpotId(spot.id)}
                     disabled={submitting}
+                    style={{ marginTop: 3 }}
                   />
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: typography.sizes.sm, color: colors.textPrimary }}>
-                      {range}
+                    <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
+                      {spot.label}
                     </div>
                     <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
-                      {w.dates.length} day{w.dates.length === 1 ? '' : 's'}
+                      {[
+                        spot.max_length_ft ? `Fits up to ${spot.max_length_ft} ft` : null,
+                        powerLabel(spot.power),
+                        spot.has_water ? 'Water' : null,
+                      ].filter(Boolean).join(' · ')}
                     </div>
+                  </div>
+                  <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, whiteSpace: 'nowrap' }}>
+                    {formatPrice(spot.base_price_cents)}/day
                   </div>
                 </label>
               )
             })}
           </div>
         </div>
-      )}
 
-      {/* Park agreement — the vendor accepts the operator's opt-in statements
-          before booking OR requesting a recurring hold (mirrors the FM booth
-          flow). Renders nothing + auto-accepts if the park selected none. */}
-      <MarketAgreementBlock marketId={marketId} onChange={setAgreementAccepted} />
+        {/* Park agreement — the vendor accepts the operator's opt-in statements
+            before booking OR requesting a recurring hold (mirrors the FM booth
+            flow). Renders nothing + auto-accepts if the park selected none. */}
+        <MarketAgreementBlock marketId={marketId} onChange={setAgreementAccepted} />
 
-      {/* B1 — park compliance acknowledgment (doc responsibility + info-sharing
-          consent). Required to book/request; docs are NOT required at booking. */}
-      <label style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: spacing.xs,
-        padding: spacing.sm,
-        marginBottom: spacing.md,
-        backgroundColor: colors.surfaceBase,
-        border: `1px solid ${colors.border}`,
-        borderRadius: radius.sm,
-        cursor: 'pointer',
-      }}>
-        <input
-          type="checkbox"
-          checked={docAckAccepted}
-          onChange={(e) => setDocAckAccepted(e.target.checked)}
-          style={{ marginTop: 3, width: 18, height: 18, cursor: 'pointer' }}
-        />
-        <span style={{ fontSize: typography.sizes.sm, color: colors.textPrimary, lineHeight: 1.4 }}>
-          I understand it&apos;s my responsibility to upload every document this park requires
-          (licenses, permits, insurance), keep them unexpired, and make sure they&apos;re valid
-          before my rented time begins — this is a requirement of the park. If my documents are
-          missing, expired, inaccurate, or not provided before my booking starts, the operator may
-          cancel my booking <strong>without a refund</strong> and may decline my future bookings
-          here. I authorize this park to view my compliance documents.
-        </span>
-      </label>
-
-      {/* Recurring weekly-hold request (P4a) — only for eligible spots. Separate
-          from the pay/booking flow: this just asks the operator to reserve the
-          spot every week. */}
-      {selectedSpot?.recurring_eligible && scheduleDows.length > 0 && (
-        <div style={{
+        {/* B1 — park compliance acknowledgment (doc responsibility + info-sharing
+            consent). Required to book/request; docs are NOT required at booking. */}
+        <label style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: spacing.xs,
           padding: spacing.sm,
-          marginBottom: spacing.md,
-          border: `1px dashed ${colors.border}`,
-          borderRadius: radius.sm,
+          marginBottom: spacing.xs,
           backgroundColor: colors.surfaceBase,
+          border: `1px solid ${colors.border}`,
+          borderRadius: radius.sm,
+          cursor: 'pointer',
         }}>
-          <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing['3xs'] }}>
-            Request a weekly hold
+          <input
+            type="checkbox"
+            checked={docAckAccepted}
+            onChange={(e) => setDocAckAccepted(e.target.checked)}
+            style={{ marginTop: 3, width: 18, height: 18, cursor: 'pointer' }}
+          />
+          <span style={{ fontSize: typography.sizes.sm, color: colors.textPrimary, lineHeight: 1.4 }}>
+            I understand it&apos;s my responsibility to upload every document this park requires
+            (licenses, permits, insurance), keep them unexpired, and make sure they&apos;re valid
+            before my rented time begins — this is a requirement of the park. If my documents are
+            missing, expired, inaccurate, or not provided before my booking starts, the operator may
+            cancel my booking <strong>without a refund</strong> and may decline my future bookings
+            here. I authorize this park to view my compliance documents.
+          </span>
+        </label>
+
+        {/* C3a — where required docs live, surfaced BEFORE paying so a truck can
+            check what's needed. Uploading isn't required to book (book-then-vet). */}
+        <div style={{ marginBottom: spacing.md }}>
+          <a href={docsHref} style={{ fontSize: typography.sizes.sm, color: colors.primary, textDecoration: 'underline', fontWeight: typography.weights.semibold }}>
+            See the documents this park requires and upload them →
+          </a>
+          <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
+            You can book now and upload after — but your docs must be current before your rented day.
           </div>
-          <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing.xs }}>
-            Ask the park to reserve this spot for you every week. The operator reviews and approves it.
-          </div>
-          <div style={{ display: 'flex', gap: spacing.xs, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-            <label style={{ flex: 1, minWidth: 140 }}>
-              <div style={{ fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing['3xs'] }}>
-                Day of week
-              </div>
-              <select
-                value={recurringDow}
-                onChange={(e) => setRecurringDow(Number(e.target.value))}
-                disabled={recurringSubmitting}
+        </div>
+
+        {/* Tab selector — decouple paying for a day from requesting a standing hold. */}
+        <div style={{ display: 'flex', gap: spacing.xs, marginBottom: spacing.md, borderBottom: `1px solid ${colors.border}` }}>
+          {([['book', 'Book a day'], ['hold', 'Weekly hold']] as const).map(([key, label]) => {
+            const active = activeTab === key
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setActiveTab(key)}
                 style={{
-                  width: '100%',
-                  padding: spacing.xs,
+                  padding: `${spacing.xs} ${spacing.sm}`,
+                  background: 'none',
+                  border: 'none',
+                  borderBottom: `2px solid ${active ? colors.primary : 'transparent'}`,
+                  color: active ? colors.textPrimary : colors.textMuted,
                   fontSize: typography.sizes.sm,
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: radius.sm,
-                  backgroundColor: colors.surfaceElevated,
-                  color: colors.textPrimary,
+                  fontWeight: typography.weights.semibold,
+                  cursor: 'pointer',
                 }}
               >
-                {scheduleDows.map((d) => (
-                  <option key={d} value={d}>{WEEKDAYS[d] ?? `Day ${d}`}</option>
-                ))}
-              </select>
-            </label>
+                {label}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* ── Book a day ─────────────────────────────────────────────────── */}
+        {activeTab === 'book' && (
+          <form onSubmit={handleSubmit}>
+            {/* Booking mode toggle */}
+            <div style={{ marginBottom: spacing.md }}>
+              <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing.xs }}>
+                Booking
+              </div>
+              <div style={{ display: 'flex', gap: spacing.xs }}>
+                {(['single', 'week'] as const).map((m) => {
+                  const active = mode === m
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setMode(m)}
+                      disabled={submitting}
+                      style={{
+                        flex: 1,
+                        padding: `${spacing.xs} ${spacing.sm}`,
+                        fontSize: typography.sizes.sm,
+                        fontWeight: typography.weights.semibold,
+                        color: active ? 'white' : colors.textPrimary,
+                        backgroundColor: active ? colors.primary : colors.surfaceBase,
+                        border: `1px solid ${active ? colors.primary : colors.border}`,
+                        borderRadius: radius.sm,
+                        cursor: submitting ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      {m === 'single' ? 'Single day' : 'Prepay a week'}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Date picker */}
+            {operatingDates.length === 0 ? (
+              <div style={{ fontSize: typography.sizes.sm, color: colors.textMuted, marginBottom: spacing.md }}>
+                No operating days are scheduled in the next 8 weeks.
+              </div>
+            ) : mode === 'single' ? (
+              <label style={{ display: 'block', marginBottom: spacing.md }}>
+                <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing['2xs'] }}>
+                  Day
+                </div>
+                <select
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  disabled={submitting}
+                  style={{
+                    width: '100%',
+                    padding: spacing.xs,
+                    fontSize: typography.sizes.sm,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: radius.sm,
+                    backgroundColor: colors.surfaceBase,
+                    color: colors.textPrimary,
+                  }}
+                >
+                  {operatingDates.map((d) => (
+                    <option key={d} value={d}>{formatDayLabel(d)}</option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <div style={{ marginBottom: spacing.md }}>
+                <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing.xs }}>
+                  Week
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+                  {weeks.map((w) => {
+                    const selected = w.key === selectedWeekKey
+                    const first = w.dates[0]
+                    const last = w.dates[w.dates.length - 1]
+                    const range = first === last ? formatShort(first) : `${formatShort(first)} – ${formatShort(last)}`
+                    return (
+                      <label
+                        key={w.key}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: spacing.sm,
+                          padding: spacing.sm,
+                          border: `1px solid ${selected ? colors.primary : colors.border}`,
+                          borderRadius: radius.sm,
+                          backgroundColor: selected ? colors.surfaceBase : 'transparent',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name="week"
+                          value={w.key}
+                          checked={selected}
+                          onChange={() => setSelectedWeekKey(w.key)}
+                          disabled={submitting}
+                        />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: typography.sizes.sm, color: colors.textPrimary }}>
+                            {range}
+                          </div>
+                          <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
+                            {w.dates.length} day{w.dates.length === 1 ? '' : 's'}
+                          </div>
+                        </div>
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Total */}
+            {selectedSpot && selectedDates.length > 0 && (
+              <div style={{
+                padding: spacing.sm,
+                backgroundColor: colors.surfaceBase,
+                border: `1px solid ${colors.border}`,
+                borderRadius: radius.sm,
+                marginBottom: spacing.md,
+              }}>
+                <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing['3xs'] }}>
+                  You pay
+                </div>
+                <div style={{
+                  fontSize: typography.sizes['2xl'],
+                  fontWeight: typography.weights.bold,
+                  color: colors.textPrimary,
+                  lineHeight: 1.1,
+                }}>
+                  {formatPrice(totalCents)}
+                  <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.normal, color: colors.textMuted }}>
+                    {' '}({selectedDates.length} day{selectedDates.length === 1 ? '' : 's'})
+                  </span>
+                </div>
+                {belowMinimum && (
+                  <div style={{ fontSize: typography.sizes.xs, color: '#856404', marginTop: spacing['3xs'] }}>
+                    Minimum booking is $5 — add more days.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {error && (
+              <div style={{
+                padding: spacing.sm,
+                backgroundColor: '#f8d7da',
+                color: '#721c24',
+                border: '1px solid #f5c6cb',
+                borderRadius: radius.sm,
+                fontSize: typography.sizes.sm,
+                marginBottom: spacing.sm,
+              }}>
+                {error}
+              </div>
+            )}
+
             <button
-              type="button"
-              onClick={handleRecurringRequest}
-              disabled={recurringSubmitting || !agreementAccepted || !docAckAccepted}
+              type="submit"
+              disabled={submitting || belowMinimum || selectedDates.length === 0 || !agreementAccepted || !docAckAccepted}
               style={{
-                padding: `${spacing.xs} ${spacing.md}`,
+                padding: `${spacing.sm} ${spacing.md}`,
                 backgroundColor: colors.primary,
                 color: 'white',
                 border: 'none',
                 borderRadius: radius.sm,
-                fontSize: typography.sizes.sm,
+                fontSize: typography.sizes.base,
                 fontWeight: typography.weights.semibold,
-                cursor: (recurringSubmitting || !agreementAccepted || !docAckAccepted) ? 'not-allowed' : 'pointer',
-                opacity: (recurringSubmitting || !agreementAccepted || !docAckAccepted) ? 0.6 : 1,
-                whiteSpace: 'nowrap',
+                cursor: (submitting || belowMinimum || selectedDates.length === 0 || !agreementAccepted || !docAckAccepted) ? 'not-allowed' : 'pointer',
+                opacity: (submitting || belowMinimum || selectedDates.length === 0 || !agreementAccepted || !docAckAccepted) ? 0.6 : 1,
               }}
             >
-              {recurringSubmitting ? 'Sending…' : 'Request weekly hold'}
+              {submitting ? 'Starting checkout…' : `Book & pay at ${marketName}`}
             </button>
-          </div>
-          {recurringMessage && (
-            <div style={{ fontSize: typography.sizes.sm, color: '#155724', marginTop: spacing.xs }}>
-              {recurringMessage}
-            </div>
-          )}
-          {recurringError && (
-            <div style={{ fontSize: typography.sizes.sm, color: '#721c24', marginTop: spacing.xs }}>
-              {recurringError}
-            </div>
-          )}
-        </div>
-      )}
+          </form>
+        )}
 
-      {/* Total */}
-      {selectedSpot && selectedDates.length > 0 && (
-        <div style={{
-          padding: spacing.sm,
-          backgroundColor: colors.surfaceBase,
-          border: `1px solid ${colors.border}`,
-          borderRadius: radius.sm,
-          marginBottom: spacing.md,
-        }}>
-          <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing['3xs'] }}>
-            You pay
-          </div>
-          <div style={{
-            fontSize: typography.sizes['2xl'],
-            fontWeight: typography.weights.bold,
-            color: colors.textPrimary,
-            lineHeight: 1.1,
-          }}>
-            {formatPrice(totalCents)}
-            <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.normal, color: colors.textMuted }}>
-              {' '}({selectedDates.length} day{selectedDates.length === 1 ? '' : 's'})
-            </span>
-          </div>
-          {belowMinimum && (
-            <div style={{ fontSize: typography.sizes.xs, color: '#856404', marginTop: spacing['3xs'] }}>
-              Minimum booking is $5 — add more days.
-            </div>
-          )}
-        </div>
-      )}
+        {/* ── Weekly hold ────────────────────────────────────────────────── */}
+        {activeTab === 'hold' && (
+          <div>
+            {/* Approved occurrences awaiting payment (P4b) — belong with the
+                standing-hold concept, so they live on this tab. */}
+            {pendingOccurrences.length > 0 && (
+              <div style={{
+                padding: spacing.md,
+                marginBottom: spacing.md,
+                backgroundColor: colors.surfaceElevated,
+                border: `2px solid ${colors.primary}`,
+                borderRadius: radius.md,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+              }}>
+                <div style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.bold, color: colors.textPrimary, marginBottom: spacing['3xs'] }}>
+                  Pay to keep your recurring spot{pendingOccurrences.length === 1 ? '' : 's'}
+                </div>
+                <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing.sm }}>
+                  These weekly holds are approved and waiting on payment. Pay now to lock in each date.
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+                  {pendingOccurrences.map((occ) => (
+                    <div key={occ.id}>
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: spacing.sm,
+                        padding: spacing.sm,
+                        backgroundColor: colors.surfaceBase,
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: radius.sm,
+                        flexWrap: 'wrap',
+                      }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
+                            {occ.spotLabel || 'Your spot'} · {formatDayLabel(occ.bookingDate)}
+                          </div>
+                          <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
+                            from {formatPrice(occ.priceCents)} (fees added at checkout)
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handlePay(occ.id)}
+                          disabled={payingId === occ.id}
+                          style={{
+                            padding: `${spacing.xs} ${spacing.md}`,
+                            backgroundColor: colors.primary,
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: radius.sm,
+                            fontSize: typography.sizes.sm,
+                            fontWeight: typography.weights.semibold,
+                            cursor: payingId === occ.id ? 'not-allowed' : 'pointer',
+                            opacity: payingId === occ.id ? 0.6 : 1,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {payingId === occ.id ? 'Starting…' : 'Pay now'}
+                        </button>
+                      </div>
+                      {payError?.id === occ.id && (
+                        <div style={{ fontSize: typography.sizes.xs, color: '#721c24', marginTop: spacing['3xs'] }}>
+                          {payError.message}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-      {error && (
-        <div style={{
-          padding: spacing.sm,
-          backgroundColor: '#f8d7da',
-          color: '#721c24',
-          border: '1px solid #f5c6cb',
-          borderRadius: radius.sm,
-          fontSize: typography.sizes.sm,
-          marginBottom: spacing.sm,
-        }}>
-          {error}
-        </div>
-      )}
-
-      <button
-        type="submit"
-        disabled={submitting || belowMinimum || selectedDates.length === 0 || !agreementAccepted || !docAckAccepted}
-        style={{
-          padding: `${spacing.sm} ${spacing.md}`,
-          backgroundColor: colors.primary,
-          color: 'white',
-          border: 'none',
-          borderRadius: radius.sm,
-          fontSize: typography.sizes.base,
-          fontWeight: typography.weights.semibold,
-          cursor: (submitting || belowMinimum || selectedDates.length === 0 || !agreementAccepted || !docAckAccepted) ? 'not-allowed' : 'pointer',
-          opacity: (submitting || belowMinimum || selectedDates.length === 0 || !agreementAccepted || !docAckAccepted) ? 0.6 : 1,
-        }}
-      >
-        {submitting ? 'Starting checkout…' : `Book & pay at ${marketName}`}
-      </button>
-    </form>
+            {/* C1 — the request itself unlocks only after a paid rental here. */}
+            {!hasPriorPaidRental ? (
+              <div style={{ padding: spacing.md, backgroundColor: colors.surfaceBase, border: `1px dashed ${colors.border}`, borderRadius: radius.sm, fontSize: typography.sizes.sm, color: colors.textMuted, lineHeight: 1.5 }}>
+                <strong style={{ color: colors.textPrimary }}>Weekly holds unlock after your first paid booking here.</strong>
+                {' '}Book a day on the <strong>Book a day</strong> tab first. Once you&apos;ve rented at
+                this park, you can ask the operator to reserve your spot every week.
+              </div>
+            ) : !holdEligibleSpot ? (
+              <div style={{ padding: spacing.md, backgroundColor: colors.surfaceBase, border: `1px dashed ${colors.border}`, borderRadius: radius.sm, fontSize: typography.sizes.sm, color: colors.textMuted }}>
+                This spot isn&apos;t available for weekly holds. Pick a different spot above.
+              </div>
+            ) : (
+              <div style={{
+                padding: spacing.sm,
+                border: `1px dashed ${colors.border}`,
+                borderRadius: radius.sm,
+                backgroundColor: colors.surfaceBase,
+              }}>
+                <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing['3xs'] }}>
+                  Request a weekly hold
+                </div>
+                <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing.xs }}>
+                  Ask the park to reserve this spot for you every week. This is separate from paying
+                  for a single day — it doesn&apos;t charge you now; the operator reviews and approves
+                  it, then you pay each week&apos;s date.
+                </div>
+                <div style={{ display: 'flex', gap: spacing.xs, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                  <label style={{ flex: 1, minWidth: 140 }}>
+                    <div style={{ fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing['3xs'] }}>
+                      Day of week
+                    </div>
+                    <select
+                      value={recurringDow}
+                      onChange={(e) => setRecurringDow(Number(e.target.value))}
+                      disabled={recurringSubmitting}
+                      style={{
+                        width: '100%',
+                        padding: spacing.xs,
+                        fontSize: typography.sizes.sm,
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: radius.sm,
+                        backgroundColor: colors.surfaceElevated,
+                        color: colors.textPrimary,
+                      }}
+                    >
+                      {scheduleDows.map((d) => (
+                        <option key={d} value={d}>{WEEKDAYS[d] ?? `Day ${d}`}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleRecurringRequest}
+                    disabled={recurringSubmitting || !agreementAccepted || !docAckAccepted}
+                    style={{
+                      padding: `${spacing.xs} ${spacing.md}`,
+                      backgroundColor: colors.primary,
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: radius.sm,
+                      fontSize: typography.sizes.sm,
+                      fontWeight: typography.weights.semibold,
+                      cursor: (recurringSubmitting || !agreementAccepted || !docAckAccepted) ? 'not-allowed' : 'pointer',
+                      opacity: (recurringSubmitting || !agreementAccepted || !docAckAccepted) ? 0.6 : 1,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {recurringSubmitting ? 'Sending…' : 'Request weekly hold'}
+                  </button>
+                </div>
+                {recurringMessage && (
+                  <div style={{ fontSize: typography.sizes.sm, color: '#155724', marginTop: spacing.xs }}>
+                    {recurringMessage}
+                  </div>
+                )}
+                {recurringError && (
+                  <div style={{ fontSize: typography.sizes.sm, color: '#721c24', marginTop: spacing.xs }}>
+                    {recurringError}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </>
   )
 }

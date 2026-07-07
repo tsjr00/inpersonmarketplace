@@ -194,7 +194,7 @@ export default function VerificationDocumentsCard({ vertical, marketId }: Verifi
 
   return (
     <ManagerCard
-      title="Verification Documents"
+      title={vertical === 'food_trucks' ? 'Park Verification Documents' : 'Verification Documents'}
       description={`Upload documents that help the platform admin verify your ${term(vertical, 'market').toLowerCase()} is legitimate. Keeps your ${term(vertical, 'booth').toLowerCase()}-rental payments safe and speeds up approval. Files are private — only you and the platform admin can view them.`}
     >
       {/* Upload form */}

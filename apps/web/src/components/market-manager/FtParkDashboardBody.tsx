@@ -151,7 +151,7 @@ export default function FtParkDashboardBody({
           Hidden until there's at least one paid booking. */}
       {parkEarnings && parkEarnings.all_time.booking_count > 0 && (
         <>
-          <GroupHeading title="Money" subtitle="Your spot rental revenue" />
+          <GroupHeading id="money" title="Money" subtitle="Spot Rental Revenue" />
           <ManagerEarningsCard aggregates={parkEarnings} vertical={vertical} />
         </>
       )}

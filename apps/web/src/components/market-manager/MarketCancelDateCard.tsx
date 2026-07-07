@@ -98,7 +98,7 @@ export default function MarketCancelDateCard({ marketId, vertical }: { marketId:
   return (
     <ManagerCard
       id="cancel-date"
-      title={`Cancel a ${term(vertical, 'market').toLowerCase()} day`}
+      title={vertical === 'food_trucks' ? 'Cancel a Date' : `Cancel a ${term(vertical, 'market').toLowerCase()} day`}
       description={`Close a single upcoming date (e.g. weather). Buyers with orders are refunded automatically; paid ${term(vertical, 'booth').toLowerCase()} renters are credited or rescheduled; market-box pickups are credited. This can't be undone.`}
     >
       {result && (

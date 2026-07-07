@@ -114,6 +114,9 @@ export default async function BookParkSpotPage({ params }: PageProps) {
   // Recurring occurrences awaiting payment for THIS vendor at this park (P4b).
   // Auth-gated: anonymous visitors / non-FT vendors simply see none.
   let pendingOccurrences: PendingOccurrence[] = []
+  // C1 — weekly holds unlock only after a truck has PAID for a rental at this
+  // park (proven relationship). First-timers see the tab disabled with copy.
+  let hasPriorPaidRental = false
   const authClient = await createClient()
   const { data: { user } } = await authClient.auth.getUser()
   if (user) {
@@ -121,6 +124,15 @@ export default async function BookParkSpotPage({ params }: PageProps) {
       authClient, user.id, 'food_trucks', 'id'
     )
     if (profile) {
+      const { data: priorPaid } = await supabase
+        .from('park_spot_bookings')
+        .select('id')
+        .eq('market_id', id)
+        .eq('vendor_profile_id', profile.id)
+        .in('status', ['paid', 'completed'])
+        .limit(1)
+      hasPriorPaidRental = (priorPaid?.length ?? 0) > 0
+
       const { data: occRaw } = await supabase
         .from('park_spot_bookings')
         .select('id, booking_date, price_cents, park_spots:spot_id ( label )')
@@ -166,6 +178,7 @@ export default async function BookParkSpotPage({ params }: PageProps) {
         spots={spots}
         scheduleDows={scheduleDows}
         pendingOccurrences={pendingOccurrences}
+        hasPriorPaidRental={hasPriorPaidRental}
       />
     </div>
   )

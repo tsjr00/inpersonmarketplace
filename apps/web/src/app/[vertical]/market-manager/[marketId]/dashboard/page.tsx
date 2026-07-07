@@ -155,7 +155,10 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
 
       {/* Sticky in-page jump nav (Session 92 design pass) — chips scroll to
           each section group; ids must match the group-leader cards below. */}
-      <ManagerJumpNav vertical={vertical} />
+      <ManagerJumpNav
+        vertical={vertical}
+        showMoney={isFoodTrucks ? (parkEarnings?.all_time.booking_count ?? 0) > 0 : true}
+      />
 
       {isFoodTrucks ? (
         <FtParkDashboardBody

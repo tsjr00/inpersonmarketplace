@@ -13,15 +13,19 @@ import { MANAGER_NAV_OFFSET } from './ManagerCard'
  */
 interface ManagerJumpNavProps {
   vertical: string
+  /** FT only: the Money group is hidden until there's a paid booking, so its
+   *  chip is included only when the group is actually on the page. */
+  showMoney?: boolean
 }
 
-export default function ManagerJumpNav({ vertical }: ManagerJumpNavProps) {
+export default function ManagerJumpNav({ vertical, showMoney = false }: ManagerJumpNavProps) {
   const isFoodTrucks = vertical === 'food_trucks'
   // FT parks use the grouped layout (FtParkDashboardBody) — chips map to the
-  // groups, not individual cards.
+  // groups, not individual cards. Money sits between Trucks and Setup.
   const FT_SECTIONS: Array<{ id: string; label: string }> = [
     { id: 'week', label: 'This week' },
     { id: 'vendors', label: 'Trucks' },
+    ...(showMoney ? [{ id: 'money', label: 'Money' }] : []),
     { id: 'setup', label: 'Setup' },
     { id: 'announce', label: 'Communicate' },
   ]
