@@ -14,7 +14,7 @@ import { MANAGER_NAV_OFFSET } from './ManagerCard'
  */
 interface Tab {
   id: string
-  label: string
+  label: ReactNode
   content: ReactNode
 }
 

@@ -114,6 +114,18 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
       )
     : null
 
+  // FT parks: count of weekly-hold requests awaiting the operator's decision —
+  // badges the "Recurring holds" tab so a new request is visible at a glance.
+  let pendingHoldRequests = 0
+  if (isFoodTrucks) {
+    const { count } = await createServiceClient()
+      .from('park_standing_reservations')
+      .select('id', { count: 'exact', head: true })
+      .eq('market_id', marketId)
+      .eq('status', 'requested')
+    pendingHoldRequests = count ?? 0
+  }
+
   return (
     <div style={{
       maxWidth: containers.lg,
@@ -169,6 +181,7 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           dashboardStats={dashboardStats}
           parkWeek={parkWeek}
           parkEarnings={parkEarnings}
+          pendingHoldRequests={pendingHoldRequests}
           schedules={schedules}
           visibilityStatus={visibilityStatus}
         />

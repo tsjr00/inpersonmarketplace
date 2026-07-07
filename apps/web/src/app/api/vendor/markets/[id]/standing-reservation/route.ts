@@ -5,6 +5,9 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
 import { withErrorTracing, traced, crumb, logError } from '@/lib/errors'
 import { fetchMarketOptinForVendor } from '@/lib/markets/optin-public'
 import { computeAgreementVersionFromSnapshot } from '@/lib/markets/agreement-version'
+import { sendNotification } from '@/lib/notifications'
+
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 /**
  * POST /api/vendor/markets/[id]/standing-reservation
@@ -41,10 +44,15 @@ export async function POST(
     if (body?.doc_ack_accepted !== true) {
       return NextResponse.json({ error: 'doc_ack_accepted must be true', field: 'doc_ack_accepted' }, { status: 400 })
     }
+    // P4a follow-up — the truck says when the hold should begin (gates generation).
+    const requestedStartDate = typeof body?.requested_start_date === 'string' ? body.requested_start_date : ''
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedStartDate)) {
+      return NextResponse.json({ error: 'requested_start_date is required (YYYY-MM-DD)', field: 'requested_start_date' }, { status: 400 })
+    }
 
     const { data: market } = await supabase
       .from('markets')
-      .select('id, name, vertical_id, park_mode')
+      .select('id, name, vertical_id, park_mode, manager_user_id, timezone')
       .eq('id', marketId)
       .maybeSingle()
     if (!market) return NextResponse.json({ error: 'Park not found' }, { status: 404 })
@@ -81,7 +89,7 @@ export async function POST(
     crumb.supabase('select', 'park_spots')
     const { data: spot } = await service
       .from('park_spots')
-      .select('id, market_id, active, recurring_eligible')
+      .select('id, market_id, active, recurring_eligible, label')
       .eq('id', spotId)
       .maybeSingle()
     if (!spot || spot.market_id !== marketId) {
@@ -103,6 +111,20 @@ export async function POST(
     const activeDows = new Set((scheds ?? []).map((s) => s.day_of_week as number))
     if (!activeDows.has(dow)) {
       return NextResponse.json({ error: "The park isn't open on that day.", field: 'day_of_week' }, { status: 400 })
+    }
+
+    // The requested start date must fall on the selected DOW and be today or
+    // later (park-local). It gates when the generator starts materializing
+    // occurrences, so an approval can't charge for a date before the truck meant.
+    const [sy, sm, sd] = requestedStartDate.split('-').map(Number)
+    if (new Date(Date.UTC(sy, sm - 1, sd)).getUTCDay() !== dow) {
+      return NextResponse.json({ error: 'The start date must fall on the day of week you chose.', field: 'requested_start_date' }, { status: 400 })
+    }
+    const tz = (market.timezone as string | null) || 'America/Chicago'
+    const localNow = new Date(new Date().toLocaleString('en-US', { timeZone: tz }))
+    const todayLocalISO = `${localNow.getFullYear()}-${String(localNow.getMonth() + 1).padStart(2, '0')}-${String(localNow.getDate()).padStart(2, '0')}`
+    if (requestedStartDate < todayLocalISO) {
+      return NextResponse.json({ error: 'The start date must be today or later.', field: 'requested_start_date' }, { status: 400 })
     }
 
     // B2: auto-affiliate — ensure a market_vendors row so the truck lands on the
@@ -150,8 +172,9 @@ export async function POST(
         spot_id: spotId,
         day_of_week: dow,
         status: 'requested',
+        requested_start_date: requestedStartDate,
       })
-      .select('id, spot_id, day_of_week, status')
+      .select('id, spot_id, day_of_week, status, requested_start_date')
       .single()
 
     if (error) {
@@ -162,6 +185,32 @@ export async function POST(
         )
       }
       throw traced.fromSupabase(error, { table: 'park_standing_reservations', operation: 'insert' })
+    }
+
+    // Notify the operator that a hold request is waiting (sendNotification never
+    // throws). Recipient = the park's assigned manager; skip if there's none.
+    const managerUserId = market.manager_user_id as string | null | undefined
+    if (managerUserId) {
+      const { data: vp } = await service
+        .from('vendor_profiles')
+        .select('profile_data')
+        .eq('id', profile.id)
+        .maybeSingle()
+      const pd = vp?.profile_data as { business_name?: string; farm_name?: string } | null
+      const startDisplay = new Date(sy, sm - 1, sd).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      await sendNotification(
+        managerUserId,
+        'park_standing_hold_requested',
+        {
+          marketName: (market.name as string) || 'your park',
+          vendorName: pd?.business_name || pd?.farm_name || 'A food truck',
+          spotLabel: (spot.label as string) || 'a spot',
+          weekday: WEEKDAYS[dow],
+          marketDate: startDisplay,
+          marketId,
+        },
+        { vertical: (market.vertical_id as string) || 'food_trucks' }
+      )
     }
 
     return NextResponse.json({ row: data }, { status: 201 })

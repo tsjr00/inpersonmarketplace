@@ -12,6 +12,7 @@ interface StandingReservation {
   spotLabel: string | null
   truckName: string | null
   approvedAt: string | null
+  requestedStartDate: string | null
   strikes: number
 }
 
@@ -30,6 +31,13 @@ function describe(r: StandingReservation): string {
   const truck = r.truckName || 'Food truck'
   const spot = r.spotLabel || 'a spot'
   return `${truck} · ${spot} · every ${weekdayName(r.dayOfWeek)}`
+}
+
+function formatStart(iso: string | null): string {
+  if (!iso) return ''
+  const [y, m, d] = iso.split('-').map(Number)
+  if (!y || !m || !d) return ''
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 function StrikeBadge({ strikes, limit }: { strikes: number; limit: number }) {
@@ -156,15 +164,28 @@ export default function StandingReservationsCard({ marketId }: { marketId: strin
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
           {requests.length > 0 && (
-            <div>
-              <div style={{ fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: colors.textSecondary, marginBottom: spacing['3xs'] }}>
-                Requests ({requests.length})
+            <div style={{
+              padding: spacing.sm,
+              backgroundColor: '#fffbeb',
+              border: '1px solid #fcd34d',
+              borderRadius: radius.sm,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.bold, color: '#92400e' }}>
+                  Requests to review
+                </span>
+                <span style={{ fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: '#92400e', backgroundColor: '#fde68a', borderRadius: radius.sm, padding: `0 ${spacing['2xs']}` }}>
+                  {requests.length} pending
+                </span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
                 {requests.map((r) => (
-                  <div key={r.id} style={rowStyle}>
+                  <div key={r.id} style={{ ...rowStyle, backgroundColor: colors.surfaceBase }}>
                     <span style={{ fontSize: typography.sizes.sm, color: colors.textPrimary, minWidth: 0 }}>
                       {describe(r)}
+                      {r.requestedStartDate && (
+                        <span style={{ color: colors.textMuted }}> · starts {formatStart(r.requestedStartDate)}</span>
+                      )}
                     </span>
                     <div style={{ display: 'flex', gap: spacing.xs }}>
                       <button

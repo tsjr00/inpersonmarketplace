@@ -156,6 +156,7 @@ export default function BookParkSpotForm({
 
   // Recurring weekly-hold request (P4a) — independent of the pay/booking flow.
   const [recurringDow, setRecurringDow] = useState<number>(scheduleDows[0] ?? 0)
+  const [recurringStartDate, setRecurringStartDate] = useState<string>('')
   const [recurringSubmitting, setRecurringSubmitting] = useState(false)
   const [recurringMessage, setRecurringMessage] = useState<string | null>(null)
   const [recurringError, setRecurringError] = useState<string | null>(null)
@@ -179,6 +180,15 @@ export default function BookParkSpotForm({
     : 0
   const totalCents = perDayCents * selectedDates.length
   const belowMinimum = totalCents < MIN_TOTAL_CENTS
+
+  // Upcoming operating dates that fall on the chosen recurring day-of-week — the
+  // "start on" options for a weekly hold. Derived (no effect); if the current
+  // pick isn't valid for the chosen DOW, fall back to the nearest date.
+  const holdDates = useMemo<string[]>(
+    () => operatingDates.filter((d) => fromYmd(d).getDay() === recurringDow),
+    [operatingDates, recurringDow]
+  )
+  const effectiveStartDate = holdDates.includes(recurringStartDate) ? recurringStartDate : (holdDates[0] ?? '')
 
   const docsHref = `/${vertical}/vendor/edit`
 
@@ -253,12 +263,16 @@ export default function BookParkSpotForm({
       setRecurringError('Please confirm the compliance acknowledgment before requesting.')
       return
     }
+    if (!effectiveStartDate) {
+      setRecurringError('Please pick a start date.')
+      return
+    }
     setRecurringSubmitting(true)
     try {
       const res = await fetch(`/api/vendor/markets/${marketId}/standing-reservation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ spot_id: selectedSpotId, day_of_week: recurringDow, doc_ack_accepted: true }),
+        body: JSON.stringify({ spot_id: selectedSpotId, day_of_week: recurringDow, requested_start_date: effectiveStartDate, doc_ack_accepted: true }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -483,6 +497,11 @@ export default function BookParkSpotForm({
         {/* ── Book a day ─────────────────────────────────────────────────── */}
         {activeTab === 'book' && (
           <form onSubmit={handleSubmit}>
+            <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, fontStyle: 'italic', marginBottom: spacing.md }}>
+              Example: you want to sell here this Saturday. Pick your spot, choose &quot;Single day,&quot;
+              select Saturday, and pay — you&apos;re booked for that one day. Or choose &quot;Prepay a
+              week&quot; to pay for a whole week&apos;s operating days at once.
+            </div>
             {/* Booking mode toggle */}
             <div style={{ marginBottom: spacing.md }}>
               <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing.xs }}>
@@ -752,13 +771,18 @@ export default function BookParkSpotForm({
                 <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing['3xs'] }}>
                   Request a weekly hold
                 </div>
-                <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing.xs }}>
+                <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing['3xs'] }}>
                   Ask the park to reserve this spot for you every week. This is separate from paying
                   for a single day — it doesn&apos;t charge you now; the operator reviews and approves
                   it, then you pay each week&apos;s date.
                 </div>
+                <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, fontStyle: 'italic', marginBottom: spacing.xs }}>
+                  Example: you&apos;ve sold here a few Saturdays and want to lock it in. Request this spot
+                  every Saturday, starting the date you pick. Once the operator approves, you pay each
+                  week&apos;s date to keep the spot.
+                </div>
                 <div style={{ display: 'flex', gap: spacing.xs, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                  <label style={{ flex: 1, minWidth: 140 }}>
+                  <label style={{ flex: 1, minWidth: 120 }}>
                     <div style={{ fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing['3xs'] }}>
                       Day of week
                     </div>
@@ -779,6 +803,33 @@ export default function BookParkSpotForm({
                       {scheduleDows.map((d) => (
                         <option key={d} value={d}>{WEEKDAYS[d] ?? `Day ${d}`}</option>
                       ))}
+                    </select>
+                  </label>
+                  <label style={{ flex: 1, minWidth: 140 }}>
+                    <div style={{ fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing['3xs'] }}>
+                      Starting
+                    </div>
+                    <select
+                      value={effectiveStartDate}
+                      onChange={(e) => setRecurringStartDate(e.target.value)}
+                      disabled={recurringSubmitting || holdDates.length === 0}
+                      style={{
+                        width: '100%',
+                        padding: spacing.xs,
+                        fontSize: typography.sizes.sm,
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: radius.sm,
+                        backgroundColor: colors.surfaceElevated,
+                        color: colors.textPrimary,
+                      }}
+                    >
+                      {holdDates.length === 0 ? (
+                        <option value="">No upcoming dates</option>
+                      ) : (
+                        holdDates.map((d) => (
+                          <option key={d} value={d}>{formatDayLabel(d)}</option>
+                        ))
+                      )}
                     </select>
                   </label>
                   <button

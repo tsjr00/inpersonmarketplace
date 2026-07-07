@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactNode } from 'react'
-import { colors, spacing, typography } from '@/lib/design-tokens'
+import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import ManagerCard, { MANAGER_NAV_OFFSET } from './ManagerCard'
 import CollapsibleSection from './CollapsibleSection'
 import TabbedCard from './TabbedCard'
@@ -47,6 +47,7 @@ interface FtParkDashboardBodyProps {
   dashboardStats: ManagerDashboardStats
   parkWeek: ParkWeekSchedule | null
   parkEarnings: ManagerEarningsAggregates | null
+  pendingHoldRequests?: number
   schedules: Array<{ day_of_week: number; start_time: string | null; end_time: string | null; active: boolean | null }>
   visibilityStatus: ComponentProps<typeof MarketVisibilityCard>['status'] | null
 }
@@ -69,6 +70,7 @@ export default function FtParkDashboardBody({
   dashboardStats,
   parkWeek,
   parkEarnings,
+  pendingHoldRequests = 0,
   schedules,
   visibilityStatus,
 }: FtParkDashboardBodyProps) {
@@ -118,7 +120,14 @@ export default function FtParkDashboardBody({
           },
           {
             id: 'recurring',
-            label: 'Recurring holds',
+            label: pendingHoldRequests > 0 ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: spacing['3xs'] }}>
+                Recurring holds
+                <span style={{ fontSize: typography.sizes.xs, fontWeight: typography.weights.bold, color: '#92400e', backgroundColor: '#fde68a', borderRadius: radius.sm, padding: `0 ${spacing['2xs']}` }}>
+                  {pendingHoldRequests}
+                </span>
+              </span>
+            ) : 'Recurring holds',
             content: <StandingReservationsCard marketId={marketId} />,
           },
           {

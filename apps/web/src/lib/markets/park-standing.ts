@@ -247,7 +247,7 @@ export async function runStandingOccurrenceSweep(
   const { data: active } = await serviceClient
     .from('park_standing_reservations')
     .select(`
-      id, market_id, vendor_profile_id, spot_id, day_of_week, strikes_reset_at,
+      id, market_id, vendor_profile_id, spot_id, day_of_week, strikes_reset_at, requested_start_date,
       park_spots:spot_id ( label, base_price_cents, active ),
       markets:market_id ( name, vertical_id, timezone ),
       vendor_profiles:vendor_profile_id ( user_id )
@@ -258,7 +258,11 @@ export async function runStandingOccurrenceSweep(
     const spot = res.park_spots as unknown as { label: string; base_price_cents: number; active: boolean } | null
     if (!spot || spot.active !== true) continue
 
-    const occ = nextOccurrenceOnOrAfter(res.day_of_week as number, todayISO)
+    // Don't materialize occurrences before the truck's requested start date
+    // (P4a). NULL start = no floor (start immediately, legacy behavior).
+    const startFloor = (res.requested_start_date as string | null) ?? null
+    const fromISO = startFloor && startFloor > todayISO ? startFloor : todayISO
+    const occ = nextOccurrenceOnOrAfter(res.day_of_week as number, fromISO)
     if (occ > horizonISO) continue // too far out — wait for a later run
 
     // Skip if the park closed that DOW, or the date was cancelled.

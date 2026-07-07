@@ -43,7 +43,7 @@ export async function GET(
     const { data, error } = await service
       .from('park_standing_reservations')
       .select(`
-        id, day_of_week, status, approved_at, strikes_reset_at, market_id, vendor_profile_id,
+        id, day_of_week, status, approved_at, strikes_reset_at, requested_start_date, market_id, vendor_profile_id,
         park_spots:spot_id ( label ),
         markets:market_id ( timezone ),
         vendor_profiles:vendor_profile_id ( profile_data )
@@ -76,6 +76,7 @@ export async function GET(
         dayOfWeek: r.day_of_week as number,
         status: r.status as string,
         approvedAt: (r.approved_at as string | null) ?? null,
+        requestedStartDate: (r.requested_start_date as string | null) ?? null,
         spotLabel: spot?.label ?? null,
         truckName: (pd?.business_name as string) || (pd?.farm_name as string) || 'Food truck',
         strikes: strikes.get(r.id as string) ?? 0,

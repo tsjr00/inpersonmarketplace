@@ -122,6 +122,8 @@ export type NotificationType =
   | 'park_vendor_blocked'
   | 'park_booking_barred'
   | 'park_truck_docs_to_review'
+  // FT park-manager P4a — a truck requested a weekly hold (operator approves/denies).
+  | 'park_standing_hold_requested'
   // Manager access lifecycle (Phase 1B) — fired to the affected manager
   // when an admin removes / suspends / restores their market access.
   | 'manager_access_removed'
@@ -283,6 +285,8 @@ export interface NotificationTemplateData {
   window?: string
   /** P2b park-spot paid confirmation: number of days in the booking group. */
   dayCount?: number
+  /** P4a weekly-hold request: the day-of-week name, e.g. "Saturday". */
+  weekday?: string
 }
 
 export type NotificationSeverity = 'critical' | 'warning' | 'info'
@@ -985,6 +989,21 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: (d) => `New documents to review at ${d.marketName || 'your park'}`,
     message: (d) =>
       `${d.vendorName || 'A food truck'} updated their compliance documents at ${d.marketName || 'your park'}. Review them in your "Your trucks" list.`,
+    actionUrl: (d) =>
+      d.marketId
+        ? `/${d.vertical || 'food_trucks'}/market-manager/${d.marketId}/dashboard#vendors`
+        : `/${d.vertical || 'food_trucks'}/dashboard`,
+  },
+
+  // FT P4a — a truck asked to reserve a spot every week; nudge the operator to
+  // approve/deny it under "Your trucks" → Recurring holds.
+  park_standing_hold_requested: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: (d) => `New weekly-hold request at ${d.marketName || 'your park'}`,
+    message: (d) =>
+      `${d.vendorName || 'A food truck'} asked to reserve ${d.spotLabel || 'a spot'}${d.weekday ? ` every ${d.weekday}` : ''}${d.marketDate ? `, starting ${d.marketDate}` : ''}. Review it under "Your trucks" → Recurring holds to approve or deny.`,
     actionUrl: (d) =>
       d.marketId
         ? `/${d.vertical || 'food_trucks'}/market-manager/${d.marketId}/dashboard#vendors`

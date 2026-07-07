@@ -1,6 +1,20 @@
 # Current Task: FT PARK-MANAGER — full stack on STAGING, awaiting user testing → then timezone fix
 
-**Updated:** 2026-07-06 (staging-testing fixes batch). **Mode:** Report.
+**Updated:** 2026-07-06 (staging-testing fixes — round 2: weekly-hold start date + notify). **Mode:** Report.
+
+---
+
+## ⭐⭐⭐⭐⭐ 2026-07-06 ROUND 2 — weekly-hold start date + manager notification, BUILT, gates green (tsc0/lint0/vitest1605), UNCOMMITTED, mig 182 NOT applied
+
+From staging testing of the round-1 tabs. All built, gate-green, **nothing committed**, **mig 182 not applied**.
+
+- **Example scenarios** added to both book-spot tabs (Book a day + Weekly hold) — `BookParkSpotForm.tsx`.
+- **Weekly-hold start date (C1 follow-up):** truck now picks WHEN the hold begins. `BookParkSpotForm` adds a "Starting" dropdown (upcoming operating dates for the chosen DOW, derived — no effect). Route `standing-reservation/route.ts` validates `requested_start_date` (format, DOW match, ≥ today park-local) + inserts it. **Gates generation:** `park-standing.ts` sweep won't materialize occurrences before the start date (NULL = start now, legacy-safe). Manager GET route + `StandingReservationsCard` surface "· starts <date>".
+- **Manager notification (item 2):** new notif type `park_standing_hold_requested` → `markets.manager_user_id` on request (NI tripwire 94→95, bumped in `cutoff-and-sort-functional.test.ts`). Skips if no manager.
+- **Visual indicators (item 2):** `StandingReservationsCard` "Requests to review" section now amber-highlighted with an "N pending" badge; the **"Recurring holds" tab** gets a count badge (`TabbedCard` label→ReactNode; `FtParkDashboardBody` + dashboard `page.tsx` compute `pendingHoldRequests` = count of status='requested').
+- **Migration 182 (WRITTEN, NOT APPLIED):** `20260706_182_park_standing_start_date.sql` — ADDITIVE `park_standing_reservations.requested_start_date DATE NULL`. **NEXT: user applies Dev+Staging → schema bookkeeping → commit+push staging (with go).**
+
+**Files:** `BookParkSpotForm.tsx`, `standing-reservation/route.ts`, `standing-reservations/route.ts` (GET), `park-standing.ts`, `notifications/types.ts`, `cutoff-and-sort-functional.test.ts`, `StandingReservationsCard.tsx`, `TabbedCard.tsx`, `FtParkDashboardBody.tsx`, `dashboard/page.tsx`. No critical-path/money-path file. Mig 182.
 
 ---
 
