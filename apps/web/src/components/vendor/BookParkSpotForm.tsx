@@ -41,6 +41,15 @@ interface PendingOccurrence {
   priceCents: number
 }
 
+/** The truck's own standing (recurring) holds at this park — requested or active. */
+interface MyHold {
+  id: string
+  dayOfWeek: number
+  status: string
+  requestedStartDate: string | null
+  spotLabel: string | null
+}
+
 interface BookParkSpotFormProps {
   marketId: string
   vertical: string
@@ -53,6 +62,9 @@ interface BookParkSpotFormProps {
    *  Gates the "Weekly hold" tab (standing reservations are a reward for a
    *  proven, paying relationship, not a first-touch option). */
   hasPriorPaidRental?: boolean
+  /** The truck's own requested/active weekly holds here (so they can see what
+   *  they've already asked for — a pending request blocks a duplicate). */
+  myHolds?: MyHold[]
 }
 
 const MIN_TOTAL_CENTS = 500
@@ -104,6 +116,7 @@ export default function BookParkSpotForm({
   scheduleDows,
   pendingOccurrences = [],
   hasPriorPaidRental = false,
+  myHolds = [],
 }: BookParkSpotFormProps) {
   const searchParams = useSearchParams()
   const sessionFlag = searchParams.get('session')
@@ -680,6 +693,43 @@ export default function BookParkSpotForm({
         {/* ── Weekly hold ────────────────────────────────────────────────── */}
         {activeTab === 'hold' && (
           <div>
+            {/* The truck's own holds here — so they can see what they've already
+                requested (a pending request blocks a duplicate on the same
+                spot + day, which otherwise reads as "not available"). */}
+            {myHolds.length > 0 && (
+              <div style={{ marginBottom: spacing.md }}>
+                <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing['3xs'] }}>
+                  Your weekly holds here
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+                  {myHolds.map((h) => (
+                    <div key={h.id} style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], flexWrap: 'wrap', padding: spacing.xs, border: `1px solid ${colors.border}`, borderRadius: radius.sm, backgroundColor: colors.surfaceBase }}>
+                      <span style={{ fontSize: typography.sizes.sm, color: colors.textPrimary }}>
+                        🅿 {h.spotLabel || 'A spot'} · every {WEEKDAYS[h.dayOfWeek] ?? `day ${h.dayOfWeek}`}
+                      </span>
+                      {h.requestedStartDate && (
+                        <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>· starts {formatDayLabel(h.requestedStartDate)}</span>
+                      )}
+                      <span style={{
+                        fontSize: typography.sizes.xs,
+                        fontWeight: typography.weights.semibold,
+                        color: h.status === 'active' ? '#166534' : '#92400e',
+                        backgroundColor: h.status === 'active' ? '#dcfce7' : '#fef3c7',
+                        borderRadius: radius.sm,
+                        padding: `0 ${spacing['2xs']}`,
+                      }}>
+                        {h.status === 'active' ? 'Active' : 'Pending review'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
+                  You can&apos;t request the same spot on the same day twice — one already listed here
+                  is locked to you until the operator approves or denies it (the start date doesn&apos;t
+                  change that).
+                </div>
+              </div>
+            )}
             {/* Approved occurrences awaiting payment (P4b) — belong with the
                 standing-hold concept, so they live on this tab. */}
             {pendingOccurrences.length > 0 && (

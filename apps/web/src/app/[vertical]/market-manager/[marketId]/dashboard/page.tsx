@@ -47,6 +47,22 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
     redirect(`/${vertical}/dashboard`)
   }
 
+  // Auto-link: admin can assign a manager by email before they've signed up,
+  // which leaves markets.manager_user_id NULL — the manager still authenticates
+  // via the manager_email branch of isMarketManager, but in-app notifications
+  // need a user_id to deliver to (see webhooks.ts manager-paid guard). The FM
+  // backfill (buyer dashboard) is farmers_market-only, so FT park managers never
+  // got linked. Backfill here on any market-manager dashboard load: idempotent
+  // (guarded by manager_user_id IS NULL), email-matched, service-client write.
+  if (user.email) {
+    await createServiceClient()
+      .from('markets')
+      .update({ manager_user_id: user.id, manager_accepted_at: new Date().toISOString() })
+      .eq('id', marketId)
+      .ilike('manager_email', user.email)
+      .is('manager_user_id', null)
+  }
+
   // User is the manager — fetch the market row for display.
   // `logo_url` (mig 140) + `description` power the Branding card.
   // `season_start` + `season_end` define the season window for the

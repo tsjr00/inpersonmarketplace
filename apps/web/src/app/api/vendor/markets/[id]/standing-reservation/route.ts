@@ -179,10 +179,24 @@ export async function POST(
 
     if (error) {
       if (error.code === '23505') {
-        return NextResponse.json(
-          { error: 'That spot is already held (or requested) for that day. Try another spot or day.', field: 'spot_id' },
-          { status: 409 }
-        )
+        // The partial-unique index allows one requested/active hold per
+        // (spot, day_of_week). Tell the truck WHICH case they hit — their own
+        // pending request (so they stop re-trying with a new date) vs. another
+        // truck's hold — instead of a vague "already held".
+        const { data: conflict } = await service
+          .from('park_standing_reservations')
+          .select('vendor_profile_id, status')
+          .eq('spot_id', spotId)
+          .eq('day_of_week', dow)
+          .in('status', ['requested', 'active'])
+          .maybeSingle()
+        const mine = conflict?.vendor_profile_id === profile.id
+        const msg = mine
+          ? conflict?.status === 'active'
+            ? 'You already have an active weekly hold for this spot on this day.'
+            : "You've already requested this spot on this day — it's pending the operator's review. You can't request it again until they respond, and changing the start date won't change that."
+          : 'Another truck already holds (or has requested) this spot on this day. Try a different spot or day.'
+        return NextResponse.json({ error: msg, field: 'spot_id' }, { status: 409 })
       }
       throw traced.fromSupabase(error, { table: 'park_standing_reservations', operation: 'insert' })
     }

@@ -37,6 +37,14 @@ interface PendingOccurrence {
   priceCents: number
 }
 
+interface MyHold {
+  id: string
+  dayOfWeek: number
+  status: string
+  requestedStartDate: string | null
+  spotLabel: string | null
+}
+
 export default async function BookParkSpotPage({ params }: PageProps) {
   const { vertical, id } = await params
 
@@ -117,6 +125,10 @@ export default async function BookParkSpotPage({ params }: PageProps) {
   // C1 — weekly holds unlock only after a truck has PAID for a rental at this
   // park (proven relationship). First-timers see the tab disabled with copy.
   let hasPriorPaidRental = false
+  // The truck's own standing (recurring) holds at this park — so the Weekly hold
+  // tab can show what they've already requested (a pending request blocks a
+  // duplicate on the same spot+day, so this closes the "why can't I request?" gap).
+  let myHolds: MyHold[] = []
   const authClient = await createClient()
   const { data: { user } } = await authClient.auth.getUser()
   if (user) {
@@ -152,6 +164,26 @@ export default async function BookParkSpotPage({ params }: PageProps) {
           priceCents: o.price_cents as number,
         }
       })
+
+      const { data: holdRows } = await supabase
+        .from('park_standing_reservations')
+        .select('id, day_of_week, status, requested_start_date, park_spots:spot_id ( label )')
+        .eq('market_id', id)
+        .eq('vendor_profile_id', profile.id)
+        .in('status', ['requested', 'active'])
+        .order('day_of_week', { ascending: true })
+
+      myHolds = (holdRows ?? []).map((h) => {
+        const rel = h.park_spots as { label: string | null } | { label: string | null }[] | null
+        const spotLabel = Array.isArray(rel) ? (rel[0]?.label ?? null) : (rel?.label ?? null)
+        return {
+          id: h.id as string,
+          dayOfWeek: h.day_of_week as number,
+          status: h.status as string,
+          requestedStartDate: (h.requested_start_date as string | null) ?? null,
+          spotLabel,
+        }
+      })
     }
   }
 
@@ -179,6 +211,7 @@ export default async function BookParkSpotPage({ params }: PageProps) {
         scheduleDows={scheduleDows}
         pendingOccurrences={pendingOccurrences}
         hasPriorPaidRental={hasPriorPaidRental}
+        myHolds={myHolds}
       />
     </div>
   )

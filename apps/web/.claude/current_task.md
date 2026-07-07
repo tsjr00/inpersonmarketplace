@@ -1,6 +1,16 @@
 # Current Task: FT PARK-MANAGER — full stack on STAGING, awaiting user testing → then timezone fix
 
-**Updated:** 2026-07-06 (staging-testing fixes — round 2: weekly-hold start date + notify). **Mode:** Report.
+**Updated:** 2026-07-06 (round 3: FT manager auto-link + weekly-hold truck UX). **Mode:** Report.
+
+---
+
+## ⭐ 2026-07-06 ROUND 3 — FT manager notif auto-link + weekly-hold truck UX, BUILT, gates green (tsc0/lint0/vitest1605), UNCOMMITTED, no migration
+
+Round-2 staging test found the manager notification didn't fire. **Root cause (confirmed):** FT park managers assigned by email have `markets.manager_user_id = NULL` (the email→user_id backfill at `[vertical]/dashboard/page.tsx:156` is farmers_market-only), and in-app notifications need a user_id (`webhooks.ts:1305-1308`). Sixth Street manually linked via SQL (`UPDATE markets SET manager_user_id = (SELECT id FROM auth.users WHERE lower(email)=lower(manager_email)) WHERE id='f1000000-0001-...'`) → notification then fired.
+
+- **Option A (permanent fix):** market-manager `dashboard/page.tsx` now backfills `manager_user_id` from `manager_email` on load (idempotent, email-matched, service-client, NOT vertical-gated) — unbreaks ALL FT manager notifications (hold-request + park_spot_paid_manager + docs-to-review).
+- **Weekly-hold truck UX (1+2):** the partial-unique index (`uq_park_standing_active(spot_id, day_of_week) WHERE status IN requested/active`, mig 173) blocks a duplicate request per spot+day regardless of date — read as "not available." Fixes: **(1)** book-spot page fetches the truck's own requested/active holds → `BookParkSpotForm` shows a "Your weekly holds here" list (spot · every DOW · Pending review/Active · starts date) + copy explaining the lock. **(2)** `standing-reservation` 23505 handler now queries the conflicting row → distinct messages for "your own pending request" vs "another truck holds it."
+- **Files:** `market-manager/[marketId]/dashboard/page.tsx` (option A), `markets/[id]/book-spot/page.tsx` (myHolds), `BookParkSpotForm.tsx` (myHolds list), `standing-reservation/route.ts` (message). No migration, no critical-path/money file.
 
 ---
 
