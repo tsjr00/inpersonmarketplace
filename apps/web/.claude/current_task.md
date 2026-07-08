@@ -1,6 +1,21 @@
 # Current Task: FT PARK-MANAGER — full stack on STAGING, awaiting user testing → then timezone fix
 
-**Updated:** 2026-07-06 (round 4: help/KB content for manager+operator surfaces). **Mode:** Report.
+**Updated:** 2026-07-07 (prod push prepped + events research saved). **Mode:** Report.
+
+---
+
+## ✅ 2026-07-07 — DONE: FT-port PROD PUSH complete
+Migs **168→183 applied to PROD** + **code pushed** `main 426deff4→62b686f7` (in-window; build+Playwright green; user smoke test passed). Prod now = staging = `62b686f7`; all work on all 3 envs. Migration files moved to `applied/`; changelog batch line added. **Bookkeeping commit pending user go.** Next prod push = the timezone fix (separate, later).
+
+## ⭐ 2026-07-07 — SAVED FOR LATER: two research deliverables, not started
+- **Timezone drift fix** — plan `apps/web/.claude/timezone_drift_fix_plan.md` (all sites verified; order→tz path + America/Chicago fallback resolved; groups small→large). Its own careful money-path session AFTER the prod push.
+- **Events gap review + manager/park cross-pollination** — `apps/web/.claude/events_manager_crosspollination_research.md` (code-verified map + gaps G1–G7 + impact/risk/ease matrix). Also logged to `backlog.md` (Priority 2). 3 gating decisions pending from user.
+
+---
+
+## ⭐ 2026-07-07 TIMEZONE DRIFT FIX — PLAN WRITTEN (not started): `timezone_drift_fix_plan.md`
+
+All 11 sites from backlog Priority 1 RE-VERIFIED against current code 2026-07-07. Plan doc = `apps/web/.claude/timezone_drift_fix_plan.md` — has the verified inventory table, the two bug sub-patterns (date-vs-UTC-today; local-time-stamped-as-UTC in no-show.ts), fix approach, testing strategy, sequencing (money-first), and 3 open questions. **KEY UNKNOWN:** order_item → market timezone resolution (Phases 3/4/4.6 carry no market_id, unlike events/seasons). Money-path, own careful session, before/after tests, NOT bundled with feature work. Awaiting user answers to the 3 open questions + go.
 
 ---
 

@@ -1,6 +1,38 @@
 # Backlog
 
-Last updated: 2026-07-03 (schedule-conflict trigger dead-end for event/inactive-market commitments)
+Last updated: 2026-07-05 (timezone drift audit — UTC "today" vs market-local date columns)
+
+## Priority 1 — Timezone drift: UTC "today" vs market-local date columns (2026-07-05 audit) — ⚠ money path
+
+**The bug class migration 054 fixed has reappeared in server code 054 never covered.** `pickup_date` / `event_date` / `scheduled_date` / `end_date` columns hold **market-local** calendar dates (from `local_today` in mig 054). Several server jobs compare them against a **UTC** "today"/"tomorrow" (`new Date().toISOString().split('T')[0]` / `.slice(0,10)`). Every US market is behind UTC, so this drifts by ONE DAY **every evening** (after UTC midnight, before market midnight). All sites below personally verified 2026-07-05.
+
+**INTACT — do NOT touch:** the open/close "accepting orders" window. `get_available_pickup_dates` uses `(NOW() AT TIME ZONE COALESCE(m.timezone,'America/Chicago'))::DATE` (`applied/20260223_054_fix_availability_timezone.sql:48`); `is_listing_accepting_orders`, the batch status RPC, and the availability route all funnel through it (absolute-instant `NOW() < cutoff_at`). This fix holds.
+
+- [ ] **`expire-orders/route.ts` — money-moving day-boundary drift (HIGHEST; ⚠ money path).** UTC "today" vs local date columns:
+  - Phase 3 (`:350`) — cancels unpaid external-payment orders (`pickup_date < today`); a valid same-day order looks past-due in the evening.
+  - Phase 4 (`:656`) — missed-pickup → **pays vendor** + notifies buyer.
+  - Phase 4.6 (`:922`,`:933`) — expires `confirmed` orders (`pickup_date < today`) a day early.
+  - Phase 20 (`:2771`,`:2776`) — season auto-end / settlement (`end_date < todayStr`) a day early.
+  - Phase 11 (`:2028-2030`,`:2037`) — event 24h prep reminder (`event_date = tomorrowStr` UTC) fires on the wrong calendar day.
+  - **THE TELL (inconsistency):** Phases 14/15 in the SAME file (`:2307-2308`) do it CORRECTLY via `new Date(new Date().toLocaleString('en-US',{timeZone: tz}))`. The tz pattern is known + present — it was skipped in the phases above.
+- [ ] **`lib/cron/no-show.ts` (⚠ payout timing).** `:47-56` builds the pickup instant as `` `${pickupDate}T${timePart}Z` `` — stamps the market-LOCAL pickup time as UTC, fires the no-show 1h later (`:55-56`) → ~5–6h off for CT markets (comment admits "UTC — cron runs on Vercel/UTC"). Fallback `:62` also uses UTC `today`.
+- [ ] **`lib/cron/external-payment.ts:43-47` `getAutoConfirmCutoffDate`.** Returns UTC `yesterday` date → auto-confirms digital external-payment orders a day early relative to the market.
+- [ ] **`buyer/orders/route.ts:385-389` (buyer-facing).** UTC `today` vs local `scheduled_date` for "next pickup" — a buyer in the evening sees the wrong next pickup at the day boundary.
+- [ ] **`lib/quality-checks.ts:149-150` (+ `:288`,`:477` per sweep, not re-read) — internal scans, low impact.** UTC today/nextWeek windows for low-stock-event detection.
+- [ ] **Display-only SQL (low):** `get_listing_market_availability` (`applied/20260203_001_security_fixes.sql:213-214`, per sweep) orders "next schedule" by `EXTRACT(DOW FROM NOW())` (UTC) — wrong upcoming schedule near UTC midnight; `is_accepting` verdict unaffected.
+- [ ] **Fallback-only (very low):** membership `start_date` fallbacks (`webhooks.ts:238`, `checkout/success/route.ts:226`, only when startDate missing); server-hour polling heuristic (`polling-config.ts:14`, refresh cadence only, no data correctness).
+
+**Fix approach:** route each site through the per-market tz resolution already in the same files — `nowInTimezoneAsLocalIso(tz)` (`lib/surveys/cron-helpers.ts:75`) or the Phase-14/15 inline pattern — using the row's `markets.timezone`; for cron phases batching across markets, resolve "today" PER market (like Phase 14/15) or filter by absolute instants. **⚠ `expire-orders` is money-moving** — do it as a FOCUSED session with before/after verification + tests (cancel / payout / no-show / season-end timing), NOT bundled with feature work. Separate from the FT-port push.
+
+## Priority 2 — Events: gap fixes + manager/park cross-pollination (2026-07-07 research)
+
+Full code-verified map + gap list + impact/risk/ease matrix: **`apps/web/.claude/events_manager_crosspollination_research.md`**. Goal: raise event quality + recycle manager/park capabilities into events for partner outreach. Actors = event organizer (`catering_requests`, may be account-less) + (NOT YET EXISTING) event-market manager.
+
+- **Quality gaps worth fixing on their own (verified):** G1 `review→completed` has NO cron (event can hang in `review`, settlement/feedback never fire) · G2 organizer Stripe payment UNBUILT (company_paid trusts out-of-band; admin records manually) · G3 `is_recurring` is a dead intake flag (asked at signup, no consumer — build or stop promising) · G5 self-service-no-address dead-ends in `new` · G7 **no `manager_user_id` on event markets → no manager persona** (foundational).
+- **Tier-1 ports (high outreach, low risk, reuse proven systems):** organizer broadcasts · agreement/opt-in statements at event join · post-event surveys (cron is `market_type='traditional'`-only today).
+- **Tier-2:** per-event vetting + docs review (reuse `park_vendor_vetting` + info-sharing) · event check-ins · organizer onboarding checklist.
+- **Tier-3 (decide first):** event-market manager persona (G7) · vendor-paid event booking + earnings (money-model change) · recurring events.
+- **3 gating decisions (user):** (1) give event markets a real manager persona (G7) or keep admin+organizer-only? (2) vendor-paid events — yes/no? (3) build `is_recurring` or remove from intake?
 
 ## Priority 1 — Sales tax: Stripe Tax (calc) + TaxCloud (filing) — readiness mapped, BUILD AFTER current features
 
@@ -12,6 +44,7 @@ Full readiness map + checklists + open questions: `apps/web/.claude/sales_tax_re
 - [ ] Product → Stripe tax-code classification (FM produce often exempt vs FT prepared food taxable — real over/under-charge risk).
 - [ ] Account setup (no code): Stripe tax settings + per-nexus-state registrations; TaxCloud business profile (FEIN, origin, nexus states), TIC code, Link Stripe → Go Live.
 - [ ] **Verify before building:** (1) does TaxCloud file off Stripe-collected tax or re-derive via TIC (reconciliation risk)? (2) does TaxCloud's Stripe integration support the Connect/platform-level model? (3) nexus/facilitator obligations per state (tax advisor); (4) correct tax codes per food category; (5) exact Stripe Tax + TaxCloud non-SST (Texas) pricing.
+- [ ] **WHEN THIS SHIPS — update the `vendor-sales-tax` opt-in statement** (`market_optin_statement_catalog`). Currently (mig 178) it's vendor-responsibility ONLY, because claiming "the platform collects & remits sales tax on my behalf" would be false until this module is live (same principle as the SNAP exclusion). Once the platform is MoR and actually collecting/remitting: reword `vendor-sales-tax` to note the platform handles tax on platform sales while the vendor stays responsible for cash/other off-platform sales (user request 2026-07-04). Do it as a data migration UPDATE on that row.
 
 ## Priority 1 — Vendor product categories: keep selling exclusive, capture booth revenue (Session 92, 2026-06-13)
 
@@ -45,8 +78,10 @@ Full spec + user decisions: `apps/web/.claude/session92_events_mm_growth_researc
 
 ## Priority 2/3 — FT park-manager: post-P5 gaps (2026-07-03, from staging testing)
 
-- [ ] **Vendor-facing agreement acceptance not wired for park bookings (P2 — compliance gap).** The book-park-spot route passes `p_acceptance_id: null` (`api/vendor/markets/[id]/book-park-spot/route.ts:156`), so a truck booking a park spot never sees or accepts the operator's selected opt-in statements. P5 shipped the **manager-side** picker + vertical-scoped catalog + FT/FM statements (migs 175/176); the **vendor-side acceptance at booking time** is the missing half (the design's "Phase-B-for-parks"). Wire: fetch the market's `market_optin_selections`, render them at book-spot checkout, record a `vendor_market_agreement_acceptances` row, pass its id as `p_acceptance_id`. Reuses `optin-public.ts fetchMarketOptinForVendor` (already renders per-market selections). Also applies to the pay-occurrence + standing flows.
+- [x] ~~**Vendor-facing agreement acceptance not wired for park bookings (P2 — compliance gap).**~~ **DONE 2026-07-05** (commit `724ad3ce`): `BookParkSpotForm` renders `MarketAgreementBlock` (gates Book + Request-hold); `book-park-spot` + `standing-reservation` record `vendor_market_agreement_acceptances` (mirror of FM `book/route.ts`) and pass `p_acceptance_id`. Original report kept for reference: [book-park-spot passed p_acceptance_id null; P5 shipped the manager-side picker; vendor-side acceptance was the missing half].
 - [ ] **Reconcile the booth money paths under one operator-keep mechanism (P3 — no hurry unless something breaks).** P6 wires `markets.operator_keep_pct` for **FT park-spot only** (`createParkSpotCheckoutSession` via the booking route + `pricing.ts`). FM booth (`createBoothRentalCheckoutSession`) + season (`createSeasonBoothCheckoutSession`) use the SAME `calculateBoothRentalFees` math but won't read the keep rate. Once FT is proven, evaluate whether all three booth checkouts should share one operator-keep mechanism (they're the same fee surface) — combine/reconcile so an admin-granted rebate applies uniformly. Not urgent; revisit if a manager operates both an FM market and an FT park, or if the projection-tool's cross-vertical framing needs it live. Plan: `ft_p6_operator_keep_plan.md`.
+- [ ] **B (book-then-vet) — non-blocking vendor vetting for park bookings (2026-07-05, user-directed).** Direction locked: FT adopts FM's vetting spirit but **does NOT block booking on docs**. Pieces: **B1** required doc-responsibility acknowledgment at booking (checkbox; "provide accurate/timely/complete docs or the operator may cancel without refund + decline future bookings" — wording in `fm_regroup_ft_money_vetting_plan.md` Part 3); **B2** auto-create a pending `market_vendors` row on first park booking so the truck lands on the manager's roster to vet; **B3** required-doc upload UX + manager vetting surface + cancel-without-refund enforcement (ties to HB2844 doc-vault). **Key requirement (user):** without blocking booking, the **park manager gets a notification when a truck has new docs to review**, plus the surrounding required communications/steps so vetting runs smoothly. Build AFTER the FM-regroup + FT-port prod push.
+- [ ] **Park-shaped FT onboarding checklist (2026-07-05).** The shared `OnboardingChecklist` tracks `market_booth_inventory` (FM booth tiers) → never completes for FT parks, so it's hidden (`dashboard/page.tsx:202-209`, P2.5). Build an FT-appropriate checklist: add spots → switch park to paid → connect Stripe → pick agreement statements. Small; own effort.
 - [ ] **Seed-vendor `stripe_payouts_enabled` inconsistency (P3 — test-data hygiene).** Seeded FT vendors can have `status='approved'` + `onboarding_completed_at` + published listings + a `stripe_account_id` but `stripe_payouts_enabled=false` (found on `802ad912…`, category_verifications "Seed data"). That makes onboarding read incomplete (`canPublishListings` requires `stripePayoutsEnabled`, `onboarding/status/route.ts:223`) and the dashboard prompt for Stripe — even though the vendor looks set up. Not a prod risk (real vendors can't publish without the flag). Fix in the seed scripts: set `stripe_payouts_enabled=true` (and `stripe_charges_enabled`/`stripe_onboarding_complete`) for any seeded vendor with published listings, so testers don't hit the false "set up Stripe" loop. Workaround used this session: re-run Stripe test onboarding (or one-field UPDATE).
 
 ## Priority 2 — FT vertical: HB 2844 DSHS licensing (Texas) — direction set, BACKLOGGED (2026-06-21)

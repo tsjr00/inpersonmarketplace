@@ -623,7 +623,12 @@ describe('FT park-manager flow integrity', () => {
   const attendanceCard = path.join(SRC_DIR, 'components/market-manager/MarketAttendanceCard.tsx')
   const catalogRoute = path.join(APP_DIR, 'api/market-manager/[marketId]/optin/catalog/route.ts')
   const selectionsRoute = path.join(APP_DIR, 'api/market-manager/[marketId]/optin/selections/route.ts')
-  const optinMig = path.resolve(SRC_DIR, '../../../supabase/migrations/20260702_175_ft_optin_vertical_tag.sql')
+  // Resolve from migrations/ (pre-prod) OR applied/ (moved after the prod push).
+  const optinMig = [
+    '../../../supabase/migrations/20260702_175_ft_optin_vertical_tag.sql',
+    '../../../supabase/migrations/applied/20260702_175_ft_optin_vertical_tag.sql',
+  ].map((p) => path.resolve(SRC_DIR, p)).find(fs.existsSync)
+    ?? path.resolve(SRC_DIR, '../../../supabase/migrations/20260702_175_ft_optin_vertical_tag.sql')
 
   // ── P2b money path ──
   it('booking route books atomically then charges via the park_spot checkout', () => {
