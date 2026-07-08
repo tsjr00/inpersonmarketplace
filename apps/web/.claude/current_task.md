@@ -1,15 +1,28 @@
-# Current Task: FT PARK-MANAGER — full stack on STAGING, awaiting user testing → then timezone fix
+# Current Task: FT park-manager LIVE ON PROD → next: timezone drift fix
 
-**Updated:** 2026-07-07 (prod push prepped + events research saved). **Mode:** Report.
+**Updated:** 2026-07-07 EOD (prod push complete; timezone fix is next). **Mode:** Report.
 
 ---
 
-## ✅ 2026-07-07 — DONE: FT-port PROD PUSH complete
-Migs **168→183 applied to PROD** + **code pushed** `main 426deff4→62b686f7` (in-window; build+Playwright green; user smoke test passed). Prod now = staging = `62b686f7`; all work on all 3 envs. Migration files moved to `applied/`; changelog batch line added. **Bookkeeping commit pending user go.** Next prod push = the timezone fix (separate, later).
+## ⭐⭐⭐ NEXT SESSION START HERE (2026-07-07 EOD) — read this + the timezone plan, then STOP & ask
 
-## ⭐ 2026-07-07 — SAVED FOR LATER: two research deliverables, not started
-- **Timezone drift fix** — plan `apps/web/.claude/timezone_drift_fix_plan.md` (all sites verified; order→tz path + America/Chicago fallback resolved; groups small→large). Its own careful money-path session AFTER the prod push.
-- **Events gap review + manager/park cross-pollination** — `apps/web/.claude/events_manager_crosspollination_research.md` (code-verified map + gaps G1–G7 + impact/risk/ease matrix). Also logged to `backlog.md` (Priority 2). 3 gating decisions pending from user.
+### Current situation (all reconciled, nothing in flight)
+- **PROD IS LIVE at `62b686f7`** — the entire FT park-manager stack + Phase E remainder (booth credit/make-up days) + help KB. Migrations **168→183 applied to ALL 3 envs**; files in `supabase/migrations/applied/`.
+- **`origin/staging` = `06a034cb`** (bookkeeping commit) — **1 commit ahead of prod** (`origin/main` = `62b686f7`), intentionally: the bookkeeping (file moves + session docs) doesn't need to deploy; it rides the next prod push. **Verify live git state before trusting this (memory drifts).**
+- No consequential uncommitted work (just `settings.local.json` + pre-existing audit-file deletions).
+
+### Working agreement (unchanged — enforce)
+Report mode default · ask for commit AND push **separately, each time** (a "migration ran" msg is NEVER commit approval) · cite file:line or mark UNVERIFIED · **Claude NEVER applies migrations — the user does; Claude does the schema-snapshot bookkeeping after** · pricing.ts / payments.ts / webhooks.ts / cart+checkout = critical-path (per-file approval) · staging-first · branch-chain for commits · teaching-mode git explanations ON · prod push window 9 PM–7 AM CT (hook-enforced) · present before changing (a question ≠ permission to edit).
+
+### ▶ NEXT FOCUS #1 — TIMEZONE DRIFT FIX (its own careful money-path session; then its OWN prod push)
+**Read `apps/web/.claude/timezone_drift_fix_plan.md` first.** Quick-start summary:
+- **Bug:** market-local date columns (`pickup_date`/`event_date`/`scheduled_date`/`end_date`) compared to a **UTC** today/tomorrow → drifts 1 day every evening for every US market. Two sub-patterns: (A) date-vs-UTC-today (9 sites); (B) local-time-stamped-as-UTC (`no-show.ts:47-52`).
+- **DO NOT TOUCH:** the open/close window — mig 054 `COALESCE(timezone,'America/Chicago')` is the reference pattern; expire-orders **Phase 14/15 (`:2306-2348`)** already do it right (per-market tz).
+- **Unknowns RESOLVED this session:** (1) `order_item → tz` = `order_items.market_id → markets.timezone` — ALL pickup types (market/event/private_pickup) are `markets` rows → one uniform join. (2) Null-tz fallback = **`America/Chicago`** (matches mig 054 + JS helpers; NOT state-inference — user CONFIRMED both).
+- **Sequencing small→large blast radius:** Group 1 (buyer/orders display · quality-checks · display SQL · fallbacks) — build + unit-test the shared per-market-tz helper here. Group 2 (external-payment cutoff · Phase 3 cancel · Phase 4.6 expire · Phase 11 reminder). Group 3 = MONEY (`no-show.ts` · Phase 4 payout · Phase 20 season settlement) — full before/after. Verified site table + line numbers in the plan. **Present each fix before editing.**
+
+### ▶ NEXT FOCUS #2 — EVENTS gap fixes + cross-pollination (awaiting 3 user decisions)
+Research: `apps/web/.claude/events_manager_crosspollination_research.md` + backlog Priority 2. Gating decisions: (1) give event markets a manager persona (gap G7)? (2) vendor-paid events? (3) build or drop `is_recurring`? Tier-1 quick wins: organizer broadcasts · agreement statements at event join · post-event surveys.
 
 ---
 
