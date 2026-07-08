@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { todayInTimezone } from '@/lib/time/market-dates'
 
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/buyer/orders', 'GET', async () => {
@@ -138,7 +139,8 @@ export async function GET(request: NextRequest) {
           market:markets (
             id,
             name,
-            market_type
+            market_type,
+            timezone
           )
         ),
         pickups:market_box_pickups (
@@ -382,7 +384,7 @@ export async function GET(request: NextRequest) {
 
       // Determine pickup-based status
       const hasReadyPickup = pickups.some(p => p.status === 'ready')
-      const today = new Date().toISOString().split('T')[0]
+      const today = todayInTimezone(market?.timezone)
       const nextPickup = pickups.find(p =>
         (p.scheduled_date as string) >= today &&
         ['scheduled', 'ready'].includes(p.status as string)

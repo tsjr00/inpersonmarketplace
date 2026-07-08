@@ -12,6 +12,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { LOW_STOCK_THRESHOLD } from './constants'
 import { TracedError, logError } from './errors'
+import { todayInTimezone, addDaysToDateString } from './time/market-dates'
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -146,8 +147,6 @@ export async function checkLowStockEvents(
   verticalId?: string
 ): Promise<QualityFinding[]> {
   const findings: QualityFinding[] = []
-  const today = new Date().toISOString().split('T')[0]
-  const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
   let query = supabase
     .from('listings')
@@ -156,7 +155,7 @@ export async function checkLowStockEvents(
       listing_markets!inner (
         market_id,
         markets!inner (
-          id, name, market_type, event_start_date, status
+          id, name, market_type, event_start_date, status, timezone
         )
       )
     `)
@@ -184,6 +183,8 @@ export async function checkLowStockEvents(
       if (market.market_type !== 'event') continue
       if (market.status !== 'active') continue
       if (!market.event_start_date) continue
+      const today = todayInTimezone(market.timezone)
+      const nextWeek = addDaysToDateString(today, 7)
       if (market.event_start_date < today || market.event_start_date > nextWeek) continue
 
       findings.push({
@@ -285,7 +286,6 @@ export async function checkGhostListings(
   verticalId?: string
 ): Promise<QualityFinding[]> {
   const findings: QualityFinding[] = []
-  const today = new Date().toISOString().split('T')[0]
 
   // Get all published listings with their market associations
   let query = supabase
@@ -295,7 +295,7 @@ export async function checkGhostListings(
       listing_markets (
         market_id,
         markets (
-          id, status, market_type, event_end_date,
+          id, status, market_type, event_end_date, timezone,
           market_schedules (active)
         )
       )
@@ -339,7 +339,8 @@ export async function checkGhostListings(
       if (!market || market.status !== 'active') continue
 
       if (market.market_type === 'event') {
-        // Events are valid if end_date >= today
+        // Events are valid if end_date >= today (resolved in the market's own tz)
+        const today = todayInTimezone(market.timezone)
         if (market.event_end_date && market.event_end_date >= today) {
           hasValidPath = true
           break
