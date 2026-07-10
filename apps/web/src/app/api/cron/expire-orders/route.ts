@@ -7,6 +7,7 @@ import { timingSafeEqual } from 'crypto'
 import { withErrorTracing, TracedError, logError } from '@/lib/errors'
 import { FEES, proratedFlatFeeSimple } from '@/lib/pricing'
 import { getTierLimits, TRIAL_SYSTEM_ENABLED } from '@/lib/vendor-limits'
+import { todayInTimezone, tomorrowInTimezone, addDaysToDateString } from '@/lib/time/market-dates'
 import { recordExternalPaymentFee } from '@/lib/payments/vendor-fees'
 import { isCleanupDay, calculateRetentionCutoffs } from '@/lib/cron/retention'
 import { REMINDER_DELAY_MS, DEFAULT_REMINDER_DELAY_MS, isOrderOldEnoughForReminder, getAutoConfirmCutoffDate, areAllItemsPastPickupWindow, formatPaymentMethodLabel } from '@/lib/cron/external-payment'
@@ -919,6 +920,9 @@ export async function GET(request: NextRequest) {
     try {
       const sevenDaysAgo = new Date()
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+      // UTC "today" is a safe SUPERSET bound for the SQL filter (every market is
+      // behind UTC → market-local-today <= UTC-today); the real per-market cutoff
+      // is applied in the loop below so we don't expire an order a day early.
       const today = new Date().toISOString().split('T')[0]
 
       const { data: staleConfirmed } = await supabase
@@ -926,6 +930,8 @@ export async function GET(request: NextRequest) {
         .select(`
           id,
           order_id,
+          pickup_date,
+          market_id,
           order:orders!inner(buyer_user_id, order_number, vertical_id)
         `)
         .eq('status', 'confirmed')
@@ -935,7 +941,21 @@ export async function GET(request: NextRequest) {
         .limit(100)
 
       if (staleConfirmed && staleConfirmed.length > 0) {
+        // Resolve each item's market timezone for a market-local "past pickup" test
+        const marketIds = [...new Set(staleConfirmed.map(i => (i as any).market_id).filter(Boolean) as string[])]
+        const tzByMarket = new Map<string, string>()
+        if (marketIds.length > 0) {
+          const { data: mkts } = await supabase.from('markets').select('id, timezone').in('id', marketIds)
+          for (const m of mkts || []) tzByMarket.set(m.id as string, ((m as any).timezone as string) || 'America/Chicago')
+        }
+
         for (const item of staleConfirmed) {
+          // Only expire when the pickup date is strictly past in the market's own tz
+          const mid = (item as any).market_id as string | null
+          const tz = (mid && tzByMarket.get(mid)) || 'America/Chicago'
+          const pickupDate = (item as any).pickup_date as string | null
+          if (!pickupDate || !(pickupDate < todayInTimezone(tz))) continue
+
           const orderData = (item as any).order as any
           await supabase
             .from('order_items')
@@ -2025,20 +2045,25 @@ export async function GET(request: NextRequest) {
     // ─── Phase 11: Event Prep Reminders (24h before) ─────────────────
     let eventReminders = 0
     try {
-      const tomorrow = new Date()
-      tomorrow.setDate(tomorrow.getDate() + 1)
-      const tomorrowStr = tomorrow.toISOString().split('T')[0]
+      // event_date is market-local; "tomorrow" differs per market timezone.
+      // Widen to the two UTC candidate dates that can hold any US market's
+      // local-tomorrow (market is always behind UTC), then refine per-market below.
+      const utcToday = new Date().toISOString().split('T')[0]
+      const candidateDates = [utcToday, addDaysToDateString(utcToday, 1)]
 
-      // Find events happening tomorrow that are in ready/active status
+      // Find events on those candidate dates that are in ready/active status
       const { data: upcomingEvents } = await supabase
         .from('catering_requests')
-        .select('id, market_id, event_date, company_name, event_start_time, headcount, vertical_id')
+        .select('id, market_id, event_date, company_name, event_start_time, headcount, vertical_id, market:markets!catering_requests_market_id_fkey(timezone)')
         .in('status', ['ready', 'active'])
-        .eq('event_date', tomorrowStr)
+        .in('event_date', candidateDates)
 
       if (upcomingEvents && upcomingEvents.length > 0) {
         for (const event of upcomingEvents) {
           if (!event.market_id) continue
+          // Only remind for events that are "tomorrow" in the market's own tz
+          const tz = (event.market as any)?.timezone || 'America/Chicago'
+          if (event.event_date !== tomorrowInTimezone(tz)) continue
 
           // Get accepted vendors for this event
           const { data: acceptedVendors } = await supabase
