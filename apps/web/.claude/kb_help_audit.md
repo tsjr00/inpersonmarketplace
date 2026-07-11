@@ -1,5 +1,6 @@
 # Knowledge Base / Help Audit (2026-07-11)
 
+> **STATUS: ✅ EXECUTED via mig 187 + mig 188** (Phase 1 = 187 FAQ retire/stale/gaps; Phase 2 = 188 full consolidation — events→"Vendor Events", manager/booth→183 canonical, sales-tax corrected, prices→Upgrade page). Both applied Dev+Staging, Prod PENDING. NOTE the first audit under-scoped (missed migs 069/071/073/077/082/099/158); 188 reconciled them. Reworded pop-up/private-event copy to eyeball on staging. Original Phase-1 note:**
 > **STATUS: ✅ EXECUTED via mig 187** (`20260711_187_kb_help_cleanup.sql`, applied Dev+Staging 2026-07-11, Prod PENDING) + legacy `FOOD_TRUCK_FAQ_SEED.sql` deleted. Decisions taken: retire FAQ (Q2✓), delete file (Q3✓), FT prices→Upgrade page (Q4✓), no cash/all-Stripe (Q5✓), add all gap articles (Q6✓). UNCOMMITTED pending user go. All 6 open decisions resolved.
 
 Scope (user-set): `knowledge_articles` + KB seed files ONLY (migs 013 schema, 062, 183, FOOD_TRUCK_FAQ_SEED). NOT marketing/how-it-works pages (later). Changes ship as a **data-only migration**. Report-first, then edits on go. Both verticals, all audiences.
