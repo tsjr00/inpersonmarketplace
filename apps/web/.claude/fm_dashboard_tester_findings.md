@@ -87,7 +87,16 @@ Root fix: make date generation respect the season window when one is set.
   - (Q3) Markets with NO season set (season_start/end null) must keep today's behavior (next 8 weeks) — confirm.
 - **Care:** money-adjacent (booth booking availability). Not a critical-path file, but changes what vendors can book. Add NEW unit tests asserting season-clamped behavior (business-rule = "no operating/bookable date outside the season window").
 
-## Phase 3 — Booth-number reconciliation (Item 3A) — **needs decision**
+## Phase 3a — Booth-number reconciliation (Item 3A) — ✅ BUILT 2026-07-11 (gates green tsc0/flow-integrity+2, UNCOMMITTED, **mig 186 NOT applied**)
+Decisions: 3-layer model (Q4); taken-booth = fail-loud (manager double-pin already hard-blocked by mig 146, so the "assign anyway" toggle was DROPPED — it would weaken an existing guarantee). Scope = 4 items:
+1. **Mig 186** `20260711_186_booth_assign_honor_manager.sql` — CREATE OR REPLACE `book_weekly_booth_atomic` (same signature): layer-2 honors `market_vendors.booth_number`; layer-3 auto-assign now excludes pinned booths; RAISE `BOOTH_TAKEN` (P0008) when a pinned booth is taken that week. `book_season_atomic` (mig 165) loops this fn → inherits it. No table/column change. **USER applies Dev+Staging; Claude never applies.**
+2. `book/route.ts` maps `BOOTH_TAKEN` → clear 409 "contact your manager" (no silent reslot).
+3. `vendor-booth/route.ts` stale comment fixed (duplicates ARE blocked via mig 146 — the prior "duplicates allowed" note was wrong).
+4. `flow-integrity.test.ts` +2 contract tests (RPC excludes pins + honors + raises BOOTH_TAKEN; route maps it).
+**Behavioral verification is manual on staging** (SQL RPC — no DB-fixture unit test); a full booth-booking integration test is a reasonable backlog item.
+**NEXT:** user applies mig 186 Dev+Staging → Claude does SCHEMA_SNAPSHOT bookkeeping → commit + push staging (explicit go each).
+
+### (original scope)
 - Two booth-number sources assign independently: `market_vendors.booth_number` (manager roster) vs `weekly_booth_rentals.booth_number` (auto-assigned at booking).
 - **Open question (Q4):** what's the intended source of truth? Options: (a) manager's roster booth# seeds/locks the vendor's rental booth#; (b) surface both explicitly ("assigned booth #1 · this week booked #2") so they're not confused; (c) manager assignment is advisory only and rentals always auto-assign. Needs product intent before code.
 

@@ -350,6 +350,19 @@ export async function POST(
           { status: 409 }
         )
       }
+      if (msg.includes('BOOTH_TAKEN')) {
+        // Mig 186 layer-2 RAISE: this vendor is pinned to a specific booth by
+        // the manager, but that booth already has a booking for this week.
+        // Rare (duplicate pins are blocked; auto-assign excludes pins) — mostly
+        // legacy pre-migration rentals. Don't silently reslot; tell the vendor
+        // to sort it out with the manager.
+        return NextResponse.json(
+          {
+            error: `Your assigned booth is already booked for that week at ${(market.name as string) || 'this market'}. Please contact the market manager to resolve it.`,
+          },
+          { status: 409 }
+        )
+      }
       logError(traced.fromSupabase(rpcErr, {
         table: 'weekly_booth_rentals',
         operation: 'rpc',

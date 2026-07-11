@@ -21,9 +21,13 @@ import { withErrorTracing, traced, crumb } from '@/lib/errors'
  *     in their numbering schemes so we don't constrain format).
  *     Pass `null` (or empty string after trim) to clear the booth.
  *
- * No uniqueness check across vendors at the same market. Two vendors
- * with the same booth_number is allowed (managers occasionally share
- * booths). Surface duplicates in the manager dashboard if needed.
+ * Booth numbers ARE unique per market: `checkBoothNumberAvailable` (below)
+ * rejects a number already held by another on-platform vendor, an
+ * off-platform placeholder, or an active current/upcoming rental (409),
+ * and the mig 146 trigger (BOOTH_CONFLICT P0005) is the canonical backstop.
+ * This is what lets the booking RPC (mig 186) treat a vendor's pinned booth
+ * as unambiguously theirs. (Prior note here claimed duplicates were allowed —
+ * that was stale; mig 146 closed it.)
  */
 export async function PATCH(
   request: NextRequest,

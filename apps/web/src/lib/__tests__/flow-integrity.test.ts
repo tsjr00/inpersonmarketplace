@@ -501,6 +501,34 @@ describe('Phase E season flow integrity', () => {
   })
 })
 
+describe('Phase 3a — booth assignment honors manager pins (mig 186)', () => {
+  const read = (p: string) => fs.readFileSync(p, 'utf-8')
+
+  // Migration may sit in migrations/ (pre-prod) or applied/ (post prod push).
+  const boothMig = [
+    '../../../supabase/migrations/20260711_186_booth_assign_honor_manager.sql',
+    '../../../supabase/migrations/applied/20260711_186_booth_assign_honor_manager.sql',
+  ]
+    .map((rel) => path.resolve(SRC_DIR, rel))
+    .find((p) => fs.existsSync(p))
+    ?? path.resolve(SRC_DIR, '../../../supabase/migrations/20260711_186_booth_assign_honor_manager.sql')
+
+  it('the booth RPC excludes manager-pinned booths, honors a pin, and raises BOOTH_TAKEN', () => {
+    const sql = read(boothMig)
+    // Layer 3: auto-assign exclusion set must include market_vendors pins.
+    expect(sql).toMatch(/SELECT booth_number FROM market_vendors/)
+    // Layer 2: honor the manager's pin.
+    expect(sql).toContain('v_manager_booth')
+    // Fail-loud contract when a pinned booth is taken that week.
+    expect(sql).toContain('BOOTH_TAKEN')
+  })
+
+  it('book route maps BOOTH_TAKEN to a clear vendor error (RPC ↔ route contract)', () => {
+    const code = read(path.join(APP_DIR, 'api/vendor/markets/[id]/book/route.ts'))
+    expect(code).toContain('BOOTH_TAKEN')
+  })
+})
+
 describe('Phase E season status lifecycle', () => {
   // market_seasons.status CHECK (mig 164) = draft|open|active|ended|settled.
   // LIVE statuses, each set somewhere in code:
