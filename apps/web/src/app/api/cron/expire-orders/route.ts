@@ -168,13 +168,38 @@ export async function GET(request: NextRequest) {
       if (fetchError) {
         console.error('Error fetching expired items:', fetchError.message)
       } else if (expiredItems && expiredItems.length > 0) {
+        // F6: per-batch prefetch to kill the N+1. Two loop-invariant reads (total
+        // items per order for flat-fee proration; the succeeded payment for the
+        // refund) collapse from 2-per-item to 2-per-batch. The remaining-items
+        // check stays per-item (it reads live state that changes as we cancel).
+        const batchOrderIds = [...new Set(expiredItems.map(i => i.order_id as string).filter(Boolean))]
+        const orderItemCounts = new Map<string, number>()
+        const paymentByOrder = new Map<string, { stripe_payment_intent_id: string | null }>()
+        if (batchOrderIds.length > 0) {
+          const { data: allOrderItems } = await supabase
+            .from('order_items')
+            .select('order_id')
+            .in('order_id', batchOrderIds)
+          for (const oi of allOrderItems || []) {
+            const oid = oi.order_id as string
+            orderItemCounts.set(oid, (orderItemCounts.get(oid) || 0) + 1)
+          }
+          const { data: succeededPayments } = await supabase
+            .from('payments')
+            .select('order_id, stripe_payment_intent_id')
+            .in('order_id', batchOrderIds)
+            .eq('status', 'succeeded')
+          for (const p of succeededPayments || []) {
+            const oid = p.order_id as string
+            if (!paymentByOrder.has(oid)) paymentByOrder.set(oid, { stripe_payment_intent_id: p.stripe_payment_intent_id as string | null })
+          }
+        }
+
         for (const item of expiredItems) {
           try {
             // H20 FIX: Calculate buyer's actual paid amount (not just subtotal)
-            const { count: totalItemsInOrder } = await supabase
-              .from('order_items')
-              .select('id', { count: 'exact', head: true })
-              .eq('order_id', item.order_id)
+            // F6: total-items count comes from the per-batch prefetch (was a query)
+            const totalItemsInOrder = orderItemCounts.get(item.order_id as string) || 0
 
             const buyerPercentFee = Math.round(item.subtotal_cents * (FEES.buyerFeePercent / 100))
             const itemFlatFee = totalItemsInOrder ? proratedFlatFeeSimple(FEES.buyerFlatFeeCents, totalItemsInOrder) : 0
@@ -230,13 +255,8 @@ export async function GET(request: NextRequest) {
             // Process Stripe refund
             const order = item.order as any
             if (order?.stripe_checkout_session_id) {
-              const { data: payment } = await supabase
-                .from('payments')
-                .select('stripe_payment_intent_id, status')
-                .eq('order_id', item.order_id)
-                .eq('status', 'succeeded')
-                .single()
-
+              // F6: succeeded payment comes from the per-batch prefetch (was a query)
+              const payment = paymentByOrder.get(item.order_id as string)
               if (payment?.stripe_payment_intent_id) {
                 try {
                   await createRefund(payment.stripe_payment_intent_id, item.id, buyerPaidForItem)
