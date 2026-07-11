@@ -1,6 +1,6 @@
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { getOnboardingProgress } from '@/lib/markets/onboarding-progress'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
@@ -9,13 +9,15 @@ import BoothInventoryManager from '@/components/market-manager/BoothInventoryMan
 import BoothPlaceholderManager from '@/components/market-manager/BoothPlaceholderManager'
 import OptinManager from '@/components/market-manager/OptinManager'
 import VendorBoothList from '@/components/market-manager/VendorBoothList'
+import MarketScheduleCard from '@/components/market-manager/MarketScheduleCard'
 import OnboardingSkipAckCheckbox from '@/components/market-manager/OnboardingSkipAckCheckbox'
 
-const STEPS = ['identity', 'booths', 'vendors', 'placeholders', 'optin', 'confirm'] as const
+const STEPS = ['identity', 'schedule', 'booths', 'vendors', 'placeholders', 'optin', 'confirm'] as const
 type StepSlug = typeof STEPS[number]
 
 const STEP_LABELS: Record<StepSlug, string> = {
   identity: 'Confirm your market',
+  schedule: 'Market schedule',
   booths: 'Booth inventory',
   vendors: 'Vendor booth assignments',
   placeholders: 'Off-platform placeholders',
@@ -29,11 +31,13 @@ interface PageProps {
 
 /**
  * Onboarding wizard step page. Auth-gated server component that
- * dispatches to one of 5 named steps:
+ * dispatches to one of the named steps:
  *
  *   identity     — read-only confirmation of the market record
+ *   schedule     — wraps MarketScheduleCard (operating days/times + season window)
  *   booths       — wraps BoothInventoryManager
- *   placeholders — wraps BoothPlaceholderManager
+ *   vendors      — wraps VendorBoothList (+ skip ack)
+ *   placeholders — wraps BoothPlaceholderManager (+ skip ack)
  *   optin        — wraps OptinManager
  *   confirm      — review summary + back-to-dashboard
  *
@@ -62,7 +66,7 @@ export default async function OnboardingStepPage({ params }: PageProps) {
 
   const { data: market } = await supabase
     .from('markets')
-    .select('id, name, address, city, state, market_type')
+    .select('id, name, address, city, state, market_type, season_start, season_end')
     .eq('id', marketId)
     .single()
 
@@ -80,6 +84,20 @@ export default async function OnboardingStepPage({ params }: PageProps) {
   const steps = isFoodTrucks ? STEPS.filter((s) => !FT_SKIP_STEPS.includes(s)) : STEPS
 
   const progress = await getOnboardingProgress(marketId)
+
+  // Schedule step needs the market's current schedule rows (season window
+  // comes from the market row above). Service client — market-manager tables
+  // are RLS-deny for the user's client; auth is enforced above.
+  let scheduleRows: Array<{ day_of_week: number; start_time: string | null; end_time: string | null; active: boolean | null }> = []
+  if (stepSlug === 'schedule') {
+    const svc = createServiceClient()
+    const { data: sched } = await svc
+      .from('market_schedules')
+      .select('day_of_week, start_time, end_time, active')
+      .eq('market_id', marketId)
+      .order('day_of_week', { ascending: true })
+    scheduleRows = (sched ?? []) as typeof scheduleRows
+  }
 
   const stepIdx = steps.indexOf(stepSlug)
   const prevStep = stepIdx > 0 ? steps[stepIdx - 1] : null
@@ -192,6 +210,33 @@ export default async function OnboardingStepPage({ params }: PageProps) {
             }}>
               If anything here is incorrect, contact support to update it before continuing.
             </p>
+          </div>
+        )}
+
+        {stepSlug === 'schedule' && (
+          <div style={{
+            padding: spacing.md,
+            backgroundColor: colors.surfaceElevated,
+            border: `1px solid ${colors.border}`,
+            borderRadius: radius.md,
+          }}>
+            <p style={{
+              margin: 0,
+              marginBottom: spacing.sm,
+              color: colors.textMuted,
+              fontSize: typography.sizes.sm,
+              lineHeight: 1.5,
+            }}>
+              Set the days and times your {term(vertical, 'market').toLowerCase()} operates — you need at least one active day to continue. Optionally set a season window (start/end dates) if it only runs part of the year; leave it blank for year-round. This drives pickup availability and gates booth booking to the operating window.
+            </p>
+            <MarketScheduleCard
+              marketId={marketId}
+              vertical={vertical}
+              initialSchedules={scheduleRows}
+              initialSeasonStart={(market.season_start as string | null) ?? null}
+              initialSeasonEnd={(market.season_end as string | null) ?? null}
+              hasScheduleChangeRecipients={false}
+            />
           </div>
         )}
 
@@ -318,6 +363,17 @@ export default async function OnboardingStepPage({ params }: PageProps) {
                 <span><strong>Market identity</strong> — {market.name}</span>
               </li>
               <li style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs }}>
+                <span style={{ color: progress.schedule_done ? colors.primary : '#dc2626', fontSize: typography.sizes.lg }}>
+                  {progress.schedule_done ? '✓' : '⚠'}
+                </span>
+                <span>
+                  <strong>Market schedule</strong>
+                  {progress.schedule_done
+                    ? ' — configured'
+                    : ' — no operating days set, buyers won\'t see pickup dates'}
+                </span>
+              </li>
+              <li style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs }}>
                 <span style={{ color: progress.inventory_done ? colors.primary : '#dc2626', fontSize: typography.sizes.lg }}>
                   {progress.inventory_done ? '✓' : '⚠'}
                 </span>
@@ -383,7 +439,7 @@ export default async function OnboardingStepPage({ params }: PageProps) {
               fontSize: typography.sizes.sm,
               lineHeight: 1.5,
             }}>
-              {progress.inventory_done && progress.optin_done
+              {progress.schedule_done && progress.inventory_done && progress.optin_done
                 ? 'Your market is set up and ready. You can edit any of these from the dashboard later.'
                 : 'You can finish later — fill in the missing pieces from the dashboard or come back to this wizard.'}
             </p>

@@ -11,14 +11,14 @@ interface PageProps {
 
 /**
  * Onboarding checklist landing page — entry point into the guided
- * 5-step wizard. Shows current progress and an explanation of what each
+ * wizard. Shows current progress and an explanation of what each
  * step covers, so the manager knows what they're getting into before
  * they start.
  *
  * Auth: redirects non-managers to /[vertical]/dashboard.
  *
  * The actual steps live at ./[step]/page.tsx with named slugs:
- * identity, booths, placeholders, optin, confirm.
+ * identity, schedule, booths, vendors, placeholders, optin, confirm.
  */
 export default async function OnboardingLandingPage({ params }: PageProps) {
   const { vertical, marketId } = await params
@@ -46,6 +46,7 @@ export default async function OnboardingLandingPage({ params }: PageProps) {
   // never marks complete" loop.
   const steps = [
     { slug: 'identity', label: 'Confirm your market', description: 'Make sure the market info is correct.', done: true },
+    { slug: 'schedule', label: 'Market schedule', description: 'Set your operating days, times, and season window.', done: progress.schedule_done },
     { slug: 'booths', label: 'Booth inventory', description: 'Set up size tiers and weekly prices.', done: progress.inventory_done },
     {
       slug: 'vendors',

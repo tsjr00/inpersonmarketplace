@@ -100,7 +100,10 @@ Decisions: 3-layer model (Q4); taken-booth = fail-loud (manager double-pin alrea
 - Two booth-number sources assign independently: `market_vendors.booth_number` (manager roster) vs `weekly_booth_rentals.booth_number` (auto-assigned at booking).
 - **Open question (Q4):** what's the intended source of truth? Options: (a) manager's roster booth# seeds/locks the vendor's rental booth#; (b) surface both explicitly ("assigned booth #1 · this week booked #2") so they're not confused; (c) manager assignment is advisory only and rentals always auto-assign. Needs product intent before code.
 
-## Phase 4 — Dashboard IA + onboarding (Items 1, 7) — **design + build**
+## Phase 4 — Dashboard IA + onboarding — ✅ BUILT 2026-07-11 (gates green tsc0/lint0, UNCOMMITTED, no migration)
+Decisions: Q5 (Setup-first always, banner stays top, collapse-when-complete kept); Q6 (add schedule step, required). **4a:** `FmDashboardBody` Setup group moved to position ② (after the triage banner, before Booths); `ManagerJumpNav` FM chips reordered Setup-first. **4b:** new **"Market schedule"** wizard step (renders existing `MarketScheduleCard` = days/times + season window) — `onboarding/page.tsx` (landing step) + `onboarding/[step]/page.tsx` (slug `schedule`, content, fetch schedules via service client) + confirm-summary line; `onboarding-progress.ts` adds `schedule_done` (active `market_schedules` row) → **`required_total` 4→5**; `OnboardingChecklist` shows the step + dynamic count. Season PRE-SALES (`market_seasons`) intentionally NOT an onboarding step. No test encodes the old count (verified). **Gating note:** a market with no schedule now reads "incomplete" (Setup re-expands, invite re-gates) — nil real-world impact (FM has no live users). FT parks: schedule step applies (parks have schedules); FT still never auto-completes (no booth inventory) — unchanged. No migration (reads existing tables/columns).
+
+### (original scope)
 - Reorder so Setup leads for a NEW manager (onboarding incomplete); add schedule + season as onboarding-wizard steps.
 - **Open questions (Q5):** Setup-first always, or only while onboarding incomplete? (Q6) Add schedule + season to the guided `/onboarding` step sequence (grows the 4-step checklist + `onboarding-progress` gating)?
 

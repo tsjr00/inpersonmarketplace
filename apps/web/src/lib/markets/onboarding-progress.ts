@@ -46,11 +46,15 @@ export interface OnboardingProgress {
   vendors_step_done: boolean
   /** Mig 145: the manager-toggled ack flag itself (markets column). */
   no_existing_vendors_ack: boolean
-  /** Number of REQUIRED steps complete (0..4) — inventory + optin +
-   *  vendors + placeholders. Mig 145 grew this from 2 to 4. */
+  /** Phase 4b: TRUE when the market has at least one ACTIVE market_schedules
+   *  row. A traditional market needs an operating day to produce any pickup
+   *  dates (mig 131), so schedule is a required onboarding step. */
+  schedule_done: boolean
+  /** Number of REQUIRED steps complete (0..5) — inventory + optin +
+   *  vendors + placeholders + schedule. Mig 145 grew this 2→4; Phase 4b →5. */
   required_complete: number
-  /** Always 4 since mig 145 (was 2). UI uses it to render "X of N". */
-  required_total: 4
+  /** Always 5 since Phase 4b (was 4). UI uses it to render "X of N". */
+  required_total: 5
 }
 
 /** Reads progress for the market using a service client (RLS is
@@ -72,6 +76,7 @@ export async function getOnboardingProgress(
     vendorsAllResult,
     vendorsWithBoothResult,
     marketResult,
+    scheduleResult,
   ] = await Promise.all([
     serviceClient
       .from('market_booth_inventory')
@@ -99,6 +104,11 @@ export async function getOnboardingProgress(
       .select('onboarding_no_existing_vendors_ack, onboarding_no_placeholders_ack')
       .eq('id', marketId)
       .maybeSingle(),
+    serviceClient
+      .from('market_schedules')
+      .select('id', { count: 'exact', head: true })
+      .eq('market_id', marketId)
+      .eq('active', true),
   ])
 
   const inventory_done = (invResult.count ?? 0) > 0
@@ -115,12 +125,14 @@ export async function getOnboardingProgress(
   // the manager has at least one row OR has acknowledged the skip.
   const vendors_step_done = vendors_at_market_count > 0 || no_existing_vendors_ack
   const placeholders_step_done = placeholders_count > 0 || no_placeholders_ack
+  const schedule_done = (scheduleResult.count ?? 0) > 0
 
   let required_complete = 0
   if (inventory_done) required_complete++
   if (optin_done) required_complete++
   if (vendors_step_done) required_complete++
   if (placeholders_step_done) required_complete++
+  if (schedule_done) required_complete++
 
   return {
     inventory_done,
@@ -132,7 +144,8 @@ export async function getOnboardingProgress(
     vendors_with_booth_count,
     vendors_step_done,
     no_existing_vendors_ack,
+    schedule_done,
     required_complete,
-    required_total: 4,
+    required_total: 5,
   }
 }

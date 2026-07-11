@@ -29,11 +29,13 @@ export default function ManagerJumpNav({ vertical, showMoney = false }: ManagerJ
     { id: 'setup', label: 'Setup' },
     { id: 'announce', label: 'Communicate' },
   ]
-  // FM uses the grouped layout (FmDashboardBody) — chips map to the groups.
+  // FM uses the grouped layout (FmDashboardBody) — chips map to the groups,
+  // in visual order. Setup leads (Phase 4a moved it ahead of the operational
+  // groups).
   const FM_SECTIONS: Array<{ id: string; label: string }> = [
+    { id: 'setup', label: 'Setup' },
     { id: 'booths', label: term(vertical, 'booths') },
     { id: 'vendors', label: term(vertical, 'vendors') },
-    { id: 'setup', label: 'Setup' },
     { id: 'money', label: 'Money' },
     { id: 'announce', label: 'Communicate' },
   ]

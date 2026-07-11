@@ -34,9 +34,10 @@ import type { ManagerDashboardStats, ManagerEarningsAggregates } from '@/lib/mar
 /**
  * FM (farmers-market) manager dashboard body — the FM-only card arrangement,
  * grouped by how a market manager works instead of one flat card per table:
- *   ① What's on your plate · ② Booths & this week · ③ Your vendors (tabbed)
- *   ④ Setup (collapsible; collapsed once onboarding is complete) · ⑤ Money &
- *   insights · ⑥ Communicate.
+ *   ① What's on your plate · ② Setup (collapsible; first, onboarding-style —
+ *   collapsed once onboarding is complete) · ③ Booths & this week · ④ Your
+ *   vendors (tabbed) · ⑤ Money & insights · ⑥ Communicate.
+ *   (Phase 4a moved Setup ahead of the operational groups.)
  *
  * FT parks use FtParkDashboardBody. Cards are reused with the SAME props they
  * had inline — presentation-only regroup, no logic touched. Booth inventory +
@@ -116,38 +117,9 @@ export default function FmDashboardBody({
       {/* ① Triage */}
       <ManagerActionSummary vertical={vertical} marketId={marketId} progress={onboardingProgress} stats={dashboardStats} />
 
-      {/* ② BOOTHS & THIS WEEK — inventory + occupancy + off-platform + weekly bookings + day-of ops */}
-      <GroupHeading id="booths" title={`${term(vertical, 'booths')} & this week`} subtitle="Inventory, occupancy, bookings, attendance" />
-      <ManagerCard
-        title={`${term(vertical, 'booth')} inventory`}
-        description={`Configure the ${term(vertical, 'booth').toLowerCase()} size tiers at your ${term(vertical, 'market').toLowerCase()} — how many of each size you have and the weekly rental price. This is the foundation for the weekly ${term(vertical, 'vendor').toLowerCase()} booking flow.`}
-      >
-        <BoothInventoryManager marketId={marketId} vertical={vertical} />
-      </ManagerCard>
-      <BoothOccupancyGrid marketId={marketId} marketTimezone={(market.timezone as string | null) ?? null} vertical={vertical} />
-      <ManagerCard
-        title={`Off-platform ${term(vertical, 'booth').toLowerCase()} placeholders`}
-        description={`Track ${term(vertical, 'booths').toLowerCase()} occupied by ${term(vertical, 'vendors').toLowerCase()} who are not on the platform. No ${term(vertical, 'vendor').toLowerCase()} identity is captured — just the ${term(vertical, 'booth').toLowerCase()} number and (optionally) which size tier it counts against.`}
-      >
-        <BoothPlaceholderManager marketId={marketId} vertical={vertical} />
-      </ManagerCard>
-      <div id="weekly-bookings" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
-        <WeeklyBookingsCard marketId={marketId} marketTimezone={(market.timezone as string | null) ?? null} vertical={vertical} />
-      </div>
-      <MarketAttendanceCard marketId={marketId} vertical={vertical} />
-      <MarketCancelDateCard marketId={marketId} vertical={vertical} />
-
-      {/* ③ YOUR VENDORS — roster + invite (tabbed) */}
-      <TabbedCard
-        id="vendors"
-        title={`${term(vertical, 'vendors')}`}
-        tabs={[
-          { id: 'roster', label: 'At this market', content: rosterTab },
-          { id: 'invite', label: 'Invite', content: inviteTab },
-        ]}
-      />
-
-      {/* ④ SETUP — collapsible (occasional config); collapsed once onboarding complete */}
+      {/* ② SETUP — first, onboarding-style (Phase 4a). A new manager configures
+          the market before the operational groups below. Collapsed by default
+          only once onboarding is complete (Q5 — saves space post-setup). */}
       <CollapsibleSection id="setup" title="Setup" subtitle="Onboarding, payments, schedule, seasons, agreements, branding" defaultCollapsed={onboardingComplete}>
         <OnboardingChecklist vertical={vertical} marketId={marketId} progress={onboardingProgress} />
         <MarketStripeConnectCard marketId={marketId} marketStatus={(market.status as string | null) ?? null} vertical={vertical} />
@@ -185,6 +157,37 @@ export default function FmDashboardBody({
         <VerificationDocumentsCard marketId={marketId} vertical={vertical} />
         {visibilityStatus && <MarketVisibilityCard status={visibilityStatus} />}
       </CollapsibleSection>
+
+      {/* ③ BOOTHS & THIS WEEK — inventory + occupancy + off-platform + weekly bookings + day-of ops */}
+      <GroupHeading id="booths" title={`${term(vertical, 'booths')} & this week`} subtitle="Inventory, occupancy, bookings, attendance" />
+      <ManagerCard
+        title={`${term(vertical, 'booth')} inventory`}
+        description={`Configure the ${term(vertical, 'booth').toLowerCase()} size tiers at your ${term(vertical, 'market').toLowerCase()} — how many of each size you have and the weekly rental price. This is the foundation for the weekly ${term(vertical, 'vendor').toLowerCase()} booking flow.`}
+      >
+        <BoothInventoryManager marketId={marketId} vertical={vertical} />
+      </ManagerCard>
+      <BoothOccupancyGrid marketId={marketId} marketTimezone={(market.timezone as string | null) ?? null} vertical={vertical} />
+      <ManagerCard
+        title={`Off-platform ${term(vertical, 'booth').toLowerCase()} placeholders`}
+        description={`Track ${term(vertical, 'booths').toLowerCase()} occupied by ${term(vertical, 'vendors').toLowerCase()} who are not on the platform. No ${term(vertical, 'vendor').toLowerCase()} identity is captured — just the ${term(vertical, 'booth').toLowerCase()} number and (optionally) which size tier it counts against.`}
+      >
+        <BoothPlaceholderManager marketId={marketId} vertical={vertical} />
+      </ManagerCard>
+      <div id="weekly-bookings" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
+        <WeeklyBookingsCard marketId={marketId} marketTimezone={(market.timezone as string | null) ?? null} vertical={vertical} />
+      </div>
+      <MarketAttendanceCard marketId={marketId} vertical={vertical} />
+      <MarketCancelDateCard marketId={marketId} vertical={vertical} />
+
+      {/* ④ YOUR VENDORS — roster + invite (tabbed) */}
+      <TabbedCard
+        id="vendors"
+        title={`${term(vertical, 'vendors')}`}
+        tabs={[
+          { id: 'roster', label: 'At this market', content: rosterTab },
+          { id: 'invite', label: 'Invite', content: inviteTab },
+        ]}
+      />
 
       {/* ⑤ MONEY & INSIGHTS */}
       <GroupHeading id="money" title="Money & insights" />

@@ -35,7 +35,8 @@ export default function OnboardingChecklist({
     progress.inventory_done &&
     progress.optin_done &&
     progress.vendors_step_done &&
-    progress.placeholders_step_done
+    progress.placeholders_step_done &&
+    progress.schedule_done
 
   if (allRequiredDone) {
     return (
@@ -52,7 +53,7 @@ export default function OnboardingChecklist({
         gap: spacing.xs,
       }}>
         <div style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
-          ✓ Setup complete — all 4 required steps configured
+          ✓ Setup complete — all {progress.required_total} required steps configured
         </div>
         <Link
           href={`/${vertical}/market-manager/${marketId}/onboarding`}
@@ -109,6 +110,10 @@ export default function OnboardingChecklist({
         fontSize: typography.sizes.sm,
         color: '#713f12',
       }}>
+        <li style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], marginBottom: spacing['3xs'] }}>
+          <span>{progress.schedule_done ? '✓' : '○'}</span>
+          <span>{term(vertical, 'market')} schedule{progress.schedule_done ? '' : ' — set your operating days & times'}</span>
+        </li>
         <li style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], marginBottom: spacing['3xs'] }}>
           <span>{progress.inventory_done ? '✓' : '○'}</span>
           <span>{term(vertical, 'booth')} inventory{progress.inventory_done ? '' : ' — add at least one size tier'}</span>
