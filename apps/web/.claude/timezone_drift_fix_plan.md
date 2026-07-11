@@ -1,6 +1,8 @@
 # Timezone Drift Fix — Plan (2026-07-07)
 
-**Status:** Groups 1-3 CODE-COMPLETE (2026-07-10). Only #11 (deferred, critical-path) remains. Ships as its OWN prod push on top of the live FT-port. mig 184 applied Dev+Staging (Prod PENDING).
+**Status:** COMPLETE (2026-07-10) — all sites done: Groups 1-3 + #11. Groups 1-3 committed + on staging; #11 uncommitted. Awaiting the tz PROD push (apply mig 184 to Prod + push `main`). mig 184 applied Dev+Staging (Prod PENDING).
+
+**#11 DONE (2026-07-10, uncommitted):** added `nextPickupDateInTimezone(pickupDow, tz?, now?)` to `market-dates.ts` (+ week-shift regression test). Fixed the two real market-box start-date sources: `buyer/market-boxes/route.ts` (added `pickup_market_id` to offering select + `markets` tz lookup) and `cart/items/route.ts` (CRITICAL-PATH, user file-level approval — `pickup_market_id` already selected + tz lookup). Backstops (`webhooks.ts:238`, `checkout/success:226`) LEFT ON UTC per user decision. tsc clean, 1613/1613 green.
 **Source audit:** `backlog.md` Priority 1. All sites below RE-VERIFIED against current code 2026-07-07 (citations are live).
 
 ---
@@ -36,6 +38,22 @@ The plan listed #11 as "very low, fallback-only (`webhooks.ts:238`, `checkout/su
 - `subscribe_to_market_box_if_capacity` derives EVERY pickup date + `original_end_date` from `start_date` (trigger in `applied/20260420_124...:60,67`), so a drifted fallback shifts the whole subscription.
 - Severity is **higher than "very low" when it fires**: concrete boundary case (CT buyer, Sun 9pm local = Mon 02:00 UTC, pickup day = Monday) → UTC path computes start **07-13**, correct market-local is **07-06** → box starts a **full week late**, pickups + settlement end-date all shift. Fires only in the evening window AND when buyer omits a start date.
 - **Recommended #11 scope when resumed:** add `nextPickupDateInTimezone(pickupDow, tz)` to `market-dates.ts` (+ unit test locking the Monday week-shift case); fix ONLY the two real sources (`cart/items:417-426`, `buyer/market-boxes:281-293`) — add `timezone` to their offering→market selects; **leave the two webhook/success backstops unchanged** (critical-path money files, effectively unreachable, no tz context — pure risk for ~zero benefit). `cart/items/route.ts` is on the protected list → per-file approval with before/after required before editing.
+
+### #11 BUILD PLAN (2026-07-10, sites re-verified against current code)
+**Bug:** when a buyer does NOT supply a start date, the market-box subscription start date is computed from **server-UTC** `new Date().getDay()` + `.toISOString()`. In the evening window this can pick the wrong week → whole subscription (all pickups + settlement end-date) shifts by up to a week. Fires only when the buyer omits a start date AND it's the evening drift window.
+
+**Sites (verified 2026-07-10):**
+1. `cart/items/route.ts:417-426` — add-to-cart start-date computation. **CRITICAL-PATH FILE** (per-file approval + before/after diff required). Offering select already has `pickup_market_id` (`:353`) + `pickup_day_of_week` (`:354`).
+2. `buyer/market-boxes/route.ts:281-293` — direct-checkout start-date computation (payment-adjacent, not on the critical-path list). Offering select has `pickup_day_of_week` (`:215`) but **NOT** `pickup_market_id` → must add it.
+3. **Backstops — LEAVE AS-IS (do NOT touch):** `webhooks.ts:238`, `checkout/success:226` (`|| new Date()...`). Unreachable in practice (start date already set upstream), both CRITICAL-PATH money files, and no market-tz context there → pure risk for ~zero benefit. (Decision point for user; recommend leave.)
+
+**Market tz source:** `market_box_offerings.pickup_market_id → markets.timezone`. Resolve via a single `markets` lookup by `pickup_market_id` in each route (one offering, not a list → no embed/FK-name dependency). Null `pickup_market_id` → America/Chicago (helper default).
+
+**Shared helper (add to `market-dates.ts` + unit test):**
+`nextPickupDateInTimezone(pickupDow: number, timezone?, now?)` → next occurrence of `pickupDow` (0–6) as YYYY-MM-DD, all in market tz. Preserves the existing "today IS pickup day → next week" semantics (`delta<=0 → +=7`). Reuses `addDaysToDateString`.
+Unit test locks the week-shift: CT buyer Sun 9pm = `2026-07-06T02:00:00Z`, pickupDow=Mon(1) → `'2026-07-06'` (NOT the UTC-buggy `'2026-07-13'`).
+
+**Steps:** (1) helper + test; (2) `buyer/market-boxes` — add `pickup_market_id` to select, `markets` tz lookup, replace `:281-293` with helper; (3) `cart/items` — PRESENT before/after, get file-specific approval, tz lookup via `pickup_market_id`, replace `:417-426` with helper; (4) tsc + tests. The change is isolated to the start-date fallback — it does NOT touch cart insert/pricing/RPC.
 
 ### Resume order (updated 2026-07-10)
 1. **Only #11 remains** — handle per the reclassified scope below (its own careful sub-task, critical-path per-file approval). Awaiting user go.

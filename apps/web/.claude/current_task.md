@@ -7,7 +7,8 @@
 - **#3/#1 (no-show payout timing) + #2 (season settlement)** now market-local; no-show tests rewritten (user-authorized) to assert local rule + a regression test. 1612/1612 green.
 - **mig 184** applied Dev+Staging (Prod PENDING — rides the tz prod push).
 - **External payments (#4/#5) OUT OF SCOPE** — inactive/historical (user 2026-07-10). See memory `project_external_payments_historical`.
-- **Remaining:** #11 (market-box start date — critical-path `cart/items`+`buyer/market-boxes`, reclassified in the plan) → then the tz prod push (decide if #11 rides it).
+- **#11 DONE (uncommitted):** market-box start date now market-local (`nextPickupDateInTimezone` helper + `buyer/market-boxes` + `cart/items` [critical-path, file-approved]); backstops left on UTC per user. 1613/1613 green.
+- **Remaining:** commit #11 → then the **tz PROD push** (apply mig 184 to Prod + push `main`; window 9 PM–7 AM CT). The whole tz fix is code-complete.
 - Details: `apps/web/.claude/timezone_drift_fix_plan.md` (⭐ PROGRESS block).
 
 ---

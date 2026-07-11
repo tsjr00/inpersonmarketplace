@@ -35,6 +35,22 @@ export function tomorrowInTimezone(timezone?: string | null, now: Date = new Dat
 }
 
 /**
+ * The next calendar date (YYYY-MM-DD) that falls on `pickupDow` (0=Sun..6=Sat),
+ * resolved in `timezone`. "Today is the pickup day" rolls to next week (delta<=0
+ * → +7), matching the market-box start-date rule. `now` injectable for tests.
+ *
+ * Fixes the market-box start-date drift: computing this from server-UTC weekday
+ * could shift the whole subscription a week during the evening window.
+ */
+export function nextPickupDateInTimezone(pickupDow: number, timezone?: string | null, now: Date = new Date()): string {
+  const tz = timezone || DEFAULT_TIMEZONE
+  const local = new Date(now.toLocaleString('en-US', { timeZone: tz }))
+  let delta = pickupDow - local.getDay()
+  if (delta <= 0) delta += 7
+  return addDaysToDateString(ymd(local), delta)
+}
+
+/**
  * "Now" in `timezone` as a local wall-clock ISO string with no offset:
  * "YYYY-MM-DDTHH:MM:SS". For string-comparison against a local fire moment
  * (mirrors cron-helpers' nowInTimezoneAsLocalIso, but `now` is injectable so

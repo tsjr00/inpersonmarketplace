@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { todayInTimezone, tomorrowInTimezone, addDaysToDateString, DEFAULT_TIMEZONE } from '../market-dates'
+import { todayInTimezone, tomorrowInTimezone, addDaysToDateString, nextPickupDateInTimezone, DEFAULT_TIMEZONE } from '../market-dates'
 
 describe('market-dates timezone helpers', () => {
   // 2026-07-07T02:00:00Z = 21:00 CT / 22:00 ET on the 6th — UTC has already
@@ -43,5 +43,24 @@ describe('market-dates timezone helpers', () => {
     expect(addDaysToDateString('2026-12-31', 1)).toBe('2027-01-01') // year rollover
     expect(addDaysToDateString('2026-03-07', 1)).toBe('2026-03-08') // spring-forward weekend, no shift
     expect(addDaysToDateString('2026-07-06', 0)).toBe('2026-07-06')
+  })
+
+  it('nextPickupDateInTimezone resolves the next pickup weekday market-local (no week shift)', () => {
+    // CT buyer, Sun 2026-07-05 9:00 PM = 2026-07-06T02:00:00Z (UTC already Monday).
+    // Pickup day = Monday (1). Market-local: today is Sun → next Mon is 07-06.
+    // The old server-UTC code saw "Monday" and rolled a full week to 07-13.
+    const sundayEveningCT = new Date('2026-07-06T02:00:00Z')
+    expect(nextPickupDateInTimezone(1, 'America/Chicago', sundayEveningCT)).toBe('2026-07-06')
+    expect(nextPickupDateInTimezone(1, 'America/Chicago', sundayEveningCT)).not.toBe('2026-07-13')
+
+    // Today IS the pickup day → rolls to next week (delta<=0 → +7)
+    const monMidday = new Date('2026-07-06T17:00:00Z') // 12:00 CDT Monday
+    expect(nextPickupDateInTimezone(1, 'America/Chicago', monMidday)).toBe('2026-07-13')
+
+    // Saturday pickup (6) from that Sunday-evening moment → 07-11
+    expect(nextPickupDateInTimezone(6, 'America/Chicago', sundayEveningCT)).toBe('2026-07-11')
+
+    // Null tz → America/Chicago fallback
+    expect(nextPickupDateInTimezone(1, null, sundayEveningCT)).toBe('2026-07-06')
   })
 })

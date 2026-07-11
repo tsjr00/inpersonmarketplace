@@ -5,6 +5,7 @@ import { createMarketBoxCheckoutSession } from '@/lib/stripe/payments'
 import { calculateBuyerPrice } from '@/lib/pricing'
 import { getAppUrl } from '@/lib/environment'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { nextPickupDateInTimezone } from '@/lib/time/market-dates'
 
 import { getSubscriberDefault } from '@/lib/vendor-limits'
 
@@ -213,6 +214,7 @@ export async function POST(request: NextRequest) {
         max_subscribers,
         active,
         pickup_day_of_week,
+        pickup_market_id,
         vendor:vendor_profiles (
           id,
           tier
@@ -277,20 +279,21 @@ export async function POST(request: NextRequest) {
       throw traced.validation('ERR_MBOX_006', 'You already have an active purchase for this market box')
     }
 
-    // Calculate start date if not provided
+    // Calculate start date if not provided — next pickup weekday resolved in the
+    // pickup market's timezone (server-UTC weekday could shift the whole
+    // subscription a week during the evening window). #11 timezone drift fix.
     let subscriptionStartDate = start_date
     if (!subscriptionStartDate) {
-      // Next occurrence of pickup_day_of_week
-      const today = new Date()
-      const currentDay = today.getDay()
-      const pickupDay = offering.pickup_day_of_week
-      let daysUntilPickup = pickupDay - currentDay
-      if (daysUntilPickup <= 0) {
-        daysUntilPickup += 7
+      let pickupTz: string | null = null
+      if (offering.pickup_market_id) {
+        const { data: mkt } = await supabase
+          .from('markets')
+          .select('timezone')
+          .eq('id', offering.pickup_market_id)
+          .maybeSingle()
+        pickupTz = (mkt?.timezone as string | null) ?? null
       }
-      const nextStart = new Date(today)
-      nextStart.setDate(today.getDate() + daysUntilPickup)
-      subscriptionStartDate = nextStart.toISOString().split('T')[0]
+      subscriptionStartDate = nextPickupDateInTimezone(offering.pickup_day_of_week, pickupTz)
     }
 
     // Get the vertical for the redirect URLs

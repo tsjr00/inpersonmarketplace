@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { nextPickupDateInTimezone } from '@/lib/time/market-dates'
 import { getSubscriberDefault } from '@/lib/vendor-limits'
 
 /*
@@ -413,17 +414,21 @@ async function handleMarketBoxAdd(
     throw traced.validation('ERR_CART_008', 'You already have an active subscription to this market box')
   }
 
-  // Calculate start date if not provided
+  // Calculate start date if not provided — next pickup weekday resolved in the
+  // pickup market's timezone (server-UTC weekday could shift the subscription a
+  // week during the evening window). #11 timezone drift fix.
   let subscriptionStartDate = startDate
   if (!subscriptionStartDate) {
-    const today = new Date()
-    const currentDay = today.getDay()
-    const pickupDay = offering.pickup_day_of_week
-    let daysUntilPickup = pickupDay - currentDay
-    if (daysUntilPickup <= 0) daysUntilPickup += 7
-    const nextStart = new Date(today)
-    nextStart.setDate(today.getDate() + daysUntilPickup)
-    subscriptionStartDate = nextStart.toISOString().split('T')[0]
+    let pickupTz: string | null = null
+    if (offering.pickup_market_id) {
+      const { data: mkt } = await supabase
+        .from('markets')
+        .select('timezone')
+        .eq('id', offering.pickup_market_id)
+        .maybeSingle()
+      pickupTz = (mkt?.timezone as string | null) ?? null
+    }
+    subscriptionStartDate = nextPickupDateInTimezone(offering.pickup_day_of_week, pickupTz)
   }
 
   // Get or create cart (vertical_id is TEXT slug, not UUID)
