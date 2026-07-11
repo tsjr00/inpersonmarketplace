@@ -35,6 +35,19 @@ export function tomorrowInTimezone(timezone?: string | null, now: Date = new Dat
 }
 
 /**
+ * "Now" in `timezone` as a local wall-clock ISO string with no offset:
+ * "YYYY-MM-DDTHH:MM:SS". For string-comparison against a local fire moment
+ * (mirrors cron-helpers' nowInTimezoneAsLocalIso, but `now` is injectable so
+ * the UTC/market boundary is unit-testable). Fallback America/Chicago.
+ */
+export function nowInTimezoneLocalIso(timezone?: string | null, now: Date = new Date()): string {
+  const tz = timezone || DEFAULT_TIMEZONE
+  const d = new Date(now.toLocaleString('en-US', { timeZone: tz }))
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+}
+
+/**
  * Add `days` calendar days to a YYYY-MM-DD string, returning YYYY-MM-DD.
  * Timezone-independent (pure calendar math, done in UTC to avoid DST shifts).
  */

@@ -1,7 +1,48 @@
 # Timezone Drift Fix — Plan (2026-07-07)
 
-**Status:** Report/plan. NOT started. Money-path — its own focused session, before/after tests, NOT bundled with feature work.
+**Status:** Groups 1-3 CODE-COMPLETE (2026-07-10). Only #11 (deferred, critical-path) remains. Ships as its OWN prod push on top of the live FT-port. mig 184 applied Dev+Staging (Prod PENDING).
 **Source audit:** `backlog.md` Priority 1. All sites below RE-VERIFIED against current code 2026-07-07 (citations are live).
+
+---
+
+## ⭐ PROGRESS — session ending 2026-07-07 (resume here)
+
+**Shared foundation built + validated (NEW file `src/lib/time/market-dates.ts`):**
+- `todayInTimezone(tz?, now?)`, `tomorrowInTimezone(tz?, now?)`, `addDaysToDateString(ymd, n)` — pure, injectable `now`, fallback `America/Chicago`. Unit test `src/lib/time/__tests__/market-dates.test.ts` (6 tests, boundary + rollover + DST) PASSING. `tsc` clean. This is the reusable helper Groups 2-3 will import.
+
+**Group 1 status:**
+- ✅ **#8** `buyer/orders/route.ts` — added `timezone` to market-box market select (`:142`), swapped UTC `today` → `todayInTimezone(market?.timezone)` (`:385`). Display only.
+- ✅ **#9** `quality-checks.ts` — scoped to `:149-150` (`checkLowStockEvents`, added `timezone` to select + per-market `today`/`nextWeek` in loop) and `:288` (`checkGhostListings`, per-market `today` at `:343`). **`:477` `checkInventoryVelocity` INTENTIONALLY SKIPPED** (user-agreed): it's a display detail derived from server-local `getDay()`/`now` DOW math (`:429,448,461`), a different/bigger bug class on a `suggestion`-severity advisory — logged as a separate low-pri item, NOT this fix.
+- ✅ **#10** `get_listing_market_availability` — **migration `supabase/migrations/20260707_184_fix_listing_availability_dow_timezone.sql` CREATED, NOT YET APPLIED.** Fixes the two `EXTRACT(DOW FROM NOW())` (UTC) → market-local `v_today_dow`. **Display-only** (verified: checkout money gate is `is_listing_accepting_orders` mig 054; this fn only enriches the closed-order message + buyer availability). **USER TO APPLY on Dev + Staging** (then Claude does snapshot bookkeeping). Rides the tz-fix prod push, NOT the FT push.
+- ⏸️ **#11 DEFERRED** (user, 2026-07-07) — see reclassification below. `polling-config.ts:14` confirmed NOT a bug (client-local `getHours()`, matches intent) — permanently dropped from scope.
+
+**Group 2 status (2026-07-10, committed `a76b6a4d` + on staging):**
+- ✅ **#10** mig 184 APPLIED Dev+Staging (Prod PENDING) + snapshot bookkeeping.
+- ✅ **#7** Phase 11 event reminder — market-local "tomorrow" (2 UTC candidate dates → refine per-market via `catering_requests_market_id_fkey` embed + `tomorrowInTimezone`).
+- ✅ **#6** Phase 4.6 stale-confirmed expiry — UTC `.lt` kept as superset bound; per-market cutoff in-loop via a `markets` tz map + `todayInTimezone`.
+- ❌ **#4, #5 OUT OF SCOPE** — external payments INACTIVE/HISTORICAL (user, 2026-07-10). Do NOT touch. See [[project_external_payments_historical]].
+
+**Group 3 status (2026-07-10, MONEY — code-complete, uncommitted until the Group 3 commit):**
+- ✅ **#3** `no-show.ts` — `shouldTriggerNoShow` now compares local-vs-local (FT 1-hr rule, no `Z` stamp) + `todayInTimezone` fallback; added `marketTimezone` param. New injectable helper `nowInTimezoneLocalIso(tz, now?)` in `market-dates.ts`. **Tests rewritten (user-authorized) to assert market-local rule** across `no-show.test.ts`, `cron-timing-functional.test.ts` (CR-019/020), `business-rules-coverage.test.ts` (OL-R19) + a regression test the old UTC code would fail. This was the highest-value fix (old code paid vendors ~hours early on FT no-shows).
+- ✅ **#1** Phase 4 payout caller — selects `market_id`, resolves market→tz map, passes `marketTz` to `shouldTriggerNoShow`. UTC `today` stays as SQL `.lte` superset bound.
+- ✅ **#2** Phase 20 season auto-end/settle — select `end_date`, per-market tz map, only end once `end_date < todayInTimezone(marketTz)`. UTC `.lt` kept as superset bound.
+- Full suite 1612/1612 green, `tsc` clean.
+
+**Original Group-1 uncommitted note (historical):** Group 1 committed `0b913b22`; mig 184 + Group 2 committed `a76b6a4d` (both on staging).
+
+### #11 RECLASSIFICATION (important — the original inventory below is incomplete for this item)
+The plan listed #11 as "very low, fallback-only (`webhooks.ts:238`, `checkout/success:226`)." Investigation showed that's wrong:
+- The **real** market-box start-date computation is UTC-based and **duplicated in 2-3 places**: `cart/items/route.ts:417-426` (add-to-cart, **CRITICAL-PATH**) and `buyer/market-boxes/route.ts:281-293` (direct checkout, payment-adjacent). The `webhooks.ts:238` + `checkout/success:226` `|| new Date()...` are just backstops that rarely fire (start date already set upstream).
+- `subscribe_to_market_box_if_capacity` derives EVERY pickup date + `original_end_date` from `start_date` (trigger in `applied/20260420_124...:60,67`), so a drifted fallback shifts the whole subscription.
+- Severity is **higher than "very low" when it fires**: concrete boundary case (CT buyer, Sun 9pm local = Mon 02:00 UTC, pickup day = Monday) → UTC path computes start **07-13**, correct market-local is **07-06** → box starts a **full week late**, pickups + settlement end-date all shift. Fires only in the evening window AND when buyer omits a start date.
+- **Recommended #11 scope when resumed:** add `nextPickupDateInTimezone(pickupDow, tz)` to `market-dates.ts` (+ unit test locking the Monday week-shift case); fix ONLY the two real sources (`cart/items:417-426`, `buyer/market-boxes:281-293`) — add `timezone` to their offering→market selects; **leave the two webhook/success backstops unchanged** (critical-path money files, effectively unreachable, no tz context — pure risk for ~zero benefit). `cart/items/route.ts` is on the protected list → per-file approval with before/after required before editing.
+
+### Resume order (updated 2026-07-10)
+1. **Only #11 remains** — handle per the reclassified scope below (its own careful sub-task, critical-path per-file approval). Awaiting user go.
+2. Then the **tz prod push** (its own push): decide whether #11 rides it or ships separately. mig 184 still needs Prod apply as part of that push.
+3. Groups 1-3 are done: `0b913b22` (G1), `a76b6a4d` (mig184+G2), + the Group 3 commit. G1/G2 already on staging.
+
+---
 
 ## The bug (one invariant, two sub-patterns)
 
@@ -30,8 +71,8 @@ if (event.event_date <= todayStr) { ... }
 | 1 | `expire-orders` Phase 4 `:656` | missed-pickup → PAYS VENDOR + notifies buyer | A | **Highest** | ✅ payout |
 | 2 | `expire-orders` Phase 20 `:2771,:2776` | season auto-end/settle (`end_date < todayStr`) | A | **High** | ✅ settlement |
 | 3 | `lib/cron/no-show.ts` `:47-56` (+ fallback `:62-63`) | FT no-show fire time → strike/payout timing | B (+A) | **High** | ✅ payout/strike |
-| 4 | `expire-orders` Phase 3 `:350` | cancels unpaid external-payment orders (`pickup_date < today`) | A | Med-High | ✅ cancels order |
-| 5 | `lib/cron/external-payment.ts:43-47` `getAutoConfirmCutoffDate` | auto-confirms digital external orders a day early | A | Med | ✅ auto-confirm |
+| ~~4~~ | ~~`expire-orders` Phase 3 `:350`~~ | **OUT OF SCOPE — external payments (venmo/cashapp/paypal/cash) are INACTIVE/HISTORICAL (user, 2026-07-10). Do NOT touch.** | A | — | historical |
+| ~~5~~ | ~~`lib/cron/external-payment.ts:43-47`~~ | **OUT OF SCOPE — external payments INACTIVE/HISTORICAL (user, 2026-07-10). Do NOT touch.** | A | — | historical |
 | 6 | `expire-orders` Phase 4.6 `:922,:933` | expires `confirmed` orders a day early | A | Med | ✅ order state |
 | 7 | `expire-orders` Phase 11 `:2028-2030,:2037` | event 24h prep reminder (`event_date = tomorrow` UTC) | A | Med | ❌ notif timing |
 | 8 | `buyer/orders/route.ts:385-389` | buyer's "next pickup" (market box) — display | A | Low | ❌ display |
@@ -82,10 +123,12 @@ Do the small, low-risk sites first and use them to build + unit-test the shared 
 - Fallbacks (#11) — membership start_date / poll cadence.
 
 **Group 2 — MEDIUM (state changes; reversible or non-payout).**
-- `external-payment.ts:43-47` (#5) — auto-confirm cutoff (pure, `now?` injectable → unit test).
-- Phase 3 `:350` (#4) — cancel unpaid external orders.
-- Phase 4.6 `:922,:933` (#6) — expire stale confirmed.
-- Phase 11 `:2028-2030` (#7) — event reminder (notif; market_id present → easy tz).
+- ~~`external-payment.ts:43-47` (#5)~~ — **OUT OF SCOPE: external payments INACTIVE/HISTORICAL (user, 2026-07-10). Do NOT touch external-payment code in any way.**
+- ~~Phase 3 `:350` (#4)~~ — **OUT OF SCOPE: this is the external-payment order-cancel path (`payment_method in venmo/cashapp/paypal/cash`, `:344-350`). Historical. Do NOT touch.**
+- Phase 4.6 `:922,:933` (#6) — expire stale confirmed. **IN SCOPE** — general confirmed-order cleanup (NOT external-payment-specific: `status='confirmed'` + `pickup_date < today` + untouched 7+ days).
+- Phase 11 `:2028-2030` (#7) — event reminder (notif; market_id present → easy tz). **IN SCOPE.**
+
+**⇒ Group 2 effective scope = #6 + #7 only.**
 
 **Group 3 — LARGE (irreversible money movement). Do last, full before/after.**
 - `no-show.ts:47-63` (#3) — strikes + payout timing (patterns A+B; note: HIGH blast despite being testable — it gates payout, so it moves here from "first").

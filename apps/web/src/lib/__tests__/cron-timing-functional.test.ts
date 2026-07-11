@@ -331,25 +331,29 @@ describe('CR-018: calculateNoShowPayout', () => {
 // =============================================================================
 
 describe('CR-019: shouldTriggerNoShow FT with pickup time', () => {
+  // FT no-show fires 1 hour after the MARKET-LOCAL pickup time (America/Chicago;
+  // 2026-03-14 is CDT / UTC−5). `now` values are the UTC instants of those local times.
+  const TZ = 'America/Chicago'
+
   it('1 hour after pickup time → triggers', () => {
-    // Pickup at 12:00 UTC, now = 13:01 UTC → 1h1m after → true
-    const now = new Date('2026-03-14T13:01:00Z')
-    expect(shouldTriggerNoShow('2026-03-14', '12:00', 'food_trucks', now)).toBe(true)
+    // Pickup 12:00 local; now = 13:01 local (18:01 UTC) → 1h1m after → true
+    const now = new Date('2026-03-14T18:01:00Z')
+    expect(shouldTriggerNoShow('2026-03-14', '12:00', 'food_trucks', TZ, now)).toBe(true)
   })
 
   it('exactly 1 hour after → triggers', () => {
-    const now = new Date('2026-03-14T13:00:00Z')
-    expect(shouldTriggerNoShow('2026-03-14', '12:00', 'food_trucks', now)).toBe(true)
+    const now = new Date('2026-03-14T18:00:00Z') // 13:00 local
+    expect(shouldTriggerNoShow('2026-03-14', '12:00', 'food_trucks', TZ, now)).toBe(true)
   })
 
   it('59 minutes after pickup time → does NOT trigger', () => {
-    const now = new Date('2026-03-14T12:59:00Z')
-    expect(shouldTriggerNoShow('2026-03-14', '12:00', 'food_trucks', now)).toBe(false)
+    const now = new Date('2026-03-14T17:59:00Z') // 12:59 local
+    expect(shouldTriggerNoShow('2026-03-14', '12:00', 'food_trucks', TZ, now)).toBe(false)
   })
 
   it('handles HH:MM:SS format', () => {
-    const now = new Date('2026-03-14T14:00:00Z')
-    expect(shouldTriggerNoShow('2026-03-14', '13:00:00', 'food_trucks', now)).toBe(true)
+    const now = new Date('2026-03-14T19:00:00Z') // 14:00 local = 1h after 13:00
+    expect(shouldTriggerNoShow('2026-03-14', '13:00:00', 'food_trucks', TZ, now)).toBe(true)
   })
 })
 
@@ -358,25 +362,29 @@ describe('CR-019: shouldTriggerNoShow FT with pickup time', () => {
 // =============================================================================
 
 describe('CR-020: shouldTriggerNoShow FM date-based', () => {
+  // Date-based path resolved in the market's timezone. now = 12:00 UTC = 07:00
+  // CDT on the 14th → market-local today is 2026-03-14 (no rollover).
+  const TZ = 'America/Chicago'
+
   it('pickup date before today → triggers', () => {
     const now = new Date('2026-03-14T12:00:00Z')
-    expect(shouldTriggerNoShow('2026-03-13', null, 'farmers_market', now)).toBe(true)
+    expect(shouldTriggerNoShow('2026-03-13', null, 'farmers_market', TZ, now)).toBe(true)
   })
 
   it('pickup date is today → does NOT trigger', () => {
     const now = new Date('2026-03-14T12:00:00Z')
-    expect(shouldTriggerNoShow('2026-03-14', null, 'farmers_market', now)).toBe(false)
+    expect(shouldTriggerNoShow('2026-03-14', null, 'farmers_market', TZ, now)).toBe(false)
   })
 
   it('pickup date in future → does NOT trigger', () => {
     const now = new Date('2026-03-14T12:00:00Z')
-    expect(shouldTriggerNoShow('2026-03-15', null, 'farmers_market', now)).toBe(false)
+    expect(shouldTriggerNoShow('2026-03-15', null, 'farmers_market', TZ, now)).toBe(false)
   })
 
   it('FT without preferred_pickup_time falls back to date-based', () => {
     const now = new Date('2026-03-14T12:00:00Z')
-    expect(shouldTriggerNoShow('2026-03-13', null, 'food_trucks', now)).toBe(true)
-    expect(shouldTriggerNoShow('2026-03-14', null, 'food_trucks', now)).toBe(false)
+    expect(shouldTriggerNoShow('2026-03-13', null, 'food_trucks', TZ, now)).toBe(true)
+    expect(shouldTriggerNoShow('2026-03-14', null, 'food_trucks', TZ, now)).toBe(false)
   })
 })
 

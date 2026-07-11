@@ -665,6 +665,7 @@ export async function GET(request: NextRequest) {
           preferred_pickup_time,
           vendor_payout_cents,
           vendor_profile_id,
+          market_id,
           listing:listings (
             title
           ),
@@ -694,6 +695,15 @@ export async function GET(request: NextRequest) {
       if (missedError) {
         console.error('Error fetching missed pickup items:', missedError.message)
       } else if (missedItems && missedItems.length > 0) {
+        // Resolve each item's market timezone so no-show timing is market-local
+        // (FT 1-hour rule + FM midnight rollover). Payout timing depends on this.
+        const missedMarketIds = [...new Set(missedItems.map(i => (i as any).market_id).filter(Boolean) as string[])]
+        const tzByMarket = new Map<string, string>()
+        if (missedMarketIds.length > 0) {
+          const { data: mkts } = await supabase.from('markets').select('id, timezone').in('id', missedMarketIds)
+          for (const m of mkts || []) tzByMarket.set(m.id as string, ((m as any).timezone as string) || 'America/Chicago')
+        }
+
         for (const item of missedItems) {
           try {
             const order = item.order as any
@@ -701,11 +711,14 @@ export async function GET(request: NextRequest) {
             const vendor = item.vendor as any
 
             // H7 FIX: Use shouldTriggerNoShow() for vertical-aware timing
-            // FT: 1 hour after preferred_pickup_time. FM: date-based (pickup_date < today).
+            // FT: 1 hour after preferred_pickup_time (market-local). FM: date-based.
+            const mid = (item as any).market_id as string | null
+            const marketTz = (mid && tzByMarket.get(mid)) || 'America/Chicago'
             if (!shouldTriggerNoShow(
               item.pickup_date,
               (item as any).preferred_pickup_time || null,
               order?.vertical_id || 'farmers_market',
+              marketTz,
             )) {
               continue // Not yet time to trigger no-show for this item
             }
@@ -2793,13 +2806,28 @@ export async function GET(request: NextRequest) {
     let seasonsAutoEnded = 0
     let seasonsAutoSettled = 0
     try {
+      // UTC today is a safe SUPERSET bound for the SQL filter (market-local-today
+      // <= UTC-today); the real per-market cutoff is applied in the loop so a
+      // season isn't ended/settled a day early during the evening drift window.
       const todayStr = new Date().toISOString().slice(0, 10)
       const { data: activeSeasons } = await supabase
         .from('market_seasons')
-        .select('id, market_id, refund_cap_days')
+        .select('id, market_id, end_date, refund_cap_days')
         .eq('status', 'active')
         .lt('end_date', todayStr)
+
+      // Resolve each season's market timezone for the market-local end-date test
+      const seasonMarketIds = [...new Set((activeSeasons ?? []).map(s => s.market_id as string).filter(Boolean))]
+      const seasonTzByMarket = new Map<string, string>()
+      if (seasonMarketIds.length > 0) {
+        const { data: mkts } = await supabase.from('markets').select('id, timezone').in('id', seasonMarketIds)
+        for (const m of mkts || []) seasonTzByMarket.set(m.id as string, ((m as any).timezone as string) || 'America/Chicago')
+      }
+
       for (const s of activeSeasons ?? []) {
+        // Only end/settle once the season's end_date is past in its own timezone
+        const marketTz = seasonTzByMarket.get(s.market_id as string) || 'America/Chicago'
+        if (!(s.end_date && (s.end_date as string) < todayInTimezone(marketTz))) continue
         const hasDebt = await seasonHasOutstandingDebt(
           supabase, s.market_id as string, s.id as string, (s.refund_cap_days as number) ?? 0,
         )

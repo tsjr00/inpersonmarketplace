@@ -1,21 +1,39 @@
-# Current Task: FT park-manager LIVE ON PROD → next: timezone drift fix
+# Current Task: TIMEZONE DRIFT FIX — Groups 1-3 code-complete; only #11 left
 
-**Updated:** 2026-07-07 EOD (prod push complete; timezone fix is next). **Mode:** Report.
+**Updated:** 2026-07-10 (Groups 1-3 done; Group 3 just committed; #11 deferred; then tz prod push). **Mode:** Report.
+
+## ⭐ 2026-07-10 status (newest)
+- **Groups 1-3 CODE-COMPLETE.** G1 `0b913b22`, mig184+G2 `a76b6a4d` (both on staging), G3 committed this session.
+- **#3/#1 (no-show payout timing) + #2 (season settlement)** now market-local; no-show tests rewritten (user-authorized) to assert local rule + a regression test. 1612/1612 green.
+- **mig 184** applied Dev+Staging (Prod PENDING — rides the tz prod push).
+- **External payments (#4/#5) OUT OF SCOPE** — inactive/historical (user 2026-07-10). See memory `project_external_payments_historical`.
+- **Remaining:** #11 (market-box start date — critical-path `cart/items`+`buyer/market-boxes`, reclassified in the plan) → then the tz prod push (decide if #11 rides it).
+- Details: `apps/web/.claude/timezone_drift_fix_plan.md` (⭐ PROGRESS block).
 
 ---
 
-## ⭐⭐⭐ NEXT SESSION START HERE (2026-07-07 EOD) — read this + the timezone plan, then STOP & ask
+## ⭐⭐⭐ NEXT SESSION START HERE (2026-07-07 late) — read this + `timezone_drift_fix_plan.md` (⭐ PROGRESS block), verify git, then STOP & ask
 
-### Current situation (all reconciled, nothing in flight)
-- **PROD IS LIVE at `62b686f7`** — the entire FT park-manager stack + Phase E remainder (booth credit/make-up days) + help KB. Migrations **168→183 applied to ALL 3 envs**; files in `supabase/migrations/applied/`.
-- **`origin/staging` = `06a034cb`** (bookkeeping commit) — **1 commit ahead of prod** (`origin/main` = `62b686f7`), intentionally: the bookkeeping (file moves + session docs) doesn't need to deploy; it rides the next prod push. **Verify live git state before trusting this (memory drifts).**
-- No consequential uncommitted work (just `settings.local.json` + pre-existing audit-file deletions).
+### Current situation
+- **PROD still LIVE at `62b686f7`** (FT park-manager + Phase E + help KB). Migrations **168→183 applied on ALL 3 envs**, files in `supabase/migrations/applied/`. `origin/staging` = `8dd9424f` (~2 non-deploy commits ahead of prod: bookkeeping + handoff docs). **Verify live git before trusting (memory drifts).**
+- **Timezone fix Group 1 is BUILT but UNCOMMITTED** (this session). Nothing pushed. **Migration 184 NOT applied to any env.** My changes only (rest of `git status` is pre-existing):
+  - NEW `apps/web/src/lib/time/market-dates.ts` (+ `__tests__/market-dates.test.ts`, 6 tests passing) — shared per-market-tz helpers (`todayInTimezone`/`tomorrowInTimezone`/`addDaysToDateString`), fallback `America/Chicago`, injectable `now`. Groups 2-3 reuse this.
+  - MOD `apps/web/src/app/api/buyer/orders/route.ts` (#8), `apps/web/src/lib/quality-checks.ts` (#9).
+  - NEW `supabase/migrations/20260707_184_fix_listing_availability_dow_timezone.sql` (#10, display-only fn — **USER TO APPLY Dev+Staging**, then Claude bookkeeping).
+- **`tsc` clean, new unit test green.** Full suite / lint NOT run yet (do before any commit).
+- **#11 DEFERRED** by user + reclassified as bigger than the plan said (real sources are `cart/items:417-426` critical-path + `buyer/market-boxes:281-293`; can shift a subscription a full week; `polling-config.ts` is NOT a bug). Details in the plan's ⭐ PROGRESS block.
+
+### Resume order (from the plan)
+1. Verify git; decide whether to **commit Group 1** now (helper + #8 + #9 + mig-184 file) or fold into a bigger tz commit — it's staging-safe/low-risk. Run full vitest + lint first.
+2. Apply mig 184 (Dev+Staging) → Claude snapshot bookkeeping.
+3. Group 2 (medium), then Group 3 (money, before/after), reusing `market-dates.ts`.
+4. #11 per the reclassified scope (critical-path per-file approval).
 
 ### Working agreement (unchanged — enforce)
 Report mode default · ask for commit AND push **separately, each time** (a "migration ran" msg is NEVER commit approval) · cite file:line or mark UNVERIFIED · **Claude NEVER applies migrations — the user does; Claude does the schema-snapshot bookkeeping after** · pricing.ts / payments.ts / webhooks.ts / cart+checkout = critical-path (per-file approval) · staging-first · branch-chain for commits · teaching-mode git explanations ON · prod push window 9 PM–7 AM CT (hook-enforced) · present before changing (a question ≠ permission to edit).
 
-### ▶ NEXT FOCUS #1 — TIMEZONE DRIFT FIX (its own careful money-path session; then its OWN prod push)
-**Read `apps/web/.claude/timezone_drift_fix_plan.md` first.** Quick-start summary:
+### ▶ NEXT FOCUS #1 — TIMEZONE DRIFT FIX (IN PROGRESS: Group 1 built/uncommitted; Groups 2-3 = money, not started; its OWN prod push)
+**Read `apps/web/.claude/timezone_drift_fix_plan.md` first (⭐ PROGRESS block for what's done).** Quick-start summary:
 - **Bug:** market-local date columns (`pickup_date`/`event_date`/`scheduled_date`/`end_date`) compared to a **UTC** today/tomorrow → drifts 1 day every evening for every US market. Two sub-patterns: (A) date-vs-UTC-today (9 sites); (B) local-time-stamped-as-UTC (`no-show.ts:47-52`).
 - **DO NOT TOUCH:** the open/close window — mig 054 `COALESCE(timezone,'America/Chicago')` is the reference pattern; expire-orders **Phase 14/15 (`:2306-2348`)** already do it right (per-market tz).
 - **Unknowns RESOLVED this session:** (1) `order_item → tz` = `order_items.market_id → markets.timezone` — ALL pickup types (market/event/private_pickup) are `markets` rows → one uniform join. (2) Null-tz fallback = **`America/Chicago`** (matches mig 054 + JS helpers; NOT state-inference — user CONFIRMED both).

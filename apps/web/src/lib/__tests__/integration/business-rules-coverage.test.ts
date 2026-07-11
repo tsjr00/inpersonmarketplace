@@ -503,16 +503,18 @@ describe('OL: Order Lifecycle — coverage check', () => {
   })
 
   // ── OL-R19: No-show timing (USER DECIDED Session 54) ──────────────
-  it('OL-R19: FT no-show 1hr after pickup time; FM date-based', () => {
-    const now = new Date('2026-03-10T14:00:00Z')
-    // FT: 1hr after 12:30 pickup → 13:30 → now 14:00 → triggered
-    expect(shouldTriggerNoShow('2026-03-10', '12:30', 'food_trucks', now)).toBe(true)
-    // FT: 1hr after 13:30 pickup → 14:30 → now 14:00 → not triggered
-    expect(shouldTriggerNoShow('2026-03-10', '13:30', 'food_trucks', now)).toBe(false)
+  it('OL-R19: FT no-show 1hr after LOCAL pickup time; FM date-based', () => {
+    // Pickup times are market-local (America/Chicago; 2026-03-10 is CDT, UTC−5).
+    const TZ = 'America/Chicago'
+    const now = new Date('2026-03-10T19:00:00Z') // 2:00 PM CDT
+    // FT: 1hr after 12:30 local → 13:30 local → now 14:00 local → triggered
+    expect(shouldTriggerNoShow('2026-03-10', '12:30', 'food_trucks', TZ, now)).toBe(true)
+    // FT: 1hr after 13:30 local → 14:30 local → now 14:00 local → not triggered
+    expect(shouldTriggerNoShow('2026-03-10', '13:30', 'food_trucks', TZ, now)).toBe(false)
     // FM: yesterday → triggered
-    expect(shouldTriggerNoShow('2026-03-09', null, 'farmers_market', now)).toBe(true)
+    expect(shouldTriggerNoShow('2026-03-09', null, 'farmers_market', TZ, now)).toBe(true)
     // FM: today → not triggered
-    expect(shouldTriggerNoShow('2026-03-10', null, 'farmers_market', now)).toBe(false)
+    expect(shouldTriggerNoShow('2026-03-10', null, 'farmers_market', TZ, now)).toBe(false)
   })
 
   it('OL-R20: Phase 4.5 stale vendor reminder exists in cron', () => {
