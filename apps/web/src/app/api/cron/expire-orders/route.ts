@@ -8,6 +8,7 @@ import { withErrorTracing, TracedError, logError } from '@/lib/errors'
 import { FEES, proratedFlatFeeSimple } from '@/lib/pricing'
 import { getTierLimits, TRIAL_SYSTEM_ENABLED } from '@/lib/vendor-limits'
 import { todayInTimezone, tomorrowInTimezone, addDaysToDateString } from '@/lib/time/market-dates'
+import { runEventCompletionEffects } from '@/lib/events/complete-event'
 import { recordExternalPaymentFee } from '@/lib/payments/vendor-fees'
 import { isCleanupDay, calculateRetentionCutoffs } from '@/lib/cron/retention'
 import { REMINDER_DELAY_MS, DEFAULT_REMINDER_DELAY_MS, isOrderOldEnoughForReminder, getAutoConfirmCutoffDate, areAllItemsPastPickupWindow, formatPaymentMethodLabel } from '@/lib/cron/external-payment'
@@ -2428,6 +2429,51 @@ export async function GET(request: NextRequest) {
       console.error('Phase 15 error:', phase15Error instanceof Error ? phase15Error.message : 'Unknown error')
     }
 
+    // ─── Phase 15.5: Auto-complete events 3 days after they end (G1) ──────
+    // review → completed once the event has been over for 3+ days (market-local).
+    // Fires the SAME completion effects as the admin path (feedback, settlement,
+    // unfulfilled vendor + vertical-admin notices, organizer email, cleanup) via
+    // the shared runEventCompletionEffects. Status-guarded flip → admin + cron
+    // can't double-fire. No money moves (payouts already happened at fulfillment).
+    let eventsAutoCompleted = 0
+    try {
+      const { data: reviewEvents } = await supabase
+        .from('catering_requests')
+        .select('id, market_id, vertical_id, company_name, contact_name, contact_email, event_date, event_end_date, market:markets!catering_requests_market_id_fkey(timezone)')
+        .eq('status', 'review')
+
+      for (const ev of reviewEvents || []) {
+        if (!ev.market_id) continue
+        const tz = (ev.market as any)?.timezone || 'America/Chicago'
+        const effectiveEnd = ((ev as any).event_end_date as string | null) || ((ev as any).event_date as string | null)
+        if (!effectiveEnd) continue
+        // Only complete once today (market-local) is 3+ days past the event end
+        if (todayInTimezone(tz) < addDaysToDateString(effectiveEnd, 3)) continue
+
+        // Status-guarded flip — only run the effects if we actually moved the row
+        const { data: flipped } = await supabase
+          .from('catering_requests')
+          .update({ status: 'completed' })
+          .eq('id', ev.id)
+          .eq('status', 'review')
+          .select('id')
+        if (!flipped || flipped.length === 0) continue
+
+        await runEventCompletionEffects(supabase, {
+          market_id: ev.market_id as string,
+          vertical_id: ((ev as any).vertical_id as string) || 'farmers_market',
+          company_name: ((ev as any).company_name as string | null) ?? null,
+          contact_name: ((ev as any).contact_name as string | null) ?? null,
+          contact_email: ((ev as any).contact_email as string | null) ?? null,
+          event_date: ((ev as any).event_date as string | null) ?? null,
+        })
+        eventsAutoCompleted++
+      }
+      if (eventsAutoCompleted > 0) console.log(`Phase 15.5: ${eventsAutoCompleted} event(s) auto-completed`)
+    } catch (phase155Error) {
+      console.error('Phase 15.5 error:', phase155Error instanceof Error ? phase155Error.message : 'Unknown error')
+    }
+
     // ============================================================
     // PHASE 16: Expire abandoned booth rental bookings (Phase C Stage 3)
     //
@@ -2933,6 +2979,7 @@ export async function GET(request: NextRequest) {
       eventGapAlerts,
       eventsActivated,
       eventsToReview,
+      eventsAutoCompleted,
     })
   })
 }

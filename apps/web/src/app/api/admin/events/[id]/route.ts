@@ -10,6 +10,7 @@ import {
 import { withErrorTracing } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications/service'
 import { approveEventRequest, autoMatchAndInvite } from '@/lib/events/event-actions'
+import { runEventCompletionEffects, sendOrganizerStatusEmail } from '@/lib/events/complete-event'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -313,173 +314,22 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
     }
 
-    // On COMPLETED: check for unfulfilled orders, then send feedback + settlement
+    // On COMPLETED: fire the shared completion effects (feedback, settlement,
+    // unfulfilled vendor + vertical-admin notices, organizer email, cleanup).
+    // Same path the auto-complete cron uses (expire-orders Phase 15.5).
     if (status === 'completed' && cateringReq.market_id) {
-      // Check for orders not yet fulfilled — warn admin + notify vendors
-      const { data: unfulfilledItems } = await serviceClient
-        .from('order_items')
-        .select('id, status, vendor_profile_id, listing:listings(title)')
-        .eq('market_id', cateringReq.market_id)
-        .not('status', 'in', '("fulfilled","completed","cancelled")')
-
-      if (unfulfilledItems && unfulfilledItems.length > 0) {
-        // Group by vendor for targeted notifications
-        const vendorUnfulfilled: Record<string, string[]> = {}
-        for (const item of unfulfilledItems) {
-          const vid = item.vendor_profile_id as string
-          if (!vendorUnfulfilled[vid]) vendorUnfulfilled[vid] = []
-          const listing = item.listing as unknown as { title: string } | null
-          vendorUnfulfilled[vid].push(listing?.title || 'Unknown item')
-        }
-
-        // Notify each vendor with unfulfilled orders
-        for (const [vendorId, items] of Object.entries(vendorUnfulfilled)) {
-          const { data: vp } = await serviceClient
-            .from('vendor_profiles')
-            .select('user_id')
-            .eq('id', vendorId)
-            .single()
-
-          if (vp?.user_id) {
-            await sendNotification(vp.user_id as string, 'event_force_completed_with_unfulfilled', {
-              marketName: cateringReq.company_name || 'Event',
-              orderCount: items.length,
-            }, { vertical: cateringReq.vertical_id })
-          }
-        }
-
-        // Warn admin in the response (event still moves to completed — admin chose this)
-        console.warn(`[admin/events] Event ${id} marked completed with ${unfulfilledItems.length} unfulfilled order items`)
-      }
-
-      // Fire-and-forget — don't block the response
-      sendEventFeedbackNotifications(serviceClient, cateringReq.market_id, cateringReq.vertical_id).catch(
-        (err) => console.error('[admin/catering] Feedback notification error:', err)
-      )
-      // Notify accepted vendors that settlement is complete
-      sendEventSettlementNotifications(serviceClient, cateringReq.market_id, cateringReq.vertical_id, updated.company_name).catch(
-        (err) => console.error('[admin/catering] Settlement notification error:', err)
-      )
-      // T3-3: Notify organizer that event is complete
-      if (updated.contact_email) {
-        sendOrganizerStatusEmail(
-          updated.contact_name,
-          updated.contact_email,
-          updated.company_name,
-          updated.event_date,
-          updated.vertical_id,
-          'completed',
-          'Your event is complete! Thank you for choosing us. We hope your attendees enjoyed the experience.'
-        ).catch(err => console.error('[admin/events] Completed email error:', err))
-      }
-
-      // Clean up listing_markets rows created for this event (Option B cleanup)
-      // These were inserted when vendors accepted the invitation
-      const { data: eventListings } = await serviceClient
-        .from('event_vendor_listings')
-        .select('listing_id')
-        .eq('market_id', cateringReq.market_id)
-      if (eventListings && eventListings.length > 0) {
-        const listingIds = eventListings.map(el => el.listing_id as string)
-        await serviceClient
-          .from('listing_markets')
-          .delete()
-          .eq('market_id', cateringReq.market_id)
-          .in('listing_id', listingIds)
-      }
+      await runEventCompletionEffects(serviceClient, {
+        market_id: cateringReq.market_id as string,
+        vertical_id: cateringReq.vertical_id as string,
+        company_name: (updated.company_name as string | null) ?? null,
+        contact_name: (updated.contact_name as string | null) ?? null,
+        contact_email: (updated.contact_email as string | null) ?? null,
+        event_date: (updated.event_date as string | null) ?? null,
+      })
     }
 
     return NextResponse.json({ request: updated })
   })
-}
-
-async function sendEventFeedbackNotifications(
-  serviceClient: ReturnType<typeof createServiceClient>,
-  marketId: string,
-  verticalId: string
-) {
-  // Find all unique buyers who ordered from this event market
-  const { data: orderItems } = await serviceClient
-    .from('order_items')
-    .select('orders!inner(buyer_user_id)')
-    .eq('market_id', marketId)
-    .not('status', 'in', '("cancelled")')
-
-  if (!orderItems || orderItems.length === 0) return
-
-  const buyerIds = new Set<string>()
-  for (const item of orderItems) {
-    const order = item.orders as unknown as { buyer_user_id: string }
-    buyerIds.add(order.buyer_user_id)
-  }
-
-  // Get the market name for the notification
-  const { data: market } = await serviceClient
-    .from('markets')
-    .select('name')
-    .eq('id', marketId)
-    .single()
-
-  const marketName = market?.name || 'the event'
-
-  // Send feedback request to each buyer
-  for (const buyerId of buyerIds) {
-    await sendNotification(
-      buyerId,
-      'event_feedback_request',
-      {
-        marketName,
-        vertical: verticalId,
-      },
-      { vertical: verticalId }
-    )
-  }
-}
-
-async function sendEventSettlementNotifications(
-  serviceClient: ReturnType<typeof createServiceClient>,
-  marketId: string,
-  verticalId: string,
-  companyName: string
-) {
-  // Get accepted vendors for this event
-  const { data: acceptedVendors } = await serviceClient
-    .from('market_vendors')
-    .select('vendor_profile_id, vendor_profiles:vendor_profile_id(user_id)')
-    .eq('market_id', marketId)
-    .eq('response_status', 'accepted')
-
-  if (!acceptedVendors || acceptedVendors.length === 0) return
-
-  const { data: market } = await serviceClient
-    .from('markets')
-    .select('name')
-    .eq('id', marketId)
-    .single()
-
-  const marketName = market?.name || companyName || 'Event'
-
-  for (const mv of acceptedVendors) {
-    const vp = mv.vendor_profiles as unknown as { user_id: string } | null
-    if (!vp?.user_id) continue
-
-    // Count this vendor's fulfilled orders + calculate payout
-    const { data: vendorItems } = await serviceClient
-      .from('order_items')
-      .select('id, subtotal_cents, vendor_payout_cents')
-      .eq('market_id', marketId)
-      .eq('vendor_profile_id', mv.vendor_profile_id)
-      .in('status', ['fulfilled', 'completed'])
-
-    const orderCount = vendorItems?.length || 0
-    const payoutCents = (vendorItems || []).reduce((sum, item) => sum + (item.vendor_payout_cents || item.subtotal_cents || 0), 0)
-
-    await sendNotification(vp.user_id, 'event_settlement_summary', {
-      marketName,
-      orderCount,
-      payoutAmount: (payoutCents / 100).toFixed(2),
-    }, { vertical: verticalId })
-  }
 }
 
 async function sendEventConfirmedEmail(
@@ -538,55 +388,3 @@ async function sendEventConfirmedEmail(
   }
 }
 
-async function sendOrganizerStatusEmail(
-  contactName: string,
-  contactEmail: string,
-  companyName: string,
-  eventDate: string,
-  verticalId: string,
-  eventStatus: string,
-  message: string
-) {
-  const apiKey = process.env.RESEND_API_KEY
-  if (!apiKey) return
-
-  const isFM = verticalId === 'farmers_market'
-  const senderName = isFM ? 'Farmers Marketing' : "Food Truck'n"
-  const senderDomain = isFM ? 'mail.farmersmarketing.app' : 'mail.foodtruckn.app'
-  const accentColor = isFM ? '#2d5016' : '#ff5757'
-
-  const subjectMap: Record<string, string> = {
-    approved: `Event update — we're finding vendors for ${companyName}`,
-    declined: `Event update — ${companyName}`,
-    cancelled: `Event cancelled — ${companyName}`,
-    completed: `Event complete — ${companyName} on ${eventDate}`,
-  }
-
-  try {
-    const { Resend } = await import('resend')
-    const resend = new Resend(apiKey)
-
-    await resend.emails.send({
-      from: `${senderName} <updates@${senderDomain}>`,
-      to: contactEmail,
-      subject: subjectMap[eventStatus] || `Event update — ${companyName}`,
-      html: `
-        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto">
-          <h2 style="color:${accentColor};margin:0 0 8px">${companyName}</h2>
-          <p style="color:#374151;margin:0 0 16px;font-size:16px">Hi ${contactName || 'there'},</p>
-          <p style="color:#4b5563;line-height:1.6;margin:0 0 16px">
-            ${message}
-          </p>
-          <p style="color:#9ca3af;font-size:13px;margin:16px 0 0;border-top:1px solid #e5e7eb;padding-top:16px">
-            Event date: ${eventDate}
-          </p>
-          <p style="color:#6b7280;font-size:13px;margin:8px 0 0">
-            Questions? Reply to this email and our team will help.
-          </p>
-        </div>
-      `,
-    })
-  } catch (err) {
-    console.error(`[admin/events] Failed to send ${eventStatus} email to organizer:`, err)
-  }
-}

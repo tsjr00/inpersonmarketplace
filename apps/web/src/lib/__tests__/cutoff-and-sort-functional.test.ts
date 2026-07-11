@@ -192,8 +192,11 @@ describe('NI-014: Total notification types = 72', () => {
     // Bumped 94 → 95 on 2026-07-06 when park_standing_hold_requested was added
     // (FT park-manager P4a — notify the operator when a truck requests a weekly
     // hold, with its requested start date). User-approved.
+    // Bumped 95 → 96 on 2026-07-10 when event_completed_with_unfulfilled_admin
+    // was added (G1 event auto-complete — notify vertical admins when an event
+    // completes with unfulfilled orders). User-approved.
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(95)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(96)
   })
 
   it('includes all buyer-facing types', () => {

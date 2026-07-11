@@ -164,6 +164,7 @@ export type NotificationType =
   | 'event_prep_reminder'
   | 'event_settlement_summary'
   | 'event_force_completed_with_unfulfilled'
+  | 'event_completed_with_unfulfilled_admin'
   | 'vendor_event_approved'
   | 'vendor_event_application_submitted'
   | 'vendor_event_application_received'
@@ -1480,6 +1481,18 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       return `The event "${d.marketName || 'your event'}" has been closed by an admin while ${count} order${count !== 1 ? 's' : ''} from you ${count !== 1 ? 'were' : 'was'} still unfulfilled. Please review and resolve these orders — refund or fulfill as appropriate. Contact support if you need help.`
     },
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/orders`,
+  },
+
+  event_completed_with_unfulfilled_admin: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'admin',
+    title: () => 'Event Completed With Unfulfilled Orders',
+    message: (d) => {
+      const items = d.orderCount || 0
+      return `The event "${d.marketName || 'an event'}" was completed with ${items} unfulfilled order item${items !== 1 ? 's' : ''}. The affected vendors were notified to resolve them — review if follow-up is needed.`
+    },
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/admin/events`,
   },
 
   event_feedback_request: {
