@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { getEmailFromAddress } from '@/lib/notifications/email-config'
 
 /**
  * Public intake form for the Market Manager Program landing page.
@@ -82,6 +83,10 @@ const NOTES_MAX = 1000
 export default function ManagerIntakeForm() {
   const params = useParams()
   const vertical = (params?.vertical as string) || 'farmers_market'
+  const isFT = vertical === 'food_trucks'
+  const fromAddress = getEmailFromAddress(vertical)
+  const nameLabel = isFT ? 'Park name' : 'Market name'
+  const namePlaceholder = isFT ? 'Sixth Street Food Park' : 'Westgate Farmers Market'
 
   const [managerName, setManagerName] = useState('')
   const [email, setEmail] = useState('')
@@ -154,6 +159,7 @@ export default function ManagerIntakeForm() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          vertical,
           manager_name: trimmedName,
           email: trimmedEmail,
           market_name: trimmedMarket,
@@ -211,7 +217,7 @@ export default function ManagerIntakeForm() {
           {formState.message}
         </p>
         <p style={{ margin: 0, fontSize: typography.sizes.sm, lineHeight: 1.5 }}>
-          The email comes from <strong>updates@mail.farmersmarketing.app</strong> — check your spam folder if you don&apos;t see it within a couple minutes.
+          The email comes from <strong>{fromAddress}</strong> — check your spam folder if you don&apos;t see it within a couple minutes.
         </p>
         <p style={{ margin: `${spacing.md} 0 0 0`, fontSize: typography.sizes.sm }}>
           Already have an account?{' '}
@@ -269,8 +275,8 @@ export default function ManagerIntakeForm() {
         </FieldWrapper>
       </div>
 
-      {/* Market name — full width */}
-      <FieldWrapper label="Market name" required errored={errorField === 'market_name'}>
+      {/* Market/park name — full width */}
+      <FieldWrapper label={nameLabel} required errored={errorField === 'market_name'}>
         <input
           type="text"
           value={marketName}
@@ -278,7 +284,7 @@ export default function ManagerIntakeForm() {
           disabled={submitting}
           maxLength={100}
           autoComplete="organization"
-          placeholder="Westgate Farmers Market"
+          placeholder={namePlaceholder}
           style={inputStyle(errorField === 'market_name')}
         />
       </FieldWrapper>

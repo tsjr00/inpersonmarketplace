@@ -39,7 +39,11 @@ Full code-verified map + gap list + impact/risk/ease matrix: **`apps/web/.claude
 
 ## ⭐ NEXT UP (1st to finish AFTER events G1/G3/G5) — FT park-operator public signup form + persona (2026-07-10)
 
-**Gap (verified):** there is NO food-truck park-operator public signup. The public manager intake is farmers-market-only:
+**✅ BUILT 2026-07-11 (UNCOMMITTED, gates green tsc0/lint0), one vertical-aware route (Option 1), NO migration.** Decisions: `park_mode='paid'` on FT create; onboarding-checklist rework deferred (FM-booth-centric — separate item). Files: `api/market-manager/intake/route.ts` (vertical body field → `vertical_id` + FT `park_mode='paid'`; `getEmailFromAddress`/`getEmailBranding` for branded from-address + signup base + park-correct next-steps email), `[vertical]/market-manager-program/page.tsx` (full vertical-switched copy via `copy` object, FT park-operator voice; mailto vertical-aware), `landing/ManagerIntakeForm.tsx` (posts `vertical`; FT "Park name" label + success from-address), `landing/Footer.tsx` (FT footer link → "Park Operators"), `locale/messages/en.ts`+`es.ts` (`footer.park_operators`). **FT pricing copy deliberately soft** (no fixed "$25→$23.37") because `operator_keep_pct` is admin-set per park (0.935→1.000) so the operator's keep varies — user to revise copy. **NEXT: user staging test → commit+push staging (explicit go).** Ships with the FT-port batch (already staged) — no new prod migration.
+
+---
+
+**Gap (verified, now built):** there was NO food-truck park-operator public signup. The public manager intake was farmers-market-only:
 - `/[vertical]/market-manager-program` (renders `ManagerIntakeForm`) → `/api/market-manager/intake`, which **hardcodes** `vertical_id: 'farmers_market'` + `market_type: 'traditional'` (`intake/route.ts:223-225`). Even at `/food_trucks/market-manager-program` it creates an FM market, and the confirmation email/signup links default to `farmersmarketing.app`. Both the page (`market-manager-program/page.tsx:16-21`) and the route (`intake/route.ts:24-25`) docstrings state the FT park-operator persona is deferred.
 - **Today the only way to get a park manager** is admin/seed sets `manager_email` on an FT (`vertical_id='food_trucks'`) market → manager logs in (first dashboard load backfills `manager_user_id`, the Option A auto-link) → sets `park_mode='paid'` on `/food_trucks/market-manager/[marketId]/dashboard` → `ParkSpotsManager` (spots). No self-serve public entry.
 

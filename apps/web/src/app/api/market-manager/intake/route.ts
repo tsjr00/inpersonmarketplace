@@ -7,6 +7,7 @@ import {
   rateLimitResponse,
 } from '@/lib/rate-limit'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { getEmailFromAddress, getEmailBranding } from '@/lib/notifications/email-config'
 
 /**
  * POST /api/market-manager/intake
@@ -21,8 +22,12 @@ import { withErrorTracing, traced, crumb } from '@/lib/errors'
  * because the applicant has no user_id yet), rate-limit via
  * `rateLimits.submit`, content moderation on free-text via `checkFields`.
  *
- * Vertical scope: farmers_market for v1 (per market_manager_v2_plan.md).
- * FT park-operator equivalent is a separate persona, deferred.
+ * Vertical scope: farmers_market (market manager) + food_trucks (park
+ * operator). The `vertical` body field drives vertical_id, park_mode,
+ * and the email branding/domain. Unknown/absent → farmers_market. FT
+ * parks are created with park_mode='paid' so the operator lands straight
+ * on spot-inventory setup (Stripe + active spots still gate real
+ * bookings — see book-park-spot/route.ts).
  *
  * Body shape:
  *   {
@@ -61,6 +66,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}))
+
+    // ── Vertical (drives vertical_id, park_mode, email branding) ─────
+    const ALLOWED_VERTICALS = new Set(['farmers_market', 'food_trucks'])
+    const vertical =
+      typeof body?.vertical === 'string' && ALLOWED_VERTICALS.has(body.vertical)
+        ? (body.vertical as string)
+        : 'farmers_market'
+    const isFoodTrucks = vertical === 'food_trucks'
 
     // ── Trim + normalize ────────────────────────────────────────────
     const managerName =
@@ -220,7 +233,7 @@ export async function POST(request: NextRequest) {
     const { data: inserted, error: insertError } = await supabase
       .from('markets')
       .insert({
-        vertical_id: 'farmers_market',
+        vertical_id: vertical,
         name: marketName.slice(0, 200),
         market_type: 'traditional',
         status: 'pending',
@@ -232,6 +245,10 @@ export async function POST(request: NextRequest) {
         longitude: geocodedLng,
         manager_email: email,
         manager_invited_at: new Date().toISOString(),
+        // FT park operators run paid spots — land them on spot-inventory
+        // setup immediately. Stripe + active spots still gate real
+        // bookings (book-park-spot/route.ts). FM keeps the default 'free'.
+        ...(isFoodTrucks ? { park_mode: 'paid' } : {}),
       })
       .select('id, name, vertical_id')
       .single()
@@ -299,6 +316,7 @@ export async function POST(request: NextRequest) {
         notes,
         marketId,
         possibleDuplicates,
+        vertical: verticalId,
       }),
       sendManagerConfirmation({
         managerName,
@@ -352,6 +370,7 @@ interface AdminNotificationArgs {
   notes: string | null
   marketId: string
   possibleDuplicates: PossibleDuplicate[]
+  vertical: string
 }
 
 async function sendAdminNotification(args: AdminNotificationArgs): Promise<void> {
@@ -370,6 +389,11 @@ async function sendAdminNotification(args: AdminNotificationArgs): Promise<void>
     )
     return
   }
+
+  const isFT = args.vertical === 'food_trucks'
+  const personaNoun = isFT ? 'park operator' : 'market manager'
+  const { brandName } = getEmailBranding(args.vertical)
+  const fromAddress = getEmailFromAddress(args.vertical)
 
   const hasDupes = args.possibleDuplicates.length > 0
   const subjectPrefix = hasDupes ? '⚠️ Possible duplicate — ' : ''
@@ -400,12 +424,12 @@ async function sendAdminNotification(args: AdminNotificationArgs): Promise<void>
     const resend = new Resend(apiKey)
 
     await resend.emails.send({
-      from: 'Farmers Marketing <updates@mail.farmersmarketing.app>',
+      from: `${brandName} <${fromAddress}>`,
       to: adminEmail,
-      subject: `${subjectPrefix}New market manager intake: ${args.marketName} (${args.city}, ${args.state})`,
+      subject: `${subjectPrefix}New ${personaNoun} intake: ${args.marketName} (${args.city}, ${args.state})`,
       html: `
         <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto">
-          <h2 style="color:#2d5016;margin:0 0 16px">New market manager intake</h2>
+          <h2 style="color:#2d5016;margin:0 0 16px">New ${personaNoun} intake</h2>
           <p style="color:#737373;font-size:13px;margin:0 0 16px">Market is in <strong>pending</strong> status and hidden from public browse. Flip status to <strong>active</strong> when ready.</p>
           ${dupeBlock}
           <table style="border-collapse:collapse;width:100%">
@@ -438,31 +462,57 @@ async function sendManagerConfirmation(args: ManagerConfirmationArgs): Promise<v
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) return
 
+  const isFT = args.verticalId === 'food_trucks'
+  const { brandName, brandDomain } = getEmailBranding(args.verticalId)
+  const fromAddress = getEmailFromAddress(args.verticalId)
+
   // Public-facing signup URL — points directly at the signup route
   // (not login) so the manager doesn't have to click a "sign up here"
   // toggle. The signup page pre-fills the email via the ?email= param
   // (see src/app/[vertical]/signup/page.tsx — searchParams.get('email')).
   // After signup the existing email-to-user-id backfill flow links
   // manager_user_id on their first authenticated dashboard load.
-  const appBase = process.env.NEXT_PUBLIC_APP_URL || 'https://farmersmarketing.app'
+  // Base mirrors the auth send-email pattern (NEXT_PUBLIC_APP_URL first
+  // for staging/preview, else the vertical's brand domain).
+  const appBase = process.env.NEXT_PUBLIC_APP_URL || `https://${brandDomain}`
   const signupUrl = `${appBase}/${args.verticalId}/signup?email=${encodeURIComponent(args.email)}`
+
+  const programName = isFT
+    ? `${brandName} Park Operator Program`
+    : `${brandName} Manager Program`
+  const noun = isFT ? 'park' : 'market'
+  const nextSteps = isFT
+    ? [
+        'You sign up + sign in to your dashboard.',
+        'You turn on paid spots and add your spots (size, power, water, daily price).',
+        'You select the truck agreement statements your park uses.',
+        'You connect a Stripe account so we can pay you spot rental revenue.',
+        'We review your setup and activate your public park listing — usually within one business day.',
+      ]
+    : [
+        'You sign up + sign in to your dashboard.',
+        'You configure your booth inventory (sizes, count, weekly price).',
+        'You select the vendor agreement statements your market uses.',
+        'You connect a Stripe account so we can pay you booth rental revenue.',
+        'We review your setup and activate your public market listing — usually within one business day.',
+      ]
 
   try {
     const { Resend } = await import('resend')
     const resend = new Resend(apiKey)
 
     await resend.emails.send({
-      from: 'Farmers Marketing <updates@mail.farmersmarketing.app>',
+      from: `${brandName} <${fromAddress}>`,
       to: args.email,
       subject: `Welcome — set up your dashboard for ${args.marketName}`,
       html: `
         <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a">
           <h2 style="color:#2d5016;margin:0 0 16px">Welcome, ${escapeHtml(args.managerName.split(' ')[0])} 👋</h2>
           <p style="margin:0 0 16px;line-height:1.6">
-            Thanks for signing up <strong>${escapeHtml(args.marketName)}</strong> for the Farmers Marketing Manager Program.
+            Thanks for signing up <strong>${escapeHtml(args.marketName)}</strong> for the ${escapeHtml(programName)}.
           </p>
           <p style="margin:0 0 16px;line-height:1.6">
-            Your next step is to set up your dashboard. Use the email below to sign up — we&apos;ve already linked your market to it.
+            Your next step is to set up your dashboard. Use the email below to sign up — we&apos;ve already linked your ${noun} to it.
           </p>
           <div style="background:#f4f4f4;padding:12px 16px;border-radius:6px;font-family:monospace;font-size:14px;margin:0 0 20px">
             ${escapeHtml(args.email)}
@@ -472,11 +522,7 @@ async function sendManagerConfirmation(args: ManagerConfirmationArgs): Promise<v
           </p>
           <h3 style="margin:24px 0 8px;font-size:16px">What happens next</h3>
           <ul style="margin:0 0 16px;padding-left:20px;line-height:1.7">
-            <li>You sign up + sign in to your dashboard.</li>
-            <li>You configure your booth inventory (sizes, count, weekly price).</li>
-            <li>You select the vendor agreement statements your market uses.</li>
-            <li>You connect a Stripe account so we can pay you booth rental revenue.</li>
-            <li>We review your setup and activate your public market listing — usually within one business day.</li>
+            ${nextSteps.map((s) => `<li>${escapeHtml(s)}</li>`).join('')}
           </ul>
           <p style="margin:24px 0 0;color:#737373;font-size:13px;line-height:1.5">
             Questions? Reply to this email and we&apos;ll get back to you.

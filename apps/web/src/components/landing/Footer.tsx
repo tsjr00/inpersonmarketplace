@@ -47,9 +47,10 @@ export function Footer({ vertical, locale }: FooterProps) {
         { label: t('footer.become_vendor', locale), href: `/${vertical}/signup?returnTo=${encodeURIComponent(`/${vertical}/vendor-signup`)}` },
         { label: t('footer.why_sell', locale), href: `/${vertical}/features#vendors` },
         { label: t('footer.vendor_faq', locale), href: `/${vertical}/help` },
-        // Market-manager program is FM-only (v1) — surface the application/start
-        // page in the FM footer only.
-        ...(isFM ? [{ label: t('footer.market_managers', locale), href: `/${vertical}/market-manager-program` }] : []),
+        // Manager/operator program: FM markets → "Market Mgrs.",
+        // FT parks → "Park Operators". Both point at the shared,
+        // vertical-aware /[vertical]/market-manager-program page.
+        ...((isFM || isFT) ? [{ label: t(isFT ? 'footer.park_operators' : 'footer.market_managers', locale), href: `/${vertical}/market-manager-program` }] : []),
       ]
     },
     {
