@@ -67,7 +67,7 @@ const FIELD_GROUPS = [
   {
     label: 'Event Context',
     description: 'Helps vendors prepare for your specific event',
-    fields: ['beverages_provided', 'dessert_provided', 'competing_food_options', 'has_competing_vendors', 'is_themed', 'theme_description', 'children_present', 'is_ticketed', 'is_recurring', 'recurring_frequency'],
+    fields: ['beverages_provided', 'dessert_provided', 'competing_food_options', 'has_competing_vendors', 'is_themed', 'theme_description', 'children_present', 'is_ticketed'],
   },
   {
     label: 'Logistics',

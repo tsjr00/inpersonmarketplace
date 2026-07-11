@@ -916,9 +916,6 @@ export default function AdminCateringPage() {
                 )}
                 {vertical === 'food_trucks' && selected.beverages_provided && <DetailRow label="Beverages" value="Provided separately" />}
                 {vertical === 'food_trucks' && selected.dessert_provided && <DetailRow label="Dessert" value="Provided separately" />}
-                {selected.is_recurring && (
-                  <DetailRow label="Recurring" value={selected.recurring_frequency ? `Yes — ${selected.recurring_frequency}` : 'Yes'} />
-                )}
               </Section>
 
               {/* Viability Assessment — admin-only scoring */}

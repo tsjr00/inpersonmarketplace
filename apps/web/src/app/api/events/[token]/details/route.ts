@@ -47,8 +47,6 @@ const ALLOWED_FIELDS = [
   'event_end_date',
   'event_setting',
   'address',
-  'is_recurring',
-  'recurring_frequency',
   'company_max_per_attendee_cents',
   'contact_phone',
 ]
@@ -204,12 +202,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       const valid = ['indoor', 'outdoor', 'either']
       if (!valid.includes(updateData.event_setting as string)) {
         throw traced.validation('ERR_EVENT_DETAIL_004', 'Invalid event_setting')
-      }
-    }
-    if (updateData.recurring_frequency !== undefined && updateData.recurring_frequency !== null) {
-      const valid = ['weekly', 'biweekly', 'monthly', 'quarterly']
-      if (!valid.includes(updateData.recurring_frequency as string)) {
-        throw traced.validation('ERR_EVENT_DETAIL_005', 'Invalid recurring_frequency')
       }
     }
     // If both times provided in this update OR being changed alongside an existing time, validate end > start

@@ -289,7 +289,11 @@ export async function POST(request: NextRequest) {
     // and leaves the request in 'new' state. Organizer can fill in address from their
     // dashboard, then admin or a follow-up flow can approve.
     const hasAddress = address && String(address).trim().length > 0
-    if (isSelfService && !hasAddress) {
+    // Self-service with no address never auto-approves and never notifies anyone —
+    // so the organizer confirmation + response message must NOT claim matching is
+    // underway (G5 fix). needsAddress drives the corrected copy on both surfaces.
+    const needsAddress = Boolean(isSelfService && !hasAddress)
+    if (needsAddress) {
       console.log(`[self-service] Event ${requestId}: address missing — skipping auto-approval`)
     }
     if (isSelfService && hasAddress) {
@@ -380,7 +384,8 @@ export async function POST(request: NextRequest) {
         String(city),
         String(state),
         verticalId,
-        isSelfService
+        isSelfService,
+        needsAddress
       ),
     ])
 
@@ -398,7 +403,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       match_count: matchCount || 0,
-      message: isSelfService
+      message: needsAddress
+        ? `Got your request for ${String(company_name)}! One step left before we notify ${vendorWord}: add your event address from your dashboard.`
+        : isSelfService
         ? (verticalId === 'farmers_market'
           ? "Your event request is live! We're notifying qualified vendors now. You'll hear back within 48 hours."
           : "Your event request is live! We're notifying qualified food trucks now. You'll hear back within 48 hours.")
@@ -468,7 +475,8 @@ async function sendOrganizerConfirmation(
   city: string,
   state: string,
   verticalId: string,
-  isSelfService: boolean = false
+  isSelfService: boolean = false,
+  needsAddress: boolean = false
 ) {
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) return
@@ -507,6 +515,17 @@ async function sendOrganizerConfirmation(
     </p>
   `
 
+  // Self-service submitted with NO address — nothing was matched or notified.
+  // Tell the organizer the truth + the exact next step (G5 fix).
+  const needsAddressBody = `
+    <p style="color:#4b5563;line-height:1.7;margin:0 0 16px">
+      Thank you for choosing ${serviceName} for your event.
+    </p>
+    <p style="color:#4b5563;line-height:1.7;margin:0 0 16px">
+      Before we can start notifying ${vendorWord}, we need your event&rsquo;s address — that&rsquo;s how we match nearby ${vendorWord} and tell them where to go. Create your account with the link below, add your event address from the &ldquo;My Events&rdquo; section of your dashboard, and we&rsquo;ll start matching right away.
+    </p>
+  `
+
   const managedBody = `
     <p style="color:#4b5563;line-height:1.7;margin:0 0 16px">
       Thank you for choosing ${serviceName} to help with your event. Our team will review your request and personally coordinate ${vendorWord} selection, logistics, and day-of support.
@@ -539,7 +558,7 @@ async function sendOrganizerConfirmation(
               <tr><td style="padding:6px 0;font-weight:600;color:#374151">Location</td><td style="padding:6px 0;color:#4b5563">${escapeHtml(city)}, ${escapeHtml(state)}</td></tr>
             </table>
           </div>
-          ${isSelfService ? (isFM ? selfServiceBodyFM : selfServiceBodyFT) : managedBody}
+          ${needsAddress ? needsAddressBody : isSelfService ? (isFM ? selfServiceBodyFM : selfServiceBodyFT) : managedBody}
           <div style="text-align:center;margin:0 0 20px">
             <a href="${signupUrl}" style="display:inline-block;padding:12px 32px;background:${accentColor};color:white;text-decoration:none;border-radius:6px;font-weight:600;font-size:16px">
               Create Your Account

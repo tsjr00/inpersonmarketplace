@@ -479,7 +479,6 @@ export function calculateViability(input: EventScoreInput): EventViability {
   }
 
   const notes: string[] = []
-  if (input.is_recurring) notes.push('Recurring — higher strategic value')
   if (ticketedBonus) notes.push('Ticketed — better pre-order potential')
   const noteStr = notes.length ? ` (${notes.join(', ')})` : ''
 

@@ -2118,6 +2118,43 @@ export async function GET(request: NextRequest) {
       console.error('Phase 11 error:', phase11Error instanceof Error ? phase11Error.message : 'Unknown error')
     }
 
+    // ─── Phase 11.5: Nudge self-service events stuck in 'new' with no address ──
+    // G5: a self-service submit with no address never auto-approved (nobody was
+    // notified). Re-email the organizer to add their address — once, after 2 days.
+    let addressReminders = 0
+    try {
+      const stuckThreshold = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+      const { data: stuckEvents } = await supabase
+        .from('catering_requests')
+        .select('id, company_name, contact_email, vertical_id')
+        .eq('status', 'new')
+        .eq('service_level', 'self_service')
+        .is('address', null)
+        .is('address_reminder_sent_at', null)
+        .lt('created_at', stuckThreshold)
+        .limit(100)
+
+      for (const ev of stuckEvents || []) {
+        const email = (ev as any).contact_email as string | null
+        if (!email) continue
+        const sent = await sendEventAddressReminder(
+          email,
+          ((ev as any).company_name as string) || 'your event',
+          ((ev as any).vertical_id as string) || 'farmers_market',
+        )
+        if (sent) {
+          await supabase
+            .from('catering_requests')
+            .update({ address_reminder_sent_at: new Date().toISOString() })
+            .eq('id', ev.id)
+          addressReminders++
+        }
+      }
+      if (addressReminders > 0) console.log(`Phase 11.5: ${addressReminders} address reminder(s) sent`)
+    } catch (phase115Error) {
+      console.error('Phase 11.5 error:', phase115Error instanceof Error ? phase115Error.message : 'Unknown error')
+    }
+
     // ─── Phase 12: Self-Service Event Response Threshold ──────────────
     // Check self-service events where 48hr has passed since auto-invite
     // and send results email to organizer with interested vendor list.
@@ -2891,6 +2928,7 @@ export async function GET(request: NextRequest) {
       seasonLifecycle: { autoEnded: seasonsAutoEnded, autoSettled: seasonsAutoSettled },
       staleInvitations: { expired: staleInvitationsExpired },
       eventReminders,
+      addressReminders,
       selfServiceResultsSent,
       eventGapAlerts,
       eventsActivated,
@@ -2902,4 +2940,39 @@ export async function GET(request: NextRequest) {
 // Also support POST for manual triggering
 export async function POST(request: NextRequest) {
   return GET(request)
+}
+
+// G5: reminder email to a self-service organizer whose event is stuck in 'new'
+// with no address. Direct Resend send (the organizer may be account-less, so the
+// in-app notification system doesn't apply). Returns true on a successful send.
+async function sendEventAddressReminder(toEmail: string, companyName: string, verticalId: string): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return false
+  const isFM = verticalId === 'farmers_market'
+  const senderName = isFM ? 'Farmers Marketing' : "Food Truck'n"
+  const senderDomain = isFM ? 'mail.farmersmarketing.app' : 'mail.foodtruckn.app'
+  const accent = isFM ? '#2d5016' : '#ff5757'
+  const vendorWord = isFM ? 'vendors' : 'food trucks'
+  const safeName = companyName.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  try {
+    const { getAppUrl } = await import('@/lib/environment')
+    const signupUrl = `${getAppUrl(verticalId)}/${verticalId}/signup?ref=event`
+    const { Resend } = await import('resend')
+    const resend = new Resend(apiKey)
+    await resend.emails.send({
+      from: `${senderName} <updates@${senderDomain}>`,
+      to: toEmail,
+      subject: `Add your event address to start notifying ${vendorWord} — ${companyName}`,
+      html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto">
+        <h2 style="color:${accent};margin:0 0 12px">One step left for ${safeName}</h2>
+        <p style="color:#4b5563;line-height:1.7;margin:0 0 16px">We have your event request, but we still need your event&rsquo;s address before we can notify ${vendorWord} — that&rsquo;s how we match nearby ${vendorWord} and tell them where to go.</p>
+        <p style="color:#4b5563;line-height:1.7;margin:0 0 20px">Sign in and add your address from the &ldquo;My Events&rdquo; section of your dashboard, and we&rsquo;ll start matching right away.</p>
+        <div style="text-align:center;margin:0 0 20px"><a href="${signupUrl}" style="display:inline-block;padding:12px 32px;background:${accent};color:white;text-decoration:none;border-radius:6px;font-weight:600">Add your event address</a></div>
+      </div>`,
+    })
+    return true
+  } catch (err) {
+    console.error('[expire-orders] address reminder email failed:', err instanceof Error ? err.message : err)
+    return false
+  }
 }
