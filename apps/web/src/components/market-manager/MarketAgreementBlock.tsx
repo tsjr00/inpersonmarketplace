@@ -168,9 +168,14 @@ export default function MarketAgreementBlock({
           }}>
             {group.label}
           </div>
+          {/* listStyleType is explicit: Tailwind v4 preflight (globals.css
+              `@import "tailwindcss"`) resets `ul { list-style: none }`, so a
+              bare <ul> renders indented-but-bulletless. Vendors read this
+              agreement — bullets separate the statements. */}
           <ul style={{
             margin: 0,
             paddingLeft: spacing.md,
+            listStyleType: 'disc',
             fontSize: typography.sizes.sm,
             color: colors.textPrimary,
             lineHeight: 1.5,

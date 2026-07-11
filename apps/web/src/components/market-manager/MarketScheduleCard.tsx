@@ -264,7 +264,10 @@ export default function MarketScheduleCard({
           </button>
         </div>
         <p style={cardSubStyle}>
-          Your published schedule + season window. {term(vertical, 'vendors')} at this {term(vertical, 'market').toLowerCase()}
+          {/* {' '} after the market term is required: JSX collapses the
+              newline between an expression and the next line's text to
+              nothing, which rendered "marketsee". Keep the explicit space. */}
+          Your published schedule + season window. {term(vertical, 'vendors')} at this {term(vertical, 'market').toLowerCase()}{' '}
           see the same info; changes go out as an in-app + email
           notification.
         </p>

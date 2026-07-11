@@ -365,8 +365,15 @@ export default function MarketSeasonCard({
                         </span>
                       )}
                     </div>
+                    {/* Field meanings (labeled so they aren't confused with each other):
+                        - "market days" = declared_market_days: operating dates in the window.
+                        - "refund cap" = refund_cap_days: max days a vendor can be refunded for
+                          cancellations, auto-derived as 10% of market days (min 1). NOT the
+                          make-up buffer. Previously labeled just "cap", which testers read as a
+                          make-up-buffer value and flagged 1 as invalid.
+                        - "make-up buffer" = potential_makeup_days: 0 or 2+ (separate rule). */}
                     <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
-                      {fmtDate(s.start_date)} – {fmtDate(s.end_date)} · {s.declared_market_days ?? '?'} market days · cap {s.refund_cap_days ?? '?'} days · make-up buffer {s.potential_makeup_days ?? 0}
+                      {fmtDate(s.start_date)} – {fmtDate(s.end_date)} · {s.declared_market_days ?? '?'} market days · refund cap {s.refund_cap_days ?? '?'} days · make-up buffer {s.potential_makeup_days ?? 0}
                       {s.prepay_open && s.prepay_closes_at ? ` · closes ${fmtDate(s.prepay_closes_at.slice(0, 10))}` : ''}
                     </div>
                   </div>
