@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { calculateBoothRentalFees } from '@/lib/pricing'
+import { isBeforeSeason, isAfterSeason } from '@/lib/markets/season-window'
 
 /**
  * Stats surfaced on the manager dashboard above the existing onboarding
@@ -47,7 +48,13 @@ export interface ManagerDashboardStats {
 
 export async function getManagerDashboardStats(
   marketId: string,
-  marketTimezone: string | null
+  marketTimezone: string | null,
+  // Operating window (markets.season_start/end). When set, "next market day"
+  // is clamped to it — the market doesn't run outside its season, matching
+  // the buyer-side rule in get_available_pickup_dates() (mig 010). NULL =
+  // year-round (unchanged behavior).
+  seasonStart: string | null = null,
+  seasonEnd: string | null = null
 ): Promise<ManagerDashboardStats> {
   const tz = marketTimezone || 'America/Chicago'
   const serviceClient = createServiceClient()
@@ -59,7 +66,7 @@ export async function getManagerDashboardStats(
     .select('day_of_week, start_time, active')
     .eq('market_id', marketId)
 
-  const nextMarketDate = computeNextMarketDate(schedules ?? [], tz)
+  const nextMarketDate = computeNextMarketDate(schedules ?? [], tz, seasonStart, seasonEnd)
   const nextMarketDateStr = nextMarketDate ? formatLocalDate(nextMarketDate) : null
 
   // Today in the market's local timezone — used by query 6 to filter
@@ -166,7 +173,9 @@ export async function getManagerDashboardStats(
  */
 function computeNextMarketDate(
   schedules: Array<{ day_of_week: number; start_time: string | null; active: boolean | null }>,
-  timezone: string
+  timezone: string,
+  seasonStart: string | null = null,
+  seasonEnd: string | null = null
 ): Date | null {
   // Convert UTC server time → market-local "now" via locale-string round-trip.
   // The resulting Date carries local date/time values in server-time slots,
@@ -191,6 +200,20 @@ function computeNextMarketDate(
 
     const nextDate = new Date(localNow)
     nextDate.setDate(localNow.getDate() + daysUntil)
+
+    // Clamp to the market's operating window (season_start/end). If this
+    // weekday's next occurrence is before the season starts, advance it week
+    // by week to the first in-season occurrence; if that lands past
+    // season_end, this schedule contributes no upcoming market day. NULL
+    // bounds = year-round (no clamp). Guard caps the loop at ~10 years.
+    if (seasonStart) {
+      let guard = 0
+      while (isBeforeSeason(formatLocalDate(nextDate), seasonStart) && guard < 520) {
+        nextDate.setDate(nextDate.getDate() + 7)
+        guard++
+      }
+    }
+    if (isAfterSeason(formatLocalDate(nextDate), seasonEnd)) continue
 
     if (!nearestDate || nextDate < nearestDate) {
       nearestDate = nextDate

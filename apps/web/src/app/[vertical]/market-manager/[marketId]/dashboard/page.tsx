@@ -78,7 +78,12 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
   }
 
   const onboardingProgress = await getOnboardingProgress(marketId)
-  const dashboardStats = await getManagerDashboardStats(marketId, (market.timezone as string | null) ?? null)
+  const dashboardStats = await getManagerDashboardStats(
+    marketId,
+    (market.timezone as string | null) ?? null,
+    (market.season_start as string | null) ?? null,
+    (market.season_end as string | null) ?? null
+  )
   const transactionsAggregates = await getMarketTransactionsAggregates(
     marketId,
     (market.timezone as string | null) ?? null,

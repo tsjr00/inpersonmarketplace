@@ -69,7 +69,14 @@ Files: `MarketScheduleCard.tsx` (space fix + comment), `MarketSeasonCard.tsx` ("
 3. **Item 11** — add `listStyleType:'disc'` to the agreement-statement `<ul>` (`MarketAgreementBlock.tsx:171`); audit sibling statement lists.
 - No migration, no money path. Pure UI. Add/adjust no business-rule tests (display-only).
 
-## Phase 2 — Enforce the season window (Items 2, 9, 6, 3B) — **needs decisions**
+## Phase 2 — Enforce the season window — ✅ BUILT 2026-07-11 (gates green tsc0/lint0, +13 tests, UNCOMMITTED)
+Decisions resolved (Q1 = markets.season_start/end; Q2 = Option B; Q3 = no-season unchanged). New shared helper `src/lib/markets/season-window.ts` (pure, 13 unit tests) — single source for the rule. Wired:
+- **2a** `manager-dashboard-stats.ts` `computeNextMarketDate` clamps to the window (+ `getManagerDashboardStats` gains seasonStart/End params; dashboard `page.tsx` passes them).
+- **2b** `markets/[id]/book/page.tsx` `nextSundays` clamps to the window (Option B: advance to first in-season Sunday, drop past-end); market select adds season cols; empty-window renders a "season runs X–Y" bail-out.
+- **2c** `BoothOccupancyGrid.tsx` anchors the displayed week to the first in-season week when today is pre-season; relabels "this week" → "upcoming market week" + description note.
+No migration; no critical-path/money file (booth-booking availability is money-*adjacent* — careful, covered by new + existing tests). FT parks unaffected (null season). Buyer path already enforced this (mig 010) — now vendor/manager are consistent.
+
+### (original scope)
 Root fix: make date generation respect the season window when one is set.
 - **2a** `computeNextMarketDate` (`manager-dashboard-stats.ts:167`) — skip dates before season_start / after season_end.
 - **2b** Weekly week-picker `nextSundays` (`markets/[id]/book/page.tsx:204`) — clamp generated weeks to the season window.

@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import ManagerCard from '@/components/market-manager/ManagerCard'
 import { term } from '@/lib/vertical/terminology'
+import { isBeforeSeason } from '@/lib/markets/season-window'
 
 interface BoothOccupancyGridProps {
   marketId: string
@@ -67,10 +68,33 @@ type Occupant = PlaceholderOccupant | OnPlatformOccupant | PaidRentalOccupant
 export default async function BoothOccupancyGrid({ marketId, marketTimezone, vertical }: BoothOccupancyGridProps) {
   const tz = marketTimezone || 'America/Chicago'
   const todayLocal = new Date(new Date().toLocaleString('en-US', { timeZone: tz }))
-  const weekStart = mondayOf(todayLocal)
-  const weekStartStr = formatLocalDate(weekStart)
 
   const serviceClient = createServiceClient()
+
+  // Operating window (season_start/end). When today is before the season
+  // starts, anchor the displayed week to the first in-season market week so a
+  // seasonal market shows the week that actually holds bookings instead of an
+  // empty current week (the paid-rentals query below keys off weekStartStr).
+  // NULL = year-round → show the real current week (unchanged behavior).
+  const { data: seasonRow } = await serviceClient
+    .from('markets')
+    .select('season_start, season_end')
+    .eq('id', marketId)
+    .maybeSingle()
+  const seasonStart = (seasonRow?.season_start as string | null) ?? null
+
+  const weekStart = mondayOf(todayLocal)
+  if (seasonStart) {
+    let guard = 0
+    while (isBeforeSeason(formatLocalDate(weekStart), seasonStart) && guard < 520) {
+      weekStart.setDate(weekStart.getDate() + 7)
+      guard++
+    }
+  }
+  const weekStartStr = formatLocalDate(weekStart)
+  // True when we moved off the real current week to the first in-season week —
+  // used to label the card "upcoming market week" instead of "this week".
+  const anchoredToSeason = weekStartStr !== formatLocalDate(mondayOf(todayLocal))
 
   const [tiersResult, placeholdersResult, vendorsResult, paidResult] = await Promise.all([
     serviceClient
@@ -173,8 +197,8 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone, ver
 
   return (
     <ManagerCard
-      title={<>{term(vertical, 'booth')} occupancy — this week:{' '}<span style={{ fontWeight: typography.weights.normal, color: colors.textMuted }}>{formatDisplayDate(weekStart)}</span></>}
-      description={`Per-tier view of who's at the ${term(vertical, 'market').toLowerCase()} this week — combines off-platform placeholders, on-platform ${term(vertical, 'vendors').toLowerCase()}, and paid weekly bookings. Manage each source from the cards below.`}
+      title={<>{term(vertical, 'booth')} occupancy — {anchoredToSeason ? 'upcoming market week' : 'this week'}:{' '}<span style={{ fontWeight: typography.weights.normal, color: colors.textMuted }}>{formatDisplayDate(weekStart)}</span></>}
+      description={`Per-tier view of who's at the ${term(vertical, 'market').toLowerCase()} ${anchoredToSeason ? 'that week' : 'this week'} — combines off-platform placeholders, on-platform ${term(vertical, 'vendors').toLowerCase()}, and paid weekly bookings${anchoredToSeason ? ' (showing the first week of the season, since it hasn’t started yet)' : ''}. Manage each source from the cards below.`}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
         {tiers.map((tier, idx) => {

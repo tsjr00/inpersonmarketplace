@@ -35,24 +35,49 @@ interface InventoryRow {
   weekly_price_cents: number
 }
 
-/** Compute next N Sundays (inclusive of today if today IS Sunday) in
- *  the market's local timezone. Used to populate the week-picker. */
-function nextSundays(timezone: string, count: number): string[] {
+/** Compute up to N bookable Sundays (week starts) in the market's local
+ *  timezone, clamped to the market's operating window (season_start/end).
+ *
+ *  Option B (advance in-season booking): when the season hasn't started yet,
+ *  the first offered Sunday jumps forward to the first Sunday on/after
+ *  season_start so vendors can pre-book in-season weeks. Sundays past
+ *  season_end are dropped. NULL bounds = year-round (unchanged: next N
+ *  Sundays). Aligns the vendor booth picker with the buyer-side operating
+ *  window enforced in get_available_pickup_dates() (mig 010). */
+function nextSundays(
+  timezone: string,
+  count: number,
+  seasonStart: string | null,
+  seasonEnd: string | null
+): string[] {
   const localNow = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }))
   const today = new Date(localNow.getFullYear(), localNow.getMonth(), localNow.getDate())
+  const fmt = (d: Date) => {
+    const yyyy = d.getFullYear()
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const dd = String(d.getDate()).padStart(2, '0')
+    return `${yyyy}-${mm}-${dd}`
+  }
   // If today is Sunday (getDay() === 0), start there; otherwise step
   // forward to the upcoming Sunday.
   const daysUntilSunday = today.getDay() === 0 ? 0 : 7 - today.getDay()
   const firstSunday = new Date(today)
   firstSunday.setDate(today.getDate() + daysUntilSunday)
+  // Season not started yet → advance to the first Sunday on/after start.
+  if (seasonStart) {
+    let guard = 0
+    while (fmt(firstSunday) < seasonStart && guard < 520) {
+      firstSunday.setDate(firstSunday.getDate() + 7)
+      guard++
+    }
+  }
   const sundays: string[] = []
   for (let i = 0; i < count; i++) {
     const d = new Date(firstSunday)
     d.setDate(firstSunday.getDate() + i * 7)
-    const yyyy = d.getFullYear()
-    const mm = String(d.getMonth() + 1).padStart(2, '0')
-    const dd = String(d.getDate()).padStart(2, '0')
-    sundays.push(`${yyyy}-${mm}-${dd}`)
+    const ymd = fmt(d)
+    if (seasonEnd && ymd > seasonEnd) break // past the operating window
+    sundays.push(ymd)
   }
   return sundays
 }
@@ -72,7 +97,7 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
   // copy ("you need to be a vendor at <market name> to book").
   const { data: market } = await supabase
     .from('markets')
-    .select('id, name, vertical_id, timezone, address, city, state, stripe_charges_enabled')
+    .select('id, name, vertical_id, timezone, address, city, state, stripe_charges_enabled, season_start, season_end')
     .eq('id', marketId)
     .maybeSingle()
 
@@ -201,7 +226,33 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
     )
   }
 
-  const weeks = nextSundays((market.timezone as string | null) || 'America/Chicago', 8)
+  const seasonStart = (market.season_start as string | null) ?? null
+  const seasonEnd = (market.season_end as string | null) ?? null
+  const weeks = nextSundays(
+    (market.timezone as string | null) || 'America/Chicago',
+    8,
+    seasonStart,
+    seasonEnd
+  )
+
+  // No bookable weeks in the operating window → the market's season is over,
+  // or its start is beyond the 8-week horizon. Tell the vendor when it runs
+  // instead of showing an empty picker.
+  if (weeks.length === 0) {
+    return (
+      <Centered>
+        <h1 style={headingStyle}>Booth booking isn&apos;t open right now</h1>
+        <p style={mutedStyle}>
+          {market.name} operates{seasonStart ? ` from ${seasonStart}` : ''}
+          {seasonEnd ? ` through ${seasonEnd}` : ''}. There are no bookable weeks
+          in that window at the moment — check back when the season is closer.
+        </p>
+        <Link href={`/${vertical}/markets/${marketId}`} style={primaryButtonStyle}>
+          Back to {market.name}
+        </Link>
+      </Centered>
+    )
+  }
 
   // Vendor's booth-credit balance at this market (auto-applied at checkout).
   const { data: creditRows } = await serviceClient
