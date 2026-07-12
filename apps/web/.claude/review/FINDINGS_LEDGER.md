@@ -41,4 +41,41 @@ Coverage: read cart/{route,items,items/[id],validate}, checkout/{session,success
 | CHK-14 | money-path | High(F) | checkout/session:566-575 | Mixed listing+MB cart: vendor-tip cap computed on subtotal incl. MB, tip distributed only across listings → over-allocates tip to listing vendors, under-records `tip_on_platform_fee_cents`. | Compute the cap on listing-only subtotal. | S | open |
 | CHK-15 | money-path | Confirmed(F) | checkout/session:539-543 vs :566; pricing:134-139 | `orders.platform_fee_cents` uses std 6.5% while per-item payout honors `vendor_fee_override_percent` → order-level fee bookkeeping overstates revenue for discounted vendors (reporting only; transfers correct). | Sum per-item fee components for order-level `platform_fee_cents`. | S | open |
 | CHK-16 | correctness | Confirmed(F) | checkout/session:64,86,231 | `items` destructured with no default, used unchecked → body without `items` throws TypeError → traced 500 instead of 400. | Default `items=[]` + empty/malformed-cart 400 (session:64,72). | S | **fixed** |
+## Slice 2 — Vendor orders lifecycle (Fable, 2026-07-12)
+
+Coverage: vendor/orders/route.ts + all [id] subroutes (confirm/ready/fulfill/reject/cancel-nonpayment/payment-not-received/confirm-external-payment/confirm-cash-complete[410]/confirm-handoff[dormant]/resolve-issue); lib/orders/{status-transitions,checkout-helpers}, lib/inventory, payments/{tip-math,vendor-fees}, stripe/payments payout/refund helpers; buyer/orders/[id]/confirm (payout counterpart); vendor_payouts/vendor_fee_balance RLS history. Clean: authz/IDOR (every active route checks ownership), reject double-cancel guard, insert-before-transfer + partial-unique index + deterministic idempotency keys, no N+1s. Root cause of the P0s: payouts gate on confirmation timestamps, not payment/item state.
+
+### P0 (Opus-verified against live code)
+| ID | Cat | Anchor | Claim / scenario | Fix | Effort | Status |
+|---|---|---|---|---|---|---|
+| VOR-1 | money-path/security | fulfill/route.ts:313-333 (+buyer/confirm:202-208) | Fulfill transfers vendor payout with NO paid-order/succeeded-payment gate; when no succeeded payment exists it transfers WITHOUT source_transaction = from platform balance. Buyer never pays (orders created pending pre-payment) → confirm→ready→ack→fulfill pays out real money for nothing. Exploitable w/ buyer+vendor accounts. | Before ANY transfer (fulfill + buyer-confirm edge path): require orders.status IN ('paid','completed') OR a succeeded payments row; hard-fail else. | M | open |
+| VOR-2 | money-path/data-integrity | fulfill/route.ts:84,459-465 | Fulfill else-branch flips item→'fulfilled' unconditionally (no status/cancelled_at guard); a rejected+refunded item can be fulfilled + paid → buyer keeps refund AND vendor paid. | Make fulfill status writes conditional `.in('status',['confirmed','ready']).is('cancelled_at',null)` + rowcount check; add cancelled_at guard to buyer-confirm. | S | open |
+| VOR-3 | money-path/contract-break | buyer/orders/[id]/confirm/route.ts:173,191,251 | Buyer-confirm payout uses the BUYER supabase client for vendor_payouts (RLS default-deny, no INSERT policy) → payout insert silently fails, transfer fires untracked (no source_transaction), OR when Stripe not ready vendor never paid + no trace. fulfill deliberately uses serviceClient. | Use createServiceClient() for all vendor_payouts reads/writes + fee-balance read in buyer-confirm; non-23505 insert error fatal before transfer. | S | **fixed** (vendor_payouts client swapped to serviceClient, buyer/confirm:150,173+; fee-balance read + non-23505-fatal still TODO) |
+
+### P1
+| ID | Cat | Anchor | Claim | Fix | Effort | Status |
+|---|---|---|---|---|---|---|
+| VOR-4 | money-path | buyer/confirm:145 (select :55-62) | Buyer-confirm pays tip on FULL tip_amount, never subtracts tip_on_platform_fee_cents (not even selected), unlike fulfill (:246-247) → overpays vendor the platform tip share (violates decisions.md 2026-02-20). | Select tip_on_platform_fee_cents + calculateVendorTip() before calculateTipShare, mirroring fulfill. | S | open |
+| VOR-5 | money-path (policy) | reject/route.ts:114-117 (vs checkout:587) | Full-order rejection refunds only subtotal+6.5%+flat — tip + small-order fee never refunded even when every item rejected. Same in resolve-issue:149-151. | Product decision, then refund tip + small-order fee on full rejection (per-item tip share on partial). | M | open |
+| VOR-6 | money-path (policy) | resolve-issue/route.ts:140-201 | issue_refund on a fulfilled item refunds buyer full amount but never reverses/ledger-debits the already-executed vendor transfer → platform eats it; colluding vendor can donate refunds at platform cost. | Decide policy; transfer reversal or vendor_fee_ledger debit when refunded item has a processing/paid payout. | M | open |
+
+### P2/P3
+| ID | Cat | Anchor | Claim | Fix | Effort | Status |
+|---|---|---|---|---|---|---|
+| VOR-7 | money-path | confirm-handoff/route.ts:245,265-271 | Dormant-but-live endpoint inserts vendor_payouts w/ user client (RLS-fails, VOR-3) then transfers WITHOUT source_transaction (Session-74 incident pattern). Not UI-reachable but a deployed authed route. | 410 stub like confirm-cash-complete until re-activated, or port fulfill's serviceClient+chargeId. | S | open |
+| VOR-8 | money-path/data-integrity | fulfill/route.ts:226-241 | Fee auto-deduction is read-compute-deduct with no atomic claim → two near-simultaneous fulfills both deduct full balance → over-deducted, ledger negative. | Atomic claim RPC (decrement + return granted) or per-vendor advisory lock. | M | open |
+| VOR-9 | money-path | fulfill/route.ts:336-348 | After a successful transfer that withheld feeDeductionCents, a recordFeeCredit failure is swallowed (crumb only) → same fee deducted again next payout; nothing in error_logs. | On credit failure post-deduction, logError(TracedError) (reject:176-180 pattern) or retried service insert. | S | open |
+| VOR-10 | correctness/money | reject/route.ts:156-182 (resolve-issue:177-200) | If no succeeded payments row, reject silently skips the Stripe refund (item cancelled + refund_amount recorded, buyer never refunded, nothing logged); reachable via async pay methods / webhook lag. `.single()` on 0 rows errors + ignored. | When payment_method==='stripe' (shouldCallStripeRefund) + no succeeded row: logError instead of skip; use .maybeSingle(). | S | open |
+| VOR-11 | contract-break | lib/orders/status-transitions.ts:88-95 | Spec module imported by nothing but tests; live routes contradict it (pending→fulfilled, fulfilled→cancelled). Fixing VOR-2 via these helpers would change resolve-issue behavior. | Decide per-path truth; update spec docs or wire isValidItemTransition into routes. | S | open |
+| VOR-12 | efficiency | resolve-issue/route.ts:117-131 | Admin dispute notify loops sendNotification per admin (≤5 seq) vs sendNotificationBatch. | Swap to batch. | S | open |
+| VOR-13 | efficiency | fulfill/route.ts:226-271 | Fee-balance read + tip-count + existingPayout are 3 sequential awaits before payout insert. | Promise.all — only while already editing for VOR-1/2. | S | open |
+
+---
+
+## Slice 1 — Checkout & payments (Fable, 2026-07-12)
+
+Coverage note moved above; row CHK-17 continues below.
+
+| ID | Cat | Conf | Anchor | Claim / scenario | Fix | Effort | Status |
+|---|---|---|---|---|---|---|---|
 | CHK-17 | money-path | Confirmed(F) | stripe/market-box-payout.ts:134-140 | Failed MB transfer logged with `console.error` only (not `logError`) → invisible to error-log review; webhook already 2xx'd (no Stripe retry) → vendor unpaid unnoticed. | Swapped console.error → logError(TracedError) — market-box-payout.ts:135. (cron-retry for failed MB payouts still a follow-up.) | S | **fixed** |

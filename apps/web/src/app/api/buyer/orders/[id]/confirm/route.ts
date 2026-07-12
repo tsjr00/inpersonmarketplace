@@ -170,7 +170,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
       // Check if vendor was already paid (prevents double payout on race condition)
       crumb.supabase('select', 'vendor_payouts')
-      const { data: existingPayout } = await supabase
+      // VOR-3: vendor_payouts is default-deny RLS with no INSERT policy; the
+      // buyer client silently fails inserts. Use serviceClient (matches fulfill).
+      const { data: existingPayout } = await serviceClient
         .from('vendor_payouts')
         .select('id, status')
         .eq('order_item_id', orderItem.id)
@@ -188,7 +190,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           // M-11 FIX: Insert payout record BEFORE transfer to prevent tracking gaps.
           // Pattern: insert 'pending' -> transfer -> update to 'processing' or 'failed'
           crumb.supabase('insert', 'vendor_payouts (pending)')
-          const { data: payoutRecord, error: payoutInsertErr } = await supabase.from('vendor_payouts').insert({
+          const { data: payoutRecord, error: payoutInsertErr } = await serviceClient.from('vendor_payouts').insert({
             order_item_id: orderItem.id,
             vendor_profile_id: vendorProfile.id,
             amount_cents: actualPayoutCents,
@@ -209,7 +211,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
               crumb.supabase('update', 'vendor_payouts')
               if (payoutRecord) {
-                await supabase.from('vendor_payouts')
+                await serviceClient.from('vendor_payouts')
                   .update({ stripe_transfer_id: transfer.id, status: 'processing', updated_at: new Date().toISOString() })
                   .eq('id', payoutRecord.id)
               }
@@ -228,7 +230,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
               console.error('Stripe transfer failed:', transferError)
               // Update to failed for retry cron -- buyer did their part
               if (payoutRecord) {
-                await supabase.from('vendor_payouts')
+                await serviceClient.from('vendor_payouts')
                   .update({ status: 'failed', updated_at: new Date().toISOString() })
                   .eq('id', payoutRecord.id)
               }
@@ -237,7 +239,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         } else if (isDev) {
           console.log(`[DEV] Skipping Stripe payout for order item ${orderItemId}`)
           crumb.supabase('insert', 'vendor_payouts')
-          await supabase.from('vendor_payouts').insert({
+          await serviceClient.from('vendor_payouts').insert({
             order_item_id: orderItem.id,
             vendor_profile_id: vendorProfile.id,
             amount_cents: actualPayoutCents,
@@ -248,7 +250,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           // Vendor's Stripe not ready - record pending payout for admin follow-up
           console.warn(`[WARN] Vendor Stripe not ready for payout on order item ${orderItemId}`)
           crumb.supabase('insert', 'vendor_payouts')
-          await supabase.from('vendor_payouts').insert({
+          await serviceClient.from('vendor_payouts').insert({
             order_item_id: orderItem.id,
             vendor_profile_id: vendorProfile.id,
             amount_cents: actualPayoutCents,
