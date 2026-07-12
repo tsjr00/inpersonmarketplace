@@ -132,7 +132,7 @@ export async function processMarketBoxPayout(opts: ProcessMarketBoxPayoutOpts): 
           })
           .eq('id', payoutRecord.id)
       } catch (transferErr) {
-        console.error('[MARKET_BOX_PAYOUT] Transfer failed:', transferErr)
+        await logError(new TracedError('ERR_PAYOUT_005', `market box payout transfer failed (sub ${subscriptionId}, offering ${offeringId}): ${transferErr instanceof Error ? transferErr.message : String(transferErr)}`, { route: 'market-box-payout', method: 'processMarketBoxPayout' }))
         await serviceClient
           .from('vendor_payouts')
           .update({ status: 'failed', updated_at: new Date().toISOString() })

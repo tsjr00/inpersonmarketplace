@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 
   return withErrorTracing('/api/checkout/session', 'POST', async () => {
     const supabase = await createClient()
-    const { items, marketBoxItems, vertical, tipAmountCents = 0, tipPercentage = 0 } = await request.json() as {
+    const { items = [], marketBoxItems, vertical, tipAmountCents = 0, tipPercentage = 0 } = await request.json() as {
       items: CartItem[]
       marketBoxItems?: MarketBoxCheckoutItem[]
       vertical?: string
@@ -96,6 +96,13 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       throw traced.auth('ERR_AUTH_001', 'Not authenticated')
+    }
+
+    // CHK-16: reject an empty/malformed cart with a 400 (was a 500 TypeError on
+    // a body missing `items`). AFTER the auth check so unauthenticated requests
+    // still get 401 first (api-route-guards contract).
+    if (!Array.isArray(items) || (items.length === 0 && !hasMarketBoxes)) {
+      throw traced.validation('ERR_CHECKOUT_001', 'Cart is empty or malformed')
     }
 
     // ============================================================
