@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
 
     const { data: expiredPendingOrders } = await serviceClient
       .from('orders')
-      .select('id, vertical_id')
+      .select('id, vertical_id, stripe_checkout_session_id')
       .eq('buyer_user_id', user.id)
       .eq('status', 'pending')
       .lte('created_at', tenMinutesAgo)
@@ -119,6 +119,15 @@ export async function POST(request: NextRequest) {
       const now = new Date().toISOString()
       const cleanupResults = await Promise.allSettled(
         expiredPendingOrders.map(async (expired) => {
+          // Expire the abandoned Stripe session BEFORE cancelling so it can't be
+          // paid after the order is dead. If expire throws because the session
+          // already completed (buyer paid in a race), skip cancelling — the order
+          // is really paid and the webhook/success path will finalize it. (CHK-1)
+          try {
+            await stripe.checkout.sessions.expire(expired.stripe_checkout_session_id as string)
+          } catch {
+            return // session complete/expired — don't cancel a possibly-paid order
+          }
           await restoreOrderInventory(serviceClient, expired.id, expired.vertical_id)
           await serviceClient
             .from('order_items')
