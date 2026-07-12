@@ -727,6 +727,14 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
 
   // Update tier expiration
   if (subscriptionType === 'vendor' || subscriptionType === 'food_truck_vendor') {
+    // CHK-9: scope the tier update to the subscription's vertical so a
+    // multi-vertical vendor's renewal doesn't extend BOTH profiles. Mirrors
+    // the A3 checkout-handler pattern (refuse + log if vertical metadata missing).
+    const vertical = subData.metadata?.vertical
+    if (!vertical) {
+      await logError(new TracedError('ERR_WEBHOOK_002', `Invoice renewal missing vertical metadata for vendor ${userId}, sub ${subscriptionId}. Refusing tier update.`, { route: '/webhooks/stripe', method: 'POST', userId, subscriptionId }))
+      return
+    }
     await supabase
       .from('vendor_profiles')
       .update({
@@ -734,6 +742,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
         tier_expires_at: currentPeriodEnd,
       })
       .eq('user_id', userId)
+      .eq('vertical_id', vertical)
   } else if (subscriptionType === 'buyer') {
     await supabase
       .from('user_profiles')
@@ -769,11 +778,20 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   crumb.stripe(`Invoice payment failed for ${subscriptionType} ${userId}`)
 
   // Update status to past_due (Stripe will retry)
-  if (subscriptionType === 'vendor') {
+  if (subscriptionType === 'vendor' || subscriptionType === 'food_truck_vendor') {
+    // CHK-8: include food_truck_vendor (was 'vendor' only) so FT renewal
+    // failures also flag past_due. CHK-9: scope to the subscription's vertical
+    // so a multi-vertical vendor's failure doesn't flag BOTH profiles.
+    const vertical = subData.metadata?.vertical
+    if (!vertical) {
+      await logError(new TracedError('ERR_WEBHOOK_002', `Invoice renewal-failure missing vertical metadata for vendor ${userId}, sub ${subscriptionId}. Refusing status update.`, { route: '/webhooks/stripe', method: 'POST', userId, subscriptionId }))
+      return
+    }
     await supabase
       .from('vendor_profiles')
       .update({ subscription_status: 'past_due' })
       .eq('user_id', userId)
+      .eq('vertical_id', vertical)
   } else if (subscriptionType === 'buyer') {
     await supabase
       .from('user_profiles')
