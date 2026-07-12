@@ -1,47 +1,44 @@
-# Current Task: TIMEZONE DRIFT FIX — Groups 1-3 code-complete; only #11 left
+# Current Task: Session wrap 2026-07-11 — tz fix + events gap-fix on STAGING; PROD push pending
 
-**Updated:** 2026-07-10 (Groups 1-3 done; Group 3 just committed; #11 deferred; then tz prod push). **Mode:** Report.
-
-## ⭐ 2026-07-10 status (newest)
-- **Groups 1-3 CODE-COMPLETE.** G1 `0b913b22`, mig184+G2 `a76b6a4d` (both on staging), G3 committed this session.
-- **#3/#1 (no-show payout timing) + #2 (season settlement)** now market-local; no-show tests rewritten (user-authorized) to assert local rule + a regression test. 1612/1612 green.
-- **mig 184** applied Dev+Staging (Prod PENDING — rides the tz prod push).
-- **External payments (#4/#5) OUT OF SCOPE** — inactive/historical (user 2026-07-10). See memory `project_external_payments_historical`.
-- **#11 DONE (uncommitted):** market-box start date now market-local (`nextPickupDateInTimezone` helper + `buyer/market-boxes` + `cart/items` [critical-path, file-approved]); backstops left on UTC per user. 1613/1613 green.
-- **Remaining:** commit #11 → then the **tz PROD push** (apply mig 184 to Prod + push `main`; window 9 PM–7 AM CT). The whole tz fix is code-complete.
-- Details: `apps/web/.claude/timezone_drift_fix_plan.md` (⭐ PROGRESS block).
+**Updated:** 2026-07-11 (end-of-session handoff). **Mode:** Report.
 
 ---
 
-## ⭐⭐⭐ NEXT SESSION START HERE (2026-07-07 late) — read this + `timezone_drift_fix_plan.md` (⭐ PROGRESS block), verify git, then STOP & ask
+## ⭐⭐⭐ NEXT SESSION START HERE (2026-07-11 EOD) — read this, VERIFY LIVE GIT, then STOP & ask
 
-### Current situation
-- **PROD still LIVE at `62b686f7`** (FT park-manager + Phase E + help KB). Migrations **168→183 applied on ALL 3 envs**, files in `supabase/migrations/applied/`. `origin/staging` = `8dd9424f` (~2 non-deploy commits ahead of prod: bookkeeping + handoff docs). **Verify live git before trusting (memory drifts).**
-- **Timezone fix Group 1 is BUILT but UNCOMMITTED** (this session). Nothing pushed. **Migration 184 NOT applied to any env.** My changes only (rest of `git status` is pre-existing):
-  - NEW `apps/web/src/lib/time/market-dates.ts` (+ `__tests__/market-dates.test.ts`, 6 tests passing) — shared per-market-tz helpers (`todayInTimezone`/`tomorrowInTimezone`/`addDaysToDateString`), fallback `America/Chicago`, injectable `now`. Groups 2-3 reuse this.
-  - MOD `apps/web/src/app/api/buyer/orders/route.ts` (#8), `apps/web/src/lib/quality-checks.ts` (#9).
-  - NEW `supabase/migrations/20260707_184_fix_listing_availability_dow_timezone.sql` (#10, display-only fn — **USER TO APPLY Dev+Staging**, then Claude bookkeeping).
-- **`tsc` clean, new unit test green.** Full suite / lint NOT run yet (do before any commit).
-- **#11 DEFERRED** by user + reclassified as bigger than the plan said (real sources are `cart/items:417-426` critical-path + `buyer/market-boxes:281-293`; can shift a subscription a full week; `polling-config.ts` is NOT a bug). Details in the plan's ⭐ PROGRESS block.
+### Current situation (verify git first — memory drifts)
+- **PROD `origin/main` = `62b686f7`** (UNCHANGED): FT park-manager + Phase E + help KB. Migrations 168→183 on all 3 envs.
+- **STAGING `origin/staging` = `701d9edb`; local `main` = `b875cc30`** — **local is 2 commits AHEAD of origin/staging (Commit A + Commit B, not yet pushed).** Everything through `701d9edb` is on staging; **NOTHING is on PROD yet.**
+- **Prod-pending migrations (apply IN ORDER before the combined prod push): 184 → 185 → 186 → 187 → 188 → 189.** All applied to Dev + Staging.
+- **✅ Events Tier-1 "Commit A" — organizer broadcasts — COMMITTED `26f3a222`** (not pushed). In-app+email, reuses `market_broadcasts` + `sendNotification`. Files: `notifications/types.ts` (+2 types), `api/events/[token]/broadcast/route.ts`, `components/events/EventBroadcastCard.tsx`, `[vertical]/dashboard/page.tsx`, tripwire 96→98.
+- **✅ Events Tier-1 "Commit B" — event vendor agreement — COMMITTED `b875cc30`** (not pushed). **Mig 189 (`event_eligible` col + 18 statements) APPLIED Dev + Staging 2026-07-11.** Organizer picker (`api/events/[token]/agreement` + `EventAgreementPickerCard`), manager-catalog leak filter, vendor acceptance (`MarketAgreementBlock` + respond-route Option C: agreement snapshot recorded BEFORE marking accepted). Plan: `apps/web/.claude/event_agreements_plan.md`.
+- **NEXT: (1) commit the bookkeeping (SCHEMA_SNAPSHOT 189→applied + this file); (2) push staging (A+B+bookkeeping); (3) user tests. THEN survey-3a (surface `event_ratings` to organizer) — still TODO.** Also parked: pre-existing lint error `ErrorFeedback.tsx:241` (setState-in-effect; not ours — user's call to fix).
+- **USER IS TESTING on staging** (protocol A–F in chat) + the KB `/help` pages (187/188).
 
-### Resume order (from the plan)
-1. Verify git; decide whether to **commit Group 1** now (helper + #8 + #9 + mig-184 file) or fold into a bigger tz commit — it's staging-safe/low-risk. Run full vitest + lint first.
-2. Apply mig 184 (Dev+Staging) → Claude snapshot bookkeeping.
-3. Group 2 (medium), then Group 3 (money, before/after), reusing `market-dates.ts`.
-4. #11 per the reclassified scope (critical-path per-file approval).
+### What's on STAGING awaiting the combined PROD push (all committed)
+1. **Timezone drift fix + Events gap-fix + F6 perf** (tip was `8b2b648e`) — tz market-local date handling (biggest: `no-show.ts` payout timing); events G5 honest no-address + Phase 11.5 nudge cron, G3 dead recurring removed, G1 auto-complete cron; expire-orders Phase 1 N+1 batch. Plans: `timezone_drift_fix_plan.md`, `events_booth_gapfix_plan.md`. **Migs 184 + 185.**
+2. **FT park-operator public signup** (`9a5dcec7`) — one vertical-aware intake route (`vertical` body field → `food_trucks` market, `park_mode='paid'`, `foodtruckn.app` branded emails), vertical-switched `market-manager-program` page (FT park-operator copy), FT footer "Park Operators" link, `footer.park_operators` locale. No migration. Backlog "NEXT UP" now marked BUILT.
+3. **FM manager dashboard tester-feedback fixes — 4 phases** (triage + plan: `fm_dashboard_tester_findings.md`):
+   - **Phase 1** (`10c15f8f`): display — schedule "market see" spacing, season "refund cap" label, agreement-statement bullets (Tailwind preflight). No migration.
+   - **Phase 2** (`e6f7df72`): season-window enforcement — new `src/lib/markets/season-window.ts` (+13 tests); `computeNextMarketDate` + weekly `nextSundays` (Option B, advance in-season) + `BoothOccupancyGrid` now honor `markets.season_start/end` (same window buyers already get via mig 010). No migration.
+   - **Phase 3a** (`62842be6`): booth 3-layer — **mig 186** `book_weekly_booth_atomic` honors manager pin (`market_vendors.booth_number`) / excludes pins from auto-assign / RAISE `BOOTH_TAKEN` (P0008); `book_season_atomic` inherits. Book route maps BOOTH_TAKEN; +2 flow-integrity contracts. Duplicate-pin toggle DROPPED (mig 146 already hard-blocks it).
+   - **Phase 4** (`c2ab3f40`): Setup-first dashboard order (FmDashboardBody + ManagerJumpNav) + new "Market schedule" onboarding wizard step; `onboarding-progress` schedule_done, required_total 4→5. No migration.
 
-### Working agreement (unchanged — enforce)
-Report mode default · ask for commit AND push **separately, each time** (a "migration ran" msg is NEVER commit approval) · cite file:line or mark UNVERIFIED · **Claude NEVER applies migrations — the user does; Claude does the schema-snapshot bookkeeping after** · pricing.ts / payments.ts / webhooks.ts / cart+checkout = critical-path (per-file approval) · staging-first · branch-chain for commits · teaching-mode git explanations ON · prod push window 9 PM–7 AM CT (hook-enforced) · present before changing (a question ≠ permission to edit).
+### ⚠️ THE MAIN OPEN ITEM — combined PROD push (AFTER user's staging test passes)
+**Prod-PENDING migrations (apply IN ORDER): 184 → 185 → 186.** (184 = tz display fn; 185 = `catering_requests.address_reminder_sent_at`; 186 = `book_weekly_booth_atomic` 3-layer replace.) The 14 commits are stacked linearly → **ONE combined prod push**:
+1. USER applies **184, 185, 186** to PROD in order (Claude never applies migrations).
+2. Claude pushes `main`→`origin/main` (fast-forwards `62b686f7`→`c2ab3f40`) in the **9 PM–7 AM CT** window (hook-enforced), with go + teaching-mode explanation; verify Vercel PROD build + smoke test.
+3. Post-push bookkeeping: move migs 184/185/186 → `supabase/migrations/applied/`, SCHEMA_SNAPSHOT batch line, current_task update, commit.
+- Prod-only crons (no-show payout, season settlement, event auto-complete, address nudge) don't run until this ships — the money-timing fixes take effect then. After push, give targeted prod smoke checks for the cron money-timing items (test protocol section F).
 
-### ▶ NEXT FOCUS #1 — TIMEZONE DRIFT FIX (IN PROGRESS: Group 1 built/uncommitted; Groups 2-3 = money, not started; its OWN prod push)
-**Read `apps/web/.claude/timezone_drift_fix_plan.md` first (⭐ PROGRESS block for what's done).** Quick-start summary:
-- **Bug:** market-local date columns (`pickup_date`/`event_date`/`scheduled_date`/`end_date`) compared to a **UTC** today/tomorrow → drifts 1 day every evening for every US market. Two sub-patterns: (A) date-vs-UTC-today (9 sites); (B) local-time-stamped-as-UTC (`no-show.ts:47-52`).
-- **DO NOT TOUCH:** the open/close window — mig 054 `COALESCE(timezone,'America/Chicago')` is the reference pattern; expire-orders **Phase 14/15 (`:2306-2348`)** already do it right (per-market tz).
-- **Unknowns RESOLVED this session:** (1) `order_item → tz` = `order_items.market_id → markets.timezone` — ALL pickup types (market/event/private_pickup) are `markets` rows → one uniform join. (2) Null-tz fallback = **`America/Chicago`** (matches mig 054 + JS helpers; NOT state-inference — user CONFIRMED both).
-- **Sequencing small→large blast radius:** Group 1 (buyer/orders display · quality-checks · display SQL · fallbacks) — build + unit-test the shared per-market-tz helper here. Group 2 (external-payment cutoff · Phase 3 cancel · Phase 4.6 expire · Phase 11 reminder). Group 3 = MONEY (`no-show.ts` · Phase 4 payout · Phase 20 season settlement) — full before/after. Verified site table + line numbers in the plan. **Present each fix before editing.**
+### Working agreement (enforce)
+Report mode default · ask for commit AND push **separately, each time** (a "migration ran" msg is NEVER commit approval) · cite file:line or mark UNVERIFIED · **Claude NEVER applies migrations — USER does; Claude does snapshot bookkeeping after** · pricing.ts/payments.ts/webhooks.ts/cart+checkout = critical-path (per-file approval) · staging-first · branch-chain commits · teaching-mode git explanations ON · prod push window 9 PM–7 AM CT · present before changing (a question ≠ permission to edit) · never change a business-rule test to match code.
 
-### ▶ NEXT FOCUS #2 — EVENTS gap fixes + cross-pollination (awaiting 3 user decisions)
-Research: `apps/web/.claude/events_manager_crosspollination_research.md` + backlog Priority 2. Gating decisions: (1) give event markets a manager persona (gap G7)? (2) vendor-paid events? (3) build or drop `is_recurring`? Tier-1 quick wins: organizer broadcasts · agreement statements at event join · post-event surveys.
+### Open backlog highlights (next candidates — full list `apps/web/.claude/backlog.md`)
+- **⭐ FT park-operator public signup** (backlog "NEXT UP" section) — the public manager intake hardcodes `farmers_market`; no FT park signup exists. Build FT intake (creates a `food_trucks` park market) + park-shaped onboarding checklist. Testing note in that entry (seeded "Sixth Street Food Park" on staging).
+- **`'cancelled'` status side bug** — admin `validStatuses` lists `'cancelled'` but the DB CHECK (mig 094) doesn't → 500 if picked. Small (remove from array OR CHECK migration). Excluded from G1.
+- **F6 remaining-items #3** — revisit whether collapsing the live remaining-items query is worth the concurrent-cancel trade-off; same N+1 shape in the surveys cron.
+- **Events Tier-1/2/3** — broadcasts · opt-in at event join · post-event surveys · per-event vetting · manager persona (G7) / vendor-paid events. Awaiting 2 gating decisions. Research: `events_manager_crosspollination_research.md`.
 
 ---
 
