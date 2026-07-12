@@ -10,6 +10,7 @@ import {
   canUseExternalPayments
 } from '@/lib/payments/vendor-fees'
 import { calculateSmallOrderFee } from '@/lib/pricing'
+import { EXTERNAL_PAYMENTS_ENABLED } from '@/lib/constants'
 
 /**
  * POST /api/checkout/external
@@ -32,6 +33,9 @@ export async function POST(request: NextRequest) {
   }
 
   return withErrorTracing('/api/checkout/external', 'POST', async () => {
+    if (!EXTERNAL_PAYMENTS_ENABLED) {
+      return NextResponse.json({ error: 'External payments are currently unavailable.' }, { status: 403 })
+    }
     const supabase = await createClient()
     const { payment_method, vertical } = await request.json() as {
       payment_method: ExternalPaymentMethod

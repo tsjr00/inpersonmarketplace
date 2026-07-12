@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user's cart with market info
-    const { data: cartItems } = await supabase
+    const { data: cartItems, error: cartError } = await supabase
       .from('cart_items')
       .select(`
         id,
@@ -45,7 +45,13 @@ export async function GET(request: NextRequest) {
           )
         )
       `)
-      .eq('user_id', user.id)
+    // Ownership is enforced by RLS (cart_items.cart_id -> carts.user_id); the
+    // prior .eq('user_id', ...) referenced a non-existent column, which errored
+    // and was silently discarded -> validation always passed (fail-open).
+    // Fail CLOSED on a real query error so checkout can't proceed unvalidated.
+    if (cartError) {
+      return NextResponse.json({ valid: false, warnings: ["We couldn't validate your cart. Please refresh and try again."], marketType: null, marketIds: [] })
+    }
 
     if (!cartItems || cartItems.length === 0) {
       return NextResponse.json({

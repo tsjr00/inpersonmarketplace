@@ -200,7 +200,11 @@ export async function POST(request: NextRequest) {
                    (pending.pickup_date || null) === (current.pickupDate || null)
           })
 
-        if (itemsMatch && pendingOrder.stripe_checkout_session_id) {
+        // Only reuse a session for a pure listing cart with real matching items,
+        // no market boxes, and no tip. MB-only carts have empty order_items, so an
+        // empty match would otherwise reuse ANY recent MB pending (wrong box);
+        // and a reused session carries a stale tip. CHK-2.
+        if (itemsMatch && sortedCurrent.length > 0 && !hasMarketBoxes && validTipAmount === 0 && pendingOrder.stripe_checkout_session_id) {
           crumb.logic('Found matching pending order, checking Stripe session')
 
           // Verify the Stripe session is still valid
@@ -265,8 +269,8 @@ export async function POST(request: NextRequest) {
     const verticalData = verticalResult.data
     const marketBoxOfferings = marketBoxOfferingsResult.data || []
 
-    if (listingIds.length > 0 && listings.length !== items.length) {
-      throw traced.validation('ERR_CHECKOUT_001', 'Invalid items in checkout', { expected: items.length, got: listings.length })
+    if (listingIds.length > 0 && listings.length !== new Set(listingIds).size) {
+      throw traced.validation('ERR_CHECKOUT_001', 'Invalid items in checkout', { expected: new Set(listingIds).size, got: listings.length })
     }
 
     // Validate all vendors have Stripe accounts + fetch fee overrides
