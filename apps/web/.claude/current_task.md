@@ -1,10 +1,22 @@
 # Current Task: Pre-re-release code review (Fable) — Slice 2 P0s in progress
 
-**Updated:** 2026-07-12 (end-of-session handoff). **Mode:** Report.
+**Updated:** 2026-07-12 (later session — VOR-1/2/3 ALL FIXED, uncommitted). **Mode:** Report.
 
 ---
 
-## ⭐⭐⭐ NEXT SESSION START HERE (2026-07-12 EOD) — read this, VERIFY LIVE GIT, then STOP & ask
+## ⭐⭐⭐⭐ LATEST (2026-07-12, second session) — Slice-2 P0s ALL FIXED, UNCOMMITTED, gates green (tsc 0 / vitest 1628)
+
+**All three slice-2 P0s are now fixed on disk, NOT yet committed.** Batch was user-approved ("go with revised batch and fix VOR3 as suggested") after a Fable re-review of the Opus plan. Files changed:
+1. `src/app/api/vendor/orders/[id]/fulfill/route.ts` — VOR-1 paid-gate before BOTH branches (incl. vendor-fulfills-first; scoped `!isExternalPayment && !isCompanyPaid`, short-circuit on orders.status paid/completed, payments-row fallback via serviceClient) + VOR-2 guarded status flips (normal: eq 'ready'; else: in pending/confirmed/ready; both + cancelled_at null + rowcount→ERR_ORDER_004). isExternalPayment/isCompanyPaid/serviceClient hoisted above the branch split.
+2. `src/app/api/buyer/orders/[id]/confirm/route.ts` — VOR-1 gate in the vendor-fulfilled-first edge (before any write; select += status, payment_model) + VOR-2 guarded confirm update (eq 'fulfilled' + cancelled_at + rowcount→ERR_ORDER_003) + VOR-3 COMPLETE (fee-balance read → serviceClient [vendor_fee_balance RLS is vendor-only, mig 046]; non-23505 payout-insert error now fatal before transfer).
+3. `src/lib/errors/catalog/order-errors.ts` — new ERR_ORDER_007 "Order Not Paid".
+- **Key verified facts baked into the fixes:** refund webhook sets status='refunded' WITHOUT cancelled_at (webhooks:1015) → guards need status-list AND cancelled_at; nothing ever sets orders.status to confirmed/ready → ['paid','completed'] short-circuit is complete; MB orders create no order_items → fulfill unreachable for MB; EXTERNAL_PAYMENTS_ENABLED=false + gate exempts external/company-paid (decisions.md External Payment Fee Flow verified, cash-fee-at-fulfill branch untouched).
+- **New ledger findings from the fix work:** VOR-14 (buyer-confirm lacks company-paid branch → would Stripe-transfer an organizer-settled order; pre-existing, open) + VOR-15 (fulfill's non-23505 payout-insert error still continues to an untracked transfer — mirror of the VOR-3b fix, open).
+- **NEXT: (1) get commit approval (branch-chain, teaching-mode) for the 3 code files + ledger + this file; (2) push main→staging (separate approval) = VOR-3 commit b16c8ebc + docs fcc17b96 + this fix; (3) user staging-tests the order lifecycle (ready→ack→fulfill on a PAID order must still work; unpaid/cancelled paths must 400); (4) then slices 3–10; (5) combined PROD push (migs 184→189) unchanged.**
+
+---
+
+## ⭐⭐⭐ PRIOR SESSION START BLOCK (2026-07-12 EOD) — superseded by the block above; discipline note still in force
 
 ### ⚠️⚠️ DISCIPLINE FAILURE THIS SESSION — READ FIRST (money-path context)
 During the **highest-consequence work in the app (vendor-payout money path)**, I violated the change rules:

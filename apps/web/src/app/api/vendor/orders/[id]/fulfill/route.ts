@@ -51,7 +51,7 @@ export async function POST(
       .select(`
         id, status, vendor_payout_cents, order_id, subtotal_cents, vendor_profile_id,
         buyer_confirmed_at, vendor_confirmed_at, confirmation_window_expires_at,
-        order:orders!inner(id, order_number, buyer_user_id, vertical_id, payment_method, payment_model, tip_amount, tip_on_platform_fee_cents),
+        order:orders!inner(id, order_number, buyer_user_id, vertical_id, payment_method, payment_model, tip_amount, tip_on_platform_fee_cents, status),
         listing:listings(title, vendor_profiles(profile_data))
       `)
       .eq('id', orderItemId)
@@ -88,6 +88,35 @@ export async function POST(
     const now = new Date()
     const buyerAlreadyAcknowledged = !!orderItem.buyer_confirmed_at
 
+    const isExternalPayment = orderData?.payment_method && orderData.payment_method !== 'stripe'
+    const isCompanyPaid = orderData?.payment_model === 'company_paid'
+    const serviceClient = createServiceClient()
+
+    // VOR-1 FIX: For real-money Stripe orders, prove payment BEFORE marking fulfilled
+    // or transferring. Orders are created 'pending' pre-payment (checkout/session),
+    // and item 'ready' + buyer acknowledgment do NOT prove the buyer paid. Without
+    // this gate, an unpaid order's payout transfers from the platform's OWN Stripe
+    // balance (no succeeded payment = no source_transaction). External-payment and
+    // company-paid orders have no Stripe payment row by design — they are exempt.
+    if (!isExternalPayment && !isCompanyPaid) {
+      const orderIsPaid = ['paid', 'completed'].includes(orderData?.status)
+      if (!orderIsPaid) {
+        crumb.supabase('select', 'payments (VOR-1 paid gate)')
+        const { data: paidPayment } = await serviceClient
+          .from('payments')
+          .select('id')
+          .eq('order_id', orderItem.order_id)
+          .eq('status', 'succeeded')
+          .maybeSingle()
+
+        if (!paidPayment) {
+          throw traced.validation('ERR_ORDER_007', 'This order has not been paid yet, so it cannot be fulfilled.', {
+            orderStatus: orderData?.status
+          })
+        }
+      }
+    }
+
     if (buyerAlreadyAcknowledged) {
       // Check if 30-second confirmation window has expired
       const windowExpires = orderItem.confirmation_window_expires_at
@@ -114,8 +143,6 @@ export async function POST(
       const isProd = process.env.NODE_ENV === 'production'
       const isDev = !isProd
       const hasStripe = !!vendorProfile.stripe_account_id
-      const isExternalPayment = orderData?.payment_method && orderData.payment_method !== 'stripe'
-      const isCompanyPaid = orderData?.payment_model === 'company_paid'
 
       // Skip Stripe verification for external/company-paid orders (no Stripe transfer needed)
       if (!isExternalPayment && !isCompanyPaid && isProd && hasStripe && !vendorProfile.stripe_payouts_enabled) {
@@ -140,9 +167,14 @@ export async function POST(
         }
       }
 
-      // Complete the transaction and trigger payment
+      // Complete the transaction and trigger payment.
+      // VOR-2 FIX: guarded update — only a live 'ready' item can be fulfilled.
+      // Buyer ack requires status ready/fulfilled (buyer/confirm:81) and fulfilled-with-ack
+      // is rejected above, so 'ready' is the only legit state here. The guard closes the
+      // race where the item was cancelled/refunded after the fetch above (refund webhook
+      // sets status='refunded' WITHOUT cancelled_at, so both conditions are needed).
       crumb.supabase('update', 'order_items')
-      await supabase
+      const { data: fulfilledRows } = await supabase
         .from('order_items')
         .update({
           status: 'fulfilled',
@@ -151,6 +183,15 @@ export async function POST(
           confirmation_window_expires_at: null,
         })
         .eq('id', orderItemId)
+        .eq('status', 'ready')
+        .is('cancelled_at', null)
+        .select('id')
+
+      if (!fulfilledRows || fulfilledRows.length === 0) {
+        throw traced.validation('ERR_ORDER_004', 'This item can no longer be fulfilled — it may have been cancelled or refunded.', {
+          statusAtFetch: orderItem.status
+        })
+      }
 
       // Company-paid event orders: no Stripe transfer, no external fee recording.
       // Platform fee already calculated in create_company_paid_order RPC (6.5%).
@@ -220,7 +261,6 @@ export async function POST(
 
       // Check for outstanding fee balance and calculate deduction
       let feeDeductionCents = 0
-      const serviceClient = createServiceClient()
 
       try {
         const { balanceCents } = await getVendorFeeBalance(supabase, vendorProfile.id)
@@ -454,15 +494,27 @@ export async function POST(
       })
     } else {
       // EDGE CASE: Vendor fulfilling before buyer acknowledged
-      // Just mark as fulfilled, buyer will acknowledge after
+      // Just mark as fulfilled, buyer will acknowledge after.
+      // VOR-2 FIX: guarded update — a cancelled/refunded item must not flip back to
+      // 'fulfilled' (buyer keeps the refund AND the vendor gets paid at buyer-confirm).
+      // 'pending' stays allowed: direct pending→fulfilled is live behavior (VOR-11).
       crumb.supabase('update', 'order_items')
-      await supabase
+      const { data: updatedRows } = await supabase
         .from('order_items')
         .update({
           status: 'fulfilled',
           pickup_confirmed_at: now.toISOString(),
         })
         .eq('id', orderItemId)
+        .in('status', ['pending', 'confirmed', 'ready'])
+        .is('cancelled_at', null)
+        .select('id')
+
+      if (!updatedRows || updatedRows.length === 0) {
+        throw traced.validation('ERR_ORDER_004', 'This item can no longer be fulfilled — it may have been cancelled or refunded.', {
+          statusAtFetch: orderItem.status
+        })
+      }
 
       return NextResponse.json({
         success: true,

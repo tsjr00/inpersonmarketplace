@@ -105,6 +105,23 @@ export const ORDER_ERRORS: ErrorCatalogEntry[] = [
     ],
     pgCodes: [],
   },
+  {
+    code: 'ERR_ORDER_007',
+    title: 'Order Not Paid',
+    category: 'ORDER',
+    severity: 'high',
+    description: 'Fulfillment or payout was attempted on an order with no completed payment.',
+    userGuidance: 'This order hasn\'t been paid yet, so it can\'t be fulfilled. If the buyer just paid, wait a moment and try again.',
+    causes: [
+      'Order status is still pending — buyer never completed Stripe checkout',
+      'Payment succeeded but neither checkout/success nor the Stripe webhook has recorded it yet',
+    ],
+    solutions: [
+      'Check orders.status and the payments table for this order',
+      'If the buyer genuinely paid, verify the payment was recorded (checkout/success or webhook)',
+    ],
+    pgCodes: [],
+  },
 ]
 
 export const CHECKOUT_ERRORS: ErrorCatalogEntry[] = [

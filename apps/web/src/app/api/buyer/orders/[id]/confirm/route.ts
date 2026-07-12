@@ -58,7 +58,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
           buyer_user_id,
           vertical_id,
           payment_method,
-          tip_amount
+          payment_model,
+          tip_amount,
+          status
         )
       `)
       .eq('id', orderItemId)
@@ -112,15 +114,53 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const isProd = process.env.NODE_ENV === 'production'
       const stripeReady = vendorProfile.stripe_account_id && vendorProfile.stripe_payouts_enabled
 
-      // Update with buyer confirmation and vendor confirmation (completing transaction)
+      const isCompanyPaid = (order as any)?.payment_model === 'company_paid'
+      const serviceClient = createServiceClient()
+
+      // VOR-1 FIX: For real-money Stripe orders, prove payment BEFORE completing the
+      // item and transferring. This edge path pays the vendor out directly; without
+      // the gate an unpaid order (orders are created 'pending' pre-payment) transfers
+      // from the platform's OWN Stripe balance. Mirrors the gate in vendor fulfill.
+      if (!isExternalPayment && !isCompanyPaid) {
+        const orderIsPaid = ['paid', 'completed'].includes((order as any)?.status)
+        if (!orderIsPaid) {
+          crumb.supabase('select', 'payments (VOR-1 paid gate)')
+          const { data: paidPayment } = await serviceClient
+            .from('payments')
+            .select('id')
+            .eq('order_id', orderItem.order_id)
+            .eq('status', 'succeeded')
+            .maybeSingle()
+
+          if (!paidPayment) {
+            throw traced.validation('ERR_ORDER_007', 'This order has not been paid yet, so it cannot be completed.', {
+              orderStatus: (order as any)?.status
+            })
+          }
+        }
+      }
+
+      // Update with buyer confirmation and vendor confirmation (completing transaction).
+      // VOR-2 FIX (defense-in-depth): guarded update — the status check above (:81) ran
+      // on a fetch that may be stale; block the race where the item was cancelled or
+      // refunded since (refund webhook sets status='refunded' WITHOUT cancelled_at).
       crumb.supabase('update', 'order_items')
-      await supabase
+      const { data: confirmedRows } = await supabase
         .from('order_items')
         .update({
           buyer_confirmed_at: now.toISOString(),
           vendor_confirmed_at: now.toISOString(), // Auto-complete since vendor already fulfilled
         })
         .eq('id', orderItemId)
+        .eq('status', 'fulfilled')
+        .is('cancelled_at', null)
+        .select('id')
+
+      if (!confirmedRows || confirmedRows.length === 0) {
+        throw traced.validation('ERR_ORDER_003', 'This item can no longer be confirmed — it may have been cancelled or refunded.', {
+          statusAtFetch: orderItem.status
+        })
+      }
 
       if (isExternalPayment) {
         // External payment: no Stripe transfer needed — fees handled via ledger
@@ -145,12 +185,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
         tipShareCents = calculateTipShare((order as any).tip_amount, totalItemsInOrder)
       }
 
-      // F3 FIX: Check for outstanding fee balance and calculate deduction
+      // F3 FIX: Check for outstanding fee balance and calculate deduction.
+      // VOR-3 FIX: use serviceClient — vendor_fee_balance RLS is vendor/admin-only
+      // (mig 046:90-97); the buyer client reads 0 rows and the fee deduction
+      // silently never happens on this path.
       let feeDeductionCents = 0
-      const serviceClient = createServiceClient()
 
       try {
-        const { balanceCents } = await getVendorFeeBalance(supabase, vendorProfile.id)
+        const { balanceCents } = await getVendorFeeBalance(serviceClient, vendorProfile.id)
         if (balanceCents > 0) {
           feeDeductionCents = calculateAutoDeductAmount(
             orderItem.vendor_payout_cents,
@@ -200,6 +242,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
           if (payoutInsertErr && payoutInsertErr.code === '23505') {
             crumb.logic('Vendor payout already exists (concurrent insert), skipping transfer')
+          } else if (payoutInsertErr) {
+            // VOR-3 FIX: a non-duplicate insert failure must be fatal — transferring
+            // without a tracking record leaves the payment invisible to the retry cron
+            // and to reconciliation. No money moves untracked.
+            throw traced.fromSupabase(payoutInsertErr, { table: 'vendor_payouts', operation: 'insert' })
           } else {
             try {
               const transfer = await transferToVendor({
