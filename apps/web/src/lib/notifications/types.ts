@@ -103,6 +103,8 @@ export type NotificationType =
   | 'market_day_today'
   // One-way manager broadcast to a market's vendors (Session 92 Phase B).
   | 'market_broadcast'
+  | 'event_organizer_broadcast_vendor'
+  | 'event_organizer_broadcast_buyer'
   // Cancel-a-market-day (Session 92 Phase C) — split by audience because the
   // action URL + copy differ: buyers (their refunded order) vs booth renters
   // (credit/reschedule of their booth fee).
@@ -1109,6 +1111,36 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
         : `Announcement from ${d.marketName || 'your market'}`,
     message: (d) => d.broadcastBody || 'Your market manager sent an announcement.',
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/markets`,
+  },
+
+  // Tier-1 events: one-way organizer → accepted-vendors announcement for an
+  // event. Standard urgency = in-app + email. Mirrors market_broadcast.
+  event_organizer_broadcast_vendor: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: (d) =>
+      d.broadcastSubject
+        ? `${d.marketName || 'Event'}: ${d.broadcastSubject}`
+        : `Update from the ${d.marketName || 'event'} organizer`,
+    message: (d) => d.broadcastBody || 'The event organizer sent an update.',
+    actionUrl: (d) =>
+      d.marketId
+        ? `/${d.vertical || 'farmers_market'}/vendor/events/${d.marketId}`
+        : `/${d.vertical || 'farmers_market'}/vendor/markets`,
+  },
+
+  // Tier-1 events: one-way organizer → attendees (who ordered) announcement.
+  event_organizer_broadcast_buyer: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'buyer',
+    title: (d) =>
+      d.broadcastSubject
+        ? `${d.marketName || 'Event'}: ${d.broadcastSubject}`
+        : `Update about ${d.marketName || 'your event'}`,
+    message: (d) => d.broadcastBody || 'The event organizer sent an update.',
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 
   // Phase E Stage 2 (mig 147 follow-up). Cron generates one row per

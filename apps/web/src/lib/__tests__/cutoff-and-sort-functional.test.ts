@@ -195,8 +195,11 @@ describe('NI-014: Total notification types = 72', () => {
     // Bumped 95 → 96 on 2026-07-10 when event_completed_with_unfulfilled_admin
     // was added (G1 event auto-complete — notify vertical admins when an event
     // completes with unfulfilled orders). User-approved.
+    // Bumped 96 → 98 on 2026-07-11 when event_organizer_broadcast_vendor +
+    // event_organizer_broadcast_buyer were added (Events Tier-1 — one-way
+    // organizer announcements to accepted vendors / attendees). User-approved.
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(96)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(98)
   })
 
   it('includes all buyer-facing types', () => {
