@@ -143,6 +143,9 @@ export async function PUT(
         .from('market_optin_statement_catalog')
         .select('id')
         .eq('active', true)
+        // Reject event-only statements (mig 189) — a manager can't smuggle an
+        // organizer event statement into a market/park agreement.
+        .eq('event_eligible', false)
         .or(`vertical_id.is.null,vertical_id.eq.${vertical}`)
         .in('id', ids)
 

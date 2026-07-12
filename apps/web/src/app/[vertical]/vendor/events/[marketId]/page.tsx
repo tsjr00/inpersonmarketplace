@@ -7,6 +7,7 @@ import { spacing, typography, radius, statusColors, sizing } from '@/lib/design-
 import { term } from '@/lib/vertical/terminology'
 import { createClient } from '@/lib/supabase/client'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
+import MarketAgreementBlock from '@/components/market-manager/MarketAgreementBlock'
 
 interface EventDetails {
   market_id: string
@@ -81,6 +82,11 @@ export default function VendorCateringDetailPage() {
   const [maxOrdersTotal, setMaxOrdersTotal] = useState<number | ''>('')
   const [maxOrdersPerWave, setMaxOrdersPerWave] = useState<number | ''>('')
   const [useProfileWaveCapacity, setUseProfileWaveCapacity] = useState(true)
+
+  // Event agreement acceptance. MarketAgreementBlock fires onChange(true)
+  // automatically when the organizer selected no statements, so this defaults
+  // open for events with no agreement and gates only when there is one.
+  const [agreementAccepted, setAgreementAccepted] = useState(false)
 
   // Contact organizer state
   const [showMessageForm, setShowMessageForm] = useState(false)
@@ -181,6 +187,10 @@ export default function VendorCateringDetailPage() {
       setActionMessage('Error: Please confirm your per-wave customer capacity')
       return
     }
+    if (!agreementAccepted) {
+      setActionMessage('Error: Please accept the event agreement to participate')
+      return
+    }
     setResponding(true)
     setActionMessage(null)
     try {
@@ -193,6 +203,7 @@ export default function VendorCateringDetailPage() {
           listing_ids: Array.from(selectedListingIds),
           event_max_orders_total: maxOrdersTotal,
           event_max_orders_per_wave: isFT ? maxOrdersPerWave : undefined,
+          agreement_accepted: agreementAccepted,
         }),
       })
       if (res.ok) {
@@ -831,18 +842,22 @@ export default function VendorCateringDetailPage() {
                 )}
               </div>
 
+              {/* Event agreement — the commitments the organizer set for this
+                  event. Renders nothing (and auto-accepts) if none were set. */}
+              <MarketAgreementBlock marketId={marketId} onChange={setAgreementAccepted} />
+
               <div style={{ display: 'flex', gap: spacing.sm }}>
                 <button
                   onClick={handleConfirmAccept}
-                  disabled={responding || selectedListingIds.size === 0 || (vertical === 'food_trucks' && !details.profile_max_headcount_per_wave)}
+                  disabled={responding || selectedListingIds.size === 0 || !agreementAccepted || (vertical === 'food_trucks' && !details.profile_max_headcount_per_wave)}
                   style={{
                     flex: 1,
                     ...sizing.cta,
                     fontWeight: typography.weights.semibold,
-                    backgroundColor: responding || selectedListingIds.size === 0 || (vertical === 'food_trucks' && !details.profile_max_headcount_per_wave) ? '#ccc' : statusColors.success,
+                    backgroundColor: responding || selectedListingIds.size === 0 || !agreementAccepted || (vertical === 'food_trucks' && !details.profile_max_headcount_per_wave) ? '#ccc' : statusColors.success,
                     color: 'white',
                     border: 'none',
-                    cursor: responding || selectedListingIds.size === 0 ? 'not-allowed' : 'pointer',
+                    cursor: responding || selectedListingIds.size === 0 || !agreementAccepted ? 'not-allowed' : 'pointer',
                   }}
                 >
                   {responding ? 'Submitting...' : `Accept with ${selectedListingIds.size} item${selectedListingIds.size !== 1 ? 's' : ''}`}

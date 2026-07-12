@@ -8,6 +8,8 @@ import {
 } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications/service'
+import { fetchMarketOptinForVendor } from '@/lib/markets/optin-public'
+import { computeAgreementVersionFromSnapshot } from '@/lib/markets/agreement-version'
 
 interface RouteContext {
   params: Promise<{ marketId: string }>
@@ -40,12 +42,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
       const { marketId } = await context.params
       const body = await request.json()
-      const { response_status, listing_ids, event_max_orders_total, event_max_orders_per_wave } = body as {
+      const { response_status, listing_ids, event_max_orders_total, event_max_orders_per_wave, agreement_accepted } = body as {
         response_status: string
         response_notes?: string
         listing_ids?: string[]
         event_max_orders_total?: number
         event_max_orders_per_wave?: number
+        agreement_accepted?: boolean
       }
       let response_notes = (body as { response_notes?: string }).response_notes
 
@@ -139,6 +142,15 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         }
       }
 
+      // Event agreement is a hard gate on acceptance (see the acceptance write
+      // below). The vendor must explicitly agree to the organizer's statements.
+      if (response_status === 'accepted' && agreement_accepted !== true) {
+        return NextResponse.json(
+          { error: 'You must accept the event agreement to participate' },
+          { status: 400 }
+        )
+      }
+
       // Verify this vendor was invited to this market
       const { data: marketVendor, error: mvError } = await serviceClient
         .from('market_vendors')
@@ -213,6 +225,33 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
               response_notes = conflictWarning
             }
           }
+        }
+      }
+
+      // Option C: record the agreement acceptance BEFORE marking the vendor
+      // accepted, so a confirmed vendor ALWAYS has a provable record of what
+      // they agreed to — the two states never diverge. Hard-fail here (nothing
+      // gets marked accepted) if the snapshot can't be written. A 23505 means
+      // the vendor already accepted this exact version, which is success.
+      // Empty snapshot (organizer selected no statements) → version 'v0:empty',
+      // still recorded as an explicit acceptance.
+      if (response_status === 'accepted') {
+        const { snapshot } = await fetchMarketOptinForVendor(marketId)
+        const agreementVersion = computeAgreementVersionFromSnapshot(snapshot)
+        const { error: vmaaErr } = await serviceClient
+          .from('vendor_market_agreement_acceptances')
+          .insert({
+            vendor_profile_id: vendorProfile.id,
+            market_id: marketId,
+            statements_snapshot: snapshot,
+            agreement_version: agreementVersion,
+          })
+        if (vmaaErr && vmaaErr.code !== '23505') {
+          console.error('[vendor/events/respond] agreement acceptance insert failed:', vmaaErr.message)
+          return NextResponse.json(
+            { error: 'Could not record your agreement acceptance. Please try again.' },
+            { status: 500 }
+          )
         }
       }
 

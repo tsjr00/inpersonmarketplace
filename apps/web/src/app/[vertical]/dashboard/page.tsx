@@ -21,6 +21,7 @@ import HelpSearchWidget from '@/components/help/HelpSearchWidget'
 import OrganizerEventActions from '@/components/events/OrganizerEventActions'
 import OrganizerEventDetails from '@/components/events/OrganizerEventDetails'
 import EventBroadcastCard from '@/components/events/EventBroadcastCard'
+import EventAgreementPickerCard from '@/components/events/EventAgreementPickerCard'
 import ScrollToSection from '@/components/dashboard/ScrollToSection'
 import MarketManagerCard from '@/components/market-manager/MarketManagerCard'
 import PendingSurveysCard from '@/components/surveys/PendingSurveysCard'
@@ -1023,6 +1024,13 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                         vertical={vertical}
                         primaryColor={colors.primary}
                       />
+                    )}
+
+                    {/* Organizer picks the vendor agreement for this event.
+                        Available once the event has a market (post-approval),
+                        so it can be set before/while vendors are invited. */}
+                    {evt.event_token && ['approved', 'ready', 'active', 'review'].includes(evt.status) && (
+                      <EventAgreementPickerCard eventToken={evt.event_token} primaryColor={colors.primary} />
                     )}
 
                     {/* Organizer → vendors/attendees announcements (once the

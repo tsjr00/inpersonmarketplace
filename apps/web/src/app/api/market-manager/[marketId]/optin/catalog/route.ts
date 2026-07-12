@@ -62,6 +62,10 @@ export async function GET(
       .from('market_optin_statement_catalog')
       .select('id, category, statement, placeholders, active, sort_order')
       .eq('active', true)
+      // Event-only statements (mig 189) live in the same catalog but belong
+      // to the organizer event picker, NOT the market/park manager. Exclude
+      // them here so they never appear in this picker.
+      .eq('event_eligible', false)
       .or(`vertical_id.is.null,vertical_id.eq.${vertical}`)
       .order('sort_order', { ascending: true })
       .order('id', { ascending: true })
