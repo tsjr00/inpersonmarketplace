@@ -22,6 +22,7 @@ import OrganizerEventActions from '@/components/events/OrganizerEventActions'
 import OrganizerEventDetails from '@/components/events/OrganizerEventDetails'
 import EventBroadcastCard from '@/components/events/EventBroadcastCard'
 import EventAgreementPickerCard from '@/components/events/EventAgreementPickerCard'
+import EventRatingsCard from '@/components/events/EventRatingsCard'
 import ScrollToSection from '@/components/dashboard/ScrollToSection'
 import MarketManagerCard from '@/components/market-manager/MarketManagerCard'
 import PendingSurveysCard from '@/components/surveys/PendingSurveysCard'
@@ -1037,6 +1038,12 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                         lineup is confirmed / attendees can order). */}
                     {evt.event_token && ['approved', 'ready', 'active', 'review'].includes(evt.status) && (
                       <EventBroadcastCard eventToken={evt.event_token} primaryColor={colors.primary} />
+                    )}
+
+                    {/* Read-only attendee ratings — only exist once the event
+                        is ratable (active/review/completed). Approved-only. */}
+                    {evt.event_token && ['active', 'review', 'completed'].includes(evt.status) && (
+                      <EventRatingsCard eventToken={evt.event_token} primaryColor={colors.primary} />
                     )}
 
                     {/* Client-side actions: copy link, cancel */}
