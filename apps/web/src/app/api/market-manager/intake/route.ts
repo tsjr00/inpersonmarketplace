@@ -203,7 +203,7 @@ export async function POST(request: NextRequest) {
     // can own multiple markets — getMarketsManagedBy returns an array,
     // MarketManagerCard renders the list, isMarketManager works
     // per-market. Each market is independently set up + admin-approved.
-    // (1:1 was the original v1 scope per market_manager_v2_plan.md but
+    // (1:1 was the original v1 scope per .claude/archive/feature-plans/market_manager_v2_plan.md but
     // reopened — no Stripe / auth / notification surface needs change.)
 
     // ── Geocode the ZIP (non-fatal on failure) ──────────────────────

@@ -43,6 +43,20 @@ Full code-verified map + gap list + impact/risk/ease matrix: **`apps/web/.claude
 
 ---
 
+## Market Box — biweekly subscription `original_end_date` term-length mismatch (HIGH; product decision)
+
+Extracted from `market_box_audit.md` (2026-04-24) before that audit was deleted in the 2026-07-12 archive cleanup. **Open product decision — verify against current code before fixing (may still be unresolved).**
+
+**Bug:** the `original_end_date` trigger math in `supabase/migrations/applied/20260420_124_market_box_biweekly_frequency.sql:66-68` sets `original_end_date = start_date + ((num_pickups - 1) * interval)`. So a **"4-week" / "1 Month"** biweekly sub (`num_pickups=2`, `interval=14`) ends at **week 2**; an **"8-week" / "2 Months"** biweekly (`num_pickups=4`) ends at **6 weeks** — but the buyer was sold the longer term (`api/market-boxes/[id]/route.ts:166-175`). Affects the buyer "subscription ends" display (`buyer/subscriptions/page.tsx`), the completion cron reading `original_end_date`, and vendor capacity planning.
+
+**Two remediations (pick one):**
+- **(a) Buyer-friendly:** a 4-week biweekly lasts 4 weeks total (pickups weeks 0 & 2, ends week 4) → `original_end_date = start_date + (term_weeks * 7)`.
+- **(b) Compact-pickups:** keep current behavior, relabel UI ("2 weeks of biweekly pickups", not "1 Month").
+
+The two CRITICAL payout bugs from the same original audit were already resolved (per `market_box_audit_v2.md`, kept in the archive).
+
+---
+
 **Gap (verified, now built):** there was NO food-truck park-operator public signup. The public manager intake was farmers-market-only:
 - `/[vertical]/market-manager-program` (renders `ManagerIntakeForm`) → `/api/market-manager/intake`, which **hardcodes** `vertical_id: 'farmers_market'` + `market_type: 'traditional'` (`intake/route.ts:223-225`). Even at `/food_trucks/market-manager-program` it creates an FM market, and the confirmation email/signup links default to `farmersmarketing.app`. Both the page (`market-manager-program/page.tsx:16-21`) and the route (`intake/route.ts:24-25`) docstrings state the FT park-operator persona is deferred.
 - **Today the only way to get a park manager** is admin/seed sets `manager_email` on an FT (`vertical_id='food_trucks'`) market → manager logs in (first dashboard load backfills `manager_user_id`, the Option A auto-link) → sets `park_mode='paid'` on `/food_trucks/market-manager/[marketId]/dashboard` → `ParkSpotsManager` (spots). No self-serve public entry.

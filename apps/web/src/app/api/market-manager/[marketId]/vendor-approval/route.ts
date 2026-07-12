@@ -19,7 +19,7 @@ import { sendNotification } from '@/lib/notifications'
  *   - revoke (true → false) — manager wants to deactivate without removing
  *
  * Note: Removal of a vendor from a market (DELETE) remains unsupported by
- * the manager API by design — see market_manager_v2_plan.md §4 permission
+ * the manager API by design — see .claude/archive/feature-plans/market_manager_v2_plan.md §4 permission
  * boundary rules. The approved flag is a soft activation toggle; the
  * vendor stays associated with the market either way.
  *
