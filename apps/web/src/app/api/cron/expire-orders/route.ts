@@ -15,6 +15,7 @@ import { REMINDER_DELAY_MS, DEFAULT_REMINDER_DELAY_MS, isOrderOldEnoughForRemind
 import { calculateNoShowPayout, shouldTriggerNoShow } from '@/lib/cron/no-show'
 import { STRIPE_CHECKOUT_EXPIRY_MS, PAYOUT_RETRY_MAX_DAYS, STALE_CONFIRMATION_WINDOW_MS, isStripeCheckoutExpired, isConfirmationWindowStale } from '@/lib/cron/order-timing'
 import { getSeasonCheckoutSessionState } from '@/lib/stripe/session-status'
+import { stripe } from '@/lib/stripe/config'
 import { sendSeasonPaidNotifications } from '@/lib/markets/season-notifications'
 import { seasonHasOutstandingDebt } from '@/lib/markets/season-debt'
 import { runStandingOccurrenceSweep } from '@/lib/markets/park-standing'
@@ -157,6 +158,7 @@ export async function GET(request: NextRequest) {
           ),
           vendor:vendor_profiles (
             id,
+            user_id,
             profile_data
           )
         `)
@@ -320,7 +322,7 @@ export async function GET(request: NextRequest) {
 
       const { data: staleStripeOrders, error: staleError } = await supabase
         .from('orders')
-        .select('id, order_number, buyer_user_id, vertical_id')
+        .select('id, order_number, buyer_user_id, vertical_id, stripe_checkout_session_id')
         .eq('status', 'pending')
         .not('stripe_checkout_session_id', 'is', null)
         .lte('created_at', tenMinutesAgo)
@@ -331,6 +333,21 @@ export async function GET(request: NextRequest) {
       } else if (staleStripeOrders && staleStripeOrders.length > 0) {
         for (const order of staleStripeOrders) {
           try {
+            // CRN-2 FIX (CHK-1 residual): expire the abandoned Stripe session BEFORE
+            // cancelling so a stale tab can't pay a dead order. If expire throws, the
+            // session may already be complete (buyer paid) — skip cancelling entirely
+            // and log so a completed-session race vs a real API failure is diagnosable
+            // (mirrors checkout/session cleanup + CHK-18).
+            try {
+              await stripe.checkout.sessions.expire(order.stripe_checkout_session_id as string)
+            } catch (expireErr) {
+              await logError(new TracedError('ERR_CHECKOUT_005', `[Phase 2] Abandoned-session expire failed for order ${order.id} (session ${order.stripe_checkout_session_id}): ${expireErr instanceof Error ? expireErr.message : String(expireErr)}`, {
+                route: '/api/cron/expire-orders',
+                method: 'GET',
+              }))
+              continue // skip cancel — order may be paid; webhook/success path will finalize it
+            }
+
             // Restore inventory for all items (respects FT fulfilled rule)
             await restoreOrderInventory(supabase, order.id, order.vertical_id)
 
@@ -346,11 +363,13 @@ export async function GET(request: NextRequest) {
               .eq('order_id', order.id)
               .is('cancelled_at', null)
 
-            // Cancel the order
+            // Cancel the order — guarded so a payment landing mid-run is never
+            // overwritten paid→cancelled (CRN-2)
             await supabase
               .from('orders')
               .update({ status: 'cancelled' })
               .eq('id', order.id)
+              .eq('status', 'pending')
 
             totalProcessed++
           } catch (orderError) {
@@ -695,6 +714,7 @@ export async function GET(request: NextRequest) {
             order_number,
             buyer_user_id,
             vertical_id,
+            status,
             tip_amount,
             tip_on_platform_fee_cents,
             stripe_checkout_session_id,
@@ -747,11 +767,50 @@ export async function GET(request: NextRequest) {
             const vendorData = vendor?.profile_data as Record<string, unknown> | null
             const vendorName = (vendorData?.business_name as string) || (vendorData?.farm_name as string) || 'Vendor'
 
-            // Mark as fulfilled — vendor did their part, buyer didn't show
-            await supabase
+            // CRN-1 FIX (VOR-1 class): for Stripe orders, prove payment BEFORE
+            // flipping to fulfilled or paying out. stripe_checkout_session_id is set
+            // at order CREATION (status still pending) — it does not prove payment.
+            // The succeeded payment also supplies the chargeId source_transaction so
+            // the transfer draws on the charge, not the platform's own balance.
+            let noShowChargeId: string | undefined
+            if (order?.stripe_checkout_session_id) {
+              const { data: gatePayment } = await supabase
+                .from('payments')
+                .select('stripe_payment_intent_id')
+                .eq('order_id', item.order_id)
+                .eq('status', 'succeeded')
+                .maybeSingle()
+
+              const orderIsPaid = ['paid', 'completed'].includes(order?.status) || !!gatePayment
+              if (!orderIsPaid) {
+                await logError(new TracedError('ERR_ORDER_007', `[Phase 4] No-show payout blocked — order ${item.order_id} (status: ${order?.status}) has no completed payment. Item ${item.id} left untouched.`, {
+                  route: '/api/cron/expire-orders',
+                  method: 'GET',
+                }))
+                totalErrors++
+                continue
+              }
+              if (gatePayment?.stripe_payment_intent_id) {
+                noShowChargeId = (await getChargeIdFromPaymentIntent(gatePayment.stripe_payment_intent_id)) || undefined
+              }
+            }
+
+            // Mark as fulfilled — vendor did their part, buyer didn't show.
+            // CRN-9 FIX (VOR-2 class): guarded — a reject/refund landing mid-batch
+            // must not be overwritten (refund webhook sets status='refunded' without
+            // cancelled_at, so both conditions are needed). 0 rows → skip payout.
+            const { data: noShowRows } = await supabase
               .from('order_items')
               .update({ status: 'fulfilled' })
               .eq('id', item.id)
+              .eq('status', 'ready')
+              .is('cancelled_at', null)
+              .select('id')
+
+            if (!noShowRows || noShowRows.length === 0) {
+              console.log(`[Phase 4] Item ${item.id} no longer 'ready' (cancelled/refunded mid-batch), skipping`)
+              continue
+            }
 
             // H19 FIX: Pay vendor for no-show items (vendor prepared the order)
             const actualPayoutCents = calculateNoShowPayout({
@@ -792,13 +851,18 @@ export async function GET(request: NextRequest) {
                       destination: vendor.stripe_account_id,
                       orderId: item.order_id,
                       orderItemId: item.id,
+                      ...(noShowChargeId !== undefined ? { sourceTransaction: noShowChargeId } : {}),
                     })
 
                     await supabase.from('vendor_payouts')
                       .update({ stripe_transfer_id: transfer.id, status: 'processing', updated_at: new Date().toISOString() })
                       .eq('id', payoutRecord.id)
                   } catch (transferError) {
-                    console.error('[Phase 4] Stripe transfer failed for no-show payout:', transferError)
+                    // CRN-7: must reach error_logs (console.error is invisible to review)
+                    await logError(new TracedError('ERR_PAYOUT_008', `[Phase 4] No-show payout transfer failed for payout ${payoutRecord.id} (item ${item.id}): ${transferError instanceof Error ? transferError.message : String(transferError)}`, {
+                      route: '/api/cron/expire-orders',
+                      method: 'GET',
+                    }))
                     await supabase.from('vendor_payouts')
                       .update({ status: 'failed', updated_at: new Date().toISOString() })
                       .eq('id', payoutRecord.id)
@@ -991,10 +1055,19 @@ export async function GET(request: NextRequest) {
           if (!pickupDate || !(pickupDate < todayInTimezone(tz))) continue
 
           const orderData = (item as any).order as any
-          await supabase
+          // CRN-9 FIX: guarded — don't overwrite a reject/refund that landed mid-batch
+          const { data: expiredStaleRows } = await supabase
             .from('order_items')
             .update({ status: 'expired', updated_at: new Date().toISOString() })
             .eq('id', item.id)
+            .eq('status', 'confirmed')
+            .is('cancelled_at', null)
+            .select('id')
+
+          if (!expiredStaleRows || expiredStaleRows.length === 0) {
+            console.log(`[Phase 4.6] Item ${item.id} no longer 'confirmed' (changed mid-batch), skipping`)
+            continue
+          }
 
           // Check if all items in this order are now terminal → expire the order too
           await supabase.rpc('atomic_complete_order_if_ready', { p_order_id: item.order_id })
@@ -1215,7 +1288,13 @@ export async function GET(request: NextRequest) {
 
             payoutsSucceeded++
             totalProcessed++
-          } catch {
+          } catch (retryErr) {
+            // CRN-7: the retry failure reason must reach error_logs — this was a
+            // bare catch and the vendor's payout failure was undiagnosable.
+            await logError(new TracedError('ERR_PAYOUT_008', `[Phase 5] Failed-payout retry transfer failed for payout ${payout.id} (order ${orderItem.order_id}): ${retryErr instanceof Error ? retryErr.message : String(retryErr)}`, {
+              route: '/api/cron/expire-orders',
+              method: 'GET',
+            }))
             // Update timestamp so we can track retry attempts
             await supabase
               .from('vendor_payouts')
@@ -1266,11 +1345,27 @@ export async function GET(request: NextRequest) {
           payoutsRetried++
           stripeTransfersUsed++
           try {
+            // CRN-8 FIX: look up the chargeId source_transaction (mirrors the
+            // failed-branch above) — this was the only retry branch transferring
+            // against the platform's own balance (Session-74 incident pattern).
+            let psChargeId: string | undefined
+            const { data: psPayment } = await supabase
+              .from('payments')
+              .select('stripe_payment_intent_id')
+              .eq('order_id', oi.order_id)
+              .eq('status', 'succeeded')
+              .maybeSingle()
+
+            if (psPayment?.stripe_payment_intent_id) {
+              psChargeId = (await getChargeIdFromPaymentIntent(psPayment.stripe_payment_intent_id)) || undefined
+            }
+
             const transfer = await transferToVendor({
               amount: payout.amount_cents,
               destination: vp.stripe_account_id,
               orderId: oi.order_id,
               orderItemId: payout.order_item_id,
+              ...(psChargeId !== undefined ? { sourceTransaction: psChargeId } : {}),
             })
 
             await supabase
@@ -1284,7 +1379,12 @@ export async function GET(request: NextRequest) {
 
             payoutsSucceeded++
             totalProcessed++
-          } catch {
+          } catch (psRetryErr) {
+            // CRN-7: log before moving to failed so the reason is diagnosable
+            await logError(new TracedError('ERR_PAYOUT_008', `[Phase 5] pending_stripe_setup payout transfer failed for payout ${payout.id} (order ${oi.order_id}): ${psRetryErr instanceof Error ? psRetryErr.message : String(psRetryErr)}`, {
+              route: '/api/cron/expire-orders',
+              method: 'GET',
+            }))
             // Move to failed status so regular retry logic handles it
             await supabase
               .from('vendor_payouts')
@@ -1362,7 +1462,12 @@ export async function GET(request: NextRequest) {
 
             payoutsSucceeded++
             totalProcessed++
-          } catch {
+          } catch (mbRetryErr) {
+            // CRN-7: bare catch made MB payout retry failures undiagnosable
+            await logError(new TracedError('ERR_PAYOUT_005', `[Phase 5] Market box payout retry transfer failed for payout ${payout.id} (sub ${payout.market_box_subscription_id}): ${mbRetryErr instanceof Error ? mbRetryErr.message : String(mbRetryErr)}`, {
+              route: '/api/cron/expire-orders',
+              method: 'GET',
+            }))
             await supabase
               .from('vendor_payouts')
               .update({ updated_at: new Date().toISOString() })
@@ -1653,6 +1758,7 @@ export async function GET(request: NextRequest) {
             order_number,
             buyer_user_id,
             vertical_id,
+            status,
             payment_method,
             tip_amount,
             tip_on_platform_fee_cents,
@@ -1677,18 +1783,57 @@ export async function GET(request: NextRequest) {
         for (const item of staleItems) {
           try {
             const now = new Date().toISOString()
-            // Auto-set vendor_confirmed_at to fulfill the item
-            const { error: updateError } = await supabase
+            const gateOrder = item.order as any
+
+            // CRN-1 FIX (VOR-1 class): for Stripe orders, prove payment BEFORE
+            // auto-fulfilling or paying out — the buyer-ack path this phase completes
+            // has no paid check of its own. Also supplies the chargeId
+            // source_transaction so the transfer draws on the charge.
+            let staleChargeId: string | undefined
+            if (gateOrder?.stripe_checkout_session_id) {
+              const { data: gatePayment } = await supabase
+                .from('payments')
+                .select('stripe_payment_intent_id')
+                .eq('order_id', item.order_id)
+                .eq('status', 'succeeded')
+                .maybeSingle()
+
+              const orderIsPaid = ['paid', 'completed'].includes(gateOrder?.status) || !!gatePayment
+              if (!orderIsPaid) {
+                await logError(new TracedError('ERR_ORDER_007', `[Phase 7] Auto-fulfill payout blocked — order ${item.order_id} (status: ${gateOrder?.status}) has no completed payment. Item ${item.id} left untouched.`, {
+                  route: '/api/cron/expire-orders',
+                  method: 'GET',
+                }))
+                totalErrors++
+                continue
+              }
+              if (gatePayment?.stripe_payment_intent_id) {
+                staleChargeId = (await getChargeIdFromPaymentIntent(gatePayment.stripe_payment_intent_id)) || undefined
+              }
+            }
+
+            // Auto-set vendor_confirmed_at to fulfill the item.
+            // CRN-9 FIX (VOR-2 class): guarded — don't overwrite a reject/refund
+            // that landed mid-batch; 0 rows → skip payout.
+            const { data: staleFulfilledRows, error: updateError } = await supabase
               .from('order_items')
               .update({
                 status: 'fulfilled',
                 vendor_confirmed_at: now,
               })
               .eq('id', item.id)
+              .in('status', ['ready', 'confirmed'])
+              .is('cancelled_at', null)
+              .select('id')
 
             if (updateError) {
               console.error(`[Phase 7] Failed to auto-fulfill ${item.id}:`, updateError.message)
               totalErrors++
+              continue
+            }
+
+            if (!staleFulfilledRows || staleFulfilledRows.length === 0) {
+              console.log(`[Phase 7] Item ${item.id} no longer ready/confirmed (cancelled/refunded mid-batch), skipping`)
               continue
             }
 
@@ -1735,6 +1880,7 @@ export async function GET(request: NextRequest) {
                       destination: vendor.stripe_account_id,
                       orderId: item.order_id,
                       orderItemId: item.id,
+                      ...(staleChargeId !== undefined ? { sourceTransaction: staleChargeId } : {}),
                     })
 
                     if (payoutRecord) {
@@ -1743,7 +1889,11 @@ export async function GET(request: NextRequest) {
                         .eq('id', payoutRecord.id)
                     }
                   } catch (transferError) {
-                    console.error('[Phase 7] Stripe transfer failed for auto-fulfill payout:', transferError)
+                    // CRN-7: must reach error_logs (console.error is invisible to review)
+                    await logError(new TracedError('ERR_PAYOUT_008', `[Phase 7] Auto-fulfill payout transfer failed for item ${item.id} (order ${item.order_id}): ${transferError instanceof Error ? transferError.message : String(transferError)}`, {
+                      route: '/api/cron/expire-orders',
+                      method: 'GET',
+                    }))
                     // Update to failed for retry in Phase 5
                     if (payoutRecord) {
                       await supabase.from('vendor_payouts')

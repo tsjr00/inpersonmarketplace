@@ -216,4 +216,21 @@ export const MARKET_BOX_ERRORS: ErrorCatalogEntry[] = [
       'Manually process or refund once ownership is resolved',
     ],
   },
+  {
+    code: 'ERR_PAYOUT_008',
+    title: 'Cron Payout Transfer Failed',
+    category: 'STRIPE',
+    severity: 'high',
+    description: 'A vendor payout transfer failed in the expire-orders cron (Phase 4 no-show, Phase 7 auto-fulfill, or a Phase 5 retry). The payout row is marked failed and Phase 5 retries daily for up to 7 days.',
+    userGuidance: '',
+    causes: [
+      'Insufficient platform balance (missing/failed source_transaction charge lookup)',
+      'Vendor Stripe account restricted or payouts disabled',
+      'Stripe API error',
+    ],
+    solutions: [
+      'Read the Stripe error in the log message for the concrete cause',
+      'Check the vendor_payouts row referenced — Phase 5 retries it; after 7 days it is cancelled with an admin alert',
+    ],
+  },
 ]
