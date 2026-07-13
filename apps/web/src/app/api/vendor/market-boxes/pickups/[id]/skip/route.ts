@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, traced, logError } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { sendNotification } from '@/lib/notifications/service'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
@@ -105,7 +105,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
   })
 
   if (error) {
-    console.error('[skip-week] Database error:', error)
+    // MBX-4: money-adjacent RPC (mutates pickups + creates extensions) — must
+    // reach error_logs, not just the server console
+    await logError(traced.fromSupabase(error, { table: 'market_box_pickups', operation: 'rpc' }))
     return NextResponse.json({
       error: error.message || 'Failed to skip week'
     }, { status: 500 })

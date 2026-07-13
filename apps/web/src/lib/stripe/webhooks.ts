@@ -1,6 +1,7 @@
 import { stripe } from './config'
 import { createRefund } from './payments'
 import { processMarketBoxPayout } from './market-box-payout'
+import { selectBasePriceForTermWeeks } from './webhook-utils'
 import Stripe from 'stripe'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendNotification } from '@/lib/notifications'
@@ -396,6 +397,39 @@ async function handleMarketBoxCheckoutComplete(session: Stripe.Checkout.Session)
 
   crumb.stripe(`Creating market box subscription for user ${userId}, offering ${offeringId}`)
 
+  // MBX-1 FIX: on this standalone path, metadata.price_cents is the buyer's
+  // FEE-INCLUSIVE total (buyer/market-boxes POST passes buyerTotalCents), so
+  // paying out on it overpaid the vendor and under-collected the platform fee.
+  // Vendor payout + total_paid must use the PRE-FEE base price:
+  // base_price_cents metadata → term-appropriate offering price (MBX-6:
+  // selectBasePriceForTermWeeks was written for exactly this, never wired in).
+  // Refunds below intentionally keep priceCents — buyers get back the
+  // fee-inclusive amount they actually paid.
+  const basePriceCentsFromMeta = parseInt(session.metadata?.base_price_cents || '0', 10)
+
+  // One offering lookup: term prices (MBX-1 fallback) + vendor frequency (LOW-2).
+  // On lookup failure, frequency falls back to 'weekly' (preserves prior behavior).
+  const { data: offeringRow } = await supabase
+    .from('market_box_offerings')
+    .select('price_cents, price_4week_cents, price_8week_cents, vendor_profiles!inner(market_box_frequency)')
+    .eq('id', offeringId)
+    .single()
+
+  const baseActualPaidCents = offeringRow
+    ? selectBasePriceForTermWeeks(
+        { basePriceCentsFromMeta },
+        offeringRow as { price_cents: number; price_4week_cents?: number | null; price_8week_cents?: number | null },
+        termWeeks,
+      )
+    : (basePriceCentsFromMeta > 0 ? basePriceCentsFromMeta : priceCents)
+
+  if (!(basePriceCentsFromMeta > 0)) {
+    // Observable fallback — missing base metadata means a checkout-path bug
+    await logError(new TracedError('ERR_WEBHOOK_004', `market box checkout missing base_price_cents metadata — payout base fell back to ${offeringRow ? `offering ${termWeeks}-week price` : 'fee-inclusive price_cents'} (offering ${offeringId})`, {
+      route: '/webhooks/stripe', method: 'POST',
+    }))
+  }
+
   // Check if subscription already exists (idempotency)
   const { data: existing } = await supabase
     .from('market_box_subscriptions')
@@ -412,22 +446,16 @@ async function handleMarketBoxCheckoutComplete(session: Stripe.Checkout.Session)
       serviceClient: supabase,
       subscriptionId: existing.id,
       offeringId,
-      actualPaidCents: priceCents,
+      actualPaidCents: baseActualPaidCents,
       paymentIntentId,
       source: 'stripe-webhook',
     })
     return
   }
 
-  // LOW-2 FIX: Look up vendor frequency for biweekly support in standalone path.
-  // On lookup failure, falls back to 'weekly' (preserves prior behavior).
+  // LOW-2 FIX: vendor frequency for biweekly support (from the lookup above)
   let standalonePickupFrequency: 'weekly' | 'biweekly' = 'weekly'
-  const { data: vendorFreqRow } = await supabase
-    .from('market_box_offerings')
-    .select('vendor_profiles!inner(market_box_frequency)')
-    .eq('id', offeringId)
-    .single()
-  const vp = vendorFreqRow?.vendor_profiles as { market_box_frequency?: string } | { market_box_frequency?: string }[] | undefined
+  const vp = offeringRow?.vendor_profiles as { market_box_frequency?: string } | { market_box_frequency?: string }[] | undefined
   const vpRow = Array.isArray(vp) ? vp[0] : vp
   if (vpRow?.market_box_frequency === 'biweekly') {
     standalonePickupFrequency = 'biweekly'
@@ -439,7 +467,7 @@ async function handleMarketBoxCheckoutComplete(session: Stripe.Checkout.Session)
       p_offering_id: offeringId,
       p_buyer_user_id: userId,
       p_order_id: null,
-      p_total_paid_cents: priceCents,
+      p_total_paid_cents: baseActualPaidCents,
       p_start_date: startDate,
       p_term_weeks: termWeeks,
       p_stripe_payment_intent_id: paymentIntentId,
@@ -481,14 +509,14 @@ async function handleMarketBoxCheckoutComplete(session: Stripe.Checkout.Session)
     crumb.stripe(`Market box subscription created via RPC: ${result?.id}`)
   }
 
-  // Pay vendor the prepaid amount the buyer actually paid
+  // Pay vendor on the pre-fee base of what the buyer paid (MBX-1)
   const subscriptionId = result?.id as string | undefined
   if (subscriptionId) {
     await processMarketBoxPayout({
       serviceClient: supabase,
       subscriptionId,
       offeringId,
-      actualPaidCents: priceCents,
+      actualPaidCents: baseActualPaidCents,
       paymentIntentId,
       source: 'stripe-webhook',
     })
@@ -852,7 +880,11 @@ async function handleTransferCreated(transfer: Stripe.Transfer) {
   const mbSubscriptionId = transfer.metadata?.market_box_subscription_id
 
   if (mbSubscriptionId) {
-    // Market box subscription payout
+    // Market box subscription payout.
+    // MBX-3 FIX: scope to LIVE rows — unscoped, this flipped historical
+    // 'failed' rows for the same subscription to 'completed'. (Not scoped by
+    // stripe_transfer_id: this webhook can arrive before our own post-transfer
+    // update persists the id.)
     await supabase
       .from('vendor_payouts')
       .update({
@@ -860,6 +892,7 @@ async function handleTransferCreated(transfer: Stripe.Transfer) {
         transferred_at: new Date().toISOString(),
       })
       .eq('market_box_subscription_id', mbSubscriptionId)
+      .in('status', ['pending', 'processing'])
 
     // Notify vendor
     const { data: payout } = await supabase
@@ -916,11 +949,15 @@ async function handleTransferFailed(transfer: Stripe.Transfer) {
   const mbSubscriptionId = transfer.metadata?.market_box_subscription_id
 
   if (mbSubscriptionId) {
-    // Market box subscription payout reversal
+    // Market box subscription payout reversal.
+    // MBX-3 FIX: scope to THIS transfer's row — unscoped, a reversal flipped
+    // every historical payout row for the subscription to 'failed'. By reversal
+    // time the row has long held stripe_transfer_id (set right after transfer).
     await supabase
       .from('vendor_payouts')
       .update({ status: 'failed' })
       .eq('market_box_subscription_id', mbSubscriptionId)
+      .eq('stripe_transfer_id', transfer.id)
 
     // Notify vendor
     const { data: payout } = await supabase

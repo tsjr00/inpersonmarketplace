@@ -1,6 +1,22 @@
 # Backlog
 
-Last updated: 2026-07-05 (timezone drift audit — UTC "today" vs market-local date columns)
+Last updated: 2026-07-12 (money-authorization business-rule tests — do SOON)
+
+## ⭐ DO SOON (added 2026-07-12) — Money-authorization business-rule tests + VOR-11 decision
+
+**Why now:** the pre-re-release review's P0 fixes (VOR-1/2/3, CRN-1/2/9) all live in the route-handler/cron *authorization* layer — and the entire 1628-test suite stayed green both while those bugs existed AND through the fixes. The suite thoroughly specs the money *math* (pricing/tips/fees/settlement) but asserts nothing about whether money was *allowed* to move. The new gates are one confident refactor away from silently disappearing.
+
+**Scope (own focused session, AFTER the current review slices or interleaved when convenient):**
+1. **Business-rule tests for the new gates** — route-level with seeded/mocked state:
+   - An item on an order with no succeeded payment (status not paid/completed) can NEVER produce a vendor transfer — via fulfill, buyer-confirm edge path, cron Phase 4 (no-show), or cron Phase 7 (auto-fulfill). (VOR-1 / CRN-1 gates, ERR_ORDER_007.)
+   - A cancelled or refunded item can NEVER flip to `fulfilled`/`expired` — fulfill both branches, buyer-confirm update, cron Phases 4/4.6/7. NB: refund webhook sets `status='refunded'` WITHOUT `cancelled_at` (webhooks:1015) — tests must cover both the status-list and cancelled_at legs. (VOR-2 / CRN-9.)
+   - A non-23505 `vendor_payouts` insert failure blocks the transfer (buyer-confirm; VOR-15 will extend this to fulfill).
+   - Phase 2 / checkout-cleanup never cancels an order whose Stripe session can't be expired (CRN-2/CHK-1 skip-if-possibly-paid rule).
+2. **VOR-11 decision (user call):** `lib/orders/status-transitions.ts` is a tested spec module imported by NOTHING in production, and live routes contradict it (pending→fulfilled, fulfilled→cancelled). Either wire `isValidItemTransition` into the routes (behavior change — needs care in resolve-issue) or rewrite the spec to the sanctioned reality. Current limbo = 51 green tests giving false confidence.
+
+**Test-integrity constraint:** the asserted rules must be USER-approved as the spec (not inferred by Claude from the code just written) — present the rule list for sign-off before writing assertions. Never weaken an assertion to match code.
+
+---
 
 ## ✅ DONE (2026-07-10) — Timezone drift: UTC "today" vs market-local date columns
 
@@ -43,9 +59,11 @@ Full code-verified map + gap list + impact/risk/ease matrix: **`apps/web/.claude
 
 ---
 
-## Market Box — biweekly subscription `original_end_date` term-length mismatch (HIGH; product decision)
+## Market Box — biweekly subscription `original_end_date` term-length mismatch (RESOLVED in DB 2026-07-12 review; one display bug remains → ledger MBX-2)
 
-Extracted from `market_box_audit.md` (2026-04-24) before that audit was deleted in the 2026-07-12 archive cleanup. **Open product decision — verify against current code before fixing (may still be unresolved).**
+**VERIFIED 2026-07-12 (slice-6 review):** the mig 124:66-68 formula was SUPERSEDED by mig 125 (`original_end_date = start_date + term_weeks*7`) and preserved by mig 163 — the DB now stores the full term duration (remediation (a), buyer-friendly) for both cadences. `original_end_date` is display-only (completion counts pickups; auto-miss uses scheduled_date+grace; capacity uses active-count). **Remaining:** `buyer/market-boxes/[id]` GET recomputes a third, wrong end date — tracked as MBX-2 in `FINDINGS_LEDGER.md`. The product decision below is settled; kept for history.
+
+Extracted from `market_box_audit.md` (2026-04-24) before that audit was deleted in the 2026-07-12 archive cleanup.
 
 **Bug:** the `original_end_date` trigger math in `supabase/migrations/applied/20260420_124_market_box_biweekly_frequency.sql:66-68` sets `original_end_date = start_date + ((num_pickups - 1) * interval)`. So a **"4-week" / "1 Month"** biweekly sub (`num_pickups=2`, `interval=14`) ends at **week 2**; an **"8-week" / "2 Months"** biweekly (`num_pickups=4`) ends at **6 weeks** — but the buyer was sold the longer term (`api/market-boxes/[id]/route.ts:166-175`). Affects the buyer "subscription ends" display (`buyer/subscriptions/page.tsx`), the completion cron reading `original_end_date`, and vendor capacity planning.
 

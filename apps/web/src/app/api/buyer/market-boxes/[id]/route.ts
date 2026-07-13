@@ -38,6 +38,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         extended_weeks,
         pickup_frequency,
         order_id,
+        original_end_date,
         created_at,
         completed_at,
         cancelled_at,
@@ -116,14 +117,21 @@ export async function GET(request: NextRequest, context: RouteContext) {
       p.scheduled_date >= today && ['scheduled', 'ready'].includes(p.status)
     )
 
-    // Calculate total weeks and end date
+    // Total weeks and end date.
+    // MBX-2 FIX: use the stored original_end_date (start + term_weeks*7 per
+    // migs 125/163 — correct for weekly AND biweekly) instead of recomputing
+    // with a weekly-only formula that disagreed with the DB and the list
+    // endpoint. Recompute kept only as a fallback for legacy null rows.
     const termWeeks = (subscription as any).term_weeks || 4
     const extendedWeeks = (subscription as any).extended_weeks || 0
     const totalWeeks = termWeeks + extendedWeeks
-    const startDate = new Date(subscription.start_date)
-    const endDate = new Date(startDate)
-    endDate.setDate(startDate.getDate() + (totalWeeks - 1) * 7)
-    const endDateStr = endDate.toISOString().split('T')[0]
+    let endDateStr = (subscription as any).original_end_date as string | null
+    if (!endDateStr) {
+      const startDate = new Date(subscription.start_date)
+      const endDate = new Date(startDate)
+      endDate.setDate(startDate.getDate() + (totalWeeks - 1) * 7)
+      endDateStr = endDate.toISOString().split('T')[0]
+    }
 
     // Buyer-inclusive total = what the buyer actually paid (food + buyer fees).
     // Falls back to calculating from food subtotal if order isn't joined for some reason.

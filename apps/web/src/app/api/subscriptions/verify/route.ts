@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe/config'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, TracedError, logError } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 export const maxDuration = 15
@@ -66,9 +66,21 @@ export async function GET(request: NextRequest) {
           : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
 
         if (type === 'vendor' || type === 'food_truck_vendor') {
+          // MBX-5 FIX (mirrors the CHK-9 webhook guard): a vendor session
+          // without vertical metadata would update BOTH of a multi-vertical
+          // vendor's profiles by user_id. Refuse + log instead. New sessions
+          // always carry vertical (subscriptions/checkout:61 enforces it) —
+          // this only fires for legacy sessions.
+          if (!vertical) {
+            await logError(new TracedError('ERR_WEBHOOK_002', `subscriptions/verify: vendor session ${sessionId} missing vertical metadata — refusing tier update`, {
+              route: '/api/subscriptions/verify', method: 'GET', userId, subscriptionId,
+            }))
+            return NextResponse.json({ error: 'Subscription session is missing vertical information. Please contact support.' }, { status: 400 })
+          }
+
           const targetTier = tier || 'premium'
 
-          let vpQuery = supabase
+          await supabase
             .from('vendor_profiles')
             .update({
               tier: targetTier,
@@ -79,10 +91,7 @@ export async function GET(request: NextRequest) {
               tier_expires_at: currentPeriodEnd,
             })
             .eq('user_id', userId)
-          if (vertical) {
-            vpQuery = vpQuery.eq('vertical_id', vertical)
-          }
-          await vpQuery
+            .eq('vertical_id', vertical)
         } else if (type === 'buyer') {
           await supabase
             .from('user_profiles')

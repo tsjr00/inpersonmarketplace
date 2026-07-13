@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, traced, logError } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
@@ -149,7 +149,8 @@ export async function GET(request: NextRequest) {
     const { data: pickups, error } = await query
 
     if (error) {
-      console.error('Error fetching pickups:', error)
+      // MBX-4: must reach error_logs, not just the server console
+      await logError(traced.fromSupabase(error, { table: 'market_box_pickups', operation: 'select' }))
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
