@@ -199,4 +199,22 @@ export const CHECKOUT_ERRORS: ErrorCatalogEntry[] = [
     ],
     pgCodes: [],
   },
+  {
+    code: 'ERR_CHECKOUT_005',
+    title: 'Abandoned Session Expire Failed',
+    category: 'STRIPE',
+    severity: 'medium',
+    description: 'Could not expire an abandoned Stripe checkout session during expired-order cleanup; the order was NOT cancelled (it may have been paid).',
+    userGuidance: '',
+    causes: [
+      'Session already completed — buyer paid during the cleanup race (expected, order finalizes via webhook/success)',
+      'Stripe API unreachable or transient error',
+    ],
+    solutions: [
+      'Check the Stripe dashboard for the session status in the error message',
+      'If the session is complete, the order is paid — no action needed',
+      'If the order is genuinely abandoned, the expire-orders cron will sweep it',
+    ],
+    pgCodes: [],
+  },
 ]

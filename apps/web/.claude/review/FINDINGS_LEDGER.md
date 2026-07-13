@@ -81,3 +81,12 @@ Coverage note moved above; row CHK-17 continues below.
 | ID | Cat | Conf | Anchor | Claim / scenario | Fix | Effort | Status |
 |---|---|---|---|---|---|---|---|
 | CHK-17 | money-path | Confirmed(F) | stripe/market-box-payout.ts:134-140 | Failed MB transfer logged with `console.error` only (not `logError`) → invisible to error-log review; webhook already 2xx'd (no Stripe retry) → vendor unpaid unnoticed. | Swapped console.error → logError(TracedError) — market-box-payout.ts:135. (cron-retry for failed MB payouts still a follow-up.) | S | **fixed** |
+
+### Post-push review of the slice-1 batch (Fable, 2026-07-12) — commits 7ec3243f..42cdbf51 + b16c8ebc re-reviewed
+All verified sound (CHK-2 vars declared before use; CHK-3 safe — cart_items SELECT RLS scopes via carts.user_id, mig 20260129_004:45-52; CHK-4/5/16 correct; VOR-3 swaps clean). Items raised:
+
+| ID | Cat | Anchor | Claim | Fix | Effort | Status |
+|---|---|---|---|---|---|---|
+| CHK-18 | observability | checkout/session cleanup loop (from CHK-1 fix ccf1bdee) | Bare `catch { return }` on sessions.expire swallowed ALL errors unlogged — completed-session race (expected) indistinguishable from Stripe API failure; skipped cleanup left pending order + held inventory with no diagnostic trail. (Null-session-id case does NOT exist — query filters `.not('stripe_checkout_session_id','is',null)`, session:123.) | logError(ERR_CHECKOUT_005 w/ order+session id + Stripe message) before the safe skip; ERR_CHECKOUT_005 cataloged. | S | **fixed** |
+| CHK-19 | ops-risk (resolved by policy) | webhooks.ts CHK-9 guard (1ba1e50f) | Renewal refuse-on-missing subscription metadata.vertical would silently downgrade any ACTIVE vendor sub created before the session-75 vertical guard (f58e54cf). | USER DECISION 2026-07-12: all legacy paying vendors are testers, wiped before relaunch → risk moot. No code change. If any pre-relaunch sub survives the wipe, backfill `vertical` in its Stripe subscription metadata. | — | **wontfix** (policy) |
+| CHK-20 | observability | market-box-payout.ts:59,75,103,188 | ERR_PAYOUT_003/004/006/007 also uncataloged (005 now cataloged); logError works, but error-log review lacks guidance entries for them. | Add the 4 sibling catalog entries. | S | **fixed** (all 4 added to market-box-errors.ts with abort-point + recovery guidance) |

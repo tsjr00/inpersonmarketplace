@@ -4,7 +4,7 @@ import { createCheckoutSession } from '@/lib/stripe/payments'
 import { stripe } from '@/lib/stripe/config'
 import { calculateOrderPricing, FEES, calculateSmallOrderFee, getSmallOrderFeeConfig, proratedFlatFee, getEffectiveVendorFeePercent } from '@/lib/pricing'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, TracedError, logError } from '@/lib/errors'
 import { restoreOrderInventory } from '@/lib/inventory'
 import { randomUUID } from 'crypto'
 
@@ -132,8 +132,16 @@ export async function POST(request: NextRequest) {
           // is really paid and the webhook/success path will finalize it. (CHK-1)
           try {
             await stripe.checkout.sessions.expire(expired.stripe_checkout_session_id as string)
-          } catch {
-            return // session complete/expired — don't cancel a possibly-paid order
+          } catch (expireErr) {
+            // Never cancel a possibly-paid order — expire throws when the session
+            // already completed (buyer paid in a race). But don't skip silently:
+            // log with Stripe's message so a completed-session race vs a real API
+            // failure is diagnosable from error_logs. (CHK-18)
+            await logError(new TracedError('ERR_CHECKOUT_005', `Abandoned-session expire failed for order ${expired.id} (session ${expired.stripe_checkout_session_id}): ${expireErr instanceof Error ? expireErr.message : String(expireErr)}`, {
+              route: '/api/checkout/session',
+              method: 'POST',
+            }))
+            return // skip cancel — order may be paid; webhook/success path will finalize it
           }
           await restoreOrderInventory(serviceClient, expired.id, expired.vertical_id)
           await serviceClient

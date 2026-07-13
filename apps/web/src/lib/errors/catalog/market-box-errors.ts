@@ -134,4 +134,86 @@ export const MARKET_BOX_ERRORS: ErrorCatalogEntry[] = [
       'Fill in all required fields: name, price, pickup location, day, and time',
     ],
   },
+  {
+    code: 'ERR_PAYOUT_003',
+    title: 'Market Box Payout Record Insert Failed',
+    category: 'STRIPE',
+    severity: 'high',
+    description: 'Could not insert the pending vendor_payouts row for a market box payout. The payout was aborted BEFORE any transfer — the vendor has not been paid and no payout record exists.',
+    userGuidance: '',
+    causes: [
+      'Database constraint violation (other than the 23505 duplicate race, which is ignored)',
+      'vendor_payouts schema change not reflected in the insert',
+      'Database connection issue',
+    ],
+    solutions: [
+      'Check the insert error message in the log for the failing constraint',
+      'Manually process the payout for the subscription in the error message once resolved',
+    ],
+  },
+  {
+    code: 'ERR_PAYOUT_004',
+    title: 'Market Box Payout Unhandled Error',
+    category: 'STRIPE',
+    severity: 'high',
+    description: 'processMarketBoxPayout threw an unexpected error (catch-all). Payout state depends on where it threw — check for a vendor_payouts row for the subscription.',
+    userGuidance: '',
+    causes: [
+      'Stripe API error outside the guarded transfer block',
+      'Unexpected data shape from the database',
+    ],
+    solutions: [
+      'Read the error message for the underlying cause',
+      'Check vendor_payouts for the subscription: no row = nothing happened (safe to re-trigger); pending/failed row = follow that status',
+    ],
+  },
+  {
+    code: 'ERR_PAYOUT_005',
+    title: 'Market Box Payout Transfer Failed',
+    category: 'STRIPE',
+    severity: 'high',
+    description: 'The Stripe transfer for a market box vendor payout failed. The payout record is marked failed; the vendor has not been paid.',
+    userGuidance: '',
+    causes: [
+      'Insufficient platform balance for the transfer',
+      'Vendor Stripe account restricted or payouts disabled',
+      'Stripe API error',
+    ],
+    solutions: [
+      'Check the vendor_payouts row (status=failed) for the subscription in the error message',
+      'Check the vendor Stripe account status, then retry the transfer manually',
+    ],
+  },
+  {
+    code: 'ERR_PAYOUT_006',
+    title: 'Market Box Payout Offering Not Found',
+    category: 'STRIPE',
+    severity: 'high',
+    description: 'A market box subscription was paid but its offering row could not be found — the payout was aborted and the vendor has not been paid.',
+    userGuidance: '',
+    causes: [
+      'Offering deleted after the subscription was created',
+      'Stale or wrong offeringId in the Stripe metadata',
+    ],
+    solutions: [
+      'Look up the subscription and offering IDs from the error message in market_box_subscriptions / market_box_offerings',
+      'Manually process the vendor payout once the vendor is identified',
+    ],
+  },
+  {
+    code: 'ERR_PAYOUT_007',
+    title: 'Market Box Payout Vendor Not Found',
+    category: 'STRIPE',
+    severity: 'high',
+    description: 'A market box subscription was paid but the offering\'s vendor profile could not be found — the payout was aborted and the vendor has not been paid.',
+    userGuidance: '',
+    causes: [
+      'Vendor profile deleted while an offering/subscription still references it',
+      'Data integrity issue between market_box_offerings.vendor_profile_id and vendor_profiles',
+    ],
+    solutions: [
+      'Check vendor_profiles for the vendor_profile_id in the error message',
+      'Manually process or refund once ownership is resolved',
+    ],
+  },
 ]
