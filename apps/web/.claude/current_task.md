@@ -1,10 +1,66 @@
-# Current Task: Pre-re-release code review (Fable) — Slice 2 P0s in progress
+# Current Task: Pre-re-release code review (Fable) — 4 of 10 slices done, all P0s fixed + on staging
 
-**Updated:** 2026-07-12 (later session — VOR-1/2/3 ALL FIXED, uncommitted). **Mode:** Report.
+**Updated:** 2026-07-12 EOD (Fable 5 session). **Mode:** Report.
 
 ---
 
-## ⭐⭐⭐⭐ LATEST (2026-07-12, second session) — Slice-2 P0s ALL FIXED, UNCOMMITTED, gates green (tsc 0 / vitest 1628)
+## ⭐⭐⭐⭐⭐ NEXT SESSION START HERE (2026-07-12 EOD) — read this, VERIFY LIVE GIT, then STOP & ask
+
+### Git / deploy state (VERIFY — memory drifts)
+- **STAGING `origin/staging` = local `main` = `e818437a`** (in sync, everything committed AND pushed; working tree has only `settings.local.json` + possibly this file/CLAUDE_CONTEXT if the doc commit hasn't happened).
+- **PROD `origin/main` = `62b686f7`** — unchanged for many sessions. **Prod-pending migrations: 184 → 185 → 186 → 187 → 188 → 189, apply IN ORDER (user applies) before the combined prod push** (9 PM–7 AM CT window, user go, teaching-mode, verify Vercel build + smoke).
+- Today's 4 fix commits, oldest→newest: `46b19828` (VOR-1/2/3 P0s) → `58e8624b` (CHK-18/20) → `de3e8977` (CRN cron money-safety) → `e818437a` (MBX market-box). All staging-only.
+- **USER HAS NOT YET STAGING-TESTED any of today's work.** Test list is in the "staging test map" section below.
+
+### Review series progress — 4 of 10 slices DONE (method: Fable finder per slice, report-only → main session verifies anchors → fix batches with user approval → ledger)
+| Slice | Status | Findings | P0s |
+|---|---|---|---|
+| 1 Checkout & payments | ✅ done (prior session) + post-push re-review this session | CHK-1…20 | 0 (5 P1 fixed) |
+| 2 Vendor orders lifecycle | ✅ done — ALL P0s fixed | VOR-1…15 | 3, all fixed |
+| 8 Crons | ✅ done — P0 + money batch fixed | CRN-1…16 | 1, fixed |
+| 6 Market-box / subscriptions | ✅ done — P2 money batch fixed | MBX-1…7 | 0 |
+| 4 FT park-operator | ⬜ NEXT (recommended order: 4→3→5→7→10→9) | — | — |
+| 3 market-manager · 5 events · 7 auth/RLS · 10 admin · 9 notifications | ⬜ | — | — |
+
+**Everything is in `apps/web/.claude/review/FINDINGS_LEDGER.md`** — single source of truth for finding status. Kit: `.claude/review/` (README, SYSTEM_MAP [slice list], KNOWN_AND_OUT_OF_SCOPE, FINDINGS_CONTRACT, COST_EFFICIENCY_ANCHORS).
+
+### What got FIXED today (all on staging, e818437a)
+1. **VOR-1/2/3 (P0 money)** — `fulfill/route.ts` + `buyer/orders/[id]/confirm`: paid-gate (orders.status paid/completed OR succeeded payments row → else ERR_ORDER_007) before every flip/transfer, both fulfill branches + buyer-confirm edge; guarded status flips (status-list + cancelled_at + rowcount — NB refund webhook sets status='refunded' WITHOUT cancelled_at, webhooks:1015, so BOTH legs required); VOR-3 complete (serviceClient fee-balance read + non-23505 payout-insert fatal).
+2. **CHK-18/20** — checkout/session cleanup's bare expire-catch now logErrors ERR_CHECKOUT_005; ERR_PAYOUT_003-008 + ERR_CHECKOUT_005 + ERR_ORDER_007 all cataloged.
+3. **CRN-1/2/6/7/8/9 (cron money-safety)** — `cron/expire-orders`: VOR-1-class paid-gate + chargeId sourceTransaction in Phases 4 (no-show payout) + 7 (auto-fulfill payout); Phase 2 expires the Stripe session BEFORE cancelling (throw→log+skip) + guarded order flip; VOR-2-class guarded flips Phases 4/4.6/7; pending_stripe_setup retry chargeId; 5 silent money-catches → logError; Phase 1 vendor notification unbroken (user_id was never selected — never sent, ever).
+4. **MBX-1..6 (market-box)** — `webhooks.ts` standalone-MB payout now on PRE-fee base via selectBasePriceForTermWeeks (was fee-inclusive = vendor overpay; fn was dead code, now load-bearing); transfer.created/reversed handlers scoped (status-scope / transfer-id) so historical payout rows can't be flipped; buyer [id] end-date uses stored original_end_date; 2 logError swaps; subscriptions/verify refuses vendor activation without vertical metadata.
+
+### Key OPEN items (all in ledger; per-batch user approval required)
+- **MBX-7** (S, one-liner, presented but NOT yet approved): handleTransferCreated's ORDER-ITEM branch has the same unscoped-update bug MBX-3 fixed on the MB branch.
+- **VOR-14** (buyer-confirm lacks company-paid branch → would Stripe-transfer an organizer-settled order), **VOR-15** (fulfill's non-23505 insert error still continues to untracked transfer — mirror the VOR-3b fix).
+- **CHK-1 remainder** (webhook/success paid-flip status guard + refund routing — the deferred careful 3-way branch), CHK-6/7/10/11/12/13/14/15.
+- **CRN-3** (cron work-gate no-ops 15+ phases on a quiet platform — RELEVANT TO PRE-RELAUNCH STATE), CRN-4 (daily organizer email re-send), CRN-5 (restore-before-cancel double-restore, pairs w/ CHK-7), CRN-10 (maxDuration 60s < the file's own phase budgets), CRN-11…16.
+- VOR-4/5/6 (P1 money-policy — need product decisions), VOR-7…13.
+- **Backlog "DO SOON":** money-authorization business-rule tests + VOR-11 decision (the 1628-test suite stayed green through every P0 — it specs money MATH, not money AUTHORIZATION; the new gates have zero regression protection). Rule list needs USER sign-off as spec before assertions are written.
+- **CHK-19 = wontfix by policy:** legacy paying vendors are testers, wiped before relaunch; if any sub survives the wipe, backfill `vertical` into its Stripe subscription metadata (pre-4/26/2026 subs lack it → renewals refuse + tier lapses while Stripe keeps charging).
+
+### Staging test map (user, before prod push)
+1. **Paid order lifecycle must still work:** vendor Ready → buyer Confirm-receipt → vendor Fulfill within 30s → success + payout row. Also vendor-fulfills-first variant.
+2. **Unpaid order must 400:** create order, abandon Stripe checkout, vendor Ready→Fulfill → expect "This order has not been paid yet" (ERR_ORDER_007), no payout row.
+3. **Cancelled/refunded item must 400 on fulfill** (ERR_ORDER_004 message).
+4. Market-box purchase via cart still works (MB webhook branch changed — MBX-1).
+5. Crons aren't staging-testable (VERCEL_ENV gate) — after the eventual prod push, watch error_logs for ERR_ORDER_007 / ERR_PAYOUT_008 / ERR_CHECKOUT_005 entries on the first daily runs (new observability working = entries have full context).
+
+### Working agreement (enforce — unchanged)
+Report mode default · mechanical self-check before every critical-path/money Edit ("quote the exact words authorizing THIS edit; can't quote coverage → STOP") · batch approvals: one go covers the presented batch, nothing outside it · a hook block = verify-then-retry per its instructions, never a blind retry · commit AND push are SEPARATE approvals · staging-first · branch-chain commits · teaching-mode git ON · prod window 9 PM–7 AM CT · user applies migrations, Claude does snapshot bookkeeping · never change a business-rule test to match code · don't interleave Fable finder orchestration with gated money edits · findings verified at anchors before fixing (finder reports are leads, not truth).
+**Session notes:** `rate-limit.test.ts` flaked twice today (different tests, same file, green on rerun, never modified) — it's a pattern, worth mentioning if it recurs. The protected-path hook fired 3× (fulfill, checkout/session, webhooks) — verify-then-retry flow worked correctly each time.
+
+### Immediate next actions
+1. USER staging-tests (map above) — nothing else is blocked on it except the prod push.
+2. **Slice 4 (FT park-operator)** finder — next in the agreed order (4→3→5→7→10→9). Money path: spot rentals + operator_keep_pct.
+3. Combined PROD push when staging verified: user applies migs 184→189 in order, then push `main`→`origin/main` in window.
+
+### ⭐ 2026-07-13 UPDATE — 6-item money remainder batch FIXED, UNCOMMITTED (gates green tsc0/vitest1628)
+User-approved batch closing the P1/P2 money remainder from done slices: **VOR-4** (buyer-confirm tip now subtracts tip_on_platform_fee_cents — was overpaying vendors the platform tip share), **VOR-15** (fulfill non-23505 payout-insert now fatal before transfer — no untracked money; trade-off = stuck-but-loud, mirrors buyer-confirm), **MBX-7** (order-item transfer handlers scoped: created=status-scope, reversed=transfer-id — BOTH branches, reversal had it too), **CHK-6** (all 4 unified-path MB auto-refunds now fee-inclusive `round(price×(1+FEES.buyerFeePercent/100))` — buyers were shorted ~6.5%; FEES imported into checkout/success + webhooks), **CHK-14** (vendor-tip cap on LISTING-only subtotal — verified pricingItems included MB, session:536-548), **CHK-13** (wasNotificationSent now matches `data.dedupRef`; dedupRef stored by all 7 paired sends; `dedupRef?: string` added to NotificationTemplateData — a FIELD, tripwire untouched). Files: buyer/confirm, fulfill, webhooks.ts, checkout/success, checkout/session, notifications/types.ts. Hook fired once (checkout/success), verify-retry done. **NEXT: commit + push staging (separate approvals), then slice 4.** Still open P1-policy: VOR-5 (refund tip/small-order-fee on full rejection?) + VOR-6 (claw back payout on issue-refund?) — need user product decisions.
+
+---
+
+## ⭐⭐⭐⭐ EARLIER TODAY (2026-07-12, second session) — detailed batch log (superseded by the block above, kept for detail)
 
 **All three slice-2 P0s are now fixed on disk, NOT yet committed.** Batch was user-approved ("go with revised batch and fix VOR3 as suggested") after a Fable re-review of the Opus plan. Files changed:
 1. `src/app/api/vendor/orders/[id]/fulfill/route.ts` — VOR-1 paid-gate before BOTH branches (incl. vendor-fulfills-first; scoped `!isExternalPayment && !isCompanyPaid`, short-circuit on orders.status paid/completed, payments-row fallback via serviceClient) + VOR-2 guarded status flips (normal: eq 'ready'; else: in pending/confirmed/ready; both + cancelled_at null + rowcount→ERR_ORDER_004). isExternalPayment/isCompanyPaid/serviceClient hoisted above the branch split.

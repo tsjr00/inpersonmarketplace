@@ -597,8 +597,13 @@ export async function POST(request: NextRequest) {
     // Split tip into vendor portion and platform fee portion.
     // Customer's tip is calculated on displayed subtotal (food + buyer fee).
     // Vendor gets tip on food cost only. The remainder is platform fee tip.
+    // CHK-14 FIX: cap the vendor tip on the LISTING-only subtotal — the vendor
+    // tip is distributed across listing order_items at fulfill; including
+    // market boxes in the cap over-allocated tip to listing vendors and
+    // under-recorded tip_on_platform_fee_cents on mixed carts.
+    const listingSubtotalCents = orderItems.reduce((sum, oi) => sum + oi.subtotal_cents, 0)
     const vendorTipCents = validTipPercentage > 0
-      ? Math.min(validTipAmount, Math.round(subtotalCents * validTipPercentage / 100))
+      ? Math.min(validTipAmount, Math.round(listingSubtotalCents * validTipPercentage / 100))
       : 0
     const tipOnPlatformFeeCents = validTipAmount - vendorTipCents
 

@@ -176,6 +176,10 @@ export type NotificationType =
 // ── Template Types ───────────────────────────────────────────────────
 
 export interface NotificationTemplateData {
+  // CHK-13: dedup reference — webhook senders store the entity id here so
+  // wasNotificationSent can match the SPECIFIC event, not just user+type/24h.
+  // Not rendered in any template.
+  dedupRef?: string
   orderNumber?: string
   itemTitle?: string
   vendorName?: string

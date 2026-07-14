@@ -2,6 +2,7 @@ import { NextRequest, NextResponse, after } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/config'
 import { createRefund } from '@/lib/stripe/payments'
+import { FEES } from '@/lib/pricing'
 import { processMarketBoxPayout } from '@/lib/stripe/market-box-payout'
 import { withErrorTracing, traced, crumb, TracedError, logError } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
@@ -237,10 +238,14 @@ export async function GET(request: NextRequest) {
                 offeringId: mbItem.offeringId, orderId, paymentIntentId,
               }))
               try {
-                await createRefund(paymentIntentId, mbItem.offeringId, mbItem.priceCents)
+                // CHK-6 FIX: refund the fee-inclusive amount the buyer was charged
+                // (line item = round(price × (1+buyerFeePercent)), session:682) —
+                // refunding the pre-fee priceCents shorted the buyer ~6.5%.
+                const mbChargedCents = Math.round(mbItem.priceCents * (1 + FEES.buyerFeePercent / 100))
+                await createRefund(paymentIntentId, mbItem.offeringId, mbChargedCents)
                 crumb.logic('Auto-refund issued for failed market box RPC', {
                   offeringId: mbItem.offeringId,
-                  refundCents: mbItem.priceCents,
+                  refundCents: mbChargedCents,
                 })
               } catch (refundErr) {
                 // Critical: refund also failed — needs manual intervention
@@ -253,11 +258,13 @@ export async function GET(request: NextRequest) {
             } else if (result && !result.success) {
               crumb.logic('Market box at capacity, subscription not created', { offeringId: mbItem.offeringId, ...result })
               // F6 FIX: Refund buyer for at-capacity market box
+              // CHK-6 FIX: fee-inclusive refund (see failed-RPC branch above)
               try {
-                await createRefund(paymentIntentId, mbItem.offeringId, mbItem.priceCents)
+                const mbChargedCents = Math.round(mbItem.priceCents * (1 + FEES.buyerFeePercent / 100))
+                await createRefund(paymentIntentId, mbItem.offeringId, mbChargedCents)
                 crumb.logic('Refund issued for at-capacity market box', {
                   offeringId: mbItem.offeringId,
-                  refundCents: mbItem.priceCents,
+                  refundCents: mbChargedCents,
                 })
               } catch (refundErr) {
                 // Refund failed — buyer paid for an at-capacity box. Must reach

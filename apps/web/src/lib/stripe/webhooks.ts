@@ -8,7 +8,7 @@ import { sendNotification } from '@/lib/notifications'
 import { TracedError } from '@/lib/errors/traced-error'
 import { logError } from '@/lib/errors/logger'
 import { crumb } from '@/lib/errors/breadcrumbs'
-import { calculateBoothRentalFees } from '@/lib/pricing'
+import { calculateBoothRentalFees, FEES } from '@/lib/pricing'
 import { sendSeasonPaidNotifications } from '@/lib/markets/season-notifications'
 
 /**
@@ -24,20 +24,19 @@ async function wasNotificationSent(
   lookbackHours = 24
 ): Promise<boolean> {
   const cutoff = new Date(Date.now() - lookbackHours * 60 * 60 * 1000).toISOString()
+  // CHK-13 FIX: match the specific reference (stored as data.dedupRef by every
+  // caller's paired sendNotification) — user+type alone suppressed a vendor's
+  // 2nd legitimate same-type notification within the window (2 payouts in a day).
   const { data } = await supabase
     .from('notifications')
     .select('id')
     .eq('user_id', userId)
     .eq('type', type)
+    .contains('data', { dedupRef: referenceId })
     .gte('created_at', cutoff)
-    .limit(5)
+    .limit(1)
 
-  if (!data || data.length === 0) return false
-
-  // Check if any notification has matching reference in its data
-  // For a simple dedup, just checking user+type within the window is sufficient
-  // since payout notifications are rare (one per order item)
-  return true
+  return !!data && data.length > 0
 }
 
 /**
@@ -250,7 +249,10 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
             offeringId: mbItem.offeringId, orderId, paymentIntentId,
           }))
           try {
-            await createRefund(paymentIntentId, mbItem.offeringId, mbItem.priceCents)
+            // CHK-6 FIX: refund the fee-inclusive amount the buyer was charged
+            // (line item = round(price × (1+buyerFeePercent)), session:682) —
+            // refunding the pre-fee priceCents shorted the buyer ~6.5%.
+            await createRefund(paymentIntentId, mbItem.offeringId, Math.round(mbItem.priceCents * (1 + FEES.buyerFeePercent / 100)))
             crumb.stripe(`Auto-refund issued for failed market box RPC: ${mbItem.offeringId}`)
           } catch (refundErr) {
             // Critical: refund also failed — needs manual intervention
@@ -263,8 +265,9 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
         } else if (result && !result.success) {
           crumb.stripe(`Market box at capacity: ${mbItem.offeringId}`)
           // F6 FIX: Refund buyer for at-capacity market box
+          // CHK-6 FIX: fee-inclusive refund (see failed-RPC branch above)
           try {
-            await createRefund(paymentIntentId, mbItem.offeringId, mbItem.priceCents)
+            await createRefund(paymentIntentId, mbItem.offeringId, Math.round(mbItem.priceCents * (1 + FEES.buyerFeePercent / 100)))
             crumb.stripe(`Refund issued for at-capacity market box: ${mbItem.offeringId}`)
           } catch (refundErr) {
             await logError(new TracedError('ERR_WEBHOOK_008', `Failed to refund at-capacity market box ${mbItem.offeringId}`, {
@@ -908,6 +911,7 @@ async function handleTransferCreated(transfer: Stripe.Transfer) {
       if (!alreadySent) {
         await sendNotification(vp.user_id, 'payout_processed', {
           amountCents: transfer.amount,
+          dedupRef: mbSubscriptionId,
         }, { vertical: vp.vertical_id })
       }
     }
@@ -916,6 +920,10 @@ async function handleTransferCreated(transfer: Stripe.Transfer) {
 
   if (!orderItemId) return
 
+  // MBX-7 FIX: scope to LIVE rows — unscoped, this flipped historical 'failed'
+  // retry rows for the same item to 'completed'. (Same rationale as the MB
+  // branch: not transfer-id-scoped because this webhook can arrive before our
+  // own post-transfer id write persists.)
   await supabase
     .from('vendor_payouts')
     .update({
@@ -923,6 +931,7 @@ async function handleTransferCreated(transfer: Stripe.Transfer) {
       transferred_at: new Date().toISOString(),
     })
     .eq('order_item_id', orderItemId)
+    .in('status', ['pending', 'processing'])
 
   // Notify vendor that payout was processed
   const { data: orderItem } = await supabase
@@ -938,6 +947,7 @@ async function handleTransferCreated(transfer: Stripe.Transfer) {
     if (!alreadySent) {
       await sendNotification(vendorProfile.user_id, 'payout_processed', {
         amountCents: transfer.amount,
+        dedupRef: orderItemId,
       }, { vertical: vendorProfile.vertical_id })
     }
   }
@@ -975,6 +985,7 @@ async function handleTransferFailed(transfer: Stripe.Transfer) {
           amountCents: transfer.amount,
           orderNumber: `MB-${mbSubscriptionId.slice(0, 6).toUpperCase()}`,
           reason: 'Transfer was reversed by Stripe',
+          dedupRef: mbSubscriptionId,
         }, { vertical: vp.vertical_id })
       }
     }
@@ -983,10 +994,13 @@ async function handleTransferFailed(transfer: Stripe.Transfer) {
 
   if (!orderItemId) return
 
+  // MBX-7 FIX: scope the reversal to THIS transfer's row (id long-persisted by
+  // reversal time) — unscoped, it flipped every historical payout row for the item.
   await supabase
     .from('vendor_payouts')
     .update({ status: 'failed' })
     .eq('order_item_id', orderItemId)
+    .eq('stripe_transfer_id', transfer.id)
 
   // Notify vendor that their payout was reversed
   const { data: orderItem } = await supabase
@@ -1004,6 +1018,7 @@ async function handleTransferFailed(transfer: Stripe.Transfer) {
       await sendNotification(vendorProfile.user_id, 'payout_failed', {
         amountCents: transfer.amount,
         reason: 'Transfer was reversed by Stripe',
+        dedupRef: orderItemId,
         ...(orderData?.order_number ? { orderNumber: orderData.order_number } : {}),
       }, orderData?.vertical_id ? { vertical: orderData.vertical_id } : {})
     }
@@ -1083,6 +1098,7 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
       await sendNotification(order.buyer_user_id, 'order_refunded', {
         orderNumber: order.order_number,
         amountCents: refundAmountCents,
+        dedupRef: payment.order_id,
       }, { vertical: order.vertical_id })
     }
   }
@@ -1104,6 +1120,7 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
       await sendNotification(vendorUserId, 'order_refunded', {
         orderNumber: order.order_number,
         amountCents: refundAmountCents,
+        dedupRef: payment.order_id,
       }, { vertical: order.vertical_id })
     }
   }
@@ -1166,6 +1183,7 @@ async function handleChargeDisputeCreated(dispute: Stripe.Dispute) {
         await sendNotification(admin.user_id, 'charge_dispute_created', {
           disputeAmountCents: disputeAmount,
           disputeReason,
+          dedupRef: dispute.id,
           ...(orderNumber ? { orderNumber } : {}),
         }, vertical ? { vertical } : {})
       })

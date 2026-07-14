@@ -347,7 +347,11 @@ export async function POST(
               vendor_confirmed_at: now.toISOString()
             })
           }
-          crumb.logic('Failed to insert pending payout record', { error: payoutInsertErr.message })
+          // VOR-15 FIX: a non-duplicate insert failure must be fatal — continuing
+          // fired the transfer with payoutRecord=null → money moved with no
+          // tracking record, invisible to the retry cron and reconciliation
+          // (mirrors the VOR-3 fix in buyer-confirm). No money moves untracked.
+          throw traced.fromSupabase(payoutInsertErr, { table: 'vendor_payouts', operation: 'insert' })
         }
 
         try {

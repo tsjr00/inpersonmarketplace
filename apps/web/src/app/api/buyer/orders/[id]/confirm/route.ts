@@ -60,6 +60,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           payment_method,
           payment_model,
           tip_amount,
+          tip_on_platform_fee_cents,
           status
         )
       `)
@@ -175,14 +176,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
         })
       }
 
-      // C1 FIX: Calculate tip share for this item
+      // C1 FIX: Calculate tip share for this item.
+      // VOR-4 FIX: vendor gets tip on food cost only — subtract the platform-fee
+      // tip portion (mirrors fulfill). Was paying the FULL tip_amount → vendor
+      // overpaid the platform's tip share on this edge path.
       let tipShareCents = 0
       if ((order as any)?.tip_amount && (order as any).tip_amount > 0) {
+        const vendorTipCents = (order as any).tip_amount - ((order as any).tip_on_platform_fee_cents || 0)
         const { count: totalItemsInOrder } = await supabase
           .from('order_items')
           .select('id', { count: 'exact', head: true })
           .eq('order_id', orderItem.order_id)
-        tipShareCents = calculateTipShare((order as any).tip_amount, totalItemsInOrder)
+        tipShareCents = calculateTipShare(vendorTipCents, totalItemsInOrder)
       }
 
       // F3 FIX: Check for outstanding fee balance and calculate deduction.
