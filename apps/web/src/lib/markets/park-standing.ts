@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendNotification } from '@/lib/notifications'
 import { nowInTimezoneAsLocalIso } from '@/lib/surveys/cron-helpers'
+import { stripe } from '@/lib/stripe/config'
+import { TracedError, logError } from '@/lib/errors'
 
 /**
  * FT park-manager P4b — standing (recurring) reservation occurrence engine.
@@ -126,11 +128,14 @@ export async function getStrikeCountsForReservations(
     .eq('status', 'expired')
 
   // Source 2 — paid occurrences (no-show candidates).
+  // PRK-9: a manager-barred occurrence (truck ordered NOT to attend, no refund)
+  // must not also strike the truck for obeying — exclude barred rows.
   const { data: paidRows } = await serviceClient
     .from('park_spot_bookings')
     .select('standing_reservation_id, booking_date, market_id, vendor_profile_id')
     .in('standing_reservation_id', ids)
     .eq('status', 'paid')
+    .is('manager_barred_at', null)
 
   // Keep only paid occurrences whose day is fully over in the market's local
   // time — those are the ones a missing check-in can strike. Memoize per tz.
@@ -225,14 +230,38 @@ export async function runStandingOccurrenceSweep(
   const horizonISO = addDaysISO(todayISO, PARK_STANDING_GENERATION_HORIZON_DAYS)
   const result: StandingSweepResult = { generated: 0, expired: 0, suspended: 0 }
 
-  // ── 1. Release past-cutoff unpaid occurrences ──
+  // ── 1. Release past-cutoff unpaid occurrences + abandoned one-off bookings ──
+  // PRK-2: one-off (non-standing) pending bookings previously had NO expiry path
+  // at all — an abandoned checkout held the spot+date forever via the
+  // partial-unique index. TTL: 24h after creation (Stripe session max age), or
+  // a booking whose date has already passed.
   const { data: pending } = await serviceClient
     .from('park_spot_bookings')
-    .select('id, booking_date')
-    .not('standing_reservation_id', 'is', null)
+    .select('id, booking_date, standing_reservation_id, stripe_checkout_session_id, created_at')
     .eq('status', 'pending_payment')
+  const oneOffTtlCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()
   for (const row of pending ?? []) {
-    if (!isPastPrepayCutoff(row.booking_date as string, todayISO)) continue
+    const isStanding = !!row.standing_reservation_id
+    const shouldExpire = isStanding
+      ? isPastPrepayCutoff(row.booking_date as string, todayISO)
+      : ((row.created_at as string) < oneOffTtlCutoff || (row.booking_date as string) < todayISO)
+    if (!shouldExpire) continue
+
+    // PRK-1 (CHK-1/CRN-2 pattern): expire the stored Stripe session BEFORE
+    // releasing the slot, so a stale pay tab can't charge the truck for a
+    // released occurrence. If expire throws, the session may already be
+    // complete (race-paid) — skip the flip and log; the webhook lands it.
+    if (row.stripe_checkout_session_id) {
+      try {
+        await stripe.checkout.sessions.expire(row.stripe_checkout_session_id as string)
+      } catch (expireErr) {
+        await logError(new TracedError('ERR_CHECKOUT_005', `[park sweep] session expire failed for booking ${row.id} (session ${row.stripe_checkout_session_id}): ${expireErr instanceof Error ? expireErr.message : String(expireErr)}`, {
+          route: '/api/cron/expire-orders', method: 'GET',
+        }))
+        continue // don't release a possibly-paid slot
+      }
+    }
+
     const { data: updated } = await serviceClient
       .from('park_spot_bookings')
       .update({ status: 'expired' })
@@ -249,14 +278,36 @@ export async function runStandingOccurrenceSweep(
     .select(`
       id, market_id, vendor_profile_id, spot_id, day_of_week, strikes_reset_at, requested_start_date,
       park_spots:spot_id ( label, base_price_cents, active ),
-      markets:market_id ( name, vertical_id, timezone ),
+      markets:market_id ( name, vertical_id, timezone, park_mode, stripe_charges_enabled ),
       vendor_profiles:vendor_profile_id ( user_id )
     `)
     .eq('status', 'active')
 
+  // PRK-4: a vetting BLOCK must reach standing holds — batch-fetch blocked
+  // (market, vendor) pairs and skip generation for them (mirrors the
+  // book-park-spot gate; the pay route re-checks independently).
+  const blockedKeys = new Set<string>()
+  if ((active ?? []).length > 0) {
+    const { data: vettingRows } = await serviceClient
+      .from('park_vendor_vetting')
+      .select('market_id, vendor_profile_id')
+      .eq('blocked', true)
+      .in('market_id', [...new Set((active ?? []).map((r) => r.market_id as string))])
+    for (const v of vettingRows ?? []) blockedKeys.add(`${v.market_id}|${v.vendor_profile_id}`)
+  }
+
   for (const res of active ?? []) {
     const spot = res.park_spots as unknown as { label: string; base_price_cents: number; active: boolean } | null
     if (!spot || spot.active !== true) continue
+
+    // PRK-7: don't materialize occurrences the truck CANNOT pay — the pay route
+    // refuses non-'paid' park_mode / Stripe-disabled parks, so generating here
+    // would strike every anchor into suspension through no fault of theirs.
+    const mkt = res.markets as unknown as { park_mode: string | null; stripe_charges_enabled: boolean | null } | null
+    if (mkt?.park_mode !== 'paid' || mkt?.stripe_charges_enabled !== true) continue
+
+    // PRK-4: skip blocked trucks
+    if (blockedKeys.has(`${res.market_id}|${res.vendor_profile_id}`)) continue
 
     // Don't materialize occurrences before the truck's requested start date
     // (P4a). NULL start = no floor (start immediately, legacy behavior).

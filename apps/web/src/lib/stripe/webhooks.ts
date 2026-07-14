@@ -1632,6 +1632,10 @@ async function handleParkSpotCheckoutComplete(session: Stripe.Checkout.Session) 
       )
     }
   } catch (notifErr) {
-    console.error('[handleParkSpotCheckoutComplete] notification block failed:', notifErr instanceof Error ? notifErr.message : 'Unknown')
+    // PRK-11: must reach error_logs — the paid flip already succeeded, but a
+    // silently-skipped paid confirmation means truck+operator never learn of it.
+    await logError(new TracedError('ERR_WEBHOOK_015', `park_spot paid-confirmation notification block failed for group ${groupId}: ${notifErr instanceof Error ? notifErr.message : String(notifErr)}`, {
+      route: '/webhooks/stripe', method: 'POST',
+    }))
   }
 }

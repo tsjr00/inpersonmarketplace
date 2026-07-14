@@ -1,0 +1,92 @@
+/**
+ * Webhook Error Catalog (PRK-12)
+ *
+ * Error codes raised by Stripe webhook handlers (market box + park spot
+ * checkout-complete branches). These all fire AFTER the buyer was charged,
+ * so every entry is a money-reconciliation signal.
+ */
+
+import { ErrorCatalogEntry } from '../types'
+
+export const WEBHOOK_ERRORS: ErrorCatalogEntry[] = [
+  {
+    code: 'ERR_WEBHOOK_011',
+    title: 'Checkout-Complete Handler Critical Failure',
+    category: 'STRIPE',
+    severity: 'high',
+    description: 'A checkout.session.completed handler hit a critical failure after payment. Two known sources: a market box subscription RPC failed AND its auto-refund also failed (buyer charged, nothing delivered, manual refund needed); or a park_spot session arrived without a group_id in metadata (cannot match bookings).',
+    userGuidance: '',
+    causes: [
+      'Market box: subscribe RPC error followed by a refund failure — manual refund required',
+      'Park spot: Stripe session metadata missing group_id (checkout-creation bug or stripped metadata)',
+    ],
+    solutions: [
+      'Market box: refund the payment intent in the Stripe dashboard, then investigate the RPC error',
+      'Park spot: find the session in Stripe, identify the booking group from the success URL, reconcile manually',
+    ],
+    pgCodes: [],
+  },
+  {
+    code: 'ERR_WEBHOOK_012',
+    title: 'Paid Session Unmatched (No Bookings for Group)',
+    category: 'STRIPE',
+    severity: 'high',
+    description: 'A park_spot payment completed but no park_spot_bookings rows exist for its booking_group_id — buyer charged, nothing to flip. Typically the pay-route linkage update failed (hardened by PRK-6) or rows were deleted.',
+    userGuidance: '',
+    causes: [
+      'Group-linkage update failed after session creation (pre-PRK-6 builds)',
+      'Booking rows deleted between checkout start and webhook delivery',
+    ],
+    solutions: [
+      'Find the charge in Stripe by session id; refund or manually create/flip the booking',
+      'Check error_logs for the paired linkage-update failure',
+    ],
+    pgCodes: [],
+  },
+  {
+    code: 'ERR_WEBHOOK_013',
+    title: 'Park Booking Paid-Flip Failed',
+    category: 'STRIPE',
+    severity: 'high',
+    description: 'The park_spot bookings status update (pending_payment → paid) failed after a successful payment. The handler throws, so Stripe retries the webhook — usually self-heals.',
+    userGuidance: '',
+    causes: [
+      'Transient database error during the update',
+    ],
+    solutions: [
+      'Stripe retries automatically; if the error persists, check the DB error in the message and flip the group manually',
+    ],
+    pgCodes: [],
+  },
+  {
+    code: 'ERR_WEBHOOK_014',
+    title: 'Paid Session With No Pending Rows',
+    category: 'STRIPE',
+    severity: 'high',
+    description: 'A park_spot group was paid in Stripe but none of its bookings are pending_payment (all cancelled/expired meanwhile). The handler never silently re-activates — the money needs a human decision (refund vs honor).',
+    userGuidance: '',
+    causes: [
+      'Stale checkout session completed after the sweep released the occurrence (hardened by PRK-1 session-expire)',
+      'Manager/system cancelled the bookings between checkout start and payment',
+    ],
+    solutions: [
+      'Decide refund vs honor: refund the payment intent, or re-activate the booking rows if the slot is still free',
+    ],
+    pgCodes: [],
+  },
+  {
+    code: 'ERR_WEBHOOK_015',
+    title: 'Park Paid-Confirmation Notifications Failed',
+    category: 'STRIPE',
+    severity: 'medium',
+    description: 'The park_spot payment was recorded (bookings flipped to paid) but the vendor/operator confirmation notifications failed. Money is safe; communication was not sent.',
+    userGuidance: '',
+    causes: [
+      'Notification service or email provider error after the paid flip',
+    ],
+    solutions: [
+      'No money action needed; optionally notify the truck/operator manually for the group in the message',
+    ],
+    pgCodes: [],
+  },
+]

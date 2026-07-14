@@ -125,13 +125,25 @@ export async function PATCH(
           // immediately re-suspend on the strikes that caused the suspension.
           : { status: 'active', strikes_reset_at: new Date().toISOString() }
 
+    // PRK-8: per-action status preconditions — a stale-UI 'approve' on a
+    // SUSPENDED hold would flip it active WITHOUT a strike reset and the next
+    // sweep would instantly re-suspend it. Approve only from 'requested';
+    // reinstate only from 'suspended'; revoke from any live state.
+    const expectedFrom =
+      action === 'approve'
+        ? ['requested']
+        : action === 'revoke'
+          ? ['requested', 'active', 'suspended']
+          : ['suspended']
+
     crumb.supabase('update', 'park_standing_reservations')
     const { data, error } = await service
       .from('park_standing_reservations')
       .update(update)
       .eq('id', reservationId)
+      .in('status', expectedFrom)
       .select('id, status')
-      .single()
+      .maybeSingle()
 
     if (error) {
       // reinstate/approve can hit the partial-unique index if another holder
@@ -143,6 +155,14 @@ export async function PATCH(
         )
       }
       throw traced.fromSupabase(error, { table: 'park_standing_reservations', operation: 'update' })
+    }
+
+    if (!data) {
+      // Status changed since the manager's screen loaded (PRK-8 rowcount guard)
+      return NextResponse.json(
+        { error: `Cannot ${action} this hold from its current state ('${existing.status}'). Refresh and try again.` },
+        { status: 409 }
+      )
     }
 
     return NextResponse.json({ row: data })

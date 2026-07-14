@@ -12,6 +12,7 @@ import { DB_ERRORS } from './catalog/db-errors'
 import { CART_ERRORS } from './catalog/cart-errors'
 import { ORDER_ERRORS, CHECKOUT_ERRORS } from './catalog/order-errors'
 import { MARKET_BOX_ERRORS } from './catalog/market-box-errors'
+import { WEBHOOK_ERRORS } from './catalog/webhook-errors'
 
 /**
  * Complete error catalog - aggregates all error definitions
@@ -24,6 +25,7 @@ export const ERROR_CATALOG: Map<string, ErrorCatalogEntry> = new Map([
   ...ORDER_ERRORS.map((e): [string, ErrorCatalogEntry] => [e.code, e]),
   ...CHECKOUT_ERRORS.map((e): [string, ErrorCatalogEntry] => [e.code, e]),
   ...MARKET_BOX_ERRORS.map((e): [string, ErrorCatalogEntry] => [e.code, e]),
+  ...WEBHOOK_ERRORS.map((e): [string, ErrorCatalogEntry] => [e.code, e]),
 ])
 
 /**

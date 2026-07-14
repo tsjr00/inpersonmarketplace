@@ -111,12 +111,30 @@ export async function getEligibleCheckInMarkets(
     .lte('week_start_date', todayStr)
     .gte('week_start_date', weekAgoStr)
 
+  //    (c) paid park spot bookings for today (PRK-3): FT park booking is
+  //    book-then-vet — the auto-affiliated market_vendors row is approved:false,
+  //    so without this source a PAYING truck cannot check in and every attended
+  //    day becomes a false no-show strike (auto-suspension in ~3 weeks). Same
+  //    default-tz day-window convention as (b).
+  const { data: parkRows } = await service
+    .from('park_spot_bookings')
+    .select('market_id, booking_date, park_spots:spot_id ( label )')
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('status', 'paid')
+    .eq('booking_date', todayStr)
+
   const boothByMarket = new Map<string, string | null>()
   for (const r of mvRows ?? []) boothByMarket.set(r.market_id as string, (r.booth_number as string) ?? null)
   for (const r of rentalRows ?? []) {
     // booth rental booth_number wins if market_vendors had none
     const existing = boothByMarket.get(r.market_id as string)
     boothByMarket.set(r.market_id as string, (r.booth_number as string) ?? existing ?? null)
+  }
+  for (const r of parkRows ?? []) {
+    // spot label doubles as the "booth" display; an existing booth # wins
+    const existing = boothByMarket.get(r.market_id as string)
+    const spotLabel = ((r.park_spots as unknown as { label?: string } | null)?.label as string | undefined) ?? null
+    boothByMarket.set(r.market_id as string, existing ?? spotLabel)
   }
 
   const marketIds = [...boothByMarket.keys()]

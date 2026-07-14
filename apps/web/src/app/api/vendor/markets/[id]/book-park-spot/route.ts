@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb, logError } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, logError, TracedError } from '@/lib/errors'
 import { calculateBoothRentalFees } from '@/lib/pricing'
 import { createParkSpotCheckoutSession } from '@/lib/stripe/payments'
 import { PARK_SPOT_MIN_CHARGE_CENTS, PARK_SPOT_MAX_DATES } from '@/lib/markets/park-booking-types'
@@ -270,7 +270,10 @@ export async function POST(
 
     const rows = (bookedRows as Array<{ booking_id: string; booked_date: string; booking_price_cents: number }>) ?? []
     if (rows.length === 0) {
-      console.error('[book-park-spot] book_park_spot_atomic returned empty result')
+      // PRK-11: must reach error_logs, not just the server console
+      await logError(new TracedError('ERR_CHECKOUT_010', '[book-park-spot] book_park_spot_atomic returned empty result', {
+        route: '/api/vendor/markets/[id]/book-park-spot', method: 'POST',
+      }))
       return NextResponse.json({ error: 'Could not complete booking. Please try again.' }, { status: 500 })
     }
 
@@ -306,7 +309,10 @@ export async function POST(
         logError(traced.fromSupabase(sidErr, { table: 'park_spot_bookings', operation: 'update' }))
       }
     } catch (stripeError) {
-      console.error('[book-park-spot] Stripe session creation failed:', stripeError)
+      // PRK-11: must reach error_logs, not just the server console
+      await logError(new TracedError('ERR_CHECKOUT_002', `[book-park-spot] Stripe session creation failed: ${stripeError instanceof Error ? stripeError.message : String(stripeError)}`, {
+        route: '/api/vendor/markets/[id]/book-park-spot', method: 'POST',
+      }))
       const { error: cleanupErr } = await serviceClient
         .from('park_spot_bookings')
         .delete()

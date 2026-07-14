@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb, logError } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, logError, TracedError } from '@/lib/errors'
 import { calculateBoothRentalFees } from '@/lib/pricing'
 import { createParkSpotCheckoutSession } from '@/lib/stripe/payments'
 import { PARK_SPOT_MIN_CHARGE_CENTS } from '@/lib/markets/park-booking-types'
@@ -77,6 +77,36 @@ export async function POST(
       return NextResponse.json({ error: 'This recurring occurrence belongs to another food truck.' }, { status: 403 })
     }
 
+    // PRK-4: a vetting BLOCK also stops paying existing occurrences (mirrors
+    // the book-park-spot gate; fail-open when no vetting row exists).
+    const { data: vetting } = await service
+      .from('park_vendor_vetting')
+      .select('blocked')
+      .eq('market_id', booking.market_id)
+      .eq('vendor_profile_id', booking.vendor_profile_id)
+      .maybeSingle()
+    if (vetting?.blocked === true) {
+      return NextResponse.json(
+        { error: `${(market.name as string) || 'This park'} has blocked bookings from your food truck. Contact the operator for details.` },
+        { status: 403 }
+      )
+    }
+
+    // PRK-5: the hold must still be active — a revoked/suspended hold's
+    // already-generated occurrence must not be payable (the manager's only
+    // recourse after payment is a no-refund bar).
+    const { data: hold } = await service
+      .from('park_standing_reservations')
+      .select('status')
+      .eq('id', booking.standing_reservation_id)
+      .maybeSingle()
+    if (hold?.status !== 'active') {
+      return NextResponse.json(
+        { error: 'This recurring hold is no longer active, so this occurrence can no longer be paid.' },
+        { status: 409 }
+      )
+    }
+
     const { data: spot } = await service
       .from('park_spots')
       .select('label')
@@ -128,10 +158,18 @@ export async function POST(
         .eq('id', bookingId)
         .eq('status', 'pending_payment')
       if (updErr) {
-        logError(traced.fromSupabase(updErr, { table: 'park_spot_bookings', operation: 'update' }))
+        // PRK-6: without the linkage the paid session's webhook can't find the
+        // row (ERR_WEBHOOK_012 — money stranded, booking expires + strikes).
+        // Fatal BEFORE handing out the URL; retry is safe because the Stripe
+        // idempotency key is deterministic (same session comes back).
+        await logError(traced.fromSupabase(updErr, { table: 'park_spot_bookings', operation: 'update' }))
+        return NextResponse.json({ error: 'Could not start checkout. Please try again.' }, { status: 500 })
       }
     } catch (stripeError) {
-      console.error('[park-occurrence-pay] Stripe session creation failed:', stripeError)
+      // PRK-11: must reach error_logs, not just the server console
+      await logError(new TracedError('ERR_CHECKOUT_002', `[park-occurrence-pay] Stripe session creation failed: ${stripeError instanceof Error ? stripeError.message : String(stripeError)}`, {
+        route: '/api/vendor/park-occurrences/[bookingId]/pay', method: 'POST',
+      }))
       return NextResponse.json({ error: 'Could not start checkout. Please try again.' }, { status: 500 })
     }
 
