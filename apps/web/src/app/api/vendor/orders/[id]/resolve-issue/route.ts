@@ -6,7 +6,7 @@ import { sendNotification } from '@/lib/notifications'
 import { restoreInventory } from '@/lib/inventory'
 import { shouldRestoreInventory } from '@/lib/inventory-rules'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
-import { FEES, proratedFlatFeeSimple } from '@/lib/pricing'
+import { FEES, proratedFlatFeeSimple, calculateSmallOrderFee } from '@/lib/pricing'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 interface RouteContext {
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .select(`
         id, status, order_id, vendor_profile_id, listing_id, quantity,
         subtotal_cents, issue_reported_at, issue_status,
-        order:orders!inner(id, order_number, buyer_user_id, vertical_id, payment_method)
+        order:orders!inner(id, order_number, buyer_user_id, vertical_id, payment_method, tip_amount, subtotal_cents)
       `)
       .eq('id', orderItemId)
       .single()
@@ -87,6 +87,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const order = orderItem.order as unknown as {
       id: string; order_number: string; buyer_user_id: string; vertical_id: string; payment_method: string
+      tip_amount: number | null; subtotal_cents: number
     }
     const vendorName = (vendorProfile.profile_data as Record<string, unknown>)?.business_name as string
       || (vendorProfile.profile_data as Record<string, unknown>)?.farm_name as string
@@ -200,6 +201,51 @@ export async function POST(request: NextRequest, context: RouteContext) {
         }
       }
 
+      // VOR-6(B) decision 2026-07-13: claw back the vendor payout for this item.
+      // - completed/processing/pending → the vendor has (or is receiving) the
+      //   money: debit the fee ledger for exactly what they were paid; recovered
+      //   via the existing auto-deduct (up to 50% of future payouts). The mig-155
+      //   partial unique index (one debit per item, ever) makes this DB-idempotent.
+      // - failed/pending_stripe_setup → the vendor was NEVER paid: cancel those
+      //   payout rows so the Phase 5 retry cron can't pay out a refunded item.
+      const clawbackClient = createServiceClient()
+      const { data: itemPayouts } = await clawbackClient
+        .from('vendor_payouts')
+        .select('id, amount_cents, status')
+        .eq('order_item_id', orderItemId)
+        .in('status', ['pending', 'processing', 'completed', 'failed', 'pending_stripe_setup'])
+
+      const unpaidPayoutIds = (itemPayouts || [])
+        .filter(p => ['failed', 'pending_stripe_setup'].includes(p.status))
+        .map(p => p.id)
+      if (unpaidPayoutIds.length > 0) {
+        await clawbackClient
+          .from('vendor_payouts')
+          .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+          .in('id', unpaidPayoutIds)
+          .in('status', ['failed', 'pending_stripe_setup'])
+      }
+
+      const paidPayout = (itemPayouts || []).find(p => ['pending', 'processing', 'completed'].includes(p.status))
+      if (paidPayout) {
+        const { error: debitErr } = await clawbackClient
+          .from('vendor_fee_ledger')
+          .insert({
+            vendor_profile_id: orderItem.vendor_profile_id,
+            order_id: order.id,
+            order_item_id: orderItemId,
+            amount_cents: paidPayout.amount_cents,
+            type: 'debit',
+            description: 'Payout clawback — vendor-approved refund for undelivered item',
+          })
+        if (debitErr && debitErr.code !== '23505') {
+          await logError(new TracedError('ERR_REFUND_001', `Payout clawback debit failed for item ${orderItemId}: ${debitErr.message}`, {
+            route: '/api/vendor/orders/[id]/resolve-issue', method: 'POST',
+            orderItemId, amountCents: paidPayout.amount_cents,
+          }))
+        }
+      }
+
       // Check if all items in the order are now cancelled — update order status
       const { data: remainingItems } = await supabase
         .from('order_items')
@@ -212,6 +258,33 @@ export async function POST(request: NextRequest, context: RouteContext) {
           .from('orders')
           .update({ status: 'cancelled', updated_at: new Date().toISOString() })
           .eq('id', orderItem.order_id)
+
+        // VOR-5(B) decision 2026-07-13: the buyer received NOTHING — refund the
+        // order-level tip + small-order fee on top of the per-item refund (they
+        // were charged as separate line items and never refunded). Recomputed
+        // from the same inputs used at charge time; deterministic refund key
+        // makes a concurrent race idempotent at Stripe.
+        const orderTipCents = order.tip_amount || 0
+        const orderSmallFeeCents = calculateSmallOrderFee(order.subtotal_cents || 0, order.vertical_id)
+        const orderFeeRefundCents = orderTipCents + orderSmallFeeCents
+        if (orderFeeRefundCents > 0 && order.payment_method === 'stripe') {
+          const { data: feePayment } = await clawbackClient
+            .from('payments')
+            .select('stripe_payment_intent_id')
+            .eq('order_id', order.id)
+            .eq('status', 'succeeded')
+            .maybeSingle()
+          if (feePayment?.stripe_payment_intent_id) {
+            try {
+              await createRefund(feePayment.stripe_payment_intent_id, `${order.id}-order-fees`, orderFeeRefundCents)
+            } catch (feeRefundErr) {
+              await logError(new TracedError('ERR_REFUND_001', `Order-level tip/fee refund failed on full issue-refund: ${feeRefundErr instanceof Error ? feeRefundErr.message : String(feeRefundErr)}`, {
+                route: '/api/vendor/orders/[id]/resolve-issue', method: 'POST',
+                orderId: order.id, amountCents: orderFeeRefundCents,
+              }))
+            }
+          }
+        }
       }
 
       // Notify buyer
@@ -223,7 +296,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
       return NextResponse.json({
         success: true,
-        message: 'Refund issued and issue resolved.',
+        // VOR-6(B): disclose the clawback to the vendor (decision 2026-07-13)
+        message: paidPayout
+          ? 'Refund issued and issue resolved. The payout you received for this item will be deducted from your future payouts.'
+          : 'Refund issued and issue resolved.',
         action: 'issue_refund',
       })
     }

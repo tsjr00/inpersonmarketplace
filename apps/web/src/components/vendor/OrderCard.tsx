@@ -803,7 +803,7 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
       <ConfirmDialog
         open={issueDialog.open}
         title="Resolve Reported Issue"
-        message="The customer reported a problem with this item. How would you like to resolve it?"
+        message="The customer reported a problem with this item. How would you like to resolve it? If you issue a refund on an item you were already paid for, that payout will be deducted from your future payouts."
         confirmLabel="I Did Deliver This"
         cancelLabel="Issue Refund"
         showInput

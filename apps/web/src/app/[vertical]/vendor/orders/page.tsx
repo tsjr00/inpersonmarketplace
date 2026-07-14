@@ -298,9 +298,11 @@ export default function VendorOrdersPage() {
         body: JSON.stringify({ action, notes })
       })
       if (res.ok) {
-        const msg = action === 'issue_refund'
+        // Prefer the route's message — it discloses the payout clawback when one applied (VOR-6B)
+        const data = await res.json().catch(() => null)
+        const msg = data?.message || (action === 'issue_refund'
           ? 'Refund issued and issue resolved.'
-          : 'Delivery confirmed. Admin has been notified for review.'
+          : 'Delivery confirmed. Admin has been notified for review.')
         setToast({ message: msg, type: 'success' })
         fetchOrders()
       } else {

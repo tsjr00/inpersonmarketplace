@@ -5,7 +5,7 @@ import { withErrorTracing, TracedError, logError } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { restoreInventory } from '@/lib/inventory'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
-import { FEES, proratedFlatFeeSimple } from '@/lib/pricing'
+import { FEES, proratedFlatFeeSimple, calculateSmallOrderFee } from '@/lib/pricing'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 interface RouteContext {
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         vendor_profile_id,
         order_id,
         listing_id,
-        order:orders!inner(id, order_number, buyer_user_id, vertical_id),
+        order:orders!inner(id, order_number, buyer_user_id, vertical_id, tip_amount, subtotal_cents),
         listing:listings(title, vendor_profiles(profile_data))
       `)
       .eq('id', orderItemId)
@@ -194,6 +194,27 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .from('orders')
         .update({ status: 'cancelled' })
         .eq('id', orderItem.order_id)
+
+      // VOR-5(B) decision 2026-07-13: the buyer received NOTHING — refund the
+      // order-level tip + small-order fee on top of the per-item refunds (those
+      // were charged as separate line items and never refunded). Small-order fee
+      // is recomputed from the same inputs used at charge time (session:556).
+      // Idempotent: the deterministic refund key dedups a concurrent
+      // last-two-items race at Stripe.
+      const rejOrder = (orderItem as any).order as { tip_amount?: number; subtotal_cents?: number; vertical_id?: string }
+      const orderTipCents = rejOrder?.tip_amount || 0
+      const orderSmallFeeCents = calculateSmallOrderFee(rejOrder?.subtotal_cents || 0, rejOrder?.vertical_id)
+      const orderFeeRefundCents = orderTipCents + orderSmallFeeCents
+      if (orderFeeRefundCents > 0 && payment?.stripe_payment_intent_id) {
+        try {
+          await createRefund(payment.stripe_payment_intent_id, `${orderItem.order_id}-order-fees`, orderFeeRefundCents)
+        } catch (feeRefundErr) {
+          await logError(new TracedError('ERR_REFUND_001', `Order-level tip/fee refund failed on full rejection: ${feeRefundErr instanceof Error ? feeRefundErr.message : String(feeRefundErr)}`, {
+            route: '/api/vendor/orders/[id]/reject', method: 'POST',
+            orderId: orderItem.order_id, amountCents: orderFeeRefundCents,
+          }))
+        }
+      }
 
       // T2-5: Free wave slot if this was an event order with a wave reservation
       const waveCleanupClient = createServiceClient()

@@ -1,4 +1,5 @@
 import { stripe } from './config'
+import { TracedError, logError } from '@/lib/errors'
 
 /**
  * Create Stripe Connect Express account for a MARKET (manager-side).
@@ -34,6 +35,15 @@ export async function createMarketConnectAccount(email: string, marketId: string
 /**
  * Create Stripe Connect Express account for vendor
  * Uses idempotency key to prevent duplicate accounts on retry
+ *
+ * Payout protection stack (decision 2026-07-13) — VENDOR accounts only
+ * (market/operator accounts above are intentionally untouched):
+ * - delay_days: 3 — each transfer rests 3 days before becoming payable to
+ *   the vendor's bank (rolling recovery window for recent sales).
+ * - $50 minimum Connect balance — automatic payouts sweep only funds above
+ *   $50, leaving a permanent recovery floor (Balance Settings API; no
+ *   first-class SDK resource in stripe-node v20, so rawRequest).
+ * Both back the VOR-6(B) fee-ledger clawback for refunds on paid-out items.
  */
 export async function createConnectAccount(email: string, vendorProfileId?: string) {
   // Use vendorProfileId if available for more precise idempotency
@@ -49,11 +59,31 @@ export async function createConnectAccount(email: string, vendorProfileId?: stri
         card_payments: { requested: true },
         transfers: { requested: true },
       },
+      settings: {
+        payouts: {
+          schedule: { interval: 'daily', delay_days: 3 },
+        },
+      },
     },
     {
       idempotencyKey,
     }
   )
+
+  // $50 minimum balance — best-effort: a failure must not block onboarding,
+  // but must be diagnosable (error_logs) so it can be applied manually.
+  try {
+    await stripe.rawRequest(
+      'POST',
+      '/v1/balance_settings',
+      { payments: { payouts: { minimum_balance_by_currency: { usd: 5000 } } } },
+      { stripeAccount: account.id }
+    )
+  } catch (balErr) {
+    await logError(new TracedError('ERR_STRIPE_001', `Failed to set $50 minimum balance on new vendor Connect account ${account.id}: ${balErr instanceof Error ? balErr.message : String(balErr)}`, {
+      route: 'lib/stripe/connect', method: 'createConnectAccount',
+    }))
+  }
 
   return account
 }

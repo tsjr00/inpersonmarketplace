@@ -138,6 +138,16 @@ export default function VendorStripePage() {
                 through Stripe. This is a secure process that takes about 5 minutes.
               </p>
 
+              {/* Payout protection stack disclosure (decision 2026-07-13) — Stripe
+                  recommends telling vendors before enabling the minimum balance,
+                  since their dashboard balance will read higher than bank payouts */}
+              <p style={{ color: colors.textMuted, marginBottom: spacing.md, fontSize: typography.sizes.sm }}>
+                How payouts work: each sale becomes available for payout 3 days after
+                you fulfill it, and a $50 reserve stays in your Stripe account while you
+                sell with us to cover refunds. Everything above that pays out to your
+                bank automatically every day.
+              </p>
+
               <div style={{ marginBottom: spacing.md }}>
                 <h3 style={{
                   fontSize: typography.sizes.sm,
