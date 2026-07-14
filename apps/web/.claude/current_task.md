@@ -1,10 +1,60 @@
-# Current Task: Pre-re-release code review (Fable) — 4 of 10 slices done, all P0s fixed + on staging
+# Current Task: Pre-re-release code review (Fable) — 5 of 10 slices done, all P0s+P1s fixed, test immune-system built, everything on staging
 
-**Updated:** 2026-07-12 EOD (Fable 5 session). **Mode:** Report.
+**Updated:** 2026-07-13 EOD (Fable 5 session, day 2). **Mode:** Report.
 
 ---
 
-## ⭐⭐⭐⭐⭐ NEXT SESSION START HERE (2026-07-12 EOD) — read this, VERIFY LIVE GIT, then STOP & ask
+## ⭐⭐⭐⭐⭐⭐ NEXT SESSION START HERE (2026-07-13 EOD) — read this, VERIFY LIVE GIT, then STOP & ask
+
+### Git / deploy state (VERIFY — memory drifts)
+- **STAGING `origin/staging` = local `main` = `556b34e0`** (in sync; everything committed AND pushed; tree clean except `settings.local.json`).
+- **PROD `origin/main` = `62b686f7`** — unchanged. **Prod-pending migrations: 184 → 185 → 186 → 187 → 188 → 189, apply IN ORDER (USER applies) before the combined prod push** (9 PM–7 AM CT window, user go, teaching-mode, verify Vercel build + smoke). NO new migrations from the review cycle — every fix was code-only.
+- **The full review cycle = 8 commits on staging, oldest→newest:** `46b19828` (VOR-1/2/3 P0s) → `58e8624b` (CHK-18/20) → `de3e8977` (CRN cron money-safety) → `e818437a` (MBX market-box) → `88c8b7ce` (6-item money remainder: VOR-4/15, MBX-7, CHK-6/13/14 + docs/decisions) → `54e07e46` (VOR-5B/6B refund-exposure + payout stack) → `556b34e0` (PRK park-lifecycle 11-item batch + the 3 test suites).
+- **USER HAS NOT STAGING-TESTED ANY OF IT YET** — that is the gate before the prod push.
+
+### Review progress — 5 of 10 slices DONE
+| Slice | Status | Findings |
+|---|---|---|
+| 1 Checkout & payments | ✅ | CHK-1…20 (CHK-1 partial: webhook paid-flip 3-way guard still deferred; CHK-7/10/11/12/15 open P2/P3) |
+| 2 Vendor orders | ✅ | VOR-1…20 (open: VOR-7 dormant, VOR-8, VOR-10…14, VOR-16…19 — see tripwires below; VOR-20 wontfix-bounded) |
+| 8 Crons | ✅ | CRN-1…16 (open: CRN-3/4/5/10…16) |
+| 6 Market-box / subscriptions | ✅ | MBX-1…7 — ALL FIXED (1-6 in the MBX batch, 7 in the money-remainder batch) |
+| 4 FT park-operator | ✅ | PRK-1…13 (open: PRK-10 [earnings snapshot — needs user decision, poss. migration], PRK-13 [sweep N+1]) |
+| 3 market-manager · 5 events · 7 auth/RLS · 10 admin · 9 notifications | ⬜ next in that order | — |
+
+**`apps/web/.claude/review/FINDINGS_LEDGER.md` is the single source of truth** for every finding + status + fix note. Kit: `.claude/review/`.
+
+### ⚠️ NEW THIS SESSION — the TEST IMMUNE SYSTEM (3 suites, +46 tests, suite = 1674/62 files, all in pre-commit)
+1. **`src/lib/__tests__/money-structure.test.ts`** — 5 structural rules over source (flow-integrity idiom): guarded status flips (21-entry reasoned allowlist), session-expire-before-release (+2 inverted KNOWN_GAPS tripwires), no-console.error-in-money-files (zero + ratchet lists), sourceTransaction-on-transfers (3 bare sites allowlisted w/ finding IDs), new-error-codes-must-be-cataloged (68-code shrink-only baseline).
+2. **`src/lib/__tests__/pricing-conservation.test.ts`** — property loops (deterministic LCG): flat-fee proration zero-sum, `buyerTotal − vendorPayout === platformFee` exact, tip-split conservation, booth/park keep-pct invariants.
+3. **`src/app/api/__tests__/money-authorization.test.ts`** — the **8-rule money-authorization spec (USER-SIGNED 2026-07-13, quoted verbatim in the file header)**; R1-R3 drive the REAL fulfill/buyer-confirm handlers via fixture mock; R4-R8 structural anchors; R8 globally asserts webhooks.ts is the only paid-writer for park bookings.
+
+**PROTOCOL when one of these fails (READ THIS, future session):** a failure is a DECISION POINT. Either the new code is wrong (fix it), or the new code is a legitimate exception → add a REASONED allowlist entry / adjust a ratchet DOWNWARD-only, with the user's awareness. NEVER weaken a rule or the 8-rule spec to make code pass — the spec has its own approval gate (test-integrity.md Rule 1/3). Inverted tripwires (Rule B KNOWN_GAPS, Rule D/E rot checks) fail when a tracked gap gets FIXED — the failure message says exactly what list to update.
+
+### Key decisions made this session (all in decisions.md)
+- **VOR-5 = B:** full-order rejection additionally refunds tip + small-order fee (built: reject + resolve-issue).
+- **VOR-6 = B:** issue-refund on a paid-out item → `vendor_fee_ledger` debit (auto-deduct recovery); never-paid payout rows cancelled so Phase 5 can't retry-pay a refunded item (built).
+- **Payout protection stack:** vendor Connect accounts get `delay_days=3` + $50 minimum balance (built in `connect.ts` — NEW accounts only; test with a fresh vendor). Vendor-facing copy on the Stripe setup page.
+- **CHK-19 wontfix** (legacy subs = testers, wiped pre-relaunch).
+
+### Open items by owner
+**USER decisions pending:** (1) staging test of `556b34e0` (order lifecycle: paid ready→ack→fulfill works, unpaid fulfill 400s, cancelled fulfill 400s; MB cart purchase; fresh-vendor Stripe connect for the payout stack; issue-refund on paid item for clawback+disclosure); (2) **VOR-11**: wire `lib/orders/status-transitions.ts` into routes or rewrite it (51 green tests currently assert a spec production ignores); (3) **PRK-10**: snapshot effective keep-pct on bookings (possible migration) vs label historical earnings approximate; (4) prod push timing.
+**Small approved-shape fix candidates (each tripwired in money-structure tests):** VOR-17 (buyer-cancel cancel-fee transfer + sourceTransaction), VOR-18 (buyer-confirm transfer + sourceTransaction — reuse its VOR-1 gate's payment row), VOR-19 (buyer-cancel + reject: sessions.expire before cancelling pending orders), VOR-16 (tip/fee refund at cron-Phase-1 + buyer-cancel — extends the VOR-5B decision, needs nod).
+**Bigger deferred:** CHK-1 remainder (webhook paid-flip 3-way — careful single-purpose pass), CHK-7+CRN-5 (inventory restore-ordering pair), CHK-10, CRN-3/4/10, efficiency tail (CHK-11/12, CRN-11…16, MBX P3s, PRK-13).
+
+### Immediate next actions (recommended order)
+1. USER staging-tests `556b34e0` (list above).
+2. **Slice 3 (market-manager) finder** — booth/season booking money, optin/agreement (order: 3 → 5 → 7 → 10 → 9).
+3. Small-fix batch VOR-16/17/18/19 on user nod (all S, all tripwired).
+4. Combined PROD push after staging passes: user applies migs 184→189 in order, then push in window; then post-push bookkeeping (move migs → applied/, snapshot batch line).
+
+### Working agreement (enforce — unchanged, full text in the 07-12 block below)
+Report mode default · mechanical self-check before critical-path/money edits (quote the authorizing words or STOP) · batch approvals · hook block = verify-then-retry per its instructions · commit AND push separate approvals · staging-first · teaching-mode git ON · prod window 9 PM–7 AM CT · user applies migrations · never change a business-rule test to match code (now includes the 3 new suites — see PROTOCOL above) · finder reports are leads, verify anchors before fixing.
+**Recurring nuisance:** `rate-limit.test.ts` flaked 2× on 07-12 (timing), clean 07-13 — if it recurs, mention to user.
+
+---
+
+## ⭐⭐⭐⭐⭐ PRIOR START BLOCK (2026-07-12 EOD) — superseded by the block above; working-agreement full text + staging test map still valid
 
 ### Git / deploy state (VERIFY — memory drifts)
 - **STAGING `origin/staging` = local `main` = `e818437a`** (in sync, everything committed AND pushed; working tree has only `settings.local.json` + possibly this file/CLAUDE_CONTEXT if the doc commit hasn't happened).

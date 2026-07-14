@@ -1,8 +1,12 @@
 # Backlog
 
-Last updated: 2026-07-12 (money-authorization business-rule tests — do SOON)
+Last updated: 2026-07-13 (money-authorization tests BUILT; VOR-11 decision remains)
 
-## ⭐ DO SOON (added 2026-07-12) — Money-authorization business-rule tests + VOR-11 decision
+## ✅ MOSTLY DONE (2026-07-13) — Money-authorization tests built; VOR-11 decision still open
+
+**BUILT 2026-07-13 (user-approved 8-rule spec, commit `556b34e0`):** `src/app/api/__tests__/money-authorization.test.ts` (8-rule spec driving the real fulfill/buyer-confirm handlers) + `src/lib/__tests__/money-structure.test.ts` (5 structural defect-class rules, self-policing allowlists) + `src/lib/__tests__/pricing-conservation.test.ts` (conservation properties). Suite 1628→1674, all in pre-commit. **REMAINING from this item: the VOR-11 decision only** — `lib/orders/status-transitions.ts` is a tested spec module production ignores; user picks: wire `isValidItemTransition` into routes (behavior change, care in resolve-issue) or rewrite the spec to sanctioned reality. Original rationale kept below.
+
+## ⭐ ORIGINAL ITEM (added 2026-07-12) — Money-authorization business-rule tests + VOR-11 decision
 
 **Why now:** the pre-re-release review's P0 fixes (VOR-1/2/3, CRN-1/2/9) all live in the route-handler/cron *authorization* layer — and the entire 1628-test suite stayed green both while those bugs existed AND through the fixes. The suite thoroughly specs the money *math* (pricing/tips/fees/settlement) but asserts nothing about whether money was *allowed* to move. The new gates are one confident refactor away from silently disappearing.
 
