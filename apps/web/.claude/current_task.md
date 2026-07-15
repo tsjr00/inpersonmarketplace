@@ -16,9 +16,18 @@
 
 **Batch committed `69d4664c` + pushed (staging = 69d4664c, ref-update verified, Playwright 49 passed).**
 
-**SLICE 5 (EVENTS) DONE — finder ran, 17 findings EVT-1…17 in ledger, anchors EVT-1/2/3/4/6/10/11/12 main-session-verified.** HEADLINE: company-paid ordering has NEVER worked (EVT-1 RPC writes phantom orders columns; EVT-2 access-code contract break; EVT-7 self-service never generates waves) and event cancellation has NEVER worked (EVT-3 status CHECK lacks 'cancelled'). Dead-feature breaks, not live money leaks — cron/webhook money paths verified unreachable by company-paid orders. EVT-3 must ship WITH EVT-4 (refund gap activates otherwise). EVT-1 + EVT-3 + possibly EVT-6 need MIGRATIONS (user applies). Proposed batch order: A (S code-only: EVT-2/6/10/12/14 + logError swaps) → B (EVT-3 mig + EVT-4 both routes) → C (EVT-1/17 RPC-rewrite mig + EVT-11 settlement) → D (waves: EVT-7/8/9/15, EVT-5) → tail (EVT-13/16). AWAITING user batch approval.
+**SLICE 5 (EVENTS) DONE — finder ran, 17 findings EVT-1…17 in ledger, anchors EVT-1/2/3/4/6/10/11/12 main-session-verified.** HEADLINE: company-paid ordering has NEVER worked and event cancellation has NEVER worked — dead-feature breaks, not live money leaks (cron/webhook money paths verified unreachable by company-paid orders).
 
-**NEXT: EVT fix batches (per approval) → slice 3 (market-manager) finder.**
+**USER DECISIONS 2026-07-14:** company-paid events → **backlog.md deferred package** (EVT-1/2/7/11/13/17 + VOR-14 + EVT-15's company-paid half, "need it later, not now"); cancellation + wave lifecycle = fix now; EVT-5 included.
+
+**ALL THREE EVT FIX BATCHES DONE + COMMITTED (suite 1676 green each):**
+- **Batch A `cc0fdc5f`:** EVT-6 (ratings submittable during active/review — serviceClient + route-enforced invariants incl. pending-only edit lock), EVT-10 (vendor cancel notifications: user_id join + admin fan-out added), EVT-12 (prep sheet phantom orders.user_id dropped), EVT-14 (completed-effects prior-status guard), waves/reserve logError ×2.
+- **Batch B `efa6a7c6`:** **mig 190** (re-add 'cancelled' to catering_requests CHECK — NOT YET APPLIED, user applies) + EVT-4 in BOTH cancel routes (pending→sessions.expire skip-if-throw; remaining-balance refunds w/ `${orderId}-event-cancel` key; fulfilled-item orders → logError manual review; guarded item cancel blocks cron no-show payouts; admin free_wave parity). Both routes → Rule B ENFORCED (suite 1674→1676).
+- **Batch D `9c2f6c4c`:** **mig 191** (recalculate_wave_capacity: exclude backups + open↔full recompute — NOT YET APPLIED) + EVT-8 (stale-reservation freeing: reserve-route lazy sweep + cron Phase 13.5, via existing cancel_wave_reservation RPC), EVT-9 (generateEventWaves backup exclusion + recalc wired at vendor cancel/respond/select), EVT-5 (vendor commitment-cancel now cancels+refunds pre-orders per reject math + closes dead orders + frees waves), EVT-15 wave-half (free_wave at buyer-cancel + resolve-issue). Rule C ratchets caught 2 of my own console.errors → logError'd.
+- **Still open from slice 5:** EVT-16 (fan-out N+1s, efficiency tail) + minor unfiled notes in ledger.
+- **Migs 190 + 191 APPLIED to Dev + Staging 2026-07-14 (user); Prod pending list is now 184→191, apply IN ORDER before the combined prod push.** Snapshot changelog updated. Event cancellation + wave lifecycle are LIVE on staging once pushed.
+
+**NEXT after push: slice 3 (market-manager) finder.**
 
 ---
 
