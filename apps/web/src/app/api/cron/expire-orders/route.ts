@@ -2562,6 +2562,47 @@ export async function GET(request: NextRequest) {
       console.error('Phase 13 error:', phase13Error instanceof Error ? phase13Error.message : 'Unknown error')
     }
 
+    // ─── Phase 13.5: Expire stale wave reservations (EVT-8) ────────────
+    // reserve_event_wave stamps expires_at (+10 min, mig 120) but nothing
+    // ever enforced it — an abandoned 'reserved' row held reserved_count
+    // forever AND permanently blocked its user from re-reserving. The
+    // waves/reserve route lazy-frees at point of need; this is the global
+    // backstop for rows nobody retries. cancel_wave_reservation row-locks
+    // the wave and re-checks status='reserved' (no race with a completing
+    // order), so a failure result here just means the row changed mid-run.
+    let waveReservationsExpired = 0
+    try {
+      const { data: staleWaveReservations } = await supabase
+        .from('event_wave_reservations')
+        .select('id, user_id')
+        .eq('status', 'reserved')
+        .lt('expires_at', new Date().toISOString())
+        .limit(200)
+
+      for (const staleRes of staleWaveReservations || []) {
+        const { data: freedRow, error: freeErr } = await supabase
+          .rpc('cancel_wave_reservation', {
+            p_reservation_id: staleRes.id,
+            p_user_id: staleRes.user_id,
+          })
+          .single()
+        if (freeErr) {
+          await logError(new TracedError('ERR_DB_UNKNOWN', `[Phase 13.5] cancel_wave_reservation failed for reservation ${staleRes.id}: ${freeErr.message}`, {
+            route: '/api/cron/expire-orders', method: 'GET',
+          }))
+          totalErrors++
+          continue
+        }
+        if ((freedRow as { success?: boolean } | null)?.success) waveReservationsExpired++
+      }
+      if (waveReservationsExpired > 0) console.log(`Phase 13.5: expired ${waveReservationsExpired} stale wave reservation(s)`)
+    } catch (phase135Error) {
+      // New phase, new standard: phase failures reach error_logs (Rule C)
+      await logError(new TracedError('ERR_DB_UNKNOWN', `[Phase 13.5] wave-reservation sweep failed: ${phase135Error instanceof Error ? phase135Error.message : String(phase135Error)}`, {
+        route: '/api/cron/expire-orders', method: 'GET',
+      }))
+    }
+
     // ─── Phase 14: Auto-transition ready → active on event day ─────────
     // Uses each market's timezone for correct date comparison (not hardcoded CT).
     let eventsActivated = 0

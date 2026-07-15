@@ -42,6 +42,28 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Event not found or not accepting orders' }, { status: 404 })
     }
 
+    // EVT-8 FIX: lazy-free expired reservations at this event before reserving.
+    // reserve_event_wave stamps expires_at (+10 min, mig 120) but nothing ever
+    // enforced it — an abandoned 'reserved' row held reserved_count forever AND
+    // permanently blocked its user from re-reserving (the one-per-event check
+    // counts every non-cancelled row). Freeing here fixes the caller's own
+    // stale row at the exact moment they retry; cron Phase 13.5 is the global
+    // backstop. cancel_wave_reservation row-locks the wave, re-checks
+    // status='reserved' (safe against a completing order), and reopens full
+    // waves — failures are non-fatal (the reserve RPC just reports full).
+    const { data: staleReservations } = await serviceClient
+      .from('event_wave_reservations')
+      .select('id, user_id')
+      .eq('market_id', event.market_id)
+      .eq('status', 'reserved')
+      .lt('expires_at', new Date().toISOString())
+    for (const stale of staleReservations || []) {
+      await serviceClient.rpc('cancel_wave_reservation', {
+        p_reservation_id: stale.id,
+        p_user_id: stale.user_id,
+      })
+    }
+
     // Call the atomic reservation RPC
     const { data, error } = await serviceClient
       .rpc('reserve_event_wave', {

@@ -206,6 +206,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
           .from('orders')
           .update({ status: 'cancelled' })
           .eq('id', orderId)
+
+        // EVT-15 FIX: free the event wave slot if this order holds one — the
+        // RPC is a no-op for orders without an 'ordered' reservation (reject
+        // route pattern). Without this, a cancelled event order kept its wave
+        // slot consumed AND the UNIQUE(market,user) row blocked the buyer from
+        // ever re-ordering at that event.
+        const { error: waveErr } = await cancelServiceClient.rpc('free_wave_on_order_cancel', {
+          p_order_id: orderId,
+        })
+        if (waveErr) console.error('[buyer/cancel] free_wave_on_order_cancel error:', waveErr.message)
       }
     }
 

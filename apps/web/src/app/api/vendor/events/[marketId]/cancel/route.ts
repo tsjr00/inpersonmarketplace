@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, logError, TracedError } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { sendNotification } from '@/lib/notifications/service'
+import { FEES, proratedFlatFeeSimple } from '@/lib/pricing'
+import { createRefund } from '@/lib/stripe/payments'
+import { stripe } from '@/lib/stripe/config'
+import { restoreInventory } from '@/lib/inventory'
 
 /**
  * POST /api/vendor/events/[marketId]/cancel
@@ -142,6 +146,159 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const profileData = vendorProfile.profile_data as Record<string, unknown>
     const vendorName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'A vendor'
 
+    // 2b. EVT-5 FIX: cancel + refund this vendor's outstanding pre-orders.
+    // Previously a withdrawing vendor's items stayed confirmed/ready — buyers
+    // were never refunded or told, wave slots stayed consumed, and the cron's
+    // no-show phase could later AUTO-PAY the withdrawn vendor for items they
+    // never fulfilled (the paid-gate passes: the buyer really did pay).
+    // Per-item refund math mirrors the reject route (subtotal + buyer % fee +
+    // prorated flat fee); company-paid orders have no succeeded payment row,
+    // so the refund step naturally skips them.
+    const { data: vendorItems } = await serviceClient
+      .from('order_items')
+      .select(`
+        id, order_id, quantity, subtotal_cents, listing_id,
+        order:orders!inner(id, order_number, buyer_user_id, vertical_id, status, stripe_checkout_session_id),
+        listing:listings(title)
+      `)
+      .eq('market_id', marketId)
+      .eq('vendor_profile_id', vendorProfile.id)
+      .in('status', ['pending', 'confirmed', 'ready'])
+      .is('cancelled_at', null)
+
+    let ordersCancelled = 0
+    if (vendorItems && vendorItems.length > 0) {
+      const affectedOrderIds = [...new Set(vendorItems.map(i => i.order_id as string))]
+      const { data: allOrderItems } = await serviceClient
+        .from('order_items')
+        .select('order_id')
+        .in('order_id', affectedOrderIds)
+      const itemCounts = new Map<string, number>()
+      for (const oi of allOrderItems || []) {
+        itemCounts.set(oi.order_id as string, (itemCounts.get(oi.order_id as string) || 0) + 1)
+      }
+      const { data: succeededPayments } = await serviceClient
+        .from('payments')
+        .select('order_id, stripe_payment_intent_id')
+        .in('order_id', affectedOrderIds)
+        .eq('status', 'succeeded')
+      const paymentByOrder = new Map(
+        (succeededPayments || []).map(p => [p.order_id as string, p.stripe_payment_intent_id as string | null])
+      )
+
+      for (const item of vendorItems) {
+        const itemOrder = (item as unknown as { order: { id: string; order_number?: string; buyer_user_id?: string; vertical_id?: string } }).order
+        const totalItems = itemCounts.get(item.order_id as string) || 1
+        const buyerPercentFee = Math.round((item.subtotal_cents as number) * (FEES.buyerFeePercent / 100))
+        const itemFlatFee = proratedFlatFeeSimple(FEES.buyerFlatFeeCents, totalItems)
+        const buyerPaidForItem = (item.subtotal_cents as number) + buyerPercentFee + itemFlatFee
+
+        // Guarded cancel (H3 pattern) — a concurrent cancel path wins, skip
+        const { data: cancelledRows } = await serviceClient
+          .from('order_items')
+          .update({
+            status: 'cancelled',
+            cancelled_at: new Date().toISOString(),
+            cancelled_by: 'vendor',
+            cancellation_reason: 'Vendor withdrew from this event',
+            refund_amount_cents: buyerPaidForItem,
+          })
+          .eq('id', item.id)
+          .is('cancelled_at', null)
+          .select('id')
+        if (!cancelledRows || cancelledRows.length === 0) continue
+
+        if (item.listing_id) {
+          await restoreInventory(serviceClient, item.listing_id as string, (item.quantity as number) || 1)
+        }
+
+        const paymentIntentId = paymentByOrder.get(item.order_id as string)
+        if (paymentIntentId) {
+          try {
+            await createRefund(paymentIntentId, item.id as string, buyerPaidForItem)
+            await serviceClient
+              .from('order_items')
+              .update({ status: 'refunded' })
+              .eq('id', item.id)
+              .eq('status', 'cancelled')
+          } catch (refundErr) {
+            await logError(new TracedError('ERR_REFUND_001', `[vendor-event-cancel] Refund failed for item ${item.id}: ${refundErr instanceof Error ? refundErr.message : String(refundErr)}`, {
+              route: '/api/vendor/events/[marketId]/cancel', method: 'POST',
+              orderItemId: item.id as string, amountCents: buyerPaidForItem,
+            }))
+          }
+        }
+
+        if (itemOrder?.buyer_user_id) {
+          const itemTitle = (item as unknown as { listing?: { title?: string } }).listing?.title
+          await sendNotification(itemOrder.buyer_user_id, 'order_cancelled_by_vendor', {
+            vendorName,
+            reason: 'The vendor has withdrawn from this event. Your payment for this item is being refunded.',
+            ...(itemOrder.order_number ? { orderNumber: itemOrder.order_number } : {}),
+            ...(itemTitle ? { itemTitle } : {}),
+          }, itemOrder.vertical_id ? { vertical: itemOrder.vertical_id } : {})
+        }
+      }
+
+      // Order-level cleanup: orders left with no live items get closed (with
+      // the VOR-19 session-expire for still-pending orders) + wave slot freed
+      for (const affectedOrderId of affectedOrderIds) {
+        const { data: liveItems } = await serviceClient
+          .from('order_items')
+          .select('id')
+          .eq('order_id', affectedOrderId)
+          .is('cancelled_at', null)
+        if (liveItems && liveItems.length > 0) continue
+
+        const orderMeta = (vendorItems.find(i => i.order_id === affectedOrderId) as unknown as {
+          order: { status?: string; stripe_checkout_session_id?: string | null }
+        } | undefined)?.order
+        let skipOrderCancel = false
+        if (orderMeta?.status === 'pending' && orderMeta?.stripe_checkout_session_id) {
+          try {
+            await stripe.checkout.sessions.expire(orderMeta.stripe_checkout_session_id)
+          } catch (expireErr) {
+            await logError(new TracedError('ERR_CHECKOUT_005', `[vendor-event-cancel] Session expire failed for order ${affectedOrderId}: ${expireErr instanceof Error ? expireErr.message : String(expireErr)}`, {
+              route: '/api/vendor/events/[marketId]/cancel', method: 'POST',
+            }))
+            skipOrderCancel = true // possibly race-paid — webhook finalizes
+          }
+        }
+        if (!skipOrderCancel) {
+          await serviceClient
+            .from('orders')
+            .update({ status: 'cancelled' })
+            .eq('id', affectedOrderId)
+            .not('status', 'in', '("cancelled","refunded","completed")')
+          const { error: waveErr } = await serviceClient.rpc('free_wave_on_order_cancel', {
+            p_order_id: affectedOrderId,
+          })
+          if (waveErr) console.error(`[vendor-event-cancel] free_wave error for order ${affectedOrderId}:`, waveErr.message)
+          ordersCancelled++
+        }
+      }
+    }
+
+    // 2c. EVT-9 FIX: this vendor's capacity just left the event — shrink wave
+    // capacity (and re-close over-committed waves) if this event uses waves.
+    // recalculate_wave_capacity RAISEs if a counted vendor lacks a declared
+    // per-wave cap (mig 130 no-silent-fallback rule) — log + continue.
+    const { data: hasWaves } = await serviceClient
+      .from('event_waves')
+      .select('id')
+      .eq('market_id', marketId)
+      .limit(1)
+    if (hasWaves && hasWaves.length > 0) {
+      const { error: recalcErr } = await serviceClient.rpc('recalculate_wave_capacity', {
+        p_market_id: marketId,
+      })
+      if (recalcErr) {
+        await logError(new TracedError('ERR_DB_UNKNOWN', `[vendor-event-cancel] recalculate_wave_capacity failed for market ${marketId}: ${recalcErr.message}`, {
+          route: '/api/vendor/events/[marketId]/cancel', method: 'POST',
+        }))
+      }
+    }
+
     // 3. Notify admin
     const { data: admins } = await serviceClient
       .from('user_profiles')
@@ -273,6 +430,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       message: 'Event commitment cancelled.',
       late_cancellation: isLateCancellation,
       backup_escalated: backups && backups.length > 0,
+      buyer_items_cancelled: vendorItems?.length || 0,
+      orders_closed: ordersCancelled,
     })
   })
 }

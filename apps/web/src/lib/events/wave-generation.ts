@@ -87,12 +87,17 @@ export async function generateEventWaves(
   const totalMinutes = endMinutes - startMinutes
   const waveCount = Math.ceil(totalMinutes / waveDurationMinutes)
 
-  // Get accepted vendor capacity
+  // Get accepted vendor capacity.
+  // EVT-9 FIX: exclude backups — the organizer select flow marks non-selected
+  // vendors is_backup=true but leaves them 'accepted', so counting them
+  // over-promised capacity the active vendors can't fulfill. (Mirrors the
+  // mig-191 recalculate_wave_capacity filter.)
   const { data: acceptedVendors, error: vendorError } = await serviceClient
     .from('market_vendors')
     .select('vendor_profile_id, event_max_orders_per_wave')
     .eq('market_id', marketId)
     .eq('response_status', 'accepted')
+    .or('is_backup.is.null,is_backup.eq.false')
 
   if (vendorError) {
     return {

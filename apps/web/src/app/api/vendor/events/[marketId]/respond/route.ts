@@ -282,6 +282,25 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         )
       }
 
+      // EVT-9 FIX: an accept (or a decline after a prior accept) changes the
+      // event's total vendor capacity — if waves were already generated,
+      // recalc so capacity tracks the real vendor set (mig 191: excludes
+      // backups + reopens/closes waves). RAISE (missing vendor cap) is
+      // logged and non-fatal.
+      const { data: respondWaves } = await serviceClient
+        .from('event_waves')
+        .select('id')
+        .eq('market_id', marketId)
+        .limit(1)
+      if (respondWaves && respondWaves.length > 0) {
+        const { error: recalcErr } = await serviceClient.rpc('recalculate_wave_capacity', {
+          p_market_id: marketId,
+        })
+        if (recalcErr) {
+          console.error(`[vendor/catering/respond] recalculate_wave_capacity failed for market ${marketId}:`, recalcErr.message)
+        }
+      }
+
       // If accepted, save vendor's menu selections for this event
       if (response_status === 'accepted' && listing_ids && listing_ids.length > 0) {
         // Validate listings belong to this vendor and are catering-eligible

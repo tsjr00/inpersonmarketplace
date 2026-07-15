@@ -241,6 +241,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
           .update({ is_backup: true })
           .eq('market_id', event.market_id)
           .in('vendor_profile_id', notSelectedIds)
+
+        // EVT-9 FIX: backups no longer count toward wave capacity (mig 191) —
+        // if waves were already generated, shrink them to the selected set.
+        const { data: selectWaves } = await serviceClient
+          .from('event_waves')
+          .select('id')
+          .eq('market_id', event.market_id)
+          .limit(1)
+        if (selectWaves && selectWaves.length > 0) {
+          const { error: recalcErr } = await serviceClient.rpc('recalculate_wave_capacity', {
+            p_market_id: event.market_id,
+          })
+          if (recalcErr) {
+            console.error(`[events/select] recalculate_wave_capacity failed for market ${event.market_id}:`, recalcErr.message)
+          }
+        }
       }
     }
 

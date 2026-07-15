@@ -259,6 +259,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
           .update({ status: 'cancelled', updated_at: new Date().toISOString() })
           .eq('id', orderItem.order_id)
 
+        // EVT-15 FIX: free the event wave slot if this order holds one — no-op
+        // for orders without an 'ordered' reservation (reject route pattern).
+        const { error: waveErr } = await clawbackClient.rpc('free_wave_on_order_cancel', {
+          p_order_id: orderItem.order_id,
+        })
+        if (waveErr) {
+          await logError(new TracedError('ERR_DB_UNKNOWN', `[resolve-issue] free_wave_on_order_cancel failed for order ${orderItem.order_id}: ${waveErr.message}`, {
+            route: '/api/vendor/orders/[id]/resolve-issue', method: 'POST',
+          }))
+        }
+
         // VOR-5(B) decision 2026-07-13: the buyer received NOTHING — refund the
         // order-level tip + small-order fee on top of the per-item refund (they
         // were charged as separate line items and never refunded). Recomputed
