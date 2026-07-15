@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, logError, TracedError } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { sendNotification } from '@/lib/notifications/service'
+import { stripe } from '@/lib/stripe/config'
+import { createRefund } from '@/lib/stripe/payments'
 
 /**
  * POST /api/events/[token]/cancel
@@ -126,7 +128,7 @@ export async function POST(
       // returned null, causing the entire cancel flow to no-op.
       const { data: orderItemRows } = await serviceClient
         .from('order_items')
-        .select('order_id')
+        .select('order_id, status')
         .eq('market_id', event.market_id)
 
       const orderIds = [...new Set((orderItemRows || []).map(r => r.order_id as string))]
@@ -134,7 +136,7 @@ export async function POST(
       const { data: buyerOrders } = orderIds.length > 0
         ? await serviceClient
             .from('orders')
-            .select('buyer_user_id, order_number, id')
+            .select('buyer_user_id, order_number, id, status, stripe_checkout_session_id, payment_method')
             .in('id', orderIds)
             .not('status', 'in', '("cancelled","refunded","completed")')
         : { data: [] }
@@ -156,19 +158,89 @@ export async function POST(
         })
         await Promise.all(buyerNotifications)
 
-        // Mark buyer orders as cancelled (preserve completed/refunded/already-cancelled)
-        await serviceClient
-          .from('orders')
-          .update({ status: 'cancelled' })
-          .in('id', buyerOrders.map(o => o.id as string))
-          .not('status', 'in', '("cancelled","refunded","completed")')
+        // EVT-4 FIX: the buyer notification above PROMISES a refund, but this
+        // flow previously cancelled orders without refunding, without expiring
+        // pending sessions, and without cancelling order_items (leaving paid
+        // items eligible for the cron's no-show vendor payout). Now, per order:
+        // pending+session → expire first (skip the order if expire throws — it
+        // may be race-paid; the webhook finalizes it); Stripe-paid → refund the
+        // REMAINING refundable balance (earlier per-item refunds are already
+        // netted out by Stripe); orders with fulfilled items skip auto-refund
+        // and log for manual review instead (a full refund would claw back
+        // money for goods already handed over).
+        const fulfilledOrderIds = new Set(
+          (orderItemRows || []).filter(r => r.status === 'fulfilled').map(r => r.order_id as string)
+        )
+        const { data: eventPayments } = await serviceClient
+          .from('payments')
+          .select('order_id, stripe_payment_intent_id')
+          .in('order_id', buyerOrders.map(o => o.id as string))
+          .eq('status', 'succeeded')
+        const paymentByOrder = new Map(
+          (eventPayments || []).map(p => [p.order_id as string, p.stripe_payment_intent_id as string | null])
+        )
 
-        // T2-5: Free wave slots for all cancelled event orders
+        const cancellableOrderIds: string[] = []
         for (const order of buyerOrders) {
-          const { error: waveErr } = await serviceClient.rpc('free_wave_on_order_cancel', {
-            p_order_id: order.id,
-          })
-          if (waveErr) console.error(`[event-cancel] free_wave error for order ${order.id}:`, waveErr.message)
+          if (order.status === 'pending' && order.stripe_checkout_session_id) {
+            try {
+              await stripe.checkout.sessions.expire(order.stripe_checkout_session_id as string)
+            } catch (expireErr) {
+              await logError(new TracedError('ERR_CHECKOUT_005', `[event-cancel] Session expire failed for order ${order.id} (session ${order.stripe_checkout_session_id}): ${expireErr instanceof Error ? expireErr.message : String(expireErr)}`, {
+                route: '/api/events/[token]/cancel', method: 'POST',
+              }))
+              continue // possibly race-paid — leave this order for the webhook
+            }
+          }
+          cancellableOrderIds.push(order.id as string)
+
+          const paymentIntentId = paymentByOrder.get(order.id as string)
+          if (paymentIntentId) {
+            if (fulfilledOrderIds.has(order.id as string)) {
+              await logError(new TracedError('ERR_REFUND_001', `[event-cancel] Order ${order.id} has fulfilled items — auto-refund skipped, needs manual review`, {
+                route: '/api/events/[token]/cancel', method: 'POST', orderId: order.id,
+              }))
+            } else {
+              try {
+                await createRefund(paymentIntentId, `${order.id}-event-cancel`)
+              } catch (refundErr) {
+                await logError(new TracedError('ERR_REFUND_001', `[event-cancel] Refund failed for order ${order.id}: ${refundErr instanceof Error ? refundErr.message : String(refundErr)}`, {
+                  route: '/api/events/[token]/cancel', method: 'POST', orderId: order.id,
+                }))
+              }
+            }
+          }
+        }
+
+        if (cancellableOrderIds.length > 0) {
+          // Cancel the items (guarded) so cron Phases 4/7 can never treat a
+          // cancelled event's items as payable no-shows
+          await serviceClient
+            .from('order_items')
+            .update({
+              status: 'cancelled',
+              cancelled_at: new Date().toISOString(),
+              cancelled_by: 'system',
+              cancellation_reason: 'Event cancelled by organizer',
+            })
+            .in('order_id', cancellableOrderIds)
+            .is('cancelled_at', null)
+            .in('status', ['pending', 'confirmed', 'ready'])
+
+          // Mark buyer orders as cancelled (preserve completed/refunded/already-cancelled)
+          await serviceClient
+            .from('orders')
+            .update({ status: 'cancelled' })
+            .in('id', cancellableOrderIds)
+            .not('status', 'in', '("cancelled","refunded","completed")')
+
+          // T2-5: Free wave slots for all cancelled event orders
+          for (const cancelledOrderId of cancellableOrderIds) {
+            const { error: waveErr } = await serviceClient.rpc('free_wave_on_order_cancel', {
+              p_order_id: cancelledOrderId,
+            })
+            if (waveErr) console.error(`[event-cancel] free_wave error for order ${cancelledOrderId}:`, waveErr.message)
+          }
         }
       }
     }

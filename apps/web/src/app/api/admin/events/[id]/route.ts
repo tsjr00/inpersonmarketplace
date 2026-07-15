@@ -7,8 +7,10 @@ import {
   rateLimitResponse,
   rateLimits,
 } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, logError, TracedError } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications/service'
+import { stripe } from '@/lib/stripe/config'
+import { createRefund } from '@/lib/stripe/payments'
 import { approveEventRequest, autoMatchAndInvite } from '@/lib/events/event-actions'
 import { runEventCompletionEffects, sendOrganizerStatusEmail } from '@/lib/events/complete-event'
 
@@ -257,7 +259,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       // returned null, causing the entire cancel flow to no-op.
       const { data: orderItemRows } = await serviceClient
         .from('order_items')
-        .select('order_id')
+        .select('order_id, status')
         .eq('market_id', cateringReq.market_id)
 
       const orderIds = [...new Set((orderItemRows || []).map(r => r.order_id as string))]
@@ -265,7 +267,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       const { data: buyerOrders } = orderIds.length > 0
         ? await serviceClient
             .from('orders')
-            .select('buyer_user_id, order_number, id')
+            .select('buyer_user_id, order_number, id, status, stripe_checkout_session_id, payment_method')
             .in('id', orderIds)
             .not('status', 'in', '("cancelled","refunded","completed")')
         : { data: [] }
@@ -289,12 +291,85 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         })
         await Promise.all(buyerNotifications)
 
-        // Mark buyer orders as cancelled (preserve completed/refunded/already-cancelled)
-        await serviceClient
-          .from('orders')
-          .update({ status: 'cancelled' })
-          .in('id', buyerOrders.map(o => o.id as string))
-          .not('status', 'in', '("cancelled","refunded","completed")')
+        // EVT-4 FIX (mirrors the organizer cancel route): the buyer notice above
+        // promises a refund. Per order: pending+session → sessions.expire first
+        // (skip the order if expire throws — possibly race-paid, webhook will
+        // finalize); Stripe-paid → refund the REMAINING refundable balance;
+        // fulfilled-item orders skip auto-refund and log for manual review.
+        // Items are then cancelled (guarded) so cron Phases 4/7 can't pay
+        // vendors for no-shows at a cancelled event.
+        const fulfilledOrderIds = new Set(
+          (orderItemRows || []).filter(r => r.status === 'fulfilled').map(r => r.order_id as string)
+        )
+        const { data: eventPayments } = await serviceClient
+          .from('payments')
+          .select('order_id, stripe_payment_intent_id')
+          .in('order_id', buyerOrders.map(o => o.id as string))
+          .eq('status', 'succeeded')
+        const paymentByOrder = new Map(
+          (eventPayments || []).map(p => [p.order_id as string, p.stripe_payment_intent_id as string | null])
+        )
+
+        const cancellableOrderIds: string[] = []
+        for (const order of buyerOrders) {
+          if (order.status === 'pending' && order.stripe_checkout_session_id) {
+            try {
+              await stripe.checkout.sessions.expire(order.stripe_checkout_session_id as string)
+            } catch (expireErr) {
+              await logError(new TracedError('ERR_CHECKOUT_005', `[admin/events cancel] Session expire failed for order ${order.id} (session ${order.stripe_checkout_session_id}): ${expireErr instanceof Error ? expireErr.message : String(expireErr)}`, {
+                route: '/api/admin/events/[id]', method: 'PATCH',
+              }))
+              continue // possibly race-paid — leave this order for the webhook
+            }
+          }
+          cancellableOrderIds.push(order.id as string)
+
+          const paymentIntentId = paymentByOrder.get(order.id as string)
+          if (paymentIntentId) {
+            if (fulfilledOrderIds.has(order.id as string)) {
+              await logError(new TracedError('ERR_REFUND_001', `[admin/events cancel] Order ${order.id} has fulfilled items — auto-refund skipped, needs manual review`, {
+                route: '/api/admin/events/[id]', method: 'PATCH', orderId: order.id,
+              }))
+            } else {
+              try {
+                await createRefund(paymentIntentId, `${order.id}-event-cancel`)
+              } catch (refundErr) {
+                await logError(new TracedError('ERR_REFUND_001', `[admin/events cancel] Refund failed for order ${order.id}: ${refundErr instanceof Error ? refundErr.message : String(refundErr)}`, {
+                  route: '/api/admin/events/[id]', method: 'PATCH', orderId: order.id,
+                }))
+              }
+            }
+          }
+        }
+
+        if (cancellableOrderIds.length > 0) {
+          await serviceClient
+            .from('order_items')
+            .update({
+              status: 'cancelled',
+              cancelled_at: new Date().toISOString(),
+              cancelled_by: 'system',
+              cancellation_reason: status === 'declined' ? 'Event declined' : 'Event cancelled',
+            })
+            .in('order_id', cancellableOrderIds)
+            .is('cancelled_at', null)
+            .in('status', ['pending', 'confirmed', 'ready'])
+
+          // Mark buyer orders as cancelled (preserve completed/refunded/already-cancelled)
+          await serviceClient
+            .from('orders')
+            .update({ status: 'cancelled' })
+            .in('id', cancellableOrderIds)
+            .not('status', 'in', '("cancelled","refunded","completed")')
+
+          // Free wave slots for all cancelled event orders (organizer-route parity)
+          for (const cancelledOrderId of cancellableOrderIds) {
+            const { error: waveErr } = await serviceClient.rpc('free_wave_on_order_cancel', {
+              p_order_id: cancelledOrderId,
+            })
+            if (waveErr) console.error(`[admin/events cancel] free_wave error for order ${cancelledOrderId}:`, waveErr.message)
+          }
+        }
       }
 
       // EVT-10 FIX: notify accepted vendors — previously NO path informed

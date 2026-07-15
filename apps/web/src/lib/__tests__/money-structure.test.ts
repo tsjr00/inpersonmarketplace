@@ -164,6 +164,8 @@ describe('Money structure — Rule B: session-expire before release', () => {
     'lib/markets/park-standing.ts',                // PRK-1/PRK-2
     'app/api/buyer/orders/[id]/cancel/route.ts',   // VOR-19 (fixed 2026-07-14)
     'app/api/vendor/orders/[id]/reject/route.ts',  // VOR-19 (fixed 2026-07-14)
+    'app/api/events/[token]/cancel/route.ts',      // EVT-4 (fixed 2026-07-14)
+    'app/api/admin/events/[id]/route.ts',          // EVT-4 (fixed 2026-07-14)
   ]
   // Files that ALSO cancel possibly-pending orders but do NOT yet expire the
   // session — tracked open findings. When one gets its fix, MOVE it to
