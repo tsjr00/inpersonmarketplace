@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, traced, logError } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 interface RouteContext {
@@ -52,7 +52,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .single()
 
     if (error) {
-      console.error('[wave-reserve] RPC error:', error)
+      // Must reach error_logs — a failing reservation RPC blocks event ordering
+      await logError(traced.fromSupabase(error, { table: 'event_wave_reservations', operation: 'rpc' }))
       return NextResponse.json({ error: 'Failed to reserve time slot' }, { status: 500 })
     }
 
@@ -101,7 +102,8 @@ export async function DELETE(request: NextRequest, _context: RouteContext) {
       .single()
 
     if (error) {
-      console.error('[wave-cancel] RPC error:', error)
+      // Must reach error_logs — a failing cancel RPC strands the user's slot
+      await logError(traced.fromSupabase(error, { table: 'event_wave_reservations', operation: 'rpc' }))
       return NextResponse.json({ error: 'Failed to cancel reservation' }, { status: 500 })
     }
 

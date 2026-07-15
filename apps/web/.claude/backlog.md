@@ -1,6 +1,20 @@
 # Backlog
 
-Last updated: 2026-07-13 (money-authorization tests BUILT; VOR-11 decision remains)
+Last updated: 2026-07-14 (company-paid events package deferred here from review slice 5)
+
+## 🔶 DEFERRED FEATURE PACKAGE — Company-paid events (USER DECISION 2026-07-14: "WE WILL NEED IT LATER, BUT NOT NOW")
+
+**State discovered in review slice 5 (full detail: `apps/web/.claude/review/FINDINGS_LEDGER.md` slice-5 section): company-paid ordering has NEVER been executable end-to-end.** Three independent breaks, plus adjacent items. Nothing here leaks money today — the flow is dead, and cron/webhook transfer paths were verified unreachable by company-paid orders (session-id-scoped gates). When the feature is scheduled, fix as ONE project in this order:
+
+1. **EVT-1 (P0) + EVT-17** — `create_company_paid_order` (mig 119) INSERTs non-existent `orders` columns (`user_id, market_id, buyer_fee_cents, service_fee_cents, vendor_payout_cents`) and omits NOT-NULL `buyer_user_id`; cap-check queries the same phantoms. Rewrite the RPC against the real schema (**run `information_schema.columns` on `orders` FIRST**; per-item money belongs on `order_items`), add `FOR UPDATE` on the reservation + guarded final UPDATE (EVT-17 double-order race), swap the order route's `console.error` → `logError`. MIGRATION.
+2. **EVT-2** — ShopClient's order POST never sends `access_code`; the route 403s without it. One-line client fix (`ShopClient.tsx:416-424`).
+3. **EVT-7** — self-service `ready`-flips never generate waves, and ShopClient silently degrades wave-less company-paid to attendee-paid. Generate waves on all ready-flips when `payment_model='company_paid'`, or block the self-service+company-paid combo.
+4. **EVT-11** — admin settlement report balances company payments against bare subtotals, omitting the buyer-side 6.5%+15¢/order mig 119 defines the company as owing → under-invoices ~6.7%.
+5. **EVT-13** — access code is `Math.random()` (not CSPRNG) and the order route uses the general rate limiter (second guessing surface).
+6. **VOR-14** (already in ledger, open) — buyer-confirm edge path lacks a company-paid branch → would attempt a real Stripe transfer for an organizer-settled order. Unreachable while the feature is dead; MUST land with this package.
+7. **EVT-15 (company-paid half)** — buyer-cancel needs a company-paid early-branch mirroring fulfill's (no Stripe refund math on paymentless orders). The wave-freeing half of EVT-15 is being fixed NOW (wave lifecycle batch).
+8. **Reminder:** the eventual VOR-10 fix (reject's silent refund-skip logging) must exempt `payment_model='company_paid'` or it logs an error on every company-paid reject.
+9. **Design notes:** RPC fee math (6.5%+15¢ both sides) is hardcoded in SQL — must mirror pricing.ts if rates ever change; `event_company_payments` is a manually-recorded admin ledger (no code moves organizer money); event cancellation (EVT-3/4) is being fixed NOW and is independent of this package.
 
 ## ✅ MOSTLY DONE (2026-07-13) — Money-authorization tests built; VOR-11 decision still open
 

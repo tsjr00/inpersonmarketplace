@@ -14,7 +14,11 @@
 - **Tripwire maintenance per PROTOCOL** (the tests' own failure messages): money-structure Rule B — cancel+reject moved KNOWN_GAPS→ENFORCED (gaps list now empty); Rule D — VOR-17/18 allowlist entries removed (VOR-7 confirm-handoff remains the only bare transfer).
 - **PERF-R9 staleness tripwire fired** (baseline >60 days old, unrelated to batch): did a REAL re-measure — fresh build, 160 chunks / 5.9 MB / 541 KB largest (all within ceilings), PERFORMANCE_BASELINE.md rows + change-log + date updated. No perf change made; no test touched.
 
-**NEXT: commit (approval pending) → slice 5 (events) finder → slice 3 (market-manager).**
+**Batch committed `69d4664c` + pushed (staging = 69d4664c, ref-update verified, Playwright 49 passed).**
+
+**SLICE 5 (EVENTS) DONE — finder ran, 17 findings EVT-1…17 in ledger, anchors EVT-1/2/3/4/6/10/11/12 main-session-verified.** HEADLINE: company-paid ordering has NEVER worked (EVT-1 RPC writes phantom orders columns; EVT-2 access-code contract break; EVT-7 self-service never generates waves) and event cancellation has NEVER worked (EVT-3 status CHECK lacks 'cancelled'). Dead-feature breaks, not live money leaks — cron/webhook money paths verified unreachable by company-paid orders. EVT-3 must ship WITH EVT-4 (refund gap activates otherwise). EVT-1 + EVT-3 + possibly EVT-6 need MIGRATIONS (user applies). Proposed batch order: A (S code-only: EVT-2/6/10/12/14 + logError swaps) → B (EVT-3 mig + EVT-4 both routes) → C (EVT-1/17 RPC-rewrite mig + EVT-11 settlement) → D (waves: EVT-7/8/9/15, EVT-5) → tail (EVT-13/16). AWAITING user batch approval.
+
+**NEXT: EVT fix batches (per approval) → slice 3 (market-manager) finder.**
 
 ---
 

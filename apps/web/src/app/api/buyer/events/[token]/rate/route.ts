@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { withErrorTracing, traced } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
@@ -57,7 +57,13 @@ export async function POST(
     // Resolve event_token → catering_requests row and verify it's in a
     // ratable status. Anything still 'approved' or 'ready' is pre-event —
     // rating doesn't make sense yet.
-    const { data: event, error: eventError } = await supabase
+    // EVT-6 FIX: serviceClient — the public_event_token_read RLS policy
+    // (mig 091) exposes only approved/completed events to user clients, so
+    // 'active'/'review' (two of the three rating windows) 404'd here and
+    // ratings could not be submitted until days after the event. The status
+    // gate below is the authorization; the token is the capability.
+    const serviceClient = createServiceClient()
+    const { data: event, error: eventError } = await serviceClient
       .from('catering_requests')
       .select('id, status')
       .eq('event_token', token)
@@ -75,9 +81,27 @@ export async function POST(
       )
     }
 
-    // Upsert: attendees can edit their pending rating; admin-approved
-    // rows are locked by the UPDATE RLS policy (status = 'pending' check).
-    const { data: upserted, error: upsertError } = await supabase
+    // EVT-6 FIX: the mig-116 INSERT policy's EXISTS subquery runs under the
+    // same mig-091 visibility, so the user-client upsert also failed for
+    // active/review events. serviceClient write, with the RLS invariants
+    // enforced here instead: user_id is the authed user (set below), and the
+    // pending-only edit lock is this explicit check (mirrors the UPDATE
+    // policy's status='pending' condition).
+    const { data: existingRating } = await serviceClient
+      .from('event_ratings')
+      .select('id, status')
+      .eq('catering_request_id', event.id)
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (existingRating && existingRating.status !== 'pending') {
+      return NextResponse.json(
+        { error: 'Your rating has already been reviewed and can no longer be edited.' },
+        { status: 409 }
+      )
+    }
+
+    const { data: upserted, error: upsertError } = await serviceClient
       .from('event_ratings')
       .upsert(
         {
@@ -93,8 +117,7 @@ export async function POST(
       .single()
 
     if (upsertError) {
-      console.error('[/api/buyer/events/[token]/rate] upsert error:', upsertError)
-      return NextResponse.json({ error: 'Failed to save rating' }, { status: 500 })
+      throw traced.fromSupabase(upsertError, { table: 'event_ratings', operation: 'insert' })
     }
 
     return NextResponse.json(

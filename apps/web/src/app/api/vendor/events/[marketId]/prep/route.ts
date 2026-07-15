@@ -103,7 +103,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         id, order_id, listing_id, quantity, unit_price_cents, subtotal_cents,
         status, wave_id, preferred_pickup_time, pickup_confirmed_at,
         orders!inner (
-          id, order_number, status, payment_model, user_id,
+          id, order_number, status, payment_model,
           event_wave_reservation_id, created_at
         ),
         listings!inner (

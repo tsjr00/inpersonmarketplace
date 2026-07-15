@@ -297,6 +297,30 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           .not('status', 'in', '("cancelled","refunded","completed")')
       }
 
+      // EVT-10 FIX: notify accepted vendors — previously NO path informed
+      // vendors of an admin cancel/decline (the organizer route notifies, this
+      // one didn't). user_id resolved via the join; sendNotification's first
+      // arg is a USER id, not a vendor_profile id.
+      const { data: cancelVendors } = await serviceClient
+        .from('market_vendors')
+        .select('vendor_profile_id, vendor_profiles!inner(user_id)')
+        .eq('market_id', cateringReq.market_id)
+        .eq('response_status', 'accepted')
+
+      if (cancelVendors && cancelVendors.length > 0) {
+        await Promise.all(cancelVendors.flatMap(v => {
+          const vp = v.vendor_profiles as unknown as { user_id?: string } | { user_id?: string }[] | null
+          const vendorUserId = (Array.isArray(vp) ? vp[0]?.user_id : vp?.user_id) as string | undefined
+          if (!vendorUserId) return []
+          return [sendNotification(vendorUserId, 'event_cancelled_vendor', {
+            companyName: cateringReq.company_name,
+            eventDate: cateringReq.event_date,
+          }, { vertical: cateringReq.vertical_id }).catch(err =>
+            console.error(`[admin/events] Vendor cancel notification failed for ${v.vendor_profile_id}:`, err)
+          )]
+        }))
+      }
+
       // T3-2: Notify organizer on decline (and on admin-initiated cancel)
       if (updated.contact_email) {
         const reason = status === 'declined'
@@ -317,7 +341,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // On COMPLETED: fire the shared completion effects (feedback, settlement,
     // unfulfilled vendor + vertical-admin notices, organizer email, cleanup).
     // Same path the auto-complete cron uses (expire-orders Phase 15.5).
-    if (status === 'completed' && cateringReq.market_id) {
+    // EVT-14 FIX: prior-status guard (mirrors the approve guard at :114) — a
+    // re-PATCH carrying status:'completed' (e.g. saving admin_notes) was
+    // re-firing the effects, duplicating notifications to every buyer+vendor.
+    if (status === 'completed' && cateringReq.status !== 'completed' && cateringReq.market_id) {
       await runEventCompletionEffects(serviceClient, {
         market_id: cateringReq.market_id as string,
         vertical_id: cateringReq.vertical_id as string,

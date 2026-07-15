@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
@@ -35,8 +35,13 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Resolve event_token → event row
-    const { data: event, error: eventError } = await supabase
+    // Resolve event_token → event row.
+    // EVT-6 FIX: serviceClient — mig-091 RLS exposes only approved/completed
+    // events to user clients, which 404'd the feedback form for 'active'/
+    // 'review' events. Read-only lookup; the user's own orders/ratings below
+    // stay on the user client (their RLS is user-scoped, not event-status-
+    // scoped).
+    const { data: event, error: eventError } = await createServiceClient()
       .from('catering_requests')
       .select('id, market_id, status')
       .eq('event_token', token)

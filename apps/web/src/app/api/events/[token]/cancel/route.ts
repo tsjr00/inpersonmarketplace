@@ -93,22 +93,29 @@ export async function POST(
         .update({ active: false })
         .eq('id', event.market_id)
 
-      // Notify accepted vendors
+      // Notify accepted vendors.
+      // EVT-10 FIX: sendNotification's first arg is a USER id — this fan-out
+      // passed vendor_profile_id, so no vendor ever received the cancellation
+      // notice (the send fails silently by design). Resolve user_id via the
+      // vendor_profiles join (broadcast route pattern).
       const { data: acceptedVendors } = await serviceClient
         .from('market_vendors')
-        .select('vendor_profile_id')
+        .select('vendor_profile_id, vendor_profiles!inner(user_id)')
         .eq('market_id', event.market_id)
         .eq('response_status', 'accepted')
 
       if (acceptedVendors && acceptedVendors.length > 0) {
-        const vendorNotifications = acceptedVendors.map(v =>
-          sendNotification(v.vendor_profile_id, 'event_cancelled_vendor', {
+        const vendorNotifications = acceptedVendors.flatMap(v => {
+          const vp = v.vendor_profiles as unknown as { user_id?: string } | { user_id?: string }[] | null
+          const vendorUserId = (Array.isArray(vp) ? vp[0]?.user_id : vp?.user_id) as string | undefined
+          if (!vendorUserId) return []
+          return [sendNotification(vendorUserId, 'event_cancelled_vendor', {
             companyName: event.company_name,
             eventDate: event.event_date,
           }, { vertical: event.vertical_id }).catch(err =>
             console.error(`[event-cancel] Vendor notification failed for ${v.vendor_profile_id}:`, err)
-          )
-        )
+          )]
+        })
         await Promise.all(vendorNotifications)
       }
 
