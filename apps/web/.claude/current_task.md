@@ -1,6 +1,20 @@
 # Current Task: Pre-re-release code review (Fable) — 5 of 10 slices done, all P0s+P1s fixed, test immune-system built, everything on staging
 
-**Updated:** 2026-07-13 EOD (Fable 5 session, day 2). **Mode:** Report.
+**Updated:** 2026-07-14 (Fable 5 session, day 3). **Mode:** Report.
+
+## ⭐⭐⭐⭐⭐⭐⭐ 2026-07-14 SESSION (day 3) — tripwired small batch DONE, next = slice 5 (events) then slice 3
+
+**Order user approved this session: (1) VOR-16/17/18/19 small batch ["proceed with your recommended order and include VOR-16"] → commit → (2) slice 5 events finder [flipped ahead of slice 3: freshest code + open VOR-14] → (3) slice 3 market-manager.**
+
+**Batch DONE on disk (gates: tsc 0, vitest 1674/1674 after baseline re-measure), UNCOMMITTED:**
+- **VOR-17** `buyer/orders/[id]/cancel`: cancellation-fee vendor-share transfer now passes sourceTransaction (chargeId from the route's succeeded-payment row).
+- **VOR-18** `buyer/orders/[id]/confirm`: edge payout transfer now passes sourceTransaction (fresh payments select inside the transfer try — the VOR-1 gate short-circuits on order status and never selects the PI).
+- **VOR-19** buyer-cancel + vendor reject: sessions.expire before the all-items-cancelled order flip, scoped `status==='pending' && session id`; expire-throw → ERR_CHECKOUT_005 + skip flip (CHK-18 pattern). Selects += status/stripe_checkout_session_id (verified vs snapshot orders table :824-837).
+- **VOR-16** (VOR-5B extension, user-approved): cron Phase 1 = full port (tip + recomputed small fee, `${orderId}-order-fees` key, payment via F6 prefetch). Buyer-cancel = **TIP ONLY** — its per-item refunds already include the prorated small-order-fee share (cancellation-fees.ts:72-73); full port would double-refund. This asymmetry is deliberate.
+- **Tripwire maintenance per PROTOCOL** (the tests' own failure messages): money-structure Rule B — cancel+reject moved KNOWN_GAPS→ENFORCED (gaps list now empty); Rule D — VOR-17/18 allowlist entries removed (VOR-7 confirm-handoff remains the only bare transfer).
+- **PERF-R9 staleness tripwire fired** (baseline >60 days old, unrelated to batch): did a REAL re-measure — fresh build, 160 chunks / 5.9 MB / 541 KB largest (all within ceilings), PERFORMANCE_BASELINE.md rows + change-log + date updated. No perf change made; no test touched.
+
+**NEXT: commit (approval pending) → slice 5 (events) finder → slice 3 (market-manager).**
 
 ---
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { createRefund } from '@/lib/stripe/payments'
+import { stripe } from '@/lib/stripe/config'
 import { withErrorTracing, TracedError, logError } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { restoreInventory } from '@/lib/inventory'
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         vendor_profile_id,
         order_id,
         listing_id,
-        order:orders!inner(id, order_number, buyer_user_id, vertical_id, tip_amount, subtotal_cents),
+        order:orders!inner(id, order_number, buyer_user_id, vertical_id, status, stripe_checkout_session_id, tip_amount, subtotal_cents),
         listing:listings(title, vendor_profiles(profile_data))
       `)
       .eq('id', orderItemId)
@@ -189,11 +190,31 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .is('cancelled_at', null)
 
     if (!remainingItems || remainingItems.length === 0) {
+      // VOR-19 FIX (CHK-1 family): if the order is still awaiting payment, expire
+      // its live Stripe session BEFORE cancelling so a stale checkout tab can't
+      // pay a dead order. If expire throws, the session may already be complete
+      // (payment landing in a race) — log and leave the order for the webhook/
+      // success path to finalize (CHK-18 pattern).
+      const rejOrderMeta = (orderItem as any).order as { status?: string; stripe_checkout_session_id?: string | null }
+      let skipOrderCancel = false
+      if (rejOrderMeta?.status === 'pending' && rejOrderMeta?.stripe_checkout_session_id) {
+        try {
+          await stripe.checkout.sessions.expire(rejOrderMeta.stripe_checkout_session_id)
+        } catch (expireErr) {
+          await logError(new TracedError('ERR_CHECKOUT_005', `Session expire failed rejecting last item of pending order ${orderItem.order_id} (session ${rejOrderMeta.stripe_checkout_session_id}): ${expireErr instanceof Error ? expireErr.message : String(expireErr)}`, {
+            route: '/api/vendor/orders/[id]/reject', method: 'POST',
+          }))
+          skipOrderCancel = true
+        }
+      }
+
       // All items cancelled, update order status
-      await supabase
-        .from('orders')
-        .update({ status: 'cancelled' })
-        .eq('id', orderItem.order_id)
+      if (!skipOrderCancel) {
+        await supabase
+          .from('orders')
+          .update({ status: 'cancelled' })
+          .eq('id', orderItem.order_id)
+      }
 
       // VOR-5(B) decision 2026-07-13: the buyer received NOTHING — refund the
       // order-level tip + small-order fee on top of the per-item refunds (those

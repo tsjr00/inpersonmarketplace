@@ -159,17 +159,16 @@ describe('Money structure — Rule A: guarded status flips', () => {
 
 describe('Money structure — Rule B: session-expire before release', () => {
   const ENFORCED = [
-    'app/api/checkout/session/route.ts',   // CHK-1 root fix + CHK-18
-    'app/api/cron/expire-orders/route.ts', // CRN-2
-    'lib/markets/park-standing.ts',        // PRK-1/PRK-2
+    'app/api/checkout/session/route.ts',           // CHK-1 root fix + CHK-18
+    'app/api/cron/expire-orders/route.ts',         // CRN-2
+    'lib/markets/park-standing.ts',                // PRK-1/PRK-2
+    'app/api/buyer/orders/[id]/cancel/route.ts',   // VOR-19 (fixed 2026-07-14)
+    'app/api/vendor/orders/[id]/reject/route.ts',  // VOR-19 (fixed 2026-07-14)
   ]
   // Files that ALSO cancel possibly-pending orders but do NOT yet expire the
   // session — tracked open findings. When one gets its fix, MOVE it to
   // ENFORCED (this test will tell you).
-  const KNOWN_GAPS: Array<{ file: string; findingId: string }> = [
-    { file: 'app/api/buyer/orders/[id]/cancel/route.ts', findingId: 'VOR-19 (buyer cancel of a pending order leaves the session payable)' },
-    { file: 'app/api/vendor/orders/[id]/reject/route.ts', findingId: 'VOR-19 (rejecting all items of a pending order leaves the session payable)' },
-  ]
+  const KNOWN_GAPS: Array<{ file: string; findingId: string }> = []
 
   for (const f of ENFORCED) {
     it(`${f} expires the Stripe session before releasing`, () => {
@@ -241,8 +240,7 @@ describe('Money structure — Rule C: money files feed error_logs, not the conso
 
 describe('Money structure — Rule D: transfers carry sourceTransaction', () => {
   const BARE_ALLOWLIST: Array<{ file: string; count: number; findingId: string }> = [
-    { file: 'app/api/buyer/orders/[id]/cancel/route.ts', count: 1, findingId: 'VOR-17 (cancellation-fee vendor share)' },
-    { file: 'app/api/buyer/orders/[id]/confirm/route.ts', count: 1, findingId: 'VOR-18 (buyer-confirm edge payout)' },
+    // VOR-17 (buyer-cancel) + VOR-18 (buyer-confirm) fixed 2026-07-14 — entries removed.
     { file: 'app/api/vendor/orders/[id]/confirm-handoff/route.ts', count: 1, findingId: 'VOR-7 (dormant route)' },
   ]
 

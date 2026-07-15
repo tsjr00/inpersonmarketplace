@@ -1,6 +1,6 @@
 # Performance Baseline
 
-**Last measured: 2026-05-15 (Session 82)**
+**Last measured: 2026-07-14 (pre-re-release review series)**
 **Purpose:** Source of truth for performance metrics. Any session proposing performance changes must measure against these baselines and demonstrate improvement before committing.
 
 ---
@@ -39,6 +39,9 @@ These metrics are derived from code analysis. They do not depend on network cond
 | Total client JS chunk count | 153 | 2026-05-15 | +1 from Phase B agreement loop (MarketAgreementBlock component + 2 new API routes). No structural growth. |
 | Largest chunk | 553 KB | 2026-05-15 | Unchanged — same Next.js framework chunk. |
 | Total client JS (`.next/static/chunks/`) | 5.4 MB | 2026-05-15 | Unchanged at MB granularity. |
+| Total client JS chunk count | 160 | 2026-07-14 | +7 over 2 months (FT park-operator system, Events Tier-1 agreement/broadcast/ratings, help KB, FM dashboard phases). Organic page growth; 20% headroom to the 200 ceiling. |
+| Largest chunk | 541 KB | 2026-07-14 | Same Next.js framework chunk (slightly smaller than 5/15). |
+| Total client JS (`.next/static/chunks/`) | 5.9 MB | 2026-07-14 | +0.5 MB since 5/15; tracks page-count growth, no single bad import. |
 
 **Rule:** Total client JS must not increase beyond 5% (4.5 MB ceiling) without justification. Chunk count ceiling enforced by `performance-baseline.test.ts` PERF-R7.
 
@@ -81,3 +84,4 @@ These metrics are derived from code analysis. They do not depend on network cond
 | 2026-03-16 | 59 | Compress oversized logos + hero images | fastwrks 1.2MB, FM 968KB, heroes 761KB+747KB | fastwrks 62KB, FM 93KB, heroes 202KB+194KB | File size measurement |
 | 2026-03-16 | 59 | Browse page ISR: anonSupabase, auth/tier/locale to client overlay | 7 queries (3 seq + 2 parallel), depth 5, every request dynamic | 2-3 queries, depth 2-3, ISR-cached at CDN (5 min) | Code analysis + architecture change |
 | 2026-05-15 | 82 | Phase B agreement loop ship | 152 chunks / 5.4 MB / 553 KB largest | 153 chunks / 5.4 MB / 553 KB largest | Bundle measurement (`ls .next/static/chunks/`). Query structure unchanged on browse/markets/vendors/listing/dashboard — no perf-sensitive paths touched. |
+| 2026-07-14 | 94 | 60-day staleness re-measure (PERF-R9 fired; no perf change made) | 153 chunks / 5.4 MB / 553 KB largest | 160 chunks / 5.9 MB / 541 KB largest | Bundle measurement from fresh `npm run build` (`find .next/static/chunks`). Structural query metrics verified current by the passing PERF-R1..R8 tests. Growth = 2 months of features (park operator, Events Tier-1, help KB). |

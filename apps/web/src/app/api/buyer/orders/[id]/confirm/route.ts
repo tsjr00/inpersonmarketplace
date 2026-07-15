@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { transferToVendor } from '@/lib/stripe/payments'
+import { transferToVendor, getChargeIdFromPaymentIntent } from '@/lib/stripe/payments'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { sendNotification } from '@/lib/notifications'
@@ -254,11 +254,27 @@ export async function POST(request: NextRequest, context: RouteContext) {
             throw traced.fromSupabase(payoutInsertErr, { table: 'vendor_payouts', operation: 'insert' })
           } else {
             try {
+              // VOR-18 FIX: tie the transfer to the charge (Session-74 class) —
+              // mirrors fulfill. Fetched here rather than reusing the VOR-1 gate's
+              // row: the gate short-circuits on orders.status and never selects
+              // the payment intent.
+              let chargeId: string | undefined
+              const { data: chargePayment } = await serviceClient
+                .from('payments')
+                .select('stripe_payment_intent_id')
+                .eq('order_id', orderItem.order_id)
+                .eq('status', 'succeeded')
+                .maybeSingle()
+              if (chargePayment?.stripe_payment_intent_id) {
+                chargeId = (await getChargeIdFromPaymentIntent(chargePayment.stripe_payment_intent_id)) || undefined
+              }
+
               const transfer = await transferToVendor({
                 amount: actualPayoutCents,
                 destination: vendorProfile.stripe_account_id,
                 orderId: orderItem.order_id,
                 orderItemId: orderItem.id,
+                ...(chargeId !== undefined ? { sourceTransaction: chargeId } : {}),
               })
 
               crumb.supabase('update', 'vendor_payouts')

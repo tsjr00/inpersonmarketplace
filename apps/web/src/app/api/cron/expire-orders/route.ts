@@ -5,7 +5,7 @@ import { createRefund, transferToVendor, transferMarketBoxPayout, getChargeIdFro
 import { restoreInventory, restoreOrderInventory } from '@/lib/inventory'
 import { timingSafeEqual } from 'crypto'
 import { withErrorTracing, TracedError, logError } from '@/lib/errors'
-import { FEES, proratedFlatFeeSimple } from '@/lib/pricing'
+import { FEES, proratedFlatFeeSimple, calculateSmallOrderFee } from '@/lib/pricing'
 import { getTierLimits, TRIAL_SYSTEM_ENABLED } from '@/lib/vendor-limits'
 import { todayInTimezone, tomorrowInTimezone, addDaysToDateString } from '@/lib/time/market-dates'
 import { runEventCompletionEffects } from '@/lib/events/complete-event'
@@ -151,6 +151,8 @@ export async function GET(request: NextRequest) {
             buyer_user_id,
             vertical_id,
             stripe_checkout_session_id,
+            tip_amount,
+            subtotal_cents,
             buyer:user_profiles!orders_buyer_user_id_fkey (
               display_name,
               email
@@ -252,6 +254,28 @@ export async function GET(request: NextRequest) {
                 .from('orders')
                 .update({ status: 'cancelled' })
                 .eq('id', item.order_id)
+
+              // VOR-16 FIX (extends the VOR-5B decision 2026-07-13): expiry killed
+              // the LAST live item — the buyer received nothing, so also refund the
+              // order-level tip + small-order fee (charged as separate line items;
+              // the per-item refunds above cover only subtotal + % fee + flat fee).
+              // Small fee recomputed from the same inputs used at charge time
+              // (mirrors reject); deterministic key dedups cross-path races.
+              const feeOrder = item.order as { tip_amount?: number | null; subtotal_cents?: number; vertical_id?: string } | null
+              const orderTipCents = feeOrder?.tip_amount || 0
+              const orderSmallFeeCents = calculateSmallOrderFee(feeOrder?.subtotal_cents || 0, feeOrder?.vertical_id)
+              const orderFeeRefundCents = orderTipCents + orderSmallFeeCents
+              const feePayment = paymentByOrder.get(item.order_id as string)
+              if (orderFeeRefundCents > 0 && feePayment?.stripe_payment_intent_id) {
+                try {
+                  await createRefund(feePayment.stripe_payment_intent_id, `${item.order_id}-order-fees`, orderFeeRefundCents)
+                } catch (feeRefundErr) {
+                  await logError(new TracedError('ERR_REFUND_001', `[Phase 1] Order-level tip/fee refund failed on last-item expiry: ${feeRefundErr instanceof Error ? feeRefundErr.message : String(feeRefundErr)}`, {
+                    route: '/api/cron/expire-orders', method: 'GET',
+                    orderId: item.order_id, amountCents: orderFeeRefundCents,
+                  }))
+                }
+              }
             }
 
             // Process Stripe refund

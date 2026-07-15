@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { createRefund, transferToVendor } from '@/lib/stripe/payments'
+import { createRefund, transferToVendor, getChargeIdFromPaymentIntent } from '@/lib/stripe/payments'
+import { stripe } from '@/lib/stripe/config'
 import { withErrorTracing, traced, crumb, TracedError, logError } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { restoreInventory } from '@/lib/inventory'
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     crumb.supabase('select', 'orders')
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('id, buyer_user_id, status, total_cents, small_order_fee_cents, created_at, order_number, vertical_id, payment_method')
+      .select('id, buyer_user_id, status, total_cents, small_order_fee_cents, tip_amount, stripe_checkout_session_id, created_at, order_number, vertical_id, payment_method')
       .eq('id', orderItem.order_id)
       .single()
 
@@ -182,11 +183,30 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .is('cancelled_at', null)
 
     if (!remainingItems || remainingItems.length === 0) {
-      crumb.supabase('update', 'orders')
-      await supabase
-        .from('orders')
-        .update({ status: 'cancelled' })
-        .eq('id', orderId)
+      // VOR-19 FIX (CHK-1 family): if the order is still awaiting payment, expire
+      // its live Stripe session BEFORE cancelling so a stale checkout tab can't
+      // pay a dead order. If expire throws, the session may already be complete
+      // (payment landing in a race) — log and leave the order for the webhook/
+      // success path to finalize (CHK-18 pattern).
+      let skipOrderCancel = false
+      const orderSessionId = (order as Record<string, unknown>).stripe_checkout_session_id as string | null
+      if (order.status === 'pending' && orderSessionId) {
+        try {
+          await stripe.checkout.sessions.expire(orderSessionId)
+        } catch (expireErr) {
+          await logError(new TracedError('ERR_CHECKOUT_005', `Session expire failed cancelling last item of pending order ${orderId} (session ${orderSessionId}): ${expireErr instanceof Error ? expireErr.message : String(expireErr)}`, {
+            route: '/api/buyer/orders/[id]/cancel', method: 'POST',
+          }))
+          skipOrderCancel = true
+        }
+      }
+      if (!skipOrderCancel) {
+        crumb.supabase('update', 'orders')
+        await supabase
+          .from('orders')
+          .update({ status: 'cancelled' })
+          .eq('id', orderId)
+      }
     }
 
     // Notify vendor about cancellation (multi-channel via notification service)
@@ -240,6 +260,25 @@ export async function POST(request: NextRequest, context: RouteContext) {
           amountCents: refundAmountCents,
         }))
       }
+
+      // VOR-16 FIX (extends the VOR-5B decision 2026-07-13): this cancellation
+      // killed the LAST live item — refund the order-level tip (charged as its
+      // own line item, never part of the per-item refunds). TIP ONLY here:
+      // unlike reject/cron-Phase-1, this route's per-item refund already
+      // includes the prorated small-order-fee share (cancellation-fees.ts:72-73),
+      // so refunding the fee again would double-refund it. The deterministic
+      // key `${orderId}-order-fees` dedups cross-path races at Stripe.
+      const orderTipCents = ((order as Record<string, unknown>).tip_amount as number | null) || 0
+      if ((!remainingItems || remainingItems.length === 0) && orderTipCents > 0) {
+        try {
+          await createRefund(payment.stripe_payment_intent_id, `${orderId}-order-fees`, orderTipCents)
+        } catch (feeRefundErr) {
+          await logError(new TracedError('ERR_REFUND_001', `Order-level tip refund failed on buyer cancel of last item: ${feeRefundErr instanceof Error ? feeRefundErr.message : String(feeRefundErr)}`, {
+            route: '/api/buyer/orders/[id]/cancel', method: 'POST',
+            orderId: order.id, amountCents: orderTipCents,
+          }))
+        }
+      }
     }
 
     // F7 FIX: Transfer cancellation fee vendor share to vendor via Stripe
@@ -262,11 +301,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
             vendorShareCents,
             vendorId: cancelVendor.id,
           })
+          // VOR-17 FIX: tie the transfer to the charge — without sourceTransaction
+          // it draws on the platform's own Stripe balance (Session-74 class). The
+          // charge was only partially refunded (25% fee retained), so it can fund
+          // the vendor share.
+          let cancelChargeId: string | undefined
+          if (payment?.stripe_payment_intent_id) {
+            cancelChargeId = (await getChargeIdFromPaymentIntent(payment.stripe_payment_intent_id)) || undefined
+          }
           const transfer = await transferToVendor({
             amount: vendorShareCents,
             destination: cancelVendor.stripe_account_id,
             orderId: order.id,
             orderItemId: orderItemId,
+            ...(cancelChargeId !== undefined ? { sourceTransaction: cancelChargeId } : {}),
           })
 
           if (payoutRecord) {
