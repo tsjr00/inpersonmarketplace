@@ -22,7 +22,9 @@ import MarketVisibilityCard from './MarketVisibilityCard'
 import MarketBroadcastCard from './MarketBroadcastCard'
 import SurveyResultsCard from './SurveyResultsCard'
 import ManagerSupportCard from './ManagerSupportCard'
-import type { OnboardingProgress } from '@/lib/markets/onboarding-progress'
+import ParkOnboardingChecklist from './ParkOnboardingChecklist'
+import ParkRequiredDocsCard from './ParkRequiredDocsCard'
+import type { OnboardingProgress, ParkOnboardingProgress } from '@/lib/markets/onboarding-progress'
 import type { ManagerDashboardStats, ManagerEarningsAggregates } from '@/lib/markets/manager-dashboard-stats'
 import type { ParkWeekSchedule } from '@/lib/markets/park-week-schedule'
 
@@ -44,6 +46,9 @@ interface FtParkDashboardBodyProps {
   marketId: string
   market: Record<string, unknown>
   onboardingProgress: OnboardingProgress
+  /** P1 (2026-07-15): park-shaped setup progress — drives the top checklist
+   *  and default-opens the Setup group until required steps are done. */
+  parkOnboarding: ParkOnboardingProgress
   dashboardStats: ManagerDashboardStats
   parkWeek: ParkWeekSchedule | null
   parkEarnings: ManagerEarningsAggregates | null
@@ -67,6 +72,7 @@ export default function FtParkDashboardBody({
   marketId,
   market,
   onboardingProgress,
+  parkOnboarding,
   dashboardStats,
   parkWeek,
   parkEarnings,
@@ -77,8 +83,14 @@ export default function FtParkDashboardBody({
   const marketName = (market.name as string) || 'this park'
   const onboardingComplete = onboardingProgress.required_complete === onboardingProgress.required_total
 
+  const parkSetupComplete = parkOnboarding.required_complete === parkOnboarding.required_total
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+      {/* ⓪ P1 (2026-07-15): setup checklist pinned to the top until done —
+          new operators were landing here with no pointer to setup. */}
+      <ParkOnboardingChecklist progress={parkOnboarding} />
+
       {/* ① Triage */}
       <ManagerActionSummary vertical={vertical} marketId={marketId} progress={onboardingProgress} stats={dashboardStats} />
 
@@ -166,7 +178,8 @@ export default function FtParkDashboardBody({
       )}
 
       {/* ④ PARK SETUP — collapsible (occasional config) */}
-      <CollapsibleSection id="setup" title="Park setup" subtitle="Payments, spots, schedule, agreements, branding" defaultCollapsed>
+      {/* P1: keep Setup open until the required steps are done */}
+      <CollapsibleSection id="setup" title="Park setup" subtitle="Payments, spots, schedule, agreements, branding" defaultCollapsed={parkSetupComplete}>
         <MarketStripeConnectCard marketId={marketId} marketStatus={(market.status as string | null) ?? null} vertical={vertical} />
         <ManagerCard
           id="booths"
@@ -198,6 +211,8 @@ export default function FtParkDashboardBody({
           initialDescription={(market.description as string | null) ?? null}
         />
         <VerificationDocumentsCard marketId={marketId} vertical={vertical} />
+        {/* P4b (2026-07-15): what documents trucks must carry to book here */}
+        <ParkRequiredDocsCard marketId={marketId} />
         {visibilityStatus && <MarketVisibilityCard status={visibilityStatus} />}
       </CollapsibleSection>
 

@@ -72,6 +72,9 @@ interface BookParkSpotFormProps {
   /** P6 (2026-07-15): the truck's declared length (profile event-readiness).
    *  null = not declared → no client-side spot filtering, nudge shown. */
   truckLengthFt?: number | null
+  /** P4b (2026-07-15): the operator's required-documents list (mig 192,
+   *  free text) — shown verbatim above the docs acknowledgment. */
+  requiredDocsNote?: string | null
 }
 
 const MIN_TOTAL_CENTS = 500
@@ -127,6 +130,7 @@ export default function BookParkSpotForm({
   seasonStart = null,
   seasonEnd = null,
   truckLengthFt = null,
+  requiredDocsNote = null,
 }: BookParkSpotFormProps) {
   const searchParams = useSearchParams()
   const sessionFlag = searchParams.get('session')
@@ -504,6 +508,25 @@ export default function BookParkSpotForm({
             here. I authorize this park to view my compliance documents.
           </span>
         </label>
+
+        {/* P4b (2026-07-15): the operator's own required-documents list, when
+            they've written one — replaces the generic-only acknowledgment. */}
+        {requiredDocsNote && (
+          <div style={{
+            marginBottom: spacing.sm,
+            padding: spacing.sm,
+            backgroundColor: colors.surfaceBase,
+            border: `1px solid ${colors.border}`,
+            borderRadius: radius.sm,
+          }}>
+            <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing['3xs'] }}>
+              This park requires:
+            </div>
+            <div style={{ fontSize: typography.sizes.sm, color: colors.textPrimary, whiteSpace: 'pre-wrap' }}>
+              {requiredDocsNote}
+            </div>
+          </div>
+        )}
 
         {/* C3a — where required docs live, surfaced BEFORE paying so a truck can
             check what's needed. Uploading isn't required to book (book-then-vet). */}

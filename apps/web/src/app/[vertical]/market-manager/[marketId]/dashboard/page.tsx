@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
-import { getOnboardingProgress } from '@/lib/markets/onboarding-progress'
+import { getOnboardingProgress, getParkOnboardingProgress } from '@/lib/markets/onboarding-progress'
 import { colors, spacing, typography, containers } from '@/lib/design-tokens'
 import ManagerJumpNav from '@/components/market-manager/ManagerJumpNav'
 import FtParkDashboardBody from '@/components/market-manager/FtParkDashboardBody'
@@ -199,6 +199,7 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           marketId={marketId}
           market={market as Record<string, unknown>}
           onboardingProgress={onboardingProgress}
+          parkOnboarding={await getParkOnboardingProgress(marketId)}
           dashboardStats={dashboardStats}
           parkWeek={parkWeek}
           parkEarnings={parkEarnings}

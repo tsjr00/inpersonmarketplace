@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
+import { notifyParksForVendorDocChange } from '@/lib/markets/park-docs-review'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf']
@@ -107,6 +108,10 @@ export async function POST(request: NextRequest) {
     if (updateError) {
       throw traced.fromSupabase(updateError, { table: 'vendor_verifications', operation: 'update' })
     }
+
+    // P7 (2026-07-15): instantly ping consented park operators that this
+    // truck's docs changed (never throws; the hourly sweep is the backstop)
+    await notifyParksForVendorDocChange(serviceClient, vendor.id)
 
     return NextResponse.json({ success: true, document: newDoc })
   })

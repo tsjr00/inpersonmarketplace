@@ -109,6 +109,16 @@ export default async function BookParkSpotPage({ params }: PageProps) {
     )
   }
 
+  // P4b (2026-07-15): the park's required-documents list (mig 192). Fetched
+  // separately and error-tolerated so this page keeps working on environments
+  // where the migration hasn't been applied yet.
+  const { data: docsRow } = await supabase
+    .from('markets')
+    .select('required_docs_note')
+    .eq('id', id)
+    .maybeSingle()
+  const requiredDocsNote = (docsRow?.required_docs_note as string | null) ?? null
+
   const { data: schedulesRaw } = await supabase
     .from('market_schedules')
     .select('day_of_week, start_time, end_time')
@@ -222,6 +232,7 @@ export default async function BookParkSpotPage({ params }: PageProps) {
         seasonStart={(market.season_start as string | null) ?? null}
         seasonEnd={(market.season_end as string | null) ?? null}
         truckLengthFt={truckLengthFt}
+        requiredDocsNote={requiredDocsNote}
       />
     </div>
   )

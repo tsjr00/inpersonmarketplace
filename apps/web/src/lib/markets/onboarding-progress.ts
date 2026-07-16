@@ -149,3 +149,71 @@ export async function getOnboardingProgress(
     required_total: 5,
   }
 }
+
+// ── FT park variant (tester finding P1, 2026-07-15) ─────────────────────
+//
+// The FM progress above is booth-shaped (inventory/placeholders/vendors)
+// and mis-measures parks, which sell park_spots instead. Park setup =
+// payments + spots + schedule + agreements; season window is reported
+// but doesn't gate completion (a year-round park legitimately leaves it
+// empty).
+
+export interface ParkOnboardingProgress {
+  /** markets.stripe_charges_enabled — the park can take paid bookings. */
+  payments_done: boolean
+  /** At least one ACTIVE park_spots row. */
+  spots_done: boolean
+  /** At least one ACTIVE market_schedules row. */
+  schedule_done: boolean
+  /** At least one market_optin_selections row (truck agreement statements). */
+  optin_done: boolean
+  /** Informational: season window set (markets.season_start AND season_end). */
+  season_set: boolean
+  /** REQUIRED steps complete (0..4): payments + spots + schedule + optin. */
+  required_complete: number
+  required_total: 4
+}
+
+/** Park-shaped onboarding progress. Same service-client rationale as
+ *  getOnboardingProgress — auth is enforced upstream by isMarketManager(). */
+export async function getParkOnboardingProgress(
+  marketId: string
+): Promise<ParkOnboardingProgress> {
+  const serviceClient = createServiceClient()
+
+  const [marketResult, spotsResult, scheduleResult, optinResult] = await Promise.all([
+    serviceClient
+      .from('markets')
+      .select('stripe_charges_enabled, season_start, season_end')
+      .eq('id', marketId)
+      .maybeSingle(),
+    serviceClient
+      .from('park_spots')
+      .select('id', { count: 'exact', head: true })
+      .eq('market_id', marketId)
+      .eq('active', true),
+    serviceClient
+      .from('market_schedules')
+      .select('id', { count: 'exact', head: true })
+      .eq('market_id', marketId)
+      .eq('active', true),
+    serviceClient
+      .from('market_optin_selections')
+      .select('id', { count: 'exact', head: true })
+      .eq('market_id', marketId),
+  ])
+
+  const payments_done = marketResult.data?.stripe_charges_enabled === true
+  const spots_done = (spotsResult.count ?? 0) > 0
+  const schedule_done = (scheduleResult.count ?? 0) > 0
+  const optin_done = (optinResult.count ?? 0) > 0
+  const season_set = !!marketResult.data?.season_start && !!marketResult.data?.season_end
+
+  let required_complete = 0
+  if (payments_done) required_complete++
+  if (spots_done) required_complete++
+  if (schedule_done) required_complete++
+  if (optin_done) required_complete++
+
+  return { payments_done, spots_done, schedule_done, optin_done, season_set, required_complete, required_total: 4 }
+}

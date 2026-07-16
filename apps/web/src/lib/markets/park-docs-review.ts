@@ -129,3 +129,96 @@ export async function runParkDocsReviewSweep(
 
   return summary
 }
+
+/**
+ * Tester finding P7 (2026-07-15) — INSTANT manager notification on doc upload.
+ *
+ * The hourly sweep above stays as the backstop; this single-vendor variant is
+ * called directly from the doc-upload routes (coi / category-documents /
+ * documents) so the operator hears about new docs right away instead of on
+ * the next cron pass (which also never fires on staging). Same consent +
+ * manager requirements as the sweep; rapid multi-file uploads are deduped by
+ * skipping parks pinged within the last hour (the upload session's first file
+ * wins; the sweep catches anything after).
+ *
+ * Never throws — upload success must not depend on notification delivery.
+ */
+export async function notifyParksForVendorDocChange(
+  serviceClient: SupabaseClient,
+  vendorProfileId: string
+): Promise<void> {
+  try {
+    // Parks where this truck is affiliated
+    const { data: mvRows } = await serviceClient
+      .from('market_vendors')
+      .select('market_id')
+      .eq('vendor_profile_id', vendorProfileId)
+    const marketIds = Array.from(new Set((mvRows ?? []).map((r) => r.market_id as string)))
+    if (marketIds.length === 0) return
+
+    const [{ data: markets }, { data: acceptances }, { data: vetting }, { data: profile }] = await Promise.all([
+      serviceClient
+        .from('markets')
+        .select('id, name, manager_user_id')
+        .in('id', marketIds)
+        .eq('vertical_id', 'food_trucks')
+        .not('manager_user_id', 'is', null),
+      serviceClient
+        .from('vendor_market_agreement_acceptances')
+        .select('market_id, statements_snapshot')
+        .in('market_id', marketIds)
+        .eq('vendor_profile_id', vendorProfileId),
+      serviceClient
+        .from('park_vendor_vetting')
+        .select('market_id, docs_notified_at')
+        .in('market_id', marketIds)
+        .eq('vendor_profile_id', vendorProfileId),
+      serviceClient
+        .from('vendor_profiles')
+        .select('profile_data')
+        .eq('id', vendorProfileId)
+        .maybeSingle(),
+    ])
+    if (!markets || markets.length === 0) return
+
+    const consented = new Set<string>()
+    for (const a of acceptances ?? []) {
+      const snap = a.statements_snapshot as Array<{ statement_id?: string }> | null
+      if (Array.isArray(snap) && snap.some((s) => s?.statement_id === '_info_sharing_consent')) {
+        consented.add(a.market_id as string)
+      }
+    }
+    const lastNotified = new Map<string, number>()
+    for (const v of vetting ?? []) {
+      if (v.docs_notified_at) lastNotified.set(v.market_id as string, new Date(v.docs_notified_at as string).getTime())
+    }
+    const pd = profile?.profile_data as { business_name?: string; farm_name?: string } | null
+    const vendorName = pd?.business_name || pd?.farm_name || 'A food truck'
+    const oneHourAgo = Date.now() - 60 * 60 * 1000
+
+    for (const market of markets) {
+      const marketId = market.id as string
+      if (!consented.has(marketId)) continue
+      if ((lastNotified.get(marketId) ?? 0) > oneHourAgo) continue // deduped — pinged recently
+      const managerUserId = market.manager_user_id as string | null
+      if (!managerUserId) continue
+
+      await sendNotification(
+        managerUserId,
+        'park_truck_docs_to_review',
+        { marketName: (market.name as string) || 'your park', vendorName, marketId },
+        { vertical: 'food_trucks' }
+      )
+      await serviceClient
+        .from('park_vendor_vetting')
+        .upsert(
+          { market_id: marketId, vendor_profile_id: vendorProfileId, docs_notified_at: new Date().toISOString() },
+          { onConflict: 'market_id,vendor_profile_id' }
+        )
+    }
+  } catch {
+    // Swallow — the sweep is the backstop, and upload success must not fail
+    // on a notification error (sendNotification itself never throws; this
+    // guards the queries around it).
+  }
+}
