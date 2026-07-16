@@ -29,6 +29,21 @@
 
 **NEXT after push: slice 3 (market-manager) finder.**
 
+## ⭐⭐⭐⭐⭐⭐⭐⭐ 2026-07-15 SESSION (day 4) — park tester feedback: ALL 4 BUILD BATCHES DONE; slice-3 findings (MGR-1..10) awaiting verification
+
+**Context:** tester feedback (park manager + food truck personas) → 11 points investigated + code-verified in `apps/web/.claude/park_tester_feedback_2026-07-15_research.md` (incl. FINAL DECISIONS). NO regressions — P1/P2 were FM-only work never ported to FT (git -S verified). User approved the full build minus T5. Slice-3 finder also completed (10 findings MGR-1..10, 3 P1 — full report in its transcript, NOT yet in ledger; user chose to fix AFTER the tester batches to keep things clean).
+
+**BUILT + COMMITTED (each gates-green, suite 1676; NOT YET PUSHED — staging still = 4d76dc1d):**
+- **T1 `5bcd2001`:** P3 vertical-switched support email; P8 booked DATES in both park paid-confirmation templates (datesText — also the emailed receipt content); P5 "Booking window" label.
+- **T2 `212e58b6`:** P2 season editor UN-HELD for FT parks (existed in MarketScheduleCard behind a "P2.5 — season held" gate; save path already worked); season now BOUNDS bookings (form horizon clamp + booking-API rejection + standing-sweep generation skip); P6 truck-size BLOCK (booking + hold routes; event_readiness.vehicle_length_feet vs park_spots.max_length_ft, both-known-only; form disables undersized spots + profile nudge).
+- **T3 `7cf393e4`:** P1 ParkOnboardingChecklist (new getParkOnboardingProgress: payments/spots/schedule/optin required, season informational) pinned atop the FT dashboard + Setup group open until done; P9 /vendor/park-bookings page + FT dashboard card; P4b **mig 192** (`markets.required_docs_note` — NOT YET APPLIED, user applies; companion code PRE-MIGRATION SAFE) + manager required-docs route/card + booking-form display; P7 instant manager notification on doc upload (notifyParksForVendorDocChange, 1h dedup; cron sweep stays backstop; manager-only per user decision).
+- **T4 `b30c39c2`:** P10 booking↔selling bridge — Layers 0/1: DATE-AWARE schedule-conflict pre-check BEFORE payment (409 ERR_PARK_SCHEDULE_CONFLICT + payload; multiple_trucks exempt; schedule-overlap lib reused); Layer 2: webhook AUTO-creates/reactivates vendor_market_schedules for booked days on the paid flip (user decision: no ask — booking = selling; scheduleAutoSet in the paid notification); Layer 3: inline remedies in the form.
+- **T5 DEFERRED (user decision, backlogged):** get_available_pickup_dates park-date intersection — own careful money-gate-RPC build. Interim: auto-created recurring schedule persists past booked dates (accepted).
+
+**Mig 192 APPLIED to Dev + Staging 2026-07-15 (user); prod-pending list is now 184→192, apply IN ORDER before the combined prod push.**
+
+**PENDING:** (1) slice-3 MGR-1..10 verification → ledger recording → fix batch (user-sequenced after tester work); (2) user staging test of the whole train; (3) combined prod push.
+
 ---
 
 ## ⭐⭐⭐⭐⭐⭐ NEXT SESSION START HERE (2026-07-13 EOD) — read this, VERIFY LIVE GIT, then STOP & ask
