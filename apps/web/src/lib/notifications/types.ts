@@ -183,6 +183,9 @@ export interface NotificationTemplateData {
   // P8 (2026-07-15): human-readable booked-dates summary for park-spot paid
   // confirmations (e.g. "Thu, Jul 17 & Fri, Jul 18").
   datesText?: string
+  // P10 Layer 2 (2026-07-15): true when the paid park booking auto-created/
+  // reactivated the truck's selling schedule at the park.
+  scheduleAutoSet?: boolean
   orderNumber?: string
   itemTitle?: string
   vendorName?: string
@@ -953,7 +956,11 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       const n = d.dayCount || 1
       // P8: name the actual dates when the sender provides them
       const when = d.datesText ? ` (${d.datesText})` : ''
-      return `Payment received — ${d.spotLabel || 'your spot'} at ${d.marketName || 'the park'} is booked for ${n} day${n === 1 ? '' : 's'}${when}. Check in through the platform on each day you operate.`
+      // P10 Layer 2: tell the truck their selling schedule was set up for them
+      const sched = d.scheduleAutoSet
+        ? ' Your selling schedule at this park was set for your booked days — buyers can now order pickup; adjust it any time under your locations.'
+        : ''
+      return `Payment received — ${d.spotLabel || 'your spot'} at ${d.marketName || 'the park'} is booked for ${n} day${n === 1 ? '' : 's'}${when}. Check in through the platform on each day you operate.${sched}`
     },
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/dashboard`,
   },

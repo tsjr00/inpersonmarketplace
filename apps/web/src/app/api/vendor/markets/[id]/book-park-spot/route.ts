@@ -8,6 +8,7 @@ import { createParkSpotCheckoutSession } from '@/lib/stripe/payments'
 import { PARK_SPOT_MIN_CHARGE_CENTS, PARK_SPOT_MAX_DATES } from '@/lib/markets/park-booking-types'
 import { fetchMarketOptinForVendor } from '@/lib/markets/optin-public'
 import { computeAgreementVersionFromSnapshot } from '@/lib/markets/agreement-version'
+import { padTime, timesOverlap, dayOfWeekName, formatTimeDisplay } from '@/lib/utils/schedule-overlap'
 
 /**
  * POST /api/vendor/markets/[id]/book-park-spot
@@ -153,7 +154,7 @@ export async function POST(
     const todayLocal = new Date(localNow.getFullYear(), localNow.getMonth(), localNow.getDate())
 
     const [schedRes, ovrRes] = await Promise.all([
-      serviceClient.from('market_schedules').select('day_of_week').eq('market_id', marketId).eq('active', true),
+      serviceClient.from('market_schedules').select('day_of_week, start_time, end_time').eq('market_id', marketId).eq('active', true),
       serviceClient.from('market_date_overrides').select('override_date').eq('market_id', marketId).eq('status', 'cancelled').in('override_date', dates),
     ])
     const activeDows = new Set((schedRes.data ?? []).map((r) => r.day_of_week as number))
@@ -183,6 +184,70 @@ export async function POST(
           { error: `${d} is outside the park's season (${seasonStart || 'open'} – ${seasonEnd || 'open'}).`, field: 'booking_dates' },
           { status: 400 }
         )
+      }
+    }
+
+    // --- P10 Layers 0+1 (2026-07-15): DATE-AWARE schedule-conflict pre-check
+    //     BEFORE payment. Previously a truck could PAY for a spot and only
+    //     then discover the one-truck schedule rule blocked selling here.
+    //     Date-aware: a conflict only counts when the truck's other ACTIVE
+    //     schedule falls on one of the ACTUAL booked dates' weekdays with
+    //     overlapping hours — a recurring Tuesday elsewhere never blocks a
+    //     Saturday booking. multiple_trucks vendors are exempt (they can be
+    //     in two places at once). Layer 2 (webhook) auto-creates the park
+    //     schedule after payment, which this check guarantees is conflict-free.
+    const isMultiTruck = (profile.profile_data as Record<string, unknown> | null)?.multiple_trucks === true
+    if (!isMultiTruck) {
+      const { data: otherSchedules } = await serviceClient
+        .from('vendor_market_schedules')
+        .select(`
+          market_id,
+          vendor_start_time,
+          vendor_end_time,
+          markets!inner ( id, name ),
+          market_schedules!inner ( day_of_week, start_time, end_time )
+        `)
+        .eq('vendor_profile_id', profile.id)
+        .eq('is_active', true)
+        .neq('market_id', marketId)
+
+      const parkSlotsByDow = new Map<number, Array<{ start: string; end: string }>>()
+      for (const r of schedRes.data ?? []) {
+        const dow = r.day_of_week as number
+        const arr = parkSlotsByDow.get(dow) ?? []
+        arr.push({ start: padTime(r.start_time as string), end: padTime(r.end_time as string) })
+        parkSlotsByDow.set(dow, arr)
+      }
+
+      for (const d of dates) {
+        const [y, mo, dd] = d.split('-').map(Number)
+        const dow = new Date(Date.UTC(y, mo - 1, dd)).getUTCDay()
+        const parkSlots = parkSlotsByDow.get(dow) ?? []
+        for (const other of otherSchedules ?? []) {
+          const ms = other.market_schedules as unknown as { day_of_week: number; start_time: string; end_time: string }
+          if (ms.day_of_week !== dow) continue
+          const otherStart = padTime((other.vendor_start_time as string | null) || ms.start_time)
+          const otherEnd = padTime((other.vendor_end_time as string | null) || ms.end_time)
+          const overlaps = parkSlots.some((p) => timesOverlap(p.start, p.end, otherStart, otherEnd))
+          if (!overlaps) continue
+          const otherMarket = other.markets as unknown as { id: string; name: string }
+          return NextResponse.json(
+            {
+              error: `Schedule conflict: you're already scheduled at "${otherMarket.name}" on ${dayOfWeekName(dow)}s from ${formatTimeDisplay(otherStart)} - ${formatTimeDisplay(otherEnd)}, which overlaps ${d} at this park. Deactivate that schedule first, or enable "Multiple Trucks" in your profile if you operate more than one truck.`,
+              code: 'ERR_PARK_SCHEDULE_CONFLICT',
+              field: 'booking_dates',
+              conflict: {
+                marketId: otherMarket.id,
+                marketName: otherMarket.name,
+                dayOfWeek: dow,
+                startTime: otherStart,
+                endTime: otherEnd,
+                date: d,
+              },
+            },
+            { status: 409 }
+          )
+        }
       }
     }
 

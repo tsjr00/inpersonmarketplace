@@ -50,6 +50,16 @@ interface MyHold {
   spotLabel: string | null
 }
 
+/** P10 Layer 3: the booking API's schedule-conflict payload. */
+interface ScheduleConflictInfo {
+  marketId: string
+  marketName: string
+  dayOfWeek: number
+  startTime: string
+  endTime: string
+  date: string
+}
+
 interface BookParkSpotFormProps {
   marketId: string
   vertical: string
@@ -181,6 +191,9 @@ export default function BookParkSpotForm({
   const [selectedWeekKey, setSelectedWeekKey] = useState<string>(weeks[0]?.key ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // P10 Layer 3: structured conflict payload from the pre-payment check —
+  // drives inline remedy links instead of a dead-end error string.
+  const [scheduleConflict, setScheduleConflict] = useState<ScheduleConflictInfo | null>(null)
   // Which action tab is active — 'book' (pay for a day) or 'hold' (standing request).
   const [activeTab, setActiveTab] = useState<'book' | 'hold'>('book')
   // Vendor's acceptance of the park's opt-in agreement — gates both booking
@@ -269,10 +282,18 @@ export default function BookParkSpotForm({
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
+        // P10 Layer 3 (2026-07-15): a schedule conflict gets inline remedies
+        // instead of a dead-end string (the conflict payload drives the links)
+        if (data.code === 'ERR_PARK_SCHEDULE_CONFLICT') {
+          setScheduleConflict((data.conflict as ScheduleConflictInfo | undefined) ?? null)
+        } else {
+          setScheduleConflict(null)
+        }
         setError(data.error || 'Could not start checkout. Please try again.')
         setSubmitting(false)
         return
       }
+      setScheduleConflict(null)
       if (typeof data.url === 'string' && data.url.length > 0) {
         window.location.href = data.url
         return
@@ -731,6 +752,23 @@ export default function BookParkSpotForm({
                 marginBottom: spacing.sm,
               }}>
                 {error}
+                {/* P10 Layer 3: actionable remedies instead of a dead end */}
+                {scheduleConflict && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs }}>
+                    <a
+                      href={`/${vertical}/vendor/markets`}
+                      style={{ color: '#721c24', fontWeight: typography.weights.semibold, textDecoration: 'underline' }}
+                    >
+                      Manage your schedule at {scheduleConflict.marketName} →
+                    </a>
+                    <a
+                      href={`/${vertical}/vendor/edit`}
+                      style={{ color: '#721c24', fontWeight: typography.weights.semibold, textDecoration: 'underline' }}
+                    >
+                      Run more than one truck? Enable “Multiple Trucks” →
+                    </a>
+                  </div>
+                )}
               </div>
             )}
 

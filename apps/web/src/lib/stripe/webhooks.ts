@@ -1574,6 +1574,70 @@ async function handleParkSpotCheckoutComplete(session: Stripe.Checkout.Session) 
     const spotId = first.spot_id as string
     const dayCount = bookings.length
 
+    // P10 Layer 2 (2026-07-15): a paid booking means the truck is SELLING here —
+    // auto-create/activate their vendor_market_schedules rows for the booked
+    // days so buyers can order pickup (mig 131: no schedule row = no pickup
+    // dates = an invisible truck). The booking route's date-aware pre-check
+    // (Layer 1) already guaranteed these rows are conflict-free; multiple_trucks
+    // vendors skipped that check by their own election. Non-throwing zone.
+    let scheduleAutoSet = false
+    const bookedDows = new Set(
+      bookings
+        .map((b) => b.booking_date as string | null)
+        .filter((d): d is string => !!d)
+        .map((d) => {
+          const [y, m, dd] = d.split('-').map(Number)
+          return new Date(Date.UTC(y, m - 1, dd)).getUTCDay()
+        })
+    )
+    if (bookedDows.size > 0) {
+      const { data: parkSchedules } = await supabase
+        .from('market_schedules')
+        .select('id, day_of_week')
+        .eq('market_id', marketId)
+        .eq('active', true)
+      const targetScheduleIds = (parkSchedules ?? [])
+        .filter((s) => bookedDows.has(s.day_of_week as number))
+        .map((s) => s.id as string)
+      if (targetScheduleIds.length > 0) {
+        const { data: existingVms } = await supabase
+          .from('vendor_market_schedules')
+          .select('schedule_id, is_active')
+          .eq('vendor_profile_id', vendorProfileId)
+          .eq('market_id', marketId)
+          .in('schedule_id', targetScheduleIds)
+        const existingBySchedule = new Map((existingVms ?? []).map((e) => [e.schedule_id as string, e.is_active as boolean | null]))
+
+        const toInsert = targetScheduleIds.filter((sid) => !existingBySchedule.has(sid))
+        const toReactivate = targetScheduleIds.filter((sid) => existingBySchedule.get(sid) === false)
+        if (toInsert.length > 0) {
+          const { error: vmsInsertErr } = await supabase
+            .from('vendor_market_schedules')
+            .insert(toInsert.map((sid) => ({
+              vendor_profile_id: vendorProfileId,
+              market_id: marketId,
+              schedule_id: sid,
+              is_active: true,
+            })))
+          if (!vmsInsertErr) scheduleAutoSet = true
+          else {
+            await logError(new TracedError('ERR_DB_UNKNOWN', `[park paid] auto-create vendor schedule failed for vendor ${vendorProfileId} at market ${marketId}: ${vmsInsertErr.message}`, {
+              route: '/webhooks/stripe', method: 'POST',
+            }))
+          }
+        }
+        if (toReactivate.length > 0) {
+          const { error: vmsUpdateErr } = await supabase
+            .from('vendor_market_schedules')
+            .update({ is_active: true })
+            .eq('vendor_profile_id', vendorProfileId)
+            .eq('market_id', marketId)
+            .in('schedule_id', toReactivate)
+          if (!vmsUpdateErr) scheduleAutoSet = true
+        }
+      }
+    }
+
     // Tester finding P8 (2026-07-15): confirmations said "for 2 days" with no
     // dates. booking_date is a market-local calendar date ('YYYY-MM-DD') — format
     // via UTC so the label can't shift a day on the UTC-clocked server.
@@ -1634,6 +1698,7 @@ async function handleParkSpotCheckoutComplete(session: Stripe.Checkout.Session) 
           dayCount,
           ...(spotLabel ? { spotLabel } : {}),
           ...(datesText ? { datesText } : {}),
+          ...(scheduleAutoSet ? { scheduleAutoSet: true } : {}),
         },
         { vertical, ...(vendorEmail ? { userEmail: vendorEmail } : {}) }
       )
