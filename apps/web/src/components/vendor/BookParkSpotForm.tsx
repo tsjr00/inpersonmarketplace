@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { colors, spacing, typography, radius, statusColors } from '@/lib/design-tokens'
 import { calculateBoothRentalFees } from '@/lib/pricing'
 import MarketAgreementBlock from '@/components/market-manager/MarketAgreementBlock'
 
@@ -65,6 +65,13 @@ interface BookParkSpotFormProps {
   /** The truck's own requested/active weekly holds here (so they can see what
    *  they've already asked for — a pending request blocks a duplicate). */
   myHolds?: MyHold[]
+  /** P2 (2026-07-15): the park's season window (markets.season_start/end).
+   *  Bounds the booking horizon; the booking API enforces it server-side. */
+  seasonStart?: string | null
+  seasonEnd?: string | null
+  /** P6 (2026-07-15): the truck's declared length (profile event-readiness).
+   *  null = not declared → no client-side spot filtering, nudge shown. */
+  truckLengthFt?: number | null
 }
 
 const MIN_TOTAL_CENTS = 500
@@ -117,11 +124,16 @@ export default function BookParkSpotForm({
   pendingOccurrences = [],
   hasPriorPaidRental = false,
   myHolds = [],
+  seasonStart = null,
+  seasonEnd = null,
+  truckLengthFt = null,
 }: BookParkSpotFormProps) {
   const searchParams = useSearchParams()
   const sessionFlag = searchParams.get('session')
 
   // Next 8 weeks (56 days) of operating dates, in the park's timezone.
+  // P2 (2026-07-15): clamped to the manager's season window when set (dates
+  // are YYYY-MM-DD strings, so string comparison is safe).
   const operatingDates = useMemo<string[]>(() => {
     if (scheduleDows.length === 0) return []
     const localNow = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }))
@@ -130,10 +142,14 @@ export default function BookParkSpotForm({
     for (let i = 0; i < 56; i++) {
       const d = new Date(today)
       d.setDate(today.getDate() + i)
-      if (scheduleDows.includes(d.getDay())) dates.push(toYmd(d))
+      if (!scheduleDows.includes(d.getDay())) continue
+      const ymd = toYmd(d)
+      if (seasonStart && ymd < seasonStart) continue
+      if (seasonEnd && ymd > seasonEnd) continue
+      dates.push(ymd)
     }
     return dates
-  }, [scheduleDows, timezone])
+  }, [scheduleDows, timezone, seasonStart, seasonEnd])
 
   // Group operating dates by their Sunday-week key, preserving order.
   const weeks = useMemo(() => {
@@ -150,8 +166,13 @@ export default function BookParkSpotForm({
     return Array.from(map.entries()).map(([key, dates]) => ({ key, dates }))
   }, [operatingDates])
 
-  const [selectedSpotId, setSelectedSpotId] = useState<string>(spots[0]?.id ?? '')
+  const [selectedSpotId, setSelectedSpotId] = useState<string>(() => {
+    const fits = (s: SpotRow) =>
+      truckLengthFt === null || s.max_length_ft === null || truckLengthFt <= s.max_length_ft
+    return spots.find(fits)?.id ?? spots[0]?.id ?? ''
+  })
   const [mode, setMode] = useState<'single' | 'week'>('single')
+  // (selectedSpotId initializer below skips spots the truck can't fit — P6)
   const [selectedDate, setSelectedDate] = useState<string>(operatingDates[0] ?? '')
   const [selectedWeekKey, setSelectedWeekKey] = useState<string>(weeks[0]?.key ?? '')
   const [submitting, setSubmitting] = useState(false)
@@ -389,9 +410,21 @@ export default function BookParkSpotForm({
           <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing.xs }}>
             Pick a spot
           </div>
+          {/* P6 (2026-07-15): no declared truck length → nudge; the size gate
+              only applies when both numbers are known. */}
+          {truckLengthFt === null && (
+            <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing.xs }}>
+              <a href={`/${vertical}/vendor/edit`} style={{ color: colors.primary, textDecoration: 'underline' }}>
+                Add your truck&apos;s length to your profile
+              </a>
+              {' '}and we&apos;ll flag spots that won&apos;t fit.
+            </div>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
             {spots.map((spot) => {
               const selected = spot.id === selectedSpotId
+              // P6: block undersized spots (user decision: block with explanation)
+              const tooSmall = truckLengthFt !== null && spot.max_length_ft !== null && truckLengthFt > spot.max_length_ft
               return (
                 <label
                   key={spot.id}
@@ -403,7 +436,8 @@ export default function BookParkSpotForm({
                     border: `1px solid ${selected ? colors.primary : colors.border}`,
                     borderRadius: radius.sm,
                     backgroundColor: selected ? colors.surfaceBase : 'transparent',
-                    cursor: 'pointer',
+                    cursor: tooSmall ? 'not-allowed' : 'pointer',
+                    opacity: tooSmall ? 0.55 : 1,
                   }}
                 >
                   <input
@@ -412,16 +446,17 @@ export default function BookParkSpotForm({
                     value={spot.id}
                     checked={selected}
                     onChange={() => setSelectedSpotId(spot.id)}
-                    disabled={submitting}
+                    disabled={submitting || tooSmall}
                     style={{ marginTop: 3 }}
                   />
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
                       {spot.label}
                     </div>
-                    <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
+                    <div style={{ fontSize: typography.sizes.xs, color: tooSmall ? statusColors.danger : colors.textMuted, marginTop: spacing['3xs'] }}>
                       {[
                         spot.max_length_ft ? `Fits up to ${spot.max_length_ft} ft` : null,
+                        tooSmall ? `too small for your ${truckLengthFt} ft truck` : null,
                         powerLabel(spot.power),
                         spot.has_water ? 'Water' : null,
                       ].filter(Boolean).join(' · ')}
@@ -585,7 +620,8 @@ export default function BookParkSpotForm({
                 {/* Tester finding P5 (2026-07-15): this rolling list was being read
                     as the park's "season." Name what it actually is. */}
                 <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing.xs }}>
-                  Booking window: the park&apos;s operating days over the next 8 weeks. More weeks open up as time passes.
+                  Booking window: the park&apos;s operating days over the next 8 weeks
+                  {seasonEnd ? `, within the park's season (through ${formatShort(seasonEnd)})` : ''}. More weeks open up as time passes.
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
                   {weeks.map((w) => {

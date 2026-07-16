@@ -63,8 +63,8 @@ export async function POST(
       )
     }
 
-    const { profile, error: profErr } = await getVendorProfileForVertical<{ id: string }>(
-      supabase, user.id, market.vertical_id as string, 'id'
+    const { profile, error: profErr } = await getVendorProfileForVertical<{ id: string; profile_data: Record<string, unknown> | null }>(
+      supabase, user.id, market.vertical_id as string, 'id, profile_data'
     )
     if (profErr || !profile) {
       return NextResponse.json({ error: profErr || 'Food truck profile not found' }, { status: 404 })
@@ -89,7 +89,7 @@ export async function POST(
     crumb.supabase('select', 'park_spots')
     const { data: spot } = await service
       .from('park_spots')
-      .select('id, market_id, active, recurring_eligible, label')
+      .select('id, market_id, active, recurring_eligible, label, max_length_ft')
       .eq('id', spotId)
       .maybeSingle()
     if (!spot || spot.market_id !== marketId) {
@@ -100,6 +100,24 @@ export async function POST(
     }
     if (spot.recurring_eligible !== true) {
       return NextResponse.json({ error: 'That spot is not eligible for recurring holds.', field: 'spot_id' }, { status: 409 })
+    }
+
+    // Tester finding P6 (user decision 2026-07-15: BLOCK with explanation) —
+    // occurrences inherit this hold's spot, so an oversized truck is blocked
+    // here too. Only enforced when BOTH numbers are known.
+    const readiness = ((profile.profile_data as Record<string, unknown> | null)?.event_readiness ?? {}) as Record<string, unknown>
+    const truckLengthFt = typeof readiness.vehicle_length_feet === 'number' && readiness.vehicle_length_feet > 0
+      ? readiness.vehicle_length_feet
+      : null
+    const spotMaxLengthFt = (spot.max_length_ft as number | null) ?? null
+    if (truckLengthFt !== null && spotMaxLengthFt !== null && truckLengthFt > spotMaxLengthFt) {
+      return NextResponse.json(
+        {
+          error: `Your truck is ${truckLengthFt} ft, but ${(spot.label as string) || 'this spot'} fits up to ${spotMaxLengthFt} ft. Choose a larger spot.`,
+          field: 'spot_id',
+        },
+        { status: 409 }
+      )
     }
 
     // The DOW must be an operating day of the park.

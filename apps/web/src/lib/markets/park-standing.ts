@@ -278,7 +278,7 @@ export async function runStandingOccurrenceSweep(
     .select(`
       id, market_id, vendor_profile_id, spot_id, day_of_week, strikes_reset_at, requested_start_date,
       park_spots:spot_id ( label, base_price_cents, active ),
-      markets:market_id ( name, vertical_id, timezone, park_mode, stripe_charges_enabled ),
+      markets:market_id ( name, vertical_id, timezone, park_mode, stripe_charges_enabled, season_start, season_end ),
       vendor_profiles:vendor_profile_id ( user_id )
     `)
     .eq('status', 'active')
@@ -303,7 +303,7 @@ export async function runStandingOccurrenceSweep(
     // PRK-7: don't materialize occurrences the truck CANNOT pay — the pay route
     // refuses non-'paid' park_mode / Stripe-disabled parks, so generating here
     // would strike every anchor into suspension through no fault of theirs.
-    const mkt = res.markets as unknown as { park_mode: string | null; stripe_charges_enabled: boolean | null } | null
+    const mkt = res.markets as unknown as { park_mode: string | null; stripe_charges_enabled: boolean | null; season_start: string | null; season_end: string | null } | null
     if (mkt?.park_mode !== 'paid' || mkt?.stripe_charges_enabled !== true) continue
 
     // PRK-4: skip blocked trucks
@@ -315,6 +315,12 @@ export async function runStandingOccurrenceSweep(
     const fromISO = startFloor && startFloor > todayISO ? startFloor : todayISO
     const occ = nextOccurrenceOnOrAfter(res.day_of_week as number, fromISO)
     if (occ > horizonISO) continue // too far out — wait for a later run
+
+    // P2 (2026-07-15): don't materialize occurrences outside the park's season
+    // window — the booking API refuses out-of-season dates, so generating here
+    // would create unpayable occurrences (PRK-7 class). YYYY-MM-DD comparison.
+    if (mkt.season_start && occ < mkt.season_start) continue
+    if (mkt.season_end && occ > mkt.season_end) continue
 
     // Skip if the park closed that DOW, or the date was cancelled.
     const [schedRes, ovrRes] = await Promise.all([

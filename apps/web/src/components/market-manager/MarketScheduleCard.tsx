@@ -272,8 +272,10 @@ export default function MarketScheduleCard({
           notification.
         </p>
 
-        {/* Season window (if set). Hidden for FT parks (P2.5 — season held). */}
-        {vertical !== 'food_trucks' && (savedSeasonStart || savedSeasonEnd) && (
+        {/* Season window (if set). Was hidden for FT parks ("P2.5 — season
+            held") — enabled 2026-07-15 per tester finding P2: park managers
+            need to set the open/close dates their spot rentals are valid for. */}
+        {(savedSeasonStart || savedSeasonEnd) && (
           <div style={{
             fontSize: typography.sizes.sm,
             color: colors.textPrimary,
@@ -347,8 +349,9 @@ export default function MarketScheduleCard({
         sends a notification to every approved {term(vertical, 'vendor').toLowerCase()} at this {term(vertical, 'market').toLowerCase()}.
       </p>
 
-      {/* Season window editor. Hidden for FT parks (P2.5 — season held). */}
-      {vertical !== 'food_trucks' && (
+      {/* Season window editor. Was hidden for FT parks ("P2.5 — season held")
+          — enabled 2026-07-15 per tester finding P2. */}
+      {(
       <div style={{
         display: 'flex',
         gap: spacing.sm,

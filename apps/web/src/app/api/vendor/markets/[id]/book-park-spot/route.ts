@@ -56,7 +56,7 @@ export async function POST(
     // --- Market + payment gates. ---
     const { data: market } = await supabase
       .from('markets')
-      .select('id, name, vertical_id, timezone, stripe_charges_enabled, stripe_account_id, park_mode, operator_keep_pct')
+      .select('id, name, vertical_id, timezone, stripe_charges_enabled, stripe_account_id, park_mode, operator_keep_pct, season_start, season_end')
       .eq('id', marketId)
       .maybeSingle()
     if (!market) {
@@ -75,8 +75,8 @@ export async function POST(
       )
     }
 
-    const { profile, error: profErr } = await getVendorProfileForVertical<{ id: string }>(
-      supabase, user.id, market.vertical_id as string, 'id'
+    const { profile, error: profErr } = await getVendorProfileForVertical<{ id: string; profile_data: Record<string, unknown> | null }>(
+      supabase, user.id, market.vertical_id as string, 'id, profile_data'
     )
     if (profErr || !profile) {
       return NextResponse.json(
@@ -106,7 +106,7 @@ export async function POST(
     crumb.supabase('select', 'park_spots')
     const { data: spot } = await serviceClient
       .from('park_spots')
-      .select('id, market_id, label, base_price_cents, active')
+      .select('id, market_id, label, base_price_cents, active, max_length_ft')
       .eq('id', spotId)
       .maybeSingle()
     if (!spot || spot.market_id !== marketId) {
@@ -114,6 +114,25 @@ export async function POST(
     }
     if (spot.active !== true) {
       return NextResponse.json({ error: 'That spot is not available for booking.', field: 'spot_id' }, { status: 409 })
+    }
+
+    // Tester finding P6 (user decision 2026-07-15: BLOCK with explanation) —
+    // a truck longer than the spot can't book it. Only enforced when BOTH
+    // numbers are known; a truck with no declared length books freely (the
+    // form nudges them to add it).
+    const readiness = ((profile.profile_data as Record<string, unknown> | null)?.event_readiness ?? {}) as Record<string, unknown>
+    const truckLengthFt = typeof readiness.vehicle_length_feet === 'number' && readiness.vehicle_length_feet > 0
+      ? readiness.vehicle_length_feet
+      : null
+    const spotMaxLengthFt = (spot.max_length_ft as number | null) ?? null
+    if (truckLengthFt !== null && spotMaxLengthFt !== null && truckLengthFt > spotMaxLengthFt) {
+      return NextResponse.json(
+        {
+          error: `Your truck is ${truckLengthFt} ft, but ${(spot.label as string) || 'this spot'} fits up to ${spotMaxLengthFt} ft. Choose a larger spot.`,
+          field: 'spot_id',
+        },
+        { status: 409 }
+      )
     }
 
     // --- Date validation: valid, deduped, future (market-tz), operating day,
@@ -140,6 +159,12 @@ export async function POST(
     const activeDows = new Set((schedRes.data ?? []).map((r) => r.day_of_week as number))
     const cancelled = new Set((ovrRes.data ?? []).map((o) => o.override_date as string))
 
+    // Tester finding P2/P5 (2026-07-15): the manager's season window now
+    // bounds bookings. Dates are YYYY-MM-DD strings, so string comparison is
+    // safe; a missing bound is open-ended on that side.
+    const seasonStart = (market.season_start as string | null) ?? null
+    const seasonEnd = (market.season_end as string | null) ?? null
+
     for (const d of dates) {
       const [y, mo, dd] = d.split('-').map(Number)
       const dateLocal = new Date(y, mo - 1, dd)
@@ -152,6 +177,12 @@ export async function POST(
       }
       if (cancelled.has(d)) {
         return NextResponse.json({ error: `${d} has been cancelled by the operator.`, field: 'booking_dates' }, { status: 409 })
+      }
+      if ((seasonStart && d < seasonStart) || (seasonEnd && d > seasonEnd)) {
+        return NextResponse.json(
+          { error: `${d} is outside the park's season (${seasonStart || 'open'} – ${seasonEnd || 'open'}).`, field: 'booking_dates' },
+          { status: 400 }
+        )
       }
     }
 

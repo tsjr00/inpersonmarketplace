@@ -52,7 +52,7 @@ export default async function BookParkSpotPage({ params }: PageProps) {
 
   const { data: market } = await supabase
     .from('markets')
-    .select('id, name, vertical_id, park_mode, stripe_charges_enabled, timezone')
+    .select('id, name, vertical_id, park_mode, stripe_charges_enabled, timezone, season_start, season_end')
     .eq('id', id)
     .maybeSingle()
 
@@ -129,13 +129,20 @@ export default async function BookParkSpotPage({ params }: PageProps) {
   // tab can show what they've already requested (a pending request blocks a
   // duplicate on the same spot+day, so this closes the "why can't I request?" gap).
   let myHolds: MyHold[] = []
+  // P6 (2026-07-15): the truck's declared length from event-readiness data —
+  // null when unset (the form shows a nudge instead of filtering).
+  let truckLengthFt: number | null = null
   const authClient = await createClient()
   const { data: { user } } = await authClient.auth.getUser()
   if (user) {
-    const { profile } = await getVendorProfileForVertical<{ id: string }>(
-      authClient, user.id, 'food_trucks', 'id'
+    const { profile } = await getVendorProfileForVertical<{ id: string; profile_data: Record<string, unknown> | null }>(
+      authClient, user.id, 'food_trucks', 'id, profile_data'
     )
     if (profile) {
+      const readiness = ((profile.profile_data as Record<string, unknown> | null)?.event_readiness ?? {}) as Record<string, unknown>
+      truckLengthFt = typeof readiness.vehicle_length_feet === 'number' && readiness.vehicle_length_feet > 0
+        ? readiness.vehicle_length_feet
+        : null
       const { data: priorPaid } = await supabase
         .from('park_spot_bookings')
         .select('id')
@@ -212,6 +219,9 @@ export default async function BookParkSpotPage({ params }: PageProps) {
         pendingOccurrences={pendingOccurrences}
         hasPriorPaidRental={hasPriorPaidRental}
         myHolds={myHolds}
+        seasonStart={(market.season_start as string | null) ?? null}
+        seasonEnd={(market.season_end as string | null) ?? null}
+        truckLengthFt={truckLengthFt}
       />
     </div>
   )
