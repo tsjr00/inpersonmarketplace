@@ -1574,6 +1574,26 @@ async function handleParkSpotCheckoutComplete(session: Stripe.Checkout.Session) 
     const spotId = first.spot_id as string
     const dayCount = bookings.length
 
+    // Tester finding P8 (2026-07-15): confirmations said "for 2 days" with no
+    // dates. booking_date is a market-local calendar date ('YYYY-MM-DD') — format
+    // via UTC so the label can't shift a day on the UTC-clocked server.
+    const fmtBookingDate = (iso: string) => {
+      const [y, m, d] = iso.split('-').map(Number)
+      return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', {
+        weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC',
+      })
+    }
+    const sortedDates = bookings
+      .map(b => b.booking_date as string)
+      .filter(Boolean)
+      .sort()
+    const datesText =
+      sortedDates.length === 0
+        ? undefined
+        : sortedDates.length <= 3
+          ? sortedDates.map(fmtBookingDate).join(' & ')
+          : `${fmtBookingDate(sortedDates[0])} – ${fmtBookingDate(sortedDates[sortedDates.length - 1])} (${sortedDates.length} days)`
+
     const [vpResult, marketResult, spotResult] = await Promise.all([
       supabase.from('vendor_profiles').select('user_id, profile_data, vertical_id').eq('id', vendorProfileId).maybeSingle(),
       supabase.from('markets').select('name, manager_user_id, manager_email, vertical_id').eq('id', marketId).maybeSingle(),
@@ -1613,6 +1633,7 @@ async function handleParkSpotCheckoutComplete(session: Stripe.Checkout.Session) 
           marketId,
           dayCount,
           ...(spotLabel ? { spotLabel } : {}),
+          ...(datesText ? { datesText } : {}),
         },
         { vertical, ...(vendorEmail ? { userEmail: vendorEmail } : {}) }
       )
@@ -1627,6 +1648,7 @@ async function handleParkSpotCheckoutComplete(session: Stripe.Checkout.Session) 
           dayCount,
           ...(vendorName ? { vendorName } : {}),
           ...(spotLabel ? { spotLabel } : {}),
+          ...(datesText ? { datesText } : {}),
         },
         { vertical, ...(managerEmail ? { userEmail: managerEmail } : {}) }
       )

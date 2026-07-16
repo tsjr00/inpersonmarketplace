@@ -579,8 +579,13 @@ export default function BookParkSpotForm({
               </label>
             ) : (
               <div style={{ marginBottom: spacing.md }}>
-                <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing.xs }}>
+                <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing['3xs'] }}>
                   Week
+                </div>
+                {/* Tester finding P5 (2026-07-15): this rolling list was being read
+                    as the park's "season." Name what it actually is. */}
+                <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing.xs }}>
+                  Booking window: the park&apos;s operating days over the next 8 weeks. More weeks open up as time passes.
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
                   {weeks.map((w) => {

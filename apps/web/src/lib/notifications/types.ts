@@ -180,6 +180,9 @@ export interface NotificationTemplateData {
   // wasNotificationSent can match the SPECIFIC event, not just user+type/24h.
   // Not rendered in any template.
   dedupRef?: string
+  // P8 (2026-07-15): human-readable booked-dates summary for park-spot paid
+  // confirmations (e.g. "Thu, Jul 17 & Fri, Jul 18").
+  datesText?: string
   orderNumber?: string
   itemTitle?: string
   vendorName?: string
@@ -948,7 +951,9 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: (d) => `Your spot at ${d.marketName || 'the park'} is confirmed`,
     message: (d) => {
       const n = d.dayCount || 1
-      return `Payment received — ${d.spotLabel || 'your spot'} at ${d.marketName || 'the park'} is booked for ${n} day${n === 1 ? '' : 's'}. Check in through the platform on each day you operate.`
+      // P8: name the actual dates when the sender provides them
+      const when = d.datesText ? ` (${d.datesText})` : ''
+      return `Payment received — ${d.spotLabel || 'your spot'} at ${d.marketName || 'the park'} is booked for ${n} day${n === 1 ? '' : 's'}${when}. Check in through the platform on each day you operate.`
     },
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/dashboard`,
   },
@@ -959,7 +964,9 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: (d) => `New spot booking at ${d.marketName || 'your park'}`,
     message: (d) => {
       const n = d.dayCount || 1
-      return `${d.vendorName || 'A food truck'} booked ${d.spotLabel || 'a spot'} at ${d.marketName || 'your park'} for ${n} day${n === 1 ? '' : 's'}.`
+      // P8: name the actual dates when the sender provides them
+      const when = d.datesText ? ` (${d.datesText})` : ''
+      return `${d.vendorName || 'A food truck'} booked ${d.spotLabel || 'a spot'} at ${d.marketName || 'your park'} for ${n} day${n === 1 ? '' : 's'}${when}.`
     },
     actionUrl: (d) =>
       d.marketId

@@ -15,9 +15,16 @@ interface ManagerSupportCardProps {
   vertical: string
 }
 
-const SUPPORT_EMAIL = 'support@farmersmarketing.app'
+// Tester finding P3 (2026-07-15): this was hardcoded to the FM address and
+// shown to FT park managers too. Vertical-switched; unknown verticals fall
+// back to the FM address (platform umbrella inbox).
+const SUPPORT_EMAIL_BY_VERTICAL: Record<string, string> = {
+  farmers_market: 'support@farmersmarketing.app',
+  food_trucks: 'support@foodtruckn.app',
+}
 
 export default function ManagerSupportCard({ vertical }: ManagerSupportCardProps) {
+  const supportEmail = SUPPORT_EMAIL_BY_VERTICAL[vertical] ?? SUPPORT_EMAIL_BY_VERTICAL.farmers_market
   return (
     <ManagerCard
       title="Need help?"
@@ -35,10 +42,10 @@ export default function ManagerSupportCard({ vertical }: ManagerSupportCardProps
         <li>
           <span style={{ color: colors.textMuted, marginRight: spacing['2xs'] }}>📧</span>
           <a
-            href={`mailto:${SUPPORT_EMAIL}?subject=Market%20manager%20support`}
+            href={`mailto:${supportEmail}?subject=Market%20manager%20support`}
             style={{ color: colors.primary, textDecoration: 'underline', fontWeight: typography.weights.semibold }}
           >
-            {SUPPORT_EMAIL}
+            {supportEmail}
           </a>
         </li>
         <li>

@@ -775,3 +775,9 @@ Surfaced by Session 83 Agent A's comprehensive scan; all pre-existing, none made
 | 2026-03-04 | Sentry setup (staging + production) |
 | 2026-03-04 | Legal terms 3-tier system |
 | 2026-03-04 | Production push (all infra) |
+
+## 🔶 DEFERRED — P10 stage (b): bound park pickup availability to booked dates (2026-07-15)
+
+**What:** extend `get_available_pickup_dates` so listings at PAID FT parks only offer pickup dates the vendor actually has a paid `park_spot_bookings` row for (intersection). Prevents "buyer orders pickup for a Saturday the truck won't attend" once T4 auto-creates recurring schedules from date-specific bookings.
+**Why deferred:** this is the money-gate availability RPC (mig 054 tz fix + mig 131 schedule requirement live in it; standing do-NOT-touch-casually warning; prior breakage incidents). USER DECISION 2026-07-15: own careful build — isolated migration (user applies), verbatim-preserving body except the one park-scoped intersection, before/after availability-output tests.
+**Interim exposure (accepted):** after T4, an auto-created recurring schedule persists past the booked dates; trucks can deactivate it; no-show/expiry machinery covers unfulfilled orders. Context: `apps/web/.claude/park_tester_feedback_2026-07-15_research.md`.
