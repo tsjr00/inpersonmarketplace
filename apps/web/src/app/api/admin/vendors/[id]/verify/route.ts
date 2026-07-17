@@ -67,16 +67,31 @@ export async function POST(
     const serviceClient = createServiceClient()
     const newStatus = action === 'approve' ? 'approved' : 'rejected'
 
+    // ADM-8: build the update WITHOUT touching notes unless the reviewer wrote
+    // some, and when they did, APPEND to the prior trail (fast-track pattern) —
+    // the old `notes: notes || null` nulled the entire review history on any
+    // re-verify submitted without notes.
+    const verifyUpdate: Record<string, unknown> = {
+      status: newStatus,
+      reviewed_by: userProfile!.id,
+      reviewed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+    if (notes) {
+      crumb.supabase('select', 'vendor_verifications')
+      const { data: existingVerif } = await serviceClient
+        .from('vendor_verifications')
+        .select('notes')
+        .eq('vendor_profile_id', vendorId)
+        .single()
+      const marker = `[${action} ${new Date().toISOString().slice(0, 10)}] ${notes}`
+      verifyUpdate.notes = existingVerif?.notes ? `${existingVerif.notes}\n\n${marker}` : marker
+    }
+
     crumb.supabase('update', 'vendor_verifications')
     const { error: updateError } = await serviceClient
       .from('vendor_verifications')
-      .update({
-        status: newStatus,
-        notes: notes || null,
-        reviewed_by: userProfile!.id,
-        reviewed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
+      .update(verifyUpdate)
       .eq('vendor_profile_id', vendorId)
 
     if (updateError) {

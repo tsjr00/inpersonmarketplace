@@ -134,8 +134,14 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // PATCH is platform-admin only (moderation applies across verticals).
-    // Vertical admins use the GET to view but cannot moderate.
+    // PATCH is platform-admin only (moderation applies across verticals + the
+    // update targets ratings by bare id with no vertical scoping). ADM-4: the
+    // authorized check above passes single-vertical vertical admins via
+    // verifyAdminScope's fallback, so without this the comment lied — a vertical
+    // admin could moderate ANY vertical's public ratings. Enforce it.
+    if (!scope.isPlatformAdmin) {
+      return NextResponse.json({ error: 'Rating moderation is restricted to platform admins' }, { status: 403 })
+    }
 
     let id: string
     let newStatus: string

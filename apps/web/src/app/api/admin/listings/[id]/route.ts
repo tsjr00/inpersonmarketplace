@@ -40,7 +40,7 @@ export async function PATCH(
     // Fetch the listing to get its vertical for vertical admin check
     const { data: listing, error: fetchError } = await serviceClient
       .from('listings')
-      .select('id, title, status, vertical_id, vendor_profile_id')
+      .select('id, title, status, vertical_id, vendor_profile_id, listing_data')
       .eq('id', listingId)
       .is('deleted_at', null)
       .single()
@@ -72,13 +72,24 @@ export async function PATCH(
     }
 
     if (action === 'suspend') {
-      // Pause the listing
+      // ADM-7: stash the pre-suspension status so unsuspend can restore it —
+      // otherwise unsuspend force-publishes a listing that was draft/archived
+      // when suspended. Only capture a real prior status (not 'paused', in case
+      // of a double-suspend) so the stash isn't clobbered to 'paused'.
+      const priorStatus = listing.status !== 'paused' ? listing.status : undefined
+      const suspendData: Record<string, unknown> = {
+        status: 'paused',
+        updated_at: new Date().toISOString(),
+      }
+      if (priorStatus) {
+        suspendData.listing_data = {
+          ...((listing.listing_data as Record<string, unknown> | null) || {}),
+          status_before_suspension: priorStatus,
+        }
+      }
       const { error: updateError } = await serviceClient
         .from('listings')
-        .update({
-          status: 'paused',
-          updated_at: new Date().toISOString(),
-        })
+        .update(suspendData)
         .eq('id', listingId)
 
       if (updateError) {
@@ -103,11 +114,17 @@ export async function PATCH(
     }
 
     if (action === 'unsuspend') {
-      // Republish the listing
+      // ADM-7: restore the status the listing had before suspension (stashed in
+      // listing_data). Legacy rows suspended before this fix have no stash →
+      // default to 'published' (the prior behavior). Clear the stash key.
+      const ld = (listing.listing_data as Record<string, unknown> | null) || {}
+      const restored = (ld.status_before_suspension as string | undefined) || 'published'
+      const { status_before_suspension: _drop, ...ldRest } = ld
       const { error: updateError } = await serviceClient
         .from('listings')
         .update({
-          status: 'published',
+          status: restored,
+          listing_data: ldRest,
           updated_at: new Date().toISOString(),
         })
         .eq('id', listingId)

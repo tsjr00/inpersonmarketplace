@@ -57,16 +57,24 @@ export async function POST(request: NextRequest) {
     }
 
     const body: ReportRequest = await request.json()
-    const { reportId, dateFrom, dateTo, verticalId } = body
+    const { reportId, dateFrom, dateTo, verticalId: requestedVerticalId } = body
 
     // H-7: Verify admin scope (platform admin sees all, vertical admin sees only their vertical)
-    const scope = await verifyAdminScope(verticalId)
+    const scope = await verifyAdminScope(requestedVerticalId)
     if (!scope) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     if (!scope.authorized) {
       return NextResponse.json({ error: 'Vertical ID required for vertical admins' }, { status: 403 })
     }
+
+    // ADM-1: a single-vertical admin who omits verticalId is auto-authorized by
+    // verifyAdminScope's fallback (admin.ts:244) with effectiveVerticalId set —
+    // so ALL generators + the filename MUST use the SCOPED vertical, never the
+    // raw body value, or the reports leak every vertical's revenue/payouts/PII.
+    // Platform admins have effectiveVerticalId=null → keep the (possibly
+    // undefined) requested value = unscoped, all-verticals, as intended.
+    const verticalId = scope.effectiveVerticalId ?? requestedVerticalId
 
     const supabaseService = createServiceClient()
 

@@ -154,11 +154,22 @@ export async function POST(request: NextRequest) {
     const batchId = scanLog.id
 
     try {
-      // Supersede old active findings
-      await serviceSupabase
+      // Supersede old active findings. ADM-5: scope to the effective vertical
+      // when the scan is vertical-scoped (a vertical admin, or a platform admin
+      // passing ?vertical=) — otherwise this wiped EVERY vertical's active
+      // findings while re-creating only the scanned vertical's, silently
+      // emptying the other vertical's dashboard (and a bogus ?vertical= wiped
+      // everything, recreated nothing). Scoping also makes a bogus vertical a
+      // safe no-op. Platform admin full scan (no vertical) supersedes all, as
+      // before. (Supersede-before-insert crash-window = CRN-14, tracked there.)
+      let supersedeQuery = serviceSupabase
         .from('vendor_quality_findings')
         .update({ status: 'superseded' })
         .eq('status', 'active')
+      if (effectiveVertical) {
+        supersedeQuery = supersedeQuery.eq('vertical_id', effectiveVertical)
+      }
+      await supersedeQuery
 
       // Run all 5 checks (M3 FIX: pass vertical filter)
       const [

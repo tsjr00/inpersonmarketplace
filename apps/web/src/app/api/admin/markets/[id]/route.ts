@@ -329,6 +329,25 @@ export async function DELETE(
       }, { status: 400 })
     }
 
+    // ADM-3 (schema-intent / blast-radius): 22 tables reference markets(id) ON
+    // DELETE CASCADE, so a hard delete silently destroys any paid financial
+    // history tied to this market — booth rentals, park bookings, the booth
+    // credit ledger, season/settlement groups — taking the audit trail + the
+    // Phase 16/18 cron reconciliation rows with it. Block the delete when any
+    // such record exists (markets.active/status are the designed soft-delete
+    // signals for retiring a market that has history). Parallel existence checks.
+    const [wbr, psb, groups, credits] = await Promise.all([
+      serviceClient.from('weekly_booth_rentals').select('id').eq('market_id', marketId).limit(1),
+      serviceClient.from('park_spot_bookings').select('id').eq('market_id', marketId).limit(1),
+      serviceClient.from('booth_booking_groups').select('id').eq('market_id', marketId).limit(1),
+      serviceClient.from('booth_credits').select('id').eq('market_id', marketId).limit(1),
+    ])
+    if ((wbr.data?.length) || (psb.data?.length) || (groups.data?.length) || (credits.data?.length)) {
+      return NextResponse.json({
+        error: 'Cannot delete a market that has booth rentals, park bookings, booth credits, or season records — deleting it would erase that financial history. Deactivate the market instead.'
+      }, { status: 400 })
+    }
+
     // Delete market (both traditional and private_pickup allowed for admin)
     const { error: deleteError } = await serviceClient
       .from('markets')
