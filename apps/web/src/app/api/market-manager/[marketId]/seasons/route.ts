@@ -235,11 +235,23 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     if (action === 'close_prepay') {
       const status = today >= start ? 'active' : 'draft'
-      const { error: updErr } = await service
+      // MGR-6 (PRK-8 class): only close from a live status. Without this guard,
+      // close_prepay on an ended/settled season RESURRECTS it to active/draft —
+      // bypassing the settle-before-new-season gate above and closing the
+      // make-up window (which is keyed on status='ended').
+      const { data: closedRows, error: updErr } = await service
         .from('market_seasons')
         .update({ prepay_open: false, status })
         .eq('id', seasonId)
+        .in('status', ['draft', 'open', 'active'])
+        .select('id')
       if (updErr) throw traced.fromSupabase(updErr, { table: 'market_seasons', operation: 'update' })
+      if (!closedRows || closedRows.length === 0) {
+        return NextResponse.json(
+          { error: 'This season has already been ended or settled — its pre-sale state can no longer be changed.' },
+          { status: 409 }
+        )
+      }
       return NextResponse.json({ ok: true })
     }
 
@@ -295,6 +307,38 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           { error: `The cap can't exceed ${ceiling} days (15% of this season's ${season.declared_market_days} market days).` },
           { status: 400 }
         )
+      }
+      // MGR-9(a) (user decision 2026-07-16): the cap is part of what vendors
+      // bought — once pre-sales open or any group is paid, it can only move in
+      // the vendors' favor (lower cap = more owed days compensated). Raising it
+      // retroactively shrinks the manager's settlement obligation. Fully frozen
+      // after the season ends (settlement math is running off it).
+      const seasonStatus = season.status as string
+      if (seasonStatus === 'ended' || seasonStatus === 'settled') {
+        return NextResponse.json(
+          { error: "The refund cap can't be changed after the season has ended." },
+          { status: 409 }
+        )
+      }
+      const currentCap = (season.refund_cap_days as number) ?? 0
+      if (requested > currentCap) {
+        let salesStarted = season.prepay_open === true
+        if (!salesStarted) {
+          const { data: paidGroup } = await service
+            .from('booth_booking_groups')
+            .select('id')
+            .eq('season_id', seasonId)
+            .eq('status', 'paid')
+            .limit(1)
+            .maybeSingle()
+          salesStarted = !!paidGroup
+        }
+        if (salesStarted) {
+          return NextResponse.json(
+            { error: 'Vendors have already bought under the current cap — it can be lowered (in their favor) but not raised.' },
+            { status: 409 }
+          )
+        }
       }
       const { error: updErr } = await service
         .from('market_seasons')

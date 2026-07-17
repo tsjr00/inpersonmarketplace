@@ -1,8 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createRefund } from '@/lib/stripe/payments'
+import { stripe } from '@/lib/stripe/config'
 import { restoreInventory } from '@/lib/inventory'
 import { TracedError, logError } from '@/lib/errors'
-import { FEES, proratedFlatFeeSimple } from '@/lib/pricing'
+import { FEES, proratedFlatFeeSimple, calculateSmallOrderFee } from '@/lib/pricing'
 
 /**
  * Phase C — cancel-a-market-day cascade.
@@ -181,7 +182,67 @@ async function refundProductOrders(
       .eq('order_id', oid)
       .is('cancelled_at', null)
     if (!remaining || remaining.length === 0) {
-      await service.from('orders').update({ status: 'cancelled' }).eq('id', oid)
+      const { data: ord } = await service
+        .from('orders')
+        .select('status, stripe_checkout_session_id, tip_amount, subtotal_cents, vertical_id')
+        .eq('id', oid)
+        .maybeSingle()
+
+      // MGR-3b (VOR-19 class, site 7): a still-pending order has a live Stripe
+      // session — expire it BEFORE cancelling so a stale checkout tab can't pay
+      // a dead order. If expire throws, the session may already be complete
+      // (payment landing in a race) — log and leave the order for the webhook/
+      // success path to finalize (CHK-18 pattern, mirrors vendor-reject).
+      let skipOrderCancel = false
+      if (ord?.status === 'pending' && ord?.stripe_checkout_session_id) {
+        try {
+          await stripe.checkout.sessions.expire(ord.stripe_checkout_session_id as string)
+        } catch (expireErr) {
+          await logError(new TracedError('ERR_CHECKOUT_005',
+            `Session expire failed cancelling last item of pending order ${oid} (session ${ord.stripe_checkout_session_id}): ${expireErr instanceof Error ? expireErr.message : String(expireErr)}`,
+            { route: '/api/market-manager/[marketId]/cancel-date', method: 'POST' }))
+          skipOrderCancel = true
+        }
+      }
+
+      if (!skipOrderCancel) {
+        // MGR-3: guarded flip — never clobber a refunded/completed order that a
+        // racing webhook finalized between the per-item pass and this rollup.
+        await service
+          .from('orders')
+          .update({ status: 'cancelled' })
+          .eq('id', oid)
+          .in('status', ['pending', 'paid'])
+      }
+
+      // MGR-3a (VOR-16/VOR-5B decision, site 6 — user extended 2026-07-16): the
+      // cascade killed the order's LAST live item, so also refund the order-level
+      // tip + small-order fee. FULL port (unlike buyer-cancel's tip-only): this
+      // file's per-item refunds cover subtotal + % fee + prorated FLAT fee only —
+      // no small-order-fee share (contrast cancellation-fees.ts:72-73). Small fee
+      // recomputed from the charge-time inputs; the deterministic `-order-fees`
+      // key dedups cross-path races at Stripe.
+      const orderTipCents = (ord?.tip_amount as number | null) || 0
+      const orderSmallFeeCents = calculateSmallOrderFee((ord?.subtotal_cents as number) || 0, ord?.vertical_id as string | undefined)
+      const orderFeeRefundCents = orderTipCents + orderSmallFeeCents
+      if (orderFeeRefundCents > 0) {
+        const { data: feePayment } = await service
+          .from('payments')
+          .select('stripe_payment_intent_id')
+          .eq('order_id', oid)
+          .eq('status', 'succeeded')
+          .maybeSingle()
+        if (feePayment?.stripe_payment_intent_id) {
+          try {
+            await createRefund(feePayment.stripe_payment_intent_id, `${oid}-order-fees`, orderFeeRefundCents)
+          } catch (feeRefundErr) {
+            await logError(new TracedError('ERR_REFUND_001',
+              `Order-level tip/fee refund failed on market-day cancellation of order ${oid}: ${feeRefundErr instanceof Error ? feeRefundErr.message : String(feeRefundErr)}`,
+              { route: '/api/market-manager/[marketId]/cancel-date', method: 'POST', orderId: oid, amountCents: orderFeeRefundCents }))
+          }
+        }
+      }
+
       const { error: waveErr } = await service.rpc('free_wave_on_order_cancel', { p_order_id: oid })
       if (waveErr) console.error('[cancel-date] free_wave_on_order_cancel:', waveErr.message)
     }

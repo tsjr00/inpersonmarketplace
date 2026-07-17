@@ -4,7 +4,7 @@ import { notifyOrderExpired, sendNotification } from '@/lib/notifications'
 import { createRefund, transferToVendor, transferMarketBoxPayout, getChargeIdFromPaymentIntent } from '@/lib/stripe/payments'
 import { restoreInventory, restoreOrderInventory } from '@/lib/inventory'
 import { timingSafeEqual } from 'crypto'
-import { withErrorTracing, TracedError, logError } from '@/lib/errors'
+import { withErrorTracing, TracedError, logError, traced } from '@/lib/errors'
 import { FEES, proratedFlatFeeSimple, calculateSmallOrderFee } from '@/lib/pricing'
 import { getTierLimits, TRIAL_SYSTEM_ENABLED } from '@/lib/vendor-limits'
 import { todayInTimezone, tomorrowInTimezone, addDaysToDateString } from '@/lib/time/market-dates'
@@ -2746,7 +2746,9 @@ export async function GET(request: NextRequest) {
         .lt('booked_at', thirtyMinAgo)
         .select('id, vendor_profile_id, market_id, week_start_date')
       if (orphanErr) {
-        console.error('Phase 16 orphan sweep error:', orphanErr.message)
+        // MGR-10: sweep failures must reach error_logs — a silently-failed sweep
+        // leaves booth slots locked (MGR-2 lockout feeder) with no diagnostic trail.
+        await logError(traced.fromSupabase(orphanErr, { table: 'weekly_booth_rentals', operation: 'update' }))
       } else {
         boothRentalsCancelledOrphan = orphans?.length ?? 0
       }
@@ -2761,7 +2763,7 @@ export async function GET(request: NextRequest) {
         .lt('booked_at', twentyFourHoursAgo)
         .select('id, vendor_profile_id, market_id, week_start_date')
       if (staleErr) {
-        console.error('Phase 16 stale-session sweep error:', staleErr.message)
+        await logError(traced.fromSupabase(staleErr, { table: 'weekly_booth_rentals', operation: 'update' }))
       } else {
         boothRentalsCancelledStale = stale?.length ?? 0
       }
@@ -2779,7 +2781,7 @@ export async function GET(request: NextRequest) {
           .eq('source', 'redeemed')
           .lt('amount_cents', 0)
         for (const r of redeemedForRentals ?? []) {
-          await supabase.from('booth_credits').insert({
+          const { error: releaseErr } = await supabase.from('booth_credits').insert({
             vendor_profile_id: r.vendor_profile_id,
             market_id: r.market_id,
             amount_cents: -(r.amount_cents as number),
@@ -2787,6 +2789,12 @@ export async function GET(request: NextRequest) {
             related_rental_id: r.related_rental_id,
             note: 'Released — rental abandoned',
           })
+          if (releaseErr) {
+            // MGR-7: a failed release permanently destroys this vendor's credit
+            // (the −redeemed row stands with no compensating +row) — the rental is
+            // already cancelled so this loop won't retry it. Loud, for admin re-mint.
+            await logError(traced.fromSupabase(releaseErr, { table: 'booth_credits', operation: 'insert' }))
+          }
         }
       }
 

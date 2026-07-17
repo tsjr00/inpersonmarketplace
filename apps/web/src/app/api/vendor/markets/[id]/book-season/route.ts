@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb, logError } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, logError, TracedError } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import { fetchMarketOptinForVendor } from '@/lib/markets/optin-public'
@@ -268,8 +268,15 @@ export async function POST(
       // Clean up so the vendor can retry: cancel the group (mig 168's
       // cancel_season_group also RELEASES any booth credit reserved for it, so the
       // vendor's balance is restored). The cancelled group + children are inert.
-      console.error('[book-season] Stripe session creation failed:', stripeError)
-      await serviceClient.rpc('cancel_season_group', { p_group_id: booking.groupId, p_reason: 'stripe_session_failed' })
+      logError(new TracedError('ERR_CHECKOUT_002',
+        `[book-season] Stripe session creation failed: ${stripeError instanceof Error ? stripeError.message : String(stripeError)}`,
+        { route: '/api/vendor/markets/[id]/book-season', method: 'POST' }))
+      // MGR-7/MGR-10: a failed cleanup here means the group stays pending AND the
+      // reserved credit stays deducted — must reach error_logs, not vanish.
+      const { error: csgErr } = await serviceClient.rpc('cancel_season_group', { p_group_id: booking.groupId, p_reason: 'stripe_session_failed' })
+      if (csgErr) {
+        logError(traced.fromSupabase(csgErr, { table: 'booth_booking_groups', operation: 'rpc' }))
+      }
       return NextResponse.json({
         error: 'Could not start the payment flow. Please try again in a few minutes, or reach out to the market manager.',
       }, { status: 502 })

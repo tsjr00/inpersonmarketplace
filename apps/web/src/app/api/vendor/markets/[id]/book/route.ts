@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb, logError } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, logError, TracedError } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import { fetchMarketOptinForVendor } from '@/lib/markets/optin-public'
@@ -382,7 +382,9 @@ export async function POST(
     if (!rentalRow) {
       // RPC returned no rows AND no error — defense-in-depth (shouldn't
       // happen given the function contract, but don't silently 200).
-      console.error('[vendor/markets/book] book_weekly_booth_atomic returned empty result')
+      logError(new TracedError('ERR_CHECKOUT_010',
+        '[vendor/markets/book] book_weekly_booth_atomic returned empty result with no error',
+        { route: '/api/vendor/markets/[id]/book', method: 'POST' }))
       return NextResponse.json(
         { error: 'Could not complete booking. Please try again.' },
         { status: 500 }
@@ -472,11 +474,19 @@ export async function POST(
       // Delete the orphan rental row so vendor can retry immediately.
       // WHERE conditions belt-and-suspender to ensure we only delete the
       // row we just made.
-      console.error('[vendor/markets/book] Stripe session creation failed:', stripeError)
+      logError(new TracedError('ERR_CHECKOUT_002',
+        `[vendor/markets/book] Stripe session creation failed: ${stripeError instanceof Error ? stripeError.message : String(stripeError)}`,
+        { route: '/api/vendor/markets/[id]/book', method: 'POST' }))
       // Release any booth credit reserved for this rental before deleting it
       // (delete SET-NULLs the FK and would strand the −amount otherwise).
+      // MGR-7: the release insert MUST be verified before the delete — a failed
+      // release + delete would silently destroy the vendor's credit balance (the
+      // −redeemed row stands with no compensating +row, uncorrelatable after the
+      // FK SET-NULL). On failure, keep the rental row: the Phase 16 orphan sweep
+      // (~30 min) cancels it and re-attempts the release with the FK intact.
+      let skipDelete = false
       if (appliedCreditCents > 0) {
-        await serviceClient.from('booth_credits').insert({
+        const { error: releaseErr } = await serviceClient.from('booth_credits').insert({
           vendor_profile_id: profile.id,
           market_id: marketId,
           amount_cents: appliedCreditCents,
@@ -484,18 +494,27 @@ export async function POST(
           related_rental_id: rental.id,
           note: 'Released — booking cancelled unpaid',
         })
+        if (releaseErr) {
+          logError(traced.fromSupabase(releaseErr, {
+            table: 'booth_credits',
+            operation: 'insert',
+          }))
+          skipDelete = true
+        }
       }
-      const { error: cleanupErr } = await serviceClient
-        .from('weekly_booth_rentals')
-        .delete()
-        .eq('id', rental.id)
-        .eq('status', 'pending_payment')
-        .is('stripe_checkout_session_id', null)
-      if (cleanupErr) {
-        logError(traced.fromSupabase(cleanupErr, {
-          table: 'weekly_booth_rentals',
-          operation: 'delete',
-        }))
+      if (!skipDelete) {
+        const { error: cleanupErr } = await serviceClient
+          .from('weekly_booth_rentals')
+          .delete()
+          .eq('id', rental.id)
+          .eq('status', 'pending_payment')
+          .is('stripe_checkout_session_id', null)
+        if (cleanupErr) {
+          logError(traced.fromSupabase(cleanupErr, {
+            table: 'weekly_booth_rentals',
+            operation: 'delete',
+          }))
+        }
       }
       // agreement_acceptance row is left intact — idempotent on the
       // version hash, so a retry will reuse it via the 23505 catch path.

@@ -90,7 +90,8 @@ const FLIP_ALLOWLIST: FlipAllow[] = [
   { file: 'app/api/admin/events/[id]/route.ts', table: 'orders', status: 'cancelled', count: 1, reason: 'admin event cancel — authoritative' },
   { file: 'app/api/events/[token]/cancel/route.ts', table: 'orders', status: 'cancelled', count: 1, reason: 'organizer event cancel — authoritative' },
   { file: 'app/api/vendor/events/[marketId]/cancel/route.ts', table: 'orders', status: 'cancelled', count: 1, reason: 'EVT-5 vendor commitment-cancel — all-vendor-items-cancelled pattern (live-items checked first; .not terminal-status filter)' },
-  { file: 'lib/markets/cancel-date-cascade.ts', table: 'orders', status: 'cancelled', count: 1, reason: 'manager cancel-date cascade — rows selected by explicit id list' },
+  // cancel-date-cascade orders flip: entry REMOVED 2026-07-16 — MGR-3 guarded it
+  // (.in pending/paid + VOR-19 session-expire), so it's now ENFORCED, not allowlisted.
   { file: 'app/api/vendor/orders/[id]/confirm-external-payment/route.ts', table: 'orders', status: 'paid', count: 1, reason: 'external-payment flow (EXTERNAL_PAYMENTS_ENABLED=false, dormant); vendor attests payment received' },
   { file: 'lib/stripe/webhooks.ts', table: 'orders', status: 'refunded', count: 1, reason: 'charge.refunded — Stripe is authoritative' },
   // ── order_items post-refund bookkeeping (the row was cancelled by this

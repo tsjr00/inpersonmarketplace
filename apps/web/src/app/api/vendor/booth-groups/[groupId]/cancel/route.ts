@@ -105,6 +105,25 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       appliedCreditCents,
     )
 
+    // MGR-1 (VOR-8 class): claim-first — atomically flip the group paid→cancelled
+    // BEFORE any credit mint. A concurrent double-submit loses this conditional
+    // update (0 rows) and 409s, so the cancel credit + D5 release can never mint
+    // twice for one cancellation. Trade-off (VOR-15 stuck-but-loud precedent): a
+    // failure between this claim and the mints below loses the credit but throws
+    // into error_logs; a retry 409s here, so recovery is an admin re-mint from
+    // the log entry — loud and bounded, never a silent double-mint.
+    crumb.supabase('update', 'booth_booking_groups')
+    const { data: claimed, error: grpErr } = await service
+      .from('booth_booking_groups')
+      .update({ status: 'cancelled' })
+      .eq('id', groupId)
+      .eq('status', 'paid')
+      .select('id')
+    if (grpErr) throw traced.fromSupabase(grpErr, { table: 'booth_booking_groups', operation: 'update' })
+    if (!claimed || claimed.length === 0) {
+      return NextResponse.json({ error: 'This booking was already cancelled.' }, { status: 409 })
+    }
+
     // Grant the credit (positive ledger row, with expiry — Item 2).
     if (creditCents > 0) {
       const expiresAt = computeCreditExpiry(seasonEndDate, rows.map((r) => r.week_start_date))
@@ -135,19 +154,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (relErr) throw traced.fromSupabase(relErr, { table: 'booth_credits', operation: 'insert' })
     }
 
-    // Cancel the affected child rentals + the group.
+    // Cancel the affected child rentals (the group was already claimed above).
+    // MGR-1: guarded so a racing path can't clobber a non-paid child row.
     if (idsToCancel.length > 0) {
       crumb.supabase('update', 'weekly_booth_rentals')
       const { error: childErr } = await service
         .from('weekly_booth_rentals')
         .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
         .in('id', idsToCancel)
+        .eq('status', 'paid')
       if (childErr) throw traced.fromSupabase(childErr, { table: 'weekly_booth_rentals', operation: 'update' })
     }
-    crumb.supabase('update', 'booth_booking_groups')
-    const { error: grpErr } = await service
-      .from('booth_booking_groups').update({ status: 'cancelled' }).eq('id', groupId)
-    if (grpErr) throw traced.fromSupabase(grpErr, { table: 'booth_booking_groups', operation: 'update' })
 
     return NextResponse.json({
       cancelled: true,

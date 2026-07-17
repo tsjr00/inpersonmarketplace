@@ -1,6 +1,42 @@
-# Current Task: Pre-re-release code review (Fable) — 5 of 10 slices done, all P0s+P1s fixed, test immune-system built, everything on staging
+# Current Task: Pre-re-release review (7/10 slices found) + park tester fixes SHIPPED — next: slice-3 (MGR) verification + fix batch
 
-**Updated:** 2026-07-14 (Fable 5 session, day 3). **Mode:** Report.
+**Updated:** 2026-07-15 EOD (Fable 5 session, day 4). **Mode:** Report.
+
+---
+
+## ⭐⭐⭐⭐⭐⭐⭐⭐⭐ NEXT SESSION START HERE (2026-07-15 EOD) — read this, VERIFY LIVE GIT, then STOP & ask
+
+### Git / deploy state (VERIFY — memory drifts)
+- **STAGING `origin/staging` = local `main` = `89d40853`** (everything committed AND pushed; tree clean except `settings.local.json`). *(If a docs commit landed after this block was written, staging tip may be one docs commit later — code state identical.)*
+- **PROD `origin/main` = `62b686f7`** — unchanged all cycle. **Prod-pending migrations: 184 → 185 → 186 → 187 → 188 → 189 → 190 → 191 → 192, apply IN ORDER (USER applies) before the combined prod push** (9 PM–7 AM CT window, user go, teaching-mode, verify Vercel build + smoke). Migs 190/191/192 are applied to Dev + Staging.
+- **Day 3+4 commits on staging, oldest→newest:** `69d4664c` (VOR-16/17/18/19 + baseline re-measure) → `cc0fdc5f`/`efa6a7c6`/`9c2f6c4c` (EVT batches A/B/D) → `4d76dc1d` (docs) → `5bcd2001`/`212e58b6`/`7cf393e4`/`b30c39c2` (park tester batches T1-T4) → `89d40853` (docs). All on top of the day-1/2 review commits (46b19828…556b34e0).
+- **USER HAS NOT STAGING-TESTED the day 3+4 work** — test maps: EVT items in the 07-14 block below; park tester items in `park_tester_feedback_2026-07-15_research.md` + the T1-T4 commit messages.
+
+### Review progress — 7 of 10 slices FOUND (6 fully fixed)
+| Slice | Status |
+|---|---|
+| 1 checkout · 2 vendor-orders · 4 FT park · 6 market-box · 8 crons | ✅ found + P0/P1-fixed (days 1-2) |
+| 5 events | ✅ found + fixed (day 3) EXCEPT company-paid = deferred backlog package; EVT-16 efficiency tail open |
+| **3 market-manager** | **MGR-1..10 ALL ANCHOR-VERIFIED 2026-07-16 (main session) — fix batches presented, awaiting user go. Verification notes in the ledger's slice-3 header.** |
+| 7 auth/RLS · 10 admin · 9 notifications | ⬜ not yet run |
+
+### NEXT TASK — slice-3 (MGR) verification + fix batch (user-sequenced AFTER the park tester work, which is DONE)
+1. Read the ledger's slice-3 section (bottom of `FINDINGS_LEDGER.md`) — 10 findings with anchors, all marked "open (unverified)".
+2. Verify each anchor with your own reads (finder reports are leads, not truth) — start with the P1s: MGR-1 (booth-credit double-mint race), MGR-2 (cancelled-rental permanent lockout — needs a MIGRATION: partial unique index), MGR-3 (cancel-date-cascade tip-refund + session-expire gaps — needs user nod to extend the VOR-5B decision, exactly like VOR-16 did).
+3. Present a fix batch, ONE go per batch, ledger + docs updated as you work. MGR-9 is a POLICY call (user decides). Fixes touching money-table flips/transfers may trip the money-structure suites — that's the system working; handle per the PROTOCOL (in the 07-13 block below).
+
+### Park tester feedback (day 4) — ALL BUILT + SHIPPED to staging
+11 points investigated (NO regressions — P1/P2 were FM-only work never ported to FT, git-verified). Full record + FINAL DECISIONS: `apps/web/.claude/park_tester_feedback_2026-07-15_research.md`. T1-T4 shipped (details in the day-4 block below); **T5 deferred to backlog** (get_available_pickup_dates park-date intersection — money-gate RPC, own careful build; interim gap accepted: auto-created recurring schedules persist past booked dates).
+
+### Open items by owner
+**USER:** staging test of the day-3+4 train; MGR-9 policy call (when presented); still-open older decisions VOR-11 (status-transitions module) + PRK-10 (earnings snapshot); prod push timing (apply 184→192 first, IN ORDER).
+**CLAUDE next session:** slice-3 verify + fix → then slices 7 (auth/RLS) → 10 (admin) → 9 (notifications).
+**Deferred packages (backlog.md):** company-paid events (EVT-1/2/7/11/13/17 + VOR-14 + EVT-15 half); T5 pickup-date bounding; CHK-1 webhook 3-way remainder; efficiency tails.
+
+### Working agreement (unchanged — full text in the 07-13 block below)
+Report mode default · mechanical self-check before critical-path/money edits (quote the authorizing words or STOP) · batch approvals · hook block = verify-then-retry · commit AND push separate approvals · staging-first · teaching-mode git ON · prod window 9 PM–7 AM CT · user applies migrations, Claude does snapshot bookkeeping · never change a business-rule test to match code (incl. the 3 money suites — PROTOCOL below) · finder reports are leads, verify anchors before fixing · pre-migration-safe companion code when a migration ships with a batch.
+
+---
 
 ## ⭐⭐⭐⭐⭐⭐⭐ 2026-07-14 SESSION (day 3) — tripwired small batch DONE, next = slice 5 (events) then slice 3
 
