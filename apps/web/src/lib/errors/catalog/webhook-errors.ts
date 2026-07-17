@@ -89,4 +89,21 @@ export const WEBHOOK_ERRORS: ErrorCatalogEntry[] = [
     ],
     pgCodes: [],
   },
+  {
+    code: 'ERR_WEBHOOK_016',
+    title: 'Stripe Fee Capture Failed',
+    category: 'STRIPE',
+    severity: 'low',
+    description: 'After a successful checkout, retrieving the charge\'s actual Stripe fee (balance_transaction.fee) to store on the payment row failed. NOT a money-safety issue — the payment, order, and payouts are unaffected. The report layer falls back to the 2.9%+$0.30 estimate for this order until the fee is captured.',
+    userGuidance: '',
+    causes: [
+      'Transient Stripe API error on paymentIntents.retrieve',
+      'balance_transaction still pending at webhook time (async payment method)',
+    ],
+    solutions: [
+      'No action needed — reports use the estimate meanwhile',
+      'Run POST /api/admin/backfill-stripe-fees to re-attempt fee capture for rows still missing it',
+    ],
+    pgCodes: [],
+  },
 ]

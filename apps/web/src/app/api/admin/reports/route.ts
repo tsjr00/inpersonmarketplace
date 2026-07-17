@@ -3,6 +3,8 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
 import { verifyAdminScope } from '@/lib/auth/admin'
+import { FEES, SUBSCRIPTION_AMOUNTS } from '@/lib/pricing'
+import { computeOrderPlatformRevenue } from '@/lib/reports/platform-revenue'
 
 interface ReportRequest {
   reportId: string
@@ -46,6 +48,48 @@ function formatDate(date: string | null): string {
     month: '2-digit',
     day: '2-digit'
   })
+}
+
+// ADM-6: effective MONTHLY subscription revenue from the canonical amounts
+// (pricing.ts SUBSCRIPTION_AMOUNTS), never hardcoded, and annual cycles are
+// divided to a monthly-equivalent instead of being reported at the monthly rate.
+// ADM-2 fee-capture: map order_id → actual Stripe fee (payments.stripe_fee_cents).
+// Reports that query order_items (not payments) use this so platform NET reflects
+// the real per-card Stripe cost when captured; NULL/absent → estimate fallback.
+async function fetchStripeFeeByOrder(
+  supabase: ReturnType<typeof createServiceClient>,
+  orderIds: string[],
+): Promise<Map<string, number>> {
+  const map = new Map<string, number>()
+  if (orderIds.length === 0) return map
+  // Chunk to stay well under URL/IN-list limits on large ranges.
+  const CHUNK = 500
+  for (let i = 0; i < orderIds.length; i += CHUNK) {
+    const slice = orderIds.slice(i, i + CHUNK)
+    const { data } = await supabase
+      .from('payments')
+      .select('order_id, stripe_fee_cents')
+      .in('order_id', slice)
+      .not('stripe_fee_cents', 'is', null)
+    for (const p of data || []) {
+      if (typeof p.stripe_fee_cents === 'number') map.set(p.order_id as string, p.stripe_fee_cents)
+    }
+  }
+  return map
+}
+
+function effectiveMonthlyCents(kind: 'vendor' | 'buyer', tier: string | null, cycle: string | null): number {
+  const annual = cycle === 'annual'
+  if (kind === 'buyer') {
+    return annual ? Math.round(SUBSCRIPTION_AMOUNTS.buyer_annual_cents / 12) : SUBSCRIPTION_AMOUNTS.buyer_monthly_cents
+  }
+  if (tier === 'pro') {
+    return annual ? Math.round(SUBSCRIPTION_AMOUNTS.pro_annual_cents / 12) : SUBSCRIPTION_AMOUNTS.pro_monthly_cents
+  }
+  if (tier === 'boss') {
+    return annual ? Math.round(SUBSCRIPTION_AMOUNTS.boss_annual_cents / 12) : SUBSCRIPTION_AMOUNTS.boss_monthly_cents
+  }
+  return 0
 }
 
 export async function POST(request: NextRequest) {
@@ -311,15 +355,20 @@ async function generateSalesSummary(supabase: ReturnType<typeof createServiceCli
 }
 
 async function generateRevenueFees(supabase: ReturnType<typeof createServiceClient>, dateFrom: string, dateTo: string, verticalId?: string) {
+  // ADM-2: fetch order-level charge/tip/method (+ order id to group by) so
+  // platform revenue reconciles to the real Stripe charge, not the ~13%
+  // combined platform_fee_cents. refund_amount_cents kept per item for exact
+  // refund accounting.
   let query = supabase
     .from('order_items')
     .select(`
+      order_id,
       subtotal_cents,
-      platform_fee_cents,
       vendor_payout_cents,
+      refund_amount_cents,
       status,
       created_at,
-      order:orders!inner (created_at, status, vertical_id)
+      order:orders!inner (id, created_at, status, vertical_id, total_cents, tip_amount, tip_on_platform_fee_cents, payment_method)
     `)
     .gte('created_at', dateFrom)
     .lte('created_at', dateTo)
@@ -330,27 +379,60 @@ async function generateRevenueFees(supabase: ReturnType<typeof createServiceClie
 
   const { data: items } = await query
 
+  // Gross sales (Σ subtotal on non-cancelled items) + cancelled bucket stay
+  // per item. Platform revenue is aggregated once per ORDER via the helper.
   let grossSales = 0
-  let platformFees = 0
-  let vendorPayouts = 0
   let cancelledAmount = 0
+  const ordersById = new Map<string, { order: any; items: any[] }>()
 
   items?.forEach((item: any) => {
-    if (item.status === 'cancelled' || item.order?.status === 'cancelled') {
+    const cancelled = item.status === 'cancelled' || item.order?.status === 'cancelled'
+    if (cancelled) {
       cancelledAmount += item.subtotal_cents || 0
     } else {
       grossSales += item.subtotal_cents || 0
-      platformFees += item.platform_fee_cents || 0
-      vendorPayouts += item.vendor_payout_cents || 0
     }
+    const oid = item.order_id
+    if (!oid || !item.order) return
+    if (!ordersById.has(oid)) ordersById.set(oid, { order: item.order, items: [] })
+    ordersById.get(oid)!.items.push(item)
   })
 
+  const feeByOrder = await fetchStripeFeeByOrder(supabase, [...ordersById.keys()])
+
+  let vendorPayouts = 0
+  let platformGross = 0
+  let stripeCost = 0
+  let platformNet = 0
+  let refunds = 0
+  for (const { order, items: orderItems } of ordersById.values()) {
+    const money = computeOrderPlatformRevenue({
+      totalCents: order.total_cents || 0,
+      tipAmount: order.tip_amount || 0,
+      tipOnPlatformFeeCents: order.tip_on_platform_fee_cents || 0,
+      isStripe: (order.payment_method || 'stripe') === 'stripe',
+      actualStripeFeeCents: feeByOrder.get(order.id) ?? null,
+      items: orderItems.map((it: any) => ({
+        vendorPayoutCents: it.vendor_payout_cents || 0,
+        refundAmountCents: it.refund_amount_cents || 0,
+        cancelled: it.status === 'cancelled' || order.status === 'cancelled',
+      })),
+    })
+    vendorPayouts += money.vendorPayoutCents
+    platformGross += money.grossPlatformCents
+    stripeCost += money.stripeCostCents
+    platformNet += money.netPlatformCents
+    refunds += money.refundCents
+  }
+
   const data = [
-    { metric: 'Gross Sales', amount: formatCents(grossSales) },
-    { metric: 'Platform Fees Collected', amount: formatCents(platformFees) },
-    { metric: 'Vendor Payouts (Owed)', amount: formatCents(vendorPayouts) },
-    { metric: 'Net Platform Revenue', amount: formatCents(platformFees) },
-    { metric: 'Cancelled/Refunded', amount: formatCents(cancelledAmount) },
+    { metric: 'Gross Sales (product subtotal)', amount: formatCents(grossSales) },
+    { metric: 'Vendor Payouts', amount: formatCents(vendorPayouts) },
+    { metric: 'Platform Revenue (Gross)', amount: formatCents(platformGross) },
+    { metric: 'Est. Stripe Processing Cost', amount: formatCents(stripeCost) },
+    { metric: 'Platform Revenue (Net, after Stripe + refunds)', amount: formatCents(platformNet) },
+    { metric: 'Refunds Issued', amount: formatCents(refunds) },
+    { metric: 'Cancelled (product subtotal)', amount: formatCents(cancelledAmount) },
   ]
 
   return toCSV(data, [
@@ -1356,14 +1438,42 @@ async function generateTransactionReconciliation(supabase: ReturnType<typeof cre
     if (p.order_item_id) payoutMap.set(p.order_item_id, p)
   })
 
+  // Actual Stripe fee per order (tolerant of a not-yet-applied mig 196 — returns
+  // an empty map on a missing column, so net falls back to the estimate).
+  const feeByOrder = await fetchStripeFeeByOrder(
+    supabase,
+    [...new Set((payments || []).map((p: any) => p.order_id).filter(Boolean))] as string[],
+  )
+
   const rows: Record<string, unknown>[] = []
 
   payments?.forEach((payment: any) => {
     const order = payment.order
     if (!order) return
+    const items = order.order_items || []
 
-    order.order_items?.forEach((item: any) => {
+    // ADM-2: order-level money computed ONCE per order (total_cents + tip are
+    // order-level; summing them per item would multi-count a multi-vendor order).
+    const money = computeOrderPlatformRevenue({
+      totalCents: order.total_cents || 0,
+      tipAmount: order.tip_amount || 0,
+      tipOnPlatformFeeCents: order.tip_on_platform_fee_cents || 0,
+      isStripe: (order.payment_method || 'stripe') === 'stripe',
+      actualStripeFeeCents: feeByOrder.get(payment.order_id) ?? null, // real fee when captured; else estimate
+      items: items.map((it: any) => ({
+        vendorPayoutCents: it.vendor_payout_cents || 0,
+        refundAmountCents: it.refund_amount_cents || 0,
+        cancelled: it.status === 'cancelled',
+      })),
+    })
+
+    items.forEach((item: any, idx: number) => {
       const payout = payoutMap.get(item.id)
+      const firstRow = idx === 0 // order-level columns appear once per order
+      // Buyer-side percentage fee for THIS item (buyer always pays 6.5%,
+      // independent of any vendor fee override) — replaces the old mislabel
+      // that used platform_fee_cents (the COMBINED ~13% fee).
+      const buyerPercentFee = Math.round((item.subtotal_cents || 0) * (FEES.buyerFeePercent / 100))
       rows.push({
         date: formatDate(payment.created_at),
         order_number: order.order_number,
@@ -1372,17 +1482,22 @@ async function generateTransactionReconciliation(supabase: ReturnType<typeof cre
         stripe_payment_id: payment.stripe_payment_intent_id || '',
         item: item.listing?.title || 'Unknown',
         item_subtotal: formatCents(item.subtotal_cents),
-        buyer_fee: formatCents(item.platform_fee_cents),
-        buyer_total: formatCents((item.subtotal_cents || 0) + (item.platform_fee_cents || 0)),
+        buyer_pct_fee: formatCents(buyerPercentFee),
         vendor_payout: formatCents(item.vendor_payout_cents),
-        platform_fee_kept: formatCents((item.platform_fee_cents || 0) + ((item.subtotal_cents || 0) - (item.vendor_payout_cents || 0) - (item.platform_fee_cents || 0))),
-        tip: formatCents(order.tip_amount || 0),
-        tip_platform_portion: formatCents(order.tip_on_platform_fee_cents || 0),
         refund_amount: formatCents(item.refund_amount_cents || 0),
         item_status: item.status,
         stripe_transfer_id: payout?.stripe_transfer_id || '',
         transfer_status: payout?.status || 'pending',
         transfer_amount: payout ? formatCents(payout.amount_cents) : '',
+        // ── order-level (first item row only; blank on the order's other items
+        //    so a multi-vendor order's charge/tip/revenue isn't multi-counted) ──
+        buyer_total: firstRow ? formatCents(order.total_cents) : '',
+        tip: firstRow ? formatCents(order.tip_amount || 0) : '',
+        tip_platform_portion: firstRow ? formatCents(order.tip_on_platform_fee_cents || 0) : '',
+        platform_gross: firstRow ? formatCents(money.grossPlatformCents) : '',
+        stripe_cost: firstRow ? formatCents(money.stripeCostCents) : '',
+        stripe_cost_basis: firstRow ? (money.stripeCostIsActual ? 'actual' : 'estimate') : '',
+        platform_net: firstRow ? formatCents(money.netPlatformCents) : '',
       })
     })
   })
@@ -1395,17 +1510,20 @@ async function generateTransactionReconciliation(supabase: ReturnType<typeof cre
     { key: 'stripe_payment_id', label: 'Stripe Payment ID' },
     { key: 'item', label: 'Item' },
     { key: 'item_subtotal', label: 'Item Subtotal' },
-    { key: 'buyer_fee', label: 'Buyer Fee' },
-    { key: 'buyer_total', label: 'Buyer Paid' },
-    { key: 'vendor_payout', label: 'Vendor Payout' },
-    { key: 'platform_fee_kept', label: 'Platform Revenue' },
-    { key: 'tip', label: 'Tip Total' },
-    { key: 'tip_platform_portion', label: 'Tip (Platform Portion)' },
-    { key: 'refund_amount', label: 'Refund Amount' },
+    { key: 'buyer_pct_fee', label: 'Buyer Fee (6.5%, per item)' },
+    { key: 'vendor_payout', label: 'Vendor Payout (per item)' },
+    { key: 'refund_amount', label: 'Refund Amount (per item)' },
     { key: 'item_status', label: 'Item Status' },
     { key: 'stripe_transfer_id', label: 'Stripe Transfer ID' },
     { key: 'transfer_status', label: 'Transfer Status' },
     { key: 'transfer_amount', label: 'Transfer Amount' },
+    { key: 'buyer_total', label: 'Buyer Paid (order)' },
+    { key: 'tip', label: 'Tip Total (order)' },
+    { key: 'tip_platform_portion', label: 'Tip Platform Portion (order)' },
+    { key: 'platform_gross', label: 'Platform Revenue Gross (order)' },
+    { key: 'stripe_cost', label: 'Stripe Cost (order)' },
+    { key: 'stripe_cost_basis', label: 'Stripe Cost Basis' },
+    { key: 'platform_net', label: 'Platform Revenue Net (order)' },
   ])
 }
 
@@ -1652,7 +1770,7 @@ async function generateSubscriptionRevenue(supabase: ReturnType<typeof createSer
       started: formatDate(v.tier_started_at),
       expires: formatDate(v.tier_expires_at),
       stripe_sub_id: v.stripe_subscription_id || '',
-      monthly_revenue: v.tier === 'pro' ? '$25.00' : v.tier === 'boss' ? '$50.00' : '$0.00',
+      monthly_revenue: formatCents(effectiveMonthlyCents('vendor', v.tier, v.subscription_cycle)),
     })
   })
 
@@ -1667,7 +1785,7 @@ async function generateSubscriptionRevenue(supabase: ReturnType<typeof createSer
       started: formatDate(b.tier_started_at),
       expires: formatDate(b.tier_expires_at),
       stripe_sub_id: b.stripe_subscription_id || '',
-      monthly_revenue: '$9.99',
+      monthly_revenue: formatCents(effectiveMonthlyCents('buyer', 'premium', b.subscription_cycle)),
     })
   })
 
@@ -1759,22 +1877,28 @@ async function generateTaxSummary(supabase: ReturnType<typeof createServiceClien
     { key: 'gross_sales', label: 'Gross Sales' },
     { key: 'stripe_sales', label: 'Stripe Sales' },
     { key: 'external_sales', label: 'External Sales' },
-    { key: 'platform_fees', label: 'Platform Fee Revenue' },
+    // ADM-2: this is the COMBINED buyer+vendor percentage fee (platform_fee_cents);
+    // it excludes the per-order flat + small-order fees, which can't be cleanly
+    // allocated to a state when an order spans markets. Labeled honestly rather
+    // than presented as total platform revenue (see revenue_fees / monthly_pnl
+    // for the order-level gross/net figures).
+    { key: 'platform_fees', label: 'Platform % Fees (excl. flat/small-order fees)' },
   ])
 }
 
 async function generateMonthlyPnl(supabase: ReturnType<typeof createServiceClient>, dateFrom: string, dateTo: string, verticalId?: string) {
-  // Get all order items in range
+  // Get all order items in range (+ order-level charge/tip/method and order id
+  // to aggregate ONCE per order — ADM-2).
   let query = supabase
     .from('order_items')
     .select(`
+      order_id,
       subtotal_cents,
-      platform_fee_cents,
       vendor_payout_cents,
       refund_amount_cents,
       status,
       created_at,
-      order:orders!inner (vertical_id, status, tip_amount, tip_on_platform_fee_cents, payment_method)
+      order:orders!inner (id, created_at, vertical_id, status, total_cents, tip_amount, tip_on_platform_fee_cents, payment_method)
     `)
     .gte('created_at', dateFrom)
     .lte('created_at', dateTo)
@@ -1785,77 +1909,94 @@ async function generateMonthlyPnl(supabase: ReturnType<typeof createServiceClien
 
   const { data: items } = await query
 
-  // Group by month
-  const byMonth = new Map<string, {
+  interface MonthBucket {
     grossSales: number
-    platformFees: number
     vendorPayouts: number
+    platformGross: number
+    stripeCost: number
+    platformNet: number
     refunds: number
-    tipRevenue: number
+    tipPlatform: number
     stripeOrders: number
     externalOrders: number
     cancelledItems: number
-  }>()
+  }
+  const newBucket = (): MonthBucket => ({
+    grossSales: 0, vendorPayouts: 0, platformGross: 0, stripeCost: 0, platformNet: 0,
+    refunds: 0, tipPlatform: 0, stripeOrders: 0, externalOrders: 0, cancelledItems: 0,
+  })
+  const byMonth = new Map<string, MonthBucket>()
+  const ordersById = new Map<string, { order: any; items: any[]; month: string }>()
 
+  // Per-item pass: gross sales + cancelled count stay per item; collect items per order.
   items?.forEach((item: any) => {
-    const month = item.created_at.substring(0, 7) // YYYY-MM
-    if (!byMonth.has(month)) {
-      byMonth.set(month, { grossSales: 0, platformFees: 0, vendorPayouts: 0, refunds: 0, tipRevenue: 0, stripeOrders: 0, externalOrders: 0, cancelledItems: 0 })
-    }
+    const month = ((item.order?.created_at as string) || item.created_at).substring(0, 7)
+    if (!byMonth.has(month)) byMonth.set(month, newBucket())
     const m = byMonth.get(month)!
-
     if (item.status === 'cancelled' || item.order?.status === 'cancelled') {
       m.cancelledItems++
-      m.refunds += item.refund_amount_cents || 0
     } else {
       m.grossSales += item.subtotal_cents || 0
-      m.platformFees += item.platform_fee_cents || 0
-      m.vendorPayouts += item.vendor_payout_cents || 0
-      m.tipRevenue += item.order?.tip_on_platform_fee_cents || 0
-      if (item.order?.payment_method === 'stripe') {
-        m.stripeOrders++
-      } else {
-        m.externalOrders++
-      }
     }
+    const oid = item.order_id
+    if (!oid || !item.order) return
+    if (!ordersById.has(oid)) ordersById.set(oid, { order: item.order, items: [], month })
+    ordersById.get(oid)!.items.push(item)
   })
+
+  // Per-order pass: platform gross/net/stripe/refunds aggregated once per order.
+  const feeByOrder = await fetchStripeFeeByOrder(supabase, [...ordersById.keys()])
+  for (const { order, items: orderItems, month } of ordersById.values()) {
+    const m = byMonth.get(month)!
+    const money = computeOrderPlatformRevenue({
+      totalCents: order.total_cents || 0,
+      tipAmount: order.tip_amount || 0,
+      tipOnPlatformFeeCents: order.tip_on_platform_fee_cents || 0,
+      isStripe: (order.payment_method || 'stripe') === 'stripe',
+      actualStripeFeeCents: feeByOrder.get(order.id) ?? null,
+      items: orderItems.map((it: any) => ({
+        vendorPayoutCents: it.vendor_payout_cents || 0,
+        refundAmountCents: it.refund_amount_cents || 0,
+        cancelled: it.status === 'cancelled' || order.status === 'cancelled',
+      })),
+    })
+    m.vendorPayouts += money.vendorPayoutCents
+    m.platformGross += money.grossPlatformCents
+    m.stripeCost += money.stripeCostCents
+    m.platformNet += money.netPlatformCents
+    m.refunds += money.refundCents
+    m.tipPlatform += order.tip_on_platform_fee_cents || 0
+    if ((order.payment_method || 'stripe') === 'stripe') m.stripeOrders++
+    else m.externalOrders++
+  }
 
   const rows = Array.from(byMonth.entries())
     .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([month, data]) => {
-      const netRevenue = data.platformFees + data.tipRevenue
-      // Estimate Stripe processing cost: ~2.9% + $0.30 per Stripe transaction
-      const estimatedStripeCost = Math.round(data.grossSales * 0.029) + (data.stripeOrders * 30)
-      const estimatedNetAfterStripe = netRevenue - estimatedStripeCost - data.refunds
-
-      return {
-        month,
-        gross_sales: formatCents(data.grossSales),
-        platform_fee_revenue: formatCents(data.platformFees),
-        tip_platform_revenue: formatCents(data.tipRevenue),
-        total_revenue: formatCents(netRevenue),
-        vendor_payouts: formatCents(data.vendorPayouts),
-        refunds_absorbed: formatCents(data.refunds),
-        est_stripe_processing: formatCents(estimatedStripeCost),
-        est_net_income: formatCents(estimatedNetAfterStripe),
-        stripe_transactions: data.stripeOrders,
-        external_transactions: data.externalOrders,
-        cancelled_items: data.cancelledItems,
-      }
-    })
+    .map(([month, d]) => ({
+      month,
+      gross_sales: formatCents(d.grossSales),
+      vendor_payouts: formatCents(d.vendorPayouts),
+      tip_platform_revenue: formatCents(d.tipPlatform),
+      platform_gross: formatCents(d.platformGross),
+      est_stripe_processing: formatCents(d.stripeCost),
+      refunds: formatCents(d.refunds),
+      platform_net: formatCents(d.platformNet),
+      stripe_orders: d.stripeOrders,
+      external_orders: d.externalOrders,
+      cancelled_items: d.cancelledItems,
+    }))
 
   return toCSV(rows, [
     { key: 'month', label: 'Month' },
-    { key: 'gross_sales', label: 'Gross Sales' },
-    { key: 'platform_fee_revenue', label: 'Platform Fee Revenue' },
-    { key: 'tip_platform_revenue', label: 'Tip Revenue (Platform Portion)' },
-    { key: 'total_revenue', label: 'Total Platform Revenue' },
+    { key: 'gross_sales', label: 'Gross Sales (product subtotal)' },
     { key: 'vendor_payouts', label: 'Vendor Payouts' },
-    { key: 'refunds_absorbed', label: 'Refunds Absorbed' },
+    { key: 'tip_platform_revenue', label: 'Tip Revenue (Platform Portion)' },
+    { key: 'platform_gross', label: 'Platform Revenue (Gross)' },
     { key: 'est_stripe_processing', label: 'Est. Stripe Processing Cost' },
-    { key: 'est_net_income', label: 'Est. Net Income' },
-    { key: 'stripe_transactions', label: 'Stripe Transactions' },
-    { key: 'external_transactions', label: 'External Transactions' },
+    { key: 'refunds', label: 'Refunds Issued' },
+    { key: 'platform_net', label: 'Platform Revenue (Net, after Stripe + refunds)' },
+    { key: 'stripe_orders', label: 'Stripe Orders' },
+    { key: 'external_orders', label: 'External Orders' },
     { key: 'cancelled_items', label: 'Cancelled Items' },
   ])
 }

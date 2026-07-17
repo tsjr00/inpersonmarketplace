@@ -2,6 +2,7 @@ import { stripe } from './config'
 import { createRefund } from './payments'
 import { processMarketBoxPayout } from './market-box-payout'
 import { selectBasePriceForTermWeeks } from './webhook-utils'
+import { retrieveStripeFeeCents } from './fee-capture'
 import Stripe from 'stripe'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendNotification } from '@/lib/notifications'
@@ -211,6 +212,27 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
         return
       }
     }
+  }
+
+  // ADM-2 (2026-07-17): capture the ACTUAL Stripe fee the platform bears on this
+  // destination charge, from the charge's balance_transaction, onto the payment
+  // row. Non-blocking + idempotent (only fills a NULL) — runs after the payment
+  // is already recorded succeeded, so any failure here can't affect the payment
+  // or order flow; it just leaves the fee NULL and reports fall back to the
+  // 2.9%+$0.30 estimate.
+  try {
+    const feeCents = await retrieveStripeFeeCents(paymentIntentId)
+    if (feeCents !== null) {
+      await supabase
+        .from('payments')
+        .update({ stripe_fee_cents: feeCents })
+        .eq('stripe_payment_intent_id', paymentIntentId)
+        .is('stripe_fee_cents', null)
+    }
+  } catch (feeErr) {
+    await logError(new TracedError('ERR_WEBHOOK_016',
+      `Stripe fee capture failed for PI ${paymentIntentId}: ${feeErr instanceof Error ? feeErr.message : String(feeErr)}`,
+      { route: '/webhooks/stripe', method: 'POST' }))
   }
 
   // Market box processing runs on EVERY webhook delivery for idempotent backfill.
