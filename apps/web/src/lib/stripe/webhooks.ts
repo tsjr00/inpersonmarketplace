@@ -875,6 +875,22 @@ async function handleAccountUpdated(account: Stripe.Account) {
       stripe_onboarding_complete: account.details_submitted,
     })
     .eq('stripe_account_id', account.id)
+
+  // MGR-5 (PRK-7 analog): manager/operator Connect accounts live on `markets`,
+  // and the booking gates read markets.stripe_charges_enabled directly (book:148,
+  // book-season:76). Without this sync the column only updates when the manager
+  // opens their dashboard (stripe/status poll) — a disabled account kept
+  // attracting bookings that all 502, and a completed onboarding stayed hidden.
+  // Same column trio as the stripe/status sync; no-op for vendor accounts
+  // (no markets row carries their account id).
+  await supabase
+    .from('markets')
+    .update({
+      stripe_charges_enabled: account.charges_enabled,
+      stripe_payouts_enabled: account.payouts_enabled,
+      stripe_onboarding_complete: account.details_submitted,
+    })
+    .eq('stripe_account_id', account.id)
 }
 
 async function handleTransferCreated(transfer: Stripe.Transfer) {
@@ -1255,9 +1271,23 @@ async function handleBoothRentalCheckoutComplete(session: Stripe.Checkout.Sessio
     return
   }
 
+  // MGR-4: paid in Stripe but the rental is already CANCELLED in our DB
+  // (Phase 16 swept it, or the vendor cancelled) — never silently re-activate
+  // and never send "booth paid" confirmations for a booking that no longer
+  // exists. Mirror the season handler's cancelled_conflict path: flag for a
+  // human (charge kept + booth resellable = manual reconciliation).
+  if (existing.status === 'cancelled') {
+    await logError(new TracedError(
+      'ERR_WEBHOOK_014',
+      `booth_rental ${rentalId} paid in Stripe but CANCELLED in DB — manual reconciliation needed (session ${session.id})`,
+      { route: '/webhooks/stripe', method: 'POST' }
+    ))
+    return
+  }
+
   const paymentIntentId = (session.payment_intent as string) || null
 
-  const { error: updateErr } = await supabase
+  const { data: flippedRows, error: updateErr } = await supabase
     .from('weekly_booth_rentals')
     .update({
       status: 'paid',
@@ -1266,11 +1296,25 @@ async function handleBoothRentalCheckoutComplete(session: Stripe.Checkout.Sessio
     })
     .eq('id', rentalId)
     .eq('status', 'pending_payment')
+    .select('id')
 
   if (updateErr) {
     await logError(new TracedError(
       'ERR_WEBHOOK_013',
       `booth_rental status update failed for ${rentalId}: ${updateErr.message}`,
+      { route: '/webhooks/stripe', method: 'POST' }
+    ))
+    return
+  }
+
+  // MGR-4: rowcount check closes the race the pre-check above can't (Phase 16
+  // sweeping between our read and this guarded update). 0 rows = the rental
+  // left 'pending_payment' after we read it — same manual-reconciliation flag,
+  // and the paid notifications below must not fire.
+  if (!flippedRows || flippedRows.length === 0) {
+    await logError(new TracedError(
+      'ERR_WEBHOOK_014',
+      `booth_rental ${rentalId} paid in Stripe but no longer pending at flip time (was '${existing.status}' at read) — manual reconciliation needed (session ${session.id})`,
       { route: '/webhooks/stripe', method: 'POST' }
     ))
     return
@@ -1297,6 +1341,14 @@ async function handleBoothRentalCheckoutComplete(session: Stripe.Checkout.Sessio
 
     if (rental) {
       const fees = calculateBoothRentalFees(rental.price_cents as number)
+
+      // MGR-8: any booth credit applied at checkout reduced BOTH the vendor
+      // charge and the manager transfer (payments.ts — chargedVendorCents /
+      // transferCents), so the confirmations must state the NET amounts, not
+      // the gross fee recompute. Metadata written by createBoothRentalCheckoutSession.
+      const appliedCreditCents = Number(session.metadata?.applied_credit_cents || 0) || 0
+      const vendorPaidNetCents = Math.max(0, fees.vendorPaysCents - appliedCreditCents)
+      const managerReceivesNetCents = Math.max(0, fees.managerReceivesCents - appliedCreditCents)
 
       // Format week_start_date — DATE column is timezone-naive; parse
       // as local to avoid one-day-off display.
@@ -1364,7 +1416,7 @@ async function handleBoothRentalCheckoutComplete(session: Stripe.Checkout.Sessio
           {
             marketName,
             weekStartDate: weekDate,
-            amountCents: fees.vendorPaysCents,
+            amountCents: vendorPaidNetCents,
             marketId: rental.market_id as string,
             ...(boothNumber ? { boothNumber } : {}),
           },
@@ -1385,7 +1437,7 @@ async function handleBoothRentalCheckoutComplete(session: Stripe.Checkout.Sessio
           {
             marketName,
             weekStartDate: weekDate,
-            managerReceivesAmountCents: fees.managerReceivesCents,
+            managerReceivesAmountCents: managerReceivesNetCents,
             marketId: rental.market_id as string,
             ...(vendorName ? { vendorName } : {}),
             ...(boothNumber ? { boothNumber } : {}),
@@ -1399,8 +1451,13 @@ async function handleBoothRentalCheckoutComplete(session: Stripe.Checkout.Sessio
     }
   } catch (notifErr) {
     // Logged but never re-thrown. Status flip already succeeded — Stripe
-    // sees 2xx, no retry.
-    console.error('[handleBoothRentalCheckoutComplete] notification block failed:', notifErr instanceof Error ? notifErr.message : 'Unknown')
+    // sees 2xx, no retry. Must reach error_logs (MGR-10): a silent failure
+    // here means vendor + manager never learn a booth was paid.
+    await logError(new TracedError(
+      'ERR_WEBHOOK_015',
+      `[handleBoothRentalCheckoutComplete] notification block failed for rental ${rentalId}: ${notifErr instanceof Error ? notifErr.message : 'Unknown'}`,
+      { route: '/webhooks/stripe', method: 'POST' }
+    ))
   }
 }
 

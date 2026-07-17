@@ -50,6 +50,22 @@ export async function sendSeasonPaidNotifications(
       'farmers_market'
     const weekCount = (group.week_count as number) ?? 0
 
+    // MGR-8: booth credit redeemed against this group reduced BOTH the vendor
+    // charge and the manager transfer at checkout (payments.ts), but the group
+    // totals stay GROSS — sum the D5 redeemed rows so both notifications state
+    // what was actually charged/received. Works for both callers (webhook +
+    // Phase 18 reconcile) without threading session metadata through.
+    const { data: redeemedRows } = await serviceClient
+      .from('booth_credits')
+      .select('amount_cents')
+      .eq('related_group_id', groupId)
+      .eq('source', 'redeemed')
+      .lt('amount_cents', 0)
+    const appliedCreditCents = (redeemedRows ?? []).reduce(
+      (sum, r) => sum + -(r.amount_cents as number), 0)
+    const vendorPaidNetCents = Math.max(0, ((group.total_vendor_cents as number) ?? 0) - appliedCreditCents)
+    const managerReceivesNetCents = Math.max(0, ((group.total_manager_cents as number) ?? 0) - appliedCreditCents)
+
     let vendorEmail: string | null = null
     if (vp?.user_id) {
       const { data: authUser } = await serviceClient.auth.admin.getUserById(vp.user_id as string)
@@ -70,7 +86,7 @@ export async function sendSeasonPaidNotifications(
         {
           marketName,
           weekCount,
-          amountCents: group.total_vendor_cents as number,
+          amountCents: vendorPaidNetCents,
           marketId: group.market_id as string,
         },
         {
@@ -87,7 +103,7 @@ export async function sendSeasonPaidNotifications(
         {
           marketName,
           weekCount,
-          managerReceivesAmountCents: group.total_manager_cents as number,
+          managerReceivesAmountCents: managerReceivesNetCents,
           marketId: group.market_id as string,
           ...(vendorName ? { vendorName } : {}),
         },
