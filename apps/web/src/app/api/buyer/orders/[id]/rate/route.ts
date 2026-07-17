@@ -73,6 +73,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Can only rate completed orders' }, { status: 400 })
   }
 
+  // AUT-1: the submitted vendor must actually be a vendor ON this order —
+  // without this check any buyer with one completed order could plant ratings
+  // on arbitrary vendors (the RLS INSERT policy constrains the order, not the
+  // vendor; mig 195 adds the same tie at the policy layer as defense-in-depth).
+  const { data: orderVendorRows } = await supabase
+    .from('order_items')
+    .select('id')
+    .eq('order_id', orderId)
+    .eq('vendor_profile_id', vendorProfileId)
+    .limit(1)
+  if (!orderVendorRows || orderVendorRows.length === 0) {
+    return NextResponse.json({ error: 'This vendor is not part of this order' }, { status: 403 })
+  }
+
   // Check if rating already exists
   const { data: existingRating } = await supabase
     .from('order_ratings')
