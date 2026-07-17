@@ -20,7 +20,16 @@
 | **3 market-manager** | **MGR-1..10 ALL ANCHOR-VERIFIED 2026-07-16 (main session) — fix batches presented, awaiting user go. Verification notes in the ledger's slice-3 header.** |
 | 7 auth/RLS · 10 admin · 9 notifications | ⬜ not yet run |
 
-### NEXT TASK — slice-3 (MGR) verification + fix batch (user-sequenced AFTER the park tester work, which is DONE)
+### ⭐ 2026-07-16 SESSION (day 5) — slice-3 VERIFIED + 3 FIX BATCHES BUILT
+- **All 10 MGR anchors main-session-verified (all confirmed)**; ledger statuses + verification notes updated.
+- **Batch 1 `067ae870` COMMITTED + PUSHED staging** (MGR-1 claim-first, MGR-3 full VOR-5B/16+19 port [user extended the decision], MGR-6 close_prepay guard, MGR-9a cap freeze, MGR-7 release checks, MGR-10 part; Rule A cancel-date allowlist entry removed per PROTOCOL). Staging = 067ae870.
+- **Batch 2 `092f5d44` COMMITTED LOCAL (not pushed)** — webhooks.ts (MGR-4 cancelled pre-check + rowcount → ERR_WEBHOOK_014; MGR-5 markets sync in account.updated; MGR-8 net notification amounts [season-notifications.ts self-sums D5 redeemed rows]; MGR-10 ERR_WEBHOOK_015). Protected-path hook fired once → verify-retry done. Each sub-change gated individually (user condition).
+- **Batch 3 ON DISK, UNCOMMITTED:** **mig 193** (wbr partial unique idx — MGR-2, user applies) + **mig 194** (season days_per_week_snapshot + backfill — MGR-9b, user applies) + pre-migration-safe companions (seasons POST snapshot write, settlement snapshot-first denominator) + snapshot changelog entries. Gates green (tsc 0, vitest 1676).
+- **USER DECISIONS 2026-07-16:** MGR-3 = extend VOR-5B (full port); MGR-9 = BOTH; MGR-8 stats half deferred WITH PRK-10; commit-local-then-single-push cadence for batches 2+3.
+- **Migs 193 + 194 APPLIED to Dev + Staging 2026-07-16 (user); snapshot changelog updated (MIGRATION_LOG table intentionally untouched — dormant since March, snapshot changelog is the live record, matches 184→192 practice). PROD-PENDING LIST IS NOW 184→194, apply IN ORDER before the combined prod push.**
+- **PENDING:** commit batch 3 + bookkeeping → push staging (ships batches 2+3) → user staging-tests the whole train → combined prod push. Then slices 7 → 10 → 9. Slice 3 CLOSED except MGR-2/9b prod application + MGR-8-stats (rides PRK-10).
+
+### NEXT TASK — slice-3 (MGR) verification + fix batch (user-sequenced AFTER the park tester work, which is DONE) — ✅ DONE day 5 except migration application + push, see block above
 1. Read the ledger's slice-3 section (bottom of `FINDINGS_LEDGER.md`) — 10 findings with anchors, all marked "open (unverified)".
 2. Verify each anchor with your own reads (finder reports are leads, not truth) — start with the P1s: MGR-1 (booth-credit double-mint race), MGR-2 (cancelled-rental permanent lockout — needs a MIGRATION: partial unique index), MGR-3 (cancel-date-cascade tip-refund + session-expire gaps — needs user nod to extend the VOR-5B decision, exactly like VOR-16 did).
 3. Present a fix batch, ONE go per batch, ledger + docs updated as you work. MGR-9 is a POLICY call (user decides). Fixes touching money-table flips/transfers may trip the money-structure suites — that's the system working; handle per the PROTOCOL (in the 07-13 block below).

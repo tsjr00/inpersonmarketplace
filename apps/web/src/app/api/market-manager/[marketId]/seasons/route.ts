@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced } from '@/lib/errors'
+import { withErrorTracing, traced, logError } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { getSeasonBookableWeeks } from '@/lib/markets/season-weeks'
@@ -141,6 +141,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .select('id, name, start_date, end_date, declared_market_days, refund_cap_days, prepay_open, status')
       .single()
     if (insErr) throw traced.fromSupabase(insErr, { table: 'market_seasons', operation: 'insert' })
+
+    // MGR-9(b) (mig 194): snapshot the settlement denominator at creation so
+    // mid-season schedule edits can't change what's owed to paid vendors.
+    // Separate tolerated UPDATE (not part of the insert) so season creation
+    // keeps working during the mig-194 rollout window — a missing column just
+    // leaves the snapshot NULL and settlement falls back to the live count.
+    const { count: activeDaysPerWeek } = await service
+      .from('market_schedules')
+      .select('id', { count: 'exact', head: true })
+      .eq('market_id', marketId)
+      .eq('active', true)
+    const { error: snapErr } = await service
+      .from('market_seasons')
+      .update({ days_per_week_snapshot: activeDaysPerWeek ?? 0 })
+      .eq('id', season.id)
+    if (snapErr) {
+      logError(traced.fromSupabase(snapErr, { table: 'market_seasons', operation: 'update' }))
+    }
 
     return NextResponse.json({ season })
   })

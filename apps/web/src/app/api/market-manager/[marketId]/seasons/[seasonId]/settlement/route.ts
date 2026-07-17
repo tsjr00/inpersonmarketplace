@@ -62,13 +62,30 @@ async function loadContext(service: ReturnType<typeof createServiceClient>, mark
     total_manager_cents: g.total_manager_cents as number,
   }))
 
-  const { count: activeDaysPerWeek } = await service
-    .from('market_schedules')
-    .select('id', { count: 'exact', head: true })
-    .eq('market_id', marketId)
-    .eq('active', true)
+  // MGR-9(b) (mig 194): prefer the at-creation snapshot so mid-season schedule
+  // edits can't change the owed-per-day denominator for already-paid vendors.
+  // Queried separately from the season select above so this view keeps working
+  // during the mig-194 rollout window; NULL (pre-mig-194 seasons, or rollout
+  // window) falls back to the live count — the pre-fix behavior.
+  let daysPerWeek: number | null = null
+  const { data: snapRow, error: snapErr } = await service
+    .from('market_seasons')
+    .select('days_per_week_snapshot')
+    .eq('id', seasonId)
+    .maybeSingle()
+  if (!snapErr) {
+    daysPerWeek = (snapRow?.days_per_week_snapshot as number | null) ?? null
+  }
+  if (daysPerWeek === null) {
+    const { count: liveDaysPerWeek } = await service
+      .from('market_schedules')
+      .select('id', { count: 'exact', head: true })
+      .eq('market_id', marketId)
+      .eq('active', true)
+    daysPerWeek = liveDaysPerWeek ?? 0
+  }
 
-  return { season, groups, activeDaysPerWeek: activeDaysPerWeek ?? 0 }
+  return { season, groups, activeDaysPerWeek: daysPerWeek }
 }
 
 /** GET — settlement view: each paid group's cancelled days vs cap + owed value + resolved state. */
