@@ -1,6 +1,40 @@
-# Current Task: Pre-re-release review — money-path efficiency + money-tail (day 7, IN PROGRESS)
+# Current Task: Pre-re-release review — 🏁 ALL BUILD WORK COMPLETE (day 7 EOD). Next: USER staging test → combined prod push = RELAUNCH.
 
-**Updated:** 2026-07-18 (Fable 5 session, day 7). **Mode:** batch-approved builds.
+**Updated:** 2026-07-18 EOD (Fable 5 session, day 7). **Mode:** Report (default).
+
+---
+
+## 🟣🟣🟣 NEXT SESSION START HERE (2026-07-18 EOD) — read this, VERIFY LIVE GIT, then STOP & confirm before any work
+
+### 0) HOW WE WORK (enforce — non-negotiable; full texts in rules/ + prior blocks)
+- **Report mode default.** Cite `file:line` or UNVERIFIED. Finder/agent output = leads; verify anchors yourself.
+- **⛔ COMMIT AND PUSH = SEPARATE EXPLICIT USER APPROVALS, EVERY TIME.** "do X / build it / go" = build + gates ONLY. Sequence: build → gates → STOP → ask commit → wait → ask push → wait.
+- **Critical-path/money files** (checkout/session, checkout/success, webhooks.ts, payments.ts, fulfill, reject, pricing.ts, …): per-file approval w/ exact before/after diffs; protected-path hook blocks FIRST touch per file per session → verify per its instructions → retry. Never bundle present+edit.
+- **⭐ NEW RULE (2026-07-18, codified in change-discipline.md "Design Fidelity"):** if an implementation will differ in SHAPE from the presented design, or will knowingly fail any existing test, RE-PRESENT BEFORE BUILDING — even if the deviation seems better. (IR-R20 incident; memory `feedback_ask_before_known_deviation`.)
+- **Never change a business-rule test to match code** (3 money suites + 8-rule spec + NEW guardrail-contracts). Failing BR test = decision point → present. USER-changed product rules → updating the test to the new spec IS correct, done transparently (IR-R20 + NI-count precedents).
+- **Schema gate:** fresh SCHEMA_SNAPSHOT read or information_schema query immediately before composing ANY SQL. NOTE: structured tables sections are STALE for park-family tables — use the changelog entries (they carry full column lists) or migration files; REFRESH_SCHEMA regeneration is backlogged for right after the prod push (C5).
+- **Git:** branch-chain commits; teaching-mode ON; staging-first; ONE push at a time; prod window 9 PM–7 AM CT (hook-enforced). USER applies migrations; Claude writes them + snapshot bookkeeping; companion code PRE-MIGRATION-SAFE (tolerant-select/legacy-retry patterns are the house idiom).
+
+### 1) GIT / DEPLOY STATE (VERIFY — memory drifts)
+- **LOCAL main = origin/staging = `af4130dc`** (everything committed AND pushed; tree clean except settings.local.json + possibly this file if the EOD doc commit hasn't happened).
+- **PROD `origin/main` = `62b686f7`** — unchanged all cycle; local main is **70 commits ahead**.
+- **PROD-PENDING MIGRATIONS: 184→203 IN ORDER (USER applies) before the combined prod push.** ALL of 184→203 are applied to Dev + Staging — NOTHING pending there.
+- Day-7 commits, oldest→newest: `b916fd4c` (B1 claim-first fee, mig 197) → `3c68f7ff` (B2 checkout CHK-7/11/12/15) → `9ddeb565` (B3 VOR-10) → `279ded61` (B4 crons, mig 198) → `50989499` (B5 CHK-1 complete) → `ed3ba393` (T5 paid-park intersection, mig 199) → `573861bc` (G1/G2/G3 bar+credits, migs 200/201) → `1d43c2ef` (closing: NOT-5 mig 202 + PRK-10 mig 203 + park credit release) → `af4130dc` (guardrail contracts F/G/H + Design Fidelity rule).
+
+### 2) WHAT'S DONE — THE ENTIRE REVIEW CYCLE IS CLOSED (do NOT redo)
+- **Every finding in `apps/web/.claude/review/FINDINGS_LEDGER.md` is fixed / wontfix / retracted / user-parked.** Day 7 closed: VOR-8/9/10/13, CHK-1(complete)/7/11/12/15, CRN-3/5/10/14/16, T5, PRK-14/15/16/17(corrected)/10, MGR-8-stats, NOT-5 — plus bonuses (buyer-confirm double-deduct, confirm-handoff VOR-15-mirror, Phase-3 flip guard, sweep credit release).
+- **New mechanisms sessions must not break** (all test-protected): claim-first fee deduction (`claimVendorFeeDeduction`/mig 197 — Rule H forbids resurrecting `calculateAutoDeductAmount` in routes); `cancelOrderItemsAndRestoreGuarded` (cancel-first claim — Rule H forbids `restoreOrderInventory` calls); CHK-1 3-way paid-flip branch in webhooks+success (Rule A); T5 paid-park intersection + barred exclusion in `get_available_pickup_dates` (Rule F markers); park date-cancel booth credits + park checkout redemption (mig 201, Rule F on redeem RPC); email suppression (mig 202, send-path skip via NOT-2 prefetch); `manager_receives_cents` stamps (mig 203, from session metadata at paid flip).
+- **Suite = 1694 tests / 64 files**, all pre-commit. NEW `guardrail-contracts.test.ts`: Rule F (SQL function contract markers — newest defining migration must retain named invariants), Rule G (migration ≥184 → changelog row required), Rule H (retired patterns stay retired). PROTOCOL for failures unchanged: decision point, never weaken.
+- IR-R20 rewritten (user-approved): expire-orders has NO global early-exit gate — do not reintroduce. NI count = 100.
+
+### 3) OUTSTANDING (nothing buildable is pending — it's decision/user-side)
+**USER side (the relaunch path):** (1) staging test of the WHOLE train (smoke maps: ledger + day blocks below; day-7 additions: paid-park listing shows only paid dates · bar cancels+refunds buyer orders · date-cancel credits trucks · rebooking applies the credit · test bounce suppresses email + in_app notice · paid booking gains manager_receives stamp · earnings-card footnote on pre-mig history); (2) combined PROD push — apply migs **184→203 IN ORDER**, then push main in-window (teaching-mode walkthrough, verify Vercel build + critical-path smoke) = RELAUNCH; (3) after staging test: vault update (C6, user-authorized).
+**Backlogged decisions/tasks (backlog.md):** VOR-11/C1 (status-transitions 51-test limbo — biggest false-confidence item), C3 error-code burn-down, C5 REFRESH_SCHEMA regen post-push, docs/Audits/ library move (audit docs → root docs/; plan discussed 2026-07-18, deferred), company-paid events package, CRN-11+PRK-13 batch-variant efficiency.
+**Small doc debt:** CLAUDE_CONTEXT.md session-history entry for day 7 not yet added (add at next docs pass).
+
+---
+
+*(Prior blocks below are historical detail — git state in them is STALE.)*
 
 ## ⭐ DAY 7 LIVE STATE (read this first)
 - **All 14 findings anchor-verified** (research file: `.claude/money_tail_plan_research.md` — anchors, drift notes, designs). 5 batches designed + ALL user-approved 2026-07-18: B1 fulfill-cluster (all THREE payout routes + H4 add-on), B2 checkout/session (CHK-11/12/15/7), B3 VOR-10 (company-paid exemption documented in backlog.md), B4 crons (CRN-3/10/5/16/14), B5 CHK-1 remainder (rollback analysis required at presentation). CRN-11 + VOR-11 → backlog (user: leave as is).
