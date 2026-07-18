@@ -187,6 +187,54 @@ export async function recordFeeCredit(
 }
 
 /**
+ * Atomically claim a fee auto-deduction for a payout (VOR-8/VOR-9, mig 197).
+ *
+ * Replaces the read-compute-deduct pattern (getVendorFeeBalance +
+ * calculateAutoDeductAmount + post-transfer recordFeeCredit): the RPC locks the
+ * vendor's balance row, grants LEAST(balance, 50% of payout), and inserts the
+ * ledger credit in one transaction — so concurrent payouts for the same vendor
+ * cannot both deduct the same balance, and the credit can never be lost after
+ * the transfer. Replay-safe per order item: a retry returns the already-claimed
+ * amount instead of deducting again.
+ *
+ * Pre-migration-safe: if the RPC is missing or errors, returns grantedCents 0
+ * with the error message — the payout proceeds undeducted and the fee stays on
+ * the ledger for a later payout. Callers must logError so the missed collection
+ * is visible.
+ *
+ * @param supabase - Supabase client (service role — RPC is service-role only)
+ * @param vendorProfileId - Vendor profile ID
+ * @param orderId - Order ID (ledger bookkeeping)
+ * @param orderItemId - Order item ID (idempotency key)
+ * @param vendorPayoutCents - Item payout the 50% cap is computed from
+ */
+export async function claimVendorFeeDeduction(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+  orderId: string,
+  orderItemId: string,
+  vendorPayoutCents: number
+): Promise<{ grantedCents: number; error?: string }> {
+  const maxDeductCents = Math.floor(vendorPayoutCents * (AUTO_DEDUCT_MAX_PERCENT / 100))
+  if (maxDeductCents <= 0) {
+    return { grantedCents: 0 }
+  }
+
+  const { data, error } = await supabase.rpc('claim_vendor_fee_deduction', {
+    p_vendor_profile_id: vendorProfileId,
+    p_order_id: orderId,
+    p_order_item_id: orderItemId,
+    p_max_deduct_cents: maxDeductCents,
+  })
+
+  if (error) {
+    return { grantedCents: 0, error: error.message }
+  }
+
+  return { grantedCents: typeof data === 'number' && data > 0 ? data : 0 }
+}
+
+/**
  * Calculate how much to add to Stripe application_fee for auto-deduction
  * @param vendorPayoutCents - Amount vendor would receive from this Stripe order
  * @param owedBalanceCents - Current fee balance owed

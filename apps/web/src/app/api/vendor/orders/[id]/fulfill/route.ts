@@ -2,12 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { transferToVendor, getChargeIdFromPaymentIntent } from '@/lib/stripe/payments'
 import { getAccountStatus } from '@/lib/stripe/connect'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, TracedError, logError } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import {
-  getVendorFeeBalance,
-  calculateAutoDeductAmount,
-  recordFeeCredit,
+  claimVendorFeeDeduction,
   recordExternalPaymentFee
 } from '@/lib/payments/vendor-fees'
 import { sendNotification } from '@/lib/notifications'
@@ -259,57 +257,41 @@ export async function POST(
 
       crumb.logic('Processing vendor payout')
 
-      // Check for outstanding fee balance and calculate deduction
-      let feeDeductionCents = 0
-
-      try {
-        const { balanceCents } = await getVendorFeeBalance(supabase, vendorProfile.id)
-        if (balanceCents > 0) {
-          feeDeductionCents = calculateAutoDeductAmount(
-            orderItem.vendor_payout_cents,
-            balanceCents
-          )
-          crumb.logic('Fee deduction calculated', {
-            balance: balanceCents,
-            deduction: feeDeductionCents,
-            payout: orderItem.vendor_payout_cents
-          })
-        }
-      } catch (feeError) {
-        // Don't block payout if fee check fails
-        console.error('Fee balance check failed:', feeError)
-      }
+      // VOR-13: tip count + prior-payout check are independent reads — parallel.
+      const [tipCountResult, existingPayoutResult] = await Promise.all([
+        orderData?.tip_amount && orderData.tip_amount > 0
+          ? supabase
+              .from('order_items')
+              .select('id', { count: 'exact', head: true })
+              .eq('order_id', orderItem.order_id)
+          : Promise.resolve({ count: null }),
+        supabase
+          .from('vendor_payouts')
+          .select('id, status')
+          .eq('order_item_id', orderItem.id)
+          .neq('status', 'failed')
+          .maybeSingle(),
+      ])
 
       // C1 FIX: Calculate tip share for this item
       // Vendor gets tip on food cost only (total tip minus platform fee tip portion)
       let tipShareCents = 0
       if (orderData?.tip_amount && orderData.tip_amount > 0) {
         const vendorTipCents = orderData.tip_amount - (orderData.tip_on_platform_fee_cents || 0)
-        const { count: totalItemsInOrder } = await supabase
-          .from('order_items')
-          .select('id', { count: 'exact', head: true })
-          .eq('order_id', orderItem.order_id)
-        tipShareCents = calculateTipShare(vendorTipCents, totalItemsInOrder)
+        tipShareCents = calculateTipShare(vendorTipCents, tipCountResult.count)
         crumb.logic('Tip share calculated', {
           totalTip: orderData.tip_amount,
           platformFeeTip: orderData.tip_on_platform_fee_cents || 0,
           vendorTip: vendorTipCents,
-          items: totalItemsInOrder,
+          items: tipCountResult.count,
           share: tipShareCents
         })
       }
 
-      const actualPayoutCents = orderItem.vendor_payout_cents - feeDeductionCents + tipShareCents
-
-      // C2 FIX: Check if vendor was already paid (prevents double payout)
-      crumb.supabase('select', 'vendor_payouts')
-      const { data: existingPayout } = await supabase
-        .from('vendor_payouts')
-        .select('id, status')
-        .eq('order_item_id', orderItem.id)
-        .neq('status', 'failed')
-        .maybeSingle()
-
+      // C2 FIX: Check if vendor was already paid (prevents double payout).
+      // Must stay BEFORE the fee claim — an already-paid item must not claim
+      // a deduction it will never withhold.
+      const existingPayout = existingPayoutResult.data
       if (existingPayout) {
         crumb.logic('Vendor payout already exists, skipping transfer', {
           payoutId: existingPayout.id,
@@ -322,6 +304,37 @@ export async function POST(
           vendor_confirmed_at: now.toISOString()
         })
       }
+
+      // Moved up from the payout tail: never claim a fee deduction on a path
+      // that cannot create a payout.
+      if (!hasStripe && !isDev) {
+        throw traced.validation('ERR_ORDER_004', 'Stripe account not connected')
+      }
+
+      // VOR-8/VOR-9 FIX (mig 197): atomic claim-first fee deduction. The RPC
+      // locks the vendor's balance row, grants LEAST(balance, 50% of payout),
+      // and writes the ledger credit in one transaction — concurrent payouts
+      // can't double-deduct, and the credit can't be lost after the transfer.
+      // Claim failure → deduct 0 (fee stays on the ledger for a later payout);
+      // logError so the missed collection is visible.
+      const { grantedCents: feeDeductionCents, error: feeClaimErr } = await claimVendorFeeDeduction(
+        serviceClient,
+        vendorProfile.id,
+        orderItem.order_id,
+        orderItem.id,
+        orderItem.vendor_payout_cents
+      )
+      if (feeClaimErr) {
+        await logError(new TracedError('ERR_FEE_002', `Fee deduction claim failed for order item ${orderItem.id}: ${feeClaimErr}`, {
+          route: '/api/vendor/orders/[id]/fulfill', method: 'POST',
+          orderItemId: orderItem.id, orderId: orderItem.order_id, vendorProfileId: vendorProfile.id,
+        }))
+      }
+      if (feeDeductionCents > 0) {
+        crumb.logic('Fee deduction claimed', { deduction: feeDeductionCents, payout: orderItem.vendor_payout_cents })
+      }
+
+      const actualPayoutCents = orderItem.vendor_payout_cents - feeDeductionCents + tipShareCents
 
       if (hasStripe) {
         // M-11 FIX: Insert payout record BEFORE transfer to prevent tracking gaps.
@@ -376,21 +389,8 @@ export async function POST(
             ...(chargeId !== undefined ? { sourceTransaction: chargeId } : {}),
           })
 
-          // Record fee credit BEFORE updating payout (compensating transaction pattern)
-          if (feeDeductionCents > 0) {
-            try {
-              await recordFeeCredit(
-                serviceClient,
-                vendorProfile.id,
-                feeDeductionCents,
-                `Auto-deducted from Stripe payout`,
-                orderItem.order_id
-              )
-            } catch (feeErr) {
-              crumb.logic('Fee credit recording failed, continuing with payout', { error: feeErr })
-            }
-          }
-
+          // Fee credit already claimed atomically above (mig 197) — no
+          // post-transfer ledger write remains to fail or be swallowed (VOR-9).
           crumb.supabase('update', 'vendor_payouts')
           if (payoutRecord) {
             await serviceClient.from('vendor_payouts')
@@ -409,20 +409,9 @@ export async function POST(
               .eq('id', payoutRecord.id)
           }
 
-          // Record fee credit even on failed transfer (will be deducted when retry succeeds)
-          if (feeDeductionCents > 0) {
-            try {
-              await recordFeeCredit(
-                serviceClient,
-                vendorProfile.id,
-                feeDeductionCents,
-                `Auto-deducted from payout (transfer pending retry)`,
-                orderItem.order_id
-              )
-            } catch (feeErr) {
-              crumb.logic('Fee credit recording failed on transfer failure', { error: feeErr })
-            }
-          }
+          // Fee credit already claimed pre-transfer (mig 197); the failed
+          // payout row withholds the deduction, so the Phase 5 retry pays the
+          // reduced amount — semantics unchanged from the old failure path.
 
           // Don't notify vendor about payout failure during fulfill — it's confusing.
           // Phase 5 cron will retry the transfer and notify if it keeps failing.
@@ -450,7 +439,7 @@ export async function POST(
           })
         }
       } else if (isDev) {
-        // Dev mode without Stripe
+        // Dev mode without Stripe (fee credit already claimed above — mig 197)
         console.log(`[DEV] Skipping Stripe payout for order item ${orderItemId}`)
         crumb.supabase('insert', 'vendor_payouts')
         await supabase.from('vendor_payouts').insert({
@@ -460,20 +449,9 @@ export async function POST(
           stripe_transfer_id: `dev_skip_${orderItemId}`,
           status: 'skipped_dev',
         })
-
-        // Still record fee credit in dev mode
-        if (feeDeductionCents > 0) {
-          await recordFeeCredit(
-            serviceClient,
-            vendorProfile.id,
-            feeDeductionCents,
-            `Auto-deducted from payout (dev mode)`,
-            orderItem.order_id
-          )
-        }
-      } else {
-        throw traced.validation('ERR_ORDER_004', 'Stripe account not connected')
       }
+      // (The no-Stripe/no-dev throw moved above the fee claim — a path that
+      // cannot pay out must never claim a deduction.)
 
       // Atomically mark order completed if all items are fully confirmed
       crumb.logic('Checking atomic order completion')

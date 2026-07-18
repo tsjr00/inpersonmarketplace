@@ -217,4 +217,22 @@ export const CHECKOUT_ERRORS: ErrorCatalogEntry[] = [
     ],
     pgCodes: [],
   },
+  {
+    code: 'ERR_FEE_002',
+    title: 'Fee Deduction Claim Failed',
+    category: 'ORDER',
+    severity: 'medium',
+    description: 'claim_vendor_fee_deduction (mig 197) errored during a payout, so the payout proceeded with NO fee deduction. No money was misrecorded — the vendor\'s outstanding fee balance simply was not collected on this payout and stays on the ledger.',
+    userGuidance: '',
+    causes: [
+      'Migration 197 not applied to this environment (RPC missing) — pre-migration-safe fallback fired',
+      'Database error while locking the vendor_fee_balance row or inserting the ledger credit',
+    ],
+    solutions: [
+      'Verify migration 197 is applied (claim_vendor_fee_deduction + uq_vendor_fee_ledger_credit_item)',
+      'No manual money fix needed: the fee remains owed and a later payout will auto-deduct it',
+      'If recurring, check the underlying database error in the log entry',
+    ],
+    pgCodes: [],
+  },
 ]

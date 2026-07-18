@@ -24,14 +24,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { transferToVendor } from '@/lib/stripe/payments'
 import { getAccountStatus } from '@/lib/stripe/connect'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, TracedError, logError } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { sendNotification } from '@/lib/notifications'
-import {
-  getVendorFeeBalance,
-  calculateAutoDeductAmount,
-  recordFeeCredit
-} from '@/lib/payments/vendor-fees'
+import { claimVendorFeeDeduction } from '@/lib/payments/vendor-fees'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 interface RouteContext {
@@ -192,29 +188,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       })
     }
 
-    // F3 FIX: Check for outstanding fee balance and calculate deduction (consistent with fulfill route)
-    let feeDeductionCents = 0
     const serviceClient = createServiceClient()
-
-    try {
-      const { balanceCents } = await getVendorFeeBalance(supabase, vendorProfile.id)
-      if (balanceCents > 0) {
-        feeDeductionCents = calculateAutoDeductAmount(
-          orderItem.vendor_payout_cents,
-          balanceCents
-        )
-        crumb.logic('Fee deduction calculated', {
-          balance: balanceCents,
-          deduction: feeDeductionCents,
-          payout: orderItem.vendor_payout_cents
-        })
-      }
-    } catch (feeError) {
-      // Don't block payout if fee check fails
-      console.error('Fee balance check failed:', feeError)
-    }
-
-    const actualPayoutCents = orderItem.vendor_payout_cents - feeDeductionCents + tipShareCents
 
     // C3 FIX: Check if vendor was already paid (prevents double payout)
     crumb.supabase('select', 'vendor_payouts')
@@ -236,6 +210,33 @@ export async function POST(request: NextRequest, context: RouteContext) {
         vendor_confirmed_at: now.toISOString()
       })
     }
+
+    // VOR-8/VOR-9 FIX (mig 197): atomic claim-first fee deduction (replaces
+    // read-compute-deduct + post-transfer recordFeeCredit). Guarded so the
+    // no-Stripe/no-dev tail (which throws — no payout) never claims. Claim
+    // failure → deduct 0 + logError; the fee stays on the ledger.
+    let feeDeductionCents = 0
+    if (hasStripe || isDev) {
+      const { grantedCents, error: feeClaimErr } = await claimVendorFeeDeduction(
+        serviceClient,
+        vendorProfile.id,
+        orderItem.order_id,
+        orderItem.id,
+        orderItem.vendor_payout_cents
+      )
+      feeDeductionCents = grantedCents
+      if (feeClaimErr) {
+        await logError(new TracedError('ERR_FEE_002', `Fee deduction claim failed for order item ${orderItem.id}: ${feeClaimErr}`, {
+          route: '/api/vendor/orders/[id]/confirm-handoff', method: 'POST',
+          orderItemId: orderItem.id, orderId: orderItem.order_id, vendorProfileId: vendorProfile.id,
+        }))
+      }
+      if (feeDeductionCents > 0) {
+        crumb.logic('Fee deduction claimed', { deduction: feeDeductionCents, payout: orderItem.vendor_payout_cents })
+      }
+    }
+
+    const actualPayoutCents = orderItem.vendor_payout_cents - feeDeductionCents + tipShareCents
 
     let payoutFailed = false
     if (hasStripe) {
@@ -259,7 +260,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
             vendor_confirmed_at: now.toISOString()
           })
         }
-        crumb.logic('Failed to insert pending payout record', { error: payoutInsertErr.message })
+        // VOR-15 class (2026-07-18): a non-duplicate insert failure must be
+        // fatal — continuing fired the transfer with no tracking record,
+        // invisible to the retry cron and reconciliation (mirrors the VOR-3/
+        // VOR-15 fixes in buyer-confirm and fulfill). No money moves untracked.
+        throw traced.fromSupabase(payoutInsertErr, { table: 'vendor_payouts', operation: 'insert' })
       }
 
       try {
@@ -277,16 +282,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
             .eq('id', payoutRecord.id)
         }
 
-        // F3 FIX: Record fee credit if deduction was made
-        if (feeDeductionCents > 0) {
-          await recordFeeCredit(
-            serviceClient,
-            vendorProfile.id,
-            feeDeductionCents,
-            `Auto-deducted from Stripe payout`,
-            orderItem.order_id
-          )
-        }
+        // Fee credit already claimed atomically above (mig 197) — no
+        // post-transfer ledger write remains (VOR-9 class).
       } catch (transferError) {
         console.error('Stripe transfer failed:', transferError)
         payoutFailed = true

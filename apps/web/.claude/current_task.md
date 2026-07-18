@@ -1,10 +1,71 @@
-# Current Task: Pre-re-release review (7/10 slices found) + park tester fixes SHIPPED — next: slice-3 (MGR) verification + fix batch
+# Current Task: Pre-re-release review — money-path efficiency + money-tail (day 7, IN PROGRESS)
 
-**Updated:** 2026-07-15 EOD (Fable 5 session, day 4). **Mode:** Report.
+**Updated:** 2026-07-18 (Fable 5 session, day 7). **Mode:** batch-approved builds.
+
+## ⭐ DAY 7 LIVE STATE (read this first)
+- **All 14 findings anchor-verified** (research file: `.claude/money_tail_plan_research.md` — anchors, drift notes, designs). 5 batches designed + ALL user-approved 2026-07-18: B1 fulfill-cluster (all THREE payout routes + H4 add-on), B2 checkout/session (CHK-11/12/15/7), B3 VOR-10 (company-paid exemption documented in backlog.md), B4 crons (CRN-3/10/5/16/14), B5 CHK-1 remainder (rollback analysis required at presentation). CRN-11 + VOR-11 → backlog (user: leave as is).
+- **BATCH 1 BUILT, GATES GREEN (tsc 0, vitest 1687/1687), UNCOMMITTED — awaiting commit approval:** mig 197 (`claim_vendor_fee_deduction` + `uq_vendor_fee_ledger_credit_item`, NOT applied anywhere, user applies) + `claimVendorFeeDeduction` in vendor-fees.ts + claim-first refactor in fulfill (protected, file-approved, hook verify-retried ×2 incl. vendor-fees.ts) / buyer-confirm / confirm-handoff. VOR-9 fixed STRUCTURALLY (no post-transfer credit write remains). Scope extension found at fix time: buyer-confirm's transfer-failure path NEVER wrote the credit (guaranteed double-deduct — worse than VOR-9); confirm-handoff H4 = VOR-15-mirror fatal throw (user-approved). Test touches: fixture mock += claimVendorFeeDeduction (money-authorization.test.ts:124-131, plumbing only, no expectations); ERR_FEE_002 cataloged in errors/catalog/order-errors.ts (Rule E add). Ledger rows VOR-8/9/13 marked fixed; snapshot changelog has mig 197 entry (NOT YET APPLIED).
+- **NEXT after B1 commit:** B2 (checkout/session — PROTECTED, present exact diffs for file-level approval first; needs a ~:480-520 read for the CHK-11 consumer shape + cart/validate RPC signature) → B3 → B4 (uses B2's shared inventory helper) → B5 (webhooks.ts + success — BOTH protected, single-purpose pass, present rollback/downstream analysis with the diffs).
+- **Reminder user-side:** staging test of the whole train; migs 184→196 (+197 once staged) IN ORDER before the combined prod push (9 PM–7 AM CT).
 
 ---
 
-## ⭐⭐⭐⭐⭐⭐⭐⭐⭐ NEXT SESSION START HERE (2026-07-15 EOD) — read this, VERIFY LIVE GIT, then STOP & ask
+*(Prior day-6 block below — git state there is STALE: see day-7 notes above.)*
+
+---
+
+## 🟢🟢🟢 NEXT SESSION START HERE (2026-07-17 EOD) — read this, VERIFY LIVE GIT, then STOP & confirm before any work
+
+### 0) HOW WE WORK (enforce — non-negotiable)
+- **Report mode default.** Cite `file:line` or mark UNVERIFIED. Finder/agent reports are LEADS — main-session-verify every anchor before presenting or fixing.
+- **⛔ COMMIT AND PUSH ARE ALWAYS SEPARATE EXPLICIT APPROVALS FROM THE USER.** A "do X / build it / continue / wrap up / go" instruction authorizes the BUILD + gates ONLY — never a commit, never a push. Sequence EVERY time: build → run gates → **STOP** → ask to commit → wait → ask to push → wait. (User flagged this 2026-07-17; memory `feedback_commit_push_always_approved`.)
+- **Critical-path/money edits:** mechanical self-check before each Edit — quote the user's exact words authorizing THIS edit or STOP. Protected-path hook block = verify-then-retry per its instructions, never a blind retry. Don't bundle present+edit on a money file; don't interleave finder-agent orchestration with gated money edits.
+- **Never change a business-rule test to match code** — incl. the 3 money suites + the 8-rule spec in money-authorization.test.ts header. A failing BR test is a DECISION POINT: present to user. (When the USER changes a product rule, updating its test to the new spec IS correct — that happened 2026-07-17 for the comms-channel tests, transparently.)
+- **Schema gate:** before composing SQL, a fresh Read of SCHEMA_SNAPSHOT.md or an `information_schema` query in the immediately-preceding tool call.
+- **Git:** branch-chain commits (checkout main && add && commit && checkout staging && merge --ff-only && push && checkout main); teaching-mode git explanations ON; staging-first; ONE push at a time; prod window 9 PM–7 AM CT (hook-enforced). **USER applies migrations; Claude writes them + does snapshot bookkeeping.** When a batch ships a migration, companion code must be PRE-MIGRATION SAFE (tolerant of the column not existing).
+- **Method for a review slice:** Fable finder (report-only) → main session verifies anchors → present fix batch → ONE go per batch → build + gate (tsc0/vitest) → STOP for commit approval → STOP for push approval → ledger + current_task updated as you work.
+
+### 1) GIT / DEPLOY STATE (VERIFY — memory drifts)
+- **LOCAL main = `24fe1e64`** (a docs-only commit: "efficiency-slivers session state"). **This is 1 commit AHEAD of origin/staging and is NOT pushed** — it stays local until the user approves a push (do not push it unprompted).
+- **STAGING `origin/staging` = `2705160e`** — all CODE is here.
+- **PROD `origin/main` = `62b686f7`** — unchanged all cycle; local main is **61 commits ahead of prod**.
+- **PROD-PENDING MIGRATIONS: 184 → 185 → 186 → 187 → 188 → 189 → 190 → 191 → 192 → 193 → 194 → 195 → 196. USER applies IN ORDER before the combined prod push.** ALL of 184→196 are already applied to Dev + Staging (nothing pending there). The many old `20260103…`-`20260302…` files still in `supabase/migrations/` root are historical/pre-existing (on all envs) — not this cycle's concern.
+
+### 2) WHAT'S DONE (the whole arc — do NOT redo)
+- **All 10 review slices found + fixed** (Checkout, Vendor-orders, Market-manager MGR-1..10, FT-park, Events, Market-box, Auth/RLS AUT-1, Crons, Notifications NOT-1..5, Admin ADM-1..8 + actual-Stripe-fee capture mig 196). Single source of truth = `apps/web/.claude/review/FINDINGS_LEDGER.md`.
+- **Test immune system** (3 suites: money-structure, pricing-conservation, money-authorization 8-rule spec) — all in pre-commit; suite = **1687 green / 63 files**.
+- **Communication-COST review (user frugality directive)** — COMM-1..8 shipped: info→free in_app (resolved NOT-3), market-day reminder→push, refund→email+in_app, FM new-order→push, surveys single-email+opt-out, COMM-4 surveys daily-gate + lazy on-return (both audiences). COMM-7 wontfix. Principle logged in decisions.md 2026-07-17 + memory `feedback_communication_cost_frugality`.
+- **Notification-efficiency (NOT-2 enabler + consumers)** — sendNotificationBatch now bulk-loads profiles+tiers (2 queries, was built-but-never-called); wired into CRN-12 (market-day reminder) + EVT-16 (both broadcasts + complete-event fan-outs + my-order scan). EVT-16 fully closed.
+
+### 3) ⭐ NEXT TASK — MONEY-PATH EFFICIENCY + THE MONEY-TAIL (all open in the ledger; PROTECTED/money files → per-file approval + extra care)
+**Money-path EFFICIENCY (deferred here because they touch money/protected files):**
+- **CHK-11** — checkout/session:438-445 calls `is_listing_accepting_orders` per listing; batched `get_listings_accepting_status` exists (used by cart/validate). N RPC→1. ⚠ checkout/session = PROTECTED critical-path.
+- **CHK-12** — checkout/session:448-452 second `listings` query for id,quantity already fetched in the parallel batch (:236-249). 2 queries→1. Add `quantity` to first select, drop second. ⚠ PROTECTED.
+- **CHK-15** — checkout/session:539-543 order-level `platform_fee_cents` uses std 6.5% while per-item honors override → order-level bookkeeping overstates revenue for discounted vendors (reporting only; transfers correct). Sum per-item fee components. ⚠ PROTECTED.
+- **CRN-16** — expire-orders Phase 19 (:2828-2830) fetches ENTIRE booth_credits ledger daily + sums in JS → SQL aggregate; Phase 16 (:2645) per-row `auth.admin.getUserById` → batch. Big sensitive money cron.
+- **VOR-13** — fulfill:226-271 fee-balance read + tip-count + existingPayout are 3 sequential awaits → Promise.all (only while already editing fulfill). ⚠ fulfill = PROTECTED.
+- **CRN-11** — survey per-recipient fan-out (surveys:441,569) — payload NOT uniform (surveyId/accessToken per recipient), so needs a per-recipient batch variant of sendNotificationBatch (bulk-prefetch + per-recipient templateData). Now daily+lazy so low-freq; low value.
+
+**THE MONEY-TAIL (open findings needing fixes/decisions — from earlier slices):**
+- **CHK-1 remainder** — the deferred webhook paid-flip 3-way status guard (pending→flip / paid→idempotent backfill / cancelled→refund+stop) + refund routing in webhooks.ts/checkout-success. Careful single-purpose pass. ⚠ webhooks.ts = PROTECTED.
+- **VOR-8** — fulfill:226-241 fee auto-deduction is read-compute-deduct with no atomic claim → two near-simultaneous fulfills over-deduct. Needs an atomic-claim RPC (MIGRATION) or per-vendor advisory lock. Same race class as MGR-1 (already fixed). ⚠ fulfill = PROTECTED.
+- **VOR-9** — fulfill:336-348 swallowed recordFeeCredit failure post-deduction → fee double-deducted next payout, nothing in error_logs. logError it. ⚠ PROTECTED.
+- **VOR-10** — reject/resolve-issue silent Stripe-refund skip when no succeeded payments row (use .maybeSingle + logError; the eventual fix MUST exempt payment_model=company_paid). ⚠ reject = PROTECTED.
+- **VOR-11** — lib/orders/status-transitions.ts spec module imported by nothing but 51 green tests; live routes contradict it. USER DECISION: wire it into routes or rewrite the spec.
+- **CHK-7 + CRN-5** — inventory restore-before-cancel double-restore pair (restore only guard-matched rows; cancel-first guarded claim). ⚠ checkout/session + expire-orders.
+- **CRN-3** — expire-orders work-gate counts only 6 work types; 15+ phases' work never counted → quiet platform no-ops daily (RELEVANT to pre-relaunch low-traffic state). **CRN-14** — vendor-quality supersede-before-insert ordering (already noted in ADM-5's fix; fold together). **CRN-10** — maxDuration=60 < the cron's own phase budgets → raise + elapsed-time guard.
+- **PRK-10** (USER DECISION — snapshot effective keep-pct on bookings, poss. migration, vs label historical earnings approximate) + **MGR-8 stats half** (rides PRK-10 — earnings dashboard shows gross where credit-reduced). **MGR-9b** already done (mig 194).
+- **Company-paid events package (backlog.md, user-deferred)** — EVT-1/2/7/11/13/17 + VOR-14 + EVT-15 company-paid half. "Need it later, not now." Whole feature is DEAD (never executable), no live leak. Fix as ONE project when scheduled.
+- **NOT-5** (bounce suppression — email_events has zero readers; needs a design) + **PRK-13** (park sweep N+1 + per-recipient reminder) — lower priority.
+
+### 4) USER-SIDE PENDING (do NOT act; remind if relevant)
+- Staging test of the WHOLE train (all of 184→196 + the comms/efficiency changes). Smoke items are scattered in the day-3/4/5/6 blocks below + the ledger.
+- Combined PROD push: user applies migs **184→196 IN ORDER** first, then pushes `main`→`origin/main` in the 9 PM–7 AM CT window (teaching-mode, verify Vercel build + smoke). 61 commits + 13 migrations — the biggest push of the cycle.
+- Push the local docs commit `24fe1e64` when convenient (only on user go).
+
+---
+
+## ⭐⭐⭐⭐⭐⭐⭐⭐⭐ PRIOR START BLOCK (2026-07-15 EOD) — superseded by the block above; kept for detail
 
 ### Git / deploy state (VERIFY — memory drifts)
 - **STAGING `origin/staging` = local `main` = `89d40853`** (everything committed AND pushed; tree clean except `settings.local.json`). *(If a docs commit landed after this block was written, staging tip may be one docs commit later — code state identical.)*

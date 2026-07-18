@@ -1,6 +1,6 @@
 # Backlog
 
-Last updated: 2026-07-14 (company-paid events package deferred here from review slice 5)
+Last updated: 2026-07-18 (CRN-11 deferred; VOR-11 stays open per user; company-paid assumptions for the VOR-10 fix documented in the package below)
 
 ## 🔶 DEFERRED FEATURE PACKAGE — Company-paid events (USER DECISION 2026-07-14: "WE WILL NEED IT LATER, BUT NOT NOW")
 
@@ -13,10 +13,14 @@ Last updated: 2026-07-14 (company-paid events package deferred here from review 
 5. **EVT-13** — access code is `Math.random()` (not CSPRNG) and the order route uses the general rate limiter (second guessing surface).
 6. **VOR-14** (already in ledger, open) — buyer-confirm edge path lacks a company-paid branch → would attempt a real Stripe transfer for an organizer-settled order. Unreachable while the feature is dead; MUST land with this package.
 7. **EVT-15 (company-paid half)** — buyer-cancel needs a company-paid early-branch mirroring fulfill's (no Stripe refund math on paymentless orders). The wave-freeing half of EVT-15 is being fixed NOW (wave lifecycle batch).
-8. **Reminder:** the eventual VOR-10 fix (reject's silent refund-skip logging) must exempt `payment_model='company_paid'` or it logs an error on every company-paid reject.
+8. **Reminder:** the eventual VOR-10 fix (reject's silent refund-skip logging) must exempt `payment_model='company_paid'` or it logs an error on every company-paid reject. **VOR-10 fix SHIPPING 2026-07-18 (Batch 3) with that exemption built in. Assumptions it bakes in — MUST still hold when this package is built:** (a) company-paid orders NEVER get a `payments` row (organizer settles out-of-band via the manually-recorded `event_company_payments` ledger — no Stripe payment, so no-succeeded-row is normal, not an error); (b) buyer refunds on company-paid rejects/issue-resolutions flow through organizer settlement, NOT Stripe `createRefund` (consistent with fulfill/route.ts:92,199-219 which skips all Stripe money movement for `payment_model='company_paid'`). If the package's design ever gives company-paid orders a payments row or Stripe refunds, revisit the reject/resolve-issue exemption.
 9. **Design notes:** RPC fee math (6.5%+15¢ both sides) is hardcoded in SQL — must mirror pricing.ts if rates ever change; `event_company_payments` is a manually-recorded admin ledger (no code moves organizer money); event cancellation (EVT-3/4) is being fixed NOW and is independent of this package.
 
-## ✅ MOSTLY DONE (2026-07-13) — Money-authorization tests built; VOR-11 decision still open
+## 🔷 DEFERRED (user 2026-07-18): CRN-11 — survey per-recipient notification fan-out
+
+Surveys cron sends per-recipient (surveys route :441,:569) because the payload is NOT uniform (surveyId/accessToken per recipient) — `sendNotificationBatch` can't be used without building a per-recipient-templateData batch variant (bulk-prefetch + per-recipient data). Since COMM-4 made surveys daily + lazy-on-return, frequency and volume are low → low value. Leave as is until notification volume justifies the variant.
+
+## ✅ MOSTLY DONE (2026-07-13) — Money-authorization tests built; VOR-11 decision still open (user 2026-07-18: leave as is for now)
 
 **BUILT 2026-07-13 (user-approved 8-rule spec, commit `556b34e0`):** `src/app/api/__tests__/money-authorization.test.ts` (8-rule spec driving the real fulfill/buyer-confirm handlers) + `src/lib/__tests__/money-structure.test.ts` (5 structural defect-class rules, self-policing allowlists) + `src/lib/__tests__/pricing-conservation.test.ts` (conservation properties). Suite 1628→1674, all in pre-commit. **REMAINING from this item: the VOR-11 decision only** — `lib/orders/status-transitions.ts` is a tested spec module production ignores; user picks: wire `isValidItemTransition` into routes (behavior change, care in resolve-issue) or rewrite the spec to sanctioned reality. Original rationale kept below.
 

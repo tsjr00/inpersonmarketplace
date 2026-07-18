@@ -126,6 +126,9 @@ vi.mock('@/lib/payments/vendor-fees', () => ({
   calculateAutoDeductAmount: vi.fn(() => 0),
   recordFeeCredit: vi.fn(async () => ({ success: true })),
   recordExternalPaymentFee: vi.fn(async () => ({ success: true })),
+  // mig 197 claim-first refactor: handlers now claim atomically; 0 grant keeps
+  // every payout-math expectation identical to the old zero-balance mocks.
+  claimVendorFeeDeduction: vi.fn(async () => ({ grantedCents: 0 })),
 }))
 
 import { POST as fulfillPOST } from '../vendor/orders/[id]/fulfill/route'
