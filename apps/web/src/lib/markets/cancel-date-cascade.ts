@@ -3,7 +3,7 @@ import { createRefund } from '@/lib/stripe/payments'
 import { stripe } from '@/lib/stripe/config'
 import { restoreInventory } from '@/lib/inventory'
 import { TracedError, logError } from '@/lib/errors'
-import { FEES, proratedFlatFeeSimple, calculateSmallOrderFee } from '@/lib/pricing'
+import { FEES, proratedFlatFeeSimple, calculateSmallOrderFee, calculateBoothRentalFees } from '@/lib/pricing'
 
 /**
  * Phase C — cancel-a-market-day cascade.
@@ -22,6 +22,14 @@ import { FEES, proratedFlatFeeSimple, calculateSmallOrderFee } from '@/lib/prici
  *   C. Market-box pickups    -> credited via the existing vendor_skip_week RPC
  *      (skip + makeup-extension + extend-by-one-week). vendor_skip_week notifies the
  *      subscriber itself (market_box_skip), so no extra MB notification here.
+ *   D. Park spot bookings    -> G3/PRK-16 (user decision 2026-07-18): PAID
+ *      bookings for the date are cancelled + credited to booth_credits
+ *      ('park_date_cancel', mig 201 — parks have no season settlement, so the
+ *      grant is at cancel time; credit auto-applies at the truck's next
+ *      booking via redeem_booth_credit). Barred bookings: cancelled, NO
+ *      credit (forfeit stands). pending_payment/occurrences: cancelled (NOT
+ *      'expired' — an operator cancellation must never count as a strike),
+ *      no credit (never paid).
  *
  * Returns the recipient user-ids + counts so the route can fan out notifications.
  */
@@ -33,7 +41,12 @@ export interface CancelDateCascadeResult {
   orderVendorNotifs: VendorOrderNotif[]
   boothRenterUserIds: string[]
   marketBoxCredited: number
+  parkBookingsCancelled: number
+  parkCreditNotifs: ParkCreditNotif[]
 }
+
+/** One notification per credited truck (amounts summed across its bookings that date). */
+export type ParkCreditNotif = { vendorUserId: string; amountCents: number }
 
 /** Sunday (YYYY-MM-DD) of the week containing the given YYYY-MM-DD date. */
 export function weekStartSunday(dateStr: string): string {
@@ -57,20 +70,29 @@ type OrderItemRow = {
 /** One notification per (vendor, order) so the vendor can reconcile by order #. */
 export type VendorOrderNotif = { vendorUserId: string; orderNumber: string }
 
-/** A. Refund buyer product orders for the cancelled date (no vendor penalty). */
+/** One notification per (buyer, order) — G2 bar cascade needs the order # per buyer. */
+export type BuyerOrderNotif = { buyerUserId: string; orderId: string; orderNumber: string }
+
+/** A. Refund buyer product orders for the cancelled date (no vendor penalty).
+ *  G2 (2026-07-18): optional vendorProfileId scopes the cascade to ONE truck's
+ *  orders — used when the park operator BARS a single paid booking; market-day
+ *  cancels pass no vendor and hit every order for the date, as before. */
 async function refundProductOrders(
   service: SupabaseClient,
   marketId: string,
   overrideDate: string,
   reason: string,
-): Promise<{ refundedItemCount: number; refundFailures: number; buyerUserIds: Set<string>; vendorNotifs: VendorOrderNotif[] }> {
+  vendorProfileId?: string,
+): Promise<{ refundedItemCount: number; refundFailures: number; buyerUserIds: Set<string>; vendorNotifs: VendorOrderNotif[]; buyerOrderNotifs: BuyerOrderNotif[] }> {
   const buyerUserIds = new Set<string>()
   // key = `${vendorProfileId}|${orderId}` → dedup multiple items, same vendor+order.
   const vendorOrderKeys = new Map<string, { vendorProfileId: string; orderNumber: string }>()
+  // key = `${buyerUserId}|${orderId}` → one buyer notification per order.
+  const buyerOrderKeys = new Map<string, BuyerOrderNotif>()
   let refundedItemCount = 0
   let refundFailures = 0
 
-  const { data: items, error: itemsErr } = await service
+  let itemsQuery = service
     .from('order_items')
     .select('id, order_id, listing_id, quantity, subtotal_cents, vendor_profile_id, order:orders!inner ( id, buyer_user_id, order_number )')
     .eq('market_id', marketId)
@@ -81,6 +103,10 @@ async function refundProductOrders(
     // item status — including it threw an invalid-enum error that silently
     // returned 0 items, so cancellations refunded nobody.)
     .in('status', ['pending', 'confirmed', 'ready'])
+  if (vendorProfileId) {
+    itemsQuery = itemsQuery.eq('vendor_profile_id', vendorProfileId)
+  }
+  const { data: items, error: itemsErr } = await itemsQuery
   // Never silently no-op a refund lookup — surface the failure instead of
   // treating an errored query as "no items to refund".
   if (itemsErr) throw itemsErr
@@ -161,7 +187,14 @@ async function refundProductOrders(
     }
 
     const ord = Array.isArray(item.order) ? item.order[0] : item.order
-    if (ord?.buyer_user_id) buyerUserIds.add(ord.buyer_user_id)
+    if (ord?.buyer_user_id) {
+      buyerUserIds.add(ord.buyer_user_id)
+      buyerOrderKeys.set(`${ord.buyer_user_id}|${item.order_id}`, {
+        buyerUserId: ord.buyer_user_id,
+        orderId: item.order_id,
+        orderNumber: ord?.order_number ? String(ord.order_number) : '',
+      })
+    }
     // The vendor who would have fulfilled this order is notified too (their
     // order vanished through no fault of theirs — mirrors how buyer-cancel
     // notifies the vendor, WITH the order # so they can reconcile orders +
@@ -266,7 +299,28 @@ async function refundProductOrders(
     }
   }
 
-  return { refundedItemCount, refundFailures, buyerUserIds, vendorNotifs }
+  return { refundedItemCount, refundFailures, buyerUserIds, vendorNotifs, buyerOrderNotifs: [...buyerOrderKeys.values()] }
+}
+
+/**
+ * G2 (2026-07-18, user decision): when the park operator BARS a truck's paid
+ * booking, cancel + refund that truck's buyer orders for that (market, date).
+ * Full reuse of the market-day cascade machinery scoped to one vendor —
+ * guarded per-item cancels, inventory restore, Stripe refunds w/ logError,
+ * session-expire + guarded order flips + tip/small-fee rollup on fully-dead
+ * orders, wave freeing. The caller sends the buyer notifications.
+ */
+export async function runBarredBookingOrderCascade(
+  service: SupabaseClient,
+  params: { marketId: string; bookingDate: string; vendorProfileId: string; reason: string },
+): Promise<{ refundedItemCount: number; refundFailures: number; buyerOrderNotifs: BuyerOrderNotif[] }> {
+  const { marketId, bookingDate, vendorProfileId, reason } = params
+  const refunds = await refundProductOrders(service, marketId, bookingDate, reason, vendorProfileId)
+  return {
+    refundedItemCount: refunds.refundedItemCount,
+    refundFailures: refunds.refundFailures,
+    buyerOrderNotifs: refunds.buyerOrderNotifs,
+  }
 }
 
 /** B. Paid booth renters whose rented week contains the cancelled date. */
@@ -329,6 +383,115 @@ async function creditMarketBoxPickups(
   return credited
 }
 
+/**
+ * D. G3/PRK-16 (user decision 2026-07-18): cancel the date's park spot
+ * bookings; PAID + un-barred ones earn a booth-credit for another day.
+ *
+ * - Credit = what the truck would pay TODAY for that spot-day: the booking's
+ *   snapshotted base price × the park's CURRENT operator_keep_pct fee split
+ *   (calculateBoothRentalFees(...).vendorPaysCents). PRK-10-family drift
+ *   caveat accepted — mirrors FM's settlement recompute.
+ * - Idempotent: the mig-201 partial unique (one 'park_date_cancel' grant per
+ *   booking, ever) turns a cascade re-run's insert into a 23505 no-op.
+ * - Pre-migration-safe: an insert failing on the CHECK/unknown column (mig
+ *   201 not applied) logs + skips the grant; the booking is still cancelled.
+ * - Status goes to 'cancelled', NEVER 'expired' — the strike engine counts
+ *   'expired' occurrences as missed prepay; an operator cancellation must
+ *   not strike the truck.
+ */
+async function creditParkSpotBookings(
+  service: SupabaseClient,
+  marketId: string,
+  overrideDate: string,
+  reason: string,
+): Promise<{ parkBookingsCancelled: number; parkCreditNotifs: ParkCreditNotif[] }> {
+  const { data: bookings, error: bookingsErr } = await service
+    .from('park_spot_bookings')
+    .select('id, vendor_profile_id, price_cents, status, manager_barred_at')
+    .eq('market_id', marketId)
+    .eq('booking_date', overrideDate)
+    .in('status', ['pending_payment', 'paid'])
+  // Surface a lookup failure — never treat an errored query as "no bookings".
+  if (bookingsErr) throw bookingsErr
+  if (!bookings || bookings.length === 0) {
+    return { parkBookingsCancelled: 0, parkCreditNotifs: [] }
+  }
+
+  const { data: market } = await service
+    .from('markets')
+    .select('operator_keep_pct')
+    .eq('id', marketId)
+    .maybeSingle()
+  const keepPct = (market?.operator_keep_pct as number | null) ?? undefined
+
+  let parkBookingsCancelled = 0
+  const creditByVendor = new Map<string, number>()
+
+  for (const b of bookings) {
+    // Guarded flip — only the request that wins cancels (re-runs skip).
+    const { data: flipped, error: flipErr } = await service
+      .from('park_spot_bookings')
+      .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+      .eq('id', b.id)
+      .in('status', ['pending_payment', 'paid'])
+      .select('id')
+    if (flipErr) {
+      await logError(new TracedError('ERR_REFUND_001',
+        `Park date-cancel: booking flip failed for ${b.id}: ${flipErr.message}`,
+        { route: '/api/market-manager/[marketId]/cancel-date', method: 'POST', bookingId: b.id }))
+      continue
+    }
+    if (!flipped || flipped.length === 0) continue // already cancelled (re-run)
+    parkBookingsCancelled++
+
+    // Credit only PAID, un-barred bookings (barred = forfeit stands;
+    // pending_payment = never paid).
+    if (b.status !== 'paid' || b.manager_barred_at) continue
+
+    const creditCents = calculateBoothRentalFees(b.price_cents as number, keepPct).vendorPaysCents
+    if (creditCents <= 0) continue
+
+    const { error: grantErr } = await service.from('booth_credits').insert({
+      vendor_profile_id: b.vendor_profile_id,
+      market_id: marketId,
+      amount_cents: creditCents,
+      source: 'park_date_cancel',
+      related_park_booking_id: b.id,
+      note: `Park date ${overrideDate} cancelled by the operator — ${reason}`,
+    })
+    if (grantErr) {
+      if (grantErr.code === '23505') continue // already granted (re-run) — the index doing its job
+      // CHECK violation / unknown column = mig 201 not applied yet, or a real
+      // failure — either way it must be visible: the truck is owed a credit.
+      await logError(new TracedError('ERR_REFUND_001',
+        `Park date-cancel credit grant failed for booking ${b.id} (${creditCents}¢ owed to vendor ${b.vendor_profile_id}): ${grantErr.message}`,
+        { route: '/api/market-manager/[marketId]/cancel-date', method: 'POST', bookingId: b.id, amountCents: creditCents }))
+      continue
+    }
+    creditByVendor.set(
+      b.vendor_profile_id as string,
+      (creditByVendor.get(b.vendor_profile_id as string) || 0) + creditCents
+    )
+  }
+
+  // Resolve credited vendors → user ids for the route's notification fan-out.
+  const parkCreditNotifs: ParkCreditNotif[] = []
+  if (creditByVendor.size > 0) {
+    const { data: vps } = await service
+      .from('vendor_profiles')
+      .select('id, user_id')
+      .in('id', [...creditByVendor.keys()])
+    for (const vp of vps ?? []) {
+      const amount = creditByVendor.get(vp.id as string)
+      if (vp.user_id && amount) {
+        parkCreditNotifs.push({ vendorUserId: vp.user_id as string, amountCents: amount })
+      }
+    }
+  }
+
+  return { parkBookingsCancelled, parkCreditNotifs }
+}
+
 export async function runCancelDateCascade(
   service: SupabaseClient,
   params: { marketId: string; overrideDate: string; reason: string },
@@ -338,6 +501,7 @@ export async function runCancelDateCascade(
   const refunds = await refundProductOrders(service, marketId, overrideDate, reason)
   const boothRenterUserIds = await findAffectedBoothRenters(service, marketId, overrideDate)
   const marketBoxCredited = await creditMarketBoxPickups(service, marketId, overrideDate, reason)
+  const parks = await creditParkSpotBookings(service, marketId, overrideDate, reason)
 
   return {
     refundedItemCount: refunds.refundedItemCount,
@@ -346,5 +510,7 @@ export async function runCancelDateCascade(
     orderVendorNotifs: refunds.vendorNotifs,
     boothRenterUserIds: [...boothRenterUserIds],
     marketBoxCredited,
+    parkBookingsCancelled: parks.parkBookingsCancelled,
+    parkCreditNotifs: parks.parkCreditNotifs,
   }
 }

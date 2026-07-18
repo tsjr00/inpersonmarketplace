@@ -198,8 +198,12 @@ describe('NI-014: Total notification types = 72', () => {
     // Bumped 96 → 98 on 2026-07-11 when event_organizer_broadcast_vendor +
     // event_organizer_broadcast_buyer were added (Events Tier-1 — one-way
     // organizer announcements to accepted vendors / attendees). User-approved.
+    // Bumped 98 → 99 on 2026-07-18 when park_date_cancelled_truck was added
+    // (G3/PRK-16 mig 201 — park operator cancels a date → truck's paid spot
+    // booking is cancelled + booth-credited). User-approved, pre-declared in
+    // the G3 design.
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(98)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(99)
   })
 
   it('includes all buyer-facing types', () => {

@@ -460,7 +460,8 @@ export async function createSeasonBoothCheckoutSession({
  * one spot, N dates). Sibling to createSeasonBoothCheckoutSession: a
  * consolidated single-line destination charge with a summed transfer to the
  * operator. The webhook (type='park_spot') flips park_spot_bookings by
- * booking_group_id to paid. No booth-credit path (FT has none).
+ * booking_group_id to paid. Booth-credit path added by G3/PRK-16 (mig 201):
+ * park date-cancel credits redeem here, same contract as the booth functions.
  *
  * Does NO math of its own — per-date vendorPaysCents + managerReceivesTotalCents
  * are pre-computed by the caller via pricing.ts calculateBoothRentalFees (same
@@ -475,6 +476,7 @@ export async function createParkSpotCheckoutSession({
   managerStripeAccountId,
   dates,
   managerReceivesTotalCents,
+  appliedCreditCents = 0,
   successUrl,
   cancelUrl,
   vertical,
@@ -485,7 +487,8 @@ export async function createParkSpotCheckoutSession({
   spotLabel: string
   managerStripeAccountId: string                      // markets.stripe_account_id
   dates: Array<{ bookingDate: string; vendorPaysCents: number }>
-  managerReceivesTotalCents: number                   // transfer_data.amount (sum)
+  managerReceivesTotalCents: number                   // pre-credit transfer sum
+  appliedCreditCents?: number                         // booth credit applied (reduces BOTH sides — mig 201)
   successUrl: string
   cancelUrl: string
   vertical?: string
@@ -495,6 +498,14 @@ export async function createParkSpotCheckoutSession({
   // One consolidated line for the whole booking (single day or prepay-week).
   // Total = sum of the per-day vendor amounts — identical charge to itemizing.
   const totalVendorPaysCents = dates.reduce((sum, d) => sum + d.vendorPaysCents, 0)
+
+  // G3/PRK-16: booth credit reduces the charge AND the operator transfer
+  // equally (the operator was already paid on the originally-cancelled
+  // booking — mirrors the FM booth credit contract above). Caller caps
+  // appliedCreditCents <= min(managerReceivesTotalCents,
+  // totalVendorPaysCents - 50¢ Stripe minimum), so neither goes negative.
+  const chargedVendorCents = totalVendorPaysCents - appliedCreditCents
+  const transferCents = managerReceivesTotalCents - appliedCreditCents
   const firstDate = dates[0]?.bookingDate
   const lastDate = dates[dates.length - 1]?.bookingDate
   const rangeLabel =
@@ -513,7 +524,7 @@ export async function createParkSpotCheckoutSession({
               name: `Spot rental — ${marketName}`,
               description: `${spotLabel} · ${dates.length} day${dates.length === 1 ? '' : 's'}${rangeLabel}`,
             },
-            unit_amount: totalVendorPaysCents,
+            unit_amount: chargedVendorCents,
           },
           quantity: 1,
         },
@@ -526,7 +537,7 @@ export async function createParkSpotCheckoutSession({
         statement_descriptor_suffix: getStatementSuffix(vertical),
         transfer_data: {
           destination: managerStripeAccountId,
-          amount: managerReceivesTotalCents,
+          amount: transferCents,
         },
       },
       metadata: {
@@ -535,6 +546,7 @@ export async function createParkSpotCheckoutSession({
         market_id: marketId,
         day_count: dates.length.toString(),
         manager_receives_total_cents: managerReceivesTotalCents.toString(),
+        applied_credit_cents: appliedCreditCents.toString(),
       },
     },
     { idempotencyKey }

@@ -119,6 +119,7 @@ export type NotificationType =
   | 'market_date_cancelled_order_vendor'
   // FT park-manager P4b — standing (recurring) spot holds.
   | 'park_standing_occurrence_ready'
+  | 'park_date_cancelled_truck'
   | 'park_standing_suspended'
   // FT park-manager P4b-2 — day-of check-in reminder (open/midday/pre-close).
   | 'park_checkin_reminder'
@@ -936,6 +937,20 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: (d) => `Pay to keep ${d.spotLabel || 'your spot'} on ${d.marketDate || 'your recurring day'}`,
     message: (d) =>
       `Your recurring hold at ${d.marketName || 'the park'} has ${d.spotLabel || 'your spot'} reserved for ${d.marketDate || 'your next day'}. Pay by ${d.payByDate || 'the cutoff'} to keep it — otherwise it opens back up and counts as a missed week. Heads up: customers can't place food orders for that date until it's paid, so paying early opens your order window sooner.`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/markets/${d.marketId || ''}/book-spot`,
+  },
+
+  // G3/PRK-16 (mig 201, user decision 2026-07-18) — the park operator cancelled
+  // a date the truck had PAID for: the booking is cancelled and the truck gets
+  // a booth-credit for another day (auto-applies at their next booking here).
+  // standard = email + in_app: a money event worth an off-platform record.
+  park_date_cancelled_truck: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'vendor',
+    title: (d) => `${d.marketName || 'The park'} cancelled ${d.marketDate || 'a date'} — you have a credit`,
+    message: (d) =>
+      `${d.marketName || 'The park'} cancelled ${d.marketDate || 'a booked date'}${d.reason ? ` (${d.reason})` : ''}. Your spot rental for that date was cancelled and a ${d.amountCents ? `$${(d.amountCents / 100).toFixed(2)} ` : ''}booking credit was added — it applies automatically the next time you book at this park.`,
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/markets/${d.marketId || ''}/book-spot`,
   },
 

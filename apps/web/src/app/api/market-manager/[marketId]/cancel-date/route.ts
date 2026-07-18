@@ -150,6 +150,14 @@ export async function POST(
             { marketName, marketId, marketDate: dateLabel, ...(orderNumber ? { orderNumber } : {}) },
             { vertical, ...(email ? { userEmail: email } : {}) })
         }),
+        // G3/PRK-16: trucks whose PAID spot bookings were cancelled — each gets
+        // a booth-credit for another day (granted in the cascade, mig 201).
+        ...result.parkCreditNotifs.map(async ({ vendorUserId, amountCents }) => {
+          const email = await emailFor(vendorUserId)
+          return sendNotification(vendorUserId, 'park_date_cancelled_truck',
+            { marketName, marketId, marketDate: dateLabel, amountCents, ...(reason ? { reason } : {}) },
+            { vertical, ...(email ? { userEmail: email } : {}) })
+        }),
       ])
     } catch (notifErr) {
       console.error('[cancel-date] notification block failed:', notifErr instanceof Error ? notifErr.message : 'Unknown')
@@ -163,6 +171,8 @@ export async function POST(
       orderVendorsNotified: result.orderVendorNotifs.length,
       boothRentersNotified: result.boothRenterUserIds.length,
       marketBoxCredited: result.marketBoxCredited,
+      parkBookingsCancelled: result.parkBookingsCancelled,
+      parkTrucksCredited: result.parkCreditNotifs.length,
     })
   })
 }

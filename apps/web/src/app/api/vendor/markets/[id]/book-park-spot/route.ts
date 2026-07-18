@@ -373,6 +373,30 @@ export async function POST(
       return NextResponse.json({ error: 'Could not complete booking. Please try again.' }, { status: 500 })
     }
 
+    // --- G3/PRK-16 (mig 201): apply any booth credit (park date-cancel
+    //     grants). Cap keeps the residual charge >= Stripe's 50¢ minimum and
+    //     the operator transfer >= 0 (credit reduces BOTH sides — the operator
+    //     was already paid on the cancelled booking). RPC error (incl. mig 201
+    //     not applied) → books at full price, logged (FM book/route pattern). ---
+    const STRIPE_MIN_CHARGE_CENTS = 50
+    const creditRequest = Math.min(totalManagerReceivesCents, totalVendorPaysCents - STRIPE_MIN_CHARGE_CENTS)
+    let appliedCreditCents = 0
+    if (creditRequest > 0) {
+      const { data: redeemed, error: redeemErr } = await serviceClient.rpc('redeem_booth_credit', {
+        p_vendor_profile_id: profile.id,
+        p_market_id: marketId,
+        p_group_id: null,
+        p_requested_cents: creditRequest,
+        p_rental_id: null,
+        p_park_booking_id: rows[0].booking_id,
+      })
+      if (redeemErr) {
+        logError(traced.fromSupabase(redeemErr, { table: 'booth_credits', operation: 'rpc' }))
+      } else if (typeof redeemed === 'number') {
+        appliedCreditCents = redeemed
+      }
+    }
+
     // --- Stripe Checkout. On failure, delete the pending rows so the vendor
     //     can retry immediately (partial-unique would otherwise block them). ---
     let checkoutUrl: string | null = null
@@ -390,6 +414,7 @@ export async function POST(
         managerStripeAccountId: market.stripe_account_id as string,
         dates: dates.map((d) => ({ bookingDate: d, vendorPaysCents: fees.vendorPaysCents })),
         managerReceivesTotalCents: totalManagerReceivesCents,
+        appliedCreditCents,
         successUrl,
         cancelUrl,
         vertical,
@@ -409,6 +434,28 @@ export async function POST(
       await logError(new TracedError('ERR_CHECKOUT_002', `[book-park-spot] Stripe session creation failed: ${stripeError instanceof Error ? stripeError.message : String(stripeError)}`, {
         route: '/api/vendor/markets/[id]/book-park-spot', method: 'POST',
       }))
+      // G3/PRK-16: release any redeemed booth credit BEFORE deleting the rows
+      // (the delete SET-NULLs the FK and would strand the −redeemed row).
+      // Unlike FM's MGR-7 keep-rows-on-failure pattern, parks have NO orphan
+      // sweep to retry a failed release — so we delete regardless and make a
+      // failed release LOUD for a manual re-credit (a stranded slot blocking
+      // the spot+date indefinitely is the worse outcome).
+      if (appliedCreditCents > 0) {
+        const { error: releaseErr } = await serviceClient.from('booth_credits').insert({
+          vendor_profile_id: profile.id,
+          market_id: marketId,
+          amount_cents: appliedCreditCents,
+          source: 'redeemed',
+          related_park_booking_id: rows[0].booking_id,
+          note: 'Released — park booking cancelled unpaid (Stripe session failed)',
+        })
+        if (releaseErr) {
+          await logError(new TracedError('ERR_REFUND_001', `CRITICAL: booth-credit release failed after park checkout failure — manually re-credit ${appliedCreditCents}¢ to vendor ${profile.id} at market ${marketId}: ${releaseErr.message}`, {
+            route: '/api/vendor/markets/[id]/book-park-spot', method: 'POST',
+            amountCents: appliedCreditCents, vendorProfileId: profile.id,
+          }))
+        }
+      }
       const { error: cleanupErr } = await serviceClient
         .from('park_spot_bookings')
         .delete()

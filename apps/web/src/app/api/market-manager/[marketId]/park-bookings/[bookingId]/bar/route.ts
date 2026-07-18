@@ -4,6 +4,7 @@ import { isMarketManager } from '@/lib/markets/manager-auth'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
+import { runBarredBookingOrderCascade } from '@/lib/markets/cancel-date-cascade'
 
 /**
  * POST /api/market-manager/[marketId]/park-bookings/[bookingId]/bar
@@ -67,9 +68,26 @@ export async function POST(
       .eq('status', 'paid')
     if (error) throw traced.fromSupabase(error, { table: 'park_spot_bookings', operation: 'update' })
 
-    // Notify the truck (no refund — grounded in the B1 acknowledgment).
+    // G2 (user decision 2026-07-18): the truck was removed from this date, so
+    // its BUYER orders for this (park, date) must not stay stranded — cancel +
+    // refund them via the market-day cascade machinery scoped to this vendor
+    // (guarded cancels, inventory restore, Stripe refunds w/ logError,
+    // tip/small-fee rollup on fully-dead orders). The truck's spot fee is
+    // still forfeited (bar semantics unchanged); only buyers are made whole.
+    // Note: mig 200 stops NEW orders for the barred date at the availability
+    // layer — this cascade handles the orders that already existed.
+    crumb.logic('Barred booking — cancelling + refunding buyer orders for the date')
+    const cascade = await runBarredBookingOrderCascade(service, {
+      marketId,
+      bookingDate: booking.booking_date as string,
+      vendorProfileId: booking.vendor_profile_id as string,
+      reason: 'Truck removed from this date by the park operator',
+    })
+
+    // Notify the truck (no refund of the spot fee — grounded in the B1
+    // acknowledgment) and the affected buyers (order cancelled + refunded).
     const { data: market } = await service.from('markets').select('name, vertical_id').eq('id', marketId).maybeSingle()
-    const { data: vp } = await service.from('vendor_profiles').select('user_id').eq('id', booking.vendor_profile_id as string).maybeSingle()
+    const { data: vp } = await service.from('vendor_profiles').select('user_id, profile_data').eq('id', booking.vendor_profile_id as string).maybeSingle()
     if (vp?.user_id) {
       await sendNotification(
         vp.user_id as string,
@@ -84,6 +102,26 @@ export async function POST(
       )
     }
 
-    return NextResponse.json({ success: true })
+    const truckName = ((vp?.profile_data as Record<string, unknown> | null)?.business_name as string) || 'The truck'
+    const vertical = (market?.vertical_id as string) || 'food_trucks'
+    for (const notif of cascade.buyerOrderNotifs) {
+      await sendNotification(
+        notif.buyerUserId,
+        'order_cancelled_by_vendor',
+        {
+          vendorName: truckName,
+          orderNumber: notif.orderNumber,
+          orderId: notif.orderId,
+          reason: `${truckName} is no longer at this location on that date. Your payment is being refunded.`,
+        },
+        { vertical }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      ordersRefunded: cascade.refundedItemCount,
+      refundFailures: cascade.refundFailures,
+    })
   })
 }
