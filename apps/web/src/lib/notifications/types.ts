@@ -28,7 +28,12 @@ export const URGENCY_CHANNELS: Record<NotificationUrgency, NotificationChannel[]
   immediate: ['push', 'in_app'],
   urgent: ['sms', 'in_app'],
   standard: ['email', 'in_app'],
-  info: ['email'],
+  // COMM-3 (frugality, user decision 2026-07-17): 'info' is now FREE in_app ONLY
+  // (was email-only). These are low-priority FYI notifications the user sees on
+  // their next navigation — spending a paid email on them was the cost inverse
+  // of frugal. Callers that still want an off-platform email record use a
+  // higher tier or a dedicated email send.
+  info: ['in_app'],
 }
 
 // ── Notification Type IDs ────────────────────────────────────────────
@@ -411,7 +416,9 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
   },
 
   order_refunded: {
-    urgency: 'urgent',
+    // COMM-6 (user decision 2026-07-17): a refund notice is informational, not
+    // actionable-now → standard (email + in_app), not urgent (was SMS-eligible).
+    urgency: 'standard',
     severity: 'info',
     audience: 'buyer',
     title: (_d, locale) => t('notif.order_refunded_title', locale),
@@ -1163,13 +1170,14 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
 
   // Phase E Stage 2 (mig 147 follow-up). Cron generates one row per
   // attended vendor after each market day; this notification has the
-  // survey UUID and a clear action URL. Standard urgency = in_app +
-  // email. Email body is the registry default; the cron also sends a
-  // custom-HTML email separately (with market logo if uploaded) — that
-  // ships as a Resend call from src/lib/surveys/email.ts. The in_app
-  // notification text below covers the dashboard banner case.
+  // survey UUID and a clear action URL.
+  // COMM-2/COMM-5 (user decision 2026-07-17): 'info' = in_app ONLY. The cron
+  // already sends ONE branded custom-HTML email via src/lib/surveys/email.ts
+  // (which honors the survey_emails_opted_out preference), so the registry email
+  // here was a DUPLICATE paid send that also ignored that opt-out. Dropping it
+  // → one email per recipient, opt-out honored, free in_app bell for the rest.
   survey_request_vendor: {
-    urgency: 'standard',
+    urgency: 'info',
     severity: 'info',
     audience: 'vendor',
     title: (d) =>
@@ -1186,8 +1194,10 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
         : `/${d.vertical || 'farmers_market'}/vendor/surveys`,
   },
 
+  // COMM-2/COMM-5: in_app-only — the single branded email ships from
+  // surveys/email.ts and honors survey_emails_opted_out (see survey_request_vendor).
   survey_request_buyer: {
-    urgency: 'standard',
+    urgency: 'info',
     severity: 'info',
     audience: 'buyer',
     title: (d) =>
@@ -1628,8 +1638,10 @@ const VERTICAL_URGENCY_OVERRIDES: Partial<Record<NotificationType, Partial<Recor
   order_cancelled_by_vendor: { farmers_market: 'urgent' },
   // NI-R21: order_cancelled_by_buyer — FT=immediate, FM=urgent
   order_cancelled_by_buyer: { farmers_market: 'urgent' },
-  // NI-R22: new_paid_order — FT=immediate (prep now), FM=standard (prep later)
-  new_paid_order: { farmers_market: 'standard' },
+  // NI-R22 (COMM-8, user decision 2026-07-17): new_paid_order FM → immediate
+  // (push + in_app) like FT, dropping the per-order email. Push cheaply carries
+  // the "new order" nudge; FM (days-ahead) vendors see it in the in_app bell.
+  new_paid_order: { farmers_market: 'immediate' },
   // NI-R23: new_external_order — FT=immediate, FM=standard
   new_external_order: { farmers_market: 'standard' },
   // NI-R24: stale_confirmed_vendor — FT=immediate, FM=standard

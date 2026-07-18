@@ -74,7 +74,8 @@ describe('URGENCY_CHANNELS', () => {
     expect(URGENCY_CHANNELS.immediate).toContain('in_app')
     expect(URGENCY_CHANNELS.urgent).toContain('sms')
     expect(URGENCY_CHANNELS.standard).toContain('email')
-    expect(URGENCY_CHANNELS.info).toContain('email')
+    // COMM-3 (2026-07-17): info is now free in_app-only (was email-only).
+    expect(URGENCY_CHANNELS.info).toContain('in_app')
   })
 })
 
@@ -93,8 +94,9 @@ describe('getNotificationConfig', () => {
 
 describe('In-app notifications always included', () => {
   it('every urgency level includes in_app channel', () => {
+    // COMM-3 (2026-07-17): ALL tiers now include in_app (info is in_app-only) —
+    // in_app is the free durable channel, so no tier is paid-channel-only.
     for (const [urgency, channels] of Object.entries(URGENCY_CHANNELS)) {
-      if (urgency === 'info') continue // info is email-only by design
       expect(channels, `${urgency} should include in_app`).toContain('in_app')
     }
   })
@@ -158,10 +160,12 @@ describe('NI-R30: trial_expired urgency', () => {
 })
 
 describe('NI-R31: order_refunded urgency', () => {
-  it('is urgent for both verticals', () => {
-    expect(NOTIFICATION_REGISTRY.order_refunded.urgency).toBe('urgent')
-    expect(getNotificationUrgency('order_refunded', 'food_trucks')).toBe('urgent')
-    expect(getNotificationUrgency('order_refunded', 'farmers_market')).toBe('urgent')
+  // COMM-6 (2026-07-17): a refund notice is informational, not actionable-now →
+  // 'standard' (email + in_app), dropped from 'urgent' (SMS-eligible).
+  it('is standard (email + in_app, not SMS) for both verticals', () => {
+    expect(NOTIFICATION_REGISTRY.order_refunded.urgency).toBe('standard')
+    expect(getNotificationUrgency('order_refunded', 'food_trucks')).toBe('standard')
+    expect(getNotificationUrgency('order_refunded', 'farmers_market')).toBe('standard')
   })
 })
 
@@ -225,9 +229,11 @@ describe('NI-R19-R27: Per-vertical urgency', () => {
     expect(getNotificationUrgency('order_cancelled_by_buyer', 'farmers_market')).toBe('urgent')
   })
 
-  it('NI-R22: new_paid_order FT=immediate, FM=standard', () => {
+  // NI-R22 (COMM-8, 2026-07-17): new_paid_order FM → immediate (push+in_app,
+  // frugal — drops the per-order email), matching FT.
+  it('NI-R22: new_paid_order FT=immediate, FM=immediate', () => {
     expect(getNotificationUrgency('new_paid_order', 'food_trucks')).toBe('immediate')
-    expect(getNotificationUrgency('new_paid_order', 'farmers_market')).toBe('standard')
+    expect(getNotificationUrgency('new_paid_order', 'farmers_market')).toBe('immediate')
   })
 
   it('NI-R23: new_external_order FT=immediate, FM=standard', () => {
@@ -391,8 +397,10 @@ describe('Urgency-to-channel mapping integrity', () => {
     expect(URGENCY_CHANNELS.standard).toEqual(['email', 'in_app'])
   })
 
-  it('info = email only (lowest priority)', () => {
-    expect(URGENCY_CHANNELS.info).toEqual(['email'])
+  it('info = in_app only (free, deferred to next navigation)', () => {
+    // COMM-3 (2026-07-17): frugality — 'info' is low-priority FYI the user sees
+    // on next visit; spend the FREE in_app channel, not a paid email.
+    expect(URGENCY_CHANNELS.info).toEqual(['in_app'])
   })
 })
 

@@ -419,18 +419,30 @@ export async function sendNotification(
   try {
     const dedupClient = createServiceClient()
     const tenSecondsAgo = new Date(Date.now() - 10000).toISOString()
-    const { data: recentDup } = await dedupClient
+    let dedupQuery = dedupClient
       .from('notifications')
       .select('id')
       .eq('user_id', userId)
       .eq('type', type)
       .gte('created_at', tenSecondsAgo)
       .limit(1)
+    // NOT-1: when the notification carries a reference — dedupRef (CHK-13 paired
+    // sends) or orderNumber (order notifications) — dedup on THAT reference, so
+    // two legitimately-distinct same-type notifications to one user inside the
+    // window (e.g. two orders to one vendor in a lunch rush) are NOT
+    // cross-suppressed. Only when NEITHER is present does the coarse user+type
+    // window apply (its original purpose: catch webhook retries / double-clicks).
+    const td = templateData as Record<string, unknown>
+    const dedupRef = typeof td.dedupRef === 'string' ? td.dedupRef : undefined
+    const orderNumber = typeof td.orderNumber === 'string' ? td.orderNumber : undefined
+    if (dedupRef) dedupQuery = dedupQuery.contains('data', { dedupRef })
+    else if (orderNumber) dedupQuery = dedupQuery.contains('data', { orderNumber })
+    const { data: recentDup } = await dedupQuery
 
     if (recentDup && recentDup.length > 0) {
       return {
         notificationType: type,
-        channels: [{ channel: 'in_app', success: true, skipped: true, reason: 'Duplicate notification suppressed (same type within 10s)' }],
+        channels: [{ channel: 'in_app', success: true, skipped: true, reason: 'Duplicate notification suppressed (same reference within 10s)' }],
       }
     }
   } catch {
@@ -443,10 +455,15 @@ export async function sendNotification(
 
   // Generate content from templates (locale applied after profile fetch, see below)
   // title + message assigned after profile fetch so locale is available
-  const actionUrl = config.actionUrl({
-    ...templateData,
-    ...(options?.vertical !== undefined ? { vertical: options.vertical } : {}),
-  })
+  // NOT-4: template fns are caller-supplied — guard so a throwing one can't
+  // break the "sendNotification never throws" contract money-path callers await.
+  let actionUrl = ''
+  try {
+    actionUrl = config.actionUrl({
+      ...templateData,
+      ...(options?.vertical !== undefined ? { vertical: options.vertical } : {}),
+    })
+  } catch { actionUrl = '' }
 
   // Determine channels based on per-vertical urgency (NI-R19)
   const urgency = getNotificationUrgency(type, options?.vertical)
@@ -502,8 +519,16 @@ export async function sendNotification(
   }
 
   // Generate localized content from templates (after profile fetch so locale is available)
-  const title = config.title(templateData, userLocale)
-  const message = config.message(templateData, userLocale)
+  // NOT-4: guarded — a throwing title/message template must not reject the promise.
+  let title: string
+  let message: string
+  try {
+    title = config.title(templateData, userLocale)
+    message = config.message(templateData, userLocale)
+  } catch {
+    title = 'Notification'
+    message = ''
+  }
 
   // Dispatch to each channel
   const results: ChannelResult[] = []
@@ -599,7 +624,13 @@ export async function sendNotification(
         },
       }
     )
-    await logError(error)
+    // NOT-4: logError is the last un-guarded await; swallow so it can't reject
+    // the "never throws" contract (console as the last-resort trail).
+    try {
+      await logError(error)
+    } catch (logErr) {
+      console.error('[notifications] logError failed:', logErr instanceof Error ? logErr.message : logErr)
+    }
   }
 
   return {

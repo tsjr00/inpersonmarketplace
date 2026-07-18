@@ -18,7 +18,10 @@
 | 1 checkout · 2 vendor-orders · 4 FT park · 6 market-box · 8 crons | ✅ found + P0/P1-fixed (days 1-2) |
 | 5 events | ✅ found + fixed (day 3) EXCEPT company-paid = deferred backlog package; EVT-16 efficiency tail open |
 | **3 market-manager** | **MGR-1..10 ALL ANCHOR-VERIFIED 2026-07-16 (main session) — fix batches presented, awaiting user go. Verification notes in the ledger's slice-3 header.** |
-| 7 auth/RLS · 10 admin · 9 notifications | ⬜ not yet run |
+| 7 auth/RLS ✅ (AUT-1) · 10 admin ✅ (ADM-1..8 + Stripe-fee capture) · 9 notifications ✅ (NOT-1..5) · COMM cost review ✅ (COMM-1..8) | ALL 10 SLICES DONE + a communication-COST review (owner frugality directive). |
+
+**⭐ 2026-07-17 — NOTIFICATIONS CORRECTNESS + COST BATCH (built, gates green tsc0/vitest1687, UNCOMMITTED):** NOT-1 (reference-aware dedup: dedupRef|orderNumber, no lunch-rush cross-suppression), NOT-4 (sendNotification never-throws now structural). COMM cost changes (USER-DECIDED): COMM-3 `info`→in_app-ONLY (`URGENCY_CHANNELS.info=['in_app']`, RESOLVES NOT-3 in the frugal direction — drop the paid email, keep free bell), COMM-6 order_refunded urgent→standard (email+in_app, no SMS), COMM-8 FM new_paid_order standard→immediate (push+in_app, drop per-order email), COMM-2/5 survey_request_*→'info'=in_app-only (single opt-out-honored email via sendSurveyEmail). COMM-7 = WONTFIX (user: critical bypass ok). **4 business-rule tests updated to the new user-decided spec** (info channels, NI-R31 order_refunded, NI-R22 new_paid_order, every-urgency-includes-in_app) — all transparent, driven by explicit COMM decisions. Frugality principle logged in decisions.md (2026-07-17) + memory feedback_communication_cost_frugality.
+**PENDING (user):** COMM-1 (market_day_today per-follower email → push+in_app — NOT YET DECIDED, biggest single recurring email cost, awaiting go); COMM-4 (surveys → EVENT-TRIGGERED redesign, own design pass). NOT-2/NOT-5 (efficiency tail) + the backlog-tail pass (CHK-1 remainder, VOR-8, CRN-3+CRN-14, CRN-10, CHK-7+CRN-5). Staging test of the whole train + combined prod push (migs 184→196 in order).
 
 ### ⭐ 2026-07-16 SESSION (day 5) — slice-3 VERIFIED + 3 FIX BATCHES BUILT
 - **All 10 MGR anchors main-session-verified (all confirmed)**; ledger statuses + verification notes updated.
