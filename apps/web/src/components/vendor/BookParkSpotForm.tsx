@@ -847,7 +847,11 @@ export default function BookParkSpotForm({
                   Pay to keep your recurring spot{pendingOccurrences.length === 1 ? '' : 's'}
                 </div>
                 <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing.sm }}>
-                  These weekly holds are approved and waiting on payment. Pay now to lock in each date.
+                  {/* T5/mig 199 (D1): unpaid dates aren't offered to buyers — paying
+                      early opens the truck's order window for that date. */}
+                  These weekly holds are approved and waiting on payment. Customers can&rsquo;t
+                  place food orders for a date until it&rsquo;s paid — pay early to open your
+                  order window sooner.
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
                   {pendingOccurrences.map((occ) => (

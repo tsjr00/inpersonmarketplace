@@ -926,14 +926,16 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
   },
 
   // FT P4b — a recurring occurrence was generated; the truck must prepay by the
-  // cutoff or the hold releases + takes a strike.
+  // cutoff or the hold releases + takes a strike. T5/mig 199 (D1, user decision
+  // 2026-07-18): buyers cannot place food orders for a date until its booking
+  // is PAID — the message tells trucks paying early opens their order window.
   park_standing_occurrence_ready: {
     urgency: 'standard',
     severity: 'info',
     audience: 'vendor',
     title: (d) => `Pay to keep ${d.spotLabel || 'your spot'} on ${d.marketDate || 'your recurring day'}`,
     message: (d) =>
-      `Your recurring hold at ${d.marketName || 'the park'} has ${d.spotLabel || 'your spot'} reserved for ${d.marketDate || 'your next day'}. Pay by ${d.payByDate || 'the cutoff'} to keep it — otherwise it opens back up and counts as a missed week.`,
+      `Your recurring hold at ${d.marketName || 'the park'} has ${d.spotLabel || 'your spot'} reserved for ${d.marketDate || 'your next day'}. Pay by ${d.payByDate || 'the cutoff'} to keep it — otherwise it opens back up and counts as a missed week. Heads up: customers can't place food orders for that date until it's paid, so paying early opens your order window sooner.`,
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/markets/${d.marketId || ''}/book-spot`,
   },
 
