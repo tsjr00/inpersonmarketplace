@@ -60,7 +60,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         vendor_profile_id,
         order_id,
         listing_id,
-        order:orders!inner(id, order_number, buyer_user_id, vertical_id, status, stripe_checkout_session_id, tip_amount, subtotal_cents),
+        order:orders!inner(id, order_number, buyer_user_id, vertical_id, status, stripe_checkout_session_id, payment_method, payment_model, tip_amount, subtotal_cents),
         listing:listings(title, vendor_profiles(profile_data))
       `)
       .eq('id', orderItemId)
@@ -154,12 +154,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Process Stripe refund for vendor rejection (full refund)
     // Use service client to read payments table (vendor RLS can't read payments)
     let stripeRefundId: string | null = null
+    // VOR-10: a Stripe-paid order MUST refund through Stripe — a missing
+    // succeeded-payments row is a data/timing problem (webhook lag, async pay
+    // method), not a reason to skip silently: the item is already cancelled
+    // with refund_amount_cents recorded, so a silent skip = buyer never
+    // refunded and nothing logged. External + company-paid orders
+    // legitimately have no payments row — those still skip silently.
+    const rejOrderPay = (orderItem as any).order as { payment_method?: string | null; payment_model?: string | null }
+    const shouldCallStripeRefund = rejOrderPay?.payment_method === 'stripe'
+      && rejOrderPay?.payment_model !== 'company_paid'
     const { data: payment } = await rejectServiceClient
       .from('payments')
       .select('stripe_payment_intent_id, status')
       .eq('order_id', orderItem.order_id)
       .eq('status', 'succeeded')
-      .single()
+      .maybeSingle()
 
     if (payment?.stripe_payment_intent_id) {
       try {
@@ -180,6 +189,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
           amountCents: buyerPaidForItem,
         }))
       }
+    } else if (shouldCallStripeRefund) {
+      await logError(new TracedError('ERR_REFUND_001', `No succeeded payment row for Stripe-paid order ${orderItem.order_id} at vendor rejection — buyer refund of ${buyerPaidForItem}¢ needs manual processing`, {
+        route: '/api/vendor/orders/[id]/reject', method: 'POST',
+        orderItemId: orderItem.id, orderId: orderItem.order_id,
+        amountCents: buyerPaidForItem,
+      }))
     }
 
     // Check if all items in the order are now cancelled

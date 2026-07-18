@@ -49,7 +49,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .select(`
         id, status, order_id, vendor_profile_id, listing_id, quantity,
         subtotal_cents, issue_reported_at, issue_status,
-        order:orders!inner(id, order_number, buyer_user_id, vertical_id, payment_method, tip_amount, subtotal_cents)
+        order:orders!inner(id, order_number, buyer_user_id, vertical_id, payment_method, payment_model, tip_amount, subtotal_cents)
       `)
       .eq('id', orderItemId)
       .single()
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const order = orderItem.order as unknown as {
       id: string; order_number: string; buyer_user_id: string; vertical_id: string; payment_method: string
-      tip_amount: number | null; subtotal_cents: number
+      payment_model: string | null; tip_amount: number | null; subtotal_cents: number
     }
     const vendorName = (vendorProfile.profile_data as Record<string, unknown>)?.business_name as string
       || (vendorProfile.profile_data as Record<string, unknown>)?.farm_name as string
@@ -173,14 +173,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }
 
       // Process Stripe refund if applicable (platform absorbs Stripe processing fee)
-      if (order.payment_method === 'stripe') {
+      // VOR-10: company-paid orders are exempt — organizer settlement, no
+      // payments row, no Stripe refund by design (see backlog.md company-paid
+      // package assumptions). For Stripe-paid orders a MISSING succeeded row
+      // is logged instead of silently skipped (buyer refund would be lost).
+      if (order.payment_method === 'stripe' && order.payment_model !== 'company_paid') {
         const serviceClient = createServiceClient()
         const { data: payment } = await serviceClient
           .from('payments')
           .select('stripe_payment_intent_id, status')
           .eq('order_id', order.id)
           .eq('status', 'succeeded')
-          .single()
+          .maybeSingle()
 
         if (payment?.stripe_payment_intent_id) {
           try {
@@ -198,6 +202,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
               amountCents: buyerPaidForItem,
             }))
           }
+        } else {
+          await logError(new TracedError('ERR_REFUND_001', `No succeeded payment row for Stripe-paid order ${order.id} at issue resolution — buyer refund of ${buyerPaidForItem}¢ needs manual processing`, {
+            route: '/api/vendor/orders/[id]/resolve-issue', method: 'POST',
+            orderItemId, orderId: order.id,
+            amountCents: buyerPaidForItem,
+          }))
         }
       }
 
