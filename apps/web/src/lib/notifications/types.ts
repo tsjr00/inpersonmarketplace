@@ -1106,10 +1106,14 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
 
   // Session 92 Phase B — market-day reminder to followers. Fires on the
   // morning of an operating day to buyers who follow the market
-  // (market_favorites). Standard urgency = in_app + email. Dedup'd per
-  // (market, date) via market_day_notification_log so it sends once.
+  // (market_favorites). Dedup'd per (market, date) via
+  // market_day_notification_log so it sends once.
+  // COMM-1 (frugality, user decision 2026-07-17): immediate = push + in_app
+  // (was standard = per-follower EMAIL every operating day — the single largest
+  // recurring automated email cost, linear in followers × market-days). A "come
+  // shop today" nudge is push's job; the free in_app bell lands on next open.
   market_day_today: {
-    urgency: 'standard',
+    urgency: 'immediate',
     severity: 'info',
     audience: 'buyer',
     title: (d) => `${d.marketName || 'A market you follow'} is open today`,
