@@ -8,8 +8,8 @@ import {
   nowInTimezoneAsLocalIso,
   recentLocalDates,
   formatMarketDateDisplay,
+  computeExpiresAt,
   formatYMD,
-  parseYMD,
 } from '@/lib/surveys/cron-helpers'
 import { generateSurveyToken } from '@/lib/surveys/token'
 import { resolveMarketAudience } from '@/lib/markets/market-audience'
@@ -620,14 +620,6 @@ async function generateForMarketDay(
       if (!result.ok) summary.emailsFailed++
     }
   }
-}
-
-/** 30 days after market_date — ISO timestamp. */
-function computeExpiresAt(marketDate: string): string {
-  const d = parseYMD(marketDate)
-  if (!d) return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-  d.setDate(d.getDate() + 30)
-  return d.toISOString()
 }
 
 /** "Jun 16, 2026" style display from an ISO timestamp. */

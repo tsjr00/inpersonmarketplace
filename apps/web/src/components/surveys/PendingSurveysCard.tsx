@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createServiceClient } from '@/lib/supabase/server'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { ensurePendingVendorSurveys } from '@/lib/surveys/lazy-generate'
 
 interface PendingSurveysCardProps {
   vendorProfileId: string
@@ -21,6 +22,12 @@ export default async function PendingSurveysCard({
   vertical,
 }: PendingSurveysCardProps) {
   const serviceClient = createServiceClient()
+
+  // COMM-4 part 2: lazily surface any survey this vendor is due for the moment
+  // they land here — no waiting for the daily generation cron, no email (the
+  // cron skips emailing anyone already surfaced this way). Best-effort.
+  await ensurePendingVendorSurveys(serviceClient, vendorProfileId, vertical)
+
   const { count } = await serviceClient
     .from('market_surveys')
     .select('id', { head: true, count: 'exact' })

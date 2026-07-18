@@ -123,6 +123,14 @@ export function formatYMD(d: Date): string {
   return `${y}-${m}-${dd}`
 }
 
+/** 30 days after market_date — ISO timestamp. Survey expiry. */
+export function computeExpiresAt(marketDate: string): string {
+  const d = parseYMD(marketDate)
+  if (!d) return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+  d.setDate(d.getDate() + 30)
+  return d.toISOString()
+}
+
 /** Display-formatted market date, e.g. "Saturday, May 17, 2026". */
 export function formatMarketDateDisplay(ymd: string): string {
   const d = parseYMD(ymd)
