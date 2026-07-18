@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     crumb.supabase('select', 'orders')
     const { data: order, error: orderError } = await serviceClient
       .from('orders')
-      .select('platform_fee_cents, buyer_user_id, order_number, vertical_id')
+      .select('status, platform_fee_cents, buyer_user_id, order_number, vertical_id')
       .eq('id', orderId)
       .single()
 
@@ -70,15 +70,67 @@ export async function GET(request: NextRequest) {
       throw traced.auth('ERR_AUTH_002', 'Not authorized for this order')
     }
 
-    // Update order status to paid
-    crumb.supabase('update', 'orders')
-    const { error: statusError } = await serviceClient
-      .from('orders')
-      .update({ status: 'paid' })
-      .eq('id', orderId)
+    // CHK-1 (3-way status branch): only a PENDING order flips to paid; if the
+    // webhook already finalized it (paid/completed) we just backfill below; if
+    // the order died before payment landed (stale tab paid a cancelled order)
+    // we record the payment, auto-refund in full, and tell the buyer the truth.
+    let deadOrderStatus: string | null =
+      ['cancelled', 'refunded'].includes(order.status) ? order.status : null
 
-    if (statusError) {
-      crumb.logic('Failed to update order status')
+    if (order.status === 'pending') {
+      crumb.supabase('update', 'orders')
+      const { data: flippedRows, error: statusError } = await serviceClient
+        .from('orders')
+        .update({ status: 'paid' })
+        .eq('id', orderId)
+        .eq('status', 'pending')
+        .select('id')
+
+      if (statusError) {
+        crumb.logic('Failed to update order status')
+      } else if (!flippedRows || flippedRows.length === 0) {
+        // Lost the race between our status read and the flip — re-read; a
+        // cancel winning that race is THE CHK-1 race. A webhook flip winning
+        // it just means the order is paid — continue normally.
+        const { data: raceOrder } = await serviceClient
+          .from('orders')
+          .select('status')
+          .eq('id', orderId)
+          .single()
+        if (raceOrder && ['cancelled', 'refunded'].includes(raceOrder.status)) {
+          deadOrderStatus = raceOrder.status
+        }
+      }
+    }
+
+    if (deadOrderStatus) {
+      // Money moved — record the payment row (idempotent vs the webhook's
+      // insert), then refund the full charge. Deterministic key shared with
+      // the webhook's dead-order path — the two can never double-refund. The
+      // buyer notification comes from the webhook path only (single sender).
+      crumb.supabase('insert', 'payments (dead order)')
+      const { error: deadInsertErr } = await serviceClient.from('payments').insert({
+        order_id: orderId,
+        stripe_payment_intent_id: paymentIntentId,
+        amount_cents: session.amount_total!,
+        platform_fee_cents: order.platform_fee_cents || 0,
+        status: 'succeeded',
+        paid_at: new Date().toISOString(),
+      })
+      if (deadInsertErr && deadInsertErr.code !== '23505') {
+        throw traced.fromSupabase(deadInsertErr, { table: 'payments', operation: 'insert' })
+      }
+      try {
+        await createRefund(paymentIntentId, `${orderId}-dead-order`, session.amount_total!)
+        await logError(new TracedError('ERR_CHECKOUT_006', `Buyer paid dead order ${orderId} (status ${deadOrderStatus}) via stale tab — full auto-refund of ${session.amount_total}¢ initiated`, {
+          route: '/api/checkout/success', method: 'GET',
+        }))
+      } catch (refundErr) {
+        await logError(new TracedError('ERR_CHECKOUT_006', `CRITICAL: buyer paid dead order ${orderId} AND auto-refund failed — manual refund of ${session.amount_total}¢ needed: ${refundErr instanceof Error ? refundErr.message : String(refundErr)}`, {
+          route: '/api/checkout/success', method: 'GET',
+        }))
+      }
+      throw traced.validation('ERR_CHECKOUT_006', 'This order expired before payment completed — your payment is being refunded.')
     }
 
     // Create payment record (idempotent - skip if already created by webhook)

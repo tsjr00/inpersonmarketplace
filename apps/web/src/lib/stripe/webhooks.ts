@@ -168,26 +168,50 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
   const orderId = session.metadata?.order_id
   if (!orderId) return
 
-  // Update order status to paid
-  // Note: grace_period_ends_at column doesn't exist - calculate from created_at when needed
-  await supabase
+  const paymentIntentId = session.payment_intent as string
+
+  // CHK-1: read the order FIRST — its status drives the 3-way branch below,
+  // and the row feeds the payment insert AND market box processing.
+  const { data: order } = await supabase
     .from('orders')
-    .update({ status: 'paid' })
+    .select('status, platform_fee_cents, buyer_user_id, order_number, vertical_id')
     .eq('id', orderId)
+    .single()
+
+  if (!order) {
+    await logError(new TracedError('ERR_WEBHOOK_017', `checkout.session.completed for unknown order ${orderId} (PI ${paymentIntentId}) — no order row; manual review needed`, {
+      route: '/webhooks/stripe', method: 'POST',
+    }))
+    return
+  }
+
+  // CHK-1: a payment landed on an order that already died (cancelled by
+  // cleanup/cron/reject before the flip). The payment row is recorded before
+  // this runs; refund the FULL charge with a deterministic key shared with
+  // checkout/success so the two paths can never double-refund.
+  const refundDeadOrder = async (deadStatus: string) => {
+    try {
+      await createRefund(paymentIntentId, `${orderId}-dead-order`, session.amount_total!)
+      await logError(new TracedError('ERR_WEBHOOK_017', `Payment landed on dead order ${orderId} (status ${deadStatus}) — full auto-refund of ${session.amount_total}¢ initiated`, {
+        route: '/webhooks/stripe', method: 'POST',
+      }))
+      await sendNotification(order.buyer_user_id, 'order_refunded', {
+        orderNumber: order.order_number,
+        orderId,
+        amountCents: session.amount_total!,
+      }, { vertical: order.vertical_id })
+    } catch (refundErr) {
+      await logError(new TracedError('ERR_WEBHOOK_017', `CRITICAL: payment landed on dead order ${orderId} AND auto-refund failed — manual refund of ${session.amount_total}¢ needed: ${refundErr instanceof Error ? refundErr.message : String(refundErr)}`, {
+        route: '/webhooks/stripe', method: 'POST',
+      }))
+    }
+  }
 
   // Idempotent insert - skip if success route already created the record
-  const paymentIntentId = session.payment_intent as string
   const { data: existingPayment } = await supabase
     .from('payments')
     .select('id')
     .eq('stripe_payment_intent_id', paymentIntentId)
-    .single()
-
-  // Get order info — needed for both payment insert AND market box processing
-  const { data: order } = await supabase
-    .from('orders')
-    .select('platform_fee_cents, buyer_user_id')
-    .eq('id', orderId)
     .single()
 
   if (!existingPayment) {
@@ -234,6 +258,39 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
       `Stripe fee capture failed for PI ${paymentIntentId}: ${feeErr instanceof Error ? feeErr.message : String(feeErr)}`,
       { route: '/webhooks/stripe', method: 'POST' }))
   }
+
+  // CHK-1 (3-way status branch): only a PENDING order flips to paid. A resend
+  // or backfill delivery (order already paid/completed) skips the flip but
+  // keeps the idempotent backfill — that path is load-bearing and unchanged.
+  // A payment landing on a cancelled/refunded order is recorded above,
+  // auto-refunded in full, and never reaches market-box processing.
+  if (order.status === 'pending') {
+    const { data: flippedRows } = await supabase
+      .from('orders')
+      .update({ status: 'paid' })
+      .eq('id', orderId)
+      .eq('status', 'pending')
+      .select('id')
+
+    if (!flippedRows || flippedRows.length === 0) {
+      // Lost the race between our status read and the flip — THE CHK-1 race
+      // (cleanup/cron cancelled the order mid-handler). Re-read and route.
+      const { data: raceOrder } = await supabase
+        .from('orders')
+        .select('status')
+        .eq('id', orderId)
+        .single()
+      if (raceOrder && ['cancelled', 'refunded'].includes(raceOrder.status)) {
+        await refundDeadOrder(raceOrder.status)
+        return
+      }
+      // Otherwise a concurrent success-route flip won (order is paid) — continue.
+    }
+  } else if (['cancelled', 'refunded'].includes(order.status)) {
+    await refundDeadOrder(order.status)
+    return
+  }
+  // paid/completed: no flip — idempotent backfill continues below.
 
   // Market box processing runs on EVERY webhook delivery for idempotent backfill.
   // Both the subscribe RPC and processMarketBoxPayout are idempotent — safe on

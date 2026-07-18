@@ -75,8 +75,10 @@ interface FlipAllow { file: string; table: string; status: string; count: number
 const FLIP_ALLOWLIST: FlipAllow[] = [
   // ── orders → 'paid' (CHK-1 remainder — OPEN; remove these two when the
   //    3-way paid-flip guard ships in webhooks + checkout/success) ──
-  { file: 'app/api/checkout/success/route.ts', table: 'orders', status: 'paid', count: 1, reason: 'CHK-1 OPEN — paid-flip guard deferred (3-way branch design)' },
-  { file: 'lib/stripe/webhooks.ts', table: 'orders', status: 'paid', count: 1, reason: 'CHK-1 OPEN — paid-flip guard deferred (3-way branch design)' },
+  // 2026-07-18 CHK-1 CLOSED: both paid-flips (webhooks handleCheckoutComplete
+  // + checkout/success) now carry the .eq('status','pending') guard with the
+  // 3-way branch (pending→flip / paid→backfill / cancelled→auto-refund) —
+  // entries removed per the rot-check instruction.
   // ── orders → 'cancelled' after an all-items-cancelled check (the flip is
   //    post-condition-checked; a paid order whose items all expired/refunded
   //    is correctly closed) ──

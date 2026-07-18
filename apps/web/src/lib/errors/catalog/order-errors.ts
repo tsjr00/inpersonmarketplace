@@ -218,6 +218,23 @@ export const CHECKOUT_ERRORS: ErrorCatalogEntry[] = [
     pgCodes: [],
   },
   {
+    code: 'ERR_CHECKOUT_006',
+    title: 'Buyer Paid a Dead Order (Success-Route Auto-Refund)',
+    category: 'STRIPE',
+    severity: 'high',
+    description: 'The checkout success route found the order cancelled/refunded when the buyer returned from Stripe (stale-tab payment). CHK-1 3-way branch: the payment row is recorded, the order is NOT flipped paid, a full-charge refund is initiated ({orderId}-dead-order key, shared with the webhook path), and the buyer sees "order expired — payment being refunded". A CRITICAL variant means the refund call failed — manual refund needed.',
+    userGuidance: 'This order expired before payment completed — your payment is being refunded.',
+    causes: [
+      'Buyer paid from a stale tab after the order was cancelled by cleanup/cron/vendor reject',
+      'Cleanup cancelled the order between the route\'s status read and its guarded flip',
+    ],
+    solutions: [
+      'Non-CRITICAL: verify the refund in Stripe; charge.refunded finalizes the bookkeeping',
+      'CRITICAL variant: manually refund the payment intent for the amount in the message',
+    ],
+    pgCodes: [],
+  },
+  {
     code: 'ERR_CRON_001',
     title: 'Cron Soft Time Budget Reached',
     category: 'ORDER',

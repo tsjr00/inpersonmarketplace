@@ -106,4 +106,22 @@ export const WEBHOOK_ERRORS: ErrorCatalogEntry[] = [
     ],
     pgCodes: [],
   },
+  {
+    code: 'ERR_WEBHOOK_017',
+    title: 'Payment Landed on Dead Order (Auto-Refund Path)',
+    category: 'STRIPE',
+    severity: 'high',
+    description: 'checkout.session.completed arrived for an order that is cancelled/refunded (or missing entirely). CHK-1 3-way branch: the payment row IS recorded, the order is NOT flipped paid, and a full-charge auto-refund is initiated with the deterministic key {orderId}-dead-order (shared with checkout/success — double-refund impossible). A CRITICAL variant of this code means the refund call itself failed and a manual refund is needed.',
+    userGuidance: '',
+    causes: [
+      'Stale checkout tab paid after cleanup/cron/reject cancelled the order (session-expire race)',
+      'Cleanup cancelled the order between this handler\'s status read and its guarded flip',
+      'Unknown-order variant: session metadata references an order row that does not exist',
+    ],
+    solutions: [
+      'Non-CRITICAL: verify the refund appears in Stripe; charge.refunded will mark the order refunded — no action needed',
+      'CRITICAL variant: manually refund the payment intent in the Stripe dashboard for the amount in the message',
+    ],
+    pgCodes: [],
+  },
 ]
