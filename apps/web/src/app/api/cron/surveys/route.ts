@@ -66,7 +66,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const summary = await runSurveyCron()
+    // COMM-4 (frugality, user decision 2026-07-17): survey generation runs
+    // ONCE per day, not every hour. This route stays hourly for the market-day
+    // + park check-in reminders below (which need intraday timing), but the
+    // survey SCAN over every market is the expensive part and only needs one
+    // pass a day. 15:00 UTC is past every US-timezone 08:00-local fire moment,
+    // so all markets due since the last run are covered same-day ("within a
+    // day" proximity). The per-market fire-window check inside runSurveyCron
+    // still applies; per-row UNIQUE constraints keep it idempotent, so a missed
+    // day (Vercel skip) self-heals on the next daily pass. Lazy on-return
+    // surfacing (generate when the vendor/buyer next opens the app) is the
+    // planned additive enhancement.
+    const SURVEY_GENERATION_UTC_HOUR = 15
+    const summary = new Date().getUTCHours() === SURVEY_GENERATION_UTC_HOUR
+      ? await runSurveyCron()
+      : { skipped: true as const, reason: 'survey generation runs once daily (15:00 UTC)' }
     // Session 92 Phase B — market-day reminders to followers. Runs in the
     // same hourly cron; independent of the survey logic above. Failures are
     // captured into its own summary block, never aborting the survey run.
