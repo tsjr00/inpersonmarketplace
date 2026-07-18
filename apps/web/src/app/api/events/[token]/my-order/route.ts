@@ -39,13 +39,17 @@ export async function GET(
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     }
 
-    // Resolve user's order for this event via order_items.market_id (orders.market_id
-    // does not exist; the link from event/market to orders is per-item).
-    // Same pattern as events/[token]/cancel/route.ts:120-133.
+    // Resolve THIS user's order for this event. orders.market_id doesn't exist —
+    // the link from event/market to orders is per-item — so we scope the
+    // order_items query to the buyer via an inner join on orders instead of
+    // fetching EVERY item for the event's market and filtering afterward
+    // (EVT-16: that scanned all attendees' items on every page view).
     const { data: itemRows } = await serviceClient
       .from('order_items')
-      .select('order_id')
+      .select('order_id, orders!inner ( buyer_user_id, status )')
       .eq('market_id', event.market_id)
+      .eq('orders.buyer_user_id', user.id)
+      .neq('orders.status', 'cancelled')
 
     const orderIds = [...new Set((itemRows || []).map(r => r.order_id as string))]
 
@@ -54,8 +58,6 @@ export async function GET(
           .from('orders')
           .select('id, order_number, status, payment_model, event_wave_reservation_id, created_at')
           .in('id', orderIds)
-          .eq('buyer_user_id', user.id)
-          .not('status', 'eq', 'cancelled')
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle()

@@ -8,7 +8,7 @@
  * killed mid-flight. sendNotification never throws, so awaiting is safe.
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { sendNotification } from '@/lib/notifications/service'
+import { sendNotification, sendNotificationBatch } from '@/lib/notifications/service'
 
 export interface EventCompletionInput {
   market_id: string
@@ -50,34 +50,37 @@ export async function runEventCompletionEffects(
       vendorUnfulfilled[vid].push(listing?.title || 'Unknown item')
     }
 
-    // Notify each vendor with unfulfilled orders
+    // Notify each vendor with unfulfilled orders. Payload is per-vendor
+    // (orderCount differs), so sends stay individual — but resolve all the
+    // vendor user_ids in ONE query instead of a per-vendor N+1.
+    const unfulfilledVendorIds = Object.keys(vendorUnfulfilled)
+    const { data: vps } = await serviceClient
+      .from('vendor_profiles')
+      .select('id, user_id')
+      .in('id', unfulfilledVendorIds)
+    const userByVendor = new Map((vps ?? []).map((v) => [v.id as string, (v.user_id as string | null) ?? null]))
     for (const [vendorId, items] of Object.entries(vendorUnfulfilled)) {
-      const { data: vp } = await serviceClient
-        .from('vendor_profiles')
-        .select('user_id')
-        .eq('id', vendorId)
-        .single()
-      if (vp?.user_id) {
-        await sendNotification(vp.user_id as string, 'event_force_completed_with_unfulfilled', {
+      const uid = userByVendor.get(vendorId)
+      if (uid) {
+        await sendNotification(uid, 'event_force_completed_with_unfulfilled', {
           marketName: event.company_name || 'Event',
           orderCount: items.length,
         }, { vertical: verticalId })
       }
     }
 
-    // Notify the vertical's admins so a human can follow up
+    // Notify the vertical's admins so a human can follow up (uniform payload → batch).
     const { data: vAdmins } = await serviceClient
       .from('vertical_admins')
       .select('user_id')
       .eq('vertical_id', verticalId)
-    for (const va of vAdmins || []) {
-      const uid = (va as { user_id?: string }).user_id
-      if (!uid) continue
-      await sendNotification(uid, 'event_completed_with_unfulfilled_admin', {
-        marketName: event.company_name || 'Event',
-        orderCount: unfulfilledItems.length,
-      }, { vertical: verticalId })
-    }
+    const adminUserIds = (vAdmins || [])
+      .map((va) => (va as { user_id?: string }).user_id)
+      .filter((id): id is string => !!id)
+    await sendNotificationBatch(adminUserIds, 'event_completed_with_unfulfilled_admin', {
+      marketName: event.company_name || 'Event',
+      orderCount: unfulfilledItems.length,
+    }, { vertical: verticalId })
 
     console.warn(`[complete-event] market ${marketId} completed with ${unfulfilledItems.length} unfulfilled order item(s)`)
   }
@@ -146,14 +149,14 @@ export async function sendEventFeedbackNotifications(
 
   const marketName = market?.name || 'the event'
 
-  for (const buyerId of buyerIds) {
-    await sendNotification(
-      buyerId,
-      'event_feedback_request',
-      { marketName, vertical: verticalId },
-      { vertical: verticalId }
-    )
-  }
+  // EVT-16 / NOT-2: uniform payload for every buyer → one bulk-prefetch batch
+  // instead of a per-buyer send loop (an event can have hundreds of attendees).
+  await sendNotificationBatch(
+    Array.from(buyerIds),
+    'event_feedback_request',
+    { marketName, vertical: verticalId },
+    { vertical: verticalId }
+  )
 }
 
 export async function sendEventSettlementNotifications(
