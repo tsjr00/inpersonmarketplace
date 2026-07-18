@@ -84,7 +84,9 @@ const FLIP_ALLOWLIST: FlipAllow[] = [
   { file: 'app/api/vendor/orders/[id]/reject/route.ts', table: 'orders', status: 'cancelled', count: 1, reason: 'all-items-cancelled pattern' },
   { file: 'app/api/vendor/orders/[id]/resolve-issue/route.ts', table: 'orders', status: 'cancelled', count: 1, reason: 'all-items-cancelled pattern' },
   { file: 'app/api/vendor/orders/[id]/cancel-nonpayment/route.ts', table: 'orders', status: 'cancelled', count: 1, reason: 'external-payment non-payment cancel (vendor-attested)' },
-  { file: 'app/api/cron/expire-orders/route.ts', table: 'orders', status: 'cancelled', count: 2, reason: 'Phase 1 all-items-cancelled + Phase 3 external past-pickup (items individually guarded)' },
+  // 2026-07-18 CRN-5 batch: Phase 3's flip gained the .eq('status','pending')
+  // guard (Phase 2 already had it) — count 2→1 per the rot-check instruction.
+  { file: 'app/api/cron/expire-orders/route.ts', table: 'orders', status: 'cancelled', count: 1, reason: 'Phase 1 all-items-cancelled (items individually guarded)' },
   // 2026-07-18 CHK-7 batch: checkout/session cleanup + failed-decrement unwind
   // orders flips are now BOTH guarded (.eq status pending) — allowlist entry
   // removed per Rule A rot-check instruction (shrink direction).

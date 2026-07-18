@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { notifyOrderExpired, sendNotification } from '@/lib/notifications'
 import { createRefund, transferToVendor, transferMarketBoxPayout, getChargeIdFromPaymentIntent } from '@/lib/stripe/payments'
-import { restoreInventory, restoreOrderInventory } from '@/lib/inventory'
+import { cancelOrderItemsAndRestoreGuarded, restoreInventory, restoreOrderInventory } from '@/lib/inventory'
 import { timingSafeEqual } from 'crypto'
 import { withErrorTracing, TracedError, logError, traced } from '@/lib/errors'
 import { FEES, proratedFlatFeeSimple, calculateSmallOrderFee } from '@/lib/pricing'
@@ -56,8 +56,12 @@ function safeCompare(a: string, b: string): boolean {
  *
  * Called by Vercel Cron daily at 12pm UTC / ~6am CT (configured in vercel.json)
  */
-// Vercel Pro: allow up to 60 seconds for the cron job (10+ phases with DB + Stripe calls)
-export const maxDuration = 60
+// CRN-10: 20+ phases whose own worst-case budgets (Phase 5 payout retries,
+// Phase 18 season reconciliation) exceed the old 60s — a mid-run kill silently
+// skipped every later phase (19/20/21 have no other driver) and a mid-Phase-2
+// kill was the CRN-5 double-restore window. 300s = Vercel Pro ceiling; the
+// soft budget below stops BETWEEN phases before the hard kill can hit.
+export const maxDuration = 300
 
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/cron/expire-orders', 'GET', async () => {
@@ -95,36 +99,31 @@ export async function GET(request: NextRequest) {
     let totalProcessed = 0
     let totalErrors = 0
 
-    // ── Quick-check: skip all phases if no work exists ──────────
-    // 4 lightweight count queries (head: true = no data transfer)
-    const [activeItems, pendingOrders, failedPayouts, trialVendors, standingHolds, pendingStandingOcc] = await Promise.all([
-      supabase.from('order_items').select('*', { count: 'exact', head: true })
-        .in('status', ['pending', 'confirmed', 'ready']),
-      supabase.from('orders').select('*', { count: 'exact', head: true })
-        .eq('status', 'pending'),
-      supabase.from('vendor_payouts').select('*', { count: 'exact', head: true })
-        .in('status', ['failed', 'pending_stripe_setup']),
-      supabase.from('vendor_profiles').select('*', { count: 'exact', head: true })
-        .eq('subscription_status', 'trialing'),
-      // FT P4b: active standing holds drive occurrence generation + strike checks;
-      // lingering pending occurrences need cutoff-release even if the hold ended.
-      supabase.from('park_standing_reservations').select('*', { count: 'exact', head: true })
-        .eq('status', 'active'),
-      supabase.from('park_spot_bookings').select('*', { count: 'exact', head: true })
-        .eq('status', 'pending_payment').not('standing_reservation_id', 'is', null),
-    ])
+    // CRN-3: the old zero-work quick-check counted only 6 work types and
+    // early-returned the WHOLE run — Phases 8-21's work (tier expiry,
+    // catering, booth rentals, invitations, credits, season-end, retention)
+    // was never counted, so on a quiet platform the entire cron no-op'd daily
+    // and e.g. a paid-via-missed-webhook season stayed pending forever.
+    // Removed: every phase already no-ops cheaply when its own (indexed)
+    // query finds nothing — the gate saved ~40 trivial queries once a day at
+    // the cost of correctness exactly when the platform is quiet.
 
-    const workCount = (activeItems.count ?? 0) + (pendingOrders.count ?? 0)
-      + (failedPayouts.count ?? 0) + (trialVendors.count ?? 0)
-      + (standingHolds.count ?? 0) + (pendingStandingOcc.count ?? 0)
-
-    if (workCount === 0) {
+    // CRN-10 soft time budget: checked BETWEEN expensive phases; on breach,
+    // log which phase we stopped after and return a partial summary instead
+    // of letting Vercel hard-kill us mid-phase.
+    const runStartMs = Date.now()
+    const SOFT_BUDGET_MS = 270_000
+    const budgetStopAfter = async (afterPhase: string): Promise<NextResponse | null> => {
+      if (Date.now() - runStartMs <= SOFT_BUDGET_MS) return null
+      await logError(new TracedError('ERR_CRON_001', `expire-orders soft time budget (${SOFT_BUDGET_MS / 1000}s) reached after ${afterPhase} — remaining phases skipped this run`, {
+        route: '/api/cron/expire-orders', method: 'GET',
+      }))
       return NextResponse.json({
         success: true,
-        skipped: true,
-        message: 'No active orders, payouts, or trials to process',
-        processed: 0,
-        errors: 0,
+        partial: true,
+        stoppedAfter: afterPhase,
+        processed: totalProcessed,
+        errors: totalErrors,
       })
     }
 
@@ -372,20 +371,16 @@ export async function GET(request: NextRequest) {
               continue // skip cancel — order may be paid; webhook/success path will finalize it
             }
 
-            // Restore inventory for all items (respects FT fulfilled rule)
-            await restoreOrderInventory(supabase, order.id, order.vertical_id)
-
-            // Cancel all order items
-            await supabase
-              .from('order_items')
-              .update({
-                status: 'cancelled',
-                cancelled_at: new Date().toISOString(),
-                cancelled_by: 'system',
-                cancellation_reason: 'Payment not completed within 10 minutes'
-              })
-              .eq('order_id', order.id)
-              .is('cancelled_at', null)
+            // CRN-5 (CHK-7 sibling): guarded cancel FIRST, restore only the
+            // claimed rows — an overlapping run (or checkout-cleanup) can no
+            // longer double-restore the same items.
+            await cancelOrderItemsAndRestoreGuarded(
+              supabase,
+              order.id,
+              order.vertical_id,
+              'system',
+              'Payment not completed within 10 minutes'
+            )
 
             // Cancel the order — guarded so a payment landing mid-run is never
             // overwritten paid→cancelled (CRN-2)
@@ -456,26 +451,26 @@ export async function GET(request: NextRequest) {
 
             if (!allPastPickup) continue
 
-            // Restore inventory for all items (respects FT fulfilled rule)
-            await restoreOrderInventory(supabase, order.id, order.vertical_id)
+            // CRN-5 (CHK-7 sibling): guarded cancel FIRST, restore only the
+            // claimed rows. External orders CAN have FT fulfilled items (they
+            // skip the VOR-1 paid gate) — the helper's pre-cancel status read
+            // keeps cooked food unrestored.
+            await cancelOrderItemsAndRestoreGuarded(
+              supabase,
+              order.id,
+              order.vertical_id,
+              'system',
+              'External payment order expired - pickup date passed without payment confirmation'
+            )
 
-            // Cancel all order items
-            await supabase
-              .from('order_items')
-              .update({
-                status: 'cancelled',
-                cancelled_at: new Date().toISOString(),
-                cancelled_by: 'system',
-                cancellation_reason: 'External payment order expired - pickup date passed without payment confirmation'
-              })
-              .eq('order_id', order.id)
-              .is('cancelled_at', null)
-
-            // Cancel the order
+            // Cancel the order — guarded (was unguarded; Phase 2 already had
+            // this): a vendor confirming the external payment mid-run must not
+            // be overwritten paid→cancelled.
             await supabase
               .from('orders')
               .update({ status: 'cancelled' })
               .eq('id', order.id)
+              .eq('status', 'pending')
 
             totalProcessed++
           } catch (orderError) {
@@ -713,6 +708,8 @@ export async function GET(request: NextRequest) {
     }
 
     // ============================================================
+    { const stop = await budgetStopAfter('Phase 3.6'); if (stop) return stop }
+
     // PHASE 4: Handle missed pickups (buyer no-show)
     // Order items with status 'ready' where pickup_date has passed.
     // Vendor did their part — pay vendor, notify buyer to contact vendor.
@@ -1216,6 +1213,8 @@ export async function GET(request: NextRequest) {
     }
 
     // ============================================================
+    { const stop = await budgetStopAfter('Phase 4.7'); if (stop) return stop }
+
     // PHASE 5: Retry failed vendor payouts (Stripe transfers)
     // Picks up vendor_payouts with status='failed', retries transfer
     // After 7 days of failure, marks as cancelled + alerts admin
@@ -1756,6 +1755,8 @@ export async function GET(request: NextRequest) {
     }
 
     // ============================================================
+    { const stop = await budgetStopAfter('Phase 6'); if (stop) return stop }
+
     // PHASE 7: Auto-fulfill stale confirmation windows
     // When buyer confirmed receipt but vendor didn't click "Fulfill"
     // within the 30-second window, the order item hangs indefinitely.
@@ -2081,6 +2082,8 @@ export async function GET(request: NextRequest) {
     } catch (phase9Error) {
       console.error('Phase 9 error:', phase9Error instanceof Error ? phase9Error.message : 'Unknown error')
     }
+
+    { const stop = await budgetStopAfter('Phase 9'); if (stop) return stop }
 
     // ─── Phase 10: Vendor Trial Lifecycle ──────────────────────────────
     // 10a: Send trial reminder notifications (14d, 7d, 3d before expiry)
@@ -2710,6 +2713,8 @@ export async function GET(request: NextRequest) {
     }
 
     // ============================================================
+    { const stop = await budgetStopAfter('Phase 15.5'); if (stop) return stop }
+
     // PHASE 16: Expire abandoned booth rental bookings (Phase C Stage 3)
     //
     // Two cohorts to cancel:
@@ -2849,6 +2854,24 @@ export async function GET(request: NextRequest) {
             })
           }
 
+          // CRN-16: ONE batched email lookup (user_profiles carries email —
+          // EVT-16 pattern) instead of a per-row auth.admin.getUserById call.
+          const notifyUserIds = [...new Set(
+            allCancelled
+              .map(r => vpMap.get(r.vendor_profile_id)?.user_id)
+              .filter((id): id is string => !!id)
+          )]
+          const emailByUser = new Map<string, string>()
+          if (notifyUserIds.length > 0) {
+            const { data: emailRows } = await supabase
+              .from('user_profiles')
+              .select('user_id, email')
+              .in('user_id', notifyUserIds)
+            for (const r of emailRows ?? []) {
+              if (r.email) emailByUser.set(r.user_id as string, r.email as string)
+            }
+          }
+
           for (const row of allCancelled) {
             const vp = vpMap.get(row.vendor_profile_id)
             const market = marketMap.get(row.market_id)
@@ -2863,10 +2886,8 @@ export async function GET(request: NextRequest) {
               year: 'numeric',
             })
 
-            // Vendor email for the email-channel of the notification.
-            let vendorEmail: string | null = null
-            const { data: authUser } = await supabase.auth.admin.getUserById(vp.user_id)
-            vendorEmail = authUser?.user?.email ?? null
+            // Vendor email for the email-channel of the notification (batched above).
+            const vendorEmail: string | null = emailByUser.get(vp.user_id) ?? null
 
             const vertical = market.vertical_id || vp.vertical_id || 'farmers_market'
 
@@ -2941,6 +2962,8 @@ export async function GET(request: NextRequest) {
     }
 
     // ============================================================
+    { const stop = await budgetStopAfter('Phase 17'); if (stop) return stop }
+
     // PHASE 18: Reconcile pending season booth groups (Phase E)
     //
     // Season children (weekly_booth_rentals.group_id NOT NULL) are excluded from
@@ -3047,46 +3070,35 @@ export async function GET(request: NextRequest) {
     // −balance 'expired' row to zero it (balance stays a plain SUM, never goes
     // negative). Warn vendors with a balance over $50 and an expiry within 14 days.
     try {
-      type CreditRow = { vendor_profile_id: string; market_id: string; amount_cents: number; source: string; expires_at: string | null }
-      const { data: allCredits } = await supabase
-        .from('booth_credits')
-        .select('vendor_profile_id, market_id, amount_cents, source, expires_at')
+      // CRN-16: SQL aggregate (mig 198) — the old code fetched the ENTIRE
+      // booth_credits ledger daily and grouped/summed it in JS (unbounded
+      // growth: the ledger only ever gains rows). The RPC returns one row per
+      // (vendor, market) with a positive balance + live-grant state; the
+      // decision logic below is unchanged. RPC error (migration not applied)
+      // → log + skip: credits expire a day late, nothing misrecorded.
+      type ExpiryStateRow = { vendor_profile_id: string; market_id: string; balance_cents: number; has_live_grant: boolean; nearest_live_grant_expiry: string | null }
+      const { data: expiryState, error: expiryStateErr } = await supabase
+        .rpc('get_booth_credit_expiry_state')
 
-      const creditRows = (allCredits ?? []) as CreditRow[]
-      if (creditRows.length > 0) {
+      if (expiryStateErr) {
+        await logError(new TracedError('ERR_CRON_002', `Phase 19 skipped — get_booth_credit_expiry_state unavailable (mig 198 applied?): ${expiryStateErr.message}`, {
+          route: '/api/cron/expire-orders', method: 'GET',
+        }))
+      } else if (expiryState && (expiryState as ExpiryStateRow[]).length > 0) {
         const nowMs = Date.now()
         const WARN_WINDOW_MS = 14 * 24 * 60 * 60 * 1000
         const WARN_THRESHOLD_CENTS = 5000
 
-        const groups = new Map<string, CreditRow[]>()
-        for (const c of creditRows) {
-          const key = `${c.vendor_profile_id}|${c.market_id}`
-          const arr = groups.get(key)
-          if (arr) arr.push(c)
-          else groups.set(key, [c])
-        }
-
         let expiredZeroed = 0
         const warnings: { vendorProfileId: string; marketId: string; balanceCents: number }[] = []
 
-        for (const [key, rows] of groups) {
-          const balance = rows.reduce((s, r) => s + r.amount_cents, 0)
-          if (balance <= 0) continue
-          const vendorProfileId = key.slice(0, key.indexOf('|'))
-          const marketId = key.slice(key.indexOf('|') + 1)
+        for (const row of expiryState as ExpiryStateRow[]) {
+          const balance = Number(row.balance_cents)
 
-          // Expiries of the positive GRANT rows only (ignore redeemed/expired/release).
-          const grantExpiries = rows
-            .filter((r) => r.amount_cents > 0 && r.source !== 'redeemed' && r.source !== 'expired')
-            .map((r) => (r.expires_at ? new Date(r.expires_at).getTime() : null))
-
-          // A NULL or future grant expiry keeps the whole balance alive (generous, v1).
-          const hasLiveGrant = grantExpiries.length === 0 || grantExpiries.some((e) => e === null || e >= nowMs)
-
-          if (!hasLiveGrant) {
+          if (!row.has_live_grant) {
             const { error: expErr } = await supabase.from('booth_credits').insert({
-              vendor_profile_id: vendorProfileId,
-              market_id: marketId,
+              vendor_profile_id: row.vendor_profile_id,
+              market_id: row.market_id,
               amount_cents: -balance,
               source: 'expired',
               note: 'Booth credit expired',
@@ -3094,24 +3106,36 @@ export async function GET(request: NextRequest) {
             if (!expErr) expiredZeroed++
             else console.error('Phase 19 expiry insert error:', expErr.message)
           } else if (balance >= WARN_THRESHOLD_CENTS) {
-            const nearest = grantExpiries
-              .filter((e): e is number => e !== null && e >= nowMs)
-              .sort((a, b) => a - b)[0]
-            if (nearest !== undefined && nearest - nowMs <= WARN_WINDOW_MS) {
-              warnings.push({ vendorProfileId, marketId, balanceCents: balance })
+            const nearest = row.nearest_live_grant_expiry
+              ? new Date(row.nearest_live_grant_expiry).getTime()
+              : null
+            if (nearest !== null && nearest - nowMs <= WARN_WINDOW_MS) {
+              warnings.push({ vendorProfileId: row.vendor_profile_id, marketId: row.market_id, balanceCents: balance })
             }
           }
         }
 
-        for (const w of warnings) {
-          const { data: vp } = await supabase.from('vendor_profiles').select('user_id').eq('id', w.vendorProfileId).maybeSingle()
-          const { data: mk } = await supabase.from('markets').select('name, vertical_id').eq('id', w.marketId).maybeSingle()
-          const uid = vp?.user_id as string | undefined
-          if (uid) {
-            await sendNotification(uid, 'booth_credit_expiring_vendor', {
-              marketName: (mk?.name as string | undefined) || 'a market',
-              amountCents: w.balanceCents,
-            }, { vertical: (mk?.vertical_id as string | undefined) || 'farmers_market' })
+        // CRN-16: batch the warning lookups (was a per-warning
+        // vendor_profiles + markets query pair).
+        if (warnings.length > 0) {
+          const warnVendorIds = [...new Set(warnings.map(w => w.vendorProfileId))]
+          const warnMarketIds = [...new Set(warnings.map(w => w.marketId))]
+          const [warnVpRes, warnMkRes] = await Promise.all([
+            supabase.from('vendor_profiles').select('id, user_id').in('id', warnVendorIds),
+            supabase.from('markets').select('id, name, vertical_id').in('id', warnMarketIds),
+          ])
+          const warnVpById = new Map((warnVpRes.data ?? []).map(v => [v.id as string, v.user_id as string | null]))
+          const warnMkById = new Map((warnMkRes.data ?? []).map(m => [m.id as string, { name: (m.name as string | null), vertical_id: (m.vertical_id as string | null) }]))
+
+          for (const w of warnings) {
+            const uid = warnVpById.get(w.vendorProfileId) ?? undefined
+            const mk = warnMkById.get(w.marketId)
+            if (uid) {
+              await sendNotification(uid, 'booth_credit_expiring_vendor', {
+                marketName: mk?.name || 'a market',
+                amountCents: w.balanceCents,
+              }, { vertical: mk?.vertical_id || 'farmers_market' })
+            }
           }
         }
 

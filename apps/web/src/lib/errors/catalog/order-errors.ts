@@ -218,6 +218,40 @@ export const CHECKOUT_ERRORS: ErrorCatalogEntry[] = [
     pgCodes: [],
   },
   {
+    code: 'ERR_CRON_001',
+    title: 'Cron Soft Time Budget Reached',
+    category: 'ORDER',
+    severity: 'medium',
+    description: 'expire-orders hit its 270s soft budget and stopped BETWEEN phases (instead of being hard-killed mid-phase by Vercel at maxDuration). The log names the last completed phase; every earlier phase ran normally.',
+    userGuidance: '',
+    causes: [
+      'Unusually large backlog in an early phase (payout retries, season reconciliation)',
+      'Slow Stripe/database responses inflating per-phase time',
+    ],
+    solutions: [
+      'Usually self-heals: the next daily run continues where work remains',
+      'If recurring, check which phase precedes the stop and reduce its per-run batch size',
+    ],
+    pgCodes: [],
+  },
+  {
+    code: 'ERR_CRON_002',
+    title: 'Cron Phase Skipped — Dependency Unavailable',
+    category: 'ORDER',
+    severity: 'medium',
+    description: 'A cron phase skipped its run because a database dependency (e.g. an RPC from a not-yet-applied migration) was unavailable. Nothing was misrecorded; the phase simply did no work this run.',
+    userGuidance: '',
+    causes: [
+      'Migration providing the RPC not yet applied to this environment (e.g. mig 198 get_booth_credit_expiry_state)',
+      'Transient database error while calling the dependency',
+    ],
+    solutions: [
+      'Apply the migration named in the log message; the phase resumes on the next run',
+      'If the migration IS applied, investigate the underlying database error',
+    ],
+    pgCodes: [],
+  },
+  {
     code: 'ERR_FEE_002',
     title: 'Fee Deduction Claim Failed',
     category: 'ORDER',

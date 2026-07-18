@@ -89,11 +89,10 @@ export async function GET(request: NextRequest) {
     const batchId = scanLog.id
 
     try {
-      // Step 2: Mark all previous 'active' findings as 'superseded'
-      await supabase
-        .from('vendor_quality_findings')
-        .update({ status: 'superseded' })
-        .eq('status', 'active')
+      // Step 2 MOVED to after the insert (CRN-14): superseding all active
+      // findings BEFORE the checks ran meant any check/insert failure left
+      // every vendor's findings wiped — and vendors were still notified about
+      // findings that were never inserted.
 
       // Step 3: Run all 5 checks in parallel
       const [
@@ -143,11 +142,24 @@ export async function GET(request: NextRequest) {
           .insert(rows)
 
         if (insertError) {
-          console.error('[VENDOR-QUALITY] Insert findings failed:', insertError.message)
-        } else {
-          findingsCreated = rows.length
+          // CRN-14: abort — the catch below marks the scan failed; old
+          // findings stay active (supersede hasn't run yet) and no vendor is
+          // notified about findings that don't exist.
+          throw new Error(`Insert findings failed: ${insertError.message}`)
         }
+        findingsCreated = rows.length
       }
+
+      // Step 5.5 (CRN-14, moved from step 2): supersede old actives only
+      // AFTER the new findings are safely in (or the scan legitimately found
+      // none). Every row carries batch_id (set on insert above), so excluding
+      // the current batch is a plain neq. Worst case if THIS update fails:
+      // vendors briefly see old + new findings (benign) — never an empty list.
+      await supabase
+        .from('vendor_quality_findings')
+        .update({ status: 'superseded' })
+        .eq('status', 'active')
+        .neq('batch_id', batchId)
 
       // Step 6: Group findings per vendor, send one notification each
       const vendorFindings = groupFindingsByVendor(filteredFindings)

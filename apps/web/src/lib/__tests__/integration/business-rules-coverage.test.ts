@@ -1092,14 +1092,20 @@ describe('IR: Infrastructure Reliability — Cost Optimization', () => {
     expect(banner).not.toContain('setInterval')
   })
 
-  // ── IR-R20: Cron early exit on empty DB ──────────────────────────
-  // expire-orders runs 4 parallel count queries before processing.
-  // If no active order_items, pending orders, failed payouts, or trial vendors → skip all phases.
-  it('IR-R20: expire-orders has early exit for empty data', () => {
+  // ── IR-R20: Cron phases self-gate on empty data (RULE UPDATED) ────
+  // USER DECISION 2026-07-18 (CRN-3, pre-re-release review): the old rule
+  // ("count 6 work types up front; workCount===0 → skip ALL phases") was
+  // itself the bug — the counts covered only 6 of 20+ phases' work, so a
+  // quiet platform silently starved Phases 8-21 daily (e.g. a paid-via-
+  // missed-webhook season stayed pending forever). New rule: NO global
+  // early-exit; every phase self-gates via its own cheap indexed query, so
+  // correctness never depends on a hand-maintained work-type list. This
+  // assertion guards against the skip-all gate being reintroduced.
+  it('IR-R20: expire-orders has NO global early-exit gate (phases self-gate)', () => {
     const cronRoute = fs.readFileSync(
       path.join(webRoot, 'src/app/api/cron/expire-orders/route.ts'), 'utf-8'
     )
-    expect(cronRoute).toContain('workCount')
+    expect(cronRoute).not.toContain('workCount')
   })
 
   // ── IR-R21: Quality checks early exit ────────────────────────────
