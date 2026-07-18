@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { timingSafeEqual } from 'crypto'
 import { withErrorTracing } from '@/lib/errors'
-import { sendNotification } from '@/lib/notifications'
+import { sendNotification, sendNotificationBatch } from '@/lib/notifications'
 import {
   computeFireMomentLocal,
   nowInTimezoneAsLocalIso,
@@ -223,20 +223,21 @@ async function notifyMarketDayFollowers(
     (schedules[0].end_time as string | null) ?? null
   )
 
-  let sent = 0
-  for (const userId of followers) {
-    await sendNotification(
-      userId,
-      'market_day_today',
-      {
-        marketName: market.name,
-        marketId: market.id,
-        ...(hours ? { marketDayHours: hours } : {}),
-      },
-      { vertical }
-    )
-    sent++
-  }
+  // CRN-12 / NOT-2: one bulk-prefetch batch instead of a per-follower loop.
+  // The payload is identical for every follower of this market (marketName /
+  // id / hours), so a single sendNotificationBatch collapses N profile queries
+  // into 2. market_day_today is push+in_app (COMM-1), no email cost.
+  await sendNotificationBatch(
+    Array.from(followers),
+    'market_day_today',
+    {
+      marketName: market.name,
+      marketId: market.id,
+      ...(hours ? { marketDayHours: hours } : {}),
+    },
+    { vertical }
+  )
+  const sent = followers.size
 
   // Record the recipient count on the marker (best-effort).
   await serviceClient

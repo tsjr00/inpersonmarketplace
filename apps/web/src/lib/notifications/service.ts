@@ -403,6 +403,16 @@ export async function sendNotification(
     vertical?: string
     userEmail?: string
     userPhone?: string
+    // NOT-2: when a batch caller has already bulk-loaded the recipient's
+    // profile + vendor tier, pass them here to SKIP the per-recipient
+    // user_profiles + vendor_profiles queries (the N+1 that made
+    // sendNotificationBatch no cheaper than a loop). Absent → fetch as before.
+    prefetched?: {
+      preferences: UserPreferences
+      email: string | null
+      phone: string | null
+      vendorTier: string | null
+    }
   }
 ): Promise<NotificationResult> {
   const config = NOTIFICATION_REGISTRY[type]
@@ -473,49 +483,66 @@ export async function sendNotification(
   let preferences = DEFAULT_PREFERENCES
   let userEmail = options?.userEmail
   let userPhone = options?.userPhone
-  try {
-    const supabase = createServiceClient()
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('user_id', userId)
-      .single()
+  // Critical bypass: immediate/urgent notifications skip tier gating entirely.
+  const isCritical = urgency === 'immediate' || urgency === 'urgent'
 
-    if (profile?.notification_preferences) {
-      preferences = { ...DEFAULT_PREFERENCES, ...profile.notification_preferences as UserPreferences }
-      // Read user's preferred locale for notification translation
-      const prefs = profile.notification_preferences as Record<string, unknown>
-      if (typeof prefs.locale === 'string') {
-        userLocale = prefs.locale
-      }
+  // Tier-based channel gating, shared by the prefetched + fetch paths.
+  const applyTierGate = async (vendorTier: string | null) => {
+    if (!isCritical && options?.vertical && vendorTier) {
+      const { getTierNotificationChannels } = await import('@/lib/vendor-limits')
+      const allowed = getTierNotificationChannels(vendorTier, options.vertical)
+      channels = channels.filter(ch => allowed.includes(ch))
     }
-    // Auto-resolve email/phone from profile if not provided by caller
-    if (!userEmail && profile?.email) {
-      userEmail = profile.email
-    }
-    if (!userPhone && profile?.phone) {
-      userPhone = profile.phone
-    }
+  }
 
-    // Tier-based channel gating: restrict channels based on vendor's tier (both verticals)
-    // Critical bypass: immediate/urgent notifications skip tier gating entirely
-    const isCritical = urgency === 'immediate' || urgency === 'urgent'
-    if (!isCritical && options?.vertical && profile?.user_id) {
-      const { data: vendor } = await supabase
-        .from('vendor_profiles')
-        .select('tier')
-        .eq('user_id', profile.user_id)
-        .eq('vertical_id', options.vertical)
+  if (options?.prefetched) {
+    // NOT-2: batch caller already bulk-loaded this recipient — no per-recipient
+    // user_profiles / vendor_profiles queries.
+    const pf = options.prefetched
+    preferences = { ...DEFAULT_PREFERENCES, ...pf.preferences }
+    const pl = (pf.preferences as unknown as Record<string, unknown>).locale
+    if (typeof pl === 'string') userLocale = pl
+    if (!userEmail && pf.email) userEmail = pf.email
+    if (!userPhone && pf.phone) userPhone = pf.phone
+    await applyTierGate(pf.vendorTier)
+  } else {
+    try {
+      const supabase = createServiceClient()
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('user_id', userId)
         .single()
 
-      if (vendor?.tier) {
-        const { getTierNotificationChannels } = await import('@/lib/vendor-limits')
-        const allowed = getTierNotificationChannels(vendor.tier, options.vertical)
-        channels = channels.filter(ch => allowed.includes(ch))
+      if (profile?.notification_preferences) {
+        preferences = { ...DEFAULT_PREFERENCES, ...profile.notification_preferences as UserPreferences }
+        // Read user's preferred locale for notification translation
+        const prefs = profile.notification_preferences as Record<string, unknown>
+        if (typeof prefs.locale === 'string') {
+          userLocale = prefs.locale
+        }
       }
+      // Auto-resolve email/phone from profile if not provided by caller
+      if (!userEmail && profile?.email) {
+        userEmail = profile.email
+      }
+      if (!userPhone && profile?.phone) {
+        userPhone = profile.phone
+      }
+
+      // Tier-based channel gating: restrict channels based on vendor's tier (both verticals)
+      if (!isCritical && options?.vertical && profile?.user_id) {
+        const { data: vendor } = await supabase
+          .from('vendor_profiles')
+          .select('tier')
+          .eq('user_id', profile.user_id)
+          .eq('vertical_id', options.vertical)
+          .single()
+        await applyTierGate(vendor?.tier ?? null)
+      }
+    } catch (prefError) {
+      console.warn('[notifications] Failed to fetch user preferences, using defaults:', prefError)
     }
-  } catch (prefError) {
-    console.warn('[notifications] Failed to fetch user preferences, using defaults:', prefError)
   }
 
   // Generate localized content from templates (after profile fetch so locale is available)
@@ -644,7 +671,11 @@ export async function sendNotification(
  * Send a notification to multiple users (batch).
  * Useful for admin broadcasts or market-wide announcements.
  *
- * Pre-fetches all user profiles in a single query to avoid N sequential DB calls.
+ * NOT-2: bulk-loads the FULL profile (preferences + email + phone) AND the
+ * vendor tiers in exactly 2 queries, then threads them into each sendNotification
+ * as `prefetched` so the per-recipient user_profiles + vendor_profiles queries
+ * are skipped entirely. Previously it prefetched only email/phone, so each
+ * inner call still ran its own 2 queries — N recipients → ~2N reads. Now → 2.
  */
 export async function sendNotificationBatch(
   userIds: string[],
@@ -656,31 +687,52 @@ export async function sendNotificationBatch(
 ): Promise<NotificationResult[]> {
   if (userIds.length === 0) return []
 
-  // Batch-fetch user profiles to avoid N+1 queries inside sendNotification
-  const profileMap = new Map<string, { email?: string; phone?: string }>()
+  const prefetchMap = new Map<string, {
+    preferences: UserPreferences
+    email: string | null
+    phone: string | null
+    vendorTier: string | null
+  }>()
   try {
     const supabase = createServiceClient()
+    // Query 1: full profiles (preferences carries locale + channel prefs).
     const { data: profiles } = await supabase
       .from('user_profiles')
-      .select('user_id, email, phone')
+      .select('user_id, email, phone, notification_preferences')
       .in('user_id', userIds)
 
-    if (profiles) {
-      for (const p of profiles) {
-        profileMap.set(p.user_id, { email: p.email || undefined, phone: p.phone || undefined })
+    // Query 2: vendor tiers for this vertical (only when tier-gating applies).
+    const tierByUser = new Map<string, string | null>()
+    if (options?.vertical) {
+      const { data: vendors } = await supabase
+        .from('vendor_profiles')
+        .select('user_id, tier')
+        .in('user_id', userIds)
+        .eq('vertical_id', options.vertical)
+      for (const v of vendors ?? []) {
+        tierByUser.set(v.user_id as string, (v.tier as string | null) ?? null)
       }
     }
+
+    for (const p of profiles ?? []) {
+      prefetchMap.set(p.user_id as string, {
+        preferences: (p.notification_preferences as UserPreferences) ?? DEFAULT_PREFERENCES,
+        email: (p.email as string | null) ?? null,
+        phone: (p.phone as string | null) ?? null,
+        vendorTier: tierByUser.get(p.user_id as string) ?? null,
+      })
+    }
   } catch {
-    // If batch fetch fails, sendNotification will fetch individually as fallback
+    // If the bulk fetch fails, sendNotification falls back to its own per-
+    // recipient fetch (no prefetched passed) — correctness over efficiency.
   }
 
   const results = await Promise.all(
     userIds.map((userId) => {
-      const profile = profileMap.get(userId)
+      const prefetched = prefetchMap.get(userId)
       return sendNotification(userId, type, templateData, {
         ...options,
-        ...(profile?.email !== undefined ? { userEmail: profile.email } : {}),
-        ...(profile?.phone !== undefined ? { userPhone: profile.phone } : {}),
+        ...(prefetched ? { prefetched } : {}),
       })
     })
   )

@@ -3,7 +3,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
-import { sendNotification } from '@/lib/notifications'
+import { sendNotificationBatch } from '@/lib/notifications'
 
 export const maxDuration = 30
 
@@ -165,29 +165,20 @@ export async function POST(
       throw traced.fromSupabase(insertErr, { table: 'market_broadcasts', operation: 'insert' })
     }
 
-    // Fan out notifications. sendNotification never throws by contract;
-    // email channel needs the vendor's auth email.
-    await Promise.all(
-      Array.from(recipientUserIds).map(async (userId) => {
-        let vendorEmail: string | null = null
-        try {
-          const { data: authUser } = await serviceClient.auth.admin.getUserById(userId)
-          vendorEmail = authUser?.user?.email ?? null
-        } catch {
-          // in-app channel still fires
-        }
-        await sendNotification(
-          userId,
-          'market_broadcast',
-          {
-            marketName,
-            marketId,
-            ...(subjectRaw ? { broadcastSubject: subjectRaw } : {}),
-            broadcastBody: messageRaw,
-          },
-          { vertical, ...(vendorEmail ? { userEmail: vendorEmail } : {}) }
-        )
-      })
+    // EVT-16 / NOT-2: one bulk-prefetch batch (payload identical for every
+    // recipient). Replaces a per-recipient auth.admin.getUserById + send loop —
+    // the batch resolves email from user_profiles (the same source every other
+    // notification uses) in one query instead of N auth API calls.
+    await sendNotificationBatch(
+      Array.from(recipientUserIds),
+      'market_broadcast',
+      {
+        marketName,
+        marketId,
+        ...(subjectRaw ? { broadcastSubject: subjectRaw } : {}),
+        broadcastBody: messageRaw,
+      },
+      { vertical }
     )
 
     return NextResponse.json({ success: true, recipient_count: recipientUserIds.size })

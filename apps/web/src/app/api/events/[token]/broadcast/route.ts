@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
-import { sendNotification } from '@/lib/notifications'
+import { sendNotificationBatch } from '@/lib/notifications'
 
 export const maxDuration = 30
 
@@ -170,29 +170,19 @@ export async function POST(
       throw traced.fromSupabase(insertErr, { table: 'market_broadcasts', operation: 'insert' })
     }
 
-    // Fan out. sendNotification never throws; email needs the auth email.
-    const send = async (userId: string, type: 'event_organizer_broadcast_vendor' | 'event_organizer_broadcast_buyer') => {
-      let email: string | null = null
-      try {
-        const { data: authUser } = await serviceClient.auth.admin.getUserById(userId)
-        email = authUser?.user?.email ?? null
-      } catch { /* in-app still fires */ }
-      await sendNotification(
-        userId,
-        type,
-        {
-          marketName: eventName,
-          marketId,
-          ...(subjectRaw ? { broadcastSubject: subjectRaw } : {}),
-          broadcastBody: messageRaw,
-        },
-        { vertical, ...(email ? { userEmail: email } : {}) }
-      )
+    // EVT-16 / NOT-2: two bulk-prefetch batches (one per audience type) instead
+    // of a per-recipient auth.admin.getUserById + send loop. Email resolves from
+    // user_profiles inside the batch (same source every other notification uses),
+    // one query per batch rather than N auth API calls.
+    const broadcastPayload = {
+      marketName: eventName,
+      marketId,
+      ...(subjectRaw ? { broadcastSubject: subjectRaw } : {}),
+      broadcastBody: messageRaw,
     }
-
     await Promise.all([
-      ...Array.from(vendorUserIds).map((id) => send(id, 'event_organizer_broadcast_vendor')),
-      ...Array.from(buyerUserIds).map((id) => send(id, 'event_organizer_broadcast_buyer')),
+      sendNotificationBatch(Array.from(vendorUserIds), 'event_organizer_broadcast_vendor', broadcastPayload, { vertical }),
+      sendNotificationBatch(Array.from(buyerUserIds), 'event_organizer_broadcast_buyer', broadcastPayload, { vertical }),
     ])
 
     return NextResponse.json({
