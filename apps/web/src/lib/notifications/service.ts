@@ -412,6 +412,9 @@ export async function sendNotification(
       email: string | null
       phone: string | null
       vendorTier: string | null
+      // NOT-5 (mig 202): user_profiles.email_suppressed_at, when the batch
+      // loader could read it (null/undefined = not suppressed).
+      emailSuppressedAt?: string | null
     }
   }
 ): Promise<NotificationResult> {
@@ -483,6 +486,10 @@ export async function sendNotification(
   let preferences = DEFAULT_PREFERENCES
   let userEmail = options?.userEmail
   let userPhone = options?.userPhone
+  // NOT-5 (mig 202): hard-bounced / spam-complained addresses are suppressed —
+  // the email channel is skipped (in_app always still delivers). Pre-migration
+  // the column is simply absent from the row → falsy → not suppressed.
+  let emailSuppressed = false
   // Critical bypass: immediate/urgent notifications skip tier gating entirely.
   const isCritical = urgency === 'immediate' || urgency === 'urgent'
 
@@ -504,6 +511,7 @@ export async function sendNotification(
     if (typeof pl === 'string') userLocale = pl
     if (!userEmail && pf.email) userEmail = pf.email
     if (!userPhone && pf.phone) userPhone = pf.phone
+    emailSuppressed = !!pf.emailSuppressedAt
     await applyTierGate(pf.vendorTier)
   } else {
     try {
@@ -529,6 +537,9 @@ export async function sendNotification(
       if (!userPhone && profile?.phone) {
         userPhone = profile.phone
       }
+      // NOT-5: select('*') carries email_suppressed_at once mig 202 is applied
+      // (absent pre-migration → undefined → not suppressed).
+      emailSuppressed = !!(profile as Record<string, unknown> | null)?.email_suppressed_at
 
       // Tier-based channel gating: restrict channels based on vendor's tier (both verticals)
       if (!isCritical && options?.vertical && profile?.user_id) {
@@ -586,7 +597,17 @@ export async function sendNotification(
         break
       }
       case 'email': {
-        if (userEmail) {
+        if (emailSuppressed) {
+          // NOT-5: hard bounce / spam complaint on file — every send to this
+          // address is wasted spend + sender-reputation damage. The in_app
+          // channel above already delivered the content.
+          results.push({
+            channel: 'email',
+            success: true,
+            skipped: true,
+            reason: 'Email suppressed (hard bounce or spam complaint on file)',
+          })
+        } else if (userEmail) {
           results.push(await sendEmail(userEmail, title, message, options?.vertical, userLocale))
         } else {
           results.push({
@@ -692,14 +713,28 @@ export async function sendNotificationBatch(
     email: string | null
     phone: string | null
     vendorTier: string | null
+    emailSuppressedAt?: string | null
   }>()
   try {
     const supabase = createServiceClient()
     // Query 1: full profiles (preferences carries locale + channel prefs).
-    const { data: profiles } = await supabase
+    // NOT-5 (mig 202): the enriched select includes email_suppressed_at;
+    // pre-migration (column absent → whole query errors) retry the legacy
+    // shape so batch sends keep working, just without suppression.
+    let profiles: Array<Record<string, unknown>> | null = null
+    const enriched = await supabase
       .from('user_profiles')
-      .select('user_id, email, phone, notification_preferences')
+      .select('user_id, email, phone, notification_preferences, email_suppressed_at')
       .in('user_id', userIds)
+    if (enriched.error) {
+      const legacy = await supabase
+        .from('user_profiles')
+        .select('user_id, email, phone, notification_preferences')
+        .in('user_id', userIds)
+      profiles = legacy.data
+    } else {
+      profiles = enriched.data
+    }
 
     // Query 2: vendor tiers for this vertical (only when tier-gating applies).
     const tierByUser = new Map<string, string | null>()
@@ -720,6 +755,7 @@ export async function sendNotificationBatch(
         email: (p.email as string | null) ?? null,
         phone: (p.phone as string | null) ?? null,
         vendorTier: tierByUser.get(p.user_id as string) ?? null,
+        emailSuppressedAt: ((p as Record<string, unknown>).email_suppressed_at as string | null | undefined) ?? null,
       })
     }
   } catch {

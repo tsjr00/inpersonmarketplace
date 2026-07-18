@@ -395,6 +395,10 @@ export async function getMarketTransactionsAggregates(
 export interface ManagerEarningsWindow {
   booking_count: number
   net_cents: number
+  /** PRK-10 (mig 203): rows WITHOUT a charge-time manager_receives_cents
+   * stamp, whose net was estimated at current rates. Drives the card's
+   * "earlier bookings estimated" footnote (shown only when > 0). */
+  estimated_count: number
 }
 
 export interface ManagerEarningsAggregates {
@@ -443,14 +447,29 @@ export async function getManagerEarningsAggregates(
   // All collected rentals for this market — all-time is a wanted window,
   // so no date filter on the query. Volume per market is small (one row
   // per vendor per week).
-  const { data: rentalsRaw } = await serviceClient
+  // PRK-10 (mig 203): prefer the charge-time NET stamp; the enriched select
+  // errors pre-migration (unknown column) → retry the legacy shape and
+  // estimate everything at current rates, exactly the old behavior.
+  let rentalsRaw: Array<Record<string, unknown>> | null = null
+  const rentalsEnriched = await serviceClient
     .from('weekly_booth_rentals')
-    .select('price_cents, status, paid_at, week_start_date')
+    .select('price_cents, status, paid_at, week_start_date, manager_receives_cents')
     .eq('market_id', marketId)
     .in('status', ['paid', 'completed'])
+  if (rentalsEnriched.error) {
+    const legacy = await serviceClient
+      .from('weekly_booth_rentals')
+      .select('price_cents, status, paid_at, week_start_date')
+      .eq('market_id', marketId)
+      .in('status', ['paid', 'completed'])
+    rentalsRaw = legacy.data
+  } else {
+    rentalsRaw = rentalsEnriched.data
+  }
 
   interface RentalRow {
     netCents: number
+    estimated: boolean
     /** YYYY-MM-DD in market-local time, for window comparison. */
     localDate: string
   }
@@ -460,8 +479,10 @@ export async function getManagerEarningsAggregates(
     const localDate = paidAt
       ? formatLocalDate(new Date(new Date(paidAt).toLocaleString('en-US', { timeZone: tz })))
       : ((r.week_start_date as string | null) ?? formatLocalDate(today))
+    const stamped = r.manager_receives_cents as number | null | undefined
     return {
-      netCents: calculateBoothRentalFees(priceCents).managerReceivesCents,
+      netCents: typeof stamped === 'number' ? stamped : calculateBoothRentalFees(priceCents).managerReceivesCents,
+      estimated: typeof stamped !== 'number',
       localDate,
     }
   })
@@ -471,13 +492,15 @@ export async function getManagerEarningsAggregates(
     const endStr = rangeEnd ? formatLocalDate(rangeEnd) : null
     let count = 0
     let net = 0
+    let estimated = 0
     for (const row of rows) {
       if (startStr && row.localDate < startStr) continue
       if (endStr && row.localDate > endStr) continue
       count++
       net += row.netCents
+      if (row.estimated) estimated++
     }
-    return { booking_count: count, net_cents: net }
+    return { booking_count: count, net_cents: net, estimated_count: estimated }
   }
 
   return {
@@ -541,14 +564,28 @@ export async function getParkManagerEarningsAggregates(
     .maybeSingle()
   const keepPct = (mk?.operator_keep_pct as number | null) ?? undefined
 
-  const { data: bookingsRaw } = await serviceClient
+  // PRK-10 (mig 203): stamp-first with pre-migration legacy retry — see the
+  // FM function above; identical contract.
+  let bookingsRaw: Array<Record<string, unknown>> | null = null
+  const bookingsEnriched = await serviceClient
     .from('park_spot_bookings')
-    .select('price_cents, status, paid_at, booking_date')
+    .select('price_cents, status, paid_at, booking_date, manager_receives_cents')
     .eq('market_id', marketId)
     .in('status', ['paid', 'completed'])
+  if (bookingsEnriched.error) {
+    const legacy = await serviceClient
+      .from('park_spot_bookings')
+      .select('price_cents, status, paid_at, booking_date')
+      .eq('market_id', marketId)
+      .in('status', ['paid', 'completed'])
+    bookingsRaw = legacy.data
+  } else {
+    bookingsRaw = bookingsEnriched.data
+  }
 
   interface BookingRow {
     netCents: number
+    estimated: boolean
     localDate: string
   }
   const rows: BookingRow[] = (bookingsRaw ?? []).map((r) => {
@@ -557,8 +594,10 @@ export async function getParkManagerEarningsAggregates(
     const localDate = paidAt
       ? formatLocalDate(new Date(new Date(paidAt).toLocaleString('en-US', { timeZone: tz })))
       : ((r.booking_date as string | null) ?? formatLocalDate(today))
+    const stamped = r.manager_receives_cents as number | null | undefined
     return {
-      netCents: calculateBoothRentalFees(priceCents, keepPct).managerReceivesCents,
+      netCents: typeof stamped === 'number' ? stamped : calculateBoothRentalFees(priceCents, keepPct).managerReceivesCents,
+      estimated: typeof stamped !== 'number',
       localDate,
     }
   })
@@ -568,13 +607,15 @@ export async function getParkManagerEarningsAggregates(
     const endStr = rangeEnd ? formatLocalDate(rangeEnd) : null
     let count = 0
     let net = 0
+    let estimated = 0
     for (const row of rows) {
       if (startStr && row.localDate < startStr) continue
       if (endStr && row.localDate > endStr) continue
       count++
       net += row.netCents
+      if (row.estimated) estimated++
     }
-    return { booking_count: count, net_cents: net }
+    return { booking_count: count, net_cents: net, estimated_count: estimated }
   }
 
   return {

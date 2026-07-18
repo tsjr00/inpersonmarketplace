@@ -269,7 +269,41 @@ export async function runStandingOccurrenceSweep(
       .eq('status', 'pending_payment') // guard: don't clobber a race-paid row
       .select('id')
       .maybeSingle()
-    if (updated) result.expired++
+    if (updated) {
+      result.expired++
+
+      // G3 follow-up (mig 201, 2026-07-18): a pending booking can carry a
+      // redeemed booth credit (applied at checkout create). Releasing the
+      // slot must release the credit too, or the vendor's −redeemed row
+      // stands with nothing bought. The guarded flip above gates this to the
+      // single winning run — no double-release. Pre-mig-201 the column is
+      // absent → the select errors → nothing to release (no redemption could
+      // have been recorded either).
+      const { data: redemptions, error: redemptionsErr } = await serviceClient
+        .from('booth_credits')
+        .select('vendor_profile_id, market_id, amount_cents')
+        .eq('related_park_booking_id', row.id)
+        .eq('source', 'redeemed')
+        .lt('amount_cents', 0)
+      if (!redemptionsErr) {
+        for (const r of redemptions ?? []) {
+          const releaseCents = -(r.amount_cents as number)
+          const { error: relErr } = await serviceClient.from('booth_credits').insert({
+            vendor_profile_id: r.vendor_profile_id,
+            market_id: r.market_id,
+            amount_cents: releaseCents,
+            source: 'redeemed',
+            related_park_booking_id: row.id,
+            note: 'Released — booking expired unpaid (park sweep)',
+          })
+          if (relErr) {
+            await logError(new TracedError('ERR_REFUND_001', `CRITICAL: booth-credit release failed expiring park booking ${row.id} — manually re-credit ${releaseCents}¢ to vendor ${r.vendor_profile_id} at market ${r.market_id}: ${relErr.message}`, {
+              route: '/api/cron/expire-orders', method: 'GET', amountCents: releaseCents,
+            }))
+          }
+        }
+      }
+    }
   }
 
   // ── 2. Generate the next occurrence for each active hold ──

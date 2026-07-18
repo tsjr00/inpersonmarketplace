@@ -202,8 +202,11 @@ describe('NI-014: Total notification types = 72', () => {
     // (G3/PRK-16 mig 201 — park operator cancels a date → truck's paid spot
     // booking is cancelled + booth-credited). User-approved, pre-declared in
     // the G3 design.
+    // Bumped 99 → 100 on 2026-07-18 when email_suppressed_notice was added
+    // (NOT-5 mig 202 D-N4, user-approved — in_app-only nudge when a hard
+    // bounce/complaint suppresses the user's email address).
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(99)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(100)
   })
 
   it('includes all buyer-facing types', () => {

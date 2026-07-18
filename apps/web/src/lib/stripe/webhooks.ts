@@ -1401,6 +1401,19 @@ async function handleBoothRentalCheckoutComplete(session: Stripe.Checkout.Sessio
 
   crumb.stripe(`booth_rental ${rentalId} flipped to paid (payment_intent ${paymentIntentId ?? 'unknown'})`)
 
+  // PRK-10 (mig 203): stamp the charge-time NET manager take from the
+  // session's own metadata (exact truth — no recompute). Separate
+  // non-blocking update so a pre-migration deploy can't break the paid flip.
+  const mrGross = parseInt(session.metadata?.manager_receives_cents || '', 10)
+  const mrCredit = parseInt(session.metadata?.applied_credit_cents || '0', 10) || 0
+  if (Number.isFinite(mrGross)) {
+    const { error: stampErr } = await supabase
+      .from('weekly_booth_rentals')
+      .update({ manager_receives_cents: Math.max(0, mrGross - mrCredit) })
+      .eq('id', rentalId)
+    if (stampErr) crumb.stripe(`manager_receives stamp skipped (mig 203 pending?): ${stampErr.message}`)
+  }
+
   // Phase C Stage 3 follow-up (2026-05-19): fire vendor + manager
   // payment-complete notifications. Sits AFTER the status flip so payment
   // data integrity is unaffected by any failure here. Wrapped in try/catch
@@ -1699,6 +1712,35 @@ async function handleParkSpotCheckoutComplete(session: Stripe.Checkout.Session) 
   }
 
   crumb.stripe(`park_spot group ${groupId} flipped to paid (payment_intent ${paymentIntentId ?? 'unknown'})`)
+
+  // PRK-10 (mig 203): stamp per-row charge-time NET manager take from session
+  // metadata — (manager_receives_total − applied_credit) prorated floor+
+  // remainder across the group's just-flipped rows, so the stamps sum EXACTLY
+  // to the Stripe transfer. Separate non-blocking updates: a pre-migration
+  // deploy (unknown column) logs a crumb and can't affect the flip.
+  const prkGrossTotal = parseInt(session.metadata?.manager_receives_total_cents || '', 10)
+  const prkCredit = parseInt(session.metadata?.applied_credit_cents || '0', 10) || 0
+  if (Number.isFinite(prkGrossTotal)) {
+    const netTotal = Math.max(0, prkGrossTotal - prkCredit)
+    const flippedBookings = bookings.filter((b) => b.status === 'pending_payment')
+    const n = flippedBookings.length
+    if (n > 0) {
+      const base = Math.floor(netTotal / n)
+      let remainder = netTotal - base * n
+      for (const b of flippedBookings) {
+        const share = base + (remainder > 0 ? 1 : 0)
+        if (remainder > 0) remainder--
+        const { error: stampErr } = await supabase
+          .from('park_spot_bookings')
+          .update({ manager_receives_cents: share })
+          .eq('id', b.id)
+        if (stampErr) {
+          crumb.stripe(`manager_receives stamp skipped (mig 203 pending?): ${stampErr.message}`)
+          break
+        }
+      }
+    }
+  }
 
   // Paid confirmations (non-throwing — the status flip already succeeded, so a
   // notification failure must NOT fail the webhook; Stripe would otherwise

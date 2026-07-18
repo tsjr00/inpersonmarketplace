@@ -26,6 +26,12 @@ function formatCents(cents: number): string {
 export default function ManagerEarningsCard({ aggregates, vertical }: ManagerEarningsCardProps) {
   if (aggregates.all_time.booking_count === 0) return null
 
+  // PRK-10 (mig 203): bookings paid after the snapshot migration carry their
+  // exact charge-time net; older rows are estimated at current rates. The
+  // honesty label shows ONLY while such rows are in view — it ages out as
+  // real bookings accumulate.
+  const hasEstimated = aggregates.all_time.estimated_count > 0
+
   const windows: Array<{
     key: string
     label: string
@@ -92,6 +98,15 @@ export default function ManagerEarningsCard({ aggregates, vertical }: ManagerEar
           </div>
         ))}
       </div>
+      {hasEstimated && (
+        <div style={{
+          marginTop: spacing.sm,
+          fontSize: typography.sizes.xs,
+          color: colors.textMuted,
+        }}>
+          Some earlier bookings are estimated at current rates; newer bookings show the exact amount you received.
+        </div>
+      )}
     </ManagerCard>
   )
 }

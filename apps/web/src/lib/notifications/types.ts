@@ -120,6 +120,7 @@ export type NotificationType =
   // FT park-manager P4b — standing (recurring) spot holds.
   | 'park_standing_occurrence_ready'
   | 'park_date_cancelled_truck'
+  | 'email_suppressed_notice'
   | 'park_standing_suspended'
   // FT park-manager P4b-2 — day-of check-in reminder (open/midday/pre-close).
   | 'park_checkin_reminder'
@@ -938,6 +939,22 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     message: (d) =>
       `Your recurring hold at ${d.marketName || 'the park'} has ${d.spotLabel || 'your spot'} reserved for ${d.marketDate || 'your next day'}. Pay by ${d.payByDate || 'the cutoff'} to keep it — otherwise it opens back up and counts as a missed week. Heads up: customers can't place food orders for that date until it's paid, so paying early opens your order window sooner.`,
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/markets/${d.marketId || ''}/book-spot`,
+  },
+
+  // NOT-5 (mig 202, user decision 2026-07-18) — the user's email hard-bounced
+  // or they marked us as spam: their address is suppressed (email channel
+  // skipped until they update it). 'info' = in_app-only (COMM-3) — obviously:
+  // this notice cannot be emailed to a dead address; they see it at next login.
+  email_suppressed_notice: {
+    urgency: 'info',
+    severity: 'warning',
+    audience: 'buyer',
+    title: () => `We can't reach your email address`,
+    message: (d) =>
+      d.reason === 'complaint'
+        ? `Emails from us to your address were marked as spam, so we've stopped sending them. Update your email address in your profile (or unmark us as spam and update to re-enable) to keep receiving receipts and order updates by email. In-app notifications are unaffected.`
+        : `Emails to your address are bouncing, so we've paused sending them. Update your email address in your profile to keep receiving receipts and order updates by email. In-app notifications are unaffected.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/settings`,
   },
 
   // G3/PRK-16 (mig 201, user decision 2026-07-18) — the park operator cancelled

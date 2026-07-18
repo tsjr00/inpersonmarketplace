@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { Webhook } from 'svix'
 import { withErrorTracing } from '@/lib/errors/with-error-tracing'
+import { sendNotification } from '@/lib/notifications'
 
 /**
  * POST /api/webhooks/resend
@@ -118,6 +119,41 @@ export async function POST(request: NextRequest) {
     // Send admin alert for bounces and complaints
     if (eventType === 'email.bounced' || eventType === 'email.complained') {
       await sendAdminAlert(eventType, emailTo, data.subject, errorMessage, bounceType)
+    }
+
+    // NOT-5 (mig 202, user decisions 2026-07-18): suppress the address on a
+    // HARD bounce or spam complaint — the send path skips the email channel
+    // for suppressed users (in_app keeps delivering). Soft bounces and
+    // delivery delays are transient → never suppress. Cleared automatically
+    // when the user changes their profile email, or manually by an admin.
+    const isHardBounce = eventType === 'email.bounced' && bounceType !== 'soft'
+    const isComplaint = eventType === 'email.complained'
+    if ((isHardBounce || isComplaint) && emailTo) {
+      const reason = isComplaint ? 'complaint' : 'hard_bounce'
+      const { data: suppressed, error: suppressErr } = await supabase
+        .from('user_profiles')
+        .update({
+          email_suppressed_at: new Date().toISOString(),
+          email_suppression_reason: reason,
+        })
+        .eq('email', emailTo)
+        .is('email_suppressed_at', null) // first qualifying event wins; no re-stamping
+        .select('user_id')
+      if (suppressErr) {
+        // Pre-migration (column absent) or transient failure — the event row
+        // above is already stored; suppression just doesn't engage yet.
+        console.warn('[resend-webhook] suppression update skipped:', suppressErr.message)
+      } else {
+        // One free in_app nudge per suppression (guarded by the .is() above —
+        // re-bounces of an already-suppressed user send nothing).
+        for (const row of suppressed ?? []) {
+          if (row.user_id) {
+            await sendNotification(row.user_id as string, 'email_suppressed_notice', {
+              reason,
+            }, {})
+          }
+        }
+      }
     }
 
     return NextResponse.json({ received: true })
