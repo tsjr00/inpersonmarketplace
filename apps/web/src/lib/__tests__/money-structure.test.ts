@@ -85,7 +85,9 @@ const FLIP_ALLOWLIST: FlipAllow[] = [
   { file: 'app/api/vendor/orders/[id]/resolve-issue/route.ts', table: 'orders', status: 'cancelled', count: 1, reason: 'all-items-cancelled pattern' },
   { file: 'app/api/vendor/orders/[id]/cancel-nonpayment/route.ts', table: 'orders', status: 'cancelled', count: 1, reason: 'external-payment non-payment cancel (vendor-attested)' },
   { file: 'app/api/cron/expire-orders/route.ts', table: 'orders', status: 'cancelled', count: 2, reason: 'Phase 1 all-items-cancelled + Phase 3 external past-pickup (items individually guarded)' },
-  { file: 'app/api/checkout/session/route.ts', table: 'orders', status: 'cancelled', count: 1, reason: 'cleanup runs AFTER sessions.expire succeeded (CHK-18) — race closed upstream' },
+  // 2026-07-18 CHK-7 batch: checkout/session cleanup + failed-decrement unwind
+  // orders flips are now BOTH guarded (.eq status pending) — allowlist entry
+  // removed per Rule A rot-check instruction (shrink direction).
   // ── orders authoritative cancels/flips ──
   { file: 'app/api/admin/events/[id]/route.ts', table: 'orders', status: 'cancelled', count: 1, reason: 'admin event cancel — authoritative' },
   { file: 'app/api/events/[token]/cancel/route.ts', table: 'orders', status: 'cancelled', count: 1, reason: 'organizer event cancel — authoritative' },

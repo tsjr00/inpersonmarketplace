@@ -5,7 +5,7 @@ import { stripe } from '@/lib/stripe/config'
 import { calculateOrderPricing, FEES, calculateSmallOrderFee, getSmallOrderFeeConfig, proratedFlatFee, getEffectiveVendorFeePercent } from '@/lib/pricing'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { withErrorTracing, traced, crumb, TracedError, logError } from '@/lib/errors'
-import { restoreOrderInventory } from '@/lib/inventory'
+import { cancelOrderItemsAndRestoreGuarded, restoreInventory } from '@/lib/inventory'
 import { randomUUID } from 'crypto'
 
 interface CartItem {
@@ -28,6 +28,7 @@ interface Listing {
   title: string
   description: string | null
   price_cents: number
+  quantity: number | null
   vertical_id: string
   vendor_profile_id: string
   listing_markets?: Array<{
@@ -143,21 +144,21 @@ export async function POST(request: NextRequest) {
             }))
             return // skip cancel — order may be paid; webhook/success path will finalize it
           }
-          await restoreOrderInventory(serviceClient, expired.id, expired.vertical_id)
-          await serviceClient
-            .from('order_items')
-            .update({
-              status: 'cancelled',
-              cancelled_at: now,
-              cancelled_by: 'system',
-              cancellation_reason: 'Payment not completed within 10 minutes'
-            })
-            .eq('order_id', expired.id)
-            .is('cancelled_at', null)
+          // CHK-7: guarded cancel FIRST, restore only the claimed rows — a
+          // concurrent sweep (second checkout, expire-orders cron) matches
+          // zero rows on the claim and can no longer double-restore.
+          await cancelOrderItemsAndRestoreGuarded(
+            serviceClient,
+            expired.id,
+            expired.vertical_id,
+            'system',
+            'Payment not completed within 10 minutes'
+          )
           await serviceClient
             .from('orders')
             .update({ status: 'cancelled' })
             .eq('id', expired.id)
+            .eq('status', 'pending')
         })
       )
       const failed = cleanupResults.filter(r => r.status === 'rejected').length
@@ -264,7 +265,7 @@ export async function POST(request: NextRequest) {
         ? supabase
             .from('listings')
             .select(`
-              id, title, description, price_cents, vertical_id, vendor_profile_id,
+              id, title, description, price_cents, quantity, vertical_id, vendor_profile_id,
               listing_markets (
                 market_id,
                 markets (
@@ -461,27 +462,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // OPTIMIZATION: Parallel cutoff + inventory checks for all listings at once
-    crumb.logic('Checking cutoff times and inventory for listings (parallel)')
-    const cutoffResults = await Promise.all(
-      listings.map(listing => {
-        const requestedItem = items.find(i => i.listingId === listing.id)
-        return supabase
-          .rpc('is_listing_accepting_orders', { p_listing_id: listing.id })
-          .then(result => ({ listing, requestedQuantity: requestedItem?.quantity || 0, ...result }))
-      })
+    // CHK-11: ONE batched availability call (the same SQL source of truth
+    // cart/validate uses) instead of N per-listing is_listing_accepting_orders
+    // RPCs.
+    crumb.logic('Checking cutoff times for listings (batched)')
+    const { data: acceptingData, error: acceptingError } = await supabase
+      .rpc('get_listings_accepting_status', { p_listing_ids: listingIds })
+    if (acceptingError) {
+      // Same tolerance as the old per-listing path: function missing →
+      // skip cutoff checks rather than block checkout.
+      crumb.logic('Cutoff check unavailable (migration may not be applied)')
+    }
+    const acceptingMap = new Map(
+      ((acceptingData as Array<{ listing_id: string; is_accepting: boolean }> | null) || [])
+        .map(a => [a.listing_id, a.is_accepting])
     )
 
-    // Also fetch current inventory for all listings (single batch query)
-    crumb.supabase('select', 'listings (inventory check)')
-    const { data: inventoryData } = await supabase
-      .from('listings')
-      .select('id, quantity')
-      .in('id', listingIds)
-
+    // CHK-12: inventory comes from the parallel-batch listings select above
+    // (quantity added there) — the second listings query is gone.
     const inventoryMap = new Map<string, number | null>()
-    for (const inv of inventoryData || []) {
-      inventoryMap.set(inv.id, inv.quantity)
+    for (const listing of listings) {
+      inventoryMap.set(listing.id, (listing as Listing).quantity)
     }
 
     // Check for inventory issues
@@ -499,11 +500,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Check for any closed listings
-    for (const { listing, data: isAccepting, error: cutoffError } of cutoffResults) {
-      if (cutoffError) {
-        crumb.logic('Cutoff check unavailable (migration may not be applied)')
-        // Continue if function doesn't exist yet (migration not applied)
-      } else if (isAccepting === false) {
+    for (const listing of listings) {
+      if (acceptingMap.get(listing.id) === false) {
         // Get detailed availability info for better error message (only for the failed one)
         const { data: availability } = await supabase
           .rpc('get_listing_market_availability', { p_listing_id: listing.id })
@@ -591,7 +589,18 @@ export async function POST(request: NextRequest) {
 
     // Use order-level totals from unified pricing (tip + small order fee are additive on top)
     const subtotalCents = orderPricing.subtotalCents
-    const platformFeeCents = orderPricing.platformFeeCents + smallOrderFeeCents
+    // CHK-15: order-level platform fee built from the override-aware per-item
+    // fees — orderPricing's percent parts assume the standard vendor %, which
+    // overstates recorded revenue for vendors with vendor_fee_override_percent
+    // (bookkeeping only; transfers were always per-item and correct). Listing
+    // % fees = Σ order_items.platform_fee_cents; MB % fees at standard rates
+    // (the MB payout — market-box-payout.ts calculateVendorPayout — has no
+    // override concept); flats + small-order fee unchanged.
+    const listingPercentFeeCents = orderItems.reduce((sum, oi) => sum + oi.platform_fee_cents, 0)
+    const mbSubtotalCents = orderPricing.subtotalCents - orderItems.reduce((sum, oi) => sum + oi.subtotal_cents, 0)
+    const mbPercentFeeCents = Math.round(mbSubtotalCents * (FEES.buyerFeePercent + FEES.vendorFeePercent) / 100)
+    const platformFeeCents = listingPercentFeeCents + mbPercentFeeCents
+      + orderPricing.buyerFlatFeeCents + orderPricing.vendorFlatFeeCents + smallOrderFeeCents
     const totalCents = orderPricing.buyerTotalCents + smallOrderFeeCents + validTipAmount
 
     // Split tip into vendor portion and platform fee portion.
@@ -808,23 +817,58 @@ export async function POST(request: NextRequest) {
       // C-1 FIX: RPC now RAISES EXCEPTION if insufficient stock (instead of silent clamp)
       // RPC also sets listing to 'draft' when inventory hits 0
       crumb.logic('Decrementing inventory at checkout')
+      // CHK-7: track successful decrements so a mid-loop failure can unwind
+      // exactly what happened — previously the throw left earlier decrements
+      // live on a pending order, and the later cleanup restored ALL items
+      // (including never-decremented ones) → phantom stock.
+      const decremented: Array<{ listingId: string; quantity: number }> = []
       for (const item of items) {
         const currentQuantity = inventoryMap.get(item.listingId)
         // Only decrement if listing has managed inventory (not null/unlimited)
         if (currentQuantity !== null && currentQuantity !== undefined) {
-          const { data: decrementResult, error: decrementError } = await serviceClient
+          const { error: decrementError } = await serviceClient
             .rpc('atomic_decrement_inventory' as string, {
               p_listing_id: item.listingId,
               p_quantity: item.quantity
             })
 
           if (decrementError) {
-            // Insufficient stock — abort checkout
+            // Insufficient stock — unwind this checkout, then abort.
+            // The session URL was never returned to the buyer, so nobody can
+            // pay it; expire is hygiene (logged if it fails, never blocking).
+            try {
+              await stripe.checkout.sessions.expire(session.id)
+            } catch (expireErr) {
+              await logError(new TracedError('ERR_CHECKOUT_005', `Session expire failed unwinding failed-decrement checkout ${orderId} (session ${session.id}): ${expireErr instanceof Error ? expireErr.message : String(expireErr)}`, {
+                route: '/api/checkout/session',
+                method: 'POST',
+              }))
+            }
+            await serviceClient
+              .from('order_items')
+              .update({
+                status: 'cancelled',
+                cancelled_at: new Date().toISOString(),
+                cancelled_by: 'system',
+                cancellation_reason: 'Insufficient inventory at checkout'
+              })
+              .eq('order_id', orderId)
+              .is('cancelled_at', null)
+            await serviceClient
+              .from('orders')
+              .update({ status: 'cancelled' })
+              .eq('id', orderId)
+              .eq('status', 'pending')
+            // Restore ONLY what this request actually decremented.
+            for (const d of decremented) {
+              await restoreInventory(serviceClient, d.listingId, d.quantity)
+            }
             throw traced.validation('ERR_INVENTORY_001',
               `Insufficient stock for one or more items. Only ${currentQuantity} available.`,
               { listingId: item.listingId, requested: item.quantity, available: currentQuantity }
             )
           }
+          decremented.push({ listingId: item.listingId, quantity: item.quantity })
           // Note: When inventory hits 0, the RPC auto-drafts the listing.
           // Vendor notification for out-of-stock is sent from checkout success handler.
         }
