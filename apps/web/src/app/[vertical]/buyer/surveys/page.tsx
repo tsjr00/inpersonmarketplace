@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import { formatMarketDateDisplay } from '@/lib/surveys/cron-helpers'
+import { ensurePendingBuyerSurveys } from '@/lib/surveys/lazy-generate'
 
 interface PageProps {
   params: Promise<{ vertical: string }>
@@ -37,6 +38,11 @@ export default async function BuyerSurveysPage({ params }: PageProps) {
   if (!user) redirect(`/${vertical}/login`)
 
   const serviceClient = createServiceClient()
+
+  // COMM-4 part 2: lazily surface any survey this buyer is due for on arrival —
+  // no waiting for the daily cron, no email (cron skips the row this creates).
+  await ensurePendingBuyerSurveys(serviceClient, user.id, vertical)
+
   const { data: rows } = await serviceClient
     .from('market_surveys')
     .select(`
