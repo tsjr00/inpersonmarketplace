@@ -175,24 +175,15 @@ describe('Money structure — Rule B: session-expire before release', () => {
     'app/api/events/[token]/cancel/route.ts',      // EVT-4 (fixed 2026-07-14)
     'app/api/admin/events/[id]/route.ts',          // EVT-4 (fixed 2026-07-14)
   ]
-  // Files that ALSO cancel possibly-pending orders but do NOT yet expire the
-  // session — tracked open findings. When one gets its fix, MOVE it to
-  // ENFORCED (this test will tell you).
-  const KNOWN_GAPS: Array<{ file: string; findingId: string }> = []
+  // (2026-07-18 guardrail audit, C2: the KNOWN_GAPS inverted-tripwire list
+  // emptied as the review cycle fixed every tracked gap — the scaffolding is
+  // retired. Rule B is now plain enforcement: any NEW file that cancels
+  // payment-holding rows gets added to ENFORCED when the pattern is built.)
 
   for (const f of ENFORCED) {
     it(`${f} expires the Stripe session before releasing`, () => {
       const code = read(path.join(SRC_DIR, f))
       expect(code.includes('sessions.expire'), `${f} cancels/expires payment-holding rows but no longer calls sessions.expire — the stale-tab-pays-a-dead-resource bug (CHK-1/CRN-2/PRK-1 family)`).toBe(true)
-    })
-  }
-
-  for (const g of KNOWN_GAPS) {
-    it(`KNOWN GAP tripwire: ${g.file} (${g.findingId})`, () => {
-      const code = read(path.join(SRC_DIR, g.file))
-      // Inverted tripwire: when the gap is fixed, this fails → move the file
-      // to ENFORCED and delete the gap entry.
-      expect(code.includes('sessions.expire'), `${g.file} now calls sessions.expire — the ${g.findingId} gap appears FIXED. Move this file to ENFORCED and remove the KNOWN_GAPS entry.`).toBe(false)
     })
   }
 })

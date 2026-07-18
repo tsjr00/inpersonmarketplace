@@ -62,6 +62,22 @@ Before EVERY Edit/Write tool call, execute this check:
 3. Did the user respond with explicit approval?
 4. If EITHER answer is no → **STOP. Send a text message with your proposal and a question.**
 
+### Design Fidelity — approval covers the SHAPE that was presented
+
+Approval of a presented design authorizes THAT design. If, while implementing,
+you realize the implementation will (a) differ in SHAPE from what was presented
+— not a detail, a different mechanism or scope — or (b) knowingly make any
+existing rule-test or business-rule test fail by design, **STOP and re-present
+before building**, even when you believe the deviation is strictly better. The
+user may hold context you don't (business plans, history, external constraints)
+that changes the call. Flagging a deviation transparently AFTER building it is
+not sufficient — it forces a redo conversation and burns trust; the question
+first costs one message. (2026-07-18 incident: CRN-3 was approved as "gate only
+Phases 1-7"; the built implementation removed the gate entirely and tripped
+coded business rule IR-R20. The deviation was reasonable — building it without
+asking was not. Distinct from tripwires that fire UNEXPECTEDLY after an
+approved change: those follow the tripwire protocol.)
+
 ### Why (incidents → `rule-incidents.md`)
 
 **Session 65** — a user question ("how will the app handle this?") was treated as an instruction; Claude edited 4 production files without asking, requiring a revert. **A question is never an instruction.** **Session 63** — Claude edited 4 route files and fixed an RLS bug before presenting. Full write-ups: `apps/web/.claude/rule-incidents.md` → change-discipline · Rule 1.
