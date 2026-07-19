@@ -52,6 +52,11 @@
 --   discipline Rule 4). Inactive verticals are included deliberately: an admin
 --   should not lose reach because a vertical was paused.
 -- * Idempotent — safe to re-run. Re-running repairs drift rather than erroring.
+-- * TOLERANT of missing accounts: provisions whichever named accounts exist on
+--   the target DB, NOTICEs the rest. Dev lacks the owner account (its only
+--   tsjr00 row is a buyer test persona), so on Dev this provisions Jen alone
+--   with no chief — expected. A post-condition aborts only if NEITHER named
+--   account exists (a no-op run against the wrong database).
 -- * `roles` is APPENDED to, never replaced, so no existing role is dropped.
 -- * The `ensure_admin_premium_tier` trigger (mig 115) will fire on these role
 --   writes and stamp buyer_tier='premium'. Expected and harmless.
@@ -61,9 +66,17 @@
 
 BEGIN;
 
--- ── Guard: both accounts must exist, or this migration is being run against
---    an environment it was not written for. Fail loudly rather than silently
---    provisioning nobody.
+-- ── Pre-flight (TOLERANT): provision whichever named accounts exist; NOTICE
+--    (do not abort) for any that are absent. The three write statements below
+--    already filter `WHERE email IN (...)`, so a missing account simply no-ops.
+--
+--    WHY TOLERANT (2026-07-19): Dev is a seed environment that never had the
+--    owner account — its only tsjr00 row is `marketgarden+tsjr00@gmail.com`, a
+--    market-gardener BUYER test persona, not the admin. Staging + Prod hold both
+--    real accounts. An all-or-nothing guard made this migration unrunnable on
+--    Dev for a legitimate reason. The anti-lockout protection is preserved by a
+--    POST-condition below, not a pre-condition here: the real danger is
+--    provisioning NOBODY, which the post-check catches on every environment.
 DO $$
 DECLARE
   v_missing TEXT;
@@ -75,7 +88,7 @@ BEGIN
   );
 
   IF v_missing IS NOT NULL THEN
-    RAISE EXCEPTION 'Migration 204: required admin account(s) not found or soft-deleted: %', v_missing;
+    RAISE NOTICE 'Migration 204: named admin account(s) absent on this env, skipped: % (this is expected on Dev, where the owner account does not exist)', v_missing;
   END IF;
 END $$;
 
@@ -122,6 +135,29 @@ WHERE up.email IN ('tsjr00@gmail.com', 'jennifer@8fifteenconsulting.com')
 ON CONFLICT (user_id, vertical_id)
 DO UPDATE SET is_chief = EXCLUDED.is_chief;
 
+-- ── Post-condition (the real anti-lockout guard): at least one of the two
+--    NAMED target accounts must now be a live platform admin. If BOTH were
+--    absent, the three statements above no-oped and this migration provisioned
+--    nobody — that is the dangerous "ran against the wrong database" case, so
+--    abort and roll back. On Dev this passes because Jen is present; on
+--    Staging/Prod it passes because both are.
+DO $$
+DECLARE
+  v_provisioned INT;
+BEGIN
+  SELECT COUNT(*) INTO v_provisioned
+  FROM user_profiles
+  WHERE email IN ('tsjr00@gmail.com', 'jennifer@8fifteenconsulting.com')
+    AND deleted_at IS NULL
+    AND (role = 'platform_admin' OR roles && ARRAY['platform_admin']::user_role[]);
+
+  IF v_provisioned = 0 THEN
+    RAISE EXCEPTION 'Migration 204: provisioned NO platform admins — neither named account exists on this database. Refusing to commit a no-op admin migration (wrong environment?).';
+  END IF;
+
+  RAISE NOTICE 'Migration 204: % named account(s) now hold platform_admin.', v_provisioned;
+END $$;
+
 COMMIT;
 
 NOTIFY pgrst, 'reload schema';
@@ -130,11 +166,13 @@ NOTIFY pgrst, 'reload schema';
 -- VERIFICATION — run after applying. Expected results are stated inline.
 -- ============================================================================
 
--- V1: both accounts are platform admins, chief flag set on the owner only,
---     and each holds a vertical_admins row for every vertical.
---     EXPECT: 2 rows; role='platform_admin'; roles contains platform_admin;
---             is_chief_platform_admin true for tsjr00 only;
+-- V1: named accounts present on THIS env are platform admins, chief flag set on
+--     the owner only, each holds a vertical_admins row for every vertical.
+--     EXPECT on Staging/Prod: 2 rows; role='platform_admin'; roles contains
+--             platform_admin; is_chief_platform_admin true for tsjr00 only;
 --             vertical_admin_count = (SELECT COUNT(*) FROM verticals) for both.
+--     EXPECT on Dev: 1 row (Jen only — the owner account does not exist on Dev);
+--             is_chief_platform_admin = false (no chief on Dev, expected).
 -- SELECT up.email,
 --        up.role::text                                   AS legacy_role,
 --        up.roles::text[]                                AS roles_array,
@@ -158,8 +196,9 @@ NOTIFY pgrst, 'reload schema';
 --   AND NOT (up.role = 'platform_admin' OR up.roles && ARRAY['platform_admin']::user_role[])
 --   AND NOT EXISTS (SELECT 1 FROM vertical_admins va WHERE va.user_id = up.user_id);
 
--- V3: at least one live chief platform admin exists (anti-lockout invariant).
---     EXPECT: exactly 1 row, tsjr00@gmail.com.
+-- V3: chief platform admin state.
+--     EXPECT on Staging/Prod: exactly 1 row, tsjr00@gmail.com.
+--     EXPECT on Dev: 0 rows (owner absent → no chief; not an error on Dev).
 -- SELECT email FROM user_profiles
 -- WHERE is_chief_platform_admin = true AND deleted_at IS NULL;
 
