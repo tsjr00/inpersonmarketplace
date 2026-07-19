@@ -2,7 +2,20 @@
 
 **Purpose:** Help future Claude sessions understand this project quickly and avoid repeating mistakes.
 
-**Last Updated:** 2026-07-02 (FT park-manager P4b-2 + P5 + fast-follows → staging; FT-port prod push pending)
+**Last Updated:** 2026-07-19 (Codebase Map + pricing single-source + trial retired + admin hierarchy mig 204 → staging; combined prod push still pending = relaunch)
+
+## Session highlights (2026-07-13 → 2026-07-19) — pre-relaunch review CLOSED + Codebase Map + pricing/admin hardening → STAGING
+
+**The 7-day pre-relaunch review cycle (days 1–7) is 100% complete** — every finding in `apps/web/.claude/review/FINDINGS_LEDGER.md` is fixed/wontfix/retracted/parked. Money-path efficiency + the money-tail, T5 (paid FT parks sell only on paid dates), park barring/credits, email suppression, manager earnings accuracy, and the guardrail-contract test suite (Rules F/G/H) all shipped. Migs 184→203 on Dev+Staging, **prod pending**. Detail: the day-blocks in `apps/web/.claude/current_task.md`.
+
+**Day 8 (2026-07-18/19) added four things, all on staging (`b9f82116`→`6d53a7bc`), nothing on prod:**
+
+- **NEW SYSTEM — enforced Codebase Map (`docs/Codebase_Map/`, 16 layered files).** The code-side twin of `SCHEMA_SNAPSHOT.md`: one place to send a new engineer/CTO to understand the app. Layered — `00_INDEX` (reading order + stamp table) → `01/02` (system overview + money flow) → domains `10-20` → reference `21-23`. **Enforced by `src/lib/__tests__/codebase-map-coverage.test.ts`** (pre-commit): fails the commit on any unmapped src file, dangling path, undocumented cron, or unmarked money file. **`verification-discipline.md` Rule 6** covers the half no test can check: a commit changing what a file DOES updates its map line + bumps the domain stamp. A new source file WILL fail the commit until it's added to a domain file's `<!-- map-claims -->` block. (`0daf14b5`)
+- **Pricing single source of truth.** `SUBSCRIPTION_AMOUNTS` (pricing.ts) is authoritative; `stripe/config.ts` now imports it instead of ~22 hardcoded literals; NEW `src/lib/pricing-display.ts` derives all customer-facing price/tier prose (wired into legal placeholders + llms.txt). **Fixed a real exposure:** the vendor service agreement quoted tier prices ($24.99 / Basic $10 / Pro $30) the platform doesn't charge — both verticals now render "Free, Pro ($25/month), and Boss ($50/month)". 7 pin tests prevent re-drift. `pricing.ts` (protected) was NEVER touched — the display module lives outside it. Item C (full `getTierPricing()` accessor) = backlogged. (`18b50862`)
+- **90-day vendor trial RETIRED** (owner decision). `TrialStatusBanner` deleted, FT agreement trial clause removed. Cron 10a/b/c stay dormant via `TRIAL_SYSTEM_ENABLED=false`. `trial_ends_at`/`trial_grace_ends_at` kept as legacy data only. (`18b50862`)
+- **Admin role hierarchy — additive fix, mig 204 (applied+verified Dev+Staging).** **PITFALL discovered:** `hasPlatformAdminRole` (auth/admin.ts:134-140) wrongly returns true for plain `'admin'`, so `verifyAdminScope`'s `vertical_admins` check is unreachable → vertical admins silently get cross-vertical scope. Prod had ZERO true platform admins, so **the bug was load-bearing** — fixing the helper first would have locked out both admin accounts (incl. the owner). Owner-decided sequence: **provision correct roles FIRST (mig 204, additive, tolerant of Dev's missing owner account), verify V2=0 rows, THEN make the helper strict + audit the 39 unscoped admin routes + build regional manager on the corrected hierarchy.** Hierarchy: platform ⊃ vertical; no blanket 'admin' tier (legacy `'admin'` enum IS the vertical-admin representation). (`18b50862`, `6d53a7bc`)
+
+**Git/deploy state:** local `main` = `origin/staging` = `6d53a7bc`; prod `origin/main` = `62b686f7` (74 commits behind). **Prod-pending migrations: 184→204 IN ORDER.** Suite = 65 files / 1715 tests. Combined prod push (migs 184→204 + the whole train, 9 PM–7 AM CT) = relaunch. Full handoff: `apps/web/.claude/current_task.md` top green block.
 
 ## Session highlights (2026-07-02) — FT park-manager P4b-2 + P5 + fast-follows → STAGING
 FT park-manager module completed through P5 + hardening; all on staging (`453574f5`), **nothing on prod** (still `426deff4`, 25 commits behind). Migs 171–175 on Dev+Staging, Prod pending.

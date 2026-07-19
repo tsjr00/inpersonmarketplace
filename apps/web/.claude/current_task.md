@@ -1,13 +1,63 @@
-# Current Task: Codebase Map bootstrapped (day 8). Pre-relaunch review still 100% complete; USER staging test → combined prod push = RELAUNCH.
+# Current Task: Day 8 shipped to staging (Codebase Map, pricing single-source, trial retired, admin hierarchy mig 204). Everything committed + pushed. Relaunch still = USER staging test → combined prod push.
 
 ---
 
-## 🔵 DAY 8 (2026-07-18) — CODEBASE MAP + PRICING SOURCE-OF-TRUTH + ADMIN HIERARCHY
+## 🟢🟢🟢 NEXT SESSION START HERE (2026-07-19 EOD) — read this, VERIFY LIVE GIT, then STOP & confirm before any work
+
+### 0) HOW WE WORK (enforce — non-negotiable; full texts in rules/)
+- **Report mode default.** Cite `file:line` or UNVERIFIED. Finder/agent output = leads; verify anchors yourself.
+- **⛔ COMMIT AND PUSH = SEPARATE EXPLICIT USER APPROVALS, EVERY TIME.** "do X / build it / go" = build + gates ONLY. Sequence: build → gates → STOP → ask commit → wait → ask push → wait.
+- **⭐ ALWAYS OPEN A REPLY BY QUOTING THE USER'S WORDS BACK** in a blockquote. Claude Code collapses pastes >800 chars / >2 lines and there is NO setting to disable it (verified 2026-07-19) — Claude's echo-back is the ONLY way the user can see their own input. This slipped this session; reinforced 4× in memory `feedback_preserve_pasted_content`. If a session runs long, re-read that memory.
+- **Critical-path/money files** (checkout/session, checkout/success, webhooks.ts, payments.ts, fulfill, reject, pricing.ts, vendor-limits.ts, vendor-fees.ts, constants.ts): per-file approval w/ exact before/after diffs; protected-path hook blocks FIRST touch per file per session → verify per its instructions → retry. Never bundle present+edit.
+- **Design Fidelity (change-discipline.md):** if an implementation will differ in SHAPE from the presented design, or knowingly fail a test, RE-PRESENT BEFORE building.
+- **Never change a business-rule test to match code** (money-structure/pricing-conservation/money-authorization + guardrail-contracts F/G/H). Failing BR test = decision point → present. When the USER changes a product rule, updating its test to the new spec IS correct, done transparently.
+- **Schema gate:** fresh SCHEMA_SNAPSHOT read or information_schema query immediately before composing ANY SQL. Structured-tables sections are STALE for park-family tables — use changelog entries (full column lists) or migration files. REFRESH_SCHEMA regen is backlogged (C5, post-prod-push).
+- **Git:** branch-chain commits; teaching-mode ON; staging-first; ONE push at a time; prod window 9 PM–7 AM CT (hook-enforced). USER applies migrations; Claude writes them + snapshot bookkeeping; companion code PRE-MIGRATION-SAFE.
+- **NEW enforced doc (2026-07-18): `docs/Codebase_Map/`** — the code-side twin of SCHEMA_SNAPSHOT. `codebase-map-coverage.test.ts` FAILS the commit on any unmapped src file / dangling path / undocumented cron / unmarked money file. **verification-discipline.md Rule 6:** a commit that changes what a file DOES updates its map line + bumps the domain stamp. A new file WILL fail the commit until it's in a domain file's `<!-- map-claims -->` block.
+
+### 1) GIT / DEPLOY STATE (VERIFY — memory drifts)
+- **LOCAL main = origin/staging = `6d53a7bc`** (everything committed AND pushed; tree clean except settings.local.json + long-standing untracked personal/doc files).
+- **PROD `origin/main` = `62b686f7`** — unchanged; local main is **74 commits ahead**.
+- **PROD-PENDING MIGRATIONS: 184 → 204 IN ORDER (USER applies) before the combined prod push.** ALL of 184→204 are on Dev + Staging (204 applied + verified 2026-07-19). NOTHING pending on Dev/Staging.
+- Day-8 commits, oldest→newest: `0daf14b5` (Codebase Map) → `18b50862` (pricing single-source + trial retired + mig 204 provisioning) → `6d53a7bc` (mig 204 made tolerant). Day-7 tip was `b9f82116`.
+
+### 2) WHAT'S DONE (do NOT redo)
+- **The 7-day pre-relaunch review cycle is 100% CLOSED** (every FINDINGS_LEDGER item fixed/wontfix/retracted/parked). Suite = **65 files / 1715 tests**, all pre-commit.
+- **Codebase Map** (`docs/Codebase_Map/`, 16 files) — enforced, stamped, coverage-tested. Send a new engineer/CTO here first.
+- **Pricing single source of truth (A+B done):** `SUBSCRIPTION_AMOUNTS` (pricing.ts) is authoritative; `stripe/config.ts` imports it (no literals); NEW `lib/pricing-display.ts` derives all customer-facing price/tier prose, wired into legal placeholders + llms.txt. Both verticals render "Free, Pro ($25/month), and Boss ($50/month)". Fixed a real exposure — the vendor service agreement quoted prices ($24.99 / Basic $10 / Pro $30) the platform doesn't charge. 7 pin tests prevent re-drift. **pricing.ts itself NEVER touched** (display module lives outside it). Item C (full `getTierPricing()` accessor) = backlogged.
+- **90-day trial RETIRED** (owner decision): `TrialStatusBanner` DELETED, FT agreement trial clause removed, cron 10a/b/c stay dormant via TRIAL_SYSTEM_ENABLED=false. trial_ends_at/trial_grace_ends_at kept as legacy data only.
+- **Admin hierarchy — additive half DONE. Mig 204 applied + verified Dev+Staging.** Hierarchy (owner): platform ⊃ vertical; no blanket 'admin' tier (legacy `'admin'` enum IS the vertical-admin representation). tsjr00 = platform + CHIEF + vertical admin of all verticals; Jen = same, not chief. V2 gate = 0 rows on both envs.
+
+### 3) 🚨 THE NEXT BUILD — ADMIN LOCKDOWN (unblocked, its own batch, needs user go)
+**Context:** `hasPlatformAdminRole` (auth/admin.ts:134-140) wrongly returns true for plain `'admin'`, so `verifyAdminScope`'s `vertical_admins` check (:204-214) is unreachable → vertical admins get cross-vertical scope. The bug WAS load-bearing (prod had zero platform admins); mig 204 fixed that by provisioning the real hierarchy additively. **V2=0 on Dev+Staging means the helper can now be made strict without lockout.** Steps, in order (each its own present→approve):
+1. Make `hasPlatformAdminRole` strict (`platform_admin` only). Activates `verifyAdminScope` + the dormant fix at `admin/errors/route.ts:60-61`.
+2. Audit the **39 admin routes that use bare `hasAdminRole` with NO vertical scoping** (money first: `vendors/[id]/fee-override`, `events/[id]/payments`, `events/[id]/settlement`, `backfill-stripe-fees`); route each through `verifyAdminScope`.
+3. Structural test forcing every `api/admin/**` route through a sanctioned helper (money-structure-style).
+4. THEN design **regional manager** (admin-like, scoped, with platform oversight) on the corrected hierarchy.
+**Before step 1 ships to prod:** re-run V2 on PROD after mig 204 lands there (must be 0 rows).
+
+### 4) OUTSTANDING — USER SIDE (relaunch path)
+- **Staging test of the whole train** (day 3–8 changes). Day-8 smoke: vendor service agreement + llms.txt read "Free, Pro ($25/month), and Boss ($50/month)"; FT agreement has no trial clause; buyer upgrade still $9.99/$81.50; vendor dashboard renders with no trial banner; admin surfaces work (mig 204 live on staging).
+- **Combined PROD push = RELAUNCH:** apply migs **184→204 IN ORDER**, then push main→origin/main in the 9 PM–7 AM CT window (teaching-mode, verify Vercel build + critical-path smoke). Then re-run V2 on prod.
+- **Vault update** (C6) after staging test passes — user-authorized only.
+
+### 5) BACKLOG DECISIONS (apps/web/.claude/backlog.md — full detail there)
+- **Agreement-version bump?** `CURRENT_AGREEMENT_VERSION='2026-03-v2'` but agreement text changed twice (prices corrected, trial clause removed). Legal call: bump (forces re-acceptance) vs correction. Claude must NOT decide.
+- **Pricing item C** — full `getTierPricing()` accessor (touches protected pricing.ts). A+B already closed the defects.
+- **VOR-11 / C1** — status-transitions.ts spec (51 tests, zero prod imports) — wire in or demote.
+- **C3** error-code catalog burn-down · **C5** REFRESH_SCHEMA regen post-push · company-paid events package · CRN-11+PRK-13.
+- **Dev env drift** — Dev missing migs 039/040 (`markets.event_end_date` absent) → browse availability RPC errors on Dev only (Playwright web-server log noise; Staging/Prod fine). Backlog §Dev drift.
+
+---
+
+*(Prior day-7 and earlier blocks below are historical — git state in them is STALE; §1 above is authoritative.)*
+
+---
+
+## 🔵 DAY 8 WORKING NOTES (2026-07-18/19 — detail; superseded by the green block above)
 
 ### STATUS SNAPSHOT
-- **COMMITTED `0daf14b5`** (local main, NOT pushed): the Codebase Map + coverage test + Rule 6.
-- **UNCOMMITTED on disk:** pricing A+B, trial retirement, migration 204 + snapshot changelog, map admin update.
-- **⛔ SUITE IS RED (3 tests)** — TrialStatusBanner render tests, awaiting user decision (a/b/c). Cannot commit until resolved.
+- All day-8 work COMMITTED + PUSHED to staging (`0daf14b5` → `18b50862` → `6d53a7bc`). Suite green (65 files / 1715 tests). Mig 204 applied+verified Dev+Staging.
 - **MIGRATION 204 NOT APPLIED anywhere.** User applies Dev+Staging, then Prod in order after 184→203.
 
 ### 🚨 ADMIN HIERARCHY — the load-bearing bug (CMAP-1)
