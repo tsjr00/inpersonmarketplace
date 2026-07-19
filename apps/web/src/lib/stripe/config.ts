@@ -1,5 +1,5 @@
 import Stripe from 'stripe'
-import { FEES } from '@/lib/pricing'
+import { FEES, SUBSCRIPTION_AMOUNTS } from '@/lib/pricing'
 
 // Only initialize Stripe if we have the secret key (allows builds without env vars)
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY
@@ -21,26 +21,32 @@ export const STRIPE_CONFIG = {
 }
 
 // Per-vertical vendor subscription prices
-// Each vertical has its own Stripe products for branding on receipts/statements
+// Each vertical has its own Stripe products for branding on receipts/statements.
+//
+// AMOUNTS COME FROM pricing.ts — never re-type them here. This file pairs a
+// Stripe price ID (what actually charges) with the amount we DISPLAY; if the
+// two drift, the buyer sees one number and Stripe charges another. Only the
+// price IDs are local to this file. `subscription-amounts-functional.test.ts`
+// asserts the pairing stays intact.
 const VERTICAL_VENDOR_PRICES: Record<string, Record<string, { priceId: string; amountCents: number }>> = {
   farmers_market: {
-    pro_monthly: { priceId: process.env.STRIPE_FM_PRO_MONTHLY_PRICE_ID || '', amountCents: 2500 },
-    pro_annual: { priceId: process.env.STRIPE_FM_PRO_ANNUAL_PRICE_ID || '', amountCents: 20815 },
-    boss_monthly: { priceId: process.env.STRIPE_FM_BOSS_MONTHLY_PRICE_ID || '', amountCents: 5000 },
-    boss_annual: { priceId: process.env.STRIPE_FM_BOSS_ANNUAL_PRICE_ID || '', amountCents: 48150 },
+    pro_monthly: { priceId: process.env.STRIPE_FM_PRO_MONTHLY_PRICE_ID || '', amountCents: SUBSCRIPTION_AMOUNTS.pro_monthly_cents },
+    pro_annual: { priceId: process.env.STRIPE_FM_PRO_ANNUAL_PRICE_ID || '', amountCents: SUBSCRIPTION_AMOUNTS.pro_annual_cents },
+    boss_monthly: { priceId: process.env.STRIPE_FM_BOSS_MONTHLY_PRICE_ID || '', amountCents: SUBSCRIPTION_AMOUNTS.boss_monthly_cents },
+    boss_annual: { priceId: process.env.STRIPE_FM_BOSS_ANNUAL_PRICE_ID || '', amountCents: SUBSCRIPTION_AMOUNTS.boss_annual_cents },
   },
   food_trucks: {
-    pro_monthly: { priceId: process.env.STRIPE_FT_PRO_MONTHLY_PRICE_ID || '', amountCents: 2500 },
-    pro_annual: { priceId: process.env.STRIPE_FT_PRO_ANNUAL_PRICE_ID || '', amountCents: 20815 },
-    boss_monthly: { priceId: process.env.STRIPE_FT_BOSS_MONTHLY_PRICE_ID || '', amountCents: 5000 },
-    boss_annual: { priceId: process.env.STRIPE_FT_BOSS_ANNUAL_PRICE_ID || '', amountCents: 48150 },
+    pro_monthly: { priceId: process.env.STRIPE_FT_PRO_MONTHLY_PRICE_ID || '', amountCents: SUBSCRIPTION_AMOUNTS.pro_monthly_cents },
+    pro_annual: { priceId: process.env.STRIPE_FT_PRO_ANNUAL_PRICE_ID || '', amountCents: SUBSCRIPTION_AMOUNTS.pro_annual_cents },
+    boss_monthly: { priceId: process.env.STRIPE_FT_BOSS_MONTHLY_PRICE_ID || '', amountCents: SUBSCRIPTION_AMOUNTS.boss_monthly_cents },
+    boss_annual: { priceId: process.env.STRIPE_FT_BOSS_ANNUAL_PRICE_ID || '', amountCents: SUBSCRIPTION_AMOUNTS.boss_annual_cents },
   },
 }
 
 // Buyer subscription prices (same across all verticals)
 const BUYER_PRICES = {
-  monthly: { priceId: process.env.STRIPE_BUYER_MONTHLY_PRICE_ID || '', amountCents: 999 },
-  annual: { priceId: process.env.STRIPE_BUYER_ANNUAL_PRICE_ID || '', amountCents: 8150 },
+  monthly: { priceId: process.env.STRIPE_BUYER_MONTHLY_PRICE_ID || '', amountCents: SUBSCRIPTION_AMOUNTS.buyer_monthly_cents },
+  annual: { priceId: process.env.STRIPE_BUYER_ANNUAL_PRICE_ID || '', amountCents: SUBSCRIPTION_AMOUNTS.buyer_annual_cents },
 }
 
 // Backward-compatible unified view (uses first available vertical's prices)
@@ -48,40 +54,41 @@ export const SUBSCRIPTION_PRICES = {
   vendor: {
     pro_monthly: {
       priceId: process.env.STRIPE_VENDOR_PRO_MONTHLY_PRICE_ID || VERTICAL_VENDOR_PRICES.food_trucks.pro_monthly.priceId || VERTICAL_VENDOR_PRICES.farmers_market.pro_monthly.priceId,
-      amountCents: 2500,
+      amountCents: SUBSCRIPTION_AMOUNTS.pro_monthly_cents,
     },
     pro_annual: {
       priceId: process.env.STRIPE_VENDOR_PRO_ANNUAL_PRICE_ID || VERTICAL_VENDOR_PRICES.food_trucks.pro_annual.priceId || VERTICAL_VENDOR_PRICES.farmers_market.pro_annual.priceId,
-      amountCents: 20815,
+      amountCents: SUBSCRIPTION_AMOUNTS.pro_annual_cents,
     },
     boss_monthly: {
       priceId: process.env.STRIPE_VENDOR_BOSS_MONTHLY_PRICE_ID || VERTICAL_VENDOR_PRICES.food_trucks.boss_monthly.priceId || VERTICAL_VENDOR_PRICES.farmers_market.boss_monthly.priceId,
-      amountCents: 5000,
+      amountCents: SUBSCRIPTION_AMOUNTS.boss_monthly_cents,
     },
     boss_annual: {
       priceId: process.env.STRIPE_VENDOR_BOSS_ANNUAL_PRICE_ID || VERTICAL_VENDOR_PRICES.food_trucks.boss_annual.priceId || VERTICAL_VENDOR_PRICES.farmers_market.boss_annual.priceId,
-      amountCents: 48150,
+      amountCents: SUBSCRIPTION_AMOUNTS.boss_annual_cents,
     },
   },
   buyer: BUYER_PRICES,
-  // Legacy references
+  // Legacy references — the old per-vertical tier names. These alias the same
+  // unified amounts (pricing.ts:32-43); they are NOT a separate price schedule.
   fm_premium: {
-    monthly: { get priceId() { return VERTICAL_VENDOR_PRICES.farmers_market.pro_monthly.priceId }, amountCents: 2500 },
-    annual: { get priceId() { return VERTICAL_VENDOR_PRICES.farmers_market.pro_annual.priceId }, amountCents: 20815 },
+    monthly: { get priceId() { return VERTICAL_VENDOR_PRICES.farmers_market.pro_monthly.priceId }, amountCents: SUBSCRIPTION_AMOUNTS.fm_premium_monthly_cents },
+    annual: { get priceId() { return VERTICAL_VENDOR_PRICES.farmers_market.pro_annual.priceId }, amountCents: SUBSCRIPTION_AMOUNTS.fm_premium_annual_cents },
   },
   fm_vendor: {
-    standard_monthly: { priceId: '', amountCents: 0 },
-    standard_annual: { priceId: '', amountCents: 0 },
-    featured_monthly: { get priceId() { return VERTICAL_VENDOR_PRICES.farmers_market.boss_monthly.priceId }, amountCents: 5000 },
-    featured_annual: { get priceId() { return VERTICAL_VENDOR_PRICES.farmers_market.boss_annual.priceId }, amountCents: 48150 },
+    standard_monthly: { priceId: '', amountCents: SUBSCRIPTION_AMOUNTS.fm_standard_monthly_cents },
+    standard_annual: { priceId: '', amountCents: SUBSCRIPTION_AMOUNTS.fm_standard_annual_cents },
+    featured_monthly: { get priceId() { return VERTICAL_VENDOR_PRICES.farmers_market.boss_monthly.priceId }, amountCents: SUBSCRIPTION_AMOUNTS.fm_featured_monthly_cents },
+    featured_annual: { get priceId() { return VERTICAL_VENDOR_PRICES.farmers_market.boss_annual.priceId }, amountCents: SUBSCRIPTION_AMOUNTS.fm_featured_annual_cents },
   },
   food_truck_vendor: {
-    basic_monthly: { priceId: '', amountCents: 0 },
-    basic_annual: { priceId: '', amountCents: 0 },
-    pro_monthly: { get priceId() { return VERTICAL_VENDOR_PRICES.food_trucks.pro_monthly.priceId }, amountCents: 2500 },
-    pro_annual: { get priceId() { return VERTICAL_VENDOR_PRICES.food_trucks.pro_annual.priceId }, amountCents: 20815 },
-    boss_monthly: { get priceId() { return VERTICAL_VENDOR_PRICES.food_trucks.boss_monthly.priceId }, amountCents: 5000 },
-    boss_annual: { get priceId() { return VERTICAL_VENDOR_PRICES.food_trucks.boss_annual.priceId }, amountCents: 48150 },
+    basic_monthly: { priceId: '', amountCents: SUBSCRIPTION_AMOUNTS.ft_basic_monthly_cents },
+    basic_annual: { priceId: '', amountCents: SUBSCRIPTION_AMOUNTS.ft_basic_annual_cents },
+    pro_monthly: { get priceId() { return VERTICAL_VENDOR_PRICES.food_trucks.pro_monthly.priceId }, amountCents: SUBSCRIPTION_AMOUNTS.ft_pro_monthly_cents },
+    pro_annual: { get priceId() { return VERTICAL_VENDOR_PRICES.food_trucks.pro_annual.priceId }, amountCents: SUBSCRIPTION_AMOUNTS.ft_pro_annual_cents },
+    boss_monthly: { get priceId() { return VERTICAL_VENDOR_PRICES.food_trucks.boss_monthly.priceId }, amountCents: SUBSCRIPTION_AMOUNTS.ft_boss_monthly_cents },
+    boss_annual: { get priceId() { return VERTICAL_VENDOR_PRICES.food_trucks.boss_annual.priceId }, amountCents: SUBSCRIPTION_AMOUNTS.ft_boss_annual_cents },
   },
 }
 

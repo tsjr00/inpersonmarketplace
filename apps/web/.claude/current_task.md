@@ -2,7 +2,40 @@
 
 ---
 
-## 🔵 DAY 8 (2026-07-19) — CODEBASE MAP (user-requested, BUILT, gates green, UNCOMMITTED)
+## 🔵 DAY 8 (2026-07-18) — CODEBASE MAP + PRICING SOURCE-OF-TRUTH + ADMIN HIERARCHY
+
+### STATUS SNAPSHOT
+- **COMMITTED `0daf14b5`** (local main, NOT pushed): the Codebase Map + coverage test + Rule 6.
+- **UNCOMMITTED on disk:** pricing A+B, trial retirement, migration 204 + snapshot changelog, map admin update.
+- **⛔ SUITE IS RED (3 tests)** — TrialStatusBanner render tests, awaiting user decision (a/b/c). Cannot commit until resolved.
+- **MIGRATION 204 NOT APPLIED anywhere.** User applies Dev+Staging, then Prod in order after 184→203.
+
+### 🚨 ADMIN HIERARCHY — the load-bearing bug (CMAP-1)
+`hasPlatformAdminRole` (auth/admin.ts:134-140) accepts plain `'admin'`, so `verifyAdminScope`'s `vertical_admins` check (:204-214) is unreachable → vertical admins get cross-vertical scope. `admin/errors/route.ts:60-61` already tried to fix this ("vertical admins should NOT bypass scope") — that fix has always been a no-op.
+**PROD SQL 2026-07-18: ZERO platform admins.** Both accounts `role='admin'`, no `vertical_admins` rows, `is_chief_platform_admin=false`. tsjr00 columns disagreed (`role='admin'` vs `roles=['buyer']`). Q3 orphans = none.
+**→ The bug is LOAD-BEARING. Fixing the helper first = total admin lockout (Session 59 class).** `admin-accounts.ts` guard only asserts a constant list, never queries the DB — it would NOT have caught this.
+**OWNER DECISION 2026-07-18 — additive first, remove later:** (1) mig 204 grants correct roles/memberships, nothing revoked; (2) owner tests + re-runs V2 (must be 0 rows); (3) THEN helper goes strict; (4) THEN audit 39 unscoped `hasAdminRole` routes (money first) + structural test forcing every `api/admin/**` route through a sanctioned helper; (5) THEN regional manager on the corrected hierarchy.
+**HIERARCHY (owner):** platform ⊃ vertical. No blanket 'admin' tier — legacy `'admin'` IS the vertical-admin representation. tsjr00 = platform + CHIEF + vertical admin of all verticals. Jen = same, not chief.
+
+### PRICING SOURCE OF TRUTH (owner-approved A+B; C = follow-up)
+Two sources existed: `SUBSCRIPTION_AMOUNTS` (pricing.ts:22-43) and ~22 literals in stripe/config.ts, plus prose copies — 3 of which were STALE incl. the vendor service agreement (quoted $24.99 / Basic $10 / Pro $30 for tiers that are $25 / $0 / $25).
+- **A:** stripe/config.ts now imports SUBSCRIPTION_AMOUNTS (zero literals). 7 new pin tests in subscription-amounts-functional.
+- **B:** NEW `src/lib/pricing-display.ts` (formatters + `vendorTiersSentence()`), wired into legal/placeholders.ts + llms.txt. Both verticals now render **"Free, Pro ($25/month), and Boss ($50/month)"**. Small-order figures also derived.
+- **`pricing.ts` was NEVER touched** — display module lives outside it so formatting doesn't share the protected-file gate.
+- **C (follow-up, not built):** full `getTierPricing()` accessor.
+- **OPEN:** `CURRENT_AGREEMENT_VERSION` still `'2026-03-v2'` — agreement TEXT changed; owner must decide whether a price correction warrants a version bump (forces re-acceptance).
+
+### TRIAL RETIRED — DONE (owner: "there is no 90 day trial anymore"; chose option B = delete)
+- FT `TRIAL_TERMS` → `null` (legal/placeholders.ts) — resolver strips the sentence; FM was already null.
+- **`src/components/vendor/TrialStatusBanner.tsx` DELETED** + its 5 tests removed from component-renders + import/render removed from vendor/dashboard/page.tsx. Zero references remain (grep-verified).
+- `vendor_profiles.trial_ends_at` / `trial_grace_ends_at` LEFT IN PLACE as historical data on legacy rows — do not build new behavior on them.
+- Cron phases 10a/b/c already skip via `TRIAL_SYSTEM_ENABLED=false`; left as-is (dormant, not deleted).
+- Suite 1720 → **1715** (5 trial tests removed), all green.
+- NOTE: `rate-limit.test.ts > different identifiers are tracked independently` flaked once mid-session; passed on 3 subsequent runs incl. full suite. Timing-sensitive w/ in-memory fallback — known flake class, not caused by these changes.
+
+---
+
+## (day 8, earlier) CODEBASE MAP — BUILT + COMMITTED `0daf14b5`
 
 **Goal (user):** one enforced, comprehensive map a future CTO / dev team can be pointed at to understand + evaluate the app — the code-side twin of SCHEMA_SNAPSHOT, kept current mechanically like migration bookkeeping.
 

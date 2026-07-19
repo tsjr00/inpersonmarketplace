@@ -1,6 +1,22 @@
 # Backlog
 
-Last updated: 2026-07-18 (CRN-11 deferred; VOR-11 stays open per user; company-paid assumptions for the VOR-10 fix documented in the package below)
+Last updated: 2026-07-18 (agreement-version decision added; CRN-11 deferred; VOR-11 stays open per user; company-paid assumptions for the VOR-10 fix documented in the package below)
+
+## 🔷 OWNER DECISION NEEDED — Agreement version bump after legal text corrections (added 2026-07-18)
+
+**`CURRENT_AGREEMENT_VERSION` (`src/lib/legal/index.ts:9`) is still `'2026-03-v2'`, but the vendor service agreement text has changed twice since vendors accepted under that string.** It is a hand-set constant stamped onto each acceptance record (`OnboardingChecklist.tsx:197`, `api/user/accept-agreement`), so past acceptances now point at text that no longer matches what was shown.
+
+**What changed (both 2026-07-18, commit in the pricing/trial batch):**
+1. **`VENDOR_TIERS` corrected** — was FM `"Standard (free) and Premium ($24.99/month)"` / FT `"Free, Basic ($10/month), Pro ($30/month), and Boss ($50/month)"`; both now derive to **`"Free, Pro ($25/month), and Boss ($50/month)"`**. The old strings quoted prices the platform does not charge — vendors were accepting a contract with wrong figures.
+2. **`TRIAL_TERMS` removed for FT** — was `"90-day complimentary Basic tier upon approval"`; the trial was retired (owner decision, same day) and `TRIAL_SYSTEM_ENABLED` is false, so the clause promised a benefit never delivered. Now `null`, and the resolver strips the sentence.
+
+**The decision:** does correcting factually-wrong prices and removing a retired benefit constitute a NEW agreement version requiring re-acceptance by all existing vendors, or a correction of the existing one?
+- **Bump** (e.g. `'2026-07-v1'`) → every vendor re-accepts; clean audit trail; friction for vendors mid-season.
+- **Don't bump** → no vendor friction, but acceptance records for `2026-07-v2` point at text that has been edited since signing.
+
+Claude should NOT decide this — it is a legal/business call. Note this is distinct from the market-level `computeAgreementVersionFromSnapshot` hash (opt-in statements), which is a separate, automatic system.
+
+**Related, same file:** the market-manager-program page still hardcodes a booth-fee worked example (`$25 booth → vendor pays $26.78, manager receives $23.37`). The math is currently correct against `FEES`, but it is a hand-typed copy of fee arithmetic and would silently go stale if rates ever change — a candidate for pricing-display derivation (pricing item "C", also backlogged).
 
 ## 🔶 DEFERRED FEATURE PACKAGE — Company-paid events (USER DECISION 2026-07-14: "WE WILL NEED IT LATER, BUT NOT NOW")
 
@@ -15,6 +31,12 @@ Last updated: 2026-07-18 (CRN-11 deferred; VOR-11 stays open per user; company-p
 7. **EVT-15 (company-paid half)** — buyer-cancel needs a company-paid early-branch mirroring fulfill's (no Stripe refund math on paymentless orders). The wave-freeing half of EVT-15 is being fixed NOW (wave lifecycle batch).
 8. **Reminder:** the eventual VOR-10 fix (reject's silent refund-skip logging) must exempt `payment_model='company_paid'` or it logs an error on every company-paid reject. **VOR-10 fix SHIPPING 2026-07-18 (Batch 3) with that exemption built in. Assumptions it bakes in — MUST still hold when this package is built:** (a) company-paid orders NEVER get a `payments` row (organizer settles out-of-band via the manually-recorded `event_company_payments` ledger — no Stripe payment, so no-succeeded-row is normal, not an error); (b) buyer refunds on company-paid rejects/issue-resolutions flow through organizer settlement, NOT Stripe `createRefund` (consistent with fulfill/route.ts:92,199-219 which skips all Stripe money movement for `payment_model='company_paid'`). If the package's design ever gives company-paid orders a payments row or Stripe refunds, revisit the reject/resolve-issue exemption.
 9. **Design notes:** RPC fee math (6.5%+15¢ both sides) is hardcoded in SQL — must mirror pricing.ts if rates ever change; `event_company_payments` is a manually-recorded admin ledger (no code moves organizer money); event cancellation (EVT-3/4) is being fixed NOW and is independent of this package.
+
+## 🔷 FOLLOW-UP (added 2026-07-18) — Pricing item "C": full `getTierPricing()` accessor
+
+Items **A** (stripe/config.ts imports `SUBSCRIPTION_AMOUNTS`; ~22 literals removed) and **B** (`src/lib/pricing-display.ts` derives all customer-facing price/tier prose; wired into legal placeholders + llms.txt) **SHIPPED 2026-07-18**. Seven pin tests in `subscription-amounts-functional.test.ts` now fail if the two sources diverge.
+
+**C (not built, optional):** a single `getTierPricing(vertical, tier, cycle) → {amountCents, display, priceId}` accessor as the one entry point for every surface, replacing the current split between `SUBSCRIPTION_AMOUNTS` (amounts), `SUBSCRIPTION_PRICES` (amount+priceId pairing) and `pricing-display` (strings). Cleaner end state, but it touches `lib/pricing.ts` — a protected critical-path file — so it needs per-file approval with exact diffs. A+B already closed the actual defects; C is architecture, not a bug fix. Remaining hardcoded-price sites to sweep when C is done: the market-manager-program booth-fee worked example.
 
 ## 🔷 GUARDRAIL-AUDIT FOLLOW-UPS (2026-07-18 — decision/timing items from the audit; the mechanical batch [Rules F/G/H + design-fidelity rule] SHIPPED same day)
 

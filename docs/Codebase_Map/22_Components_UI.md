@@ -69,7 +69,7 @@ One leftover from the Tailwind era survives: `StatusBadge` still accepts Tailwin
 | Directory | Files | What lives there |
 |---|---|---|
 | `market-manager/` | 43 | The largest. Manager dashboards (`FmDashboardBody` / `FtParkDashboardBody`), booth and spot inventory, seasons, settlement, onboarding, surveys — see [12_Market_Manager.md](12_Market_Manager.md) and [13_FT_Park.md](13_FT_Park.md) |
-| `vendor/` | 36 | Profile, listings, six distinct upload components, market/park booking, order queue — see [11_Vendor_Orders.md](11_Vendor_Orders.md) |
+| `vendor/` | 35 | Profile, listings, six distinct upload components, market/park booking, order queue — see [11_Vendor_Orders.md](11_Vendor_Orders.md). (`TrialStatusBanner` deleted 2026-07-18 with the trial retirement) |
 | `landing/` | 15 + local tokens | Marketing sections, barrel-exported. **Has its own local `design-tokens.ts`** separate from `lib/design-tokens.ts` — a real duplication |
 | `buyer/` | 8 | Order status, pickup, feedback and ratings |
 | `admin/` | 7 | Console chrome, verification panel, mobile rows, pagination — see [19_Admin.md](19_Admin.md) |

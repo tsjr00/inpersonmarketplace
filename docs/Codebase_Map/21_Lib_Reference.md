@@ -17,6 +17,7 @@ src/lib/branding/**
 src/lib/test-utils/**
 src/lib/events/**
 src/lib/design-tokens.ts
+src/lib/pricing-display.ts
 src/lib/rate-limit.ts
 src/lib/geocode.ts
 src/lib/export-csv.ts
@@ -64,6 +65,7 @@ Shared modules not owned by a single domain. **The lib layer is where the busine
 | `constants.ts` ⚠ | Fees, cutoffs, quantity units, `CATEGORIES` / `FOOD_TRUCK_CATEGORIES`, and the platform **feature flags** (`EXTERNAL_PAYMENTS_ENABLED`, etc.). Protected — check the decision log before changing any flag |
 | `environment.ts` | Per-vertical production URLs; `getAppUrl`, `validateEnv` |
 | `polling-config.ts` | Business-hours-aware refresh cadences; `isOffPeak`, `POLLING_INTERVALS`, `getPollingInterval` |
+| `pricing-display.ts` | **Human-readable price/tier strings derived from `SUBSCRIPTION_AMOUNTS`.** `formatCentsUSD`, `formatCentsCompact`, `PAID_VENDOR_TIERS`, `vendorTiersSentence()`, `upgradeCallToAction()`, `buyerPremiumMonthly()`. Never write a subscription price as a literal in UI, legal or marketing copy — import from here. Lives outside `pricing.ts` so display formatting doesn't share a change-approval gate with fee arithmetic |
 | `domain/config.ts` · `domain/server.ts` | Host → brand/vertical resolution |
 | `branding/` | `defaults.ts`, `server.ts` (`getVerticalConfig`, `getBrandingByDomain`, `getAllVerticals`), `types.ts` |
 

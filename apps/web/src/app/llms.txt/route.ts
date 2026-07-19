@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { vendorTiersSentence } from '@/lib/pricing-display'
 
 /**
  * llms.txt — Machine-readable site description for AI models and LLM crawlers.
  * Serves domain-specific content so each vertical gets its own authoritative description.
  * See https://llmstxt.org for the specification.
+ *
+ * Tier prices are interpolated from pricing-display, not typed as prose — this
+ * file is what AI assistants quote when asked what the platform costs, so a
+ * stale number here propagates outward. (It quoted the pre-unification
+ * "$10/$30" tiers until 2026-07-18.)
  */
 
 const FM_CONTENT = `# Local Market — Farmers Market Online Ordering Platform
@@ -232,7 +238,7 @@ We serve communities across the United States with location-based search from 2 
 - **Multiple service locations**: Set up different pickup locations and operating hours for each
 - **Analytics dashboard**: Track sales trends, top menu items, revenue, peak hours, and customer insights
 - **Chef Box offerings**: Create subscription meal bundles (weekly dinner kits, family packs, mystery boxes, meal prep, office lunches) for recurring revenue
-- **Flexible business tiers**: Free, Basic ($10/mo), Pro ($30/mo), or Boss ($50/mo) plans — start free and upgrade as you grow
+- **Flexible business tiers**: ${vendorTiersSentence('mo')} plans — start free and upgrade as you grow
 - **Free trial on paid plans**: Try a paid plan with no commitment, downgrade anytime
 - **Real-time order management**: View, confirm, and fulfill orders from one simple dashboard
 - **Events and pop-ups**: List your food at festivals, food truck rallies, and special events

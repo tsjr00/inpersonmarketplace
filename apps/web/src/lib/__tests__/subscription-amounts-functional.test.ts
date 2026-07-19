@@ -14,8 +14,10 @@
  */
 import { describe, it, expect } from 'vitest'
 import { SUBSCRIPTION_AMOUNTS, FEES, proratedFlatFeeSimple } from '@/lib/pricing'
-import { STRIPE_CONFIG } from '@/lib/stripe/config'
+import { STRIPE_CONFIG, SUBSCRIPTION_PRICES } from '@/lib/stripe/config'
 import { calculateCancellationFee, CANCELLATION_FEE_PERCENT } from '@/lib/payments/cancellation-fees'
+import { vendorTiersSentence, formatCentsCompact } from '@/lib/pricing-display'
+import { verticalPlaceholders } from '@/lib/legal/placeholders'
 
 // =============================================================================
 // PF-023: FM subscription amounts
@@ -162,5 +164,76 @@ describe('CX-014: Cancellation flat fee uses floor-based proration', () => {
     expect(result.refundAmountCents + result.cancellationFeeCents).toBe(1072)
     expect(result.cancellationFeeCents).toBe(268) // 1072 - round(1072×0.75) = 1072 - 804 = 268
     expect(result.refundAmountCents).toBe(804)
+  })
+})
+
+// =============================================================================
+// PRICE-SOURCE INTEGRITY (added 2026-07-18)
+//
+// Subscription amounts were duplicated in two places — SUBSCRIPTION_AMOUNTS
+// (pricing.ts) and ~22 hardcoded literals in stripe/config.ts — plus re-typed
+// as prose in legal text, llms.txt and UI copy. Three of the prose copies had
+// gone stale, including the vendor service agreement, which quoted prices the
+// platform does not charge.
+//
+// These tests pin every derived surface to the single source. If one fails,
+// a price was changed in one place and not the other: fix the SOURCE
+// (SUBSCRIPTION_AMOUNTS) and let the rest derive. Do NOT update the expected
+// value to match a hardcoded literal — that re-opens the drift.
+// =============================================================================
+
+describe('Price-source integrity: stripe/config amounts derive from pricing.ts', () => {
+  it('unified vendor tier amounts match SUBSCRIPTION_AMOUNTS', () => {
+    expect(SUBSCRIPTION_PRICES.vendor.pro_monthly.amountCents).toBe(SUBSCRIPTION_AMOUNTS.pro_monthly_cents)
+    expect(SUBSCRIPTION_PRICES.vendor.pro_annual.amountCents).toBe(SUBSCRIPTION_AMOUNTS.pro_annual_cents)
+    expect(SUBSCRIPTION_PRICES.vendor.boss_monthly.amountCents).toBe(SUBSCRIPTION_AMOUNTS.boss_monthly_cents)
+    expect(SUBSCRIPTION_PRICES.vendor.boss_annual.amountCents).toBe(SUBSCRIPTION_AMOUNTS.boss_annual_cents)
+  })
+
+  it('buyer premium amounts match SUBSCRIPTION_AMOUNTS', () => {
+    expect(SUBSCRIPTION_PRICES.buyer.monthly.amountCents).toBe(SUBSCRIPTION_AMOUNTS.buyer_monthly_cents)
+    expect(SUBSCRIPTION_PRICES.buyer.annual.amountCents).toBe(SUBSCRIPTION_AMOUNTS.buyer_annual_cents)
+  })
+
+  it('legacy per-vertical aliases match their unified source', () => {
+    expect(SUBSCRIPTION_PRICES.fm_premium.monthly.amountCents).toBe(SUBSCRIPTION_AMOUNTS.fm_premium_monthly_cents)
+    expect(SUBSCRIPTION_PRICES.fm_vendor.featured_monthly.amountCents).toBe(SUBSCRIPTION_AMOUNTS.fm_featured_monthly_cents)
+    expect(SUBSCRIPTION_PRICES.food_truck_vendor.basic_monthly.amountCents).toBe(SUBSCRIPTION_AMOUNTS.ft_basic_monthly_cents)
+    expect(SUBSCRIPTION_PRICES.food_truck_vendor.pro_monthly.amountCents).toBe(SUBSCRIPTION_AMOUNTS.ft_pro_monthly_cents)
+    expect(SUBSCRIPTION_PRICES.food_truck_vendor.boss_monthly.amountCents).toBe(SUBSCRIPTION_AMOUNTS.ft_boss_monthly_cents)
+  })
+})
+
+describe('Price-source integrity: customer-facing copy derives from pricing.ts', () => {
+  it('vendor tier sentence states the real paid-tier prices', () => {
+    const sentence = vendorTiersSentence()
+    expect(sentence).toContain(`Pro ($${SUBSCRIPTION_AMOUNTS.pro_monthly_cents / 100}/month)`)
+    expect(sentence).toContain(`Boss ($${SUBSCRIPTION_AMOUNTS.boss_monthly_cents / 100}/month)`)
+    expect(sentence).toContain('Free')
+  })
+
+  it('the vendor service agreement quotes current prices, not retired ones', () => {
+    // These were the stale strings live until 2026-07-18. Vendors were
+    // accepting an agreement quoting tiers the platform does not sell.
+    for (const vertical of ['farmers_market', 'food_trucks']) {
+      const tiers = verticalPlaceholders[vertical].VENDOR_TIERS
+      expect(tiers).toBe(vendorTiersSentence())
+      expect(tiers).not.toContain('$24.99')
+      expect(tiers).not.toContain('$10/month')
+      expect(tiers).not.toContain('$30/month')
+    }
+  })
+
+  it('legal small-order figures match the pricing config per vertical', () => {
+    expect(verticalPlaceholders.farmers_market.SMALL_ORDER_THRESHOLD).toBe('$10.00')
+    expect(verticalPlaceholders.farmers_market.SMALL_ORDER_FEE).toBe('$1.00')
+    expect(verticalPlaceholders.food_trucks.SMALL_ORDER_THRESHOLD).toBe('$5.00')
+    expect(verticalPlaceholders.food_trucks.SMALL_ORDER_FEE).toBe('$0.50')
+  })
+
+  it('formatCentsCompact drops noise decimals only on whole dollars', () => {
+    expect(formatCentsCompact(2500)).toBe('$25')
+    expect(formatCentsCompact(2499)).toBe('$24.99')
+    expect(formatCentsCompact(0)).toBe('$0')
   })
 })

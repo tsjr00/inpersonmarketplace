@@ -39,7 +39,6 @@ import CutoffBadge from '@/components/listings/CutoffBadge'
 import OrderStatusSummary from '@/components/buyer/OrderStatusSummary'
 import OrderTimeline from '@/components/buyer/OrderTimeline'
 import OrderStatusBadge from '@/components/vendor/OrderStatusBadge'
-import TrialStatusBanner from '@/components/vendor/TrialStatusBanner'
 import VendorAvatar from '@/components/shared/VendorAvatar'
 
 // ── Tests ───────────────────────────────────────────────────────────
@@ -298,80 +297,6 @@ describe('Component Render Tests', () => {
     })
   })
 
-  // ── TrialStatusBanner ───────────────────────────────────────────
-
-  describe('TrialStatusBanner', () => {
-    it('returns null when not trialing and no grace period', () => {
-      const { container } = render(
-        <TrialStatusBanner
-          vertical="food_trucks"
-          subscriptionStatus="active"
-          trialEndsAt={null}
-          trialGraceEndsAt={null}
-        />
-      )
-      expect(container.innerHTML).toBe('')
-    })
-
-    it('renders trial banner with days remaining', () => {
-      const futureDate = new Date()
-      futureDate.setDate(futureDate.getDate() + 45)
-      render(
-        <TrialStatusBanner
-          vertical="food_trucks"
-          subscriptionStatus="trialing"
-          trialEndsAt={futureDate.toISOString()}
-          trialGraceEndsAt={null}
-        />
-      )
-      expect(screen.getByText(/Free Basic Trial/)).toBeDefined()
-      expect(screen.getByText(/day.*remaining/)).toBeDefined()
-    })
-
-    it('renders grace period banner', () => {
-      const futureDate = new Date()
-      futureDate.setDate(futureDate.getDate() + 7)
-      render(
-        <TrialStatusBanner
-          vertical="food_trucks"
-          subscriptionStatus="free"
-          trialEndsAt={null}
-          trialGraceEndsAt={futureDate.toISOString()}
-        />
-      )
-      expect(screen.getByText(/Trial Ended/)).toBeDefined()
-      expect(screen.getByText(/day.*to upgrade/)).toBeDefined()
-    })
-
-    it('links to upgrade page with correct vertical', () => {
-      const futureDate = new Date()
-      futureDate.setDate(futureDate.getDate() + 30)
-      render(
-        <TrialStatusBanner
-          vertical="food_trucks"
-          subscriptionStatus="trialing"
-          trialEndsAt={futureDate.toISOString()}
-          trialGraceEndsAt={null}
-        />
-      )
-      const link = screen.getByText('Upgrade to Basic — $10/mo')
-      expect(link.closest('a')?.getAttribute('href')).toBe('/food_trucks/vendor/dashboard/upgrade')
-    })
-
-    it('returns null when trial has expired and no grace period', () => {
-      const pastDate = new Date()
-      pastDate.setDate(pastDate.getDate() - 5)
-      const { container } = render(
-        <TrialStatusBanner
-          vertical="food_trucks"
-          subscriptionStatus="trialing"
-          trialEndsAt={pastDate.toISOString()}
-          trialGraceEndsAt={null}
-        />
-      )
-      expect(container.innerHTML).toBe('')
-    })
-  })
 
   // ── VendorAvatar ────────────────────────────────────────────────
 

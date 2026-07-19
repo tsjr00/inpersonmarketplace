@@ -149,7 +149,7 @@ Two patterns recur across the whole vendor surface:
 | `lib/vendor/getVendorProfile.ts` | `getVendorProfileForVertical<T>()` — the vendor auth primitive |
 | `lib/vendor/tax-notice.ts` | Texas sales-tax advisory copy by vertical/category. Copy only, not tax calculation |
 | `lib/vendor/event-readiness-validation.ts` | Pure validator for the private-event readiness questionnaire; FT uses vehicle types (5–80 ft), FM booth setups (4–40 ft) |
-| `lib/vendor-limits.ts` ⚠ | The tier/entitlement boundary (583 lines). `free → pro ($25/mo) → boss ($50/mo)`; `normalizeTier()` maps legacy names (`basic/standard/premium/featured`) to `free` (`:30-35`); usage counters and `can*` gates. **`TRIAL_SYSTEM_ENABLED = false` (`:24`)** — the 90-day trial is dormant and cron phases 10a/10b/10c skip trial processing |
+| `lib/vendor-limits.ts` ⚠ | The tier/entitlement boundary (583 lines). `free → pro ($25/mo) → boss ($50/mo)`; `normalizeTier()` maps legacy names (`basic/standard/premium/featured`) to `free` (`:30-35`); usage counters and `can*` gates. **`TRIAL_SYSTEM_ENABLED = false` (`:24`)** — the 90-day trial was **retired** (owner decision 2026-07-18), cron phases 10a/10b/10c skip trial processing, the vendor service agreement's trial clause was removed, and `TrialStatusBanner` was deleted. `vendor_profiles.trial_ends_at` / `trial_grace_ends_at` remain as historical data on legacy rows — do not build new behavior on them |
 | `lib/orders/checkout-helpers.ts` | Pure helpers: `buildIdempotencyKey`, `isTippingEnabled` (food trucks only, `:52-54`), `isExternalPayment`, `shouldCallStripeRefund`, `EXTERNAL_PAYMENT_METHODS` (`:15`) |
 | `lib/orders/status-transitions.ts` | The spec module — see below |
 

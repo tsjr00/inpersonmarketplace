@@ -19,7 +19,6 @@ import { getTierLimits, getFtTierExtras } from '@/lib/vendor-limits'
 import UpcomingPickupItem from './UpcomingPickupItem'
 import ExternalPaymentBanner from '@/components/vendor/ExternalPaymentBanner'
 import QualityAlertBanner from '@/components/vendor/QualityAlertBanner'
-import TrialStatusBanner from '@/components/vendor/TrialStatusBanner'
 import MarketCheckInPrompt from '@/components/vendor/MarketCheckInPrompt'
 
 interface VendorDashboardPageProps {
@@ -394,15 +393,12 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
 
         {/* External Payment Banner — hidden when external payments disabled */}
 
-        {/* Trial Status Banner — free trial countdown */}
-        {vendorProfile.status === 'approved' && (
-          <TrialStatusBanner
-            vertical={vertical}
-            subscriptionStatus={vendorProfile.subscription_status}
-            trialEndsAt={vendorProfile.trial_ends_at}
-            trialGraceEndsAt={vendorProfile.trial_grace_ends_at}
-          />
-        )}
+        {/* Trial Status Banner removed 2026-07-18 — the 90-day vendor trial was
+            retired (owner decision). TRIAL_SYSTEM_ENABLED has been false, so no
+            new trials start; the banner's copy also advertised a retired tier
+            ("Basic — $10/mo"; Basic is now free, entry paid tier is Pro).
+            trial_ends_at / trial_grace_ends_at remain on vendor_profiles as
+            historical data for legacy rows. */}
 
         {/* Quality Alert Banner — nightly scan findings */}
         {vendorProfile.status === 'approved' && (

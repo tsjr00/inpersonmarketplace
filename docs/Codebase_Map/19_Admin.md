@@ -49,7 +49,18 @@ Two role tiers — `admin` (vertical-scoped) and `platform_admin` — stored red
 
 The code's structure shows this was not the intent: the `isAdmin && requestedVerticalId` branch exists specifically to scope `admin` users and is dead as written, and the doc comment at `:100-102` states *"Vertical admins (regular 'admin' role) can only manage their specific vertical."*
 
-**Blast radius:** exactly the six routes that use `verifyAdminScope` — which are the money and PII routes it was introduced to protect. A one-line change (`hasPlatformAdminRole` dropping its two `admin` clauses) closes it, but that inverts current effective permissions for any existing `admin`-role user, so it needs an owner decision rather than a quiet fix.
+**Blast radius:** exactly the six routes that use `verifyAdminScope` — which are the money and PII routes it was introduced to protect.
+
+**⚠ The bug is currently load-bearing — do not "just fix" the helper.** Production SQL (2026-07-18) found **zero platform admins**: both admin accounts hold `role='admin'` with no `vertical_admins` rows. Admin access works *because* the helper wrongly accepts `admin`. Making it strict without provisioning first locks both accounts — including the owner's — out of every scope-checked route. Note `lib/auth/admin-accounts.ts` is titled "Required platform admin accounts" and its integrity test asserts only that the hardcoded email list exists; it never queries the database, so it would not have caught this.
+
+**Owner-decided remediation sequence (in flight):**
+1. **Migration 204** (`20260718_204_admin_role_provisioning.sql`) — additive only: grants `platform_admin` to both accounts, chief flag to the owner, `vertical_admins` rows for every vertical. Nothing is revoked, so there is no window where anyone loses access.
+2. Owner tests admin surfaces; re-runs verification query V2, which must return **zero rows**.
+3. *Then* `hasPlatformAdminRole` is made strict, activating both `verifyAdminScope` and the dormant fix in `admin/errors/route.ts`.
+4. The 39 unscoped routes are audited (money routes first) and routed through `verifyAdminScope`, with a structural test forcing every `api/admin/**` route through a sanctioned helper.
+5. Regional manager is designed on the corrected hierarchy.
+
+**The intended hierarchy** (owner, 2026-07-18): platform admin ⊃ vertical admin. Platform admins have everything vertical admins have plus cross-vertical reach; vertical admins see only their own vertical. There is no blanket "admin" tier — the legacy `'admin'` enum value *is* how a vertical admin is represented in code.
 
 **Second-order concern:** the money-moving routes (`vendors/[id]/fee-override`, `events/[id]/payments`, `events/[id]/settlement`, `backfill-stripe-fees`) use bare `hasAdminRole` with no vertical scoping at all, so their cross-vertical isolation depends on route-local filtering rather than the shared helper. Whether each compensates internally is **UNVERIFIED per route.**
 
