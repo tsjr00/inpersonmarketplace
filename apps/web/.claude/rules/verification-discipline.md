@@ -242,6 +242,34 @@ Fix mode authorizes code changes without per-change approval. It does NOT author
 
 ---
 
+## Rule 6: Codebase Map Must Track What the Code Does
+
+### THE GATE — Run before committing a change that alters what a file DOES
+
+`docs/Codebase_Map/` is the code-side twin of `SCHEMA_SNAPSHOT.md`: the single place a new engineer, a CTO, or a future session is sent to understand the system. It is enforced two ways, because only half of the problem is machine-checkable.
+
+**The machine half** (`apps/web/src/lib/__tests__/codebase-map-coverage.test.ts`, runs in pre-commit): a NEW source file with no map entry fails the commit; a DELETED file named in the map fails the commit; an undocumented cron fails the commit; a protected money file without its ⚠ marker fails the commit. You do not have to remember these — the test blocks you.
+
+**The procedural half** (this rule — no test can check it):
+
+> When a commit changes what a file DOES — its purpose, its flow, or its money behavior — update that file's line in the map and bump the domain's `verified=` stamp in `00_INDEX.md`, **in the same commit.**
+
+A test can verify a file is *mentioned*. No test can verify its one-line description is still *true* after someone changes the behavior. That is why stamps exist: semantic drift becomes VISIBLE as a stale stamp instead of silently misleading the next reader.
+
+### What does NOT require a map update
+
+Bug fixes that preserve the file's purpose · refactors with no behavior change · test-only and docs-only commits · copy changes. Do not perform ritual map edits on every commit — that trains rubber-stamping, which is how the count-only test assertions became worthless (test-integrity Rule 1).
+
+### What DOES require one
+
+A new file or route (the test forces this) · a file whose responsibility changed · a new or changed money path · a new cross-file contract · a new integration or environment variable · a retired pattern or a newly protected file · a decision that invalidates something the map asserts.
+
+### Why
+
+A map that drifts is worse than no map, because it is *trusted*. The proof is in this repo: the earlier one-shot `apps/web/.claude/review/SYSTEM_MAP.md` (2026-07-12) was accurate when written and carried a stale "prod pending" claim within six days. The bootstrap pass on 2026-07-18 also found the vendor-tier prices quoted in a memory file were obsolete against `pricing.ts`. Enforcement is what separates a map from a snapshot.
+
+---
+
 ## Cannot Be Overridden
 
 No autonomy mode, no time pressure, no "just give me a quick summary" overrides the requirements above. Speed that produces wrong answers is slower than accuracy. A 10-finding report with 3 wrong findings is worse than a 7-finding report that's 100% correct — the user now has to verify everything because trust is broken.

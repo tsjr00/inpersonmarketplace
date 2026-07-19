@@ -1,4 +1,30 @@
-# Current Task: Pre-re-release review — 🏁 ALL BUILD WORK COMPLETE (day 7 EOD). Next: USER staging test → combined prod push = RELAUNCH.
+# Current Task: Codebase Map bootstrapped (day 8). Pre-relaunch review still 100% complete; USER staging test → combined prod push = RELAUNCH.
+
+---
+
+## 🔵 DAY 8 (2026-07-19) — CODEBASE MAP (user-requested, BUILT, gates green, UNCOMMITTED)
+
+**Goal (user):** one enforced, comprehensive map a future CTO / dev team can be pointed at to understand + evaluate the app — the code-side twin of SCHEMA_SNAPSHOT, kept current mechanically like migration bookkeeping.
+
+**BUILT:**
+- **`docs/Codebase_Map/`** — 16 files, layered: `00_INDEX` (reading order + stamp table + how it's maintained) · `01_System_Overview` · `02_Money_Flow` · domains `10`–`20` (checkout, vendor orders, market manager, FT park, events, market boxes, auth/RLS, crons, notifications, admin, buyer/public) · reference `21_Lib` `22_Components` `23_Test_Suites`.
+- **`src/lib/__tests__/codebase-map-coverage.test.ts`** (NEW, 19 tests, pre-commit): R1 no unmapped src file (846 files, tests excluded) · R2 no dangling explicit path · R3 every vercel.json cron in 17_Crons · R4 every protected-path file carries ⚠ · R5 stamps present + indexed. Claim blocks = `<!-- map-claims … -->` per domain file. 00_INDEX excluded from claim parsing (it documents the format).
+- **`verification-discipline.md` Rule 6** — the procedural half: a commit that changes what a file DOES updates its map line + bumps the domain stamp, same commit. (Machine can check *mentioned*; only the rule can check *still true*.) Explicit do-NOT list to avoid ritual edits.
+- Method: 9 Explore agents (report-only) → main-session verified every claim used. Suite 64/1694 → **65 files / 1713 tests**, tsc 0.
+
+**CORRECTIONS FOUND WHILE MAPPING (map is right, older sources were wrong):**
+- **Vendor tiers/prices in MEMORY.md are STALE.** `pricing.ts:22-43` = unified Pro $25/mo ($208.15/yr), Boss $50/mo ($481.50/yr), buyer premium $9.99/mo; fm_standard + ft_basic are $0. The "FT basic $10 / pro $30 / FM premium $24.99" figures are obsolete.
+- **`shared/README.md:68` says "Tailwind Only" — false.** 167 component files use inline token styles vs 26 className; 296 files import design-tokens. Flagged in 22_Components_UI.
+- **`lib/tax/` is dead code** — zero importers repo-wide. Build-or-delete decision, noted in 21_Lib_Reference.
+- `vitest.integration.config.ts` referenced by integration-test headers **does not exist** — those run commands are stale.
+
+**🚨 NEW SECURITY FINDING — CMAP-1 (open, NOT fixed, needs user decision):** `lib/auth/admin.ts:134-140` `hasPlatformAdminRole` returns true for `role==='admin'`, making it identical to `hasAdminRole`. `verifyAdminScope:192-201` short-circuits on it, so the `vertical_admins` check at `:204-214` is **unreachable for any `admin`-role user** → a vertical admin passing another vertical gets `authorized:true` with that vertical. Doc comment `:100-102` states the opposite intent; the dead branch proves it's a bug. Blast radius = the 6 routes using verifyAdminScope (error-logs, event-ratings, feedback, quality-checks, reports, stripe-reconcile — the money/PII ones). Also: 40 admin routes use bare `hasAdminRole` with no vertical scoping (per-route compensation UNVERIFIED). Zero exposure IF all current admins are meant to be platform-wide — user must confirm.
+
+**NEXT:** user decides commit/push for the map; CMAP-1 triage (pre- or post-relaunch).
+
+---
+
+## (prior) Pre-re-release review — 🏁 ALL BUILD WORK COMPLETE (day 7 EOD)
 
 **Updated:** 2026-07-18 EOD (Fable 5 session, day 7). **Mode:** Report (default).
 
