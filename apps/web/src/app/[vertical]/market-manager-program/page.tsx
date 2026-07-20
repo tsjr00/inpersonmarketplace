@@ -1,9 +1,10 @@
-'use client'
-
-import { useParams } from 'next/navigation'
+import { Metadata } from 'next'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import { getEmailFromAddress } from '@/lib/notifications/email-config'
+import { calculateBoothRentalFees, formatPrice, BOOTH_RENTAL_FEES, FEES } from '@/lib/pricing'
+import { defaultBranding } from '@/lib/branding/defaults'
+import { breadcrumbJsonLd } from '@/lib/marketing/json-ld'
 import ManagerIntakeForm from '@/components/landing/ManagerIntakeForm'
 
 /**
@@ -18,17 +19,56 @@ import ManagerIntakeForm from '@/components/landing/ManagerIntakeForm'
  * which creates a matching `markets` row (FT → park_mode='paid') and
  * sends brand-correct confirmation emails. Copy lives in the `copy`
  * object below so both verticals share one page + one form.
+ *
+ * The booth-fee worked example is DERIVED from pricing.ts (not hardcoded)
+ * so it can never drift from the real fee model.
  */
-export default function MarketManagerProgramPage() {
-  const params = useParams()
-  const vertical = (params?.vertical as string) || 'farmers_market'
+
+interface MarketManagerProgramPageProps {
+  params: Promise<{ vertical: string }>
+}
+
+export async function generateMetadata({ params }: MarketManagerProgramPageProps): Promise<Metadata> {
+  const { vertical } = await params
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
   const isFT = vertical === 'food_trucks'
+
+  return {
+    title: isFT
+      ? `Food Truck Park Operator Program — List Your Park Online | ${branding.brand_name}`
+      : `Farmers Market Manager Program — Manage Booths & Vendors Online | ${branding.brand_name}`,
+    description: isFT
+      ? 'Run your food truck park with spot rentals, truck vetting, day-of check-ins, and post-service surveys — no subscription. We take a small percentage of the spot fees.'
+      : 'Run your farmers market with weekly booth rentals, vendor onboarding, attendance tracking, and post-market surveys — no subscription. We take a small percentage of the booth fees.',
+  }
+}
+
+export default async function MarketManagerProgramPage({ params }: MarketManagerProgramPageProps) {
+  const { vertical } = await params
+  const isFT = vertical === 'food_trucks'
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
+  const baseUrl = `https://${branding.domain}`
 
   const contactEmail = getEmailFromAddress(vertical)
   const contactSubject = isFT
     ? 'Park Operator Program Inquiry'
     : 'Market Manager Program Inquiry'
   const contactMailto = `mailto:${contactEmail}?subject=${encodeURIComponent(contactSubject)}`
+
+  // Booth-fee worked example, derived from the single source (pricing.ts) so the
+  // numbers on this page can never go stale if the fee model changes.
+  const boothFees = calculateBoothRentalFees(2500) // $25.00 sample booth
+  const boothPct = BOOTH_RENTAL_FEES.vendorMarkupPercent
+  const boothFlat = formatPrice(BOOTH_RENTAL_FEES.vendorFlatFeeCents)
+  const orderPct = FEES.buyerFeePercent
+
+  const breadcrumbs = breadcrumbJsonLd([
+    { name: 'Home', url: `${baseUrl}/${vertical}` },
+    {
+      name: isFT ? 'Park Operator Program' : 'Market Manager Program',
+      url: `${baseUrl}/${vertical}/market-manager-program`,
+    },
+  ])
 
   const copy = isFT
     ? {
@@ -171,11 +211,11 @@ export default function MarketManagerProgramPage() {
         pricingBullets: [
           {
             label: 'Booth rentals:',
-            body: '6.5% on each side plus a $0.15 flat fee from the vendor. The vendor pays your booth fee + 6.5% + $0.15; you receive your booth fee minus 6.5%. We keep the difference. For a $25 booth: vendor pays $26.78, you receive $23.37.',
+            body: `${boothPct}% on each side plus a ${boothFlat} flat fee from the vendor. The vendor pays your booth fee + ${boothPct}% + ${boothFlat}; you receive your booth fee minus ${boothPct}%. We keep the difference. For a $25 booth: vendor pays ${formatPrice(boothFees.vendorPaysCents)}, you receive ${formatPrice(boothFees.managerReceivesCents)}.`,
           },
           {
             label: 'Pre-order transactions at your market:',
-            body: '6.5% on each side, same as our standard pre-order flow. Same fee every vendor and buyer already sees on the platform — your market is now where some of those transactions happen.',
+            body: `${orderPct}% on each side, same as our standard pre-order flow. Same fee every vendor and buyer already sees on the platform — your market is now where some of those transactions happen.`,
           },
         ],
         pricingNote: null as string | null,
@@ -188,6 +228,7 @@ export default function MarketManagerProgramPage() {
       minHeight: '100vh',
       backgroundColor: colors.surfaceBase,
     }}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbs) }} />
       <div style={{
         maxWidth: containers.lg,
         margin: '0 auto',

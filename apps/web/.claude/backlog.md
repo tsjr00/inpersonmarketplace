@@ -1,5 +1,17 @@
 # Backlog
 
+Last updated: 2026-07-19 (added: high-priority deep-coverage completion for the logic-testing round)
+
+## 🔴 HIGH PRIORITY — Finish deep code coverage of the logic-testing round (added 2026-07-19)
+
+The 2026-07-19 two-pass logic-testing round (`apps/web/.claude/logic_testing_round_research.md`) covered all 12 slices, but DEPTH varied by design: slices 1-4 (checkout, vendor orders, crons, auth) + 5 money RPCs got full-file code reads; slices 5-9 got money-path reads + Codebase-Map for the rest; slices 10-12 (notifications, buyer/public, lib) were map-driven with targeted spot-checks. Every finding reported is code-cited, but COVERAGE completeness is lower on the map-skimmed surfaces. Two areas still warrant full-file rigor to match slices 1-4:
+
+1. **Manager/park route surface (~48 routes under `market-manager/**` + `vendor/markets/[id]/**`)** — the largest money area that was map-skimmed rather than fully read. Book/settlement/cancel money paths were spot-checked clean, but per-route full reads are outstanding.
+2. **Booking-atomic + season RPC internals** (Category H): `book_weekly_booth_atomic` (mig 186), `book_park_spot_atomic` (172), `book_season_atomic` (165), `confirm_season_paid`/`cancel_season_group` (167), selling gate `get_available_pickup_dates` (199, pinned by guardrail-contracts Rule F). Call sites mapped clean; SQL bodies unread.
+
+Method for the return pass: same two-pass (blind read → ledger diff) at the slice-1 depth. The FIX-SESSION PLANNING MATRIX in the research file already holds everything found so far, sorted by category — resume from there.
+
+---
 Last updated: 2026-07-18 (agreement-version decision added; CRN-11 deferred; VOR-11 stays open per user; company-paid assumptions for the VOR-10 fix documented in the package below)
 
 ## 🔷 OWNER DECISION NEEDED — Agreement version bump after legal text corrections (added 2026-07-18)

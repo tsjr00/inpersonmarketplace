@@ -1,19 +1,35 @@
-'use client'
-
-import { useParams } from 'next/navigation'
+import { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
-import { getClientLocale } from '@/lib/locale/client'
+import { getLocale } from '@/lib/locale/server'
 import { t } from '@/lib/locale/messages'
 import { defaultBranding } from '@/lib/branding/defaults'
 import { howToJsonLd, breadcrumbJsonLd } from '@/lib/marketing/json-ld'
 
-export default function HowItWorksPage() {
-  const params = useParams()
-  const vertical = params.vertical as string
-  const locale = getClientLocale()
+interface HowItWorksPageProps {
+  params: Promise<{ vertical: string }>
+}
+
+export async function generateMetadata({ params }: HowItWorksPageProps): Promise<Metadata> {
+  const { vertical } = await params
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
+  const isFT = vertical === 'food_trucks'
+
+  return {
+    title: isFT
+      ? `How to Order & Sell with Food Trucks Online | ${branding.brand_name}`
+      : `How to Order & Sell at a Farmers Market Online | ${branding.brand_name}`,
+    description: isFT
+      ? 'Step-by-step: pre-order from local food trucks, skip the line at pickup, and how food trucks sell online. Ordering, pickup, and cancellation guide.'
+      : 'Step-by-step: pre-order local produce and homemade goods from a farmers market, pick up at the market, and how vendors sell online. Ordering, pickup, and cancellation guide.',
+  }
+}
+
+export default async function HowItWorksPage({ params }: HowItWorksPageProps) {
+  const { vertical } = await params
+  const locale = await getLocale()
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
   const isFT = vertical === 'food_trucks'
   const baseUrl = `https://${branding.domain}`
@@ -110,7 +126,7 @@ export default function HowItWorksPage() {
 
         {/* === FOR BUYERS === */}
         <section id="buyers" style={{ marginBottom: spacing.xl }}>
-          <SectionHeader title={t('hiw.buyers_title', locale)} subtitle={t('hiw.buyers_subtitle', locale)} accent={colors.primary} />
+          <SectionHeader title={isFT ? t('hiw.buyers_title_ft', locale) : t('hiw.buyers_title_fm', locale)} subtitle={t('hiw.buyers_subtitle', locale)} accent={colors.primary} />
 
           <StepList steps={[
             t('hiw.b_step1', locale, { products: term(vertical, 'products', locale).toLowerCase(), vendors: term(vertical, 'vendors', locale).toLowerCase() }),
@@ -148,7 +164,7 @@ export default function HowItWorksPage() {
 
         {/* === FOR VENDORS === */}
         <section id="vendors" style={{ marginBottom: spacing.xl }}>
-          <SectionHeader title={t('hiw.vendors_title', locale)} subtitle={t('hiw.vendors_subtitle', locale)} accent={colors.primaryDark || '#689F38'} />
+          <SectionHeader title={isFT ? t('hiw.vendors_title_ft', locale) : t('hiw.vendors_title_fm', locale)} subtitle={t('hiw.vendors_subtitle', locale)} accent={colors.primaryDark || '#689F38'} />
 
           <StepList steps={[
             t('hiw.v_step1', locale),
@@ -202,7 +218,7 @@ export default function HowItWorksPage() {
 
         {/* === PICKUP GUIDE === */}
         <section id="pickup" style={{ marginBottom: spacing.xl }}>
-          <SectionHeader title={t('hiw.pickup_guide_title', locale)} subtitle={t('hiw.pickup_guide_subtitle', locale)} accent={colors.accent} />
+          <SectionHeader title={isFT ? t('hiw.pickup_guide_title_ft', locale) : t('hiw.pickup_guide_title_fm', locale)} subtitle={t('hiw.pickup_guide_subtitle', locale)} accent={colors.accent} />
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: spacing.md }}>
             <div style={cardStyle}>
@@ -247,7 +263,7 @@ export default function HowItWorksPage() {
                 {t('hiw.free_cancel', locale)}
               </p>
               <p style={{ margin: 0 }}>
-                {t('hiw.free_cancel_desc', locale)}
+                {isFT ? t('hiw.free_cancel_desc_ft', locale) : t('hiw.free_cancel_desc_fm', locale)}
               </p>
             </InfoCard>
 
@@ -256,7 +272,7 @@ export default function HowItWorksPage() {
                 {t('hiw.fee_cancel', locale)}
               </p>
               <p style={{ margin: 0 }}>
-                {t('hiw.fee_cancel_desc', locale)}
+                {isFT ? t('hiw.fee_cancel_desc_ft', locale) : t('hiw.fee_cancel_desc_fm', locale)}
               </p>
             </InfoCard>
           </div>

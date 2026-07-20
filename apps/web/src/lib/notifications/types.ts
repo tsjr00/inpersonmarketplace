@@ -1380,7 +1380,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     severity: 'info',
     audience: 'vendor',
     title: (_d, locale) => t('notif.vendor_approved_trial_title', locale),
-    message: (d) => `Congratulations! Your vendor application has been approved with a free 90-day ${d.trialTier || 'Basic'} plan trial. You have full access to all ${d.trialTier || 'Basic'} tier features. Upgrade anytime to keep these features after your trial.`,
+    message: () => `Congratulations! Your vendor application has been approved. You're all set on the Free plan — start listing right away, and you can upgrade to Pro or Boss anytime for more features.`,
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/dashboard`,
   },
 
