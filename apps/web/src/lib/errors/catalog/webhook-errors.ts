@@ -124,4 +124,21 @@ export const WEBHOOK_ERRORS: ErrorCatalogEntry[] = [
     ],
     pgCodes: [],
   },
+  {
+    code: 'ERR_WEBHOOK_018',
+    title: 'Superseded Subscription Cancel Failed',
+    category: 'STRIPE',
+    severity: 'low',
+    description: 'S8-1: after a vendor upgraded/switched tiers and the NEW subscription activated, cancelling the OLD subscription they switched away from failed. No money at risk — the vendor is on the correct new tier; the stale old subscription will bill until it expires or is cancelled manually.',
+    userGuidance: '',
+    causes: [
+      'Transient Stripe API error on subscriptions.cancel',
+      'Old subscription already cancelled/deleted in Stripe',
+    ],
+    solutions: [
+      'Verify in Stripe whether the old subscription id in the message is still active; if so, cancel it manually',
+      'No buyer/vendor-facing action needed — the vendor already holds the correct tier',
+    ],
+    pgCodes: [],
+  },
 ]

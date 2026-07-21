@@ -153,6 +153,9 @@ export async function POST(request: NextRequest) {
 
       // Get or create Stripe Customer
       let stripeCustomerId: string | null = null
+      // S8-1: the sub the vendor is switching AWAY from. Cancelled by the webhook
+      // only AFTER the new sub is active — an abandoned checkout can't downgrade.
+      let oldSubscriptionId: string | null = null
       const userEmail = user.email
 
       if (type === 'vendor') {
@@ -186,25 +189,8 @@ export async function POST(request: NextRequest) {
               { status: 400 }
             )
           }
-          // If upgrading/changing tier and has existing subscription, cancel it first
-          if (vendorProfile.stripe_subscription_id) {
-            try {
-              await stripe.subscriptions.cancel(vendorProfile.stripe_subscription_id)
-            } catch (cancelErr) {
-              // Check if subscription is already canceled (safe to proceed)
-              try {
-                const sub = await stripe.subscriptions.retrieve(vendorProfile.stripe_subscription_id)
-                if (sub.status !== 'canceled') {
-                  return NextResponse.json(
-                    { error: 'Failed to cancel your existing subscription. Please try again or contact support.' },
-                    { status: 500 }
-                  )
-                }
-              } catch {
-                // Subscription doesn't exist in Stripe — safe to proceed
-              }
-            }
-          }
+          // S8-1: no up-front cancel — the old sub is cancelled by the webhook
+          // after the new one activates (see oldSubscriptionId capture below).
         } else {
           // FM: check if already at requested tier
           if (requestedTier && vendorProfile.tier === requestedTier) {
@@ -213,27 +199,12 @@ export async function POST(request: NextRequest) {
               { status: 400 }
             )
           }
-          // If upgrading/changing tier and has existing subscription, cancel it first
-          if (requestedTier && vendorProfile.stripe_subscription_id) {
-            try {
-              await stripe.subscriptions.cancel(vendorProfile.stripe_subscription_id)
-            } catch (cancelErr) {
-              try {
-                const sub = await stripe.subscriptions.retrieve(vendorProfile.stripe_subscription_id)
-                if (sub.status !== 'canceled') {
-                  return NextResponse.json(
-                    { error: 'Failed to cancel your existing subscription. Please try again or contact support.' },
-                    { status: 500 }
-                  )
-                }
-              } catch {
-                // Subscription doesn't exist in Stripe — safe to proceed
-              }
-            }
-          }
+          // S8-1: no up-front cancel — the old sub is cancelled by the webhook
+          // after the new one activates (see oldSubscriptionId capture below).
         }
 
         stripeCustomerId = vendorProfile.stripe_customer_id
+        oldSubscriptionId = vendorProfile.stripe_subscription_id ?? null
 
         // Get business name for Stripe customer
         const profileData = vendorProfile.profile_data as Record<string, unknown>
@@ -320,6 +291,8 @@ export async function POST(request: NextRequest) {
       }
       if (requestedTier) sessionMetadata.tier = requestedTier
       if (vertical) sessionMetadata.vertical = vertical
+      // S8-1: hand the old sub id to the webhook to cancel post-activation.
+      if (oldSubscriptionId) sessionMetadata.old_subscription_id = oldSubscriptionId
 
       // Create Stripe Checkout Session for subscription
       const session = await stripe.checkout.sessions.create({

@@ -84,6 +84,11 @@ export async function processMarketBoxPayout(opts: ProcessMarketBoxPayoutOpts): 
     // Vendor share comes off the actual amount paid, not the full weekly price
     const vendorPayoutCents = calculateVendorPayout(actualPaidCents)
 
+    // S1-5: only tell the vendor "payout processed" when the transfer actually
+    // initiated. A failed transfer (Phase-5 cron retries) or a not-yet-Stripe-
+    // ready vendor (pending_stripe_setup) must NOT get a success notification.
+    let transferInitiated = false
+
     if (vendor.stripe_account_id && vendor.stripe_payouts_enabled) {
       // Insert pending row BEFORE transfer so failures are tracked
       const { data: payoutRecord, error: insertErr } = await serviceClient
@@ -131,6 +136,7 @@ export async function processMarketBoxPayout(opts: ProcessMarketBoxPayoutOpts): 
             updated_at: new Date().toISOString(),
           })
           .eq('id', payoutRecord.id)
+        transferInitiated = true
       } catch (transferErr) {
         await logError(new TracedError('ERR_PAYOUT_005', `market box payout transfer failed (sub ${subscriptionId}, offering ${offeringId}): ${transferErr instanceof Error ? transferErr.message : String(transferErr)}`, { route: 'market-box-payout', method: 'processMarketBoxPayout' }))
         await serviceClient
@@ -152,7 +158,7 @@ export async function processMarketBoxPayout(opts: ProcessMarketBoxPayoutOpts): 
       if (pendingInsertErr && pendingInsertErr.code === '23505') return
     }
 
-    if (vendor.user_id) {
+    if (vendor.user_id && transferInitiated) {
       // Best-effort enrichment so the vendor sees offering + buyer name in the
       // notification (P1-3). Lookup failures fall back to the generic payout
       // message — never block the notification on a name lookup.

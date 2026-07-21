@@ -436,6 +436,18 @@ async function handleSubscriptionCheckoutComplete(session: Stripe.Checkout.Sessi
       await logError(new TracedError('ERR_WEBHOOK_002', 'Failed to update vendor tier', { route: '/webhooks/stripe', method: 'POST', userId }))
     } else {
       crumb.stripe(`Vendor ${userId} upgraded to ${targetTier}`)
+      // S8-1: NEW sub is now active — cancel the OLD one the vendor switched
+      // away from. Deferred to here (not before checkout) so an abandoned
+      // checkout can't downgrade a paid vendor mid-period. Best-effort; a
+      // failure just leaves the old sub to expire on its own — never blocks.
+      const oldSubscriptionId = session.metadata?.old_subscription_id
+      if (oldSubscriptionId && oldSubscriptionId !== subscriptionId) {
+        try {
+          await stripe.subscriptions.cancel(oldSubscriptionId)
+        } catch {
+          await logError(new TracedError('ERR_WEBHOOK_018', `S8-1: failed to cancel superseded subscription ${oldSubscriptionId} after upgrading vendor ${userId} to ${targetTier}`, { route: '/webhooks/stripe', method: 'POST', userId, subscriptionId }))
+        }
+      }
     }
   } else if (subscriptionType === 'buyer') {
     // Update user profile to premium buyer
@@ -1157,12 +1169,43 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
       .update({ status: 'refunded' })
       .eq('id', payment.order_id)
 
-    // Mark all non-cancelled order items as refunded
+    // Mark all non-cancelled order items as refunded (status flip only —
+    // kept as one guarded bulk update so money-structure Rule A stays satisfied).
     await supabase
       .from('order_items')
-      .update({ status: 'refunded', refund_amount_cents: charge.amount_refunded })
+      .update({ status: 'refunded' })
       .eq('order_id', payment.order_id)
       .is('cancelled_at', null)
+
+    // S1-11/S5-1: apportion the ACTUAL refund across the non-cancelled items
+    // instead of stamping the whole-order total on every one (which made
+    // Σ refund_amount_cents = N× the real refund — over-counting refunds in
+    // platform-revenue reports and showing the wrong per-item figure to the
+    // buyer). Proportional to subtotal, floor + remainder so the parts sum
+    // EXACTLY to charge.amount_refunded. (No `status:` key here, so Rule A
+    // does not flag these row-keyed updates.)
+    const { data: refundItems } = await supabase
+      .from('order_items')
+      .select('id, subtotal_cents')
+      .eq('order_id', payment.order_id)
+      .is('cancelled_at', null)
+    if (refundItems && refundItems.length > 0) {
+      const totalSubtotal = refundItems.reduce((s, it) => s + (it.subtotal_cents || 0), 0)
+      let allocated = 0
+      for (let i = 0; i < refundItems.length; i++) {
+        const it = refundItems[i]
+        const share = i === refundItems.length - 1
+          ? charge.amount_refunded - allocated
+          : totalSubtotal > 0
+            ? Math.floor(charge.amount_refunded * (it.subtotal_cents || 0) / totalSubtotal)
+            : Math.floor(charge.amount_refunded / refundItems.length)
+        allocated += share
+        await supabase
+          .from('order_items')
+          .update({ refund_amount_cents: share })
+          .eq('id', it.id)
+      }
+    }
   }
 
   // Update payment status

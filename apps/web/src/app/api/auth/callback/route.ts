@@ -16,7 +16,11 @@ import { createServerClient } from '@supabase/ssr'
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl
   const code = searchParams.get('code')
-  const explicitNext = searchParams.get('next')
+  const rawNext = searchParams.get('next')
+  // Only honor a same-origin RELATIVE path. Reject absolute URLs and
+  // protocol-relative ("//host") / backslash values so `next` can't turn a
+  // verification link into an open redirect to an attacker origin.
+  const explicitNext = rawNext && /^\/($|[^/\\])/.test(rawNext) ? rawNext : null
 
   if (!code) {
     // No code — redirect to home

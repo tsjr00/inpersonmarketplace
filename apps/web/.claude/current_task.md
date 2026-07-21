@@ -1,4 +1,37 @@
-# Current Task: Day 8 shipped to staging (Codebase Map, pricing single-source, trial retired, admin hierarchy mig 204). Everything committed + pushed. Relaunch still = USER staging test → combined prod push.
+# Current Task: Logic-testing fixes in progress (A1 batch) — 2 done+uncommitted, S8-1 presented+awaiting approval. Pages consolidation done+pushed to staging.
+
+---
+
+## 🟢🟢🟢 NEXT SESSION START HERE (2026-07-20, pre-compaction save) — read, VERIFY GIT, then STOP & confirm
+
+### 0) HOW WE WORK (unchanged — enforce): Report mode default; cite file:line; COMMIT and PUSH are SEPARATE explicit approvals; present-before-changing (?-gate); per-file approval + exact diffs for ⚠protected money files (hook denies 1st touch); never change a BR test to match code; schema gate before SQL; branch-chain commits + teaching-mode ON; staging-first; prod window 9PM–7AM CT. ⭐ Open replies by quoting the user's words back.
+
+### 1) GIT STATE (VERIFY — memory drifts)
+- **origin/staging = `89c07e4e`** ("feat(marketing): consolidate About/How-it-works/Manager pages, retire /features") = local main. Staging IS in sync with main.
+- **PROD origin/main = `62b686f7`** — unchanged (~76 behind). Combined prod push = RELAUNCH (own approval, 9PM–7AM window), after USER staging test.
+- **UNCOMMITTED in working tree (A1 batch = 5 logic-fix files, NOT yet committed):** `auth/callback/route.ts` (S4-1) · `market-box-payout.ts` (S1-5) · `subscriptions/checkout/route.ts` (S8-1 route) · ⚠`webhooks.ts` (S8-1 webhook branch + S1-11 refund apportionment) · `errors/catalog/webhook-errors.ts` (ERR_WEBHOOK_018). Full suite green (65 files/1715), tsc 0, eslint 0. Ride the relaunch train — commit when user approves (commit+push separate approvals).
+
+### 2) WHAT WE DID TODAY (2026-07-20)
+- **Support-page consolidation — DONE + PUSHED (89c07e4e):** About (FM purpose/community + FT culinary/convenience, both EN+ES, server component + generateMetadata + JSON-LD); How-it-works (server+metadata, keyword headings, **fixed FT 15-min grace-window copy** that wrongly said 1hr); Market Manager Program (server+metadata+breadcrumb, **booth-fee example now derived from pricing.ts**); `/features` retired → **308 permanent redirect** to how-it-works; `vendor_approved_trial` notification de-trialed (EN+ES, type left dormant). Files: about/how-it-works/features/market-manager-program pages + en.ts + es.ts + notifications/types.ts.
+  - Follow-ups noted: native-Spanish polish pass; About meta stays English (site convention). **USER must staging-test** `/farmers_market/about`+`/food_trucks/about` (flip locale for ES), how-it-works (FT grace=15min), MMP fee example ($25→$26.78/$23.37), `/features` redirects.
+- **Logic-testing fixes STARTED (A1 batch):** S4-1 ✅ + S1-5 ✅ applied (uncommitted, see §1).
+- **/doctor health check:** setup clean (npm-global 2.1.216 = latest; no MCP/plugins/user-skills; no dedup/trim needed). Set **hibernate-timeout-ac = Never** (power setting; battery unchanged). Slow-hook warning = protected-paths PreToolUse hook drags under machine load (node cold-start on Windows + likely AV scanning node.exe) — advised AV exclusion + `claude --continue` workflow (quit overnight, resume fresh) to avoid the overnight-drag.
+
+### 3) ✅ A1 BATCH COMPLETE (2026-07-20) — applied + gate-green, UNCOMMITTED
+Full plan: **`apps/web/.claude/logic_testing_round_research.md`** → "★★ FIX-SESSION PLANNING MATRIX". All 4 A1 items done:
+- **S4-1** (open redirect) ✅ · **S1-5** (MB payout notification) ✅ · **S8-1** (sub tier-switch downgrade-on-abandon) ✅ · **S1-11+S5-1** (refund over-count) ✅.
+- **S8-1** as-built: route removes both up-front `stripe.subscriptions.cancel` blocks, captures `oldSubscriptionId`, passes it via `sessionMetadata.old_subscription_id`; ⚠`webhooks.ts` `handleSubscriptionCheckoutComplete` vendor-success branch cancels the old sub AFTER the new tier update (guarded `!== subscriptionId`, best-effort → ERR_WEBHOOK_018). User file-approved webhooks.ts; hook denied-then-retried per protocol.
+- **S1-11+S5-1** as-built (exact-sum, user chose): ⚠`webhooks.ts` `handleChargeRefunded` full-refund path — status flip stays one guarded bulk update (Rule A safe); refund_amount_cents now apportioned across non-cancelled items proportional to subtotal, floor+remainder so Σ == charge.amount_refunded EXACTLY. `platform-revenue.ts` unchanged (its logic was correct; only the data was wrong). Category-B trace confirmed: over-count only bit multi-item FULL dashboard refunds (our own partial refunds skip the branch).
+- **NEXT:** await user commit approval (then separate push approval). A1 rides the relaunch train.
+
+### 4) AFTER A1 → A2 MONEY-FIX SESSION (own batch, all ⚠protected, file-by-file)
+Headline **S2-2 (HIGH, resolve-issue double-refund)**, then S2-1 (needs decision **D-1: Fix A vs B — RECOMMEND Fix B**, avoids pricing-conservation test conflict), S1-1, S1-4, S1-6, S1-7, S1-8, S2-4, S3-2, S5-3. Trivial A3: S1-10, S2-3.
+Staging/decision items: S3-1, S8-2 (Category C — test on staging); Category D user decisions (S1-2, S1-3/9, S1-12, S3-3, S6-1, S-RPC-1, S9-1). Admin/CMAP-1 train: S4-2, S5-2, S4-3, S2-5.
+
+### 5) ALSO PENDING (pre-existing, USER side): admin-lockdown build (CMAP-1, current_task §ADMIN LOCKDOWN below); combined prod push = relaunch (apply migs 184→204 in order, then push main); vault update after staging passes.
+
+---
+
 
 ---
 
