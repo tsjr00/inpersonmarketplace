@@ -90,6 +90,16 @@ export async function POST(request: NextRequest) {
         'Tips are not yet supported on market-box-only orders.')
     }
 
+    // S1-4: a tip amount with no percentage basis (validTipPercentage === 0)
+    // would route the ENTIRE tip to the platform (vendorTipCents = 0 at the
+    // split below) — the vendor gets nothing. The UI always sends a percentage
+    // with any amount; reject the inconsistent combination (mirrors B4 above)
+    // rather than silently keep a "tip" the vendor never receives.
+    if (validTipAmount > 0 && validTipPercentage === 0) {
+      throw traced.validation('ERR_CHECKOUT_TIP_NO_PCT',
+        'A tip requires a tip percentage.')
+    }
+
     crumb.auth('Checking user authentication')
     const {
       data: { user },
@@ -180,6 +190,7 @@ export async function POST(request: NextRequest) {
         id,
         order_number,
         stripe_checkout_session_id,
+        tip_amount,
         created_at,
         order_items (
           listing_id,
@@ -229,7 +240,10 @@ export async function POST(request: NextRequest) {
         // no market boxes, and no tip. MB-only carts have empty order_items, so an
         // empty match would otherwise reuse ANY recent MB pending (wrong box);
         // and a reused session carries a stale tip. CHK-2.
-        if (itemsMatch && sortedCurrent.length > 0 && !hasMarketBoxes && validTipAmount === 0 && pendingOrder.stripe_checkout_session_id) {
+        // S1-1: also refuse reuse when the PENDING order carried a tip — else a
+        // buyer who tipped, backed out, then retried with "No tip" gets the old
+        // tipped Stripe session and pays the old tip anyway.
+        if (itemsMatch && sortedCurrent.length > 0 && !hasMarketBoxes && validTipAmount === 0 && (pendingOrder.tip_amount || 0) === 0 && pendingOrder.stripe_checkout_session_id) {
           crumb.logic('Found matching pending order, checking Stripe session')
 
           // Verify the Stripe session is still valid

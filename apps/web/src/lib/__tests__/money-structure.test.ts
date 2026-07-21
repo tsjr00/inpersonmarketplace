@@ -111,7 +111,6 @@ const FLIP_ALLOWLIST: FlipAllow[] = [
   //    their own gates) ──
   { file: 'app/api/vendor/orders/[id]/confirm/route.ts', table: 'order_items', status: 'confirmed', count: 1, reason: 'fetch-checked pending→confirmed; non-money flip' },
   { file: 'app/api/vendor/orders/[id]/ready/route.ts', table: 'order_items', status: 'ready', count: 1, reason: 'fetch-checked (F4) pending/confirmed→ready; non-money flip' },
-  { file: 'app/api/vendor/orders/[id]/resolve-issue/route.ts', table: 'order_items', status: 'cancelled', count: 1, reason: 'issue_refund initial cancel — fetch-checked issue flow' },
   { file: 'app/api/vendor/orders/[id]/confirm-handoff/route.ts', table: 'order_items', status: 'fulfilled', count: 1, reason: 'VOR-7 OPEN — dormant route (not UI-reachable); 410-stub or port pending' },
 ]
 

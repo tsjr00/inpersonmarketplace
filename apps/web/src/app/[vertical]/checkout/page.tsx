@@ -219,7 +219,7 @@ export default function CheckoutPage() {
       if (!user) return
 
       try {
-        const res = await fetch('/api/cart/validate')
+        const res = await fetch(`/api/cart/validate?vertical=${vertical}`)
         if (res.ok) {
           const data = await res.json()
           setMarketWarnings(data.warnings || [])
@@ -233,7 +233,7 @@ export default function CheckoutPage() {
     if (user && items.length > 0) {
       validateMarkets()
     }
-  }, [user, items])
+  }, [user, items, vertical])
 
   // Fetch product suggestions from vendors in cart
   useEffect(() => {

@@ -132,3 +132,11 @@ Structured record of business and architecture decisions. Check here before aski
 - `src/lib/pricing.ts` — Stripe fee constants (6.5% + $0.15)
 
 **Why fees differ:** No Stripe processing cost on external payments, so platform charges less (3.5% seller vs 6.5% Stripe). Buyer fee is same 6.5% but no $0.15 flat fee (no processing to cover).
+
+### Partial-Cancel Tip-Share Retention Is Intentional (2026-07-20)
+
+**Logic-testing audit item S2-1 is WONTFIX — not a bug.** On a PARTIAL cancel (an item cancelled while other live items remain), the tip divisor at `fulfill/route.ts:261-267` and buyer-confirm stays N (all order items), so the cancelled item's `vendorTip/N` share is neither transferred to a vendor nor refunded to the buyer — it remains in the platform account.
+
+**Owner decision (tsjr00, 2026-07-20):** this is deliberate, to avoid overly complicated per-item tip refunds. The retained share sits in the platform account as a **buffer against refund-processing charges the platform absorbs** (Stripe does not return its processing fee on refunds). Do NOT "fix" the tip divisor to count only non-cancelled items, and do NOT add per-item tip-share refunds on partial cancels.
+
+**Scope / do-not-touch:** the tip division in `fulfill/route.ts` + buyer-confirm, and the reject/buyer-cancel/resolve-issue tip-refund paths — which correctly refund the **order-level** tip only on a FULL / last-item kill (`remainingItems.length === 0`). The full order tip IS returned when the whole order is cancelled; only the per-item share on partial cancels is retained by design. Audit item **S3-4** (cron no-show Phase 4/7 tip division) is the same intentional behavior — also WONTFIX.

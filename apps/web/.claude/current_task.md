@@ -1,4 +1,9 @@
-# Current Task: Logic-testing fixes in progress (A1 batch) — 2 done+uncommitted, S8-1 presented+awaiting approval. Pages consolidation done+pushed to staging.
+# Current Task: A2 money-fix batch COMPLETE + gate-green, UNCOMMITTED (awaiting commit+push approval). A1 already on staging (1cd12b93). Next after A2 ships: admin-lockdown/CMAP-1. Pages + A1 + A2 all await user staging test.
+
+## 🟢 A2 MONEY-FIX SESSION (2026-07-20) — DONE, gate-green, UNCOMMITTED
+Fixed (each per-file approved, protected-file hooks verify-retried): **S2-2** resolve-issue double-refund guard (+removed now-stale money-structure allowlist entry) · **S1-1** stale-tip session reuse · **S1-4** tip-with-0%-reject (ERR_CHECKOUT_TIP_NO_PCT) · **S1-6** cart/validate chosen-market · **S1-7** cart/validate vertical scope (client passes ?vertical) · **S5-3** settlement uses getEffectiveVendorFeePercent (future-proof; 0 override vendors today).
+WONTFIX (owner): **S2-1**/**S3-4** partial-cancel tip-share retention = intentional platform buffer (decisions.md 2026-07-20). BACKLOG (owner, low-value): **S1-8** (≤1¢), **S2-4** (dev-only), **S3-2** (self-healing cron fee).
+Full suite 65/1715 green, tsc 0, eslint 0. Files: resolve-issue, money-structure.test, checkout/session, cart/validate, [vertical]/checkout/page, admin/events/[id]/settlement + decisions.md/backlog.md/logic_testing_round_research.md bookkeeping. **NEXT: user commit+push approval (separate).**
 
 ---
 
@@ -7,9 +12,10 @@
 ### 0) HOW WE WORK (unchanged — enforce): Report mode default; cite file:line; COMMIT and PUSH are SEPARATE explicit approvals; present-before-changing (?-gate); per-file approval + exact diffs for ⚠protected money files (hook denies 1st touch); never change a BR test to match code; schema gate before SQL; branch-chain commits + teaching-mode ON; staging-first; prod window 9PM–7AM CT. ⭐ Open replies by quoting the user's words back.
 
 ### 1) GIT STATE (VERIFY — memory drifts)
-- **origin/staging = `89c07e4e`** ("feat(marketing): consolidate About/How-it-works/Manager pages, retire /features") = local main. Staging IS in sync with main.
-- **PROD origin/main = `62b686f7`** — unchanged (~76 behind). Combined prod push = RELAUNCH (own approval, 9PM–7AM window), after USER staging test.
-- **UNCOMMITTED in working tree (A1 batch = 5 logic-fix files, NOT yet committed):** `auth/callback/route.ts` (S4-1) · `market-box-payout.ts` (S1-5) · `subscriptions/checkout/route.ts` (S8-1 route) · ⚠`webhooks.ts` (S8-1 webhook branch + S1-11 refund apportionment) · `errors/catalog/webhook-errors.ts` (ERR_WEBHOOK_018). Full suite green (65 files/1715), tsc 0, eslint 0. Ride the relaunch train — commit when user approves (commit+push separate approvals).
+- **local main = origin/staging = `1cd12b93`** ("fix(subscriptions,webhooks): A1 logic-batch …") — A1 committed + pushed to staging 2026-07-20 (ref-update 89c07e4e..1cd12b93 verified; pre-commit + pre-push build/Playwright green). Staging IS in sync with main.
+- **PROD origin/main = `62b686f7`** — unchanged (~78 behind). Combined prod push = RELAUNCH (own approval, 9PM–7AM window), after USER staging test. Migs 184→204 apply IN ORDER before that push.
+- **A1 BATCH SHIPPED (was uncommitted, now in 1cd12b93):** 6 files — `auth/callback/route.ts` (S4-1) · `market-box-payout.ts` (S1-5) · `subscriptions/checkout/route.ts` (S8-1 route) · ⚠`webhooks.ts` (S8-1 webhook branch + S1-11 refund apportionment) · `errors/catalog/webhook-errors.ts` (ERR_WEBHOOK_018) · `current_task.md`. Rides the relaunch train.
+- **USER STAGING TEST for A1:** (1) S8-1 — switch a vendor tier then ABANDON the Stripe checkout → vendor stays on current paid tier, no downgrade/drafted listings; then complete a switch → old sub actually cancels in Stripe. (2) S1-11 — full refund via Stripe Dashboard on a multi-item order → buyer order page shows a sensible per-item split, not whole-order total on every line.
 
 ### 2) WHAT WE DID TODAY (2026-07-20)
 - **Support-page consolidation — DONE + PUSHED (89c07e4e):** About (FM purpose/community + FT culinary/convenience, both EN+ES, server component + generateMetadata + JSON-LD); How-it-works (server+metadata, keyword headings, **fixed FT 15-min grace-window copy** that wrongly said 1hr); Market Manager Program (server+metadata+breadcrumb, **booth-fee example now derived from pricing.ts**); `/features` retired → **308 permanent redirect** to how-it-works; `vendor_approved_trial` notification de-trialed (EN+ES, type left dormant). Files: about/how-it-works/features/market-manager-program pages + en.ts + es.ts + notifications/types.ts.

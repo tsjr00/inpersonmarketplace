@@ -1,6 +1,16 @@
 # Backlog
 
-Last updated: 2026-07-19 (added: high-priority deep-coverage completion for the logic-testing round)
+Last updated: 2026-07-20 (added: 3 low-severity A2 deferrals from the logic-testing money-fix session)
+
+## 🟢 LOW — A2 money-fix deferrals (added 2026-07-20; owner chose to skip)
+
+From the logic-testing A2 money-fix session. The meaningful items (S2-2, S1-1, S1-4, S1-6, S1-7, S5-3) were fixed; these three were judged not worth the spend now. Full detail in `logic_testing_round_research.md` FIX-SESSION PLANNING MATRIX (A2/A3 rows).
+
+- **S1-8** (`src/lib/payments/cancellation-fees.ts:72`) — small-order-fee proration uses `Math.round` not floor+remainder → cancellation refund off by **≤1¢** vs fee collected. Fix: swap to `proratedFlatFeeSimple(...)` to match the flat fee. Cosmetic.
+- **S2-4** (`vendor/orders/[id]/fulfill/route.ts:445-451`) — dev-mode payout insert uses the USER client (RLS default-deny → silent fail). **Dev-only**, zero prod impact. Fix: use `serviceClient`.
+- **S3-2** (`cron/expire-orders` Phase 4 no-show ~:836-893 + Phase 7 auto-fulfill ~:1870-1940) — cron payout paths never call `claimVendorFeeDeduction`, so a vendor paid ONLY via cron never has fees collected. Fee stays on the ledger (deferred, **not lost**) and is claimed on the next manual payout. Fix when someone's already editing expire-orders.
+
+---
 
 ## 🔴 HIGH PRIORITY — Finish deep code coverage of the logic-testing round (added 2026-07-19)
 

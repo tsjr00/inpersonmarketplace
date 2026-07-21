@@ -8,7 +8,7 @@ import {
   rateLimits,
 } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
-import { FEES } from '@/lib/pricing'
+import { FEES, getEffectiveVendorFeePercent } from '@/lib/pricing'
 import { SELLER_FEE_PERCENT, EXTERNAL_BUYER_FEE_FIXED_CENTS } from '@/lib/payments/vendor-fees'
 
 interface RouteContext {
@@ -169,7 +169,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const { data: vendorProfiles } = vendorIds.size > 0
       ? await serviceClient
           .from('vendor_profiles')
-          .select('id, profile_data')
+          .select('id, profile_data, vendor_fee_override_percent')
           .in('id', Array.from(vendorIds))
       : { data: [] }
 
@@ -178,6 +178,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
         const pd = v.profile_data as Record<string, unknown> | null
         return [v.id, (pd?.business_name as string) || (pd?.farm_name as string) || 'Unknown Vendor']
       })
+    )
+
+    // S5-3: per-vendor effective fee rate — an override (grant/partner) vendor is
+    // charged a reduced % at checkout; the settlement report must recompute with
+    // the SAME rate or it overstates the fee and understates their net payout.
+    const vendorFeeOverrideMap = new Map(
+      (vendorProfiles || []).map(v => [v.id, (v as { vendor_fee_override_percent: number | null }).vendor_fee_override_percent])
     )
 
     // Fetch market_vendors for response status
@@ -270,8 +277,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
         breakdown.vendorFeeCents += sellerFee
         vendorExternalOrderSets[vid].add(item.order_id)
       } else {
-        // Stripe: vendor fee = 6.5%, flat fees ($0.15 buyer + $0.15 vendor) added in second pass
-        const vendorPercentFee = Math.round(item.subtotal_cents * (FEES.vendorFeePercent / 100))
+        // Stripe: vendor fee = 6.5% (or the vendor's override rate — S5-3), flat
+        // fees ($0.15 buyer + $0.15 vendor) added in second pass
+        const effectiveVendorFeePercent = getEffectiveVendorFeePercent(vendorFeeOverrideMap.get(vid))
+        const vendorPercentFee = Math.round(item.subtotal_cents * (effectiveVendorFeePercent / 100))
         breakdown.vendorFeeCents += vendorPercentFee
         vendorStripeOrderSets[vid].add(item.order_id)
       }

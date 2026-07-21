@@ -152,7 +152,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const buyerPaidForItem = orderItem.subtotal_cents + buyerPercentFee + itemFlatFee
 
       crumb.supabase('update', 'order_items')
-      await supabase
+      // S2-2: guard the cancel so a prior cancellation can't double-refund. If
+      // the buyer already cancelled this item (e.g. a post-grace 75% refund),
+      // cancelled_at is set → this UPDATE matches 0 rows → we skip the Stripe
+      // refund below instead of firing a SECOND refund at a different amount
+      // (different amount = different idempotency key = both settle). Mirrors
+      // the reject H3 / buyer-cancel guarded-cancel pattern.
+      const { data: cancelledRows } = await supabase
         .from('order_items')
         .update({
           status: 'cancelled',
@@ -165,6 +171,29 @@ export async function POST(request: NextRequest, context: RouteContext) {
           issue_resolved_by: user.id,
         })
         .eq('id', orderItemId)
+        .is('cancelled_at', null)
+        .select('id')
+
+      if (!cancelledRows || cancelledRows.length === 0) {
+        // Already cancelled/refunded by another path (buyer cancel, reject).
+        // Mark the issue resolved so it leaves the vendor's queue, but do NOT
+        // refund again — the other path already refunded the buyer.
+        await supabase
+          .from('order_items')
+          .update({
+            issue_status: 'resolved',
+            issue_resolved_at: new Date().toISOString(),
+            issue_resolved_by: user.id,
+          })
+          .eq('id', orderItemId)
+
+        return NextResponse.json({
+          success: true,
+          message: 'This item was already cancelled and refunded — the issue has been marked resolved. No additional refund was issued.',
+          action: 'issue_refund',
+          alreadyRefunded: true,
+        })
+      }
 
       // Restore inventory — but NOT for food truck fulfilled items (cooked food can't be resold)
       if (orderItem.listing_id && shouldRestoreInventory(orderItem.status, order.vertical_id)) {

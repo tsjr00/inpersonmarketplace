@@ -759,16 +759,16 @@ Ready to implement as-is. Grouped by which session should own them.
 ### A2 · MONEY-FIX session (each edits a ⚠ protected money file — do together, file-by-file)
 | ID | Sev | File | Fix shape | Effort | Note |
 |---|---|---|---|---|---|
-| S2-2 | HIGH | ⚠ resolve-issue | `.is('cancelled_at',null)` + rowcount guard on the issue_refund cancel; skip refund on 0 rows | S | headline |
-| S2-1 | Med | ⚠ fulfill + buyer-confirm | Fix B: refund cancelled item's tip share at cancel — OR Fix A: divide tip by non-cancelled count | S | ⚠ Fix A may trip pricing-conservation.test.ts → needs decision D-1 |
-| S1-1 | Med | ⚠ checkout/session | select pending order tip; block session reuse when old tip>0 | S | |
-| S1-4 | Med | ⚠ checkout/session | reject tipAmount>0 with pct=0 (or default split vendor-ward) | S | |
-| S1-6 | Med | ⚠ cart/validate | select cart_items.market_id; validate against the chosen market, not listing_markets[0] | S | |
-| S1-7 | Med | ⚠ cart/validate | scope the GET to one vertical/cart (add vertical param or cart_id) so cross-vertical carts don't cross-block | S | confirmed code+schema |
-| S1-8 | Low | cancellation-fees.ts | floor+remainder proration for small-order fee (match the M12 flat-fee pattern) | S | |
-| S2-4 | Low | ⚠ fulfill | dev-mode payout insert → serviceClient (not user client) | XS | dev-only |
-| S3-2 | Low | expire-orders | Phase 4/7 no-show payouts call claimVendorFeeDeduction like fulfill | S | |
-| S5-3 | Low | admin/events/[id]/settlement | apply getEffectiveVendorFeePercent in the settlement recompute | S | reporting |
+| S2-2 | HIGH | ⚠ resolve-issue | `.is('cancelled_at',null)` + rowcount guard on the issue_refund cancel; skip refund on 0 rows | S | ✅ DONE 2026-07-20 (allowlist entry removed, gate-green) |
+| ~~S2-1~~ | — | — | ~~tip-share retention~~ | — | ❌ WONTFIX — INTENTIONAL (owner 2026-07-20): retained tip share = platform buffer vs refund charges. See decisions.md. D-1 moot. S3-4 same. |
+| S1-1 | Med | ⚠ checkout/session | select pending order tip; block session reuse when old tip>0 | S | ✅ DONE 2026-07-20 |
+| S1-4 | Med | ⚠ checkout/session | reject tipAmount>0 with pct=0 | S | ✅ DONE 2026-07-20 (chose Reject) |
+| S1-6 | Med | ⚠ cart/validate | validate against cart_items.market_id, not listing_markets[0] | S | ✅ DONE 2026-07-20 |
+| S1-7 | Med | ⚠ cart/validate | scope the GET to one vertical's cart (client passes ?vertical) | S | ✅ DONE 2026-07-20 |
+| S5-3 | Low | admin/events/[id]/settlement | apply getEffectiveVendorFeePercent in the settlement recompute | S | ✅ DONE 2026-07-20 (owner: future-proof for grant/partner vendors; no override vendors today) |
+| ~~S1-8~~ | Low | cancellation-fees.ts | small-order-fee rounding ≤1¢ | — | ⏸️ BACKLOG (owner 2026-07-20: sub-cent, not worth the spend) |
+| ~~S2-4~~ | Low | ⚠ fulfill | dev-mode payout insert client | — | ⏸️ BACKLOG (dev-only, zero prod impact) |
+| ~~S3-2~~ | Low | expire-orders | cron paths skip claimVendorFeeDeduction | — | ⏸️ BACKLOG (fee deferred-not-lost; self-heals on next manual payout) |
 
 ### A3 · Trivial / doc (fold into any batch)
 | ID | Sev | File | Fix shape | Note |

@@ -24,13 +24,35 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user's cart with market info
-    const { data: cartItems, error: cartError } = await supabase
+    // S1-7: scope to the requested vertical's cart. RLS scopes cart_items to the
+    // user, but a user holds ONE cart PER vertical — without this an FM cart and
+    // an FT cart merge into one marketTypes set and cross-block BOTH checkouts
+    // ("different pickup types"). Resolve the vertical's cart id first.
+    const vertical = request.nextUrl.searchParams.get('vertical')
+    let scopedCartId: string | null = null
+    if (vertical) {
+      const { data: cart } = await supabase
+        .from('carts')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('vertical_id', vertical)
+        .maybeSingle()
+      if (!cart) {
+        // No cart for this vertical yet — nothing to validate.
+        return NextResponse.json({ valid: true, warnings: [], marketType: null, marketIds: [] })
+      }
+      scopedCartId = cart.id
+    }
+
+    // Get user's cart with market info (S1-6: market_id added so we validate
+    // against the buyer's chosen market, not listing_markets[0]).
+    let cartQuery = supabase
       .from('cart_items')
       .select(`
         id,
         quantity,
         listing_id,
+        market_id,
         listings (
           id,
           title,
@@ -45,6 +67,8 @@ export async function GET(request: NextRequest) {
           )
         )
       `)
+    if (scopedCartId) cartQuery = cartQuery.eq('cart_id', scopedCartId)
+    const { data: cartItems, error: cartError } = await cartQuery
     // Ownership is enforced by RLS (cart_items.cart_id -> carts.user_id); the
     // prior .eq('user_id', ...) referenced a non-existent column, which errored
     // and was silently discarded -> validation always passed (fail-open).
@@ -87,13 +111,19 @@ export async function GET(request: NextRequest) {
         continue
       }
 
-      // Get first market for this listing
-      const market = listing.listing_markets[0].markets
-      marketTypes.add(market.market_type)
-      marketIds.add(market.id)
+      // S1-6: validate against the market the buyer actually chose for this cart
+      // item (cart_items.market_id), not an arbitrary listing_markets[0]. A
+      // listing attached to multiple markets (e.g. traditional + event) would
+      // otherwise false-pass/false-block the mixed-type and same-market checks.
+      // Fall back to the first market when market_id is null (legacy rows).
+      const chosenMarket = (item.market_id
+        ? listing.listing_markets.find(lm => lm.market_id === item.market_id)?.markets
+        : undefined) || listing.listing_markets[0].markets
+      marketTypes.add(chosenMarket.market_type)
+      marketIds.add(chosenMarket.id)
 
       // Check cutoff for ALL market types (traditional and private pickup)
-      itemsForCutoffCheck.push({ id: listing.id, title: listing.title, marketType: market.market_type })
+      itemsForCutoffCheck.push({ id: listing.id, title: listing.title, marketType: chosenMarket.market_type })
     }
 
     // Check availability via SQL source of truth (handles vendor attendance, timezone, cutoffs)
