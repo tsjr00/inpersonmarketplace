@@ -132,10 +132,14 @@ export function hasAdminRole(profile: { role?: string | null; roles?: string[] |
  * Check if user is specifically a platform admin (sync version for use with profile data)
  */
 export function hasPlatformAdminRole(profile: { role?: string | null; roles?: string[] | null }): boolean {
+  // S4-2: platform_admin ONLY. A plain 'admin' is a VERTICAL admin and must NOT
+  // pass this check, or verifyAdminScope's vertical branch (below) is unreachable
+  // and vertical admins get cross-vertical scope. This now agrees with the
+  // already-strict isPlatformAdminCheck(). (Load-bearing: only safe once real
+  // platform_admins are provisioned in the DB — mig 204. Do not ship to an env
+  // where the owner accounts aren't platform_admin, or it locks out all admins.)
   return profile?.role === 'platform_admin' ||
-    profile?.role === 'admin' ||
     profile?.roles?.includes('platform_admin') ||
-    profile?.roles?.includes('admin') ||
     false
 }
 

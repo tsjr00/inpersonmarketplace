@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { hasAdminRole, hasPlatformAdminRole } from '@/lib/auth/admin'
+import { hasPlatformAdminRole } from '@/lib/auth/admin'
 
 /**
  * GET /api/admin/errors
@@ -57,12 +57,15 @@ export async function GET(request: NextRequest) {
       .is('deleted_at', null)
       .single()
 
-    // H-7 FIX: Use hasPlatformAdminRole (not hasAdminRole) — vertical admins should NOT bypass scope
+    // H-7 FIX (S4-2): platform admins see all; EVERY other admin (i.e. a vertical
+    // admin) must be verified against the requested vertical. The old gate keyed
+    // on hasAdminRole, so a vertical admin skipped the check and could pass any
+    // ?verticalId and read another vertical's error logs. This route rolls its own
+    // scoping (it doesn't use verifyAdminScope), so the gate is fixed here directly.
     const isPlatformAdmin = hasPlatformAdminRole(profile || {})
-    const isAnyAdmin = hasAdminRole(profile || {})
 
-    // If not any admin role, check vertical_admins table
-    if (!isAnyAdmin && !isPlatformAdmin) {
+    // Any non-platform admin must hold a vertical_admins row for the requested vertical.
+    if (!isPlatformAdmin) {
       if (!verticalId) {
         throw traced.auth('ERR_AUTH_002', 'Vertical ID required for vertical admins')
       }

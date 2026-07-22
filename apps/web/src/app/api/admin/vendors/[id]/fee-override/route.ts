@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { hasAdminRole } from '@/lib/auth/admin'
+import { hasAdminRole, verifyAdminScope } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
 import { VENDOR_FEE_FLOOR, FEES } from '@/lib/pricing'
@@ -53,15 +53,24 @@ export async function PATCH(
 
     const serviceClient = createServiceClient()
 
-    // Verify vendor exists
+    // Verify vendor exists (vertical_id needed for S5-2 scoping below)
     const { data: vendor, error: vendorError } = await serviceClient
       .from('vendor_profiles')
-      .select('id, status')
+      .select('id, status, vertical_id')
       .eq('id', vendorId)
       .single()
 
     if (vendorError || !vendor) {
       return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
+    }
+
+    // S5-2: scope the override to the admin's vertical. The bare hasAdminRole gate
+    // above authorizes serviceClient use; this enforces WHICH vendors an admin may
+    // touch — a platform admin passes for any vendor, a vertical admin only for a
+    // vendor in a vertical they manage.
+    const scope = await verifyAdminScope(vendor.vertical_id)
+    if (!scope?.authorized) {
+      return NextResponse.json({ error: "Not authorized for this vendor's vertical" }, { status: 403 })
     }
 
     // Build update
