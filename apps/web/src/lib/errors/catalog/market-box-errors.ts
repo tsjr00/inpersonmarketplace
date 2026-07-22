@@ -233,4 +233,20 @@ export const MARKET_BOX_ERRORS: ErrorCatalogEntry[] = [
       'Check the vendor_payouts row referenced — Phase 5 retries it; after 7 days it is cancelled with an admin alert',
     ],
   },
+  {
+    code: 'ERR_PAYOUT_009',
+    title: 'Phase-5 Re-send Skipped — Existing Transfer Reversed or Unverifiable',
+    category: 'STRIPE',
+    severity: 'medium',
+    description: 'S3-1 guard: a failed vendor_payouts row still carried a stripe_transfer_id, so the cron checked Stripe before re-sending. The transfer either was fully REVERSED (ambiguous — a refund/clawback happened, so the cron will not auto-decide) or Stripe could not be reached to confirm (UNVERIFIABLE). Either way the re-send was skipped to avoid double-paying the vendor. The row stays failed.',
+    userGuidance: '',
+    causes: [
+      'reversed: the transfer was reversed (order refunded, payout clawed back) but the payout row was not moved out of the retry pool',
+      'unverifiable: transient Stripe API error (network, rate limit) during the pre-send transfer lookup',
+    ],
+    solutions: [
+      'reversed: decide manually — if the vendor is genuinely still owed, create the payout deliberately; otherwise cancel the payout row so it stops being retried',
+      'unverifiable: no action needed — Phase 5 re-checks on the next run once Stripe is reachable',
+    ],
+  },
 ]

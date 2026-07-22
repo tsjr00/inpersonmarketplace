@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { notifyOrderExpired, sendNotification } from '@/lib/notifications'
 import { createRefund, transferToVendor, transferMarketBoxPayout, getChargeIdFromPaymentIntent } from '@/lib/stripe/payments'
+import { classifyExistingTransfer } from '@/lib/stripe/payout-reconcile'
 import { cancelOrderItemsAndRestoreGuarded, restoreInventory, restoreOrderInventory } from '@/lib/inventory'
 import { timingSafeEqual } from 'crypto'
 import { withErrorTracing, TracedError, logError, traced } from '@/lib/errors'
@@ -1240,10 +1241,12 @@ export async function GET(request: NextRequest) {
           vendor_profile_id,
           amount_cents,
           created_at,
+          stripe_transfer_id,
           vendor_profiles!inner (
             stripe_account_id,
             stripe_payouts_enabled,
-            user_id
+            user_id,
+            vertical_id
           ),
           order_items!inner (
             order_id
@@ -1263,12 +1266,47 @@ export async function GET(request: NextRequest) {
             stripe_account_id: string | null
             stripe_payouts_enabled: boolean
             user_id: string
+            vertical_id: string
           }
           const orderItem = payout.order_items as unknown as { order_id: string }
 
           // Skip if vendor still doesn't have Stripe ready
           if (!vendorProfile?.stripe_account_id || !vendorProfile.stripe_payouts_enabled) {
             continue
+          }
+
+          // S3-1: a failed row that still carries a stripe_transfer_id may reflect
+          // a transfer that ALREADY succeeded (H-9 flips stale 'processing' rows —
+          // which keep the id — to 'failed'; the late transfer.created webhook then
+          // can't heal it because it only matches pending/processing rows). Verify
+          // with Stripe before re-sending, or we double-pay on an expired
+          // idempotency key.
+          if (payout.stripe_transfer_id) {
+            stripeTransfersUsed++
+            const verdict = await classifyExistingTransfer(payout.stripe_transfer_id)
+            if (verdict === 'live') {
+              // Money already moved — heal the row to the terminal state the missed
+              // transfer.created webhook would have set, and notify the vendor
+              // (dedup on order_item_id; never re-send the transfer).
+              await supabase
+                .from('vendor_payouts')
+                .update({ status: 'completed', transferred_at: new Date().toISOString() })
+                .eq('id', payout.id)
+              await sendNotification(vendorProfile.user_id, 'payout_processed', {
+                amountCents: payout.amount_cents,
+                dedupRef: payout.order_item_id,
+              }, { vertical: vendorProfile.vertical_id })
+              totalProcessed++
+              continue
+            }
+            if (verdict === 'reversed' || verdict === 'unverifiable') {
+              await logError(new TracedError('ERR_PAYOUT_009', `[Phase 5] Skipped re-send of payout ${payout.id} (order ${orderItem.order_id}): existing transfer ${payout.stripe_transfer_id} is ${verdict}`, {
+                route: '/api/cron/expire-orders',
+                method: 'GET',
+              }))
+              continue
+            }
+            // verdict === 'missing' → id is stale; fall through to a safe re-send.
           }
 
           payoutsRetried++
@@ -1431,10 +1469,12 @@ export async function GET(request: NextRequest) {
           vendor_profile_id,
           amount_cents,
           created_at,
+          stripe_transfer_id,
           vendor_profiles!inner (
             stripe_account_id,
             stripe_payouts_enabled,
-            user_id
+            user_id,
+            vertical_id
           ),
           market_box_subscriptions!inner (
             stripe_payment_intent_id
@@ -1453,12 +1493,41 @@ export async function GET(request: NextRequest) {
             stripe_account_id: string | null
             stripe_payouts_enabled: boolean
             user_id: string
+            vertical_id: string
           }
           const sub = payout.market_box_subscriptions as unknown as {
             stripe_payment_intent_id: string | null
           }
 
           if (!vp?.stripe_account_id || !vp.stripe_payouts_enabled) continue
+
+          // S3-1: same guard as the listing branch — a failed MB payout that still
+          // carries a stripe_transfer_id may reflect a transfer that already went
+          // out (H-9 flipped a stale 'processing' row). Verify before re-sending.
+          if (payout.stripe_transfer_id) {
+            stripeTransfersUsed++
+            const verdict = await classifyExistingTransfer(payout.stripe_transfer_id)
+            if (verdict === 'live') {
+              await supabase
+                .from('vendor_payouts')
+                .update({ status: 'completed', transferred_at: new Date().toISOString() })
+                .eq('id', payout.id)
+              await sendNotification(vp.user_id, 'payout_processed', {
+                amountCents: payout.amount_cents,
+                dedupRef: payout.market_box_subscription_id!,
+              }, { vertical: vp.vertical_id })
+              totalProcessed++
+              continue
+            }
+            if (verdict === 'reversed' || verdict === 'unverifiable') {
+              await logError(new TracedError('ERR_PAYOUT_009', `[Phase 5] Skipped re-send of MB payout ${payout.id} (sub ${payout.market_box_subscription_id}): existing transfer ${payout.stripe_transfer_id} is ${verdict}`, {
+                route: '/api/cron/expire-orders',
+                method: 'GET',
+              }))
+              continue
+            }
+            // verdict === 'missing' → id is stale; fall through to a safe re-send.
+          }
 
           payoutsRetried++
           stripeTransfersUsed++

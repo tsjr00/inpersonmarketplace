@@ -790,7 +790,7 @@ Only one remains — the rest were verified during this pass.
 ## CATEGORY C — NEEDS STAGING / RUNTIME CONFIRMATION (can't confirm from code)
 | ID | Premise to confirm | Test |
 |---|---|---|
-| S3-1 | Stripe idempotency-key TTL (~24h) → a 7-day-later re-send is a NEW transfer | Force a payout to 'processing', drop the transfer.created webhook, let H-9 flip it at 7d (or manually), watch for a 2nd Stripe transfer (row must already carry stripe_transfer_id) |
+| ~~S3-1~~ | ✅ FIXED DEFENSIVELY 2026-07-21 — fix does NOT depend on the TTL premise (guards re-send whatever the TTL is). Phase 5 now verifies any existing stripe_transfer_id with Stripe before re-sending: live→reconcile to completed+notify (no re-send), reversed/unverifiable→skip+ERR_PAYOUT_009, missing→safe re-send. New `lib/stripe/payout-reconcile.ts` + `classifyExistingTransfer` (7 unit tests). Both vulnerable Phase-5 branches (listing + MB-failed); pending_stripe_setup branch untouched (null transfer id by construction). | Optional staging confirmation of the TTL premise no longer blocking — belt-and-suspenders only |
 | S8-2 | Does the now+30d period fallback ever fire for annual subs (would expire them ~11mo early)? | Create an annual sub on staging; confirm tier_expires_at ≈ +1y, not +30d |
 | (all money) | The end-to-end money paths behave as the code implies | checkout→webhook→fulfill→payout; buyer-cancel; reject; MB purchase |
 
