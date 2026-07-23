@@ -2,7 +2,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { SupabaseClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
-import { hasAdminRole } from '@/lib/auth/admin'
+import { hasPlatformAdminRole } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
 
@@ -16,7 +16,9 @@ async function verifyAdminAccess(supabase: SupabaseClient, userId: string, verti
     .is('deleted_at', null)
     .single()
 
-  if (hasAdminRole(userProfile || {})) {
+  // S4-2: platform_admin bypasses; a vertical admin falls through to the
+  // vertical_admins check below (was hasAdminRole → dead, cross-vertical).
+  if (hasPlatformAdminRole(userProfile || {})) {
     return true
   }
 

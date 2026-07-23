@@ -1,7 +1,7 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
-import { hasAdminRole } from '@/lib/auth/admin'
+import { hasPlatformAdminRole } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
 
@@ -36,7 +36,9 @@ export async function GET(request: NextRequest) {
       .is('deleted_at', null)
       .single()
 
-    let isAdmin = hasAdminRole(userProfile || {})
+    // S4-2: platform_admin bypasses; vertical admin falls through to the
+    // vertical_admins check below (was hasAdminRole → dead check, cross-vertical).
+    let isAdmin = hasPlatformAdminRole(userProfile || {})
 
     // If not platform admin, check if they're a vertical admin for this specific vertical
     if (!isAdmin) {
@@ -156,7 +158,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    let isAdmin = hasAdminRole(userProfile || {})
+    // S4-2: platform_admin bypasses; vertical admin falls through to the
+    // vertical_admins check below (was hasAdminRole → dead check, cross-vertical).
+    let isAdmin = hasPlatformAdminRole(userProfile || {})
 
     // If not platform admin, check if they're a vertical admin for the target vertical
     if (!isAdmin) {
