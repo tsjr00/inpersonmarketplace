@@ -51,10 +51,19 @@ describe('hasAdminRole stays broad (vertical + platform)', () => {
 describe('S4-2 admin-management routes gate on hasPlatformAdminRole (no escalation)', () => {
   const REPO = process.cwd() // vitest runs from apps/web
   const FILES = [
+    // admin-management (Tier 1)
     'src/app/api/admin/admins/route.ts',
     'src/app/api/admin/admins/[userId]/route.ts',
     'src/app/api/admin/verticals/[verticalId]/admins/route.ts',
     'src/app/api/admin/verticals/[verticalId]/admins/[adminId]/route.ts',
+    // vendor-lifecycle (Tier 2) — platform_admin bypass + hand-rolled vertical_admins fallback
+    'src/app/api/admin/vendors/[id]/approve/route.ts',
+    'src/app/api/admin/vendors/[id]/reject/route.ts',
+    'src/app/api/admin/vendors/[id]/fast-track/route.ts',
+    'src/app/api/admin/vendors/[id]/verify/route.ts',
+    'src/app/api/admin/vendors/[id]/verify-coi/route.ts',
+    'src/app/api/admin/vendors/[id]/verify-category/route.ts',
+    'src/app/api/admin/vendors/[id]/event-approval/route.ts',
   ]
   for (const f of FILES) {
     it(`${f} uses hasPlatformAdminRole and not hasAdminRole`, () => {

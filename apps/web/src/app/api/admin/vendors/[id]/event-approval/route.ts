@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { hasAdminRole } from '@/lib/auth/admin'
+import { hasPlatformAdminRole } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
@@ -33,7 +33,9 @@ export async function PATCH(
       .is('deleted_at', null)
       .single()
 
-    let isAdmin = hasAdminRole(userProfile || {})
+    // S4-2: platform_admin bypasses; vertical admin falls through to the
+    // vertical_admins check below (was hasAdminRole → dead check, cross-vertical).
+    let isAdmin = hasPlatformAdminRole(userProfile || {})
 
     const body = await request.json()
     const { event_approved } = body

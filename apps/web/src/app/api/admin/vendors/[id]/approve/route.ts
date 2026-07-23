@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { hasAdminRole } from '@/lib/auth/admin'
+import { hasPlatformAdminRole } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
@@ -34,7 +34,10 @@ export async function POST(
       .is('deleted_at', null)
       .single()
 
-    let isAdmin = hasAdminRole(userProfile || {})
+    // S4-2: platform_admin bypasses (any vendor); a plain 'admin'/vertical admin
+    // falls through to the vertical_admins check below (was hasAdminRole, which
+    // made that check dead → cross-vertical access).
+    let isAdmin = hasPlatformAdminRole(userProfile || {})
 
     // If not platform admin, check if they're a vertical admin for this vendor's vertical
     if (!isAdmin) {
