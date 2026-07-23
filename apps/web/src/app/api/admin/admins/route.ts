@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
-import { hasAdminRole } from '@/lib/auth/admin'
+import { hasPlatformAdminRole } from '@/lib/auth/admin'
 
 // GET - List all platform admins
 export async function GET(request: NextRequest) {
@@ -29,9 +29,11 @@ export async function GET(request: NextRequest) {
         .is('deleted_at', null)
         .single()
 
-      const isAdmin = hasAdminRole(callerProfile || {})
+      // S4-2: platform_admin ONLY — managing platform admins is platform-level
+      // (was hasAdminRole, so a vertical admin could list/create platform admins).
+      const isPlatformAdmin = hasPlatformAdminRole(callerProfile || {})
 
-      if (!isAdmin) {
+      if (!isPlatformAdmin) {
         return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
       }
 
@@ -88,8 +90,10 @@ export async function POST(request: NextRequest) {
         .is('deleted_at', null)
         .single()
 
-      const isAdmin = hasAdminRole(callerProfile || {})
-      if (!isAdmin) {
+      // S4-2: platform_admin ONLY — managing platform admins is platform-level
+      // (was hasAdminRole, so a vertical admin could list/create platform admins).
+      const isPlatformAdmin = hasPlatformAdminRole(callerProfile || {})
+      if (!isPlatformAdmin) {
         return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
       }
 
