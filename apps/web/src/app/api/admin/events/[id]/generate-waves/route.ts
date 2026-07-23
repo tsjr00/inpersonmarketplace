@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { hasAdminRole } from '@/lib/auth/admin'
+import { hasAdminRole, verifyAdminScope } from '@/lib/auth/admin'
 import {
   checkRateLimit,
   getClientIp,
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       // Fetch the catering request with its market
       const { data: request_data, error: fetchError } = await serviceClient
         .from('catering_requests')
-        .select('id, market_id, event_start_time, event_end_time, status')
+        .select('id, market_id, event_start_time, event_end_time, status, vertical_id')
         .eq('id', eventId)
         .single()
 
@@ -62,6 +62,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
           { error: 'Event not found' },
           { status: 404 }
         )
+      }
+
+      // S4-2: scope to the event's vertical (platform admin any; vertical admin own).
+      const scope = await verifyAdminScope(request_data.vertical_id as string)
+      if (!scope?.authorized) {
+        return NextResponse.json({ error: "Not authorized for this event's vertical" }, { status: 403 })
       }
 
       if (!request_data.market_id) {

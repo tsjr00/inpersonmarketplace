@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { hasAdminRole } from '@/lib/auth/admin'
+import { hasAdminRole, verifyAdminScope } from '@/lib/auth/admin'
 import {
   checkRateLimit,
   getClientIp,
@@ -76,6 +76,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
           { error: 'Event request not found' },
           { status: 404 }
         )
+      }
+
+      // S4-2: scope to the event's vertical (platform admin any; vertical admin own).
+      const scope = await verifyAdminScope(cateringRequest.vertical_id as string)
+      if (!scope?.authorized) {
+        return NextResponse.json({ error: "Not authorized for this event's vertical" }, { status: 403 })
       }
 
       if (!cateringRequest.market_id) {

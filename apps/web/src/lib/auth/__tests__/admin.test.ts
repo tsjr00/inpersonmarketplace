@@ -94,19 +94,6 @@ describe('S4-2 every admin mutation route goes through a sanctioned scope gate',
   // scoped (the rot check enforces this). Path is relative to src/app/api/admin.
   const ALLOWLIST: Record<string, string> = {
     'login/route.ts': 'exempt: admin auth entry — no vertical target to scope',
-    'backfill-stripe-fees/route.ts': 'Tier-3: platform-wide Stripe fee backfill (platform-only candidate)',
-    'users/[id]/route.ts': 'Tier-3: user management (platform-level candidate)',
-    'knowledge/route.ts': 'Tier-3: KB articles via verifyAdminForApi (per-vertical scoping TBD)',
-    'errors/[id]/route.ts': 'Tier-3: error-report detail (scope by report vertical)',
-    'order-issues/route.ts': 'Tier-3: order issues (scope by order vertical)',
-    'events/route.ts': 'Tier-3: events list/create',
-    'events/[id]/route.ts': 'Tier-3: event mgmt (scope by event vertical)',
-    'events/[id]/generate-waves/route.ts': 'Tier-3: event waves (scope by event vertical)',
-    'events/[id]/invite/route.ts': 'Tier-3: event invite (scope by event vertical)',
-    'events/[id]/rematch/route.ts': 'Tier-3: event rematch (scope by event vertical)',
-    'events/[id]/repeat/route.ts': 'Tier-3: event repeat (scope by event vertical)',
-    'vendor-activity/settings/route.ts': 'Tier-3: vendor activity settings',
-    'vendor-activity/flags/[id]/route.ts': 'Tier-3: vendor activity flag',
   }
 
   function walk(dir: string): string[] {

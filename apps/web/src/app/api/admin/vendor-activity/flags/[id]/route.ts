@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
-import { hasAdminRole } from '@/lib/auth/admin'
+import { hasAdminRole, verifyAdminScope } from '@/lib/auth/admin'
 
 /**
  * GET /api/admin/vendor-activity/flags/[id]
@@ -64,6 +64,14 @@ export async function GET(
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 404 })
+    }
+
+    // S4-2: scope to the flagged vendor's vertical (platform admin any; vertical admin own).
+    const gv = flag?.vendor as any
+    const gVertical = (Array.isArray(gv) ? gv[0]?.vertical_id : gv?.vertical_id) as string | undefined
+    const gScope = await verifyAdminScope(gVertical ?? null)
+    if (!gScope?.authorized) {
+      return NextResponse.json({ error: "Not authorized for this vendor's vertical" }, { status: 403 })
     }
 
     return NextResponse.json({ flag })
@@ -129,7 +137,8 @@ export async function PATCH(
             id,
             user_id,
             status,
-            profile_data
+            profile_data,
+            vertical_id
           )
         `)
         .eq('id', flagId)
@@ -137,6 +146,15 @@ export async function PATCH(
 
       if (flagError || !flag) {
         return NextResponse.json({ error: 'Flag not found' }, { status: 404 })
+      }
+
+      // S4-2: a vertical admin may only action flags for vendors in their vertical
+      // (this route suspends/reverts vendors — cross-vertical action must be blocked).
+      const pv = flag.vendor as any
+      const pVertical = (Array.isArray(pv) ? pv[0]?.vertical_id : pv?.vertical_id) as string | undefined
+      const pScope = await verifyAdminScope(pVertical ?? null)
+      if (!pScope?.authorized) {
+        return NextResponse.json({ error: "Not authorized for this vendor's vertical" }, { status: 403 })
       }
 
       if (flag.status !== 'pending') {

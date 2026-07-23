@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { hasAdminRole } from '@/lib/auth/admin'
+import { hasPlatformAdminRole } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
 
@@ -37,8 +37,10 @@ export async function PATCH(
       .is('deleted_at', null)
       .single()
 
-    if (!hasAdminRole(userProfile || {})) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    // S4-2: platform-only — user management is platform-level (users are not
+    // vertical-scoped entities), so vertical admins do not manage arbitrary users.
+    if (!hasPlatformAdminRole(userProfile || {})) {
+      return NextResponse.json({ error: 'Platform admin access required' }, { status: 403 })
     }
 
     const body = await request.json()

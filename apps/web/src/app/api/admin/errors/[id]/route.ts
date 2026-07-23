@@ -2,11 +2,33 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb, getResolutionSummary } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { hasAdminRole } from '@/lib/auth/admin'
+import { hasPlatformAdminRole } from '@/lib/auth/admin'
 
 interface RouteParams {
   params: Promise<{ id: string }>
 }
+
+/**
+ * ⚠ AUTH MODEL NOTE (S4-2 review, 2026-07-22) — READ BEFORE CHANGING AUTH HERE.
+ *
+ * This route does NOT gate vertical access with a helper (verifyAdminScope /
+ * hasAdminRole). It queries error_reports with the USER's supabase client, so the
+ * error_reports RLS policy is what actually scopes which reports a vertical admin
+ * can read/update. That is DIFFERENT from every other admin route in this sweep,
+ * which gate in app code.
+ *
+ * hasPlatformAdminRole() below is used ONLY to distinguish the platform-admin-
+ * restricted sub-actions (resolving a report ESCALATED to platform_admin, and
+ * writing platform_admin_notes). It was hasAdminRole() and returned true for a
+ * plain 'admin' (a vertical admin), so a vertical admin could resolve escalated
+ * reports — the S4-2 bug, fixed by the swap to hasPlatformAdminRole.
+ *
+ * DEFENSE-IN-DEPTH TODO: the vertical-level access boundary lives entirely in the
+ * error_reports RLS policy — it was NOT re-verified in the S4-2 app-code sweep. If
+ * you are hardening admin scoping, confirm that policy scopes vertical admins to
+ * their own vertical's reports (and consider adding a verifyAdminScope check here
+ * as a belt-and-suspenders app-code gate).
+ */
 
 /**
  * GET /api/admin/errors/[id]
@@ -178,7 +200,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .is('deleted_at', null)
       .single()
 
-    const isPlatformAdmin = hasAdminRole(profile || {})
+    // S4-2: platform_admin ONLY (was hasAdminRole → a vertical admin wrongly
+    // counted as platform admin and could resolve platform-ESCALATED reports and
+    // write platform_admin_notes). Vertical-level access to error_reports is
+    // governed by RLS; this only distinguishes the platform-admin-restricted actions.
+    const isPlatformAdmin = hasPlatformAdminRole(profile || {})
 
     // Build update based on action
     const updateData: Record<string, unknown> = {}

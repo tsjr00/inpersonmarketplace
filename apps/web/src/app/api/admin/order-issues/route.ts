@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
-import { hasAdminRole } from '@/lib/auth/admin'
+import { hasAdminRole, verifyAdminScope } from '@/lib/auth/admin'
 import { sendNotification } from '@/lib/notifications'
 
 // GET - Get all order issues (admin only)
@@ -45,9 +45,18 @@ export async function GET(request: NextRequest) {
       const vertical = searchParams.get('vertical')
       const status = searchParams.get('status')
 
+      // S4-2: validate the requested vertical against the admin's scope, and for a
+      // vertical admin FORCE the filter to their vertical — with no ?vertical they
+      // would otherwise see every vertical's order issues. Platform admin keeps all/any.
+      const issuesScope = await verifyAdminScope(vertical)
+      if (!issuesScope?.authorized) {
+        return NextResponse.json({ error: 'Not authorized for this vertical' }, { status: 403 })
+      }
+      const effectiveVertical = issuesScope.isPlatformAdmin ? vertical : issuesScope.effectiveVerticalId
+
       // Query order_items where issue_reported_at is not null
       // Use !inner join on listings when filtering by vertical so PostgREST filters at DB level
-      const listingJoin = vertical
+      const listingJoin = effectiveVertical
         ? 'listing:listings!inner(id, title, vertical_id)'
         : 'listing:listings(id, title, vertical_id)'
 
@@ -79,8 +88,8 @@ export async function GET(request: NextRequest) {
         .order('issue_reported_at', { ascending: false })
 
       // Filter by vertical at DB level (via inner join)
-      if (vertical) {
-        query = query.eq('listing.vertical_id', vertical)
+      if (effectiveVertical) {
+        query = query.eq('listing.vertical_id', effectiveVertical)
       }
 
       // Filter by issue_status if provided

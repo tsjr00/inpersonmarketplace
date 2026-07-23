@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { hasAdminRole } from '@/lib/auth/admin'
+import { hasAdminRole, verifyAdminScope } from '@/lib/auth/admin'
 import {
   checkRateLimit,
   getClientIp,
@@ -58,6 +58,13 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const vertical = searchParams.get('vertical') || 'food_trucks'
+
+    // S4-2: validate the requested vertical against the admin's scope — a vertical
+    // admin must not list another vertical's events by passing ?vertical=.
+    const listScope = await verifyAdminScope(vertical)
+    if (!listScope?.authorized) {
+      return NextResponse.json({ error: "Not authorized for this vertical" }, { status: 403 })
+    }
 
     let query = serviceClient
       .from('catering_requests')
@@ -243,6 +250,12 @@ export async function POST(request: NextRequest) {
 
     if (!company_name || !event_date || !headcount || !address || !city || !state) {
       return NextResponse.json({ error: 'Missing required fields: company_name, event_date, headcount, address, city, state' }, { status: 400 })
+    }
+
+    // S4-2: a vertical admin may only create events in a vertical they manage.
+    const createScope = await verifyAdminScope(vertical || 'food_trucks')
+    if (!createScope?.authorized) {
+      return NextResponse.json({ error: "Not authorized for this vertical" }, { status: 403 })
     }
 
     const serviceClient = createServiceClient()

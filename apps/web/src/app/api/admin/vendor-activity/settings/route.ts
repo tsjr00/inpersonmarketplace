@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
-import { hasAdminRole } from '@/lib/auth/admin'
+import { hasAdminRole, verifyAdminScope } from '@/lib/auth/admin'
 
 /**
  * GET /api/admin/vendor-activity/settings
@@ -44,13 +44,21 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const verticalId = searchParams.get('vertical')
 
+    // S4-2: validate/force the vertical to the admin's scope — a vertical admin with
+    // no ?vertical would otherwise read every vertical's settings. Platform admin any/all.
+    const getScope = await verifyAdminScope(verticalId)
+    if (!getScope?.authorized) {
+      return NextResponse.json({ error: 'Not authorized for this vertical' }, { status: 403 })
+    }
+    const effectiveVertical = getScope.isPlatformAdmin ? verticalId : getScope.effectiveVerticalId
+
     try {
       let query = supabase
         .from('vendor_activity_settings')
         .select('*')
 
-      if (verticalId) {
-        query = query.eq('vertical_id', verticalId)
+      if (effectiveVertical) {
+        query = query.eq('vertical_id', effectiveVertical)
       }
 
       const { data: settings, error } = await query
@@ -132,6 +140,12 @@ export async function PUT(request: NextRequest) {
 
     if (!verticalId) {
       return NextResponse.json({ error: 'verticalId is required' }, { status: 400 })
+    }
+
+    // S4-2: a vertical admin may only edit settings for a vertical they manage.
+    const putScope = await verifyAdminScope(verticalId)
+    if (!putScope?.authorized) {
+      return NextResponse.json({ error: 'Not authorized for this vertical' }, { status: 403 })
     }
 
     try {
