@@ -273,6 +273,15 @@ export default function BookParkSpotForm({
       spots.every((s) => s.max_length_ft !== null && truckLengthFt > s.max_length_ft),
     [spots, truckLengthFt]
   )
+  // Some (but not all) spots are too small — drives the top-of-list explainer
+  // for why certain rows are greyed. When ALL are too small, noSpotFits owns
+  // the messaging instead, so the two banners never show together.
+  const someSpotTooSmall = useMemo(
+    () =>
+      truckLengthFt !== null &&
+      spots.some((s) => s.max_length_ft !== null && truckLengthFt > s.max_length_ft),
+    [spots, truckLengthFt]
+  )
   const selectedSpotTooSmall =
     !!selectedSpot &&
     truckLengthFt !== null &&
@@ -540,6 +549,15 @@ export default function BookParkSpotForm({
               . Otherwise check back — the operator may add a larger spot.
             </div>
           )}
+          {/* Tester finding 2026-07-23: some spots are too small — the truck's
+              mental model was that only fitting spots are shown. Explain that
+              every spot IS shown, and greyed rows just can't be picked. */}
+          {someSpotTooSmall && !noSpotFits && (
+            <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing.xs, lineHeight: 1.4 }}>
+              Spots too small for your {truckLengthFt} ft truck are greyed out — they&apos;re shown so
+              you can see the whole lot, but you can&apos;t book one.
+            </div>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
             {spots.map((spot) => {
               const selected = spot.id === selectedSpotId
@@ -645,14 +663,33 @@ export default function BookParkSpotForm({
         )}
 
         {/* C3a — where required docs live, surfaced BEFORE paying so a truck can
-            check what's needed. Uploading isn't required to book (book-then-vet). */}
+            check what's needed. Uploading isn't required to book (book-then-vet).
+            Tester finding 2026-07-23: when the operator listed NO documents, the
+            old copy still promised "the documents this park requires" and dumped
+            the truck on a generic profile page. Split the copy by whether the
+            operator wrote a list. */}
         <div style={{ marginBottom: spacing.md }}>
-          <a href={docsHref} style={{ fontSize: typography.sizes.sm, color: colors.primary, textDecoration: 'underline', fontWeight: typography.weights.semibold }}>
-            See the documents this park requires and upload them →
-          </a>
-          <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
-            You can book now and upload after — but your docs must be current before your rented day.
-          </div>
+          {requiredDocsNote ? (
+            <>
+              <a href={docsHref} style={{ fontSize: typography.sizes.sm, color: colors.primary, textDecoration: 'underline', fontWeight: typography.weights.semibold }}>
+                See the documents this park requires and upload them →
+              </a>
+              <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
+                You can book now and upload after — but your docs must be current before your rented day.
+              </div>
+            </>
+          ) : (
+            <>
+              <a href={docsHref} style={{ fontSize: typography.sizes.sm, color: colors.primary, textDecoration: 'underline', fontWeight: typography.weights.semibold }}>
+                Manage your documents →
+              </a>
+              <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
+                {marketName} hasn&apos;t listed specific documents. Keep your standard permits, licenses,
+                and insurance current and uploaded to your profile — the operator reviews them before
+                your rented day.
+              </div>
+            </>
+          )}
         </div>
 
         {/* Tab selector — decouple paying for a day from requesting a standing hold. */}

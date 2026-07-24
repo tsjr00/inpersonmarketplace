@@ -103,19 +103,43 @@ export default function MarketAttendanceCard({ marketId, vertical }: { marketId:
       title={`${term(vertical, 'vendor')} attendance`}
       description={`Who's checked in today. Pick a date for past ${term(vertical, 'market').toLowerCase()} days. Self-attested; location is advisory.`}
       headerAccessory={
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          style={{
-            padding: `${spacing['3xs']} ${spacing.xs}`,
-            border: `1px solid ${colors.border}`,
-            borderRadius: radius.sm,
-            fontSize: typography.sizes.xs,
-            color: colors.textPrimary,
-            backgroundColor: colors.surfaceElevated,
-          }}
-        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
+          {/* Tester finding 2026-07-23: the card only fetched on mount, so a
+              manager watching during market hours never saw a check-out land.
+              This reuses the existing reloadTick fetch dependency. */}
+          <button
+            type="button"
+            onClick={() => setReloadTick((t) => t + 1)}
+            disabled={loading}
+            style={{
+              padding: `${spacing['3xs']} ${spacing.xs}`,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.sm,
+              fontSize: typography.sizes.xs,
+              fontWeight: typography.weights.semibold,
+              color: colors.textPrimary,
+              backgroundColor: colors.surfaceElevated,
+              cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading ? 0.6 : 1,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {loading ? 'Refreshing…' : '↻ Refresh'}
+          </button>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            style={{
+              padding: `${spacing['3xs']} ${spacing.xs}`,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.sm,
+              fontSize: typography.sizes.xs,
+              color: colors.textPrimary,
+              backgroundColor: colors.surfaceElevated,
+            }}
+          />
+        </div>
       }
     >
       {loading ? (
@@ -146,8 +170,18 @@ export default function MarketAttendanceCard({ marketId, vertical }: { marketId:
                   <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
                     {r.vendorName}{r.boothNumber ? ` · ${term(vertical, 'booth').toLowerCase()} ${r.boothNumber}` : ''}
                   </div>
+                  {/* Tester finding 2026-07-23: before check-out, both times
+                      were '—', reading as missing data ("10:30 AM – — · —").
+                      Show a clear "still on site" state instead. */}
                   <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
-                    {fmtTime(r.checkedInAt)} – {fmtTime(r.checkedOutAt)} · {duration(r.checkedInAt, r.checkedOutAt)}
+                    {r.checkedOutAt
+                      ? `${fmtTime(r.checkedInAt)} – ${fmtTime(r.checkedOutAt)} · ${duration(r.checkedInAt, r.checkedOutAt)}`
+                      : `Checked in ${fmtTime(r.checkedInAt)} · `}
+                    {!r.checkedOutAt && (
+                      <span style={{ color: statusColors.successDark, fontWeight: typography.weights.semibold }}>
+                        still on site
+                      </span>
+                    )}
                   </div>
                 </div>
                 <span style={{ fontSize: typography.sizes.xs, color: flag.color, whiteSpace: 'nowrap' }}>
