@@ -1,4 +1,21 @@
-# Current Task: Booth/spot MAP upload feature built (mig 205, gate-green, UNCOMMITTED). Admin lockdown + logic fixes already on staging. Next: commit+push map feature; user applies mig 205 to activate.
+# Current Task: 🟢 All work ON STAGING (tip `374490df`), prod untouched (`62b686f7`, 87 commits behind). Booth/spot map feature SHIPPED + owner-confirmed on staging. ⭐ BIGGEST NEXT = THE RELAUNCH (87 commits + migs 184→205 to prod). Then admin follow-ups / money decisions. Test checklist: apps/web/docs/staging_test_2026-07-23_recent_work.md.
+
+## 🟢🟢🟢 NEXT SESSION START HERE (2026-07-23 EOD) — VERIFY LIVE GIT, then confirm before work
+### GIT: local main = origin/staging = `374490df`; PROD origin/main = `62b686f7` (unchanged, **87 commits + migs 184→205 behind**). Staging in sync with main.
+### TOP NEXT ITEMS (priority order):
+1. **🔴 THE RELAUNCH (biggest, user-driven, time-sensitive):** 87 commits + 22 migrations (184→205 IN ORDER) staged & tested. Apply migs 184→205 in order → push main→origin/main in the **9PM–7AM CT** window (teaching-mode, verify Vercel build + smoke). **HARD GATE:** after mig 204 lands on prod, re-run the platform-admin access query (must be TRUE for tsjr00 + Jen) BEFORE admin commits are live — mig-before-push ordering handles it. Then re-run V2 (=0). Then vault update.
+2. **Admin follow-ups:** S4-3 regional-manager / scoped-admin persona (the big build the lockdown unblocks); `admins` POST writes role:'admin' not 'platform_admin' (~15min correctness, route unused); error_reports RLS review (defense-in-depth, note in errors/[id]).
+3. **Money decisions (no code until owner decides):** S1-3/9 (checkout body-trust / bind to server cart — architecture), S1-12 (dashboard-refund policy), S9-1 (event partial refund). Backlogged low: S1-2/8, S2-4, S3-2. WONTFIX: S2-1/S3-4 (intentional tip buffer).
+### SHIPPED THIS ARC (2026-07-20→23), all staging, gate-green (suite 67/1744):
+- Booth/spot MAP feature (`374490df`, mig 205 applied Dev+Staging, owner-confirmed) — see the block below.
+- Admin vertical-scope lockdown COMPLETE (7 commits `07c5b914`→`819f92b8`; structural gate ALLOWLIST = { login }).
+- Logic-testing fixes A1 (`1cd12b93`) + A2 (`0cdda987`) + S3-1 (`631fb36e`).
+- Support-page consolidation (`89c07e4e`).
+### HOUSEKEEPING: CLAUDE_CONTEXT.md session-history entries (07-22 + this one) uncommitted — sweep into next commit. Post-relaunch: REFRESH_SCHEMA regen (structured tables STALE), VOR-11 decision, error-code burn-down.
+
+---
+
+## 🟢 BOOTH/SPOT MAP UPLOAD (2026-07-23) — SHIPPED `374490df`, mig 205 Dev+Staging, owner-confirmed on staging
 
 ## 🟢 BOOTH/SPOT MAP UPLOAD (2026-07-23) — BUILT, gate-green, UNCOMMITTED
 Manager/park-operator uploads a booth (FM) / spot (FT) map (image OR PDF) as part of assigning spots/booths/tiers; vendors see it during the booth-rental flow + on their bookings. Owner decisions: 3 MB cap; PDF + images; visible to vendors at that market (booking flow + their bookings); one per market/park.
