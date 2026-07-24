@@ -64,7 +64,9 @@ function formatWeek(yyyyMmDd: string): string {
 }
 
 function formatPrice(cents: number): string {
-  return `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+  // Always show cents on a transaction amount — otherwise $159.90 renders as
+  // "$159.9" and $160.00 as "$160" (tester finding 2026-07-23).
+  return `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 export default function WeeklyBookingsList({ marketId, vertical, bookings: initialBookings }: WeeklyBookingsListProps) {

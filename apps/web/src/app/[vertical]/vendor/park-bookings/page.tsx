@@ -63,8 +63,11 @@ function formatDate(yyyyMmDd: string): string {
 }
 
 function formatPrice(cents: number): string {
+  // Always show cents on a transaction amount — otherwise $159.90 renders as
+  // "$159.9" and $160.00 as "$160", which reads as broken to a paying vendor
+  // (tester finding 2026-07-23).
   return `$${(cents / 100).toLocaleString('en-US', {
-    minimumFractionDigits: 0,
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`
 }

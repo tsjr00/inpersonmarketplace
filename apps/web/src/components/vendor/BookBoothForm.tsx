@@ -52,7 +52,10 @@ function formatWeekLabel(yyyyMmDd: string): string {
 }
 
 function formatPrice(cents: number): string {
-  return `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+  // Always show cents on a transaction amount — otherwise $26.78 next to a
+  // "$25" renders inconsistently and a $159.90 total reads as "$159.9"
+  // (tester finding 2026-07-23).
+  return `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 export default function BookBoothForm({

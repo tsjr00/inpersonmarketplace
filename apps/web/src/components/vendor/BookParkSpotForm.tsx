@@ -220,7 +220,11 @@ export default function BookParkSpotForm({
   const [selectedSpotId, setSelectedSpotId] = useState<string>(() => {
     const fits = (s: SpotRow) =>
       truckLengthFt === null || s.max_length_ft === null || truckLengthFt <= s.max_length_ft
-    return spots.find(fits)?.id ?? spots[0]?.id ?? ''
+    // Tester finding 2026-07-23: do NOT fall back to spots[0] when nothing fits.
+    // That pre-selected a too-small spot whose radio was disabled, leaving the
+    // truck unable to change it but with the submit button live — a guaranteed
+    // 409 dead end. No fitting spot → no selection (empty state renders below).
+    return spots.find(fits)?.id ?? ''
   })
   const [mode, setMode] = useState<'single' | 'week'>('single')
   // (selectedSpotId initializer below skips spots the truck can't fit — P6)
@@ -258,6 +262,23 @@ export default function BookParkSpotForm({
     [spots, selectedSpotId]
   )
 
+  // Tester finding 2026-07-23: when the truck has a declared length and NO spot
+  // is big enough, there's nothing to book — say so and disable submit instead
+  // of letting the truck click through to a server 409. The size gate only
+  // applies when both numbers are known (mirrors the per-spot `tooSmall`).
+  const noSpotFits = useMemo(
+    () =>
+      truckLengthFt !== null &&
+      spots.length > 0 &&
+      spots.every((s) => s.max_length_ft !== null && truckLengthFt > s.max_length_ft),
+    [spots, truckLengthFt]
+  )
+  const selectedSpotTooSmall =
+    !!selectedSpot &&
+    truckLengthFt !== null &&
+    selectedSpot.max_length_ft !== null &&
+    truckLengthFt > selectedSpot.max_length_ft
+
   const selectedDates = useMemo<string[]>(() => {
     if (mode === 'single') return selectedDate ? [selectedDate] : []
     return weeks.find((w) => w.key === selectedWeekKey)?.dates ?? []
@@ -268,6 +289,20 @@ export default function BookParkSpotForm({
     : 0
   const totalCents = perDayCents * selectedDates.length
   const belowMinimum = totalCents < MIN_TOTAL_CENTS
+
+  // Single source for the Book & pay button's disabled state (used for disabled,
+  // cursor, and opacity). Includes the no-fit guards (2026-07-23) so the truck
+  // can't click through to a server 409 when nothing fits / the selected spot
+  // is too small.
+  const cannotBook =
+    submitting ||
+    belowMinimum ||
+    selectedDates.length === 0 ||
+    !agreementAccepted ||
+    !docAckAccepted ||
+    !selectedSpotId ||
+    noSpotFits ||
+    selectedSpotTooSmall
 
   // Upcoming operating dates that fall on the chosen recurring day-of-week — the
   // "start on" options for a weekly hold. Derived (no effect); if the current
@@ -480,6 +515,29 @@ export default function BookParkSpotForm({
                 Add your truck&apos;s length to your profile
               </a>
               {' '}and we&apos;ll flag spots that won&apos;t fit.
+            </div>
+          )}
+          {/* Tester finding 2026-07-23: every spot is too small for this truck —
+              nothing here is bookable, so say so up front. The spots still
+              render below (greyed) so the truck can see the sizes and why. */}
+          {noSpotFits && (
+            <div style={{
+              padding: spacing.sm,
+              marginBottom: spacing.xs,
+              backgroundColor: '#fdecea',
+              border: `1px solid ${statusColors.danger}`,
+              borderRadius: radius.sm,
+              fontSize: typography.sizes.sm,
+              color: '#7f1d1d',
+              lineHeight: 1.5,
+            }}>
+              <strong>No spots here fit your {truckLengthFt} ft truck.</strong>{' '}
+              Every spot at {marketName} is too small for your truck, so there&apos;s nothing to book
+              right now. If your truck&apos;s length is wrong,{' '}
+              <a href={`/${vertical}/vendor/edit`} style={{ color: '#7f1d1d', textDecoration: 'underline', fontWeight: typography.weights.semibold }}>
+                update it in your profile
+              </a>
+              . Otherwise check back — the operator may add a larger spot.
             </div>
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
@@ -847,7 +905,7 @@ export default function BookParkSpotForm({
 
             <button
               type="submit"
-              disabled={submitting || belowMinimum || selectedDates.length === 0 || !agreementAccepted || !docAckAccepted}
+              disabled={cannotBook}
               style={{
                 padding: `${spacing.sm} ${spacing.md}`,
                 backgroundColor: colors.primary,
@@ -856,8 +914,8 @@ export default function BookParkSpotForm({
                 borderRadius: radius.sm,
                 fontSize: typography.sizes.base,
                 fontWeight: typography.weights.semibold,
-                cursor: (submitting || belowMinimum || selectedDates.length === 0 || !agreementAccepted || !docAckAccepted) ? 'not-allowed' : 'pointer',
-                opacity: (submitting || belowMinimum || selectedDates.length === 0 || !agreementAccepted || !docAckAccepted) ? 0.6 : 1,
+                cursor: cannotBook ? 'not-allowed' : 'pointer',
+                opacity: cannotBook ? 0.6 : 1,
               }}
             >
               {submitting ? 'Starting checkout…' : `Book & pay at ${marketName}`}
