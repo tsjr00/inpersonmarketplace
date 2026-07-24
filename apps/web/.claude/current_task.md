@@ -1,4 +1,14 @@
-# Current Task: 🏁 Admin vertical-scope lockdown COMPLETE + logic-testing fixes COMPLETE — all on staging, prod untouched. Next: relaunch (user) + small follow-ups. (Detailed history below.)
+# Current Task: Booth/spot MAP upload feature built (mig 205, gate-green, UNCOMMITTED). Admin lockdown + logic fixes already on staging. Next: commit+push map feature; user applies mig 205 to activate.
+
+## 🟢 BOOTH/SPOT MAP UPLOAD (2026-07-23) — BUILT, gate-green, UNCOMMITTED
+Manager/park-operator uploads a booth (FM) / spot (FT) map (image OR PDF) as part of assigning spots/booths/tiers; vendors see it during the booth-rental flow + on their bookings. Owner decisions: 3 MB cap; PDF + images; visible to vendors at that market (booking flow + their bookings); one per market/park.
+- **mig 205** `markets.booth_map_url TEXT` (user applies; Dev+Staging to activate, prod rides relaunch after 184→204). Mirrors logo_url (mig 140).
+- **NEW:** `lib/markets/booth-map.ts` (tolerant `getBoothMapUrl` + `isPdfMap`) · `market-manager/[marketId]/booth-map/route.ts` (GET/POST/DELETE, isMarketManager auth, vendor-images bucket booth-maps/ prefix, image-moderation for images only, PDF skips it) · `components/market-manager/BoothMapViewer.tsx` (presentational, PDF→link/image→inline) · `MarketMapCard.tsx` (manager upload card).
+- **WIRED (7 edits):** dashboard/page.tsx (tolerant getBoothMapUrl → injected into market obj) · FmDashboardBody + FtParkDashboardBody (MarketMapCard next to booth/spot inventory) · markets/[id]/book + book-spot pages (BoothMapViewer above the form) · vendor/bookings (FM) + vendor/park-bookings (FT) (📍 "View booth/spot map" link per row).
+- **PRE-MIGRATION SAFE (mirrors mig 192):** all reads via tolerant getBoothMapUrl (missing column → null) → code ships independent of the migration; feature inert until mig 205 applies. Suite 67/1744, tsc 0, eslint 0. Changelog entry added (guardrail Rule G). Two design notes flagged: added the tolerant helper (pre-migration-safety); the "bookings view" is TWO pages (FM vendor/bookings + FT vendor/park-bookings) — both covered.
+
+---
+
 
 ## 🟢🟢🟢 NEXT SESSION START HERE (2026-07-22 EOD) — read, VERIFY LIVE GIT, then confirm before work
 ### 0) HOW WE WORK (unchanged): Report mode default; cite file:line; ⭐ SHIPPING (commit+push) needs explicit approval SEPARATE from the build, but propose commit & push TOGETHER for staging by default — separate only with a stated reason (prod / mid-review test / WIP) — see memory feedback_commit_push_always_approved (refined 2026-07-22); ?-gate for code; per-file + exact diffs for ⚠protected money files (hook denies 1st touch); never change a BR test to match code; schema gate before SQL; branch-chain commits + teaching-mode ON; staging-first; prod window 9PM–7AM CT. Open replies by quoting the user's words.

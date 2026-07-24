@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { getBoothMapUrl } from '@/lib/markets/booth-map'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import { calculateBoothRentalFees } from '@/lib/pricing'
 import CancelSeasonButton from '@/components/vendor/CancelSeasonButton'
@@ -203,6 +204,13 @@ export default async function VendorBookingsPage({ params }: PageProps) {
   for (const m of marketsResult.data ?? []) {
     marketNameById.set(m.id as string, (m.name as string) || 'Unknown market')
   }
+
+  // Booth map per market (mig 205) — tolerant reads so this renders pre-migration.
+  const boothMapByMarket = new Map<string, string>()
+  await Promise.all(marketIds.map(async (mid) => {
+    const url = await getBoothMapUrl(serviceClient, mid)
+    if (url) boothMapByMarket.set(mid, url)
+  }))
   const sizeLabelById = new Map<string, string>()
   for (const inv of inventoryResult.data ?? []) {
     sizeLabelById.set(inv.id as string, inv.size_label as string)
@@ -310,6 +318,23 @@ export default async function VendorBookingsPage({ params }: PageProps) {
                       {kindLabel} · {g.week_count} {g.week_count === 1 ? 'week' : 'weeks'}
                       {range ? ` · ${formatWeek(range.first)} – ${formatWeek(range.last)}` : ''} · {sizeLabel}
                     </div>
+                    {boothMapByMarket.has(g.market_id) && (
+                      <a
+                        href={boothMapByMarket.get(g.market_id)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'inline-block',
+                          marginTop: spacing['3xs'],
+                          fontSize: typography.sizes.xs,
+                          color: colors.primary,
+                          textDecoration: 'none',
+                          fontWeight: typography.weights.semibold,
+                        }}
+                      >
+                        📍 View booth map
+                      </a>
+                    )}
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     <div style={{

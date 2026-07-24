@@ -14,6 +14,7 @@ import WeeklyBookingsCard from './WeeklyBookingsCard'
 import MarketStripeConnectCard from './MarketStripeConnectCard'
 import MarketBrandingCard from './MarketBrandingCard'
 import BoothInventoryManager from './BoothInventoryManager'
+import MarketMapCard from './MarketMapCard'
 import BoothOccupancyGrid from './BoothOccupancyGrid'
 import BoothPlaceholderManager from './BoothPlaceholderManager'
 import VendorBoothList from './VendorBoothList'
@@ -166,6 +167,7 @@ export default function FmDashboardBody({
       >
         <BoothInventoryManager marketId={marketId} vertical={vertical} />
       </ManagerCard>
+      <MarketMapCard marketId={marketId} vertical={vertical} initialBoothMapUrl={(market.booth_map_url as string | null) ?? null} />
       <BoothOccupancyGrid marketId={marketId} marketTimezone={(market.timezone as string | null) ?? null} vertical={vertical} />
       <ManagerCard
         title={`Off-platform ${term(vertical, 'booth').toLowerCase()} placeholders`}

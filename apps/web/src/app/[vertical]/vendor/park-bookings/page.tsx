@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { getBoothMapUrl } from '@/lib/markets/booth-map'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import { calculateBoothRentalFees } from '@/lib/pricing'
 
@@ -139,6 +140,13 @@ export default async function VendorParkBookingsPage({ params }: PageProps) {
     spotLabelById.set(s.id as string, (s.label as string) || 'Spot')
   }
 
+  // Spot map per park (mig 205) — tolerant reads so this renders pre-migration.
+  const boothMapByMarket = new Map<string, string>()
+  await Promise.all(marketIds.map(async (mid) => {
+    const url = await getBoothMapUrl(serviceClient, mid)
+    if (url) boothMapByMarket.set(mid, url)
+  }))
+
   const todayYmd = new Date().toISOString().slice(0, 10)
   const upcoming = bookings.filter((b) => b.booking_date >= todayYmd).sort((a, b) => a.booking_date.localeCompare(b.booking_date))
   const past = bookings.filter((b) => b.booking_date < todayYmd)
@@ -165,6 +173,23 @@ export default async function VendorParkBookingsPage({ params }: PageProps) {
             {marketNameById.get(b.market_id) ?? 'Unknown park'} · {spotLabelById.get(b.spot_id) ?? 'Spot'}
             {b.standing_reservation_id ? ' · weekly hold' : ''}
           </div>
+          {boothMapByMarket.has(b.market_id) && (
+            <a
+              href={boothMapByMarket.get(b.market_id)}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'inline-block',
+                marginTop: spacing['3xs'],
+                fontSize: typography.sizes.xs,
+                color: colors.primary,
+                textDecoration: 'none',
+                fontWeight: typography.weights.semibold,
+              }}
+            >
+              📍 View spot map
+            </a>
+          )}
         </div>
         <span style={{
           fontSize: typography.sizes.xs,

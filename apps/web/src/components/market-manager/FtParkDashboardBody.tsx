@@ -14,6 +14,7 @@ import InviteVendorLink from './InviteVendorLink'
 import InviteVendorBrowser from './InviteVendorBrowser'
 import MarketStripeConnectCard from './MarketStripeConnectCard'
 import ParkSpotsManager from './ParkSpotsManager'
+import MarketMapCard from './MarketMapCard'
 import MarketScheduleCard from './MarketScheduleCard'
 import OptinManager from './OptinManager'
 import MarketBrandingCard from './MarketBrandingCard'
@@ -188,6 +189,7 @@ export default function FtParkDashboardBody({
         >
           <ParkSpotsManager marketId={marketId} initialParkMode={(market.park_mode as 'free' | 'paid' | null) ?? 'free'} />
         </ManagerCard>
+        <MarketMapCard marketId={marketId} vertical={vertical} initialBoothMapUrl={(market.booth_map_url as string | null) ?? null} />
         <div id="schedule" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
           <MarketScheduleCard
             marketId={marketId}

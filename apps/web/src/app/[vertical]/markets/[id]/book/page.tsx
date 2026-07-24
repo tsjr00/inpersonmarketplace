@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import BookBoothForm from '@/components/vendor/BookBoothForm'
+import BoothMapViewer from '@/components/market-manager/BoothMapViewer'
+import { getBoothMapUrl } from '@/lib/markets/booth-map'
 import SeasonBookingSection from '@/components/vendor/SeasonBookingSection'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
@@ -262,6 +264,9 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
     .eq('market_id', marketId)
   const creditBalanceCents = (creditRows ?? []).reduce((sum, r) => sum + (r.amount_cents as number), 0)
 
+  // Booth map (mig 205) — tolerant read so this page renders pre-migration.
+  const boothMapUrl = await getBoothMapUrl(serviceClient, marketId)
+
   return (
     <div style={{ maxWidth: containers.lg, margin: '0 auto', padding: spacing.md }}>
       <div style={{ marginBottom: spacing.md }}>
@@ -278,6 +283,12 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
         manager can&apos;t change it after the fact. Payment is collected at
         booking via Stripe; the manager receives their portion automatically.
       </p>
+      {boothMapUrl && (
+        <div style={{ marginBottom: spacing.md }}>
+          <p style={{ ...mutedStyle, marginBottom: spacing.xs, fontWeight: typography.weights.semibold }}>Where your booth will be</p>
+          <BoothMapViewer url={boothMapUrl} alt={`Booth map for ${market.name}`} />
+        </div>
+      )}
       <BookBoothForm
         marketId={marketId}
         marketName={market.name as string}

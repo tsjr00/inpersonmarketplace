@@ -7,6 +7,7 @@ import { colors, spacing, typography, containers } from '@/lib/design-tokens'
 import ManagerJumpNav from '@/components/market-manager/ManagerJumpNav'
 import FtParkDashboardBody from '@/components/market-manager/FtParkDashboardBody'
 import FmDashboardBody from '@/components/market-manager/FmDashboardBody'
+import { getBoothMapUrl } from '@/lib/markets/booth-map'
 import { getManagerDashboardStats, getMarketTransactionsAggregates, getManagerEarningsAggregates, getParkManagerEarningsAggregates } from '@/lib/markets/manager-dashboard-stats'
 import { getParkWeekSchedule } from '@/lib/markets/park-week-schedule'
 import { getMarketVisibilityStatus } from '@/lib/markets/market-visibility'
@@ -76,6 +77,12 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
   if (!market) {
     redirect(`/${vertical}/dashboard`)
   }
+
+  // booth_map_url (mig 205) — tolerant separate read so the dashboard renders even
+  // before the migration applies; injected into the market object the dashboard
+  // bodies already receive (they pass it to the MarketMapCard like logo_url).
+  const boothMapUrl = await getBoothMapUrl(supabase, marketId)
+  const marketWithMap = { ...market, booth_map_url: boothMapUrl }
 
   const onboardingProgress = await getOnboardingProgress(marketId)
   const dashboardStats = await getManagerDashboardStats(
@@ -197,7 +204,7 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
         <FtParkDashboardBody
           vertical={vertical}
           marketId={marketId}
-          market={market as Record<string, unknown>}
+          market={marketWithMap as Record<string, unknown>}
           onboardingProgress={onboardingProgress}
           parkOnboarding={await getParkOnboardingProgress(marketId)}
           dashboardStats={dashboardStats}
@@ -211,7 +218,7 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
         <FmDashboardBody
           vertical={vertical}
           marketId={marketId}
-          market={market as Record<string, unknown>}
+          market={marketWithMap as Record<string, unknown>}
           onboardingProgress={onboardingProgress}
           dashboardStats={dashboardStats}
           earningsAggregates={earningsAggregates}

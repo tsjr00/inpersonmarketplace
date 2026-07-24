@@ -3,6 +3,8 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import BookParkSpotForm from '@/components/vendor/BookParkSpotForm'
+import BoothMapViewer from '@/components/market-manager/BoothMapViewer'
+import { getBoothMapUrl } from '@/lib/markets/booth-map'
 
 /**
  * Vendor food-truck park-spot booking page (FT-only).
@@ -204,6 +206,9 @@ export default async function BookParkSpotPage({ params }: PageProps) {
     }
   }
 
+  // Booth/spot map (mig 205) — tolerant read so this page renders pre-migration.
+  const boothMapUrl = await getBoothMapUrl(supabase, id)
+
   return (
     <div style={{ maxWidth: containers.lg, margin: '0 auto', padding: spacing.md }}>
       <div style={{ marginBottom: spacing.md }}>
@@ -219,6 +224,12 @@ export default async function BookParkSpotPage({ params }: PageProps) {
         Pick a spot and the day(s) you want to park. Payment is collected up
         front through Stripe — the park receives their portion automatically.
       </p>
+      {boothMapUrl && (
+        <div style={{ marginBottom: spacing.md }}>
+          <p style={{ ...mutedStyle, marginBottom: spacing.xs, fontWeight: typography.weights.semibold }}>Where you&apos;ll park</p>
+          <BoothMapViewer url={boothMapUrl} alt={`Spot map for ${market.name}`} />
+        </div>
+      )}
       <BookParkSpotForm
         marketId={id}
         vertical={vertical}
