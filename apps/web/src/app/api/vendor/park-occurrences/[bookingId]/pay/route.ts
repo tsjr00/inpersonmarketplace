@@ -6,6 +6,13 @@ import { withErrorTracing, traced, crumb, logError, TracedError } from '@/lib/er
 import { calculateBoothRentalFees } from '@/lib/pricing'
 import { createParkSpotCheckoutSession } from '@/lib/stripe/payments'
 import { PARK_SPOT_MIN_CHARGE_CENTS } from '@/lib/markets/park-booking-types'
+import {
+  PARK_SAME_DAY_CUTOFF_MINUTES,
+  earliestOpenByDow,
+  localMinutesOfDay,
+  formatClockMinutes,
+  isPastSameDayCutoff,
+} from '@/lib/markets/park-booking-window'
 
 /**
  * POST /api/vendor/park-occurrences/[bookingId]/pay
@@ -55,7 +62,7 @@ export async function POST(
     // Market + payment gates.
     const { data: market } = await service
       .from('markets')
-      .select('id, name, vertical_id, stripe_charges_enabled, stripe_account_id, park_mode, operator_keep_pct')
+      .select('id, name, vertical_id, timezone, stripe_charges_enabled, stripe_account_id, park_mode, operator_keep_pct')
       .eq('id', booking.market_id)
       .maybeSingle()
     if (!market) return NextResponse.json({ error: 'Park not found' }, { status: 404 })
@@ -105,6 +112,64 @@ export async function POST(
         { error: 'This recurring hold is no longer active, so this occurrence can no longer be paid.' },
         { status: 409 }
       )
+    }
+
+    // --- DATE WINDOW (owner decision 2026-07-23) ---------------------------
+    // This route previously had NO date validation at all: a stale occurrence
+    // could be paid for a date already past, or same-day after the park had
+    // opened. In practice the daily sweep expires unpaid occurrences
+    // PARK_STANDING_PREPAY_CUTOFF_DAYS out (park-standing.ts), so those 409 on
+    // the status check above — but that is cron-dependent, not enforced here.
+    //
+    // The relationship test from book-park-spot does NOT apply: an ACTIVE
+    // operator-approved standing hold IS the established relationship. Only
+    // the time cutoff applies.
+    {
+      const tz = (market.timezone as string | null) || 'America/Chicago'
+      const localNow = new Date(new Date().toLocaleString('en-US', { timeZone: tz }))
+      const todayLocal = new Date(localNow.getFullYear(), localNow.getMonth(), localNow.getDate())
+      const pad2 = (n: number) => String(n).padStart(2, '0')
+      const todayYmd = `${todayLocal.getFullYear()}-${pad2(todayLocal.getMonth() + 1)}-${pad2(todayLocal.getDate())}`
+      const occurrenceDate = booking.booking_date as string
+      const parkName = (market.name as string) || 'this park'
+
+      if (occurrenceDate < todayYmd) {
+        return NextResponse.json(
+          {
+            error:
+              `This occurrence (${occurrenceDate}) has already passed and can no longer be paid. ` +
+              `Reason: a spot can only be paid for a day that hasn't happened yet.`,
+            code: 'ERR_PARK_OCCURRENCE_PAST',
+          },
+          { status: 409 }
+        )
+      }
+
+      if (occurrenceDate === todayYmd) {
+        const [oy, omo, odd] = occurrenceDate.split('-').map(Number)
+        const dow = new Date(Date.UTC(oy, omo - 1, odd)).getUTCDay()
+        crumb.supabase('select', 'market_schedules')
+        const { data: scheds } = await service
+          .from('market_schedules')
+          .select('day_of_week, start_time')
+          .eq('market_id', booking.market_id)
+          .eq('active', true)
+        const openMinutes = earliestOpenByDow(scheds ?? []).get(dow) ?? null
+        if (isPastSameDayCutoff(localMinutesOfDay(localNow), openMinutes) && openMinutes !== null) {
+          return NextResponse.json(
+            {
+              error:
+                `Today's spot can no longer be paid for. ` +
+                `Reason: same-day payment closes ${PARK_SAME_DAY_CUTOFF_MINUTES} minutes before opening — ` +
+                `${parkName} opens at ${formatClockMinutes(openMinutes)} today, so payment closed at ` +
+                `${formatClockMinutes(openMinutes - PARK_SAME_DAY_CUTOFF_MINUTES)}. ` +
+                `Your recurring hold is unaffected — the next occurrence is still yours.`,
+              code: 'ERR_PARK_SAME_DAY_CLOSED',
+            },
+            { status: 409 }
+          )
+        }
+      }
     }
 
     const { data: spot } = await service

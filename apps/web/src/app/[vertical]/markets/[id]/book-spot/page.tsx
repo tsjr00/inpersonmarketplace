@@ -131,6 +131,13 @@ export default async function BookParkSpotPage({ params }: PageProps) {
     new Set((schedulesRaw ?? []).map((r) => r.day_of_week as number))
   ).sort((a, b) => a - b)
 
+  // Same-day rule (2026-07-23): the form mirrors the server's cutoff so a truck
+  // never sees a day it can't buy. Opening times per weekday drive that.
+  const dowOpenTimes = (schedulesRaw ?? []).map((r) => ({
+    day_of_week: r.day_of_week as number,
+    start_time: r.start_time as string,
+  }))
+
   // Recurring occurrences awaiting payment for THIS vendor at this park (P4b).
   // Auth-gated: anonymous visitors / non-FT vendors simply see none.
   let pendingOccurrences: PendingOccurrence[] = []
@@ -144,6 +151,10 @@ export default async function BookParkSpotPage({ params }: PageProps) {
   // P6 (2026-07-15): the truck's declared length from event-readiness data —
   // null when unset (the form shows a nudge instead of filtering).
   let truckLengthFt: number | null = null
+  // Same-day eligibility (owner decision 2026-07-23): a COMPLETED past day at
+  // this park, or operator-reviewed documents. Mirrors the server gate in
+  // api/vendor/markets/[id]/book-park-spot; the server remains authoritative.
+  let sameDayEligible = false
   const authClient = await createClient()
   const { data: { user } } = await authClient.auth.getUser()
   if (user) {
@@ -163,6 +174,35 @@ export default async function BookParkSpotPage({ params }: PageProps) {
         .in('status', ['paid', 'completed'])
         .limit(1)
       hasPriorPaidRental = (priorPaid?.length ?? 0) > 0
+
+      // Same-day eligibility — note this deliberately requires a booking_date
+      // in the PAST (a completed day), unlike hasPriorPaidRental above which
+      // counts any paid booking including upcoming ones. Booking next Saturday
+      // must not unlock same-day booking today.
+      const tzNow = new Date(
+        new Date().toLocaleString('en-US', { timeZone: (market.timezone as string | null) || 'America/Chicago' })
+      )
+      const pad2 = (n: number) => String(n).padStart(2, '0')
+      const todayYmd = `${tzNow.getFullYear()}-${pad2(tzNow.getMonth() + 1)}-${pad2(tzNow.getDate())}`
+      const { data: vetting } = await supabase
+        .from('park_vendor_vetting')
+        .select('review_status')
+        .eq('market_id', id)
+        .eq('vendor_profile_id', profile.id)
+        .maybeSingle()
+      if (vetting?.review_status === 'reviewed') {
+        sameDayEligible = true
+      } else {
+        const { data: pastVisit } = await supabase
+          .from('park_spot_bookings')
+          .select('id')
+          .eq('market_id', id)
+          .eq('vendor_profile_id', profile.id)
+          .in('status', ['paid', 'completed'])
+          .lt('booking_date', todayYmd)
+          .limit(1)
+        sameDayEligible = (pastVisit?.length ?? 0) > 0
+      }
 
       const { data: occRaw } = await supabase
         .from('park_spot_bookings')
@@ -244,6 +284,8 @@ export default async function BookParkSpotPage({ params }: PageProps) {
         seasonEnd={(market.season_end as string | null) ?? null}
         truckLengthFt={truckLengthFt}
         requiredDocsNote={requiredDocsNote}
+        dowOpenTimes={dowOpenTimes}
+        sameDayEligible={sameDayEligible}
       />
     </div>
   )

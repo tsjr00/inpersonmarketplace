@@ -49,6 +49,23 @@ FM vendor (approved) · FT truck · buyer. Stripe TEST mode (card `4242 4242 424
 - [ ] Book a spot (test card) completes
 - [ ] vendor/park-bookings -> "View spot map" link per mapped-park booking -> opens map
 
+## E2 - Same-day booking rule (NEW 2026-07-23; login: FT truck)
+**SETUP:** you need TWO trucks at the same park — one "new" (no completed day,
+docs NOT marked reviewed) and one "established" (a park_spot_booking with
+booking_date in the PAST, status paid/completed). Park must be open TODAY.
+- [ ] NEW truck, any time of day -> today is NOT in the Day dropdown, and the
+      yellow box reads "Today isn't available to book... completed a day at this
+      park, or... documents... marked reviewed"
+- [ ] Operator marks that truck's docs **reviewed** (manager -> vendor docs) ->
+      reload -> today NOW appears (if still >1hr before open)
+- [ ] ESTABLISHED truck, more than 1 hr before open -> today IS in the dropdown;
+      booking it completes normally
+- [ ] ESTABLISHED truck, INSIDE the last hour before open (or after open) ->
+      today is gone, yellow box names the open time and the closing time
+      ("opens at 11:00 AM today, so same-day booking closed at 10:00 AM")
+- [ ] Tomorrow and later days are unaffected in every case above
+- [ ] Prepay-a-week: the current week no longer offers today, other days intact
+
 ## F - Buyer checkout / money (login: buyer; Stripe test)
 - [ ] S1-1 stale tip: add items + tip -> Stripe -> back -> set "No tip" -> checkout again -> NOT charged old tip
 - [ ] S1-7 cross-vertical: items in both FM + FT carts -> neither checkout falsely blocks the other

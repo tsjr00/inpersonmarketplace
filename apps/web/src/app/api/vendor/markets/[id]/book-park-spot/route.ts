@@ -9,6 +9,13 @@ import { PARK_SPOT_MIN_CHARGE_CENTS, PARK_SPOT_MAX_DATES } from '@/lib/markets/p
 import { fetchMarketOptinForVendor } from '@/lib/markets/optin-public'
 import { computeAgreementVersionFromSnapshot } from '@/lib/markets/agreement-version'
 import { padTime, timesOverlap, dayOfWeekName, formatTimeDisplay } from '@/lib/utils/schedule-overlap'
+import {
+  PARK_SAME_DAY_CUTOFF_MINUTES,
+  earliestOpenByDow,
+  localMinutesOfDay,
+  formatClockMinutes,
+  denySameDayReason,
+} from '@/lib/markets/park-booking-window'
 
 /**
  * POST /api/vendor/markets/[id]/book-park-spot
@@ -90,9 +97,11 @@ export async function POST(
 
     // B3 — book-then-vet: a truck the operator blocked can't make new bookings.
     // Fail-open if the vetting row is absent (blocking is the exception).
+    // `review_status` rides along for the same-day rule below (operator-reviewed
+    // docs are one of the two ways same-day booking unlocks) — no extra query.
     const { data: vetting } = await serviceClient
       .from('park_vendor_vetting')
-      .select('blocked')
+      .select('blocked, review_status')
       .eq('market_id', marketId)
       .eq('vendor_profile_id', profile.id)
       .maybeSingle()
@@ -152,6 +161,8 @@ export async function POST(
     const tz = (market.timezone as string | null) || 'America/Chicago'
     const localNow = new Date(new Date().toLocaleString('en-US', { timeZone: tz }))
     const todayLocal = new Date(localNow.getFullYear(), localNow.getMonth(), localNow.getDate())
+    const pad2 = (n: number) => String(n).padStart(2, '0')
+    const todayYmd = `${todayLocal.getFullYear()}-${pad2(todayLocal.getMonth() + 1)}-${pad2(todayLocal.getDate())}`
 
     const [schedRes, ovrRes] = await Promise.all([
       serviceClient.from('market_schedules').select('day_of_week, start_time, end_time').eq('market_id', marketId).eq('active', true),
@@ -183,6 +194,74 @@ export async function POST(
         return NextResponse.json(
           { error: `${d} is outside the park's season (${seasonStart || 'open'} – ${seasonEnd || 'open'}).`, field: 'booking_dates' },
           { status: 400 }
+        )
+      }
+    }
+
+    // --- SAME-DAY RULE (tester finding + owner decision 2026-07-23) ---------
+    // Previously the only date gate was "not in the past", so a truck could buy
+    // a spot for today at any hour — including after the park had opened, or
+    // after it had closed for the day. Same-day is now allowed only for trucks
+    // with an established relationship at THIS park, and only up to
+    // PARK_SAME_DAY_CUTOFF_MINUTES before that day's opening time.
+    //
+    // "Established" = a COMPLETED past day here (booking_date < today — an
+    // upcoming paid booking does NOT count; the truck has to have actually
+    // shown up), or documents the operator has marked `reviewed`.
+    //
+    // Deliberately NOT an operator-confirmation step: that needs an SLA and a
+    // timeout, and every answer to "the operator didn't respond before opening"
+    // is bad. Both signals here are already settled when the truck loads the
+    // page, so nothing can time out. See lib/markets/park-booking-window.ts.
+    if (dates.includes(todayYmd)) {
+      const [ty, tmo, tdd] = todayYmd.split('-').map(Number)
+      const todayDow = new Date(Date.UTC(ty, tmo - 1, tdd)).getUTCDay()
+      const openMinutes = earliestOpenByDow(schedRes.data ?? []).get(todayDow) ?? null
+      const nowMinutes = localMinutesOfDay(localNow)
+
+      let established = vetting?.review_status === 'reviewed'
+      if (!established) {
+        crumb.supabase('select', 'park_spot_bookings')
+        const { data: priorVisit } = await serviceClient
+          .from('park_spot_bookings')
+          .select('id')
+          .eq('market_id', marketId)
+          .eq('vendor_profile_id', profile.id)
+          .in('status', ['paid', 'completed'])
+          .lt('booking_date', todayYmd)
+          .limit(1)
+        established = (priorVisit?.length ?? 0) > 0
+      }
+
+      const denial = denySameDayReason(established, nowMinutes, openMinutes)
+      const parkName = (market.name as string) || 'this park'
+
+      if (denial === 'not_established') {
+        return NextResponse.json(
+          {
+            error:
+              `Same-day booking isn't open to your truck at ${parkName} yet. ` +
+              `Reason: same-day spots are limited to trucks that have already completed a day at this park, ` +
+              `or whose documents the operator has marked reviewed. ` +
+              `Pick a later day — after your first day here, same-day booking unlocks automatically.`,
+            code: 'ERR_PARK_SAME_DAY_NOT_ELIGIBLE',
+            field: 'booking_dates',
+          },
+          { status: 409 }
+        )
+      }
+      if (denial === 'past_cutoff' && openMinutes !== null) {
+        return NextResponse.json(
+          {
+            error:
+              `Same-day booking for ${todayYmd} has closed. ` +
+              `Reason: same-day bookings must be made at least ${PARK_SAME_DAY_CUTOFF_MINUTES} minutes before opening — ` +
+              `${parkName} opens at ${formatClockMinutes(openMinutes)} today, so same-day booking closed at ` +
+              `${formatClockMinutes(openMinutes - PARK_SAME_DAY_CUTOFF_MINUTES)}. Pick another day.`,
+            code: 'ERR_PARK_SAME_DAY_CLOSED',
+            field: 'booking_dates',
+          },
+          { status: 409 }
         )
       }
     }

@@ -5,6 +5,15 @@ import { useSearchParams } from 'next/navigation'
 import { colors, spacing, typography, radius, statusColors } from '@/lib/design-tokens'
 import { calculateBoothRentalFees } from '@/lib/pricing'
 import MarketAgreementBlock from '@/components/market-manager/MarketAgreementBlock'
+import {
+  PARK_SAME_DAY_CUTOFF_MINUTES,
+  earliestOpenByDow,
+  localMinutesOfDay,
+  formatClockMinutes,
+  denySameDayReason,
+  type ScheduleOpenSlot,
+  type SameDayDenialReason,
+} from '@/lib/markets/park-booking-window'
 
 /**
  * Vendor food-truck park-spot booking form (FT-only).
@@ -85,6 +94,12 @@ interface BookParkSpotFormProps {
   /** P4b (2026-07-15): the operator's required-documents list (mig 192,
    *  free text) — shown verbatim above the docs acknowledgment. */
   requiredDocsNote?: string | null
+  /** Same-day rule (2026-07-23): opening time per weekday, so the form can
+   *  drop today once it's within PARK_SAME_DAY_CUTOFF_MINUTES of opening. */
+  dowOpenTimes?: ScheduleOpenSlot[]
+  /** Same-day rule (2026-07-23): the truck has a COMPLETED past day at this
+   *  park, or operator-reviewed docs. False → today is never offered. */
+  sameDayEligible?: boolean
 }
 
 const MIN_TOTAL_CENTS = 500
@@ -141,6 +156,8 @@ export default function BookParkSpotForm({
   seasonEnd = null,
   truckLengthFt = null,
   requiredDocsNote = null,
+  dowOpenTimes = [],
+  sameDayEligible = false,
 }: BookParkSpotFormProps) {
   const searchParams = useSearchParams()
   const sessionFlag = searchParams.get('session')
@@ -148,10 +165,22 @@ export default function BookParkSpotForm({
   // Next 8 weeks (56 days) of operating dates, in the park's timezone.
   // P2 (2026-07-15): clamped to the manager's season window when set (dates
   // are YYYY-MM-DD strings, so string comparison is safe).
-  const operatingDates = useMemo<string[]>(() => {
-    if (scheduleDows.length === 0) return []
+  // Same-day rule (owner decision 2026-07-23): today is only offered to trucks
+  // with a completed past day here (or operator-reviewed docs) AND only until
+  // PARK_SAME_DAY_CUTOFF_MINUTES before opening. Mirrors the server gate in
+  // api/vendor/markets/[id]/book-park-spot so a truck never picks a day that
+  // checkout will reject; the server stays authoritative.
+  const { operatingDates, sameDayDenial } = useMemo<{
+    operatingDates: string[]
+    sameDayDenial: { reason: SameDayDenialReason; openMinutes: number | null } | null
+  }>(() => {
+    if (scheduleDows.length === 0) return { operatingDates: [], sameDayDenial: null }
     const localNow = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }))
     const today = new Date(localNow.getFullYear(), localNow.getMonth(), localNow.getDate())
+    const todayYmd = toYmd(today)
+    const openByDow = earliestOpenByDow(dowOpenTimes)
+    const nowMinutes = localMinutesOfDay(localNow)
+    let denial: { reason: SameDayDenialReason; openMinutes: number | null } | null = null
     const dates: string[] = []
     for (let i = 0; i < 56; i++) {
       const d = new Date(today)
@@ -160,10 +189,18 @@ export default function BookParkSpotForm({
       const ymd = toYmd(d)
       if (seasonStart && ymd < seasonStart) continue
       if (seasonEnd && ymd > seasonEnd) continue
+      if (ymd === todayYmd) {
+        const openMinutes = openByDow.get(d.getDay()) ?? null
+        const reason = denySameDayReason(sameDayEligible, nowMinutes, openMinutes)
+        if (reason) {
+          denial = { reason, openMinutes }
+          continue
+        }
+      }
       dates.push(ymd)
     }
-    return dates
-  }, [scheduleDows, timezone, seasonStart, seasonEnd])
+    return { operatingDates: dates, sameDayDenial: denial }
+  }, [scheduleDows, timezone, seasonStart, seasonEnd, dowOpenTimes, sameDayEligible])
 
   // Group operating dates by their Sunday-week key, preserving order.
   const weeks = useMemo(() => {
@@ -594,6 +631,42 @@ export default function BookParkSpotForm({
               select Saturday, and pay — you&apos;re booked for that one day. Or choose &quot;Prepay a
               week&quot; to pay for a whole week&apos;s operating days at once.
             </div>
+            {/* Same-day rule (2026-07-23): today was dropped from the picker —
+                say WHY, and say what unlocks it, so the truck isn't left
+                wondering where today went. */}
+            {sameDayDenial && (
+              <div style={{
+                padding: spacing.sm,
+                marginBottom: spacing.md,
+                backgroundColor: '#fff8e1',
+                border: '1px solid #ffe082',
+                borderRadius: radius.sm,
+                fontSize: typography.sizes.sm,
+                color: '#6d4c00',
+                lineHeight: 1.5,
+              }}>
+                <strong>Today isn&apos;t available to book.</strong>{' '}
+                {sameDayDenial.reason === 'not_established' ? (
+                  <>
+                    Reason: same-day booking is limited to trucks that have already completed a day
+                    at {marketName}, or whose documents the operator has marked reviewed. Pick any
+                    day below — after your first day here, same-day booking unlocks automatically.
+                  </>
+                ) : (
+                  <>
+                    Reason: same-day booking closes {PARK_SAME_DAY_CUTOFF_MINUTES} minutes before
+                    opening
+                    {sameDayDenial.openMinutes !== null && (
+                      <> — {marketName} opens at {formatClockMinutes(sameDayDenial.openMinutes)} today,
+                      so same-day booking closed at{' '}
+                      {formatClockMinutes(sameDayDenial.openMinutes - PARK_SAME_DAY_CUTOFF_MINUTES)}</>
+                    )}
+                    . Pick another day below.
+                  </>
+                )}
+              </div>
+            )}
+
             {/* Booking mode toggle */}
             <div style={{ marginBottom: spacing.md }}>
               <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing.xs }}>
