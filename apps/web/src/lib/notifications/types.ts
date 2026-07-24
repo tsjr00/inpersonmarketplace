@@ -1001,9 +1001,12 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       const sched = d.scheduleAutoSet
         ? ' Your selling schedule at this park was set for your booked days — buyers can now order pickup; adjust it any time under your locations.'
         : ''
-      return `Payment received — ${d.spotLabel || 'your spot'} at ${d.marketName || 'the park'} is booked for ${n} day${n === 1 ? '' : 's'}${when}. Check in through the platform on each day you operate.${sched}`
+      // Tester finding 2026-07-23: the receipt named no amount and linked to the
+      // dashboard, not the bookings list. Show what they paid + link to bookings.
+      const paid = d.amountCents ? ` You paid $${(d.amountCents / 100).toFixed(2)}.` : ''
+      return `Payment received — ${d.spotLabel || 'your spot'} at ${d.marketName || 'the park'} is booked for ${n} day${n === 1 ? '' : 's'}${when}.${paid} Check in through the platform on each day you operate.${sched}`
     },
-    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/dashboard`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/park-bookings`,
   },
   park_spot_paid_manager: {
     urgency: 'standard',

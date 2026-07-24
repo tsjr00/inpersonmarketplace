@@ -1920,6 +1920,10 @@ async function handleParkSpotCheckoutComplete(session: Stripe.Checkout.Session) 
           ...(spotLabel ? { spotLabel } : {}),
           ...(datesText ? { datesText } : {}),
           ...(scheduleAutoSet ? { scheduleAutoSet: true } : {}),
+          // Tester finding 2026-07-23: put the amount the truck paid on the
+          // receipt. session.amount_total is the fee-inclusive Stripe charge.
+          // Additive to the notification payload only — no booking/Stripe change.
+          ...(session.amount_total ? { amountCents: session.amount_total } : {}),
         },
         { vertical, ...(vendorEmail ? { userEmail: vendorEmail } : {}) }
       )
