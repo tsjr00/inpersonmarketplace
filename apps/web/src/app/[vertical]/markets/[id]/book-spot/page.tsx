@@ -5,6 +5,7 @@ import { colors, spacing, typography, radius, containers } from '@/lib/design-to
 import BookParkSpotForm from '@/components/vendor/BookParkSpotForm'
 import BoothMapViewer from '@/components/market-manager/BoothMapViewer'
 import { getBoothMapUrl } from '@/lib/markets/booth-map'
+import { parseRequiredDocs } from '@/lib/markets/required-docs'
 
 /**
  * Vendor food-truck park-spot booking page (FT-only).
@@ -111,15 +112,16 @@ export default async function BookParkSpotPage({ params }: PageProps) {
     )
   }
 
-  // P4b (2026-07-15): the park's required-documents list (mig 192). Fetched
-  // separately and error-tolerated so this page keeps working on environments
-  // where the migration hasn't been applied yet.
+  // P4b (2026-07-15) → structured (mig 206): the park's required-documents list.
+  // Fetched separately and error-tolerated so this page keeps working on
+  // environments where the migration hasn't been applied yet (missing column →
+  // error → empty list).
   const { data: docsRow } = await supabase
     .from('markets')
-    .select('required_docs_note')
+    .select('required_docs')
     .eq('id', id)
     .maybeSingle()
-  const requiredDocsNote = (docsRow?.required_docs_note as string | null) ?? null
+  const requiredDocs = parseRequiredDocs(docsRow?.required_docs)
 
   const { data: schedulesRaw } = await supabase
     .from('market_schedules')
@@ -283,7 +285,7 @@ export default async function BookParkSpotPage({ params }: PageProps) {
         seasonStart={(market.season_start as string | null) ?? null}
         seasonEnd={(market.season_end as string | null) ?? null}
         truckLengthFt={truckLengthFt}
-        requiredDocsNote={requiredDocsNote}
+        requiredDocs={requiredDocs}
         dowOpenTimes={dowOpenTimes}
         sameDayEligible={sameDayEligible}
       />

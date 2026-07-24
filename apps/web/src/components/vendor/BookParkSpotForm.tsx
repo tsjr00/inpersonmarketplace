@@ -14,6 +14,7 @@ import {
   type ScheduleOpenSlot,
   type SameDayDenialReason,
 } from '@/lib/markets/park-booking-window'
+import { requiredDocLabel, type RequiredDocEntry } from '@/lib/markets/required-docs'
 
 /**
  * Vendor food-truck park-spot booking form (FT-only).
@@ -91,9 +92,10 @@ interface BookParkSpotFormProps {
   /** P6 (2026-07-15): the truck's declared length (profile event-readiness).
    *  null = not declared → no client-side spot filtering, nudge shown. */
   truckLengthFt?: number | null
-  /** P4b (2026-07-15): the operator's required-documents list (mig 192,
-   *  free text) — shown verbatim above the docs acknowledgment. */
-  requiredDocsNote?: string | null
+  /** P4b (2026-07-15) → structured (mig 206): the operator's required-documents
+   *  list — a checklist of standard permits + custom entries, shown above the
+   *  docs acknowledgment. Empty array = the operator listed nothing. */
+  requiredDocs?: RequiredDocEntry[]
   /** Same-day rule (2026-07-23): opening time per weekday, so the form can
    *  drop today once it's within PARK_SAME_DAY_CUTOFF_MINUTES of opening. */
   dowOpenTimes?: ScheduleOpenSlot[]
@@ -155,7 +157,7 @@ export default function BookParkSpotForm({
   seasonStart = null,
   seasonEnd = null,
   truckLengthFt = null,
-  requiredDocsNote = null,
+  requiredDocs = [],
   dowOpenTimes = [],
   sameDayEligible = false,
 }: BookParkSpotFormProps) {
@@ -643,9 +645,11 @@ export default function BookParkSpotForm({
           </span>
         </label>
 
-        {/* P4b (2026-07-15): the operator's own required-documents list, when
-            they've written one — replaces the generic-only acknowledgment. */}
-        {requiredDocsNote && (
+        {/* P4b (2026-07-15) → structured (mig 206): the operator's own
+            required-documents checklist, when they've listed any. Display-only
+            (book-then-vet) — the truck sees what to bring; docs aren't required
+            to book. */}
+        {requiredDocs.length > 0 && (
           <div style={{
             marginBottom: spacing.sm,
             padding: spacing.sm,
@@ -656,9 +660,13 @@ export default function BookParkSpotForm({
             <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing['3xs'] }}>
               This park requires:
             </div>
-            <div style={{ fontSize: typography.sizes.sm, color: colors.textPrimary, whiteSpace: 'pre-wrap' }}>
-              {requiredDocsNote}
-            </div>
+            <ul style={{ margin: 0, paddingLeft: spacing.md, display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
+              {requiredDocs.map((entry, i) => (
+                <li key={i} style={{ fontSize: typography.sizes.sm, color: colors.textPrimary }}>
+                  {requiredDocLabel(entry)}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
@@ -669,7 +677,7 @@ export default function BookParkSpotForm({
             the truck on a generic profile page. Split the copy by whether the
             operator wrote a list. */}
         <div style={{ marginBottom: spacing.md }}>
-          {requiredDocsNote ? (
+          {requiredDocs.length > 0 ? (
             <>
               <a href={docsHref} style={{ fontSize: typography.sizes.sm, color: colors.primary, textDecoration: 'underline', fontWeight: typography.weights.semibold }}>
                 See the documents this park requires and upload them →
