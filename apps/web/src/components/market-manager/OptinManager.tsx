@@ -9,9 +9,14 @@ import {
   type OptinStatement,
   type OptinSelection,
 } from '@/lib/markets/optin-types'
+import {
+  getTruckPlatformClauses,
+  getOperatorComplianceClause,
+} from '@/lib/markets/platform-agreement-clauses'
 
 interface OptinManagerProps {
   marketId: string
+  vertical: string
 }
 
 interface SelectionState {
@@ -38,13 +43,48 @@ interface SelectionState {
  *   - GET  /api/market-manager/[marketId]/optin/selections
  *   - PUT  /api/market-manager/[marketId]/optin/selections
  */
-export default function OptinManager({ marketId }: OptinManagerProps) {
+export default function OptinManager({ marketId, vertical }: OptinManagerProps) {
   const [catalog, setCatalog] = useState<OptinStatement[] | null>(null)
   const [state, setState] = useState<Record<string, SelectionState>>({})
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveLoading, setSaveLoading] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
+
+  // F6 (2026-07-24): the fixed platform clauses. The truck-facing ones are
+  // read-only (every agreement includes them); the operator must acknowledge
+  // their own compliance clause before they can save.
+  const platformClauses = useMemo(() => getTruckPlatformClauses(vertical), [vertical])
+  const operatorClause = useMemo(() => getOperatorComplianceClause(vertical), [vertical])
+  const [platformAck, setPlatformAck] = useState<boolean | null>(null)
+  const [savingAck, setSavingAck] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/market-manager/${marketId}/platform-ack`)
+      .then((res) => (res.ok ? res.json() : { acknowledged: false }))
+      .then((data) => { if (!cancelled) setPlatformAck(data.acknowledged === true) })
+      .catch(() => { if (!cancelled) setPlatformAck(false) })
+    return () => { cancelled = true }
+  }, [marketId])
+
+  const toggleAck = async (next: boolean) => {
+    setSavingAck(true)
+    setPlatformAck(next) // optimistic
+    setSaveError(null)
+    try {
+      const res = await fetch(`/api/market-manager/${marketId}/platform-ack`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acknowledged: next }),
+      })
+      if (!res.ok) setPlatformAck(!next)
+    } catch {
+      setPlatformAck(!next)
+    } finally {
+      setSavingAck(false)
+    }
+  }
 
   useEffect(() => {
     const load = async () => {
@@ -131,6 +171,13 @@ export default function OptinManager({ marketId }: OptinManagerProps) {
     if (!catalog) return
     setSaveError(null)
     setSaveSuccess(false)
+
+    // F6: the operator must acknowledge the platform compliance clause before
+    // the agreement section can be saved.
+    if (!platformAck) {
+      setSaveError('Please acknowledge the platform agreement below before saving.')
+      return
+    }
 
     // Client-side: every checked statement must have all placeholders filled
     const selections: Array<{ statement_id: string; placeholder_values: Record<string, string> }> = []
@@ -223,6 +270,27 @@ export default function OptinManager({ marketId }: OptinManagerProps) {
         )}
       </div>
 
+      {/* F6: platform requirements — always included, operator can't uncheck.
+          Shown so the operator knows exactly what every business agrees to. */}
+      <div style={{
+        padding: spacing.sm,
+        backgroundColor: colors.surfaceElevated,
+        border: `1px solid ${colors.border}`,
+        borderRadius: radius.sm,
+      }}>
+        <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing['3xs'] }}>
+          Included in every agreement
+        </div>
+        <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing.xs }}>
+          These platform requirements are part of every agreement and can&apos;t be removed — every business that books here agrees to them.
+        </div>
+        <ul style={{ margin: 0, paddingLeft: spacing.md, listStyleType: 'disc', fontSize: typography.sizes.sm, color: colors.textPrimary, lineHeight: 1.5 }}>
+          {platformClauses.map((c) => (
+            <li key={c.statement_id} style={{ marginBottom: spacing['3xs'] }}>{c.text}</li>
+          ))}
+        </ul>
+      </div>
+
       {/* Catalog grouped by category */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
         {grouped.map((group) => (
@@ -313,6 +381,32 @@ export default function OptinManager({ marketId }: OptinManagerProps) {
         ))}
       </div>
 
+      {/* F6: operator acknowledgment — the last item in the agreement list.
+          Required (Save is gated on it). Persisted immediately on toggle. */}
+      {platformAck !== null && (
+        <label style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: spacing.xs,
+          padding: spacing.sm,
+          backgroundColor: platformAck ? colors.surfaceElevated : colors.surfaceBase,
+          border: `1px solid ${platformAck ? colors.primary : colors.border}`,
+          borderRadius: radius.sm,
+          cursor: savingAck ? 'wait' : 'pointer',
+        }}>
+          <input
+            type="checkbox"
+            checked={platformAck}
+            disabled={savingAck}
+            onChange={(e) => toggleAck(e.target.checked)}
+            style={{ marginTop: 3, width: 18, height: 18 }}
+          />
+          <span style={{ fontSize: typography.sizes.sm, color: colors.textPrimary, lineHeight: 1.4 }}>
+            {operatorClause}
+          </span>
+        </label>
+      )}
+
       {/* Save bar */}
       <div style={{
         position: 'sticky',
@@ -328,7 +422,8 @@ export default function OptinManager({ marketId }: OptinManagerProps) {
       }}>
         <button
           onClick={handleSave}
-          disabled={saveLoading}
+          disabled={saveLoading || !platformAck}
+          title={!platformAck ? 'Acknowledge the platform agreement above to save' : undefined}
           style={{
             padding: `${spacing.xs} ${spacing.md}`,
             backgroundColor: colors.primary,
@@ -337,8 +432,8 @@ export default function OptinManager({ marketId }: OptinManagerProps) {
             borderRadius: radius.sm,
             fontSize: typography.sizes.sm,
             fontWeight: typography.weights.semibold,
-            cursor: saveLoading ? 'not-allowed' : 'pointer',
-            opacity: saveLoading ? 0.6 : 1,
+            cursor: (saveLoading || !platformAck) ? 'not-allowed' : 'pointer',
+            opacity: (saveLoading || !platformAck) ? 0.6 : 1,
           }}
         >
           {saveLoading ? 'Saving…' : 'Save selections'}

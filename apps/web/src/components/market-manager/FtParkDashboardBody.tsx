@@ -224,7 +224,7 @@ export default function FtParkDashboardBody({
           title="Food truck agreement statements"
           description="Select which opt-in statements trucks must accept when they sign up to your park. Statements with placeholders (in curly braces) let you fill in values specific to your park."
         >
-          <OptinManager marketId={marketId} />
+          <OptinManager marketId={marketId} vertical={vertical} />
         </ManagerCard>
         <MarketBrandingCard
           marketId={marketId}

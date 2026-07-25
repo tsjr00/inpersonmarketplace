@@ -614,7 +614,7 @@ export default function BookParkSpotForm({
         {/* Park agreement — the vendor accepts the operator's opt-in statements
             before booking OR requesting a recurring hold (mirrors the FM booth
             flow). Renders nothing + auto-accepts if the park selected none. */}
-        <MarketAgreementBlock marketId={marketId} onChange={setAgreementAccepted} />
+        <MarketAgreementBlock marketId={marketId} vertical={vertical} onChange={setAgreementAccepted} />
 
         {/* B1 — park compliance acknowledgment (doc responsibility + info-sharing
             consent). Required to book/request; docs are NOT required at booking. */}

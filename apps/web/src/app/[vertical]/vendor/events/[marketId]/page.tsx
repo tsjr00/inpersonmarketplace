@@ -844,7 +844,7 @@ export default function VendorCateringDetailPage() {
 
               {/* Event agreement — the commitments the organizer set for this
                   event. Renders nothing (and auto-accepts) if none were set. */}
-              <MarketAgreementBlock marketId={marketId} onChange={setAgreementAccepted} />
+              <MarketAgreementBlock marketId={marketId} vertical={vertical} onChange={setAgreementAccepted} />
 
               <div style={{ display: 'flex', gap: spacing.sm }}>
                 <button

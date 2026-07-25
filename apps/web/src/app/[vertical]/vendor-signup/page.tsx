@@ -821,6 +821,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
                     </p>
                     <MarketAgreementBlock
                       marketId={marketIdParam}
+                      vertical={vertical}
                       onChange={setAgreementAccepted}
                     />
                     {reAcceptError && (
@@ -978,6 +979,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
 
               <MarketAgreementBlock
                 marketId={marketIdParam}
+                vertical={vertical}
                 onChange={setAgreementAccepted}
               />
 
@@ -1097,6 +1099,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
 
                 <MarketAgreementBlock
                   marketId={marketIdParam}
+                  vertical={vertical}
                   onChange={() => {}}
                 />
               </>
@@ -1805,6 +1808,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
                 </label>
                 <MarketAgreementBlock
                   marketId={mid}
+                  vertical={vertical}
                   onChange={setAgreementAccepted}
                 />
               </>

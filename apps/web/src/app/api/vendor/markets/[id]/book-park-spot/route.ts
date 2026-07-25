@@ -8,6 +8,7 @@ import { createParkSpotCheckoutSession } from '@/lib/stripe/payments'
 import { PARK_SPOT_MIN_CHARGE_CENTS, PARK_SPOT_MAX_DATES } from '@/lib/markets/park-booking-types'
 import { fetchMarketOptinForVendor } from '@/lib/markets/optin-public'
 import { computeAgreementVersionFromSnapshot } from '@/lib/markets/agreement-version'
+import { getTruckPlatformClauses } from '@/lib/markets/platform-agreement-clauses'
 import { padTime, timesOverlap, dayOfWeekName, formatTimeDisplay } from '@/lib/utils/schedule-overlap'
 import {
   PARK_SAME_DAY_CUTOFF_MINUTES,
@@ -360,8 +361,17 @@ export async function POST(
     //     Synthetic `_` entries are excluded from the version hash (mirrors
     //     join/route.ts). Idempotent on the per-version UNIQUE (23505). ---
     const { snapshot } = await fetchMarketOptinForVendor(marketId)
+    // F6 (2026-07-24): the fixed platform clauses are part of every agreement,
+    // so they're recorded in the truck's acceptance snapshot too.
+    const platformClauseEntries = getTruckPlatformClauses((market.vertical_id as string) || 'food_trucks').map((c) => ({
+      statement_id: c.statement_id,
+      category: '_platform',
+      statement_text: c.text,
+      placeholder_values: {},
+    }))
     const finalSnapshot = [
       ...snapshot,
+      ...platformClauseEntries,
       {
         statement_id: '_info_sharing_consent',
         category: '_meta',

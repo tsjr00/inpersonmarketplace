@@ -331,7 +331,7 @@ export default async function OnboardingStepPage({ params }: PageProps) {
             }}>
               Pick the opt-in statements vendors must accept when they sign up to your market. Statements with placeholders (in curly braces) let you fill in values specific to your market — these get substituted into the vendor-facing text at signup. You need at least one statement selected to continue.
             </p>
-            <OptinManager marketId={marketId} />
+            <OptinManager marketId={marketId} vertical={vertical} />
           </div>
         )}
 

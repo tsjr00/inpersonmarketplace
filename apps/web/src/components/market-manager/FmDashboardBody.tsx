@@ -165,7 +165,7 @@ export default function FmDashboardBody({
           title={`${term(vertical, 'vendor')} agreement statements`}
           description={`Select which opt-in statements ${term(vertical, 'vendors').toLowerCase()} must accept when they sign up to your ${term(vertical, 'market').toLowerCase()}. Statements with placeholders (in curly braces) let you fill in values specific to your ${term(vertical, 'market').toLowerCase()}.`}
         >
-          <OptinManager marketId={marketId} />
+          <OptinManager marketId={marketId} vertical={vertical} />
         </ManagerCard>
         <MarketBrandingCard
           marketId={marketId}

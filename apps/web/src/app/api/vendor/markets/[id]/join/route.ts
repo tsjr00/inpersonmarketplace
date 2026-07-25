@@ -5,6 +5,7 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import { fetchMarketOptinForVendor } from '@/lib/markets/optin-public'
 import { computeAgreementVersionFromSnapshot } from '@/lib/markets/agreement-version'
+import { getTruckPlatformClauses } from '@/lib/markets/platform-agreement-clauses'
 
 /**
  * POST /api/vendor/markets/[id]/join
@@ -130,17 +131,28 @@ export async function POST(
     // so the consent is captured in the same JSONB record as the opt-in
     // acceptance. Schema unchanged; future queries:
     //   WHERE statements_snapshot @> '[{"statement_id":"_info_sharing_consent"}]'
-    const finalSnapshot = infoSharingAccepted
-      ? [
-          ...snapshot,
-          {
-            statement_id: '_info_sharing_consent',
-            category: '_meta',
-            statement_text: 'Vendor authorizes the platform to share their onboarding documentation with the market manager.',
-            placeholder_values: {},
-          },
-        ]
-      : snapshot
+    // F6 (2026-07-24): the fixed platform clauses are part of every agreement,
+    // recorded in the vendor's acceptance snapshot regardless of info-sharing.
+    const platformClauseEntries = getTruckPlatformClauses(market.vertical_id).map((c) => ({
+      statement_id: c.statement_id,
+      category: '_platform',
+      statement_text: c.text,
+      placeholder_values: {},
+    }))
+    const finalSnapshot = [
+      ...snapshot,
+      ...platformClauseEntries,
+      ...(infoSharingAccepted
+        ? [
+            {
+              statement_id: '_info_sharing_consent',
+              category: '_meta',
+              statement_text: 'Vendor authorizes the platform to share their onboarding documentation with the market manager.',
+              placeholder_values: {},
+            },
+          ]
+        : []),
+    ]
 
     const serviceClient = createServiceClient()
 

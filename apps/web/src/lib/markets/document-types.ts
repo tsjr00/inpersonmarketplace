@@ -22,6 +22,13 @@ export interface DocumentTypeDefinition {
   value: MarketDocumentType
   label: string
   helpText: string
+  /**
+   * F7 (2026-07-24): whether this document is REQUIRED for a legitimate
+   * operator. Advisory — labeled + checklisted in the UI, but does NOT block
+   * setup; admin still verifies before approving the market. Insurance is NOT
+   * a required document — operators self-certify it instead (mig 208).
+   */
+  required: boolean
 }
 
 /**
@@ -33,39 +40,45 @@ export interface DocumentTypeDefinition {
 export const DOCUMENT_TYPE_DEFINITIONS: readonly DocumentTypeDefinition[] = [
   {
     value: 'legal_entity_filing',
-    label: 'Legal entity filing',
+    label: 'Legal entity',
     helpText:
       'Document showing the entity that operates the market (LLC, partnership, sole proprietorship, etc.) and that you are affiliated with it. State business registration, city/state vendor permit naming the entity, articles of organization, etc.',
+    required: true,
   },
   {
     value: 'owners_managers_list',
     label: 'Owners / managers list',
     helpText:
-      'Names + contact info of other owners or managers of the market entity. A short typed letter, an operating agreement excerpt, or a screenshot from your secretary of state filing is fine.',
+      'The names and email addresses of the other owners or managers of the market entity. A short typed letter, an operating agreement excerpt, or a screenshot from your secretary of state filing is fine — just make sure names and emails are included.',
+    required: true,
+  },
+  {
+    value: 'venue_proof',
+    label: 'Proof you’re allowed to operate here',
+    helpText:
+      'A lease, deed, or written agreement showing you have permission to run a market at this address. It needs to identify who granted that permission — the property owner, property manager, and/or the controlling entity — and include their contact info, so we can confirm your right to operate with the party in control of the site.',
+    required: true,
   },
   {
     value: 'market_website',
     label: 'Market website (if any)',
     helpText:
-      'Screenshot or URL-as-PDF of the market website if one exists. Helps confirm you are the legitimate operator.',
+      'Screenshot or URL-as-PDF of the market website if one exists. Helps confirm you are the legitimate operator. Optional.',
+    required: false,
   },
   {
     value: 'insurance_coi',
-    label: 'Certificate of Insurance',
+    label: 'Certificate of Insurance (optional)',
     helpText:
-      'COI showing liability coverage for the market. Required for booth-rental fraud protection.',
-  },
-  {
-    value: 'venue_proof',
-    label: 'Venue / location proof',
-    helpText:
-      'Evidence that the market actually operates at the address provided: lease, recent city event permit, dated photo of the market in operation, or vendor sign-up sheet.',
+      'You self-certify your insurance below, so a COI is no longer required — but you may upload one here if you’d like it on file. Optional.',
+    required: false,
   },
   {
     value: 'other',
     label: 'Other',
     helpText:
-      'Anything else that helps us verify legitimacy. Use the notes field to describe what it is.',
+      'Anything else that helps us verify legitimacy. Use the notes field to describe what it is. Optional.',
+    required: false,
   },
 ] as const
 

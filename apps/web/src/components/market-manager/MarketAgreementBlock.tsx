@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { getTruckPlatformClauses, PLATFORM_CATEGORY_LABEL } from '@/lib/markets/platform-agreement-clauses'
 
 /**
  * Vendor-facing agreement block rendered on the co-branded vendor-signup
@@ -25,6 +26,8 @@ import { colors, spacing, typography, radius } from '@/lib/design-tokens'
  */
 interface MarketAgreementBlockProps {
   marketId: string
+  /** Vertical — selects the brand name used in the fixed platform clauses (F6). */
+  vertical: string
   /** Fired whenever the checkbox value changes. */
   onChange: (accepted: boolean) => void
   /** Optional initial value. Defaults to false. */
@@ -40,9 +43,14 @@ interface RenderedStatement {
 
 export default function MarketAgreementBlock({
   marketId,
+  vertical,
   onChange,
   initialAccepted = false,
 }: MarketAgreementBlockProps) {
+  // F6 (2026-07-24): fixed platform clauses shown on EVERY agreement, on top of
+  // whatever the operator selected. Because these always exist, the block never
+  // renders empty and the business always actively accepts.
+  const platformClauses = getTruckPlatformClauses(vertical)
   const [statements, setStatements] = useState<RenderedStatement[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [accepted, setAccepted] = useState(initialAccepted)
@@ -96,22 +104,10 @@ export default function MarketAgreementBlock({
     )
   }
 
-  // Empty — manager hasn't selected statements yet. Render nothing AND
-  // auto-fire onChange(true) so the parent's submit gate doesn't block
-  // on a non-existent checkbox. The acceptance row write in /api/submit
-  // will be a no-op snapshot (empty array) — semantically "vendor agreed
-  // to nothing because there was nothing to agree to," and recoverable
-  // when the manager later picks statements (prompt-on-next-load).
-  if (statements && statements.length === 0) {
-    if (!accepted) {
-      // Defer the state update so we don't setState during render
-      queueMicrotask(() => {
-        setAccepted(true)
-        onChange(true)
-      })
-    }
-    return null
-  }
+  // F6 (2026-07-24): the block no longer renders empty when the operator
+  // selected zero statements — the fixed platform clauses always apply, so the
+  // business always sees them and must actively accept. (Previously an empty
+  // selection auto-accepted with no checkbox.)
 
   // Group by category for display
   const groups = new Map<string, { label: string; items: RenderedStatement[] }>()
@@ -155,6 +151,32 @@ export default function MarketAgreementBlock({
         By signing up to this market you&apos;re agreeing to the following.
         These are the operating rules the market manager has set for vendors.
       </p>
+
+      {/* F6: fixed platform requirements — always shown first. */}
+      <div style={{ marginBottom: spacing.sm }}>
+        <div style={{
+          fontSize: typography.sizes.xs,
+          fontWeight: typography.weights.semibold,
+          color: colors.textMuted,
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px',
+          marginBottom: spacing['2xs'],
+        }}>
+          {PLATFORM_CATEGORY_LABEL}
+        </div>
+        <ul style={{
+          margin: 0,
+          paddingLeft: spacing.md,
+          listStyleType: 'disc',
+          fontSize: typography.sizes.sm,
+          color: colors.textPrimary,
+          lineHeight: 1.5,
+        }}>
+          {platformClauses.map((c) => (
+            <li key={c.statement_id} style={{ marginBottom: spacing['3xs'] }}>{c.text}</li>
+          ))}
+        </ul>
+      </div>
 
       {Array.from(groups.entries()).map(([categoryId, group]) => (
         <div key={categoryId} style={{ marginBottom: spacing.sm }}>

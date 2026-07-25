@@ -389,6 +389,7 @@ export default function BookBoothForm({
       {/* Agreement block */}
       <MarketAgreementBlock
         marketId={marketId}
+        vertical={vertical}
         onChange={setAgreementAccepted}
       />
 

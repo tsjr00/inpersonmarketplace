@@ -73,6 +73,40 @@ export default function VerificationDocumentsCard({ vertical, marketId }: Verifi
     label: string
   } | null>(null)
 
+  // F7 (2026-07-24): insurance self-certification (replaces the COI requirement).
+  const [insuranceCertified, setInsuranceCertified] = useState<boolean | null>(null)
+  const [savingCert, setSavingCert] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/market-manager/${marketId}/insurance-cert`)
+      .then((res) => (res.ok ? res.json() : { certified: false }))
+      .then((data) => { if (!cancelled) setInsuranceCertified(data.certified === true) })
+      .catch(() => { if (!cancelled) setInsuranceCertified(false) })
+    return () => { cancelled = true }
+  }, [marketId])
+
+  const toggleInsuranceCert = async (next: boolean) => {
+    setSavingCert(true)
+    setInsuranceCertified(next) // optimistic
+    try {
+      const res = await fetch(`/api/market-manager/${marketId}/insurance-cert`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ certified: next }),
+      })
+      if (!res.ok) setInsuranceCertified(!next) // revert on failure
+    } catch {
+      setInsuranceCertified(!next)
+    } finally {
+      setSavingCert(false)
+    }
+  }
+
+  // F7: required-document coverage — which required types have an upload yet.
+  const requiredDefs = DOCUMENT_TYPE_DEFINITIONS.filter((d) => d.required)
+  const uploadedTypes = new Set((documents ?? []).map((d) => d.document_type))
+
   const loadDocuments = useCallback(async () => {
     try {
       const res = await fetch(`/api/market-manager/${marketId}/documents`)
@@ -195,8 +229,48 @@ export default function VerificationDocumentsCard({ vertical, marketId }: Verifi
   return (
     <ManagerCard
       title={vertical === 'food_trucks' ? 'Park Verification Documents' : 'Verification Documents'}
-      description={`Upload documents that help the platform admin verify your ${term(vertical, 'market').toLowerCase()} is legitimate. Keeps your ${term(vertical, 'booth').toLowerCase()}-rental payments safe and speeds up approval. Files are private — only you and the platform admin can view them.`}
+      description={`Because we facilitate real transactions, ${term(vertical, 'vendors').toLowerCase()} and buyers trust us to connect them only with reputable, responsible operators — these documents help us verify you. Files are private: only you and the platform admin can view them.`}
     >
+      {/* F7 (2026-07-24): required-document checklist. Advisory — it does NOT
+          block setup (admin still verifies), but it tells the operator exactly
+          what we need to see. */}
+      {insuranceCertified !== null && (
+        <div style={{
+          padding: spacing.sm,
+          marginBottom: spacing.md,
+          backgroundColor: colors.surfaceElevated,
+          border: `1px solid ${colors.border}`,
+          borderRadius: radius.sm,
+        }}>
+          <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing['3xs'] }}>
+            What we need from you
+          </div>
+          <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
+            {requiredDefs.map((def) => {
+              const have = uploadedTypes.has(def.value)
+              return (
+                <li key={def.value} style={{ display: 'flex', alignItems: 'flex-start', gap: spacing.xs, fontSize: typography.sizes.sm }}>
+                  <span aria-hidden style={{ marginTop: 1 }}>{have ? '✅' : '⬜'}</span>
+                  <span style={{ color: colors.textPrimary }}>
+                    <strong>{def.label}</strong> <span style={{ color: colors.textMuted }}>· Required</span>
+                  </span>
+                </li>
+              )
+            })}
+            {/* Insurance = self-certified, not a document */}
+            <li style={{ display: 'flex', alignItems: 'flex-start', gap: spacing.xs, fontSize: typography.sizes.sm }}>
+              <span aria-hidden style={{ marginTop: 1 }}>{insuranceCertified ? '✅' : '⬜'}</span>
+              <span style={{ color: colors.textPrimary }}>
+                <strong>Insurance self-certification</strong> <span style={{ color: colors.textMuted }}>· Required (see below)</span>
+              </span>
+            </li>
+          </ul>
+          <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing.xs }}>
+            Uploading everything isn’t a hard gate — but the platform admin reviews these before approving your {term(vertical, 'market').toLowerCase()}, so complete them to speed up approval.
+          </div>
+        </div>
+      )}
+
       {/* Upload form */}
       <form
         onSubmit={handleUpload}
@@ -381,6 +455,36 @@ export default function VerificationDocumentsCard({ vertical, marketId }: Verifi
             </li>
           ))}
         </ul>
+      )}
+
+      {/* F7 (2026-07-24): insurance self-certification — replaces the COI upload
+          requirement. Attestation checkbox persisted to markets.insurance_self_certified. */}
+      {insuranceCertified !== null && (
+        <div style={{
+          marginTop: spacing.md,
+          padding: spacing.sm,
+          backgroundColor: colors.surfaceBase,
+          border: `1px solid ${colors.border}`,
+          borderRadius: radius.sm,
+        }}>
+          <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing['3xs'] }}>
+            Insurance
+          </div>
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: spacing.xs, cursor: savingCert ? 'wait' : 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={insuranceCertified}
+              disabled={savingCert}
+              onChange={(e) => toggleInsuranceCert(e.target.checked)}
+              style={{ marginTop: 3, width: 16, height: 16 }}
+            />
+            <span style={{ fontSize: typography.sizes.sm, color: colors.textPrimary, lineHeight: 1.4 }}>
+              I certify that this {term(vertical, 'market').toLowerCase()} carries the correct types and enough insurance
+              to cover all risks associated with operating it. I understand the platform relies on this certification
+              in place of an uploaded certificate of insurance.
+            </span>
+          </label>
+        </div>
       )}
 
       <ConfirmDialog
