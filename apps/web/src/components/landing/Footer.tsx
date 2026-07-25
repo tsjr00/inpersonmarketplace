@@ -35,7 +35,8 @@ export function Footer({ vertical, locale }: FooterProps) {
       links: [
         { label: t('footer.browse_markets', locale, { markets: term(vertical, 'markets', locale) }), href: `/${vertical}/markets` },
         { label: term(vertical, 'browse_products_cta', locale), href: `/${vertical}/browse` },
-        { label: t('footer.features_benefits', locale), href: `/${vertical}/features` },
+        // "Features & Benefits" removed 2026-07-23 (tester): it 308-redirected to
+        // /how-it-works, duplicating the "How it works" link right below it.
         { label: t('footer.how_it_works', locale), href: `/${vertical}/how-it-works` },
         { label: t('footer.help_faq', locale), href: `/${vertical}/help` },
         { label: t('footer.sign_up', locale), href: `/${vertical}/signup` },
@@ -45,7 +46,10 @@ export function Footer({ vertical, locale }: FooterProps) {
       title: t('footer.for_vendors', locale),
       links: [
         { label: t('footer.become_vendor', locale), href: `/${vertical}/signup?returnTo=${encodeURIComponent(`/${vertical}/vendor-signup`)}` },
-        { label: t('footer.why_sell', locale), href: `/${vertical}/features#vendors` },
+        // Repointed 2026-07-23 (tester): was /features#vendors, whose #vendors
+        // anchor was lost through the 308 redirect. Direct to the how-it-works
+        // vendors section, which now leads with a "Why sell with us" block.
+        { label: t('footer.why_sell', locale), href: `/${vertical}/how-it-works#vendors` },
         { label: t('footer.vendor_faq', locale), href: `/${vertical}/help` },
         // Manager/operator program: FM markets → "Market Mgrs.",
         // FT parks → "Park Operators". Both point at the shared,

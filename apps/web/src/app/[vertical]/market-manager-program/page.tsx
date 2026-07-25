@@ -2,7 +2,7 @@ import { Metadata } from 'next'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import { getEmailFromAddress } from '@/lib/notifications/email-config'
-import { calculateBoothRentalFees, formatPrice, BOOTH_RENTAL_FEES, FEES } from '@/lib/pricing'
+import { calculateBoothRentalFees, formatPrice, FEES } from '@/lib/pricing'
 import { defaultBranding } from '@/lib/branding/defaults'
 import { breadcrumbJsonLd } from '@/lib/marketing/json-ld'
 import ManagerIntakeForm from '@/components/landing/ManagerIntakeForm'
@@ -57,9 +57,8 @@ export default async function MarketManagerProgramPage({ params }: MarketManager
 
   // Booth-fee worked example, derived from the single source (pricing.ts) so the
   // numbers on this page can never go stale if the fee model changes.
-  const boothFees = calculateBoothRentalFees(2500) // $25.00 sample booth
-  const boothPct = BOOTH_RENTAL_FEES.vendorMarkupPercent
-  const boothFlat = formatPrice(BOOTH_RENTAL_FEES.vendorFlatFeeCents)
+  const boothFees = calculateBoothRentalFees(2500) // $25.00 sample booth (FM)
+  const spotFees = calculateBoothRentalFees(15000) // $150.00 sample spot (FT)
   const orderPct = FEES.buyerFeePercent
 
   const breadcrumbs = breadcrumbJsonLd([
@@ -133,13 +132,26 @@ export default async function MarketManagerProgramPage({ params }: MarketManager
           'A few fields here gets you a dashboard. You finish setup there (paid spots, spot inventory, agreement statements, Stripe). We review and activate your public listing within one business day.',
         pricingLead:
           'Nothing to you up front. No subscription, no seat fee, no per-truck charge.',
-        pricingIntro: 'We make money one place, and it shows on the receipts:',
+        pricingIntro:
+          "We don't make money unless you do. When a truck rents a spot, the truck pays a small premium for booking and paying online, and you pay a small percentage for platform access — truck vetting, day-of check-ins, surveys, and payment handling. The exact split is on every receipt before anyone pays:",
         pricingBullets: [
           {
-            label: 'Spot rentals:',
-            body: 'a small percentage on each side plus a flat fee from the truck. The truck pays your spot fee plus the platform fee; you receive your spot fee minus our percentage. The exact split is shown on every receipt before anyone pays.',
+            label: 'The truck pays',
+            body: 'your spot price plus a small platform premium — the convenience of booking and paying online.',
+          },
+          {
+            label: 'You receive',
+            body: 'your spot price minus a small platform-access percentage, deposited straight to your Stripe account.',
           },
         ],
+        pricingExample: {
+          heading: `Example — a ${formatPrice(15000)} spot`,
+          rows: [
+            { label: 'Truck pays', value: `${formatPrice(spotFees.vendorPaysCents)}  (your ${formatPrice(15000)} spot + platform premium)` },
+            { label: 'You receive', value: `${formatPrice(spotFees.managerReceivesCents)}  (your ${formatPrice(15000)} spot − platform access)` },
+            { label: 'Deposited to', value: 'your Stripe account, automatically' },
+          ],
+        },
         pricingNote:
           "Trucks can still take pre-orders through the platform at the standard fee — that works the same as anywhere else on Food Truck'n and isn't part of your spot revenue.",
         finalCtaSubtitle:
@@ -207,18 +219,28 @@ export default async function MarketManagerProgramPage({ params }: MarketManager
           'A few fields here gets you a dashboard. You finish setup there (booth inventory, vendor agreement statements, Stripe). We review and activate your public listing within one business day.',
         pricingLead:
           'Nothing to you up front. No subscription, no seat fee, no per-vendor charge.',
-        pricingIntro: 'We make money in two places. Both show on the receipts:',
+        pricingIntro:
+          "We don't make money unless you do. When a vendor rents a booth, the vendor pays a small premium for booking and paying online, and you pay a small percentage for platform access — vendor onboarding, attendance, surveys, and payment handling. The exact split is on every receipt before anyone pays:",
         pricingBullets: [
           {
-            label: 'Booth rentals:',
-            body: `${boothPct}% on each side plus a ${boothFlat} flat fee from the vendor. The vendor pays your booth fee + ${boothPct}% + ${boothFlat}; you receive your booth fee minus ${boothPct}%. We keep the difference. For a $25 booth: vendor pays ${formatPrice(boothFees.vendorPaysCents)}, you receive ${formatPrice(boothFees.managerReceivesCents)}.`,
+            label: 'The vendor pays',
+            body: 'your booth price plus a small platform premium — the convenience of booking and paying online.',
           },
           {
-            label: 'Pre-order transactions at your market:',
-            body: `${orderPct}% on each side, same as our standard pre-order flow. Same fee every vendor and buyer already sees on the platform — your market is now where some of those transactions happen.`,
+            label: 'You receive',
+            body: 'your booth price minus a small platform-access percentage, deposited straight to your Stripe account.',
           },
         ],
-        pricingNote: null as string | null,
+        pricingExample: {
+          heading: `Example — a ${formatPrice(2500)} booth`,
+          rows: [
+            { label: 'Vendor pays', value: `${formatPrice(boothFees.vendorPaysCents)}  (your ${formatPrice(2500)} booth + platform premium)` },
+            { label: 'You receive', value: `${formatPrice(boothFees.managerReceivesCents)}  (your ${formatPrice(2500)} booth − platform access)` },
+            { label: 'Deposited to', value: 'your Stripe account, automatically' },
+          ],
+        },
+        pricingNote:
+          `On-platform pre-order sales at your market use the same small fee (${orderPct}% each side) every vendor and buyer already sees — nothing extra to you.`,
         finalCtaSubtitle:
           "We're onboarding markets a few at a time so we can do it right. Tell us about yours below — setup takes about a minute, and we'll have your dashboard active within one business day.",
       }
@@ -480,6 +502,27 @@ export default async function MarketManagerProgramPage({ params }: MarketManager
               </li>
             ))}
           </ul>
+          {/* Labeled worked example (tester finding 2026-07-23): show the math
+              cleanly instead of burying it in a paragraph. Numbers derived from
+              pricing.ts so they can't drift. */}
+          <div style={{
+            marginTop: spacing.md,
+            padding: spacing.md,
+            backgroundColor: colors.surfaceBase,
+            border: `1px solid ${colors.border}`,
+            borderRadius: radius.md,
+            maxWidth: 460,
+          }}>
+            <div style={{ fontWeight: typography.weights.bold, color: colors.textPrimary, marginBottom: spacing.xs }}>
+              {copy.pricingExample.heading}
+            </div>
+            {copy.pricingExample.rows.map((row) => (
+              <div key={row.label} style={{ display: 'flex', gap: spacing.sm, marginBottom: spacing['3xs'], lineHeight: 1.5 }}>
+                <span style={{ minWidth: 96, color: colors.textMuted }}>{row.label}</span>
+                <span style={{ color: colors.textPrimary, fontWeight: typography.weights.medium }}>{row.value}</span>
+              </div>
+            ))}
+          </div>
           {copy.pricingNote && (
             <p style={{
               margin: `${spacing.sm} 0 0 0`,

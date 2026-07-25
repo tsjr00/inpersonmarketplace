@@ -82,6 +82,10 @@ function FarmersMarketAbout({ vertical, branding, isEs }: { vertical: string; br
     ctaIntro: 'However you want to take part, there’s a place for you here.',
     ctaBtn1: 'Shop local produce and goods', ctaBtn2: 'Sell your homegrown or homemade items', ctaBtn3: 'Bring your farmers market online',
     ctaClosing: 'Because a community is stronger when its neighbors know — and support — one another.',
+    contactTitle: 'Contact Us',
+    contactBody: 'Questions, feedback, or need a hand? We’re here to help.',
+    contactSupport: 'Contact support',
+    contactHelp: 'Browse the help center',
   }
   const es = {
     heroH1: 'Un Mercado de Agricultores Local Donde los Vecinos se Venden entre Sí',
@@ -101,6 +105,10 @@ function FarmersMarketAbout({ vertical, branding, isEs }: { vertical: string; br
     ctaIntro: 'Como sea que quieras participar, aquí hay un lugar para ti.',
     ctaBtn1: 'Compra productos y artículos locales', ctaBtn2: 'Vende tus artículos cultivados o hechos en casa', ctaBtn3: 'Lleva tu mercado de agricultores en línea',
     ctaClosing: 'Porque una comunidad es más fuerte cuando sus vecinos se conocen — y se apoyan — entre sí.',
+    contactTitle: 'Contáctanos',
+    contactBody: '¿Preguntas, comentarios o necesitas ayuda? Estamos para ayudarte.',
+    contactSupport: 'Contactar soporte',
+    contactHelp: 'Ver el centro de ayuda',
   }
   const c = isEs ? es : en
   return (
@@ -125,7 +133,7 @@ function FarmersMarketAbout({ vertical, branding, isEs }: { vertical: string; br
         </ul>
       </Section>
 
-      <section id="contact" style={{ marginTop: spacing['2xl'], paddingTop: spacing.lg, borderTop: `1px solid ${colors.border}` }}>
+      <section id="get-started" style={{ marginTop: spacing['2xl'], paddingTop: spacing.lg, borderTop: `1px solid ${colors.border}` }}>
         <h2 style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: colors.textPrimary, marginBottom: spacing.sm }}>{c.ctaTitle}</h2>
         <p style={{ marginBottom: spacing.lg }}>{c.ctaIntro}</p>
         <div style={{ display: 'flex', gap: spacing.sm, flexWrap: 'wrap', marginBottom: spacing.lg }}>
@@ -134,6 +142,18 @@ function FarmersMarketAbout({ vertical, branding, isEs }: { vertical: string; br
           <CtaLink href={`/${vertical}/market-manager-program`} variant="outline">{c.ctaBtn3}</CtaLink>
         </div>
         <p style={{ fontSize: typography.sizes.base, color: colors.textMuted, fontStyle: 'italic' }}>{c.ctaClosing}</p>
+      </section>
+
+      {/* Contact — tester finding 2026-07-23: the footer Contact link pointed at
+          #contact, but that anchor sat on the CTA section (no contact content).
+          A real Contact section that routes to the working support + help pages. */}
+      <section id="contact" style={{ marginTop: spacing['2xl'], paddingTop: spacing.lg, borderTop: `1px solid ${colors.border}` }}>
+        <h2 style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: colors.textPrimary, marginBottom: spacing.sm }}>{c.contactTitle}</h2>
+        <p style={{ marginBottom: spacing.md }}>{c.contactBody}</p>
+        <div style={{ display: 'flex', gap: spacing.sm, flexWrap: 'wrap' }}>
+          <CtaLink href={`/${vertical}/support`} variant="solid">{c.contactSupport}</CtaLink>
+          <CtaLink href={`/${vertical}/help`} variant="outline">{c.contactHelp}</CtaLink>
+        </div>
       </section>
     </div>
   )
@@ -160,6 +180,10 @@ function FoodTruckAbout({ vertical, branding, isEs }: { vertical: string; brandi
     ctaIntro: 'However you like your food-truck fix, there’s a place for you here.',
     ctaBtn1: 'Order from local food trucks', ctaBtn2: 'Run a food truck', ctaBtn3: 'Book a truck for your event',
     ctaClosing: 'Real food, made by people who love making it — ready when you are.',
+    contactTitle: 'Contact Us',
+    contactBody: 'Questions, feedback, or need a hand? We’re here to help.',
+    contactSupport: 'Contact support',
+    contactHelp: 'Browse the help center',
   }
   const es = {
     heroH1: 'Pide a Food Trucks Locales — Sáltate la Fila y Nunca Te Pierdas el Especial',
@@ -178,6 +202,10 @@ function FoodTruckAbout({ vertical, branding, isEs }: { vertical: string; brandi
     ctaIntro: 'Como sea que disfrutes tu antojo de food truck, aquí hay un lugar para ti.',
     ctaBtn1: 'Pide a food trucks locales', ctaBtn2: 'Opera un food truck', ctaBtn3: 'Reserva un truck para tu evento',
     ctaClosing: 'Comida de verdad, hecha por personas que aman hacerla — lista cuando tú lo estés.',
+    contactTitle: 'Contáctanos',
+    contactBody: '¿Preguntas, comentarios o necesitas ayuda? Estamos para ayudarte.',
+    contactSupport: 'Contactar soporte',
+    contactHelp: 'Ver el centro de ayuda',
   }
   const c = isEs ? es : en
   return (
@@ -195,7 +223,7 @@ function FoodTruckAbout({ vertical, branding, isEs }: { vertical: string; brandi
       <Section title={c.s4Title}><p>{c.s4Body}</p></Section>
       <Section title={c.s5Title}><p>{c.s5Body}</p></Section>
 
-      <section id="contact" style={{ marginTop: spacing['2xl'], paddingTop: spacing.lg, borderTop: `1px solid ${colors.border}` }}>
+      <section id="get-started" style={{ marginTop: spacing['2xl'], paddingTop: spacing.lg, borderTop: `1px solid ${colors.border}` }}>
         <h2 style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: colors.textPrimary, marginBottom: spacing.sm }}>{c.ctaTitle}</h2>
         <p style={{ marginBottom: spacing.lg }}>{c.ctaIntro}</p>
         <div style={{ display: 'flex', gap: spacing.sm, flexWrap: 'wrap', marginBottom: spacing.lg }}>
@@ -204,6 +232,17 @@ function FoodTruckAbout({ vertical, branding, isEs }: { vertical: string; brandi
           <CtaLink href={`/${vertical}/events`} variant="outline">{c.ctaBtn3}</CtaLink>
         </div>
         <p style={{ fontSize: typography.sizes.base, color: colors.textMuted, fontStyle: 'italic' }}>{c.ctaClosing}</p>
+      </section>
+
+      {/* Contact — tester finding 2026-07-23 (see FM component). Real Contact
+          section routing to the working support + help pages. */}
+      <section id="contact" style={{ marginTop: spacing['2xl'], paddingTop: spacing.lg, borderTop: `1px solid ${colors.border}` }}>
+        <h2 style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: colors.textPrimary, marginBottom: spacing.sm }}>{c.contactTitle}</h2>
+        <p style={{ marginBottom: spacing.md }}>{c.contactBody}</p>
+        <div style={{ display: 'flex', gap: spacing.sm, flexWrap: 'wrap' }}>
+          <CtaLink href={`/${vertical}/support`} variant="solid">{c.contactSupport}</CtaLink>
+          <CtaLink href={`/${vertical}/help`} variant="outline">{c.contactHelp}</CtaLink>
+        </div>
       </section>
     </div>
   )
@@ -224,15 +263,26 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function CtaLink({ href, variant, children }: { href: string; variant: 'solid' | 'outline'; children: React.ReactNode }) {
   const solid = variant === 'solid'
+  // Tester finding 2026-07-23: the three CTA buttons had uneven-length labels
+  // and grew oversized (esp. on mobile). Equal-width columns that share one row
+  // on desktop and stack on mobile; centered text wraps to ~2 lines with a
+  // uniform min-height so all three match. flex: 1 1 0 = equal share of the row.
   return (
     <Link
       href={href}
       style={{
-        display: 'inline-block',
-        padding: `${spacing.sm} ${spacing.lg}`,
+        flex: '1 1 0',
+        minWidth: 160,
+        minHeight: 60,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        textAlign: 'center',
+        padding: `${spacing.sm} ${spacing.md}`,
         borderRadius: radius.md,
         fontWeight: typography.weights.semibold,
         fontSize: typography.sizes.base,
+        lineHeight: typography.leading.snug,
         textDecoration: 'none',
         backgroundColor: solid ? colors.primary : 'transparent',
         color: solid ? 'white' : colors.primary,

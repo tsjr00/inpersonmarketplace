@@ -166,6 +166,28 @@ export default async function HowItWorksPage({ params }: HowItWorksPageProps) {
         <section id="vendors" style={{ marginBottom: spacing.xl }}>
           <SectionHeader title={isFT ? t('hiw.vendors_title_ft', locale) : t('hiw.vendors_title_fm', locale)} subtitle={t('hiw.vendors_subtitle', locale)} accent={colors.primaryDark || '#689F38'} />
 
+          {/* Why sell with us (tester finding 2026-07-23): the footer "Why sell
+              with us" link lands here, but the section was all operational steps
+              — no value pitch. Lead with WHY before the HOW below. */}
+          <div style={{
+            padding: spacing.md,
+            marginBottom: spacing.md,
+            backgroundColor: colors.surfaceElevated,
+            border: `1px solid ${colors.border}`,
+            borderRadius: radius.md,
+          }}>
+            <h3 style={{ margin: `0 0 ${spacing.xs} 0`, fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
+              {t('hiw.why_sell_title', locale)}
+            </h3>
+            <ul style={{ paddingLeft: '1.2rem', margin: 0, display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+              <li>{t('hiw.why_sell_li1', locale)}</li>
+              <li>{t('hiw.why_sell_li2', locale)}</li>
+              <li>{t('hiw.why_sell_li3', locale)}</li>
+              <li>{t('hiw.why_sell_li4', locale)}</li>
+              <li>{t('hiw.why_sell_li5', locale)}</li>
+            </ul>
+          </div>
+
           <StepList steps={[
             t('hiw.v_step1', locale),
             t('hiw.v_step2', locale),
@@ -412,6 +434,11 @@ function InfoCard({ title, variant, children }: {
   return (
     <div style={{
       padding: spacing.md,
+      // Tester finding 2026-07-23: the colored left border sat flush with the
+      // numbered steps above, so the subsection didn't read as set-apart
+      // (worse on FT, where the accents are lower-contrast). Indent it so the
+      // border clears the step numbers and the card reads as nested.
+      marginLeft: spacing.lg,
       borderLeft: `4px solid ${s.accent}`,
       borderRadius: `0 ${radius.md} ${radius.md} 0`,
       marginBottom: spacing.sm,
