@@ -289,6 +289,33 @@ export default function OptinManager({ marketId, vertical }: OptinManagerProps) 
             <li key={c.statement_id} style={{ marginBottom: spacing['3xs'] }}>{c.text}</li>
           ))}
         </ul>
+
+        {/* F6: the operator's own acknowledgment — the LAST item in this
+            subsection (tester 2026-07-25: it belongs here with the platform
+            clauses, not down by the sticky save bar which was overlapping it and
+            blocking the click). Required — Save is gated on it. */}
+        {platformAck !== null && (
+          <label style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: spacing.xs,
+            marginTop: spacing.sm,
+            paddingTop: spacing.sm,
+            borderTop: `1px solid ${colors.border}`,
+            cursor: savingAck ? 'wait' : 'pointer',
+          }}>
+            <input
+              type="checkbox"
+              checked={platformAck}
+              disabled={savingAck}
+              onChange={(e) => toggleAck(e.target.checked)}
+              style={{ marginTop: 3, width: 18, height: 18 }}
+            />
+            <span style={{ fontSize: typography.sizes.sm, color: colors.textPrimary, lineHeight: 1.4 }}>
+              {operatorClause}
+            </span>
+          </label>
+        )}
       </div>
 
       {/* Catalog grouped by category */}
@@ -380,32 +407,6 @@ export default function OptinManager({ marketId, vertical }: OptinManagerProps) 
           </div>
         ))}
       </div>
-
-      {/* F6: operator acknowledgment — the last item in the agreement list.
-          Required (Save is gated on it). Persisted immediately on toggle. */}
-      {platformAck !== null && (
-        <label style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: spacing.xs,
-          padding: spacing.sm,
-          backgroundColor: platformAck ? colors.surfaceElevated : colors.surfaceBase,
-          border: `1px solid ${platformAck ? colors.primary : colors.border}`,
-          borderRadius: radius.sm,
-          cursor: savingAck ? 'wait' : 'pointer',
-        }}>
-          <input
-            type="checkbox"
-            checked={platformAck}
-            disabled={savingAck}
-            onChange={(e) => toggleAck(e.target.checked)}
-            style={{ marginTop: 3, width: 18, height: 18 }}
-          />
-          <span style={{ fontSize: typography.sizes.sm, color: colors.textPrimary, lineHeight: 1.4 }}>
-            {operatorClause}
-          </span>
-        </label>
-      )}
 
       {/* Save bar */}
       <div style={{

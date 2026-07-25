@@ -82,8 +82,11 @@ export default function FtParkDashboardBody({
   visibilityStatus,
 }: FtParkDashboardBodyProps) {
   const marketName = (market.name as string) || 'this park'
-  const onboardingComplete = onboardingProgress.required_complete === onboardingProgress.required_total
 
+  // Park completion drives the invite gate (below) — NOT onboardingProgress,
+  // which is the FM-shaped checklist and never completes for a park (it checks
+  // booth inventory/placeholders a park has no concept of). Tester 2026-07-25:
+  // parks couldn't invite trucks with setup done because the wrong gate was used.
   const parkSetupComplete = parkOnboarding.required_complete === parkOnboarding.required_total
 
   return (
@@ -172,9 +175,9 @@ export default function FtParkDashboardBody({
                   title="Invite a food truck"
                   description="Share this link with a food truck you'd like to bring to your park. They'll see a banner identifying your park on the standard signup page."
                 >
-                  <InviteVendorLink vertical={vertical} marketId={marketId} marketName={marketName} onboardingComplete={onboardingComplete} />
+                  <InviteVendorLink vertical={vertical} marketId={marketId} marketName={marketName} onboardingComplete={parkSetupComplete} />
                 </ManagerCard>
-                {onboardingComplete && (
+                {parkSetupComplete && (
                   <InviteVendorBrowser
                     marketId={marketId}
                     marketName={marketName}
