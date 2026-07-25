@@ -1,6 +1,6 @@
 # 20 — Buyer & Public Surfaces
 
-<!-- map-stamp: domain=buyer-public; verified=2026-07-18; commit=b9f82116 -->
+<!-- map-stamp: domain=buyer-public; verified=2026-07-24; commit=f30a0cac -->
 <!-- map-claims
 src/app/api/buyer/**
 src/app/api/listings/**
@@ -50,6 +50,7 @@ src/app/[vertical]/vendor/[vendorId]/**
 src/app/[vertical]/operator-projection/**
 src/app/[vertical]/page.tsx
 src/app/[vertical]/layout.tsx
+src/app/[vertical]/template.tsx
 src/app/page.tsx
 src/app/layout.tsx
 src/app/browse/**
