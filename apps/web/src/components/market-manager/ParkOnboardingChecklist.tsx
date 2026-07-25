@@ -49,8 +49,8 @@ export default function ParkOnboardingChecklist({ progress }: ParkOnboardingChec
     },
     {
       done: progress.optin_done,
-      label: 'Pick agreement statements',
-      detail: 'What trucks must accept when they book here.',
+      label: 'Create your park agreement',
+      detail: 'Build the agreement every truck must accept before they book here.',
       href: '#setup',
     },
   ]

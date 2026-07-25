@@ -115,6 +115,24 @@ export default function FmDashboardBody({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+      {/* Tester finding F9 (2026-07-24): new managers had no signal their market
+          was submitted for review (markets.status='pending' until admin
+          approves). Surface it so the pending state doesn't read as broken. */}
+      {market.status === 'pending' && (
+        <div style={{
+          padding: spacing.md,
+          backgroundColor: '#eff6ff',
+          border: '1px solid #bfdbfe',
+          borderRadius: radius.md,
+          fontSize: typography.sizes.sm,
+          color: '#1e3a5f',
+          lineHeight: 1.5,
+        }}>
+          <strong>📋 Submitted for review.</strong> Your market and its schedule are in our review queue —
+          we usually activate new markets within one business day. Until then it stays hidden from the public.
+          Keep setting up in the meantime; you&apos;ll be able to connect Stripe once it&apos;s approved.
+        </div>
+      )}
       {/* ① Triage */}
       <ManagerActionSummary vertical={vertical} marketId={marketId} progress={onboardingProgress} stats={dashboardStats} />
 

@@ -140,7 +140,7 @@ export default function OnboardingChecklist({
         </li>
         <li style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
           <span>{progress.optin_done ? '✓' : '○'}</span>
-          <span>{term(vertical, 'vendor')} agreement statements{progress.optin_done ? '' : ' — pick at least one'}</span>
+          <span>Create your {term(vertical, 'market').toLowerCase()} agreement{progress.optin_done ? '' : ' — the agreement vendors accept when they book'}</span>
         </li>
       </ul>
       <Link

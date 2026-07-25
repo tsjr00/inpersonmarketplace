@@ -88,6 +88,26 @@ export default function FtParkDashboardBody({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+      {/* Tester finding F9 (2026-07-24): a new operator saw Stripe blocked and a
+          3/4 checklist but nothing said their park was submitted for review —
+          it read as broken. Surface the review state (markets.status='pending'
+          until admin approves; intake/route.ts). Shows even when the checklist
+          is complete. */}
+      {market.status === 'pending' && (
+        <div style={{
+          padding: spacing.md,
+          backgroundColor: '#eff6ff',
+          border: '1px solid #bfdbfe',
+          borderRadius: radius.md,
+          fontSize: typography.sizes.sm,
+          color: '#1e3a5f',
+          lineHeight: 1.5,
+        }}>
+          <strong>📋 Submitted for review.</strong> Your park and its schedule are in our review queue —
+          we usually activate new parks within one business day. Until then it stays hidden from the public.
+          Keep setting up in the meantime; you&apos;ll be able to connect Stripe once it&apos;s approved.
+        </div>
+      )}
       {/* ⓪ P1 (2026-07-15): setup checklist pinned to the top until done —
           new operators were landing here with no pointer to setup. */}
       <ParkOnboardingChecklist progress={parkOnboarding} />
