@@ -254,7 +254,7 @@ export default function MarketScheduleCard({
     return (
       <div style={cardOuterStyle}>
         <div style={cardHeaderRowStyle}>
-          <h2 style={cardHeaderStyle}>{term(vertical, 'market')} schedule</h2>
+          <h2 style={cardHeaderStyle}>{vertical === 'food_trucks' ? 'Food truck park / Location schedule' : `${term(vertical, 'market')} schedule`}</h2>
           <button
             type="button"
             onClick={startEdit}
@@ -323,7 +323,7 @@ export default function MarketScheduleCard({
   return (
     <div style={cardOuterStyle}>
       <div style={cardHeaderRowStyle}>
-        <h2 style={cardHeaderStyle}>{term(vertical, 'market')} schedule</h2>
+        <h2 style={cardHeaderStyle}>{vertical === 'food_trucks' ? 'Food truck park / Location schedule' : `${term(vertical, 'market')} schedule`}</h2>
         <div style={{ display: 'flex', gap: spacing.xs }}>
           <button
             type="button"

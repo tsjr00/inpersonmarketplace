@@ -557,8 +557,15 @@ export default function ParkSpotsManager({ marketId, initialParkMode }: ParkSpot
         border: `1px dashed ${colors.border}`,
         borderRadius: radius.sm,
       }}>
-        <div style={{ fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm, marginBottom: spacing.xs }}>
+        <div style={{ fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm, marginBottom: spacing['3xs'] }}>
           Add a spot
+        </div>
+        {/* Tester finding 2026-07-24: operators didn't know what "a spot" or the
+            label field meant. Explain the model up front. */}
+        <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing.xs, lineHeight: 1.4 }}>
+          Create one spot here for every physical parking spot in your park — a truck books one spot for the day.
+          The <strong>label</strong> is the name trucks and you will see it by (e.g., “A1”, “North Lot 3”, “Corner spot”);
+          use whatever matches how you already mark spots on the ground.
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
           <div style={{ display: 'flex', gap: spacing.xs, flexWrap: 'wrap' }}>

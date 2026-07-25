@@ -58,7 +58,7 @@ export default async function MarketManagerProgramPage({ params }: MarketManager
   // Booth-fee worked example, derived from the single source (pricing.ts) so the
   // numbers on this page can never go stale if the fee model changes.
   const boothFees = calculateBoothRentalFees(2500) // $25.00 sample booth (FM)
-  const spotFees = calculateBoothRentalFees(15000) // $150.00 sample spot (FT)
+  const spotFees = calculateBoothRentalFees(4000) // $40.00 sample spot (FT) — relatable everyday spot price
   const orderPct = FEES.buyerFeePercent
 
   const breadcrumbs = breadcrumbJsonLd([
@@ -112,7 +112,11 @@ export default async function MarketManagerProgramPage({ params }: MarketManager
           },
           {
             title: 'Set up your dashboard.',
-            rest: 'We email you a link. You turn on paid spots, add your spots (size, power, water, daily price), pick the truck agreement statements that fit how your park runs, and connect a Stripe account.',
+            rest: 'We email you a link. You turn on paid spots, add your spots (size, power, water, daily price), and connect a Stripe account.',
+          },
+          {
+            title: 'Create your custom park agreement.',
+            rest: 'In a couple of clicks, assemble the agreement every truck must accept before they can book a spot — so every vendor on the platform knows your park’s standards and agrees to follow them up front. Start from ready-made statements or add your own; it takes a minute.',
           },
           {
             title: 'We review and activate.',
@@ -129,11 +133,11 @@ export default async function MarketManagerProgramPage({ params }: MarketManager
         ],
         setupHeading: 'Set up your park',
         setupSubtitle:
-          'A few fields here gets you a dashboard. You finish setup there (paid spots, spot inventory, agreement statements, Stripe). We review and activate your public listing within one business day.',
+          'A few fields here gets you a dashboard. You finish setup there (paid spots, spot inventory, your custom park agreement, Stripe). We review and activate your public listing within one business day.',
         pricingLead:
           'Nothing to you up front. No subscription, no seat fee, no per-truck charge.',
         pricingIntro:
-          "We don't make money unless you do. When a truck rents a spot, the truck pays a small premium for booking and paying online, and you pay a small percentage for platform access — truck vetting, day-of check-ins, surveys, and payment handling. The exact split is on every receipt before anyone pays:",
+          "We don't make money unless you do. When a truck rents a spot, the truck pays a small premium for booking and paying online, and you pay a small percentage for everything the platform runs for you — your operator dashboard and spot-revenue reports, truck vetting, day-of check-ins, a custom park agreement, messaging your trucks, post-service surveys, a co-branded invite to bring trucks on, and all the payment handling. The exact split is on every receipt before anyone pays:",
         pricingBullets: [
           {
             label: 'The truck pays',
@@ -145,10 +149,10 @@ export default async function MarketManagerProgramPage({ params }: MarketManager
           },
         ],
         pricingExample: {
-          heading: `Example — a ${formatPrice(15000)} spot`,
+          heading: `Example — a ${formatPrice(4000)} spot`,
           rows: [
-            { label: 'Truck pays', value: `${formatPrice(spotFees.vendorPaysCents)}  (your ${formatPrice(15000)} spot + platform premium)` },
-            { label: 'You receive', value: `${formatPrice(spotFees.managerReceivesCents)}  (your ${formatPrice(15000)} spot − platform access)` },
+            { label: 'Truck pays', value: `${formatPrice(spotFees.vendorPaysCents)}  (your ${formatPrice(4000)} spot + platform premium)` },
+            { label: 'You receive', value: `${formatPrice(spotFees.managerReceivesCents)}  (your ${formatPrice(4000)} spot − platform access)` },
             { label: 'Deposited to', value: 'your Stripe account, automatically' },
           ],
         },
@@ -199,7 +203,11 @@ export default async function MarketManagerProgramPage({ params }: MarketManager
           },
           {
             title: 'Set up your dashboard.',
-            rest: 'We email you a link. You configure your booth inventory (sizes, count, weekly price), pick the vendor agreement statements that fit how your market runs, and connect a Stripe account.',
+            rest: 'We email you a link. You configure your booth inventory (sizes, count, weekly price), and connect a Stripe account.',
+          },
+          {
+            title: 'Create your custom market agreement.',
+            rest: 'In a couple of clicks, assemble the agreement every vendor must accept before they can book a booth — so every vendor on the platform knows your market’s standards and agrees to follow them up front. Start from ready-made statements or add your own; it takes a minute.',
           },
           {
             title: 'We review and activate.',
@@ -216,11 +224,11 @@ export default async function MarketManagerProgramPage({ params }: MarketManager
         ],
         setupHeading: 'Set up your market',
         setupSubtitle:
-          'A few fields here gets you a dashboard. You finish setup there (booth inventory, vendor agreement statements, Stripe). We review and activate your public listing within one business day.',
+          'A few fields here gets you a dashboard. You finish setup there (booth inventory, your custom market agreement, Stripe). We review and activate your public listing within one business day.',
         pricingLead:
           'Nothing to you up front. No subscription, no seat fee, no per-vendor charge.',
         pricingIntro:
-          "We don't make money unless you do. When a vendor rents a booth, the vendor pays a small premium for booking and paying online, and you pay a small percentage for platform access — vendor onboarding, attendance, surveys, and payment handling. The exact split is on every receipt before anyone pays:",
+          "We don't make money unless you do. When a vendor rents a booth, the vendor pays a small premium for booking and paying online, and you pay a small percentage for everything the platform runs for you — your manager dashboard and revenue reports, vendor onboarding and vetting, attendance tracking, a custom market agreement, messaging your vendors, one-tap sharing of your profile and market-day lineup, post-market surveys, and all the payment handling. The exact split is on every receipt before anyone pays:",
         pricingBullets: [
           {
             label: 'The vendor pays',
