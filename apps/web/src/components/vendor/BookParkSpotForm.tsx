@@ -470,9 +470,11 @@ export default function BookParkSpotForm({
             Booking confirmed — you&apos;re set for your spot.
           </div>
           <div style={{ fontSize: typography.sizes.sm, color: '#155724', marginBottom: spacing.sm, lineHeight: 1.5 }}>
-            Your payment went through and your spot is booked. Next: make sure your required
-            documents (licenses, permits, insurance) are uploaded and current before your rented
-            day — the park operator reviews them once they&apos;re on file.
+            Your payment went through and your spot is booked. The compliance documents already on
+            your profile (licenses, permits, insurance) are <strong>shared with this park for review</strong> —
+            you don&apos;t need to re-upload them here. If any have <strong>expired or changed</strong> since you
+            last uploaded them, upload current versions before your rented day and the park will see the
+            updated files automatically.
           </div>
           <a
             href={docsHref}
@@ -487,7 +489,7 @@ export default function BookParkSpotForm({
               textDecoration: 'none',
             }}
           >
-            Upload your required documents →
+            Review &amp; update your documents &rarr;
           </a>
         </div>
       )}
@@ -680,21 +682,21 @@ export default function BookParkSpotForm({
           {requiredDocs.length > 0 ? (
             <>
               <a href={docsHref} style={{ fontSize: typography.sizes.sm, color: colors.primary, textDecoration: 'underline', fontWeight: typography.weights.semibold }}>
-                See the documents this park requires and upload them →
+                Review &amp; update the documents shared with this park &rarr;
               </a>
               <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
-                You can book now and upload after — but your docs must be current before your rented day.
+                When you book, the compliance documents on your profile are shared with this park for review — you don&apos;t upload them separately here. Just make sure the ones on file are current (not expired) before your rented day; upload new versions if they&apos;ve changed.
               </div>
             </>
           ) : (
             <>
               <a href={docsHref} style={{ fontSize: typography.sizes.sm, color: colors.primary, textDecoration: 'underline', fontWeight: typography.weights.semibold }}>
-                Manage your documents →
+                Review &amp; update your documents &rarr;
               </a>
               <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
-                {marketName} hasn&apos;t listed specific documents. Keep your standard permits, licenses,
-                and insurance current and uploaded to your profile — the operator reviews them before
-                your rented day.
+                {marketName} hasn&apos;t listed specific documents. The compliance documents on your profile
+                (permits, licenses, insurance) are shared with the park for review when you book — keep them
+                current and upload new versions if any have expired or changed.
               </div>
             </>
           )}
