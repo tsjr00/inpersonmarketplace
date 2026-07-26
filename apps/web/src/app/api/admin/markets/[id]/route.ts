@@ -144,6 +144,14 @@ export async function PUT(
         console.error('Error updating market:', updateError)
         return NextResponse.json({ error: 'Failed to update market' }, { status: 500 })
       }
+
+      // Tester finding 2026-07-26: the main path never revalidated, so the admin
+      // market pages (and public pages, when status flips to active) served stale
+      // data after an update — "Approve & make live" looked like it did nothing.
+      // Only the private_pickup branch above revalidated; do it here too.
+      revalidatePath('/[vertical]/admin/markets', 'page')
+      revalidatePath('/[vertical]/markets', 'page')
+      revalidatePath(`/[vertical]/markets/${marketId}`, 'page')
     }
 
     // Handle schedules update if provided
