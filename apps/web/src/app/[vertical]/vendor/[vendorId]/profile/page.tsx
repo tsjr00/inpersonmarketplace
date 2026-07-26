@@ -1455,11 +1455,15 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                   if (certBadge && gateDocBadges.some(g => g.label === certBadge.label)) return null
                   const style = certificationStyles[cert.type] || certificationStyles.other
                   return (
+                    // Privacy (2026-07-26): public profile shows only that the
+                    // vendor HOLDS the certification — not the registration
+                    // number or state. Those details stay on the vendor's own
+                    // dashboard (vendor/edit) and the operator's private
+                    // vendor-docs view; the app is not the public distributor of
+                    // credential details. Cert files were already private (mig 151).
                     <div key={`cert-${index}`} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
                       <span style={{ fontSize: 14 }}>{style.icon}</span>
                       <span style={{ color: style.color, fontWeight: 600 }}>{cert.label}</span>
-                      <span style={{ color: '#6b7280' }}>#{cert.registration_number}</span>
-                      <span style={{ color: '#9ca3af', fontSize: 12 }}>({cert.state})</span>
                     </div>
                   )
                 })}

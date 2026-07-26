@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
-import VendorDocLink from '@/components/shared/VendorDocLink'
+import VendorDocLink, { extractVendorDocPathFromPublicUrl } from '@/components/shared/VendorDocLink'
 import {
   FOOD_TRUCK_DOC_TYPES,
   FOOD_TRUCK_DOC_TYPE_LABELS,
@@ -116,14 +116,27 @@ export default async function VendorDocsPage({ params }: PageProps) {
     return Array.isArray(snap) && snap.some((s) => s?.statement_id === '_info_sharing_consent')
   })
 
-  // Vendor profile (always fetched — used for the heading)
+  // Vendor profile (always fetched — used for the heading + certifications)
   const { data: vp } = await serviceClient
     .from('vendor_profiles')
-    .select('id, status, profile_data')
+    .select('id, status, profile_data, certifications')
     .eq('id', vendorProfileId)
     .maybeSingle()
   if (!vp) notFound()
   const profileData = (vp.profile_data || {}) as Record<string, unknown>
+  // Vendor-uploaded certifications (vendor_profiles.certifications JSONB). This
+  // is the upload path a truck uses to satisfy a park's required-docs list, so
+  // the operator needs to see them here alongside permits + COI. The file link
+  // rides the same signed-URL path as permits: the stored document_url is a
+  // now-dead PUBLIC url (bucket went private in mig 151), so we recover the
+  // storage path from it and hand that to VendorDocLink for a fresh signed URL.
+  const certifications = (vp.certifications as Array<{
+    type?: string
+    label?: string
+    registration_number?: string
+    state?: string
+    document_url?: string
+  }> | null) ?? []
   const businessName =
     (profileData.business_name as string | undefined) ||
     (profileData.farm_name as string | undefined) ||
@@ -409,6 +422,71 @@ export default async function VendorDocsPage({ params }: PageProps) {
           <p style={{ margin: `${spacing.xs} 0 0 0`, fontSize: typography.sizes.xs, color: colors.textMuted }}>
             Platform verified: {formatDate(verification.coi_verified_at as string)}
           </p>
+        )}
+      </div>
+
+      {/* Certifications — vendor-uploaded credentials (the path a truck uses to
+          satisfy a park's required-docs list). Distinct from the permit docs
+          above (vendor_verifications) — these live on vendor_profiles. */}
+      <div style={{
+        padding: spacing.md,
+        backgroundColor: colors.surfaceElevated,
+        border: `1px solid ${colors.border}`,
+        borderRadius: radius.md,
+        marginBottom: spacing.md,
+      }}>
+        <h2 style={{
+          marginTop: 0, marginBottom: spacing.sm,
+          fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold,
+          color: colors.textPrimary,
+        }}>Certifications</h2>
+        {certifications.length === 0 ? (
+          <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
+            No certifications uploaded yet. If you asked for a required document,
+            the truck adds it under their profile&apos;s Documents &amp; Certifications.
+          </p>
+        ) : (
+          <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+            {certifications.map((cert, i) => {
+              const certPath = extractVendorDocPathFromPublicUrl(cert.document_url)
+              return (
+                <li key={i} style={{
+                  marginBottom: spacing.sm,
+                  paddingBottom: spacing.sm,
+                  borderBottom: `1px solid ${colors.border}`,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' }}>
+                    <strong style={{ fontSize: typography.sizes.base, color: colors.textPrimary }}>
+                      {cert.label || cert.type || 'Certification'}
+                    </strong>
+                    {cert.state && (
+                      <span style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>
+                        ({cert.state})
+                      </span>
+                    )}
+                  </div>
+                  {cert.registration_number && (
+                    <p style={{ margin: `${spacing['2xs']} 0 0 0`, fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                      #{cert.registration_number}
+                    </p>
+                  )}
+                  <div style={{ margin: `${spacing['2xs']} 0 0 0`, fontSize: typography.sizes.sm }}>
+                    {certPath ? (
+                      <VendorDocLink
+                        path={certPath}
+                        marketId={marketId}
+                        style={{ color: colors.primary, textDecoration: 'underline' }}
+                      >
+                        View document
+                      </VendorDocLink>
+                    ) : (
+                      <span style={{ color: colors.textMuted, fontStyle: 'italic' }}>No file attached.</span>
+                    )}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
         )}
       </div>
     </div>

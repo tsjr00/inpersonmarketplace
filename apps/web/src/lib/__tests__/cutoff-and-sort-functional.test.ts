@@ -205,8 +205,11 @@ describe('NI-014: Total notification types = 72', () => {
     // Bumped 99 → 100 on 2026-07-18 when email_suppressed_notice was added
     // (NOT-5 mig 202 D-N4, user-approved — in_app-only nudge when a hard
     // bounce/complaint suppresses the user's email address).
+    // Bumped 100 → 101 on 2026-07-26 when park_required_docs_updated was added
+    // (park-required docs reach existing/recurring vendors — in_app nudge to
+    // booked trucks when an operator adds a required doc). User-approved.
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(100)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(101)
   })
 
   it('includes all buyer-facing types', () => {

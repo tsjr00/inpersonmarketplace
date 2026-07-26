@@ -133,6 +133,9 @@ export type NotificationType =
   | 'park_truck_docs_to_review'
   // FT park-manager P4a — a truck requested a weekly hold (operator approves/denies).
   | 'park_standing_hold_requested'
+  // FT park-manager — operator added a required document; booked/recurring trucks
+  // are told so the new requirement reaches vendors already at the park.
+  | 'park_required_docs_updated'
   // Manager access lifecycle (Phase 1B) — fired to the affected manager
   // when an admin removes / suspends / restores their market access.
   | 'manager_access_removed'
@@ -307,6 +310,10 @@ export interface NotificationTemplateData {
   dayCount?: number
   /** P4a weekly-hold request: the day-of-week name, e.g. "Saturday". */
   weekday?: string
+  /** Park required-docs update: human-readable list of the newly-added
+   *  document(s) an operator now asks booked trucks to carry, e.g.
+   *  "Health Permit and Fire Safety Certificate". */
+  docLabels?: string
 }
 
 export type NotificationSeverity = 'critical' | 'warning' | 'info'
@@ -1063,6 +1070,21 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       d.marketId
         ? `/${d.vertical || 'food_trucks'}/market-manager/${d.marketId}/dashboard#vendors`
         : `/${d.vertical || 'food_trucks'}/dashboard`,
+  },
+
+  // FT — an operator added a required document to their park. Booked and
+  // recurring trucks get told so a NEW requirement reaches vendors who are
+  // already at the park (not just first-time bookers who see it on the
+  // book-spot page). Informational, never blocks existing bookings
+  // (book-then-vet); the truck uploads it in their profile → certifications.
+  park_required_docs_updated: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: (d) => `New document requested at ${d.marketName || 'a park'}`,
+    message: (d) =>
+      `${d.marketName || 'A park'} you're booked at now asks trucks to carry ${d.docLabels || 'an additional document'}. Add it under your profile's Documents & Certifications so the operator can verify you — this doesn't affect your existing bookings.`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/edit`,
   },
 
   // FT P4a — a truck asked to reserve a spot every week; nudge the operator to
