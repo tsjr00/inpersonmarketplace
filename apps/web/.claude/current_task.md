@@ -1,17 +1,30 @@
-# Current Task: 🟢 All work ON STAGING (tip `374490df`), prod untouched (`62b686f7`, 87 commits behind). Booth/spot map feature SHIPPED + owner-confirmed on staging. ⭐ BIGGEST NEXT = THE RELAUNCH (87 commits + migs 184→205 to prod). Then admin follow-ups / money decisions. Test checklist: apps/web/docs/staging_test_2026-07-23_recent_work.md.
+# Current Task: 🟢 All work ON STAGING (tip `ed7467d1`), prod untouched (`62b686f7`, ~110 commits + migs 184→210 behind). Park/booking round (#1–#9) + Section A + park-operator-setup round (F1–F9) + a long park-operator bug-fix run (invite/docs/schedule) all SHIPPED to staging. ⭐ BIGGEST NEXT = THE RELAUNCH (migs 184→210 to prod). ✅ Migs 206–210 all APPLIED to Dev+Staging (user). Test checklist: apps/web/docs/staging_test_2026-07-23_recent_work.md.
 
-## 🟢🟢🟢 NEXT SESSION START HERE (2026-07-23 EOD) — VERIFY LIVE GIT, then confirm before work
-### GIT: local main = origin/staging = `374490df`; PROD origin/main = `62b686f7` (unchanged, **87 commits + migs 184→205 behind**). Staging in sync with main.
+## 🟢🟢🟢 NEXT SESSION START HERE (2026-07-25 EOD v2) — VERIFY LIVE GIT, then confirm before work
+### GIT: local main = origin/staging = `ed7467d1`; PROD origin/main = `62b686f7` (unchanged, **~110 commits + migs 184→210 behind**). Staging in sync with main.
+### ⚠️ MIGRATIONS — all Dev+Staging APPLIED (user), Prod PENDING (ride the relaunch, in order): 206 required-docs · 207 vendor-images-allow-pdf · 208 insurance-self-cert · 209 operator-platform-ack · **210 skip-ft-park-auto-schedule** (function-replace; owner confirmed Approve works after applying).
+### DEFERRED DATA-HYGIENE: FT trucks approved BEFORE mig 210 may carry phantom all-park-day vendor_market_schedules rows (from the old approval auto-create) → could show buyers availability on unbooked days. Not blocking; scope a cleanup pass. (See mig 210 header.)
 ### TOP NEXT ITEMS (priority order):
-1. **🔴 THE RELAUNCH (biggest, user-driven, time-sensitive):** 87 commits + 22 migrations (184→205 IN ORDER) staged & tested. Apply migs 184→205 in order → push main→origin/main in the **9PM–7AM CT** window (teaching-mode, verify Vercel build + smoke). **HARD GATE:** after mig 204 lands on prod, re-run the platform-admin access query (must be TRUE for tsjr00 + Jen) BEFORE admin commits are live — mig-before-push ordering handles it. Then re-run V2 (=0). Then vault update.
-2. **Admin follow-ups:** S4-3 regional-manager / scoped-admin persona (the big build the lockdown unblocks); `admins` POST writes role:'admin' not 'platform_admin' (~15min correctness, route unused); error_reports RLS review (defense-in-depth, note in errors/[id]).
-3. **Money decisions (no code until owner decides):** S1-3/9 (checkout body-trust / bind to server cart — architecture), S1-12 (dashboard-refund policy), S9-1 (event partial refund). Backlogged low: S1-2/8, S2-4, S3-2. WONTFIX: S2-1/S3-4 (intentional tip buffer).
-### SHIPPED THIS ARC (2026-07-20→23), all staging, gate-green (suite 67/1744):
-- Booth/spot MAP feature (`374490df`, mig 205 applied Dev+Staging, owner-confirmed) — see the block below.
-- Admin vertical-scope lockdown COMPLETE (7 commits `07c5b914`→`819f92b8`; structural gate ALLOWLIST = { login }).
-- Logic-testing fixes A1 (`1cd12b93`) + A2 (`0cdda987`) + S3-1 (`631fb36e`).
-- Support-page consolidation (`89c07e4e`).
-### HOUSEKEEPING: CLAUDE_CONTEXT.md session-history entries (07-22 + this one) uncommitted — sweep into next commit. Post-relaunch: REFRESH_SCHEMA regen (structured tables STALE), VOR-11 decision, error-code burn-down.
+1. **🔴 THE RELAUNCH (biggest, user-driven, time-sensitive):** ~110 commits + 27 migrations (**184→210 IN ORDER**) staged & tested. Apply migs 184→210 in order → push main→origin/main in the **9PM–7AM CT** window (teaching-mode, verify Vercel build + smoke). **HARD GATE:** after mig 204 lands on prod, re-run the platform-admin access query (must be TRUE for tsjr00 + Jen) BEFORE admin commits are live — mig-before-push ordering handles it. Then re-run V2 (=0). Then vault update.
+2. **A2 — new FT /about headers:** owner supplying replacement headers for FoodTruckAbout (the FT about headings were flagged weak). Drop into `src/app/[vertical]/about/page.tsx` FoodTruckAbout en/es when received. ONLY open tester item.
+3. **Admin follow-ups:** S4-3 regional-manager / scoped-admin persona (the big build the lockdown unblocks); `admins` POST writes role:'admin' not 'platform_admin' (~15min correctness, route unused); error_reports RLS review (defense-in-depth, note in errors/[id]).
+4. **Money decisions (no code until owner decides):** S1-3/9 (checkout body-trust / bind to server cart — architecture), S1-12 (dashboard-refund policy), S9-1 (event partial refund). Backlogged low: S1-2/8, S2-4, S3-2. WONTFIX: S2-1/S3-4 (intentional tip buffer). **Flagged, owner's call:** MarketTransactionsCard (manager summary) still shows whole dollars (`max:0`) — leave or show cents.
+5. **FUTURE FEATURES (backlog, owner-flagged 2026-07-25):** F10 landlord payout deduction (operator enters landlord %/flat per week/month → net it out in the financial report; no landlord login). F11 landlord lot marketplace (admin-vetted lots by zip, discoverable by operators/vendors, admin brokers connections; later manager-toolkit).
+
+### SHIPPED 2026-07-25 v2 (park-operator bug-fix run, from live testing) — all staging, gate-green:
+- `7e1b572f` doc-sharing copy (vendor docs are shared with parks by consent; refresh-if-expired). · `ecbc0def` invite email names the invited vendor + book-then-vet helper text (pending list note + card copy). · `4d74d38a` operator can VIEW a truck's permit files (vendor-docs page rendered product categories, not FT permit-type keys). · **`ed7467d1` mig 210** — stop phantom schedule-conflict blocking truck approval (auto_create_vendor_schedules skips FT parks; owner confirmed Approve works). Earlier same-run: operator-ack placement + park invite gate (`e9100ec2`).
+### SHIPPED 2026-07-25 (park-operator-setup tester round, F1–F9) — all staging, gate-green (suite 68/1765, tsc 0, eslint 0):
+- `e9a6fcca` **F1** operator pricing $150→$40 + value-bundle copy · **F2** "Create your park/market agreement" as its own signup step · **F3** "Add a spot" helper text · **F5** FT schedule heading "Food truck park / Location schedule".
+- `fb5ed4cc` **F4** allow PDF spot maps (**mig 207**, storage-config; route already handled PDF) · **F9** "Submitted for review" banner on both dashboards when markets.status='pending' + agreement-step relabel.
+- `11e7387f` **F6** platform clauses in EVERY agreement (**mig 209**) — NEW `lib/markets/platform-agreement-clauses.ts` (4 truck-facing + 1 operator clause), injected into acceptance snapshots (book-park-spot + join), shown in MarketAgreementBlock (no longer auto-accepts empty), read-only in OptinManager + operator ack checkbox gates Save (platform-ack route). · **F7** verification-docs overhaul (**mig 208**) — why-vet copy, required checklist (legal entity/managers list/permission-proof relabeled for owner-manager-entity+contact), insurance SELF-CERT replaces COI (insurance-cert route), COI now optional.
+- **F8** (40s doc save) was a one-time PostgREST schema-cache reload after mig 206 — NOT a bug, owner re-tested fast. No fix.
+
+### SHIPPED 2026-07-24 (park/booking round #1–#9 + Section A) — all staging:
+- #8 same-day rule (`503dc7cc`) · #7 cents + #5 no-fit (`d0dba5bf`) · #6/#4/#2 (`079e53d3`) · #9 receipt (`f7cd3d61`) · #1 structured required-docs mig 206 applied Dev+Staging (`37db24a6`).
+- Section A: A1/A4/A6/A7/A8 (`8486d21e`) · A5/A9 scroll fix CSS (`f30a0cac`) + template.tsx (`dea68276`, owner-confirmed).
+### STILL OPEN from all tester feedback: **A2** only (FT about headers — owner supplying). Everything else shipped.
+### PRIOR ARC (2026-07-20→23) still on staging & part of relaunch: booth/spot MAP (mig 205) · admin vertical-scope lockdown COMPLETE (`07c5b914`→`819f92b8`, ALLOWLIST={login}) · logic fixes A1/A2/S3-1 · support consolidation.
+### HOUSEKEEPING: CLAUDE_CONTEXT.md session-history entries (07-22→25) uncommitted — sweep into next commit. Post-relaunch: REFRESH_SCHEMA regen (structured tables STALE), VOR-11 decision, error-code burn-down.
 
 ---
 
