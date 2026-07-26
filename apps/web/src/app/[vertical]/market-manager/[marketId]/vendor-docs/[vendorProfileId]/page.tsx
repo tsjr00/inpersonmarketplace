@@ -4,6 +4,11 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import VendorDocLink from '@/components/shared/VendorDocLink'
+import {
+  FOOD_TRUCK_DOC_TYPES,
+  FOOD_TRUCK_DOC_TYPE_LABELS,
+  type FoodTruckDocType,
+} from '@/lib/onboarding/category-requirements'
 
 /**
  * Manager view of one vendor's onboarding documentation. Phase B A1
@@ -172,6 +177,30 @@ export default async function VendorDocsPage({ params }: PageProps) {
   const coiStatus = (verification?.coi_status as string | null) ?? 'not_submitted'
   const coiDocuments = (verification?.coi_documents as CoiDoc[] | null) ?? []
 
+  // Tester finding 2026-07-25: the operator saw product categories (e.g.
+  // "BBQ & Smoked") with "no documents" and couldn't view the truck's permits.
+  // Food trucks store compliance docs in category_verifications keyed by PERMIT
+  // type (mfu_permit, cfm_certificate, …), NOT by product category — so
+  // iterating requested_categories hid all the permit files. Render the permit
+  // entries for FT; product categories for FM. Extra keys that carry documents
+  // are included so nothing is ever missed.
+  const isFoodTruck = vertical === 'food_trucks'
+  const docEntries: { key: string; label: string }[] = isFoodTruck
+    ? [
+        ...(FOOD_TRUCK_DOC_TYPES as string[]).map((k) => ({
+          key: k,
+          label: FOOD_TRUCK_DOC_TYPE_LABELS[k as FoodTruckDocType] ?? k,
+        })),
+        ...Object.keys(categoryVerifications)
+          .filter(
+            (k) =>
+              !(FOOD_TRUCK_DOC_TYPES as string[]).includes(k) &&
+              ((categoryVerifications[k]?.documents?.length ?? 0) > 0)
+          )
+          .map((k) => ({ key: k, label: k })),
+      ]
+    : categories.map((c) => ({ key: c, label: c }))
+
   return (
     <div style={{ maxWidth: containers.lg, margin: '0 auto', padding: spacing.md }}>
       <div style={{ marginBottom: spacing.md }}>
@@ -236,28 +265,28 @@ export default async function VendorDocsPage({ params }: PageProps) {
           fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold,
           color: colors.textPrimary,
         }}>Categories &amp; documents</h2>
-        {categories.length === 0 ? (
+        {docEntries.length === 0 ? (
           <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-            No categories on file yet.
+            {isFoodTruck ? 'No permit documents on file yet.' : 'No categories on file yet.'}
           </p>
         ) : (
           <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
-            {categories.map((cat) => {
-              // category_verifications is keyed by category name; each
-              // value is { status, doc_type?, documents?, notes?, reviewed_at? }.
-              // Pull status + documents from the nested object.
-              const verification = categoryVerifications[cat]
+            {docEntries.map((entry) => {
+              // category_verifications is keyed by category name (FM) or permit
+              // type (FT); each value is { status, doc_type?, documents?, notes?,
+              // reviewed_at? }. Pull status + documents from the nested object.
+              const verification = categoryVerifications[entry.key]
               const status = verification?.status || 'pending'
               const docs = verification?.documents || []
               const colorPair = statusBadgeColors(status)
               return (
-                <li key={cat} style={{
+                <li key={entry.key} style={{
                   marginBottom: spacing.sm,
                   paddingBottom: spacing.sm,
                   borderBottom: `1px solid ${colors.border}`,
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' }}>
-                    <strong style={{ fontSize: typography.sizes.base, color: colors.textPrimary }}>{cat}</strong>
+                    <strong style={{ fontSize: typography.sizes.base, color: colors.textPrimary }}>{entry.label}</strong>
                     <span style={{
                       padding: `${spacing['3xs']} ${spacing.xs}`,
                       backgroundColor: colorPair.bg,
