@@ -280,12 +280,17 @@ export async function POST(
         } catch {
           // Email lookup failure → in-app channel still fires.
         }
+        // Name the invited vendor in the notification (tester 2026-07-25) so a
+        // shared inbox can tell which vendor an invite is for.
+        const vpData = (vp.profile_data || {}) as { business_name?: string; farm_name?: string }
+        const vendorName = vpData.business_name || vpData.farm_name || ''
         await sendNotification(
           vp.user_id as string,
           'market_vendor_invited',
           {
             marketName,
             marketId,
+            ...(vendorName ? { vendorName } : {}),
           },
           {
             vertical: verticalId,

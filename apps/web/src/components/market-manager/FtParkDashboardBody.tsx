@@ -148,7 +148,7 @@ export default function FtParkDashboardBody({
             content: (
               <ManagerCard
                 title="Your trucks & approvals"
-                description="Trucks you've invited or approved for your park, their status, and their agreement docs. Trucks book and pay for a spot in the booking flow — spot assignments show in the week view above."
+                description="Trucks you've invited, plus trucks that found your park and booked a spot on their own. Trucks can book and pay before you approve them — review their documents and Approve or Decline here. Spot assignments show in the week view above."
               >
                 <VendorBoothList marketId={marketId} vertical={vertical} />
               </ManagerCard>

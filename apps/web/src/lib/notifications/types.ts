@@ -704,12 +704,17 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     urgency: 'standard',
     severity: 'info',
     audience: 'vendor',
+    // Tester finding 2026-07-25: the invite named only the market, not the
+    // recipient vendor — indistinguishable when several vendor accounts share
+    // an inbox. Name the invited vendor so it's unambiguous who it's for.
     title: (d) =>
-      d.marketName
-        ? `${d.marketName} invited you to join`
-        : 'A market invited you to join',
+      d.marketName && d.vendorName
+        ? `${d.marketName} invited ${d.vendorName} to join`
+        : d.marketName
+          ? `${d.marketName} invited you to join`
+          : 'A market invited you to join',
     message: (d) =>
-      `The manager of ${d.marketName || 'a market'} invited you to join their market. ` +
+      `The manager of ${d.marketName || 'a market'} invited ${d.vendorName || 'you'} to join their market. ` +
       `Review the market profile and accept or decline from your vendor dashboard.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/markets`,
   },

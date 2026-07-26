@@ -399,6 +399,26 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
         {renderFilterChip('all', 'All', vendors.length)}
       </div>
 
+      {/* Tester finding 2026-07-25: a first-time operator was confused that an
+          un-approved truck could already hold a booking. Explain book-then-vet
+          right where the pending trucks are. FT parks only (open spot booking). */}
+      {isFoodTruck && pendingApprovalVendors.length > 0 && (
+        <div style={{
+          padding: spacing.sm,
+          backgroundColor: '#fff8e1',
+          border: '1px solid #ffe082',
+          borderRadius: radius.sm,
+          fontSize: typography.sizes.xs,
+          color: '#6d4c00',
+          lineHeight: 1.5,
+        }}>
+          <strong>Waiting on you.</strong> Trucks can book and pay for a spot before you approve them,
+          so a truck can appear here already holding a booking. Review their documents (View docs), then
+          <strong> Approve</strong> or <strong>Decline</strong> — approving lets them keep operating. You can
+          also block a truck or bar a specific booking.
+        </div>
+      )}
+
       <ConfirmDialog
         open={!!confirmingRevoke}
         title="Revoke approval?"
