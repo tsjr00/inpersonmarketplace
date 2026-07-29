@@ -239,6 +239,7 @@ export default function FtParkDashboardBody({
           marketId={marketId}
           vertical={vertical}
           initialLogoUrl={(market.logo_url as string | null) ?? null}
+          initialCoverImageUrl={(market.cover_image_url as string | null) ?? null}
           initialDescription={(market.description as string | null) ?? null}
         />
         <VerificationDocumentsCard marketId={marketId} vertical={vertical} />

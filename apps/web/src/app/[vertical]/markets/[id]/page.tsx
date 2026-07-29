@@ -242,6 +242,23 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
           marginBottom: spacing.md,
           boxShadow: shadows.sm
         }}>
+          {/* Cover photo banner (mig 212) — landscape park/lot photo the manager
+              uploads in the Branding card, distinct from the small square logo. */}
+          {market.cover_image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={market.cover_image_url as string}
+              alt={`${market.name} photo`}
+              style={{
+                width: '100%',
+                aspectRatio: '16 / 5',
+                objectFit: 'cover',
+                borderRadius: radius.md,
+                marginBottom: spacing.sm,
+                display: 'block',
+              }}
+            />
+          ) : null}
           {/* Icon + Name on same line */}
           <div style={{
             display: 'flex',

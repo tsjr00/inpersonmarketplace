@@ -24,6 +24,10 @@ interface MarketBrandingCardProps {
   marketId: string
   vertical: string
   initialLogoUrl: string | null
+  /** Cover photo (mig 212). OPTIONAL: when omitted the cover section is hidden,
+   *  so the shared FM dashboard body (vaulted) stays byte-identical. FT park
+   *  passes it (even null) to enable the feature. */
+  initialCoverImageUrl?: string | null
   initialDescription: string | null
 }
 
@@ -33,14 +37,26 @@ export default function MarketBrandingCard({
   marketId,
   vertical,
   initialLogoUrl,
+  initialCoverImageUrl,
   initialDescription,
 }: MarketBrandingCardProps) {
   const router = useRouter()
+  // Cover section renders only when the parent explicitly passes the prop (FT
+  // park). Undefined ⇒ hidden ⇒ FM dashboard body unchanged.
+  const coverEnabled = initialCoverImageUrl !== undefined
   const [logoUrl, setLogoUrl] = useState<string | null>(initialLogoUrl)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // Cover photo (mig 212) — a landscape photo of the park/lot, distinct from the
+  // square logo. Own upload/replace/remove state mirroring the logo above.
+  const [coverUrl, setCoverUrl] = useState<string | null>(initialCoverImageUrl ?? null)
+  const [coverUploading, setCoverUploading] = useState(false)
+  const [coverError, setCoverError] = useState<string | null>(null)
+  const [coverSuccess, setCoverSuccess] = useState<string | null>(null)
+  const coverFileInputRef = useRef<HTMLInputElement>(null)
+  const [confirmingCoverRemove, setConfirmingCoverRemove] = useState(false)
   // Description editor state
   const [description, setDescription] = useState<string>(initialDescription ?? '')
   const [savedDescription, setSavedDescription] = useState<string>(initialDescription ?? '')
@@ -145,6 +161,58 @@ export default function MarketBrandingCard({
       setError('Network error — please try again')
     } finally {
       setUploading(false)
+    }
+  }
+
+  // ── Cover photo handlers (mirror the logo handlers, own endpoint) ──
+  const handleCoverFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setCoverError(null)
+    setCoverSuccess(null)
+    setCoverUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('image', file)
+      const res = await fetch(`/api/market-manager/${marketId}/cover-image`, {
+        method: 'POST',
+        body: formData,
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setCoverError(data.error || 'Failed to upload photo')
+        return
+      }
+      setCoverUrl(data.cover_image_url)
+      setCoverSuccess('Photo uploaded.')
+      router.refresh()
+    } catch {
+      setCoverError('Network error — please try again')
+    } finally {
+      setCoverUploading(false)
+      if (coverFileInputRef.current) coverFileInputRef.current.value = ''
+    }
+  }
+
+  const performCoverRemove = async () => {
+    setConfirmingCoverRemove(false)
+    setCoverUploading(true)
+    try {
+      const res = await fetch(`/api/market-manager/${marketId}/cover-image`, {
+        method: 'DELETE',
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setCoverError(data.error || 'Failed to remove photo')
+        return
+      }
+      setCoverUrl(null)
+      setCoverSuccess('Photo removed.')
+      router.refresh()
+    } catch {
+      setCoverError('Network error — please try again')
+    } finally {
+      setCoverUploading(false)
     }
   }
 
@@ -276,6 +344,140 @@ export default function MarketBrandingCard({
         JPG, PNG, GIF, or WebP. Max 3 MB. Square images render best.
       </p>
 
+      {/* Cover photo (mig 212, tester 2026-07-28) — a landscape photo of the
+          park/lot, distinct from the square logo. Renders as a banner on the
+          public market profile. Own endpoint: /cover-image. Gated on coverEnabled
+          so the shared (vaulted) FM dashboard body is unaffected. */}
+      {coverEnabled && (
+      <div style={{
+        marginTop: spacing.lg,
+        paddingTop: spacing.md,
+        borderTop: `1px solid ${colors.border}`,
+      }}>
+        <h3 style={{
+          marginTop: 0,
+          marginBottom: spacing['2xs'],
+          fontSize: typography.sizes.base,
+          fontWeight: typography.weights.semibold,
+          color: colors.textPrimary,
+        }}>
+          {term(vertical, 'market')} photo
+        </h3>
+        <p style={{
+          margin: 0,
+          marginBottom: spacing.sm,
+          fontSize: typography.sizes.sm,
+          color: colors.textMuted,
+          lineHeight: 1.5,
+        }}>
+          {`A landscape photo of your ${term(vertical, 'market').toLowerCase()} — shown as a banner on your public profile. This is separate from your logo.`}
+        </p>
+        {coverUrl ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs, marginBottom: spacing.sm }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={coverUrl}
+              alt={`${term(vertical, 'market')} photo`}
+              style={{
+                width: '100%',
+                maxWidth: 360,
+                aspectRatio: '16 / 9',
+                objectFit: 'cover',
+                borderRadius: radius.sm,
+                border: `1px solid ${colors.border}`,
+                backgroundColor: colors.surfaceBase,
+              }}
+            />
+            <div style={{ display: 'flex', gap: spacing.xs }}>
+              <button
+                type="button"
+                onClick={() => coverFileInputRef.current?.click()}
+                disabled={coverUploading}
+                style={{
+                  padding: `${spacing.xs} ${spacing.md}`,
+                  backgroundColor: 'transparent',
+                  color: colors.primary,
+                  border: `2px solid ${colors.primary}`,
+                  borderRadius: radius.sm,
+                  fontSize: typography.sizes.sm,
+                  fontWeight: typography.weights.semibold,
+                  cursor: coverUploading ? 'not-allowed' : 'pointer',
+                  opacity: coverUploading ? 0.6 : 1,
+                }}
+              >
+                {coverUploading ? 'Working…' : 'Replace'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setCoverError(null); setCoverSuccess(null); setConfirmingCoverRemove(true) }}
+                disabled={coverUploading}
+                style={{
+                  padding: `${spacing.xs} ${spacing.md}`,
+                  backgroundColor: 'transparent',
+                  color: colors.textMuted,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: radius.sm,
+                  fontSize: typography.sizes.sm,
+                  cursor: coverUploading ? 'not-allowed' : 'pointer',
+                  opacity: coverUploading ? 0.6 : 1,
+                }}
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => coverFileInputRef.current?.click()}
+            disabled={coverUploading}
+            style={{
+              padding: `${spacing.sm} ${spacing.md}`,
+              backgroundColor: colors.primary,
+              color: 'white',
+              border: 'none',
+              borderRadius: radius.sm,
+              fontSize: typography.sizes.sm,
+              fontWeight: typography.weights.semibold,
+              cursor: coverUploading ? 'not-allowed' : 'pointer',
+              opacity: coverUploading ? 0.6 : 1,
+            }}
+          >
+            {coverUploading ? 'Uploading…' : 'Upload photo'}
+          </button>
+        )}
+        <input
+          ref={coverFileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          onChange={handleCoverFileChange}
+          style={{ display: 'none' }}
+        />
+        {coverError && (
+          <div style={{
+            marginTop: spacing.sm, padding: spacing.xs,
+            backgroundColor: '#f8d7da', color: '#721c24',
+            border: '1px solid #f5c6cb', borderRadius: radius.sm,
+            fontSize: typography.sizes.sm,
+          }}>{coverError}</div>
+        )}
+        {coverSuccess && (
+          <div style={{
+            marginTop: spacing.sm, padding: spacing.xs,
+            backgroundColor: '#d4edda', color: '#155724',
+            border: '1px solid #c3e6cb', borderRadius: radius.sm,
+            fontSize: typography.sizes.sm,
+          }}>{coverSuccess}</div>
+        )}
+        <p style={{
+          marginTop: spacing.sm, marginBottom: 0,
+          fontSize: typography.sizes.xs, color: colors.textMuted, lineHeight: 1.5,
+        }}>
+          JPG, PNG, GIF, or WebP. Max 3 MB. Landscape images render best.
+        </p>
+      </div>
+      )}
+
       {/* Description editor (A3, 2026-05-16). Writes to markets.description
           via PATCH /api/market-manager/[marketId]/branding. Renders on the
           public market profile page + the vendor invite landing intro. */}
@@ -388,6 +590,16 @@ export default function MarketBrandingCard({
         confirmLabel="Remove"
         onConfirm={performRemove}
         onCancel={() => setConfirmingRemove(false)}
+      />
+
+      <ConfirmDialog
+        open={confirmingCoverRemove}
+        title="Remove photo?"
+        message="Remove the current cover photo? Your public profile will show no banner photo until you upload a new one."
+        variant="danger"
+        confirmLabel="Remove"
+        onConfirm={performCoverRemove}
+        onCancel={() => setConfirmingCoverRemove(false)}
       />
     </ManagerCard>
   )
