@@ -312,9 +312,24 @@ export default function OptinManager({ marketId, vertical }: OptinManagerProps) 
               style={{ marginTop: 3, width: 18, height: 18 }}
             />
             <span style={{ fontSize: typography.sizes.sm, color: colors.textPrimary, lineHeight: 1.4 }}>
+              <span style={{ color: '#dc2626', fontWeight: typography.weights.semibold }}>* </span>
               {operatorClause}
             </span>
           </label>
+        )}
+        {/* Tester finding 2026-07-28: Save was blocked with no on-screen reason
+            when this box was unchecked. Show an explicit required hint so the
+            operator knows exactly what's stopping the save. */}
+        {platformAck === false && (
+          <div style={{
+            marginTop: spacing['2xs'],
+            marginLeft: 26,
+            fontSize: typography.sizes.xs,
+            color: '#dc2626',
+            fontWeight: typography.weights.medium,
+          }}>
+            Required — check this box to save your agreement selections.
+          </div>
         )}
       </div>
 

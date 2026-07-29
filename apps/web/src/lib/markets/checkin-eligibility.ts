@@ -59,6 +59,7 @@ type MarketRow = {
   id: string
   name: string | null
   market_type: string
+  vertical_id: string | null
   timezone: string | null
   latitude: number | null
   longitude: number | null
@@ -123,6 +124,12 @@ export async function getEligibleCheckInMarkets(
     .eq('status', 'paid')
     .eq('booking_date', todayStr)
 
+  // Markets where this truck has a paid booking FOR TODAY. FT parks are
+  // date-specific (book Tue the 5th), NOT "attend every scheduled Tuesday", so
+  // for a park this same-day booking is the ONLY thing that grants check-in
+  // today — see the vertical_id gate in the eligibility loop below.
+  const parkBookingMarketIds = new Set((parkRows ?? []).map((r) => r.market_id as string))
+
   const boothByMarket = new Map<string, string | null>()
   for (const r of mvRows ?? []) boothByMarket.set(r.market_id as string, (r.booth_number as string) ?? null)
   for (const r of rentalRows ?? []) {
@@ -143,7 +150,7 @@ export async function getEligibleCheckInMarkets(
   // 2. Market details + today's active schedule weekdays.
   const { data: markets } = await service
     .from('markets')
-    .select('id, name, market_type, timezone, latitude, longitude, event_start_date, event_end_date')
+    .select('id, name, market_type, vertical_id, timezone, latitude, longitude, event_start_date, event_end_date')
     .in('id', marketIds)
 
   const { data: schedules } = await service
@@ -161,7 +168,22 @@ export async function getEligibleCheckInMarkets(
 
   const out: CheckInEligibleMarket[] = []
   for (const m of (markets ?? []) as MarketRow[]) {
-    if (!operatesToday(m, dowsByMarket.get(m.id) ?? new Set())) continue
+    // FT PARK bug fix (tester finding 2026-07-28): a food-truck park is
+    // date-booking-based, not schedule-weekday-based. Before this, an APPROVED
+    // park truck (approved market_vendors row, source (a)) was eligible on EVERY
+    // scheduled weekday via operatesToday's day-of-week match — so a truck booked
+    // for NEXT Tuesday was prompted to check in THIS Tuesday, writing a false
+    // attendance record and notifying the park (and could shadow the truck that
+    // actually booked that day). For an FT park, the ONLY thing that grants
+    // check-in today is a paid park booking whose booking_date IS today
+    // (parkBookingMarketIds). FT EVENTS (market_type 'event') and FM markets keep
+    // the schedule/date-range behavior via operatesToday. Same day-of-week trap
+    // family as the phantom schedules (migs 210/211).
+    const isFtPark = m.vertical_id === 'food_trucks' && m.market_type !== 'event'
+    const eligibleToday = isFtPark
+      ? parkBookingMarketIds.has(m.id)
+      : operatesToday(m, dowsByMarket.get(m.id) ?? new Set())
+    if (!eligibleToday) continue
     out.push({
       marketId: m.id,
       marketName: m.name,

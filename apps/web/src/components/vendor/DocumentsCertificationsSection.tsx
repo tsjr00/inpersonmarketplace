@@ -130,7 +130,21 @@ export default function DocumentsCertificationsSection({
     }
   }
 
-  const availableCertTypes = CERTIFICATION_TYPES.filter(ct =>
+  // P2.2 (tester 2026-07-28): the cert-type dropdown always showed the FM list
+  // (cottage food, organic, GAP…), which is irrelevant to food trucks. Give FT
+  // vendors the food-truck permit taxonomy they already know from onboarding,
+  // plus "Other" for anything a park specifically requires.
+  const FT_CERT_TYPES = [
+    ...FOOD_TRUCK_PERMIT_REQUIREMENTS.map((r) => ({
+      type: r.docType as string,
+      label: r.label,
+      description: r.description,
+    })),
+    { type: 'other', label: 'Other Certification', description: 'Any other permit, license, or certification — e.g., a document your park requires.' },
+  ]
+  const certTypeCatalog: Array<{ type: string; label: string; description: string }> =
+    isFoodTruck ? FT_CERT_TYPES : CERTIFICATION_TYPES
+  const availableCertTypes = certTypeCatalog.filter(ct =>
     !excludedCertTypes.has(ct.type) && !certifications.some(c => c.type === ct.type && ct.type !== 'other')
   )
 
@@ -208,12 +222,20 @@ export default function DocumentsCertificationsSection({
   }
 
   const handleAddCert = async () => {
-    if (!newCert.type || !newCert.registration_number || !newCert.state) {
-      setCertMessage({ type: 'error', text: 'Please fill in all required fields' })
+    // P2.2 (tester 2026-07-28): only the TYPE is required (and a name for
+    // "Other"). Registration #, state, expiration, and the file are all optional —
+    // many certs/permits don't have a number or a state, and forcing them blocked
+    // legitimate uploads.
+    if (!newCert.type) {
+      setCertMessage({ type: 'error', text: 'Please choose a certification type' })
+      return
+    }
+    if (newCert.type === 'other' && !newCert.label) {
+      setCertMessage({ type: 'error', text: 'Please enter a name for this certification' })
       return
     }
 
-    const typeInfo = CERTIFICATION_TYPES.find(t => t.type === newCert.type)
+    const typeInfo = certTypeCatalog.find(t => t.type === newCert.type)
     const label = newCert.type === 'other' && newCert.label ? newCert.label : typeInfo?.label || newCert.type
 
     let documentUrl: string | undefined
@@ -227,8 +249,8 @@ export default function DocumentsCertificationsSection({
     const cert: Certification = {
       type: newCert.type,
       label,
-      registration_number: newCert.registration_number,
-      state: newCert.state.toUpperCase(),
+      registration_number: newCert.registration_number || '',
+      state: (newCert.state || '').toUpperCase(),
       verified: false,
       ...(newCert.expires_at ? { expires_at: newCert.expires_at } : {}),
       ...(documentUrl !== undefined ? { document_url: documentUrl } : {}),
@@ -766,8 +788,12 @@ export default function DocumentsCertificationsSection({
                         <span>{cert.label}</span>
                       </div>
                       <div style={{ fontSize: typography.sizes.sm, color: colors.textPrimary }}>
-                        #{cert.registration_number} &bull; {cert.state}
-                        {cert.expires_at && ` \u2022 Expires: ${new Date(cert.expires_at).toLocaleDateString()}`}
+                        {/* reg # and state are optional now \u2014 only show the parts present */}
+                        {[
+                          cert.registration_number ? `#${cert.registration_number}` : null,
+                          cert.state || null,
+                        ].filter(Boolean).join(' \u2022 ')}
+                        {cert.expires_at && `${cert.registration_number || cert.state ? ' \u2022 ' : ''}Expires: ${new Date(cert.expires_at).toLocaleDateString()}`}
                       </div>
                     </div>
                     <button
@@ -974,7 +1000,7 @@ export default function DocumentsCertificationsSection({
                   fontSize: typography.sizes.sm,
                   fontWeight: typography.weights.medium,
                 }}>
-                  Registration/License # *
+                  Registration/License # (optional)
                 </label>
                 <input
                   type="text"
@@ -999,7 +1025,7 @@ export default function DocumentsCertificationsSection({
                   fontSize: typography.sizes.sm,
                   fontWeight: typography.weights.medium,
                 }}>
-                  State *
+                  State (optional)
                 </label>
                 <select
                   value={newCert.state || ''}
@@ -1055,7 +1081,7 @@ export default function DocumentsCertificationsSection({
                 fontSize: typography.sizes.sm,
                 fontWeight: typography.weights.medium,
               }}>
-                Supporting Document (optional)
+                Certificate / permit file
               </label>
               <input
                 ref={newFileInputRef}
@@ -1076,7 +1102,7 @@ export default function DocumentsCertificationsSection({
                 fontSize: typography.sizes.xs,
                 color: colors.textMuted,
               }}>
-                PDF, JPG, or PNG up to 10MB.
+                Attach the actual certificate, permit, or license (PDF, JPG, or PNG, up to 10MB). Recommended — a park may require the file to verify you.
               </p>
             </div>
 

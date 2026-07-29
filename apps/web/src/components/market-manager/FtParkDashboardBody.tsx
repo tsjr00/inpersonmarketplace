@@ -229,6 +229,12 @@ export default function FtParkDashboardBody({
         >
           <OptinManager marketId={marketId} vertical={vertical} />
         </ManagerCard>
+        {/* P4b (2026-07-15): what documents trucks must carry to book here.
+            Tester 2026-07-28: moved directly BELOW the agreement statements and
+            ABOVE Branding — it was previously right under the operator's own
+            Verification Documents card, and the proximity made it read as if the
+            operator had to upload these (they're what VENDORS must carry). */}
+        <ParkRequiredDocsCard marketId={marketId} />
         <MarketBrandingCard
           marketId={marketId}
           vertical={vertical}
@@ -236,8 +242,6 @@ export default function FtParkDashboardBody({
           initialDescription={(market.description as string | null) ?? null}
         />
         <VerificationDocumentsCard marketId={marketId} vertical={vertical} />
-        {/* P4b (2026-07-15): what documents trucks must carry to book here */}
-        <ParkRequiredDocsCard marketId={marketId} />
         {visibilityStatus && <MarketVisibilityCard status={visibilityStatus} />}
       </CollapsibleSection>
 
