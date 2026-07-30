@@ -1,5 +1,15 @@
 # Backlog
 
+Last updated: 2026-07-29 (added: Extra-B residual — expire abandoned park-spot Stripe session)
+
+## 🟢 LOW — Expire the abandoned park-spot Stripe session (added 2026-07-29)
+
+Follow-up to the Extra-B fix (`f141c6e6`, `book-park-spot/route.ts`): re-booking now cancels the caller's OWN stale `pending_payment` rows so an abandoned checkout no longer blocks re-booking, and the cancel keeps the Stripe webhook a clean skip. **Residual edge:** if a vendor leaves the old Stripe tab open unpaid, re-books + pays the NEW session, then goes back and *also* completes the OLD session, Stripe charges both — the old booking stays `cancelled` (no phantom booking) but the money on the old session is taken with nothing to show. Self-inflicted, needs two live Stripe tabs both paid, and Stripe auto-expires open sessions after 24h — hence LOW.
+
+**Fix (one-function add, feasible — session id IS stored):** the route writes `park_spot_bookings.stripe_checkout_session_id = session.id` per `booking_group_id` (`book-park-spot/route.ts:541-542`). In the Extra-B cancel step, first `SELECT DISTINCT stripe_checkout_session_id` from the caller's own pending rows being cancelled, then call `stripe.checkout.sessions.expire(id)` for each non-null one (wrap each in try/catch — expiring an already-completed/expired session throws and should be ignored). Then reopening the old tab shows "expired" and it can't be paid → edge closed. Do it when next editing that route.
+
+---
+
 Last updated: 2026-07-20 (added: 3 low-severity A2 deferrals from the logic-testing money-fix session)
 
 ## 🟢 LOW — A2 money-fix deferrals (added 2026-07-20; owner chose to skip)
