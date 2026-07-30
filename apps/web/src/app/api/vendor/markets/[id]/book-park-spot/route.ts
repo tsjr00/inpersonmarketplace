@@ -422,6 +422,26 @@ export async function POST(
       acceptanceId = insertedAcceptance.id as string
     }
 
+    // --- Extra B (tester 2026-07-28): release the CALLER'S OWN abandoned holds. ---
+    //     A vendor who selected a spot/date, reached Stripe, then left, holds
+    //     pending_payment rows that block them from re-booking the same spot/date
+    //     (the partial-unique index counts pending_payment+paid). Cancel this
+    //     vendor's OWN pending_payment rows for exactly these (spot, date)s so
+    //     they can resume. Paid rows and OTHER vendors' holds are untouched — a
+    //     genuine double-booking still errors below. CANCELLING (not deleting)
+    //     keeps the row, so if the old Stripe session is completed late the webhook
+    //     finds no pending_payment left in that group and cleanly skips
+    //     (webhooks.ts flip is `.eq('status','pending_payment')`) — no phantom
+    //     booking, no double flip.
+    crumb.supabase('update', 'park_spot_bookings')
+    await serviceClient
+      .from('park_spot_bookings')
+      .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+      .eq('vendor_profile_id', profile.id)
+      .eq('spot_id', spotId)
+      .eq('status', 'pending_payment')
+      .in('booking_date', dates)
+
     // --- Book atomically (all-or-nothing across the dates). ---
     const groupId = crypto.randomUUID()
     crumb.supabase('rpc', 'book_park_spot_atomic')
@@ -492,7 +512,12 @@ export async function POST(
     try {
       const baseUrl = request.nextUrl.origin
       const vertical = (market.vertical_id as string) || 'food_trucks'
-      const successUrl = `${baseUrl}/${vertical}/markets/${marketId}/book-spot?session=success&group=${groupId}`
+      // Tester finding 2026-07-28: after paying, Stripe returned the vendor to the
+      // book-spot page (with a bare ?session=success the page ignores), which read
+      // as "did it work?". Land them on their park-bookings list instead, where the
+      // spot + date show as paid. (Paid status itself is set by the Stripe webhook,
+      // not this URL — the redirect is purely where the vendor lands.)
+      const successUrl = `${baseUrl}/${vertical}/vendor/park-bookings?booking=success&group=${groupId}`
       const cancelUrl = `${baseUrl}/${vertical}/markets/${marketId}/book-spot?session=cancel`
 
       const session = await createParkSpotCheckoutSession({

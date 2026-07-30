@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
+import { FOOD_TRUCK_PERMIT_REQUIREMENTS } from '@/lib/onboarding/category-requirements'
 
 interface Certification {
   type: string
@@ -42,17 +43,23 @@ export async function PUT(request: NextRequest) {
       throw traced.validation('ERR_VALIDATION_001', 'Maximum of 4 certifications allowed')
     }
 
-    // Validate each certification
-    const validTypes = ['cottage_goods', 'organic', 'regenerative', 'gap_certified', 'other']
+    // Validate each certification.
+    // Types: FM voluntary certs + the FT permit taxonomy (mig-less; the FT cert
+    // dropdown offers these) + 'other'. Tester finding 2026-07-28: the old list
+    // was FM-only, so FT cert saves (e.g. 'mfu_permit') were rejected server-side
+    // and silently never persisted.
+    const validTypes = new Set<string>([
+      'cottage_goods', 'organic', 'regenerative', 'gap_certified', 'other',
+      ...FOOD_TRUCK_PERMIT_REQUIREMENTS.map((r) => r.docType as string),
+    ])
     for (const cert of certifications) {
-      if (!cert.type || !validTypes.includes(cert.type)) {
+      if (!cert.type || !validTypes.has(cert.type)) {
         throw traced.validation('ERR_VALIDATION_001', `Invalid certification type: ${cert.type}`)
       }
-      if (!cert.registration_number || cert.registration_number.trim() === '') {
-        throw traced.validation('ERR_VALIDATION_001', 'Registration number is required')
-      }
-      if (!cert.state || cert.state.length !== 2) {
-        throw traced.validation('ERR_VALIDATION_001', 'Valid 2-letter state code is required')
+      // registration_number + state are OPTIONAL (UI made them optional 2026-07-28
+      // — many permits have neither). Only validate the state FORMAT when present.
+      if (cert.state && cert.state.trim() !== '' && cert.state.trim().length !== 2) {
+        throw traced.validation('ERR_VALIDATION_001', 'State must be a 2-letter code')
       }
       if (cert.type === 'other' && (!cert.label || cert.label.trim() === '')) {
         throw traced.validation('ERR_VALIDATION_001', 'Label is required for "other" certification type')
@@ -77,8 +84,8 @@ export async function PUT(request: NextRequest) {
     const sanitizedCertifications = certifications.map(cert => ({
       type: cert.type,
       label: cert.label,
-      registration_number: cert.registration_number.trim(),
-      state: cert.state.toUpperCase(),
+      registration_number: (cert.registration_number || '').trim(),
+      state: (cert.state || '').trim().toUpperCase(),
       expires_at: cert.expires_at || null,
       verified: false, // Always set to false - only admins can verify
       document_url: cert.document_url && typeof cert.document_url === 'string'

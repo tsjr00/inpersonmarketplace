@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 
 /**
  * Admin one-click approve for markets in `status='pending'` — the state
@@ -23,8 +22,8 @@ interface ApproveStatusButtonProps {
 }
 
 export default function ApproveStatusButton({ marketId, status }: ApproveStatusButtonProps) {
-  const router = useRouter()
   const [busy, setBusy] = useState(false)
+  const [done, setDone] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   if (status !== 'pending') return null
@@ -45,12 +44,14 @@ export default function ApproveStatusButton({ marketId, status }: ApproveStatusB
         setBusy(false)
         return
       }
-      // Tester finding 2026-07-26: the write succeeds in the DB, but the button
-      // only ever cleared its spinner by unmounting on re-render — so if the
-      // refresh didn't immediately reflect status='active', it hung on
-      // "Approving…" forever. Reset busy explicitly so it can never stick.
-      setBusy(false)
-      router.refresh()
+      // Tester finding 2026-07-28: the write succeeds (SQL confirmed status flips
+      // to 'active'), but router.refresh() did NOT re-render this platform-admin
+      // page — the button stayed green and the operator couldn't tell it worked.
+      // A full reload guarantees the page reflects the new status (button gone,
+      // "Status: active" badge). This is an infrequent admin action, so the hard
+      // reload is an acceptable trade for a bulletproof, unambiguous result.
+      setDone(true)
+      window.location.reload()
     } catch {
       setError('Network error')
       setBusy(false)
@@ -62,7 +63,7 @@ export default function ApproveStatusButton({ marketId, status }: ApproveStatusB
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <button
           onClick={handleApprove}
-          disabled={busy}
+          disabled={busy || done}
           style={{
             padding: '10px 20px',
             backgroundColor: '#2d5016',
@@ -71,11 +72,11 @@ export default function ApproveStatusButton({ marketId, status }: ApproveStatusB
             borderRadius: 8,
             fontSize: 14,
             fontWeight: 600,
-            cursor: busy ? 'not-allowed' : 'pointer',
-            opacity: busy ? 0.6 : 1,
+            cursor: (busy || done) ? 'not-allowed' : 'pointer',
+            opacity: (busy || done) ? 0.6 : 1,
           }}
         >
-          {busy ? 'Approving…' : '✓ Approve & make live'}
+          {done ? '✓ Approved — reloading…' : busy ? 'Approving…' : '✓ Approve & make live'}
         </button>
         {error && (
           <span style={{ color: '#991b1b', fontSize: 13 }}>{error}</span>
