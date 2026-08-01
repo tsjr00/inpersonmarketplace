@@ -208,6 +208,14 @@ export function getPlatformUserAgreement(): LegalDocument {
               'The Company collects, stores, and retains transaction data — including purchase amounts, tax amounts, product categories, pickup locations, and associated tax rates — for at least as long as required by applicable federal and state tax laws for the jurisdictions in which the Company operates. Retention periods may vary by state based on applicable laws. This data may be shared with tax authorities, payment processors, and tax reporting service providers as required by law or as necessary to fulfill the Company\'s obligations as a marketplace facilitator. By using the Platform, you consent to this collection, storage, and sharing of tax-related transaction data.',
             ],
           },
+          {
+            id: 'payment-terms-9',
+            title: '4.9 Community Chip In.',
+            level: 'section',
+            content: [
+              'For certain events, the Platform offers an optional "Community Chip In" feature at checkout that allows a shopper to add a voluntary contribution benefiting an organization or cause designated for that event. Participation is entirely voluntary and is not required to complete a purchase.\n\n(a) The full amount of each contribution is delivered to the designated organization; the Company retains none of the contribution and absorbs any payment-processing cost associated with it.\n\n(b) A Community Chip In contribution is not a charitable donation and is not tax-deductible. The Company does not provide tax receipts for contributions, and no goods or services are provided in exchange for a contribution.\n\n(c) Contributions are non-refundable. If your order or any item in it is cancelled or refunded for any reason, the Community Chip In contribution is not refunded and will still be delivered to the designated organization.\n\n(d) The designated organization and the contribution amount are displayed at checkout before the order is finalized.\n\n(e) The Company facilitates delivery of contributions to designated organizations but is not responsible for an organization\'s use of funds and makes no representation regarding any organization\'s tax-exempt status.',
+            ],
+          },
         ],
       },
       {

@@ -16,6 +16,7 @@ src/lib/utils/**
 src/lib/branding/**
 src/lib/test-utils/**
 src/lib/events/**
+src/lib/cause/**
 src/lib/design-tokens.ts
 src/lib/pricing-display.ts
 src/lib/rate-limit.ts

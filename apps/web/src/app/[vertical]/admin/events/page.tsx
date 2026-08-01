@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import AdminNav from '@/components/admin/AdminNav'
 import Link from 'next/link'
 import { spacing, typography, radius, statusColors, sizing } from '@/lib/design-tokens'
+import EventChipInControl from '@/components/events/EventChipInControl'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { term } from '@/lib/vertical/terminology'
 import { calculateViability, scoreVendorMatch, type EventScoreInput, type ScoreLevel, type VendorMatchInput } from '@/lib/events/viability'
@@ -873,6 +874,9 @@ export default function AdminCateringPage() {
                   onCancel={() => setShowCancelConfirm(false)}
                 />
               </div>
+
+              {/* Community Chip In — event cause contributions (admin + vertical-admin scoped) */}
+              <EventChipInControl eventId={selected.id} />
 
               {/* Contact info */}
               <Section title="Contact">

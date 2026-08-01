@@ -141,4 +141,22 @@ export const WEBHOOK_ERRORS: ErrorCatalogEntry[] = [
     ],
     pgCodes: [],
   },
+  {
+    code: 'ERR_WEBHOOK_019',
+    title: 'Community Chip In Ledger Write Failed',
+    category: 'STRIPE',
+    severity: 'low',
+    description: 'On a paid order carrying a Community Chip In contribution (mig 213), writing the cause_ledger "collected" row failed (non-23505). No money at risk — the chip-in was already collected into the platform balance and is fully reconcilable from orders.chipin_amount_cents / chipin_beneficiary_id; only the ledger accrual is missing, so the order is under-counted in the beneficiary\'s outstanding balance until backfilled.',
+    userGuidance: '',
+    causes: [
+      'Transient DB error on the cause_ledger insert',
+      'mig 213 not yet applied on this environment (cause_ledger absent)',
+      'Beneficiary row removed between checkout and settlement (FK RESTRICT)',
+    ],
+    solutions: [
+      'Backfill a collected cause_ledger row for the order in the message (beneficiary_id + amount from the order row)',
+      'Confirm mig 213 is applied on this environment',
+    ],
+    pgCodes: [],
+  },
 ]

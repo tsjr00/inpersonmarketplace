@@ -62,12 +62,14 @@ export async function POST(request: NextRequest) {
 
   return withErrorTracing('/api/checkout/session', 'POST', async () => {
     const supabase = await createClient()
-    const { items = [], marketBoxItems, vertical, tipAmountCents = 0, tipPercentage = 0 } = await request.json() as {
+    const { items = [], marketBoxItems, vertical, tipAmountCents = 0, tipPercentage = 0, chipinAmountCents = 0, chipinBeneficiaryId = null } = await request.json() as {
       items: CartItem[]
       marketBoxItems?: MarketBoxCheckoutItem[]
       vertical?: string
       tipAmountCents?: number
       tipPercentage?: number
+      chipinAmountCents?: number
+      chipinBeneficiaryId?: string | null
     }
     const hasMarketBoxes = marketBoxItems && marketBoxItems.length > 0
 
@@ -601,6 +603,34 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    // Community Chip In (mig 213): validate the buyer's contribution against an
+    // EVENT market actually in this cart — the client cannot redirect money to
+    // an arbitrary org. Only an event market with chipin_enabled + a matching
+    // chipin_beneficiary_id qualifies. (Round-up campaigns: separate, later.)
+    const MAX_CHIPIN_CENTS = 20000 // $200 safety cap (mirrors the tip cap)
+    let validChipinCents = 0
+    const requestedChipin = Math.min(Math.max(0, Math.round(chipinAmountCents as number)), MAX_CHIPIN_CENTS)
+    if (requestedChipin > 0) {
+      if (!chipinBeneficiaryId) {
+        throw traced.validation('ERR_CHECKOUT_CHIPIN', 'A Community Chip In requires a beneficiary.')
+      }
+      const cartMarketIds = [...new Set(
+        listings.flatMap((l) => ((l as { listing_markets?: Array<{ market_id: string }> }).listing_markets ?? []).map((lm) => lm.market_id))
+      )]
+      const { data: chipinMarket } = await supabase
+        .from('markets')
+        .select('id')
+        .in('id', cartMarketIds.length ? cartMarketIds : ['00000000-0000-0000-0000-000000000000'])
+        .eq('market_type', 'event')
+        .eq('chipin_enabled', true)
+        .eq('chipin_beneficiary_id', chipinBeneficiaryId)
+        .maybeSingle()
+      if (!chipinMarket) {
+        throw traced.validation('ERR_CHECKOUT_CHIPIN', 'This Community Chip In is not available for your cart.')
+      }
+      validChipinCents = requestedChipin
+    }
+
     // Use order-level totals from unified pricing (tip + small order fee are additive on top)
     const subtotalCents = orderPricing.subtotalCents
     // CHK-15: order-level platform fee built from the override-aware per-item
@@ -615,7 +645,7 @@ export async function POST(request: NextRequest) {
     const mbPercentFeeCents = Math.round(mbSubtotalCents * (FEES.buyerFeePercent + FEES.vendorFeePercent) / 100)
     const platformFeeCents = listingPercentFeeCents + mbPercentFeeCents
       + orderPricing.buyerFlatFeeCents + orderPricing.vendorFlatFeeCents + smallOrderFeeCents
-    const totalCents = orderPricing.buyerTotalCents + smallOrderFeeCents + validTipAmount
+    const totalCents = orderPricing.buyerTotalCents + smallOrderFeeCents + validTipAmount + validChipinCents
 
     // Split tip into vendor portion and platform fee portion.
     // Customer's tip is calculated on displayed subtotal (food + buyer fee).
@@ -748,6 +778,17 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Community Chip In line item (mig 213). Lands in the platform balance like
+    // the tip; batch-remitted 100% to the beneficiary later.
+    if (validChipinCents > 0) {
+      checkoutItems.push({
+        name: 'Community Chip In',
+        description: 'Contribution to this event’s cause (not a tax-deductible donation)',
+        amount: validChipinCents,
+        quantity: 1,
+      })
+    }
+
     // Create Stripe session FIRST — if this fails, nothing touches our DB
     const session = await createCheckoutSession({
       orderId,
@@ -808,6 +849,8 @@ export async function POST(request: NextRequest) {
         tip_amount: validTipAmount,
         tip_on_platform_fee_cents: tipOnPlatformFeeCents,
         small_order_fee_cents: smallOrderFeeCents,
+        chipin_amount_cents: validChipinCents > 0 ? validChipinCents : null,
+        chipin_beneficiary_id: validChipinCents > 0 ? chipinBeneficiaryId : null,
         stripe_checkout_session_id: session.id,
       })
 

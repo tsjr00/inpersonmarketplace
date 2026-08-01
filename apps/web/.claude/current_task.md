@@ -1,4 +1,40 @@
-# Current Task: 🟢 Work ON STAGING (origin/staging = `5c7376f9`, main in sync — combined push done 2026-07-26; hold resolved). Carried: `7c4c4ff8` #3 admin activate fix + `90e8bbf3` docs + `5c7376f9` item #1 (park-required-docs reach + cert label-only). prod `62b686f7` unchanged (~111 commits + migs 184→211 behind). ⭐ BIGGEST NEXT = THE RELAUNCH (migs 184→211 to prod). ✅ Migs 206–211 all APPLIED to Dev+Staging (user). ✅ item #1 SHIPPED to staging — NO migration needed. ⏳ Awaiting user staging test of #1 + #3.
+# Current Task: 🟢 BUILDING — Community Chip In (event cause-tip + always-on round-up)
+
+## ✅ RELAUNCH DONE (2026-07-30)
+Prod `origin/main` = `f141c6e6` (was `62b686f7`). All 29 migs 184→212 applied to prod in order (user); keystone mig 204 verified (V2 lockout = 0 rows, V1 both accounts platform_admin). Off-window push (`PUSH_WINDOW_OVERRIDE=planned-relaunch`), Vercel green, admin loads at vertical+platform. Pre-prod diff audit clean (`apps/web/.claude/review/PREPROD_FINDINGS_LEDGER.md`).
+- **⏳ PARKED — Phase-5 bookkeeping (STAGED, uncommitted):** 29 migration files `git mv`'d to `supabase/migrations/applied/` + SCHEMA_SNAPSHOT summary line added. NOT committed (waiting on user). MIGRATION_LOG.md files are stale/abandoned — snapshot summary line is the live record (168–183 precedent). Close-out = one commit; push to staging; docs-only prod push optional/next-window.
+
+## 🔨 IN PROGRESS 2026-07-31 — Community Chip In feature (design APPROVED, building)
+**What:** collect an extra amount at checkout (like a tip) → platform balance → cause ledger → batch-remit 100% to a nonprofit/cause org. Two features, one money pipe:
+- **A. Community Chip In (event-scoped):** event manager designates a beneficiary + toggles on; checkout shows presets $1/$3/$5 or custom "Support [Org]". (Ship first — event managers want it.)
+- **B. Round-Up campaign (always-on/partner):** a `cause_campaigns` window; one-tap "round up to next $" across all/selected vendors during the window. (Phase-2 sibling.)
+
+**LOCKED DECISIONS (user, 2026-07-31):**
+1. Remittance: support BOTH — promote automatic Stripe Connect transfer, make check a request-it option. **BATCH** payouts (accumulate, not $0.55 at a time; weekly or $25 threshold).
+2. **100% to the org.** Platform keeps NONE of the chip-in and ABSORBS Stripe's ~2.9% processing on the chip-in portion (keeps the "100%" promise honest).
+3. Every chip-in labeled **"not a tax-deductible donation."**
+4. Name = **Community Chip In** (Community Boost was taken).
+
+**Money pipe = the TIP pattern (verified):** product checkouts have NO transfer_data → the extra lands in the platform balance (like `tip_on_platform_fee_cents`, never transferred out). Remit later via `stripe.transfers.create` to the org's Connect acct (mirrors `transferToVendor`), backed by a ledger (mirrors `vendor_fee_ledger`).
+
+**BUILD ORDER:**
+1. ✅ **Migration 213** DONE — applied Dev+Staging 2026-07-31 (user); Prod PENDING. SCHEMA_SNAPSHOT changelog entry added. File in `supabase/migrations/` until prod.
+2. ✅ **Admin management slice** DONE (tsc 0, lint clean; UNCOMMITTED): `src/lib/cause/beneficiaries.ts` (reads + pure `roundUpCents`/`selectRemittableBalances` + `getBeneficiaryBalances` (JS sum, MVP) + `recordManualCheckRemittance`); API `api/admin/cause/beneficiaries` GET/POST + `[id]` PATCH + `api/admin/cause/remittances` GET/POST (platform-admin gate, mirrors /api/admin/admins); UI `app/admin/cause/page.tsx` (list + balances + add + activate toggle + record-check remittance + history + non-deductible disclosure). ⚠️ NO NAV LINK yet to /admin/cause (add later). check-remittance = bookkeeping only, no money moves.
+3. ✅ **Event-config surface** DONE (tsc 0, eslint 0; UNCOMMITTED): API `api/admin/events/[id]/chipin` GET/PATCH gated by `verifyAdminScope(event.vertical_id)` → **platform AND vertical admins** manage it ([id]=catering_requests id → resolves market_id → writes markets.chipin_enabled/chipin_beneficiary_id; requires event approved/market_id present). Component `components/events/EventChipInControl.tsx` (toggle + beneficiary picker + non-deductible note, only after approval). Wired into the admin events detail pane (`[vertical]/admin/events/page.tsx`, under the status actions).
+4. ✅ **CRITICAL-PATH money integration DONE** (user approved both files per-file 2026-07-31; tsc 0, full suite 1765 green; UNCOMMITTED). `checkout/session/route.ts`: parse chipinAmountCents/chipinBeneficiaryId; validate beneficiary against an EVENT market IN the cart (client can't redirect money; user-client read of markets only; $200 cap); "Community Chip In" Stripe line item; +validChipinCents in totalCents; persist chipin_amount_cents/chipin_beneficiary_id on order. `webhooks.ts`: order select +chipin cols; after paid-confirmation branch, insert cause_ledger 'collected' row (idempotent via uq index, best-effort, ERR_WEBHOOK_019). **INERT until frontend sends the values** (defaults 0/null → existing checkouts unchanged). New code ERR_WEBHOOK_019 cataloged (webhook-errors.ts); ERR_CHECKOUT_CHIPIN follows the un-numbered ERR_CHECKOUT_TIP_* precedent. `src/lib/cause/**` added to Codebase Map (21_Lib_Reference).
+   - **DECISION 2026-07-31: chip-in is NON-REFUNDABLE** — stays with the org even if the order/item is refunded. The existing refund paths refund item/fee amounts specifically, so they already leave the chip-in untouched → **NO reversal ledger row needed** (dropped that follow-up). MUST disclose in legal/terms (⏳ drafting for user approval).
+5. ✅ **Legal/terms disclosure DONE** (user approved 2026-07-31): section 4.9 Community Chip In in `platform-user-agreement.ts` (voluntary, 100% to org, NOT tax-deductible, NON-refundable, shown at checkout, no responsibility for org use of funds).
+6. ✅ **Buyer checkout UX DONE** (tsc 0, lint clean, 1765 green; UNCOMMITTED): `api/buyer/chipin` GET (auth'd; service-client reads markets+beneficiary via getEventChipInConfig; display-only, re-validated at checkout). `[vertical]/checkout/ChipInSelector.tsx` (presets No thanks/$1/$3/$5/custom $, "100% to [Org], not tax-deductible"). Wired into `[vertical]/checkout/page.tsx`: state + useEffect fetches offer when cart has an event item + market_id → shows selector if enabled; adds chipinCents to total + summary line; POSTs chipinAmountCents + chipinBeneficiaryId to /api/checkout/session.
+   - **⭐ EVENT FLOW NOW END-TO-END:** admin adds beneficiary (/admin/cause) → vertical/platform admin enables chip-in on an approved event (event detail pane) → buyer picks amount at checkout → charged + validated server-side + persisted on order → webhook writes cause_ledger 'collected' → admin sees balance + records check remittance. Testable on staging (mig 213 is Dev+Staging).
+7. ⬜ Batched Connect auto-remit (cron, stripe.transfers.create — real money movement, build carefully).
+8. ⬜ Round-Up campaign admin config + checkout (Feature B) as sibling.
+9. **Rule 6 pre-commit:** update 10_Checkout_Payments.md / 02_Money_Flow.md map descriptions to mention Community Chip In + bump stamps (procedural half; machine test already green).
+
+**FLAGS:** counsel note on state charitable-solicitation registration (pass-through to nonprofits); refund-before-vs-after-remittance edge (reverse `collected` row within the batch window). **Event-order QR** (`my-order/page.tsx:95`) is orphaned/decorative (nothing scans it) — candidate to remove or repurpose, user's call.
+
+---
+## 📜 HISTORY BELOW (pre-relaunch; retained for recovery)
+
 
 ## 🔨 IN PROGRESS 2026-07-29 — regression round 2 fixes (Fix mode)
 Staging test results: R2 ✅ (ack Required indicator), R5 ✅ (required-docs placement). Fixes this round (tsc 0, 171 targeted tests pass):

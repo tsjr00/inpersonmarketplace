@@ -174,7 +174,7 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
   // and the row feeds the payment insert AND market box processing.
   const { data: order } = await supabase
     .from('orders')
-    .select('status, platform_fee_cents, buyer_user_id, order_number, vertical_id')
+    .select('status, platform_fee_cents, buyer_user_id, order_number, vertical_id, chipin_amount_cents, chipin_beneficiary_id')
     .eq('id', orderId)
     .single()
 
@@ -291,6 +291,25 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
     return
   }
   // paid/completed: no flip — idempotent backfill continues below.
+
+  // Community Chip In (mig 213): record the collected contribution now that the
+  // order is confirmed paid. Idempotent via uq_cause_ledger_collected_order (a
+  // resend is a 23505 no-op). Best-effort — a failure never fails the webhook
+  // (money is already in the platform balance + reconcilable from the order).
+  if (order.chipin_amount_cents && order.chipin_amount_cents > 0 && order.chipin_beneficiary_id) {
+    const { error: chipinErr } = await supabase.from('cause_ledger').insert({
+      beneficiary_id: order.chipin_beneficiary_id,
+      order_id: orderId,
+      amount_cents: order.chipin_amount_cents,
+      type: 'collected',
+      note: `Chip-in on order ${order.order_number}`,
+    })
+    if (chipinErr && chipinErr.code !== '23505') {
+      await logError(new TracedError('ERR_WEBHOOK_019', `Community Chip In ledger write failed for order ${orderId}: ${chipinErr.message}`, {
+        route: '/webhooks/stripe', method: 'POST',
+      }))
+    }
+  }
 
   // Market box processing runs on EVERY webhook delivery for idempotent backfill.
   // Both the subscribe RPC and processMarketBoxPayout are idempotent — safe on

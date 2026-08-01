@@ -13,6 +13,7 @@ import { term } from '@/lib/vertical'
 import { getClientLocale } from '@/lib/locale/client'
 import { t } from '@/lib/locale/messages'
 import { TipSelector } from './TipSelector'
+import { ChipInSelector } from './ChipInSelector'
 import { CheckoutMarketBoxItem } from './CheckoutMarketBoxItem'
 import { CheckoutPickupGroup } from './CheckoutPickupGroup'
 import { CrossSellSection } from './CrossSellSection'
@@ -41,10 +42,37 @@ export default function CheckoutPage() {
   const [updatingItemId, setUpdatingItemId] = useState<string | null>(null)
   const [validationFailed, setValidationFailed] = useState(false)
   const [tipPercentage, setTipPercentage] = useState<number>(0)
+  const [chipinCents, setChipinCents] = useState<number>(0)
+  const [chipinBeneficiaryId, setChipinBeneficiaryId] = useState<string | null>(null)
+  const [chipinBeneficiaryName, setChipinBeneficiaryName] = useState<string>('')
   const [unresolvedExternalCount, setUnresolvedExternalCount] = useState(0)
 
   // Ref to prevent double-click submissions (state update may not re-render in time)
   const isSubmittingRef = useRef(false)
+
+  // Community Chip In: if this cart is an event order, fetch the event's chip-in
+  // offer (enabled + beneficiary) so we can show the option. Re-validated at checkout.
+  useEffect(() => {
+    const eventMarketId = checkoutItems.find(i => i.market_type === 'event' && i.market_id)?.market_id
+    if (!eventMarketId) {
+      setChipinBeneficiaryId(null); setChipinBeneficiaryName(''); setChipinCents(0)
+      return
+    }
+    let cancelled = false
+    fetch(`/api/buyer/chipin?marketId=${eventMarketId}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
+        if (cancelled || !data) return
+        if (data.enabled && data.beneficiaryId) {
+          setChipinBeneficiaryId(data.beneficiaryId)
+          setChipinBeneficiaryName(data.beneficiaryName || 'this cause')
+        } else {
+          setChipinBeneficiaryId(null); setChipinBeneficiaryName(''); setChipinCents(0)
+        }
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [checkoutItems])
 
   // Check auth and validate cart items
   useEffect(() => {
@@ -474,6 +502,8 @@ export default function CheckoutPage() {
           vertical,
           tipAmountCents,
           tipPercentage,
+          chipinAmountCents: chipinCents,
+          chipinBeneficiaryId,
         }),
       })
 
@@ -531,7 +561,7 @@ export default function CheckoutPage() {
   const smallOrderFeeConfig = getSmallOrderFeeConfig(vertical)
 
   // Total = displayed subtotal + flat fee + small order fee + tip
-  const total = displaySubtotal + FEES.buyerFlatFeeCents + smallOrderFeeCents + tipAmountCents
+  const total = displaySubtotal + FEES.buyerFlatFeeCents + smallOrderFeeCents + tipAmountCents + chipinCents
 
   // Check if all items are available
   const hasUnavailableItems = checkoutItems.some(item => !item.available)
@@ -876,6 +906,15 @@ export default function CheckoutPage() {
                   />
                 )}
 
+                {/* Community Chip In — event orders where the organizer enabled it */}
+                {chipinBeneficiaryId && (
+                  <ChipInSelector
+                    chipinCents={chipinCents}
+                    onChange={setChipinCents}
+                    beneficiaryName={chipinBeneficiaryName}
+                  />
+                )}
+
                 {/* Tip line in summary (when tip > 0) */}
                 {tipAmountCents > 0 && (
                   <div style={{
@@ -887,6 +926,20 @@ export default function CheckoutPage() {
                   }}>
                     <span>{t('checkout.tip_line', locale, { percent: String(tipPercentage) })}</span>
                     <span>{formatPrice(tipAmountCents)}</span>
+                  </div>
+                )}
+
+                {/* Community Chip In line in summary (when > 0) */}
+                {chipinCents > 0 && (
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    marginBottom: spacing['2xs'],
+                    fontSize: typography.sizes.sm,
+                    color: colors.textMuted,
+                  }}>
+                    <span>Community Chip In</span>
+                    <span>{formatPrice(chipinCents)}</span>
                   </div>
                 )}
 
