@@ -11,6 +11,7 @@ import ApproveStatusButton from './ApproveStatusButton'
 import SurveyResultsCard from '@/components/market-manager/SurveyResultsCard'
 import DuplicateMarketBanner from '@/components/markets/DuplicateMarketBanner'
 import MarketDocumentsViewer from '@/components/markets/MarketDocumentsViewer'
+import MarketTaxJurisdictionsCard from '@/components/admin/MarketTaxJurisdictionsCard'
 
 interface MarketDetailPageProps {
   params: Promise<{ id: string }>
@@ -292,6 +293,13 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
             </p>
           </div>
         </div>
+
+        {/* Sales tax jurisdictions (mig 214) — set at approval time, alongside
+            the address/coordinates work the admin is already doing here. Every
+            order picked up at this market inherits these rates; the seven-digit
+            local codes are what Form 01-116 reports against. Reference data
+            only — nothing here calculates or charges tax. */}
+        <MarketTaxJurisdictionsCard marketId={id} />
       </div>
 
       {/* Market Manager — FM only for v1 */}
