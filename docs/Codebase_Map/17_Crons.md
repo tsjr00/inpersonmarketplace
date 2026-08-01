@@ -1,12 +1,12 @@
 # 17 — Crons / Scheduled Jobs ⚠ money
 
-<!-- map-stamp: domain=crons; verified=2026-07-18; commit=b9f82116 -->
+<!-- map-stamp: domain=crons; verified=2026-07-31; commit=b597ef70 -->
 <!-- map-claims
 src/app/api/cron/**
 src/lib/cron/**
 -->
 
-Five scheduled jobs. One of them — `expire-orders` — is the platform's master sweeper and the highest-risk recurring process in the system.
+Six scheduled jobs. One of them — `expire-orders` — is the platform's master sweeper and the highest-risk recurring process in the system.
 
 ---
 
@@ -29,10 +29,11 @@ Five scheduled jobs. One of them — `expire-orders` — is the platform's maste
 | `/api/cron/vendor-quality-checks` | `0 14 * * *` | daily ~8am CT | No |
 | `/api/cron/surveys` | `0 * * * *` | hourly | No |
 | `/api/cron/park-docs-review` | `0 12-23,0-2 * * *` | hourly, ~7am–8pm CT (DST-safe) | No |
+| `/api/cron/remit-cause-funds` | `0 8 * * 1` | weekly Mon 08:00 UTC (~3am CT) | **YES** — Community Chip In Connect payouts |
 
 **Crons run on PRODUCTION only** — Vercel does not fire schedules on preview or staging deployments. `expire-orders` and `vendor-activity-scan` additionally hard-skip when `VERCEL_ENV !== 'production'`. To exercise a cron elsewhere, invoke the route manually with the `CRON_SECRET` bearer token.
 
-**Auth (all five):** `Bearer ${CRON_SECRET}` with a timing-safe comparison.
+**Auth (all six):** `Bearer ${CRON_SECRET}` with a timing-safe comparison.
 
 ## `expire-orders` — the master sweeper
 
@@ -74,7 +75,7 @@ Five scheduled jobs. One of them — `expire-orders` — is the platform's maste
 | 20 | `:3152` | Auto-end seasons past `end_date`; splits into make-up window vs settled-no-debt | **YES** |
 | 21 | `:3205` | FT standing/recurring spot reservations — generate, release, suspend | Indirect |
 
-## The other four
+## The other five
 
 | File | Purpose |
 |---|---|
@@ -82,6 +83,7 @@ Five scheduled jobs. One of them — `expire-orders` — is the platform's maste
 | `cron/vendor-quality-checks/route.ts` | Runs the five quality checks (schedule conflicts, low stock, price anomalies, ghost listings, inventory velocity) and sends **one grouped notification per vendor** |
 | `cron/surveys/route.ts` | Post-market survey generation with per-market local fire times (market closes before 18:00 → 18:00 same day; at/after 18:00 → 08:00 next day). Inserts `market_surveys`, sends in-app + branded email. **Also runs `runParkCheckinReminders`** — which is why this cron must stay hourly |
 | `cron/park-docs-review/route.ts` | 36-line wrapper: auth check, then `runParkDocsReviewSweep()` from `lib/markets/park-docs-review` |
+| `cron/remit-cause-funds/route.ts` | Community Chip In (mig 213): batch-remits accumulated chip-in balances (≥ $10) to **Connect** beneficiaries via `runCauseRemitSweep` (`lib/cause/remit.ts`); deduct-first for no-double-pay; check-method orgs are paid manually at `/admin/cause` |
 
 ## Library
 

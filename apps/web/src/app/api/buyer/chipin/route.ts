@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
-import { getEventChipInConfig } from '@/lib/cause/beneficiaries'
+import { getEventChipInConfig, getActiveRoundUpCampaign } from '@/lib/cause/beneficiaries'
 
-// GET /api/buyer/chipin?marketId=<eventMarketId>
-// Returns the Community Chip In offer for an event market (enabled + beneficiary
-// id/name) so the checkout page can render the option. Auth-gated; reads via the
-// service client because cause_beneficiaries is service-role-only. The offer is
-// re-validated server-side at checkout (session route), so this is display-only.
+// GET /api/buyer/chipin?marketId=<cartMarketId>&vertical=<v>
+// Returns the Community Chip In offers for a cart:
+//   - event:   the event's chip-in (when the cart's market is a chip-in event)
+//   - roundUp: an active round-up campaign covering the cart (Feature B)
+// Auth-gated; reads via the service client (cause_* are service-role-only).
+// Display-only — both are re-validated server-side at /api/checkout/session.
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/buyer/chipin', 'GET', async () => {
     const supabase = await createClient()
@@ -15,16 +16,25 @@ export async function GET(request: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const marketId = request.nextUrl.searchParams.get('marketId')
-    if (!marketId) {
-      return NextResponse.json({ enabled: false, beneficiaryId: null, beneficiaryName: null })
+    const vertical = request.nextUrl.searchParams.get('vertical')
+    const service = createServiceClient()
+
+    let event: { beneficiaryId: string; beneficiaryName: string } | null = null
+    if (marketId) {
+      const config = await getEventChipInConfig(service, marketId)
+      if (config.enabled && config.beneficiary) {
+        event = { beneficiaryId: config.beneficiary.id, beneficiaryName: config.beneficiary.name }
+      }
     }
 
-    const service = createServiceClient()
-    const config = await getEventChipInConfig(service, marketId)
-    return NextResponse.json({
-      enabled: config.enabled,
-      beneficiaryId: config.beneficiary?.id ?? null,
-      beneficiaryName: config.beneficiary?.name ?? null,
-    })
+    let roundUp: { beneficiaryId: string; beneficiaryName: string } | null = null
+    if (vertical) {
+      const campaign = await getActiveRoundUpCampaign(service, vertical, marketId ?? '', new Date().toISOString())
+      if (campaign) {
+        roundUp = { beneficiaryId: campaign.beneficiary.id, beneficiaryName: campaign.beneficiary.name }
+      }
+    }
+
+    return NextResponse.json({ event, roundUp })
   })
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { getActiveRoundUpCampaign } from '@/lib/cause/beneficiaries'
 import { createCheckoutSession } from '@/lib/stripe/payments'
 import { stripe } from '@/lib/stripe/config'
 import { calculateOrderPricing, FEES, calculateSmallOrderFee, getSmallOrderFeeConfig, proratedFlatFee, getEffectiveVendorFeePercent } from '@/lib/pricing'
@@ -603,10 +604,10 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Community Chip In (mig 213): validate the buyer's contribution against an
-    // EVENT market actually in this cart — the client cannot redirect money to
-    // an arbitrary org. Only an event market with chipin_enabled + a matching
-    // chipin_beneficiary_id qualifies. (Round-up campaigns: separate, later.)
+    // Community Chip In (mig 213): validate the buyer's contribution server-side
+    // — the client cannot redirect money to an arbitrary org. The beneficiary
+    // must match EITHER an event market in the cart (chipin_enabled) OR an
+    // active round-up campaign covering the cart (Feature B).
     const MAX_CHIPIN_CENTS = 20000 // $200 safety cap (mirrors the tip cap)
     let validChipinCents = 0
     const requestedChipin = Math.min(Math.max(0, Math.round(chipinAmountCents as number)), MAX_CHIPIN_CENTS)
@@ -617,6 +618,7 @@ export async function POST(request: NextRequest) {
       const cartMarketIds = [...new Set(
         listings.flatMap((l) => ((l as { listing_markets?: Array<{ market_id: string }> }).listing_markets ?? []).map((lm) => lm.market_id))
       )]
+      // (1) Event chip-in: beneficiary must match an event market in the cart.
       const { data: chipinMarket } = await supabase
         .from('markets')
         .select('id')
@@ -625,7 +627,17 @@ export async function POST(request: NextRequest) {
         .eq('chipin_enabled', true)
         .eq('chipin_beneficiary_id', chipinBeneficiaryId)
         .maybeSingle()
-      if (!chipinMarket) {
+      let chipinValid = !!chipinMarket
+      // (2) Round-up campaign fallback: beneficiary must match an active campaign
+      //     covering this cart (Feature B). cause_campaigns is service-role-only.
+      const cartVertical = vertical || (listings[0] as { vertical_id?: string })?.vertical_id
+      if (!chipinValid && cartVertical) {
+        const campaign = await getActiveRoundUpCampaign(
+          serviceClient, cartVertical, cartMarketIds[0] ?? '', new Date().toISOString()
+        )
+        chipinValid = !!campaign && campaign.beneficiary.id === chipinBeneficiaryId
+      }
+      if (!chipinValid) {
         throw traced.validation('ERR_CHECKOUT_CHIPIN', 'This Community Chip In is not available for your cart.')
       }
       validChipinCents = requestedChipin

@@ -45,34 +45,48 @@ export default function CheckoutPage() {
   const [chipinCents, setChipinCents] = useState<number>(0)
   const [chipinBeneficiaryId, setChipinBeneficiaryId] = useState<string | null>(null)
   const [chipinBeneficiaryName, setChipinBeneficiaryName] = useState<string>('')
+  const [roundUpBeneficiaryId, setRoundUpBeneficiaryId] = useState<string | null>(null)
+  const [roundUpBeneficiaryName, setRoundUpBeneficiaryName] = useState<string>('')
+  const [roundUpOn, setRoundUpOn] = useState(false)
   const [unresolvedExternalCount, setUnresolvedExternalCount] = useState(0)
 
   // Ref to prevent double-click submissions (state update may not re-render in time)
   const isSubmittingRef = useRef(false)
 
-  // Community Chip In: if this cart is an event order, fetch the event's chip-in
-  // offer (enabled + beneficiary) so we can show the option. Re-validated at checkout.
+  // Community Chip In: fetch the cart's offers — an event's chip-in (when the
+  // cart is an event order) and/or an active round-up campaign (Feature B).
+  // Both are display-only; re-validated server-side at checkout.
   useEffect(() => {
     const eventMarketId = checkoutItems.find(i => i.market_type === 'event' && i.market_id)?.market_id
-    if (!eventMarketId) {
+    const primaryMarketId = eventMarketId || checkoutItems.find(i => i.market_id)?.market_id
+    if (!primaryMarketId) {
       setChipinBeneficiaryId(null); setChipinBeneficiaryName(''); setChipinCents(0)
+      setRoundUpBeneficiaryId(null); setRoundUpBeneficiaryName(''); setRoundUpOn(false)
       return
     }
     let cancelled = false
-    fetch(`/api/buyer/chipin?marketId=${eventMarketId}`)
+    const params = new URLSearchParams({ marketId: primaryMarketId })
+    if (vertical) params.set('vertical', vertical)
+    fetch(`/api/buyer/chipin?${params.toString()}`)
       .then(r => (r.ok ? r.json() : null))
       .then(data => {
         if (cancelled || !data) return
-        if (data.enabled && data.beneficiaryId) {
-          setChipinBeneficiaryId(data.beneficiaryId)
-          setChipinBeneficiaryName(data.beneficiaryName || 'this cause')
+        if (data.event?.beneficiaryId) {
+          setChipinBeneficiaryId(data.event.beneficiaryId)
+          setChipinBeneficiaryName(data.event.beneficiaryName || 'this cause')
         } else {
           setChipinBeneficiaryId(null); setChipinBeneficiaryName(''); setChipinCents(0)
+        }
+        if (data.roundUp?.beneficiaryId) {
+          setRoundUpBeneficiaryId(data.roundUp.beneficiaryId)
+          setRoundUpBeneficiaryName(data.roundUp.beneficiaryName || 'a local cause')
+        } else {
+          setRoundUpBeneficiaryId(null); setRoundUpBeneficiaryName(''); setRoundUpOn(false)
         }
       })
       .catch(() => {})
     return () => { cancelled = true }
-  }, [checkoutItems])
+  }, [checkoutItems, vertical])
 
   // Check auth and validate cart items
   useEffect(() => {
@@ -502,8 +516,8 @@ export default function CheckoutPage() {
           vertical,
           tipAmountCents,
           tipPercentage,
-          chipinAmountCents: chipinCents,
-          chipinBeneficiaryId,
+          chipinAmountCents: activeChipinCents,
+          chipinBeneficiaryId: activeChipinBeneficiaryId,
         }),
       })
 
@@ -561,7 +575,15 @@ export default function CheckoutPage() {
   const smallOrderFeeConfig = getSmallOrderFeeConfig(vertical)
 
   // Total = displayed subtotal + flat fee + small order fee + tip
-  const total = displaySubtotal + FEES.buyerFlatFeeCents + smallOrderFeeCents + tipAmountCents + chipinCents
+  // Community Chip In: the active contribution is EITHER the event chip-in (when
+  // an event beneficiary was offered) OR the round-up amount (when a round-up
+  // campaign is offered and the buyer toggled it on). Never both.
+  const preChipinTotal = displaySubtotal + FEES.buyerFlatFeeCents + smallOrderFeeCents + tipAmountCents
+  const roundUpRemainder = preChipinTotal % 100
+  const roundUpAmountCents = roundUpRemainder === 0 ? 100 : 100 - roundUpRemainder
+  const activeChipinCents = chipinBeneficiaryId ? chipinCents : (roundUpOn && roundUpBeneficiaryId ? roundUpAmountCents : 0)
+  const activeChipinBeneficiaryId = chipinBeneficiaryId ? chipinBeneficiaryId : (roundUpOn ? roundUpBeneficiaryId : null)
+  const total = preChipinTotal + activeChipinCents
 
   // Check if all items are available
   const hasUnavailableItems = checkoutItems.some(item => !item.available)
@@ -915,6 +937,20 @@ export default function CheckoutPage() {
                   />
                 )}
 
+                {/* Round-Up campaign (Feature B) — only when there's no event chip-in */}
+                {!chipinBeneficiaryId && roundUpBeneficiaryId && (
+                  <label style={{
+                    display: 'flex', alignItems: 'center', gap: spacing.xs,
+                    marginBottom: spacing['2xs'], padding: spacing.xs,
+                    backgroundColor: colors.surfaceMuted, borderRadius: radius.sm,
+                    border: `1px solid ${colors.border}`, cursor: 'pointer',
+                    fontSize: typography.sizes.xs, color: colors.textPrimary,
+                  }}>
+                    <input type="checkbox" checked={roundUpOn} onChange={(e) => setRoundUpOn(e.target.checked)} />
+                    <span>Round up ({formatPrice(roundUpAmountCents)}) for {roundUpBeneficiaryName} — 100% goes to them, not a tax-deductible donation.</span>
+                  </label>
+                )}
+
                 {/* Tip line in summary (when tip > 0) */}
                 {tipAmountCents > 0 && (
                   <div style={{
@@ -930,7 +966,7 @@ export default function CheckoutPage() {
                 )}
 
                 {/* Community Chip In line in summary (when > 0) */}
-                {chipinCents > 0 && (
+                {activeChipinCents > 0 && (
                   <div style={{
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -939,7 +975,7 @@ export default function CheckoutPage() {
                     color: colors.textMuted,
                   }}>
                     <span>Community Chip In</span>
-                    <span>{formatPrice(chipinCents)}</span>
+                    <span>{formatPrice(activeChipinCents)}</span>
                   </div>
                 )}
 

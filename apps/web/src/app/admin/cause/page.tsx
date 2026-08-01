@@ -27,6 +27,18 @@ interface Remittance {
   paid_at: string | null
 }
 
+interface Campaign {
+  id: string
+  beneficiary_id: string
+  beneficiary_name: string
+  name: string
+  starts_at: string
+  ends_at: string
+  vertical_id: string | null
+  round_up_enabled: boolean
+  active: boolean
+}
+
 const dollars = (cents: number) => `$${(cents / 100).toFixed(2)}`
 
 export default function CauseAdminPage() {
@@ -47,14 +59,24 @@ export default function CauseAdminPage() {
   // per-row remittance amount (dollars string)
   const [remitAmt, setRemitAmt] = useState<Record<string, string>>({})
 
+  // round-up campaigns
+  const [campaigns, setCampaigns] = useState<Campaign[]>([])
+  const [showCampaign, setShowCampaign] = useState(false)
+  const [campName, setCampName] = useState('')
+  const [campBeneficiary, setCampBeneficiary] = useState('')
+  const [campStart, setCampStart] = useState('')
+  const [campEnd, setCampEnd] = useState('')
+
   const load = async () => {
     try {
-      const [bRes, rRes] = await Promise.all([
+      const [bRes, rRes, cRes] = await Promise.all([
         fetch('/api/admin/cause/beneficiaries'),
         fetch('/api/admin/cause/remittances'),
+        fetch('/api/admin/cause/campaigns'),
       ])
       if (bRes.ok) setBeneficiaries((await bRes.json()).beneficiaries || [])
       if (rRes.ok) setRemittances((await rRes.json()).remittances || [])
+      if (cRes.ok) setCampaigns((await cRes.json()).campaigns || [])
     } catch {
       showBanner('error', 'Failed to load Community Chip In data')
     } finally {
@@ -65,6 +87,35 @@ export default function CauseAdminPage() {
   useEffect(() => { load() }, [])
 
   const nameFor = (id: string) => beneficiaries.find((b) => b.id === id)?.name ?? '—'
+
+  const createCampaign = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const res = await fetch('/api/admin/cause/campaigns', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        beneficiary_id: campBeneficiary,
+        name: campName,
+        starts_at: campStart ? new Date(campStart).toISOString() : '',
+        ends_at: campEnd ? new Date(campEnd + 'T23:59:59').toISOString() : '',
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok) { showBanner('error', data.error || 'Failed to create campaign'); return }
+    showBanner('success', 'Campaign created')
+    setCampName(''); setCampBeneficiary(''); setCampStart(''); setCampEnd(''); setShowCampaign(false)
+    load()
+  }
+
+  const toggleCampaign = async (c: Campaign) => {
+    const res = await fetch(`/api/admin/cause/campaigns/${c.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ active: !c.active }),
+    })
+    if (res.ok) { showBanner('success', c.active ? 'Paused' : 'Resumed'); load() }
+    else showBanner('error', (await res.json()).error || 'Update failed')
+  }
 
   const addBeneficiary = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -225,6 +276,49 @@ export default function CauseAdminPage() {
                 {dollars(r.amount_cents)} · {r.method} · {r.status}
                 {r.paid_at ? ` · ${new Date(r.paid_at).toLocaleDateString()}` : ''}
               </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <h2 style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginTop: spacing.lg }}>
+        Round-Up Campaigns
+      </h2>
+      <p style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, marginBottom: spacing.sm }}>
+        Always-on windows where checkout offers &ldquo;round up to the next dollar&rdquo; for a partner org across the scoped vertical (or all). Separate from event Community Chip In.
+      </p>
+      <button style={btn} onClick={() => setShowCampaign((s) => !s)}>
+        {showCampaign ? 'Cancel' : '+ New campaign'}
+      </button>
+      {showCampaign && (
+        <form onSubmit={createCampaign} style={{ ...cardStyle, marginTop: spacing.sm }}>
+          <div style={{ display: 'grid', gap: spacing.sm }}>
+            <input style={inputStyle} placeholder="Campaign name *" value={campName} onChange={(e) => setCampName(e.target.value)} required />
+            <select value={campBeneficiary} onChange={(e) => setCampBeneficiary(e.target.value)} style={{ padding: spacing.sm }} required>
+              <option value="">— beneficiary —</option>
+              {beneficiaries.filter((b) => b.active).map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+            <label style={{ fontSize: typography.sizes.xs, color: colors.textSecondary }}>Start <input type="date" value={campStart} onChange={(e) => setCampStart(e.target.value)} required style={{ marginLeft: spacing.xs }} /></label>
+            <label style={{ fontSize: typography.sizes.xs, color: colors.textSecondary }}>End <input type="date" value={campEnd} onChange={(e) => setCampEnd(e.target.value)} required style={{ marginLeft: spacing.xs }} /></label>
+            <button type="submit" style={btn}>Create</button>
+          </div>
+        </form>
+      )}
+      {campaigns.length === 0 ? (
+        <p style={{ color: colors.textMuted, fontSize: typography.sizes.sm, marginTop: spacing.sm }}>No campaigns yet.</p>
+      ) : (
+        <div style={{ marginTop: spacing.sm }}>
+          {campaigns.map((c) => (
+            <div key={c.id} style={{ ...cardStyle, opacity: c.active ? 1 : 0.55 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <span style={{ fontWeight: typography.weights.semibold, color: colors.textPrimary }}>{c.name}{!c.active && ' (paused)'}</span>
+                <button style={{ ...btn, background: 'transparent', color: colors.textSecondary, border: `1px solid ${colors.border}` }} onClick={() => toggleCampaign(c)}>
+                  {c.active ? 'Pause' : 'Resume'}
+                </button>
+              </div>
+              <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing.xs }}>
+                {c.beneficiary_name} · {c.vertical_id || 'all verticals'} · {new Date(c.starts_at).toLocaleDateString()}–{new Date(c.ends_at).toLocaleDateString()}
+              </div>
             </div>
           ))}
         </div>
