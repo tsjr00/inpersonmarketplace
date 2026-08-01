@@ -274,7 +274,7 @@ export default function MarketScheduleCard({
 
         {/* Season window (if set). Was hidden for FT parks ("P2.5 — season
             held") — enabled 2026-07-15 per tester finding P2: park managers
-            need to set the open/close dates their spot rentals are valid for. */}
+            need to set the open/close dates their vendor spaces are valid for. */}
         {(savedSeasonStart || savedSeasonEnd) && (
           <div style={{
             fontSize: typography.sizes.sm,

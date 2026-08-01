@@ -979,7 +979,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     audience: 'vendor',
     title: (d) => `${d.marketName || 'The park'} cancelled ${d.marketDate || 'a date'} — you have a credit`,
     message: (d) =>
-      `${d.marketName || 'The park'} cancelled ${d.marketDate || 'a booked date'}${d.reason ? ` (${d.reason})` : ''}. Your spot rental for that date was cancelled and a ${d.amountCents ? `$${(d.amountCents / 100).toFixed(2)} ` : ''}booking credit was added — it applies automatically the next time you book at this park.`,
+      `${d.marketName || 'The park'} cancelled ${d.marketDate || 'a booked date'}${d.reason ? ` (${d.reason})` : ''}. Your vendor space booking for that date was cancelled and a ${d.amountCents ? `$${(d.amountCents / 100).toFixed(2)} ` : ''}booking credit was added — it applies automatically the next time you book at this park.`,
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/markets/${d.marketId || ''}/book-spot`,
   },
 

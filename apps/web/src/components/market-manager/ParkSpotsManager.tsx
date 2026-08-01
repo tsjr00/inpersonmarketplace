@@ -21,6 +21,12 @@ interface ParkSpotsManagerProps {
  * BoothInventoryManager. Unlike booth size tiers (count-based), each row here
  * is ONE real truck spot with attributes (length limit, power, water, price).
  *
+ * ⚠️ Power/water are deliberately ATTRIBUTES of the spot, folded into the one
+ * base price — NOT separately priced add-ons. A separately-stated amenity
+ * charge is taxable in Texas even though the space rental is not (Pub. 96-211
+ * + Tax Policy News 7/2021). See the tax design constraint in
+ * `lib/markets/booth-types.ts` before adding any priced option here.
+ *
  * Layout:
  *   - Park-mode toggle: free (attendance/compliance only) vs paid (spots sell)
  *   - Summary row: total spots, active spots
@@ -563,9 +569,17 @@ export default function ParkSpotsManager({ marketId, initialParkMode }: ParkSpot
         {/* Tester finding 2026-07-24: operators didn't know what "a spot" or the
             label field meant. Explain the model up front. */}
         <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing.xs, lineHeight: 1.4 }}>
-          Create one spot here for every physical parking spot in your park — a truck books one spot for the day.
+          Create one spot here for every vendor space in your park — a truck books one space for the service day.
           The <strong>label</strong> is the name trucks and you will see it by (e.g., “A1”, “North Lot 3”, “Corner spot”);
-          use whatever matches how you already mark spots on the ground.
+          use whatever matches how you already mark spaces on the ground.
+        </div>
+        {/* Tax design constraint — see lib/markets/booth-types.ts. A separately
+            stated amenity charge is taxable in Texas even though the space fee
+            is not, so amenities must be priced INTO the space price. */}
+        <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing.xs, lineHeight: 1.4 }}>
+          <strong>Set one all-in price per space.</strong> Include any amenities you provide — power, water, trash,
+          signage — in that price. Don’t plan to bill trucks separately for add-ons; the platform intentionally
+          doesn’t support separate amenity charges.
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
           <div style={{ display: 'flex', gap: spacing.xs, flexWrap: 'wrap' }}>

@@ -38,7 +38,7 @@ export async function generateMetadata({ params }: MarketManagerProgramPageProps
       ? `Food Truck Park Operator Program — List Your Park Online | ${branding.brand_name}`
       : `Farmers Market Manager Program — Manage Booths & Vendors Online | ${branding.brand_name}`,
     description: isFT
-      ? 'Run your food truck park with spot rentals, truck vetting, day-of check-ins, and post-service surveys — no subscription. We take a small percentage of the spot fees.'
+      ? 'Run your food truck park with vendor space bookings, truck vetting, day-of check-ins, and post-service surveys — no subscription. We take a small percentage of the space fees.'
       : 'Run your farmers market with weekly booth rentals, vendor onboarding, attendance tracking, and post-market surveys — no subscription. We take a small percentage of the booth fees.',
   }
 }
@@ -74,9 +74,9 @@ export default async function MarketManagerProgramPage({ params }: MarketManager
         heroHeadline:
           "Built for food truck park operators who'd rather run their lot than chase down who paid for which Friday.",
         heroSubtitle:
-          "Spot rentals, truck vetting, day-of check-ins, post-service surveys. You don't pay us a subscription. We take a small percentage of the spot fees at your park.",
+          "Vendor space bookings, truck vetting, day-of check-ins, post-service surveys. You don't pay us a subscription. We take a small percentage of the space fees at your park.",
         wedgeBody1:
-          "Running a food truck park means juggling which trucks are booked which day, who paid, who's parking where, and who actually showed up. Some operators keep it in a group text; some keep it in their head. Either way it's a lot to hold onto every service day.",
+          "Running a food truck park means juggling which trucks are booked which day, who paid, who's set up where, and who actually showed up. Some operators keep it in a group text; some keep it in their head. Either way it's a lot to hold onto every service day.",
         wedgeBody2:
           "This tool takes that part off your plate. Trucks book and pay for spots through us. You get the booking, the payment, and the spot assigned — plus a day-of view of who's on-site. You're still the one running your park; there's just less to chase down.",
         cards: [
@@ -102,7 +102,7 @@ export default async function MarketManagerProgramPage({ params }: MarketManager
           },
           {
             title: '🤝 No subscription',
-            body: 'Nothing to pay us monthly. We charge a percentage of each spot rental at your park. Receipts show the fee.',
+            body: 'Nothing to pay us monthly. We charge a percentage of each vendor space booking at your park. Receipts show the fee.',
           },
         ],
         steps: [
@@ -128,7 +128,7 @@ export default async function MarketManagerProgramPage({ params }: MarketManager
           },
           {
             title: 'Run your park.',
-            rest: 'Trucks book and pay for spots. Shoppers pre-order. Surveys go out after service day. We deposit spot rental income to your Stripe account.',
+            rest: 'Trucks book and pay for vendor spaces. Shoppers pre-order. Surveys go out after service day. We deposit vendor space income to your Stripe account.',
           },
         ],
         setupHeading: 'Set up your park',

@@ -486,7 +486,7 @@ async function sendManagerConfirmation(args: ManagerConfirmationArgs): Promise<v
         'You sign up + sign in to your dashboard.',
         'You turn on paid spots and add your spots (size, power, water, daily price).',
         'You select the truck agreement statements your park uses.',
-        'You connect a Stripe account so we can pay you spot rental revenue.',
+        'You connect a Stripe account so we can pay you vendor space revenue.',
         'We review your setup and activate your public park listing — usually within one business day.',
       ]
     : [

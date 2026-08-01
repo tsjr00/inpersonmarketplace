@@ -521,7 +521,7 @@ export async function createParkSpotCheckoutSession({
           price_data: {
             currency: 'usd',
             product_data: {
-              name: `Spot rental — ${marketName}`,
+              name: `Vendor space — ${marketName}`,
               description: `${spotLabel} · ${dates.length} day${dates.length === 1 ? '' : 's'}${rangeLabel}`,
             },
             unit_amount: chargedVendorCents,

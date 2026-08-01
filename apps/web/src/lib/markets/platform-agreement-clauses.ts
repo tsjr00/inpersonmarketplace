@@ -35,13 +35,35 @@ function brandName(vertical: string): string {
 }
 
 /**
- * The four truck/vendor-facing platform clauses, every business agrees to them
- * when booking. Brand name is filled per vertical; wording is otherwise neutral
- * so it reads for both a food truck and a farmers-market vendor.
+ * The truck/vendor-facing platform clauses — every business agrees to them when
+ * booking. Brand name is filled per vertical; wording is otherwise neutral so it
+ * reads for both a food truck and a farmers-market vendor.
+ *
+ * Food trucks additionally get `_platform_vendor_space` (see below): a
+ * characterization clause, not a behavioral one. Texas presumes a "rental or
+ * lease of a parking facility" is TAXABLE (34 TAC 3.315(h)), but 3.315(h)(1)
+ * excludes space rented for a purpose OTHER than parking — its own example is a
+ * flea market — provided the lessor "receives and retains documentation clearly
+ * describing the nontaxable activity." This clause IS that documentation: the
+ * vendor's accepted agreement records that the space is vending space, not
+ * motor-vehicle parking or storage. Booth fees at markets are already
+ * nontaxable (Pub. 96-211), so FM needs no equivalent.
+ *
+ * ⚠️ Substance controls, not the label. This clause only holds if the facts
+ * match it — no overnight occupancy, no unattended storage, access tied to
+ * service hours. If an operator starts permitting overnight parking, the
+ * characterization fails regardless of wording. See `.claude/sales_tax_readiness.md`.
  */
 export function getTruckPlatformClauses(vertical: string): PlatformClause[] {
   const brand = brandName(vertical)
+  const isFoodTrucks = vertical === 'food_trucks'
   return [
+    ...(isFoodTrucks
+      ? [{
+          statement_id: '_platform_vendor_space',
+          text: `I understand I'm booking vendor space to sell from during posted service hours — not a parking space. I won't stay overnight, leave my truck or equipment stored on site, or use the space for anything other than serving customers.`,
+        }]
+      : []),
     {
       statement_id: '_platform_good_standing',
       text: `I'll keep my ${brand} profile active and in good standing for as long as I operate here.`,

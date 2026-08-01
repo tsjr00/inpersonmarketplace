@@ -22,6 +22,11 @@ interface BoothInventoryManagerProps {
 /**
  * Manager-side CRUD for booth size tiers (market_booth_inventory rows).
  *
+ * ⚠️ One bundled weekly price per tier — no line-item amenity charges (tables,
+ * chairs, power). A separately-stated amenity charge is taxable in Texas even
+ * though the booth fee itself is not. See the tax design constraint in
+ * `lib/markets/booth-types.ts` before adding any priced option here.
+ *
  * Layout:
  *   - Booth numbering section: first + last label (mig 144 auto-assignment)
  *   - Summary row: total booths, # of size tiers, max-per-week revenue
@@ -699,6 +704,14 @@ export default function BoothInventoryManager({ marketId, vertical }: BoothInven
       }}>
         <div style={{ fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm, marginBottom: spacing.xs }}>
           Add a {term(vertical, 'booth').toLowerCase()} size tier
+        </div>
+        {/* Tax design constraint — see lib/markets/booth-types.ts. A separately
+            stated amenity charge is taxable in Texas even though the booth fee
+            is not, so amenities must be priced INTO the weekly price. */}
+        <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing.xs, lineHeight: 1.4 }}>
+          <strong>Set one all-in weekly price per tier.</strong> Include any amenities you provide — tables, chairs,
+          canopies, power — in that price. Don’t plan to bill vendors separately for add-ons; the platform
+          intentionally doesn’t support separate amenity charges.
         </div>
         <div style={{ display: 'flex', gap: spacing.xs, flexWrap: 'wrap' }}>
           <input

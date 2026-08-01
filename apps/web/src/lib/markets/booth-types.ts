@@ -4,6 +4,26 @@
  * The inventory table tracks WHAT booths exist at a market and what they
  * cost per week. Vendor-to-booth assignments live separately on
  * `market_vendors.booth_number`.
+ *
+ * ⚠️ TAX DESIGN CONSTRAINT — ONE BUNDLED PRICE PER SPACE. DO NOT ADD LINE-ITEM
+ * AMENITY CHARGES (power, water, tables, chairs, canopies, electricity, etc.).
+ *
+ * Texas Comptroller Pub. 96-211: "Booth fees, floor space fees and rental
+ * charges for a space to sell or display taxable items are not subject to
+ * sales tax." BUT the Comptroller's Tax Policy News (July 2021) is equally
+ * explicit that this protection is lost per line item: "When stated separately
+ * from booth fees, an event promoter must collect tax on the rental of tables,
+ * chairs, electricity and power strips."
+ *
+ * So a separately-stated amenity charge is TAXABLE even though the space
+ * itself is not — it would drag a currently tax-free product surface into
+ * sales-tax collection, filing and audit scope. Operators are instructed to
+ * price amenities INTO the space price. Amenities may be modeled as
+ * descriptive ATTRIBUTES of a space (e.g. park spots carry power/water
+ * booleans) — never as a priced add-on.
+ *
+ * If a future requirement genuinely needs a separate amenity charge, that is a
+ * tax decision before it is a product decision: escalate, don't implement.
  */
 
 /** Row shape returned from `market_booth_inventory` table. */
