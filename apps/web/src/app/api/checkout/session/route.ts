@@ -709,6 +709,69 @@ export async function POST(request: NextRequest) {
 
     // Pre-generate order ID and number
     const orderId = randomUUID()
+
+    // Pickup capacity + slot-time validation (mig 216). FT day-to-day only —
+    // event orders go through /api/events/[token]/order and the wave system and
+    // never reach here. Checked per distinct (vendor, market, date, slot) in the
+    // cart, so a multi-slot cart is validated slot by slot.
+    //
+    // INERT until a vendor opts in: check_pickup_slot_capacity returns
+    // allowed=true whenever both caps are NULL, which is every truck today.
+    // Fails OPEN if the RPCs are missing (pre-migration deploy) — .rpc() errors,
+    // data is null, and checkout proceeds exactly as it does now.
+    if (vertical === 'food_trucks') {
+      const slotGroups = new Map<string, { vendorId: string; marketId: string; date: string; time: string; items: number }>()
+      for (const oi of orderItems) {
+        if (!oi.preferred_pickup_time || !oi.market_id || !oi.pickup_date) continue
+        const key = `${oi.vendor_profile_id}|${oi.market_id}|${oi.pickup_date}|${oi.preferred_pickup_time}`
+        const existing = slotGroups.get(key)
+        if (existing) {
+          existing.items += oi.quantity
+        } else {
+          slotGroups.set(key, {
+            vendorId: oi.vendor_profile_id,
+            marketId: oi.market_id,
+            date: oi.pickup_date as string,
+            time: oi.preferred_pickup_time as string,
+            items: oi.quantity,
+          })
+        }
+      }
+
+      for (const g of slotGroups.values()) {
+        // (a) The slot must be real: inside the vendor's hours for that weekday,
+        //     not a past date, and past the prep lead time on same-day orders.
+        //     Previously these rules existed ONLY in client-side generateTimeSlots.
+        const { data: timeOk } = await serviceClient.rpc('validate_pickup_slot_time', {
+          p_vendor_profile_id: g.vendorId,
+          p_market_id: g.marketId,
+          p_pickup_date: g.date,
+          p_pickup_time: g.time,
+        })
+        if (timeOk === false) {
+          throw traced.validation('ERR_CHECKOUT_SLOT',
+            'That pickup time is no longer available. Please pick another time.')
+        }
+
+        // (b) Capacity: advisory-locked count of this slot vs the vendor's caps.
+        const { data: capRows } = await serviceClient.rpc('check_pickup_slot_capacity', {
+          p_vendor_profile_id: g.vendorId,
+          p_market_id: g.marketId,
+          p_pickup_date: g.date,
+          p_pickup_time: g.time,
+          p_adding_items: g.items,
+          p_order_id: orderId,
+        })
+        const cap = Array.isArray(capRows) ? capRows[0] : capRows
+        if (cap && cap.allowed === false) {
+          throw traced.validation('ERR_CHECKOUT_SLOT',
+            cap.reason === 'slot_items_full'
+              ? 'This pickup time is full for an order this size. Please pick another time.'
+              : 'This pickup time is full. Please pick another time.')
+        }
+      }
+    }
+
     const verticalPrefix = (vertical || 'FM').toUpperCase().slice(0, 2)
     const orderNumber = `${verticalPrefix}-${new Date().getFullYear()}-${Math.random().toString().slice(2, 10)}`
 
