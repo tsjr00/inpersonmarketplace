@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { term } from '@/lib/vertical'
+import MarketTaxJurisdictionsCard from '@/components/admin/MarketTaxJurisdictionsCard'
 
 interface Market {
   id: string
@@ -400,6 +401,16 @@ export default function MarketForm({ market, verticals, mode }: MarketFormProps)
           Get coordinates from <a href="https://www.latlong.net/" target="_blank" rel="noopener noreferrer" style={{ color: '#0070f3' }}>latlong.net</a> -
           Enter the address to find its coordinates
         </p>
+
+        {/* Sales tax jurisdictions (mig 214/215) — directly under the coordinates
+            because both are resolved from the same address the admin already has
+            open. Edit-only: the card saves itself against an existing market id,
+            so there is nothing to attach to on the "new market" form. */}
+        {market?.id && (
+          <div style={{ marginBottom: 20 }}>
+            <MarketTaxJurisdictionsCard marketId={market.id} />
+          </div>
+        )}
 
         {/* Contact */}
         <h3 style={{ margin: '24px 0 20px 0', fontSize: 16, fontWeight: 600, color: '#333', paddingTop: 20, borderTop: '1px solid #eee' }}>
