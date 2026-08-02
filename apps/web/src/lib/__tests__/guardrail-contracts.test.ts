@@ -105,6 +105,21 @@ describe('Guardrail Rule F: newest defining migration retains each critical RPC 
         { text: "'expired'", why: 'mig 198 — grant-row filter must exclude prior expiry zero-outs' },
       ],
     },
+    {
+      fn: 'check_pickup_slot_capacity',
+      markers: [
+        { text: "INTERVAL '10 minutes'", why: 'mig 216 — an unpaid checkout holds its slot for 10 min only; orders are inserted BEFORE payment and the cleanup cron runs once a DAY, so counting every pending row blocked a truck’s whole lunch service over checkouts nobody completed' },
+        { text: 'cancelled_at IS NULL', why: 'mig 216 — cancelled items must not consume capacity, or a slot stays full forever after a refund' },
+        { text: 'pg_advisory_xact_lock', why: 'mig 216 — narrows (does NOT eliminate) the concurrent-checkout race on one slot' },
+      ],
+    },
+    {
+      fn: 'validate_pickup_slot_time',
+      markers: [
+        { text: 'SELECT EXISTS', why: 'mig 216 — a market may run two active windows on one weekday (lunch + dinner) with no unique constraint preventing it; the earlier LIMIT-1 lookup rejected every dinner order, and this guard fails CLOSED so the buyer was told a served time was unavailable' },
+        { text: 'AT TIME ZONE', why: 'mig 216 — Vercel runs UTC; a naive now() is wrong by hours' },
+      ],
+    },
   ]
 
   const migrations = allMigrationFiles()
@@ -128,6 +143,47 @@ describe('Guardrail Rule F: newest defining migration retains each critical RPC 
       }
     })
   }
+})
+
+// ═══════════════════════════════════════════════════════════════════════
+// Rule F2 — display surfaces mirror the enforcement they preview
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('Guardrail Rule F2: slot-availability mirrors check_pickup_slot_capacity', () => {
+  // The buyer's slot picker greys out "full" times by re-implementing the RPC's
+  // filters in TypeScript. When the two drift, the UI lies in one of two ways:
+  // it offers a slot checkout will refuse (dead end at payment), or it hides a
+  // slot checkout would accept (silent lost revenue). The abandoned-checkout
+  // window is the filter most likely to be dropped, because it looks like an
+  // arbitrary 10 minutes unless you know orders are inserted before payment and
+  // the cleanup cron runs only once a day.
+  const ROUTE = path.join(SRC_DIR, 'app/api/buyer/slot-availability/route.ts')
+
+  it('applies the same abandoned-checkout window as the RPC, via the shared helper', () => {
+    const src = read(ROUTE)
+
+    expect(
+      src.includes('isStripeCheckoutExpired'),
+      'slot-availability must reuse isStripeCheckoutExpired (lib/cron/order-timing.ts) rather than ' +
+      'hard-coding a duration — one definition is shared by cron Phase 2, check_pickup_slot_capacity ' +
+      'and this route, so the window cannot be changed in one place and silently re-open the bug where ' +
+      'an abandoned checkout greyed out a slot for ~24 hours.'
+    ).toBe(true)
+
+    expect(
+      /created_at/.test(src),
+      'slot-availability must select orders.created_at — without it the abandoned-checkout window ' +
+      'cannot be evaluated and every pending order would hold its slot again.'
+    ).toBe(true)
+
+    for (const dead of ['cancelled', 'refunded']) {
+      expect(
+        src.includes(`'${dead}'`),
+        `slot-availability must ignore ${dead} orders, matching check_pickup_slot_capacity — ` +
+        `otherwise a slot reads "full" forever after a refund.`
+      ).toBe(true)
+    }
+  })
 })
 
 // ═══════════════════════════════════════════════════════════════════════

@@ -82,17 +82,29 @@ CREATE INDEX IF NOT EXISTS idx_order_items_pickup_slot
   ON public.order_items (vendor_profile_id, market_id, pickup_date, preferred_pickup_time)
   WHERE preferred_pickup_time IS NOT NULL AND cancelled_at IS NULL;
 
--- ── 2. Atomic capacity check ───────────────────────────────────────────────
+-- ── 2. Capacity check ──────────────────────────────────────────────────────
 -- Advisory-lock → count → compare, the same shape as book_weekly_booth_atomic
--- (mig 186:82-116). The lock is transaction-scoped and keyed on the slot, so two
--- concurrent checkouts for the same slot serialize rather than both reading a
--- stale count.
+-- (mig 186:82-116).
+--
+-- HONEST LIMITATION — this NARROWS the race, it does not eliminate it. The lock
+-- is transaction-scoped, and each PostgREST .rpc() call is its own transaction,
+-- so the lock is released the moment this function returns. The caller does not
+-- insert its order rows until AFTER a Stripe API round-trip
+-- (checkout/session/route.ts:913/938), so two simultaneous checkouts for the
+-- last spot can both read the same count and both pass. Unlike
+-- atomic_decrement_inventory, check and mutate are NOT in one transaction here.
+--
+-- That is accepted deliberately: overshoot is bounded by the number of genuinely
+-- concurrent checkouts (realistically 1-2), and this is a PACING cap, not a
+-- financial invariant — a truck getting 6 orders in a 5-order slot is a bad
+-- minute, not a bad payout. Do NOT describe this function as atomic.
 --
 -- Returns a row rather than a bare boolean so the caller can produce an honest
 -- message ("this time is full") and log the numbers.
 --
--- p_order_id lets an in-progress order exclude its OWN rows, so re-running the
--- check for a multi-item cart doesn't count the order against itself.
+-- p_order_id lets an order exclude its OWN rows. NOTE: at the current call site
+-- the order does not exist yet, so it excludes nothing — it is here for a future
+-- caller that re-checks AFTER inserting (e.g. a cart-edit path).
 CREATE OR REPLACE FUNCTION public.check_pickup_slot_capacity(
   p_vendor_profile_id UUID,
   p_market_id UUID,
@@ -139,6 +151,20 @@ BEGIN
 
   -- Live load in this slot. Cancelled items and dead orders must not consume
   -- capacity, or a slot would stay "full" forever after refunds.
+  --
+  -- ABANDONED CHECKOUTS: orders are inserted with status 'pending' BEFORE
+  -- payment (checkout/session/route.ts:913-914), and the only cleanup is cron
+  -- expire-orders Phase 2 — which cancels pending orders older than
+  -- STRIPE_CHECKOUT_EXPIRY_MS (10 min, lib/cron/order-timing.ts:19) but RUNS
+  -- ONLY ONCE A DAY at 12:00 UTC (vercel.json). Counting every pending row would
+  -- therefore let a buyer who opened checkout and walked away hold a slot for up
+  -- to ~24 hours — a truck's whole lunch service could read "full" on orders
+  -- nobody ever paid for.
+  --
+  -- So a pending order only holds its slot for the same 10 minutes Stripe gives
+  -- it. Past that it is abandoned by definition and releases itself, with no
+  -- dependence on when the cron next runs. Paid/confirmed/ready/completed orders
+  -- are unaffected by this window.
   SELECT COALESCE(COUNT(DISTINCT oi.order_id), 0),
          COALESCE(SUM(oi.quantity), 0)
     INTO v_orders_used, v_items_used
@@ -151,6 +177,7 @@ BEGIN
      AND oi.cancelled_at IS NULL
      AND oi.status <> 'cancelled'
      AND o.status NOT IN ('cancelled', 'refunded')
+     AND (o.status <> 'pending' OR o.created_at > NOW() - INTERVAL '10 minutes')
      AND (p_order_id IS NULL OR oi.order_id <> p_order_id);
 
   IF v_orders_cap IS NOT NULL AND (v_orders_used + 1) > v_orders_cap THEN
@@ -171,7 +198,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.check_pickup_slot_capacity IS
-  'Atomically checks whether one more app order (and p_adding_items items) fits in a food truck''s (market, date, pickup time) slot. Advisory-locked per slot so concurrent checkouts serialize. NULL caps = unlimited. Cancelled/refunded rows never consume capacity. Returns allowed + reason + used/cap numbers (mig 216).';
+  'Checks whether one more app order (and p_adding_items items) fits in a food truck''s (market, date, pickup time) slot. NOT atomic end-to-end: the advisory lock is released when this function returns, and the caller inserts its rows later, so it narrows the race rather than eliminating it — accepted because this is a pacing cap, not a financial invariant. NULL caps = unlimited. Cancelled/refunded rows never consume capacity, and an unpaid ''pending'' order holds its slot for only 10 minutes (matching Stripe checkout expiry) so an abandoned checkout cannot block a slot until the once-daily cron runs. Returns allowed + reason + used/cap numbers (mig 216).';
 
 REVOKE EXECUTE ON FUNCTION public.check_pickup_slot_capacity(UUID, UUID, DATE, TIME, INTEGER, UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.check_pickup_slot_capacity(UUID, UUID, DATE, TIME, INTEGER, UUID) TO service_role;
@@ -196,8 +223,7 @@ SET search_path = public
 AS $$
 DECLARE
   v_tz TEXT;
-  v_start TIME;
-  v_end TIME;
+  v_in_window BOOLEAN;
   v_lead INTEGER;
   v_local_now TIMESTAMP;
 BEGIN
@@ -211,28 +237,40 @@ BEGIN
     RETURN FALSE;  -- unknown market
   END IF;
 
-  -- Effective service window for this vendor at this market on this weekday.
-  SELECT COALESCE(vms.vendor_start_time, ms.start_time),
-         COALESCE(vms.vendor_end_time,   ms.end_time)
-    INTO v_start, v_end
-    FROM market_schedules ms
-    LEFT JOIN vendor_market_schedules vms
-           ON vms.schedule_id = ms.id
-          AND vms.vendor_profile_id = p_vendor_profile_id
-          AND vms.is_active = true
-   WHERE ms.market_id = p_market_id
-     AND ms.active = true
-     AND ms.day_of_week = EXTRACT(DOW FROM p_pickup_date)::INTEGER
-   ORDER BY vms.id NULLS LAST
-   LIMIT 1;
+  -- Must fall inside an effective service window for this vendor at this market
+  -- on this weekday. A slot AT end time is valid (the buyer arrives at close and
+  -- is served) — matches time-slots.ts:28-29.
+  --
+  -- ANY window, not "the" window. There is NO unique constraint on
+  -- (market_id, day_of_week) — market_schedules carries only its pkey on id — so
+  -- a location can legitimately run two active rows for one weekday (a lunch
+  -- window and a dinner window). Picking a single row with LIMIT 1 and rejecting
+  -- everything outside it would block every dinner-time order at such a market,
+  -- and this guard fails CLOSED: the buyer is told "that pickup time is no longer
+  -- available" for a time the truck actually serves. EXISTS over all matching
+  -- rows is the correct test.
+  --
+  -- Vendor per-market overrides apply PER SCHEDULE ROW via COALESCE, matching
+  -- get_available_pickup_dates (mig 199/200). vendor_market_schedules is UNIQUE
+  -- on (vendor_profile_id, schedule_id), so the LEFT JOIN cannot fan out.
+  --
+  -- No active schedule that weekday collapses into the same FALSE — correct:
+  -- a day the market does not operate has no valid pickup time.
+  SELECT EXISTS (
+    SELECT 1
+      FROM market_schedules ms
+      LEFT JOIN vendor_market_schedules vms
+             ON vms.schedule_id = ms.id
+            AND vms.vendor_profile_id = p_vendor_profile_id
+            AND vms.is_active = true
+     WHERE ms.market_id = p_market_id
+       AND ms.active = true
+       AND ms.day_of_week = EXTRACT(DOW FROM p_pickup_date)::INTEGER
+       AND p_pickup_time >= COALESCE(vms.vendor_start_time, ms.start_time)
+       AND p_pickup_time <= COALESCE(vms.vendor_end_time,   ms.end_time)
+  ) INTO v_in_window;
 
-  IF v_start IS NULL OR v_end IS NULL THEN
-    RETURN FALSE;  -- no active schedule that weekday
-  END IF;
-
-  -- Must fall inside the service window. A slot AT end time is valid (the buyer
-  -- arrives at close and is served) — matches time-slots.ts:28-29.
-  IF p_pickup_time < v_start OR p_pickup_time > v_end THEN
+  IF NOT v_in_window THEN
     RETURN FALSE;
   END IF;
 
@@ -254,7 +292,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.validate_pickup_slot_time IS
-  'Server-side guard for order_items.preferred_pickup_time: slot must fall inside the vendor''s effective service window for that weekday, the date must not be past, and a same-day slot must be at least pickup_lead_minutes out. All comparisons in the market''s timezone. Mirrors client-side generateTimeSlots, which was previously the ONLY place these rules existed (mig 216).';
+  'Server-side guard for order_items.preferred_pickup_time: slot must fall inside ANY of the vendor''s effective service windows for that weekday (a market may run several active schedule rows on one day — e.g. lunch and dinner — and there is no unique constraint preventing it), the date must not be past, and a same-day slot must be at least pickup_lead_minutes out. All comparisons in the market''s timezone. Fails closed, so the ANY-window test matters: a single-window test would reject legitimate orders. Mirrors client-side generateTimeSlots, which was previously the ONLY place these rules existed (mig 216).';
 
 REVOKE EXECUTE ON FUNCTION public.validate_pickup_slot_time(UUID, UUID, DATE, TIME) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.validate_pickup_slot_time(UUID, UUID, DATE, TIME) TO authenticated, service_role;
@@ -279,6 +317,16 @@ COMMIT;
 --           pickup_capacity_slot_minutes = 30 WHERE id = '<vendor>';
 -- 5) Time validation — expect false for a slot outside hours / in the past:
 --    SELECT validate_pickup_slot_time('<vendor>','<market>',CURRENT_DATE,'03:07');
+-- 6) Multi-window markets (the LIMIT 1 bug this file was revised to avoid). If
+--    this returns any rows, those markets have two service windows on one
+--    weekday and MUST be spot-checked: a time in the SECOND window has to
+--    validate true.
+--    SELECT market_id, day_of_week, COUNT(*) FROM market_schedules
+--     WHERE active = true GROUP BY 1,2 HAVING COUNT(*) > 1;
+-- 7) Abandoned checkouts must not hold a slot. With a cap set, insert (or find)
+--    a 'pending' order older than 10 minutes in the slot and confirm it is NOT
+--    counted — orders_used should exclude it:
+--    SELECT * FROM check_pickup_slot_capacity('<vendor>','<market>','<date>','12:00',1);
 --
 -- ============================================================================
 -- ROLLBACK

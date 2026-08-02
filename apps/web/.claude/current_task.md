@@ -9,21 +9,29 @@
 | **STAGING** `origin/staging` = local `main` | `cebc18cb` |
 | Commits on staging not in prod | 12 (Chip In ×2, tax ×4, FT capacity ×2, docs) |
 
-### ⚠️ MIGRATIONS — one is NOT applied
+### MIGRATIONS — all applied to Dev + Staging; all four still pending Prod
 | Mig | Dev+Staging | Prod | Notes |
 |---|---|---|---|
 | 213 community_chip_in | ✅ | ⏳ | |
 | 214 tax_jurisdiction_storage | ✅ | ⏳ | |
 | 215 tax_reverify_on_address_change | ✅ | ⏳ | |
-| **216 ft_pickup_slot_capacity** | ❌ **NOT APPLIED** | ⏳ | **Nothing in the capacity feature works until the user applies this.** Checkout fails OPEN without it, so nothing is broken meanwhile. |
+| **216 ft_pickup_slot_capacity** | ✅ **applied 2026-08-02** | ⏳ | Revised before applying — see "216 review" below. 21 DB-backed tests green against Dev. |
 
 ### What's on staging, untested (in priority order to test)
 1. **Community Chip In** (`b597ef70`, `146a84f3`) — event cause-tip + round-up campaigns + batched Connect auto-remit. Full protocol was delivered on screen; regenerate if needed.
 2. **Tax jurisdictions** (`145d2fdf`, `bb89b2de`, `58e694ff`) — admin card on `/admin/markets/<id>/edit`, `/[vertical]/admin/markets` edit modal, and `/admin/markets/<id>`. User was mid-test; **still needs real TX addresses resolved** (6 suggested locations w/ real codes are in the chat + backlog).
-3. **FT pickup capacity** (`3d3d13c3`, `cebc18cb`) — needs mig 216 first.
+3. **FT pickup capacity** (`3d3d13c3`, `cebc18cb`, + uncommitted 216 revisions) — mig applied; ready to test on staging (vendor sets Q2=1 → second buyer sees "Full" → forced API call rejects).
 
-### 🚨 Honest caveat carried forward
-The FT capacity **enforcement code has no test coverage**. 1787 tests pass = nothing existing broke; **no test exercises the new path**. Verified only by tsc + code reading. Either cover it with unit tests against `check_pickup_slot_capacity` or verify on staging (vendor sets Q2=1 → second buyer sees "Full" → forced API call rejects).
+### ✅ 216 REVIEW + TEST COVERAGE (2026-08-02, UNCOMMITTED) — caveat resolved
+The previous handoff's "enforcement has no test coverage" warning is **closed**. Before applying, a line-by-line re-read of 216 against live schema found **two real bugs** (schema refs all checked out — `order_items.status` is NOT NULL, so the `<> 'cancelled'` filter was safe). Both fixed in the migration file **before** it was ever applied:
+
+1. **Abandoned checkouts held a slot for ~24h.** The count included `'pending'` orders; orders are inserted BEFORE payment (`checkout/session:913-914`) and the only cleanup (cron Phase 2, 10-min rule) runs **once a day** (`vercel.json`). A truck's whole lunch service could read "full" from checkouts nobody paid for. **Fix:** `AND (o.status <> 'pending' OR o.created_at > NOW() - INTERVAL '10 minutes')` — self-healing, no cron dependency.
+2. **`validate_pickup_slot_time` used `LIMIT 1` on schedules.** There is **no unique constraint on `(market_id, day_of_week)`**, so a location can run lunch + dinner windows; every dinner-time order would be rejected, and this guard **fails CLOSED** (buyer told a served time was unavailable). **Fix:** `SELECT EXISTS` over all active windows.
+3. Comment-only: the function is **NOT atomic end-to-end** (xact lock releases before the caller inserts). Accepted — pacing cap, not a financial invariant — but the misleading "atomically" wording is gone.
+
+**Mirror fix:** `api/buyer/slot-availability/route.ts` now applies the same 10-min window via the shared `isStripeCheckoutExpired()` helper (`lib/cron/order-timing.ts:34`) — one definition shared by cron Phase 2, the RPC and the UI, so they can't drift.
+
+**Tests (new):** `src/lib/__tests__/pickup-slot-capacity.integration.test.ts` — 21 DB-backed tests, **21/21 green**, incl. ⚑ guards for both bugs above *and* the inverse (a checkout <10 min old MUST still hold its slot, so nobody "fixes" a failure by ignoring all pending orders). `guardrail-contracts.test.ts` gained Rule F markers on both RPCs (a future `CREATE OR REPLACE` from an older body fails the commit) and **Rule F2** pinning the UI/enforcement mirror. Full suite **1811/1811**.
 
 ### Remaining build items (small, cold-start friendly)
 - **FT capacity:** day-of "short-staffed today" override (2 columns + dashboard control) · listing cross-reference line near `quantity`. Detail in `backlog.md` top entry.

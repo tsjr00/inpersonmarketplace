@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
+import { isStripeCheckoutExpired } from '@/lib/cron/order-timing'
 
 /**
  * GET /api/buyer/slot-availability?listingId=&marketId=&pickupDate=
@@ -56,10 +57,19 @@ export async function GET(request: NextRequest) {
 
     // Current load per slot. Must mirror check_pickup_slot_capacity's filters
     // exactly, or the UI and the enforcement will disagree: cancelled items and
-    // cancelled/refunded orders never consume capacity.
+    // cancelled/refunded orders never consume capacity, and an unpaid 'pending'
+    // order holds its slot for only 10 minutes.
+    //
+    // That last one is not a detail. Orders are inserted BEFORE payment
+    // (checkout/session/route.ts:913-914) and the only cleanup cron runs once a
+    // day, so counting every pending row would grey out a truck's whole lunch
+    // service over checkouts nobody completed. The RPC applies the same window in
+    // SQL; here it is the shared isStripeCheckoutExpired() helper, which is the
+    // same rule cron Phase 2 cancels on — one definition, three call sites, so
+    // the UI and enforcement cannot drift apart.
     const { data: rows } = await service
       .from('order_items')
-      .select('order_id, quantity, preferred_pickup_time, orders!inner(status)')
+      .select('order_id, quantity, preferred_pickup_time, orders!inner(status, created_at)')
       .eq('vendor_profile_id', listing.vendor_profile_id as string)
       .eq('market_id', marketId)
       .eq('pickup_date', pickupDate)
@@ -70,8 +80,15 @@ export async function GET(request: NextRequest) {
     const perSlot = new Map<string, { orders: Set<string>; items: number }>()
     for (const r of rows ?? []) {
       const ord = Array.isArray(r.orders) ? r.orders[0] : r.orders
-      const status = (ord as { status?: string } | null)?.status
+      const order = ord as { status?: string; created_at?: string } | null
+      const status = order?.status
       if (status === 'cancelled' || status === 'refunded') continue
+
+      // Abandoned checkout — released itself, same as in the RPC. Clock skew
+      // between Node here and NOW() in Postgres is irrelevant at 10-minute
+      // granularity, and this surface is display-only regardless: checkout
+      // re-checks server-side.
+      if (status === 'pending' && order?.created_at && isStripeCheckoutExpired(order.created_at)) continue
 
       const slot = (r.preferred_pickup_time as string).slice(0, 5) // "HH:MM"
       const entry = perSlot.get(slot) ?? { orders: new Set<string>(), items: 0 }
