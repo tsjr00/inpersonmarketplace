@@ -18,6 +18,44 @@ interface RouteContext {
 const LEVELS: JurisdictionLevel[] = ['state', 'city', 'county', 'transit', 'spd']
 
 /**
+ * Normalize a place name for corroboration: uppercase, drop the state table's
+ * "(Travis Co)" suffix, and strip punctuation/spacing. "Austin (Travis Co)" and
+ * "austin" both become "AUSTIN".
+ */
+function normalizePlace(name: string): string {
+  return (name || '')
+    .replace(/\([^)]*\)/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z]/g, '')
+}
+
+/**
+ * Soft corroboration that the entered jurisdictions belong to THIS market's
+ * address. Returns warnings — not errors: the state's naming and an operator's
+ * free-text city field legitimately differ, so this flags rather than blocks.
+ */
+function corroborateAgainstAddress(
+  jurisdictions: TaxJurisdiction[],
+  marketCity: string | null
+): string[] {
+  const warnings: string[] = []
+  const cityRows = jurisdictions.filter((j) => j.level === 'city')
+  if (marketCity && cityRows.length > 0) {
+    const target = normalizePlace(marketCity)
+    const matches = cityRows.some((j) => {
+      const n = normalizePlace(j.name)
+      return n.length > 0 && target.length > 0 && (n.includes(target) || target.includes(n))
+    })
+    if (!matches) {
+      warnings.push(
+        `City jurisdiction "${cityRows.map((c) => c.name).join(', ')}" does not match this market's city "${marketCity}" — double-check you resolved the right address.`
+      )
+    }
+  }
+  return warnings
+}
+
+/**
  * Texas sales-tax jurisdictions for a market (mig 214).
  *
  * Set at APPROVAL time, alongside lat/long — the admin already has the address
@@ -60,11 +98,17 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     // Pre-mig-214 environments simply report nothing configured.
     const jurisdictions = parseJurisdictions(market.tax_jurisdictions)
+    const verifiedAt = (market.tax_jurisdiction_verified_at as string | null) ?? null
     return NextResponse.json({
       jurisdictions,
       totalRatePct: (market.tax_rate_total_pct as number | null) ?? totalRatePct(jurisdictions),
       rateVersion: (market.tax_rate_version as string | null) ?? null,
-      verifiedAt: (market.tax_jurisdiction_verified_at as string | null) ?? null,
+      verifiedAt,
+      // mig 215: the trigger clears verifiedAt when any address component
+      // changes, so jurisdictions-without-a-stamp means the address moved out
+      // from under them and they must be re-checked before they can be trusted.
+      needsReverification: jurisdictions.length > 0 && !verifiedAt,
+      warnings: corroborateAgainstAddress(jurisdictions, (market.city as string | null) ?? null),
       note: (market.tax_jurisdiction_note as string | null) ?? null,
       address: {
         line: (market.address as string | null) ?? null,
@@ -133,6 +177,15 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     }
 
     const errors = validateJurisdictions(normalized)
+
+    // Guardrail: these are TEXAS jurisdictions. A market in another state must
+    // never carry them — that would be silently wrong tax data, and the whole
+    // rate model (6.25% state, 8.25% ceiling) is Texas-specific.
+    const marketState = ((market.state as string | null) || '').trim().toUpperCase()
+    if (marketState && marketState !== 'TX' && marketState !== 'TEXAS') {
+      errors.push(`This market is in ${marketState}; only Texas jurisdictions are supported today.`)
+    }
+
     if (errors.length > 0) {
       return NextResponse.json({ error: errors.join(' · '), errors }, { status: 400 })
     }
@@ -157,6 +210,11 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       )
     }
 
-    return NextResponse.json({ success: true, jurisdictions: normalized, totalRatePct: total })
+    return NextResponse.json({
+      success: true,
+      jurisdictions: normalized,
+      totalRatePct: total,
+      warnings: corroborateAgainstAddress(normalized, (market.city as string | null) ?? null),
+    })
   })
 }

@@ -12,6 +12,7 @@ import { term } from '@/lib/vertical'
 import { formatState, formatZip } from '@/lib/validation'
 import DuplicateMarketBanner, { type DuplicateMarketSummary } from '@/components/markets/DuplicateMarketBanner'
 import ApproveStatusButton from '@/app/admin/markets/[id]/ApproveStatusButton'
+import MarketTaxJurisdictionsCard from '@/components/admin/MarketTaxJurisdictionsCard'
 import MarketDocumentsViewer from '@/components/markets/MarketDocumentsViewer'
 
 type Schedule = {
@@ -1007,6 +1008,15 @@ export default function AdminMarketsPage() {
               <p style={{ fontSize: typography.sizes.xs, color: colors.textSecondary, marginTop: spacing['3xs'] }}>
                 Get coordinates from <a href="https://www.latlong.net/" target="_blank" rel="noopener noreferrer" style={{ color: colors.primary }}>latlong.net</a> - enter the market address to find its coordinates
               </p>
+
+              {/* Sales tax jurisdictions (mig 214/215) — sits directly under the
+                  coordinates because both are resolved from the same address the
+                  admin already has open at approval time. Edit-only: it saves
+                  itself against an existing market id, so there is nothing to
+                  attach to until the market exists. */}
+              {editingMarket?.id && (
+                <MarketTaxJurisdictionsCard marketId={editingMarket.id} />
+              )}
 
               {/* Market Schedules */}
               <div>

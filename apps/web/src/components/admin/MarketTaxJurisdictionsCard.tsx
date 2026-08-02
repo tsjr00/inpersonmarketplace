@@ -60,6 +60,8 @@ export default function MarketTaxJurisdictionsCard({ marketId }: Props) {
   const [note, setNote] = useState('')
   const [address, setAddress] = useState<{ line: string | null; city: string | null; state: string | null; zip: string | null } | null>(null)
   const [verifiedAt, setVerifiedAt] = useState<string | null>(null)
+  const [needsReverification, setNeedsReverification] = useState(false)
+  const [serverWarnings, setServerWarnings] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null)
@@ -76,6 +78,8 @@ export default function MarketTaxJurisdictionsCard({ marketId }: Props) {
         setNote(d.note || '')
         setAddress(d.address || null)
         setVerifiedAt(d.verifiedAt || null)
+        setNeedsReverification(!!d.needsReverification)
+        setServerWarnings(d.warnings || [])
         setLoading(false)
       })
       .catch(() => setLoading(false))
@@ -114,6 +118,8 @@ export default function MarketTaxJurisdictionsCard({ marketId }: Props) {
       if (res.ok) {
         setMsg({ text: 'Saved', ok: true })
         setVerifiedAt(new Date().toISOString())
+        setNeedsReverification(false)
+        setServerWarnings(data.warnings || [])
       } else {
         setMsg({ text: data.error || 'Save failed', ok: false })
       }
@@ -148,6 +154,29 @@ export default function MarketTaxJurisdictionsCard({ marketId }: Props) {
         seven-digit local codes are what the monthly return (Form 01-116) reports against.
         {' '}<strong>This does not charge tax</strong> — it is reference data only.
       </p>
+
+      {/* mig 215: the address moved after these jurisdictions were verified.
+          They may now describe the wrong location — loudest thing on the card. */}
+      {needsReverification && (
+        <div style={{
+          marginTop: spacing.sm, padding: spacing.sm, borderRadius: radius.sm,
+          background: '#fef3c7', border: '1px solid #fcd34d', color: '#92400e',
+          fontSize: typography.sizes.xs, lineHeight: 1.5,
+        }}>
+          ⚠ <strong>Re-verify needed.</strong> This market&apos;s address changed after these jurisdictions were
+          saved, so they may describe the old location. Re-check them against the Rate Locator and save again.
+        </div>
+      )}
+
+      {serverWarnings.length > 0 && (
+        <div style={{
+          marginTop: spacing.sm, padding: spacing.sm, borderRadius: radius.sm,
+          background: '#fef3c7', border: '1px solid #fcd34d', color: '#92400e',
+          fontSize: typography.sizes.xs, lineHeight: 1.5,
+        }}>
+          {serverWarnings.map((w, i) => <div key={i}>⚠ {w}</div>)}
+        </div>
+      )}
 
       {/* The address to resolve against + the lookup tool */}
       <div style={{ background: colors.surfaceMuted, borderRadius: radius.sm, padding: spacing.sm, marginTop: spacing.sm, fontSize: typography.sizes.xs, lineHeight: 1.5 }}>
