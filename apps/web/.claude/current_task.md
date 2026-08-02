@@ -1,7 +1,37 @@
-# Current Task: 🟢 BUILDING — Community Chip In (event cause-tip + always-on round-up)
+# Current Task: 🟡 THREE FEATURES BUILT ON STAGING, NONE TESTED — start here
 
-## 📌 QUEUED (design done, build after testing) — FT day-to-day pickup capacity
-Owner surfaced 2026-08-02: nothing caps how many app orders a truck gets for the same pickup time → "skip the line" is unenforceable (40 buyers can all pick 12:00). **Full design + signed-off copy + build order is in `apps/web/.claude/backlog.md` (top entry, 🔴 HIGH).** Do not redesign — build what's there. Includes the fix for an unvalidated `preferred_pickup_time` (server checks only a 15-min boundary; hours/future/lead-time rules live only in client JS).
+## ⏱️ SESSION HANDOFF (2026-08-02)
+
+### Git / env state
+| | |
+|---|---|
+| **PROD** `origin/main` | `f141c6e6` — unchanged all session. 113-commit relaunch went out 7/30. |
+| **STAGING** `origin/staging` = local `main` | `cebc18cb` |
+| Commits on staging not in prod | 12 (Chip In ×2, tax ×4, FT capacity ×2, docs) |
+
+### ⚠️ MIGRATIONS — one is NOT applied
+| Mig | Dev+Staging | Prod | Notes |
+|---|---|---|---|
+| 213 community_chip_in | ✅ | ⏳ | |
+| 214 tax_jurisdiction_storage | ✅ | ⏳ | |
+| 215 tax_reverify_on_address_change | ✅ | ⏳ | |
+| **216 ft_pickup_slot_capacity** | ❌ **NOT APPLIED** | ⏳ | **Nothing in the capacity feature works until the user applies this.** Checkout fails OPEN without it, so nothing is broken meanwhile. |
+
+### What's on staging, untested (in priority order to test)
+1. **Community Chip In** (`b597ef70`, `146a84f3`) — event cause-tip + round-up campaigns + batched Connect auto-remit. Full protocol was delivered on screen; regenerate if needed.
+2. **Tax jurisdictions** (`145d2fdf`, `bb89b2de`, `58e694ff`) — admin card on `/admin/markets/<id>/edit`, `/[vertical]/admin/markets` edit modal, and `/admin/markets/<id>`. User was mid-test; **still needs real TX addresses resolved** (6 suggested locations w/ real codes are in the chat + backlog).
+3. **FT pickup capacity** (`3d3d13c3`, `cebc18cb`) — needs mig 216 first.
+
+### 🚨 Honest caveat carried forward
+The FT capacity **enforcement code has no test coverage**. 1787 tests pass = nothing existing broke; **no test exercises the new path**. Verified only by tsc + code reading. Either cover it with unit tests against `check_pickup_slot_capacity` or verify on staging (vendor sets Q2=1 → second buyer sees "Full" → forced API call rejects).
+
+### Remaining build items (small, cold-start friendly)
+- **FT capacity:** day-of "short-staffed today" override (2 columns + dashboard control) · listing cross-reference line near `quantity`. Detail in `backlog.md` top entry.
+- **Tax:** quarterly rate-refresh automation (design done — codes are stable, rates drift; auto-apply rate changes, flag-only when a code disappears; Comptroller serves `Last-Modified`/`ETag` on a static XLSX URL so freshness is assertable). Then subscriptions tax (Stripe Tax Basic), then facilitated-sales tax + payout withholding (critical-path).
+- **A2:** new FT /about headers (owner supplying).
+
+### ⚠️ Process note for the next session (I got this wrong twice today)
+Both my errors came from **grepping a narrow scope and treating no-hits as proof** (`migrations/applied/` only, missing root `migrations/`; and `head -8` truncating the results that disproved me). I asserted "there is no pickup time" and "pickup_lead_minutes is event-only" — **both false**. Grep finds *where to look*; **open the file and cite path:line** before characterizing behavior. See `verification-discipline.md` Rule 1.
 
 ## ✅ RELAUNCH DONE (2026-07-30)
 Prod `origin/main` = `f141c6e6` (was `62b686f7`). All 29 migs 184→212 applied to prod in order (user); keystone mig 204 verified (V2 lockout = 0 rows, V1 both accounts platform_admin). Off-window push (`PUSH_WINDOW_OVERRIDE=planned-relaunch`), Vercel green, admin loads at vertical+platform. Pre-prod diff audit clean (`apps/web/.claude/review/PREPROD_FINDINGS_LEDGER.md`).

@@ -4,7 +4,15 @@ Last updated: 2026-08-02 (added: FT day-to-day pickup capacity — design comple
 
 ## 🔴 HIGH — FT day-to-day pickup capacity ("skip the line" is currently unenforceable) — added 2026-08-02
 
-**Status: DESIGN COMPLETE + OWNER-APPROVED. Build after the current staging test round.** All copy is signed off. Do NOT redesign — build what's below.
+**Status 2026-08-02: MOSTLY BUILT + PUSHED TO STAGING** (`3d3d13c3` schema/UI, `cebc18cb` checkout enforcement). ⏳ **mig 216 NOT YET APPLIED — nothing works until the user applies it to Dev+Staging.**
+- ✅ Step 1 migration 216 (5 `vendor_profiles` columns, `check_pickup_slot_capacity`, `validate_pickup_slot_time`, counting index)
+- ✅ Step 2 checkout enforcement (`checkout/session/route.ts`, +63/−0, owner per-file approved) — also closes the unvalidated `preferred_pickup_time` hole
+- ✅ Step 3 vendor card `PickupCapacityForm` on `/[vertical]/vendor/edit` · ✅ Step 4 buyer "— Full" slots · ✅ Step 5 lead-time-change warning
+- ⬜ **Step 6 day-of "short-staffed today" override** — 2 more columns (`..._today_override`, `..._today_date`; use override when date = today) + a dashboard control near Pickup Mode + a small RPC tweak. mig 216 is unapplied so these columns could still be folded in, or add a 217.
+- ⬜ **Step 7 listing cross-reference** line near `quantity` in `ListingForm`: *"Daily inventory limits how much you can sell. Pickup capacity limits how fast — right now, {orders} app orders or {items} items per {slot} minutes. Change it in Pickup Settings →"*
+- 🚨 **No test coverage on the new enforcement path.** Verify on staging or add unit tests against `check_pickup_slot_capacity`.
+
+All copy below is signed off. Do NOT redesign — the sections below are the reference for steps 6-7 and for anyone changing the copy.
 
 ### The problem (verified 2026-08-02, all citations checked by reading the file)
 
