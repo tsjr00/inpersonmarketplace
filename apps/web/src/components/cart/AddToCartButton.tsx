@@ -70,6 +70,7 @@ export function AddToCartButton({
   const [error, setError] = useState<string | null>(null)
   const [selectedPickup, setSelectedPickup] = useState<PickupSelection | null>(null)
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string | null>(null)
+  const [fullSlots, setFullSlots] = useState<string[]>([])
 
   // Generate 30-min time slots for food trucks when a date is selected
   const timeSlots = useMemo(() => {
@@ -81,6 +82,27 @@ export function AddToCartButton({
   useEffect(() => {
     setSelectedTimeSlot(null)
   }, [selectedPickup])
+
+  // Pickup capacity (mig 216): which slots this truck has already filled.
+  // Display-only — checkout re-checks atomically, so a slot that fills between
+  // now and checkout is still caught. Empty when the vendor hasn't opted in.
+  useEffect(() => {
+    if (vertical !== 'food_trucks' || !selectedPickup?.marketId || !selectedPickup?.pickupDate) {
+      setFullSlots([])
+      return
+    }
+    let cancelled = false
+    const params = new URLSearchParams({
+      listingId,
+      marketId: selectedPickup.marketId,
+      pickupDate: selectedPickup.pickupDate,
+    })
+    fetch(`/api/buyer/slot-availability?${params.toString()}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (!cancelled && d) setFullSlots(d.fullSlots || []) })
+      .catch(() => { /* availability is advisory; checkout is authoritative */ })
+    return () => { cancelled = true }
+  }, [vertical, listingId, selectedPickup])
 
   const isFoodTruck = vertical === 'food_trucks'
 
@@ -567,11 +589,17 @@ export function AddToCartButton({
             }}
           >
             <option value="">Choose a pickup time...</option>
-            {timeSlots.map(slot => (
-              <option key={slot} value={slot}>
-                {formatTimeSlot(slot)}
-              </option>
-            ))}
+            {timeSlots.map(slot => {
+              // Shown as "Full" rather than hidden: hiding reads as "the truck
+              // is closed", while "Full" communicates scarcity and pushes the
+              // buyer to an adjacent time (mig 216).
+              const isFull = fullSlots.includes(slot)
+              return (
+                <option key={slot} value={slot} disabled={isFull}>
+                  {formatTimeSlot(slot)}{isFull ? ' — Full' : ''}
+                </option>
+              )
+            })}
           </select>
         </div>
       )}

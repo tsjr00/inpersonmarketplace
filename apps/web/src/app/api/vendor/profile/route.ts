@@ -32,6 +32,7 @@ export async function PATCH(request: NextRequest) {
         paypal_username,
         accepts_cash_at_pickup,
         pickup_lead_minutes,
+        pickup_capacity,
         fee_discount_code
       } = await request.json()
 
@@ -114,6 +115,49 @@ export async function PATCH(request: NextRequest) {
           return NextResponse.json({ error: 'Pickup lead time must be 15 or 30 minutes' }, { status: 400 })
         }
         updates.pickup_lead_minutes = leadVal
+      }
+
+      // Pickup capacity (mig 216) — how many app pre-orders this truck accepts
+      // per pickup slot. `null` clears it back to unlimited (today's behavior).
+      // The enforced caps (app_orders / items) are derived client-side from the
+      // three setup questions and may be overridden by the vendor, so validate
+      // them here rather than trusting the arithmetic.
+      if (pickup_capacity !== undefined) {
+        if (pickup_capacity === null) {
+          updates.pickup_capacity_total_per_slot = null
+          updates.pickup_capacity_app_orders = null
+          updates.pickup_capacity_avg_items = null
+          updates.pickup_capacity_items = null
+          updates.pickup_capacity_slot_minutes = null
+        } else {
+          const cap = pickup_capacity as Record<string, unknown>
+          const num = (v: unknown): number | null => {
+            if (v === null || v === undefined || v === '') return null
+            const n = Number(v)
+            return Number.isInteger(n) && n > 0 ? n : NaN
+          }
+          const total = num(cap.total_per_slot)
+          const appOrders = num(cap.app_orders)
+          const avgItems = num(cap.avg_items)
+          const items = num(cap.items)
+          const slotMinutes = num(cap.slot_minutes)
+
+          if ([total, appOrders, avgItems, items, slotMinutes].some(Number.isNaN)) {
+            return NextResponse.json({ error: 'Capacity values must be whole numbers greater than zero' }, { status: 400 })
+          }
+          if (slotMinutes !== null && slotMinutes !== 15 && slotMinutes !== 30) {
+            return NextResponse.json({ error: 'Capacity slot length must be 15 or 30 minutes' }, { status: 400 })
+          }
+          // You cannot reserve more for app pre-orders than you can produce.
+          if (total !== null && appOrders !== null && appOrders > total) {
+            return NextResponse.json({ error: "Your app slice can't be larger than the total orders you complete in a slot" }, { status: 400 })
+          }
+          updates.pickup_capacity_total_per_slot = total
+          updates.pickup_capacity_app_orders = appOrders
+          updates.pickup_capacity_avg_items = avgItems
+          updates.pickup_capacity_items = items
+          updates.pickup_capacity_slot_minutes = slotMinutes
+        }
       }
 
       // Update

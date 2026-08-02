@@ -1,5 +1,103 @@
 # Backlog
 
+Last updated: 2026-08-02 (added: FT day-to-day pickup capacity — design complete, ready to build)
+
+## 🔴 HIGH — FT day-to-day pickup capacity ("skip the line" is currently unenforceable) — added 2026-08-02
+
+**Status: DESIGN COMPLETE + OWNER-APPROVED. Build after the current staging test round.** All copy is signed off. Do NOT redesign — build what's below.
+
+### The problem (verified 2026-08-02, all citations checked by reading the file)
+
+Nothing limits how many app orders a food truck can receive for the same pickup time. 40 buyers can all choose 12:00, all be told to come, and the truck has a line it never agreed to. This directly breaks the `_platform_skip_line` clause (`lib/markets/platform-agreement-clauses.ts:76`) that every truck accepts and that the marketing promises.
+
+**What actually exists today:**
+- Buyers **DO** pick a mandatory pickup time — `cart_items.preferred_pickup_time` / `order_items.preferred_pickup_time` (mig `20260217_028_add_preferred_pickup_time.sql`, still in root `migrations/`, NOT `applied/`). Required for FT at `api/cart/items/route.ts:174-178`.
+- Slots are generated **client-side only** — `lib/utils/time-slots.ts:38-70`. Its own comment at `:26` says it plainly: **"Multiple buyers can pick the same slot — slots are waves, not reservations."**
+- **Slot length is 15 OR 30 min**, derived from the vendor's lead time: `time-slots.ts:49` → `slotInterval = minLeadMinutes <= 15 ? 15 : 30`. `vendor_profiles.pickup_lead_minutes` (mig 096, `INTEGER DEFAULT 30`, `CHECK IN (15,30)`) flows `listing/[listingId]/page.tsx:430` → `AddToCartButton.tsx:62,77` → `generateTimeSlots`.
+- **Nothing counts orders per slot.** Full untruncated grep of `preferred_pickup_time` across `apps/web/src`: every hit is select/store/display. No COUNT, no aggregate, no cap comparison.
+- Server validates the chosen time **only** for a 15-minute boundary (`cart/items/route.ts:179-185`). ⚠️ **Security-adjacent hole:** "inside the vendor's hours", "in the future", and "past lead time" live ONLY in client-side `generateTimeSlots` — a crafted API call can book 3:07 AM or a slot 2 minutes out.
+- FT non-event `cutoff_hours` is **hardcoded 0** (mig 200:113) — orders accepted until the truck closes.
+- Only defense today is `listings.quantity`, which sells out the **whole day** instead of pacing. (NOTE: "NULL = unlimited" is **UNVERIFIED** at the enforcement layer — `validate_cart_item_inventory`'s body is not in the repo, only the signature in `supabase/.temp/functions.md`. UI placeholder says "Leave blank for unlimited", `ListingForm:953`.)
+
+> ⚠️ **Two corrections for whoever builds this** — I asserted both of these wrongly during design and had to retract: (1) day-to-day orders are **NOT** date-only, buyers pick a time; (2) `pickup_lead_minutes` is **NOT** event-only, it drives day-to-day slot generation. Both errors came from grepping a narrow scope (`migrations/applied/` only; `head -8`) and treating no-hits as proof. **Read the files.**
+
+### Precedents to copy (do not invent new patterns)
+- **Atomic capacity:** `pg_advisory_xact_lock` then count then allow/reject — exactly `book_weekly_booth_atomic` (mig 186:82-116). Same shape works keyed on (vendor, market, date, slot).
+- **Profile default + per-context override + shown math:** `vendor/events/[marketId]/page.tsx:743-800` — explains the model, offers "Use my profile default (N)" vs "Custom for this event", and puts the derived total **in the label**: *"Total event capacity (N waves × M per wave = X)"*. Mirror this.
+- **Setup-question card:** `vendor/edit/EventReadinessForm.tsx:574-593` asks "Max Headcount Per 30-Minute Wave" with a hint. New card sits on the same page.
+- **Slot key already exists on `order_items`:** `vendor_profile_id` + `market_id` + `pickup_date` + `preferred_pickup_time`.
+
+### Design decisions (OWNER-APPROVED — do not re-open)
+1. **Two caps, whichever hits first** (orders/slot AND items/slot). Orders alone lets six 1-item orders swamp a slot; items alone lets one big order eat it.
+2. **Vendor answers 3 plain questions; caps are DERIVED and then STORED + overridable.** Never ask for "prep minutes" (rejected — vendors guess badly). Store the concrete number so the vendor sees exactly what the app enforces, matching the event form's editable `calculatedTotal`.
+3. **Ask total pace FIRST, then carve out the app slice.** Owner: *"vendors are walkup / cash focused inherently, the app is the add-on to their process, we can't treat walkup as the afterthought, they will misrepresent."* Asking "app orders minus walk-ups" inverts their mental model and they'll answer with whole-service capacity.
+4. **Capacity lives on the PROFILE, not per listing.** One kitchen = one constraint. Per-listing would create N caps for one physical limit (do they sum? does min win?) and a 12-listing truck would answer 12 times. **But** add a cross-reference line in the listing form where `quantity` is set — owner liked this as a reality-check at the moment they think about volume.
+5. **Pre-fill Q1 from `profile_data.event_readiness.max_headcount_per_wave`** (set by `EventReadinessForm`), **labeled with its source** so they can correct it. Only pre-fill when present — event_readiness is only filled by trucks applying for events.
+6. **Enforce at CHECKOUT, not cart-add** — matches how inventory already works (`atomic_decrement_inventory` runs at checkout). Holding at cart-add would need reservation-expiry cron like events have, and an abandoned tab would starve a truck's lunch rush. Cart-add may show a soft "filling up" hint.
+7. **Full slots render DISABLED as "Full", not hidden.** Hidden reads as "truck is closed"; "Full — try 12:30" communicates scarcity and pushes demand to adjacent slots.
+8. **All copy is dynamic on `{slot}` = the vendor's 15 or 30.** Never hardcode 15.
+
+### Final vendor-facing copy (SIGNED OFF — use verbatim, `{slot}` = 15 or 30)
+
+> **Pickup Capacity**
+> How many **app pre-orders** you'll accept in each **{slot}-minute** time slot, so they spread across your service instead of all landing at once.
+> **This only paces app orders — your walk-up line is never limited by it.**
+>
+> **Q1 — Your normal pace.** During a typical service, about how many orders do you complete in **{slot} minutes** — everyone, walk-ups included?
+> *Cooked and handed out, not just handed out. Your steady pace, not your best-ever burst.*
+> <sub>Pre-filled from your Event Readiness answer (you serve ~N people per 30-minute wave at events). Day-to-day is usually different — change it if this isn't right.</sub>
+>
+> **Q2 — Your app slice.** Of those {Q1}, how many can be app pre-orders?
+> *Walk-ups will still be your main source of customers until people get used to ordering through the app. Set aside a slice you can comfortably hit today, and raise it as more of your regulars start ordering ahead.*
+>
+> **Q3 — Typical order size.** About how many items are in a normal order?
+> *Your average, not your biggest.*
+>
+> **Here's what that means**
+> You complete about **{Q1} orders** in a normal **{slot} minutes**.
+> You're setting aside **{Q2}** of those for app pre-orders.
+> A typical order is **{Q3} items** → about **{Q2×Q3} items**.
+> **We'll hold each {slot}-minute slot to {Q2} app orders or {Q2×Q3} items — whichever comes first.** When a slot reaches either, app buyers see it as **Full** and pick another time. Walk-ups keep coming as normal. *Adjust ▾*
+>
+> **Set it too high** and the pacing stops working — everyone picks 12:00, you get slammed, orders run late, and the skip-the-line promise your app customers paid for breaks.
+> **Set it too low** and you turn away the app customers you do have — they'll see Full and order somewhere else.
+> **Start conservative.** App ordering builds slowly at first; it's easy to raise this once you see how it actually runs.
+> **Turn it down when:** short-staffed, running a slower or more complex menu, or working a new location.
+> **Turn it up when:** fully staffed, running a fast menu, or slots keep going Full early in the service.
+> Leave blank for **no limit** (how it works today).
+
+**Listing cross-reference** (in `ListingForm` near `quantity`):
+> *Daily inventory limits how much you can sell. Pickup capacity limits how fast — right now, {orders} app orders or {items} items per {slot} minutes. Change it in Pickup Settings →*
+
+**⚠️ Lead-time-change warning (STRONG — owner-specified wording, not a soft "want to update?"):** fires in `PickupLeadTimeForm` when `pickup_lead_minutes` changes and a capacity is already set:
+> **Your order capacity is set based on your order lead time — your order capacity probably needs to be changed to match your new lead time.**
+> Your slots just changed from {old} to {new} minutes. Capacity was set for {old}-minute slots. → **[Review capacity]**
+
+### Build order (and WHY this order)
+
+**1. Migration.** On `vendor_profiles`: the 3 answers + 2 derived caps + **the slot length they were set against** (needed so the lead-time-change warning knows when they're stale). All nullable — **NULL = unlimited = today's behavior**, so nothing changes for existing trucks. Add the changelog row (the guardrail-contracts tripwire will fail the build without it).
+
+**2. Checkout RPC + `preferred_pickup_time` validation.** Advisory-locked count on (vendor, market, pickup_date, preferred_pickup_time) vs both caps, called from `checkout/session/route.ts` beside the existing inventory validation. **Fold the validation hole in here** — same file, same RPC, and it's arguably more urgent than capacity itself. **Ships INERT** (all caps NULL), same pattern used for Community Chip In. ⚠️ CRITICAL-PATH money file — needs per-file approval with exact before/after.
+
+**3 + 4 MUST SHIP TOGETHER — hard sequencing constraint.**
+ - **3. Setup card** on `/[vertical]/vendor/edit` below Pickup Prep Time (`PickupLeadTimeForm`) — the 3 questions + shown math + editable override.
+ - **4. Buyer "Full" state** in `AddToCartButton.tsx:75-78`.
+ **Why together:** the moment a vendor sets a cap, enforcement is live. If buyers can still pick a full slot, they hit a hard error at checkout instead of seeing "Full". Never ship 3 without 4.
+
+**5. Lead-time-change warning** in `PickupLeadTimeForm` (copy above).
+**6. Day-of override** on the FT dashboard near Pickup Mode — "today only" capacity for a short-staffed shift. Same "use my default / custom" radio as the event page.
+**7. Listing cross-reference** line in `ListingForm` near `quantity`.
+
+### Gotchas
+- **Don't hardcode 15.** Slot length is the vendor's `pickup_lead_minutes`. Every string and every calculation.
+- **Cancelled orders must not consume capacity** — count only non-cancelled `order_items` (mirror how `cart/validate` and the inventory path treat `cancelled_at` / status).
+- **Multi-item carts spanning slots:** one cart can hold items for different times; count per (item's) slot, not per order.
+- **Events are untouched.** Event orders go through `/api/events/[token]/order` + the wave system and must not hit this path.
+- **Capacity is per vendor, not per market** in v1 — a truck at two parks the same day shares one cap. Acceptable for launch (a truck is only physically at one place at a time); per-market override is a later addition if needed.
+- Consider whether a date whose slots are ALL full should drop out of `get_available_pickup_dates` — nice-to-have, adds SQL complexity, **phase 2**.
+
+---
+
 Last updated: 2026-07-29 (added: Extra-B residual — expire abandoned park-spot Stripe session)
 
 ## 🟢 LOW — Expire the abandoned park-spot Stripe session (added 2026-07-29)

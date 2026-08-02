@@ -11,6 +11,7 @@ import DocumentsCertificationsSection from '@/components/vendor/DocumentsCertifi
 import COISection from '@/components/vendor/COISection'
 import EventReadinessForm from './EventReadinessForm'
 import PickupLeadTimeForm from '@/components/vendor/PickupLeadTimeForm'
+import PickupCapacityForm from '@/components/vendor/PickupCapacityForm'
 import CoverImageUpload from '@/components/vendor/CoverImageUpload'
 
 interface EditProfilePageProps {
@@ -147,6 +148,31 @@ export default async function EditProfilePage({ params }: EditProfilePageProps) 
           <PickupLeadTimeForm
             vendorId={vendorProfile.id}
             currentLeadMinutes={vendorProfile.pickup_lead_minutes ?? 30}
+            capacitySlotMinutes={(vendorProfile.pickup_capacity_slot_minutes as number | null) ?? null}
+          />
+        </div>
+      )}
+
+      {/* Pickup Capacity — FT only (mig 216). Sits directly below Pickup Prep
+          Time because the two are a pair: prep time = how soon, capacity = how
+          many. Slot length IS the lead time (time-slots.ts:49), so it's passed
+          through rather than hardcoded. */}
+      {vertical === 'food_trucks' && (
+        <div style={{ marginTop: 20 }}>
+          <PickupCapacityForm
+            vendorId={vendorProfile.id}
+            slotMinutes={(vendorProfile.pickup_lead_minutes ?? 30) <= 15 ? 15 : 30}
+            current={{
+              total_per_slot: (vendorProfile.pickup_capacity_total_per_slot as number | null) ?? null,
+              app_orders: (vendorProfile.pickup_capacity_app_orders as number | null) ?? null,
+              avg_items: (vendorProfile.pickup_capacity_avg_items as number | null) ?? null,
+              items: (vendorProfile.pickup_capacity_items as number | null) ?? null,
+              slot_minutes: (vendorProfile.pickup_capacity_slot_minutes as number | null) ?? null,
+            }}
+            eventHeadcountPerWave={
+              ((vendorProfile.profile_data as Record<string, unknown> | null)?.event_readiness as Record<string, unknown> | undefined)
+                ?.max_headcount_per_wave as number | null | undefined
+            }
           />
         </div>
       )}

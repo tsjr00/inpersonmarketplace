@@ -1,5 +1,8 @@
 # Current Task: 🟢 BUILDING — Community Chip In (event cause-tip + always-on round-up)
 
+## 📌 QUEUED (design done, build after testing) — FT day-to-day pickup capacity
+Owner surfaced 2026-08-02: nothing caps how many app orders a truck gets for the same pickup time → "skip the line" is unenforceable (40 buyers can all pick 12:00). **Full design + signed-off copy + build order is in `apps/web/.claude/backlog.md` (top entry, 🔴 HIGH).** Do not redesign — build what's there. Includes the fix for an unvalidated `preferred_pickup_time` (server checks only a 15-min boundary; hours/future/lead-time rules live only in client JS).
+
 ## ✅ RELAUNCH DONE (2026-07-30)
 Prod `origin/main` = `f141c6e6` (was `62b686f7`). All 29 migs 184→212 applied to prod in order (user); keystone mig 204 verified (V2 lockout = 0 rows, V1 both accounts platform_admin). Off-window push (`PUSH_WINDOW_OVERRIDE=planned-relaunch`), Vercel green, admin loads at vertical+platform. Pre-prod diff audit clean (`apps/web/.claude/review/PREPROD_FINDINGS_LEDGER.md`).
 - **⏳ PARKED — Phase-5 bookkeeping (STAGED, uncommitted):** 29 migration files `git mv`'d to `supabase/migrations/applied/` + SCHEMA_SNAPSHOT summary line added. NOT committed (waiting on user). MIGRATION_LOG.md files are stale/abandoned — snapshot summary line is the live record (168–183 precedent). Close-out = one commit; push to staging; docs-only prod push optional/next-window.

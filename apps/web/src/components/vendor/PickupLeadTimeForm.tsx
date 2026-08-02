@@ -5,12 +5,15 @@ import { colors, spacing, typography, radius, statusColors } from '@/lib/design-
 interface Props {
   vendorId: string
   currentLeadMinutes: number
+  /** mig 216: slot length the vendor's pickup capacity was set against, if any. */
+  capacitySlotMinutes?: number | null | undefined
 }
 
-export default function PickupLeadTimeForm({ vendorId, currentLeadMinutes }: Props) {
+export default function PickupLeadTimeForm({ vendorId, currentLeadMinutes, capacitySlotMinutes }: Props) {
   const [leadMinutes, setLeadMinutes] = useState(currentLeadMinutes)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [capacityStale, setCapacityStale] = useState(false)
 
   const handleSave = async () => {
     setSaving(true)
@@ -29,6 +32,12 @@ export default function PickupLeadTimeForm({ vendorId, currentLeadMinutes }: Pro
       if (res.ok) {
         setMessage('Lead time updated!')
         setTimeout(() => setMessage(''), 3000)
+        // mig 216: lead time IS the slot length (time-slots.ts:49). Changing it
+        // silently invalidates a capacity number set for the old slot length —
+        // e.g. 30→15 halves every slot, so the old cap is ~2x too high.
+        if (capacitySlotMinutes != null && capacitySlotMinutes !== leadMinutes) {
+          setCapacityStale(true)
+        }
       } else {
         const data = await res.json()
         setMessage(data.error || 'Failed to update')
@@ -98,6 +107,19 @@ export default function PickupLeadTimeForm({ vendorId, currentLeadMinutes }: Pro
           ? 'Fast prep — you will have at least 15 minutes between when a buyer orders and when they arrive. Arrival times shown in 15-minute increments.'
           : 'Standard prep — you will have at least 30 minutes between when a buyer orders and when they arrive. Arrival times shown in 30-minute increments.'}
       </p>
+
+      {capacityStale && (
+        <div style={{
+          padding: spacing.sm, marginBottom: spacing.sm, borderRadius: radius.sm,
+          background: '#fef3c7', border: '1px solid #fcd34d', color: '#92400e',
+          fontSize: typography.sizes.sm, lineHeight: 1.5,
+        }}>
+          <strong>Your order capacity is set based on your order lead time — your order capacity probably needs to be
+          changed to match your new lead time.</strong><br />
+          Your pickup slots are now {leadMinutes} minutes long, but your capacity was set for {capacitySlotMinutes}-minute
+          slots. Update it in <strong>Pickup Capacity</strong> below.
+        </div>
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
         <button
