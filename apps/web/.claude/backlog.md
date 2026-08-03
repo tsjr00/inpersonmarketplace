@@ -108,6 +108,55 @@ Nothing limits how many app orders a food truck can receive for the same pickup 
 
 Last updated: 2026-07-29 (added: Extra-B residual — expire abandoned park-spot Stripe session)
 
+## 🟢 LOW — Supabase advisor cleanup round: 6 FK indexes (added 2026-08-02)
+
+**Trigger:** owner saw **203 security / 27 performance** advisories and asked for triage. Full analysis done 2026-08-02 — the counts are far less alarming than they look. **Environment not recorded** when the queries were run; re-check per project before acting (advisors are per-project).
+
+**Triage result — what the 203 actually is:**
+- **`function_search_path_mutable`: raw catalog count 723, but 721 are PostGIS's own functions.** Real count = **2**, and they are already named in the mig 153 item below (Bucket 4): `check_subscription_completion` and `create_market_box_pickups`. Confirmed still the only two as of 2026-08-02. **Do them as part of mig 153, not separately.**
+- **ZERO `SECURITY DEFINER` functions are missing `search_path`** — every privileged/money function already sets it. The 2 above are `SECURITY INVOKER`, so there is no privilege-escalation exposure; this is hygiene only.
+- **`rls_disabled_in_public: spatial_ref_sys`** — PostGIS system table. Cannot enable RLS without superuser, holds coordinate-system reference data. **ACCEPT.**
+- **`security_definer_view` ×2: `geography_columns`, `geometry_columns`** — PostGIS system views, not ours. **ACCEPT.**
+- **`extension_in_public: postgis`** — already an "accept" decision in mig 153 Bucket 4. Relocating it means dropping/recreating the extension, which risks the location-search system (protected after the Session 59 regression). **ACCEPT — the fix is riskier than the finding.**
+- **`rls_enabled_no_policy` ×20** (booth/park/market-manager tables) — RLS on + no policy = deny-all to anon/authenticated, service role bypasses. That is the intended architecture (cf. mig 122, which deliberately removed organizer RLS and moved that dashboard to the service client). **Verified 2026-08-02: zero `'use client'` components query any of the 20 directly**, so nothing is silently returning empty. **ACCEPT.**
+
+### ⬜ The only real work — 6 indexes out of the 29 flagged FKs
+
+Verified by counting actual query predicates in app code, not by guessing:
+
+```sql
+-- Verified query paths (filter counts found in TS: 5, 3, 5, 2 respectively)
+CREATE INDEX IF NOT EXISTS idx_booth_credits_related_group
+  ON public.booth_credits (related_group_id) WHERE related_group_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_booth_credits_market
+  ON public.booth_credits (market_id);
+CREATE INDEX IF NOT EXISTS idx_park_vendor_vetting_vendor
+  ON public.park_vendor_vetting (vendor_profile_id);
+CREATE INDEX IF NOT EXISTS idx_event_vendor_listings_vendor
+  ON public.event_vendor_listings (vendor_profile_id);
+
+-- NOT query paths — FK ENFORCEMENT. Deleting a booth inventory tier is a real
+-- manager action (see booth-label-drift-server.ts, which handles the DELETE
+-- case), and Postgres must scan these children on every such delete.
+CREATE INDEX IF NOT EXISTS idx_weekly_booth_rentals_inventory
+  ON public.weekly_booth_rentals (inventory_id);
+CREATE INDEX IF NOT EXISTS idx_booth_booking_groups_inventory
+  ON public.booth_booking_groups (inventory_id);
+```
+
+**Re-verify column names against `SCHEMA_SNAPSHOT.md` before writing the migration** (schema mechanical gate) — the names above came from a live `pg_constraint` query, but that was 2026-08-02.
+
+### 🚫 Do NOT index the other 23 — record of WHY, so a future session doesn't "finish the job"
+
+- **The five `vertical_id` FKs** (`notifications`, `vendor_quality_findings`, `vendor_leads`, `user_agreement_acceptances`, `catering_requests`) — 195 query sites, and still skip. **`vertical_id` has TWO distinct values.** A 2-value index is not selective; the planner won't use it, so it is pure write cost. If vertical filtering ever gets slow the fix is a **composite** index (`vertical_id` + the other predicate) — which prior sessions already added where it mattered (`idx_markets_vertical_status`, `idx_orders_vertical_created`, mig 015's transactions composite). The advisor's blanket "every FK needs an index" rule is simply wrong for a low-cardinality tenant column.
+- **Nine audit columns** (`*_approved_by`, `*_created_by`, `moderated_by`, `sender_user_id`, `assigned_by_user_id`, `ended_by_user_id`, `manager_confirmed_by`, `replaced_vendor_id`) — zero query predicates; parent is `auth.users`, which is essentially never deleted in prod.
+- **`transactions.listing_id`** — `transactions` is the legacy table orders/order_items replaced; mig 132 dropped the last functions querying it. Dead table.
+- **Remaining zero-predicate FKs** (`order_items.wave_id`, `event_wave_reservations.order_id`/`user_id`, `support_tickets.user_id`, `market_optin_selections.statement_id`, the `agreement_acceptance_id` columns) — no filters found. *Caveat: the grep covered `.eq()`/`.in()` in TS and would miss PostgREST embed joins and SQL inside RPCs, so revisit if one shows up in a slow query log.*
+
+**Priority is genuinely LOW.** With the platform near-empty post-relaunch none of the six cost anything measurable today, and `booth_credits` / `park_vendor_vetting` hold very few rows. This is insurance for real traffic, not a present problem. **Bundle with mig 153** if that gets picked up — one migration closes both advisor tabs.
+
+---
+
 ## 🟢 LOW — Expire the abandoned park-spot Stripe session (added 2026-07-29)
 
 Follow-up to the Extra-B fix (`f141c6e6`, `book-park-spot/route.ts`): re-booking now cancels the caller's OWN stale `pending_payment` rows so an abandoned checkout no longer blocks re-booking, and the cancel keeps the Stripe webhook a clean skip. **Residual edge:** if a vendor leaves the old Stripe tab open unpaid, re-books + pays the NEW session, then goes back and *also* completes the OLD session, Stripe charges both — the old booking stays `cancelled` (no phantom booking) but the money on the old session is taken with nothing to show. Self-inflicted, needs two live Stripe tabs both paid, and Stripe auto-expires open sessions after 24h — hence LOW.
@@ -345,7 +394,7 @@ Full plan + authoritative statute (Health & Safety Code Ch. 437B) + info-gaps re
   - **Bucket 1 (real concern, ~28 functions — this work):** Internal trigger/utility functions designed to be called by Postgres on table events or by service code, NOT by external API callers. They're SECURITY DEFINER + PUBLIC EXECUTE so they appear at `/rest/v1/rpc/<name>`. Functions: `auto_add_schedule_to_vendors`, `auto_cancel_order_if_all_items_cancelled`, `auto_create_vendor_schedules`, `auto_create_vendor_schedules_insert`, `auto_create_vendor_verification`, `check_vendor_schedule_conflict`, `check_subscription_completion`, `cleanup_cancelled_event`, `cleanup_cart_items_invalid_schedules`, `create_market_box_pickups`, `create_profile_for_user`, `enforce_listing_tier_limit`, `enforce_market_box_tier_limit`, `ensure_admin_premium_tier`, `ensure_user_profile`, `handle_market_schedule_deactivation`, `handle_new_user`, `notify_transaction_status_change`, `refresh_all_vendor_locations`, `refresh_vendor_location`, `scan_vendor_activity`, `set_listing_premium_window`, `set_market_box_premium_window`, `sync_verification_status`, `track_vendor_status_change`, `trg_refresh_vendor_location`, `trigger_cleanup_cart_on_schedule_change`, `update_vendor_activity_on_listing`, `update_vendor_activity_on_order`, `update_vendor_fee_balance`, `update_vendor_last_login`, `build_pickup_snapshot`, `calculate_order_item_expiration`, `find_next_available_wave`, `validate_cart_item_schedule` (missed from mig 152 — similar to the other `validate_cart_item_*`).
   - **Bucket 2 (auth helpers — bundle into mig 153 with REVOKE from anon only, keep authenticated EXECUTE):** `is_admin`, `is_admin_for_vertical`, `is_any_admin`, `is_platform_admin`, `is_regional_admin`, `is_verifier`, `is_vertical_admin`, `has_role` (2 overloads), `can_admin_market`, `can_admin_order`, `can_admin_vendor`, `can_delete_schedule`, `can_vendor_add_fixed_market`, `can_vendor_add_listing_to_market`, `can_vendor_publish`, `can_access_pickup`, `can_access_subscription`, `user_owns_vendor`, `user_is_subscription_buyer`, `user_is_subscription_vendor`, `user_buyer_order_ids`, `user_vendor_order_ids`, `user_vendor_profile_ids`, `get_buyer_order_ids`, `get_vendor_order_ids`, `get_user_admin_verticals`, `get_user_vendor_ids`, `get_vendor_fixed_market_count`, `get_vendor_fixed_market_limit`, `get_vendor_listing_count_at_market`, `get_schedule_active_order_count`, `is_order_buyer`, `vendor_has_active_schedules`, `vendor_skip_week`.
   - **Bucket 3 (accept — intentional public buyer browse):** `get_listings_within_radius`, `get_markets_within_radius`, `get_vendors_within_radius`, `get_nearby_zip_codes`, `get_region_zip_codes`, `get_zip_coordinates`, `get_listing_fields`, `get_vendor_fields`, `get_listing_markets_summary`, `get_listing_open_markets`, `get_listings_accepting_status`, `get_available_pickup_dates`, `get_vendor_next_pickup_date`, `is_listing_accepting_orders`, `get_event_waves_with_availability`, `get_vertical_config`, `st_estimatedextent` (3 PostGIS overloads). Per mig 149 file comments, these are confirmed-intentional. Long-term refactor option: convert each to SECURITY INVOKER + add RLS on underlying tables; for now, accept and document the advisor warnings.
-  - **Bucket 4 (misc — bundle into mig 153 if convenient):** Add `SET search_path = public` to `check_subscription_completion` and `create_market_box_pickups` (the 2 mutable-search-path warnings). Verify `buyer_interests` RLS policy `WITH CHECK (true)` for INSERT is intentional (likely yes — public form). `listing-images` + `vendor-images` "Public can view" SELECT policies kept intentionally per mig 150 (for `<img src>` URLs) — accept. PostGIS extension in public schema — accept (Supabase default).
+  - **Bucket 4 (misc — bundle into mig 153 if convenient):** Add `SET search_path = public` to `check_subscription_completion` and `create_market_box_pickups` (the 2 mutable-search-path warnings). **✅ Re-confirmed 2026-08-02: still exactly these two.** A fresh catalog query (excluding extension-owned functions) returned a real count of 2, and **zero** `SECURITY DEFINER` functions are missing `search_path` — so this bucket is hygiene, not exposure. The scary-looking 723/203 advisor counts are PostGIS. See the *"Supabase advisor cleanup round"* LOW item above for the full triage + 6 FK indexes to bundle here. Verify `buyer_interests` RLS policy `WITH CHECK (true)` for INSERT is intentional (likely yes — public form). `listing-images` + `vendor-images` "Public can view" SELECT policies kept intentionally per mig 150 (for `<img src>` URLs) — accept. PostGIS extension in public schema — accept (Supabase default).
   - **Verified caller audit needed** before drafting mig 153 — same Explore-agent approach as mig 152. Especially scrutinize Bucket 1's `validate_cart_item_schedule` (likely auth-gated cart route only) and the trigger functions (should be zero RPC callers; if any exist in code that's a bug).
   - **Estimate:** ~1 hr to audit + draft mig 153, ~30 min to apply across all 3 envs (Dev → Staging → Prod). Apply mig 152 pattern: paste-and-verify on Dev, then Staging, smoke test, then Prod. Add a verification query at the bottom that confirms zero `=X/...` (PUBLIC) entries remain in `proacl` for the ~60 functions.
   - **Estimated impact on warnings:** drops the advisor count from ~186 to ~17 (only Bucket 3 + Bucket 4 minor warnings remain).

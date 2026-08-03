@@ -87,6 +87,36 @@ Fresh produce/groceries often exempt (FM); prepared food taxable (FT). Need list
 
 All findings below verified 2026-08-01 against primary sources (TX Comptroller publications, Tex. Tax Code, 34 TAC, Stripe/TaxJar/TaxCloud pricing pages). **Nothing here is tax advice** — it is sourced material to inform a Texas CPA/SALT review.
 
+---
+
+## ▶ RESUME HERE (status as of 2026-08-02)
+
+**The platform currently collects $0.00 of sales tax on all four streams.** What exists is the *filing substrate* — storage, validation, and admin entry — not collection. Read this block first; the sections below are the reference material behind it.
+
+### Built and on staging (untested)
+| Piece | Where | State |
+|---|---|---|
+| Jurisdiction storage | migs **214** (columns + 8.25% CHECK) + **215** (re-verify trigger) | Applied Dev+Staging; **Prod pending** |
+| Pure calc/validation library | `src/lib/tax/jurisdictions.ts` — `computeItemTax`, `validateJurisdictions`, `buildListSupplement`, `totalRatePct`, `parseJurisdictions` | 22 unit tests green; **wired to nothing** |
+| Admin entry UI | `api/admin/markets/[id]/tax-jurisdictions` + `MarketTaxJurisdictionsCard` on `/admin/markets/<id>/edit`, `/admin/markets/<id>`, `/[vertical]/admin/markets` | Built, **never tested** — staging checklist §11.12–11.14 |
+| Amenity bundling + vendor-space characterization | `lib/markets/booth-types.ts`, `platform-agreement-clauses.ts` (`_platform_vendor_space`), copy renames | Shipped `0d313e0d` |
+
+### Blocked on / waiting
+1. **Staging test pass** — `apps/web/docs/staging_test_checklist.md` §11.12–11.14. Until an admin enters real seven-digit codes for real markets, the storage holds nothing.
+2. **CPA answers** — §6 below. **Three are design-blocking, not reporting details:** sourcing (Q4) determines the payout-withholding math, chip-in taxability (Q6) is already live code, and admission fees (Q5) must be answered *before* ticketing is designed.
+
+### Next build, in order — do NOT reorder without a reason
+1. **Real jurisdiction data** for actual markets (part of the staging pass). Cheapest item; blocks everything downstream.
+2. **Quarterly rate refresh** — designed, not built. Codes are stable, rates drift. Comptroller serves `Last-Modified`/`ETag` on a static XLSX, so freshness is assertable. Auto-apply rate changes; flag-only when a code disappears.
+3. **Stream 2 — subscriptions.** Our own revenue, one Stripe object, Stripe Tax Basic does the work. **No payout-withholding surgery, no critical-path money files.** This is the lowest-risk path to being genuinely compliant on *something*.
+4. **Stream 1 — facilitated vendor sales.** Includes withholding tax from vendor payouts (§2b). Critical-path money code (`payments.ts`, checkout, payout path) — per-file approval required. **Largest remaining piece. Do not start before Q4 (sourcing) is answered**, or the withholding math gets built twice.
+5. **Stream 4 — commission.** Hold pending CPA + ITFA litigation status.
+
+### 🚨 The closest deadline is a copy guardrail, not a filing date
+`src/lib/vendor/tax-notice.ts:9` and `:36` tell FT vendors *"Sales tax will be automatically applied to your listings."* **That is currently false.** Owner decision 2026-08-01 was to ship the functionality rather than soften the copy, because there were no live vendors. **Guardrail: fix the copy OR ship subscription tax before the first live FT vendor — whichever comes first.** With a live event approaching, this is the nearest hard edge in the whole tax effort.
+
+---
+
 ## 1. There are FOUR taxable streams, not one
 
 | # | Stream | Taxable in TX? | Authority |
@@ -209,7 +239,7 @@ This is why we do **not** need TaxCloud/Avalara: those solve **unbounded rooftop
 
 1. ✅ **DONE 8/1** — amenity bundling enforced in product (§1.2 Trap 1).
 2. ✅ **DONE 8/1** — "vendor space" characterization: agreement clause + user-facing rename (§1.2 Trap 2).
-3. **Storage infrastructure** (§3) — jurisdiction columns on `markets`, snapshot on orders, name→code table. *Do this before any calculation.*
+3. ✅ **DONE 8/1-8/2** — **Storage infrastructure** (§3): jurisdiction columns on `markets` (mig 214), item-level snapshot on `order_items`, re-verify-on-address-change trigger (mig 215), `lib/tax/jurisdictions.ts` + 22 tests, admin entry card. **Two follow-ons remain:** (a) enter real codes for real markets — staging checklist §11.12; (b) quarterly rate-refresh automation — designed, not built.
 4. **Subscriptions first** (stream 2) — our own revenue, one Stripe object, **no payout-withholding surgery, no critical-path money-file changes.** Lowest-risk way to be genuinely compliant on something.
 5. **Facilitated sales** (stream 1) — includes the §2b payout-withholding change. Critical-path, gated, per-file approval.
 6. **Commission** (stream 4) — collect rather than absorb; hold pending CPA + litigation status.
@@ -218,12 +248,43 @@ This is why we do **not** need TaxCloud/Avalara: those solve **unbounded rooftop
 
 ## 6. Questions for the Texas CPA / SALT attorney
 
-1. **Does Rule 3.330(b)(5) reach our commission** — and does it reach our cut of **booth/space rent**, where the underlying transaction is a nontaxable real-property license rather than a sale of taxable items? What is the status of the ITFA/authority challenges?
-2. **Food-truck spaces: taxable parking (Rule 3.315(h) presumption) or nontaxable vending space (the (h)(1) flea-market analogue)?** What documentation must the operator retain, and does our agreement clause satisfy it?
-3. **Subscriptions** — confirm 80/20 data-processing treatment for both vendor tiers and the consumer buyer membership.
-4. **Sourcing** — origin or destination for online pre-order + in-person pickup (§2.2)?
-5. **Event admission fees** — Pub. 96-211: *"Admission fees are taxable. The event promoter must collect sales tax on admission fees."* If we build event ticketing, that's a new taxable stream. Answer **before** designing it.
-6. **Community Chip In** — voluntary, non-deductible contribution collected at checkout (mig 213). Is it part of the taxable sales price?
+Each question below records **what we currently assume**, **why it matters**, and **what changes based on the answer** — so a returned answer can be acted on without re-deriving the context. An email-ready version of this section was prepared 2026-08-02.
+
+**Priority key:** 🔴 design-blocking (code gets built wrong or twice without it) · 🟡 affects reporting, not architecture.
+
+### 🔴 Q1 — Sourcing: origin or destination?
+Our orders are placed online in advance and picked up in person at a market or truck location. There is **no shipping anywhere in the platform**.
+- *Our assumption:* the pickup location's jurisdiction governs, and because we're pickup-only that address is a small fixed set (§3.1).
+- *Why it matters:* this determines which jurisdiction's rate applies per order and therefore the **withholding math on vendor payouts** (§2b).
+- *If the answer differs:* the payout-withholding build (build-order step 5) has to be re-done. **Do not start step 5 before this is answered.**
+
+### 🔴 Q2 — Community Chip In: part of the taxable sales price?
+At checkout a buyer may voluntarily add a contribution to a designated cause. It is optional, separately stated, disclosed as **not tax-deductible**, and 100% is remitted to the beneficiary — the platform keeps none of it (mig 213).
+- *Our assumption:* a voluntary separately-stated pass-through is not part of the sales price of the taxable item.
+- *Why it matters:* **this is live code already on staging**, not a hypothetical.
+- *If it IS taxable:* we must add it to the taxable base at checkout and to the item-level snapshot, and revisit the "100% goes to the org" copy.
+- *Related:* Pub. 94-117's mandatory-gratuity rule (≤20% separately stated and distributed to staff = not taxable; >20% taxable) may be the closest analogue for our **tip** feature — please address tips as well.
+
+### 🔴 Q3 — Event admission fees, before we design ticketing
+Pub. 96-211: *"Admission fees are taxable. The event promoter must collect sales tax on admission fees."*
+- *Status:* ticketing is **under consideration, not built**.
+- *Why it matters:* if we would be the promoter (or the facilitator for a promoter), that is a **fifth taxable stream** with its own collection and reporting path.
+- *We need the answer BEFORE design*, not after — retrofitting a tax stream into a payments flow is the expensive version.
+
+### 🟡 Q4 — Does Rule 3.330(b)(5) reach our commission?
+Effective 10/1/2025 the rule appears to tax marketplace commission as a data processing service.
+- *Sub-question:* does it reach our cut of **booth/vendor-space rent**, where the underlying transaction is a nontaxable real-property license rather than a sale of taxable items?
+- *Also:* current status of the **ITFA / rulemaking-authority challenges**.
+- *Current posture:* build-order step 6 is **on hold** pending this answer. If taxable, the decision is to **collect rather than absorb**.
+
+### 🟡 Q5 — Food-truck spaces: taxable parking or nontaxable vending space?
+Rule 3.315(h) presumes parking-facility leases are taxable; (h)(1) carves out flea-market-style vending space.
+- *What we've done:* re-characterized the product away from "parking" — user-facing copy renamed to **"vendor space"**, and FT vendors accept a `_platform_vendor_space` clause stating they are booking space to sell from during posted service hours, not a parking space, with no overnight use or storage.
+- *Ask:* does that documentation satisfy the (h)(1) treatment, and **what else must the operator retain** in their records?
+
+### 🟡 Q6 — Subscriptions: confirm 80/20 data-processing treatment
+Please confirm the 80% taxable / 20% exempt data-processing treatment (§151.351, Rule 3.330, Pub. 96-259 01/2026) applies to **both** vendor subscription tiers **and** the consumer buyer membership.
+- *Why it matters:* this is build-order step 4 — the next thing we intend to build. A confirmation lets us ship it; a correction changes what we configure in Stripe Tax.
 
 ## 7. Stale sources — do NOT rely on
 - **Pub. 94-127** *Data Processing Services are Taxable* (03/2022) — never mentions the 20% exemption or SaaS; predates the April 2025 rule rewrite. **Use Pub. 96-259 (01/2026) + Rule 3.330.**
