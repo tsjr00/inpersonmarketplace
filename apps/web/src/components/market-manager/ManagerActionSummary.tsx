@@ -72,7 +72,7 @@ export default function ManagerActionSummary({
               <strong>{stats.pendingApprovalCount}</strong> {stats.pendingApprovalCount === 1 ? term(vertical, 'vendor').toLowerCase() : term(vertical, 'vendors').toLowerCase()} pending your approval.
             </span>
             <Link
-              href={`/${vertical}/market-manager/${marketId}/dashboard#vendors-at-market`}
+              href={`/${vertical}/market-manager/${marketId}/dashboard#vendors`}
               style={{
                 color: colors.primary,
                 textDecoration: 'underline',
@@ -98,7 +98,7 @@ export default function ManagerActionSummary({
               <strong>{stats.activeVendorsNeedingBooth}</strong> active {stats.activeVendorsNeedingBooth === 1 ? `${term(vertical, 'vendor').toLowerCase()} needs` : `${term(vertical, 'vendors').toLowerCase()} need`} a {term(vertical, 'booth').toLowerCase()} number assigned.
             </span>
             <Link
-              href={`/${vertical}/market-manager/${marketId}/dashboard#vendors-at-market`}
+              href={`/${vertical}/market-manager/${marketId}/dashboard#vendors`}
               style={{
                 color: colors.primary,
                 textDecoration: 'underline',

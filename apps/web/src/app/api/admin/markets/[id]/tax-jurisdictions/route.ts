@@ -72,7 +72,7 @@ function corroborateAgainstAddress(
 async function loadMarket(service: ReturnType<typeof createServiceClient>, id: string) {
   const { data } = await service
     .from('markets')
-    .select('id, name, vertical_id, address, city, state, zip, tax_jurisdictions, tax_rate_total_pct, tax_rate_version, tax_jurisdiction_verified_at, tax_jurisdiction_note')
+    .select('id, name, vertical_id, address, city, state, zip, latitude, longitude, tax_jurisdictions, tax_rate_total_pct, tax_rate_version, tax_jurisdiction_verified_at, tax_jurisdiction_note')
     .eq('id', id)
     .maybeSingle()
   return data
@@ -116,6 +116,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
         state: (market.state as string | null) ?? null,
         zip: (market.zip as string | null) ?? null,
       },
+      // Coordinates, because the Rate Locator's lat/long search is more reliable
+      // than its address search (an address the state can't parse just errors)
+      // and it is two fields instead of four. Sent as raw numbers; the card
+      // formats them — PostgREST returns NUMERIC as a JSON number, so trailing
+      // zeros are already gone by the time they arrive here.
+      latitude: (market.latitude as number | null) ?? null,
+      longitude: (market.longitude as number | null) ?? null,
     })
   })
 }

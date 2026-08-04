@@ -114,7 +114,7 @@ export default function MarketVisibilityCard({ status }: MarketVisibilityCardPro
         color: '#a16207',
         lineHeight: 1.5,
       }}>
-        Use the <a href="#vendors-at-market" style={{ color: '#92400e' }}>vendor tools below</a> to
+        Use the <a href="#vendors" style={{ color: '#92400e' }}>vendor tools below</a> to
         invite vendors, then encourage them to publish a listing at your market and set
         their attendance schedule. Until then, expect to do your own outreach — vendors
         and buyers won&apos;t find a market that isn&apos;t live yet.

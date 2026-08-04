@@ -53,7 +53,12 @@ export default async function WeeklyBookingsCard({ marketId, vertical }: WeeklyB
     .select('id, vendor_profile_id, week_start_date, inventory_id, booth_number, price_cents, status, booked_at')
     .eq('market_id', marketId)
     .order('week_start_date', { ascending: false })
-    .limit(50)
+    // The list is week-SCOPED now (2026-08-03), so this limit no longer bounds
+    // what's on screen — it bounds which weeks the picker can reach. At 50 a
+    // single vendor's recurring run could consume the whole budget and hide
+    // other weeks entirely. Per-market row counts are small; 400 covers a full
+    // season of a busy market.
+    .limit(400)
 
   const rentals: RentalRow[] = (rentalsRaw ?? []).map((r) => ({
     id: r.id as string,
@@ -101,13 +106,14 @@ export default async function WeeklyBookingsCard({ marketId, vertical }: WeeklyB
   return (
     <ManagerCard
       title={`Weekly ${term(vertical, 'booth').toLowerCase()} bookings`}
-      description={`Bookings ${term(vertical, 'vendors').toLowerCase()} have placed at your ${term(vertical, 'market').toLowerCase()}. Use the ${term(vertical, 'booth').toLowerCase()} # field on each row to assign a ${term(vertical, 'booth').toLowerCase()} to a booking. The most recent 50 bookings shown.`}
+      description={`One week at a time — use the arrows to move between weeks. Set a ${term(vertical, 'booth').toLowerCase()} number on any row. Anyone booked for several weeks is summarized once at the bottom instead of repeating on every week.`}
     >
       <WeeklyBookingsList
         marketId={marketId}
         vertical={vertical}
         bookings={rentals.map<WeeklyBookingRow>((r) => ({
           id: r.id,
+          vendor_profile_id: r.vendor_profile_id,
           vendor_name: vendorNameById.get(r.vendor_profile_id) || 'Unknown vendor',
           week_start_date: r.week_start_date,
           size_label: sizeLabelById.get(r.inventory_id) || '—',

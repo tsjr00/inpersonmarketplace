@@ -55,6 +55,7 @@ export async function GET(
         id,
         vendor_profile_id,
         approved,
+        revoked_at,
         response_status,
         booth_number,
         inventory_id,
@@ -143,6 +144,9 @@ export async function GET(
         booth_number: (row.booth_number as string | null) ?? null,
         inventory_id: (row.inventory_id as string | null) ?? null,
         approved: !!row.approved,
+        // mig 217: separates "manager removed this vendor" from "never reviewed".
+        // Both are approved=false; only the revoked one carries a timestamp.
+        revoked_at: (row.revoked_at as string | null) ?? null,
         response_status: (row.response_status as string | null) ?? null,
         vendor_status: (profile?.status as string | null) ?? null,
         on_platform: true as const,

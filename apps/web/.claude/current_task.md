@@ -9,13 +9,28 @@
 | **STAGING** `origin/staging` = local `main` | `cebc18cb` |
 | Commits on staging not in prod | 12 (Chip In ×2, tax ×4, FT capacity ×2, docs) |
 
-### MIGRATIONS — all applied to Dev + Staging; all four still pending Prod
+### MIGRATIONS — all applied to Dev + Staging; all five still pending Prod
 | Mig | Dev+Staging | Prod | Notes |
 |---|---|---|---|
+| **217 market_vendor_revoked_state** | ✅ **applied 2026-08-03** | ⏳ | Separates manager-revoked from never-reviewed. Fixes a staging finding: a revoked vendor reappeared under "pending your approval". |
 | 213 community_chip_in | ✅ | ⏳ | |
 | 214 tax_jurisdiction_storage | ✅ | ⏳ | |
 | 215 tax_reverify_on_address_change | ✅ | ⏳ | |
 | **216 ft_pickup_slot_capacity** | ✅ **applied 2026-08-02** | ⏳ | Revised before applying — see "216 review" below. 21 DB-backed tests green against Dev. |
+
+### 🧪 STAGING TESTER FINDINGS — 2026-08-03 round (all fixed, unverified on staging)
+From the manager-dashboard + tax-jurisdiction test pass. Six items reported, six addressed:
+1. **Dead "Review →" link** — `ManagerActionSummary` linked `#vendors-at-market`; the real id is `#vendors`. **3 instances** fixed (Review, Assign now, and `MarketVisibilityCard`'s "vendor tools below", which the tester hadn't hit yet).
+2. **Revoked vendor reappeared as "pending approval"** — root cause: `approved` boolean carried two meanings. → mig 217 + Revoked filter/badge/Reinstate. Owner chose "distinct revoked state, still reinstatable at manager option".
+3. **Tax card: duplicate-code error** — root cause: the seeded state row's code/rate/level were EDITABLE, so the operator pasted the city code over `7000000`, then pasted it again into the city row. → state row is now a locked display line; `state` removed from the level dropdown.
+4. **Tax card: use lat/long, not the address** — the Rate Locator's coordinate search is more reliable (a street address it can't parse just errors) and is 2 fields not 4. → API returns lat/long; card shows a copy-ready pair + Copy button, and warns when precision is <6 decimals.
+5. **"Open in a new tab"** — both links ALREADY carry `target="_blank" rel="noopener noreferrer"`. Tester was on **iPhone Safari**, which routinely ignores it (especially from a home-screen shortcut). Not fixable in markup → the flow now says *copy the coordinates first*, so the back button lands somewhere useful.
+6. **Coordinate precision** — NOT a truncation regression. Column is `NUMERIC(_,8)`; PostgREST returns it as a JSON number and **JS drops trailing zeros**, so a value entered at 4 significant decimals renders as 4. Placeholders now show 6 decimals + a why-it-matters note (jurisdiction resolution, ~11 m at 4 dp).
+7. **Booth list restructure** — `WeeklyBookingsList` rendered EVERY week in one flat column, so one 12-week recurring vendor produced 12 near-identical cards. Reframed: the problem was **scope, not grouping**. Now week-scoped with a ← → picker (opens on the current week), plus a recurring roster naming each vendor ONCE with a date range. Server limit 50→400 (it now bounds which weeks the picker can reach, not what's on screen).
+
+**⚠️ Owner data issues to resolve (not code):** three markets share identical lat/long (`35.26175, -101.79544210`) — seed data or a bug, owner to confirm; jurisdiction accuracy depends on it. (The two Westgate markets are NOT duplicates — different details, confirmed by owner.)
+
+**⚠️ Deliberately NOT changed:** `buildListSupplement` still includes the state row. Four tests assert it does (incl. *"lists the state row first"*), and whether Form 01-116 should carry a state line at all is a **CPA question**, not a code decision. Parked with the owner.
 
 ### What's on staging, untested (in priority order to test)
 1. **Community Chip In** (`b597ef70`, `146a84f3`) — event cause-tip + round-up campaigns + batched Connect auto-remit. Full protocol was delivered on screen; regenerate if needed.

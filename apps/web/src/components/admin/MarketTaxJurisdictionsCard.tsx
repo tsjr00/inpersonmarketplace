@@ -59,6 +59,8 @@ export default function MarketTaxJurisdictionsCard({ marketId }: Props) {
   const [rateVersion, setRateVersion] = useState('')
   const [note, setNote] = useState('')
   const [address, setAddress] = useState<{ line: string | null; city: string | null; state: string | null; zip: string | null } | null>(null)
+  const [coords, setCoords] = useState<{ lat: number | null; lng: number | null }>({ lat: null, lng: null })
+  const [copied, setCopied] = useState(false)
   const [verifiedAt, setVerifiedAt] = useState<string | null>(null)
   const [needsReverification, setNeedsReverification] = useState(false)
   const [serverWarnings, setServerWarnings] = useState<string[]>([])
@@ -77,6 +79,7 @@ export default function MarketTaxJurisdictionsCard({ marketId }: Props) {
         setRateVersion(d.rateVersion || currentQuarter())
         setNote(d.note || '')
         setAddress(d.address || null)
+        setCoords({ lat: d.latitude ?? null, lng: d.longitude ?? null })
         setVerifiedAt(d.verifiedAt || null)
         setNeedsReverification(!!d.needsReverification)
         setServerWarnings(d.warnings || [])
@@ -129,6 +132,26 @@ export default function MarketTaxJurisdictionsCard({ marketId }: Props) {
   const addressString = address
     ? [address.line, address.city, address.state, address.zip].filter(Boolean).join(', ')
     : ''
+
+  // The Rate Locator takes lat/long as well as an address, and the coordinate
+  // search is the more reliable of the two: an address the state's geocoder
+  // can't parse just errors out, and it is two fields to fill instead of four.
+  const coordString = coords.lat != null && coords.lng != null ? `${coords.lat}, ${coords.lng}` : ''
+  // Precision is a TAX correctness issue here, not a map-pin nicety: 4 decimals
+  // is ~11m and can sit on the wrong side of a city line, which would resolve
+  // the wrong jurisdiction. 6 decimals is ~0.1m. The column stores 8, but a
+  // value entered at 4 arrives as 4 — PostgREST sends NUMERIC as a JSON number
+  // and JS drops the trailing zeros.
+  const coordDecimals = (n: number | null) => (n == null ? 0 : (String(n).split('.')[1] || '').length)
+  const coarseCoords = coordString !== '' && Math.min(coordDecimals(coords.lat), coordDecimals(coords.lng)) < 6
+
+  const copyCoords = async () => {
+    try {
+      await navigator.clipboard.writeText(coordString)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch { /* clipboard blocked — the value is selectable on screen anyway */ }
+  }
 
   const input = {
     padding: spacing.xs, border: `1px solid ${colors.border}`,
@@ -190,11 +213,42 @@ export default function MarketTaxJurisdictionsCard({ marketId }: Props) {
             ⚠ This market has no street address yet. Add the address first — jurisdictions can&apos;t be resolved without it.
           </div>
         )}
+        {/* Coordinate search first — it is the more reliable of the Rate Locator's
+            two modes and needs two fields instead of four. Copy BEFORE navigating:
+            iOS Safari ignores target="_blank" (especially from a home-screen
+            shortcut), so the operator may well come back via the back button. */}
+        {coordString && (
+          <div style={{ marginTop: spacing.xs, display: 'flex', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' }}>
+            <span style={{ color: colors.textSecondary }}>Or search by coordinates:</span>
+            <code style={{
+              padding: `2px ${spacing.xs}`, background: '#f3f4f6', borderRadius: radius.sm,
+              fontSize: typography.sizes.sm, userSelect: 'all',
+            }}>{coordString}</code>
+            <button
+              type="button"
+              onClick={copyCoords}
+              style={{
+                padding: `2px ${spacing.xs}`, borderRadius: radius.sm, cursor: 'pointer',
+                border: `1px solid ${colors.border}`, background: 'white',
+                fontSize: typography.sizes.xs, color: colors.textSecondary,
+              }}
+            >
+              {copied ? '✓ Copied' : 'Copy'}
+            </button>
+          </div>
+        )}
+        {coarseCoords && (
+          <div style={{ marginTop: spacing['2xs'], color: '#92400e', fontSize: typography.sizes.xs }}>
+            ⚠ These coordinates have fewer than 6 decimal places (~11 m of slop). That can land on the
+            wrong side of a city boundary and resolve the wrong jurisdiction — re-resolve the market&apos;s
+            latitude/longitude above before trusting the result.
+          </div>
+        )}
         <div style={{ marginTop: spacing.xs }}>
           <a href="https://gis.cpa.texas.gov/search/" target="_blank" rel="noopener noreferrer" style={{ color: colors.primary }}>
             Open the Comptroller Rate Locator →
           </a>
-          <span style={{ color: colors.textMuted }}> (paste the address, then copy each jurisdiction below)</span>
+          <span style={{ color: colors.textMuted }}> (copy the coordinates first, then bring each LOCAL code back here)</span>
         </div>
       </div>
 
@@ -202,6 +256,32 @@ export default function MarketTaxJurisdictionsCard({ marketId }: Props) {
       <div style={{ marginTop: spacing.sm, display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
         {rows.map((r, i) => {
           const badCode = !/^\d{7}$/.test(r.code || '')
+          // The state row is CONSTANT for Texas: 6.25%, always present, and the
+          // Comptroller issues no seven-digit code for it (codes are LOCAL only —
+          // city/county/transit/SPD). Leaving these editable invited the exact
+          // mistake it caused in testing: the operator pasted the city's code over
+          // the seeded state placeholder, then pasted the same code into the city
+          // row and got "duplicate jurisdiction code". Nothing about this row is
+          // the operator's to decide, so nothing about it is editable.
+          const isState = r.level === 'state'
+          if (isState) {
+            return (
+              <div key={i} style={{
+                display: 'flex', gap: spacing.xs, alignItems: 'center', flexWrap: 'wrap',
+                padding: spacing.xs, background: '#f9fafb',
+                border: `1px solid ${colors.border}`, borderRadius: radius.sm,
+              }}>
+                <span style={{ fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
+                  Texas state
+                </span>
+                <span style={{ color: colors.textPrimary }}>{TX_STATE_RATE_PCT}%</span>
+                <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                  Fixed statewide rate — added automatically. Texas issues no jurisdiction code for the
+                  state portion, so there is nothing to paste here. Enter only LOCAL jurisdictions below.
+                </span>
+              </div>
+            )
+          }
           return (
             <div key={i} style={{ display: 'flex', gap: spacing.xs, alignItems: 'center', flexWrap: 'wrap' }}>
               <input
@@ -222,7 +302,11 @@ export default function MarketTaxJurisdictionsCard({ marketId }: Props) {
                 value={r.level}
                 onChange={(e) => update(i, { level: e.target.value as JurisdictionLevel })}
               >
-                {LEVELS.map((l) => <option key={l} value={l}>{LEVEL_LABEL[l]}</option>)}
+                {/* 'state' is deliberately absent: the state row is seeded and locked
+                    above, and offering it here would let an operator create a second
+                    one, which validateJurisdictions then rejects with a message that
+                    does not explain what they did wrong. */}
+                {LEVELS.filter((l) => l !== 'state').map((l) => <option key={l} value={l}>{LEVEL_LABEL[l]}</option>)}
               </select>
               <input
                 style={{ ...input, width: 84 }}

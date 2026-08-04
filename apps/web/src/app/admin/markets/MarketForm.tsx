@@ -375,7 +375,7 @@ export default function MarketForm({ market, verticals, mode }: MarketFormProps)
                 ...inputStyle,
                 borderColor: formData.type === 'traditional' && !formData.latitude ? '#f59e0b' : '#ddd'
               }}
-              placeholder="e.g., 30.2672"
+              placeholder="e.g., 30.267153"
             />
           </div>
 
@@ -393,13 +393,21 @@ export default function MarketForm({ market, verticals, mode }: MarketFormProps)
                 ...inputStyle,
                 borderColor: formData.type === 'traditional' && !formData.longitude ? '#f59e0b' : '#ddd'
               }}
-              placeholder="e.g., -97.7431"
+              placeholder="e.g., -97.743061"
             />
           </div>
         </div>
         <p style={{ fontSize: 12, color: '#666', marginTop: 0, marginBottom: 20 }}>
           Get coordinates from <a href="https://www.latlong.net/" target="_blank" rel="noopener noreferrer" style={{ color: '#0070f3' }}>latlong.net</a> -
-          Enter the address to find its coordinates
+          Enter the address to find its coordinates.{' '}
+          {/* Precision matters for TAX, not just map pins: these coordinates are what
+              the Comptroller Rate Locator resolves to a jurisdiction. 4 decimals is
+              ~11m and can land on the wrong side of a city line; 6 is ~0.1m. The
+              column stores 8, but values entered at 4 render as 4 because trailing
+              zeros are dropped in JS — so the guidance has to live here. */}
+          <strong>Use at least 6 decimal places</strong> — these coordinates resolve the
+          market&apos;s sales-tax jurisdiction, and 4 decimals (~11 m) can fall on the wrong
+          side of a city boundary.
         </p>
 
         {/* Sales tax jurisdictions (mig 214/215) — directly under the coordinates

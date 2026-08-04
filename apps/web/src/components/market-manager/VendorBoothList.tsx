@@ -12,6 +12,9 @@ interface Vendor {
   booth_number: string | null
   inventory_id: string | null
   approved: boolean
+  /** mig 217: set when the MANAGER revoked this vendor. Both revoked and
+   *  never-reviewed vendors have approved=false; only revoked has a timestamp. */
+  revoked_at: string | null
   response_status: string | null
   vendor_status: string | null
   on_platform: true
@@ -36,7 +39,7 @@ interface VendorBoothListProps {
   vertical: string
 }
 
-type FilterMode = 'active' | 'needs_booth' | 'pending_approval' | 'invited' | 'all'
+type FilterMode = 'active' | 'needs_booth' | 'pending_approval' | 'invited' | 'revoked' | 'all'
 
 /**
  * Manager-side list of vendors at a market with inline booth-number
@@ -47,7 +50,10 @@ type FilterMode = 'active' | 'needs_booth' | 'pending_approval' | 'invited' | 'a
  *                         view; what managers care about day-to-day.
  *   - needs_booth       — subset of active where booth_number is null.
  *                         Quick "what still needs assignment" view.
- *   - pending_approval  — approved=false. Vendors who came in via the
+ *   - revoked           — approved=false AND revoked_at set (mig 217). The
+ *                         manager removed them; action is Reinstate, not
+ *                         Approve. Chip only appears once one exists.
+ *   - pending_approval  — approved=false AND NOT revoked. Vendors who came in via the
  *                         co-branded signup link and need manager review,
  *                         or vendors whose approval was revoked.
  *   - all               — every vendor associated with this market.
@@ -281,7 +287,9 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
         setVendors((vs) =>
           (vs || []).map((v) =>
             v.vendor_profile_id === vendorProfileId
-              ? { ...v, approved: !!data.approved }
+              // mig 217: track revoked_at too, or the row would fall back into
+              // "pending approval" on screen until the next reload.
+              ? { ...v, approved: !!data.approved, revoked_at: data.revoked_at ?? null }
               : v
           )
         )
@@ -328,9 +336,13 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
   // NEW-8: pending-approval bucket excludes manager-initiated invitations
   // (response_status='invited') so those don't double-count. Self-joined
   // vendors awaiting manager approval have response_status=NULL.
+  // mig 217: a REVOKED vendor also has approved=false. Counting them here put a
+  // vendor the manager had just removed straight back on the to-do list, reading
+  // as a bug. They get their own bucket below, where the action is Reinstate.
   const pendingApprovalVendors = vendors.filter(
-    (v) => !v.approved && v.response_status !== 'invited'
+    (v) => !v.approved && !v.revoked_at && v.response_status !== 'invited'
   )
+  const revokedVendors = vendors.filter((v) => !v.approved && !!v.revoked_at)
   // NEW-8: manager-initiated invitations awaiting vendor response.
   const invitedVendors = vendors.filter(
     (v) => !v.approved && v.response_status === 'invited'
@@ -339,6 +351,7 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
     filter === 'all' ? vendors :
     filter === 'needs_booth' ? needsBoothVendors :
     filter === 'pending_approval' ? pendingApprovalVendors :
+    filter === 'revoked' ? revokedVendors :
     filter === 'invited' ? invitedVendors :
     activeVendors
 
@@ -395,6 +408,14 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
         {renderFilterChip('pending_approval', 'Pending approval', pendingApprovalVendors.length)}
         <span>·</span>
         {renderFilterChip('invited', 'Invited', invitedVendors.length)}
+        {/* mig 217: only shown once something has actually been revoked — an
+            always-visible "Revoked 0" chip is noise on a healthy market. */}
+        {revokedVendors.length > 0 && (
+          <>
+            <span>·</span>
+            {renderFilterChip('revoked', 'Revoked', revokedVendors.length)}
+          </>
+        )}
         <span>·</span>
         {renderFilterChip('all', 'All', vendors.length)}
       </div>
@@ -422,7 +443,7 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
       <ConfirmDialog
         open={!!confirmingRevoke}
         title="Revoke approval?"
-        message={`Revoke approval for ${confirmingRevoke?.businessName ?? ''}? Existing bookings stay on the books. The ${term(vertical, 'vendor').toLowerCase()} moves to the "Pending approval" filter and won't show up in your action summary or active filter. You can re-approve them later.`}
+        message={`Revoke approval for ${confirmingRevoke?.businessName ?? ''}? Existing bookings stay on the books. The ${term(vertical, 'vendor').toLowerCase()} moves to the "Revoked" filter — not back into "Pending approval", so they won't reappear on your to-do list. You can reinstate them at any time.`}
         variant="danger"
         confirmLabel="Revoke"
         onConfirm={performRevoke}
@@ -448,6 +469,8 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
             ? `No ${term(vertical, 'vendors').toLowerCase()} pending approval. ✓`
             : filter === 'invited'
             ? `No outstanding invitations. Use the Invite ${term(vertical, 'vendors')} card above to invite nearby on-platform ${term(vertical, 'vendors').toLowerCase()}.`
+            : filter === 'revoked'
+            ? `No revoked ${term(vertical, 'vendors').toLowerCase()}. Anyone you revoke lands here and can be reinstated.`
             : filter === 'active'
             ? `No active ${term(vertical, 'vendors').toLowerCase()} right now. ${vendors.length} pending or dormant ${term(vertical, 'vendor').toLowerCase()}${vendors.length === 1 ? '' : 's'} — switch to "All" to see them.`
             : `No ${term(vertical, 'vendors').toLowerCase()} match the current filter.`}
@@ -516,6 +539,12 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                       status line so manager can tell at a glance. */}
                   {v.response_status === 'invited' && !v.approved ? (
                     <span>📤 Waiting on {term(vertical, 'vendor').toLowerCase()} response</span>
+                  ) : v.revoked_at ? (
+                    /* mig 217: a revoked vendor is NOT "pending approval" — saying so
+                       told the manager to review someone they had just removed. */
+                    <span style={{ color: '#991b1b', fontWeight: typography.weights.semibold }}>
+                      🚫 Approval revoked
+                    </span>
                   ) : (
                     <span>{v.approved ? '✅ Approved' : '⏳ Pending approval'}</span>
                   )}
@@ -558,7 +587,10 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                       opacity: isApproving ? 0.6 : 1,
                     }}
                   >
-                    {isApproving ? 'Approving…' : 'Approve'}
+                    {/* mig 217: revoking is never permanent — the row is kept and the
+                        manager can put the vendor back at any time. Naming the action
+                        "Reinstate" (not "Approve") says that plainly. */}
+                    {isApproving ? (v.revoked_at ? 'Reinstating…' : 'Approving…') : (v.revoked_at ? 'Reinstate' : 'Approve')}
                   </button>
                   {rowSuccess[v.vendor_profile_id] && (
                     <span style={{ color: colors.primary, fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold }}>

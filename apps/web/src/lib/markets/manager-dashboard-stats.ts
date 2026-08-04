@@ -116,11 +116,15 @@ export async function getManagerDashboardStats(
           .eq('pickup_date', nextMarketDateStr)
           .in('status', ['pending', 'confirmed', 'ready'])
       : Promise.resolve({ data: [] as Array<{ order_id: string }>, error: null }),
+    // "Pending your approval" means NEVER REVIEWED. mig 217: a vendor the
+    // manager deliberately revoked also has approved=false, and counting those
+    // put a just-removed vendor straight back on the manager's to-do list.
     serviceClient
       .from('market_vendors')
       .select('id', { count: 'exact', head: true })
       .eq('market_id', marketId)
-      .eq('approved', false),
+      .eq('approved', false)
+      .is('revoked_at', null),
     serviceClient
       .from('market_vendors')
       .select('id', { count: 'exact', head: true })

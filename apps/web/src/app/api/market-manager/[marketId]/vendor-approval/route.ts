@@ -63,15 +63,23 @@ export async function PATCH(
     const serviceClient = createServiceClient()
 
     crumb.supabase('update', 'market_vendors')
+    // mig 217: `approved` alone cannot tell "never reviewed" from "the manager
+    // removed this vendor" — so a revoked vendor used to reappear in the
+    // dashboard's "pending your approval" list, inviting the manager to
+    // re-approve someone they had just taken off the market. Revoking now stamps
+    // revoked_at; re-approving CLEARS it, so a reinstated vendor carries no
+    // permanent mark and can be revoked again later.
     const { data, error } = await serviceClient
       .from('market_vendors')
       .update({
         approved,
+        revoked_at: approved ? null : new Date().toISOString(),
+        revoked_by: approved ? null : user.id,
         updated_at: new Date().toISOString(),
       })
       .eq('market_id', marketId)
       .eq('vendor_profile_id', vendorProfileId)
-      .select('id, vendor_profile_id, approved')
+      .select('id, vendor_profile_id, approved, revoked_at')
       .maybeSingle()
 
     if (error) {
@@ -144,6 +152,7 @@ export async function PATCH(
       market_vendor_id: data.id,
       vendor_profile_id: data.vendor_profile_id,
       approved: data.approved,
+      revoked_at: data.revoked_at ?? null,
     })
   })
 }
