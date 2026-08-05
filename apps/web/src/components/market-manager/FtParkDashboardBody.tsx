@@ -116,7 +116,7 @@ export default function FtParkDashboardBody({
       <ParkOnboardingChecklist progress={parkOnboarding} />
 
       {/* ① Triage */}
-      <ManagerActionSummary vertical={vertical} marketId={marketId} progress={onboardingProgress} stats={dashboardStats} />
+      <ManagerActionSummary vertical={vertical} progress={onboardingProgress} stats={dashboardStats} />
 
       {/* ② THIS WEEK — operations hub */}
       <GroupHeading id="week-group" title="This week" subtitle="Who's booked, and who showed up" />

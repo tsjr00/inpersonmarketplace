@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { colors, spacing, typography } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
 import ManagerCard from './ManagerCard'
@@ -7,7 +6,6 @@ import type { ManagerDashboardStats } from '@/lib/markets/manager-dashboard-stat
 
 interface ManagerActionSummaryProps {
   vertical: string
-  marketId: string
   progress: OnboardingProgress
   stats: ManagerDashboardStats
 }
@@ -29,7 +27,6 @@ interface ManagerActionSummaryProps {
  */
 export default function ManagerActionSummary({
   vertical,
-  marketId,
   progress,
   stats,
 }: ManagerActionSummaryProps) {
@@ -71,8 +68,14 @@ export default function ManagerActionSummary({
             <span>
               <strong>{stats.pendingApprovalCount}</strong> {stats.pendingApprovalCount === 1 ? term(vertical, 'vendor').toLowerCase() : term(vertical, 'vendors').toLowerCase()} pending your approval.
             </span>
-            <Link
-              href={`/${vertical}/market-manager/${marketId}/dashboard#vendors`}
+            {/* Plain anchor, NOT next/link. This card is always on the same page
+                as #vendors, and a <Link> to a full path + hash silently stops
+                working after the first click: once the URL already ends in
+                #vendors the router sees no change, fires no navigation, and
+                nothing scrolls. A native same-page anchor re-scrolls every time.
+                Matches ManagerJumpNav, which uses plain anchors for this reason. */}
+            <a
+              href="#vendors"
               style={{
                 color: colors.primary,
                 textDecoration: 'underline',
@@ -81,7 +84,7 @@ export default function ManagerActionSummary({
               }}
             >
               Review →
-            </Link>
+            </a>
           </li>
         )}
         {hasNeedsBooth && (
@@ -97,8 +100,8 @@ export default function ManagerActionSummary({
             <span>
               <strong>{stats.activeVendorsNeedingBooth}</strong> active {stats.activeVendorsNeedingBooth === 1 ? `${term(vertical, 'vendor').toLowerCase()} needs` : `${term(vertical, 'vendors').toLowerCase()} need`} a {term(vertical, 'booth').toLowerCase()} number assigned.
             </span>
-            <Link
-              href={`/${vertical}/market-manager/${marketId}/dashboard#vendors`}
+            <a
+              href="#vendors"
               style={{
                 color: colors.primary,
                 textDecoration: 'underline',
@@ -107,7 +110,7 @@ export default function ManagerActionSummary({
               }}
             >
               Assign now →
-            </Link>
+            </a>
           </li>
         )}
         {hasNextMarket && stats.nextMarketDate && (

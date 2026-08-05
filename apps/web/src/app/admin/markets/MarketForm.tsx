@@ -121,6 +121,14 @@ export default function MarketForm({ market, verticals, mode }: MarketFormProps)
         throw new Error(data.error || 'Something went wrong')
       }
 
+      // Reset scroll BEFORE navigating. This form is tall — the tax-jurisdiction
+      // card sits at the very bottom — so Save is usually pressed from the foot
+      // of the page, and the scroll offset survives into the destination, which
+      // is shorter. On a phone that means landing past the end of the new page
+      // looking at blank white, which reads as "still loading" rather than
+      // "saved" (tester finding, 2026-08-04).
+      window.scrollTo({ top: 0, behavior: 'auto' })
+
       if (mode === 'create') {
         router.push(`/admin/markets/${data.market.id}`)
       } else {

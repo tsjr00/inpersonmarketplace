@@ -134,7 +134,7 @@ export default function FmDashboardBody({
         </div>
       )}
       {/* ① Triage */}
-      <ManagerActionSummary vertical={vertical} marketId={marketId} progress={onboardingProgress} stats={dashboardStats} />
+      <ManagerActionSummary vertical={vertical} progress={onboardingProgress} stats={dashboardStats} />
 
       {/* ② SETUP — first, onboarding-style (Phase 4a). A new manager configures
           the market before the operational groups below. Collapsed by default

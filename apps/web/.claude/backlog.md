@@ -108,6 +108,62 @@ Nothing limits how many app orders a food truck can receive for the same pickup 
 
 Last updated: 2026-07-29 (added: Extra-B residual — expire abandoned park-spot Stripe session)
 
+## 🟠 MEDIUM — "What's Open" should include events + private pickups (scoped 2026-08-04, NOT started)
+
+**Owner ask:** the shopper-dashboard card *"What Markets Are Open?"* (FM) / *"Where Are Trucks Today?"* (FT) must cover **all three market types** — traditional, private_pickup, and events — and must **distinguish the type in the list**, because one vendor can legitimately be in two places on the same day. Applies to BOTH verticals (shared query).
+
+### Verified current state (2026-08-04, read the code)
+- `markets.market_type` CHECK is exactly `traditional | private_pickup | event` (SCHEMA_SNAPSHOT:2393).
+- The card links to `/[vertical]/where-today`, whose API (`api/trucks/where-today/route.ts:39-71`) queries `vendor_market_schedules` → `market_schedules.day_of_week`. It is **purely schedule-driven**. Events are dated by `event_start_date`/`event_end_date` with **no weekday rows**, so they are excluded *by construction* — no filter is hiding them.
+- **No public/private flag exists anywhere** on markets or events (grepped).
+- ✅ Working in our favor #1: **browse already labels all three types** (`browse/page.tsx:1263`) via `term(vertical, 'event'|'private_pickup'|'traditional_market')`. Reuse that pattern — do not invent new labels.
+- ✅ Working in our favor #2: the API **already dedupes by (vendor_id, market_id, …)** (`:178-190`), not by vendor alone, so "same vendor, two places" is already supported at the data layer. ⚠️ But a `vendorGroups` map at `:195` may collapse it in the display — **verify before assuming**.
+- Private pickups are **already publicly visible in browse**, so listing them is consistent with today, not a new exposure.
+
+### Owner decisions (2026-08-04 — these are settled)
+1. **Events: private by DEFAULT.** The event **organizer** must explicitly set public.
+2. **Private pickups: vendor-controlled toggle** — the vendor decides whether their home/pickup address appears in public search. (This is what makes the flag a general market-visibility flag, not an event flag.)
+3. **Multi-day events show on EVERY day** in their range.
+4. **Today-and-forward ONLY.** Nothing out of season, nothing in the past (not even yesterday) — for **all three market types**.
+
+### Design — ONE visibility column, and NO DEFAULT (owner clarified 2026-08-04)
+Decisions 1 and 2 are the same question asked of two market types, so it is one `markets` column — call it `public_listing`.
+
+**There is deliberately NO default.** The owner's rule: **traditional markets are always public and get no toggle at all; events and private pickups must have the user explicitly choose public or private.** An unanswered question is not the same as "private", and it is certainly not "public".
+
+```sql
+public_listing BOOLEAN NULL   -- nullable, NO DEFAULT
+```
+- `market_type='traditional'` → column is **ignored entirely**. Public by type.
+- `event` / `private_pickup` → `NULL` = **not yet chosen** · `true` = public · `false` = private.
+
+Query rule:
+```sql
+(market_type = 'traditional' OR public_listing IS TRUE)
+```
+`NULL` therefore **fails closed** — an unanswered market is not listed. That is correct and is why no default is needed: the nullable column IS the "must choose" state.
+
+**Existing rows — OWNER DECISION 2026-08-04:** left as NULL they would all vanish from public search on the day this applies. The owner chose instead to **backfill existing event + private_pickup rows to `true`** so current data stays visible for **testing and demos**:
+```sql
+UPDATE public.markets SET public_listing = true
+ WHERE market_type IN ('event','private_pickup');   -- pre-launch data only
+```
+**This applies to the migration's one-time backfill ONLY — the column still has NO DEFAULT, so every row created afterward must still make an explicit choice.** Safe today because the platform is effectively empty post-relaunch. ⚠️ **Re-confirm before real vendors onboard:** a private pickup is often someone's home address, and this backfill makes existing ones public without asking them. If any real vendor data lands before this ships, revisit — the fail-closed NULL behavior is the correct end state.
+
+**UI requirement:** the control must be a genuine unselected state (no pre-checked radio, no toggle defaulting to off-looking), and saving an event or private pickup without a choice must be blocked. A pre-selected control silently makes the default we just agreed not to have.
+
+### Work items
+1. **Migration** — `public_listing` column + traditional backfill + COMMENT stating the type rule above.
+2. **Query rework (the real work)** — `where-today` becomes a UNION of two differently-shaped queries: (a) schedule-driven markets matching the weekday, (b) events whose **date range contains** the target date (this is what makes multi-day events appear on every day). `idx_markets_event_dates (vertical_id, event_start_date, event_end_date) WHERE market_type='event' AND active` already supports (b).
+3. **Today-and-forward + season filtering — applies to ALL types, both branches.** ✅ Do NOT hand-roll this: `src/lib/markets/season-window.ts` already provides tested pure helpers — `isWithinSeason(dateYmd, start, end)`, `isBeforeSeason`, `isAfterSeason`, `hasSeasonWindow` (NULL/NULL = year-round). Season bounds live in the **`market_seasons`** table, so the query needs that join. Past exclusion: events whose end date < today drop out; the day-picker already only offers today + future offsets, so verify rather than rebuild. Also confirm whether `markets.expires_at` should participate.
+4. **Type in the payload + UI badge** — return `market_type` per entry; label with the same `term()` keys browse uses. This is what makes the same-vendor-twice case readable instead of confusing.
+5. **Verify `vendorGroups` (`:195`) does not collapse** a vendor appearing at two places on one day.
+6. **Organizer control** for events + **vendor control** for private pickups — both must be a required, genuinely-unselected choice (see the UI requirement above), not a toggle with an implied default.
+7. **Copy** — card title, day-picker text, empty state all say "markets" today; should read markets **and events**.
+
+### Still open
+- Should `markets.expires_at` participate in the today-and-forward filter alongside `market_seasons`? (Everything else about exclusion is settled: today-and-forward only, no past, no out-of-season, all three types.)
+
 ## 🟢 LOW — Supabase advisor cleanup round: 6 FK indexes (added 2026-08-02)
 
 **Trigger:** owner saw **203 security / 27 performance** advisories and asked for triage. Full analysis done 2026-08-02 — the counts are far less alarming than they look. **Environment not recorded** when the queries were run; re-check per project before acting (advisors are per-project).

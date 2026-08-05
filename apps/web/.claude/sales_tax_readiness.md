@@ -112,6 +112,9 @@ All findings below verified 2026-08-01 against primary sources (TX Comptroller p
 4. **Stream 1 — facilitated vendor sales.** Includes withholding tax from vendor payouts (§2b). Critical-path money code (`payments.ts`, checkout, payout path) — per-file approval required. **Largest remaining piece. Do not start before Q4 (sourcing) is answered**, or the withholding math gets built twice.
 5. **Stream 4 — commission.** Hold pending CPA + ITFA litigation status.
 
+### If partners scale us across Texas
+See **§4.5** (added 2026-08-03). Short version: **EDI is not the thing that breaks first.** Webfile is manual entry (≤30 jurisdictions); EDI is the upload path (≥30, ANSI X12 813, maps published publicly so we can generate our own). Our data already sits at the right grain, so EDI is an output adapter — **do not pre-build it.** What actually breaks under scale is quarterly rate maintenance and per-market jurisdiction resolution by hand. Monitor the distinct-code count; start enrollment at 25.
+
 ### 🚨 The closest deadline is a copy guardrail, not a filing date
 `src/lib/vendor/tax-notice.ts:9` and `:36` tell FT vendors *"Sales tax will be automatically applied to your listings."* **That is currently false.** Owner decision 2026-08-01 was to ship the functionality rather than soften the copy, because there were no live vendors. **Guardrail: fix the copy OR ship subscription tax before the first live FT vendor — whichever comes first.** With a live event approaching, this is the nearest hard edge in the whole tax effort.
 
@@ -235,6 +238,63 @@ This is why we do **not** need TaxCloud/Avalara: those solve **unbounded rooftop
 
 **Trigger to revisit Complete:** second state registration · sustained volume past Basic's economics · or a month where reconciliation takes > 2 hours.
 
+## 4.5 Filing mechanics at scale — Webfile vs EDI [researched 2026-08-03]
+
+Researched because the owner is talking to partners who could put markets across Texas quickly and wants to know what breaks. **Conclusion up front: EDI is not the thing that breaks first.**
+
+### The two filing paths
+
+| | **Webfile** | **EDI** |
+|---|---|---|
+| Entry | Manual, on screen | **File upload** |
+| Comptroller guidance | Recommended for **≤30** outlets/local jurisdictions | For **≥30** |
+| Format | — | **ANSI ASC X12 813** (covers 01-114, 01-115, **01-116**, 01-148) |
+| Software | — | Comptroller provides **free** software; third-party vendors also sell approved ones |
+| Setup | Just log in | Register (taxpayer no., tax type, Webfile no., contacts) → create 8–13 char PIN → **submit ONE test return**, auto error-checked. Required **per taxpayer AND per tax type**. |
+
+**We can generate our own file.** Texas publishes the EDI maps publicly at `comptroller.texas.gov/programs/systems/developers/edi-maps`, explicitly for "software vendors and taxpayers." There is a map named **"Texas Sales and Use Tax Return for List Filer"** (`sales-tax-list2025.pdf`) — exactly our shape: no physical outlets, long form + per-jurisdiction List Supplement. A separate "Outlet and List Filer" map exists for businesses with physical locations.
+
+### ⚠️ NOT verified — close these with one call before it's urgent
+
+**1-800-531-5441 ext. 3-3630 · EDI.Help@cpa.texas.gov**
+
+1. The segment/element list. *(The published map PDF uses embedded subset fonts; text extraction returns glyph codes, not readable content. A human opening it in a PDF reader will see it fine.)*
+2. Approval turnaround time after the test submission.
+3. Whether the free Comptroller software can import CSV/spreadsheet data or is manual entry only.
+4. **Whether 30 is a hard mandate or a recommendation.**
+
+### Why this is an adapter, not a re-architecture
+
+Mig 214 already freezes, per `order_items` row: the per-jurisdiction breakdown (seven-digit code, name, level, rate, `tax_cents`), `taxable_amount_cents`, and `tax_rate_version`. `buildListSupplement()` already does the group-by-code rollup.
+
+**The Webfile paste-table and an X12 813 file are the SAME data, differently serialized.** This is the payoff for building storage before any calculator (§3). Adding EDI later costs no more than adding it now — so do not pre-build it.
+
+If/when the count demands it, the work is: (a) an X12 813 serializer — envelope ISA/GS/ST, List Filer segments, control numbers, test-vs-production flag; (b) **return-level totals** (total sales, taxable sales, taxable purchases) which we do not compute today and whose definition for a marketplace provider is a **CPA question**; (c) enrollment + test submission (process, has lead time); (d) a round-trip regression test against a hand-checked expected file — filing output must never silently drift.
+
+### 🚨 What actually breaks first when we scale
+
+Not the file format. **Jurisdiction resolution and rate maintenance.**
+
+Today an admin looks each market up in the Rate Locator and types seven-digit codes by hand. Fine for ten Panhandle markets. At two hundred statewide it is a data-entry operation — and every rate moves **quarterly**, while refunds must reverse at the ORIGINAL rate (§3).
+
+Real readiness gaps, in the order they hurt:
+
+1. **Quarterly rate-refresh automation** — designed, not built (build-order step 3 follow-on). A chore at 10 markets; the difference between correct and wrong returns at 200.
+2. **Automated jurisdiction resolution** — where Stripe Tax Basic starts earning its keep, determining jurisdictions from an address with no human in the loop.
+3. **Tax collection itself** — still unbuilt on all four streams. A filing pipeline with nothing to file is theater.
+4. **EDI serialization** — only once we cross ~30 distinct codes.
+
+### Where we stand against the threshold
+
+The List Supplement rolls up **by jurisdiction CODE, not by market** — ten markets across Amarillo/Canyon/Lubbock collapse to well under ten distinct local codes. We could plausibly run 100 metro-clustered markets and stay under 30; genuine statewide coverage would blow past it.
+
+Monitor, don't pre-build:
+```sql
+SELECT COUNT(DISTINCT j->>'code') AS distinct_jurisdictions
+  FROM markets, LATERAL jsonb_array_elements(tax_jurisdictions) j;
+```
+At **25+**, start EDI enrollment — the registration and test submission have lead time and should not be attempted against a filing deadline.
+
 ## 5. Build order
 
 1. ✅ **DONE 8/1** — amenity bundling enforced in product (§1.2 Trap 1).
@@ -285,6 +345,11 @@ Rule 3.315(h) presumes parking-facility leases are taxable; (h)(1) carves out fl
 ### 🟡 Q6 — Subscriptions: confirm 80/20 data-processing treatment
 Please confirm the 80% taxable / 20% exempt data-processing treatment (§151.351, Rule 3.330, Pub. 96-259 01/2026) applies to **both** vendor subscription tiers **and** the consumer buyer membership.
 - *Why it matters:* this is build-order step 4 — the next thing we intend to build. A confirmation lets us ship it; a correction changes what we configure in Stripe Tax.
+
+### 🟡 Q7 — Return-level totals for a marketplace provider
+Both the Webfile screens and the EDI 813 map ask for return-level figures — **total sales, taxable sales, taxable purchases** — above the per-jurisdiction supplement.
+- *Ask:* what counts as our "total sales"? The gross value of goods sold through the platform by vendors, our own revenue only, or both?
+- *Why it matters:* it determines what the filing report computes, and it is the one number on the return we cannot derive from the item-level snapshots without being told the rule. Not something to infer from form labels. See §4.5.
 
 ## 7. Stale sources — do NOT rely on
 - **Pub. 94-127** *Data Processing Services are Taxable* (03/2022) — never mentions the 20% exemption or SaaS; predates the April 2025 rule rewrite. **Use Pub. 96-259 (01/2026) + Rule 3.330.**
