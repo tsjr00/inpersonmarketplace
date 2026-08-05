@@ -66,12 +66,24 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       update.remit_method = remit_method === 'connect' ? 'connect' : 'check'
     }
 
-    // Guard: switching to (or staying) Connect requires an account id to be present.
-    if (update.remit_method === 'connect' || (remit_method === undefined && stripe_account_id === '')) {
-      const effectiveAcct =
-        stripe_account_id !== undefined ? (stripe_account_id?.trim() || null) : undefined
-      if (update.remit_method === 'connect' && effectiveAcct === null) {
-        return NextResponse.json({ error: 'stripe_account_id is required for automatic (Connect) remittance' }, { status: 400 })
+    // No account-id guard here either (see the POST route). The id comes from
+    // Connect onboarding, not from the admin, so switching an org to automatic
+    // payment before they have onboarded is a legitimate intermediate state —
+    // it just means "not connected yet", which the card surfaces and the remit
+    // sweep skips. Requiring it here blocked the switch entirely.
+    if (update.remit_method === 'connect') {
+      const { data: existing } = await service
+        .from('cause_beneficiaries')
+        .select('contact_email')
+        .eq('id', id)
+        .maybeSingle()
+      const effectiveEmail =
+        contact_email !== undefined ? contact_email : (existing?.contact_email as string | null)
+      if (!effectiveEmail || effectiveEmail.trim() === '') {
+        return NextResponse.json(
+          { error: 'A contact email is required for automatic payment — Stripe sends the onboarding invitation there.' },
+          { status: 400 }
+        )
       }
     }
 

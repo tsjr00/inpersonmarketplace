@@ -105,12 +105,17 @@ export default function PickupCapacityForm({ vendorId, slotMinutes, current, eve
       <h2 style={{ margin: `0 0 ${spacing.xs} 0`, fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
         Pickup Capacity
       </h2>
-      <p style={{ margin: `0 0 ${spacing.xs} 0`, fontSize: typography.sizes.sm, color: colors.textMuted, lineHeight: 1.5 }}>
-        How many <strong>app pre-orders</strong> you&apos;ll accept in each <strong>{slotMinutes}-minute</strong> time slot,
-        so they spread across your service instead of all landing at once.
+      {/* Owner copy, 2026-08-05. Leads with what the setting IS and when it
+          actually matters (the rush), rather than with the mechanism. */}
+      <p style={{ margin: `0 0 ${spacing.sm} 0`, fontSize: typography.sizes.sm, color: colors.textMuted, lineHeight: 1.5 }}>
+        Your Pickup Capacity is the amount of app pre-orders the system will let you accept in any{' '}
+        {slotMinutes}-minute time slot. Setting a limit helps prevent you from getting too many app orders that want to
+        pick up at the same time as a line of walk-up clients. Most times this isn&apos;t an issue, but around busy
+        times, like a lunch or dinner rush, this limit will help smooth out your orders so people don&apos;t have to
+        wait as long.
       </p>
       <p style={{ margin: `0 0 ${spacing.md} 0`, fontSize: typography.sizes.sm, color: colors.textPrimary, fontWeight: typography.weights.medium }}>
-        This only paces app orders — your walk-up line is never limited by it.
+        Answer these questions and the system will calculate your pickup capacity.
       </p>
 
       {staleForSlot && (

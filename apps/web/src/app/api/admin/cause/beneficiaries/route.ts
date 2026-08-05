@@ -117,8 +117,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'name is required' }, { status: 400 })
     }
     const method = remit_method === 'connect' ? 'connect' : 'check'
-    if (method === 'connect' && (!stripe_account_id || stripe_account_id.trim() === '')) {
-      return NextResponse.json({ error: 'stripe_account_id is required for automatic (Connect) remittance' }, { status: 400 })
+    // stripe_account_id is deliberately NOT required here. It is produced by
+    // Connect onboarding (POST .../[id]/connect), which cannot run until the
+    // beneficiary row exists — so requiring it at creation made an automatic-pay
+    // org impossible to create at all (tester finding 2026-08-05). A connect
+    // beneficiary is simply "not connected yet" until the admin sends the link;
+    // the card says so, and the remit sweep already skips NULL accounts.
+    // What IS needed up front is the contact email, because that is where
+    // Stripe sends the onboarding invitation.
+    if (method === 'connect' && (!contact_email || contact_email.trim() === '')) {
+      return NextResponse.json(
+        { error: 'A contact email is required for automatic payment — Stripe sends the onboarding invitation there.' },
+        { status: 400 }
+      )
     }
 
     const { data, error } = await service
