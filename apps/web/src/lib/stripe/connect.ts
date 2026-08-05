@@ -89,6 +89,52 @@ export async function createConnectAccount(email: string, vendorProfileId?: stri
 }
 
 /**
+ * Create Stripe Connect Express account for a CAUSE BENEFICIARY (mig 213).
+ *
+ * WHY THIS EXISTS AT ALL (2026-08-04): the beneficiary form originally collected
+ * a Stripe account number as free text, on the assumption that an org "already
+ * has a Stripe account" and just tells us its ID. That cannot work.
+ * `runCauseRemitSweep` pays via `stripe.transfers.create({ destination })`, and
+ * Stripe only permits transfers to accounts CONNECTED TO THIS PLATFORM — an
+ * arbitrary acct_… fails with "no such destination". The field looked correct
+ * and was inert; the first real remittance would have been the discovery.
+ *
+ * So the org is onboarded the same way vendors and managers are: we create the
+ * Express account, hand them a link, and store the id we get back. Their own
+ * pre-existing Stripe account is irrelevant either way — which also removes the
+ * problem the owner actually raised, since an admin now sends a link instead of
+ * explaining which number to hunt for.
+ *
+ * Differences from the vendor account, deliberately:
+ *   - `transfers` capability only. A beneficiary RECEIVES money; it never takes
+ *     card payments through us, so requesting card_payments would ask a charity
+ *     for processing details it has no reason to provide.
+ *   - No delay_days / minimum-balance settings. Those are the vendor clawback
+ *     stack (refunds on paid-out items). Contributions are never clawed back —
+ *     the owner's refund policy is that a refunded item does NOT refund the
+ *     chip-in — so holding a charity's money back would be pure friction.
+ *
+ * Idempotency key is per beneficiary, so a retried click cannot create a second
+ * account for the same org.
+ */
+export async function createCauseConnectAccount(email: string, beneficiaryId: string) {
+  const account = await stripe.accounts.create(
+    {
+      type: 'express',
+      email,
+      capabilities: {
+        transfers: { requested: true },
+      },
+    },
+    {
+      idempotencyKey: `connect-account-cause-${beneficiaryId}`,
+    }
+  )
+
+  return account
+}
+
+/**
  * Create account link for vendor onboarding
  */
 export async function createAccountLink(

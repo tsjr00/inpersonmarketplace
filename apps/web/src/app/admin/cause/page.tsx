@@ -52,7 +52,7 @@ export default function CauseAdminPage() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [method, setMethod] = useState<'connect' | 'check'>('check')
-  const [acct, setAcct] = useState('')
+  const [connectingId, setConnectingId] = useState<string | null>(null)
   const [mailing, setMailing] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -125,17 +125,40 @@ export default function CauseAdminPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          // stripe_account_id is deliberately NOT sent — it is set by the Connect
+          // onboarding flow, never typed in. See the note on the form field.
           name, contact_email: email, remit_method: method,
-          stripe_account_id: acct, mailing_address: mailing,
+          mailing_address: mailing,
         }),
       })
       const data = await res.json()
       if (!res.ok) { showBanner('error', data.error || 'Failed to add'); return }
       showBanner('success', `Added ${data.beneficiary?.name}`)
-      setName(''); setEmail(''); setAcct(''); setMailing(''); setMethod('check'); setShowAdd(false)
+      setName(''); setEmail(''); setMailing(''); setMethod('check'); setShowAdd(false)
       load()
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  /**
+   * Create (or reuse) the org's Express account and open Stripe's onboarding.
+   * The link is single-use and short-lived, so this is expected to be clicked
+   * again if the org doesn't finish in one sitting — the idempotency key on the
+   * account means no second account is ever created.
+   */
+  const startConnect = async (b: Beneficiary) => {
+    setConnectingId(b.id)
+    try {
+      const res = await fetch(`/api/admin/cause/beneficiaries/${b.id}/connect`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) { showBanner('error', data.error || 'Could not start onboarding'); return }
+      // Opened in a new tab so the admin keeps this page. On iOS Safari this may
+      // reuse the tab; the admin can come back with the back button.
+      window.open(data.url as string, '_blank', 'noopener,noreferrer')
+      showBanner('success', 'Stripe onboarding opened — the org completes it themselves.')
+    } finally {
+      setConnectingId(null)
     }
   }
 
@@ -183,15 +206,26 @@ export default function CauseAdminPage() {
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: spacing.lg }}>
       <StatusBanner />
+      {/* Retitled 2026-08-04. The page was headed "Community Chip In —
+          Beneficiaries", which made Round-Up read as a feature OF Chip In. They
+          are two independent programs drawing on ONE shared pool of orgs, and
+          the same org is not required for both. The org pool is therefore the
+          top-level thing, with the two programs as siblings under it. */}
       <h1 style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
-        Community Chip In — Beneficiaries
+        Community Giving
       </h1>
       <p style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, marginBottom: spacing.md }}>
-        Cause organizations that receive Community Chip In contributions. 100% of each chip-in goes to the
-        org — the platform keeps none and absorbs processing. Contributions are <strong>not tax-deductible
-        donations</strong>. Automatic (Stripe Connect) payouts are batched; check payouts are recorded here
-        after mailing.
+        Two independent programs share the organizations below: <strong>Community Chip In</strong> (turned on per
+        event, from that event&apos;s settings) and <strong>Round-Up Campaigns</strong> (always-on, at checkout).
+        An org can be used by either, both, or neither — they don&apos;t have to match.
+        100% of every contribution goes to the org: the platform keeps none and absorbs processing.
+        Contributions are <strong>not tax-deductible donations</strong>. Automatic payouts are batched;
+        check payouts are recorded here after mailing.
       </p>
+
+      <h2 style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing.xs }}>
+        Beneficiary organizations
+      </h2>
 
       <button style={btn} onClick={() => setShowAdd((s) => !s)}>
         {showAdd ? 'Cancel' : '+ Add beneficiary'}
@@ -209,8 +243,19 @@ export default function CauseAdminPage() {
                 <option value="connect">Automatic (Stripe Connect — batched)</option>
               </select>
             </label>
+            {/* No account-number field. An org's own Stripe account cannot receive
+                our transfers — Stripe only pays connected accounts — so typing an
+                acct_… here produced an id that looked right and failed at remit
+                time. The org is onboarded through us instead, via a link sent
+                after the beneficiary is created. (2026-08-04) */}
             {method === 'connect'
-              ? <input style={inputStyle} placeholder="Stripe Connect account id (acct_…) *" value={acct} onChange={(e) => setAcct(e.target.value)} />
+              ? (
+                <p style={{ fontSize: typography.sizes.xs, color: colors.textSecondary, margin: 0 }}>
+                  Add a contact email above. After saving, use <strong>Send Stripe onboarding link</strong> on the
+                  org&apos;s card — they complete Stripe&apos;s form themselves and we record the account
+                  automatically. Nothing for them to look up, and their existing Stripe account isn&apos;t used.
+                </p>
+              )
               : <input style={inputStyle} placeholder="Mailing address (for checks)" value={mailing} onChange={(e) => setMailing(e.target.value)} />}
             <button type="submit" style={btn} disabled={submitting}>{submitting ? 'Adding…' : 'Add'}</button>
           </div>
@@ -234,10 +279,34 @@ export default function CauseAdminPage() {
                 </span>
               </div>
               <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing.xs }}>
-                {b.remit_method === 'connect' ? `Auto (Connect ${b.stripe_account_id ?? '—'})` : 'Check (manual)'}
+                {b.remit_method === 'connect'
+                  ? (b.stripe_account_id ? `Auto (Stripe ${b.stripe_account_id})` : 'Auto — not connected yet')
+                  : 'Check (manual)'}
                 {b.contact_email ? ` · ${b.contact_email}` : ''}
               </div>
+              {/* An account id alone does NOT mean they can be paid — the org may
+                  have abandoned onboarding halfway. The remit sweep would then
+                  fail on them. Say so here rather than let it surface as a cron
+                  error nobody reads. */}
+              {b.remit_method === 'connect' && !b.stripe_account_id && (
+                <div style={{ fontSize: typography.sizes.xs, color: '#92400e', marginTop: spacing.xs }}>
+                  ⚠ This org can&apos;t be paid automatically until they finish Stripe onboarding.
+                  {!b.contact_email && ' Add a contact email first — Stripe sends the invitation there.'}
+                </div>
+              )}
               <div style={{ display: 'flex', gap: spacing.sm, marginTop: spacing.sm, alignItems: 'center', flexWrap: 'wrap' }}>
+                {b.remit_method === 'connect' && (
+                  <button
+                    style={btn}
+                    disabled={connectingId === b.id || !b.contact_email}
+                    onClick={() => startConnect(b)}
+                    title={!b.contact_email ? 'Add a contact email first' : undefined}
+                  >
+                    {connectingId === b.id
+                      ? 'Opening…'
+                      : b.stripe_account_id ? 'Resend Stripe onboarding link' : 'Send Stripe onboarding link'}
+                  </button>
+                )}
                 {b.remit_method === 'check' && b.outstanding_cents > 0 && (
                   <>
                     <input
@@ -262,25 +331,9 @@ export default function CauseAdminPage() {
         </div>
       )}
 
-      <h2 style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginTop: spacing.lg }}>
-        Remittance history
-      </h2>
-      {remittances.length === 0 ? (
-        <p style={{ color: colors.textMuted, fontSize: typography.sizes.sm }}>No remittances yet.</p>
-      ) : (
-        <div style={{ marginTop: spacing.sm }}>
-          {remittances.map((r) => (
-            <div key={r.id} style={{ ...cardStyle, display: 'flex', justifyContent: 'space-between', fontSize: typography.sizes.sm }}>
-              <span style={{ color: colors.textPrimary }}>{nameFor(r.beneficiary_id)}</span>
-              <span style={{ color: colors.textSecondary }}>
-                {dollars(r.amount_cents)} · {r.method} · {r.status}
-                {r.paid_at ? ` · ${new Date(r.paid_at).toLocaleDateString()}` : ''}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-
+      {/* Round-Up sits directly under the org pool as a SIBLING of Chip In —
+          not nested beneath it. Remittance history moved to the bottom: it is
+          reference, not something an admin comes here to do. */}
       <h2 style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginTop: spacing.lg }}>
         Round-Up Campaigns
       </h2>
@@ -319,6 +372,25 @@ export default function CauseAdminPage() {
               <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing.xs }}>
                 {c.beneficiary_name} · {c.vertical_id || 'all verticals'} · {new Date(c.starts_at).toLocaleDateString()}–{new Date(c.ends_at).toLocaleDateString()}
               </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <h2 style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginTop: spacing.lg }}>
+        Remittance history
+      </h2>
+      {remittances.length === 0 ? (
+        <p style={{ color: colors.textMuted, fontSize: typography.sizes.sm }}>No remittances yet.</p>
+      ) : (
+        <div style={{ marginTop: spacing.sm }}>
+          {remittances.map((r) => (
+            <div key={r.id} style={{ ...cardStyle, display: 'flex', justifyContent: 'space-between', fontSize: typography.sizes.sm }}>
+              <span style={{ color: colors.textPrimary }}>{nameFor(r.beneficiary_id)}</span>
+              <span style={{ color: colors.textSecondary }}>
+                {dollars(r.amount_cents)} · {r.method} · {r.status}
+                {r.paid_at ? ` · ${new Date(r.paid_at).toLocaleDateString()}` : ''}
+              </span>
             </div>
           ))}
         </div>

@@ -90,6 +90,11 @@ export default function AdminSidebar({ adminEmail, children }: AdminSidebarProps
           <Link href="/admin/event-ratings" style={linkStyle} onClick={() => setOpen(false)}>
             Event Ratings
           </Link>
+          {/* mig 213: /admin/cause shipped with no nav entry at all, so the only
+              way in was typing the URL (tester finding 2026-08-04). */}
+          <Link href="/admin/cause" style={linkStyle} onClick={() => setOpen(false)}>
+            Community Chip In
+          </Link>
 
           <div style={{
             borderTop: '1px solid rgba(255,255,255,0.2)',

@@ -51,6 +51,18 @@ export default function PickupCapacityForm({ vendorId, slotMinutes, current, eve
   const isConfigured = typeof q2 === 'number' && q2 > 0
   const q2ExceedsQ1 = typeof q1 === 'number' && typeof q2 === 'number' && q2 > q1
 
+  /** Q1 restated as a per-order interval — "6 orders per 30 min" is abstract,
+   *  "one order every 5 minutes" is something a vendor can check against their
+   *  own line. Sub-minute paces read in seconds so a fast truck doesn't see
+   *  "one order every 0 minutes". */
+  const pacePerOrder = ((): string | null => {
+    if (typeof q1 !== 'number' || q1 <= 0) return null
+    const minutes = slotMinutes / q1
+    if (minutes >= 1.5) return `${Math.round(minutes)} minutes`
+    if (minutes >= 1) return 'minute'
+    return `${Math.max(5, Math.round((minutes * 60) / 5) * 5)} seconds`
+  })()
+
   // Set for a different slot length than the vendor now runs → caps are stale.
   const staleForSlot =
     current.slot_minutes != null && current.slot_minutes !== slotMinutes && current.app_orders != null
@@ -110,16 +122,25 @@ export default function PickupCapacityForm({ vendorId, slotMinutes, current, eve
         </div>
       )}
 
-      {/* Q1 */}
+      {/* Q1 — pace. Context for the vendor's own judgement, NOT a budget that Q2
+          gets carved out of. The earlier "of those N, how many can be app orders"
+          framing implied app orders displace walk-ups; the owner's point
+          (2026-08-04) is that app orders may be a NET ADDITION with no loss of
+          walk-up speed, and we have no basis to assume otherwise. */}
       <div style={{ marginBottom: spacing.md }}>
         <label style={label}>Your normal pace</label>
         <p style={hint}>
-          During a typical service, about how many orders do you complete in <strong>{slotMinutes} minutes</strong> —
-          everyone, walk-ups included? <em>Cooked and handed out, not just handed out. Your steady pace, not your
+          During a typical service, about how many orders do you complete in <strong>{slotMinutes} minutes</strong>?
+          (everyone, walk-ups included) <em>Cooked and handed out, not just handed out. Your steady pace, not your
           best-ever burst.</em>
         </p>
         <input type="number" min={1} max={500} style={input} value={q1}
           onChange={(e) => setQ1(e.target.value === '' ? '' : Number(e.target.value))} />
+        {pacePerOrder && (
+          <p style={{ ...hint, marginTop: 4 }}>
+            That averages out to about <strong>one order every {pacePerOrder}</strong>.
+          </p>
+        )}
         {usedPrefill && (
           <p style={{ ...hint, marginTop: 4, fontStyle: 'italic' }}>
             Pre-filled from your Event Readiness answer (you serve ~{eventHeadcountPerWave} people per 30-minute wave at
@@ -128,24 +149,8 @@ export default function PickupCapacityForm({ vendorId, slotMinutes, current, eve
         )}
       </div>
 
-      {/* Q2 */}
-      <div style={{ marginBottom: spacing.md }}>
-        <label style={label}>Your app slice</label>
-        <p style={hint}>
-          Of those {q1 === '' ? '—' : q1}, how many can be app pre-orders? <em>Walk-ups will still be your main source
-          of customers until people get used to ordering through the app. Set aside a slice you can comfortably hit
-          today, and raise it as more of your regulars start ordering ahead.</em>
-        </p>
-        <input type="number" min={1} max={500} style={{ ...input, borderColor: q2ExceedsQ1 ? '#f59e0b' : colors.border }}
-          value={q2} onChange={(e) => setQ2(e.target.value === '' ? '' : Number(e.target.value))} />
-        {q2ExceedsQ1 && (
-          <p style={{ ...hint, color: '#92400e', marginTop: 4 }}>
-            That&apos;s more than the {q1} total orders you said you complete — leave room for your walk-up line.
-          </p>
-        )}
-      </div>
-
-      {/* Q3 */}
+      {/* Q3 — sits between pace and the cap so the vendor has both real-world
+          numbers in view before choosing a limit (owner ordering, 2026-08-04). */}
       <div style={{ marginBottom: spacing.md }}>
         <label style={label}>Typical order size</label>
         <p style={hint}>About how many items are in a normal order? <em>Your average, not your biggest.</em></p>
@@ -153,12 +158,38 @@ export default function PickupCapacityForm({ vendorId, slotMinutes, current, eve
           onChange={(e) => setQ3(e.target.value === '' ? '' : Number(e.target.value))} />
       </div>
 
+      {/* Q2 — the enforced cap. Framed as a limit the vendor CHOOSES, not a slice
+          of Q1. */}
+      <div style={{ marginBottom: spacing.md }}>
+        <label style={label}>Your app orders</label>
+        <p style={hint}>
+          We want to make sure we don&apos;t send you too many orders at once and create delays for your walk-up
+          customers. To help you manage this we let you set a cap for how many app orders we will send you in a{' '}
+          {slotMinutes}-minute window. Enter the max number of app orders you want us to send you in any{' '}
+          {slotMinutes}-minute timeframe.
+        </p>
+        <p style={hint}>
+          Once you start accepting orders through the app you will get some new customers, and some of your walk-up
+          customers may become app-ordering customers — keep this in mind when you set your max app orders.
+        </p>
+        <input type="number" min={1} max={500} style={{ ...input, borderColor: q2ExceedsQ1 ? '#f59e0b' : colors.border }}
+          value={q2} onChange={(e) => setQ2(e.target.value === '' ? '' : Number(e.target.value))} />
+        {q2ExceedsQ1 && (
+          <p style={{ ...hint, color: '#92400e', marginTop: 4 }}>
+            Heads up — that&apos;s more app orders than the {q1} total orders you said you complete in {slotMinutes}{' '}
+            minutes. That can be fine if app orders bring you new business, but it&apos;s worth a second look.
+          </p>
+        )}
+      </div>
+
       {/* Shown math — the pattern from the event form (vendor/events/[marketId]:790-800) */}
       {isConfigured && (
         <div style={{ padding: spacing.sm, marginBottom: spacing.md, background: colors.surfaceMuted, borderRadius: radius.sm, fontSize: typography.sizes.sm, lineHeight: 1.6 }}>
           <div style={{ fontWeight: typography.weights.semibold, marginBottom: 4 }}>Here&apos;s what that means</div>
-          {q1 !== '' && <>You complete about <strong>{q1} orders</strong> in a normal <strong>{slotMinutes} minutes</strong>.<br /></>}
-          You&apos;re setting aside <strong>{q2}</strong> of those for app pre-orders.<br />
+          {q1 !== '' && <>You complete about <strong>{q1} orders</strong> in a normal <strong>{slotMinutes} minutes</strong>{pacePerOrder ? <> — one every {pacePerOrder}</> : null}.<br /></>}
+          {/* "capping at" not "setting aside N of those" — the cap is a limit the
+              vendor chose, not a slice carved out of their walk-up business. */}
+          You&apos;re capping app pre-orders at <strong>{q2}</strong> per slot.<br />
           {q3 !== '' && <>A typical order is <strong>{q3} items</strong> → about <strong>{derivedItems} items</strong>.<br /></>}
           <div style={{ marginTop: spacing.xs }}>
             <strong>We&apos;ll hold each {slotMinutes}-minute slot to {q2} app orders{effectiveItems !== '' ? ` or ${effectiveItems} items` : ''} — whichever comes first.</strong>

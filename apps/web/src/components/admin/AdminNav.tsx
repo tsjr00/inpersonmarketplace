@@ -28,6 +28,9 @@ export default function AdminNav({ type, vertical }: AdminNavProps) {
     { label: 'Listings', href: `/${vertical}/admin/listings`, icon: '📦' },
     { label: 'Users', href: `/${vertical}/admin/users`, icon: '👥' },
     { label: term(vertical!, 'event_feature_name'), href: `/${vertical}/admin/events`, icon: '🍽️' },
+    // Read-only org list (owner decision 2026-08-04: vertical admins get
+    // read-plus-attach). Attaching happens on the event itself.
+    { label: 'Community Giving', href: `/${vertical}/admin/cause`, icon: '🤝' },
     { label: 'Issues', href: `/${vertical}/admin/order-issues`, icon: '⚠️' },
     { label: 'Reports', href: `/${vertical}/admin/reports`, icon: '📋' },
     { label: 'Feedback', href: `/${vertical}/admin/feedback`, icon: '💬' },

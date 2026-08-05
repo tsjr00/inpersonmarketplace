@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
-import { hasPlatformAdminRole } from '@/lib/auth/admin'
+import { hasPlatformAdminRole, hasAdminRole } from '@/lib/auth/admin'
 import { getBeneficiaryBalances } from '@/lib/cause/beneficiaries'
 
 // Community Chip In beneficiary orgs are platform-level (cross-vertical), so
-// these are gated on platform_admin (mirrors /api/admin/admins).
+// WRITES are gated on platform_admin (mirrors /api/admin/admins). GET is the one
+// exception — vertical admins read a reduced list so they can attach an org to
+// their own events (owner decision 2026-08-04). See the note on GET.
 
 /** Verify the caller is a platform admin. Returns the service client or a 4xx. */
 async function requirePlatformAdmin() {
@@ -27,16 +29,50 @@ async function requirePlatformAdmin() {
   return { service: createServiceClient() }
 }
 
-// GET - list beneficiaries with their outstanding (un-remitted) balances
+// GET - list beneficiaries.
+//
+// READ-PLUS-ATTACH for vertical admins (owner decision 2026-08-04): a vertical
+// admin needs to SEE which orgs exist so they can attach one to their event, but
+// must never see or change where money goes — the beneficiary pool is shared
+// across verticals, so payout details are platform-admin-only. Platform admins
+// get the full record plus outstanding balances; vertical admins get name and
+// active status and nothing else. The reduction happens server-side, not by
+// hiding fields in the UI.
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/admin/cause/beneficiaries', 'GET', async () => {
     const clientIp = getClientIp(request)
     const rl = await checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
     if (!rl.success) return rateLimitResponse(rl)
 
-    const gate = await requirePlatformAdmin()
-    if (gate.error) return gate.error
-    const service = gate.service
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('role, roles')
+      .eq('user_id', user.id)
+      .is('deleted_at', null)
+      .single()
+
+    const isPlatform = hasPlatformAdminRole(profile || {})
+    if (!isPlatform && !hasAdminRole(profile || {})) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    }
+    const service = createServiceClient()
+
+    if (!isPlatform) {
+      const { data: rows, error: readErr } = await service
+        .from('cause_beneficiaries')
+        .select('id, name, active')
+        .eq('active', true)
+        .order('name', { ascending: true })
+      if (readErr) {
+        return NextResponse.json({ error: 'Failed to fetch beneficiaries' }, { status: 500 })
+      }
+      return NextResponse.json({ beneficiaries: rows ?? [], readOnly: true })
+    }
 
     const { data: beneficiaries, error } = await service
       .from('cause_beneficiaries')
