@@ -774,3 +774,26 @@ export async function sendNotificationBatch(
   )
   return results
 }
+
+/**
+ * Send a transactional email to an address that is NOT a platform user.
+ *
+ * Everything else in this module targets a user_id — it writes an in_app row,
+ * honours per-user notification preferences, and respects suppression. A cause
+ * beneficiary org has no account here at all, so none of that applies: there is
+ * no inbox to write to and no preferences to consult.
+ *
+ * Use ONLY for genuinely transactional mail to an outside party who asked for it
+ * (today: the Stripe onboarding invitation an admin sends to a beneficiary).
+ * Never for anything resembling marketing — an external address has no
+ * preference record and therefore no way to say no beyond the unsubscribe header
+ * that sendEmail already attaches.
+ */
+export async function sendExternalEmail(
+  toEmail: string,
+  subject: string,
+  body: string,
+  vertical?: string
+): Promise<ChannelResult> {
+  return sendEmail(toEmail, subject, body, vertical)
+}

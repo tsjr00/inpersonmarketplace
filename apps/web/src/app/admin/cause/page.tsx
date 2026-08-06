@@ -14,6 +14,9 @@ interface Beneficiary {
   active: boolean
   notes: string | null
   outstanding_cents: number
+  /** mig 218: when the Stripe onboarding invitation was last emailed. Lets the
+   *  admin see whether an org has been asked yet before chasing them. */
+  onboarding_invited_at: string | null
 }
 
 interface Remittance {
@@ -147,16 +150,46 @@ export default function CauseAdminPage() {
    * again if the org doesn't finish in one sitting — the idempotency key on the
    * account means no second account is ever created.
    */
-  const startConnect = async (b: Beneficiary) => {
+  /**
+   * Email the org a durable invitation they complete themselves. This is the
+   * default and the one that should normally be used — Stripe's form asks for
+   * the org's bank account, tax ID and a representative's personal details,
+   * which an admin has no business entering.
+   */
+  const invite = async (b: Beneficiary) => {
     setConnectingId(b.id)
     try {
-      const res = await fetch(`/api/admin/cause/beneficiaries/${b.id}/connect`, { method: 'POST' })
+      const res = await fetch(`/api/admin/cause/beneficiaries/${b.id}/connect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'email' }),
+      })
+      const data = await res.json()
+      if (!res.ok) { showBanner('error', data.error || 'Could not send the invitation'); return }
+      showBanner(
+        'success',
+        data.delivered
+          ? `Invitation sent to ${data.to}.`
+          : `Invitation prepared for ${data.to}, but email is not configured in this environment so nothing was sent.`
+      )
+      load()
+    } finally {
+      setConnectingId(null)
+    }
+  }
+
+  /** Escape hatch: the admin is with the org and walking them through it live. */
+  const openConnect = async (b: Beneficiary) => {
+    setConnectingId(b.id)
+    try {
+      const res = await fetch(`/api/admin/cause/beneficiaries/${b.id}/connect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'open' }),
+      })
       const data = await res.json()
       if (!res.ok) { showBanner('error', data.error || 'Could not start onboarding'); return }
-      // Opened in a new tab so the admin keeps this page. On iOS Safari this may
-      // reuse the tab; the admin can come back with the back button.
       window.open(data.url as string, '_blank', 'noopener,noreferrer')
-      showBanner('success', 'Stripe onboarding opened — the org completes it themselves.')
     } finally {
       setConnectingId(null)
     }
@@ -292,20 +325,35 @@ export default function CauseAdminPage() {
                 <div style={{ fontSize: typography.sizes.xs, color: '#92400e', marginTop: spacing.xs }}>
                   ⚠ This org can&apos;t be paid automatically until they finish Stripe onboarding.
                   {!b.contact_email && ' Add a contact email first — Stripe sends the invitation there.'}
+                  {b.onboarding_invited_at && (
+                    <> Invitation sent {new Date(b.onboarding_invited_at).toLocaleDateString()} — not completed yet.</>
+                  )}
                 </div>
               )}
               <div style={{ display: 'flex', gap: spacing.sm, marginTop: spacing.sm, alignItems: 'center', flexWrap: 'wrap' }}>
                 {b.remit_method === 'connect' && (
-                  <button
-                    style={btn}
-                    disabled={connectingId === b.id || !b.contact_email}
-                    onClick={() => startConnect(b)}
-                    title={!b.contact_email ? 'Add a contact email first' : undefined}
-                  >
-                    {connectingId === b.id
-                      ? 'Opening…'
-                      : b.stripe_account_id ? 'Resend Stripe onboarding link' : 'Send Stripe onboarding link'}
-                  </button>
+                  <>
+                    <button
+                      style={btn}
+                      disabled={connectingId === b.id || !b.contact_email}
+                      onClick={() => invite(b)}
+                      title={!b.contact_email ? 'Add a contact email first' : `Emails ${b.contact_email}`}
+                    >
+                      {connectingId === b.id
+                        ? 'Sending…'
+                        : b.onboarding_invited_at ? 'Resend invitation email' : 'Email onboarding invitation'}
+                    </button>
+                    {/* Secondary on purpose — the org should fill in their own
+                        banking details, not the admin. */}
+                    <button
+                      style={{ ...btn, background: 'transparent', color: colors.textSecondary, border: `1px solid ${colors.border}` }}
+                      disabled={connectingId === b.id || !b.contact_email}
+                      onClick={() => openConnect(b)}
+                      title="Only if you're with them and walking them through it"
+                    >
+                      Open it myself
+                    </button>
+                  </>
                 )}
                 {b.remit_method === 'check' && b.outstanding_cents > 0 && (
                   <>

@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
 
     const { data: beneficiaries, error } = await service
       .from('cause_beneficiaries')
-      .select('id, name, contact_email, stripe_account_id, remit_method, mailing_address, active, notes, created_at')
+      .select('id, name, contact_email, stripe_account_id, remit_method, mailing_address, active, notes, created_at, onboarding_invited_at')
       .order('active', { ascending: false })
       .order('name', { ascending: true })
     if (error) {

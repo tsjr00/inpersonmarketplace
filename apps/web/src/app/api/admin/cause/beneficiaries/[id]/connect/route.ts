@@ -4,6 +4,8 @@ import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/li
 import { withErrorTracing } from '@/lib/errors'
 import { hasPlatformAdminRole } from '@/lib/auth/admin'
 import { createCauseConnectAccount, createAccountLink, getAccountStatus } from '@/lib/stripe/connect'
+import { sendExternalEmail } from '@/lib/notifications/service'
+import { randomUUID } from 'crypto'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -94,9 +96,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const service = gate.service!
 
     const { id } = await context.params
+    const body = await request.json().catch(() => ({}))
+    // 'email' (default) sends the org a durable invitation they complete
+    // themselves. 'open' hands the admin a link for the case where they are
+    // sitting WITH the org walking them through it — never the default, because
+    // the form asks for the org's bank account and a representative's personal
+    // details, which an admin should not be typing.
+    const mode = body?.mode === 'open' ? 'open' : 'email'
+
     const { data: b } = await service
       .from('cause_beneficiaries')
-      .select('id, name, contact_email, stripe_account_id')
+      .select('id, name, contact_email, stripe_account_id, onboarding_token')
       .eq('id', id)
       .maybeSingle()
 
@@ -108,6 +118,52 @@ export async function POST(request: NextRequest, context: RouteContext) {
         { error: 'Add a contact email for this organization first — Stripe sends the onboarding invitation there.' },
         { status: 400 }
       )
+    }
+
+    if (mode === 'email') {
+      // Mint the durable token once and keep it — re-inviting reuses it, so an
+      // org that lost the first email can use either message.
+      let token = (b.onboarding_token as string | null) ?? null
+      if (!token) {
+        token = randomUUID()
+        const { error: tokErr } = await service
+          .from('cause_beneficiaries')
+          .update({ onboarding_token: token, updated_at: new Date().toISOString() })
+          .eq('id', id)
+        if (tokErr) {
+          return NextResponse.json({ error: 'Could not prepare the invitation link' }, { status: 500 })
+        }
+      }
+
+      const url = `${request.nextUrl.origin}/cause/onboard/${token}`
+      const orgName = b.name as string
+      const result = await sendExternalEmail(
+        email,
+        `Set up payments for ${orgName}`,
+        `${orgName} has been set up to receive Community Chip In contributions.\n\n` +
+        `To receive those funds, complete Stripe's short verification form. Stripe collects your ` +
+        `organization's bank account and tax details directly — we never see or store them.\n\n` +
+        `${url}\n\n` +
+        `This link stays valid, so you can finish later if you need to gather information. ` +
+        `100% of every contribution goes to your organization.`
+      )
+
+      if (!result.success) {
+        return NextResponse.json({ error: `Could not send the invitation: ${result.error ?? 'unknown error'}` }, { status: 502 })
+      }
+
+      await service
+        .from('cause_beneficiaries')
+        .update({ onboarding_invited_at: new Date().toISOString() })
+        .eq('id', id)
+
+      return NextResponse.json({
+        sent: true,
+        to: email,
+        // skipped === true means RESEND_API_KEY isn't configured in this env, so
+        // nothing actually left the building. Say so rather than claim success.
+        delivered: !result.skipped,
+      })
     }
 
     let accountId = b.stripe_account_id as string | null

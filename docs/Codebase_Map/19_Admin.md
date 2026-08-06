@@ -8,6 +8,7 @@ src/components/admin/**
 src/app/admin/**
 src/app/[vertical]/admin/**
 src/app/api/errors/**
+src/app/cause/onboard/**
 -->
 
 51 admin routes across two role tiers. This is also where the platform's revenue reporting lives, which makes a handful of these routes the highest money-density code outside checkout.
@@ -111,6 +112,8 @@ Consequence worth stating plainly: **platform revenue is not attributable per ve
 | `stripe-reconcile/route.ts` ⚠ | Natural-language Stripe reconciliation, vertical-scoped |
 | `backfill-stripe-fees/route.ts` ⚠ | Backfills `payments.stripe_fee_cents` from Stripe (default 100, max 500 per call; repeat until `remaining: 0`) |
 | `analytics/overview` · `top-vendors` · `trends` | Platform KPIs from live `orders` + `market_box_subscriptions` (a legacy SQL analytics function was abandoned) |
+| `cause/beneficiaries/[id]/connect` | Community Chip In beneficiary onboarding. `mode:'email'` (default) sends the org a durable invitation; `mode:'open'` hands the admin a link for walking them through it live. GET reads Stripe status live — never cached, so an org can't reach the remit sweep before it can actually be paid |
+| **`src/app/cause/onboard/[token]` ⚠ PUBLIC** | **Not an admin route — unauthenticated, lives here because the admin flow owns it.** Mints a FRESH Stripe account link on every visit and 303-redirects. Exists because Stripe account links expire in minutes, are single-use, and get eaten by mail scanners, so they cannot be emailed; we email this durable url instead. Token is a bearer credential granting only "start onboarding for this org" — revoke by nulling `cause_beneficiaries.onboarding_token` (mig 218) |
 
 ### Ops, moderation, support
 `errors/route.ts` + `errors/[id]` (error reports with resolution history and similar-report matching) · `error-logs` (the aggregated `error_logs` dashboard) · `order-issues` · `feedback` · `quality-checks` (scan history + active findings from the cron) · `listings/[id]` (moderate) · `knowledge` (KB articles; admins see unpublished) · `moderation-test` (diagnostic: is Google Vision reachable — uploads nothing) · `vendor-activity/flags` + `[id]` · `vendor-activity/referrals` (referral credits) · `vendor-activity/settings`.

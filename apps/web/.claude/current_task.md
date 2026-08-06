@@ -12,6 +12,7 @@
 ### MIGRATIONS — all applied to Dev + Staging; all five still pending Prod
 | Mig | Dev+Staging | Prod | Notes |
 |---|---|---|---|
+| **218 cause_onboarding_token** | ✅ **applied 2026-08-05** | ⏳ | Durable token so a beneficiary org completes Stripe onboarding ITSELF. Stripe account links expire in minutes, are single-use, and get eaten by mail scanners — so they cannot be emailed. We email our link and mint Stripe's on arrival. |
 | **217 market_vendor_revoked_state** | ✅ **applied 2026-08-03** | ⏳ | Separates manager-revoked from never-reviewed. Fixes a staging finding: a revoked vendor reappeared under "pending your approval". |
 | 213 community_chip_in | ✅ | ⏳ | |
 | 214 tax_jurisdiction_storage | ✅ | ⏳ | |
