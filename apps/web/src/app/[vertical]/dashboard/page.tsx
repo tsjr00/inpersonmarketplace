@@ -584,9 +584,12 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
         {/* Rate Recent Order Card */}
         <RateOrderCard vertical={vertical} />
 
+        {/* Columns live in the .shopper-grid rule below, NOT inline. An inline
+            gridTemplateColumns outranks a stylesheet rule, which is why the old
+            version needed `!important` to collapse on small screens. Mobile-first
+            in CSS matches the vendor dashboard and needs no override. */}
         <div className="shopper-grid" style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(2, 1fr)',
           gap: spacing.sm
         }}>
           {/* Browse Products Card */}
@@ -1431,10 +1434,25 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
 
       {/* Responsive Styles */}
       <style>{`
-        @media (max-width: 540px) {
+        /* MOBILE-FIRST — one column by default, widening at the same breakpoints
+           the vendor dashboard uses (640 / 1024), so both surfaces reflow
+           identically. Most users are on a phone, so the phone case is the
+           default rather than the exception. Replaces a desktop-first
+           "2 columns, collapse under 540px with !important" rule. */
+        .shopper-grid {
+          grid-template-columns: 1fr;
+        }
+        @media (min-width: 640px) {
           .shopper-grid {
-            grid-template-columns: 1fr !important;
+            grid-template-columns: repeat(2, 1fr);
           }
+        }
+        @media (min-width: 1024px) {
+          .shopper-grid {
+            grid-template-columns: repeat(3, 1fr);
+          }
+        }
+        @media (max-width: 540px) {
           .dashboard-header {
             flex-direction: column !important;
             align-items: flex-start !important;

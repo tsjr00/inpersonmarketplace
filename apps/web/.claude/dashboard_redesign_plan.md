@@ -1,0 +1,407 @@
+# Dashboard Standardization & Redesign — Plan
+
+**Status:** ✅ **RESEARCH COMPLETE — ready to implement** (2026-08-05). Build order is the 5 slices below; start at Slice 1.
+**Governing constraint:** **MOBILE-FIRST.** Most users are on a phone. Design the phone case first; desktop is the roomier variant.
+**Owner intent:** *"The UI of the dashboards is where we get to make the first impression for users who do more than browse. It needs to be clean, easy to understand, easy to navigate, and look something like dashboards people have navigated before."*
+**Working agreement:** this file is **additive** — it grows until the plan is comprehensive, then gets implemented across one or more dedicated sessions. Do NOT start building from a partial version.
+
+---
+
+## Scope (owner, 2026-08-05)
+
+1. **Cards and menus standardized throughout the dashboards.**
+2. **Card contents redesigned as needed** — not just re-skinned.
+3. Familiar patterns. Users should recognize the shape from dashboards they've used before.
+4. Delivered as a plan first; implementation is a separate session (or several).
+
+---
+
+## 🔑 The central finding — this is an EXTENSION, not an invention
+
+**A standardized card system already exists and is in production.** Session 92's design pass built it for the market-manager dashboard:
+
+| Component | What it already gives us |
+|---|---|
+| `components/market-manager/ManagerCard.tsx` | The card wrapper: fixed padding (`spacing.sm`), fixed inter-card gap, header at `lg`/semibold, description at `sm`/muted, optional `headerAccessory`, and `id` + `scrollMarginTop` so anchors land below the sticky nav |
+| `MANAGER_NAV_OFFSET` (exported from same file) | Single source for sticky-nav height so jump targets never hide under the bar |
+| `ManagerJumpNav.tsx` | Sticky section chips. **Plain `<a href="#id">` on purpose** — native scroll, works without JS, re-scrolls on repeat clicks |
+| `CollapsibleSection.tsx` | Expand/collapse section container |
+| `TabbedCard.tsx` | Tabs within a card |
+| `GroupHeading` (in the dashboard bodies) | Groups several cards under one banner |
+
+`ManagerCard`'s doc comment already states the **typography discipline** the rest of the app should adopt:
+
+> 4 sizes page-wide — title `xl`, headers `lg`, body `sm`, meta `xs`. Metric values `lg` bold. Cards should NOT reintroduce `2xl`/`xl` body text (that was the wrapping problem).
+
+**Implication for the plan:** the design system question is largely settled. The work is (a) promoting these components out of `market-manager/` into a shared home, (b) applying them to the shopper and vendor dashboards, and (c) redesigning card *contents* where they don't fit the standard. That is a much smaller and much safer piece of work than "design a dashboard system."
+
+**Do not redesign the manager dashboard's chrome.** It is the reference. Changing it would mean re-doing verified work and would leave nothing to standardize *toward*.
+
+---
+
+## Surfaces inventory (first pass)
+
+| Surface | Route | Lines | Standardized? |
+|---|---|---|---|
+| **Shopper / default** | `/[vertical]/dashboard` | **1446** | ❌ monolith, inline styles |
+| **Vendor** | `/[vertical]/vendor/dashboard` | **1379** | ❌ monolith, inline styles |
+| **Market manager** (FM + FT park) | `/[vertical]/market-manager/[marketId]/dashboard` | 232 (+ body components) | ✅ **reference implementation** |
+| **Vertical admin** | `/[vertical]/admin` | 738 | ⬜ not yet assessed |
+| **Platform admin** | `/admin` | 485 | ⬜ not yet assessed |
+| Root redirect | `/dashboard` | 12 | n/a |
+
+The two biggest files are the two unstandardized ones, and they are the two a non-browsing user meets first. That is the whole problem in one line.
+
+Shared primitives that already exist and should be reused rather than re-created:
+`shared/StatusBadge.tsx` · `shared/TierBadge.tsx` · `shared/Skeleton.tsx` · `shared/Spinner.tsx` · `shared/AdminTable.tsx` · `shared/StandardForm.tsx` · `shared/MobileNav.tsx` · `lib/design-tokens.ts`
+
+---
+
+## The navigation problem (owner, 2026-08-04)
+
+The shopper dashboard has absorbed roles that are not shopping. "My Markets" sits under a 🛒 **Shopper** badge. Market managers and event managers are already there; regional/partner roles are coming.
+
+**Agreed direction:**
+- Top-level Dashboard splits into **Shopper**, **Partner**, **Vendor**.
+- **"Partner"** is the umbrella for market managers, event managers, and the future regional role — so a new role type does not require a new top-level section each time.
+- Shopper stays on top (universal). Partner next. Vendor last.
+- The cards inside each section are broadly right; they need standardizing more than replacing.
+
+**One open disagreement to settle before building** — owner proposed accordion with **one section open at a time**; Claude pushed back:
+> That penalizes exactly the people who matter most — someone who is both a vendor and a market manager toggles constantly. Alternative: render only the sections a user actually has, default-open their primary one, and don't force an accordion on single-role users at all.
+
+**Not yet decided.** Resolve before layout work starts.
+
+---
+
+## Surface deep-dive: Shopper / default dashboard
+
+`src/app/[vertical]/dashboard/page.tsx` — **1446 lines, one file.**
+
+### 🔑 Second key finding — the target sections ALREADY EXIST here
+
+The page is not an undifferentiated blob. It already renders three `h2` sections in order:
+
+| Line | Heading | Notes |
+|---|---|---|
+| 404 | 🛒 **Shopper** (`t('dash.shopper')`) | localized, `xl`/semibold, primary colour |
+| 839 | **My Events** | hardcoded English (not localized — inconsistency to fix) |
+| 1075 / 1182 | **Vendor** (two variants) | signup pitch if not a vendor, dashboard link if they are. Comments literally read *"Separator between Shopper and Vendor sections"* |
+
+So the reorg is **less about inventing structure and more about promoting what's already implied**: rename/regroup the middle band as **Partner** (absorbing My Events + My Markets), and give all three consistent chrome.
+
+### Cards on this page
+
+**Under 🛒 Shopper:**
+`RateOrderCard` · Browse Products *(inline)* · My Orders *(inline, with status summary)* · My Favorites *(inline)* · Where Are Trucks Today / What Markets Are Open *(inline)* · **`MarketManagerCard` "My Markets"** ⚠ · `NotificationsCard` · `FeedbackCard` · Upgrade to Premium *(inline, conditional on free tier + vertical premium)*
+
+⚠ **`MarketManagerCard` is the scope creep the owner flagged** — a manager surface sitting under a 🛒 Shopper badge. It already self-hides unless the user manages a market, so moving it to Partner is a relocation, not new conditional logic.
+
+**Under My Events** *(event organizer surfaces — also not shopping)*:
+`EventAgreementPickerCard` · `EventBroadcastCard` · `EventRatingsCard`, rendered per event token.
+
+**Under Vendor:** signup pitch card, or the vendor dashboard link card.
+
+### Observations that shape the plan
+
+- **Roughly half the cards are inline JSX with hand-rolled `<h3>` + inline styles**; the other half are extracted components. Standardizing means extracting the inline ones — which is also what makes the file shrink to something readable.
+- **Cross-imports from the vendor dashboard** (`vendor/dashboard/ReferralCard`, `VendorFeedbackCard`) — a shared card home would fix a real coupling smell, not just a cosmetic one.
+- **Mixed localization**: the Shopper heading is localized, "My Events" is hardcoded. Any new heading must be localized from the start.
+- Card headers here are `<h3>` at `lg`/semibold — **already matching `ManagerCard`'s header size**. The typography gap is smaller than the structural gap.
+
+---
+
+## Surface deep-dive: Vendor dashboard
+
+`src/app/[vertical]/vendor/dashboard/page.tsx` — **1379 lines, one file.**
+
+Cards in render order:
+
+| # | Card | Notes |
+|---|---|---|
+| 1 | **Pickup Mode** | ⚠ operational |
+| 2 | **Upcoming Pickups** | ⚠ operational |
+| 3 | **Manage Locations** | ⚠ operational |
+| 4 | Analytics & Insights | |
+| 5 | Orders | |
+| 6 | Your Listings | |
+| 7 | My Booth Bookings | FM |
+| 8 | My Park Bookings | FT |
+| 9 | Business Profile | |
+| 10 | Reviews | |
+| 11 | Legal Agreements | |
+| — | `PaymentMethodsCard`, `PromoteCard` | already extracted components |
+
+### 🚨 Constraint — the top three are a deliberate owner decision
+
+**Pickup Mode, Upcoming Pickups, and Manage Locations are at the top on purpose** — the owner's standing preference is *operational items first* on the vendor dashboard. A redesign must preserve operational-first ordering. Do not re-sort this page alphabetically, by card size, or by "visual balance."
+
+Same structural problem as the shopper page: most cards are inline JSX with hand-rolled `<h3>` + inline styles rather than a shared wrapper.
+
+---
+
+## Role detection — already solved, just needs consuming
+
+`dashboard/page.tsx:52-75` loads every signal the reorg needs, in **one parallel `Promise.all`**:
+
+- `vendorProfile` → `isVendor` (`:141`), `isApprovedVendor` (`:142`)
+- `userProfile.role` / `.roles` → admin tiers
+- `managedMarkets` → drives `MarketManagerCard`
+- `organizerEvents` → `hasOrganizerEvents` (`:239`)
+
+**Implication:** "which sections does this user see" is answerable from data already in hand. No new queries, no new role model, no migration.
+
+⚠ **Preserve the parallel-query shape.** It is deliberate (commented *"Phase 2: Parallel data queries — none depend on each other"*) and `performance-baseline.test.ts` enforces query count and sequential depth. A refactor that turns this into per-section fetches would fail that test — correctly.
+
+---
+
+## ⬜ Research still outstanding
+
+- [x] ~~Shopper dashboard card inventory~~ — done, above
+- [x] ~~Vendor dashboard card inventory~~ — done, above
+- [x] ~~Role detection~~ — done, above
+- [ ] **Vendor dashboard card inventory** — same
+- [ ] **Vertical admin + platform admin** — do they follow `AdminNav`/`AdminSidebar` conventions? Are they in scope or a separate system?
+- [ ] **Role detection** — how does the app currently know a user is a manager/vendor/organizer? This drives what renders.
+- [ ] **Card anatomy spec** — formalize from `ManagerCard` into a written standard (header, description, accessory, metric, actions, empty state, loading state)
+- [ ] **Empty + loading states** — currently ad hoc; a standardized dashboard needs standardized nothing-here-yet
+- [ ] **Mobile** — owner tests on iPhone Safari; the manager dashboard's sticky nav behaviour on small screens needs checking
+- [ ] **Familiar-shape reference** — decide which conventional dashboard pattern we are matching (sidebar + content? top nav + card grid?) so "looks like dashboards people have used" is a decision, not a vibe
+
+## ⬜ Deliverables this plan must still produce
+
+- [ ] Target information architecture per role combination (shopper only / vendor only / manager only / multi-role)
+- [ ] Card anatomy spec with rules for when to use each variant
+- [ ] Component promotion list — what moves out of `market-manager/` into shared, and what it gets renamed to
+- [ ] Per-surface change list — what happens to each existing card
+- [ ] Build order, sliced so each slice ships independently
+- [ ] Regression risk list — these are the highest-traffic authenticated pages in the app
+
+---
+
+## Sequencing principle (agreed 2026-08-04)
+
+**Standardize the card anatomy FIRST, reorganize navigation SECOND.**
+
+Consistent chrome is what makes three sections read as one system rather than three things bolted together, it is independently valuable even if the reorg slips, and it makes the reorg mostly a matter of moving already-uniform blocks. Doing the reorg first means moving inconsistent cards around and standardizing them twice.
+
+---
+
+## Card anatomy spec (derived from `ManagerCard`, ready to adopt)
+
+`ManagerCard` is 48 lines and already encodes the whole standard. Formalized:
+
+```
+<section id? scrollMarginTop=NAV_OFFSET>          ← anchor target for jump-nav
+  ├─ header row (only if title or accessory)      ← flex, baseline, space-between, wraps
+  │    ├─ title      h2 · lg · semibold · textPrimary · margin 0
+  │    └─ accessory  optional right-aligned node (badge, count, action)
+  ├─ description?    p · sm · textMuted · lineHeight 1.5
+  └─ children        the card's actual content
+```
+
+**Fixed chrome (do not vary per card):** `padding: spacing.sm` · `backgroundColor: colors.surfaceElevated` · `border: 1px solid colors.border` · `borderRadius: radius.md` · `marginBottom: spacing.sm`.
+
+**Type scale — four sizes, page-wide:** page title `xl` · card headers `lg` · body `sm` · meta `xs`. Metric values `lg` bold. **`2xl` and `xl` are banned inside cards** (the wrapping problem).
+
+**Spacing rule already baked in:** header bottom margin is `2xs` when a description follows, `xs` when it doesn't — so the header/description/body rhythm is consistent without per-card tuning.
+
+**Gaps this spec does not yet cover** (decide during Slice 2, then write back here):
+- **Card actions** — no defined footer/action-row slot. Today buttons live loose in `children`.
+- **Metric display** — "lg bold" is stated but there is no metric sub-component, so every card hand-rolls its number + label.
+- **Empty state** — see below.
+- **Card variants** — is there a "quiet"/secondary card, or only one? Manager surfaces use `CollapsibleSection` and `TabbedCard` as siblings rather than variants.
+
+---
+
+## Empty states, loading, and mobile
+
+### Empty states — consistent in tone, unstandardized in code
+Phrasing across manager surfaces is already uniform: *"No announcements sent yet." · "No documents uploaded yet." · "No event invitations yet." · "No seasons yet." · "No surveys yet." · "No occupants yet"* — the pattern is **"No {things} yet."**, occasionally missing the period.
+
+There is **no shared empty-state component**; each is a hand-rolled `<p>`. Cheap win during Slice 2: an `EmptyState` slot on the card that enforces the phrasing pattern and the muted styling.
+
+### Loading — already correct, leave it alone
+Neither big dashboard uses `Skeleton`/`Spinner` inline (0 references each), because both are **server components with route-level `loading.tsx`** — `[vertical]/dashboard/loading.tsx` and `[vertical]/vendor/dashboard/loading.tsx` both exist. That is the right Next.js pattern.
+⚠ Do not "add loading states to cards." Converting server-rendered cards to client components with spinners would regress the performance baseline. `shared/Skeleton.tsx` is for client-side surfaces only.
+
+### Mobile — the vendor dashboard is the best of the three, and one real defect
+**Vendor dashboard uses a raw `<style>` block with mobile-first media queries** and semantic row classes (`.row-1-grid`, `.row-2-grid`, `.promote-grow-grid`): 1 column by default → 2 at `640px` → 3 at `1024px`. This is genuinely good responsive behaviour and is **more evidence the owner is right that this surface is closest to the vision**.
+
+✅ **RESOLVED 2026-08-05 — and the first read was wrong.** The shopper grid was NOT broken on mobile: a `@media (max-width: 540px)` rule collapsed it to one column. But it needed **`!important`** to do so, because an inline `gridTemplateColumns` outranks a stylesheet rule.
+
+The real problem was that the two dashboards used **opposite philosophies**:
+
+| | Shopper (before) | Vendor |
+|---|---|---|
+| Approach | desktop-first — start 2-col, collapse | mobile-first — start 1-col, expand |
+| Breakpoints | `max-width: 540px` | `min-width: 640px` / `1024px` |
+| Widest | 2 columns | 3 columns |
+| Needed `!important` | yes | no |
+
+**Fixed:** columns moved out of the inline style into the `.shopper-grid` rule, mobile-first at the vendor's breakpoints — `1fr` → 2 at `640px` → 3 at `1024px`. The `!important` is gone (nothing to override), both dashboards now reflow identically, and the shopper grid gains a 3-column desktop layout it never had.
+
+**Lesson for the rest of this work:** never set `gridTemplateColumns` inline on anything that must respond. Inline styles cannot express media queries and will silently beat any rule that tries.
+
+Elsewhere both use `repeat(auto-fit, minmax(250px, 1fr))`, which is self-responsive and fine.
+
+---
+
+## ⚠️ Three styling systems coexist — pick one before Slice 1
+
+| Approach | Scale | Where |
+|---|---|---|
+| **Inline `style={{}}` + `lib/design-tokens`** | **373 files** | the de-facto standard |
+| Tailwind `className=` | 75 files | minority |
+| Raw `<style>` block + semantic classes | vendor dashboard | the only place media queries live |
+
+**Recommendation: inline styles + design tokens remains the standard** (5:1 dominance, and every shared component already follows it), **with the `<style>`-block escape hatch retained specifically for media queries** — inline styles cannot express them, which is exactly why the vendor dashboard reached for one.
+
+**`shared/MobileNav.tsx` is dead code.** Its only reference anywhere is `app/test-components/page.tsx`. It is also Tailwind-based, unlike the rest. If Slice 4 wants a mobile nav, decide deliberately whether to revive and convert it or delete it — do not assume it is wired up, because it is not.
+
+---
+
+## What "familiar" means concretely
+
+The owner asked for *"the most popular and highly functional dashboards commonly seen across many web apps."* Those converge on a small set of conventions worth matching deliberately:
+
+1. **Persistent primary navigation** — a left rail (desktop) collapsing to a drawer or bottom bar (mobile). The user always knows where they are and what else exists.
+2. **One scannable landing surface per role**, not a wall of everything.
+3. **Cards as uniform containers** — identical chrome, varying content. Difference carries meaning; here it is currently just drift.
+4. **Action-oriented top zone** — what needs attention now, above reference material. The vendor dashboard's operational-first ordering already does this, and `ManagerActionSummary` is the same idea on the manager side.
+5. **Consistent empty states** rather than blank space.
+6. **Predictable density** — one type scale, one spacing rhythm.
+
+The plan already satisfies 3, 4 and 6 once the card system is adopted. **1 is the genuinely open design decision** (see Slice 4), and it interacts with the render-what-you-have choice: with a left rail, Shopper/Partner/Vendor become nav destinations rather than stacked page sections — which is arguably more familiar, and worth weighing against the simpler stacked approach before Slice 3 locks the layout.
+
+---
+
+## Emerging shape of the plan (draft — not yet the final build order)
+
+Based on what the research has established so far, the work looks like four slices, each independently shippable:
+
+**Slice 1 — promote the card system.** Move `ManagerCard`, `CollapsibleSection`, `TabbedCard`, `GroupHeading`, `MANAGER_NAV_OFFSET` out of `components/market-manager/` into a shared home under neutral names. Pure move + re-export; the manager dashboard keeps working untouched. Nothing visual changes. This is the safest possible first commit and everything else depends on it.
+
+**Slice 2 — write the card anatomy spec, then apply it to the vendor dashboard.** Vendor first, not shopper: it has fewer conditional branches and no role-mixing problem, so it is the cleaner place to prove the pattern. Extract each inline `<h3>` block into the shared card. Preserve operational-first ordering.
+
+**Slice 3 — apply to the shopper dashboard and introduce Partner.** Regroup: 🛒 Shopper keeps buyer cards; new **Partner** section absorbs My Markets + My Events; Vendor stays last. All three headings localized. Section visibility driven by the role signals already loaded.
+
+**Slice 4 — navigation.** Revive `MobileNav` as the phone bottom bar (converted off Tailwind), build the desktop/tablet left rail as its wider sibling, and wire both to the role signals. Nav renders only for multi-role users. **Build and test the phone case first.**
+
+**Slice 5 — polish.** Standardized empty states, the card actions slot, and a device pass on the surfaces the mobile-first decision put at risk (starting with the shopper `:589` grid).
+
+Admin surfaces (`/[vertical]/admin`, `/admin`) are **probably a separate system** — they already have `AdminNav` and `AdminSidebar` conventions and serve a different audience. Assess in research before deciding whether they join this effort or get their own pass.
+
+---
+
+## ✅ Owner decisions — 2026-08-05 (all four settled)
+
+1. **Reference shape:** *"the most popular and highly functional dashboards commonly seen across many web apps"* — not merely this app's own precedent, though it can build on it. **Above all: easy to understand and navigate.**
+   **The vendor dashboard is closest to the owner's vision** — but *"its styles and sizes have wavered and varied as the app has grown, so it has become unclear and it would be confusing for a new user."*
+   → **Target = the vendor dashboard's information architecture, with the style drift fixed.** Its structure is right; its visual discipline rotted.
+2. **Section visibility:** **render only what the user has.** No forced accordion. (Owner adopted the alternative.)
+3. **Admin surfaces:** **OUT of scope for now** — `/[vertical]/admin` and `/admin` get their own later effort.
+4. **Depth:** **appearance first, contents revisited afterwards.** Standardize chrome now; card-content redesign is a later, separately-scoped pass.
+
+---
+
+## 🔬 The style drift, measured (2026-08-05)
+
+The owner's "styles and sizes have wavered" is precisely correct, and the numbers name it.
+
+**Card headers — the same UI element, two different sizes depending on which dashboard you're on:**
+
+| Surface | Card header size |
+|---|---|
+| Vendor dashboard (all 11 inline cards) | `typography.sizes.base` |
+| Shopper dashboard (inline cards at `:605, :632, :688, :709`) | `typography.sizes.lg` |
+| `ManagerCard` (the standard) | `typography.sizes.lg` |
+
+The vendor dashboard — the one the owner considers closest to the vision — is the **odd one out**, and it is the surface a new vendor meets first.
+
+**Type scale in use on the vendor dashboard:** `xs` ×19 · `sm` ×23 · `base` ×13 · **`2xl` ×8**
+
+That `2xl` is the smoking gun. `ManagerCard`'s own doc comment warns:
+
+> Cards should NOT reintroduce `2xl`/`xl` body text (**that was the wrapping problem**).
+
+**Session 92 already diagnosed and fixed this exact failure on the manager dashboard.** The vendor dashboard still has it. So the remedy is not a new opinion — it is applying a known, verified fix to the surface that never received it.
+
+**Container geometry is closer to fine** — `padding: spacing.sm` ×13 and `borderRadius: radius.md` ×13 dominate, with a scattering of one-off `2xs`/`3xs`/`md` paddings. Adopting the shared card wrapper absorbs these without a redesign argument.
+
+**Conclusion for the plan:** the vendor dashboard needs *typographic discipline*, not restructuring. That is a mechanical, low-risk change with an existing reference implementation — and it is Slice 2, which the owner has effectively pre-approved by naming appearance first.
+
+---
+
+## ✅ Navigation decision — 2026-08-05
+
+> *"Left nav rail for desktop & tablet. For mobile phones make it easy to navigate and reuse what you can, but not at the expense of confusion for users. **MOST of our users will be on their phone — that is the most important audience.**"*
+
+### 🚨 This inverts the design priority. Mobile is the PRIMARY case, not the fallback.
+
+Design the phone experience first and let desktop be the roomier variant. Do **not** design a rail and then figure out how to shrink it — that is how the phone experience ends up as a compromise, and the phone is where most users live.
+
+**Desktop / tablet:** persistent left nav rail. Shopper / Partner / Vendor become destinations rather than bands you scroll past.
+
+**Phone:** a **bottom tab bar** — thumb-reachable, always visible, and the pattern essentially every consumer app uses (so it needs no explanation). A hamburger drawer was considered and rejected: it hides the fact that other sections exist, which is the exact confusion the owner warned against.
+
+### 🎁 `shared/MobileNav.tsx` is already exactly this — revive it, don't delete it
+
+Open question 2 resolves itself. That "dead" component is a **fixed bottom bar, `md:hidden`, with `pb-safe` / `env(safe-area-inset-bottom)` handling for iPhone home-indicator clearance** — i.e. someone already built the right pattern and it was never wired up. Work needed: convert it from Tailwind to inline styles + design tokens (per the styling decision above), and feed it the role-derived destinations.
+
+### Nav appears ONLY when there is somewhere to go
+
+This follows directly from render-what-you-have, and it matters most on a phone where screen space is scarce:
+
+| User has | Phone | Desktop / tablet |
+|---|---|---|
+| One role | **No nav at all** — just their dashboard | No rail |
+| Two or more roles | Bottom tab bar | Left rail |
+
+A bottom bar with a single tab is noise. Most users have one role and should see no chrome whatsoever.
+
+### Consequences to carry into the build
+
+- ~~The `:589` grid~~ — **already fixed 2026-08-05** (owner: *"ditch the 2 column grid and make it what it needs to be so all dashboards behave the same way"*). Both dashboards are now mobile-first at 640/1024. See the Mobile section for the correction.
+- **The `2xl` type problem is worse on phones**, not better — oversized headings wrap hardest on narrow screens. Slice 2 gets more valuable under a mobile-first lens.
+- **Bottom bar and safe areas:** any fixed bottom nav must reserve space so the last card is not trapped behind it, and must respect `env(safe-area-inset-bottom)`. `MobileNav` already does the second part.
+- **The vendor dashboard's mobile-first `<style>` block (1 → 2 → 3 columns) is the pattern to copy**, not replace. It is already mobile-first, which is now the house rule.
+
+---
+
+## Remaining open questions
+
+1. **Card actions slot** — define a footer/action row in the card spec, or keep buttons loose in `children`? Decide during Slice 2.
+2. **Rail contents beyond the three sections** — does the desktop rail also carry secondary links (settings, notifications, help), or only Shopper/Partner/Vendor? Affects whether the bottom bar needs an overflow affordance.
+
+---
+
+## Status of research
+
+| Area | State |
+|---|---|
+| Surfaces inventory | ✅ complete (admin deliberately out of scope) |
+| Shopper cards | ✅ complete |
+| Vendor cards | ✅ complete |
+| Role detection | ✅ complete — already available, no new work |
+| Card anatomy spec | ✅ derived; 4 gaps listed to close during Slice 2 |
+| Empty / loading states | ✅ complete |
+| Mobile behaviour | ✅ complete — 1 suspected defect to verify on device |
+| Styling systems | ✅ complete — recommendation made |
+| Familiar-dashboard conventions | ✅ complete |
+| Navigation pattern | ✅ decided 2026-08-05 — rail on desktop/tablet, bottom bar on phone, **mobile-first** |
+| **Final build order** | ✅ **5 slices, unblocked** |
+
+**RESEARCH COMPLETE. This plan is ready to implement.** No decision blocks the start. The two remaining open questions are Slice-2 and Slice-4 details to settle in flight, not prerequisites.
+
+Recommended entry point for the implementing session: **Slice 1** — promote `ManagerCard` + siblings into a shared home. Pure move plus re-exports, no visual change, nothing else can proceed without it, and it is the safest possible first commit on the app's highest-traffic authenticated pages.
+
+---
+
+## Change log
+
+- **2026-08-05 (5)** — **First code change shipped ahead of the slices** (owner-authorized): the shopper `.shopper-grid` converted from desktop-first (2 columns, collapse under 540px via `!important`) to mobile-first at the vendor dashboard's breakpoints — `1fr` → 2 at 640 → 3 at 1024. Corrects an earlier claim in this file: the grid was never broken on mobile, it just used the opposite philosophy and needed `!important` because inline `gridTemplateColumns` outranks stylesheet rules. Both dashboards now reflow identically. tsc 0 · 1811/1811.
+- **2026-08-05 (4)** — Navigation decided: left rail on desktop/tablet, bottom tab bar on phone, nav rendered only for multi-role users. **Owner set mobile as the primary audience, which inverts the design order** — phone first, desktop as the roomier variant. `shared/MobileNav.tsx` turns out to be exactly the needed bottom bar (fixed, `md:hidden`, safe-area aware) so it gets revived and converted off Tailwind rather than deleted. Build order finalized at 5 slices. **Plan is now implementation-ready.**
+- **2026-08-05 (3)** — Research phase complete except the final layout decision. Added: card anatomy spec derived from `ManagerCard` (with 4 named gaps), empty-state/loading/mobile survey, the three-styling-systems finding with a recommendation, and what "familiar" means concretely. Two notable discoveries: `shared/MobileNav.tsx` is dead code referenced only by the component test page, and the shopper dashboard has a fixed 2-column grid at `:589` that cannot collapse on mobile. Confirmed the vendor dashboard has the best responsive implementation of the three — more support for the owner's read that it is closest to the vision.
+- **2026-08-05 (2)** — All four owner questions answered and recorded. Measured the style drift: vendor card headers are `base` while shopper and `ManagerCard` use `lg`, and the vendor dashboard still carries 8 uses of `2xl` — the exact "wrapping problem" Session 92 diagnosed and fixed on the manager dashboard. Reframes Slice 2 from "redesign" to "apply a known fix to the surface that never got it." Admin surfaces removed from scope. Card-content redesign deferred to a later pass.
+- **2026-08-05** — File created. Surfaces inventoried; discovered `ManagerCard` + friends are an existing, documented standard, which reframes the work from "design a system" to "extend the one we have." Navigation direction recorded from the 2026-08-04 discussion, including the unresolved accordion question.
