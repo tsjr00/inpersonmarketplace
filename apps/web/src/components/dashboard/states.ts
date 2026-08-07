@@ -19,6 +19,36 @@ import { colors, statusColors } from '@/lib/design-tokens'
  * access-suspended / access-removed pages) but it would render identically to
  * `danger`, so it earns its own state only if testing shows it needs one.
  */
+/**
+ * ⚠ INTENSITY IS A PROPERTY OF THE AUDIENCE, NOT OF THE FEATURE
+ * (owner, 2026-08-07)
+ *
+ * The same feature can warrant a different state depending on who is looking,
+ * because the person being asked is often not the person who benefits. Surveys
+ * are the worked example:
+ *
+ *   · MARKET MANAGERS want survey results from buyers and vendors — it is how
+ *     they fine-tune the market and support grant applications.
+ *   · VENDORS want feedback from buyers.
+ *   · BUYERS are the ones who actually have to fill them in, and are the least
+ *     directly rewarded for doing so — "buyers may not want to fill them out
+ *     unless we remind them enough".
+ *
+ * So the nudge is tuned per audience rather than per feature:
+ *
+ *   | Who sees it | Surface             | State       | Why                    |
+ *   |-------------|---------------------|-------------|------------------------|
+ *   | Buyer       | RateOrderCard       | `attention` | most reluctant, least  |
+ *   |             |                     |             | rewarded, most needed  |
+ *   | Vendor      | PendingSurveysCard  | `active`    | benefit is real but    |
+ *   |             |                     |             | indirect (helps mgr)   |
+ *   | Manager     | —                   | none        | consumes results       |
+ *
+ * Before picking a state, ask **who is looking and what do they get out of
+ * acting** — not just "how important is this feature". Uniform intensity is how
+ * a dashboard flattens into one volume and stops meaning anything, which is the
+ * same failure as the FT all-red palette.
+ */
 export type DashboardState =
   | 'neutral'    // resting. no condition met.
   | 'active'     // something in flight and healthy — you have work today.

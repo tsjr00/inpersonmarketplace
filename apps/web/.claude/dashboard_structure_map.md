@@ -119,16 +119,34 @@ Shell (232 lines): `<h1>` `:176` → `ManagerJumpNav` `:198` → **one of two bo
 | ~~`PendingSurveysCard`~~ | 83 | shopper grid `:1114` | ✅ done 2026-08-07 (tile, `attention` when pending) |
 | ~~`ReferralCard`~~ | 190 | shopper grid `:1114` | ✅ done 2026-08-07 (card, `promo`) |
 | ~~`PaymentMethodsCard`~~ | 585 | vendor `.row-3-grid` | ✅ done 2026-08-07 (card, `inGrid`) |
-| `RateOrderCard` | 423 | shopper, stacked above grid | 🟡 stacked, seam is small |
-| `EventAgreementPickerCard` | 193 | shopper organizer block | 🟡 |
-| `EventBroadcastCard` | 188 | shopper organizer block | 🟡 |
-| `EventRatingsCard` | 138 | shopper organizer block | 🟡 |
-| `PromoteCard` | — | vendor `.promote-grow-grid` | 🟡 alone in its grid, no peers to clash with |
-| 3 inline blocks | — | shopper: Ready for Pickup `~:419`, organizer block, Passion→Profit | 🟡 |
+| ~~`RateOrderCard`~~ | 423 | shopper, stacked above grid | ✅ done 2026-08-07 (tile via `onClick`, `attention`) |
+| ~~`PromoteCard`~~ | 228 | vendor `.promote-grow-grid` | ✅ done 2026-08-07 (card, `inGrid`) |
+| `EventAgreementPickerCard` | 193 | shopper organizer block | 🔵 **not a conversion — see below** |
+| `EventBroadcastCard` | 188 | shopper organizer block | 🔵 **not a conversion — see below** |
+| `EventRatingsCard` | 138 | shopper organizer block | 🔵 **not a conversion — see below** |
+| 2 inline blocks | — | shopper: Ready for Pickup `~:419` (~166 lines, deeply nested), Passion→Profit `:1025` | 🟡 |
+
+### 🔵 The three `Event*Card`s are NOT hand-rolling card chrome
+
+**Correcting an earlier row in this file.** They have **no card wrapper at all** — each is an inline **expand/collapse toggle**: a `<button>` styled as a bare text link (`background: none, border: none, padding: 0`) that opens content in place. They also already use `statusColors.neutral*`, so they are partly on-palette.
+
+So this is **a design decision, not a mechanical conversion.** Under the taxonomy they are expand-in-place behaviour, which means either wrapping each in a `DashboardCard`, or folding all three into one `CollapsibleSection` — and either way the organizer section **visibly restructures** from three inline links into card-shaped objects, with the face rule then requiring each header to state what is inside.
+
+**Recommendation: leave them for the events rebuild.** The owner has said the event pages and dashboards are being rebuilt; restructuring them now would be work done twice. They also take a `primaryColor` prop rather than importing tokens — an oddity worth resolving in that same pass.
 
 **The rule that ranks these:** a component sitting in a grid **beside converted peers** is a visible defect. One in a stacked list is merely inconsistent. **All of the first kind are now done** — everything remaining is the second kind.
 
-⚠️ **One judgment call to review:** `PendingSurveysCard` uses `attention` when surveys are pending. That is semantically right (a task only that vendor can do) but `attention` is the LOUDEST state, and a survey nudge may not deserve the same weight as an unconfirmed order. If the dashboard starts feeling uniformly urgent, this is the first thing to demote.
+### ⚠️ Intensity is a property of the AUDIENCE, not the feature (owner, 2026-08-07)
+
+The person being *asked* is often not the person who *benefits*, so the same feature warrants different volume depending on who is looking. Surveys are the worked example — managers want results (market tuning + grant applications), vendors want buyer feedback, and buyers are the ones who must actually fill them in while getting the least direct reward: *"buyers may not want to fill them out unless we remind them enough."*
+
+| Who sees it | Surface | State | Why |
+|---|---|---|---|
+| **Buyer** | `RateOrderCard` | `attention` | most reluctant, least rewarded, most needed by everyone else |
+| **Vendor** | `PendingSurveysCard` | `active` | benefit is real but indirect — it mainly serves the manager |
+| **Manager** | — | none | consumes the results, is not asked to fill anything |
+
+**Before picking a state, ask who is looking and what they get out of acting** — not just "how important is this feature." Uniform intensity is how a dashboard flattens into one volume and stops meaning anything, which is the same failure mode as the FT all-red palette. Recorded in `components/dashboard/states.ts`.
 
 ---
 

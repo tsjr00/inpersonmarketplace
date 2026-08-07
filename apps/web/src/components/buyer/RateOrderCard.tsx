@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import DashboardTile, { TileBadge } from '@/components/dashboard/DashboardTile'
 import { term } from '@/lib/vertical'
 import Toast, { type ToastType } from '@/components/shared/Toast'
 import { getClientLocale } from '@/lib/locale/client'
@@ -115,54 +116,29 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
 
   return (
     <>
-      {/* Rate Order Card */}
-      <div
+      {/* A TILE whose destination is the rating modal.
+          `attention` — the LOUDEST state — on purpose. Survey intensity is a
+          property of WHO IS LOOKING, not of the feature (owner, 2026-08-07):
+          buyers are the most reluctant audience and the least directly rewarded,
+          yet their ratings are what vendors and managers actually need. So the
+          buyer-facing ask gets the strongest nudge, while the vendor-facing
+          survey card (PendingSurveysCard) sits a tier lower at `active`.
+          This component already self-hides when there is nothing to rate, so it
+          can afford to be loud when it does appear. */}
+      <DashboardTile
         onClick={() => {
           if (firstOrder && firstVendor) {
             setRatingOrder(firstOrder)
             setRatingVendor(firstVendor)
           }
         }}
-        style={{
-          padding: spacing.md,
-          backgroundColor: '#fef3c7',
-          border: '2px solid #f59e0b',
-          borderRadius: radius.lg,
-          cursor: 'pointer',
-          transition: 'box-shadow 0.2s'
-        }}
+        icon="reviews"
+        title={t('review.rate_order', locale)}
+        state="attention"
+        badge={orders.length > 1 ? <TileBadge>{orders.length}</TileBadge> : undefined}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs }}>
-          <span style={{ fontSize: typography.sizes['2xl'] }}>⭐</span>
-          <h3 style={{
-            margin: 0,
-            fontSize: typography.sizes.lg,
-            fontWeight: typography.weights.semibold,
-            color: '#92400e'
-          }}>
-            {t('review.rate_order', locale)}
-          </h3>
-          {orders.length > 1 && (
-            <span style={{
-              backgroundColor: '#f59e0b',
-              color: 'white',
-              padding: `${spacing['3xs']} ${spacing.xs}`,
-              borderRadius: radius.full,
-              fontSize: typography.sizes.xs,
-              fontWeight: typography.weights.bold
-            }}>
-              {orders.length}
-            </span>
-          )}
-        </div>
-        <p style={{
-          margin: 0,
-          fontSize: typography.sizes.sm,
-          color: '#92400e'
-        }}>
-          {t('review.how_was', locale, { vendor: firstVendor?.name || '' })}
-        </p>
-      </div>
+        {t('review.how_was', locale, { vendor: firstVendor?.name || '' })}
+      </DashboardTile>
 
       {/* Rating Modal */}
       {ratingOrder && ratingVendor && (

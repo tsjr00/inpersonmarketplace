@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import ShareButton from '@/components/marketing/ShareButton'
-import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import DashboardCard from '@/components/dashboard/DashboardCard'
 import { defaultBranding } from '@/lib/branding'
 import QRCode from 'qrcode'
 
@@ -60,30 +61,11 @@ export default function PromoteCard({ vendorId, vendorName, vertical }: PromoteC
 
   return (
     <>
-      <div style={{
-        padding: spacing.sm,
-        backgroundColor: colors.surfaceElevated,
-        border: `1px solid ${colors.border}`,
-        borderRadius: radius.md,
-        boxShadow: shadows.sm
-      }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: spacing.xs,
-          marginBottom: spacing.xs
-        }}>
-          <span style={{ fontSize: typography.sizes.xl }}>📣</span>
-          <h3 style={{
-            color: colors.primary,
-            margin: 0,
-            fontSize: typography.sizes.base,
-            fontWeight: typography.weights.semibold
-          }}>
-            Promote Your Business
-          </h3>
-        </div>
-
+      {/* A CARD: sharing links and tools are acted on in place, so the surface
+          is not a single door. `inGrid` — it is the sole occupant of
+          .promote-grow-grid on the vendor dashboard, and a grid child needs
+          height rather than a bottom margin. */}
+      <DashboardCard title="Promote My Business" inGrid>
         {/* Social sharing */}
         <p style={{
           margin: `0 0 ${spacing.xs} 0`,
@@ -185,7 +167,7 @@ export default function PromoteCard({ vendorId, vendorName, vertical }: PromoteC
             </div>
           </div>
         )}
-      </div>
+      </DashboardCard>
 
       {/* Hidden print layout */}
       {showPrintView && (

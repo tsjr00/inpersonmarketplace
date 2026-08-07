@@ -39,15 +39,25 @@ export default async function PendingSurveysCard({
 
   return (
     /* A TILE: the whole surface navigates to /vendor/surveys.
-       `attention` when surveys are pending — a survey is a task only this vendor
-       can complete, which is exactly what that state means. ⚠ It is the loudest
-       state in the system, so if a survey nudge ends up competing with genuinely
-       time-critical things (an unconfirmed order), this is the call to revisit. */
+       `active`, NOT `attention` — survey intensity is a property of WHO IS
+       LOOKING, not of the feature (owner, 2026-08-07). A survey serves whoever
+       reads it more than whoever fills it, so the nudge is tuned per audience:
+         · BUYER  (RateOrderCard)       → `attention`. Most reluctant audience,
+                                          least direct reward, but their ratings
+                                          are what vendors need. Loudest nudge.
+         · VENDOR (this card)           → `active`. Filling a post-market survey
+                                          mainly helps the MARKET MANAGER (tuning
+                                          + grant applications), so the vendor's
+                                          benefit is real but indirect. Visible,
+                                          not alarming.
+         · MANAGER                      → no nudge. They consume the results.
+       Keeping this below `attention` is what stops "you have a task" from
+       flattening into one undifferentiated volume across the dashboard. */
     <DashboardTile
       href={`/${vertical}/vendor/surveys`}
       icon="listings"
       title="My Market Surveys"
-      state={pendingCount > 0 ? 'attention' : 'neutral'}
+      state={pendingCount > 0 ? 'active' : 'neutral'}
       badge={pendingCount > 0 ? <TileBadge>{pendingCount}</TileBadge> : undefined}
     >
       {pendingCount > 0 ? (
