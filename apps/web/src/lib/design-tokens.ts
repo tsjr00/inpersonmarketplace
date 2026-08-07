@@ -55,6 +55,26 @@ export const statusColors = {
   warningLight: '#fffbeb',
   warningBorder: '#fcd34d',
 
+  // Attention — "YOU must act, and nobody else can." Orange-600 family.
+  //
+  // Added 2026-08-07. This tier already existed in practice: the vendor and
+  // shopper dashboards had improvised it as raw hex (#ea580c / #fff7ed, 15 uses)
+  // because none of the tiers below said the right thing. It is deliberately
+  // distinct from its neighbours:
+  //   - `danger` (red)    = broken or blocking. Out of stock. Account at risk.
+  //   - `warning` (amber) = degrading, not broken. Low stock. Rate climbing.
+  //   - `attention`       = nothing is wrong; there is a task with your name on
+  //                         it. An unconfirmed order. An unanswered invitation.
+  //
+  // Keeping this separate from `danger` is the point, not a nicety: the FT
+  // vertical previously leaned on red so heavily that everything looked urgent
+  // and the signal stopped meaning anything (owner, 2026-08-07). Actionable-but-
+  // fine must not look like broken.
+  attention: '#ea580c',
+  attentionDark: '#9a3412',
+  attentionLight: '#fff7ed',
+  attentionBorder: '#fdba74',
+
   info: '#2563eb',
   infoDark: '#1e40af',
   infoLight: '#eff6ff',

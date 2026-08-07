@@ -427,6 +427,91 @@ Recommended entry point for the implementing session: **Slice 1** — promote `M
 
 ---
 
+## 📐 Tile vs Card — standing taxonomy (owner-agreed 2026-08-07)
+
+**Canonical copy lives in `docs/Codebase_Map/22_Components_UI.md`** (that is where a new engineer is sent). Summary here so the plan is self-contained:
+
+Two levels — **groups** organize (`GroupHeading`, `CollapsibleSection`, and `TabbedCard`, which is misnamed), **units** hold (**tiles**, **cards**). Nothing nests deeper.
+
+- **Tile = a door.** Whole surface clickable, you leave the page. Grid, equal height. Icon + short label + usually one line. **Must show its status without being clicked.**
+- **Card = a room.** Content lives here. Full width, stacked. **The card itself is never clickable** — buttons go inside.
+- **Collapsible** and **tabbed** are *behaviours on cards*, not separate unit types.
+
+**The face rule:** *the face answers "does this need me?", the inside answers "what do I do about it?"* Status/counts/warnings visible; controls and detail behind the lid. **If the face line can't be written in ~8 words, the card is doing too much — split it.**
+
+**Ambiguity test:** does clicking the whole thing take me elsewhere? Yes → tile. No → card (plain / collapsible / tabbed).
+
+**Never:** tile inside a card · card clickable as a whole · collapse with unreadable state · form or list inside a tile.
+
+**Origin — the owner's example, verified 2026-08-07:** `[vertical]/vendor/markets/page.tsx` is 614 lines + `EventMarketsSection` 274 + `MarketSuggestionSection` 529 + `PrivatePickupSection` 559 ≈ **2,000 lines**, with raw numeric font sizes (`28`/`20`/`16`/`15`) bypassing design tokens entirely. Owner: *"a ton of functionality got crammed into a space and over time the space & visual organization became confusing so it's now a weakness instead of highlighting great functionality… but all (or almost all) the functionality is related and makes sense to be together."* Correct on both halves — the grouping is right, the prioritization never happened. **Fixing that page is Slice 3+ scope, deliberately NOT folded into Slice 2.** Owner noted the pick list is a candidate to move out.
+
+---
+
+## ✅ Slice 2 — BUILT 2026-08-07 (UNCOMMITTED)
+
+Owner chose **option A** (semantic states mapped to the shared palette), approved `pending`, deferred `suspended`/`revoked`, and approved moving Your Events full-width. Built as presented.
+
+**Gates:** `tsc --noEmit` **0** · full suite **1811/1811 (70 files)** · `npm run lint` **still exactly 1 error**, the same pre-existing `EventRequestForm.tsx:241` — Slice 2 introduced none.
+
+**New:** `components/dashboard/DashboardTile.tsx` (+ `TileBadge`) · `components/dashboard/states.ts` (`DashboardState` + `DASHBOARD_STATES`) · `statusColors.attention*` in `lib/design-tokens.ts`.
+
+**Shared vocabulary, not two systems:** the state palette lives in `states.ts` and is consumed by BOTH `DashboardTile` and `DashboardCard`. `DashboardCard` gained `state` (defaults `neutral` = existing chrome, so the manager dashboard is untouched) and `inGrid`.
+
+**Converted on the vendor dashboard:** 9 tiles → `DashboardTile` · 4 cards → `DashboardCard` · headers `base` → `lg` (via the components) · page title `2xl` → `xl` · emoji left at `2xl` (single glyphs cannot wrap) · **Your Events moved full-width below the tile grid**.
+
+**Card titles stay `colors.textPrimary`** rather than taking the state colour — this keeps the manager dashboard (the reference implementation) pixel-identical. State reads through background + border.
+
+### Two refinements the build forced
+
+1. **The taxonomy needed the size clause after all.** "Analytics & Insights" is a *card* (two destinations, so it cannot be one door) but it is only two links tall and belongs in the grid. Hence `DashboardCard inGrid`. **The rule is now content weight, not type: more than one internal section ⇒ full width.** That is why Your Events moved and Analytics did not.
+2. **`attention` vs `danger` had to be a real separation** — see the FT-red note in `design-tokens.ts`. Actionable-but-fine must not look like broken.
+
+### ⚠ Carried into Slice 3
+
+The **shopper dashboard still holds its share of the 38 raw hex values.** The vendor side is clean; the shopper side is not, and it has the same tile/card mix. Slice 3 does that conversion.
+
+Pre-existing and NOT touched (flagged, not silently deleted): `vendor/dashboard/page.tsx` has three unused imports predating this work — `formatPrice`, `UpcomingPickupItem`, `ExternalPaymentBanner`. They may be breadcrumbs for disabled features, so they are the owner's call. `shadows` became unused *because of* Slice 2 and was removed.
+
+---
+
+## 🛑 Slice 2 — the pre-build analysis (2026-08-07, superseded by the build above)
+
+Read the whole vendor dashboard before converting anything. **Slice 2 is not the mechanical extraction this plan described** — it requires designing a tile state/variant system, which is a shape change from what was approved. No code was changed. Presented to owner instead of built (change-discipline · Design Fidelity).
+
+### The finding: every tile carries bespoke state-driven color
+
+The 9 tiles are not 9 copies of one thing. Each encodes its own conditional palette:
+
+| Tile | States | Colors used |
+|---|---|---|
+| Pickup Mode | 1 | `primaryLight` |
+| Upcoming Pickups | 2 | `primaryLight` + 2px primary when pickups exist |
+| Orders | 2 | `#fff7ed` + **3px** `#ea580c` + glow `rgba(234,88,12,.2)` when attention needed |
+| Your Listings | **3** | `#fef2f2`/`#fecaca` (red) · `#fffbeb`/`#fde68a` (amber) · neutral |
+| Market Boxes | 2 | `#f9fafb`/`#d1d5db` when tier-locked |
+| Booth / Park Bookings | 1 each | neutral |
+| Analytics · Reviews | 1 each | neutral |
+
+Cards are the same story: **Your Events** has 3 states (invitations → orange, today → primaryLight, else neutral) and **Business Profile** has 3 (`cancellationWarningLevel` red/orange/none).
+
+### ⚠ The real defect underneath: a documented convention is being violated
+
+`lib/design-tokens.ts:41` says verbatim: *"Use these for error/success/warning/info states instead of hardcoded hex."* It then defines a full semantic palette — `danger` `#dc2626` · `dangerLight` `#fef2f2` · `dangerBorder` `#fca5a5` · `warning` `#d97706` · `warningLight` `#fffbeb` · `warningBorder` `#fcd34d` · plus success and info.
+
+**The vendor dashboard hardcodes those exact values as raw hex instead of importing them**, and additionally introduces a *second* orange family (`#ea580c` / `#fff7ed` / `#fde68a`) that duplicates the warning role at different values. So "warning" currently renders as two different ambers depending on which tile you look at. That is the measurable form of the owner's *"styles and sizes have wavered."*
+
+### The decision the owner must make
+
+- **(A) Semantic variants — recommended.** `DashboardTile` takes `tone: 'neutral' | 'active' | 'attention' | 'danger' | 'locked'`, mapped to the **existing `statusColors` palette**. Genuinely standardizes; kills the duplicate orange. **Visible consequence:** tiles currently on `#ea580c`/`#fff7ed` shift to the canonical `warning` amber. Not invisible — that IS the drift being fixed, but the owner should approve a visible color change rather than discover it.
+- **(B) Pass-through colors.** Component accepts explicit colors; pixel-identical to today. Standardizes nothing — same drift with extra indirection.
+- **(C) Hybrid.** Semantic tones plus an escape hatch for genuine one-offs.
+
+### ⚠ Taxonomy exception found within minutes of writing the taxonomy
+
+**Your Events** (`page.tsx:614-772`) is a *card* that renders **inside the row-1 grid**, not full-width stacked. The rule as written says cards are full width and stacked. Either the rule needs a "cards may sit in a grid when they are peers of tiles" clause, or this one becomes full-width. Owner's call; flagged rather than silently resolved.
+
+---
+
 ## ✅ Slice 1 — built 2026-08-07 (UNCOMMITTED)
 
 **Gates:** `tsc --noEmit` **0 errors** · full suite **1811/1811 green (70 files)**, incl. `codebase-map-coverage.test.ts` · `npm run lint` clean for this change (see pre-existing error below).

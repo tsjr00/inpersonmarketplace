@@ -12,7 +12,13 @@ Session focus is **Slices 1 & 2** of `apps/web/.claude/dashboard_redesign_plan.m
 
 **⚠ Parked, not mine to fix:** pre-existing lint error at `components/events/EventRequestForm.tsx:241` (`react-hooks/set-state-in-effect`). Exists on `00f234c8`; pre-commit won't block it (lint-staged only) but **CI lints everything**.
 
-**Next:** Slice 2 — apply the card wrapper + typography discipline to the vendor dashboard (8 uses of `2xl`, card headers at `base` instead of `lg`).
+**Slice 2 done too.** `DashboardTile` + `states.ts` (7 semantic states shared by tile AND card) + `statusColors.attention` in design-tokens. Vendor dashboard: 9 tiles + 4 cards converted, headers `base`→`lg`, title `2xl`→`xl`, emoji untouched, Your Events moved full-width. tsc 0 · 1811/1811 · lint unchanged at 1 pre-existing error.
+
+**⚠ The plan's "8 × 2xl = the wrapping problem" claim was WRONG** — 7 of those 8 are emoji icons (single glyphs cannot wrap) and 1 is the page `<h1>`. The real drift was card headers at `base` and 38 raw hex values bypassing the token palette.
+
+**Tile vs Card taxonomy is now the standing vocabulary** — canonical copy in `docs/Codebase_Map/22_Components_UI.md`. Tile = a door (click, you leave). Card = a room (content lives here). Face rule: *the face answers "does this need me?", the inside answers "what do I do about it?"* — 8-word limit or split the card. A SMALL card may sit in a grid (`inGrid`); more than one internal section ⇒ full width.
+
+**Next:** Slice 3 — shopper dashboard + the Partner section. **It still carries its share of the raw hex**, same tile/card mix as vendor had. Then Slice 4 (nav: bottom bar on phone, left rail on desktop) and Slice 5 (polish).
 
 ## ⏱️ SESSION HANDOFF (2026-08-02)
 

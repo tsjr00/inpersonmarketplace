@@ -13,7 +13,9 @@ import OnboardingChecklist from '@/components/vendor/OnboardingChecklist'
 import { DashboardNotifications } from '@/components/notifications/DashboardNotifications'
 import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import { formatPrice } from '@/lib/pricing'
-import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { colors, spacing, typography, radius, containers, statusColors } from '@/lib/design-tokens'
+import DashboardCard from '@/components/dashboard/DashboardCard'
+import DashboardTile, { TileBadge } from '@/components/dashboard/DashboardTile'
 import { term } from '@/lib/vertical'
 import { getTierLimits, getFtTierExtras } from '@/lib/vendor-limits'
 import UpcomingPickupItem from './UpcomingPickupItem'
@@ -375,10 +377,13 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           paddingBottom: spacing.sm,
           borderBottom: `2px solid ${colors.primary}`
         }}>
+          {/* Page title sits at `xl` per the 4-size scale (title xl · headers lg ·
+              body sm · meta xs). The emoji inside tiles stay at 2xl — a single
+              glyph cannot wrap, so the size ban applies to text, not artwork. */}
           <h1 style={{
             color: colors.primary,
             margin: 0,
-            fontSize: typography.sizes['2xl'],
+            fontSize: typography.sizes.xl,
             fontWeight: typography.weights.bold
           }}>
             {term(vertical, 'vendor_dashboard_nav')}
@@ -415,112 +420,56 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
         }}>
           {/* Pickup Mode - Quick mobile-friendly order lookup (hidden pre-approval) */}
           {vendorProfile.status === 'approved' && (
-          <Link
-            href={`/${vertical}/vendor/pickup`}
-            style={{ textDecoration: 'none' }}
-          >
-            <div style={{
-              padding: spacing.sm,
-              backgroundColor: colors.primaryLight,
-              color: colors.textPrimary,
-              border: `1px solid ${colors.primary}`,
-              borderRadius: radius.md,
-              cursor: 'pointer',
-              height: '100%',
-              boxShadow: shadows.sm
-            }}>
-              <h3 style={{
-                color: colors.primaryDark,
-                margin: `0 0 ${spacing['2xs']} 0`,
-                fontSize: typography.sizes.base,
-                fontWeight: typography.weights.semibold
-              }}>
-                Pickup Mode
-              </h3>
-              <p style={{ color: colors.primaryDark, margin: 0, fontSize: typography.sizes.sm }}>
-                Mobile-friendly view for market day fulfillment
-              </p>
-            </div>
-          </Link>
+            <DashboardTile
+              href={`/${vertical}/vendor/pickup`}
+              title="Pickup Mode"
+              state="active"
+            >
+              Mobile-friendly view for market day fulfillment
+            </DashboardTile>
           )}
 
-          {/* Upcoming Pickups — compact card (hidden pre-approval) */}
+          {/* Upcoming Pickups — compact tile (hidden pre-approval) */}
           {vendorProfile.status === 'approved' && (
-          <Link
-            href={`/${vertical}/vendor/upcoming`}
-            style={{ textDecoration: 'none' }}
-          >
-            <div style={{
-              padding: spacing.sm,
-              backgroundColor: upcomingPickups.length > 0 ? colors.primaryLight : colors.surfaceElevated,
-              color: colors.textPrimary,
-              border: upcomingPickups.length > 0 ? `2px solid ${colors.primary}` : `1px solid ${colors.border}`,
-              borderRadius: radius.md,
-              cursor: 'pointer',
-              height: '100%',
-              boxShadow: shadows.sm
-            }}>
-              <h3 style={{
-                color: upcomingPickups.length > 0 ? colors.primaryDark : colors.primary,
-                margin: `0 0 ${spacing['2xs']} 0`,
-                fontSize: typography.sizes.base,
-                fontWeight: typography.weights.semibold
-              }}>
-                Upcoming Pickups
-              </h3>
-              {vendorProfile.status !== 'approved' ? (
-                <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.textMuted }}>
-                  Available after approval
-                </p>
-              ) : upcomingPickups.length === 0 ? (
-                <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.textSecondary }}>
-                  Prep lists, pick tickets &amp; order details for each pickup day
-                </p>
+            <DashboardTile
+              href={`/${vertical}/vendor/upcoming`}
+              title="Upcoming Pickups"
+              state={upcomingPickups.length > 0 ? 'active' : 'neutral'}
+            >
+              {upcomingPickups.length === 0 ? (
+                'Prep lists, pick tickets & order details for each pickup day'
               ) : (() => {
                 const today = new Date().toISOString().split('T')[0]
                 const todayCount = upcomingPickups.filter(p => p.pickup_date === today)
                 const totalItems = upcomingPickups.reduce((sum, p) => sum + p.item_count, 0)
                 const locationCount = new Set(upcomingPickups.map(p => p.market_id)).size
                 return (
-                  <div>
+                  <>
                     {todayCount.length > 0 && (
                       <p style={{
                         margin: `0 0 ${spacing['3xs']} 0`,
-                        fontSize: typography.sizes.sm,
                         fontWeight: typography.weights.bold,
                         color: colors.primaryDark,
                       }}>
                         Today: {todayCount.reduce((s, p) => s + p.item_count, 0)} item{todayCount.reduce((s, p) => s + p.item_count, 0) !== 1 ? 's' : ''} at {todayCount.length} location{todayCount.length !== 1 ? 's' : ''}
                       </p>
                     )}
-                    <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.textSecondary }}>
+                    <p style={{ margin: 0 }}>
                       {upcomingPickups.length} pickup{upcomingPickups.length !== 1 ? 's' : ''} · {locationCount} location{locationCount !== 1 ? 's' : ''} · {totalItems} item{totalItems !== 1 ? 's' : ''} this week
                     </p>
-                  </div>
+                  </>
                 )
               })()}
-            </div>
-          </Link>
+            </DashboardTile>
           )}
 
-          {/* Manage Locations - shows list of locations */}
-          <div style={{
-            padding: spacing.sm,
-            backgroundColor: colors.surfaceElevated,
-            color: colors.textPrimary,
-            border: `1px solid ${colors.border}`,
-            borderRadius: radius.md,
-            boxShadow: shadows.sm
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
-              <h3 style={{
-                color: colors.primary,
-                margin: 0,
-                fontSize: typography.sizes.base,
-                fontWeight: typography.weights.semibold
-              }}>
-                Manage Locations
-              </h3>
+          {/* Manage Locations — a CARD, not a tile: you act inside it (check in,
+              open the log, jump to a specific location) rather than the whole
+              surface being one door. See the tile/card taxonomy in
+              docs/Codebase_Map/22_Components_UI.md. */}
+          <DashboardCard
+            title="Manage Locations"
+            headerAccessory={
               <Link
                 href={`/${vertical}/vendor/markets`}
                 style={{
@@ -534,8 +483,8 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               >
                 Edit
               </Link>
-            </div>
-
+            }
+          >
             <MarketCheckInPrompt vertical={vertical} />
 
             {/* FT compliance (P3b): link to the exportable location log. */}
@@ -606,10 +555,20 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                 )}
               </div>
             )}
-          </div>
+          </DashboardCard>
+        </div>
 
         {/* ============================================= */}
         {/* YOUR EVENTS — only for event-approved vendors  */}
+        {/* Full-width CARD placed BELOW the tile grid, not inside it (2026-08-07).
+            It was previously a grid cell, which is why five sections — Action
+            Needed / Today / Upcoming / Backup / Past — were fighting over a
+            third of a row. It is a card by definition (you respond to
+            invitations inside it), and cards are full-width and stacked.
+            Kept as a card rather than demoted to a tile because event
+            invitations are time-sensitive and must not sit one click away
+            behind a badge. Trimming which sections earn the front is a CONTENT
+            decision, deferred to the events rebuild. */}
         {/* ============================================= */}
         {vendorProfile.event_approved && vendorProfile.status === 'approved' && (() => {
           const todayStr = new Date().toISOString().split('T')[0]
@@ -634,42 +593,15 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           }
 
           return (
-            <div style={{
-              padding: spacing.sm,
-              backgroundColor: invitations.length > 0 ? '#fff7ed' : todayEvents.length > 0 ? colors.primaryLight : colors.surfaceElevated,
-              border: invitations.length > 0 ? '2px solid #ea580c' : todayEvents.length > 0 ? `2px solid ${colors.primary}` : `1px solid ${colors.border}`,
-              borderRadius: radius.md,
-              boxShadow: shadows.sm,
-              marginBottom: spacing.md,
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
-                <h3 style={{
-                  color: colors.primary,
-                  margin: 0,
-                  fontSize: typography.sizes.base,
-                  fontWeight: typography.weights.semibold,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: spacing['2xs'],
-                }}>
-                  🎪 Your Events
-                  {invitations.length > 0 && (
-                    <span style={{
-                      backgroundColor: '#ea580c',
-                      color: 'white',
-                      fontSize: typography.sizes.xs,
-                      fontWeight: typography.weights.bold,
-                      padding: `1px ${spacing['2xs']}`,
-                      borderRadius: radius.full,
-                      minWidth: '20px',
-                      textAlign: 'center',
-                    }}>
-                      {invitations.length}
-                    </span>
-                  )}
-                </h3>
-              </div>
-
+            <DashboardCard
+              title="🎪 Your Events"
+              state={invitations.length > 0 ? 'attention' : todayEvents.length > 0 ? 'active' : 'neutral'}
+              headerAccessory={
+                invitations.length > 0
+                  ? <TileBadge>{invitations.length}</TileBadge>
+                  : undefined
+              }
+            >
               {!hasContent ? (
                 <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.textMuted }}>
                   No event invitations yet. When organizers request food trucks, you&apos;ll see invitations here.
@@ -767,11 +699,9 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                   )}
                 </div>
               )}
-            </div>
+            </DashboardCard>
           )
         })()}
-
-        </div>
 
         {/* ============================================= */}
         {/* ROW 2: Daily Ops - Orders, Listings, Market Boxes */}
@@ -781,218 +711,88 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           gap: spacing.sm,
           marginBottom: spacing.md
         }}>
-          {/* Orders - highlight if there are unconfirmed handoffs (hidden pre-approval) */}
+          {/* Orders — `attention` when handoffs are unconfirmed: nothing is broken,
+              there is simply a task only this vendor can do. (hidden pre-approval) */}
           {vendorProfile.status === 'approved' && (
-          <Link
-            href={`/${vertical}/vendor/orders`}
-            style={{ textDecoration: 'none' }}
-          >
-            <div style={{
-              padding: spacing.sm,
-              backgroundColor: ordersNeedingAttention > 0 ? '#fff7ed' : colors.surfaceElevated,
-              color: colors.textPrimary,
-              border: ordersNeedingAttention > 0 ? '3px solid #ea580c' : `1px solid ${colors.border}`,
-              borderRadius: radius.md,
-              cursor: 'pointer',
-              height: '100%',
-              minHeight: 120,
-              boxShadow: ordersNeedingAttention > 0 ? '0 0 0 3px rgba(234, 88, 12, 0.2)' : shadows.sm
-            }}>
-              <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>🧾</div>
-              <h3 style={{
-                color: colors.primary,
-                margin: `0 0 ${spacing['2xs']} 0`,
-                fontSize: typography.sizes.base,
-                fontWeight: typography.weights.semibold
-              }}>
-                Orders
-                {ordersNeedingAttention > 0 && (
-                  <span style={{
-                    marginLeft: spacing.xs,
-                    backgroundColor: '#ea580c',
-                    color: 'white',
-                    padding: `2px ${spacing.xs}`,
-                    borderRadius: radius.full,
-                    fontSize: typography.sizes.xs,
-                    fontWeight: typography.weights.bold,
-                    verticalAlign: 'middle'
-                  }}>
-                    {ordersNeedingAttention}
-                  </span>
-                )}
-              </h3>
-              <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
-                {ordersNeedingAttention > 0 ? (
-                  <>
-                    {pendingOrdersToConfirm > 0 && `${pendingOrdersToConfirm} to confirm`}
-                    {pendingOrdersToConfirm > 0 && needsFulfillment > 0 && ' • '}
-                    {needsFulfillment > 0 && `${needsFulfillment} to fulfill`}
-                  </>
-                ) : 'Manage incoming orders from customers'}
-              </p>
-            </div>
-          </Link>
+            <DashboardTile
+              href={`/${vertical}/vendor/orders`}
+              icon="🧾"
+              title="Orders"
+              state={ordersNeedingAttention > 0 ? 'attention' : 'neutral'}
+              badge={ordersNeedingAttention > 0 ? <TileBadge>{ordersNeedingAttention}</TileBadge> : undefined}
+            >
+              {ordersNeedingAttention > 0 ? (
+                <>
+                  {pendingOrdersToConfirm > 0 && `${pendingOrdersToConfirm} to confirm`}
+                  {pendingOrdersToConfirm > 0 && needsFulfillment > 0 && ' • '}
+                  {needsFulfillment > 0 && `${needsFulfillment} to fulfill`}
+                </>
+              ) : 'Manage incoming orders from customers'}
+            </DashboardTile>
           )}
 
-          {/* Your Listings - with stock warnings on the card */}
-          <Link
+          {/* Your Listings — `danger` when something is unsellable (out of stock),
+              `warning` when it is merely degrading (low stock). The distinction is
+              the point: red must stay rare enough to mean something. */}
+          <DashboardTile
             href={`/${vertical}/vendor/listings`}
-            style={{ textDecoration: 'none' }}
+            icon="📋"
+            title="Your Listings"
+            state={stockWarningLevel === 'red' ? 'danger' : stockWarningLevel === 'orange' ? 'warning' : 'neutral'}
+            badge={draftCount > 0 ? <TileBadge tone="primary">{draftCount} draft{draftCount > 1 ? 's' : ''}</TileBadge> : undefined}
           >
-            <div style={{
-              padding: spacing.sm,
-              backgroundColor: stockWarningLevel === 'red' ? '#fef2f2' : stockWarningLevel === 'orange' ? '#fffbeb' : colors.surfaceElevated,
-              color: colors.textPrimary,
-              border: `${stockWarningLevel ? '2px' : '1px'} solid ${stockWarningLevel === 'red' ? '#fecaca' : stockWarningLevel === 'orange' ? '#fde68a' : colors.border}`,
-              borderRadius: radius.md,
-              cursor: 'pointer',
-              height: '100%',
-              minHeight: 120,
-              boxShadow: shadows.sm
-            }}>
-              <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>📋</div>
-              <h3 style={{
-                color: colors.primary,
-                margin: `0 0 ${spacing['2xs']} 0`,
-                fontSize: typography.sizes.base,
-                fontWeight: typography.weights.semibold
-              }}>
-                Your Listings
-                {draftCount > 0 && (
-                  <span style={{
-                    marginLeft: spacing.xs,
-                    backgroundColor: colors.primary,
-                    color: 'white',
-                    padding: `2px ${spacing.xs}`,
-                    borderRadius: radius.full,
-                    fontSize: typography.sizes.xs,
-                    fontWeight: typography.weights.bold,
-                    verticalAlign: 'middle'
-                  }}>
-                    {draftCount} draft{draftCount > 1 ? 's' : ''}
-                  </span>
-                )}
-              </h3>
-              <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
-                {outOfStockCount > 0
-                  ? <span style={{ color: '#dc2626', fontWeight: typography.weights.medium }}>{outOfStockCount} out of stock{lowStockCount > 0 ? ` · ${lowStockCount} low` : ''}</span>
-                  : lowStockCount > 0
-                    ? <span style={{ color: '#d97706', fontWeight: typography.weights.medium }}>{lowStockCount} low on stock</span>
-                    : `Create and manage your ${term(vertical, 'listings').toLowerCase()}`}
-              </p>
-            </div>
-          </Link>
+            {outOfStockCount > 0
+              ? <span style={{ color: statusColors.danger, fontWeight: typography.weights.medium }}>{outOfStockCount} out of stock{lowStockCount > 0 ? ` · ${lowStockCount} low` : ''}</span>
+              : lowStockCount > 0
+                ? <span style={{ color: statusColors.warning, fontWeight: typography.weights.medium }}>{lowStockCount} low on stock</span>
+                : `Create and manage your ${term(vertical, 'listings').toLowerCase()}`}
+          </DashboardTile>
 
           {/* Market Boxes (hidden pre-approval) */}
           {vendorProfile.status === 'approved' && (() => {
             const mbLimit = getTierLimits(vendorProfile.tier || 'free', vertical).marketBoxes
             const isLocked = mbLimit === 0
             return (
-              <Link
+              <DashboardTile
                 href={`/${vertical}/vendor/market-boxes`}
-                style={{ textDecoration: 'none' }}
+                icon="📦"
+                title={term(vertical, 'market_boxes')}
+                state={isLocked ? 'locked' : 'neutral'}
               >
-                <div style={{
-                  padding: spacing.sm,
-                  backgroundColor: isLocked ? '#f9fafb' : colors.surfaceElevated,
-                  color: colors.textPrimary,
-                  border: `1px solid ${isLocked ? '#d1d5db' : colors.border}`,
-                  borderRadius: radius.md,
-                  cursor: 'pointer',
-                  height: '100%',
-                  minHeight: 120,
-                  boxShadow: shadows.sm
-                }}>
-                  <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>📦</div>
-                  <h3 style={{
-                    color: isLocked ? colors.textSecondary : colors.primary,
-                    margin: `0 0 ${spacing['2xs']} 0`,
-                    fontSize: typography.sizes.base,
-                    fontWeight: typography.weights.semibold
-                  }}>
-                    {term(vertical, 'market_boxes')}
-                  </h3>
-                  {isLocked ? (
-                    <p style={{ color: '#d97706', margin: 0, fontSize: typography.sizes.sm, fontWeight: typography.weights.medium }}>
-                      Upgrade to Basic or higher to offer {term(vertical, 'market_boxes')}
-                    </p>
-                  ) : (
-                    <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
-                      Offer four or eight week pre-paid {term(vertical, 'market_boxes').toLowerCase()}
-                    </p>
-                  )}
-                </div>
-              </Link>
+                {isLocked ? (
+                  <span style={{ color: statusColors.warning, fontWeight: typography.weights.medium }}>
+                    Upgrade to Basic or higher to offer {term(vertical, 'market_boxes')}
+                  </span>
+                ) : (
+                  `Offer four or eight week pre-paid ${term(vertical, 'market_boxes').toLowerCase()}`
+                )}
+              </DashboardTile>
             )
           })()}
 
           {/* Booth Bookings — FM-only (booth rentals only exist on FM markets
               per Phase C scope). Vendor-facing read of weekly_booth_rentals. */}
           {vertical === 'farmers_market' && (
-            <Link
+            <DashboardTile
               href={`/${vertical}/vendor/bookings`}
-              style={{ textDecoration: 'none' }}
+              icon="🪑"
+              title="My Booth Bookings"
             >
-              <div style={{
-                padding: spacing.sm,
-                backgroundColor: colors.surfaceElevated,
-                color: colors.textPrimary,
-                border: `1px solid ${colors.border}`,
-                borderRadius: radius.md,
-                cursor: 'pointer',
-                height: '100%',
-                minHeight: 120,
-                boxShadow: shadows.sm,
-              }}>
-                <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>🪑</div>
-                <h3 style={{
-                  color: colors.primary,
-                  margin: `0 0 ${spacing['2xs']} 0`,
-                  fontSize: typography.sizes.base,
-                  fontWeight: typography.weights.semibold,
-                }}>
-                  My Booth Bookings
-                </h3>
-                <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
-                  Weekly booth rentals at managed markets
-                </p>
-              </div>
-            </Link>
+              Weekly booth rentals at managed markets
+            </DashboardTile>
           )}
 
           {/* Park Bookings — FT-only sibling of the booth card (tester finding
               P9, 2026-07-15: trucks had NO surface listing their paid park
               spots with dates). Vendor-facing read of park_spot_bookings. */}
           {vertical === 'food_trucks' && (
-            <Link
+            <DashboardTile
               href={`/${vertical}/vendor/park-bookings`}
-              style={{ textDecoration: 'none' }}
+              icon="🅿️"
+              title="My Park Bookings"
             >
-              <div style={{
-                padding: spacing.sm,
-                backgroundColor: colors.surfaceElevated,
-                color: colors.textPrimary,
-                border: `1px solid ${colors.border}`,
-                borderRadius: radius.md,
-                cursor: 'pointer',
-                height: '100%',
-                minHeight: 120,
-                boxShadow: shadows.sm,
-              }}>
-                <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>🅿️</div>
-                <h3 style={{
-                  color: colors.primary,
-                  margin: `0 0 ${spacing['2xs']} 0`,
-                  fontSize: typography.sizes.base,
-                  fontWeight: typography.weights.semibold,
-                }}>
-                  My Park Bookings
-                </h3>
-                <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
-                  Your booked park spots — dates, spot, and status
-                </p>
-              </div>
-            </Link>
+              Your booked park spots — dates, spot, and status
+            </DashboardTile>
           )}
         </div>
 
@@ -1005,30 +805,13 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           gap: spacing.sm,
           marginBottom: spacing.md
         }}>
-          {/* Business Profile */}
-          <div style={{
-            padding: spacing.sm,
-            backgroundColor: cancellationWarningLevel === 'red' ? '#fef2f2' : cancellationWarningLevel === 'orange' ? '#fff7ed' : colors.surfaceElevated,
-            color: colors.textPrimary,
-            border: `${cancellationWarningLevel ? '2px' : '1px'} solid ${cancellationWarningLevel === 'red' ? '#dc2626' : cancellationWarningLevel === 'orange' ? '#ea580c' : colors.border}`,
-            borderRadius: radius.md,
-            boxShadow: shadows.sm
-          }}>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
-              marginBottom: spacing.xs,
-              gap: spacing['2xs']
-            }}>
-              <h3 style={{
-                color: colors.primary,
-                margin: 0,
-                fontSize: typography.sizes.base,
-                fontWeight: typography.weights.semibold
-              }}>
-                Business Profile
-              </h3>
+          {/* Business Profile — `danger` at the cancellation threshold, `warning`
+              while the rate is merely climbing. A CARD: you edit and preview from
+              inside it rather than the whole surface being one door. */}
+          <DashboardCard
+            title="Business Profile"
+            state={cancellationWarningLevel === 'red' ? 'danger' : cancellationWarningLevel === 'orange' ? 'warning' : 'neutral'}
+            headerAccessory={
               <div style={{ display: 'flex', gap: spacing.xs, alignItems: 'center' }}>
                 <Link
                   href={`/${vertical}/vendor/${vendorProfile.id}/profile`}
@@ -1047,8 +830,8 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                 </Link>
                 <EditProfileButton vertical={vertical} />
               </div>
-            </div>
-
+            }
+          >
             <div style={{ fontSize: typography.sizes.sm }}>
               <p style={{ margin: 0, fontWeight: typography.weights.medium }}>
                 {(profileData.business_name as string) || (profileData.farm_name as string) || 'Not provided'}
@@ -1092,16 +875,16 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                 <div style={{
                   margin: `${spacing.xs} 0 0 0`,
                   padding: spacing.xs,
-                  backgroundColor: '#fffbeb',
-                  border: '1px solid #fde68a',
+                  backgroundColor: statusColors.warningLight,
+                  border: `1px solid ${statusColors.warningBorder}`,
                   borderRadius: radius.sm,
                   fontSize: typography.sizes.xs,
-                  color: '#92400e',
+                  color: statusColors.warningDark,
                 }}>
                   <span style={{ fontWeight: typography.weights.semibold }}>
                     Profile {Math.round((completed / checks.length) * 100)}% complete
                   </span>
-                  <span style={{ color: '#78350f' }}>
+                  <span style={{ color: statusColors.warningDark }}>
                     {' — Add '}
                     {missing.map((m, i) => (
                       <span key={m.label}>
@@ -1120,7 +903,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               <p style={{
                 margin: `${spacing.xs} 0 0 0`,
                 fontSize: typography.sizes.xs,
-                color: cancellationWarningLevel === 'red' ? '#991b1b' : '#9a3412',
+                color: cancellationWarningLevel === 'red' ? statusColors.dangerDark : statusColors.attentionDark,
                 fontWeight: typography.weights.medium,
                 lineHeight: 1.4
               }}>
@@ -1130,7 +913,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                   : ' Confirming an order is a commitment to fulfill it.'}
               </p>
             )}
-          </div>
+          </DashboardCard>
 
           {/* Payments & Earnings (combined card) */}
           <PaymentMethodsCard
@@ -1157,25 +940,10 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               : 'basic' // FM vendors get basic by default
             const isInsightsLocked = false // All tiers get at least 'basic' insights
             return (
-              <div style={{
-                padding: spacing.sm,
-                backgroundColor: colors.surfaceElevated,
-                color: colors.textPrimary,
-                border: `1px solid ${colors.border}`,
-                borderRadius: radius.md,
-                height: '100%',
-                minHeight: 120,
-                boxShadow: shadows.sm
-              }}>
-                <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>📊</div>
-                <h3 style={{
-                  color: colors.primary,
-                  margin: `0 0 ${spacing.xs} 0`,
-                  fontSize: typography.sizes.base,
-                  fontWeight: typography.weights.semibold
-                }}>
-                  Analytics &amp; Insights
-                </h3>
+              /* A CARD, not a tile — it holds TWO destinations, so the whole
+                 surface cannot be one door. Small enough to stay a grid peer
+                 (inGrid), unlike Your Events which needed the full width. */
+              <DashboardCard title="📊 Analytics & Insights" inGrid>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
                   <Link
                     href={`/${vertical}/vendor/analytics`}
@@ -1199,7 +967,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                       alignItems: 'center',
                       gap: spacing['2xs'],
                       textDecoration: 'none',
-                      color: isInsightsLocked ? '#d97706' : colors.textSecondary,
+                      color: isInsightsLocked ? statusColors.warning : colors.textSecondary,
                       fontSize: typography.sizes.sm,
                       padding: `${spacing['2xs']} 0`,
                       borderTop: `1px solid ${colors.borderMuted}`,
@@ -1209,7 +977,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                     <span>{isInsightsLocked ? 'Location Insights (upgrade to unlock)' : 'Location performance'}</span>
                   </Link>
                 </div>
-              </div>
+              </DashboardCard>
             )
           })()}
         </div>
@@ -1226,35 +994,13 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             <DashboardNotifications vertical={vertical} limit={5} />
 
             {/* Reviews */}
-            <Link
+            <DashboardTile
               href={`/${vertical}/vendor/reviews`}
-              style={{ textDecoration: 'none' }}
+              icon="⭐"
+              title="Reviews"
             >
-              <div style={{
-                padding: spacing.sm,
-                backgroundColor: colors.surfaceElevated,
-                color: colors.textPrimary,
-                border: `1px solid ${colors.border}`,
-                borderRadius: radius.md,
-                cursor: 'pointer',
-                height: '100%',
-                minHeight: 120,
-                boxShadow: shadows.sm
-              }}>
-                <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>⭐</div>
-                <h3 style={{
-                  color: colors.primary,
-                  margin: `0 0 ${spacing['2xs']} 0`,
-                  fontSize: typography.sizes.base,
-                  fontWeight: typography.weights.semibold
-                }}>
-                  Reviews
-                </h3>
-                <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
-                  See feedback from your customers
-                </p>
-              </div>
-            </Link>
+              See feedback from your customers
+            </DashboardTile>
           </div>
         )}
 
@@ -1279,22 +1025,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
         {/* ============================================= */}
         {/* Legal Agreements Section */}
         {/* ============================================= */}
-        <div style={{
-          padding: spacing.sm,
-          backgroundColor: colors.surfaceElevated,
-          border: `1px solid ${colors.border}`,
-          borderRadius: radius.md,
-          boxShadow: shadows.sm,
-          marginBottom: spacing.md,
-        }}>
-          <h3 style={{
-            color: colors.textPrimary,
-            margin: `0 0 ${spacing.xs} 0`,
-            fontSize: typography.sizes.base,
-            fontWeight: typography.weights.semibold,
-          }}>
-            Legal Agreements
-          </h3>
+        <DashboardCard title="Legal Agreements">
           <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
             <Link
               href={`/${vertical}/terms`}
@@ -1332,7 +1063,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               </Link>
             )}
           </div>
-        </div>
+        </DashboardCard>
       </div>
 
       {/* Responsive Styles */}

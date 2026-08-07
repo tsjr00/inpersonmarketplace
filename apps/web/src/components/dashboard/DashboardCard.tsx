@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { DASHBOARD_STATES, type DashboardState } from './states'
 
 /**
  * Shared card wrapper for every dashboard surface (manager, vendor, shopper).
@@ -32,6 +33,22 @@ interface DashboardCardProps {
   description?: ReactNode
   /** Optional node rendered at the right of the header row (badge, count). */
   headerAccessory?: ReactNode
+  /** Semantic state, shared with DashboardTile — see ./states.ts. Defaults to
+   *  `neutral`, which is the plain chrome every existing card already renders,
+   *  so adding this prop changed nothing for callers that omit it. */
+  state?: DashboardState
+  /**
+   * Render as a grid cell rather than a stacked block: equal height with its
+   * peers, and no bottom margin (the grid's `gap` owns spacing).
+   *
+   * Cards are normally full-width and stacked. A SMALL card may sit in a grid
+   * as a peer of tiles — e.g. vendor "Analytics & Insights", which is a card
+   * because it holds two destinations rather than being one door. The test is
+   * content weight, not type: a card with several internal sections needs the
+   * full width and belongs below the grid (see "Your Events", moved out
+   * 2026-08-07 for exactly this reason).
+   */
+  inGrid?: boolean
   children: ReactNode
 }
 
@@ -39,16 +56,23 @@ interface DashboardCardProps {
  *  aren't hidden under the nav after a jump. */
 export const NAV_OFFSET = 64
 
-export default function DashboardCard({ id, title, description, headerAccessory, children }: DashboardCardProps) {
+export default function DashboardCard({ id, title, description, headerAccessory, state = 'neutral', inGrid = false, children }: DashboardCardProps) {
+  const s = DASHBOARD_STATES[state]
+  // Cards sit at 1px when resting and 2px whenever a state is set. They do NOT
+  // take the tile's 3px + glow: a card is already full-width, so it does not
+  // need that much weight to be seen, and reserving the glow for tiles keeps
+  // `attention` meaning one specific thing at a glance.
+  const borderWidth = state === 'neutral' ? 1 : 2
+
   return (
     <section
       {...(id ? { id } : {})}
       style={{
         padding: spacing.sm,
-        backgroundColor: colors.surfaceElevated,
-        border: `1px solid ${colors.border}`,
+        backgroundColor: s.background,
+        border: `${borderWidth}px solid ${s.border}`,
         borderRadius: radius.md,
-        marginBottom: spacing.sm,
+        ...(inGrid ? { height: '100%' } : { marginBottom: spacing.sm }),
         scrollMarginTop: `${NAV_OFFSET}px`,
       }}
     >

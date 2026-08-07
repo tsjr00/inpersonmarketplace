@@ -1,6 +1,6 @@
 # 22 — Components & UI
 
-<!-- map-stamp: domain=components-ui; verified=2026-08-07; commit=00f234c8 -->
+<!-- map-stamp: domain=components-ui; verified=2026-08-07; commit=8bba03d5 -->
 <!-- map-claims
 src/components/shared/**
 src/components/layout/**
@@ -14,7 +14,7 @@ src/types/**
 src/instrumentation.ts
 -->
 
-181 components, 142 pages. Hand-rolled — there is no third-party component library.
+183 components, 142 pages. Hand-rolled — there is no third-party component library.
 
 ---
 
@@ -29,6 +29,8 @@ src/instrumentation.ts
 ## ⚠ The styling convention contradicts the in-repo README
 
 **Verified by count on 2026-07-18:** in `src/components`, **167 files use `style={{…}}` and only 26 use `className=`**. **296 files import `design-tokens`.**
+
+⚠ **Raw hex in a dashboard is a bug, not a style choice** (added 2026-08-07). `design-tokens.ts:41` says so explicitly — *"Use these for error/success/warning/info states instead of hardcoded hex"* — yet the vendor and shopper dashboards had accumulated **38 hardcoded hex values**, including two different colours for the same severity tier (`Your Listings` painted its middle state amber; `Business Profile` painted its middle state orange, both named `'orange'` in code). The vendor dashboard was cleaned up in Slice 2; **the shopper dashboard still carries its share — Slice 3.** The missing tier those hexes were improvising is now `statusColors.attention`.
 
 Tailwind v4 *is* installed and `@import "tailwindcss"` is in `globals.css`, but the codebase does not use it in practice. `shared/README.md:68` still says *"Tailwind Only: Use Tailwind utility classes, no custom CSS"* — **that line is stale and contradicts the code.** `Spinner.tsx`, `Toast.tsx` and `ConfirmDialog.tsx` are all pure inline token styles with zero Tailwind.
 
@@ -82,7 +84,7 @@ One leftover from the Tailwind era survives: `StatusBadge` still accepts Tailwin
 | `notifications/` | 3 | Bell, dashboard list, push opt-in — see [18_Notifications.md](18_Notifications.md) |
 | `marketing/` | 3 | Share button, post-purchase share prompt, social-proof toast |
 | `help/` · `onboarding/` · `surveys/` · `location/` | 2 each | Help search + article list · tutorial modal + wrapper · survey form + pending card · location prompt + inline search |
-| `dashboard/` | 5 | **The shared dashboard card system** — see the section below |
+| `dashboard/` | 7 | **The shared dashboard card + tile system** — see the section below |
 | `auth/` · `browse/` · `legal/` · `projection/` · `support/` | 1 each | Turnstile · notify-me capture · legal document renderer · operator projection tool · support form |
 
 ## `components/dashboard/` — the shared dashboard card system
@@ -91,15 +93,65 @@ Promoted out of `components/market-manager/` on **2026-08-07** (Slice 1 of the d
 
 | File | Purpose | Rendering |
 |---|---|---|
-| `DashboardCard.tsx` | The card wrapper — fixed padding/border/radius/gap, header at `lg` semibold, `description` at `sm` muted, optional `headerAccessory`, `id` + `scrollMarginTop` for anchor landing. Also exports **`NAV_OFFSET`** (sticky-nav height). Was `ManagerCard` / `MANAGER_NAV_OFFSET` | **server** |
+| `DashboardCard.tsx` | **The card ("a room")** — fixed padding/border/radius/gap, header at `lg` semibold, `description` at `sm` muted, optional `headerAccessory`, optional `state`, optional `inGrid`, `id` + `scrollMarginTop` for anchor landing. Also exports **`NAV_OFFSET`** (sticky-nav height). Was `ManagerCard` / `MANAGER_NAV_OFFSET` | **server** |
+| `DashboardTile.tsx` | **The tile ("a door")** — whole surface is a `next/link`, equal height in a grid, `icon` + `title` + `badge` + status line, semantic `state`. Also exports `TileBadge` (the count pill) | **server** |
+| `states.ts` | **The shared state vocabulary** — `DashboardState` + `DASHBOARD_STATES`. One palette used by BOTH tile and card, so "needs your attention" looks identical everywhere | n/a |
 | `GroupHeading.tsx` | Banner grouping several cards under one heading; optional right-aligned `accessory`. Consolidated from two identical private copies in `FmDashboardBody` and `FtParkDashboardBody` | **server** |
 | `CollapsibleSection.tsx` | Expand/collapse group wrapper | client |
 | `TabbedCard.tsx` | Segmented tab bar swapping one panel at a time | client |
 | `ScrollToSection.tsx` | Scroll helper used by the shopper dashboard | client |
 
+**The seven states** (`states.ts`): `neutral` resting · `active` in flight and healthy · **`attention`** you must act and nobody else can · `warning` degrading not broken · `danger` broken or blocking · `pending` you have done your part, someone else has not · `locked` your tier does not include it.
+
+Adding a state is one entry in `DASHBOARD_STATES` — deliberately cheap, because the list is expected to grow from real device testing. **`suspended`/`revoked` was considered and deliberately left out** (owner, 2026-08-07): the concept is live in the data (migration 217; the manager access-suspended/access-removed pages) but renders identically to `danger`, so it earns its own state only if testing shows it needs one.
+
+⚠ **`attention` vs `danger` is a deliberate separation, not a nicety.** The FT vertical previously leaned on red so heavily that everything looked urgent and the signal stopped meaning anything (owner, 2026-08-07). Actionable-but-fine (an unconfirmed order) must not look like broken (out of stock).
+
 **⚠ `DashboardCard` and `GroupHeading` are server components on purpose** — an exception to the "`'use client'` is the norm" convention above. The dashboards are the highest-traffic authenticated pages and are server-rendered; keeping the chrome server-side means it ships zero JS. Adding interactivity to either would flip every card on every dashboard to client-rendered.
 
 **⚠ Two binding design rules (owner, 2026-08-07):** navigation must stay shallow, so nothing is wrapped in `CollapsibleSection` unless its header states what is inside (a count, a status, or the next action). And the dashboards keep their route-level `loading.tsx` — no per-card `Skeleton`/`Spinner`, which would convert server cards to client cards and regress `performance-baseline.test.ts`.
+
+### 📐 Tile vs Card — the standing taxonomy (agreed with owner 2026-08-07)
+
+**This is the vocabulary. Use these words precisely; they mean specific things.**
+
+There are **two levels**. **Groups** organize, **units** hold. Groups contain units, units contain content, and nothing nests deeper than that.
+
+- **Groups:** `GroupHeading` (labeled band) · `CollapsibleSection` (band with a lid) · `TabbedCard` (⚠ *misnamed* — it is a group, not a card; it folds several cards into one object).
+- **Units:** **tiles** and **cards**.
+
+| | **Tile** | **Card** |
+|---|---|---|
+| What it is | **A door — you click it and you leave** | **A room — the content is here** |
+| Clickable | The whole surface | **Never**; buttons and links live *inside* it |
+| Layout | Grid, equal height (`height: 100%`) | Full width, stacked — **unless small**, see below |
+| Holds | Icon, short label, usually one line of description (a goal, not a hard cap) | Real content — lists, forms, controls |
+| Must show | **Its status without being clicked** — count, badge, alert border | — |
+
+Two behaviours sit **on top of cards**, rather than being separate kinds of unit:
+
+- **Collapsible** — for genuinely occasional content, and only under the face rule below.
+- **Tabbed** — only for 2–4 alternative views *of the same thing* (roster / recurring / invite for the same trucks). Never unrelated sections parked together to save vertical space.
+
+**The face rule — what earns the front of a collapsible:**
+
+> **The face answers "does this need me?" The inside answers "what do I do about it?"**
+
+Status, counts and warnings stay visible; controls and detail go behind the lid. Example: a locations card's face reads *"3 locations · 1 needs check-in today"*, while editing, schedules and the suggestion form sit inside.
+
+**Hard limit:** if the face line cannot be written in **roughly eight words**, the card is doing too much and must be split. An unwritable summary is the diagnostic that a card has accumulated unrelated jobs.
+
+**When it is ambiguous, one question decides it:** *does clicking the whole thing take me somewhere else?* Yes → tile. No → card: plain if needed most visits, collapsible if occasional, tabbed if there are a few views of the same thing.
+
+**A small card MAY sit in a grid** (`DashboardCard inGrid`), as a peer of tiles. **The test is content weight, not type.** Vendor "Analytics & Insights" is a card — it holds *two* destinations, so the whole surface cannot be one door — but it is two links tall, so it stays a grid peer. "Your Events" is also a card and was also in the grid, but it carries five internal sections (Action Needed / Today / Upcoming / Backup / Past) fighting over a third of a row; it was moved full-width below the grid on 2026-08-07. *If a card has more than one internal section, it needs the full width.*
+
+**Four things we do not do:**
+1. A tile inside a card — two competing click targets in one box.
+2. A card that is clickable as a whole — that is a tile.
+3. A collapse whose state cannot be read from the face.
+4. A form or list inside a tile — if it needs real content, it is a card.
+
+**Why this exists.** `[vertical]/vendor/markets/page.tsx` is **614 lines** plus three section components totalling **1,362 more** (`EventMarketsSection` 274 · `MarketSuggestionSection` 529 · `PrivatePickupSection` 559) — ~2,000 lines of related-but-uncategorized functionality on one screen, setting font sizes as raw numbers (`28`, `20`, `16`, `15`) instead of design tokens. The functionality is good and genuinely belongs together; it accreted without anyone deciding what deserved the front of the room. It did not get confusing because someone made a bad call — it got confusing because **there was no rule to violate.** This is that rule.
 
 Plan of record: `apps/web/.claude/dashboard_redesign_plan.md`.
 
