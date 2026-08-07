@@ -27,6 +27,7 @@ export type DashboardState =
   | 'danger'     // broken or blocking.
   | 'pending'    // you have done your part; someone else has not.
   | 'locked'     // the feature exists, your tier does not include it.
+  | 'promo'      // an upgrade / promotion offer. A purpose, not a data condition.
 
 export interface DashboardStateStyle {
   background: string
@@ -88,5 +89,20 @@ export const DASHBOARD_STATES: Record<DashboardState, DashboardStateStyle> = {
     border: statusColors.neutral300,
     borderWidth: 1,
     title: colors.textSecondary,
+  },
+  // The one entry that is a PURPOSE rather than a data condition: an upgrade or
+  // promotion offer. Kept in this map anyway so there is a single vocabulary
+  // instead of promo blocks going bespoke — which is exactly how they drifted.
+  //
+  // Deliberately an OUTLINE on a plain background, not a gradient fill (owner,
+  // 2026-08-07): "if we want to promote them then an outlined color or colors is
+  // better anyway." An outline draws the eye without competing with the rest of
+  // the page, and it survives small screens and dark backgrounds — which the
+  // previous `linear-gradient(135deg, #fefce8, #fef3c7)` treatments did not.
+  promo: {
+    background: colors.surfaceElevated,
+    border: colors.accent,
+    borderWidth: 2,
+    title: colors.textPrimary,
   },
 }

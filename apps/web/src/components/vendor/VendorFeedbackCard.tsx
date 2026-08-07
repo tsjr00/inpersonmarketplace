@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import VendorFeedbackForm from './VendorFeedbackForm'
+import DashboardTile from '@/components/dashboard/DashboardTile'
 
 interface VendorFeedbackCardProps {
   vertical: string
@@ -13,36 +13,14 @@ export default function VendorFeedbackCard({ vertical }: VendorFeedbackCardProps
 
   return (
     <>
-      <button
+      {/* A TILE whose destination is a modal — see FeedbackCard for the rule. */}
+      <DashboardTile
         onClick={() => setShowFeedbackForm(true)}
-        style={{
-          display: 'block',
-          width: '100%',
-          padding: spacing.md,
-          backgroundColor: colors.surfaceElevated,
-          color: colors.textPrimary,
-          border: `1px solid ${colors.border}`,
-          borderRadius: radius.md,
-          textDecoration: 'none',
-          textAlign: 'left',
-          cursor: 'pointer'
-        }}
+        icon="feedback"
+        title="My Vendor Feedback"
       >
-        <h3 style={{
-          marginTop: 0,
-          marginBottom: spacing['2xs'],
-          fontSize: typography.sizes.lg,
-          fontWeight: typography.weights.semibold,
-          display: 'flex',
-          alignItems: 'center',
-          gap: spacing.xs
-        }}>
-          <span>💬</span> Vendor Feedback
-        </h3>
-        <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-          Suggest a market, report issues, request features, or get help
-        </p>
-      </button>
+        Suggest a market, report issues, request features, or get help
+      </DashboardTile>
 
       {showFeedbackForm && (
         <VendorFeedbackForm

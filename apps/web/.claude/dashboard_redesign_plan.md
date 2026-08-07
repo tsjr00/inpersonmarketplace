@@ -462,7 +462,30 @@ Chosen because **emoji cannot be made consistent**: Apple, Google and Microsoft 
 **4. My Vendor Events moved back INTO the grid.** Owner: *"I don't like My Events as a screen width card, it doesn't fit in the mix and makes the dashboard feel weird… events should be in line with booth bookings."* Now a grid peer in row 2 beside booth/park bookings, trimmed per the face rule — invitations awaiting response and today's events stay listed; upcoming/backup/past collapse to one count line.
 **It stays a CARD rather than becoming a tile only because there is nowhere for a tile to lead.** ⚠ **Verified: the vendor events LIST lives inside the LOCATIONS page** — `EventMarketsSection` (274 lines) renders at `vendor/markets/page.tsx:603`; `/[vertical]/vendor/events` has per-event routes only, no index. The owner spotted this. **Extracting events into their own index during the events rebuild would simultaneously de-cram the locations page** — two problems, one fix. Then this becomes a plain tile.
 
-### Slice 3a — PART 1 done, PART 2 outstanding
+### ✅ Slice 3a PART 2 — 2026-08-07 (UNCOMMITTED). tsc 0 · 1811/1811 · lint unchanged at 1 pre-existing error.
+
+**⭐ The shopper `.shopper-grid` is now 100% converted** — every child uses the shared system: 4 tiles (Browse · My Orders · My Favorites · Where Today) + `MarketManagerCard` + `DashboardNotifications` + `HelpSearchWidget` + `FeedbackCard`. No seam left in the most-seen part of the page.
+
+**New `promo` state** in `states.ts` — the one entry that is a PURPOSE, not a data condition. Kept in the shared map anyway so promo blocks cannot go bespoke, which is exactly how they drifted. **Outlined accent on a plain background, no gradient fill** (owner). Both gradient promos converted: the buyer "Upgrade to Premium" and the vendor "Grow your business" (which also dropped `#fefce8`/`#fef3c7`/`#fcd34d`/`#92400e`/`#78350f`/`#d97706`).
+
+**`pending` got its first real use** — the vendor "Pending Approval" notice. Textbook case: the vendor has done their part and is waiting on US, so it is blue, not orange.
+
+**⚠ Taxonomy extension — a tile may open a MODAL, not just navigate.** `FeedbackCard` and `VendorFeedbackCard` are whole-surface-clickable buttons that open a form. Our own rule says a whole-clickable surface is a tile, never a card — and that rule is about the CLICK TARGET, not about whether the destination is a page or a layer. So `DashboardTile` now takes either `href` or `onClick`. ⚠ `onClick` may only be passed from a CLIENT parent, which pulls the tile into that parent's client bundle; `href` callers are unaffected and still ship zero JS.
+
+**Two conversions needed care, and both are documented in-file:**
+- `HelpSearchWidget` — its results dropdown is absolutely positioned, so `position: relative` + the click-outside ref stay on an INNER wrapper. Moving that context to the card would misplace the dropdown.
+- `DashboardNotifications` — has TWO returns (loading + loaded); both converted. Header badge and "mark all read" moved into `headerAccessory`.
+
+**Also converted:** `MarketManagerCard` (a card — one destination per market, so it cannot be one door).
+
+### ⏳ Slice 3a — what is STILL outstanding (verified count, 2026-08-07)
+
+- **3 inline blocks** on the shopper page: **Ready for Pickup** alert (`~:419`, above the grid) · the **event-organizer** block · **Passion→Profit**.
+- ~~36 raw hex values~~ **✅ DONE — the shopper dashboard is now at ZERO raw hex, down from 51.** Greens→`success*`, blues→`info*`, reds→`danger*`, ambers→`warning*`, greys→`neutral*`.
+  **⚠ Purple:** the palette has no purple, only the **indigo `selection*`** trio (`#4F46E5`/`#EEF2FF`/`#4338CA`), which is the closest available — owner: *"map the purples for admin to whichever is the closest purple in the tokens available."* Done, but **the token name lies**: `selectionBg`/`selectionText` now paint the admin / "in review" accent. Worth a properly named token **if the admin surfaces stay on the dashboard** — decided in 3b. Deliberately not minting `admin*` tokens now, since the band may move out and they would be deleted.
+- **6 components still hand-rolling chrome:** `RateOrderCard` (423) · `EventAgreementPickerCard` (193) · `EventBroadcastCard` (188) · `EventRatingsCard` (138) · `PendingSurveysCard` · `ReferralCard`. All render OUTSIDE the main grid, so the visible seam is small.
+
+### Slice 3a — PART 1 done
 
 **Done (shopper dashboard):** the main `.shopper-grid` is fully converted — Browse · My Orders · My Favorites · Where Today. Plus Create Drafts and Admin Panel. **The main grid is internally consistent.** "Where Today" moved off an off-palette amber (`#fffbeb`/`#fbbf24`, which read as a caution about nothing) to `active` — it is about who is out RIGHT NOW.
 

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import DashboardCard from '@/components/dashboard/DashboardCard'
 import { getNotificationConfig, type NotificationSeverity } from '@/lib/notifications/types'
 import { getClientLocale } from '@/lib/locale/client'
 import { t } from '@/lib/locale/messages'
@@ -111,68 +112,29 @@ export function DashboardNotifications({ vertical, limit = 4 }: DashboardNotific
   // Don't render anything while loading to avoid layout shift
   if (isLoading) {
     return (
-      <div style={{
-        padding: spacing.sm,
-        backgroundColor: colors.surfaceElevated,
-        border: `1px solid ${colors.border}`,
-        borderRadius: radius.md,
-        boxShadow: shadows.sm,
-      }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: spacing['2xs'],
-        }}>
-          <span style={{ fontSize: typography.sizes['2xl'] }}>🔔</span>
-          <h3 style={{
-            margin: 0,
-            fontSize: typography.sizes.base,
-            fontWeight: typography.weights.semibold,
-            color: colors.textPrimary,
-          }}>
-            {t('notif_ui.title', locale)}
-          </h3>
-        </div>
+      <DashboardCard title={t('notif_ui.title', locale)} inGrid>
         <p style={{
-          margin: `${spacing.xs} 0 0`,
+          margin: 0,
           fontSize: typography.sizes.sm,
           color: colors.textMuted,
         }}>
           {t('notif_ui.loading', locale)}
         </p>
-      </div>
+      </DashboardCard>
     )
   }
 
   return (
-    <div style={{
-      padding: spacing.sm,
-      backgroundColor: colors.surfaceElevated,
-      border: unreadCount > 0 ? `2px solid ${colors.primary}` : `1px solid ${colors.border}`,
-      borderRadius: radius.md,
-      boxShadow: shadows.sm,
-    }}>
-      {/* Header */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: notifications.length > 0 ? spacing.xs : 0,
-      }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: spacing['2xs'],
-        }}>
-          <span style={{ fontSize: typography.sizes['2xl'] }}>🔔</span>
-          <h3 style={{
-            margin: 0,
-            fontSize: typography.sizes.base,
-            fontWeight: typography.weights.semibold,
-            color: colors.textPrimary,
-          }}>
-            {t('notif_ui.title', locale)}
-          </h3>
+    /* A CARD: it holds a list you act on in place (mark read, jump to one
+       notification), so the whole surface is not a single door. `active` when
+       something is unread — that is the "you have work today" signal, not an
+       alarm. */
+    <DashboardCard
+      title={t('notif_ui.title', locale)}
+      state={unreadCount > 0 ? 'active' : 'neutral'}
+      inGrid
+      headerAccessory={
+        <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
           {unreadCount > 0 && (
             <span style={{
               backgroundColor: colors.primary,
@@ -187,7 +149,6 @@ export function DashboardNotifications({ vertical, limit = 4 }: DashboardNotific
               {unreadCount}
             </span>
           )}
-        </div>
         {unreadCount > 0 && (
           <button
             onClick={handleMarkAllRead}
@@ -204,7 +165,9 @@ export function DashboardNotifications({ vertical, limit = 4 }: DashboardNotific
             {t('notif_ui.mark_all_read', locale)}
           </button>
         )}
-      </div>
+        </div>
+      }
+    >
 
       {/* Empty state */}
       {notifications.length === 0 && (
@@ -316,6 +279,6 @@ export function DashboardNotifications({ vertical, limit = 4 }: DashboardNotific
           {t('notif_ui.view_all_arrow', locale)}
         </button>
       )}
-    </div>
+    </DashboardCard>
   )
 }

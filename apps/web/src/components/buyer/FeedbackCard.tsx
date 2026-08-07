@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
+import DashboardTile from '@/components/dashboard/DashboardTile'
 import { getClientLocale } from '@/lib/locale/client'
 import { t } from '@/lib/locale/messages'
 import ShopperFeedbackForm from './ShopperFeedbackForm'
@@ -17,36 +17,16 @@ export default function FeedbackCard({ vertical }: FeedbackCardProps) {
 
   return (
     <>
-      <button
+      {/* A TILE whose destination is a modal rather than a page — the whole
+          surface is the click target, which is what makes it a tile and not a
+          card. See the taxonomy in docs/Codebase_Map/22_Components_UI.md. */}
+      <DashboardTile
         onClick={() => setShowFeedbackForm(true)}
-        style={{
-          display: 'block',
-          width: '100%',
-          padding: spacing.md,
-          backgroundColor: colors.surfaceElevated,
-          color: colors.textPrimary,
-          border: `1px solid ${colors.border}`,
-          borderRadius: radius.md,
-          textDecoration: 'none',
-          textAlign: 'left',
-          cursor: 'pointer'
-        }}
+        icon="feedback"
+        title={t('feedback.share', locale)}
       >
-        <h3 style={{
-          marginTop: 0,
-          marginBottom: spacing['2xs'],
-          fontSize: typography.sizes.lg,
-          fontWeight: typography.weights.semibold,
-          display: 'flex',
-          alignItems: 'center',
-          gap: spacing.xs
-        }}>
-          <span>💬</span> {t('feedback.share', locale)}
-        </h3>
-        <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-          {t('feedback.suggest_desc', locale, { market: term(vertical, 'market', locale).toLowerCase() })}
-        </p>
-      </button>
+        {t('feedback.suggest_desc', locale, { market: term(vertical, 'market', locale).toLowerCase() })}
+      </DashboardTile>
 
       {showFeedbackForm && (
         <ShopperFeedbackForm

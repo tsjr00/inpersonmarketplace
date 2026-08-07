@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import type { ManagedMarket } from '@/lib/markets/manager-queries'
 import { term } from '@/lib/vertical/terminology'
+import DashboardCard from '@/components/dashboard/DashboardCard'
 
 interface MarketManagerCardProps {
   vertical: string
@@ -25,37 +26,16 @@ export default function MarketManagerCard({ vertical, markets }: MarketManagerCa
   if (markets.length === 0) return null
 
   return (
-    <div
-      style={{
-        padding: spacing.md,
-        backgroundColor: colors.surfaceElevated,
-        color: colors.textPrimary,
-        border: `1px solid ${colors.border}`,
-        borderRadius: radius.md,
-      }}
+    /* A CARD, not a tile: it holds one destination PER MARKET, so the whole
+       surface cannot be a single door. `inGrid` because it sits in the shopper
+       dashboard's grid as a peer of the tiles. */
+    <DashboardCard
+      title={`My ${term(vertical, 'markets')}`}
+      description={markets.length === 1
+        ? `You manage 1 ${term(vertical, 'market').toLowerCase()} on the platform.`
+        : `You manage ${markets.length} ${term(vertical, 'markets').toLowerCase()} on the platform.`}
+      inGrid
     >
-      <h3
-        style={{
-          marginTop: 0,
-          marginBottom: spacing.xs,
-          fontSize: typography.sizes.lg,
-          fontWeight: typography.weights.semibold,
-        }}
-      >
-        🌾 My {term(vertical, 'markets')}
-      </h3>
-      <p
-        style={{
-          margin: 0,
-          marginBottom: spacing.xs,
-          color: colors.textMuted,
-          fontSize: typography.sizes.sm,
-        }}
-      >
-        {markets.length === 1
-          ? `You manage 1 ${term(vertical, 'market').toLowerCase()} on the platform.`
-          : `You manage ${markets.length} ${term(vertical, 'markets').toLowerCase()} on the platform.`}
-      </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
         {markets.map((m) => (
           <Link
@@ -86,6 +66,6 @@ export default function MarketManagerCard({ vertical, markets }: MarketManagerCa
           </Link>
         ))}
       </div>
-    </div>
+    </DashboardCard>
   )
 }

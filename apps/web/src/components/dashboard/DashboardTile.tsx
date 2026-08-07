@@ -23,8 +23,21 @@ import { DASHBOARD_ICONS, ICON_SIZE, ICON_STROKE, type DashboardIconName } from 
  */
 
 interface DashboardTileProps {
-  /** Where the door leads. Tiles are always navigation. */
-  href: string
+  /**
+   * Where the door leads. Provide EITHER `href` (navigates) or `onClick`
+   * (opens a modal / drawer).
+   *
+   * A tile whose destination is a LAYER rather than a page is still a tile: the
+   * taxonomy rule is "a whole-surface-clickable thing is a tile, never a card",
+   * and that is about the click target, not about which kind of destination
+   * appears. Rendering these as bespoke buttons is what let them drift.
+   *
+   * ⚠ `onClick` can only be passed from a CLIENT parent, which pulls this
+   * component into that parent's client bundle. Server-rendered callers using
+   * `href` are unaffected and still ship zero JS.
+   */
+  href?: string
+  onClick?: () => void
   /** Name from the shared icon vocabulary (./icons.tsx). EVERY tile takes one —
    *  a grid where some tiles have icons and some do not is the inconsistency
    *  this replaced (owner, 2026-08-07). To change a glyph, edit the map. */
@@ -42,6 +55,7 @@ interface DashboardTileProps {
 
 export default function DashboardTile({
   href,
+  onClick,
   icon,
   title,
   badge,
@@ -63,45 +77,62 @@ export default function DashboardTile({
   const titleColor = isLocked ? colors.textSecondary : colors.textPrimary
   const iconColor = isLocked ? colors.textSecondary : colors.primary
 
+  const surface = (
+    <div style={{
+      padding: spacing.sm,
+      backgroundColor: s.background,
+      color: colors.textPrimary,
+      border: `${s.borderWidth}px solid ${s.border}`,
+      borderRadius: radius.md,
+      cursor: 'pointer',
+      height: '100%',
+      minHeight: 120,
+      boxShadow: s.glow ?? shadows.sm,
+      textAlign: 'left',
+      width: '100%',
+    }}>
+      <div style={{ marginBottom: spacing['2xs'], color: iconColor, lineHeight: 0 }}>
+        <Icon size={ICON_SIZE} strokeWidth={ICON_STROKE} aria-hidden />
+      </div>
+      <h3 style={{
+        color: titleColor,
+        margin: `0 0 ${spacing['2xs']} 0`,
+        fontSize: typography.sizes.lg,
+        fontWeight: typography.weights.semibold,
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing['2xs'],
+        flexWrap: 'wrap',
+      }}>
+        {title}
+        {badge}
+      </h3>
+      {children && (
+        <div style={{ color: colors.textSecondary, fontSize: typography.sizes.sm }}>
+          {children}
+        </div>
+      )}
+    </div>
+  )
+
+  if (onClick) {
+    return (
+      <button
+        onClick={onClick}
+        style={{ display: 'block', width: '100%', height: '100%', padding: 0, border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer' }}
+      >
+        {surface}
+      </button>
+    )
+  }
+
   return (
     <Link
-      href={href}
-      style={{ textDecoration: 'none' }}
+      href={href ?? '#'}
+      style={{ textDecoration: 'none', display: 'block', height: '100%' }}
       {...(targetBlank ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
     >
-      <div style={{
-        padding: spacing.sm,
-        backgroundColor: s.background,
-        color: colors.textPrimary,
-        border: `${s.borderWidth}px solid ${s.border}`,
-        borderRadius: radius.md,
-        cursor: 'pointer',
-        height: '100%',
-        minHeight: 120,
-        boxShadow: s.glow ?? shadows.sm,
-      }}>
-        <div style={{ marginBottom: spacing['2xs'], color: iconColor, lineHeight: 0 }}>
-          <Icon size={ICON_SIZE} strokeWidth={ICON_STROKE} aria-hidden />
-        </div>
-        <h3 style={{
-          color: titleColor,
-          margin: `0 0 ${spacing['2xs']} 0`,
-          fontSize: typography.sizes.lg,
-          fontWeight: typography.weights.semibold,
-          display: 'flex',
-          alignItems: 'center',
-          gap: spacing['2xs'],
-          flexWrap: 'wrap',
-        }}>
-          {title}
-          {badge}
-        </h3>
-        {children && (
-          <div style={{ color: colors.textSecondary, fontSize: typography.sizes.sm }}>
-            {children}
-          </div>
-        )}
-      </div>
+      {surface}
     </Link>
   )
 }

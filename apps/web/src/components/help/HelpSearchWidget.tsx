@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { colors, spacing, typography, radius, statusColors } from '@/lib/design-tokens'
+import DashboardCard from '@/components/dashboard/DashboardCard'
 
 interface Article {
   id: string
@@ -81,24 +82,12 @@ export default function HelpSearchWidget({ vertical }: HelpSearchWidgetProps) {
   }, [router, vertical, debouncedQuery])
 
   return (
-    <div
-      ref={containerRef}
-      style={{
-        padding: spacing.md,
-        backgroundColor: colors.surfaceElevated,
-        border: `1px solid ${colors.border}`,
-        borderRadius: radius.md,
-        position: 'relative',
-      }}
-    >
-      <h3 style={{
-        marginTop: 0,
-        marginBottom: spacing['2xs'],
-        fontSize: typography.sizes.lg,
-        fontWeight: typography.weights.semibold,
-      }}>
-        Help & FAQ
-      </h3>
+    /* The card chrome comes from DashboardCard, but `position: relative` and the
+       click-outside ref stay on an INNER wrapper: the results dropdown is
+       absolutely positioned against it, so moving that context to the card
+       would misplace the dropdown. */
+    <DashboardCard title="Help & FAQ" inGrid>
+      <div ref={containerRef} style={{ position: 'relative' }}>
 
       {/* Search input */}
       <div style={{ position: 'relative', marginBottom: spacing.xs }}>
@@ -268,9 +257,10 @@ export default function HelpSearchWidget({ vertical }: HelpSearchWidgetProps) {
       {/* Hover styles */}
       <style>{`
         div[style*="position: absolute"] button:hover {
-          background-color: #f3f4f6 !important;
+          background-color: ${statusColors.neutral100} !important;
         }
       `}</style>
-    </div>
+      </div>
+    </DashboardCard>
   )
 }

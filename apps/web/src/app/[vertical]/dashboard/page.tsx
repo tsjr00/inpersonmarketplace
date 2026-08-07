@@ -664,16 +664,10 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
           <FeedbackCard vertical={vertical} />
         </div>
 
-        {/* Upgrade to Premium Card - only show for free tier on verticals with premium enabled */}
+        {/* Upgrade to Premium — `promo` (outlined accent, no gradient fill).
+            Only shows for free tier on verticals with premium enabled. */}
         {isBuyerPremiumEnabled(vertical) && !isPremiumBuyer && (
-          <div style={{
-            marginTop: spacing.md,
-            padding: spacing.md,
-            backgroundColor: colors.primaryLight,
-            background: `linear-gradient(135deg, ${colors.primaryLight} 0%, ${colors.surfaceSubtle} 100%)`,
-            border: `1px solid ${colors.primary}`,
-            borderRadius: radius.lg
-          }}>
+          <DashboardCard title={t('dash.upgrade_shopper', locale)} state="promo">
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
@@ -682,22 +676,6 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               gap: spacing.md
             }}>
               <div style={{ flex: 1, minWidth: 250 }}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: spacing['2xs'],
-                  marginBottom: spacing['2xs']
-                }}>
-                  <span style={{ fontSize: typography.sizes['2xl'] }}>⭐</span>
-                  <h3 style={{
-                    margin: 0,
-                    fontSize: typography.sizes.xl,
-                    fontWeight: typography.weights.bold,
-                    color: colors.primaryDark
-                  }}>
-                    {t('dash.upgrade_shopper', locale)}
-                  </h3>
-                </div>
                 <p style={{
                   margin: `0 0 ${spacing.sm} 0`,
                   color: colors.textSecondary,
@@ -761,7 +739,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 {t('dash.upgrade_now', locale)} →
               </Link>
             </div>
-          </div>
+          </DashboardCard>
         )}
 
       </section>
@@ -801,15 +779,20 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                   declined: 'Declined',
                 }
                 const statusColors2: Record<string, { bg: string; text: string }> = {
-                  new: { bg: '#eff6ff', text: '#1e40af' },
-                  reviewing: { bg: '#fef3c7', text: '#92400e' },
-                  approved: { bg: '#f0fdf4', text: '#166534' },
-                  ready: { bg: '#f0fdf4', text: '#166534' },
-                  active: { bg: '#dcfce7', text: '#14532d' },
-                  review: { bg: '#f3e8ff', text: '#7e22ce' },
-                  completed: { bg: '#f3f4f6', text: '#374151' },
-                  cancelled: { bg: '#fef2f2', text: '#991b1b' },
-                  declined: { bg: '#fef2f2', text: '#991b1b' },
+                  // Mapped onto the shared palette 2026-08-07 — no raw hex.
+                  // NOTE: `review` uses the selection* (indigo) tokens, which are
+                  // the closest purple the palette has. The token name says
+                  // "selection" but this is the admin/review accent — worth a
+                  // properly named token if the admin surfaces stay put (3b).
+                  new: { bg: statusColors.infoLight, text: statusColors.infoDark },
+                  reviewing: { bg: statusColors.warningLight, text: statusColors.warningDark },
+                  approved: { bg: statusColors.successLight, text: statusColors.successDark },
+                  ready: { bg: statusColors.successLight, text: statusColors.successDark },
+                  active: { bg: statusColors.successLight, text: statusColors.successDark },
+                  review: { bg: statusColors.selectionBg, text: statusColors.selectionText },
+                  completed: { bg: statusColors.neutral100, text: statusColors.neutral700 },
+                  cancelled: { bg: statusColors.dangerLight, text: statusColors.dangerDark },
+                  declined: { bg: statusColors.dangerLight, text: statusColors.dangerDark },
                 }
                 const sc = statusColors2[evt.status] || statusColors2.new
 
@@ -864,11 +847,11 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                             return (
                               <div key={w.wave_number} style={{
                                 padding: `${spacing['3xs']} ${spacing.xs}`,
-                                backgroundColor: isFull ? '#fef2f2' : pct > 75 ? '#fef3c7' : '#f0fdf4',
-                                border: `1px solid ${isFull ? '#fecaca' : pct > 75 ? '#fde68a' : '#bbf7d0'}`,
+                                backgroundColor: isFull ? statusColors.dangerLight : pct > 75 ? statusColors.warningLight : statusColors.successLight,
+                                border: `1px solid ${isFull ? statusColors.dangerBorder : pct > 75 ? statusColors.warningBorder : statusColors.successBorder}`,
                                 borderRadius: radius.sm,
                                 fontSize: 11,
-                                color: isFull ? '#991b1b' : pct > 75 ? '#92400e' : '#166534',
+                                color: isFull ? statusColors.dangerDark : pct > 75 ? statusColors.warningDark : statusColors.successDark,
                               }}>
                                 W{w.wave_number}: {w.reserved}/{w.capacity} {isFull ? '(full)' : ''}
                               </div>
@@ -907,8 +890,8 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                           href={`/${vertical}/events/${evt.event_token}/select`}
                           style={{
                             padding: `${spacing['3xs']} ${spacing.xs}`,
-                            backgroundColor: '#eff6ff',
-                            color: '#1e40af',
+                            backgroundColor: statusColors.infoLight,
+                            color: statusColors.infoDark,
                             borderRadius: radius.sm,
                             fontSize: typography.sizes.xs,
                             fontWeight: typography.weights.semibold,
@@ -923,8 +906,8 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                           href={`/${vertical}/events/${evt.event_token}/shop`}
                           style={{
                             padding: `${spacing['3xs']} ${spacing.xs}`,
-                            backgroundColor: '#f0fdf4',
-                            color: '#166534',
+                            backgroundColor: statusColors.successLight,
+                            color: statusColors.successDark,
                             borderRadius: radius.sm,
                             fontSize: typography.sizes.xs,
                             fontWeight: typography.weights.semibold,
@@ -941,14 +924,14 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                       <div style={{
                         marginTop: spacing.xs,
                         padding: `${spacing['3xs']} ${spacing.xs}`,
-                        backgroundColor: '#fffbeb',
-                        border: '1px solid #fde68a',
+                        backgroundColor: statusColors.warningLight,
+                        border: `1px solid ${statusColors.warningBorder}`,
                         borderRadius: radius.sm,
                         fontSize: typography.sizes.xs,
-                        color: '#92400e',
+                        color: statusColors.warningDark,
                       }}>
                         Access code: <strong style={{ letterSpacing: 2, fontFamily: 'monospace' }}>{evt.access_code}</strong>
-                        <span style={{ marginLeft: spacing.xs, color: '#b45309' }}> — share with attendees</span>
+                        <span style={{ marginLeft: spacing.xs, color: statusColors.warningDark }}> — share with attendees</span>
                       </div>
                     )}
 
@@ -1132,28 +1115,15 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
               gap: spacing.sm
             }}>
-              {/* Vendor Dashboard Card */}
-              <Link
+              {/* Vendor Dashboard */}
+              <DashboardTile
                 href={`/${vertical}/vendor/dashboard`}
-                style={{
-                  display: 'block',
-                  padding: spacing.md,
-                  backgroundColor: colors.primaryLight,
-                  color: colors.textPrimary,
-                  border: `1px solid ${colors.primary}`,
-                  borderRadius: radius.md,
-                  textDecoration: 'none'
-                }}
+                icon="vendorDashboard"
+                title={term(vertical, 'vendor_dashboard_nav', locale)}
+                state="active"
               >
-                <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
-                  {term(vertical, 'vendor_dashboard_nav', locale)}
-                </h3>
-                <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-                  {t('dash.manage_vendor', locale)}
-                </p>
-              </Link>
-              {/* ↑ Not yet converted to DashboardTile — see the Slice 3a
-                  remaining-work note in dashboard_redesign_plan.md. */}
+                {t('dash.manage_vendor', locale)}
+              </DashboardTile>
 
               {/* Help & FAQ Search Widget */}
               <HelpSearchWidget vertical={vertical} />
@@ -1175,34 +1145,11 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 const showUpgrade = tier === 'free'
                 if (!showUpgrade) return null
                 return (
-                  <div style={{
-                    padding: spacing.md,
-                    background: 'linear-gradient(135deg, #fefce8 0%, #fef3c7 100%)',
-                    border: '2px solid #fcd34d',
-                    borderRadius: radius.md,
-                    boxShadow: shadows.md
-                  }}>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: spacing.xs,
-                      marginBottom: spacing.xs
-                    }}>
-                      <span style={{ fontSize: typography.sizes['2xl'] }}>🚀</span>
-                      <h3 style={{
-                        color: '#92400e',
-                        margin: 0,
-                        fontSize: typography.sizes.lg,
-                        fontWeight: typography.weights.bold
-                      }}>
-                        {t('dash.grow_business', locale)}
-                      </h3>
-                    </div>
-
+                  <DashboardCard title={t('dash.grow_business', locale)} state="promo">
                     <p style={{
                       margin: `0 0 ${spacing.sm} 0`,
                       fontSize: typography.sizes.sm,
-                      color: '#78350f',
+                      color: colors.textSecondary,
                       fontWeight: typography.weights.medium
                     }}>
                       {vertical === 'food_trucks'
@@ -1215,7 +1162,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                       margin: `0 0 ${spacing.sm} 0`,
                       paddingLeft: 20,
                       fontSize: typography.sizes.sm,
-                      color: '#78350f',
+                      color: colors.textSecondary,
                       lineHeight: 1.6
                     }}>
                       {vertical === 'food_trucks' ? (
@@ -1241,7 +1188,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                       style={{
                         display: 'inline-block',
                         padding: `${spacing.xs} ${spacing.md}`,
-                        backgroundColor: '#d97706',
+                        backgroundColor: colors.accent,
                         color: 'white',
                         textDecoration: 'none',
                         borderRadius: radius.md,
@@ -1252,7 +1199,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                     >
                       {t('dash.upgrade_now', locale)}
                     </Link>
-                  </div>
+                  </DashboardCard>
                 )
               })()}
 
@@ -1261,22 +1208,14 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
             </div>
           ) : (
             <div>
-              {/* Pending Approval Notice */}
-              <div style={{
-                padding: spacing.sm,
-                backgroundColor: colors.surfaceSubtle,
-                color: colors.textPrimary,
-                border: `1px solid ${colors.accent}`,
-                borderRadius: radius.md,
-                marginBottom: spacing.sm
-              }}>
-                <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.accent }}>
-                  ⏳ {t('dash.pending_approval', locale)}
-                </h3>
+              {/* Pending Approval — the textbook `pending` case: the vendor has
+                  done their part and is waiting on US. Blue, deliberately not
+                  orange: "waiting on us" must not read as "waiting on you". */}
+              <DashboardCard title={t('dash.pending_approval', locale)} state="pending">
                 <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
                   {t('dash.pending_msg', locale)}
                 </p>
-              </div>
+              </DashboardCard>
 
               {/* Draft Listings Section */}
               <p style={{ margin: `0 0 ${spacing.xs} 0`, color: colors.textMuted, fontSize: typography.sizes.sm }}>
@@ -1320,7 +1259,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
             fontSize: typography.sizes.xl,
             fontWeight: typography.weights.semibold,
             marginBottom: spacing.sm,
-            color: '#7c3aed',
+            color: statusColors.selectionBorder,
             display: 'flex',
             alignItems: 'center',
             gap: spacing['2xs']
