@@ -469,6 +469,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               docs/Codebase_Map/22_Components_UI.md. */}
           <DashboardCard
             title="Manage Locations"
+            inGrid
             headerAccessory={
               <Link
                 href={`/${vertical}/vendor/markets`}
@@ -810,6 +811,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               inside it rather than the whole surface being one door. */}
           <DashboardCard
             title="Business Profile"
+            inGrid
             state={cancellationWarningLevel === 'red' ? 'danger' : cancellationWarningLevel === 'orange' ? 'warning' : 'neutral'}
             headerAccessory={
               <div style={{ display: 'flex', gap: spacing.xs, alignItems: 'center' }}>
