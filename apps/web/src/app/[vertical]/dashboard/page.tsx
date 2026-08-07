@@ -1125,8 +1125,11 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 {t('dash.manage_vendor', locale)}
               </DashboardTile>
 
-              {/* Help & FAQ Search Widget */}
-              <HelpSearchWidget vertical={vertical} />
+              {/* Help & FAQ deliberately NOT repeated here (2026-08-07). It
+                  already renders once in the Shopper grid above, and it is
+                  generic help — nothing about it is vendor-specific. Having it
+                  twice on one page is what made this section look like it held
+                  misplaced buyer content. */}
 
               {/* Pending market surveys (Phase E Stage 3) — always
                   shows; muted state when zero pending. Links to the
@@ -1236,8 +1239,8 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                   {t('dash.start_adding', locale)}
                 </DashboardTile>
 
-                {/* Help & FAQ Search Widget */}
-                <HelpSearchWidget vertical={vertical} />
+                {/* Help & FAQ deliberately NOT repeated here — see the note in
+                    the approved-vendor branch above. */}
 
                 {/* Vendor Feedback Card */}
                 <VendorFeedbackCard vertical={vertical} />
@@ -1293,17 +1296,26 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
            identically. Most users are on a phone, so the phone case is the
            default rather than the exception. Replaces a desktop-first
            "2 columns, collapse under 540px with !important" rule. */
+        /* minmax(0, ...) not plain 1fr: a bare 1fr track refuses to shrink
+           below its content's minimum, so one non-wrapping string (a long
+           notification title, a URL, a long market name) widens its column and
+           squeezes every sibling. Paired with minWidth:0 on the card and tile
+           wrappers — the track side alone is not enough, the grid ITEM has to
+           be allowed to shrink too. Fixed 2026-08-07 after the FT shopper
+           dashboard showed one wide notifications column and two narrow ones.
+           NOTE: no backticks in this comment — the whole block is a JS
+           template literal, so a stray backtick ends it early. */
         .shopper-grid {
-          grid-template-columns: 1fr;
+          grid-template-columns: minmax(0, 1fr);
         }
         @media (min-width: 640px) {
           .shopper-grid {
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(2, minmax(0, 1fr));
           }
         }
         @media (min-width: 1024px) {
           .shopper-grid {
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(3, minmax(0, 1fr));
           }
         }
         @media (max-width: 540px) {

@@ -72,6 +72,15 @@ export default function DashboardCard({ id, title, description, headerAccessory,
         backgroundColor: s.background,
         border: `${borderWidth}px solid ${s.border}`,
         borderRadius: radius.md,
+        // Grid items default to `min-width: auto`, i.e. "never shrink below your
+        // content". So a child that cannot wrap — anything with
+        // `white-space: nowrap`, a URL, a long name — makes its whole COLUMN
+        // expand instead of truncating, squeezing every sibling column.
+        // 2026-08-07: a long notification title did exactly this on the FT
+        // shopper dashboard. DashboardNotifications was already asking for
+        // ellipsis truncation; it simply never engaged, because nothing
+        // constrained the width. This is the constraint.
+        minWidth: 0,
         ...(inGrid ? { height: '100%' } : { marginBottom: spacing.sm }),
         scrollMarginTop: `${NAV_OFFSET}px`,
       }}

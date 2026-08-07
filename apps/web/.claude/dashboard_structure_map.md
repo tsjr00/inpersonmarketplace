@@ -79,6 +79,8 @@
 
 🚨 **Rows 1–2 order is an owner decision — operational first.** Do not re-sort by size, alphabet, or "visual balance."
 
+🛑 **DO NOT TOUCH: `Pickup Mode` and `My Upcoming Pickups`** (owner, 2026-08-07). Both tiles in `.row-1-grid` are off-limits — no restyling, no state changes, no re-ordering, no copy edits. They are the vendor's market-day operational surfaces and they are currently correct. If a future change appears to require touching them, **stop and ask.** *(Deliberately recorded here and not as a code comment, because adding the comment would itself mean editing those tiles.)*
+
 **Responsive** (`<style>` block, mobile-first): rows 1–3 `1fr` → 2 @640 → 3 @1024; row 4 and promote `1fr` → 2 @640.
 
 ---
@@ -163,4 +165,7 @@ The person being *asked* is often not the person who *benefits*, so the same fea
     **`accentGold` was added 2026-08-07** to both palettes (`#FBC02D`) as a SECOND accent — the one non-red signal colour FT has. It is an option to use where red would collide, **not** a replacement for `accent`: `colors.accent` has 46 usages across 23 files (checkout borders, order-status colours, browse capacity), and swapping it wholesale would repaint all of them.
     The `promo` state uses `accentGold` for exactly this reason. A promo bordered with `accent` shipped briefly on 2026-08-07 and rendered indistinguishable from `danger` on FT.
 8. **Both big dashboards are server components** with route-level `loading.tsx`. Do **not** add per-card spinners.
-9. **`performance-baseline.test.ts` enforces query count and sequential depth.** The shopper dashboard's role signals load in one parallel `Promise.all` — splitting them into per-section fetches fails the test, correctly.
+9. 🚨 **Grid columns must be `minmax(0, 1fr)`, never bare `1fr`.** A bare `1fr` track will not shrink below its content's minimum, and grid ITEMS default to `min-width: auto` — so any non-wrapping child (`white-space: nowrap`, a URL, a long name) makes its whole COLUMN expand and squeezes every sibling. **Both halves are required:** `minmax(0, 1fr)` on the track AND `minWidth: 0` on the grid item (now baked into `DashboardCard`, and into `DashboardTile`'s link/button wrapper — the wrapper is the grid item, not the surface inside it).
+   Found 2026-08-07 on the FT shopper dashboard: one wide notifications column, two narrow. `DashboardNotifications` was already asking for ellipsis truncation (`:240-242`) — it simply never engaged, because nothing constrained the width. FM was one long notification away from the same bug.
+   ⚠️ **The `<style>` blocks are JS template literals — a stray backtick in a CSS comment ends the literal and breaks the build.** Cost one tsc failure the same day.
+10. **`performance-baseline.test.ts` enforces query count and sequential depth.** The shopper dashboard's role signals load in one parallel `Promise.all` — splitting them into per-section fetches fails the test, correctly.

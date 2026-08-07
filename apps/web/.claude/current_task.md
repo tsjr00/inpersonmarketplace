@@ -18,7 +18,24 @@ Session focus is **Slices 1 & 2** of `apps/web/.claude/dashboard_redesign_plan.m
 
 **Tile vs Card taxonomy is now the standing vocabulary** — canonical copy in `docs/Codebase_Map/22_Components_UI.md`. Tile = a door (click, you leave). Card = a room (content lives here). Face rule: *the face answers "does this need me?", the inside answers "what do I do about it?"* — 8-word limit or split the card. A SMALL card may sit in a grid (`inGrid`); more than one internal section ⇒ full width.
 
-**Next:** Slice 3 — shopper dashboard + the Partner section. **It still carries its share of the raw hex**, same tile/card mix as vendor had. Then Slice 4 (nav: bottom bar on phone, left rail on desktop) and Slice 5 (polish).
+## 📊 DASHBOARD WORK — where it stands end of 2026-08-07
+
+**7 commits on staging** (`33177178`), production untouched at `f141c6e6`. Slices 1, 2 and 3a are DONE.
+
+**Shipped:** shared card+tile system (`components/dashboard/`) · 8 semantic states + the audience-intensity principle · lucide icon vocabulary in one file · "My" voice · **zero raw hex on the shopper dashboard** (was 51) · `accentGold` added so promos are not red on FT · every grid on every dashboard internally uniform.
+
+**🛑 OFF-LIMITS (owner):** `Pickup Mode` and `My Upcoming Pickups` tiles — no restyling, state changes, re-ordering or copy edits. Stop and ask.
+
+**⏳ AWAITING OWNER REVIEW ON STAGING** — three things I cannot judge from here:
+1. The **lucide icon set** (all 9 visible at once on the vendor dashboard).
+2. **Buyer rating prompt vs vendor survey card** — deliberately moved in opposite directions (`attention` vs `active`). Does the buyer one feel insistent-not-obnoxious, and does the vendor one still register?
+3. **Gold promo outlines** — on FT they are the only non-red signal on the page.
+
+**▶ NEXT: Slice 3b (Partner reorg).** Full prep is written — read the **`🧭 SLICE 3b — PREP`** block at the top of `dashboard_redesign_plan.md`. Short version: every role signal is already loaded in one parallel query, `/partner` is a free route name, `/settings` already exists as a home for the Admin band, and **one decision gates everything — are Shopper/Partner/Vendor separate ROUTES or bands on one page?** Vendor, admin and manager already have their own routes, so Partner would be the only new one.
+
+**Structure reference: `dashboard_structure_map.md`** — every band, container, child and conversion status across all three dashboards, plus ten facts that bite. Built because the plan's old inventory was route+line-count only, which is where every correction this session came from.
+
+**Then:** Slice 4 (nav — bottom bar on phone, left rail on desktop; ⚠️ `ManagerJumpNav` hardcodes anchor ids, renames break it silently) and Slice 5 (polish).
 
 ## ⏱️ SESSION HANDOFF (2026-08-02)
 

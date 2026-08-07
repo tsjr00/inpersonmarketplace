@@ -1023,37 +1023,43 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
 
       {/* Responsive Styles */}
       <style>{`
+        /* minmax(0, …) not plain 1fr — a bare 1fr track will not shrink below
+           its content's minimum, so one non-wrapping string widens its column
+           and squeezes the siblings. Paired with minWidth:0 on the card and
+           tile wrappers; the track side alone is not enough. Same fix as the
+           shopper dashboard, applied here so this surface cannot develop the
+           bug later (2026-08-07). No tile's design, order or copy changed. */
         .vendor-dashboard .row-1-grid,
         .vendor-dashboard .row-2-grid,
         .vendor-dashboard .row-3-grid {
-          grid-template-columns: 1fr;
+          grid-template-columns: minmax(0, 1fr);
         }
         .vendor-dashboard .row-4-grid {
-          grid-template-columns: 1fr;
+          grid-template-columns: minmax(0, 1fr);
         }
         .vendor-dashboard .promote-grow-grid {
-          grid-template-columns: 1fr;
+          grid-template-columns: minmax(0, 1fr);
         }
         @media (min-width: 640px) {
           .vendor-dashboard .row-1-grid,
           .vendor-dashboard .row-2-grid,
           .vendor-dashboard .row-3-grid {
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(2, minmax(0, 1fr));
           }
           .vendor-dashboard .row-4-grid {
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(2, minmax(0, 1fr));
           }
           .vendor-dashboard .promote-grow-grid {
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(2, minmax(0, 1fr));
           }
         }
         @media (min-width: 1024px) {
           .vendor-dashboard .row-1-grid,
           .vendor-dashboard .row-2-grid {
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(3, minmax(0, 1fr));
           }
           .vendor-dashboard .row-3-grid {
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(3, minmax(0, 1fr));
           }
         }
       `}</style>

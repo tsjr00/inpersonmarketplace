@@ -648,7 +648,7 @@ export const es: Record<string, string> = {
   'notif_ui.days_ago': 'hace {count}d',
 
   // ── Feedback & Review components ───────────────────────────────────
-  'feedback.share': 'Compartir Comentarios',
+  'feedback.share': 'Mis Comentarios de Comprador',
   'feedback.suggest_desc': 'Sugiere un {market}, reporta un problema o dinos cómo mejorar',
   'feedback.title': 'Comparte Tus Comentarios',
   'feedback.please_note': 'Nota Importante',

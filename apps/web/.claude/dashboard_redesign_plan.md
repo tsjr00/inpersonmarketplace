@@ -507,6 +507,77 @@ Chosen because **emoji cannot be made consistent**: Apple, Google and Microsoft 
 
 ---
 
+## 🧭 SLICE 3b — PREP (2026-08-07). Read this first; nothing is built.
+
+Everything below was verified by inspection. **Structure reference: [`dashboard_structure_map.md`](dashboard_structure_map.md).**
+
+### What 3b is
+
+Regroup the shopper dashboard's four bands into **Shopper · Partner · Vendor**, where **Partner** is the umbrella for market managers, event organizers, and the future regional role — so a new role type does not need a new top-level section each time. Admin gets resolved. `MarketManagerCard` stops living under a 🛒 Shopper badge.
+
+### ✅ Already available — no new work needed
+
+**Every role signal is already loaded**, in ONE parallel `Promise.all` at `dashboard/page.tsx:54-61`:
+
+| Signal | Source |
+|---|---|
+| `isVendor` / `isApprovedVendor` | `:143` / `:144` |
+| `managedMarkets` | in the parallel block `:61` → drives `MarketManagerCard` |
+| `hasOrganizerEvents` | `:241` |
+| `isAdmin` | `:243` via `hasAdminRole(userProfile)` |
+
+⚠️ **Preserve the parallel shape.** It is deliberate and `performance-baseline.test.ts` enforces query count and sequential depth — splitting into per-section fetches fails that test, correctly.
+
+**Route names are free:** there is **no `/[vertical]/partner`** route. No collision.
+
+**`/[vertical]/settings` already exists** (333 lines) with seven `<h2>` sections: account details · membership · vendor account · change password · notification prefs · language · delete account. **So "Admin moves to settings" has a real destination** — it is not a new surface.
+
+### The ONE decision that gates everything
+
+**Are Shopper / Partner / Vendor separate ROUTES, or bands on one page?** The plan has flagged since 08-05 that this must be settled *before layout locks*. The wrinkle that makes it non-obvious:
+
+- **Vendor is ALREADY its own route** — `/[vertical]/vendor/dashboard`. The "Vendor band" on the shopper page is just a pitch/link card.
+- **Admin already has its own consoles** — `/[vertical]/admin`, `/admin`.
+- **Manager already has its own dashboards** — `/[vertical]/market-manager/[marketId]/dashboard`.
+
+So under "destinations", **Partner is the only genuinely new route**, and the nav mostly points at pages that already exist. That is a real argument for it — but it is the owner's call.
+
+| | (a) Destinations | (b) Bands on one page |
+|---|---|---|
+| Partner | new `/[vertical]/partner` route | new section on `/dashboard` |
+| Nav (Slice 4) | rail/bottom bar navigates pages | rail/bottom bar scrolls to anchors |
+| Matches Slice 4 decision? | ✅ "destinations rather than bands you scroll past" | ⚠️ nav would point at a link card for Vendor |
+| Cost | one new route + its data loading | regroup only |
+
+### Owner decisions already banked
+
+- **Admin:** *"admin card can live in a dashboard or it can just live in settings — if it keeps things cleaner it doesn't need to be in a dashboard."* → **not a fourth band.** Settings is the likely home and it exists.
+- **Section visibility:** render only what the user has. **No forced accordion.**
+- **Partner is the umbrella** so new roles do not each earn a top-level section.
+- **Admin surfaces themselves** (`/[vertical]/admin`, `/admin`) stay **out of scope**.
+
+### Carried in as constraints
+
+1. 🛑 **`Pickup Mode` and `My Upcoming Pickups` are OFF-LIMITS** (owner, 2026-08-07) — no restyling, state changes, re-ordering or copy edits. Stop and ask if something appears to require touching them.
+2. **Operational-first ordering** on the vendor dashboard is an owner decision.
+3. **Intensity is per-audience, not per-feature** — see `states.ts`. Partner surfaces need the same question asked: who is looking, what do they get out of acting.
+4. **The manager dashboards have NO grids** — pure vertical stacks. Any Partner layout assuming "dashboards are grids" is wrong for the surface Partner links to.
+5. ⚠️ **`ManagerJumpNav` hardcodes anchor ids** the bodies must define. Slice 4 touches this nav; a rename breaks it silently, and that has already shipped once.
+6. **Purple tokens are actually indigo `selection*`** — if Admin stays on a dashboard, it wants a properly named token. If it moves to settings, the question disappears.
+
+### Still-open items that 3b should decide
+
+- **Where the Admin band lands** — settings, or stays.
+- **Whether `My Events` (organizer) and `My Markets` (manager) merge into one Partner surface** or stay as sibling groups within it.
+- **The "My Events" name collision** — the shopper band and the vendor tile are different things; the vendor side is now "My Vendor Events". If both end up under Partner, revisit.
+- **Localization gap:** the shopper "My Events" `<h2>` is **hardcoded English** while its siblings use `t()`. Any new band must be localized from the start.
+
+### NOT in 3b
+
+The three `Event*Card`s — they are inline expand/collapse toggles, not cards, and restructuring them is **deferred to the events rebuild** rather than done twice. Two inline blocks also remain: Ready for Pickup (~166 lines, deeply nested) and Passion→Profit.
+
+---
+
 ## 🔭 Slice 3 — SPLIT IN TWO (owner, 2026-08-07)
 
 Owner: *"lets keep partner reorg it's own thing, there is enough detail in that by itself."* So:

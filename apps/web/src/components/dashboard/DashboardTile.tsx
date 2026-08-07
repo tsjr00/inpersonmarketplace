@@ -87,6 +87,9 @@ export default function DashboardTile({
       cursor: 'pointer',
       height: '100%',
       minHeight: 120,
+      // See the note in DashboardCard: grid items default to `min-width: auto`,
+      // so non-wrapping content expands its column rather than truncating.
+      minWidth: 0,
       boxShadow: s.glow ?? shadows.sm,
       textAlign: 'left',
       width: '100%',
@@ -119,7 +122,9 @@ export default function DashboardTile({
     return (
       <button
         onClick={onClick}
-        style={{ display: 'block', width: '100%', height: '100%', padding: 0, border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer' }}
+        // minWidth: 0 — the BUTTON is the grid item, not the surface inside it,
+        // so the shrink constraint has to live here as well.
+        style={{ display: 'block', width: '100%', height: '100%', minWidth: 0, padding: 0, border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer' }}
       >
         {surface}
       </button>
@@ -129,7 +134,8 @@ export default function DashboardTile({
   return (
     <Link
       href={href ?? '#'}
-      style={{ textDecoration: 'none', display: 'block', height: '100%' }}
+      // minWidth: 0 — the LINK is the grid item, not the surface inside it.
+      style={{ textDecoration: 'none', display: 'block', height: '100%', minWidth: 0 }}
       {...(targetBlank ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
     >
       {surface}

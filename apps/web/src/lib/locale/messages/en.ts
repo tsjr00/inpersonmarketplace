@@ -648,7 +648,9 @@ export const en: Record<string, string> = {
   'notif_ui.days_ago': '{count}d ago',
 
   // ── Feedback & Review components ───────────────────────────────────
-  'feedback.share': 'Share Feedback',
+  // Renamed 2026-08-07: this card is buyer-facing, and sits above the line from
+  // "My Vendor Feedback". Naming the audience is what makes the pair legible.
+  'feedback.share': 'My Shopper Feedback',
   'feedback.suggest_desc': 'Suggest a {market}, report an issue, or tell us how to improve',
   'feedback.title': 'Share Your Feedback',
   'feedback.please_note': 'Please Note',
