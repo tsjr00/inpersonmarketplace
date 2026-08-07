@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import DashboardCard from '@/components/dashboard/DashboardCard'
 
 interface ReferralCardProps {
   vertical: string
@@ -59,17 +60,11 @@ export default function ReferralCard({ vertical }: ReferralCardProps) {
 
   if (loading) {
     return (
-      <div style={{
-        padding: spacing.sm,
-        backgroundColor: colors.surfaceElevated,
-        border: `1px solid ${colors.border}`,
-        borderRadius: radius.md,
-        boxShadow: shadows.sm,
-      }}>
+      <DashboardCard inGrid>
         <div style={{ color: colors.textMuted, fontSize: typography.sizes.sm }}>
           Loading referral info...
         </div>
-      </div>
+      </DashboardCard>
     )
   }
 
@@ -81,14 +76,13 @@ export default function ReferralCard({ vertical }: ReferralCardProps) {
   const hasCredits = data.summary.availableBalanceCents > 0 || data.summary.pendingCount > 0
 
   return (
-    <div style={{
-      padding: spacing.sm,
-      background: `linear-gradient(135deg, ${colors.primaryLight} 0%, ${colors.surfaceMuted} 100%)`,
-      border: `2px solid ${colors.primary}`,
-      borderRadius: radius.md,
-      boxShadow: shadows.sm,
-    }}>
-      {/* Title + Description on same row */}
+    /* A CARD, not a tile — you copy a link and act inside it. `promo` because
+       it is an incentive offer: gold outline, no gradient fill (owner,
+       2026-08-07: "if we want to promote them then an outlined color is better
+       anyway"). Gold specifically, not `accent` — on food trucks `accent` is
+       the same red as `danger`. */
+    <DashboardCard title="Invite a Vendor, Earn $10" state="promo" inGrid>
+      {/* Title row accessory + description */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -98,15 +92,6 @@ export default function ReferralCard({ vertical }: ReferralCardProps) {
         gap: spacing.xs,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
-          <span style={{ fontSize: typography.sizes.lg }}>🎁</span>
-          <h3 style={{
-            margin: 0,
-            fontSize: typography.sizes.sm,
-            fontWeight: typography.weights.semibold,
-            color: colors.primaryDark,
-          }}>
-            Invite a Vendor, Earn $10
-          </h3>
           <span style={{ fontSize: typography.sizes.xs, color: colors.primaryDark }}>
             — Share your link. Earn $10 when they make their first sale.
           </span>
@@ -185,6 +170,6 @@ export default function ReferralCard({ vertical }: ReferralCardProps) {
           </span>
         </div>
       </div>
-    </div>
+    </DashboardCard>
   )
 }

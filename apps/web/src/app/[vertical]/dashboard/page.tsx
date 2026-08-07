@@ -1188,7 +1188,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                       style={{
                         display: 'inline-block',
                         padding: `${spacing.xs} ${spacing.md}`,
-                        backgroundColor: colors.accent,
+                        backgroundColor: colors.accentGold,
                         color: 'white',
                         textDecoration: 'none',
                         borderRadius: radius.md,

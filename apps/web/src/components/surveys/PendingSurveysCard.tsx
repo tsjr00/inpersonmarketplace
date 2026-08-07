@@ -1,7 +1,6 @@
-import Link from 'next/link'
 import { createServiceClient } from '@/lib/supabase/server'
-import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import { ensurePendingVendorSurveys } from '@/lib/surveys/lazy-generate'
+import DashboardTile, { TileBadge } from '@/components/dashboard/DashboardTile'
 
 interface PendingSurveysCardProps {
   vendorProfileId: string
@@ -39,45 +38,25 @@ export default async function PendingSurveysCard({
   const pendingCount = count ?? 0
 
   return (
-    <Link
+    /* A TILE: the whole surface navigates to /vendor/surveys.
+       `attention` when surveys are pending — a survey is a task only this vendor
+       can complete, which is exactly what that state means. ⚠ It is the loudest
+       state in the system, so if a survey nudge ends up competing with genuinely
+       time-critical things (an unconfirmed order), this is the call to revisit. */
+    <DashboardTile
       href={`/${vertical}/vendor/surveys`}
-      style={{
-        display: 'block',
-        padding: spacing.md,
-        backgroundColor: pendingCount > 0 ? '#fff7e6' : colors.surfaceElevated,
-        color: colors.textPrimary,
-        border: `1px solid ${pendingCount > 0 ? '#ffd57a' : colors.border}`,
-        borderRadius: radius.md,
-        textDecoration: 'none',
-      }}
+      icon="listings"
+      title="My Market Surveys"
+      state={pendingCount > 0 ? 'attention' : 'neutral'}
+      badge={pendingCount > 0 ? <TileBadge>{pendingCount}</TileBadge> : undefined}
     >
-      <h3 style={{
-        marginTop: 0,
-        marginBottom: spacing['2xs'],
-        fontSize: typography.sizes.lg,
-        fontWeight: typography.weights.semibold,
-      }}>
-        📋 Market surveys
-      </h3>
       {pendingCount > 0 ? (
-        <p style={{
-          margin: 0,
-          color: '#664d03',
-          fontSize: typography.sizes.sm,
-          lineHeight: 1.5,
-        }}>
+        <>
           You have <strong>{pendingCount} pending survey{pendingCount === 1 ? '' : 's'}</strong> from recent market day{pendingCount === 1 ? '' : 's'}. Each takes under a minute — your ratings help the manager + funders.
-        </p>
+        </>
       ) : (
-        <p style={{
-          margin: 0,
-          color: colors.textMuted,
-          fontSize: typography.sizes.sm,
-          lineHeight: 1.5,
-        }}>
-          No pending surveys right now. After each market day you attend, we&apos;ll send a short rating form to help the manager improve.
-        </p>
+        <>No pending surveys right now. After each market day you attend, we&apos;ll send a short rating form to help the manager improve.</>
       )}
-    </Link>
+    </DashboardTile>
   )
 }

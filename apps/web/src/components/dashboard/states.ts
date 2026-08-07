@@ -99,9 +99,14 @@ export const DASHBOARD_STATES: Record<DashboardState, DashboardStateStyle> = {
   // better anyway." An outline draws the eye without competing with the rest of
   // the page, and it survives small screens and dark backgrounds — which the
   // previous `linear-gradient(135deg, #fefce8, #fef3c7)` treatments did not.
+  // ⚠ Uses `accentGold`, NOT `accent`. On food trucks `accent` is #ff3131 —
+  // the same bright red as `primaryDark` — so an accent-bordered promo was
+  // indistinguishable from `danger` on that vertical. Shipped that way briefly
+  // on 2026-08-07 and corrected the same day. Do not "simplify" this back to
+  // `colors.accent`.
   promo: {
     background: colors.surfaceElevated,
-    border: colors.accent,
+    border: colors.accentGold,
     borderWidth: 2,
     title: colors.textPrimary,
   },

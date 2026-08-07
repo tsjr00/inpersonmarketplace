@@ -270,6 +270,41 @@ A map that drifts is worse than no map, because it is *trusted*. The proof is in
 
 ---
 
+## Rule 7: Structural and Inventory Claims Need the Same Gate as Behavior Claims
+
+### THE GATE — Run before any claim about WHERE something is or HOW MANY there are
+
+Rule 1 gates claims about what code *does* — its verb list is `returns`, `calls`, `validates`, `enforces`. That framing leaves a hole, and **every miss in the 2026-08-07 dashboard session fell through it.** Not one was a behavior claim.
+
+**Before sending any sentence that asserts structure, location, or completeness, the same turn must contain the command output that proves it.** Trigger phrases:
+
+- "these are all the X" · "there are N of X" · "the only X is…"
+- "X is inside Y" · "X renders in/outside Y" · "X lives in Y"
+- "there is no X" · "X doesn't exist" · "nothing uses X"
+- "X is unaffected" · "the blast radius is just Y"
+
+A `grep`, `find`, `ls`, or `wc` in the same turn satisfies it. Memory of a file you read earlier does **not** — and neither does a plan or design doc, **including one you wrote yourself last session.**
+
+### Why documents are the specific trap here
+
+Rule 1 already says agents and docs are leads, not truth. In practice that gets applied to *other people's* documents. **The 2026-08-07 session repeated two false claims straight out of `dashboard_redesign_plan.md` — a file Claude had authored the session before:** that the vendor dashboard's eight `2xl` uses were "the wrapping problem" (seven were emoji, which cannot wrap) and that the shopper dashboard had three `<h2>` sections (it had four). Both were disproved by a single grep once someone asked.
+
+**A plan file is a hypothesis with good provenance. It is not evidence.** Re-verify its factual claims at the moment you rely on them, exactly as you would an agent's output.
+
+### Inventory before design, not during
+
+When the task is "define a rule / taxonomy / standard that will apply across surfaces," **map every surface first, then write the rule.** Deriving a universal rule from one sample and patching it as counter-examples surface is slower and it burns the user's trust in the rule itself.
+
+2026-08-07 incident: the tile/card taxonomy was written from the vendor dashboard alone. "Cards are full-width and stacked" was contradicted within minutes by a card that belonged in a grid, then again by two more, then the "these render outside the grid" claim about the leftovers turned out to be false — two of them sat in a grid beside four converted siblings. Three correction rounds, all avoidable by inventorying the containers first.
+
+### Visual judgments are not yours to make confidently
+
+You cannot see the rendered screen. For claims about how something **looks or feels in place** — spacing, balance, whether a layout "fits" — present the options and say plainly that the user is the one who can evaluate it. Do not lead with a confident recommendation dressed in reasoning.
+
+2026-08-07: a full-width placement was recommended with confident rationale and rejected by the owner the moment it was seen on staging.
+
+---
+
 ## Cannot Be Overridden
 
 No autonomy mode, no time pressure, no "just give me a quick summary" overrides the requirements above. Speed that produces wrong answers is slower than accuracy. A 10-finding report with 3 wrong findings is worse than a 7-finding report that's 100% correct — the user now has to verify everything because trust is broken.

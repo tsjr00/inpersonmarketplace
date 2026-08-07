@@ -15,6 +15,15 @@ export const colors = {
   // Accent Colors (Golden - Highlights)
   accent: 'var(--color-accent, #FBC02D)',
   accentMuted: 'var(--color-accent-muted, #BCAAA4)',
+  // A SECOND accent, available when the primary one does not fit — not a
+  // replacement for `accent` and not to be swapped in wholesale.
+  //
+  // Added 2026-08-07 because the food-truck palette has no non-red left: its
+  // `primary`, `primaryDark` and `accent` are ALL reds (#ff5757 / #ff3131 /
+  // #ff3131), so reaching for a brand colour to signal "special" collides with
+  // `danger`. That is the measurable form of "everything was red and it got
+  // confusing." Gold gives FT a second colour to signal with; FM already had it.
+  accentGold: 'var(--color-accent-gold, #FBC02D)',
 
   // Surface Colors (Backgrounds)
   surfaceBase: 'var(--color-surface-base, #FFFEF7)',
@@ -174,6 +183,7 @@ const verticalColorPalettes: Record<string, typeof colors> = {
     primaryLight: '#F1F8E9',
     accent: '#FBC02D',
     accentMuted: '#BCAAA4',
+    accentGold: '#FBC02D',        // same as accent here — FM's accent already is gold
     surfaceBase: '#FFFEF7',
     surfaceElevated: '#FFFFFF',
     surfaceSubtle: '#FFFDE7',
@@ -196,6 +206,10 @@ const verticalColorPalettes: Record<string, typeof colors> = {
     // Accent Colors
     accent: '#ff3131',            // Bright red — key CTAs, danger/error
     accentMuted: '#b4b4b4',      // Light grey (brand kit) — secondary accents
+    accentGold: '#FBC02D',        // Gold — the ONE non-red signal colour available
+                                  // here. Use where red would collide with danger
+                                  // (promos, upgrades, "special"). Not a general
+                                  // replacement for `accent`.
 
     // Surface Colors (White-dominant — clean and classic)
     surfaceBase: '#ffffff',       // White — page background
@@ -270,6 +284,7 @@ export function getVerticalCSSVars(vertical: string): Record<string, string> {
     '--color-primary-light': palette.primaryLight,
     '--color-accent': palette.accent,
     '--color-accent-muted': palette.accentMuted,
+    '--color-accent-gold': palette.accentGold,
     '--color-surface-base': palette.surfaceBase,
     '--color-surface-elevated': palette.surfaceElevated,
     '--color-surface-subtle': palette.surfaceSubtle,

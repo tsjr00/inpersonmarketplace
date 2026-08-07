@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import DashboardCard from '@/components/dashboard/DashboardCard'
 import { validatePaymentUsername } from '@/lib/payments/external-links'
 import { EXTERNAL_PAYMENTS_ENABLED } from '@/lib/constants'
 
@@ -148,21 +149,10 @@ export default function PaymentMethodsCard({
   ].filter(Boolean).length
 
   return (
-    <div style={{
-      padding: spacing.sm,
-      backgroundColor: colors.surfaceElevated,
-      border: `1px solid ${colors.border}`,
-      borderRadius: radius.md,
-      boxShadow: shadows.sm
-    }}>
-      <h3 style={{
-        color: colors.primary,
-        margin: `0 0 ${spacing.xs} 0`,
-        fontSize: typography.sizes.base,
-        fontWeight: typography.weights.semibold
-      }}>
-        Payments &amp; Earnings
-      </h3>
+    /* A CARD: payouts, methods and earnings are all acted on in place.
+       `inGrid` — it sits in the vendor dashboard's .row-3-grid beside
+       Business Profile and Analytics, both of which are grid peers. */
+    <DashboardCard title="Payments & Earnings" inGrid>
 
       {/* Earnings Section */}
       <div style={{
@@ -580,6 +570,6 @@ export default function PaymentMethodsCard({
           </Link>
         </div>
       )}
-    </div>
+    </DashboardCard>
   )
 }

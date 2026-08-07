@@ -39,7 +39,13 @@
 
 ---
 
-## Surfaces inventory (first pass)
+## ⚠️ Surfaces inventory — SUPERSEDED
+
+**The table below is route + line count only. It answers "which files", never "what is inside them" — and two of its factual claims were wrong and got repeated (see the `2xl` and three-sections corrections later in this file).**
+
+**→ Use [`dashboard_structure_map.md`](dashboard_structure_map.md) instead.** Built 2026-08-07 by direct inspection: every band, every layout container, every child, conversion status, the manager-dashboard anchor contract, and the ranked list of what still hand-rolls its chrome. Kept here only as the historical first pass.
+
+## Surfaces inventory (first pass — superseded)
 
 | Surface | Route | Lines | Standardized? |
 |---|---|---|---|
