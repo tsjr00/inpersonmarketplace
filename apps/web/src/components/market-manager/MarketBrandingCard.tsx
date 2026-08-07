@@ -4,7 +4,7 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
-import ManagerCard from './ManagerCard'
+import DashboardCard from '@/components/dashboard/DashboardCard'
 import { term } from '@/lib/vertical/terminology'
 
 /**
@@ -217,7 +217,7 @@ export default function MarketBrandingCard({
   }
 
   return (
-    <ManagerCard
+    <DashboardCard
       title="Branding"
       description={`Upload your ${term(vertical, 'market').toLowerCase()}'s logo. It will appear on your public ${term(vertical, 'market').toLowerCase()} profile and on the co-branded ${term(vertical, 'vendor').toLowerCase()} invite page.`}
     >
@@ -601,6 +601,6 @@ export default function MarketBrandingCard({
         onConfirm={performCoverRemove}
         onCancel={() => setConfirmingCoverRemove(false)}
       />
-    </ManagerCard>
+    </DashboardCard>
   )
 }

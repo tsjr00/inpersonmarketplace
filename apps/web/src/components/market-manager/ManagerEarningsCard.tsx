@@ -1,5 +1,5 @@
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
-import ManagerCard from './ManagerCard'
+import DashboardCard from '@/components/dashboard/DashboardCard'
 import { term } from '@/lib/vertical/terminology'
 import type { ManagerEarningsAggregates } from '@/lib/markets/manager-dashboard-stats'
 
@@ -45,7 +45,7 @@ export default function ManagerEarningsCard({ aggregates, vertical }: ManagerEar
   ]
 
   return (
-    <ManagerCard
+    <DashboardCard
       title={`Your ${term(vertical, 'booth').toLowerCase()} revenue`}
       description={<>What you collect from weekly {term(vertical, 'booth').toLowerCase()} rentals after the platform&apos;s percentage — this is <strong>your</strong> money, paid out through your Stripe account. ({term(vertical, 'market')} activity below shows your {term(vertical, 'vendors').toLowerCase()}&apos; sales, which you don&apos;t collect.)</>}
     >
@@ -107,6 +107,6 @@ export default function ManagerEarningsCard({ aggregates, vertical }: ManagerEar
           Some earlier bookings are estimated at current rates; newer bookings show the exact amount you received.
         </div>
       )}
-    </ManagerCard>
+    </DashboardCard>
   )
 }

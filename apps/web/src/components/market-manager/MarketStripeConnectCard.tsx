@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
-import ManagerCard from './ManagerCard'
+import DashboardCard from '@/components/dashboard/DashboardCard'
 import { term } from '@/lib/vertical/terminology'
 
 /**
@@ -179,7 +179,7 @@ export default function MarketStripeConnectCard({ marketId, vertical, marketStat
   }
 
   return (
-    <ManagerCard
+    <DashboardCard
       title={vertical === 'food_trucks' ? 'Stripe Payment Account' : `${term(vertical, 'booth')} rental payments`}
       description={`Connect a Stripe account to receive ${term(vertical, 'booth').toLowerCase()} rental payments from ${term(vertical, 'vendors').toLowerCase()} who book at your ${term(vertical, 'market').toLowerCase()}. Your account is separate from your ${term(vertical, 'vendor').toLowerCase()} account (if you have one) — handled by Stripe directly, we never see your bank details.`}
     >
@@ -397,7 +397,7 @@ export default function MarketStripeConnectCard({ marketId, vertical, marketStat
       )}
       </>
       )}
-    </ManagerCard>
+    </DashboardCard>
   )
 }
 

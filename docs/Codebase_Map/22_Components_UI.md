@@ -1,6 +1,6 @@
 # 22 — Components & UI
 
-<!-- map-stamp: domain=components-ui; verified=2026-07-18; commit=b9f82116 -->
+<!-- map-stamp: domain=components-ui; verified=2026-08-07; commit=00f234c8 -->
 <!-- map-claims
 src/components/shared/**
 src/components/layout/**
@@ -14,7 +14,7 @@ src/types/**
 src/instrumentation.ts
 -->
 
-180 components, 142 pages. Hand-rolled — there is no third-party component library.
+181 components, 142 pages. Hand-rolled — there is no third-party component library.
 
 ---
 
@@ -68,7 +68,7 @@ One leftover from the Tailwind era survives: `StatusBadge` still accepts Tailwin
 
 | Directory | Files | What lives there |
 |---|---|---|
-| `market-manager/` | 43 | The largest. Manager dashboards (`FmDashboardBody` / `FtParkDashboardBody`), booth and spot inventory, seasons, settlement, onboarding, surveys — see [12_Market_Manager.md](12_Market_Manager.md) and [13_FT_Park.md](13_FT_Park.md) |
+| `market-manager/` | 42 | The largest. Manager dashboards (`FmDashboardBody` / `FtParkDashboardBody`), booth and spot inventory, seasons, settlement, onboarding, surveys — see [12_Market_Manager.md](12_Market_Manager.md) and [13_FT_Park.md](13_FT_Park.md) |
 | `vendor/` | 35 | Profile, listings, six distinct upload components, market/park booking, order queue — see [11_Vendor_Orders.md](11_Vendor_Orders.md). (`TrialStatusBanner` deleted 2026-07-18 with the trial retirement) |
 | `landing/` | 15 + local tokens | Marketing sections, barrel-exported. **Has its own local `design-tokens.ts`** separate from `lib/design-tokens.ts` — a real duplication |
 | `buyer/` | 8 | Order status, pickup, feedback and ratings |
@@ -82,7 +82,26 @@ One leftover from the Tailwind era survives: `StatusBadge` still accepts Tailwin
 | `notifications/` | 3 | Bell, dashboard list, push opt-in — see [18_Notifications.md](18_Notifications.md) |
 | `marketing/` | 3 | Share button, post-purchase share prompt, social-proof toast |
 | `help/` · `onboarding/` · `surveys/` · `location/` | 2 each | Help search + article list · tutorial modal + wrapper · survey form + pending card · location prompt + inline search |
-| `auth/` · `browse/` · `dashboard/` · `legal/` · `projection/` · `support/` | 1 each | Turnstile · notify-me capture · scroll helper · legal document renderer · operator projection tool · support form |
+| `dashboard/` | 5 | **The shared dashboard card system** — see the section below |
+| `auth/` · `browse/` · `legal/` · `projection/` · `support/` | 1 each | Turnstile · notify-me capture · legal document renderer · operator projection tool · support form |
+
+## `components/dashboard/` — the shared dashboard card system
+
+Promoted out of `components/market-manager/` on **2026-08-07** (Slice 1 of the dashboard standardization) so the manager, vendor and shopper dashboards share one set of chrome instead of hand-rolling cards each. The manager dashboard is the reference implementation and did not change visually.
+
+| File | Purpose | Rendering |
+|---|---|---|
+| `DashboardCard.tsx` | The card wrapper — fixed padding/border/radius/gap, header at `lg` semibold, `description` at `sm` muted, optional `headerAccessory`, `id` + `scrollMarginTop` for anchor landing. Also exports **`NAV_OFFSET`** (sticky-nav height). Was `ManagerCard` / `MANAGER_NAV_OFFSET` | **server** |
+| `GroupHeading.tsx` | Banner grouping several cards under one heading; optional right-aligned `accessory`. Consolidated from two identical private copies in `FmDashboardBody` and `FtParkDashboardBody` | **server** |
+| `CollapsibleSection.tsx` | Expand/collapse group wrapper | client |
+| `TabbedCard.tsx` | Segmented tab bar swapping one panel at a time | client |
+| `ScrollToSection.tsx` | Scroll helper used by the shopper dashboard | client |
+
+**⚠ `DashboardCard` and `GroupHeading` are server components on purpose** — an exception to the "`'use client'` is the norm" convention above. The dashboards are the highest-traffic authenticated pages and are server-rendered; keeping the chrome server-side means it ships zero JS. Adding interactivity to either would flip every card on every dashboard to client-rendered.
+
+**⚠ Two binding design rules (owner, 2026-08-07):** navigation must stay shallow, so nothing is wrapped in `CollapsibleSection` unless its header states what is inside (a count, a status, or the next action). And the dashboards keep their route-level `loading.tsx` — no per-card `Skeleton`/`Spinner`, which would convert server cards to client cards and regress `performance-baseline.test.ts`.
+
+Plan of record: `apps/web/.claude/dashboard_redesign_plan.md`.
 
 Root-level: `ErrorFeedback.tsx` — the user-facing error reporter; takes `errorCode`/`traceId` and resolves human copy via `lookupError`.
 

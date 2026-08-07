@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import ManagerCard from './ManagerCard'
+import DashboardCard from '@/components/dashboard/DashboardCard'
 import { colors, spacing, typography, radius, statusColors } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
 
@@ -98,7 +98,7 @@ export default function MarketAttendanceCard({ marketId, vertical }: { marketId:
   }
 
   return (
-    <ManagerCard
+    <DashboardCard
       id="attendance"
       title={`${term(vertical, 'vendor')} attendance`}
       description={`Who's checked in today. Pick a date for past ${term(vertical, 'market').toLowerCase()} days. Self-attested; location is advisory.`}
@@ -240,6 +240,6 @@ export default function MarketAttendanceCard({ marketId, vertical }: { marketId:
           </div>
         </div>
       )}
-    </ManagerCard>
+    </DashboardCard>
   )
 }

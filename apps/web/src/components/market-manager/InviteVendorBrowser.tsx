@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
-import ManagerCard from './ManagerCard'
+import DashboardCard from '@/components/dashboard/DashboardCard'
 
 /**
  * Manager-facing browser of nearby platform vendors with bulk invite (NEW-8).
@@ -158,18 +158,18 @@ export default function InviteVendorBrowser({
   // Loading
   if (vendors === null) {
     return (
-      <ManagerCard title={`Invite ${term(vertical, 'vendors')}`}>
+      <DashboardCard title={`Invite ${term(vertical, 'vendors')}`}>
         <div style={{ color: colors.textMuted, fontSize: typography.sizes.sm }}>
           Loading nearby {term(vertical, 'vendors').toLowerCase()}…
         </div>
-      </ManagerCard>
+      </DashboardCard>
     )
   }
 
   const allSelected = vendors.length > 0 && selectedIds.size === vendors.length
 
   return (
-    <ManagerCard
+    <DashboardCard
       title={`Invite ${term(vertical, 'vendors')}`}
       description={<>Browse on-platform {term(vertical, 'vendors').toLowerCase()} near <strong>{marketName}</strong> and invite them to join your {term(vertical, 'market').toLowerCase()}. They&apos;ll get an in-app notification and email with a link to your {term(vertical, 'market').toLowerCase()} profile. On accept they&apos;re auto-approved — no extra step on your side.</>}
     >
@@ -292,7 +292,7 @@ export default function InviteVendorBrowser({
           })}
         </ul>
       )}
-    </ManagerCard>
+    </DashboardCard>
   )
 }
 

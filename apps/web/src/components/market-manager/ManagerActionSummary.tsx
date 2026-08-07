@@ -1,6 +1,6 @@
 import { colors, spacing, typography } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
-import ManagerCard from './ManagerCard'
+import DashboardCard from '@/components/dashboard/DashboardCard'
 import type { OnboardingProgress } from '@/lib/markets/onboarding-progress'
 import type { ManagerDashboardStats } from '@/lib/markets/manager-dashboard-stats'
 
@@ -46,7 +46,7 @@ export default function ManagerActionSummary({
   if (!hasPendingApproval && !hasNeedsBooth && !hasNextMarket) return null
 
   return (
-    <ManagerCard title="What's on your plate">
+    <DashboardCard title="What's on your plate">
       <ul style={{
         margin: 0,
         padding: 0,
@@ -144,6 +144,6 @@ export default function ManagerActionSummary({
           </li>
         )}
       </ul>
-    </ManagerCard>
+    </DashboardCard>
   )
 }

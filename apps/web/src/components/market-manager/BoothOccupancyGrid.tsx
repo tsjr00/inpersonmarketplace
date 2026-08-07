@@ -1,6 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
-import ManagerCard from '@/components/market-manager/ManagerCard'
+import DashboardCard from '@/components/dashboard/DashboardCard'
 import { term } from '@/lib/vertical/terminology'
 import { isBeforeSeason } from '@/lib/markets/season-window'
 
@@ -196,7 +196,7 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone, ver
   }
 
   return (
-    <ManagerCard
+    <DashboardCard
       title={<>{term(vertical, 'booth')} occupancy — {anchoredToSeason ? 'upcoming market week' : 'this week'}:{' '}<span style={{ fontWeight: typography.weights.normal, color: colors.textMuted }}>{formatDisplayDate(weekStart)}</span></>}
       description={`Per-tier view of who's at the ${term(vertical, 'market').toLowerCase()} ${anchoredToSeason ? 'that week' : 'this week'} — combines off-platform placeholders, on-platform ${term(vertical, 'vendors').toLowerCase()}, and paid weekly bookings${anchoredToSeason ? ' (showing the first week of the season, since it hasn’t started yet)' : ''}. Manage each source from the cards below.`}
     >
@@ -295,7 +295,7 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone, ver
           </div>
         )}
       </div>
-    </ManagerCard>
+    </DashboardCard>
   )
 }
 

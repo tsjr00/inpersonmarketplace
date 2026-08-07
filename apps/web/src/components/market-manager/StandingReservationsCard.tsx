@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import ManagerCard from './ManagerCard'
+import DashboardCard from '@/components/dashboard/DashboardCard'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { colors, spacing, typography, radius, statusColors } from '@/lib/design-tokens'
 
@@ -150,7 +150,7 @@ export default function StandingReservationsCard({ marketId }: { marketId: strin
   }
 
   return (
-    <ManagerCard
+    <DashboardCard
       id="recurring"
       title="Recurring spot holds"
       description="Weekly spot holds food trucks have asked to keep. Approve a request to reserve that spot every week; revoke a hold to free it up."
@@ -280,6 +280,6 @@ export default function StandingReservationsCard({ marketId }: { marketId: strin
         }}
         onCancel={() => setConfirm(null)}
       />
-    </ManagerCard>
+    </DashboardCard>
   )
 }

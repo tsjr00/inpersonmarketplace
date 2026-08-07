@@ -1,5 +1,19 @@
 # Current Task: 🟡 THREE FEATURES BUILT ON STAGING, NONE TESTED — start here
 
+## 🎨 ACTIVE 2026-08-07 — Dashboard standardization, Slice 1 BUILT (uncommitted)
+
+Session focus is **Slices 1 & 2** of `apps/web/.claude/dashboard_redesign_plan.md` (read that file — it is the plan of record and now carries the owner's build decisions plus a "Slice 1 — built" section).
+
+**Slice 1 done, awaiting commit approval.** The card system moved out of `components/market-manager/` into `components/dashboard/`: `ManagerCard` → **`DashboardCard`**, `MANAGER_NAV_OFFSET` → **`NAV_OFFSET`**, plus `CollapsibleSection`, `TabbedCard`, and a new **`GroupHeading`** consolidated from two byte-identical private copies in `FmDashboardBody`/`FtParkDashboardBody`. 22 files rewritten, no forwarding shims (owner chose the clean rewrite). Zero visual change by design. tsc 0 · **1811/1811** · both Codebase Map domains updated + stamped.
+
+**Owner decisions this session:** name = `DashboardCard` in `components/dashboard/` · no shims · styling mechanism unchanged (inline + design-tokens standard, `<style>` blocks only for breakpoints, no Tailwind in new dashboard code) · commit together with the feature train on staging (presentation week of 08-10).
+
+**Three binding constraints for Slice 2 onward:** (1) `DashboardCard`/`GroupHeading` stay **server components** — interactivity goes in individual cards, never the wrapper; (2) nothing gets collapsed unless its header states what's inside (count/status/next action) — shallow navigation is a product requirement; (3) keep route-level `loading.tsx`, no per-card spinners.
+
+**⚠ Parked, not mine to fix:** pre-existing lint error at `components/events/EventRequestForm.tsx:241` (`react-hooks/set-state-in-effect`). Exists on `00f234c8`; pre-commit won't block it (lint-staged only) but **CI lints everything**.
+
+**Next:** Slice 2 — apply the card wrapper + typography discipline to the vendor dashboard (8 uses of `2xl`, card headers at `base` instead of `lg`).
+
 ## ⏱️ SESSION HANDOFF (2026-08-02)
 
 ### Git / env state

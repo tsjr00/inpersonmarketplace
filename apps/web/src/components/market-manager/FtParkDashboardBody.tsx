@@ -1,8 +1,9 @@
-import type { ComponentProps, ReactNode } from 'react'
+import type { ComponentProps } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
-import ManagerCard, { MANAGER_NAV_OFFSET } from './ManagerCard'
-import CollapsibleSection from './CollapsibleSection'
-import TabbedCard from './TabbedCard'
+import DashboardCard, { NAV_OFFSET } from '@/components/dashboard/DashboardCard'
+import CollapsibleSection from '@/components/dashboard/CollapsibleSection'
+import TabbedCard from '@/components/dashboard/TabbedCard'
+import GroupHeading from '@/components/dashboard/GroupHeading'
 import ManagerActionSummary from './ManagerActionSummary'
 import ManagerEarningsCard from './ManagerEarningsCard'
 import ParkWeekCard from './ParkWeekCard'
@@ -58,16 +59,6 @@ interface FtParkDashboardBodyProps {
   visibilityStatus: ComponentProps<typeof MarketVisibilityCard>['status'] | null
 }
 
-function GroupHeading({ id, title, subtitle, accessory }: { id?: string; title: string; subtitle?: string; accessory?: ReactNode }) {
-  return (
-    <div id={id} style={{ scrollMarginTop: MANAGER_NAV_OFFSET, marginTop: spacing.md, marginBottom: spacing.xs, display: 'flex', alignItems: 'baseline', gap: spacing.xs, flexWrap: 'wrap', borderLeft: `4px solid ${colors.primary}`, paddingLeft: spacing.sm, paddingBottom: spacing.xs, borderBottom: `1px solid ${colors.border}` }}>
-      <span style={{ fontSize: typography.sizes.xl, fontWeight: typography.weights.bold, color: colors.textPrimary }}>{title}</span>
-      {subtitle && <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>{subtitle}</span>}
-      {accessory && <span style={{ marginLeft: 'auto' }}>{accessory}</span>}
-    </div>
-  )
-}
-
 export default function FtParkDashboardBody({
   vertical,
   marketId,
@@ -121,7 +112,7 @@ export default function FtParkDashboardBody({
       {/* ② THIS WEEK — operations hub */}
       <GroupHeading id="week-group" title="This week" subtitle="Who's booked, and who showed up" />
       {parkWeek && (
-        <ManagerCard
+        <DashboardCard
           id="week"
           title="This week at your park"
           description="Who's booked over the next 7 operating days. Tap a day to see the trucks, their spot, and whether they've paid."
@@ -132,7 +123,7 @@ export default function FtParkDashboardBody({
           ) : undefined}
         >
           <ParkWeekCard schedule={parkWeek} marketId={marketId} />
-        </ManagerCard>
+        </DashboardCard>
       )}
       <MarketAttendanceCard marketId={marketId} vertical={vertical} />
       <MarketCancelDateCard marketId={marketId} vertical={vertical} />
@@ -146,12 +137,12 @@ export default function FtParkDashboardBody({
             id: 'approved',
             label: 'Approved',
             content: (
-              <ManagerCard
+              <DashboardCard
                 title="Your trucks & approvals"
                 description="Trucks you've invited, plus trucks that found your park and booked a spot on their own. Trucks can book and pay before you approve them — review their documents and Approve or Decline here. Spot assignments show in the week view above."
               >
                 <VendorBoothList marketId={marketId} vertical={vertical} />
-              </ManagerCard>
+              </DashboardCard>
             ),
           },
           {
@@ -171,12 +162,12 @@ export default function FtParkDashboardBody({
             label: 'Invite',
             content: (
               <>
-                <ManagerCard
+                <DashboardCard
                   title="Invite a food truck"
                   description="Share this link with a food truck you'd like to bring to your park. They'll see a banner identifying your park on the standard signup page."
                 >
                   <InviteVendorLink vertical={vertical} marketId={marketId} marketName={marketName} onboardingComplete={parkSetupComplete} />
-                </ManagerCard>
+                </DashboardCard>
                 {parkSetupComplete && (
                   <InviteVendorBrowser
                     marketId={marketId}
@@ -205,15 +196,15 @@ export default function FtParkDashboardBody({
       {/* P1: keep Setup open until the required steps are done */}
       <CollapsibleSection id="setup" title="Park setup" subtitle="Payments, spots, schedule, agreements, branding" defaultCollapsed={parkSetupComplete}>
         <MarketStripeConnectCard marketId={marketId} marketStatus={(market.status as string | null) ?? null} vertical={vertical} />
-        <ManagerCard
+        <DashboardCard
           id="booths"
           title="Spot inventory"
           description="Set up the individual truck spots at your park — length, power, water, and the per-day price. Switch the park to paid to let trucks book and pay for spots."
         >
           <ParkSpotsManager marketId={marketId} initialParkMode={(market.park_mode as 'free' | 'paid' | null) ?? 'free'} />
-        </ManagerCard>
+        </DashboardCard>
         <MarketMapCard marketId={marketId} vertical={vertical} initialBoothMapUrl={(market.booth_map_url as string | null) ?? null} />
-        <div id="schedule" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
+        <div id="schedule" style={{ scrollMarginTop: NAV_OFFSET }}>
           <MarketScheduleCard
             marketId={marketId}
             vertical={vertical}
@@ -223,12 +214,12 @@ export default function FtParkDashboardBody({
             hasScheduleChangeRecipients={dashboardStats.hasScheduleChangeRecipients}
           />
         </div>
-        <ManagerCard
+        <DashboardCard
           title="Food truck agreement statements"
           description="Select which opt-in statements trucks must accept when they sign up to your park. Statements with placeholders (in curly braces) let you fill in values specific to your park."
         >
           <OptinManager marketId={marketId} vertical={vertical} />
-        </ManagerCard>
+        </DashboardCard>
         {/* P4b (2026-07-15): what documents trucks must carry to book here.
             Tester 2026-07-28: moved directly BELOW the agreement statements and
             ABOVE Branding — it was previously right under the operator's own
@@ -248,10 +239,10 @@ export default function FtParkDashboardBody({
 
       {/* ⑤ COMMUNICATE & LEARN */}
       <GroupHeading title="Communicate & learn" />
-      <div id="announce" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
+      <div id="announce" style={{ scrollMarginTop: NAV_OFFSET }}>
         <MarketBroadcastCard marketId={marketId} vertical={vertical} />
       </div>
-      <div id="surveys" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
+      <div id="surveys" style={{ scrollMarginTop: NAV_OFFSET }}>
         <SurveyResultsCard marketId={marketId} vertical={vertical} />
       </div>
       <ManagerSupportCard vertical={vertical} />

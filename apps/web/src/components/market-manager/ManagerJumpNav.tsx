@@ -1,6 +1,6 @@
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
-import { MANAGER_NAV_OFFSET } from './ManagerCard'
+import { NAV_OFFSET } from '@/components/dashboard/DashboardCard'
 
 /**
  * Sticky in-page jump navigation for the market-manager dashboard
@@ -9,7 +9,7 @@ import { MANAGER_NAV_OFFSET } from './ManagerCard'
  *
  * Plain anchors (`href="#id"`) — native scroll, works without JS, and
  * respects each card's scrollMarginTop. Server component (no interactivity).
- * The chip ids must match the `id` on the first ManagerCard of each group.
+ * The chip ids must match the `id` on the first DashboardCard of each group.
  */
 interface ManagerJumpNavProps {
   vertical: string
@@ -52,9 +52,9 @@ export default function ManagerJumpNav({ vertical, showMoney = false }: ManagerJ
         padding: `${spacing['2xs']} 0`,
         backgroundColor: colors.surfaceBase,
         borderBottom: `1px solid ${colors.border}`,
-        // keep the sticky bar height ~ MANAGER_NAV_OFFSET so anchored
+        // keep the sticky bar height ~ NAV_OFFSET so anchored
         // sections land just below it
-        minHeight: MANAGER_NAV_OFFSET - 16,
+        minHeight: NAV_OFFSET - 16,
         display: 'flex',
         alignItems: 'center',
         gap: spacing['2xs'],

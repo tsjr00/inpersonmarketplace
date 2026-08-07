@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
-import { MANAGER_NAV_OFFSET } from './ManagerCard'
+import { NAV_OFFSET } from './DashboardCard'
 
 /**
  * A section with a title + a segmented tab bar that swaps one panel at a
@@ -33,7 +33,7 @@ export default function TabbedCard({
   const activeTab = tabs.find((t) => t.id === active) ?? tabs[0]
 
   return (
-    <section id={id} style={{ scrollMarginTop: MANAGER_NAV_OFFSET, marginTop: spacing.md }}>
+    <section id={id} style={{ scrollMarginTop: NAV_OFFSET, marginTop: spacing.md }}>
       <div style={{
         borderLeft: `4px solid ${colors.primary}`,
         paddingLeft: spacing.sm,

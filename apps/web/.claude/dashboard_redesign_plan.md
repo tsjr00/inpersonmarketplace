@@ -280,6 +280,8 @@ The plan already satisfies 3, 4 and 6 once the card system is adopted. **1 is th
 
 Based on what the research has established so far, the work looks like four slices, each independently shippable:
 
+> ✅ **SLICE 1 BUILT 2026-08-07** (uncommitted). See the "Slice 1 — built" section below the change log for what actually shipped and the two findings from the build.
+
 **Slice 1 — promote the card system.** Move `ManagerCard`, `CollapsibleSection`, `TabbedCard`, `GroupHeading`, `MANAGER_NAV_OFFSET` out of `components/market-manager/` into a shared home under neutral names. Pure move + re-export; the manager dashboard keeps working untouched. Nothing visual changes. This is the safest possible first commit and everything else depends on it.
 
 **Slice 2 — write the card anatomy spec, then apply it to the vendor dashboard.** Vendor first, not shopper: it has fewer conditional branches and no role-mixing problem, so it is the cleaner place to prove the pattern. Extract each inline `<h3>` block into the shared card. Preserve operational-first ordering.
@@ -369,6 +371,33 @@ A bottom bar with a single tab is noise. Most users have one role and should see
 
 ---
 
+## ✅ Build decisions — 2026-08-07 (Slices 1 & 2 authorized to plan)
+
+**Session scope: Slices 1 and 2 only.** Slice 3 (shopper + Partner) is a later session.
+
+**A. Naming + home.** The promoted wrapper is **`DashboardCard`**, living in a new **`components/dashboard/`** folder alongside the other dashboard layout primitives. Deliberately NOT `Card` (too generic for a 375-file codebase) and NOT left as `ManagerCard` (collides with `MarketManagerCard`, the unrelated "My Markets" box at `dashboard/page.tsx:27`).
+
+**B. No forwarding shim.** All import sites are rewritten in the same commit; the old `market-manager/` paths are removed, not stubbed. Verified 2026-08-07: **24 `ManagerCard`/`MANAGER_NAV_OFFSET` importers**, plus 2 each for `CollapsibleSection` and `TabbedCard` — every one of them inside `components/market-manager/`, nothing external. `tsc --noEmit` in pre-commit catches any missed pointer, so a half-migration cannot reach staging.
+
+**C. Styling mechanism — unchanged, and now constrained by owner UX requirements.**
+Inline styles + `lib/design-tokens` remain the standard; raw `<style>` blocks remain the sanctioned tool **specifically for phone-vs-desktop breakpoints** (inline styles cannot express media queries). **No Tailwind in new dashboard code** — `MobileNav` gets converted off it in Slice 4.
+
+> **Correction to this file (verified 2026-08-07):** the styling table above claims `<style>` blocks live only on the vendor dashboard. **False.** 34 files use them, including `[vertical]/dashboard/page.tsx`, `browse/page.tsx`, `checkout/page.tsx`, `layout/Header.tsx`, `admin/AdminSidebar.tsx`, `shared/Toast.tsx`, `shared/Skeleton.tsx`. The escape hatch is an established app-wide pattern, not a vendor-dashboard oddity.
+
+**Owner requirements (2026-08-07):** *"I want a UI that is both smooth and loads fast + feels natural for mobile, while also allowing users to quickly access lots of options / information and that doesn't make users click multi-layers deep to access functionality (admin will do this if needed - but the user UI needs to be clean and intuitive)."*
+
+These translate into three **binding build constraints**:
+
+1. **`DashboardCard` stays a server component.** Verified: `ManagerCard.tsx` has no `'use client'` (imports only `ReactNode` type + design tokens, `:1-2`), and both `[vertical]/dashboard/page.tsx` and `[vertical]/vendor/dashboard/page.tsx` are server components. The card system therefore ships **zero client JS**. Adding interactivity to the *wrapper* would flip every card on both dashboards to client-rendered — so interactivity lives in individual cards, never in `DashboardCard`.
+
+2. **Nothing collapses without a summary on its header.** `CollapsibleSection` and `TabbedCard` are both client components (verified) and are the app's content-hiding mechanisms. Collapsing is unavoidable on a phone (the vendor dashboard is 1,379 lines) but every collapse is one click of depth — the exact thing the owner ruled out. **Rule:** a collapsed section's header must carry a count, status, or next action so its contents are legible while closed. `"Orders"` is not acceptable; `"Orders — 3 need packing"` is. `ManagerCard`'s existing `headerAccessory` prop (`:24`) is the slot for this and becomes standard rather than optional.
+
+3. **Route-level `loading.tsx` stays; no per-card spinners.** Both dashboards are server-rendered with `loading.tsx` at the route. Converting cards to client components with inline `Skeleton`/`Spinner` would regress `performance-baseline.test.ts` and make the page slower — the opposite of the requirement.
+
+**Deployment posture:** dashboard work commits to `main` and merges to `staging` alongside the untested feature train (owner: *"Keep commit together"*) — a demo-able staging URL is needed for a presentation the week of 2026-08-10. Slice 1 is visually invisible. Before Slice 2 lands, testers should be told the vendor dashboard is being restyled: report broken function, ignore changed appearance.
+
+---
+
 ## Remaining open questions
 
 1. **Card actions slot** — define a footer/action row in the card spec, or keep buttons loose in `children`? Decide during Slice 2.
@@ -398,8 +427,37 @@ Recommended entry point for the implementing session: **Slice 1** — promote `M
 
 ---
 
+## ✅ Slice 1 — built 2026-08-07 (UNCOMMITTED)
+
+**Gates:** `tsc --noEmit` **0 errors** · full suite **1811/1811 green (70 files)**, incl. `codebase-map-coverage.test.ts` · `npm run lint` clean for this change (see pre-existing error below).
+
+**Moves (via `git mv`, history preserved):**
+
+| From | To | Rename |
+|---|---|---|
+| `market-manager/ManagerCard.tsx` | `dashboard/DashboardCard.tsx` | `ManagerCard` → `DashboardCard`; `MANAGER_NAV_OFFSET` → `NAV_OFFSET` |
+| `market-manager/CollapsibleSection.tsx` | `dashboard/CollapsibleSection.tsx` | — |
+| `market-manager/TabbedCard.tsx` | `dashboard/TabbedCard.tsx` | — |
+| *(new)* | `dashboard/GroupHeading.tsx` | extracted from two private copies |
+
+**22 files rewritten**, no forwarding shims. `ManagerJumpNav` deliberately stayed in `market-manager/` — generalizing nav is Slice 4. `components/dashboard/` already existed (held `ScrollToSection.tsx`), so this was not a new folder.
+
+**`GroupHeading` consolidation:** `FmDashboardBody:59` and `FtParkDashboardBody:61` each held a private copy. Diffed before merging — **markup and every style value identical**; the FT copy's optional `accessory` prop was the only difference and is preserved as the superset. FM therefore *gains* a capability and loses nothing; rendered output is unchanged on both. FT's `ReactNode` type import was dropped (GroupHeading was its only consumer).
+
+**Map updated (Rule 6):** `12_Market_Manager.md` — primitives list corrected, "43 files" → 42, pointer added to the new home, stamp bumped. `22_Components_UI.md` — new `components/dashboard/` section documenting all 5 files + their server/client status + the two binding design rules, directory table corrected, stamp bumped. `src/components/dashboard/**` was already claimed there, so coverage needed no claim change.
+
+### ⚠ Two findings from the build
+
+1. **`sed -i` rewrites line endings on Windows.** Running it across `market-manager/*.tsx` converted CRLF→LF in all 42 files, marking 20 of them modified with **zero content change**. Cleaned up by re-staging through git (normalizes on checkin); the 20 dropped out, leaving exactly the 22 real edits. **Lesson for future bulk rewrites in this repo: `sed -i` touches every file it reads, so verify with `git diff --numstat` and re-stage before believing the modified-file list.**
+
+2. **Pre-existing lint error, NOT from this work:** `components/events/EventRequestForm.tsx:241` — *"Calling setState synchronously within an effect can trigger cascading renders"* (`react-hooks/set-state-in-effect`). That file is untouched by Slice 1 (absent from `git status`), so the error exists on `00f234c8`. Pre-commit runs `lint-staged` (staged files only) so it will not block this commit, but **CI lints all files.** Parked for the owner — outside Slice 1's scope.
+
+---
+
 ## Change log
 
+- **2026-08-07 (2)** — **Slice 1 built.** Card system promoted to `components/dashboard/`, `GroupHeading` consolidated across FM/FT, 22 files rewritten with no shims, both map domains updated + stamped. tsc 0 · 1811/1811. Two findings recorded above (sed/CRLF; a pre-existing lint error in `EventRequestForm`).
+- **2026-08-07** — **Slices 1 & 2 authorized to plan.** Owner settled the three blockers: name = `DashboardCard` in `components/dashboard/`; no forwarding shim (all 24+4 importers rewritten in one commit); styling mechanism unchanged. Owner added smooth/fast/mobile-natural/shallow-navigation requirements, which became three binding constraints (server-component wrapper · no summary-less collapse · keep route-level loading). Two claims in this file corrected against live code: `<style>` blocks are used by **34 files**, not just the vendor dashboard; and `ManagerCard` is confirmed a **server** component while `CollapsibleSection`/`TabbedCard`/`MobileNav` are client components. Commit posture: together with the feature train on staging (presentation the week of 08-10).
 - **2026-08-05 (5)** — **First code change shipped ahead of the slices** (owner-authorized): the shopper `.shopper-grid` converted from desktop-first (2 columns, collapse under 540px via `!important`) to mobile-first at the vendor dashboard's breakpoints — `1fr` → 2 at 640 → 3 at 1024. Corrects an earlier claim in this file: the grid was never broken on mobile, it just used the opposite philosophy and needed `!important` because inline `gridTemplateColumns` outranks stylesheet rules. Both dashboards now reflow identically. tsc 0 · 1811/1811.
 - **2026-08-05 (4)** — Navigation decided: left rail on desktop/tablet, bottom tab bar on phone, nav rendered only for multi-role users. **Owner set mobile as the primary audience, which inverts the design order** — phone first, desktop as the roomier variant. `shared/MobileNav.tsx` turns out to be exactly the needed bottom bar (fixed, `md:hidden`, safe-area aware) so it gets revived and converted off Tailwind rather than deleted. Build order finalized at 5 slices. **Plan is now implementation-ready.**
 - **2026-08-05 (3)** — Research phase complete except the final layout decision. Added: card anatomy spec derived from `ManagerCard` (with 4 named gaps), empty-state/loading/mobile survey, the three-styling-systems finding with a recommendation, and what "familiar" means concretely. Two notable discoveries: `shared/MobileNav.tsx` is dead code referenced only by the component test page, and the shopper dashboard has a fixed 2-column grid at `:589` that cannot collapse on mobile. Confirmed the vendor dashboard has the best responsive implementation of the three — more support for the owner's read that it is closest to the vision.

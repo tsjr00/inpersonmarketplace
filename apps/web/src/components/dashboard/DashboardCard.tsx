@@ -2,18 +2,28 @@ import type { ReactNode } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 
 /**
- * Shared card wrapper for the market-manager dashboard (Session 92 design pass).
- * Enforces consistent chrome so the whole page reads as one system:
+ * Shared card wrapper for every dashboard surface (manager, vendor, shopper).
+ * Originated as the market-manager `ManagerCard` in the Session 92 design pass
+ * and was promoted here so all dashboards read as one system:
  *   - padding: spacing.sm (16) — tighter than the old spacing.md (24)
  *   - gap between cards: spacing.sm (16) via marginBottom
  *   - section header at the agreed `lg` semibold; description at `sm` muted
- *   - id + scrollMarginTop so the sticky jump-nav lands the section cleanly
+ *   - id + scrollMarginTop so a sticky jump-nav lands the section cleanly
  *
  * Typography discipline (4 sizes page-wide): title `xl`, headers `lg`,
  * body `sm`, meta `xs`. Metric values use `lg` bold. Cards should NOT
  * reintroduce `2xl`/`xl` body text (that was the wrapping problem).
+ *
+ * ⚠ KEEP THIS A SERVER COMPONENT. It has no 'use client' on purpose, so the
+ * card chrome on the highest-traffic authenticated pages ships zero JS. Adding
+ * interactivity here would convert every card on every dashboard into a client
+ * component. Interactive behaviour belongs in the individual cards instead.
+ *
+ * `headerAccessory` is how a card stays legible while collapsed — put the count,
+ * status, or next action there so nobody has to open a section to learn whether
+ * it needs them ("Orders — 3 need packing", not "Orders").
  */
-interface ManagerCardProps {
+interface DashboardCardProps {
   /** Anchor id for the jump-nav (e.g. 'money', 'vendors'). */
   id?: string
   /** Section header (rendered at lg/semibold). Omit for headerless cards. */
@@ -27,9 +37,9 @@ interface ManagerCardProps {
 
 /** Sticky jump-nav height + a little breathing room, so anchored sections
  *  aren't hidden under the nav after a jump. */
-export const MANAGER_NAV_OFFSET = 64
+export const NAV_OFFSET = 64
 
-export default function ManagerCard({ id, title, description, headerAccessory, children }: ManagerCardProps) {
+export default function DashboardCard({ id, title, description, headerAccessory, children }: DashboardCardProps) {
   return (
     <section
       {...(id ? { id } : {})}
@@ -39,7 +49,7 @@ export default function ManagerCard({ id, title, description, headerAccessory, c
         border: `1px solid ${colors.border}`,
         borderRadius: radius.md,
         marginBottom: spacing.sm,
-        scrollMarginTop: `${MANAGER_NAV_OFFSET}px`,
+        scrollMarginTop: `${NAV_OFFSET}px`,
       }}
     >
       {(title || headerAccessory) && (

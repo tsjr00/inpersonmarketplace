@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { term } from '@/lib/vertical/terminology'
-import ManagerCard from './ManagerCard'
+import DashboardCard from '@/components/dashboard/DashboardCard'
 import {
   DOCUMENT_TYPE_DEFINITIONS,
   getDocumentTypeLabel,
@@ -227,7 +227,7 @@ export default function VerificationDocumentsCard({ vertical, marketId }: Verifi
   const currentTypeDef = DOCUMENT_TYPE_DEFINITIONS.find((d) => d.value === documentType)
 
   return (
-    <ManagerCard
+    <DashboardCard
       title={vertical === 'food_trucks' ? 'Park Verification Documents' : 'Verification Documents'}
       description={`Because we facilitate real transactions, ${term(vertical, 'vendors').toLowerCase()} and buyers trust us to connect them only with reputable, responsible operators — these documents help us verify you. Files are private: only you and the platform admin can view them.`}
     >
@@ -496,7 +496,7 @@ export default function VerificationDocumentsCard({ vertical, marketId }: Verifi
         onConfirm={performRemove}
         onCancel={() => setConfirmingRemove(null)}
       />
-    </ManagerCard>
+    </DashboardCard>
   )
 }
 

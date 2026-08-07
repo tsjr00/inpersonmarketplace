@@ -1,5 +1,5 @@
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
-import ManagerCard from './ManagerCard'
+import DashboardCard from '@/components/dashboard/DashboardCard'
 import { term } from '@/lib/vertical/terminology'
 import type { MarketTransactionsAggregates } from '@/lib/markets/manager-dashboard-stats'
 
@@ -53,7 +53,7 @@ export default function MarketTransactionsCard({ aggregates, vertical }: MarketT
   ]
 
   return (
-    <ManagerCard
+    <DashboardCard
       title={`${term(vertical, 'market')} activity`}
       description={`Gross sales placed at your ${term(vertical, 'market').toLowerCase()} through the platform. The platform takes its fee from ${term(vertical, 'vendors').toLowerCase()} and buyers — these numbers reflect activity, not your earnings.`}
     >
@@ -108,6 +108,6 @@ export default function MarketTransactionsCard({ aggregates, vertical }: MarketT
           </div>
         ))}
       </div>
-    </ManagerCard>
+    </DashboardCard>
   )
 }

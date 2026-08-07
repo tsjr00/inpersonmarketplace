@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import ManagerCard from './ManagerCard'
+import DashboardCard from '@/components/dashboard/DashboardCard'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 
@@ -122,7 +122,7 @@ export default function MarketSeasonSettlementCard({ marketId }: { marketId: str
   const muted = { color: colors.textMuted, fontSize: typography.sizes.sm, margin: 0 }
 
   return (
-    <ManagerCard
+    <DashboardCard
       id="settlement"
       title="Season settlement"
       description="For ended seasons where a vendor lost more than the refund cap to manager-cancelled days: cover the owed days with scheduled make-up days, or make the vendor whole directly off-platform. No money moves backward — the manager already holds the booth payment."
@@ -251,6 +251,6 @@ export default function MarketSeasonSettlementCard({ marketId }: { marketId: str
         onConfirm={confirmResolve}
         onCancel={() => setPending(null)}
       />
-    </ManagerCard>
+    </DashboardCard>
   )
 }

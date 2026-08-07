@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import ManagerCard from './ManagerCard'
+import DashboardCard from '@/components/dashboard/DashboardCard'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import MarketSeasonMakeupWindow from './MarketSeasonMakeupWindow'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
@@ -296,7 +296,7 @@ export default function MarketSeasonCard({
   } as const
 
   return (
-    <ManagerCard
+    <DashboardCard
       id="seasons"
       title="Season pre-sales"
       description="Set up a season and pre-sell whole-season booth spots to committed vendors in one payment. Pre-sales open within 60 days of the start date, one season at a time, and close 14 days after the season begins."
@@ -513,6 +513,6 @@ export default function MarketSeasonCard({
         onConfirm={async () => { const id = endingId; setEndingId(null); if (id) await act(id, 'end_season') }}
         onCancel={() => setEndingId(null)}
       />
-    </ManagerCard>
+    </DashboardCard>
   )
 }

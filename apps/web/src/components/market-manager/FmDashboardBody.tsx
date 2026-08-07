@@ -1,9 +1,10 @@
 import type { ComponentProps, ReactNode } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
-import ManagerCard, { MANAGER_NAV_OFFSET } from './ManagerCard'
-import CollapsibleSection from './CollapsibleSection'
-import TabbedCard from './TabbedCard'
+import DashboardCard, { NAV_OFFSET } from '@/components/dashboard/DashboardCard'
+import CollapsibleSection from '@/components/dashboard/CollapsibleSection'
+import TabbedCard from '@/components/dashboard/TabbedCard'
+import GroupHeading from '@/components/dashboard/GroupHeading'
 import OnboardingChecklist from './OnboardingChecklist'
 import MarketVisibilityCard from './MarketVisibilityCard'
 import VerificationDocumentsCard from './VerificationDocumentsCard'
@@ -56,15 +57,6 @@ interface FmDashboardBodyProps {
   visibilityStatus: ComponentProps<typeof MarketVisibilityCard>['status'] | null
 }
 
-function GroupHeading({ id, title, subtitle }: { id?: string; title: string; subtitle?: string }) {
-  return (
-    <div id={id} style={{ scrollMarginTop: MANAGER_NAV_OFFSET, marginTop: spacing.md, marginBottom: spacing.xs, display: 'flex', alignItems: 'baseline', gap: spacing.xs, flexWrap: 'wrap', borderLeft: `4px solid ${colors.primary}`, paddingLeft: spacing.sm, paddingBottom: spacing.xs, borderBottom: `1px solid ${colors.border}` }}>
-      <span style={{ fontSize: typography.sizes.xl, fontWeight: typography.weights.bold, color: colors.textPrimary }}>{title}</span>
-      {subtitle && <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>{subtitle}</span>}
-    </div>
-  )
-}
-
 export default function FmDashboardBody({
   vertical,
   marketId,
@@ -80,7 +72,7 @@ export default function FmDashboardBody({
   const onboardingComplete = onboardingProgress.required_complete === onboardingProgress.required_total
 
   const rosterTab: ReactNode = (
-    <ManagerCard
+    <DashboardCard
       title={`${term(vertical, 'vendors')} at this ${term(vertical, 'market').toLowerCase()}`}
       description={`Assign ${term(vertical, 'booth').toLowerCase()} numbers to ${term(vertical, 'vendors').toLowerCase()} who are on the platform and at this ${term(vertical, 'market').toLowerCase()}.`}
       headerAccessory={dashboardStats.activeVendorsNeedingBooth > 0 ? (
@@ -90,17 +82,17 @@ export default function FmDashboardBody({
       ) : undefined}
     >
       <VendorBoothList marketId={marketId} vertical={vertical} />
-    </ManagerCard>
+    </DashboardCard>
   )
 
   const inviteTab: ReactNode = (
     <>
-      <ManagerCard
+      <DashboardCard
         title={`Invite a ${term(vertical, 'vendor').toLowerCase()}`}
         description={`Share this link with a ${term(vertical, 'vendor').toLowerCase()} you'd like to bring to your ${term(vertical, 'market').toLowerCase()}. They'll see a banner identifying your ${term(vertical, 'market').toLowerCase()} on the standard signup page.`}
       >
         <InviteVendorLink vertical={vertical} marketId={marketId} marketName={marketName} onboardingComplete={onboardingComplete} />
-      </ManagerCard>
+      </DashboardCard>
       {onboardingComplete && (
         <InviteVendorBrowser
           marketId={marketId}
@@ -142,7 +134,7 @@ export default function FmDashboardBody({
       <CollapsibleSection id="setup" title="Setup" subtitle="Onboarding, payments, schedule, seasons, agreements, branding" defaultCollapsed={onboardingComplete}>
         <OnboardingChecklist vertical={vertical} marketId={marketId} progress={onboardingProgress} />
         <MarketStripeConnectCard marketId={marketId} marketStatus={(market.status as string | null) ?? null} vertical={vertical} />
-        <div id="schedule" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
+        <div id="schedule" style={{ scrollMarginTop: NAV_OFFSET }}>
           <MarketScheduleCard
             marketId={marketId}
             vertical={vertical}
@@ -152,7 +144,7 @@ export default function FmDashboardBody({
             hasScheduleChangeRecipients={dashboardStats.hasScheduleChangeRecipients}
           />
         </div>
-        <div id="seasons" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
+        <div id="seasons" style={{ scrollMarginTop: NAV_OFFSET }}>
           <MarketSeasonCard
             marketId={marketId}
             adminSeasonStart={(market.season_start as string | null) ?? null}
@@ -161,12 +153,12 @@ export default function FmDashboardBody({
           />
           <MarketSeasonSettlementCard marketId={marketId} />
         </div>
-        <ManagerCard
+        <DashboardCard
           title={`${term(vertical, 'vendor')} agreement statements`}
           description={`Select which opt-in statements ${term(vertical, 'vendors').toLowerCase()} must accept when they sign up to your ${term(vertical, 'market').toLowerCase()}. Statements with placeholders (in curly braces) let you fill in values specific to your ${term(vertical, 'market').toLowerCase()}.`}
         >
           <OptinManager marketId={marketId} vertical={vertical} />
-        </ManagerCard>
+        </DashboardCard>
         <MarketBrandingCard
           marketId={marketId}
           vertical={vertical}
@@ -179,21 +171,21 @@ export default function FmDashboardBody({
 
       {/* ③ BOOTHS & THIS WEEK — inventory + occupancy + off-platform + weekly bookings + day-of ops */}
       <GroupHeading id="booths" title={`${term(vertical, 'booths')} & this week`} subtitle="Inventory, occupancy, bookings, attendance" />
-      <ManagerCard
+      <DashboardCard
         title={`${term(vertical, 'booth')} inventory`}
         description={`Configure the ${term(vertical, 'booth').toLowerCase()} size tiers at your ${term(vertical, 'market').toLowerCase()} — how many of each size you have and the weekly rental price. This is the foundation for the weekly ${term(vertical, 'vendor').toLowerCase()} booking flow.`}
       >
         <BoothInventoryManager marketId={marketId} vertical={vertical} />
-      </ManagerCard>
+      </DashboardCard>
       <MarketMapCard marketId={marketId} vertical={vertical} initialBoothMapUrl={(market.booth_map_url as string | null) ?? null} />
       <BoothOccupancyGrid marketId={marketId} marketTimezone={(market.timezone as string | null) ?? null} vertical={vertical} />
-      <ManagerCard
+      <DashboardCard
         title={`Off-platform ${term(vertical, 'booth').toLowerCase()} placeholders`}
         description={`Track ${term(vertical, 'booths').toLowerCase()} occupied by ${term(vertical, 'vendors').toLowerCase()} who are not on the platform. No ${term(vertical, 'vendor').toLowerCase()} identity is captured — just the ${term(vertical, 'booth').toLowerCase()} number and (optionally) which size tier it counts against.`}
       >
         <BoothPlaceholderManager marketId={marketId} vertical={vertical} />
-      </ManagerCard>
-      <div id="weekly-bookings" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
+      </DashboardCard>
+      <div id="weekly-bookings" style={{ scrollMarginTop: NAV_OFFSET }}>
         <WeeklyBookingsCard marketId={marketId} marketTimezone={(market.timezone as string | null) ?? null} vertical={vertical} />
       </div>
       <MarketAttendanceCard marketId={marketId} vertical={vertical} />
@@ -213,13 +205,13 @@ export default function FmDashboardBody({
       <GroupHeading id="money" title="Money & insights" />
       <ManagerEarningsCard aggregates={earningsAggregates} vertical={vertical} />
       <MarketTransactionsCard aggregates={transactionsAggregates} vertical={vertical} />
-      <div id="surveys" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
+      <div id="surveys" style={{ scrollMarginTop: NAV_OFFSET }}>
         <SurveyResultsCard marketId={marketId} vertical={vertical} />
       </div>
 
       {/* ⑥ COMMUNICATE */}
       <GroupHeading title="Communicate & learn" />
-      <div id="announce" style={{ scrollMarginTop: MANAGER_NAV_OFFSET }}>
+      <div id="announce" style={{ scrollMarginTop: NAV_OFFSET }}>
         <MarketBroadcastCard marketId={marketId} vertical={vertical} />
       </div>
       <ManagerSupportCard vertical={vertical} />

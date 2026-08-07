@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
-import ManagerCard from './ManagerCard'
+import DashboardCard from '@/components/dashboard/DashboardCard'
 import {
   PARK_REQUIRED_DOC_OPTIONS,
   MAX_CUSTOM_DOCS,
@@ -111,7 +111,7 @@ export default function ParkRequiredDocsCard({ marketId }: ParkRequiredDocsCardP
   }
 
   return (
-    <ManagerCard
+    <DashboardCard
       title="Required documents"
       description="Tell food trucks which documents they must carry to book here. Shown on the booking page. You review what they upload — booking is never blocked by missing docs."
     >
@@ -226,7 +226,7 @@ export default function ParkRequiredDocsCard({ marketId }: ParkRequiredDocsCardP
           </button>
         </div>
       )}
-    </ManagerCard>
+    </DashboardCard>
   )
 }
 

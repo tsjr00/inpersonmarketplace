@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { colors, spacing, typography, radius, statusColors } from '@/lib/design-tokens'
-import ManagerCard from './ManagerCard'
+import DashboardCard from '@/components/dashboard/DashboardCard'
 import { term } from '@/lib/vertical/terminology'
 
 /**
@@ -95,7 +95,7 @@ export default function MarketBroadcastCard({ marketId, vertical }: MarketBroadc
   const atLimit = sentThisWindow >= maxPerWindow
 
   return (
-    <ManagerCard
+    <DashboardCard
       title="Send an announcement"
       description={`Send a one-way message to the ${term(vertical, 'vendors').toLowerCase()} at your ${term(vertical, 'market').toLowerCase()} (everyone approved, plus anyone with a paid ${term(vertical, 'booth').toLowerCase()} this week or later). They get an in-app notification and an email. ${term(vertical, 'vendors')} can't reply here — share contact details in the message if you want responses. Up to 2 announcements per 7 days.`}
     >
@@ -264,6 +264,6 @@ export default function MarketBroadcastCard({ marketId, vertical }: MarketBroadc
           </ul>
         )}
       </div>
-    </ManagerCard>
+    </DashboardCard>
   )
 }

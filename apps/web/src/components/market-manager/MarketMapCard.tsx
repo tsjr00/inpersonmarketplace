@@ -4,7 +4,7 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
-import ManagerCard from './ManagerCard'
+import DashboardCard from '@/components/dashboard/DashboardCard'
 import BoothMapViewer from './BoothMapViewer'
 
 /**
@@ -91,7 +91,7 @@ export default function MarketMapCard({ marketId, vertical, initialBoothMapUrl }
   }
 
   return (
-    <ManagerCard
+    <DashboardCard
       title={isFt ? 'Spot map' : 'Booth map'}
       description={`Upload a map of where your ${isFt ? 'truck spots' : 'booths'} are located. Vendors see it while booking a ${isFt ? 'spot' : 'booth'} and when they check their bookings — it helps them find where they'll be set up.`}
     >
@@ -211,6 +211,6 @@ export default function MarketMapCard({ marketId, vertical, initialBoothMapUrl }
         onConfirm={performRemove}
         onCancel={() => setConfirmingRemove(false)}
       />
-    </ManagerCard>
+    </DashboardCard>
   )
 }

@@ -1,7 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
-import ManagerCard from './ManagerCard'
+import DashboardCard from '@/components/dashboard/DashboardCard'
 import SurveyExportButton from './SurveyExportButton'
 import {
   CATEGORY_DEFINITIONS,
@@ -74,11 +74,11 @@ export default async function SurveyResultsCard({
     // dashboard has plenty of other cards; survey failure shouldn't
     // blank the whole page.
     return (
-      <ManagerCard title={`Survey results — last ${windowDays} days`}>
+      <DashboardCard title={`Survey results — last ${windowDays} days`}>
         <p style={mutedTextStyle}>
           Could not load surveys for this period.
         </p>
-      </ManagerCard>
+      </DashboardCard>
     )
   }
 
@@ -95,7 +95,7 @@ export default async function SurveyResultsCard({
     buyerStats.totalNotified > 0
 
   return (
-    <ManagerCard
+    <DashboardCard
       title={`Survey results — last ${windowDays} days`}
       headerAccessory={hasAnyData ? <SurveyExportButton rows={surveys} /> : undefined}
     >
@@ -148,7 +148,7 @@ export default async function SurveyResultsCard({
           )}
         </>
       )}
-    </ManagerCard>
+    </DashboardCard>
   )
 }
 

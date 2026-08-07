@@ -1,6 +1,6 @@
 # 12 — Market Manager (farmers-market side) ⚠ money
 
-<!-- map-stamp: domain=market-manager; verified=2026-07-18; commit=b9f82116 -->
+<!-- map-stamp: domain=market-manager; verified=2026-08-07; commit=00f234c8 -->
 <!-- map-claims
 src/app/api/market-manager/**
 src/app/api/markets/**
@@ -120,7 +120,9 @@ Shared with the park domain; FM is where it originated. Table: `booth_credits`. 
 
 Pages: `market-manager/[marketId]/dashboard`, `onboarding`, `onboarding/[step]`, `vendor-docs/[vendorProfileId]`, plus `access-suspended` / `access-removed` and the public `market-manager-program` landing page.
 
-Components (`components/market-manager/`, 43 files — the largest component directory): `FmDashboardBody` (FM shell) · `BoothInventoryManager` · `BoothPlaceholderManager` · `BoothOccupancyGrid` · `VendorBoothList` · `OptinManager` · `MarketAgreementBlock` · `MarketScheduleCard` · `MarketSeasonCard` · `MarketSeasonMakeupWindow` · `MarketSeasonSettlementCard` ⚠ · `MarketStripeConnectCard` ⚠ · `MarketTransactionsCard` ⚠ · `ManagerEarningsCard` ⚠ · `WeeklyBookingsCard`/`WeeklyBookingsList` ⚠ · `MarketCancelDateCard` ⚠ · `MarketBroadcastCard` · `MarketAttendanceCard` · `MarketVisibilityCard` · `MarketBrandingCard` · `OnboardingChecklist` · `InviteVendorBrowser`/`InviteVendorLink` · `VerificationDocumentsCard` · `SurveyResultsCard`/`SurveyExportButton` · `MarketManagerAssignment`, plus layout primitives (`ManagerCard`, `TabbedCard`, `CollapsibleSection`, `ManagerJumpNav`, `ManagerActionSummary`, `ManagerSupportCard`).
+Components (`components/market-manager/`, 42 files — the largest component directory): `FmDashboardBody` (FM shell) · `BoothInventoryManager` · `BoothPlaceholderManager` · `BoothOccupancyGrid` · `VendorBoothList` · `OptinManager` · `MarketAgreementBlock` · `MarketScheduleCard` · `MarketSeasonCard` · `MarketSeasonMakeupWindow` · `MarketSeasonSettlementCard` ⚠ · `MarketStripeConnectCard` ⚠ · `MarketTransactionsCard` ⚠ · `ManagerEarningsCard` ⚠ · `WeeklyBookingsCard`/`WeeklyBookingsList` ⚠ · `MarketCancelDateCard` ⚠ · `MarketBroadcastCard` · `MarketAttendanceCard` · `MarketVisibilityCard` · `MarketBrandingCard` · `OnboardingChecklist` · `InviteVendorBrowser`/`InviteVendorLink` · `VerificationDocumentsCard` · `SurveyResultsCard`/`SurveyExportButton` · `MarketManagerAssignment`, plus manager-specific layout pieces (`ManagerJumpNav`, `ManagerActionSummary`, `ManagerSupportCard`).
+
+**⚠ The card system moved out on 2026-08-07.** `ManagerCard` → `components/dashboard/DashboardCard` (renamed), and `TabbedCard` · `CollapsibleSection` · `GroupHeading` now live in `components/dashboard/` too — see [22_Components_UI.md](22_Components_UI.md). They were promoted so the vendor and shopper dashboards can share the same chrome; the manager dashboard is the reference implementation and is unchanged visually. `MANAGER_NAV_OFFSET` is now `NAV_OFFSET`, exported from `DashboardCard`. `ManagerJumpNav` deliberately stayed here — generalizing navigation is a later slice.
 
 ## Cross-cutting
 

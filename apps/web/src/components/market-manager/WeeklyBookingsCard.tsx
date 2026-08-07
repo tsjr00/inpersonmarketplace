@@ -1,6 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import WeeklyBookingsList, { type WeeklyBookingRow } from '@/components/market-manager/WeeklyBookingsList'
-import ManagerCard from '@/components/market-manager/ManagerCard'
+import DashboardCard from '@/components/dashboard/DashboardCard'
 import { term } from '@/lib/vertical/terminology'
 
 /**
@@ -104,7 +104,7 @@ export default async function WeeklyBookingsCard({ marketId, vertical }: WeeklyB
   }
 
   return (
-    <ManagerCard
+    <DashboardCard
       title={`Weekly ${term(vertical, 'booth').toLowerCase()} bookings`}
       description={`One week at a time — use the arrows to move between weeks. Set a ${term(vertical, 'booth').toLowerCase()} number on any row. Anyone booked for several weeks is summarized once at the bottom instead of repeating on every week.`}
     >
@@ -122,6 +122,6 @@ export default async function WeeklyBookingsCard({ marketId, vertical }: WeeklyB
           status: r.status,
         }))}
       />
-    </ManagerCard>
+    </DashboardCard>
   )
 }

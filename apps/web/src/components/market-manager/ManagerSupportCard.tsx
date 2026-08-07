@@ -1,6 +1,6 @@
 import { colors, spacing, typography } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
-import ManagerCard from './ManagerCard'
+import DashboardCard from '@/components/dashboard/DashboardCard'
 
 /**
  * Static support card on the manager dashboard. Phase D.3 (2026-05-16).
@@ -26,7 +26,7 @@ const SUPPORT_EMAIL_BY_VERTICAL: Record<string, string> = {
 export default function ManagerSupportCard({ vertical }: ManagerSupportCardProps) {
   const supportEmail = SUPPORT_EMAIL_BY_VERTICAL[vertical] ?? SUPPORT_EMAIL_BY_VERTICAL.farmers_market
   return (
-    <ManagerCard
+    <DashboardCard
       title="Need help?"
       description={`Questions about your dashboard, ${term(vertical, 'vendor').toLowerCase()} onboarding, or how the platform handles your ${term(vertical, 'market').toLowerCase()}? Reach out and we'll help.`}
     >
@@ -67,6 +67,6 @@ export default function ManagerSupportCard({ vertical }: ManagerSupportCardProps
           </a>
         </li>
       </ul>
-    </ManagerCard>
+    </DashboardCard>
   )
 }

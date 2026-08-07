@@ -3,15 +3,20 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
-import { MANAGER_NAV_OFFSET } from './ManagerCard'
+import { NAV_OFFSET } from './DashboardCard'
 
 /**
- * A titled, collapsible group wrapper for the manager dashboard. Reads as a
+ * A titled, collapsible group wrapper for any dashboard surface. Reads as a
  * single outlined, obviously-expandable box (accent rail + large disclosure
  * triangle + Show/Hide pill) so a collapsed group doesn't look like a stray
  * heading. Used to fold occasional-use groups (e.g. FT "Park setup") out of
  * the daily eyeline. Server renders the children (cards); this client island
  * only owns the collapse toggle.
+ *
+ * ⚠ Collapsing costs a click, and shallow navigation is a product requirement
+ * (owner, 2026-08-07). Only collapse a group whose `subtitle` says what is
+ * inside — a count, a status, or the next action — so nobody has to open it to
+ * find out whether it needs them.
  */
 export default function CollapsibleSection({
   id,
@@ -31,7 +36,7 @@ export default function CollapsibleSection({
     <section
       id={id}
       style={{
-        scrollMarginTop: MANAGER_NAV_OFFSET,
+        scrollMarginTop: NAV_OFFSET,
         marginTop: spacing.md,
         marginBottom: spacing.sm,
         border: `2px solid ${colors.border}`,

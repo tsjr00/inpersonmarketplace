@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import ManagerCard from './ManagerCard'
+import DashboardCard from '@/components/dashboard/DashboardCard'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
 
@@ -96,7 +96,7 @@ export default function MarketCancelDateCard({ marketId, vertical }: { marketId:
   } as const
 
   return (
-    <ManagerCard
+    <DashboardCard
       id="cancel-date"
       title={vertical === 'food_trucks' ? 'Cancel a Date' : `Cancel a ${term(vertical, 'market').toLowerCase()} day`}
       description={`Close a single upcoming date (e.g. weather). Buyers with orders are refunded automatically; paid ${term(vertical, 'booth').toLowerCase()} renters are credited or rescheduled; market-box pickups are credited. This can't be undone.`}
@@ -212,6 +212,6 @@ export default function MarketCancelDateCard({ marketId, vertical }: { marketId:
           </div>
         </div>
       )}
-    </ManagerCard>
+    </DashboardCard>
   )
 }
