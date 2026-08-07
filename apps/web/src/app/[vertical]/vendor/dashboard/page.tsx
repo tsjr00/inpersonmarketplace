@@ -422,6 +422,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           {vendorProfile.status === 'approved' && (
             <DashboardTile
               href={`/${vertical}/vendor/pickup`}
+              icon="pickup"
               title="Pickup Mode"
               state="active"
             >
@@ -433,7 +434,8 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           {vendorProfile.status === 'approved' && (
             <DashboardTile
               href={`/${vertical}/vendor/upcoming`}
-              title="Upcoming Pickups"
+              icon="upcoming"
+              title="My Upcoming Pickups"
               state={upcomingPickups.length > 0 ? 'active' : 'neutral'}
             >
               {upcomingPickups.length === 0 ? (
@@ -560,151 +562,6 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
         </div>
 
         {/* ============================================= */}
-        {/* YOUR EVENTS — only for event-approved vendors  */}
-        {/* Full-width CARD placed BELOW the tile grid, not inside it (2026-08-07).
-            It was previously a grid cell, which is why five sections — Action
-            Needed / Today / Upcoming / Backup / Past — were fighting over a
-            third of a row. It is a card by definition (you respond to
-            invitations inside it), and cards are full-width and stacked.
-            Kept as a card rather than demoted to a tile because event
-            invitations are time-sensitive and must not sit one click away
-            behind a badge. Trimming which sections earn the front is a CONTENT
-            decision, deferred to the events rebuild. */}
-        {/* ============================================= */}
-        {vendorProfile.event_approved && vendorProfile.status === 'approved' && (() => {
-          const todayStr = new Date().toISOString().split('T')[0]
-          const invitations = vendorEvents.filter(e => e.response_status === 'invited' && e.markets.event_start_date && e.markets.event_start_date >= todayStr)
-          const todayEvents = vendorEvents.filter(e => e.response_status === 'accepted' && !e.is_backup && e.markets.event_start_date && e.markets.event_start_date <= todayStr && (!e.markets.event_end_date || e.markets.event_end_date >= todayStr))
-          const upcoming = vendorEvents.filter(e => e.response_status === 'accepted' && !e.is_backup && e.markets.event_start_date && e.markets.event_start_date > todayStr)
-          const backups = vendorEvents.filter(e => e.is_backup && e.markets.event_start_date && e.markets.event_start_date >= todayStr)
-          const past = vendorEvents.filter(e => e.response_status === 'accepted' && e.markets.event_start_date && e.markets.event_start_date < todayStr && (!e.markets.event_end_date || e.markets.event_end_date < todayStr))
-          const hasContent = invitations.length > 0 || todayEvents.length > 0 || upcoming.length > 0 || backups.length > 0 || past.length > 0
-
-          const fmtEventDate = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-          const eventRowStyle = {
-            display: 'flex' as const,
-            justifyContent: 'space-between' as const,
-            alignItems: 'center' as const,
-            padding: `${spacing['2xs']} ${spacing.xs}`,
-            borderRadius: radius.sm,
-            textDecoration: 'none' as const,
-            fontSize: typography.sizes.sm,
-            color: colors.textPrimary,
-            lineHeight: 1.5,
-          }
-
-          return (
-            <DashboardCard
-              title="🎪 Your Events"
-              state={invitations.length > 0 ? 'attention' : todayEvents.length > 0 ? 'active' : 'neutral'}
-              headerAccessory={
-                invitations.length > 0
-                  ? <TileBadge>{invitations.length}</TileBadge>
-                  : undefined
-              }
-            >
-              {!hasContent ? (
-                <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.textMuted }}>
-                  No event invitations yet. When organizers request food trucks, you&apos;ll see invitations here.
-                </p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-                  {/* Action Needed — invitations awaiting response */}
-                  {invitations.length > 0 && (
-                    <div>
-                      <p style={{ margin: `0 0 ${spacing['3xs']}`, fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: '#ea580c', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        Action Needed
-                      </p>
-                      {invitations
-                        .sort((a, b) => (a.markets.event_start_date || '').localeCompare(b.markets.event_start_date || ''))
-                        .map(ev => (
-                          <Link key={ev.id} href={`/${vertical}/vendor/events/${ev.markets.id}`} style={{ ...eventRowStyle, backgroundColor: '#fff7ed' }}>
-                            <span>
-                              {fmtEventDate(ev.markets.event_start_date!)} · {ev.markets.city}{ev.markets.state ? `, ${ev.markets.state}` : ''} · ~{ev.markets.headcount || '?'} people
-                            </span>
-                            <span style={{ color: '#ea580c', fontWeight: typography.weights.semibold, fontSize: typography.sizes.xs, whiteSpace: 'nowrap' }}>
-                              View &amp; Respond →
-                            </span>
-                          </Link>
-                        ))}
-                    </div>
-                  )}
-
-                  {/* Today — events happening now */}
-                  {todayEvents.length > 0 && (
-                    <div>
-                      <p style={{ margin: `0 0 ${spacing['3xs']}`, fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: colors.primaryDark, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        Today
-                      </p>
-                      {todayEvents.map(ev => (
-                        <Link key={ev.id} href={`/${vertical}/vendor/events/${ev.markets.id}`} style={{ ...eventRowStyle, backgroundColor: colors.primaryLight }}>
-                          <span>
-                            🎪 {ev.markets.name} · {ev.markets.city}{ev.markets.state ? `, ${ev.markets.state}` : ''} · ~{ev.markets.headcount || '?'} people
-                          </span>
-                          <span style={{ color: colors.primaryDark, fontWeight: typography.weights.semibold, fontSize: typography.sizes.xs, whiteSpace: 'nowrap' }}>
-                            Details →
-                          </span>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Upcoming — accepted future events */}
-                  {upcoming.length > 0 && (
-                    <div>
-                      <p style={{ margin: `0 0 ${spacing['3xs']}`, fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        Upcoming
-                      </p>
-                      {upcoming
-                        .sort((a, b) => (a.markets.event_start_date || '').localeCompare(b.markets.event_start_date || ''))
-                        .slice(0, 5)
-                        .map(ev => (
-                          <Link key={ev.id} href={`/${vertical}/vendor/events/${ev.markets.id}`} style={eventRowStyle}>
-                            <span>
-                              {fmtEventDate(ev.markets.event_start_date!)} · {ev.markets.city}{ev.markets.state ? `, ${ev.markets.state}` : ''} · ~{ev.markets.headcount || '?'} people
-                            </span>
-                            <span style={{ color: colors.primary, fontSize: typography.sizes.xs, whiteSpace: 'nowrap' }}>
-                              Details →
-                            </span>
-                          </Link>
-                        ))}
-                      {upcoming.length > 5 && (
-                        <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: colors.textMuted }}>
-                          +{upcoming.length - 5} more upcoming
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Backup — standby for escalation */}
-                  {backups.length > 0 && (
-                    <div>
-                      <p style={{ margin: `0 0 ${spacing['3xs']}`, fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        Backup
-                      </p>
-                      {backups.map(ev => (
-                        <div key={ev.id} style={{ ...eventRowStyle, color: colors.textMuted }}>
-                          <span>
-                            Standby for {fmtEventDate(ev.markets.event_start_date!)} event in {ev.markets.city || 'TBD'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Past — collapsed count */}
-                  {past.length > 0 && (
-                    <p style={{ margin: 0, fontSize: typography.sizes.xs, color: colors.textMuted }}>
-                      {past.length} past event{past.length !== 1 ? 's' : ''}
-                    </p>
-                  )}
-                </div>
-              )}
-            </DashboardCard>
-          )
-        })()}
-
-        {/* ============================================= */}
         {/* ROW 2: Daily Ops - Orders, Listings, Market Boxes */}
         {/* ============================================= */}
         <div className="row-2-grid" style={{
@@ -717,8 +574,8 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           {vendorProfile.status === 'approved' && (
             <DashboardTile
               href={`/${vertical}/vendor/orders`}
-              icon="🧾"
-              title="Orders"
+              icon="orders"
+              title="My Orders"
               state={ordersNeedingAttention > 0 ? 'attention' : 'neutral'}
               badge={ordersNeedingAttention > 0 ? <TileBadge>{ordersNeedingAttention}</TileBadge> : undefined}
             >
@@ -732,13 +589,13 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             </DashboardTile>
           )}
 
-          {/* Your Listings — `danger` when something is unsellable (out of stock),
+          {/* My Listings — `danger` when something is unsellable (out of stock),
               `warning` when it is merely degrading (low stock). The distinction is
               the point: red must stay rare enough to mean something. */}
           <DashboardTile
             href={`/${vertical}/vendor/listings`}
-            icon="📋"
-            title="Your Listings"
+            icon="listings"
+            title="My Listings"
             state={stockWarningLevel === 'red' ? 'danger' : stockWarningLevel === 'orange' ? 'warning' : 'neutral'}
             badge={draftCount > 0 ? <TileBadge tone="primary">{draftCount} draft{draftCount > 1 ? 's' : ''}</TileBadge> : undefined}
           >
@@ -756,8 +613,8 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             return (
               <DashboardTile
                 href={`/${vertical}/vendor/market-boxes`}
-                icon="📦"
-                title={term(vertical, 'market_boxes')}
+                icon="marketBoxes"
+                title={`My ${term(vertical, 'market_boxes')}`}
                 state={isLocked ? 'locked' : 'neutral'}
               >
                 {isLocked ? (
@@ -776,7 +633,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           {vertical === 'farmers_market' && (
             <DashboardTile
               href={`/${vertical}/vendor/bookings`}
-              icon="🪑"
+              icon="booth"
               title="My Booth Bookings"
             >
               Weekly booth rentals at managed markets
@@ -789,12 +646,108 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           {vertical === 'food_trucks' && (
             <DashboardTile
               href={`/${vertical}/vendor/park-bookings`}
-              icon="🅿️"
+              icon="park"
               title="My Park Bookings"
             >
-              Your booked park spots — dates, spot, and status
+              My booked park spots — dates, spot, and status
             </DashboardTile>
           )}
+
+          {/* MY VENDOR EVENTS — a grid peer beside booth/park bookings.
+              It briefly lived full-width below the grid; the owner found that it
+              "doesn't fit in the mix and makes the dashboard feel weird" and
+              asked for it in line with booth bookings (2026-08-07). It is a CARD
+              rather than a tile only because there is nowhere for a tile to lead:
+              the vendor events LIST currently lives inside the locations page
+              (EventMarketsSection renders at vendor/markets/page.tsx:603) and
+              /vendor/events has per-event routes only. When the events rebuild
+              gives it an index page, this becomes a plain tile.
+
+              Trimmed to fit a grid cell, per the face rule: the two ACTIONABLE
+              sections (invitations awaiting a response, and events happening
+              today) stay listed; upcoming / backup / past collapse to one count
+              line. Nothing is lost — every event is still reachable through its
+              own detail page.
+
+              Named "My Vendor Events" because the shopper dashboard already has
+              a "My Events" for people ORGANIZING events. Same words, opposite
+              roles, so the clarifying word is required. */}
+          {vendorProfile.event_approved && vendorProfile.status === 'approved' && (() => {
+            const todayStr = new Date().toISOString().split('T')[0]
+            const invitations = vendorEvents.filter(e => e.response_status === 'invited' && e.markets.event_start_date && e.markets.event_start_date >= todayStr)
+            const todayEvents = vendorEvents.filter(e => e.response_status === 'accepted' && !e.is_backup && e.markets.event_start_date && e.markets.event_start_date <= todayStr && (!e.markets.event_end_date || e.markets.event_end_date >= todayStr))
+            const upcoming = vendorEvents.filter(e => e.response_status === 'accepted' && !e.is_backup && e.markets.event_start_date && e.markets.event_start_date > todayStr)
+            const backups = vendorEvents.filter(e => e.is_backup && e.markets.event_start_date && e.markets.event_start_date >= todayStr)
+            const past = vendorEvents.filter(e => e.response_status === 'accepted' && e.markets.event_start_date && e.markets.event_start_date < todayStr && (!e.markets.event_end_date || e.markets.event_end_date < todayStr))
+            const hasContent = invitations.length > 0 || todayEvents.length > 0 || upcoming.length > 0 || backups.length > 0 || past.length > 0
+
+            const fmtEventDate = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+            const eventRowStyle = {
+              display: 'block' as const,
+              padding: `${spacing['3xs']} ${spacing['2xs']}`,
+              borderRadius: radius.sm,
+              textDecoration: 'none' as const,
+              fontSize: typography.sizes.sm,
+              color: colors.textPrimary,
+              lineHeight: 1.4,
+            }
+            const restCounts = [
+              upcoming.length > 0 ? `${upcoming.length} upcoming` : null,
+              backups.length > 0 ? `${backups.length} backup` : null,
+              past.length > 0 ? `${past.length} past` : null,
+            ].filter(Boolean)
+
+            return (
+              <DashboardCard
+                title="My Vendor Events"
+                inGrid
+                state={invitations.length > 0 ? 'attention' : todayEvents.length > 0 ? 'active' : 'neutral'}
+                headerAccessory={invitations.length > 0 ? <TileBadge>{invitations.length}</TileBadge> : undefined}
+              >
+                {!hasContent ? (
+                  <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.textMuted }}>
+                    No event invitations yet. When organizers request food trucks, you&apos;ll see invitations here.
+                  </p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+                    {invitations.length > 0 && (
+                      <div>
+                        <p style={{ margin: `0 0 ${spacing['3xs']}`, fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: statusColors.attentionDark, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Needs your response
+                        </p>
+                        {invitations
+                          .sort((a, b) => (a.markets.event_start_date || '').localeCompare(b.markets.event_start_date || ''))
+                          .map(ev => (
+                            <Link key={ev.id} href={`/${vertical}/vendor/events/${ev.markets.id}`} style={{ ...eventRowStyle, backgroundColor: statusColors.attentionLight }}>
+                              {fmtEventDate(ev.markets.event_start_date!)} · {ev.markets.city}{ev.markets.state ? `, ${ev.markets.state}` : ''} — <span style={{ color: statusColors.attentionDark, fontWeight: typography.weights.semibold }}>respond →</span>
+                            </Link>
+                          ))}
+                      </div>
+                    )}
+
+                    {todayEvents.length > 0 && (
+                      <div>
+                        <p style={{ margin: `0 0 ${spacing['3xs']}`, fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: colors.primaryDark, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Today
+                        </p>
+                        {todayEvents.map(ev => (
+                          <Link key={ev.id} href={`/${vertical}/vendor/events/${ev.markets.id}`} style={{ ...eventRowStyle, backgroundColor: colors.primaryLight }}>
+                            {ev.markets.name} · {ev.markets.city}{ev.markets.state ? `, ${ev.markets.state}` : ''} — <span style={{ color: colors.primaryDark, fontWeight: typography.weights.semibold }}>details →</span>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+
+                    {restCounts.length > 0 && (
+                      <p style={{ margin: 0, fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                        {restCounts.join(' · ')}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </DashboardCard>
+            )
+          })()}
         </div>
 
 
@@ -944,8 +897,8 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             return (
               /* A CARD, not a tile — it holds TWO destinations, so the whole
                  surface cannot be one door. Small enough to stay a grid peer
-                 (inGrid), unlike Your Events which needed the full width. */
-              <DashboardCard title="📊 Analytics & Insights" inGrid>
+                 (inGrid), like My Vendor Events in row 2. */
+              <DashboardCard title="Analytics & Insights" inGrid>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
                   <Link
                     href={`/${vertical}/vendor/analytics`}
@@ -998,8 +951,8 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             {/* Reviews */}
             <DashboardTile
               href={`/${vertical}/vendor/reviews`}
-              icon="⭐"
-              title="Reviews"
+              icon="reviews"
+              title="My Reviews"
             >
               See feedback from your customers
             </DashboardTile>

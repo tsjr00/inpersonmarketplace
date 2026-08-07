@@ -8,6 +8,8 @@ import { enforceVerticalAccess } from '@/lib/auth/vertical-gate'
 import Link from 'next/link'
 import Image from 'next/image'
 import { colors, spacing, typography, radius, shadows, containers, statusColors } from '@/lib/design-tokens'
+import DashboardCard from '@/components/dashboard/DashboardCard'
+import DashboardTile, { TileBadge } from '@/components/dashboard/DashboardTile'
 import TutorialWrapper from '@/components/onboarding/TutorialWrapper'
 import FeedbackCard from '@/components/buyer/FeedbackCard'
 import VendorFeedbackCard from '@/components/vendor/VendorFeedbackCard'
@@ -592,132 +594,62 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
           display: 'grid',
           gap: spacing.sm
         }}>
-          {/* Browse Products Card */}
-          <Link
+          {/* Browse Products */}
+          <DashboardTile
             href={`/${vertical}/browse`}
-            style={{
-              display: 'block',
-              padding: spacing.md,
-              backgroundColor: colors.surfaceElevated,
-              color: colors.textPrimary,
-              border: `1px solid ${colors.border}`,
-              borderRadius: radius.md,
-              textDecoration: 'none'
-            }}
+            icon="browse"
+            title={term(vertical, 'browse_products_cta', locale)}
           >
-            <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
-              {term(vertical, 'browse_products_cta', locale)}
-            </h3>
-            <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-              {t('dash.explore', locale, { products: term(vertical, 'products', locale).toLowerCase(), vendors: term(vertical, 'vendors', locale).toLowerCase() })}
-            </p>
-          </Link>
+            {t('dash.explore', locale, { products: term(vertical, 'products', locale).toLowerCase(), vendors: term(vertical, 'vendors', locale).toLowerCase() })}
+          </DashboardTile>
 
-          {/* My Orders Card - enhanced to show status summary */}
-          {/* Priority: orange border for confirmation needed > green border for ready > default */}
-          <Link
+          {/* My Orders — `attention` when the buyer must confirm something,
+              `active` when an order is simply ready to collect. */}
+          <DashboardTile
             href={`/${vertical}/buyer/orders`}
-            style={{
-              display: 'block',
-              padding: spacing.md,
-              backgroundColor: confirmationNeededCount > 0 ? '#fff7ed' : colors.surfaceElevated,
-              color: colors.textPrimary,
-              border: confirmationNeededCount > 0
-                ? '3px solid #ea580c'
-                : ordersReadyForPickup.length > 0
-                  ? `2px solid ${colors.primary}`
-                  : `1px solid ${colors.border}`,
-              borderRadius: radius.md,
-              textDecoration: 'none',
-              boxShadow: confirmationNeededCount > 0 ? '0 0 0 3px rgba(234, 88, 12, 0.2)' : 'none'
-            }}
+            icon="orders"
+            title={t('dash.my_orders', locale)}
+            state={confirmationNeededCount > 0 ? 'attention' : ordersReadyForPickup.length > 0 ? 'active' : 'neutral'}
+            badge={confirmationNeededCount > 0 ? <TileBadge>{t('dash.action_needed', locale)}</TileBadge> : undefined}
           >
-            <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
-              {t('dash.my_orders', locale)}
-              {confirmationNeededCount > 0 && (
-                <span style={{
-                  marginLeft: spacing.xs,
-                  backgroundColor: '#ea580c',
-                  color: 'white',
-                  padding: `2px ${spacing.xs}`,
-                  borderRadius: radius.full,
-                  fontSize: typography.sizes.xs,
-                  fontWeight: typography.weights.bold,
-                  verticalAlign: 'middle'
-                }}>
-                  {t('dash.action_needed', locale)}
-                </span>
-              )}
-            </h3>
-            <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-              {orderCount !== 1
-                ? t('dash.active_orders', locale, { count: String(orderCount || 0) })
-                : t('dash.active_order', locale, { count: String(orderCount || 0) })
-              }
-              {confirmationNeededCount > 0 && (
-                <span style={{
-                  marginLeft: spacing.xs,
-                  color: '#ea580c',
-                  fontWeight: typography.weights.bold
-                }}>
-                  • {t('dash.to_confirm', locale, { count: String(confirmationNeededCount) })}
-                </span>
-              )}
-              {ordersReadyForPickup.length > 0 && (
-                <span style={{
-                  marginLeft: spacing.xs,
-                  color: colors.primary,
-                  fontWeight: typography.weights.semibold
-                }}>
-                  • {t('dash.count_ready', locale, { count: String(ordersReadyForPickup.length) })}
-                </span>
-              )}
-            </p>
-          </Link>
+            {orderCount !== 1
+              ? t('dash.active_orders', locale, { count: String(orderCount || 0) })
+              : t('dash.active_order', locale, { count: String(orderCount || 0) })
+            }
+            {confirmationNeededCount > 0 && (
+              <span style={{ marginLeft: spacing.xs, color: statusColors.attentionDark, fontWeight: typography.weights.bold }}>
+                • {t('dash.to_confirm', locale, { count: String(confirmationNeededCount) })}
+              </span>
+            )}
+            {ordersReadyForPickup.length > 0 && (
+              <span style={{ marginLeft: spacing.xs, color: colors.primary, fontWeight: typography.weights.semibold }}>
+                • {t('dash.count_ready', locale, { count: String(ordersReadyForPickup.length) })}
+              </span>
+            )}
+          </DashboardTile>
 
-          {/* My Favorites Card */}
-          <Link
+          {/* My Favorites */}
+          <DashboardTile
             href={`/${vertical}/favorites`}
-            style={{
-              display: 'block',
-              padding: spacing.md,
-              backgroundColor: colors.surfaceElevated,
-              color: colors.textPrimary,
-              border: `1px solid ${colors.border}`,
-              borderRadius: radius.md,
-              textDecoration: 'none'
-            }}
+            icon="favorites"
+            title={t('dash.my_favorites', locale)}
           >
-            <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
-              ❤️ {t('dash.my_favorites', locale)}
-            </h3>
-            <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-              {t('dash.saved_vendors', locale, { vendors: term(vertical, 'vendors', locale).toLowerCase() })}
-            </p>
-          </Link>
+            {t('dash.saved_vendors', locale, { vendors: term(vertical, 'vendors', locale).toLowerCase() })}
+          </DashboardTile>
 
-          {/* Where Are Trucks Today Card */}
-          <Link
+          {/* Where Are Trucks Today / What Markets Are Open — `active` (who is
+              out RIGHT NOW), not `warning`. It previously used an off-palette
+              amber, which read as a caution about nothing. */}
+          <DashboardTile
             href={`/${vertical}/where-today`}
-            style={{
-              display: 'block',
-              padding: spacing.md,
-              backgroundColor: '#fffbeb',
-              color: colors.textPrimary,
-              border: `2px solid #fbbf24`,
-              borderRadius: radius.md,
-              textDecoration: 'none'
-            }}
+            icon="whereToday"
+            title={vertical === 'food_trucks' ? 'Where Are Trucks Today?' : 'What Markets Are Open?'}
+            state="active"
           >
-            <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
-              📍 {vertical === 'food_trucks' ? 'Where Are Trucks Today?' : 'What Markets Are Open?'}
-            </h3>
-            <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-              {vertical === 'food_trucks'
-                ? 'See which food trucks are serving near you right now'
-                : 'Find open markets and vendors near you today'}
-            </p>
-          </Link>
+            {vertical === 'food_trucks'
+              ? 'See which food trucks are serving near you right now'
+              : 'Find open markets and vendors near you today'}
+          </DashboardTile>
 
           {/* My Markets Card — only renders if user is assigned manager of any market (FM v1) */}
           <MarketManagerCard vertical={vertical} markets={managedMarkets} />
@@ -1220,6 +1152,8 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                   {t('dash.manage_vendor', locale)}
                 </p>
               </Link>
+              {/* ↑ Not yet converted to DashboardTile — see the Slice 3a
+                  remaining-work note in dashboard_redesign_plan.md. */}
 
               {/* Help & FAQ Search Widget */}
               <HelpSearchWidget vertical={vertical} />
@@ -1354,26 +1288,14 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
                 gap: spacing.sm
               }}>
-                {/* Create Draft Listings Card */}
-                <Link
+                {/* Create Draft Listings */}
+                <DashboardTile
                   href={`/${vertical}/vendor/listings/new`}
-                  style={{
-                    display: 'block',
-                    padding: spacing.md,
-                    backgroundColor: colors.surfaceElevated,
-                    color: colors.textPrimary,
-                    border: `1px solid ${colors.accent}`,
-                    borderRadius: radius.md,
-                    textDecoration: 'none'
-                  }}
+                  icon="createDrafts"
+                  title={t('dash.create_drafts', locale)}
                 >
-                  <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
-                    {t('dash.create_drafts', locale)}
-                  </h3>
-                  <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-                    {t('dash.start_adding', locale)}
-                  </p>
-                </Link>
+                  {t('dash.start_adding', locale)}
+                </DashboardTile>
 
                 {/* Help & FAQ Search Widget */}
                 <HelpSearchWidget vertical={vertical} />
@@ -1406,26 +1328,19 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
             <span>🔧</span> {t('dash.admin', locale)}
           </h2>
 
-          <Link
-            href={`/${vertical}/admin`}
-            style={{
-              display: 'block',
-              padding: spacing.md,
-              backgroundColor: '#f5f3ff',
-              color: colors.textPrimary,
-              border: '1px solid #c4b5fd',
-              borderRadius: radius.md,
-              textDecoration: 'none',
-              maxWidth: 300
-            }}
-          >
-            <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
-              {t('dash.admin_panel', locale)}
-            </h3>
-            <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
+          {/* Admin panel entry. NOTE: the owner has said this band does not have
+              to live on the dashboard at all and could move to settings —
+              decided in Slice 3b (the Partner reorg). For now it only gets
+              standardized chrome; nothing is moved. */}
+          <div style={{ maxWidth: 300 }}>
+            <DashboardTile
+              href={`/${vertical}/admin`}
+              icon="adminPanel"
+              title={t('dash.admin_panel', locale)}
+            >
               {t('dash.manage_admin', locale)}
-            </p>
-          </Link>
+            </DashboardTile>
+          </div>
         </section>
       )}
 

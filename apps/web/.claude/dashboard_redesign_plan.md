@@ -447,6 +447,70 @@ Two levels — **groups** organize (`GroupHeading`, `CollapsibleSection`, and `T
 
 ---
 
+## 🎨 Feedback pass + Slice 3a PART 1 — BUILT 2026-08-07 (UNCOMMITTED)
+
+Owner feedback after seeing Slice 2 on staging, all four items addressed:
+
+**1. Voice — "My" everywhere.** Was mixed: *Your* Listings/Events/Dashboard/Business vs *My* Orders/Favorites/Markets/Booth Bookings/Park Bookings. Now: My Listings · My Orders · My Upcoming Pickups · My Reviews · My Market Boxes · My Vendor Events.
+⚠ **Name-collision rule (owner):** when "Your X" would collide with an existing "My X" meaning something else, **add a clarifying word.** Vendor invitations became **"My Vendor Events"** because the shopper dashboard already has **"My Events"** for people *organizing* events — same words, opposite roles.
+
+**2. Title colour — one colour, not per-state.** Slice 2 tied tile title colour to state. Owner: *"different colors as a reflection of state makes sense, but it does look arbitrary and unpolished — the user doesn't know."* Correct. Titles are now `colors.textPrimary` and icons `colors.primary`, always; **state reads through background + border only.** `locked` is the single exception (a disabled thing should look disabled).
+
+**3. Icons — lucide, and every tile has one.** Was inconsistent (2 of 9 vendor tiles had no icon) and off-motif (a booth rendered as 🪑 an office chair). **`components/dashboard/icons.tsx` is the whole vocabulary in one reviewable file** — to change a glyph, edit the map; never pass a raw lucide component at a call site.
+Chosen because **emoji cannot be made consistent**: Apple, Google and Microsoft each draw them differently, and the primary audience is phones across mixed platforms. `lucide-react` 0.562.0 was already a dependency (7 landing components use it). Vertical theming comes free through colour (`colors.primary` is a per-vertical CSS variable); icon *choice* is already vertical-specific where it matters (`booth` FM-only, `park` FT-only). Notable fixes: booth 🪑→`Store`, park 🅿️→`Truck`, events 🎪→`Tent`, marketBoxes 📦→`ShoppingBasket`.
+
+**4. My Vendor Events moved back INTO the grid.** Owner: *"I don't like My Events as a screen width card, it doesn't fit in the mix and makes the dashboard feel weird… events should be in line with booth bookings."* Now a grid peer in row 2 beside booth/park bookings, trimmed per the face rule — invitations awaiting response and today's events stay listed; upcoming/backup/past collapse to one count line.
+**It stays a CARD rather than becoming a tile only because there is nowhere for a tile to lead.** ⚠ **Verified: the vendor events LIST lives inside the LOCATIONS page** — `EventMarketsSection` (274 lines) renders at `vendor/markets/page.tsx:603`; `/[vertical]/vendor/events` has per-event routes only, no index. The owner spotted this. **Extracting events into their own index during the events rebuild would simultaneously de-cram the locations page** — two problems, one fix. Then this becomes a plain tile.
+
+### Slice 3a — PART 1 done, PART 2 outstanding
+
+**Done (shopper dashboard):** the main `.shopper-grid` is fully converted — Browse · My Orders · My Favorites · Where Today. Plus Create Drafts and Admin Panel. **The main grid is internally consistent.** "Where Today" moved off an off-palette amber (`#fffbeb`/`#fbbf24`, which read as a caution about nothing) to `active` — it is about who is out RIGHT NOW.
+
+**⏳ NOT done — Slice 3a Part 2:**
+- **6 inline card blocks** elsewhere on the page: Ready for Pickup alert (`~:419`) · the two upgrade/promo cards · the event-organizer block · Passion→Profit · Pending Approval.
+- **The Vendor Dashboard tile** (`~:1148`) — marked with a TODO comment in the file.
+- **The 8 extracted components** (the "wide" half): `RateOrderCard` 423 · `DashboardNotifications` 321 · `EventAgreementPickerCard` 193 · `EventBroadcastCard` 188 · `EventRatingsCard` 138 · `MarketManagerCard` 91 · `FeedbackCard` 59 · `VendorFeedbackCard` 55.
+- **43 raw hex values** still on the page (down from 51).
+
+**✅ Both Part-2 judgment calls now DECIDED (owner, 2026-08-07):**
+1. **Promo / upgrade cards — convert them.** Owner: *"its ok to change the look of upgrade / promo — it's more important to have them consistent — if we want to promote them then an outlined color or colors is better anyway."* → Drop the gradients (`linear-gradient(135deg, #fefce8, #fef3c7)` + `shadows.md`). Promote via a **coloured outline**, not a fill treatment. Build as a `DashboardCard` with a promo/accent border rather than a bespoke block. **Consistency beats bespoke marketing chrome.**
+2. **The Admin band — defer to Slice 3b.** Owner: *"admin can wait for 3b."* Part 1 standardized its chrome only; placement (dashboard vs settings) is decided in the reorg.
+
+---
+
+## 🔭 Slice 3 — SPLIT IN TWO (owner, 2026-08-07)
+
+Owner: *"lets keep partner reorg it's own thing, there is enough detail in that by itself."* So:
+
+- **Slice 3a — standardize the shopper dashboard's cards and tiles. NO reorg.** Mirrors Slice 2 exactly.
+- **Slice 3b — the Partner reorg.** Its own effort. This is where the destinations-vs-stacked-bands decision gets made (the plan flags it must be settled before layout locks). Note **Vendor already IS its own route** (`/[vertical]/vendor/dashboard`) and the admin consoles already exist, so "destinations" would mean Partner is the only genuinely new route.
+
+**The split follows the owner's own sequencing principle (2026-08-04): standardize card anatomy FIRST, reorganize navigation SECOND** — reorganizing inconsistent cards means standardizing them twice.
+
+### ⚠ The plan's section inventory was incomplete
+
+This file lists three `<h2>` bands on the shopper dashboard. **There are four.** Verified 2026-08-07: `:404` 🛒 Shopper (localized) · `:842` My Events (**hardcoded English**) · `:1078`/`:1185` Vendor (two variants) · **`:1397` 🔧 Admin (localized) — never inventoried.**
+
+**Owner decision on the Admin band (2026-08-07):** *"admin card can live in a dashboard or it can just live in settings (from hamburger) — if it keeps things cleaner it doesn't need to be in a dashboard."* → **Not a fourth top-level band.** Moving it to settings is acceptable and preferred if it simplifies the structure. **Decide in 3b**; 3a leaves it in place and only standardizes its chrome.
+
+### Slice 3a — verified inventory (2026-08-07)
+
+`[vertical]/dashboard/page.tsx` — **1,464 lines · 51 raw hex values · 13 inline headers.**
+
+Classified: **7 tiles** (link-wrapped) — Browse Products `:608` · My Orders `:635` · My Favorites `:691` · Where Are Trucks/Markets Open `:712` · Vendor Dashboard `:1216` · Create Drafts `:1370` · Admin Panel `:1422`. **6 cards** — Ready for Pickup `:433` · Upgrade `:760` · event org block `:894` · Passion→Profit `:1104` · Grow Business `:1258` · Pending Approval `:1339`.
+
+⚠ **No element on this page uses `height: '100%'`** — unlike the vendor dashboard, its grid items do not stretch. Converting tiles to `DashboardTile` (which sets `height: 100%` + `minHeight: 120`) WILL change their sizing. Expected and probably an improvement, but it is a real visual change, not a no-op.
+
+⚠ **Some headers are already correct** — `:433` is already `lg` bold. Not all 13 are drifted.
+
+### ⚠ Slice 3a scope question: the 8 extracted components
+
+Nine render sites on this page use components that hand-roll their own card chrome: `RateOrderCard` (423 lines, client) · `DashboardNotifications` (321, client) · `EventAgreementPickerCard` (193) · `EventBroadcastCard` (188, client) · `EventRatingsCard` (138) · `MarketManagerCard` (91, **server**) · `FeedbackCard` (59, client) · `VendorFeedbackCard` (55, client, rendered twice).
+
+**Slice 2 precedent was to leave extracted components alone** (`PaymentMethodsCard`, `PromoteCard` on the vendor dashboard were not converted). But that was 2 components; here it is 8 across 9 sites — enough that converting only the inline blocks would leave a visibly half-standardized page. **Owner decision needed: narrow (inline only, matches precedent) or wide (also convert the 8).**
+
+---
+
 ## ✅ Slice 2 — BUILT 2026-08-07 (UNCOMMITTED)
 
 Owner chose **option A** (semantic states mapped to the shared palette), approved `pending`, deferred `suspended`/`revoked`, and approved moving Your Events full-width. Built as presented.

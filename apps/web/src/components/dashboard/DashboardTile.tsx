@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows, statusColors } from '@/lib/design-tokens'
 import { DASHBOARD_STATES, type DashboardState } from './states'
+import { DASHBOARD_ICONS, ICON_SIZE, ICON_STROKE, type DashboardIconName } from './icons'
 
 /**
  * A TILE is a door: the whole surface is clickable and takes you somewhere else.
@@ -24,9 +25,10 @@ import { DASHBOARD_STATES, type DashboardState } from './states'
 interface DashboardTileProps {
   /** Where the door leads. Tiles are always navigation. */
   href: string
-  /** Decorative glyph, rendered at 2xl. Emoji are single characters and cannot
-   *  wrap, which is why 2xl is correct here and banned for body text. */
-  icon?: ReactNode
+  /** Name from the shared icon vocabulary (./icons.tsx). EVERY tile takes one —
+   *  a grid where some tiles have icons and some do not is the inconsistency
+   *  this replaced (owner, 2026-08-07). To change a glyph, edit the map. */
+  icon: DashboardIconName
   title: ReactNode
   /** Count or status pill rendered inline after the title. This is the face rule
    *  in component form — use it whenever a number would answer "does this need me?" */
@@ -48,6 +50,18 @@ export default function DashboardTile({
   targetBlank = false,
 }: DashboardTileProps) {
   const s = DASHBOARD_STATES[state]
+  const Icon = DASHBOARD_ICONS[icon]
+
+  // Titles and icons use ONE colour each, NOT the state colour. State reads
+  // through background and border instead.
+  //
+  // Slice 2 tied title colour to state. It was systematic in code but on screen
+  // it just looked arbitrary and unpolished — the user has no way to know the
+  // rule (owner, 2026-08-07). `locked` is the single exception, because a
+  // disabled thing should look disabled.
+  const isLocked = state === 'locked'
+  const titleColor = isLocked ? colors.textSecondary : colors.textPrimary
+  const iconColor = isLocked ? colors.textSecondary : colors.primary
 
   return (
     <Link
@@ -66,13 +80,11 @@ export default function DashboardTile({
         minHeight: 120,
         boxShadow: s.glow ?? shadows.sm,
       }}>
-        {icon && (
-          <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>
-            {icon}
-          </div>
-        )}
+        <div style={{ marginBottom: spacing['2xs'], color: iconColor, lineHeight: 0 }}>
+          <Icon size={ICON_SIZE} strokeWidth={ICON_STROKE} aria-hidden />
+        </div>
         <h3 style={{
-          color: s.title,
+          color: titleColor,
           margin: `0 0 ${spacing['2xs']} 0`,
           fontSize: typography.sizes.lg,
           fontWeight: typography.weights.semibold,
