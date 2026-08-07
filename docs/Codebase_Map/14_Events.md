@@ -1,6 +1,6 @@
 # 14 — Events (private / catering)
 
-<!-- map-stamp: domain=events; verified=2026-07-18; commit=b9f82116 -->
+<!-- map-stamp: domain=events; verified=2026-08-07; commit=45e98384 -->
 <!-- map-claims
 src/app/api/events/**
 src/app/api/event-requests/**
@@ -9,6 +9,7 @@ src/lib/events/**
 src/components/events/**
 src/app/[vertical]/events/**
 src/app/[vertical]/vendor/events/**
+src/app/[vertical]/event-manager/**
 -->
 
 **An event is not a vertical.** It is a `catering_requests` row plus a `markets` row with `market_type='event'` and `is_private=true`, cross-linked by `markets.catering_request_id` / `catering_requests.market_id` (`lib/events/event-actions.ts:119-140`). Events exist in both verticals.
@@ -89,6 +90,20 @@ A complete-looking vertical slice exists — access-code minting and verificatio
 
 **Hybrid events** share the access-code gate but route their paid remainder through the normal cart, so only the company-funded item touches the dead path.
 
+## ⚠ Three different "events" surfaces — do not merge them
+
+Added 2026-08-07 after the owner flagged the confusion explicitly: *"the vendors (my bookings) will show events as well as markets or parks — they are separate even though they both relate to events."*
+
+| Surface | Means | Identified by |
+|---|---|---|
+| **Event manager** — `event-manager/[token]/dashboard` | *I am RUNNING this event* | `catering_requests.organizer_user_id` |
+| **Vendor's event** — "My Vendor Events" tile, vendor dashboard row 2 | *I am booked to SELL at this event* | `market_vendors` for the event's market |
+| **Attendee** — `events/[token]/shop` etc. | *I am BUYING at this event* | token + optional access code |
+
+**An event organizer is NOT a market manager.** Different table, different identity column — organizers are `catering_requests.organizer_user_id`, managers are `markets.manager_user_id`. An approved event does get a linked `market_id`, which makes them look related. They are not.
+
+⚠ **The organizer's old "My Events" band is STILL on the shopper dashboard** (`[vertical]/dashboard/page.tsx:747-981`) even though the dashboard above now exists. Deliberate: the owner asked to *"keep the way in for organizers for now (testing)"* because the nav that will route here does not land until Slice 4. **Remove the band in Slice 4, not before** — pulling it now strands organizers mid-test.
+
 ## UI
 
 | File | Purpose |
@@ -98,6 +113,8 @@ A complete-looking vertical slice exists — access-code minting and verificatio
 | `components/events/OrganizerEventActions.tsx` | Cancel / manage actions (triggers the refund path) |
 | `components/events/EventBroadcastCard.tsx` · `EventAgreementPickerCard.tsx` · `EventRatingsCard.tsx` | Organizer broadcast composer, opt-in picker, approved-ratings display |
 | `components/events/EventFeedbackForm.tsx` | Attendee post-event rating/survey (~465 lines) |
+| `app/[vertical]/event-manager/page.tsx` | **Event picker** (new 2026-08-07) — lists events you organize; redirects out if none, straight in if exactly one |
+| `app/[vertical]/event-manager/[token]/dashboard/page.tsx` | **Event manager dashboard** (new 2026-08-07) — the home organizers never had. Event details, access code, attendee-shop link, plus the broadcast / agreement-picker / ratings controls |
 | `app/[vertical]/events/page.tsx` | Public marketing landing + request form |
 | `app/[vertical]/events/[token]/page.tsx` | Public event landing (`force-dynamic`) |
 | `app/[vertical]/events/[token]/select/page.tsx` | Organizer vendor-selection page (token-only, no auth — stated at `:16`) |

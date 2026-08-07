@@ -118,7 +118,9 @@ Shared with the park domain; FM is where it originated. Table: `booth_credits`. 
 
 ## UI
 
-Pages: `market-manager/[marketId]/dashboard`, `onboarding`, `onboarding/[step]`, `vendor-docs/[vendorProfileId]`, plus `access-suspended` / `access-removed` and the public `market-manager-program` landing page.
+Pages: **`market-manager`** (picker — new 2026-08-07), `market-manager/[marketId]/dashboard`, `onboarding`, `onboarding/[step]`, `vendor-docs/[vendorProfileId]`, plus `access-suspended` / `access-removed` and the public `market-manager-program` landing page.
+
+**The picker (`market-manager/page.tsx`)** is the index the per-market dashboard never had. The dashboard has always been `[marketId]/dashboard` — one market's data at a time — which is the model the owner wants ("a picker that only loads the data for one market at a time", 2026-08-07). Managers previously reached it via `MarketManagerCard` on the SHOPPER dashboard, which does not survive the move to per-role dashboards. **This page is what the Slice 4 nav points at.** It redirects rather than 403s: zero markets → shopper dashboard, exactly one → straight into it (a one-option picker is a pointless click).
 
 Components (`components/market-manager/`, 42 files — the largest component directory): `FmDashboardBody` (FM shell) · `BoothInventoryManager` · `BoothPlaceholderManager` · `BoothOccupancyGrid` · `VendorBoothList` · `OptinManager` · `MarketAgreementBlock` · `MarketScheduleCard` · `MarketSeasonCard` · `MarketSeasonMakeupWindow` · `MarketSeasonSettlementCard` ⚠ · `MarketStripeConnectCard` ⚠ · `MarketTransactionsCard` ⚠ · `ManagerEarningsCard` ⚠ · `WeeklyBookingsCard`/`WeeklyBookingsList` ⚠ · `MarketCancelDateCard` ⚠ · `MarketBroadcastCard` · `MarketAttendanceCard` · `MarketVisibilityCard` · `MarketBrandingCard` · `OnboardingChecklist` · `InviteVendorBrowser`/`InviteVendorLink` · `VerificationDocumentsCard` · `SurveyResultsCard`/`SurveyExportButton` · `MarketManagerAssignment`, plus manager-specific layout pieces (`ManagerJumpNav`, `ManagerActionSummary`, `ManagerSupportCard`).
 
