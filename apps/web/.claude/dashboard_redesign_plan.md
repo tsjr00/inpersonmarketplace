@@ -1,6 +1,10 @@
 # Dashboard Standardization & Redesign — Plan
 
-**Status:** ✅ **RESEARCH COMPLETE — ready to implement** (2026-08-05). Build order is the 5 slices below; start at Slice 1.
+**Status 2026-08-07 EOD:** ✅ **Slices 1, 2, 3a COMPLETE · Slice 4 CORE COMPLETE.** 12 commits on staging (`ed3d2d55`), production untouched. **Read `current_task.md` first** — it carries the handoff, what awaits owner review, and the nine traps this session found.
+
+⚠️ **Slice 3b as scoped in this file is largely OBSOLETE.** It planned a "Partner" umbrella band on the shopper page. The work went the other way — building the actual dashboards each role needs (market picker, event picker, event manager dashboard) plus a switcher. The Partner grouping dissolves; it may survive only as a nav heading. What remains of 3b is retiring the two interim ways-in, listed in `current_task.md`.
+
+**Original status line, for history:** ✅ RESEARCH COMPLETE — ready to implement (2026-08-05). Build order is the 5 slices below; start at Slice 1.
 **Governing constraint:** **MOBILE-FIRST.** Most users are on a phone. Design the phone case first; desktop is the roomier variant.
 **Owner intent:** *"The UI of the dashboards is where we get to make the first impression for users who do more than browse. It needs to be clean, easy to understand, easy to navigate, and look something like dashboards people have navigated before."*
 **Working agreement:** this file is **additive** — it grows until the plan is comprehensive, then gets implemented across one or more dedicated sessions. Do NOT start building from a partial version.

@@ -21,7 +21,14 @@
 | `GroupHeading.tsx` | banner grouping several cards; optional `accessory` | **server** |
 | `CollapsibleSection.tsx` | group with a lid | client |
 | `TabbedCard.tsx` | group with tabs (**misnamed** — it is a group, not a card) | client |
+| `DashboardNav.tsx` | **The switcher** — bottom tab bar on phone, fixed left rail ≥768px. Renders NOTHING below 2 destinations. Exports `DashboardNavSpacer` (reserves height under the fixed bar). Supersedes `shared/MobileNav.tsx` | client |
 | `ScrollToSection.tsx` | scroll helper, shopper dashboard only | client |
+
+**`lib/dashboard/nav-destinations.ts`** resolves which dashboards a user can reach. ⚠ **Deliberately NOT in `Header.tsx`** — the Header renders on every page and only receives `userProfile`, so teaching it about managed markets and organized events would mean three extra queries on every page load site-wide for a switcher that only matters on a dashboard. The dashboard pages call it instead. Its three role checks run in ONE parallel block (`performance-baseline.test.ts` guards depth on the callers).
+
+**The switcher renders on six pages and nowhere else:** shopper · vendor · market picker · **per-market dashboard** · event picker · event manager dashboard.
+
+🚨 **Every page the switcher can LEAD TO must carry the switcher.** Missing it on the per-market dashboard produced a dead end the owner hit within minutes of the first push. Deliberately excluded: `access-removed` / `access-suspended` (terminal states), `onboarding` + `onboarding/[step]` (a linear flow — a switcher there invites abandonment), `vendor-docs/[vendorProfileId]` (a drill-down with its own back link). **The switcher is for DASHBOARDS, not flows or detail pages.**
 
 ¹ `DashboardTile` is server **unless** a client parent passes `onClick`, which pulls it into that parent's bundle. `href` callers ship zero JS.
 

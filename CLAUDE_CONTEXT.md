@@ -2,7 +2,23 @@
 
 **Purpose:** Help future Claude sessions understand this project quickly and avoid repeating mistakes.
 
-**Last Updated:** 2026-07-19 (Codebase Map + pricing single-source + trial retired + admin hierarchy mig 204 → staging; combined prod push still pending = relaunch)
+**Last Updated:** 2026-08-07 (dashboard redesign slices 1–4 → staging; 30 commits + migs 213–218 still pending prod = relaunch-scale push)
+
+## Session highlights (2026-08-07) — dashboard redesign: shared card/tile system, new role dashboards, switcher → STAGING
+
+**A design system, not a re-skin.** `src/components/dashboard/` is now the shared home: `DashboardCard` + `DashboardTile` (+`TileBadge`), `states.ts` (8 semantic states), `icons.tsx` (the whole lucide vocabulary in ONE editable map), `DashboardNav`, plus `GroupHeading`/`CollapsibleSection`/`TabbedCard` promoted out of `market-manager/`. `lib/dashboard/nav-destinations.ts` resolves reachable dashboards.
+
+**The vocabulary is canonical in `docs/Codebase_Map/22_Components_UI.md`:** a **TILE is a door** (whole surface clickable, you leave — a modal counts), a **CARD is a room** (content lives there, the card itself is never clickable). Collapsible and tabbed are behaviours ON cards. **Face rule:** the face answers "does this need me?", the inside answers "what do I do about it?" — and if the face line needs more than ~8 words, split the card.
+
+**New pages:** `/[vertical]/market-manager` (picker), `/[vertical]/event-manager` (picker), `/[vertical]/event-manager/[token]/dashboard`. ⚠ **An event organizer is NOT a market manager** — `catering_requests.organizer_user_id` vs `markets.manager_user_id`, different tables. And the vendor's "booked to sell at an event" view is a third, separate thing.
+
+**Switcher:** bottom tab bar on phone, left rail ≥768px, permission-filtered, renders nothing for single-role users. On six dashboard pages — **`Header.tsx` untouched**, deliberately (see pitfalls).
+
+**Token additions:** `statusColors.attention` (orange — "you must act", distinct from `danger`) and `colors.accentGold` (a SECOND accent, because FT's `primary`/`primaryDark`/`accent` are all red).
+
+**Process:** `verification-discipline.md` **Rule 7** added — structural/inventory claims need the same gate as behaviour claims, and a plan doc you wrote yourself is a hypothesis, not evidence.
+
+⏳ Awaiting owner staging review: the bottom bar on a real phone, the buyer-vs-vendor survey intensities, the gold promo outlines on FT. Full handoff in `apps/web/.claude/current_task.md`; structure in `apps/web/.claude/dashboard_structure_map.md`.
 
 ## Session highlights (2026-07-13 → 2026-07-19) — pre-relaunch review CLOSED + Codebase Map + pricing/admin hardening → STAGING
 
@@ -340,6 +356,15 @@ Mobile-optimized at `src/app/[vertical]/vendor/pickup/page.tsx`. Smart polling, 
 ---
 
 ## Common Pitfalls & Lessons Learned
+
+### Dashboards & CSS (added 2026-08-07)
+- **On food trucks, `primary`, `primaryDark` AND `accent` are all red.** Reaching for a brand colour to signal "special" collides with `danger` — the mechanical cause of "everything was red and it got confusing." **`colors.accentGold` exists for this**: an option where red would collide, NOT a replacement for `accent` (46 usages across 23 files).
+- **Grid columns must be `minmax(0, 1fr)`, never bare `1fr`** — AND grid items need `minWidth: 0`. Both halves are required. Otherwise a `white-space: nowrap` child expands its entire column and squeezes its siblings. Cost a real bug on the FT shopper dashboard.
+- **`<style>{\`…\`}</style>` blocks are JS template literals** — a backtick inside a CSS comment ends the literal and breaks the build.
+- **`sed -i` rewrites line endings on every file it reads** (CRLF→LF on Windows), marking files modified with zero content change. Verify a bulk edit with `git diff --numstat`.
+- **Nav/role signals do NOT belong in `Header.tsx`** — it renders on every page and only receives `userProfile`, so role queries there cost every page load site-wide. Dashboard-scoped concerns are resolved by the dashboard pages.
+- **Every page a switcher can lead to must carry the switcher**, or you build a dead end.
+- **Intensity is per-AUDIENCE, not per-feature** — the person being asked is often not the person who benefits. See `components/dashboard/states.ts`.
 
 ### Database
 1. **Never trust migration files** — use `supabase/SCHEMA_SNAPSHOT.md` or query actual DB

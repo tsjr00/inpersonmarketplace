@@ -1,6 +1,7 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import AdminNav from '@/components/admin/AdminNav'
+import { hasAdminRole } from '@/lib/auth/admin'
 import UsersTableClient from './UsersTableClient'
 
 // Cache for 2 minutes - admin data doesn't need real-time updates
@@ -50,7 +51,14 @@ export default async function AdminUsersPage({ params, searchParams }: AdminUser
     .eq('user_id', user.id)
     .single()
 
-  const isAdmin = userProfile?.role === 'admin' || userProfile?.roles?.includes('admin')
+  // Use the shared helper, not a hand-rolled check. The previous literal
+  // `role === 'admin'` test silently excluded PLATFORM admins, who carry
+  // `platform_admin` — so the owner, a platform admin, was refused on this page
+  // while every other admin page let them in (owner testing 2026-08-06).
+  // Most sibling pages had already been patched to add the platform_admin
+  // clauses; this one and knowledge/ were missed. hasAdminRole is the single
+  // definition — copying the clauses again would just recreate the drift.
+  const isAdmin = hasAdminRole(userProfile ?? {})
 
   if (!isAdmin) {
     return (

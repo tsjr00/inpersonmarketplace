@@ -1,6 +1,7 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import AdminNav from '@/components/admin/AdminNav'
+import { hasAdminRole } from '@/lib/auth/admin'
 import KnowledgeEditor from './KnowledgeEditor'
 
 export const revalidate = 0 // Always fresh for admin
@@ -29,7 +30,9 @@ export default async function AdminKnowledgePage({ params }: AdminKnowledgePageP
     .eq('user_id', user.id)
     .single()
 
-  const isAdmin = userProfile?.role === 'admin' || userProfile?.roles?.includes('admin')
+  // Shared helper, not a hand-rolled check — the literal `role === 'admin'`
+  // test excluded PLATFORM admins. Same bug as the users page, same session.
+  const isAdmin = hasAdminRole(userProfile ?? {})
   if (!isAdmin) {
     return (
       <div style={{ padding: 40, textAlign: 'center' }}>

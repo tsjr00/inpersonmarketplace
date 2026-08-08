@@ -1,6 +1,106 @@
 # Backlog
 
-Last updated: 2026-08-02 (added: FT day-to-day pickup capacity — design complete, ready to build)
+Last updated: 2026-08-07 (added: EVENTS MODULE tester findings — 13 issues incl. a hard deadlock)
+
+## 🔴 EVENTS MODULE — owner testing 2026-08-06, logged 2026-08-07
+
+**Nothing below is fixed. No code was changed.** Owner: *"you will need to review the appropriate code before fixing."* Leads are marked **UNVERIFIED** where I traced the file but did not confirm behaviour at runtime.
+
+---
+
+### 🚨 A — THE ADDRESS DEADLOCK (highest priority: an event can reach a state with NO way out)
+
+An event created without a street address becomes **permanently stuck**. Four separate gaps combine:
+
+| # | Gap |
+|---|---|
+| **A1** | Street address is **NOT mandatory** in the event intake form |
+| **A2** | Vertical admin **CANNOT APPROVE** an event without a street address |
+| **A3** | Event manager **cannot see or tap into their event** from the dashboard to edit it **until it is approved** |
+| **A4** | Admin **cannot add the address themselves**, even after talking to the organizer |
+| **A5** | Event manager **cannot cancel the event** from the dashboard either |
+
+**The loop:** can't approve without an address → can't edit before approval → admin can't supply it → and it can't be cancelled to escape. **An event in this state is unreachable, unfixable and undeletable.**
+
+#### ✅ ROOT CAUSE FOUND 2026-08-07 — it is `event_token`, not the address
+
+The address is the symptom. The mechanism:
+
+1. **`event_token` is assigned at APPROVAL, not at intake** — `app/api/event-requests/route.ts:328` gates on `approval.success && approval.market_id && approval.event_token`. A brand-new event has **no token**.
+2. The organizer's editor **already exists and already permits `address`** — `components/events/OrganizerEventDetails.tsx`, PATCHing `/api/events/[token]/details`, which lists `'address'` as an allowed field (`:49`) and is organizer-authed. Its `EDITABLE_STATUSES` (`:48`) **already includes `'new'`**.
+3. But it is rendered **`{evt.event_token && …}`** — `[vertical]/dashboard/page.tsx:931`. **No token ⇒ the editor never renders.**
+4. And it is keyed by token throughout, so there is no id-based fallback.
+
+**So the capability exists and is correctly permissive. It is simply unreachable before approval, because the key it needs does not exist yet.** The admin-side error message even says *"Ask the organizer to add one via their dashboard"* (`app/api/admin/events/[id]/route.ts:130`) — written against an editor the organizer cannot see.
+
+⚠ **The same flaw is in what I built 2026-08-07:** the event-manager picker filters `.not('event_token', 'is', null)`, so **pending events do not appear there either.** Fixing A must include that filter.
+
+#### Options (needs an owner decision — do NOT pick silently)
+
+- **(a) Issue `event_token` at intake instead of approval.** Cleanest structurally — everything downstream is keyed by token and would just work. ⚠ **But the token is a bearer credential for attendee access** (`14_Events.md` documents a three-level token model), so minting it earlier has security implications that need thinking through, not assuming.
+- **(b) Let admin set the address.** Fixes events **already stuck**. Does not prevent new ones.
+- **(c) Make address required at intake.** Prevents new ones. Does **not** free existing stuck events.
+- **(d) Give the editor an id-based path for pre-approval events.** Avoids touching token semantics; more plumbing.
+
+**(b) + (c) together** is the smallest combination that both frees existing events and stops new ones, without touching the token model. **(a)** is the tidiest end state if the security review clears it.
+
+**Still unverified:** A5 (cannot cancel) — the cancel path was not traced. Likely the same token dependency.
+
+Fixing any ONE of these breaks the deadlock, but the owner's read is that the real problem is the class of bug, not the instance: *"my guess is there are similar gaps with other fields or other areas we have loops in there."* **So: audit every required-for-approval field against what the intake form actually requires, and against who can edit it at each status.** A field required downstream but optional upstream, with no editor in between, is the general shape.
+
+**Files:** `app/api/event-requests/route.ts` (intake) · `app/api/admin/events/route.ts` + `[id]/route.ts` (approval) · `lib/events/event-actions.ts` · the organizer band in `[vertical]/dashboard/page.tsx` and the new `[vertical]/event-manager/[token]/dashboard` (⚠ the new dashboard was built 2026-08-07 as a shell — **A3/A5 may be partly solvable there**, since it is the organizer's own surface).
+
+---
+
+### 🟠 B — EVENT SCORING: math unverified, and undocumented
+
+- **B1** Revisit the math and assumptions. Owner: *"I'm not sure its assumptions are correct. They may be."* Not asserted as wrong — **unvalidated**.
+- **B2** Revisit **what is scored in each section**.
+- **B3** **Document it.** Not optional: *"that's definitely going to be something that admins will need training on."*
+- **B4** It is **not transparent in the UI**. Platform admin needs to understand it to train vertical admins.
+
+**File:** `lib/events/viability.ts` — has a `warnings` concept (*"yellow: concerns that need admin attention but don't exclude"*, `:84`). Likely the scoring core.
+
+---
+
+### 🟠 C — PLATFORM ADMIN CANNOT SEE MARKETS OR EVENTS
+
+*"As platform admin I can't see markets or events or anything via the admin dashboard — there's no UI for a lot of the functionality."* Discovered while trying to work around **A4**.
+
+⚠ **Not the same as B or D — this is missing UI, not a broken gate.** The vertical admin console has pages the platform console does not.
+
+**Explicitly NOT a bug (owner):** vertical admin only seeing events once approved — *"that makes sense."*
+
+**Files:** compare `app/admin/**` against `app/[vertical]/admin/**` (the latter has: admins · analytics · cause · error-logs · errors · event-ratings · events · feedback · knowledge · listings · markets · order-issues · reports · stripe-reconcile · users · vendor-activity · vendors).
+
+---
+
+### 🔴 D — VERTICAL ADMIN → ALL USERS → "Admin access required"
+
+Owner was **in the FT vertical admin panel** and was refused.
+
+**STRONG LEAD, UNVERIFIED:** `app/[vertical]/admin/users/page.tsx:53` hand-rolls its gate —
+```ts
+const isAdmin = userProfile?.role === 'admin' || userProfile?.roles?.includes('admin')
+```
+That is a **literal string match on `'admin'`**, not the shared `hasAdminRole()` / `verifyAdminScope()` helpers the rest of the app uses. After the mig-204 admin hierarchy work (platform ⊃ vertical), a legitimate admin whose role is not the bare string `'admin'` fails this check. **Suspect other pages hand-roll the same check — grep for it.**
+
+⚠ The owner saw *"need admin permissions to view"* in **green**; this file says *"Admin access required."* Similar but **not identical** — either the message moved or there is a second surface. **Confirm which page produced it before fixing.**
+
+---
+
+### 🟡 E — VERTICAL ADMIN → EVENT SCORING → "Failed to load event ratings"
+
+Red banner. Owner: *"might be because there are no scores yet, but it might be a different bug."*
+
+**Traced:** `app/[vertical]/admin/event-ratings/page.tsx:62` shows that banner when the fetch to `/api/admin/event-ratings` fails. That route **does** use `verifyAdminScope(vertical)` correctly (`:27`), so it is NOT the D bug. Most likely an empty-result path being treated as an error, or a genuine 500. **Needs a runtime check — cannot be settled by reading.**
+
+⚠ Owner said *"event scoring"*; the page is **event-ratings**. Scoring may be `lib/events/viability.ts` (a different surface). **Confirm which page they clicked.**
+
+---
+
+**Suggested order:** **A** (a deadlock with no escape beats everything) → **D** (admins locked out of a working page) → **E** (small, and it may just be an empty state) → **C** (build work) → **B** (analysis + documentation, the largest and least urgent).
+
 
 ## 🔴 HIGH — FT day-to-day pickup capacity ("skip the line" is currently unenforceable) — added 2026-08-02
 

@@ -1,41 +1,97 @@
-# Current Task: 🟡 THREE FEATURES BUILT ON STAGING, NONE TESTED — start here
+# Current Task: 🎨 DASHBOARD REDESIGN SHIPPED TO STAGING — awaiting owner review
 
-## 🎨 ACTIVE 2026-08-07 — Dashboard standardization, Slice 1 BUILT (uncommitted)
+## ⏱️ SESSION HANDOFF — 2026-08-07 (dashboard session)
 
-Session focus is **Slices 1 & 2** of `apps/web/.claude/dashboard_redesign_plan.md` (read that file — it is the plan of record and now carries the owner's build decisions plus a "Slice 1 — built" section).
+### Git / env
 
-**Slice 1 done, awaiting commit approval.** The card system moved out of `components/market-manager/` into `components/dashboard/`: `ManagerCard` → **`DashboardCard`**, `MANAGER_NAV_OFFSET` → **`NAV_OFFSET`**, plus `CollapsibleSection`, `TabbedCard`, and a new **`GroupHeading`** consolidated from two byte-identical private copies in `FmDashboardBody`/`FtParkDashboardBody`. 22 files rewritten, no forwarding shims (owner chose the clean rewrite). Zero visual change by design. tsc 0 · **1811/1811** · both Codebase Map domains updated + stamped.
+| | |
+|---|---|
+| **PROD** `origin/main` | `f141c6e6` — **untouched all session** |
+| **STAGING** `origin/staging` = local `main` | `ed3d2d55` |
+| Staging ahead of prod | **30 commits** — 12 dashboard (today) + 18 from prior sessions (Chip In, tax, FT capacity, cause onboarding) |
+| Migrations pending prod | **213–218** — all applied Dev+Staging, none on prod |
 
-**Owner decisions this session:** name = `DashboardCard` in `components/dashboard/` · no shims · styling mechanism unchanged (inline + design-tokens standard, `<style>` blocks only for breakpoints, no Tailwind in new dashboard code) · commit together with the feature train on staging (presentation week of 08-10).
+⚠️ Whenever staging goes to prod, **all 30 ride together**. That is a relaunch-scale push, not a hotfix.
 
-**Three binding constraints for Slice 2 onward:** (1) `DashboardCard`/`GroupHeading` stay **server components** — interactivity goes in individual cards, never the wrapper; (2) nothing gets collapsed unless its header states what's inside (count/status/next action) — shallow navigation is a product requirement; (3) keep route-level `loading.tsx`, no per-card spinners.
+---
 
-**⚠ Parked, not mine to fix:** pre-existing lint error at `components/events/EventRequestForm.tsx:241` (`react-hooks/set-state-in-effect`). Exists on `00f234c8`; pre-commit won't block it (lint-staged only) but **CI lints everything**.
+### ✅ What shipped today — 12 commits
 
-**Slice 2 done too.** `DashboardTile` + `states.ts` (7 semantic states shared by tile AND card) + `statusColors.attention` in design-tokens. Vendor dashboard: 9 tiles + 4 cards converted, headers `base`→`lg`, title `2xl`→`xl`, emoji untouched, Your Events moved full-width. tsc 0 · 1811/1811 · lint unchanged at 1 pre-existing error.
+Slices 1, 2, 3a **complete**; Slice 4 **core complete**.
 
-**⚠ The plan's "8 × 2xl = the wrapping problem" claim was WRONG** — 7 of those 8 are emoji icons (single glyphs cannot wrap) and 1 is the page `<h1>`. The real drift was card headers at `base` and 38 raw hex values bypassing the token palette.
+**The system** (`src/components/dashboard/`) — `DashboardCard` · `DashboardTile` (+`TileBadge`) · `states.ts` (8 states) · `icons.tsx` (the lucide vocabulary) · `GroupHeading` · `CollapsibleSection` · `TabbedCard` · `DashboardNav` · `ScrollToSection`. Plus `lib/dashboard/nav-destinations.ts`.
 
-**Tile vs Card taxonomy is now the standing vocabulary** — canonical copy in `docs/Codebase_Map/22_Components_UI.md`. Tile = a door (click, you leave). Card = a room (content lives here). Face rule: *the face answers "does this need me?", the inside answers "what do I do about it?"* — 8-word limit or split the card. A SMALL card may sit in a grid (`inGrid`); more than one internal section ⇒ full width.
+**Applied:** both big dashboards fully converted · **zero raw hex** on each (shopper was 51) · every grid internally uniform · "My" voice throughout · lucide icons on every tile · one title colour, state via background+border only.
 
-## 📊 DASHBOARD WORK — where it stands end of 2026-08-07
+**Three new pages:** `/[vertical]/market-manager` (picker) · `/[vertical]/event-manager` (picker) · `/[vertical]/event-manager/[token]/dashboard`.
 
-**7 commits on staging** (`33177178`), production untouched at `f141c6e6`. Slices 1, 2 and 3a are DONE.
+**The switcher:** bottom tab bar on phone, left rail ≥768px, permission-filtered, **renders nothing for single-role users**. Lives on 6 dashboard pages — **NOT** in `Header.tsx`, which is untouched.
 
-**Shipped:** shared card+tile system (`components/dashboard/`) · 8 semantic states + the audience-intensity principle · lucide icon vocabulary in one file · "My" voice · **zero raw hex on the shopper dashboard** (was 51) · `accentGold` added so promos are not red on FT · every grid on every dashboard internally uniform.
+**Token change:** `statusColors.attention` (orange) and `colors.accentGold` added. See "traps" below.
 
-**🛑 OFF-LIMITS (owner):** `Pickup Mode` and `My Upcoming Pickups` tiles — no restyling, state changes, re-ordering or copy edits. Stop and ask.
+---
 
-**⏳ AWAITING OWNER REVIEW ON STAGING** — three things I cannot judge from here:
-1. The **lucide icon set** (all 9 visible at once on the vendor dashboard).
-2. **Buyer rating prompt vs vendor survey card** — deliberately moved in opposite directions (`attention` vs `active`). Does the buyer one feel insistent-not-obnoxious, and does the vendor one still register?
-3. **Gold promo outlines** — on FT they are the only non-red signal on the page.
+### ⏳ AWAITING OWNER REVIEW ON STAGING — I cannot judge these
 
-**▶ NEXT: Slice 3b (Partner reorg).** Full prep is written — read the **`🧭 SLICE 3b — PREP`** block at the top of `dashboard_redesign_plan.md`. Short version: every role signal is already loaded in one parallel query, `/partner` is a free route name, `/settings` already exists as a home for the Admin band, and **one decision gates everything — are Shopper/Partner/Vendor separate ROUTES or bands on one page?** Vendor, admin and manager already have their own routes, so Partner would be the only new one.
+1. **Bottom bar on a real phone** — safe-area inset and 56px tap targets are *reasoned about, not observed*. Highest-risk unverified item.
+2. **Buyer rating prompt vs vendor survey card** — deliberately moved in OPPOSITE directions (`attention` vs `active`). Does the buyer one feel insistent without being obnoxious; does the vendor one still register?
+3. **Gold promo outlines** — on FT the only non-red signal on the page.
+4. Icon set — **owner approved 2026-08-07**: "if I want to make changes I will say what & where."
 
-**Structure reference: `dashboard_structure_map.md`** — every band, container, child and conversion status across all three dashboards, plus ten facts that bite. Built because the plan's old inventory was route+line-count only, which is where every correction this session came from.
+---
 
-**Then:** Slice 4 (nav — bottom bar on phone, left rail on desktop; ⚠️ `ManagerJumpNav` hardcodes anchor ids, renames break it silently) and Slice 5 (polish).
+### ▶ NEXT SESSION
+
+**1. Retire the two interim ways-in** — only after the owner confirms the switcher works.
+   - `MarketManagerCard` on the shopper dashboard (commented as interim at its render site).
+   - The organizer **"My Events" band** on the shopper dashboard (`dashboard/page.tsx`, the `hasOrganizerEvents` block). Its dashboard now exists; the band was kept because the owner asked to *"keep the way in for organizers for now (testing)"*.
+   - **Rule the owner stated:** a card goes away once the dashboard is built **AND** there is a way into it. The switcher is now that way in.
+
+**2. The three `Event*Card`s** — `EventAgreementPickerCard` · `EventBroadcastCard` · `EventRatingsCard`. ⚠️ They are **inline expand/collapse toggles, NOT cards** — converting them restructures the organizer section, so it is **deferred to the events rebuild** rather than done twice.
+
+**3. Slice 5 polish** — standardized empty states, a card actions slot, a device pass.
+
+**Not scheduled, owner-flagged:** `vendor/markets/page.tsx` (~2,000 lines across 4 files, raw numeric font sizes) — the cram case that motivated the face rule.
+
+---
+
+### 🔴 UNRELATED TO TODAY — EVENTS MODULE tester findings (owner, 2026-08-06)
+
+Logged 2026-08-07 into **`backlog.md`** (top section) as **13 issues in 5 clusters**. Nothing fixed, no code touched.
+
+**The one that matters most: an event created without a street address is PERMANENTLY STUCK.** Address is optional at intake, required for approval, the organizer cannot edit before approval, admin cannot add it, and the organizer cannot cancel either. **No way out of that state.** Owner suspects the same shape exists on other fields — so the fix is an audit of required-for-approval vs required-at-intake vs who-can-edit-when, not just a patch to the address field.
+
+Also: event scoring math unvalidated and undocumented (needed for admin training) · platform admin has no UI for markets/events · vertical-admin "All Users" refuses a legitimate admin (**strong lead:** `[vertical]/admin/users/page.tsx:53` hand-rolls a literal `role === 'admin'` check instead of the shared helpers — suspect other pages do too) · "Failed to load event ratings" banner needing a runtime check.
+
+Full detail, file paths, suggested order and what is UNVERIFIED: `backlog.md`.
+
+### 📚 Where the knowledge lives
+
+| File | What |
+|---|---|
+| **`dashboard_structure_map.md`** | **Read before any cross-surface dashboard work.** Every band, container, child, conversion status across all 3 dashboards + 10 "facts that bite". |
+| `dashboard_redesign_plan.md` | Slice history, owner decisions, the 3b prep block (now largely superseded — see below). |
+| `docs/Codebase_Map/22_Components_UI.md` | **Canonical tile/card taxonomy** — definitions, face rule, 8-word limit, grid clause, never-dos. |
+| `docs/Codebase_Map/14_Events.md` | The three-different-"events"-surfaces table. |
+| `rules/verification-discipline.md` **Rule 7** | New: structural/inventory claims need the same gate as behaviour claims. |
+
+**⚠️ Slice 3b as originally scoped is mostly OBSOLETE.** It planned a "Partner" umbrella band on the shopper page. Today's work went the other way — building the actual dashboards each role needs. The Partner grouping dissolves; it may survive only as a nav heading. What remains of 3b is item 1 above.
+
+---
+
+### 🪤 Traps this session found — do not relearn these
+
+1. 🛑 **`Pickup Mode` and `My Upcoming Pickups` are OFF-LIMITS** (owner). No restyling, state changes, re-ordering or copy edits. Stop and ask.
+2. **On FT, `primary`, `primaryDark` and `accent` are ALL red.** Reaching for a brand colour to signal "special" collides with `danger`. That is the mechanical cause of "everything was red and it got confusing." **`accentGold` exists for this** — an option where red would collide, **not** a replacement for `accent` (46 usages across 23 files).
+3. **Grid columns must be `minmax(0, 1fr)`, never bare `1fr`** — and grid ITEMS need `minWidth: 0`. Both halves required. A `white-space: nowrap` child otherwise expands its whole column.
+4. **`<style>` blocks are JS template literals** — a backtick in a CSS comment breaks the build.
+5. **`sed -i` rewrites line endings** on every file it reads. Verify with `git diff --numstat`.
+6. **Every page the switcher can lead to must carry the switcher** — missing it on the per-market dashboard produced a dead end the owner hit immediately.
+7. **`ManagerJumpNav` hardcodes anchor ids** the dashboard bodies must define. A rename breaks it silently; that has already shipped once.
+8. **Manager dashboard bodies have ZERO grids** — pure vertical stacks, unlike shopper/vendor.
+9. **Intensity is per-AUDIENCE, not per-feature** — the person asked is often not the person who benefits. See `states.ts`.
+
+---
 
 ## ⏱️ SESSION HANDOFF (2026-08-02)
 
