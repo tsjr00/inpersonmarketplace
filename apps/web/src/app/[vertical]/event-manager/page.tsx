@@ -6,6 +6,8 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { enforceVerticalAccess } from '@/lib/auth/vertical-gate'
 import { colors, spacing, typography, radius, containers, statusColors } from '@/lib/design-tokens'
 import DashboardCard from '@/components/dashboard/DashboardCard'
+import DashboardNav, { DashboardNavSpacer } from '@/components/dashboard/DashboardNav'
+import { getNavDestinations } from '@/lib/dashboard/nav-destinations'
 
 interface PageProps {
   params: Promise<{ vertical: string }>
@@ -55,8 +57,11 @@ export default async function EventManagerPickerPage({ params }: PageProps) {
     ? new Date(d + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
     : 'Date TBD'
 
+  const navDestinations = await getNavDestinations(supabase, user, vertical)
+
   return (
-    <div style={{ maxWidth: containers.lg, margin: '0 auto', padding: spacing.md }}>
+    <div className="has-dashboard-nav" style={{ maxWidth: containers.lg, margin: '0 auto', padding: spacing.md }}>
+      <DashboardNav destinations={navDestinations} />
       <h1 style={{
         color: colors.primary,
         margin: `0 0 ${spacing.xs} 0`,
@@ -103,6 +108,7 @@ export default async function EventManagerPickerPage({ params }: PageProps) {
           ))}
         </div>
       </DashboardCard>
+      <DashboardNavSpacer destinations={navDestinations} />
     </div>
   )
 }

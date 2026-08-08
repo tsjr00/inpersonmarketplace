@@ -8,6 +8,8 @@ import { getMarketsManagedBy } from '@/lib/markets/manager-queries'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
 import DashboardCard from '@/components/dashboard/DashboardCard'
+import DashboardNav, { DashboardNavSpacer } from '@/components/dashboard/DashboardNav'
+import { getNavDestinations } from '@/lib/dashboard/nav-destinations'
 
 interface PageProps {
   params: Promise<{ vertical: string }>
@@ -47,8 +49,11 @@ export default async function MarketManagerPickerPage({ params }: PageProps) {
   if (markets.length === 0) redirect(`/${vertical}/dashboard`)
   if (markets.length === 1) redirect(`/${vertical}/market-manager/${markets[0].id}/dashboard`)
 
+  const navDestinations = await getNavDestinations(supabase, user, vertical)
+
   return (
-    <div style={{ maxWidth: containers.lg, margin: '0 auto', padding: spacing.md }}>
+    <div className="has-dashboard-nav" style={{ maxWidth: containers.lg, margin: '0 auto', padding: spacing.md }}>
+      <DashboardNav destinations={navDestinations} />
       <h1 style={{
         color: colors.primary,
         margin: `0 0 ${spacing.xs} 0`,
@@ -97,6 +102,7 @@ export default async function MarketManagerPickerPage({ params }: PageProps) {
           ))}
         </div>
       </DashboardCard>
+      <DashboardNavSpacer destinations={navDestinations} />
     </div>
   )
 }

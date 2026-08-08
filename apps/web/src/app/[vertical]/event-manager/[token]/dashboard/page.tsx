@@ -6,6 +6,8 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { enforceVerticalAccess } from '@/lib/auth/vertical-gate'
 import { colors, spacing, typography, containers, statusColors } from '@/lib/design-tokens'
 import DashboardCard from '@/components/dashboard/DashboardCard'
+import DashboardNav, { DashboardNavSpacer } from '@/components/dashboard/DashboardNav'
+import { getNavDestinations } from '@/lib/dashboard/nav-destinations'
 import EventAgreementPickerCard from '@/components/events/EventAgreementPickerCard'
 import EventBroadcastCard from '@/components/events/EventBroadcastCard'
 import EventRatingsCard from '@/components/events/EventRatingsCard'
@@ -68,8 +70,11 @@ export default async function EventManagerDashboardPage({ params }: PageProps) {
   const isLive = ['ready', 'active'].includes(status)
   const showsAgreements = ['approved', 'ready', 'active', 'review'].includes(status)
 
+  const navDestinations = await getNavDestinations(supabase, user, vertical)
+
   return (
-    <div style={{ maxWidth: containers.xl, margin: '0 auto', padding: spacing.md }}>
+    <div className="has-dashboard-nav" style={{ maxWidth: containers.xl, margin: '0 auto', padding: spacing.md }}>
+      <DashboardNav destinations={navDestinations} />
       <div style={{ marginBottom: spacing.md, paddingBottom: spacing.sm, borderBottom: `2px solid ${colors.primary}` }}>
         <h1 style={{
           color: colors.primary,
@@ -141,6 +146,8 @@ export default async function EventManagerDashboardPage({ params }: PageProps) {
           <EventRatingsCard eventToken={event.event_token as string} primaryColor={colors.primary} />
         </DashboardCard>
       )}
+
+      <DashboardNavSpacer destinations={navDestinations} />
     </div>
   )
 }

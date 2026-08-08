@@ -16,6 +16,8 @@ import { formatPrice } from '@/lib/pricing'
 import { colors, spacing, typography, radius, containers, statusColors } from '@/lib/design-tokens'
 import DashboardCard from '@/components/dashboard/DashboardCard'
 import DashboardTile, { TileBadge } from '@/components/dashboard/DashboardTile'
+import DashboardNav, { DashboardNavSpacer } from '@/components/dashboard/DashboardNav'
+import { getNavDestinations } from '@/lib/dashboard/nav-destinations'
 import { term } from '@/lib/vertical'
 import { getTierLimits, getFtTierExtras } from '@/lib/vendor-limits'
 import UpcomingPickupItem from './UpcomingPickupItem'
@@ -353,6 +355,10 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
     upcomingPickups = Array.from(pickupMap.values()).sort((a, b) => a.pickup_date.localeCompare(b.pickup_date))
   }
 
+  // isVendor is known for certain here — reaching this page requires a vendor
+  // profile — so it is passed in rather than re-queried.
+  const navDestinations = await getNavDestinations(supabase, user, vertical, { isVendor: true })
+
   // Derived values
   const stockWarningLevel: 'red' | 'orange' | null =
     outOfStockCount > 0 ? 'red' : lowStockCount > 0 ? 'orange' : null
@@ -366,7 +372,8 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
     }}
     className="vendor-dashboard"
     >
-      <div style={{
+      <DashboardNav destinations={navDestinations} />
+      <div className="has-dashboard-nav" style={{
         maxWidth: containers.xl,
         margin: '0 auto',
         padding: `${spacing.md} ${spacing.sm}`
@@ -1066,6 +1073,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
 
       {/* Vendor Tutorials: Phase 1 (Getting Approved) or Phase 2 (Your Dashboard) */}
       <TutorialWrapper vertical={vertical} mode="vendor" phase={tutorialPhase} showTutorial={showTutorial1 || showTutorial2} />
+      <DashboardNavSpacer destinations={navDestinations} />
     </div>
   )
 }

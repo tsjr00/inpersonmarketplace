@@ -9,6 +9,8 @@ import Image from 'next/image'
 import { colors, spacing, typography, radius, shadows, containers, statusColors } from '@/lib/design-tokens'
 import DashboardCard from '@/components/dashboard/DashboardCard'
 import DashboardTile, { TileBadge } from '@/components/dashboard/DashboardTile'
+import DashboardNav, { DashboardNavSpacer } from '@/components/dashboard/DashboardNav'
+import { getNavDestinations } from '@/lib/dashboard/nav-destinations'
 import TutorialWrapper from '@/components/onboarding/TutorialWrapper'
 import FeedbackCard from '@/components/buyer/FeedbackCard'
 import VendorFeedbackCard from '@/components/vendor/VendorFeedbackCard'
@@ -312,14 +314,17 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
     }
   })
 
+  const navDestinations = await getNavDestinations(supabase, user, vertical, { isVendor })
+
   return (
-    <div style={{
+    <div className="has-dashboard-nav" style={{
       maxWidth: containers.xl,
       margin: '0 auto',
       backgroundColor: colors.surfaceBase,
       color: colors.textSecondary,
       padding: spacing.xl
     }}>
+      <DashboardNav destinations={navDestinations} />
       <ScrollToSection />
       {/* Page Title + Welcome */}
       <div className="dashboard-header" style={{
@@ -1244,6 +1249,9 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
 
       {/* ========== ONBOARDING TUTORIAL ========== */}
       <TutorialWrapper vertical={vertical} showTutorial={showTutorial} />
+
+      {/* Keeps the last card clear of the fixed bottom bar on phones. */}
+      <DashboardNavSpacer destinations={navDestinations} />
 
       {/* Responsive Styles */}
       <style>{`

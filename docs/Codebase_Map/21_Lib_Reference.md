@@ -1,8 +1,9 @@
 # 21 — Shared Library Reference
 
-<!-- map-stamp: domain=lib-reference; verified=2026-07-18; commit=b9f82116 -->
+<!-- map-stamp: domain=lib-reference; verified=2026-08-07; commit=36aa2bd9 -->
 <!-- map-claims
 src/lib/errors/**
+src/lib/dashboard/**
 src/lib/db/**
 src/lib/domain/**
 src/lib/hooks/**
@@ -33,6 +34,8 @@ src/lib/validation.ts
 -->
 
 Shared modules not owned by a single domain. **The lib layer is where the business logic lives** — routes are kept thin so rules can be unit-tested and reused by both routes and server components.
+
+**`lib/dashboard/nav-destinations.ts`** (new 2026-08-07) — resolves which dashboards a user can reach (shopper always, plus vendor / market-manager / event-manager by permission), for `components/dashboard/DashboardNav`. ⚠ **Deliberately NOT in `layout/Header.tsx`:** the Header renders on every page and only receives `userProfile`, so teaching it about managed markets and organized events would mean three extra queries on every page load site-wide to serve a switcher that only matters on a dashboard. The four dashboard pages call this instead, so the cost lands where the feature is. Its three role checks run in one parallel block — `performance-baseline.test.ts` guards query count and sequential depth on the pages that call it.
 
 ---
 
