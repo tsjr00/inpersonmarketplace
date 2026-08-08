@@ -98,15 +98,25 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
     }
   }
 
-  // Still null WHILE LOADING — a tile that appears, changes state, then changes
-  // again is worse than one that arrives once.
+  // Null WHILE LOADING — a tile that appears, changes state, then changes again
+  // is worse than one that arrives once.
   if (loading) return null
 
-  // But NOT null when there is nothing to rate (owner, 2026-08-08). The tile
-  // stays so buyers discover the feature before they have an order waiting;
-  // it just drops to `neutral` and loses the badge. Same shape as the vendor
-  // equivalent, PendingSurveysCard, which has always behaved this way.
-  const nothingToRate = orders.length === 0
+  // Null when there is nothing to rate. This is a deliberate EXCEPTION to the
+  // collapse-don't-disappear rule (owner, 2026-08-08), and the distinction is
+  // the point:
+  //
+  //   A SECTION shows capability      → collapse, so the user learns it exists.
+  //   A PROMPT asks the user to act   → do not appear with nothing to ask.
+  //
+  // "Rate your recent order" with no order is not showing off a feature, it is
+  // requesting something that does not exist. Contrast PendingSurveysCard,
+  // which is a destination the vendor can visit and therefore does collapse.
+  //
+  // It was briefly built the other way earlier the same day and the owner
+  // rejected it on staging: "I don't like having rate your recent order visible
+  // if there are no orders to rate."
+  if (orders.length === 0) return null
 
   // Get the first unrated order/vendor combo
   const firstOrder = orders[0]
@@ -130,9 +140,9 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
           yet their ratings are what vendors and managers actually need. So the
           buyer-facing ask gets the strongest nudge, while the vendor-facing
           survey card (PendingSurveysCard) sits a tier lower at `active`.
-          It is loud ONLY when it has something to ask for — with nothing to
-          rate it drops to `neutral` and loses the badge, so the strongest state
-          on the dashboard never fires over an empty prompt. */}
+          It self-hides when there is nothing to rate (see above), so it can
+          afford to be loud whenever it does appear — `attention` never fires
+          over an empty prompt. */}
       <DashboardTile
         onClick={() => {
           if (firstOrder && firstVendor) {
@@ -142,12 +152,10 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
         }}
         icon="reviews"
         title={t('review.rate_order', locale)}
-        state={nothingToRate ? 'neutral' : 'attention'}
+        state="attention"
         badge={orders.length > 1 ? <TileBadge>{orders.length}</TileBadge> : undefined}
       >
-        {nothingToRate
-          ? t('review.nothing_to_rate', locale)
-          : t('review.how_was', locale, { vendor: firstVendor?.name || '' })}
+        {t('review.how_was', locale, { vendor: firstVendor?.name || '' })}
       </DashboardTile>
 
       {/* Rating Modal */}

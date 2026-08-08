@@ -171,9 +171,28 @@ A card with nothing to show renders **header + one muted line, no body** (`Dashb
 
 **Tiles use the tile version of the same rule** — always render, drop to `neutral`, drop the badge, swap the body copy. `PendingSurveysCard` and `RateOrderCard` are the reference pair; note `RateOrderCard` is `attention` only when it actually has something to ask for.
 
-**Two exceptions, both deliberate:**
+### ⚠ SECTION vs PROMPT — the limit of the collapse rule (owner 2026-08-08)
+
+> **A section shows capability → collapse it, so the user learns it exists.**
+> **A prompt asks the user to act → do not render it with nothing to ask.**
+
+"Rate your recent order" with no order is not showing off a feature; it is requesting something that does not exist. Owner, after seeing it on staging: *"I don't like having rate your recent order visible if there are no orders to rate."*
+
+Contrast `PendingSurveysCard` — a **destination** the vendor can visit, which therefore does collapse and stay. Both are tiles; the difference is what they are for, not what they are made of.
+
+Because it self-hides, `RateOrderCard` can stay `attention` unconditionally — the loudest state on the dashboard never fires over an empty ask.
+
+**Other exceptions, both deliberate:**
 - **A competing prompt is not an empty state.** `ManagerActionSummary` still returns null while onboarding is incomplete, because `OnboardingChecklist` owns that moment. Do not "fix" it.
 - **Still null while LOADING.** A tile that appears, changes state, then changes again is worse than one that arrives once.
+
+### 📏 One grid system per page
+
+The shopper dashboard uses `.shopper-grid` for **every** card grid — never an inline `auto-fit`.
+
+Owner found the mismatch on staging 2026-08-08: on a wide laptop the tiles above the vendor line sat 3 across while the vendor section was 2×2, and narrowing the window **inverted** it. `.shopper-grid` keys off the **viewport** via media queries; an inline `auto-fit` measures the **container**, which is ~212px narrower at ≥1024 because the nav rail occupies it. Two systems on one page cannot agree, and the rail is what pulls them apart.
+
+Small auto-fit grids for content *inside* a card (a two-up benefits list) are fine — those lay out text within a container, not cards across a page.
 
 ⏳ **Not decided:** whether populated sections should sort above collapsed ones. Deliberately held for the owner to judge on staging, since it moves things on screen.
 

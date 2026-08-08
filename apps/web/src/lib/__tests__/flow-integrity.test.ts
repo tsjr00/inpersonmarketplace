@@ -971,25 +971,55 @@ describe('Dashboard empty-state convention', () => {
     }
   })
 
-  it('the two documented exceptions keep exactly one early return', () => {
-    // NOT empty states, and converting either would be a regression:
-    //  · ManagerActionSummary defers to OnboardingChecklist during setup —
+  it('every early return in an exception component is a DOCUMENTED one', () => {
+    // Each of these hides for a specific, approved reason. The counts are
+    // asserted so an UNDOCUMENTED early return — the tidy-up that quietly
+    // reintroduces vanishing — fails even though each individual match passes.
+    //
+    //  · ManagerActionSummary defers to OnboardingChecklist during setup;
     //    rendering both is the competing-prompt problem it exists to avoid.
-    //  · RateOrderCard hides WHILE LOADING; a tile that appears then changes
-    //    state twice is worse than one that arrives once.
+    //  · RateOrderCard hides while LOADING, and hides when there is nothing to
+    //    rate (owner, 2026-08-08 — see the PROMPT vs SECTION rule below).
     const summary = bare('components/market-manager/ManagerActionSummary.tsx')
     expect((summary.match(/return null/g) || []).length).toBe(1)
     expect(summary).toMatch(/setupIncomplete\)\s*return null/)
 
     const rate = bare('components/buyer/RateOrderCard.tsx')
-    expect((rate.match(/return null/g) || []).length).toBe(1)
+    expect((rate.match(/return null/g) || []).length).toBe(2)
     expect(rate).toMatch(/loading\)\s*return null/)
+    expect(rate).toMatch(/orders\.length === 0\)\s*return null/)
   })
 
-  it('the buyer rating tile is loud only when it has something to ask for', () => {
-    // `attention` is the strongest state on the dashboard. Firing it over an
-    // empty prompt flattens the per-audience intensity system (states.ts).
-    expect(rd('components/buyer/RateOrderCard.tsx'))
-      .toMatch(/nothingToRate \? 'neutral' : 'attention'/)
+  it('a PROMPT does not appear with nothing to ask for', () => {
+    // The refinement to the collapse rule, owner 2026-08-08: "I don't like
+    // having rate your recent order visible if there are no orders to rate."
+    //
+    //   A SECTION shows capability     → collapse, so the user learns it exists.
+    //   A PROMPT asks the user to act  → do not render with nothing to ask.
+    //
+    // Because it self-hides, this tile can stay `attention` unconditionally —
+    // the loudest state on the dashboard never fires over an empty ask, which
+    // is what keeps the per-audience intensity system meaningful (states.ts).
+    const rate = bare('components/buyer/RateOrderCard.tsx')
+    expect(rate).toMatch(/orders\.length === 0\)\s*return null/)
+    expect(rate).toMatch(/state="attention"/)
+    expect(rate, 'no empty-state copy should remain').not.toMatch(/nothingToRate/)
+  })
+
+  it('the shopper dashboard uses ONE grid system, not two', () => {
+    // Owner found the inconsistency on staging 2026-08-08: on a wide laptop the
+    // tiles above the vendor line sat 3 across while the vendor section was
+    // 2x2, and narrowing the window inverted it.
+    //
+    // .shopper-grid keys off the VIEWPORT via media queries; an inline
+    // `auto-fit` measures the CONTAINER, which is ~212px narrower at >=1024
+    // because the nav rail occupies it. Two systems on one page cannot agree.
+    // Scoped to CARD grids (the 250px track). Small auto-fit grids used for
+    // content INSIDE a card — e.g. the two-up benefits list in the premium
+    // upsell — are a different thing and are fine: they lay out text within a
+    // container, not cards across a page.
+    const page = bare('app/[vertical]/dashboard/page.tsx')
+    expect(page, 'card grids must use .shopper-grid, not an inline auto-fit')
+      .not.toMatch(/gridTemplateColumns:\s*'repeat\(auto-fit,\s*minmax\(250px/)
   })
 })

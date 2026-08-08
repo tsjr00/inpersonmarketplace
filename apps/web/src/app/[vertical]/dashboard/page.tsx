@@ -807,9 +807,19 @@ export default async function DashboardPage({ params, searchParams }: DashboardP
             </h2>
 
           {isApprovedVendor ? (
-            <div style={{
+            /* Uses .shopper-grid, the SAME grid as the tiles above — not its own
+               inline auto-fit. Owner found the mismatch on staging 2026-08-08:
+               on a wide laptop the section above was 3 across while this one was
+               2x2, and narrowing the window INVERTED it.
+               Cause: .shopper-grid keys off the VIEWPORT via media queries, while
+               auto-fit measures the actual CONTAINER — which is ~212px narrower
+               at >=1024 because the nav rail is there. So the media query said
+               "3 columns" up top while auto-fit measured the real width and fit
+               only 2 down here; below 1024 the rail becomes the bottom bar, the
+               container gets its full width back, and the two swapped places.
+               One grid system per page is the fix. */
+            <div className="shopper-grid" style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
               gap: spacing.sm
             }}>
               {/* Vendor Dashboard */}
@@ -922,9 +932,12 @@ export default async function DashboardPage({ params, searchParams }: DashboardP
                 {t('dash.prepare_listings', locale)}
               </p>
 
-              <div style={{
+              {/* .shopper-grid, same as every other grid on this page — see the
+                  note on the approved-vendor grid above. This is the
+                  pending-vendor sibling and had the identical inline auto-fit,
+                  so it would have shown the same wide-vs-narrow inversion. */}
+              <div className="shopper-grid" style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
                 gap: spacing.sm
               }}>
                 {/* Create Draft Listings */}
