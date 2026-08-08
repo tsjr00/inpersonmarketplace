@@ -55,7 +55,12 @@ export default function DashboardNav({ destinations }: { destinations: NavDestin
           right: 0,
           zIndex: 50,
           backgroundColor: colors.surfaceElevated,
-          borderTop: `1px solid ${colors.border}`,
+          // 2px + a lifted shadow, not a hairline. Against a dashboard of
+          // bordered cards a 1px rule reads as one more card edge rather than
+          // as the boundary between the page and the chrome (owner, on FT,
+          // 2026-08-07). The shadow is what actually sells "this floats above".
+          borderTop: `2px solid ${colors.border}`,
+          boxShadow: '0 -2px 8px rgba(0, 0, 0, 0.08)',
           paddingBottom: 'env(safe-area-inset-bottom, 0)',
         }}
       >
@@ -80,9 +85,16 @@ export default function DashboardNav({ destinations }: { destinations: NavDestin
                   minHeight: 56,
                   padding: `${spacing['2xs']} ${spacing['3xs']}`,
                   textDecoration: 'none',
-                  color: active ? colors.primary : colors.textMuted,
+                  // The active tab is SHADED, not just tinted. Colour alone was
+                  // too weak to read at a glance — and on food trucks, where the
+                  // brand primary is red, a red-on-white label competes with
+                  // every other red on the page instead of standing out.
+                  // Background fill + a 3px accent bar is unambiguous, and it
+                  // does not rely on colour perception alone.
+                  color: active ? colors.primaryDark : colors.textMuted,
+                  backgroundColor: active ? colors.primaryLight : 'transparent',
                   fontWeight: active ? typography.weights.semibold : typography.weights.normal,
-                  borderTop: `2px solid ${active ? colors.primary : 'transparent'}`,
+                  borderTop: `3px solid ${active ? colors.primary : 'transparent'}`,
                 }}
               >
                 <Icon size={20} strokeWidth={active ? 2.25 : 1.75} aria-hidden />

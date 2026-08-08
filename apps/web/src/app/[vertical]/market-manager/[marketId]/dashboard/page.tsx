@@ -5,6 +5,8 @@ import { isMarketManager } from '@/lib/markets/manager-auth'
 import { getOnboardingProgress, getParkOnboardingProgress } from '@/lib/markets/onboarding-progress'
 import { colors, spacing, typography, containers } from '@/lib/design-tokens'
 import ManagerJumpNav from '@/components/market-manager/ManagerJumpNav'
+import DashboardNav, { DashboardNavSpacer } from '@/components/dashboard/DashboardNav'
+import { getNavDestinations } from '@/lib/dashboard/nav-destinations'
 import FtParkDashboardBody from '@/components/market-manager/FtParkDashboardBody'
 import FmDashboardBody from '@/components/market-manager/FmDashboardBody'
 import { getBoothMapUrl } from '@/lib/markets/booth-map'
@@ -154,12 +156,19 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
     pendingHoldRequests = count ?? 0
   }
 
+  const navDestinations = await getNavDestinations(supabase, user, vertical)
+
   return (
-    <div style={{
+    <div className="has-dashboard-nav" style={{
       maxWidth: containers.lg,
       margin: '0 auto',
       padding: spacing.sm,
     }}>
+      {/* Without this a manager reached this page from the picker and had no
+          way back on a phone — the switcher stopped at the picker. Owner hit it
+          immediately on FT (2026-08-07). Every page a switcher can LEAD to must
+          carry the switcher. */}
+      <DashboardNav destinations={navDestinations} />
       <div style={{ marginBottom: spacing.xs }}>
         <Link
           href={`/${vertical}/dashboard`}
@@ -227,6 +236,7 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           visibilityStatus={visibilityStatus}
         />
       )}
+      <DashboardNavSpacer destinations={navDestinations} />
     </div>
   )
 }
