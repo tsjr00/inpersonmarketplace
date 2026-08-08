@@ -6,6 +6,20 @@ import { colors, spacing, typography, radius, statusColors } from '@/lib/design-
 import { DASHBOARD_ICONS } from './icons'
 import type { NavDestination } from '@/lib/dashboard/nav-destinations'
 
+/** Width of the rail itself. */
+const RAIL_WIDTH = 180
+/** Viewport at or above which the rail replaces the bottom bar. */
+const RAIL_MIN_WIDTH = 1024
+/**
+ * Left padding a page must reserve so content clears the fixed rail:
+ * the rail's left offset + its width + one gap of breathing room.
+ *
+ * DERIVED, never hand-typed. These drifted apart once already — the rule said
+ * 200px for a rail whose right edge sat at 196px, leaving 4px of clearance,
+ * which would have looked like a near-miss even if the rule had applied at all.
+ */
+const RAIL_GUTTER = 16 + RAIL_WIDTH + 16
+
 /**
  * Switches between the dashboards a user can reach.
  *
@@ -14,12 +28,18 @@ import type { NavDestination } from '@/lib/dashboard/nav-destinations'
  * audience." So the PHONE case is the real design and the desktop rail is its
  * roomier variant, not the other way round.
  *
- *   Phone  (< 768px) → fixed BOTTOM TAB BAR. Thumb-reachable, always visible,
- *                      the pattern every consumer app already taught them.
- *                      A hamburger drawer was considered and REJECTED: it hides
- *                      the fact that other sections exist, which is the exact
- *                      confusion to avoid.
- *   Wider  (≥ 768px) → sticky LEFT RAIL.
+ *   Phone + TABLET (< 1024px) → fixed BOTTOM TAB BAR. Thumb-reachable, always
+ *                      visible, the pattern every consumer app already taught
+ *                      them. A hamburger drawer was considered and REJECTED: it
+ *                      hides the fact that other sections exist, which is the
+ *                      exact confusion to avoid.
+ *   Laptop (≥ 1024px) → sticky LEFT RAIL.
+ *
+ * ⚠ The rail breakpoint is 1024, NOT 768 (raised 2026-08-08, owner's call:
+ * "tablets get the bottom bar — make the adjustment so laptops have more
+ * space"). At 768 a tablet lost ~212px of its ~768px width to the gutter,
+ * leaving a cramped column. A tablet has the screen for a bottom bar and the
+ * touch target to want one.
  *
  * ⚠ RENDERS NOTHING FOR SINGLE-ROLE USERS. Most people are only shoppers; a nav
  * with one destination is pure noise, and screen space is scarcest exactly
@@ -118,7 +138,7 @@ export default function DashboardNav({ destinations }: { destinations: NavDestin
           position: 'fixed',
           top: 96,
           left: spacing.sm,
-          width: 180,
+          width: RAIL_WIDTH,
           zIndex: 40,
           padding: spacing.xs,
           backgroundColor: colors.surfaceElevated,
@@ -174,16 +194,26 @@ export default function DashboardNav({ destinations }: { destinations: NavDestin
            literal and a stray one ends it early. */
         .dashboard-nav-rail { display: none; }
         .dashboard-nav-bar { display: block; }
-        @media (min-width: 768px) {
+        @media (min-width: ${RAIL_MIN_WIDTH}px) {
           .dashboard-nav-rail { display: block; }
           .dashboard-nav-bar { display: none; }
         }
         /* A page opts in by putting has-dashboard-nav on its root element.
-           Only offsets where the rail actually shows, and only when there is
-           room to spare - below 1280 the content keeps the full width and the
-           rail overlays nothing because it is hidden under 768 anyway. */
-        @media (min-width: 768px) {
-          .has-dashboard-nav { padding-left: 200px; }
+
+           !important IS REQUIRED AND IS NOT LAZINESS. Every dashboard page sets
+           an INLINE style={{ padding: spacing.md }} on this same element, and an
+           inline style beats a class rule in a stylesheet. Without !important
+           this offset silently does nothing - which is exactly what happened
+           between 2026-08-07 and 2026-08-08: the rail is position:fixed, so with
+           no gutter reserved the page content slid underneath it as the window
+           narrowed, hiding card content on every dashboard. It was invisible at
+           wide widths only because the centered maxWidth container happened to
+           leave enough margin. Owner found it on staging.
+
+           Only padding-LEFT is overridden, so the page keeps its own padding on
+           the other three sides. */
+        @media (min-width: ${RAIL_MIN_WIDTH}px) {
+          .has-dashboard-nav { padding-left: ${RAIL_GUTTER}px !important; }
         }
       `}</style>
     </>
@@ -202,7 +232,7 @@ export function DashboardNavSpacer({ destinations }: { destinations: NavDestinat
       <div className="dashboard-nav-spacer" aria-hidden />
       <style>{`
         .dashboard-nav-spacer { height: calc(56px + env(safe-area-inset-bottom, 0px)); }
-        @media (min-width: 768px) { .dashboard-nav-spacer { height: 0; } }
+        @media (min-width: ${RAIL_MIN_WIDTH}px) { .dashboard-nav-spacer { height: 0; } }
       `}</style>
     </>
   )
