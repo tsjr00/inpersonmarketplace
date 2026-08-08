@@ -98,8 +98,15 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
     }
   }
 
+  // Still null WHILE LOADING — a tile that appears, changes state, then changes
+  // again is worse than one that arrives once.
   if (loading) return null
-  if (orders.length === 0) return null
+
+  // But NOT null when there is nothing to rate (owner, 2026-08-08). The tile
+  // stays so buyers discover the feature before they have an order waiting;
+  // it just drops to `neutral` and loses the badge. Same shape as the vendor
+  // equivalent, PendingSurveysCard, which has always behaved this way.
+  const nothingToRate = orders.length === 0
 
   // Get the first unrated order/vendor combo
   const firstOrder = orders[0]
@@ -123,8 +130,9 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
           yet their ratings are what vendors and managers actually need. So the
           buyer-facing ask gets the strongest nudge, while the vendor-facing
           survey card (PendingSurveysCard) sits a tier lower at `active`.
-          This component already self-hides when there is nothing to rate, so it
-          can afford to be loud when it does appear. */}
+          It is loud ONLY when it has something to ask for — with nothing to
+          rate it drops to `neutral` and loses the badge, so the strongest state
+          on the dashboard never fires over an empty prompt. */}
       <DashboardTile
         onClick={() => {
           if (firstOrder && firstVendor) {
@@ -134,10 +142,12 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
         }}
         icon="reviews"
         title={t('review.rate_order', locale)}
-        state="attention"
+        state={nothingToRate ? 'neutral' : 'attention'}
         badge={orders.length > 1 ? <TileBadge>{orders.length}</TileBadge> : undefined}
       >
-        {t('review.how_was', locale, { vendor: firstVendor?.name || '' })}
+        {nothingToRate
+          ? t('review.nothing_to_rate', locale)
+          : t('review.how_was', locale, { vendor: firstVendor?.name || '' })}
       </DashboardTile>
 
       {/* Rating Modal */}

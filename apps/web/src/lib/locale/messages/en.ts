@@ -706,6 +706,10 @@ export const en: Record<string, string> = {
   'review.rate_btn': 'Rate',
   'review.more_orders': '+{count} more orders to rate',
   'review.how_was': 'How was your order from {vendor}? Tap to rate.',
+  // Shown when there is nothing to rate. The tile stays on the dashboard so
+  // buyers learn the feature exists before they ever have an order waiting
+  // (owner, 2026-08-08) — it just drops to a quiet state instead of nudging.
+  'review.nothing_to_rate': 'Nothing to rate right now. After you pick up an order, rate it here so other shoppers know who to buy from.',
   'review.rate_vendor': 'Rate {vendor}',
   'review.order_label': 'Order {number}',
   'review.tap_star': 'Tap a star to rate',

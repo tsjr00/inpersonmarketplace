@@ -191,14 +191,23 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone, ver
     }
   }
 
-  if (tiers.length === 0) {
-    return null
-  }
+  // Collapses rather than disappearing (owner, 2026-08-08). No tiers means the
+  // manager hasn't configured inventory yet — the SETUP flavour, not "waiting":
+  // this data never arrives on its own, so the line has to point at the thing
+  // they need to do. It names the card by its visible title rather than
+  // linking, because that card is two cards up on this same page.
+  const noTiersConfigured = tiers.length === 0
 
   return (
     <DashboardCard
       title={<>{term(vertical, 'booth')} occupancy — {anchoredToSeason ? 'upcoming market week' : 'this week'}:{' '}<span style={{ fontWeight: typography.weights.normal, color: colors.textMuted }}>{formatDisplayDate(weekStart)}</span></>}
       description={`Per-tier view of who's at the ${term(vertical, 'market').toLowerCase()} ${anchoredToSeason ? 'that week' : 'this week'} — combines off-platform placeholders, on-platform ${term(vertical, 'vendors').toLowerCase()}, and paid weekly bookings${anchoredToSeason ? ' (showing the first week of the season, since it hasn’t started yet)' : ''}. Manage each source from the cards below.`}
+      {...(noTiersConfigured ? {
+        empty: {
+          kind: 'setup' as const,
+          message: `Set up your size tiers in "${term(vertical, 'booth')} inventory" above, and this fills in with who is in each ${term(vertical, 'booth').toLowerCase()} each week.`,
+        },
+      } : {})}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
         {tiers.map((tier, idx) => {

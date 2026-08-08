@@ -153,6 +153,30 @@ Status, counts and warnings stay visible; controls and detail go behind the lid.
 
 **Why this exists.** `[vertical]/vendor/markets/page.tsx` is **614 lines** plus three section components totalling **1,362 more** (`EventMarketsSection` 274 · `MarketSuggestionSection` 529 · `PrivatePickupSection` 559) — ~2,000 lines of related-but-uncategorized functionality on one screen, setting font sizes as raw numbers (`28`, `20`, `16`, `15`) instead of design tokens. The functionality is good and genuinely belongs together; it accreted without anyone deciding what deserved the front of the room. It did not get confusing because someone made a bad call — it got confusing because **there was no rule to violate.** This is that rule.
 
+### 🫙 Empty sections COLLAPSE — they never disappear (owner 2026-08-08)
+
+A card with nothing to show renders **header + one muted line, no body** (`DashboardCard`'s `empty` prop). It does **not** `return null`.
+
+**Why, in the owner's words:** *"I want the user to see the functionality & features available to them… so people start using the app more and get used to its functionality more than their other options."* A section that vanishes on a quiet week is a feature the user never learns exists — no adoption, no upgrade, no reason to stay. Collapsing keeps the page scannable as a table of contents without a wall of empty grids and dead buttons.
+
+**"Empty" is three things and the copy differs. Using the wrong flavour is worse than saying nothing.**
+
+| Kind | When | The line does |
+|---|---|---|
+| `setup` | Not configured yet — no booth tiers, no listings | **Invites.** Name the thing to do, or pass an `action`. Data will never arrive on its own |
+| `waiting` | Nothing right now, by nature — no orders today, no announcements sent | **Reassures.** It fills in on its own; nothing is owed |
+| `unavailable` | Wrong tier or wrong market type | **Offers the path.** Pair with an upgrade link. NEVER use `waiting` copy — the data is not coming, and saying it will is a lie |
+
+**Mechanics:** collapsed cards drop to `spacing.xs` padding, `radius.sm`, a 1px neutral border, and **no state and no headerAccessory** — an empty section must never signal or shout. `children` and `description` are suppressed, so a caller passes its normal body unguarded.
+
+**Tiles use the tile version of the same rule** — always render, drop to `neutral`, drop the badge, swap the body copy. `PendingSurveysCard` and `RateOrderCard` are the reference pair; note `RateOrderCard` is `attention` only when it actually has something to ask for.
+
+**Two exceptions, both deliberate:**
+- **A competing prompt is not an empty state.** `ManagerActionSummary` still returns null while onboarding is incomplete, because `OnboardingChecklist` owns that moment. Do not "fix" it.
+- **Still null while LOADING.** A tile that appears, changes state, then changes again is worse than one that arrives once.
+
+⏳ **Not decided:** whether populated sections should sort above collapsed ones. Deliberately held for the owner to judge on staging, since it moves things on screen.
+
 Plan of record: `apps/web/.claude/dashboard_redesign_plan.md`.
 
 Root-level: `ErrorFeedback.tsx` — the user-facing error reporter; takes `errorCode`/`traceId` and resolves human copy via `lookupError`.

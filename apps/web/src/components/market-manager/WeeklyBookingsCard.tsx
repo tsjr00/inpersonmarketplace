@@ -71,8 +71,10 @@ export default async function WeeklyBookingsCard({ marketId, vertical }: WeeklyB
     booked_at: r.booked_at as string,
   }))
 
-  // Quiet state — no bookings yet.
-  if (rentals.length === 0) return null
+  // Collapses rather than disappearing (owner, 2026-08-08). This card is where
+  // a manager assigns booth numbers — vanishing it before the first booking
+  // means they never see the tool exists until the week it matters.
+  const noBookingsYet = rentals.length === 0
 
   // 2 + 3. Stitch in vendor business names + inventory size labels.
   const vendorIds = Array.from(new Set(rentals.map((r) => r.vendor_profile_id)))
@@ -107,6 +109,12 @@ export default async function WeeklyBookingsCard({ marketId, vertical }: WeeklyB
     <DashboardCard
       title={`Weekly ${term(vertical, 'booth').toLowerCase()} bookings`}
       description={`One week at a time — use the arrows to move between weeks. Set a ${term(vertical, 'booth').toLowerCase()} number on any row. Anyone booked for several weeks is summarized once at the bottom instead of repeating on every week.`}
+      {...(noBookingsYet ? {
+        empty: {
+          kind: 'waiting' as const,
+          message: `Once ${term(vertical, 'vendors').toLowerCase()} book a ${term(vertical, 'booth').toLowerCase()}, each week's roster shows up here and you can assign ${term(vertical, 'booth').toLowerCase()} numbers.`,
+        },
+      } : {})}
     >
       <WeeklyBookingsList
         marketId={marketId}

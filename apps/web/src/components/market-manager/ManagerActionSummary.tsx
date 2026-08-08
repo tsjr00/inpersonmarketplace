@@ -42,11 +42,26 @@ export default function ManagerActionSummary({
   const hasNeedsBooth = vertical !== 'food_trucks' && stats.activeVendorsNeedingBooth > 0
   const hasNextMarket = stats.nextMarketDate !== null
 
-  // Nothing to surface — keep the dashboard quiet.
-  if (!hasPendingApproval && !hasNeedsBooth && !hasNextMarket) return null
+  // Collapses rather than disappearing (owner, 2026-08-08). "Nothing on your
+  // plate" is genuinely useful information for a manager — it is the difference
+  // between "I'm caught up" and "I wonder if this page is broken".
+  //
+  // ⚠ NOTE the early return above is NOT converted. `setupIncomplete` is not an
+  // empty state — OnboardingChecklist owns that moment, and rendering a second
+  // prompt beside it is the competing-prompt problem that return exists to
+  // avoid. Only the genuinely-nothing-to-do case collapses.
+  const nothingToDo = !hasPendingApproval && !hasNeedsBooth && !hasNextMarket
 
   return (
-    <DashboardCard title="What's on your plate">
+    <DashboardCard
+      title="What's on your plate"
+      {...(nothingToDo ? {
+        empty: {
+          kind: 'waiting' as const,
+          message: `Nothing needs you right now — pending ${term(vertical, 'vendor').toLowerCase()} approvals, ${term(vertical, 'booth').toLowerCase()} assignments and your next ${term(vertical, 'market').toLowerCase()} day all show up here.`,
+        },
+      } : {})}
+    >
       <ul style={{
         margin: 0,
         padding: 0,

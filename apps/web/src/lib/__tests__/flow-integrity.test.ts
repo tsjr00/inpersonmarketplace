@@ -931,3 +931,65 @@ describe('Organizer event funnel integrity', () => {
       .toMatch(/matchingChanged\s*&&\s*details\?\.market_id/)
   })
 })
+
+// ── Dashboard empty-state convention (added 2026-08-08) ─────────────
+//
+// Owner's rule: a section with nothing in it COLLAPSES to a header plus one
+// line. It never disappears. A card that vanishes on a quiet week is a feature
+// the user never discovers — which costs adoption, upgrades and retention.
+// Full write-up: docs/Codebase_Map/22_Components_UI.md.
+//
+// Vanishing is a one-line change (`return null`) that looks like a tidy-up, so
+// this guards the convention rather than trusting people to remember it.
+
+describe('Dashboard empty-state convention', () => {
+  const rd = (p: string) => fs.readFileSync(path.join(SRC_DIR, p), 'utf-8')
+  const bare = (p: string) => rd(p).replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+
+  it('DashboardCard supports collapsed-empty with all three flavours', () => {
+    // The flavours are not interchangeable — 'waiting' copy on an
+    // 'unavailable' section promises data that is never coming.
+    const code = rd('components/dashboard/DashboardCard.tsx')
+    expect(code).toContain('EmptyKind')
+    for (const kind of ['setup', 'waiting', 'unavailable']) {
+      expect(code, `EmptyKind must offer '${kind}'`).toMatch(new RegExp(`'${kind}'`))
+    }
+    expect(code, 'an empty card must not carry a signalling state')
+      .toMatch(/DASHBOARD_STATES\[empty \? 'neutral' : state\]/)
+  })
+
+  it('sections with nothing to show collapse instead of vanishing', () => {
+    // These four used to `return null` on an empty result.
+    for (const f of [
+      'components/market-manager/ManagerEarningsCard.tsx',
+      'components/market-manager/MarketTransactionsCard.tsx',
+      'components/market-manager/WeeklyBookingsCard.tsx',
+      'components/market-manager/BoothOccupancyGrid.tsx',
+    ]) {
+      expect(bare(f), f + ' must collapse, not return null').not.toContain('return null')
+      expect(rd(f), f + ' must pass an empty flavour').toMatch(/kind:\s*'(setup|waiting|unavailable)'/)
+    }
+  })
+
+  it('the two documented exceptions keep exactly one early return', () => {
+    // NOT empty states, and converting either would be a regression:
+    //  · ManagerActionSummary defers to OnboardingChecklist during setup —
+    //    rendering both is the competing-prompt problem it exists to avoid.
+    //  · RateOrderCard hides WHILE LOADING; a tile that appears then changes
+    //    state twice is worse than one that arrives once.
+    const summary = bare('components/market-manager/ManagerActionSummary.tsx')
+    expect((summary.match(/return null/g) || []).length).toBe(1)
+    expect(summary).toMatch(/setupIncomplete\)\s*return null/)
+
+    const rate = bare('components/buyer/RateOrderCard.tsx')
+    expect((rate.match(/return null/g) || []).length).toBe(1)
+    expect(rate).toMatch(/loading\)\s*return null/)
+  })
+
+  it('the buyer rating tile is loud only when it has something to ask for', () => {
+    // `attention` is the strongest state on the dashboard. Firing it over an
+    // empty prompt flattens the per-audience intensity system (states.ts).
+    expect(rd('components/buyer/RateOrderCard.tsx'))
+      .toMatch(/nothingToRate \? 'neutral' : 'attention'/)
+  })
+})

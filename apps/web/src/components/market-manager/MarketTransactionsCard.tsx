@@ -27,11 +27,13 @@ function formatCents(cents: number): string {
 }
 
 export default function MarketTransactionsCard({ aggregates, vertical }: MarketTransactionsCardProps) {
+  // Collapses rather than disappearing (owner, 2026-08-08) — see DashboardCard's
+  // EmptyKind note. A quiet season should not hide the section that proves the
+  // platform is tracking sales at all.
   const allEmpty =
     aggregates.last_7_days.order_count === 0 &&
     aggregates.last_30_days.order_count === 0 &&
     aggregates.season.order_count === 0
-  if (allEmpty) return null
 
   const windows: Array<{ key: string; label: string; data: { order_count: number; total_cents: number; vendor_count: number }; subLabel?: string }> = [
     {
@@ -56,6 +58,12 @@ export default function MarketTransactionsCard({ aggregates, vertical }: MarketT
     <DashboardCard
       title={`${term(vertical, 'market')} activity`}
       description={`Gross sales placed at your ${term(vertical, 'market').toLowerCase()} through the platform. The platform takes its fee from ${term(vertical, 'vendors').toLowerCase()} and buyers — these numbers reflect activity, not your earnings.`}
+      {...(allEmpty ? {
+        empty: {
+          kind: 'waiting' as const,
+          message: `Sales placed at your ${term(vertical, 'market').toLowerCase()} will show up here — by week, month and season.`,
+        },
+      } : {})}
     >
       <div style={{
         display: 'grid',

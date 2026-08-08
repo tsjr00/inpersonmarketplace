@@ -24,7 +24,11 @@ function formatCents(cents: number): string {
 }
 
 export default function ManagerEarningsCard({ aggregates, vertical }: ManagerEarningsCardProps) {
-  if (aggregates.all_time.booking_count === 0) return null
+  // Collapses rather than disappearing (owner, 2026-08-08). A manager who has
+  // never had a booking still needs to know this section exists and that it is
+  // where their own money will show up — that is the difference between a
+  // feature they adopt and one they never discover.
+  const noBookingsYet = aggregates.all_time.booking_count === 0
 
   // PRK-10 (mig 203): bookings paid after the snapshot migration carry their
   // exact charge-time net; older rows are estimated at current rates. The
@@ -48,6 +52,12 @@ export default function ManagerEarningsCard({ aggregates, vertical }: ManagerEar
     <DashboardCard
       title={`Your ${term(vertical, 'booth').toLowerCase()} revenue`}
       description={<>What you collect from weekly {term(vertical, 'booth').toLowerCase()} rentals after the platform&apos;s percentage — this is <strong>your</strong> money, paid out through your Stripe account. ({term(vertical, 'market')} activity below shows your {term(vertical, 'vendors').toLowerCase()}&apos; sales, which you don&apos;t collect.)</>}
+      {...(noBookingsYet ? {
+        empty: {
+          kind: 'waiting' as const,
+          message: `Your earnings from weekly ${term(vertical, 'booth').toLowerCase()} rentals will appear here once ${term(vertical, 'vendors').toLowerCase()} start booking.`,
+        },
+      } : {})}
     >
       <div style={{
         display: 'grid',

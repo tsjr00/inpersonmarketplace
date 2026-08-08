@@ -704,6 +704,7 @@ export const es: Record<string, string> = {
   'review.rate_btn': 'Calificar',
   'review.more_orders': '+{count} pedidos más por calificar',
   'review.how_was': '¿Cómo fue tu pedido de {vendor}? Toca para calificar.',
+  'review.nothing_to_rate': 'Nada que calificar por ahora. Después de recoger un pedido, califícalo aquí para que otros compradores sepan a quién comprarle.',
   'review.rate_vendor': 'Calificar a {vendor}',
   'review.order_label': 'Pedido {number}',
   'review.tap_star': 'Toca una estrella para calificar',

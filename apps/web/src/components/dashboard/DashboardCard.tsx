@@ -1,6 +1,46 @@
 import type { ReactNode } from 'react'
+import Link from 'next/link'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import { DASHBOARD_STATES, type DashboardState } from './states'
+
+/**
+ * WHY an empty section still renders (owner, 2026-08-08).
+ *
+ * Cards used to `return null` when they had nothing, so a manager with a quiet
+ * week saw a shorter page — and never learned the section existed at all. The
+ * owner's call: *"I want the user to see the functionality & features available
+ * to them… so people start using the app more and get used to its functionality
+ * more than their other options."* A feature nobody has seen cannot drive
+ * adoption, upgrades, or retention.
+ *
+ * So an empty card COLLAPSES instead of disappearing: header, one muted line,
+ * no body. The page reads like a table of contents rather than a wall of empty
+ * grids and dead buttons.
+ *
+ * ⚠ "Empty" is three different things and they need different sentences. Using
+ * the wrong one is worse than saying nothing — telling somebody data "will
+ * appear here" when it never will is a lie, and saying it passively at the
+ * moment they should be setting something up wastes the moment.
+ */
+export type EmptyKind =
+  /** Nothing here because the user hasn't set it up. The line is an INVITATION —
+   *  pair it with an action. "Add your first booth type →" */
+  | 'setup'
+  /** Nothing here right now, by nature — no orders yet today, no announcements
+   *  sent. Nothing is owed; it fills in on its own. */
+  | 'waiting'
+  /** Not available to this user — wrong tier, wrong market type. Pair with an
+   *  upgrade path where one exists. NEVER use 'waiting' copy here; the data is
+   *  not coming. */
+  | 'unavailable'
+
+export interface DashboardCardEmpty {
+  kind: EmptyKind
+  /** The single line shown in place of the body. One sentence. */
+  message: ReactNode
+  /** Optional call to action. Expected for 'setup' and 'unavailable'. */
+  action?: { href: string; label: string }
+}
 
 /**
  * Shared card wrapper for every dashboard surface (manager, vendor, shopper).
@@ -64,6 +104,15 @@ interface DashboardCardProps {
    * palette and as uniform nudge intensity.
    */
   prominent?: boolean
+  /**
+   * This section has nothing to show. Renders collapsed — header plus one muted
+   * line — instead of the body. See EmptyKind above for why sections collapse
+   * rather than disappear, and for picking the right flavour.
+   *
+   * When set, `children` are NOT rendered, so a caller can pass its normal body
+   * without guarding it. `state` is ignored: an empty section never signals.
+   */
+  empty?: DashboardCardEmpty
   children: ReactNode
 }
 
@@ -71,22 +120,30 @@ interface DashboardCardProps {
  *  aren't hidden under the nav after a jump. */
 export const NAV_OFFSET = 64
 
-export default function DashboardCard({ id, title, description, headerAccessory, state = 'neutral', inGrid = false, prominent = false, children }: DashboardCardProps) {
-  const s = DASHBOARD_STATES[state]
+export default function DashboardCard({ id, title, description, headerAccessory, state = 'neutral', inGrid = false, prominent = false, empty, children }: DashboardCardProps) {
+  // An empty section never signals and never shouts — whatever state or
+  // prominence the caller normally passes is dropped. A collapsed card that
+  // carried an `attention` border would be urgency about nothing, which is the
+  // same failure as uniform nudge intensity (see states.ts).
+  const s = DASHBOARD_STATES[empty ? 'neutral' : state]
   // Cards sit at 1px when resting and 2px whenever a state is set. They do NOT
   // take the tile's 3px + glow: a card is already full-width, so it does not
   // need that much weight to be seen, and reserving the glow for tiles keeps
   // `attention` meaning one specific thing at a glance.
-  const borderWidth = state === 'neutral' ? 1 : 2
+  const borderWidth = empty || state === 'neutral' ? 1 : 2
 
   return (
     <section
       {...(id ? { id } : {})}
       style={{
-        padding: prominent ? spacing.md : spacing.sm,
+        // Collapsed sections are deliberately tighter than live ones. Six of
+        // them in a row should scan as a table of contents, not as six cards —
+        // that is what keeps "show everything" from becoming "wall of nothing",
+        // which matters most on mobile where this page is mostly read.
+        padding: empty ? spacing.xs : prominent ? spacing.md : spacing.sm,
         backgroundColor: s.background,
         border: `${borderWidth}px solid ${s.border}`,
-        borderRadius: prominent ? radius.lg : radius.md,
+        borderRadius: empty ? radius.sm : prominent ? radius.lg : radius.md,
         // Grid items default to `min-width: auto`, i.e. "never shrink below your
         // content". So a child that cannot wrap — anything with
         // `white-space: nowrap`, a URL, a long name — makes its whole COLUMN
@@ -100,14 +157,16 @@ export default function DashboardCard({ id, title, description, headerAccessory,
         scrollMarginTop: `${NAV_OFFSET}px`,
       }}
     >
-      {(title || headerAccessory) && (
+      {(title || (headerAccessory && !empty)) && (
         <div style={{
           display: 'flex',
           alignItems: 'baseline',
           justifyContent: 'space-between',
           gap: spacing.xs,
           flexWrap: 'wrap',
-          marginBottom: description ? spacing['2xs'] : spacing.xs,
+          // A collapsed card is header + one line; the header's normal bottom
+          // margin would make the pair look like two separate things.
+          marginBottom: empty ? spacing['3xs'] : description ? spacing['2xs'] : spacing.xs,
         }}>
           {title && (
             <h2 style={{
@@ -119,9 +178,33 @@ export default function DashboardCard({ id, title, description, headerAccessory,
               {title}
             </h2>
           )}
-          {headerAccessory}
+          {!empty && headerAccessory}
         </div>
       )}
+      {/* Collapsed body. The description is suppressed too — an empty section
+          gets ONE line, and the empty message is the more useful of the two. */}
+      {empty ? (
+        <p style={{
+          margin: 0,
+          fontSize: typography.sizes.sm,
+          color: colors.textMuted,
+          lineHeight: 1.5,
+        }}>
+          {empty.message}
+          {empty.action && (
+            <>
+              {' '}
+              <Link
+                href={empty.action.href}
+                style={{ color: colors.primary, fontWeight: typography.weights.medium, textDecoration: 'none' }}
+              >
+                {empty.action.label} →
+              </Link>
+            </>
+          )}
+        </p>
+      ) : (
+        <>
       {description && (
         <p style={{
           margin: `0 0 ${spacing.sm} 0`,
@@ -133,6 +216,8 @@ export default function DashboardCard({ id, title, description, headerAccessory,
         </p>
       )}
       {children}
+        </>
+      )}
     </section>
   )
 }
