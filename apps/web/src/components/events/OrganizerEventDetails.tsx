@@ -290,7 +290,7 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
         {details && (
           <span style={{
             fontSize: typography.sizes.xs,
-            color: filledGroups === totalGroups ? '#166534' : statusColors.neutral500,
+            color: filledGroups === totalGroups ? statusColors.successDark : statusColors.neutral500,
             fontWeight: typography.weights.normal,
             marginLeft: spacing['2xs'],
           }}>
@@ -310,11 +310,11 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
             <div style={{
               marginBottom: spacing.xs,
               padding: spacing.xs,
-              backgroundColor: '#eff6ff',
+              backgroundColor: statusColors.infoLight,
               borderRadius: radius.md,
-              border: '1px solid #bfdbfe',
+              border: `1px solid ${statusColors.infoBorder}`,
             }}>
-              <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: '#1e40af' }}>
+              <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: statusColors.infoDark }}>
                 Event Access Code
               </span>
               <div style={{
@@ -322,12 +322,12 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
                 fontSize: typography.sizes.xl,
                 fontWeight: typography.weights.bold,
                 letterSpacing: '0.2em',
-                color: '#1e3a8a',
+                color: statusColors.infoDark,
                 margin: `${spacing['2xs']} 0`,
               }}>
                 {details.access_code}
               </div>
-              <p style={{ fontSize: typography.sizes.xs, color: '#3b82f6', margin: 0 }}>
+              <p style={{ fontSize: typography.sizes.xs, color: statusColors.info, margin: 0 }}>
                 Share this code with attendees so they can order their company-covered meal.
                 {details.company_max_per_attendee_cents && (
                   <> Each person gets one item up to <strong>${(details.company_max_per_attendee_cents as number / 100).toFixed(2)}</strong>.</>
@@ -341,11 +341,11 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
             <div style={{
               marginBottom: spacing.xs,
               padding: spacing.xs,
-              backgroundColor: '#fef3c7',
+              backgroundColor: statusColors.warningLight,
               borderRadius: radius.md,
-              border: '1px solid #fde68a',
+              border: `1px solid ${statusColors.warningBorder}`,
             }}>
-              <p style={{ fontSize: typography.sizes.sm, color: '#92400e', margin: `0 0 ${spacing['2xs']}` }}>
+              <p style={{ fontSize: typography.sizes.sm, color: statusColors.warningDark, margin: `0 0 ${spacing['2xs']}` }}>
                 Your changes affect vendor matching. Refresh matches now?
               </p>
               <div style={{ display: 'flex', gap: spacing.xs }}>
@@ -371,8 +371,8 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
                   style={{
                     padding: `${spacing['3xs']} ${spacing.sm}`,
                     backgroundColor: 'white',
-                    color: '#92400e',
-                    border: '1px solid #fde68a',
+                    color: statusColors.warningDark,
+                    border: `1px solid ${statusColors.warningBorder}`,
                     borderRadius: radius.sm,
                     fontSize: typography.sizes.xs,
                     cursor: 'pointer',
@@ -382,14 +382,14 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
                 </button>
               </div>
               {refreshMessage && (
-                <p style={{ fontSize: typography.sizes.xs, color: '#92400e', marginTop: spacing['2xs'] }}>
+                <p style={{ fontSize: typography.sizes.xs, color: statusColors.warningDark, marginTop: spacing['2xs'] }}>
                   {refreshMessage}
                 </p>
               )}
             </div>
           )}
           {!showRefreshBanner && refreshMessage && (
-            <p style={{ fontSize: typography.sizes.xs, color: '#166534', marginBottom: spacing.xs }}>
+            <p style={{ fontSize: typography.sizes.xs, color: statusColors.successDark, marginBottom: spacing.xs }}>
               {refreshMessage}
             </p>
           )}
@@ -514,7 +514,7 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
                       </button>
                     </div>
                     {saveMessage && (
-                      <p style={{ fontSize: typography.sizes.xs, color: saveMessage.startsWith('Error') ? '#dc2626' : '#166534', marginTop: spacing['2xs'] }}>
+                      <p style={{ fontSize: typography.sizes.xs, color: saveMessage.startsWith('Error') ? statusColors.danger : statusColors.successDark, marginTop: spacing['2xs'] }}>
                         {saveMessage}
                       </p>
                     )}

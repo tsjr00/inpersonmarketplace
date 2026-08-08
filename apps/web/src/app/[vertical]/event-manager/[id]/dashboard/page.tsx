@@ -18,6 +18,31 @@ interface PageProps {
   params: Promise<{ vertical: string; id: string }>
 }
 
+/**
+ * Human labels for the enums shown on this page.
+ *
+ * ⚠ Deliberately NOT shared with the admin or vendor versions of these maps.
+ * The same three values get three different sentences depending on who is
+ * reading: admin says "Company pays for everyone", the vendor page says
+ * "Organizer pays for attendees", and here — the organizer's own dashboard —
+ * it is addressed to them directly. Merging them into one map would force one
+ * audience's vocabulary onto the other two.
+ *
+ * Added 2026-08-08: this card previously printed the raw column values
+ * ("self_service", "attendee_paid") straight from the database. Fine while
+ * testing, not something to show an organizer.
+ */
+const PAYMENT_MODEL_LABELS: Record<string, string> = {
+  company_paid: 'You pay for everyone',
+  attendee_paid: 'Attendees pay individually',
+  hybrid: 'You cover a base amount, attendees can upgrade',
+}
+
+const SERVICE_LEVEL_LABELS: Record<string, string> = {
+  self_service: 'Self-service — you pick your vendors',
+  full_service: 'Full service — we match vendors for you',
+}
+
 const STATUS_LABELS: Record<string, string> = {
   new: 'Submitted',
   reviewing: 'Under Review',
@@ -189,12 +214,43 @@ export default async function EventManagerDashboardPage({ params }: PageProps) {
       )}
 
       <DashboardCard title="Event details">
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing.md, fontSize: typography.sizes.sm }}>
-          <span><strong>{(event.headcount as number) || '?'}</strong> expected</span>
-          <span><strong>{(event.vendor_count as number) || '?'}</strong> vendors requested</span>
-          {event.service_level ? <span>{event.service_level as string}</span> : null}
-          {event.payment_model ? <span>{event.payment_model as string}</span> : null}
-        </div>
+        {/* A labelled grid, not a row of space-separated words. Each value gets
+            a label above it, so "3" is legibly "Vendors requested" rather than
+            a number floating next to another number. `auto-fit` + `minmax`
+            reflows to one column on a phone without a breakpoint. */}
+        <dl style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: spacing.sm,
+          margin: 0,
+        }}>
+          {([
+            ['Expected attendees', (event.headcount as number) ? String(event.headcount) : 'Not set'],
+            ['Vendors requested', (event.vendor_count as number) ? String(event.vendor_count) : 'Not set'],
+            ['Service level', SERVICE_LEVEL_LABELS[event.service_level as string] ?? null],
+            ['Who pays', PAYMENT_MODEL_LABELS[event.payment_model as string] ?? null],
+          ] as Array<[string, string | null]>)
+            .filter(([, value]) => value !== null)
+            .map(([label, value]) => (
+              <div key={label} style={{ minWidth: 0 }}>
+                <dt style={{
+                  fontSize: typography.sizes.xs,
+                  color: colors.textMuted,
+                  marginBottom: spacing['3xs'],
+                }}>
+                  {label}
+                </dt>
+                <dd style={{
+                  margin: 0,
+                  fontSize: typography.sizes.sm,
+                  fontWeight: typography.weights.medium,
+                  color: colors.textPrimary,
+                }}>
+                  {value}
+                </dd>
+              </div>
+            ))}
+        </dl>
 
         {/* Access code — the one piece organisers physically hand to attendees. */}
         {event.access_code && (event.payment_model === 'company_paid' || event.payment_model === 'hybrid') && (
