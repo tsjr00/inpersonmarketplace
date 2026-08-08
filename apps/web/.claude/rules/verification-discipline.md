@@ -283,7 +283,24 @@ Rule 1 gates claims about what code *does* — its verb list is `returns`, `call
 - "there is no X" · "X doesn't exist" · "nothing uses X"
 - "X is unaffected" · "the blast radius is just Y"
 
-A `grep`, `find`, `ls`, or `wc` in the same turn satisfies it. Memory of a file you read earlier does **not** — and neither does a plan or design doc, **including one you wrote yourself last session.**
+A `grep`, `find`, `ls`, or `wc` in the same turn satisfies it **for presence claims only** — see the next section, which is the harder half. Memory of a file you read earlier does **not** — and neither does a plan or design doc, **including one you wrote yourself last session.**
+
+### ⚠ A pattern match CANNOT prove absence — and this rule used to say it could
+
+**Revised 2026-08-08 because the remedy above was wrong.** It told you to satisfy "there is no X" with a grep. A grep deletes every line that does not match the pattern you already believed in, so it can only ever hand back confirmation. **grep proves presence. It can never prove absence, and it can never characterize what else lives inside a region.**
+
+The split:
+
+| Claim shape | What counts as evidence |
+|---|---|
+| "X exists / X is used at N places" — **presence** | `grep` / `find` / `ls` in the same turn |
+| "X is the ONLY thing here" · "this block is pure" · "nothing else touches Y" · "there is no X in Z" — **absence** | An **unfiltered read of the whole unit**. The function, the effect, the file, the directory listing — end to end, no pipe |
+
+**Never pipe a read through a pattern derived from the claim you are testing.** If you catch yourself writing `sed -n 'A,Bp' file | grep <the thing I expect>`, stop: you have built a filter out of your hypothesis and are about to mistake its output for a test of that hypothesis. Use `grep` to *locate* the unit; then `Read` the unit.
+
+**2026-08-08 incident.** Asked whether an effect in `EventRequestForm.tsx` was a pure derivation that could become a `useMemo`, Claude ran `sed -n '239,246p;300,330p' | grep "setSystemSuggested\|useEffect\|}, \["`, saw only `setSystemSuggested` calls, and reported to the owner that the block "is a pure derivation… the diff is only at the block's two ends." The block also called `setForm({...vendor_count})` at `:313` — a real side effect that cannot live in a `useMemo`. **That line was inside the printed range; Claude's own grep pattern removed it before he saw it.** The false claim sat inside a *risk assessment*, the one place the owner has no independent way to check. Caught only because the owner asked an unrelated question. Had it shipped: the vendor-count auto-fill silently dropped, in an engine with zero test coverage.
+
+The same mechanism is recorded one session earlier (`current_task.md` process note): narrow-scoped greps and a `head -8` that truncated the very results that disproved the claim. **This is the repeat offender. Treat any filtered view as inadmissible for characterizing a region.**
 
 ### Why documents are the specific trap here
 
@@ -302,6 +319,53 @@ When the task is "define a rule / taxonomy / standard that will apply across sur
 You cannot see the rendered screen. For claims about how something **looks or feels in place** — spacing, balance, whether a layout "fits" — present the options and say plainly that the user is the one who can evaluate it. Do not lead with a confident recommendation dressed in reasoning.
 
 2026-08-07: a full-width placement was recommended with confident rationale and rejected by the owner the moment it was seen on staging.
+
+---
+
+## Rule 8: Report the Logic, Not the Audit Trail
+
+**Added 2026-08-08. This rule is the counterweight to Rules 1–7 and must never be read apart from them.**
+
+### The two dials
+
+**Investigation depth and presentation volume are separate dials. Only one of them is a cost lever.**
+
+| Dial | Setting |
+|---|---|
+| How hard you verify | **Fixed at maximum.** Not negotiable, not compressible, not a place to find efficiency — ever |
+| How much the owner must read to decide | **Compress ruthlessly.** This is the only dial an efficiency instruction may touch |
+
+When the owner says "you're wasting my money" / "stop over-verifying" / "move faster," they are pointing at the **second** dial. Read it as *stop making me think for you and stop making me wade* — never as *check less*.
+
+### Why this rule exists
+
+Rules 1–7 mandate citations and say nothing about volume or ordering. That made scrutiny the only dimension the rules exposed as compressible — so when told to be efficient, Claude cut verification, because the ruleset offered no other lever. **That is a defect in the ruleset, not a lapse in willpower**, and it produced the 2026-08-08 incident documented under Rule 7. This rule supplies the missing lever.
+
+### THE GATE — Run before sending any findings, options, or risk assessment
+
+**Citations remain MANDATORY.** The owner confirmed 2026-08-08: *"I still want you to provide citations. They have proven to be helpful in you keeping yourself on track so I don't want you to lose that tool."* They are a discipline device for Claude — writing `path:line` forces the read that produces it. Nothing here weakens Rule 1. What changes is **where they sit**.
+
+1. **Lead with the logical inputs.** What breaks · what it costs · what the tradeoff is · what you recommend and why. These are what the owner can actually evaluate.
+2. **Citations go subordinate** — a trailing clause, a short evidence line, a footnote block — never braided through the sentence that carries the decision.
+3. **Cut every detail that cannot change the owner's answer.** Not "all the info." The *right* info. If a fact would not alter the decision either way, it is noise.
+4. **State what you did NOT verify**, plainly and up front, when a recommendation rests on it.
+
+### Why syntax specifically must be subordinated
+
+The owner reads **logic**, not syntax — stated directly 2026-08-08: *"I don't know the syntax so referencing it makes little difference to me, but I know the logic and you have been hiding the logical inputs I need among details that don't register to me as important because I don't have the syntactical knowledge or perspective to filter it through."*
+
+This is the part that is easy to get wrong: to a reader who cannot parse `EventRequestForm.tsx:313`, interleaved citations are not merely extra length — they are **camouflage**. They remove the reader's ability to tell which sentences are the decision and which are proof-of-work. Volume does not just dilute the signal here; it conceals it. A wall of correct, well-cited detail can leave the owner *less* able to decide than three clear sentences would.
+
+### What good looks like
+
+- **Bad:** a paragraph where the mechanism, the file path, the line number, the history and the tradeoff are woven into one sentence each, ordered by how Claude discovered them.
+- **Good:** the decision and its stakes first, in the owner's vocabulary; then options with a recommendation; then, beneath, the evidence that backs it.
+
+Order by what the owner needs to decide — **never** by the order in which you found things.
+
+### This rule cannot be used to justify cutting a check
+
+If compressing a message would require dropping a verification, **the verification wins and the message gets longer.** Brevity is a property of the report, never of the work behind it.
 
 ---
 
