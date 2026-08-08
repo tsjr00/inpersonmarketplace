@@ -1,4 +1,58 @@
-# Current Task: 🎨 DASHBOARD REDESIGN SHIPPED TO STAGING — awaiting owner review
+# Current Task: 🔬 EVENTS — dataflow deep dive is the next session's work
+
+## ⏱️ SESSION HANDOFF — 2026-08-08 (events + dashboard polish)
+
+### Git / env
+
+| | |
+|---|---|
+| **PROD** `origin/main` | `f141c6e6` — **untouched all session** |
+| **STAGING** `origin/staging` = local `main` | see `git log origin/staging --oneline -1` — VERIFY, do not trust this line |
+| Staging ahead of prod | ~40 commits + migrations 213–218 |
+
+**No migrations were written this session.** All changes are application code.
+
+### ✅ Shipped and OWNER-VERIFIED on staging
+
+Everything the owner reported was fixed and confirmed by them:
+- **The events address deadlock** — root cause was `event_token` minted at approval, so every organizer surface was unreachable for exactly the events that needed attention. Organizer surfaces are keyed on `catering_requests.id` now; `lib/events/event-ref.ts` lets the API routes take either. Owner unstuck a real event end to end.
+- **`admin/event-ratings` 500** — embedded `user_profiles` through an FK that points at `auth.users`. Failed on EVERY load and looked like an empty state.
+- **Nav rail gutter** — `padding-left` had never applied because every dashboard page sets an inline `padding` that outranks it. Content slid under the rail as the window narrowed. `!important` + derived constants; rail breakpoint raised 768 → **1024** so tablets get the bottom bar.
+- **Header overlap** — the centered nav was `position:absolute`, so it occupied zero width and the controls slid underneath. Now a `1fr auto 1fr` grid, all three children in flow.
+- **Grid inversion** on the shopper dashboard — `.shopper-grid` keys off the viewport, an inline `auto-fit` keyed off the container (which the rail narrows). One grid system per page now.
+- **Slice 5 empty states** — sections COLLAPSE rather than disappear; prompts still hide. Organizer band retired and the whole signup funnel re-pointed at `/event-manager`.
+
+### 🚨 START HERE — the events dataflow deep dive
+
+The owner's framing, and the reason events has never shipped: *"there has been persistent problems with info flowing among the 3 people involved in event setup (organizer, admin, vendors)… I have a good idea how data should flow but not what is stopping it."*
+
+Full brief, agreed approach and the three questions to ask the owner: **`backlog.md` → "REQUESTED — deep dive on information flow"**. Use the incremental research protocol; write to `apps/web/.claude/event_dataflow_research.md` as you go, not at the end.
+
+⚠ Read the four `A-AUDIT` entries in `backlog.md` FIRST — they are the already-found half of the answer, including the root design flaw (approval COPIES request data into `markets` + `market_schedules` and nothing syncs it back).
+
+### ⬜ Known-broken, NOT fixed, in priority order
+
+1. **Event times desync on a LIVE event** (`A-AUDIT part 3`) — start/end times editable post-approval, `market_schedules` never updated, so buyers get pickup windows for hours the event is not running. Stopgap is one line; real fix is the trigger.
+2. **No vendor is ever notified of a change** (`A-AUDIT part 4`).
+3. **`markets` desync on approved events** (`A-FOLLOWUP`).
+4. **Event scoring math** (cluster B) — unvalidated, undocumented, invisible in the UI. Owner needs it for admin training.
+5. **Platform admin console has no nav** — `AdminNav` has a populated `platformLinks` array and is **rendered nowhere** in `app/admin`. Six working pages (markets, users, analytics, cause, event-ratings, error-logs) are unreachable except by typing the URL. `/admin/events` genuinely does not exist. ⚠ Do not confuse with `/[vertical]/admin/events`, which exists and works on both verticals.
+
+### ⏳ Owner's call, nothing blocked on me
+
+- Card actions slot, and sorting populated sections above collapsed ones — both need the owner's eyes on staging first.
+- Visual-consistency rollout — backlogged, **easiest-slice-first** per the owner.
+- The header's remaining logged-in squeeze — owner saw it and accepted it. One-line breakpoint change if it ever annoys them.
+
+### 🪤 Traps found THIS session
+
+1. **Inline styles beat `<style>` block rules.** Cost a shipped bug (the rail gutter) that looked fine at wide widths.
+2. **An out-of-flow element reserves no space** — bit us twice in one day, the rail and the header nav.
+3. **`grep` proves presence, never absence.** A filtered view cannot characterize a region. See `verification-discipline.md` Rule 7, rewritten today after it produced a false claim in a risk assessment.
+4. **Absence assertions in tests match COMMENTS as code** — strip comments first. These files document fixed bugs by quoting the broken code.
+5. **Trace the funnel, not the files you changed.** The organizer first-visit bug (claim-before-read) was invisible from any single file.
+
+---
 
 ## ⏱️ SESSION HANDOFF — 2026-08-07 (dashboard session)
 

@@ -64,7 +64,35 @@ const ALLOWED_FIELDS = [
   'state',
   'zip',
   'event_date',
+  // See ACCOUNT_LINKED_ONLY_FIELDS below — allowed here, but gated.
+  'contact_email',
+  // Audit 2026-08-08: required at intake, writable by NOBODY afterwards.
+  // headcount skewed viability scoring, the market row and wave capacity;
+  // company_name is the market's public name. contact_name is cosmetic.
+  'headcount',
+  'company_name',
+  'contact_name',
 ]
+
+/**
+ * `contact_email` is not just a contact detail — it is one of the two ways the
+ * app decides you are the organizer. Every organizer route authorises on
+ * `organizer_user_id === user.id` OR, when that is still null,
+ * `contact_email === user.email`.
+ *
+ * So while the email IS the key, letting the organizer edit it means a typo
+ * locks them out permanently — which is the exact bug this field was added to
+ * fix (audit, 2026-08-08: a wrong contact_email meant the signup link went to
+ * the wrong address, the account claim never matched, and NO route could
+ * repair it). Recreating that with the repair itself would be absurd.
+ *
+ * Once `organizer_user_id` is set, access is anchored to their ACCOUNT and the
+ * email is only a notification address — safe to edit, and a mistake is
+ * recoverable. So: organizer may change it only after the account is linked.
+ * Before that, only an admin can (api/admin/events/[id]), which is also the
+ * repair path for events already broken.
+ */
+const ACCOUNT_LINKED_ONLY_FIELDS = ['contact_email']
 
 /**
  * Fields that approval COPIES into the `markets` row (`event-actions.ts:126-131`),
@@ -80,7 +108,21 @@ const ALLOWED_FIELDS = [
  * restricting them is a separate decision. That pre-existing desync is logged
  * in backlog.md — do not "fix" it here by quietly adding them.
  */
-const PRE_APPROVAL_ONLY_FIELDS = ['city', 'state', 'zip', 'event_date']
+const PRE_APPROVAL_ONLY_FIELDS = [
+  'city', 'state', 'zip', 'event_date',
+  // Added 2026-08-08. Same reason as the rest: approval copies headcount into
+  // `markets.headcount` and company_name into the market's NAME
+  // (event-actions.ts:117,138).
+  //
+  // ⚠ This list is now SIX fields frozen for one identical reason, which makes
+  // it the smell rather than the fix. The structural answer is an edit path
+  // that updates the request AND the market together — logged as A-FOLLOWUP in
+  // backlog.md. When that lands, this whole constant should retire.
+  //
+  // NOTE contact_name is deliberately absent: it appears only in emails and is
+  // NOT copied into the market, so it is freely editable at any status.
+  'headcount', 'company_name',
+]
 
 // Fields that, when changed, may produce different vendor matches.
 // PATCH response sets `matchingChanged: true` so the dashboard can surface a
@@ -225,6 +267,27 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
     }
 
+    // The email is the access key until the account is linked — see the note on
+    // ACCOUNT_LINKED_ONLY_FIELDS. Server-enforced; the UI also hides it.
+    if (!event.organizer_user_id) {
+      const blockedKey = ACCOUNT_LINKED_ONLY_FIELDS.filter(f => f in updateData)
+      if (blockedKey.length > 0) {
+        return NextResponse.json(
+          {
+            error: 'Your contact email can only be changed once your account is linked to this event — right now it is what identifies you as the organizer. Contact us and we can update it for you.',
+          },
+          { status: 400 }
+        )
+      }
+    }
+    if (updateData.contact_email !== undefined) {
+      const em = String(updateData.contact_email ?? '').trim().toLowerCase()
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
+        throw traced.validation('ERR_EVENT_DETAIL_011', 'Invalid email format')
+      }
+      updateData.contact_email = em
+    }
+
     // Validate specific fields
     if (updateData.state !== undefined && updateData.state !== null) {
       const st = String(updateData.state).trim().toUpperCase()
@@ -246,6 +309,24 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         throw traced.validation('ERR_EVENT_DETAIL_009', 'city cannot be blank')
       }
       updateData.city = c.slice(0, 100)
+    }
+    if (updateData.headcount !== undefined) {
+      // Same 10–5000 bounds the intake form enforces — a headcount outside them
+      // produces a viability score nobody should act on.
+      const hc = Number(updateData.headcount)
+      if (!Number.isFinite(hc) || hc < 10 || hc > 5000) {
+        throw traced.validation('ERR_EVENT_DETAIL_012', 'Headcount must be between 10 and 5000')
+      }
+      updateData.headcount = Math.round(hc)
+    }
+    for (const f of ['company_name', 'contact_name'] as const) {
+      if (updateData[f] !== undefined) {
+        const v = String(updateData[f] ?? '').trim()
+        if (!v) {
+          throw traced.validation('ERR_EVENT_DETAIL_013', `${f} cannot be blank`)
+        }
+        updateData[f] = v.slice(0, 200)
+      }
     }
     if (updateData.event_date !== undefined) {
       // Same floor the intake form enforces — a past date would produce an

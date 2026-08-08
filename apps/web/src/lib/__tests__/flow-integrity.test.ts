@@ -907,6 +907,83 @@ describe('Organizer event funnel integrity', () => {
     expect(code, 'the guard must key on an existing market').toMatch(/event\.market_id/)
   })
 
+  it('a typo\'d organizer email is repairable BY AN ADMIN', () => {
+    // Audit 2026-08-08. contact_email is one of the two ways a route decides
+    // you are the organizer (organizer_user_id, else contact_email == user
+    // email). It was required at intake and writable by NOBODY, so a typo sent
+    // the signup link to the wrong address, guaranteed the account claim would
+    // never match, and could not be corrected by anyone — the organizer least
+    // of all, since they cannot authenticate. Admin is the only possible fix.
+    const admin = rd('app/api/admin/events/[id]/route.ts')
+    expect(admin).toMatch(/contact_email/)
+    expect(admin, 'admin must be able to write it').toMatch(/updates\.contact_email/)
+  })
+
+  it('the organizer can only change their email once their ACCOUNT is linked', () => {
+    // Otherwise the fix recreates the bug: while contact_email IS the key, a
+    // typo locks them out again. Once organizer_user_id is set, access is
+    // anchored to the account and the email is just a notification address.
+    const details = rd('app/api/events/[token]/details/route.ts')
+    expect(details).toContain('ACCOUNT_LINKED_ONLY_FIELDS')
+    expect(details, 'the guard must key on the account link')
+      .toMatch(/!event\.organizer_user_id/)
+  })
+
+  it('correcting the email does NOT auto-send to the new address', () => {
+    // Owner, 2026-08-08: "the admin route should tell me it changed and let me
+    // trigger the email." A correction is exactly when you want to look before
+    // mailing a stranger, so the send is a separate deliberate action.
+    const admin = code('app/api/admin/events/[id]/route.ts')
+    expect(admin, 'the send must be gated on an explicit request flag')
+      .toMatch(/if \(resend_organizer_link\)/)
+    expect(admin, 'and the route must report whether it actually sent')
+      .toMatch(/linkEmailSent/)
+  })
+
+  it('un-cancelling is refused once anything irreversible happened', () => {
+    // Audit 2026-08-08. Cancelling issues Stripe refunds, emails buyers and
+    // vendors, and DELETES the listing_markets links. Status had no transition
+    // rules, so an admin could flip a cancelled event back to approved and get
+    // a healthy-looking event with no products and refunded buyers who were
+    // told it was off. Reporting success while broken is worse than refusing.
+    const admin = code('app/api/admin/events/[id]/route.ts')
+    expect(admin).toMatch(/leavingCancelled/)
+    expect(admin, 'must check buyers were refunded').toMatch(/cancelled_by/)
+    expect(admin, 'must check vendors were notified').toMatch(/response_status/)
+  })
+
+  it('a clean un-cancel repairs what cancelling destroyed', () => {
+    // The realistic admin misclick, minutes after approval, with no orders and
+    // no accepted vendors. Nothing irreversible happened, so allow it — but
+    // rebuild the deleted listing links (event_vendor_listings survives a
+    // cancel and is the source) and reactivate the market. Allowing it WITHOUT
+    // the repair is the silent-breakage case this whole guard exists for.
+    const admin = code('app/api/admin/events/[id]/route.ts')
+    expect(admin).toMatch(/event_vendor_listings/)
+    expect(admin).toMatch(/listing_markets/)
+    expect(admin, 'the market must come back on').toMatch(/active: true/)
+  })
+
+  it('headcount and company_name are editable, and guarded like the market-copied fields', () => {
+    // Both were required at intake and writable by nobody. Both are COPIED into
+    // the market at approval (headcount -> markets.headcount, company_name ->
+    // the market's name), so they carry the same pre-approval guard.
+    // Comments stripped first: these constants carry long explanatory blocks,
+    // and a raw window would either miss the entry or match the prose.
+    const details = code('app/api/events/[token]/details/route.ts')
+    for (const f of ['headcount', 'company_name']) {
+      expect(details, f + ' must be editable').toMatch(new RegExp(`'${f}'`))
+      expect(details, f + ' must be pre-approval only')
+        .toMatch(new RegExp(`PRE_APPROVAL_ONLY_FIELDS[\\s\\S]{0,200}'${f}'`))
+    }
+    // contact_name is NOT copied into the market — it appears only in emails —
+    // so it is deliberately editable at any status. If it ever gets added to
+    // the guarded list, that is a mistake.
+    expect(details).toMatch(/'contact_name'/)
+    expect(details, 'contact_name must NOT be frozen after approval')
+      .not.toMatch(/PRE_APPROVAL_ONLY_FIELDS[\s\S]{0,200}'contact_name'/)
+  })
+
   it('admin can supply an address, and approval reads it from the same request', () => {
     // Checking only the stored row made "set the address and approve" a
     // two-call dance whose first call silently failed.

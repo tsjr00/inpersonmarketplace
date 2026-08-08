@@ -17,6 +17,8 @@ interface CateringRequest {
   contact_name: string
   contact_email: string
   contact_phone: string | null
+  /** Null until the organizer signs up and the row is claimed by email match. */
+  organizer_user_id: string | null
   event_type: string | null
   payment_model: string | null
   per_meal_budget_cents: number | null
@@ -914,6 +916,21 @@ export default function AdminCateringPage() {
               <Section title="Contact">
                 <DetailRow label="Contact" value={`${selected.contact_name} (${selected.contact_email})`} />
                 {selected.contact_phone && <DetailRow label="Phone" value={selected.contact_phone} />}
+
+                {/* Correcting a typo'd organizer email is a REPAIR PATH, not a
+                    convenience. contact_email is one of the two ways a route
+                    identifies the organizer, so a wrong one means the signup
+                    link went nowhere, the account claim can never match, and
+                    the organizer cannot fix it themselves — by definition they
+                    cannot authenticate. Only an admin can break that loop.
+                    Audit finding, 2026-08-08. */}
+                <EmailRepairControl
+                  eventId={selected.id}
+                  currentEmail={selected.contact_email}
+                  organizerLinked={!!selected.organizer_user_id}
+                  onSaved={(req) => setRequests(prev => prev.map(r => (r.id === req.id ? req : r)))}
+                  onMessage={setActionMessage}
+                />
               </Section>
 
               {/* Event info */}
@@ -1703,6 +1720,158 @@ function Section({
         {title}
       </h3>
       {children}
+    </div>
+  )
+}
+
+/**
+ * Correct a typo'd organizer email, then decide whether to tell them.
+ *
+ * The send is a SEPARATE, deliberate step — owner, 2026-08-08: "the admin route
+ * should tell me it changed and let me trigger the email." Auto-sending on save
+ * would mail whoever the corrected address belongs to without the admin
+ * choosing to, and a correction is exactly the moment you want to look before
+ * you send.
+ *
+ * Collapsed to a single link until used: this is a repair tool, not part of the
+ * normal review flow.
+ */
+function EmailRepairControl({
+  eventId,
+  currentEmail,
+  organizerLinked,
+  onSaved,
+  onMessage,
+}: {
+  eventId: string
+  currentEmail: string
+  organizerLinked: boolean
+  onSaved: (req: CateringRequest) => void
+  onMessage: (msg: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState(currentEmail)
+  const [busy, setBusy] = useState(false)
+  // Only offer the resend once something actually changed this session —
+  // otherwise it invites re-mailing an organizer who is already fine.
+  const [changed, setChanged] = useState(false)
+
+  async function call(body: Record<string, unknown>, okMsg: string) {
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/admin/events/${eventId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        if (data.request) onSaved(data.request as CateringRequest)
+        if (data.contactEmailChanged) setChanged(true)
+        // Never claim the mail went out when it didn't — RESEND_API_KEY may be
+        // unset in this environment and the route reports that honestly.
+        onMessage(
+          'linkEmailSent' in data && body.resend_organizer_link
+            ? (data.linkEmailSent ? 'Link email sent.' : 'Saved, but the email did NOT send — check RESEND_API_KEY.')
+            : okMsg
+        )
+      } else {
+        onMessage(`Error: ${data.error}`)
+      }
+    } catch {
+      onMessage('Network error')
+    }
+    setBusy(false)
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        style={{
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          marginTop: spacing['2xs'],
+          color: colors.primary,
+          fontSize: typography.sizes.xs,
+          cursor: 'pointer',
+          textDecoration: 'underline',
+        }}
+      >
+        Fix contact email
+      </button>
+    )
+  }
+
+  return (
+    <div style={{
+      marginTop: spacing.xs,
+      padding: spacing.xs,
+      backgroundColor: statusColors.neutral50,
+      border: `1px solid ${statusColors.neutral200}`,
+      borderRadius: radius.sm,
+    }}>
+      <p style={{ margin: `0 0 ${spacing['2xs']}`, fontSize: typography.sizes.xs, color: statusColors.neutral600 }}>
+        {organizerLinked
+          ? 'This organizer has an account linked, so they can also change this themselves.'
+          : 'No account is linked yet — until this address is right, the organizer cannot reach their event and cannot fix it themselves.'}
+      </p>
+      <div style={{ display: 'flex', gap: spacing['2xs'], flexWrap: 'wrap' }}>
+        <input
+          type="email"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          style={{
+            flex: 1,
+            minWidth: 200,
+            padding: spacing['2xs'],
+            border: `1px solid ${statusColors.neutral300}`,
+            borderRadius: radius.sm,
+            fontSize: typography.sizes.sm,
+          }}
+        />
+        <button
+          onClick={() => call({ contact_email: draft }, 'Contact email updated.')}
+          disabled={busy || !draft.trim() || draft.trim().toLowerCase() === currentEmail.toLowerCase()}
+          style={{
+            padding: `${spacing['2xs']} ${spacing.sm}`,
+            backgroundColor: colors.primary,
+            color: 'white',
+            border: 'none',
+            borderRadius: radius.sm,
+            fontSize: typography.sizes.sm,
+            fontWeight: typography.weights.semibold,
+            cursor: busy ? 'not-allowed' : 'pointer',
+            opacity: busy || !draft.trim() || draft.trim().toLowerCase() === currentEmail.toLowerCase() ? 0.6 : 1,
+          }}
+        >
+          {busy ? 'Saving…' : 'Save email'}
+        </button>
+      </div>
+      {changed && (
+        <div style={{ marginTop: spacing['2xs'] }}>
+          <p style={{ margin: `0 0 ${spacing['3xs']}`, fontSize: typography.sizes.xs, color: statusColors.warningDark }}>
+            Saved — but the organizer still hasn&rsquo;t received their link. Send it now?
+          </p>
+          <button
+            onClick={() => call({ resend_organizer_link: true }, 'Link email sent.')}
+            disabled={busy}
+            style={{
+              padding: `${spacing['2xs']} ${spacing.sm}`,
+              backgroundColor: statusColors.warningLight,
+              color: statusColors.warningDark,
+              border: `1px solid ${statusColors.warningBorder}`,
+              borderRadius: radius.sm,
+              fontSize: typography.sizes.sm,
+              fontWeight: typography.weights.semibold,
+              cursor: busy ? 'not-allowed' : 'pointer',
+            }}
+          >
+            Send their event link
+          </button>
+        </div>
+      )}
     </div>
   )
 }

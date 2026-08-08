@@ -52,6 +52,78 @@ Fixing any ONE of these breaks the deadlock, but the owner's read is that the re
 
 ---
 
+### ✅/🚨 A-AUDIT — "are there similar gaps with other fields?" — YES. Run 2026-08-08
+
+The owner's question when the address deadlock was reported: *"my guess is there are similar gaps with other fields or other areas we have loops in there."* Correct. The general shape is **a field required at intake, needed downstream, and writable by nobody afterwards.**
+
+Method: diffed the intake required-field list against the organizer editor's `ALLOWED_FIELDS` and the admin PATCH body, then checked every other write path to `catering_requests` (only `api/admin/events` POST, which is create-only).
+
+**Four fields were required at intake and editable by NOBODY:**
+
+| Field | Status | Consequence when wrong |
+|---|---|---|
+| `contact_email` | ✅ **FIXED 2026-08-08** | 🚨 **Worse than the address bug.** It is one of the two ways a route identifies the organizer, so a typo sent the signup link to the wrong address, guaranteed the account claim would never match, and locked them out with no repair path. Silent, too — a wrong address gets caught at approval; a wrong email just produces an organizer who never appears. Admin can now correct it and separately trigger the link email; the organizer may change it only once their account is linked |
+| `headcount` | ⬜ **OPEN** | Feeds viability scoring, the market row and wave capacity. 500 instead of 50 skews matching permanently |
+| `company_name` | ⬜ **OPEN** | Becomes the market name and the `event_token` slug — public and permanent |
+| `contact_name` | ⬜ **OPEN** | Cosmetic; appears in emails |
+
+**Do for the two that matter:** add `headcount` and `company_name` to the organizer editor under the SAME pre-approval guard as the location fields (both are copied into the market at approval — see A-FOLLOWUP below), plus admin-writable for already-approved events.
+
+### 🚨 A-AUDIT part 2 — CANCELLING IS A ONE-WAY DOOR (found 2026-08-08, NOT fixed)
+
+There is **no status transition validation** — `api/admin/events/[id]` accepts any status from any status (`validStatuses.includes` only). But **the side effects run one direction only.**
+
+Cancelling sets `markets.active = false`, cancels the order items and issues refunds. **Nothing anywhere sets `active: true` again** — verified by grep across the whole events API surface.
+
+So an admin who cancels by mistake can set the status back to `approved`, and it will *look* repaired while the market stays inactive: invisible to shoppers, unusable by vendors. **That is worse than a hard block, because it reports success.**
+
+**Decide:** (a) block un-cancelling outright with a clear message, (b) make it genuinely reversible — reactivate the market, and decide what happens to the refunded orders, or (c) allow it but warn loudly in the admin UI. Half-reversible is the dangerous state.
+
+### 🚨 A-AUDIT part 3 — EVENT TIMES DESYNC ON A LIVE EVENT (found 2026-08-08, NOT fixed)
+
+**This is the worst one still open, and it is live right now.**
+
+`event_start_time`, `event_end_time` and `event_end_date` are in the organizer editor's `ALLOWED_FIELDS` with **no guard** — editable at any status including `approved` and `ready`. Approval copied the times into `market_schedules` (`event-actions.ts:150-159`) and `event_end_date` into `markets`. **Nothing in the events code path ever updates `market_schedules` again** — verified: every writer is an admin/markets or market-manager route.
+
+So an organizer with an approved event moves their start time 11:00 → 13:00. `catering_requests` updates. The schedule still says 11:00–14:00. **That schedule is what generates buyers' pickup windows** (`lib/events/shop-data.ts` reads it for `schedule_id` + `pickup_date`), so buyers are told to collect food during hours the event is not running.
+
+Worse than the address bug: address was cosmetic until approval, this breaks **fulfilment on a live event with real orders**.
+
+⚠ These slipped the 2026-08-08 pre-approval guard because they were ALREADY in `ALLOWED_FIELDS` before that work started, so they never crossed the audit trail that began at `address`.
+
+**Stopgap:** add them to `PRE_APPROVAL_ONLY_FIELDS` (one line). **Real fix:** the trigger below.
+
+### 🚨 A-AUDIT part 4 — NOTHING NOTIFIES AN ACCEPTED VENDOR OF ANY CHANGE (found 2026-08-08)
+
+Verified: neither `api/events/[token]/details` (PATCH) nor `api/events/[token]/refresh-matches` calls `sendNotification` at all, and `autoMatchAndInvite` deliberately skips vendors who were already invited. So a vendor who accepted for a given date, time and address is **never told when any of it changes.**
+
+Owner, 2026-08-08: *"they should get notified and even if they do that doesn't mean the data they need gets updated."* Both halves are true and separate — the notification is missing AND the market row they'd read is stale.
+
+### 🏗️ THE ROOT DESIGN FLAW behind A-FOLLOWUP + parts 3 and 4
+
+**Approval COPIES request data into two other tables and nothing syncs it back.** `approveEventRequest` writes address / city / state / zip / event_date / event_end_date / cutoff_hours / event_allow_day_of_orders / headcount / company-name-as-market-name into `markets`, and start/end times plus a derived weekday into `market_schedules`.
+
+After that there are **two copies of the same facts and no rule about which wins.** Every symptom above is that one flaw in a different costume: the six-field freeze list, the desync, the awkward cancel restore, the stale vendor data.
+
+**Recommended fix — a DATABASE TRIGGER, not application code.** A trigger on `catering_requests` that propagates the copied fields into `markets` and recomputes `market_schedules` when the date or times change. This is already the house pattern for exactly this problem (mig 215 clears tax verification on a market address change; mig 121 cleans up on cancel). The reason to prefer it over a shared helper: **a trigger cannot be bypassed by the next route somebody writes — which is precisely how the times slipped through.**
+
+When it lands, `PRE_APPROVAL_ONLY_FIELDS` deletes itself and all six fields become safely editable at any status.
+
+**Owner decisions needed before building:** do vendors who accepted for a specific date/time get re-notified when it moves, and what happens to pre-orders already placed against the old window?
+
+### 🔬 REQUESTED — deep dive on information flow between organizer, admin and vendor
+
+Owner, 2026-08-08: *"there has been persistent problems with info flowing among the 3 people involved in event setup (organizer, admin, vendors) — it has never been consistent and is why we have not pursued events yet. We need a deep dive into this. I have a good idea how data should flow but not what is stopping it."*
+
+**This is the gating issue for the events module as a product**, not just a bug list. Scoped as its own session — hour-scale, spans the whole module, and needs a full context window. Use the incremental research protocol and write findings to `apps/web/.claude/event_dataflow_research.md` as you go.
+
+**Agreed approach:** map CURRENT state exhaustively first — for each of the three roles, what they learn, when, through which channel, and what they can act on — then the owner annotates where it diverges from intent. (Chosen over "owner states intent first" because the failures here have consistently been in the joins nobody thought to describe.)
+
+**Questions for the owner to answer during that session:**
+1. Where should a vendor see event details — the invitation email, their dashboard, or the event page? Today it is split across all three.
+2. When something changes, who is told: everyone, or only vendors who already accepted?
+3. Is admin meant to be in the loop on changes, or only at approval?
+
 ### 🟠 A-FOLLOWUP — approved events desync from their market on location/date edits (found 2026-08-08)
 
 **Not shipped. Deliberately out of scope of the 2026-08-08 deadlock fix; needs its own decision.**

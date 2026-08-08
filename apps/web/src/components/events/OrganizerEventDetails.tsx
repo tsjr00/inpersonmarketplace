@@ -53,6 +53,9 @@ interface EventDetails {
   state: string | null
   zip: string | null
   event_date: string | null
+  headcount: number | null
+  company_name: string | null
+  contact_name: string | null
   market_id: string | null
   is_recurring: boolean
   recurring_frequency: string | null
@@ -68,14 +71,14 @@ const EDITABLE_STATUSES = ['new', 'reviewing', 'approved', 'ready']
  * the market running on the wrong day. Locked once a market exists; the server
  * rejects them too (`api/events/[token]/details`), this is only the UI half.
  */
-const PRE_APPROVAL_ONLY_FIELDS = ['city', 'state', 'zip', 'event_date']
+const PRE_APPROVAL_ONLY_FIELDS = ['city', 'state', 'zip', 'event_date', 'headcount', 'company_name']
 
 // Field groups for progressive disclosure
 const FIELD_GROUPS = [
   {
     label: 'Event Basics',
     description: 'Type, timing, and location — this is what vendors are matched on. A wrong city or zip matches the wrong vendors. Address is required before approval.',
-    fields: ['event_type', 'event_date', 'event_start_time', 'event_end_time', 'event_setting', 'address', 'city', 'state', 'zip', 'contact_phone'],
+    fields: ['company_name', 'event_type', 'event_date', 'event_start_time', 'event_end_time', 'event_setting', 'address', 'city', 'state', 'zip', 'headcount', 'contact_name', 'contact_phone'],
   },
   {
     label: 'Food Preferences',
@@ -570,6 +573,9 @@ function fieldLabel(field: string, vertical: string): string {
     state: 'State',
     zip: 'Zip',
     event_date: 'Event Date',
+    headcount: 'Expected Attendees',
+    company_name: 'Company / Event Name',
+    contact_name: 'Contact Name',
     contact_phone: 'Phone',
     is_recurring: 'Recurring Event?',
     recurring_frequency: 'How Often?',
@@ -766,6 +772,20 @@ function renderField(field: string, value: unknown, onChange: (v: unknown) => vo
         placeholder="0.00"
         value={dollars as string}
         onChange={(e) => onChange(e.target.value)}
+        style={inputStyle}
+      />
+    )
+  }
+
+  // Headcount — bounds mirror the intake form and the API validation.
+  if (field === 'headcount') {
+    return (
+      <input
+        type="number"
+        min="10"
+        max="5000"
+        value={value as string || ''}
+        onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
         style={inputStyle}
       />
     )

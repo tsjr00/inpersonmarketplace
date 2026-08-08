@@ -71,7 +71,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const { id } = await context.params
     const body = await request.json()
-    const { status, admin_notes, address, city, state, zip, event_date } = body
+    const { status, admin_notes, address, city, state, zip, event_date, contact_email, resend_organizer_link } = body
 
     const validStatuses = [
       'new',       // Request received, not yet reviewed
@@ -133,6 +133,116 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         )
       }
       updates.address = trimmed.slice(0, 500)
+    }
+
+    // ── Un-cancelling: allowed ONLY when nothing irreversible happened ──
+    //
+    // Audit 2026-08-08. Status has no transition rules (the check above only
+    // validates the NAME), so an admin could set a cancelled event straight
+    // back to 'approved' — and the console would show a normal approved event.
+    // But cancelling does five things and only ONE of them is undoable:
+    //
+    //   status -> cancelled          ← undoable
+    //   markets.active -> false      ← undoable
+    //   listing_markets rows DELETED ← recoverable, but nothing did it
+    //   Stripe refunds issued        ← NOT undoable, money moved
+    //   buyers + vendors emailed     ← NOT undoable, they were told
+    //
+    // So the event came back looking healthy with no products attached and its
+    // buyers already refunded and told it was off. Reporting success while
+    // broken is worse than refusing, because nobody goes looking.
+    //
+    // Two cancels exist though. One followed real orders — unrecoverable, full
+    // stop. The other is an admin misclicking minutes after approval, where
+    // nothing irreversible occurred and the only damage is the deleted links.
+    // Allow that one, and actually repair it.
+    const leavingCancelled =
+      !!status &&
+      ['cancelled', 'declined'].includes(cateringReq.status as string) &&
+      !['cancelled', 'declined'].includes(status)
+
+    if (leavingCancelled && cateringReq.market_id) {
+      const [vendorRes, cancelledItemRes] = await Promise.all([
+        // Accepted vendors were emailed that the event is off.
+        serviceClient
+          .from('market_vendors')
+          .select('id')
+          .eq('market_id', cateringReq.market_id)
+          .eq('response_status', 'accepted')
+          .limit(1),
+        // Items the cancel cascade killed — these buyers were refunded and told.
+        serviceClient
+          .from('order_items')
+          .select('id')
+          .eq('market_id', cateringReq.market_id)
+          .eq('status', 'cancelled')
+          .eq('cancelled_by', 'system')
+          .limit(1),
+      ])
+
+      const vendorsNotified = (vendorRes.data || []).length > 0
+      const buyersRefunded = (cancelledItemRes.data || []).length > 0
+
+      if (vendorsNotified || buyersRefunded) {
+        const reasons = [
+          buyersRefunded ? 'buyers were refunded and told the event was cancelled' : null,
+          vendorsNotified ? 'confirmed vendors were notified it was cancelled' : null,
+        ].filter(Boolean).join(', and ')
+        return NextResponse.json(
+          {
+            error: `This event cannot be un-cancelled — ${reasons}. Refunds and those emails cannot be taken back, so reviving it would show a live event to people who were told it was off. Create a new event instead.`,
+          },
+          { status: 400 }
+        )
+      }
+
+      // Nothing irreversible: repair what cancelling destroyed. The
+      // event_vendor_listings rows survive a cancel (only listing_markets is
+      // deleted), so they are the source for rebuilding the links.
+      const { data: evLinks } = await serviceClient
+        .from('event_vendor_listings')
+        .select('listing_id')
+        .eq('market_id', cateringReq.market_id)
+
+      if (evLinks && evLinks.length > 0) {
+        await serviceClient
+          .from('listing_markets')
+          .upsert(
+            evLinks.map(l => ({ listing_id: l.listing_id as string, market_id: cateringReq.market_id as string })),
+            { onConflict: 'listing_id,market_id', ignoreDuplicates: true }
+          )
+      }
+
+      await serviceClient
+        .from('markets')
+        .update({ active: true })
+        .eq('id', cateringReq.market_id)
+    }
+
+    // ── contact_email: the repair path for a locked-out organizer ──
+    //
+    // Audit 2026-08-08 found this was required at intake and writable by NOBODY
+    // afterwards — and it is one of the two ways a route decides you are the
+    // organizer (`organizer_user_id`, else `contact_email === user.email`). A
+    // typo therefore sent the signup link to the wrong address, guaranteed the
+    // account claim would never match, and could not be corrected. Silent, too:
+    // a wrong address just produces an organizer who never appears.
+    //
+    // Admin-writable at any time BECAUSE that is the whole point — by
+    // definition nobody can authenticate as an organizer whose email is wrong,
+    // so the organizer cannot self-serve out of it. Vertical admins for this
+    // event's vertical and platform admins both qualify; the verifyAdminScope
+    // check above already draws that line.
+    let contactEmailChanged = false
+    if (contact_email !== undefined) {
+      const em = String(contact_email ?? '').trim().toLowerCase()
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
+        return NextResponse.json({ error: 'Invalid email format' }, { status: 400 })
+      }
+      if (em !== String(cateringReq.contact_email ?? '').toLowerCase()) {
+        updates.contact_email = em.slice(0, 320)
+        contactEmailChanged = true
+      }
     }
 
     // City / state / zip / date — the fields approval COPIES into the markets
@@ -219,11 +329,23 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
     }
 
-    if (Object.keys(updates).length === 0) {
+    // Resending the organizer link is an ACTION, not a field change — it is
+    // valid on its own, with nothing else in the request.
+    if (Object.keys(updates).length === 0 && !resend_organizer_link) {
       return NextResponse.json(
         { error: 'No updates provided' },
         { status: 400 }
       )
+    }
+
+    if (Object.keys(updates).length === 0 && resend_organizer_link) {
+      const sent = await sendOrganizerLinkEmail(
+        cateringReq.contact_name as string | null,
+        cateringReq.contact_email as string,
+        cateringReq.company_name as string | null,
+        cateringReq.vertical_id as string
+      )
+      return NextResponse.json({ request: cateringReq, linkEmailSent: sent })
     }
 
     const { data: updated, error: updateError } = await serviceClient
@@ -508,8 +630,86 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       })
     }
 
-    return NextResponse.json({ request: updated })
+    // ⚠ Correcting the address does NOT reach the organizer — they still never
+    // got their signup link. But the send is NOT automatic: the owner asked to
+    // be told it changed and to trigger the email deliberately (2026-08-08),
+    // rather than have a correction silently mail a stranger.
+    let linkEmailSent = false
+    if (resend_organizer_link) {
+      linkEmailSent = await sendOrganizerLinkEmail(
+        updated.contact_name as string | null,
+        updated.contact_email as string,
+        updated.company_name as string | null,
+        updated.vertical_id as string
+      )
+    }
+
+    return NextResponse.json({ request: updated, contactEmailChanged, linkEmailSent })
   })
+}
+
+/**
+ * Sends the organizer their event link, addressed to whatever contact_email is
+ * NOW. Used after an admin corrects a typo'd address — deliberately not the
+ * original "we received your request" confirmation, because this is a
+ * correction and should read like one.
+ *
+ * Returns whether it actually went out, so the admin UI can say so rather than
+ * claiming success when RESEND_API_KEY is unset.
+ */
+async function sendOrganizerLinkEmail(
+  contactName: string | null,
+  contactEmail: string,
+  companyName: string | null,
+  verticalId: string
+): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey || !contactEmail) return false
+
+  const isFM = verticalId === 'farmers_market'
+  const senderName = isFM ? 'Farmers Marketing' : "Food Truck'n"
+  const senderDomain = isFM ? 'mail.farmersmarketing.app' : 'mail.foodtruckn.app'
+  const accentColor = isFM ? '#2d5016' : '#ff5757'
+
+  try {
+    const { getAppUrl } = await import('@/lib/environment')
+    const signupUrl = `${getAppUrl(verticalId)}/${verticalId}/signup?ref=event&email=${encodeURIComponent(contactEmail)}`
+    const { Resend } = await import('resend')
+    const resend = new Resend(apiKey)
+
+    await resend.emails.send({
+      from: `${senderName} <updates@${senderDomain}>`,
+      to: contactEmail,
+      subject: `Your event dashboard link${companyName ? ` — ${companyName}` : ''}`,
+      html: `
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto">
+          <h2 style="color:${accentColor};margin:0 0 8px">Here's your event link</h2>
+          <p style="color:#374151;margin:0 0 16px;font-size:16px">Hi ${contactName || 'there'},</p>
+          <p style="color:#4b5563;line-height:1.6;margin:0 0 16px">
+            We've updated the contact email on your${companyName ? ` <strong>${companyName}</strong>` : ''} event request, so you may not have received our earlier messages.
+          </p>
+          <p style="color:#4b5563;line-height:1.6;margin:0 0 20px">
+            Set up your account with the button below and you'll be able to manage the event, add any missing details, and track vendors.
+          </p>
+          <div style="text-align:center;margin:0 0 24px">
+            <a href="${signupUrl}" style="display:inline-block;padding:14px 28px;background:${accentColor};color:white;text-decoration:none;border-radius:8px;font-weight:600;font-size:16px">
+              Open my event dashboard
+            </a>
+          </div>
+          <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px;margin:0 0 20px">
+            <p style="margin:0;font-size:13px;color:#6b7280;word-break:break-all">${signupUrl}</p>
+          </div>
+          <p style="color:#6b7280;font-size:13px;margin:0;border-top:1px solid #e5e7eb;padding-top:16px">
+            Didn't request an event? Reply to this email and let us know.
+          </p>
+        </div>
+      `,
+    })
+    return true
+  } catch (err) {
+    console.error('[admin/events] Organizer link email failed:', err)
+    return false
+  }
 }
 
 async function sendEventConfirmedEmail(
