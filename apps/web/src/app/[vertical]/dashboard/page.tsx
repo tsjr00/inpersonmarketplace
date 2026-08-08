@@ -21,22 +21,42 @@ import { DashboardNotifications } from '@/components/notifications/DashboardNoti
 import { term, isBuyerPremiumEnabled } from '@/lib/vertical'
 import { SUBSCRIPTION_PRICES } from '@/lib/stripe/config'
 import HelpSearchWidget from '@/components/help/HelpSearchWidget'
-import OrganizerEventActions from '@/components/events/OrganizerEventActions'
-import OrganizerEventDetails from '@/components/events/OrganizerEventDetails'
-import EventBroadcastCard from '@/components/events/EventBroadcastCard'
-import EventAgreementPickerCard from '@/components/events/EventAgreementPickerCard'
-import EventRatingsCard from '@/components/events/EventRatingsCard'
-import ScrollToSection from '@/components/dashboard/ScrollToSection'
+// The five event components and ScrollToSection were dropped 2026-08-08 with
+// the "My Events" band. ScrollToSection went too because the band's
+// `#events-section` was the only `?section=` target left in the codebase — it
+// could no longer scroll to anything. Its component file is kept, unreferenced,
+// in case a future page wants the behaviour.
 import PendingSurveysCard from '@/components/surveys/PendingSurveysCard'
 import { getLocale } from '@/lib/locale/server'
 import { t } from '@/lib/locale/messages'
 
 interface DashboardPageProps {
   params: Promise<{ vertical: string }>
+  searchParams: Promise<{ section?: string }>
 }
 
-export default async function DashboardPage({ params }: DashboardPageProps) {
+export default async function DashboardPage({ params, searchParams }: DashboardPageProps) {
   const { vertical } = await params
+  const { section } = await searchParams
+
+  // ?section=events used to scroll to the organizer "My Events" band that lived
+  // on this page (via ScrollToSection). The band moved to /event-manager on
+  // 2026-08-08, so send the whole funnel there instead.
+  //
+  // ⚠ This redirect is PERMANENT, not a transition shim. Signup writes this URL
+  // into `user_metadata.signup_redirect_to` (`signup/page.tsx:97`) and
+  // confirm-email replays it later, so links already minted for existing
+  // accounts keep arriving here indefinitely. The organizer funnel reaches this
+  // from three places: the post-submit screen, the confirmation email
+  // (`api/event-requests/route.ts:501`), and the cron nudge. Removing it would
+  // dead-end a brand-new organizer on the page right after they sign up.
+  //
+  // No loop risk: /event-manager redirects back to /dashboard with NO section
+  // param when the user organizes nothing.
+  if (section === 'events') {
+    redirect(`/${vertical}/event-manager`)
+  }
+
   const locale = await getLocale()
   const supabase = await createClient()
 
@@ -165,76 +185,12 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
       .is('manager_user_id', null)
   }
 
-  // Fetch organizer's events
-  const { data: organizerEvents } = await serviceClient
-    .from('catering_requests')
-    .select('id, company_name, event_date, event_end_date, status, market_id, event_token, vendor_count, headcount, service_level, payment_model, access_code')
-    .eq('organizer_user_id', user.id)
-    .eq('vertical_id', vertical)
-    .order('event_date', { ascending: false })
-    .limit(10)
-
-  // Get vendor counts for organizer's events that have markets
-  const organizerMarketIds = (organizerEvents || []).filter(e => e.market_id).map(e => e.market_id as string)
-  const organizerVendorCounts: Record<string, number> = {}
-  const organizerOrderCounts: Record<string, number> = {}
-  const organizerOrderValues: Record<string, number> = {}
-  const organizerWaveData: Record<string, Array<{ wave_number: number; capacity: number; reserved: number; status: string }>> = {}
-  if (organizerMarketIds.length > 0) {
-    const { data: vendorRows } = await serviceClient
-      .from('market_vendors')
-      .select('market_id')
-      .in('market_id', organizerMarketIds)
-      .eq('response_status', 'accepted')
-
-    for (const row of vendorRows || []) {
-      const mid = row.market_id as string
-      organizerVendorCounts[mid] = (organizerVendorCounts[mid] || 0) + 1
-    }
-
-    const { data: orderRows } = await serviceClient
-      .from('order_items')
-      .select('market_id')
-      .in('market_id', organizerMarketIds)
-      .not('status', 'in', '("cancelled")')
-
-    for (const row of orderRows || []) {
-      const mid = row.market_id as string
-      organizerOrderCounts[mid] = (organizerOrderCounts[mid] || 0) + 1
-    }
-
-    // Get order value totals per market
-    const { data: valueRows } = await serviceClient
-      .from('order_items')
-      .select('market_id, subtotal_cents')
-      .in('market_id', organizerMarketIds)
-      .not('status', 'in', '("cancelled")')
-
-    for (const row of valueRows || []) {
-      const mid = row.market_id as string
-      organizerOrderValues[mid] = (organizerOrderValues[mid] || 0) + (row.subtotal_cents as number)
-    }
-
-    // Get wave data for markets with wave ordering
-    const { data: waveRows } = await serviceClient
-      .from('event_waves')
-      .select('market_id, wave_number, capacity, reserved_count, status')
-      .in('market_id', organizerMarketIds)
-      .order('wave_number')
-
-    for (const row of waveRows || []) {
-      const mid = row.market_id as string
-      if (!organizerWaveData[mid]) organizerWaveData[mid] = []
-      organizerWaveData[mid].push({
-        wave_number: row.wave_number as number,
-        capacity: row.capacity as number,
-        reserved: row.reserved_count as number,
-        status: row.status as string,
-      })
-    }
-  }
-
-  const hasOrganizerEvents = (organizerEvents || []).length > 0
+  // RETIRED 2026-08-08: the organizer "My Events" band and its five supporting
+  // queries (events, accepted vendors, order count, order value, waves) lived
+  // here. They now live on /[vertical]/event-manager/[id]/dashboard, scoped to
+  // one event instead of fanned out across every event the organizer had.
+  // Getting into it: the switcher's Events destination, plus the ?section=events
+  // redirect at the top of this file for the signup/confirmation funnel.
 
   // isAdmin was only used by the Admin band removed 2026-08-07 (admin lives in
   // the hamburger menu). Dropped rather than left dangling — the Header does
@@ -320,7 +276,6 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
       padding: spacing.xl
     }}>
       <DashboardNav destinations={navDestinations} />
-      <ScrollToSection />
       {/* Page Title + Welcome */}
       <div className="dashboard-header" style={{
         display: 'flex',
@@ -730,245 +685,6 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
 
       </section>
 
-      {/* ========== MY EVENTS SECTION (for event organizers) ========== */}
-      {hasOrganizerEvents && (
-        <>
-          <div style={{ borderTop: `1px solid ${colors.border}`, marginBottom: spacing.lg }} />
-          <section id="events-section" style={{ marginBottom: spacing.lg }}>
-            <h2 style={{
-              fontSize: typography.sizes.xl,
-              fontWeight: typography.weights.semibold,
-              marginBottom: spacing.sm,
-              color: colors.textSecondary,
-              display: 'flex',
-              alignItems: 'center',
-              gap: spacing['2xs']
-            }}>
-              My Events
-            </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
-              {(organizerEvents || []).map(evt => {
-                const vendorAccepted = evt.market_id ? (organizerVendorCounts[evt.market_id] || 0) : 0
-                const preOrderCount = evt.market_id ? (organizerOrderCounts[evt.market_id] || 0) : 0
-                const eventDate = evt.event_date
-                  ? new Date(evt.event_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
-                  : 'Date TBD'
-                const statusLabels: Record<string, string> = {
-                  new: 'Submitted',
-                  reviewing: 'Under Review',
-                  approved: 'Approved — Inviting Vendors',
-                  ready: 'Vendors Confirmed — Pre-Orders Open',
-                  active: 'Event Day',
-                  review: 'Event Ended — Collecting Feedback',
-                  completed: 'Completed',
-                  cancelled: 'Cancelled',
-                  declined: 'Declined',
-                }
-                const statusColors2: Record<string, { bg: string; text: string }> = {
-                  // Mapped onto the shared palette 2026-08-07 — no raw hex.
-                  // NOTE: `review` uses the selection* (indigo) tokens, which are
-                  // the closest purple the palette has. The token name says
-                  // "selection" but this is the admin/review accent — worth a
-                  // properly named token if the admin surfaces stay put (3b).
-                  new: { bg: statusColors.infoLight, text: statusColors.infoDark },
-                  reviewing: { bg: statusColors.warningLight, text: statusColors.warningDark },
-                  approved: { bg: statusColors.successLight, text: statusColors.successDark },
-                  ready: { bg: statusColors.successLight, text: statusColors.successDark },
-                  active: { bg: statusColors.successLight, text: statusColors.successDark },
-                  review: { bg: statusColors.selectionBg, text: statusColors.selectionText },
-                  completed: { bg: statusColors.neutral100, text: statusColors.neutral700 },
-                  cancelled: { bg: statusColors.dangerLight, text: statusColors.dangerDark },
-                  declined: { bg: statusColors.dangerLight, text: statusColors.dangerDark },
-                }
-                const sc = statusColors2[evt.status] || statusColors2.new
-
-                return (
-                  <div key={evt.id} style={{
-                    padding: spacing.sm,
-                    backgroundColor: 'white',
-                    border: `1px solid ${colors.border}`,
-                    borderRadius: radius.lg,
-                    boxShadow: shadows.sm,
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing['2xs'] }}>
-                      <div>
-                        <h3 style={{ margin: 0, fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: statusColors.neutral800 }}>
-                          {evt.company_name}
-                        </h3>
-                        <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.sm, color: statusColors.neutral500 }}>
-                          {eventDate}
-                        </p>
-                      </div>
-                      <span style={{
-                        padding: `2px ${spacing.xs}`,
-                        backgroundColor: sc.bg,
-                        color: sc.text,
-                        borderRadius: radius.sm,
-                        fontSize: typography.sizes.xs,
-                        fontWeight: typography.weights.semibold,
-                        whiteSpace: 'nowrap',
-                      }}>
-                        {statusLabels[evt.status] || evt.status}
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: spacing.md, fontSize: typography.sizes.sm, color: statusColors.neutral500, marginBottom: spacing.xs, flexWrap: 'wrap' }}>
-                      <span>{vendorAccepted} of {evt.vendor_count} vendors confirmed</span>
-                      {preOrderCount > 0 && <span>{preOrderCount} pre-order{preOrderCount !== 1 ? 's' : ''}</span>}
-                      {preOrderCount > 0 && evt.headcount > 0 && (
-                        <span>{Math.round((preOrderCount / evt.headcount) * 100)}% participation</span>
-                      )}
-                    </div>
-
-                    {/* Wave utilization (company-paid events with waves) */}
-                    {evt.market_id && organizerWaveData[evt.market_id] && organizerWaveData[evt.market_id].length > 0 && (
-                      <div style={{ marginBottom: spacing.xs }}>
-                        <div style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, marginBottom: spacing['3xs'] }}>
-                          Time slot availability
-                        </div>
-                        <div style={{ display: 'flex', gap: spacing['2xs'], flexWrap: 'wrap' }}>
-                          {organizerWaveData[evt.market_id].map(w => {
-                            const pct = w.capacity > 0 ? Math.round((w.reserved / w.capacity) * 100) : 0
-                            const isFull = w.status === 'full' || pct >= 100
-                            return (
-                              <div key={w.wave_number} style={{
-                                padding: `${spacing['3xs']} ${spacing.xs}`,
-                                backgroundColor: isFull ? statusColors.dangerLight : pct > 75 ? statusColors.warningLight : statusColors.successLight,
-                                border: `1px solid ${isFull ? statusColors.dangerBorder : pct > 75 ? statusColors.warningBorder : statusColors.successBorder}`,
-                                borderRadius: radius.sm,
-                                fontSize: 11,
-                                color: isFull ? statusColors.dangerDark : pct > 75 ? statusColors.warningDark : statusColors.successDark,
-                              }}>
-                                W{w.wave_number}: {w.reserved}/{w.capacity} {isFull ? '(full)' : ''}
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Order value summary (company-paid) */}
-                    {evt.market_id && (organizerOrderValues[evt.market_id] || 0) > 0 && evt.payment_model === 'company_paid' && (
-                      <div style={{ fontSize: typography.sizes.xs, color: statusColors.neutral600, marginBottom: spacing.xs }}>
-                        Total order value: <strong>${((organizerOrderValues[evt.market_id] || 0) / 100).toFixed(2)}</strong>
-                      </div>
-                    )}
-
-                    <div style={{ display: 'flex', gap: spacing.xs, flexWrap: 'wrap' }}>
-                      {evt.event_token && ['approved', 'ready', 'active', 'review', 'completed'].includes(evt.status) && (
-                        <Link
-                          href={`/${vertical}/events/${evt.event_token}`}
-                          style={{
-                            padding: `${spacing['3xs']} ${spacing.xs}`,
-                            backgroundColor: colors.primary,
-                            color: 'white',
-                            borderRadius: radius.sm,
-                            fontSize: typography.sizes.xs,
-                            fontWeight: typography.weights.semibold,
-                            textDecoration: 'none',
-                          }}
-                        >
-                          View Event Page
-                        </Link>
-                      )}
-                      {evt.event_token && evt.service_level === 'self_service' && ['approved', 'ready'].includes(evt.status) && (
-                        <Link
-                          href={`/${vertical}/events/${evt.event_token}/select`}
-                          style={{
-                            padding: `${spacing['3xs']} ${spacing.xs}`,
-                            backgroundColor: statusColors.infoLight,
-                            color: statusColors.infoDark,
-                            borderRadius: radius.sm,
-                            fontSize: typography.sizes.xs,
-                            fontWeight: typography.weights.semibold,
-                            textDecoration: 'none',
-                          }}
-                        >
-                          Select Vendors
-                        </Link>
-                      )}
-                      {evt.event_token && ['ready', 'active'].includes(evt.status) && (
-                        <Link
-                          href={`/${vertical}/events/${evt.event_token}/shop`}
-                          style={{
-                            padding: `${spacing['3xs']} ${spacing.xs}`,
-                            backgroundColor: statusColors.successLight,
-                            color: statusColors.successDark,
-                            borderRadius: radius.sm,
-                            fontSize: typography.sizes.xs,
-                            fontWeight: typography.weights.semibold,
-                            textDecoration: 'none',
-                          }}
-                        >
-                          Shop Page
-                        </Link>
-                      )}
-                    </div>
-
-                    {/* Access code display for company-paid events */}
-                    {evt.access_code && (evt.payment_model === 'company_paid' || evt.payment_model === 'hybrid') && (
-                      <div style={{
-                        marginTop: spacing.xs,
-                        padding: `${spacing['3xs']} ${spacing.xs}`,
-                        backgroundColor: statusColors.warningLight,
-                        border: `1px solid ${statusColors.warningBorder}`,
-                        borderRadius: radius.sm,
-                        fontSize: typography.sizes.xs,
-                        color: statusColors.warningDark,
-                      }}>
-                        Access code: <strong style={{ letterSpacing: 2, fontFamily: 'monospace' }}>{evt.access_code}</strong>
-                        <span style={{ marginLeft: spacing.xs, color: statusColors.warningDark }}> — share with attendees</span>
-                      </div>
-                    )}
-
-                    {/* Progressive detail collection.
-                        NO LONGER GATED ON event_token (2026-08-08). It was, and
-                        since the token is only minted at approval, the editor
-                        never appeared on exactly the events that needed it — the
-                        addressless ones that approval refuses. It is addressed by
-                        id when there is no token yet (lib/events/event-ref.ts). */}
-                    <OrganizerEventDetails
-                      eventRef={(evt.event_token as string | null) || (evt.id as string)}
-                      status={evt.status}
-                      vertical={vertical}
-                      primaryColor={colors.primary}
-                    />
-
-                    {/* Organizer picks the vendor agreement for this event.
-                        Available once the event has a market (post-approval),
-                        so it can be set before/while vendors are invited. */}
-                    {evt.event_token && ['approved', 'ready', 'active', 'review'].includes(evt.status) && (
-                      <EventAgreementPickerCard eventToken={evt.event_token} primaryColor={colors.primary} />
-                    )}
-
-                    {/* Organizer → vendors/attendees announcements (once the
-                        lineup is confirmed / attendees can order). */}
-                    {evt.event_token && ['approved', 'ready', 'active', 'review'].includes(evt.status) && (
-                      <EventBroadcastCard eventToken={evt.event_token} primaryColor={colors.primary} />
-                    )}
-
-                    {/* Read-only attendee ratings — only exist once the event
-                        is ratable (active/review/completed). Approved-only. */}
-                    {evt.event_token && ['active', 'review', 'completed'].includes(evt.status) && (
-                      <EventRatingsCard eventToken={evt.event_token} primaryColor={colors.primary} />
-                    )}
-
-                    {/* Client-side actions: copy link, cancel */}
-                    <OrganizerEventActions
-                      eventId={evt.id}
-                      eventName={evt.company_name}
-                      eventRef={(evt.event_token as string | null) || (evt.id as string)}
-                      eventToken={evt.event_token}
-                      status={evt.status}
-                      vertical={vertical}
-                    />
-                  </div>
-                )
-              })}
-            </div>
-          </section>
-        </>
-      )}
 
       {/* ========== VENDOR SECTION PLACEHOLDER (for non-vendors) ========== */}
       {!isVendor && (

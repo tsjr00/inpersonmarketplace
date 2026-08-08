@@ -43,10 +43,16 @@ export default function LoginPage({ params }: LoginPageProps) {
   const isMarketInviteReturn = !!returnToParam
     && returnToParam.startsWith(`/${vertical}/vendor-signup`)
     && returnToParam.includes('market=')
-  const dashboardSuffix = isEventRef ? '?section=events' : ''
+  // Organizers arriving via ?ref=event go straight to their event dashboard.
+  // This used to be `/dashboard?section=events`, which scrolled to the "My
+  // Events" band on the shopper dashboard; that band moved to /event-manager
+  // on 2026-08-08. The old URL still redirects there, so previously-minted
+  // links keep working — but there is no reason to send new ones the long way.
   const postLoginUrl = isMarketInviteReturn
     ? (returnToParam as string)
-    : `/${vertical}/dashboard${dashboardSuffix}`
+    : isEventRef
+      ? `/${vertical}/event-manager`
+      : `/${vertical}/dashboard`
   const supabase = createClient()
   const locale = getClientLocale()
   const { token: turnstileToken, isVerified: captchaVerified, handleVerify, handleError: handleCaptchaError, handleExpire } = useTurnstile()

@@ -47,7 +47,9 @@ export default function ConfirmEmailPage({ params }: ConfirmEmailPageProps) {
       setStatus('success')
 
       // Read redirect destination from user metadata (saved by signup page)
-      // Covers: vendors → /vendor-signup, event organizers → /dashboard?section=events, buyers → /dashboard
+      // Covers: vendors → /vendor-signup, event organizers → /event-manager, buyers → /dashboard.
+      // ⚠ Accounts created before 2026-08-08 have `/dashboard?section=events`
+      // stored here; that URL redirects to /event-manager, so both work.
       const { data: { user } } = await supabase.auth.getUser()
       const redirectTo = user?.user_metadata?.signup_redirect_to as string | undefined
 

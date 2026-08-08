@@ -104,6 +104,56 @@ export default async function EventManagerDashboardPage({ params }: PageProps) {
   const needsAddress = !String(event.address ?? '').trim()
     && ['new', 'reviewing'].includes(status)
 
+  // Traction data, ported off the shopper dashboard's "My Events" band
+  // 2026-08-08. There it ran `.in('market_id', [...])` across every event the
+  // organiser had; here it is one event, so the per-market bucketing is gone.
+  // The band also queried order_items TWICE with identical filters — once to
+  // count rows, once to sum subtotals — collapsed into one pass below.
+  // Only meaningful once approval has created the market.
+  const marketId = event.market_id as string | null
+  let vendorsAccepted = 0
+  let preOrderCount = 0
+  let orderValueCents = 0
+  let waves: Array<{ wave_number: number; capacity: number; reserved: number; status: string }> = []
+
+  if (marketId) {
+    const [vendorRes, orderRes, waveRes] = await Promise.all([
+      serviceClient
+        .from('market_vendors')
+        .select('id')
+        .eq('market_id', marketId)
+        .eq('response_status', 'accepted'),
+      serviceClient
+        .from('order_items')
+        .select('subtotal_cents')
+        .eq('market_id', marketId)
+        .not('status', 'in', '("cancelled")'),
+      serviceClient
+        .from('event_waves')
+        .select('wave_number, capacity, reserved_count, status')
+        .eq('market_id', marketId)
+        .order('wave_number'),
+    ])
+
+    vendorsAccepted = (vendorRes.data || []).length
+    preOrderCount = (orderRes.data || []).length
+    orderValueCents = (orderRes.data || []).reduce(
+      (sum, r) => sum + ((r.subtotal_cents as number) || 0),
+      0
+    )
+    waves = (waveRes.data || []).map(w => ({
+      wave_number: w.wave_number as number,
+      capacity: w.capacity as number,
+      reserved: w.reserved_count as number,
+      status: w.status as string,
+    }))
+  }
+
+  const headcount = (event.headcount as number) || 0
+  const participationPct = preOrderCount > 0 && headcount > 0
+    ? Math.round((preOrderCount / headcount) * 100)
+    : null
+
   const navDestinations = await getNavDestinations(supabase, user, vertical)
 
   return (
@@ -162,17 +212,86 @@ export default async function EventManagerDashboardPage({ params }: PageProps) {
           </p>
         )}
 
-        {isLive && (
-          <p style={{ margin: `${spacing.xs} 0 0 0` }}>
+        {/* Traction line, ported from the shopper band. Vendors-confirmed is the
+            number organisers actually watch before an event; pre-orders and
+            participation are what they watch after it opens. */}
+        {marketId && (
+          <div style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: spacing.md,
+            marginTop: spacing.xs,
+            paddingTop: spacing.xs,
+            borderTop: `1px solid ${colors.border}`,
+            fontSize: typography.sizes.sm,
+            color: colors.textSecondary,
+          }}>
+            <span><strong>{vendorsAccepted}</strong> of {(event.vendor_count as number) || '?'} vendors confirmed</span>
+            {preOrderCount > 0 && (
+              <span><strong>{preOrderCount}</strong> pre-order{preOrderCount === 1 ? '' : 's'}</span>
+            )}
+            {participationPct !== null && <span>{participationPct}% participation</span>}
+            {orderValueCents > 0 && event.payment_model === 'company_paid' && (
+              <span>Total order value <strong>${(orderValueCents / 100).toFixed(2)}</strong></span>
+            )}
+          </div>
+        )}
+
+        {/* The organiser's three ways into their own event. Only the attendee
+            shop link existed here before; View Event Page and Select Vendors
+            were reachable only from the shopper-dashboard band. */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.xs }}>
+          {event.event_token && ['approved', 'ready', 'active', 'review', 'completed'].includes(status) && (
+            <Link
+              href={`/${vertical}/events/${event.event_token}`}
+              style={{ color: colors.primary, fontSize: typography.sizes.sm, textDecoration: 'none' }}
+            >
+              View the event page →
+            </Link>
+          )}
+          {event.event_token && event.service_level === 'self_service' && ['approved', 'ready'].includes(status) && (
+            <Link
+              href={`/${vertical}/events/${event.event_token}/select`}
+              style={{ color: colors.primary, fontSize: typography.sizes.sm, textDecoration: 'none' }}
+            >
+              Select vendors →
+            </Link>
+          )}
+          {isLive && (
             <Link
               href={`/${vertical}/events/${event.event_token}/shop`}
               style={{ color: colors.primary, fontSize: typography.sizes.sm, textDecoration: 'none' }}
             >
               View the attendee shopping page →
             </Link>
-          </p>
-        )}
+          )}
+        </div>
       </DashboardCard>
+
+      {/* Wave utilisation — only exists for wave-ordering events, so the whole
+          card stays out of the way when there are none. */}
+      {waves.length > 0 && (
+        <DashboardCard title="Time slot availability">
+          <div style={{ display: 'flex', gap: spacing['2xs'], flexWrap: 'wrap' }}>
+            {waves.map(w => {
+              const pct = w.capacity > 0 ? Math.round((w.reserved / w.capacity) * 100) : 0
+              const isFull = w.status === 'full' || pct >= 100
+              return (
+                <div key={w.wave_number} style={{
+                  padding: `${spacing['3xs']} ${spacing.xs}`,
+                  backgroundColor: isFull ? statusColors.dangerLight : pct > 75 ? statusColors.warningLight : statusColors.successLight,
+                  border: `1px solid ${isFull ? statusColors.dangerBorder : pct > 75 ? statusColors.warningBorder : statusColors.successBorder}`,
+                  borderRadius: 6,
+                  fontSize: typography.sizes.xs,
+                  color: isFull ? statusColors.dangerDark : pct > 75 ? statusColors.warningDark : statusColors.successDark,
+                }}>
+                  W{w.wave_number}: {w.reserved}/{w.capacity}{isFull ? ' (full)' : ''}
+                </div>
+              )
+            })}
+          </div>
+        </DashboardCard>
+      )}
 
       {/* The editor. NOT gated on event_token — that gate is precisely what made
           an addressless event unfixable, because the token does not exist until

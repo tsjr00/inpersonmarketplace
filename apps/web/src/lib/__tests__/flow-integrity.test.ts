@@ -760,3 +760,174 @@ describe('FT park-manager flow integrity', () => {
     expect(sql).toContain('ft-propane-inspection')
   })
 })
+
+// ── Organizer event funnel integrity (added 2026-08-08) ─────────────
+//
+// An event organizer's route to their own event crosses seven files plus a
+// value frozen in Supabase user_metadata. Every file is correct alone; the
+// bugs live in the joins. Two of these shipped; one was caught pre-merge.
+//
+//   · `event_token` is minted at APPROVAL, so anything keyed by it is
+//     unreachable for the events that most need attention. That produced a
+//     deadlock: an event with no street address could not be approved, edited
+//     or cancelled by anyone.
+//   · The "My Events" band was the landing target of the whole signup funnel.
+//     Removing it without a redirect would dead-end a brand-new organizer on
+//     the page immediately after they confirm their email.
+//   · `organizer_user_id` is null until something claims the event by email.
+//     That claim lived only on the shopper dashboard, so pointing the funnel
+//     elsewhere made a new organizer's FIRST visit find zero events.
+//
+// These assert the RULE — "an organizer can always reach and fix their own
+// event" — not today's implementation. If one fails, fix the code.
+
+describe('Organizer event funnel integrity', () => {
+  const rd = (p: string) => fs.readFileSync(path.join(SRC_DIR, p), 'utf-8')
+  const has = (p: string) => fs.existsSync(path.join(SRC_DIR, p))
+  // Strip comments before asserting a pattern is ABSENT. These files document
+  // the bug they fixed by quoting the broken code, so a naive match on the
+  // whole file fails on the explanation rather than on real code.
+  const code = (p: string) => rd(p).replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+
+  const loginPage = 'app/[vertical]/login/page.tsx'
+  const signupPage = 'app/[vertical]/signup/page.tsx'
+  const shopperDash = 'app/[vertical]/dashboard/page.tsx'
+  const picker = 'app/[vertical]/event-manager/page.tsx'
+  const eventDash = 'app/[vertical]/event-manager/[id]/dashboard/page.tsx'
+  const detailsRoute = 'app/api/events/[token]/details/route.ts'
+  const navDest = 'lib/dashboard/nav-destinations.ts'
+
+  // ── The funnel lands somewhere that works ──
+
+  it('the event-manager picker and dashboard both exist', () => {
+    expect(has(picker)).toBe(true)
+    expect(has(eventDash)).toBe(true)
+  })
+
+  it('login and signup send ?ref=event organizers to /event-manager', () => {
+    // NOT to the shopper dashboard — the organizer band that lived there is
+    // gone, so sending them there strands them.
+    for (const p of [loginPage, signupPage]) {
+      expect(rd(p), p + ' must branch on ref=event').toContain('isEventRef')
+      expect(rd(p), p + ' must route organizers to /event-manager').toMatch(/event-manager/)
+    }
+  })
+
+  it('/dashboard?section=events still redirects to the event manager', () => {
+    // LOAD-BEARING, NOT DEAD CODE. signup persists its redirect URL into
+    // user_metadata.signup_redirect_to and confirm-email replays it days
+    // later, so accounts created before 2026-08-08 keep arriving on this URL.
+    // Deleting this redirect breaks a link that exists only in Supabase.
+    const code = rd(shopperDash)
+    expect(code).toMatch(/section\s*===\s*'events'/)
+    expect(code).toMatch(/redirect\([^)]*event-manager/)
+  })
+
+  it('the shopper dashboard no longer renders the organizer My Events band', () => {
+    const src = code(shopperDash)
+    expect(src).not.toContain('hasOrganizerEvents')
+    expect(src).not.toContain('id="events-section"')
+  })
+
+  // ── A new organizer's FIRST visit works ──
+
+  it('the picker claims organizer_user_id BEFORE querying by it', () => {
+    // Event requests are submitted anonymously, so organizer_user_id is null
+    // until claimed by contact_email match. The picker is a funnel landing
+    // target, so it must do the claim itself or the first visit finds nothing.
+    const code = rd(picker)
+    const claimAt = code.indexOf('organizer_user_id: user.id')
+    const readAt = code.indexOf(".eq('organizer_user_id', user.id)")
+    expect(claimAt, 'picker must claim events by contact_email').toBeGreaterThan(-1)
+    expect(readAt, 'picker must read events by organizer_user_id').toBeGreaterThan(-1)
+    expect(claimAt, 'the claim must run BEFORE the read').toBeLessThan(readAt)
+  })
+
+  // ── A pending (tokenless) event is never hidden from its organizer ──
+
+  it('no organizer surface filters events on event_token', () => {
+    for (const p of [picker, navDest]) {
+      expect(code(p), p + ' must not filter on event_token')
+        .not.toMatch(/not\(\s*'event_token'/)
+    }
+  })
+
+  it('the event manager dashboard is keyed on id, not event_token', () => {
+    expect(has('app/[vertical]/event-manager/[token]/dashboard/page.tsx')).toBe(false)
+    expect(rd(eventDash)).toMatch(/\.eq\('id',\s*id\)/)
+  })
+
+  it('organizer detail routes accept an id as well as a token', () => {
+    // Auth in these routes is the organizer's session, never the token — which
+    // is what makes accepting an id safe.
+    expect(has('lib/events/event-ref.ts')).toBe(true)
+    for (const p of [
+      detailsRoute,
+      'app/api/events/[token]/cancel/route.ts',
+      'app/api/events/[token]/refresh-matches/route.ts',
+    ]) {
+      expect(rd(p), p + ' must resolve id-or-token').toContain('eventRefColumn')
+    }
+  })
+
+  it('cancel is addressed by eventRef, not by the token alone', () => {
+    // The old code rendered the Cancel button AND its confirm dialog, then
+    // bailed on !eventToken with no message — a dead button on exactly the
+    // events that needed cancelling.
+    expect(rd('components/events/OrganizerEventActions.tsx'))
+      .toMatch(/\/api\/events\/\$\{eventRef\}\/cancel/)
+  })
+
+  // ── The organizer can fix what approval demands ──
+
+  it('address is editable by the organizer while the event is unapproved', () => {
+    const code = rd(detailsRoute)
+    expect(code).toMatch(/'address'/)
+    expect(code, "status 'new' must stay editable").toMatch(/EDITABLE_STATUSES[\s\S]{0,120}'new'/)
+  })
+
+  it('address is required at intake on BOTH the client and the server', () => {
+    // A field required downstream but optional upstream, with no editor in
+    // between, is the shape that created the deadlock.
+    expect(rd('app/api/event-requests/route.ts')).toMatch(/!address\s*\|\|/)
+    expect(rd('components/events/EventRequestForm.tsx')).toMatch(/!form\.address\.trim\(\)/)
+  })
+
+  it('fields that approval copies into markets are pre-approval only', () => {
+    // approveEventRequest copies address/city/state/zip/event_date into the
+    // markets row and derives the schedule weekday from the date. Editing them
+    // afterwards changes nothing vendors or shoppers see — a silent desync.
+    const code = rd(detailsRoute)
+    expect(code).toContain('PRE_APPROVAL_ONLY_FIELDS')
+    for (const f of ['city', 'state', 'zip', 'event_date']) {
+      expect(code, f + ' must be guarded').toMatch(
+        new RegExp('PRE_APPROVAL_ONLY_FIELDS[\\s\\S]{0,300}\'' + f + '\'')
+      )
+    }
+    expect(code, 'the guard must key on an existing market').toMatch(/event\.market_id/)
+  })
+
+  it('admin can supply an address, and approval reads it from the same request', () => {
+    // Checking only the stored row made "set the address and approve" a
+    // two-call dance whose first call silently failed.
+    const code = rd('app/api/admin/events/[id]/route.ts')
+    expect(code).toMatch(/updates\.address/)
+    expect(code).toContain('effectiveAddress')
+  })
+
+  // ── Regressions that shipped once ──
+
+  it('event_ratings is never embedded through a user_profiles FK', () => {
+    // event_ratings.user_id references auth.users, NOT user_profiles (mig 116).
+    // The embed hint named a constraint that cannot join those tables, so the
+    // admin page 500'd on every load and looked like an empty state.
+    expect(code('app/api/admin/event-ratings/route.ts')).not.toMatch(/user_profiles!event_ratings/)
+  })
+
+  it('the refresh-matches banner only appears once the event has a market', () => {
+    // refresh-matches rejects anything unapproved, so offering the button on a
+    // pending event is a prompt that can only fail.
+    expect(rd('components/events/OrganizerEventDetails.tsx'))
+      .toMatch(/matchingChanged\s*&&\s*details\?\.market_id/)
+  })
+})

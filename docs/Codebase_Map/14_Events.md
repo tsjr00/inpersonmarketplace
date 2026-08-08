@@ -103,7 +103,17 @@ Added 2026-08-07 after the owner flagged the confusion explicitly: *"the vendors
 
 **An event organizer is NOT a market manager.** Different table, different identity column — organizers are `catering_requests.organizer_user_id`, managers are `markets.manager_user_id`. An approved event does get a linked `market_id`, which makes them look related. They are not.
 
-⚠ **The organizer's old "My Events" band is STILL on the shopper dashboard** even though the dashboard above now exists. Deliberate: the owner asked to *"keep the way in for organizers for now (testing)"*, and on 2026-08-08 held it again pending a broader look at the events module. **Removing it is a PORT, not a delete** — the band carries six things the event-manager dashboard does not: vendors-confirmed / pre-order / participation counts, wave utilization, order-value summary, and the View Event Page / Select Vendors links. Move those first, then remove.
+✅ **The organizer's "My Events" band is GONE from the shopper dashboard** (removed 2026-08-08). It was a port, not a delete — vendors-confirmed / pre-order / participation counts, wave utilization, the order-value summary and the View Event Page / Select Vendors links all moved to the event-manager dashboard, re-scoped from every-event-at-once to one event. Its five queries left the shopper dashboard with it.
+
+### ⚠ How an organizer GETS to their dashboard — do not break this chain
+
+The band was the landing target of the whole organizer onboarding funnel, which is easy to miss because no test covers it:
+
+`api/event-requests/route.ts:501` (confirmation email) · the post-submit screen (`EventRequestForm.tsx:479-480`) · the cron nudge (`expire-orders/route.ts:3342`) all send **`signup?ref=event`** → signup turns that into a redirect URL and **persists it in `user_metadata.signup_redirect_to`** (`signup/page.tsx:97`) → `confirm-email/page.tsx:52` replays it, possibly days later. Login honors `?ref=event` independently.
+
+New signups now land on `/[vertical]/event-manager`. **`/[vertical]/dashboard?section=events` still redirects there permanently** (`dashboard/page.tsx`, top of the component) because accounts created before 2026-08-08 have that URL frozen in their metadata. Do not remove that redirect as "dead code" — it is load-bearing for a link you cannot see in the codebase.
+
+`ScrollToSection` is now unreferenced: `#events-section` was the last `?section=` target in the app.
 
 ### ⚠ Addressing organizer surfaces: id, not token (2026-08-08)
 

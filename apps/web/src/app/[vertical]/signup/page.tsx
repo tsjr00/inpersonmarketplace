@@ -38,7 +38,13 @@ export default function SignupPage({ params }: SignupPageProps) {
   const isEventRef = searchParams.get('ref') === 'event'
   const prefillEmail = searchParams.get('email') || ''
   const returnTo = searchParams.get('returnTo')
-  const dashboardUrl = returnTo || `/${vertical}/dashboard${isEventRef ? '?section=events' : ''}`
+  // ⚠ This value is persisted into user_metadata.signup_redirect_to below and
+  // replayed by confirm-email, possibly days later — so whatever it points at
+  // must keep working indefinitely. Organizers (?ref=event) now go to
+  // /event-manager; the previous `/dashboard?section=events` still redirects
+  // there for accounts that already have the old URL stored.
+  const dashboardUrl = returnTo
+    || (isEventRef ? `/${vertical}/event-manager` : `/${vertical}/dashboard`)
   const supabase = createClient()
   const { token: turnstileToken, isVerified: captchaVerified, handleVerify, handleError: handleCaptchaError, handleExpire } = useTurnstile()
 

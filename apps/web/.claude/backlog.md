@@ -119,6 +119,18 @@ Red banner. Owner: *"might be because there are no scores yet, but it might be a
 **Suggested order:** **A** (a deadlock with no escape beats everything) → **D** (admins locked out of a working page) → **E** (small, and it may just be an empty state) → **C** (build work) → **B** (analysis + documentation, the largest and least urgent).
 
 
+## 🟡 TEST QUALITY — absence assertions in `flow-integrity.test.ts` match comments as if they were code (found 2026-08-08)
+
+These tests assert cross-file contracts by reading source files as text. That works for *presence* checks, but an **absence** check (`expect(code).not.toContain(...)`) cannot tell code from a comment — and this codebase deliberately documents fixed bugs by quoting the broken code in a comment right where it used to live.
+
+Hit for real on 2026-08-08: a new test asserting `admin/event-ratings` never embeds `user_profiles!event_ratings...` failed, even though the embed was gone. It was matching the comment that explains why it's gone. The rule was right; the matcher was imprecise.
+
+**Fixed only in the new `Organizer event funnel integrity` block**, via a `code()` helper that strips `//` and `/* */` before matching. **The older describe blocks in that file were not touched** and have the same latent flaw — any of them doing `.not.toContain()` / `.not.toMatch()` against a raw `read()` can produce a false failure the moment someone documents a fix, or (worse) a false PASS is not possible here, so the risk is wasted debugging rather than a missed bug.
+
+**Do:** audit the existing `not.toContain` / `not.toMatch` assertions in `flow-integrity.test.ts`, and route them through the same comment-stripping helper. Small, mechanical, no behavior change. ⚠ Do NOT relax any assertion while doing it — the fix is to the matcher, never to the rule.
+
+---
+
 ## 🔴 HIGH — FT day-to-day pickup capacity ("skip the line" is currently unenforceable) — added 2026-08-02
 
 **Status 2026-08-02: BUILT + TESTED; mig 216 APPLIED to Dev + Staging** (`3d3d13c3` schema/UI, `cebc18cb` checkout enforcement, + uncommitted 216 revisions & tests). Prod still pending.

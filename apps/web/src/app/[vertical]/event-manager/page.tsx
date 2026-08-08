@@ -41,6 +41,23 @@ export default async function EventManagerPickerPage({ params }: PageProps) {
   // Service client: organiser rows are read by owner id, which RLS on
   // catering_requests does not expose to the user client.
   const serviceClient = createServiceClient()
+
+  // ⚠ Claim any event submitted under this user's email before they had an
+  // account. This MUST happen here, not only on the shopper dashboard.
+  //
+  // An event request is submitted by an anonymous form, so `organizer_user_id`
+  // is null until something links it. That linking lived only on
+  // `/[vertical]/dashboard` — fine while the organizer's band lived there too.
+  // As of 2026-08-08 the confirmation email lands them HERE instead, so without
+  // this the very first visit after signing up would find zero events, bounce
+  // to the shopper dashboard, and only work on the second try.
+  await serviceClient
+    .from('catering_requests')
+    .update({ organizer_user_id: user.id })
+    .eq('contact_email', user.email!.toLowerCase())
+    .eq('vertical_id', vertical)
+    .is('organizer_user_id', null)
+
   const { data: events } = await serviceClient
     .from('catering_requests')
     .select('id, company_name, event_date, status')
