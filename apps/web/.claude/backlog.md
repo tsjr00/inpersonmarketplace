@@ -119,6 +119,40 @@ Red banner. Owner: *"might be because there are no scores yet, but it might be a
 **Suggested order:** **A** (a deadlock with no escape beats everything) → **D** (admins locked out of a working page) → **E** (small, and it may just be an empty state) → **C** (build work) → **B** (analysis + documentation, the largest and least urgent).
 
 
+## 🟡 VISUAL CONSISTENCY ROLLOUT — extend the dashboard standards to established pages (agreed 2026-08-08)
+
+Owner: *"standardizing those would go a long way in giving a similar look & feel to the app… doing each one as its own slice is best."* Explicitly **lower priority than the events module**, but queued so the surfaces converge.
+
+### ⚠ What transfers — and what does NOT
+
+**"Converted" does NOT mean "uses `DashboardCard`."** These are list and detail pages, not dashboards. Forcing card chrome onto them applies a vocabulary that doesn't fit, which is how a system gets worked around instead of used. **Tiles, semantic states and the dashboard icon set stay dashboard-only.**
+
+What transfers (owner-confirmed):
+1. **Palette tokens, zero raw hex.** The systemic one — hardcoded colour is how FT users end up looking at FM green (see the OrganizerEventDetails fix, same day).
+2. **Four-size typography discipline** — title `xl`, header `lg`, body `sm`, meta `xs`. This is what fixed the wrapping problems.
+3. **Empty-state rule** — a SECTION collapses, a PROMPT hides. See `docs/Codebase_Map/22_Components_UI.md`.
+4. **One grid system per page.** Mixing viewport-keyed CSS classes with container-keyed `auto-fit` produced an inverted layout on 2026-08-08; nothing stops it recurring.
+
+### Slices, ordered EASIEST FIRST (owner, 2026-08-08)
+
+Owner: *"lets start with the easiest one and then if it works go on to the next."* Deliberately **not** ordered by impact. The first slice is a cheap proving ground for the conversion checklist — get the approach validated on a small surface before committing to a 39-file one. An early slice that reveals the checklist is wrong costs a morning; the same discovery inside `components/vendor` costs a week.
+
+Raw-hex counts measured 2026-08-08 — an objective done/not-done signal per area.
+
+| # | Area | Raw hex | Files | Note |
+|---|---|---|---|---|
+| 1 | `browse`, `favorites`, `where-today`, `help` | 0–9 | — | **Start here.** Nearly clean already, so it mostly exercises the typography + empty-state rules and shakes out the checklist |
+| 2 | `app/[vertical]/buyer/orders` | 81 | 3 | Small file count, real drift, and every buyer lands here after purchase |
+| 3 | `vendor/listings` + `components/listings` | 132 | 14 | The vendor's daily workflow |
+| 4 | `components/vendor` | **328** | 39 | The big one. Feeds the already-approved vendor dashboard, so the mismatch shows most here — worth doing once the checklist is proven |
+| 5 | `app/[vertical]/vendor/markets` | **2** | 2 | ⚠ NOT a colour problem — the layout-density / raw-font-size "cram case". Different work; do not lump it in with the palette slices |
+
+`components/buyer` (53 hex, 8 files) rides along with slice 2 or 3 depending on what the files touch.
+
+**Per slice:** convert → `tsc` + lint + tests → owner reviews on staging → next. Do not batch two slices into one commit; the point of the ordering is that each one is a checkpoint.
+
+---
+
 ## 🟡 TEST QUALITY — absence assertions in `flow-integrity.test.ts` match comments as if they were code (found 2026-08-08)
 
 These tests assert cross-file contracts by reading source files as text. That works for *presence* checks, but an **absence** check (`expect(code).not.toContain(...)`) cannot tell code from a comment — and this codebase deliberately documents fixed bugs by quoting the broken code in a comment right where it used to live.

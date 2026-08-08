@@ -122,11 +122,31 @@ export function Header({
         paddingTop: isOnLandingPage ? spacing['2xs'] : 0,
         paddingBottom: (isOnLandingPage && vertical === 'farmers_market') ? spacing.sm : 0,
       }}>
+        {/* THREE COLUMNS, ALL IN FLOW: logo | nav | controls.
+            Was flex + space-between with the nav absolutely positioned at
+            left:50%. Because the nav was out of flow it occupied ZERO width, so
+            the logo and the right-hand controls laid themselves out as if it did
+            not exist — and as the window narrowed, the controls (language
+            switcher, notification bell) slid left and passed UNDERNEATH it.
+            Nothing pushed back, because there was nothing in the flow to push.
+            Owner found it on staging 2026-08-08.
+
+            `1fr auto 1fr` keeps what the absolute positioning was buying — the
+            nav centred on the PAGE, not merely in the space left over between
+            two unequal-width siblings — while making overlap structurally
+            impossible: the columns now compress against each other instead of
+            stacking on top of each other.
+
+            When .desktop-nav is display:none (<=640px) the middle column simply
+            collapses to zero and the logo/controls sit at the outer edges, so
+            the mobile header is unchanged. */}
         <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
+          display: 'grid',
+          gridTemplateColumns: '1fr auto 1fr',
           alignItems: 'center',
+          gap: spacing.sm,
           height: isOnLandingPage ? 64 : 56,
+          // Retained: descendant dropdowns position against this.
           position: 'relative',
         }}>
           {/* Logo */}
@@ -135,7 +155,12 @@ export function Header({
             style={{
               display: 'flex',
               alignItems: 'center',
-              textDecoration: 'none'
+              textDecoration: 'none',
+              // Column 1. Hug the left edge rather than stretching across the
+              // 1fr track, and allow the track to shrink below the logo's
+              // intrinsic width instead of forcing the row wider.
+              justifySelf: 'start',
+              minWidth: 0,
             }}
           >
             {branding.logo_path ? (
@@ -164,9 +189,9 @@ export function Header({
             display: 'flex',
             alignItems: 'center',
             gap: spacing.md,
-            position: 'absolute',
-            left: '50%',
-            transform: 'translateX(-50%)',
+            // Column 2. NO absolute positioning — that is the bug. The grid
+            // centres this on the page because the tracks either side are equal.
+            whiteSpace: 'nowrap',
           }}
           className="desktop-nav"
           >
@@ -224,8 +249,8 @@ export function Header({
             )}
           </nav>
 
-          {/* Right Side - Cart & User */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
+          {/* Right Side - Cart & User. Column 3: hug the right edge. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, justifySelf: 'end', minWidth: 0 }}>
             {/* Language Selector */}
             <LanguageSelector locale={locale} />
             {/* Notifications & Cart - logged in users */}
