@@ -49,6 +49,21 @@ interface DashboardCardProps {
    * 2026-08-07 for exactly this reason).
    */
   inGrid?: boolean
+  /**
+   * Alert-weight card: bigger padding and a bigger corner radius, for the one
+   * thing on a page that is meant to shout.
+   *
+   * Prominence is a separate axis from `state`. `state` says WHAT KIND of
+   * signal this is; `prominent` says HOW LOUD. "Ready for Pickup" is both —
+   * `active` (something good is waiting) AND prominent (it sits at the top,
+   * appears only when there is an order to collect, and carries the order
+   * number the buyer is looking for).
+   *
+   * ⚠ Use sparingly — one per page at most. A page where two things shout is a
+   * page where nothing does, which is the same failure as the FT all-red
+   * palette and as uniform nudge intensity.
+   */
+  prominent?: boolean
   children: ReactNode
 }
 
@@ -56,7 +71,7 @@ interface DashboardCardProps {
  *  aren't hidden under the nav after a jump. */
 export const NAV_OFFSET = 64
 
-export default function DashboardCard({ id, title, description, headerAccessory, state = 'neutral', inGrid = false, children }: DashboardCardProps) {
+export default function DashboardCard({ id, title, description, headerAccessory, state = 'neutral', inGrid = false, prominent = false, children }: DashboardCardProps) {
   const s = DASHBOARD_STATES[state]
   // Cards sit at 1px when resting and 2px whenever a state is set. They do NOT
   // take the tile's 3px + glow: a card is already full-width, so it does not
@@ -68,10 +83,10 @@ export default function DashboardCard({ id, title, description, headerAccessory,
     <section
       {...(id ? { id } : {})}
       style={{
-        padding: spacing.sm,
+        padding: prominent ? spacing.md : spacing.sm,
         backgroundColor: s.background,
         border: `${borderWidth}px solid ${s.border}`,
-        borderRadius: radius.md,
+        borderRadius: prominent ? radius.lg : radius.md,
         // Grid items default to `min-width: auto`, i.e. "never shrink below your
         // content". So a child that cannot wrap — anything with
         // `white-space: nowrap`, a URL, a long name — makes its whole COLUMN

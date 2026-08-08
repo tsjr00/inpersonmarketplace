@@ -3,7 +3,6 @@ export const dynamic = 'force-dynamic'
 import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
-import { hasAdminRole } from '@/lib/auth/admin'
 import { enforceVerticalAccess } from '@/lib/auth/vertical-gate'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -240,7 +239,9 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
 
   const hasOrganizerEvents = (organizerEvents || []).length > 0
 
-  const isAdmin = userProfile ? hasAdminRole(userProfile) : false
+  // isAdmin was only used by the Admin band removed 2026-08-07 (admin lives in
+  // the hamburger menu). Dropped rather than left dangling — the Header does
+  // its own admin check, so nothing here needs it.
   const buyerTier = (userProfile?.buyer_tier as string) || 'free'
   const isPremiumBuyer = buyerTier === 'premium'
 
@@ -415,46 +416,26 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
           <span>🛒</span> {t('dash.shopper', locale)}
         </h2>
 
-        {/* Ready for Pickup Alert - show prominently if there are orders ready */}
+        {/* READY FOR PICKUP — the one card on this page allowed to shout.
+            Shopper-side only, renders ONLY when something is actually ready,
+            always at the top, and carries the order number the buyer is looking
+            for plus a button to act on it (owner, 2026-08-07).
+
+            It crosses the tile/card line and lands on CARD: there is a button
+            inside it, so the surface is not a single door. What it needed that
+            the system lacked was PROMINENCE — hence `prominent`, which restores
+            exactly the padding and radius it used before. `active` because a
+            waiting order is good news, not a problem.
+
+            ⚠ Function unchanged, and deliberately so. This is the buyer's most
+            operationally important block. */}
         {ordersReadyForPickup.length > 0 && (
-          <div style={{
-            padding: spacing.md,
-            backgroundColor: colors.primaryLight,
-            border: `2px solid ${colors.primary}`,
-            borderRadius: radius.lg,
-            marginBottom: spacing.md
-          }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: spacing.xs,
-              marginBottom: spacing.sm,
-              flexWrap: 'nowrap'
-            }}>
-              <span style={{ fontSize: typography.sizes.xl, flexShrink: 0 }}>📦</span>
-              <h3 style={{
-                margin: 0,
-                fontSize: typography.sizes.lg,
-                fontWeight: typography.weights.bold,
-                color: colors.primaryDark,
-                whiteSpace: 'nowrap'
-              }}>
-                {t('dash.ready_for_pickup', locale)}
-              </h3>
-              <span style={{
-                backgroundColor: colors.primary,
-                color: 'white',
-                padding: `${spacing['3xs']} ${spacing['2xs']}`,
-                borderRadius: radius.full,
-                fontSize: typography.sizes.xs,
-                fontWeight: typography.weights.bold,
-                flexShrink: 0,
-                minWidth: '20px',
-                textAlign: 'center'
-              }}>
-                {ordersReadyForPickup.length}
-              </span>
-            </div>
+          <DashboardCard
+            state="active"
+            prominent
+            title={t('dash.ready_for_pickup', locale)}
+            headerAccessory={<TileBadge tone="primary">{ordersReadyForPickup.length}</TileBadge>}
+          >
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
               {ordersReadyForPickup.map((order: any) => (
@@ -578,7 +559,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
             >
               {t('dash.view_ready', locale)}
             </Link>
-          </div>
+          </DashboardCard>
         )}
 
         {/* External Order Follow-Up — hidden when external payments disabled */}
@@ -651,7 +632,13 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               : 'Find open markets and vendors near you today'}
           </DashboardTile>
 
-          {/* My Markets Card — only renders if user is assigned manager of any market (FM v1) */}
+          {/* My Markets — the INTERIM way in to the market-manager dashboards.
+              Both halves now exist (the picker at /[vertical]/market-manager and
+              the per-market dashboard), but the hamburger has no manager entry —
+              it carries Vendor Dashboard, Admin and Settings only. So this card
+              stays until Slice 4 puts market manager in the nav, then it goes.
+              Owner, 2026-08-07: the card goes away once the dashboard is built
+              AND there is a way into it. This IS that way in, for now. */}
           <MarketManagerCard vertical={vertical} markets={managedMarkets} />
 
           {/* Notifications Card */}
@@ -1002,13 +989,12 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               <span>{term(vertical, 'vendor_section_emoji', locale)}</span> {term(vertical, 'vendor', locale)}
             </h2>
 
-            {/* Vendor Signup Card - Encouraging */}
-            <div style={{
-              padding: spacing.lg,
-              backgroundColor: colors.surfaceElevated,
-              border: `2px dashed ${colors.primary}`,
-              borderRadius: radius.lg,
-            }}>
+            {/* Vendor recruitment pitch — `promo` + `prominent`. It IS an offer,
+                so it takes the gold outline every other promo now uses rather
+                than its old dashed-green border, and it keeps its larger padding
+                because recruiting a vendor is the highest-value thing this page
+                can do for a non-vendor. */}
+            <DashboardCard state="promo" prominent title={t('dash.passion_profit', locale)}>
               <div style={{
                 display: 'flex',
                 alignItems: 'flex-start',
@@ -1016,14 +1002,6 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 flexWrap: 'wrap'
               }}>
                 <div style={{ flex: 1, minWidth: 250 }}>
-                  <h3 style={{
-                    margin: `0 0 ${spacing.xs}`,
-                    fontSize: typography.sizes.xl,
-                    fontWeight: typography.weights.bold,
-                    color: colors.primary
-                  }}>
-                    {t('dash.passion_profit', locale)}
-                  </h3>
                   <p style={{
                     margin: `0 0 ${spacing.sm}`,
                     fontSize: typography.sizes.base,
@@ -1082,7 +1060,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                   </Link>
                 </div>
               </div>
-            </div>
+            </DashboardCard>
           </section>
         </>
       )}
@@ -1255,36 +1233,14 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
         </>
       )}
 
-      {/* ========== ADMIN SECTION ========== */}
-      {isAdmin && (
-        <section style={{ marginBottom: spacing.lg }}>
-          <h2 style={{
-            fontSize: typography.sizes.xl,
-            fontWeight: typography.weights.semibold,
-            marginBottom: spacing.sm,
-            color: statusColors.selectionBorder,
-            display: 'flex',
-            alignItems: 'center',
-            gap: spacing['2xs']
-          }}>
-            <span>🔧</span> {t('dash.admin', locale)}
-          </h2>
-
-          {/* Admin panel entry. NOTE: the owner has said this band does not have
-              to live on the dashboard at all and could move to settings —
-              decided in Slice 3b (the Partner reorg). For now it only gets
-              standardized chrome; nothing is moved. */}
-          <div style={{ maxWidth: 300 }}>
-            <DashboardTile
-              href={`/${vertical}/admin`}
-              icon="adminPanel"
-              title={t('dash.admin_panel', locale)}
-            >
-              {t('dash.manage_admin', locale)}
-            </DashboardTile>
-          </div>
-        </section>
-      )}
+      {/* ========== ADMIN SECTION — REMOVED 2026-08-07 ==========
+          Owner: "leave admin in the hamburger menu." Admin already has an entry
+          there (Header.tsx, gated on isAdmin) pointing at /[vertical]/admin, so
+          this band was a second route to the same place and one more thing
+          between a shopper and their own dashboard.
+          Removing it stranded nobody — the hamburger entry predates this. That
+          is NOT true of the market-manager card, which has no menu entry yet;
+          see the note where that card renders. ========== */}
 
       {/* ========== ONBOARDING TUTORIAL ========== */}
       <TutorialWrapper vertical={vertical} showTutorial={showTutorial} />
