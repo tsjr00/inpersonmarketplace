@@ -5,7 +5,16 @@ import { spacing, typography, radius, statusColors } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
 
 interface OrganizerEventDetailsProps {
-  eventToken: string
+  /**
+   * The event id OR its event_token — both are accepted by
+   * /api/events/[token]/details (lib/events/event-ref.ts).
+   *
+   * This used to be `eventToken`, and a pre-approval event has no token, so the
+   * editor simply never rendered — even though `address` is an allowed field
+   * here and 'new' is an editable status. That is why an event submitted without
+   * a street address could not be approved AND could not be corrected.
+   */
+  eventRef: string
   status: string
   vertical: string
   primaryColor: string
@@ -40,6 +49,11 @@ interface EventDetails {
   event_end_time: string | null
   event_setting: string | null
   address: string | null
+  city: string | null
+  state: string | null
+  zip: string | null
+  event_date: string | null
+  market_id: string | null
   is_recurring: boolean
   recurring_frequency: string | null
   contact_phone: string | null
@@ -47,12 +61,21 @@ interface EventDetails {
 
 const EDITABLE_STATUSES = ['new', 'reviewing', 'approved', 'ready']
 
+/**
+ * Approval copies these into the `markets` row, and `event_date` also decides
+ * the market's schedule weekday (`lib/events/event-actions.ts:126-159`). Editing
+ * them afterwards would change nothing vendors or shoppers see, and would leave
+ * the market running on the wrong day. Locked once a market exists; the server
+ * rejects them too (`api/events/[token]/details`), this is only the UI half.
+ */
+const PRE_APPROVAL_ONLY_FIELDS = ['city', 'state', 'zip', 'event_date']
+
 // Field groups for progressive disclosure
 const FIELD_GROUPS = [
   {
     label: 'Event Basics',
-    description: 'Type, timing, and location — affects vendor matching. Address required before approval.',
-    fields: ['event_type', 'event_start_time', 'event_end_time', 'event_setting', 'address', 'contact_phone'],
+    description: 'Type, timing, and location — this is what vendors are matched on. A wrong city or zip matches the wrong vendors. Address is required before approval.',
+    fields: ['event_type', 'event_date', 'event_start_time', 'event_end_time', 'event_setting', 'address', 'city', 'state', 'zip', 'contact_phone'],
   },
   {
     label: 'Food Preferences',
@@ -95,7 +118,7 @@ function countTotalInGroup(fields: string[], details: EventDetails): number {
   return fields.filter(f => typeof details[f] !== 'boolean').length
 }
 
-export default function OrganizerEventDetails({ eventToken, status, vertical, primaryColor }: OrganizerEventDetailsProps) {
+export default function OrganizerEventDetails({ eventRef, status, vertical, primaryColor }: OrganizerEventDetailsProps) {
   const [expanded, setExpanded] = useState(false)
   const [details, setDetails] = useState<EventDetails | null>(null)
   const [loading, setLoading] = useState(false)
@@ -119,7 +142,7 @@ export default function OrganizerEventDetails({ eventToken, status, vertical, pr
     setRefreshing(true)
     setRefreshMessage(null)
     try {
-      const res = await fetch(`/api/events/${eventToken}/refresh-matches`, {
+      const res = await fetch(`/api/events/${eventRef}/refresh-matches`, {
         method: 'POST',
       })
       const body = await res.json().catch(() => ({}))
@@ -139,7 +162,7 @@ export default function OrganizerEventDetails({ eventToken, status, vertical, pr
     if (details) return // already loaded
     setLoading(true)
     try {
-      const res = await fetch(`/api/events/${eventToken}/details`)
+      const res = await fetch(`/api/events/${eventRef}/details`)
       if (res.ok) {
         const data = await res.json()
         setDetails(data.event)
@@ -154,11 +177,18 @@ export default function OrganizerEventDetails({ eventToken, status, vertical, pr
     }
   }, [expanded, details])
 
+  // A field the market has already copied, on an event that HAS a market.
+  const isFieldLocked = (field: string) =>
+    PRE_APPROVAL_ONLY_FIELDS.includes(field) && !!details?.market_id
+
   function startEditing(groupIdx: number) {
     if (!details) return
     const group = FIELD_GROUPS[groupIdx]
     const initial: Record<string, unknown> = {}
     for (const f of group.fields) {
+      // Locked fields are never put in formData, so they can never be PATCHed
+      // even if the read-only rendering below were bypassed.
+      if (isFieldLocked(f)) continue
       initial[f] = details[f] ?? ''
     }
     setFormData(initial)
@@ -192,7 +222,7 @@ export default function OrganizerEventDetails({ eventToken, status, vertical, pr
         }
       }
 
-      const res = await fetch(`/api/events/${eventToken}/details`, {
+      const res = await fetch(`/api/events/${eventRef}/details`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cleaned),
@@ -201,7 +231,7 @@ export default function OrganizerEventDetails({ eventToken, status, vertical, pr
       if (res.ok) {
         const saveResult = await res.json().catch(() => ({}))
         // Refresh details
-        const refresh = await fetch(`/api/events/${eventToken}/details`)
+        const refresh = await fetch(`/api/events/${eventRef}/details`)
         if (refresh.ok) {
           const data = await refresh.json()
           setDetails(data.event)
@@ -211,7 +241,13 @@ export default function OrganizerEventDetails({ eventToken, status, vertical, pr
         // If the save changed any matching-affecting field, surface a banner so
         // the organizer can choose to re-run the vendor match. Manual button —
         // not auto — to avoid spamming vendors with re-invites on every tweak.
-        if (saveResult.matchingChanged) {
+        //
+        // ⚠ Gated on the event actually HAVING a market. `refresh-matches`
+        // rejects anything unapproved (`:81-86` of that route), so before this
+        // gate existed the banner offered a button that could only fail. It was
+        // unreachable pre-approval until 2026-08-08, when the editor stopped
+        // being token-gated — this gate is the other half of that change.
+        if (saveResult.matchingChanged && details?.market_id) {
           setShowRefreshBanner(true)
           setRefreshMessage(null)
         }
@@ -425,12 +461,22 @@ export default function OrganizerEventDetails({ eventToken, status, vertical, pr
                     {group.fields.map(f => {
                       const label = fieldLabel(f, vertical)
                       const val = formData[f]
+                      const locked = isFieldLocked(f)
                       return (
                         <div key={f} style={{ marginBottom: spacing.xs }}>
                           <label style={{ display: 'block', fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: statusColors.neutral700, marginBottom: 2 }}>
                             {label}
                           </label>
-                          {renderField(f, val, (v) => setFormData(prev => ({ ...prev, [f]: v })))}
+                          {locked ? (
+                            <div style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500 }}>
+                              {formatFieldValue(f, details[f]) || '—'}
+                              <span style={{ fontStyle: 'italic', marginLeft: spacing['2xs'] }}>
+                                — locked now that your event is approved. Contact us to change it.
+                              </span>
+                            </div>
+                          ) : (
+                            renderField(f, val, (v) => setFormData(prev => ({ ...prev, [f]: v })))
+                          )}
                         </div>
                       )
                     })}
@@ -520,6 +566,10 @@ function fieldLabel(field: string, vertical: string): string {
     event_end_time: 'End Time',
     event_setting: 'Event Setting',
     address: 'Street Address',
+    city: 'City',
+    state: 'State',
+    zip: 'Zip',
+    event_date: 'Event Date',
     contact_phone: 'Phone',
     is_recurring: 'Recurring Event?',
     recurring_frequency: 'How Often?',
@@ -578,6 +628,45 @@ const inputStyle = {
 }
 
 function renderField(field: string, value: unknown, onChange: (v: unknown) => void) {
+  // Event date
+  if (field === 'event_date') {
+    return (
+      <input
+        type="date"
+        value={(value as string) || ''}
+        onChange={(e) => onChange(e.target.value)}
+        style={inputStyle}
+      />
+    )
+  }
+
+  // State — 2-letter code, matches the intake form's handling
+  if (field === 'state') {
+    return (
+      <input
+        type="text"
+        maxLength={2}
+        placeholder="TX"
+        value={(value as string) || ''}
+        onChange={(e) => onChange(e.target.value.toUpperCase())}
+        style={inputStyle}
+      />
+    )
+  }
+
+  if (field === 'zip') {
+    return (
+      <input
+        type="text"
+        maxLength={10}
+        placeholder="79111"
+        value={(value as string) || ''}
+        onChange={(e) => onChange(e.target.value)}
+        style={inputStyle}
+      />
+    )
+  }
+
   // Time inputs
   if (field === 'event_start_time' || field === 'event_end_time') {
     return (

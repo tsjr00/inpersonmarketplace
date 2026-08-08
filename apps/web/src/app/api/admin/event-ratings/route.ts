@@ -33,10 +33,19 @@ export async function GET(request: NextRequest) {
 
     const serviceClient = createServiceClient()
 
+    // ⚠ Do NOT try to embed user_profiles here. event_ratings.user_id references
+    // auth.users(id) (migration 116:16, and SCHEMA_SNAPSHOT "event_ratings" FK
+    // table) — there is NO foreign key between event_ratings and user_profiles,
+    // so PostgREST cannot join them and the whole query 500s. It previously read
+    // `user:user_profiles!event_ratings_user_id_fkey(...)`, naming a constraint
+    // that points at auth.users; the admin page showed "Failed to load event
+    // ratings" on EVERY load, empty or not (owner testing 2026-08-06).
+    // Reviewer names are resolved in a second query below, keyed user_id → user_id.
     let query = serviceClient
       .from('event_ratings')
       .select(`
         id,
+        user_id,
         rating,
         comment,
         status,
@@ -52,10 +61,6 @@ export async function GET(request: NextRequest) {
           state,
           vertical_id,
           status
-        ),
-        user:user_profiles!event_ratings_user_id_fkey (
-          display_name,
-          email
         )
       `)
       .order('created_at', { ascending: false })
@@ -87,15 +92,31 @@ export async function GET(request: NextRequest) {
       counts.total++
     }
 
+    // Reviewer names, resolved separately (see the note on the query above).
+    // user_profiles.user_id is the auth user id, which is what event_ratings
+    // stores — do NOT match on user_profiles.id, a different column.
+    const reviewerIds = [...new Set((ratings || []).map(r => r.user_id as string).filter(Boolean))]
+    const reviewers = new Map<string, { display_name: string | null; email: string | null }>()
+    if (reviewerIds.length > 0) {
+      const { data: profiles } = await serviceClient
+        .from('user_profiles')
+        .select('user_id, display_name, email')
+        .in('user_id', reviewerIds)
+      for (const p of profiles || []) {
+        reviewers.set(p.user_id as string, {
+          display_name: p.display_name as string | null,
+          email: p.email as string | null,
+        })
+      }
+    }
+
     const formatted = (ratings || []).map((r) => {
       const event = r.catering_requests as unknown as {
         id: string; company_name: string; event_token: string;
         event_date: string; city: string; state: string;
         vertical_id: string; status: string
       } | null
-      const user = r.user as unknown as {
-        display_name: string | null; email: string | null
-      } | null
+      const user = reviewers.get(r.user_id as string) ?? null
 
       return {
         id: r.id,

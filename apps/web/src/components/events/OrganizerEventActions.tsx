@@ -7,12 +7,22 @@ import ConfirmDialog from '@/components/shared/ConfirmDialog'
 interface OrganizerEventActionsProps {
   eventId: string
   eventName: string
+  /**
+   * What the cancel API is addressed by — the event id for a pre-approval event,
+   * the token once one exists. Both are accepted (lib/events/event-ref.ts).
+   * Previously cancel was addressed by token alone, so on a tokenless event the
+   * button and its confirmation dialog both rendered and then did NOTHING: the
+   * handler bailed on `!eventToken` with no message. Half of the reason an
+   * addressless event had no way out (owner testing 2026-08-06).
+   */
+  eventRef: string
+  /** Only for the shareable attendee link, which genuinely needs the token. */
   eventToken: string | null
   status: string
   vertical: string
 }
 
-export default function OrganizerEventActions({ eventId, eventName, eventToken, status, vertical }: OrganizerEventActionsProps) {
+export default function OrganizerEventActions({ eventId, eventName, eventRef, eventToken, status, vertical }: OrganizerEventActionsProps) {
   const [copied, setCopied] = useState(false)
   const [showCancel, setShowCancel] = useState(false)
   const [cancelling, setCancelling] = useState(false)
@@ -43,11 +53,11 @@ export default function OrganizerEventActions({ eventId, eventName, eventToken, 
   }
 
   async function handleCancel() {
-    if (cancelling || !eventToken) return
+    if (cancelling) return
     setCancelling(true)
     setCancelResult(null)
     try {
-      const res = await fetch(`/api/events/${eventToken}/cancel`, {
+      const res = await fetch(`/api/events/${eventRef}/cancel`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       })

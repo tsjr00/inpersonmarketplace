@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { eventRefColumn } from '@/lib/events/event-ref'
 
 interface RouteContext {
   params: Promise<{ token: string }>
@@ -15,6 +16,12 @@ interface RouteContext {
  * Organizer updates Stage 1 details (matching + logistics).
  * Auth: must be the organizer (organizer_user_id match or email match).
  * Only allows updates to detail fields — never status, market_id, or event_token.
+ *
+ * ⚠ The [token] segment accepts EITHER an event_token OR a catering_requests.id
+ * (see lib/events/event-ref.ts). A pre-approval event has no token yet, and the
+ * organizer must still be able to fill in the address that approval requires —
+ * that missing path is what made an addressless event permanently stuck. Auth is
+ * unchanged and is organizer-based, so an id grants nothing extra.
  */
 
 // Stage 2 detail fields: matching quality + logistics + corrections to Stage 1 entries
@@ -49,7 +56,31 @@ const ALLOWED_FIELDS = [
   'address',
   'company_max_per_attendee_cents',
   'contact_phone',
+  // Location + date. Added 2026-08-08 — previously editable by NOBODY (not the
+  // organizer, not admin), so a typo'd city or zip was permanent. That matters
+  // because vendor matching is location-driven: a wrong city produces a
+  // silently wrong match set and an event nobody can find.
+  'city',
+  'state',
+  'zip',
+  'event_date',
 ]
+
+/**
+ * Fields that approval COPIES into the `markets` row (`event-actions.ts:126-131`),
+ * with `event_date` additionally deriving `market_schedules.day_of_week` (`:150-159`).
+ *
+ * Editing them on `catering_requests` after a market exists changes NOTHING that
+ * vendors or buyers actually see, and for the date it would leave the market
+ * running on the old weekday. So they are editable only while there is no
+ * market — which is exactly the window this whole fix is about.
+ *
+ * ⚠ `address` and `event_end_date` are the same shape of risk and are NOT in
+ * this list, because they were already freely editable before today and
+ * restricting them is a separate decision. That pre-existing desync is logged
+ * in backlog.md — do not "fix" it here by quietly adding them.
+ */
+const PRE_APPROVAL_ONLY_FIELDS = ['city', 'state', 'zip', 'event_date']
 
 // Fields that, when changed, may produce different vendor matches.
 // PATCH response sets `matchingChanged: true` so the dashboard can surface a
@@ -89,6 +120,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       .select(`
         id, status, company_name, contact_name, contact_email, contact_phone,
         organizer_user_id,
+        market_id,
         event_type, event_setting,
         event_date, event_end_date, event_start_time, event_end_time,
         headcount, vendor_count, service_level, payment_model,
@@ -103,8 +135,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
         is_themed, theme_description, children_present, has_competing_vendors, is_ticketed,
         is_recurring, recurring_frequency
       `)
-      .eq('event_token', token)
-      .single()
+      .eq(eventRefColumn(token), token)
+      .maybeSingle()
 
     if (!event) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
@@ -144,9 +176,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     crumb.supabase('select', 'catering_requests')
     const { data: event } = await serviceClient
       .from('catering_requests')
-      .select('id, status, organizer_user_id, contact_email')
-      .eq('event_token', token)
-      .single()
+      .select('id, status, organizer_user_id, contact_email, market_id')
+      .eq(eventRefColumn(token), token)
+      .maybeSingle()
 
     if (!event) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
@@ -179,7 +211,53 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
     }
 
+    // Server-side enforcement of the market-copy rule. The UI also hides these
+    // once a market exists, but the UI is not a security boundary.
+    if (event.market_id) {
+      const blocked = PRE_APPROVAL_ONLY_FIELDS.filter(f => f in updateData)
+      if (blocked.length > 0) {
+        return NextResponse.json(
+          {
+            error: `Once an event is approved, ${blocked.join(', ')} can only be changed by an admin — the approved event's location and date are already published to vendors and shoppers.`,
+          },
+          { status: 400 }
+        )
+      }
+    }
+
     // Validate specific fields
+    if (updateData.state !== undefined && updateData.state !== null) {
+      const st = String(updateData.state).trim().toUpperCase()
+      if (st.length !== 2) {
+        throw traced.validation('ERR_EVENT_DETAIL_007', 'state must be a 2-letter code')
+      }
+      updateData.state = st
+    }
+    if (updateData.zip !== undefined && updateData.zip !== null) {
+      const z = String(updateData.zip).trim()
+      if (!/^\d{5}(-\d{4})?$/.test(z)) {
+        throw traced.validation('ERR_EVENT_DETAIL_008', 'zip must be 5 digits, or 5+4')
+      }
+      updateData.zip = z
+    }
+    if (updateData.city !== undefined) {
+      const c = String(updateData.city ?? '').trim()
+      if (!c) {
+        throw traced.validation('ERR_EVENT_DETAIL_009', 'city cannot be blank')
+      }
+      updateData.city = c.slice(0, 100)
+    }
+    if (updateData.event_date !== undefined) {
+      // Same floor the intake form enforces — a past date would produce an
+      // event that can never run and vendor invitations for a dead day.
+      const d = String(updateData.event_date ?? '')
+      const parsed = new Date(d + 'T00:00:00')
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      if (isNaN(parsed.getTime()) || parsed < today) {
+        throw traced.validation('ERR_EVENT_DETAIL_010', 'event_date must be today or in the future')
+      }
+    }
     if (updateData.vendor_count !== undefined) {
       const vc = updateData.vendor_count as number
       if (typeof vc !== 'number' || vc < 1 || vc > 20) {

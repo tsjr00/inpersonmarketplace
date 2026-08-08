@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import AdminNav from '@/components/admin/AdminNav'
 import Link from 'next/link'
-import { spacing, typography, radius, statusColors, sizing } from '@/lib/design-tokens'
+import { colors, spacing, typography, radius, statusColors, sizing } from '@/lib/design-tokens'
 import EventChipInControl from '@/components/events/EventChipInControl'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { term } from '@/lib/vertical/terminology'
@@ -162,6 +162,12 @@ export default function AdminCateringPage() {
   const [inviting, setInviting] = useState(false)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
 
+  // Missing-address repair (2026-08-08). An event with no street address cannot
+  // be approved, and until now the admin had no way to record one — so an event
+  // could sit unfixable while the admin knew the address from a phone call.
+  const [addressDraft, setAddressDraft] = useState('')
+  const [savingAddress, setSavingAddress] = useState(false)
+
   // Create event state
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -237,6 +243,32 @@ export default function AdminCateringPage() {
     } catch {
       setActionMessage('Network error')
     }
+  }
+
+  async function saveAddress(id: string) {
+    const value = addressDraft.trim()
+    if (!value || savingAddress) return
+    setSavingAddress(true)
+    setActionMessage(null)
+    try {
+      const res = await fetch(`/api/admin/events/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: value }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setRequests((prev) => prev.map((r) => (r.id === id ? data.request : r)))
+        setAddressDraft('')
+        setActionMessage('Street address saved — this event can be approved now.')
+      } else {
+        const err = await res.json()
+        setActionMessage(`Error: ${err.error}`)
+      }
+    } catch {
+      setActionMessage('Network error')
+    }
+    setSavingAddress(false)
   }
 
   async function inviteVendors(requestId: string) {
@@ -907,8 +939,58 @@ export default function AdminCateringPage() {
                 <DetailRow label={`${term(vertical, 'event_vendor_unit')}s Requested`} value={`${selected.vendor_count}`} />
                 <DetailRow
                   label="Location"
-                  value={`${selected.address}, ${selected.city}, ${selected.state} ${selected.zip}`}
+                  value={selected.address?.trim()
+                    ? `${selected.address}, ${selected.city}, ${selected.state} ${selected.zip}`
+                    : `⚠ No street address — ${selected.city}, ${selected.state} ${selected.zip}`}
                 />
+                {/* Repair path for the approval blocker. Only appears when the
+                    address is actually missing, so it stays out of the way for
+                    the normal case. */}
+                {!selected.address?.trim() && (
+                  <div style={{
+                    margin: `${spacing.xs} 0`,
+                    padding: spacing.xs,
+                    backgroundColor: statusColors.warningLight,
+                    border: `1px solid ${statusColors.warningBorder}`,
+                    borderRadius: radius.sm,
+                  }}>
+                    <p style={{ margin: `0 0 ${spacing['2xs']}`, fontSize: typography.sizes.xs, color: statusColors.warningDark }}>
+                      This event cannot be approved without a street address. Add it here, or the organizer can add it from their event dashboard.
+                    </p>
+                    <div style={{ display: 'flex', gap: spacing['2xs'], flexWrap: 'wrap' }}>
+                      <input
+                        placeholder="123 Main St"
+                        value={addressDraft}
+                        onChange={(e) => setAddressDraft(e.target.value)}
+                        style={{
+                          flex: 1,
+                          minWidth: 180,
+                          padding: spacing['2xs'],
+                          border: `1px solid ${statusColors.neutral300}`,
+                          borderRadius: radius.sm,
+                          fontSize: typography.sizes.sm,
+                        }}
+                      />
+                      <button
+                        onClick={() => saveAddress(selected.id)}
+                        disabled={savingAddress || !addressDraft.trim()}
+                        style={{
+                          padding: `${spacing['2xs']} ${spacing.sm}`,
+                          backgroundColor: colors.primary,
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: radius.sm,
+                          fontSize: typography.sizes.sm,
+                          fontWeight: typography.weights.semibold,
+                          cursor: savingAddress || !addressDraft.trim() ? 'not-allowed' : 'pointer',
+                          opacity: savingAddress || !addressDraft.trim() ? 0.6 : 1,
+                        }}
+                      >
+                        {savingAddress ? 'Saving…' : 'Save address'}
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {selected.event_type && (
                   <DetailRow label="Event Type" value={EVENT_TYPE_LABELS[selected.event_type] || selected.event_type} />
                 )}

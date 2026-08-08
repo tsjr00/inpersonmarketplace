@@ -75,7 +75,12 @@ export async function POST(request: NextRequest) {
     const allowedVerticals = ['food_trucks', 'farmers_market']
     const verticalId = allowedVerticals.includes(vertical) ? vertical : 'food_trucks'
 
-    // Validate required fields
+    // Validate required fields.
+    // `address` is REQUIRED as of 2026-08-08. It was optional here while
+    // api/admin/events/[id] refused to approve without it — a field required
+    // downstream but optional upstream, with no editor in between, which is the
+    // exact shape that produced the "stuck event" deadlock. Optional-here is now
+    // closed; the editor gap is closed separately (lib/events/event-ref.ts).
     if (
       !company_name ||
       !contact_name ||
@@ -85,6 +90,8 @@ export async function POST(request: NextRequest) {
       !event_start_time ||
       !event_end_time ||
       !headcount ||
+      !address ||
+      !String(address).trim() ||
       !city ||
       !state ||
       !zip ||
@@ -235,7 +242,9 @@ export async function POST(request: NextRequest) {
         theme_description: is_themed && theme_description ? String(theme_description).slice(0, 500) : null,
         estimated_spend_per_attendee_cents: estimated_spend_per_attendee_cents ? Math.max(parseInt(estimated_spend_per_attendee_cents, 10) || 0, 0) : null,
         preferred_vendor_categories,
-        // address is optional at Stage 1; required to advance to 'approved' (enforced in admin/events PATCH)
+        // Required at intake since 2026-08-08 (validated above) AND required to
+        // advance to 'approved' (admin/events PATCH). The null branch is kept
+        // only because historical rows have NULL here.
         address: address ? String(address).slice(0, 500) : null,
         city: String(city).slice(0, 100),
         state: String(state).slice(0, 50),

@@ -43,15 +43,19 @@ export default async function EventManagerPickerPage({ params }: PageProps) {
   const serviceClient = createServiceClient()
   const { data: events } = await serviceClient
     .from('catering_requests')
-    .select('id, company_name, event_date, status, event_token')
+    .select('id, company_name, event_date, status')
     .eq('organizer_user_id', user.id)
     .eq('vertical_id', vertical)
     .order('event_date', { ascending: false })
 
-  const withToken = (events || []).filter(e => e.event_token)
+  // ⚠ Do NOT filter on event_token here. It used to (`.filter(e => e.event_token)`),
+  // which hid pre-approval events from their own organiser — the same events that
+  // needed attention most, since an event missing a required field never gets
+  // approved and so never gets a token. Dashboards are addressed by id now.
+  const myEvents = events || []
 
-  if (withToken.length === 0) redirect(`/${vertical}/dashboard`)
-  if (withToken.length === 1) redirect(`/${vertical}/event-manager/${withToken[0].event_token}/dashboard`)
+  if (myEvents.length === 0) redirect(`/${vertical}/dashboard`)
+  if (myEvents.length === 1) redirect(`/${vertical}/event-manager/${myEvents[0].id}/dashboard`)
 
   const fmt = (d: string | null) => d
     ? new Date(d + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
@@ -71,15 +75,15 @@ export default async function EventManagerPickerPage({ params }: PageProps) {
         My Events
       </h1>
       <p style={{ margin: `0 0 ${spacing.md} 0`, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-        You organize {withToken.length} events. Choose one to open its dashboard.
+        You organize {myEvents.length} events. Choose one to open its dashboard.
       </p>
 
       <DashboardCard title="Choose an event">
         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
-          {withToken.map((e) => (
+          {myEvents.map((e) => (
             <Link
               key={e.id}
-              href={`/${vertical}/event-manager/${e.event_token}/dashboard`}
+              href={`/${vertical}/event-manager/${e.id}/dashboard`}
               style={{
                 display: 'flex',
                 justifyContent: 'space-between',

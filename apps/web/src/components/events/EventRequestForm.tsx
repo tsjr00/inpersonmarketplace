@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { spacing, typography, radius, sizing, statusColors } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
 import { getClientLocale } from '@/lib/locale/client'
@@ -213,9 +213,9 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
   // Track whether the user has manually edited vendor_count so the auto-suggest
   // useEffect doesn't overwrite their value when other fields change.
   const [vendorCountManuallyEdited, setVendorCountManuallyEdited] = useState(false)
-  // Tracks the system's computed suggestion separately from form.vendor_count.
-  // Helper text reads from this so it doesn't follow the user's manual edits.
-  const [systemSuggested, setSystemSuggested] = useState<number | null>(null)
+  // NOTE: the system's suggestion is NOT state — it is derived below via
+  // useMemo. Helper text reads it directly, so it stays independent of the
+  // user's manual edits to form.vendor_count.
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [matchCount, setMatchCount] = useState(0)
@@ -236,15 +236,20 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
   //   5. Variety:   categoryVendors = ceil(numCategories / avgCategoriesPerVendor)
   //                 — multi-category-aware so we don't blindly demand 1 per cuisine
   //   6. Combine:   suggested = clamp(max(capacity, variety), 1, 20)
-  useEffect(() => {
+  //
+  // Split into a derivation + a side effect on 2026-08-08. It was one effect
+  // that both computed this number into state AND pre-filled form.vendor_count,
+  // which tripped `react-hooks/set-state-in-effect` (a real lint ERROR, not a
+  // warning). The number is a pure function of the inputs below, so it is now
+  // derived during render; only the pre-fill — an actual side effect that
+  // writes OTHER state — remains an effect. No formula changed.
+  const systemSuggested = useMemo<number | null>(() => {
     if (!form.event_type || !form.headcount) {
-      setSystemSuggested(null)
-      return
+      return null
     }
     const headcount = parseInt(form.headcount, 10)
     if (isNaN(headcount) || headcount < 1) {
-      setSystemSuggested(null)
-      return
+      return null
     }
 
     // Layer 1 — buyer rate by event_type
@@ -301,18 +306,7 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
       : 0
 
     // Layer 6 — combine, clamp to [1, 20]
-    const suggested = Math.max(1, Math.min(20, Math.max(capacityVendors, categoryVendors)))
-
-    setSystemSuggested(suggested)
-
-    // Pre-fill the input only when user hasn't manually edited yet
-    if (!vendorCountManuallyEdited) {
-      // queueMicrotask defers the state update out of the render-effect
-      // synchronous path — same pattern as P1-6 in OrganizerEventDetails.tsx
-      queueMicrotask(() => {
-        setForm(prev => ({ ...prev, vendor_count: String(suggested) }))
-      })
-    }
+    return Math.max(1, Math.min(20, Math.max(capacityVendors, categoryVendors)))
   }, [
     form.event_type,
     form.headcount,
@@ -321,16 +315,35 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
     form.preferred_vendor_categories,
     avgVendorThroughput,
     avgCategoriesPerVendor,
-    vendorCountManuallyEdited,
   ])
+
+  // The side effect half: pre-fill the visible input, but only until the user
+  // takes it over. `vendorCountManuallyEdited` is a dependency here and NOT of
+  // the memo above — the suggestion itself never depends on whether the user
+  // has typed, only on whether we're still allowed to apply it.
+  //
+  // Keyed on `systemSuggested` rather than the raw inputs: when an input moves
+  // but the suggestion lands on the same number, the old code re-wrote the same
+  // value (a no-op) and this simply doesn't fire. The null guard preserves the
+  // old early-return — no event type yet means don't touch vendor_count at all.
+  useEffect(() => {
+    if (systemSuggested == null || vendorCountManuallyEdited) return
+    // queueMicrotask defers the state update out of the render-effect
+    // synchronous path — same pattern as P1-6 in OrganizerEventDetails.tsx
+    queueMicrotask(() => {
+      setForm(prev => ({ ...prev, vendor_count: String(systemSuggested) }))
+    })
+  }, [systemSuggested, vendorCountManuallyEdited])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (submitting) return
     setError(null)
 
-    // Validate required fields. Address is OPTIONAL at Stage 1 (per design); it
-    // becomes required at the dashboard side / for status to advance to 'approved'.
+    // Validate required fields. Address is REQUIRED as of 2026-08-08 — it was
+    // optional here while approval refused to advance without it, so an event
+    // could be submitted straight into an unfixable state. Mirrors the same
+    // check in api/event-requests (never trust the client alone).
     if (
       !form.company_name.trim() ||
       !form.contact_name.trim() ||
@@ -340,6 +353,7 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
       !form.event_start_time ||
       !form.event_end_time ||
       !form.headcount ||
+      !form.address.trim() ||
       !form.city.trim() ||
       !form.state.trim() ||
       !form.zip.trim() ||
@@ -414,9 +428,9 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
           theme_description: form.is_themed ? (form.theme_description.trim() || null) : null,
           estimated_spend_per_attendee_cents: form.estimated_spend_per_attendee ? Math.round(parseFloat(form.estimated_spend_per_attendee) * 100) : null,
           preferred_vendor_categories: form.preferred_vendor_categories.length > 0 ? form.preferred_vendor_categories : null,
-          // Stage 1: address is optional; send as null when empty so admin gate
-          // for 'approved' status can detect it's missing. City/state/zip are
-          // required and trimmed as before.
+          // Required and validated above; the `|| null` is a belt-and-braces
+          // guard so an empty string can never masquerade as a supplied address
+          // and slip past the approval gate's truthiness check.
           address: form.address.trim() || null,
           city: form.city.trim(),
           state: form.state.trim(),
@@ -642,13 +656,15 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
               </div>
             </div>
 
-            {/* Address — Stage 1 optional, required before event approval */}
+            {/* Address — REQUIRED as of 2026-08-08. It was optional here while
+                approval refused to proceed without it, so an event could be
+                submitted into a state it could never leave. */}
             <div>
-              <label style={labelStyle}>Street address</label>
+              <label style={labelStyle}>Street address *</label>
               <input type="text" placeholder="123 Main St" value={form.address}
-                onChange={(e) => updateField('address', e.target.value)} style={inputStyle} />
+                onChange={(e) => updateField('address', e.target.value)} style={inputStyle} required />
               <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: statusColors.neutral400 }}>
-                Recommended now; required before your event can be approved
+                Where vendors should show up. Your event can&rsquo;t be approved without it.
               </p>
             </div>
 

@@ -52,6 +52,23 @@ Fixing any ONE of these breaks the deadlock, but the owner's read is that the re
 
 ---
 
+### 🟠 A-FOLLOWUP — approved events desync from their market on location/date edits (found 2026-08-08)
+
+**Not shipped. Deliberately out of scope of the 2026-08-08 deadlock fix; needs its own decision.**
+
+Approval **copies** `address`, `city`, `state`, `zip` and `event_date` from `catering_requests` into the new `markets` row, and derives `market_schedules.day_of_week` from the date (`lib/events/event-actions.ts:126-159`). The market is what vendors and shoppers actually see.
+
+Two consequences:
+
+1. **Pre-existing, live today:** `address` and `event_end_date` are in the organizer editor's allowed-field list with **no market guard**, so an organizer editing them on an approved event updates the request and **not** the market. The attendee page keeps showing the old address. Nobody is told. This predates 2026-08-08 and was left alone rather than silently restricted — restricting it removes a capability people may be using, and that is the owner's call.
+2. **The 2026-08-08 fix side-stepped it** by making `city`/`state`/`zip`/`event_date` **pre-approval only**, enforced server-side in `api/events/[token]/details` and `api/admin/events/[id]`. Correct and safe, but it means an approved event with a typo'd city still cannot be corrected by anyone through the UI.
+
+**The real fix** is a location/date edit path that updates the market alongside the request — and for a date change, recomputes `market_schedules.day_of_week`, which otherwise leaves the market operating on the old weekday. Consider also whether vendors already invited should be re-notified, since they accepted for a specific place and day.
+
+**Decide:** (a) build the market-syncing edit path, (b) also guard `address`/`event_end_date` post-approval so the desync stops getting worse, or (c) accept it and document the workaround (cancel + re-create).
+
+---
+
 ### 🟠 B — EVENT SCORING: math unverified, and undocumented
 
 - **B1** Revisit the math and assumptions. Owner: *"I'm not sure its assumptions are correct. They may be."* Not asserted as wrong — **unvalidated**.

@@ -27,9 +27,7 @@ import EventBroadcastCard from '@/components/events/EventBroadcastCard'
 import EventAgreementPickerCard from '@/components/events/EventAgreementPickerCard'
 import EventRatingsCard from '@/components/events/EventRatingsCard'
 import ScrollToSection from '@/components/dashboard/ScrollToSection'
-import MarketManagerCard from '@/components/market-manager/MarketManagerCard'
 import PendingSurveysCard from '@/components/surveys/PendingSurveysCard'
-import { getMarketsManagedBy } from '@/lib/markets/manager-queries'
 import { getLocale } from '@/lib/locale/server'
 import { t } from '@/lib/locale/messages'
 
@@ -59,7 +57,6 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
     { count: orderCount },
     { data: readyOrders },
     { data: ordersNeedingConfirmation },
-    managedMarkets,
   ] = await Promise.all([
     // Get vendor profile for THIS vertical (if exists) — only need status + tier
     supabase
@@ -137,8 +134,6 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
       .is('order_items.cancelled_at', null)
       .is('order_items.issue_reported_at', null)
       .limit(10),
-    // Markets where this user is the assigned manager (vertical-scoped)
-    getMarketsManagedBy(supabase, user, vertical),
   ])
 
   const isVendor = !!vendorProfile
@@ -637,14 +632,13 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               : 'Find open markets and vendors near you today'}
           </DashboardTile>
 
-          {/* My Markets — the INTERIM way in to the market-manager dashboards.
-              Both halves now exist (the picker at /[vertical]/market-manager and
-              the per-market dashboard), but the hamburger has no manager entry —
-              it carries Vendor Dashboard, Admin and Settings only. So this card
-              stays until Slice 4 puts market manager in the nav, then it goes.
-              Owner, 2026-08-07: the card goes away once the dashboard is built
-              AND there is a way into it. This IS that way in, for now. */}
-          <MarketManagerCard vertical={vertical} markets={managedMarkets} />
+          {/* RETIRED 2026-08-08: MarketManagerCard lived here as the interim way
+              in to the market-manager dashboards. The switcher now carries a
+              "Markets" destination on exactly the same predicate
+              (nav-destinations.ts — managedMarkets.length > 0), and the owner
+              confirmed it tests well, so the card is redundant. Its
+              getMarketsManagedBy call went with it; the switcher runs its own.
+              The component file still exists but is now unreferenced. */}
 
           {/* Notifications Card */}
           <DashboardNotifications vertical={vertical} limit={3} />
@@ -927,15 +921,18 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                       </div>
                     )}
 
-                    {/* Progressive detail collection */}
-                    {evt.event_token && (
-                      <OrganizerEventDetails
-                        eventToken={evt.event_token}
-                        status={evt.status}
-                        vertical={vertical}
-                        primaryColor={colors.primary}
-                      />
-                    )}
+                    {/* Progressive detail collection.
+                        NO LONGER GATED ON event_token (2026-08-08). It was, and
+                        since the token is only minted at approval, the editor
+                        never appeared on exactly the events that needed it — the
+                        addressless ones that approval refuses. It is addressed by
+                        id when there is no token yet (lib/events/event-ref.ts). */}
+                    <OrganizerEventDetails
+                      eventRef={(evt.event_token as string | null) || (evt.id as string)}
+                      status={evt.status}
+                      vertical={vertical}
+                      primaryColor={colors.primary}
+                    />
 
                     {/* Organizer picks the vendor agreement for this event.
                         Available once the event has a market (post-approval),
@@ -960,6 +957,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                     <OrganizerEventActions
                       eventId={evt.id}
                       eventName={evt.company_name}
+                      eventRef={(evt.event_token as string | null) || (evt.id as string)}
                       eventToken={evt.event_token}
                       status={evt.status}
                       vertical={vertical}

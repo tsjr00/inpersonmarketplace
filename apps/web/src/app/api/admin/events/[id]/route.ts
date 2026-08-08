@@ -71,7 +71,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const { id } = await context.params
     const body = await request.json()
-    const { status, admin_notes } = body
+    const { status, admin_notes, address, city, state, zip, event_date } = body
 
     const validStatuses = [
       'new',       // Request received, not yet reviewed
@@ -119,20 +119,91 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (status) updates.status = status
     if (admin_notes !== undefined) updates.admin_notes = admin_notes
 
+    // Admin may supply the street address (added 2026-08-08). Approval below
+    // refuses without one, and previously NOTHING on the admin side could set
+    // it — the admin could talk to the organizer on the phone and still have no
+    // way to record what they were told. Accepting it here means an admin can
+    // unstick an event in one PATCH, address and approval together.
+    if (address !== undefined) {
+      const trimmed = typeof address === 'string' ? address.trim() : ''
+      if (!trimmed) {
+        return NextResponse.json(
+          { error: 'Address cannot be set to blank' },
+          { status: 400 }
+        )
+      }
+      updates.address = trimmed.slice(0, 500)
+    }
+
+    // City / state / zip / date — the fields approval COPIES into the markets
+    // row, with event_date also deciding the market's schedule weekday
+    // (event-actions.ts:126-159). Editable here only while no market exists.
+    // After that, writing them would change the request but not the market the
+    // vendors and shoppers actually see — a silent desync, worse than refusing.
+    // Correcting an approved event needs the market updated too; that is a
+    // separate build, logged in backlog.md.
+    const locationEdits: Record<string, unknown> = {}
+    if (city !== undefined) {
+      const c = String(city ?? '').trim()
+      if (!c) return NextResponse.json({ error: 'City cannot be blank' }, { status: 400 })
+      locationEdits.city = c.slice(0, 100)
+    }
+    if (state !== undefined) {
+      const s = String(state ?? '').trim().toUpperCase()
+      if (s.length !== 2) return NextResponse.json({ error: 'State must be a 2-letter code' }, { status: 400 })
+      locationEdits.state = s
+    }
+    if (zip !== undefined) {
+      const z = String(zip ?? '').trim()
+      if (!/^\d{5}(-\d{4})?$/.test(z)) return NextResponse.json({ error: 'Zip must be 5 digits, or 5+4' }, { status: 400 })
+      locationEdits.zip = z
+    }
+    if (event_date !== undefined) {
+      const d = String(event_date ?? '')
+      const parsed = new Date(d + 'T00:00:00')
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      if (isNaN(parsed.getTime()) || parsed < today) {
+        return NextResponse.json({ error: 'Event date must be today or in the future' }, { status: 400 })
+      }
+      locationEdits.event_date = d
+    }
+    if (Object.keys(locationEdits).length > 0) {
+      if (cateringReq.market_id) {
+        return NextResponse.json(
+          {
+            error: `This event is already approved, so ${Object.keys(locationEdits).join(', ')} cannot be changed here — the live event market would keep the old values. Cancel and re-create the event, or ask for the market to be corrected directly.`,
+          },
+          { status: 400 }
+        )
+      }
+      Object.assign(updates, locationEdits)
+    }
+
     // On APPROVE: create event market + schedule via shared function
     if (status === 'approved' && cateringReq.status !== 'approved') {
-      // Address required for approval — Stage 2 mandatory gate.
-      // Stage 1 form makes address optional; admin/organizer must provide a real
-      // address before the event can advance. The market created downstream uses
-      // this address for vendor logistics.
-      if (!cateringReq.address || !String(cateringReq.address).trim()) {
+      // Address required for approval. The market created downstream uses it for
+      // vendor logistics, so this gate stays — but it now honors an address
+      // supplied in THIS request. Checking only the stored row would have made
+      // "set the address and approve" a two-call dance that silently failed on
+      // the first call.
+      const effectiveAddress = (updates.address as string | undefined)
+        ?? (cateringReq.address as string | null)
+      if (!effectiveAddress || !String(effectiveAddress).trim()) {
         return NextResponse.json(
-          { error: 'Cannot approve event without a street address. Ask the organizer to add one via their dashboard.' },
+          { error: 'Cannot approve event without a street address. Add one in the Street address field, or ask the organizer to add it from their event dashboard.' },
           { status: 400 }
         )
       }
 
-      const approval = await approveEventRequest(serviceClient, cateringReq)
+      // Pass the effective values, not the stale row — otherwise approving in
+      // the same call that fixes the location would build the market from the
+      // old data. `locationEdits` is empty unless this PATCH supplied them.
+      const approval = await approveEventRequest(serviceClient, {
+        ...cateringReq,
+        ...locationEdits,
+        address: effectiveAddress,
+      })
 
       if (!approval.success) {
         return NextResponse.json(

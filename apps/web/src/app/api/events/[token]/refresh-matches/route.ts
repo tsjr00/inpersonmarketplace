@@ -8,6 +8,7 @@ import {
 } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
 import { autoMatchAndInvite } from '@/lib/events/event-actions'
+import { eventRefColumn } from '@/lib/events/event-ref'
 
 interface RouteContext {
   params: Promise<{ token: string }>
@@ -59,8 +60,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const { data: cateringRequest } = await serviceClient
         .from('catering_requests')
         .select('*')
-        .eq('event_token', token)
-        .single()
+        .eq(eventRefColumn(token), token) // id or token — see lib/events/event-ref.ts
+        .maybeSingle()
 
       if (!cateringRequest) {
         return NextResponse.json({ error: 'Event not found' }, { status: 404 })

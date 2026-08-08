@@ -5,6 +5,7 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
 import { sendNotification } from '@/lib/notifications/service'
 import { stripe } from '@/lib/stripe/config'
 import { createRefund } from '@/lib/stripe/payments'
+import { eventRefColumn } from '@/lib/events/event-ref'
 
 /**
  * POST /api/events/[token]/cancel
@@ -13,6 +14,12 @@ import { createRefund } from '@/lib/stripe/payments'
  * on catering_requests (not admin role).
  *
  * Cleanup: status → cancelled, listing_markets deleted, admin + vendors notified.
+ *
+ * ⚠ The [token] segment accepts EITHER an event_token OR a catering_requests.id
+ * (see lib/events/event-ref.ts). Cancel was unreachable for a pre-approval event
+ * — no token, no route — which is half of why an addressless event could not be
+ * escaped. Auth below is organizer-based and unchanged; the token was never the
+ * credential here.
  */
 export async function POST(
   request: NextRequest,
@@ -37,8 +44,8 @@ export async function POST(
     const { data: event, error: fetchError } = await serviceClient
       .from('catering_requests')
       .select('id, market_id, organizer_user_id, contact_email, company_name, vertical_id, status, event_date')
-      .eq('event_token', token)
-      .single()
+      .eq(eventRefColumn(token), token)
+      .maybeSingle()
 
     if (fetchError || !event) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })

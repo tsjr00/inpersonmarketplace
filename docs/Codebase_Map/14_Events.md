@@ -66,6 +66,7 @@ Attendee writes (`waves/reserve`, `order`, `my-order`) require a login but are *
 | `lib/events/viability.ts` | Pure scoring. `calculateViability` (`:381-495`) branches on product model: company-paid uses budget + wave capacity (`:396-418`), attendee-paid uses buyer-rate estimation (`:419-434`), crowd uses foot traffic × buy rate (`:435-457`). Overall = worst sub-score (`:471-473`); all assumptions emitted as text for admin transparency |
 | `lib/events/wave-generation.ts` | Slices the service window into 30-min waves, summing `event_max_orders_per_wave` across accepted non-backup vendors (`:95-100`), hard-erroring if an accepted vendor declared no capacity (`:126-136`), then flips `markets.wave_ordering_enabled` (`:171-174`) |
 | `lib/events/shop-data.ts` | Single source for the attendee payload. Accepts status `approved\|ready\|active` (`:130`), **zeroes `price_cents` for anonymous callers** (`:222`), loads waves only when wave ordering is on (`:270-284`) |
+| `lib/events/event-ref.ts` | `eventRefColumn(ref)` — lets an organizer route be addressed by `catering_requests.id` OR `event_token`. See the "id, not token" note above; this is the fix for the address deadlock |
 | `lib/events/complete-event.ts` | `runEventCompletionEffects` (`:30-122`) — unfulfilled-order alerts, batched buyer feedback requests, per-vendor settlement summaries, organizer email, `listing_markets` cleanup. Callers flip status *before* calling, so effects fire once (`:26-29`) |
 
 ## The flow
@@ -96,13 +97,23 @@ Added 2026-08-07 after the owner flagged the confusion explicitly: *"the vendors
 
 | Surface | Means | Identified by |
 |---|---|---|
-| **Event manager** — `event-manager/[token]/dashboard` | *I am RUNNING this event* | `catering_requests.organizer_user_id` |
+| **Event manager** — `event-manager/[id]/dashboard` | *I am RUNNING this event* | `catering_requests.organizer_user_id` |
 | **Vendor's event** — "My Vendor Events" tile, vendor dashboard row 2 | *I am booked to SELL at this event* | `market_vendors` for the event's market |
 | **Attendee** — `events/[token]/shop` etc. | *I am BUYING at this event* | token + optional access code |
 
 **An event organizer is NOT a market manager.** Different table, different identity column — organizers are `catering_requests.organizer_user_id`, managers are `markets.manager_user_id`. An approved event does get a linked `market_id`, which makes them look related. They are not.
 
-⚠ **The organizer's old "My Events" band is STILL on the shopper dashboard** (`[vertical]/dashboard/page.tsx:747-981`) even though the dashboard above now exists. Deliberate: the owner asked to *"keep the way in for organizers for now (testing)"* because the nav that will route here does not land until Slice 4. **Remove the band in Slice 4, not before** — pulling it now strands organizers mid-test.
+⚠ **The organizer's old "My Events" band is STILL on the shopper dashboard** even though the dashboard above now exists. Deliberate: the owner asked to *"keep the way in for organizers for now (testing)"*, and on 2026-08-08 held it again pending a broader look at the events module. **Removing it is a PORT, not a delete** — the band carries six things the event-manager dashboard does not: vendors-confirmed / pre-order / participation counts, wave utilization, order-value summary, and the View Event Page / Select Vendors links. Move those first, then remove.
+
+### ⚠ Addressing organizer surfaces: id, not token (2026-08-08)
+
+`event_token` is minted at **approval**, so anything keyed by it is unreachable for an event that has not been approved — which is precisely the population that needs an organizer surface. That produced a deadlock: an event submitted without a street address could not be approved (`api/admin/events/[id]` refuses), could not be edited (no token ⇒ the editor never rendered), and could not be cancelled (no token ⇒ no route). Nothing could reach it.
+
+The rule now: **the organizer's own surfaces are addressed by `catering_requests.id`; the token is for ATTENDEE pages only.** This is safe because those routes authenticate the session's organizer identity, never the token.
+
+- `lib/events/event-ref.ts` — `eventRefColumn(ref)` returns `'id' | 'event_token'` so a route can accept either. A token can never be mistaken for a uuid (length arithmetic, documented in the file).
+- `api/events/[token]/{details,cancel,refresh-matches}` accept either (segment name kept — the attendee URL space is unchanged).
+- `event-manager/[id]/dashboard` and the picker are keyed on id; **neither filters on `event_token`, and `nav-destinations.ts` must not either** — that filter is what hid a stuck event from its own organizer.
 
 ## UI
 
@@ -113,8 +124,8 @@ Added 2026-08-07 after the owner flagged the confusion explicitly: *"the vendors
 | `components/events/OrganizerEventActions.tsx` | Cancel / manage actions (triggers the refund path) |
 | `components/events/EventBroadcastCard.tsx` · `EventAgreementPickerCard.tsx` · `EventRatingsCard.tsx` | Organizer broadcast composer, opt-in picker, approved-ratings display |
 | `components/events/EventFeedbackForm.tsx` | Attendee post-event rating/survey (~465 lines) |
-| `app/[vertical]/event-manager/page.tsx` | **Event picker** (new 2026-08-07) — lists events you organize; redirects out if none, straight in if exactly one |
-| `app/[vertical]/event-manager/[token]/dashboard/page.tsx` | **Event manager dashboard** (new 2026-08-07) — the home organizers never had. Event details, access code, attendee-shop link, plus the broadcast / agreement-picker / ratings controls |
+| `app/[vertical]/event-manager/page.tsx` | **Event picker** (new 2026-08-07) — lists events you organize; redirects out if none, straight in if exactly one. Lists ALL of them, approved or not |
+| `app/[vertical]/event-manager/[id]/dashboard/page.tsx` | **Event manager dashboard** (new 2026-08-07, re-keyed token→id 2026-08-08) — the home organizers never had. Event summary, access code, attendee-shop link, the Stage-2 editor, cancel, and the broadcast / agreement-picker / ratings controls. Warns when a missing street address is blocking approval |
 | `app/[vertical]/events/page.tsx` | Public marketing landing + request form |
 | `app/[vertical]/events/[token]/page.tsx` | Public event landing (`force-dynamic`) |
 | `app/[vertical]/events/[token]/select/page.tsx` | Organizer vendor-selection page (token-only, no auth — stated at `:16`) |

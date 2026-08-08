@@ -67,12 +67,15 @@ export async function getNavDestinations(
           .maybeSingle()
       : Promise.resolve({ data: opts.isVendor ? { id: 'known' } : null }),
     getMarketsManagedBy(supabase, user, vertical),
+    // ⚠ No event_token filter. There used to be one, and it meant an organiser
+    // whose only event was still pending got NO Events destination at all —
+    // locking them out of the very event that needed fixing, since a token is
+    // only minted at approval. Event dashboards are addressed by id.
     serviceClient
       .from('catering_requests')
       .select('id')
       .eq('organizer_user_id', user.id)
       .eq('vertical_id', vertical)
-      .not('event_token', 'is', null)
       .limit(1),
   ])
 
