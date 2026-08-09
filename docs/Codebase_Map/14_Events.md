@@ -1,6 +1,6 @@
 # 14 — Events (private / catering)
 
-<!-- map-stamp: domain=events; verified=2026-08-07; commit=45e98384 -->
+<!-- map-stamp: domain=events; verified=2026-08-08; commit=4e2e70ff -->
 <!-- map-claims
 src/app/api/events/**
 src/app/api/event-requests/**
@@ -124,6 +124,33 @@ The rule now: **the organizer's own surfaces are addressed by `catering_requests
 - `lib/events/event-ref.ts` — `eventRefColumn(ref)` returns `'id' | 'event_token'` so a route can accept either. A token can never be mistaken for a uuid (length arithmetic, documented in the file).
 - `api/events/[token]/{details,cancel,refresh-matches}` accept either (segment name kept — the attendee URL space is unchanged).
 - `event-manager/[id]/dashboard` and the picker are keyed on id; **neither filters on `event_token`, and `nav-destinations.ts` must not either** — that filter is what hid a stuck event from its own organizer.
+
+### ⚠ Two copies of every event fact — and which one wins (2026-08-08)
+
+Approval does not move data, it **copies** it. `approveEventRequest` writes the request's address / city / state / zip / date / end-date / headcount into `markets`, and the times plus a weekday derived from the date into `market_schedules`. Until 2026-08-08 that INSERT was the **only write to `market_schedules` in the whole events path**, so from approval onward there were two copies and no rule about which one won.
+
+Each surface had been wired to whichever copy was convenient, which is why the module never felt consistent:
+
+| Surface | Reads event facts from |
+|---|---|
+| Organizer dashboard, admin console | `catering_requests` |
+| **Vendor event page** (`api/vendor/events/[marketId]`) | **BOTH** — date/address/headcount from `markets`, times/setup notes/dietary from `catering_requests` |
+| Attendee shop, display | `catering_requests` |
+| **Attendee shop, the actual booking** | **`market_schedules`** — this supplies the cart's `schedule_id` |
+
+**The rule now: the request is the source of truth; `markets` and `market_schedules` are derived copies.** Migration 219 (`trg_sync_event_request_to_market`) enforces it in the database — a trigger rather than a helper, because the times desynced precisely because a route was written that did not know to sync.
+
+Two things it does NOT sync, both intentional: `markets.name` (built from a per-vertical *and per-locale* config suffix that SQL cannot resolve — so `company_name` stays frozen post-approval), and `cutoff_hours` / `event_allow_day_of_orders` (no editor exists for them yet).
+
+⚠ **`api/events/[token]/details/route.ts` also syncs the times in application code, and that block must stay until mig 219 reaches PROD.** Prod runs well behind staging, so the code can arrive in an environment that has no trigger. Running both is idempotent. The same condition gates removing five fields from that route's `PRE_APPROVAL_ONLY_FIELDS`.
+
+### ⚠ The intake match count is the SCORED count, not the roster (2026-08-08)
+
+`api/event-requests` returns `match_count` from `autoMatchAndInvite`'s `matched` — scored against the organizer's criteria, deal-breakers and red flags dropped, capped. It previously returned a count of *every* `event_approved` vendor in the vertical, rendered as "N qualified vendors found in your area" with no criteria and no location predicate anywhere in the query.
+
+`null` means matching never ran (full-service, or self-service with no address); `0` means it ran and found nobody. **Do not collapse the two** — the client renders three different states, and coercing null to 0 turns "we didn't look" into "we found nobody."
+
+The success copy promises the organizer can "refine your criteria for more matches." That is literally true and already gated: `api/events/[token]/refresh-matches` 401s an anonymous caller and re-runs the full engine. Do not reword it into "we are still searching" — the engine runs once per submission and does not keep looking on its own.
 
 ## UI
 

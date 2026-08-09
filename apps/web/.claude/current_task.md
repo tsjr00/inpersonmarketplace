@@ -1,4 +1,44 @@
-# Current Task: 🔬 EVENTS — dataflow deep dive is the next session's work
+# Current Task: 🔬 EVENTS — dataflow deep dive DONE; re-confirmation + backups are next
+
+## ⏱️ SESSION HANDOFF — 2026-08-08 (dataflow deep dive + mig 219)
+
+**Full evidence: `apps/web/.claude/event_dataflow_research.md`** (6 sweeps — writes, channels, per-role reads, the fact matrix, the owner's product intent, and the decisions).
+
+### The answer to "what is stopping the information flow"
+
+Approval **copies** every event fact into `markets` + `market_schedules` and nothing synced back, so there were two copies and **no rule about which wins**. Each surface was wired to whichever was convenient. Nobody was breaking a rule — there was no rule. Owner set one: **the request is the source of truth; the other two are derived.**
+
+### ✅ Shipped this session
+
+| | Status |
+|---|---|
+| Commit `4e2e70ff` (local, **NOT pushed**) | honest intake match count + times synced to the buyer schedule + consequence warnings + 4 flow-integrity guards |
+| **Mig 219** `trg_sync_event_request_to_market` | **Applied Dev + Staging. PROD PENDING.** |
+| **Mig 039** (Dev catch-up) | Applied Dev — now on all 3, moved to `applied/` |
+| Uncommitted | mig 219 file, 2 schema-snapshot changelog entries + a correction, `14_Events.md`, backlog, this file |
+
+### 🚨 Three things that MUST NOT be forgotten
+
+1. **The app-side time sync in `api/events/[token]/details/route.ts` stays until 219 is on PROD.** Prod is ~40 commits behind; the code can land where the trigger isn't. Same gate for removing 5 fields from `PRE_APPROVAL_ONLY_FIELDS`.
+2. **Shipped copy promises a refund mechanism that does not exist.** The amber timing warning and the go-live acknowledgment both tell organizers unconfirmed pre-orders are refunded before the event. Nothing does that. Fine on staging; **must not reach prod ahead of the re-confirmation flow.** (backlog: PROD SEQUENCING GATE)
+3. **Backups are a byproduct, not a bench.** `is_backup` is set in exactly one place — non-selected accepted vendors. If exactly `vendor_count` accept, the bench is empty and the auto-escalation on cancel finds nobody. And the one backup who IS promoted is notified with `headcount: 0` and an empty address string.
+
+### ▶ Next, in order
+
+1. **Re-confirmation flow** — the biggest piece, and it's what the shipped copy already promises. Owner decided: preserve the order, ping the buyer, and **refund unconfirmed orders at the market's `cutoff_hours`, NOT at event start** (refunding at start means the vendor already bought and prepped). Needs an awaiting-confirmation order state, the cutoff sweep, and a split vendor prep count.
+2. **Backups as a designed system** — opt-in standby after non-selection with a lead-time requirement; bench sized as a % (TBD); **the truck that bails funds the guarantee**, withheld from its next payout. Rejected: organizer pays a reserve fee (funnel friction) and walk-up-only standby (solves the wrong failure, punishes trucks that honored). The `vendor_fee_balance`/`vendor_fee_ledger` tables are the right shape but are wired to dormant external payments — **plan a rebuild, not a reuse** (owner).
+3. Vendor notification on change (A-AUDIT part 4) — propagating data ≠ telling anyone.
+4. Event scoring math (cluster B); platform admin console nav.
+
+### 🪤 Traps found today
+
+1. **A pre-check I built was circular** — I generated the comparison file from the file I was comparing against, so it could only confirm me. Transcribe both sides independently or the diff is theatre.
+2. **The migrations folder proves nothing.** ~160 numbered files still sit in `supabase/migrations/`, including `001_initial_schema`. Only files someone remembered to move reached `applied/`. Applied-state is answerable only from the live DB.
+3. **Schema drift is measurable, so measure it.** I recommended a Dev schema reset assuming six months of damage; a per-table column fingerprint showed **one** differing table and exactly one missing migration.
+4. **A changelog entry can be wrong in the dangerous direction** — mig 215 read "NOT YET APPLIED to any environment" and was live on staging. Verify before reasoning from it.
+5. `count(*) FROM pg_enum` is not schema-filtered. Filter both sides of a comparison the same way or you invent a discrepancy.
+
+---
 
 ## ⏱️ SESSION HANDOFF — 2026-08-08 (events + dashboard polish)
 

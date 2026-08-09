@@ -79,9 +79,19 @@ So an admin who cancels by mistake can set the status back to `approved`, and it
 
 **Decide:** (a) block un-cancelling outright with a clear message, (b) make it genuinely reversible — reactivate the market, and decide what happens to the refunded orders, or (c) allow it but warn loudly in the admin UI. Half-reversible is the dangerous state.
 
-### 🚨 A-AUDIT part 3 — EVENT TIMES DESYNC ON A LIVE EVENT (found 2026-08-08, NOT fixed)
+### ✅ A-AUDIT part 3 — EVENT TIMES DESYNC ON A LIVE EVENT (found AND FIXED 2026-08-08)
 
-**This is the worst one still open, and it is live right now.**
+**FIXED on Dev + Staging; PROD PENDING.** Two layers, deliberately both:
+1. `api/events/[token]/details` writes changed times through to `market_schedules` and surfaces a failed sync instead of swallowing it (commit `4e2e70ff`).
+2. **Mig 219** `trg_sync_event_request_to_market` makes it structural.
+
+The app-side layer **stays until 219 is on prod** — prod runs well behind staging, so the code can land where the trigger isn't. Running both is idempotent.
+
+⚠ Freezing the times was the other candidate and was **rejected**: self-service auto-approves at SUBMIT, so a post-approval freeze locks an organizer's times from the click with no admin able to correct them — the address deadlock in a different hat.
+
+*Original finding below, kept for context.*
+
+**This was the worst one open, and it was live.**
 
 `event_start_time`, `event_end_time` and `event_end_date` are in the organizer editor's `ALLOWED_FIELDS` with **no guard** — editable at any status including `approved` and `ready`. Approval copied the times into `market_schedules` (`event-actions.ts:150-159`) and `event_end_date` into `markets`. **Nothing in the events code path ever updates `market_schedules` again** — verified: every writer is an admin/markets or market-manager route.
 
@@ -99,7 +109,19 @@ Verified: neither `api/events/[token]/details` (PATCH) nor `api/events/[token]/r
 
 Owner, 2026-08-08: *"they should get notified and even if they do that doesn't mean the data they need gets updated."* Both halves are true and separate — the notification is missing AND the market row they'd read is stale.
 
-### 🏗️ THE ROOT DESIGN FLAW behind A-FOLLOWUP + parts 3 and 4
+### ✅ THE ROOT DESIGN FLAW behind A-FOLLOWUP + parts 3 and 4 — ADDRESSED by mig 219
+
+**Mig 219 shipped the recommended fix (Dev + Staging 2026-08-08; PROD PENDING).** `trg_sync_event_request_to_market` propagates address/city/state/zip/date/end-date/headcount into `markets` and the times + recomputed weekday into `market_schedules`. Ownership rule set by the owner: **the request is the source of truth, the other two are derived copies.**
+
+This also closes **A-FOLLOWUP** (approved events desyncing on location/date edits) and the finding that an admin's address repair never reached the vendor — the vendor page reads `markets.address`, which now tracks.
+
+**Still open from this cluster: part 4 (nobody notifies a vendor of any change).** Propagating the data is not the same as telling anyone.
+
+**Two follow-ups gated on 219 reaching PROD, not merely being written:**
+- delete the app-side stopgap in `api/events/[token]/details/route.ts`
+- remove `city`, `state`, `zip`, `event_date`, `headcount` from that route's `PRE_APPROVAL_ONLY_FIELDS` (`company_name` stays — the market NAME is built from per-locale app config a trigger cannot resolve)
+
+*Original analysis below.*
 
 **Approval COPIES request data into two other tables and nothing syncs it back.** `approveEventRequest` writes address / city / state / zip / event_date / event_end_date / cutoff_hours / event_allow_day_of_orders / headcount / company-name-as-market-name into `markets`, and start/end times plus a derived weekday into `market_schedules`.
 

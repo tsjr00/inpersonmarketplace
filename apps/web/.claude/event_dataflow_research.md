@@ -263,6 +263,14 @@ Still genuinely open: **what a date/time change does to orders already placed**,
 
 ---
 
+## ✅ MIG 219 APPLIED — Dev + Staging 2026-08-08, PROD PENDING
+
+`trg_sync_event_request_to_market`. Backfill touched **0 rows on Staging** — both pre-checks returned 0 before applying, so it went in as pure prevention with no accumulated damage to repair, and no tax-verification stamps cleared.
+
+Found along the way, both now recorded in `SCHEMA_SNAPSHOT.md`:
+- **Dev was missing mig 039** since February, so `markets.event_start_date` did not exist and **events had never worked on Dev at all**. Measured rather than assumed: a per-table column fingerprint across Dev and Staging returned 96 identical tables with exactly one differing row. Functions (885, identical sig) and public enums also match. Dev is now current.
+- **The changelog claimed mig 215 was "NOT YET APPLIED to any environment."** It is live on Staging. That mattered here — 215's trigger is the one real cascade off 219's backfill.
+
 ## ✅ BUILT 2026-08-08 (uncommitted at time of writing)
 
 **Item 1 — the honest match count.** `api/event-requests/route.ts` now returns `inviteResult.matched` (scored, filtered, capped) instead of a roster count; the roster query is deleted. `match_count` is `null` when matching never ran and the client no longer coerces null→0. `EventRequestForm.tsx` renders three distinct states: matched N / matched none / matching didn't run.

@@ -432,11 +432,21 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // moment they hit send — with no admin able to correct them either. That is
     // the same no-way-out shape as the address deadlock.
     //
-    // ⚠ This is the app-side stopgap. The durable fix is a trigger on
-    // catering_requests (backlog: "THE ROOT DESIGN FLAW"), because a trigger
-    // cannot be bypassed by the next route somebody writes — which is exactly
-    // how these times slipped through in the first place. Delete this block
-    // when that lands.
+    // ⚠ This is the app-side stopgap. The durable fix is migration 219
+    // (trg_sync_event_request_to_market), because a trigger cannot be bypassed
+    // by the next route somebody writes — which is exactly how these times
+    // slipped through in the first place.
+    //
+    // DO NOT DELETE THIS BLOCK when mig 219 is written — only once it is APPLIED
+    // TO ALL THREE ENVIRONMENTS. Prod runs many commits behind staging, so this
+    // code can reach an environment that does not have the trigger yet; deleting
+    // it early hands the desync straight back to prod. Running both is safe and
+    // idempotent: the trigger fires first and writes the same values, and the
+    // route's write is then a no-op that changes nothing.
+    //
+    // The five fields in PRE_APPROVAL_ONLY_FIELDS that mig 219 makes safe to
+    // edit again come off that list under the SAME condition — applied
+    // everywhere, not merely written.
     //
     // day_of_week is deliberately NOT recomputed: event_date is
     // pre-approval-only, so the weekday cannot move once a market exists.
