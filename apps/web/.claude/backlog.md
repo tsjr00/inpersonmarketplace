@@ -161,6 +161,61 @@ Full evidence: `apps/web/.claude/event_dataflow_research.md`. Product intent cap
 | Backup compensation | **The truck that bails funds the backup.** No organizer fee (funnel friction), no walk-up-standby (solves the wrong failure and punishes trucks that honored). Withholding from the next payout first; charge-plus-balance second |
 | Intake copy | Real matched count + "log in to refine for more matches" — which is true and already auth-gated |
 
+### 📐 SPEC — RE-CONFIRMATION FLOW (owner-decided 2026-08-08, NOT BUILT)
+
+Owner: an attendee who still plans to come keeps their order; we just need them to say so. **Preserve + re-confirm, never auto-cancel.**
+
+| Question | Decision |
+|---|---|
+| What triggers it | Date change or address change **always**. Time change **only if start moves > 30 min** — otherwise we spam over a rounding adjustment and train people to ignore it |
+| Pings | Immediate, reminder at +48h, final 24h before cutoff. In-app on all three; **email on the first and last only** (comms cost) |
+| How they confirm | **One-click via a token link.** Not login-gated — every lost yes is a refund we eat plus a vendor who already cooked. Same pattern as the cause-onboarding token |
+| Unconfirmed at deadline | **Refund at the market's `cutoff_hours`, NOT at event start.** Refunding at start means the vendor already bought and prepped, so the cost lands on the vendor this whole system protects |
+| Granularity | **Per combined order**, not per item. They are confirming "I am still coming", not re-picking food. Owner: *"not giving them the option to change anything, just to keep what they already bought valid"* |
+| Vendor notification | No push. Their prep page shows **confirmed vs awaiting** separately and the number they cook to is the confirmed one |
+
+**Build:** an awaiting-confirmation order state · the token confirm route · the cutoff refund sweep (cron) · split the vendor prep count.
+
+⚠ **The confirmed/awaiting split only exists after a change.** Absent one, nothing re-confirms and the vendor sees a single number exactly as today — so this is a rare-path display, not a permanent complication.
+
+### 📐 SPEC — ORGANIZER LATE-CHANGE PROTECTION, 6 layers (owner-approved 2026-08-08, NOT BUILT)
+
+Owner: *"structurally this is one of the biggest risks of self-serve events and one we need to protect against at different levels."* The block is the last layer, not the strategy.
+
+1. **Minimum lead time at intake.** ⏳ **NUMBER STILL NEEDED FROM OWNER** — recommended **10 days**, as a named constant. Today the only rule is "not in the past", but self-serve waits up to 48h for vendor responses, then the organizer selects, then attendees need real time to pre-order. An event booked too soon is exactly the one that then gets moved.
+2. **Intake copy** naming the commitment: real businesses buy food and staff a shift for this date.
+3. **Go-live acknowledgment** — ✅ SHIPPED (`events/[token]/select/page.tsx`).
+4. **Real numbers in the edit warning**, replacing abstract copy: *"14 people have pre-ordered and 3 trucks have committed."* Abstract warnings get ignored; a count does not. Requires the details GET to return order + committed-vendor counts.
+5. **Friction band, 72h → cutoff:** an acknowledgment dialog stating the actual counts before the edit saves.
+6. **Hard block inside the cutoff**, with the override below.
+
+**Override — ADMIN ALWAYS INVOLVED (owner, final 2026-08-08).** An earlier proposal auto-passed "emergency" reasons on the strength of attribution alone; **rejected — keep a human in it.** Organizer hits the block, picks a reason and writes an explanation; it routes to an admin who holds the override.
+
+Reason list: venue cancelled or changed · weather or safety · personal emergency · venue scheduling conflict · booked the wrong date · other.
+
+**The vendor notification carries the organizer's own words, attributed** — owner: *"we tell them the organizer has reported an emergency of… 'use their explanation' so they know it's not us, it's the org."* That free text reaches vendors by email, so run it through the intake form's existing moderation and cap its length.
+
+### 📐 SPEC — BACKUP VENDORS (owner-decided 2026-08-08, NOT BUILT)
+
+**Two tiers, one mechanism.** The standby list exists on every event; only admin-assisted attaches money.
+
+| | Self-serve | Admin-assisted |
+|---|---|---|
+| Bench | Notification-only | Paid + obligated |
+| On a cancellation | Non-selected accepted vendors are told a slot opened. No guarantee, no obligation, no money | Top standby activated with full event details, plus a guarantee |
+| Size | n/a | **1 per 4 trucks, floor of 1**, pre-filled for the admin and overridable per event |
+| Guarantee | — | **% of the estimated sales opportunity, probably 50% — % NOT FINAL** |
+
+**Why self-serve is excluded from the paid bench (owner):** the guarantee is priced off an *estimate*, and on self-serve nobody validated it — a bust event means we promised a backup 50% of a number that was never real. Admin-assisted has a human who sanity-checked the figure.
+
+**Why the notification-only tier exists anyway:** without it, the category we are focused on gets no protection against the exact failure that defines the market. It costs nothing and cannot overpay anyone, and it still beats the organizer starting a Facebook post from scratch.
+
+**Funding — the truck that bails pays.** Rejected: an organizer reserve fee (friction at the worst point in the funnel, and it feels wasted when no cancellation happens) and walk-up-only standby (solves the wrong failure — cancellations happen days out, not that morning — and it punishes the trucks that honored their commitment). Withhold from the defector's next payout first; the balance-due ledger is a later build and per the owner a **rebuild, not a reuse** of `vendor_fee_balance`/`vendor_fee_ledger`.
+
+**Standby terms:** opt-in after non-selection · flat **72h** penalty window, matching the `late_event_cancellation` finding the code already records · activated backups get **12h to respond** and are **never activated inside 24h** of the event · they may **decline freely, no consequence** — they committed to being asked, not to going · the organizer **can see the bench**, because "2 backup trucks on standby" is a concrete thing a Facebook group cannot offer.
+
+**Also fix here:** the promoted backup is currently notified with `headcount: 0` and an empty address string (`vendor/events/[marketId]/cancel/route.ts:404-411`).
+
 ### 🚨 PROD SEQUENCING GATE — shipped copy promises a refund mechanism that does not exist (added 2026-08-08)
 
 Two surfaces now tell organizers that **unconfirmed pre-orders are refunded before the event**:

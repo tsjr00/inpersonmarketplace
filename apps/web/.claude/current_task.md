@@ -23,12 +23,22 @@ Approval **copies** every event fact into `markets` + `market_schedules` and not
 2. **Shipped copy promises a refund mechanism that does not exist.** The amber timing warning and the go-live acknowledgment both tell organizers unconfirmed pre-orders are refunded before the event. Nothing does that. Fine on staging; **must not reach prod ahead of the re-confirmation flow.** (backlog: PROD SEQUENCING GATE)
 3. **Backups are a byproduct, not a bench.** `is_backup` is set in exactly one place — non-selected accepted vendors. If exactly `vendor_count` accept, the bench is empty and the auto-escalation on cancel finds nobody. And the one backup who IS promoted is notified with `headcount: 0` and an empty address string.
 
-### ▶ Next, in order
+### ▶ Next — THREE FULL SPECS ARE WRITTEN AND OWNER-APPROVED. Build, don't re-design.
 
-1. **Re-confirmation flow** — the biggest piece, and it's what the shipped copy already promises. Owner decided: preserve the order, ping the buyer, and **refund unconfirmed orders at the market's `cutoff_hours`, NOT at event start** (refunding at start means the vendor already bought and prepped). Needs an awaiting-confirmation order state, the cutoff sweep, and a split vendor prep count.
-2. **Backups as a designed system** — opt-in standby after non-selection with a lead-time requirement; bench sized as a % (TBD); **the truck that bails funds the guarantee**, withheld from its next payout. Rejected: organizer pays a reserve fee (funnel friction) and walk-up-only standby (solves the wrong failure, punishes trucks that honored). The `vendor_fee_balance`/`vendor_fee_ledger` tables are the right shape but are wired to dormant external payments — **plan a rebuild, not a reuse** (owner).
-3. Vendor notification on change (A-AUDIT part 4) — propagating data ≠ telling anyone.
-4. Event scoring math (cluster B); platform admin console nav.
+All three live in **`backlog.md`**, each marked `📐 SPEC`. Every design question was settled with the owner on 2026-08-08; do not reopen them, and do not re-derive the reasoning — the rejected alternatives and the reasons are recorded alongside each decision.
+
+1. **RE-CONFIRMATION FLOW** — the biggest piece, and the shipped copy already promises it. Preserve + re-confirm, one-click token link, **refund unconfirmed at `cutoff_hours` not at event start**, per combined order, vendor prep count splits confirmed vs awaiting.
+2. **ORGANIZER LATE-CHANGE PROTECTION** — 6 layers, intake floor through hard block. ⏳ **ONE OPEN NUMBER: the minimum lead time at intake.** Recommended 10 days; owner has not given the figure. Everything else is settled. **Admin is always involved in the override** — an auto-pass on self-declared emergencies was proposed and the owner rejected it.
+3. **BACKUP VENDORS** — notification-only on self-serve, paid + obligated on admin-assisted, 1-per-4 with a floor of 1, funded by the truck that bails. ⏳ **ONE OPEN NUMBER: the guarantee %, probably 50%.**
+
+Then: vendor notification on change (A-AUDIT part 4 — propagating data ≠ telling anyone) · event scoring math (cluster B) · platform admin console nav.
+
+### ⏳ The only two things blocked on the owner
+
+- **Minimum lead time at intake** (days) — layer 1 of the late-change protection
+- **Backup guarantee %** of estimated sales opportunity — probably 50%
+
+Nothing else in the three specs needs a decision.
 
 ### 🪤 Traps found today
 

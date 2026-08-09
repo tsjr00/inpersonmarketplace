@@ -312,6 +312,12 @@ Owner: *"they were not chosen as one of the primary vendors but if they want to 
 
 Owner: *"i would like there to be both compensation and obligation but we need to get buy in from the organizer… short answer is i don't think we can obligate them if they are not compensated."* Floated: organizer pays $X for ready-reserve; or the backup attends in **walk-up-only** capacity, without competing much with the chosen trucks. Owner invited a recommendation.
 
+### 6.4b Compensation & obligation — RESOLVED 2026-08-08
+
+Owner accepted **the truck that bails funds the backup**, then scoped it: **paid bench on admin-assisted events only**, notification-only standby on self-serve. Full spec with the rejected alternatives: `backlog.md` → `📐 SPEC — BACKUP VENDORS`.
+
+The reason self-serve is excluded is worth keeping in front of mind, because it is a genuine product tension: the guarantee is priced off an *estimated* sales opportunity that nobody validated on a self-serve event, so a bust means we promised a backup 50% of a number that was never real. The notification-only tier exists so the category we are focused on is not left with zero protection against the failure that defines the market.
+
 ### 6.5 Intake copy — DIRECTION SET
 
 Owner wants a real number plus language implying matching continues: *"We found 2 immediate matches for your event characteristics, and we are working on others that may be a great match as well — log in to your dashboard to see the progress on matching."*
