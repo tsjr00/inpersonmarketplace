@@ -1091,6 +1091,56 @@ describe('Organizer event funnel integrity', () => {
       .not.toMatch(/whiteSpace:\s*'nowrap'/)
   })
 
+  it('a consequential change is gated on CONSEQUENCE, not on the clock', () => {
+    // The rule: an acknowledgment is demanded when the change would actually
+    // make someone re-confirm. A time-based band was specced and abandoned —
+    // once the block starts at 72h a band "72h to the cutoff" has zero width,
+    // and worse, it would wave through a date change three weeks out that
+    // forced twenty people to re-confirm.
+    const details = code(detailsRoute)
+    expect(details, 'must ask whether the change actually affects attendees')
+      .toMatch(/changeRequiresReconfirmation\(/)
+    expect(details, 'must count the people affected before demanding anything')
+      .toMatch(/order_items[\s\S]{0,400}market_id/)
+    expect(details, 'must demand the acknowledgment')
+      .toMatch(/change_acknowledgment_required/)
+  })
+
+  it('no pre-orders means no friction at all', () => {
+    // Owner, 2026-08-09: nobody to re-confirm, so nothing to warn about and
+    // nothing to block. The gate must key on the count being > 0, not merely on
+    // the field having changed.
+    const details = code(detailsRoute)
+    expect(details).toMatch(/affectedOrders\s*>\s*0/)
+  })
+
+  it('counts DISTINCT ORDERS, not order_items', () => {
+    // The copy says "people". One person ordering four things is one person,
+    // and re-confirmation is per combined order — they answer once.
+    const details = code(detailsRoute)
+    expect(details, 'must dedupe by order_id').toMatch(/new Set\([\s\S]{0,160}order_id/)
+  })
+
+  it('the hard block is not a dead end — an admin can still change the times', () => {
+    // The block refuses a late timing change and tells the organizer to contact
+    // us. If nobody on our side could then make that change, the block would be
+    // the address deadlock wearing a different hat: a state with no way out.
+    // Admin could edit address/city/state/zip but NOT times until 2026-08-09.
+    const admin = code('app/api/admin/events/[id]/route.ts')
+    expect(admin, 'admin must accept a start time').toMatch(/event_start_time/)
+    expect(admin, 'admin must accept an end time').toMatch(/event_end_time/)
+    expect(admin, 'and actually write them').toMatch(/updates\[field\]|updates\.event_start_time/)
+  })
+
+  it('event times can be changed but never cleared, on BOTH the organizer and admin paths', () => {
+    // ck_event_requires_times (mig 121): an event with a date must keep both
+    // times. Whichever route drops one trips a raw constraint violation, so
+    // both refuse the blank with a readable message instead.
+    expect(code(detailsRoute), 'organizer path').toMatch(/ERR_EVENT_DETAIL_014/)
+    expect(code('app/api/admin/events/[id]/route.ts'), 'admin path')
+      .toMatch(/cannot be removed/)
+  })
+
   it('the intake success number is the SCORED match count, not the vendor roster', () => {
     // Until 2026-08-08 the confirmation screen displayed a count of every
     // event_approved vendor in the vertical as "N qualified <vendors> found in

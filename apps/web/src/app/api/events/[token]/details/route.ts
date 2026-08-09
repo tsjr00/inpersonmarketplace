@@ -3,6 +3,11 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { eventRefColumn } from '@/lib/events/event-ref'
+import {
+  changeRequiresReconfirmation,
+  describeTimeUntil,
+  evaluateChangeWindow,
+} from '@/lib/events/change-window'
 
 interface RouteContext {
   params: Promise<{ token: string }>
@@ -194,7 +199,66 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Only the event organizer can view these details' }, { status: 403 })
     }
 
-    return NextResponse.json({ event })
+    // ── What a change would actually cost, right now ──
+    //
+    // The editor's warning used to be abstract. Abstract warnings get ignored;
+    // "14 people have pre-ordered" does not. These are also what decides whether
+    // an acknowledgment is required at all: no pre-orders, nobody to disturb,
+    // no friction (owner, 2026-08-09).
+    let preorderCount = 0
+    let committedVendorCount = 0
+    let changeWindow = evaluateChangeWindow({
+      eventDate: event.event_date as string | null,
+      eventStartTime: event.event_start_time as string | null,
+      timezone: null,
+      cutoffHours: null,
+    })
+
+    if (event.market_id) {
+      const [orderRes, vendorRes, marketRes] = await Promise.all([
+        // DISTINCT ORDERS, not order_items. The copy says "people", and
+        // re-confirmation is per combined order — one person answering once.
+        serviceClient
+          .from('order_items')
+          .select('order_id')
+          .eq('market_id', event.market_id)
+          .not('status', 'in', '("cancelled","refunded")'),
+        serviceClient
+          .from('market_vendors')
+          .select('id')
+          .eq('market_id', event.market_id)
+          .eq('response_status', 'accepted'),
+        serviceClient
+          .from('markets')
+          .select('timezone, cutoff_hours')
+          .eq('id', event.market_id)
+          .maybeSingle(),
+      ])
+
+      preorderCount = new Set(
+        (orderRes.data || []).map(r => r.order_id as string)
+      ).size
+      committedVendorCount = (vendorRes.data || []).length
+
+      changeWindow = evaluateChangeWindow({
+        eventDate: event.event_date as string | null,
+        eventStartTime: event.event_start_time as string | null,
+        timezone: (marketRes.data?.timezone as string | null) ?? null,
+        cutoffHours: (marketRes.data?.cutoff_hours as number | null) ?? null,
+      })
+    }
+
+    return NextResponse.json({
+      event,
+      change_cost: {
+        preorder_count: preorderCount,
+        committed_vendor_count: committedVendorCount,
+        // 'open' | 'blocked' | 'past' | 'unknown'
+        window: changeWindow.state,
+        hours_until_event: changeWindow.hoursUntil,
+        block_at_hours: changeWindow.blockAtHours,
+      },
+    })
   })
 }
 
@@ -212,13 +276,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const { token } = await context.params
     const body = await request.json()
+    // Proof the organizer saw what this change costs the people who already
+    // ordered. Only demanded when there ARE such people — see the gate below.
+    const change_acknowledged = body?.change_acknowledged === true
     const serviceClient = createServiceClient()
 
     // Fetch event and verify organizer
     crumb.supabase('select', 'catering_requests')
     const { data: event } = await serviceClient
       .from('catering_requests')
-      .select('id, status, organizer_user_id, contact_email, market_id')
+      .select('id, status, organizer_user_id, contact_email, market_id, event_date, address, event_start_time')
       .eq(eventRefColumn(token), token)
       .maybeSingle()
 
@@ -396,6 +463,73 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           if (eParts[0] * 60 + eParts[1] <= sParts[0] * 60 + sParts[1]) {
             throw traced.validation('ERR_EVENT_DETAIL_006', 'event_end_time must be after event_start_time')
           }
+        }
+      }
+    }
+
+    // ── The consequence gate ──
+    //
+    // Only fires for a change an ATTENDEE agreed to when they ordered — the day,
+    // the place, or the time by more than half an hour. Budget notes and dietary
+    // preferences are none of their business.
+    //
+    // The trigger is CONSEQUENCE, not time (owner, 2026-08-09). A time-based
+    // band was specced and abandoned: once the block starts at 72 hours, a band
+    // "from 72 hours to the cutoff" has zero width. Worse, it would have waved
+    // through a date change three weeks out that forced twenty people to
+    // re-confirm, because three weeks reads as "far out". What deserves an
+    // acknowledgment is the cost, and time was only ever a proxy for it.
+    if (event.market_id && changeRequiresReconfirmation(event, updateData)) {
+      const [orderRes, marketRes] = await Promise.all([
+        serviceClient
+          .from('order_items')
+          .select('order_id')
+          .eq('market_id', event.market_id)
+          .not('status', 'in', '("cancelled","refunded")'),
+        serviceClient
+          .from('markets')
+          .select('timezone, cutoff_hours')
+          .eq('id', event.market_id)
+          .maybeSingle(),
+      ])
+
+      const affectedOrders = new Set(
+        (orderRes.data || []).map(r => r.order_id as string)
+      ).size
+
+      // No pre-orders → nobody to re-confirm → no friction at all (owner).
+      if (affectedOrders > 0) {
+        const window = evaluateChangeWindow({
+          eventDate: event.event_date as string | null,
+          eventStartTime: event.event_start_time as string | null,
+          timezone: (marketRes.data?.timezone as string | null) ?? null,
+          cutoffHours: (marketRes.data?.cutoff_hours as number | null) ?? null,
+        })
+
+        if (window.state === 'blocked' || window.state === 'past') {
+          return NextResponse.json(
+            {
+              error:
+                window.state === 'past'
+                  ? 'This event has already started, so its date, address and times can no longer be changed.'
+                  : `Your event is ${describeTimeUntil(window.hoursUntil ?? 0)} away and ${affectedOrders} ${affectedOrders === 1 ? 'person has' : 'people have'} already pre-ordered. There is no longer enough time for them to confirm they can still make it, so this change needs our help — please contact us and we will sort it out with you.`,
+              change_blocked: true,
+              preorder_count: affectedOrders,
+              hours_until_event: window.hoursUntil,
+            },
+            { status: 400 }
+          )
+        }
+
+        if (change_acknowledged !== true) {
+          return NextResponse.json(
+            {
+              error: 'Please confirm you understand what this change means for the people who have already ordered.',
+              change_acknowledgment_required: true,
+              preorder_count: affectedOrders,
+            },
+            { status: 400 }
+          )
         }
       }
     }

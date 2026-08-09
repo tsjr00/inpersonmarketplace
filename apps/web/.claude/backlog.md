@@ -193,7 +193,35 @@ Owner: *"structurally this is one of the biggest risks of self-serve events and 
 3. **Go-live acknowledgment** — ✅ SHIPPED (`events/[token]/select/page.tsx`).
 4. **Real numbers in the edit warning**, replacing abstract copy: *"14 people have pre-ordered and 3 trucks have committed."* Abstract warnings get ignored; a count does not. Requires the details GET to return order + committed-vendor counts.
 5. **Friction band, 72h → cutoff:** an acknowledgment dialog stating the actual counts before the edit saves.
-6. **Hard block inside the cutoff**, with the override below.
+6. **Hard block**, with the override below. **DECIDED 2026-08-09 — the block does NOT start at the cutoff.**
+
+   ```
+   blockStartHoursBeforeEvent = max( BLOCK_FLOOR_HOURS , cutoff_hours + RECONFIRM_RUNWAY_HOURS )
+   BLOCK_FLOOR_HOURS      = 72   // attendees need time to answer
+   RECONFIRM_RUNWAY_HOURS = 24   // a change must never land ON the refund deadline
+   ```
+
+   **Why not simply the cutoff.** One number was being asked to do two jobs. `cutoff_hours` answers *"when do vendors need certainty about quantities"*; the block answers *"when is it too late to ask attendees a question"*. Using the cutoff for both collides at the long end: with a 7-day cutoff the block would engage exactly when ordering closes, so a change made a moment earlier would hit a refund deadline with **zero** re-confirmation runway and every unconfirmed order would refund instantly.
+
+   | cutoff | block engages | re-confirmation window |
+   |---|---|---|
+   | 24h (**the only value in practice today**) | 72h | 48h |
+   | 48h | 72h | 24h |
+   | 168h | 192h (8 days) | 24h |
+
+   The common case is identical to plain "whichever is longer" — the `+runway` term only binds when someone sets a cutoff longer than the floor, which is itself a declaration that their trucks need early certainty.
+
+   ⚠ With the 10-day booking minimum, a 7-day-cutoff event would be editable only from day 10 to day 8. If that ever matters the answer is capping cutoff length, not weakening the block.
+
+   **Zero pre-orders → skip the whole ladder** (owner): no block, no dialog, no re-confirmation, because there is nobody to re-confirm. **Committed vendors are still notified** — they held the date and may have bought stock, and telling them costs nothing.
+
+   ### ⏸ PENDING A FIELD THAT DOES NOT EXIST — long-cutoff notice
+
+   Owner asked (2026-08-09) for a notice warning an organizer who sets a long cutoff that they may be limiting their attendees' chance to pre-order, and should choose a shorter one unless their trucks genuinely need the prep time.
+
+   **There is nowhere to put it.** Verified 2026-08-09: `cutoff_hours` appears in `EventRequestForm.tsx` only as a type, a `'24'` default and a POST field — **no input is rendered**. It is absent from the organizer editor's `ALLOWED_FIELDS` and from the admin events PATCH. The only writer of a custom value is `api/admin/markets` POST. So every self-service event is 24h and the long-cutoff branch is unreachable through the funnel.
+
+   Decision: **do not add the field** — a warning about an unreachable setting is noise, and "ordering cutoff in hours" is a concept most organizers have no model for, at the top of the funnel we most need to convert. **If the control is ever exposed, this notice ships with it.**
 
 **Override — ADMIN ALWAYS INVOLVED (owner, final 2026-08-08).** An earlier proposal auto-passed "emergency" reasons on the strength of attribution alone; **rejected — keep a human in it.** Organizer hits the block, picks a reason and writes an explanation; it routes to an admin who holds the override.
 

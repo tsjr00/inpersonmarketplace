@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { spacing, typography, radius, statusColors } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 
 interface OrganizerEventDetailsProps {
   /**
@@ -124,6 +125,20 @@ function countTotalInGroup(fields: string[], details: EventDetails): number {
 export default function OrganizerEventDetails({ eventRef, status, vertical, primaryColor }: OrganizerEventDetailsProps) {
   const [expanded, setExpanded] = useState(false)
   const [details, setDetails] = useState<EventDetails | null>(null)
+
+  // What a change would cost right now — real numbers from the server, used
+  // both for the warning copy and to know whether there is anyone to disturb.
+  const [changeCost, setChangeCost] = useState<{
+    preorder_count: number
+    committed_vendor_count: number
+    window: 'open' | 'blocked' | 'past' | 'unknown'
+    hours_until_event: number | null
+    block_at_hours: number
+  } | null>(null)
+
+  // Non-null while the acknowledgment dialog is open; holds the count to show.
+  const [pendingAckCount, setPendingAckCount] = useState<number | null>(null)
+
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
@@ -169,6 +184,7 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
       if (res.ok) {
         const data = await res.json()
         setDetails(data.event)
+        setChangeCost(data.change_cost ?? null)
       }
     } catch { /* silent */ }
     setLoading(false)
@@ -199,7 +215,13 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
     setSaveMessage(null)
   }
 
-  async function saveGroup() {
+  /**
+   * `acknowledged` is only ever true on the retry after the organizer confirms
+   * the dialog. The SERVER decides whether an acknowledgment is needed — this
+   * component never predicts it. Duplicating that judgment here would mean two
+   * places that have to agree about what a change costs, and they would drift.
+   */
+  async function saveGroup(acknowledged = false) {
     setSaving(true)
     setSaveMessage(null)
     try {
@@ -228,7 +250,7 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
       const res = await fetch(`/api/events/${eventRef}/details`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(cleaned),
+        body: JSON.stringify({ ...cleaned, change_acknowledged: acknowledged }),
       })
 
       if (res.ok) {
@@ -238,6 +260,7 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
         if (refresh.ok) {
           const data = await refresh.json()
           setDetails(data.event)
+          setChangeCost(data.change_cost ?? null)
         }
         setSaveMessage('Saved!')
         setEditGroup(null)
@@ -256,6 +279,14 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
         }
       } else {
         const err = await res.json()
+        if (err.change_acknowledgment_required) {
+          // Not an error the organizer caused — a cost they have not seen yet.
+          // Hold the edit open behind the dialog rather than dumping them back
+          // to the form having lost nothing but their momentum.
+          setPendingAckCount(Number(err.preorder_count) || 0)
+          setSaving(false)
+          return
+        }
         setSaveMessage(`Error: ${err.error}`)
       }
     } catch {
@@ -485,13 +516,40 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
                         color: statusColors.warningDark,
                         lineHeight: 1.5,
                       }}>
+                        {/*
+                          Real numbers, not abstractions. "14 people have
+                          pre-ordered" changes behaviour where "please be
+                          careful" does not — and when the counts are zero this
+                          says so plainly rather than implying a cost that is
+                          not there.
+                        */}
                         <strong>Changing your event timing has real costs.</strong>{' '}
-                        {vertical === 'farmers_market' ? 'Vendors' : 'Food trucks'} have committed
-                        staff and food to these hours. Anyone who has
-                        already pre-ordered will be asked to confirm they can still make it, and
-                        orders nobody confirms are refunded before the event. A timing change
-                        usually means fewer pre-orders, not just a different hour — so change it
-                        only if the event itself really has moved.
+                        {changeCost && changeCost.committed_vendor_count > 0 ? (
+                          <>
+                            <strong>{changeCost.committed_vendor_count}</strong>{' '}
+                            {changeCost.committed_vendor_count === 1
+                              ? (vertical === 'farmers_market' ? 'vendor has' : 'food truck has')
+                              : (vertical === 'farmers_market' ? 'vendors have' : 'food trucks have')}{' '}
+                            committed staff and food to these hours
+                          </>
+                        ) : (
+                          <>
+                            {vertical === 'farmers_market' ? 'Vendors' : 'Food trucks'} commit staff
+                            and food to these hours
+                          </>
+                        )}
+                        {changeCost && changeCost.preorder_count > 0 ? (
+                          <>
+                            , and <strong>{changeCost.preorder_count}</strong>{' '}
+                            {changeCost.preorder_count === 1 ? 'person has' : 'people have'} already
+                            pre-ordered. Each of them will be asked to confirm they can still make
+                            it, and any who do not answer are refunded before the event — so a
+                            timing change usually means fewer pre-orders, not just a different hour.
+                          </>
+                        ) : (
+                          <>. Nobody has pre-ordered yet, so a change now costs you the least it
+                            ever will.</>
+                        )}
                       </div>
                     )}
                     {group.fields.map(f => {
@@ -518,7 +576,11 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
                     })}
                     <div style={{ display: 'flex', gap: spacing.xs, marginTop: spacing.xs }}>
                       <button
-                        onClick={saveGroup}
+                        // NOT `onClick={saveGroup}` — React would pass the click
+                        // event as `acknowledged`, and a MouseEvent is truthy, so
+                        // every save would claim the organizer had already
+                        // acknowledged and skip the dialog entirely.
+                        onClick={() => void saveGroup()}
                         disabled={saving}
                         style={{
                           padding: `${spacing['3xs']} ${spacing.sm}`,
@@ -567,6 +629,31 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
           )}
         </div>
       )}
+
+      {/*
+        The consequence acknowledgment. Raised by the SERVER, not predicted here
+        — it only appears when a change would actually make someone re-confirm.
+        A native confirm() is not an option: it is blocked on mobile.
+      */}
+      <ConfirmDialog
+        open={pendingAckCount !== null}
+        title="This change affects people who already ordered"
+        message={
+          `${pendingAckCount} ${pendingAckCount === 1 ? 'person has' : 'people have'} pre-ordered for this event. ` +
+          `Saving this will ask ${pendingAckCount === 1 ? 'them' : 'each of them'} to confirm they can still make it, ` +
+          `and any order nobody confirms will be refunded before the event — so you will likely end up with fewer ` +
+          `pre-orders than you have now. Your ${vertical === 'farmers_market' ? 'vendors' : 'food trucks'} will be told about the change too. ` +
+          `Only save if the event really has moved.`
+        }
+        confirmLabel="Yes, save the change"
+        cancelLabel="Keep it as it is"
+        variant="danger"
+        onConfirm={() => {
+          setPendingAckCount(null)
+          void saveGroup(true)
+        }}
+        onCancel={() => setPendingAckCount(null)}
+      />
     </div>
   )
 }

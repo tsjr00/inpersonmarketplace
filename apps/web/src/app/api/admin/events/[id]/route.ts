@@ -71,7 +71,18 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const { id } = await context.params
     const body = await request.json()
-    const { status, admin_notes, address, city, state, zip, event_date, contact_email, resend_organizer_link } = body
+    const {
+      status, admin_notes, address, city, state, zip, event_date, contact_email, resend_organizer_link,
+      // Added 2026-08-09 alongside the organizer's hard block. The block refuses
+      // a late timing change and tells the organizer to contact us — so somebody
+      // here has to be able to make it. Admin previously could NOT edit times at
+      // all, which would have made the block a dead end with no way out: the
+      // same shape as the address deadlock.
+      //
+      // Safe to write now: mig 219's trigger propagates times into
+      // market_schedules, so an admin edit reaches buyers instead of desyncing.
+      event_start_time, event_end_time, event_end_date,
+    } = body
 
     const validStatuses = [
       'new',       // Request received, not yet reviewed
@@ -133,6 +144,48 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         )
       }
       updates.address = trimmed.slice(0, 500)
+    }
+
+    // ── Timing, admin-writable (2026-08-09) ──
+    //
+    // `ck_event_requires_times` (mig 121) means an event with a date must keep
+    // BOTH times, so they can be changed but never cleared — the same rule the
+    // organizer's route enforces. Rejecting the blank here keeps an admin from
+    // tripping a raw constraint violation.
+    for (const [field, value] of [
+      ['event_start_time', event_start_time],
+      ['event_end_time', event_end_time],
+    ] as const) {
+      if (value === undefined) continue
+      const v = String(value ?? '').trim()
+      if (!/^\d{2}:\d{2}(:\d{2})?$/.test(v)) {
+        return NextResponse.json(
+          { error: `${field.replace(/_/g, ' ')} must be a time like 14:30, and cannot be removed` },
+          { status: 400 }
+        )
+      }
+      updates[field] = v.length === 5 ? `${v}:00` : v
+    }
+
+    // Cross-field check against whatever the row will actually hold afterwards,
+    // not just against what this request happens to carry.
+    {
+      const finalStart = (updates.event_start_time as string | undefined) ?? (cateringReq.event_start_time as string | null)
+      const finalEnd = (updates.event_end_time as string | undefined) ?? (cateringReq.event_end_time as string | null)
+      if (finalStart && finalEnd && String(finalEnd) <= String(finalStart)) {
+        return NextResponse.json(
+          { error: 'Event end time must be after the start time' },
+          { status: 400 }
+        )
+      }
+    }
+
+    if (event_end_date !== undefined) {
+      const v = String(event_end_date ?? '').trim()
+      if (v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+        return NextResponse.json({ error: 'Event end date must be YYYY-MM-DD' }, { status: 400 })
+      }
+      updates.event_end_date = v || null
     }
 
     // ── Un-cancelling: allowed ONLY when nothing irreversible happened ──
