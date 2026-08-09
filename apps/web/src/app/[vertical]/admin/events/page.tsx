@@ -6,6 +6,7 @@ import AdminNav from '@/components/admin/AdminNav'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, statusColors, sizing } from '@/lib/design-tokens'
 import EventChipInControl from '@/components/events/EventChipInControl'
+import AdminChangeRequestsCard from '@/components/events/AdminChangeRequestsCard'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { term } from '@/lib/vertical/terminology'
 import { calculateViability, scoreVendorMatch, type EventScoreInput, type ScoreLevel, type VendorMatchInput } from '@/lib/events/viability'
@@ -493,6 +494,12 @@ export default function AdminCateringPage() {
           </div>
         </form>
       )}
+
+      {/* Organizer change requests — renders nothing when the queue is empty.
+          Placed above everything else because every row is time-critical by
+          definition: a request only exists because the event was too close for
+          the organizer to change it themselves. */}
+      <AdminChangeRequestsCard vertical={vertical} primaryColor={colors.primary} />
 
       {/* Pending Event Applications */}
       {pendingApplications.length > 0 && (

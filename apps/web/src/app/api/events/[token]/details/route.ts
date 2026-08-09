@@ -206,6 +206,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     // an acknowledgment is required at all: no pre-orders, nobody to disturb,
     // no friction (owner, 2026-08-09).
     let preorderCount = 0
+    let preorderValueCents = 0
     let committedVendorCount = 0
     let changeWindow = evaluateChangeWindow({
       eventDate: event.event_date as string | null,
@@ -216,11 +217,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     if (event.market_id) {
       const [orderRes, vendorRes, marketRes] = await Promise.all([
-        // DISTINCT ORDERS, not order_items. The copy says "people", and
-        // re-confirmation is per combined order — one person answering once.
+        // DISTINCT ORDERS for the count — the copy says "people", and
+        // re-confirmation is per combined order, so one person answers once.
+        // SUM of items for the value — what is actually at stake in money.
         serviceClient
           .from('order_items')
-          .select('order_id')
+          .select('order_id, subtotal_cents')
           .eq('market_id', event.market_id)
           .not('status', 'in', '("cancelled","refunded")'),
         serviceClient
@@ -238,6 +240,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
       preorderCount = new Set(
         (orderRes.data || []).map(r => r.order_id as string)
       ).size
+      preorderValueCents = (orderRes.data || []).reduce(
+        (sum, r) => sum + ((r.subtotal_cents as number) || 0),
+        0
+      )
       committedVendorCount = (vendorRes.data || []).length
 
       changeWindow = evaluateChangeWindow({
@@ -252,6 +258,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
       event,
       change_cost: {
         preorder_count: preorderCount,
+        // What is actually at stake in money. A count alone does not tell
+        // anyone whether they are deciding about $80 or $4,000.
+        preorder_value_cents: preorderValueCents,
         committed_vendor_count: committedVendorCount,
         // 'open' | 'blocked' | 'past' | 'unknown'
         window: changeWindow.state,
@@ -483,7 +492,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       const [orderRes, marketRes] = await Promise.all([
         serviceClient
           .from('order_items')
-          .select('order_id')
+          .select('order_id, subtotal_cents')
           .eq('market_id', event.market_id)
           .not('status', 'in', '("cancelled","refunded")'),
         serviceClient
@@ -496,6 +505,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       const affectedOrders = new Set(
         (orderRes.data || []).map(r => r.order_id as string)
       ).size
+      const affectedValueCents = (orderRes.data || []).reduce(
+        (sum, r) => sum + ((r.subtotal_cents as number) || 0),
+        0
+      )
+      const affectedValue = `$${(affectedValueCents / 100).toFixed(2)}`
 
       // No pre-orders → nobody to re-confirm → no friction at all (owner).
       if (affectedOrders > 0) {
@@ -507,14 +521,22 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         })
 
         if (window.state === 'blocked' || window.state === 'past') {
+          // ⚠ The copy names WHY a person is involved, and the reason is money,
+          // not oversight (owner, 2026-08-09). Self-service is sold as having
+          // no human in it, so appearing here without explaining ourselves reads
+          // as a bait-and-switch. "Refunds are involved, so a person looks" is
+          // true, specific, and the same line the owner drew when excluding
+          // self-service from the paid backup bench: less automation where the
+          // platform carries the money risk, not more.
           return NextResponse.json(
             {
               error:
                 window.state === 'past'
                   ? 'This event has already started, so its date, address and times can no longer be changed.'
-                  : `Your event is ${describeTimeUntil(window.hoursUntil ?? 0)} away and ${affectedOrders} ${affectedOrders === 1 ? 'person has' : 'people have'} already pre-ordered. There is no longer enough time for them to confirm they can still make it, so this change needs our help — please contact us and we will sort it out with you.`,
+                  : `Your event is ${describeTimeUntil(window.hoursUntil ?? 0)} away, and ${affectedOrders} ${affectedOrders === 1 ? 'person has' : 'people have'} already pre-ordered — ${affectedValue} worth. There is no longer time for them to confirm they can still come, so changing this now means refunding people and telling ${affectedOrders === 1 ? 'them' : 'them all'}. Because real money moves, one of our team handles this one with you rather than it happening automatically.`,
               change_blocked: true,
               preorder_count: affectedOrders,
+              preorder_value_cents: affectedValueCents,
               hours_until_event: window.hoursUntil,
             },
             { status: 400 }
@@ -527,6 +549,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
               error: 'Please confirm you understand what this change means for the people who have already ordered.',
               change_acknowledgment_required: true,
               preorder_count: affectedOrders,
+              preorder_value_cents: affectedValueCents,
             },
             { status: 400 }
           )

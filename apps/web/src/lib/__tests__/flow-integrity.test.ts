@@ -1141,6 +1141,121 @@ describe('Organizer event funnel integrity', () => {
       .toMatch(/cannot be removed/)
   })
 
+  it('the block is not a dead end — a change request route exists behind it', () => {
+    // The refusal has to lead somewhere. A block whose only instruction is
+    // "contact us", with no route to record that contact, is the address
+    // deadlock with better copy.
+    expect(has('app/api/events/[token]/change-request/route.ts')).toBe(true)
+    expect(has('app/api/admin/events/change-requests/route.ts')).toBe(true)
+    expect(has('app/api/admin/events/change-requests/[id]/route.ts')).toBe(true)
+  })
+
+  it('a change request is only accepted for a change the organizer CANNOT make', () => {
+    // Otherwise the queue fills with requests for edits they could have done
+    // themselves, and an admin's attention is the scarcest thing in this flow.
+    const req = code('app/api/events/[token]/change-request/route.ts')
+    expect(req).toMatch(/evaluateChangeWindow\(/)
+    expect(req, "must bounce a request when the window is still open")
+      .toMatch(/not_blocked/)
+  })
+
+  it('a decline must carry a reason', () => {
+    // Owner, 2026-08-09. A silent refusal 48 hours before someone's event is
+    // how a customer is lost permanently. Enforced in the route AND by the
+    // ck_ecr_decline_needs_reason CHECK in mig 220 — the route exists to return
+    // a sentence rather than a raw constraint violation.
+    const admin = code('app/api/admin/events/change-requests/[id]/route.ts')
+    expect(admin).toMatch(/review_note_required/)
+    expect(admin, 'declining without a note must not reach the database')
+      .toMatch(/if \(!note\)/)
+  })
+
+  it('approving requires an explicit decision about the existing pre-orders', () => {
+    // Owner decided pre-orders are judged CASE BY CASE, so there is deliberately
+    // no default. If a default ever appears here, the decision was reversed
+    // without anyone saying so.
+    const admin = code('app/api/admin/events/change-requests/[id]/route.ts')
+    expect(admin).toMatch(/order_action_required/)
+    // Catch a LEGAL VALUE being substituted, not any fallback at all: the route
+    // legitimately coerces a missing value to '' before validating, and ''
+    // fails the whitelist. `?? 'refund_all'` is the thing that would reverse
+    // the owner's decision silently.
+    expect(admin, 'no legal order_action may be supplied as a fallback')
+      .not.toMatch(/(\|\||\?\?)\s*'(refund_all|keep_all|handled_manually)'/)
+  })
+
+  it('a self-service request is approved as asked, or declined — never edited', () => {
+    // On admin-assisted events the admin is co-managing and may edit before
+    // approving. On self-service they are a gatekeeper, not a co-organizer.
+    const admin = code('app/api/admin/events/change-requests/[id]/route.ts')
+    expect(admin).toMatch(/isSelfService/)
+    expect(admin, 'an edit on a self-service request must be refused')
+      .toMatch(/isSelfService[\s\S]{0,400}status: 400/)
+  })
+
+  it('approval claims the request BEFORE applying the change', () => {
+    // Ordering matters. Approved-but-unapplied is visible and fixable;
+    // applied-but-still-pending invites a second admin to apply it twice.
+    const admin = code('app/api/admin/events/change-requests/[id]/route.ts')
+    const claimAt = admin.indexOf("status: 'approved'")
+    const applyAt = admin.indexOf("from('catering_requests')\n      .update(writeable)")
+    expect(claimAt, 'the claim must exist').toBeGreaterThan(-1)
+    expect(admin, 'the apply must exist').toMatch(/\.update\(writeable\)/)
+    if (applyAt > -1) expect(claimAt).toBeLessThan(applyAt)
+    expect(admin, 'the claim must be guarded against a lost race')
+      .toMatch(/\.eq\('status', 'pending'\)/)
+  })
+
+  it('the admin sees the MONEY at stake, not only a count', () => {
+    // Owner, 2026-08-09: a count does not tell an admin whether they are
+    // deciding about $80 or $4,000, and those are different conversations. The
+    // amount is also the reason a person is in this loop at all — the block
+    // exists because refunds move real money.
+    expect(code('app/api/events/[token]/change-request/route.ts'))
+      .toMatch(/preorder_value_cents_at_request/)
+    expect(code('app/api/admin/events/change-requests/route.ts'))
+      .toMatch(/live_preorder_value_cents/)
+  })
+
+  it('the queue reports the CURRENT figures alongside the snapshot', () => {
+    // The organizer decided on one number and the admin decides on another,
+    // because orders keep arriving. A silent gap between them is how someone
+    // gets quoted a figure that is no longer true.
+    const q = code('app/api/admin/events/change-requests/route.ts')
+    expect(q, 'must return the stored snapshot').toMatch(/preorder_count_at_request/)
+    expect(q, 'and the live count').toMatch(/live_preorder_count/)
+    expect(q, 'batched, not one query per row')
+      .toMatch(/\.in\('market_id', marketIds\)/)
+  })
+
+  it('the block explains WHY a person is involved', () => {
+    // Self-service is sold as having no human in it. Appearing at the failure
+    // point without explaining ourselves reads as a bait-and-switch, so the
+    // refusal names the reason: refunds move real money.
+    expect(code(detailsRoute), 'the blocked copy must name the money reason')
+      .toMatch(/real money moves/)
+  })
+
+  it('the admin queue is scoped by verifyAdminScope, not a hand-rolled role check', () => {
+    // Several event routes hand-roll `role === 'admin'`, which is the shape
+    // behind the "legitimate admin refused" bug in the backlog. Not repeated.
+    for (const p of [
+      'app/api/admin/events/change-requests/route.ts',
+      'app/api/admin/events/change-requests/[id]/route.ts',
+    ]) {
+      expect(code(p), p).toMatch(/verifyAdminScope\(/)
+      expect(code(p), `${p} must not hand-roll the role test`)
+        .not.toMatch(/role === 'admin'/)
+    }
+  })
+
+  it("the organizer's explanation is moderated before it can reach a vendor", () => {
+    // It is emailed verbatim and attributed. This is the last place an
+    // unfiltered organizer string should be able to pass through.
+    expect(code('app/api/events/[token]/change-request/route.ts'))
+      .toMatch(/content-moderation/)
+  })
+
   it('the intake success number is the SCORED match count, not the vendor roster', () => {
     // Until 2026-08-08 the confirmation screen displayed a count of every
     // event_approved vendor in the vertical as "N qualified <vendors> found in

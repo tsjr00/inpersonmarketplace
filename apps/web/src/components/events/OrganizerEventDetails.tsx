@@ -4,6 +4,12 @@ import { useState, useEffect } from 'react'
 import { spacing, typography, radius, statusColors } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
+import {
+  CHANGEABLE_FIELDS,
+  CHANGE_REQUEST_REASONS,
+  EXPLANATION_MIN,
+  EXPLANATION_MAX,
+} from '@/lib/events/change-requests'
 
 interface OrganizerEventDetailsProps {
   /**
@@ -138,6 +144,51 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
 
   // Non-null while the acknowledgment dialog is open; holds the count to show.
   const [pendingAckCount, setPendingAckCount] = useState<number | null>(null)
+
+  // Non-null once a save has been refused by the hard block. Carries the change
+  // they attempted so the request form does not make them retype it — they are
+  // close to their event and short of time, which is why they are here at all.
+  const [blockedChange, setBlockedChange] = useState<{
+    message: string
+    preorderCount: number
+    changes: Record<string, string>
+  } | null>(null)
+  const [requestReason, setRequestReason] = useState('')
+  const [requestExplanation, setRequestExplanation] = useState('')
+  const [requestSubmitting, setRequestSubmitting] = useState(false)
+  const [requestResult, setRequestResult] = useState<string | null>(null)
+
+  async function submitChangeRequest() {
+    if (!blockedChange) return
+    setRequestSubmitting(true)
+    setRequestResult(null)
+    try {
+      const res = await fetch(`/api/events/${eventRef}/change-request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reason_category: requestReason,
+          explanation: requestExplanation,
+          requested_changes: blockedChange.changes,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setRequestResult(
+          'Sent. We will look at this and come back to you — check your email.'
+        )
+        setBlockedChange(null)
+        setRequestReason('')
+        setRequestExplanation('')
+        setEditGroup(null)
+      } else {
+        setRequestResult(data.error || 'We could not send that. Please contact us directly.')
+      }
+    } catch {
+      setRequestResult('We could not send that. Please contact us directly.')
+    }
+    setRequestSubmitting(false)
+  }
 
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -284,6 +335,25 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
           // Hold the edit open behind the dialog rather than dumping them back
           // to the form having lost nothing but their momentum.
           setPendingAckCount(Number(err.preorder_count) || 0)
+          setSaving(false)
+          return
+        }
+        if (err.change_blocked) {
+          // The refusal has to lead somewhere. Carry the change they attempted
+          // into the request so they do not retype it — the whole point is that
+          // they are close to their event and short of time.
+          const attempted: Record<string, string> = {}
+          for (const f of CHANGEABLE_FIELDS) {
+            const v = cleaned[f]
+            if (v !== undefined && v !== null && String(v).trim()) {
+              attempted[f] = String(v)
+            }
+          }
+          setBlockedChange({
+            message: String(err.error || ''),
+            preorderCount: Number(err.preorder_count) || 0,
+            changes: attempted,
+          })
           setSaving(false)
           return
         }
@@ -628,6 +698,157 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
             </p>
           )}
         </div>
+      )}
+
+      {/*
+        The way out of the hard block. Deliberately an inline PANEL, not a
+        dialog: it needs a reason, a free-text explanation and a review of what
+        they are asking for, and a modal that size on a phone is a trap. It also
+        keeps the refusal message visible above it rather than replacing it.
+      */}
+      {blockedChange && (
+        <div style={{
+          marginTop: spacing.sm,
+          padding: spacing.sm,
+          backgroundColor: statusColors.warningLight,
+          border: `1px solid ${statusColors.warningBorder}`,
+          borderRadius: radius.md,
+        }}>
+          <p style={{
+            margin: `0 0 ${spacing.xs}`,
+            fontSize: typography.sizes.sm,
+            color: statusColors.warningDark,
+            lineHeight: 1.5,
+          }}>
+            {blockedChange.message}
+          </p>
+
+          <p style={{
+            margin: `0 0 ${spacing.xs}`,
+            fontSize: typography.sizes.sm,
+            fontWeight: typography.weights.semibold,
+            color: statusColors.neutral800,
+          }}>
+            If this cannot wait, tell us what happened and we will sort it out with you.
+          </p>
+
+          {Object.keys(blockedChange.changes).length > 0 && (
+            <div style={{
+              marginBottom: spacing.xs,
+              padding: spacing['2xs'],
+              backgroundColor: '#ffffff',
+              borderRadius: radius.sm,
+              fontSize: typography.sizes.xs,
+              color: statusColors.neutral700,
+            }}>
+              <strong>What you are asking to change:</strong>
+              <ul style={{ margin: `${spacing['3xs']} 0 0`, paddingLeft: '1.2em' }}>
+                {Object.entries(blockedChange.changes).map(([f, v]) => (
+                  <li key={f}>{fieldLabel(f, vertical)}: {formatFieldValue(f, v)}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <label style={{ display: 'block', fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: statusColors.neutral700, marginBottom: 2 }}>
+            What happened?
+          </label>
+          <select
+            value={requestReason}
+            onChange={(e) => setRequestReason(e.target.value)}
+            style={{
+              width: '100%',
+              padding: spacing['2xs'],
+              borderRadius: radius.sm,
+              border: `1px solid ${statusColors.neutral300}`,
+              fontSize: typography.sizes.sm,
+              marginBottom: spacing.xs,
+            }}
+          >
+            <option value="">Choose a reason…</option>
+            {CHANGE_REQUEST_REASONS.map(r => (
+              <option key={r.value} value={r.value}>{r.label}</option>
+            ))}
+          </select>
+
+          <label style={{ display: 'block', fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: statusColors.neutral700, marginBottom: 2 }}>
+            In your own words
+          </label>
+          {/*
+            Required on every reason, not just "other". The category is for us;
+            this sentence is what the vendors read, attributed to the organizer
+            — so they know the change came from them and not from us.
+          */}
+          <textarea
+            value={requestExplanation}
+            onChange={(e) => setRequestExplanation(e.target.value)}
+            rows={3}
+            maxLength={EXPLANATION_MAX}
+            placeholder="A sentence or two is plenty."
+            style={{
+              width: '100%',
+              padding: spacing['2xs'],
+              borderRadius: radius.sm,
+              border: `1px solid ${statusColors.neutral300}`,
+              fontSize: typography.sizes.sm,
+              fontFamily: 'inherit',
+              resize: 'vertical',
+            }}
+          />
+          <p style={{ margin: `2px 0 ${spacing.xs}`, fontSize: typography.sizes.xs, color: statusColors.neutral500 }}>
+            {vertical === 'farmers_market' ? 'The vendors' : 'The food trucks'} who committed to your
+            event will be shown what you write here.
+          </p>
+
+          <div style={{ display: 'flex', gap: spacing.xs, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => void submitChangeRequest()}
+              disabled={
+                requestSubmitting ||
+                !requestReason ||
+                requestExplanation.trim().length < EXPLANATION_MIN
+              }
+              style={{
+                padding: `${spacing['3xs']} ${spacing.sm}`,
+                backgroundColor: requestSubmitting || !requestReason || requestExplanation.trim().length < EXPLANATION_MIN
+                  ? statusColors.neutral300
+                  : primaryColor,
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: radius.sm,
+                fontSize: typography.sizes.xs,
+                fontWeight: typography.weights.semibold,
+                cursor: requestSubmitting ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {requestSubmitting ? 'Sending…' : 'Send this to us'}
+            </button>
+            <button
+              onClick={() => { setBlockedChange(null); setRequestResult(null) }}
+              style={{
+                padding: `${spacing['3xs']} ${spacing.sm}`,
+                backgroundColor: 'transparent',
+                color: statusColors.neutral600,
+                border: `1px solid ${statusColors.neutral300}`,
+                borderRadius: radius.sm,
+                fontSize: typography.sizes.xs,
+                cursor: 'pointer',
+              }}
+            >
+              Leave it as it is
+            </button>
+          </div>
+        </div>
+      )}
+
+      {requestResult && (
+        <p style={{
+          marginTop: spacing.xs,
+          fontSize: typography.sizes.sm,
+          color: statusColors.neutral700,
+        }}>
+          {requestResult}
+        </p>
       )}
 
       {/*

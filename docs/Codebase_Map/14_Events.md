@@ -1,6 +1,6 @@
 # 14 — Events (private / catering)
 
-<!-- map-stamp: domain=events; verified=2026-08-08; commit=4e2e70ff -->
+<!-- map-stamp: domain=events; verified=2026-08-09; commit=dfefc782 -->
 <!-- map-claims
 src/app/api/events/**
 src/app/api/event-requests/**
@@ -143,6 +143,37 @@ Each surface had been wired to whichever copy was convenient, which is why the m
 Two things it does NOT sync, both intentional: `markets.name` (built from a per-vertical *and per-locale* config suffix that SQL cannot resolve — so `company_name` stays frozen post-approval), and `cutoff_hours` / `event_allow_day_of_orders` (no editor exists for them yet).
 
 ⚠ **`api/events/[token]/details/route.ts` also syncs the times in application code, and that block must stay until mig 219 reaches PROD.** Prod runs well behind staging, so the code can arrive in an environment that has no trigger. Running both is idempotent. The same condition gates removing five fields from that route's `PRE_APPROVAL_ONLY_FIELDS`.
+
+### The organizer change ladder (2026-08-09)
+
+Four rungs, and the trigger for each is different. Confusing them is how this gets rebuilt wrong.
+
+| Rung | Fires when | Where |
+|---|---|---|
+| **Lead-time floor** | Booking closer than 10 days · 10–13 days needs an acknowledgment | `lib/events/lead-time.ts`, intake route + form |
+| **Warning with real counts** | Any edit to the timing group on a live event | `OrganizerEventDetails.tsx`, counts from `details` GET |
+| **Acknowledgment dialog** | A change to day / place / time-by-30-min **AND pre-orders exist** | `details` PATCH → `change_acknowledgment_required` |
+| **Hard block** | Same change, inside `max(72h, cutoff + 24h)` of the event | `details` PATCH → `change_blocked` → change request |
+
+**The dialog is gated on CONSEQUENCE, not the clock.** No pre-orders means no friction at all — nobody to re-confirm. A time-based band was specced and abandoned: once the block starts at 72h, a band "72h to the cutoff" has zero width, and it would have waved through a date change three weeks out that forced twenty people to re-confirm.
+
+**The block window is not the ordering cutoff.** `cutoff_hours` answers *when do vendors need certainty*; the block answers *when is it too late to ask attendees*. Using the cutoff for both leaves zero re-confirmation runway on long-cutoff events. Full reasoning in `lib/events/change-window.ts`.
+
+### The override — `event_change_requests` (mig 220, 2026-08-09)
+
+A blocked organizer is not stuck. They raise a request: a reason category, **a required explanation in their own words**, and the change they want. An **admin always reviews** — auto-approving self-declared emergencies was proposed and rejected.
+
+| Route | Does |
+|---|---|
+| `api/events/[token]/change-request` | Organizer raises one / lists their own. Refuses when the change is not actually blocked, so the queue stays real |
+| `api/admin/events/change-requests` | The queue, **oldest first** — every row is time-critical by definition |
+| `api/admin/events/change-requests/[id]` | Approve or decline |
+
+Rules worth not rediscovering: a **decline requires a note** (a DB CHECK, not a convention). **`order_action` is required on approval and has no default** — pre-orders are judged case by case. An admin may **edit before approving on admin-assisted events only**; a self-service request is approved exactly as asked, or declined. Approval **claims the row before applying the change**, so a failure leaves an approved-but-unapplied row that is visible, rather than an applied-but-still-pending one a second admin would apply twice.
+
+⚠ **Notifications are NOT built yet.** Two `TODO(notifications slice)` markers show where the organizer notice and the vendor fan-out belong. The vendor message must carry the organizer's explanation verbatim and attributed, so vendors know the change came from the organizer and not from us. `order_action` records what the admin decided about pre-orders; **acting on it belongs to the re-confirmation slice, which owns refunds.**
+
+⚠ **Admin can edit event times as of 2026-08-09**, and that is load-bearing rather than incidental: the block tells the organizer to contact us, so somebody here has to be able to make the change. Before this, admin could edit address/city/state/zip but not times — the block would have been a dead end.
 
 ### ⚠ The intake match count is the SCORED count, not the roster (2026-08-08)
 
