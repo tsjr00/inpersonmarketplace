@@ -371,6 +371,28 @@ console.log([...document.querySelectorAll('*')]
 ```
 The **deepest** row is the culprit; everything above it is an ancestor being dragged wide. A `getBoundingClientRect().right` scan alone is not enough — it misses an element whose own box fits while its content spills.
 
+## 🟠 ADMIN NOTIFICATIONS GO TO THE WRONG VERTICAL — and get truncated (found 2026-08-09, NOT fixed)
+
+**Owner-flagged 2026-08-09:** an admin from one vertical is being notified about events they have nothing to do with.
+
+**Three call sites, three ways wrong, all the same shape:**
+
+| Site | Query |
+|---|---|
+| `api/vendor/events/[marketId]/respond/route.ts:373-378` | `.in('role',['admin','platform_admin']).is('deleted_at',null).limit(5)` |
+| `api/vendor/events/[marketId]/cancel/route.ts:303-308` | same, also `.limit(5)` |
+| `api/cron/expire-orders` (event vendor-gap alert, ~`:2613`) | `.or('role.eq.admin,role.eq.platform_admin')` — **no `deleted_at` filter, no limit** |
+
+1. **Not scoped by vertical.** Every one of them sends `{ vertical: … }` in the options — so the notification is *labelled* with a vertical while the recipient list ignores it. An FM admin is told about FT events and vice versa. At two verticals that is noise; at five it is a reason to stop reading admin notifications altogether.
+2. **Truncated at an arbitrary 5**, with no ordering — so *which* admins hear about a time-critical thing is effectively random. If the one person who would have acted is number six, nobody acts.
+3. **Hand-rolled role tests** rather than the shared helpers — the same shape as backlog item D (a legitimate admin refused by a literal `role === 'admin'` check).
+
+**The fix already exists.** `lib/notifications/admin-recipients.ts` (written 2026-08-09 for the change-request alert) resolves the real set: platform admins plus this vertical's `vertical_admins`, deleted accounts excluded, **no cap**. It mirrors `verifyAdminScope`'s rule.
+
+**So this is three call-site swaps, not new logic.** Deliberately not done in the notifications commit — those three routes work today and changing working money-adjacent paths was outside what was asked. Each should be swapped and smoke-tested on staging.
+
+⚠ Check `.limit(5)` removal deliberately: if an environment somehow has a large admin table, removing the cap changes the send volume. Verify the real count per vertical before shipping.
+
 ## 🎯 BRAND POSITIONING — "building community through neighbor-to-neighbor commerce" (owner, 2026-08-09)
 
 **Status: captured, not built. Revisit deliberately — do not fold into an unrelated commit.**

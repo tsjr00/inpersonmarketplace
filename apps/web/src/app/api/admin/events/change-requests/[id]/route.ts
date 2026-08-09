@@ -3,7 +3,8 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { verifyAdminScope } from '@/lib/auth/admin'
-import { CHANGEABLE_FIELDS } from '@/lib/events/change-requests'
+import { CHANGEABLE_FIELDS, describeChanges, reasonLabel } from '@/lib/events/change-requests'
+import { sendNotification } from '@/lib/notifications/service'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -60,7 +61,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const { data: event } = await serviceClient
       .from('catering_requests')
-      .select('id, vertical_id, service_level, event_start_time, event_end_time, market_id')
+      .select('id, vertical_id, service_level, event_start_time, event_end_time, market_id, organizer_user_id, event_date')
       .eq('id', changeRequest.catering_request_id as string)
       .maybeSingle()
 
@@ -104,7 +105,18 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         return NextResponse.json({ error: 'Failed to record the decline' }, { status: 500 })
       }
 
-      // TODO(notifications slice): tell the organizer, with the note.
+      // Tell the organizer, WITH the reason. A silent decline this close to
+      // their event is the failure mode the required note exists to prevent —
+      // so the note has to actually reach them, not just sit in a row.
+      if (event.organizer_user_id) {
+        await sendNotification(event.organizer_user_id as string, 'event_change_decided', {
+          responseAction: 'declined',
+          changeSummary: describeChanges(changeRequest.requested_changes as Record<string, unknown>),
+          declineReason: note,
+          vertical: event.vertical_id as string,
+          eventId: event.id as string,
+        }, { vertical: event.vertical_id as string })
+      }
       return NextResponse.json({ ok: true, status: 'declined' })
     }
 
@@ -219,12 +231,53 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       )
     }
 
-    // TODO(notifications slice): tell the organizer it was approved, and fan out
-    // to every committed vendor carrying the organizer's own explanation,
-    // attributed — "the organizer has reported…" — so vendors know the change
-    // came from them and not from us. `order_action` records what the admin
-    // decided about pre-orders; acting on it belongs to the re-confirmation
-    // slice, which owns refunds.
+    // ── Tell everyone who committed to this event ──
+    //
+    // The vendor message carries the organizer's OWN WORDS, attributed (owner,
+    // 2026-08-09) — "The organizer told us: …" — so a truck rearranging its day
+    // knows who moved it and why, and does not read this as the platform
+    // messing them around.
+    //
+    // Deliberately AFTER the change is applied: a vendor who opens the link
+    // must see the new details, not the old ones.
+    const summary = describeChanges(writeable)
+
+    if (event.market_id) {
+      const { data: committed } = await serviceClient
+        .from('market_vendors')
+        .select('vendor_profile_id, vendor_profiles:vendor_profile_id(user_id)')
+        .eq('market_id', event.market_id)
+        .eq('response_status', 'accepted')
+
+      for (const mv of committed || []) {
+        const vp = mv.vendor_profiles as unknown as { user_id: string } | null
+        if (!vp?.user_id) continue
+        await sendNotification(vp.user_id, 'event_changed_vendor', {
+          changeSummary: summary,
+          changeReason: reasonLabel(changeRequest.reason_category as string),
+          organizerExplanation: changeRequest.explanation as string,
+          eventDate: (writeable.event_date as string) || (event.event_date as string) || '',
+          marketId: event.market_id as string,
+          vertical: event.vertical_id as string,
+        }, { vertical: event.vertical_id as string })
+      }
+    }
+
+    if (event.organizer_user_id) {
+      await sendNotification(event.organizer_user_id as string, 'event_change_decided', {
+        responseAction: 'approved',
+        changeSummary: summary,
+        vertical: event.vertical_id as string,
+        eventId: event.id as string,
+      }, { vertical: event.vertical_id as string })
+    }
+
+    // ⚠ STILL NOT DONE, deliberately: `order_action` is recorded but nothing
+    // executes it. Refunding belongs to the re-confirmation slice, which owns
+    // that machinery — building a second refund path here would duplicate the
+    // money logic in the one place it must not be duplicated. Attendees are
+    // therefore NOT yet told; the admin's chosen action is a decision on
+    // record, not an action taken.
     return NextResponse.json({
       ok: true,
       status: 'approved',
@@ -233,3 +286,23 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     })
   })
 }
+
+/**
+ * WHY `organizer_user_id` IS SAFE TO RELY ON HERE
+ *
+ * Both decision notices go through `sendNotification`, which needs a user id —
+ * so it is worth being explicit that an unlinked organizer cannot reach this
+ * flow in the first place.
+ *
+ * A change request can only originate from the organizer's own dashboard, and
+ * `event-manager/[id]/dashboard/page.tsx` gates on
+ * `event.organizer_user_id !== user.id` → redirect. A hard identity match, no
+ * email fallback. The claim happens earlier, on the way in: both the
+ * event-manager picker and the shopper dashboard set `organizer_user_id` for
+ * any event whose `contact_email` matches the signed-in user.
+ *
+ * So the model is: browse and submit without an account, but the moment you
+ * need a dashboard you need an account. The id-or-email auth in
+ * `api/events/[token]/details` is belt-and-braces for the API surface, not a
+ * way to operate the event without signing up.
+ */

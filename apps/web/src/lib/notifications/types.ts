@@ -172,6 +172,9 @@ export type NotificationType =
   | 'catering_vendor_responded'
   | 'event_cancelled_vendor'
   | 'event_confirmed'
+  | 'event_change_requested'
+  | 'event_change_decided'
+  | 'event_changed_vendor'
   | 'event_feedback_request'
   | 'event_prep_reminder'
   | 'event_settlement_summary'
@@ -249,6 +252,22 @@ export interface NotificationTemplateData {
   eventPageUrl?: string
   vendorCount?: number
   eventId?: string
+  // ── Event change requests (mig 220/221) ────────────────────────────────
+  // Deliberately NOT reusing `reason`: it is already repurposed to carry a
+  // time range in catering_vendor_invited, and stacking a third meaning on one
+  // field is how that becomes unreadable.
+  /** Human phrasing of what is changing, e.g. "date to 2026-09-04 and start time to 13:00". */
+  changeSummary?: string
+  /** The organizer's chosen category, already turned into a label. */
+  changeReason?: string
+  /** The organizer's OWN words, verbatim. Shown to vendors and attributed to
+   *  them, so they know the change came from the organizer and not from us. */
+  organizerExplanation?: string
+  /** The admin's note when a request is declined. Required on a decline. */
+  declineReason?: string
+  /** Pre-formatted money at stake, e.g. "$1,240.00". Formatted by the caller —
+   *  templates must not do currency math. */
+  atStakeAmount?: string
   // Vendor onboarding gate notifications
   category?: string
   // Order confirmation email enrichment
@@ -1559,6 +1578,66 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
   },
 
   // Sent to event organizer when admin advances event to 'ready' (vendors confirmed)
+  // ── Event change requests ─────────────────────────────────────────────
+  //
+  // All three are `standard` = email + in_app. Not `immediate` (push + in_app,
+  // no email — an admin who is not in the app never learns) and not `urgent`
+  // (sms + in_app, no email — costs money and needs phone numbers we do not
+  // collect). Email is the strongest channel available without new plumbing,
+  // and these are rare: a request only exists when an event was too close for
+  // its organizer to change it themselves.
+  event_change_requested: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'admin',
+    title: () => 'An organizer needs help with a locked event',
+    message: (d) => {
+      const stake = d.atStakeAmount ? ` ${d.atStakeAmount} is at stake.` : ''
+      const reason = d.changeReason ? ` Reason given: ${d.changeReason}.` : ''
+      const words = d.organizerExplanation ? ` They wrote: "${d.organizerExplanation}"` : ''
+      return `${d.companyName || 'An organizer'} is asking to change ${d.changeSummary || 'their event'} for ${d.eventDate || 'their event'}, which is too close for them to change themselves.${stake}${reason}${words} Nothing happens until you decide.`
+    },
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/admin/events`,
+  },
+
+  event_change_decided: {
+    urgency: 'standard',
+    severity: 'info',
+    // The organizer is external and may have no account — audience does not
+    // drive routing here, same as event_confirmed.
+    audience: 'buyer',
+    title: (d) => d.responseAction === 'approved'
+      ? 'Your event change is done'
+      : 'We could not make that change',
+    message: (d) => {
+      if (d.responseAction === 'approved') {
+        return `We have updated ${d.changeSummary || 'your event'}. Everyone who committed to your event has been told, and we passed on what you told us. If anyone had already pre-ordered, we will be in touch about those orders.`
+      }
+      const why = d.declineReason ? ` ${d.declineReason}` : ''
+      return `We were not able to change ${d.changeSummary || 'your event'}.${why} If this leaves you stuck, reply to this message and we will work it out with you.`
+    },
+    actionUrl: (d) => d.eventId
+      ? `/${d.vertical || 'food_trucks'}/event-manager/${d.eventId}/dashboard`
+      : `/${d.vertical || 'food_trucks'}/event-manager`,
+  },
+
+  event_changed_vendor: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'vendor',
+    title: () => 'An event you committed to has changed',
+    message: (d) => {
+      // The organizer's words, attributed. Owner, 2026-08-09: vendors should
+      // know the change came from the organizer and not from us.
+      const words = d.organizerExplanation
+        ? ` The organizer told us: "${d.organizerExplanation}"`
+        : ''
+      const reason = d.changeReason ? ` (${d.changeReason})` : ''
+      return `The organizer has changed ${d.changeSummary || 'the details'} for the event on ${d.eventDate || 'your calendar'}${reason}.${words} Please check the new details and make sure they still work for you.`
+    },
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/events/${d.marketId}`,
+  },
+
   event_confirmed: {
     urgency: 'immediate',
     severity: 'info',

@@ -208,8 +208,14 @@ describe('NI-014: Total notification types = 72', () => {
     // Bumped 100 → 101 on 2026-07-26 when park_required_docs_updated was added
     // (park-required docs reach existing/recurring vendors — in_app nudge to
     // booked trucks when an operator adds a required doc). User-approved.
+    // Bumped 101 → 104 on 2026-08-09 when event_change_requested +
+    // event_change_decided + event_changed_vendor were added (the override
+    // behind the organizer change block, migs 220/221 — admin alert carrying
+    // the money at stake, organizer decision notice carrying the required
+    // decline reason, and the vendor fan-out carrying the organizer's own
+    // words attributed). User-approved.
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(101)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(104)
   })
 
   it('includes all buyer-facing types', () => {

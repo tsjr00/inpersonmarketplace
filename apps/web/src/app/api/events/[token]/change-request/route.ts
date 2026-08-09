@@ -4,7 +4,9 @@ import { withErrorTracing, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { eventRefColumn } from '@/lib/events/event-ref'
 import { evaluateChangeWindow } from '@/lib/events/change-window'
-import { validateChangeRequest } from '@/lib/events/change-requests'
+import { validateChangeRequest, describeChanges, reasonLabel } from '@/lib/events/change-requests'
+import { sendNotification } from '@/lib/notifications/service'
+import { adminRecipientsForVertical } from '@/lib/notifications/admin-recipients'
 
 interface RouteContext {
   params: Promise<{ token: string }>
@@ -25,7 +27,7 @@ async function loadEventForOrganizer(token: string, userId: string, userEmail: s
   const serviceClient = createServiceClient()
   const { data: event } = await serviceClient
     .from('catering_requests')
-    .select('id, status, organizer_user_id, contact_email, market_id, event_date, event_start_time, service_level, vertical_id')
+    .select('id, status, organizer_user_id, contact_email, market_id, event_date, event_start_time, service_level, vertical_id, company_name')
     .eq(eventRefColumn(token), token)
     .maybeSingle()
 
@@ -191,11 +193,39 @@ export async function POST(request: NextRequest, context: RouteContext) {
       )
     }
 
+    // ── Tell the admins, now ──
+    //
+    // Owner, 2026-08-09: this message needs top priority and should elicit an
+    // immediate response. `standard` urgency = email + in_app, which is the
+    // strongest channel available without collecting admin phone numbers.
+    // Nothing happens on this event until someone acts, so a missed message
+    // means an organizer sits blocked in front of their own deadline.
+    //
+    // Recipients come from the shared helper, NOT the .limit(5) pattern the
+    // three older admin fan-outs use — see admin-recipients.ts.
+    const admins = await adminRecipientsForVertical(
+      serviceClient,
+      event.vertical_id as string
+    )
+    for (const adminId of admins) {
+      await sendNotification(adminId, 'event_change_requested', {
+        companyName: (event.company_name as string) || 'An organizer',
+        eventDate: (event.event_date as string) || '',
+        changeSummary: describeChanges(requested_changes),
+        changeReason: reasonLabel(reason_category),
+        organizerExplanation: explanation,
+        atStakeAmount: `$${(preorderValueCents / 100).toFixed(2)}`,
+        vertical: event.vertical_id as string,
+        eventId: event.id as string,
+      }, { vertical: event.vertical_id as string })
+    }
+
     return NextResponse.json({
       ok: true,
       request: inserted,
       preorder_count: preorderCount,
       preorder_value_cents: preorderValueCents,
+      admins_notified: admins.length,
     })
   })
 }
