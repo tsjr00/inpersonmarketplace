@@ -443,6 +443,14 @@ export default function EventSelectPage() {
                   <li>You have reviewed the {isFM ? 'event items' : 'catering menu'} for each selected {vendorTerm} and understand what will be provided.</li>
                   <li>Selected {vendorTermPlural} will receive your contact information for logistical coordination.</li>
                   <li>Cancellations by either party should be communicated as early as possible. Vendors who cancel within 72 hours of the event may face platform penalties.</li>
+                  {/*
+                    The organizer-side symmetry of the line above, placed here
+                    because this is the moment the event goes live — confirming
+                    is what mints the shareable page and QR kit. Your date and
+                    times stop being private planning notes at this click, so
+                    the consequence has to be stated at this click.
+                  */}
+                  <li>Your date and times are now what {vendorTermPlural} staff for and what attendees order against. Changing them later reduces attendance: every pre-order placed against the old window has to be re-confirmed by that attendee, and any that go unconfirmed are refunded before the event.</li>
                 </ul>
               </div>
               <label style={{

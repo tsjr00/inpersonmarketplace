@@ -305,6 +305,18 @@ export async function POST(request: NextRequest) {
     if (needsAddress) {
       console.log(`[self-service] Event ${requestId}: address missing — skipping auto-approval`)
     }
+
+    // The number shown on the confirmation screen. Null means matching never ran
+    // (full-service, or self-service with no address yet) — in that case we show
+    // NO number rather than inventing one.
+    //
+    // ⚠ Until 2026-08-08 this was a count of every event_approved vendor in the
+    // vertical, displayed as "N qualified <vendors> found in your area". Neither
+    // clause was true: no criteria were applied and there was no location
+    // predicate. The real scored+filtered count was computed by
+    // autoMatchAndInvite moments later and thrown away to a console.log.
+    let matchedCount: number | null = null
+
     if (isSelfService && hasAddress) {
       const requestData = {
         id: requestId,
@@ -352,6 +364,12 @@ export async function POST(request: NextRequest) {
         // Step 2: Auto-match and invite vendors
         const inviteResult = await autoMatchAndInvite(supabase, requestData, approval.market_id)
 
+        // This is the honest match number: scored against the organizer's own
+        // criteria, red flags and deal-breakers dropped, below-threshold scores
+        // dropped, capped at MAX_AUTO_INVITE. At intake there are no prior
+        // invitations, so `matched` and `invited` agree.
+        matchedCount = inviteResult.matched
+
         // Track when auto-invites were sent (for cron threshold check)
         if (inviteResult.invited > 0) {
           await supabase
@@ -398,27 +416,22 @@ export async function POST(request: NextRequest) {
       ),
     ])
 
-    // Get preliminary vendor match count for confirmation screen
-    const { count: matchCount } = await supabaseService
-      .from('vendor_profiles')
-      .select('id', { count: 'exact', head: true })
-      .eq('vertical_id', verticalId)
-      .eq('status', 'approved')
-      .eq('event_approved', true)
-      .is('deleted_at', null)
-
     const vendorWord = verticalId === 'farmers_market' ? 'vendors' : 'food trucks'
 
+    // `match_count` is null when matching never ran, and a real scored count
+    // otherwise. The client MUST distinguish the two — null means "say nothing",
+    // 0 means "we looked and found none, here is how to widen it". Coercing
+    // null to 0 would turn silence into a false negative.
     return NextResponse.json({
       ok: true,
-      match_count: matchCount || 0,
+      match_count: matchedCount,
       message: needsAddress
         ? `Got your request for ${String(company_name)}! One step left before we notify ${vendorWord}: add your event address from your dashboard.`
-        : isSelfService
-        ? (verticalId === 'farmers_market'
-          ? "Your event request is live! We're notifying qualified vendors now. You'll hear back within 48 hours."
-          : "Your event request is live! We're notifying qualified food trucks now. You'll hear back within 48 hours.")
-        : `We found ${matchCount || 0} qualified ${vendorWord} in your area. Sign in to your event dashboard to refine your matches and start planning.`,
+        : matchedCount === null
+        ? `Got your request for ${String(company_name)}! Our team will review it and be in touch.`
+        : matchedCount > 0
+        ? `We matched ${matchedCount} ${matchedCount === 1 ? vendorWord.replace(/s$/, '') : vendorWord} to your event and invited them just now — they typically respond within 48 hours.`
+        : `Your event is live, but no ${vendorWord} matched your exact criteria yet. Sign in to widen your criteria and reach more ${vendorWord}.`,
     })
   })
 }

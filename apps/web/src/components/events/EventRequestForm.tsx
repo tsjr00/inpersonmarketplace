@@ -218,7 +218,10 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
   // user's manual edits to form.vendor_count.
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
-  const [matchCount, setMatchCount] = useState(0)
+  // null = matching never ran for this submission (full-service, or self-service
+  // with no address yet). 0 = matching ran and found nobody. The two must not be
+  // collapsed — see the note on `match_count` in api/event-requests.
+  const [matchCount, setMatchCount] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   function updateField(field: keyof FormData, value: string) {
@@ -466,7 +469,9 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
       }
 
       const successData = await res.json()
-      setMatchCount(successData.match_count || 0)
+      setMatchCount(
+        typeof successData.match_count === 'number' ? successData.match_count : null
+      )
       setSubmitted(true)
     } catch {
       setError(t('erf.network_error', locale))
@@ -476,6 +481,7 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
 
   if (submitted) {
     const vendorWord = vertical === 'farmers_market' ? 'vendors' : 'food trucks'
+    const vendorWordSingular = vertical === 'farmers_market' ? 'vendor' : 'food truck'
     const signupUrl = `/${vertical}/signup?ref=event&email=${encodeURIComponent(form.contact_email)}`
     const loginUrl = `/${vertical}/login?ref=event&email=${encodeURIComponent(form.contact_email)}`
     return (
@@ -492,14 +498,45 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
         <p style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: '#166534', marginBottom: spacing.xs }}>
           {t('erf.success_title', locale)}
         </p>
-        {matchCount > 0 && (
-          <p style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: accent, margin: `0 0 ${spacing.xs}` }}>
-            {matchCount} qualified {vendorWord} found in your area
+        {/*
+          Three distinct states, and they must stay distinct. `matchCount` is the
+          scored, criteria-filtered count from autoMatchAndInvite — not a roster
+          size — so a number here is a claim we can defend. null means matching
+          never ran for this submission; saying nothing is the only honest option.
+
+          The "refine your criteria for more matches" promise is real and is
+          genuinely gated behind the account: api/events/[token]/refresh-matches
+          401s an anonymous caller and re-runs the full matching engine. Do not
+          reword it into "we are still searching" — the engine runs once per
+          submission and does not keep looking on its own.
+        */}
+        {matchCount !== null && matchCount > 0 && (
+          <>
+            <p style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: accent, margin: `0 0 ${spacing.xs}` }}>
+              We matched {matchCount} {matchCount === 1 ? vendorWordSingular : vendorWord} to your event
+            </p>
+            <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, lineHeight: 1.6, margin: `0 0 ${spacing.sm}` }}>
+              We invited them just now — they typically respond within 48 hours. Create your free
+              account to watch responses come in, and to refine your criteria for more matches.
+            </p>
+          </>
+        )}
+        {matchCount === 0 && (
+          <>
+            <p style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: accent, margin: `0 0 ${spacing.xs}` }}>
+              No {vendorWord} matched your exact criteria yet
+            </p>
+            <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, lineHeight: 1.6, margin: `0 0 ${spacing.sm}` }}>
+              Your event is live. Create your free account to widen your criteria from your
+              dashboard and reach more {vendorWord}.
+            </p>
+          </>
+        )}
+        {matchCount === null && (
+          <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, lineHeight: 1.6, margin: `0 0 ${spacing.sm}` }}>
+            Create a free account to manage your event from your personal dashboard.
           </p>
         )}
-        <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, lineHeight: 1.6, margin: `0 0 ${spacing.sm}` }}>
-          Create a free account to manage your event from your personal dashboard.
-        </p>
         <div style={{
           textAlign: 'left',
           display: 'inline-block',

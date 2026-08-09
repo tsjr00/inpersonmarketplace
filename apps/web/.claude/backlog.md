@@ -124,6 +124,41 @@ Owner, 2026-08-08: *"there has been persistent problems with info flowing among 
 2. When something changes, who is told: everyone, or only vendors who already accepted?
 3. Is admin meant to be in the loop on changes, or only at approval?
 
+### ✅ OWNER DECISIONS from the dataflow deep dive (2026-08-08)
+
+Full evidence: `apps/web/.claude/event_dataflow_research.md`. Product intent captured in sweep 5.
+
+| Question | Decision |
+|---|---|
+| Who owns a fact after approval | **The organizer.** Request = source of truth, `markets` + `market_schedules` = derived copies. One rule for both self-service and admin-assisted |
+| Admin in the loop on changes | No — self-service has no admin, so propagation must be structural (trigger), not procedural |
+| Date/time change vs. existing orders | **Preserve + re-confirm.** Ping the buyer; unconfirmed orders **refund at the market's `cutoff_hours`, NOT at event start** — refunding at start means the vendor already bought and prepped |
+| Vendor prep count | Must split confirmed vs. awaiting-confirmation |
+| Backup bench size | A **%** of trucks requested / headcount-derived. % TBD |
+| What standby is told | Opt-in after non-selection, with a declared lead-time requirement |
+| Backup compensation | **The truck that bails funds the backup.** No organizer fee (funnel friction), no walk-up-standby (solves the wrong failure and punishes trucks that honored). Withholding from the next payout first; charge-plus-balance second |
+| Intake copy | Real matched count + "log in to refine for more matches" — which is true and already auth-gated |
+
+### 🚨 PROD SEQUENCING GATE — shipped copy promises a refund mechanism that does not exist (added 2026-08-08)
+
+Two surfaces now tell organizers that **unconfirmed pre-orders are refunded before the event**:
+- the amber timing warning in `components/events/OrganizerEventDetails.tsx`
+- the go-live acknowledgment bullet in `app/[vertical]/events/[token]/select/page.tsx`
+
+**Nothing implements that today.** Fine on staging. It must NOT reach **prod** ahead of the re-confirmation flow — either they ship together, or the copy softens first. Check this at the prod push.
+
+### 🆕 BACKLOG — organizer score system, rated by VENDORS (added 2026-08-08)
+
+No organizer-side reputation exists anywhere. Vendors have `average_rating`/`rating_count`; attendees rate events; nothing rates the person who booked. Needed because a date change or cancellation costs trucks real money, and the deterrent currently doesn't exist.
+
+Cheaper first step, probably most of the value: **warn at intake** that trucks commit real money and a change hurts them. Behaviour moves on the warning before it moves on a score.
+
+### 🆕 BACKLOG — vendor penalty balance: likely a REBUILD for events, not a reuse (added 2026-08-08)
+
+`vendor_fee_balance` + `vendor_fee_ledger` (mig 003) are exactly the right shape — running balance, `oldest_unpaid_at`, `last_invoice_at`, debit/credit ledger with description — and `lib/payments/vendor-fees.ts` drives them.
+
+**But they were built for external payments**, which is dormant and, per the owner 2026-08-08, *"we are not yet close enough to turning external payments back on"* — so plan on a rebuild for events rather than hanging a live obligation off that system. See [project_external_payments_historical].
+
 ### 🟠 A-FOLLOWUP — approved events desync from their market on location/date edits (found 2026-08-08)
 
 **Not shipped. Deliberately out of scope of the 2026-08-08 deadlock fix; needs its own decision.**

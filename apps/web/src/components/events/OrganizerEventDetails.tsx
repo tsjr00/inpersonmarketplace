@@ -461,6 +461,39 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
                 {/* Edit form */}
                 {isEditingThis && (
                   <div style={{ marginTop: spacing.xs }}>
+                    {/*
+                      Consequence warning, shown only once the event is LIVE
+                      (a market exists) and only on the group that carries the
+                      timing fields. Pre-approval there is nobody to disrupt, so
+                      warning then would just be noise that trains people to
+                      ignore it.
+
+                      `warning` (amber), not `attention` (orange): amber is
+                      "this is degrading" — nothing is broken and no task is
+                      being assigned. See the state vocabulary in design-tokens.
+                    */}
+                    {!!details.market_id && group.fields.some(f =>
+                      f === 'event_start_time' || f === 'event_end_time' || f === 'event_end_date'
+                    ) && (
+                      <div style={{
+                        marginBottom: spacing.xs,
+                        padding: spacing['2xs'],
+                        backgroundColor: statusColors.warningLight,
+                        border: `1px solid ${statusColors.warningBorder}`,
+                        borderRadius: radius.sm,
+                        fontSize: typography.sizes.xs,
+                        color: statusColors.warningDark,
+                        lineHeight: 1.5,
+                      }}>
+                        <strong>Changing your event timing has real costs.</strong>{' '}
+                        {vertical === 'farmers_market' ? 'Vendors' : 'Food trucks'} have committed
+                        staff and food to these hours. Anyone who has
+                        already pre-ordered will be asked to confirm they can still make it, and
+                        orders nobody confirms are refunded before the event. A timing change
+                        usually means fewer pre-orders, not just a different hour — so change it
+                        only if the event itself really has moved.
+                      </div>
+                    )}
                     {group.fields.map(f => {
                       const label = fieldLabel(f, vertical)
                       const val = formData[f]

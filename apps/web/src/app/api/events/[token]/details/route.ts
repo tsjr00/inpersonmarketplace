@@ -363,6 +363,22 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         throw traced.validation('ERR_EVENT_DETAIL_004', 'Invalid event_setting')
       }
     }
+    // Once a market exists the event has a schedule row, and
+    // market_schedules.start_time / .end_time are both NOT NULL. So after
+    // approval the times may be CHANGED but not CLEARED — a blank would either
+    // violate the constraint or silently leave the schedule on the old hours,
+    // which is the desync this route now syncs away (see the sync block below).
+    if (event.market_id) {
+      for (const f of ['event_start_time', 'event_end_time'] as const) {
+        if (f in updateData && !updateData[f]) {
+          throw traced.validation(
+            'ERR_EVENT_DETAIL_014',
+            'Event times can be changed but not removed once your event is live'
+          )
+        }
+      }
+    }
+
     // If both times provided in this update OR being changed alongside an existing time, validate end > start
     if (updateData.event_start_time !== undefined || updateData.event_end_time !== undefined) {
       // Need current values for cross-field validation
@@ -397,6 +413,61 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // ── Keep the buyer-facing schedule in step with the event's times ──
+    //
+    // Approval COPIES event_start_time / event_end_time into market_schedules
+    // (event-actions.ts:153-159), and until 2026-08-08 that INSERT was the ONLY
+    // write to market_schedules anywhere in the events code path. So an
+    // organizer moving their start time updated catering_requests while the
+    // schedule kept the original hours — and the schedule is what generates
+    // buyers' pickup windows (shop-data.ts:146-153 hands the cart its
+    // schedule_id). Buyers were told to collect food during hours the event was
+    // not running, on a live event with real orders.
+    //
+    // Freezing the times post-approval was the other candidate and was
+    // rejected: self-service auto-approves at SUBMIT, so a market exists
+    // immediately and the freeze would lock an organizer's times from the
+    // moment they hit send — with no admin able to correct them either. That is
+    // the same no-way-out shape as the address deadlock.
+    //
+    // ⚠ This is the app-side stopgap. The durable fix is a trigger on
+    // catering_requests (backlog: "THE ROOT DESIGN FLAW"), because a trigger
+    // cannot be bypassed by the next route somebody writes — which is exactly
+    // how these times slipped through in the first place. Delete this block
+    // when that lands.
+    //
+    // day_of_week is deliberately NOT recomputed: event_date is
+    // pre-approval-only, so the weekday cannot move once a market exists.
+    if (event.market_id && ('event_start_time' in updateData || 'event_end_time' in updateData)) {
+      const scheduleUpdate: Record<string, unknown> = {}
+      if (updateData.event_start_time) scheduleUpdate.start_time = updateData.event_start_time
+      if (updateData.event_end_time) scheduleUpdate.end_time = updateData.event_end_time
+
+      if (Object.keys(scheduleUpdate).length > 0) {
+        crumb.supabase('update', 'market_schedules')
+        const { error: scheduleError } = await serviceClient
+          .from('market_schedules')
+          .update(scheduleUpdate)
+          .eq('market_id', event.market_id)
+          .eq('active', true)
+
+        if (scheduleError) {
+          // Deliberately NOT swallowed. A silent failure here leaves the request
+          // saying one thing and the buyers' pickup window saying another —
+          // precisely the state this block exists to prevent. The organizer has
+          // to know before they share the page.
+          console.error('[events/details] market_schedules sync failed:', scheduleError.message)
+          return NextResponse.json(
+            {
+              error:
+                'Your times were saved, but the schedule buyers order against could not be updated. Please contact us before sharing your event page — pickup windows may still show the old hours.',
+            },
+            { status: 500 }
+          )
+        }
+      }
     }
 
     // Tell the caller whether their changes affected vendor matching, so the

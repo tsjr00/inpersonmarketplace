@@ -992,6 +992,77 @@ describe('Organizer event funnel integrity', () => {
     expect(code).toContain('effectiveAddress')
   })
 
+  it('changing the event times also updates the schedule buyers order against', () => {
+    // Audit 2026-08-08, the worst live break found. Approval COPIES the times
+    // into market_schedules (event-actions.ts) and that INSERT was the ONLY
+    // write to the table anywhere in the events path. The schedule is what
+    // supplies the cart's schedule_id (shop-data.ts), so an organizer moving
+    // their start time left buyers collecting food during hours the event was
+    // not running.
+    //
+    // The RULE: the times the organizer sets and the times buyers order
+    // against are the same times. It does not matter whether that is enforced
+    // here or by a DB trigger later — if this fails because the sync moved to
+    // a trigger, re-point the assertion; if it fails because the sync was
+    // deleted, fix the code.
+    const details = code(detailsRoute)
+    expect(details, 'the route must write market_schedules').toMatch(/market_schedules/)
+    expect(details, 'and scope the write to this event\'s market')
+      .toMatch(/market_schedules[\s\S]{0,400}event\.market_id/)
+    expect(details, 'a failed sync must NOT be swallowed — that is the desync')
+      .toMatch(/scheduleError/)
+  })
+
+  it('event times can be changed but never cleared once a market exists', () => {
+    // market_schedules.start_time/.end_time are NOT NULL. A cleared time would
+    // either violate that or silently leave the schedule on the old hours,
+    // which is the same desync from the other direction.
+    const details = code(detailsRoute)
+    expect(details).toMatch(/event_start_time[\s\S]{0,200}event_end_time/)
+    expect(details, 'the clear must be rejected while a market exists')
+      .toMatch(/ERR_EVENT_DETAIL_014/)
+  })
+
+  it('the times are NOT frozen post-approval — self-service approves at submit', () => {
+    // The rejected alternative. Freezing them would have been one line, but
+    // self-service auto-approves the moment the form is submitted, so a market
+    // exists immediately: the organizer's times would be locked from the click,
+    // with no admin able to correct them either. That is the address deadlock
+    // wearing a different hat. Keep them editable and keep the sync honest.
+    const details = code(detailsRoute)
+    // Read the freeze list's ARRAY LITERAL, not a character window after its
+    // name. A window overruns into MATCHING_AFFECTING_FIELDS, which legitimately
+    // contains both time fields — and would fail this test against correct code.
+    const freezeList = details.match(/PRE_APPROVAL_ONLY_FIELDS\s*=\s*\[([^\]]*)\]/)?.[1]
+    expect(freezeList, 'PRE_APPROVAL_ONLY_FIELDS must be a readable array literal')
+      .toBeTruthy()
+    for (const f of ['event_start_time', 'event_end_time']) {
+      expect(details, f + ' must stay editable').toMatch(new RegExp(`'${f}'`))
+      expect(freezeList, f + ' must NOT be added to the freeze list')
+        .not.toContain(f)
+    }
+  })
+
+  it('the intake success number is the SCORED match count, not the vendor roster', () => {
+    // Until 2026-08-08 the confirmation screen displayed a count of every
+    // event_approved vendor in the vertical as "N qualified <vendors> found in
+    // your area" — no criteria, no location predicate. The real scored count
+    // from autoMatchAndInvite was computed moments later and thrown away. This
+    // is the top of the self-service funnel; a number we cannot defend there is
+    // the first thing a new organizer learns about us.
+    const intake = code('app/api/event-requests/route.ts')
+    expect(intake, 'the response must carry the invite result')
+      .toMatch(/matchedCount = inviteResult\.matched/)
+    expect(intake, 'and must NOT count the roster for display')
+      .not.toMatch(/match_count[\s\S]{0,200}event_approved/)
+
+    // null (matching never ran) and 0 (ran, found nobody) must stay distinct —
+    // collapsing them renders "we didn't look" as "we found nobody".
+    const form = code('components/events/EventRequestForm.tsx')
+    expect(form, 'the client must not coerce null to 0')
+      .not.toMatch(/setMatchCount\(successData\.match_count \|\| 0\)/)
+  })
+
   // ── Regressions that shipped once ──
 
   it('event_ratings is never embedded through a user_profiles FK', () => {
