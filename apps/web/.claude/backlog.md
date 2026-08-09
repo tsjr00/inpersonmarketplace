@@ -182,7 +182,13 @@ Owner: an attendee who still plans to come keeps their order; we just need them 
 
 Owner: *"structurally this is one of the biggest risks of self-serve events and one we need to protect against at different levels."* The block is the last layer, not the strategy.
 
-1. **Minimum lead time at intake.** ⏳ **NUMBER STILL NEEDED FROM OWNER** — recommended **10 days**, as a named constant. Today the only rule is "not in the past", but self-serve waits up to 48h for vendor responses, then the organizer selects, then attendees need real time to pre-order. An event booked too soon is exactly the one that then gets moved.
+1. **Minimum lead time at intake — DECIDED 2026-08-09. TWO thresholds, not one.**
+   - **Hard floor: 10 days.** Below that the date is rejected.
+   - **Soft warning: 10–13 days** — an acknowledgment the organizer must tick, saying that unless they already have their details settled and people ready to engage in planning, they should consider a later date.
+
+   Owner's reasoning, and it reframes this from logistics to revenue: *"if they are going to rush it then we want them to know that they are rushing it and that they need to have people engaged and ready to respond to the system and trucks — we also really want them to have time to promote that they are using our app and send out the event page link to their contacts so we can get the pre-orders."* And the line that makes it a revenue lever rather than a nicety: **"if we don't get pre-orders then we are doing all this for free."**
+
+   That is the whole self-serve business model in one sentence — the platform earns 10% of transaction volume, so an event with no pre-order runway generates matching, invitations, emails and support for zero revenue. Lead time IS the pre-order window. Treat both numbers as named constants.
 2. **Intake copy** naming the commitment: real businesses buy food and staff a shift for this date.
 3. **Go-live acknowledgment** — ✅ SHIPPED (`events/[token]/select/page.tsx`).
 4. **Real numbers in the edit warning**, replacing abstract copy: *"14 people have pre-ordered and 3 trucks have committed."* Abstract warnings get ignored; a count does not. Requires the details GET to return order + committed-vendor counts.
@@ -191,7 +197,9 @@ Owner: *"structurally this is one of the biggest risks of self-serve events and 
 
 **Override — ADMIN ALWAYS INVOLVED (owner, final 2026-08-08).** An earlier proposal auto-passed "emergency" reasons on the strength of attribution alone; **rejected — keep a human in it.** Organizer hits the block, picks a reason and writes an explanation; it routes to an admin who holds the override.
 
-Reason list: venue cancelled or changed · weather or safety · personal emergency · venue scheduling conflict · booked the wrong date · other.
+Reason list: venue cancelled or changed · weather or safety · personal emergency · venue scheduling conflict · booked the wrong date · other. **A free-text explanation in the organizer's own words is REQUIRED on every reason, not just "other"** (owner, 2026-08-09) — the category is for us, the sentence is what vendors read.
+
+⚠ **Watch item, owner 2026-08-09:** *"I do have concerns about gaming the system and leaving us with the cost and angry vendors. We will have to watch to see how it goes."* Accountability-as-deterrent is unproven here. Keeping the admin in the loop is the current mitigation; if gaming shows up anyway, the next lever is the organizer score and then rate-limiting overrides per organizer. **Do not remove the admin step to reduce friction without revisiting this.**
 
 **The vendor notification carries the organizer's own words, attributed** — owner: *"we tell them the organizer has reported an emergency of… 'use their explanation' so they know it's not us, it's the org."* That free text reaches vendors by email, so run it through the intake form's existing moderation and cap its length.
 
@@ -302,6 +310,79 @@ Red banner. Owner: *"might be because there are no scores yet, but it might be a
 
 **Suggested order:** **A** (a deadlock with no escape beats everything) → **D** (admins locked out of a working page) → **E** (small, and it may just be an empty state) → **C** (build work) → **B** (analysis + documentation, the largest and least urgent).
 
+
+## 🐛 FM LANDING PAGE SCROLLS SIDEWAYS ON A NARROW PHONE — diagnosed 2026-08-09, NOT FIXED
+
+**Symptom (owner, on staging):** FM landing page on a phone, logged out, is left-justified with a big empty stripe down the right. **FT does not do it.**
+
+**Cause — one property.** `components/landing/VendorPitch.tsx:58` puts `whiteSpace: 'nowrap'` on the headline, inside the `if (isFM)` branch. FT falls through to the generic branch at `:183`, which has no nowrap. FM's headline is `"Grow Your Farmer's Market Business"` (34 chars, `farmers-market.ts:111`); FT's is `'Grow Your Food Truck Business'` (29 chars, `food-trucks.ts:113`). At `2xl` the FM string cannot fit and cannot wrap, so it pushes the page 55px wide.
+
+**Measured, not inferred** (Edge devtools at 375px):
+```
+client 375 | html.scrollWidth 430 | body.scrollWidth 430 | body rect 375
+H2 | client 335 scroll 410 | Grow Your Farmer's Market Business
+```
+335 = 375 minus the container's 20px padding each side; 20 + 410 = 430, exactly the page scrollWidth.
+
+**THE FIX: delete `whiteSpace: 'nowrap'` at `VendorPitch.tsx:58`.** Zero-risk, and the reason is worth keeping: nowrap does nothing when the text already fits — it only acts when the text *would* wrap, which is precisely the case we want wrapping. Desktop is unchanged; a narrow phone gets a two-line headline instead of a sideways-scrolling page. ⚠ Owner has not seen the two-line version — that's a visual call for them.
+
+**Same trap, latent:** `components/landing/LocationEntry.tsx:191` also has `nowrap` on a string built from `term(vertical, 'vendors')`, so its width is vertical-dependent too. Does not overflow at 375px today. Fix alongside or leave — owner's call.
+
+**Cleared of suspicion, do not re-investigate:**
+- **The header/navigation grid work is NOT the cause.** Its `nowrap` is on `.desktop-nav`, which is `display:none` on phones. The landing page was untouched by that commit; the nowrap arrived with the FM landing redesign (`6026f9c7`, `7fae1368`).
+- **The logo is not the cause** — both are square (FM 1563×1563, FT 1000×1000), so both render 86px wide at the landing page's 86px height.
+- **The staging banner is not the cause.** It reported `430px` in the first scan, but it is `position: fixed; left:0; right:0` — it stretched to the widened layout viewport. It was a mirror. **Better: treat it as a free canary — it will visibly stretch whenever anything on staging overflows horizontally.**
+- The `nowrap` on `app/[vertical]/page.tsx:313` ("Bring the Market to Your Event!") was an early hypothesis and did **not** appear in the overflow scan at 375px. Leave it alone.
+
+**Method worth reusing** — this took three wrong guesses before measuring. In Edge: F12 → Ctrl+Shift+M → pick a 375px phone → Console → `allow pasting` once, then:
+```js
+console.log([...document.querySelectorAll('*')]
+  .filter(e => e.scrollWidth > e.clientWidth + 1 && e.clientWidth > 0)
+  .map(e => e.tagName + ' | client ' + e.clientWidth + ' scroll ' + e.scrollWidth +
+    ' | ' + (e.textContent||'').trim().slice(0,40)).join('\n') || 'no inner overflow')
+```
+The **deepest** row is the culprit; everything above it is an ancestor being dragged wide. A `getBoundingClientRect().right` scan alone is not enough — it misses an element whose own box fits while its content spills.
+
+## 🎯 BRAND POSITIONING — "building community through neighbor-to-neighbor commerce" (owner, 2026-08-09)
+
+**Status: captured, not built. Revisit deliberately — do not fold into an unrelated commit.**
+
+Owner's own words, preserved verbatim because **the language IS the deliverable** — this is raw material for copy, not a summary to re-derive. Paraphrasing it away would destroy the thing worth keeping.
+
+### The brand line
+
+> **"building community through neighbor to neighbor commerce."**
+
+Owner: *"I want this to be part and parcel with our brand."*
+
+### The argument, in the owner's words
+
+> "In the last rewrite that we did of the about page for farmers marketing we leaned more heavily into the community aspect and this is how people in America have done business for a long long time and we need to get back to our roots… that is right and I want to stay with that but I want to double down on that message by really reinforcing the idea that we need strong communities and that strong communities provide the individuals in that community with a variety of benefits that just a collection of people, a collection of individuals living near each other, does not provide.
+>
+> So basically that **there's a difference between a group of people who live near each other and a community**, and that the strength of our country historically has been the fact that we were communities not just groups of people living near each other.
+>
+> I want to use the messaging idea that **one of the ways we can begin to restore community is through neighborhood markets, even if they are small markets.** I want to put forth the premise that a neighborhood market where neighbors sell to neighbors goes a lot further than just the commercial activity — it starts to tear down the barriers that are isolating and dividing the individuals that can become a community.
+>
+> That if we will gather together around commerce and the shared mutual benefit of my skills and your skills and each other's skills, then we can enrich our lives beyond just the honey or sourdough or homemade salsa or leather work or any other item that is available for purchase. But when we take in each other's handmade, homemade and homegrown products we grow closer to each other and make that jump from individuals who live near each other into a community.
+>
+> And as a community **we are more inclined to look out for each other**, we're more inclined to check up on each other to make sure that if someone is in need or is hurting or has a situation that they can't handle on their own, that their community helps bear part of that burden for them.
+>
+> **That is how America was built, one community at a time, working together for both individual and mutual benefit**, and over time the members of a community learn to trust each other and that trust becomes friendship and that friendship can become family.
+>
+> So even though it may sound corny, we believe that through helping foster neighborhood markets and neighbor-to-neighbor commerce we can restore the sense of friendship and family that so many people are hungering for and know they are missing out on but don't know how to get it."
+
+### Where it goes
+
+Owner named: **About** · **How It Works** · **Why Work With Us** · possibly the **landing page**. Not a single-page edit — a through-line.
+
+### Notes for whoever picks this up
+
+- **Do not sand the edges off.** The owner pre-empted the objection themselves — *"even though it may sound corny"* — which means the sincerity is the point and the risk of over-polishing into generic startup copy is the main failure mode here.
+- The strongest rhetorical move is the **distinction**, stated plainly: proximity vs. community. Lead with it; everything else follows from it.
+- The concrete nouns are doing real work — *honey, sourdough, homemade salsa, leather work*. Keep specifics; abstractions ("local goods") kill this.
+- The **escalation ladder** — trust → friendship → family — is the emotional payload. Preserve the order.
+- FM-first. Whether and how this translates to FT (`foodtruckn.app`) is an open question, not an assumption.
+- Ties to existing surfaces worth auditing for consistency: the FM landing page copy, `vendor_pitch` in `lib/vertical/configs/farmers-market.ts`, and the Features/VendorPitch landing components.
 
 ## 🟡 VISUAL CONSISTENCY ROLLOUT — extend the dashboard standards to established pages (agreed 2026-08-08)
 

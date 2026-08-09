@@ -8,6 +8,7 @@ import {
 } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors/with-error-tracing'
 import { approveEventRequest, autoMatchAndInvite } from '@/lib/events/event-actions'
+import { leadTimeStatus, tooSoonMessage } from '@/lib/events/lead-time'
 import { term } from '@/lib/vertical/terminology'
 
 export async function POST(request: NextRequest) {
@@ -69,6 +70,9 @@ export async function POST(request: NextRequest) {
       vendor_stay_policy,
       company_max_per_attendee_cents,
       event_setting,
+      // Set by the client when the chosen date falls inside the rushed window.
+      // Not persisted — its only job is to prove the organizer saw the warning.
+      rushed_acknowledged,
     } = body
 
     // Validate vertical
@@ -151,13 +155,28 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Validate event_date is not in the past
-    const eventDateObj = new Date(event_date + 'T00:00:00')
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    if (isNaN(eventDateObj.getTime()) || eventDateObj < today) {
+    // ── Event date: minimum lead time, two thresholds ──
+    //
+    // Replaces a bare "not in the past" check. See lib/events/lead-time.ts for
+    // why: lead time is a revenue lever (no runway, no pre-orders, and
+    // pre-orders are what we earn on) and the cheapest layer of late-change
+    // protection, because the organizer who booked too soon is the one who then
+    // has to move the date.
+    const leadStatus = leadTimeStatus(event_date)
+    if (leadStatus === 'invalid') {
+      return NextResponse.json({ error: 'Please enter a valid event date' }, { status: 400 })
+    }
+    if (leadStatus === 'too_soon') {
+      return NextResponse.json({ error: tooSoonMessage() }, { status: 400 })
+    }
+    if (leadStatus === 'rushed' && rushed_acknowledged !== true) {
+      // The UI collects this acknowledgment; the server requires it so the two
+      // cannot drift. Not a security boundary — a consistency one.
       return NextResponse.json(
-        { error: 'Event date must be today or in the future' },
+        {
+          error: 'Please confirm you understand the short turnaround before submitting.',
+          rushed_acknowledgment_required: true,
+        },
         { status: 400 }
       )
     }

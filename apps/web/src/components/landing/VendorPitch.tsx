@@ -55,7 +55,19 @@ export function VendorPitch({ vertical, locale }: VendorPitchProps) {
                   fontWeight: typography.weights.bold,
                   color: '#ffffff',
                   marginBottom: spacing.sm,
-                  whiteSpace: 'nowrap',
+                  // ⚠ NO `whiteSpace: 'nowrap'` here. It was removed 2026-08-09
+                  // because it made the whole FM landing page scroll sideways on
+                  // a phone: this headline is vertical-specific copy, and FM's
+                  // ("Grow Your Farmer's Market Business") is 5 characters longer
+                  // than FT's, enough that it could not fit 375px and could not
+                  // wrap — so it pushed the page to 430px. Measured: the h2 had
+                  // clientWidth 335 and scrollWidth 410.
+                  //
+                  // nowrap does NOTHING when the text already fits; it only acts
+                  // when the text would wrap, which is exactly the case we want
+                  // wrapping. So it can only ever cause this bug, never prevent
+                  // one. Do not reintroduce it — if a two-line headline looks
+                  // wrong at some width, scale the font, do not forbid the wrap.
                 }}
               >
                 {vendor_pitch.headline}

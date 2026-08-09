@@ -6,6 +6,14 @@ import { term } from '@/lib/vertical/terminology'
 import { getClientLocale } from '@/lib/locale/client'
 import { t } from '@/lib/locale/messages'
 import { CATEGORIES, FOOD_TRUCK_CATEGORIES } from '@/lib/constants'
+import {
+  MIN_EVENT_LEAD_DAYS,
+  earliestBookableDate,
+  eventLeadDays,
+  leadTimeStatus,
+  rushedWarning,
+  tooSoonMessage,
+} from '@/lib/events/lead-time'
 
 interface EventRequestFormProps {
   vertical: string
@@ -222,6 +230,11 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
   // with no address yet). 0 = matching ran and found nobody. The two must not be
   // collapsed — see the note on `match_count` in api/event-requests.
   const [matchCount, setMatchCount] = useState<number | null>(null)
+
+  // Ticked only when the chosen date falls inside the rushed window. Reset
+  // whenever the date changes, so moving from one rushed date to another asks
+  // again rather than carrying a stale agreement forward.
+  const [rushedAck, setRushedAck] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   function updateField(field: keyof FormData, value: string) {
@@ -372,6 +385,22 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
       return
     }
 
+    // Lead time. Mirrors api/event-requests — the server is the enforcement,
+    // this just avoids a round trip and keeps the message identical.
+    const submitLeadStatus = leadTimeStatus(form.event_date)
+    if (submitLeadStatus === 'invalid') {
+      setError('Please enter a valid event date')
+      return
+    }
+    if (submitLeadStatus === 'too_soon') {
+      setError(tooSoonMessage())
+      return
+    }
+    if (submitLeadStatus === 'rushed' && !rushedAck) {
+      setError('Please confirm you understand the short turnaround before submitting.')
+      return
+    }
+
     // Validate end_time > start_time
     {
       const sParts = form.event_start_time.split(':').map(Number)
@@ -415,6 +444,9 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
           event_type: form.event_type || null,
           payment_model: form.payment_model || null,
           event_date: form.event_date,
+          // Only meaningful inside the rushed window; the server ignores it
+          // otherwise and requires it when the date falls in that window.
+          rushed_acknowledged: rushedAck,
           event_end_date: form.event_end_date || null,
           event_start_time: form.event_start_time || null,
           event_end_time: form.event_end_time || null,
@@ -586,6 +618,12 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
   }
 
   const isFM = vertical === 'farmers_market'
+  const vendorWordLower = isFM ? 'vendors' : 'food trucks'
+
+  // Recomputed as the organizer picks a date. 'rushed' surfaces the
+  // acknowledgment below the field; the server enforces the same thresholds.
+  const leadStatus = form.event_date ? leadTimeStatus(form.event_date) : null
+  const leadDays = form.event_date ? eventLeadDays(form.event_date) : null
 
   return (
     <form onSubmit={handleSubmit}>
@@ -647,8 +685,48 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
             <div className="event-row-2col" style={rowStyle}>
               <div>
                 <label style={labelStyle}>Event date *</label>
-                <input type="date" value={form.event_date}
-                  onChange={(e) => updateField('event_date', e.target.value)} style={inputStyle} required />
+                {/*
+                  `min` stops the picker offering a date inside the hard floor.
+                  The server rejects it too (api/event-requests) — this is the
+                  courtesy half, not the enforcement half.
+                */}
+                <input type="date" value={form.event_date} min={earliestBookableDate()}
+                  onChange={(e) => { setRushedAck(false); updateField('event_date', e.target.value) }}
+                  style={inputStyle} required />
+                <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: statusColors.neutral400 }}>
+                  At least {MIN_EVENT_LEAD_DAYS} days out — {vendorWordLower} need time to respond and your guests need time to pre-order
+                </p>
+                {/*
+                  The rushed-window acknowledgment. Not a softer rejection — its
+                  job is to make a rushed organizer AWARE they are rushing, so
+                  they line up their details and their people before the clock
+                  starts. Amber, not red: nothing is wrong, this is degrading.
+                */}
+                {leadStatus === 'rushed' && leadDays !== null && (
+                  <div style={{
+                    marginTop: spacing['2xs'],
+                    padding: spacing['2xs'],
+                    backgroundColor: statusColors.warningLight,
+                    border: `1px solid ${statusColors.warningBorder}`,
+                    borderRadius: radius.sm,
+                    fontSize: typography.sizes.xs,
+                    color: statusColors.warningDark,
+                    lineHeight: 1.5,
+                  }}>
+                    <p style={{ margin: `0 0 ${spacing['3xs']}` }}>
+                      {rushedWarning(leadDays, vendorWordLower)}
+                    </p>
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: spacing['3xs'], cursor: 'pointer', fontWeight: typography.weights.semibold }}>
+                      <input
+                        type="checkbox"
+                        checked={rushedAck}
+                        onChange={(e) => setRushedAck(e.target.checked)}
+                        style={{ marginTop: 2 }}
+                      />
+                      <span>I understand the timing is tight and we are ready to move quickly.</span>
+                    </label>
+                  </div>
+                )}
               </div>
               <div>
                 <label style={labelStyle}>Estimated headcount *</label>
@@ -865,6 +943,29 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
           {error}
         </div>
       )}
+
+      {/*
+        Layer 2 of the late-change protection: name the commitment BEFORE they
+        submit, while the date is still free to change. Every later layer costs
+        the organizer something — an acknowledgment, an admin conversation, a
+        blocked edit. This one is just information, delivered at the only moment
+        when acting on it is free.
+
+        Concrete, not abstract: "real businesses" and "buy food and plan their
+        day" land where "please be considerate" does not.
+      */}
+      <p
+        style={{
+          textAlign: 'center',
+          fontSize: typography.sizes.xs,
+          color: statusColors.neutral600,
+          lineHeight: 1.5,
+          margin: `0 0 ${spacing.xs}`,
+        }}
+      >
+        When you book, real {vendorWordLower} commit to your date — they buy food and plan their
+        day around it. Please make sure your date is settled before you submit.
+      </p>
 
       <button
         type="submit"

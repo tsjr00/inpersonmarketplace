@@ -1043,6 +1043,54 @@ describe('Organizer event funnel integrity', () => {
     }
   })
 
+  it('lead time is enforced from ONE shared module, on both sides', () => {
+    // The client and the server both gate the event date. If either hard-codes
+    // its own threshold they will drift, and the drift is invisible: the form
+    // would happily accept a date the API then rejects, or worse, the reverse.
+    // One module, imported twice, is the only version of this that stays true.
+    const intake = code('app/api/event-requests/route.ts')
+    const form = code('components/events/EventRequestForm.tsx')
+
+    for (const [label, src] of [['intake route', intake], ['request form', form]] as const) {
+      expect(src, `${label} must import the shared module`)
+        .toMatch(/from '@\/lib\/events\/lead-time'/)
+      expect(src, `${label} must not hard-code the floor`)
+        .not.toMatch(/MIN_EVENT_LEAD_DAYS\s*=/)
+    }
+  })
+
+  it('the server rejects a too-soon date and demands the rushed acknowledgment', () => {
+    // The form is a courtesy, not a boundary. A date inside the hard floor has
+    // to fail server-side, and a date in the rushed band has to carry proof the
+    // organizer saw the warning.
+    const intake = code('app/api/event-requests/route.ts')
+    expect(intake, 'must classify the date').toMatch(/leadTimeStatus\(event_date\)/)
+    expect(intake, "must reject 'too_soon'").toMatch(/too_soon/)
+    expect(intake, "must gate 'rushed' on the acknowledgment")
+      .toMatch(/rushed'[\s\S]{0,120}rushed_acknowledged/)
+  })
+
+  it('the date input cannot offer a date the server would reject', () => {
+    // `min` on the picker and the server floor come from the same constant, so
+    // the organizer never gets to choose something that then bounces.
+    const form = code('components/events/EventRequestForm.tsx')
+    expect(form).toMatch(/min=\{earliestBookableDate\(\)\}/)
+  })
+
+  it('VendorPitch never forbids the headline from wrapping', () => {
+    // 2026-08-09: `whiteSpace: 'nowrap'` on the FM headline made the entire FM
+    // landing page scroll sideways on a 375px phone — the headline is
+    // vertical-specific copy and FM's is longer than FT's, so it could neither
+    // fit nor wrap and pushed the page to 430px.
+    //
+    // nowrap does nothing when text fits; it only acts when text WOULD wrap,
+    // which is precisely when we want wrapping. In a component whose copy
+    // varies by vertical it can only ever cause this bug. Comments stripped —
+    // the fix documents itself by naming the property it removed.
+    expect(code('components/landing/VendorPitch.tsx'))
+      .not.toMatch(/whiteSpace:\s*'nowrap'/)
+  })
+
   it('the intake success number is the SCORED match count, not the vendor roster', () => {
     // Until 2026-08-08 the confirmation screen displayed a count of every
     // event_approved vendor in the vertical as "N qualified <vendors> found in
