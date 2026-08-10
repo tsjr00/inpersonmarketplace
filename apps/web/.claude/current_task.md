@@ -1,4 +1,74 @@
-# Current Task: 🔬 EVENTS — dataflow deep dive DONE; re-confirmation + backups are next
+# Current Task: ⏸️ AWAITING STAGING TEST — then re-confirmation (events) is the next build
+
+## ⏱️ SESSION HANDOFF — 2026-08-09 (multi-market regression + refusal telemetry)
+
+### Where things stand in one line
+
+Everything built is **on staging and untested**. The next session's first job is to ask how the five test workflows went, not to start new work.
+
+### Git / env — VERIFY, don't trust this table
+
+| | |
+|---|---|
+| local `main` = `origin/staging` | `3cbe0ead` |
+| **PROD** `origin/main` | `f141c6e6` — **untouched, now 50 commits behind** |
+| Migrations on Dev + Staging, **Prod PENDING** | 213–222 |
+| Live shoppers on prod | **NONE** (owner, 2026-08-09) — this removes the urgency from the prod-sequencing question |
+
+Run: `git log main --oneline -1 ; git log origin/staging --oneline -1 ; git log origin/main --oneline -1 ; git status --short`
+
+### ✅ Shipped to staging this session (3 commits)
+
+| Commit | What |
+|---|---|
+| `106fed3c` | Events change-request override notifications (built last session, unpushed until now) |
+| `7c7a8975` | **Multi-market checkout regression fixed** — see below |
+| `3cbe0ead` | **Refusal telemetry** + mig 222 |
+
+**The regression, in one paragraph.** `cart/validate` refused two traditional markets and any mixed pickup types. That block was a day-eleven assumption (`c585da5c`, 2026-01-14, no recorded rationale, inside a commit about a different bug) that contradicted the multi-location checkout built ten days LATER (`bb865e30`). It never bit, because `.eq('user_id', …)` on a nonexistent column made validation always pass. `f4b2700c` (2026-07-12) closed that fail-open; the validator then resolved markets via an unordered `listing_markets[0]` and usually collapsed two markets into one (62 of 64 listings are on 2–4 markets), which is how the owner's 2026-07-13 test passed. `0cdda987` (2026-07-20, S1-6) taught it to read the buyer's chosen market — a correct fix that made the January assumption load-bearing for the first time and **killed the feature in production from ~2026-07-21.** Zero spanning orders ever existed on prod, so nothing needed unwinding. Full trail: `backlog.md` → *"✅ RESOLVED 2026-08-09"*.
+
+**The rule now:** an EVENT may not share a cart with any other market; everything else combines. Stated identically in `cart/items` (`ERR_CART_010`) and `cart/validate:174`. The buyer's 📍 multi-location acknowledgment is the real gate.
+
+**Refusal telemetry** (mig 222 + `lib/telemetry/`): every refusal is counted against a declared rule key, so "which rules have NEVER fired" and "which suddenly started firing" become queries. The two report queries live at the bottom of the migration file. `RETIRED_RULES` records both removed multi-market blocks and why, so nobody re-adds them.
+
+### ⏸️ BLOCKING EVERYTHING: five staging test workflows, written and not yet run
+
+Written out in full in the session transcript; re-derive from these headlines if needed. **Ask the owner for results before building anything new.**
+
+- **A — two-market shopper.** Two traditional markets → checkout → the amber "Multiple Pickup Locations" box → tick "I understand I'll visit multiple locations" → button becomes **Pay Now** → order shows each pickup separately. ⚠ If the button reads **"Fix Market Issues"**, the fix did not take.
+- **B — market + private pickup.** Same journey, two differently-coloured dots.
+- **C — event isolation holds.** Market item + event item must be REFUSED; event-only must work; two different events must be refused. ⚠ If it lets you, the whole-payment-intent refund bug is live.
+- **D — telemetry proves itself.** After C, `cart.event_isolation` should appear in `rule_refusals` (proves the automatic hook). Then force a past-cutoff item and `cart.cutoff_passed` should appear (proves the explicit path — the invisible kind). If neither appears, the wiring is broken.
+- **E — organizer late-change ladder.** Last session's whole chain, never tested on staging: 10-day intake floor → rushed acknowledgment → honest match count → consequence dialog → hard block at max(72h, cutoff+24h) → change request → admin queue showing money at stake → decline-needs-reason → approve + vendor notification carrying the organizer's own words.
+
+⚠ **Expected "bug" that is not one:** Workflow E's copy promises unconfirmed pre-orders are refunded before the event. Nothing does that yet — it is the unbuilt re-confirmation slice, and it is the reason none of this can reach prod as-is.
+
+### ▶ NOT FINISHED — the actual backlog, in the order I'd take it
+
+1. **RE-CONFIRMATION FLOW (events)** — the biggest unbuilt piece, and shipped copy already promises it. Full owner-approved spec in `backlog.md` (`📐 SPEC`): preserve + re-confirm, one-click token link, **refund unconfirmed at `cutoff_hours`, not at event start**, per combined order, vendor prep count splits confirmed vs awaiting. **This is the prod-sequencing gate for all events work.** Three questions were drafted in-session and never answered: refund scoping, whether a confirmation is revocable, and vendor-split timing.
+2. **BACKUP VENDORS (events)** — spec written and approved; notification-only on self-serve, paid + obligated on admin-assisted, 1-per-4 with a floor of 1, funded by the truck that bails. ⏳ **Blocked on one number from the owner: the guarantee %, probably 50%.**
+3. **Guards 2 and 3** (owner approved all three; telemetry was #1 and is done) — capability tests as a standing convention, and naming the "reactivation" change class. Both specced in `backlog.md` → *"GUARD AGAINST SILENT CAPABILITY LOSS"*.
+4. **Flaky commit gate** — `rate-limit.test.ts` blocks clean commits at random via a live Upstash round-trip inside pre-commit. Backlogged with three candidate causes. ⚠ **Check whether the production limiter fails open while in there** — if it does, a Redis blip disables rate limiting on live routes, which matters far more than a blocked commit.
+5. **Cross-vertical admin notifications** — three call sites notify the wrong vertical's admins and truncate at an arbitrary 5. The fix already exists (`lib/notifications/admin-recipients.ts`); it is three call-site swaps.
+6. Then: vendor notification on change (A-AUDIT part 4) · event scoring math (cluster B) · platform admin console nav.
+
+### ⏳ Owner decisions outstanding
+
+- **Backup guarantee %** (blocks item 2)
+- The three re-confirmation questions (block item 1)
+- **`MIGRATION_LOG.md`: retire or restore?** It is ~85 migrations behind (last dated row mig 054, 2026-02-23; highest number mentioned 137). `SCHEMA_SNAPSHOT.md` is the live record. A stale second record that still looks authoritative is the same failure shape as the cart rule.
+- **Prod sequencing.** 50 commits and 10 migrations behind. No live shoppers, so this is a planning question rather than an emergency — but the events copy must not land ahead of re-confirmation.
+
+### 🪤 Traps found this session
+
+1. **A validator is not a specification.** A line with no recorded rationale, written inside a commit about something else, had acquired the authority of a decision — and a later session cited it as the rationale for the sales-tax design. Read the code AND ask the owner.
+2. **Inert code has never been tested by production.** The day it wakes up is its first real run. Closing a fail-open or fixing a masking bug is a *reactivation*, and what becomes live must be enumerated.
+3. **Three wrong assumptions in one session, all corrected by the owner** — that the block was intended, that spanning was a permissiveness to tighten, and (retracted) that mig 219's desync bugs came from assuming spanning can't happen. When the owner says "I recall," that is data, not noise.
+4. **Do not convert the owner's hedge into a settled fact.** They said the two order numbers were "an assumption"; Claude treated that as disproof and had to be pulled back. Verify the hedge too.
+5. **`git show <commit> -- <file>` shows context lines as unchanged.** A comment appearing in a diff does NOT mean that commit introduced it — the fail-open fix was a commit earlier than it first appeared to be.
+6. **The repo's own guardrails caught two real omissions** (unmapped new files, missing changelog row). They work. Fix what they catch; never silence them.
+
+---
 
 ## ⏱️ SESSION HANDOFF — 2026-08-08 (dataflow deep dive + mig 219)
 
