@@ -65,7 +65,7 @@ src/app/[vertical]/checkout/**
 | `api/cart/route.ts` | GET only. Loads the cart for one vertical, joins listings/markets/schedules/box offerings, re-checks each item's schedule still exists, calls `get_cart_summary`, returns display-shaped items. Does not create carts (`:113-129`). |
 | `api/cart/items/route.ts` ⚠ | POST. Adds a listing or market-box item. Listing path runs the full validation ladder: vertical → inventory (`validate_cart_item_inventory`, `:95`) → market membership (`:129`) → schedule/date (`validate_cart_item_schedule`, `:152`) → FT time slot on a 15-min boundary (`:174-185`) → cross-event cart isolation (`:204-228`). Box path checks offering status, subscriber capacity vs tier, duplicate subscriptions, and resolves the start date in market timezone (`:431`). |
 | `api/cart/items/[id]/route.ts` ⚠ | PUT re-validates inventory before changing quantity (`:57-72`) and verifies ownership via `carts.user_id` (`:52`); DELETE removes the item, relying on RLS for ownership (`:108`). |
-| `api/cart/validate/route.ts` ⚠ | The pre-checkout gate. GET blocks mixed market types (`:122-125`), multi-market traditional carts (`:130-133`), and past-cutoff items via `get_listings_accepting_status` (`:99-116`). **Fails closed** on query error (`:52-54`) — a prior fail-open bug is documented in place. POST returns per-item availability. |
+| `api/cart/validate/route.ts` ⚠ | The pre-checkout gate. GET blocks **events sharing a cart with any other market** (`:174`) and past-cutoff items via `get_listings_accepting_status` (`:132`). **Fails closed** on query error (`:76`) — a prior fail-open bug is documented in place. POST returns per-item availability. **Changed 2026-08-09:** it previously also blocked multi-market traditional carts and mixed pickup types; both were removed as a regression — see "Multi-location orders" below. |
 
 ## Checkout API
 
@@ -121,6 +121,20 @@ src/app/[vertical]/checkout/**
 | `app/[vertical]/checkout/{TipSelector,CheckoutListingItem,CheckoutMarketBoxItem,CheckoutPickupGroup,CrossSellSection,PaymentMethodSelector}.tsx`, `types.ts`, `loading.tsx` | Presentational children of the checkout page. |
 
 **There is no `/cart` page** — the cart is a drawer only. Client-side cart state lives in `lib/hooks/useCart`.
+
+## Multi-location orders (one rule, two files)
+
+**An EVENT may not share a cart with any other market. Everything else combines** — two traditional markets, or a market plus a vendor's private pickup. Per-item pickup is the mechanism: `order_items` carries its own `market_id`, `schedule_id` and `pickup_date`, and `orders` carries no market at all.
+
+| Layer | File | Behaviour |
+|---|---|---|
+| Add to cart | `api/cart/items/route.ts` `:204-228` | Refuses `ERR_CART_010` when the incoming item and an existing one differ AND either market is an `event`. The hard guard. |
+| Buyer consent | `lib/hooks/useCart.tsx` `:296-299` → `checkout/page.tsx` `:1047` | Distinct `market_id > 1` renders the 📍 multi-location notice listing each market by name and city; the checkout button stays disabled until the buyer ticks it (`:592`). `CheckoutPickupGroup` then shows vendor/time/place per group. |
+| Pre-checkout backstop | `api/cart/validate/route.ts` `:174` | Same event rule, for a cart assembled before the add-time guard. |
+
+**Events are isolated for a money reason:** `api/events/[token]/cancel/route.ts:212` calls `createRefund` with no `amount`, which refunds the WHOLE payment intent. One order holding two events would refund both. Do not relax this without changing that refund path first.
+
+⚠ **Do not "restore" a same-market or mixed-type block in `cart/validate`.** One existed from 2026-01-14 (`c585da5c`, day eleven, no recorded rationale) and contradicted the multi-location checkout built ten days later (`bb865e30`). It sat inert behind a fail-open bug until `f4b2700c` (2026-07-12) closed it, then began firing at `0cdda987` (2026-07-20) when the validator learned to read the buyer's chosen market — killing multi-market checkout **in production** until 2026-08-09. Guarded now by `flow-integrity.test.ts` → "Multi-location cart rule".
 
 ## Protected files in this domain
 

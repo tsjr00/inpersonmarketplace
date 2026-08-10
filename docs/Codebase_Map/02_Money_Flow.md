@@ -26,7 +26,7 @@ The drawer subtotal shows the **percentage-fee-only** price; the $0.15 flat fee 
 
 ### 2. Pre-checkout validation
 
-`GET /api/cart/validate` blocks mixed market types, multi-market traditional carts, and past-cutoff items. It **fails closed** on a query error — a prior fail-open bug is documented in place.
+`GET /api/cart/validate` blocks an event sharing a cart with any other market, plus past-cutoff items. It **fails closed** on a query error — a prior fail-open bug is documented in place. Multi-market and mixed-pickup carts are allowed and gated by the buyer's multi-location acknowledgment instead; see `10_Checkout_Payments.md` → "Multi-location orders" (changed 2026-08-09).
 
 ### 3. Session creation — `POST /api/checkout/session` ⚠
 

@@ -148,17 +148,31 @@ export async function GET(request: NextRequest) {
     // Validation checks
     let valid = warnings.length === 0
 
-    // Check for mixed market types
-    if (marketTypes.size > 1) {
-      warnings.push('Cart contains items from different pickup types (markets, private pickup, events). Please checkout separately.')
-      valid = false
-    }
-
+    // ONE RULE: an event may not share a cart with any other market. Everything
+    // else combines freely — two traditional markets, or a market plus a
+    // vendor's private pickup. (Owner, 2026-08-09.)
+    //
+    // Per-item pickup is built for this: order_items carries its own market_id,
+    // schedule_id and pickup_date; the checkout page makes the buyer acknowledge
+    // each location BY NAME (useCart hasMultiplePickupLocations -> the
+    // multi-location notice) and CheckoutPickupGroup shows vendor/time/place per
+    // group. That acknowledgment IS the gate for multi-location carts.
+    //
+    // Events are isolated because api/events/[token]/cancel:212 refunds the WHOLE
+    // payment intent — one order holding two events would refund both. The same
+    // rule is enforced earlier and harder at add-to-cart (cart/items ERR_CART_010);
+    // this is the pre-checkout backstop for a cart assembled before that guard.
+    //
+    // HISTORY — do not "restore" the old checks. Until 2026-07-20 this block also
+    // refused two traditional markets and any mixed pickup types: a day-eleven
+    // assumption (c585da5c, 2026-01-14) that sat inert behind a fail-open bug,
+    // then began firing when S1-6 taught the validator to read the buyer's chosen
+    // market — silently killing the multi-location checkout built ten days after
+    // it (bb865e30, 2026-01-24).
     const marketType = marketTypes.size === 1 ? Array.from(marketTypes)[0] : null
 
-    // For traditional markets, all items should be from same market
-    if (marketType === 'traditional' && marketIds.size > 1) {
-      warnings.push('Traditional market items must all be from the same market. Please remove items from other markets.')
+    if (marketTypes.has('event') && marketIds.size > 1) {
+      warnings.push('Event items must be ordered on their own. Please check out your event items separately.')
       valid = false
     }
 

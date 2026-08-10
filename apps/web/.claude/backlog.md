@@ -371,6 +371,98 @@ console.log([...document.querySelectorAll('*')]
 ```
 The **deepest** row is the culprit; everything above it is an ancestor being dragged wide. A `getBoundingClientRect().right` scan alone is not enough — it misses an element whose own box fits while its content spills.
 
+## ✅ RESOLVED 2026-08-09 — cart/validate was killing multi-market checkout in PRODUCTION (a regression, not a rule)
+
+**Both readings were true at different times. The owner was right, and the code was right — three weeks apart.**
+
+**What it actually was.** A day-eleven block (`c585da5c`, 2026-01-14) forbade two traditional markets. Ten days LATER the multi-location checkout was built on the opposite premise (`bb865e30`, 2026-01-24) — the 📍 acknowledgment box, `CheckoutPickupGroup`, per-item pickup. The block never bit, because `.eq('user_id', …)` on a nonexistent column errored and validation always passed. `f4b2700c` (2026-07-12) closed that fail-open; the validator then resolved markets via an unordered `listing_markets[0]`, so with 62 of 64 listings attached to 2–4 markets it usually collapsed two markets into one and still passed — that is how the owner's 2026-07-13 test succeeded (order `FA-2026-82991000`, Canyon + Westgate). `0cdda987` (2026-07-20, S1-6) taught it to read the buyer's chosen market. Correct fix; it made the January assumption load-bearing for the first time and **killed the feature in production from ~2026-07-21.**
+
+**Blast radius, measured.** Zero spanning orders ever on Prod. One anywhere (the owner's, on staging). No stuck carts on staging; one on Prod last touched 2026-03-21, seed data, and blocked by the *mixed-type* line rather than this one. **No money exposure, nothing to unwind** — the loss was the capability, on 7 active traditional markets per vertical.
+
+**Owner's rule, decided 2026-08-09:** an EVENT may not share a cart with any other market; everything else combines, including traditional+traditional and traditional+private_pickup. Event isolation stays because `events/[token]/cancel:212` refunds the whole payment intent.
+
+**Shipped:** `cart/validate:174` now states only the event rule, matching `cart/items` `ERR_CART_010`. Guarded by `flow-integrity.test.ts` → "Multi-location cart rule" (5 tests). Docs corrected in `10_Checkout_Payments.md` (new "Multi-location orders" section), `02_Money_Flow.md`, `SCHEMA_SNAPSHOT.md` mig-214, `lib/tax/__tests__/jurisdictions.test.ts:147`.
+
+**The lesson worth keeping: the validator was not the spec.** A line with no recorded rationale, inside a commit about something else, had acquired the authority of a decision — and a later session cited it as the rationale for the sales-tax design. Ask the owner what the behaviour should be.
+
+<details><summary>Original investigation notes (kept for the trail)</summary>
+
+### The contradiction
+
+**What the code says.** `app/api/cart/validate/route.ts:159-162`:
+```ts
+// For traditional markets, all items should be from same market
+if (marketType === 'traditional' && marketIds.size > 1) {
+  warnings.push('Traditional market items must all be from the same market. Please remove items from other markets.')
+  valid = false
+}
+```
+
+**What the owner says (2026-08-09), from testing roughly a week earlier:** *"traditional markets CAN span… we have a box that pops up and makes the shopper acknowledge that they will have to go to different places to pick up their items and then it checks them out in one cart and shows the different vendors, times, locations etc. in the order summary and places two orders with 2 separate order numbers."*
+
+Both cannot be right. Either the rule is not reached on the path the owner tested, or `valid: false` does not hard-block, or there is a split-order checkout path that bypasses this gate.
+
+### What was actually verified (cite these, do not re-derive)
+
+- The rule exists at `cart/validate/route.ts:159-162` and sets `valid = false`. **Read directly.**
+- **It is in the GET handler, not POST.** `export async function GET` starts at `:14`, `export async function POST` at `:184`. Line 160 falls in GET.
+- **The checkout page calls BOTH handlers, for different purposes:**
+  - `app/[vertical]/checkout/page.tsx:148` — **POST**, validates items and merges pickup info.
+  - `app/[vertical]/checkout/page.tsx:264` — **GET**, sets `marketWarnings` and `marketValid` (`:267-268`): `setMarketValid(data.valid !== false && (!data.warnings || data.warnings.length === 0))`.
+- **This is the only copy of the rule.** Grepped `app/` for `must all be from the same market`, `different pickup types`, `marketIds.size` — four hits, all inside `cart/validate/route.ts`. The checkout session route does NOT duplicate it, despite the originating commit claiming it added "market compatibility validation to checkout session API".
+- **Origin: commit `c585da5c`, 2026-01-14** — "fix(checkout): Fix API path bug and add market validation". Day ELEVEN of the project, inside a commit about a different bug (checkout calling the wrong API path). **No rationale recorded for the same-market restriction specifically.** It reads as an early assumption, not a decision.
+- **No acknowledgment dialog was found.** Grepped `app/` and `components/` for `different places`, `multiple pickup`, `separate pickup`, `different locations` → **zero hits**. The dialog the owner describes exists (they used it), so it is worded differently and was not located.
+- **Live data (owner ran these 2026-08-09):**
+  - Orders spanning >1 **event** market: **0 on Prod, 0 on Staging.**
+  - Orders spanning >1 **traditional** market: **0 on Prod, 2 on Staging.**
+
+  Those 2 staging orders are evidence the spanning path produces data. ⚠ But note the owner also describes **two separate orders with two order numbers** — if checkout SPLITS per market, then an order spanning two markets would NOT be the expected artifact, and those 2 rows may be something else entirely (seed data, or a pre-split-era order). **Resolving what those 2 rows actually are is the fastest way into this.**
+
+### What was NOT verified — start here
+
+1. **Does `marketValid` actually block the checkout button?** Trace `marketValid` / `validationFailed` through `checkout/page.tsx` to whatever disables submit. If it only renders a warning, the rule is advisory and everything reconciles.
+2. **Where is the acknowledgment dialog?** Find it by its real wording. It is the thing that proves the intended flow.
+3. **Where does the split into two orders happen?** `checkout/session/route.ts` inserts ONE `orders` row (`:913-930`) and does **not** set `orders.market_id`. So a per-market split is either elsewhere, or the owner's "two order numbers" came from two checkouts. **This is the single most important unknown.**
+4. **What are those 2 staging orders?** Query below.
+
+```sql
+SELECT oi.order_id, o.order_number, o.created_at, o.status,
+       string_agg(DISTINCT m.name, ' | ') AS markets
+  FROM order_items oi
+  JOIN markets m ON m.id = oi.market_id
+  JOIN orders  o ON o.id = oi.order_id
+ WHERE m.market_type = 'traditional'
+ GROUP BY oi.order_id, o.order_number, o.created_at, o.status
+HAVING count(DISTINCT oi.market_id) > 1;
+```
+
+### Owner's stated intent (the spec to validate against)
+
+Traditional markets **SHOULD** span. Real case: a morning market and an evening market in the same city; the shopper orders from both, acknowledges they will collect in two places, and the order summary shows each vendor, time and location.
+
+**The data model already supports this** — `order_items` carries `market_id`, `schedule_id` and `pickup_date` per row, and `checkout/session/route.ts:913-930` never sets a market on the `orders` row. Per-item pickup is exactly what this scenario needs.
+
+⚠ **Clarification the owner had to give me, worth not needing twice:** multiple VENDORS at one event/market is ONE market. An event is a single `markets` row and its vendors are `market_vendors` on it. "Spanning" only ever means two separate `markets` rows.
+
+### The separate, EVIDENCED event finding — do not lose this
+
+Independent of the above, and still standing on its own evidence:
+
+**An event order spanning two events is unsafe against code that already shipped.** `api/events/[token]/cancel/route.ts:212` calls `createRefund(paymentIntentId, …)` with **no `amount`** (`lib/stripe/payments.ts:248-262` → omitting `amount` refunds the FULL payment intent). So if one order held items from two events and one event cancelled, the buyer would be refunded for the other event too — food they are still expecting from trucks still cooking it.
+
+Zero such orders exist on either environment, so this is latent, not live. A proposed one-line widening of the `cart/validate` condition to cover events **was written out and NOT applied** — it is in the session transcript, and it must not be applied until the contradiction above is resolved, because it touches the same condition.
+
+### Process note — why this entry is long
+
+Three wrong assumptions were made about this rule in one session, each corrected by the owner:
+1. That `valid = false` in the validator meant the behaviour was intended. It is a day-eleven assumption with no recorded rationale.
+2. That multi-market spanning was a permissiveness to tighten. The owner intends traditional spanning to work.
+3. Earlier, that the mig-219 desync bugs were caused by "designing as though spanning can't happen" — **that was false and was retracted.** Mig 219 fixed a real bug (buyers given pickup windows for hours the event was not running) caused by approval copying data with no sync back. It has nothing to do with multi-market orders and must not be cited as precedent here.
+
+**Read the code AND ask the owner what the behaviour should be before proposing a change to this rule.** The validator is not the spec.
+
+</details>
+
 ## 🟠 ADMIN NOTIFICATIONS GO TO THE WRONG VERTICAL — and get truncated (found 2026-08-09, NOT fixed)
 
 **Owner-flagged 2026-08-09:** an admin from one vertical is being notified about events they have nothing to do with.

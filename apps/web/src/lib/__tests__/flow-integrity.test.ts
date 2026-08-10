@@ -1384,3 +1384,68 @@ describe('Dashboard empty-state convention', () => {
       .not.toMatch(/gridTemplateColumns:\s*'repeat\(auto-fit,\s*minmax\(250px/)
   })
 })
+
+// ── Multi-location cart rule (added 2026-08-09) ──────────────────────
+//
+// ONE rule, stated in two files: an EVENT may not share a cart with any other
+// market; everything else combines freely. `cart/items` enforces it at add time
+// (ERR_CART_010); `cart/validate` is the pre-checkout backstop.
+//
+// WHY THIS IS GUARDED MECHANICALLY: the two files drifted apart for three weeks
+// and no test noticed. A day-eleven assumption in cart/validate (c585da5c,
+// 2026-01-14) forbade two traditional markets; the multi-location checkout was
+// built ten days LATER (bb865e30, 2026-01-24) on the opposite premise. The block
+// sat inert behind a fail-open bug until f4b2700c (2026-07-12) closed it, then
+// began firing for real at 0cdda987 (2026-07-20) when the validator learned to
+// read the buyer's chosen market — silently killing multi-market checkout in
+// PRODUCTION. Found 2026-08-09 only because the owner remembered testing it.
+//
+// The failure mode is slow and silent: every file looks correct on its own.
+
+describe('Multi-location cart rule', () => {
+  const rd = (p: string) => fs.readFileSync(path.join(SRC_DIR, p), 'utf-8')
+  const bare = (p: string) => rd(p).replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+
+  const validate = bare('app/api/cart/validate/route.ts')
+  const addItem = bare('app/api/cart/items/route.ts')
+
+  it('cart/validate refuses an event sharing a cart with another market', () => {
+    expect(validate, 'event isolation must survive in the pre-checkout gate')
+      .toMatch(/marketTypes\.has\('event'\)\s*&&\s*marketIds\.size > 1/)
+  })
+
+  it('cart/items refuses the same combination at add time', () => {
+    // The earlier, harder guard. Events never enter a mixed cart at all.
+    expect(addItem, 'add-time event isolation must exist').toContain('ERR_CART_010')
+    expect(addItem, 'the add-time guard must key off market_type event')
+      .toMatch(/\.eq\('market_type',\s*'event'\)/)
+  })
+
+  it('cart/validate does NOT block two traditional markets', () => {
+    // Owner 2026-08-09: a morning market and an evening market in one city is a
+    // real order. order_items carries market_id/schedule_id/pickup_date per row.
+    expect(validate, 'traditional markets may span — the buyer acknowledges each location')
+      .not.toMatch(/marketType === 'traditional' && marketIds\.size > 1/)
+    expect(validate).not.toContain('must all be from the same market')
+  })
+
+  it('cart/validate does NOT block mixed pickup types', () => {
+    // Owner 2026-08-09: a market pickup plus a vendor's private pickup is one
+    // legitimate order. Only events are isolated.
+    expect(validate, 'mixed pickup types are allowed')
+      .not.toMatch(/marketTypes\.size > 1/)
+    expect(validate).not.toContain('different pickup types')
+  })
+
+  it('the acknowledgment that replaces those blocks is still wired to the button', () => {
+    // Removing the blocks is only safe because this gate exists. If someone
+    // deletes the checkbox, multi-location carts would check out with no warning
+    // that the buyer must collect in two places.
+    const cart = bare('lib/hooks/useCart.tsx')
+    const page = bare('app/[vertical]/checkout/page.tsx')
+    expect(cart, 'detection must read the buyer CHOSEN market, not listing_markets[0]')
+      .toMatch(/new Set\(items\.map\(item => item\.market_id\)/)
+    expect(page, 'checkout stays disabled until the buyer acknowledges the locations')
+      .toMatch(/hasMultiplePickupLocations && !multiLocationAcknowledged/)
+  })
+})

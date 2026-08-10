@@ -33,6 +33,18 @@ All three live in **`backlog.md`**, each marked `📐 SPEC`. Every design questi
 
 Then: vendor notification on change (A-AUDIT part 4 — propagating data ≠ telling anyone) · event scoring math (cluster B) · platform admin console nav.
 
+### ✅ RESOLVED 2026-08-09 — the cart/validate contradiction was a PRODUCTION regression
+
+**Multi-market checkout had been dead in prod since ~2026-07-21** and nobody knew. Not a rule, not a decision — a January assumption that only became load-bearing when a correct July fix removed the bug that had been masking it. Owner was right; the code was right; three weeks apart. Full trail: `backlog.md` → *"✅ RESOLVED 2026-08-09 — cart/validate was killing multi-market checkout in PRODUCTION"*.
+
+**The rule now, in one line:** an EVENT may not share a cart with any other market; everything else combines (two traditional markets, or a market plus a private pickup). Stated identically in `cart/items` (`ERR_CART_010`, add time) and `cart/validate:174` (pre-checkout backstop), with the buyer's 📍 acknowledgment box as the real gate for multi-location carts.
+
+**Not committed yet as of this line.** Changed: `cart/validate/route.ts`, `flow-integrity.test.ts` (+5 guards, "Multi-location cart rule"), `jurisdictions.test.ts` comment, `SCHEMA_SNAPSHOT.md` mig-214, `10_Checkout_Payments.md` (+ new "Multi-location orders" section), `02_Money_Flow.md`, `00_INDEX.md` stamps. Gates: tsc 0, eslint 0 errors, **1911 tests**.
+
+⚠ **The event-cancel finding is now closed too, and NOT by my drafted edit.** `events/[token]/cancel:212` refunding the whole payment intent is real, but `cart/items` `ERR_CART_010` already prevents an event from ever sharing an order — that is *why* zero event-spanning orders exist, not luck. The one-line widening drafted last session was redundant and was correctly never applied.
+
+⚠ **Stamp-table drift spotted, not fixed:** `00_INDEX.md` lists `14_Events.md` as verified 2026-07-18 / `b9f82116`, but last session bumped that file's own stamp to 2026-08-09 / `dfefc782`. One of the two is wrong — check before trusting either.
+
 ### ⏳ The only two things blocked on the owner
 
 - **Minimum lead time at intake** (days) — layer 1 of the late-change protection

@@ -144,8 +144,12 @@ describe('buildListSupplement — Form 01-116 rollup', () => {
   })
 
   it('keeps jurisdictions separate across markets with different rates', () => {
-    // A private_pickup/event order can span markets (cart/validate only forces
-    // same-market for market_type='traditional'), so the rollup must not merge.
+    // An order can span markets at different rates, so the rollup must not
+    // merge. Since 2026-08-09 this is broader than when the tax snapshot was
+    // designed: cart/validate isolates EVENTS only — two traditional markets, or
+    // a market plus a private pickup, are one order (the buyer acknowledges each
+    // pickup location at checkout). Per-item tax is therefore required, not
+    // merely prudent.
     const houston = computeItemTax(1000, true, [
       { code: '7000000', name: 'TEXAS', level: 'state', rate_pct: 6.25 },
       { code: '2101000', name: 'HOUSTON', level: 'city', rate_pct: 1.0 },
