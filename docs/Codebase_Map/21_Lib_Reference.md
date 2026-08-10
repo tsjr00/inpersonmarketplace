@@ -3,6 +3,7 @@
 <!-- map-stamp: domain=lib-reference; verified=2026-08-07; commit=36aa2bd9 -->
 <!-- map-claims
 src/lib/errors/**
+src/lib/telemetry/**
 src/lib/dashboard/**
 src/lib/db/**
 src/lib/domain/**
@@ -61,6 +62,19 @@ Shared modules not owned by a single domain. **The lib layer is where the busine
 **The convention that matters:** money-path errors go through `logError(new TracedError(...))`, never `console.error` — console output is invisible to the error-log review, and a structural test enforces this on money files.
 
 **Adding a new error code obligates a catalog entry** — enforced by money-structure Rule E.
+
+## Refusal telemetry — counting every time the app says "no"
+
+| File | Purpose |
+|---|---|
+| `telemetry/refusal-registry.ts` | The declared list of rules that can refuse a user: key, description, enforcement site, the decision behind it, and `RETIRED_RULES` for rules deliberately removed. Without a declared list you cannot tell a rule that NEVER FIRED from one that DOESN'T EXIST — and "never fired" is the signal. |
+| `telemetry/refusals.ts` | `recordRefusal(key, ctx)` → one row in `rule_refusals` (mig 222). Never throws, no-ops in tests, and must be **awaited** (Vercel freezes the function after the response). |
+
+**Why it exists.** Multi-market checkout was dead in production for three weeks in July 2026 with 1911 tests green. Every other gate here checks that something *is present*; nothing detected a capability quietly disappearing. This makes two questions into queries: *which rules have never fired* (dead code, or a rule nobody meant) and *which started firing* (a regression in flight).
+
+**Two ways a refusal gets counted.** Thrown refusals record themselves — `with-error-tracing.ts` maps `TracedError.code` through `REFUSAL_BY_ERROR_CODE`, so registering a code is the only wiring needed. Refusals that merely **return a warning** (as `cart/validate` does) never reach `error_logs` at all and need an explicit `recordRefusal()` call; that invisible kind is the one that caused the incident.
+
+⚠ **Never rename a key** — it resets that rule's history to "never fired". Retire it in `RETIRED_RULES` and add a new one. ⚠ **Never register a generic code** (`ERR_CHECKOUT_001` spans twelve sites) or a rate-limit refusal (unbounded rows). Both are asserted by `refusal-registry.test.ts`.
 
 ## Config & constants
 

@@ -11,6 +11,8 @@ import { TracedError } from './traced-error'
 import { startBreadcrumbTrail, crumb } from './breadcrumbs'
 import { logError } from './logger'
 import { getHttpStatus } from './types'
+import { REFUSAL_BY_ERROR_CODE } from '../telemetry/refusal-registry'
+import { recordRefusal } from '../telemetry/refusals'
 
 /**
  * Error codes (ERR_AUTH_003) are always shown — they help users report issues
@@ -59,6 +61,28 @@ export async function withErrorTracing<T>(
 
         // Log to console and database
         await logError(error)
+
+        // ── Refusal telemetry (mig 222) ──
+        //
+        // A thrown refusal whose code identifies exactly one rule records
+        // itself, so no per-site wiring is needed. error_logs already holds
+        // these, but it is pruned at 90 days and "has this rule fired in six
+        // months?" is the question that would have caught the July 2026
+        // multi-market regression three weeks earlier.
+        //
+        // Cost on the common path is ONE Map lookup that misses: generic codes
+        // (ERR_CHECKOUT_001 and friends) are deliberately not registered.
+        // recordRefusal never throws and is awaited because Vercel freezes the
+        // function once the response is returned.
+        const refusalKey = REFUSAL_BY_ERROR_CODE.get(error.code)
+        if (refusalKey) {
+          await recordRefusal(refusalKey, {
+            vertical: (error.context?.vertical_id as string) ?? options?.vertical ?? null,
+            route: error.context.route ?? route,
+            method: error.context.method ?? method,
+            userId: (error.context?.userId as string) ?? null,
+          })
+        }
 
         // H-8: Report to Sentry — only server errors (5xx), not validation/auth (4xx)
         if (error.httpStatus >= 500) {

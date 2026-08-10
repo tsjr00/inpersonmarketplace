@@ -112,7 +112,7 @@ Each domain file was verified against the code at the commit shown. A stamp far 
 | 18_Notifications.md | 2026-07-18 | b9f82116 |
 | 19_Admin.md | 2026-07-18 | b9f82116 |
 | 20_Buyer_Public.md | 2026-07-24 | f30a0cac |
-| 21_Lib_Reference.md | 2026-07-18 | b9f82116 |
+| 21_Lib_Reference.md | 2026-08-09 | 106fed3c |
 | 22_Components_UI.md | 2026-07-18 | b9f82116 |
 | 23_Test_Suites.md | 2026-07-18 | b9f82116 |
 

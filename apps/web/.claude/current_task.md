@@ -43,6 +43,20 @@ Then: vendor notification on change (A-AUDIT part 4 — propagating data ≠ tel
 
 ⚠ **The event-cancel finding is now closed too, and NOT by my drafted edit.** `events/[token]/cancel:212` refunding the whole payment intent is real, but `cart/items` `ERR_CART_010` already prevents an event from ever sharing an order — that is *why* zero event-spanning orders exist, not luck. The one-line widening drafted last session was redundant and was correctly never applied.
 
+### 🛡️ Refusal telemetry — BUILT 2026-08-09 (mig 222 applied Dev + Staging, Prod PENDING)
+
+Owner approved **all three** guards against silent capability loss; telemetry first. Nothing counts refusals today, which is the whole reason the regression above was invisible for three weeks with 1911 tests green.
+
+**Built:** `lib/telemetry/refusal-registry.ts` (8 declared rules + `RETIRED_RULES` recording both removed multi-market blocks and WHY, so nobody re-adds them) · `lib/telemetry/refusals.ts` (`recordRefusal` — never throws, no-ops under test, **must be awaited**) · a lookup hook in `with-error-tracing.ts` so any registered `ERR_*` records itself app-wide with no per-site wiring · explicit calls in `cart/validate` for the four refusals that only WARN and so never reach `error_logs` · 9 integrity tests. **1920 tests green.**
+
+**The two report queries live at the bottom of the migration file** — *which registered rules have never fired* (dead code, or a rule nobody meant) and *which changed rate* (a regression in flight). Run them periodically; that is the entire payoff.
+
+⚠ **Never rename a rule key** — it resets that rule's history to "never fired", the exact blindness this removes.
+
+**Still to build (owner approved, not started):** capability tests as a standing convention, and naming the "reactivation" change class. Both specced in `backlog.md` → *"GUARD AGAINST SILENT CAPABILITY LOSS"*.
+
+⚠ **`MIGRATION_LOG.md` is abandoned** — last dated row is mig 054 (2026-02-23), highest number mentioned is 137, so ~85 migrations behind. `SCHEMA_SNAPSHOT.md` is the live record. Owner's call whether to retire the file explicitly or restore it; a stale second record that still looks authoritative is the same failure shape as the cart rule.
+
 ⚠ **Stamp-table drift spotted, not fixed:** `00_INDEX.md` lists `14_Events.md` as verified 2026-07-18 / `b9f82116`, but last session bumped that file's own stamp to 2026-08-09 / `dfefc782`. One of the two is wrong — check before trusting either.
 
 ### ⏳ The only two things blocked on the owner

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { recordRefusal } from '@/lib/telemetry/refusals'
 // Availability checked via get_listings_accepting_status() RPC (single SQL source of truth)
 
 interface CartItem {
@@ -74,6 +75,13 @@ export async function GET(request: NextRequest) {
     // and was silently discarded -> validation always passed (fail-open).
     // Fail CLOSED on a real query error so checkout can't proceed unvalidated.
     if (cartError) {
+      // Health signal, not a business rule (mig 222): buyers are being blocked
+      // from checking out by an infrastructure fault. Any sustained count here
+      // is an incident, not normal refusal traffic.
+      await recordRefusal('cart.validate_failed_closed', {
+        vertical, route: '/api/cart/validate', method: 'GET', userId: user.id,
+        detail: { pgCode: cartError.code },
+      })
       return NextResponse.json({ valid: false, warnings: ["We couldn't validate your cart. Please refresh and try again."], marketType: null, marketIds: [] })
     }
 
@@ -96,6 +104,10 @@ export async function GET(request: NextRequest) {
     // First pass: collect market info and identify items needing cutoff check
     const itemsForCutoffCheck: Array<{ id: string; title: string; marketType: string }> = []
 
+    // Recorded once after the loop rather than per item — one refusal event per
+    // request, not one per affected line (mig 222).
+    let noMarketsRefusal = false
+
     for (const item of cartItems) {
       const listing = item.listings as unknown as {
         id: string
@@ -108,6 +120,7 @@ export async function GET(request: NextRequest) {
 
       if (!listing || !listing.listing_markets || listing.listing_markets.length === 0) {
         warnings.push(`"${listing?.title || 'Unknown item'}" is not available at any markets`)
+        noMarketsRefusal = true
         continue
       }
 
@@ -180,6 +193,28 @@ export async function GET(request: NextRequest) {
     if (cutoffWarnings.length > 0) {
       warnings.push(...cutoffWarnings)
       valid = false
+    }
+
+    // ── Refusal telemetry (mig 222) ──
+    //
+    // These refusals WARN rather than throw, so unlike ERR_* codes they never
+    // reach error_logs. That invisibility is exactly what let the same-market
+    // block kill multi-market checkout in production for three weeks with 1911
+    // tests green. Counting them is how the next one gets noticed in days.
+    //
+    // recordRefusal never throws and is awaited — Vercel freezes the function
+    // once the response is returned, so an un-awaited insert is dropped.
+    if (!valid) {
+      const fired: string[] = []
+      if (noMarketsRefusal) fired.push('cart.listing_no_markets')
+      if (marketTypes.has('event') && marketIds.size > 1) fired.push('cart.event_isolation_checkout')
+      if (cutoffWarnings.length > 0) fired.push('cart.cutoff_passed')
+
+      for (const key of fired) {
+        await recordRefusal(key, {
+          vertical, route: '/api/cart/validate', method: 'GET', userId: user.id,
+        })
+      }
     }
 
     return NextResponse.json({

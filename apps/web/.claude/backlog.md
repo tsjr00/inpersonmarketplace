@@ -371,6 +371,47 @@ console.log([...document.querySelectorAll('*')]
 ```
 The **deepest** row is the culprit; everything above it is an ancestor being dragged wide. A `getBoundingClientRect().right` scan alone is not enough — it misses an element whose own box fits while its content spills.
 
+## 🛡️ GUARD AGAINST SILENT CAPABILITY LOSS — 3 mechanisms, owner approved all three 2026-08-09
+
+**Why:** the multi-market regression (resolved below) hid for three weeks in production with 1911 tests green. Every existing gate in this repo checks that something **is present**. Nothing detects a capability **quietly disappearing**. These three close that.
+
+⚠ **Do not build a migration gate for this.** The three damaging commits (`c585da5c`, `f4b2700c`, `0cdda987`) touched **zero** `.sql` files — verified. It was pure application code. The migrations in `bb865e30` (`cart_items.market_id`, `order_items.market_id`) were on the *correct* side: the schema itself declared that an order spans markets, and app code contradicted it unchallenged for six months.
+
+### 1. Refusal telemetry — IN PROGRESS 2026-08-09 (owner: "go with telemetry first")
+
+See the design discussion in-session. Core idea: every place the app tells a user "no" emits a counter against a named rule key, so two otherwise-unanswerable questions become queries — *which rules have never once fired* (dead code, or a rule nobody meant), and *which started firing* (a regression in flight). Passive: needs no discipline from any future session.
+
+### 2. Capability tests as a standing convention — NOT STARTED
+
+The regression survived because no test asserted the **capability** ("a shopper can check out from two markets"). The repo's tests assert that code *contains* things; that catches deletion, not inversion. Convention to adopt: **when a commit ships something a user can DO, one test asserts they can still do it** — phrased as the user's action, not the implementation. Model to copy: `flow-integrity.test.ts` → "Multi-location cart rule" (added 2026-08-09), which asserts both the rule that must hold AND that the contradicting blocks have not re-grown.
+
+Open question for whoever builds it: can this be made mechanical rather than a discipline? Possibly a registry of user-visible capabilities with a coverage test, in the shape of `codebase-map-coverage.test.ts`.
+
+### 3. Name the "reactivation" change class — NOT STARTED
+
+`f4b2700c` (closed a fail-open) and `0cdda987` (fixed a market-resolution bug) were both **correct** fixes whose real effect was switching **dormant code on**. Neither session considered what became live. That is a recognisable, nameable class: closing a fail-open, fixing a swallowed error, correcting a lookup that was silently returning the wrong thing, removing a guard that never matched.
+
+Proposed rule (for `verification-discipline.md`): *when a change makes previously-unreachable code reachable, enumerate every branch that just went live and verify each is still correct.* Detectable in review from the diff — it removes an error-swallow, a wrong column, or a broken condition. **Inert code has never been tested by production**, so the day it wakes up is its first real run.
+
+## 🟡 FLAKY COMMIT GATE — the rate-limit test blocks clean commits at random (found 2026-08-09, NOT fixed)
+
+**Symptom.** `src/lib/__tests__/rate-limit.test.ts > checkRateLimit > blocks requests at the limit` failed inside the **pre-commit hook** and blocked a clean commit. `expect(blocked.success).toBe(false)` received `true` — the 3rd call against `{ limit: 2, windowSeconds: 60 }` was allowed when it should have been refused.
+
+**Evidence it is a flake, not the code under commit.** The commit (`7c7a8975`) touched `cart/validate` plus tests and docs — nothing near rate limiting. The same suite passed **1911/1911 twice** in the ten minutes before, the file passed **6/6 standalone** immediately after, and the retry passed **1911/1911** and landed. Two of the sibling cases in the same file (`limit: 3` and `limit: 1`) passed in the very run that failed, so the limiter *was* counting.
+
+**Why this is worth real work rather than a re-run.** The test makes a **live network round-trip to Upstash Redis from inside a commit gate**. Every commit in this repo therefore depends on a third party being reachable *and* fast. A gate that fails at random trains people to re-run it, and a gate that gets re-run reflexively has stopped being a gate — which is exactly how a real failure would slip through unnoticed.
+
+**How it must NOT be fixed.** No `it.skip`, no `describe.runIf`, no retry wrapper that swallows it, no softened assertion. (test-integrity Rule 2 — a test that doesn't run is a lie.) The rule under test — *a limiter must refuse the (limit+1)th request* — is correct and must keep being asserted.
+
+**Candidate causes — ALL UNVERIFIED, listed to save the next session the first hour:**
+1. **Window-boundary race** in the limiter: the first of the three calls ages out before the third is evaluated. Would fit the observation that only the `limit: 2` case failed.
+2. **Fail-open on a slow or failed Redis call** — if `checkRateLimit` allows the request when the backend errors or times out, one slow round-trip looks precisely like this result.
+3. **Stale count from client-side analytics / ephemeral cache** in the Upstash SDK.
+
+**Where to look:** `src/lib/rate-limit.ts` (limiter construction and the error path — does it fail open?), and `rate-limit.test.ts:37-47`. Likely right answer: assert the *rule* against a deterministic in-memory limiter so the commit gate has no network in it, and cover the real Redis path in an integration test that is allowed to be slow. That keeps the assertion and removes the nondeterminism from the gate.
+
+**Also worth checking while in there:** whether the production rate limiter itself fails open. If hypothesis 2 is right, the same behaviour that makes this test flaky means a Redis blip disables rate limiting on live API routes — which would matter a great deal more than a blocked commit.
+
 ## ✅ RESOLVED 2026-08-09 — cart/validate was killing multi-market checkout in PRODUCTION (a regression, not a rule)
 
 **Both readings were true at different times. The owner was right, and the code was right — three weeks apart.**
