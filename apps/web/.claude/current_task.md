@@ -1,4 +1,48 @@
-# Current Task: ⏸️ AWAITING STAGING TEST — then re-confirmation (events) is the next build
+# Current Task: 🔧 WORKING THE STAGING TEST FINDINGS (T-01…T-39) — 4 fixed, rest open
+
+## ⏱️ SESSION HANDOFF — 2026-08-10 (owner testing → T-01/T-02 and T-36 fixed)
+
+### Where things stand in one line
+
+Owner ran the vendor + organizer + attendee event flow end to end. **All findings are ID'd in `backlog.md` → "🧪 STAGING TEST FINDINGS" (T-01…T-39). Four are fixed; the rest are open. Work by ID.**
+
+### ✅ Fixed and verified today
+
+| ID | What | Proof |
+|---|---|---|
+| **T-01 / T-02** | **Attendee shop page 404'd for every event approved since 2026-06-05** — 2+ months. A `/^[a-z0-9-]+$/` token guard written 2026-03-31 was never updated when a security fix (`12ee9069`) changed the token suffix to base64url, which contains uppercase and `_`. Every menu-item link points at `/shop`, so nobody could order at all. | Owner confirmed the shop page and item pages now load. Guarded by `flow-integrity` → "Event token format", which **extracts the live regex** and pins **both** edges. |
+| **T-36** | **No attendee could order at ANY food-truck event** — `ERR_CART_003`. `get_available_pickup_dates` required a `vendor_market_schedules` row for FT events, and the accept route never writes one. | **Mig 223**, applied Dev + Staging. Differential verified: of 62 published listings **exactly the 5 predicted changed**, 57 byte-identical. |
+
+**The T-36 fix is worth understanding before touching events again.** Two obvious fixes were rejected. Creating the vms row on acceptance would make "is this vendor attending?" answerable from two places that drift — miss one on a cancellation and ordering stays open for a truck that isn't coming. Exempting FT events like FM copies a hole: **the FM exemption checks nothing about acceptance** (now logged as **T-39**). The shipped fix gates on `market_vendors.response_status = 'accepted'` — one source of truth, and acceptance actually enforced.
+
+**A natural control in the staging data proved it.** `f4000000-0202` (Pulled Pork Sandwich) is attached to two events: the accepted one, and one the vendor was **never invited to**. It went 0 → **1**, not 2. Under the blanket exemption it would have become orderable at a private event the truck was never invited to.
+
+### 🔴 Still broken — highest first
+
+1. **T-03** vendor cannot accept an invitation using the **default** event capacity (must click "customize" and retype the same number). Blocks the vendor half of the flow. **T-04** acceptance not persisting is probably the same bug.
+2. **T-05** multi-market confirmation email lists only ONE of two markets — buyer has no record of half their order.
+3. **T-09 + T-10** address and organizer name visible on the listing page after only the FIRST of two acceptances. Investigate together: what the first stage *discloses* is probably why it exists.
+4. **T-06** organizer's select-vendors page shows base prices, not fee-inclusive — they choose trucks against numbers attendees never see. **T-07** the Viability Assessment contradicts itself inside one box (~50 orders/vendor beside "13-38", 125 visitors beside 150).
+5. **T-08** notification reads "undefined accepted the event invitation for undefined".
+6. **T-17** an approved event is still invisible to its organizer.
+7. **T-37 / T-38** $0.00 prices to logged-out shoppers, and add-to-cart failing silently.
+8. **T-39** FM events sell with **no acceptance check at all** — the fix is already written into mig 223, it just needs the exemption line deleted and the same differential run. **Do not do it blind.**
+
+### ⏳ Owed by the owner
+
+- **The browser re-test of the attendee purchase path.** The differential proves the function returns dates; it does not prove a human can complete a purchase. Wave reservation → cart → checkout has never run end to end on a live token. Expect T-37 and T-38 to surface there.
+- Backup guarantee %; the three re-confirmation questions; whether `MIGRATION_LOG.md` gets retired or restored.
+
+### 🪤 Traps found today — all four cost real time
+
+1. **The newest definition of a SQL function is by migration NUMBER, not file date, and not the first file grep finds.** `get_available_pickup_dates` has **19** definitions; I analysed mig 131 and nearly wrote a migration against it. The live one was mig 200. The clause happened to be identical — pure luck. **Always resolve the newest definer first.** Now guarded by a flow-integrity test.
+2. **A guard test that only asserts acceptance is not a guard.** The first version of the token test only checked that valid tokens pass — so a future failure could have been "fixed" by widening the regex to `/^.+$/` and it would have stayed green. Pin both edges, and prove each direction fails.
+3. **Writing a literal control character into a source file makes it binary to git.** The null-byte test case had to be repaired at byte level; it was invisible in every diff.
+4. **Hunt for natural controls in the data before designing a test fixture.** The double-attached listing proved the acceptance gate for free, and more convincingly than anything I would have constructed.
+
+---
+
+# Previous: ⏸️ AWAITING STAGING TEST — then re-confirmation (events) is the next build
 
 ## ⏱️ SESSION HANDOFF — 2026-08-09 (multi-market regression + refusal telemetry)
 

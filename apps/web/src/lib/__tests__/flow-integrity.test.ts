@@ -1528,6 +1528,51 @@ describe('Event token format', () => {
     }
   })
 
+  it('the NEWEST definition of get_available_pickup_dates keeps the event acceptance branch', () => {
+    // This function has been rewritten 19 times across migrations. Twice now,
+    // reading an older definer has nearly produced a change against the wrong
+    // baseline — the live body is whichever migration NUMBER is highest, not
+    // whichever file you find first, and they are not in date order on disk.
+    //
+    // Mig 223 made FT events sell on an ACCEPTED market_vendors row (T-36:
+    // before it, no attendee could order at any food-truck event). A future
+    // rewrite built from an older copy would silently delete that branch and
+    // re-break it. This asserts the newest definer still carries it.
+    const migDir = path.resolve(__dirname, '../../../../../supabase/migrations')
+    const files: string[] = []
+    for (const dir of [migDir, path.join(migDir, 'applied')]) {
+      if (!fs.existsSync(dir)) continue
+      for (const f of fs.readdirSync(dir)) {
+        if (!/^\d{8}_\d{3}_.*\.sql$/.test(f)) continue
+        const full = path.join(dir, f)
+        if (fs.readFileSync(full, 'utf-8').includes('CREATE OR REPLACE FUNCTION get_available_pickup_dates')) {
+          files.push(full)
+        }
+      }
+    }
+
+    expect(files.length, 'no migration defines get_available_pickup_dates').toBeGreaterThan(0)
+
+    const num = (p: string) => parseInt(path.basename(p).split('_')[1]!, 10)
+    const newest = files.sort((a, b) => num(a) - num(b))[files.length - 1]!
+    const body = fs.readFileSync(newest, 'utf-8')
+
+    expect(
+      body,
+      `${path.basename(newest)} is the newest definer and must keep the event acceptance branch (mig 223 / T-36)`
+    ).toMatch(/market_vendors mv[\s\S]{0,200}response_status\s*=\s*'accepted'/)
+  })
+
+  it('the event accept route still does NOT write vendor_market_schedules', () => {
+    // The rejected alternative. Creating a vms row on acceptance would make
+    // "is this vendor attending?" answerable from two places that can drift —
+    // miss one on a cancellation and ordering stays open for a truck that is
+    // not coming. If this ever fails, someone reintroduced that design.
+    const respond = rd('app/api/vendor/events/[marketId]/respond/route.ts')
+    expect(respond, 'event attendance is market_vendors.response_status, not a vms row')
+      .not.toContain('vendor_market_schedules')
+  })
+
   it('every menu item on the event page links to the shop page', () => {
     // This is WHY the guard mattered so much: the item links all funnel here,
     // so one rejected token took out ordering entirely, not just one page.
