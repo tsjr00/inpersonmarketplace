@@ -4,7 +4,11 @@
 
 ### Where things stand in one line
 
-Everything built is **on staging and untested**. The next session's first job is to ask how the five test workflows went, not to start new work.
+Owner tested on staging 2026-08-09/10 and found a lot. **All findings are compiled and ID'd in `backlog.md` → "🧪 STAGING TEST FINDINGS" (T-01 … T-35). Nothing is fixed yet.** Work from that list by ID.
+
+**Start with T-01:** the attendee shop page has 404'd for **every event approved since 2026-06-05** — a security fix changed the event-token alphabet to base64url and a `/^[a-z0-9-]+$/` guard written in March was never updated. One line. It blocks the entire attendee pre-order flow, so everything downstream of it is untestable until it lands.
+
+⚠ **Third instance of the same failure class** (after the cart regression and mig 219's desync): a correct change in one place silently invalidated an assumption encoded somewhere else, with no test asserting the capability. This is the argument for building guard #2 — capability tests.
 
 ### Git / env — VERIFY, don't trust this table
 

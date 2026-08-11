@@ -371,6 +371,89 @@ console.log([...document.querySelectorAll('*')]
 ```
 The **deepest** row is the culprit; everything above it is an ancestor being dragged wide. A `getBoundingClientRect().right` scan alone is not enough — it misses an element whose own box fits while its content spills.
 
+## 🧪 STAGING TEST FINDINGS — owner testing 2026-08-09 / 2026-08-10 (NOTHING FIXED YET)
+
+**Source: the owner's own end-to-end run on staging `3cbe0ead`.** Compiled before any fixing so nothing is lost. Items are ID'd — refer to them by ID when approving work ("fix T-01 and T-07").
+
+**Status key:** ⬜ not started · 🔍 investigating · ✅ done · ❓ needs an owner decision
+
+### 🔴 P1 — blockers (the flow cannot complete)
+
+| ID | Finding | Detail |
+|---|---|---|
+| **T-01** ⬜ | **Attendee shop page 404s — root cause FOUND** | `app/[vertical]/events/[token]/shop/page.tsx:29` guards with `/^[a-z0-9-]+$/`, written **2026-03-31** (`754f820b`) when tokens were `Date.now().toString(36)` — lowercase. On **2026-06-05** (`12ee9069`) the suffix became 18 base64url chars from `randomBytes(15)` for entropy (the token is an organizer's only credential). base64url contains **uppercase and `_`**, so the guard rejects every token minted since. **Every event approved after 2026-06-05 has had a dead attendee shopping page — 2+ months.** One-line fix. |
+| **T-02** ⬜ | **Clicking any menu item 404s** | Same cause as T-01: `[token]/page.tsx:310` links every item to `/{vertical}/events/{token}/shop`. Fixing T-01 fixes this. |
+| **T-03** ⬜ | **Vendor cannot accept an invitation using the default event capacity** | Leaving the prefilled default (8 waves × 20 = 160) and accepting errors "please confirm your per wave customer capacity" with nowhere to confirm it. Workaround is clicking *customize for this event* and retyping the same number. Most vendors will hit the error and stop. Possibly also the cause of T-04. |
+| **T-04** ⬜ | **Vendor acceptance did not persist** | Returning to the invitation showed no memory of a prior acceptance and a wiped capacity value. Owner suspects it is T-03 blocking the save — verify before treating as separate. |
+| **T-05** ⬜ | **Multi-market order confirmation email lists only ONE market and ONE item** | Order `FA-2026-69424470`, $17.17, one item from each of two vendors at two markets. Buyer has no record of half their order and no pickup location for it. Not caused by the multi-market fix — the template was never built for it; our fix is the first thing to route a real multi-market order through it. |
+
+### 🟠 P2 — wrong information shown to someone making a decision
+
+| ID | Finding | Detail |
+|---|---|---|
+| **T-06** ⬜ | **Organizer's select-vendors page shows BASE prices, not fee-inclusive** | `/events/[token]/select` shows the vendor's base price; the public event page shows the correct attendee-facing price. The organizer chooses trucks against numbers no attendee will ever see. |
+| **T-07** ⬜ | **Viability Assessment contradicts itself in one box** | Says *"~50 orders/vendor estimated"* while the same line reads *"125 visitors × 10-30% = 13-38 orders"*, then computes revenue from the 50 (`~$675/truck = 50 × $13.50`). Also shows **125 visitors** in one place and **"Organizer-provided expected buyers: 150"** in another. ⚠ Treat every number in that box as unverified until traced. This is the concrete evidence behind T-22. |
+| **T-08** ⬜ | **Notification text is broken** | Reads *"undefined accepted the event invitation for undefined"*. Template fields unpopulated. Also unclear whether it was delivered to the admin or the event manager — clicking it routed to the vertical admin panel events list. |
+| **T-09** ⬜ | **Address + organizer name visible on the vendor's listing page** | Owner saw the street address and the organizing company's name in the events section of a listing while that vendor had completed only the FIRST acceptance. Everything designed 2026-08-08 treats the address as earned by committing. If it is readable before a real commitment, the staged flow protects nothing. **Investigate together with T-10.** |
+
+### 🟡 P3 — missing safeguards and gaps
+
+| ID | Finding | Detail |
+|---|---|---|
+| **T-10** ⬜ | **Two acceptances with no visible difference** | Vendor clicks "accept", then gets a separate red "respond to this invitation" box carrying menu selection, capacity and the agreement. Find out what the first stage actually does — especially what it *discloses* (T-09) — and merge into one if it does nothing distinct. ⚠ Do not merge blindly; there may be a reason. |
+| **T-11** ⬜ | **Organizer confirmed 1 truck against a 3-truck event with no warning** | No caution that two vendors had not yet responded, and seemingly no way back. For a self-service organizer that is an irreversible decision they did not know they were making. |
+| **T-12** ⬜ | **No in-app notification to the organizer when a vendor accepts** | The "Your Event Is Confirmed!" email arrived; nothing in-app. |
+| **T-13** ⬜ | **"1 of 3 vendors confirmed" is plain text and easy to overlook** | It is the organizer's main outstanding action; it should be prominent enough to get addressed. |
+| **T-14** ⬜ | **Vendor menu/capacity/agreement are hidden until AFTER acceptance** | The vendor commits before seeing what they would be selling, their capacity, or the agreement terms. Move all of it in front of the decision. Folds into T-10. |
+| **T-15** ⬜ | **Event menus require 4–7 items with no path to fix it** | A vendor short of the minimum has to leave, find listings, edit, and come back. Add a link from the invitation to the listings page. |
+| **T-16** ⬜ | **Mobile: "Keep Shopping" sits under "Pay Now" and is partially covered** | User must drag the bottom of the screen down to see it. Friction at the exact moment a buyer decides to continue or abandon. |
+| **T-17** ⬜ | **Approved event still invisible to its organizer** | Two events submitted, one without an address. Admin approved both (the missing-address one prompted for an address with a vendor-matching warning, and the admin pending box cleared correctly). The organizer dashboard still shows only the event that originally had an address. Same failure class as the 2026-08-08 address deadlock. |
+
+### 🔵 P4 — copy and display (one tidy batch; hold the acceptance-screen items until T-10/T-14 are settled)
+
+| ID | Finding |
+|---|---|
+| **T-18** ⬜ | **Remove "platform fee 6.5%"** from the vendor Revenue Estimate box. **Standing rule: the fee is disclosed once at agreement and never re-surfaced in day-to-day use — always show take-home.** The 42 servings × $10 = $420 math stays. |
+| **T-19** ⬜ | **"market rules" → "event rules"** on the vendor event acceptance. |
+| **T-20** ⬜ | **Head count needs two lines:** `Total estimated head count: 125 people`, then `Your estimated head count: 42 people (125 / 3 trucks)`. Currently only the second, with the division in light grey. |
+| **T-21** ⬜ | **Revenue estimate flips to sole-truck math after acceptance** — needs helper text that the estimate falls proportionally as other trucks accept. |
+| **T-22** ⬜ | **"Add your event menu items to the event market page"** links to a page with no way to add items; the items were already chosen at acceptance. Either wrong copy or a real gap. |
+| **T-23** ⬜ | **Success copy is stale** — "you will receive your shareable event page link shortly" when the link already exists. |
+| **T-24** ⬜ | **Email greeting reads "Hi Admin Event Mgr"** — message body is correct. |
+| **T-25** ⬜ | **Vendor listings page shows no event/catering-ready indicator** — add a tag beside "published" so a vendor can see at a glance which items qualify for an event. |
+| **T-26** ⬜ | **FT logo squished** horizontally when logged in — no longer circular. ⚠ It was correct before, so something changed; find the change rather than restyling. |
+
+### ❓ Answerable by reading — do these before proposing fixes
+
+| ID | Question |
+|---|---|
+| **T-27** ⬜ | Where does the **"Budget Notes"** field on the admin event view come from? Owner has never seen it on any input screen. |
+| **T-28** ⬜ | Is showing **"125 attendees" on the public event page** intentional? |
+| **T-29** ⬜ | **Does a vendor have to select the event on a listing** for that item to publish to the event page when it goes live? If yes, that is a hidden prerequisite. If no, the events section on the listing page may be leaking private-event participation (relates to T-09). |
+| **T-30** ⬜ | What does **"message attendees"** on the event dashboard actually do — in-app, email, push? And who receives it: purchasers, invitees, everyone? |
+
+### 📐 Design work needing owner input (not bugs)
+
+| ID | Item |
+|---|---|
+| **T-31** ❓ | **Event host type** on the vendor-facing details box: governmental entity, community organization, for-profit business (large/medium/small), multi-family gathering, church, school. Lets a vendor vet the event without learning the host's name. Needs a field on organizer intake. |
+| **T-32** ❓ | **Vendor decision-making data — the differentiator.** Owner wants recommendations on what else to ask organizers and what to calculate, so vendors can vet event quality through us without getting enough to bypass us. Claude's opening suggestions (2026-08-10): ask indoor/outdoor/covered · power and water · admission type (free / ticketed / private invite) · alcohol served · load-in window and parking-to-pitch distance · recurring or one-off. Calculate: revenue per HOUR not per event · organizer history (n events run, actual vs estimated attendance) · **cuisine-overlap against the other confirmed trucks** — the one thing a vendor cannot get by calling the organizer directly. Deserves its own working session. |
+| **T-33** ❓ | **Event agreement clauses need expanding and revising** — verbiage must match how the system now works, and organizers should get more options for what vendors agree to. |
+| **T-34** ❓ | **Organizer terms of service review** — currently reads as "the platform isn't responsible if your event goes badly"; needs to match current processes. |
+| **T-35** ⬜ | **Document the events flow in narrative (non-code) form** so a new admin can be trained on it. Owner's request; the listing↔event↔publication relationship is the confusing part. |
+
+### ✅ Verified working (do not re-test, do not "fix")
+
+- **Multi-market, multi-vendor checkout end to end** — order `FA-2026-69424470`. Amber box named both locations, acknowledgment worked, checkout completed, and the order shows **one order number with items broken out per market and per day**. This also settles the last open question from the regression research: it is one order, not two.
+- **Admin event approval**, including the missing-address prompt with its vendor-matching warning, the status change, and the admin pending-event box clearing.
+- **Event page itself** — header, date, hours, address, vendor and menu, and **correct fee-inclusive prices** (which is what makes T-06 the wrong one).
+- **"Contact event organizer"** — message delivered by email to the organizer (body correct; greeting is T-24).
+- **Admin post-acceptance view** — all four vendor menu items shown, vendor status accepted, attendee link plus Settlement Report and Repeat Event buttons present.
+
+### ⏸️ Still untested from the original five workflows
+
+**C — event isolation** (a market item + an event item must be refused; if it is allowed, the whole-payment-intent refund bug is live) and **D — telemetry recording** (does `rule_refusals` actually get rows). **B** — market + private pickup — also open.
+
 ## 🛡️ GUARD AGAINST SILENT CAPABILITY LOSS — 3 mechanisms, owner approved all three 2026-08-09
 
 **Why:** the multi-market regression (resolved below) hid for three weeks in production with 1911 tests green. Every existing gate in this repo checks that something **is present**. Nothing detects a capability **quietly disappearing**. These three close that.
