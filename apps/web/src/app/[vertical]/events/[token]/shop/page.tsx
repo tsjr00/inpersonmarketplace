@@ -25,8 +25,25 @@ export default async function EventShopPage({
 }) {
   const { vertical, token } = await params
 
-  // Basic token format check — mirrors the old client-side guard
-  if (!token || token.length < 3 || !/^[a-z0-9-]+$/.test(token)) {
+  // Cheap format filter so garbage URLs don't reach the database. This is NOT
+  // authorisation — getEventShopData still has to resolve the token.
+  //
+  // ⚠ THIS ALPHABET MUST MATCH THE GENERATOR in lib/events/event-actions.ts.
+  // Tokens are `<company-slug>-<18 base64url chars>` (randomBytes(15) with
+  // '+' -> '-' and '/' -> '_'), so UPPERCASE and UNDERSCORE are both legal.
+  //
+  // HISTORY — why this is written down. The guard was added 2026-03-31
+  // (754f820b) when the suffix was Date.now().toString(36), i.e. lowercase
+  // alphanumeric. On 2026-06-05 (12ee9069) the suffix became base64url for
+  // entropy, because the timestamp-derived one was partially brute-forceable
+  // and this token is an organizer's ONLY credential. Correct change — but this
+  // guard was not updated with it, so it rejected every token minted afterwards
+  // and the attendee shop page 404'd for TWO MONTHS. Every menu-item link points
+  // here ([token]/page.tsx), so attendees could not order at all. Found by owner
+  // testing 2026-08-10, not by any test.
+  //
+  // Guarded now by flow-integrity -> "Event token format".
+  if (!token || token.length < 3 || !/^[A-Za-z0-9_-]+$/.test(token)) {
     notFound()
   }
 

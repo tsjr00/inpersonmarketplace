@@ -1449,3 +1449,90 @@ describe('Multi-location cart rule', () => {
       .toMatch(/hasMultiplePickupLocations && !multiLocationAcknowledged/)
   })
 })
+
+// ── Event token format (added 2026-08-10) ────────────────────────────
+//
+// The attendee shop page filters the token by character class before looking it
+// up. That filter has to agree with the alphabet the generator actually emits.
+//
+// It did not, for two months. The guard was written 2026-03-31 (754f820b)
+// against `Date.now().toString(36)` — lowercase alphanumeric. On 2026-06-05
+// (12ee9069) the suffix became 18 base64url chars from randomBytes(15), because
+// the timestamp-derived suffix was partially brute-forceable and this token is
+// an organizer's ONLY credential. base64url includes UPPERCASE and '_'. Nothing
+// connected the two, so every event approved after that date had a dead shop
+// page, and every menu-item link 404'd. Found by owner testing, not by a test.
+//
+// Rather than assert the regex text (which would just re-encode today's answer),
+// this EXTRACTS the live guard and runs real token shapes through it.
+
+describe('Event token format', () => {
+  const rd = (p: string) => fs.readFileSync(path.join(SRC_DIR, p), 'utf-8')
+
+  const guardSrc = rd('app/[vertical]/events/[token]/shop/page.tsx')
+  const generatorSrc = rd('lib/events/event-actions.ts')
+
+  it('the generator still emits base64url suffixes', () => {
+    // If this changes, the samples below stop being representative.
+    expect(generatorSrc, 'token entropy source').toMatch(/randomBytes\(15\)/)
+    expect(generatorSrc, 'base64 encoding').toMatch(/toString\('base64'\)/)
+  })
+
+  it('the shop page guard accepts the tokens the generator produces', () => {
+    const m = guardSrc.match(/!\/\^(\[[^\]]+\]\+)\$\/\.test\(token\)/)
+    expect(m, 'could not find the token format guard in shop/page.tsx').toBeTruthy()
+
+    const live = new RegExp(`^${m![1]}$`)
+
+    // Real shapes: a slugged company name plus a base64url suffix. The first is
+    // an actual staging token that 404'd.
+    for (const sample of [
+      'test-event-org-8KExJaSEEdKZwyz38g',
+      'smokestack-bbq-Ab3_xY9-QzT1uVwXyZ',
+      'a-B_9',
+    ]) {
+      expect(live.test(sample), `guard must accept "${sample}"`).toBe(true)
+    }
+  })
+
+  it('the guard still REJECTS everything outside the token alphabet', () => {
+    // The acceptance test above pins only one edge. Without this one, a future
+    // failure could be "fixed" by widening the guard to /^.+$/ — which would
+    // stay green and look like it was protecting something. Pinning both edges
+    // is the difference between a guard and the appearance of one.
+    //
+    // The guard is a cheap filter, not authorisation (getEventShopData still
+    // resolves the token). But it is the last place these shapes are cheap to
+    // refuse, so refuse them.
+    const m = guardSrc.match(/!\/\^(\[[^\]]+\]\+)\$\/\.test\(token\)/)
+    const live = new RegExp(`^${m![1]}$`)
+
+    for (const [sample, why] of [
+      ['../../etc/passwd', 'path traversal'],
+      ['..', 'parent directory'],
+      ['tok en', 'whitespace'],
+      ['tok\ten', 'tab'],
+      ['tok%2Fen', 'percent-encoding'],
+      ['tok/en', 'path separator'],
+      ['tok\\en', 'backslash'],
+      ["tok'en", 'single quote'],
+      ['tok"en', 'double quote'],
+      ['<script>', 'angle brackets'],
+      ['tok\u0000en', 'null byte'],
+      ['tok;en', 'semicolon'],
+      ['tok&en', 'ampersand'],
+      ['tok.en', 'dot'],
+      ['', 'empty'],
+    ] as const) {
+      expect(live.test(sample), `guard must reject ${why}: "${sample}"`).toBe(false)
+    }
+  })
+
+  it('every menu item on the event page links to the shop page', () => {
+    // This is WHY the guard mattered so much: the item links all funnel here,
+    // so one rejected token took out ordering entirely, not just one page.
+    const eventPage = rd('app/[vertical]/events/[token]/page.tsx')
+    expect(eventPage, 'item links must point at the shop route')
+      .toMatch(/href=\{`\/\$\{verticalId\}\/events\/\$\{token\}\/shop`\}/)
+  })
+})
