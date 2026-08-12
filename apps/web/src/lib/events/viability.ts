@@ -262,21 +262,29 @@ function scoreCapacityAttendeePaid(
 ): ViabilityScore {
   const buyerRate = isLunch ? BUYER_RATES.attendee_paid_lunch : BUYER_RATES.attendee_paid_other
   const estimatedOrders = expectedMealCount || Math.round(headcount * (buyerRate.low + buyerRate.high) / 2)
-  const orderRange = `${Math.round(headcount * buyerRate.low)}-${Math.round(headcount * buyerRate.high)}`
   const ordersPerTruck = Math.round(estimatedOrders / vendorCount)
+  // T-07: the explanation must describe the calculation that ACTUALLY RAN.
+  // When the organizer supplies an expected buyer count we use it directly and
+  // the headcount × rate range never enters the arithmetic — printing that
+  // range alongside produced a box that contradicted itself ("~50 orders/vendor
+  // estimated (125 guests × 10-30% = 13-38 orders)"). Owner spotted it
+  // 2026-08-11. No number changes here; only the sentence explaining it.
+  const basis = expectedMealCount
+    ? `organizer expects ${expectedMealCount} buyers ÷ ${vendorCount} ${vendorCount === 1 ? 'truck' : 'trucks'}`
+    : `${headcount} guests × ${buyerRate.label} = ${Math.round(headcount * buyerRate.low)}-${Math.round(headcount * buyerRate.high)} orders ÷ ${vendorCount} ${vendorCount === 1 ? 'truck' : 'trucks'}`
 
   if (ordersPerTruck <= 60) {
     return {
       level: 'green',
       label: 'Manageable',
-      detail: `~${ordersPerTruck} orders/vendor estimated (${headcount} guests × ${buyerRate.label} = ${orderRange} orders, ${vendorCount} trucks, ${eventHours}hr)`,
+      detail: `~${ordersPerTruck} orders/vendor estimated (${basis}, ${eventHours}hr)`,
     }
   }
   if (ordersPerTruck <= 100) {
     return {
       level: 'yellow',
       label: 'Busy',
-      detail: `~${ordersPerTruck} orders/vendor (${headcount} guests × ${buyerRate.label}). Manageable but expect lines.`,
+      detail: `~${ordersPerTruck} orders/vendor (${basis}). Manageable but expect lines.`,
     }
   }
   return {
@@ -296,8 +304,12 @@ function scoreCapacityCrowd(
 ): ViabilityScore {
   const buyerRate = isTicketed ? BUYER_RATES.crowd_ticketed : BUYER_RATES.crowd
   const estimatedOrders = expectedMealCount || Math.round(headcount * (buyerRate.low + buyerRate.high) / 2)
-  const orderRange = `${Math.round(headcount * buyerRate.low)}-${Math.round(headcount * buyerRate.high)}`
   const ordersPerTruck = Math.round(estimatedOrders / vendorCount)
+  // T-07 — see scoreCapacityAttendeePaid above. Same defect, same fix: the
+  // parenthetical must describe the arithmetic that produced the headline.
+  const basis = expectedMealCount
+    ? `organizer expects ${expectedMealCount} buyers ÷ ${vendorCount} ${vendorCount === 1 ? 'truck' : 'trucks'}`
+    : `${headcount} visitors × ${buyerRate.label} = ${Math.round(headcount * buyerRate.low)}-${Math.round(headcount * buyerRate.high)} orders ÷ ${vendorCount} ${vendorCount === 1 ? 'truck' : 'trucks'}`
 
   const dwellNote = dwellHours ? ` Avg dwell: ${dwellHours}hr.` : ''
   const ticketNote = isTicketed ? ' Ticketed event — better pre-order potential.' : ''
@@ -306,7 +318,7 @@ function scoreCapacityCrowd(
     return {
       level: 'green',
       label: 'Viable',
-      detail: `~${ordersPerTruck} orders/vendor estimated (${headcount} visitors × ${buyerRate.label} = ${orderRange} orders).${ticketNote}${dwellNote}`,
+      detail: `~${ordersPerTruck} orders/vendor estimated (${basis}).${ticketNote}${dwellNote}`,
     }
   }
   if (ordersPerTruck >= 10) {

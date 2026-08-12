@@ -3,6 +3,12 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { spacing, typography, radius, statusColors } from '@/lib/design-tokens'
+// T-06: the organizer is choosing trucks for their guests, so every price on
+// this page must be the price those guests will actually pay — base + the
+// buyer fee. These helpers are the single source of that number; this page
+// used to divide price_cents by 100 by hand and show the vendor's base price,
+// which no attendee ever sees.
+import { formatDisplayPrice, calculateItemDisplayPrice } from '@/lib/pricing'
 
 /**
  * Self-Service Event — Organizer Truck Selection Page
@@ -281,7 +287,7 @@ export default function EventSelectPage() {
                         )}
                         {v.avg_price_cents && (
                           <span style={{ fontSize: typography.sizes.sm, color: statusColors.neutral500 }}>
-                            ~${(v.avg_price_cents / 100).toFixed(0)}/meal
+                            ~${(calculateItemDisplayPrice(v.avg_price_cents) / 100).toFixed(0)}/meal
                           </span>
                         )}
                       </div>
@@ -303,7 +309,7 @@ export default function EventSelectPage() {
                               fontSize: 12,
                               color: '#166534',
                             }}>
-                              {item.title} — ${(item.price_cents / 100).toFixed(2)}
+                              {item.title} — {formatDisplayPrice(item.price_cents)}
                             </span>
                           ))}
                         </div>
