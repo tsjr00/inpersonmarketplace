@@ -205,6 +205,22 @@ export interface NotificationTemplateData {
   buyerName?: string
   marketName?: string
   pickupDate?: string
+  /**
+   * Every distinct pickup on the order, when it spans MORE THAN ONE. Absent on
+   * ordinary single-pickup orders, so templates can branch on its presence and
+   * leave the common case untouched.
+   *
+   * Exists because a cart may legitimately hold items from two markets — the
+   * buyer acknowledges it at checkout — and the confirmation email used to
+   * describe only the first, leaving them no record of where the rest of their
+   * order was (T-05).
+   */
+  pickups?: Array<{
+    marketName: string
+    marketAddress: string
+    pickupDate: string
+    pickupTime: string
+  }>
   amountCents?: number
   reason?: string
   quantity?: number
@@ -368,6 +384,31 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
         food_trucks: "Thanks again, and keep on truck'n!",
         farmers_market: 'Thanks again for shopping local!',
       }
+      const signOff = signOffs[d.vertical as string] || 'Thanks again!'
+
+      // Multi-pickup orders get their own message listing EVERY location.
+      // The single-pickup path below is untouched — `pickups` is only sent
+      // when the order actually spans more than one (T-05). Composed here
+      // rather than in the route so the wording stays translated.
+      if (d.pickups && d.pickups.length > 1) {
+        const lines = d.pickups
+          .map((p) => t('notif.order_placed_pickup_line', locale, {
+            marketName: p.marketName || '',
+            marketAddress: p.marketAddress || '',
+            pickupDate: p.pickupDate || '',
+            pickupTime: p.pickupTime || '',
+          }))
+          .join('\n')
+        return t('notif.order_placed_multi_msg', locale, {
+          orderNumber: d.orderNumber || '',
+          vendorName: d.vendorName || 'your vendor',
+          brandName: d.brandName || "Food Truck'n",
+          pickupCount: String(d.pickups.length),
+          pickupSummary: lines,
+          signOff,
+        })
+      }
+
       return t('notif.order_placed_msg', locale, {
         orderNumber: d.orderNumber || '',
         vendorName: d.vendorName || 'your vendor',
@@ -376,7 +417,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
         marketAddress: d.marketAddress || '',
         pickupTime: d.pickupTime || 'your scheduled time',
         pickupDate: d.pickupDate || 'your scheduled date',
-        signOff: signOffs[d.vertical as string] || 'Thanks again!',
+        signOff,
       })
     },
     actionUrl: (d) => d.orderId

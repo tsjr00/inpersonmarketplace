@@ -535,6 +535,9 @@ export const es: Record<string, string> = {
   // ── Notification titles & messages (buyer-facing) ──────────────────
   'notif.order_placed_title': 'Pedido Realizado',
   'notif.order_placed_msg': '\u00a1Gracias por usar {brandName}!\n\n\u2022 Tu pedido #{orderNumber} ha sido realizado con {vendorName}.\n\u2022 Has seleccionado {marketName} en {marketAddress} como tu lugar de recogida.\n\u2022 Programaste tus art\u00edculos para estar listos a las {pickupTime} el {pickupDate}.\n\nTe notificaremos cuando {vendorName} confirme tu pedido. {signOff}',
+  // T-05: para pedidos con m\u00e1s de un lugar de recogida.
+  'notif.order_placed_multi_msg': '\u00a1Gracias por usar {brandName}!\n\n\u2022 Tu pedido #{orderNumber} ha sido realizado con {vendorName}.\n\u2022 Este pedido tiene {pickupCount} lugares de recogida. Recoge tus art\u00edculos en cada uno:\n\n{pickupSummary}\n\nTe notificaremos cuando tu pedido sea confirmado. {signOff}',
+  'notif.order_placed_pickup_line': '\u2022 {marketName}, {marketAddress} \u2014 {pickupDate} a las {pickupTime}',
   'notif.order_confirmed_title': 'Pedido Confirmado',
   'notif.order_confirmed_msg': '{vendorName} confirmó tu pedido #{orderNumber}{forItem}. Te notificaremos cuando esté listo para recoger. Cuando llegues, mostrarás tu pantalla de pedido al vendedor y ambos confirmarán la entrega.',
   'notif.order_ready_title': 'Pedido Listo para Recoger',

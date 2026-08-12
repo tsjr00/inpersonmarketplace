@@ -456,11 +456,29 @@ export async function GET(request: NextRequest) {
           }> | null
 
           const vendorNames = new Set<string>()
-          let marketName = ''
-          let marketAddress = ''
-          let pickupDate = ''
-          let pickupTime = ''
           const itemTitles: string[] = []
+
+          // Distinct pickup groups, keyed by market + date + time.
+          //
+          // An order can legitimately span markets — the buyer acknowledges
+          // exactly that at checkout ("I understand I'll visit multiple
+          // locations"), and order_items carries its own market, schedule and
+          // pickup date per row. Previously marketName / marketAddress /
+          // pickupDate / pickupTime were each assigned under `if (!x)`, so the
+          // FIRST value won and every other pickup was silently dropped: a
+          // buyer with items from two markets was emailed a confirmation
+          // describing one, with no record of where the rest of their order
+          // was. Found by owner testing 2026-08-10 (order FA-2026-69424470).
+          //
+          // Not a regression from the multi-market fix — this template never
+          // handled more than one pickup. That fix simply made it reachable.
+          // (T-05)
+          const pickups = new Map<string, {
+            marketName: string
+            marketAddress: string
+            pickupDate: string
+            pickupTime: string
+          }>()
 
           if (items) {
             for (const item of items) {
@@ -468,20 +486,43 @@ export async function GET(request: NextRequest) {
               const vName = (vpData?.business_name as string) || (vpData?.farm_name as string)
               if (vName) vendorNames.add(vName)
               if (item.listing?.title) itemTitles.push(item.listing.title)
-              if (!marketName && item.markets?.name) marketName = item.markets.name
-              if (!marketAddress && item.markets) {
-                const parts = [item.markets.address, item.markets.city, item.markets.state].filter(Boolean)
-                marketAddress = parts.join(', ')
-              }
-              if (!pickupDate && item.pickup_date) {
-                const d = new Date(item.pickup_date + 'T00:00:00')
-                pickupDate = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
-              }
-              if (!pickupTime && item.preferred_pickup_time) {
-                pickupTime = formatPickupTime(item.preferred_pickup_time)
+
+              const mName = item.markets?.name || ''
+              const mAddress = item.markets
+                ? [item.markets.address, item.markets.city, item.markets.state].filter(Boolean).join(', ')
+                : ''
+              // NOTE: 'en-US' regardless of the recipient's locale. Pre-existing
+              // behaviour, deliberately left alone here rather than widening
+              // this change — logged separately.
+              const pDate = item.pickup_date
+                ? new Date(item.pickup_date + 'T00:00:00').toLocaleDateString('en-US', {
+                    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+                  })
+                : ''
+              const pTime = item.preferred_pickup_time
+                ? formatPickupTime(item.preferred_pickup_time)
+                : ''
+
+              if (mName || pDate) {
+                pickups.set(`${mName}|${pDate}|${pTime}`, {
+                  marketName: mName,
+                  marketAddress: mAddress,
+                  pickupDate: pDate,
+                  pickupTime: pTime,
+                })
               }
             }
           }
+
+          // The single-pickup payload below stays byte-identical to before:
+          // the first group's values are exactly what the old first-wins
+          // guards produced.
+          const pickupList = Array.from(pickups.values())
+          const firstPickup = pickupList[0]
+          const marketName = firstPickup?.marketName ?? ''
+          const marketAddress = firstPickup?.marketAddress ?? ''
+          const pickupDate = firstPickup?.pickupDate ?? ''
+          const pickupTime = firstPickup?.pickupTime ?? ''
 
           const vendorName = vendorNames.size === 1
             ? Array.from(vendorNames)[0]
@@ -501,6 +542,10 @@ export async function GET(request: NextRequest) {
             pickupDate,
             pickupTime,
             ...(vendorName !== undefined ? { vendorName } : {}),
+            // Only sent when the order genuinely spans pickups. The template
+            // branches on its presence, so a single-pickup order renders
+            // exactly as it did before (T-05).
+            ...(pickupList.length > 1 ? { pickups: pickupList } : {}),
           }, { vertical: capturedVerticalId })
         }
       } catch {

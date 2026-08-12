@@ -535,6 +535,11 @@ export const en: Record<string, string> = {
   // ── Notification titles & messages (buyer-facing) ──────────────────
   'notif.order_placed_title': 'Order Placed',
   'notif.order_placed_msg': 'Thank you for using {brandName}!\n\n\u2022 Your order #{orderNumber} has been placed with {vendorName}.\n\u2022 You have selected {marketName} at {marketAddress} as your pickup location.\n\u2022 You scheduled your items to be ready for pickup at {pickupTime} on {pickupDate}.\n\nWe will notify you when your order has been confirmed by {vendorName}. {signOff}',
+  // T-05: used when one order spans more than one pickup. The buyer agreed to
+  // this at checkout ("I understand I'll visit multiple locations"), so the
+  // confirmation has to list every location \u2014 previously it named only the first.
+  'notif.order_placed_multi_msg': 'Thank you for using {brandName}!\n\n\u2022 Your order #{orderNumber} has been placed with {vendorName}.\n\u2022 This order has {pickupCount} pickup locations. Please collect your items at each:\n\n{pickupSummary}\n\nWe will notify you when your order has been confirmed. {signOff}',
+  'notif.order_placed_pickup_line': '\u2022 {marketName}, {marketAddress} \u2014 {pickupDate} at {pickupTime}',
   'notif.order_confirmed_title': 'Order Confirmed',
   'notif.order_confirmed_msg': '{vendorName} confirmed your order #{orderNumber}{forItem}. We\'ll notify you when it\'s ready for pickup. When you arrive, you\'ll show your order screen to the vendor and both of you will confirm the handoff.',
   'notif.order_ready_title': 'Order Ready for Pickup',
