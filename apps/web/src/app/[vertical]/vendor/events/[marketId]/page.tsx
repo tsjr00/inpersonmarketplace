@@ -89,7 +89,6 @@ export default function VendorCateringDetailPage() {
   const [responding, setResponding] = useState(false)
   const [responseNotes, setResponseNotes] = useState('')
   const [actionMessage, setActionMessage] = useState<string | null>(null)
-  const [showMenuPicker, setShowMenuPicker] = useState(false)
   const [cateringListings, setCateringListings] = useState<Array<{ id: string; title: string; price_cents: number }>>([])
   const [selectedListingIds, setSelectedListingIds] = useState<Set<string>>(new Set())
   const [loadingListings, setLoadingListings] = useState(false)
@@ -151,6 +150,14 @@ export default function VendorCateringDetailPage() {
             perWave * waveCountFor(data.event.event_start_time, data.event.event_end_time)
           )
         }
+
+        // The menu picker is on screen from the start now (T-10), so its
+        // options load with the page instead of on a click that no longer
+        // exists. Skipped once the vendor has responded — the form is gone by
+        // then and the query would be wasted.
+        if (data.event?.response_status !== 'accepted' && data.event?.response_status !== 'declined') {
+          void fetchCateringListings()
+        }
       } else {
         const err = await res.json()
         setError(err.error || 'Failed to load event details')
@@ -197,10 +204,6 @@ export default function VendorCateringDetailPage() {
     setLoadingListings(false)
   }
 
-  function handleAcceptClick() {
-    setShowMenuPicker(true)
-    if (cateringListings.length === 0) fetchCateringListings()
-  }
 
   function toggleListing(id: string) {
     setSelectedListingIds(prev => {
@@ -250,7 +253,6 @@ export default function VendorCateringDetailPage() {
       if (res.ok) {
         setActionMessage(vertical === 'farmers_market' ? 'You accepted this event and your items have been submitted!' : 'You accepted this event and your menu has been submitted!')
         setDetails((prev) => prev ? { ...prev, response_status: 'accepted' } : prev)
-        setShowMenuPicker(false)
       } else {
         const err = await res.json()
         setActionMessage(`Error: ${err.error}`)
@@ -261,11 +263,11 @@ export default function VendorCateringDetailPage() {
     setResponding(false)
   }
 
-  async function handleRespond(status: 'accepted' | 'declined') {
-    if (status === 'accepted') {
-      handleAcceptClick()
-      return
-    }
+  // Declining is the only single-click response. Accepting goes through
+  // handleConfirmAccept, which carries the menu, the capacity and the
+  // agreement — the form is always on screen now, so there is nothing to
+  // reveal first. Narrowed to 'declined' so the compiler keeps it that way.
+  async function handleRespond(status: 'declined') {
     setResponding(true)
     setActionMessage(null)
     try {
@@ -643,40 +645,39 @@ export default function VendorCateringDetailPage() {
               }}
             />
           </div>
-          {!showMenuPicker ? (
-            <div style={{ display: 'flex', gap: spacing.sm }}>
-              <button
-                onClick={() => handleRespond('accepted')}
-                disabled={responding}
-                style={{
-                  flex: 1,
-                  ...sizing.cta,
-                  fontWeight: typography.weights.semibold,
-                  backgroundColor: responding ? '#ccc' : statusColors.success,
-                  color: 'white',
-                  border: 'none',
-                  cursor: responding ? 'not-allowed' : 'pointer',
-                }}
-              >
-                Accept
-              </button>
-              <button
-                onClick={() => handleRespond('declined')}
-                disabled={responding}
-                style={{
-                  flex: 1,
-                  ...sizing.cta,
-                  fontWeight: typography.weights.semibold,
-                  backgroundColor: 'white',
-                  color: statusColors.danger,
-                  border: `2px solid ${statusColors.danger}`,
-                  cursor: responding ? 'not-allowed' : 'pointer',
-                }}
-              >
-                Decline
-              </button>
-            </div>
-          ) : (
+          {/* The response form is ALWAYS visible.
+            *
+            * It used to sit behind a button labelled "Accept" — which accepted
+            * nothing: handleRespond('accepted') only flipped a local flag and
+            * returned. So a vendor clicked "Accept" and only THEN saw which
+            * items they'd be committing to sell, what capacity they'd be
+            * promising, and what terms they'd be agreeing to. The terms of the
+            * deal appeared after the button that said you accepted it.
+            *
+            * Nothing behind it was protected: the organizer's name and street
+            * address are withheld server-side until acceptance
+            * (api/vendor/events/[marketId]), not by this toggle. Owner decision
+            * 2026-08-11 — show it all; the bottom button is the single point of
+            * commitment. (T-10, and it dissolves T-14 and most of T-15.)
+            */}
+          <div style={{ display: 'flex', gap: spacing.sm, marginBottom: spacing.sm }}>
+            <button
+              onClick={() => handleRespond('declined')}
+              disabled={responding}
+              style={{
+                flex: 1,
+                ...sizing.cta,
+                fontWeight: typography.weights.semibold,
+                backgroundColor: 'white',
+                color: statusColors.danger,
+                border: `2px solid ${statusColors.danger}`,
+                cursor: responding ? 'not-allowed' : 'pointer',
+              }}
+            >
+              Decline
+            </button>
+          </div>
+          {(
             <div>
               <h4 style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: statusColors.neutral800, margin: `0 0 ${spacing['2xs']}` }}>
                 {vertical === 'food_trucks' ? 'Select your menu for this event (4-7 items)' : 'Select items for this event'}
@@ -896,19 +897,6 @@ export default function VendorCateringDetailPage() {
                   }}
                 >
                   {responding ? 'Submitting...' : `Accept with ${selectedListingIds.size} item${selectedListingIds.size !== 1 ? 's' : ''}`}
-                </button>
-                <button
-                  onClick={() => { setShowMenuPicker(false); setSelectedListingIds(new Set()) }}
-                  style={{
-                    ...sizing.cta,
-                    fontWeight: typography.weights.semibold,
-                    backgroundColor: 'white',
-                    color: statusColors.neutral500,
-                    border: `1px solid ${statusColors.neutral300}`,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Back
                 </button>
               </div>
             </div>

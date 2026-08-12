@@ -1582,6 +1582,48 @@ describe('Event token format', () => {
   })
 })
 
+// ── Organizer identity protection (2026-08-11) ───────────────────────
+//
+// Owner's rule: only a vendor who has ACCEPTED sees the organizer's name and
+// street address. Invited vendors see enough to decide — date, times, headcount,
+// cuisine preferences, city and state — but nothing they could use to go around
+// the platform and approach the organizer directly.
+//
+// The rule was already implemented and documented in api/vendor/events/[marketId],
+// but api/vendor/market-stats predated events and never learned it: it returned
+// EVERY active event in the vertical, with name and address, to ANY vendor with
+// a profile — invited or not. An event market's name is built from the
+// organizer's company at approval, so the name IS the host's identity. (T-09)
+
+describe('Organizer identity protection', () => {
+  const rd = (p: string) => fs.readFileSync(path.join(SRC_DIR, p), 'utf-8')
+
+  it('the invitation route reveals the address only after acceptance', () => {
+    // The reference implementation. If this weakens, the rule is gone.
+    const route = rd('app/api/vendor/events/[marketId]/route.ts')
+    expect(route).toMatch(/const hasAccepted = marketVendor\.response_status === 'accepted'/)
+    expect(route, 'street address is earned by committing')
+      .toMatch(/address: hasAccepted \? market\.address : null/)
+  })
+
+  it('market-stats only returns event markets the vendor has ACCEPTED', () => {
+    // This route carries name + address for everything it returns, so an
+    // ungated event branch leaks the host's identity to every vendor.
+    const route = rd('app/api/vendor/market-stats/route.ts')
+    expect(route, 'must resolve the vendor accepted set')
+      .toMatch(/response_status', 'accepted'/)
+    expect(route, "the event branch must be gated on that set")
+      .toMatch(/market_type === 'event' && acceptedEventIds\.has\(m\.id\)/)
+  })
+
+  it('market-stats does NOT admit events on market_type alone', () => {
+    // The exact shape of the bug: `|| m.market_type === 'event' ||`.
+    const route = rd('app/api/vendor/market-stats/route.ts')
+    const bare = /\|\|\s*m\.market_type === 'event'\s*\|\|/
+    expect(bare.test(route), 'an ungated event branch is the T-09 leak').toBe(false)
+  })
+})
+
 // ── Vendor event capacity: displayed value == submitted value (2026-08-11) ──
 //
 // T-03: a vendor could not accept an event invitation using the default
@@ -1615,6 +1657,17 @@ describe('Vendor event capacity seeding', () => {
     expect(inline.length, 'wave count must only be computed inside waveCountFor()').toBe(1)
     expect(page, 'the render must use the shared helper, not its own copy')
       .toMatch(/const waveCount = waveCountFor\(/)
+  })
+
+  it('the response form is NOT hidden behind a reveal toggle', () => {
+    // It used to sit behind a button labelled "Accept" that accepted nothing —
+    // handleRespond('accepted') flipped a local flag and returned. So a vendor
+    // clicked "Accept" and only THEN saw the items, the capacity and the terms
+    // they were agreeing to. Owner 2026-08-11: show it all; the bottom button
+    // is the single point of commitment. (T-10)
+    expect(page, 'the reveal toggle must not come back').not.toContain('showMenuPicker')
+    expect(page, 'declining is the only single-click response')
+      .toMatch(/async function handleRespond\(status: 'declined'\)/)
   })
 
   it('the accept payload still sends a per-wave capacity for food trucks', () => {

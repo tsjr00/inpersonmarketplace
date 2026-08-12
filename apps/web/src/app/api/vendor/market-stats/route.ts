@@ -54,9 +54,40 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to fetch markets' }, { status: 500 })
       }
 
-      // Filter markets: show traditional markets + events + vendor's own private pickup markets
+      // Event markets are PRIVATE, and this response carries `name` and
+      // `address` for everything it returns. An event market's name is built
+      // from the ORGANIZER'S COMPANY at approval, so the name is the host's
+      // identity — exactly what a vendor would need to go around the platform.
+      //
+      // The policy already exists and is documented in
+      // api/vendor/events/[marketId]: "Organizer identity protection: vendors
+      // never see company_name or contact info. Full address is only revealed
+      // after the vendor has accepted the invitation." Invited-but-undecided
+      // vendors get the event's details there — date, times, headcount, cuisine
+      // preferences, city and state — with no street address and no company.
+      //
+      // This route predates events. When `market_type === 'event'` was added to
+      // the filter below, that policy was never applied here, so EVERY active
+      // event in the vertical — host name and street address — was readable by
+      // ANY vendor with a profile, invited or not. (T-09, owner 2026-08-11.)
+      //
+      // Nothing is lost by gating on acceptance: a vendor cannot usefully
+      // attach a listing to an event before saying yes, because the respond
+      // route upserts listing_markets for them at acceptance.
+      const { data: acceptedRows } = await supabase
+        .from('market_vendors')
+        .select('market_id')
+        .eq('vendor_profile_id', vendorProfile.id)
+        .eq('response_status', 'accepted')
+      const acceptedEventIds = new Set((acceptedRows || []).map((r) => r.market_id as string))
+
+      // Traditional and private-pickup filtering is deliberately unchanged —
+      // only the event branch is narrowed, so no ordinary market can vanish
+      // from a vendor's picker.
       const relevantMarkets = (allMarkets || []).filter(m =>
-        m.market_type === 'traditional' || m.market_type === 'event' || m.vendor_profile_id === vendorProfile.id
+        m.market_type === 'traditional'
+        || (m.market_type === 'event' && acceptedEventIds.has(m.id))
+        || m.vendor_profile_id === vendorProfile.id
       )
 
       const vendorTier = vendorProfile.tier || 'free'
