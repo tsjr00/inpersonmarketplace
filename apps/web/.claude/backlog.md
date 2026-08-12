@@ -493,11 +493,106 @@ The **deepest** row is the culprit; everything above it is an ancestor being dra
 
 See the design discussion in-session. Core idea: every place the app tells a user "no" emits a counter against a named rule key, so two otherwise-unanswerable questions become queries — *which rules have never once fired* (dead code, or a rule nobody meant), and *which started firing* (a regression in flight). Passive: needs no discipline from any future session.
 
-### 2. Capability tests as a standing convention — NOT STARTED
+### 2. PAIRED-SURFACE TESTS — 📐 PROPOSAL, written 2026-08-11, NOT BUILT
 
-The regression survived because no test asserted the **capability** ("a shopper can check out from two markets"). The repo's tests assert that code *contains* things; that catches deletion, not inversion. Convention to adopt: **when a commit ships something a user can DO, one test asserts they can still do it** — phrased as the user's action, not the implementation. Model to copy: `flow-integrity.test.ts` → "Multi-location cart rule" (added 2026-08-09), which asserts both the rule that must hold AND that the contradicting blocks have not re-grown.
+**Supersedes the original "capability tests" framing**, on evidence gathered after it was approved. Owner asked for the write-up before any building.
 
-Open question for whoever builds it: can this be made mechanical rather than a discipline? Possibly a registry of user-visible capabilities with a coverage test, in the shape of `codebase-map-coverage.test.ts`.
+#### Why the framing changed
+
+The original idea was: *when a commit ships something a user can DO, assert they can still do it.* Sound, but the week's defects say the mechanism is more specific. Of the five fixed 2026-08-10/11, exactly **one** (T-05) was a true reactivation and **none** were caught by a missing capability test in the abstract. The dominant pattern was:
+
+> **The same rule is written in two places, and only one of them is kept current.**
+
+| Defect | Surface A | Surface B | What drifted |
+|---|---|---|---|
+| T-01 | `event-actions` mints base64url tokens | `shop/page.tsx` guards `[a-z0-9-]` | A security fix changed the alphabet; the guard didn't follow. **2 months dead.** |
+| T-36 | mig 131 requires a vms row for FT events | `respond` route never writes one | A tightening aimed at traditional markets caught events as collateral. |
+| T-09 | `events/[marketId]` gates address on acceptance, **and says so in a comment** | `market-stats` returns every event's name + address | The policy existed and was documented; one route never learned it. |
+| T-03 | Wave count computed inline in the JSX | Submit handler couldn't see it | Displayed value and submitted value had separate sources. |
+| Cart regression | `cart/items` allows spanning | `cart/validate` forbade it | Two files stating opposite rules for six months. |
+
+And note what the fix was **every single time**: a test pinning **two surfaces to each other**. Generator ↔ guard. Loader ↔ render. `cart/items` ↔ `cart/validate`. `market-stats` ↔ `events/[marketId]`. Five instances of one test shape, invented reactively, each time *after* the damage. That is the thing worth systematising.
+
+#### What a paired-surface test is
+
+For a rule enforced in more than one place, a test that asserts **the places agree** — not that each is individually present. The five already written are the worked examples; they live in `flow-integrity.test.ts` under "Multi-location cart rule", "Event token format", "Organizer identity protection", and "Vendor event capacity seeding".
+
+#### Registration criteria — all three must hold
+
+1. The rule is enforced or expressed in **more than one place**, and
+2. those places can be edited **independently**, and
+3. drift between them is **silent** — no type error, no existing test, no runtime failure. *(Criterion 3 is the important one. If TypeScript would catch it, it does not belong here.)*
+
+#### Proposed mechanism — a tag, a registry, and a coverage test
+
+Modelled on `codebase-map-coverage.test.ts`, which already works this way for files.
+
+- **Tag the sites.** Each participating site carries a comment marker naming the rule, e.g. `// @paired-rule organizer-identity`. Cheap to write, greppable, and it puts the warning where the next editor will actually see it.
+- **Register the rule** in a `PAIRED_RULES` list: key, one-line statement of the rule, the authoritative surface, and why drift is silent.
+- **A coverage test asserts three things:** every tag in the tree belongs to a registered rule; every registered rule has **at least two** tagged sites (a pair that lost a side is exactly the failure); and every registered rule names a behavioural test that pins them together.
+
+That last clause is what stops the registry becoming decoration — registration alone proves nothing, so the entry must point at the test doing the actual work.
+
+#### Honest limits — what this does NOT do
+
+- **It cannot discover pairs.** You still only pin what someone noticed. The value is that the set grows monotonically and can never silently shrink, not that it is complete.
+- **It is not a substitute for reading.** Four of the five above were found by the owner using the product, not by any gate.
+- Considered and rejected as too noisy: auto-detecting duplicated literals or constants across files.
+
+#### Cost
+
+The tests already exist and would mostly be re-labelled. New work is the registry, the coverage test, and tagging the five known pairs — roughly the size of the refusal-registry build.
+
+#### ✅ Owner decisions, 2026-08-11
+
+1. **Sweep for more pairs** — do not limit the first pass to the five known.
+2. **Fail the commit**, like `codebase-map-coverage.test.ts`. Reporting only is not enough.
+3. **Keep guard 3 separate.** Reactivation is about TIME (dormant code waking up); this is about SPACE (two places disagreeing). Different smell in a diff, different question to ask.
+
+#### 🔑 THE PRINCIPLE THAT CAME OUT OF THE SWEEP — collapse before you register
+
+**The best paired-surface test is the one you don't need, because there is only one surface.** A registry entry is permanent maintenance cost; deleting a duplicate is free forever. So the order of operations is: **collapse what can be collapsed, and register only what genuinely cannot** — chiefly app ↔ SQL and app ↔ DB-policy pairs, which cannot share a function.
+
+#### Sweep results, 2026-08-11
+
+**Two duplicates found and COLLAPSED rather than registered:**
+
+- ⚠ **`waveCountFor` was a byte-for-byte duplicate of the exported `calculateWaveCount`** (`lib/events/viability.ts:161`) — same arithmetic, same `Math.ceil(120/30)=4` fallback. **Claude wrote that duplicate on 2026-08-10 while fixing T-03, which was itself caused by the wave count having two sources.** The canonical function was two directories away the whole time. The pattern reproduced itself under observation, one day after being named. Now imported; the guard test was strengthened from "at most one local copy" (which is how the duplicate survived) to "zero local copies, and the import is required."
+- **`listing/[listingId]/page.tsx` had two surfaces INSIDE ONE FILE**: `:291` rendered the on-page price with `formatDisplayPrice` (correct), while `:86` hand-rolled `price_cents / 100` for the OpenGraph title — so a **shared link preview advertised $12.00 while the page said $12.78**. Same class as T-06. Fixed; the helper was already imported.
+
+**Candidate NOT yet a finding — needs a scoped pass before it earns an entry:** a crude count says 164 thrown `ERR_*` codes against 67 catalogued. But `money-structure` Rule E already governs this and is probably scoped to money files only, and the script counted test fixtures plus at least one false positive (`ERR_AUTH_`, a truncated/dynamic match). Claiming "104 uncatalogued codes" would be an unverified number of exactly the kind this repo's rules forbid.
+
+#### Sweep COMPLETE 2026-08-11 — 7 categories, results in full
+
+| # | Category | Result |
+|---|---|---|
+| A | Hand-rolled price maths vs `pricing.ts` | **1 find — FIXED** (listing OG metadata, above). Most other `/100` hits are totals/fees, correctly formatted. |
+| B | Cutoff-hour defaults (SQL `event→24, private_pickup→10, else 18`) | **Not a pair.** No TypeScript twin; the defaults live in SQL only. |
+| C | Wave duration (30 min) | **1 find — FIXED** (the `waveCountFor` duplicate, above). |
+| D | Thrown `ERR_*` codes vs the catalogue | **Candidate, NOT claimed.** A crude count says 164 vs 67, but `money-structure` Rule E likely scopes the obligation to money files, and the script swept in test fixtures plus a false positive. Needs a scoped pass before it earns an entry. |
+| E | DB CHECK / enum values vs TypeScript unions | **1 REAL FIND — see below.** Also confirmed most apparent matches are ordinary *usage* (`=== 'event'`), not duplicate definitions; only union types and const arrays qualify. |
+| F | Cron cadence vs the copy describing it | **Clean.** The only timing promises are a Supabase-managed 1-hour link expiry, an advisory "within 30 minutes of pickup" note, and a human "within 24 hours" for event requests. None depend on cron cadence. |
+| G | RLS policy vs route-level check | **CANNOT BE SWEPT — see below.** |
+
+##### 🔴 E — `SCHEMA_SNAPSHOT.md`'s Enum Types table is STALE and NOT MARKED AS SUCH
+
+`lib/supabase/types.ts` declares `UserRole = 'buyer' \| 'vendor' \| 'admin' \| 'platform_admin' \| 'regional_admin'`. The snapshot's Enum Types table (`:2357`) says `user_role | buyer, vendor, admin, verifier`.
+
+**The TypeScript is right and the snapshot is wrong.** Migrations 085a/085b (2026-03-20) added `platform_admin` and `regional_admin` to the enum and migrated `verifier` rows to `regional_admin`; applied to all three environments. The code uses `platform_admin` in 29 places. The snapshot's own Change Log records mig 085 correctly — **its structured Enum table contradicts its own changelog.**
+
+⚠ **Why this one matters more than the others.** The STALE banner at `:9` names *"Columns / FKs / Indexes / Functions"* — **Enum Types is not in that list**, so a reader arriving at `## Enum Types` gets no warning. And ABSOLUTE RULE 3 instructs every session to read this file before composing SQL. A session following the rules correctly would conclude `platform_admin` is not a valid `user_role`. **This is the same failure class we spent the week fixing, inside the artifact the rules depend on.**
+
+Fix is small (correct the row, extend the STALE banner to name every structured section including Enum Types) but it is a **schema-snapshot edit** and wants the owner's eyes.
+
+##### 🟠 G — RLS policies cannot be swept: the snapshot has no policy inventory
+
+The snapshot documents columns, FKs, indexes, functions, enums and CHECK constraints — but **not RLS policies**, and there is no `## Policies` section. Meanwhile **177 API route files (238 call sites) use the service client**, which bypasses RLS entirely. So the "policy vs route check" pair cannot be enumerated from the snapshot at all; it needs a live `pg_policies` query first.
+
+That absence is itself worth noting: the repo's security posture leans on RLS-enabled-with-no-policies for some tables and real policies for others, and nothing in the documented schema distinguishes them.
+
+#### Registry scope after the sweep — likely 4, not 6
+
+`cart/items` ↔ `cart/validate` · token generator ↔ shop guard · `events/[marketId]` disclosure policy ↔ `market-stats` · `pricing.ts` ↔ hand-rolled display price (a lint-shaped rule: no manual price maths on buyer-facing surfaces). The wave-count and loader↔render pairs are **gone** — collapsed, which is the better outcome and the point of the principle above.
 
 ### 3. Name the "reactivation" change class — NOT STARTED
 

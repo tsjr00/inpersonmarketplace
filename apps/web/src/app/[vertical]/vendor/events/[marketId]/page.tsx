@@ -5,6 +5,11 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { spacing, typography, radius, statusColors, sizing } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
+// The canonical wave-count calculation. A local copy of this lived here until
+// 2026-08-11 — added the day before while fixing T-03, which was itself caused
+// by the wave count having two sources. The exported original was two
+// directories away the whole time. One definition, one place.
+import { calculateWaveCount } from '@/lib/events/viability'
 import { createClient } from '@/lib/supabase/client'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import MarketAgreementBlock from '@/components/market-manager/MarketAgreementBlock'
@@ -59,22 +64,6 @@ const PAYMENT_MODEL_LABELS: Record<string, string> = {
   company_paid: 'Organizer pays for attendees',
   attendee_paid: 'Attendees pay individually',
   hybrid: 'Organizer covers base, attendees can upgrade',
-}
-
-/**
- * 30-minute service windows between the event's start and end; 4 when the times
- * are unknown.
- *
- * ONE definition on purpose. This used to be computed inline inside the JSX,
- * where the submit handler could not see it — and that duplication is exactly
- * how the displayed capacity and the submitted capacity came to disagree (T-03).
- */
-function waveCountFor(startTime: string | null, endTime: string | null): number {
-  if (!startTime || !endTime) return 4
-  const [sH, sM] = startTime.split(':').map(Number)
-  const [eH, eM] = endTime.split(':').map(Number)
-  const durationMin = (eH! * 60 + eM!) - (sH! * 60 + sM!)
-  return durationMin > 0 ? Math.ceil(durationMin / 30) : 4
 }
 
 export default function VendorCateringDetailPage() {
@@ -147,7 +136,7 @@ export default function VendorCateringDetailPage() {
         if (perWave) {
           setMaxOrdersPerWave(perWave)
           setMaxOrdersTotal(
-            perWave * waveCountFor(data.event.event_start_time, data.event.event_end_time)
+            perWave * calculateWaveCount(data.event.event_start_time, data.event.event_end_time)
           )
         }
 
@@ -752,7 +741,7 @@ export default function VendorCateringDetailPage() {
                     {(() => {
                       // Same helper the loader uses to seed the fields, so the
                       // number shown here and the number submitted cannot drift.
-                      const waveCount = waveCountFor(details.event_start_time, details.event_end_time)
+                      const waveCount = calculateWaveCount(details.event_start_time, details.event_end_time)
                       const profilePerWave = details.profile_max_headcount_per_wave
 
                       if (!profilePerWave) {

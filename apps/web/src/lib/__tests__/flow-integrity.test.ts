@@ -1647,16 +1647,19 @@ describe('Vendor event capacity seeding', () => {
     expect(page, 'per-wave capacity must be seeded when details load')
       .toMatch(/setMaxOrdersPerWave\(perWave\)/)
     expect(page, 'total capacity must be seeded too — it had the same latent bug')
-      .toMatch(/setMaxOrdersTotal\(\s*\n?\s*perWave \* waveCountFor/)
+      .toMatch(/setMaxOrdersTotal\(\s*\n?\s*perWave \* calculateWaveCount/)
   })
 
-  it('the wave count has exactly ONE definition', () => {
-    // Two copies is what let the displayed number and the submitted number
-    // disagree. If a second inline computation reappears, so does T-03.
-    const inline = [...page.matchAll(/Math\.ceil\(durationMin \/ 30\)/g)]
-    expect(inline.length, 'wave count must only be computed inside waveCountFor()').toBe(1)
-    expect(page, 'the render must use the shared helper, not its own copy')
-      .toMatch(/const waveCount = waveCountFor\(/)
+  it('the wave count has exactly ONE definition — and it is not in this file', () => {
+    // Strengthened 2026-08-11. The previous version permitted exactly ONE local
+    // copy of the arithmetic, which is precisely how a duplicate survived: the
+    // T-03 fix consolidated two inline copies into a local helper while the
+    // canonical `calculateWaveCount` sat exported in lib/events/viability the
+    // whole time. Now zero local copies are allowed and the import is required.
+    expect(page, 'must use the canonical exported calculation')
+      .toMatch(/import \{ calculateWaveCount \} from '@\/lib\/events\/viability'/)
+    expect(page, 'no local wave arithmetic may reappear')
+      .not.toMatch(/Math\.ceil\([^)]*\/\s*(30|waveDurationMin)/)
   })
 
   it('the response form is NOT hidden behind a reveal toggle', () => {

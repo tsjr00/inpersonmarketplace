@@ -79,7 +79,11 @@ export async function generateMetadata({ params }: ListingDetailPageProps): Prom
   const listingImages = listing.listing_images as { url: string; is_primary: boolean; display_order: number }[] || []
   const primaryImage = listingImages.find(img => img.is_primary) || listingImages[0]
 
-  const price = listing.price_cents ? `$${(listing.price_cents / 100).toFixed(2)}` : ''
+  // Social/OG preview price must match the page and the checkout — base + the
+  // buyer fee. This divided price_cents by hand, so a shared link advertised
+  // the vendor's BASE price ($12.00) while the page itself showed $12.78.
+  // Found by the paired-surface sweep, 2026-08-11; same class as T-06.
+  const price = listing.price_cents ? formatDisplayPrice(listing.price_cents) : ''
   const title = `${listing.title}${price ? ` - ${price}` : ''}`
   const description = listing.description
     ? listing.description.slice(0, 160)
