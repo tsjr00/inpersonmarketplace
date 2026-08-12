@@ -61,6 +61,22 @@ const PAYMENT_MODEL_LABELS: Record<string, string> = {
   hybrid: 'Organizer covers base, attendees can upgrade',
 }
 
+/**
+ * 30-minute service windows between the event's start and end; 4 when the times
+ * are unknown.
+ *
+ * ONE definition on purpose. This used to be computed inline inside the JSX,
+ * where the submit handler could not see it — and that duplication is exactly
+ * how the displayed capacity and the submitted capacity came to disagree (T-03).
+ */
+function waveCountFor(startTime: string | null, endTime: string | null): number {
+  if (!startTime || !endTime) return 4
+  const [sH, sM] = startTime.split(':').map(Number)
+  const [eH, eM] = endTime.split(':').map(Number)
+  const durationMin = (eH! * 60 + eM!) - (sH! * 60 + sM!)
+  return durationMin > 0 ? Math.ceil(durationMin / 30) : 4
+}
+
 export default function VendorCateringDetailPage() {
   const params = useParams()
   const vertical = params.vertical as string
@@ -110,6 +126,31 @@ export default function VendorCateringDetailPage() {
       if (res.ok) {
         const data = await res.json()
         setDetails(data.event)
+
+        // T-03: seed the capacity fields from the vendor's profile default.
+        //
+        // The "Use my profile default" radio is PRE-CHECKED on load, and a
+        // pre-checked radio never fires onChange — so the only line that sets
+        // this value (that radio's handler) never ran. The vendor was shown
+        // "20 per wave / 8 waves x 20 = 160" because the render falls back to
+        // the profile value for DISPLAY, while the form state still held ''.
+        // Accepting was then refused with "please confirm your per-wave
+        // capacity" — pointing at a field the screen already showed as filled
+        // in. The only way through was to click "Custom for this event" and
+        // retype the same number. Found by owner testing 2026-08-10.
+        //
+        // T-04 (acceptance not persisting) was the same bug: the accept never
+        // succeeded, so there was nothing to persist.
+        //
+        // Seeded here rather than in an effect body — this is an async
+        // callback, so it does not trip react-hooks/set-state-in-effect.
+        const perWave = data.event?.profile_max_headcount_per_wave
+        if (perWave) {
+          setMaxOrdersPerWave(perWave)
+          setMaxOrdersTotal(
+            perWave * waveCountFor(data.event.event_start_time, data.event.event_end_time)
+          )
+        }
       } else {
         const err = await res.json()
         setError(err.error || 'Failed to load event details')
@@ -708,15 +749,9 @@ export default function VendorCateringDetailPage() {
                   <>
                     {/* FT: Wave-aware capacity */}
                     {(() => {
-                      const startTime = details.event_start_time
-                      const endTime = details.event_end_time
-                      let waveCount = 4 // default
-                      if (startTime && endTime) {
-                        const [sH, sM] = startTime.split(':').map(Number)
-                        const [eH, eM] = endTime.split(':').map(Number)
-                        const durationMin = (eH * 60 + eM) - (sH * 60 + sM)
-                        waveCount = durationMin > 0 ? Math.ceil(durationMin / 30) : 4
-                      }
+                      // Same helper the loader uses to seed the fields, so the
+                      // number shown here and the number submitted cannot drift.
+                      const waveCount = waveCountFor(details.event_start_time, details.event_end_time)
                       const profilePerWave = details.profile_max_headcount_per_wave
 
                       if (!profilePerWave) {

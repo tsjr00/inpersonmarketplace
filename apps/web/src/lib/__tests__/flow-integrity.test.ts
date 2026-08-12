@@ -1581,3 +1581,48 @@ describe('Event token format', () => {
       .toMatch(/href=\{`\/\$\{verticalId\}\/events\/\$\{token\}\/shop`\}/)
   })
 })
+
+// ── Vendor event capacity: displayed value == submitted value (2026-08-11) ──
+//
+// T-03: a vendor could not accept an event invitation using the default
+// capacity. "Use my profile default" is PRE-CHECKED, and a pre-checked radio
+// never fires onChange — so the only line that set the value never ran. The
+// render fell back to the profile number for DISPLAY, so the vendor saw
+// "20 per wave / 8 waves x 20 = 160" while the form state held ''. Accepting
+// was refused with "please confirm your per-wave capacity", pointing at a field
+// that already looked filled in. The only way through was to click "Custom" and
+// retype the same number. T-04 (acceptance not persisting) was the same bug.
+//
+// The root cause was DUPLICATION: the wave count was computed inline in the
+// JSX where the submit handler could not see it. These guard the two halves.
+
+describe('Vendor event capacity seeding', () => {
+  const rd = (p: string) => fs.readFileSync(path.join(SRC_DIR, p), 'utf-8')
+  const page = rd('app/[vertical]/vendor/events/[marketId]/page.tsx')
+
+  it('the loader seeds capacity from the profile default', () => {
+    // Without this the pre-checked radio leaves the form empty forever.
+    expect(page, 'per-wave capacity must be seeded when details load')
+      .toMatch(/setMaxOrdersPerWave\(perWave\)/)
+    expect(page, 'total capacity must be seeded too — it had the same latent bug')
+      .toMatch(/setMaxOrdersTotal\(\s*\n?\s*perWave \* waveCountFor/)
+  })
+
+  it('the wave count has exactly ONE definition', () => {
+    // Two copies is what let the displayed number and the submitted number
+    // disagree. If a second inline computation reappears, so does T-03.
+    const inline = [...page.matchAll(/Math\.ceil\(durationMin \/ 30\)/g)]
+    expect(inline.length, 'wave count must only be computed inside waveCountFor()').toBe(1)
+    expect(page, 'the render must use the shared helper, not its own copy')
+      .toMatch(/const waveCount = waveCountFor\(/)
+  })
+
+  it('the accept payload still sends a per-wave capacity for food trucks', () => {
+    // The server hard-requires it (vendor/events/[marketId]/respond: FT branch),
+    // so dropping it from the payload would re-break acceptance a different way.
+    expect(page).toMatch(/event_max_orders_per_wave: isFT \? maxOrdersPerWave/)
+    const respond = rd('app/api/vendor/events/[marketId]/respond/route.ts')
+    expect(respond, 'server-side requirement this seeding exists to satisfy')
+      .toMatch(/Please confirm your per-wave customer capacity/)
+  })
+})
