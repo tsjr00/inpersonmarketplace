@@ -9,7 +9,7 @@ import BackLink from '@/components/shared/BackLink'
 import ShareButton from '@/components/marketing/ShareButton'
 import { listingJsonLd } from '@/lib/marketing/json-ld'
 import { getAppUrl } from '@/lib/environment'
-import { formatDisplayPrice, formatQuantityDisplay } from '@/lib/constants'
+import { calculateDisplayPrice, formatDisplayPrice, formatQuantityDisplay } from '@/lib/constants'
 import { isBuyerPremiumEnabled } from '@/lib/vertical'
 import { getLocale } from '@/lib/locale/server'
 import { t } from '@/lib/locale/messages'
@@ -217,7 +217,10 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
     description: listing.description,
     imageUrl: primaryImage?.url || null,
     url: `${getAppUrl(vertical)}/${vertical}/listing/${listingId}`,
-    priceCents: listing.price_cents || 0,
+    // Structured-data price must match the page and checkout — base + buyer
+    // fee. Same rule as the OG title in generateMetadata above; this call site
+    // was missed when that one was fixed (2026-08-11 sweep → 2026-08-13 audit).
+    priceCents: listing.price_cents ? calculateDisplayPrice(listing.price_cents) : 0,
     quantity: listing.quantity,
     category: listing.category,
     vendorName,

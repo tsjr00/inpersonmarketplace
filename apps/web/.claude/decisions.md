@@ -140,3 +140,13 @@ Structured record of business and architecture decisions. Check here before aski
 **Owner decision (tsjr00, 2026-07-20):** this is deliberate, to avoid overly complicated per-item tip refunds. The retained share sits in the platform account as a **buffer against refund-processing charges the platform absorbs** (Stripe does not return its processing fee on refunds). Do NOT "fix" the tip divisor to count only non-cancelled items, and do NOT add per-item tip-share refunds on partial cancels.
 
 **Scope / do-not-touch:** the tip division in `fulfill/route.ts` + buyer-confirm, and the reject/buyer-cancel/resolve-issue tip-refund paths — which correctly refund the **order-level** tip only on a FULL / last-item kill (`remainingItems.length === 0`). The full order tip IS returned when the whole order is cancelled; only the per-item share on partial cancels is retained by design. Audit item **S3-4** (cron no-show Phase 4/7 tip division) is the same intentional behavior — also WONTFIX.
+
+### Company-Paid Events: Organizer Pays the Same 6.5% Buyer-Side Fee (2026-08-13, TENTATIVE)
+
+**Owner (tsjr00):** "company paid events have not been fully designed yet but to stay consistent i think we would have them pay the same 6.5% platform fee."
+
+**Status: tentative** — company-paid billing is not fully designed; this records the direction so surfaces don't get "fixed" the wrong way in the meantime.
+
+**What today's code does (verified 2026-08-13 audit):** both organizer-facing money figures are BASE cents — the event-manager dashboard "Total order value" (`event-manager/[id]/dashboard/page.tsx:309`, summing `order_items.subtotal_cents`) and the settlement report's company balance (`api/admin/events/[id]/settlement/route.ts:356,454`). Consistent with each other, but NOT with the tentative decision above.
+
+**When company-paid billing is designed/built, update BOTH surfaces together** (they are a de-facto pair): dashboard total and settlement `companyPaidCents`/`companyPaymentBalance` should include the 6.5% buyer-side fee. Until then, do not change either one alone.

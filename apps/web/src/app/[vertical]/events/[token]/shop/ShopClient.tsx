@@ -111,7 +111,7 @@ interface ShopClientProps {
 }
 
 export function ShopClient({ vertical, token, initialData, isLoggedInInitial }: ShopClientProps) {
-  const { addToCart, itemCount, summary, items: cartItems } = useCart()
+  const { addToCart, itemCount, items: cartItems } = useCart()
 
   // All initial state comes from server-rendered props (Session 70
   // refactor). Setters stay in place so handlers that mutate state
@@ -198,6 +198,18 @@ export function ShopClient({ vertical, token, initialData, isLoggedInInitial }: 
     // All events use 30-min slots (consistent, avoids half-hour boundary overlap)
     return generateSlots(schedule.start_time, schedule.end_time, 30)
   }, [schedule])
+
+  // Sticky-bar cart total: sum of per-item DISPLAY prices (base + buyer fee,
+  // rounded per item — the same math the checkout page charges). The cart
+  // summary's total field is raw base cents by design (get_cart_summary sums
+  // listings.price_cents), so rendering it directly understates what the
+  // attendee will pay — CartDrawer recomputes for the same reason.
+  const cartDisplayTotalCents = useMemo(() => cartItems.reduce((sum, item) => {
+    if (item.itemType === 'market_box') {
+      return sum + calculateItemDisplayPrice(item.termPriceCents || item.price_cents || 0)
+    }
+    return sum + calculateItemDisplayPrice(item.price_cents || 0) * item.quantity
+  }, 0), [cartItems])
 
   // Items currently selected (not yet added to cart)
   const selectedItems = useMemo(() => {
@@ -1273,7 +1285,7 @@ export function ShopClient({ vertical, token, initialData, isLoggedInInitial }: 
               {itemCount} item{itemCount > 1 ? 's' : ''} in cart
             </span>
             <span style={{ fontSize: typography.sizes.sm, color: statusColors.neutral500, marginLeft: spacing.xs }}>
-              {formatPrice(summary.total_cents)}
+              {formatPrice(cartDisplayTotalCents)}
             </span>
             {pickupTime && (
               <span style={{ fontSize: typography.sizes.xs, color: accent, marginLeft: spacing.xs }}>

@@ -1859,3 +1859,45 @@ describe('Market visibility rule', () => {
     expect(rd('lib/markets/market-visibility.ts')).toMatch(/scheduleVendors\.has\(vpid\)/)
   })
 })
+
+// ── Display price rule: non-vendor surfaces show fee-inclusive (2026-08-13) ──
+//
+// Vendors enter BASE price; every buyer/organizer-facing surface shows base +
+// the buyer % fee (lib/pricing.ts calculateItemDisplayPrice). The helper is the
+// single implementation — what drifts is CALL SITES that render a stored cents
+// field raw. Both guards below pin sites found by the retrospective
+// second-surface audit rendering base prices to non-vendors:
+//   - the JSON-LD Product schema in the listing + market-box pages (the OG
+//     title in the SAME files was fixed 2026-08-11; the schema block was
+//     missed — Google rich results advertised the base price)
+//   - the event shop's sticky cart bar, which rendered the cart summary RPC's
+//     total (raw base cents by design) while every other price on the page
+//     was fee-inclusive
+
+describe('Display price integrity', () => {
+  const rd = (p: string) => fs.readFileSync(path.join(SRC_DIR, p), 'utf-8')
+
+  it('listing page JSON-LD passes a display price, not raw price_cents', () => {
+    const page = rd('app/[vertical]/listing/[listingId]/page.tsx')
+    expect(/priceCents:\s*listing\.price_cents\s*\|\|/.test(page),
+      'raw listing.price_cents into listingJsonLd is the base-price-to-Google bug').toBe(false)
+    expect(page, 'the JSON-LD price must go through the display-price helper')
+      .toMatch(/calculateDisplayPrice/)
+  })
+
+  it('market-box page JSON-LD passes a display price, not raw cents', () => {
+    const page = rd('app/[vertical]/market-box/[id]/page.tsx')
+    expect(/priceCents:\s*priceCents\s*\|\|/.test(page),
+      'raw offering cents into marketBoxJsonLd is the base-price-to-Google bug').toBe(false)
+    expect(page, 'the JSON-LD price must go through the display-price helper')
+      .toMatch(/calculateDisplayPrice/)
+  })
+
+  it('event shop cart bar renders a computed display total, not the raw cart-summary total', () => {
+    const shop = rd('app/[vertical]/events/[token]/shop/ShopClient.tsx')
+    expect(/formatPrice\(summary\.total_cents\)/.test(shop),
+      'the cart-summary RPC total is raw base cents; rendering it understates the charge').toBe(false)
+    expect(shop, 'the bar total must be built from per-item display prices')
+      .toMatch(/calculateItemDisplayPrice\(item\.price_cents/)
+  })
+})

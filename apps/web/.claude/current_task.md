@@ -1,4 +1,15 @@
-# Current Task: ✅ PAIRED-SURFACE REGISTRY BUILT (2026-08-13) — next: retrospective second-surface audit
+# Current Task: 🔎 RETROSPECTIVE SECOND-SURFACE AUDIT — Rule 1 (pricing display) DONE, 2 bugs found+fixed
+
+## Audit progress (2026-08-13, working file: second_surface_audit_research.md)
+- **Rule 1 pricing display COMPLETE**: ~25 surfaces read unfiltered. Found + fixed: (P-1) JSON-LD Product schema advertised BASE price on listing + market-box pages — same files whose OG titles were fixed 2026-08-11, the schema block was missed; (P-2) event shop sticky cart bar rendered the cart-summary RPC total, which is raw base cents. 3 guards added → flow-integrity "Display price integrity" (166 pass, tsc clean).
+- **P-3 → owner decision (TENTATIVE, in .claude/decisions.md)**: company-paid organizers will pay the same 6.5% buyer fee when that billing is designed; until then dashboard "Total order value" + settlement company balance intentionally stay base-cents — change BOTH together, never one.
+- **Not individually read (medium-confidence clean)**: browse, vendor public profile, MarketBoxDetailClient, checkout/success, events/[token]/page.tsx, CheckoutPickupGroup — helper imports present.
+- **Next rules in queue** (backlog §2a): multi-market comms (T-05 class) → notification keys (T-08) → status maps → "has applied" collapse candidate. Category G still locked on pg_policies query.
+- **Git**: this commit + the 2 registry commits are held on main, unpushed, pending owner's staging test pass (option A, owner-chosen). Push all together after the pass.
+
+---
+
+# Previous: ✅ PAIRED-SURFACE REGISTRY BUILT (2026-08-13)
 
 ## What shipped (commit pending at write time)
 `src/lib/paired-rules.ts` — PAIRED_RULES, **7 entries**: multi-market-cart · event-token-format · organizer-identity (4 sites) · event-sells-on-acceptance (app↔SQL, tagged inside applied/ mig 223) · capacity-seeding · matching-inputs · **market-visibility** (batch search ↔ manager card — the first pre-existing pair registered BEFORE it broke).

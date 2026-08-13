@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
-import { formatDisplayPrice } from '@/lib/constants'
+import { calculateDisplayPrice, formatDisplayPrice } from '@/lib/constants'
 import { marketBoxJsonLd } from '@/lib/marketing/json-ld'
 import MarketBoxDetailClient from './MarketBoxDetailClient'
 import { getAppUrl } from '@/lib/environment'
@@ -112,7 +112,9 @@ export default async function MarketBoxDetailPage({ params }: MarketBoxPageProps
       description: offering.description,
       imageUrl: imageUrls?.[0] || null,
       url: `${getAppUrl(vertical)}/${vertical}/market-box/${offeringId}`,
-      priceCents: priceCents || 0,
+      // Structured-data price must match the page and checkout — base + buyer
+      // fee, same as the OG title in generateMetadata (2026-08-13 audit fix).
+      priceCents: priceCents ? calculateDisplayPrice(priceCents) : 0,
       vendorName,
     })
 
