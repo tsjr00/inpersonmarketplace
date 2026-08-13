@@ -601,7 +601,15 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
             <li>Rate and review {vendorWord} after your event</li>
           </ul>
         </div>
-        <div>
+        {/* T-48: sign-in used to be a sentence under the button, and it read as
+            a footnote rather than a door — an organizer who already had an
+            account (a market manager, say) followed the primary CTA into
+            signup and hit "an account with this email already exists". Two
+            equal-weight buttons now, because at this point we do not know
+            which of the two they are. The signup page's duplicate-email branch
+            also offers a Log in link now, so the wrong choice is recoverable
+            rather than a wall. */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'center' }}>
           <a
             href={signupUrl}
             style={{
@@ -617,13 +625,23 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
           >
             Create Your Free Account
           </a>
-        </div>
-        <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, marginTop: spacing.sm }}>
-          Already have an account?{' '}
-          <a href={loginUrl} style={{ color: accent, fontWeight: typography.weights.semibold, textDecoration: 'none' }}>
-            Sign in
+          <a
+            href={loginUrl}
+            style={{
+              display: 'inline-block',
+              padding: `${spacing.xs} ${spacing.lg}`,
+              backgroundColor: 'white',
+              color: accent,
+              textDecoration: 'none',
+              borderRadius: radius.md,
+              border: `2px solid ${accent}`,
+              fontWeight: typography.weights.semibold,
+              fontSize: typography.sizes.base,
+            }}
+          >
+            I Already Have an Account
           </a>
-        </p>
+        </div>
       </div>
     )
   }

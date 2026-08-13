@@ -29,6 +29,15 @@ export default function SignupPage({ params }: SignupPageProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState('')
+  /**
+   * T-48: the "email already exists" branch used to be error TEXT telling the
+   * user to go log in, with nothing to click — and the event context
+   * (?ref=event, returnTo) died right there. An organizer with an existing
+   * account who followed the primary CTA off the event form hit a wall and had
+   * to find the login page themselves. This flag turns that message into an
+   * actual door, carrying the email and the return destination through.
+   */
+  const [emailExists, setEmailExists] = useState(false)
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
   const [configLoading, setConfigLoading] = useState(true)
@@ -117,6 +126,7 @@ export default function SignupPage({ params }: SignupPageProps) {
     // (security behavior to prevent email enumeration)
     if (data.user && data.user.identities?.length === 0) {
       setError(`An account with this email already exists. Log in with your existing password to start using ${branding.brand_name}. Your password is the same across all 815 Enterprises platforms.`)
+      setEmailExists(true)
       setLoading(false)
       return
     }
@@ -249,6 +259,33 @@ export default function SignupPage({ params }: SignupPageProps) {
             color: '#c00'
           }}>
             {error}
+            {/* T-48: the door, not just the instruction. Carries the email the
+                user already typed and `ref=event`, which the login page DOES
+                honour — it routes organizers to /event-manager rather than the
+                shopper dashboard.
+                ⚠ `returnTo` is deliberately NOT passed: the login page ignores
+                it for everything except a vendor-signup market invite (see the
+                note at login/page.tsx:34-45), so forwarding it here would look
+                like it did something. */}
+            {emailExists && (
+              <div style={{ marginTop: spacing.xs }}>
+                <Link
+                  href={`/${vertical}/login?email=${encodeURIComponent(email)}${isEventRef ? '&ref=event' : ''}`}
+                  style={{
+                    display: 'inline-block',
+                    padding: `${spacing['2xs']} ${spacing.md}`,
+                    backgroundColor: colors.primary,
+                    color: 'white',
+                    textDecoration: 'none',
+                    borderRadius: radius.sm,
+                    fontWeight: typography.weights.semibold,
+                    fontSize: typography.sizes.sm,
+                  }}
+                >
+                  Log in instead →
+                </Link>
+              </div>
+            )}
           </div>
         )}
 

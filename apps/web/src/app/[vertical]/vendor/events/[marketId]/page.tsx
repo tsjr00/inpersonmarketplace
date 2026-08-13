@@ -361,10 +361,37 @@ export default function VendorCateringDetailPage() {
     )
   }
 
-  const headcountPerVendor =
-    details.accepted_count > 0
-      ? Math.ceil(details.headcount / details.accepted_count)
-      : Math.ceil(details.headcount / details.vendor_count)
+  /**
+   * T-65 — how many people this vendor should plan for.
+   *
+   * This used to divide by `accepted_count` alone. That count is a straight
+   * tally of vendors who have ALREADY accepted, from api/vendor/events/[marketId]
+   * — it does NOT include the vendor reading this page. So the second truck
+   * invited to a 4-truck event saw "100 total ÷ 1" and was told to expect ~100
+   * shoppers, when the organizer had asked for four. A vendor buys food off
+   * this number; overstating it costs them real money in waste.
+   *
+   * Neither denominator is right on its own, so we stop pretending it is one
+   * number (owner-approved 2026-08-13):
+   *   · FEWEST trucks  = those committed so far, counting YOU  → the high end
+   *   · MOST trucks    = what the organizer asked for          → the low end
+   * `expected` can never be below `committed` — more may accept than requested
+   * (backups), and a range whose "most" is smaller than its "fewest" is
+   * nonsense. When the two ends agree, we show a single number.
+   */
+  const viewerHasAccepted = details.response_status === 'accepted'
+  const committedVendors = Math.max(1, details.accepted_count + (viewerHasAccepted ? 0 : 1))
+  const expectedVendors = Math.max(committedVendors, details.vendor_count || committedVendors)
+  const headcountPerVendorHigh = Math.ceil(details.headcount / committedVendors)
+  const headcountPerVendorLow = Math.ceil(details.headcount / expectedVendors)
+  const headcountIsRange = headcountPerVendorLow !== headcountPerVendorHigh
+  const headcountPerVendor = headcountIsRange
+    ? `${headcountPerVendorLow}–${headcountPerVendorHigh}`
+    : String(headcountPerVendorLow)
+  /** "2 of 4 confirmed so far" — the reason the number is a range. */
+  const headcountBasis = headcountIsRange
+    ? `${details.headcount} guests ÷ ${expectedVendors} ${term(vertical, 'event_vendor_unit')}s if all confirm, ÷ ${committedVendors} if none else do (${details.accepted_count} of ${details.vendor_count} confirmed so far)`
+    : `${details.headcount} total ÷ ${expectedVendors} ${term(vertical, 'event_vendor_unit')}s`
 
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', padding: '40px 20px' }}>
@@ -463,7 +490,7 @@ export default function VendorCateringDetailPage() {
             <DetailRow label="Time" value={`${fmtTime12(details.event_start_time)} — ${fmtTime12(details.event_end_time)}`} />
           )}
           <DetailRow label="Location" value={details.address ? `${details.address}, ${details.city}, ${details.state}` : `${details.city}, ${details.state}${details.response_status !== 'accepted' ? ' (full address after acceptance)' : ''}`} />
-          <DetailRow label="Your est. headcount" value={`~${headcountPerVendor} people`} sub={`${details.headcount} total ÷ ${details.accepted_count || details.vendor_count} ${term(vertical, 'event_vendor_unit')}s`} />
+          <DetailRow label="Your est. headcount" value={`~${headcountPerVendor} people`} sub={headcountBasis} />
           {details.payment_model && (
             <DetailRow label="Payment" value={PAYMENT_MODEL_LABELS[details.payment_model] || details.payment_model} />
           )}
@@ -495,11 +522,17 @@ export default function VendorCateringDetailPage() {
           <h3 style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: '#166534', margin: `0 0 ${spacing.xs}` }}>
             Revenue Estimate
           </h3>
+          {/* T-65: the conservative/optimistic pair now carries the truck-count
+              uncertainty as well as the spend-per-head uncertainty — worst case
+              is the MOST vendors sharing the crowd at the lowest spend, best
+              case is the FEWEST at the highest. Folding it into the existing
+              frame keeps this at two numbers instead of four, and both ends are
+              defensible rather than a single figure that was never true. */}
           {vertical === 'farmers_market' ? (
             <div style={{ fontSize: typography.sizes.sm, color: '#15803d', lineHeight: 1.8 }}>
-              <div><strong>Your estimated shoppers:</strong> {details.headcount} total guests ÷ {details.accepted_count || details.vendor_count} vendors = <strong>~{headcountPerVendor} shoppers</strong></div>
-              <div><strong>Conservative estimate:</strong> {headcountPerVendor} shoppers × $8 avg spend = <strong>${(headcountPerVendor * 8).toLocaleString()}</strong></div>
-              <div><strong>Optimistic estimate:</strong> {headcountPerVendor} shoppers × $20 avg spend = <strong>${(headcountPerVendor * 20).toLocaleString()}</strong></div>
+              <div><strong>Your estimated shoppers:</strong> {headcountBasis} = <strong>~{headcountPerVendor} shoppers</strong></div>
+              <div><strong>Conservative estimate:</strong> {headcountPerVendorLow} shoppers × $8 avg spend = <strong>${(headcountPerVendorLow * 8).toLocaleString()}</strong></div>
+              <div><strong>Optimistic estimate:</strong> {headcountPerVendorHigh} shoppers × $20 avg spend = <strong>${(headcountPerVendorHigh * 20).toLocaleString()}</strong></div>
               <div style={{ marginTop: spacing['2xs'], fontSize: typography.sizes.xs, color: '#166534' }}>
                 Platform fee: 6.5% | Your payout: 93.5% of sales
               </div>
@@ -509,9 +542,9 @@ export default function VendorCateringDetailPage() {
             </div>
           ) : (
             <div style={{ fontSize: typography.sizes.sm, color: '#15803d', lineHeight: 1.8 }}>
-              <div><strong>Your estimated servings:</strong> {details.headcount} total guests ÷ {details.accepted_count || details.vendor_count} trucks = <strong>~{headcountPerVendor} servings</strong></div>
-              <div><strong>Conservative estimate:</strong> {headcountPerVendor} servings × $10/plate = <strong>${(headcountPerVendor * 10).toLocaleString()}</strong></div>
-              <div><strong>Optimistic estimate:</strong> {headcountPerVendor} servings × $15/plate = <strong>${(headcountPerVendor * 15).toLocaleString()}</strong></div>
+              <div><strong>Your estimated servings:</strong> {headcountBasis} = <strong>~{headcountPerVendor} servings</strong></div>
+              <div><strong>Conservative estimate:</strong> {headcountPerVendorLow} servings × $10/plate = <strong>${(headcountPerVendorLow * 10).toLocaleString()}</strong></div>
+              <div><strong>Optimistic estimate:</strong> {headcountPerVendorHigh} servings × $15/plate = <strong>${(headcountPerVendorHigh * 15).toLocaleString()}</strong></div>
               <div style={{ marginTop: spacing['2xs'], fontSize: typography.sizes.xs, color: '#166534' }}>
                 Platform fee: 6.5% | Your payout: 93.5% of sales
               </div>
