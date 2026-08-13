@@ -597,7 +597,7 @@ export async function GET(request: NextRequest) {
           pickup_date,
           preferred_pickup_time,
           pickup_snapshot,
-          markets!market_id(id, name, market_type, address, city, state),
+          markets!market_id(id, name, market_type, address, city, state, catering_request_id),
           listing:listings(
             title,
             quantity_amount,
@@ -637,11 +637,56 @@ export async function GET(request: NextRequest) {
       marketBoxSubscriptions = mbSubs as unknown as Array<Record<string, unknown>> | null
     }
 
+    // T-72: "Continue shopping" on an event order used to return to the general
+    // browse page — a buyer who forgot dessert would shop the wrong catalogue
+    // and could order from a truck that is not at the event. The success page
+    // has market_id and market_type per item but NOT the event token, and the
+    // shop route is /{vertical}/events/[token]/shop.
+    //
+    // Deliberately a SEPARATE query, not a nested embed: `markets` and
+    // `catering_requests` have TWO foreign keys between them
+    // (catering_requests.market_id → markets.id AND markets.catering_request_id
+    // → catering_requests.id), which is the ambiguous case PostgREST cannot
+    // infer — and a select string is not typechecked, so a wrong guess would
+    // only surface the first time somebody actually paid. A plain lookup cannot
+    // be ambiguous.
+    //
+    // FULLY ADDITIVE. supabase-js returns query errors in the response object
+    // rather than throwing, so a failure here leaves the map empty and the page
+    // falls back to the browse link exactly as it does today. Nothing about the
+    // order response depends on it. This route runs AFTER Stripe has taken
+    // payment — degrading quietly is the whole design.
+    const eventShopTokens: Record<string, string> = {}
+    try {
+      const items = (fullOrder?.order_items ?? []) as Array<Record<string, unknown>>
+      const marketIdByRequestId = new Map<string, string>()
+      for (const it of items) {
+        const m = it.markets as Record<string, unknown> | null
+        if (m?.market_type === 'event' && m?.catering_request_id && m?.id) {
+          marketIdByRequestId.set(m.catering_request_id as string, m.id as string)
+        }
+      }
+      if (marketIdByRequestId.size > 0) {
+        crumb.supabase('select', 'catering_requests (event shop tokens)')
+        const { data: reqs } = await serviceClient
+          .from('catering_requests')
+          .select('id, event_token')
+          .in('id', [...marketIdByRequestId.keys()])
+        for (const r of reqs ?? []) {
+          const marketId = marketIdByRequestId.get(r.id as string)
+          if (marketId && r.event_token) eventShopTokens[marketId] = r.event_token as string
+        }
+      }
+    } catch {
+      // Never let a convenience link break a post-payment response.
+    }
+
     return NextResponse.json({
       success: true,
       orderId,
       order: fullOrder,
       marketBoxSubscriptions: marketBoxSubscriptions || [],
+      eventShopTokens,
     })
   })
 }

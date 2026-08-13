@@ -106,6 +106,13 @@ export default function CheckoutSuccessPage() {
 
   const locale = getClientLocale()
   const [order, setOrder] = useState<OrderDetails | null>(null)
+  /**
+   * T-72: market_id → event shop token, returned by the checkout success route.
+   * Only populated on the session_id path (a fresh checkout); the direct
+   * order-id path reads a different API and simply won't have it, which falls
+   * back to the browse link — the behaviour that exists today.
+   */
+  const [eventShopTokens, setEventShopTokens] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { refreshCart } = useCart()
@@ -125,6 +132,7 @@ export default function CheckoutSuccessPage() {
             if (data.order) {
               setOrder(transformOrder(data.order, data.marketBoxSubscriptions))
             }
+            if (data.eventShopTokens) setEventShopTokens(data.eventShopTokens)
             // Refresh client-side cart state (server already cleared DB cart)
             refreshCart()
           } else {
@@ -572,8 +580,22 @@ export default function CheckoutSuccessPage() {
           >
             {t('success.view_orders', locale)}
           </Link>
+          {/* T-72: an event order used to send the buyer to the general browse
+              page — every truck in the vertical, invited or not. Someone who
+              forgot dessert would shop the wrong catalogue and could order from
+              a truck that isn't at their event. If any item in this order is an
+              event item and we resolved its token, go back to THAT event's shop
+              instead. Falls back to browse when there is no event item, or on
+              the direct order-id path where the token isn't available. */}
           <Link
-            href={`/${vertical}/browse`}
+            href={(() => {
+              const eventItem = order?.items.find(
+                i => i.market_type === 'event' && i.market_id && eventShopTokens[i.market_id]
+              )
+              return eventItem
+                ? `/${vertical}/events/${eventShopTokens[eventItem.market_id!]}/shop`
+                : `/${vertical}/browse`
+            })()}
             style={{
               padding: `${spacing.xs} ${spacing.md}`,
               backgroundColor: colors.surfaceElevated,
