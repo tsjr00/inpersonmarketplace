@@ -1,6 +1,7 @@
 import { Metadata } from 'next'
 import Link from 'next/link'
-import { EventRequestForm, getServiceLevels } from '@/components/events/EventRequestForm'
+import { EventRequestForm } from '@/components/events/EventRequestForm'
+import { getServiceLevels } from '@/lib/events/service-levels'
 import { statusColors, spacing, typography, radius } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
 import { defaultBranding } from '@/lib/branding'
