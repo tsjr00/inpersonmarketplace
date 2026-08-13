@@ -1,6 +1,6 @@
 # 14 — Events (private / catering)
 
-<!-- map-stamp: domain=events; verified=2026-08-09; commit=dfefc782 -->
+<!-- map-stamp: domain=events; verified=2026-08-13; commit=d804848d -->
 <!-- map-claims
 src/app/api/events/**
 src/app/api/event-requests/**
@@ -190,6 +190,7 @@ The success copy promises the organizer can "refine your criteria for more match
 | `components/events/EventRequestForm.tsx` | The vertical-aware multi-stage intake form (~845 lines) |
 | `components/events/OrganizerEventDetails.tsx` | Stage-2 detail editor + refresh-matches banner (~770 lines) |
 | `components/events/OrganizerEventActions.tsx` | Cancel / manage actions (triggers the refund path) |
+| `components/events/OrganizerProgress.tsx` | Stage strip + "what happens next" block, both DERIVED from `catering_requests.status` (no second source of truth). `part="strip"` renders under Event details, `part="next"` at the page bottom. Rule it encodes: at every stage say what the organizer FINISHED and what is underway — never render a stage as "nothing to do" (owner, 2026-08-12). A new status must be added to `STAGE_FOR_STATUS` or progress silently under-reports. |
 | `components/events/EventBroadcastCard.tsx` · `EventAgreementPickerCard.tsx` · `EventRatingsCard.tsx` | Organizer broadcast composer, opt-in picker, approved-ratings display |
 | `components/events/EventFeedbackForm.tsx` | Attendee post-event rating/survey (~465 lines) |
 | `app/[vertical]/event-manager/page.tsx` | **Event picker** (new 2026-08-07) — lists events you organize; redirects out if none, straight in if exactly one. Lists ALL of them, approved or not |

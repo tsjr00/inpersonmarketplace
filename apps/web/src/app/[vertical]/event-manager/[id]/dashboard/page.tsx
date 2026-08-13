@@ -14,6 +14,7 @@ import EventBroadcastCard from '@/components/events/EventBroadcastCard'
 import EventRatingsCard from '@/components/events/EventRatingsCard'
 import OrganizerEventDetails from '@/components/events/OrganizerEventDetails'
 import OrganizerEventActions from '@/components/events/OrganizerEventActions'
+import OrganizerProgress from '@/components/events/OrganizerProgress'
 
 interface PageProps {
   params: Promise<{ vertical: string; id: string }>
@@ -310,6 +311,22 @@ export default async function EventManagerDashboardPage({ params }: PageProps) {
           </div>
         )}
 
+        {/* T-71: stage strip, derived from status. Sits inside Event details,
+            under the traction line, so progress is visible without scrolling.
+            The matching "what happens next" block renders at the BOTTOM of the
+            page — see the note on `part` in OrganizerProgress. */}
+        <div style={{ marginTop: spacing.sm }}>
+          <OrganizerProgress
+            part="strip"
+            status={status}
+            vertical={vertical}
+            eventToken={(event.event_token as string) || null}
+            vendorsAccepted={vendorsAccepted}
+            vendorCount={(event.vendor_count as number) || null}
+            serviceLevel={(event.service_level as string) || null}
+          />
+        </div>
+
         {/* The organiser's three ways into their own event. Only the attendee
             shop link existed here before; View Event Page and Select Vendors
             were reachable only from the shopper-dashboard band. */}
@@ -401,6 +418,24 @@ export default async function EventManagerDashboardPage({ params }: PageProps) {
           <EventRatingsCard eventToken={event.event_token as string} primaryColor={colors.primary} />
         </DashboardCard>
       )}
+
+      {/* T-53/T-54: the organizer scrolls to the end looking for what to do and
+          used to find ratings, copy-link and cancel. This says what they have
+          FINISHED and what is happening now — including when the honest answer
+          is "wait", which is most of the time between invitations going out and
+          vendors replying. Placed ABOVE "Manage this event" so the housekeeping
+          card is no longer the last word on the page. */}
+      <DashboardCard title="What happens next">
+        <OrganizerProgress
+          part="next"
+          status={status}
+          vertical={vertical}
+          eventToken={(event.event_token as string) || null}
+          vendorsAccepted={vendorsAccepted}
+          vendorCount={(event.vendor_count as number) || null}
+          serviceLevel={(event.service_level as string) || null}
+        />
+      </DashboardCard>
 
       {/* Copy-link + Cancel. Cancel is the escape hatch: without it, an event
           that cannot be approved and cannot be edited also cannot be abandoned,
