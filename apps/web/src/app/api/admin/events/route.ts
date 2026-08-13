@@ -155,6 +155,29 @@ export async function GET(request: NextRequest) {
         listing_categories: categoryMap[v.id] || [],
         cancellation_rate: cancellationRate,
         event_item_count: eventItemMap[v.id] || 0,
+        // T-64: the admin panel's match preview used to HARDCODE these inputs
+        // (30/wave, 6hr, no experience) — a third, diverged copy of the
+        // matching rule, so admins saw different scores than the engine
+        // produced. Send the vendor's real readiness; null means the
+        // questionnaire was never completed, which since T-70 is a hard gate —
+        // the engine will not match them at all, and the panel should say so
+        // instead of rendering a fake score.
+        readiness: (() => {
+          const er = (v.profile_data as Record<string, unknown>)?.event_readiness as Record<string, unknown> | null
+          const cap = er?.max_headcount_per_wave
+          if (typeof cap !== 'number' || cap < 1) return null
+          return {
+            max_headcount_per_wave: cap,
+            max_runtime_hours: (er?.max_runtime_hours as number) || 6,
+            has_event_experience: !!er?.has_event_experience,
+            requires_generator: !!er?.requires_generator,
+            ...(er?.generator_type ? { generator_type: er.generator_type as string } : {}),
+            strong_odors: !!er?.strong_odors,
+            ...(er?.food_perishability ? { food_perishability: er.food_perishability as string } : {}),
+            seating_recommended: !!er?.seating_recommended,
+            education_focused: !!er?.education_focused,
+          }
+        })(),
       }
     })
 

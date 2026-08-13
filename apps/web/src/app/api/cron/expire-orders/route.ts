@@ -10,6 +10,7 @@ import { FEES, proratedFlatFeeSimple, calculateSmallOrderFee } from '@/lib/prici
 import { getTierLimits, TRIAL_SYSTEM_ENABLED } from '@/lib/vendor-limits'
 import { todayInTimezone, tomorrowInTimezone, addDaysToDateString } from '@/lib/time/market-dates'
 import { runEventCompletionEffects } from '@/lib/events/complete-event'
+import { autoMatchAndInvite } from '@/lib/events/event-actions'
 import { recordExternalPaymentFee } from '@/lib/payments/vendor-fees'
 import { isCleanupDay, calculateRetentionCutoffs } from '@/lib/cron/retention'
 import { REMINDER_DELAY_MS, DEFAULT_REMINDER_DELAY_MS, isOrderOldEnoughForReminder, getAutoConfirmCutoffDate, areAllItemsPastPickupWindow, formatPaymentMethodLabel } from '@/lib/cron/external-payment'
@@ -2783,6 +2784,72 @@ export async function GET(request: NextRequest) {
 
     // ============================================================
     { const stop = await budgetStopAfter('Phase 15.5'); if (stop) return stop }
+
+    // PHASE 15.7: Re-match under-filled open events (T-63, owner decision
+    // 2026-08-13: daily cron over per-trigger hooks).
+    //
+    // Matching previously ran only when the EVENT side changed — approval,
+    // admin edit/rematch, or the organizer's refresh button. No VENDOR-side
+    // change ever triggered anything: getting event-approved, publishing a 4th
+    // event item, or completing readiness never re-ran matching, so a vendor
+    // who became eligible after an event was created was never invited and the
+    // owner had to trigger it manually as admin.
+    //
+    // Daily sweep instead of hooks in four routes because scattering the
+    // trigger is the paired-surface pattern that keeps producing drift, and
+    // because autoMatchAndInvite is idempotent — already-invited vendors are
+    // skipped inside it, so the only effect of a re-run is NEW invitations to
+    // newly-eligible vendors. "Open" = approved/ready, market exists, event
+    // not past, and fewer acceptances than the organizer asked for.
+    try {
+      const todayStr = new Date().toISOString().split('T')[0]
+      const { data: openEvents } = await supabase
+        .from('catering_requests')
+        .select('id, vertical_id, company_name, event_date, event_end_date, event_start_time, event_end_time, headcount, expected_meal_count, address, city, state, zip, vendor_count, cuisine_preferences, event_type, payment_model, event_setting, children_present, contact_email, market_id, status')
+        .in('status', ['approved', 'ready'])
+        .not('market_id', 'is', null)
+        .gte('event_date', todayStr)
+        .limit(25) // runtime cap; a platform with more open events than this needs its own job
+
+      if (openEvents && openEvents.length > 0) {
+        // One query for all acceptance counts, grouped in JS.
+        const marketIds = openEvents.map(e => e.market_id as string)
+        const { data: acceptedRows } = await supabase
+          .from('market_vendors')
+          .select('market_id')
+          .in('market_id', marketIds)
+          .eq('response_status', 'accepted')
+        const acceptedByMarket = new Map<string, number>()
+        for (const r of acceptedRows || []) {
+          const mid = r.market_id as string
+          acceptedByMarket.set(mid, (acceptedByMarket.get(mid) || 0) + 1)
+        }
+
+        let rematchedEvents = 0
+        let newInvites = 0
+        for (const ev of openEvents) {
+          const needed = (ev.vendor_count as number) || 0
+          const accepted = acceptedByMarket.get(ev.market_id as string) || 0
+          if (needed < 1 || accepted >= needed) continue
+          const result = await autoMatchAndInvite(
+            supabase,
+            ev as unknown as Parameters<typeof autoMatchAndInvite>[1],
+            ev.market_id as string
+          )
+          rematchedEvents++
+          if (result.invited > 0) {
+            newInvites += result.invited
+            console.log(`[Phase 15.7] Event ${ev.id} (${accepted}/${needed} accepted): invited ${result.invited} newly-eligible vendor(s)`)
+          }
+        }
+        if (rematchedEvents > 0) console.log(`Phase 15.7: swept ${rematchedEvents} under-filled event(s), ${newInvites} new invitation(s)`)
+      }
+    } catch (phase157Error) {
+      console.error('Phase 15.7 error:', phase157Error instanceof Error ? phase157Error.message : 'Unknown error')
+    }
+
+    // ============================================================
+    { const stop = await budgetStopAfter('Phase 15.7'); if (stop) return stop }
 
     // PHASE 16: Expire abandoned booth rental bookings (Phase C Stage 3)
     //

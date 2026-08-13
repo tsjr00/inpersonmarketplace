@@ -116,6 +116,19 @@ interface VendorOption {
   listing_categories: string[]
   cancellation_rate: number
   event_item_count: number
+  /** T-64: the vendor's REAL readiness from the API. Null = questionnaire not
+   *  completed, which is a hard matching gate (T-70) — show that, don't score. */
+  readiness: {
+    max_headcount_per_wave: number
+    max_runtime_hours: number
+    has_event_experience: boolean
+    requires_generator: boolean
+    generator_type?: string
+    strong_odors: boolean
+    food_perishability?: string
+    seating_recommended: boolean
+    education_focused: boolean
+  } | null
 }
 
 interface MarketVendor {
@@ -1587,11 +1600,25 @@ export default function AdminCateringPage() {
                               return a.business_name.localeCompare(b.business_name)
                             })
                             .map((v) => {
+                              // T-64: these inputs were HARDCODED (30/wave, 6hr,
+                              // no experience) — a third, diverged copy of the
+                              // matching rule, so this panel showed different
+                              // scores than the engine produced. Real readiness
+                              // now, from the API. Null readiness = the T-70
+                              // hard gate — the engine will not match this
+                              // vendor at all, so say that instead of scoring.
                               const matchInput: VendorMatchInput = {
                                 vendor_id: v.id, business_name: v.business_name,
                                 listing_categories: v.listing_categories || [],
-                                max_headcount_per_wave: 30, max_runtime_hours: 6,
-                                has_event_experience: false,
+                                max_headcount_per_wave: v.readiness?.max_headcount_per_wave ?? 30,
+                                max_runtime_hours: v.readiness?.max_runtime_hours ?? 6,
+                                has_event_experience: v.readiness?.has_event_experience ?? false,
+                                requires_generator: v.readiness?.requires_generator ?? false,
+                                ...(v.readiness?.generator_type ? { generator_type: v.readiness.generator_type } : {}),
+                                strong_odors: v.readiness?.strong_odors ?? false,
+                                ...(v.readiness?.food_perishability ? { food_perishability: v.readiness.food_perishability } : {}),
+                                seating_recommended: v.readiness?.seating_recommended ?? false,
+                                education_focused: v.readiness?.education_focused ?? false,
                                 average_rating: v.average_rating, rating_count: v.rating_count || 0,
                                 cancellation_rate: v.cancellation_rate || 0, tier: v.tier,
                                 pickup_lead_minutes: v.pickup_lead_minutes,
@@ -1634,7 +1661,18 @@ export default function AdminCateringPage() {
                                 }}>
                                   {v.event_item_count} event items{v.event_item_count < 4 ? ' (need 4+)' : ''}
                                 </span>
-                                <span style={{ fontSize: 10, fontWeight: typography.weights.semibold, color: sc }}>{ms.platform_score.toFixed(1)}</span>
+                                {/* T-70: no completed readiness = the engine will
+                                    never auto-match this vendor. A score would be
+                                    fiction, so show the gate instead. Admins can
+                                    still hand-invite — they may know something the
+                                    questionnaire doesn't. */}
+                                {v.readiness === null ? (
+                                  <span style={{ padding: `1px ${spacing['2xs']}`, backgroundColor: '#fef3c7', color: '#92400e', borderRadius: 8, fontSize: 10, fontWeight: typography.weights.semibold }}>
+                                    no readiness — auto-match skips
+                                  </span>
+                                ) : (
+                                  <span style={{ fontSize: 10, fontWeight: typography.weights.semibold, color: sc }}>{ms.platform_score.toFixed(1)}</span>
+                                )}
                                 <span style={{ fontSize: 10, color: statusColors.neutral400, display: 'flex', gap: spacing['2xs'], flexWrap: 'wrap', marginLeft: 'auto' }}>
                                   {v.avg_price_cents != null && (
                                     <span style={{

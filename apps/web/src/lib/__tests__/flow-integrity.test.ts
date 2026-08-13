@@ -1774,3 +1774,49 @@ describe('Vendor event capacity seeding', () => {
       .toMatch(/Please confirm your per-wave customer capacity/)
   })
 })
+
+// ── Matching integrity: readiness gate + one copy of the inputs (2026-08-13) ──
+//
+// T-70: the scorer read event readiness, but an EMPTY questionnaire was
+// silently rewarded — missing capacity defaulted to 30/wave and missing
+// runtime to 6 hours, which usually score green. Matching invited vendors the
+// accept flow would then block (accepting requires capacity data). Owner
+// decision: completed readiness is a HARD GATE for being matched.
+//
+// T-64: the admin panel's match preview hardcoded those same inputs (30/wave,
+// 6hr, no experience) — a third, diverged copy of the matching rule, so admins
+// saw different scores than the engine produced.
+
+describe('Matching readiness integrity', () => {
+  const rd = (p: string) => fs.readFileSync(path.join(SRC_DIR, p), 'utf-8')
+
+  it('the matching engine hard-gates on completed readiness', () => {
+    const engine = rd('lib/events/event-actions.ts')
+    expect(engine, 'a vendor without completed readiness must be skipped, not defaulted')
+      .toMatch(/Event readiness questionnaire not completed/)
+  })
+
+  it('the engine no longer rewards an empty questionnaire with default capacity', () => {
+    // The exact shape of the T-70 bug: `max_headcount_per_wave: (…) || 30`.
+    const engine = rd('lib/events/event-actions.ts')
+    expect(/max_headcount_per_wave: \(eventReadiness\?\.max_headcount_per_wave as number\) \|\| 30/.test(engine),
+      'the || 30 capacity default is the T-70 bug').toBe(false)
+  })
+
+  it('the admin match preview reads real readiness, not hardcoded inputs', () => {
+    // The exact shape of the T-64 bug: literal `max_headcount_per_wave: 30`.
+    const page = rd('app/[vertical]/admin/events/page.tsx')
+    expect(/max_headcount_per_wave: 30,/.test(page),
+      'a hardcoded capacity in the admin preview is the T-64 divergence').toBe(false)
+    expect(page, 'the preview must read the vendor readiness the API now sends')
+      .toMatch(/v\.readiness\?\.max_headcount_per_wave/)
+  })
+
+  it('the daily cron re-matches under-filled open events (T-63)', () => {
+    const cron = rd('app/api/cron/expire-orders/route.ts')
+    expect(cron, 'the re-match sweep must exist — vendor-side eligibility changes have no other trigger')
+      .toMatch(/autoMatchAndInvite\(/)
+    expect(cron, 'the sweep must only target events still short of vendors')
+      .toMatch(/accepted >= needed/)
+  })
+})

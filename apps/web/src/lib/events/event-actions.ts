@@ -284,11 +284,29 @@ export async function autoMatchAndInvite(
       continue
     }
 
+    // T-70 HARD GATE (owner decision 2026-08-13): completed event readiness is
+    // required to be MATCHED, not just to accept. Before this, an empty
+    // questionnaire was silently REWARDED — missing capacity defaulted to
+    // 30/wave and missing runtime to 6 hours, which usually score green — and
+    // matching invited vendors the accept flow would then block (accepting
+    // requires capacity data). The readiness form validates all fields on
+    // save, so a positive max_headcount_per_wave is proof the questionnaire
+    // was completed; its absence is proof it was not.
+    const readinessCapacity = eventReadiness?.max_headcount_per_wave
+    if (typeof readinessCapacity !== 'number' || readinessCapacity < 1) {
+      skippedVendors.push({ name: vendorName, reason: 'Event readiness questionnaire not completed' })
+      continue
+    }
+
     const matchInput: VendorMatchInput = {
       vendor_id: v.id,
       business_name: (profileData?.business_name as string) || (profileData?.farm_name as string) || 'Unknown',
       listing_categories: vendorCategories[v.id] || [],
-      max_headcount_per_wave: (eventReadiness?.max_headcount_per_wave as number) || 30,
+      // Real values — the T-70 gate above guarantees readiness exists, so the
+      // old `|| 30` / `|| 6` generosity defaults are gone. The runtime
+      // fallback survives only as a type guard; validation requires 1-24 on
+      // save, so it should never fire.
+      max_headcount_per_wave: readinessCapacity,
       max_runtime_hours: (eventReadiness?.max_runtime_hours as number) || 6,
       has_event_experience: !!(eventReadiness?.has_event_experience),
       average_rating: v.average_rating as number | null,
