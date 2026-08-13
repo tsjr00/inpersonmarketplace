@@ -355,6 +355,10 @@ Mobile-optimized at `src/app/[vertical]/vendor/pickup/page.tsx`. Smart polling, 
 
 ---
 
+## Standing Guard: Paired-Surface Registry (2026-08-13)
+
+One rule written in two independently-editable places with silent drift is this codebase's dominant defect pattern (dead multi-market checkout ×3 weeks, event-link 404s ×2 months, T-09→T-67→T-75). `apps/web/src/lib/paired-rules.ts` registers 7 such rules; sites carry `@paired-rule <key>` comment tags; `paired-rules-coverage.test.ts` FAILS THE COMMIT on orphan tags, pairs under two sites, or dead behavioural-test pointers. **Before adding an entry: collapse first** — only pairs that cannot share one implementation belong (app↔SQL, per-viewer policy at multiple API layers, display↔submit). Before editing any tagged site, read the registry entry.
+
 ## Common Pitfalls & Lessons Learned
 
 ### Dashboards & CSS (added 2026-08-07)
@@ -456,7 +460,9 @@ Mobile-optimized at `src/app/[vertical]/vendor/pickup/page.tsx`. Smart polling, 
 
 ## Applied Migrations (All 3 Environments)
 
-Migrations 001–041 applied to Dev, Staging, and Production. All in `supabase/migrations/applied/`. Key ones:
+**As of 2026-08-13: migrations 001–224 are applied to Dev, Staging, AND Production** (213–223 reached Prod 2026-08-13 during the client-demo deploy; 224 on 2026-08-12). **Only migration 225 exists nowhere** — written, deliberately parked, verification recipe in its header. ⚠ Do NOT trust this file or `SCHEMA_SNAPSHOT.md` changelog rows for per-environment status — both were proven wrong four separate times on 2026-08-13 (migs 210/211/212/215); **query the live environment** (`information_schema` / `pg_proc` / `to_regclass`).
+
+(Historical note, superseded:) Migrations 001–041 applied to Dev, Staging, and Production. All in `supabase/migrations/applied/`. Key ones:
 
 | Migration | Description |
 |-----------|-------------|
@@ -481,6 +487,13 @@ Migrations 001–041 applied to Dev, Staging, and Production. All in `supabase/m
 | 106 | Event vendor order caps: `event_max_orders_total` + `event_max_orders_per_wave` on market_vendors |
 
 ---
+
+## Session History — 2026-08-12/13 (deploy week finale)
+
+| Date | Key Work |
+|------|----------|
+| 08-12 | 🔴 **T-60 root-caused + repaired (mig 224, all 3 envs):** mig 211 had deactivated every FT schedule row lacking a paid booking — false premise ("no booking = phantom") at unmanaged parks; FT locations invisible in prod search for 2 weeks. Postmortem headers on migs 210/211. Then 10 round-3 fixes shipped (T-49/50/52/53/54/57/66/68/69/71 + T-67 leak) incl. organizer stage strip + "what happens next". Service-path cards (display-only) on public events page. |
+| 08-13 | 🚀 **PROD DEPLOY: 75 commits + migrations 213–223** (verified by direct query before AND after; window override owner-confirmed for client demo). T-48/65/08/59/72 fixed; T-75 name-masking (undecided vendors); T-62 non-applicant warning both admin surfaces; **matching cluster: daily re-match cron (Phase 15.7), readiness = HARD matching gate, admin preview reads real readiness**; rate limiter verified NOT fail-open (degrades per-instance, now logged); **paired-surface registry built** (7 rules, 15 tags, commit-failing coverage test). Retrospective second-surface audit planned → backlog 2a. |
 
 ## Session History (Sessions 21–39)
 
