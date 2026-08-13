@@ -1682,6 +1682,38 @@ describe('Organizer identity protection', () => {
     const bare = /market_type === 'event' && m\.event_end_date >= today\)\s*\.filter\(m => isWithinRadius/
     expect(bare.test(route), 'an ungated event list is the T-67 leak').toBe(false)
   })
+
+  // T-75 (2026-08-13): the market's NAME is the organizer's identity —
+  // approveEventRequest names every event market `${company_name} ${suffix}`
+  // (lib/events/event-actions.ts). T-09 and T-67 masked the address and
+  // filtered the list, but both API responses still carried the real name to
+  // vendors who had not accepted, defeating the policy they implement. The
+  // invite NOTIFICATIONS were already masked ("Private Event"); the API
+  // responses were the gap. Owner decision: masked until ACCEPTED; public
+  // events never masked.
+
+  it('the invitation payload masks the market name until acceptance', () => {
+    const route = rd('app/api/vendor/events/[marketId]/route.ts')
+    expect(route, 'market_name must be gated on acceptance, like the address')
+      .toMatch(/market_name: hasAccepted \? market\.name : maskedEventName/)
+  })
+
+  it('the vendor markets list masks private event names until acceptance', () => {
+    const route = rd('app/api/vendor/markets/route.ts')
+    expect(route, 'private events must resolve a masked name for non-accepted vendors')
+      .toMatch(/is_private === true && \w+ !== 'accepted'/)
+    expect(route, 'the masked branch must actually be used for the name')
+      .toMatch(/maskedEventName/)
+  })
+
+  it('no vendor-facing event API returns a bare market.name for the event payload', () => {
+    // The exact shape of the T-75 bug in the invitation route: the real name
+    // returned unconditionally three lines below the comment promising
+    // identity protection.
+    const route = rd('app/api/vendor/events/[marketId]/route.ts')
+    expect(/market_name: market\.name,/.test(route),
+      'an unconditional market_name is the T-75 leak').toBe(false)
+  })
 })
 
 // ── Vendor event capacity: displayed value == submitted value (2026-08-11) ──

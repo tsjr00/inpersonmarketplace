@@ -7,6 +7,7 @@ import {
   rateLimits,
 } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
+import { maskedEventName } from '@/lib/events/event-name'
 
 interface RouteContext {
   params: Promise<{ marketId: string }>
@@ -161,7 +162,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({
         event: {
           market_id: market.id,
-          market_name: market.name,
+          // T-75: the market's real name IS the organizer's company (built as
+          // `${company_name} ${suffix}` at approval), so returning it here
+          // defeated the identity protection this very block documents. Masked
+          // until acceptance, same rule as the address below.
+          market_name: hasAccepted ? market.name : maskedEventName(market.city, market.event_start_date),
           event_date: market.event_start_date,
           event_end_date: market.event_end_date,
           event_start_time: cateringDetails.event_start_time,

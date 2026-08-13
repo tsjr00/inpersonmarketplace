@@ -6,6 +6,7 @@ import { TracedError } from '@/lib/errors/traced-error'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { geocodeZipCode } from '@/lib/geocode'
 import { DEFAULT_CUTOFF_HOURS } from '@/lib/constants'
+import { maskedEventName } from '@/lib/events/event-name'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
 // GET - Get vendor's markets
@@ -235,15 +236,26 @@ export async function GET(request: NextRequest) {
             end_time: vendorTimes?.end || s.end_time,
           }
         })
+        const responseStatus = eventResponseByMarket.get(m.id as string) ?? null
+        // T-75: a private event's real name IS the organizer's company
+        // (`${company_name} ${suffix}` at approval). Masked until the vendor
+        // has ACCEPTED — same rule as the address on the invitation page.
+        // Public events are never masked; the organizer chose to be public.
+        const nameIsMasked = m.is_private === true && responseStatus !== 'accepted'
         return {
           ...m,
+          name: nameIsMasked ? maskedEventName(m.city as string | null, m.event_start_date as string | null) : m.name,
+          // The card's address line renders `${address}, ${city}, ${state}` —
+          // the street address is identity-adjacent too (T-67 report showed
+          // it), so it is withheld with the name.
+          address: nameIsMasked ? null : m.address,
           market_schedules: schedules,
           hasAttendance: marketsWithAttendance.has(m.id),
           hasListings: marketsWithListings.has(m.id),
           // 'invited' | 'accepted' | 'declined' | null. Null means no
           // market_vendors row at all — a PUBLIC event the vendor found by
           // browsing, not an invitation they ignored (T-68).
-          responseStatus: eventResponseByMarket.get(m.id as string) ?? null,
+          responseStatus,
         }
       })
 

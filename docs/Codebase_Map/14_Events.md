@@ -190,6 +190,7 @@ The success copy promises the organizer can "refine your criteria for more match
 | `components/events/EventRequestForm.tsx` | The vertical-aware multi-stage intake form (~845 lines) |
 | `components/events/OrganizerEventDetails.tsx` | Stage-2 detail editor + refresh-matches banner (~770 lines) |
 | `components/events/OrganizerEventActions.tsx` | Cancel / manage actions (triggers the refund path) |
+| `lib/events/event-name.ts` | `maskedEventName` — per-viewer mask for an event market's name, which IS the organizer's company (`${company_name} ${suffix}` at approval). Applied by `api/vendor/events/[marketId]` and `api/vendor/markets` for vendors who have NOT accepted (T-75); public events never masked; attendee surfaces always see the real name. |
 | `components/events/OrganizerProgress.tsx` | Stage strip + "what happens next" block, both DERIVED from `catering_requests.status` (no second source of truth). `part="strip"` renders under Event details, `part="next"` at the page bottom. Rule it encodes: at every stage say what the organizer FINISHED and what is underway — never render a stage as "nothing to do" (owner, 2026-08-12). A new status must be added to `STAGE_FOR_STATUS` or progress silently under-reports. |
 | `components/events/EventBroadcastCard.tsx` · `EventAgreementPickerCard.tsx` · `EventRatingsCard.tsx` | Organizer broadcast composer, opt-in picker, approved-ratings display |
 | `components/events/EventFeedbackForm.tsx` | Attendee post-event rating/survey (~465 lines) |
