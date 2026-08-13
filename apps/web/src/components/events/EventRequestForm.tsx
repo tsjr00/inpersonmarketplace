@@ -76,18 +76,38 @@ interface FormData {
   company_max_per_attendee: string
 }
 
-function getServiceLevels(vertical: string) {
+/**
+ * The two ways an organizer can run an event. Exported because the public
+ * events page renders them as a pair of cards above "How it works" — one copy
+ * of this wording, read by both surfaces.
+ *
+ * ⚠ `full_service` is DISPLAY-ONLY today. `service_level` is hardcoded to
+ * 'self_service' at form init and on submit, so every event created through
+ * the public form is self-service, and the page marks the full-service card
+ * "Coming soon" with no way to pick it. The moment that changes, code that has
+ * only ever seen self-service events starts seeing something new — including
+ * the matching engine, and the organizer dashboard's "Select vendors" link,
+ * which renders only for self_service. Wiring the choice is a behaviour change
+ * to existing paths, not just a new form field. See backlog → "PUBLIC EVENTS
+ * PAGE REDESIGN" and T-56.
+ *
+ * Copy note (owner, 2026-08-13): self-service must read as *working with an
+ * automated system on your own*, not as being left to fend for yourself.
+ */
+export function getServiceLevels(vertical: string) {
   const vendorTerm = vertical === 'farmers_market' ? 'vendors' : 'food trucks'
   return [
     {
       value: 'self_service',
-      label: 'Self-Service (Free)',
-      description: `We automatically match and notify qualifying ${vendorTerm}. You select from interested vendors. No platform fee.`,
+      label: 'Run it yourself',
+      available: true,
+      description: `Tell us about your event and our system automatically matches and invites ${vendorTerm} that fit. You pick from the ones who say yes. No platform fee.`,
     },
     {
       value: 'full_service',
-      label: 'Full Service (Managed)',
-      description: 'Our team personally coordinates your event — vendor selection, logistics, day-of support. Platform fee applies.',
+      label: 'Work with our team',
+      available: false,
+      description: `A member of our team coordinates the event with you — choosing ${vendorTerm}, logistics, and support on the day.`,
     },
   ]
 }

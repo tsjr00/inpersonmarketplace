@@ -1,6 +1,6 @@
 import { Metadata } from 'next'
 import Link from 'next/link'
-import { EventRequestForm } from '@/components/events/EventRequestForm'
+import { EventRequestForm, getServiceLevels } from '@/components/events/EventRequestForm'
 import { statusColors, spacing, typography, radius } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
 import { defaultBranding } from '@/lib/branding'
@@ -205,6 +205,65 @@ export default async function CateringPage({ params, searchParams }: CateringPag
             {item}
           </span>
         ))}
+      </div>
+
+      {/* The two ways to run an event, shown BEFORE "How it works" so an
+          organizer knows which path they are on before reading how it goes
+          (owner, 2026-08-13: "putting them on the right track early on is going
+          to make things smoother and establish the right set of expectations").
+          ⚠ DISPLAY ONLY. Full service is not selectable and has no click
+          handler — deliberately not a disabled input that could be re-enabled
+          by accident. service_level stays hardcoded to 'self_service' in the
+          form, so nothing downstream sees a new value. Making this a real
+          choice is a behaviour change to code that has only ever seen
+          self-service events; see backlog → "PUBLIC EVENTS PAGE REDESIGN". */}
+      <div style={{ marginBottom: spacing.lg }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+            gap: spacing.sm,
+          }}
+        >
+          {getServiceLevels(vertical).map(level => (
+            <div
+              key={level.value}
+              style={{
+                padding: spacing.md,
+                borderRadius: radius.lg,
+                border: level.available
+                  ? `2px solid ${accent}`
+                  : `1px solid ${statusColors.neutral200}`,
+                backgroundColor: level.available ? 'white' : statusColors.neutral50,
+                opacity: level.available ? 1 : 0.75,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap', marginBottom: spacing['2xs'] }}>
+                <span style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: statusColors.neutral900 }}>
+                  {level.label}
+                </span>
+                <span
+                  style={{
+                    padding: '2px 10px',
+                    borderRadius: 20,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    backgroundColor: level.available ? accent : statusColors.neutral200,
+                    color: level.available ? 'white' : statusColors.neutral600,
+                  }}
+                >
+                  {level.available ? 'Available now' : 'Coming soon'}
+                </span>
+              </div>
+              <p style={{ margin: 0, fontSize: typography.sizes.sm, color: statusColors.neutral600, lineHeight: 1.6 }}>
+                {level.description}
+              </p>
+            </div>
+          ))}
+        </div>
+        <p style={{ margin: `${spacing.xs} 0 0`, fontSize: typography.sizes.sm, color: statusColors.neutral500 }}>
+          Everything below is set up for running it yourself.
+        </p>
       </div>
 
       {/* How it works */}

@@ -385,6 +385,39 @@ The **deepest** row is the culprit; everything above it is an ancestor being dra
 
 **Process note (owner, 2026-08-12): this took far too long.** The ceremony was sized to the FILE (223 got a differential, so 225 got one) instead of to the RISK. One query — "are there any live FM events?" — would have set the depth in a single step. It was then made worse by checkpointing every step through Claude instead of handing over a self-contained script with expected outputs. **Establish blast radius FIRST; batch the diagnostics; state expected results up front so the owner never has to wait on a turn between steps.**
 
+## 🎨 PUBLIC EVENTS PAGE REDESIGN — fork the funnel by service level (owner notes, 2026-08-13)
+
+**Status: NOT STARTED. Design direction from the owner, captured verbatim in intent. Nothing built.**
+
+### The core idea
+
+Reframe the public events page (`/[vertical]/events`) around **one early question that forks everything after it**: is this organizer running the event themselves, or do they want one of our team involved? Owner: *"I think we can even before that we can more strictly define which path they're on just by asking a question… once they make that choice that's going to really change the information that we present them in order to make it accurate, and several of the questions that are asked on the form as it currently sits for everybody become irrelevant."*
+
+- A toggle/slider near the top, **before** the existing "How it works" section.
+- A **third option — "I haven't decided yet"** — which leads to qualifying questions or a side-by-side of what each path includes.
+- "How it works" then answers for **the chosen path**, not generically.
+- Wording needs care: self-service should read as *working with an automated system on their own*, not as being left alone. Owner: *"we can probably clean up that language a little bit so it makes it more clear that we have an automated system that they'll be working with on their own."*
+- **Why it matters:** *"putting them on the right track early on is going to make things smoother and establish the right set of expectations early on so that we can feed them the questions they need to answer so we can get the information we need to have for the system to do its job."*
+- Applies to **both verticals** — FT and FM are near-identical here.
+
+### ⚠ CRITICAL FINDING — this fork is ALREADY HALF-BUILT AND DISCONNECTED (verified 2026-08-13)
+
+- `getServiceLevels(vertical)` exists in `components/events/EventRequestForm.tsx:79-93` with **both options fully written** — "Self-Service (Free)" and "Full Service (Managed)", each with a description. **It is never called.** It is the unused-variable lint warning in that file.
+- `form.service_level` is **hardcoded to `'self_service'`** at `EventRequestForm.tsx:215` and submitted as such at `:487`. **Every event created through the public form is silently marked self-service.**
+- Downstream code genuinely branches on it: the organizer dashboard labels it (`SERVICE_LEVEL_LABELS`, `event-manager/[id]/dashboard/page.tsx:43-46`) and the **"Select vendors" link only renders when `service_level === 'self_service'`** (same file, ~`:325`).
+- **So the full-service path is unreachable from the front door**, while the copy for it already exists. This is the concrete cause of **T-56** ("the intake form has no self-serve vs admin-assisted qualifier, which downstream logic depends on").
+
+**Consequence for scoping:** this is less "build a new fork" and more "connect what is already there, then design the page around it." Check what else reads `service_level` before wiring it — anything that assumed every event is self-service may now start seeing full-service events **for the first time**, including the matching engine and the organizer dashboard's action links. That is a behaviour change to existing code paths, not just a new form field.
+
+### Visual notes (owner, same session)
+
+- **Icons read kitschy / childish.** Not a hard no — *"there's a lot of things out there that are using these animated type icons, I'm not saying it's necessarily bad, but I don't know that it fits with the rest of what we're trying to do with the brand."* Open to interpretation.
+- **The black "Why event managers choose us" box** — likes the idea, but *"the black in contrast to the background color is too stark."* Try grey.
+- **The food-type pills at the top** (tacos, Mexican, smokehouse/BBQ, pizza, desserts) are centered and *"doesn't look and feel as organized as it could be."* They are also **redundant** — there is already a section where the organizer picks the food they want. Owner leans toward removing them from the top, or moving them lower.
+- General: *"we can take lessons from how other apps do this part."*
+
+**Owner has more specific thoughts beyond this — ask before treating this list as complete.**
+
 ## 🧪 ROUND-3 TEST FINDINGS — owner testing 2026-08-12 (T-48 … T-72, NOTHING FIXED)
 
 Full end-to-end run: new event manager → event dashboard → matching → two vendors accept → organizer confirms → attendee orders. **The core transaction worked.** These are the defects inside it.
