@@ -1645,13 +1645,22 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     // Organizer is external and may have no account — audience does not drive
     // routing here, same as event_confirmed.
     audience: 'buyer',
+    // M2 (2026-08-13): 'cancelled' branch added so the vendor-cancel route can
+    // stop borrowing the accept/decline template, which produced "X cancelled
+    // their commitment to the event invitation for Y". A cancellation is a
+    // response-lifecycle event, so it lives here rather than as a new type.
     title: (d) => d.responseAction === 'declined'
       ? `${d.vendorName || 'A vendor'} can't make it`
-      : `${d.vendorName || 'A vendor'} said yes`,
+      : d.responseAction === 'cancelled'
+        ? `${d.vendorName || 'A vendor'} had to cancel`
+        : `${d.vendorName || 'A vendor'} said yes`,
     message: (d) => {
       const who = d.vendorName || 'A vendor'
       const what = d.marketName || 'your event'
       const note = d.responseNotes ? ` They said: "${d.responseNotes}"` : ''
+      if (d.responseAction === 'cancelled') {
+        return `${who} cancelled their commitment to ${what}.${note} We're checking for available backup ${term(d.vertical || 'food_trucks', 'vendors').toLowerCase()} and will let you know if a replacement is found.`
+      }
       return d.responseAction === 'declined'
         ? `${who} declined your invitation to ${what}.${note}`
         : `${who} accepted your invitation to ${what}.${note}`

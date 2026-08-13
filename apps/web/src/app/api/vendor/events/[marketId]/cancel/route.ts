@@ -321,7 +321,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (market.catering_request_id) {
       const { data: cReq } = await serviceClient
         .from('catering_requests')
-        .select('contact_name, contact_email, vertical_id, organizer_user_id')
+        .select('id, contact_name, contact_email, vertical_id, organizer_user_id')
         .eq('id', market.catering_request_id)
         .single()
 
@@ -366,19 +366,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
       // Also send in-app notification if organizer has an account
       if (cReq?.organizer_user_id) {
-        // T-08: was passing `companyName` / `eventDate`; the template reads
-        // `vendorName` / `marketName`, so this rendered "undefined cancelled
-        // their commitment to the event invitation for undefined".
-        //
-        // ⚠ KNOWN, still open (backlog M2): this reuses the ACCEPT/DECLINE
-        // template for a cancellation, so even with the keys right it reads
-        // "…cancelled their commitment to the event invitation for X" —
-        // grammatically wrong. Fixing that needs its own type and copy
-        // decision. Keys fixed here so it at least stops saying "undefined".
-        await sendNotification(cReq.organizer_user_id, 'catering_vendor_responded', {
+        // M2 (closed 2026-08-13): this used to borrow the admin ACCEPT/DECLINE
+        // template, which produced "X cancelled their commitment to the event
+        // invitation for Y" — and before the T-08 key fix, "undefined …
+        // undefined". event_vendor_responded_organizer now carries a
+        // 'cancelled' branch: organizer-appropriate copy, the vendor's reason
+        // attributed, and a link to THEIR event dashboard instead of the admin
+        // panel.
+        await sendNotification(cReq.organizer_user_id, 'event_vendor_responded_organizer', {
           vendorName,
-          responseAction: 'cancelled their commitment to',
+          responseAction: 'cancelled',
           marketName: market.name,
+          ...(reason?.trim() ? { responseNotes: reason.trim() } : {}),
+          eventId: cReq.id as string,
         }, { vertical: cReq.vertical_id })
       }
     }
