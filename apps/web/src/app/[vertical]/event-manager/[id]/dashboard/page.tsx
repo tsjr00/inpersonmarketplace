@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { enforceVerticalAccess } from '@/lib/auth/vertical-gate'
 import { colors, spacing, typography, containers, statusColors } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical'
 import DashboardCard from '@/components/dashboard/DashboardCard'
 import DashboardNav, { DashboardNavSpacer } from '@/components/dashboard/DashboardNav'
 import { getNavDestinations } from '@/lib/dashboard/nav-destinations'
@@ -197,6 +198,22 @@ export default async function EventManagerDashboardPage({ params }: PageProps) {
           {eventDate} · {STATUS_LABELS[status] || status}
         </p>
       </div>
+
+      {/* T-52: the dashboard opened straight into data with no statement of
+          what the organizer is here to DO. The intake form deliberately asks
+          little, so the profile arriving incomplete is the normal case, not an
+          error — and how complete it is directly drives matching quality. Say
+          that once, at the top, in the organizer's terms. */}
+      <p style={{
+        margin: `0 0 ${spacing.md} 0`,
+        color: colors.textMuted,
+        fontSize: typography.sizes.sm,
+        lineHeight: 1.6,
+      }}>
+        Use <strong>Add or edit details</strong> below to fill in your event — the more you tell
+        us, the better we can match {term(vertical, 'vendors').toLowerCase()} to it. You can update
+        it any time and re-run matching.
+      </p>
 
       {needsAddress && (
         <div style={{

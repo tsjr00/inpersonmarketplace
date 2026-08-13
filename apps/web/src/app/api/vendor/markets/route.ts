@@ -189,10 +189,42 @@ export async function GET(request: NextRequest) {
       return distance <= VENDOR_MARKET_RADIUS_MILES
     }
 
+    // T-67 (owner testing 2026-08-12): this list showed EVERY active event in
+    // the vertical to EVERY vendor — organizer address, headcount and contact
+    // columns included — because the markets query above selects '*' and the
+    // filter below only checked type, end date and radius. A vendor could read
+    // the host and street address of PRIVATE events they were never invited
+    // to. Same leak T-09 closed one route over (api/vendor/market-stats), on a
+    // surface that fix did not cover.
+    //
+    // Deliberately NOT gated on acceptance the way market-stats is. That route
+    // feeds the listing picker, where a vendor can do nothing before accepting,
+    // so acceptance-only costs them nothing. THIS section is headed "Upcoming
+    // festivals, fairs, and special events" and is how a vendor DISCOVERS an
+    // event worth asking to join — gating it on acceptance would delete
+    // discovery outright. So: public events stay browsable by anyone; private
+    // events require a market_vendors row.
+    //
+    // Any response_status counts, declined included: the leak is about vendors
+    // who were NEVER invited. Someone who was invited has already legitimately
+    // seen the details, and hiding a declined event would silently remove a
+    // row the vendor can still see a status pill for (see T-68).
+    // Keyed by market so the UI can distinguish "invited, hasn't answered"
+    // from "never invited" — T-68: the events list read "Not Attending" for an
+    // invitation the vendor simply hadn't answered yet, because the pill was
+    // derived from a schedule row and never saw the invitation at all.
+    const eventResponseByMarket = new Map<string, string | null>(
+      (marketVendorRes.data || []).map((r) => [
+        r.market_id as string,
+        (r.response_status as string | null) ?? null,
+      ])
+    )
+
     // Get event markets (future events only — past events auto-filtered)
     const today = new Date().toISOString().split('T')[0]
     const eventMarkets = (allMarkets || [])
       .filter(m => m.market_type === 'event' && m.event_end_date >= today)
+      .filter(m => m.is_private !== true || eventResponseByMarket.has(m.id as string))
       .filter(m => isWithinRadius(m.latitude as number, m.longitude as number, m.id as string))
       .map(m => {
         const schedules = (m.market_schedules || []).map((s: any) => {
@@ -208,6 +240,10 @@ export async function GET(request: NextRequest) {
           market_schedules: schedules,
           hasAttendance: marketsWithAttendance.has(m.id),
           hasListings: marketsWithListings.has(m.id),
+          // 'invited' | 'accepted' | 'declined' | null. Null means no
+          // market_vendors row at all — a PUBLIC event the vendor found by
+          // browsing, not an invitation they ignored (T-68).
+          responseStatus: eventResponseByMarket.get(m.id as string) ?? null,
         }
       })
 

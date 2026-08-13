@@ -213,9 +213,12 @@ export default async function EditProfilePage({ params }: EditProfilePageProps) 
         </div>
       )}
 
-      {/* Event Readiness Section — event-enabled verticals */}
+      {/* Event Readiness Section — event-enabled verticals.
+          id is a link target: the event invitation page sends a vendor
+          straight here when their capacity data is missing (T-66). Renaming
+          or removing it breaks that link silently. */}
       {(vertical === 'food_trucks' || vertical === 'farmers_market') && (
-        <div style={{ marginTop: 20 }}>
+        <div id="event-readiness" style={{ marginTop: 20, scrollMarginTop: 80 }}>
           <EventReadinessForm
             vendorId={vendorProfile.id}
             vertical={vertical}

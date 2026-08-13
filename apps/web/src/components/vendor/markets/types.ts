@@ -43,6 +43,10 @@ export type Market = {
   homeMarketRestricted?: boolean
   hasAttendance?: boolean
   hasListings?: boolean
+  /** Events only. 'invited' | 'accepted' | 'declined', or null when the vendor
+   *  has no market_vendors row — i.e. a public event they found by browsing
+   *  rather than an invitation they haven't answered (T-68). */
+  responseStatus?: string | null
   boothAvailability?: BoothAvailability | null
   schedules?: Schedule[]
 }

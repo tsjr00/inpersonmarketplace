@@ -649,23 +649,13 @@ export default function VendorCateringDetailPage() {
             * 2026-08-11 — show it all; the bottom button is the single point of
             * commitment. (T-10, and it dissolves T-14 and most of T-15.)
             */}
-          <div style={{ display: 'flex', gap: spacing.sm, marginBottom: spacing.sm }}>
-            <button
-              onClick={() => handleRespond('declined')}
-              disabled={responding}
-              style={{
-                flex: 1,
-                ...sizing.cta,
-                fontWeight: typography.weights.semibold,
-                backgroundColor: 'white',
-                color: statusColors.danger,
-                border: `2px solid ${statusColors.danger}`,
-                cursor: responding ? 'not-allowed' : 'pointer',
-              }}
-            >
-              Decline
-            </button>
-          </div>
+          {/* T-57: Decline used to sit HERE — above the menu picker, the
+            * capacity fields and the agreement. Introduced by the 2026-08-11
+            * toggle removal, which made the whole form always-visible and left
+            * the decline button stranded at the top. Asking someone to say no
+            * before they have read anything is the wrong order; it now sits
+            * beside Accept at the bottom, where both answers are available at
+            * the same moment. Do not move it back up. */}
           {(
             <div>
               <h4 style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: statusColors.neutral800, margin: `0 0 ${spacing['2xs']}` }}>
@@ -750,11 +740,16 @@ export default function VendorCateringDetailPage() {
                             <p style={{ fontSize: typography.sizes.sm, color: '#dc2626', margin: 0, lineHeight: 1.5 }}>
                               Your profile is missing capacity data. Please update your event readiness questionnaire before accepting this event.
                             </p>
+                            {/* T-66: this pointed at the dashboard, which left
+                                the vendor to find the questionnaire themselves
+                                — and it had moved from Locations to the
+                                business profile, so it wasn't where they'd
+                                look. Links straight at the section now. */}
                             <Link
-                              href={`/${vertical}/vendor/dashboard`}
+                              href={`/${vertical}/vendor/edit#event-readiness`}
                               style={{ display: 'inline-block', marginTop: spacing.xs, fontSize: typography.sizes.sm, color: accent, fontWeight: typography.weights.semibold }}
                             >
-                              Go to Dashboard →
+                              Update event readiness →
                             </Link>
                           </div>
                         )
@@ -886,6 +881,27 @@ export default function VendorCateringDetailPage() {
                   }}
                 >
                   {responding ? 'Submitting...' : `Accept with ${selectedListingIds.size} item${selectedListingIds.size !== 1 ? 's' : ''}`}
+                </button>
+                {/* T-57: Decline lives here, beside Accept, so both answers are
+                    offered at the same point — after the vendor has seen the
+                    event, the menu, the capacity and the agreement. It is NOT
+                    disabled by the accept-side conditions (item count,
+                    agreement, capacity): a vendor who cannot accept must still
+                    be able to say no. */}
+                <button
+                  onClick={() => handleRespond('declined')}
+                  disabled={responding}
+                  style={{
+                    flex: 1,
+                    ...sizing.cta,
+                    fontWeight: typography.weights.semibold,
+                    backgroundColor: 'white',
+                    color: statusColors.danger,
+                    border: `2px solid ${statusColors.danger}`,
+                    cursor: responding ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  Decline
                 </button>
               </div>
             </div>

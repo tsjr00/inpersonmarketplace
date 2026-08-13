@@ -470,7 +470,12 @@ export default function EventReadinessForm({
           {vertical === 'food_trucks' ? (<>
             <option value="immediate">Must be eaten immediately (ice cream, frozen items)</option>
             <option value="within_15_min">Best within 15 minutes (fried items, hot plates)</option>
-            <option value="can_sit_30_plus">Can sit 30+ minutes (tacos, sandwiches, packaged items)</option>
+            {/* T-69: examples here are PACKAGED ONLY, deliberately. This list
+                used to read "(tacos, sandwiches, packaged items)" — naming hot
+                prepared food as fine to sit 30+ minutes reads as the platform
+                endorsing a food-safety practice a health inspector would not.
+                Do not re-add hot or prepared items to this option. */}
+            <option value="can_sit_30_plus">Can sit 30+ minutes (packaged or wrapped items)</option>
           </>) : (<>
             <option value="refrigerated">Requires refrigeration or ice (dairy, meat, produce)</option>
             <option value="shade_required">Needs shade / temperature control (chocolate, baked goods)</option>

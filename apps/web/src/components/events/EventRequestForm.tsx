@@ -544,12 +544,23 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
         */}
         {matchCount !== null && matchCount > 0 && (
           <>
+            {/* T-49: this used to read "We matched N vendors to your event",
+                which overpromises. The intake form does not collect what
+                matching actually needs — vendors want budget and logistics,
+                organizers want the event-context answers — so the number here
+                is a FIRST PASS on partial information, and saying so sets the
+                expectation that finishing the profile changes it.
+                ⚠ Still must not imply we keep searching in the background:
+                the engine runs once per submission. Re-running is an action
+                the organizer takes from the dashboard. */}
             <p style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: accent, margin: `0 0 ${spacing.xs}` }}>
-              We matched {matchCount} {matchCount === 1 ? vendorWordSingular : vendorWord} to your event
+              Based on what you&apos;ve told us so far, we&apos;ve preliminarily matched you with{' '}
+              {matchCount} {matchCount === 1 ? vendorWordSingular : vendorWord}
             </p>
             <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, lineHeight: 1.6, margin: `0 0 ${spacing.sm}` }}>
               We invited them just now — they typically respond within 48 hours. Create your free
-              account to watch responses come in, and to refine your criteria for more matches.
+              account to complete your event profile: the more you tell us, the better we can
+              match, and you can re-run matching from your dashboard whenever you add details.
             </p>
           </>
         )}

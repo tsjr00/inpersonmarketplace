@@ -1528,16 +1528,18 @@ describe('Event token format', () => {
     }
   })
 
-  it('the NEWEST definition of get_available_pickup_dates keeps the event acceptance branch', () => {
-    // This function has been rewritten 19 times across migrations. Twice now,
-    // reading an older definer has nearly produced a change against the wrong
-    // baseline — the live body is whichever migration NUMBER is highest, not
-    // whichever file you find first, and they are not in date order on disk.
-    //
-    // Mig 223 made FT events sell on an ACCEPTED market_vendors row (T-36:
-    // before it, no attendee could order at any food-truck event). A future
-    // rewrite built from an older copy would silently delete that branch and
-    // re-break it. This asserts the newest definer still carries it.
+  // This function has been rewritten 19+ times across migrations. Twice now,
+  // reading an older definer has nearly produced a change against the wrong
+  // baseline — the live body is whichever migration NUMBER is highest, not
+  // whichever file you find first, and they are not in date order on disk.
+  // Shared by every test below that reasons about the live definition.
+  // Returns `sql` with `-- …` comments stripped. Assert against THAT, never
+  // the raw text: these migrations document the branches they add and remove
+  // in prose, so a raw match can pass on a comment (false green for a presence
+  // test) or fail on one (false red for an absence test — which is exactly
+  // what happened writing the T-39 guard below). See backlog "TEST QUALITY —
+  // absence assertions match comments as if they were code".
+  const newestPickupDatesDefiner = (): { name: string; body: string; sql: string } => {
     const migDir = path.resolve(__dirname, '../../../../../supabase/migrations')
     const files: string[] = []
     for (const dir of [migDir, path.join(migDir, 'applied')]) {
@@ -1550,17 +1552,45 @@ describe('Event token format', () => {
         }
       }
     }
-
     expect(files.length, 'no migration defines get_available_pickup_dates').toBeGreaterThan(0)
-
     const num = (p: string) => parseInt(path.basename(p).split('_')[1]!, 10)
     const newest = files.sort((a, b) => num(a) - num(b))[files.length - 1]!
     const body = fs.readFileSync(newest, 'utf-8')
+    return { name: path.basename(newest), body, sql: body.replace(/--[^\n]*/g, '') }
+  }
+
+  it('the NEWEST definition of get_available_pickup_dates keeps the event acceptance branch', () => {
+    // Mig 223 made FT events sell on an ACCEPTED market_vendors row (T-36:
+    // before it, no attendee could order at any food-truck event). A future
+    // rewrite built from an older copy would silently delete that branch and
+    // re-break it. This asserts the newest definer still carries it.
+    const { name, sql } = newestPickupDatesDefiner()
 
     expect(
-      body,
-      `${path.basename(newest)} is the newest definer and must keep the event acceptance branch (mig 223 / T-36)`
+      sql,
+      `${name} is the newest definer and must keep the event acceptance branch (mig 223 / T-36)`
     ).toMatch(/market_vendors mv[\s\S]{0,200}response_status\s*=\s*'accepted'/)
+  })
+
+  it('the NEWEST definer grants events NO vertical exemption (T-39)', () => {
+    // The hole mig 225 closed: `market_type = 'event' AND vertical_id !=
+    // 'food_trucks'` let ANY farmers-market listing attached to an event sell
+    // whether the vendor had accepted, declined, or was never invited — a
+    // VERTICAL test doing the job of a PERMISSION test. It survived because
+    // each of the 19 rewrites copied the body forward verbatim, which is the
+    // right thing to do for safety and exactly how a wrong branch lives for
+    // months.
+    //
+    // Scoped to the event-permission shape on purpose: `ls.vertical_id !=
+    // 'food_trucks'` appears legitimately twice in the DATE-WINDOW logic
+    // (migs 199/200) and must not be caught here.
+    const { name, sql } = newestPickupDatesDefiner()
+    const verticalExemption = /market_type\s*=\s*'event'\s+AND\s+m\.vertical_id\s*!=\s*'food_trucks'/
+
+    expect(
+      verticalExemption.test(sql),
+      `${name} reintroduces a vertical exemption for events — acceptance is the rule in BOTH verticals (mig 225 / T-39)`
+    ).toBe(false)
   })
 
   it('the event accept route still does NOT write vendor_market_schedules', () => {
@@ -1621,6 +1651,36 @@ describe('Organizer identity protection', () => {
     const route = rd('app/api/vendor/market-stats/route.ts')
     const bare = /\|\|\s*m\.market_type === 'event'\s*\|\|/
     expect(bare.test(route), 'an ungated event branch is the T-09 leak').toBe(false)
+  })
+
+  // T-67 (2026-08-12): the SAME leak on a surface the T-09 fix did not cover.
+  // api/vendor/markets selects '*' from markets, so everything it returns
+  // carries address, headcount and the contact/manager email columns — and its
+  // event list filtered on market_type, end date and radius only. Every vendor
+  // could read the host and street address of private events they were never
+  // invited to. Gated on invitation rather than acceptance (unlike
+  // market-stats) because this section is how a vendor DISCOVERS an event:
+  // public events stay browsable, private ones require a market_vendors row.
+
+  it('the vendor markets list hides PRIVATE events the vendor was never invited to', () => {
+    const route = rd('app/api/vendor/markets/route.ts')
+    // Asserts the SHAPE of the rule, not an identifier. The first version of
+    // this test pinned the variable name `invitedEventIds` and broke within
+    // the hour when T-68 turned that Set into a Map to carry response_status —
+    // a rename with the rule fully intact. A guard that fails on refactors
+    // teaches people to edit the guard, which is how guards die.
+    expect(route, "must read this vendor's market_vendors relationships")
+      .toMatch(/from\('market_vendors'\)/)
+    expect(route, 'a private event must require one of those relationships')
+      .toMatch(/is_private !== true \|\| \w+\.has\(/)
+  })
+
+  it('the vendor markets event list is never filtered on type and date alone', () => {
+    // The exact shape of the bug: the type/date filter feeding straight into
+    // the radius filter with no privacy check in between.
+    const route = rd('app/api/vendor/markets/route.ts')
+    const bare = /market_type === 'event' && m\.event_end_date >= today\)\s*\.filter\(m => isWithinRadius/
+    expect(bare.test(route), 'an ungated event list is the T-67 leak').toBe(false)
   })
 })
 

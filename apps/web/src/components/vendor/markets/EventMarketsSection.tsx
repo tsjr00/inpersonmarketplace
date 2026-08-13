@@ -226,14 +226,38 @@ export default function EventMarketsSection({
                   )}
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <span style={{
-                    padding: '4px 10px',
-                    backgroundColor: market.hasAttendance ? statusColors.successLight : statusColors.warningLight,
-                    color: market.hasAttendance ? statusColors.success : statusColors.warning,
-                    borderRadius: 12, fontSize: 12, fontWeight: 600
-                  }}>
-                    {market.hasAttendance ? 'Attending' : 'Not Attending'}
-                  </span>
+                  {/* T-68: this pill used to read hasAttendance ? 'Attending'
+                      : 'Not Attending', which is a SCHEDULE fact answering an
+                      INVITATION question — a vendor who had been invited and
+                      simply hadn't replied yet was told they were "Not
+                      Attending". For events the invitation response is the
+                      real state (mig 223 made acceptance what lets an event
+                      sell), so read that first and fall back to the schedule.
+                      A null responseStatus means no invitation exists at all —
+                      a public event found by browsing, where "Not attending"
+                      is accurate. */}
+                  {(() => {
+                    const status = market.responseStatus
+                    const label =
+                      status === 'accepted' || market.hasAttendance ? 'Attending'
+                      : status === 'declined' ? 'Declined'
+                      : status ? 'Invited'
+                      : 'Not attending'
+                    const tone =
+                      label === 'Attending' ? { bg: statusColors.successLight, fg: statusColors.success }
+                      : label === 'Invited' ? { bg: statusColors.infoLight, fg: statusColors.info }
+                      : { bg: statusColors.warningLight, fg: statusColors.warning }
+                    return (
+                      <span style={{
+                        padding: '4px 10px',
+                        backgroundColor: tone.bg,
+                        color: tone.fg,
+                        borderRadius: 12, fontSize: 12, fontWeight: 600
+                      }}>
+                        {label}
+                      </span>
+                    )
+                  })()}
                 </div>
               </div>
               {!market.hasAttendance && (
