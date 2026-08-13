@@ -10,9 +10,15 @@
 - ✅ **STEP 3 done.** `NOTIFY pgrst` run and the verification query re-run on
   Prod: **all sixteen rows PRESENT.** The database side of this deploy is
   complete and verified.
-- ⏳ **STEP 4 — CODE PUSH. BLOCKED BY THE PUSH WINDOW UNTIL 21:00 CT.**
-  One command: `git checkout main && git push origin main`
-- ⬜ STEP 5 — post-push smoke checks.
+- ✅ **STEP 4 done — pushed 2026-08-13 ~12:50 CT with `PUSH_WINDOW_OVERRIDE=hotfix`.**
+  Owner explicitly confirmed the override: client presentation at ~14:00 CT
+  required prod (staging would read as amateur to the client). Ref update
+  `f141c6e6..54ca375f`, pre-push build + 49 Playwright tests green, push
+  verified on origin. This was a deliberate, named exception — not a precedent
+  for casual daytime pushes.
+- ⏳ **STEP 5 — owner watching the Vercel build, then the demo-readiness pass:**
+  landing/login → FT ZIP search (T-60) → events page cards → submit a real
+  event end-to-end (doubles as demo prep).
 
 **Bookkeeping already updated:** all eleven changelog rows now read APPLIED TO
 ALL THREE ENVIRONMENTS, and the eleven files have moved to
