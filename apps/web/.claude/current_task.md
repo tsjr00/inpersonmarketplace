@@ -1,4 +1,57 @@
-# Current Task: ✅ T-60 RESOLVED — location search fixed by migration 224 (Dev + Staging + Prod, 2026-08-12)
+# Current Task: 🎤 EVENTS PRESENTATION TODAY — 10 findings fixed and OWNER-VERIFIED on staging
+
+## ⏱️ SESSION END — 2026-08-13, ~00:30. Owner wrapped up. Nothing half-done.
+
+### Git / env — VERIFY, don't trust this table
+
+| | |
+|---|---|
+| local `main` | `786924a1` |
+| `origin/staging` | `786924a1` — **in sync, 0 ahead / 0 behind** |
+| **PROD** `origin/main` | `f141c6e6` — untouched, now 65 commits behind |
+| Uncommitted | only `apps/web/.claude/settings.local.json` (pre-existing, not mine) |
+| Migrations on Dev+Staging+Prod | **224** (applied everywhere 2026-08-12) |
+| Migrations on Dev+Staging only | 213–223 |
+| Migrations applied NOWHERE | **225** — written, parked, see below |
+
+`git log main --oneline -1 ; git log origin/staging --oneline -1 ; git status --short`
+
+### ✅ Owner verified on staging: *"i just looked on staging - it works."*
+
+**Three commits this session.**
+
+**`b503ea2d` — migration 224, the production regression.** Full write-up in the T-60 section below and in `SCHEMA_SNAPSHOT.md`. Short version: migration 211 (2026-07-25) deactivated every food-truck schedule row lacking a paid park booking, on a premise — "no booking means phantom" — that is false for every park the platform doesn't manage. Food-truck locations disappeared from buyer search on Prod for two weeks. Restored 7 rows on Prod, 5 on Staging, exactly as predicted. **No code changed; the visibility rule was correct as written.** Postmortem headers added to migs 210 and 211.
+
+**`d804848d` — T-67 leak + six findings.** T-67 (every vendor could read the host and street address of private events they were never invited to), T-68 (pill read a schedule fact to answer an invitation question), T-57 (Decline moved beside Accept), T-66 (readiness link), T-69 (perishability copy), T-49 (match splash), T-52 (dashboard opening line).
+
+**`786924a1` — T-53 / T-54 / T-71.** One component, `components/events/OrganizerProgress.tsx`, rendering in two places. Stage strip derived from `catering_requests.status`; "What happens next" card above Manage this event. **The rule it encodes: at every stage, name what the organizer FINISHED and what is underway — never render a stage as "nothing to do."**
+
+### ▶ NEXT — ranked by what a live demo could walk into, not by ID
+
+1. **T-48 — the landmine.** An existing account filling in the event form is offered only "create your account" and sent to signup. The system already recognises them (manual login works, dashboard resolves by email), so it is offering the wrong door. **Most likely thing to happen on screen during a demo.** Fix is offering sign-in alongside signup.
+2. **T-65 — a wrong number in front of a vendor.** The invitation page does per-truck maths as if the vendor were the only one ("100 total ÷ 1 trucks" while truck #1 had already accepted).
+3. **T-72 — most self-contained, but NOT a copy fix.** `checkout/success/page.tsx:576` hardcodes `/{vertical}/browse`. The page knows `item.market_type === 'event'` but **not the event token**, and the shop route needs one — so it means resolving order → order_items → market → token and plumbing it in.
+4. **T-59 — know about it even if unfixed.** No in-app notification reaches the organizer when a vendor accepts, and **the vendor's acceptance message appears nowhere** — the text typed above the Decline button.
+5. **Matching cluster T-63/64/70 — the biggest functional gap; keep it away from a demo day.** Matching never re-runs, so a vendor who becomes eligible after the event was created is never invited. Wants its own session.
+6. **Rate limiter may FAIL OPEN on a Redis error** — still unverified, still the only security-adjacent unknown. Read the error path in `lib/rate-limit.ts`.
+
+### ⏸️ Migration 225 — written, applied NOWHERE, do not apply casually
+
+Owner, 2026-08-12: *"I don't like just applying things because you say so — I'll never do that."* Full state + verification recipe in `backlog.md` → "T-39 PARKED" and the migration header. Parked because **zero live FM events exist in any environment**, so a differential would be all-zeros and prove nothing.
+
+### 🚨 PROCESS — the correction that cost the most time today
+
+The owner called this out directly: *"this is taking a long time to get very little done."*
+
+**Cause: ceremony was sized to the FILE, not the RISK.** Mig 223 got a full pre-registered differential, so when 225 touched the same function it got the same apparatus — without first asking how much could break. **One query ("are there any live FM events?") would have set the depth in one step.** It was then made worse by checkpointing every stage through Claude — "send me C's output and I'll tell you whether to proceed to D" — six round-trips where one self-contained script with stated expected outputs would have done.
+
+⚠ **The wrong correction is to verify less.** Claude proposed exactly that when told the pace was bad, and the owner rejected it. **Establish blast radius first, batch the diagnostics, hand over a script with the expected result written next to each step so the owner never waits on a turn.**
+
+Second, smaller: **guards that pin identifiers break on refactors.** The T-67 guard asserted a variable name and failed within the hour on a rename with the rule fully intact. Rewritten to assert the rule's shape. A guard that fails on refactors teaches people to edit the guard.
+
+---
+
+# Previous: ✅ T-60 RESOLVED — location search fixed by migration 224 (Dev + Staging + Prod, 2026-08-12)
 
 ## ✅ OUTCOME — read this first; the investigation record below is history, kept for the reasoning
 
