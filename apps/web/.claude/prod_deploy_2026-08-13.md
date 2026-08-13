@@ -1,5 +1,29 @@
 # PRODUCTION DEPLOY RUNBOOK — 2026-08-13
 
+## ▶ LIVE STATUS
+
+- ✅ **STEP 1 done.** Prod queried. **210 and 212 were already applied** (the
+  changelog was wrong about both). **213–223 all MISSING.**
+- ✅ **Dependency pre-check done.** Every object 223 and 220 rely on is present
+  on Prod — nothing older is missing.
+- ✅ **STEP 2 done — 213 through 223 applied to Prod 2026-08-13 (user).**
+- ⏳ **STEP 3** — `NOTIFY pgrst, 'reload schema';` then re-run the STEP 1 query;
+  all sixteen rows should read PRESENT.
+- ⏳ **STEP 4 — CODE PUSH. BLOCKED BY THE PUSH WINDOW UNTIL 21:00 CT.**
+- ⬜ STEP 5 — post-push smoke checks.
+
+**Bookkeeping already updated:** all eleven changelog rows now read APPLIED TO
+ALL THREE ENVIRONMENTS, and the eleven files have moved to
+`supabase/migrations/applied/`. Only **225** remains in `supabase/migrations/`,
+which is correct — it is applied nowhere and stays parked.
+
+⚠ **The database is now AHEAD of the deployed prod code.** That is the safe
+direction: the additive columns and tables sit unused until the code ships. But
+prod is in a split state until STEP 4 completes, so do not leave it here
+indefinitely.
+
+---
+
 **Prod is at `f141c6e6`. Local `main` = `e7150228`. This ships 72 commits.**
 
 > ⚠ **STOP — read "Warnings" at the bottom before starting.** Two of them can
