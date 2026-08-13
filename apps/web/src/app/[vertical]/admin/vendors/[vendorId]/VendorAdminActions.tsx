@@ -11,6 +11,8 @@ interface VendorAdminActionsProps {
   currentStatus: string
   eventApproved: boolean
   hasCoiApproved: boolean
+  /** T-62: true when the vendor has actually submitted an event application. */
+  hasApplied: boolean
 }
 
 export default function VendorAdminActions({
@@ -19,6 +21,7 @@ export default function VendorAdminActions({
   currentStatus,
   eventApproved: initialEventApproved,
   hasCoiApproved,
+  hasApplied,
 }: VendorAdminActionsProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -34,14 +37,25 @@ export default function VendorAdminActions({
       setMessage({ type: 'error', text: 'Vendor must have approved Certificate of Insurance before event approval.' })
       return
     }
+    // T-62: an admin granted event approval to a vendor who never applied,
+    // with no warning — the dialog was generic and blind to application state.
+    // The owner did exactly this by accident during testing. When the vendor
+    // has NOT applied, the dialog now names the mismatch and uses the danger
+    // styling; approving anyway stays possible (an admin may have context) but
+    // can no longer happen unknowingly.
+    const approvingNonApplicant = approve && !hasApplied
     setConfirmDialog({
       open: true,
-      title: approve ? 'Approve for Events' : 'Revoke Event Approval',
-      message: approve
-        ? 'Approve this vendor for private events? They will be able to mark menu items as event-ready.'
-        : 'Revoke event approval? The vendor will no longer be able to mark items as event-ready.',
-      confirmLabel: approve ? 'Approve' : 'Revoke',
-      variant: approve ? 'default' : 'danger',
+      title: approvingNonApplicant
+        ? 'Vendor Has Not Applied'
+        : approve ? 'Approve for Events' : 'Revoke Event Approval',
+      message: approvingNonApplicant
+        ? 'This vendor has NOT submitted an event application — their event readiness questionnaire is empty, so matching has no capacity or experience data for them. Approve for events anyway?'
+        : approve
+          ? 'Approve this vendor for private events? They will be able to mark menu items as event-ready.'
+          : 'Revoke event approval? The vendor will no longer be able to mark items as event-ready.',
+      confirmLabel: approvingNonApplicant ? 'Approve Anyway' : approve ? 'Approve' : 'Revoke',
+      variant: approvingNonApplicant || !approve ? 'danger' : 'default',
       onConfirm: () => executeEventApproval(approve),
     })
   }

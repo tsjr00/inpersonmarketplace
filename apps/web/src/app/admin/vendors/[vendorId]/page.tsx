@@ -163,6 +163,12 @@ export default async function VendorDetailPage({ params }: VendorDetailPageProps
           eventApproved={!!(vendor.event_approved)}
           verticalId={verticalId}
           onboardingComplete={!!verificationData?.onboarding_completed_at}
+          /* T-62: same rule as the vertical-admin surface
+             (VendorAdminActions) — the approve dialog must know whether the
+             vendor ever applied. Keep the two definitions of "applied" in
+             step. */
+          hasApplied={!!(profileData?.event_readiness as Record<string, unknown> | undefined)?.application_status
+            && (profileData?.event_readiness as Record<string, unknown>)?.application_status !== 'not_applied'}
         />
       </div>
 

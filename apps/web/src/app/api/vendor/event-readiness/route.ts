@@ -36,7 +36,8 @@ export async function PUT(request: NextRequest) {
       user_id: string
       vertical_id: string
       profile_data: Record<string, unknown> | null
-    }>(supabase, user.id, vertical, 'id, user_id, vertical_id, profile_data')
+      event_approved: boolean | null
+    }>(supabase, user.id, vertical, 'id, user_id, vertical_id, profile_data, event_approved')
 
     if (vpError || !vendor) {
       throw traced.notFound('ERR_VENDOR_001', vpError || 'Vendor profile not found')
@@ -54,10 +55,19 @@ export async function PUT(request: NextRequest) {
     // Determine if this is a first-time submission
     const isFirstSubmission = !existingStatus || existingStatus === 'not_applied'
 
+    // T-62 (half two): an admin can grant event_approved BEFORE the vendor
+    // applies — the grant route skips its status sync when readiness is empty.
+    // If the vendor then submitted this form, the line below used to stamp
+    // 'pending_review' over an approval that already existed, so the profile
+    // read "application pending" against a granted approval. An approved
+    // vendor's submission is a profile update, not an application.
+    const alreadyApproved = !!vendor.event_approved
+
     // Build the event_readiness object
     const eventReadiness = {
       ...validation.sanitized,
-      application_status: isFirstSubmission ? 'pending_review' : existingStatus,
+      application_status: alreadyApproved ? 'approved'
+        : isFirstSubmission ? 'pending_review' : existingStatus,
       submitted_at: isFirstSubmission ? new Date().toISOString() : (existingReadiness.submitted_at || new Date().toISOString()),
       updated_at: new Date().toISOString(),
     }
@@ -82,8 +92,11 @@ export async function PUT(request: NextRequest) {
       throw traced.fromSupabase(updateError, { table: 'vendor_profiles', operation: 'update' })
     }
 
-    // Notify on first submission only
-    if (isFirstSubmission) {
+    // Notify on first submission only. T-62: NOT when the vendor is already
+    // event-approved — "has applied for private event approval, review their
+    // profile" would ask admins to review an application that does not exist
+    // for a decision already made.
+    if (isFirstSubmission && !alreadyApproved) {
       const vendorName = (existingProfileData.business_name as string) || (existingProfileData.farm_name as string) || 'A vendor'
 
       // Send confirmation to the vendor

@@ -14,9 +14,11 @@ interface VendorActionsProps {
   eventApproved?: boolean
   verticalId?: string
   onboardingComplete?: boolean
+  /** T-62: true when the vendor has actually submitted an event application. */
+  hasApplied?: boolean
 }
 
-export default function VendorActions({ vendorId, currentStatus, vendorLatitude, vendorLongitude, eventApproved = false, verticalId, onboardingComplete = false }: VendorActionsProps) {
+export default function VendorActions({ vendorId, currentStatus, vendorLatitude, vendorLongitude, eventApproved = false, verticalId, onboardingComplete = false, hasApplied = false }: VendorActionsProps) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
@@ -32,14 +34,22 @@ export default function VendorActions({ vendorId, currentStatus, vendorLatitude,
   const hasValidCoordinates = vendorLatitude != null && vendorLongitude != null
 
   const toggleEventApproval = (approve: boolean) => {
+    // T-62: mirror of the vertical-admin surface (VendorAdminActions). An
+    // admin approved a non-applicant by accident because this dialog was blind
+    // to application state. Warn loudly, keep the override possible.
+    const approvingNonApplicant = approve && !hasApplied
     setConfirmDialog({
       open: true,
-      title: approve ? 'Approve for Events' : 'Revoke Event Approval',
-      message: approve
-        ? 'Approve this vendor for private events? They will be able to mark menu items as event-ready.'
-        : 'Revoke event approval? The vendor will no longer be able to mark items as event-ready.',
-      confirmLabel: approve ? 'Approve' : 'Revoke',
-      variant: approve ? 'default' : 'danger',
+      title: approvingNonApplicant
+        ? 'Vendor Has Not Applied'
+        : approve ? 'Approve for Events' : 'Revoke Event Approval',
+      message: approvingNonApplicant
+        ? 'This vendor has NOT submitted an event application — their event readiness questionnaire is empty, so matching has no capacity or experience data for them. Approve for events anyway?'
+        : approve
+          ? 'Approve this vendor for private events? They will be able to mark menu items as event-ready.'
+          : 'Revoke event approval? The vendor will no longer be able to mark items as event-ready.',
+      confirmLabel: approvingNonApplicant ? 'Approve Anyway' : approve ? 'Approve' : 'Revoke',
+      variant: approvingNonApplicant || !approve ? 'danger' : 'default',
       onConfirm: () => executeEventApproval(approve),
     })
   }

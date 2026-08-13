@@ -207,6 +207,14 @@ export default async function VerticalAdminVendorDetailPage({ params }: VendorDe
               currentStatus={vendorStatus}
               eventApproved={eventApproved}
               hasCoiApproved={coiStatus === 'approved'}
+              /* T-62: the approve dialog needs to know whether the vendor ever
+                 actually APPLIED — an admin granted event approval to a
+                 non-applicant with no warning. "Applied" = readiness exists
+                 with a real application_status (not_applied is the pre-apply
+                 sentinel written by the readiness route). */
+              hasApplied={!!eventReadiness
+                && !!eventReadiness.application_status
+                && eventReadiness.application_status !== 'not_applied'}
             />
           </div>
         </div>
