@@ -33,6 +33,9 @@ export interface MarketVisibilityStatus {
   vendorsWithBoth: number
 }
 
+// @paired-rule market-visibility — mirror of getFullyOnboardedMarketIds in
+// visible-markets.ts; the manager explanation must match what buyers see.
+// See lib/paired-rules.ts.
 export async function getMarketVisibilityStatus(
   marketId: string
 ): Promise<MarketVisibilityStatus> {

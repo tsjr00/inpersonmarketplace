@@ -79,6 +79,7 @@ export async function GET(request: NextRequest) {
         .select('market_id')
         .eq('vendor_profile_id', vendorProfile.id)
         .eq('response_status', 'accepted')
+      // @paired-rule organizer-identity — see lib/paired-rules.ts.
       const acceptedEventIds = new Set((acceptedRows || []).map((r) => r.market_id as string))
 
       // Traditional and private-pickup filtering is deliberately unchanged —

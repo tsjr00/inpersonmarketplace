@@ -1820,3 +1820,42 @@ describe('Matching readiness integrity', () => {
       .toMatch(/accepted >= needed/)
   })
 })
+
+// ── Market visibility rule: buyer search ↔ manager explanation (2026-08-13) ──
+//
+// A traditional market is visible to buyers iff ≥1 vendor has BOTH a
+// published, non-deleted listing linked via listing_markets AND an active
+// vendor_market_schedules row — an intersection on the SAME vendor. The rule
+// is implemented TWICE by design: getFullyOnboardedMarketIds (batch, buyer
+// search) and getMarketVisibilityStatus (per-market, the manager dashboard's
+// "why isn't my market visible" card). Their own comments call each other
+// mirrors, but until this test nothing pinned them — if one changes, the
+// manager is told a different rule than the one hiding their market, which is
+// worse than no explanation. Registered as @paired-rule market-visibility.
+
+describe('Market visibility rule', () => {
+  const rd = (p: string) => fs.readFileSync(path.join(SRC_DIR, p), 'utf-8')
+  const CLAUSES: Array<[string, RegExp]> = [
+    ['published listings only', /\.eq\('listings\.status', 'published'\)/],
+    ['non-deleted listings only', /\.is\('listings\.deleted_at', null\)/],
+    ['active schedule rows only', /\.eq\('is_active', true\)/],
+  ]
+
+  it('both implementations enforce all three clauses of the rule', () => {
+    for (const file of ['lib/markets/visible-markets.ts', 'lib/markets/market-visibility.ts']) {
+      const text = rd(file)
+      for (const [name, re] of CLAUSES) {
+        expect(re.test(text), `${file} must enforce: ${name}`).toBe(true)
+      }
+    }
+  })
+
+  it('both implementations intersect on the SAME vendor, not two independent existence checks', () => {
+    // The batch version keys pairs on market|vendor; the per-market version
+    // counts vendors present in BOTH sets. Losing the same-vendor requirement
+    // in either would show markets where one vendor listed and a DIFFERENT
+    // vendor scheduled — a market nobody can actually buy from.
+    expect(rd('lib/markets/visible-markets.ts')).toMatch(/\$\{row\.market_id\}\|\$\{(row\.)?vendor_profile_id\}|market_id\}\|\$\{vpid\}/)
+    expect(rd('lib/markets/market-visibility.ts')).toMatch(/scheduleVendors\.has\(vpid\)/)
+  })
+})

@@ -1607,6 +1607,7 @@ export default function AdminCateringPage() {
                               // now, from the API. Null readiness = the T-70
                               // hard gate — the engine will not match this
                               // vendor at all, so say that instead of scoring.
+                              // @paired-rule matching-inputs — must feed the scorer the same real readiness the engine does. See lib/paired-rules.ts.
                               const matchInput: VendorMatchInput = {
                                 vendor_id: v.id, business_name: v.business_name,
                                 listing_categories: v.listing_categories || [],

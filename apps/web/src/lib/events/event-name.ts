@@ -19,6 +19,7 @@
  * address. Public events (is_private false) are never masked — the organizer
  * chose to be public.
  */
+// @paired-rule organizer-identity — the shared mask; surfaces that skip it leak.
 export function maskedEventName(
   city: string | null | undefined,
   eventStartDate: string | null | undefined

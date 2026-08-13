@@ -17,6 +17,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
  * App-layer implementation (no DB view change). Two queries + in-memory
  * intersection on (market_id, vendor_profile_id) pairs.
  */
+// @paired-rule market-visibility — lib/markets/market-visibility.ts is a
+// hand-kept per-market mirror of this batch rule. See lib/paired-rules.ts.
 export async function getFullyOnboardedMarketIds(
   supabase: SupabaseClient,
   marketIds: string[]

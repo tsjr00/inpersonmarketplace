@@ -611,7 +611,26 @@ New event → dashboard sections → vendor auto-invited on match → vendor acc
 
 See the design discussion in-session. Core idea: every place the app tells a user "no" emits a counter against a named rule key, so two otherwise-unanswerable questions become queries — *which rules have never once fired* (dead code, or a rule nobody meant), and *which started firing* (a regression in flight). Passive: needs no discipline from any future session.
 
-### 2. PAIRED-SURFACE TESTS — 📐 PROPOSAL, written 2026-08-11, NOT BUILT
+### 2a. 🔎 RETROSPECTIVE SECOND-SURFACE AUDIT — planned 2026-08-13, TOP PRIORITY for a fresh session
+
+**The question that prompted it (owner):** *"is it likely that bugs we fixed weeks ago still have a 2nd surface out there waiting to break?"* **Answer: yes — proven.** T-09 was fixed on market-stats; the SAME rule then broke on vendor/markets (T-67) and again via the market NAME (T-75). Three second-surfaces of one already-fixed bug, because every pre-2026-08-11 fix repaired the surface that broke without asking "where else does this rule live?"
+
+**The audit:** walk the fixed-bug record — every ✅ entry in this backlog, the session summaries, and the older `error_resolutions` table — and for each fix: (1) state the RULE the fix enforced, one sentence; (2) enumerate every surface where that rule lives, using **unfiltered reads of candidate files, not grep** (grep proves presence, never absence); (3) COLLAPSE surfaces that can share one implementation; REGISTER (tag + entry + behavioural test) the ones that cannot; (4) record rules with genuinely one surface as checked-clean so the audit is not redone.
+
+**Named suspects to start with:**
+- **Pricing display rule** (T-06/T-41 class): vendors enter BASE price; every non-vendor surface shows FEE-INCLUSIVE. A per-viewer rule with many display surfaces — T-06 fixed only the organizer one, and the owner said at the time "if you find a different situation let me know." Nobody has enumerated the surfaces.
+- **Multi-market order comms** (T-05 class): the confirmation email described one market; are there other comms/receipt surfaces that describe a cart and assume one market?
+- **market-visibility** — ✅ DONE 2026-08-13, registered as the first pre-existing pair pinned BEFORE it broke (batch search ↔ manager explanation card).
+- The sweep categories learned this week: notification template keys ↔ caller keys (T-08 class — long-term fix is TYPING per-notification payloads, which deletes the class), per-viewer masking surfaces (T-75 class), status-value maps (`STAGE_FOR_STATUS` ↔ DB statuses), the "has applied" definition on two admin surfaces (collapse candidate).
+- **Unlock category G first if possible:** owner runs the `pg_policies` query (section G below) so RLS-vs-route pairs become enumerable.
+
+**Why a fresh session:** enumeration requires unfiltered reads of many files — exactly the workload that wants full context.
+
+### 2. PAIRED-SURFACE TESTS — ✅ BUILT 2026-08-13 (proposal below kept as the design record)
+
+**Shipped:** `src/lib/paired-rules.ts` (PAIRED_RULES registry, 6 entries) + `src/lib/__tests__/paired-rules-coverage.test.ts` (pre-commit: orphan tags fail, <2 sites fails, dead behavioural-test pointers fail) + 13 `@paired-rule` tags across 11 files including the SQL side (comment in `applied/` mig 223) and both cart critical-path files (comment-only, owner file-level approved). **Entries:** multi-market-cart · event-token-format · organizer-identity (4 sites) · event-sells-on-acceptance (app↔SQL) · capacity-seeding · matching-inputs. **Delta from the approved 4-entry list, flagged at build time:** `display-price` NOT registered — it was COLLAPSED in the 2026-08-11 sweep and the proposal's own collapse-before-register principle says collapsed pairs get no entry; ADDED capacity-seeding, matching-inputs, and the acceptance app↔SQL pair (created/confirmed after the sweep). **Build note:** three of my own tags tripped existing guards on first run — the respond-route tag contained a literal an absence-test forbids (the comment-matching trap, third occurrence this week), the seed tag split a regex the capacity test pins, and the map coverage demanded a claims entry. All three were the gates working.
+
+
 
 **Supersedes the original "capability tests" framing**, on evidence gathered after it was approved. Owner asked for the write-up before any building.
 

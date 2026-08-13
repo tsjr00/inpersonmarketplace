@@ -1,3 +1,20 @@
+# Current Task: ✅ PAIRED-SURFACE REGISTRY BUILT (2026-08-13) — next: retrospective second-surface audit
+
+## What shipped (commit pending at write time)
+`src/lib/paired-rules.ts` — PAIRED_RULES, **7 entries**: multi-market-cart · event-token-format · organizer-identity (4 sites) · event-sells-on-acceptance (app↔SQL, tagged inside applied/ mig 223) · capacity-seeding · matching-inputs · **market-visibility** (batch search ↔ manager card — the first pre-existing pair registered BEFORE it broke).
+`src/lib/__tests__/paired-rules-coverage.test.ts` — pre-commit: orphan tags fail, <2 sites fail, dead behavioural-test pointers fail. 15 tags / 13 files, including comment-only tags in BOTH cart critical-path files (owner file-level approved) and a SQL comment in mig 223.
+Delta from approved 4-entry list flagged and accepted: display-price omitted (collapsed 2026-08-11 → no entry per the proposal's own principle); 4 pairs added.
+
+## ▶ NEXT SESSION, TOP ITEM: the retrospective second-surface audit
+Full plan + named suspects: `backlog.md` → "2a. RETROSPECTIVE SECOND-SURFACE AUDIT". Owner asked "do bugs we fixed weeks ago still have a 2nd surface waiting to break?" — yes, proven by T-09→T-67→T-75. Start with the pricing display rule (base vs fee-inclusive, per-viewer, many surfaces, only one ever fixed).
+
+## Also open
+- Question-tagging design session (backlog → "PUBLIC EVENTS PAGE REDESIGN" extension) — needs owner.
+- Owner tasks: staging test pass (T-62 dialog, name masking, cancel copy, admin readiness badges), manual Phase 15.7 cron trigger on staging, mig 225 verification recipe, T-74 pill retest on prod, UPSTASH env check on prod.
+- Typed notification payloads (deletes the T-08 class) — backlogged in the audit plan.
+
+---
+
 # Current Task: 🎤 EVENTS PRESENTATION TODAY — 10 findings fixed and OWNER-VERIFIED on staging
 
 ## ⏱️ SESSION END — 2026-08-13, ~00:30. Owner wrapped up. Nothing half-done.

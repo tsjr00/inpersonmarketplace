@@ -255,6 +255,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         }
       }
 
+      // @paired-rule event-sells-on-acceptance — this response_status write is
+      // the ONLY record of event attendance. Never mirror it into a
+      // schedule/vms row; the SQL side (newest definer of
+      // get_available_pickup_dates) sells on THIS row. See lib/paired-rules.ts.
       // Update response (include capacity caps for event acceptance)
       const updateData: Record<string, unknown> = {
         response_status,

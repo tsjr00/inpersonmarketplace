@@ -157,6 +157,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
       // Organizer identity protection: vendors never see company_name or contact info.
       // Full address is only revealed after the vendor has accepted the invitation.
       // Before acceptance, vendors see only city + state (enough to decide if location works).
+      // @paired-rule organizer-identity — every vendor-facing surface must
+      // mask identity (name, address) until acceptance. See lib/paired-rules.ts.
       const hasAccepted = marketVendor.response_status === 'accepted'
 
       return NextResponse.json({

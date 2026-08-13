@@ -201,6 +201,11 @@ async function handleListingAdd(
     })
   }
 
+  // @paired-rule multi-market-cart — the ONLY cross-market restriction is
+  // event isolation; carts may otherwise span markets. cart/validate must
+  // agree with what this file lets in — disagreement killed multi-market
+  // checkout in production for 3 weeks with 1911 tests green (2026-08-09).
+  // See lib/paired-rules.ts.
   // Cross-event cart isolation: prevent mixing event items with other markets
   crumb.logic('Checking cross-event cart isolation')
   const { data: crossMarketItems } = await supabase

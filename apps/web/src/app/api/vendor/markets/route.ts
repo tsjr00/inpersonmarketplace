@@ -241,6 +241,7 @@ export async function GET(request: NextRequest) {
         // (`${company_name} ${suffix}` at approval). Masked until the vendor
         // has ACCEPTED — same rule as the address on the invitation page.
         // Public events are never masked; the organizer chose to be public.
+        // @paired-rule organizer-identity — see lib/paired-rules.ts.
         const nameIsMasked = m.is_private === true && responseStatus !== 'accepted'
         return {
           ...m,

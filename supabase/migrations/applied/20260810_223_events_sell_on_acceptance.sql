@@ -160,6 +160,7 @@ BEGIN
         -- (vms.id IS NOT NULL after the is_active=true LEFT JOIN filter).
         m.market_type = 'private_pickup'
         OR (m.market_type = 'event' AND m.vertical_id != 'food_trucks')
+        -- @paired-rule event-sells-on-acceptance (see apps/web/src/lib/paired-rules.ts)
         -- T-36 (mig 223): an event sells when the vendor has ACCEPTED the
         -- invitation. market_vendors.response_status is already the single
         -- record of event attendance, so this adds no second source of truth

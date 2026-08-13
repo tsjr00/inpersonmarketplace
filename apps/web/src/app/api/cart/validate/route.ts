@@ -184,6 +184,8 @@ export async function GET(request: NextRequest) {
     // it (bb865e30, 2026-01-24).
     const marketType = marketTypes.size === 1 ? Array.from(marketTypes)[0] : null
 
+    // @paired-rule multi-market-cart — must forbid ONLY what cart/items
+    // forbids (event isolation), nothing more. See lib/paired-rules.ts.
     if (marketTypes.has('event') && marketIds.size > 1) {
       warnings.push('Event items must be ordered on their own. Please check out your event items separately.')
       valid = false

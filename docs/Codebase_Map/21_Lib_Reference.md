@@ -1,9 +1,10 @@
 # 21 — Shared Library Reference
 
-<!-- map-stamp: domain=lib-reference; verified=2026-08-07; commit=36aa2bd9 -->
+<!-- map-stamp: domain=lib-reference; verified=2026-08-13; commit=361c2685 -->
 <!-- map-claims
 src/lib/errors/**
 src/lib/telemetry/**
+src/lib/paired-rules.ts
 src/lib/dashboard/**
 src/lib/db/**
 src/lib/domain/**
@@ -67,6 +68,7 @@ Shared modules not owned by a single domain. **The lib layer is where the busine
 
 | File | Purpose |
 |---|---|
+| `paired-rules.ts` | PAIRED_RULES — the registry of rules enforced in MORE than one independently-editable place where drift is silent (the dominant 2026-08 defect pattern: token generator vs shop guard, cart/items vs cart/validate, matching engine vs admin preview). Each entry names the rule, the authoritative surface, why drift is silent, and the BEHAVIOURAL test pinning the pair. Sites carry `@paired-rule <key>` comment tags; `__tests__/paired-rules-coverage.test.ts` fails the commit on orphan tags, pairs with <2 sites, or dead behavioural-test pointers. Collapse before registering — only pairs that cannot share one implementation belong here. |
 | `telemetry/refusal-registry.ts` | The declared list of rules that can refuse a user: key, description, enforcement site, the decision behind it, and `RETIRED_RULES` for rules deliberately removed. Without a declared list you cannot tell a rule that NEVER FIRED from one that DOESN'T EXIST — and "never fired" is the signal. |
 | `telemetry/refusals.ts` | `recordRefusal(key, ctx)` → one row in `rule_refusals` (mig 222). Never throws, no-ops in tests, and must be **awaited** (Vercel freezes the function after the response). |
 

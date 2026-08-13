@@ -135,6 +135,7 @@ export default function VendorCateringDetailPage() {
         const perWave = data.event?.profile_max_headcount_per_wave
         if (perWave) {
           setMaxOrdersPerWave(perWave)
+          // @paired-rule capacity-seeding — see lib/paired-rules.ts.
           setMaxOrdersTotal(
             perWave * calculateWaveCount(data.event.event_start_time, data.event.event_end_time)
           )
@@ -764,6 +765,7 @@ export default function VendorCateringDetailPage() {
                     {(() => {
                       // Same helper the loader uses to seed the fields, so the
                       // number shown here and the number submitted cannot drift.
+                      // @paired-rule capacity-seeding — display must mirror the seeded/submitted value. See lib/paired-rules.ts.
                       const waveCount = calculateWaveCount(details.event_start_time, details.event_end_time)
                       const profilePerWave = details.profile_max_headcount_per_wave
 

@@ -43,6 +43,9 @@ export default async function EventShopPage({
   // testing 2026-08-10, not by any test.
   //
   // Guarded now by flow-integrity -> "Event token format".
+  // @paired-rule event-token-format — this regex must accept everything the
+  // generator in lib/events/event-actions.ts can mint (base64url). See
+  // lib/paired-rules.ts.
   if (!token || token.length < 3 || !/^[A-Za-z0-9_-]+$/.test(token)) {
     notFound()
   }

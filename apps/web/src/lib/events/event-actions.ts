@@ -110,6 +110,9 @@ export async function approveEventRequest(
     .replace(/\//g, '_')
     .replace(/=+$/, '')
     .slice(0, 18)
+  // @paired-rule event-token-format — the shop-page guard must accept every
+  // token this can mint. Change the alphabet here and the guard 404s every
+  // event link (T-01, two months dead). See lib/paired-rules.ts.
   const event_token = `${tokenBase}-${tokenSuffix}`
 
   // Create event market — name pulled from per-vertical terminology config
@@ -298,6 +301,9 @@ export async function autoMatchAndInvite(
       continue
     }
 
+    // @paired-rule matching-inputs — the admin preview builds this same input
+    // shape; it must feed the scorer the same REAL readiness this does. It
+    // hardcoded 30/wave for months (T-64). See lib/paired-rules.ts.
     const matchInput: VendorMatchInput = {
       vendor_id: v.id,
       business_name: (profileData?.business_name as string) || (profileData?.farm_name as string) || 'Unknown',
