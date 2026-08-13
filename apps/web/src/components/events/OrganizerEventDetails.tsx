@@ -516,8 +516,24 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
                     <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: statusColors.neutral700 }}>
                       {group.label}
                     </span>
+                    {/* T-50: this used to read "0 of 2 filled" on a section
+                        holding EIGHT questions, because countTotalInGroup
+                        excludes booleans and six of the eight are checkboxes.
+                        The exclusion is correct — those booleans are typed
+                        non-nullable, so they always have a value and counting
+                        them would read "6 of 8 filled" before the organizer
+                        touched anything, which is wrong in the other direction.
+                        Neither fraction is true, so a group that is mostly
+                        checkboxes states its SIZE instead of fake progress.
+                        Owner decision 2026-08-13. The honest long-term fix is
+                        making those booleans nullable so "not answered" is a
+                        real state — that needs a migration; see backlog T-50. */}
                     <span style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, marginLeft: spacing['2xs'] }}>
-                      {total > 0 ? `${filled}/${total} filled` : 'Optional'}
+                      {total === 0
+                        ? 'Optional'
+                        : total < group.fields.length
+                          ? `${group.fields.length} questions`
+                          : `${filled}/${total} filled`}
                     </span>
                   </div>
                   {isEditable && !isEditingThis && (
@@ -1184,6 +1200,12 @@ function renderField(field: string, value: unknown, onChange: (v: unknown) => vo
         placeholder={field === 'cuisine_preferences' ? 'e.g. BBQ, Mexican, Asian fusion...'
           : field === 'dietary_notes' ? 'e.g. Nut-free options needed, vegetarian options...'
           : field === 'setup_instructions' ? 'e.g. Loading dock at back entrance, 20A power available...'
+          // T-50: "Other Food at Venue" sat directly under "Other Food Vendors
+          // Present?" and read as a sub-question of it. It is not — this is any
+          // food that will be there regardless of us, which changes how hungry
+          // the crowd is and therefore what a truck should bring.
+          : field === 'competing_food_options' ? 'e.g. attendees bringing dishes, a nearby food court, catering already booked...'
+          : field === 'theme_description' ? 'e.g. 1920s speakeasy, Hawaiian luau, company colours...'
           : ''}
         value={(value as string) || ''}
         onChange={(e) => onChange(e.target.value)}

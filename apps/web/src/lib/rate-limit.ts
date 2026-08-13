@@ -178,8 +178,20 @@ export async function checkRateLimit(
         resetAt: result.reset,
         burst,
       }
-    } catch {
-      // Redis error — fall through to in-memory as safety net
+    } catch (err) {
+      // Redis error — fall through to in-memory as safety net.
+      //
+      // ⚠ This does NOT fail open: the in-memory path below still enforces the
+      // same limit. What it loses is SHARED state — each warm Vercel instance
+      // keeps its own Map, so the effective ceiling becomes up to
+      // (instances × limit) instead of `limit` overall. Weakened, not disabled.
+      //
+      // Logged because that degradation is otherwise completely silent: Redis
+      // could be down for days and the only symptom would be a rate limit that
+      // quietly stopped being global. Verified 2026-08-13 while closing the
+      // "does the limiter fail open?" question — it doesn't, but nothing told
+      // anyone either way.
+      console.error('[rate-limit] Redis unavailable — degraded to per-instance limiting', err)
     }
   }
 
