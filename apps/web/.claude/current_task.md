@@ -1,4 +1,11 @@
-# Current Task: 🔎 RETROSPECTIVE SECOND-SURFACE AUDIT — Rule 1 (pricing display) DONE, 2 bugs found+fixed
+# Current Task: 🔎 RETROSPECTIVE SECOND-SURFACE AUDIT — ✅ COMPLETE except category G (2026-08-13)
+
+## Final state (details: second_surface_audit_research.md)
+- All 6 rules from backlog §2a audited. 4 bugs found+FIXED: P-1 JSON-LD base price ×2 files, P-2 shop cart bar base total (committed 731c23bc); M-1 vendor new_paid_order first-wins market (BUILT+GATED, UNCOMMITTED).
+- Found, NOT fixed (need approval): S-1 admin events filter missing ready/active/review/cancelled chips (fix=derive from LIFECYCLE_STEPS); "has applied" ×3 hand-copies (collapse to one helper) + queue/badge asymmetry question.
+- Clean: T-08 class (0 live instances of 125 calls), status maps (except S-1), T-75 masking (no new surfaces), multi-market comms (except M-1).
+- Category G locked on owner's pg_policies query.
+- Git: main = 731c23bc + uncommitted M-1 work; 3 commits ahead of origin/staging, push held for owner's staging test pass.
 
 ## Audit progress (2026-08-13, working file: second_surface_audit_research.md)
 - **Rule 1 pricing display COMPLETE**: ~25 surfaces read unfiltered. Found + fixed: (P-1) JSON-LD Product schema advertised BASE price on listing + market-box pages — same files whose OG titles were fixed 2026-08-11, the schema block was missed; (P-2) event shop sticky cart bar rendered the cart-summary RPC total, which is raw base cents. 3 guards added → flow-integrity "Display price integrity" (166 pass, tsc clean).

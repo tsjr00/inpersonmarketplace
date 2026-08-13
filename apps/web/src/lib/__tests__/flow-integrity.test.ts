@@ -1901,3 +1901,23 @@ describe('Display price integrity', () => {
       .toMatch(/calculateItemDisplayPrice\(item\.price_cents/)
   })
 })
+
+// ── Multi-market order comms: vendor notice groups by vendor AND market ──
+//
+// T-05's rule: an order can span markets, so every surface describing an order
+// enumerates ALL pickups. The buyer confirmation was fixed 2026-08-10 (pinned
+// by order-placed-message.test.ts); the vendor's new-order notice in the SAME
+// block kept first-wins market naming until the 2026-08-13 audit (M-1) — a
+// vendor selling at two markets in one order was told only the first.
+
+describe('Multi-market vendor notification', () => {
+  const rd = (p: string) => fs.readFileSync(path.join(SRC_DIR, p), 'utf-8')
+
+  it('new_paid_order grouping keys on vendor AND market, not vendor alone', () => {
+    const route = rd('app/api/checkout/success/route.ts')
+    expect(route, 'the group key must include the market so no market is silently dropped')
+      .toMatch(/\$\{vendorUserId\}\|\$\{market\?\.name/)
+    expect(/vendorNotifications\.get\(vendorUserId\)/.test(route),
+      'keying the group on vendor alone is the M-1 first-wins bug').toBe(false)
+  })
+})

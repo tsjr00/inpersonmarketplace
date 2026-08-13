@@ -90,10 +90,92 @@ browse/page.tsx · listing/[listingId]/page.tsx · vendor/[vendorId]/profile/pag
 
 **Rule 1 disposition (pending owner):** the helper IS the collapsed single implementation; what breaks is call sites that bypass it (JSON-LD, sticky bar — both "renders a stored cents field raw"). Options: (a) fix the 2 bugs + add flow-integrity guards pinning those sites; (b) also register a `display-price` paired rule. Sweep 2026-08-11 called this "a lint-shaped rule: no manual price maths on buyer-facing surfaces."
 
-## Later rules (queue from §2a):
-- Multi-market order comms (T-05 class) — confirmation email + other comms describing a cart as one market
-- Notification template keys ↔ caller keys (T-08 class)
-- Status-value maps (STAGE_FOR_STATUS ↔ DB statuses)
-- "has applied" definition on two admin surfaces (collapse candidate)
-- Per-viewer masking surfaces (T-75 class)
-- Category G (RLS pairs) — LOCKED until owner runs pg_policies
+---
+
+## RULE 2: Multi-market order comms (T-05 class) — COMPLETE 2026-08-13
+
+**Rule:** an order can span multiple vendors AND multiple markets; every surface describing an order must enumerate ALL items/pickup locations, never first-wins.
+
+**Surfaces checked:**
+- ✅ order_placed template + caller — THE T-05 fix (checkout/success/route.ts:476-548 builds pickups from all items; template branches on pickups; pinned by order-placed-message.test.ts, 5 tests incl. Spanish).
+- ✅ checkout/success PAGE — per-item pickup lines (:310-328) + multi-location summary card keyed on distinct market_id (:415-453).
+- ✅ buyer/orders/[id] — items grouped BY MARKET (:466-467), market named per group (:1030).
+- ✅ buyer/orders list — location rendered PER ITEM (:588-591).
+- ✅ events/[token]/order route new_paid_order (:112) — single-item company-paid order, single market by construction.
+- ⚪ No buyer pickup-reminder cron exists (only vendor external-payment, park check-in, follower market-day reminders) — no surface to drift.
+- ⚪ external checkout order_placed (:386) — external payments inactive.
+
+### 🟠 FINDING M-1 — vendor new_paid_order keeps only the FIRST market (first-wins, the exact T-05 shape)
+- checkout/success/route.ts:401-418: notifications grouped per vendorUserId; `marketName` set only in the else-branch on first insertion (:415); later items push titles only (:410). A vendor with items at TWO markets in one order is told "N items · Market A".
+- Reachable: multi-market carts span markets; one vendor can sell at both.
+- Sits ~70 lines ABOVE the T-05 fix in the same file — the fix repaired the buyer half and never asked about the vendor half.
+- Fix options: (a) group key vendor|market → one accurate notice per vendor per market (no template change, additive) — RECOMMENDED; (b) single notice listing all markets (template + caller change).
+- Minor note (not claimed as bug): success page location summary dedupes by market_id keeping first item's date/time per market (:416-420); per-item lines show each item's own date, so info is still complete on-page.
+
+**M-1 FIXED (owner file-level approved):** checkout/success/route.ts vendor notifications now keyed `vendorUserId|marketName` — one accurate notice per vendor per market; send loop uses info.userId. Idempotency guard is per-order all-or-nothing (:382-388) so re-runs stay safe. Guard added: flow-integrity "Multi-market vendor notification" (167 pass, tsc clean). UNCOMMITTED at write time.
+
+---
+
+## RULE 3: Notification template keys ↔ caller keys (T-08 class) — COMPLETE 2026-08-13
+
+**Method:** scripted cross-check (scratchpad notif-key-audit.js): parsed 105 templates' `d.xxx` reads vs 125 sendNotification call payloads; 11 UNGUARDED flags; every flag then verified by reading the real code.
+
+**Result: NO live mismatches.** All 11 flags were parser blind spots or already-fixed:
+- Conditional spreads `...(x ? { key } : {})` — buyer cancel :235-237, events order :115-116, payout_failed webhooks:1148. Keys ARE passed.
+- Conditional template reads (`if (d.pickups && ...)` :402, `d.paymentMethod &&` :386, `d.sourceType === ...` :1416) — absent key = intended branch, not blank text.
+- admin invite marketId — passed at :187 with a Session 78 P1 fix comment (this class's previous catch).
+- T-08 itself carries a warning comment on the template (types.ts:1617-1621).
+
+**Low-severity note (not fixed):** the rich market-box payout message (`New subscription to "X" from Y`) only fires from market-box-payout.ts:187 — the ONLY caller passing sourceType/offeringName. The webhook heal paths (webhooks:1038, :1074) and cron retry paths (expire-orders:1296, :1516) send the generic "a payout has been sent" for the same event class. Correct but less informative on recovery paths. Left as-is.
+
+**Class disposition:** no registry entry — the class-deleter remains TYPED per-notification payloads (already backlogged). 125 untyped call sites is the exposure; today's defense is per-template warning comments + this audit.
+
+---
+
+## RULE 4: Status-value maps ↔ DB status sets — COMPLETE 2026-08-13
+
+**Authoritative catering_requests set (mig 190, newest — its own header documents mig 094 dropping 'cancelled', the class's prior instance):** new, reviewing, approved, declined, ready, active, review, completed, cancelled (9).
+
+**Maps checked:**
+- ✅ event-manager dashboard STATUS_LABELS — all 9 (page.tsx:48-58).
+- ✅ OrganizerProgress STAGE_FOR_STATUS — all 7 non-terminal (:60-68); cancelled/declined via terminal early-return (:83); unknown → stage 1 with explicit warning comment (:34-35).
+- ✅ admin events LIFECYCLE_STEPS — all 7 non-terminal (:76-84) with full doc comment (:64-75).
+- ✅ EDITABLE_STATUSES (component :72 + api details route :148) — intentional subsets, identical pair (already tagged? they match today; small pre-existing pair, hand-kept in 2 files).
+- ✅ shop-data/event pages `.in('status', [...])` gates — intentional subsets.
+- ✅ orders/order_items status maps — covered by existing status-transitions.test.ts + status-transitions-functional.test.ts (105 tests); not re-audited.
+
+### 🟡 FINDING S-1 — admin events status FILTER list drifted (minor, can't-narrow not invisibility)
+- `[vertical]/admin/events/page.tsx:571` hand-types `['all','new','reviewing','approved','declined','completed']` — missing ready/active/review/cancelled. Page fetches ALL statuses (:218, API :75-76 filters only when param present) and defaults to 'all' (:429-431), so mid-lifecycle events are visible but can't be narrowed to and have no count chip. ready/active are exactly the ones needing event-day attention.
+- Fix = COLLAPSE: derive chips from LIFECYCLE_STEPS (complete, same file) + terminal statuses; delete the second hand-typed list. NOT yet fixed — report first.
+
+---
+
+## RULE 5: "Has applied" definition (collapse candidate) — COMPLETE 2026-08-13
+
+**THREE hand-kept copies, agreeing today:**
+1. Queue API `api/admin/vendors/pending-event-applications/route.ts:35-49` — `event_approved=false` + vendor `status='approved'` + `event_readiness.application_status==='pending_review'`.
+2. `[vertical]/admin/vendors/[vendorId]/page.tsx:197,213-217` — badge `!eventApproved && application_status==='pending_review'`; hasApplied = status present && ≠'not_applied'.
+3. `admin/vendors/[vendorId]/page.tsx:141,170-171` — the root (non-vertical) twin page, same logic hand-copied.
+Writers: `api/vendor/event-readiness/route.ts:69` (sets pending_review), `api/admin/vendors/[id]/event-approval/route.ts:113` (syncs approved/rejected).
+
+**Asymmetry (possibly intentional):** queue requires vendor status='approved'; detail-page badges don't — a pending application from a not-yet-approved vendor badges on the detail page but never appears in the queue. Surface to owner.
+
+**Disposition:** collapse candidate confirmed — extract one `getEventApplicationState(profileData, event_approved)` helper used by all 3 readers. Code change → owner approval needed.
+
+---
+
+## RULE 6: Per-viewer masking (T-75 class) — COMPLETE 2026-08-13
+
+Registry already pins organizer-identity across 4 sites (paired-rules.ts). Enumerated remaining vendor-facing event surfaces:
+- ✅ prep route `api/vendor/events/[marketId]/prep/route.ts` — 403 on response_status!=='accepted' (:62) BEFORE identity fields (:165,:170). Accepted vendors get identity per the rule.
+- ✅ admin manual-invite notification masks (`companyName: 'Private Event'`, city/state only — invite route :177-181).
+- ✅ vendor/events/[marketId] (masked, T-75), vendor/markets (masked, T-67), market-stats (T-09) — this week's fixes, registry-tagged.
+No new surfaces found.
+
+---
+
+## AUDIT STATUS: §2a queue COMPLETE except category G (RLS pairs — locked on owner's pg_policies query)
+
+**Score: 4 confirmed bugs found+fixed (P-1×2 files, P-2, M-1), 1 minor drift found not yet fixed (S-1), 1 collapse candidate (has-applied ×3), 2 owner decisions recorded (company-paid fee, admin-sees-base), 0 live T-08 instances, ~40 surfaces verified clean.**
+
+Pending owner: commit M-1 (built+gated), S-1 fix approval, has-applied collapse approval, staging push after test pass, pg_policies for category G.

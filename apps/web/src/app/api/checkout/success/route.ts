@@ -398,6 +398,13 @@ export async function GET(request: NextRequest) {
             .eq('order_id', orderId)
 
           if (notifyItems && notifyItems.length > 0) {
+            // Grouped by vendor AND market — an order can span markets, and one
+            // vendor can sell at more than one of them. Keyed on vendor alone,
+            // marketName was set from the vendor's FIRST item and every other
+            // market was silently dropped (the vendor half of T-05; audit M-1,
+            // 2026-08-13). One notice per vendor per market keeps each accurate.
+            // The order-level idempotency guard above is all-or-nothing per
+            // orderNumber, so the split stays safe on webhook re-runs.
             const vendorNotifications = new Map<string, { userId: string; items: string[]; marketName: string }>()
             for (const item of notifyItems) {
               const vp = item.vendor_profiles as unknown as { user_id: string } | null
@@ -405,11 +412,12 @@ export async function GET(request: NextRequest) {
               if (!vendorUserId) continue
               const listing = item.listing as unknown as { title: string } | null
               const market = item.markets as unknown as { name: string } | null
-              const existing = vendorNotifications.get(vendorUserId)
+              const groupKey = `${vendorUserId}|${market?.name || ''}`
+              const existing = vendorNotifications.get(groupKey)
               if (existing) {
                 existing.items.push(listing?.title || 'Item')
               } else {
-                vendorNotifications.set(vendorUserId, {
+                vendorNotifications.set(groupKey, {
                   userId: vendorUserId,
                   items: [listing?.title || 'Item'],
                   marketName: market?.name || '',
@@ -417,8 +425,8 @@ export async function GET(request: NextRequest) {
               }
             }
             await Promise.all(
-              Array.from(vendorNotifications).map(([vendorUserId, info]) =>
-                sendNotification(vendorUserId, 'new_paid_order', {
+              Array.from(vendorNotifications.values()).map(info =>
+                sendNotification(info.userId, 'new_paid_order', {
                   orderNumber: capturedOrderNumber,
                   buyerName: buyerDisplayName,
                   itemTitle: info.items.length === 1 ? info.items[0] : `${info.items.length} items`,
