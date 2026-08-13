@@ -1,4 +1,67 @@
-# Current Task: 🛡️ BUILD THE PAIRED-SURFACE REGISTRY — proposal written, sweep done, nothing built
+# Current Task: 🔴 T-60 — LOCATION SEARCH RETURNS NOTHING (open investigation, NOTHING CHANGED)
+
+## ⏱️ HANDOFF — 2026-08-12, mid-investigation. Read this before touching anything.
+
+### The symptom, in the owner's framing (Claude had it wrong first)
+
+**Searching for locations with an exact zip and a 25-mile radius returns few or no markets. Previously nearly all of them showed.**
+
+⚠ **Do NOT chase the open/closed pills on the browse page.** Claude initially treated "items showing closed" as the primary signal; the owner corrected that — *"those pills could be UI problems, not big search issues. The major clue is that when I search for locations I can't find them even though I use the exact zip code and the distance is set to 25 miles."* Treat the pills as a possibly-unrelated secondary symptom until the search is understood.
+
+**Owner's priority, verbatim:** *"it's much better to have events visible where they should not be than people not able to find where trucks are — that's kind of a big big part of what the whole app does."*
+
+### ✅ RULED OUT BY EVIDENCE — this week's work did not cause it
+
+**The search also fails on PRODUCTION.** Prod is `f141c6e6`: none of this week's code, and **none of migrations 213–223**. Prod and staging are separate Supabase projects with separate data, and both fail. Nothing from 2026-08-09/10/11 can be the cause.
+
+Specifically ruled out by reasoning as well: **mig 223** only ADDED an `OR` disjunct to `get_available_pickup_dates`, and adding a disjunct can only ADD rows — it cannot hide a market or close an item. **`market-stats`** (the T-09 fix) feeds only the vendor's listing-form market picker, not buyer search.
+
+### What was actually READ and verified (cite these, don't re-derive)
+
+- **`api/markets/nearby/route.ts:89-104`** — traditional markets are filtered through `getFullyOnboardedMarketIds`; events are exempt. The same filter runs again at `:219-225` in the fallback path.
+- **`lib/markets/visible-markets.ts` → `getFullyOnboardedMarketIds`** — a traditional market is visible **iff ≥1 `(market_id, vendor_profile_id)` pair appears in BOTH sets**: (a) a **published, non-deleted** listing linked via `listing_markets`, and (b) an **`is_active = true`** row in `vendor_market_schedules`. It is an INTERSECTION of pairs, not "has some listing and has some schedule".
+- The same rule is applied on the server-rendered list at **`app/[vertical]/markets/page.tsx`**.
+- This mirrors **migration 131 (2026-05-04)**, which is on all three environments — long predates this week.
+
+### The competing hypothesis, NOT yet tested
+
+**`zip_codes` is documented as EMPTY** (Session 59, `MEMORY.md` → Location System). If so, the `?zip=` parameter silently resolves to no coordinates and the search has nothing to search around; the **`user_location` httpOnly cookie (30-day TTL)** is what actually carries location. A cleared or expired cookie would produce exactly this symptom, on both environments, with no error and with the "it worked before" character — and would mean **no code regression at all**.
+
+⚠ **Session 59 protections still apply** — do NOT remove cookie reads, convert these routes to ISR/static, or remove the Haversine filter.
+
+### Owner's counter-evidence, which cuts against the vms hypothesis
+
+*"All of the locations that were visible yesterday have items linked to them at markets that had been established for a while."* So the **listing-link half is probably satisfied**; if the filter is the cause, the missing half is the **active `vendor_market_schedules` row** — and the open question becomes *why those rows are absent or were deactivated*.
+
+### ▶ NEXT STEP: five diagnostic queries, already given to the owner, RUN ON PROD FIRST
+
+Schema was verified against `SCHEMA_SNAPSHOT.md` before these were composed (zip_codes, markets, listing_markets, vendor_market_schedules, listings). They are in the session transcript; regenerate from the logic above if lost. They answer, in order:
+
+1. **`SELECT count(*) FROM zip_codes`** — if 0, the zip box never worked and the cookie was doing the job. That alone could be the whole thing.
+2. **Market base population** by vertical/type with counts of `status='active'`, `approval_status='approved'`, and missing lat/lng.
+3. **The visibility filter mirrored exactly** — per traditional market: vendors with listings, vendors with active vms, and whether the INTERSECTION is non-empty (`visible_in_search`).
+4. **Which half fails** — pairs with a listing but no active vms, versus active vms but no published listing, versus both.
+5. **`SELECT is_active, count(*) FROM vendor_market_schedules GROUP BY 1`** — if mostly `false`, something is deactivating attendance rows and that is its own hunt.
+
+**Interpretation:** #1 = 0 → the zip path is the story. #3 showing `false` for markets with known items → the filter is the cause, and #4 names the missing half. #5 mostly `false` → attendance rows are being switched off by something.
+
+### 🚨 PROCESS NOTE — read this, it happened twice today
+
+Claude twice began asserting a root cause from a **single file read** and was stopped by the owner both times: first blaming the 2026-08-11 event work, then attempting to write "ROOT CAUSE FOUND" into the backlog off one function. **Do not record a cause until the SQL comes back.** The owner's instruction stands: *"this is the time for thorough investigation without any preconceptions."*
+
+### Git / env
+
+`main` = `bbe9d3a1` (**2 commits ahead of `origin/staging` = `12209e65`**, both docs-only). **PROD** `origin/main` = `f141c6e6`, untouched. Migrations 213–223 on Dev + Staging only. **No live shoppers on prod.** Nothing is uncommitted; nothing is half-applied.
+
+### Everything else from today
+
+**25 round-3 findings (T-48 … T-72) are committed in `backlog.md`** → "🧪 ROUND-3 TEST FINDINGS". Highlights beyond T-60: **T-67** (a vendor can see events they were never invited to, with organizer name, address and a Set-schedule button — same class as T-09, different surface), the **matching cluster T-63/64/70** (matching never re-runs, admin data stale, event-readiness ignored), and **T-72** ("Continue shopping" from an event success screen exits the event). The core transaction — organizer → matching → two vendors accept → attendee orders from two vendors at two pickup times → checkout — **worked end to end**, and T-03, T-06 and T-10 are browser-confirmed fixed.
+
+**Also still open and unstarted:** the paired-surface registry (full proposal + owner's three decisions + 7-category sweep in `backlog.md`), and the four concerns in the previous handoff below — FM events selling with no acceptance check (T-39), the rate limiter possibly failing open, the missing RLS policy inventory, and the stale unmarked Enum Types table in `SCHEMA_SNAPSHOT.md`.
+
+---
+
+# Previous: 🛡️ BUILD THE PAIRED-SURFACE REGISTRY — proposal written, sweep done, nothing built
 
 ## ⏱️ SESSION HANDOFF — 2026-08-11 (13 findings fixed; sweep complete; registry NOT built)
 
