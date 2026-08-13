@@ -1,3 +1,68 @@
+-- ############################################################################
+-- ## ⛔ POSTMORTEM — THIS MIGRATION CAUSED A PRODUCTION INCIDENT.            ##
+-- ## Added 2026-08-12. Do not copy this pattern. Read before reusing any of  ##
+-- ## it. Repaired by 20260812_224_restore_ft_declared_schedules.sql.         ##
+-- ############################################################################
+--
+-- WHAT IT BROKE
+--   Ran on Staging 2026-07-25 and Prod 2026-07-31. One statement deactivated 9
+--   rows across 4 locations on Prod and 7 across 3 on Staging. Consequences,
+--   unnoticed for ~2 weeks: food-truck locations disappeared from buyer search
+--   entirely (lib/markets/visible-markets.ts requires an active row); trucks
+--   dropped off "where are trucks today" (api/trucks/where-today filters
+--   is_active); and at private-pickup spots each truck's own stated hours
+--   silently reverted to the location default (get_available_pickup_dates
+--   reads COALESCE(vms.vendor_start_time, ms.start_time)). Found only when the
+--   owner reported that a ZIP + 25-mile search returned almost nothing.
+--
+-- THE FALSE ASSUMPTION
+--   The WHERE clause below encodes: "a food-truck schedule row with no paid
+--   booking behind it is a phantom." That is false, and false for most of the
+--   platform:
+--
+--   * Trucks sell at parks this platform does NOT manage, and never had to be
+--     managed to sell. At an unmanaged location there is no spot to buy, so a
+--     paid park_spot_booking can NEVER exist — every legitimately declared
+--     schedule there matched this migration's definition of "phantom". Not an
+--     edge case: the whole category.
+--   * vendor_market_schedules is a vendor DECLARATION (the days/times a truck
+--     saves in api/vendor/markets/[id]/schedules), not an attendance or
+--     check-in record. There is no check-in concept in this schema. The
+--     "attendance" wording in older comments is a misnomer and is what made
+--     this deletion feel safe. No-shows are handled downstream by order
+--     confirmation, auto-expire, and uncaptured payment intent.
+--   * The filter is vertical_id='food_trucks' with NO market_type filter, so
+--     it also hit private_pickup locations — a truck's OWN spot, which has no
+--     park model at all. 2 of the 9 Prod rows were private-pickup.
+--
+--   The booking-driven model assumed here is real, but ONLY at parks with a
+--   manager account. Applied platform-wide, it destroyed vendor-entered data.
+--
+-- IT WAS WARNED ABOUT, THE SAME DAY
+--   Migration 210's closing note said this cleanup "requires distinguishing
+--   them from booking-created rows — deferred to a data-hygiene pass." This
+--   migration shipped hours later using booking-presence as that distinction,
+--   which is exactly the conflation 210 flagged. The warning was written and
+--   then walked past.
+--
+-- WHY NO WHERE CLAUSE COULD HAVE SAVED IT
+--   There is no created_by / source column on vendor_market_schedules, so no
+--   query can separate a trigger-fabricated row from one a vendor saved by
+--   hand. Bulk deactivation of this table therefore cannot be made safe by
+--   being cleverer. If rows must go, ask the vendors to re-save, or add
+--   provenance to the table first.
+--
+-- THE ONE THING IT DID RIGHT
+--   It was a single set-based UPDATE with `updated_at = now()`, so every row
+--   it touched carries one identical timestamp. That fingerprint is the only
+--   reason the damage could be identified exactly and reversed. Its own header
+--   claims "ROLLBACK: none" — that was wrong; mig 224 rolled it back precisely.
+--
+-- BEFORE WRITING ANYTHING LIKE THIS AGAIN, see the "DO NOT REOPEN THIS DOOR"
+-- checklist at the end of 20260812_224_restore_ft_declared_schedules.sql.
+--
+-- ############################################################################
+--
 -- Migration 211: deactivate phantom FT-park vendor schedules
 --
 -- Tester finding 2026-07-25 (follow-up to mig 210). Before mig 210,

@@ -1,0 +1,289 @@
+-- Migration 224: restore the food-truck DECLARED SCHEDULES that migration 211
+-- wrongly deactivated on 2026-07-25 (Staging) and 2026-07-31 (Prod).
+--
+-- ============================================================================
+-- THE INCIDENT
+-- ============================================================================
+--
+-- Symptom reported by the owner 2026-08-12: searching for locations with an
+-- exact ZIP and a 25-mile radius returned few or no food-truck locations.
+-- Previously nearly all of them showed. It failed on Prod as well as Staging,
+-- so it was NOT caused by any 2026-08-09/10/11 work.
+--
+-- Root cause: migration 211 (20260725_211_cleanup_phantom_ft_park_schedules)
+-- ran a single set-based UPDATE that set is_active=false on every active
+-- food-truck vendor_market_schedules row with no paid park_spot_booking and no
+-- active/requested park_standing_reservation on that weekday.
+--
+-- On Prod that one statement deactivated 9 rows across 4 locations and 4
+-- trucks. On Staging, 7 rows across 3 locations. Because it was ONE statement,
+-- every row it touched carries an identical updated_at to the microsecond —
+-- which is what makes this repair possible and precisely bounded:
+--
+--     Prod    2026-07-31 18:48:48.633378+00   (9 rows, 4 markets, 4 vendors)
+--     Staging 2026-07-26 03:23:10.619661+00   (7 rows, 3 markets, 1 vendor)
+--     Dev     none — nothing matched there
+--
+-- Downstream effects of those rows going inactive, all confirmed by reading
+-- the consuming code:
+--
+--   * Locations vanished from buyer search. lib/markets/visible-markets.ts
+--     (getFullyOnboardedMarketIds, mirroring mig 131) shows a traditional
+--     market only when the SAME vendor has both a published listing linked via
+--     listing_markets AND an active vendor_market_schedules row. With the
+--     schedule half gone, both food-truck parks on Prod dropped out of
+--     /api/markets/nearby and the server-rendered markets list.
+--   * Trucks disappeared from "where are trucks today".
+--     api/trucks/where-today/route.ts filters .eq('is_active', true).
+--   * At private-pickup spots, the truck's own stated hours reverted to the
+--     location default. get_available_pickup_dates reads
+--     COALESCE(vms.vendor_start_time, ms.start_time); with no active row the
+--     LEFT JOIN yields NULL and the fallback wins. Ordering still worked
+--     (private_pickup is its own disjunct), so this failed silently.
+--
+-- ============================================================================
+-- THE WRONG ASSUMPTION — the thing that must not come back
+-- ============================================================================
+--
+-- Migration 211 encoded this belief:
+--
+--     "A food-truck schedule row with no paid booking behind it is a phantom."
+--
+-- THAT IS FALSE, and it is false for the majority of this platform's trucks.
+--
+--   1. Trucks sell at parks the platform does NOT manage. Market management on
+--      this app has never been a requirement for a truck to sell. At an
+--      unmanaged park there is no spot to buy, so a paid park_spot_booking can
+--      NEVER exist. Every legitimately declared schedule at every unmanaged
+--      park therefore matched 211's definition of "phantom". Not an edge case
+--      the discriminator missed — the entire category.
+--
+--   2. vendor_market_schedules is a DECLARATION, not an attendance record.
+--      It is what a vendor saves when they set the days and times they will be
+--      at a location (api/vendor/markets/[id]/schedules/route.ts, PUT). There
+--      is no check-in concept anywhere in this schema. The word "attendance"
+--      in older comments is a misnomer and has misled at least one migration.
+--      The platform takes the truck at its word and lets the transaction
+--      proceed; the protection against a no-show is downstream — order
+--      confirmation, auto-expire, and payment intent that is not captured
+--      until the vendor confirms. It was never the schedule row's job.
+--
+--   3. 211 had no market_type filter at all — only vertical_id='food_trucks'.
+--      So it also hit private_pickup locations, which are a truck's OWN spot
+--      and can never have a park booking by definition. Two of the nine Prod
+--      rows were private-pickup.
+--
+-- The booking-driven model 211 assumed is real, but it is real ONLY at parks
+-- the platform manages. Applying it platform-wide destroyed vendor-entered
+-- data on every location we do not manage.
+--
+-- ============================================================================
+-- WHAT THIS MIGRATION DOES
+-- ============================================================================
+--
+-- Reactivates rows that are ALL of:
+--   (a) currently is_active=false, and
+--   (b) in the food_trucks vertical, and
+--   (c) at a location with NO manager account (manager_user_id IS NULL AND
+--       manager_accepted_at IS NULL) — the definition of "we do not manage
+--       this location", confirmed by the owner 2026-08-12, and
+--   (d) bearing one of the two verified migration-211 timestamps, and
+--   (e) where the same vendor still has a published, non-deleted listing at
+--       that location.
+--
+-- Deliberate exclusions, and why:
+--
+--   * MANAGED parks are NOT restored. Where a manager account exists, park
+--     presence really is booking-driven and 211's cleanup was defensible. On
+--     Staging this excludes 2 rows at Sixth Street Food Park.
+--     Useful consequence: Staging's ONLY schedule-conflict (Smokestack BBQ
+--     double-booked on Saturday between Hub City and Sixth Street) is resolved
+--     by this exclusion alone. No special-casing was needed.
+--
+--   * Rows whose vendor has NO published listing at that location are NOT
+--     restored — condition (e). Restoring them could not make the location
+--     visible (the listing half of the rule is missing) and would only place
+--     the truck back on the where-are-they-today map. On Prod this excludes
+--     exactly 2 rows for "Med Prep Meals", a test vendor with no listings at
+--     that park; the owner confirmed 2026-08-12 to leave them off. Expressed
+--     as a rule rather than hardcoded ids so it behaves correctly on any env.
+--     A truck excluded this way loses nothing permanent — saving its schedule
+--     again re-creates the row.
+--
+-- EXPECTED RESULT
+--     Prod     7 rows restored (9 matched 211, minus 2 listing-less)
+--     Staging  5 rows restored (7 matched 211, minus 2 at the managed park)
+--     Dev      0 rows — no-op
+--
+-- ============================================================================
+-- SAFETY
+-- ============================================================================
+--
+--   * The two timestamps are microsecond-precise and were produced by a single
+--     statement each. They cannot collide with a vendor who turned a schedule
+--     off themselves at some other moment — those rows carry their own
+--     updated_at and are untouched.
+--   * Nothing that is currently active is modified. The filter requires
+--     is_active=false, so no working schedule can be disturbed.
+--   * IDEMPOTENT. The UPDATE stamps a fresh updated_at, so restored rows no
+--     longer match the timestamp filter. Re-running affects 0 rows.
+--   * No hardcoded ids, no env-specific branching. Set-based; the same file is
+--     correct on Dev, Staging and Prod.
+--   * DATA ONLY. No schema change, no function change, no trigger change, no
+--     grant change. PostgREST reload not required.
+--   * check_vendor_schedule_conflict (mig 066) stays in force and fires on
+--     these UPDATEs. If any restore would create an overlapping active
+--     schedule for a single-truck vendor, the trigger raises and the ENTIRE
+--     statement rolls back — a loud, all-or-nothing failure rather than a
+--     half-applied one. Verified before writing: 0 conflicts on Prod,
+--     0 on Staging after the managed-park exclusion.
+--
+-- ============================================================================
+-- PRE-CHECK — run this FIRST and keep the output. It is the rollback list.
+-- ============================================================================
+--
+-- SELECT vms.id, m.name AS location, m.market_type,
+--        COALESCE(vp.profile_data->>'business_name',
+--                 vp.profile_data->>'farm_name', '(unnamed)') AS truck,
+--        ms.day_of_week, vms.updated_at
+--   FROM vendor_market_schedules vms
+--   JOIN markets m           ON m.id  = vms.market_id
+--   JOIN market_schedules ms ON ms.id = vms.schedule_id
+--   LEFT JOIN vendor_profiles vp ON vp.id = vms.vendor_profile_id
+--  WHERE vms.is_active = false
+--    AND m.vertical_id = 'food_trucks'
+--    AND m.manager_user_id IS NULL
+--    AND m.manager_accepted_at IS NULL
+--    AND vms.updated_at IN (TIMESTAMPTZ '2026-07-31 18:48:48.633378+00',
+--                          TIMESTAMPTZ '2026-07-26 03:23:10.619661+00')
+--    AND EXISTS (SELECT 1 FROM listing_markets lm
+--                  JOIN listings l ON l.id = lm.listing_id
+--                 WHERE lm.market_id = vms.market_id
+--                   AND l.vendor_profile_id = vms.vendor_profile_id
+--                   AND l.status = 'published'
+--                   AND l.deleted_at IS NULL)
+--  ORDER BY m.name, truck, ms.day_of_week;
+--
+-- Expect 7 rows on Prod, 5 on Staging, 0 on Dev. If the count differs, STOP
+-- and re-diagnose — do not proceed on a set you have not seen.
+
+UPDATE vendor_market_schedules vms
+SET is_active  = true,
+    updated_at = now()
+FROM markets m
+WHERE m.id = vms.market_id
+  AND vms.is_active = false
+  AND m.vertical_id = 'food_trucks'
+  -- unmanaged locations only: managed parks keep the booking-driven model
+  AND m.manager_user_id IS NULL
+  AND m.manager_accepted_at IS NULL
+  -- the exact rows migration 211's single UPDATE touched, per environment
+  AND vms.updated_at IN (TIMESTAMPTZ '2026-07-31 18:48:48.633378+00',
+                         TIMESTAMPTZ '2026-07-26 03:23:10.619661+00')
+  -- only restore declarations that still have something to sell there
+  AND EXISTS (
+        SELECT 1 FROM listing_markets lm
+          JOIN listings l ON l.id = lm.listing_id
+         WHERE lm.market_id = vms.market_id
+           AND l.vendor_profile_id = vms.vendor_profile_id
+           AND l.status = 'published'
+           AND l.deleted_at IS NULL
+      );
+
+-- ============================================================================
+-- POST-CHECK
+-- ============================================================================
+--
+-- 1) Exactly the pre-check rows are now active, and they share one new
+--    updated_at (this migration's own fingerprint — keep it for rollback):
+--
+-- SELECT vms.updated_at, count(*) AS restored,
+--        string_agg(DISTINCT m.name, ', ') AS locations
+--   FROM vendor_market_schedules vms
+--   JOIN markets m ON m.id = vms.market_id
+--  WHERE vms.is_active = true
+--    AND m.vertical_id = 'food_trucks'
+--  GROUP BY vms.updated_at
+--  ORDER BY vms.updated_at DESC
+--  LIMIT 3;
+--
+-- 2) The visibility rule now passes for the affected traditional locations
+--    (this is the actual user-facing outcome — a location the buyer can find):
+--
+-- WITH listing_pairs AS (
+--   SELECT lm.market_id, l.vendor_profile_id
+--     FROM listing_markets lm JOIN listings l ON l.id = lm.listing_id
+--    WHERE l.status = 'published' AND l.deleted_at IS NULL
+--    GROUP BY 1,2),
+-- vms_pairs AS (
+--   SELECT market_id, vendor_profile_id FROM vendor_market_schedules
+--    WHERE is_active IS TRUE GROUP BY 1,2)
+-- SELECT m.name, m.vertical_id,
+--        EXISTS (SELECT 1 FROM listing_pairs p
+--                  JOIN vms_pairs v ON v.market_id = p.market_id
+--                                  AND v.vendor_profile_id = p.vendor_profile_id
+--                 WHERE p.market_id = m.id) AS visible_in_search
+--   FROM markets m
+--  WHERE m.market_type = 'traditional' AND m.vertical_id = 'food_trucks'
+--  ORDER BY m.name;
+--
+--    Prod expectation: "Sample Amarillo Food Park" and "Sample Canyon Eats
+--    Park" flip false -> true. Staging: "Food Truck Exchange" and "Hub City
+--    Food Truck Lot" flip false -> true; "Sixth Street Food Park" stays false
+--    (managed — deliberately not restored).
+--
+-- 3) Browser check: the locations appear in a ZIP + 25-mile search on the FT
+--    browse page, and the affected trucks show on "where are trucks today"
+--    for their declared weekday.
+--
+-- ============================================================================
+-- ROLLBACK
+-- ============================================================================
+--
+-- Take the new updated_at from post-check (1) and reverse exactly it:
+--
+--   UPDATE vendor_market_schedules
+--      SET is_active = false, updated_at = now()
+--    WHERE updated_at = TIMESTAMPTZ '<value from post-check 1>';
+--
+-- Or, if the pre-check output was kept: UPDATE ... WHERE id IN (<those ids>).
+--
+-- ============================================================================
+-- DO NOT REOPEN THIS DOOR
+-- ============================================================================
+--
+-- Before any future migration, cron, or cleanup job deactivates or deletes
+-- vendor_market_schedules rows in bulk, all four must be true:
+--
+--   1. It distinguishes locations the platform MANAGES from those it does not.
+--      A missing park_spot_booking proves nothing at an unmanaged location —
+--      there is nothing there to book. This was 211's fatal assumption.
+--
+--   2. It filters on market_type explicitly. private_pickup is a truck's own
+--      spot and follows none of the park rules. 211 omitted this and reached
+--      into a category it was never aimed at.
+--
+--   3. It treats a row as VENDOR-ENTERED DATA. A vendor sat down and saved
+--      those days. There is no created_by column, so no query can tell a
+--      vendor-saved row from a trigger-created one — which means bulk
+--      deactivation cannot be made safe by a cleverer WHERE clause. If rows
+--      must be removed, contact the vendors or have them re-save; do not
+--      infer intent from the absence of a payment.
+--
+--   4. It states the expected row count BEFORE running, and stops if the
+--      actual count differs.
+--
+-- Migration 210 already warned about exactly this: "Cleaning those requires
+-- distinguishing them from booking-created rows — deferred to a data-hygiene
+-- pass." Migration 211 shipped the same day without that distinction, using
+-- booking-presence as the proxy. The warning was written and then walked past.
+--
+-- Related notes added to the two migrations that caused this:
+--   supabase/migrations/applied/20260725_210_skip_ft_park_auto_schedule.sql
+--   supabase/migrations/applied/20260725_211_cleanup_phantom_ft_park_schedules.sql
+--
+-- Backlog T-60. Owner-confirmed rules, 2026-08-12: locations show when a truck
+-- has an active declared schedule there AND active product listings; managed
+-- vs unmanaged is decided by the presence of a manager account; unmanaged
+-- locations are trusted on the truck's word, with order confirmation and
+-- auto-expire as the protection.

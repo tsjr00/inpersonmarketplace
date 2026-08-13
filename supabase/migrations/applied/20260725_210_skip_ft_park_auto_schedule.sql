@@ -1,3 +1,47 @@
+-- ############################################################################
+-- ## ⚠ NOTE ADDED 2026-08-12 — THE FIX HERE WAS RIGHT, ITS FRAMING WAS NOT. ##
+-- ## Its premise was inherited by migration 211, which then caused a         ##
+-- ## production incident. Read alongside 211's postmortem and mig 224.       ##
+-- ############################################################################
+--
+-- WHAT THIS MIGRATION GOT RIGHT
+--   Auto-creating an ACTIVE schedule row for every open day of a location on
+--   approval was wrong, and stopping it was correct. Approval is vetting, not
+--   scheduling. Nothing below needs to be reverted.
+--
+-- WHERE ITS FRAMING WAS WRONG
+--   1. The comments say "food-truck PARKS" but the guard reads
+--      `vertical_id = 'food_trucks'` with NO market_type filter — it skips
+--      auto-create for EVERY food-truck market, parks and private-pickup
+--      spots alike. Same over-broad scoping that migration 211 then repeated
+--      with far worse consequences. The behaviour is defensible; the stated
+--      scope does not match the code, and 211's author read the comment.
+--
+--   2. "a truck's selling schedule is created PER BOOKED DAY by the payment
+--      webhook … approval is vetting, not scheduling" is true ONLY at parks
+--      this platform manages. Trucks sell at parks we do not manage and never
+--      had to be managed to sell; at those locations no booking will ever
+--      exist, and the truck's schedule comes from the truck saving it in
+--      api/vendor/markets/[id]/schedules. Migration 211 took this sentence as
+--      a platform-wide rule and deleted every unmanaged-location schedule as
+--      a phantom. See 211's header.
+--
+--   3. Consequence still open as of 2026-08-12: with auto-create gone, an
+--      approved truck now has NO schedule until it saves one — and nothing in
+--      the product asks it to. A truck can be approved at a location and stay
+--      invisible in search indefinitely without any signal that a step is
+--      missing. Tracked in the backlog; this file is the origin of it.
+--
+--   4. The closing note below correctly said cleaning up pre-existing phantoms
+--      "requires distinguishing them from booking-created rows". That
+--      distinction is IMPOSSIBLE from the data — vendor_market_schedules has
+--      no created_by/source column. Migration 211 substituted booking-presence
+--      as a proxy and destroyed vendor-entered data. The honest answer is that
+--      the phantoms could not be safely cleaned without adding provenance to
+--      the table first.
+--
+-- ############################################################################
+--
 -- Migration 210: don't auto-create vendor schedules on approval for FT parks
 --
 -- Tester finding 2026-07-25: a park operator could not approve a truck — the

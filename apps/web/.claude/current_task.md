@@ -1,6 +1,30 @@
-# Current Task: 🔴 T-60 — LOCATION SEARCH RETURNS NOTHING (open investigation, NOTHING CHANGED)
+# Current Task: ✅ T-60 RESOLVED — location search fixed by migration 224 (Dev + Staging + Prod, 2026-08-12)
 
-## ⏱️ HANDOFF — 2026-08-12, mid-investigation. Read this before touching anything.
+## ✅ OUTCOME — read this first; the investigation record below is history, kept for the reasoning
+
+**Cause: migration 211 (2026-07-25), not any 2026-08-09/10/11 work.** One set-based `UPDATE` deactivated every active food-truck `vendor_market_schedules` row that had no paid park booking. Because it was a single statement, every row it touched carries one microsecond-identical `updated_at` — **Prod `2026-07-31 18:48:48.633378+00` (9 rows), Staging `2026-07-26 03:23:10.619661+00` (7 rows), Dev none.** That fingerprint made an exact, bounded repair possible; 211's own "ROLLBACK: none" header was wrong.
+
+**Why 211 was wrong — the correction that matters more than the fix.** It encoded "no paid booking ⇒ phantom." Owner, 2026-08-12: *"trucks sell via our platform at parks that we don't have management insight into… market management on our app is not required for trucks to sell on the app."* At an unmanaged location a paid booking can **never** exist, so every legitimately declared schedule there matched 211's phantom test — not an edge case, the whole category. 211 also had **no `market_type` filter**, so it hit `private_pickup` spots (a truck's own location, which has no park model at all).
+
+**The model, stated by the owner and now authoritative:**
+- `vendor_market_schedules` is a **vendor DECLARATION** — the days/times a truck saves for a location. It gates preorder pickup. **It is NOT attendance or check-in**; there is no check-in concept anywhere in the schema, and the "attendance" wording in older comments is a misnomer that made 211's deletion look safe.
+- Check-in/attendance data is **manager value and must never determine search** — *"it has too many possible problems to rely on for search."*
+- At unmanaged locations the platform **takes the truck at its word.** No-shows are handled downstream by order confirmation, auto-expire, and payment intent that is not captured until the vendor confirms. Refund disputes at locations we can't see are left between truck and buyer, and we say so.
+- A location shows in search when a truck has an **active declared schedule there AND active product listings** at that location. **This is exactly what the code already did — no code was changed.** An earlier proposal to drop the schedule half was retracted once the owner restated the rule.
+
+**The fix (mig 224, now in `applied/`):** reactivate rows that are inactive, food-truck, at a location with **no manager account**, bearing a 211 timestamp, whose vendor still has a published listing there. Managed parks deliberately skipped — and that exclusion alone dissolved Staging's only schedule conflict (Smokestack double-booked Saturday) with no special-casing. Pre-registered counts matched exactly: **Prod 7, Staging 5, Dev 0.** `visible_in_search` flipped false→true for Sample Amarillo Food Park + Sample Canyon Eats Park (Prod) and Food Truck Exchange + Hub City Food Truck Lot (Staging); Sixth Street Food Park correctly stayed false.
+
+**Also done:** ⛔ postmortem headers added to migs **210** and **211** naming what they got wrong and why (owner: *"don't leave this door open for a future assumption to walk back through"*), including the fact that **no `WHERE` clause can make bulk deactivation of this table safe** — there is no `created_by` column, so a vendor-saved row and a trigger-created one are indistinguishable. A four-point checklist for any future bulk change sits at the end of mig 224. Snapshot bookkeeping corrected: **211 was falsely marked "Prod PENDING" when it had run there**, which is part of why this hid for two weeks; mig 210's Prod status is still unconfirmed and the snapshot carries the query to settle it.
+
+**⏸️ NOT YET DONE:**
+- **Browser confirmation.** The SQL proves the rule passes; nobody has looked at the FT browse page with a ZIP + 25 miles, or at "where are trucks today." **Ask before assuming it's visually fixed.**
+- **Nothing is committed.** Quality gates not run. Files touched: `supabase/migrations/applied/20260812_224_…sql` (new), postmortem headers on migs 210/211, `SCHEMA_SNAPSHOT.md` (224 entry + 210/211 corrections), `backlog.md` (T-60 resolved, T-73/T-74 added), this file.
+- **T-73** (new): mig 210 stopped approval auto-creating schedules and nothing replaced the prompt — an approved truck stays invisible with no signal. This will keep making locations go dark.
+- **T-74** (new): the browse-page open/closed pills were never investigated; re-test before spending time.
+
+---
+
+## 📋 HANDOFF — 2026-08-12, written mid-investigation, kept as the reasoning record
 
 ### The symptom, in the owner's framing (Claude had it wrong first)
 
