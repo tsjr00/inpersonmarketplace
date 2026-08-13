@@ -383,11 +383,53 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
               admin.user_id,
               'catering_vendor_responded',
               {
-                companyName: vendorName,
+                // T-08: these were `companyName` / `eventDate`, but the
+                // template reads `vendorName` / `marketName` — so every one of
+                // these rendered "undefined accepted the event invitation for
+                // undefined". Nothing was missing; the keys did not match.
+                vendorName,
                 responseAction: response_status,
-                eventDate: market.event_start_date || market.name,
+                marketName: market.name,
               },
               { vertical: market.vertical_id }
+            )
+          }
+        }
+
+        // T-59: the ORGANIZER gets one too. Until now only admins were told
+        // in-app, and the organizer waited on the results email. Owner:
+        // "notifications are free and we want to use the free resource."
+        //
+        // Uses its own type, not catering_vendor_responded — that one is
+        // audience:'admin' and links to /admin/events.
+        //
+        // ⚠ organizer_user_id is null until a logged-in user with the matching
+        // email loads /event-manager, so an organizer who has not finished
+        // signing up gets nothing here. That is why the email is not being
+        // replaced.
+        if (market.catering_request_id) {
+          const { data: cReq } = await serviceClient
+            .from('catering_requests')
+            .select('id, organizer_user_id, vertical_id')
+            .eq('id', market.catering_request_id)
+            .single()
+
+          if (cReq?.organizer_user_id) {
+            await sendNotification(
+              cReq.organizer_user_id,
+              'event_vendor_responded_organizer',
+              {
+                vendorName,
+                responseAction: response_status,
+                marketName: market.name,
+                // The message the vendor typed for them — stored since the
+                // feature shipped and shown nowhere. Spread conditionally:
+                // exactOptionalPropertyTypes forbids passing an explicit
+                // `undefined` for an optional field.
+                ...(response_notes?.trim() ? { responseNotes: response_notes.trim() } : {}),
+                eventId: cReq.id as string,
+              },
+              { vertical: cReq.vertical_id || market.vertical_id }
             )
           }
         }

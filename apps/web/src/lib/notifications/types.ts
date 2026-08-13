@@ -170,6 +170,11 @@ export type NotificationType =
   | 'catering_request_received'
   | 'catering_vendor_invited'
   | 'catering_vendor_responded'
+  // T-59: the ORGANIZER's version of the above. catering_vendor_responded is
+  // audience:'admin' and links to /admin/events, so it cannot be reused here —
+  // an organizer would be sent to a panel they have no business on (that
+  // mis-routing was the second half of T-08).
+  | 'event_vendor_responded_organizer'
   | 'event_cancelled_vendor'
   | 'event_confirmed'
   | 'event_change_requested'
@@ -259,6 +264,10 @@ export interface NotificationTemplateData {
   eventDate?: string
   eventAddress?: string
   responseAction?: string  // 'accepted' | 'declined'
+  /** T-59: the message a vendor typed when accepting or declining an event
+   *  invitation (market_vendors.response_notes). It was being stored and never
+   *  shown to the organizer it was written for. */
+  responseNotes?: string
   vertical?: string
   marketId?: string
   setupTime?: string
@@ -1605,8 +1614,51 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     severity: 'info',
     audience: 'admin',
     title: (_d, locale) => t('notif.catering_vendor_responded_title', locale),
-    message: (d) => `${d.vendorName} ${d.responseAction || 'responded to'} the event invitation for ${d.marketName}.`,
+    // ⚠ T-08: this reads `vendorName` and `marketName`. Every caller used to
+    // pass `companyName` and `eventDate`, so every one of these notifications
+    // rendered as "undefined accepted the event invitation for undefined".
+    // Fixed at the call sites 2026-08-13 (respond + cancel routes). If you add
+    // a caller, pass THESE key names.
+    message: (d) => `${d.vendorName || 'A vendor'} ${d.responseAction || 'responded to'} the event invitation for ${d.marketName || 'an event'}.`,
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/admin/events`,
+  },
+
+  /**
+   * T-59 — the organizer's copy of a vendor response. Owner: *"notifications
+   * are free and we want to use the free resource."*
+   *
+   * Deliberately NOT `catering_vendor_responded`: that one is audience 'admin'
+   * and its actionUrl goes to /admin/events, which is where an organizer's
+   * notification was landing them (T-08, second half).
+   *
+   * Carries the vendor's own message, which until now was written by the
+   * vendor, stored on market_vendors.response_notes, fetched by the select
+   * route — and rendered on no organizer surface at all.
+   *
+   * ⚠ Only reaches organizers with an account: catering_requests.organizer_user_id
+   * is null until a logged-in user with the matching email loads /event-manager.
+   * Email remains the guaranteed channel; this is additive.
+   */
+  event_vendor_responded_organizer: {
+    urgency: 'standard',
+    severity: 'info',
+    // Organizer is external and may have no account — audience does not drive
+    // routing here, same as event_confirmed.
+    audience: 'buyer',
+    title: (d) => d.responseAction === 'declined'
+      ? `${d.vendorName || 'A vendor'} can't make it`
+      : `${d.vendorName || 'A vendor'} said yes`,
+    message: (d) => {
+      const who = d.vendorName || 'A vendor'
+      const what = d.marketName || 'your event'
+      const note = d.responseNotes ? ` They said: "${d.responseNotes}"` : ''
+      return d.responseAction === 'declined'
+        ? `${who} declined your invitation to ${what}.${note}`
+        : `${who} accepted your invitation to ${what}.${note}`
+    },
+    actionUrl: (d) => d.eventId
+      ? `/${d.vertical || 'food_trucks'}/event-manager/${d.eventId}/dashboard`
+      : `/${d.vertical || 'food_trucks'}/event-manager`,
   },
 
   event_cancelled_vendor: {

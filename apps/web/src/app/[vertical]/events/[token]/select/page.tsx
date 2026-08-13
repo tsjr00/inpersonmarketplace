@@ -33,6 +33,8 @@ interface InterestedVendor {
   pickup_lead_minutes: number
   profile_image_url: string | null
   catering_items: Array<{ title: string; price_cents: number }>
+  /** T-59: the message the vendor typed when accepting the invitation. */
+  response_notes: string | null
 }
 
 interface EventDetails {
@@ -292,6 +294,29 @@ export default function EventSelectPage() {
                         )}
                       </div>
                     </div>
+
+                    {/* T-59: the message this vendor wrote when they accepted.
+                        Stored on market_vendors.response_notes since the
+                        feature shipped, rendered only on the ADMIN events page
+                        — so the organizer never saw the note written for them.
+                        Sits above the menu because it is the vendor speaking
+                        directly to the person choosing. */}
+                    {v.response_notes && (
+                      <div style={{
+                        marginBottom: spacing.xs,
+                        padding: spacing.xs,
+                        backgroundColor: statusColors.neutral100,
+                        borderLeft: `3px solid ${statusColors.neutral300}`,
+                        borderRadius: 4,
+                      }}>
+                        <div style={{ fontSize: 11, fontWeight: typography.weights.semibold, color: statusColors.neutral500, marginBottom: spacing['3xs'] }}>
+                          THEIR MESSAGE
+                        </div>
+                        <div style={{ fontSize: typography.sizes.sm, color: statusColors.neutral700, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                          {v.response_notes}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Catering menu preview */}
                     {v.catering_items.length > 0 && (

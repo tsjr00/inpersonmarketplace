@@ -214,8 +214,16 @@ describe('NI-014: Total notification types = 72', () => {
     // the money at stake, organizer decision notice carrying the required
     // decline reason, and the vendor fan-out carrying the organizer's own
     // words attributed). User-approved.
+    // Bumped 104 → 105 on 2026-08-13 when event_vendor_responded_organizer was
+    // added (T-59 — the organizer had no in-app notice when a vendor accepted
+    // or declined; only admins got one and the organizer waited on the results
+    // email). It could NOT reuse catering_vendor_responded: that type is
+    // audience:'admin' and its actionUrl points at /{vertical}/admin/events, so
+    // an organizer clicking it landed in the admin panel — which was the second
+    // half of T-08. The new type carries the vendor's own response_notes and
+    // links to the organizer's own event dashboard. User-approved.
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(104)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(105)
   })
 
   it('includes all buyer-facing types', () => {

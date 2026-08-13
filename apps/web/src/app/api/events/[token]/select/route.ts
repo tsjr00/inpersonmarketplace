@@ -60,7 +60,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
     // Get accepted vendors with profile data
     const { data: marketVendors } = await serviceClient
       .from('market_vendors')
-      .select('vendor_profile_id, response_status, vendor_profiles:vendor_profile_id(id, profile_data, profile_image_url, average_rating, rating_count, tier, pickup_lead_minutes)')
+      // T-59: `response_notes` is the message the vendor typed when accepting.
+      // It has been stored since the feature shipped and rendered on no
+      // organizer surface at all — only the admin events page showed it. This
+      // page is where the organizer chooses between vendors, so it is where
+      // the message they wrote belongs.
+      .select('vendor_profile_id, response_status, response_notes, vendor_profiles:vendor_profile_id(id, profile_data, profile_image_url, average_rating, rating_count, tier, pickup_lead_minutes)')
       .eq('market_id', event.market_id)
       .eq('response_status', 'accepted')
 
@@ -135,6 +140,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
       return {
         vendor_profile_id: vid,
+        // T-59: what the vendor wrote when they said yes.
+        response_notes: (mv.response_notes as string | null) || null,
         business_name: (pd.business_name as string) || (pd.farm_name as string) || 'Vendor',
         cuisine_categories: vendorCategories[vid] || [],
         avg_price_cents: avgPrice,

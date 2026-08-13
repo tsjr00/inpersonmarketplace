@@ -642,6 +642,20 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
             I Already Have an Account
           </a>
         </div>
+        {/* The silent failure this prevents: an event is claimed by MATCHING
+            EMAIL — /event-manager updates catering_requests.organizer_user_id
+            where contact_email = the logged-in user's email. Nothing to click,
+            it just happens on load. But nothing told the organizer the two
+            addresses have to match, and the signup link only PREFILLS this
+            email — they can change it. Sign up as a personal address when the
+            form said work@company.com and the event is never linked: they log
+            in, see no events, get bounced to the shopper dashboard, and there
+            is nothing on screen explaining why. Very hard to diagnose from a
+            support email. (Owner asked about this 2026-08-13.) */}
+        <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, marginTop: spacing.sm }}>
+          Use <strong>{form.contact_email}</strong> when you sign in or create your account — that&apos;s
+          how we connect you to this event.
+        </p>
       </div>
     )
   }
