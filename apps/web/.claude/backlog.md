@@ -371,6 +371,64 @@ console.log([...document.querySelectorAll('*')]
 ```
 The **deepest** row is the culprit; everything above it is an ancestor being dragged wide. A `getBoundingClientRect().right` scan alone is not enough — it misses an element whose own box fits while its content spills.
 
+## 🧪 ROUND-3 TEST FINDINGS — owner testing 2026-08-12 (T-48 … T-72, NOTHING FIXED)
+
+Full end-to-end run: new event manager → event dashboard → matching → two vendors accept → organizer confirms → attendee orders. **The core transaction worked.** These are the defects inside it.
+
+### 🔴 SUPER PRIORITY — possible regression from 2026-08-11
+
+| ID | Finding |
+|---|---|
+| **T-60** ⬜ | **Locations not visible, and items showing CLOSED that should be orderable.** Owner: *"it's much better to have events visible where they should not be than people not able to find where trucks are — that's a big part of what the whole app does."* Truck cards on FT browse show multiple locations, but opening an item shows everything closed despite the schedule saying otherwise. **Vendor-specific, not global:** Fuego St Tacos = all closed, Bao Down = all closed, Smokestack BBQ = mostly OPEN. Owner suspects the 2026-08-11 event-visibility work. ⚠ **Claude's initial reasoning, NOT verified:** mig 223 only ADDED an `OR` disjunct, and adding a disjunct to an OR cannot close anything — so 223 is unlikely to be the cause, and `market-stats` feeds only the vendor listing form, not buyer availability. The vendor-specific pattern instead points at the **`vendor_market_schedules` requirement** (mig 131: traditional markets in ALL verticals need an active vms row) or a cutoff/park-booking condition. **DO NOT assume — run the diagnostic in the handoff first.** |
+| **T-67** ⬜ | **Vendor can see events they were NEVER invited to — with organizer name, address, and a "Set schedule" button.** Found at the bottom of the vendor company/business profile area (where event readiness now lives). Three events listed: one they were invited to, plus **two they were not** — showing who the organizer is, the address, and the date. **Same class as T-09, a surface that fix did not cover.** T-09 closed `market-stats`; this is a different page. |
+
+### 🟠 Matching — the biggest functional gap
+
+| ID | Finding |
+|---|---|
+| **T-63** ⬜ | **Matching never re-runs.** A vendor who becomes eligible AFTER the event was created is never invited, even though the organizer asked for 4 trucks and only 1 had responded. Owner had to trigger it manually as admin — *"which is counterintuitive because we're not trying to have admins involved in this process."* Self-service matching should stay open while the organizer still needs trucks (cron, or on-eligibility-change). |
+| **T-64** ⬜ | **Admin matching panel showed STALE data** — reported 2 event-eligible items when the vendor had 4; refreshing did not update it. Consequence: a truck updating its catering menu mid-flight gets skipped by matching. |
+| **T-70** ⬜ | **Matching appears to ignore the private-events readiness section entirely** — it scored on listings and other criteria while the vendor's event-readiness capacity was empty. That section *should* be a major matching input. |
+| **T-55** ⬜ | **Two competing numbers, unclear interaction:** "expected guests" (general info) and "expected meals purchased" (budget section). Owner believes meals-purchased is meant for **company-paid** events only and should not factor into a self-serve event. Related to T-07. |
+| **T-65** ⬜ | **Invitation page ignores already-confirmed trucks in its per-truck maths.** Second truck saw "100 total ÷ 1 trucks" while truck #1 had already accepted. Each vendor's view appears to count only itself. |
+| **T-58** ⬜ | **Verify the wave-count number shown on the invitation.** Owner accepted with the default without checking it. Worth confirming there is no hardcoded or wrong value. (`calculateWaveCount` is now the single source — verify it is fed the right times.) |
+
+### 🟠 Vendor event-approval process
+
+| ID | Finding |
+|---|---|
+| **T-61** ⬜ | **Unclear whether an admin is notified when a vendor submits event-readiness.** Owner had no memory of being prompted and the vendor's readiness was empty. Confirm the notification exists; if not, add it. |
+| **T-62** ⬜ | **An admin can grant event-approved status to a vendor who never applied**, with no warning. Owner did exactly that by accident. Later the profile showed "application pending" against an already-granted approval. Needs a confirmation warning naming the mismatch. |
+| **T-66** ⬜ | The invitation tells a vendor to update their event readiness but **does not link to it**; it has moved from Locations to the business profile. Link directly. |
+
+### 🟡 Event-manager funnel — the through-line is "the app never tells them what to do next"
+
+| ID | Finding |
+|---|---|
+| **T-48** ⬜ | **Existing account, new role = dead end.** A user with a market-manager account filling in the event form is offered only "create your account", and is sent to the signup page. Logging in manually works and the dashboard resolves by email — so the system already *recognises* them. Offer sign-in. First-impression friction on the exact path we want smooth. |
+| **T-49** ⬜ | **The match splash overpromises.** Should read *"based on what you've told us so far we've preliminarily matched you with N truck(s) — log in to your dashboard to complete your event profile and we'll finish matching."* Both sides need more than the intake form gives: vendors want budget + logistics, organizers want the event-context questions. |
+| **T-52** ⬜ | Dashboard should open with something like *"add or edit details — the more you provide, the better the match."* The existing amber "your changes affect vendor matching — refresh matches now" is good and should be leaned into. |
+| **T-53** ⬜ | **Nothing at the bottom of the event dashboard tells the organizer what to do.** They scroll to the end expecting an action and find ratings, "copy event link", "cancel event". The two real actions sit in small red text at the top. Duplicate them at the bottom as prominent buttons, ideally sequenced. |
+| **T-54** ⬜ | Those two links currently lead to pages with nothing on them yet. Until there is something to see, say *"You're done for now — we're matching your event to vendors and you'll be notified as they respond."* |
+| **T-71** ⬜ | **After confirming trucks, the dashboard looks identical.** Still reads "2 of 4 vendors confirmed"; no "your trucks are confirmed, here's what's next". Owner's suggestion: a progress strip under Event Details — outlined boxes that fill in (finish profile → review responses → confirm trucks → pre-orders open). |
+| **T-59** ⬜ | **No in-app notification to the organizer when a vendor accepts** (email arrived). Owner: *"notifications are free and we want to use the free resource."* **And the vendor's acceptance message is nowhere to be found** — the text typed above the Decline button. |
+| **T-56** ⬜ | The intake form has **no self-serve vs admin-assisted qualifier**, which downstream logic depends on. |
+| **T-50** ⬜ | Event context: "other food at venue" reads as a subset of "other food vendors present" — needs helper text (*attendees bringing food, nearby restaurants, etc.*). And the section header says **"0 of 2 filled"** while counting only the 2 text inputs, ignoring **6 checkboxes**. If that count feeds anything, it is wrong; either way count all 8. |
+| **T-51** ❓ | **Certainty scores per section** — owner design idea. Organizers are guessing at things like average attendee stay. Proposal: a 1–10 confidence indicator per section, null → treated as 5, with copy explaining we ask so we can match better. Feeds matching weights. Needs the matching-algorithm review first. |
+| **T-57** ⬜ | **The Decline button sits at the top of the invitation, above everything.** Move it next to Accept at the bottom — don't invite a decline before they've read anything. (Introduced by the 2026-08-11 toggle removal.) |
+| **T-68** ⬜ | Event pill on the vendor's list reads **"not attending"** for an event they were *invited* to and haven't answered. Should read "invited". |
+| **T-69** ⬜ | **Food perishability copy is wrong and reputationally risky.** The "30+ minutes" option lists *tacos and sandwiches* as examples. Owner: we should not be seen endorsing hot plates sitting 30 minutes — health-department optics. Leave packaged items only. |
+
+### 🟠 Checkout
+
+| ID | Finding |
+|---|---|
+| **T-72** ⬜ | **"Continue shopping" on an event success screen exits the event.** It returns to general FT browse — all trucks, invited or not. A buyer who forgot dessert would shop the wrong catalogue and could order from a truck that isn't at the event. Must return to the event shop page. |
+
+### ✅ Verified working in round 3 — do not re-test
+
+New event → dashboard sections → vendor auto-invited on match → vendor accepts (**default capacity untouched — T-03 confirmed fixed**) → custom capacity also recalculates (15→16) → organizer sees both trucks with **correct fee-inclusive prices (T-06 confirmed)** → confirms both → attendee orders from **two different vendors at two different pickup times in one cart** → checkout totals correct ($19.17 + $11.72 + $0.15 fee + 1% tip = $31.35) → success screen correct. Invitation now has **one Accept button (T-10 confirmed)**. Vendors correctly did **not** receive invitations when ineligible. Event listings no longer visible on the listing screen to ineligible vendors.
+
 ## 🧪 STAGING TEST FINDINGS — owner testing 2026-08-09 / 2026-08-10 (NOTHING FIXED YET)
 
 **Source: the owner's own end-to-end run on staging `3cbe0ead`.** Compiled before any fixing so nothing is lost. Items are ID'd — refer to them by ID when approving work ("fix T-01 and T-07").
