@@ -7,9 +7,11 @@
 - ✅ **Dependency pre-check done.** Every object 223 and 220 rely on is present
   on Prod — nothing older is missing.
 - ✅ **STEP 2 done — 213 through 223 applied to Prod 2026-08-13 (user).**
-- ⏳ **STEP 3** — `NOTIFY pgrst, 'reload schema';` then re-run the STEP 1 query;
-  all sixteen rows should read PRESENT.
+- ✅ **STEP 3 done.** `NOTIFY pgrst` run and the verification query re-run on
+  Prod: **all sixteen rows PRESENT.** The database side of this deploy is
+  complete and verified.
 - ⏳ **STEP 4 — CODE PUSH. BLOCKED BY THE PUSH WINDOW UNTIL 21:00 CT.**
+  One command: `git checkout main && git push origin main`
 - ⬜ STEP 5 — post-push smoke checks.
 
 **Bookkeeping already updated:** all eleven changelog rows now read APPLIED TO
