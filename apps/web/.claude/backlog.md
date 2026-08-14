@@ -339,6 +339,14 @@ Red banner. Owner: *"might be because there are no scores yet, but it might be a
 **Suggested order:** **A** (a deadlock with no escape beats everything) → **D** (admins locked out of a working page) → **E** (small, and it may just be an empty state) → **C** (build work) → **B** (analysis + documentation, the largest and least urgent).
 
 
+## 🧪 226/227 BROWSER-PASS FINDINGS — owner testing 2026-08-13 (migrations PASSED; these are adjacent finds)
+
+| ID | Finding | Detail |
+|---|---|---|
+| **T-76** ⬜ | **Events page shows the parks disclaimer** | Grey box "This location is listed as a pickup spot by the food trucks shown below. This platform is not affiliated with the multi-truck location management or property owners." appeared on an EVENT page — holdover from pre-events/pre-manager days. Owner: *"we should have more of a process now for when a message like this is shown and when it is not."* Needs a display rule: unmanaged pickup locations YES; events and managed markets NO. Find the component + define the rule per market_type/manager state. |
+| **T-77** ⬜ | **Admin events rematch makes the page jump/reload "smaller and off to the left"** | Clicking re-run match on `/food_trucks/admin/events` jumps the page so any result messaging is missed (owner's mouse ended up over a different button; second event reproduced it). Rematch itself WORKS (auto-invited the most qualified). Likely scroll/layout reset on refetch. |
+| **T-78** ⬜ | **My Vendor Events "2 upcoming" is not clickable** | By design today (dashboard :748-752: only response-needed invitations + today's events are rows; the rest is a muted count line) — but the owner expected to click through. Give the summary line a destination (e.g. link to My Locations events section) or render upcoming as rows. |
+
 ## 🔴 SOON — G-4: APPROVED VENDORS' PERSONAL CONTACT INFO ANONYMOUSLY READABLE (found 2026-08-13 audit, owner: "add to soon backlog")
 
 The signup route stores the ENTIRE signup form into `vendor_profiles.profile_data` verbatim (`api/submit/route.ts:146`), and the app references keys inside it including **email (18 refs), phone (12), legal_name (17), zip**. The public-directory RLS policy (`vendor_profiles_select`: `status='approved' AND deleted_at IS NULL` → public) exposes the WHOLE row — so an anonymous PostgREST query `vendor_profiles?status=eq.approved&select=profile_data` returns every approved vendor's personal email/phone/legal name. Pages render only business fields; the DB row is the leak. Same class as G-1/G-2 (closed by mig 226) but **not fixable by policy alone** — RLS controls rows, not JSONB keys.
