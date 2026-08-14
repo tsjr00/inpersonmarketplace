@@ -1,4 +1,8 @@
-# Current Task: 🔎 RETROSPECTIVE SECOND-SURFACE AUDIT — ✅ COMPLETE except category G (2026-08-13)
+# Current Task: 🔎 RETROSPECTIVE SECOND-SURFACE AUDIT — ✅ FULLY COMPLETE incl. category G (2026-08-13)
+
+## ⚡ CATEGORY G OUTCOME — 3 confirmed PROD data leaks found and CLOSED same day
+Owner ran pg_policies inventories (staging+prod identical; anon holds full table grants, policy qual = only lock). Anonymous internet could read: every approved event's organizer identity (catering_requests — mig 091's policy said "by token" in intent but never required the token), every market_vendors row incl. vendors' private response_notes, and private event markets' real name+address. **Migration 226 applied all 3 envs 2026-08-13, exact-match pre/post verification** (staging 2/7/5/20→0/0/0/20; prod 3/4/3/9→0/0/0/9; D-baseline unchanged = public directory unharmed). File in applied/; snapshot changelog updated; details in second_surface_audit_research.md.
+⏸ Owner still owes: staging + prod BROWSER passes for 226 (vendors page, market page, vendor dashboard events card, public event page) — and the ORIGINAL staging test pass (T-62 dialog etc.) that gates pushing the 5 held commits.
 
 ## Final state (details: second_surface_audit_research.md)
 - All 6 rules from backlog §2a audited. 4 bugs found+FIXED: P-1 JSON-LD base price ×2 files, P-2 shop cart bar base total (committed 731c23bc); M-1 vendor new_paid_order first-wins market (BUILT+GATED, UNCOMMITTED).

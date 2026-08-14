@@ -178,4 +178,44 @@ No new surfaces found.
 
 **Score: 4 confirmed bugs found+fixed (P-1×2 files, P-2, M-1), 1 minor drift found not yet fixed (S-1), 1 collapse candidate (has-applied ×3), 2 owner decisions recorded (company-paid fee, admin-sees-base), 0 live T-08 instances, ~40 surfaces verified clean.**
 
-Pending owner: commit M-1 (built+gated), S-1 fix approval, has-applied collapse approval, staging push after test pass, pg_policies for category G.
+Pending owner: S-1 fix approval, has-applied collapse approval, staging push after test pass. M-1 COMMITTED 1809a05a.
+
+---
+
+## CATEGORY G: RLS policy ↔ route checks — IN PROGRESS 2026-08-13 (owner ran queries)
+
+**Inventory (staging + prod IDENTICAL, verified by owner-run pg_policies + summary queries):**
+- 26 tables RLS-on/zero-policies (service-only by design: booth/cause/park/broadcast/etc.) — fine.
+- RLS off: only spatial_ref_sys (PostGIS system) — fine.
+- 61 tables with policies; anon+authenticated hold FULL table grants (Supabase default), so policy qual is the only lock.
+
+### 🔴 CONFIRMED G-1 — market_vendors world-readable (STAGING + PROD)
+`market_vendors_select` qual = `true`, roles public, anon has SELECT grant. Anonymous PostgREST can read every row: response_status, response_notes (vendors' private messages to organizers), vendor↔private-event linkage. DB-layer bypass of the whole T-09/T-67/T-75 API-layer masking.
+**Load-bearing (verified):** public reads needed by vendors/page.tsx:95 (directory) + api/markets/[id]/vendors (market vendor list) — ordinary market membership only. Own-row reads (markets/[id]/page:142, vendor/dashboard:292, vendor-signup:249) covered by an own-rows clause. lib/events + cron callers use service client.
+**Fix shape:** SELECT policy → own rows OR admin OR (market not an event market); consider column-level REVOKE on response_notes for anon/authenticated.
+
+### 🔴 CONFIRMED G-2 — catering_requests approved events enumerable (STAGING + PROD)
+`public_event_token_read`: anon SELECT where `event_token IS NOT NULL AND status IN ('approved','completed')` — does NOT require knowing the token; grants enumeration of ALL approved events (company_name, address, contacts).
+**Load-bearing: NOTHING (verified)** — zero files read catering_requests without a service client; events/[token]/page.tsx:18 uses serviceClient; dashboards/nav-destinations serviceClient. Policy can be dropped.
+
+### 🟠 CANDIDATE G-3 — markets policy exposes PRIVATE event market rows
+`markets_select` first disjunct `approval_status='approved' AND active=true` includes event markets → private event real name+address publicly readable at DB layer. Needs is_private/event exclusion for public disjunct. Load-bearing check pending (browse works via service? public market pages user-client read markets legitimately — the exclusion must be scoped to event markets only).
+
+### 🟡 REVIEW — other qual=true SELECT policies (intent check): event_vendor_listings (links listings↔private events), listing_markets, market_schedules, event_waves, organizations, platform_settings, public_activity_events. Mostly public-by-design; event_vendor_listings shares G-3's private-event-linkage concern.
+
+**Tail policies received (staging + prod IDENTICAL, 49 rows each): NO new leaks.** user_profiles/vendor_payouts/transactions/fee-ledgers/verifications all own-or-admin. Intentionally public: vendor_profiles approved rows (directory — note: whole profile_data JSONB rides along, field-sensitivity review backlogged), vms_select true (buyers need truck schedules), vendor_location_cache, verticals, zip_codes.
+
+### ✅ G-1/G-2/G-3 FIXED — migration 226 applied ALL THREE ENVS 2026-08-13, exact-match verification
+- File: `supabase/migrations/applied/20260813_226_rls_close_public_event_reads.sql` (header = full postmortem + load-bearing analysis + recipe + verbatim rollback).
+- Pre-registered anon-visible counts (A events / B event-vendor rows / C private markets / D directory baseline): Staging PRE 2/7/5/20 → POST 0/0/0/20. Prod PRE 3/4/3/9 → POST 0/0/0/9. Dev 0s throughout. D unchanged both envs = directory unharmed.
+- 2 new SECURITY DEFINER helpers: is_event_market(uuid), user_vendor_market_ids() (policy recursion breakers).
+- Snapshot changelog entry added; file moved to applied/. MIGRATION_LOG.md not updated (unmaintained since mig 052 — snapshot changelog is the record).
+- ⏸ Browser passes (staging + prod: vendors page, market page, vendor dashboard events card, public event page) NOT yet confirmed by owner.
+- Residual review items (backlog-grade, not leaks): vendor_profiles.profile_data field sensitivity on the public directory read; event_vendor_listings_public_select=true (links listings↔private events — same class as G-1 but lower stakes: no notes, no identity).
+
+### ✅ EVL residual FIXED — migration 227 applied ALL THREE ENVS 2026-08-13
+`event_vendor_listings_public_select` true → NOT is_private_event_market(market_id) (new definer helper). Post-check exact: staging anon 0 = 16−16, prod anon 0 = 8−8, dev 0. All current event-listing links are private-event links, so anon correctly sees zero. File in applied/; snapshot changelog updated.
+G-4 (profile_data PII) → backlog "SOON" entry with both fix options (owner 2026-08-13).
+Process note: 227 initially got 226's 4-step ceremony; owner challenged; trimmed to paste + one post-comparison — additive migs = paste-and-go, access-removals = one after-the-fact comparison, repairs/multi-table tightenings = full pre-registered counts.
+
+## CATEGORY G COMPLETE — the full audit (§2a) is now COMPLETE, all categories.

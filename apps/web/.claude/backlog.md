@@ -339,6 +339,16 @@ Red banner. Owner: *"might be because there are no scores yet, but it might be a
 **Suggested order:** **A** (a deadlock with no escape beats everything) → **D** (admins locked out of a working page) → **E** (small, and it may just be an empty state) → **C** (build work) → **B** (analysis + documentation, the largest and least urgent).
 
 
+## 🔴 SOON — G-4: APPROVED VENDORS' PERSONAL CONTACT INFO ANONYMOUSLY READABLE (found 2026-08-13 audit, owner: "add to soon backlog")
+
+The signup route stores the ENTIRE signup form into `vendor_profiles.profile_data` verbatim (`api/submit/route.ts:146`), and the app references keys inside it including **email (18 refs), phone (12), legal_name (17), zip**. The public-directory RLS policy (`vendor_profiles_select`: `status='approved' AND deleted_at IS NULL` → public) exposes the WHOLE row — so an anonymous PostgREST query `vendor_profiles?status=eq.approved&select=profile_data` returns every approved vendor's personal email/phone/legal name. Pages render only business fields; the DB row is the leak. Same class as G-1/G-2 (closed by mig 226) but **not fixable by policy alone** — RLS controls rows, not JSONB keys.
+
+**Fix options (owner to choose when scheduled):**
+- (a) THOROUGH: migrate sensitive keys OUT of profile_data into proper columns locked to owner+admin (migration + touch each reader; ~100 business_name/farm_name refs stay put, only email/phone/legal_name/zip move).
+- (b) LOWER-CHURN: a `public_vendor_profiles` VIEW exposing only safe fields; switch public pages/API reads to the view; tighten the base-table public policy away.
+
+Related residual (lower stakes): the public vendor page and any embed selecting `vendor_profiles(profile_data)` ships the whole blob to the browser for approved vendors — fixing at the DB layer per above fixes these too.
+
 ## 🐛 FM LANDING PAGE SCROLLS SIDEWAYS ON A NARROW PHONE — diagnosed 2026-08-09, NOT FIXED
 
 **Symptom (owner, on staging):** FM landing page on a phone, logged out, is left-justified with a big empty stripe down the right. **FT does not do it.**
