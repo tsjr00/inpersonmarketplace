@@ -1,4 +1,29 @@
-# Current Task: 🔎 RETROSPECTIVE SECOND-SURFACE AUDIT — ✅ FULLY COMPLETE incl. category G (2026-08-13)
+# SESSION END 2026-08-13 (audit session) — WRAPPED. Read this block first.
+
+## Git / env — VERIFY, don't trust
+| | |
+|---|---|
+| local `main` | `a72df4bc` — **IN SYNC with `origin/staging`** (pushed this session, Playwright 49 ✓, Vercel rebuild confirmed by owner's browser pass) |
+| PROD `origin/main` | `54ca375f` — code 10 commits behind; **DB current through mig 227** |
+| Migrations | **001–224 + 226 + 227 on ALL THREE envs. 225 still parked, applied NOWHERE** (recipe in its header) |
+| Uncommitted | session-wrap doc edits (this file, CLAUDE_CONTEXT, backlog spot-fees/IMM capture) + settings.local.json |
+
+## What this session did
+1. **Retrospective second-surface audit (backlog §2a): FULLY COMPLETE, all categories.** 4 bugs found+FIXED+committed (P-1 JSON-LD ×2, P-2 shop cart bar, M-1 vendor notification first-wins market); T-08 class CLEAN (0/125 call sites); status maps clean except S-1; masking clean. Trail: `second_surface_audit_research.md`.
+2. **Category G: 3 PROD security leaks found and CLOSED same day.** Anon could read all approved events' organizer identity, all market_vendors rows (incl. private response_notes), private event market rows, and private-event listing links. **Migs 226+227 applied all 3 envs with exact-match pre/post anon counts** (staging 2/7/5/20→0/0/0/20 + evl 16→0; prod 3/4/3/9→0/0/0/9 + evl 8→0). Browser pass PASSED (part A). G-4 (profile_data PII on public directory read) → SOON backlog.
+3. **6 commits pushed to staging** (`361c2685..a72df4bc`): registry, context docs, pricing fixes, M-1, RLS bookkeeping, backlog.
+4. **Presentation takeaways captured** → backlog: EVENT SPOT FEES (organizer charges vendors; flat-rate first; pay-gate before pre-orders; multi-day = separate transactions TENTATIVE; needs organizer Connect — design session required) + INDEPENDENT MARKET MANAGERS (rent-capture fields; dimensions→density calculator front-end; OperatorProjectionTool at /operator-projection ALREADY EXISTS).
+5. New test findings T-76 (parks disclaimer on event pages), T-77 (rematch page jump), T-78 (events card summary not clickable).
+
+## ▶ NEXT SESSION / owner queue
+- **Owner tomorrow:** set up new test vendors → B5 (T-62 non-applicant dialog) + B6 (T-75 masked names) on staging + sticky-cart-bar check (event shop total = checkout total). Pass → batch is PROD-ELIGIBLE (push window 21:00–07:00 CT).
+- **Pending owner decisions:** S-1 (admin events filter chips derived from LIFECYCLE_STEPS) + has-applied collapse (3 copies → 1 helper) — both presented, both awaiting yes/no; queue/badge asymmetry question (pending-applications queue requires vendor status='approved', detail badges don't — intentional?).
+- **Big new design session:** event spot fees (see backlog — revenue feature, customer asking).
+- Standing: mig 225 recipe, T-74 pill retest, UPSTASH env check, G-4 fix direction (columns vs view).
+
+---
+
+# Previous: 🔎 RETROSPECTIVE SECOND-SURFACE AUDIT — ✅ FULLY COMPLETE incl. category G (2026-08-13)
 
 ## ⚡ CATEGORY G OUTCOME — 3 confirmed PROD data leaks found and CLOSED same day
 Owner ran pg_policies inventories (staging+prod identical; anon holds full table grants, policy qual = only lock). Anonymous internet could read: every approved event's organizer identity (catering_requests — mig 091's policy said "by token" in intent but never required the token), every market_vendors row incl. vendors' private response_notes, and private event markets' real name+address. **Migration 226 applied all 3 envs 2026-08-13, exact-match pre/post verification** (staging 2/7/5/20→0/0/0/20; prod 3/4/3/9→0/0/0/9; D-baseline unchanged = public directory unharmed). File in applied/; snapshot changelog updated; details in second_surface_audit_research.md.

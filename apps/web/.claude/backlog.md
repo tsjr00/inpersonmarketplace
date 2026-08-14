@@ -339,6 +339,36 @@ Red banner. Owner: *"might be because there are no scores yet, but it might be a
 **Suggested order:** **A** (a deadlock with no escape beats everything) → **D** (admins locked out of a working page) → **E** (small, and it may just be an empty state) → **C** (build work) → **B** (analysis + documentation, the largest and least urgent).
 
 
+## 🎯 EVENT SPOT FEES — organizer charges vendors to set up (presentation takeaways, owner 2026-08-13)
+
+**The gap:** organizations commonly CHARGE trucks/vendors a spot/entrance fee to set up at their event. We have zero functionality for it — an organizer using us would collect that fee OFF-app, which they'd expect an event-management app to handle.
+
+**Owner direction (capture, not yet designed):**
+- **Replicate the market-side booth-rental machinery onto events** — the payment rails exist (booth inventory, weekly rentals, park spots, manager Connect payouts, `calculateBoothRentalFees` in pricing.ts).
+- **Charge point:** the LAST gate — after the vendor accepts terms AND the organizer selects them AND everything else is set: paying the spot fee is what unlocks taking pre-orders.
+- **FLAT RATE ONLY to start** (owner: easier + more common; percentage-of-sales deferred — same cash-visibility problem as everywhere else). Platform takes its percentage of the fee since it transacts on-platform.
+- **Multi-day events** (e.g., car show Fri + Sat, vendors may pay for either day): borrow the catering advance-order windows for per-day pre-orders (day-1 pre-order, day-2 pre-order). ⚠ **Owner leaning (tentative):** same vendor + same location + DIFFERENT DAYS in one order number "blurs the lines too much" → likely require SEPARATE transactions per day. Do not treat as decided.
+- **Marketing/sharing** of event activity came up — some sharing exists; audit what's shareable from events.
+
+**Genuinely new pieces this needs (2026-08-13 assessment):** organizers currently only PAY — receiving spot fees means an ORGANIZER Stripe Connect account (reuse manager/beneficiary onboarding patterns, mig 218's durable-link lesson); a spot-fee config on the event + a vendor→organizer payment row (park_spot_bookings / weekly_booth_rentals are the models); the paid-gate wired into what makes an event vendor sellable (interacts with @paired-rule event-sells-on-acceptance — acceptance would no longer be the last gate).
+
+## 🎯 INDEPENDENT MARKET MANAGERS (micro-market operators) — presentation takeaways, owner 2026-08-13
+
+**The concept (revived — previously backed off over legal stickiness):** an individual finds a parking lot/building, arranges legal use with the owner THEMSELVES, becomes the market manager, and invites trucks/vendors. **Platform is NOT party to the lease/rental** — that's the legal line. Platform facilitates spot/booth payments (already built) + record-keeping. Growth engine: spare lots → community micro-markets, neighbor-to-neighbor commerce, side-hustle income; includes SHORT-TERM cases (holiday market in a rented hall — markets.expires_at / market_seasons already support this).
+
+**Owner direction:**
+- **Avoid percentage-of-proceeds** with the landowner (cash sales invisible — same reason as everywhere). Flat rate day/week is the model.
+- **Minimum build:** fields capturing what the IMM pays the landowner (amount + cadence) so their NET take-home can be computed/shown — "if nothing else, telling the independent market manager how much they need to pay."
+- **Optional/skeptical:** landowner Stripe Connect so the platform moves the rent — convenience vs. an extra step landlords won't want. Capture, don't lead with it.
+- **Calculator widget** for prospective IMMs/RMs: enter LOT DIMENSIONS → booth-density assumptions → projected booth/spot revenue.
+
+**What ALREADY EXISTS (verified in code 2026-08-13):**
+- `components/projection/OperatorProjectionTool.tsx` live at `/[vertical]/operator-projection` (Phase 0 RM tooling, 2026-06-28): manager + regional-manager audiences, space types w/ counts + occupancy %, cost items (rent fits here for PROJECTION), real fee math incl. operator-keep % lever. **Gaps vs the ask:** no dimensions→density estimator (asks for booth counts directly); not connected to a real market's inventory.
+- `operator_keep_pct` P6 rebate lever in `calculateBoothRentalFees` (pricing.ts) — per-market operator economics already parameterized.
+- Prior research: `project_property_broker_concept` memory — 3-sided marketplace expansion, awaiting Phase 0 validation; nothing else built toward it.
+
+**To-dos when scheduled:** (1) market-level fields: landowner rent amount + cadence (+ show net on manager earnings); (2) dimensions→booth-density front-end on the projection tool; (3) IMM onboarding/recruiting flow decision (how they differ from a normal manager account, if at all); (4) legal-line copy: platform not party to the property arrangement.
+
 ## 🧪 226/227 BROWSER-PASS FINDINGS — owner testing 2026-08-13 (migrations PASSED; these are adjacent finds)
 
 | ID | Finding | Detail |
