@@ -1,4 +1,30 @@
-# SESSION END 2026-08-13 (audit session) — WRAPPED. Read this block first.
+# SESSION END 2026-08-14 (Event Vendor Fees build) — WRAPPED. Read this block first.
+
+## Git / env — VERIFY, don't trust
+| | |
+|---|---|
+| local `main` | `413b554a` + uncommitted wrap docs — **IN SYNC with `origin/staging`** at 413b554a (pushed, build + Playwright 49 ✓, owner browser-verified) |
+| PROD `origin/main` | `54ca375f` — code 13 commits behind; DB has migs 001–227, **NEEDS 228+229 at prod-push time** (both additive paste-and-go) |
+| Migrations | 228+229 on Dev+Staging (owner 2026-08-14); files stay in `supabase/migrations/` until Prod. 225 still parked NOWHERE. |
+
+## ⚡ EVENT VENDOR FEES V1 — Phases 1–3 BUILT, PUSHED, OWNER-VERIFIED END TO END on staging
+Design: decisions.md (all 10 owner-answered) + spot_fees_design_brief.md (includes phased plan + build status). Owner verified 2026-08-14: fee card + lazy Connect ✅, pay flow $26.78 ✅ (math correct — 2500×1.065+15), both notifications incl. $23.37 organizer portion ✅, retroactive-fee scenario (accepted-before-fee vendor sees armed pay button) works mechanically. **⚠ Paying does NOT yet gate selling — Phase 4** (paid gate = deliberate change to registered paired rule event-sells-on-acceptance: SQL definer + registry + tests, ONE careful session). **Phase 5** organizer-cancel auto-refund + admin payments view. **Phase 6** earnings/settlement/polish + retroactive-fee-notify design question (backlog note).
+
+## 🧪 Testing state (owner, 2026-08-14)
+- PASSED: B5 (T-62 dialog both branches), fee loop end-to-end, part A (226/227 browser pass, previous session).
+- STILL OPEN: **B6 masking** (path: event-approve the new vendor via "Approve Anyway" → invite → view as vendor → "Private event — City, date"), event-shop **cart bar** total check, optional B7.
+- NEW FINDINGS: **T-79** (match panel offers non-event-approved vendors; invite errors "No valid vendors found" without a why — fix: disable checkbox + explain, better error), **T-80** ⚠ (select page forgets prior selections; re-submit RE-SENT vendor confirmation email — verify the :278-287 status guard; most consequential), **T-81** (listing must save before photo attach — draft-first or deferred-upload fix), retroactive-fee design note.
+
+## ▶ NEXT SESSION queue
+1. Fix T-79 + T-80 (owner was asked "now or next session" — session wrapped before answer; treat as top fixes).
+2. Owner: B6 + cart-bar tests → then the staging batch is PROD-ELIGIBLE (code push + paste 228/229 on prod; window 21:00–07:00 CT).
+3. S-1 + has-applied collapse — STILL awaiting owner yes/no (presented twice).
+4. Phase 4 of fees (paid gate) — its own careful session.
+5. Standing: T-76/77/78/81, mig 225 recipe, G-4 direction, UPSTASH check, question-tagging design.
+
+---
+
+# Previous: SESSION END 2026-08-13 (audit session) — WRAPPED.
 
 ## Git / env — VERIFY, don't trust
 | | |

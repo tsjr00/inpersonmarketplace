@@ -2078,3 +2078,19 @@ Surfaced by Session 83 Agent A's comprehensive scan; all pre-existing, none made
 **What:** extend `get_available_pickup_dates` so listings at PAID FT parks only offer pickup dates the vendor actually has a paid `park_spot_bookings` row for (intersection). Prevents "buyer orders pickup for a Saturday the truck won't attend" once T4 auto-creates recurring schedules from date-specific bookings.
 **Why deferred:** this is the money-gate availability RPC (mig 054 tz fix + mig 131 schedule requirement live in it; standing do-NOT-touch-casually warning; prior breakage incidents). USER DECISION 2026-07-15: own careful build — isolated migration (user applies), verbatim-preserving body except the one park-scoped intersection, before/after availability-output tests.
 **Interim exposure (accepted):** after T4, an auto-created recurring schedule persists past the booked dates; trucks can deactivate it; no-show/expiry machinery covers unfulfilled orders. Context: `apps/web/.claude/park_tester_feedback_2026-07-15_research.md`.
+
+## 🧪 T-79 — admin match panel offers vendors the invite route will reject (found 2026-08-14, owner testing)
+
+Owner selected a NOT-event-approved vendor in the admin matching panel and clicked Send invitation → red "Error: No valid vendors found." **Verified mismatch:** the panel API returns ALL approved vendors with no `event_approved` filter (`api/admin/events/route.ts:90-95`, flag sent at :149; page sorts approved-first :1598 and badges :1654 — listing them looks deliberate), but the invite route hard-filters `event_approved=true` (`invite/route.ts:108`) and errors generically (:112). Display ↔ action disagreement, audit-class. Fix options: (a) disable selection for non-event-approved vendors with a "not event-approved" note (keeps them visible as candidates), (b) error message names the reason + links to event approval. Also note owner's side question: whether non-approved vendors should appear in matching AT ALL.
+
+## 🧪 T-80 — select page forgets prior selections; re-submit re-fires confirmations (found 2026-08-14, owner testing)
+
+On `/events/[token]/select` for an event ALREADY selected (status ready, pre-purchases made), the page still shows fresh "Select This Truck" buttons; owner re-selected, re-confirmed menu review, got the success page again, and the vendor received a DUPLICATE confirmation email (identical to one from 2 days prior). The map claims a status-guarded 409 on double-submit (select route :278-287) — either the guard didn't fire or it permits re-submission in 'ready'; verify which. Fix shape: the select page should LOAD prior selections and render a "already confirmed" state (change-selections as an explicit, consequence-aware action), and re-submission must not re-send confirmations to unchanged vendors.
+
+## 🧪 T-81 — listing must be saved before a photo can be attached (found 2026-08-14, owner testing)
+
+Menu-item listing creation: the vendor has to save the listing first, THEN attach a photo. Owner: "it should not be that way and should be fixed if we can fix it." Likely cause: listing_images rows FK to listings.id, so no id exists pre-save. Fix options: auto-create a draft on form open (id exists immediately), or hold the upload client-side and attach on save.
+
+## 📝 EVENT VENDOR FEE — retroactive-fee scenario observed working (2026-08-14, design note)
+
+Owner verified: a vendor who accepted BEFORE the organizer set the fee sees the accepted pill + an armed "Pay $26.78" button (selected earlier, so the pay window logic applied). Mechanically correct — but the vendor agreed to terms that had NO fee, and the fee appeared after. Decision 2's rationale ("part of what they agree to") argues affected vendors should at least be NOTIFIED when a fee is set/changed after their acceptance, and possibly given a penalty-free decline window. Design question for the owner when polishing Phase 5/6.
