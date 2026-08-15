@@ -184,7 +184,11 @@ export default function EventVendorFeeCard({
                 You&apos;ve set up payouts with us before. If your prior payout account is still
                 active, it&apos;s easiest to use the same account — or set up a separate one below.
               </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'], marginBottom: spacing['2xs'] }}>
+              {/* Owner styling 2026-08-15: transparent over the yellow box with
+                  a primary-color outline (solid primary read as an error
+                  banner), natural width, side-by-side on desktop and wrapping
+                  to stacked on mobile. */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing['2xs'], marginBottom: spacing['2xs'] }}>
                 {state.reuse_options?.map(opt => (
                   <button
                     key={opt.source}
@@ -192,9 +196,9 @@ export default function EventVendorFeeCard({
                     disabled={connecting}
                     style={{
                       padding: `${spacing['3xs']} ${spacing.sm}`,
-                      backgroundColor: primaryColor,
-                      color: 'white',
-                      border: 'none',
+                      backgroundColor: 'transparent',
+                      color: primaryColor,
+                      border: `1px solid ${primaryColor}`,
                       borderRadius: radius.sm,
                       fontSize: typography.sizes.xs,
                       fontWeight: typography.weights.semibold,

@@ -190,6 +190,20 @@ export default function EventReadinessForm({
           ? 'Want to serve at corporate events, sports tournaments, and private gatherings? Fill out this questionnaire so our team can match you with the right events.'
           : 'Want to sell at community events, corporate wellness fairs, and private gatherings? Fill out this questionnaire so our team can match you with the right events.'}
       </p>
+      {/* Owner request 2026-08-15: distinguish this from Pickup Capacity above
+          (everyday orders) AND from the binding per-event commitment made at
+          acceptance time — three numbers, three jobs. */}
+      <p style={{
+        margin: `0 0 ${spacing.md} 0`,
+        fontSize: typography.sizes.xs,
+        color: colors.textMuted,
+        lineHeight: 1.5,
+      }}>
+        Your answers here are used to match you with events that fit your capacity — they are separate
+        from the Pickup Capacity setting above, which only paces your everyday orders. When you accept
+        a specific event invitation, you&apos;ll confirm your capacity for that event; that number is the
+        one the event plans around.
+      </p>
 
       {/* Event Approved Banner */}
       {eventApproved && (

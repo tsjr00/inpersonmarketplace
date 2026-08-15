@@ -114,6 +114,13 @@ export default function PickupCapacityForm({ vendorId, slotMinutes, current, eve
         times, like a lunch or dinner rush, this limit will help smooth out your orders so people don&apos;t have to
         wait as long.
       </p>
+      {/* Owner request 2026-08-15: this section and the Private Events
+          Readiness per-wave question read alike but control different flows —
+          say so on both so vendors know why they're asked twice. */}
+      <p style={{ margin: `0 0 ${spacing.sm} 0`, fontSize: typography.sizes.xs, color: colors.textMuted, lineHeight: 1.5 }}>
+        This setting controls your everyday orders only. Private events are planned separately —
+        the &ldquo;Private Events Readiness&rdquo; section below asks its own capacity question for those.
+      </p>
       <p style={{ margin: `0 0 ${spacing.md} 0`, fontSize: typography.sizes.sm, color: colors.textPrimary, fontWeight: typography.weights.medium }}>
         Answer these questions and the system will calculate your pickup capacity.
       </p>

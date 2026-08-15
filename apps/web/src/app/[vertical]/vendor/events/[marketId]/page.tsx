@@ -918,6 +918,19 @@ export default function VendorCateringDetailPage() {
                                 />
                               )}
                             </div>
+                            {/* Owner request 2026-08-15: matching offered this
+                                event based on the readiness claim; a lower
+                                commitment here can leave the organizer short.
+                                Non-blocking note — display only, the seeded/
+                                submitted value is untouched (@paired-rule
+                                capacity-seeding unaffected). */}
+                            {!useProfileWaveCapacity && typeof maxOrdersPerWave === 'number' && maxOrdersPerWave >= 1 && maxOrdersPerWave < profilePerWave && (
+                              <p style={{ margin: `${spacing['2xs']} 0 0`, padding: `${spacing['3xs']} ${spacing.xs}`, backgroundColor: '#fef3c7', border: '1px solid #fcd34d', borderRadius: radius.sm, fontSize: typography.sizes.xs, color: '#92400e', lineHeight: 1.5 }}>
+                                Your readiness profile says you can serve {profilePerWave} per wave — this event was
+                                offered to you based on that number. Committing to fewer may leave the organizer short,
+                                so only lower it if this event really calls for it.
+                              </p>
+                            )}
                           </div>
                           <div>
                             <label style={{ display: 'block', fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: '#374151', marginBottom: 4 }}>
