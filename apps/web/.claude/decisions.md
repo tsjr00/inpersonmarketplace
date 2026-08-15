@@ -150,3 +150,18 @@ Structured record of business and architecture decisions. Check here before aski
 **What today's code does (verified 2026-08-13 audit):** both organizer-facing money figures are BASE cents — the event-manager dashboard "Total order value" (`event-manager/[id]/dashboard/page.tsx:309`, summing `order_items.subtotal_cents`) and the settlement report's company balance (`api/admin/events/[id]/settlement/route.ts:356,454`). Consistent with each other, but NOT with the tentative decision above.
 
 **When company-paid billing is designed/built, update BOTH surfaces together** (they are a de-facto pair): dashboard total and settlement `companyPaidCents`/`companyPaymentBalance` should include the 6.5% buyer-side fee. Until then, do not change either one alone.
+
+### Event Vendor Fees — V1 design decisions (owner, 2026-08-14)
+
+Organizers charging vendors to set up at events (presentation-driven feature). Design brief: `apps/web/.claude/spot_fees_design_brief.md`.
+
+1. **Fee set by the ORGANIZER, POST-APPROVAL** (intake stays light).
+2. **Fee IS disclosed in the vendor's invitation** before they accept — part of what they agree to.
+3. **Per-EVENT flat fee in V1.** Per-day fees ride with multi-day events (backlogged phase).
+4. **Spot allocation / pay deadline (owner verbatim logic):** when MORE vendors are invited than spots — first come first served among organizer-selected vendors: whoever pays first gets the spot. When NO surplus — a selected vendor gets **12 PROTECTED HOURS after organizer approval** before other approved vendors may pay for that spot. **Organizer override always exists:** they may accept payment from a waiting vendor once another's protected window lapses — first payment wins.
+5. **Refunds:** organizer-cancels-event → AUTOMATIC full refund. Date change / vendor cancels after paying / admin kills event → MANUAL in V1.
+6. **Platform cut: booth math verbatim** — vendor pays fee ×1.065 + $0.15; organizer receives 93.5% (calculateBoothRentalFees reused as-is).
+7. **Zero-fee events: byte-identical to today** — no pay step exists for them.
+8. **Organizer Connect: LAZY, at first fee-set**, with the mig-218 durable email link pattern (owner CONFIRMED "lazy B" 2026-08-14 after plain-language explanation).
+9. **Name: "Event Vendor Fee"** — on invitations, receipts, payouts (term() entries per vertical).
+10. **Multi-day pre-ordering: separate later phase** (per-day schedules/waves — not part of the fees build).

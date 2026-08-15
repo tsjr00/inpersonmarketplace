@@ -8,6 +8,7 @@ import {
 } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
 import { maskedEventName } from '@/lib/events/event-name'
+import { calculateBoothRentalFees } from '@/lib/pricing'
 
 interface RouteContext {
   params: Promise<{ marketId: string }>
@@ -70,7 +71,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       // Verify vendor is invited to this market
       const { data: marketVendor } = await serviceClient
         .from('market_vendors')
-        .select('response_status, response_notes, invited_at, event_max_orders_total, event_max_orders_per_wave')
+        .select('response_status, response_notes, invited_at, event_max_orders_total, event_max_orders_per_wave, organizer_selected_at')
         .eq('market_id', marketId)
         .eq('vendor_profile_id', vendorProfile.id)
         .single()
@@ -115,13 +116,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
         theme_description: null as string | null,
         has_competing_vendors: false,
         vendor_stay_policy: null as string | null,
+        event_vendor_fee_cents: null as number | null,
       }
 
       if (market.catering_request_id) {
         const { data: cReq } = await serviceClient
           .from('catering_requests')
           .select(
-            'company_name, cuisine_preferences, dietary_notes, setup_instructions, vendor_count, event_start_time, event_end_time, event_type, payment_model, is_ticketed, children_present, is_themed, theme_description, has_competing_vendors, vendor_stay_policy'
+            'company_name, cuisine_preferences, dietary_notes, setup_instructions, vendor_count, event_start_time, event_end_time, event_type, payment_model, is_ticketed, children_present, is_themed, theme_description, has_competing_vendors, vendor_stay_policy, event_vendor_fee_cents'
           )
           .eq('id', market.catering_request_id)
           .single()
@@ -143,6 +145,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
             theme_description: cReq.theme_description as string | null,
             has_competing_vendors: !!(cReq.has_competing_vendors),
             vendor_stay_policy: (cReq.vendor_stay_policy as string) || null,
+            event_vendor_fee_cents: (cReq.event_vendor_fee_cents as number | null) || null,
           }
         }
       }
@@ -160,6 +163,24 @@ export async function GET(request: NextRequest, context: RouteContext) {
       // @paired-rule organizer-identity — every vendor-facing surface must
       // mask identity (name, address) until acceptance. See lib/paired-rules.ts.
       const hasAccepted = marketVendor.response_status === 'accepted'
+
+      // Event Vendor Fee (V1 2026-08-14): disclosed in the invitation BEFORE
+      // acceptance (decision 2) — the fee is part of what the vendor agrees
+      // to, so it is deliberately NOT behind the hasAccepted mask. What the
+      // vendor actually pays is fee + buyer-side markup (decision 6).
+      const feeCents = cateringDetails.event_vendor_fee_cents
+      let feePaymentStatus: 'paid' | 'unpaid' | null = null
+      if (feeCents && feeCents > 0) {
+        const { data: feeRow } = await serviceClient
+          .from('event_vendor_fee_payments')
+          .select('status')
+          .eq('market_id', marketId)
+          .eq('vendor_profile_id', vendorProfile.id)
+          .eq('status', 'paid')
+          .maybeSingle()
+        feePaymentStatus = feeRow ? 'paid' : 'unpaid'
+      }
+      const feeAmounts = feeCents && feeCents > 0 ? calculateBoothRentalFees(feeCents) : null
 
       return NextResponse.json({
         event: {
@@ -197,6 +218,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
           theme_description: cateringDetails.theme_description,
           has_competing_vendors: cateringDetails.has_competing_vendors,
           vendor_stay_policy: cateringDetails.vendor_stay_policy,
+          // Event Vendor Fee (V1): shown pre-acceptance by design (decision 2)
+          vendor_fee_cents: feeCents,
+          vendor_fee_pays_cents: feeAmounts ? feeAmounts.vendorPaysCents : null,
+          vendor_fee_status: feePaymentStatus,
+          organizer_selected_at: marketVendor.organizer_selected_at || null,
           // Capacity data for acceptance UI
           event_max_orders_total: marketVendor.event_max_orders_total || null,
           event_max_orders_per_wave: marketVendor.event_max_orders_per_wave || null,

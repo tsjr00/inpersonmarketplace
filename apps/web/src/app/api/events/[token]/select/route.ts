@@ -229,6 +229,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'One or more selected vendors are not available' }, { status: 400 })
     }
 
+    // Event Vendor Fees (mig 228): stamp WHEN the organizer selected each
+    // vendor — starts the 12h protected pay window (decision 4). Only stamped
+    // once: re-submitting selections must not extend a vendor's protection.
+    await serviceClient
+      .from('market_vendors')
+      .update({ organizer_selected_at: new Date().toISOString() })
+      .eq('market_id', event.market_id)
+      .in('vendor_profile_id', uniqueVendorIds)
+      .is('organizer_selected_at', null)
+
     // Mark non-selected accepted vendors as 'not_selected' (they stay as backups)
     const { data: allAccepted } = await serviceClient
       .from('market_vendors')

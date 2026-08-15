@@ -222,8 +222,17 @@ describe('NI-014: Total notification types = 72', () => {
     // an organizer clicking it landed in the admin panel — which was the second
     // half of T-08. The new type carries the vendor's own response_notes and
     // links to the organizer's own event dashboard. User-approved.
+    // Bumped 105 → 108 on 2026-08-14 for Event Vendor Fees V1 (decisions.md):
+    // event_fee_paid_vendor (spot secured receipt), event_fee_received_organizer
+    // (fee landed, organizer's portion en route — organizer routing like
+    // event_vendor_responded_organizer), event_fee_refunded_vendor (the rare
+    // first-payment-wins race loser: event filled mid-checkout, auto-refunded
+    // in full by the webhook). All three are sent ONLY by
+    // handleEventVendorFeeCheckoutComplete in lib/stripe/webhooks.ts, with the
+    // required keys named on each template. User-approved 2026-08-14
+    // ("all approved" — webhook + 3 types + tripwire bump presented together).
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(105)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(108)
   })
 
   it('includes all buyer-facing types', () => {

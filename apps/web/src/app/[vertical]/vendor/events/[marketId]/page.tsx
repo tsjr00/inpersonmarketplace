@@ -44,6 +44,11 @@ interface EventDetails {
   event_max_orders_total: number | null
   event_max_orders_per_wave: number | null
   profile_max_headcount_per_wave: number | null
+  // Event Vendor Fee (V1 2026-08-14) — disclosed pre-acceptance (decision 2)
+  vendor_fee_cents: number | null
+  vendor_fee_pays_cents: number | null
+  vendor_fee_status: 'paid' | 'unpaid' | null
+  organizer_selected_at: string | null
 }
 
 const verticalAccent: Record<string, string> = {
@@ -81,6 +86,27 @@ export default function VendorCateringDetailPage() {
   const [cateringListings, setCateringListings] = useState<Array<{ id: string; title: string; price_cents: number }>>([])
   const [selectedListingIds, setSelectedListingIds] = useState<Set<string>>(new Set())
   const [loadingListings, setLoadingListings] = useState(false)
+
+  // Event Vendor Fee pay step (V1 2026-08-14)
+  const [payingFee, setPayingFee] = useState(false)
+
+  async function payVendorFee() {
+    if (payingFee) return
+    setPayingFee(true)
+    setActionMessage(null)
+    try {
+      const res = await fetch(`/api/vendor/events/${marketId}/pay`, { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && data.url) {
+        window.location.href = data.url
+        return
+      }
+      setActionMessage(`Error: ${data.error || 'Could not start the fee payment.'}`)
+    } catch {
+      setActionMessage('Error: network problem — please try again.')
+    }
+    setPayingFee(false)
+  }
 
   // Event capacity state
   const [maxOrdersTotal, setMaxOrdersTotal] = useState<number | ''>('')
@@ -454,6 +480,63 @@ export default function VendorCateringDetailPage() {
           {details.event_type ? EVENT_TYPE_LABELS[details.event_type] || details.event_type : 'Private Event'} · {details.city}, {details.state}
         </p>
       </div>
+
+      {/* Event Vendor Fee (V1 2026-08-14). Disclosed BEFORE acceptance
+          (decision 2). The pay button appears only when the organizer has
+          selected this vendor; a paid row is the spot being secured. */}
+      {details.vendor_fee_cents != null && details.vendor_fee_cents > 0 && details.response_status !== 'declined' && (
+        <div style={{
+          marginBottom: spacing.md,
+          padding: spacing.sm,
+          backgroundColor: details.vendor_fee_status === 'paid' ? statusColors.successLight : statusColors.infoLight,
+          border: `1px solid ${details.vendor_fee_status === 'paid' ? statusColors.successBorder : statusColors.infoBorder}`,
+          borderRadius: radius.md,
+          fontSize: typography.sizes.sm,
+          color: details.vendor_fee_status === 'paid' ? statusColors.successDark : statusColors.infoDark,
+        }}>
+          {details.vendor_fee_status === 'paid' ? (
+            <><strong>Your spot is secured</strong> — Event Vendor Fee paid
+              ({details.vendor_fee_pays_cents != null ? `$${(details.vendor_fee_pays_cents / 100).toFixed(2)}` : ''}).</>
+          ) : (
+            <>
+              <strong>Event Vendor Fee:</strong>{' '}
+              {details.vendor_fee_pays_cents != null ? `$${(details.vendor_fee_pays_cents / 100).toFixed(2)}` : ''} to
+              secure your spot, paid only after the organizer selects you.
+              {details.response_status !== 'accepted' && (
+                <> Accepting the invitation means you agree to this fee if selected.</>
+              )}
+              {details.response_status === 'accepted' && !details.organizer_selected_at && (
+                <> The organizer hasn&apos;t made their selection yet — you&apos;ll be able to pay here once they do.</>
+              )}
+              {details.response_status === 'accepted' && details.organizer_selected_at && (
+                <div style={{ marginTop: spacing.xs }}>
+                  <button
+                    onClick={() => void payVendorFee()}
+                    disabled={payingFee}
+                    style={{
+                      padding: `${spacing['2xs']} ${spacing.md}`,
+                      backgroundColor: accent,
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: radius.sm,
+                      fontSize: typography.sizes.sm,
+                      fontWeight: typography.weights.semibold,
+                      cursor: payingFee ? 'not-allowed' : 'pointer',
+                      opacity: payingFee ? 0.7 : 1,
+                    }}
+                  >
+                    {payingFee ? 'Opening checkout…' : `Pay ${details.vendor_fee_pays_cents != null ? `$${(details.vendor_fee_pays_cents / 100).toFixed(2)}` : 'fee'} & secure your spot`}
+                  </button>
+                  <p style={{ margin: `${spacing['2xs']} 0 0`, fontSize: typography.sizes.xs, color: statusColors.neutral500 }}>
+                    The organizer selected you — your spot is held for 12 hours from selection.
+                    First payment wins if spots run short.
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {actionMessage && (
         <div

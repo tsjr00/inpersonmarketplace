@@ -175,6 +175,9 @@ export type NotificationType =
   // an organizer would be sent to a panel they have no business on (that
   // mis-routing was the second half of T-08).
   | 'event_vendor_responded_organizer'
+  | 'event_fee_paid_vendor'
+  | 'event_fee_received_organizer'
+  | 'event_fee_refunded_vendor'
   | 'event_cancelled_vendor'
   | 'event_confirmed'
   | 'event_change_requested'
@@ -1668,6 +1671,51 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     actionUrl: (d) => d.eventId
       ? `/${d.vertical || 'food_trucks'}/event-manager/${d.eventId}/dashboard`
       : `/${d.vertical || 'food_trucks'}/event-manager`,
+  },
+
+  // ── Event Vendor Fees (V1 2026-08-14, decisions.md) ─────────────────────
+  // Caller: the checkout.session.completed webhook handler ONLY
+  // (handleEventVendorFeeCheckoutComplete in lib/stripe/webhooks.ts).
+  // Required keys: marketName, marketId, amountCents (what the VENDOR paid on
+  // the vendor types; what the ORGANIZER receives on the organizer one), plus
+  // vendorName + eventId on the organizer type. Keys named here to keep the
+  // caller honest — the T-08 class is a caller/template key mismatch.
+  event_fee_paid_vendor: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: () => 'Your spot is secured',
+    message: (d) =>
+      `Your Event Vendor Fee${d.amountCents ? ` of $${(d.amountCents / 100).toFixed(2)}` : ''} for ${d.marketName || 'the event'} is paid — your spot is confirmed.`,
+    actionUrl: (d) => d.marketId
+      ? `/${d.vertical || 'food_trucks'}/vendor/events/${d.marketId}`
+      : `/${d.vertical || 'food_trucks'}/vendor/dashboard`,
+  },
+
+  event_fee_received_organizer: {
+    urgency: 'standard',
+    severity: 'info',
+    // Organizer routing, not audience routing — same note as
+    // event_vendor_responded_organizer above.
+    audience: 'buyer',
+    title: (d) => `${d.vendorName || 'A vendor'} paid their Event Vendor Fee`,
+    message: (d) =>
+      `${d.vendorName || 'A vendor'} paid the vendor fee for ${d.marketName || 'your event'}.${d.amountCents ? ` Your portion ($${(d.amountCents / 100).toFixed(2)}) is on its way to your account.` : ''}`,
+    actionUrl: (d) => d.eventId
+      ? `/${d.vertical || 'food_trucks'}/event-manager/${d.eventId}/dashboard`
+      : `/${d.vertical || 'food_trucks'}/event-manager`,
+  },
+
+  event_fee_refunded_vendor: {
+    urgency: 'immediate',
+    severity: 'warning',
+    audience: 'vendor',
+    title: () => 'Event filled — your fee was refunded',
+    message: (d) =>
+      `All vendor spots at ${d.marketName || 'the event'} were taken before your payment completed. Your Event Vendor Fee${d.amountCents ? ` of $${(d.amountCents / 100).toFixed(2)}` : ''} has been refunded in full.`,
+    actionUrl: (d) => d.marketId
+      ? `/${d.vertical || 'food_trucks'}/vendor/events/${d.marketId}`
+      : `/${d.vertical || 'food_trucks'}/vendor/dashboard`,
   },
 
   event_cancelled_vendor: {

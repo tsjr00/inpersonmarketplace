@@ -164,6 +164,13 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
     return
   }
 
+  // Event Vendor Fees (V1 2026-08-14): capacity-checked flip in SQL (mig 229)
+  // — first PAYMENT wins; the rare over-capacity loser is auto-refunded here.
+  if (session.metadata?.type === 'event_vendor_fee') {
+    await handleEventVendorFeeCheckoutComplete(session)
+    return
+  }
+
   // Handle regular product checkout (may include market box items)
   const orderId = session.metadata?.order_id
   if (!orderId) return
@@ -1348,6 +1355,108 @@ async function handleChargeDisputeCreated(dispute: Stripe.Dispute) {
   }
 
   crumb.stripe(`charge.dispute.created processed: dispute ${dispute.id}${orderNumber ? `, order #${orderNumber}` : ''}, $${(disputeAmount / 100).toFixed(2)} — admins notified`)
+}
+
+/**
+ * Event Vendor Fees (V1 2026-08-14, decisions.md). Handle a successful
+ * fee Checkout session. The flip is delegated to
+ * `mark_event_fee_paid_if_capacity` (mig 229) which decides FIRST PAYMENT
+ * WINS under the per-event advisory lock and is idempotent on Stripe
+ * retries. Outcomes:
+ *   paid          → notify vendor (spot secured) + organizer (portion en route)
+ *   needs_refund  → the event filled between checkout-open and payment
+ *                   completion (pending rows never hold capacity, by design):
+ *                   full auto-refund with a deterministic key + vendor notice.
+ * Notification keys match the three event_fee_* templates in
+ * notifications/types.ts — sole caller, keys named there.
+ */
+async function handleEventVendorFeeCheckoutComplete(session: Stripe.Checkout.Session) {
+  const supabase = createServiceClient()
+  const paymentId = session.metadata?.payment_id
+  if (!paymentId) {
+    await logError(new TracedError('ERR_WEBHOOK_001', `event_vendor_fee session missing payment_id (session ${session.id})`, {
+      route: '/webhooks/stripe', method: 'POST',
+    }))
+    return
+  }
+  const paymentIntentId = session.payment_intent as string
+
+  const { data: flip, error: flipErr } = await supabase.rpc('mark_event_fee_paid_if_capacity', {
+    p_payment_id: paymentId,
+    p_session_id: session.id,
+    p_payment_intent_id: paymentIntentId,
+  })
+  if (flipErr) {
+    await logError(new TracedError('ERR_WEBHOOK_001', `event fee flip failed for payment ${paymentId}: ${flipErr.message}`, {
+      route: '/webhooks/stripe', method: 'POST',
+    }))
+    return
+  }
+  const result = flip as { paid: boolean; reason?: string; needs_refund?: boolean }
+
+  // Context for notifications (best-effort — a lookup failure must not
+  // unpaid a paid row, so everything below is non-fatal).
+  const { data: row } = await supabase
+    .from('event_vendor_fee_payments')
+    .select('market_id, catering_request_id, vendor_profile_id, vendor_pays_cents, organizer_receives_cents')
+    .eq('id', paymentId)
+    .maybeSingle()
+  if (!row) return
+
+  const [{ data: vp }, { data: cr }] = await Promise.all([
+    supabase.from('vendor_profiles').select('user_id, profile_data').eq('id', row.vendor_profile_id).maybeSingle(),
+    supabase.from('catering_requests').select('id, company_name, organizer_user_id, vertical_id').eq('id', row.catering_request_id).maybeSingle(),
+  ])
+  const vendorUserId = vp?.user_id as string | null
+  const vendorName = ((vp?.profile_data as Record<string, unknown>)?.business_name as string)
+    || ((vp?.profile_data as Record<string, unknown>)?.farm_name as string) || 'A vendor'
+  const marketName = (cr?.company_name as string) || 'the event'
+  const vertical = (cr?.vertical_id as string) || 'food_trucks'
+
+  if (result.paid) {
+    if (vendorUserId) {
+      await sendNotification(vendorUserId, 'event_fee_paid_vendor', {
+        marketName,
+        marketId: row.market_id as string,
+        amountCents: row.vendor_pays_cents as number,
+        dedupRef: paymentId,
+      }, { vertical })
+    }
+    if (cr?.organizer_user_id) {
+      await sendNotification(cr.organizer_user_id as string, 'event_fee_received_organizer', {
+        vendorName,
+        marketName,
+        eventId: cr.id as string,
+        amountCents: row.organizer_receives_cents as number,
+        dedupRef: paymentId,
+      }, { vertical })
+    }
+    crumb.stripe(`event_vendor_fee paid: payment ${paymentId}, vendor ${row.vendor_profile_id}`)
+    return
+  }
+
+  if (result.needs_refund && paymentIntentId) {
+    try {
+      await createRefund(paymentIntentId, `event-fee-${paymentId}`)
+      await supabase
+        .from('event_vendor_fee_payments')
+        .update({ status: 'refunded', refunded_at: new Date().toISOString(), refund_reason: 'event_full_race' })
+        .eq('id', paymentId)
+        .eq('status', 'released')
+      if (vendorUserId) {
+        await sendNotification(vendorUserId, 'event_fee_refunded_vendor', {
+          marketName,
+          marketId: row.market_id as string,
+          amountCents: row.vendor_pays_cents as number,
+          dedupRef: paymentId,
+        }, { vertical })
+      }
+    } catch (refundErr) {
+      await logError(new TracedError('ERR_REFUND_001', `event fee race-loser refund FAILED for payment ${paymentId} — manual refund of ${row.vendor_pays_cents}¢ needed: ${refundErr instanceof Error ? refundErr.message : String(refundErr)}`, {
+        route: '/webhooks/stripe', method: 'POST',
+      }))
+    }
+  }
 }
 
 /**

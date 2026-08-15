@@ -13,6 +13,7 @@ import EventAgreementPickerCard from '@/components/events/EventAgreementPickerCa
 import EventBroadcastCard from '@/components/events/EventBroadcastCard'
 import EventRatingsCard from '@/components/events/EventRatingsCard'
 import OrganizerEventDetails from '@/components/events/OrganizerEventDetails'
+import EventVendorFeeCard from '@/components/events/EventVendorFeeCard'
 import OrganizerEventActions from '@/components/events/OrganizerEventActions'
 import OrganizerProgress from '@/components/events/OrganizerProgress'
 
@@ -395,6 +396,13 @@ export default async function EventManagerDashboardPage({ params }: PageProps) {
           vertical={vertical}
           primaryColor={colors.primary}
         />
+      </DashboardCard>
+
+      {/* Event Vendor Fee (V1, 2026-08-14) — organizer charges vendors for
+          their spot. Post-approval feature; pre-approval the card explains
+          itself. Payout onboarding (lazy Connect) is driven from inside it. */}
+      <DashboardCard title="Event Vendor Fee">
+        <EventVendorFeeCard eventRef={eventRef} primaryColor={colors.primary} />
       </DashboardCard>
 
       {/* The management controls, moved off the shopper dashboard.

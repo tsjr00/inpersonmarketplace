@@ -339,6 +339,14 @@ Red banner. Owner: *"might be because there are no scores yet, but it might be a
 **Suggested order:** **A** (a deadlock with no escape beats everything) → **D** (admins locked out of a working page) → **E** (small, and it may just be an empty state) → **C** (build work) → **B** (analysis + documentation, the largest and least urgent).
 
 
+## 🎯 MULTI-DAY EVENTS — PHASE 2 (owner-decided 2026-08-14: NOT in the fees build)
+
+Per-day pre-ordering for multi-day events (car-show Fri/Sat): per-day schedule rows/waves, day-scoped pre-orders borrowing catering advance-order windows, **separate transaction per day** (owner leaning 2026-08-13, consistent with event-items-ordered-alone), per-day Event Vendor Fees. Schema already carries event_start_date/event_end_date; everything downstream assumes one pickup day today (shop-data pickup_date = event_date, single schedule row, per-event waves).
+
+## 🎯 EVENT VENDOR FEES — V1 DECIDED 2026-08-14, see decisions.md + spot_fees_design_brief.md (was: EVENT SPOT FEES)
+
+**All 10 design questions answered by owner 2026-08-14** (decisions.md → "Event Vendor Fees — V1 design decisions"). Q8 (lazy Connect) pending final confirm. Original capture below kept for context.
+
 ## 🎯 EVENT SPOT FEES — organizer charges vendors to set up (presentation takeaways, owner 2026-08-13)
 
 **The gap:** organizations commonly CHARGE trucks/vendors a spot/entrance fee to set up at their event. We have zero functionality for it — an organizer using us would collect that fee OFF-app, which they'd expect an event-management app to handle.
