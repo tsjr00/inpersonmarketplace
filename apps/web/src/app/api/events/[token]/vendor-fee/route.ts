@@ -4,6 +4,7 @@ import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { eventRefColumn } from '@/lib/events/event-ref'
 import { getAccountStatus } from '@/lib/stripe/connect'
+import { getReusablePayoutAccounts } from '@/lib/events/reusable-payout-accounts'
 
 /**
  * Event Vendor Fee — organizer sets a flat per-event fee vendors pay for a
@@ -114,11 +115,26 @@ export async function GET(
       }
     }
 
+    // Payout-account reuse (owner decision 2026-08-15): while onboarding is
+    // incomplete, offer accounts the organizer already finished elsewhere —
+    // their vendor account or a prior event's. Labels only; account ids never
+    // leave the server (the reuse route re-derives and validates).
+    let reuseOptions: Array<{ source: string; label: string }> = []
+    if (event.market_id && !payout.onboardingComplete) {
+      const serviceClient = createServiceClient()
+      const candidates = await getReusablePayoutAccounts(serviceClient, user.id, {
+        excludeMarketId: event.market_id,
+        verticalId: event.vertical_id,
+      })
+      reuseOptions = candidates.map(c => ({ source: c.source, label: c.label }))
+    }
+
     return NextResponse.json({
       fee_cents: event.event_vendor_fee_cents,
       market_id: event.market_id,
       approved: !!event.market_id,
       payout,
+      reuse_options: reuseOptions,
     })
   })
 }

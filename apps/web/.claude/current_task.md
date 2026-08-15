@@ -1,4 +1,10 @@
-# SESSION 2026-08-15 — T-79/T-80/T-82/T-83/T-84 all FIXED, gates green, awaiting commit approval
+# SESSION 2026-08-15 — T-79/80/82/83/84 SHIPPED to staging (0d1e86d1); S-1 + has-applied collapse BUILT, gates green
+
+## Third build (same session): PAYOUT-ACCOUNT REUSE — built, gates green, uncommitted
+Owner decisions (in decisions.md): offered-not-automatic (b) + prior-event reuse with "still active" notice. New: `lib/events/reusable-payout-accounts.ts` (server-side derivation, source-keyword-only API), `api/events/[token]/stripe/reuse` (live-verifies account before copying to `markets.stripe_account_id`), vendor-fee GET returns `reuse_options` labels, EventVendorFeeCard renders choice buttons + "Set up a separate account". Map: 14_Events.md updated (incl. stale T-80 select-route line fixed), stamp bumped. Owner's staging results: ALL FIVE (T-79/80/82/83/84) PASSED.
+
+## Second batch (post-0d1e86d1, awaiting commit approval)
+Owner decided all three: (1) S-1 filter chips now derived from LIFECYCLE_STEPS + declined/cancelled (admin/events/page.tsx); (2) "has applied" collapsed to ONE helper `src/lib/vendor-event-application.ts` used by queue API + both vendor detail pages; (3) queue asymmetry RESOLVED per owner: queue now INCLUDES applications from not-yet-approved vendors, flagged "not eligible — vendor not yet approved" (`eligible:false` from the API). Codebase map: 19_Admin.md claims the new lib file, stamp bumped. tsc clean, lint 0 errors, 1970/1970.
 
 All five approved and built (owner "yes, proceed"): T-79 (match panel disable + route error names reason), T-80 (confirmed-state select page + notify-newly-selected-only + first-confirmation-only email + is_backup clear on promotion), T-82 (fee copy removed ×2), T-83 (Continue Shopping always shown; event carts close-only), T-84 (menu button → text link). tsc clean, lint 0 errors, 1970/1970 tests. Files: admin/events/page.tsx, api/admin/events/[id]/invite/route.ts, api/events/[token]/select/route.ts, events/[token]/select/page.tsx, vendor/events/[marketId]/page.tsx, CartDrawer.tsx, vendor/[vendorId]/profile/page.tsx. PRIOR batch (fees V1) is PROD-ELIGIBLE — owner passed B6 + cart-bar 2026-08-15. These 5 fixes need their own staging pass before prod.
 

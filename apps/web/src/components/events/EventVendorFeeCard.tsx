@@ -22,6 +22,10 @@ interface FeeState {
   fee_cents: number | null
   approved: boolean
   payout: { connected: boolean; onboardingComplete: boolean }
+  /** Accounts the organizer already finished onboarding elsewhere (vendor
+      account / prior event) — offered as one-click reuse, owner decision
+      2026-08-15. Labels only; the server holds the account ids. */
+  reuse_options?: Array<{ source: string; label: string }>
 }
 
 export default function EventVendorFeeCard({
@@ -109,6 +113,30 @@ export default function EventVendorFeeCard({
     setConnecting(false)
   }
 
+  async function reuseAccount(source: string) {
+    if (connecting) return
+    setConnecting(true)
+    setMessage(null)
+    try {
+      const res = await fetch(`/api/events/${eventRef}/stripe/reuse`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setState(prev => (prev ? { ...prev, payout: { connected: true, onboardingComplete: true }, reuse_options: [] } : prev))
+        setNeedsConnect(false)
+        setMessage('Payout account connected — now set your fee.')
+      } else {
+        setMessage(data.error || 'Could not connect that account.')
+      }
+    } catch {
+      setMessage('Network error — please try again.')
+    }
+    setConnecting(false)
+  }
+
   if (loading) {
     return <p style={{ margin: 0, fontSize: typography.sizes.sm, color: statusColors.neutral500 }}>Loading…</p>
   }
@@ -146,14 +174,51 @@ export default function EventVendorFeeCard({
             a one-time form connects your bank account (via Stripe). Takes a few minutes; you can
             come back and finish any time from this button.
           </p>
+          {/* Payout-account reuse (owner decision 2026-08-15): offered as a
+              choice, never automatic — the same person isn't always the same
+              business. Buttons carry the account's business/event name so the
+              organizer knows exactly where the money would go. */}
+          {(state.reuse_options?.length ?? 0) > 0 && (
+            <>
+              <p style={{ margin: `0 0 ${spacing['2xs']}` }}>
+                You&apos;ve set up payouts with us before. If your prior payout account is still
+                active, it&apos;s easiest to use the same account — or set up a separate one below.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'], marginBottom: spacing['2xs'] }}>
+                {state.reuse_options?.map(opt => (
+                  <button
+                    key={opt.source}
+                    onClick={() => void reuseAccount(opt.source)}
+                    disabled={connecting}
+                    style={{
+                      padding: `${spacing['3xs']} ${spacing.sm}`,
+                      backgroundColor: primaryColor,
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: radius.sm,
+                      fontSize: typography.sizes.xs,
+                      fontWeight: typography.weights.semibold,
+                      cursor: connecting ? 'not-allowed' : 'pointer',
+                      opacity: connecting ? 0.7 : 1,
+                      textAlign: 'left',
+                    }}
+                  >
+                    {opt.source === 'vendor'
+                      ? `Use your existing vendor payout account (${opt.label})`
+                      : `Use the payout account from ${opt.label}`}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
           <button
             onClick={() => void startConnect()}
             disabled={connecting}
             style={{
               padding: `${spacing['3xs']} ${spacing.sm}`,
-              backgroundColor: primaryColor,
-              color: 'white',
-              border: 'none',
+              backgroundColor: (state.reuse_options?.length ?? 0) > 0 ? 'transparent' : primaryColor,
+              color: (state.reuse_options?.length ?? 0) > 0 ? statusColors.warningDark : 'white',
+              border: (state.reuse_options?.length ?? 0) > 0 ? `1px solid ${statusColors.warningBorder}` : 'none',
               borderRadius: radius.sm,
               fontSize: typography.sizes.xs,
               fontWeight: typography.weights.semibold,
@@ -161,7 +226,11 @@ export default function EventVendorFeeCard({
               opacity: connecting ? 0.7 : 1,
             }}
           >
-            {connecting ? 'Opening…' : state.payout.connected ? 'Finish payout setup' : 'Set up payouts'}
+            {connecting
+              ? 'Opening…'
+              : (state.reuse_options?.length ?? 0) > 0
+                ? 'Set up a separate account'
+                : state.payout.connected ? 'Finish payout setup' : 'Set up payouts'}
           </button>
         </div>
       )}
@@ -217,7 +286,7 @@ export default function EventVendorFeeCard({
         <p style={{
           margin: `${spacing['2xs']} 0 0`,
           fontSize: typography.sizes.xs,
-          color: message.startsWith('Fee') ? statusColors.successDark : statusColors.warningDark,
+          color: message.startsWith('Fee') || message.startsWith('Payout account connected') ? statusColors.successDark : statusColors.warningDark,
         }}>
           {message}
         </p>

@@ -151,6 +151,14 @@ Structured record of business and architecture decisions. Check here before aski
 
 **When company-paid billing is designed/built, update BOTH surfaces together** (they are a de-facto pair): dashboard total and settlement `companyPaidCents`/`companyPaymentBalance` should include the 6.5% buyer-side fee. Until then, do not change either one alone.
 
+### Event payout-account REUSE (owner, 2026-08-15)
+
+An organizer who already has a completed Stripe Connect account — as a vendor (`vendor_profiles.stripe_*`) or from a prior event they organized — may point a new event's payout at it instead of re-onboarding. **Offered as a choice, NEVER automatic** (owner picked option b): the same person isn't always the same business, so auto-reuse could route other vendors' fees to the wrong entity's bank. Prior-event reuse also approved, with the notice "if your prior event payout account is still active it is easiest to use the same account." Mechanics: client sends only a `source` keyword; server re-derives + live-verifies the account (`lib/events/reusable-payout-accounts.ts`, `api/events/[token]/stripe/reuse`). This is the sanctioned exception to mig 141's "one account per market" default; safe because the only account-id lookups are the webhook's bulk status syncs, which update every row carrying the id.
+
+### Pending event applications queue — show ineligible applicants (owner, 2026-08-15)
+
+The admin queue no longer hides event applications from vendors whose overall vendor status isn't 'approved' — they appear flagged "not eligible — vendor not yet approved" (`eligible:false` from the API) until the vendor is approved.
+
 ### Event Vendor Fees — V1 design decisions (owner, 2026-08-14)
 
 Organizers charging vendors to set up at events (presentation-driven feature). Design brief: `apps/web/.claude/spot_fees_design_brief.md`.
