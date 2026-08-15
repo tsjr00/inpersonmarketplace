@@ -65,7 +65,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
       // organizer surface at all — only the admin events page showed it. This
       // page is where the organizer chooses between vendors, so it is where
       // the message they wrote belongs.
-      .select('vendor_profile_id, response_status, response_notes, vendor_profiles:vendor_profile_id(id, profile_data, profile_image_url, average_rating, rating_count, tier, pickup_lead_minutes)')
+      // T-80: is_backup + organizer_selected_at let this page tell the
+      // organizer what they already confirmed instead of rendering fresh
+      // "Select" buttons on a live event.
+      .select('vendor_profile_id, response_status, response_notes, is_backup, organizer_selected_at, vendor_profiles:vendor_profile_id(id, profile_data, profile_image_url, average_rating, rating_count, tier, pickup_lead_minutes)')
       .eq('market_id', event.market_id)
       .eq('response_status', 'accepted')
 
@@ -140,6 +143,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
       return {
         vendor_profile_id: vid,
+        // T-80: previously confirmed by the organizer. organizer_selected_at
+        // is the durable marker (mig 228); the ready-and-not-backup fallback
+        // covers events selected before that column existed.
+        selected:
+          mv.organizer_selected_at != null ||
+          (event.status === 'ready' && mv.is_backup !== true),
         // T-59: what the vendor wrote when they said yes.
         response_notes: (mv.response_notes as string | null) || null,
         business_name: (pd.business_name as string) || (pd.farm_name as string) || 'Vendor',
@@ -229,6 +238,25 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'One or more selected vendors are not available' }, { status: 400 })
     }
 
+    // T-80: capture who was ALREADY confirmed before mutating anything.
+    // Re-submitting used to re-notify every vendor and re-send the organizer
+    // kit — the status guard below permits 'ready', so it never blocked this.
+    // Same derivation as GET: organizer_selected_at (mig 228) or, for events
+    // selected before that column existed, ready-and-not-backup.
+    const { data: priorRows } = await serviceClient
+      .from('market_vendors')
+      .select('vendor_profile_id, is_backup, organizer_selected_at')
+      .eq('market_id', event.market_id)
+      .eq('response_status', 'accepted')
+
+    const previouslySelected = new Set(
+      (priorRows || [])
+        .filter(r => r.organizer_selected_at != null || (event.status === 'ready' && r.is_backup !== true))
+        .map(r => r.vendor_profile_id as string)
+    )
+    const isFirstConfirmation = event.status === 'approved'
+    const newlySelectedIds = uniqueVendorIds.filter(id => !previouslySelected.has(id))
+
     // Event Vendor Fees (mig 228): stamp WHEN the organizer selected each
     // vendor — starts the 12h protected pay window (decision 4). Only stamped
     // once: re-submitting selections must not extend a vendor's protection.
@@ -258,21 +286,32 @@ export async function POST(request: NextRequest, context: RouteContext) {
           .update({ is_backup: true })
           .eq('market_id', event.market_id)
           .in('vendor_profile_id', notSelectedIds)
+      }
 
-        // EVT-9 FIX: backups no longer count toward wave capacity (mig 191) —
-        // if waves were already generated, shrink them to the selected set.
-        const { data: selectWaves } = await serviceClient
-          .from('event_waves')
-          .select('id')
-          .eq('market_id', event.market_id)
-          .limit(1)
-        if (selectWaves && selectWaves.length > 0) {
-          const { error: recalcErr } = await serviceClient.rpc('recalculate_wave_capacity', {
-            p_market_id: event.market_id,
-          })
-          if (recalcErr) {
-            console.error(`[events/select] recalculate_wave_capacity failed for market ${event.market_id}:`, recalcErr.message)
-          }
+      // T-80: clear the flag on selected vendors — a backup promoted by a
+      // selection change used to keep is_backup=true forever, wrongly
+      // excluding them from wave capacity (mig 191 counts non-backups only).
+      await serviceClient
+        .from('market_vendors')
+        .update({ is_backup: false })
+        .eq('market_id', event.market_id)
+        .in('vendor_profile_id', uniqueVendorIds)
+
+      // EVT-9 FIX: backups no longer count toward wave capacity (mig 191) —
+      // if waves were already generated, resize them to the selected set.
+      // Runs on every submit that finds waves (T-80: promotions matter too,
+      // not just demotions); the RPC is idempotent.
+      const { data: selectWaves } = await serviceClient
+        .from('event_waves')
+        .select('id')
+        .eq('market_id', event.market_id)
+        .limit(1)
+      if (selectWaves && selectWaves.length > 0) {
+        const { error: recalcErr } = await serviceClient.rpc('recalculate_wave_capacity', {
+          p_market_id: event.market_id,
+        })
+        if (recalcErr) {
+          console.error(`[events/select] recalculate_wave_capacity failed for market ${event.market_id}:`, recalcErr.message)
         }
       }
     }
@@ -303,8 +342,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Selections have already been submitted' }, { status: 409 })
     }
 
-    // Notify selected vendors — prompt them to connect catering listings
-    for (const vendorId of uniqueVendorIds) {
+    // Notify selected vendors — prompt them to connect catering listings.
+    // T-80: only vendors NEWLY selected this submit — an unchanged re-submit
+    // used to send every selected vendor a duplicate confirmation.
+    for (const vendorId of newlySelectedIds) {
       const { data: vp } = await serviceClient
         .from('vendor_profiles')
         .select('user_id')
@@ -326,6 +367,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Send organizer the event page link
     const { getAppUrl } = await import('@/lib/environment')
     const eventPageUrl = `${getAppUrl(event.vertical_id)}/${event.vertical_id}/events/${event.event_token}`
+
+    // T-80: everything from here to the stamp is first-confirmation only —
+    // the organizer already has the link and marketing kit; a selection
+    // change must not re-send the whole email (and needs no QR/cuisine prep).
+    if (isFirstConfirmation) {
 
     // Generate QR code for event page URL
     let qrCodeDataUrl = ''
@@ -450,6 +496,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     } catch (emailErr) {
       console.error('[event-select] Failed to send confirmation email:', emailErr)
     }
+
+    } // end isFirstConfirmation (T-80)
 
     return NextResponse.json({
       ok: true,

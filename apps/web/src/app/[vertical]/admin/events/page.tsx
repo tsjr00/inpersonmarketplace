@@ -1640,19 +1640,27 @@ export default function AdminCateringPage() {
                               <label style={{
                                 display: 'flex', alignItems: 'center', gap: spacing['2xs'],
                                 padding: `${spacing['3xs']} ${spacing.xs}`, borderRadius: radius.sm,
-                                cursor: 'pointer', fontSize: typography.sizes.xs,
+                                cursor: v.event_approved ? 'pointer' : 'not-allowed', fontSize: typography.sizes.xs,
                                 backgroundColor: hasIssues ? '#fef2f2' : selectedVendors.includes(v.id) ? statusColors.successLight : 'transparent',
                                 border: `1px solid ${hasIssues ? '#fca5a5' : selectedVendors.includes(v.id) ? statusColors.successBorder : 'transparent'}`,
-                                opacity: hasIssues ? 0.7 : 1,
+                                opacity: hasIssues || !v.event_approved ? 0.7 : 1,
                               }}>
+                                {/* T-79: the invite route hard-rejects vendors without
+                                    event_approved (invite/route.ts filter) — offering a
+                                    checkbox here just produced "No valid vendors found".
+                                    Non-approved vendors stay VISIBLE as candidates but
+                                    can't be selected; the badge says why. */}
                                 <input type="checkbox" checked={selectedVendors.includes(v.id)}
+                                  disabled={!v.event_approved}
                                   onChange={(e) => {
                                     if (e.target.checked) setSelectedVendors(prev => [...prev, v.id])
                                     else setSelectedVendors(prev => prev.filter(id => id !== v.id))
                                   }} />
                                 <span style={{ fontWeight: typography.weights.medium }}>{v.business_name}</span>
-                                {v.event_approved && (
+                                {v.event_approved ? (
                                   <span style={{ padding: `1px ${spacing['2xs']}`, backgroundColor: '#d1fae5', color: '#065f46', borderRadius: 8, fontSize: 10, fontWeight: typography.weights.semibold }}>Event ✓</span>
+                                ) : (
+                                  <span style={{ padding: `1px ${spacing['2xs']}`, backgroundColor: '#fef3c7', color: '#92400e', borderRadius: 8, fontSize: 10, fontWeight: typography.weights.semibold }}>not event-approved — can&apos;t invite</span>
                                 )}
                                 <span style={{
                                   padding: `1px ${spacing['2xs']}`,

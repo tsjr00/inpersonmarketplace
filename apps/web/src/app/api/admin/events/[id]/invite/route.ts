@@ -100,16 +100,33 @@ export async function POST(request: NextRequest, context: RouteContext) {
         )
       }
 
-      // Get vendor profiles — only event-approved vendors can be invited
-      const { data: vendors, error: vendorError } = await serviceClient
+      // Get vendor profiles — only event-approved vendors can be invited.
+      // T-79: fetch WITHOUT the event_approved filter so a rejection can name
+      // the reason (the old query made non-approved selections indistinguishable
+      // from unknown ids — admins got a generic "No valid vendors found").
+      const { data: requestedVendors, error: vendorError } = await serviceClient
         .from('vendor_profiles')
-        .select('id, user_id, profile_data')
+        .select('id, user_id, profile_data, event_approved')
         .in('id', vendor_ids)
-        .eq('event_approved', true)
 
-      if (vendorError || !vendors || vendors.length === 0) {
+      if (vendorError || !requestedVendors || requestedVendors.length === 0) {
         return NextResponse.json(
           { error: 'No valid vendors found' },
+          { status: 400 }
+        )
+      }
+
+      const vendors = requestedVendors.filter((v) => v.event_approved)
+      const notApprovedCount = requestedVendors.length - vendors.length
+
+      if (vendors.length === 0) {
+        return NextResponse.json(
+          {
+            error:
+              notApprovedCount === 1
+                ? 'The selected vendor is not approved for events. Approve them for events first (Admin → Vendors).'
+                : `None of the ${notApprovedCount} selected vendors are approved for events. Approve them for events first (Admin → Vendors).`,
+          },
           { status: 400 }
         )
       }
@@ -194,6 +211,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
         ok: true,
         invited: newVendors.length,
         skipped: vendors.length - newVendors.length,
+        // T-79: a mixed selection used to drop non-approved vendors silently.
+        skipped_not_approved: notApprovedCount,
       })
     }
   )

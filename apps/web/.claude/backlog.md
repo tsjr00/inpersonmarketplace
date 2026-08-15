@@ -2079,17 +2079,33 @@ Surfaced by Session 83 Agent A's comprehensive scan; all pre-existing, none made
 **Why deferred:** this is the money-gate availability RPC (mig 054 tz fix + mig 131 schedule requirement live in it; standing do-NOT-touch-casually warning; prior breakage incidents). USER DECISION 2026-07-15: own careful build — isolated migration (user applies), verbatim-preserving body except the one park-scoped intersection, before/after availability-output tests.
 **Interim exposure (accepted):** after T4, an auto-created recurring schedule persists past the booked dates; trucks can deactivate it; no-show/expiry machinery covers unfulfilled orders. Context: `apps/web/.claude/park_tester_feedback_2026-07-15_research.md`.
 
-## 🧪 T-79 — admin match panel offers vendors the invite route will reject (found 2026-08-14, owner testing)
+## ✅ T-79 — FIXED 2026-08-15 (awaiting staging verify) — admin match panel offers vendors the invite route will reject (found 2026-08-14)
+
+Fix shipped: checkbox disabled + amber "not event-approved — can't invite" badge (admin/events/page.tsx); invite route error names the reason and response reports skipped_not_approved (invite/route.ts). Owner's side question still open: should non-approved vendors appear in matching at all?
 
 Owner selected a NOT-event-approved vendor in the admin matching panel and clicked Send invitation → red "Error: No valid vendors found." **Verified mismatch:** the panel API returns ALL approved vendors with no `event_approved` filter (`api/admin/events/route.ts:90-95`, flag sent at :149; page sorts approved-first :1598 and badges :1654 — listing them looks deliberate), but the invite route hard-filters `event_approved=true` (`invite/route.ts:108`) and errors generically (:112). Display ↔ action disagreement, audit-class. Fix options: (a) disable selection for non-event-approved vendors with a "not event-approved" note (keeps them visible as candidates), (b) error message names the reason + links to event approval. Also note owner's side question: whether non-approved vendors should appear in matching AT ALL.
 
-## 🧪 T-80 — select page forgets prior selections; re-submit re-fires confirmations (found 2026-08-14, owner testing)
+## ✅ T-80 — FIXED 2026-08-15 (awaiting staging verify) — select page forgets prior selections; re-submit re-fires confirmations (found 2026-08-14)
+
+Root cause verified: the "atomic" status guard permits 'ready' so it never blocked re-submission; GET returned no selection state. Fix: GET returns per-vendor `selected` (organizer_selected_at, fallback ready-and-not-backup for pre-228 events); page renders confirmed state + explicit "Change selections" (pre-loaded); POST notifies NEWLY selected only, organizer email/QR kit on first confirmation only, is_backup cleared on promoted vendors + wave recalc on every waves-present submit. OPEN design note: deselecting a PAID-fee vendor doesn't refund (Phase 5 matrix) — change-mode copy warns.
 
 On `/events/[token]/select` for an event ALREADY selected (status ready, pre-purchases made), the page still shows fresh "Select This Truck" buttons; owner re-selected, re-confirmed menu review, got the success page again, and the vendor received a DUPLICATE confirmation email (identical to one from 2 days prior). The map claims a status-guarded 409 on double-submit (select route :278-287) — either the guard didn't fire or it permits re-submission in 'ready'; verify which. Fix shape: the select page should LOAD prior selections and render a "already confirmed" state (change-selections as an explicit, consequence-aware action), and re-submission must not re-send confirmations to unchanged vendors.
 
 ## 🧪 T-81 — listing must be saved before a photo can be attached (found 2026-08-14, owner testing)
 
 Menu-item listing creation: the vendor has to save the listing first, THEN attach a photo. Owner: "it should not be that way and should be fixed if we can fix it." Likely cause: listing_images rows FK to listings.id, so no id exists pre-save. Fix options: auto-create a draft on form open (id exists immediately), or hold the upload client-side and attach on save.
+
+## ✅ T-82 — FIXED 2026-08-15 (awaiting staging verify) — market-sales fee copy on event invitation page
+
+Both "Platform fee: 6.5% | Your payout: 93.5% of sales" lines removed from the Revenue Estimate box (FM + FT branches, vendor/events/[marketId]/page.tsx). Estimates + pre-order tips stay.
+
+## ✅ T-83 — FIXED 2026-08-15 (awaiting staging verify) — event cart drawer had no "keep shopping" exit
+
+Root cause: the Continue Shopping button was hidden for event carts because it navigates to /browse (would exit the private event shop). Fix: button always shows; event carts it just closes the drawer (CartDrawer.tsx).
+
+## ✅ T-84 — FIXED 2026-08-15 (awaiting staging verify) — vendor profile big menu-jump button → plain text link
+
+Button removed from inside the header box; centered underlined primary-color text link now sits between the profile box and the schedule grid (vendor/[vendorId]/profile/page.tsx).
 
 ## 📝 EVENT VENDOR FEE — retroactive-fee scenario observed working (2026-08-14, design note)
 

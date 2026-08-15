@@ -617,9 +617,6 @@ export default function VendorCateringDetailPage() {
               <div><strong>Your estimated shoppers:</strong> {headcountBasis} = <strong>~{headcountPerVendor} shoppers</strong></div>
               <div><strong>Conservative estimate:</strong> {headcountPerVendorLow} shoppers × $8 avg spend = <strong>${(headcountPerVendorLow * 8).toLocaleString()}</strong></div>
               <div><strong>Optimistic estimate:</strong> {headcountPerVendorHigh} shoppers × $20 avg spend = <strong>${(headcountPerVendorHigh * 20).toLocaleString()}</strong></div>
-              <div style={{ marginTop: spacing['2xs'], fontSize: typography.sizes.xs, color: '#166534' }}>
-                Platform fee: 6.5% | Your payout: 93.5% of sales
-              </div>
               <div style={{ marginTop: spacing['2xs'], fontSize: typography.sizes.xs, color: '#4b5563' }}>
                 Pre-orders let customers reserve items before the event — guaranteed sales before you arrive.
               </div>
@@ -629,9 +626,6 @@ export default function VendorCateringDetailPage() {
               <div><strong>Your estimated servings:</strong> {headcountBasis} = <strong>~{headcountPerVendor} servings</strong></div>
               <div><strong>Conservative estimate:</strong> {headcountPerVendorLow} servings × $10/plate = <strong>${(headcountPerVendorLow * 10).toLocaleString()}</strong></div>
               <div><strong>Optimistic estimate:</strong> {headcountPerVendorHigh} servings × $15/plate = <strong>${(headcountPerVendorHigh * 15).toLocaleString()}</strong></div>
-              <div style={{ marginTop: spacing['2xs'], fontSize: typography.sizes.xs, color: '#166534' }}>
-                Platform fee: 6.5% | Your payout: 93.5% of sales
-              </div>
               <div style={{ marginTop: spacing['2xs'], fontSize: typography.sizes.xs, color: '#4b5563' }}>
                 Pre-orders help you prep exactly what you need — less waste, more profit.
               </div>

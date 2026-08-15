@@ -1,3 +1,9 @@
+# SESSION 2026-08-15 — T-79/T-80/T-82/T-83/T-84 all FIXED, gates green, awaiting commit approval
+
+All five approved and built (owner "yes, proceed"): T-79 (match panel disable + route error names reason), T-80 (confirmed-state select page + notify-newly-selected-only + first-confirmation-only email + is_backup clear on promotion), T-82 (fee copy removed ×2), T-83 (Continue Shopping always shown; event carts close-only), T-84 (menu button → text link). tsc clean, lint 0 errors, 1970/1970 tests. Files: admin/events/page.tsx, api/admin/events/[id]/invite/route.ts, api/events/[token]/select/route.ts, events/[token]/select/page.tsx, vendor/events/[marketId]/page.tsx, CartDrawer.tsx, vendor/[vendorId]/profile/page.tsx. PRIOR batch (fees V1) is PROD-ELIGIBLE — owner passed B6 + cart-bar 2026-08-15. These 5 fixes need their own staging pass before prod.
+
+---
+
 # SESSION END 2026-08-14 (Event Vendor Fees build) — WRAPPED. Read this block first.
 
 ## Git / env — VERIFY, don't trust
@@ -10,9 +16,10 @@
 ## ⚡ EVENT VENDOR FEES V1 — Phases 1–3 BUILT, PUSHED, OWNER-VERIFIED END TO END on staging
 Design: decisions.md (all 10 owner-answered) + spot_fees_design_brief.md (includes phased plan + build status). Owner verified 2026-08-14: fee card + lazy Connect ✅, pay flow $26.78 ✅ (math correct — 2500×1.065+15), both notifications incl. $23.37 organizer portion ✅, retroactive-fee scenario (accepted-before-fee vendor sees armed pay button) works mechanically. **⚠ Paying does NOT yet gate selling — Phase 4** (paid gate = deliberate change to registered paired rule event-sells-on-acceptance: SQL definer + registry + tests, ONE careful session). **Phase 5** organizer-cancel auto-refund + admin payments view. **Phase 6** earnings/settlement/polish + retroactive-fee-notify design question (backlog note).
 
-## 🧪 Testing state (owner, 2026-08-14)
-- PASSED: B5 (T-62 dialog both branches), fee loop end-to-end, part A (226/227 browser pass, previous session).
-- STILL OPEN: **B6 masking** (path: event-approve the new vendor via "Approve Anyway" → invite → view as vendor → "Private event — City, date"), event-shop **cart bar** total check, optional B7.
+## 🧪 Testing state (owner, updated 2026-08-15)
+- PASSED: B5 (T-62 dialog both branches), fee loop end-to-end, part A (226/227 browser pass), **B6 masking (2026-08-15: approve-anyway → invite → vendor view all masked; listings "Available for Events" doesn't expose the private event; pill accurately "invited")**, **event-shop cart bar = checkout total (.15 fee included)**.
+- **→ STAGING BATCH IS PROD-ELIGIBLE** (code push 21:00–07:00 CT + owner pastes migs 228+229 on prod). B7 (cancel notice) optional, untested.
+- NEW 2026-08-15: **T-82** (market fee copy "6.5% / 93.5% of sales" green box on event invitation page — owner wants it gone), **T-83** (event cart drawer lacks keep-shopping exit; mobile full-screen trap), **T-84** (vendor profile big menu button → plain text link between photo box and schedule box). All in backlog.
 - NEW FINDINGS: **T-79** (match panel offers non-event-approved vendors; invite errors "No valid vendors found" without a why — fix: disable checkbox + explain, better error), **T-80** ⚠ (select page forgets prior selections; re-submit RE-SENT vendor confirmation email — verify the :278-287 status guard; most consequential), **T-81** (listing must save before photo attach — draft-first or deferred-upload fix), retroactive-fee design note.
 
 ## ▶ NEXT SESSION queue

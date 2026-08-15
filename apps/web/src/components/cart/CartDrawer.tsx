@@ -233,24 +233,28 @@ export function CartDrawer() {
             >
               {t('cart.proceed', locale)}
             </button>
-            {!items.some(i => i.market_type === 'event') && (
-              <button
-                onClick={() => { setIsOpen(false); router.push(`/${vertical}/browse`) }}
-                style={{
-                  width: '100%',
-                  ...sizing.control,
-                  padding: `${spacing.xs} ${spacing.md}`,
-                  fontWeight: typography.weights.medium,
-                  backgroundColor: 'transparent',
-                  color: statusColors.neutral500,
-                  border: `1px solid ${statusColors.neutral300}`,
-                  cursor: 'pointer',
-                  marginTop: spacing['2xs'],
-                }}
-              >
-                {t('cart.continue_shopping', locale)}
-              </button>
-            )}
+            {/* T-83: event carts get this button too — but it only closes the
+                drawer (the attendee is already standing in the event shop;
+                /browse would dump them out of it). Regular carts navigate. */}
+            <button
+              onClick={() => {
+                setIsOpen(false)
+                if (!items.some(i => i.market_type === 'event')) router.push(`/${vertical}/browse`)
+              }}
+              style={{
+                width: '100%',
+                ...sizing.control,
+                padding: `${spacing.xs} ${spacing.md}`,
+                fontWeight: typography.weights.medium,
+                backgroundColor: 'transparent',
+                color: statusColors.neutral500,
+                border: `1px solid ${statusColors.neutral300}`,
+                cursor: 'pointer',
+                marginTop: spacing['2xs'],
+              }}
+            >
+              {t('cart.continue_shopping', locale)}
+            </button>
           </div>
         )}
       </div>

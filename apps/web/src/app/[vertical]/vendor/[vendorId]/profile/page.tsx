@@ -972,24 +972,23 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
             </div>
           )}
 
-          {/* CTAs — View Menu + Event booking */}
-          <div style={{ marginTop: 16, display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <a
-              href="#menu"
-              style={{
-                display: 'inline-block',
-                padding: '10px 32px',
-                backgroundColor: branding.colors.primary,
-                color: 'white',
-                borderRadius: 8,
-                fontSize: 16,
-                fontWeight: 700,
-                textDecoration: 'none',
-              }}
-            >
-              {vertical === 'food_trucks' ? 'View Menu' : 'View Products'}
-            </a>
-          </div>
+        </div>
+
+        {/* T-84: menu jump — a plain text link between the profile box and the
+            schedule box (was a large button inside the profile box). Exists so
+            mobile users with a long profile header know menu items are below. */}
+        <div style={{ textAlign: 'center' }}>
+          <a
+            href="#menu"
+            style={{
+              color: branding.colors.primary,
+              fontSize: 15,
+              fontWeight: 600,
+              textDecoration: 'underline',
+            }}
+          >
+            {vertical === 'food_trucks' ? 'View Menu' : 'View Products'}
+          </a>
         </div>
 
         {/* Vendor Availability Schedule - Calendar Grid */}

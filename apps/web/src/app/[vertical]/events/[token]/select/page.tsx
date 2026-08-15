@@ -24,6 +24,8 @@ import { formatDisplayPrice, calculateItemDisplayPrice } from '@/lib/pricing'
 
 interface InterestedVendor {
   vendor_profile_id: string
+  /** T-80: already confirmed by the organizer on a prior submit. */
+  selected: boolean
   business_name: string
   cuisine_categories: string[]
   avg_price_cents: number | null
@@ -73,6 +75,9 @@ export default function EventSelectPage() {
   const [contactEmail, setContactEmail] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  // T-80: an already-confirmed event renders a read-only confirmed state;
+  // editing again is an explicit choice, not the default.
+  const [changeMode, setChangeMode] = useState(false)
 
   async function fetchData() {
     try {
@@ -86,6 +91,15 @@ export default function EventSelectPage() {
       const data = await res.json()
       setEvent(data.event)
       setVendors(data.vendors || [])
+      // T-80: pre-load prior confirmations so "Change selections" starts from
+      // what the organizer already chose (menus were reviewed on that submit).
+      const prior = ((data.vendors || []) as InterestedVendor[])
+        .filter(v => v.selected)
+        .map(v => v.vendor_profile_id)
+      if (prior.length > 0) {
+        setSelectedIds(prior)
+        setMenusReviewed(new Set(prior))
+      }
     } catch {
       setError('Failed to load. Please try again.')
     }
@@ -190,6 +204,87 @@ export default function EventSelectPage() {
   }
 
   if (!event) return null
+
+  // T-80: a live (ready) event with confirmed vendors shows THIS instead of
+  // fresh "Select" buttons. The owner re-selected on a live event and the
+  // vendor got a duplicate confirmation email — editing is now an explicit
+  // "Change selections" action, never the landing state.
+  const confirmedVendors = vendors.filter(v => v.selected)
+  if (event.status === 'ready' && confirmedVendors.length > 0 && !changeMode) {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', fontFamily: 'system-ui, sans-serif' }}>
+        <div style={{ maxWidth: 800, margin: '0 auto', padding: `${spacing.lg} ${spacing.md}` }}>
+          <div style={{ textAlign: 'center', marginBottom: spacing.lg }}>
+            <div style={{ fontSize: '3rem', marginBottom: spacing.sm }}>✅</div>
+            <h1 style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: statusColors.neutral900, margin: `0 0 ${spacing.xs}` }}>
+              Your {confirmedVendors.length !== 1 ? vendorTermPluralCap : vendorTermCap} {confirmedVendors.length !== 1 ? 'Are' : 'Is'} Confirmed
+            </h1>
+            <p style={{ color: statusColors.neutral600, margin: 0, lineHeight: 1.5 }}>
+              Event: <strong>{event.event_date}</strong> in {event.city}, {event.state} &bull; {event.headcount} guests
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs, marginBottom: spacing.lg }}>
+            {confirmedVendors.map(v => (
+              <div key={v.vendor_profile_id} style={{
+                backgroundColor: 'white',
+                border: `1px solid ${statusColors.successBorder}`,
+                borderRadius: radius.lg,
+                padding: spacing.sm,
+                display: 'flex',
+                alignItems: 'center',
+                gap: spacing.xs,
+              }}>
+                <span style={{ color: '#059669', fontWeight: typography.weights.bold }}>✓</span>
+                <span style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: statusColors.neutral900 }}>
+                  {v.business_name}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <a
+            href={`/${vertical}/events/${token}`}
+            style={{
+              display: 'block',
+              textAlign: 'center',
+              padding: spacing.sm,
+              backgroundColor: '#2563eb',
+              color: 'white',
+              borderRadius: radius.lg,
+              fontSize: typography.sizes.base,
+              fontWeight: typography.weights.bold,
+              textDecoration: 'none',
+              marginBottom: spacing.sm,
+            }}
+          >
+            View Your Event Page
+          </a>
+
+          <button
+            onClick={() => setChangeMode(true)}
+            style={{
+              width: '100%',
+              padding: spacing.xs,
+              backgroundColor: 'transparent',
+              color: statusColors.neutral500,
+              border: `1px solid ${statusColors.neutral300}`,
+              borderRadius: radius.md,
+              fontSize: typography.sizes.sm,
+              cursor: 'pointer',
+            }}
+          >
+            Change selections
+          </button>
+          <p style={{ textAlign: 'center', marginTop: spacing.xs, fontSize: typography.sizes.xs, color: statusColors.neutral400, lineHeight: 1.5 }}>
+            Changing selections notifies newly added {vendorTermPlural} only. Removed {vendorTermPlural} stay
+            listed as backups and are not automatically notified — and any spot fee they already paid is not
+            automatically refunded. Contact us if a paid {vendorTerm} needs to be removed.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   const canSubmit = selectedIds.length > 0 && termsAccepted && selectedIds.every(id => menusReviewed.has(id))
 
