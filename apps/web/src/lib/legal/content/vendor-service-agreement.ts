@@ -101,7 +101,7 @@ export function getVendorServiceAgreement(): LegalDocument {
             title: '3.1 Vendor Service Fees',
             level: 'section',
             content: [
-              'You agree to pay the Company service fees as follows:\n\n(a) Transaction Fees: A fee of six and one-half percent (6.5%) of the order subtotal is deducted from your payout for each transaction processed through the Platform\'s payment system, plus a flat fee of fifteen cents ($0.15) per order prorated across order items. These fees cover payment processing, platform services, and transaction facilitation.\n\n(b) Sales Tax: Sales tax collected from buyers is not included in your payout. Sales tax amounts are retained by the Company for remittance to applicable tax authorities as required by law.\n\n(c) Current fee rates are available in your vendor dashboard. The Company reserves the right to modify fee rates upon thirty (30) days\' written notice.',
+              'You agree to pay the Company service fees as follows:\n\n(a) Transaction Fees: A platform fee of five percent (5%) of the order subtotal, plus your one-half share of card-processing costs — tallied as one and one-half percent (1.5%) of the order subtotal plus a flat fifteen cents ($0.15) per order prorated across order items — is deducted from your payout for each transaction processed through the Platform\'s payment system. The buyer pays the remaining half of card-processing costs. These fees together cover payment processing, platform services, and transaction facilitation.\n\n(b) Sales Tax: Sales tax collected from buyers is not included in your payout. Sales tax amounts are retained by the Company for remittance to applicable tax authorities as required by law.\n\n(c) Current fee rates are available in your vendor dashboard. The Company reserves the right to modify fee rates upon thirty (30) days\' written notice.',
             ],
           },
           {
@@ -109,7 +109,7 @@ export function getVendorServiceAgreement(): LegalDocument {
             title: '3.2 Confidentiality of Fee Structures',
             level: 'section',
             content: [
-              'You acknowledge that the specific fee percentages, rate structures, fee calculations, and payout methodologies applicable to vendors constitute confidential business information of the Company. You shall not disclose specific fee rates, structures, or calculations to any third party, including but not limited to competing platforms, industry publications, social media, or online forums, except as required by law or with the Company\'s prior written consent.',
+              'You acknowledge that any custom, discounted, or individually negotiated fee arrangements applicable to you constitute confidential business information of the Company. You shall not disclose such custom rates, structures, or calculations to any third party, including but not limited to competing platforms, industry publications, social media, or online forums, except as required by law or with the Company\'s prior written consent. The Company\'s standard published fee rates are excluded from this obligation.',
             ],
           },
           {

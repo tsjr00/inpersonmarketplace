@@ -287,6 +287,9 @@ export const en: Record<string, string> = {
   'hiw.fee_cancel_desc_ft': 'Once the vendor has confirmed your order and the 15-minute grace window has passed, a 25% fee applies. This compensates the vendor for prep time and reserved items. You receive a 75% refund.',
   'hiw.cancel_note': 'Cancel as early as possible if your plans change. Vendors prepare items specifically for your order.',
   'hiw.ready_to_start': 'Ready to get started?',
+  'hiw.pricing_title': 'How we get paid',
+  'hiw.pricing_subtitle': 'Simple, all-in pricing — nothing added at the end',
+  'hiw.pricing_body': 'Buyers pay a 5% platform fee plus half of the card-processing cost (about 1.5% + 15¢ per order) — all included in the prices you see, never added at the end. Vendors cover the other half of card processing. That’s it: no listing fees, no monthly charge to shop or sell.',
 
   // Shared status labels
   'status.order_placed': 'Order Placed',
@@ -527,7 +530,7 @@ export const en: Record<string, string> = {
   'order.issue_reported': 'Issue reported on {date}. Your payment has been processed — contact the vendor directly to discuss a resolution or refund.',
   'order.vendor_handed_hint': 'Vendor marked as handed to you. Use the confirmation section above.',
   'order.ready_hint': 'Ready for pickup. Use the confirmation section above.',
-  'order.service_fee': 'Service Fee',
+  'order.service_fee': 'Card processing',
   'order.small_order_fee': 'Small Order Fee',
   'order.tip': 'Tip ({percent}%)',
   'order.total': 'Total',
@@ -755,7 +758,8 @@ export const en: Record<string, string> = {
   'checkout.order_items': 'Order Items',
   'checkout.order_summary': 'Order Summary',
   'checkout.subtotal': 'Subtotal ({count} items)',
-  'checkout.service_fee': 'Service Fee',
+  'checkout.service_fee': 'Card processing',
+  'checkout.card_processing_note': '1.5% share already included in prices',
   'checkout.small_order_fee': 'Small Order Fee',
   'checkout.tip_line': 'Tip ({percent}%)',
   'checkout.empty_title': 'Your cart is empty',

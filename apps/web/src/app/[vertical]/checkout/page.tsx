@@ -897,7 +897,16 @@ export default function CheckoutPage() {
                   fontSize: typography.sizes.sm,
                   color: colors.textMuted,
                 }}>
-                  <span>{t('checkout.service_fee', locale)}</span>
+                  {/* Fee-explanation reframe (owner decision 2026-08-15,
+                      scenario 2): this line IS the buyer's flat share of card
+                      processing; the 1.5% share rides inside display prices.
+                      Same money as the old "Service Fee" label — copy only. */}
+                  <span>
+                    {t('checkout.service_fee', locale)}{' '}
+                    <span style={{ fontSize: typography.sizes.xs }}>
+                      ({t('checkout.card_processing_note', locale)})
+                    </span>
+                  </span>
                   <span>{formatPrice(FEES.buyerFlatFeeCents)}</span>
                 </div>
 

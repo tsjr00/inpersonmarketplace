@@ -309,6 +309,17 @@ export default async function HowItWorksPage({ params }: HowItWorksPageProps) {
           </p>
         </section>
 
+        {/* Pricing — how the platform gets paid (owner decision 2026-08-15,
+            scenario 2): buyer-relevant half of the fee story, all-in framing.
+            The vendor half lives on the vendor dashboard; the complete picture
+            is in the legal agreements. */}
+        <section id="pricing" style={{ marginBottom: spacing.xl }}>
+          <SectionHeader title={t('hiw.pricing_title', locale)} subtitle={t('hiw.pricing_subtitle', locale)} accent={colors.primary} />
+          <p style={{ margin: 0, fontSize: typography.sizes.base, color: colors.textSecondary, lineHeight: 1.6 }}>
+            {t('hiw.pricing_body', locale)}
+          </p>
+        </section>
+
         {/* CTA */}
         <div style={{
           textAlign: 'center',

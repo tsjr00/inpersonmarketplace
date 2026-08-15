@@ -181,6 +181,21 @@ export default function PaymentMethodsCard({
             {formatPrice(earnings.completedPayoutsCents)}
           </span>
         </div>
+        {/* What selling costs — fee-explanation reframe (owner decision
+            2026-08-15, scenario 2). Same charge as always (6.5% + $0.15 per
+            order, pricing.ts); this DESCRIBES it as 5% platform + half of
+            card processing. Explanation only — no math changed anywhere. */}
+        <div style={{ marginTop: spacing['2xs'], paddingTop: spacing['2xs'], borderTop: `1px solid ${colors.borderMuted}` }}>
+          <span style={{ fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: colors.textMuted }}>
+            What selling costs
+          </span>
+          <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: colors.textMuted, lineHeight: 1.5 }}>
+            You pay a 5% platform fee plus your half of card processing (1.5% + $0.15 per order),
+            deducted automatically from each payout. Buyers cover the other half of processing.
+            No monthly software fee, no separate Stripe bill — the price you set is yours minus
+            one predictable percentage.
+          </p>
+        </div>
       </div>
 
       {/* Payment Methods Header */}

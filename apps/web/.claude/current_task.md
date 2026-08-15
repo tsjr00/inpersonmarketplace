@@ -1,6 +1,9 @@
 # SESSION 2026-08-15 — T-79/80/82/83/84 SHIPPED to staging (0d1e86d1); S-1 + has-applied collapse BUILT, gates green
 
-## Third build (same session): PAYOUT-ACCOUNT REUSE — built, gates green, uncommitted
+## Fourth build (same session): FEE-LANGUAGE REFRAME — built, gates green, uncommitted
+Scenario 2 approved + legal wording approved verbatim ("proceed"). NO math changes anywhere. Files: en/es locale (service_fee→"Card processing" + note key + hiw.pricing_* keys), checkout page (note on the $0.15 line), how-it-works page ("How we get paid" section), PaymentMethodsCard ("What selling costs" block), platform-user-agreement §4.2(a)(b), vendor-service-agreement §3.1(a) + §3.2 narrowed, legal/index.ts version 2026-08-v3. Full rationale in decisions.md. Gates: tsc clean, lint 0 errors, 1970/1970.
+
+## Third build (same session): PAYOUT-ACCOUNT REUSE — SHIPPED to staging 51b43d2a
 Owner decisions (in decisions.md): offered-not-automatic (b) + prior-event reuse with "still active" notice. New: `lib/events/reusable-payout-accounts.ts` (server-side derivation, source-keyword-only API), `api/events/[token]/stripe/reuse` (live-verifies account before copying to `markets.stripe_account_id`), vendor-fee GET returns `reuse_options` labels, EventVendorFeeCard renders choice buttons + "Set up a separate account". Map: 14_Events.md updated (incl. stale T-80 select-route line fixed), stamp bumped. Owner's staging results: ALL FIVE (T-79/80/82/83/84) PASSED.
 
 ## Second batch (post-0d1e86d1, awaiting commit approval)

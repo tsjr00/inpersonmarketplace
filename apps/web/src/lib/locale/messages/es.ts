@@ -287,6 +287,9 @@ export const es: Record<string, string> = {
   'hiw.fee_cancel_desc_ft': 'Una vez que el vendedor ha confirmado tu pedido y ha pasado la ventana de gracia de 15 minutos, se aplica un cargo del 25%. Esto compensa al vendedor por el tiempo de preparación y artículos reservados. Recibes un reembolso del 75%.',
   'hiw.cancel_note': 'Cancela lo antes posible si cambian tus planes. Los vendedores preparan artículos específicamente para tu pedido.',
   'hiw.ready_to_start': '¿Listo para comenzar?',
+  'hiw.pricing_title': 'Cómo ganamos dinero',
+  'hiw.pricing_subtitle': 'Precios simples, todo incluido — nada se agrega al final',
+  'hiw.pricing_body': 'Los compradores pagan una tarifa de plataforma del 5% más la mitad del costo de procesamiento de tarjeta (aprox. 1.5% + 15¢ por pedido) — todo incluido en los precios que ves, nunca agregado al final. Los vendedores cubren la otra mitad del procesamiento. Eso es todo: sin tarifas por publicar y sin cargos mensuales por comprar o vender.',
 
   // Shared status labels
   'status.order_placed': 'Pedido Realizado',
@@ -527,7 +530,7 @@ export const es: Record<string, string> = {
   'order.issue_reported': 'Problema reportado el {date}. Tu pago ha sido procesado — contacta al vendedor directamente para discutir una resolución o reembolso.',
   'order.vendor_handed_hint': 'El vendedor marcó como entregado. Usa la sección de confirmación arriba.',
   'order.ready_hint': 'Listo para recoger. Usa la sección de confirmación arriba.',
-  'order.service_fee': 'Cargo por Servicio',
+  'order.service_fee': 'Procesamiento de tarjeta',
   'order.small_order_fee': 'Cargo por Pedido Peque\u00f1o',
   'order.tip': 'Propina ({percent}%)',
   'order.total': 'Total',
@@ -751,7 +754,8 @@ export const es: Record<string, string> = {
   'checkout.order_items': 'Artículos del Pedido',
   'checkout.order_summary': 'Resumen del Pedido',
   'checkout.subtotal': 'Subtotal ({count} artículos)',
-  'checkout.service_fee': 'Tarifa de Servicio',
+  'checkout.service_fee': 'Procesamiento de tarjeta',
+  'checkout.card_processing_note': 'La parte del 1.5% ya está incluida en los precios',
   'checkout.small_order_fee': 'Tarifa de Pedido Pequeño',
   'checkout.tip_line': 'Propina ({percent}%)',
   'checkout.empty_title': 'Tu carrito está vacío',
