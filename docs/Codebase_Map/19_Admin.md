@@ -1,8 +1,9 @@
 # 19 — Admin ⚠ money
 
-<!-- map-stamp: domain=admin; verified=2026-07-18; commit=b9f82116 -->
+<!-- map-stamp: domain=admin; verified=2026-08-15; commit=0d1e86d1 -->
 <!-- map-claims
 src/app/api/admin/**
+src/lib/vendor-event-application.ts
 src/lib/reports/**
 src/components/admin/**
 src/app/admin/**
@@ -97,7 +98,9 @@ Consequence worth stating plainly: **platform revenue is not attributable per ve
 | `vendors/[id]/approve` · `reject` | Vendor approval decisions | No |
 | `vendors/[id]/event-approval` | Event-eligibility approval | No |
 | `vendors/[id]/fee-override` | **Overrides a vendor's platform fee rate** (floor 3.6%) | **YES** |
-| `vendors/pending-event-applications` | Pending event application queue | No |
+| `vendors/pending-event-applications` | Pending event application queue — includes applications from not-yet-approved vendors, flagged `eligible:false` (owner decision 2026-08-15) | No |
+
+"Has applied" for event approval is defined ONCE in `src/lib/vendor-event-application.ts` (`getEventApplicationState` — reads `profile_data.event_readiness`), used by the queue API and both vendor detail pages (root + `[vertical]`). Collapsed 2026-08-15 from 3 hand-kept copies.
 
 ### Events
 `events/route.ts` (list catering requests) · `events/[id]` (status transitions; approval auto-creates the event market + token) ⚠ · `events/[id]/payments` ⚠ (company deposit + final settlement) · `events/[id]/settlement` ⚠ (the heaviest money logic in admin) · `events/[id]/invite` · `events/[id]/rematch` · `events/[id]/generate-waves` · `events/[id]/repeat` · `event-ratings` (moderate: approve/hide).

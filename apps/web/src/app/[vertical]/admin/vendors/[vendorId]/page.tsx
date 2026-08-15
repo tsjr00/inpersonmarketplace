@@ -4,6 +4,7 @@ import Link from 'next/link'
 import AdminNav from '@/components/admin/AdminNav'
 import VendorAdminActions from './VendorAdminActions'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { getEventApplicationState } from '@/lib/vendor-event-application'
 
 interface VendorDetailPageProps {
   params: Promise<{ vertical: string; vendorId: string }>
@@ -52,6 +53,8 @@ export default async function VerticalAdminVendorDetailPage({ params }: VendorDe
   const vendorStatus = vendor.status as string
   const eventApproved = !!(vendor.event_approved)
   const eventReadiness = profileData.event_readiness as Record<string, unknown> | null
+  // Single "has applied" definition — was hand-copied here + root twin + queue API.
+  const eventApplication = getEventApplicationState(profileData)
 
   // Fetch listings count + verification in parallel
   const [listingsResult, verificationResult] = await Promise.all([
@@ -194,7 +197,7 @@ export default async function VerticalAdminVendorDetailPage({ params }: VendorDe
                 {eventApproved && (
                   <span style={{ ...statusBadge('approved') }}>EVENT APPROVED</span>
                 )}
-                {!eventApproved && eventReadiness?.application_status === 'pending_review' && (
+                {!eventApproved && eventApplication.isPendingReview && (
                   <span style={{ ...statusBadge('submitted') }}>EVENT APPLICATION PENDING</span>
                 )}
               </div>
@@ -209,12 +212,9 @@ export default async function VerticalAdminVendorDetailPage({ params }: VendorDe
               hasCoiApproved={coiStatus === 'approved'}
               /* T-62: the approve dialog needs to know whether the vendor ever
                  actually APPLIED — an admin granted event approval to a
-                 non-applicant with no warning. "Applied" = readiness exists
-                 with a real application_status (not_applied is the pre-apply
-                 sentinel written by the readiness route). */
-              hasApplied={!!eventReadiness
-                && !!eventReadiness.application_status
-                && eventReadiness.application_status !== 'not_applied'}
+                 non-applicant with no warning. Definition lives in
+                 lib/vendor-event-application (collapsed from 3 hand-copies). */
+              hasApplied={eventApplication.hasApplied}
             />
           </div>
         </div>
@@ -274,7 +274,7 @@ export default async function VerticalAdminVendorDetailPage({ params }: VendorDe
             </div>
 
             {/* Event Readiness Application */}
-            {eventReadiness && !!eventReadiness.application_status && eventReadiness.application_status !== 'not_applied' && (
+            {eventReadiness && eventApplication.hasApplied && (
               <div style={{
                 ...cardStyle,
                 borderColor: eventReadiness.application_status === 'pending_review' ? '#fde68a' : colors.border,

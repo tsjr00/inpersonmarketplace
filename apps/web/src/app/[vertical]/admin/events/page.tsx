@@ -166,9 +166,10 @@ export default function AdminCateringPage() {
 
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
 
-  // Pending event applications
+  // Pending event applications (eligible=false: vendor not yet approved —
+  // shown with a flag per owner decision 2026-08-15, no longer hidden)
   const [pendingApplications, setPendingApplications] = useState<Array<{
-    id: string; business_name: string; submitted_at: string
+    id: string; business_name: string; submitted_at: string; eligible: boolean
   }>>([])
 
   // Vendor invite state
@@ -547,8 +548,13 @@ export default function AdminCateringPage() {
                   border: `1px solid ${statusColors.warningBorder}`,
                 }}
               >
-                <span style={{ fontWeight: typography.weights.medium, color: statusColors.neutral900, fontSize: typography.sizes.sm }}>
+                <span style={{ fontWeight: typography.weights.medium, color: statusColors.neutral900, fontSize: typography.sizes.sm, display: 'flex', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' }}>
                   {app.business_name}
+                  {!app.eligible && (
+                    <span style={{ padding: `1px ${spacing.xs}`, backgroundColor: statusColors.neutral100, color: statusColors.neutral600, border: `1px solid ${statusColors.neutral300}`, borderRadius: 8, fontSize: 10, fontWeight: typography.weights.semibold }}>
+                      not eligible — vendor not yet approved
+                    </span>
+                  )}
                 </span>
                 <span style={{ fontSize: typography.sizes.xs, color: statusColors.neutral600 }}>
                   Applied {new Date(app.submitted_at).toLocaleDateString()} →
@@ -568,7 +574,10 @@ export default function AdminCateringPage() {
           flexWrap: 'wrap',
         }}
       >
-        {['all', 'new', 'reviewing', 'approved', 'declined', 'completed'].map(
+        {/* S-1: derived from LIFECYCLE_STEPS + terminals — a second hand-typed
+            list here drifted (ready/active/review/cancelled were missing, so
+            mid-lifecycle events couldn't be narrowed to). */}
+        {['all', ...LIFECYCLE_STEPS.map((step) => step.status), 'declined', 'cancelled'].map(
           (s) => (
             <button
               key={s}

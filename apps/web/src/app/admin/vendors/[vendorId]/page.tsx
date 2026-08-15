@@ -7,6 +7,7 @@ import VendorLocationEditor from './VendorLocationEditor'
 import VendorVerificationWrapper from './VendorVerificationWrapper'
 import VendorFeeOverride from './VendorFeeOverride'
 import VendorDocLink, { extractVendorDocPathFromPublicUrl } from '@/components/shared/VendorDocLink'
+import { getEventApplicationState } from '@/lib/vendor-event-application'
 
 interface VendorDetailPageProps {
   params: Promise<{ vendorId: string }>
@@ -36,6 +37,8 @@ export default async function VendorDetailPage({ params }: VendorDetailPageProps
   }
 
   const profileData = vendor.profile_data as Record<string, unknown>
+  // Single "has applied" definition — was hand-copied here + [vertical] twin + queue API.
+  const eventApplication = getEventApplicationState(profileData)
   const businessName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'Unknown'
   const userProfile = vendor.user_profiles as Record<string, unknown> | null
   const vendorStatus = vendor.status as string
@@ -138,7 +141,7 @@ export default async function VendorDetailPage({ params }: VendorDetailPageProps
               ✓ EVENT APPROVED
             </span>
           )}
-          {!vendor.event_approved && (profileData?.event_readiness as Record<string, unknown>)?.application_status === 'pending_review' && (
+          {!vendor.event_approved && eventApplication.isPendingReview && (
             <span style={{
               display: 'inline-block',
               marginTop: 10,
@@ -165,10 +168,9 @@ export default async function VendorDetailPage({ params }: VendorDetailPageProps
           onboardingComplete={!!verificationData?.onboarding_completed_at}
           /* T-62: same rule as the vertical-admin surface
              (VendorAdminActions) — the approve dialog must know whether the
-             vendor ever applied. Keep the two definitions of "applied" in
-             step. */
-          hasApplied={!!(profileData?.event_readiness as Record<string, unknown> | undefined)?.application_status
-            && (profileData?.event_readiness as Record<string, unknown>)?.application_status !== 'not_applied'}
+             vendor ever applied. Definition lives in
+             lib/vendor-event-application (collapsed from 3 hand-copies). */
+          hasApplied={eventApplication.hasApplied}
         />
       </div>
 
@@ -277,8 +279,7 @@ export default async function VendorDetailPage({ params }: VendorDetailPageProps
           )}
 
           {/* Event Readiness Application */}
-          {(profileData?.event_readiness as Record<string, unknown>)?.application_status &&
-           (profileData?.event_readiness as Record<string, unknown>)?.application_status !== 'not_applied' && (() => {
+          {eventApplication.hasApplied && (() => {
             const er = profileData.event_readiness as Record<string, unknown>
             const fieldRows: Array<{ label: string; value: string }> = [
               { label: 'Vehicle Type', value: er.vehicle_type === 'food_truck' ? 'Food Truck' : 'Food Trailer (truck + trailer)' },
