@@ -125,7 +125,7 @@ export async function getEventShopData(
   // Fetch event by token
   const { data: event, error: eventError } = await serviceClient
     .from('catering_requests')
-    .select('id, company_name, event_date, event_end_date, event_start_time, event_end_time, headcount, address, city, state, zip, vertical_id, market_id, status, vendor_count, is_themed, theme_description, children_present, payment_model, company_max_per_attendee_cents')
+    .select('id, company_name, event_date, event_end_date, event_start_time, event_end_time, headcount, address, city, state, zip, vertical_id, market_id, status, vendor_count, is_themed, theme_description, children_present, payment_model, company_max_per_attendee_cents, event_vendor_fee_cents')
     .eq('event_token', token)
     .in('status', ['approved', 'ready', 'active'])
     .single()
@@ -151,14 +151,36 @@ export async function getEventShopData(
     .limit(1)
     .single()
 
-  // Get accepted vendor IDs from market_vendors (simple query, no join)
+  // ATTENDING vendors only (mig 234 mirror — @paired-rule
+  // event-sells-on-acceptance). Owner rule 2026-08-16: "they must attend to
+  // sell." Attending = accepted + NOT benched (is_backup — the organizer's
+  // selection round leaves non-selected vendors 'accepted' with
+  // is_backup=true) + fee PAID or COVERED when the event charges one. The SQL
+  // sell gate (get_available_pickup_dates, mig 234) enforces the same rule at
+  // cart time; this mirror keeps non-attending menus out of the shop so
+  // attendees never see items that would error at checkout.
   const { data: marketVendors } = await serviceClient
     .from('market_vendors')
-    .select('vendor_profile_id')
+    .select('vendor_profile_id, is_backup')
     .eq('market_id', event.market_id)
     .eq('response_status', 'accepted')
 
-  const acceptedVendorIds = (marketVendors || []).map(mv => mv.vendor_profile_id as string)
+  let attendingVendorIds = (marketVendors || [])
+    .filter(mv => mv.is_backup !== true)
+    .map(mv => mv.vendor_profile_id as string)
+
+  const feeCents = (event.event_vendor_fee_cents as number | null) || 0
+  if (feeCents > 0 && attendingVendorIds.length > 0) {
+    const { data: settledFeeRows } = await serviceClient
+      .from('event_vendor_fee_payments')
+      .select('vendor_profile_id')
+      .eq('market_id', event.market_id)
+      .in('status', ['paid', 'covered'])
+    const settledIds = new Set((settledFeeRows || []).map(r => r.vendor_profile_id as string))
+    attendingVendorIds = attendingVendorIds.filter(id => settledIds.has(id))
+  }
+
+  const acceptedVendorIds = attendingVendorIds
 
   // Fetch vendor profiles separately (avoids PostgREST FK ambiguity with replaced_vendor_id)
   const vendorProfileMap: Record<string, {

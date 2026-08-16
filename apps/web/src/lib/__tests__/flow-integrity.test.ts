@@ -1608,6 +1608,68 @@ describe('Event token format', () => {
     ).toBe(false)
   })
 
+  it('the NEWEST definer excludes BENCHED vendors from selling (mig 234)', () => {
+    // Owner rule 2026-08-16: "they must attend to sell." The organizer's
+    // selection round leaves non-selected vendors 'accepted' with
+    // is_backup=true — before mig 234 their menus stayed orderable at events
+    // they were not attending (the stranded-order class). The bench exclusion
+    // must sit INSIDE the event acceptance EXISTS.
+    const { name, sql } = newestPickupDatesDefiner()
+    expect(
+      sql,
+      `${name} must gate event selling on NOT-benched (COALESCE(is_backup,false)=false inside the acceptance EXISTS — mig 234)`
+    ).toMatch(/response_status\s*=\s*'accepted'[\s\S]{0,120}COALESCE\(mv\.is_backup,\s*false\)\s*=\s*false/)
+  })
+
+  it('the NEWEST definer gates fee-charging events on a PAID or COVERED fee row (mig 234, Phase 4)', () => {
+    // The paid gate: at an event with an Event Vendor Fee (mig 228), an
+    // accepted vendor sells only with a paid or covered (mig 233 backup
+    // step-in) fee payment row. Free events skip the conjunct — asserted via
+    // the fee-cents bypass. Without this, paying is honor-system: a selected
+    // vendor who never pays sells anyway.
+    const { name, sql } = newestPickupDatesDefiner()
+    expect(
+      sql,
+      `${name} must carry the free-event bypass (event_vendor_fee_cents > 0 inside NOT EXISTS)`
+    ).toMatch(/NOT EXISTS\s*\([\s\S]{0,200}event_vendor_fee_cents\s*>\s*0/)
+    expect(
+      sql,
+      `${name} must accept paid OR covered fee rows as satisfying the gate`
+    ).toMatch(/event_vendor_fee_payments p[\s\S]{0,200}status\s+IN\s*\('paid',\s*'covered'\)/)
+  })
+
+  it('the NEWEST definer scopes the vms fallback to NON-EVENT markets (mig 235)', () => {
+    // Staging-confirmed bypass 2026-08-16: the traditional-market fallback
+    // `OR vms.id IS NOT NULL` fired before the event attendance gate — a
+    // benched, unpaid vendor with a stray/seeded vendor_market_schedules row
+    // at the event market sold straight past it. On traditional markets the
+    // vms row IS attendance; on events it must grant nothing.
+    const { name, sql } = newestPickupDatesDefiner()
+    expect(
+      sql,
+      `${name} must scope the vms fallback: OR (m.market_type <> 'event' AND vms.id IS NOT NULL)`
+    ).toMatch(/OR\s*\(m\.market_type\s*<>\s*'event'\s+AND\s+vms\.id\s+IS\s+NOT\s+NULL\)/)
+    expect(
+      /OR\s+vms\.id\s+IS\s+NOT\s+NULL/.test(sql),
+      `${name} reintroduces the UNSCOPED vms fallback — the event bypass mig 235 closed`
+    ).toBe(false)
+  })
+
+  it('the shop payload mirrors the attendance gate (paired surface of mig 234)', () => {
+    // The SQL gate rejects at CART time; the shop payload decides what
+    // attendees SEE. If they filter on different predicates, menus render
+    // that error at checkout (or sellable menus vanish). Assert the mirror's
+    // three components: bench exclusion, fee check scoped to paid/covered,
+    // and the free-event bypass on fee cents.
+    const shopData = rd('lib/events/shop-data.ts')
+    expect(shopData, 'shop payload must exclude benched vendors')
+      .toMatch(/is_backup\s*!==\s*true/)
+    expect(shopData, 'shop payload must count only paid/covered fee rows')
+      .toContain(".in('status', ['paid', 'covered'])")
+    expect(shopData, 'shop payload must bypass the fee gate for free events')
+      .toMatch(/feeCents\s*>\s*0/)
+  })
+
   it('the event accept route still does NOT write vendor_market_schedules', () => {
     // The rejected alternative. Creating a vms row on acceptance would make
     // "is this vendor attending?" answerable from two places that can drift —

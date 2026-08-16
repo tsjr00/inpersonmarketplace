@@ -1,4 +1,14 @@
 -- ============================================================================
+-- ⛔⛔⛔ SUPERSEDED BY MIG 234 (2026-08-16) — DO NOT APPLY THIS FILE ⛔⛔⛔
+--
+-- Owner decision 2026-08-16 ("go ahead and roll 225 into 234"): mig 234
+-- (events_sell_on_attendance) contains this file's complete change (the T-39
+-- exemption deletion) PLUS the Phase 4 attendance gate (bench exclusion +
+-- fee paid/covered). Applying THIS file after 234 would REVERT the paid gate
+-- while looking like a harmless catch-up — the exact silent-regression shape
+-- mig 211 taught us about. This file was never applied to any environment;
+-- it is kept only as 234's documented rollback target.
+-- ============================================================================
 -- Migration 225: FM events sell on ACCEPTANCE too — remove the blanket
 --                farmers-market event exemption (T-39)
 -- ============================================================================

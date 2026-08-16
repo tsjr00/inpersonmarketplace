@@ -1,4 +1,4 @@
-# ACTIVE: SESSION 2026-08-16 — BACKUP BENCH PHASE 3 (money) + Fees Phase 5 merge
+# ACTIVE: SESSION 2026-08-16 — BACKUP BENCH PHASE 3 (money) + Fees Phase 5 merge — ✅ SHIPPED `7fbf2d67` (origin/staging = main; ref-update e936bcfd..7fbf2d67 verified; Playwright 49✓). CHUNK B NOW FULLY COMPLETE. Prod owes migs 228–233 + ~26 commits.
 
 ## Goal
 Cancellation money for events: refund-with-reversal helper, vendor-cancel refund/forfeit bands, organizer waiver, covered backup spots, organizer/admin event-cancel auto-refunds. All decisions locked (decisions.md "Backup vendors — model decided" + this session's 4 answers).
@@ -24,6 +24,20 @@ Cancellation money for events: refund-with-reversal helper, vendor-cancel refund
 8. ✅ Backlog: organizer-funded retained standby spots (+ removed my duplicate risk-factor entry)
 9. ✅ Notifications: 3 new templates + feeRefundReason branches; tripwire 112→115 notated (+ stale "webhook-only" note fixed); fee-cancellation.test.ts (7 band tests from OWNER decisions); money-structure FLIP_TABLES += event_vendor_fee_payments (all flips guarded, zero allowlist); 14_Events.md 3 rows + stamp
 STILL OWED: snapshot changelog row when 233 is finalized; commit after webhook approval + 233.
+
+## PHASE 4 BUILD (same session, after Phase 3 shipped 7fbf2d67) — "they must attend to sell"
+Owner rulings: attendance = accepted + NOT benched + (fee ⇒ paid/covered); free events = acceptance + not-benched; **mig 225 ROLLED INTO 234** ("go ahead and roll 225 into 234").
+- ✅ Mig 234 WRITTEN (`20260816_234_events_sell_on_attendance.sql`): 225's complete body + attendance predicate replacing the acceptance branch; differential recipe in header (3 pre-checks, classes A/B/C that stop selling); ⏳ applied NOWHERE
+- ✅ Mig 225 ⛔ SUPERSEDED banner (applying after 234 reverts the paid gate; kept as rollback target)
+- ✅ shop-data.ts mirror (attending filter: is_backup + paid/covered + free-event bypass)
+- ✅ paired-rules.ts rule text updated (key stable — migration tags reference it)
+- ✅ 3 new flow-integrity guards (bench exclusion regex, paid-or-covered + free-bypass, shop mirror strings)
+- ✅ decisions.md entry (attendance rule + 225 fold-in + fees-#5 partial supersede); snapshot changelog row ⏳; map rows
+- ✅ Gates green (tsc clean, 1982/1982, lint 0 err); 234 applied Dev+Staging (owner skipped the pre-baseline → NEW RULE memory `feedback_migration_class_banner_first`: handoffs LEAD with apply class, ⛔ banner + numbered steps)
+- 🐛 **234's post-hoc differential FOUND A BYPASS** (owner queries confirmed): benched+unpaid vendor w/ active vms row at fee event sold via the `OR vms.id IS NOT NULL` traditional fallback. Anew Perspective zeros = benign (event past 2026-05-30).
+- ✅ **Mig 235 WRITTEN** (`20260816_235_event_vms_bypass_scoped.sql`, ⏳ applied NOWHERE, ⛔ ROW-REMOVAL class): 234's text w/ ONE predicate scoped `OR (m.market_type <> 'event' AND vms.id IS NOT NULL)` (build-diff proved 2 hunks). Pre-registered: exactly 4 barbecue rows @ Event & Park Mgmt 1→0. + 4th flow-integrity guard (scoped present + bare absent) — 171/171.
+- ✅ 235 applied Dev+Staging WITH full differential — **EXACT MATCH** (4 bypass rows 1→0, nothing else moved). Snapshot rows 234+235 flipped ✅; CLAUDE_CONTEXT says EIGHT pastes 228–235 (234/235 = differential class at prod paste).
+- ⬜ ONE commit+push for the whole Phase 4 batch (234+235+code) — awaiting owner approval
 
 ## Gotchas
 - Waive after covered-backup-activation = allowed; the organizer is giving up their own coverage (warning copy handles it)
