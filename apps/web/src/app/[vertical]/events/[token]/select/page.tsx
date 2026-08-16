@@ -576,11 +576,9 @@ export default function EventSelectPage() {
                     times stop being private planning notes at this click, so
                     the consequence has to be stated at this click.
                   */}
-                  {/* B0 (2026-08-15): softened — the re-confirmation flow is
-                      NOT built yet, so this must not promise it. Restore the
-                      stronger "re-confirmed / refunded before the event"
-                      language when B3 ships. */}
-                  <li>Your date and times are now what {vendorTermPlural} staff for and what attendees order against. Changing them later reduces attendance: every pre-order placed against the old window is put at risk — attendees who no longer fit the new window may need to be refunded, and that cost lands on your {vendorTermPlural}.</li>
+                  {/* B3 shipped 2026-08-15 (mig 230) — the strong language is
+                      TRUE again: re-confirmation + cutoff refunds exist. */}
+                  <li>Your date and times are now what {vendorTermPlural} staff for and what attendees order against. Changing them later reduces attendance: every pre-order placed against the old window has to be re-confirmed by that attendee, and any that go unconfirmed are refunded before the event.</li>
                 </ul>
               </div>
               <label style={{

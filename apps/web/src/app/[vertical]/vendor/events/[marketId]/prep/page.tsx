@@ -54,6 +54,11 @@ interface PrepData {
     totalRevenueCents: number
     maxOrdersPerWave: number | null
     maxOrdersTotal: number | null
+    /** B3: >0 only after a consequential event change — cook to CONFIRMED. */
+    awaitingConfirmationOrders?: number
+    confirmedOrders?: number
+    awaitingConfirmationItems?: number
+    confirmedItems?: number
   }
 }
 
@@ -183,6 +188,29 @@ export default function VendorEventPrepPage() {
           </div>
         ))}
       </div>
+
+      {/* B3 (mig 230): after the organizer changed the event, some buyers
+          haven't yet re-confirmed. The number to cook to is CONFIRMED —
+          awaiting orders either confirm or are refunded at the ordering
+          cutoff. Renders only while a split exists; ordinary events see
+          nothing here. */}
+      {(summary.awaitingConfirmationOrders ?? 0) > 0 && (
+        <div style={{
+          marginBottom: spacing.md,
+          padding: spacing.sm,
+          backgroundColor: statusColors.warningLight,
+          border: `1px solid ${statusColors.warningBorder}`,
+          borderRadius: radius.md,
+          fontSize: typography.sizes.sm,
+          color: statusColors.warningDark,
+          lineHeight: 1.5,
+        }}>
+          <strong>The event changed, and attendees are re-confirming.</strong>{' '}
+          Cook to the confirmed number: <strong>{summary.confirmedItems ?? summary.totalItems} items across {summary.confirmedOrders ?? summary.totalOrders} orders</strong> are
+          confirmed; {summary.awaitingConfirmationItems} items across {summary.awaitingConfirmationOrders} orders
+          are still waiting on their buyer — each will either confirm or be automatically refunded when ordering closes.
+        </div>
+      )}
 
       {/* Item Counts — "What to Prep" */}
       <div style={{

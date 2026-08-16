@@ -10,6 +10,7 @@ import {
 } from '@/lib/events/change-window'
 import { describeChanges } from '@/lib/events/change-requests'
 import { sendNotification } from '@/lib/notifications/service'
+import { requestEventReconfirmation } from '@/lib/events/reconfirmation'
 
 interface RouteContext {
   params: Promise<{ token: string }>
@@ -674,6 +675,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           }, { vertical: event.vertical_id as string })
         }
       }
+
+      // B3 (mig 230): the same change stamps every live order as awaiting
+      // re-confirmation and sends the buyers their one-click confirm link.
+      // The gate above already made the organizer acknowledge this cost.
+      await requestEventReconfirmation(serviceClient, {
+        marketId: event.market_id as string,
+        changeSummary,
+        eventDate: (updateData.event_date as string) || (event.event_date as string) || '',
+        vertical: event.vertical_id as string,
+      })
     }
 
     // Tell the caller whether their changes affected vendor matching, so the

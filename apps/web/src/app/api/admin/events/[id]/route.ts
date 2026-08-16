@@ -11,6 +11,7 @@ import { withErrorTracing, logError, TracedError } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications/service'
 import { changeRequiresReconfirmation } from '@/lib/events/change-window'
 import { describeChanges } from '@/lib/events/change-requests'
+import { requestEventReconfirmation } from '@/lib/events/reconfirmation'
 import { stripe } from '@/lib/stripe/config'
 import { createRefund } from '@/lib/stripe/payments'
 import { approveEventRequest, autoMatchAndInvite } from '@/lib/events/event-actions'
@@ -466,6 +467,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           }, { vertical: cateringReq.vertical_id as string })
         }
       }
+
+      // B3 (mig 230): stamp every live order awaiting re-confirmation + send
+      // the buyers their one-click confirm link — admin edits move the event
+      // just as much as organizer edits do.
+      await requestEventReconfirmation(serviceClient, {
+        marketId: cateringReq.market_id as string,
+        changeSummary,
+        eventDate: (updates.event_date as string) || (cateringReq.event_date as string) || '',
+        vertical: cateringReq.vertical_id as string,
+      })
     }
 
     // On APPROVED: auto-invite vendors for full-service events + notify organizer

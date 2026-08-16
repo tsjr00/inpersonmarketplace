@@ -104,7 +104,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
         status, wave_id, preferred_pickup_time, pickup_confirmed_at,
         orders!inner (
           id, order_number, status, payment_model,
-          event_wave_reservation_id, created_at
+          event_wave_reservation_id, created_at,
+          reconfirm_required_at, reconfirmed_at, reconfirm_refunded_at
         ),
         listings!inner (
           title
@@ -160,6 +161,21 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const fulfilledCount = (orderItems || []).filter(i => !!i.pickup_confirmed_at).length
     const totalRevenueCents = (orderItems || []).reduce((s, i) => s + i.subtotal_cents, 0)
 
+    // B3 (mig 230): after a consequential event change, orders await buyer
+    // re-confirmation. The split only exists after a change — absent one,
+    // awaiting is 0 and the page shows a single number exactly as before.
+    // THE NUMBER THE VENDOR COOKS TO IS THE CONFIRMED ONE (owner spec).
+    const isAwaiting = (o: unknown) => {
+      const ord = o as { reconfirm_required_at?: string | null; reconfirmed_at?: string | null; reconfirm_refunded_at?: string | null }
+      return !!ord.reconfirm_required_at && !ord.reconfirmed_at && !ord.reconfirm_refunded_at
+    }
+    const awaitingOrderIds = new Set(
+      (orderItems || []).filter(i => isAwaiting(i.orders)).map(i => i.order_id)
+    )
+    const awaitingItems = (orderItems || [])
+      .filter(i => awaitingOrderIds.has(i.order_id))
+      .reduce((s, i) => s + i.quantity, 0)
+
     return NextResponse.json({
       event: cateringReq ? {
         company_name: cateringReq.company_name,
@@ -183,6 +199,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
         totalRevenueCents,
         maxOrdersPerWave: marketVendor.event_max_orders_per_wave,
         maxOrdersTotal: marketVendor.event_max_orders_total,
+        // B3: cook to CONFIRMED, not total (awaiting = 0 unless a change happened).
+        awaitingConfirmationOrders: awaitingOrderIds.size,
+        confirmedOrders: totalOrders - awaitingOrderIds.size,
+        awaitingConfirmationItems: awaitingItems,
+        confirmedItems: totalItems - awaitingItems,
       },
     })
   })

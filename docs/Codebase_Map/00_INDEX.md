@@ -108,7 +108,7 @@ Each domain file was verified against the code at the commit shown. A stamp far 
 | 14_Events.md | 2026-07-18 | b9f82116 |
 | 15_MarketBoxes_Subs.md | 2026-07-18 | b9f82116 |
 | 16_Auth_RLS_Verticals.md | 2026-07-18 | b9f82116 |
-| 17_Crons.md | 2026-07-18 | b9f82116 |
+| 17_Crons.md | 2026-08-15 | 03f97d29 |
 | 18_Notifications.md | 2026-07-18 | b9f82116 |
 | 19_Admin.md | 2026-08-15 | 0d1e86d1 |
 | 20_Buyer_Public.md | 2026-07-24 | f30a0cac |

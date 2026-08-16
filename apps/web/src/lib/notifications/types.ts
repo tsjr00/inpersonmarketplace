@@ -179,6 +179,8 @@ export type NotificationType =
   | 'event_fee_received_organizer'
   | 'event_fee_refunded_vendor'
   | 'event_fee_changed_vendor'
+  | 'order_reconfirm_request'
+  | 'order_reconfirm_reminder'
   | 'event_cancelled_vendor'
   | 'event_confirmed'
   | 'event_change_requested'
@@ -236,6 +238,12 @@ export interface NotificationTemplateData {
   feeCents?: number | null
   previousFeeCents?: number | null
   vendorPaysCents?: number
+  /** order_reconfirm_* (B3, mig 230): the order's bearer confirm token —
+      actionUrl builds /{vertical}/reconfirm/{token}. */
+  reconfirmToken?: string
+  /** order_reconfirm_request: true on the FINAL ping (24h before the refund
+      deadline) — changes the title/message urgency wording. */
+  isFinal?: boolean
   reason?: string
   quantity?: number
   listingTitle?: string
@@ -1775,6 +1783,42 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     actionUrl: (d) => d.eventId
       ? `/${d.vertical || 'food_trucks'}/event-manager/${d.eventId}/dashboard`
       : `/${d.vertical || 'food_trucks'}/event-manager`,
+  },
+
+  // B3 (owner spec 2026-08-08, built 2026-08-15, mig 230): the event a buyer
+  // pre-ordered for changed its day, place, or start time — they keep their
+  // order by saying "I'm still coming" on the token page. Sent for the FIRST
+  // ping (from requestEventReconfirmation) and the FINAL ping (isFinal, from
+  // the hourly cron, 24h before the refund deadline) — 'standard' urgency =
+  // email + in-app, the spec's "email on the first and last only". Keys the
+  // caller must pass: orderNumber, changeSummary, eventDate, reconfirmToken.
+  order_reconfirm_request: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'buyer',
+    title: (d) => d.isFinal
+      ? 'Last chance — confirm your event order or it will be refunded'
+      : 'Your event changed — are you still coming?',
+    message: (d) => d.isFinal
+      ? `The event on ${d.eventDate || 'your calendar'} changed (${d.changeSummary || 'details updated'}) and order ${d.orderNumber || ''} still needs your confirmation. If you don't confirm before ordering closes, your order will be refunded so your vendor doesn't cook for no one.`
+      : `The organizer changed ${d.changeSummary || 'the details'} for the event on ${d.eventDate || 'your calendar'}. Your pre-order (${d.orderNumber || ''}) still stands — just tap to confirm you can still make it. Orders nobody confirms are refunded before the event.`,
+    actionUrl: (d) => d.reconfirmToken
+      ? `/${d.vertical || 'food_trucks'}/reconfirm/${d.reconfirmToken}`
+      : `/${d.vertical || 'food_trucks'}/buyer/orders`,
+  },
+
+  // B3: the +48h nudge between the first and final pings — in-app only
+  // ('info' urgency, COMM-3 frugality: no paid email for the middle nudge).
+  order_reconfirm_reminder: {
+    urgency: 'info',
+    severity: 'warning',
+    audience: 'buyer',
+    title: () => 'Still coming? Your event order needs a quick confirm',
+    message: (d) =>
+      `Quick reminder: the event on ${d.eventDate || 'your calendar'} changed and your order (${d.orderNumber || ''}) is waiting on your confirmation. One tap keeps it.`,
+    actionUrl: (d) => d.reconfirmToken
+      ? `/${d.vertical || 'food_trucks'}/reconfirm/${d.reconfirmToken}`
+      : `/${d.vertical || 'food_trucks'}/buyer/orders`,
   },
 
   // B1+C merge (owner 2026-08-15): the organizer set, changed, or removed the

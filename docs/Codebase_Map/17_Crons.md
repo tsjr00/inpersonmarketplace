@@ -1,12 +1,12 @@
 # 17 — Crons / Scheduled Jobs ⚠ money
 
-<!-- map-stamp: domain=crons; verified=2026-07-31; commit=b597ef70 -->
+<!-- map-stamp: domain=crons; verified=2026-08-15; commit=03f97d29 -->
 <!-- map-claims
 src/app/api/cron/**
 src/lib/cron/**
 -->
 
-Six scheduled jobs. One of them — `expire-orders` — is the platform's master sweeper and the highest-risk recurring process in the system.
+Seven scheduled jobs. One of them — `expire-orders` — is the platform's master sweeper and the highest-risk recurring process in the system.
 
 ---
 
@@ -30,10 +30,15 @@ Six scheduled jobs. One of them — `expire-orders` — is the platform's master
 | `/api/cron/surveys` | `0 * * * *` | hourly | No |
 | `/api/cron/park-docs-review` | `0 12-23,0-2 * * *` | hourly, ~7am–8pm CT (DST-safe) | No |
 | `/api/cron/remit-cause-funds` | `0 8 * * 1` | weekly Mon 08:00 UTC (~3am CT) | **YES** — Community Chip In Connect payouts |
+| `/api/cron/event-reconfirm` | `30 * * * *` | hourly at :30 | **YES** — full-order Stripe refunds for unconfirmed event orders |
 
 **Crons run on PRODUCTION only** — Vercel does not fire schedules on preview or staging deployments. `expire-orders` and `vendor-activity-scan` additionally hard-skip when `VERCEL_ENV !== 'production'`. To exercise a cron elsewhere, invoke the route manually with the `CRON_SECRET` bearer token.
 
-**Auth (all six):** `Bearer ${CRON_SECRET}` with a timing-safe comparison.
+**Auth (all seven):** `Bearer ${CRON_SECRET}` with a timing-safe comparison.
+
+## `event-reconfirm` — B3 re-confirmation sweep (mig 230, 2026-08-15) ⚠ money
+
+`cron/event-reconfirm/route.ts` — hourly (deliberately NOT on daily expire-orders: the refund deadline is the market's CUTOFF, and a daily sweep could refund a full day late, i.e. at event start — the outcome the owner's spec forbids). Over orders stamped awaiting re-confirmation after a consequential event change (`lib/events/reconfirmation.ts`): +48h reminder (in-app only) → final ping 24h before the deadline (email + in-app) → at the deadline, claim the order (guarded `reconfirm_refunded_at` update), full remaining Stripe refund (`createRefund`, deterministic key), cancel items, restore inventory, `free_wave_on_order_cancel`, notify the buyer. First pings are sent at change time by `requestEventReconfirmation`, not here.
 
 ## `expire-orders` — the master sweeper
 

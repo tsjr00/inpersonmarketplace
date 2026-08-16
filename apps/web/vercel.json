@@ -6,6 +6,10 @@
       "schedule": "0 12 * * *"
     },
     {
+      "path": "/api/cron/event-reconfirm",
+      "schedule": "30 * * * *"
+    },
+    {
       "path": "/api/cron/vendor-activity-scan",
       "schedule": "0 8 * * *"
     },

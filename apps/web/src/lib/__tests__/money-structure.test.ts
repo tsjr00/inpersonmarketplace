@@ -89,6 +89,12 @@ const FLIP_ALLOWLIST: FlipAllow[] = [
   // 2026-07-18 CRN-5 batch: Phase 3's flip gained the .eq('status','pending')
   // guard (Phase 2 already had it) — count 2→1 per the rot-check instruction.
   { file: 'app/api/cron/expire-orders/route.ts', table: 'orders', status: 'cancelled', count: 1, reason: 'Phase 1 all-items-cancelled (items individually guarded)' },
+  // 2026-08-15 B3 (mig 230): unconfirmed-at-cutoff refund sweep. The order is
+  // CLAIMED first by a guarded reconfirm_refunded_at UPDATE (.is null ×2) and
+  // its items are individually guarded (.is cancelled_at null) — the status
+  // flip is the tail of that already-claimed sequence, same shape as
+  // expire-orders Phase 1.
+  { file: 'app/api/cron/event-reconfirm/route.ts', table: 'orders', status: 'cancelled', count: 1, reason: 'B3 reconfirm-refund sweep — order claimed via guarded reconfirm_refunded_at update; items individually guarded' },
   // 2026-07-18 CHK-7 batch: checkout/session cleanup + failed-decrement unwind
   // orders flips are now BOTH guarded (.eq status pending) — allowlist entry
   // removed per Rule A rot-check instruction (shrink direction).

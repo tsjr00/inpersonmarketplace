@@ -10,6 +10,8 @@ src/components/events/**
 src/app/[vertical]/events/**
 src/app/[vertical]/vendor/events/**
 src/app/[vertical]/event-manager/**
+src/app/api/orders/reconfirm/**
+src/app/[vertical]/reconfirm/**
 -->
 
 **An event is not a vertical.** It is a `catering_requests` row plus a `markets` row with `market_type='event'` and `is_private=true`, cross-linked by `markets.catering_request_id` / `catering_requests.market_id` (`lib/events/event-actions.ts:119-140`). Events exist in both verticals.
@@ -49,6 +51,8 @@ Attendee writes (`waves/reserve`, `order`, `my-order`) require a login but are *
 | `api/events/[token]/vendor-fee/route.ts` | Event Vendor Fee (V1 2026-08-14): GET fee + payout state + `reuse_options` (labels of reusable Connect accounts while onboarding incomplete); PUT set/clear fee — non-zero fee REFUSED until the event market's Connect onboarding is complete (`connect_required`, decision 8b). Organizer-only, post-approval. Fee lives on `catering_requests.event_vendor_fee_cents` (mig 228) | No |
 | `api/events/[token]/stripe/onboard/route.ts` | Organizer variant of the manager Stripe onboard route — mints a fresh hosted Connect link per click for the event MARKET's account (`markets.stripe_account_id`); lazy, driven from the fee card | No |
 | `api/events/[token]/stripe/reuse/route.ts` | Points the event market at a Connect account the organizer already finished elsewhere (vendor account or prior event) — offered choice, never automatic (owner 2026-08-15). Client sends only a `source` keyword; the account id is re-derived + live-verified server-side via `lib/events/reusable-payout-accounts.ts` | Money-adjacent |
+| `api/orders/reconfirm/[token]/route.ts` | B3 (mig 230): token-based order re-confirmation after a consequential event change. GET = state + the event's CURRENT facts; POST = "I'm still coming" (sets reconfirmed_at). ⚠ GET must NEVER confirm — mail scanners click links (mig-218 lesson); only the page's button POSTs. No auth: the token is the credential. Stamping + first ping: `lib/events/reconfirmation.ts` (called by both consequential-change PATCH sites); reminders/final/refund: `cron/event-reconfirm` (17_Crons.md) | Money-adjacent |
+| `[vertical]/reconfirm/[token]/page.tsx` | The buyer-facing "are you still coming?" landing for the re-confirmation link — shows the event's new details + one confirm button (POSTs; arrival never confirms) | No |
 | `api/vendor/events/[marketId]/pay/route.ts` | ⚠ Vendor pays the Event Vendor Fee: booth math via `calculateBoothRentalFees`, eligibility + 12h windows via `create_event_fee_payment_if_eligible` (mig 229, advisory-locked), Stripe destination-charge session via `lib/stripe/event-fee-payments.ts`. First PAYMENT wins at the webhook flip | Money-adjacent |
 | `api/events/[token]/shop/route.ts` | HTTP wrapper over `lib/events/shop-data.ts` for the attendee shop | Prices |
 | `api/events/[token]/waves/route.ts` | Wave availability via `get_event_waves_with_availability`; 10s CDN cache | No |

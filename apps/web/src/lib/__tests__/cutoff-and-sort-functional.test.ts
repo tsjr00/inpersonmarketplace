@@ -237,8 +237,15 @@ describe('NI-014: Total notification types = 72', () => {
     // retroactive-fee case). Sent by the vendor-fee PUT to ACCEPTED vendors
     // without a paid row; paid vendors keep their snapshot (owner: no platform
     // refunds on fee change). Required keys named on the template.
+    // 109 → 111 (2026-08-15, B3 re-confirmation, owner approved "build it that
+    // way"): order_reconfirm_request (standard = email+in_app; FIRST ping from
+    // requestEventReconfirmation and FINAL ping from the hourly cron — the
+    // spec's "email on the first and last only") + order_reconfirm_reminder
+    // (info = in_app only; the +48h middle nudge). Both carry the bearer
+    // reconfirmToken for /{vertical}/reconfirm/{token}. Required keys named
+    // on the templates.
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(109)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(111)
   })
 
   it('includes all buyer-facing types', () => {
