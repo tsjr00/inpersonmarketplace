@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors/with-error-tracing'
+import { logError, TracedError } from '@/lib/errors'
+import { refundEventFeePayment } from '@/lib/stripe/event-fee-payments'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { sendNotification } from '@/lib/notifications/service'
 import { recommendBackupBench } from '@/lib/events/backup-bench'
@@ -309,6 +311,69 @@ export async function POST(request: NextRequest, context: RouteContext) {
           .update({ is_backup: true })
           .eq('market_id', event.market_id)
           .in('vendor_profile_id', notSelectedIds)
+
+        // Refund-matrix completion (2026-08-16): DESELECTING a vendor who
+        // already settled their fee refunds them automatically — the organizer
+        // took the spot back, so keeping the money was indefensible (the old
+        // copy said "not automatically refunded; contact us"). Per demoted
+        // vendor: paid → full refund WITH transfer reversal; covered →
+        // released (no money ever moved; the forfeited pot becomes claimable
+        // by the next backup); pending → released.
+        const { data: demotedFeeRows } = await serviceClient
+          .from('event_vendor_fee_payments')
+          .select('id, vendor_profile_id, vendor_pays_cents, status, stripe_payment_intent_id, vendor_profiles:vendor_profile_id(user_id)')
+          .eq('market_id', event.market_id)
+          .in('vendor_profile_id', notSelectedIds)
+          .in('status', ['pending_payment', 'paid', 'covered'])
+
+        const demotedReleasable = (demotedFeeRows || []).filter(r => r.status !== 'paid')
+        if (demotedReleasable.length > 0) {
+          await serviceClient
+            .from('event_vendor_fee_payments')
+            .update({ status: 'released' })
+            .in('id', demotedReleasable.map(r => r.id as string))
+            .in('status', ['pending_payment', 'covered'])
+        }
+
+        for (const feeRow of (demotedFeeRows || []).filter(r => r.status === 'paid')) {
+          try {
+            if (!feeRow.stripe_payment_intent_id) throw new Error('paid row has no payment intent id')
+            await refundEventFeePayment({
+              paymentIntentId: feeRow.stripe_payment_intent_id as string,
+              paymentId: feeRow.id as string,
+              reason: 'organizer_deselected',
+            })
+            await serviceClient
+              .from('event_vendor_fee_payments')
+              .update({
+                status: 'refunded',
+                refunded_at: new Date().toISOString(),
+                refund_reason: 'organizer_deselected',
+              })
+              .eq('id', feeRow.id)
+              .eq('status', 'paid')
+            const demotedUserId = (feeRow.vendor_profiles as unknown as { user_id?: string } | null)?.user_id
+            if (demotedUserId) {
+              const { data: feeMarketRow } = await serviceClient
+                .from('markets')
+                .select('name')
+                .eq('id', event.market_id)
+                .maybeSingle()
+              await sendNotification(demotedUserId, 'event_fee_refunded_vendor', {
+                marketName: (feeMarketRow?.name as string) || 'the event',
+                marketId: event.market_id,
+                amountCents: feeRow.vendor_pays_cents as number,
+                feeRefundReason: 'deselected',
+                dedupRef: `${feeRow.id}-deselected`,
+              }, { vertical: event.vertical_id })
+            }
+          } catch (refundErr) {
+            await logError(new TracedError('ERR_REFUND_001', `[events/select] Deselection refund failed for payment ${feeRow.id}: ${refundErr instanceof Error ? refundErr.message : String(refundErr)}`, {
+              route: '/api/events/[token]/select', method: 'POST',
+              amountCents: feeRow.vendor_pays_cents as number,
+            }))
+          }
+        }
 
         // Backup bench phase 2 (mig 232): offer the standby bench to vendors
         // who JUST became non-selected — not on every re-submit. Opt-in only;

@@ -250,9 +250,9 @@ export interface NotificationTemplateData {
   /** order_reconfirm_request: true on the FINAL ping (24h before the refund
       deadline) — changes the title/message urgency wording. */
   isFinal?: boolean
-  /** event_fee_refunded_vendor (Phase 3, 2026-08-16): WHY the fee came back.
-      Absent = the original race-loser case ("event filled"). */
-  feeRefundReason?: 'early_cancel' | 'organizer_waived' | 'event_cancelled'
+  /** event_fee_refunded_vendor (Phase 3 + refund-matrix, 2026-08-16): WHY the
+      fee came back. Absent = the original race-loser case ("event filled"). */
+  feeRefundReason?: 'early_cancel' | 'organizer_waived' | 'event_cancelled' | 'deselected' | 'admin_refund'
   /** event_fee_waiver_requested_organizer: pre-formatted last day the waive
       button works (event date + 14 days), e.g. "Sep 12, 2026". */
   waivableUntil?: string
@@ -1744,6 +1744,8 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       d.feeRefundReason === 'early_cancel' ? 'Your event fee was refunded'
       : d.feeRefundReason === 'organizer_waived' ? 'The organizer waived your forfeited fee'
       : d.feeRefundReason === 'event_cancelled' ? 'Event cancelled — your fee was refunded'
+      : d.feeRefundReason === 'deselected' ? 'Selection changed — your fee was refunded'
+      : d.feeRefundReason === 'admin_refund' ? 'Your event fee was refunded'
       : 'Event filled — your fee was refunded',
     message: (d) => {
       const amount = d.amountCents ? ` of $${(d.amountCents / 100).toFixed(2)}` : ''
@@ -1756,6 +1758,12 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       }
       if (d.feeRefundReason === 'event_cancelled') {
         return `${eventName} was cancelled by the organizer. Your Event Vendor Fee${amount} has been refunded in full.`
+      }
+      if (d.feeRefundReason === 'deselected') {
+        return `The organizer of ${eventName} changed their vendor selection and your spot is no longer confirmed. Your Event Vendor Fee${amount} has been refunded in full — you're on the backup list and will be contacted if a spot reopens.`
+      }
+      if (d.feeRefundReason === 'admin_refund') {
+        return `Our team refunded your Event Vendor Fee${amount} for ${eventName}. If you weren't expecting this, reply to this notification or contact support.`
       }
       return `All vendor spots at ${eventName} were taken before your payment completed. Your Event Vendor Fee${amount} has been refunded in full.`
     },

@@ -1,6 +1,6 @@
 # 19 — Admin ⚠ money
 
-<!-- map-stamp: domain=admin; verified=2026-08-15; commit=0d1e86d1 -->
+<!-- map-stamp: domain=admin; verified=2026-08-16; commit=0ecb481b -->
 <!-- map-claims
 src/app/api/admin/**
 src/lib/vendor-event-application.ts
@@ -103,7 +103,7 @@ Consequence worth stating plainly: **platform revenue is not attributable per ve
 "Has applied" for event approval is defined ONCE in `src/lib/vendor-event-application.ts` (`getEventApplicationState` — reads `profile_data.event_readiness`), used by the queue API and both vendor detail pages (root + `[vertical]`). Collapsed 2026-08-15 from 3 hand-kept copies.
 
 ### Events
-`events/route.ts` (list catering requests) · `events/[id]` (status transitions; approval auto-creates the event market + token) ⚠ · `events/[id]/payments` ⚠ (company deposit + final settlement) · `events/[id]/settlement` ⚠ (the heaviest money logic in admin) · `events/[id]/invite` · `events/[id]/rematch` · `events/[id]/generate-waves` · `events/[id]/repeat` · `event-ratings` (moderate: approve/hide).
+`events/route.ts` (list catering requests) · `events/[id]` (status transitions; approval auto-creates the event market + token) ⚠ · `events/[id]/payments` ⚠ (company deposit + final settlement) · `events/[id]/fee-payments` ⚠ (2026-08-16: Event Vendor FEE rows + manual full refund WITH transfer reversal, allowed on paid AND forfeited — the support override; distinct from `payments`, which is company-paid money) · `events/[id]/settlement` ⚠ (the heaviest money logic in admin) · `events/[id]/invite` · `events/[id]/rematch` · `events/[id]/generate-waves` · `events/[id]/repeat` · `event-ratings` (moderate: approve/hide).
 
 ### Markets
 `markets/route.ts` · `markets/[id]` (edit/remove — the delete guard blocks on booth/park/credit history so a market delete can't cascade-wipe paid history across 22 referencing tables) · `markets/[id]/manager` (assign/clear/suspend/restore) · `markets/[id]/documents` + `[documentId]` (1-hour signed URLs, guarded against cross-market id spoofing) · `markets/[id]/duplicates`.

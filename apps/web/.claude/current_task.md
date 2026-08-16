@@ -37,7 +37,18 @@ Owner rulings: attendance = accepted + NOT benched + (fee ⇒ paid/covered); fre
 - 🐛 **234's post-hoc differential FOUND A BYPASS** (owner queries confirmed): benched+unpaid vendor w/ active vms row at fee event sold via the `OR vms.id IS NOT NULL` traditional fallback. Anew Perspective zeros = benign (event past 2026-05-30).
 - ✅ **Mig 235 WRITTEN** (`20260816_235_event_vms_bypass_scoped.sql`, ⏳ applied NOWHERE, ⛔ ROW-REMOVAL class): 234's text w/ ONE predicate scoped `OR (m.market_type <> 'event' AND vms.id IS NOT NULL)` (build-diff proved 2 hunks). Pre-registered: exactly 4 barbecue rows @ Event & Park Mgmt 1→0. + 4th flow-integrity guard (scoped present + bare absent) — 171/171.
 - ✅ 235 applied Dev+Staging WITH full differential — **EXACT MATCH** (4 bypass rows 1→0, nothing else moved). Snapshot rows 234+235 flipped ✅; CLAUDE_CONTEXT says EIGHT pastes 228–235 (234/235 = differential class at prod paste).
-- ⬜ ONE commit+push for the whole Phase 4 batch (234+235+code) — awaiting owner approval
+- ✅ Phase 4 batch SHIPPED `0ecb481b` (ref-update 7fbf2d67..0ecb481b verified, Playwright 49✓)
+
+## REFUND-MATRIX COMPLETION (same session, owner "proceed") — NO migration needed (all statuses exist from 233)
+- ✅ Deselection refunds (select route: newly-demoted vendors — paid→refund w/ reversal + 'deselected' notice; covered/pending→released, pot claimable again)
+- ✅ Select page copy fixed (was "not automatically refunded; contact us" → now automatic, with the payout-clawback disclosure)
+- ✅ feeRefundReason union += 'deselected' | 'admin_refund' + template branches (NO new types, tripwire stays 115)
+- ✅ NEW `api/admin/events/[id]/fee-payments` (GET all evfp rows w/ names; POST manual full refund w/ reversal on paid OR forfeited — admin outlives the 14d waive window; claim-first, un-claims on Stripe failure; S4-2 vertical scoping via verifyAdminScope)
+- ✅ NEW `AdminEventFeePayments` card in admin event detail panel ("Vendor Fee Payments" Section; ConfirmDialog not window.confirm)
+- ✅ Maps: 19_Admin route line + stamp; 14_Events component row
+- ✅ Gates green (tsc clean after discriminated-union fix, 1983/1983, lint 0 err after queueMicrotask fix)
+- ⬜ Commit+push ask
+- REMAINING chunk C after this: Phase 6 polish; small deferrals (email fee line, early-open override, decline-window design, terms revisit); multi-day. Deselection+admin view = DONE.
 
 ## Gotchas
 - Waive after covered-backup-activation = allowed; the organizer is giving up their own coverage (warning copy handles it)

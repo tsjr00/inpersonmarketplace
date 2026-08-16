@@ -306,8 +306,8 @@ export default function EventSelectPage() {
           </button>
           <p style={{ textAlign: 'center', marginTop: spacing.xs, fontSize: typography.sizes.xs, color: statusColors.neutral400, lineHeight: 1.5 }}>
             Changing selections notifies newly added {vendorTermPlural} only. Removed {vendorTermPlural} stay
-            listed as backups and are not automatically notified — and any spot fee they already paid is not
-            automatically refunded. Contact us if a paid {vendorTerm} needs to be removed.
+            listed as backups — and any spot fee they already paid is automatically refunded in full,
+            with your portion of that fee returned from your payout account.
           </p>
         </div>
       </div>

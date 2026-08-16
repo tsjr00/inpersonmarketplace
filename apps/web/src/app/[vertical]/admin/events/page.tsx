@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { colors, spacing, typography, radius, statusColors, sizing } from '@/lib/design-tokens'
 import EventChipInControl from '@/components/events/EventChipInControl'
 import AdminChangeRequestsCard from '@/components/events/AdminChangeRequestsCard'
+import AdminEventFeePayments from '@/components/events/AdminEventFeePayments'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { term } from '@/lib/vertical/terminology'
 import { calculateViability, scoreVendorMatch, type EventScoreInput, type ScoreLevel, type VendorMatchInput } from '@/lib/events/viability'
@@ -1488,6 +1489,15 @@ export default function AdminCateringPage() {
                       </button>
                     </div>
                   )}
+                </Section>
+              )}
+
+              {/* Event Vendor Fee payments + manual refund (refund-matrix
+                  completion 2026-08-16). The automatic refund paths cover the
+                  normal cases; this is the support-case ground truth + override. */}
+              {selected.market_id && (
+                <Section title="Vendor Fee Payments">
+                  <AdminEventFeePayments eventId={selected.id} />
                 </Section>
               )}
 
