@@ -51,6 +51,8 @@ interface EventDetails {
   vendor_fee_pays_cents: number | null
   vendor_fee_status: 'paid' | 'unpaid' | null
   organizer_selected_at: string | null
+  is_backup: boolean
+  standby_opted_in: boolean
 }
 
 const verticalAccent: Record<string, string> = {
@@ -91,6 +93,28 @@ export default function VendorCateringDetailPage() {
 
   // Event Vendor Fee pay step (V1 2026-08-14)
   const [payingFee, setPayingFee] = useState(false)
+
+  // Backup bench (mig 232): standby is an opt-in with no obligation — the
+  // commitment is to being ASKED, never to going.
+  const [standbyBusy, setStandbyBusy] = useState(false)
+  async function toggleStandby(join: boolean) {
+    if (standbyBusy) return
+    setStandbyBusy(true)
+    try {
+      const res = await fetch(`/api/vendor/events/${marketId}/standby`, {
+        method: join ? 'POST' : 'DELETE',
+      })
+      if (res.ok) {
+        setDetails(prev => (prev ? { ...prev, standby_opted_in: join } : prev))
+      } else {
+        const data = await res.json().catch(() => ({}))
+        setActionMessage(`Error: ${data.error || 'Could not update standby.'}`)
+      }
+    } catch {
+      setActionMessage('Error: Network error — please try again.')
+    }
+    setStandbyBusy(false)
+  }
 
   async function payVendorFee() {
     if (payingFee) return
@@ -535,6 +559,60 @@ export default function VendorCateringDetailPage() {
                   </p>
                 </div>
               )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Backup bench (mig 232, owner model 2026-08-15): shown to an accepted
+          vendor the organizer did NOT select. Opt-in, zero obligation. */}
+      {details.response_status === 'accepted' && details.is_backup && (
+        <div style={{
+          marginBottom: spacing.md,
+          padding: spacing.sm,
+          backgroundColor: statusColors.neutral50,
+          border: `1px solid ${statusColors.neutral200}`,
+          borderRadius: radius.md,
+          fontSize: typography.sizes.sm,
+          color: statusColors.neutral700,
+          lineHeight: 1.5,
+        }}>
+          {details.standby_opted_in ? (
+            <>
+              <strong>You&apos;re on the standby bench.</strong> If a selected {vertical === 'farmers_market' ? 'vendor' : 'truck'} cancels,
+              you&apos;re first in line to be asked. You committed to being asked — not to going — and can
+              decline freely, or{' '}
+              <button
+                onClick={() => void toggleStandby(false)}
+                disabled={standbyBusy}
+                style={{ background: 'none', border: 'none', padding: 0, color: accent, textDecoration: 'underline', cursor: standbyBusy ? 'default' : 'pointer', fontSize: typography.sizes.sm }}
+              >
+                leave the bench
+              </button>.
+            </>
+          ) : (
+            <>
+              <strong>The organizer went with other {vertical === 'farmers_market' ? 'vendors' : 'trucks'} this time.</strong>{' '}
+              Want to be on standby? If a selected {vertical === 'farmers_market' ? 'vendor' : 'truck'} cancels, you&apos;re first in line
+              to be asked — you&apos;re committing to being asked, not to going, and you can decline freely.
+              <div style={{ marginTop: spacing.xs }}>
+                <button
+                  onClick={() => void toggleStandby(true)}
+                  disabled={standbyBusy}
+                  style={{
+                    padding: `${spacing['2xs']} ${spacing.md}`,
+                    backgroundColor: 'transparent',
+                    color: accent,
+                    border: `1px solid ${accent}`,
+                    borderRadius: radius.sm,
+                    fontSize: typography.sizes.sm,
+                    fontWeight: typography.weights.semibold,
+                    cursor: standbyBusy ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {standbyBusy ? 'Saving…' : 'Join the standby bench'}
+                </button>
+              </div>
             </>
           )}
         </div>

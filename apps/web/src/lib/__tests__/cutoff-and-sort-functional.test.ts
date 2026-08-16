@@ -244,8 +244,12 @@ describe('NI-014: Total notification types = 72', () => {
     // (info = in_app only; the +48h middle nudge). Both carry the bearer
     // reconfirmToken for /{vertical}/reconfirm/{token}. Required keys named
     // on the templates.
+    // 111 → 112 (2026-08-15, backup bench phase 2, owner approved the phased
+    // build): event_standby_offer — sent by the select route to newly
+    // non-selected accepted vendors, offering the opt-in standby bench
+    // (commit to being asked, not to going; mig 232). Keys named on template.
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(111)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(112)
   })
 
   it('includes all buyer-facing types', () => {

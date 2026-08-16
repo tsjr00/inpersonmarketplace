@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { spacing, typography, radius, statusColors } from '@/lib/design-tokens'
+import { CANCELLATION_RISK_FACTORS } from '@/lib/events/backup-bench'
 import { term } from '@/lib/vertical/terminology'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import {
@@ -111,7 +112,9 @@ const FIELD_GROUPS = [
     // background_check_* (mig 231, owner 2026-08-15): schools/churches/daycares
     // often require vendor background checks — vendors see the answer on the
     // invitation BEFORE deciding whether to go through (and pay for) one.
-    fields: ['setup_instructions', 'vendor_stay_policy', 'estimated_dwell_hours', 'vendor_count', 'background_check_required', 'background_check_details', 'additional_notes'],
+    // cancellation_risk_factors (mig 232, owner 2026-08-15): equal-weight risk
+    // checklist feeding the backup-bench recommendation (lib/events/backup-bench).
+    fields: ['setup_instructions', 'vendor_stay_policy', 'estimated_dwell_hours', 'vendor_count', 'background_check_required', 'background_check_details', 'cancellation_risk_factors', 'additional_notes'],
   },
 ]
 
@@ -930,6 +933,7 @@ function fieldLabel(field: string, vertical: string): string {
     vendor_count: 'Number of Vendors Wanted',
     background_check_required: 'Do You Require Background Checks for Vendors?',
     background_check_details: 'Background Check Process & Cost',
+    cancellation_risk_factors: 'Anything That Could Make Vendors Reconsider?',
     additional_notes: 'Additional Notes',
     // Event Basics group
     event_type: 'Event Type',
@@ -1225,6 +1229,37 @@ function renderField(field: string, value: unknown, onChange: (v: unknown) => vo
         onChange={(e) => onChange(e.target.value)}
         style={{ ...inputStyle, resize: 'vertical' as const }}
       />
+    )
+  }
+
+  // Cancellation-risk checklist (mig 232): equal-weight checkboxes feeding the
+  // backup-bench recommendation. Honest framing to the organizer — declaring a
+  // risk gets them a bigger recommended bench, not a penalty.
+  if (field === 'cancellation_risk_factors') {
+    const checked = new Set(Array.isArray(value) ? (value as string[]) : [])
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
+        <p style={{ margin: 0, fontSize: typography.sizes.xs, color: statusColors.neutral500, lineHeight: 1.5 }}>
+          Check anything that applies — conditions like these make vendors likelier to cancel
+          as the date nears, and we use them to recommend how many backup vendors to keep on standby.
+        </p>
+        {CANCELLATION_RISK_FACTORS.map(rf => (
+          <label key={rf.id} style={{ display: 'flex', alignItems: 'flex-start', gap: spacing['2xs'], fontSize: typography.sizes.xs, color: statusColors.neutral700, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={checked.has(rf.id)}
+              style={{ marginTop: 2 }}
+              onChange={(e) => {
+                const next = new Set(checked)
+                if (e.target.checked) next.add(rf.id)
+                else next.delete(rf.id)
+                onChange(next.size > 0 ? [...next] : null)
+              }}
+            />
+            {rf.label}
+          </label>
+        ))}
+      </div>
     )
   }
 

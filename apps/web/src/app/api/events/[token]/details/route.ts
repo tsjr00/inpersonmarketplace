@@ -52,6 +52,9 @@ const ALLOWED_FIELDS = [
   // background check + the process/cost — surfaced to vendors pre-decision.
   'background_check_required',
   'background_check_details',
+  // Mig 232: equal-weight risk checklist feeding the backup-bench
+  // recommendation (lib/events/backup-bench.ts).
+  'cancellation_risk_factors',
   'estimated_dwell_hours',
   'is_themed',
   'theme_description',

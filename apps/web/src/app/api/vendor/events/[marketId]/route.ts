@@ -71,7 +71,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       // Verify vendor is invited to this market
       const { data: marketVendor } = await serviceClient
         .from('market_vendors')
-        .select('response_status, response_notes, invited_at, event_max_orders_total, event_max_orders_per_wave, organizer_selected_at')
+        .select('response_status, response_notes, invited_at, event_max_orders_total, event_max_orders_per_wave, organizer_selected_at, is_backup, standby_opted_in_at')
         .eq('market_id', marketId)
         .eq('vendor_profile_id', vendorProfile.id)
         .single()
@@ -213,6 +213,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
           vendor_count: cateringDetails.vendor_count,
           response_status: marketVendor.response_status,
           response_notes: marketVendor.response_notes,
+          // Backup bench (mig 232): non-selected accepted vendor may opt into
+          // standby — commit to being ASKED, never to going.
+          is_backup: marketVendor.is_backup === true,
+          standby_opted_in: marketVendor.standby_opted_in_at != null,
           accepted_count: acceptedCount || 0,
           event_type: cateringDetails.event_type,
           payment_model: cateringDetails.payment_model,

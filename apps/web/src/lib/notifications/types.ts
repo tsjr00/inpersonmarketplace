@@ -181,6 +181,7 @@ export type NotificationType =
   | 'event_fee_changed_vendor'
   | 'order_reconfirm_request'
   | 'order_reconfirm_reminder'
+  | 'event_standby_offer'
   | 'event_cancelled_vendor'
   | 'event_confirmed'
   | 'event_change_requested'
@@ -1819,6 +1820,24 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     actionUrl: (d) => d.reconfirmToken
       ? `/${d.vertical || 'food_trucks'}/reconfirm/${d.reconfirmToken}`
       : `/${d.vertical || 'food_trucks'}/buyer/orders`,
+  },
+
+  // Backup bench phase 2 (owner model 2026-08-15, mig 232): sent to a vendor
+  // the organizer did NOT select, offering the standby bench. The terms in the
+  // message are the owner's 2026-08-08 spec: commit to being ASKED, not to
+  // going; decline activation freely. Recipient is an ACCEPTED vendor, so the
+  // real event name is fine. Keys the caller must pass: marketName, eventDate,
+  // marketId.
+  event_standby_offer: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: () => "You weren't selected — want to be on standby?",
+    message: (d) =>
+      `The organizer of ${d.marketName || 'the event'} on ${d.eventDate || 'your calendar'} went with other vendors this time. If you'd like, join the standby bench: if a selected vendor cancels, you're first in line to be asked. You're committing to being asked — not to going — and you can decline freely if it no longer works for you.`,
+    actionUrl: (d) => d.marketId
+      ? `/${d.vertical || 'food_trucks'}/vendor/events/${d.marketId}`
+      : `/${d.vertical || 'food_trucks'}/vendor/dashboard`,
   },
 
   // B1+C merge (owner 2026-08-15): the organizer set, changed, or removed the

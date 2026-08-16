@@ -26,6 +26,8 @@ interface InterestedVendor {
   vendor_profile_id: string
   /** T-80: already confirmed by the organizer on a prior submit. */
   selected: boolean
+  /** Backup bench (mig 232): non-selected vendor opted into standby. */
+  on_standby?: boolean
   business_name: string
   cuisine_categories: string[]
   avg_price_cents: number | null
@@ -78,6 +80,9 @@ export default function EventSelectPage() {
   // T-80: an already-confirmed event renders a read-only confirmed state;
   // editing again is an explicit choice, not the default.
   const [changeMode, setChangeMode] = useState(false)
+  // Backup bench (mig 232): system recommendation + current standby count.
+  const [recommendedBackups, setRecommendedBackups] = useState(0)
+  const [standbyCount, setStandbyCount] = useState(0)
 
   async function fetchData() {
     try {
@@ -91,6 +96,8 @@ export default function EventSelectPage() {
       const data = await res.json()
       setEvent(data.event)
       setVendors(data.vendors || [])
+      setRecommendedBackups(data.recommended_backups || 0)
+      setStandbyCount(data.standby_count || 0)
       // T-80: pre-load prior confirmations so "Change selections" starts from
       // what the organizer already chose (menus were reviewed on that submit).
       const prior = ((data.vendors || []) as InterestedVendor[])
@@ -242,6 +249,27 @@ export default function EventSelectPage() {
               </div>
             ))}
           </div>
+
+          {/* Backup bench (owner model 2026-08-15): the number without the
+              math — "we recommend N, does that sound right" — plus who's
+              actually standing by. Funding extra spots is phase 3. */}
+          {recommendedBackups > 0 && (
+            <div style={{
+              marginBottom: spacing.sm,
+              padding: spacing.sm,
+              backgroundColor: statusColors.neutral50,
+              border: `1px solid ${statusColors.neutral200}`,
+              borderRadius: radius.md,
+              fontSize: typography.sizes.sm,
+              color: statusColors.neutral700,
+              lineHeight: 1.5,
+            }}>
+              <strong>Backup {vendorTermPlural}:</strong> based on your event profile, we recommend
+              keeping <strong>{recommendedBackups}</strong> backup {recommendedBackups === 1 ? vendorTerm : vendorTermPlural} on
+              standby. {vendorTermPluralCap} you didn&apos;t select are invited to join the bench —{' '}
+              <strong>{standbyCount}</strong> {standbyCount === 1 ? 'is' : 'are'} on standby now.
+            </div>
+          )}
 
           <a
             href={`/${vertical}/events/${token}`}

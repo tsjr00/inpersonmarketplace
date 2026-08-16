@@ -3,6 +3,8 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors/with-error-tracing'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { sendNotification } from '@/lib/notifications/service'
+import { recommendBackupBench } from '@/lib/events/backup-bench'
+import { calculateWaveCount } from '@/lib/events/viability'
 
 /**
  * GET /api/events/[token]/select
@@ -36,7 +38,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     // Find the catering request by token
     const { data: event } = await serviceClient
       .from('catering_requests')
-      .select('id, company_name, contact_name, contact_email, event_date, event_start_time, event_end_time, headcount, vendor_count, city, state, vertical_id, market_id, status, service_level')
+      .select('id, company_name, contact_name, contact_email, event_date, event_start_time, event_end_time, headcount, vendor_count, expected_meal_count, cancellation_risk_factors, city, state, vertical_id, market_id, status, service_level')
       .eq('event_token', token)
       .single()
 
@@ -68,7 +70,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       // T-80: is_backup + organizer_selected_at let this page tell the
       // organizer what they already confirmed instead of rendering fresh
       // "Select" buttons on a live event.
-      .select('vendor_profile_id, response_status, response_notes, is_backup, organizer_selected_at, vendor_profiles:vendor_profile_id(id, profile_data, profile_image_url, average_rating, rating_count, tier, pickup_lead_minutes)')
+      .select('vendor_profile_id, response_status, response_notes, is_backup, organizer_selected_at, standby_opted_in_at, vendor_profiles:vendor_profile_id(id, profile_data, profile_image_url, average_rating, rating_count, tier, pickup_lead_minutes)')
       .eq('market_id', event.market_id)
       .eq('response_status', 'accepted')
 
@@ -149,6 +151,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
         selected:
           mv.organizer_selected_at != null ||
           (event.status === 'ready' && mv.is_backup !== true),
+        // Backup bench (mig 232): this non-selected vendor opted into standby.
+        on_standby: mv.is_backup === true && mv.standby_opted_in_at != null,
         // T-59: what the vendor wrote when they said yes.
         response_notes: (mv.response_notes as string | null) || null,
         business_name: (pd.business_name as string) || (pd.farm_name as string) || 'Vendor',
@@ -163,6 +167,23 @@ export async function GET(request: NextRequest, context: RouteContext) {
       }
     })
 
+    // Backup bench phase 1 (owner model 2026-08-15): the system's recommended
+    // bench size — likelihood (10% base + equal risk bumps) × the SYSTEM-
+    // computed vendor requirement, not the organizer's requested count. The
+    // number is shown without the math (owner: tell them the number, ask if
+    // it sounds right). Funding extra bench spots is phase 3.
+    const bench = recommendBackupBench({
+      headcount: (event.headcount as number | null) ?? null,
+      expectedMealCount: (event.expected_meal_count as number | null) ?? null,
+      waveCount: calculateWaveCount(
+        event.event_start_time as string | null,
+        event.event_end_time as string | null
+      ),
+      riskFactorCount: Array.isArray(event.cancellation_risk_factors)
+        ? event.cancellation_risk_factors.length
+        : 0,
+    })
+
     return NextResponse.json({
       event: {
         id: event.id,
@@ -174,6 +195,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
         status: event.status,
       },
       vendors,
+      recommended_backups: bench.recommendedBackups,
+      standby_count: vendors.filter(v => v.on_standby).length,
     })
   })
 }
@@ -286,6 +309,37 @@ export async function POST(request: NextRequest, context: RouteContext) {
           .update({ is_backup: true })
           .eq('market_id', event.market_id)
           .in('vendor_profile_id', notSelectedIds)
+
+        // Backup bench phase 2 (mig 232): offer the standby bench to vendors
+        // who JUST became non-selected — not on every re-submit. Opt-in only;
+        // the offer promises being asked, never going.
+        const previouslyBackup = new Set(
+          (priorRows || []).filter(r => r.is_backup === true).map(r => r.vendor_profile_id as string)
+        )
+        const newlyBackup = notSelectedIds.filter(id => !previouslyBackup.has(id))
+        if (newlyBackup.length > 0) {
+          const [{ data: benchVendors }, { data: marketRow }] = await Promise.all([
+            serviceClient
+              .from('vendor_profiles')
+              .select('id, user_id')
+              .in('id', newlyBackup),
+            serviceClient
+              .from('markets')
+              .select('name')
+              .eq('id', event.market_id)
+              .maybeSingle(),
+          ])
+          for (const bv of benchVendors || []) {
+            if (bv.user_id) {
+              await sendNotification(bv.user_id as string, 'event_standby_offer', {
+                marketName: (marketRow?.name as string) || '',
+                eventDate: event.event_date as string,
+                marketId: event.market_id,
+                dedupRef: `${event.market_id}-${bv.id}-standby-offer`,
+              }, { vertical: event.vertical_id })
+            }
+          }
+        }
       }
 
       // T-80: clear the flag on selected vendors — a backup promoted by a
