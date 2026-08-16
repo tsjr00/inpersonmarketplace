@@ -28,6 +28,17 @@ interface FeeState {
   reuse_options?: Array<{ source: string; label: string }>
 }
 
+/** Backup bench Phase 3 (2026-08-16): a vendor who cancelled inside 72h and
+    forfeited their fee. The organizer may waive (= refund) each one until
+    event date + 14 days. */
+interface ForfeitRow {
+  payment_id: string
+  vendor_name: string
+  amount_cents: number
+  cancel_reason: string | null
+  forfeited_at: string | null
+}
+
 export default function EventVendorFeeCard({
   eventRef,
   primaryColor,
@@ -42,6 +53,10 @@ export default function EventVendorFeeCard({
   const [connecting, setConnecting] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [needsConnect, setNeedsConnect] = useState(false)
+  const [forfeits, setForfeits] = useState<ForfeitRow[]>([])
+  const [waivable, setWaivable] = useState(false)
+  const [waivingId, setWaivingId] = useState<string | null>(null)
+  const [waiveMessage, setWaiveMessage] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -58,8 +73,39 @@ export default function EventVendorFeeCard({
         setLoading(false)
       })
       .catch(() => setLoading(false))
+    fetch(`/api/events/${eventRef}/fee-waiver`)
+      .then(r => (r.ok ? r.json() : null))
+      .then((data: { waivable: boolean; forfeits: ForfeitRow[] } | null) => {
+        if (cancelled || !data) return
+        setForfeits(data.forfeits || [])
+        setWaivable(data.waivable === true)
+      })
+      .catch(() => {})
     return () => { cancelled = true }
   }, [eventRef])
+
+  async function waive(paymentId: string) {
+    if (waivingId) return
+    setWaivingId(paymentId)
+    setWaiveMessage(null)
+    try {
+      const res = await fetch(`/api/events/${eventRef}/fee-waiver`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payment_id: paymentId }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setForfeits(prev => prev.filter(f => f.payment_id !== paymentId))
+        setWaiveMessage('Waived — the vendor is being refunded in full.')
+      } else {
+        setWaiveMessage(data.error || 'Could not waive that forfeit.')
+      }
+    } catch {
+      setWaiveMessage('Network error — please try again.')
+    }
+    setWaivingId(null)
+  }
 
   async function save() {
     if (saving) return
@@ -294,6 +340,71 @@ export default function EventVendorFeeCard({
         }}>
           {message}
         </p>
+      )}
+
+      {/* Forfeited fees + waiver lever (Backup bench Phase 3, 2026-08-16).
+          Forfeits happen when a vendor cancels inside 72h; the money stays
+          with the organizer by default and covers a replacement's spot. The
+          waive warning copy is owner-required, verbatim. */}
+      {forfeits.length > 0 && (
+        <div style={{
+          marginTop: spacing.sm,
+          padding: spacing.xs,
+          backgroundColor: statusColors.warningLight,
+          border: `1px solid ${statusColors.warningBorder}`,
+          borderRadius: radius.md,
+          color: statusColors.warningDark,
+        }}>
+          <p style={{ margin: `0 0 ${spacing['2xs']}`, fontWeight: typography.weights.semibold }}>
+            Forfeited vendor fees
+          </p>
+          <p style={{ margin: `0 0 ${spacing['2xs']}`, fontSize: typography.sizes.xs, lineHeight: 1.5 }}>
+            These vendors cancelled inside the 72-hour window and forfeited their fee. The money
+            stays with you by default. If you feel the circumstances warrant it, you can waive a
+            forfeit and refund the vendor in full — but note: waiving refunds the fee that
+            currently covers your replacement vendor&apos;s spot.
+            {!waivable && ' The waive window (14 days after your event) has closed.'}
+          </p>
+          {forfeits.map(f => (
+            <div key={f.payment_id} style={{
+              display: 'flex', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap',
+              padding: `${spacing['3xs']} 0`,
+            }}>
+              <span style={{ fontSize: typography.sizes.xs }}>
+                <strong>{f.vendor_name}</strong> — ${(f.amount_cents / 100).toFixed(2)}
+                {f.cancel_reason ? ` · "${f.cancel_reason}"` : ''}
+              </span>
+              {waivable && (
+                <button
+                  onClick={() => void waive(f.payment_id)}
+                  disabled={waivingId !== null}
+                  style={{
+                    padding: `${spacing['3xs']} ${spacing.sm}`,
+                    backgroundColor: 'transparent',
+                    color: primaryColor,
+                    border: `1px solid ${primaryColor}`,
+                    borderRadius: radius.sm,
+                    fontSize: typography.sizes.xs,
+                    fontWeight: typography.weights.semibold,
+                    cursor: waivingId ? 'not-allowed' : 'pointer',
+                    opacity: waivingId === f.payment_id ? 0.7 : 1,
+                  }}
+                >
+                  {waivingId === f.payment_id ? 'Refunding…' : 'Waive & refund'}
+                </button>
+              )}
+            </div>
+          ))}
+          {waiveMessage && (
+            <p style={{
+              margin: `${spacing['2xs']} 0 0`,
+              fontSize: typography.sizes.xs,
+              color: waiveMessage.startsWith('Waived') ? statusColors.successDark : statusColors.warningDark,
+            }}>
+              {waiveMessage}
+            </p>
+          )}
+        </div>
       )}
     </div>
   )

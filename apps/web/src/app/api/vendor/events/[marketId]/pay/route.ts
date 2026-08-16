@@ -32,6 +32,7 @@ const REASON_MESSAGES: Record<string, string> = {
   fee_changed: 'The organizer just changed the fee — reload the page to see the current amount.',
   not_selected: 'The organizer has not selected you for this event yet. You can pay once they confirm their selection.',
   already_paid: 'You have already paid for your spot at this event.',
+  spot_covered: 'Your spot fee is covered — the vendor you replaced forfeited their fee, and it pays for your spot. Nothing to pay.',
   event_full: 'All vendor spots at this event have been taken.',
   spots_protected: 'The remaining spots are reserved for other selected vendors for a few more hours. If they do not pay in time, you will be able to take a spot.',
 }

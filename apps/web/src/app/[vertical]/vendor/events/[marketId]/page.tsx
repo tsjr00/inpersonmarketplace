@@ -49,7 +49,9 @@ interface EventDetails {
   // Event Vendor Fee (V1 2026-08-14) — disclosed pre-acceptance (decision 2)
   vendor_fee_cents: number | null
   vendor_fee_pays_cents: number | null
-  vendor_fee_status: 'paid' | 'unpaid' | null
+  // 'covered' (Phase 3, 2026-08-16): promoted backup whose spot the
+  // defector's forfeited fee pays for — settled, never a bill.
+  vendor_fee_status: 'paid' | 'covered' | 'unpaid' | null
   organizer_selected_at: string | null
   is_backup: boolean
   standby_opted_in: boolean
@@ -514,15 +516,19 @@ export default function VendorCateringDetailPage() {
         <div style={{
           marginBottom: spacing.md,
           padding: spacing.sm,
-          backgroundColor: details.vendor_fee_status === 'paid' ? statusColors.successLight : statusColors.infoLight,
-          border: `1px solid ${details.vendor_fee_status === 'paid' ? statusColors.successBorder : statusColors.infoBorder}`,
+          backgroundColor: details.vendor_fee_status === 'paid' || details.vendor_fee_status === 'covered' ? statusColors.successLight : statusColors.infoLight,
+          border: `1px solid ${details.vendor_fee_status === 'paid' || details.vendor_fee_status === 'covered' ? statusColors.successBorder : statusColors.infoBorder}`,
           borderRadius: radius.md,
           fontSize: typography.sizes.sm,
-          color: details.vendor_fee_status === 'paid' ? statusColors.successDark : statusColors.infoDark,
+          color: details.vendor_fee_status === 'paid' || details.vendor_fee_status === 'covered' ? statusColors.successDark : statusColors.infoDark,
         }}>
           {details.vendor_fee_status === 'paid' ? (
             <><strong>Your spot is secured</strong> — Event Vendor Fee paid
               ({details.vendor_fee_pays_cents != null ? `$${(details.vendor_fee_pays_cents / 100).toFixed(2)}` : ''}).</>
+          ) : details.vendor_fee_status === 'covered' ? (
+            <><strong>Your spot fee is covered</strong> — the vendor you&apos;re replacing forfeited
+              their fee when they cancelled, and that forfeit is your step-in bonus
+              {details.vendor_fee_pays_cents != null ? ` ($${(details.vendor_fee_pays_cents / 100).toFixed(2)} — nothing to pay)` : ' — nothing to pay'}.</>
           ) : (
             <>
               <strong>Event Vendor Fee:</strong>{' '}

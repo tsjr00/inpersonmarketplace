@@ -68,7 +68,10 @@ function chunkAt(code: string, idx: number): string {
 // were the MBX-3/MBX-7 corruption bugs.
 // ═══════════════════════════════════════════════════════════════════════
 
-const FLIP_TABLES = ['orders', 'order_items', 'park_spot_bookings', 'vendor_payouts', 'park_standing_reservations']
+// event_vendor_fee_payments added 2026-08-16 (Backup bench Phase 3): every
+// status flip on it ships guarded (claim-first .eq('status') pattern), so the
+// table joins the rule with zero allowlist entries — keep it that way.
+const FLIP_TABLES = ['orders', 'order_items', 'park_spot_bookings', 'vendor_payouts', 'park_standing_reservations', 'event_vendor_fee_payments']
 
 interface FlipAllow { file: string; table: string; status: string; count: number; reason: string }
 

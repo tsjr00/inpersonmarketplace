@@ -5,6 +5,7 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
 import { sendNotification } from '@/lib/notifications/service'
 import { stripe } from '@/lib/stripe/config'
 import { createRefund } from '@/lib/stripe/payments'
+import { refundAllEventFeePayments } from '@/lib/events/event-fee-refunds'
 import { eventRefColumn } from '@/lib/events/event-ref'
 
 /**
@@ -101,6 +102,17 @@ export async function POST(
         .from('markets')
         .update({ active: false })
         .eq('id', event.market_id)
+
+      // Event Vendor Fees Phase 5 (2026-08-16): the event is dead — every
+      // paying vendor gets their fee back (full refund with transfer
+      // reversal); pending/covered rows released; forfeits untouched (the
+      // organizer keeps the waiver lever for those).
+      await refundAllEventFeePayments(
+        serviceClient,
+        event.market_id,
+        event.vertical_id,
+        '/api/events/[token]/cancel'
+      )
 
       // Notify accepted vendors.
       // EVT-10 FIX: sendNotification's first arg is a USER id — this fan-out

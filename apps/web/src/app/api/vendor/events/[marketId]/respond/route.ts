@@ -286,6 +286,20 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         )
       }
 
+      // Phase 3 (2026-08-16): a promoted backup whose spot was COVERED by a
+      // defector's forfeited fee, declining the invitation, releases the
+      // covered row — the forfeited pot becomes claimable by the next backup
+      // (the cancel route's pot search skips pots referenced by LIVE covered
+      // rows only).
+      if (response_status === 'declined') {
+        await serviceClient
+          .from('event_vendor_fee_payments')
+          .update({ status: 'released' })
+          .eq('market_id', marketId)
+          .eq('vendor_profile_id', vendorProfile.id)
+          .eq('status', 'covered')
+      }
+
       // EVT-9 FIX: an accept (or a decline after a prior accept) changes the
       // event's total vendor capacity — if waves were already generated,
       // recalc so capacity tracks the real vendor set (mig 191: excludes

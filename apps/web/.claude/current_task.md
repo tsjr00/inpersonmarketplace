@@ -1,3 +1,38 @@
+# ACTIVE: SESSION 2026-08-16 — BACKUP BENCH PHASE 3 (money) + Fees Phase 5 merge
+
+## Goal
+Cancellation money for events: refund-with-reversal helper, vendor-cancel refund/forfeit bands, organizer waiver, covered backup spots, organizer/admin event-cancel auto-refunds. All decisions locked (decisions.md "Backup vendors — model decided" + this session's 4 answers).
+
+## Key decisions this session (owner)
+1. Fix the race-loser refund leak (searched: NO existing reversal mechanism — market-box webhook only HANDLES reversal events; booths deliberately avoid reversals via credit-first).
+2. Zero-obligation bench ships now; **organizer-funded retained standby spots = backlogged follow-on design** (the insurance lever).
+3. Waive window = event date + 14 days; warning copy verbatim: "waiving refunds the fee that currently covers your replacement vendor's spot."
+4. Backup escalation stays immediate at cancel; money decision (waive) is the organizer's undo, informed by the warning copy.
+5. "Free spot = the step-in bonus" reading CONFIRMED — no cash moves on activation; defector's forfeit covers the spot the backup fills.
+
+## 🐛 MID-BUILD FINDING (owner approved both fixes 2026-08-16)
+`market_vendors.response_status` CHECK (mig 070:107) allows only invited/accepted/declined — never extended. Vendor cancel route writes 'cancelled' (cancel/route.ts:117) with NO error check (:114-120) → **silent half-cancellation**: status stays accepted while listings are deleted, buyers refunded, backup promoted. High confidence, awaiting owner's live query (CHECK def + damage scan `response_notes LIKE 'CANCELLED:%'`) before mig 233 is finalized. Fixes: extend CHECK + loud error in route.
+
+## Build list (approved "yes, proceed") — gates GREEN 2026-08-16: tsc clean, 1979/1979 (+7 new), lint 0 errors
+1. ✅ `refundEventFeePayment` helper (event-fee-payments.ts — reverse_transfer, full-only, key `event-fee-refund-${paymentId}`)
+2. ✅ Mig 233 WRITTEN (owner queries CONFIRMED the CHECK bug on all 3 envs; damage scan 0 rows — no repair): 5 evfp columns; ck_evfp_status += forfeited/covered (old unnamed CHECK dropped by query); uq index += covered; market_vendors CHECK += cancelled; both RPCs replaced (covered occupies capacity; 'spot_covered' reason). Snapshot changelog ✅ Dev+Staging (owner 2026-08-16), Prod PENDING — **prod push now owes migs 228–233 (SIX pastes)**.
+3. ✅ Vendor cancel route: loud status-update error (aborts BEFORE side effects); fee block (≥72h refund w/ reversal / <72h instant forfeit + organizer waiver ask); pending/covered rows released; fee_outcome in response
+4. ✅ Waive route `api/events/[token]/fee-waiver` (GET forfeits / POST claim-first waive, un-claims on Stripe failure) + EventVendorFeeCard forfeit section w/ owner's verbatim warning copy
+5. ✅ Backup escalation: standby-opted-in first; organizer_selected_at stamped on promotion; covered row insert (claims unclaimed forfeit pot, skips if backup has live row); event_backup_spot_covered notice; respond route releases covered on decline; vendor page + route show 'covered'; pay route 'spot_covered' message
+6. ✅ Phase 5: `lib/events/event-fee-refunds.ts` fan-out wired into events/[token]/cancel + admin [id] cancel/decline (paid→refund+reversal+notice; pending/covered→released; forfeits untouched)
+7. ✅ Webhook race-path swap — owner approved the exact diff ("yes, make the webhook edit"); one import + one call substitution at the needs_refund branch; tsc clean, guardrail suites green
+8. ✅ Backlog: organizer-funded retained standby spots (+ removed my duplicate risk-factor entry)
+9. ✅ Notifications: 3 new templates + feeRefundReason branches; tripwire 112→115 notated (+ stale "webhook-only" note fixed); fee-cancellation.test.ts (7 band tests from OWNER decisions); money-structure FLIP_TABLES += event_vendor_fee_payments (all flips guarded, zero allowlist); 14_Events.md 3 rows + stamp
+STILL OWED: snapshot changelog row when 233 is finalized; commit after webhook approval + 233.
+
+## Gotchas
+- Waive after covered-backup-activation = allowed; the organizer is giving up their own coverage (warning copy handles it)
+- Forfeit = status stamp only, ZERO Stripe calls
+- evfp uq_evfp_one_live_per_vendor covers (pending_payment, paid) — decide whether 'covered' joins the live set in mig 233
+- Race-loser path today: platform eats ~93.5% (createRefund has no reverse_transfer, payments.ts:248-259); zero occurrences to date
+
+---
+
 # SESSION END 2026-08-15 — WRAPPED. Read this block first.
 
 ## Git / env — VERIFY, don't trust

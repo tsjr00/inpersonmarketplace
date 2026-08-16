@@ -5,6 +5,8 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
 import { sendNotification } from '@/lib/notifications/service'
 import { FEES, proratedFlatFeeSimple } from '@/lib/pricing'
 import { createRefund } from '@/lib/stripe/payments'
+import { refundEventFeePayment } from '@/lib/stripe/event-fee-payments'
+import { decideFeeOutcome, waivableUntil } from '@/lib/events/fee-cancellation'
 import { stripe } from '@/lib/stripe/config'
 import { restoreInventory } from '@/lib/inventory'
 
@@ -110,14 +112,147 @@ export async function POST(request: NextRequest, context: RouteContext) {
       : Infinity
     const isLateCancellation = hoursUntilEvent < 72 && hoursUntilEvent > 0
 
-    // 1. Update vendor status to cancelled
-    await serviceClient
+    // 1. Update vendor status to cancelled.
+    // MUST fail loudly (owner-approved fix 2026-08-16): before mig 233 widened
+    // the response_status CHECK, this write violated the constraint and failed
+    // SILENTLY — the vendor stayed 'accepted' while listings were deleted,
+    // buyers refunded, and a backup promoted (half-cancellation). Aborting here
+    // stops the cascade before any side effect.
+    const { error: statusErr } = await serviceClient
       .from('market_vendors')
       .update({
         response_status: 'cancelled',
         response_notes: `CANCELLED: ${reason.trim()}${isLateCancellation ? ' [LATE - within 72hr window]' : ''}`,
       })
       .eq('id', marketVendor.id)
+
+    if (statusErr) {
+      await logError(new TracedError('ERR_DB_UNKNOWN', `[vendor-event-cancel] Status update failed for market_vendors ${marketVendor.id}: ${statusErr.message}`, {
+        route: '/api/vendor/events/[marketId]/cancel', method: 'POST',
+      }))
+      return NextResponse.json(
+        { error: 'Cancellation could not be recorded. Please try again or contact support.' },
+        { status: 500 }
+      )
+    }
+
+    // 1b. EVENT VENDOR FEE money (Backup bench Phase 3, 2026-08-16 —
+    // decisions.md "Backup vendors — model decided"). Bands from
+    // lib/events/fee-cancellation.ts:
+    //   ≥72h out → full refund WITH transfer reversal (the organizer's ~93.5%
+    //              comes back before the vendor is repaid), no stain.
+    //   <72h     → fee FORFEITED instantly. No money moves (the split happened
+    //              at pay time; forfeiting = not refunding). Organizer gets the
+    //              waiver lever — in-app + email with the vendor's reason.
+    // pending/covered rows are simply released: a leaving vendor's unpaid
+    // checkout must not block a future attempt, and a covered backup who
+    // cancels frees the forfeited pot to cover the NEXT backup.
+    let feeOutcome: 'refunded' | 'forfeited' | null = null
+    {
+      const { data: feeRows } = await serviceClient
+        .from('event_vendor_fee_payments')
+        .select('id, status, vendor_pays_cents, stripe_payment_intent_id')
+        .eq('market_id', marketId)
+        .eq('vendor_profile_id', vendorProfile.id)
+        .in('status', ['pending_payment', 'paid', 'covered'])
+
+      const releasable = (feeRows || []).filter(r => r.status !== 'paid')
+      if (releasable.length > 0) {
+        await serviceClient
+          .from('event_vendor_fee_payments')
+          .update({ status: 'released' })
+          .in('id', releasable.map(r => r.id as string))
+          .in('status', ['pending_payment', 'covered'])
+      }
+
+      const paidRow = (feeRows || []).find(r => r.status === 'paid')
+      if (paidRow) {
+        const outcome = decideFeeOutcome(hoursUntilEvent)
+        if (outcome === 'refund') {
+          try {
+            if (!paidRow.stripe_payment_intent_id) throw new Error('paid row has no payment intent id')
+            await refundEventFeePayment({
+              paymentIntentId: paidRow.stripe_payment_intent_id as string,
+              paymentId: paidRow.id as string,
+              reason: 'vendor_cancelled_early',
+            })
+            await serviceClient
+              .from('event_vendor_fee_payments')
+              .update({
+                status: 'refunded',
+                refunded_at: new Date().toISOString(),
+                refund_reason: 'vendor_cancelled_early',
+                cancel_requested_at: new Date().toISOString(),
+                cancel_reason: reason.trim(),
+              })
+              .eq('id', paidRow.id)
+              .eq('status', 'paid')
+            feeOutcome = 'refunded'
+            await sendNotification(user.id, 'event_fee_refunded_vendor', {
+              marketName: market.name,
+              marketId,
+              amountCents: paidRow.vendor_pays_cents as number,
+              feeRefundReason: 'early_cancel',
+              dedupRef: `${paidRow.id}-early-cancel`,
+            }, { vertical: market.vertical_id })
+          } catch (refundErr) {
+            // Refund failed: leave the row 'paid' with the cancel stamps so the
+            // money state stays truthful and the error log carries the retry.
+            await serviceClient
+              .from('event_vendor_fee_payments')
+              .update({
+                cancel_requested_at: new Date().toISOString(),
+                cancel_reason: reason.trim(),
+              })
+              .eq('id', paidRow.id)
+            await logError(new TracedError('ERR_REFUND_001', `[vendor-event-cancel] Fee refund failed for payment ${paidRow.id}: ${refundErr instanceof Error ? refundErr.message : String(refundErr)}`, {
+              route: '/api/vendor/events/[marketId]/cancel', method: 'POST',
+              amountCents: paidRow.vendor_pays_cents as number,
+            }))
+          }
+        } else {
+          await serviceClient
+            .from('event_vendor_fee_payments')
+            .update({
+              status: 'forfeited',
+              forfeited_at: new Date().toISOString(),
+              cancel_requested_at: new Date().toISOString(),
+              cancel_reason: reason.trim(),
+            })
+            .eq('id', paidRow.id)
+            .eq('status', 'paid')
+          feeOutcome = 'forfeited'
+          await sendNotification(user.id, 'event_fee_forfeited_vendor', {
+            marketName: market.name,
+            marketId,
+            amountCents: paidRow.vendor_pays_cents as number,
+            dedupRef: `${paidRow.id}-forfeit`,
+          }, { vertical: market.vertical_id })
+
+          // Waiver lever → organizer (in-app + email via 'standard' urgency).
+          if (market.catering_request_id && market.event_start_date) {
+            const { data: crOrganizer } = await serviceClient
+              .from('catering_requests')
+              .select('id, organizer_user_id')
+              .eq('id', market.catering_request_id)
+              .maybeSingle()
+            if (crOrganizer?.organizer_user_id) {
+              const deadline = waivableUntil(market.event_start_date as string)
+              await sendNotification(crOrganizer.organizer_user_id as string, 'event_fee_waiver_requested_organizer', {
+                vendorName: (vendorProfile.profile_data as Record<string, unknown>)?.business_name as string
+                  || (vendorProfile.profile_data as Record<string, unknown>)?.farm_name as string || 'A vendor',
+                marketName: market.name,
+                amountCents: paidRow.vendor_pays_cents as number,
+                reason: reason.trim(),
+                waivableUntil: deadline.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                eventId: crOrganizer.id as string,
+                dedupRef: `${paidRow.id}-waiver-ask`,
+              }, { vertical: market.vertical_id })
+            }
+          }
+        }
+      }
+    }
 
     // 2. Remove event_vendor_listings for this vendor
     // First get the listing IDs so we can clean up listing_markets too
@@ -383,12 +518,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }
     }
 
-    // 5. Auto-escalate to backup vendor (if one exists)
+    // 5. Auto-escalate to backup vendor (if one exists).
+    // Phase 3 (2026-08-16): standby-opted-in vendors go FIRST (they said yes
+    // to being asked — mig 232), then declared backup_priority order.
     const { data: backups } = await serviceClient
       .from('market_vendors')
-      .select('vendor_profile_id, backup_priority, vendor_profiles:vendor_profile_id(user_id)')
+      .select('vendor_profile_id, backup_priority, standby_opted_in_at, vendor_profiles:vendor_profile_id(user_id)')
       .eq('market_id', marketId)
       .eq('is_backup', true)
+      .order('standby_opted_in_at', { ascending: true, nullsFirst: false })
       .order('backup_priority', { ascending: true, nullsFirst: false })
       .limit(1)
 
@@ -396,7 +534,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const backup = backups[0]
       const backupVp = backup.vendor_profiles as unknown as { user_id: string } | null
 
-      // Update backup: remove backup flag, set as invited (they need to re-confirm)
+      // Update backup: remove backup flag, set as invited (they need to
+      // re-confirm). organizer_selected_at is stamped because the backup steps
+      // into a SELECTED spot — it arms the fee pay button on acceptance when
+      // the spot is not covered (e.g. the defector was refunded, not forfeited).
       await serviceClient
         .from('market_vendors')
         .update({
@@ -404,9 +545,69 @@ export async function POST(request: NextRequest, context: RouteContext) {
           response_status: 'invited',
           response_notes: `Auto-escalated: replacing ${vendorName} who cancelled`,
           replaced_vendor_id: vendorProfile.id,
+          organizer_selected_at: new Date().toISOString(),
         })
         .eq('market_id', marketId)
         .eq('vendor_profile_id', backup.vendor_profile_id)
+
+      // Covered spot (owner model: "the defector's forfeited spot fee covers
+      // the activated backup's spot + the penalty amount becomes their step-in
+      // bonus" — free spot IS the bonus, no cash moves). Claim an UNCLAIMED
+      // forfeited pot at this event: forfeited, and not already covering a
+      // live 'covered' row. The covered row holds capacity (RPCs count it as
+      // occupying, mig 233) and the pay gate treats it as already paid.
+      // Always search — not only THIS cancellation's forfeit: an earlier
+      // defector's pot may still be unclaimed (their backup declined and the
+      // covered row was released).
+      let coveredAmountCents: number | null = null
+      {
+        const { data: forfeits } = await serviceClient
+          .from('event_vendor_fee_payments')
+          .select('id, fee_cents, vendor_pays_cents, organizer_receives_cents, platform_keeps_cents, catering_request_id')
+          .eq('market_id', marketId)
+          .eq('status', 'forfeited')
+        const { data: liveCovered } = await serviceClient
+          .from('event_vendor_fee_payments')
+          .select('covering_payment_id')
+          .eq('market_id', marketId)
+          .eq('status', 'covered')
+        const claimedPotIds = new Set((liveCovered || []).map(r => r.covering_payment_id as string))
+        const pot = (forfeits || []).find(f => !claimedPotIds.has(f.id as string))
+
+        // Never give a vendor two live rows (unique index): skip if the backup
+        // already holds a paid/pending/covered row at this event.
+        const { data: backupLiveRows } = pot
+          ? await serviceClient
+              .from('event_vendor_fee_payments')
+              .select('id')
+              .eq('market_id', marketId)
+              .eq('vendor_profile_id', backup.vendor_profile_id)
+              .in('status', ['pending_payment', 'paid', 'covered'])
+          : { data: null }
+
+        if (pot && (!backupLiveRows || backupLiveRows.length === 0)) {
+          const { error: coverErr } = await serviceClient
+            .from('event_vendor_fee_payments')
+            .insert({
+              catering_request_id: pot.catering_request_id,
+              market_id: marketId,
+              vendor_profile_id: backup.vendor_profile_id,
+              fee_cents: pot.fee_cents,
+              vendor_pays_cents: pot.vendor_pays_cents,
+              organizer_receives_cents: pot.organizer_receives_cents,
+              platform_keeps_cents: pot.platform_keeps_cents,
+              status: 'covered',
+              covering_payment_id: pot.id,
+            })
+          if (coverErr) {
+            await logError(new TracedError('ERR_DB_UNKNOWN', `[vendor-event-cancel] Covered-spot insert failed for backup ${backup.vendor_profile_id}: ${coverErr.message}`, {
+              route: '/api/vendor/events/[marketId]/cancel', method: 'POST',
+            }))
+          } else {
+            coveredAmountCents = pot.vendor_pays_cents as number
+          }
+        }
+      }
 
       // Notify backup vendor
       if (backupVp?.user_id) {
@@ -422,6 +623,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
           vertical: market.vertical_id,
           marketId: marketId,
         }, { vertical: market.vertical_id })
+
+        if (coveredAmountCents !== null) {
+          await sendNotification(backupVp.user_id, 'event_backup_spot_covered', {
+            marketName: market.name,
+            marketId,
+            amountCents: coveredAmountCents,
+            dedupRef: `${marketId}-${backup.vendor_profile_id}-covered`,
+          }, { vertical: market.vertical_id })
+        }
       }
     }
 
@@ -442,6 +652,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       ok: true,
       message: 'Event commitment cancelled.',
       late_cancellation: isLateCancellation,
+      // Phase 3: 'refunded' | 'forfeited' | null (no paid fee existed)
+      fee_outcome: feeOutcome,
       backup_escalated: backups && backups.length > 0,
       buyer_items_cancelled: vendorItems?.length || 0,
       orders_closed: ordersCancelled,

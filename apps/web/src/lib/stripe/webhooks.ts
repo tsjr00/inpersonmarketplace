@@ -1,5 +1,6 @@
 import { stripe } from './config'
 import { createRefund } from './payments'
+import { refundEventFeePayment } from './event-fee-payments'
 import { processMarketBoxPayout } from './market-box-payout'
 import { selectBasePriceForTermWeeks } from './webhook-utils'
 import { retrieveStripeFeeCents } from './fee-capture'
@@ -1437,7 +1438,10 @@ async function handleEventVendorFeeCheckoutComplete(session: Stripe.Checkout.Ses
 
   if (result.needs_refund && paymentIntentId) {
     try {
-      await createRefund(paymentIntentId, `event-fee-${paymentId}`)
+      // Phase 3 (2026-08-16): event fees are DESTINATION charges — the plain
+      // createRefund left the organizer's ~93.5% transfer in place and the
+      // platform ate it. refundEventFeePayment passes reverse_transfer.
+      await refundEventFeePayment({ paymentIntentId, paymentId, reason: 'event_full_race' })
       await supabase
         .from('event_vendor_fee_payments')
         .update({ status: 'refunded', refunded_at: new Date().toISOString(), refund_reason: 'event_full_race' })

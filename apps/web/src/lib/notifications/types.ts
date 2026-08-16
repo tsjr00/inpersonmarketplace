@@ -179,6 +179,11 @@ export type NotificationType =
   | 'event_fee_received_organizer'
   | 'event_fee_refunded_vendor'
   | 'event_fee_changed_vendor'
+  // Backup bench Phase 3 — cancellation money (2026-08-16, decisions.md
+  // "Backup vendors — model decided")
+  | 'event_fee_forfeited_vendor'
+  | 'event_fee_waiver_requested_organizer'
+  | 'event_backup_spot_covered'
   | 'order_reconfirm_request'
   | 'order_reconfirm_reminder'
   | 'event_standby_offer'
@@ -245,6 +250,12 @@ export interface NotificationTemplateData {
   /** order_reconfirm_request: true on the FINAL ping (24h before the refund
       deadline) — changes the title/message urgency wording. */
   isFinal?: boolean
+  /** event_fee_refunded_vendor (Phase 3, 2026-08-16): WHY the fee came back.
+      Absent = the original race-loser case ("event filled"). */
+  feeRefundReason?: 'early_cancel' | 'organizer_waived' | 'event_cancelled'
+  /** event_fee_waiver_requested_organizer: pre-formatted last day the waive
+      button works (event date + 14 days), e.g. "Sep 12, 2026". */
+  waivableUntil?: string
   reason?: string
   quantity?: number
   listingTitle?: string
@@ -1721,13 +1732,79 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       : `/${d.vertical || 'food_trucks'}/event-manager`,
   },
 
+  // Phase 3 (2026-08-16): no longer webhook-only — also sent by the vendor
+  // cancel route (early_cancel), the fee-waiver route (organizer_waived), and
+  // the organizer/admin event-cancel paths (event_cancelled). Branches on
+  // feeRefundReason; absent = the original race-loser case.
   event_fee_refunded_vendor: {
     urgency: 'immediate',
     severity: 'warning',
     audience: 'vendor',
-    title: () => 'Event filled — your fee was refunded',
+    title: (d) =>
+      d.feeRefundReason === 'early_cancel' ? 'Your event fee was refunded'
+      : d.feeRefundReason === 'organizer_waived' ? 'The organizer waived your forfeited fee'
+      : d.feeRefundReason === 'event_cancelled' ? 'Event cancelled — your fee was refunded'
+      : 'Event filled — your fee was refunded',
+    message: (d) => {
+      const amount = d.amountCents ? ` of $${(d.amountCents / 100).toFixed(2)}` : ''
+      const eventName = d.marketName || 'the event'
+      if (d.feeRefundReason === 'early_cancel') {
+        return `You cancelled your spot at ${eventName} before the 72-hour protection window, so your Event Vendor Fee${amount} has been refunded in full.`
+      }
+      if (d.feeRefundReason === 'organizer_waived') {
+        return `The organizer of ${eventName} chose to waive your forfeited Event Vendor Fee${amount}. It has been refunded in full.`
+      }
+      if (d.feeRefundReason === 'event_cancelled') {
+        return `${eventName} was cancelled by the organizer. Your Event Vendor Fee${amount} has been refunded in full.`
+      }
+      return `All vendor spots at ${eventName} were taken before your payment completed. Your Event Vendor Fee${amount} has been refunded in full.`
+    },
+    actionUrl: (d) => d.marketId
+      ? `/${d.vertical || 'food_trucks'}/vendor/events/${d.marketId}`
+      : `/${d.vertical || 'food_trucks'}/vendor/dashboard`,
+  },
+
+  // ── Backup bench Phase 3 — cancellation money (2026-08-16) ───────────────
+  // Model: decisions.md "Backup vendors — model decided". Forfeit moves NO
+  // money (the split happened at payment time; forfeiting = not refunding).
+  // The organizer holds the waiver lever until event date + 14 days.
+  event_fee_forfeited_vendor: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'vendor',
+    title: () => 'Your event fee was forfeited',
     message: (d) =>
-      `All vendor spots at ${d.marketName || 'the event'} were taken before your payment completed. Your Event Vendor Fee${d.amountCents ? ` of $${(d.amountCents / 100).toFixed(2)}` : ''} has been refunded in full.`,
+      `You cancelled your spot at ${d.marketName || 'the event'} inside the 72-hour protection window, so your Event Vendor Fee${d.amountCents ? ` of $${(d.amountCents / 100).toFixed(2)}` : ''} is forfeited per the event terms. The organizer has been given your reason and can choose to waive the forfeit and refund you — you'll be notified if they do.`,
+    actionUrl: (d) => d.marketId
+      ? `/${d.vertical || 'food_trucks'}/vendor/events/${d.marketId}`
+      : `/${d.vertical || 'food_trucks'}/vendor/dashboard`,
+  },
+
+  event_fee_waiver_requested_organizer: {
+    urgency: 'standard',
+    severity: 'warning',
+    // Organizer routing, not audience routing — same note as
+    // event_vendor_responded_organizer.
+    audience: 'buyer',
+    title: (d) => `${d.vendorName || 'A vendor'} cancelled late — their fee is yours to keep or waive`,
+    message: (d) => {
+      const amount = d.amountCents ? `$${(d.amountCents / 100).toFixed(2)}` : 'Their fee'
+      const note = d.reason ? ` Their reason: "${d.reason}"` : ''
+      const deadline = d.waivableUntil ? ` You can waive it from your event dashboard until ${d.waivableUntil}.` : ''
+      return `${d.vendorName || 'A vendor'} cancelled their spot at ${d.marketName || 'your event'} inside the 72-hour window.${note} ${amount} is forfeited and stays with you by default — it covers the spot if a backup steps in. If you feel the circumstances warrant it, you can waive the forfeit and refund them.${deadline}`
+    },
+    actionUrl: (d) => d.eventId
+      ? `/${d.vertical || 'food_trucks'}/event-manager/${d.eventId}/dashboard`
+      : `/${d.vertical || 'food_trucks'}/event-manager`,
+  },
+
+  event_backup_spot_covered: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: () => 'Your spot fee is covered',
+    message: (d) =>
+      `Good news — your Event Vendor Fee for ${d.marketName || 'the event'}${d.amountCents ? ` ($${(d.amountCents / 100).toFixed(2)})` : ''} is covered. The vendor you're replacing forfeited their fee when they cancelled, and that forfeit is your step-in bonus: accept the invitation and your spot is paid for.`,
     actionUrl: (d) => d.marketId
       ? `/${d.vertical || 'food_trucks'}/vendor/events/${d.marketId}`
       : `/${d.vertical || 'food_trucks'}/vendor/dashboard`,

@@ -19,6 +19,53 @@ import { getStatementSuffix } from '@/lib/stripe/payments'
  * checkout.session.completed handler calls mark_event_fee_paid_if_capacity
  * (first PAYMENT wins; the rare over-capacity loser is auto-refunded).
  */
+/**
+ * Refund an event vendor fee payment — WITH transfer reversal.
+ *
+ * Event fees are DESTINATION charges: the organizer's ~93.5% moved to their
+ * Connect account at payment time. Stripe's default refund leaves that
+ * transfer in place — the platform would refund the vendor's full payment
+ * out of its own balance while the organizer keeps their portion (~$97 lost
+ * per $100 fee). `reverse_transfer: true` pulls the organizer's portion back
+ * first; the platform's only cost is the absorbed Stripe processing fee,
+ * per the standing refund policy (decisions.md 2026-03-20).
+ *
+ * FULL refunds only (no amount param) — a full refund reverses the full
+ * transfer, so the split needs no proration math. Callers: vendor cancel
+ * outside the 72h window, organizer waive of a forfeit, organizer/admin
+ * event cancellation, and the webhook race-loser path (which previously
+ * used the non-reversing createRefund — the leak this helper closes).
+ *
+ * Idempotency `event-fee-refund-${paymentId}`: deterministic, one refund
+ * per payment row ever (rows are terminal after refund).
+ */
+export async function refundEventFeePayment({
+  paymentIntentId,
+  paymentId,
+  reason,
+}: {
+  paymentIntentId: string
+  paymentId: string
+  reason: string
+}) {
+  const idempotencyKey = `event-fee-refund-${paymentId}`
+
+  const refund = await stripe.refunds.create(
+    {
+      payment_intent: paymentIntentId,
+      reverse_transfer: true,
+      metadata: {
+        type: 'event_vendor_fee_refund',
+        payment_id: paymentId,
+        refund_reason: reason,
+      },
+    },
+    { idempotencyKey }
+  )
+
+  return refund
+}
+
 export async function createEventVendorFeeCheckoutSession({
   paymentId,
   marketId,

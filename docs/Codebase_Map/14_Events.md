@@ -1,6 +1,6 @@
 # 14 — Events (private / catering)
 
-<!-- map-stamp: domain=events; verified=2026-08-15; commit=0d1e86d1 -->
+<!-- map-stamp: domain=events; verified=2026-08-16; commit=fe11be3a -->
 <!-- map-claims
 src/app/api/events/**
 src/app/api/event-requests/**
@@ -54,6 +54,9 @@ Attendee writes (`waves/reserve`, `order`, `my-order`) require a login but are *
 | `api/orders/reconfirm/[token]/route.ts` | B3 (mig 230): token-based order re-confirmation after a consequential event change. GET = state + the event's CURRENT facts; POST = "I'm still coming" (sets reconfirmed_at). ⚠ GET must NEVER confirm — mail scanners click links (mig-218 lesson); only the page's button POSTs. No auth: the token is the credential. Stamping + first ping: `lib/events/reconfirmation.ts` (called by both consequential-change PATCH sites); reminders/final/refund: `cron/event-reconfirm` (17_Crons.md) | Money-adjacent |
 | `[vertical]/reconfirm/[token]/page.tsx` | The buyer-facing "are you still coming?" landing for the re-confirmation link — shows the event's new details + one confirm button (POSTs; arrival never confirms) | No |
 | `lib/events/backup-bench.ts` | Backup-bench sizing (owner model 2026-08-15, mig 232): ceil((10% base PLACEHOLDER + 3%/risk-factor PLACEHOLDER) × system-computed vendor requirement) + the equal-weight CANCELLATION_RISK_FACTORS checklist ids. Counts and recommends only — money is phase 3 | No |
+| `lib/events/fee-cancellation.ts` | ⚠ Phase 3 money bands (owner 2026-08-16): 72h protection window (≥72h out = refund, inside = instant forfeit — including after event start) + 14-day organizer waive window. Pure logic, tested by `fee-cancellation.test.ts` | Money |
+| `lib/events/event-fee-refunds.ts` | ⚠ Event-death fee fan-out (Fees Phase 5): refunds every PAID `event_vendor_fee_payments` row WITH transfer reversal, releases pending/covered rows, leaves forfeits (waiver lever survives). Called by organizer cancel route + admin `[id]` cancel/decline | Money |
+| `api/events/[token]/fee-waiver/route.ts` | ⚠ Organizer waiver lever (Phase 3): GET forfeited fees for the dashboard card; POST waives ONE — claim-first guarded flip to refunded, then full refund with reversal (un-claims on Stripe failure). Window: event date + 14 days | Money |
 | `api/vendor/events/[marketId]/standby/route.ts` | Standby bench opt-in/out (POST/DELETE, mig 232): accepted + non-selected (is_backup) vendors only; sets/clears standby_opted_in_at. Zero obligation — commit to being ASKED, never to going | No |
 | `api/vendor/events/[marketId]/pay/route.ts` | ⚠ Vendor pays the Event Vendor Fee: booth math via `calculateBoothRentalFees`, eligibility + 12h windows via `create_event_fee_payment_if_eligible` (mig 229, advisory-locked), Stripe destination-charge session via `lib/stripe/event-fee-payments.ts`. First PAYMENT wins at the webhook flip | Money-adjacent |
 | `api/events/[token]/shop/route.ts` | HTTP wrapper over `lib/events/shop-data.ts` for the attendee shop | Prices |

@@ -227,10 +227,13 @@ describe('NI-014: Total notification types = 72', () => {
     // (fee landed, organizer's portion en route — organizer routing like
     // event_vendor_responded_organizer), event_fee_refunded_vendor (the rare
     // first-payment-wins race loser: event filled mid-checkout, auto-refunded
-    // in full by the webhook). All three are sent ONLY by
+    // in full by the webhook). All three were sent ONLY by
     // handleEventVendorFeeCheckoutComplete in lib/stripe/webhooks.ts, with the
     // required keys named on each template. User-approved 2026-08-14
     // ("all approved" — webhook + 3 types + tripwire bump presented together).
+    // [2026-08-16 update: event_fee_refunded_vendor is no longer webhook-only —
+    // Phase 3 added feeRefundReason branches sent by the vendor cancel route,
+    // the fee-waiver route, and both event-cancel paths.]
     // 108 → 109 (2026-08-15, B1+C merge, owner approved the feature +
     // channels: "in-app + email"): event_fee_changed_vendor — the organizer
     // set/changed/removed the Event Vendor Fee after this vendor accepted (the
@@ -248,8 +251,20 @@ describe('NI-014: Total notification types = 72', () => {
     // build): event_standby_offer — sent by the select route to newly
     // non-selected accepted vendors, offering the opt-in standby bench
     // (commit to being asked, not to going; mig 232). Keys named on template.
+    // 112 → 115 (2026-08-16, backup bench PHASE 3 — cancellation money, owner
+    // approved "yes, proceed" + the 4 follow-up answers):
+    //   event_fee_forfeited_vendor (standard) — vendor cancelled inside 72h,
+    //     fee forfeited instantly; tells them the organizer can still waive.
+    //   event_fee_waiver_requested_organizer (standard = in-app + email, owner
+    //     decision) — carries the vendor's reason + the waive deadline
+    //     (event + 14 days) to the organizer's dashboard.
+    //   event_backup_spot_covered (standard) — promoted backup's spot is paid
+    //     for by the defector's forfeit ("free spot IS the step-in bonus").
+    // event_fee_refunded_vendor also gained feeRefundReason branches
+    // (early_cancel / organizer_waived / event_cancelled) — same type, no
+    // count change.
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(112)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(115)
   })
 
   it('includes all buyer-facing types', () => {

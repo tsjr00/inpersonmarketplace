@@ -173,16 +173,18 @@ export async function GET(request: NextRequest, context: RouteContext) {
       // to, so it is deliberately NOT behind the hasAccepted mask. What the
       // vendor actually pays is fee + buyer-side markup (decision 6).
       const feeCents = cateringDetails.event_vendor_fee_cents
-      let feePaymentStatus: 'paid' | 'unpaid' | null = null
+      // Phase 3 (2026-08-16): 'covered' = a promoted backup whose spot the
+      // defector's forfeited fee pays for — shows as settled, never as a bill.
+      let feePaymentStatus: 'paid' | 'covered' | 'unpaid' | null = null
       if (feeCents && feeCents > 0) {
         const { data: feeRow } = await serviceClient
           .from('event_vendor_fee_payments')
           .select('status')
           .eq('market_id', marketId)
           .eq('vendor_profile_id', vendorProfile.id)
-          .eq('status', 'paid')
+          .in('status', ['paid', 'covered'])
           .maybeSingle()
-        feePaymentStatus = feeRow ? 'paid' : 'unpaid'
+        feePaymentStatus = feeRow ? (feeRow.status as 'paid' | 'covered') : 'unpaid'
       }
       const feeAmounts = feeCents && feeCents > 0 ? calculateBoothRentalFees(feeCents) : null
 

@@ -12,6 +12,7 @@ import { sendNotification } from '@/lib/notifications/service'
 import { changeRequiresReconfirmation } from '@/lib/events/change-window'
 import { describeChanges } from '@/lib/events/change-requests'
 import { requestEventReconfirmation } from '@/lib/events/reconfirmation'
+import { refundAllEventFeePayments } from '@/lib/events/event-fee-refunds'
 import { stripe } from '@/lib/stripe/config'
 import { createRefund } from '@/lib/stripe/payments'
 import { approveEventRequest, autoMatchAndInvite } from '@/lib/events/event-actions'
@@ -556,6 +557,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     // On CANCELLED or DECLINED: clean up listing_markets + notify buyers + cancel orders
     if ((status === 'cancelled' || status === 'declined') && cateringReq.market_id) {
+      // Event Vendor Fees Phase 5 (2026-08-16): the event is dead — every
+      // paying vendor gets their fee back (full refund with transfer
+      // reversal); pending/covered rows released; forfeits keep the
+      // organizer's waiver lever. Same helper as the organizer cancel route.
+      await refundAllEventFeePayments(
+        serviceClient,
+        cateringReq.market_id,
+        cateringReq.vertical_id,
+        '/api/admin/events/[id]'
+      )
+
       const { data: eventListings } = await serviceClient
         .from('event_vendor_listings')
         .select('listing_id')
