@@ -190,20 +190,9 @@ export default function EventReadinessForm({
           ? 'Want to serve at corporate events, sports tournaments, and private gatherings? Fill out this questionnaire so our team can match you with the right events.'
           : 'Want to sell at community events, corporate wellness fairs, and private gatherings? Fill out this questionnaire so our team can match you with the right events.'}
       </p>
-      {/* Owner request 2026-08-15: distinguish this from Pickup Capacity above
-          (everyday orders) AND from the binding per-event commitment made at
-          acceptance time — three numbers, three jobs. */}
-      <p style={{
-        margin: `0 0 ${spacing.md} 0`,
-        fontSize: typography.sizes.xs,
-        color: colors.textMuted,
-        lineHeight: 1.5,
-      }}>
-        Your answers here are used to match you with events that fit your capacity — they are separate
-        from the Pickup Capacity setting above, which only paces your everyday orders. When you accept
-        a specific event invitation, you&apos;ll confirm your capacity for that event; that number is the
-        one the event plans around.
-      </p>
+      {/* Owner 2026-08-15 round 2: the capacity/waves explanation moved to sit
+          DIRECTLY above the capacity question (where the context is), not here
+          at the top of the section. */}
 
       {/* Event Approved Banner */}
       {eventApproved && (
@@ -592,6 +581,21 @@ export default function EventReadinessForm({
 
       {/* 12. Capacity */}
       <div style={{ marginBottom: spacing.sm }}>
+        {/* Owner 2026-08-15: the explanation lives HERE, directly above the
+            question it explains — and it teaches waves, so vendors know how
+            our events run and why wave capacity matters. Also distinguishes
+            this number from Pickup Capacity (everyday orders) and from the
+            binding per-event commitment made at acceptance time. */}
+        <p style={{
+          margin: `0 0 ${spacing.xs} 0`,
+          fontSize: typography.sizes.xs,
+          color: colors.textMuted,
+          lineHeight: 1.5,
+        }}>
+          {vertical === 'food_trucks'
+            ? 'How our events work: attendees pre-order through the app, and every order is assigned to a 30-minute pickup wave — so the crowd arrives in evenly spaced batches instead of one long line. Your per-wave capacity is how many customers you can realistically serve in one of those 30-minute windows. Matching uses it to offer you events that fit, and wave slots are capped by it so you’re never overwhelmed on event day. It’s separate from your Pickup Capacity setting above (which only paces everyday orders) — and when you accept a specific event invitation, you’ll confirm your capacity for that event; that number is the one the event plans around.'
+            : 'How our events work: attendees pre-order through the app and pick their items up during the event. This number is how many customers you can realistically serve per hour — matching uses it to offer you events that fit your capacity. When you accept a specific event invitation, you’ll confirm your capacity for that event; that number is the one the event plans around.'}
+        </p>
         <label style={labelStyle}>
           {vertical === 'food_trucks'
             ? 'Max Headcount Per 30-Minute Wave *'

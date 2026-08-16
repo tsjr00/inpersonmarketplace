@@ -78,7 +78,10 @@ const EDITABLE_STATUSES = ['new', 'reviewing', 'approved', 'ready']
  * the market running on the wrong day. Locked once a market exists; the server
  * rejects them too (`api/events/[token]/details`), this is only the UI half.
  */
-const PRE_APPROVAL_ONLY_FIELDS = ['city', 'state', 'zip', 'event_date', 'headcount', 'company_name']
+// Mig-219 follow-up (2026-08-15): city/state/zip/event_date/headcount came
+// off this list in step with the server (details route) — the trigger now
+// syncs them to the live market. Keep the two lists identical.
+const PRE_APPROVAL_ONLY_FIELDS = ['company_name']
 
 // Field groups for progressive disclosure
 const FIELD_GROUPS = [
@@ -105,7 +108,10 @@ const FIELD_GROUPS = [
   {
     label: 'Logistics',
     description: 'Setup and operational details for event day',
-    fields: ['setup_instructions', 'vendor_stay_policy', 'estimated_dwell_hours', 'vendor_count', 'additional_notes'],
+    // background_check_* (mig 231, owner 2026-08-15): schools/churches/daycares
+    // often require vendor background checks — vendors see the answer on the
+    // invitation BEFORE deciding whether to go through (and pay for) one.
+    fields: ['setup_instructions', 'vendor_stay_policy', 'estimated_dwell_hours', 'vendor_count', 'background_check_required', 'background_check_details', 'additional_notes'],
   },
 ]
 
@@ -922,6 +928,8 @@ function fieldLabel(field: string, vertical: string): string {
     vendor_stay_policy: 'Vendor Stay Policy',
     estimated_dwell_hours: 'Average Attendee Stay (hours)',
     vendor_count: 'Number of Vendors Wanted',
+    background_check_required: 'Do You Require Background Checks for Vendors?',
+    background_check_details: 'Background Check Process & Cost',
     additional_notes: 'Additional Notes',
     // Event Basics group
     event_type: 'Event Type',
@@ -1108,7 +1116,7 @@ function renderField(field: string, value: unknown, onChange: (v: unknown) => vo
 
   // is_recurring also boolean — added to the boolean list below
   // Boolean fields
-  if (['beverages_provided', 'dessert_provided', 'is_themed', 'children_present', 'has_competing_vendors', 'is_ticketed', 'is_recurring'].includes(field)) {
+  if (['beverages_provided', 'dessert_provided', 'is_themed', 'children_present', 'has_competing_vendors', 'is_ticketed', 'is_recurring', 'background_check_required'].includes(field)) {
     return (
       <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], fontSize: typography.sizes.sm }}>
         <input
@@ -1196,7 +1204,7 @@ function renderField(field: string, value: unknown, onChange: (v: unknown) => vo
   }
 
   // Textarea for longer text
-  if (['cuisine_preferences', 'dietary_notes', 'setup_instructions', 'additional_notes', 'budget_notes', 'competing_food_options', 'theme_description'].includes(field)) {
+  if (['cuisine_preferences', 'dietary_notes', 'setup_instructions', 'additional_notes', 'budget_notes', 'competing_food_options', 'theme_description', 'background_check_details'].includes(field)) {
     return (
       <textarea
         rows={3}
@@ -1209,6 +1217,9 @@ function renderField(field: string, value: unknown, onChange: (v: unknown) => vo
           // the crowd is and therefore what a truck should bring.
           : field === 'competing_food_options' ? 'e.g. attendees bringing dishes, a nearby food court, catering already booked...'
           : field === 'theme_description' ? 'e.g. 1920s speakeasy, Hawaiian luau, company colours...'
+          // Owner 2026-08-15: prompt the organizer to include the COST — a
+          // vendor deciding whether to apply needs to know what a check runs.
+          : field === 'background_check_details' ? 'Describe the process a vendor goes through, who runs it, how long it takes — and be sure to include any cost or fee the vendor would pay.'
           : ''}
         value={(value as string) || ''}
         onChange={(e) => onChange(e.target.value)}

@@ -134,6 +134,11 @@ export function describeChanges(changes: Record<string, unknown>): string {
   const parts: string[] = []
   if (changes.event_date) parts.push(`date to ${changes.event_date}`)
   if (changes.address) parts.push(`address to ${changes.address}`)
+  // Mig-219 follow-up (2026-08-15): city/state/zip are editable on live
+  // events now and trip the same gate — the summary must name them too.
+  if (changes.city) parts.push(`city to ${changes.city}`)
+  if (changes.state) parts.push(`state to ${changes.state}`)
+  if (changes.zip) parts.push(`zip to ${changes.zip}`)
   if (changes.event_start_time) {
     parts.push(`start time to ${String(changes.event_start_time).slice(0, 5)}`)
   }

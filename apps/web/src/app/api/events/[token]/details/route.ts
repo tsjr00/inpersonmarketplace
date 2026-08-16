@@ -48,6 +48,10 @@ const ALLOWED_FIELDS = [
   'setup_instructions',
   'additional_notes',
   'vendor_stay_policy',
+  // Mig 231 (owner 2026-08-15): organizer declares whether vendors need a
+  // background check + the process/cost — surfaced to vendors pre-decision.
+  'background_check_required',
+  'background_check_details',
   'estimated_dwell_hours',
   'is_themed',
   'theme_description',
@@ -117,19 +121,18 @@ const ACCOUNT_LINKED_ONLY_FIELDS = ['contact_email']
  * in backlog.md — do not "fix" it here by quietly adding them.
  */
 const PRE_APPROVAL_ONLY_FIELDS = [
-  'city', 'state', 'zip', 'event_date',
-  // Added 2026-08-08. Same reason as the rest: approval copies headcount into
-  // `markets.headcount` and company_name into the market's NAME
-  // (event-actions.ts:117,138).
+  // Mig-219 follow-up (2026-08-15, trigger applied ALL THREE envs 2026-08-13):
+  // city/state/zip/event_date/headcount came OFF this list — the
+  // trg_sync_event_request_to_market trigger now propagates them into
+  // `markets` (and recomputes the schedule weekday on a date change), so a
+  // post-approval edit reaches everything vendors and buyers actually see.
+  // The consequence gate treats city/state/zip as place changes (same as the
+  // street address), so live-event edits still notify vendors (B1) and put
+  // pre-orders through re-confirmation (B3).
   //
-  // ⚠ This list is now SIX fields frozen for one identical reason, which makes
-  // it the smell rather than the fix. The structural answer is an edit path
-  // that updates the request AND the market together — logged as A-FOLLOWUP in
-  // backlog.md. When that lands, this whole constant should retire.
-  //
-  // NOTE contact_name is deliberately absent: it appears only in emails and is
-  // NOT copied into the market, so it is freely editable at any status.
-  'headcount', 'company_name',
+  // company_name is the ONLY remaining freeze: the market NAME is built from
+  // it via per-locale app config that a database trigger cannot resolve.
+  'company_name',
 ]
 
 // Fields that, when changed, may produce different vendor matches.
@@ -297,7 +300,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     crumb.supabase('select', 'catering_requests')
     const { data: event } = await serviceClient
       .from('catering_requests')
-      .select('id, status, organizer_user_id, contact_email, market_id, event_date, address, event_start_time, vertical_id')
+      .select('id, status, organizer_user_id, contact_email, market_id, event_date, address, city, state, zip, event_start_time, vertical_id')
       .eq(eventRefColumn(token), token)
       .maybeSingle()
 
@@ -339,7 +342,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       if (blocked.length > 0) {
         return NextResponse.json(
           {
-            error: `Once an event is approved, ${blocked.join(', ')} can only be changed by an admin — the approved event's location and date are already published to vendors and shoppers.`,
+            error: `Once an event is approved, ${blocked.join(', ')} cannot be changed — it names your public event page. Contact us if it must change.`,
           },
           { status: 400 }
         )
@@ -579,70 +582,15 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // ── Keep the buyer-facing schedule in step with the event's times ──
+    // ── Schedule/market sync: migration 219's trigger owns it now ──
     //
-    // Approval COPIES event_start_time / event_end_time into market_schedules
-    // (event-actions.ts:153-159), and until 2026-08-08 that INSERT was the ONLY
-    // write to market_schedules anywhere in the events code path. So an
-    // organizer moving their start time updated catering_requests while the
-    // schedule kept the original hours — and the schedule is what generates
-    // buyers' pickup windows (shop-data.ts:146-153 hands the cart its
-    // schedule_id). Buyers were told to collect food during hours the event was
-    // not running, on a live event with real orders.
-    //
-    // Freezing the times post-approval was the other candidate and was
-    // rejected: self-service auto-approves at SUBMIT, so a market exists
-    // immediately and the freeze would lock an organizer's times from the
-    // moment they hit send — with no admin able to correct them either. That is
-    // the same no-way-out shape as the address deadlock.
-    //
-    // ⚠ This is the app-side stopgap. The durable fix is migration 219
-    // (trg_sync_event_request_to_market), because a trigger cannot be bypassed
-    // by the next route somebody writes — which is exactly how these times
-    // slipped through in the first place.
-    //
-    // DO NOT DELETE THIS BLOCK when mig 219 is written — only once it is APPLIED
-    // TO ALL THREE ENVIRONMENTS. Prod runs many commits behind staging, so this
-    // code can reach an environment that does not have the trigger yet; deleting
-    // it early hands the desync straight back to prod. Running both is safe and
-    // idempotent: the trigger fires first and writes the same values, and the
-    // route's write is then a no-op that changes nothing.
-    //
-    // The five fields in PRE_APPROVAL_ONLY_FIELDS that mig 219 makes safe to
-    // edit again come off that list under the SAME condition — applied
-    // everywhere, not merely written.
-    //
-    // day_of_week is deliberately NOT recomputed: event_date is
-    // pre-approval-only, so the weekday cannot move once a market exists.
-    if (event.market_id && ('event_start_time' in updateData || 'event_end_time' in updateData)) {
-      const scheduleUpdate: Record<string, unknown> = {}
-      if (updateData.event_start_time) scheduleUpdate.start_time = updateData.event_start_time
-      if (updateData.event_end_time) scheduleUpdate.end_time = updateData.event_end_time
-
-      if (Object.keys(scheduleUpdate).length > 0) {
-        crumb.supabase('update', 'market_schedules')
-        const { error: scheduleError } = await serviceClient
-          .from('market_schedules')
-          .update(scheduleUpdate)
-          .eq('market_id', event.market_id)
-          .eq('active', true)
-
-        if (scheduleError) {
-          // Deliberately NOT swallowed. A silent failure here leaves the request
-          // saying one thing and the buyers' pickup window saying another —
-          // precisely the state this block exists to prevent. The organizer has
-          // to know before they share the page.
-          console.error('[events/details] market_schedules sync failed:', scheduleError.message)
-          return NextResponse.json(
-            {
-              error:
-                'Your times were saved, but the schedule buyers order against could not be updated. Please contact us before sharing your event page — pickup windows may still show the old hours.',
-            },
-            { status: 500 }
-          )
-        }
-      }
-    }
+    // The app-side stopgap that used to live here (writing times through to
+    // market_schedules) was deleted 2026-08-15, per its own retirement
+    // condition: trg_sync_event_request_to_market is applied to ALL THREE
+    // environments (Prod 2026-08-13). The trigger propagates address, city,
+    // state, zip, date, end date, headcount and the times — including the
+    // recomputed schedule weekday on a date change — and, unlike a route,
+    // cannot be bypassed by the next writer somebody adds.
 
     // ── B1 (owner-approved 2026-08-15): tell ACCEPTED vendors about the change ──
     // A-audit part 4: mig 219 syncs the DATA into markets/schedules, but nobody
@@ -661,6 +609,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       const changeSummary = describeChanges({
         ...('event_date' in updateData ? { event_date: updateData.event_date } : {}),
         ...('address' in updateData ? { address: updateData.address } : {}),
+        ...('city' in updateData ? { city: updateData.city } : {}),
+        ...('state' in updateData ? { state: updateData.state } : {}),
+        ...('zip' in updateData ? { zip: updateData.zip } : {}),
         ...('event_start_time' in updateData ? { event_start_time: updateData.event_start_time } : {}),
         ...('event_end_time' in updateData ? { event_end_time: updateData.event_end_time } : {}),
       })

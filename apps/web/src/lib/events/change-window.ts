@@ -140,6 +140,13 @@ export const RECONFIRM_TIME_SHIFT_MINUTES = 30
 export interface EventFactsForChange {
   event_date?: string | null
   address?: string | null
+  // Mig-219 follow-up (2026-08-15): city/state/zip became editable on live
+  // events once the trigger propagates them to the market — a city or zip
+  // change is a PLACE change and must trip the same gate the street address
+  // does (owner rule: "date and address changes always count").
+  city?: string | null
+  state?: string | null
+  zip?: string | null
   event_start_time?: string | null
 }
 
@@ -164,11 +171,15 @@ export function changeRequiresReconfirmation(
 ): boolean {
   if ('event_date' in after && after.event_date !== before.event_date) return true
 
-  if ('address' in after) {
-    const a = String(before.address ?? '').trim().toLowerCase()
-    const b = String(after.address ?? '').trim().toLowerCase()
-    // Whitespace/casing normalised: "12 Main St " -> "12 Main St" is not a move.
-    if (a !== b) return true
+  // Place fields — the street address and (mig-219 follow-up) city/state/zip.
+  // All are "where the attendee agreed to be"; whitespace/casing normalised so
+  // "12 Main St " -> "12 Main St" is not a move.
+  for (const placeField of ['address', 'city', 'state', 'zip'] as const) {
+    if (placeField in after) {
+      const a = String(before[placeField] ?? '').trim().toLowerCase()
+      const b = String(after[placeField] ?? '').trim().toLowerCase()
+      if (a !== b) return true
+    }
   }
 
   if ('event_start_time' in after) {

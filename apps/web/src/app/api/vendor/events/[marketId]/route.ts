@@ -117,13 +117,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
         has_competing_vendors: false,
         vendor_stay_policy: null as string | null,
         event_vendor_fee_cents: null as number | null,
+        background_check_required: null as boolean | null,
+        background_check_details: null as string | null,
       }
 
       if (market.catering_request_id) {
         const { data: cReq } = await serviceClient
           .from('catering_requests')
           .select(
-            'company_name, cuisine_preferences, dietary_notes, setup_instructions, vendor_count, event_start_time, event_end_time, event_type, payment_model, is_ticketed, children_present, is_themed, theme_description, has_competing_vendors, vendor_stay_policy, event_vendor_fee_cents'
+            'company_name, cuisine_preferences, dietary_notes, setup_instructions, vendor_count, event_start_time, event_end_time, event_type, payment_model, is_ticketed, children_present, is_themed, theme_description, has_competing_vendors, vendor_stay_policy, event_vendor_fee_cents, background_check_required, background_check_details'
           )
           .eq('id', market.catering_request_id)
           .single()
@@ -146,6 +148,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
             has_competing_vendors: !!(cReq.has_competing_vendors),
             vendor_stay_policy: (cReq.vendor_stay_policy as string) || null,
             event_vendor_fee_cents: (cReq.event_vendor_fee_cents as number | null) || null,
+            background_check_required: (cReq.background_check_required as boolean | null) ?? null,
+            background_check_details: (cReq.background_check_details as string | null) || null,
           }
         }
       }
@@ -218,6 +222,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
           theme_description: cateringDetails.theme_description,
           has_competing_vendors: cateringDetails.has_competing_vendors,
           vendor_stay_policy: cateringDetails.vendor_stay_policy,
+          // Mig 231 (owner 2026-08-15): background-check requirement + the
+          // organizer's process/cost description — decision-relevant, so shown
+          // PRE-acceptance (like the fee, deliberately not behind hasAccepted;
+          // it names no organizer identity).
+          background_check_required: cateringDetails.background_check_required,
+          background_check_details: cateringDetails.background_check_details,
           // Event Vendor Fee (V1): shown pre-acceptance by design (decision 2)
           vendor_fee_cents: feeCents,
           vendor_fee_pays_cents: feeAmounts ? feeAmounts.vendorPaysCents : null,

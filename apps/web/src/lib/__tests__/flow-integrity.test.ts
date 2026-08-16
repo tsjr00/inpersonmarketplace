@@ -893,18 +893,29 @@ describe('Organizer event funnel integrity', () => {
     expect(rd('components/events/EventRequestForm.tsx')).toMatch(/!form\.address\.trim\(\)/)
   })
 
-  it('fields that approval copies into markets are pre-approval only', () => {
-    // approveEventRequest copies address/city/state/zip/event_date into the
-    // markets row and derives the schedule weekday from the date. Editing them
-    // afterwards changes nothing vendors or shoppers see — a silent desync.
-    const code = rd(detailsRoute)
-    expect(code).toContain('PRE_APPROVAL_ONLY_FIELDS')
-    for (const f of ['city', 'state', 'zip', 'event_date']) {
-      expect(code, f + ' must be guarded').toMatch(
-        new RegExp('PRE_APPROVAL_ONLY_FIELDS[\\s\\S]{0,300}\'' + f + '\'')
-      )
+  it('market-copied fields are editable post-approval, and place changes trip the re-confirmation gate', () => {
+    // Owner-authorized expectation change 2026-08-15 ("yes - authorized").
+    // The 2026-08-08 freeze was explicitly INTERIM: its own retirement plan
+    // said the fields come off the list once mig 219's trigger (which
+    // propagates them into the live market and recomputes the schedule
+    // weekday) is applied to all three environments — which happened
+    // 2026-08-13. The current rule: only company_name stays frozen (the
+    // market NAME derives from per-locale app config a trigger cannot
+    // resolve), and city/state/zip joined the consequence gate as place
+    // changes so live-event edits notify vendors (B1) and re-confirm
+    // pre-orders (B3).
+    const stripped = code(detailsRoute)
+    expect(stripped).toContain('PRE_APPROVAL_ONLY_FIELDS')
+    for (const f of ['city', 'state', 'zip', 'event_date', 'headcount']) {
+      expect(stripped, f + ' must NOT be frozen post-approval (mig 219 trigger syncs it)')
+        .not.toMatch(new RegExp('PRE_APPROVAL_ONLY_FIELDS[\\s\\S]{0,300}\'' + f + '\''))
     }
-    expect(code, 'the guard must key on an existing market').toMatch(/event\.market_id/)
+    // The gate now treats city/state/zip as place changes.
+    const gate = code('lib/events/change-window.ts')
+    for (const f of ['city', 'state', 'zip']) {
+      expect(gate, f + ' must be a gate-covered place field')
+        .toMatch(new RegExp(`'${f}'`))
+    }
   })
 
   it('a typo\'d organizer email is repairable BY AN ADMIN', () => {
@@ -964,24 +975,22 @@ describe('Organizer event funnel integrity', () => {
     expect(admin, 'the market must come back on').toMatch(/active: true/)
   })
 
-  it('headcount and company_name are editable, and guarded like the market-copied fields', () => {
-    // Both were required at intake and writable by nobody. Both are COPIED into
-    // the market at approval (headcount -> markets.headcount, company_name ->
-    // the market's name), so they carry the same pre-approval guard.
-    // Comments stripped first: these constants carry long explanatory blocks,
-    // and a raw window would either miss the entry or match the prose.
+  it('company_name is the ONLY frozen field; headcount and contact_name edit freely', () => {
+    // Owner-authorized expectation change 2026-08-15. Post-mig-219 rule:
+    // headcount syncs to the market via the trigger, so it edits at any
+    // status; company_name alone stays pre-approval-only (the market NAME is
+    // built from it via per-locale config no trigger can resolve).
+    // Comments stripped first: these constants carry long explanatory blocks.
     const details = code('app/api/events/[token]/details/route.ts')
-    for (const f of ['headcount', 'company_name']) {
+    for (const f of ['headcount', 'company_name', 'contact_name']) {
       expect(details, f + ' must be editable').toMatch(new RegExp(`'${f}'`))
-      expect(details, f + ' must be pre-approval only')
-        .toMatch(new RegExp(`PRE_APPROVAL_ONLY_FIELDS[\\s\\S]{0,200}'${f}'`))
     }
-    // contact_name is NOT copied into the market — it appears only in emails —
-    // so it is deliberately editable at any status. If it ever gets added to
-    // the guarded list, that is a mistake.
-    expect(details).toMatch(/'contact_name'/)
-    expect(details, 'contact_name must NOT be frozen after approval')
-      .not.toMatch(/PRE_APPROVAL_ONLY_FIELDS[\s\S]{0,200}'contact_name'/)
+    expect(details, 'company_name must stay pre-approval only')
+      .toMatch(/PRE_APPROVAL_ONLY_FIELDS[\s\S]{0,200}'company_name'/)
+    for (const f of ['headcount', 'contact_name']) {
+      expect(details, f + ' must NOT be frozen after approval')
+        .not.toMatch(new RegExp(`PRE_APPROVAL_ONLY_FIELDS[\\s\\S]{0,200}'${f}'`))
+    }
   })
 
   it('admin can supply an address, and approval reads it from the same request', () => {
@@ -992,25 +1001,31 @@ describe('Organizer event funnel integrity', () => {
     expect(code).toContain('effectiveAddress')
   })
 
-  it('changing the event times also updates the schedule buyers order against', () => {
-    // Audit 2026-08-08, the worst live break found. Approval COPIES the times
-    // into market_schedules (event-actions.ts) and that INSERT was the ONLY
-    // write to the table anywhere in the events path. The schedule is what
-    // supplies the cart's schedule_id (shop-data.ts), so an organizer moving
-    // their start time left buyers collecting food during hours the event was
-    // not running.
+  it('the request→market/schedule sync is owned by mig 219\'s trigger, with NO second app-side writer', () => {
+    // Audit 2026-08-08, the worst live break found: an organizer moving their
+    // start time updated catering_requests while market_schedules — what
+    // buyers order against — kept the old hours.
     //
-    // The RULE: the times the organizer sets and the times buyers order
-    // against are the same times. It does not matter whether that is enforced
-    // here or by a DB trigger later — if this fails because the sync moved to
-    // a trigger, re-point the assertion; if it fails because the sync was
-    // deleted, fix the code.
+    // The RULE is unchanged: the times the organizer sets and the times
+    // buyers order against are the same times. The ENFORCEMENT moved, per the
+    // stopgap's own retirement condition ("delete only once 219 is applied to
+    // all three environments" — done 2026-08-13; assertion re-pointed
+    // 2026-08-15, owner-authorized): trg_sync_event_request_to_market now
+    // propagates the fields, and a trigger cannot be bypassed by the next
+    // route somebody writes. The route must NOT keep a second writer — two
+    // writers of one fact is the drift pattern behind most of this module's
+    // history.
     const details = code(detailsRoute)
-    expect(details, 'the route must write market_schedules').toMatch(/market_schedules/)
-    expect(details, 'and scope the write to this event\'s market')
-      .toMatch(/market_schedules[\s\S]{0,400}event\.market_id/)
-    expect(details, 'a failed sync must NOT be swallowed — that is the desync')
-      .toMatch(/scheduleError/)
+    expect(details, 'the route must NOT write market_schedules — the trigger owns the sync')
+      .not.toMatch(/from\('market_schedules'\)/)
+    const trigger = fs.readFileSync(
+      path.join(SRC_DIR, '..', '..', '..', 'supabase', 'migrations', 'applied', '20260808_219_sync_event_request_to_market.sql'),
+      'utf-8'
+    )
+    expect(trigger, 'the trigger must exist and cover the times')
+      .toMatch(/trg_sync_event_request_to_market/)
+    expect(trigger).toMatch(/event_start_time/)
+    expect(trigger).toMatch(/event_end_time/)
   })
 
   it('event times can be changed but never cleared once a market exists', () => {

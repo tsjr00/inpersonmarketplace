@@ -162,6 +162,22 @@ describe('changeRequiresReconfirmation', () => {
     expect(changeRequiresReconfirmation(base, { address: '  12 main st ' })).toBe(false)
   })
 
+  // Mig-219 follow-up (2026-08-15): city/state/zip became editable on live
+  // events (the trigger propagates them to the market), so they joined the
+  // gate — a city or zip change IS a place change under the owner's rule.
+  it('a city, state, or zip change always counts (place change)', () => {
+    const placed = { ...base, city: 'Amarillo', state: 'TX', zip: '79101' }
+    expect(changeRequiresReconfirmation(placed, { city: 'Lubbock' })).toBe(true)
+    expect(changeRequiresReconfirmation(placed, { state: 'OK' })).toBe(true)
+    expect(changeRequiresReconfirmation(placed, { zip: '79424' })).toBe(true)
+  })
+
+  it('ignores whitespace and casing in city/state/zip', () => {
+    const placed = { ...base, city: 'Amarillo', state: 'TX', zip: '79101' }
+    expect(changeRequiresReconfirmation(placed, { city: '  amarillo ' })).toBe(false)
+    expect(changeRequiresReconfirmation(placed, { state: 'tx' })).toBe(false)
+  })
+
   it('ignores a small time shift', () => {
     expect(changeRequiresReconfirmation(base, { event_start_time: '11:15:00' })).toBe(false)
     expect(changeRequiresReconfirmation(base, { event_start_time: '10:45:00' })).toBe(false)

@@ -249,6 +249,14 @@ Reason list: venue cancelled or changed · weather or safety · personal emergen
 
 **The vendor notification carries the organizer's own words, attributed** — owner: *"we tell them the organizer has reported an emergency of… 'use their explanation' so they know it's not us, it's the org."* That free text reaches vendors by email, so run it through the intake form's existing moderation and cap its length.
 
+### 📐 RISK-FACTOR VALUE EVALUATION (owner, 2026-08-15) — assign per-risk weights to the backup-bench risk checklist
+
+The cancellation-risk factors (distance from population center, off-road access, no power + isolation, etc.) are weighted EQUALLY for now. Backlogged: evaluate a value factor per risk (with data once cancellations accumulate, or a reasoned pass before) so high-signal risks bump the bench-size % more than low-signal ones.
+
+### ✅ BACKUP VENDORS — MODEL DECIDED 2026-08-15 (all 5 open questions answered — see decisions.md; build queued after current chunk-B pass; owner rethink below kept for context)
+
+Owner's new direction, captured: (1) **Bench size = formula, not judgment**: generic platform cancellation-likelihood % × the SYSTEM-COMPUTED vendor requirement (capacity/headcount/event-type-derived, not the organizer's requested count), rounded up (10% × 8 vendors = 0.8 → 1 backup). Per-vendor prediction explicitly out of scope (generic % only) — though note we already compute per-vendor cancellation_rate in the admin panel. (2) **Risk-factor questionnaire** in the organizer's dashboard profile (secondary part): "are there circumstances that may increase the likelihood of vendor cancellation?" with examples — distance from population center, off-road access, no electricity + isolation, etc. — bumping the % . (3) **Recommend the number, ask if it sounds right, don't explain the math.** If the organizer wants MORE than recommended → ask them to FUND the extra bench spots; unwilling → system number stands. Owner expects organizer-funded to be rare. (4) **Cancellation penalty**: must not be so burdensome it harms a truck with a genuine emergency (transmission died, violent illness); possible relief valve = the ORGANIZER gets a say in waiving the penalty when a vendor requests cancellation; look at event-industry standards; accountability attracts reliable vendors. (5) Owner asked for a reframe of the old "50%" (it was: guarantee to a paid admin-assisted-bench standby = ~50% of that vendor's estimated sales opportunity — never finalized) and Claude's recommendation on bench compensation (delivered in-chat 2026-08-15: event-triggered money — defector's forfeited fee + penalty fund the activated backup — rather than paying vendors to sit on a bench).
+
 ### 📐 SPEC — BACKUP VENDORS (owner-decided 2026-08-08, NOT BUILT)
 
 **Two tiers, one mechanism.** The standby list exists on every event; only admin-assisted attaches money.

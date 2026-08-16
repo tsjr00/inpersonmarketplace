@@ -38,6 +38,8 @@ interface EventDetails {
   payment_model: string | null
   is_ticketed: boolean
   children_present: boolean
+  background_check_required: boolean | null
+  background_check_details: string | null
   is_themed: boolean
   theme_description: string | null
   has_competing_vendors: boolean
@@ -582,6 +584,26 @@ export default function VendorCateringDetailPage() {
           {details.is_ticketed && <DetailRow label="Ticketed" value="Yes — attendees have committed to attending" />}
           {details.children_present && <DetailRow label="Children" value="Yes — consider family-friendly offerings" />}
           {details.is_themed && <DetailRow label="Theme" value={details.theme_description || 'Yes'} />}
+          {/* Mig 231 (owner 2026-08-15): schools/churches/daycares often
+              require vendor background checks — shown BEFORE the decision so
+              the vendor can weigh the process and any cost. */}
+          {details.background_check_required && (
+            <div style={{
+              marginTop: spacing['2xs'],
+              padding: spacing.xs,
+              backgroundColor: '#fef3c7',
+              border: '1px solid #fcd34d',
+              borderRadius: radius.sm,
+              fontSize: typography.sizes.xs,
+              color: '#92400e',
+              lineHeight: 1.5,
+            }}>
+              <strong>This organizer requires a vendor background check.</strong>
+              {details.background_check_details
+                ? <> {details.background_check_details}</>
+                : <> Details of the process will be provided by the organizer.</>}
+            </div>
+          )}
           {details.has_competing_vendors ? (
             <p style={{ fontSize: typography.sizes.xs, color: '#d97706', margin: `${spacing['2xs']} 0 0` }}>
               ⚠ Other vendors/shopping options at venue — attendee spending may be split

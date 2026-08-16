@@ -80,6 +80,16 @@ export function getTruckPlatformClauses(vertical: string): PlatformClause[] {
       statement_id: '_platform_pickup_sign',
       text: `I'll keep the ${brand} pickup sign posted near my service window so app customers can easily find where to collect their order.`,
     },
+    // Owner 2026-08-15, prompted by event-organizer feedback: markets and
+    // events regularly happen at schools, churches, and daycares. The full
+    // formal version lives in the vendor service agreement ("Child-Safety
+    // Legal Compliance"); this is the same commitment in the vendor's voice,
+    // acknowledged on every agreement. Language is Claude-drafted pending the
+    // owner's attorney review — update BOTH surfaces together if it changes.
+    {
+      statement_id: '_platform_child_safety',
+      text: `If I or anyone on my team is subject to a legal prohibition or restriction against being at or near schools, churches, daycares, playgrounds, or other places where children gather or are likely to gather (including from sex-offender registration or any similar status, court order, or condition of supervision), it is my responsibility — not the platform's — to ensure that person is not present at any market, event, or location arranged through the platform where that prohibition applies. I accept this responsibility in full, and I agree to cooperate fully with any action the platform takes and any disclosure the platform must make if a violation of this policy is brought to its attention.`,
+    },
   ]
 }
 

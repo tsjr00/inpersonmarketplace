@@ -353,14 +353,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       locationEdits.event_date = d
     }
     if (Object.keys(locationEdits).length > 0) {
-      if (cateringReq.market_id) {
-        return NextResponse.json(
-          {
-            error: `This event is already approved, so ${Object.keys(locationEdits).join(', ')} cannot be changed here — the live event market would keep the old values. Cancel and re-create the event, or ask for the market to be corrected directly.`,
-          },
-          { status: 400 }
-        )
-      }
+      // Mig-219 follow-up (2026-08-15): the post-approval refusal that lived
+      // here is retired — trg_sync_event_request_to_market (all three envs
+      // since 2026-08-13) propagates these fields into the live market and
+      // recomputes the schedule weekday on a date change. Consequences on a
+      // live event are handled below: accepted vendors are notified (B1) and
+      // pre-orders go through re-confirmation (B3).
       Object.assign(updates, locationEdits)
     }
 
@@ -453,6 +451,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       const changeSummary = describeChanges({
         ...('event_date' in updates ? { event_date: updates.event_date } : {}),
         ...('address' in updates ? { address: updates.address } : {}),
+        ...('city' in updates ? { city: updates.city } : {}),
+        ...('state' in updates ? { state: updates.state } : {}),
+        ...('zip' in updates ? { zip: updates.zip } : {}),
         ...('event_start_time' in updates ? { event_start_time: updates.event_start_time } : {}),
         ...('event_end_time' in updates ? { event_end_time: updates.event_end_time } : {}),
       })

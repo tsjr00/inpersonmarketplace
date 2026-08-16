@@ -151,6 +151,21 @@ Structured record of business and architecture decisions. Check here before aski
 
 **When company-paid billing is designed/built, update BOTH surfaces together** (they are a de-facto pair): dashboard total and settlement `companyPaidCents`/`companyPaymentBalance` should include the 6.5% buyer-side fee. Until then, do not change either one alone.
 
+### Child-safety vendor acknowledgment + event background checks (owner, 2026-08-15, from event-organizer feedback)
+
+1. **Child-safety clause on two surfaces, kept in step**: vendor-service-agreement §2.6 "Child-Safety Legal Compliance" (formal: vendor solely responsible for keeping legally-prohibited individuals — sex-offender registration or similar — away from schools/churches/daycares/child-gathering places; no Company duty to screen; full cooperation with platform actions + disclosures; material breach) + `_platform_child_safety` clause in getTruckPlatformClauses (vendor-voice, acknowledged on EVERY market/event/booth agreement). **Language is Claude-drafted, in use now per owner instruction ("use your version… without any additional commentary regarding pending legal status"); owner submitting to an attorney — update BOTH surfaces together if it changes.** Covered by agreement version 2026-08-v3 (bumped earlier today, not yet live).
+2. **Background checks in the event profile** (mig 231): organizer answers "Do you require background checks for vendors?" in the Logistics group; if yes, describes the process INCLUDING any cost/fee. Vendors see it on the invitation PRE-acceptance (decision-relevant, no identity leak) so they can decide whether to go through — and pay for — a check.
+3. Capacity explainer moved from the top of Private Events Readiness to directly above the capacity question, expanded to teach how event waves work.
+
+### Backup vendors — model decided (owner, 2026-08-15; build queued AFTER the current chunk-B pass)
+
+1. **Base cancellation likelihood: 10%** — an explicit PLACEHOLDER constant until the platform's own cancelled-after-confirm data replaces it (per-vendor rates already tracked; aggregate = the real number later).
+2. **Bench size = ceil(likelihood% × SYSTEM-computed vendor requirement)** (viability-engine number, not the organizer's request). Risk factors from a dashboard checklist bump the %.
+3. **Money moves ONLY on activation** (approved — retires the old "50% of estimated sales opportunity" guarantee entirely): the bench is free to stand on, no obligation; on a late cancellation the defector's forfeited spot fee covers the activated backup's spot + the penalty amount becomes their step-in bonus. Organizer-funded EXTRA bench spots (above the recommended number) are the only pre-paid/retained ones — optional, priced through the fee machinery.
+4. **Risk factors weighted EQUALLY for now** — a per-risk value-factor evaluation is backlogged; revisit weights with data.
+5. **Free (no-fee) events: NO monetary cancellation penalty** — reputational only (cancellation rate + future organizer score).
+6. **Penalty = sliding scale anchored to the spot fee**: cancel before the protection window → fee refunded, no stain; inside 72h (matches late_event_cancellation) → fee forfeited. **Organizer holds the waiver lever**: vendor requests cancellation with a reason, organizer chooses waive/enforce; default if no answer in time = enforce inside 72h, waive outside.
+
 ### Chunk B (events change-safety) decisions (owner, 2026-08-15)
 
 1. **False-promise copy softened** (approved verbatim): "every pre-order placed against the old window is put at risk — attendees who no longer fit the new window may need to be refunded, and that cost lands on your vendors." Restore the stronger re-confirmation line when B3 ships.
