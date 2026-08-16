@@ -1,6 +1,24 @@
 # Backlog
 
-Last updated: 2026-08-07 (added: EVENTS MODULE tester findings — 13 issues incl. a hard deadlock)
+Last updated: 2026-08-15 (added: outstanding staging tests, fee-reduction refund policy + organizer terms-list revisit, outstanding-work sweep)
+
+## 🧪 OUTSTANDING STAGING TESTS — 2026-08-15 (owner: "I'll test these later when I create a new vendor")
+
+All gate the prod push (main 19 ahead at `87e5e6c7`; prod DB needs migs 228+229 pasted at push time):
+1. **"Not eligible" badge** — needs a FRESH vendor signup left vendor-UNapproved who submits Private Events Readiness → admin/events yellow box shows them with the gray "not eligible — vendor not yet approved" badge. (Current applicant showing WITHOUT a badge = correct: they're vendor-approved.)
+2. **Reuse-button styling** — fee card: outlined natural-width buttons over the yellow box, side-by-side desktop / stacked mobile (restyle shipped `87e5e6c7` after owner feedback; functional reuse flow already PASSED 2026-08-15).
+3. **Capacity copy** — /vendor/edit: new sentence under Pickup Capacity + new paragraph under Private Events Readiness.
+4. **Below-claim note** — invitation accept form: "Custom for this event" + a number below profile default → amber advisory.
+5. **Fee-language spot-checks** — checkout "Card processing (1.5% share already included in prices)" line (✅ language batch's checkout/HIW/dashboard/terms — owner reported test 4 PASSES 2026-08-15; re-verify only if desired).
+6. Optional: B7 vendor-cancel notice.
+
+## 📝 EVENT FEE REDUCED AFTER VENDORS PAID — policy decided, terms-list work queued (owner, 2026-08-15)
+
+**Decision: the platform does NOT refund earlier payers when an organizer lowers the fee to attract more vendors** — snapshot pricing stands (payment rows snapshot amounts, mig 228); a vendor who paid the higher fee takes it up with the event manager directly. Queued build: consider adding a clause covering this to the list of terms/clauses event managers choose for vendors to agree to at acceptance — **and revisit that whole terms list so it's up to date** (owner: "we should revisit that list"). Locate the list first (vendor accept flow's agreement-acceptance gate) and inventory current clauses before proposing additions.
+
+## 🔎 OUTSTANDING-WORK SWEEP — tests + build finalizations from the last several sessions (owner, 2026-08-15)
+
+Owner: "we need to revisit what tests and build finalizations are outstanding from work we did over the last several sessions — taxes and other stuff that didn't get finished." Session task: sweep current_task.md history blocks, this backlog, and session summaries for started-not-finished work (owner named taxes explicitly; also candidates: Event Vendor Fees phases 4-6, re-confirmation flow spec, backup-vendors spec, late-change protection spec, guards 2+3, mig 225, G-4, T-76/77/78/81, UPSTASH check, question-tagging design, multi-day events). Produce a consolidated list with status + what "done" means for each; owner prioritizes.
 
 ## 🔴 EVENTS MODULE — owner testing 2026-08-06, logged 2026-08-07
 

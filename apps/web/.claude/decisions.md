@@ -151,6 +151,17 @@ Structured record of business and architecture decisions. Check here before aski
 
 **When company-paid billing is designed/built, update BOTH surfaces together** (they are a de-facto pair): dashboard total and settlement `companyPaidCents`/`companyPaymentBalance` should include the 6.5% buyer-side fee. Until then, do not change either one alone.
 
+### Chunk B (events change-safety) decisions (owner, 2026-08-15)
+
+1. **False-promise copy softened** (approved verbatim): "every pre-order placed against the old window is put at risk — attendees who no longer fit the new window may need to be refunded, and that cost lands on your vendors." Restore the stronger re-confirmation line when B3 ships.
+2. **Cancel one-way door: option (a) — BLOCK un-cancelling with a clear message.** With fees flowing, half-reversible is the dangerous state; refunded orders and refunded fees can't be un-refunded.
+3. **Vendor change notifications: in-app + EMAIL** for date/address/time>30min changes to accepted vendors (a date change costs vendors real money — email justified under the comms-cost rule).
+4. **Backup vendors: DEFERRED behind this pass, but NEXT after it** — owner wants Claude's thoughts before that build; guarantee % still open ("probably 50%" never finalized).
+
+### Event Vendor Fee reduced after payments — NO platform refund (owner, 2026-08-15)
+
+If an organizer lowers the Event Vendor Fee after some vendors already paid a higher amount, **the platform does not refund the difference** — snapshot pricing stands (each payment row snapshots its amounts at pay time, mig 228 design). The earlier-paying vendor takes it up with the event manager directly. Follow-up queued in backlog: consider a clause covering this in the organizer-selectable terms vendors agree to at acceptance, and revisit that terms list for currency.
+
 ### Fee-language reframe — "5% platform + half of card processing" (owner, 2026-08-15, scenario 2)
 
 **The charges did NOT change** — still 6.5% + $0.15 per side (pricing.ts untouched). Only the EXPLANATION changed, decomposing each side's fee as 5% platform + half of card processing (1.5% + $0.15). Arithmetic: 5 + 1.5 = 6.5; the two $0.15 flats = Stripe's 30¢/charge; 2×1.5% ≈ Stripe's ~2.9%. Owner picked scenario 2 of 3: buyer prices stay all-in (FTC junk-fee/CA honest-pricing posture); the checkout $0.15 line renamed "Card processing (1.5% share already included in prices)"; public How It Works gains a "How we get paid" section (buyer half of the story); vendor dashboard Payments & Earnings gains "What selling costs" (vendor half); legal agreements carry the complete 5+5 picture (buyer §4.2(a)(b), vendor §3.1(a)). Vendor §3.2 confidentiality NARROWED to custom/negotiated rates so standard rates can be published. CURRENT_AGREEMENT_VERSION bumped 2026-03-v2 → 2026-08-v3 (acceptances record version; no forced re-acceptance mechanism exists). Rejected: true Stripe pass-through (changes real money per order) and competitor-style fee separation at checkout (drip pricing).

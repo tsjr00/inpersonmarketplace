@@ -628,9 +628,12 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
                           <>
                             , and <strong>{changeCost.preorder_count}</strong>{' '}
                             {changeCost.preorder_count === 1 ? 'person has' : 'people have'} already
-                            pre-ordered. Each of them will be asked to confirm they can still make
-                            it, and any who do not answer are refunded before the event — so a
-                            timing change usually means fewer pre-orders, not just a different hour.
+                            {/* B0 (2026-08-15): softened — re-confirmation is not
+                                built; restore the stronger line when B3 ships. */}
+                            pre-ordered. Every pre-order placed against the old window is put at
+                            risk — attendees who no longer fit the new window may need to be
+                            refunded — so a timing change usually means fewer pre-orders, not just
+                            a different hour.
                           </>
                         ) : (
                           <>. Nobody has pre-ordered yet, so a change now costs you the least it
@@ -876,10 +879,13 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
         open={pendingAckCount !== null}
         title="This change affects people who already ordered"
         message={
+          // B0 (2026-08-15): softened — re-confirmation (B3) and vendor change
+          // notifications (B1) are not built yet; this must not promise either.
+          // Restore the stronger language as those ship.
           `${pendingAckCount} ${pendingAckCount === 1 ? 'person has' : 'people have'} pre-ordered for this event. ` +
-          `Saving this will ask ${pendingAckCount === 1 ? 'them' : 'each of them'} to confirm they can still make it, ` +
-          `and any order nobody confirms will be refunded before the event — so you will likely end up with fewer ` +
-          `pre-orders than you have now. Your ${vertical === 'farmers_market' ? 'vendors' : 'food trucks'} will be told about the change too. ` +
+          `Saving this puts ${pendingAckCount === 1 ? 'that pre-order' : 'every one of those pre-orders'} at risk — ` +
+          `attendees who no longer fit the new window may need to be refunded, and that cost lands on your ` +
+          `${vertical === 'farmers_market' ? 'vendors' : 'food trucks'}. ` +
           `Only save if the event really has moved.`
         }
         confirmLabel="Yes, save the change"
