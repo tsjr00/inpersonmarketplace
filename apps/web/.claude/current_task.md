@@ -1,4 +1,28 @@
-# SESSION 2026-08-15 (cont. 3) — combined batch SHIPPED (f8b69952); BACKUP BENCH PHASES 1+2 BUILT, gates green 1972/1972, awaiting mig 232 + commit
+# SESSION END 2026-08-15 — WRAPPED. Read this block first.
+
+## Git / env — VERIFY, don't trust
+| | |
+|---|---|
+| local `main` | = `origin/staging` = `e936bcfd` (+ this wrap docs commit) — every batch pushed, build + Playwright 49✓ each time |
+| PROD `origin/main` | `54ca375f` — code ~24 commits behind; DB has 001–227. **PROD PUSH NEEDS: migs 228+229+230+231+232 pasted (ALL additive paste-and-go, files in supabase/migrations/ root)** + window 21:00–07:00 CT |
+| Migrations | 228–232 on Dev+Staging (owner). **225 still parked NOWHERE** (never apply without its header recipe) |
+
+## ⚡ WHAT SHIPPED TODAY (9 staging pushes, `0d1e86d1`→`e936bcfd`)
+1. **T-79/80/82/83/84** fixed + owner-verified. 2. **S-1 chips + has-applied collapse + queue not-eligible badge** (badge = correct-behavior explanation given; test needs a vendor-UNapproved applicant). 3. **Payout-account reuse** (offered-not-automatic; prior-event path owner-verified; restyled buttons awaiting look-check). 4. **Fee-language reframe scenario 2** (5% + half of processing; legal v2026-08-v3; owner-verified). 5. **CHUNK B COMPLETE minus backup money**: B0 honest copy (rode to→restored), B1 vendor change+fee notifications, B2 (already existed), B3 re-confirmation (mig 230: token page NEVER confirms on GET; HOURLY cron event-reconfirm in vercel.json — crons fire on PROD only, staging test = manual GET w/ CRON_SECRET; refunds at CUTOFF), B4 (already existed), B5 un-cancel block, mig-219 follow-ups (stopgap deleted, freeze trimmed to company_name, gate extended to city/state/zip, 3 flow-integrity tests updated OWNER-AUTHORIZED). 6. **Child-safety clauses** (agreement §2.6 + _platform_child_safety; owner sending Claude's draft to attorney; internal cross-ref comments OK'd; update BOTH surfaces together). 7. **Background checks** (mig 231, organizer Logistics + vendor invitation notice). 8. **Backup bench phases 1+2** (mig 232; sizing w/ PLACEHOLDER constants 10%+3%/factor+30/wave; risk checklist; standby opt-in; event_standby_offer). Tripwire ended at 112 (105→112 this week, all notated).
+
+## 🧪 OWNER TESTING OWED (gates the prod push) — see backlog "OUTSTANDING STAGING TESTS" + these new ones
+- Not-eligible badge (needs FRESH vendor-unapproved applicant) · reuse-button styling look · capacity/waves copy placement · below-claim amber note · B3 loop (change time → vendor notified + buyer reconfirm email → button page → prep split → manual cron run refunds) · un-cancel refusal · risk checklist + bench recommendation + standby join/leave · background-check question → invitation notice · child-safety clause renders in agreements · city-edit on live event (219 follow-up: saves, syncs, notifies, re-confirms).
+
+## ▶ NEXT SESSION queue
+1. Owner staging results → fix anything found.
+2. **PROD PUSH** (window 21:00–07:00 CT): push main + owner pastes migs 228–232 + post-push smoke + REFRESH_SCHEMA (C5) + vault update discussion (C6).
+3. **BACKUP PHASE 3 (money)** — fresh session, decisions LOCKED in decisions.md ("Backup vendors — model decided"): activation package = defector's forfeited fee covers backup's spot + penalty as step-in bonus; sliding scale on the spot fee (early=refund, <72h=forfeit); organizer waiver lever (default enforce inside 72h); free events = reputation only. Touches vendor cancel route + event_vendor_fee_payments.
+4. **Event Vendor Fees Phase 4** (paid-sells gate — careful paired-rule session) then Phase 5/6 (5 merges with cancel-money work).
+5. Standing: outstanding-work sweep doc (`outstanding_work_sweep_2026-08-15.md`) = the master list, chunks C-H.
+
+---
+
+# Previous: SESSION 2026-08-15 (cont. 3) — combined batch SHIPPED (f8b69952); BACKUP BENCH PHASES 1+2 BUILT (shipped e936bcfd)
 Backup bench (owner decisions locked in decisions.md; NO MONEY in this batch): **mig 232 WRITTEN, applied NOWHERE** (cancellation_risk_factors TEXT[] on catering_requests + standby_opted_in_at on market_vendors). New lib/events/backup-bench.ts (10% base + 3%/factor PLACEHOLDERS, equal weights per decision #4; system vendor requirement from estimated orders ÷ 30/wave placeholder × waves). Organizer: risk checklist in Logistics group (multi-checkbox renderer). Select route: event_standby_offer notification (tripwire 111→112) to NEWLY non-selected vendors; GET returns on_standby + recommended_backups + standby_count; confirmed page shows "we recommend N — M on standby". Vendor: standby route (POST/DELETE api/vendor/events/[marketId]/standby), invitation page bench box (join/leave, zero-obligation copy). **PHASE 3 (money: activation packages = defector's forfeited fee + bonus, penalty sliding scale, organizer waiver) = OWN FRESH SESSION — decisions ready.**
 
 # Previous: B3 SHIPPED (8e115c82); combined batch BUILT (capacity/waves copy, child-safety clauses, background checks mig 231, mig-219 follow-ups), gates green 1972/1972, awaiting commit
