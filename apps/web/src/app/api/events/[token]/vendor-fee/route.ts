@@ -5,6 +5,8 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
 import { eventRefColumn } from '@/lib/events/event-ref'
 import { getAccountStatus } from '@/lib/stripe/connect'
 import { getReusablePayoutAccounts } from '@/lib/events/reusable-payout-accounts'
+import { sendNotification } from '@/lib/notifications/service'
+import { calculateBoothRentalFees } from '@/lib/pricing'
 
 /**
  * Event Vendor Fee — organizer sets a flat per-event fee vendors pay for a
@@ -208,6 +210,52 @@ export async function PUT(
 
     if (updateErr) {
       throw traced.fromSupabase(updateErr, { table: 'catering_requests', operation: 'update' })
+    }
+
+    // ── B1+C merge (owner 2026-08-15): tell accepted vendors the fee moved ──
+    // The retroactive-fee case: a vendor who accepted BEFORE the fee existed
+    // suddenly has a pay button and was never told. Notify ACCEPTED vendors
+    // whose fee is not already PAID — paid vendors keep their snapshot (owner
+    // decision: no platform refunds on a fee change). Email + in-app.
+    const previousFeeCents = event.event_vendor_fee_cents
+    if (event.market_id && feeCents !== previousFeeCents) {
+      crumb.supabase('select', 'market_vendors')
+      const [{ data: acceptedVendors }, { data: paidRows }, { data: marketRow }] = await Promise.all([
+        serviceClient
+          .from('market_vendors')
+          .select('vendor_profile_id, vendor_profiles:vendor_profile_id(user_id)')
+          .eq('market_id', event.market_id)
+          .eq('response_status', 'accepted'),
+        serviceClient
+          .from('event_vendor_fee_payments')
+          .select('vendor_profile_id')
+          .eq('market_id', event.market_id)
+          .eq('status', 'paid'),
+        serviceClient
+          .from('markets')
+          .select('name')
+          .eq('id', event.market_id)
+          .maybeSingle(),
+      ])
+
+      const paidVendorIds = new Set((paidRows || []).map(r => r.vendor_profile_id as string))
+      const vendorPaysCents = feeCents ? calculateBoothRentalFees(feeCents).vendorPaysCents : 0
+
+      for (const mv of acceptedVendors || []) {
+        if (paidVendorIds.has(mv.vendor_profile_id as string)) continue
+        const vp = mv.vendor_profiles as unknown as { user_id: string | null } | null
+        if (vp?.user_id) {
+          await sendNotification(vp.user_id, 'event_fee_changed_vendor', {
+            feeCents,
+            previousFeeCents,
+            vendorPaysCents,
+            // Accepted vendors see the real event name (identity revealed on
+            // acceptance — same rule as the invitation page).
+            marketName: (marketRow?.name as string) || '',
+            marketId: event.market_id,
+          }, { vertical: event.vertical_id })
+        }
+      }
     }
 
     return NextResponse.json({ ok: true, fee_cents: feeCents })

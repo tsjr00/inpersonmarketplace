@@ -231,8 +231,14 @@ describe('NI-014: Total notification types = 72', () => {
     // handleEventVendorFeeCheckoutComplete in lib/stripe/webhooks.ts, with the
     // required keys named on each template. User-approved 2026-08-14
     // ("all approved" — webhook + 3 types + tripwire bump presented together).
+    // 108 → 109 (2026-08-15, B1+C merge, owner approved the feature +
+    // channels: "in-app + email"): event_fee_changed_vendor — the organizer
+    // set/changed/removed the Event Vendor Fee after this vendor accepted (the
+    // retroactive-fee case). Sent by the vendor-fee PUT to ACCEPTED vendors
+    // without a paid row; paid vendors keep their snapshot (owner: no platform
+    // refunds on fee change). Required keys named on the template.
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(108)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(109)
   })
 
   it('includes all buyer-facing types', () => {

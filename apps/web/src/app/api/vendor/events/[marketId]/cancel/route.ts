@@ -93,7 +93,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Get event details for notifications + penalty check
     const { data: market } = await serviceClient
       .from('markets')
-      .select('name, event_start_date, catering_request_id, vertical_id')
+      .select('name, event_start_date, catering_request_id, vertical_id, headcount, city, state')
       .eq('id', marketId)
       .single()
 
@@ -410,11 +410,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
       // Notify backup vendor
       if (backupVp?.user_id) {
+        // B1 (2026-08-15): was headcount: 0 + empty address — the promoted
+        // backup was invited to an event with no size and no place. Real
+        // headcount + the same city/state masking the admin invite uses
+        // (invited ≠ accepted, so no street address).
         await sendNotification(backupVp.user_id, 'catering_vendor_invited', {
           companyName: 'Event Opportunity — Backup Activated',
-          headcount: 0,
+          headcount: (market.headcount as number) || 0,
           eventDate: market.event_start_date,
-          eventAddress: '',
+          eventAddress: [market.city, market.state].filter(Boolean).join(', '),
           vertical: market.vertical_id,
           marketId: marketId,
         }, { vertical: market.vertical_id })

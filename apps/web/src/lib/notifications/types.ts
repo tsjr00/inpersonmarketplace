@@ -178,6 +178,7 @@ export type NotificationType =
   | 'event_fee_paid_vendor'
   | 'event_fee_received_organizer'
   | 'event_fee_refunded_vendor'
+  | 'event_fee_changed_vendor'
   | 'event_cancelled_vendor'
   | 'event_confirmed'
   | 'event_change_requested'
@@ -230,6 +231,11 @@ export interface NotificationTemplateData {
     pickupTime: string
   }>
   amountCents?: number
+  /** event_fee_changed_vendor (B1+C 2026-08-15): the new fee (null = removed),
+      what it replaced, and what the vendor actually pays (booth math). */
+  feeCents?: number | null
+  previousFeeCents?: number | null
+  vendorPaysCents?: number
   reason?: string
   quantity?: number
   listingTitle?: string
@@ -1769,6 +1775,28 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     actionUrl: (d) => d.eventId
       ? `/${d.vertical || 'food_trucks'}/event-manager/${d.eventId}/dashboard`
       : `/${d.vertical || 'food_trucks'}/event-manager`,
+  },
+
+  // B1+C merge (owner 2026-08-15): the organizer set, changed, or removed the
+  // Event Vendor Fee AFTER this vendor accepted (the retroactive-fee case).
+  // Sent to ACCEPTED vendors WITHOUT a paid fee row only — vendors who already
+  // paid keep their snapshot amounts (owner decision: no platform refunds on a
+  // fee change; they take it up with the organizer). Keys the caller must pass:
+  // feeCents (null = removed), previousFeeCents, vendorPaysCents (booth math,
+  // what securing the spot costs them), marketName, marketId.
+  event_fee_changed_vendor: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'vendor',
+    title: (d) => d.feeCents
+      ? 'The vendor fee for your event has changed'
+      : 'The vendor fee for your event was removed',
+    message: (d) => d.feeCents
+      ? `The organizer ${d.previousFeeCents ? 'changed' : 'set'} the Event Vendor Fee for ${d.marketName || 'your event'} — securing your spot now costs $${((d.vendorPaysCents || 0) / 100).toFixed(2)}.`
+      : `The organizer removed the Event Vendor Fee for ${d.marketName || 'your event'} — no payment is needed to keep your spot.`,
+    actionUrl: (d) => d.marketId
+      ? `/${d.vertical || 'food_trucks'}/vendor/events/${d.marketId}`
+      : `/${d.vertical || 'food_trucks'}/vendor/dashboard`,
   },
 
   event_changed_vendor: {

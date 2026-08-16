@@ -8,6 +8,8 @@ import {
   describeTimeUntil,
   evaluateChangeWindow,
 } from '@/lib/events/change-window'
+import { describeChanges } from '@/lib/events/change-requests'
+import { sendNotification } from '@/lib/notifications/service'
 
 interface RouteContext {
   params: Promise<{ token: string }>
@@ -294,7 +296,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     crumb.supabase('select', 'catering_requests')
     const { data: event } = await serviceClient
       .from('catering_requests')
-      .select('id, status, organizer_user_id, contact_email, market_id, event_date, address, event_start_time')
+      .select('id, status, organizer_user_id, contact_email, market_id, event_date, address, event_start_time, vertical_id')
       .eq(eventRefColumn(token), token)
       .maybeSingle()
 
@@ -488,7 +490,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // through a date change three weeks out that forced twenty people to
     // re-confirm, because three weeks reads as "far out". What deserves an
     // acknowledgment is the cost, and time was only ever a proxy for it.
-    if (event.market_id && changeRequiresReconfirmation(event, updateData)) {
+    // B1 (2026-08-15): computed once — gates the attendee consequence ladder
+    // here AND the post-save vendor notification below.
+    const consequentialChange = !!event.market_id && changeRequiresReconfirmation(event, updateData)
+
+    if (consequentialChange) {
       const [orderRes, marketRes] = await Promise.all([
         serviceClient
           .from('order_items')
@@ -633,6 +639,39 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
             },
             { status: 500 }
           )
+        }
+      }
+    }
+
+    // ── B1 (owner-approved 2026-08-15): tell ACCEPTED vendors about the change ──
+    // A-audit part 4: mig 219 syncs the DATA into markets/schedules, but nobody
+    // was ever TOLD. The change-request path notifies vendors only when an admin
+    // approves a BLOCKED change; a direct acknowledged save reached this point
+    // silently — and a vendor staffs and buys stock against these facts. Same
+    // consequence test as the attendee gate (day, place, or start >30min);
+    // email + in-app via the standard-urgency event_changed_vendor template.
+    if (consequentialChange) {
+      const { data: acceptedVendors } = await serviceClient
+        .from('market_vendors')
+        .select('vendor_profile_id, vendor_profiles:vendor_profile_id(user_id)')
+        .eq('market_id', event.market_id)
+        .eq('response_status', 'accepted')
+
+      const changeSummary = describeChanges({
+        ...('event_date' in updateData ? { event_date: updateData.event_date } : {}),
+        ...('address' in updateData ? { address: updateData.address } : {}),
+        ...('event_start_time' in updateData ? { event_start_time: updateData.event_start_time } : {}),
+        ...('event_end_time' in updateData ? { event_end_time: updateData.event_end_time } : {}),
+      })
+
+      for (const mv of acceptedVendors || []) {
+        const vp = mv.vendor_profiles as unknown as { user_id: string | null } | null
+        if (vp?.user_id) {
+          await sendNotification(vp.user_id, 'event_changed_vendor', {
+            changeSummary,
+            eventDate: (updateData.event_date as string) || (event.event_date as string) || '',
+            marketId: event.market_id,
+          }, { vertical: event.vertical_id as string })
         }
       }
     }

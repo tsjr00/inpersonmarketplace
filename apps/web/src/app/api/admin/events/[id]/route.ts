@@ -9,6 +9,8 @@ import {
 } from '@/lib/rate-limit'
 import { withErrorTracing, logError, TracedError } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications/service'
+import { changeRequiresReconfirmation } from '@/lib/events/change-window'
+import { describeChanges } from '@/lib/events/change-requests'
 import { stripe } from '@/lib/stripe/config'
 import { createRefund } from '@/lib/stripe/payments'
 import { approveEventRequest, autoMatchAndInvite } from '@/lib/events/event-actions'
@@ -110,6 +112,24 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       .select('*')
       .eq('id', id)
       .single()
+
+    // ── B5 (owner decision 2026-08-15, option a): cancelling is one-way ──
+    // Cancel's side effects run one direction only: it deactivates the market,
+    // cancels order items, and refunds buyers (and, with Event Vendor Fees,
+    // paid fee rows get refunded too). Nothing re-activates the market or
+    // un-refunds anyone — so an un-cancelled event LOOKS repaired while staying
+    // invisible to shoppers and unusable by vendors, which is worse than a hard
+    // block because it reports success. Blocked with the why; the recovery is
+    // re-creating the event (the repeat route exists for exactly this).
+    if (status && cateringReq?.status === 'cancelled' && status !== 'cancelled') {
+      return NextResponse.json(
+        {
+          error:
+            'This event was cancelled, and cancelling is one-way: the event market was deactivated and any refunds already went out — changing the status back would make the event look repaired while staying invisible to shoppers and vendors. To run it again, re-create the event (Repeat event), which builds a fresh market and invitations.',
+        },
+        { status: 400 }
+      )
+    }
 
     if (fetchError || !cateringReq) {
       return NextResponse.json(
@@ -414,6 +434,38 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         { error: 'Failed to update catering request' },
         { status: 500 }
       )
+    }
+
+    // ── B1 (owner-approved 2026-08-15): tell ACCEPTED vendors about the change ──
+    // Same rule as the organizer details route: on a LIVE event (market existed
+    // BEFORE this PATCH — the approval transition correctly skips this, since
+    // cateringReq.market_id was null then), an admin edit of the day, place, or
+    // start time >30min notifies every accepted vendor. Email + in-app via the
+    // standard-urgency event_changed_vendor template.
+    if (cateringReq.market_id && changeRequiresReconfirmation(cateringReq, updates)) {
+      const { data: acceptedVendors } = await serviceClient
+        .from('market_vendors')
+        .select('vendor_profile_id, vendor_profiles:vendor_profile_id(user_id)')
+        .eq('market_id', cateringReq.market_id)
+        .eq('response_status', 'accepted')
+
+      const changeSummary = describeChanges({
+        ...('event_date' in updates ? { event_date: updates.event_date } : {}),
+        ...('address' in updates ? { address: updates.address } : {}),
+        ...('event_start_time' in updates ? { event_start_time: updates.event_start_time } : {}),
+        ...('event_end_time' in updates ? { event_end_time: updates.event_end_time } : {}),
+      })
+
+      for (const mv of acceptedVendors || []) {
+        const vp = mv.vendor_profiles as unknown as { user_id: string | null } | null
+        if (vp?.user_id) {
+          await sendNotification(vp.user_id, 'event_changed_vendor', {
+            changeSummary,
+            eventDate: (updates.event_date as string) || (cateringReq.event_date as string) || '',
+            marketId: cateringReq.market_id,
+          }, { vertical: cateringReq.vertical_id as string })
+        }
+      }
     }
 
     // On APPROVED: auto-invite vendors for full-service events + notify organizer
