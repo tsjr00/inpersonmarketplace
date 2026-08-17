@@ -1,4 +1,39 @@
-# ACTIVE: SESSION 2026-08-16 — BACKUP BENCH PHASE 3 (money) + Fees Phase 5 merge — ✅ SHIPPED `7fbf2d67` (origin/staging = main; ref-update e936bcfd..7fbf2d67 verified; Playwright 49✓). CHUNK B NOW FULLY COMPLETE. Prod owes migs 228–233 + ~26 commits.
+# SESSION END 2026-08-16 — WRAPPED. Read this block first.
+
+## Git / env — VERIFY, don't trust
+| | |
+|---|---|
+| local `main` | = `origin/staging` = `13d36491` — 3 shipped batches today, build + Playwright 49✓ each |
+| PROD `origin/main` | `54ca375f` — ~29 commits behind; DB has 001–227. **PROD PUSH NEEDS: migs 228–235 pasted (EIGHT: 228–233 paste-and-go; 234+235 ⛔ DIFFERENTIAL class — recipes in file headers + the runbook below)** + window 21:00–07:00 CT |
+| Migrations | 228–235 on Dev+Staging (owner, differentials run + EXACT MATCH on 235). **Mig 225 = ⛔ SUPERSEDED by 234 — NEVER paste it** (would revert the paid gate) |
+
+## ⚡ WHAT SHIPPED TODAY (3 staging pushes)
+1. `7fbf2d67` **Backup bench PHASE 3 — cancellation money (mig 233)**: refundEventFeePayment (reverse_transfer — closed the race-loser leak where platform ate organizer's ~93.5%); vendor-cancel bands (≥72h auto-refund / <72h instant forfeit); organizer waiver (event+14d, verbatim warning copy); covered backup spots ("free spot IS the step-in bonus"); event-death fee fan-out (organizer + admin cancel paths); standby-first escalation; **CONFIRMED+FIXED: market_vendors CHECK never allowed 'cancelled' — every vendor self-cancel since mig 070 failed silently** (damage scan 0 rows, no repair). evfp joined money-structure Rule A (all flips guarded, zero allowlist). 3 new notif templates, tripwire 112→115.
+2. `0ecb481b` **PHASE 4 — "they must attend to sell" (migs 234+235, absorbs parked 225)**: attendance predicate (accepted + NOT benched + fee paid/covered; free events skip fee conjunct) in get_available_pickup_dates + shop-data mirror + registry text + 4 flow-integrity guards. **234's post-hoc differential FOUND the vms bypass** (benched+unpaid vendor with active vms row sold anyway) → **mig 235 scoped the vms fallback to non-event markets; before/after differential EXACT MATCH** (4 rows 1→0, nothing else).
+3. `13d36491` **Refund-matrix completion**: deselecting a PAID vendor auto-refunds w/ reversal (select route + honest copy); NEW admin `[id]/fee-payments` route + "Vendor Fee Payments" admin card (manual full refund on paid OR forfeited — admin outlives the 14d waive window). No migration (233's statuses suffice). feeRefundReason += deselected/admin_refund (no new types).
+Tests 1972→1983. NEW PROCESS RULE (owner: "i need to know that before i run a migration"): migration handoffs LEAD with apply class — ⛔ banner + numbered steps for anything non-paste-and-go (memory `feedback_migration_class_banner_first`).
+
+## 🧪 OWNER TESTING OWED (gates the prod push) — carry-over stack + today's
+Carry-over (2026-08-15): B3 re-confirmation loop · un-cancel refusal · city-edit on live event · risk checklist + bench + standby join/leave · background-check notice · child-safety clause rendering · not-eligible badge (fresh unapproved applicant) · reuse-button styling · capacity/waves copy placement.
+Today's: forfeit loop (late cancel → forfeit notice + organizer waiver ask + amber card) · waive → refund w/ REVERSED transfer (check in Stripe — the one thing tests can't cover) · early-cancel auto-refund · vendor status actually flips to cancelled · benched vendor's menu GONE from event shop · deselection refund + updated fine print · admin "Vendor Fee Payments" card + manual refund · free-event card empty state.
+
+## 🚀 PROD PUSH RUNBOOK (window 21:00–07:00 CT; staging tests pass FIRST)
+1. **DB pastes BEFORE code push** (all 8 are backward-compatible with prod's current code; new code needs the new columns, so DB first):
+   1–6. **228, 229, 230, 231, 232, 233 — paste-and-go, in order.** Post-checks in each header (233 has 4).
+   7. **234 — ⛔ DIFFERENTIAL: run header pre-checks (1)(2)(3) FIRST, save outputs → paste → re-run (1)(2), diff.** Prod prediction: class (C) empty (no fees exist yet); classes (A) unaccepted-FM-event + (B) benched listings per live rows — pre-check (1) names them before anything changes. Any non-event listing moving = ROLLBACK (re-apply 223).
+   8. **235 — ⛔ DIFFERENTIAL: before query (header) → paste → after, diff.** Prediction: only non-attending event listings whose vendor holds an active vms row change, → 0.
+   ⛔ **NEVER paste 225** (superseded; would revert the paid gate).
+2. **Code push**: `git push origin main` (pre-push hook enforces window; ~29 commits). Verify ref-update line + **Vercel build success** (not just push).
+3. **Post-push smoke**: pages load, login, browse+cart, one order flow; event pages (public event, invitation, organizer dashboard); NO fee events exist on prod yet so fee surfaces just need to render.
+4. **Bookkeeping batch** (Claude, after owner confirms): move 228–235 → applied/ (+ decide 225's file disposition with owner), flip snapshot rows to all-three-envs, MIGRATION_LOG, CLAUDE_CONTEXT.
+5. **C5**: run REFRESH_SCHEMA.sql + rebuild snapshot structured tables (STALE since mig 124 — now 111 migrations behind).
+6. **C6**: vault update discussion (vault ~100+ verified commits behind; owner authorizes).
+
+## ▶ NEXT SESSION queue
+1. Owner staging results → fixes → PROD PUSH (runbook above).
+2. Then: chunk D (sales tax — owner-named next big build) or organizer-funded retained standby spots design (backlogged) — owner picks.
+3. Chunk C tail (deliberately parked until real fee events exist on prod): Phase 6 polish, email fee line, early-open override, decline-window design, terms revisit, multi-day.
+4. Standing: sweep doc chunks E–H; child-safety attorney revisions (update BOTH surfaces together); backup Phase 3 placeholders (10%/3%/30) await real data.
 
 ## Goal
 Cancellation money for events: refund-with-reversal helper, vendor-cancel refund/forfeit bands, organizer waiver, covered backup spots, organizer/admin event-cancel auto-refunds. All decisions locked (decisions.md "Backup vendors — model decided" + this session's 4 answers).
@@ -47,8 +82,8 @@ Owner rulings: attendance = accepted + NOT benched + (fee ⇒ paid/covered); fre
 - ✅ NEW `AdminEventFeePayments` card in admin event detail panel ("Vendor Fee Payments" Section; ConfirmDialog not window.confirm)
 - ✅ Maps: 19_Admin route line + stamp; 14_Events component row
 - ✅ Gates green (tsc clean after discriminated-union fix, 1983/1983, lint 0 err after queueMicrotask fix)
-- ⬜ Commit+push ask
-- REMAINING chunk C after this: Phase 6 polish; small deferrals (email fee line, early-open override, decline-window design, terms revisit); multi-day. Deselection+admin view = DONE.
+- ✅ SHIPPED `13d36491` (ref-update 0ecb481b..13d36491 verified, Playwright 49✓). origin/staging = main = 13d36491.
+- REMAINING chunk C: Phase 6 polish; small deferrals (email fee line, early-open override, decline-window design, terms revisit); multi-day. **All chunk-C money movement is now BUILT.** Owner recommendation accepted-in-principle: pause chunk C builds until staging tests + prod push (~29 commits + 8 pastes 228–235).
 
 ## Gotchas
 - Waive after covered-backup-activation = allowed; the organizer is giving up their own coverage (warning copy handles it)
