@@ -1,3 +1,30 @@
+# ⏰ FIRST THING NEXT SESSION — REMIND THE OWNER
+# 1. **Google Vision billing is STILL OFF → image moderation fail-open** (carry-over from 2026-08-16; GCP project #544338383934 → Billing → attach; free tier covers volume). Verify: /api/admin/moderation-test.
+# 2. Check the PROD Supabase API log: the five 2026-08-25 signatures (market_vendors.status · vendor_market_schedules.day_of_week · 22P02 "completed" · new_flags) must be GONE; `vendor_activity_scan_log` should have its first `completed` row (03:00 CT cron); market_surveys rows on market days.
+# 3. Owner owes: Vercel PROD Ready for e946c2c0 + Tier-2 smoke; Tier-1 #6-7 on staging (order-card "New customer" chip; fulfill → First Bite push); ST-23/24 still untested.
+
+# SESSION END 2026-08-26 ~04:00 CT — WRAPPED. Read this block first.
+
+## Git / env — VERIFY, don't trust
+| | |
+|---|---|
+| PROD `origin/main` | **`e946c2c0`** — pushed 2026-08-26 ~03:35 CT (in window): `c29d6734` Loyalty Layer 1 + `e946c2c0` six prod fixes. Migs **001–237 on ALL THREE ENVS** (236 + 237 pasted by owner before the push). |
+| `origin/staging` = local `main` | `b087dbf4` (+ this wrap commit) = prod + docs bookkeeping. Playwright 49✓ on every push today. |
+| Migrations root | ONLY 225 (⛔ superseded by 234, never paste). 236/237 in `applied/`. Snapshot structured tables still STALE since mig 124 → C5 REFRESH_SCHEMA owed. |
+
+## ⚡ WHAT SHIPPED THIS SESSION
+1. **Loyalty Layer 1** (`c29d6734`): 6 badges (First Bite/Basket · Back for More · Regular @4 · Local Legend @10 or 3 straight months · Around the World/Market Hopper · Explorer), segments (new/one-timer/repeat/regular/loyal) from FULFILLED orders, `buyer_achievements` (mig 236), My Badges card ON the Favorites page (no new dashboard tile), vendor order-card chip ("New customer" / "Regular · 4 orders"), 2 free-channel notifications (tripwire 115→117), fulfill-route hook via `scheduleBuyerAchievementEvaluation()` (after() behind try/catch — bare after() throws with no request scope and aborted a fulfill in the money-authorization harness). Design: `loyalty_program_research.md` (Layers 2–3 designed, NOT built — after chunk D).
+2. **Six prod defects** (`e946c2c0`) found by the owner in the prod Supabase API log — none ever reached error_logs (callers dropped `error`): vendors page `market_vendors.status` (since 01-23: cards showed no markets, market filter dead) · `day_of_week` on vendor_market_schedules in surveys cron + lazy path (no vendor ever surveyed) · `'completed'` as order_item_status ×4 (no buyer ever surveyed; event settlement 0/$0; top-products 500 since 02-19) · mig 049's scan_vendor_activity UPDATE named 3 phantom columns (daily scan rolled back since 02-22, zero flags ever) → **mig 237**. Guardrail Rule I (4 tests) now blocks the class.
+3. Owner staging results ST-19…26 reconciled (21/22/25/26 pass; 23/24 untested; 19 untestable — no UI; 20 pass w/ findings) — code findings recorded below in the 2026-08-25 blocks.
+
+## ▶ NEXT SESSION queue
+1. Reminders above → prod API-log verification → owner's remaining tests.
+2. Small fixes awaiting go (designed, cited in the ST-19/20 findings block): **Restore-event button** for cancelled events (route already allows the misclick case; UI has no door) · **re-confirm page item-based state + copy** (vendor withdrew ⇒ "your order still stands" is wrong) · event status-copy drift (dashboard/event page/shop/select).
+3. **Dropped-PostgREST-error sweep** (backlog): every `const { data } = await …` with no `error` read is a silent failure waiting; also consider adding "check the Supabase API log" to Protocol 8.
+4. Then: chunk D (sales tax) — Layer 2 offers waits behind it (funder decision feeds tax); C5 REFRESH_SCHEMA; C6 vault.
+
+---
+
 # Current Task: Loyalty Layer 1 — Badges + Know Your Customers
 Started: 2026-08-25 (owner approved "proceed" after 3 rounds of design; research + decisions in `loyalty_program_research.md`)
 

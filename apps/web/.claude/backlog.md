@@ -10,6 +10,14 @@ Owner: trucks/vendors should see a distribution of their **one-timers, repeat cl
 - Names visible to the vendor (consistent with `customer_name` on order cards); never email/phone.
 - Home: vendor Insights page ("Your Customers" section), tier-gated like the rest of insights. Part of the loyalty program plan (layers 1–3); not scheduled separately.
 
+## 🔧 SMALL FIXES DESIGNED, AWAITING GO (2026-08-25 staging results ST-19/20 — code findings in current_task.md)
+
+- [ ] **Restore-event button** (ST-19): `admin/events/[id]/route.ts:213-268` already allows un-cancelling when nothing irreversible happened (misclick case) and refuses otherwise with a clear message — but the admin UI shows no action for a cancelled event (`admin/events/page.tsx:795`, lifecycle buttons `:853-916` are live-status only). A recovery path with no door (address-deadlock class). Button → route → its message; makes ST-19 testable.
+- [ ] **Re-confirm page: item-based state + copy** (ST-20 b/c): `api/orders/reconfirm/[token]/route.ts:59-65` keys on `orders.status` only; `reconfirm/[token]/page.tsx:131-134` says "still stands" as fixed text. After a vendor withdrawal (items cancelled, order flipped only when no live items remain — `vendor/events/[marketId]/cancel/route.ts:333-341, :404-408`) the buyer was told their order stands. Derive from live items: all cancelled → withdrawal copy + link; some → partial copy + event-page link; live → "stands as of now — check current vendors/offerings". Owner's diagnostic query (in chat 2026-08-25) tells which path the test order took.
+- [ ] **Event status-copy drift** (ST-20 d): same event read "0 of 3 vendors confirmed, 1 pre-order" (organizer dashboard) / "vendors being confirmed" (event page) / "no vendors confirmed" (shop) / "no vendors responded" (select). Owner: detail, later.
+- [ ] **Dropped-PostgREST-error sweep**: every one of the six 2026-08-25 prod defects was `const { data } = await …` with `error` never read — silent for months, invisible to error_logs. Sweep `src/` for that shape on server paths; at minimum log via `logError`. Consider adding "check the Supabase API log" to PROCESSES Protocol 8 (owner authorizes process-doc edits).
+- [ ] **Vendor withdrawal accountability** (ST-20 a, owner call): a withdrawal never touches reliability/rating (only `reject` increments `orders_cancelled_after_confirm_count`) — which also means a withdrawal with NO organizer change costs nothing beyond the <72h fee forfeit. Leave until real behavior shows a pattern.
+
 ## 🧪 OUTSTANDING STAGING TESTS — 2026-08-15 (owner: "I'll test these later when I create a new vendor")
 
 All gate the prod push (main 19 ahead at `87e5e6c7`; prod DB needs migs 228+229 pasted at push time):
