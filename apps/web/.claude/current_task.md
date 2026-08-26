@@ -2493,3 +2493,12 @@ All silent except top-products 500 + cron 500s: callers read `data` only, never 
 - ✅ guardrail-contracts Rule I (4 guards): order_items status values ⊂ enum; no day_of_week on vms; no `status` filter on market_vendors; newest scan_vendor_activity migration SETs only real scan_log columns.
 - NOTE quality-checks.ts:49 reads `markets.day_of_week` via embed — markets DOES have that legacy column (snapshot :762) → not a bug.
 - ⬜ gates → commit → staging push chain → Vercel build check → owner Tier-1 (7 checks) → prod window: paste 236 + 237, push main.
+
+## STAGING PUSHED 2026-08-25 — `13d36491..e946c2c0 staging -> staging` (ref-update verified; pre-push build ✓ + Playwright 49 passed, 1 skipped)
+origin/staging = local main = `e946c2c0` (c29d6734 Layer 1 + e946c2c0 prod-fix batch). origin/main (PROD) still `bfc60dfd` — 2 commits behind. Tree clean.
+OWNER DONE 2026-08-25: Vercel Ready for e946c2c0 ✓ · mig 237 on Dev + Staging ✓ (snapshot row flipped, Prod PENDING). OWNER OWES: (3) Tier-1 on staging: vendors list shows markets + ?market= filter works · vendor analytics top products renders · vendor dashboard + buyer surveys page load, no 42703/22P02 in staging API log · manual GET /api/cron/vendor-activity-scan (Bearer CRON_SECRET) → 'completed' scan_log row · Favorites page My Badges card · vendor order card "New customer" · fulfill → First Bite push. (4) PROD (window 21:00–07:00 CT, explicit approval): paste 236 + 237 on prod FIRST, then `git push origin main`, Tier-2 smoke, then bookkeeping (236/237 rows → all envs, files → applied/).
+
+## PROD DEPLOYED 2026-08-26 ~03:35 CT — `bfc60dfd..e946c2c0 main -> main` (ref-update verified; pre-push build ✓, Playwright 49 passed). Migs 236 + 237 pasted on prod by owner BEFORE the push. 001–237 on all three envs.
+Bookkeeping staged locally, UNCOMMITTED: 236/237 → applied/ (git mv), snapshot rows → all-three-envs, CLAUDE_CONTEXT applied-migrations line. Next commit = docs-only.
+OWNER OWES: Vercel PROD build = Ready for e946c2c0 · Tier-2 smoke (pages, login, browse+cart, one order flow) · Tier-1 #6-7 on staging later (order-card "New customer" chip; fulfill → First Bite push).
+VERIFY TOMORROW in the prod Supabase API log: the five signatures (market_vendors.status · vendor_market_schedules.day_of_week · 22P02 "completed" · new_flags) should be GONE; 03:00 CT scan cron should leave a `completed` row in vendor_activity_scan_log; surveys cron (08–12 local) should now create market_surveys rows on market days.
