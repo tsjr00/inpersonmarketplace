@@ -247,3 +247,125 @@ describe('Guardrail Rule H: deliberately-retired call patterns are not resurrect
     })
   }
 })
+
+// ── Rule I — code names only columns/enum values that exist (2026-08-25) ────
+// The owner found SIX months-old defects in the prod Supabase API log on
+// 2026-08-25, none of which reached error_logs because every caller read
+// `data` and dropped `error`: a `market_vendors.status` filter (column never
+// existed — public vendor cards showed no markets since 2026-01-23), a
+// `vendor_market_schedules.day_of_week` select in two places (the column lives
+// on market_schedules — no vendor was ever surveyed), `'completed'` used as an
+// order_item_status in FOUR places (PostgREST rejects the whole query on a
+// phantom enum value — no buyer was ever surveyed, event settlement read $0,
+// top-products 500'd since February), and mig 049 UPDATE-ing three columns
+// that don't exist on vendor_activity_scan_log (the daily scan rolled back
+// every day since 2026-02-22 — zero flags ever). Five sessions introduced the
+// same class of bug; this rule is what stops the sixth.
+describe('Guardrail Rule I: filters and function bodies name only real columns / enum values', () => {
+  const ORDER_ITEM_STATUSES = ['pending', 'confirmed', 'ready', 'fulfilled', 'cancelled', 'refunded']
+  const SCAN_LOG_COLUMNS = [
+    'id', 'vertical_id', 'vendors_scanned', 'new_flags_created', 'flags_auto_resolved',
+    'flags_by_reason', 'started_at', 'completed_at', 'duration_ms', 'status', 'error_message',
+  ]
+  const rel = (p: string) => path.relative(SRC_DIR, p).split(path.sep).join('/')
+
+  /** walkTsFiles skips .tsx; the vendors-page bug lived in a .tsx server component. */
+  function walkAll(dir: string, out: string[] = []): string[] {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name)
+      if (e.isDirectory()) {
+        if (e.name === '__tests__' || e.name === 'node_modules') continue
+        walkAll(p, out)
+      } else if ((e.name.endsWith('.ts') || e.name.endsWith('.tsx')) && !e.name.includes('.test.')) {
+        out.push(p)
+      }
+    }
+    return out
+  }
+
+  /** Text from a `.from('<table>')` call up to the next `.from('` (or 2500 chars). */
+  function chunksAfter(text: string, table: string): string[] {
+    const needle = `.from('${table}')`
+    const out: string[] = []
+    let idx = text.indexOf(needle)
+    while (idx !== -1) {
+      const next = text.indexOf(".from('", idx + needle.length)
+      out.push(text.slice(idx, Math.min(next === -1 ? text.length : next, idx + 2500)))
+      idx = text.indexOf(needle, idx + needle.length)
+    }
+    return out
+  }
+
+  it("every order_items status filter uses only real order_item_status values (no 'completed')", () => {
+    const offenders: string[] = []
+    for (const file of walkAll(SRC_DIR)) {
+      const text = read(file)
+      for (const chunk of chunksAfter(text, 'order_items')) {
+        // `.not('status', 'in', …)` / `.not('status', 'eq', …)` carry the operator as a
+        // string argument — skip it so it isn't mistaken for a status value.
+        for (const m of chunk.matchAll(/\.(?:eq|neq|in|not)\('status',\s*(?:'(?:in|eq|neq|is)',\s*)?([^)]*)\)/g)) {
+          const values = [...m[1].matchAll(/'([a-z_]+)'|"([a-z_]+)"/g)].map((v) => v[1] ?? v[2])
+          for (const v of values) {
+            if (!ORDER_ITEM_STATUSES.includes(v)) offenders.push(`${rel(file)}: '${v}' is not an order_item_status`)
+          }
+        }
+      }
+    }
+    expect(offenders, 'a phantom enum value makes PostgREST reject the WHOLE query (22P02), not skip the value').toEqual([])
+  })
+
+  it('nothing reads day_of_week off vendor_market_schedules (it lives on market_schedules via schedule_id)', () => {
+    const offenders: string[] = []
+    for (const file of walkAll(SRC_DIR)) {
+      for (const chunk of chunksAfter(read(file), 'vendor_market_schedules')) {
+        // A filter on the column, or the column at depth 0 of the select list
+        // (inside `markets!inner( … day_of_week … )` it is markets' legacy column, fine).
+        if (/\.(?:eq|neq|in|order)\('day_of_week'/.test(chunk)) { offenders.push(rel(file)); continue }
+        const sel = chunk.match(/\.select\(\s*[`'"]([\s\S]*?)[`'"]\s*[,)]/)
+        if (sel) {
+          let depth = 0
+          let topLevel = ''
+          for (const ch of sel[1]) {
+            if (ch === '(') depth++
+            else if (ch === ')') depth--
+            else if (depth === 0) topLevel += ch
+          }
+          if (/\bday_of_week\b/.test(topLevel)) offenders.push(rel(file))
+        }
+      }
+    }
+    expect(offenders).toEqual([])
+  })
+
+  it('no code filters market_vendors on a `status` column (it has `approved` + `response_status`)', () => {
+    const offenders: string[] = []
+    for (const file of walkAll(SRC_DIR)) {
+      for (const chunk of chunksAfter(read(file), 'market_vendors')) {
+        if (/\.(?:eq|neq|in|not)\('status'/.test(chunk)) offenders.push(rel(file))
+      }
+    }
+    expect(offenders).toEqual([])
+  })
+
+  it('the newest migration defining scan_vendor_activity SETs only real vendor_activity_scan_log columns', () => {
+    const candidates: Array<{ base: string; full: string }> = []
+    for (const dir of [MIGRATIONS_DIR, APPLIED_DIR]) {
+      for (const name of fs.readdirSync(dir)) {
+        if (!name.endsWith('.sql')) continue
+        const full = path.join(dir, name)
+        if (/FUNCTION\s+(public\.)?scan_vendor_activity/.test(read(full))) candidates.push({ base: name, full })
+      }
+    }
+    expect(candidates.length, 'scan_vendor_activity must be defined by some migration').toBeGreaterThan(0)
+    const newest = candidates.sort((a, b) => (a.base < b.base ? -1 : 1))[candidates.length - 1]
+    const body = read(newest.full)
+    const bad: string[] = []
+    for (const block of body.matchAll(/UPDATE\s+(?:public\.)?vendor_activity_scan_log\s+SET([\s\S]*?)WHERE/g)) {
+      for (const line of block[1].split('\n')) {
+        const m = line.match(/^\s*([a-z_]+)\s*=/)
+        if (m && !SCAN_LOG_COLUMNS.includes(m[1])) bad.push(m[1])
+      }
+    }
+    expect(bad, `${newest.base}: plpgsql does not validate column names at CREATE time — mig 049 shipped with new_flags/auto_resolved/summary and the daily scan rolled back for six months`).toEqual([])
+  })
+})

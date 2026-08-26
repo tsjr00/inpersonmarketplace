@@ -39,7 +39,10 @@ export async function runEventCompletionEffects(
     .from('order_items')
     .select('id, status, vendor_profile_id, listing:listings(title)')
     .eq('market_id', marketId)
-    .not('status', 'in', '("fulfilled","completed","cancelled")')
+    // order_item_status has no 'completed' — the phantom value made PostgREST
+    // reject the whole query (22P02) so the unfulfilled alert never fired.
+    // Same intent as before, phantom value removed. Found 2026-08-25.
+    .not('status', 'in', '("fulfilled","cancelled")')
 
   if (unfulfilledItems && unfulfilledItems.length > 0) {
     const vendorUnfulfilled: Record<string, string[]> = {}
@@ -191,7 +194,9 @@ export async function sendEventSettlementNotifications(
       .select('id, subtotal_cents, vendor_payout_cents')
       .eq('market_id', marketId)
       .eq('vendor_profile_id', mv.vendor_profile_id)
-      .in('status', ['fulfilled', 'completed'])
+      // 'completed' is not an order_item_status; it made this query fail
+      // (22P02) → every vendor's settlement summary read 0 orders / $0.
+      .eq('status', 'fulfilled')
 
     const orderCount = vendorItems?.length || 0
     const payoutCents = (vendorItems || []).reduce((sum, item) => sum + (item.vendor_payout_cents || item.subtotal_cents || 0), 0)

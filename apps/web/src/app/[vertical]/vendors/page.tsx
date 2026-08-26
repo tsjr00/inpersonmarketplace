@@ -102,7 +102,12 @@ export default async function VendorsPage({ params, searchParams }: VendorsPageP
           )
         `)
         .in('vendor_profile_id', vendorIds)
-        .eq('status', 'approved')
+        // market_vendors has no `status` column (it has `approved` + `response_status`).
+        // Filtering on the phantom column failed with 42703 on EVERY render since
+        // 2026-01-23, and the `|| []` below hid it: no vendor card ever showed its
+        // markets and the ?market= filter matched nothing. Found in the prod API
+        // log 2026-08-25. Guarded by guardrail-contracts Rule I.
+        .eq('approved', true)
     ])
 
     listingsData = listingsResult.data || []

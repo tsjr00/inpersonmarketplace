@@ -35,13 +35,27 @@ export async function ensurePendingVendorSurveys(
   vertical: string,
 ): Promise<void> {
   try {
-    // The vendor's active market-day schedules → (market, day_of_week).
+    // The vendor's active market-day schedules → (market, schedule). day_of_week
+    // and end_time live on market_schedules (schedule_id), NOT on the vendor link
+    // row — selecting day_of_week here failed with 42703 on every vendor
+    // dashboard load from 2026-07-17 until the prod API log surfaced it
+    // 2026-08-25 (the catch below hid it: no vendor was ever lazily surveyed).
     const { data: scheds } = await service
       .from('vendor_market_schedules')
-      .select('market_id, day_of_week')
+      .select('market_id, schedule_id')
       .eq('vendor_profile_id', vendorProfileId)
       .eq('is_active', true)
     if (!scheds || scheds.length === 0) return
+
+    const scheduleIds = [...new Set(scheds.map((s) => s.schedule_id as string))]
+    const { data: scheduleRows } = await service
+      .from('market_schedules')
+      .select('id, day_of_week, end_time')
+      .in('id', scheduleIds)
+      .eq('active', true)
+    const scheduleById = new Map(
+      (scheduleRows ?? []).map((r) => [r.id as string, { dow: r.day_of_week as number, endTime: (r.end_time as string | null) ?? null }])
+    )
 
     const marketIds = [...new Set(scheds.map((s) => s.market_id as string))]
 
@@ -59,7 +73,9 @@ export async function ensurePendingVendorSurveys(
 
     for (const s of scheds) {
       const marketId = s.market_id as string
-      const dow = s.day_of_week as number
+      const sched = scheduleById.get(s.schedule_id as string)
+      if (!sched) continue // inactive or deleted schedule
+      const dow = sched.dow
       const market = marketById.get(marketId)
       if (!market || !approvedMarkets.has(marketId)) continue
 
@@ -72,16 +88,9 @@ export async function ensurePendingVendorSurveys(
       if (dow === yesterdayDayOfWeek) candidateDates.push(yesterday)
       if (candidateDates.length === 0) continue
 
-      // end_time drives the fire moment (18:00 same day / 08:00 next day).
-      const { data: sc } = await service
-        .from('market_schedules')
-        .select('end_time')
-        .eq('market_id', marketId)
-        .eq('day_of_week', dow)
-        .eq('active', true)
-        .limit(1)
-        .maybeSingle()
-      const endTime = (sc?.end_time as string | null) ?? null
+      // end_time drives the fire moment (18:00 same day / 08:00 next day) —
+      // already loaded with the schedule above.
+      const endTime = sched.endTime
 
       for (const marketDate of candidateDates) {
         const fire = computeFireMomentLocal(marketDate, endTime)
@@ -143,7 +152,9 @@ export async function ensurePendingBuyerSurveys(
       .from('order_items')
       .select('market_id, pickup_date, orders!inner ( buyer_user_id )')
       .eq('orders.buyer_user_id', buyerUserId)
-      .in('status', ['fulfilled', 'completed'])
+      // order_item_status has no 'completed' — a phantom value makes PostgREST
+      // reject the WHOLE query (22P02), not just skip it. Found 2026-08-25.
+      .eq('status', 'fulfilled')
       .gte('pickup_date', cutoff)
     if (!items || items.length === 0) return
 

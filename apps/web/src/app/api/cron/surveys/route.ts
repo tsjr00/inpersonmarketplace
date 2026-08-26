@@ -375,12 +375,26 @@ async function generateForMarketDay(
   const vertical = market.vertical_id || 'farmers_market'
 
   // ── 1. Vendors who attended ────────────────────────────────────────
-  const { data: vendorScheduleRows } = await serviceClient
-    .from('vendor_market_schedules')
-    .select('vendor_profile_id')
+  // day_of_week lives on market_schedules, not on the vendor link row. The
+  // original `.eq('day_of_week', …)` against vendor_market_schedules failed
+  // with 42703 on every run since 2026-05-22 and the dropped `error` hid it —
+  // no vendor was ever surveyed by this cron. Found in the prod API log
+  // 2026-08-25 (the 10:00 CT quartet). Resolve the day's schedule ids first.
+  const { data: daySchedules } = await serviceClient
+    .from('market_schedules')
+    .select('id')
     .eq('market_id', market.id)
     .eq('day_of_week', dayOfWeek)
-    .eq('is_active', true)
+    .eq('active', true)
+  const dayScheduleIds = (daySchedules ?? []).map((s) => s.id as string)
+  const { data: vendorScheduleRows } = dayScheduleIds.length > 0
+    ? await serviceClient
+        .from('vendor_market_schedules')
+        .select('vendor_profile_id')
+        .eq('market_id', market.id)
+        .in('schedule_id', dayScheduleIds)
+        .eq('is_active', true)
+    : { data: [] as Array<{ vendor_profile_id: string }> }
 
   const scheduledVendorIds = new Set(
     (vendorScheduleRows ?? []).map((r) => r.vendor_profile_id as string)
@@ -517,7 +531,10 @@ async function generateForMarketDay(
     `)
     .eq('market_id', market.id)
     .eq('pickup_date', marketDate)
-    .in('status', ['fulfilled', 'completed'])
+    // order_item_status has no 'completed' — the phantom value made PostgREST
+    // reject the whole query (22P02) on every run since 2026-05-22; no buyer
+    // was ever surveyed by this cron. Found 2026-08-25.
+    .eq('status', 'fulfilled')
 
   const buyerUserIds = new Set<string>()
   for (const oi of orderItems ?? []) {

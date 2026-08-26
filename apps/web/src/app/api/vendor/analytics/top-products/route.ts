@@ -63,7 +63,9 @@ export async function GET(request: NextRequest) {
         )
       `)
       .eq('vendor_profile_id', vendorId)
-      .in('status', ['fulfilled', 'completed'])
+      // 'completed' is not an order_item_status — PostgREST rejected the whole
+      // query (22P02) and this route returned 500 since 2026-02-19. Found 2026-08-25.
+      .eq('status', 'fulfilled')
       .gte('created_at', `${startDate}T00:00:00`)
       .lte('created_at', `${endDate}T23:59:59`)
 
