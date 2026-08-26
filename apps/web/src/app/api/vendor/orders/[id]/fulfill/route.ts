@@ -11,6 +11,7 @@ import {
 import { sendNotification } from '@/lib/notifications'
 import { calculateTipShare } from '@/lib/payments/tip-math'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
+import { scheduleBuyerAchievementEvaluation } from '@/lib/loyalty/evaluate'
 
 // Vercel Pro: fulfill involves Stripe transfer + fee calculation + notifications
 export const maxDuration = 30
@@ -189,6 +190,14 @@ export async function POST(
         throw traced.validation('ERR_ORDER_004', 'This item can no longer be fulfilled — it may have been cancelled or refunded.', {
           statusAtFetch: orderItem.status
         })
+      }
+
+      // Loyalty Layer 1 — badge/segment evaluation is scheduled to run AFTER
+      // the response (never on the payout path). The scheduler swallows the
+      // no-request-scope throw and the evaluator never throws, so nothing here
+      // can reach the transfer below. Owner-approved per-file change 2026-08-25.
+      if (orderData?.buyer_user_id && orderData?.vertical_id) {
+        scheduleBuyerAchievementEvaluation(orderData.buyer_user_id, orderData.vertical_id)
       }
 
       // Company-paid event orders: no Stripe transfer, no external fee recording.
@@ -496,6 +505,14 @@ export async function POST(
         throw traced.validation('ERR_ORDER_004', 'This item can no longer be fulfilled — it may have been cancelled or refunded.', {
           statusAtFetch: orderItem.status
         })
+      }
+
+      // Loyalty Layer 1 — badge/segment evaluation is scheduled to run AFTER
+      // the response (never on the payout path). The scheduler swallows the
+      // no-request-scope throw and the evaluator never throws, so nothing here
+      // can reach the transfer below. Owner-approved per-file change 2026-08-25.
+      if (orderData?.buyer_user_id && orderData?.vertical_id) {
+        scheduleBuyerAchievementEvaluation(orderData.buyer_user_id, orderData.vertical_id)
       }
 
       return NextResponse.json({

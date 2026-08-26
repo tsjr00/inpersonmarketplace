@@ -3,6 +3,8 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
+import { classifyCustomer, toDay } from '@/lib/loyalty/segments'
+import type { CustomerSegment } from '@/lib/loyalty/config'
 
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/vendor/orders', 'GET', async () => {
@@ -175,6 +177,45 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    // Loyalty Layer 1 (2026-08-25): each buyer's lifetime FULFILLED orders at
+    // THIS vendor → the order-card chip ("New customer" / "Regular · 4 orders").
+    // Same classifier the badges use (lib/loyalty/segments.ts), so the vendor's
+    // chip and the buyer's badge can never disagree. One grouped read over the
+    // buyer ids already in hand; service client because orders is RLS-scoped
+    // to the buyer, and the vendor_profile_id filter keeps it to this vendor.
+    const customerStats: Record<string, { count: number; segment: CustomerSegment }> = {}
+    if (buyerIds.length > 0) {
+      const { data: fulfilled } = await supabaseService
+        .from('order_items')
+        .select('order_id, pickup_date, pickup_confirmed_at, order:orders!inner(buyer_user_id)')
+        .eq('vendor_profile_id', vendorProfile.id)
+        .eq('status', 'fulfilled')
+        .in('order.buyer_user_id', buyerIds)
+      type FulfilledRow = {
+        order_id: string
+        pickup_date: string | null
+        pickup_confirmed_at: string | null
+        order: { buyer_user_id: string } | { buyer_user_id: string }[] | null
+      }
+      const daysByBuyer = new Map<string, Map<string, string>>() // buyer → orderId → day
+      for (const row of (fulfilled || []) as unknown as FulfilledRow[]) {
+        const o = Array.isArray(row.order) ? row.order[0] : row.order
+        const buyerId = o?.buyer_user_id
+        if (!buyerId) continue
+        const day = toDay(row.pickup_date) ?? toDay(row.pickup_confirmed_at)
+        if (!day) continue
+        let m = daysByBuyer.get(buyerId)
+        if (!m) { m = new Map(); daysByBuyer.set(buyerId, m) }
+        const prev = m.get(row.order_id)
+        if (!prev || day < prev) m.set(row.order_id, day)
+      }
+      for (const id of buyerIds) {
+        const m = daysByBuyer.get(id)
+        const count = m?.size ?? 0
+        customerStats[id] = { count, segment: classifyCustomer(count, m ? [...m.values()] : []) }
+      }
+    }
+
     // Transform to a more usable format - group by order
     const ordersMap = new Map()
 
@@ -190,6 +231,8 @@ export async function GET(request: NextRequest) {
           order_status: order?.status || 'pending',
           payment_method: order?.payment_method || 'stripe',
           customer_name: buyerNames[buyerId] || 'Customer',
+          customer_order_count: customerStats[buyerId]?.count ?? 0,
+          customer_segment: customerStats[buyerId]?.segment ?? 'new',
           total_cents: order?.total_cents || 0,
           created_at: order?.created_at || item.created_at,
           items: []
@@ -262,6 +305,8 @@ export async function GET(request: NextRequest) {
         order: order || null,
         order_number: order?.order_number || null,
         customer_name: buyerNames[buyerId] || 'Customer',
+        customer_order_count: customerStats[buyerId]?.count ?? 0,
+        customer_segment: customerStats[buyerId]?.segment ?? 'new',
         market_name: item.market?.name || 'Pickup Location',
         wave_number: item.wave?.wave_number || null,
         listing_title: item.listing?.title || 'Unknown',

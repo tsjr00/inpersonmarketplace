@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Image from 'next/image'
 import OrderStatusBadge from './OrderStatusBadge'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
+import { SEGMENT_LABELS, type CustomerSegment } from '@/lib/loyalty/config'
 
 interface OrderItem {
   id: string
@@ -106,6 +107,10 @@ interface OrderCardProps {
     order_status: string
     payment_method?: string
     customer_name: string
+    /** Loyalty Layer 1: lifetime fulfilled orders from this buyer at THIS vendor
+     *  + their segment (lib/loyalty/config.ts). Optional — older callers omit. */
+    customer_order_count?: number
+    customer_segment?: CustomerSegment
     total_cents: number
     created_at: string
     items: OrderItem[]
@@ -269,6 +274,29 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
               }}>
                 {isExternalPayment ? formatPaymentMethod(order.payment_method!) : 'CARD'}
               </span>
+              {/* Loyalty Layer 1 — who is this? "New customer" is the one the
+                  owner wants vendors to notice (make the first greeting count);
+                  everyone else shows their standing + lifetime order count. */}
+              {order.customer_segment && (
+                <span
+                  title={order.customer_segment === 'new'
+                    ? 'First order from this customer'
+                    : `${order.customer_order_count ?? 0} fulfilled order${(order.customer_order_count ?? 0) === 1 ? '' : 's'} from this customer`}
+                  style={{
+                    padding: '2px 8px',
+                    backgroundColor: order.customer_segment === 'new' ? '#dcfce7' : order.customer_segment === 'loyal' ? '#fef3c7' : '#f3f4f6',
+                    color: order.customer_segment === 'new' ? '#166534' : order.customer_segment === 'loyal' ? '#92400e' : '#374151',
+                    borderRadius: 4,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {order.customer_segment === 'new'
+                    ? SEGMENT_LABELS.new
+                    : `${order.customer_segment === 'loyal' ? '🏆 ' : order.customer_segment === 'regular' ? '⭐ ' : ''}${SEGMENT_LABELS[order.customer_segment]} · ${order.customer_order_count ?? 0} order${(order.customer_order_count ?? 0) === 1 ? '' : 's'}`}
+                </span>
+              )}
             </div>
             <p style={{ margin: '4px 0 0 0', fontSize: 13, color: '#6b7280' }}>
               Ordered: {orderDate} at {orderTime}

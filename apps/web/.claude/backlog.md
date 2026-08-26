@@ -1,6 +1,14 @@
 # Backlog
 
-Last updated: 2026-08-15 (added: outstanding staging tests, fee-reduction refund policy + organizer terms-list revisit, outstanding-work sweep)
+Last updated: 2026-08-25 (added: vendor customer-distribution report; loyalty/offers/badges program — research in `loyalty_program_research.md`)
+
+## 📊 VENDOR "YOUR CUSTOMERS" DISTRIBUTION REPORT (owner, 2026-08-25) — build/update alongside the loyalty program
+
+Owner: trucks/vendors should see a distribution of their **one-timers, repeat clients, regulars, favorites, and ride-or-die clients** — "an extra differentiator … would help trucks / vendors know who to appreciate, call by name, etc."
+- Data already exists: completed `order_items` per (buyer, vendor) + `vendor_favorites`. Vendor insights already computes new-vs-repeat per location (`api/vendor/location-insights/route.ts:83-211`) — extend, don't duplicate.
+- Segment thresholds TBD (proposal in `loyalty_program_research.md`); the SAME classifier must drive badges, the vendor "X just became a Regular" nudge, and this report — one function, three consumers.
+- Names visible to the vendor (consistent with `customer_name` on order cards); never email/phone.
+- Home: vendor Insights page ("Your Customers" section), tier-gated like the rest of insights. Part of the loyalty program plan (layers 1–3); not scheduled separately.
 
 ## 🧪 OUTSTANDING STAGING TESTS — 2026-08-15 (owner: "I'll test these later when I create a new vendor")
 

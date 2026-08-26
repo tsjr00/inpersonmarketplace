@@ -45,6 +45,9 @@ interface Order {
   order_status: string
   payment_method?: string
   customer_name: string
+  // Loyalty Layer 1 — from /api/vendor/orders; rendered by OrderCard's chip
+  customer_order_count?: number
+  customer_segment?: 'new' | 'one_timer' | 'repeat' | 'regular' | 'loyal'
   total_cents: number
   created_at: string
   items: OrderItem[]

@@ -102,17 +102,17 @@ Each domain file was verified against the code at the commit shown. A stamp far 
 | 01_System_Overview.md | 2026-07-18 | b9f82116 |
 | 02_Money_Flow.md | 2026-08-09 | 106fed3c |
 | 10_Checkout_Payments.md | 2026-08-09 | 106fed3c |
-| 11_Vendor_Orders.md | 2026-07-18 | b9f82116 |
+| 11_Vendor_Orders.md | 2026-08-25 | bfc60dfd |
 | 12_Market_Manager.md | 2026-07-18 | b9f82116 |
 | 13_FT_Park.md | 2026-07-18 | b9f82116 |
 | 14_Events.md | 2026-07-18 | b9f82116 |
 | 15_MarketBoxes_Subs.md | 2026-07-18 | b9f82116 |
 | 16_Auth_RLS_Verticals.md | 2026-07-18 | b9f82116 |
 | 17_Crons.md | 2026-08-15 | 03f97d29 |
-| 18_Notifications.md | 2026-07-18 | b9f82116 |
+| 18_Notifications.md | 2026-08-25 | bfc60dfd |
 | 19_Admin.md | 2026-08-15 | 0d1e86d1 |
-| 20_Buyer_Public.md | 2026-07-24 | f30a0cac |
-| 21_Lib_Reference.md | 2026-08-09 | 106fed3c |
+| 20_Buyer_Public.md | 2026-08-25 | bfc60dfd |
+| 21_Lib_Reference.md | 2026-08-25 | bfc60dfd |
 | 22_Components_UI.md | 2026-07-18 | b9f82116 |
 | 23_Test_Suites.md | 2026-07-18 | b9f82116 |
 

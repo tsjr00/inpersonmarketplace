@@ -16,6 +16,13 @@ export const es: Record<string, string> = {
   'location.privacy_note': 'Guardamos esto en tu dispositivo. No rastreamos tu ubicación.',
   'favorites.empty': 'Aún no has guardado ningún {vendors}. Toca el corazón en el perfil de un vendedor para agregarlo aquí.',
   'favorites.browse': 'Explorar {vendors}',
+  // Loyalty Layer 1 (2026-08-25) — badges live on the Favorites page
+  'rewards.title': 'Mis insignias',
+  'rewards.empty': 'Completa una recogida para ganar tu primera insignia.',
+  'rewards.progress_title': 'Lo que sigue',
+  'rewards.progress_line': '{current} de {target}',
+  'rewards.at_vendor': 'en {vendor}',
+  'rewards.earned_on': 'Ganada el {date}',
   'location.browse_all_in_area': 'O explora todos los vendedores en el área de {city}',
 
   // Footer sections
@@ -371,7 +378,7 @@ export const es: Record<string, string> = {
   'dash.to_confirm': '{count} por confirmar',
   'dash.count_ready': '{count} listos',
   'dash.my_favorites': 'Mis Favoritos',
-  'dash.saved_vendors': 'Tus {vendors} guardados',
+  'dash.saved_vendors': 'Tus {vendors} guardados e insignias',
   'dash.upgrade_shopper': 'Mejora Tu Cuenta de Comprador',
   'dash.premium_pitch': 'Conviértete en Comprador Premium por solo',
   'dash.save_percent': 'Ahorra {percent}%',

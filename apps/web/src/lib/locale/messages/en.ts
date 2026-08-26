@@ -16,6 +16,13 @@ export const en: Record<string, string> = {
   'location.privacy_note': "We store this locally on your device. We don't track your location.",
   'favorites.empty': "You haven't saved any {vendors} yet. Tap the heart icon on a vendor's profile to add them here.",
   'favorites.browse': 'Browse {vendors}',
+  // Loyalty Layer 1 (2026-08-25) — badges live on the Favorites page
+  'rewards.title': 'My Badges',
+  'rewards.empty': 'Complete a pickup to earn your first badge.',
+  'rewards.progress_title': 'Next up',
+  'rewards.progress_line': '{current} of {target}',
+  'rewards.at_vendor': 'at {vendor}',
+  'rewards.earned_on': 'Earned {date}',
   'location.browse_all_in_area': 'Or browse all vendors in the {city} area',
 
   // Footer sections
@@ -371,7 +378,7 @@ export const en: Record<string, string> = {
   'dash.to_confirm': '{count} to confirm',
   'dash.count_ready': '{count} ready',
   'dash.my_favorites': 'My Favorites',
-  'dash.saved_vendors': 'Your saved {vendors}',
+  'dash.saved_vendors': 'Your saved {vendors} & badges',
   'dash.upgrade_shopper': 'Upgrade Your Shopper Account',
   'dash.premium_pitch': 'Become a Premium Shopper for just',
   'dash.save_percent': 'Save {percent}%',

@@ -52,6 +52,7 @@ export type NotificationType =
   | 'market_box_skip'
   | 'market_box_pickup_missed'
   | 'issue_resolved'
+  | 'badge_earned'
   // Vendor-facing
   | 'new_paid_order'
   | 'new_external_order'
@@ -202,6 +203,7 @@ export type NotificationType =
   | 'vendor_event_application_received'
   | 'event_vendor_gap_alert'
   | 'listing_suspended'
+  | 'customer_milestone'
 
 // ── Template Types ───────────────────────────────────────────────────
 
@@ -301,6 +303,13 @@ export interface NotificationTemplateData {
   marketId?: string
   setupTime?: string
   orderCount?: number
+  /** Loyalty Layer 1 (2026-08-25): badge_earned (buyer) + customer_milestone
+   *  (vendor). Badge copy comes from lib/loyalty/config.ts BADGE_CATALOG;
+   *  segmentLabel from SEGMENT_LABELS ("Regular" / "Local Legend"). */
+  badgeEmoji?: string
+  badgeName?: string
+  badgeDescription?: string
+  segmentLabel?: string
   payoutAmount?: string
   eventToken?: string
   eventPageUrl?: string
@@ -2084,6 +2093,41 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: () => 'Listing Suspended',
     message: (d) => `Your listing "${d.listingTitle || 'Unknown'}" has been paused by an admin.${d.reason ? ` Reason: ${d.reason}` : ''} Contact support if you have questions.`,
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/listings`,
+  },
+
+  // ── Loyalty Layer 1 (2026-08-25) ────────────────────────────────────
+  // Both are FREE-channel by design (comms-frugality): a badge is push +
+  // in_app, a vendor milestone is in_app only. Never SMS/email.
+
+  // Buyer earned a badge (lib/loyalty/evaluate.ts). Badges live on the
+  // Favorites page (owner: keep the dashboard consolidated).
+  badge_earned: {
+    urgency: 'immediate',
+    severity: 'info',
+    audience: 'buyer',
+    title: (d) => `${d.badgeEmoji || '🏅'} ${d.badgeName || 'New badge'}`,
+    message: (d) => {
+      const where = d.vendorName ? ` at ${d.vendorName}` : ''
+      return `You earned ${d.badgeName || 'a new badge'}${where}. ${d.badgeDescription || ''}`.trim()
+    },
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/favorites`,
+  },
+
+  // A buyer just crossed a segment threshold WITH THIS VENDOR (Regular at 4
+  // fulfilled orders, Local Legend at 10 or 3 straight months). The owner's
+  // ask: tell the vendor who to appreciate and call by name. In-app only —
+  // the vendor sees it on their next visit to the dashboard.
+  customer_milestone: {
+    urgency: 'info',
+    severity: 'info',
+    audience: 'vendor',
+    title: (d) => `${d.buyerName || 'A customer'} is now a ${d.segmentLabel || 'Regular'}`,
+    message: (d) => {
+      const n = d.orderCount
+      const nth = n ? ` just picked up order #${n} from you` : ' keeps coming back'
+      return `${d.buyerName || 'A customer'}${nth} — they're a ${d.segmentLabel || 'Regular'} now. Worth a thank-you by name at the window.`
+    },
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/orders`,
   },
 }
 

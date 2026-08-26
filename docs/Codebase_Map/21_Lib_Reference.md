@@ -1,6 +1,6 @@
 # 21 — Shared Library Reference
 
-<!-- map-stamp: domain=lib-reference; verified=2026-08-13; commit=361c2685 -->
+<!-- map-stamp: domain=lib-reference; verified=2026-08-25; commit=bfc60dfd -->
 <!-- map-claims
 src/lib/errors/**
 src/lib/telemetry/**
@@ -20,6 +20,7 @@ src/lib/branding/**
 src/lib/test-utils/**
 src/lib/events/**
 src/lib/cause/**
+src/lib/loyalty/**
 src/lib/design-tokens.ts
 src/lib/pricing-display.ts
 src/lib/rate-limit.ts
@@ -40,6 +41,8 @@ Shared modules not owned by a single domain. **The lib layer is where the busine
 **`lib/dashboard/nav-destinations.ts`** (new 2026-08-07) — resolves which dashboards a user can reach (shopper always, plus vendor / market-manager / event-manager by permission), for `components/dashboard/DashboardNav`. ⚠ **Deliberately NOT in `layout/Header.tsx`:** the Header renders on every page and only receives `userProfile`, so teaching it about managed markets and organized events would mean three extra queries on every page load site-wide to serve a switcher that only matters on a dashboard. The four dashboard pages call this instead, so the cost lands where the feature is. Its three role checks run in one parallel block — `performance-baseline.test.ts` guards query count and sequential depth on the pages that call it.
 
 ---
+
+**`lib/loyalty/`** (new 2026-08-25, Loyalty Layer 1 — no money) — `config.ts` is the spec: badge catalog (First Bite/First Basket, Back for More, Regular, Local Legend, Around the World/Market Hopper, Explorer), customer segments (new · one-timer · repeat 2–3 · Regular 4–9 · Local Legend 10+ or 3 straight months) and per-vertical windows. `segments.ts` is pure math over a buyer's FULFILLED orders (a "visit" = the vendor's handoff) — one classifier feeding three readers: the buyer's badges (`[vertical]/favorites`), the vendor's order-card chip (`api/vendor/orders` → `OrderCard`), and the vendor milestone nudge. `evaluate.ts` loads history via the service client, persists only newly-earned rows to `buyer_achievements` (mig 236; unique index is the race guard), and sends `badge_earned` (buyer, push+in_app) + `customer_milestone` (vendor, in_app). **Never throws**; tolerant of the table not existing. Runs lazily on the Favorites page (also the backfill); a fulfill-route `after()` hook is a separate, per-file-approved change. Layer 2 (vendor-funded offers) and Layer 3 (punch card / VIP) are designed but not built — see `apps/web/.claude/loyalty_program_research.md`.
 
 ## Read this first
 

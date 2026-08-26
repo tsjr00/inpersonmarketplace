@@ -1998,3 +1998,49 @@ describe('Multi-market vendor notification', () => {
       'keying the group on vendor alone is the M-1 first-wins bug').toBe(false)
   })
 })
+
+// ── Loyalty Layer 1 (2026-08-25) — badges + customer segments ─────────────
+// One classifier (lib/loyalty/segments.ts) feeds three readers: the buyer's
+// badges (Favorites page), the vendor's order-card chip, and the vendor
+// milestone nudge. These guards keep every reader on the shared code so the
+// vendor's chip and the buyer's badge can never disagree, and keep the
+// evaluator on the lazy path that is also the backfill.
+describe('Loyalty Layer 1 integrity', () => {
+  const rd = (p: string) => fs.readFileSync(path.join(SRC_DIR, p), 'utf-8')
+
+  it('the Favorites page evaluates achievements on load (lazy backfill path)', () => {
+    const page = rd('app/[vertical]/favorites/page.tsx')
+    expect(page, 'badges live on Favorites (owner: keep the dashboard consolidated) and evaluation on load is the backfill')
+      .toMatch(/evaluateBuyerAchievements\(/)
+  })
+
+  it('the vendor orders API classifies customers with the shared classifier and ships the segment', () => {
+    const route = rd('app/api/vendor/orders/route.ts')
+    expect(route).toMatch(/classifyCustomer\(/)
+    expect(route).toMatch(/customer_segment/)
+    expect(route, 'the count must be FULFILLED orders — the same definition of a visit the badges use')
+      .toMatch(/\.eq\('status', 'fulfilled'\)/)
+  })
+
+  it('the order card renders the segment chip from SEGMENT_LABELS (no duplicated copy)', () => {
+    const card = rd('components/vendor/OrderCard.tsx')
+    expect(card).toMatch(/customer_segment/)
+    expect(card).toMatch(/SEGMENT_LABELS/)
+  })
+
+  it('the evaluator swallows every failure (it may run after a payout and must never delay one)', () => {
+    const ev = rd('lib/loyalty/evaluate.ts')
+    expect(ev).toMatch(/export async function evaluateBuyerAchievements[\s\S]*try \{[\s\S]*\} catch \{[\s\S]*return EMPTY/)
+  })
+
+  it('the fulfill route schedules evaluation through the guarded helper — never a bare after()', () => {
+    // 2026-08-25: after() throws synchronously outside a request scope; a bare
+    // call in the fulfill route aborted a fulfill between the status write and
+    // the transfer in the money-authorization harness. The helper swallows it.
+    const route = rd('app/api/vendor/orders/[id]/fulfill/route.ts')
+    expect(route).toMatch(/scheduleBuyerAchievementEvaluation\(/)
+    expect(/\bafter\(/.test(route), 'a bare after() in the payout route can abort a fulfill').toBe(false)
+    const ev = rd('lib/loyalty/evaluate.ts')
+    expect(ev).toMatch(/export function scheduleBuyerAchievementEvaluation[\s\S]*try \{\s*after\([\s\S]*\} catch \{/)
+  })
+})

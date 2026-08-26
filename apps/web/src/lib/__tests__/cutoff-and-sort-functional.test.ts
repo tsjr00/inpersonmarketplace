@@ -263,8 +263,15 @@ describe('NI-014: Total notification types = 72', () => {
     // event_fee_refunded_vendor also gained feeRefundReason branches
     // (early_cancel / organizer_waived / event_cancelled) — same type, no
     // count change.
+    // 115 → 117 (2026-08-25, Loyalty Layer 1 — badges, owner approved "yes,
+    // increase the tripwire"): both FREE-channel by design.
+    //   badge_earned (immediate = push + in_app) — buyer earned a badge
+    //     (lib/loyalty/evaluate.ts); deep-links to the Favorites page.
+    //   customer_milestone (info = in_app only) — a buyer crossed a segment
+    //     threshold with THIS vendor (Regular @4 / Local Legend @10 or 3
+    //     straight months); names the customer so the vendor can greet them.
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(115)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(117)
   })
 
   it('includes all buyer-facing types', () => {

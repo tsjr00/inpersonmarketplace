@@ -1,6 +1,6 @@
 # 18 — Notifications
 
-<!-- map-stamp: domain=notifications; verified=2026-07-18; commit=b9f82116 -->
+<!-- map-stamp: domain=notifications; verified=2026-08-25; commit=bfc60dfd -->
 <!-- map-claims
 src/app/api/notifications/**
 src/app/api/webhooks/resend/**
@@ -63,7 +63,7 @@ This batch path existed but was never called until the July 2026 efficiency pass
 
 ## Notification types
 
-**Exactly 100 types.** The `NotificationType` union and `NOTIFICATION_REGISTRY` are kept in sync by `Record<NotificationType, …>` typing, and the count is pinned by a tripwire test in `cutoff-and-sort-functional.test.ts` — adding a type requires deliberately bumping that number with a dated reason. That is the mechanism that keeps notification sprawl visible.
+**The count is pinned** (117 as of 2026-08-25; the tripwire's own comment block is the dated history). The `NotificationType` union and `NOTIFICATION_REGISTRY` are kept in sync by `Record<NotificationType, …>` typing, and the count is pinned by a tripwire test in `cutoff-and-sort-functional.test.ts` — adding a type requires deliberately bumping that number with a dated reason. That is the mechanism that keeps notification sprawl visible. Newest pair (Loyalty Layer 1): `badge_earned` (buyer, `immediate` = push + in_app) and `customer_milestone` (vendor, `info` = in_app only) — both deliberately free-channel; sent only by `lib/loyalty/evaluate.ts`.
 
 ## Email suppression
 

@@ -1,11 +1,51 @@
+# Current Task: Loyalty Layer 1 — Badges + Know Your Customers
+Started: 2026-08-25 (owner approved "proceed" after 3 rounds of design; research + decisions in `loyalty_program_research.md`)
+
+## Goal
+Buyer achievements (6 badges) + customer segmentation + vendor recognition chip + 2 free notifications. NO money-path changes. Layer 2 (offers engine) and Layer 3 (punch/VIP) are LATER (after chunk D sales tax).
+
+## Key Decisions (owner, 2026-08-25)
+- Regular = **4** fulfilled orders at one vendor; "Ride-or-Die" renamed → **Local Legend** (segment key `loyal`) — owner: "some people won't like it".
+- Tripwire 115 → 117 AUTHORIZED (two new notification types: `badge_earned` buyer/immediate, `customer_milestone` vendor/info).
+- Rewards UI lives ON the Favorites page (no new dashboard tile — "we just cleaned up the dashboard"); My Favorites tile gets badge-count subtext.
+- Source of truth for a "visit" = `order_items.status = 'fulfilled'` (vendor handoff). Distinct ORDERS per (buyer, vendor), not items.
+- Evaluation: lazy on Favorites page load (self-healing + backfill) AND (pending per-file approval) `after()` hook in fulfill route — critical-path file, needs exact-diff approval.
+- Thresholds per vertical (FT/FM): Back for More window 14/28 days; Around the World 5 vendors in 30/90 days; Explorer 3 markets.
+- Hold the staging push until owner's ST-1…26 test stack is reconciled (redeploy mid-test = avoidable variable).
+
+## Build list
+1. ✅ Mig 236 `buyer_achievements` (additive, paste-and-go; code tolerant pre-migration)
+2. ✅ lib/loyalty: config.ts (catalog + thresholds), segments.ts (classifyCustomer), evaluate.ts (never throws)
+3. ✅ Notifications: 2 types + templates + template-data fields; tripwire 115→117 notated
+4. ✅ (folded into the Favorites server component — no API route needed; fewer files, same result)
+5. ✅ Favorites page: rewards section; dashboard My Favorites tile subtext
+6. ✅ Vendor orders API: customer_order_count + customer_segment; OrderCard chip (New customer / Regular · 4th order / ★ N orders)
+7. ✅ Tests (badges.test.ts 24 tests + 4 flow-integrity guards; tripwire 115→117 notated): segments + badge rules (spec = thresholds above), flow-integrity guard
+8. ⬜ Fulfill hook — PRESENT DIFF, WAIT (critical path)
+9. ✅ Gates GREEN 2026-08-25 (tsc clean, vitest all pass incl. 2 doc-gap fixes, lint 0 errors) → awaiting commit approval; HOLD push
+10. ⬜ Snapshot changelog row when owner applies 236; maps (14/19 docs) if applicable
+
+## Files Modified
+NEW: supabase/migrations/20260825_236_buyer_achievements.sql · src/lib/loyalty/{config,segments,evaluate}.ts · src/lib/loyalty/__tests__/badges.test.ts. EDIT: notifications/types.ts (+2 types, +4 template fields) · MESSAGE_TEMPLATES.md · cutoff-and-sort-functional.test.ts (tripwire 117) · flow-integrity.test.ts (+4 guards) · locale en+es (rewards.* keys, dash.saved_vendors) · [vertical]/favorites/page.tsx (badge section) · api/vendor/orders/route.ts (customer_segment) · components/vendor/OrderCard.tsx (chip) · [vertical]/vendor/orders/page.tsx (iface) · SCHEMA_SNAPSHOT (236 row + 228 trigger name) · Codebase_Map 00/11/18/20/21 · backlog.md (customer report). NOT touched: fulfill route (pending per-file approval).
+
+## Gotchas
+- `public_activity_events` has a CHECK on event_type — NOT adding 'badge_earned' tonight.
+- `vendor/orders/[id]/fulfill/route.ts` is CRITICAL PATH (change-discipline Rule 3).
+
+---
+
+# ⏰ FIRST THING NEXT SESSION — REMIND THE OWNER (their request 2026-08-16):
+# 1. **Google Vision billing is OFF → image moderation is fail-open (uploads unscreened).** Fix: enable billing on GCP project #544338383934 (console.cloud.google.com → Billing → attach billing account; free tier 1,000 img/mo covers current volume, expected $0). Verify after: /api/admin/moderation-test or upload an image and confirm no new alert.
+# 2. Then: Vercel build check (`bfc60dfd` = Ready) + prod smoke + the ST-1…ST-26 staging protocol below.
+
 # SESSION END 2026-08-16 — WRAPPED. Read this block first.
 
 ## Git / env — VERIFY, don't trust
 | | |
 |---|---|
-| local `main` | = `origin/staging` = `13d36491` — 3 shipped batches today, build + Playwright 49✓ each |
-| PROD `origin/main` | `54ca375f` — ~29 commits behind; DB has 001–227. **PROD PUSH NEEDS: migs 228–235 pasted (EIGHT: 228–233 paste-and-go; 234+235 ⛔ DIFFERENTIAL class — recipes in file headers + the runbook below)** + window 21:00–07:00 CT |
-| Migrations | 228–235 on Dev+Staging (owner, differentials run + EXACT MATCH on 235). **Mig 225 = ⛔ SUPERSEDED by 234 — NEVER paste it** (would revert the paid gate) |
+| local `main` | `bfc60dfd` (wrap commit) = **origin/main (PROD)** — pushed 2026-08-16 ~20:05 CT w/ owner-authorized window override ("nobody on the system"); ref-update 54ca375f..bfc60dfd verified, Playwright 49✓. origin/staging = `13d36491` (1 docs commit behind main — sync at next staging push) |
+| **PROD DEPLOYED** | 29 commits + **ALL EIGHT migs 228–235 pasted + verified** (234/235 differentials: prod has zero event listings — both proven inert, 32-row control byte-identical). ⚠ **OWNER STILL OWES: Vercel build check (deployment `bfc60dfd` = Ready) + post-push smoke + the full staging test stack (was NOT done before push — owner accepted the risk, no live shoppers)** |
+| Migrations | **001–235 on ALL THREE ENVS.** Files 228–235 moved to `applied/` (uncommitted). **Mig 225 = ⛔ SUPERSEDED, stays in root as 234's rollback target — NEVER paste** |
 
 ## ⚡ WHAT SHIPPED TODAY (3 staging pushes)
 1. `7fbf2d67` **Backup bench PHASE 3 — cancellation money (mig 233)**: refundEventFeePayment (reverse_transfer — closed the race-loser leak where platform ate organizer's ~93.5%); vendor-cancel bands (≥72h auto-refund / <72h instant forfeit); organizer waiver (event+14d, verbatim warning copy); covered backup spots ("free spot IS the step-in bonus"); event-death fee fan-out (organizer + admin cancel paths); standby-first escalation; **CONFIRMED+FIXED: market_vendors CHECK never allowed 'cancelled' — every vendor self-cancel since mig 070 failed silently** (damage scan 0 rows, no repair). evfp joined money-structure Rule A (all flips guarded, zero allowlist). 3 new notif templates, tripwire 112→115.
@@ -2420,3 +2460,10 @@ SELECT
 Unchanged at `7f895e5` (`vault/pre-session-59`). No vault files touched this session.
 
 </details>
+
+---
+
+# STAGING TEST PROTOCOL 2026-08-16 (reconcile on owner's return — reply with ST-numbers + pass/fail)
+Full text mirrored in the chat message of the same date. Base: the staging Vercel URL, vertical food_trucks unless noted.
+Fixtures: "Event & Park Mgmt Co. Private Event" (FEE $1.00, 2026-09-08; barbecue vendor = accepted+benched, Asian-fusion vendor = attending+paid) · "Test Event Org Private Event" (FREE, 2026-09-10 ready + 2026-08-31 approved).
+ST-1 late-cancel forfeit · ST-2 waive w/ REVERSED transfer (Stripe check) · ST-3 early-cancel auto-refund · ST-4 status flips to cancelled · ST-5 standby join/leave · ST-6 covered-spot chain · ST-7 bench recommendation · ST-8 risk checklist · ST-9 benched menu gone from shop · ST-10 unpaid vendor can't sell at fee event · ST-11 free event unaffected · ST-12 deselection refund · ST-13 admin Vendor Fee Payments card + manual refund · ST-14 free-event card empty state · ST-15 reconfirm trigger (time>30min) · ST-16 token page GET-never-confirms + button confirm · ST-17 prep split + banner · ST-18 cron refund via manual GET · ST-19 un-cancel refusal · ST-20 city edit on live event · ST-21 background-check notice · ST-22 child-safety clause in agreement · ST-23 not-eligible badge (fresh unapproved applicant) · ST-24 reuse-button styling · ST-25 capacity/waves explainer placement · ST-26 fee-language surfaces (checkout line / how-it-works / What selling costs).

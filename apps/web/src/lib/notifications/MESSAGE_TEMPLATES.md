@@ -202,6 +202,18 @@ Farmers Marketing
 
 ---
 
+### Badge Earned (`badge_earned`) — Loyalty Layer 1, 2026-08-25
+**Urgency:** Immediate (Push + In-app) — free channels by design, never email/SMS
+**Trigger:** `lib/loyalty/evaluate.ts` persists a newly-earned badge (lazy on the Favorites page; fulfill-route hook pending per-file approval)
+
+**In-app title:** {{badge_emoji}} {{badge_name}}
+**In-app message:** You earned {{badge_name}}{{ at vendor_name}}. {{badge_description}}
+**Action:** `/{{vertical}}/favorites` (badges live on the Favorites page)
+
+Badge copy is generated from `lib/loyalty/config.ts` BADGE_CATALOG — one source for the badge card, the notification, and the vendor chip.
+
+---
+
 ## Vendor-Facing Notifications
 
 ---
@@ -498,6 +510,18 @@ Go to Dashboard: {{dashboard_url}}
 
 Farmers Marketing
 ```
+
+---
+
+### Customer Milestone (`customer_milestone`) — Loyalty Layer 1, 2026-08-25
+**Urgency:** Info (In-app only) — the vendor sees it on their next dashboard visit; zero send cost
+**Trigger:** a buyer newly crosses a segment threshold WITH THIS VENDOR — Regular (4 fulfilled orders) or Local Legend (10, or an order in each of 3 consecutive months)
+
+**In-app title:** {{buyer_name}} is now a {{segment_label}}
+**In-app message:** {{buyer_name}} just picked up order #{{order_count}} from you — they're a {{segment_label}} now. Worth a thank-you by name at the window.
+**Action:** `/{{vertical}}/vendor/orders`
+
+Owner intent: tell the vendor who to appreciate and call by name. The buyer never has to show a card or a screen — the count is auto-tracked from fulfilled orders.
 
 ---
 
