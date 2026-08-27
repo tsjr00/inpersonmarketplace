@@ -6,7 +6,13 @@ import { refundEventFeePayment } from '@/lib/stripe/event-fee-payments'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { sendNotification } from '@/lib/notifications/service'
 import { recommendBackupBench } from '@/lib/events/backup-bench'
-import { calculateWaveCount } from '@/lib/events/viability'
+import {
+  calculateWaveCount,
+  checkAcceptedCapacity,
+  estimateOrders,
+  expectedPeakOrdersPerWave,
+  median,
+} from '@/lib/events/demand-model'
 
 /**
  * GET /api/events/[token]/select
@@ -40,7 +46,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     // Find the catering request by token
     const { data: event } = await serviceClient
       .from('catering_requests')
-      .select('id, company_name, contact_name, contact_email, event_date, event_start_time, event_end_time, headcount, vendor_count, expected_meal_count, cancellation_risk_factors, city, state, vertical_id, market_id, status, service_level')
+      .select('id, company_name, contact_name, contact_email, event_date, event_start_time, event_end_time, headcount, vendor_count, expected_meal_count, cancellation_risk_factors, city, state, vertical_id, market_id, status, service_level, payment_model, event_type, is_ticketed, competing_food_options')
       .eq('event_token', token)
       .single()
 
@@ -72,7 +78,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       // T-80: is_backup + organizer_selected_at let this page tell the
       // organizer what they already confirmed instead of rendering fresh
       // "Select" buttons on a live event.
-      .select('vendor_profile_id, response_status, response_notes, is_backup, organizer_selected_at, standby_opted_in_at, vendor_profiles:vendor_profile_id(id, profile_data, profile_image_url, average_rating, rating_count, tier, pickup_lead_minutes)')
+      .select('vendor_profile_id, response_status, response_notes, is_backup, organizer_selected_at, standby_opted_in_at, event_max_orders_per_wave, vendor_profiles:vendor_profile_id(id, profile_data, profile_image_url, average_rating, rating_count, tier, pickup_lead_minutes)')
       .eq('market_id', event.market_id)
       .eq('response_status', 'accepted')
 
@@ -166,24 +172,56 @@ export async function GET(request: NextRequest, context: RouteContext) {
         pickup_lead_minutes: vp?.pickup_lead_minutes || 30,
         profile_image_url: vp?.profile_image_url || null,
         catering_items: vendorListings[vid] || [],
+        // The vendor's per-event capacity claim (validated ≥ 1 at acceptance) —
+        // the "better data" the selection-time capacity check runs on.
+        event_max_orders_per_wave: (mv.event_max_orders_per_wave as number | null) ?? null,
       }
     })
+
+    // Shared demand model (owner 2026-08-26): one estimate of orders + peak
+    // wave for the bench sizing AND the selection-time capacity check.
+    const waveCount = calculateWaveCount(
+      event.event_start_time as string | null,
+      event.event_end_time as string | null
+    )
+    const demand = estimateOrders({
+      headcount: (event.headcount as number | null) ?? null,
+      expectedMealCount: (event.expected_meal_count as number | null) ?? null,
+      paymentModel: (event.payment_model as string | null) ?? null,
+      eventType: (event.event_type as string | null) ?? null,
+      startTime: (event.event_start_time as string | null) ?? null,
+      isTicketed: event.is_ticketed === true,
+      hasCompetingFood: !!(event.competing_food_options as string | null),
+    })
+    const peakOrdersPerWave = expectedPeakOrdersPerWave(demand.orders, waveCount)
+    // Capacity check runs on the vendors the organizer has CONFIRMED; before
+    // any confirmation it runs on everyone who accepted (what they could pick).
+    const confirmed = vendors.filter(v => v.selected)
+    const checkedVendors = confirmed.length > 0 ? confirmed : vendors
+    const claimedCapacities = checkedVendors
+      .map(v => v.event_max_orders_per_wave)
+      .filter((n): n is number => typeof n === 'number' && n > 0)
+    const acceptedCapacityPerWave = claimedCapacities.reduce((a, b) => a + b, 0)
+    const capacityCheck = checkAcceptedCapacity(peakOrdersPerWave, acceptedCapacityPerWave)
 
     // Backup bench phase 1 (owner model 2026-08-15): the system's recommended
     // bench size — likelihood (10% base + equal risk bumps) × the SYSTEM-
     // computed vendor requirement, not the organizer's requested count. The
     // number is shown without the math (owner: tell them the number, ask if
     // it sounds right). Funding extra bench spots is phase 3.
+    const medianClaim = median(claimedCapacities)
     const bench = recommendBackupBench({
       headcount: (event.headcount as number | null) ?? null,
       expectedMealCount: (event.expected_meal_count as number | null) ?? null,
-      waveCount: calculateWaveCount(
-        event.event_start_time as string | null,
-        event.event_end_time as string | null
-      ),
+      waveCount,
       riskFactorCount: Array.isArray(event.cancellation_risk_factors)
         ? event.cancellation_risk_factors.length
         : 0,
+      // Owner 2026-08-26: shared demand estimate + the accepted vendors' real
+      // per-event claims (median) replace the 20% / 30-per-wave placeholders
+      // whenever that data exists.
+      estimatedOrders: demand.orders,
+      ...(medianClaim != null ? { capacityPerWave: medianClaim } : {}),
     })
 
     return NextResponse.json({
@@ -199,6 +237,19 @@ export async function GET(request: NextRequest, context: RouteContext) {
       vendors,
       recommended_backups: bench.recommendedBackups,
       standby_count: vendors.filter(v => v.on_standby).length,
+      // Selection-time capacity check (owner 2026-08-26 #4): the confirmed
+      // vendors' claimed per-wave capacity vs the expected peak wave.
+      capacity_check: {
+        wave_count: waveCount,
+        expected_orders: demand.orders,
+        expected_peak_per_wave: peakOrdersPerWave,
+        accepted_capacity_per_wave: acceptedCapacityPerWave,
+        vendors_checked: checkedVendors.length,
+        checked_confirmed_only: confirmed.length > 0,
+        ok: capacityCheck.ok,
+        shortfall_per_wave: capacityCheck.shortfallPerWave,
+        coverage_pct: capacityCheck.coveragePct,
+      },
     })
   })
 }

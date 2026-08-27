@@ -170,7 +170,13 @@ export function Header({
                 width={0}
                 height={0}
                 sizes={isOnLandingPage ? '320px' : '200px'}
-                style={{ width: 'auto', height: isOnLandingPage ? 86 : 53 }}
+                // objectFit: the logo's grid column is allowed to shrink below the
+                // image's natural width (see justifySelf/minWidth on the Link). On
+                // a phone with the logged-in controls taking the right column, the
+                // image got narrower while its height stayed locked → a squished,
+                // taller-than-wide logo (owner, 2026-08-26). 'contain' keeps the
+                // aspect ratio and letterboxes instead.
+                style={{ width: 'auto', height: isOnLandingPage ? 86 : 53, objectFit: 'contain' }}
                 priority
               />
             ) : (

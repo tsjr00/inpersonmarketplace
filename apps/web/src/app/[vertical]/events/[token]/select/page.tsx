@@ -22,6 +22,19 @@ import { formatDisplayPrice, calculateItemDisplayPrice } from '@/lib/pricing'
  * Auth: none required (token-based access, like the event page itself)
  */
 
+/** From api/events/[token]/select GET → capacity_check (demand-model.ts). */
+interface CapacityCheckData {
+  wave_count: number
+  expected_orders: number
+  expected_peak_per_wave: number
+  accepted_capacity_per_wave: number
+  vendors_checked: number
+  checked_confirmed_only: boolean
+  ok: boolean
+  shortfall_per_wave: number
+  coverage_pct: number
+}
+
 interface InterestedVendor {
   vendor_profile_id: string
   /** T-80: already confirmed by the organizer on a prior submit. */
@@ -83,6 +96,10 @@ export default function EventSelectPage() {
   // Backup bench (mig 232): system recommendation + current standby count.
   const [recommendedBackups, setRecommendedBackups] = useState(0)
   const [standbyCount, setStandbyCount] = useState(0)
+  // Selection-time capacity check (owner 2026-08-26): the confirmed vendors'
+  // claimed per-wave capacity vs the expected peak wave — the real check;
+  // the intake suggestion was only a starting number.
+  const [capacityCheck, setCapacityCheck] = useState<CapacityCheckData | null>(null)
 
   async function fetchData() {
     try {
@@ -98,6 +115,7 @@ export default function EventSelectPage() {
       setVendors(data.vendors || [])
       setRecommendedBackups(data.recommended_backups || 0)
       setStandbyCount(data.standby_count || 0)
+      setCapacityCheck(data.capacity_check || null)
       // T-80: pre-load prior confirmations so "Change selections" starts from
       // what the organizer already chose (menus were reviewed on that submit).
       const prior = ((data.vendors || []) as InterestedVendor[])
@@ -249,6 +267,32 @@ export default function EventSelectPage() {
               </div>
             ))}
           </div>
+
+          {/* Selection-time capacity check (owner 2026-08-26): the confirmed
+              vendors' own per-wave claims against the expected peak. This is
+              the check that uses real data — the intake suggestion was only a
+              starting number. Shown only when there is something to compare. */}
+          {capacityCheck && capacityCheck.vendors_checked > 0 && capacityCheck.expected_peak_per_wave > 0 && (
+            <div style={{
+              marginBottom: spacing.sm,
+              padding: spacing.sm,
+              backgroundColor: capacityCheck.ok ? statusColors.successLight : '#fffbeb',
+              border: `1px solid ${capacityCheck.ok ? statusColors.successBorder : '#fcd34d'}`,
+              borderRadius: radius.md,
+              fontSize: typography.sizes.sm,
+              color: statusColors.neutral700,
+              lineHeight: 1.5,
+            }}>
+              <strong>Capacity:</strong> {capacityCheck.checked_confirmed_only
+                ? `your ${capacityCheck.vendors_checked} confirmed ${capacityCheck.vendors_checked === 1 ? vendorTerm : vendorTermPlural} can`
+                : `the ${capacityCheck.vendors_checked} ${capacityCheck.vendors_checked === 1 ? vendorTerm : vendorTermPlural} who ${capacityCheck.vendors_checked === 1 ? 'has' : 'have'} accepted can`}
+              {' '}serve about <strong>{capacityCheck.accepted_capacity_per_wave}</strong> orders per 30-minute wave. We expect a busiest wave of
+              about <strong>{capacityCheck.expected_peak_per_wave}</strong> ({capacityCheck.expected_orders} orders over {capacityCheck.wave_count} {capacityCheck.wave_count === 1 ? 'wave' : 'waves'}, with a cushion).
+              {capacityCheck.ok
+                ? ' Looks good.'
+                : ` That leaves about ${capacityCheck.shortfall_per_wave} orders per wave uncovered — consider adding a ${vendorTerm}.`}
+            </div>
+          )}
 
           {/* Backup bench (owner model 2026-08-15): the number without the
               math — "we recommend N, does that sound right" — plus who's

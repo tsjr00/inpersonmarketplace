@@ -63,6 +63,13 @@ export interface BenchRecommendationInput {
   expectedMealCount: number | null
   waveCount: number
   riskFactorCount: number
+  /** Owner 2026-08-26: pass the shared demand model's estimate (payment model
+   *  + lunch/not + ticketed aware). Falls back to the old 20% band if absent. */
+  estimatedOrders?: number
+  /** Owner 2026-08-26: per-vendor capacity per wave from the accepted vendors'
+   *  real per-event claims (median) — the "better data". Falls back to the
+   *  30/wave placeholder if absent. */
+  capacityPerWave?: number
 }
 
 export interface BenchRecommendation {
@@ -76,11 +83,17 @@ export interface BenchRecommendation {
 
 export function recommendBackupBench(input: BenchRecommendationInput): BenchRecommendation {
   const estimatedOrders =
-    input.expectedMealCount && input.expectedMealCount > 0
-      ? input.expectedMealCount
-      : Math.round((input.headcount || 0) * AVG_BUYER_RATE)
+    typeof input.estimatedOrders === 'number' && input.estimatedOrders >= 0
+      ? input.estimatedOrders
+      : input.expectedMealCount && input.expectedMealCount > 0
+        ? input.expectedMealCount
+        : Math.round((input.headcount || 0) * AVG_BUYER_RATE)
 
-  const perVendorCapacity = AVG_VENDOR_PER_WAVE * Math.max(input.waveCount, 1)
+  const capacityPerWave =
+    typeof input.capacityPerWave === 'number' && input.capacityPerWave > 0
+      ? input.capacityPerWave
+      : AVG_VENDOR_PER_WAVE
+  const perVendorCapacity = capacityPerWave * Math.max(input.waveCount, 1)
   const vendorRequirement = Math.max(1, Math.ceil(estimatedOrders / Math.max(perVendorCapacity, 1)))
 
   const likelihood =

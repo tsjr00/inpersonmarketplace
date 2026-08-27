@@ -217,3 +217,13 @@ Organizers charging vendors to set up at events (presentation-driven feature). D
 3. **Badges live on the Favorites page**, not a new dashboard tile ("we just cleaned up the dashboard, keep it consolidated"). Auto-track, auto-deliver — the buyer never shows a card or a screen. Both notifications free-channel only (push+in_app buyer; in_app vendor).
 4. **VIP stays vendor-driven**; badge data surfaces candidates ("X just became a Regular — make them a VIP?"). Staggered notification timing has little value for trucks (more for FM). Flash sales later, if at all. Vendor "Your Customers" distribution report (one-timers → Local Legends + favorites) backlogged — same classifier as badges.
 5. **Layer 2 offers = few and great**: First Order (auto-applied, no codes) + **Come Back** (return within vendor-chosen X days at vendor-chosen %, after the first order) + VIP perk. No promo codes / sitewide / platform-funded at launch (funder flag exists). Store `subtotal_cents` NET so refund paths need no edits. Layer 3 (punch card / rewards) later; **both after chunk D** (funder decision feeds sales tax).
+
+### Event demand model — owner decisions 2026-08-26 (`lib/events/demand-model.ts`)
+
+1. **One demand model for every consumer** (intake suggestion, viability scorer, backup bench, selection-time check). Buyer-rate table = the viability table (payment model + lunch/not + ticketed), values unchanged. The intake form's private event-type table and its "half of all orders in one wave" placeholder are retired.
+2. **Orders** = organizer's `expected_meal_count` when given; otherwise headcount × the band midpoint; **competing food → low end**.
+3. **Peak wave** = average orders per wave × (1 + 25%) — one named margin, one sentence to organizers ("planning for a busier-than-average wave").
+4. **Pool capacity at intake = MEDIAN** readiness capacity (not mean). The intake number stays as a labeled starting number (owner: option (a) — "as we keep working on the intake form there may be other info we can extrapolate"); the **real check runs at selection time** against accepted vendors' `event_max_orders_per_wave` claims (select page "Capacity:" line).
+5. **Intake copy never reveals pool size or averages** — it states the assumption instead.
+6. **Calibrate from real events later**: predictions are recomputable from stored request inputs; compare to actual orders per wave once events run.
+Also 2026-08-26: intake form gets `noValidate` + visible/scrolled error box (iOS Safari silently blocked native-invalid submits — "button did nothing").

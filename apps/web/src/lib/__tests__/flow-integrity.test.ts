@@ -2044,3 +2044,53 @@ describe('Loyalty Layer 1 integrity', () => {
     expect(ev).toMatch(/export function scheduleBuyerAchievementEvaluation[\s\S]*try \{\s*after\([\s\S]*\} catch \{/)
   })
 })
+
+// ── Event demand model (2026-08-26) — one estimate, four consumers ─────────
+// Before this the intake suggestion, the viability scorer, wave generation
+// and the backup bench each guessed demand their own way (two different
+// buyer-rate tables, a "50% in one wave" placeholder, a 30/wave constant).
+// These guards keep every consumer on lib/events/demand-model.ts.
+describe('Event demand model integrity', () => {
+  const rd = (p: string) => fs.readFileSync(path.join(SRC_DIR, p), 'utf-8')
+
+  it('the intake form suggests vendor_count through the shared model — no private rate table', () => {
+    const form = rd('components/events/EventRequestForm.tsx')
+    expect(form).toMatch(/suggestVendorCount\(/)
+    expect(form).toMatch(/estimateOrders\(/)
+    expect(/let buyerRate = /.test(form), 'the event-type buyer-rate switch was the old private table').toBe(false)
+    expect(/estimatedOrders \* 0\.5/.test(form), '"half of all orders in one wave" was a placeholder').toBe(false)
+  })
+
+  it('the intake form runs OUR validation, not the browser\'s silent one (noValidate)', () => {
+    const form = rd('components/events/EventRequestForm.tsx')
+    expect(form, 'iOS Safari blocks native-invalid submits with no message — the owner\'s "button did nothing"')
+      .toMatch(/<form onSubmit=\{handleSubmit\} noValidate>/)
+  })
+
+  it('the helper copy never reveals the pool size or its averages', () => {
+    const form = rd('components/events/EventRequestForm.tsx')
+    expect(/our \$\{vendorPoolSize\} event-approved/.test(form)).toBe(false)
+    expect(/avg \$\{poolCapacityPerWave\}/.test(form)).toBe(false)
+  })
+
+  it('the viability scorer reads the shared rate table (no second BUYER_RATES literal)', () => {
+    const viability = rd('lib/events/viability.ts')
+    expect(viability).toMatch(/BUYER_RATES as SHARED_BUYER_RATES.*from '\.\/demand-model'/)
+    expect(/company_paid: \{ low: 0\.9/.test(viability), 'a literal table here would drift from the shared one').toBe(false)
+  })
+
+  it('the intake page hands the form the pool MEDIAN capacity', () => {
+    const page = rd('app/[vertical]/events/page.tsx')
+    expect(page).toMatch(/median\(throughputs\)/)
+    expect(/throughputs\.reduce\(\(a, b\) => a \+ b, 0\) \/ throughputs\.length/.test(page), 'mean was the old behavior').toBe(false)
+  })
+
+  it('the select route returns the selection-time capacity check and feeds the bench the shared estimate', () => {
+    const route = rd('app/api/events/[token]/select/route.ts')
+    expect(route).toMatch(/capacity_check: \{/)
+    expect(route).toMatch(/event_max_orders_per_wave/)
+    expect(route).toMatch(/estimatedOrders: demand\.orders/)
+    const page = rd('app/[vertical]/events/[token]/select/page.tsx')
+    expect(page).toMatch(/capacity_check/)
+  })
+})

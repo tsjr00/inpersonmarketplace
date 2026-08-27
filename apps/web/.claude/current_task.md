@@ -2529,3 +2529,14 @@ OWNER DONE 2026-08-25: Vercel Ready for e946c2c0 ✓ · mig 237 on Dev + Staging
 Bookkeeping staged locally, UNCOMMITTED: 236/237 → applied/ (git mv), snapshot rows → all-three-envs, CLAUDE_CONTEXT applied-migrations line. Next commit = docs-only.
 OWNER OWES: Vercel PROD build = Ready for e946c2c0 · Tier-2 smoke (pages, login, browse+cart, one order flow) · Tier-1 #6-7 on staging later (order-card "New customer" chip; fulfill → First Bite push).
 VERIFY TOMORROW in the prod Supabase API log: the five signatures (market_vendors.status · vendor_market_schedules.day_of_week · 22P02 "completed" · new_flags) should be GONE; 03:00 CT scan cron should leave a `completed` row in vendor_activity_scan_log; surveys cron (08–12 local) should now create market_surveys rows on market days.
+
+## 2026-08-26 (cont.) — owner testing notes → BUILT, awaiting commit/push approval
+Owner notes: intake "based on our N event-approved trucks…" block (keep idea, hide count, revisit math) · submit button dead on iPhone Safari (no error, no row on staging — `catering_requests` last 24h = 0 rows) · mobile dashboard logo squished.
+BUILT (owner "implement as you think is best"):
+- `lib/events/demand-model.ts` (NEW, pure): ONE demand model — BUYER_RATES moved from viability (values unchanged), `estimateOrders` (organizer expected_meal_count wins; else headcount × band by payment model + lunch/not + ticketed; competing food → low end), `PEAK_WAVE_MARGIN = 0.25`, `calculateWaveCount` (moved; viability re-exports), `median`, `suggestVendorCount`, `checkAcceptedCapacity`.
+- EventRequestForm: suggestion uses the shared model; prop `avgVendorThroughput` → `poolCapacityPerWave` (page computes MEDIAN, fallback constant); helper copy no longer reveals pool size/averages (states the assumption instead); **`noValidate`** + error box `ref`/scroll-into-view + catch-all wrapper (`handleSubmit` → `submitRequest`).
+- viability.ts: `BUYER_RATES = SHARED_BUYER_RATES` alias; wave count re-exported from demand-model. backup-bench: optional `estimatedOrders` + `capacityPerWave` inputs (placeholders remain as fallbacks).
+- select route: loads payment_model/event_type/is_ticketed/competing_food_options + `event_max_orders_per_wave` per vendor; returns `capacity_check` (confirmed vendors' claims vs expected peak); feeds bench the shared estimate + median claim. Select page renders the capacity line (green ok / amber shortfall).
+- Header logo `objectFit: 'contain'`.
+- Tests: demand-model.test.ts (spec = owner decisions) + 6 flow-integrity guards; map 14_Events line 6.
+Gates: tsc clean; lint 0 errors. Owner must retest the iPhone submit on staging after push; any failure now shows a message.

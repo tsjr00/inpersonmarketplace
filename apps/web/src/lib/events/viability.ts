@@ -1,3 +1,4 @@
+import { BUYER_RATES as SHARED_BUYER_RATES, calculateWaveCount } from './demand-model'
 /**
  * Event Viability Scoring — v2 (Event-Type-Aware)
  *
@@ -106,17 +107,10 @@ const DEFAULT_AVG_THROUGHPUT = 30
 /** Default wave duration in minutes (can be 15 if all vendors support it) */
 const DEFAULT_WAVE_MINUTES = 30
 
-/** Estimated buyer rates by event type (what % of attendees actually order) */
-const BUYER_RATES: Record<string, { low: number; high: number; label: string }> = {
-  // Company-paid: everyone eats (company is paying)
-  company_paid: { low: 0.9, high: 1.0, label: '90-100% (company paying)' },
-  // Employee-paid: varies by time and context
-  attendee_paid_lunch: { low: 0.6, high: 0.8, label: '60-80% (lunch hour)' },
-  attendee_paid_other: { low: 0.3, high: 0.5, label: '30-50% (non-lunch)' },
-  // Crowd events: public foot traffic
-  crowd: { low: 0.1, high: 0.3, label: '10-30% (public event)' },
-  crowd_ticketed: { low: 0.15, high: 0.4, label: '15-40% (ticketed event)' },
-}
+/** Buyer rates now live in the shared demand model (owner 2026-08-26 — one
+ *  table for the intake suggestion, this scorer, and the backup bench). The
+ *  values are unchanged; this alias keeps the scorer's arithmetic verbatim. */
+const BUYER_RATES = SHARED_BUYER_RATES
 
 /** Revenue opportunity thresholds per vendor */
 const REVENUE_THRESHOLDS = {
@@ -158,16 +152,9 @@ function isLunchEvent(startTime: string | null): boolean {
   return hour >= 11 && hour <= 13
 }
 
-export function calculateWaveCount(startTime: string | null, endTime: string | null, waveDurationMin: number = DEFAULT_WAVE_MINUTES): number {
-  if (!startTime || !endTime) return Math.ceil(120 / waveDurationMin) // Default: 2hr event
-
-  const [startH, startM] = startTime.split(':').map(Number)
-  const [endH, endM] = endTime.split(':').map(Number)
-  const durationMinutes = (endH * 60 + endM) - (startH * 60 + startM)
-
-  if (durationMinutes <= 0) return Math.ceil(120 / waveDurationMin)
-  return Math.ceil(durationMinutes / waveDurationMin)
-}
+/** Wave counting moved to the shared demand model (same arithmetic); kept
+ *  here as a re-export so existing importers keep working. */
+export { calculateWaveCount } from './demand-model'
 
 export function calculateEventHours(startTime: string | null, endTime: string | null): number {
   if (!startTime || !endTime) return 2

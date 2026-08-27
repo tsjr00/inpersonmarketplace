@@ -25,6 +25,7 @@ src/app/[vertical]/reconfirm/**
 3. `lib/events/shop-data.ts` — the single payload every attendee surface renders from, including the auth-gated price hiding.
 4. `api/events/[token]/cancel/route.ts` — the only organizer-triggered money path; the comments at `:161-170` encode hard-won refund rules.
 5. `lib/events/viability.ts` — pure and testable; read it last, it explains the scoring vocabulary used elsewhere.
+6. `lib/events/demand-model.ts` (2026-08-26) — the ONE estimate of "how many will order / how hard the peak wave hits", shared by the intake vendor-count suggestion (`EventRequestForm`), the viability scorer (its `BUYER_RATES` now alias this table), the backup bench, and the selection-time capacity check (`api/events/[token]/select` → `capacity_check`, rendered on the organizer's select page against accepted vendors' `event_max_orders_per_wave` claims). Organizer's `expected_meal_count` wins; else headcount × band (payment model + lunch/not + ticketed; competing food → low end); peak = average wave × (1 + `PEAK_WAVE_MARGIN`); pool capacity at intake = MEDIAN readiness capacity. Every input is stored on the request, so predictions can later be recomputed against real orders per wave.
 6. **Treat `api/events/[token]/order/route.ts` and the wave stack as quarantined** — see [§ company-paid](#company-paid--deferred-and-non-executable). Do not reason about live money there.
 
 ## The token access model — three distinct levels

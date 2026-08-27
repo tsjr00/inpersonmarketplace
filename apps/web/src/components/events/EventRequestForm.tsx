@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { spacing, typography, radius, sizing, statusColors } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
 import { getClientLocale } from '@/lib/locale/client'
@@ -14,13 +14,14 @@ import {
   rushedWarning,
   tooSoonMessage,
 } from '@/lib/events/lead-time'
+import { calculateWaveCount, estimateOrders, expectedPeakOrdersPerWave, suggestVendorCount } from '@/lib/events/demand-model'
 
 interface EventRequestFormProps {
   vertical: string
   vendorPreference?: string | null | undefined
   // Server-computed average max_headcount_per_wave from the event-approved
   // vendor pool. Used by the capacity layer of the vendor_count suggestion.
-  avgVendorThroughput: number
+  poolCapacityPerWave: number
   // Server-computed average distinct categories per vendor in the pool.
   // Used by the variety layer — accounts for multi-category vendors so the
   // suggestion doesn't demand 1 vendor per cuisine the organizer picks.
@@ -153,7 +154,7 @@ const FORM_RESPONSIVE_CSS = `
   }
 `
 
-export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughput, avgCategoriesPerVendor, vendorPoolSize }: EventRequestFormProps) {
+export function EventRequestForm({ vertical, vendorPreference, poolCapacityPerWave, avgCategoriesPerVendor, vendorPoolSize }: EventRequestFormProps) {
   const accent = verticalAccent[vertical] || verticalAccent.farmers_market
   const locale = getClientLocale()
   const [form, setForm] = useState<FormData>({
@@ -220,22 +221,30 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
   // again rather than carrying a stale agreement forward.
   const [rushedAck, setRushedAck] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // The red box sits just above the submit button; on a phone the user may be
+  // scrolled elsewhere when it appears. Bring it into view (owner 2026-08-26:
+  // iPhone submit "did nothing" — a silent block is worse than a loud one).
+  const errorRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [error])
 
   function updateField(field: keyof FormData, value: string) {
     if (field === 'vendor_count') setVendorCountManuallyEdited(true)
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
-  // Layered vendor_count suggestion. See session75_event_consolidated_plan.md
-  // and the formula write-up for full reasoning. Layers:
-  //   1. Demand:    estimatedOrders = headcount × buyerRate (event_type-driven)
-  //   2. Timing:    numWaves = ceil(eventMinutes / 30)
-  //   3. Peak load: peakLoadPerWave varies by event_type's demand profile
-  //                 (concentrated lunch/party vs sustained team_building vs spread crowd)
-  //   4. Capacity:  capacityVendors = ceil(peakLoadPerWave / avgVendorThroughput)
-  //   5. Variety:   categoryVendors = ceil(numCategories / avgCategoriesPerVendor)
-  //                 — multi-category-aware so we don't blindly demand 1 per cuisine
-  //   6. Combine:   suggested = clamp(max(capacity, variety), 1, 20)
+  // vendor_count suggestion — the SHARED demand model (lib/events/demand-model.ts,
+  // owner 2026-08-26; replaced this form's private event-type rate table and its
+  // "half of all orders in one wave" placeholder):
+  //   1. Orders:    organizer's expected_meal_count, else headcount × the reviewed
+  //                 band (payment model + lunch/not + ticketed; competing food → low end)
+  //   2. Waves:     ceil(eventMinutes / 30)
+  //   3. Peak:      orders/waves × (1 + PEAK_WAVE_MARGIN)
+  //   4. Capacity:  ceil(peak / pool MEDIAN per-wave capacity)
+  //   5. Variety:   ceil(numCategories / avgCategoriesPerVendor)
+  //   6. Combine:   clamp(max(capacity, variety), 1, 20)
+  // The real check happens at selection time against accepted vendors' claims.
   //
   // Split into a derivation + a side effect on 2026-08-08. It was one effect
   // that both computed this number into state AND pre-filled form.vendor_count,
@@ -244,76 +253,43 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
   // derived during render; only the pre-fill — an actual side effect that
   // writes OTHER state — remains an effect. No formula changed.
   const systemSuggested = useMemo<number | null>(() => {
-    if (!form.event_type || !form.headcount) {
-      return null
-    }
+    if (!form.event_type || !form.headcount) return null
     const headcount = parseInt(form.headcount, 10)
-    if (isNaN(headcount) || headcount < 1) {
-      return null
-    }
-
-    // Layer 1 — buyer rate by event_type
-    let buyerRate = 0.6
-    switch (form.event_type) {
-      case 'corporate_lunch':
-      case 'team_building':
-        buyerRate = 1.0
-        break
-      case 'private_party':
-        buyerRate = 0.9
-        break
-      case 'grand_opening':
-      case 'festival':
-        buyerRate = 0.2
-        break
-      default:
-        buyerRate = 0.6
-    }
-    const estimatedOrders = Math.round(headcount * buyerRate)
-
-    // Layer 2 — wave count from times (else assume 2hr / 4 waves)
-    let numWaves = 4
-    if (form.event_start_time && form.event_end_time) {
-      const sParts = form.event_start_time.split(':').map(Number)
-      const eParts = form.event_end_time.split(':').map(Number)
-      if (sParts.length >= 2 && eParts.length >= 2 && !sParts.some(isNaN) && !eParts.some(isNaN)) {
-        const minutes = (eParts[0] * 60 + eParts[1]) - (sParts[0] * 60 + sParts[1])
-        if (minutes > 0) numWaves = Math.max(1, Math.ceil(minutes / 30))
-      }
-    }
-
-    // Layer 3 — peak load per wave by demand profile
-    let peakLoadPerWave: number
-    if (form.event_type === 'corporate_lunch' || form.event_type === 'private_party' || form.event_type === 'other') {
-      // CONCENTRATED: ~50% of orders compress into a single peak 30-min wave
-      peakLoadPerWave = estimatedOrders * 0.5
-    } else if (form.event_type === 'team_building') {
-      // SUSTAINED: 50% of orders cluster in peak ~25% of event
-      const peakWaves = Math.max(1, Math.ceil(numWaves * 0.25))
-      peakLoadPerWave = (estimatedOrders * 0.5) / peakWaves
-    } else {
-      // SPREAD (grand_opening, festival): foot traffic distributed evenly
-      peakLoadPerWave = estimatedOrders / numWaves
-    }
-
-    // Layer 4 — capacity-driven vendor count
-    const capacityVendors = Math.ceil(peakLoadPerWave / Math.max(1, avgVendorThroughput))
-
-    // Layer 5 — variety floor (multi-category-aware)
-    const numCategories = form.preferred_vendor_categories.length
-    const categoryVendors = numCategories > 0
-      ? Math.max(1, Math.ceil(numCategories / Math.max(1, avgCategoriesPerVendor)))
-      : 0
-
-    // Layer 6 — combine, clamp to [1, 20]
-    return Math.max(1, Math.min(20, Math.max(capacityVendors, categoryVendors)))
+    if (isNaN(headcount) || headcount < 1) return null
+    // Shared demand model (lib/events/demand-model.ts, owner 2026-08-26):
+    // organizer's expected buyers if given, else headcount × the reviewed
+    // rate band (payment model + lunch/not + ticketed; competing food → low
+    // end); peak wave = average × (1 + PEAK_WAVE_MARGIN); capacity need vs
+    // the pool MEDIAN per-wave capacity; variety need vs cuisines asked for.
+    const expectedMeals = form.expected_meal_count ? parseInt(form.expected_meal_count, 10) : null
+    const demand = estimateOrders({
+      headcount,
+      expectedMealCount: expectedMeals && expectedMeals > 0 ? expectedMeals : null,
+      paymentModel: form.payment_model || null,
+      eventType: form.event_type,
+      startTime: form.event_start_time || null,
+      isTicketed: form.is_ticketed,
+      hasCompetingFood: form.has_competing_vendors,
+    })
+    const waves = calculateWaveCount(form.event_start_time || null, form.event_end_time || null)
+    const peak = expectedPeakOrdersPerWave(demand.orders, waves)
+    return suggestVendorCount({
+      peakOrdersPerWave: peak,
+      capacityPerWave: poolCapacityPerWave,
+      categoryCount: form.preferred_vendor_categories.length,
+      avgCategoriesPerVendor,
+    }).suggested
   }, [
     form.event_type,
     form.headcount,
+    form.expected_meal_count,
+    form.payment_model,
+    form.is_ticketed,
+    form.has_competing_vendors,
     form.event_start_time,
     form.event_end_time,
     form.preferred_vendor_categories,
-    avgVendorThroughput,
+    poolCapacityPerWave,
     avgCategoriesPerVendor,
   ])
 
@@ -339,6 +315,17 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
     e.preventDefault()
     if (submitting) return
     setError(null)
+    try {
+      await submitRequest()
+    } catch (err) {
+      // Anything thrown outside the fetch (a render-time assumption, a parse)
+      // used to die silently in the console. Surface it in the red box instead.
+      setError(err instanceof Error ? err.message : t('erf.submit_failed', locale))
+      setSubmitting(false)
+    }
+  }
+
+  async function submitRequest() {
 
     // Validate required fields. Address is REQUIRED as of 2026-08-08 — it was
     // optional here while approval refused to advance without it, so an event
@@ -652,8 +639,13 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
   const leadStatus = form.event_date ? leadTimeStatus(form.event_date) : null
   const leadDays = form.event_date ? eventLeadDays(form.event_date) : null
 
+  // noValidate (owner 2026-08-26): the browser's built-in checks (required,
+  // type=email/date/time, min/max/step) block the submit BEFORE our handler
+  // runs, and iOS Safari shows nothing when they do — the button "did
+  // nothing". Every rule they enforced already exists in handleSubmit with a
+  // readable message, so let ours run and be seen.
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} noValidate>
       <style dangerouslySetInnerHTML={{ __html: FORM_RESPONSIVE_CSS }} />
       {/* Quick-Start: Company & Contact */}
       <div style={sectionStyle}>
@@ -936,12 +928,24 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
                         ? term(vertical, 'event_preference_unit_singular')
                         : term(vertical, 'event_preference_unit_plural')
                       const vendorWord = term(vertical, 'vendors').toLowerCase()
-                      const throughputPhrase = isFM
-                        ? `avg ${avgVendorThroughput} orders per vendor`
-                        : `avg ${avgVendorThroughput} orders / 30-min wave`
-                      return vendorPoolSize > 0
-                        ? `Based on ${form.headcount} ${parseInt(form.headcount, 10) === 1 ? 'attendee' : 'attendees'} and ${catCount} ${catUnit} at a ${form.event_type.replace('_', ' ')} event, balanced against our ${vendorPoolSize} event-approved ${vendorWord} (${throughputPhrase}, avg ${avgCategoriesPerVendor.toFixed(1)} ${term(vertical, 'event_preference_unit_plural')} per vendor), we suggest `
-                        : `For a ${form.headcount}-person ${form.event_type.replace('_', ' ')} event with ${catCount} ${catUnit}, we suggest `
+                      const hc = parseInt(form.headcount, 10)
+                      const meals = form.expected_meal_count ? parseInt(form.expected_meal_count, 10) : null
+                      const demand = estimateOrders({
+                        headcount: hc,
+                        expectedMealCount: meals && meals > 0 ? meals : null,
+                        paymentModel: form.payment_model || null,
+                        eventType: form.event_type,
+                        startTime: form.event_start_time || null,
+                        isTicketed: form.is_ticketed,
+                        hasCompetingFood: form.has_competing_vendors,
+                      })
+                      const basis = demand.basis === 'organizer'
+                        ? `your ${demand.orders} expected orders`
+                        : `${demand.rate.label} of attendees ordering${demand.usedLowEnd ? ' (low end — you noted competing food)' : ''}`
+                      const pool = vendorPoolSize > 0 ? ` and the ${vendorWord} on the platform` : ''
+                      // Owner 2026-08-26: the reasoning stays, the inventory does not —
+                      // never reveal the pool size or its averages here.
+                      return `Based on ${hc} ${hc === 1 ? 'attendee' : 'attendees'}, ${catCount} ${catUnit}${pool} at a ${form.event_type.replace('_', ' ')} event — assuming ${basis} and planning for a busier-than-average wave — we suggest `
                     })()}
                     <strong>{systemSuggested} {systemSuggested === 1 ? 'vendor' : 'vendors'}</strong>
                     {form.vendor_count && parseInt(form.vendor_count, 10) !== systemSuggested
@@ -957,6 +961,8 @@ export function EventRequestForm({ vertical, vendorPreference, avgVendorThroughp
 
       {error && (
         <div
+          ref={errorRef}
+          role="alert"
           style={{
             marginBottom: spacing.sm,
             padding: `${spacing['2xs']} ${spacing.xs}`,

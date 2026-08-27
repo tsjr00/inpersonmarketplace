@@ -1,4 +1,5 @@
 import { Metadata } from 'next'
+import { median, FALLBACK_CAPACITY_PER_WAVE } from '@/lib/events/demand-model'
 import Link from 'next/link'
 import { EventRequestForm } from '@/components/events/EventRequestForm'
 import { getServiceLevels } from '@/lib/events/service-levels'
@@ -48,12 +49,12 @@ export default async function CateringPage({ params, searchParams }: CateringPag
   const accent = isFT ? '#ff5757' : '#2d5016'
 
   // Compute pool-derived data the form uses to suggest vendor_count:
-  //   1. avgVendorThroughput — orders/30-min wave (capacity layer)
+  //   1. poolCapacityPerWave — orders/30-min wave (capacity layer)
   //   2. avgCategoriesPerVendor — distinct categories per vendor (variety layer,
   //      respects that some vendors cover multiple cuisines so we don't blindly
   //      multiply suggestion by category count)
   // Both fall back to safe defaults when the pool is empty.
-  let avgVendorThroughput = 30
+  let poolCapacityPerWave = FALLBACK_CAPACITY_PER_WAVE
   let avgCategoriesPerVendor = 1
   let vendorPoolSize = 0
   try {
@@ -75,7 +76,8 @@ export default async function CateringPage({ params, searchParams }: CateringPag
         .filter((n): n is number => typeof n === 'number' && n > 0)
 
       if (throughputs.length > 0) {
-        avgVendorThroughput = Math.round(throughputs.reduce((a, b) => a + b, 0) / throughputs.length)
+        // MEDIAN, not mean (owner 2026-08-26): one optimistic truck cannot skew it.
+        poolCapacityPerWave = Math.round(median(throughputs) ?? poolCapacityPerWave)
       }
 
       // Variety layer: count distinct categories each vendor covers via their
@@ -422,7 +424,7 @@ export default async function CateringPage({ params, searchParams }: CateringPag
         <EventRequestForm
           vertical={vertical}
           vendorPreference={vendorPreference}
-          avgVendorThroughput={avgVendorThroughput}
+          poolCapacityPerWave={poolCapacityPerWave}
           avgCategoriesPerVendor={avgCategoriesPerVendor}
           vendorPoolSize={vendorPoolSize}
         />
