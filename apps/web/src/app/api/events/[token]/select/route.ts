@@ -523,8 +523,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .single()
 
       if (vp?.user_id) {
-        await sendNotification(vp.user_id as string, 'catering_vendor_invited', {
-          companyName: 'Event Confirmed',
+        // Owner 2026-08-26: a real "you're confirmed" notification. This used
+        // to reuse catering_vendor_invited with companyName 'Event Confirmed',
+        // which read as a second invitation.
+        await sendNotification(vp.user_id as string, 'event_vendor_selected', {
+          companyName: event.company_name,
           headcount: event.headcount,
           eventDate: event.event_date,
           eventAddress: `${event.city}, ${event.state}`,

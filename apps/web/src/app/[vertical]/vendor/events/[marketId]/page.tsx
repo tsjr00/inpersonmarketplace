@@ -10,6 +10,7 @@ import { term } from '@/lib/vertical/terminology'
 // by the wave count having two sources. The exported original was two
 // directories away the whole time. One definition, one place.
 import { calculateWaveCount } from '@/lib/events/viability'
+import { estimateOrders, expectedPeakOrdersPerWave } from '@/lib/events/demand-model'
 import { createClient } from '@/lib/supabase/client'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import MarketAgreementBlock from '@/components/market-manager/MarketAgreementBlock'
@@ -507,6 +508,13 @@ export default function VendorCateringDetailPage() {
         <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral500, margin: 0 }}>
           {details.event_type ? EVENT_TYPE_LABELS[details.event_type] || details.event_type : 'Private Event'} · {details.city}, {details.state}
         </p>
+        {/* Owner 2026-08-26: say how the two-step works up front — accepting
+            is not the booking; the organizer's selection is. */}
+        {details.response_status !== 'accepted' && (
+          <p style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, margin: `${spacing['2xs']} 0 0`, lineHeight: 1.5 }}>
+            Accepting tells the organizer you&apos;re available. If they select you, you&apos;ll get a separate confirmation — that&apos;s when to block the date.
+          </p>
+        )}
       </div>
 
       {/* Event Vendor Fee (V1 2026-08-14). Disclosed BEFORE acceptance
@@ -951,6 +959,23 @@ export default function VendorCateringDetailPage() {
                       // @paired-rule capacity-seeding — display must mirror the seeded/submitted value. See lib/paired-rules.ts.
                       const waveCount = calculateWaveCount(details.event_start_time, details.event_end_time)
                       const profilePerWave = details.profile_max_headcount_per_wave
+                      // Owner 2026-08-26: "8 waves × 15 per wave" invited the wrong
+                      // math on a 40-person event. Say what THIS event actually asks
+                      // of the vendor, from the same demand model the organizer saw.
+                      const eventDemand = estimateOrders({
+                        headcount: details.headcount,
+                        expectedMealCount: null,
+                        paymentModel: details.payment_model,
+                        eventType: details.event_type,
+                        startTime: details.event_start_time,
+                        isTicketed: details.is_ticketed,
+                        hasCompetingFood: details.has_competing_vendors,
+                      })
+                      const eventPeak = expectedPeakOrdersPerWave(eventDemand.orders, waveCount)
+                      const yourPeakShare = Math.max(1, Math.ceil(eventPeak / expectedVendors))
+                      const committedPerWave = typeof maxOrdersPerWave === 'number' && maxOrdersPerWave >= 1
+                        ? maxOrdersPerWave
+                        : (profilePerWave ?? 0)
 
                       if (!profilePerWave) {
                         return (
@@ -978,9 +1003,15 @@ export default function VendorCateringDetailPage() {
                       return (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
                           <p style={{ fontSize: typography.sizes.xs, color: '#374151', margin: 0, lineHeight: 1.5 }}>
-                            This event has <strong>{waveCount} waves</strong> (30-minute service windows).
-                            Each wave is a time slot that customers select when ordering.
-                            When a wave fills up, that time slot closes but others stay open.
+                            <strong>This event:</strong> about {details.headcount} attendees — up to <strong>{waveCount} half-hour ordering {waveCount === 1 ? 'window' : 'windows'}</strong> (attendees
+                            pick a window when they pre-order; a full window closes, the others stay open). We expect roughly <strong>~{eventDemand.orders} orders in total</strong> and
+                            a busiest window of about <strong>{eventPeak}</strong> across all {term(vertical, 'event_vendor_unit')}s — about <strong>{yourPeakShare}</strong> for you
+                            with {expectedVendors} {term(vertical, 'event_vendor_unit')}s.
+                          </p>
+                          <p style={{ fontSize: typography.sizes.xs, margin: 0, lineHeight: 1.5, color: committedPerWave >= yourPeakShare ? '#166534' : '#92400e', fontWeight: typography.weights.semibold }}>
+                            {committedPerWave >= yourPeakShare
+                              ? `Comfortable — your ${committedPerWave} per window is above your share of the busiest window.`
+                              : `Tight — your ${committedPerWave} per window is below your share of the busiest window (${yourPeakShare}).`}
                           </p>
                           <div>
                             <label style={{ display: 'block', fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: '#374151', marginBottom: 4 }}>
@@ -1040,7 +1071,7 @@ export default function VendorCateringDetailPage() {
                           </div>
                           <div>
                             <label style={{ display: 'block', fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: '#374151', marginBottom: 4 }}>
-                              Total event capacity ({waveCount} waves &times; {maxOrdersPerWave || profilePerWave} per wave = {calculatedTotal})
+                              Your cap for the whole event ({waveCount} windows &times; {maxOrdersPerWave || profilePerWave} per window = {calculatedTotal}) — the most you&apos;d ever be asked to serve here, not a forecast
                             </label>
                             <input
                               type="number"
@@ -1172,7 +1203,10 @@ export default function VendorCateringDetailPage() {
             <li style={{ fontSize: typography.sizes.sm, color: statusColors.neutral700, lineHeight: 1.5 }}>
               {vertical === 'farmers_market'
                 ? 'Your selected items are now visible to event attendees'
-                : <>Add your event menu items to the{' '}<Link href={`/${vertical}/markets/${marketId}`} style={{ color: accent, fontWeight: typography.weights.semibold }}>event market page</Link></>
+                // Owner 2026-08-26: FT vendors pick their items AT acceptance
+                // (respond → listing_ids), so "add your items to the event market
+                // page" was a holdover pointing at the location profile.
+                : 'Your selected items are now on the event menu — attendees can pre-order them'
               }
             </li>
             <li style={{ fontSize: typography.sizes.sm, color: statusColors.neutral700, lineHeight: 1.5 }}>

@@ -56,11 +56,16 @@ export default async function EventPage({ params }: EventPageProps) {
     // 1. Get accepted vendor IDs (simple query, no embed)
     const { data: marketVendors } = await supabase
       .from('market_vendors')
-      .select('vendor_profile_id')
+      .select('vendor_profile_id, is_backup')
       .eq('market_id', event.market_id)
       .eq('response_status', 'accepted')
 
-    const acceptedVendorIds = (marketVendors || []).map(mv => mv.vendor_profile_id as string)
+    // Attending only (owner 2026-08-26): a truck the organizer deselected is
+    // benched (is_backup) — its menu is already gone from the shop
+    // (shop-data.ts attending filter), so it must not stay on the poster either.
+    const acceptedVendorIds = (marketVendors || [])
+      .filter(mv => mv.is_backup !== true)
+      .map(mv => mv.vendor_profile_id as string)
 
     if (acceptedVendorIds.length > 0) {
       // 2. Batch-fetch vendor profiles

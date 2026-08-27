@@ -270,8 +270,13 @@ describe('NI-014: Total notification types = 72', () => {
     //   customer_milestone (info = in_app only) — a buyer crossed a segment
     //     threshold with THIS vendor (Regular @4 / Local Legend @10 or 3
     //     straight months); names the customer so the vendor can greet them.
+    // 117 → 118 (2026-08-26, owner approved "tripwire approved along with all
+    // others"): event_vendor_selected (standard = email + in_app) — the
+    // organizer CONFIRMED this vendor. The select route had been re-sending
+    // catering_vendor_invited with companyName 'Event Confirmed', which read as
+    // a second invitation; vendors never got a "block the date" moment.
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(117)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(118)
   })
 
   it('includes all buyer-facing types', () => {

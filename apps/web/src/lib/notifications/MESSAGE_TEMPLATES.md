@@ -513,6 +513,18 @@ Farmers Marketing
 
 ---
 
+### Event Vendor Selected (`event_vendor_selected`) — 2026-08-26
+**Urgency:** Standard (Email + In-app)
+**Trigger:** the organizer confirms this vendor on the select page (newly selected only — an unchanged re-submit sends nothing)
+
+**In-app title:** You're confirmed for {{company_name}} on {{event_date}}
+**In-app message:** The organizer selected you for {{company_name}} in {{event_address}} on {{event_date}} ({{headcount}} people). Block the date — attendees can now pre-order from your event menu. Your event page has the address, times, and your prep view.
+**Action:** `/{{vertical}}/vendor/events/{{market_id}}`
+
+Replaces the old reuse of `catering_vendor_invited` with companyName "Event Confirmed", which read as a second invitation (owner testing 2026-08-26).
+
+---
+
 ### Customer Milestone (`customer_milestone`) — Loyalty Layer 1, 2026-08-25
 **Urgency:** Info (In-app only) — the vendor sees it on their next dashboard visit; zero send cost
 **Trigger:** a buyer newly crosses a segment threshold WITH THIS VENDOR — Regular (4 fulfilled orders) or Local Legend (10, or an order in each of 3 consecutive months)

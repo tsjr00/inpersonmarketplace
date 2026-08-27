@@ -2540,3 +2540,6 @@ BUILT (owner "implement as you think is best"):
 - Header logo `objectFit: 'contain'`.
 - Tests: demand-model.test.ts (spec = owner decisions) + 6 flow-integrity guards; map 14_Events line 6.
 Gates: tsc clean; lint 0 errors. Owner must retest the iPhone submit on staging after push; any failure now shows a message.
+
+## 2026-08-26 (cont. 2) — owner round-2 testing → items 1–7 BUILT (owner approved; #8 index page HELD; tripwire 117→118 approved)
+1. login prefill from ?email= (lazy initial state) · 2. Public Event Page roster filters is_backup (matches shop-data) · 3. `event_vendor_selected` notification (standard) replaces the reused catering_vendor_invited "Event Confirmed" · 4. FT next-step copy state-aware (no dead link) · 5. Vendor Event Page capacity box: "This event: ~N attendees, up to W windows, ~O orders total, busiest window ~P, ~S for you" + Comfortable/Tight verdict; total relabeled as a cap not a forecast · 6. Organizer Select Page: backups-come-from sentence, "Invite more trucks" link when bench short (→ event-manager/[id]/dashboard), ConfirmDialog when a change drops a confirmed vendor · 7. invitation header: "accepting ≠ booking; selection is" sentence. Map 14_Events page names. Backlog: index page (held), un-decline.

@@ -170,6 +170,7 @@ export type NotificationType =
   // Catering / Events
   | 'catering_request_received'
   | 'catering_vendor_invited'
+  | 'event_vendor_selected'
   | 'catering_vendor_responded'
   // T-59: the ORGANIZER's version of the above. catering_vendor_responded is
   // audience:'admin' and links to /admin/events, so it cannot be reused here —
@@ -1643,6 +1644,24 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
         : "If you accept, you'll select from 4 to 7 items from your catering menu for the organizer to review. We recommend updating your menu item descriptions to make sure they are accurate for what you plan to serve."
       const location = d.eventAddress ? `in ${d.eventAddress}` : 'in your area'
       return `We've matched you with an upcoming private event opportunity. An event organizer ${location} is looking for ${vendorWord} for ${d.headcount} people on ${d.eventDate}${timeRange}. ${acceptInstructions} Tap to view details and respond.`
+    },
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/events/${d.marketId}`,
+  },
+
+  // Owner 2026-08-26: the organizer CONFIRMED this vendor. Previously the
+  // select route re-sent `catering_vendor_invited` with companyName
+  // 'Event Confirmed' — it read as a second invitation and vendors never saw a
+  // "you're in, block the date" moment. Standard = email + in_app: a vendor
+  // must know this while away from the app.
+  event_vendor_selected: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: (d) => `You're confirmed for ${d.companyName || 'a private event'} on ${d.eventDate || 'the event date'}`,
+    message: (d) => {
+      const where = d.eventAddress ? ` in ${d.eventAddress}` : ''
+      const people = d.headcount ? ` (${d.headcount} people)` : ''
+      return `The organizer selected you for ${d.companyName || 'their event'}${where} on ${d.eventDate || 'the event date'}${people}. Block the date — attendees can now pre-order from your event menu. Your event page has the address, times, and your prep view.`
     },
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/events/${d.marketId}`,
   },

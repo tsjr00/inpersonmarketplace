@@ -21,7 +21,11 @@ interface VerticalConfig {
 
 export default function LoginPage({ params }: LoginPageProps) {
   const { vertical } = use(params)
-  const [email, setEmail] = useState('')
+  const searchParams = useSearchParams()
+  // The event-request success screen's "I already have an account" link passes
+  // ?email= (EventRequestForm). Prefill it — the organizer just typed it for
+  // us (owner 2026-08-26). Lazy initial state, not an effect.
+  const [email, setEmail] = useState(() => searchParams.get('email') ?? '')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
@@ -29,7 +33,6 @@ export default function LoginPage({ params }: LoginPageProps) {
   const [configLoading, setConfigLoading] = useState(true)
   const [branding, setBranding] = useState<VerticalBranding>(defaultBranding[vertical] || defaultBranding.farmers_market)
   const router = useRouter()
-  const searchParams = useSearchParams()
   const isEventRef = searchParams.get('ref') === 'event'
   // returnTo is generally NOT read here — existing users should always go
   // to their dashboard. The ONE narrow exception (2026-05-15, Phase B

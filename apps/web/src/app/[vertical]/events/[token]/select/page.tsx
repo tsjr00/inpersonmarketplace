@@ -9,6 +9,7 @@ import { spacing, typography, radius, statusColors } from '@/lib/design-tokens'
 // used to divide price_cents by 100 by hand and show the vendor's base price,
 // which no attendee ever sees.
 import { formatDisplayPrice, calculateItemDisplayPrice } from '@/lib/pricing'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 
 /**
  * Self-Service Event — Organizer Truck Selection Page
@@ -82,6 +83,11 @@ export default function EventSelectPage() {
   const [event, setEvent] = useState<EventDetails | null>(null)
   const [vendors, setVendors] = useState<InterestedVendor[]>([])
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  // Owner 2026-08-26: dropping a previously CONFIRMED vendor has consequences
+  // (its menu comes down, a paid fee is refunded, it is benched). Remember who
+  // was confirmed at load so a change can be confirmed before it is sent.
+  const [priorSelectedIds, setPriorSelectedIds] = useState<string[]>([])
+  const [confirmDropOpen, setConfirmDropOpen] = useState(false)
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [menusReviewed, setMenusReviewed] = useState<Set<string>>(new Set())
   const [shareContact, setShareContact] = useState(false)
@@ -125,6 +131,7 @@ export default function EventSelectPage() {
         setSelectedIds(prior)
         setMenusReviewed(new Set(prior))
       }
+      setPriorSelectedIds(prior)
     } catch {
       setError('Failed to load. Please try again.')
     }
@@ -161,6 +168,19 @@ export default function EventSelectPage() {
       return
     }
 
+    // A change that drops a confirmed vendor gets an explicit yes first.
+    const dropped = priorSelectedIds.filter(id => !selectedIds.includes(id))
+    if (dropped.length > 0) {
+      setConfirmDropOpen(true)
+      return
+    }
+    await submitSelections()
+  }
+
+  const droppedVendors = vendors.filter(v => priorSelectedIds.includes(v.vendor_profile_id) && !selectedIds.includes(v.vendor_profile_id))
+
+  async function submitSelections() {
+    if (!event) return
     setSubmitting(true)
     setError(null)
 
@@ -312,6 +332,11 @@ export default function EventSelectPage() {
               keeping <strong>{recommendedBackups}</strong> backup {recommendedBackups === 1 ? vendorTerm : vendorTermPlural} on
               standby. {vendorTermPluralCap} you didn&apos;t select are invited to join the bench —{' '}
               <strong>{standbyCount}</strong> {standbyCount === 1 ? 'is' : 'are'} on standby now.
+              {standbyCount < recommendedBackups && (
+                <>
+                  {' '}Short on options? <a href={`/${vertical}/event-manager/${event.id}/dashboard`} style={{ color: '#2563eb', fontWeight: typography.weights.semibold }}>Invite more {vendorTermPlural}</a> from your event dashboard — widening your criteria reaches {vendorTermPlural} that weren&apos;t matched the first time.
+                </>
+              )}
             </div>
           )}
 
@@ -403,8 +428,14 @@ export default function EventSelectPage() {
           </div>
         ) : (
           <>
-            <p style={{ color: statusColors.neutral500, fontSize: typography.sizes.sm, margin: `0 0 ${spacing.sm}` }}>
+            <p style={{ color: statusColors.neutral500, fontSize: typography.sizes.sm, margin: `0 0 ${spacing['2xs']}` }}>
               {vendors.length} {vendors.length > 1 ? vendorTermPlural : vendorTerm} interested &bull; Select up to {event.vendor_count}
+            </p>
+            {/* Owner 2026-08-26: say where backups come from BEFORE they pick —
+                the bench is volunteer-only (non-selected accepted vendors are
+                invited to stand by), and organizers couldn't see that. */}
+            <p style={{ color: statusColors.neutral500, fontSize: typography.sizes.xs, margin: `0 0 ${spacing.sm}`, lineHeight: 1.5 }}>
+              {vendorTermPluralCap} you don&apos;t select are invited to stand by as backups, ready to step in if a selected {vendorTerm} drops out.
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm, marginBottom: spacing.lg }}>
@@ -690,6 +721,20 @@ export default function EventSelectPage() {
             >
               {submitting ? 'Confirming...' : `Confirm ${selectedIds.length} ${selectedIds.length !== 1 ? vendorTermPluralCap : vendorTermCap}`}
             </button>
+
+            {/* Owner 2026-08-26: deselecting a confirmed vendor is a real
+                action with money + notification consequences — say so before
+                it goes out. ConfirmDialog, never window.confirm (mobile). */}
+            <ConfirmDialog
+              open={confirmDropOpen}
+              title={`Remove ${droppedVendors.length === 1 ? (droppedVendors[0]?.business_name || `this ${vendorTerm}`) : `${droppedVendors.length} ${vendorTermPlural}`} from your event?`}
+              message={`This takes ${droppedVendors.length === 1 ? 'their' : 'their'} menu off the event page, refunds any event fee they paid, and invites them to stand by as a backup instead. Newly added ${vendorTermPlural} are notified; removed ones are told they're on the bench. Continue?`}
+              confirmLabel="Yes, update my selections"
+              cancelLabel="Keep them"
+              variant="danger"
+              onConfirm={() => { setConfirmDropOpen(false); void submitSelections() }}
+              onCancel={() => setConfirmDropOpen(false)}
+            />
 
             {selectedIds.length > 0 && !canSubmit && (
               <p style={{ textAlign: 'center', marginTop: spacing.xs, fontSize: typography.sizes.xs, color: statusColors.neutral400 }}>

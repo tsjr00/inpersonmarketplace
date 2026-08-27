@@ -14,6 +14,8 @@ src/app/api/orders/reconfirm/**
 src/app/[vertical]/reconfirm/**
 -->
 
+**Page names (owner 2026-08-26 — use these so we stop guessing):** **Public Event Page** = `[vertical]/events/[token]` (attendees; roster + shop) · **Organizer Select Page** = `[vertical]/events/[token]/select` (organizer picks from accepted vendors; capacity check + backup bench live here) · **Organizer Event Dashboard** = `[vertical]/event-manager/[id]/dashboard` (edit details, widen matches) · **Vendor Event Page** = `[vertical]/vendor/events/[marketId]` (invitation → accept/decline with items + capacity → prep/cancel/standby after).
+
 **An event is not a vertical.** It is a `catering_requests` row plus a `markets` row with `market_type='event'` and `is_private=true`, cross-linked by `markets.catering_request_id` / `catering_requests.market_id` (`lib/events/event-actions.ts:119-140`). Events exist in both verticals.
 
 ---
