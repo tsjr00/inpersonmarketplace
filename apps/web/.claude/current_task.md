@@ -1,3 +1,24 @@
+# SESSION END 2026-08-26 (continuation) — WRAPPED. Read this block first; the 04:00 CT block below it is the same day's first half.
+
+## Git / env — VERIFY, don't trust
+| | |
+|---|---|
+| PROD `origin/main` | **`e946c2c0`** (unchanged since 03:35 CT) — Loyalty Layer 1 + six prod fixes; migs 001–237 on all three envs. |
+| `origin/staging` = local `main` | **`a23f6a85`** (+ this wrap commit) — prod + 2 docs commits + `fc8f04bd` demand model + `a23f6a85` round-2 event fixes. Playwright 49✓ every push. **4 commits ahead of prod, ALL owner-untested on staging as of wrap.** |
+
+## ⚡ WHAT SHIPPED (staging only, this continuation)
+1. `fc8f04bd` **One event demand model** (`lib/events/demand-model.ts`): intake suggestion, viability, backup bench and a NEW selection-time capacity check all read one estimate (organizer's expected count wins; else headcount × band by payment model + lunch/not + ticketed; competing food → low end; peak = avg wave × 1.25; pool capacity = MEDIAN). Intake copy states assumptions, never pool size/averages. **Intake form `noValidate` + scrolled error box** — the iPhone "button did nothing" was iOS Safari silently blocking a date inside the 10-day floor (owner's own lead-time rule); now it shows the message. Header logo `objectFit: contain`.
+2. `a23f6a85` **Round-2 findings**: login prefills ?email= · Public Event Page hides benched trucks · `event_vendor_selected` notification (tripwire 117→118) replaces the reused invitation · FT next-step copy fixed (dead link gone) · capacity box says what the event asks + Comfortable/Tight verdict · Organizer Select Page: backups-come-from sentence, "Invite more trucks" link when bench short, ConfirmDialog on dropping a confirmed truck · invitation header: accepting ≠ booking.
+Owner confirmed on staging: iPhone submit works (rushed-ack path too), fee $1 + Connect reuse works, First Bite badge notification received.
+
+## ▶ NEXT SESSION queue
+1. **Owner staging retest** (5-item list in chat 2026-08-26): email prefill · invitation capacity wording + verdict · "You're confirmed" notification + backup sentence + invite-more link · deselect dialog → roster updates → standby offer · next-step copy. Plus still-owed from the first half: Vercel PROD Ready for e946c2c0 + Tier-2 smoke; Tier-1 #6–7 (order-card chip; fulfill → First Bite — #7 effectively PASSED, owner saw the badge); ST-23/24; prod API log clean + first `completed` scan row.
+2. **Prod push** of the 4 staging commits after the retest (window 21:00–07:00 CT; no migrations owed — 236/237 already on prod).
+3. Held/backlogged: vendor events index page (mirror the organizer's multi-event page) · un-decline · Restore-event button · item-based re-confirm state · status-copy drift · dropped-PostgREST-error sweep · Google Vision billing (STILL off).
+4. Then chunk D (sales tax); Layer 2 offers after it.
+
+---
+
 # ⏰ FIRST THING NEXT SESSION — REMIND THE OWNER
 # 1. **Google Vision billing is STILL OFF → image moderation fail-open** (carry-over from 2026-08-16; GCP project #544338383934 → Billing → attach; free tier covers volume). Verify: /api/admin/moderation-test.
 # 2. Check the PROD Supabase API log: the five 2026-08-25 signatures (market_vendors.status · vendor_market_schedules.day_of_week · 22P02 "completed" · new_flags) must be GONE; `vendor_activity_scan_log` should have its first `completed` row (03:00 CT cron); market_surveys rows on market days.
