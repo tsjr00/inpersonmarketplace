@@ -10,6 +10,7 @@ import { calculateSmallOrderFee, getSmallOrderFeeConfig } from '@/lib/pricing'
 import { colors, statusColors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { FullPageLoading } from '@/components/shared/Spinner'
 import { term } from '@/lib/vertical'
+import { continueShoppingHref } from '@/lib/events/last-event-shop'
 import { getClientLocale } from '@/lib/locale/client'
 import { t } from '@/lib/locale/messages'
 import { TipSelector } from './TipSelector'
@@ -29,6 +30,14 @@ export default function CheckoutPage() {
 
   const [checkoutItems, setCheckoutItems] = useState<CheckoutItem[]>([])
   const [loading, setLoading] = useState(true)
+  // "Continue shopping" / back link: the event shop the attendee came from
+  // when one is remembered this tab (owner 2026-08-28), else /browse. Read
+  // after mount — sessionStorage does not exist on the server render.
+  const [continueHref, setContinueHref] = useState(`/${vertical}/browse`)
+  useEffect(() => {
+    const href = continueShoppingHref(vertical)
+    queueMicrotask(() => setContinueHref(href))
+  }, [vertical])
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState<{ message: string; code?: string; traceId?: string } | null>(null)
   const [user, setUser] = useState<{ id: string; email: string } | null>(null)
@@ -658,7 +667,7 @@ export default function CheckoutPage() {
             {t('checkout.empty_desc', locale)}
           </p>
           <Link
-            href={`/${vertical}/browse`}
+            href={continueHref}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -693,7 +702,7 @@ export default function CheckoutPage() {
       }}>
         <div style={{ maxWidth: containers.lg, margin: '0 auto' }}>
           <Link
-            href={`/${vertical}/browse`}
+            href={continueHref}
             style={{
               color: colors.textMuted,
               textDecoration: 'none',

@@ -2195,6 +2195,17 @@ describe('Event ↔ location availability', () => {
     expect(section).not.toContain('Set Schedule')
   })
 
+  it('organizer selection state derives from organizer_selected_at ONLY (never from status=ready)', () => {
+    // status 'ready' is set by the ACCEPTANCE threshold, before the organizer
+    // picks anyone. Deriving "selected" from it made the select page open in
+    // the confirmed state and made the first real confirmation notify nobody
+    // (owner testing 2026-08-28).
+    const route = rd('app/api/events/[token]/select/route.ts')
+    expect(/status === 'ready' && (mv|r)\.is_backup !== true/.test(route), 'the ready-and-not-backup fallback must stay gone').toBe(false)
+    expect(route).toMatch(/selected: mv\.organizer_selected_at != null,/)
+    expect(route).toMatch(/const isFirstConfirmation = previouslySelected\.size === 0/)
+  })
+
   it('the multi-truck / multi-location flag is offered in BOTH verticals under one key', () => {
     const form = rd('app/[vertical]/vendor/edit/EditProfileForm.tsx')
     expect(form).toContain('I can staff more than one location at the same time')

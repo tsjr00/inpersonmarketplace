@@ -23,7 +23,7 @@ src/app/[vertical]/reconfirm/**
 ## Read this first
 
 1. `lib/events/event-actions.ts` — the entire approve-and-match engine in one file. Read `:88-175` (approval) then `:198-398` (matching).
-2. `api/events/[token]/select/route.ts` — the token-only trust boundary and the `approved → ready` transition.
+2. `api/events/[token]/select/route.ts` — the token-only trust boundary and the `approved → ready` transition. Since 2026-08-28 "selected" and "first confirmation" derive from `market_vendors.organizer_selected_at` ONLY (the old status-`ready` fallback made every accepted vendor look confirmed before the organizer chose — no `event_vendor_selected`, no organizer kit).
 3. `lib/events/shop-data.ts` — the single payload every attendee surface renders from, including the auth-gated price hiding.
 4. `api/events/[token]/cancel/route.ts` — the only organizer-triggered money path; the comments at `:161-170` encode hard-won refund rules.
 5. `lib/events/viability.ts` — pure and testable; read it last, it explains the scoring vocabulary used elsewhere.

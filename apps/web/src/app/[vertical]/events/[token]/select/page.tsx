@@ -237,11 +237,12 @@ export default function EventSelectPage() {
           <div style={{ fontSize: '4rem', marginBottom: spacing.md }}>🎉</div>
           <h2 style={{ color: statusColors.neutral900, margin: `0 0 ${spacing.sm}` }}>Your {vendorTermPluralCap} Are Confirmed!</h2>
           <p style={{ color: statusColors.neutral600, lineHeight: 1.6, margin: `0 0 ${spacing.md}` }}>
-            We&apos;re notifying your selected {vendorTermPlural} now. They&apos;ll connect their {isFM ? 'items' : 'catering menus'} to your event,
-            and you&apos;ll receive your shareable event page link shortly.
+            We&apos;re notifying your selected {vendorTermPlural} now. The {isFM ? 'items' : 'menus'} they chose when they accepted
+            are already attached to your event — nothing more for them to connect. Your shareable event page link is on its
+            way to your email, and your event dashboard has it too.
           </p>
           <p style={{ color: statusColors.neutral500, fontSize: typography.sizes.sm }}>
-            Your attendees will be able to browse {isFM ? 'products' : 'menus'} and pre-order through the event page.
+            Your attendees can browse {isFM ? 'products' : 'menus'} and pre-order through the event page right away.
           </p>
         </div>
       </div>

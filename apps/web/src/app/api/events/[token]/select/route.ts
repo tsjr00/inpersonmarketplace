@@ -154,12 +154,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
       return {
         vendor_profile_id: vid,
-        // T-80: previously confirmed by the organizer. organizer_selected_at
-        // is the durable marker (mig 228); the ready-and-not-backup fallback
-        // covers events selected before that column existed.
-        selected:
-          mv.organizer_selected_at != null ||
-          (event.status === 'ready' && mv.is_backup !== true),
+        // T-80: previously confirmed by the organizer — organizer_selected_at
+        // (mig 228) and nothing else. The old ready-and-not-backup fallback
+        // made every accepted vendor look "confirmed" the moment the event hit
+        // the acceptance threshold (respond route sets status 'ready' BEFORE
+        // the organizer picks anyone), so the select page skipped straight to
+        // "Your trucks are confirmed" (owner testing 2026-08-28). Events
+        // selected before the stamp existed (pre 2026-08-14) are all past.
+        selected: mv.organizer_selected_at != null,
         // Backup bench (mig 232): this non-selected vendor opted into standby.
         on_standby: mv.is_backup === true && mv.standby_opted_in_at != null,
         // T-59: what the vendor wrote when they said yes.
@@ -318,8 +320,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // T-80: capture who was ALREADY confirmed before mutating anything.
     // Re-submitting used to re-notify every vendor and re-send the organizer
     // kit — the status guard below permits 'ready', so it never blocked this.
-    // Same derivation as GET: organizer_selected_at (mig 228) or, for events
-    // selected before that column existed, ready-and-not-backup.
+    // Same derivation as GET: organizer_selected_at (mig 228) ONLY. The old
+    // ready-and-not-backup fallback counted every accepted vendor as
+    // "previously selected" on a self-service event (status 'ready' is set
+    // by the ACCEPTANCE threshold, before any selection), so the first real
+    // confirmation notified nobody and skipped the organizer kit (owner
+    // testing 2026-08-28). "First confirmation" = no stamp existed yet.
     const { data: priorRows } = await serviceClient
       .from('market_vendors')
       .select('vendor_profile_id, is_backup, organizer_selected_at')
@@ -328,10 +334,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const previouslySelected = new Set(
       (priorRows || [])
-        .filter(r => r.organizer_selected_at != null || (event.status === 'ready' && r.is_backup !== true))
+        .filter(r => r.organizer_selected_at != null)
         .map(r => r.vendor_profile_id as string)
     )
-    const isFirstConfirmation = event.status === 'approved'
+    const isFirstConfirmation = previouslySelected.size === 0
     const newlySelectedIds = uniqueVendorIds.filter(id => !previouslySelected.has(id))
 
     // Event Vendor Fees (mig 228): stamp WHEN the organizer selected each

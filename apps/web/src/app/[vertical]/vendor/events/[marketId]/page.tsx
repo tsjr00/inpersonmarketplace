@@ -1232,9 +1232,13 @@ export default function VendorCateringDetailPage() {
                     ) : (
                       <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: typography.sizes.sm, color: statusColors.warningDark, cursor: 'pointer' }}>
                         <input type="checkbox" checked={conflictAck} onChange={(e) => setConflictAck(e.target.checked)} style={{ marginTop: 3 }} />
-                        <span>
-                          Our records show you operate one {isFT ? 'truck' : 'location'} at a time. <strong>I understand that by taking this event I won&apos;t sell at the place{a.conflicts.length === 1 ? '' : 's'} above that day</strong> — pre-orders there will be paused for the day{a.conflicts.some(c => c.paid) ? ', and a paid spot is not refunded' : ''}. Can cover both? Turn on <Link href={`/${vertical}/vendor/edit`} style={{ color: statusColors.warningDark, fontWeight: typography.weights.semibold }}>&ldquo;{flagLabel}&rdquo; in your profile</Link> instead.
-                        </span>
+                        {/* Owner wording 2026-08-28 — four separate points, not one run-on sentence. */}
+                        <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <li>Our records show you operate one {isFT ? 'truck' : 'location'} at a time.</li>
+                          <li>If you operate multiple {isFT ? 'trucks' : 'locations'} or can cover both sales opportunities, turn on <Link href={`/${vertical}/vendor/edit`} style={{ color: statusColors.warningDark, fontWeight: typography.weights.semibold }}>&ldquo;{flagLabel}&rdquo; in your profile</Link>.</li>
+                          <li><strong>I understand that by taking this event I won&apos;t sell at the place{a.conflicts.length === 1 ? '' : 's'} above that day.</strong></li>
+                          <li>Pre-orders from my conflicting sales location / schedule will be paused for the day so I can sell at the event{a.conflicts.some(c => c.paid) ? ' (a paid spot is not refunded)' : ''}.</li>
+                        </ul>
                       </label>
                     )}
                     {blocked && (
@@ -1329,27 +1333,52 @@ export default function VendorCateringDetailPage() {
               gap: spacing['2xs'],
             }}
           >
-            <li style={{ fontSize: typography.sizes.sm, color: statusColors.neutral700, lineHeight: 1.5 }}>
-              {vertical === 'farmers_market'
-                ? 'Your selected items are now visible to event attendees'
-                // Owner 2026-08-26: FT vendors pick their items AT acceptance
-                // (respond → listing_ids), so "add your items to the event market
-                // page" was a holdover pointing at the location profile.
-                : 'Your selected items are now on the event menu — attendees can pre-order them'
-              }
-            </li>
-            <li style={{ fontSize: typography.sizes.sm, color: statusColors.neutral700, lineHeight: 1.5 }}>
-              {vertical === 'farmers_market'
-                ? 'Keep your selection focused — highlight your best products for this audience'
-                : 'Keep your menu focused — just what you want to sell at this event'
-              }
-            </li>
-            <li style={{ fontSize: typography.sizes.sm, color: statusColors.neutral700, lineHeight: 1.5 }}>
-              {vertical === 'farmers_market'
-                ? 'Pre-orders let customers reserve items ahead — guaranteed sales before you arrive'
-                : "Pre-orders will arrive before the event so you can prep exactly what's needed"
-              }
-            </li>
+            {/* State-aware (owner testing 2026-08-28): before the organizer
+                picks, the vendor has said yes to being CONSIDERED — the box
+                said "your items are on the event menu" as if they were
+                already in. After selection it says what is actually true. */}
+            {!details.organizer_selected_at ? (
+              <>
+                <li style={{ fontSize: typography.sizes.sm, color: statusColors.neutral700, lineHeight: 1.5 }}>
+                  We will notify you if the event organizer chooses you to sell at the event. They still need to review all submissions and make a final decision.
+                </li>
+                <li style={{ fontSize: typography.sizes.sm, color: statusColors.neutral700, lineHeight: 1.5 }}>
+                  Start planning your staffing and make sure your {vertical === 'farmers_market' ? 'booth' : 'truck'} will be ready for the event day if you are chosen.
+                </li>
+                <li style={{ fontSize: typography.sizes.sm, color: statusColors.neutral700, lineHeight: 1.5 }}>
+                  Be ready to pay the event fee if there is one. If selected, you will pay through the app.
+                </li>
+                <li style={{ fontSize: typography.sizes.sm, color: statusColors.neutral700, lineHeight: 1.5 }}>
+                  If anything changes, contact the event organizer with the button below.
+                </li>
+              </>
+            ) : (
+              <>
+                <li style={{ fontSize: typography.sizes.sm, color: statusColors.neutral700, lineHeight: 1.5 }}>
+                  {vertical === 'farmers_market'
+                    ? 'You’re selected — the items you chose when you accepted are live on the event page and attendees can pre-order them now.'
+                    // Owner 2026-08-26: FT vendors pick their items AT acceptance
+                    // (respond → listing_ids), so "add your items to the event market
+                    // page" was a holdover pointing at the location profile.
+                    : 'You’re selected — the menu you chose when you accepted is live on the event page and attendees can pre-order from it now.'
+                  }
+                </li>
+                {details.vendor_fee_cents != null && details.vendor_fee_cents > 0 && details.vendor_fee_status === 'unpaid' && (
+                  <li style={{ fontSize: typography.sizes.sm, color: statusColors.neutral700, lineHeight: 1.5 }}>
+                    Pay the event fee above to secure your spot — your menu comes off the event page if it goes unpaid.
+                  </li>
+                )}
+                <li style={{ fontSize: typography.sizes.sm, color: statusColors.neutral700, lineHeight: 1.5 }}>
+                  {vertical === 'farmers_market'
+                    ? 'Pre-orders let customers reserve items ahead — guaranteed sales before you arrive. Your prep view shows what to bring.'
+                    : "Pre-orders will arrive before the event so you can prep exactly what's needed — your prep view shows them by pickup wave."
+                  }
+                </li>
+                <li style={{ fontSize: typography.sizes.sm, color: statusColors.neutral700, lineHeight: 1.5 }}>
+                  If anything changes, contact the event organizer with the button below.
+                </li>
+              </>
+            )}
           </ol>
         </div>
       )}

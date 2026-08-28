@@ -7,6 +7,7 @@ import { useCart } from '@/lib/hooks/useCart'
 import { spacing, typography, radius, statusColors } from '@/lib/design-tokens'
 import { calculateItemDisplayPrice, formatPrice } from '@/lib/pricing'
 import type { EventShopData } from '@/lib/events/shop-data'
+import { rememberEventShop } from '@/lib/events/last-event-shop'
 
 // ── Types ──
 interface Listing {
@@ -168,6 +169,13 @@ export function ShopClient({ vertical, token, initialData, isLoggedInInitial }: 
   const [placingOrder, setPlacingOrder] = useState(false)
   const [orderResult, setOrderResult] = useState<{ order_number: string } | null>(null)
   const [waveError, setWaveError] = useState<string | null>(null)
+
+  // Remember this shop for "Continue shopping" (cart drawer + checkout empty
+  // state) so an attendee who empties their cart lands back here, not on
+  // /browse (owner 2026-08-28).
+  useEffect(() => {
+    rememberEventShop(vertical, token)
+  }, [vertical, token])
 
   // Check auth
   useEffect(() => {

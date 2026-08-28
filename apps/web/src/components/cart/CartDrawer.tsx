@@ -9,6 +9,7 @@ import { term } from '@/lib/vertical'
 import { spacing, typography, radius, sizing, statusColors } from '@/lib/design-tokens'
 import { getClientLocale } from '@/lib/locale/client'
 import { t } from '@/lib/locale/messages'
+import { continueShoppingHref } from '@/lib/events/last-event-shop'
 
 export function CartDrawer() {
   const router = useRouter()
@@ -235,11 +236,13 @@ export function CartDrawer() {
             </button>
             {/* T-83: event carts get this button too — but it only closes the
                 drawer (the attendee is already standing in the event shop;
-                /browse would dump them out of it). Regular carts navigate. */}
+                /browse would dump them out of it). Regular carts navigate —
+                back to the event shop they came from when one is remembered
+                (owner 2026-08-28), else /browse. */}
             <button
               onClick={() => {
                 setIsOpen(false)
-                if (!items.some(i => i.market_type === 'event')) router.push(`/${vertical}/browse`)
+                if (!items.some(i => i.market_type === 'event')) router.push(continueShoppingHref(vertical))
               }}
               style={{
                 width: '100%',
