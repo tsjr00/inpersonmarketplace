@@ -592,9 +592,24 @@ export default function EventReadinessForm({
           color: colors.textMuted,
           lineHeight: 1.5,
         }}>
-          {vertical === 'food_trucks'
-            ? 'How our events work: attendees pre-order through the app, and every order is assigned to a 30-minute pickup wave — so the crowd arrives in evenly spaced batches instead of one long line. Your per-wave capacity is how many customers you can realistically serve in one of those 30-minute windows. Matching uses it to offer you events that fit, and wave slots are capped by it so you’re never overwhelmed on event day. It’s separate from your Pickup Capacity setting above (which only paces everyday orders) — and when you accept a specific event invitation, you’ll confirm your capacity for that event; that number is the one the event plans around.'
-            : 'How our events work: attendees pre-order through the app and pick their items up during the event. This number is how many customers you can realistically serve per hour — matching uses it to offer you events that fit your capacity. When you accept a specific event invitation, you’ll confirm your capacity for that event; that number is the one the event plans around.'}
+          {/* Owner copy 2026-08-28 (verbatim, three paragraphs). */}
+          {vertical === 'food_trucks' ? (
+            <>
+              <strong>How our events work:</strong> Attendees pre-order through the app before the event begins, and every order is assigned to a 30-minute pickup wave. Customers know when their food will be ready, so they arrive at your truck in evenly spaced batches instead of one long line. Your per-wave capacity is how many customers you can realistically serve in one of those 30-minute windows (waves).
+              <br /><br />
+              The system uses algorithms that factor in your capacity as part of the process of matching you with events that are a good fit for you. It also caps the wave slots that are available for event attendees to choose from so you&rsquo;re less likely to be overwhelmed on event day with unexpected rush orders that you may not be ready for.
+              <br /><br />
+              Your event capacity is separate from your Pickup Capacity setting above (which paces your everyday, non-event, orders). We know that your capacity may change with your menu and the amount of help you have, so when you accept a specific event invitation, you&rsquo;ll be able to change and confirm your capacity for that event. Your event capacity is important for keeping events running smoothly, be as accurate as you can be.
+            </>
+          ) : (
+            <>
+              <strong>How our events work:</strong> Attendees pre-order through the app before the event begins and pick their items up during the event, so they arrive at your booth in spaced-out groups instead of one long line. This number is how many customers you can realistically serve per hour.
+              <br /><br />
+              The system uses algorithms that factor in your capacity as part of the process of matching you with events that are a good fit for you.
+              <br /><br />
+              Your event capacity is separate from your Pickup Capacity setting above (which paces your everyday, non-event, orders). We know that your capacity may change with your products and the amount of help you have, so when you accept a specific event invitation, you&rsquo;ll be able to change and confirm your capacity for that event. Your event capacity is important for keeping events running smoothly, be as accurate as you can be.
+            </>
+          )}
         </p>
         <label style={labelStyle}>
           {vertical === 'food_trucks'
@@ -612,7 +627,7 @@ export default function EventReadinessForm({
         />
         <p style={hintStyle}>
           {vertical === 'food_trucks'
-            ? 'Events use staggered waves — how many people can you serve in a 30-minute window?'
+            ? 'How many people can you serve in a 30-minute window with most orders coming from the app?'
             : 'Consider checkout speed, product restocking, and customer interaction time'}
         </p>
       </div>

@@ -334,6 +334,27 @@ export default function DocumentsCertificationsSection({
       }}>
         Documents & Certifications
       </h2>
+      {/* Tester finding 2026-07-25: vendors didn't realize these docs are shared
+          with the markets/parks they book with — they looked for a "share"
+          action that doesn't exist because sharing is automatic (consent at
+          booking). Say so, and prompt them to keep files current. Moved inside
+          this section (owner 2026-08-28) so it sits with the documents it
+          describes. */}
+      <div style={{
+        marginBottom: spacing.md,
+        padding: spacing.sm,
+        backgroundColor: '#eff6ff',
+        border: '1px solid #bfdbfe',
+        borderRadius: radius.md,
+        fontSize: typography.sizes.sm,
+        color: '#1e3a5f',
+        lineHeight: 1.5,
+      }}>
+        <strong>These documents are shared with the markets and parks you book with.</strong> When you
+        book, the operator can review whatever&apos;s on file here for approval — there&apos;s nothing extra
+        to send them. Keep these current: if any have expired or changed, upload new versions and the
+        operators will see the updated files automatically.
+      </div>
       {/* ==================== ONBOARDING PROGRESS ==================== */}
       {!gateLoading && (
         <div style={{

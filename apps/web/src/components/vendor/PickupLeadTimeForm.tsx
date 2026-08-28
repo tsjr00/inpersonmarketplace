@@ -70,7 +70,7 @@ export default function PickupLeadTimeForm({ vendorId, currentLeadMinutes, capac
         fontSize: typography.sizes.sm,
         color: colors.textMuted
       }}>
-        Choose the minimum time you need to prepare an order after a buyer places it. If you select 15 minutes, you guarantee at least 15 minutes of prep time before the buyer arrives. If you select 30 minutes, you get at least 30. The actual window may be longer — this is just the minimum.
+        Choose the minimum time you need to prepare an order after a buyer places it. If you select 15 minutes, you guarantee at least 15 minutes of prep time before the buyer arrives. If you select 30 minutes, you get at least 30. Based on the pick-up time the customer selects when they place their order, you may have much more prep time — 15 or 30 minutes is just the minimum.
       </p>
 
       <div style={{ display: 'flex', gap: spacing.sm, marginBottom: spacing.sm }}>

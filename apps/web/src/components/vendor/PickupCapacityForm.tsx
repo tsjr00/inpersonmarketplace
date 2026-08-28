@@ -111,8 +111,9 @@ export default function PickupCapacityForm({ vendorId, slotMinutes, current, eve
         Your Pickup Capacity is the amount of app pre-orders the system will let you accept in any{' '}
         {slotMinutes}-minute time slot. Setting a limit helps prevent you from getting too many app orders that want to
         pick up at the same time as a line of walk-up clients. Most times this isn&apos;t an issue, but around busy
-        times, like a lunch or dinner rush, this limit will help smooth out your orders so people don&apos;t have to
-        wait as long.
+        times, like a lunch or dinner rush, this limit will help smooth out your orders so you can manage your
+        walk-up customers, who wait in line, alongside your in-app customers who skip the line when they arrive at
+        their pre-selected pickup time.
       </p>
       {/* Owner request 2026-08-15: this section and the Private Events
           Readiness per-wave question read alike but control different flows —
@@ -229,8 +230,8 @@ export default function PickupCapacityForm({ vendorId, slotMinutes, current, eve
         <p style={{ margin: `0 0 ${spacing.xs} 0` }}>
           <strong>Set it too high</strong> and the pacing stops working — everyone picks 12:00, you get slammed, orders
           run late, and the skip-the-line promise your app customers paid for breaks.<br />
-          <strong>Set it too low</strong> and you turn away the app customers you do have — they&apos;ll see Full and
-          order somewhere else.
+          <strong>Set it too low</strong> and you turn away the app customers who want to buy from you — they&apos;ll see
+          that you are Full and may order somewhere else.
         </p>
         <p style={{ margin: `0 0 ${spacing.xs} 0` }}>
           <strong>Start conservative.</strong> App ordering builds slowly at first; it&apos;s easy to raise this once you

@@ -177,27 +177,9 @@ export default async function EditProfilePage({ params }: EditProfilePageProps) 
         </div>
       )}
 
-      {/* Tester finding 2026-07-25: vendors didn't realize these docs are shared
-          with the markets/parks they book with — they looked for a "share"
-          action that doesn't exist because sharing is automatic (consent at
-          booking). Say so, and prompt them to keep files current. */}
-      <div style={{
-        marginTop: 20,
-        padding: 12,
-        backgroundColor: '#eff6ff',
-        border: '1px solid #bfdbfe',
-        borderRadius: 8,
-        fontSize: 14,
-        color: '#1e3a5f',
-        lineHeight: 1.5,
-      }}>
-        <strong>These documents are shared with the markets and parks you book with.</strong> When you
-        book, the operator can review whatever&apos;s on file here for approval — there&apos;s nothing extra
-        to send them. Keep these current: if any have expired or changed, upload new versions and the
-        operators will see the updated files automatically.
-      </div>
-
-      {/* Unified Documents & Certifications Section */}
+      {/* Unified Documents & Certifications Section. The "shared with the
+          markets and parks you book with" explainer lives INSIDE the section
+          now (owner 2026-08-28) — it sat above it and read as a separate box. */}
       <div style={{ marginTop: 20 }}>
         <DocumentsCertificationsSection
           vendorId={vendorProfile.id}
