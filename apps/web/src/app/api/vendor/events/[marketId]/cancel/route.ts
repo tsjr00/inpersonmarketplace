@@ -7,6 +7,7 @@ import { FEES, proratedFlatFeeSimple } from '@/lib/pricing'
 import { createRefund } from '@/lib/stripe/payments'
 import { refundEventFeePayment } from '@/lib/stripe/event-fee-payments'
 import { decideFeeOutcome, waivableUntil } from '@/lib/events/fee-cancellation'
+import { liftEventBlackouts } from '@/lib/events/blackouts'
 import { stripe } from '@/lib/stripe/config'
 import { restoreInventory } from '@/lib/inventory'
 
@@ -134,6 +135,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
         { error: 'Cancellation could not be recorded. Please try again or contact support.' },
         { status: 500 }
       )
+    }
+
+    // 1a. R3-4: they are no longer going — give back the day at whichever
+    // location they had paused for this event (mig 238 blackouts lifted).
+    {
+      const { error: liftErr } = await liftEventBlackouts(serviceClient, marketId, vendorProfile.id)
+      if (liftErr) console.error('[vendor-event-cancel] blackout lift failed:', liftErr)
     }
 
     // 1b. EVENT VENDOR FEE money (Backup bench Phase 3, 2026-08-16 —

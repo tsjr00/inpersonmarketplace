@@ -3,17 +3,19 @@
 import { useState } from 'react'
 import { term } from '@/lib/vertical'
 import { colors, statusColors } from '@/lib/design-tokens'
-import MarketScheduleSelector from '@/components/vendor/MarketScheduleSelector'
 import type { Market, ErrorState } from './types'
 import { DAYS } from './utils'
 
+// R3-4 (2026-08-27): event cards no longer offer Set/Manage Schedule. Event
+// attendance is the market_vendors acceptance row (mig 234) — a schedule row
+// does nothing for an event and the button's only real effect was a false
+// "schedule conflict" from the weekly-schedule check. Events are answered on
+// the Vendor Event Page.
 interface EventMarketsSectionProps {
   vertical: string
   eventMarkets: Market[]
   setError: (error: ErrorState) => void
   fetchMarkets: () => Promise<void>
-  selectedMarketForSchedule: Market | null
-  setSelectedMarketForSchedule: (market: Market | null) => void
 }
 
 export default function EventMarketsSection({
@@ -21,8 +23,6 @@ export default function EventMarketsSection({
   eventMarkets,
   setError,
   fetchMarkets,
-  selectedMarketForSchedule,
-  setSelectedMarketForSchedule,
 }: EventMarketsSectionProps) {
   const [showEventSuggestionForm, setShowEventSuggestionForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -260,34 +260,17 @@ export default function EventMarketsSection({
                   })()}
                 </div>
               </div>
-              {!market.hasAttendance && (
-                <button onClick={() => setSelectedMarketForSchedule(market)}
+              {/* Invitations, acceptance, menu and capacity all live on the
+                  Vendor Event Page — one place to answer an event. */}
+              {market.responseStatus && (
+                <a
+                  href={`/${vertical}/vendor/events/${market.id}`}
                   style={{
-                    marginTop: 8, padding: '6px 14px', backgroundColor: 'white', color: colors.primary,
-                    border: `1px solid ${colors.primary}`, borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: 500
+                    display: 'inline-block', marginTop: 8, padding: '6px 14px', backgroundColor: 'white', color: colors.primary,
+                    border: `1px solid ${colors.primary}`, borderRadius: 6, textDecoration: 'none', fontSize: 13, fontWeight: 500
                   }}>
-                  Set Schedule
-                </button>
-              )}
-              {market.hasAttendance && (
-                <button onClick={() => setSelectedMarketForSchedule(market)}
-                  style={{
-                    marginTop: 8, padding: '6px 14px', backgroundColor: 'transparent', color: colors.textMuted,
-                    border: `1px solid ${statusColors.neutral300}`, borderRadius: 6, cursor: 'pointer', fontSize: 13
-                  }}>
-                  Manage Schedule
-                </button>
-              )}
-              {selectedMarketForSchedule?.id === market.id && (
-                <div style={{ marginTop: 16 }}>
-                  <MarketScheduleSelector
-                    marketId={market.id}
-                    marketName={market.name}
-                    vertical={vertical}
-                    marketType="event"
-                    onClose={() => { setSelectedMarketForSchedule(null); fetchMarkets() }}
-                  />
-                </div>
+                  {market.responseStatus === 'invited' ? 'Respond to invitation' : 'Open event page'}
+                </a>
               )}
             </div>
           ))}

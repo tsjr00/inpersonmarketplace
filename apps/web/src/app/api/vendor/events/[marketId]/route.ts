@@ -9,6 +9,7 @@ import {
 import { withErrorTracing } from '@/lib/errors'
 import { maskedEventName } from '@/lib/events/event-name'
 import { calculateBoothRentalFees } from '@/lib/pricing'
+import { loadVendorAvailability } from '@/lib/events/availability'
 
 interface RouteContext {
   params: Promise<{ marketId: string }>
@@ -188,8 +189,17 @@ export async function GET(request: NextRequest, context: RouteContext) {
       }
       const feeAmounts = feeCents && feeCents > 0 ? calculateBoothRentalFees(feeCents) : null
 
+      // R3-4: while the invitation is open, tell the vendor what else they have
+      // on the event's dates so the choice is visible BEFORE they build a menu
+      // and set capacity. The accept route re-runs the same check (days can
+      // pass between). null = nothing to check (no date yet).
+      const availability = marketVendor.response_status === 'invited'
+        ? await loadVendorAvailability(serviceClient, vendorProfile.id, marketId)
+        : null
+
       return NextResponse.json({
         event: {
+          availability,
           market_id: market.id,
           // T-75: the market's real name IS the organizer's company (built as
           // `${company_name} ${suffix}` at approval), so returning it here

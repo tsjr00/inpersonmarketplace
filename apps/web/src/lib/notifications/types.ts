@@ -121,6 +121,9 @@ export type NotificationType =
   // FT park-manager P4b — standing (recurring) spot holds.
   | 'park_standing_occurrence_ready'
   | 'park_date_cancelled_truck'
+  // R3-4 (2026-08-27): a truck with a PAID spot chose an event that day
+  // instead — the operator is told (notify only; the booking stays paid).
+  | 'park_spot_skipped_for_event'
   | 'email_suppressed_notice'
   | 'park_standing_suspended'
   // FT park-manager P4b-2 — day-of check-in reminder (open/midday/pre-close).
@@ -1089,6 +1092,26 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     message: (d) =>
       `${d.marketName || 'The park'} cancelled ${d.marketDate || 'a booked date'}${d.reason ? ` (${d.reason})` : ''}. Your vendor space booking for that date was cancelled and a ${d.amountCents ? `$${(d.amountCents / 100).toFixed(2)} ` : ''}booking credit was added — it applies automatically the next time you book at this park.`,
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/markets/${d.marketId || ''}/book-spot`,
+  },
+
+  // R3-4 (2026-08-27) — a truck with a PAID spot on this date accepted an event
+  // instead (single-truck rule: they cannot do both). The operator is told right
+  // away so they have a chance to re-let the spot — but NOTHING is released
+  // here: the booking stays paid (the truck chose), the slot stays held in the
+  // system; releasing it is the operator's call, arranged with the truck.
+  // in_app only (standard) — free channel, and the operator acts from the
+  // park dashboard anyway.
+  park_spot_skipped_for_event: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor', // park operators act from a vendor-adjacent role
+    title: (d) => `${d.vendorName || 'A food truck'} won't use their spot on ${d.marketDate || 'a booked date'}`,
+    message: (d) =>
+      `${d.vendorName || 'A food truck'} is attending an event on ${d.marketDate || 'that date'} instead of their paid spot at ${d.marketName || 'your park'}. The booking stays paid and the spot stays reserved to them — if you'd like to offer it to another truck, contact them to arrange a release.`,
+    actionUrl: (d) =>
+      d.marketId
+        ? `/${d.vertical || 'food_trucks'}/market-manager/${d.marketId}/dashboard`
+        : `/${d.vertical || 'food_trucks'}/dashboard`,
   },
 
   // FT P4b-2 — day-of reminder to check in (fires open / midday / pre-close to a

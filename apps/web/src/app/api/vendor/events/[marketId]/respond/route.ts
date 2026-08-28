@@ -6,10 +6,12 @@ import {
   rateLimitResponse,
   rateLimits,
 } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, logError, TracedError } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications/service'
 import { fetchMarketOptinForVendor } from '@/lib/markets/optin-public'
 import { computeAgreementVersionFromSnapshot } from '@/lib/markets/agreement-version'
+import { loadVendorAvailability, describeConflict, type VendorAvailability } from '@/lib/events/availability'
+import { writeEventBlackouts } from '@/lib/events/blackouts'
 
 interface RouteContext {
   params: Promise<{ marketId: string }>
@@ -42,13 +44,20 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
       const { marketId } = await context.params
       const body = await request.json()
-      const { response_status, listing_ids, event_max_orders_total, event_max_orders_per_wave, agreement_accepted } = body as {
+      const {
+        response_status, listing_ids, event_max_orders_total, event_max_orders_per_wave, agreement_accepted,
+        skip_conflicts_acknowledged, multi_truck_confirmed,
+      } = body as {
         response_status: string
         response_notes?: string
         listing_ids?: string[]
         event_max_orders_total?: number
         event_max_orders_per_wave?: number
         agreement_accepted?: boolean
+        /** R3-4: non-flagged vendor acknowledges skipping the conflicting location(s) */
+        skip_conflicts_acknowledged?: boolean
+        /** R3-4: flagged (multi-truck / multi-location) vendor confirms covering both */
+        multi_truck_confirmed?: boolean
       }
       let response_notes = (body as { response_notes?: string }).response_notes
 
@@ -173,56 +182,74 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         )
       }
 
-      // Conflict detection: check for overlapping event commitments on the same date
-      // Single-truck vendors are BLOCKED. Multi-truck vendors get a WARNING (in response notes).
+      // R3-4 availability check (owner rule 2026-08-27, decisions.md "Event ↔
+      // location conflicts"): the vendor cannot do this event AND another
+      // scheduled location at the same time unless they have said they can
+      // cover both (profile_data.multiple_trucks — FT trucks, FM "can staff
+      // more than one location"). Same check the Vendor Event Page ran at
+      // invitation render; it runs again here because days pass in between.
+      //   flagged     → must confirm they will cover both; the organizer is told
+      //   not flagged → open orders at the conflict: refused (fulfill/cancel
+      //                 first, or set the profile flag); another accepted event:
+      //                 refused (as before); otherwise must acknowledge skipping
+      //                 the location → whole-day blackout there (mig 238) after
+      //                 the acceptance is recorded, so no pre-order can land.
+      let availability: VendorAvailability | null = null
       if (response_status === 'accepted') {
-        // Get this event's date
-        const { data: thisMarket } = await serviceClient
-          .from('markets')
-          .select('event_start_date, event_end_date')
-          .eq('id', marketId)
-          .single()
-
-        if (thisMarket?.event_start_date) {
-          // Find other events this vendor has accepted on the same date
-          const { data: conflicts } = await serviceClient
-            .from('market_vendors')
-            .select('market_id, markets:market_id(name, event_start_date, event_end_date, market_type)')
-            .eq('vendor_profile_id', vendorProfile.id)
-            .eq('response_status', 'accepted')
-            .neq('market_id', marketId)
-
-          const dateConflicts = (conflicts || []).filter(c => {
-            const m = c.markets as unknown as { event_start_date: string; event_end_date: string; market_type: string } | null
-            if (!m || m.market_type !== 'event') return false
-            // Check date overlap
-            const thisStart = thisMarket.event_start_date
-            const thisEnd = thisMarket.event_end_date || thisStart
-            const otherStart = m.event_start_date
-            const otherEnd = m.event_end_date || otherStart
-            return thisStart <= otherEnd && thisEnd >= otherStart
-          })
-
-          if (dateConflicts.length > 0) {
-            const isMultiTruck = (vendorProfile.profile_data as Record<string, unknown>)?.multiple_trucks === true
-            const conflictNames = dateConflicts.map(c => {
-              const m = c.markets as unknown as { name: string } | null
-              return m?.name || 'another event'
-            })
-
-            if (!isMultiTruck) {
-              // Single-truck vendor: BLOCK acceptance
+        availability = await loadVendorAvailability(serviceClient, vendorProfile.id, marketId)
+        if (availability && availability.conflicts.length > 0) {
+          const list = availability.conflicts.map(describeConflict)
+          const isFT = vendorProfile.vertical_id === 'food_trucks'
+          const flagLabel = isFT ? 'Multiple trucks' : 'I can staff more than one location at the same time'
+          const conflictPayload = {
+            conflicts: availability.conflicts,
+            multi_capable: availability.multiCapable,
+          }
+          if (availability.multiCapable) {
+            if (multi_truck_confirmed !== true) {
               return NextResponse.json(
-                { error: `Schedule conflict: you already have a commitment on this date (${conflictNames.join(', ')}). As a single-truck operator, please cancel the existing commitment first or enable "Multiple Trucks" in your profile settings.` },
+                {
+                  error: `You have another commitment during this event (${list.join('; ')}). Confirm you can cover both to accept.`,
+                  code: 'ERR_CONFLICT_CONFIRM_REQUIRED',
+                  ...conflictPayload,
+                },
                 { status: 409 }
               )
             }
-            // Multi-truck vendor: allow but add warning to response notes
-            const conflictWarning = `[MULTI-TRUCK] Vendor has other commitments on this date: ${conflictNames.join(', ')}`
-            if (response_notes) {
-              response_notes = `${response_notes}\n${conflictWarning}`
-            } else {
-              response_notes = conflictWarning
+            // Organizer is told (owner 2026-08-27): the note rides along in the
+            // "vendor responded" notification below.
+            const conflictWarning = `[MULTI-TRUCK] Vendor confirmed covering other commitments on this date: ${list.join('; ')}`
+            response_notes = response_notes ? `${response_notes}\n${conflictWarning}` : conflictWarning
+          } else {
+            if (availability.blockedByEvent) {
+              return NextResponse.json(
+                {
+                  error: `You already have another event during this one (${list.join('; ')}). Withdraw from it first, or turn on "${flagLabel}" in your profile if you can cover both.`,
+                  code: 'ERR_CONFLICT_EVENT',
+                  ...conflictPayload,
+                },
+                { status: 409 }
+              )
+            }
+            if (availability.blockedByOrders) {
+              return NextResponse.json(
+                {
+                  error: `Customers already have orders with you during this event (${list.join('; ')}). Fulfill or cancel those first — or, if you can cover both, turn on "${flagLabel}" in your profile.`,
+                  code: 'ERR_CONFLICT_OPEN_ORDERS',
+                  ...conflictPayload,
+                },
+                { status: 409 }
+              )
+            }
+            if (skip_conflicts_acknowledged !== true) {
+              return NextResponse.json(
+                {
+                  error: `You're scheduled elsewhere during this event (${list.join('; ')}). Our records show you operate one ${isFT ? 'truck' : 'location'} at a time, so accepting means you won't sell there that day and pre-orders there will be paused. Acknowledge to continue, or turn on "${flagLabel}" in your profile if you can cover both.`,
+                  code: 'ERR_CONFLICT_ACK_REQUIRED',
+                  ...conflictPayload,
+                },
+                { status: 409 }
+              )
             }
           }
         }
@@ -284,6 +311,56 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           { error: 'Failed to update response' },
           { status: 500 }
         )
+      }
+
+      // R3-4: the acceptance is recorded — now pause the location(s) the vendor
+      // chose to skip (whole day, mig 238) and tell a park operator whose paid
+      // spot will sit empty. Notify only — the booking stays paid; releasing
+      // it without credit is a separate (backlogged) path. A failed write is
+      // logged, never fatal: the vendor's answer stands either way.
+      if (
+        response_status === 'accepted' &&
+        availability &&
+        !availability.multiCapable &&
+        availability.conflicts.length > 0
+      ) {
+        const { written, error: blackoutErr } = await writeEventBlackouts(
+          serviceClient,
+          vendorProfile.id,
+          marketId,
+          availability.conflicts,
+          'Chose an event over this location for the day'
+        )
+        if (blackoutErr) {
+          await logError(new TracedError('ERR_DB_UNKNOWN', `[vendor/events/respond] blackout write failed for vendor ${vendorProfile.id} @ event ${marketId}: ${blackoutErr}`, {
+            route: '/api/vendor/events/[marketId]/respond', method: 'PATCH',
+          }))
+        }
+        const skippedPaidParks = availability.conflicts.filter(c => c.kind === 'park_booking')
+        if (written > 0 && skippedPaidParks.length > 0) {
+          const pd = vendorProfile.profile_data as Record<string, unknown> | null
+          const truckName = (pd?.business_name as string) || (pd?.farm_name as string) || 'A food truck'
+          const { data: parks } = await serviceClient
+            .from('markets')
+            .select('id, name, manager_user_id')
+            .in('id', [...new Set(skippedPaidParks.map(c => c.marketId))])
+          for (const park of parks ?? []) {
+            if (!park.manager_user_id) continue
+            for (const c of skippedPaidParks.filter(x => x.marketId === park.id)) {
+              await sendNotification(
+                park.manager_user_id as string,
+                'park_spot_skipped_for_event',
+                {
+                  vendorName: truckName,
+                  marketName: park.name as string,
+                  marketId: park.id as string,
+                  marketDate: c.date,
+                },
+                { vertical: marketInfo.vertical_id as string }
+              )
+            }
+          }
+        }
       }
 
       // Phase 3 (2026-08-16): a promoted backup whose spot was COVERED by a

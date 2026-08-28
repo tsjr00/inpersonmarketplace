@@ -605,8 +605,6 @@ export default function VendorMarketsPage() {
           eventMarkets={eventMarkets}
           setError={setError}
           fetchMarkets={fetchMarkets}
-          selectedMarketForSchedule={selectedMarketForSchedule}
-          setSelectedMarketForSchedule={setSelectedMarketForSchedule}
         />
       </div>
     </div>

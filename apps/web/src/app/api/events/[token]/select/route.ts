@@ -6,6 +6,7 @@ import { refundEventFeePayment } from '@/lib/stripe/event-fee-payments'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { sendNotification } from '@/lib/notifications/service'
 import { recommendBackupBench } from '@/lib/events/backup-bench'
+import { liftEventBlackouts } from '@/lib/events/blackouts'
 import {
   calculateWaveCount,
   checkAcceptedCapacity,
@@ -362,6 +363,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
           .update({ is_backup: true })
           .eq('market_id', event.market_id)
           .in('vendor_profile_id', notSelectedIds)
+
+        // R3-4: a benched vendor is NOT going — give them back the day at the
+        // location they had paused for this event (mig 238). If they are later
+        // promoted they re-accept through the respond route, which re-runs the
+        // availability check and re-pauses if still clear.
+        for (const id of notSelectedIds) {
+          const { error: liftErr } = await liftEventBlackouts(serviceClient, event.market_id, id)
+          if (liftErr) console.error(`[event-select] blackout lift failed for ${id}:`, liftErr)
+        }
 
         // Refund-matrix completion (2026-08-16): DESELECTING a vendor who
         // already settled their fee refunds them automatically — the organizer

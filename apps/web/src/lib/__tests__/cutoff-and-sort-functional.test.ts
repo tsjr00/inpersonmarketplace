@@ -275,8 +275,13 @@ describe('NI-014: Total notification types = 72', () => {
     // organizer CONFIRMED this vendor. The select route had been re-sending
     // catering_vendor_invited with companyName 'Event Confirmed', which read as
     // a second invitation; vendors never got a "block the date" moment.
+    // 118 → 119 (2026-08-27, owner approved "ok to change tripline"):
+    // park_spot_skipped_for_event (standard = in_app) — a truck with a PAID
+    // park spot accepted an event that day instead (R3-4 single-truck rule);
+    // the operator is told immediately so they can re-let the spot. Notify
+    // only — the booking stays paid, nothing is released.
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(118)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(119)
   })
 
   it('includes all buyer-facing types', () => {

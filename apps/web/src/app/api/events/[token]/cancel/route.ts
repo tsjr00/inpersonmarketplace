@@ -7,6 +7,7 @@ import { stripe } from '@/lib/stripe/config'
 import { createRefund } from '@/lib/stripe/payments'
 import { refundAllEventFeePayments } from '@/lib/events/event-fee-refunds'
 import { eventRefColumn } from '@/lib/events/event-ref'
+import { liftEventBlackouts } from '@/lib/events/blackouts'
 
 /**
  * POST /api/events/[token]/cancel
@@ -79,6 +80,13 @@ export async function POST(
     if (updateError) {
       console.error('[event-cancel] Status update failed:', updateError)
       return NextResponse.json({ error: 'Failed to cancel event' }, { status: 500 })
+    }
+
+    // R3-4: the event is dead — every vendor who paused another location for
+    // it gets that day back (mig 238 blackouts lifted for the whole event).
+    if (event.market_id) {
+      const { error: liftErr } = await liftEventBlackouts(serviceClient, event.market_id)
+      if (liftErr) console.error('[event-cancel] blackout lift failed:', liftErr)
     }
 
     // Clean up listing_markets rows (same as admin cancel)

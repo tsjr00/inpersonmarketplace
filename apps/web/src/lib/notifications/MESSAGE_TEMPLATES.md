@@ -523,6 +523,17 @@ Farmers Marketing
 
 Replaces the old reuse of `catering_vendor_invited` with companyName "Event Confirmed", which read as a second invitation (owner testing 2026-08-26).
 
+### Park Spot Skipped For Event (`park_spot_skipped_for_event`) — 2026-08-27
+**Urgency:** Standard (In-app)
+**Audience:** park operator (`markets.manager_user_id`)
+**Trigger:** a truck with a PAID spot on the event date accepts an event instead (R3-4 single-truck rule — they cannot do both; a non-flagged truck chooses, and the platform pauses pre-orders at the park for the day via `vendor_date_blackouts`). Sent from the event accept route right after the blackout is written, so the operator has the most time to re-let the spot.
+
+**In-app title:** {{vendor_name}} won't use their spot on {{market_date}}
+**In-app message:** {{vendor_name}} is attending an event on {{market_date}} instead of their paid spot at {{market_name}}. The booking stays paid and the spot stays reserved to them — if you'd like to offer it to another truck, contact them to arrange a release.
+**Action:** `/{{vertical}}/market-manager/{{market_id}}/dashboard`
+
+Notify only, by design (owner 2026-08-27: releasing without credit "is going to touch some complex logic and can get messy"). The booking row is untouched; no no-show suppression either — the vendor made the choice.
+
 ---
 
 ### Customer Milestone (`customer_milestone`) — Loyalty Layer 1, 2026-08-25

@@ -2121,3 +2121,84 @@ describe('Event invitations never surface as location invitations', () => {
       .toContain("code: 'ERR_EVENT_INVITATION'")
   })
 })
+
+// ── Event ↔ location availability (R3-4, owner rule 2026-08-27) ─────────
+//
+// A vendor cannot do an event AND another scheduled location at the same time
+// unless they have said they can cover both (profile_data.multiple_trucks).
+// A non-flagged vendor who takes the event pauses the other location for the
+// day (vendor_date_blackouts, mig 238) — and that pause MUST be lifted on every
+// exit, or a benched/withdrawn vendor stays dark at their own park. These
+// guards pin the shape: one shared check, one blackout writer, four lifts.
+describe('Event ↔ location availability', () => {
+  const rd = (p: string) => fs.readFileSync(path.join(SRC_DIR, p), 'utf-8')
+
+  it('the accept route runs the SHARED availability check (no inline events-only copy)', () => {
+    const respond = rd('app/api/vendor/events/[marketId]/respond/route.ts')
+    expect(respond).toContain("from '@/lib/events/availability'")
+    expect(respond).toMatch(/loadVendorAvailability\(serviceClient, vendorProfile\.id, marketId\)/)
+    expect(/const dateConflicts = /.test(respond), 'the pre-R3-4 inline events-only check must be gone').toBe(false)
+    for (const code of ['ERR_CONFLICT_CONFIRM_REQUIRED', 'ERR_CONFLICT_EVENT', 'ERR_CONFLICT_OPEN_ORDERS', 'ERR_CONFLICT_ACK_REQUIRED']) {
+      expect(respond, `accept must be able to answer ${code}`).toContain(`code: '${code}'`)
+    }
+  })
+
+  it('the accept route writes blackouts only AFTER the acceptance is recorded, and only for non-flagged vendors', () => {
+    const respond = rd('app/api/vendor/events/[marketId]/respond/route.ts')
+    const write = respond.indexOf('writeEventBlackouts(')
+    const statusWrite = respond.indexOf(".update(updateData)")
+    expect(write, 'blackout writer must be called').toBeGreaterThan(0)
+    expect(write, 'blackouts follow the market_vendors status write').toBeGreaterThan(statusWrite)
+    expect(respond).toMatch(/!availability\.multiCapable &&[\s\S]{0,80}availability\.conflicts\.length > 0/)
+  })
+
+  it('the invitation page GET runs the same check while the invitation is open', () => {
+    const get = rd('app/api/vendor/events/[marketId]/route.ts')
+    expect(get).toMatch(/marketVendor\.response_status === 'invited'\s*\?\s*await loadVendorAvailability/)
+    expect(get).toMatch(/availability,/)
+  })
+
+  it('every event exit lifts the blackouts it caused', () => {
+    // benched by the organizer · vendor withdrew · organizer cancelled · admin cancelled
+    const exits: Array<[string, RegExp]> = [
+      ['app/api/events/[token]/select/route.ts', /liftEventBlackouts\(serviceClient, event\.market_id, id\)/],
+      ['app/api/vendor/events/[marketId]/cancel/route.ts', /liftEventBlackouts\(serviceClient, marketId, vendorProfile\.id\)/],
+      ['app/api/events/[token]/cancel/route.ts', /liftEventBlackouts\(serviceClient, event\.market_id\)/],
+      ['app/api/admin/events/[id]/route.ts', /liftEventBlackouts\(serviceClient, cateringReq\.market_id\)/],
+    ]
+    for (const [file, re] of exits) {
+      expect(rd(file), `${file} must lift blackouts on exit`).toMatch(re)
+    }
+  })
+
+  it('the NEWEST definer of get_available_pickup_dates honors vendor_date_blackouts for non-event markets', () => {
+    const dir = path.resolve(SRC_DIR, '../../../supabase/migrations')
+    const files: string[] = []
+    const walk = (d: string) => {
+      for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+        const p = path.join(d, e.name)
+        if (e.isDirectory()) walk(p)
+        else if (e.name.endsWith('.sql') && fs.readFileSync(p, 'utf-8').includes('CREATE OR REPLACE FUNCTION get_available_pickup_dates')) files.push(p)
+      }
+    }
+    walk(dir)
+    const num = (p: string) => parseInt(path.basename(p).split('_')[1]!, 10)
+    const newest = files.sort((a, b) => num(a) - num(b))[files.length - 1]!
+    const sql = fs.readFileSync(newest, 'utf-8').replace(/--[^\n]*/g, '')
+    expect(sql, `${path.basename(newest)} must keep the blackout predicate (mig 238)`)
+      .toMatch(/ls\.market_type = 'event'\s+OR NOT EXISTS \(\s+SELECT 1 FROM vendor_date_blackouts vb/)
+  })
+
+  it('event cards on My Locations carry no schedule controls (attendance is the acceptance row)', () => {
+    const section = rd('components/vendor/markets/EventMarketsSection.tsx')
+    expect(section).not.toContain('MarketScheduleSelector')
+    expect(section).not.toContain('Set Schedule')
+  })
+
+  it('the multi-truck / multi-location flag is offered in BOTH verticals under one key', () => {
+    const form = rd('app/[vertical]/vendor/edit/EditProfileForm.tsx')
+    expect(form).toContain('I can staff more than one location at the same time')
+    expect(form).toContain('multiple_trucks: multipleTrucks')
+    expect(/\{vertical === 'food_trucks' && \(\s*<div style=\{\{\s*marginBottom: 12,/.test(form), 'the checkbox must no longer be FT-only').toBe(false)
+  })
+})

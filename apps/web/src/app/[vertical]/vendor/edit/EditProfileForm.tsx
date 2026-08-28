@@ -204,8 +204,12 @@ export default function EditProfileForm({ vertical, vendorProfile, branding }: E
           />
         </div>
 
-        {/* Multiple Trucks Checkbox — Food Trucks only */}
-        {vertical === 'food_trucks' && (
+        {/* Multiple Trucks / multi-location checkbox — one profile flag
+            (profile_data.multiple_trucks), two wordings. FM got it 2026-08-27
+            (R3-4): "it's easier to set up a second table than a second food
+            truck." Every conflict check (weekly schedules, park booking, the
+            nightly quality scan, event acceptance) honors it in both verticals. */}
+        {(
           <div style={{
             marginBottom: 12,
             padding: 12,
@@ -228,10 +232,14 @@ export default function EditProfileForm({ vertical, vendorProfile, branding }: E
               />
               <div>
                 <span style={{ fontWeight: 600, fontSize: 14 }}>
-                  I operate more than one truck/trailer simultaneously
+                  {vertical === 'food_trucks'
+                    ? 'I operate more than one truck/trailer simultaneously'
+                    : 'I can staff more than one location at the same time'}
                 </span>
                 <p style={{ margin: '4px 0 0 0', fontSize: 13, color: '#6b7280' }}>
-                  When enabled, schedule overlap warnings are turned off since you can serve multiple locations at once.
+                  {vertical === 'food_trucks'
+                    ? 'When enabled, schedule overlap warnings are turned off since you can serve multiple locations at once. Accepting an event that overlaps another commitment will ask you to confirm you’ll cover both.'
+                    : 'When enabled, overlapping schedules are allowed and accepting an event that overlaps a market day will ask you to confirm you’ll cover both. Leave it off if one team goes where you go — then taking an event pauses your other location for that day.'}
                 </p>
               </div>
             </label>

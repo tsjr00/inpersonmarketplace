@@ -13,6 +13,7 @@ import { changeRequiresReconfirmation } from '@/lib/events/change-window'
 import { describeChanges } from '@/lib/events/change-requests'
 import { requestEventReconfirmation } from '@/lib/events/reconfirmation'
 import { refundAllEventFeePayments } from '@/lib/events/event-fee-refunds'
+import { liftEventBlackouts } from '@/lib/events/blackouts'
 import { stripe } from '@/lib/stripe/config'
 import { createRefund } from '@/lib/stripe/payments'
 import { approveEventRequest, autoMatchAndInvite } from '@/lib/events/event-actions'
@@ -567,6 +568,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         cateringReq.vertical_id,
         '/api/admin/events/[id]'
       )
+
+      // R3-4: event dead → every vendor who paused another location for it
+      // gets that day back (mig 238 blackouts lifted; organizer-route parity).
+      const { error: liftErr } = await liftEventBlackouts(serviceClient, cateringReq.market_id)
+      if (liftErr) console.error('[admin/events cancel] blackout lift failed:', liftErr)
 
       const { data: eventListings } = await serviceClient
         .from('event_vendor_listings')

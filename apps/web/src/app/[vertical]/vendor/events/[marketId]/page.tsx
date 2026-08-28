@@ -56,6 +56,53 @@ interface EventDetails {
   organizer_selected_at: string | null
   is_backup: boolean
   standby_opted_in: boolean
+  // R3-4 (2026-08-27): what else the vendor has on the event's dates. Present
+  // while the invitation is open; null when there is nothing to check.
+  availability?: AvailabilityView | null
+}
+
+interface AvailabilityConflict {
+  kind: 'schedule' | 'park_booking' | 'booth_rental' | 'event' | 'private_pickup'
+  marketId: string
+  marketName: string
+  date: string
+  startTime: string | null
+  endTime: string | null
+  openOrderCount: number
+  marketBoxPickupCount: number
+  paid: boolean
+}
+
+interface AvailabilityView {
+  multiCapable: boolean
+  conflicts: AvailabilityConflict[]
+  blockedByOrders: boolean
+  blockedByEvent: boolean
+  needsSkipAcknowledgment: boolean
+  needsMultiConfirmation: boolean
+}
+
+const CONFLICT_KIND_LABEL: Record<AvailabilityConflict['kind'], string> = {
+  schedule: 'your weekly schedule',
+  park_booking: 'a paid spot',
+  booth_rental: 'a paid booth',
+  event: 'another event you accepted',
+  private_pickup: 'your pickup location',
+}
+
+function fmtConflictDate(date: string): string {
+  return new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
+function fmtConflictHours(c: AvailabilityConflict): string {
+  if (!c.startTime || !c.endTime) return 'all day'
+  const f = (t: string) => {
+    const [h, m] = t.split(':').map(Number)
+    const ampm = h! >= 12 ? 'PM' : 'AM'
+    const hh = h! % 12 === 0 ? 12 : h! % 12
+    return m ? `${hh}:${String(m).padStart(2, '0')} ${ampm}` : `${hh} ${ampm}`
+  }
+  return `${f(c.startTime)}–${f(c.endTime)}`
 }
 
 const verticalAccent: Record<string, string> = {
@@ -146,6 +193,13 @@ export default function VendorCateringDetailPage() {
   // automatically when the organizer selected no statements, so this defaults
   // open for events with no agreement and gates only when there is one.
   const [agreementAccepted, setAgreementAccepted] = useState(false)
+
+  // R3-4: the vendor's answer to "you have something else that day" —
+  // flagged (multi-truck / multi-location): "I'll cover both"; not flagged:
+  // "I understand I won't sell there that day and pre-orders will be paused".
+  // Open orders at the other place, or another accepted event, cannot be
+  // acknowledged away — the button stays disabled and the box says why.
+  const [conflictAck, setConflictAck] = useState(false)
 
   // Contact organizer state
   const [showMessageForm, setShowMessageForm] = useState(false)
@@ -293,6 +347,9 @@ export default function VendorCateringDetailPage() {
           event_max_orders_total: maxOrdersTotal,
           event_max_orders_per_wave: isFT ? maxOrdersPerWave : undefined,
           agreement_accepted: agreementAccepted,
+          // R3-4: one checkbox, read by the route according to the vendor's flag
+          skip_conflicts_acknowledged: conflictAck,
+          multi_truck_confirmed: conflictAck,
         }),
       })
       if (res.ok) {
@@ -1124,22 +1181,92 @@ export default function VendorCateringDetailPage() {
                 )}
               </div>
 
+              {/* R3-4 (owner rule 2026-08-27): what else the vendor has on the
+                  event's dates, shown from invitation on. A vendor cannot do
+                  the event AND another scheduled location at the same time
+                  unless they have said they can cover both (profile flag);
+                  otherwise they choose — and choosing the event pauses
+                  pre-orders at the other place for the day. */}
+              {details.availability && details.availability.conflicts.length > 0 && (() => {
+                const a = details.availability
+                const isFT = vertical === 'food_trucks'
+                const flagLabel = isFT ? 'Multiple trucks' : 'I can staff more than one location at the same time'
+                const blocked = a.blockedByOrders || a.blockedByEvent
+                return (
+                  <div style={{
+                    padding: spacing.sm,
+                    marginBottom: spacing.sm,
+                    backgroundColor: statusColors.warningLight,
+                    border: `1px solid ${statusColors.warningBorder}`,
+                    borderRadius: radius.md,
+                  }}>
+                    <p style={{ margin: `0 0 ${spacing['2xs']}`, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: statusColors.warningDark }}>
+                      You have something else during this event
+                    </p>
+                    <ul style={{ margin: `0 0 ${spacing.xs}`, paddingLeft: 18, fontSize: typography.sizes.sm, color: statusColors.warningDark, lineHeight: 1.5 }}>
+                      {a.conflicts.map(c => {
+                        const work = c.openOrderCount + c.marketBoxPickupCount
+                        return (
+                          <li key={`${c.marketId}|${c.date}`}>
+                            <strong>{c.marketName}</strong> — {fmtConflictDate(c.date)}, {fmtConflictHours(c)} ({CONFLICT_KIND_LABEL[c.kind]}
+                            {work > 0 ? `, ${work} open order${work === 1 ? '' : 's'}` : ''})
+                          </li>
+                        )
+                      })}
+                    </ul>
+                    {a.multiCapable ? (
+                      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: typography.sizes.sm, color: statusColors.warningDark, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={conflictAck} onChange={(e) => setConflictAck(e.target.checked)} style={{ marginTop: 3 }} />
+                        <span>
+                          Your profile says you can cover more than one place at once. <strong>I confirm I&apos;ll be at both</strong> — this event and the commitment{a.conflicts.length === 1 ? '' : 's'} above. The organizer will see this.
+                        </span>
+                      </label>
+                    ) : a.blockedByEvent ? (
+                      <p style={{ margin: 0, fontSize: typography.sizes.sm, color: statusColors.warningDark, lineHeight: 1.5 }}>
+                        You already accepted another event at the same time. Withdraw from it first, or — if you really can cover both — turn on <Link href={`/${vertical}/vendor/edit`} style={{ color: statusColors.warningDark, fontWeight: typography.weights.semibold }}>&ldquo;{flagLabel}&rdquo; in your profile</Link>.
+                      </p>
+                    ) : a.blockedByOrders ? (
+                      <p style={{ margin: 0, fontSize: typography.sizes.sm, color: statusColors.warningDark, lineHeight: 1.5 }}>
+                        Customers already have orders with you at that time. <Link href={`/${vertical}/vendor/orders`} style={{ color: statusColors.warningDark, fontWeight: typography.weights.semibold }}>Fulfill or cancel those orders</Link> and this box will clear — or, if you can cover both, turn on <Link href={`/${vertical}/vendor/edit`} style={{ color: statusColors.warningDark, fontWeight: typography.weights.semibold }}>&ldquo;{flagLabel}&rdquo; in your profile</Link>.
+                      </p>
+                    ) : (
+                      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: typography.sizes.sm, color: statusColors.warningDark, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={conflictAck} onChange={(e) => setConflictAck(e.target.checked)} style={{ marginTop: 3 }} />
+                        <span>
+                          Our records show you operate one {isFT ? 'truck' : 'location'} at a time. <strong>I understand that by taking this event I won&apos;t sell at the place{a.conflicts.length === 1 ? '' : 's'} above that day</strong> — pre-orders there will be paused for the day{a.conflicts.some(c => c.paid) ? ', and a paid spot is not refunded' : ''}. Can cover both? Turn on <Link href={`/${vertical}/vendor/edit`} style={{ color: statusColors.warningDark, fontWeight: typography.weights.semibold }}>&ldquo;{flagLabel}&rdquo; in your profile</Link> instead.
+                        </span>
+                      </label>
+                    )}
+                    {blocked && (
+                      <p style={{ margin: `${spacing['2xs']} 0 0`, fontSize: typography.sizes.xs, color: statusColors.warningDark }}>
+                        Accepting is disabled until this is resolved. You can still decline.
+                      </p>
+                    )}
+                  </div>
+                )
+              })()}
+
               {/* Event agreement — the commitments the organizer set for this
                   event. Renders nothing (and auto-accepts) if none were set. */}
               <MarketAgreementBlock marketId={marketId} vertical={vertical} onChange={setAgreementAccepted} />
 
+              {(() => {
+                const a = details.availability
+                const conflictGate = !!a && a.conflicts.length > 0 && (a.blockedByOrders || a.blockedByEvent || !conflictAck)
+                const acceptDisabled = responding || selectedListingIds.size === 0 || !agreementAccepted || conflictGate || (vertical === 'food_trucks' && !details.profile_max_headcount_per_wave)
+                return (
               <div style={{ display: 'flex', gap: spacing.sm }}>
                 <button
                   onClick={handleConfirmAccept}
-                  disabled={responding || selectedListingIds.size === 0 || !agreementAccepted || (vertical === 'food_trucks' && !details.profile_max_headcount_per_wave)}
+                  disabled={acceptDisabled}
                   style={{
                     flex: 1,
                     ...sizing.cta,
                     fontWeight: typography.weights.semibold,
-                    backgroundColor: responding || selectedListingIds.size === 0 || !agreementAccepted || (vertical === 'food_trucks' && !details.profile_max_headcount_per_wave) ? '#ccc' : statusColors.success,
+                    backgroundColor: acceptDisabled ? '#ccc' : statusColors.success,
                     color: 'white',
                     border: 'none',
-                    cursor: responding || selectedListingIds.size === 0 || !agreementAccepted ? 'not-allowed' : 'pointer',
+                    cursor: acceptDisabled ? 'not-allowed' : 'pointer',
                   }}
                 >
                   {responding ? 'Submitting...' : `Accept with ${selectedListingIds.size} item${selectedListingIds.size !== 1 ? 's' : ''}`}
@@ -1166,6 +1293,8 @@ export default function VendorCateringDetailPage() {
                   Decline
                 </button>
               </div>
+                )
+              })()}
             </div>
           )}
         </div>
