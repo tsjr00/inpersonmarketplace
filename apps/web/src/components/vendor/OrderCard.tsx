@@ -233,7 +233,10 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
         flexWrap: 'wrap',
         gap: 12
       }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+        {/* minWidth:0 + wrap: on a phone the name row (name + CARD + customer
+            chip) must be allowed to shrink and wrap inside the card instead of
+            pushing the card wider than the viewport (R3-5, 2026-08-27). */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, minWidth: 0, flexWrap: 'wrap' }}>
           {/* Prominent Order Number - colored by most urgent status */}
           <div style={{
             backgroundColor: orderBoxColor.bg,
@@ -257,9 +260,9 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
               {order.order_number || order.id.slice(0, 8).toUpperCase()}
             </span>
           </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#374151' }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#374151', overflowWrap: 'anywhere' }}>
                 {order.customer_name}
               </p>
               <span style={{
@@ -288,8 +291,7 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
                     color: order.customer_segment === 'new' ? '#166534' : order.customer_segment === 'loyal' ? '#92400e' : '#374151',
                     borderRadius: 4,
                     fontSize: 11,
-                    fontWeight: 700,
-                    whiteSpace: 'nowrap'
+                    fontWeight: 700
                   }}
                 >
                   {order.customer_segment === 'new'

@@ -508,6 +508,7 @@ async function generateForMarketDay(
           expiresAtDisplay,
         }),
         html: buildVendorSurveyEmailHtml({
+          vertical,
           vendorName,
           marketName: market.name,
           marketLogoUrl: market.logo_url,
@@ -624,6 +625,7 @@ async function generateForMarketDay(
           unsubscribeUrl,
         }),
         html: buildBuyerSurveyEmailHtml({
+          vertical,
           vendorName: null,
           marketName: market.name,
           marketLogoUrl: market.logo_url,

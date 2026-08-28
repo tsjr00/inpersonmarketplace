@@ -495,6 +495,13 @@ export async function GET(request: NextRequest) {
         // matches via vendor_profile_id but markets can be in different
         // verticals if the vendor has cross-vertical profiles.
         if (market.vertical_id !== vertical) return null
+        // Event invitations are NOT location invitations. Event matching
+        // (lib/events/event-actions.ts) writes the same invited/approved=false
+        // row shape, so without this every event invite also showed up here as
+        // a second "Pending Market Invitation" with its own Accept button —
+        // one that skipped menu selection, capacity caps and the agreement.
+        // Events are answered on the Vendor Event Page only (R3-3, 2026-08-27).
+        if (market.market_type === 'event') return null
         return {
           market_vendor_id: row.id as string,
           market_id: row.market_id as string,

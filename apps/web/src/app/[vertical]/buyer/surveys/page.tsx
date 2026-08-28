@@ -4,6 +4,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import { formatMarketDateDisplay } from '@/lib/surveys/cron-helpers'
 import { ensurePendingBuyerSurveys } from '@/lib/surveys/lazy-generate'
+import { term } from '@/lib/vertical'
 
 interface PageProps {
   params: Promise<{ vertical: string }>
@@ -99,7 +100,7 @@ export default async function BuyerSurveysPage({ params }: PageProps) {
         fontWeight: typography.weights.bold,
         color: colors.textPrimary,
       }}>
-        My market surveys
+        My {term(vertical, 'market').toLowerCase()} surveys
       </h1>
       <p style={{
         margin: 0,
@@ -108,10 +109,9 @@ export default async function BuyerSurveysPage({ params }: PageProps) {
         fontSize: typography.sizes.sm,
         lineHeight: 1.5,
       }}>
-        After each market day where you picked up an order, we send a short
-        survey. Your ratings help the market and the aggregate data helps
-        the market prove its impact to funders. Surveys close 30 days after
-        the market day, and your answers stay anonymous.
+        After each day you pick up an order at a {term(vertical, 'market').toLowerCase()}, we send a
+        short survey. Your ratings help that {term(vertical, 'market').toLowerCase()} keep improving.
+        Surveys close 30 days after the day, and your answers stay anonymous.
       </p>
 
       <Section title={`Pending (${pending.length})`} emptyText="No pending surveys right now.">

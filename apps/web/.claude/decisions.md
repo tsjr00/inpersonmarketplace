@@ -227,3 +227,15 @@ Organizers charging vendors to set up at events (presentation-driven feature). D
 5. **Intake copy never reveals pool size or averages** — it states the assumption instead.
 6. **Calibrate from real events later**: predictions are recomputable from stored request inputs; compare to actual orders per wave once events run.
 Also 2026-08-26: intake form gets `noValidate` + visible/scrolled error box (iOS Safari silently blocked native-invalid submits — "button did nothing").
+
+## Event ↔ location conflicts — availability rule (owner, 2026-08-27; R3-4)
+1. **A vendor cannot do an event AND another scheduled location at the same time** (same calendar date + overlapping hours) unless they affirmatively confirm they can cover both. FT: the existing `profile_data.multiple_trucks` flag. **FM gets an equivalent profile flag** ("I can staff more than one location at the same time") — "it's easier to set up a second table than a second food truck." Same rule both verticals.
+2. A vendor not flagged is told the system doesn't show them operating more than one truck/location and must change that (profile) before acceptance proceeds.
+3. Conflicts counted: **active weekly schedules at traditional markets/parks** (+ paid park bookings). **Private locations do NOT count — unless they already hold pre-orders.**
+4. **Choosing the event over a paid park day is allowed when there are no pre-orders there** — and the system must **turn off pre-orders at that location for that timeframe** so nothing lands while they're at the event. (Per-date blackout = part of this build, not backlog.)
+5. Multi-truck/flagged vendors confirm per acceptance; **the organizer is told** (existing `[MULTI-TRUCK]` note in the response → organizer notification stays).
+6. Reverse direction (booking a spot / activating a schedule on a date with an accepted event) → **backlog**.
+7. **Same checks apply to backups** (standby join / promotion).
+8. Checks run at invitation render AND at acceptance — days can pass between.
+Open at write time: blackout mechanism (stored table vs derived), check-in/no-show handling for a skipped paid day, operator notification, pre-order window definition, market-box pickups.
+Round 2 (owner, 2026-08-27): **stored** blackout table · park operator notice: wanted immediately so the spot can be re-rented, but "this is going to touch some complex logic and can get messy" → v1 notify-only proposed · **no bail-out on the no-show record** — the vendor made the choice · existing pre-order = **any open order on that date** at the conflicting location, unless fulfilled/cancelled by the time they accept (invitation-time notice gives them the window to resolve it) · FM flag **reuses the multiple_trucks logic, customized copy** · **whole-day** blackout.

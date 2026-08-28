@@ -4,6 +4,7 @@ import { colors, spacing, typography, radius, containers } from '@/lib/design-to
 import SurveyForm from '@/components/surveys/SurveyForm'
 import { formatMarketDateDisplay } from '@/lib/surveys/cron-helpers'
 import { isWellFormedSurveyToken } from '@/lib/surveys/token'
+import { term } from '@/lib/vertical'
 
 interface PageProps {
   params: Promise<{ vertical: string; token: string }>
@@ -109,12 +110,12 @@ export default async function BuyerSurveyPage({ params }: PageProps) {
       {alreadySubmitted ? (
         <ClosedState
           tone="submitted"
-          message="Thanks — your response is recorded. The market manager uses your aggregated ratings to keep improving, and the data helps the market prove its impact to funders."
+          message={`Thanks — your response is recorded. The ${term(vertical, 'manager').toLowerCase()} uses your aggregated ratings to keep improving.`}
         />
       ) : expired ? (
         <ClosedState
           tone="expired"
-          message="This survey closed 30 days after the market day. Thanks for stopping by, and watch for the next one!"
+          message="This survey closed 30 days after the day. Thanks for stopping by, and watch for the next one!"
         />
       ) : (
         <SurveyForm

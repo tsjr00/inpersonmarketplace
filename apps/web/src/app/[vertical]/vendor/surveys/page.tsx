@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import { formatMarketDateDisplay } from '@/lib/surveys/cron-helpers'
+import { term } from '@/lib/vertical'
 
 interface PageProps {
   params: Promise<{ vertical: string }>
@@ -92,7 +93,7 @@ export default async function VendorSurveysPage({ params }: PageProps) {
         fontWeight: typography.weights.bold,
         color: colors.textPrimary,
       }}>
-        My market surveys
+        My {term(vertical, 'market').toLowerCase()} surveys
       </h1>
       <p style={{
         margin: 0,
@@ -101,10 +102,10 @@ export default async function VendorSurveysPage({ params }: PageProps) {
         fontSize: typography.sizes.sm,
         lineHeight: 1.5,
       }}>
-        After each market day you attend, we send a short survey. Your
-        ratings help the market manager and the aggregate data helps
-        the market prove its impact to funders. Surveys close 30 days
-        after the market day.
+        After each day you sell at a {term(vertical, 'market').toLowerCase()}, we send a short
+        survey about how it went for you — foot traffic, sales, layout and
+        signage, site access. The {term(vertical, 'manager').toLowerCase()} sees your ratings and
+        uses them to run a better day. Surveys close 30 days after the day.
       </p>
 
       <Section title={`Pending (${pending.length})`} emptyText="No pending surveys right now.">

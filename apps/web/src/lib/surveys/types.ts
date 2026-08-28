@@ -77,7 +77,7 @@ export const CATEGORY_DEFINITIONS: readonly CategoryDefinition[] = [
   {
     dbColumn: 'rating_overall',
     label: 'Overall experience',
-    description: 'Your overall rating of this market day',
+    description: 'Your overall rating of the day',
     kinds: ['vendor', 'buyer'],
     funderRelevant: true,
   },
@@ -119,11 +119,17 @@ export const CATEGORY_DEFINITIONS: readonly CategoryDefinition[] = [
     funderRelevant: true,
   },
 
-  // Vendor-only — 4 categories (plus the shared overall = 5 total for vendor)
+  // Vendor-only — 4 categories (plus the shared overall = 5 total for vendor).
+  // Worded around the VENDOR's own day (owner, 2026-08-27): what they can
+  // actually judge from their booth/spot — traffic, sales, layout + signage,
+  // access + support. The db columns keep their original names; only the
+  // labels/descriptions changed. Cleanliness and parking as their OWN ratings
+  // would need new columns (migration) — folded into the two site questions
+  // for now.
   {
     dbColumn: 'rating_foot_traffic',
     label: 'Foot traffic',
-    description: 'Number of shoppers at the market',
+    description: 'How many customers came through during the day',
     kinds: ['vendor'],
     funderRelevant: true,
   },
@@ -136,15 +142,15 @@ export const CATEGORY_DEFINITIONS: readonly CategoryDefinition[] = [
   },
   {
     dbColumn: 'rating_market_organization',
-    label: 'Market organization',
-    description: 'Setup, layout, signage, scheduling',
+    label: 'Layout, signage & getting around',
+    description: 'Easy to find and reach your spot, clear signage, easy for customers to navigate',
     kinds: ['vendor'],
     funderRelevant: false,
   },
   {
     dbColumn: 'rating_manager_support',
-    label: 'Market manager support',
-    description: 'Communication and on-site help from the manager',
+    label: 'Site access & on-site support',
+    description: 'Parking, load-in and load-out, cleanliness, and help from the organizer when you needed it',
     kinds: ['vendor'],
     funderRelevant: false,
   },

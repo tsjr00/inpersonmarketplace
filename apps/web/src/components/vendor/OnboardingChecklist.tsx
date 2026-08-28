@@ -46,9 +46,14 @@ interface OnboardingStatus {
 interface Props {
   vertical: string
   vendorStatus: string
+  /** True once the vendor has at least one published listing. The
+   *  "Onboarding complete — your listings can go live" banner exists to
+   *  point a freshly-onboarded vendor at publishing; after that it is
+   *  noise, so it goes away (owner, 2026-08-27). */
+  hasPublishedListings?: boolean
 }
 
-export default function OnboardingChecklist({ vertical, vendorStatus }: Props) {
+export default function OnboardingChecklist({ vertical, vendorStatus, hasPublishedListings = false }: Props) {
   const [status, setStatus] = useState<OnboardingStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [expandedGate, setExpandedGate] = useState<number | null>(null)
@@ -96,8 +101,10 @@ export default function OnboardingChecklist({ vertical, vendorStatus }: Props) {
 
   if (!status) return null
 
-  // If fully onboarded, show condensed success
+  // If fully onboarded, show condensed success — but only while the vendor
+  // has nothing published yet. Once a listing is live the banner's job is done.
   if (status.canPublishListings) {
+    if (hasPublishedListings) return null
     return (
       <div style={{
         padding: spacing.sm,

@@ -2094,3 +2094,30 @@ describe('Event demand model integrity', () => {
     expect(page).toMatch(/capacity_check/)
   })
 })
+
+// ── Event invitations are answered on the event page only (2026-08-27) ──
+//
+// Event matching and manager invitations write the same market_vendors row
+// shape (response_status='invited', approved=false). The My Locations page's
+// "Pending Market Invitations" list and its Accept button were built for the
+// manager flow; for an event they bypassed menu selection, capacity caps, the
+// agreement snapshot and the conflict check, marked the vendor attending (and
+// sellable, mig 234) with no menu, and on FM fabricated schedule rows through
+// the `approved` flip. Owner rule: one invitation, one place to answer it.
+describe('Event invitations never surface as location invitations', () => {
+  const rd = (p: string) => fs.readFileSync(path.join(SRC_DIR, p), 'utf-8')
+
+  it('the vendor markets list drops event rows from pendingInvitations', () => {
+    const route = rd('app/api/vendor/markets/route.ts')
+    expect(route, 'event-matching rows must not render as manager invitations')
+      .toMatch(/if \(market\.market_type === 'event'\) return null/)
+  })
+
+  it('the location respond route refuses event rows', () => {
+    const route = rd('app/api/vendor/markets/[id]/respond/route.ts')
+    expect(route, 'the market lookup must load market_type to make the decision')
+      .toMatch(/\.select\('id, name, vertical_id, manager_user_id, market_type'\)/)
+    expect(route, 'event rows must be refused, not accepted with approved=true')
+      .toContain("code: 'ERR_EVENT_INVITATION'")
+  })
+})

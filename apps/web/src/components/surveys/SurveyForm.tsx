@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical'
 import {
   getCategoriesForKind,
   type SurveyKind,
@@ -105,7 +106,9 @@ export default function SurveyForm({
           color: '#155724',
           lineHeight: 1.5,
         }}>
-          Your rating helps the market keep getting better — and helps the manager prove the market&apos;s impact to funders.
+          {kind === 'vendor'
+            ? `Your ratings go straight to the ${term(vertical, 'manager').toLowerCase()}, so the next day you sell here can run better for you.`
+            : `Your ratings help ${marketName} keep getting better.`}
         </p>
         {kind === 'vendor' && (
           <button
@@ -185,8 +188,8 @@ export default function SurveyForm({
             rows={3}
             placeholder={
               kind === 'vendor'
-                ? 'What worked, what didn&apos;t, suggestions for the manager...'
-                : 'What stood out, what to improve, anything to share with the market...'
+                ? `What worked, what didn't, anything the ${term(vertical, 'manager').toLowerCase()} should know...`
+                : `What stood out, what to improve, anything to share with the ${term(vertical, 'market').toLowerCase()}...`
             }
             style={{
               width: '100%',

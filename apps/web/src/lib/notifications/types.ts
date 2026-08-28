@@ -1360,9 +1360,9 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       `Quick survey — how did ${d.marketName || 'the market'} go${d.surveyDate ? ` on ${d.surveyDate}` : ''}?`,
     message: (d) => {
       const prior = (d.priorPendingCount ?? 0) > 0
-        ? ` You also have ${d.priorPendingCount} survey${d.priorPendingCount === 1 ? '' : 's'} pending from prior market days — your dashboard has the full list.`
+        ? ` You also have ${d.priorPendingCount} survey${d.priorPendingCount === 1 ? '' : 's'} pending from prior days — your dashboard has the full list.`
         : ''
-      return `Take 30 seconds to rate the market — your feedback helps the manager + funders. Ratings stay anonymous to other vendors.${prior}`
+      return `Take 30 seconds to rate how the day went for you — traffic, sales, layout, site access. Only the organizer and platform admin see your ratings.${prior}`
     },
     actionUrl: (d) =>
       d.surveyId
@@ -1382,7 +1382,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       const prior = (d.priorPendingCount ?? 0) > 0
         ? ` (You also have ${d.priorPendingCount} survey${d.priorPendingCount === 1 ? '' : 's'} pending from prior visits.)`
         : ''
-      return `Share a few quick ratings — it helps the market improve and helps us prove the market's impact to funders.${prior}`
+      return `Share a few quick ratings — it helps ${d.marketName || 'the market'} keep improving.${prior}`
     },
     actionUrl: (d) =>
       d.accessToken

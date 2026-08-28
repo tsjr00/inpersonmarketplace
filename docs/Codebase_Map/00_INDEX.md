@@ -102,7 +102,7 @@ Each domain file was verified against the code at the commit shown. A stamp far 
 | 01_System_Overview.md | 2026-07-18 | b9f82116 |
 | 02_Money_Flow.md | 2026-08-09 | 106fed3c |
 | 10_Checkout_Payments.md | 2026-08-09 | 106fed3c |
-| 11_Vendor_Orders.md | 2026-08-25 | bfc60dfd |
+| 11_Vendor_Orders.md | 2026-08-27 | 05446012 |
 | 12_Market_Manager.md | 2026-07-18 | b9f82116 |
 | 13_FT_Park.md | 2026-07-18 | b9f82116 |
 | 14_Events.md | 2026-07-18 | b9f82116 |

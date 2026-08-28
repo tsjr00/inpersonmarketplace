@@ -77,7 +77,7 @@ export async function PATCH(
     crumb.supabase('select', 'markets')
     const { data: market, error: marketErr } = await serviceClient
       .from('markets')
-      .select('id, name, vertical_id, manager_user_id')
+      .select('id, name, vertical_id, manager_user_id, market_type')
       .eq('id', marketId)
       .maybeSingle()
 
@@ -89,6 +89,25 @@ export async function PATCH(
     }
 
     const verticalId = (market.vertical_id as string) || 'farmers_market'
+
+    // Event invitations have their own accept path
+    // (/api/vendor/events/[marketId]/respond) that requires menu selection,
+    // capacity caps, the event agreement and a same-date conflict check, and
+    // that never flips `approved` (mig 217: approved is the MANAGER's decision;
+    // events have no manager). Accepting an event here would mark the vendor
+    // attending — and sellable (mig 234) — with no menu and no caps, and on FM
+    // the approved flip fabricates schedule rows via
+    // auto_create_vendor_schedules. Refuse (R3-3, 2026-08-27).
+    if (market.market_type === 'event') {
+      return NextResponse.json(
+        {
+          error: 'This is an event invitation — please respond from the event page.',
+          code: 'ERR_EVENT_INVITATION',
+          actionUrl: `/${verticalId}/vendor/events/${marketId}`,
+        },
+        { status: 409 }
+      )
+    }
 
     // Vendor profile for this user in the market's vertical.
     const { data: vendorProfile } = await serviceClient

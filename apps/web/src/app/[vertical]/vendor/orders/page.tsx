@@ -414,8 +414,10 @@ export default function VendorOrdersPage() {
     )
   }
 
+  // overflowX hidden: a single too-wide child must not turn the whole page
+  // into a pannable/zoomable canvas on phones (R3-5, 2026-08-27).
   return (
-    <div style={{ maxWidth: containers.xl, margin: '0 auto', padding: `${spacing.md} ${spacing.sm}`, backgroundColor: colors.surfaceBase, minHeight: '100vh' }}>
+    <div style={{ maxWidth: containers.xl, margin: '0 auto', padding: `${spacing.md} ${spacing.sm}`, backgroundColor: colors.surfaceBase, minHeight: '100vh', overflowX: 'hidden' }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.md, flexWrap: 'wrap', gap: spacing.sm }}>
         <div>

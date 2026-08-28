@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { ensurePendingVendorSurveys } from '@/lib/surveys/lazy-generate'
 import DashboardTile, { TileBadge } from '@/components/dashboard/DashboardTile'
+import { term } from '@/lib/vertical'
 
 interface PendingSurveysCardProps {
   vendorProfileId: string
@@ -56,16 +57,16 @@ export default async function PendingSurveysCard({
     <DashboardTile
       href={`/${vertical}/vendor/surveys`}
       icon="listings"
-      title="My Market Surveys"
+      title={`My ${term(vertical, 'market')} Surveys`}
       state={pendingCount > 0 ? 'active' : 'neutral'}
       badge={pendingCount > 0 ? <TileBadge>{pendingCount}</TileBadge> : undefined}
     >
       {pendingCount > 0 ? (
         <>
-          You have <strong>{pendingCount} pending survey{pendingCount === 1 ? '' : 's'}</strong> from recent market day{pendingCount === 1 ? '' : 's'}. Each takes under a minute — your ratings help the manager + funders.
+          You have <strong>{pendingCount} pending survey{pendingCount === 1 ? '' : 's'}</strong> from recent selling day{pendingCount === 1 ? '' : 's'}. Each takes under a minute — tell the {term(vertical, 'manager').toLowerCase()} what worked for you and what didn&apos;t.
         </>
       ) : (
-        <>No pending surveys right now. After each market day you attend, we&apos;ll send a short rating form to help the manager improve.</>
+        <>No pending surveys right now. After each day you sell at a {term(vertical, 'market').toLowerCase()}, we&apos;ll ask for a quick rating of how it went for you — traffic, sales, layout, site access.</>
       )}
     </DashboardTile>
   )

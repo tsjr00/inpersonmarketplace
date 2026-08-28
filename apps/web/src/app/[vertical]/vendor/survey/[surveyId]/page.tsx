@@ -4,6 +4,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import SurveyForm from '@/components/surveys/SurveyForm'
 import { formatMarketDateDisplay } from '@/lib/surveys/cron-helpers'
+import { term } from '@/lib/vertical'
 
 interface PageProps {
   params: Promise<{ vertical: string; surveyId: string }>
@@ -80,7 +81,7 @@ export default async function VendorSurveyDetailPage({ params }: PageProps) {
         fontWeight: typography.weights.bold,
         color: colors.textPrimary,
       }}>
-        Market survey
+        {term(vertical, 'market')} survey
       </h1>
 
       {alreadySubmitted ? (
@@ -95,7 +96,7 @@ export default async function VendorSurveyDetailPage({ params }: PageProps) {
           tone="expired"
           marketName={marketName}
           dateDisplay={dateDisplay}
-          message="This survey closed 30 days after the market day. The window has passed and submissions are no longer accepted."
+          message="This survey closed 30 days after the day. The window has passed and submissions are no longer accepted."
         />
       ) : (
         <SurveyForm

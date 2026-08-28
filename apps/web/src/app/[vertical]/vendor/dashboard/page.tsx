@@ -157,6 +157,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
   let draftCount = 0
   let outOfStockCount = 0
   let lowStockCount = 0
+  let publishedCount = 0
   let activeMarkets: ActiveMarket[] = []
   let pendingOrdersToConfirm = 0
   let needsFulfillment = 0
@@ -186,7 +187,8 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
       monthlySalesResult,
       pendingPayoutsResult,
       completedPayoutsResult,
-      vendorEventsResult
+      vendorEventsResult,
+      publishedResult
     ] = await Promise.all([
       // Draft listings
       supabase
@@ -300,12 +302,22 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             .eq('markets.market_type', 'event')
             .neq('response_status', 'declined')
         : Promise.resolve({ data: null, error: null }),
+      // Published listings (any) — decides whether the "Onboarding complete —
+      // your listings can go live" banner still has a job (R3-2, 2026-08-27:
+      // it stayed up forever for established vendors).
+      supabase
+        .from('listings')
+        .select('id', { count: 'exact', head: true })
+        .eq('vendor_profile_id', vendorProfile.id)
+        .eq('status', 'published')
+        .is('deleted_at', null),
     ])
 
     // Extract results
     draftCount = draftResult.data?.length || 0
     outOfStockCount = outOfStockResult.count || 0
     lowStockCount = lowStockResult.count || 0
+    publishedCount = publishedResult.count || 0
     pendingOrdersToConfirm = pendingResult.count || 0
     needsFulfillment = fulfillResult.count || 0
 
@@ -398,9 +410,15 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
         </div>
 
         {/* Onboarding Checklist — shown until vendor can publish listings.
-            Component self-hides with a condensed "complete" banner once canPublishListings is true. */}
+            Once canPublishListings is true the component shows a condensed
+            "complete" banner only until the first listing is published, then
+            renders nothing (R3-2). */}
         <div style={{ marginBottom: spacing.md }}>
-          <OnboardingChecklist vertical={vertical} vendorStatus={vendorProfile.status} />
+          <OnboardingChecklist
+            vertical={vertical}
+            vendorStatus={vendorProfile.status}
+            hasPublishedListings={publishedCount > 0}
+          />
         </div>
 
         {/* External Payment Banner — hidden when external payments disabled */}
