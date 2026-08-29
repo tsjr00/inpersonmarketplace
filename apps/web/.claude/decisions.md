@@ -247,3 +247,6 @@ Round 2 (owner, 2026-08-27): **stored** blackout table · park operator notice: 
 4. **Payouts page is owner-only.**
 5. **Public-facing term is "Team member"** in BOTH verticals ("delegate" stays internal/code).
 Mechanism as recommended: delegate = own login linked via `vendor_delegates`; `user_vendor_profile_ids()` gains the delegate arm (payouts excluded via owner check); single resolver `getVendorProfileForVertical` + sweep; short owner-only allowlist.
+
+## B5 amended — un-cancelling an event (owner, 2026-08-29: "keep the fix you put in place")
+Cancelling stays one-way **once anything irreversible has happened** (a buyer refunded, a vendor notified/accepted, a fee refunded). The pure misclick case — cancelled before any vendor accepted and before any order — may be restored: the admin's **Restore Event** button calls the route's guarded check (`api/admin/events/[id]/route.ts`), which rebuilds listing links and re-activates the market, or refuses with the reason. Supersedes the unconditional block from 2026-08-15 option (a); the money-and-messages rationale is unchanged.
