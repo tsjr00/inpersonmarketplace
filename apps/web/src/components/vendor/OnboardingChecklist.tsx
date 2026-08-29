@@ -6,6 +6,7 @@ import CategoryDocumentUpload from './CategoryDocumentUpload'
 import FoodTruckPermitUpload from './FoodTruckPermitUpload'
 import COIUpload from './COIUpload'
 import ProhibitedItemsModal from './ProhibitedItemsModal'
+import PickupLineAcknowledgment from './PickupLineAcknowledgment'
 import type { Category } from '@/lib/constants'
 import { CURRENT_AGREEMENT_VERSION } from '@/lib/legal'
 
@@ -36,6 +37,7 @@ interface OnboardingStatus {
     stripePayoutsEnabled: boolean
   }
   prohibitedItemsAcknowledged: boolean
+  pickupLineAcknowledged?: boolean
   canSubmitForApproval: boolean
   canPublishListings: boolean
   overallProgress: number
@@ -301,6 +303,14 @@ export default function OnboardingChecklist({ vertical, vendorStatus, hasPublish
           >
             Review & Acknowledge
           </button>
+        </div>
+      )}
+
+      {/* Separate pickup line for app orders (owner, 2026-08-28) — the model
+          every vendor must confirm before submitting for approval. */}
+      {status.pickupLineAcknowledged === false && (
+        <div style={{ padding: spacing.sm, borderBottom: `1px solid ${colors.border}` }}>
+          <PickupLineAcknowledgment vertical={vertical} onAcknowledged={fetchStatus} />
         </div>
       )}
 

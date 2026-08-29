@@ -128,7 +128,7 @@ Two patterns recur across the whole vendor surface:
 
 ### Profile, images, onboarding (11)
 
-`profile/route.ts` · `profile/certifications/route.ts` · `profile/certifications/upload/route.ts` · `profile-image/route.ts` · `cover-image/route.ts` · `onboarding/status/route.ts` (**owns the `canPublishListings` criteria**, `:220-224`) · `onboarding/documents/route.ts` · `onboarding/category-documents/route.ts` · `onboarding/coi/route.ts` · `onboarding/acknowledge-prohibited-items/route.ts` · `tutorial/route.ts`.
+`profile/route.ts` · `profile/certifications/route.ts` · `profile/certifications/upload/route.ts` · `profile-image/route.ts` · `cover-image/route.ts` · `onboarding/status/route.ts` (**owns the `canPublishListings` criteria**, `:220-224`) · `onboarding/documents/route.ts` · `onboarding/category-documents/route.ts` · `onboarding/coi/route.ts` · `onboarding/acknowledge-prohibited-items/route.ts` · `tutorial/route.ts`. `onboarding/acknowledge-pickup-line/route.ts` (2026-08-29 — records `profile_data.pickup_line_acknowledged_at`: the vendor agrees to run a SEPARATE, signed pickup line for in-app orders; `onboarding/status` gates submit-for-approval on it for new vendors and the dashboard shows `PickupLineAcknowledgment` as a reminder to established ones; `[vertical]/vendor/pickup-signs` renders the standardized branded "APP ORDER PICKUP" sign for 8.5×11 / 11×17 printing) ·
 
 ### Events (6)
 

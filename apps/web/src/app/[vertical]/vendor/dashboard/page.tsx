@@ -10,6 +10,7 @@ import PaymentMethodsCard from './PaymentMethodsCard'
 import PromoteCard from './PromoteCard'
 import TutorialWrapper from '@/components/onboarding/TutorialWrapper'
 import OnboardingChecklist from '@/components/vendor/OnboardingChecklist'
+import PickupLineAcknowledgment from '@/components/vendor/PickupLineAcknowledgment'
 import { DashboardNotifications } from '@/components/notifications/DashboardNotifications'
 import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import { formatPrice } from '@/lib/pricing'
@@ -421,6 +422,16 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           />
         </div>
 
+        {/* Established vendors who onboarded before the separate-pickup-line
+            step existed (owner, 2026-08-28): a non-blocking reminder until
+            they acknowledge. New vendors meet it inside the checklist. */}
+        {vendorProfile.status === 'approved' &&
+          !((vendorProfile.profile_data as Record<string, unknown> | null)?.pickup_line_acknowledged_at) && (
+          <div style={{ marginBottom: spacing.md }}>
+            <PickupLineAcknowledgment vertical={vertical} variant="compact" />
+          </div>
+        )}
+
         {/* External Payment Banner — hidden when external payments disabled */}
 
         {/* Trial Status Banner removed 2026-07-18 — the 90-day vendor trial was
@@ -452,6 +463,18 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               state="active"
             >
               Mobile-friendly view for market day fulfillment
+            </DashboardTile>
+          )}
+
+          {/* Pickup signs — the standardized branded sign for the separate
+              app-order pickup line (owner, 2026-08-28). */}
+          {vendorProfile.status === 'approved' && (
+            <DashboardTile
+              href={`/${vertical}/vendor/pickup-signs`}
+              icon="readyForPickup"
+              title="Pickup Signs"
+            >
+              Print the branded &ldquo;App Order Pickup&rdquo; sign (8.5×11 / 11×17)
             </DashboardTile>
           )}
 

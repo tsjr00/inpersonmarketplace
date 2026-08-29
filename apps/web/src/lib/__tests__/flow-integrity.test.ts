@@ -2222,6 +2222,22 @@ describe('Event ↔ location availability', () => {
     expect(intake, 'intake stamps organizer_user_id for a signed-in submitter with the same email').toMatch(/organizer_user_id: organizerUserId,/)
   })
 
+  it('the separate pickup line is acknowledged before a new vendor can submit, reminded to established ones, and the signs page exists', () => {
+    // Owner 2026-08-28: in-app buyers skip the walk-up line; vendors must run
+    // a separate, signed pickup line or buyers order less.
+    const status = rd('app/api/vendor/onboarding/status/route.ts')
+    expect(status).toMatch(/pickupLineAcknowledged &&\s*\n\s*allDocsSubmitted/)
+    expect(status, 'must NOT gate publishing for established vendors').not.toMatch(/canPublishListings =[\s\S]{0,200}pickupLineAcknowledged/)
+    const ack = rd('app/api/vendor/onboarding/acknowledge-pickup-line/route.ts')
+    expect(ack).toContain('pickup_line_acknowledged_at: now')
+    const dash = rd('app/[vertical]/vendor/dashboard/page.tsx')
+    expect(dash).toContain('<PickupLineAcknowledgment vertical={vertical} variant="compact" />')
+    expect(dash).toContain('/vendor/pickup-signs')
+    const checklist = rd('components/vendor/OnboardingChecklist.tsx')
+    expect(checklist).toContain('status.pickupLineAcknowledged === false')
+    expect(fs.existsSync(path.join(SRC_DIR, 'app/[vertical]/vendor/pickup-signs/page.tsx'))).toBe(true)
+  })
+
   it('the multi-truck / multi-location flag is offered in BOTH verticals under one key', () => {
     const form = rd('app/[vertical]/vendor/edit/EditProfileForm.tsx')
     expect(form).toContain('I can staff more than one location at the same time')

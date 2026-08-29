@@ -44,7 +44,8 @@ export async function GET(request: NextRequest) {
       vertical_id: string
       stripe_account_id: string | null
       stripe_payouts_enabled: boolean | null
-    }>(supabase, user.id, vertical, 'id, status, user_id, vertical_id, stripe_account_id, stripe_payouts_enabled')
+      profile_data: Record<string, unknown> | null
+    }>(supabase, user.id, vertical, 'id, status, user_id, vertical_id, stripe_account_id, stripe_payouts_enabled, profile_data')
 
     if (!vendor) {
       return NextResponse.json({ error: 'No vendor profile found' }, { status: 404 })
@@ -168,6 +169,11 @@ export async function GET(request: NextRequest) {
 
     // Prohibited items acknowledgment
     const prohibitedItemsAcknowledged = !!verification.prohibited_items_acknowledged_at
+    // Separate pickup line for app orders (owner, 2026-08-28) — stored on
+    // profile_data by /onboarding/acknowledge-pickup-line. Gates SUBMITTING for
+    // approval (new vendors); established vendors get a dashboard reminder
+    // instead, so nobody already selling is locked out.
+    const pickupLineAcknowledged = !!(vendor.profile_data as Record<string, unknown> | null)?.pickup_line_acknowledged_at
 
     // Compute: can submit for approval?
     let allDocsSubmitted: boolean
@@ -190,6 +196,7 @@ export async function GET(request: NextRequest) {
     const canSubmitForApproval =
       businessDocs.length > 0 &&
       prohibitedItemsAcknowledged &&
+      pickupLineAcknowledged &&
       allDocsSubmitted
 
     // Compute: can publish listings?
@@ -234,6 +241,8 @@ export async function GET(request: NextRequest) {
     // Step 2: Prohibited items acknowledged
     steps++
     if (prohibitedItemsAcknowledged) completed++
+    steps++
+    if (pickupLineAcknowledged) completed++
 
     // Step 3: Permit/category docs (partial credit for uploads pending review)
     if (isFoodTruck) {
@@ -276,6 +285,7 @@ export async function GET(request: NextRequest) {
       gate3,
       gate4,
       prohibitedItemsAcknowledged,
+      pickupLineAcknowledged,
       canSubmitForApproval,
       canPublishListings,
       overallProgress,
