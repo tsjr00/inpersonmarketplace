@@ -7,7 +7,7 @@ import {
   rateLimitResponse,
   rateLimits,
 } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { FEES, getEffectiveVendorFeePercent } from '@/lib/pricing'
 import { SELLER_FEE_PERCENT, EXTERNAL_BUYER_FEE_FIXED_CENTS } from '@/lib/payments/vendor-fees'
 
@@ -37,12 +37,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await observed(supabase
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
       .is('deleted_at', null)
-      .single()
+      .single(), { table: 'user_profiles' })
 
     if (!hasAdminRole(userProfile || {})) {
       return NextResponse.json(
@@ -76,29 +76,29 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     // Fetch event market
-    const { data: market } = await serviceClient
+    const { data: market } = await observed(serviceClient
       .from('markets')
       .select('id, name, address, city, state, zip, event_start_date, event_end_date, headcount, wave_ordering_enabled')
       .eq('id', cateringReq.market_id)
-      .single()
+      .single(), { table: 'markets' })
 
     // Fetch wave data if wave ordering is enabled
     let waveStats: Array<{ wave_number: number; start_time: string; end_time: string; capacity: number; reserved_count: number }> = []
     if (market?.wave_ordering_enabled) {
-      const { data: waves } = await serviceClient
+      const { data: waves } = await observed(serviceClient
         .from('event_waves')
         .select('wave_number, start_time, end_time, capacity, reserved_count')
         .eq('market_id', cateringReq.market_id)
-        .order('wave_number')
+        .order('wave_number'), { table: 'event_waves' })
       waveStats = waves || []
     }
 
     // Fetch company payments
-    const { data: companyPayments } = await serviceClient
+    const { data: companyPayments } = await observed(serviceClient
       .from('event_company_payments')
       .select('id, payment_type, amount_cents, payment_method, status, paid_at')
       .eq('market_id', cateringReq.market_id)
-      .order('created_at')
+      .order('created_at'), { table: 'event_company_payments' })
 
     // Fetch all order items for this market, joined with order + buyer + listing + vendor
     const { data: orderItems, error: itemsError } = await serviceClient
@@ -188,10 +188,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
     )
 
     // Fetch market_vendors for response status
-    const { data: marketVendors } = await serviceClient
+    const { data: marketVendors } = await observed(serviceClient
       .from('market_vendors')
       .select('vendor_profile_id, response_status')
-      .eq('market_id', cateringReq.market_id)
+      .eq('market_id', cateringReq.market_id), { table: 'market_vendors' })
 
     const acceptedVendorCount = (marketVendors || []).filter(
       mv => mv.response_status === 'accepted'

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getGroupCancelledDays } from '@/lib/markets/cancelled-days'
 import { owedForGroup } from '@/lib/markets/settlement-math'
+import { observed } from '@/lib/errors'
 
 /**
  * Phase E — does a season still owe settlement value?
@@ -17,11 +18,11 @@ export async function seasonHasOutstandingDebt(
   seasonId: string,
   refundCapDays: number,
 ): Promise<boolean> {
-  const { data: paidGroups } = await serviceClient
+  const { data: paidGroups } = await observed(serviceClient
     .from('booth_booking_groups')
     .select('id, week_count, total_manager_cents')
     .eq('season_id', seasonId)
-    .eq('status', 'paid')
+    .eq('status', 'paid'), { table: 'booth_booking_groups' })
   const { count: activeDaysPerWeek } = await serviceClient
     .from('market_schedules')
     .select('id', { count: 'exact', head: true })

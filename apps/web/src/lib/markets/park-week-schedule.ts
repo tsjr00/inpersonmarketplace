@@ -28,6 +28,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { addDaysISO } from '@/lib/markets/park-standing'
 import { nowInTimezoneAsLocalIso } from '@/lib/surveys/cron-helpers'
+import { observed } from '@/lib/errors'
 
 export const PARK_WEEK_WINDOW_DAYS = 7
 
@@ -266,10 +267,10 @@ export async function getParkWeekSchedule(
   )
   const vendorNameById = new Map<string, string>()
   if (vendorIds.length > 0) {
-    const { data: vps } = await serviceClient
+    const { data: vps } = await observed(serviceClient
       .from('vendor_profiles')
       .select('id, profile_data')
-      .in('id', vendorIds)
+      .in('id', vendorIds), { table: 'vendor_profiles' })
     for (const vp of vps ?? []) {
       const pd = vp.profile_data as { business_name?: string; farm_name?: string } | null
       vendorNameById.set(vp.id as string, pd?.business_name || pd?.farm_name || 'Unknown food truck')
@@ -284,11 +285,11 @@ export async function getParkWeekSchedule(
   // so only today's row reflects who's actually here.
   const todayDay = days.find((d) => d.isToday)
   if (todayDay && todayDay.trucks.length > 0) {
-    const { data: checkins } = await serviceClient
+    const { data: checkins } = await observed(serviceClient
       .from('market_day_checkins')
       .select('vendor_profile_id')
       .eq('market_id', marketId)
-      .eq('market_date', todayISO)
+      .eq('market_date', todayISO), { table: 'market_day_checkins' })
     const present = new Set((checkins ?? []).map((c) => c.vendor_profile_id as string))
     for (const t of todayDay.trucks) t.checkedIn = present.has(t.vendorProfileId)
   }

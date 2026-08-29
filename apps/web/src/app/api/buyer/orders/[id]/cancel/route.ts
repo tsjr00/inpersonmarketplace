@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { createRefund, transferToVendor, getChargeIdFromPaymentIntent } from '@/lib/stripe/payments'
 import { stripe } from '@/lib/stripe/config'
-import { withErrorTracing, traced, crumb, TracedError, logError } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, TracedError, logError, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { restoreInventory } from '@/lib/inventory'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
@@ -176,11 +176,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Check if all items in the order are now cancelled - if so, update order status
     const orderId = order.id
     crumb.supabase('select', 'order_items')
-    const { data: remainingItems } = await supabase
+    const { data: remainingItems } = await observed(supabase
       .from('order_items')
       .select('id, status')
       .eq('order_id', orderId)
-      .is('cancelled_at', null)
+      .is('cancelled_at', null), { table: 'order_items' })
 
     if (!remainingItems || remainingItems.length === 0) {
       // VOR-19 FIX (CHK-1 family): if the order is still awaiting payment, expire
@@ -225,11 +225,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const vendorUserId = vendorProfile?.user_id
 
     if (vendorUserId) {
-      const { data: buyerProfile } = await supabase
+      const { data: buyerProfile } = await observed(supabase
         .from('user_profiles')
         .select('display_name')
         .eq('user_id', user.id)
-        .single()
+        .single(), { table: 'user_profiles' })
       await sendNotification(vendorUserId, 'order_cancelled_by_buyer', {
         itemTitle: listing?.title,
         ...(order.order_number ? { orderNumber: order.order_number } : {}),
@@ -242,12 +242,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     let stripeRefundId: string | null = null
 
     crumb.supabase('select', 'payments')
-    const { data: payment } = await supabase
+    const { data: payment } = await observed(supabase
       .from('payments')
       .select('stripe_payment_intent_id, status')
       .eq('order_id', orderId)
       .eq('status', 'succeeded')
-      .single()
+      .single(), { table: 'payments' })
 
     if (payment?.stripe_payment_intent_id) {
       try {
@@ -298,13 +298,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
       if (cancelVendor?.stripe_account_id && cancelVendor.stripe_payouts_enabled) {
         // Insert pending payout FIRST (atomic pattern from H-10)
         const serviceClient = createServiceClient()
-        const { data: payoutRecord } = await serviceClient.from('vendor_payouts').insert({
+        const { data: payoutRecord } = await observed(serviceClient.from('vendor_payouts').insert({
           order_item_id: orderItemId,
           vendor_profile_id: (orderItem.listing as any)?.vendor_profile_id || cancelVendor?.id,
           amount_cents: vendorShareCents,
           stripe_transfer_id: null,
           status: 'pending',
-        }).select('id').single()
+        }).select('id').single(), { table: 'vendor_payouts', operation: 'insert' })
 
         try {
           crumb.logic('Transferring cancellation fee vendor share', {

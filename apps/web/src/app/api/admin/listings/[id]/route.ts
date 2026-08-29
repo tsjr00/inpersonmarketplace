@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { hasPlatformAdminRole } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 
 // PATCH - Admin moderation: suspend (pause) or unsuspend (republish) a listing
@@ -26,12 +26,12 @@ export async function PATCH(
     }
 
     // Verify admin role
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await observed(supabase
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
       .is('deleted_at', null)
-      .single()
+      .single(), { table: 'user_profiles' })
 
     // S4-2: platform_admin bypasses; vertical admin falls through to the
     // vertical_admins check below (was hasAdminRole → dead check, cross-vertical).
@@ -53,12 +53,12 @@ export async function PATCH(
 
     // If not platform admin, check vertical admin
     if (!isAdmin) {
-      const { data: verticalAdmin } = await supabase
+      const { data: verticalAdmin } = await observed(supabase
         .from('vertical_admins')
         .select('id')
         .eq('user_id', user.id)
         .eq('vertical_id', listing.vertical_id)
-        .single()
+        .single(), { table: 'vertical_admins' })
       isAdmin = !!verticalAdmin
     }
 
@@ -99,11 +99,11 @@ export async function PATCH(
       }
 
       // Get vendor user_id for notification
-      const { data: vendor } = await serviceClient
+      const { data: vendor } = await observed(serviceClient
         .from('vendor_profiles')
         .select('user_id')
         .eq('id', listing.vendor_profile_id)
-        .single()
+        .single(), { table: 'vendor_profiles' })
 
       if (vendor) {
         await sendNotification(vendor.user_id, 'listing_suspended', {

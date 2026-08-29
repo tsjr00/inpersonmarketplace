@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getMarketVendorCounts } from '@/lib/db/markets'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { hasAdminRole } from '@/lib/auth/admin'
 
@@ -90,12 +90,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify user is admin
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await observed(supabase
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
       .is('deleted_at', null)
-      .single()
+      .single(), { table: 'user_profiles' })
 
     const isAdmin = hasAdminRole(userProfile || {})
     if (!isAdmin) {

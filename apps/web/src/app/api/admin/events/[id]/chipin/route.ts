@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { verifyAdminScope } from '@/lib/auth/admin'
 import { getActiveBeneficiaries } from '@/lib/cause/beneficiaries'
 
@@ -16,11 +16,11 @@ interface RouteContext {
 // vertical's own admins can manage it (events are vertical-scoped).
 
 async function loadEvent(service: ReturnType<typeof createServiceClient>, cateringId: string) {
-  const { data } = await service
+  const { data } = await observed(service
     .from('catering_requests')
     .select('id, market_id, vertical_id, company_name')
     .eq('id', cateringId)
-    .maybeSingle()
+    .maybeSingle(), { table: 'catering_requests' })
   return data as { id: string; market_id: string | null; vertical_id: string | null; company_name: string | null } | null
 }
 
@@ -54,11 +54,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
       })
     }
 
-    const { data: market } = await service
+    const { data: market } = await observed(service
       .from('markets')
       .select('chipin_enabled, chipin_beneficiary_id')
       .eq('id', event.market_id)
-      .maybeSingle()
+      .maybeSingle(), { table: 'markets' })
 
     return NextResponse.json({
       available: true,
@@ -98,12 +98,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       if (!beneficiaryId) {
         return NextResponse.json({ error: 'Pick a beneficiary to enable Community Chip In.' }, { status: 400 })
       }
-      const { data: ben } = await service
+      const { data: ben } = await observed(service
         .from('cause_beneficiaries')
         .select('id')
         .eq('id', beneficiaryId)
         .eq('active', true)
-        .maybeSingle()
+        .maybeSingle(), { table: 'cause_beneficiaries' })
       if (!ben) return NextResponse.json({ error: 'Beneficiary not found or inactive' }, { status: 400 })
     }
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { isPremiumTier, getTierLimits, getTraditionalMarketUsage } from '@/lib/vendor-limits'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
@@ -74,11 +74,11 @@ export async function GET(request: NextRequest) {
       // Nothing is lost by gating on acceptance: a vendor cannot usefully
       // attach a listing to an event before saying yes, because the respond
       // route upserts listing_markets for them at acceptance.
-      const { data: acceptedRows } = await supabase
+      const { data: acceptedRows } = await observed(supabase
         .from('market_vendors')
         .select('market_id')
         .eq('vendor_profile_id', vendorProfile.id)
-        .eq('response_status', 'accepted')
+        .eq('response_status', 'accepted'), { table: 'market_vendors' })
       // @paired-rule organizer-identity — see lib/paired-rules.ts.
       const acceptedEventIds = new Set((acceptedRows || []).map((r) => r.market_id as string))
 
@@ -161,10 +161,10 @@ export async function GET(request: NextRequest) {
       // Get current listing's markets if editing
       let currentMarketIds: string[] = []
       if (listingId) {
-        const { data: currentMarkets } = await supabase
+        const { data: currentMarkets } = await observed(supabase
           .from('listing_markets')
           .select('market_id')
-          .eq('listing_id', listingId)
+          .eq('listing_id', listingId), { table: 'listing_markets' })
 
         if (currentMarkets) {
           currentMarketIds = currentMarkets.map(m => m.market_id)

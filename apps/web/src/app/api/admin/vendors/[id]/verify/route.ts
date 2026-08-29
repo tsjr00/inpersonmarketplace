@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { hasPlatformAdminRole } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications/service'
 import { logPublicActivityEvent } from '@/lib/marketing/activity-events'
 
@@ -31,29 +31,29 @@ export async function POST(
     }
 
     // Verify admin role
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await observed(supabase
       .from('user_profiles')
       .select('id, role, roles')
       .eq('user_id', user.id)
       .is('deleted_at', null)
-      .single()
+      .single(), { table: 'user_profiles' })
 
     // S4-2: platform_admin bypasses; vertical admin falls through to the
     // vertical_admins check below (was hasAdminRole → dead check, cross-vertical).
     let isAdmin = hasPlatformAdminRole(userProfile || {})
     if (!isAdmin) {
-      const { data: vendor } = await supabase
+      const { data: vendor } = await observed(supabase
         .from('vendor_profiles')
         .select('vertical_id')
         .eq('id', vendorId)
-        .single()
+        .single(), { table: 'vendor_profiles' })
       if (vendor) {
-        const { data: va } = await supabase
+        const { data: va } = await observed(supabase
           .from('vertical_admins')
           .select('id')
           .eq('user_id', user.id)
           .eq('vertical_id', vendor.vertical_id)
-          .single()
+          .single(), { table: 'vertical_admins' })
         isAdmin = !!va
       }
     }
@@ -81,11 +81,11 @@ export async function POST(
     }
     if (notes) {
       crumb.supabase('select', 'vendor_verifications')
-      const { data: existingVerif } = await serviceClient
+      const { data: existingVerif } = await observed(serviceClient
         .from('vendor_verifications')
         .select('notes')
         .eq('vendor_profile_id', vendorId)
-        .single()
+        .single(), { table: 'vendor_verifications' })
       const marker = `[${action} ${new Date().toISOString().slice(0, 10)}] ${notes}`
       verifyUpdate.notes = existingVerif?.notes ? `${existingVerif.notes}\n\n${marker}` : marker
     }
@@ -103,11 +103,11 @@ export async function POST(
     // The sync_verification_status() trigger handles updating vendor_profiles.status
 
     // Notify vendor
-    const { data: vendor } = await serviceClient
+    const { data: vendor } = await observed(serviceClient
       .from('vendor_profiles')
       .select('user_id, profile_data, vertical_id')
       .eq('id', vendorId)
-      .single()
+      .single(), { table: 'vendor_profiles' })
 
     if (vendor?.user_id) {
       const profileData = vendor.profile_data as Record<string, unknown> | null

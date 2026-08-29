@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { verifyAdminScope } from '@/lib/auth/admin'
 import {
   validateJurisdictions,
@@ -70,11 +70,11 @@ function corroborateAgainstAddress(
  */
 
 async function loadMarket(service: ReturnType<typeof createServiceClient>, id: string) {
-  const { data } = await service
+  const { data } = await observed(service
     .from('markets')
     .select('id, name, vertical_id, address, city, state, zip, latitude, longitude, tax_jurisdictions, tax_rate_total_pct, tax_rate_version, tax_jurisdiction_verified_at, tax_jurisdiction_note')
     .eq('id', id)
-    .maybeSingle()
+    .maybeSingle(), { table: 'markets' })
   return data
 }
 

@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { observed } from '@/lib/errors'
 
 /**
  * Resolve the set of user IDs to notify for a market, by audience tier
@@ -22,10 +23,10 @@ export async function resolveMarketAudience(
   for (const tier of tiers) {
     switch (tier) {
       case 'followers': {
-        const { data } = await serviceClient
+        const { data } = await observed(serviceClient
           .from('market_favorites')
           .select('user_id')
-          .eq('market_id', marketId)
+          .eq('market_id', marketId), { table: 'market_favorites' })
         for (const row of data ?? []) {
           if (row.user_id) userIds.add(row.user_id as string)
         }

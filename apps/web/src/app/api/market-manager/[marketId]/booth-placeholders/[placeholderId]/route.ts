@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { validateBoothPlaceholderInput, type BoothPlaceholderRow } from '@/lib/markets/placeholder-types'
 
 /**
@@ -45,11 +45,11 @@ async function authorize(
 
   // Verify the placeholder row belongs to this market
   const serviceClient = createServiceClient()
-  const { data: row } = await serviceClient
+  const { data: row } = await observed(serviceClient
     .from('market_booth_placeholders')
     .select('id, market_id')
     .eq('id', placeholderId)
-    .maybeSingle()
+    .maybeSingle(), { table: 'market_booth_placeholders' })
 
   if (!row) {
     return {
@@ -108,11 +108,11 @@ export async function PATCH(
 
       // Fetch the current row so we know whether tier is changing
       // (capacity check only needs to run on tier-change INTO a new tier).
-      const { data: existing } = await serviceClient
+      const { data: existing } = await observed(serviceClient
         .from('market_booth_placeholders')
         .select('id, inventory_id')
         .eq('id', placeholderId)
-        .maybeSingle()
+        .maybeSingle(), { table: 'market_booth_placeholders' })
 
       // Mig 146 Issue 1: booth_number uniqueness pre-flight.
       const { checkBoothNumberAvailable, checkTierCapacity } = await import('@/lib/markets/booth-conflict-checks')

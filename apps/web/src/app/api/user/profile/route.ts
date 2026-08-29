@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 export async function PATCH(request: NextRequest) {
@@ -67,12 +67,12 @@ export async function PATCH(request: NextRequest) {
     // If sms_consent is being toggled, merge it into notification_preferences
     // in the SAME update (avoids race conditions with two sequential writes)
     if (sms_consent !== undefined) {
-      const { data: profile } = await supabase
+      const { data: profile } = await observed(supabase
         .from('user_profiles')
         .select('notification_preferences')
         .eq('user_id', user.id)
         .is('deleted_at', null)
-        .single()
+        .single(), { table: 'user_profiles' })
 
       const currentPrefs = ((profile as Record<string, unknown>)?.notification_preferences as Record<string, unknown>) || {}
       updates.notification_preferences = {

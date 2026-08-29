@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, crumb } from '@/lib/errors'
+import { withErrorTracing, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { eventRefColumn } from '@/lib/events/event-ref'
 import { evaluateChangeWindow } from '@/lib/events/change-window'
@@ -25,11 +25,11 @@ interface RouteContext {
 /** Shared organizer auth — id match, or email match before the account links. */
 async function loadEventForOrganizer(token: string, userId: string, userEmail: string | undefined) {
   const serviceClient = createServiceClient()
-  const { data: event } = await serviceClient
+  const { data: event } = await observed(serviceClient
     .from('catering_requests')
     .select('id, status, organizer_user_id, contact_email, market_id, event_date, event_start_time, service_level, vertical_id, company_name')
     .eq(eventRefColumn(token), token)
-    .maybeSingle()
+    .maybeSingle(), { table: 'catering_requests' })
 
   if (!event) return { event: null, serviceClient, authorized: false as const }
 
@@ -58,11 +58,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     crumb.supabase('select', 'event_change_requests')
-    const { data: requests } = await serviceClient
+    const { data: requests } = await observed(serviceClient
       .from('event_change_requests')
       .select('id, reason_category, explanation, requested_changes, applied_changes, status, review_note, created_at, reviewed_at')
       .eq('catering_request_id', event.id)
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: false }), { table: 'event_change_requests' })
 
     return NextResponse.json({ requests: requests || [] })
   })
@@ -115,11 +115,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
       )
     }
 
-    const { data: market } = await serviceClient
+    const { data: market } = await observed(serviceClient
       .from('markets')
       .select('timezone, cutoff_hours')
       .eq('id', event.market_id)
-      .maybeSingle()
+      .maybeSingle(), { table: 'markets' })
 
     const window = evaluateChangeWindow({
       eventDate: event.event_date as string | null,
@@ -146,11 +146,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     // Snapshot the cost AS IT STANDS NOW. Recomputed at review time it would be
     // a different number, and the admin should judge what was actually asked.
-    const { data: orderRows } = await serviceClient
+    const { data: orderRows } = await observed(serviceClient
       .from('order_items')
       .select('order_id, subtotal_cents')
       .eq('market_id', event.market_id)
-      .not('status', 'in', '("cancelled","refunded")')
+      .not('status', 'in', '("cancelled","refunded")'), { table: 'order_items' })
     const preorderCount = new Set((orderRows || []).map(r => r.order_id as string)).size
     // The money at stake is what justifies a person being in the loop at all,
     // so it is the substance of the admin's decision rather than a nicety.

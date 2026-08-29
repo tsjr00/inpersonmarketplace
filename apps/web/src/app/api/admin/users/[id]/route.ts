@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { hasPlatformAdminRole } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 
 // PATCH - Admin: suspend or reactivate a user account
 export async function PATCH(
@@ -30,12 +30,12 @@ export async function PATCH(
     }
 
     // Verify admin role
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await observed(supabase
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
       .is('deleted_at', null)
-      .single()
+      .single(), { table: 'user_profiles' })
 
     // S4-2: platform-only — user management is platform-level (users are not
     // vertical-scoped entities), so vertical admins do not manage arbitrary users.

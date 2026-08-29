@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { verifyAdminScope } from '@/lib/auth/admin'
 
@@ -81,9 +81,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Count by status for the filter tabs
-    const { data: allRows } = await serviceClient
+    const { data: allRows } = await observed(serviceClient
       .from('event_ratings')
-      .select('status')
+      .select('status'), { table: 'event_ratings' })
 
     const counts: Record<string, number> = { pending: 0, approved: 0, hidden: 0, total: 0 }
     for (const r of allRows || []) {
@@ -98,10 +98,10 @@ export async function GET(request: NextRequest) {
     const reviewerIds = [...new Set((ratings || []).map(r => r.user_id as string).filter(Boolean))]
     const reviewers = new Map<string, { display_name: string | null; email: string | null }>()
     if (reviewerIds.length > 0) {
-      const { data: profiles } = await serviceClient
+      const { data: profiles } = await observed(serviceClient
         .from('user_profiles')
         .select('user_id, display_name, email')
-        .in('user_id', reviewerIds)
+        .in('user_id', reviewerIds), { table: 'user_profiles' })
       for (const p of profiles || []) {
         reviewers.set(p.user_id as string, {
           display_name: p.display_name as string | null,

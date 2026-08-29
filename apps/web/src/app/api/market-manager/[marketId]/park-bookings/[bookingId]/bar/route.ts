@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { runBarredBookingOrderCascade } from '@/lib/markets/cancel-date-cascade'
 
@@ -44,11 +44,11 @@ export async function POST(
     const service = createServiceClient()
 
     crumb.supabase('select', 'park_spot_bookings')
-    const { data: booking } = await service
+    const { data: booking } = await observed(service
       .from('park_spot_bookings')
       .select('id, market_id, vendor_profile_id, booking_date, status, manager_barred_at')
       .eq('id', bookingId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'park_spot_bookings' })
     if (!booking || booking.market_id !== marketId) {
       return NextResponse.json({ error: 'Booking not found at this park' }, { status: 404 })
     }
@@ -86,8 +86,8 @@ export async function POST(
 
     // Notify the truck (no refund of the spot fee — grounded in the B1
     // acknowledgment) and the affected buyers (order cancelled + refunded).
-    const { data: market } = await service.from('markets').select('name, vertical_id').eq('id', marketId).maybeSingle()
-    const { data: vp } = await service.from('vendor_profiles').select('user_id, profile_data').eq('id', booking.vendor_profile_id as string).maybeSingle()
+    const { data: market } = await observed(service.from('markets').select('name, vertical_id').eq('id', marketId).maybeSingle(), { table: 'markets' })
+    const { data: vp } = await observed(service.from('vendor_profiles').select('user_id, profile_data').eq('id', booking.vendor_profile_id as string).maybeSingle(), { table: 'vendor_profiles' })
     if (vp?.user_id) {
       await sendNotification(
         vp.user_id as string,

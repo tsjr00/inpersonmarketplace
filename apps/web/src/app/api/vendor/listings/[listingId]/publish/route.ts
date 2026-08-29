@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import {
@@ -81,11 +81,11 @@ export async function POST(
 
     // Gate check: load verification + partner agreement
     crumb.supabase('select', 'vendor_verifications')
-    const { data: verification } = await supabase
+    const { data: verification } = await observed(supabase
       .from('vendor_verifications')
       .select('status, requested_categories, category_verifications, onboarding_completed_at')
       .eq('vendor_profile_id', vendorProfile.id)
-      .single()
+      .single(), { table: 'vendor_verifications' })
 
     if (!verification) {
       throw traced.validation('ERR_LISTING_GATE',
@@ -105,13 +105,13 @@ export async function POST(
     // Partner agreement (or grandfathered)
     const isGrandfathered = !!verification.onboarding_completed_at
     if (!isGrandfathered) {
-      const { data: partnerAcceptance } = await supabase
+      const { data: partnerAcceptance } = await observed(supabase
         .from('user_agreement_acceptances')
         .select('id')
         .eq('user_id', user.id)
         .eq('agreement_type', 'vendor_partner')
         .limit(1)
-        .maybeSingle()
+        .maybeSingle(), { table: 'user_agreement_acceptances' })
 
       if (!partnerAcceptance) {
         throw traced.validation('ERR_LISTING_GATE',

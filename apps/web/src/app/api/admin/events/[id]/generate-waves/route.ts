@@ -7,7 +7,7 @@ import {
   rateLimitResponse,
   rateLimits,
 } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { generateEventWaves } from '@/lib/events/wave-generation'
 
 interface RouteContext {
@@ -36,12 +36,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       }
 
-      const { data: userProfile } = await supabase
+      const { data: userProfile } = await observed(supabase
         .from('user_profiles')
         .select('role, roles')
         .eq('user_id', user.id)
         .is('deleted_at', null)
-        .single()
+        .single(), { table: 'user_profiles' })
 
       if (!hasAdminRole(userProfile || {})) {
         return NextResponse.json({ error: 'Admin access required' }, { status: 403 })

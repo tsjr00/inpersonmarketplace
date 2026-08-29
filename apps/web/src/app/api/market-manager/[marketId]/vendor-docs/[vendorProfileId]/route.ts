@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 
 /**
  * GET /api/market-manager/[marketId]/vendor-docs/[vendorProfileId]
@@ -49,12 +49,12 @@ export async function GET(
 
     // Gate 2: vendor must be at this market.
     crumb.supabase('select', 'market_vendors')
-    const { data: mvRow } = await serviceClient
+    const { data: mvRow } = await observed(serviceClient
       .from('market_vendors')
       .select('id, approved')
       .eq('market_id', marketId)
       .eq('vendor_profile_id', vendorProfileId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'market_vendors' })
     if (!mvRow) {
       return NextResponse.json({ error: 'Vendor is not at this market' }, { status: 404 })
     }
@@ -64,11 +64,11 @@ export async function GET(
     // (or by /api/submit when market_agreement_accepted=true alongside
     // info_sharing_accepted=true — TODO for new-vendor path).
     crumb.supabase('select', 'vendor_market_agreement_acceptances')
-    const { data: acceptances } = await serviceClient
+    const { data: acceptances } = await observed(serviceClient
       .from('vendor_market_agreement_acceptances')
       .select('statements_snapshot')
       .eq('vendor_profile_id', vendorProfileId)
-      .eq('market_id', marketId)
+      .eq('market_id', marketId), { table: 'vendor_market_agreement_acceptances' })
     const hasConsent = (acceptances || []).some((row) => {
       const snap = row.statements_snapshot as Array<{ statement_id?: string }> | null
       return Array.isArray(snap) && snap.some((s) => s?.statement_id === '_info_sharing_consent')
@@ -82,11 +82,11 @@ export async function GET(
 
     // Fetch vendor's business name + verification record
     crumb.supabase('select', 'vendor_profiles')
-    const { data: vp } = await serviceClient
+    const { data: vp } = await observed(serviceClient
       .from('vendor_profiles')
       .select('id, status, profile_data, vertical_id')
       .eq('id', vendorProfileId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'vendor_profiles' })
     if (!vp) {
       return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
     }
@@ -98,13 +98,13 @@ export async function GET(
       'Unknown vendor'
 
     crumb.supabase('select', 'vendor_verifications')
-    const { data: verification } = await serviceClient
+    const { data: verification } = await observed(serviceClient
       .from('vendor_verifications')
       // Docs live inside category_verifications[cat].documents per the
       // admin verification flow (not as a separate top-level field).
       .select('requested_categories, category_verifications, coi_status, coi_documents, coi_verified_at, prohibited_items_acknowledged_at, onboarding_completed_at, submitted_at')
       .eq('vendor_profile_id', vendorProfileId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'vendor_verifications' })
 
     return NextResponse.json({
       vendor_profile_id: vendorProfileId,

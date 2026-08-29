@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 
 /**
@@ -110,12 +110,12 @@ export async function PATCH(
     }
 
     // Vendor profile for this user in the market's vertical.
-    const { data: vendorProfile } = await serviceClient
+    const { data: vendorProfile } = await observed(serviceClient
       .from('vendor_profiles')
       .select('id, profile_data')
       .eq('user_id', user.id)
       .eq('vertical_id', verticalId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'vendor_profiles' })
 
     if (!vendorProfile) {
       return NextResponse.json(

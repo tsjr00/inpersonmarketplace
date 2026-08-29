@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import { classifyCustomer, toDay } from '@/lib/loyalty/segments'
@@ -149,10 +149,10 @@ export async function GET(request: NextRequest) {
     // Fetch order data using service client (vendors can't access orders table via RLS)
     const ordersData: Record<string, any> = {}
     if (orderIds.length > 0) {
-      const { data: orders } = await supabaseService
+      const { data: orders } = await observed(supabaseService
         .from('orders')
         .select('id, order_number, status, total_cents, created_at, buyer_user_id, payment_method')
-        .in('id', orderIds)
+        .in('id', orderIds), { table: 'orders' })
 
       orders?.forEach((o: any) => {
         ordersData[o.id] = o
@@ -167,10 +167,10 @@ export async function GET(request: NextRequest) {
     // Fetch buyer display names from user_profiles (use service client to bypass RLS)
     const buyerNames: Record<string, string> = {}
     if (buyerIds.length > 0) {
-      const { data: profiles } = await supabaseService
+      const { data: profiles } = await observed(supabaseService
         .from('user_profiles')
         .select('user_id, display_name')
-        .in('user_id', buyerIds)
+        .in('user_id', buyerIds), { table: 'user_profiles' })
 
       profiles?.forEach((p: any) => {
         buyerNames[p.user_id] = p.display_name || 'Customer'
@@ -185,12 +185,12 @@ export async function GET(request: NextRequest) {
     // to the buyer, and the vendor_profile_id filter keeps it to this vendor.
     const customerStats: Record<string, { count: number; segment: CustomerSegment }> = {}
     if (buyerIds.length > 0) {
-      const { data: fulfilled } = await supabaseService
+      const { data: fulfilled } = await observed(supabaseService
         .from('order_items')
         .select('order_id, pickup_date, pickup_confirmed_at, order:orders!inner(buyer_user_id)')
         .eq('vendor_profile_id', vendorProfile.id)
         .eq('status', 'fulfilled')
-        .in('order.buyer_user_id', buyerIds)
+        .in('order.buyer_user_id', buyerIds), { table: 'order_items' })
       type FulfilledRow = {
         order_id: string
         pickup_date: string | null

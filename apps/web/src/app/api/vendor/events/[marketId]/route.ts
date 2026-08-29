@@ -6,7 +6,7 @@ import {
   rateLimitResponse,
   rateLimits,
 } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { maskedEventName } from '@/lib/events/event-name'
 import { calculateBoothRentalFees } from '@/lib/pricing'
 import { loadVendorAvailability } from '@/lib/events/availability'
@@ -44,23 +44,23 @@ export async function GET(request: NextRequest, context: RouteContext) {
       const serviceClient = createServiceClient()
 
       // Look up the market's vertical to scope the vendor profile query
-      const { data: marketInfo } = await serviceClient
+      const { data: marketInfo } = await observed(serviceClient
         .from('markets')
         .select('vertical_id')
         .eq('id', marketId)
-        .single()
+        .single(), { table: 'markets' })
 
       if (!marketInfo) {
         return NextResponse.json({ error: 'Event not found' }, { status: 404 })
       }
 
       // Get vendor profile for this user IN this vertical
-      const { data: vendorProfile } = await supabase
+      const { data: vendorProfile } = await observed(supabase
         .from('vendor_profiles')
         .select('id, profile_data')
         .eq('user_id', user.id)
         .eq('vertical_id', marketInfo.vertical_id)
-        .single()
+        .single(), { table: 'vendor_profiles' })
 
       if (!vendorProfile) {
         return NextResponse.json(
@@ -70,12 +70,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
       }
 
       // Verify vendor is invited to this market
-      const { data: marketVendor } = await serviceClient
+      const { data: marketVendor } = await observed(serviceClient
         .from('market_vendors')
         .select('response_status, response_notes, invited_at, event_max_orders_total, event_max_orders_per_wave, organizer_selected_at, is_backup, standby_opted_in_at')
         .eq('market_id', marketId)
         .eq('vendor_profile_id', vendorProfile.id)
-        .single()
+        .single(), { table: 'market_vendors' })
 
       if (!marketVendor) {
         return NextResponse.json(
@@ -85,13 +85,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
       }
 
       // Fetch market + catering request details
-      const { data: market } = await serviceClient
+      const { data: market } = await observed(serviceClient
         .from('markets')
         .select(
           'id, name, address, city, state, zip, headcount, catering_request_id, event_start_date, event_end_date'
         )
         .eq('id', marketId)
-        .single()
+        .single(), { table: 'markets' })
 
       if (!market) {
         return NextResponse.json(
@@ -123,13 +123,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
       }
 
       if (market.catering_request_id) {
-        const { data: cReq } = await serviceClient
+        const { data: cReq } = await observed(serviceClient
           .from('catering_requests')
           .select(
             'company_name, cuisine_preferences, dietary_notes, setup_instructions, vendor_count, event_start_time, event_end_time, event_type, payment_model, is_ticketed, children_present, is_themed, theme_description, has_competing_vendors, vendor_stay_policy, event_vendor_fee_cents, background_check_required, background_check_details'
           )
           .eq('id', market.catering_request_id)
-          .single()
+          .single(), { table: 'catering_requests' })
 
         if (cReq) {
           cateringDetails = {
@@ -178,13 +178,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
       // defector's forfeited fee pays for — shows as settled, never as a bill.
       let feePaymentStatus: 'paid' | 'covered' | 'unpaid' | null = null
       if (feeCents && feeCents > 0) {
-        const { data: feeRow } = await serviceClient
+        const { data: feeRow } = await observed(serviceClient
           .from('event_vendor_fee_payments')
           .select('status')
           .eq('market_id', marketId)
           .eq('vendor_profile_id', vendorProfile.id)
           .in('status', ['paid', 'covered'])
-          .maybeSingle()
+          .maybeSingle(), { table: 'event_vendor_fee_payments' })
         feePaymentStatus = feeRow ? (feeRow.status as 'paid' | 'covered') : 'unpaid'
       }
       const feeAmounts = feeCents && feeCents > 0 ? calculateBoothRentalFees(feeCents) : null

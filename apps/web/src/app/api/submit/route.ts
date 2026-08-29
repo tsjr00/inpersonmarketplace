@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerClient, createServiceClient } from "@/lib/supabase/server";
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from "@/lib/rate-limit";
-import { withErrorTracing } from '@/lib/errors';
+import { withErrorTracing, observed } from '@/lib/errors';
 import { FOOD_TRUCK_PERMIT_REQUIREMENTS } from '@/lib/onboarding/category-requirements';
 import { sendNotification } from '@/lib/notifications';
 import { vendorSignupSchema } from '@/lib/validation/vendor-signup';
@@ -326,10 +326,10 @@ export async function POST(request: NextRequest) {
           const profileData = data as Record<string, unknown>
           const vendorName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'New vendor'
           // Query admin users to notify
-          const { data: admins } = await supabaseAdmin
+          const { data: admins } = await observed(supabaseAdmin
             .from('user_profiles')
             .select('user_id')
-            .or('role.eq.admin,role.eq.platform_admin')
+            .or('role.eq.admin,role.eq.platform_admin'), { table: 'user_profiles' })
           if (admins && admins.length > 0) {
             await Promise.all(
               admins.map((admin) =>

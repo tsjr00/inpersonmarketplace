@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { validateParkSpotInput, type ParkSpotInput, type ParkSpotRow, type SpotPower } from '@/lib/markets/park-spot-types'
 
 /**
@@ -37,11 +37,11 @@ async function authorize(
   }
 
   const serviceClient = createServiceClient()
-  const { data: row } = await serviceClient
+  const { data: row } = await observed(serviceClient
     .from('park_spots')
     .select('id, market_id')
     .eq('id', spotId)
-    .maybeSingle()
+    .maybeSingle(), { table: 'park_spots' })
 
   if (!row) {
     return { ok: false, response: NextResponse.json({ error: 'Spot not found' }, { status: 404 }) }

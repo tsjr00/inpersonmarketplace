@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { verifyAdminForApi } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 
 /**
  * GET /api/admin/analytics/top-vendors
@@ -51,20 +51,20 @@ export async function GET(request: NextRequest) {
     }
 
     // ── Market box subscriptions: revenue per vendor (via offering → vendor) ──
-    const { data: subscriptions } = await serviceClient
+    const { data: subscriptions } = await observed(serviceClient
       .from('market_box_subscriptions')
       .select('id, status, total_paid_cents, offering_id, created_at')
       .gte('created_at', `${startDate}T00:00:00`)
-      .lte('created_at', `${endDate}T23:59:59`)
+      .lte('created_at', `${endDate}T23:59:59`), { table: 'market_box_subscriptions' })
 
     // Look up offering → vendor_profile_id for any subscriptions present
     const subOfferingIds = Array.from(new Set((subscriptions || []).map((s) => s.offering_id as string)))
     const offeringToVendor = new Map<string, string>()
     if (subOfferingIds.length > 0) {
-      const { data: offerings } = await serviceClient
+      const { data: offerings } = await observed(serviceClient
         .from('market_box_offerings')
         .select('id, vendor_profile_id')
-        .in('id', subOfferingIds)
+        .in('id', subOfferingIds), { table: 'market_box_offerings' })
       for (const o of offerings || []) {
         offeringToVendor.set(o.id as string, o.vendor_profile_id as string)
       }

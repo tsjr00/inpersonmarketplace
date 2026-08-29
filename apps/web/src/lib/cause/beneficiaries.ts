@@ -11,6 +11,7 @@
  * render before mig 213 is applied (mirrors the mig 205/206 companion pattern).
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { observed } from '@/lib/errors'
 
 export interface CauseBeneficiary {
   id: string
@@ -54,12 +55,12 @@ export async function getEventChipInConfig(
   if (error || !market?.chipin_enabled || !market.chipin_beneficiary_id) {
     return { enabled: false, beneficiary: null }
   }
-  const { data: ben } = await service
+  const { data: ben } = await observed(service
     .from('cause_beneficiaries')
     .select('id, name, remit_method, stripe_account_id, active')
     .eq('id', market.chipin_beneficiary_id as string)
     .eq('active', true)
-    .maybeSingle()
+    .maybeSingle(), { table: 'cause_beneficiaries' })
   return ben
     ? { enabled: true, beneficiary: ben as CauseBeneficiary }
     : { enabled: false, beneficiary: null }
@@ -93,12 +94,12 @@ export async function getActiveRoundUpCampaign(
   })
   if (!match) return null
 
-  const { data: ben } = await service
+  const { data: ben } = await observed(service
     .from('cause_beneficiaries')
     .select('id, name, remit_method, stripe_account_id, active')
     .eq('id', match.beneficiary_id as string)
     .eq('active', true)
-    .maybeSingle()
+    .maybeSingle(), { table: 'cause_beneficiaries' })
   return ben ? { id: match.id as string, beneficiary: ben as CauseBeneficiary } : null
 }
 

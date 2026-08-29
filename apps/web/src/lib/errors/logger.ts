@@ -76,6 +76,16 @@ export function isDbLoggingEnabled(): boolean {
  * Send an email alert to the admin for high-severity errors.
  * Silently fails if Resend is not configured.
  */
+/**
+ * One alert email per (code + route) per hour per server instance. Added with
+ * observed() (2026-08-29): a schema-class failure inside a loop or a cron
+ * used to be invisible; now it logs every occurrence to error_logs, and
+ * WITHOUT this the admin would get one email per occurrence. error_logs keeps
+ * the full count — the email is the wake-up, not the ledger.
+ */
+const ALERT_COOLDOWN_MS = 60 * 60 * 1000
+const lastAlertAt = new Map<string, number>()
+
 async function sendAdminAlert(error: TracedError): Promise<void> {
   // Don't send alerts during test runs
   if (process.env.NODE_ENV === 'test' || process.env.VITEST) return
@@ -83,6 +93,12 @@ async function sendAdminAlert(error: TracedError): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY
   const adminEmail = process.env.ADMIN_ALERT_EMAIL
   if (!apiKey || !adminEmail) return
+
+  const alertKey = `${error.code}|${error.context?.route ?? ''}`
+  const now = Date.now()
+  const last = lastAlertAt.get(alertKey)
+  if (last !== undefined && now - last < ALERT_COOLDOWN_MS) return
+  lastAlertAt.set(alertKey, now)
 
   try {
     const { Resend } = await import('resend')

@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
+import { observed } from '@/lib/errors'
 
 export const LOCATION_COOKIE_NAME = 'user_location'
 export const DEFAULT_RADIUS = 25
@@ -39,11 +40,11 @@ export async function getServerLocation(
   const { data: { user } } = await supabase.auth.getUser()
 
   if (user) {
-    const { data: profile } = await supabase
+    const { data: profile } = await observed(supabase
       .from('user_profiles')
       .select('preferred_latitude, preferred_longitude, location_source, location_text')
       .eq('user_id', user.id)
-      .single()
+      .single(), { table: 'user_profiles' })
 
     if (profile?.preferred_latitude && profile?.preferred_longitude) {
       return {

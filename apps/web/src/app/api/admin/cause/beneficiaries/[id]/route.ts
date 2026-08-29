@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { hasPlatformAdminRole } from '@/lib/auth/admin'
 
 interface RouteContext {
@@ -14,12 +14,12 @@ async function requirePlatformAdmin() {
   if (authError || !user) {
     return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
   }
-  const { data: profile } = await supabase
+  const { data: profile } = await observed(supabase
     .from('user_profiles')
     .select('role, roles')
     .eq('user_id', user.id)
     .is('deleted_at', null)
-    .single()
+    .single(), { table: 'user_profiles' })
   if (!hasPlatformAdminRole(profile || {})) {
     return { error: NextResponse.json({ error: 'Platform admin access required' }, { status: 403 }) }
   }
@@ -72,11 +72,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // it just means "not connected yet", which the card surfaces and the remit
     // sweep skips. Requiring it here blocked the switch entirely.
     if (update.remit_method === 'connect') {
-      const { data: existing } = await service
+      const { data: existing } = await observed(service
         .from('cause_beneficiaries')
         .select('contact_email')
         .eq('id', id)
-        .maybeSingle()
+        .maybeSingle(), { table: 'cause_beneficiaries' })
       const effectiveEmail =
         contact_email !== undefined ? contact_email : (existing?.contact_email as string | null)
       if (!effectiveEmail || effectiveEmail.trim() === '') {

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 
 /**
  * PATCH /api/market-manager/[marketId]/vendor-booth
@@ -84,12 +84,12 @@ export async function PATCH(
     // Resolve the existing market_vendors row so we can self-exclude
     // from the booth-# uniqueness + capacity checks below. Also gives
     // us the prior inventory_id so we know whether the tier is changing.
-    const { data: existingMv } = await serviceClient
+    const { data: existingMv } = await observed(serviceClient
       .from('market_vendors')
       .select('id, inventory_id')
       .eq('market_id', marketId)
       .eq('vendor_profile_id', vendorProfileId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'market_vendors' })
 
     if (!existingMv) {
       return NextResponse.json(

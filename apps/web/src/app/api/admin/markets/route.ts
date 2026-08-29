@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { hasPlatformAdminRole } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 
 // GET - Get all markets (admin view)
 export async function GET(request: NextRequest) {
@@ -29,12 +29,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Check for platform admin role first
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await observed(supabase
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
       .is('deleted_at', null)
-      .single()
+      .single(), { table: 'user_profiles' })
 
     // S4-2: platform_admin bypasses; vertical admin falls through to the
     // vertical_admins check below (was hasAdminRole → dead check, cross-vertical).
@@ -42,12 +42,12 @@ export async function GET(request: NextRequest) {
 
     // If not platform admin, check if they're a vertical admin for this specific vertical
     if (!isAdmin) {
-      const { data: verticalAdmin } = await supabase
+      const { data: verticalAdmin } = await observed(supabase
         .from('vertical_admins')
         .select('id')
         .eq('user_id', user.id)
         .eq('vertical_id', vertical)
-        .single()
+        .single(), { table: 'vertical_admins' })
       isAdmin = !!verticalAdmin
     }
 
@@ -100,10 +100,10 @@ export async function GET(request: NextRequest) {
 
     const vendorMap: Record<string, string> = {}
     if (vendorIds.length > 0) {
-      const { data: vendors } = await serviceClient
+      const { data: vendors } = await observed(serviceClient
         .from('vendor_profiles')
         .select('id, profile_data')
-        .in('id', vendorIds)
+        .in('id', vendorIds), { table: 'vendor_profiles' })
 
       if (vendors) {
         vendors.forEach(v => {
@@ -144,12 +144,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify admin — platform admin or vertical admin for the target vertical
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await observed(supabase
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
       .is('deleted_at', null)
-      .single()
+      .single(), { table: 'user_profiles' })
 
     const body = await request.json()
     const { vertical, name, address, city, state, zip, latitude, longitude, day_of_week, start_time, end_time, schedules, season_start, season_end, status = 'active', market_type = 'traditional', event_start_date, event_end_date, event_url, cutoff_hours: customCutoffHours } = body
@@ -164,12 +164,12 @@ export async function POST(request: NextRequest) {
 
     // If not platform admin, check if they're a vertical admin for the target vertical
     if (!isAdmin) {
-      const { data: verticalAdmin } = await supabase
+      const { data: verticalAdmin } = await observed(supabase
         .from('vertical_admins')
         .select('id')
         .eq('user_id', user.id)
         .eq('vertical_id', vertical)
-        .single()
+        .single(), { table: 'vertical_admins' })
       isAdmin = !!verticalAdmin
     }
 
@@ -303,7 +303,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch the market with schedules to return
-    const { data: marketWithSchedules } = await serviceClient
+    const { data: marketWithSchedules } = await observed(serviceClient
       .from('markets')
       .select(`
         *,
@@ -316,7 +316,7 @@ export async function POST(request: NextRequest) {
         )
       `)
       .eq('id', market.id)
-      .single()
+      .single(), { table: 'markets' })
 
     // Invalidate cached market pages so new market appears immediately
     revalidatePath('/[vertical]/markets', 'page')

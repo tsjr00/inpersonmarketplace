@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb, logError, TracedError } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, logError, TracedError, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { eventRefColumn } from '@/lib/events/event-ref'
 import { refundEventFeePayment } from '@/lib/stripe/event-fee-payments'
@@ -39,11 +39,11 @@ interface EventRow {
 async function loadOrganizerEvent(ref: string, userId: string): Promise<EventRow | null> {
   const serviceClient = createServiceClient()
   crumb.supabase('select', 'catering_requests')
-  const { data: event } = await serviceClient
+  const { data: event } = await observed(serviceClient
     .from('catering_requests')
     .select('id, organizer_user_id, market_id, vertical_id, event_date')
     .eq(eventRefColumn(ref), ref)
-    .maybeSingle()
+    .maybeSingle(), { table: 'catering_requests' })
 
   if (!event || (event as EventRow).organizer_user_id !== userId) return null
   return event as EventRow
@@ -70,12 +70,12 @@ export async function GET(
 
     const serviceClient = createServiceClient()
     crumb.supabase('select', 'event_vendor_fee_payments')
-    const { data: forfeits } = await serviceClient
+    const { data: forfeits } = await observed(serviceClient
       .from('event_vendor_fee_payments')
       .select('id, vendor_profile_id, vendor_pays_cents, cancel_reason, forfeited_at, vendor_profiles:vendor_profile_id(profile_data)')
       .eq('market_id', event.market_id)
       .eq('status', 'forfeited')
-      .order('forfeited_at', { ascending: false })
+      .order('forfeited_at', { ascending: false }), { table: 'event_vendor_fee_payments' })
 
     const stillWaivable = event.event_date ? isWaivable(event.event_date) : false
     const deadline = event.event_date ? waivableUntil(event.event_date) : null
@@ -131,12 +131,12 @@ export async function POST(
 
     const serviceClient = createServiceClient()
     crumb.supabase('select', 'event_vendor_fee_payments')
-    const { data: row } = await serviceClient
+    const { data: row } = await observed(serviceClient
       .from('event_vendor_fee_payments')
       .select('id, market_id, vendor_profile_id, vendor_pays_cents, status, stripe_payment_intent_id, vendor_profiles:vendor_profile_id(user_id)')
       .eq('id', paymentId)
       .eq('market_id', event.market_id)
-      .maybeSingle()
+      .maybeSingle(), { table: 'event_vendor_fee_payments' })
 
     if (!row) {
       return NextResponse.json({ error: 'Payment not found for this event' }, { status: 404 })
@@ -155,7 +155,7 @@ export async function POST(
     // (the second claim matches 0 rows), and the deterministic refund key
     // makes the Stripe call itself idempotent besides.
     crumb.supabase('update', 'event_vendor_fee_payments')
-    const { data: claimed } = await serviceClient
+    const { data: claimed } = await observed(serviceClient
       .from('event_vendor_fee_payments')
       .update({
         status: 'refunded',
@@ -165,7 +165,7 @@ export async function POST(
       })
       .eq('id', row.id)
       .eq('status', 'forfeited')
-      .select('id')
+      .select('id'), { table: 'event_vendor_fee_payments', operation: 'update' })
 
     if (!claimed || claimed.length === 0) {
       return NextResponse.json({ error: 'This forfeit was already handled.' }, { status: 409 })
@@ -201,11 +201,11 @@ export async function POST(
 
     const vendorUserId = (row.vendor_profiles as unknown as { user_id?: string } | null)?.user_id
     if (vendorUserId) {
-      const { data: marketRow } = await serviceClient
+      const { data: marketRow } = await observed(serviceClient
         .from('markets')
         .select('name')
         .eq('id', event.market_id)
-        .maybeSingle()
+        .maybeSingle(), { table: 'markets' })
       await sendNotification(vendorUserId, 'event_fee_refunded_vendor', {
         marketName: (marketRow?.name as string) || 'the event',
         marketId: event.market_id,

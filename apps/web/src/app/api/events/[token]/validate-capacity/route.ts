@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
@@ -36,11 +36,11 @@ export async function GET(
 
     // Look up event by token
     crumb.supabase('select', 'catering_requests')
-    const { data: event } = await supabase
+    const { data: event } = await observed(supabase
       .from('catering_requests')
       .select('id, market_id, status')
       .eq('event_token', token)
-      .single()
+      .single(), { table: 'catering_requests' })
 
     if (!event || !event.market_id) {
       throw traced.notFound('ERR_VALIDATE_002', 'Event not found')
@@ -60,13 +60,13 @@ export async function GET(
 
     // Get vendor's declared capacity for this event
     crumb.supabase('select', 'market_vendors')
-    const { data: marketVendor } = await supabase
+    const { data: marketVendor } = await observed(supabase
       .from('market_vendors')
       .select('event_max_orders_total')
       .eq('market_id', event.market_id)
       .eq('vendor_profile_id', vendorProfileId)
       .eq('response_status', 'accepted')
-      .single()
+      .single(), { table: 'market_vendors' })
 
     if (!marketVendor) {
       throw traced.notFound('ERR_VALIDATE_003', 'Vendor not participating in this event')

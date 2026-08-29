@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
@@ -30,12 +30,12 @@ export async function POST(
 
     const supabase = createServiceClient()
 
-    const { data: event } = await supabase
+    const { data: event } = await observed(supabase
       .from('catering_requests')
       .select('access_code, payment_model, company_max_per_attendee_cents')
       .eq('event_token', token)
       .in('status', ['approved', 'ready', 'active'])
-      .single()
+      .single(), { table: 'catering_requests' })
 
     if (!event || !event.access_code) {
       return NextResponse.json({ valid: false, error: 'Event not found' }, { status: 404 })

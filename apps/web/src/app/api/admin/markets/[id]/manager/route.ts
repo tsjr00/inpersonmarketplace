@@ -3,7 +3,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { hasPlatformAdminRole } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import type { NotificationType } from '@/lib/notifications/types'
 
@@ -12,22 +12,22 @@ async function verifyAdminAccess(
   userId: string,
   verticalId: string
 ): Promise<boolean> {
-  const { data: userProfile } = await supabase
+  const { data: userProfile } = await observed(supabase
     .from('user_profiles')
     .select('role, roles')
     .eq('user_id', userId)
     .is('deleted_at', null)
-    .single()
+    .single(), { table: 'user_profiles' })
 
   // S4-2: platform_admin bypasses; vertical admin falls through to vertical_admins.
   if (hasPlatformAdminRole(userProfile || {})) return true
 
-  const { data: va } = await supabase
+  const { data: va } = await observed(supabase
     .from('vertical_admins')
     .select('id')
     .eq('user_id', userId)
     .eq('vertical_id', verticalId)
-    .single()
+    .single(), { table: 'vertical_admins' })
 
   return !!va
 }
@@ -112,11 +112,11 @@ export async function POST(
     const serviceClient = createServiceClient()
 
     crumb.supabase('select', 'markets')
-    const { data: market } = await serviceClient
+    const { data: market } = await observed(serviceClient
       .from('markets')
       .select('id, vertical_id, name, manager_email, manager_user_id, manager_status')
       .eq('id', marketId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'markets' })
 
     if (!market) {
       return NextResponse.json({ error: 'Market not found' }, { status: 404 })

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, TracedError, logError } from '@/lib/errors'
+import { withErrorTracing, TracedError, logError, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications/service'
 import { createRefund } from '@/lib/stripe/payments'
 import { restoreInventory } from '@/lib/inventory'
@@ -55,14 +55,14 @@ export async function GET(request: NextRequest) {
     let errors = 0
 
     // The working set — bounded by the partial index from mig 230.
-    const { data: pending } = await supabase
+    const { data: pending } = await observed(supabase
       .from('orders')
       .select('id, buyer_user_id, order_number, vertical_id, reconfirm_token, reconfirm_required_at, reconfirm_reminder_sent_at, reconfirm_final_sent_at, total_cents')
       .not('reconfirm_required_at', 'is', null)
       .is('reconfirmed_at', null)
       .is('reconfirm_refunded_at', null)
       .neq('status', 'cancelled')
-      .limit(500)
+      .limit(500), { table: 'orders' })
 
     if (!pending || pending.length === 0) {
       return NextResponse.json({ ok: true, reminders, finals, refunds, errors })
@@ -70,10 +70,10 @@ export async function GET(request: NextRequest) {
 
     // Event facts per order, batched: order → market → catering request.
     const orderIds = pending.map(o => o.id as string)
-    const { data: items } = await supabase
+    const { data: items } = await observed(supabase
       .from('order_items')
       .select('order_id, market_id')
-      .in('order_id', orderIds)
+      .in('order_id', orderIds), { table: 'order_items' })
 
     const marketByOrder = new Map<string, string>()
     for (const it of items || []) {
@@ -83,26 +83,26 @@ export async function GET(request: NextRequest) {
     }
 
     const marketIds = [...new Set([...marketByOrder.values()])]
-    const { data: markets } = await supabase
+    const { data: markets } = await observed(supabase
       .from('markets')
       .select('id, timezone, cutoff_hours, catering_request_id')
-      .in('id', marketIds)
+      .in('id', marketIds), { table: 'markets' })
 
     const crIds = (markets || []).map(m => m.catering_request_id as string).filter(Boolean)
-    const { data: crs } = await supabase
+    const { data: crs } = await observed(supabase
       .from('catering_requests')
       .select('id, event_date, event_start_time')
-      .in('id', crIds)
+      .in('id', crIds), { table: 'catering_requests' })
 
     const crById = new Map((crs || []).map(c => [c.id as string, c]))
     const marketById = new Map((markets || []).map(m => [m.id as string, m]))
 
     // Succeeded payment per order, prefetched (expire-orders F6 pattern).
-    const { data: payments } = await supabase
+    const { data: payments } = await observed(supabase
       .from('payments')
       .select('order_id, stripe_payment_intent_id')
       .in('order_id', orderIds)
-      .eq('status', 'succeeded')
+      .eq('status', 'succeeded'), { table: 'payments' })
     const paymentByOrder = new Map((payments || []).map(p => [p.order_id as string, p]))
 
     for (const order of pending) {
@@ -132,13 +132,13 @@ export async function GET(request: NextRequest) {
         // ── Phase 3: refund at the deadline ──
         if (hoursUntil <= cutoffHours) {
           // Claim the order first — the guard makes a concurrent run a no-op.
-          const { data: claimed } = await supabase
+          const { data: claimed } = await observed(supabase
             .from('orders')
             .update({ reconfirm_refunded_at: now.toISOString() })
             .eq('id', order.id)
             .is('reconfirm_refunded_at', null)
             .is('reconfirmed_at', null)
-            .select('id')
+            .select('id'), { table: 'orders', operation: 'update' })
           if (!claimed || claimed.length === 0) continue
 
           // Full remaining refund — items, fees, tip, chip-in in one stroke
@@ -159,7 +159,7 @@ export async function GET(request: NextRequest) {
             }
           }
 
-          const { data: cancelledItems } = await supabase
+          const { data: cancelledItems } = await observed(supabase
             .from('order_items')
             .update({
               status: 'cancelled',
@@ -169,7 +169,7 @@ export async function GET(request: NextRequest) {
             })
             .eq('order_id', order.id)
             .is('cancelled_at', null)
-            .select('listing_id, quantity')
+            .select('listing_id, quantity'), { table: 'order_items', operation: 'update' })
 
           for (const ci of cancelledItems || []) {
             if (ci.listing_id) {

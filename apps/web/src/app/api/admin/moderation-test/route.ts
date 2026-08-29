@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { hasAdminRole } from '@/lib/auth/admin'
+import { observed } from '@/lib/errors'
 
 /**
  * GET /api/admin/moderation-test
@@ -14,11 +15,11 @@ export async function GET() {
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-  const { data: profile } = await supabase
+  const { data: profile } = await observed(supabase
     .from('user_profiles')
     .select('role, roles')
     .eq('user_id', user.id)
-    .single()
+    .single(), { table: 'user_profiles' })
   if (!hasAdminRole(profile || {})) {
     return NextResponse.json({ error: 'Admin only' }, { status: 403 })
   }

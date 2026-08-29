@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 interface RouteContext {
@@ -77,23 +77,23 @@ export async function POST(request: NextRequest, context: RouteContext) {
   // without this check any buyer with one completed order could plant ratings
   // on arbitrary vendors (the RLS INSERT policy constrains the order, not the
   // vendor; mig 195 adds the same tie at the policy layer as defense-in-depth).
-  const { data: orderVendorRows } = await supabase
+  const { data: orderVendorRows } = await observed(supabase
     .from('order_items')
     .select('id')
     .eq('order_id', orderId)
     .eq('vendor_profile_id', vendorProfileId)
-    .limit(1)
+    .limit(1), { table: 'order_items' })
   if (!orderVendorRows || orderVendorRows.length === 0) {
     return NextResponse.json({ error: 'This vendor is not part of this order' }, { status: 403 })
   }
 
   // Check if rating already exists
-  const { data: existingRating } = await supabase
+  const { data: existingRating } = await observed(supabase
     .from('order_ratings')
     .select('id')
     .eq('order_id', orderId)
     .eq('vendor_profile_id', vendorProfileId)
-    .single()
+    .single(), { table: 'order_ratings' })
 
   if (existingRating) {
     // Update existing rating

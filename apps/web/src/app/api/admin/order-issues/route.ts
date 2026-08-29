@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { hasAdminRole, verifyAdminScope } from '@/lib/auth/admin'
 import { sendNotification } from '@/lib/notifications'
 
@@ -111,10 +111,10 @@ export async function GET(request: NextRequest) {
       const ordersMap: Record<string, any> = {}
 
       if (orderIds.length > 0) {
-        const { data: orders } = await serviceClient
+        const { data: orders } = await observed(serviceClient
           .from('orders')
           .select('id, order_number, buyer_user_id, created_at')
-          .in('id', orderIds)
+          .in('id', orderIds), { table: 'orders' })
 
         if (orders) {
           orders.forEach((o: any) => {
@@ -128,11 +128,11 @@ export async function GET(request: NextRequest) {
       const buyersMap: Record<string, any> = {}
 
       if (buyerIds.length > 0) {
-        const { data: buyers } = await serviceClient
+        const { data: buyers } = await observed(serviceClient
           .from('user_profiles')
           .select('user_id, email, display_name')
           .in('user_id', buyerIds)
-          .is('deleted_at', null)
+          .is('deleted_at', null), { table: 'user_profiles' })
 
         if (buyers) {
           buyers.forEach((b: any) => {
@@ -146,10 +146,10 @@ export async function GET(request: NextRequest) {
       const vendorsMap: Record<string, any> = {}
 
       if (vendorProfileIds.length > 0) {
-        const { data: vendors } = await serviceClient
+        const { data: vendors } = await observed(serviceClient
           .from('vendor_profiles')
           .select('id, profile_data')
-          .in('id', vendorProfileIds)
+          .in('id', vendorProfileIds), { table: 'vendor_profiles' })
 
         if (vendors) {
           vendors.forEach((v: any) => {
@@ -285,11 +285,11 @@ export async function PATCH(request: NextRequest) {
 
       // H4 FIX: Send issue_resolved notification to buyer when admin resolves
       if (issue_status === 'resolved' || issue_status === 'closed') {
-        const { data: orderData } = await serviceClient
+        const { data: orderData } = await observed(serviceClient
           .from('orders')
           .select('order_number, buyer_user_id, vertical_id')
           .eq('id', orderItem.order_id)
-          .single()
+          .single(), { table: 'orders' })
 
         if (orderData?.buyer_user_id) {
           await sendNotification(orderData.buyer_user_id, 'issue_resolved', {

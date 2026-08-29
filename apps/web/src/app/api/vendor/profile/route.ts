@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { validatePaymentUsername, ExternalPaymentMethod } from '@/lib/payments/external-links'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 
 export async function PATCH(request: NextRequest) {
   return withErrorTracing('/api/vendor/profile', 'PATCH', async () => {
@@ -37,12 +37,12 @@ export async function PATCH(request: NextRequest) {
       } = await request.json()
 
       // Verify vendor ownership
-      const { data: vendor } = await supabase
+      const { data: vendor } = await observed(supabase
         .from('vendor_profiles')
         .select('id, user_id, tier, stripe_account_id')
         .eq('id', vendorId)
         .is('deleted_at', null)
-        .single()
+        .single(), { table: 'vendor_profiles' })
 
       if (!vendor || vendor.user_id !== user.id) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })

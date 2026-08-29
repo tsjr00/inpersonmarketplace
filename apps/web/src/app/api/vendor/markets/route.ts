@@ -8,6 +8,7 @@ import { geocodeZipCode } from '@/lib/geocode'
 import { DEFAULT_CUTOFF_HOURS } from '@/lib/constants'
 import { maskedEventName } from '@/lib/events/event-name'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
+import { observed } from '@/lib/errors'
 
 // GET - Get vendor's markets
 export async function GET(request: NextRequest) {
@@ -81,11 +82,11 @@ export async function GET(request: NextRequest) {
     const isVendorPremium = isPremiumTier(tier, vertical)
 
     // Query vendor attendance records (including vendor-specific times for polling)
-    const { data: attendanceData } = await supabase
+    const { data: attendanceData } = await observed(supabase
       .from('vendor_market_schedules')
       .select('market_id, schedule_id, vendor_start_time, vendor_end_time')
       .eq('vendor_profile_id', vendorProfile.id)
-      .eq('is_active', true)
+      .eq('is_active', true), { table: 'vendor_market_schedules' })
 
     const marketsWithAttendance = new Set(
       (attendanceData || []).map(a => a.market_id as string)
@@ -412,11 +413,11 @@ export async function GET(request: NextRequest) {
     }))
 
     // Count current fixed markets for this vendor
-    const { data: currentCount } = await supabase
+    const { data: currentCount } = await observed(supabase
       .rpc('get_vendor_fixed_market_count', {
         p_vendor_profile_id: vendorProfile.id,
         p_vertical_id: vertical
-      })
+      }), { table: 'rpc:get_vendor_fixed_market_count', operation: 'rpc' })
 
     const currentFixedMarketCount = currentCount || 0
 
@@ -468,7 +469,7 @@ export async function GET(request: NextRequest) {
     // Surfaced on /[vertical]/vendor/markets via PendingMarketInvitations
     // card. Includes market metadata so the card can render without a
     // second round-trip.
-    const { data: invitationRows } = await supabase
+    const { data: invitationRows } = await observed(supabase
       .from('market_vendors')
       .select(`
         id,
@@ -481,7 +482,7 @@ export async function GET(request: NextRequest) {
       .eq('vendor_profile_id', vendorProfile.id)
       .eq('response_status', 'invited')
       .eq('approved', false)
-      .order('invited_at', { ascending: false })
+      .order('invited_at', { ascending: false }), { table: 'market_vendors' })
 
     const pendingInvitations = (invitationRows || [])
       .map((row) => {

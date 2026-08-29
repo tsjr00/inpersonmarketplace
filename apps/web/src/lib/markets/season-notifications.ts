@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendNotification } from '@/lib/notifications'
+import { observed } from '@/lib/errors'
 
 /**
  * Phase E — fire the "season paid" notifications to the vendor + manager.
@@ -16,11 +17,11 @@ export async function sendSeasonPaidNotifications(
   groupId: string,
 ): Promise<void> {
   try {
-    const { data: group } = await serviceClient
+    const { data: group } = await observed(serviceClient
       .from('booth_booking_groups')
       .select('vendor_profile_id, market_id, week_count, total_vendor_cents, total_manager_cents')
       .eq('id', groupId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'booth_booking_groups' })
     if (!group) return
 
     const [vpResult, marketResult] = await Promise.all([
@@ -55,12 +56,12 @@ export async function sendSeasonPaidNotifications(
     // totals stay GROSS — sum the D5 redeemed rows so both notifications state
     // what was actually charged/received. Works for both callers (webhook +
     // Phase 18 reconcile) without threading session metadata through.
-    const { data: redeemedRows } = await serviceClient
+    const { data: redeemedRows } = await observed(serviceClient
       .from('booth_credits')
       .select('amount_cents')
       .eq('related_group_id', groupId)
       .eq('source', 'redeemed')
-      .lt('amount_cents', 0)
+      .lt('amount_cents', 0), { table: 'booth_credits' })
     const appliedCreditCents = (redeemedRows ?? []).reduce(
       (sum, r) => sum + -(r.amount_cents as number), 0)
     const vendorPaidNetCents = Math.max(0, ((group.total_vendor_cents as number) ?? 0) - appliedCreditCents)

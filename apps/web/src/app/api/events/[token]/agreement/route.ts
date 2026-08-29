@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import type { OptinStatement } from '@/lib/markets/optin-types'
 
 /**
@@ -27,11 +27,11 @@ import type { OptinStatement } from '@/lib/markets/optin-types'
 async function resolveOrganizerEvent(token: string) {
   const serviceClient = createServiceClient()
   crumb.supabase('select', 'catering_requests')
-  const { data: evt } = await serviceClient
+  const { data: evt } = await observed(serviceClient
     .from('catering_requests')
     .select('id, organizer_user_id, market_id, vertical_id')
     .eq('event_token', token)
-    .maybeSingle()
+    .maybeSingle(), { table: 'catering_requests' })
   return { serviceClient, evt }
 }
 

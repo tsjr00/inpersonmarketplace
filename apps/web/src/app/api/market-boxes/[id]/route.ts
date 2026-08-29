@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getSubscriberDefault } from '@/lib/vendor-limits'
 
@@ -146,12 +146,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
     // matching the generation trigger (mig 163).
     const todayYmd = new Date().toISOString().split('T')[0]
     const serviceClient = createServiceClient()
-    const { data: overrideRows } = await serviceClient
+    const { data: overrideRows } = await observed(serviceClient
       .from('market_date_overrides')
       .select('override_date')
       .eq('market_id', offering.pickup_market_id)
       .eq('status', 'cancelled')
-      .gte('override_date', todayYmd)
+      .gte('override_date', todayYmd), { table: 'market_date_overrides' })
     const cancelledDates = new Set((overrideRows ?? []).map((o) => o.override_date as string))
 
     // Calculate next available start date (next occurrence of pickup_day_of_week),

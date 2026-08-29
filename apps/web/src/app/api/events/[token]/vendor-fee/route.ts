@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { eventRefColumn } from '@/lib/events/event-ref'
 import { getAccountStatus } from '@/lib/stripe/connect'
@@ -43,11 +43,11 @@ interface EventRow {
 async function loadOrganizerEvent(ref: string, userId: string) {
   const serviceClient = createServiceClient()
   crumb.supabase('select', 'catering_requests')
-  const { data: event } = await serviceClient
+  const { data: event } = await observed(serviceClient
     .from('catering_requests')
     .select('id, organizer_user_id, market_id, status, vertical_id, event_vendor_fee_cents')
     .eq(eventRefColumn(ref), ref)
-    .maybeSingle()
+    .maybeSingle(), { table: 'catering_requests' })
 
   if (!event || (event as EventRow).organizer_user_id !== userId) return null
   return event as EventRow
@@ -81,11 +81,11 @@ export async function GET(
     if (event.market_id) {
       const serviceClient = createServiceClient()
       crumb.supabase('select', 'markets')
-      const { data: market } = await serviceClient
+      const { data: market } = await observed(serviceClient
         .from('markets')
         .select('stripe_account_id, stripe_onboarding_complete, stripe_charges_enabled')
         .eq('id', event.market_id)
-        .maybeSingle()
+        .maybeSingle(), { table: 'markets' })
 
       if (market?.stripe_account_id) {
         payout.connected = true
@@ -184,11 +184,11 @@ export async function PUT(
     if (feeCents !== null) {
       const serviceClient = createServiceClient()
       crumb.supabase('select', 'markets')
-      const { data: market } = await serviceClient
+      const { data: market } = await observed(serviceClient
         .from('markets')
         .select('stripe_account_id, stripe_onboarding_complete')
         .eq('id', event.market_id)
-        .maybeSingle()
+        .maybeSingle(), { table: 'markets' })
 
       if (!market?.stripe_account_id || market.stripe_onboarding_complete !== true) {
         return NextResponse.json(

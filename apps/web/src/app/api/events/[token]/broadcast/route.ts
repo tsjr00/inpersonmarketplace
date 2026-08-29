@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { sendNotificationBatch } from '@/lib/notifications'
 
 export const maxDuration = 30
@@ -40,11 +40,11 @@ interface VendorRow {
 async function resolveOrganizerEvent(token: string) {
   const serviceClient = createServiceClient()
   crumb.supabase('select', 'catering_requests')
-  const { data: evt } = await serviceClient
+  const { data: evt } = await observed(serviceClient
     .from('catering_requests')
     .select('id, organizer_user_id, market_id, company_name, vertical_id')
     .eq('event_token', token)
-    .maybeSingle()
+    .maybeSingle(), { table: 'catering_requests' })
   return { serviceClient, evt }
 }
 
@@ -134,18 +134,18 @@ export async function POST(
 
     if (audience === 'attendees' || audience === 'both') {
       crumb.supabase('select', 'order_items')
-      const { data: itemRows } = await serviceClient
+      const { data: itemRows } = await observed(serviceClient
         .from('order_items')
         .select('order_id')
-        .eq('market_id', marketId)
+        .eq('market_id', marketId), { table: 'order_items' })
       const orderIds = Array.from(new Set((itemRows ?? []).map((r) => r.order_id as string)))
       if (orderIds.length > 0) {
         crumb.supabase('select', 'orders')
-        const { data: orderRows } = await serviceClient
+        const { data: orderRows } = await observed(serviceClient
           .from('orders')
           .select('buyer_user_id')
           .in('id', orderIds)
-          .not('status', 'in', '("cancelled","refunded")')
+          .not('status', 'in', '("cancelled","refunded")'), { table: 'orders' })
         for (const o of orderRows ?? []) {
           const uid = o.buyer_user_id as string | null
           if (uid) buyerUserIds.add(uid)

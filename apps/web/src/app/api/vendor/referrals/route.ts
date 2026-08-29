@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get referral credits for this vendor (as referrer)
-    const { data: referralCredits } = await supabase
+    const { data: referralCredits } = await observed(supabase
       .from('vendor_referral_credits')
       .select(`
         id,
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
         )
       `)
       .eq('referrer_vendor_id', vendorProfile.id)
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: false }), { table: 'vendor_referral_credits' })
 
     // Calculate summary stats
     const credits = referralCredits || []

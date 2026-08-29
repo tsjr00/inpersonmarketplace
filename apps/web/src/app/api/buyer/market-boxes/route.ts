@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { createMarketBoxCheckoutSession } from '@/lib/stripe/payments'
 import { calculateBuyerPrice } from '@/lib/pricing'
 import { getAppUrl } from '@/lib/environment'
@@ -286,11 +286,11 @@ export async function POST(request: NextRequest) {
     if (!subscriptionStartDate) {
       let pickupTz: string | null = null
       if (offering.pickup_market_id) {
-        const { data: mkt } = await supabase
+        const { data: mkt } = await observed(supabase
           .from('markets')
           .select('timezone')
           .eq('id', offering.pickup_market_id)
-          .maybeSingle()
+          .maybeSingle(), { table: 'markets' })
         pickupTz = (mkt?.timezone as string | null) ?? null
       }
       subscriptionStartDate = nextPickupDateInTimezone(offering.pickup_day_of_week, pickupTz)
@@ -298,11 +298,11 @@ export async function POST(request: NextRequest) {
 
     // Get the vertical for the redirect URLs
     crumb.supabase('select', 'market_box_offerings (vertical)')
-    const { data: offeringWithVertical } = await supabase
+    const { data: offeringWithVertical } = await observed(supabase
       .from('market_box_offerings')
       .select('market:markets(vertical_id)')
       .eq('id', offering_id)
-      .single()
+      .single(), { table: 'market_box_offerings' })
 
     const verticalId = (offeringWithVertical?.market as any)?.vertical_id || 'farmers_market'
 

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
 import { sendNotification } from '@/lib/notifications/service'
+import { observed } from '@/lib/errors'
 
 /**
  * B3 — attendee re-confirmation after a consequential event change (owner spec
@@ -32,20 +33,20 @@ export async function requestEventReconfirmation(
 ): Promise<number> {
   // Same live-item filter as the consequence gate that decided this change
   // needs re-confirmation (details route) — the two must agree on who counts.
-  const { data: items } = await serviceClient
+  const { data: items } = await observed(serviceClient
     .from('order_items')
     .select('order_id')
     .eq('market_id', opts.marketId)
-    .not('status', 'in', '("cancelled","refunded")')
+    .not('status', 'in', '("cancelled","refunded")'), { table: 'order_items' })
 
   const orderIds = [...new Set((items || []).map(i => i.order_id as string))]
   if (orderIds.length === 0) return 0
 
-  const { data: orders } = await serviceClient
+  const { data: orders } = await observed(serviceClient
     .from('orders')
     .select('id, buyer_user_id, order_number, reconfirm_token')
     .in('id', orderIds)
-    .neq('status', 'cancelled')
+    .neq('status', 'cancelled'), { table: 'orders' })
 
   let stamped = 0
   for (const order of orders || []) {

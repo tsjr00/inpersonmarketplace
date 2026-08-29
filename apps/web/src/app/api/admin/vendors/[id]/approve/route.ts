@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { hasPlatformAdminRole } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { TRIAL_SYSTEM_ENABLED } from '@/lib/vendor-limits'
 
@@ -27,12 +27,12 @@ export async function POST(
     }
 
     // Verify user is admin - check platform admin role or vertical admin
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await observed(supabase
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
       .is('deleted_at', null)
-      .single()
+      .single(), { table: 'user_profiles' })
 
     // S4-2: platform_admin bypasses (any vendor); a plain 'admin'/vertical admin
     // falls through to the vertical_admins check below (was hasAdminRole, which
@@ -42,19 +42,19 @@ export async function POST(
     // If not platform admin, check if they're a vertical admin for this vendor's vertical
     if (!isAdmin) {
       // First get the vendor's vertical
-      const { data: vendor } = await supabase
+      const { data: vendor } = await observed(supabase
         .from('vendor_profiles')
         .select('vertical_id')
         .eq('id', vendorId)
-        .single()
+        .single(), { table: 'vendor_profiles' })
 
       if (vendor) {
-        const { data: verticalAdmin } = await supabase
+        const { data: verticalAdmin } = await observed(supabase
           .from('vertical_admins')
           .select('id')
           .eq('user_id', user.id)
           .eq('vertical_id', vendor.vertical_id)
-          .single()
+          .single(), { table: 'vertical_admins' })
         isAdmin = !!verticalAdmin
       }
     }
@@ -67,11 +67,11 @@ export async function POST(
     const serviceClient = createServiceClient()
 
     // Check vendor's current state (need vertical_id and trial_started_at for trial logic)
-    const { data: existingVendor } = await serviceClient
+    const { data: existingVendor } = await observed(serviceClient
       .from('vendor_profiles')
       .select('vertical_id, trial_started_at')
       .eq('id', vendorId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'vendor_profiles' })
 
     // Build update payload
     const updateData: Record<string, unknown> = {

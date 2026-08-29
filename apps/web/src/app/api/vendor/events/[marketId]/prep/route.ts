@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
@@ -31,11 +31,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const serviceClient = createServiceClient()
 
     // Fetch the market's vertical so we can scope vendor_profiles lookup correctly for multi-vertical vendors
-    const { data: marketInfo } = await serviceClient
+    const { data: marketInfo } = await observed(serviceClient
       .from('markets')
       .select('vertical_id')
       .eq('id', marketId)
-      .single()
+      .single(), { table: 'markets' })
 
     if (!marketInfo) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
@@ -52,33 +52,33 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Vendor profile not found for this vertical' }, { status: 403 })
     }
 
-    const { data: marketVendor } = await serviceClient
+    const { data: marketVendor } = await observed(serviceClient
       .from('market_vendors')
       .select('response_status, event_max_orders_per_wave, event_max_orders_total')
       .eq('market_id', marketId)
       .eq('vendor_profile_id', vendorProfile.id)
-      .single()
+      .single(), { table: 'market_vendors' })
 
     if (!marketVendor || marketVendor.response_status !== 'accepted') {
       return NextResponse.json({ error: 'You are not confirmed for this event' }, { status: 403 })
     }
 
     // Get event details
-    const { data: market } = await serviceClient
+    const { data: market } = await observed(serviceClient
       .from('markets')
       .select('id, name, event_start_date, event_end_date, wave_ordering_enabled, catering_request_id')
       .eq('id', marketId)
-      .single()
+      .single(), { table: 'markets' })
 
     if (!market) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     }
 
-    const { data: cateringReq } = await serviceClient
+    const { data: cateringReq } = await observed(serviceClient
       .from('catering_requests')
       .select('company_name, event_date, event_start_time, event_end_time, headcount, address, city, state')
       .eq('id', market.catering_request_id)
-      .single()
+      .single(), { table: 'catering_requests' })
 
     // Get waves if wave ordering is enabled
     let waves: Array<{
@@ -87,17 +87,17 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }> = []
 
     if (market.wave_ordering_enabled) {
-      const { data: waveRows } = await serviceClient
+      const { data: waveRows } = await observed(serviceClient
         .from('event_waves')
         .select('id, wave_number, start_time, end_time, capacity, reserved_count')
         .eq('market_id', marketId)
-        .order('wave_number')
+        .order('wave_number'), { table: 'event_waves' })
 
       waves = waveRows || []
     }
 
     // Get all order items for this vendor at this event
-    const { data: orderItems } = await serviceClient
+    const { data: orderItems } = await observed(serviceClient
       .from('order_items')
       .select(`
         id, order_id, listing_id, quantity, unit_price_cents, subtotal_cents,
@@ -113,7 +113,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       `)
       .eq('market_id', marketId)
       .eq('vendor_profile_id', vendorProfile.id)
-      .not('status', 'eq', 'cancelled')
+      .not('status', 'eq', 'cancelled'), { table: 'order_items' })
 
     // Build prep summary: items grouped by wave, with counts
     const itemCounts: Record<string, { title: string; total: number; byWave: Record<string, number> }> = {}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { fetchMarketOptinForVendor } from '@/lib/markets/optin-public'
 
@@ -69,10 +69,10 @@ export async function GET(
     // info. markets.day_of_week is the legacy single-schedule field; markets
     // with multiple weekly slots use market_schedules.
     crumb.supabase('select', 'market_schedules')
-    const { data: schedules } = await serviceClient
+    const { data: schedules } = await observed(serviceClient
       .from('market_schedules')
       .select('day_of_week, start_time, end_time, active')
-      .eq('market_id', marketId)
+      .eq('market_id', marketId), { table: 'market_schedules' })
 
     const activeSchedules = (schedules || [])
       .filter((s) => s.active !== false)

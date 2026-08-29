@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { observed } from '@/lib/errors'
 
 /**
  * Phase D — vendor market-day check-in eligibility + geo helpers.
@@ -93,36 +94,36 @@ export async function getEligibleCheckInMarkets(
 ): Promise<CheckInEligibleMarket[]> {
   // 1. Associated market ids + booth numbers.
   //    (a) approved market_vendors (traditional + events share this table)
-  const { data: mvRows } = await service
+  const { data: mvRows } = await observed(service
     .from('market_vendors')
     .select('market_id, booth_number')
     .eq('vendor_profile_id', vendorProfileId)
-    .eq('approved', true)
+    .eq('approved', true), { table: 'market_vendors' })
 
   //    (b) paid booth rentals whose week (Sun..Sat) contains today
   const todayStr = marketLocalDate(null)
   const weekAgo = new Date()
   weekAgo.setDate(weekAgo.getDate() - 6)
   const weekAgoStr = marketLocalDate(null, weekAgo)
-  const { data: rentalRows } = await service
+  const { data: rentalRows } = await observed(service
     .from('weekly_booth_rentals')
     .select('market_id, booth_number, week_start_date')
     .eq('vendor_profile_id', vendorProfileId)
     .eq('status', 'paid')
     .lte('week_start_date', todayStr)
-    .gte('week_start_date', weekAgoStr)
+    .gte('week_start_date', weekAgoStr), { table: 'weekly_booth_rentals' })
 
   //    (c) paid park spot bookings for today (PRK-3): FT park booking is
   //    book-then-vet — the auto-affiliated market_vendors row is approved:false,
   //    so without this source a PAYING truck cannot check in and every attended
   //    day becomes a false no-show strike (auto-suspension in ~3 weeks). Same
   //    default-tz day-window convention as (b).
-  const { data: parkRows } = await service
+  const { data: parkRows } = await observed(service
     .from('park_spot_bookings')
     .select('market_id, booking_date, park_spots:spot_id ( label )')
     .eq('vendor_profile_id', vendorProfileId)
     .eq('status', 'paid')
-    .eq('booking_date', todayStr)
+    .eq('booking_date', todayStr), { table: 'park_spot_bookings' })
 
   // Markets where this truck has a paid booking FOR TODAY. FT parks are
   // date-specific (book Tue the 5th), NOT "attend every scheduled Tuesday", so
@@ -148,16 +149,16 @@ export async function getEligibleCheckInMarkets(
   if (marketIds.length === 0) return []
 
   // 2. Market details + today's active schedule weekdays.
-  const { data: markets } = await service
+  const { data: markets } = await observed(service
     .from('markets')
     .select('id, name, market_type, vertical_id, timezone, latitude, longitude, event_start_date, event_end_date')
-    .in('id', marketIds)
+    .in('id', marketIds), { table: 'markets' })
 
-  const { data: schedules } = await service
+  const { data: schedules } = await observed(service
     .from('market_schedules')
     .select('market_id, day_of_week')
     .in('market_id', marketIds)
-    .eq('active', true)
+    .eq('active', true), { table: 'market_schedules' })
 
   const dowsByMarket = new Map<string, Set<number>>()
   for (const s of schedules ?? []) {

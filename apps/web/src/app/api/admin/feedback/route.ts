@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { verifyAdminScope } from '@/lib/auth/admin'
 
 // GET - Get all feedback (admin only)
@@ -72,11 +72,11 @@ export async function GET(request: NextRequest) {
     const userMap: Record<string, { email: string; name: string }> = {}
 
     if (userIds.length > 0) {
-      const { data: users } = await serviceClient
+      const { data: users } = await observed(serviceClient
         .from('user_profiles')
         .select('user_id, email, display_name')
         .in('user_id', userIds)
-        .is('deleted_at', null)
+        .is('deleted_at', null), { table: 'user_profiles' })
 
       if (users) {
         users.forEach(u => {
@@ -93,10 +93,10 @@ export async function GET(request: NextRequest) {
     if (source === 'vendor') {
       const vendorProfileIds = [...new Set((feedback || []).map(f => f.vendor_profile_id).filter(Boolean))]
       if (vendorProfileIds.length > 0) {
-        const { data: vendors } = await serviceClient
+        const { data: vendors } = await observed(serviceClient
           .from('vendor_profiles')
           .select('id, profile_data')
-          .in('id', vendorProfileIds)
+          .in('id', vendorProfileIds), { table: 'vendor_profiles' })
 
         if (vendors) {
           vendors.forEach(v => {

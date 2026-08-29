@@ -12,6 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { observed } from '@/lib/errors'
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl
@@ -67,12 +68,12 @@ export async function GET(request: NextRequest) {
   if (!explicitNext) {
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
-      const { data: vp } = await supabase
+      const { data: vp } = await observed(supabase
         .from('vendor_profiles')
         .select('vertical_id')
         .eq('user_id', user.id)
         .limit(1)
-        .maybeSingle()
+        .maybeSingle(), { table: 'vendor_profiles' })
       if (vp?.vertical_id) {
         next = `/${vp.vertical_id}/dashboard`
         return NextResponse.redirect(new URL(next, origin), { headers: response.headers })

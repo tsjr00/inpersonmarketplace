@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { hasPlatformAdminRole } from '@/lib/auth/admin'
 
 interface RouteParams {
@@ -27,12 +27,12 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       }
 
       // Verify caller is platform admin
-      const { data: callerProfile } = await supabase
+      const { data: callerProfile } = await observed(supabase
         .from('user_profiles')
         .select('role, roles, is_chief_platform_admin')
         .eq('user_id', user.id)
         .is('deleted_at', null)
-        .single()
+        .single(), { table: 'user_profiles' })
 
       // S4-2: platform_admin ONLY — revoking platform-admin status is platform-level
       // (was hasAdminRole, so a vertical admin could revoke a platform admin).

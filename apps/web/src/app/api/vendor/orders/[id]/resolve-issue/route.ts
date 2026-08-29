@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { createRefund } from '@/lib/stripe/payments'
-import { withErrorTracing, traced, crumb, TracedError, logError } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, TracedError, logError, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { restoreInventory } from '@/lib/inventory'
 import { shouldRestoreInventory } from '@/lib/inventory-rules'
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     // Fetch order item first — the joined order row provides vertical_id for multi-vertical vendor lookup
     crumb.supabase('select', 'order_items')
-    const { data: orderItem } = await supabase
+    const { data: orderItem } = await observed(supabase
       .from('order_items')
       .select(`
         id, status, order_id, vendor_profile_id, listing_id, quantity,
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         order:orders!inner(id, order_number, buyer_user_id, vertical_id, payment_method, payment_model, tip_amount, subtotal_cents)
       `)
       .eq('id', orderItemId)
-      .single()
+      .single(), { table: 'order_items' })
 
     if (!orderItem) {
       throw traced.notFound('ERR_ORDER_001', 'Order item not found', { orderItemId })
@@ -115,12 +115,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
       // Notify admin that vendor disputed buyer's claim
       const serviceClient = createServiceClient()
-      const { data: adminProfiles } = await serviceClient
+      const { data: adminProfiles } = await observed(serviceClient
         .from('user_profiles')
         .select('user_id')
         .contains('roles', ['admin'])
         .is('deleted_at', null)
-        .limit(5)
+        .limit(5), { table: 'user_profiles' })
 
       if (adminProfiles) {
         for (const admin of adminProfiles) {
@@ -158,7 +158,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       // refund below instead of firing a SECOND refund at a different amount
       // (different amount = different idempotency key = both settle). Mirrors
       // the reject H3 / buyer-cancel guarded-cancel pattern.
-      const { data: cancelledRows } = await supabase
+      const { data: cancelledRows } = await observed(supabase
         .from('order_items')
         .update({
           status: 'cancelled',
@@ -172,7 +172,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         })
         .eq('id', orderItemId)
         .is('cancelled_at', null)
-        .select('id')
+        .select('id'), { table: 'order_items', operation: 'update' })
 
       if (!cancelledRows || cancelledRows.length === 0) {
         // Already cancelled/refunded by another path (buyer cancel, reject).
@@ -208,12 +208,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
       // is logged instead of silently skipped (buyer refund would be lost).
       if (order.payment_method === 'stripe' && order.payment_model !== 'company_paid') {
         const serviceClient = createServiceClient()
-        const { data: payment } = await serviceClient
+        const { data: payment } = await observed(serviceClient
           .from('payments')
           .select('stripe_payment_intent_id, status')
           .eq('order_id', order.id)
           .eq('status', 'succeeded')
-          .maybeSingle()
+          .maybeSingle(), { table: 'payments' })
 
         if (payment?.stripe_payment_intent_id) {
           try {
@@ -248,11 +248,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
       // - failed/pending_stripe_setup → the vendor was NEVER paid: cancel those
       //   payout rows so the Phase 5 retry cron can't pay out a refunded item.
       const clawbackClient = createServiceClient()
-      const { data: itemPayouts } = await clawbackClient
+      const { data: itemPayouts } = await observed(clawbackClient
         .from('vendor_payouts')
         .select('id, amount_cents, status')
         .eq('order_item_id', orderItemId)
-        .in('status', ['pending', 'processing', 'completed', 'failed', 'pending_stripe_setup'])
+        .in('status', ['pending', 'processing', 'completed', 'failed', 'pending_stripe_setup']), { table: 'vendor_payouts' })
 
       const unpaidPayoutIds = (itemPayouts || [])
         .filter(p => ['failed', 'pending_stripe_setup'].includes(p.status))
@@ -286,11 +286,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }
 
       // Check if all items in the order are now cancelled — update order status
-      const { data: remainingItems } = await supabase
+      const { data: remainingItems } = await observed(supabase
         .from('order_items')
         .select('id')
         .eq('order_id', orderItem.order_id)
-        .is('cancelled_at', null)
+        .is('cancelled_at', null), { table: 'order_items' })
 
       if (!remainingItems || remainingItems.length === 0) {
         await supabase
@@ -318,12 +318,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
         const orderSmallFeeCents = calculateSmallOrderFee(order.subtotal_cents || 0, order.vertical_id)
         const orderFeeRefundCents = orderTipCents + orderSmallFeeCents
         if (orderFeeRefundCents > 0 && order.payment_method === 'stripe') {
-          const { data: feePayment } = await clawbackClient
+          const { data: feePayment } = await observed(clawbackClient
             .from('payments')
             .select('stripe_payment_intent_id')
             .eq('order_id', order.id)
             .eq('status', 'succeeded')
-            .maybeSingle()
+            .maybeSingle(), { table: 'payments' })
           if (feePayment?.stripe_payment_intent_id) {
             try {
               await createRefund(feePayment.stripe_payment_intent_id, `${order.id}-order-fees`, orderFeeRefundCents)

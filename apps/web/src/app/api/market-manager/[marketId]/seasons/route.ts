@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, logError } from '@/lib/errors'
+import { withErrorTracing, traced, logError, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { getSeasonBookableWeeks } from '@/lib/markets/season-weeks'
@@ -96,11 +96,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     const service = createServiceClient()
-    const { data: market } = await service
+    const { data: market } = await observed(service
       .from('markets')
       .select('schedule_confirmed_at')
       .eq('id', marketId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'markets' })
     if (!market) throw traced.notFound('ERR_MARKET_001', 'Market not found')
 
     // O1 gate: the schedule must be confirmed accurate before a season can rely
@@ -186,16 +186,16 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (!seasonId) return NextResponse.json({ error: 'seasonId is required' }, { status: 400 })
 
     const service = createServiceClient()
-    const { data: season } = await service
+    const { data: season } = await observed(service
       .from('market_seasons')
       .select('id, market_id, start_date, end_date, declared_market_days, prepay_open, status, refund_cap_days')
       .eq('id', seasonId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'market_seasons' })
     if (!season || season.market_id !== marketId) {
       return NextResponse.json({ error: 'Season not found for this market' }, { status: 404 })
     }
 
-    const { data: market } = await service.from('markets').select('timezone').eq('id', marketId).maybeSingle()
+    const { data: market } = await observed(service.from('markets').select('timezone').eq('id', marketId).maybeSingle(), { table: 'markets' })
     const today = marketTodayUtc((market?.timezone as string | null) ?? null)
     const start = parseUtc(season.start_date as string)
 
@@ -203,14 +203,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       // Enforcement: a prior season that ended with settlement still open must be
       // settled before a new season's pre-sales can open — ties future booth
       // revenue to handling owed time, and prevents debt/credit rollover.
-      const { data: unsettled } = await service
+      const { data: unsettled } = await observed(service
         .from('market_seasons')
         .select('id, name')
         .eq('market_id', marketId)
         .eq('status', 'ended')
         .neq('id', seasonId)
         .limit(1)
-        .maybeSingle()
+        .maybeSingle(), { table: 'market_seasons' })
       if (unsettled) {
         return NextResponse.json(
           { error: `Settle "${unsettled.name}" before opening pre-sales for a new season.` },
@@ -342,13 +342,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       if (requested > currentCap) {
         let salesStarted = season.prepay_open === true
         if (!salesStarted) {
-          const { data: paidGroup } = await service
+          const { data: paidGroup } = await observed(service
             .from('booth_booking_groups')
             .select('id')
             .eq('season_id', seasonId)
             .eq('status', 'paid')
             .limit(1)
-            .maybeSingle()
+            .maybeSingle(), { table: 'booth_booking_groups' })
           salesStarted = !!paidGroup
         }
         if (salesStarted) {

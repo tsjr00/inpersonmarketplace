@@ -13,6 +13,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { LOW_STOCK_THRESHOLD } from './constants'
 import { TracedError, logError } from './errors'
 import { todayInTimezone, addDaysToDateString } from './time/market-dates'
+import { observed } from '@/lib/errors'
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -240,14 +241,14 @@ export async function checkPriceAnomalies(
 
   for (const listing of listings) {
     // Get most recent order_item price for this listing
-    const { data: recentSale } = await supabase
+    const { data: recentSale } = await observed(supabase
       .from('order_items')
       .select('unit_price_cents')
       .eq('listing_id', listing.id)
       .not('status', 'in', '("cancelled","refunded")')
       .order('created_at', { ascending: false })
       .limit(1)
-      .maybeSingle()
+      .maybeSingle(), { table: 'order_items' })
 
     if (!recentSale?.unit_price_cents) continue
 

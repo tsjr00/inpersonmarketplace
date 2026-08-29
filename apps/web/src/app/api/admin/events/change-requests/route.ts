@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, crumb } from '@/lib/errors'
+import { withErrorTracing, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { verifyAdminScope } from '@/lib/auth/admin'
 
@@ -63,10 +63,10 @@ export async function GET(request: NextRequest) {
     // the vertical filter has to happen on the EVENT, and doing it as a
     // separate pass keeps the scoping obvious instead of buried in a hint.
     const eventIds = [...new Set(rows.map(r => r.catering_request_id as string))]
-    const { data: events } = await serviceClient
+    const { data: events } = await observed(serviceClient
       .from('catering_requests')
       .select('id, company_name, contact_name, contact_email, event_date, event_start_time, event_end_time, address, city, state, status, service_level, vertical_id, market_id')
-      .in('id', eventIds)
+      .in('id', eventIds), { table: 'catering_requests' })
 
     const eventById = new Map((events || []).map(e => [e.id as string, e]))
 
@@ -94,11 +94,11 @@ export async function GET(request: NextRequest) {
 
     const liveByMarket = new Map<string, { count: number; valueCents: number }>()
     if (marketIds.length > 0) {
-      const { data: liveOrders } = await serviceClient
+      const { data: liveOrders } = await observed(serviceClient
         .from('order_items')
         .select('market_id, order_id, subtotal_cents')
         .in('market_id', marketIds)
-        .not('status', 'in', '("cancelled","refunded")')
+        .not('status', 'in', '("cancelled","refunded")'), { table: 'order_items' })
 
       const seenOrders = new Map<string, Set<string>>()
       for (const row of liveOrders || []) {

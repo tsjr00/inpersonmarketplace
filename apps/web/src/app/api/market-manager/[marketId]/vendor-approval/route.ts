@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 
 /**
@@ -101,18 +101,18 @@ export async function PATCH(
     if (approved === true) {
       // Look up vendor's user_id + market metadata for the notification.
       crumb.supabase('select', 'vendor_profiles')
-      const { data: vp } = await serviceClient
+      const { data: vp } = await observed(serviceClient
         .from('vendor_profiles')
         .select('user_id, vertical_id, profile_data')
         .eq('id', vendorProfileId)
-        .maybeSingle()
+        .maybeSingle(), { table: 'vendor_profiles' })
 
       crumb.supabase('select', 'markets')
-      const { data: market } = await serviceClient
+      const { data: market } = await observed(serviceClient
         .from('markets')
         .select('name, vertical_id')
         .eq('id', marketId)
-        .maybeSingle()
+        .maybeSingle(), { table: 'markets' })
 
       // Vendor email is in auth.users (not vendor_profiles.profile_data
       // reliably) — fetch separately for the email channel.

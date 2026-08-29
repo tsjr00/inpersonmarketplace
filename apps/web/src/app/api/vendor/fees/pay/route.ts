@@ -4,7 +4,7 @@ import { getVendorFeeBalance } from '@/lib/payments/vendor-fees'
 import { stripe } from '@/lib/stripe/config'
 import { getStatementSuffix } from '@/lib/stripe/payments'
 import { getAppUrl } from '@/lib/environment'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
@@ -36,11 +36,11 @@ export async function POST(request: NextRequest) {
       }
 
       // Verify ownership
-      const { data: vendor } = await supabase
+      const { data: vendor } = await observed(supabase
         .from('vendor_profiles')
         .select('id, user_id, profile_data')
         .eq('id', vendor_id)
-        .single()
+        .single(), { table: 'vendor_profiles' })
 
       if (!vendor || vendor.user_id !== user.id) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
@@ -56,11 +56,11 @@ export async function POST(request: NextRequest) {
       }
 
       // Get user email
-      const { data: profile } = await supabase
+      const { data: profile } = await observed(supabase
         .from('user_profiles')
         .select('email')
         .eq('user_id', user.id)
-        .single()
+        .single(), { table: 'user_profiles' })
 
       // Create Stripe Checkout session
       const baseUrl = getAppUrl(vertical_id)

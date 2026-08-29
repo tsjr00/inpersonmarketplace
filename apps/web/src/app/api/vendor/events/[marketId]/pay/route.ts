@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import { calculateBoothRentalFees } from '@/lib/pricing'
@@ -54,11 +54,11 @@ export async function POST(
     const serviceClient = createServiceClient()
 
     crumb.supabase('select', 'catering_requests')
-    const { data: event } = await serviceClient
+    const { data: event } = await observed(serviceClient
       .from('catering_requests')
       .select('id, company_name, event_date, vertical_id, status, event_vendor_fee_cents, market_id')
       .eq('market_id', marketId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'catering_requests' })
 
     if (!event) {
       return NextResponse.json({ error: REASON_MESSAGES.event_not_found }, { status: 404 })
@@ -78,11 +78,11 @@ export async function POST(
     // this before a fee can be set, but re-check — the account could have
     // been cleared after a Stripe-side deletion).
     crumb.supabase('select', 'markets')
-    const { data: market } = await serviceClient
+    const { data: market } = await observed(serviceClient
       .from('markets')
       .select('stripe_account_id, stripe_onboarding_complete')
       .eq('id', marketId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'markets' })
 
     if (!market?.stripe_account_id || market.stripe_onboarding_complete !== true) {
       return NextResponse.json(

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 
 // POST /api/admin/login — rate-limited admin login
 // M8 FIX: Prevents brute-force attacks on admin credentials
@@ -29,11 +29,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify admin role
-    const { data: profile } = await supabase
+    const { data: profile } = await observed(supabase
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', data.user.id)
-      .single()
+      .single(), { table: 'user_profiles' })
 
     const isAdmin = profile?.role === 'admin' ||
                     profile?.role === 'platform_admin' ||

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { hasAdminRole } from './admin'
+import { observed } from '@/lib/errors'
 
 /**
  * Enforce vertical access for protected pages (server components only).
@@ -26,11 +27,11 @@ export async function enforceVerticalAccess(vertical: string): Promise<void> {
   }
 
   // 2. Fetch user profile (role + verticals array)
-  const { data: profile } = await supabase
+  const { data: profile } = await observed(supabase
     .from('user_profiles')
     .select('role, roles, verticals')
     .eq('user_id', user.id)
-    .single()
+    .single(), { table: 'user_profiles' })
 
   // 3. Platform admins bypass vertical checks
   if (profile && hasAdminRole(profile)) {
@@ -45,12 +46,12 @@ export async function enforceVerticalAccess(vertical: string): Promise<void> {
   }
 
   // 5. Fallback: check vendor_profiles for this vertical
-  const { data: vendorProfile } = await supabase
+  const { data: vendorProfile } = await observed(supabase
     .from('vendor_profiles')
     .select('id')
     .eq('user_id', user.id)
     .eq('vertical_id', vertical)
-    .maybeSingle()
+    .maybeSingle(), { table: 'vendor_profiles' })
 
   if (vendorProfile) {
     return

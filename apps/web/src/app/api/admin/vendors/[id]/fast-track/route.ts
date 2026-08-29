@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { hasPlatformAdminRole } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { TRIAL_SYSTEM_ENABLED } from '@/lib/vendor-limits'
 import { logPublicActivityEvent } from '@/lib/marketing/activity-events'
@@ -56,29 +56,29 @@ export async function POST(
     }
 
     // Admin role check (platform admin OR vertical admin for this vendor's vertical)
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await observed(supabase
       .from('user_profiles')
       .select('id, role, roles')
       .eq('user_id', user.id)
       .is('deleted_at', null)
-      .single()
+      .single(), { table: 'user_profiles' })
 
     // S4-2: platform_admin bypasses; vertical admin falls through to the
     // vertical_admins check below (was hasAdminRole → dead check, cross-vertical).
     let isAdmin = hasPlatformAdminRole(userProfile || {})
     if (!isAdmin) {
-      const { data: vendorRow } = await supabase
+      const { data: vendorRow } = await observed(supabase
         .from('vendor_profiles')
         .select('vertical_id')
         .eq('id', vendorId)
-        .single()
+        .single(), { table: 'vendor_profiles' })
       if (vendorRow) {
-        const { data: va } = await supabase
+        const { data: va } = await observed(supabase
           .from('vertical_admins')
           .select('id')
           .eq('user_id', user.id)
           .eq('vertical_id', vendorRow.vertical_id)
-          .single()
+          .single(), { table: 'vertical_admins' })
         isAdmin = !!va
       }
     }
@@ -93,11 +93,11 @@ export async function POST(
 
     // Read current state — both vendor_profiles + vendor_verifications
     crumb.supabase('select', 'vendor_verifications')
-    const { data: verification } = await serviceClient
+    const { data: verification } = await observed(serviceClient
       .from('vendor_verifications')
       .select('status, category_verifications, coi_status, onboarding_completed_at, notes')
       .eq('vendor_profile_id', vendorId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'vendor_verifications' })
 
     if (!verification) {
       return NextResponse.json({ error: 'Verification record not found' }, { status: 404 })
@@ -111,11 +111,11 @@ export async function POST(
     }
 
     crumb.supabase('select', 'vendor_profiles')
-    const { data: existingVendor } = await serviceClient
+    const { data: existingVendor } = await observed(serviceClient
       .from('vendor_profiles')
       .select('vertical_id, trial_started_at, status, user_id, profile_data')
       .eq('id', vendorId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'vendor_profiles' })
 
     if (!existingVendor) {
       return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })

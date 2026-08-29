@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { isStripeCheckoutExpired } from '@/lib/cron/order-timing'
 
 /**
@@ -33,20 +33,20 @@ export async function GET(request: NextRequest) {
     const service = createServiceClient()
 
     // Resolve the listing's vendor, then that vendor's caps.
-    const { data: listing } = await service
+    const { data: listing } = await observed(service
       .from('listings')
       .select('vendor_profile_id')
       .eq('id', listingId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'listings' })
     if (!listing?.vendor_profile_id) {
       return NextResponse.json({ enabled: false, fullSlots: [] })
     }
 
-    const { data: vendor } = await service
+    const { data: vendor } = await observed(service
       .from('vendor_profiles')
       .select('pickup_capacity_app_orders, pickup_capacity_items')
       .eq('id', listing.vendor_profile_id as string)
-      .maybeSingle()
+      .maybeSingle(), { table: 'vendor_profiles' })
 
     const capOrders = (vendor?.pickup_capacity_app_orders as number | null) ?? null
     const capItems = (vendor?.pickup_capacity_items as number | null) ?? null
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
     // SQL; here it is the shared isStripeCheckoutExpired() helper, which is the
     // same rule cron Phase 2 cancels on — one definition, three call sites, so
     // the UI and enforcement cannot drift apart.
-    const { data: rows } = await service
+    const { data: rows } = await observed(service
       .from('order_items')
       .select('order_id, quantity, preferred_pickup_time, orders!inner(status, created_at)')
       .eq('vendor_profile_id', listing.vendor_profile_id as string)
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
       .eq('pickup_date', pickupDate)
       .is('cancelled_at', null)
       .neq('status', 'cancelled')
-      .not('preferred_pickup_time', 'is', null)
+      .not('preferred_pickup_time', 'is', null), { table: 'order_items' })
 
     const perSlot = new Map<string, { orders: Set<string>; items: number }>()
     for (const r of rows ?? []) {

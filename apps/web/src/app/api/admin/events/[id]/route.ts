@@ -7,7 +7,7 @@ import {
   rateLimitResponse,
   rateLimits,
 } from '@/lib/rate-limit'
-import { withErrorTracing, logError, TracedError } from '@/lib/errors'
+import { withErrorTracing, logError, TracedError, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications/service'
 import { changeRequiresReconfirmation } from '@/lib/events/change-window'
 import { describeChanges } from '@/lib/events/change-requests'
@@ -60,12 +60,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await observed(supabase
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
       .is('deleted_at', null)
-      .single()
+      .single(), { table: 'user_profiles' })
 
     if (!hasAdminRole(userProfile || {})) {
       return NextResponse.json(
@@ -275,10 +275,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       // Nothing irreversible: repair what cancelling destroyed. The
       // event_vendor_listings rows survive a cancel (only listing_markets is
       // deleted), so they are the source for rebuilding the links.
-      const { data: evLinks } = await serviceClient
+      const { data: evLinks } = await observed(serviceClient
         .from('event_vendor_listings')
         .select('listing_id')
-        .eq('market_id', cateringReq.market_id)
+        .eq('market_id', cateringReq.market_id), { table: 'event_vendor_listings' })
 
       if (evLinks && evLinks.length > 0) {
         await serviceClient
@@ -444,11 +444,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // start time >30min notifies every accepted vendor. Email + in-app via the
     // standard-urgency event_changed_vendor template.
     if (cateringReq.market_id && changeRequiresReconfirmation(cateringReq, updates)) {
-      const { data: acceptedVendors } = await serviceClient
+      const { data: acceptedVendors } = await observed(serviceClient
         .from('market_vendors')
         .select('vendor_profile_id, vendor_profiles:vendor_profile_id(user_id)')
         .eq('market_id', cateringReq.market_id)
-        .eq('response_status', 'accepted')
+        .eq('response_status', 'accepted'), { table: 'market_vendors' })
 
       const changeSummary = describeChanges({
         ...('event_date' in updates ? { event_date: updates.event_date } : {}),
@@ -517,11 +517,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (status === 'ready' && updated.market_id) {
       // T2-3: Auto-generate waves for wave-ordering events
       if (updated.payment_model === 'company_paid' || updated.wave_ordering_enabled) {
-        const { data: existingWaves } = await serviceClient
+        const { data: existingWaves } = await observed(serviceClient
           .from('event_waves')
           .select('id')
           .eq('market_id', updated.market_id)
-          .limit(1)
+          .limit(1), { table: 'event_waves' })
 
         if (!existingWaves || existingWaves.length === 0) {
           const { generateEventWaves } = await import('@/lib/events/wave-generation')
@@ -574,10 +574,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       const { error: liftErr } = await liftEventBlackouts(serviceClient, cateringReq.market_id)
       if (liftErr) console.error('[admin/events cancel] blackout lift failed:', liftErr)
 
-      const { data: eventListings } = await serviceClient
+      const { data: eventListings } = await observed(serviceClient
         .from('event_vendor_listings')
         .select('listing_id')
-        .eq('market_id', cateringReq.market_id)
+        .eq('market_id', cateringReq.market_id), { table: 'event_vendor_listings' })
       if (eventListings && eventListings.length > 0) {
         const listingIds = eventListings.map(el => el.listing_id as string)
         await serviceClient
@@ -592,10 +592,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       // exist; the link from event/market to orders is per-item). Earlier
       // attempts queried .from('orders').eq('market_id', ...) which silently
       // returned null, causing the entire cancel flow to no-op.
-      const { data: orderItemRows } = await serviceClient
+      const { data: orderItemRows } = await observed(serviceClient
         .from('order_items')
         .select('order_id, status')
-        .eq('market_id', cateringReq.market_id)
+        .eq('market_id', cateringReq.market_id), { table: 'order_items' })
 
       const orderIds = [...new Set((orderItemRows || []).map(r => r.order_id as string))]
 
@@ -636,11 +636,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         const fulfilledOrderIds = new Set(
           (orderItemRows || []).filter(r => r.status === 'fulfilled').map(r => r.order_id as string)
         )
-        const { data: eventPayments } = await serviceClient
+        const { data: eventPayments } = await observed(serviceClient
           .from('payments')
           .select('order_id, stripe_payment_intent_id')
           .in('order_id', buyerOrders.map(o => o.id as string))
-          .eq('status', 'succeeded')
+          .eq('status', 'succeeded'), { table: 'payments' })
         const paymentByOrder = new Map(
           (eventPayments || []).map(p => [p.order_id as string, p.stripe_payment_intent_id as string | null])
         )
@@ -711,11 +711,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       // vendors of an admin cancel/decline (the organizer route notifies, this
       // one didn't). user_id resolved via the join; sendNotification's first
       // arg is a USER id, not a vendor_profile id.
-      const { data: cancelVendors } = await serviceClient
+      const { data: cancelVendors } = await observed(serviceClient
         .from('market_vendors')
         .select('vendor_profile_id, vendor_profiles!inner(user_id)')
         .eq('market_id', cateringReq.market_id)
-        .eq('response_status', 'accepted')
+        .eq('response_status', 'accepted'), { table: 'market_vendors' })
 
       if (cancelVendors && cancelVendors.length > 0) {
         await Promise.all(cancelVendors.flatMap(v => {

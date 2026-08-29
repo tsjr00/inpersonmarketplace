@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import {
@@ -33,11 +33,11 @@ export async function GET(request: NextRequest) {
     const eligible = await getEligibleCheckInMarkets(service, profile.id)
     if (eligible.length === 0) return NextResponse.json({ markets: [] })
 
-    const { data: existing } = await service
+    const { data: existing } = await observed(service
       .from('market_day_checkins')
       .select('market_id, market_date, checked_in_at, checked_out_at')
       .eq('vendor_profile_id', profile.id)
-      .in('market_id', eligible.map((e) => e.marketId))
+      .in('market_id', eligible.map((e) => e.marketId)), { table: 'market_day_checkins' })
 
     const byKey = new Map<string, { checked_in_at: string; checked_out_at: string | null }>()
     for (const r of existing ?? []) {

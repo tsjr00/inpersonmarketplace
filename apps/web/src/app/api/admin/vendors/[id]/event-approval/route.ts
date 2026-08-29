@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { hasPlatformAdminRole } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 
 export async function PATCH(
@@ -26,12 +26,12 @@ export async function PATCH(
     }
 
     // Verify admin role — platform admin or vertical admin for this vendor's vertical
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await observed(supabase
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
       .is('deleted_at', null)
-      .single()
+      .single(), { table: 'user_profiles' })
 
     // S4-2: platform_admin bypasses; vertical admin falls through to the
     // vertical_admins check below (was hasAdminRole → dead check, cross-vertical).
@@ -62,12 +62,12 @@ export async function PATCH(
 
     // If not platform admin, check if they're a vertical admin for this vendor's vertical
     if (!isAdmin) {
-      const { data: verticalAdmin } = await supabase
+      const { data: verticalAdmin } = await observed(supabase
         .from('vertical_admins')
         .select('id')
         .eq('user_id', user.id)
         .eq('vertical_id', vendor.vertical_id)
-        .single()
+        .single(), { table: 'vertical_admins' })
       isAdmin = !!verticalAdmin
     }
 
@@ -92,11 +92,11 @@ export async function PATCH(
 
     // COI is a hard gate for event approval (VJ-R1: optional for publishing, required for events)
     if (event_approved) {
-      const { data: verification } = await serviceClient
+      const { data: verification } = await observed(serviceClient
         .from('vendor_verifications')
         .select('coi_status')
         .eq('vendor_profile_id', vendorId)
-        .single()
+        .single(), { table: 'vendor_verifications' })
 
       if (!verification || verification.coi_status !== 'approved') {
         return NextResponse.json(

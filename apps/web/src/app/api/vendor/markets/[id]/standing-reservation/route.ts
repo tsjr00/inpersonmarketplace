@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb, logError } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, logError, observed } from '@/lib/errors'
 import { fetchMarketOptinForVendor } from '@/lib/markets/optin-public'
 import { computeAgreementVersionFromSnapshot } from '@/lib/markets/agreement-version'
 import { sendNotification } from '@/lib/notifications'
@@ -50,11 +50,11 @@ export async function POST(
       return NextResponse.json({ error: 'requested_start_date is required (YYYY-MM-DD)', field: 'requested_start_date' }, { status: 400 })
     }
 
-    const { data: market } = await supabase
+    const { data: market } = await observed(supabase
       .from('markets')
       .select('id, name, vertical_id, park_mode, manager_user_id, timezone')
       .eq('id', marketId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'markets' })
     if (!market) return NextResponse.json({ error: 'Park not found' }, { status: 404 })
     if (market.park_mode !== 'paid') {
       return NextResponse.json(
@@ -73,12 +73,12 @@ export async function POST(
     const service = createServiceClient()
 
     // B3 — a blocked truck can't request a recurring hold either. Fail-open.
-    const { data: vetting } = await service
+    const { data: vetting } = await observed(service
       .from('park_vendor_vetting')
       .select('blocked')
       .eq('market_id', marketId)
       .eq('vendor_profile_id', profile.id)
-      .maybeSingle()
+      .maybeSingle(), { table: 'park_vendor_vetting' })
     if (vetting?.blocked === true) {
       return NextResponse.json(
         { error: `${(market.name as string) || 'This park'} has blocked new bookings from your food truck.` },
@@ -87,11 +87,11 @@ export async function POST(
     }
 
     crumb.supabase('select', 'park_spots')
-    const { data: spot } = await service
+    const { data: spot } = await observed(service
       .from('park_spots')
       .select('id, market_id, active, recurring_eligible, label, max_length_ft')
       .eq('id', spotId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'park_spots' })
     if (!spot || spot.market_id !== marketId) {
       return NextResponse.json({ error: 'Spot not found at this park', field: 'spot_id' }, { status: 404 })
     }
@@ -121,11 +121,11 @@ export async function POST(
     }
 
     // The DOW must be an operating day of the park.
-    const { data: scheds } = await service
+    const { data: scheds } = await observed(service
       .from('market_schedules')
       .select('day_of_week')
       .eq('market_id', marketId)
-      .eq('active', true)
+      .eq('active', true), { table: 'market_schedules' })
     const activeDows = new Set((scheds ?? []).map((s) => s.day_of_week as number))
     if (!activeDows.has(dow)) {
       return NextResponse.json({ error: "The park isn't open on that day.", field: 'day_of_week' }, { status: 400 })
@@ -201,13 +201,13 @@ export async function POST(
         // (spot, day_of_week). Tell the truck WHICH case they hit — their own
         // pending request (so they stop re-trying with a new date) vs. another
         // truck's hold — instead of a vague "already held".
-        const { data: conflict } = await service
+        const { data: conflict } = await observed(service
           .from('park_standing_reservations')
           .select('vendor_profile_id, status')
           .eq('spot_id', spotId)
           .eq('day_of_week', dow)
           .in('status', ['requested', 'active'])
-          .maybeSingle()
+          .maybeSingle(), { table: 'park_standing_reservations' })
         const mine = conflict?.vendor_profile_id === profile.id
         const msg = mine
           ? conflict?.status === 'active'
@@ -223,11 +223,11 @@ export async function POST(
     // throws). Recipient = the park's assigned manager; skip if there's none.
     const managerUserId = market.manager_user_id as string | null | undefined
     if (managerUserId) {
-      const { data: vp } = await service
+      const { data: vp } = await observed(service
         .from('vendor_profiles')
         .select('profile_data')
         .eq('id', profile.id)
-        .maybeSingle()
+        .maybeSingle(), { table: 'vendor_profiles' })
       const pd = vp?.profile_data as { business_name?: string; farm_name?: string } | null
       const startDisplay = new Date(sy, sm - 1, sd).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
       await sendNotification(

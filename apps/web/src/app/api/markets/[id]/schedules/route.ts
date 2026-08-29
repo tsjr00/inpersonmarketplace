@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { hasAdminRole } from '@/lib/auth/admin'
 
@@ -69,11 +69,11 @@ export async function POST(
     }
 
     // Verify user is admin
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await observed(supabase
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
-      .single()
+      .single(), { table: 'user_profiles' })
 
     const isAdmin = hasAdminRole(userProfile || {})
     if (!isAdmin) {
@@ -132,11 +132,11 @@ export async function POST(
     // row — preserving its id and any historical FK links (order_items /
     // cart_items / vendor_market_schedules) — rather than create a duplicate.
     const normTime = (t: string) => String(t).slice(0, 5)
-    const { data: sameDayRows } = await supabase
+    const { data: sameDayRows } = await observed(supabase
       .from('market_schedules')
       .select('id, start_time, end_time')
       .eq('market_id', marketId)
-      .eq('day_of_week', day_of_week)
+      .eq('day_of_week', day_of_week), { table: 'market_schedules' })
 
     const match = (sameDayRows || []).find(
       r => normTime(r.start_time as string) === normTime(start_time) &&

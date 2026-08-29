@@ -6,7 +6,7 @@ import {
   getTierLimits,
   getTraditionalMarketUsage,
 } from '@/lib/vendor-limits'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
@@ -95,7 +95,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     // Uses service client because RLS on user_profiles only allows reading own profile,
     // but vendors need to see their subscribers' names. Ownership already verified above.
     const serviceClient = createServiceClient()
-    const { data: subscriptions } = await serviceClient
+    const { data: subscriptions } = await observed(serviceClient
       .from('market_box_subscriptions')
       .select(`
         id,
@@ -128,7 +128,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         )
       `)
       .eq('offering_id', offeringId)
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: false }), { table: 'market_box_subscriptions' })
 
     return NextResponse.json({
       offering,
@@ -158,11 +158,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     // Verify offering exists and get vertical_id for multi-vertical vendor lookup
-    const { data: existing } = await supabase
+    const { data: existing } = await observed(supabase
       .from('market_box_offerings')
       .select('id, vendor_profile_id, active, vertical_id, pickup_market_id')
       .eq('id', offeringId)
-      .single()
+      .single(), { table: 'market_box_offerings' })
 
     if (!existing) {
       return NextResponse.json({ error: 'Offering not found' }, { status: 404 })
@@ -242,11 +242,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       // past their tier cap. Same rules as the POST handler:
       // over cap → block; at cap + new market → block; otherwise allow.
       if (existing.pickup_market_id) {
-        const { data: targetMarket } = await supabase
+        const { data: targetMarket } = await observed(supabase
           .from('markets')
           .select('market_type')
           .eq('id', existing.pickup_market_id)
-          .single()
+          .single(), { table: 'markets' })
 
         if (targetMarket?.market_type === 'traditional') {
           // Current usage does NOT include this box (it's inactive right now)
@@ -338,11 +338,11 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     }
 
     // Verify offering exists and get vertical_id for multi-vertical vendor lookup
-    const { data: existing } = await supabase
+    const { data: existing } = await observed(supabase
       .from('market_box_offerings')
       .select('id, vendor_profile_id, vertical_id')
       .eq('id', offeringId)
-      .single()
+      .single(), { table: 'market_box_offerings' })
 
     if (!existing) {
       return NextResponse.json({ error: 'Offering not found' }, { status: 404 })

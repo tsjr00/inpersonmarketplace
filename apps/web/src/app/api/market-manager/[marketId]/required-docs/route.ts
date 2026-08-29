@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { parseRequiredDocs, requiredDocLabel, type RequiredDocEntry } from '@/lib/markets/required-docs'
 import { sendNotification } from '@/lib/notifications'
 
@@ -80,28 +80,28 @@ async function notifyEngagedTrucksOfNewDocs(
   const { marketId, marketName, vertical, addedLabels } = args
   const today = new Date().toISOString().slice(0, 10)
 
-  const { data: bookings } = await serviceClient
+  const { data: bookings } = await observed(serviceClient
     .from('park_spot_bookings')
     .select('vendor_profile_id')
     .eq('market_id', marketId)
     .in('status', ['paid', 'completed'])
-    .gte('booking_date', today)
+    .gte('booking_date', today), { table: 'park_spot_bookings' })
 
-  const { data: standing } = await serviceClient
+  const { data: standing } = await observed(serviceClient
     .from('park_standing_reservations')
     .select('vendor_profile_id')
     .eq('market_id', marketId)
-    .in('status', ['requested', 'active'])
+    .in('status', ['requested', 'active']), { table: 'park_standing_reservations' })
 
   const vpIds = new Set<string>()
   for (const b of bookings ?? []) if (b.vendor_profile_id) vpIds.add(b.vendor_profile_id as string)
   for (const s of standing ?? []) if (s.vendor_profile_id) vpIds.add(s.vendor_profile_id as string)
   if (vpIds.size === 0) return
 
-  const { data: vps } = await serviceClient
+  const { data: vps } = await observed(serviceClient
     .from('vendor_profiles')
     .select('id, user_id')
-    .in('id', Array.from(vpIds))
+    .in('id', Array.from(vpIds)), { table: 'vendor_profiles' })
 
   const docLabels = formatDocList(addedLabels)
   for (const vp of vps ?? []) {
@@ -173,11 +173,11 @@ export async function PATCH(
     // unapplied) yields an empty prior list — everything reads as "added", but
     // the update below would then also fail, so the notify path won't run.
     crumb.supabase('select', 'markets')
-    const { data: before } = await serviceClient
+    const { data: before } = await observed(serviceClient
       .from('markets')
       .select('required_docs, name, vertical_id')
       .eq('id', marketId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'markets' })
 
     crumb.supabase('update', 'markets')
     const { data, error } = await serviceClient

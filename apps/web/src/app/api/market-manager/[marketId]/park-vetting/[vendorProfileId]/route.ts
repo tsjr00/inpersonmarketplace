@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 
 /**
@@ -37,12 +37,12 @@ export async function PATCH(
     const service = createServiceClient()
 
     // Truck must be at this park.
-    const { data: mv } = await service
+    const { data: mv } = await observed(service
       .from('market_vendors')
       .select('id')
       .eq('market_id', marketId)
       .eq('vendor_profile_id', vendorProfileId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'market_vendors' })
     if (!mv) return NextResponse.json({ error: 'Truck is not at this park' }, { status: 404 })
 
     const updates: Record<string, unknown> = {}
@@ -75,8 +75,8 @@ export async function PATCH(
 
     // Notify the truck when newly blocked (sendNotification never throws).
     if (didBlock) {
-      const { data: market } = await service.from('markets').select('name, vertical_id').eq('id', marketId).maybeSingle()
-      const { data: vp } = await service.from('vendor_profiles').select('user_id').eq('id', vendorProfileId).maybeSingle()
+      const { data: market } = await observed(service.from('markets').select('name, vertical_id').eq('id', marketId).maybeSingle(), { table: 'markets' })
+      const { data: vp } = await observed(service.from('vendor_profiles').select('user_id').eq('id', vendorProfileId).maybeSingle(), { table: 'vendor_profiles' })
       const reason = typeof body?.block_reason === 'string' ? body.block_reason.trim() : ''
       if (vp?.user_id) {
         await sendNotification(

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors/with-error-tracing'
-import { logError, TracedError } from '@/lib/errors'
+import { logError, TracedError, observed } from '@/lib/errors'
 import { refundEventFeePayment } from '@/lib/stripe/event-fee-payments'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { sendNotification } from '@/lib/notifications/service'
@@ -45,11 +45,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const serviceClient = createServiceClient()
 
     // Find the catering request by token
-    const { data: event } = await serviceClient
+    const { data: event } = await observed(serviceClient
       .from('catering_requests')
       .select('id, company_name, contact_name, contact_email, event_date, event_start_time, event_end_time, headcount, vendor_count, expected_meal_count, cancellation_risk_factors, city, state, vertical_id, market_id, status, service_level, payment_model, event_type, is_ticketed, competing_food_options')
       .eq('event_token', token)
-      .single()
+      .single(), { table: 'catering_requests' })
 
     if (!event) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     // Get accepted vendors with profile data
-    const { data: marketVendors } = await serviceClient
+    const { data: marketVendors } = await observed(serviceClient
       .from('market_vendors')
       // T-59: `response_notes` is the message the vendor typed when accepting.
       // It has been stored since the feature shipped and rendered on no
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       // "Select" buttons on a live event.
       .select('vendor_profile_id, response_status, response_notes, is_backup, organizer_selected_at, standby_opted_in_at, event_max_orders_per_wave, vendor_profiles:vendor_profile_id(id, profile_data, profile_image_url, average_rating, rating_count, tier, pickup_lead_minutes)')
       .eq('market_id', event.market_id)
-      .eq('response_status', 'accepted')
+      .eq('response_status', 'accepted'), { table: 'market_vendors' })
 
     if (!marketVendors || marketVendors.length === 0) {
       return NextResponse.json({
@@ -100,12 +100,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     // Get catering listings for each vendor
     const vendorIds = marketVendors.map(mv => mv.vendor_profile_id)
-    const { data: listings } = await serviceClient
+    const { data: listings } = await observed(serviceClient
       .from('listings')
       .select('vendor_profile_id, title, price_cents, category, listing_data')
       .in('vendor_profile_id', vendorIds)
       .eq('status', 'published')
-      .is('deleted_at', null)
+      .is('deleted_at', null), { table: 'listings' })
 
     // Build per-vendor listing data
     const vendorListings: Record<string, Array<{ title: string; price_cents: number }>> = {}
@@ -283,11 +283,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const uniqueVendorIds = [...new Set(selected_vendor_ids as string[])]
 
     // Find the event
-    const { data: event } = await serviceClient
+    const { data: event } = await observed(serviceClient
       .from('catering_requests')
       .select('id, company_name, contact_name, contact_email, event_date, headcount, vendor_count, city, state, vertical_id, market_id, event_token, status, service_level, vendor_preferences')
       .eq('event_token', token)
-      .single()
+      .single(), { table: 'catering_requests' })
 
     if (!event || event.service_level !== 'self_service') {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
@@ -306,12 +306,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Verify all selected vendors are actually accepted for this event
-    const { data: validVendors } = await serviceClient
+    const { data: validVendors } = await observed(serviceClient
       .from('market_vendors')
       .select('vendor_profile_id')
       .eq('market_id', event.market_id)
       .eq('response_status', 'accepted')
-      .in('vendor_profile_id', uniqueVendorIds)
+      .in('vendor_profile_id', uniqueVendorIds), { table: 'market_vendors' })
 
     if (!validVendors || validVendors.length !== uniqueVendorIds.length) {
       return NextResponse.json({ error: 'One or more selected vendors are not available' }, { status: 400 })
@@ -326,11 +326,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // by the ACCEPTANCE threshold, before any selection), so the first real
     // confirmation notified nobody and skipped the organizer kit (owner
     // testing 2026-08-28). "First confirmation" = no stamp existed yet.
-    const { data: priorRows } = await serviceClient
+    const { data: priorRows } = await observed(serviceClient
       .from('market_vendors')
       .select('vendor_profile_id, is_backup, organizer_selected_at')
       .eq('market_id', event.market_id)
-      .eq('response_status', 'accepted')
+      .eq('response_status', 'accepted'), { table: 'market_vendors' })
 
     const previouslySelected = new Set(
       (priorRows || [])
@@ -351,11 +351,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .is('organizer_selected_at', null)
 
     // Mark non-selected accepted vendors as 'not_selected' (they stay as backups)
-    const { data: allAccepted } = await serviceClient
+    const { data: allAccepted } = await observed(serviceClient
       .from('market_vendors')
       .select('vendor_profile_id')
       .eq('market_id', event.market_id)
-      .eq('response_status', 'accepted')
+      .eq('response_status', 'accepted'), { table: 'market_vendors' })
 
     if (allAccepted) {
       const notSelectedIds = allAccepted
@@ -386,12 +386,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
         // vendor: paid → full refund WITH transfer reversal; covered →
         // released (no money ever moved; the forfeited pot becomes claimable
         // by the next backup); pending → released.
-        const { data: demotedFeeRows } = await serviceClient
+        const { data: demotedFeeRows } = await observed(serviceClient
           .from('event_vendor_fee_payments')
           .select('id, vendor_profile_id, vendor_pays_cents, status, stripe_payment_intent_id, vendor_profiles:vendor_profile_id(user_id)')
           .eq('market_id', event.market_id)
           .in('vendor_profile_id', notSelectedIds)
-          .in('status', ['pending_payment', 'paid', 'covered'])
+          .in('status', ['pending_payment', 'paid', 'covered']), { table: 'event_vendor_fee_payments' })
 
         const demotedReleasable = (demotedFeeRows || []).filter(r => r.status !== 'paid')
         if (demotedReleasable.length > 0) {
@@ -421,11 +421,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
               .eq('status', 'paid')
             const demotedUserId = (feeRow.vendor_profiles as unknown as { user_id?: string } | null)?.user_id
             if (demotedUserId) {
-              const { data: feeMarketRow } = await serviceClient
+              const { data: feeMarketRow } = await observed(serviceClient
                 .from('markets')
                 .select('name')
                 .eq('id', event.market_id)
-                .maybeSingle()
+                .maybeSingle(), { table: 'markets' })
               await sendNotification(demotedUserId, 'event_fee_refunded_vendor', {
                 marketName: (feeMarketRow?.name as string) || 'the event',
                 marketId: event.market_id,
@@ -487,11 +487,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
       // if waves were already generated, resize them to the selected set.
       // Runs on every submit that finds waves (T-80: promotions matter too,
       // not just demotions); the RPC is idempotent.
-      const { data: selectWaves } = await serviceClient
+      const { data: selectWaves } = await observed(serviceClient
         .from('event_waves')
         .select('id')
         .eq('market_id', event.market_id)
-        .limit(1)
+        .limit(1), { table: 'event_waves' })
       if (selectWaves && selectWaves.length > 0) {
         const { error: recalcErr } = await serviceClient.rpc('recalculate_wave_capacity', {
           p_market_id: event.market_id,
@@ -517,12 +517,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }
     }
     // Atomic update — prevents double-submit from concurrent tabs
-    const { data: updatedEvent } = await serviceClient
+    const { data: updatedEvent } = await observed(serviceClient
       .from('catering_requests')
       .update(updateData)
       .eq('id', event.id)
       .in('status', ['approved', 'ready'])
-      .select('id')
+      .select('id'), { table: 'catering_requests', operation: 'update' })
 
     if (!updatedEvent || updatedEvent.length === 0) {
       return NextResponse.json({ error: 'Selections have already been submitted' }, { status: 409 })
@@ -532,11 +532,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // T-80: only vendors NEWLY selected this submit — an unchanged re-submit
     // used to send every selected vendor a duplicate confirmation.
     for (const vendorId of newlySelectedIds) {
-      const { data: vp } = await serviceClient
+      const { data: vp } = await observed(serviceClient
         .from('vendor_profiles')
         .select('user_id')
         .eq('id', vendorId)
-        .single()
+        .single(), { table: 'vendor_profiles' })
 
       if (vp?.user_id) {
         // Owner 2026-08-26: a real "you're confirmed" notification. This used
@@ -577,13 +577,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const cuisineTypes = new Set<string>()
     for (const vId of uniqueVendorIds) {
       // Quick lookup from the vendors we already fetched in GET
-      const { data: vListings } = await serviceClient
+      const { data: vListings } = await observed(serviceClient
         .from('listings')
         .select('category')
         .eq('vendor_profile_id', vId)
         .eq('status', 'published')
         .is('deleted_at', null)
-        .limit(20)
+        .limit(20), { table: 'listings' })
 
       if (vListings) {
         for (const l of vListings) {

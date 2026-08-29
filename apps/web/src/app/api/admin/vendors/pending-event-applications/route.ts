@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { hasAdminRole } from '@/lib/auth/admin'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getEventApplicationState } from '@/lib/vendor-event-application'
 
@@ -17,11 +17,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await observed(supabase
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
-      .single()
+      .single(), { table: 'user_profiles' })
 
     if (!hasAdminRole(userProfile || {})) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })

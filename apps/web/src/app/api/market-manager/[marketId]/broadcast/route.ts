@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { sendNotificationBatch } from '@/lib/notifications'
 
 export const maxDuration = 30
@@ -96,11 +96,11 @@ export async function POST(
 
     // Market context for the notification.
     crumb.supabase('select', 'markets')
-    const { data: marketInfo } = await serviceClient
+    const { data: marketInfo } = await observed(serviceClient
       .from('markets')
       .select('name, vertical_id')
       .eq('id', marketId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'markets' })
     const marketName = (marketInfo?.name as string | undefined) || 'your market'
     const vertical = (marketInfo?.vertical_id as string | undefined) || 'farmers_market'
 

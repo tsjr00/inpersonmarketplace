@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
@@ -62,7 +62,7 @@ export async function GET(
     // Find user's completed order_items at this event's market, grouped
     // by vendor. We join order_items → orders (buyer check + status) and
     // vendor_profiles (display name).
-    const { data: orderItemRows } = await supabase
+    const { data: orderItemRows } = await observed(supabase
       .from('order_items')
       .select(`
         order_id,
@@ -79,7 +79,7 @@ export async function GET(
       `)
       .eq('market_id', event.market_id)
       .eq('orders.buyer_user_id', user.id)
-      .eq('orders.status', 'completed')
+      .eq('orders.status', 'completed'), { table: 'order_items' })
 
     // Dedupe to one row per (order_id, vendor_profile_id) — a single
     // order can have multiple line items from the same vendor, but the
@@ -118,11 +118,11 @@ export async function GET(
     const existingRatings: Record<string, { rating: number; comment: string | null }> = {}
 
     if (orderIds.length > 0) {
-      const { data: ratingRows } = await supabase
+      const { data: ratingRows } = await observed(supabase
         .from('order_ratings')
         .select('order_id, vendor_profile_id, rating, comment')
         .in('order_id', orderIds)
-        .eq('buyer_user_id', user.id)
+        .eq('buyer_user_id', user.id), { table: 'order_ratings' })
 
       for (const r of ratingRows || []) {
         const key = `${r.order_id}:${r.vendor_profile_id}`
@@ -141,12 +141,12 @@ export async function GET(
     }))
 
     // Fetch existing event_ratings row for this user + event
-    const { data: eventRatingRow } = await supabase
+    const { data: eventRatingRow } = await observed(supabase
       .from('event_ratings')
       .select('rating, comment, status')
       .eq('catering_request_id', event.id)
       .eq('user_id', user.id)
-      .maybeSingle()
+      .maybeSingle(), { table: 'event_ratings' })
 
     return NextResponse.json({
       rateable_orders,

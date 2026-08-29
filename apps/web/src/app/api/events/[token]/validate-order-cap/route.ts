@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
@@ -31,24 +31,24 @@ export async function GET(
 
     const serviceClient = createServiceClient()
 
-    const { data: event } = await serviceClient
+    const { data: event } = await observed(serviceClient
       .from('catering_requests')
       .select('market_id, status')
       .eq('event_token', token)
       .in('status', ['approved', 'ready', 'active'])
-      .single()
+      .single(), { table: 'catering_requests' })
 
     if (!event?.market_id) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     }
 
-    const { data: marketVendor } = await serviceClient
+    const { data: marketVendor } = await observed(serviceClient
       .from('market_vendors')
       .select('event_max_orders_total')
       .eq('market_id', event.market_id)
       .eq('vendor_profile_id', vendorProfileId)
       .eq('response_status', 'accepted')
-      .single()
+      .single(), { table: 'market_vendors' })
 
     if (!marketVendor) {
       return NextResponse.json({ error: 'Vendor not found at this event' }, { status: 404 })

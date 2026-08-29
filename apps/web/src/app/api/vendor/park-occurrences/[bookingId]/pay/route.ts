@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb, logError, TracedError } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, logError, TracedError, observed } from '@/lib/errors'
 import { calculateBoothRentalFees } from '@/lib/pricing'
 import { createParkSpotCheckoutSession } from '@/lib/stripe/payments'
 import { PARK_SPOT_MIN_CHARGE_CENTS } from '@/lib/markets/park-booking-types'
@@ -44,11 +44,11 @@ export async function POST(
     const service = createServiceClient()
 
     crumb.supabase('select', 'park_spot_bookings')
-    const { data: booking } = await service
+    const { data: booking } = await observed(service
       .from('park_spot_bookings')
       .select('id, market_id, vendor_profile_id, spot_id, booking_date, price_cents, status, standing_reservation_id, booking_group_id')
       .eq('id', bookingId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'park_spot_bookings' })
     if (!booking || !booking.standing_reservation_id) {
       return NextResponse.json({ error: 'Recurring occurrence not found' }, { status: 404 })
     }
@@ -60,11 +60,11 @@ export async function POST(
     }
 
     // Market + payment gates.
-    const { data: market } = await service
+    const { data: market } = await observed(service
       .from('markets')
       .select('id, name, vertical_id, timezone, stripe_charges_enabled, stripe_account_id, park_mode, operator_keep_pct')
       .eq('id', booking.market_id)
-      .maybeSingle()
+      .maybeSingle(), { table: 'markets' })
     if (!market) return NextResponse.json({ error: 'Park not found' }, { status: 404 })
     if (market.park_mode !== 'paid') {
       return NextResponse.json({ error: `${(market.name as string) || 'This park'} isn't taking paid spot bookings right now.` }, { status: 409 })
@@ -86,12 +86,12 @@ export async function POST(
 
     // PRK-4: a vetting BLOCK also stops paying existing occurrences (mirrors
     // the book-park-spot gate; fail-open when no vetting row exists).
-    const { data: vetting } = await service
+    const { data: vetting } = await observed(service
       .from('park_vendor_vetting')
       .select('blocked')
       .eq('market_id', booking.market_id)
       .eq('vendor_profile_id', booking.vendor_profile_id)
-      .maybeSingle()
+      .maybeSingle(), { table: 'park_vendor_vetting' })
     if (vetting?.blocked === true) {
       return NextResponse.json(
         { error: `${(market.name as string) || 'This park'} has blocked bookings from your food truck. Contact the operator for details.` },
@@ -102,11 +102,11 @@ export async function POST(
     // PRK-5: the hold must still be active — a revoked/suspended hold's
     // already-generated occurrence must not be payable (the manager's only
     // recourse after payment is a no-refund bar).
-    const { data: hold } = await service
+    const { data: hold } = await observed(service
       .from('park_standing_reservations')
       .select('status')
       .eq('id', booking.standing_reservation_id)
-      .maybeSingle()
+      .maybeSingle(), { table: 'park_standing_reservations' })
     if (hold?.status !== 'active') {
       return NextResponse.json(
         { error: 'This recurring hold is no longer active, so this occurrence can no longer be paid.' },
@@ -149,11 +149,11 @@ export async function POST(
         const [oy, omo, odd] = occurrenceDate.split('-').map(Number)
         const dow = new Date(Date.UTC(oy, omo - 1, odd)).getUTCDay()
         crumb.supabase('select', 'market_schedules')
-        const { data: scheds } = await service
+        const { data: scheds } = await observed(service
           .from('market_schedules')
           .select('day_of_week, start_time')
           .eq('market_id', booking.market_id)
-          .eq('active', true)
+          .eq('active', true), { table: 'market_schedules' })
         const openMinutes = earliestOpenByDow(scheds ?? []).get(dow) ?? null
         if (isPastSameDayCutoff(localMinutesOfDay(localNow), openMinutes) && openMinutes !== null) {
           return NextResponse.json(
@@ -172,11 +172,11 @@ export async function POST(
       }
     }
 
-    const { data: spot } = await service
+    const { data: spot } = await observed(service
       .from('park_spots')
       .select('label')
       .eq('id', booking.spot_id)
-      .maybeSingle()
+      .maybeSingle(), { table: 'park_spots' })
     const spotLabel = (spot?.label as string) || 'your spot'
 
     // Fees (single day = the spot's per-day price).

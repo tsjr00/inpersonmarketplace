@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 
 /**
@@ -190,11 +190,11 @@ export async function POST(
     // (regardless of status). Same idempotency check as the catering
     // event invite route.
     crumb.supabase('select', 'market_vendors')
-    const { data: existingRows } = await serviceClient
+    const { data: existingRows } = await observed(serviceClient
       .from('market_vendors')
       .select('vendor_profile_id')
       .eq('market_id', marketId)
-      .in('vendor_profile_id', vendorProfileIds)
+      .in('vendor_profile_id', vendorProfileIds), { table: 'market_vendors' })
 
     const alreadyAtMarket = new Set(
       (existingRows || []).map((r) => r.vendor_profile_id as string)
@@ -212,13 +212,13 @@ export async function POST(
     // Fetch the eligible vendor profiles (must be same vertical + approved).
     // Invitation should not work on suspended/deleted vendors.
     crumb.supabase('select', 'vendor_profiles')
-    const { data: vendorProfiles } = await serviceClient
+    const { data: vendorProfiles } = await observed(serviceClient
       .from('vendor_profiles')
       .select('id, user_id, profile_data')
       .in('id', candidateIds)
       .eq('vertical_id', verticalId)
       .eq('status', 'approved')
-      .is('deleted_at', null)
+      .is('deleted_at', null), { table: 'vendor_profiles' })
 
     const eligibleIds = new Set((vendorProfiles || []).map((vp) => vp.id as string))
     const eligibleProfiles = vendorProfiles || []

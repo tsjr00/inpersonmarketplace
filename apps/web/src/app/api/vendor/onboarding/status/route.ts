@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { crumb } from '@/lib/errors/breadcrumbs'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
@@ -51,24 +51,24 @@ export async function GET(request: NextRequest) {
     }
 
     crumb.logic('Fetching verification record')
-    const { data: verification } = await supabase
+    const { data: verification } = await observed(supabase
       .from('vendor_verifications')
       .select('*')
       .eq('vendor_profile_id', vendor.id)
-      .single()
+      .single(), { table: 'vendor_verifications' })
 
     if (!verification) {
       return NextResponse.json({ error: 'No verification record found' }, { status: 404 })
     }
 
     // Check for Vendor Partner Agreement acceptance (Tier 3)
-    const { data: partnerAcceptance } = await supabase
+    const { data: partnerAcceptance } = await observed(supabase
       .from('user_agreement_acceptances')
       .select('id')
       .eq('user_id', user.id)
       .eq('agreement_type', 'vendor_partner')
       .limit(1)
-      .maybeSingle()
+      .maybeSingle(), { table: 'user_agreement_acceptances' })
 
     const partnerAgreementAccepted = !!partnerAcceptance
 

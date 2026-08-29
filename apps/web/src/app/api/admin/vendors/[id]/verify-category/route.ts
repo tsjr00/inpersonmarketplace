@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { hasPlatformAdminRole } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications/service'
 import { CATEGORIES } from '@/lib/constants'
 import { FOOD_TRUCK_DOC_TYPES, type FoodTruckDocType } from '@/lib/onboarding/category-requirements'
@@ -32,29 +32,29 @@ export async function POST(
     }
 
     // Verify admin role
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await observed(supabase
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
       .is('deleted_at', null)
-      .single()
+      .single(), { table: 'user_profiles' })
 
     // S4-2: platform_admin bypasses; vertical admin falls through to the
     // vertical_admins check below (was hasAdminRole → dead check, cross-vertical).
     let isAdmin = hasPlatformAdminRole(userProfile || {})
     if (!isAdmin) {
-      const { data: vendor } = await supabase
+      const { data: vendor } = await observed(supabase
         .from('vendor_profiles')
         .select('vertical_id')
         .eq('id', vendorId)
-        .single()
+        .single(), { table: 'vendor_profiles' })
       if (vendor) {
-        const { data: va } = await supabase
+        const { data: va } = await observed(supabase
           .from('vertical_admins')
           .select('id')
           .eq('user_id', user.id)
           .eq('vertical_id', vendor.vertical_id)
-          .single()
+          .single(), { table: 'vertical_admins' })
         isAdmin = !!va
       }
     }
@@ -77,11 +77,11 @@ export async function POST(
 
     // Get current category_verifications
     crumb.supabase('select', 'vendor_verifications')
-    const { data: verification } = await serviceClient
+    const { data: verification } = await observed(serviceClient
       .from('vendor_verifications')
       .select('category_verifications')
       .eq('vendor_profile_id', vendorId)
-      .single()
+      .single(), { table: 'vendor_verifications' })
 
     if (!verification) {
       return NextResponse.json({ error: 'Verification record not found' }, { status: 404 })
@@ -112,11 +112,11 @@ export async function POST(
     }
 
     // Notify vendor
-    const { data: vendor } = await serviceClient
+    const { data: vendor } = await observed(serviceClient
       .from('vendor_profiles')
       .select('user_id, vertical_id')
       .eq('id', vendorId)
-      .single()
+      .single(), { table: 'vendor_profiles' })
 
     if (vendor?.user_id) {
       await sendNotification(

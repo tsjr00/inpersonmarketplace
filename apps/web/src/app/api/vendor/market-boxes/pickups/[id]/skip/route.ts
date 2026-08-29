@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, logError } from '@/lib/errors'
+import { withErrorTracing, traced, logError, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { sendNotification } from '@/lib/notifications/service'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   // Get pickup first — need offering.vertical_id for multi-vertical vendor lookup
-  const { data: pickup } = await supabase
+  const { data: pickup } = await observed(supabase
     .from('market_box_pickups')
     .select(`
       id,
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       )
     `)
     .eq('id', pickupId)
-    .single()
+    .single(), { table: 'market_box_pickups' })
 
   if (!pickup) {
     return NextResponse.json({ error: 'Pickup not found' }, { status: 404 })
@@ -114,26 +114,26 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   // Get updated pickup details
-  const { data: skippedPickup } = await supabase
+  const { data: skippedPickup } = await observed(supabase
     .from('market_box_pickups')
     .select('*')
     .eq('id', pickupId)
-    .single()
+    .single(), { table: 'market_box_pickups' })
 
   // Get the new extension pickup
   const extensionPickupId = result?.[0]?.extension_pickup_id
-  const { data: extensionPickup } = await supabase
+  const { data: extensionPickup } = await observed(supabase
     .from('market_box_pickups')
     .select('*')
     .eq('id', extensionPickupId)
-    .single()
+    .single(), { table: 'market_box_pickups' })
 
   // Get updated subscription
-  const { data: updatedSubscription } = await supabase
+  const { data: updatedSubscription } = await observed(supabase
     .from('market_box_subscriptions')
     .select('id, term_weeks, extended_weeks, original_end_date')
     .eq('id', subscription.id)
-    .single()
+    .single(), { table: 'market_box_subscriptions' })
 
   // Notify buyer about the skip
   const buyerUserId = subscription?.buyer_user_id

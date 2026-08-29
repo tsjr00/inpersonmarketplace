@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendNotification } from '@/lib/notifications'
+import { observed } from '@/lib/errors'
 
 /**
  * FT park-manager B3 — docs-to-review sweep (decoupled from the doc-upload
@@ -28,29 +29,29 @@ export async function runParkDocsReviewSweep(
   const summary: ParkDocsReviewSummary = { parksConsidered: 0, notificationsSent: 0, errors: [] }
 
   // 1) FT parks that have a manager to notify.
-  const { data: markets } = await serviceClient
+  const { data: markets } = await observed(serviceClient
     .from('markets')
     .select('id, name, manager_user_id, vertical_id')
     .eq('vertical_id', 'food_trucks')
-    .not('manager_user_id', 'is', null)
+    .not('manager_user_id', 'is', null), { table: 'markets' })
   if (!markets || markets.length === 0) return summary
   summary.parksConsidered = markets.length
   const marketIds = markets.map((m) => m.id as string)
   const marketById = new Map(markets.map((m) => [m.id as string, m]))
 
   // 2) Affiliated trucks at those parks.
-  const { data: mvRows } = await serviceClient
+  const { data: mvRows } = await observed(serviceClient
     .from('market_vendors')
     .select('market_id, vendor_profile_id')
-    .in('market_id', marketIds)
+    .in('market_id', marketIds), { table: 'market_vendors' })
   if (!mvRows || mvRows.length === 0) return summary
 
   // 3) Info-sharing consent per (market, truck) — without it the operator can't
   //    view the docs, so there's nothing to review.
-  const { data: acceptances } = await serviceClient
+  const { data: acceptances } = await observed(serviceClient
     .from('vendor_market_agreement_acceptances')
     .select('market_id, vendor_profile_id, statements_snapshot')
-    .in('market_id', marketIds)
+    .in('market_id', marketIds), { table: 'vendor_market_agreement_acceptances' })
   const consent = new Set<string>()
   for (const a of acceptances ?? []) {
     const snap = a.statements_snapshot as Array<{ statement_id?: string }> | null
@@ -60,10 +61,10 @@ export async function runParkDocsReviewSweep(
   }
 
   // 4) Vetting markers per (market, truck): last-notified + last-reviewed.
-  const { data: vetting } = await serviceClient
+  const { data: vetting } = await observed(serviceClient
     .from('park_vendor_vetting')
     .select('market_id, vendor_profile_id, docs_notified_at, docs_reviewed_at')
-    .in('market_id', marketIds)
+    .in('market_id', marketIds), { table: 'park_vendor_vetting' })
   const markerByKey = new Map<string, number>()
   for (const v of vetting ?? []) {
     const notified = v.docs_notified_at ? new Date(v.docs_notified_at as string).getTime() : 0
@@ -149,10 +150,10 @@ export async function notifyParksForVendorDocChange(
 ): Promise<void> {
   try {
     // Parks where this truck is affiliated
-    const { data: mvRows } = await serviceClient
+    const { data: mvRows } = await observed(serviceClient
       .from('market_vendors')
       .select('market_id')
-      .eq('vendor_profile_id', vendorProfileId)
+      .eq('vendor_profile_id', vendorProfileId), { table: 'market_vendors' })
     const marketIds = Array.from(new Set((mvRows ?? []).map((r) => r.market_id as string)))
     if (marketIds.length === 0) return
 

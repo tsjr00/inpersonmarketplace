@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { timingSafeEqual } from 'crypto'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { sendNotification, sendNotificationBatch } from '@/lib/notifications'
 import {
   computeFireMomentLocal,
@@ -190,25 +190,25 @@ async function notifyMarketDayFollowers(
   const todayYMD = `${nowLocal.getFullYear()}-${String(nowLocal.getMonth() + 1).padStart(2, '0')}-${String(nowLocal.getDate()).padStart(2, '0')}`
 
   // Is today an operating day?
-  const { data: schedules } = await serviceClient
+  const { data: schedules } = await observed(serviceClient
     .from('market_schedules')
     .select('start_time, end_time')
     .eq('market_id', market.id)
     .eq('day_of_week', todayDayOfWeek)
     .eq('active', true)
-    .limit(1)
+    .limit(1), { table: 'market_schedules' })
 
   if (!schedules || schedules.length === 0) return // not a market day
 
   // Claim the dedup marker. If the row already exists (already sent today),
   // the insert returns no row → skip. Race-safe.
-  const { data: claimed } = await serviceClient
+  const { data: claimed } = await observed(serviceClient
     .from('market_day_notification_log')
     .upsert(
       { market_id: market.id, market_date: todayYMD, recipient_count: 0 },
       { onConflict: 'market_id,market_date', ignoreDuplicates: true }
     )
-    .select('id')
+    .select('id'), { table: 'market_day_notification_log', operation: 'upsert' })
   if (!claimed || claimed.length === 0) return // already notified today
 
   const followers = await resolveMarketAudience(market.id, ['followers'])
@@ -318,12 +318,12 @@ async function processMarket(
   const nowLocal = nowInTimezoneAsLocalIso(tz)
 
   // Pull schedule for both candidate days
-  const { data: schedules } = await serviceClient
+  const { data: schedules } = await observed(serviceClient
     .from('market_schedules')
     .select('day_of_week, end_time, active')
     .eq('market_id', market.id)
     .eq('active', true)
-    .in('day_of_week', Array.from(new Set([todayDayOfWeek, yesterdayDayOfWeek])))
+    .in('day_of_week', Array.from(new Set([todayDayOfWeek, yesterdayDayOfWeek]))), { table: 'market_schedules' })
 
   const scheduleByDay = new Map<number, { end_time: string | null }>()
   for (const s of schedules ?? []) {
@@ -380,12 +380,12 @@ async function generateForMarketDay(
   // with 42703 on every run since 2026-05-22 and the dropped `error` hid it —
   // no vendor was ever surveyed by this cron. Found in the prod API log
   // 2026-08-25 (the 10:00 CT quartet). Resolve the day's schedule ids first.
-  const { data: daySchedules } = await serviceClient
+  const { data: daySchedules } = await observed(serviceClient
     .from('market_schedules')
     .select('id')
     .eq('market_id', market.id)
     .eq('day_of_week', dayOfWeek)
-    .eq('active', true)
+    .eq('active', true), { table: 'market_schedules' })
   const dayScheduleIds = (daySchedules ?? []).map((s) => s.id as string)
   const { data: vendorScheduleRows } = dayScheduleIds.length > 0
     ? await serviceClient
@@ -400,7 +400,7 @@ async function generateForMarketDay(
     (vendorScheduleRows ?? []).map((r) => r.vendor_profile_id as string)
   )
 
-  const { data: marketVendors } = await serviceClient
+  const { data: marketVendors } = await observed(serviceClient
     .from('market_vendors')
     .select(`
       vendor_profile_id,
@@ -409,7 +409,7 @@ async function generateForMarketDay(
       )
     `)
     .eq('market_id', market.id)
-    .eq('approved', true)
+    .eq('approved', true), { table: 'market_vendors' })
 
   const attendedVendors = (marketVendors ?? []).filter((mv) =>
     scheduledVendorIds.has(mv.vendor_profile_id as string)
@@ -487,11 +487,11 @@ async function generateForMarketDay(
       priorPendingCount > 0 ? `${baseUrl}/${vertical}/vendor/surveys` : null
 
     // Look up vendor's contact email from user_profiles
-    const { data: userProfile } = await serviceClient
+    const { data: userProfile } = await observed(serviceClient
       .from('user_profiles')
       .select('email')
       .eq('user_id', profile.user_id)
-      .maybeSingle()
+      .maybeSingle(), { table: 'user_profiles' })
 
     if (userProfile?.email) {
       summary.emailsAttempted++
@@ -524,7 +524,7 @@ async function generateForMarketDay(
   }
 
   // ── 2. Buyers who picked up at this market on this date ────────────
-  const { data: orderItems } = await serviceClient
+  const { data: orderItems } = await observed(serviceClient
     .from('order_items')
     .select(`
       order_id,
@@ -535,7 +535,7 @@ async function generateForMarketDay(
     // order_item_status has no 'completed' — the phantom value made PostgREST
     // reject the whole query (22P02) on every run since 2026-05-22; no buyer
     // was ever surveyed by this cron. Found 2026-08-25.
-    .eq('status', 'fulfilled')
+    .eq('status', 'fulfilled'), { table: 'order_items' })
 
   const buyerUserIds = new Set<string>()
   for (const oi of orderItems ?? []) {
@@ -598,11 +598,11 @@ async function generateForMarketDay(
     )
 
     // Check opt-out + email
-    const { data: userProfile } = await serviceClient
+    const { data: userProfile } = await observed(serviceClient
       .from('user_profiles')
       .select('email, survey_emails_opted_out')
       .eq('user_id', buyerUserId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'user_profiles' })
 
     if (userProfile?.email && !userProfile.survey_emails_opted_out) {
       summary.emailsAttempted++

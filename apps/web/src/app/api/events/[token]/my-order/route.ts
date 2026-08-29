@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
@@ -29,11 +29,11 @@ export async function GET(
     const serviceClient = createServiceClient()
 
     // Get event by token
-    const { data: event } = await serviceClient
+    const { data: event } = await observed(serviceClient
       .from('catering_requests')
       .select('id, market_id, company_name, event_date, event_start_time, event_end_time, address, city, state, vertical_id, status')
       .eq('event_token', token)
-      .single()
+      .single(), { table: 'catering_requests' })
 
     if (!event?.market_id) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
@@ -44,12 +44,12 @@ export async function GET(
     // order_items query to the buyer via an inner join on orders instead of
     // fetching EVERY item for the event's market and filtering afterward
     // (EVT-16: that scanned all attendees' items on every page view).
-    const { data: itemRows } = await serviceClient
+    const { data: itemRows } = await observed(serviceClient
       .from('order_items')
       .select('order_id, orders!inner ( buyer_user_id, status )')
       .eq('market_id', event.market_id)
       .eq('orders.buyer_user_id', user.id)
-      .neq('orders.status', 'cancelled')
+      .neq('orders.status', 'cancelled'), { table: 'order_items' })
 
     const orderIds = [...new Set((itemRows || []).map(r => r.order_id as string))]
 
@@ -68,10 +68,10 @@ export async function GET(
     }
 
     // Get order item details
-    const { data: items } = await serviceClient
+    const { data: items } = await observed(serviceClient
       .from('order_items')
       .select('id, listing_id, vendor_profile_id, quantity, unit_price_cents, status, wave_id, preferred_pickup_time')
-      .eq('order_id', order.id)
+      .eq('order_id', order.id), { table: 'order_items' })
 
     // Get listing + vendor details for items
     const listingIds = (items || []).map(i => i.listing_id).filter(Boolean)
@@ -100,18 +100,18 @@ export async function GET(
     // Get wave info if wave reservation exists
     let wave: { wave_number: number; start_time: string; end_time: string } | null = null
     if (order.event_wave_reservation_id) {
-      const { data: reservation } = await serviceClient
+      const { data: reservation } = await observed(serviceClient
         .from('event_wave_reservations')
         .select('wave_id')
         .eq('id', order.event_wave_reservation_id)
-        .single()
+        .single(), { table: 'event_wave_reservations' })
 
       if (reservation?.wave_id) {
-        const { data: waveData } = await serviceClient
+        const { data: waveData } = await observed(serviceClient
           .from('event_waves')
           .select('wave_number, start_time, end_time')
           .eq('id', reservation.wave_id)
-          .single()
+          .single(), { table: 'event_waves' })
 
         if (waveData) wave = waveData
       }

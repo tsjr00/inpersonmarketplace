@@ -15,6 +15,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendNotification } from '@/lib/notifications/service'
 import { scoreVendorMatch, type VendorMatchInput } from './viability'
 import { term } from '@/lib/vertical/terminology'
+import { observed } from '@/lib/errors'
 
 // --- Types ---
 
@@ -209,12 +210,12 @@ export async function autoMatchAndInvite(
   }
 
   // 1. Get all event-approved vendors for this vertical
-  const { data: vendors } = await serviceClient
+  const { data: vendors } = await observed(serviceClient
     .from('vendor_profiles')
     .select('id, user_id, profile_data, event_approved, tier, average_rating, rating_count, pickup_lead_minutes, orders_confirmed_count, orders_cancelled_after_confirm_count')
     .eq('vertical_id', request.vertical_id)
     .eq('status', 'approved')
-    .eq('event_approved', true)
+    .eq('event_approved', true), { table: 'vendor_profiles' })
 
   if (!vendors || vendors.length === 0) {
     return { success: true, invited: 0, matched: 0, error: 'No event-approved vendors found' }
@@ -222,12 +223,12 @@ export async function autoMatchAndInvite(
 
   // Get listing categories + check catering menu count per vendor
   const vendorIds = vendors.map(v => v.id)
-  const { data: listings } = await serviceClient
+  const { data: listings } = await observed(serviceClient
     .from('listings')
     .select('vendor_profile_id, category, listing_data')
     .in('vendor_profile_id', vendorIds)
     .eq('status', 'published')
-    .is('deleted_at', null)
+    .is('deleted_at', null), { table: 'listings' })
 
   // Build per-vendor category lists, catering item counts, and allergen counts
   const vendorCategories: Record<string, string[]> = {}
@@ -357,11 +358,11 @@ export async function autoMatchAndInvite(
 
   // 4. Check for existing invitations (prevent duplicates on retry)
   const toInviteIds = toInvite.map(v => v.vendor.id)
-  const { data: existingMv } = await serviceClient
+  const { data: existingMv } = await observed(serviceClient
     .from('market_vendors')
     .select('vendor_profile_id')
     .eq('market_id', marketId)
-    .in('vendor_profile_id', toInviteIds)
+    .in('vendor_profile_id', toInviteIds), { table: 'market_vendors' })
 
   const alreadyInvited = new Set((existingMv || []).map(mv => mv.vendor_profile_id as string))
   const newInvites = toInvite.filter(v => !alreadyInvited.has(v.vendor.id))

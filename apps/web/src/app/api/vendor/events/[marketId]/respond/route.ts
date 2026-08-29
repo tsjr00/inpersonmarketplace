@@ -6,7 +6,7 @@ import {
   rateLimitResponse,
   rateLimits,
 } from '@/lib/rate-limit'
-import { withErrorTracing, logError, TracedError } from '@/lib/errors'
+import { withErrorTracing, logError, TracedError, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications/service'
 import { fetchMarketOptinForVendor } from '@/lib/markets/optin-public'
 import { computeAgreementVersionFromSnapshot } from '@/lib/markets/agreement-version'
@@ -70,23 +70,23 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
       // Look up the market's vertical to scope the vendor profile query
       const serviceClient = createServiceClient()
-      const { data: marketInfo } = await serviceClient
+      const { data: marketInfo } = await observed(serviceClient
         .from('markets')
         .select('vertical_id')
         .eq('id', marketId)
-        .single()
+        .single(), { table: 'markets' })
 
       if (!marketInfo) {
         return NextResponse.json({ error: 'Event not found' }, { status: 404 })
       }
 
       // Get vendor profile for this user IN this vertical
-      const { data: vendorProfile } = await supabase
+      const { data: vendorProfile } = await observed(supabase
         .from('vendor_profiles')
         .select('id, profile_data, vertical_id')
         .eq('user_id', user.id)
         .eq('vertical_id', marketInfo.vertical_id)
-        .single()
+        .single(), { table: 'vendor_profiles' })
 
       if (!vendorProfile) {
         return NextResponse.json(
@@ -340,10 +340,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         if (written > 0 && skippedPaidParks.length > 0) {
           const pd = vendorProfile.profile_data as Record<string, unknown> | null
           const truckName = (pd?.business_name as string) || (pd?.farm_name as string) || 'A food truck'
-          const { data: parks } = await serviceClient
+          const { data: parks } = await observed(serviceClient
             .from('markets')
             .select('id, name, manager_user_id')
-            .in('id', [...new Set(skippedPaidParks.map(c => c.marketId))])
+            .in('id', [...new Set(skippedPaidParks.map(c => c.marketId))]), { table: 'markets' })
           for (const park of parks ?? []) {
             if (!park.manager_user_id) continue
             for (const c of skippedPaidParks.filter(x => x.marketId === park.id)) {
@@ -382,11 +382,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       // recalc so capacity tracks the real vendor set (mig 191: excludes
       // backups + reopens/closes waves). RAISE (missing vendor cap) is
       // logged and non-fatal.
-      const { data: respondWaves } = await serviceClient
+      const { data: respondWaves } = await observed(serviceClient
         .from('event_waves')
         .select('id')
         .eq('market_id', marketId)
-        .limit(1)
+        .limit(1), { table: 'event_waves' })
       if (respondWaves && respondWaves.length > 0) {
         const { error: recalcErr } = await serviceClient.rpc('recalculate_wave_capacity', {
           p_market_id: marketId,
@@ -399,12 +399,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       // If accepted, save vendor's menu selections for this event
       if (response_status === 'accepted' && listing_ids && listing_ids.length > 0) {
         // Validate listings belong to this vendor and are catering-eligible
-        const { data: validListings } = await serviceClient
+        const { data: validListings } = await observed(serviceClient
           .from('listings')
           .select('id, listing_data')
           .eq('vendor_profile_id', vendorProfile.id)
           .eq('status', 'published')
-          .in('id', listing_ids)
+          .in('id', listing_ids), { table: 'listings' })
 
         const cateringEligible = (validListings || []).filter(l => {
           const data = l.listing_data as Record<string, unknown> | null
@@ -447,11 +447,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
 
       // Get market + catering request for admin notification
-      const { data: market } = await serviceClient
+      const { data: market } = await observed(serviceClient
         .from('markets')
         .select('name, catering_request_id, vertical_id, event_start_date')
         .eq('id', marketId)
-        .single()
+        .single(), { table: 'markets' })
 
       // Notify admin of vendor response
       if (market) {
@@ -465,12 +465,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           'A vendor'
 
         // Find admin user(s) to notify
-        const { data: admins } = await serviceClient
+        const { data: admins } = await observed(serviceClient
           .from('user_profiles')
           .select('user_id')
           .in('role', ['admin', 'platform_admin'])
           .is('deleted_at', null)
-          .limit(5)
+          .limit(5), { table: 'user_profiles' })
 
         if (admins) {
           for (const admin of admins) {
@@ -503,11 +503,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         // signing up gets nothing here. That is why the email is not being
         // replaced.
         if (market.catering_request_id) {
-          const { data: cReq } = await serviceClient
+          const { data: cReq } = await observed(serviceClient
             .from('catering_requests')
             .select('id, organizer_user_id, vertical_id')
             .eq('id', market.catering_request_id)
-            .single()
+            .single(), { table: 'catering_requests' })
 
           if (cReq?.organizer_user_id) {
             await sendNotification(
@@ -535,18 +535,18 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       // organizer results email immediately instead of waiting for cron.
       if (response_status === 'accepted' && market?.catering_request_id) {
         try {
-          const { data: cReq } = await serviceClient
+          const { data: cReq } = await observed(serviceClient
             .from('catering_requests')
             .select('id, service_level, status, vendor_count, contact_name, contact_email, event_date, city, state, vertical_id, event_token, auto_invite_sent_at')
             .eq('id', market.catering_request_id)
-            .single()
+            .single(), { table: 'catering_requests' })
 
           if (cReq?.service_level === 'self_service' && cReq.status === 'approved' && cReq.auto_invite_sent_at) {
             // Count responses for this event
-            const { data: allMv } = await serviceClient
+            const { data: allMv } = await observed(serviceClient
               .from('market_vendors')
               .select('response_status')
-              .eq('market_id', marketId)
+              .eq('market_id', marketId), { table: 'market_vendors' })
 
             if (allMv) {
               const acceptedCount = allMv.filter(mv => mv.response_status === 'accepted').length

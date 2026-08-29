@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendNotification } from '@/lib/notifications'
 import { nowInTimezoneAsLocalIso } from '@/lib/surveys/cron-helpers'
 import { stripe } from '@/lib/stripe/config'
-import { TracedError, logError } from '@/lib/errors'
+import { TracedError, logError, observed } from '@/lib/errors'
 
 /**
  * FT park-manager P4b — standing (recurring) reservation occurrence engine.
@@ -121,21 +121,21 @@ export async function getStrikeCountsForReservations(
   if (ids.length === 0) return counts
 
   // Source 1 — missed-prepay ('expired') occurrences.
-  const { data: expiredRows } = await serviceClient
+  const { data: expiredRows } = await observed(serviceClient
     .from('park_spot_bookings')
     .select('standing_reservation_id, booking_date')
     .in('standing_reservation_id', ids)
-    .eq('status', 'expired')
+    .eq('status', 'expired'), { table: 'park_spot_bookings' })
 
   // Source 2 — paid occurrences (no-show candidates).
   // PRK-9: a manager-barred occurrence (truck ordered NOT to attend, no refund)
   // must not also strike the truck for obeying — exclude barred rows.
-  const { data: paidRows } = await serviceClient
+  const { data: paidRows } = await observed(serviceClient
     .from('park_spot_bookings')
     .select('standing_reservation_id, booking_date, market_id, vendor_profile_id')
     .in('standing_reservation_id', ids)
     .eq('status', 'paid')
-    .is('manager_barred_at', null)
+    .is('manager_barred_at', null), { table: 'park_spot_bookings' })
 
   // Keep only paid occurrences whose day is fully over in the market's local
   // time — those are the ones a missing check-in can strike. Memoize per tz.
@@ -169,12 +169,12 @@ export async function getStrikeCountsForReservations(
   // Batch check-in lookup for the past-paid candidates → set of "present" keys.
   const presentKeys = new Set<string>()
   if (pastPaid.length > 0) {
-    const { data: checkins } = await serviceClient
+    const { data: checkins } = await observed(serviceClient
       .from('market_day_checkins')
       .select('market_id, vendor_profile_id, market_date')
       .in('market_id', Array.from(new Set(pastPaid.map((p) => p.market_id))))
       .in('vendor_profile_id', Array.from(new Set(pastPaid.map((p) => p.vendor_profile_id))))
-      .in('market_date', Array.from(new Set(pastPaid.map((p) => p.booking_date))))
+      .in('market_date', Array.from(new Set(pastPaid.map((p) => p.booking_date)))), { table: 'market_day_checkins' })
     for (const c of checkins ?? []) {
       presentKeys.add(`${c.market_id}|${c.vendor_profile_id}|${c.market_date}`)
     }
@@ -235,10 +235,10 @@ export async function runStandingOccurrenceSweep(
   // at all — an abandoned checkout held the spot+date forever via the
   // partial-unique index. TTL: 24h after creation (Stripe session max age), or
   // a booking whose date has already passed.
-  const { data: pending } = await serviceClient
+  const { data: pending } = await observed(serviceClient
     .from('park_spot_bookings')
     .select('id, booking_date, standing_reservation_id, stripe_checkout_session_id, created_at')
-    .eq('status', 'pending_payment')
+    .eq('status', 'pending_payment'), { table: 'park_spot_bookings' })
   const oneOffTtlCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()
   for (const row of pending ?? []) {
     const isStanding = !!row.standing_reservation_id
@@ -307,7 +307,7 @@ export async function runStandingOccurrenceSweep(
   }
 
   // ── 2. Generate the next occurrence for each active hold ──
-  const { data: active } = await serviceClient
+  const { data: active } = await observed(serviceClient
     .from('park_standing_reservations')
     .select(`
       id, market_id, vendor_profile_id, spot_id, day_of_week, strikes_reset_at, requested_start_date,
@@ -315,18 +315,18 @@ export async function runStandingOccurrenceSweep(
       markets:market_id ( name, vertical_id, timezone, park_mode, stripe_charges_enabled, season_start, season_end ),
       vendor_profiles:vendor_profile_id ( user_id )
     `)
-    .eq('status', 'active')
+    .eq('status', 'active'), { table: 'park_standing_reservations' })
 
   // PRK-4: a vetting BLOCK must reach standing holds — batch-fetch blocked
   // (market, vendor) pairs and skip generation for them (mirrors the
   // book-park-spot gate; the pay route re-checks independently).
   const blockedKeys = new Set<string>()
   if ((active ?? []).length > 0) {
-    const { data: vettingRows } = await serviceClient
+    const { data: vettingRows } = await observed(serviceClient
       .from('park_vendor_vetting')
       .select('market_id, vendor_profile_id')
       .eq('blocked', true)
-      .in('market_id', [...new Set((active ?? []).map((r) => r.market_id as string))])
+      .in('market_id', [...new Set((active ?? []).map((r) => r.market_id as string))]), { table: 'park_vendor_vetting' })
     for (const v of vettingRows ?? []) blockedKeys.add(`${v.market_id}|${v.vendor_profile_id}`)
   }
 

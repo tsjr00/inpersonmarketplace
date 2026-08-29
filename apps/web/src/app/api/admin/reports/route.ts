@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { verifyAdminScope } from '@/lib/auth/admin'
 import { FEES, SUBSCRIPTION_AMOUNTS } from '@/lib/pricing'
 import { computeOrderPlatformRevenue } from '@/lib/reports/platform-revenue'
@@ -66,11 +66,11 @@ async function fetchStripeFeeByOrder(
   const CHUNK = 500
   for (let i = 0; i < orderIds.length; i += CHUNK) {
     const slice = orderIds.slice(i, i + CHUNK)
-    const { data } = await supabase
+    const { data } = await observed(supabase
       .from('payments')
       .select('order_id, stripe_fee_cents')
       .in('order_id', slice)
-      .not('stripe_fee_cents', 'is', null)
+      .not('stripe_fee_cents', 'is', null), { table: 'payments' })
     for (const p of data || []) {
       if (typeof p.stripe_fee_cents === 'number') map.set(p.order_id as string, p.stripe_fee_cents)
     }
@@ -537,10 +537,10 @@ async function generateOrderDetails(supabase: ReturnType<typeof createServiceCli
 
   // Get buyer info
   const buyerIds = [...new Set(orders?.map((o: any) => o.buyer_user_id).filter(Boolean) || [])]
-  const { data: buyers } = await supabase
+  const { data: buyers } = await observed(supabase
     .from('user_profiles')
     .select('user_id, display_name, email')
-    .in('user_id', buyerIds)
+    .in('user_id', buyerIds), { table: 'user_profiles' })
 
   const buyerMap = new Map(buyers?.map((b: any) => [b.user_id, b]) || [])
 
@@ -659,10 +659,10 @@ async function generateCancellations(supabase: ReturnType<typeof createServiceCl
 
   // Get buyer names
   const buyerIds = [...new Set(filteredItems?.map((i: any) => i.order?.buyer_user_id).filter(Boolean) || [])]
-  const { data: buyers } = await supabase
+  const { data: buyers } = await observed(supabase
     .from('user_profiles')
     .select('user_id, display_name')
-    .in('user_id', buyerIds.length > 0 ? buyerIds : ['none'])
+    .in('user_id', buyerIds.length > 0 ? buyerIds : ['none']), { table: 'user_profiles' })
 
   const buyerMap = new Map(buyers?.map((b: any) => [b.user_id, b.display_name]) || [])
 
@@ -955,10 +955,10 @@ async function generateVendorRoster(supabase: ReturnType<typeof createServiceCli
 
   // Get user emails
   const userIds = vendors?.map((v: any) => v.user_id).filter(Boolean) || []
-  const { data: users } = await supabase
+  const { data: users } = await observed(supabase
     .from('user_profiles')
     .select('user_id, email, phone')
-    .in('user_id', userIds)
+    .in('user_id', userIds), { table: 'user_profiles' })
 
   const userMap = new Map(users?.map((u: any) => [u.user_id, u]) || [])
 
@@ -1022,10 +1022,10 @@ async function generateCustomerSummary(supabase: ReturnType<typeof createService
 
   // Get customer profiles
   const buyerIds = [...new Set(orders?.map((o: any) => o.buyer_user_id).filter(Boolean) || [])]
-  const { data: profiles } = await supabase
+  const { data: profiles } = await observed(supabase
     .from('user_profiles')
     .select('user_id, display_name, email, created_at')
-    .in('user_id', buyerIds)
+    .in('user_id', buyerIds), { table: 'user_profiles' })
 
   const profileMap = new Map(profiles?.map((p: any) => [p.user_id, p]) || [])
 
@@ -1104,10 +1104,10 @@ async function generateTopCustomers(supabase: ReturnType<typeof createServiceCli
   const { data: orders } = await query
 
   const buyerIds = [...new Set(orders?.map((o: any) => o.buyer_user_id).filter(Boolean) || [])]
-  const { data: profiles } = await supabase
+  const { data: profiles } = await observed(supabase
     .from('user_profiles')
     .select('user_id, display_name, email')
-    .in('user_id', buyerIds)
+    .in('user_id', buyerIds), { table: 'user_profiles' })
 
   const profileMap = new Map(profiles?.map((p: any) => [p.user_id, p]) || [])
 
@@ -1621,11 +1621,11 @@ async function generateExternalFeeLedger(supabase: ReturnType<typeof createServi
   const { data: orders } = await orderQuery
 
   // Part 2: Fee ledger entries
-  const { data: ledgerEntries } = await supabase
+  const { data: ledgerEntries } = await observed(supabase
     .from('vendor_fee_ledger')
     .select('id, vendor_profile_id, order_item_id, fee_cents, fee_type, created_at')
     .gte('created_at', dateFrom)
-    .lte('created_at', dateTo)
+    .lte('created_at', dateTo), { table: 'vendor_fee_ledger' })
 
   // Build ledger lookup by order_item_id
   const ledgerMap = new Map<string, any>()
@@ -1634,9 +1634,9 @@ async function generateExternalFeeLedger(supabase: ReturnType<typeof createServi
   })
 
   // Part 3: Current vendor balances
-  const { data: balances } = await supabase
+  const { data: balances } = await observed(supabase
     .from('vendor_fee_balance')
-    .select('vendor_profile_id, total_owed_cents, total_collected_cents, balance_cents')
+    .select('vendor_profile_id, total_owed_cents, total_collected_cents, balance_cents'), { table: 'vendor_fee_balance' })
 
   const balanceMap = new Map<string, any>()
   balances?.forEach((b: any) => balanceMap.set(b.vendor_profile_id, b))
@@ -1714,10 +1714,10 @@ async function generateExternalFeeLedger(supabase: ReturnType<typeof createServi
   })
 
   // Get vendor names
-  const { data: vendorProfiles } = await supabase
+  const { data: vendorProfiles } = await observed(supabase
     .from('vendor_profiles')
     .select('id, profile_data, vertical_id')
-    .in('id', Array.from(vendorIds))
+    .in('id', Array.from(vendorIds)), { table: 'vendor_profiles' })
 
   vendorProfiles?.forEach((vp: any) => {
     const name = (vp.profile_data as any)?.business_name || (vp.profile_data as any)?.farm_name || 'Unknown'
@@ -1751,10 +1751,10 @@ async function generateSubscriptionRevenue(supabase: ReturnType<typeof createSer
   const { data: vendors } = await vendorQuery
 
   // Buyer premium subscriptions
-  const { data: buyers } = await supabase
+  const { data: buyers } = await observed(supabase
     .from('user_profiles')
     .select('id, buyer_tier, subscription_status, subscription_cycle, tier_started_at, tier_expires_at, stripe_subscription_id, display_name, email')
-    .eq('buyer_tier', 'premium')
+    .eq('buyer_tier', 'premium'), { table: 'user_profiles' })
 
   const rows: Record<string, unknown>[] = []
 

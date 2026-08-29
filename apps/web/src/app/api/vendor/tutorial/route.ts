@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
@@ -38,11 +38,11 @@ export async function POST(request: NextRequest) {
     try {
       if (phase === 2) {
         // Phase 2: store in notification_preferences JSONB (no migration needed)
-        const { data: profile } = await supabase
+        const { data: profile } = await observed(supabase
           .from('user_profiles')
           .select('notification_preferences')
           .eq('user_id', user.id)
-          .single()
+          .single(), { table: 'user_profiles' })
 
         const prefs = (profile?.notification_preferences || {}) as Record<string, unknown>
         const key = action === 'complete' ? 'dashboard_tutorial_completed_at' : 'dashboard_tutorial_skipped_at'

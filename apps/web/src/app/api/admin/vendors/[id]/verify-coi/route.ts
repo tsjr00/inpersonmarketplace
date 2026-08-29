@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { hasPlatformAdminRole } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications/service'
 
 /**
@@ -30,29 +30,29 @@ export async function POST(
     }
 
     // Verify admin role
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await observed(supabase
       .from('user_profiles')
       .select('id, role, roles')
       .eq('user_id', user.id)
       .is('deleted_at', null)
-      .single()
+      .single(), { table: 'user_profiles' })
 
     // S4-2: platform_admin bypasses; vertical admin falls through to the
     // vertical_admins check below (was hasAdminRole → dead check, cross-vertical).
     let isAdmin = hasPlatformAdminRole(userProfile || {})
     if (!isAdmin) {
-      const { data: vendor } = await supabase
+      const { data: vendor } = await observed(supabase
         .from('vendor_profiles')
         .select('vertical_id')
         .eq('id', vendorId)
-        .single()
+        .single(), { table: 'vendor_profiles' })
       if (vendor) {
-        const { data: va } = await supabase
+        const { data: va } = await observed(supabase
           .from('vertical_admins')
           .select('id')
           .eq('user_id', user.id)
           .eq('vertical_id', vendor.vertical_id)
-          .single()
+          .single(), { table: 'vertical_admins' })
         isAdmin = !!va
       }
     }
@@ -89,11 +89,11 @@ export async function POST(
 
     // Check if all 3 gates are now satisfied → mark onboarding complete
     if (action === 'approve') {
-      const { data: verification } = await serviceClient
+      const { data: verification } = await observed(serviceClient
         .from('vendor_verifications')
         .select('status, category_verifications, coi_status, onboarding_completed_at')
         .eq('vendor_profile_id', vendorId)
-        .single()
+        .single(), { table: 'vendor_verifications' })
 
       if (verification && !verification.onboarding_completed_at) {
         const catVer = (verification.category_verifications || {}) as Record<string, { status: string }>
@@ -110,11 +110,11 @@ export async function POST(
     }
 
     // Notify vendor
-    const { data: vendor } = await serviceClient
+    const { data: vendor } = await observed(serviceClient
       .from('vendor_profiles')
       .select('user_id, vertical_id')
       .eq('id', vendorId)
-      .single()
+      .single(), { table: 'vendor_profiles' })
 
     if (vendor?.user_id) {
       await sendNotification(

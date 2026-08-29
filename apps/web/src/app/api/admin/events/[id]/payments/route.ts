@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { hasAdminRole, verifyAdminScope } from '@/lib/auth/admin'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 interface RouteContext {
@@ -29,22 +29,22 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { data: profile } = await supabase
+    const { data: profile } = await observed(supabase
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
-      .single()
+      .single(), { table: 'user_profiles' })
     if (!profile || !hasAdminRole(profile)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const { id } = await context.params
     const serviceClient = createServiceClient()
 
     // Get catering request to find market_id
-    const { data: event } = await serviceClient
+    const { data: event } = await observed(serviceClient
       .from('catering_requests')
       .select('market_id, company_name')
       .eq('id', id)
-      .single()
+      .single(), { table: 'catering_requests' })
 
     if (!event?.market_id) {
       return NextResponse.json({ error: 'Event not found or not yet approved' }, { status: 404 })
@@ -52,8 +52,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     // S4-2: scope to the event's vertical — platform admin any; vertical admin
     // only their own vertical's events (they handle their events, not platform).
-    const { data: getMkt } = await serviceClient
-      .from('markets').select('vertical_id').eq('id', event.market_id).single()
+    const { data: getMkt } = await observed(serviceClient
+      .from('markets').select('vertical_id').eq('id', event.market_id).single(), { table: 'markets' })
     const getScope = await verifyAdminScope(getMkt?.vertical_id ?? null)
     if (!getScope?.authorized) {
       return NextResponse.json({ error: "Not authorized for this event's vertical" }, { status: 403 })
@@ -83,11 +83,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { data: profile } = await supabase
+    const { data: profile } = await observed(supabase
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
-      .single()
+      .single(), { table: 'user_profiles' })
     if (!profile || !hasAdminRole(profile)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const { id } = await context.params
@@ -112,19 +112,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     // Get catering request to find market_id
     crumb.supabase('select', 'catering_requests')
-    const { data: event } = await serviceClient
+    const { data: event } = await observed(serviceClient
       .from('catering_requests')
       .select('market_id')
       .eq('id', id)
-      .single()
+      .single(), { table: 'catering_requests' })
 
     if (!event?.market_id) {
       return NextResponse.json({ error: 'Event not found or not yet approved' }, { status: 404 })
     }
 
     // S4-2: scope to the event's vertical (platform admin any; vertical admin own).
-    const { data: postMkt } = await serviceClient
-      .from('markets').select('vertical_id').eq('id', event.market_id).single()
+    const { data: postMkt } = await observed(serviceClient
+      .from('markets').select('vertical_id').eq('id', event.market_id).single(), { table: 'markets' })
     const postScope = await verifyAdminScope(postMkt?.vertical_id ?? null)
     if (!postScope?.authorized) {
       return NextResponse.json({ error: "Not authorized for this event's vertical" }, { status: 403 })
@@ -164,11 +164,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { data: profile } = await supabase
+    const { data: profile } = await observed(supabase
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
-      .single()
+      .single(), { table: 'user_profiles' })
     if (!profile || !hasAdminRole(profile)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const { id } = await context.params
@@ -188,8 +188,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     // S4-2: scope to the event's vertical (via the event id in the route path)
     // before mutating any payment — platform admin any; vertical admin own.
-    const { data: patchEvent } = await serviceClient
-      .from('catering_requests').select('market_id').eq('id', id).single()
+    const { data: patchEvent } = await observed(serviceClient
+      .from('catering_requests').select('market_id').eq('id', id).single(), { table: 'catering_requests' })
     const { data: patchMkt } = patchEvent?.market_id
       ? await serviceClient.from('markets').select('vertical_id').eq('id', patchEvent.market_id).single()
       : { data: null }

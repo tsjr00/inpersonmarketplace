@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { hasPlatformAdminRole } from '@/lib/auth/admin'
 import { createCauseConnectAccount, createAccountLink, getAccountStatus } from '@/lib/stripe/connect'
 import { sendExternalEmail } from '@/lib/notifications/service'
@@ -38,12 +38,12 @@ async function requirePlatformAdmin() {
   if (authError || !user) {
     return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
   }
-  const { data: profile } = await supabase
+  const { data: profile } = await observed(supabase
     .from('user_profiles')
     .select('role, roles')
     .eq('user_id', user.id)
     .is('deleted_at', null)
-    .single()
+    .single(), { table: 'user_profiles' })
   if (!hasPlatformAdminRole(profile || {})) {
     return { error: NextResponse.json({ error: 'Platform admin access required' }, { status: 403 }) }
   }
@@ -57,11 +57,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const service = gate.service!
 
     const { id } = await context.params
-    const { data: b } = await service
+    const { data: b } = await observed(service
       .from('cause_beneficiaries')
       .select('id, stripe_account_id')
       .eq('id', id)
-      .maybeSingle()
+      .maybeSingle(), { table: 'cause_beneficiaries' })
 
     if (!b) return NextResponse.json({ error: 'Beneficiary not found' }, { status: 404 })
     if (!b.stripe_account_id) {
@@ -104,11 +104,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // details, which an admin should not be typing.
     const mode = body?.mode === 'open' ? 'open' : 'email'
 
-    const { data: b } = await service
+    const { data: b } = await observed(service
       .from('cause_beneficiaries')
       .select('id, name, contact_email, stripe_account_id, onboarding_token')
       .eq('id', id)
-      .maybeSingle()
+      .maybeSingle(), { table: 'cause_beneficiaries' })
 
     if (!b) return NextResponse.json({ error: 'Beneficiary not found' }, { status: 404 })
 

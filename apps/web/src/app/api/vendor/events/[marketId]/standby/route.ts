@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
@@ -29,11 +29,11 @@ async function loadStandbyContext(request: NextRequest, marketId: string) {
 
   const serviceClient = createServiceClient()
   crumb.supabase('select', 'markets')
-  const { data: market } = await serviceClient
+  const { data: market } = await observed(serviceClient
     .from('markets')
     .select('id, vertical_id, market_type')
     .eq('id', marketId)
-    .maybeSingle()
+    .maybeSingle(), { table: 'markets' })
 
   if (!market || market.market_type !== 'event') {
     return { error: NextResponse.json({ error: 'Event not found' }, { status: 404 }) }
@@ -49,12 +49,12 @@ async function loadStandbyContext(request: NextRequest, marketId: string) {
   }
 
   crumb.supabase('select', 'market_vendors')
-  const { data: mv } = await serviceClient
+  const { data: mv } = await observed(serviceClient
     .from('market_vendors')
     .select('vendor_profile_id, response_status, is_backup, standby_opted_in_at')
     .eq('market_id', marketId)
     .eq('vendor_profile_id', vendorProfile.id)
-    .maybeSingle()
+    .maybeSingle(), { table: 'market_vendors' })
 
   if (!mv || mv.response_status !== 'accepted' || mv.is_backup !== true) {
     return {

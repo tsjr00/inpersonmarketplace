@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { hasPlatformAdminRole } from '@/lib/auth/admin'
 
 interface RouteParams {
@@ -27,24 +27,24 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }
 
       // Verify caller is platform admin or vertical admin
-      const { data: callerProfile } = await supabase
+      const { data: callerProfile } = await observed(supabase
         .from('user_profiles')
         .select('role, roles, is_chief_platform_admin')
         .eq('user_id', user.id)
         .is('deleted_at', null)
-        .single()
+        .single(), { table: 'user_profiles' })
 
       // S4-2: platform_admin ONLY (was hasAdminRole — a plain 'admin'/vertical admin
       // wrongly passed as platform admin and could grant/list admins cross-vertical).
       const isPlatformAdmin = hasPlatformAdminRole(callerProfile || {})
 
       // Check if vertical admin for this vertical
-      const { data: callerVerticalAdmin } = await supabase
+      const { data: callerVerticalAdmin } = await observed(supabase
         .from('vertical_admins')
         .select('is_chief')
         .eq('user_id', user.id)
         .eq('vertical_id', verticalId)
-        .single()
+        .single(), { table: 'vertical_admins' })
 
       if (!isPlatformAdmin && !callerVerticalAdmin) {
         return NextResponse.json({ error: 'Admin access required for this vertical' }, { status: 403 })
@@ -77,10 +77,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       const userDetails: Record<string, { email: string; display_name: string | null }> = {}
 
       if (userIds.length > 0) {
-        const { data: users } = await serviceClient
+        const { data: users } = await observed(serviceClient
           .from('user_profiles')
           .select('user_id, email, display_name')
-          .in('user_id', userIds)
+          .in('user_id', userIds), { table: 'user_profiles' })
 
         users?.forEach(u => {
           userDetails[u.user_id] = { email: u.email, display_name: u.display_name }
@@ -127,23 +127,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
 
       // Verify caller is platform admin or chief vertical admin
-      const { data: callerProfile } = await supabase
+      const { data: callerProfile } = await observed(supabase
         .from('user_profiles')
         .select('role, roles, is_chief_platform_admin')
         .eq('user_id', user.id)
         .is('deleted_at', null)
-        .single()
+        .single(), { table: 'user_profiles' })
 
       // S4-2: platform_admin ONLY (was hasAdminRole — a plain 'admin'/vertical admin
       // wrongly passed as platform admin and could grant/list admins cross-vertical).
       const isPlatformAdmin = hasPlatformAdminRole(callerProfile || {})
 
-      const { data: callerVerticalAdmin } = await supabase
+      const { data: callerVerticalAdmin } = await observed(supabase
         .from('vertical_admins')
         .select('is_chief')
         .eq('user_id', user.id)
         .eq('vertical_id', verticalId)
-        .single()
+        .single(), { table: 'vertical_admins' })
 
       const canAdd = isPlatformAdmin || callerVerticalAdmin?.is_chief
 
@@ -177,12 +177,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
 
       // Check if already vertical admin
-      const { data: existing } = await serviceClient
+      const { data: existing } = await observed(serviceClient
         .from('vertical_admins')
         .select('id, is_chief')
         .eq('user_id', targetUser.user_id)
         .eq('vertical_id', verticalId)
-        .single()
+        .single(), { table: 'vertical_admins' })
 
       if (existing) {
         if (makeChief && !existing.is_chief) {

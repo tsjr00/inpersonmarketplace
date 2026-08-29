@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { refundEventFeePayment } from '@/lib/stripe/event-fee-payments'
 import { sendNotification } from '@/lib/notifications/service'
-import { logError, TracedError } from '@/lib/errors'
+import { logError, TracedError, observed } from '@/lib/errors'
 
 /**
  * Event cancelled → give every paying vendor their fee back (Event Vendor
@@ -29,11 +29,11 @@ export async function refundAllEventFeePayments(
   vertical: string,
   route: string
 ): Promise<{ refunded: number; failed: number; released: number }> {
-  const { data: rows } = await serviceClient
+  const { data: rows } = await observed(serviceClient
     .from('event_vendor_fee_payments')
     .select('id, vendor_profile_id, vendor_pays_cents, status, stripe_payment_intent_id, vendor_profiles:vendor_profile_id(user_id)')
     .eq('market_id', marketId)
-    .in('status', ['pending_payment', 'paid', 'covered'])
+    .in('status', ['pending_payment', 'paid', 'covered']), { table: 'event_vendor_fee_payments' })
 
   let refunded = 0
   let failed = 0
@@ -49,11 +49,11 @@ export async function refundAllEventFeePayments(
     released = releasable.length
   }
 
-  const { data: marketRow } = await serviceClient
+  const { data: marketRow } = await observed(serviceClient
     .from('markets')
     .select('name')
     .eq('id', marketId)
-    .maybeSingle()
+    .maybeSingle(), { table: 'markets' })
   const marketName = (marketRow?.name as string) || 'the event'
 
   for (const row of (rows || []).filter(r => r.status === 'paid')) {

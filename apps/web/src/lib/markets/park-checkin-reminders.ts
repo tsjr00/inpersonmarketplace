@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendNotification } from '@/lib/notifications'
 import { parseTimeToMinutes, nowInTimezoneAsLocalIso } from '@/lib/surveys/cron-helpers'
+import { observed } from '@/lib/errors'
 
 /**
  * FT park-manager P4b-2 — day-of check-in reminders.
@@ -100,13 +101,13 @@ async function remindOnePark(
   const todayDow = new Date(new Date().toLocaleString('en-US', { timeZone: tz })).getDay()
 
   // Operating day + hours.
-  const { data: schedules } = await serviceClient
+  const { data: schedules } = await observed(serviceClient
     .from('market_schedules')
     .select('start_time, end_time')
     .eq('market_id', park.id)
     .eq('day_of_week', todayDow)
     .eq('active', true)
-    .limit(1)
+    .limit(1), { table: 'market_schedules' })
   if (!schedules || schedules.length === 0) return // not a market day
 
   const window = checkinReminderWindow(
@@ -117,20 +118,20 @@ async function remindOnePark(
   if (!window) return // not a reminder hour
 
   // Paid bookings today.
-  const { data: bookings } = await serviceClient
+  const { data: bookings } = await observed(serviceClient
     .from('park_spot_bookings')
     .select('vendor_profile_id, park_spots:spot_id ( label ), vendor_profiles:vendor_profile_id ( user_id )')
     .eq('market_id', park.id)
     .eq('booking_date', today)
-    .eq('status', 'paid')
+    .eq('status', 'paid'), { table: 'park_spot_bookings' })
   if (!bookings || bookings.length === 0) return
 
   // Who already checked in today → skip.
-  const { data: checkins } = await serviceClient
+  const { data: checkins } = await observed(serviceClient
     .from('market_day_checkins')
     .select('vendor_profile_id')
     .eq('market_id', park.id)
-    .eq('market_date', today)
+    .eq('market_date', today), { table: 'market_day_checkins' })
   const checkedIn = new Set((checkins ?? []).map((c) => c.vendor_profile_id as string))
 
   // Candidates = paid, not-checked-in, with a resolvable user.
@@ -146,12 +147,12 @@ async function remindOnePark(
 
   // Dedup (a): drop anyone already reminded for THIS market+date+window.
   const alreadySent = new Set<string>()
-  const { data: priorNotifs } = await serviceClient
+  const { data: priorNotifs } = await observed(serviceClient
     .from('notifications')
     .select('user_id, data')
     .in('user_id', candidates.map((c) => c.userId))
     .eq('type', 'park_checkin_reminder')
-    .gte('created_at', dedupSince)
+    .gte('created_at', dedupSince), { table: 'notifications' })
   for (const n of priorNotifs ?? []) {
     const d = (n.data ?? {}) as { marketId?: string; marketDate?: string; window?: string }
     if (d.marketId === park.id && d.marketDate === today && d.window === window) {

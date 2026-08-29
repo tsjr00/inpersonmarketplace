@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { hasAdminRole } from '@/lib/auth/admin'
 
 /**
@@ -30,12 +30,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Verify user is admin
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await observed(supabase
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
       .is('deleted_at', null)
-      .single()
+      .single(), { table: 'user_profiles' })
 
     const isAdmin = hasAdminRole(userProfile || {})
     if (!isAdmin) {
@@ -48,9 +48,9 @@ export async function GET(request: NextRequest) {
 
     try {
       // Get overall stats
-      const { data: allCredits } = await supabase
+      const { data: allCredits } = await observed(supabase
         .from('vendor_referral_credits')
-        .select('status, credit_amount_cents')
+        .select('status, credit_amount_cents'), { table: 'vendor_referral_credits' })
 
       const stats = {
         totalReferrals: allCredits?.length || 0,
@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
 
       // Get top referrers with their referral counts
       // First get all credits grouped by referrer
-      const { data: creditsByReferrer } = await supabase
+      const { data: creditsByReferrer } = await observed(supabase
         .from('vendor_referral_credits')
         .select(`
           referrer_vendor_id,
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
             )
           )
         `)
-        .in('status', ['earned', 'applied', 'pending'])
+        .in('status', ['earned', 'applied', 'pending']), { table: 'vendor_referral_credits' })
 
       // Aggregate by referrer
       const referrerMap = new Map<string, {
@@ -166,7 +166,7 @@ export async function GET(request: NextRequest) {
         .slice(0, limit)
 
       // Get recent referrals for activity feed
-      const { data: recentReferrals } = await supabase
+      const { data: recentReferrals } = await observed(supabase
         .from('vendor_referral_credits')
         .select(`
           id,
@@ -185,7 +185,7 @@ export async function GET(request: NextRequest) {
           )
         `)
         .order('created_at', { ascending: false })
-        .limit(20)
+        .limit(20), { table: 'vendor_referral_credits' })
 
       const formattedRecentReferrals = recentReferrals?.map(ref => {
         const referrer = ref.referrer as any

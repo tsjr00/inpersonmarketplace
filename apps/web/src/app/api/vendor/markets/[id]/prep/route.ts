@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 interface RouteContext {
@@ -23,10 +23,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     // Get vendor profile (user may have profiles in multiple verticals)
-    const { data: vendorProfiles } = await supabase
+    const { data: vendorProfiles } = await observed(supabase
       .from('vendor_profiles')
       .select('id, vertical_id')
-      .eq('user_id', user.id)
+      .eq('user_id', user.id), { table: 'vendor_profiles' })
 
     if (!vendorProfiles || vendorProfiles.length === 0) {
       return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
@@ -126,10 +126,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const orderIds = [...new Set((orderItems || []).map((item: any) => item.order_id).filter(Boolean))]
     const ordersData: Record<string, any> = {}
     if (orderIds.length > 0) {
-      const { data: orders } = await supabaseService
+      const { data: orders } = await observed(supabaseService
         .from('orders')
         .select('id, order_number, status, created_at, buyer_user_id')
-        .in('id', orderIds)
+        .in('id', orderIds), { table: 'orders' })
 
       orders?.forEach((o: any) => {
         ordersData[o.id] = o
@@ -141,10 +141,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const buyerMap: Record<string, { display_name: string; phone: string | null }> = {}
 
     if (buyerUserIds.length > 0) {
-      const { data: buyers } = await supabaseService
+      const { data: buyers } = await observed(supabaseService
         .from('user_profiles')
         .select('user_id, display_name, phone')
-        .in('user_id', buyerUserIds)
+        .in('user_id', buyerUserIds), { table: 'user_profiles' })
 
       if (buyers) {
         buyers.forEach((b: any) => {

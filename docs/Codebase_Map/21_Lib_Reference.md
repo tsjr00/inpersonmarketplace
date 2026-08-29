@@ -1,6 +1,6 @@
 # 21 — Shared Library Reference
 
-<!-- map-stamp: domain=lib-reference; verified=2026-08-25; commit=bfc60dfd -->
+<!-- map-stamp: domain=lib-reference; verified=2026-08-29; commit=44dfd6a8 -->
 <!-- map-claims
 src/lib/errors/**
 src/lib/telemetry/**
@@ -58,6 +58,7 @@ Shared modules not owned by a single domain. **The lib layer is where the busine
 | `errors/with-error-tracing.ts` | `withErrorTracing` — the wrapper on essentially every API route; also `createTracedHandler`, `throwTracedError` |
 | `errors/traced-error.ts` | The `TracedError` class (**details must not leak in production mode** — asserted by test) |
 | `errors/error-catalog.ts` + `catalog/*.ts` | The coded error registry, split per area: auth, cart, db, market-box, order, RLS, webhook. `lookupError`, `lookupByPgCode`, `explainError` |
+| `errors/observe.ts` | `observed(query, { table, operation?, route?, logNoRows?, extra? })` (2026-08-29) — wraps a Supabase call whose caller used to drop `error`; same `data` shape and behavior, plus a `logError` entry (route/method from the breadcrumb trail, schema-class PG codes 42703/22P02/42P01/42883 forced to **high**; PGRST116 "no rows" not logged). A codemod wrapped 706 call sites; guardrail Rule J is a ratchet on the unwrapped count (13 critical-path money files still pending per-file approval). `logger.ts` throttles the admin alert email to one per code+route per hour. |
 | `errors/supabase-errors.ts` | Postgres error interpretation: `isRlsRecursionError`, `isRlsAccessDenied`, `isNoRowsError`, `parseSupabaseError` |
 | `errors/breadcrumbs.ts` | `startBreadcrumbTrail`, `addBreadcrumb`, `crumb` |
 | `errors/logger.ts` | `logErrorToDb` — writes to the `error_logs` table |

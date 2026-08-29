@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { sendNotification } from '@/lib/notifications'
 
@@ -43,12 +43,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const serviceClient = createServiceClient()
 
     // Verify event exists, is company_paid, and is accepting orders
-    const { data: event } = await serviceClient
+    const { data: event } = await observed(serviceClient
       .from('catering_requests')
       .select('market_id, payment_model, status, company_name, vertical_id, access_code')
       .eq('event_token', token)
       .in('status', ['approved', 'ready', 'active'])
-      .single()
+      .single(), { table: 'catering_requests' })
 
     if (!event?.market_id) {
       return NextResponse.json({ error: 'Event not found or not accepting orders' }, { status: 404 })
@@ -96,11 +96,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Send notifications (non-blocking — sendNotification never throws)
-    const { data: listing } = await serviceClient
+    const { data: listing } = await observed(serviceClient
       .from('listings')
       .select('title, vendor_profiles!inner(user_id, profile_data)')
       .eq('id', listing_id)
-      .single()
+      .single(), { table: 'listings' })
 
     const vendorUserId = (listing as any)?.vendor_profiles?.user_id
     const vendorName = (listing as any)?.vendor_profiles?.profile_data?.business_name || 'Vendor'

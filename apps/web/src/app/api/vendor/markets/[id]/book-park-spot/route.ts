@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb, logError, TracedError } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, logError, TracedError, observed } from '@/lib/errors'
 import { calculateBoothRentalFees } from '@/lib/pricing'
 import { createParkSpotCheckoutSession } from '@/lib/stripe/payments'
 import { PARK_SPOT_MIN_CHARGE_CENTS, PARK_SPOT_MAX_DATES } from '@/lib/markets/park-booking-types'
@@ -63,11 +63,11 @@ export async function POST(
     }
 
     // --- Market + payment gates. ---
-    const { data: market } = await supabase
+    const { data: market } = await observed(supabase
       .from('markets')
       .select('id, name, vertical_id, timezone, stripe_charges_enabled, stripe_account_id, park_mode, operator_keep_pct, season_start, season_end')
       .eq('id', marketId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'markets' })
     if (!market) {
       return NextResponse.json({ error: 'Park not found' }, { status: 404 })
     }
@@ -100,12 +100,12 @@ export async function POST(
     // Fail-open if the vetting row is absent (blocking is the exception).
     // `review_status` rides along for the same-day rule below (operator-reviewed
     // docs are one of the two ways same-day booking unlocks) — no extra query.
-    const { data: vetting } = await serviceClient
+    const { data: vetting } = await observed(serviceClient
       .from('park_vendor_vetting')
       .select('blocked, review_status')
       .eq('market_id', marketId)
       .eq('vendor_profile_id', profile.id)
-      .maybeSingle()
+      .maybeSingle(), { table: 'park_vendor_vetting' })
     if (vetting?.blocked === true) {
       return NextResponse.json(
         { error: `${(market.name as string) || 'This park'} has blocked new bookings from your food truck. Contact the operator for details.` },
@@ -115,11 +115,11 @@ export async function POST(
 
     // --- Spot exists + belongs to this park + active. ---
     crumb.supabase('select', 'park_spots')
-    const { data: spot } = await serviceClient
+    const { data: spot } = await observed(serviceClient
       .from('park_spots')
       .select('id, market_id, label, base_price_cents, active, max_length_ft')
       .eq('id', spotId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'park_spots' })
     if (!spot || spot.market_id !== marketId) {
       return NextResponse.json({ error: 'Spot not found at this park', field: 'spot_id' }, { status: 404 })
     }
@@ -223,14 +223,14 @@ export async function POST(
       let established = vetting?.review_status === 'reviewed'
       if (!established) {
         crumb.supabase('select', 'park_spot_bookings')
-        const { data: priorVisit } = await serviceClient
+        const { data: priorVisit } = await observed(serviceClient
           .from('park_spot_bookings')
           .select('id')
           .eq('market_id', marketId)
           .eq('vendor_profile_id', profile.id)
           .in('status', ['paid', 'completed'])
           .lt('booking_date', todayYmd)
-          .limit(1)
+          .limit(1), { table: 'park_spot_bookings' })
         established = (priorVisit?.length ?? 0) > 0
       }
 
@@ -278,7 +278,7 @@ export async function POST(
     //     schedule after payment, which this check guarantees is conflict-free.
     const isMultiTruck = (profile.profile_data as Record<string, unknown> | null)?.multiple_trucks === true
     if (!isMultiTruck) {
-      const { data: otherSchedules } = await serviceClient
+      const { data: otherSchedules } = await observed(serviceClient
         .from('vendor_market_schedules')
         .select(`
           market_id,
@@ -289,7 +289,7 @@ export async function POST(
         `)
         .eq('vendor_profile_id', profile.id)
         .eq('is_active', true)
-        .neq('market_id', marketId)
+        .neq('market_id', marketId), { table: 'vendor_market_schedules' })
 
       const parkSlotsByDow = new Map<number, Array<{ start: string; end: string }>>()
       for (const r of schedRes.data ?? []) {

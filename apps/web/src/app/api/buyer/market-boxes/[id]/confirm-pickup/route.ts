@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { calculateWindowExpiry } from '@/lib/cron/order-timing'
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Verify subscription belongs to user and get vendor info for notification
-    const { data: subscription } = await supabase
+    const { data: subscription } = await observed(supabase
       .from('market_box_subscriptions')
       .select(`
         id, status,
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       `)
       .eq('id', subscriptionId)
       .eq('buyer_user_id', user.id)
-      .single()
+      .single(), { table: 'market_box_subscriptions' })
 
     if (!subscription) {
       return NextResponse.json({ error: 'Subscription not found' }, { status: 404 })
@@ -57,12 +57,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Get the pickup with confirmation state
-    const { data: pickup } = await supabase
+    const { data: pickup } = await observed(supabase
       .from('market_box_pickups')
       .select('id, status, subscription_id, vendor_confirmed_at, buyer_confirmed_at, confirmation_window_expires_at')
       .eq('id', pickup_id)
       .eq('subscription_id', subscriptionId)
-      .single()
+      .single(), { table: 'market_box_pickups' })
 
     if (!pickup) {
       return NextResponse.json({ error: 'Pickup not found' }, { status: 404 })
@@ -160,11 +160,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const offering = (subscription as any)?.offering
       const vendorUserId = offering?.vendor_profiles?.user_id
       if (vendorUserId) {
-        const { data: buyerProfile } = await supabase
+        const { data: buyerProfile } = await observed(supabase
           .from('user_profiles')
           .select('display_name')
           .eq('user_id', user.id)
-          .single()
+          .single(), { table: 'user_profiles' })
         await sendNotification(vendorUserId, 'pickup_confirmation_needed', {
           orderItemId: pickup_id,
           buyerName: buyerProfile?.display_name || undefined,

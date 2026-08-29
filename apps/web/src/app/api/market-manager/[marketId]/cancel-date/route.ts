@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { marketLocalDate } from '@/lib/markets/checkin-eligibility'
@@ -66,11 +66,11 @@ export async function POST(
 
     const service = createServiceClient()
 
-    const { data: market } = await service
+    const { data: market } = await observed(service
       .from('markets')
       .select('name, vertical_id, timezone')
       .eq('id', marketId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'markets' })
     if (!market) throw traced.notFound('ERR_MARKET_001', 'Market not found')
 
     const timezone = (market.timezone as string | null) ?? null

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { hasPlatformAdminRole, hasAdminRole } from '@/lib/auth/admin'
 import { getBeneficiaryBalances } from '@/lib/cause/beneficiaries'
 
@@ -17,12 +17,12 @@ async function requirePlatformAdmin() {
   if (authError || !user) {
     return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
   }
-  const { data: profile } = await supabase
+  const { data: profile } = await observed(supabase
     .from('user_profiles')
     .select('role, roles')
     .eq('user_id', user.id)
     .is('deleted_at', null)
-    .single()
+    .single(), { table: 'user_profiles' })
   if (!hasPlatformAdminRole(profile || {})) {
     return { error: NextResponse.json({ error: 'Platform admin access required' }, { status: 403 }) }
   }
@@ -49,12 +49,12 @@ export async function GET(request: NextRequest) {
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    const { data: profile } = await supabase
+    const { data: profile } = await observed(supabase
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
       .is('deleted_at', null)
-      .single()
+      .single(), { table: 'user_profiles' })
 
     const isPlatform = hasPlatformAdminRole(profile || {})
     if (!isPlatform && !hasAdminRole(profile || {})) {

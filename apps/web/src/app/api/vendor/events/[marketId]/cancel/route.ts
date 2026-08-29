@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, logError, TracedError } from '@/lib/errors'
+import { withErrorTracing, logError, TracedError, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { sendNotification } from '@/lib/notifications/service'
 import { FEES, proratedFlatFeeSimple } from '@/lib/pricing'
@@ -56,35 +56,35 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const serviceClient = createServiceClient()
 
     // Look up the market's vertical to scope the vendor profile query
-    const { data: marketInfo } = await serviceClient
+    const { data: marketInfo } = await observed(serviceClient
       .from('markets')
       .select('vertical_id')
       .eq('id', marketId)
-      .single()
+      .single(), { table: 'markets' })
 
     if (!marketInfo) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     }
 
     // Get vendor profile for this user IN this vertical
-    const { data: vendorProfile } = await supabase
+    const { data: vendorProfile } = await observed(supabase
       .from('vendor_profiles')
       .select('id, profile_data')
       .eq('user_id', user.id)
       .eq('vertical_id', marketInfo.vertical_id)
-      .single()
+      .single(), { table: 'vendor_profiles' })
 
     if (!vendorProfile) {
       return NextResponse.json({ error: 'Vendor profile not found for this vertical' }, { status: 404 })
     }
 
     // Verify vendor has accepted this event
-    const { data: marketVendor } = await serviceClient
+    const { data: marketVendor } = await observed(serviceClient
       .from('market_vendors')
       .select('id, response_status')
       .eq('market_id', marketId)
       .eq('vendor_profile_id', vendorProfile.id)
-      .single()
+      .single(), { table: 'market_vendors' })
 
     if (!marketVendor || marketVendor.response_status !== 'accepted') {
       return NextResponse.json(
@@ -94,11 +94,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Get event details for notifications + penalty check
-    const { data: market } = await serviceClient
+    const { data: market } = await observed(serviceClient
       .from('markets')
       .select('name, event_start_date, catering_request_id, vertical_id, headcount, city, state')
       .eq('id', marketId)
-      .single()
+      .single(), { table: 'markets' })
 
     if (!market) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
@@ -157,12 +157,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // cancels frees the forfeited pot to cover the NEXT backup.
     let feeOutcome: 'refunded' | 'forfeited' | null = null
     {
-      const { data: feeRows } = await serviceClient
+      const { data: feeRows } = await observed(serviceClient
         .from('event_vendor_fee_payments')
         .select('id, status, vendor_pays_cents, stripe_payment_intent_id')
         .eq('market_id', marketId)
         .eq('vendor_profile_id', vendorProfile.id)
-        .in('status', ['pending_payment', 'paid', 'covered'])
+        .in('status', ['pending_payment', 'paid', 'covered']), { table: 'event_vendor_fee_payments' })
 
       const releasable = (feeRows || []).filter(r => r.status !== 'paid')
       if (releasable.length > 0) {
@@ -239,11 +239,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
           // Waiver lever → organizer (in-app + email via 'standard' urgency).
           if (market.catering_request_id && market.event_start_date) {
-            const { data: crOrganizer } = await serviceClient
+            const { data: crOrganizer } = await observed(serviceClient
               .from('catering_requests')
               .select('id, organizer_user_id')
               .eq('id', market.catering_request_id)
-              .maybeSingle()
+              .maybeSingle(), { table: 'catering_requests' })
             if (crOrganizer?.organizer_user_id) {
               const deadline = waivableUntil(market.event_start_date as string)
               await sendNotification(crOrganizer.organizer_user_id as string, 'event_fee_waiver_requested_organizer', {
@@ -264,11 +264,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     // 2. Remove event_vendor_listings for this vendor
     // First get the listing IDs so we can clean up listing_markets too
-    const { data: vendorEventListings } = await serviceClient
+    const { data: vendorEventListings } = await observed(serviceClient
       .from('event_vendor_listings')
       .select('listing_id')
       .eq('market_id', marketId)
-      .eq('vendor_profile_id', vendorProfile.id)
+      .eq('vendor_profile_id', vendorProfile.id), { table: 'event_vendor_listings' })
 
     await serviceClient
       .from('event_vendor_listings')
@@ -297,7 +297,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Per-item refund math mirrors the reject route (subtotal + buyer % fee +
     // prorated flat fee); company-paid orders have no succeeded payment row,
     // so the refund step naturally skips them.
-    const { data: vendorItems } = await serviceClient
+    const { data: vendorItems } = await observed(serviceClient
       .from('order_items')
       .select(`
         id, order_id, quantity, subtotal_cents, listing_id,
@@ -307,24 +307,24 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .eq('market_id', marketId)
       .eq('vendor_profile_id', vendorProfile.id)
       .in('status', ['pending', 'confirmed', 'ready'])
-      .is('cancelled_at', null)
+      .is('cancelled_at', null), { table: 'order_items' })
 
     let ordersCancelled = 0
     if (vendorItems && vendorItems.length > 0) {
       const affectedOrderIds = [...new Set(vendorItems.map(i => i.order_id as string))]
-      const { data: allOrderItems } = await serviceClient
+      const { data: allOrderItems } = await observed(serviceClient
         .from('order_items')
         .select('order_id')
-        .in('order_id', affectedOrderIds)
+        .in('order_id', affectedOrderIds), { table: 'order_items' })
       const itemCounts = new Map<string, number>()
       for (const oi of allOrderItems || []) {
         itemCounts.set(oi.order_id as string, (itemCounts.get(oi.order_id as string) || 0) + 1)
       }
-      const { data: succeededPayments } = await serviceClient
+      const { data: succeededPayments } = await observed(serviceClient
         .from('payments')
         .select('order_id, stripe_payment_intent_id')
         .in('order_id', affectedOrderIds)
-        .eq('status', 'succeeded')
+        .eq('status', 'succeeded'), { table: 'payments' })
       const paymentByOrder = new Map(
         (succeededPayments || []).map(p => [p.order_id as string, p.stripe_payment_intent_id as string | null])
       )
@@ -337,7 +337,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         const buyerPaidForItem = (item.subtotal_cents as number) + buyerPercentFee + itemFlatFee
 
         // Guarded cancel (H3 pattern) — a concurrent cancel path wins, skip
-        const { data: cancelledRows } = await serviceClient
+        const { data: cancelledRows } = await observed(serviceClient
           .from('order_items')
           .update({
             status: 'cancelled',
@@ -348,7 +348,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           })
           .eq('id', item.id)
           .is('cancelled_at', null)
-          .select('id')
+          .select('id'), { table: 'order_items', operation: 'update' })
         if (!cancelledRows || cancelledRows.length === 0) continue
 
         if (item.listing_id) {
@@ -386,11 +386,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
       // Order-level cleanup: orders left with no live items get closed (with
       // the VOR-19 session-expire for still-pending orders) + wave slot freed
       for (const affectedOrderId of affectedOrderIds) {
-        const { data: liveItems } = await serviceClient
+        const { data: liveItems } = await observed(serviceClient
           .from('order_items')
           .select('id')
           .eq('order_id', affectedOrderId)
-          .is('cancelled_at', null)
+          .is('cancelled_at', null), { table: 'order_items' })
         if (liveItems && liveItems.length > 0) continue
 
         const orderMeta = (vendorItems.find(i => i.order_id === affectedOrderId) as unknown as {
@@ -426,11 +426,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // capacity (and re-close over-committed waves) if this event uses waves.
     // recalculate_wave_capacity RAISEs if a counted vendor lacks a declared
     // per-wave cap (mig 130 no-silent-fallback rule) — log + continue.
-    const { data: hasWaves } = await serviceClient
+    const { data: hasWaves } = await observed(serviceClient
       .from('event_waves')
       .select('id')
       .eq('market_id', marketId)
-      .limit(1)
+      .limit(1), { table: 'event_waves' })
     if (hasWaves && hasWaves.length > 0) {
       const { error: recalcErr } = await serviceClient.rpc('recalculate_wave_capacity', {
         p_market_id: marketId,
@@ -443,12 +443,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // 3. Notify admin
-    const { data: admins } = await serviceClient
+    const { data: admins } = await observed(serviceClient
       .from('user_profiles')
       .select('user_id')
       .in('role', ['admin', 'platform_admin'])
       .is('deleted_at', null)
-      .limit(5)
+      .limit(5), { table: 'user_profiles' })
 
     if (admins) {
       for (const admin of admins) {
@@ -462,11 +462,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     // 4. Notify event organizer
     if (market.catering_request_id) {
-      const { data: cReq } = await serviceClient
+      const { data: cReq } = await observed(serviceClient
         .from('catering_requests')
         .select('id, contact_name, contact_email, vertical_id, organizer_user_id')
         .eq('id', market.catering_request_id)
-        .single()
+        .single(), { table: 'catering_requests' })
 
       if (cReq?.contact_email) {
         // Send email to organizer about cancellation
@@ -529,14 +529,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // 5. Auto-escalate to backup vendor (if one exists).
     // Phase 3 (2026-08-16): standby-opted-in vendors go FIRST (they said yes
     // to being asked — mig 232), then declared backup_priority order.
-    const { data: backups } = await serviceClient
+    const { data: backups } = await observed(serviceClient
       .from('market_vendors')
       .select('vendor_profile_id, backup_priority, standby_opted_in_at, vendor_profiles:vendor_profile_id(user_id)')
       .eq('market_id', marketId)
       .eq('is_backup', true)
       .order('standby_opted_in_at', { ascending: true, nullsFirst: false })
       .order('backup_priority', { ascending: true, nullsFirst: false })
-      .limit(1)
+      .limit(1), { table: 'market_vendors' })
 
     if (backups && backups.length > 0) {
       const backup = backups[0]
@@ -569,16 +569,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
       // covered row was released).
       let coveredAmountCents: number | null = null
       {
-        const { data: forfeits } = await serviceClient
+        const { data: forfeits } = await observed(serviceClient
           .from('event_vendor_fee_payments')
           .select('id, fee_cents, vendor_pays_cents, organizer_receives_cents, platform_keeps_cents, catering_request_id')
           .eq('market_id', marketId)
-          .eq('status', 'forfeited')
-        const { data: liveCovered } = await serviceClient
+          .eq('status', 'forfeited'), { table: 'event_vendor_fee_payments' })
+        const { data: liveCovered } = await observed(serviceClient
           .from('event_vendor_fee_payments')
           .select('covering_payment_id')
           .eq('market_id', marketId)
-          .eq('status', 'covered')
+          .eq('status', 'covered'), { table: 'event_vendor_fee_payments' })
         const claimedPotIds = new Set((liveCovered || []).map(r => r.covering_payment_id as string))
         const pot = (forfeits || []).find(f => !claimedPotIds.has(f.id as string))
 

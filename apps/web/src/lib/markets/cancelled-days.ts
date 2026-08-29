@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { observed } from '@/lib/errors'
 
 /**
  * Phase E — cancelled-day counter for season settlement (O4/O6).
@@ -50,27 +51,27 @@ export async function getGroupCancelledDays(
   serviceClient: SupabaseClient,
   groupId: string,
 ): Promise<{ cancelledDays: number; weekStarts: string[]; purchaseDate: string | null } | null> {
-  const { data: group } = await serviceClient
+  const { data: group } = await observed(serviceClient
     .from('booth_booking_groups')
     .select('id, market_id, purchase_date')
     .eq('id', groupId)
-    .maybeSingle()
+    .maybeSingle(), { table: 'booth_booking_groups' })
   if (!group) return null
 
-  const { data: rentals } = await serviceClient
+  const { data: rentals } = await observed(serviceClient
     .from('weekly_booth_rentals')
     .select('week_start_date')
-    .eq('group_id', groupId)
+    .eq('group_id', groupId), { table: 'weekly_booth_rentals' })
   const weekStarts = (rentals ?? []).map((r) => r.week_start_date as string)
   if (weekStarts.length === 0) {
     return { cancelledDays: 0, weekStarts: [], purchaseDate: (group.purchase_date as string | null) ?? null }
   }
 
-  const { data: overrides } = await serviceClient
+  const { data: overrides } = await observed(serviceClient
     .from('market_date_overrides')
     .select('override_date')
     .eq('market_id', group.market_id as string)
-    .eq('status', 'cancelled')
+    .eq('status', 'cancelled'), { table: 'market_date_overrides' })
   const cancelledDates = (overrides ?? []).map((o) => o.override_date as string)
 
   const purchaseDate = (group.purchase_date as string | null) ?? null

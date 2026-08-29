@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { DEFAULT_CUTOFF_HOURS } from '@/lib/constants'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
@@ -67,13 +67,13 @@ export async function POST(request: NextRequest) {
       }
 
       // Check for duplicate market name in this vertical and market_type (case-insensitive)
-      const { data: existingMarket } = await supabase
+      const { data: existingMarket } = await observed(supabase
         .from('markets')
         .select('id, name')
         .eq('vertical_id', vertical)
         .eq('market_type', market_type)
         .ilike('name', name.trim())
-        .maybeSingle()
+        .maybeSingle(), { table: 'markets' })
 
       if (existingMarket) {
         return NextResponse.json({
@@ -82,14 +82,14 @@ export async function POST(request: NextRequest) {
       }
 
       // Check if vendor already submitted this market (by similar name)
-      const { data: existingSuggestion } = await supabase
+      const { data: existingSuggestion } = await observed(supabase
         .from('markets')
         .select('id, name, approval_status')
         .eq('vertical_id', vertical)
         .eq('market_type', market_type)
         .eq('submitted_by_vendor_id', vendorProfile.id)
         .ilike('name', `%${name.trim()}%`)
-        .maybeSingle()
+        .maybeSingle(), { table: 'markets' })
 
       if (existingSuggestion) {
         const statusText = existingSuggestion.approval_status === 'pending'

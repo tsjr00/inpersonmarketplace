@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced } from '@/lib/errors'
+import { withErrorTracing, traced, observed } from '@/lib/errors'
 import { getSeasonBookableWeeks } from '@/lib/markets/season-weeks'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
@@ -22,11 +22,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const service = createServiceClient()
 
-    const { data: market } = await service
+    const { data: market } = await observed(service
       .from('markets')
       .select('id, vertical_id, stripe_charges_enabled')
       .eq('id', marketId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'markets' })
     if (!market) return NextResponse.json({ error: 'Market not found' }, { status: 404 })
     // Booth rentals are Stripe-only — no point showing seasons if the manager
     // can't take payment yet.
@@ -75,11 +75,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       supabase, user.id, market.vertical_id as string, 'id'
     )
     if (profile) {
-      const { data: creditRows } = await service
+      const { data: creditRows } = await observed(service
         .from('booth_credits')
         .select('amount_cents')
         .eq('vendor_profile_id', profile.id)
-        .eq('market_id', marketId)
+        .eq('market_id', marketId), { table: 'booth_credits' })
       creditBalanceCents = (creditRows ?? []).reduce((sum, r) => sum + (r.amount_cents as number), 0)
     }
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 
 export async function GET(request: NextRequest) {
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Query vendor_market_schedules joined to market_schedules (has day_of_week)
-    const { data: schedules } = await supabase
+    const { data: schedules } = await observed(supabase
       .from('vendor_market_schedules')
       .select(`
         vendor_start_time,
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
       .eq('is_active', true)
       .eq('markets.status', 'active')
       .eq('vendor_profiles.status', 'approved')
-      .eq('vendor_profiles.vertical_id', vertical)
+      .eq('vendor_profiles.vertical_id', vertical), { table: 'vendor_market_schedules' })
 
     if (!schedules || schedules.length === 0) {
       return NextResponse.json({ date: dateStr, day_of_week: dayOfWeek, trucks: [], total: 0 })
@@ -135,7 +135,7 @@ export async function GET(request: NextRequest) {
     // declaration (dedupe by vendor+market), so a truck that's both declared and
     // booked isn't listed twice.
     const serviceClient = createServiceClient()
-    const { data: paidBookings } = await serviceClient
+    const { data: paidBookings } = await observed(serviceClient
       .from('park_spot_bookings')
       .select(`
         booking_date,
@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
         markets:market_id ( id, name, address, city, state, zip, latitude, longitude, status, start_time, end_time )
       `)
       .eq('status', 'paid')
-      .eq('booking_date', dateStr)
+      .eq('booking_date', dateStr), { table: 'park_spot_bookings' })
 
     const scheduledPairs = new Set(trucks.map(t => `${t.vendor_id}|${t.market_id}`))
     const bookedTrucks: TruckEntry[] = (paidBookings ?? [])

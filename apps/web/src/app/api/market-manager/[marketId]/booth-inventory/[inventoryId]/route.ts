@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { validateBoothInventoryInput, type BoothInventoryRow } from '@/lib/markets/booth-types'
 import { reconcileBoothLabelsAfterInventoryChange } from '@/lib/markets/booth-label-drift-server'
 
@@ -43,11 +43,11 @@ async function authorize(
 
   // Verify the inventory row belongs to this market
   const serviceClient = createServiceClient()
-  const { data: row } = await serviceClient
+  const { data: row } = await observed(serviceClient
     .from('market_booth_inventory')
     .select('id, market_id')
     .eq('id', inventoryId)
-    .maybeSingle()
+    .maybeSingle(), { table: 'market_booth_inventory' })
 
   if (!row) {
     return {

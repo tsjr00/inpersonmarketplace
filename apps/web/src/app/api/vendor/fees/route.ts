@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getVendorFeeBalance, getVendorFeeLedger, BALANCE_INVOICE_THRESHOLD_CENTS, AGE_INVOICE_THRESHOLD_DAYS } from '@/lib/payments/vendor-fees'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
@@ -33,11 +33,11 @@ export async function GET(request: NextRequest) {
       }
 
       // Verify ownership
-      const { data: vendor } = await supabase
+      const { data: vendor } = await observed(supabase
         .from('vendor_profiles')
         .select('id, user_id')
         .eq('id', vendorId)
-        .single()
+        .single(), { table: 'vendor_profiles' })
 
       if (!vendor || vendor.user_id !== user.id) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })

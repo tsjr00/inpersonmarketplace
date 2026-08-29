@@ -28,6 +28,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { observed } from '@/lib/errors'
 
 export type ConflictKind = 'schedule' | 'park_booking' | 'booth_rental' | 'event' | 'private_pickup'
 
@@ -261,21 +262,21 @@ export async function loadVendorAvailability(
   vendorProfileId: string,
   eventMarketId: string
 ): Promise<VendorAvailability | null> {
-  const { data: event } = await service
+  const { data: event } = await observed(service
     .from('markets')
     .select('id, market_type, event_start_date, event_end_date, catering_request_id')
     .eq('id', eventMarketId)
-    .maybeSingle()
+    .maybeSingle(), { table: 'markets' })
   if (!event || event.market_type !== 'event' || !event.event_start_date) return null
 
   let eventStartTime: string | null = null
   let eventEndTime: string | null = null
   if (event.catering_request_id) {
-    const { data: cReq } = await service
+    const { data: cReq } = await observed(service
       .from('catering_requests')
       .select('event_start_time, event_end_time')
       .eq('id', event.catering_request_id)
-      .maybeSingle()
+      .maybeSingle(), { table: 'catering_requests' })
     eventStartTime = (cReq?.event_start_time as string | null) ?? null
     eventEndTime = (cReq?.event_end_time as string | null) ?? null
   }
@@ -283,15 +284,15 @@ export async function loadVendorAvailability(
   const eventDates = datesBetween(event.event_start_date as string, (event.event_end_date as string | null) ?? null)
   const dows = new Set(eventDates.map(dayOfWeekOf))
 
-  const { data: vp } = await service
+  const { data: vp } = await observed(service
     .from('vendor_profiles')
     .select('profile_data')
     .eq('id', vendorProfileId)
-    .maybeSingle()
+    .maybeSingle(), { table: 'vendor_profiles' })
   const multiCapable = ((vp?.profile_data as Record<string, unknown> | null)?.multiple_trucks) === true
 
   // 1. Active weekly schedules elsewhere (vendor time overrides win).
-  const { data: vmsRows } = await service
+  const { data: vmsRows } = await observed(service
     .from('vendor_market_schedules')
     .select(`
       market_id, vendor_start_time, vendor_end_time,
@@ -300,7 +301,7 @@ export async function loadVendorAvailability(
     `)
     .eq('vendor_profile_id', vendorProfileId)
     .eq('is_active', true)
-    .neq('market_id', eventMarketId)
+    .neq('market_id', eventMarketId), { table: 'vendor_market_schedules' })
 
   const schedules: ScheduleCommitment[] = []
   for (const r of vmsRows ?? []) {
@@ -321,27 +322,27 @@ export async function loadVendorAvailability(
   const dateCommitments: DateCommitment[] = []
 
   // 2. Paid park-spot days (FT). A barred booking is not a commitment.
-  const { data: parkRows } = await service
+  const { data: parkRows } = await observed(service
     .from('park_spot_bookings')
     .select('market_id, booking_date, markets:market_id ( id, name, market_type )')
     .eq('vendor_profile_id', vendorProfileId)
     .eq('status', 'paid')
     .is('manager_barred_at', null)
     .in('booking_date', eventDates)
-    .neq('market_id', eventMarketId)
+    .neq('market_id', eventMarketId), { table: 'park_spot_bookings' })
 
   // 3. Paid booth weeks (FM) whose week contains an event date.
   const minDate = eventDates[0]!
   const maxDate = eventDates[eventDates.length - 1]!
   const weekFloor = datesBetween(minDate, null)[0]!
-  const { data: boothRows } = await service
+  const { data: boothRows } = await observed(service
     .from('weekly_booth_rentals')
     .select('market_id, week_start_date, markets:market_id ( id, name, market_type )')
     .eq('vendor_profile_id', vendorProfileId)
     .eq('status', 'paid')
     .gte('week_start_date', shiftDate(weekFloor, -6))
     .lte('week_start_date', maxDate)
-    .neq('market_id', eventMarketId)
+    .neq('market_id', eventMarketId), { table: 'weekly_booth_rentals' })
 
   // Hours for park/booth days come from the location's schedule on that weekday.
   const hoursMarketIds = new Set<string>()
@@ -349,11 +350,11 @@ export async function loadVendorAvailability(
   for (const r of boothRows ?? []) hoursMarketIds.add(r.market_id as string)
   const hoursByMarketDow = new Map<string, { start: string; end: string }>()
   if (hoursMarketIds.size > 0) {
-    const { data: msRows } = await service
+    const { data: msRows } = await observed(service
       .from('market_schedules')
       .select('market_id, day_of_week, start_time, end_time')
       .in('market_id', [...hoursMarketIds])
-      .eq('active', true)
+      .eq('active', true), { table: 'market_schedules' })
     for (const s of msRows ?? []) {
       const key = `${s.market_id}|${s.day_of_week}`
       const prev = hoursByMarketDow.get(key)
@@ -401,12 +402,12 @@ export async function loadVendorAvailability(
   }
 
   // 4. Other accepted, not-benched events overlapping in date.
-  const { data: otherEvents } = await service
+  const { data: otherEvents } = await observed(service
     .from('market_vendors')
     .select('market_id, is_backup, markets:market_id ( id, name, market_type, event_start_date, event_end_date, catering_request_id )')
     .eq('vendor_profile_id', vendorProfileId)
     .eq('response_status', 'accepted')
-    .neq('market_id', eventMarketId)
+    .neq('market_id', eventMarketId), { table: 'market_vendors' })
   const otherEventReqIds: string[] = []
   const otherEventRows: Array<{ marketId: string; name: string; start: string; end: string; reqId: string | null }> = []
   for (const r of otherEvents ?? []) {
@@ -420,10 +421,10 @@ export async function loadVendorAvailability(
   }
   const timesByReq = new Map<string, { start: string | null; end: string | null }>()
   if (otherEventReqIds.length > 0) {
-    const { data: reqs } = await service
+    const { data: reqs } = await observed(service
       .from('catering_requests')
       .select('id, event_start_time, event_end_time')
-      .in('id', otherEventReqIds)
+      .in('id', otherEventReqIds), { table: 'catering_requests' })
     for (const q of reqs ?? []) {
       timesByReq.set(q.id as string, { start: (q.event_start_time as string | null) ?? null, end: (q.event_end_time as string | null) ?? null })
     }
@@ -445,12 +446,12 @@ export async function loadVendorAvailability(
   }
 
   // 5. Own private pickups (only count when they hold open work — see rule).
-  const { data: privateRows } = await service
+  const { data: privateRows } = await observed(service
     .from('markets')
     .select('id, name')
     .eq('vendor_profile_id', vendorProfileId)
     .eq('market_type', 'private_pickup')
-    .eq('status', 'active')
+    .eq('status', 'active'), { table: 'markets' })
   const privatePickups = (privateRows ?? []).map(p => ({ marketId: p.id as string, marketName: p.name as string }))
 
   // 6. Open work on the event dates at every candidate location.
@@ -470,41 +471,41 @@ export async function loadVendorAvailability(
       counts.set(key, w)
     }
 
-    const { data: items } = await service
+    const { data: items } = await observed(service
       .from('order_items')
       .select('market_id, pickup_date')
       .eq('vendor_profile_id', vendorProfileId)
       .in('market_id', ids)
       .in('pickup_date', eventDates)
-      .not('status', 'in', '("fulfilled","cancelled")')
+      .not('status', 'in', '("fulfilled","cancelled")'), { table: 'order_items' })
     for (const it of items ?? []) {
       if (it.market_id && it.pickup_date) bump(it.market_id as string, it.pickup_date as string, 'orders')
     }
 
-    const { data: offerings } = await service
+    const { data: offerings } = await observed(service
       .from('market_box_offerings')
       .select('id, pickup_market_id')
       .eq('vendor_profile_id', vendorProfileId)
-      .in('pickup_market_id', ids)
+      .in('pickup_market_id', ids), { table: 'market_box_offerings' })
     const marketByOffering = new Map<string, string>()
     for (const o of offerings ?? []) marketByOffering.set(o.id as string, o.pickup_market_id as string)
     if (marketByOffering.size > 0) {
-      const { data: subs } = await service
+      const { data: subs } = await observed(service
         .from('market_box_subscriptions')
         .select('id, offering_id')
-        .in('offering_id', [...marketByOffering.keys()])
+        .in('offering_id', [...marketByOffering.keys()]), { table: 'market_box_subscriptions' })
       const marketBySub = new Map<string, string>()
       for (const s of subs ?? []) {
         const mk = marketByOffering.get(s.offering_id as string)
         if (mk) marketBySub.set(s.id as string, mk)
       }
       if (marketBySub.size > 0) {
-        const { data: pickups } = await service
+        const { data: pickups } = await observed(service
           .from('market_box_pickups')
           .select('subscription_id, scheduled_date')
           .in('subscription_id', [...marketBySub.keys()])
           .in('scheduled_date', eventDates)
-          .in('status', ['scheduled', 'ready'])
+          .in('status', ['scheduled', 'ready']), { table: 'market_box_pickups' })
         for (const p of pickups ?? []) {
           const mk = marketBySub.get(p.subscription_id as string)
           if (mk) bump(mk, p.scheduled_date as string, 'boxPickups')

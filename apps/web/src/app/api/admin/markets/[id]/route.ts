@@ -4,17 +4,17 @@ import { SupabaseClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { hasPlatformAdminRole } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 
 // Verify if user is platform admin or vertical admin for the given vertical
 async function verifyAdminAccess(supabase: SupabaseClient, userId: string, verticalId?: string): Promise<boolean> {
   // Check platform admin role
-  const { data: userProfile } = await supabase
+  const { data: userProfile } = await observed(supabase
     .from('user_profiles')
     .select('role, roles')
     .eq('user_id', userId)
     .is('deleted_at', null)
-    .single()
+    .single(), { table: 'user_profiles' })
 
   // S4-2: platform_admin bypasses; a vertical admin falls through to the
   // vertical_admins check below (was hasAdminRole → dead, cross-vertical).
@@ -24,12 +24,12 @@ async function verifyAdminAccess(supabase: SupabaseClient, userId: string, verti
 
   // If vertical is provided, check vertical admin
   if (verticalId) {
-    const { data: verticalAdmin } = await supabase
+    const { data: verticalAdmin } = await observed(supabase
       .from('vertical_admins')
       .select('id')
       .eq('user_id', userId)
       .eq('vertical_id', verticalId)
-      .single()
+      .single(), { table: 'vertical_admins' })
     return !!verticalAdmin
   }
 

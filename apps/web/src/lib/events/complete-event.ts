@@ -9,6 +9,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendNotification, sendNotificationBatch } from '@/lib/notifications/service'
+import { observed } from '@/lib/errors'
 
 export interface EventCompletionInput {
   market_id: string
@@ -35,14 +36,14 @@ export async function runEventCompletionEffects(
   const verticalId = event.vertical_id
 
   // 1. Unfulfilled orders → notify vendors + vertical admins
-  const { data: unfulfilledItems } = await serviceClient
+  const { data: unfulfilledItems } = await observed(serviceClient
     .from('order_items')
     .select('id, status, vendor_profile_id, listing:listings(title)')
     .eq('market_id', marketId)
     // order_item_status has no 'completed' — the phantom value made PostgREST
     // reject the whole query (22P02) so the unfulfilled alert never fired.
     // Same intent as before, phantom value removed. Found 2026-08-25.
-    .not('status', 'in', '("fulfilled","cancelled")')
+    .not('status', 'in', '("fulfilled","cancelled")'), { table: 'order_items' })
 
   if (unfulfilledItems && unfulfilledItems.length > 0) {
     const vendorUnfulfilled: Record<string, string[]> = {}
@@ -57,10 +58,10 @@ export async function runEventCompletionEffects(
     // (orderCount differs), so sends stay individual — but resolve all the
     // vendor user_ids in ONE query instead of a per-vendor N+1.
     const unfulfilledVendorIds = Object.keys(vendorUnfulfilled)
-    const { data: vps } = await serviceClient
+    const { data: vps } = await observed(serviceClient
       .from('vendor_profiles')
       .select('id, user_id')
-      .in('id', unfulfilledVendorIds)
+      .in('id', unfulfilledVendorIds), { table: 'vendor_profiles' })
     const userByVendor = new Map((vps ?? []).map((v) => [v.id as string, (v.user_id as string | null) ?? null]))
     for (const [vendorId, items] of Object.entries(vendorUnfulfilled)) {
       const uid = userByVendor.get(vendorId)
@@ -73,10 +74,10 @@ export async function runEventCompletionEffects(
     }
 
     // Notify the vertical's admins so a human can follow up (uniform payload → batch).
-    const { data: vAdmins } = await serviceClient
+    const { data: vAdmins } = await observed(serviceClient
       .from('vertical_admins')
       .select('user_id')
-      .eq('vertical_id', verticalId)
+      .eq('vertical_id', verticalId), { table: 'vertical_admins' })
     const adminUserIds = (vAdmins || [])
       .map((va) => (va as { user_id?: string }).user_id)
       .filter((id): id is string => !!id)
@@ -110,10 +111,10 @@ export async function runEventCompletionEffects(
   }
 
   // 5. Clean up listing_markets rows created for this event
-  const { data: eventListings } = await serviceClient
+  const { data: eventListings } = await observed(serviceClient
     .from('event_vendor_listings')
     .select('listing_id')
-    .eq('market_id', marketId)
+    .eq('market_id', marketId), { table: 'event_vendor_listings' })
   if (eventListings && eventListings.length > 0) {
     const listingIds = eventListings.map((el) => el.listing_id as string)
     await serviceClient
@@ -130,11 +131,11 @@ export async function sendEventFeedbackNotifications(
   verticalId: string
 ) {
   // Find all unique buyers who ordered from this event market
-  const { data: orderItems } = await serviceClient
+  const { data: orderItems } = await observed(serviceClient
     .from('order_items')
     .select('orders!inner(buyer_user_id)')
     .eq('market_id', marketId)
-    .not('status', 'in', '("cancelled")')
+    .not('status', 'in', '("cancelled")'), { table: 'order_items' })
 
   if (!orderItems || orderItems.length === 0) return
 
@@ -144,11 +145,11 @@ export async function sendEventFeedbackNotifications(
     buyerIds.add(order.buyer_user_id)
   }
 
-  const { data: market } = await serviceClient
+  const { data: market } = await observed(serviceClient
     .from('markets')
     .select('name')
     .eq('id', marketId)
-    .single()
+    .single(), { table: 'markets' })
 
   const marketName = market?.name || 'the event'
 
@@ -169,19 +170,19 @@ export async function sendEventSettlementNotifications(
   companyName: string
 ) {
   // Get accepted vendors for this event
-  const { data: acceptedVendors } = await serviceClient
+  const { data: acceptedVendors } = await observed(serviceClient
     .from('market_vendors')
     .select('vendor_profile_id, vendor_profiles:vendor_profile_id(user_id)')
     .eq('market_id', marketId)
-    .eq('response_status', 'accepted')
+    .eq('response_status', 'accepted'), { table: 'market_vendors' })
 
   if (!acceptedVendors || acceptedVendors.length === 0) return
 
-  const { data: market } = await serviceClient
+  const { data: market } = await observed(serviceClient
     .from('markets')
     .select('name')
     .eq('id', marketId)
-    .single()
+    .single(), { table: 'markets' })
 
   const marketName = market?.name || companyName || 'Event'
 
@@ -189,14 +190,14 @@ export async function sendEventSettlementNotifications(
     const vp = mv.vendor_profiles as unknown as { user_id: string } | null
     if (!vp?.user_id) continue
 
-    const { data: vendorItems } = await serviceClient
+    const { data: vendorItems } = await observed(serviceClient
       .from('order_items')
       .select('id, subtotal_cents, vendor_payout_cents')
       .eq('market_id', marketId)
       .eq('vendor_profile_id', mv.vendor_profile_id)
       // 'completed' is not an order_item_status; it made this query fail
       // (22P02) → every vendor's settlement summary read 0 orders / $0.
-      .eq('status', 'fulfilled')
+      .eq('status', 'fulfilled'), { table: 'order_items' })
 
     const orderCount = vendorItems?.length || 0
     const payoutCents = (vendorItems || []).reduce((sum, item) => sum + (item.vendor_payout_cents || item.subtotal_cents || 0), 0)

@@ -9,7 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { Webhook } from 'standardwebhooks'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { getResendClient } from '@/lib/notifications/service'
 import { getEmailFromAddress, getEmailBranding } from '@/lib/notifications/email-config'
 import { getAuthEmailTemplate } from '@/lib/notifications/auth-email-templates'
@@ -173,11 +173,11 @@ export async function POST(request: NextRequest) {
     let userLocale: string | undefined
     try {
       const supabase = createServiceClient()
-      const { data: profile } = await supabase
+      const { data: profile } = await observed(supabase
         .from('user_profiles')
         .select('notification_preferences')
         .eq('user_id', user.id)
-        .single()
+        .single(), { table: 'user_profiles' })
       const prefs = profile?.notification_preferences as Record<string, unknown> | null
       if (typeof prefs?.locale === 'string') {
         userLocale = prefs.locale

@@ -29,6 +29,7 @@
 
 import { stripe } from './config'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { observed } from '@/lib/errors'
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -216,11 +217,11 @@ async function lookupOrderById(
   let buyerEmail: string | null = null
   let buyerName: string | null = null
   if (order.buyer_user_id) {
-    const { data: buyer } = await serviceClient
+    const { data: buyer } = await observed(serviceClient
       .from('user_profiles')
       .select('email, display_name')
       .eq('user_id', order.buyer_user_id)
-      .maybeSingle()
+      .maybeSingle(), { table: 'user_profiles' })
     buyerEmail = (buyer?.email as string) || null
     buyerName = (buyer?.display_name as string) || null
   }
@@ -304,11 +305,11 @@ async function lookupMarketBoxSubByPI(
   let buyerEmail: string | null = null
   let buyerName: string | null = null
   if (sub.buyer_user_id) {
-    const { data: buyer } = await serviceClient
+    const { data: buyer } = await observed(serviceClient
       .from('user_profiles')
       .select('email, display_name')
       .eq('user_id', sub.buyer_user_id)
-      .maybeSingle()
+      .maybeSingle(), { table: 'user_profiles' })
     buyerEmail = (buyer?.email as string) || null
     buyerName = (buyer?.display_name as string) || null
   }
@@ -318,19 +319,19 @@ async function lookupMarketBoxSubByPI(
   // Also pull related order if the subscription has spawned one
   let orderNumber: string | null = null
   if (sub.order_id) {
-    const { data: ord } = await serviceClient
+    const { data: ord } = await observed(serviceClient
       .from('orders')
       .select('order_number')
       .eq('id', sub.order_id)
-      .maybeSingle()
+      .maybeSingle(), { table: 'orders' })
     orderNumber = (ord?.order_number as string) || null
   }
 
   // vendor_payouts for market box
-  const { data: payouts } = await serviceClient
+  const { data: payouts } = await observed(serviceClient
     .from('vendor_payouts')
     .select('stripe_transfer_id')
-    .eq('market_box_subscription_id', sub.id)
+    .eq('market_box_subscription_id', sub.id), { table: 'vendor_payouts' })
 
   return {
     kind: 'matched',
@@ -647,11 +648,11 @@ export async function reconcileByEmail(
   limit = 25,
 ): Promise<MatchResult> {
   // Find user by email
-  const { data: profile } = await serviceClient
+  const { data: profile } = await observed(serviceClient
     .from('user_profiles')
     .select('user_id')
     .ilike('email', email)
-    .maybeSingle()
+    .maybeSingle(), { table: 'user_profiles' })
 
   if (!profile?.user_id) {
     return {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { hasPlatformAdminRole } from '@/lib/auth/admin'
 
 interface RouteParams {
@@ -27,23 +27,23 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       }
 
       // Verify caller permissions
-      const { data: callerProfile } = await supabase
+      const { data: callerProfile } = await observed(supabase
         .from('user_profiles')
         .select('role, roles, is_chief_platform_admin')
         .eq('user_id', user.id)
         .is('deleted_at', null)
-        .single()
+        .single(), { table: 'user_profiles' })
 
       // S4-2: platform_admin ONLY (was hasAdminRole — a vertical admin wrongly
       // passed as platform admin and could remove admins in other verticals).
       const isPlatformAdmin = hasPlatformAdminRole(callerProfile || {})
 
-      const { data: callerVerticalAdmin } = await supabase
+      const { data: callerVerticalAdmin } = await observed(supabase
         .from('vertical_admins')
         .select('is_chief')
         .eq('user_id', user.id)
         .eq('vertical_id', verticalId)
-        .single()
+        .single(), { table: 'vertical_admins' })
 
       const serviceClient = createServiceClient()
 
@@ -90,11 +90,11 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       }
 
       // Get user email for logging
-      const { data: targetUser } = await serviceClient
+      const { data: targetUser } = await observed(serviceClient
         .from('user_profiles')
         .select('email')
         .eq('user_id', targetAdmin.user_id)
-        .single()
+        .single(), { table: 'user_profiles' })
 
       // Delete the admin record
       const { error: deleteError } = await serviceClient

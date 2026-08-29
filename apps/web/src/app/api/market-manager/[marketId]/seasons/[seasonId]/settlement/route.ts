@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced } from '@/lib/errors'
+import { withErrorTracing, traced, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { getGroupCancelledDays } from '@/lib/markets/cancelled-days'
@@ -43,18 +43,18 @@ interface PaidGroup {
 }
 
 async function loadContext(service: ReturnType<typeof createServiceClient>, marketId: string, seasonId: string) {
-  const { data: season } = await service
+  const { data: season } = await observed(service
     .from('market_seasons')
     .select('id, market_id, name, start_date, end_date, refund_cap_days, status')
     .eq('id', seasonId)
-    .maybeSingle()
+    .maybeSingle(), { table: 'market_seasons' })
   if (!season || season.market_id !== marketId) return null
 
-  const { data: groupsRaw } = await service
+  const { data: groupsRaw } = await observed(service
     .from('booth_booking_groups')
     .select('id, vendor_profile_id, week_count, total_manager_cents')
     .eq('season_id', seasonId)
-    .eq('status', 'paid')
+    .eq('status', 'paid'), { table: 'booth_booking_groups' })
   const groups: PaidGroup[] = (groupsRaw ?? []).map((g) => ({
     id: g.id as string,
     vendor_profile_id: g.vendor_profile_id as string,
@@ -106,11 +106,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // Resolved = a season_settlement booth_credits row already references the group.
     const resolved = new Set<string>()
     if (groupIds.length > 0) {
-      const { data: settled } = await service
+      const { data: settled } = await observed(service
         .from('booth_credits')
         .select('related_group_id')
         .eq('source', 'season_settlement')
-        .in('related_group_id', groupIds)
+        .in('related_group_id', groupIds), { table: 'booth_credits' })
       for (const r of settled ?? []) {
         if (r.related_group_id) resolved.add(r.related_group_id as string)
       }
@@ -118,10 +118,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const nameByVendor = new Map<string, string>()
     if (vendorIds.length > 0) {
-      const { data: vps } = await service
+      const { data: vps } = await observed(service
         .from('vendor_profiles')
         .select('id, profile_data')
-        .in('id', vendorIds)
+        .in('id', vendorIds), { table: 'vendor_profiles' })
       for (const vp of vps ?? []) {
         const pd = (vp.profile_data as { business_name?: string } | null) ?? null
         nameByVendor.set(vp.id as string, pd?.business_name || 'Vendor')
@@ -192,13 +192,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!group) return NextResponse.json({ error: 'Paid group not found for this season' }, { status: 404 })
 
     // Already resolved? (idempotency / double-click guard)
-    const { data: existing } = await service
+    const { data: existing } = await observed(service
       .from('booth_credits')
       .select('id')
       .eq('source', 'season_settlement')
       .eq('related_group_id', groupId)
       .limit(1)
-      .maybeSingle()
+      .maybeSingle(), { table: 'booth_credits' })
     if (existing) return NextResponse.json({ error: 'This group has already been settled.' }, { status: 409 })
 
     const cd = await getGroupCancelledDays(service, groupId)
@@ -227,8 +227,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (insErr) throw traced.fromSupabase(insErr, { table: 'booth_credits', operation: 'insert' })
 
     // Notify the vendor (best-effort; sendNotification never throws).
-    const { data: marketRow } = await service.from('markets').select('name, vertical_id').eq('id', marketId).maybeSingle()
-    const { data: vp } = await service.from('vendor_profiles').select('user_id').eq('id', group.vendor_profile_id).maybeSingle()
+    const { data: marketRow } = await observed(service.from('markets').select('name, vertical_id').eq('id', marketId).maybeSingle(), { table: 'markets' })
+    const { data: vp } = await observed(service.from('vendor_profiles').select('user_id').eq('id', group.vendor_profile_id).maybeSingle(), { table: 'vendor_profiles' })
     const vendorUserId = vp?.user_id as string | undefined
     if (vendorUserId) {
       await sendNotification(
@@ -242,11 +242,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     // Clean close: if every paid group with a shortfall is now resolved, settle the season.
-    const { data: settledRows } = await service
+    const { data: settledRows } = await observed(service
       .from('booth_credits')
       .select('related_group_id')
       .eq('source', 'season_settlement')
-      .in('related_group_id', groups.map((g) => g.id))
+      .in('related_group_id', groups.map((g) => g.id)), { table: 'booth_credits' })
     const resolvedIds = new Set((settledRows ?? []).map((r) => r.related_group_id as string))
 
     let seasonSettled = false

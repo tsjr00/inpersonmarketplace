@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { verifyAdminForApi } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 
 /**
  * GET /api/admin/analytics/trends
@@ -62,19 +62,19 @@ export async function GET(request: NextRequest) {
     // belong to vendors in that vertical (subs don't have vertical_id directly)
     let offeringIds: string[] | null = null
     if (verticalId) {
-      const { data: vendorRows } = await serviceClient
+      const { data: vendorRows } = await observed(serviceClient
         .from('vendor_profiles')
         .select('id')
-        .eq('vertical_id', verticalId)
+        .eq('vertical_id', verticalId), { table: 'vendor_profiles' })
       const vendorIds = (vendorRows || []).map((v) => v.id as string)
 
       if (vendorIds.length === 0) {
         offeringIds = []
       } else {
-        const { data: offeringRows } = await serviceClient
+        const { data: offeringRows } = await observed(serviceClient
           .from('market_box_offerings')
           .select('id')
-          .in('vendor_profile_id', vendorIds)
+          .in('vendor_profile_id', vendorIds), { table: 'market_box_offerings' })
         offeringIds = (offeringRows || []).map((o) => o.id as string)
       }
     }

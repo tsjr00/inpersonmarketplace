@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb, logError } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, logError, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 
 /**
@@ -336,11 +336,11 @@ export async function PUT(
     //    can't fail the save response.
     try {
       crumb.supabase('select', 'markets')
-      const { data: marketInfo } = await serviceClient
+      const { data: marketInfo } = await observed(serviceClient
         .from('markets')
         .select('name, vertical_id')
         .eq('id', marketId)
-        .maybeSingle()
+        .maybeSingle(), { table: 'markets' })
 
       const marketName = (marketInfo?.name as string | undefined) || 'the market'
       const vertical =
@@ -387,7 +387,7 @@ export async function PUT(
       const thisWeekStartStr = thisWeekStart.toISOString().slice(0, 10)
 
       crumb.supabase('select', 'weekly_booth_rentals')
-      const { data: paidRenters } = await serviceClient
+      const { data: paidRenters } = await observed(serviceClient
         .from('weekly_booth_rentals')
         .select(`
           vendor_profile_id,
@@ -395,7 +395,7 @@ export async function PUT(
         `)
         .eq('market_id', marketId)
         .eq('status', 'paid')
-        .gte('week_start_date', thisWeekStartStr)
+        .gte('week_start_date', thisWeekStartStr), { table: 'weekly_booth_rentals' })
 
       for (const r of (paidRenters ?? []) as VendorRow[]) {
         const vp = Array.isArray(r.vendor_profiles) ? r.vendor_profiles[0] : r.vendor_profiles

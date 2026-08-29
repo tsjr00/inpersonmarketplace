@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import { computeCancelCredit, computeCreditExpiry } from '@/lib/markets/cancel-credit'
@@ -36,21 +36,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const service = createServiceClient()
 
     crumb.supabase('select', 'booth_booking_groups')
-    const { data: group } = await service
+    const { data: group } = await observed(service
       .from('booth_booking_groups')
       .select('id, vendor_profile_id, market_id, season_id, status, total_vendor_cents')
       .eq('id', groupId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'booth_booking_groups' })
     if (!group) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
     if (group.status !== 'paid') {
       return NextResponse.json({ error: 'Only a paid season booking can be cancelled.' }, { status: 409 })
     }
 
-    const { data: market } = await service
+    const { data: market } = await observed(service
       .from('markets')
       .select('vertical_id, timezone')
       .eq('id', group.market_id as string)
-      .maybeSingle()
+      .maybeSingle(), { table: 'markets' })
     if (!market) throw traced.notFound('ERR_MARKET_001', 'Market not found')
 
     // Ownership: the caller's vendor profile in this market's vertical must own the group.
@@ -68,18 +68,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const pad = (n: number) => String(n).padStart(2, '0')
     const today = `${localNow.getFullYear()}-${pad(localNow.getMonth() + 1)}-${pad(localNow.getDate())}`
 
-    const { data: children } = await service
+    const { data: children } = await observed(service
       .from('weekly_booth_rentals')
       .select('id, week_start_date, price_cents')
       .eq('group_id', groupId)
-      .eq('status', 'paid')
+      .eq('status', 'paid'), { table: 'weekly_booth_rentals' })
     const rows = (children ?? []) as Array<{ id: string; week_start_date: string; price_cents: number }>
 
     let referenceStart: string | null = null
     let seasonEndDate: string | null = null
     if (group.season_id) {
-      const { data: season } = await service
-        .from('market_seasons').select('start_date, end_date').eq('id', group.season_id as string).maybeSingle()
+      const { data: season } = await observed(service
+        .from('market_seasons').select('start_date, end_date').eq('id', group.season_id as string).maybeSingle(), { table: 'market_seasons' })
       referenceStart = (season?.start_date as string | null) ?? null
       seasonEndDate = (season?.end_date as string | null) ?? null
     }
@@ -89,11 +89,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // D5: any credit redeemed against this group is RELEASED (returned to the
     // vendor) and the cancel credit is granted only on the manager's NET receipts.
-    const { data: redeemedRows } = await service
+    const { data: redeemedRows } = await observed(service
       .from('booth_credits')
       .select('amount_cents')
       .eq('related_group_id', groupId)
-      .eq('source', 'redeemed')
+      .eq('source', 'redeemed'), { table: 'booth_credits' })
     const redeemedSum = (redeemedRows ?? []).reduce((sum, r) => sum + (r.amount_cents as number), 0)
     const appliedCreditCents = redeemedSum < 0 ? -redeemedSum : 0
 

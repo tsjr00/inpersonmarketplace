@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb, getResolutionSummary } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, getResolutionSummary, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { hasPlatformAdminRole } from '@/lib/auth/admin'
 
@@ -80,11 +80,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     let verticalInfo = null
     if (report.vertical_id) {
       crumb.supabase('select', 'verticals')
-      const { data } = await supabase
+      const { data } = await observed(supabase
         .from('verticals')
         .select('vertical_id, name_public')
         .eq('vertical_id', report.vertical_id)
-        .single()
+        .single(), { table: 'verticals' })
       if (data) {
         verticalInfo = {
           id: data.vertical_id,
@@ -98,11 +98,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     let errorLog = null
     if (report.trace_id) {
       crumb.supabase('select', 'error_logs')
-      const { data } = await supabase
+      const { data } = await observed(supabase
         .from('error_logs')
         .select('*')
         .eq('trace_id', report.trace_id)
-        .single()
+        .single(), { table: 'error_logs' })
       errorLog = data
     }
 
@@ -118,13 +118,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     let similarReports: unknown[] = []
     if (report.error_code) {
       crumb.supabase('select', 'error_reports', { similar: true })
-      const { data } = await supabase
+      const { data } = await observed(supabase
         .from('error_reports')
         .select('id, status, vertical_id, created_at')
         .eq('error_code', report.error_code)
         .neq('id', id)
         .order('created_at', { ascending: false })
-        .limit(10)
+        .limit(10), { table: 'error_reports' })
       similarReports = data || []
     }
 
@@ -193,12 +193,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     // Check if user is platform admin
     crumb.supabase('select', 'user_profiles')
-    const { data: profile } = await supabase
+    const { data: profile } = await observed(supabase
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
       .is('deleted_at', null)
-      .single()
+      .single(), { table: 'user_profiles' })
 
     // S4-2: platform_admin ONLY (was hasAdminRole → a vertical admin wrongly
     // counted as platform admin and could resolve platform-ESCALATED reports and

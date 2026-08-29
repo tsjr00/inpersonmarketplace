@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
@@ -28,7 +28,7 @@ export async function POST(
     const isProd = process.env.NODE_ENV === 'production'
 
     // Fetch order item first — the joined order row provides vertical_id for multi-vertical vendor lookup
-    const { data: orderItem } = await supabase
+    const { data: orderItem } = await observed(supabase
       .from('order_items')
       .select(`
         id,
@@ -39,7 +39,7 @@ export async function POST(
         market:markets!market_id(name)
       `)
       .eq('id', orderItemId)
-      .single()
+      .single(), { table: 'order_items' })
 
     if (!orderItem) {
       return NextResponse.json({ error: 'Order item not found' }, { status: 404 })

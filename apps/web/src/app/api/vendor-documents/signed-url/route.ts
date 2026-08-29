@@ -4,7 +4,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { hasAdminRole } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 
 /**
  * GET /api/vendor-documents/signed-url?path=<storage-path>&marketId=<optional>
@@ -61,12 +61,12 @@ async function callerOwnsDoc(
   userId: string,
   vendorProfileId: string
 ): Promise<boolean> {
-  const { data } = await supabase
+  const { data } = await observed(supabase
     .from('vendor_profiles')
     .select('id')
     .eq('user_id', userId)
     .eq('id', vendorProfileId)
-    .maybeSingle()
+    .maybeSingle(), { table: 'vendor_profiles' })
   return !!data
 }
 
@@ -87,12 +87,12 @@ async function callerIsAdminForVendor(
   const verticalId = (vendorRes.data as { vertical_id?: string } | null)?.vertical_id
   if (!verticalId) return false
 
-  const { data: verticalAdmin } = await supabase
+  const { data: verticalAdmin } = await observed(supabase
     .from('vertical_admins')
     .select('id')
     .eq('user_id', userId)
     .eq('vertical_id', verticalId)
-    .maybeSingle()
+    .maybeSingle(), { table: 'vertical_admins' })
   return !!verticalAdmin
 }
 
@@ -114,11 +114,11 @@ async function managerHasConsentedAccess(
   void caller // suppress unused-var warning
 
   // Vendor must have consented to info-sharing at this market
-  const { data: acceptances } = await serviceClient
+  const { data: acceptances } = await observed(serviceClient
     .from('vendor_market_agreement_acceptances')
     .select('statements_snapshot')
     .eq('vendor_profile_id', vendorProfileId)
-    .eq('market_id', marketId)
+    .eq('market_id', marketId), { table: 'vendor_market_agreement_acceptances' })
 
   return (acceptances || []).some((row) => {
     const snap = row.statements_snapshot as Array<{ statement_id?: string }> | null

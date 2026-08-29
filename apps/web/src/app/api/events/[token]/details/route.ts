@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { eventRefColumn } from '@/lib/events/event-ref'
 import {
@@ -171,7 +171,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const { token } = await context.params
     const serviceClient = createServiceClient()
 
-    const { data: event } = await serviceClient
+    const { data: event } = await observed(serviceClient
       .from('catering_requests')
       .select(`
         id, status, company_name, contact_name, contact_email, contact_phone,
@@ -192,7 +192,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         is_recurring, recurring_frequency
       `)
       .eq(eventRefColumn(token), token)
-      .maybeSingle()
+      .maybeSingle(), { table: 'catering_requests' })
 
     if (!event) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
@@ -301,11 +301,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     // Fetch event and verify organizer
     crumb.supabase('select', 'catering_requests')
-    const { data: event } = await serviceClient
+    const { data: event } = await observed(serviceClient
       .from('catering_requests')
       .select('id, status, organizer_user_id, contact_email, market_id, event_date, address, city, state, zip, event_start_time, vertical_id')
       .eq(eventRefColumn(token), token)
-      .maybeSingle()
+      .maybeSingle(), { table: 'catering_requests' })
 
     if (!event) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
@@ -467,11 +467,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // If both times provided in this update OR being changed alongside an existing time, validate end > start
     if (updateData.event_start_time !== undefined || updateData.event_end_time !== undefined) {
       // Need current values for cross-field validation
-      const { data: current } = await serviceClient
+      const { data: current } = await observed(serviceClient
         .from('catering_requests')
         .select('event_start_time, event_end_time')
         .eq('id', event.id)
-        .single()
+        .single(), { table: 'catering_requests' })
       const newStart = (updateData.event_start_time ?? current?.event_start_time) as string | null
       const newEnd = (updateData.event_end_time ?? current?.event_end_time) as string | null
       if (newStart && newEnd) {
@@ -603,11 +603,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // consequence test as the attendee gate (day, place, or start >30min);
     // email + in-app via the standard-urgency event_changed_vendor template.
     if (consequentialChange) {
-      const { data: acceptedVendors } = await serviceClient
+      const { data: acceptedVendors } = await observed(serviceClient
         .from('market_vendors')
         .select('vendor_profile_id, vendor_profiles:vendor_profile_id(user_id)')
         .eq('market_id', event.market_id)
-        .eq('response_status', 'accepted')
+        .eq('response_status', 'accepted'), { table: 'market_vendors' })
 
       const changeSummary = describeChanges({
         ...('event_date' in updateData ? { event_date: updateData.event_date } : {}),

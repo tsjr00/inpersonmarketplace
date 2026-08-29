@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { hasAdminRole, verifyAdminScope } from '@/lib/auth/admin'
 
 /**
@@ -30,12 +30,12 @@ export async function GET(
     }
 
     // Verify user is admin
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await observed(supabase
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
       .is('deleted_at', null)
-      .single()
+      .single(), { table: 'user_profiles' })
 
     const isAdmin = hasAdminRole(userProfile || {})
     if (!isAdmin) {
@@ -108,12 +108,12 @@ export async function PATCH(
     }
 
     // Verify user is admin
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await observed(supabase
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
       .is('deleted_at', null)
-      .single()
+      .single(), { table: 'user_profiles' })
 
     const isAdmin = hasAdminRole(userProfile || {})
     if (!isAdmin) {

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendNotification } from '@/lib/notifications'
 import { generateSurveyToken } from './token'
+import { observed } from '@/lib/errors'
 import {
   computeFireMomentLocal,
   nowInTimezoneAsLocalIso,
@@ -40,19 +41,19 @@ export async function ensurePendingVendorSurveys(
     // row — selecting day_of_week here failed with 42703 on every vendor
     // dashboard load from 2026-07-17 until the prod API log surfaced it
     // 2026-08-25 (the catch below hid it: no vendor was ever lazily surveyed).
-    const { data: scheds } = await service
+    const { data: scheds } = await observed(service
       .from('vendor_market_schedules')
       .select('market_id, schedule_id')
       .eq('vendor_profile_id', vendorProfileId)
-      .eq('is_active', true)
+      .eq('is_active', true), { table: 'vendor_market_schedules' })
     if (!scheds || scheds.length === 0) return
 
     const scheduleIds = [...new Set(scheds.map((s) => s.schedule_id as string))]
-    const { data: scheduleRows } = await service
+    const { data: scheduleRows } = await observed(service
       .from('market_schedules')
       .select('id, day_of_week, end_time')
       .in('id', scheduleIds)
-      .eq('active', true)
+      .eq('active', true), { table: 'market_schedules' })
     const scheduleById = new Map(
       (scheduleRows ?? []).map((r) => [r.id as string, { dow: r.day_of_week as number, endTime: (r.end_time as string | null) ?? null }])
     )
@@ -148,14 +149,14 @@ export async function ensurePendingBuyerSurveys(
     // last few days: surveys only fire for today/yesterday market days, +cushion
     // for timezone + the 18:00/08:00-next-day fire window.
     const cutoff = formatYMD(new Date(Date.now() - 3 * 24 * 60 * 60 * 1000))
-    const { data: items } = await service
+    const { data: items } = await observed(service
       .from('order_items')
       .select('market_id, pickup_date, orders!inner ( buyer_user_id )')
       .eq('orders.buyer_user_id', buyerUserId)
       // order_item_status has no 'completed' — a phantom value makes PostgREST
       // reject the WHOLE query (22P02), not just skip it. Found 2026-08-25.
       .eq('status', 'fulfilled')
-      .gte('pickup_date', cutoff)
+      .gte('pickup_date', cutoff), { table: 'order_items' })
     if (!items || items.length === 0) return
 
     const pairs = new Map<string, { marketId: string; date: string }>()
@@ -167,12 +168,12 @@ export async function ensurePendingBuyerSurveys(
     if (pairs.size === 0) return
 
     const marketIds = [...new Set([...pairs.values()].map((p) => p.marketId))]
-    const { data: markets } = await service
+    const { data: markets } = await observed(service
       .from('markets')
       .select('id, name, timezone')
       .in('id', marketIds)
       .eq('active', true)
-      .eq('status', 'active')
+      .eq('status', 'active'), { table: 'markets' })
     const marketById = new Map((markets ?? []).map((m) => [m.id as string, m]))
 
     for (const { marketId, date } of pairs.values()) {
@@ -183,14 +184,14 @@ export async function ensurePendingBuyerSurveys(
       const dow = parseYMD(date)?.getDay()
       if (dow === undefined) continue
 
-      const { data: sc } = await service
+      const { data: sc } = await observed(service
         .from('market_schedules')
         .select('end_time')
         .eq('market_id', marketId)
         .eq('day_of_week', dow)
         .eq('active', true)
         .limit(1)
-        .maybeSingle()
+        .maybeSingle(), { table: 'market_schedules' })
       const fire = computeFireMomentLocal(date, (sc?.end_time as string | null) ?? null)
       if (!fire || nowLocal < fire.fireAtLocalIso) continue
 

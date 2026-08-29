@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { hasAdminRole, verifyAdminScope } from '@/lib/auth/admin'
-import { withErrorTracing, crumb, logError, TracedError } from '@/lib/errors'
+import { withErrorTracing, crumb, logError, TracedError, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { refundEventFeePayment } from '@/lib/stripe/event-fee-payments'
 import { sendNotification } from '@/lib/notifications/service'
@@ -42,20 +42,20 @@ type ScopedEventResult =
 
 async function loadScopedEvent(userId: string, eventId: string): Promise<ScopedEventResult> {
   const supabase = await createClient()
-  const { data: profile } = await supabase
+  const { data: profile } = await observed(supabase
     .from('user_profiles')
     .select('role, roles')
     .eq('user_id', userId)
-    .single()
+    .single(), { table: 'user_profiles' })
   if (!profile || !hasAdminRole(profile)) return { ok: false, error: 'Forbidden', status: 403 }
 
   const serviceClient = createServiceClient()
   crumb.supabase('select', 'catering_requests')
-  const { data: event } = await serviceClient
+  const { data: event } = await observed(serviceClient
     .from('catering_requests')
     .select('id, market_id, vertical_id, company_name, event_date')
     .eq('id', eventId)
-    .maybeSingle()
+    .maybeSingle(), { table: 'catering_requests' })
   if (!event?.market_id) return { ok: false, error: 'Event not found or not yet approved', status: 404 }
 
   const scope = await verifyAdminScope(event.vertical_id as string)
@@ -80,11 +80,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const { event, serviceClient } = loaded
 
     crumb.supabase('select', 'event_vendor_fee_payments')
-    const { data: rows } = await serviceClient
+    const { data: rows } = await observed(serviceClient
       .from('event_vendor_fee_payments')
       .select('id, vendor_profile_id, status, fee_cents, vendor_pays_cents, organizer_receives_cents, paid_at, refunded_at, refund_reason, forfeited_at, cancel_reason, covering_payment_id, created_at, vendor_profiles:vendor_profile_id(profile_data)')
       .eq('market_id', event.market_id)
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: false }), { table: 'event_vendor_fee_payments' })
 
     return NextResponse.json({
       event: { id: event.id, name: event.company_name, date: event.event_date },
@@ -131,12 +131,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     crumb.supabase('select', 'event_vendor_fee_payments')
-    const { data: row } = await serviceClient
+    const { data: row } = await observed(serviceClient
       .from('event_vendor_fee_payments')
       .select('id, status, vendor_pays_cents, stripe_payment_intent_id, vendor_profiles:vendor_profile_id(user_id)')
       .eq('id', paymentId)
       .eq('market_id', event.market_id)
-      .maybeSingle()
+      .maybeSingle(), { table: 'event_vendor_fee_payments' })
 
     if (!row) return NextResponse.json({ error: 'Payment not found for this event' }, { status: 404 })
     if (!REFUNDABLE_STATUSES.includes(row.status as string)) {
@@ -153,7 +153,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // deterministic refund key makes the Stripe call idempotent besides.
     const priorStatus = row.status as string
     crumb.supabase('update', 'event_vendor_fee_payments')
-    const { data: claimed } = await serviceClient
+    const { data: claimed } = await observed(serviceClient
       .from('event_vendor_fee_payments')
       .update({
         status: 'refunded',
@@ -162,7 +162,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       })
       .eq('id', row.id)
       .eq('status', priorStatus)
-      .select('id')
+      .select('id'), { table: 'event_vendor_fee_payments', operation: 'update' })
 
     if (!claimed || claimed.length === 0) {
       return NextResponse.json({ error: 'This payment was already handled.' }, { status: 409 })
@@ -192,11 +192,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const vendorUserId = (row.vendor_profiles as unknown as { user_id?: string } | null)?.user_id
     if (vendorUserId) {
-      const { data: marketRow } = await serviceClient
+      const { data: marketRow } = await observed(serviceClient
         .from('markets')
         .select('name')
         .eq('id', event.market_id)
-        .maybeSingle()
+        .maybeSingle(), { table: 'markets' })
       await sendNotification(vendorUserId, 'event_fee_refunded_vendor', {
         marketName: (marketRow?.name as string) || (event.company_name as string) || 'the event',
         marketId: event.market_id as string,

@@ -11,6 +11,7 @@ import { withErrorTracing } from '@/lib/errors/with-error-tracing'
 import { TracedError } from '@/lib/errors/traced-error'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
+import { observed } from '@/lib/errors'
 
 import { getSubscriberDefault } from '@/lib/vendor-limits'
 
@@ -92,11 +93,11 @@ export async function GET(request: NextRequest) {
 
     if (offeringIds.length > 0) {
       // Batch query: get all active subscriptions for these offerings
-      const { data: subscriptions } = await supabase
+      const { data: subscriptions } = await observed(supabase
         .from('market_box_subscriptions')
         .select('offering_id')
         .in('offering_id', offeringIds)
-        .eq('status', 'active')
+        .eq('status', 'active'), { table: 'market_box_subscriptions' })
 
       // Count subscriptions per offering
       for (const sub of subscriptions || []) {
@@ -433,10 +434,10 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Block frequency changes while active subscriptions exist
-    const { data: vendorOfferings } = await supabase
+    const { data: vendorOfferings } = await observed(supabase
       .from('market_box_offerings')
       .select('id')
-      .eq('vendor_profile_id', vendor.id)
+      .eq('vendor_profile_id', vendor.id), { table: 'market_box_offerings' })
 
     const offeringIds = vendorOfferings?.map(o => o.id) || []
     let activeSubCount = 0

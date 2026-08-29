@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { withErrorTracing, crumb } from '@/lib/errors'
+import { withErrorTracing, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
@@ -48,11 +48,11 @@ export async function POST(request: NextRequest) {
 
     // Auto-sync push_enabled preference so notification service sends push
     crumb.supabase('select', 'user_profiles', { field: 'notification_preferences' })
-    const { data: profile } = await supabase
+    const { data: profile } = await observed(supabase
       .from('user_profiles')
       .select('*')
       .eq('user_id', user.id)
-      .single()
+      .single(), { table: 'user_profiles' })
 
     const currentPrefs = ((profile as Record<string, unknown>)?.notification_preferences as Record<string, unknown>) || {}
     if (!currentPrefs.push_enabled) {
@@ -110,11 +110,11 @@ export async function DELETE(request: NextRequest) {
 
     if (count === 0) {
       crumb.supabase('select', 'user_profiles', { field: 'notification_preferences' })
-      const { data: profile } = await supabase
+      const { data: profile } = await observed(supabase
         .from('user_profiles')
         .select('*')
         .eq('user_id', user.id)
-        .single()
+        .single(), { table: 'user_profiles' })
 
       const currentPrefs = ((profile as Record<string, unknown>)?.notification_preferences as Record<string, unknown>) || {}
       if (currentPrefs.push_enabled) {

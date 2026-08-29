@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { ZIP_LOOKUP } from '@/lib/geocode'
 
@@ -21,11 +21,11 @@ export async function POST(request: NextRequest) {
 
       // 1. Check zip_codes table first (indexed PK lookup — sub-millisecond)
       const supabase = await createClient()
-      const { data: dbZip } = await supabase
+      const { data: dbZip } = await observed(supabase
         .from('zip_codes')
         .select('latitude, longitude, city, state')
         .eq('zip', zipCode)
-        .single()
+        .single(), { table: 'zip_codes' })
 
       if (dbZip?.latitude && dbZip?.longitude) {
         return NextResponse.json({

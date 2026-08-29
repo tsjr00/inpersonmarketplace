@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getTierSortPriority } from '@/lib/vendor-limits'
 
@@ -234,10 +234,10 @@ export async function GET(request: NextRequest) {
       // manager invitation browser). Fetch the set of vendor_profile_ids
       // already in market_vendors for excludeMarket — any status counts.
       if (excludeMarket) {
-        const { data: existingMv } = await supabase
+        const { data: existingMv } = await observed(supabase
           .from('market_vendors')
           .select('vendor_profile_id')
-          .eq('market_id', excludeMarket)
+          .eq('market_id', excludeMarket), { table: 'market_vendors' })
         const excludeSet = new Set(
           (existingMv ?? []).map((r) => r.vendor_profile_id as string)
         )
@@ -495,10 +495,10 @@ async function fallbackNearbyQuery(
   if (market) filteredVendors = filteredVendors.filter(v => v.markets.some(m => m.id === market))
   // NEW-8 exclude_market also applied on the fallback path.
   if (excludeMarket) {
-    const { data: existingMv } = await supabase
+    const { data: existingMv } = await observed(supabase
       .from('market_vendors')
       .select('vendor_profile_id')
-      .eq('market_id', excludeMarket)
+      .eq('market_id', excludeMarket), { table: 'market_vendors' })
     const excludeSet = new Set(
       (existingMv ?? []).map((r) => r.vendor_profile_id as string)
     )

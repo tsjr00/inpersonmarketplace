@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors/with-error-tracing'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
+import { observed } from '@/lib/errors'
 
 /**
  * GET /api/event-approved-vendors?vertical=food_trucks&q=taco
@@ -32,12 +33,12 @@ export async function GET(request: NextRequest) {
     const serviceClient = createServiceClient()
 
     // Get event-approved vendors for this vertical
-    const { data: vendors } = await serviceClient
+    const { data: vendors } = await observed(serviceClient
       .from('vendor_profiles')
       .select('id, profile_data, average_rating, rating_count, tier, pickup_lead_minutes, profile_image_url')
       .eq('vertical_id', vertical)
       .eq('status', 'approved')
-      .eq('event_approved', true)
+      .eq('event_approved', true), { table: 'vendor_profiles' })
 
     if (!vendors || vendors.length === 0) {
       return NextResponse.json({ vendors: [] })
@@ -45,12 +46,12 @@ export async function GET(request: NextRequest) {
 
     // Get listing categories + catering item count per vendor
     const vendorIds = vendors.map(v => v.id)
-    const { data: listings } = await serviceClient
+    const { data: listings } = await observed(serviceClient
       .from('listings')
       .select('vendor_profile_id, category, price_cents, listing_data')
       .in('vendor_profile_id', vendorIds)
       .eq('status', 'published')
-      .is('deleted_at', null)
+      .is('deleted_at', null), { table: 'listings' })
 
     const vendorCategories: Record<string, Set<string>> = {}
     const vendorPrices: Record<string, number[]> = {}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import { notifyParksForVendorDocChange } from '@/lib/markets/park-docs-review'
@@ -81,11 +81,11 @@ export async function POST(request: NextRequest) {
 
     // Add to verification documents array
     crumb.supabase('select', 'vendor_verifications')
-    const { data: verification } = await supabase
+    const { data: verification } = await observed(supabase
       .from('vendor_verifications')
       .select('documents')
       .eq('vendor_profile_id', vendor.id)
-      .single()
+      .single(), { table: 'vendor_verifications' })
 
     const existingDocs = Array.isArray(verification?.documents) ? verification.documents : []
     const newDoc = {

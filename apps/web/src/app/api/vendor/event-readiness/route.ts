@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { sendNotification } from '@/lib/notifications'
 import { validateEventReadiness } from '@/lib/vendor/event-readiness-validation'
@@ -109,10 +109,10 @@ export async function PUT(request: NextRequest) {
 
       // Notify admin(s) to review
       const serviceClient = createServiceClient()
-      const { data: admins } = await serviceClient
+      const { data: admins } = await observed(serviceClient
         .from('user_profiles')
         .select('user_id')
-        .or('role.eq.admin,role.eq.platform_admin')
+        .or('role.eq.admin,role.eq.platform_admin'), { table: 'user_profiles' })
       if (admins && admins.length > 0) {
         await Promise.all(
           admins.map((admin) =>

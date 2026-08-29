@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { SupabaseClient } from '@supabase/supabase-js'
 import { hasAdminRole } from '@/lib/auth/admin'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
@@ -22,22 +22,22 @@ async function verifyAdminAccess(
   userId: string,
   verticalId?: string
 ): Promise<boolean> {
-  const { data: userProfile } = await supabase
+  const { data: userProfile } = await observed(supabase
     .from('user_profiles')
     .select('role, roles')
     .eq('user_id', userId)
     .is('deleted_at', null)
-    .single()
+    .single(), { table: 'user_profiles' })
 
   if (hasAdminRole(userProfile || {})) return true
 
   if (verticalId) {
-    const { data: verticalAdmin } = await supabase
+    const { data: verticalAdmin } = await observed(supabase
       .from('vertical_admins')
       .select('id')
       .eq('user_id', userId)
       .eq('vertical_id', verticalId)
-      .single()
+      .single(), { table: 'vertical_admins' })
     return !!verticalAdmin
   }
   return false

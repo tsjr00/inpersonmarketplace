@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import { shouldRestoreInventory } from '@/lib/inventory-rules'
+import { observed } from '@/lib/errors'
 
 /**
  * Restore inventory for cancelled/expired order items.
@@ -66,11 +67,11 @@ export async function cancelOrderItemsAndRestoreGuarded(
   cancelledBy: string,
   cancellationReason: string
 ): Promise<{ claimed: number; restored: number; failed: number; skipped: number }> {
-  const { data: activeItems } = await serviceClient
+  const { data: activeItems } = await observed(serviceClient
     .from('order_items')
     .select('id, listing_id, quantity, status')
     .eq('order_id', orderId)
-    .is('cancelled_at', null)
+    .is('cancelled_at', null), { table: 'order_items' })
 
   if (!activeItems || activeItems.length === 0) {
     return { claimed: 0, restored: 0, failed: 0, skipped: 0 }

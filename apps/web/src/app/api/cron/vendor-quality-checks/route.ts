@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { timingSafeEqual } from 'crypto'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import {
   checkScheduleConflicts,
@@ -119,11 +119,11 @@ export async function GET(request: NextRequest) {
 
       // Step 4: Check dismissals — skip findings the vendor dismissed within 7 days
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-      const { data: recentDismissals } = await supabase
+      const { data: recentDismissals } = await observed(supabase
         .from('vendor_quality_findings')
         .select('vendor_profile_id, check_type, reference_key')
         .eq('status', 'dismissed')
-        .gte('dismissed_at', sevenDaysAgo)
+        .gte('dismissed_at', sevenDaysAgo), { table: 'vendor_quality_findings' })
 
       const dismissedKeys = buildDismissalKeySet(recentDismissals || [])
       const filteredFindings = filterUndismissedFindings(allFindings, dismissedKeys)
@@ -169,10 +169,10 @@ export async function GET(request: NextRequest) {
       let vendorsNotified = 0
 
       if (vendorIds.length > 0) {
-        const { data: vendors } = await supabase
+        const { data: vendors } = await observed(supabase
           .from('vendor_profiles')
           .select('id, user_id')
-          .in('id', vendorIds)
+          .in('id', vendorIds), { table: 'vendor_profiles' })
 
         for (const vendor of vendors || []) {
           if (!vendor.user_id) continue

@@ -6,7 +6,7 @@ import {
   rateLimits,
   rateLimitResponse,
 } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { getEmailFromAddress, getEmailBranding } from '@/lib/notifications/email-config'
 
 /**
@@ -279,11 +279,11 @@ export async function POST(request: NextRequest) {
     const normalizedTarget = normalizeName(marketName)
 
     crumb.supabase('select', 'markets')
-    const { data: cityCandidates } = await supabase
+    const { data: cityCandidates } = await observed(supabase
       .from('markets')
       .select('id, name, city, state, status, manager_email')
       .ilike('city', city)
-      .neq('id', marketId)
+      .neq('id', marketId), { table: 'markets' })
 
     const possibleDuplicates = (cityCandidates ?? [])
       .filter((d) => {

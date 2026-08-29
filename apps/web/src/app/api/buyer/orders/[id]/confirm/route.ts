@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { transferToVendor, getChargeIdFromPaymentIntent } from '@/lib/stripe/payments'
-import { withErrorTracing, traced, crumb, TracedError, logError } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, TracedError, logError, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { sendNotification } from '@/lib/notifications'
 import { claimVendorFeeDeduction } from '@/lib/payments/vendor-fees'
@@ -97,11 +97,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
       // Get vendor profile with Stripe account status
       crumb.supabase('select', 'vendor_profiles')
-      const { data: vendorProfile } = await supabase
+      const { data: vendorProfile } = await observed(supabase
         .from('vendor_profiles')
         .select('id, stripe_account_id, stripe_payouts_enabled, user_id')
         .eq('id', orderItem.vendor_profile_id)
-        .single()
+        .single(), { table: 'vendor_profiles' })
 
       if (!vendorProfile) {
         throw traced.notFound('ERR_ORDER_001', 'Vendor not found')
@@ -122,12 +122,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
         const orderIsPaid = ['paid', 'completed'].includes((order as any)?.status)
         if (!orderIsPaid) {
           crumb.supabase('select', 'payments (VOR-1 paid gate)')
-          const { data: paidPayment } = await serviceClient
+          const { data: paidPayment } = await observed(serviceClient
             .from('payments')
             .select('id')
             .eq('order_id', orderItem.order_id)
             .eq('status', 'succeeded')
-            .maybeSingle()
+            .maybeSingle(), { table: 'payments' })
 
           if (!paidPayment) {
             throw traced.validation('ERR_ORDER_007', 'This order has not been paid yet, so it cannot be completed.', {
@@ -190,12 +190,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
       crumb.supabase('select', 'vendor_payouts')
       // VOR-3: vendor_payouts is default-deny RLS with no INSERT policy; the
       // buyer client silently fails inserts. Use serviceClient (matches fulfill).
-      const { data: existingPayout } = await serviceClient
+      const { data: existingPayout } = await observed(serviceClient
         .from('vendor_payouts')
         .select('id, status')
         .eq('order_item_id', orderItem.id)
         .neq('status', 'failed')
-        .maybeSingle()
+        .maybeSingle(), { table: 'vendor_payouts' })
 
       if (existingPayout) {
         crumb.logic('Vendor payout already exists, skipping transfer', { payoutId: existingPayout.id, status: existingPayout.status })
@@ -259,12 +259,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
               // row: the gate short-circuits on orders.status and never selects
               // the payment intent.
               let chargeId: string | undefined
-              const { data: chargePayment } = await serviceClient
+              const { data: chargePayment } = await observed(serviceClient
                 .from('payments')
                 .select('stripe_payment_intent_id')
                 .eq('order_id', orderItem.order_id)
                 .eq('status', 'succeeded')
-                .maybeSingle()
+                .maybeSingle(), { table: 'payments' })
               if (chargePayment?.stripe_payment_intent_id) {
                 chargeId = (await getChargeIdFromPaymentIntent(chargePayment.stripe_payment_intent_id)) || undefined
               }
@@ -350,18 +350,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
       // Notify vendor to fulfill (multi-channel via notification service)
       crumb.supabase('select', 'vendor_profiles')
-      const { data: vendorProfile } = await supabase
+      const { data: vendorProfile } = await observed(supabase
         .from('vendor_profiles')
         .select('user_id')
         .eq('id', orderItem.vendor_profile_id)
-        .single()
+        .single(), { table: 'vendor_profiles' })
 
       if (vendorProfile?.user_id) {
-        const { data: buyerProfile } = await supabase
+        const { data: buyerProfile } = await observed(supabase
           .from('user_profiles')
           .select('display_name')
           .eq('user_id', user.id)
-          .single()
+          .single(), { table: 'user_profiles' })
         const verticalId = (order as { vertical_id?: string }).vertical_id
         await sendNotification(vendorProfile.user_id, 'pickup_confirmation_needed', {
           orderItemId,

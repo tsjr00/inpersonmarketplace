@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
@@ -95,11 +95,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     // Notify vendor
     crumb.supabase('select', 'vendor_profiles')
-    const { data: vendorProfile } = await supabase
+    const { data: vendorProfile } = await observed(supabase
       .from('vendor_profiles')
       .select('user_id')
       .eq('id', orderItem.vendor_profile_id)
-      .single()
+      .single(), { table: 'vendor_profiles' })
 
     if (vendorProfile?.user_id) {
       crumb.logic('Sending pickup issue notification to vendor')

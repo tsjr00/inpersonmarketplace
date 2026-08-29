@@ -27,7 +27,7 @@ import {
 } from './types'
 import { defaultBranding } from '@/lib/branding/defaults'
 import { getEmailFromAddress, getEmailBranding } from '@/lib/notifications/email-config'
-import { TracedError, logError } from '@/lib/errors'
+import { TracedError, logError, observed } from '@/lib/errors'
 
 // ── External Clients (lazy init) ────────────────────────────────────
 
@@ -516,11 +516,11 @@ export async function sendNotification(
   } else {
     try {
       const supabase = createServiceClient()
-      const { data: profile } = await supabase
+      const { data: profile } = await observed(supabase
         .from('user_profiles')
         .select('*')
         .eq('user_id', userId)
-        .single()
+        .single(), { table: 'user_profiles' })
 
       if (profile?.notification_preferences) {
         preferences = { ...DEFAULT_PREFERENCES, ...profile.notification_preferences as UserPreferences }
@@ -543,12 +543,12 @@ export async function sendNotification(
 
       // Tier-based channel gating: restrict channels based on vendor's tier (both verticals)
       if (!isCritical && options?.vertical && profile?.user_id) {
-        const { data: vendor } = await supabase
+        const { data: vendor } = await observed(supabase
           .from('vendor_profiles')
           .select('tier')
           .eq('user_id', profile.user_id)
           .eq('vertical_id', options.vertical)
-          .single()
+          .single(), { table: 'vendor_profiles' })
         await applyTierGate(vendor?.tier ?? null)
       }
     } catch (prefError) {
@@ -739,11 +739,11 @@ export async function sendNotificationBatch(
     // Query 2: vendor tiers for this vertical (only when tier-gating applies).
     const tierByUser = new Map<string, string | null>()
     if (options?.vertical) {
-      const { data: vendors } = await supabase
+      const { data: vendors } = await observed(supabase
         .from('vendor_profiles')
         .select('user_id, tier')
         .in('user_id', userIds)
-        .eq('vertical_id', options.vertical)
+        .eq('vertical_id', options.vertical), { table: 'vendor_profiles' })
       for (const v of vendors ?? []) {
         tierByUser.set(v.user_id as string, (v.tier as string | null) ?? null)
       }

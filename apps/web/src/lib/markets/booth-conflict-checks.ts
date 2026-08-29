@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { observed } from '@/lib/errors'
 
 /**
  * Server-only pre-flight checks for booth assignment mutations.
@@ -157,12 +158,12 @@ export async function checkTierCapacity(
 ): Promise<CapacityCheckResult> {
   const { marketId, inventoryId, excludeSelf } = opts
 
-  const { data: tierRow } = await serviceClient
+  const { data: tierRow } = await observed(serviceClient
     .from('market_booth_inventory')
     .select('id, size_label, count')
     .eq('id', inventoryId)
     .eq('market_id', marketId)
-    .maybeSingle()
+    .maybeSingle(), { table: 'market_booth_inventory' })
 
   if (!tierRow) {
     return {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, logError } from '@/lib/errors'
+import { withErrorTracing, traced, logError, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 interface RouteContext {
@@ -31,12 +31,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const serviceClient = createServiceClient()
 
     // Look up market_id from token
-    const { data: event } = await serviceClient
+    const { data: event } = await observed(serviceClient
       .from('catering_requests')
       .select('market_id, status')
       .eq('event_token', token)
       .in('status', ['approved', 'ready', 'active'])
-      .single()
+      .single(), { table: 'catering_requests' })
 
     if (!event?.market_id) {
       return NextResponse.json({ error: 'Event not found or not accepting orders' }, { status: 404 })
@@ -51,12 +51,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // backstop. cancel_wave_reservation row-locks the wave, re-checks
     // status='reserved' (safe against a completing order), and reopens full
     // waves — failures are non-fatal (the reserve RPC just reports full).
-    const { data: staleReservations } = await serviceClient
+    const { data: staleReservations } = await observed(serviceClient
       .from('event_wave_reservations')
       .select('id, user_id')
       .eq('market_id', event.market_id)
       .eq('status', 'reserved')
-      .lt('expires_at', new Date().toISOString())
+      .lt('expires_at', new Date().toISOString()), { table: 'event_wave_reservations' })
     for (const stale of staleReservations || []) {
       await serviceClient.rpc('cancel_wave_reservation', {
         p_reservation_id: stale.id,

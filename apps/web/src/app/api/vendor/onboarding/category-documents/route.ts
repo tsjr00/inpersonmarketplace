@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { notifyParksForVendorDocChange } from '@/lib/markets/park-docs-review'
 import { CATEGORIES, type Category } from '@/lib/constants'
@@ -131,11 +131,11 @@ export async function POST(request: NextRequest) {
     crumb.supabase('select', 'vendor_verifications')
     const maxRetries = 3
     for (let attempt = 0; attempt < maxRetries; attempt++) {
-      const { data: verification } = await supabase
+      const { data: verification } = await observed(supabase
         .from('vendor_verifications')
         .select('category_verifications, updated_at')
         .eq('vendor_profile_id', vendor.id)
-        .single()
+        .single(), { table: 'vendor_verifications' })
 
       const catVerifications = (verification?.category_verifications || {}) as Record<string, unknown>
       const existingCat = (catVerifications[category] || {}) as Record<string, unknown>

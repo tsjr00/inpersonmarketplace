@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 
 export async function DELETE(request: NextRequest) {
   return withErrorTracing('/api/user/delete-account', 'DELETE', async () => {
@@ -51,10 +51,10 @@ export async function DELETE(request: NextRequest) {
       }
 
       // 2. Get and anonymize vendor profiles for this user
-      const { data: vendorProfiles } = await supabase
+      const { data: vendorProfiles } = await observed(supabase
         .from('vendor_profiles')
         .select('id')
-        .eq('user_id', user.id)
+        .eq('user_id', user.id), { table: 'vendor_profiles' })
 
       if (vendorProfiles && vendorProfiles.length > 0) {
         for (const vendor of vendorProfiles) {

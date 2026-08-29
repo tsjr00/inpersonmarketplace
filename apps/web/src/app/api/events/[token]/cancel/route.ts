@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, logError, TracedError } from '@/lib/errors'
+import { withErrorTracing, logError, TracedError, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { sendNotification } from '@/lib/notifications/service'
 import { stripe } from '@/lib/stripe/config'
@@ -91,10 +91,10 @@ export async function POST(
 
     // Clean up listing_markets rows (same as admin cancel)
     if (event.market_id) {
-      const { data: eventListings } = await serviceClient
+      const { data: eventListings } = await observed(serviceClient
         .from('event_vendor_listings')
         .select('listing_id')
-        .eq('market_id', event.market_id)
+        .eq('market_id', event.market_id), { table: 'event_vendor_listings' })
 
       if (eventListings && eventListings.length > 0) {
         const listingIds = eventListings.map(el => el.listing_id as string)
@@ -127,11 +127,11 @@ export async function POST(
       // passed vendor_profile_id, so no vendor ever received the cancellation
       // notice (the send fails silently by design). Resolve user_id via the
       // vendor_profiles join (broadcast route pattern).
-      const { data: acceptedVendors } = await serviceClient
+      const { data: acceptedVendors } = await observed(serviceClient
         .from('market_vendors')
         .select('vendor_profile_id, vendor_profiles!inner(user_id)')
         .eq('market_id', event.market_id)
-        .eq('response_status', 'accepted')
+        .eq('response_status', 'accepted'), { table: 'market_vendors' })
 
       if (acceptedVendors && acceptedVendors.length > 0) {
         const vendorNotifications = acceptedVendors.flatMap(v => {
@@ -153,10 +153,10 @@ export async function POST(
       // exist; the link from event/market to orders is per-item). Earlier
       // attempts queried .from('orders').eq('market_id', ...) which silently
       // returned null, causing the entire cancel flow to no-op.
-      const { data: orderItemRows } = await serviceClient
+      const { data: orderItemRows } = await observed(serviceClient
         .from('order_items')
         .select('order_id, status')
-        .eq('market_id', event.market_id)
+        .eq('market_id', event.market_id), { table: 'order_items' })
 
       const orderIds = [...new Set((orderItemRows || []).map(r => r.order_id as string))]
 
@@ -198,11 +198,11 @@ export async function POST(
         const fulfilledOrderIds = new Set(
           (orderItemRows || []).filter(r => r.status === 'fulfilled').map(r => r.order_id as string)
         )
-        const { data: eventPayments } = await serviceClient
+        const { data: eventPayments } = await observed(serviceClient
           .from('payments')
           .select('order_id, stripe_payment_intent_id')
           .in('order_id', buyerOrders.map(o => o.id as string))
-          .eq('status', 'succeeded')
+          .eq('status', 'succeeded'), { table: 'payments' })
         const paymentByOrder = new Map(
           (eventPayments || []).map(p => [p.order_id as string, p.stripe_payment_intent_id as string | null])
         )

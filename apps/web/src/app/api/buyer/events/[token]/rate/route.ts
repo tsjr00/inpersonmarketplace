@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced } from '@/lib/errors'
+import { withErrorTracing, traced, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
@@ -87,12 +87,12 @@ export async function POST(
     // enforced here instead: user_id is the authed user (set below), and the
     // pending-only edit lock is this explicit check (mirrors the UPDATE
     // policy's status='pending' condition).
-    const { data: existingRating } = await serviceClient
+    const { data: existingRating } = await observed(serviceClient
       .from('event_ratings')
       .select('id, status')
       .eq('catering_request_id', event.id)
       .eq('user_id', user.id)
-      .maybeSingle()
+      .maybeSingle(), { table: 'event_ratings' })
 
     if (existingRating && existingRating.status !== 'pending') {
       return NextResponse.json(

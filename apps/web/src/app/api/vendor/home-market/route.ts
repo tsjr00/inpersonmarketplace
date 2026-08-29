@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { setHomeMarket, getHomeMarket, canChangeHomeMarket, isPremiumTier } from '@/lib/vendor-limits'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
@@ -43,11 +43,11 @@ export async function GET(request: NextRequest) {
     // Get home market details if set
     let homeMarket = null
     if (vendor.home_market_id) {
-      const { data: market } = await supabase
+      const { data: market } = await observed(supabase
         .from('markets')
         .select('id, name, address, city, state')
         .eq('id', vendor.home_market_id)
-        .single()
+        .single(), { table: 'markets' })
       homeMarket = market
     }
 
@@ -110,11 +110,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the market exists and is a traditional market
-    const { data: market } = await supabase
+    const { data: market } = await observed(supabase
       .from('markets')
       .select('id, name, market_type')
       .eq('id', marketId)
-      .single()
+      .single(), { table: 'markets' })
 
     if (!market) {
       return NextResponse.json({ error: 'Market not found' }, { status: 404 })

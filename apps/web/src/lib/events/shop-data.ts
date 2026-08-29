@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { observed } from '@/lib/errors'
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -143,13 +144,13 @@ export async function getEventShopData(
   // schedule can't be returned as the event-market's pickup target.
   // Event markets typically have one schedule row so low risk, but
   // defensive filter is cheap.
-  const { data: schedule } = await serviceClient
+  const { data: schedule } = await observed(serviceClient
     .from('market_schedules')
     .select('id, start_time, end_time, day_of_week')
     .eq('market_id', event.market_id)
     .eq('active', true)
     .limit(1)
-    .single()
+    .single(), { table: 'market_schedules' })
 
   // ATTENDING vendors only (mig 234 mirror — @paired-rule
   // event-sells-on-acceptance). Owner rule 2026-08-16: "they must attend to
@@ -159,11 +160,11 @@ export async function getEventShopData(
   // sell gate (get_available_pickup_dates, mig 234) enforces the same rule at
   // cart time; this mirror keeps non-attending menus out of the shop so
   // attendees never see items that would error at checkout.
-  const { data: marketVendors } = await serviceClient
+  const { data: marketVendors } = await observed(serviceClient
     .from('market_vendors')
     .select('vendor_profile_id, is_backup')
     .eq('market_id', event.market_id)
-    .eq('response_status', 'accepted')
+    .eq('response_status', 'accepted'), { table: 'market_vendors' })
 
   let attendingVendorIds = (marketVendors || [])
     .filter(mv => mv.is_backup !== true)
@@ -171,11 +172,11 @@ export async function getEventShopData(
 
   const feeCents = (event.event_vendor_fee_cents as number | null) || 0
   if (feeCents > 0 && attendingVendorIds.length > 0) {
-    const { data: settledFeeRows } = await serviceClient
+    const { data: settledFeeRows } = await observed(serviceClient
       .from('event_vendor_fee_payments')
       .select('vendor_profile_id')
       .eq('market_id', event.market_id)
-      .in('status', ['paid', 'covered'])
+      .in('status', ['paid', 'covered']), { table: 'event_vendor_fee_payments' })
     const settledIds = new Set((settledFeeRows || []).map(r => r.vendor_profile_id as string))
     attendingVendorIds = attendingVendorIds.filter(id => settledIds.has(id))
   }
@@ -190,12 +191,12 @@ export async function getEventShopData(
   }> = {}
 
   if (acceptedVendorIds.length > 0) {
-    const { data: profiles } = await serviceClient
+    const { data: profiles } = await observed(serviceClient
       .from('vendor_profiles')
       .select('id, profile_data, profile_image_url, description, pickup_lead_minutes')
       .in('id', acceptedVendorIds)
       .eq('status', 'approved')
-      .is('deleted_at', null)
+      .is('deleted_at', null), { table: 'vendor_profiles' })
 
     for (const vp of profiles || []) {
       vendorProfileMap[vp.id] = {
@@ -212,11 +213,11 @@ export async function getEventShopData(
 
   // Batch: get ALL event_vendor_listings for this market in one query,
   // then ALL listings in one query, then group by vendor in JS.
-  const { data: allEvlRows } = await serviceClient
+  const { data: allEvlRows } = await observed(serviceClient
     .from('event_vendor_listings')
     .select('vendor_profile_id, listing_id')
     .eq('market_id', event.market_id)
-    .in('vendor_profile_id', acceptedVendorIds)
+    .in('vendor_profile_id', acceptedVendorIds), { table: 'event_vendor_listings' })
 
   const allListingIds = [...new Set((allEvlRows || []).map(r => r.listing_id as string))]
 
@@ -226,12 +227,12 @@ export async function getEventShopData(
   // vestigial and is NOT populated by the current upload flow.
   const allListingMap: Record<string, EventShopListing> = {}
   if (allListingIds.length > 0) {
-    const { data: allListingRows } = await serviceClient
+    const { data: allListingRows } = await observed(serviceClient
       .from('listings')
       .select('id, title, description, price_cents, quantity, listing_data, listing_images (url, is_primary, display_order)')
       .in('id', allListingIds)
       .eq('status', 'published')
-      .is('deleted_at', null)
+      .is('deleted_at', null), { table: 'listings' })
 
     for (const l of allListingRows || []) {
       const ld = (l.listing_data as Record<string, unknown>) || {}
@@ -279,19 +280,19 @@ export async function getEventShopData(
   const isFT = event.vertical_id === 'food_trucks'
 
   // Check if wave ordering is enabled for this event
-  const { data: market } = await serviceClient
+  const { data: market } = await observed(serviceClient
     .from('markets')
     .select('wave_ordering_enabled')
     .eq('id', event.market_id)
-    .single()
+    .single(), { table: 'markets' })
 
   const waveOrderingEnabled = market?.wave_ordering_enabled === true
 
   // Fetch waves if enabled
   let waves: EventShopWave[] = []
   if (waveOrderingEnabled) {
-    const { data: waveRows } = await serviceClient
-      .rpc('get_event_waves_with_availability', { p_market_id: event.market_id })
+    const { data: waveRows } = await observed(serviceClient
+      .rpc('get_event_waves_with_availability', { p_market_id: event.market_id }), { table: 'rpc:get_event_waves_with_availability', operation: 'rpc' })
 
     waves = (waveRows || []).map((w: Record<string, unknown>) => ({
       id: w.wave_id as string,
@@ -308,13 +309,13 @@ export async function getEventShopData(
   // Fetch user's existing wave reservation (if authenticated)
   let userReservation: EventShopUserReservation | null = null
   if (user && waveOrderingEnabled) {
-    const { data: reservation } = await serviceClient
+    const { data: reservation } = await observed(serviceClient
       .from('event_wave_reservations')
       .select('id, wave_id, status')
       .eq('market_id', event.market_id)
       .eq('user_id', user.id)
       .neq('status', 'cancelled')
-      .maybeSingle()
+      .maybeSingle(), { table: 'event_wave_reservations' })
 
     if (reservation) {
       const matchedWave = waves.find(w => w.id === reservation.wave_id)

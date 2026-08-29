@@ -5,7 +5,7 @@ import { createRefund, transferToVendor, transferMarketBoxPayout, getChargeIdFro
 import { classifyExistingTransfer } from '@/lib/stripe/payout-reconcile'
 import { cancelOrderItemsAndRestoreGuarded, restoreInventory, restoreOrderInventory } from '@/lib/inventory'
 import { timingSafeEqual } from 'crypto'
-import { withErrorTracing, TracedError, logError, traced } from '@/lib/errors'
+import { withErrorTracing, TracedError, logError, traced, observed } from '@/lib/errors'
 import { FEES, proratedFlatFeeSimple, calculateSmallOrderFee } from '@/lib/pricing'
 import { getTierLimits, TRIAL_SYSTEM_ENABLED } from '@/lib/vendor-limits'
 import { todayInTimezone, tomorrowInTimezone, addDaysToDateString } from '@/lib/time/market-dates'
@@ -181,19 +181,19 @@ export async function GET(request: NextRequest) {
         const orderItemCounts = new Map<string, number>()
         const paymentByOrder = new Map<string, { stripe_payment_intent_id: string | null }>()
         if (batchOrderIds.length > 0) {
-          const { data: allOrderItems } = await supabase
+          const { data: allOrderItems } = await observed(supabase
             .from('order_items')
             .select('order_id')
-            .in('order_id', batchOrderIds)
+            .in('order_id', batchOrderIds), { table: 'order_items' })
           for (const oi of allOrderItems || []) {
             const oid = oi.order_id as string
             orderItemCounts.set(oid, (orderItemCounts.get(oid) || 0) + 1)
           }
-          const { data: succeededPayments } = await supabase
+          const { data: succeededPayments } = await observed(supabase
             .from('payments')
             .select('order_id, stripe_payment_intent_id')
             .in('order_id', batchOrderIds)
-            .eq('status', 'succeeded')
+            .eq('status', 'succeeded'), { table: 'payments' })
           for (const p of succeededPayments || []) {
             const oid = p.order_id as string
             if (!paymentByOrder.has(oid)) paymentByOrder.set(oid, { stripe_payment_intent_id: p.stripe_payment_intent_id as string | null })
@@ -243,11 +243,11 @@ export async function GET(request: NextRequest) {
             }
 
             // Check if all items in the order are now cancelled
-            const { data: remainingItems } = await supabase
+            const { data: remainingItems } = await observed(supabase
               .from('order_items')
               .select('id, status')
               .eq('order_id', item.order_id)
-              .is('cancelled_at', null)
+              .is('cancelled_at', null), { table: 'order_items' })
 
             if (!remainingItems || remainingItems.length === 0) {
               // All items cancelled, update order status
@@ -634,7 +634,7 @@ export async function GET(request: NextRequest) {
             // zero rows and skips — previously fees were recorded first, so a
             // failure between fee-insert and this update re-billed the vendor
             // on the next hourly run (vendor_fee_ledger had no idempotency).
-            const { data: claimedOrder } = await supabase
+            const { data: claimedOrder } = await observed(supabase
               .from('orders')
               .update({
                 status: 'paid',
@@ -646,7 +646,7 @@ export async function GET(request: NextRequest) {
               .eq('status', 'pending')
               .is('external_payment_confirmed_at', null)
               .select('id')
-              .maybeSingle()
+              .maybeSingle(), { table: 'orders', operation: 'update' })
 
             if (!claimedOrder) {
               console.log(`[Phase 3.6] Order ${order.id} already claimed by concurrent run, skipping`)
@@ -764,7 +764,7 @@ export async function GET(request: NextRequest) {
         const missedMarketIds = [...new Set(missedItems.map(i => (i as any).market_id).filter(Boolean) as string[])]
         const tzByMarket = new Map<string, string>()
         if (missedMarketIds.length > 0) {
-          const { data: mkts } = await supabase.from('markets').select('id, timezone').in('id', missedMarketIds)
+          const { data: mkts } = await observed(supabase.from('markets').select('id, timezone').in('id', missedMarketIds), { table: 'markets' })
           for (const m of mkts || []) tzByMarket.set(m.id as string, ((m as any).timezone as string) || 'America/Chicago')
         }
 
@@ -797,12 +797,12 @@ export async function GET(request: NextRequest) {
             // the transfer draws on the charge, not the platform's own balance.
             let noShowChargeId: string | undefined
             if (order?.stripe_checkout_session_id) {
-              const { data: gatePayment } = await supabase
+              const { data: gatePayment } = await observed(supabase
                 .from('payments')
                 .select('stripe_payment_intent_id')
                 .eq('order_id', item.order_id)
                 .eq('status', 'succeeded')
-                .maybeSingle()
+                .maybeSingle(), { table: 'payments' })
 
               const orderIsPaid = ['paid', 'completed'].includes(order?.status) || !!gatePayment
               if (!orderIsPaid) {
@@ -822,13 +822,13 @@ export async function GET(request: NextRequest) {
             // CRN-9 FIX (VOR-2 class): guarded — a reject/refund landing mid-batch
             // must not be overwritten (refund webhook sets status='refunded' without
             // cancelled_at, so both conditions are needed). 0 rows → skip payout.
-            const { data: noShowRows } = await supabase
+            const { data: noShowRows } = await observed(supabase
               .from('order_items')
               .update({ status: 'fulfilled' })
               .eq('id', item.id)
               .eq('status', 'ready')
               .is('cancelled_at', null)
-              .select('id')
+              .select('id'), { table: 'order_items', operation: 'update' })
 
             if (!noShowRows || noShowRows.length === 0) {
               console.log(`[Phase 4] Item ${item.id} no longer 'ready' (cancelled/refunded mid-batch), skipping`)
@@ -845,12 +845,12 @@ export async function GET(request: NextRequest) {
 
             if (actualPayoutCents > 0 && order?.stripe_checkout_session_id) {
               // Check for existing payout (prevent double payout)
-              const { data: existingPayout } = await supabase
+              const { data: existingPayout } = await observed(supabase
                 .from('vendor_payouts')
                 .select('id')
                 .eq('order_item_id', item.id)
                 .neq('status', 'failed')
-                .maybeSingle()
+                .maybeSingle(), { table: 'vendor_payouts' })
 
               if (!existingPayout) {
                 // H-10 FIX: Insert payout record FIRST (atomic pattern).
@@ -858,13 +858,13 @@ export async function GET(request: NextRequest) {
                 const initialStatus = vendor?.stripe_account_id && vendor?.stripe_payouts_enabled
                   ? 'pending' : 'pending_stripe_setup'
 
-                const { data: payoutRecord } = await supabase.from('vendor_payouts').insert({
+                const { data: payoutRecord } = await observed(supabase.from('vendor_payouts').insert({
                   order_item_id: item.id,
                   vendor_profile_id: item.vendor_profile_id,
                   amount_cents: actualPayoutCents,
                   stripe_transfer_id: null,
                   status: initialStatus,
-                }).select('id').single()
+                }).select('id').single(), { table: 'vendor_payouts', operation: 'insert' })
 
                 // If vendor has Stripe, attempt transfer
                 if (payoutRecord && initialStatus === 'pending') {
@@ -967,11 +967,11 @@ export async function GET(request: NextRequest) {
         console.error('[Phase 4.5] Query error:', staleError.message)
       } else if (staleItems && staleItems.length > 0) {
         // Batch dedup: 1 query for all recent stale notifications (replaces 3 queries per item)
-        const { data: recentStaleNotifs } = await supabase
+        const { data: recentStaleNotifs } = await observed(supabase
           .from('notifications')
           .select('user_id, type, data')
           .in('type', ['stale_confirmed_vendor', 'stale_confirmed_vendor_final', 'stale_confirmed_buyer'])
-          .gte('created_at', new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString())
+          .gte('created_at', new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString()), { table: 'notifications' })
 
         const sentStaleNotifs = new Set(
           (recentStaleNotifs || []).map(n => {
@@ -1046,7 +1046,7 @@ export async function GET(request: NextRequest) {
       // is applied in the loop below so we don't expire an order a day early.
       const today = new Date().toISOString().split('T')[0]
 
-      const { data: staleConfirmed } = await supabase
+      const { data: staleConfirmed } = await observed(supabase
         .from('order_items')
         .select(`
           id,
@@ -1059,14 +1059,14 @@ export async function GET(request: NextRequest) {
         .is('cancelled_at', null)
         .lt('pickup_date', today)
         .lt('updated_at', sevenDaysAgo.toISOString())
-        .limit(100)
+        .limit(100), { table: 'order_items' })
 
       if (staleConfirmed && staleConfirmed.length > 0) {
         // Resolve each item's market timezone for a market-local "past pickup" test
         const marketIds = [...new Set(staleConfirmed.map(i => (i as any).market_id).filter(Boolean) as string[])]
         const tzByMarket = new Map<string, string>()
         if (marketIds.length > 0) {
-          const { data: mkts } = await supabase.from('markets').select('id, timezone').in('id', marketIds)
+          const { data: mkts } = await observed(supabase.from('markets').select('id, timezone').in('id', marketIds), { table: 'markets' })
           for (const m of mkts || []) tzByMarket.set(m.id as string, ((m as any).timezone as string) || 'America/Chicago')
         }
 
@@ -1079,13 +1079,13 @@ export async function GET(request: NextRequest) {
 
           const orderData = (item as any).order as any
           // CRN-9 FIX: guarded — don't overwrite a reject/refund that landed mid-batch
-          const { data: expiredStaleRows } = await supabase
+          const { data: expiredStaleRows } = await observed(supabase
             .from('order_items')
             .update({ status: 'expired', updated_at: new Date().toISOString() })
             .eq('id', item.id)
             .eq('status', 'confirmed')
             .is('cancelled_at', null)
-            .select('id')
+            .select('id'), { table: 'order_items', operation: 'update' })
 
           if (!expiredStaleRows || expiredStaleRows.length === 0) {
             console.log(`[Phase 4.6] Item ${item.id} no longer 'confirmed' (changed mid-batch), skipping`)
@@ -1320,12 +1320,12 @@ export async function GET(request: NextRequest) {
             // (caused the $16.01 stuck-payout incident from Session 74).
             // Mirrors the working pattern at vendor/orders/[id]/fulfill/route.ts:312-324.
             let chargeId: string | undefined
-            const { data: payment } = await supabase
+            const { data: payment } = await observed(supabase
               .from('payments')
               .select('stripe_payment_intent_id')
               .eq('order_id', orderItem.order_id)
               .eq('status', 'succeeded')
-              .maybeSingle()
+              .maybeSingle(), { table: 'payments' })
 
             if (payment?.stripe_payment_intent_id) {
               chargeId = (await getChargeIdFromPaymentIntent(payment.stripe_payment_intent_id)) || undefined
@@ -1369,7 +1369,7 @@ export async function GET(request: NextRequest) {
       }
 
       // F8 FIX: Also retry pending_stripe_setup payouts where vendor now has Stripe ready
-      const { data: pendingStripePayouts } = await supabase
+      const { data: pendingStripePayouts } = await observed(supabase
         .from('vendor_payouts')
         .select(`
           id,
@@ -1388,7 +1388,7 @@ export async function GET(request: NextRequest) {
         `)
         .eq('status', 'pending_stripe_setup')
         .order('created_at', { ascending: true })
-        .limit(MAX_PAYOUTS_PER_RUN)
+        .limit(MAX_PAYOUTS_PER_RUN), { table: 'vendor_payouts' })
 
       if (pendingStripePayouts && pendingStripePayouts.length > 0) {
         for (const payout of pendingStripePayouts) {
@@ -1411,12 +1411,12 @@ export async function GET(request: NextRequest) {
             // failed-branch above) — this was the only retry branch transferring
             // against the platform's own balance (Session-74 incident pattern).
             let psChargeId: string | undefined
-            const { data: psPayment } = await supabase
+            const { data: psPayment } = await observed(supabase
               .from('payments')
               .select('stripe_payment_intent_id')
               .eq('order_id', oi.order_id)
               .eq('status', 'succeeded')
-              .maybeSingle()
+              .maybeSingle(), { table: 'payments' })
 
             if (psPayment?.stripe_payment_intent_id) {
               psChargeId = (await getChargeIdFromPaymentIntent(psPayment.stripe_payment_intent_id)) || undefined
@@ -1462,7 +1462,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Retry failed market box subscription payouts (same logic as order payouts)
-      const { data: failedMbPayouts } = await supabase
+      const { data: failedMbPayouts } = await observed(supabase
         .from('vendor_payouts')
         .select(`
           id,
@@ -1485,7 +1485,7 @@ export async function GET(request: NextRequest) {
         .not('market_box_subscription_id', 'is', null)
         .gte('created_at', cutoffDate.toISOString())
         .order('created_at', { ascending: true })
-        .limit(MAX_PAYOUTS_PER_RUN)
+        .limit(MAX_PAYOUTS_PER_RUN), { table: 'vendor_payouts' })
 
       if (failedMbPayouts && failedMbPayouts.length > 0) {
         for (const payout of failedMbPayouts) {
@@ -1572,7 +1572,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Retry pending_stripe_setup market box payouts where vendor now has Stripe
-      const { data: pendingMbPayouts } = await supabase
+      const { data: pendingMbPayouts } = await observed(supabase
         .from('vendor_payouts')
         .select(`
           id,
@@ -1592,7 +1592,7 @@ export async function GET(request: NextRequest) {
         .eq('status', 'pending_stripe_setup')
         .not('market_box_subscription_id', 'is', null)
         .order('created_at', { ascending: true })
-        .limit(MAX_PAYOUTS_PER_RUN)
+        .limit(MAX_PAYOUTS_PER_RUN), { table: 'vendor_payouts' })
 
       if (pendingMbPayouts && pendingMbPayouts.length > 0) {
         for (const payout of pendingMbPayouts) {
@@ -1651,11 +1651,11 @@ export async function GET(request: NextRequest) {
       // If a payout has been 'processing' for 7+ days, mark as 'failed' so Phase 5 retries it.
       const STALE_PROCESSING_DAYS = 7
       const staleProcessingCutoff = new Date(Date.now() - STALE_PROCESSING_DAYS * 24 * 60 * 60 * 1000)
-      const { data: staleProcessingPayouts } = await supabase
+      const { data: staleProcessingPayouts } = await observed(supabase
         .from('vendor_payouts')
         .select('id')
         .eq('status', 'processing')
-        .lt('created_at', staleProcessingCutoff.toISOString())
+        .lt('created_at', staleProcessingCutoff.toISOString()), { table: 'vendor_payouts' })
 
       if (staleProcessingPayouts && staleProcessingPayouts.length > 0) {
         const staleIds = staleProcessingPayouts.map(p => p.id)
@@ -1672,11 +1672,11 @@ export async function GET(request: NextRequest) {
       // A 'pending' payout older than 10 minutes is definitely stale.
       const STALE_PENDING_MINUTES = 10
       const stalePendingCutoff = new Date(Date.now() - STALE_PENDING_MINUTES * 60 * 1000)
-      const { data: stalePendingPayouts } = await supabase
+      const { data: stalePendingPayouts } = await observed(supabase
         .from('vendor_payouts')
         .select('id')
         .eq('status', 'pending')
-        .lt('created_at', stalePendingCutoff.toISOString())
+        .lt('created_at', stalePendingCutoff.toISOString()), { table: 'vendor_payouts' })
 
       if (stalePendingPayouts && stalePendingPayouts.length > 0) {
         const stalePendingIds = stalePendingPayouts.map(p => p.id)
@@ -1689,11 +1689,11 @@ export async function GET(request: NextRequest) {
       }
 
       // Mark expired payouts (older than retry window) as cancelled
-      const { data: expiredPayouts } = await supabase
+      const { data: expiredPayouts } = await observed(supabase
         .from('vendor_payouts')
         .select('id, amount_cents')
         .eq('status', 'failed')
-        .lt('created_at', cutoffDate.toISOString())
+        .lt('created_at', cutoffDate.toISOString()), { table: 'vendor_payouts' })
 
       if (expiredPayouts && expiredPayouts.length > 0) {
         const expiredIds = expiredPayouts.map(p => p.id)
@@ -1886,12 +1886,12 @@ export async function GET(request: NextRequest) {
             // source_transaction so the transfer draws on the charge.
             let staleChargeId: string | undefined
             if (gateOrder?.stripe_checkout_session_id) {
-              const { data: gatePayment } = await supabase
+              const { data: gatePayment } = await observed(supabase
                 .from('payments')
                 .select('stripe_payment_intent_id')
                 .eq('order_id', item.order_id)
                 .eq('status', 'succeeded')
-                .maybeSingle()
+                .maybeSingle(), { table: 'payments' })
 
               const orderIsPaid = ['paid', 'completed'].includes(gateOrder?.status) || !!gatePayment
               if (!orderIsPaid) {
@@ -1949,12 +1949,12 @@ export async function GET(request: NextRequest) {
 
             if (actualPayoutCents > 0 && order?.stripe_checkout_session_id) {
               // Check for existing payout (prevent double payout)
-              const { data: existingPayout } = await supabase
+              const { data: existingPayout } = await observed(supabase
                 .from('vendor_payouts')
                 .select('id')
                 .eq('order_item_id', item.id)
                 .neq('status', 'failed')
-                .maybeSingle()
+                .maybeSingle(), { table: 'vendor_payouts' })
 
               if (!existingPayout && vendor?.stripe_account_id && vendor?.stripe_payouts_enabled) {
                 // M-11 FIX: Insert payout record BEFORE transfer to prevent tracking gaps
@@ -2023,14 +2023,14 @@ export async function GET(request: NextRequest) {
       }
 
       // Market box pickups: same pattern
-      const { data: stalePickups } = await supabase
+      const { data: stalePickups } = await observed(supabase
         .from('market_box_pickups')
         .select('id, subscription_id, buyer_confirmed_at, vendor_confirmed_at, confirmation_window_expires_at')
         .not('buyer_confirmed_at', 'is', null)
         .is('vendor_confirmed_at', null)
         .lt('confirmation_window_expires_at', fiveMinutesAgo)
         .eq('status', 'ready')
-        .limit(50)
+        .limit(50), { table: 'market_box_pickups' })
 
       if (stalePickups && stalePickups.length > 0) {
         for (const pickup of stalePickups) {
@@ -2061,12 +2061,12 @@ export async function GET(request: NextRequest) {
     let buyerTiersExpired = 0
     try {
       // Expire vendor tiers
-      const { data: expiredVendors } = await supabase
+      const { data: expiredVendors } = await observed(supabase
         .from('vendor_profiles')
         .select('id, tier, vertical_id, user_id')
         .lt('tier_expires_at', new Date().toISOString())
         .neq('tier', 'free')
-        .limit(100)
+        .limit(100), { table: 'vendor_profiles' })
 
       if (expiredVendors && expiredVendors.length > 0) {
         for (const vendor of expiredVendors) {
@@ -2093,12 +2093,12 @@ export async function GET(request: NextRequest) {
       }
 
       // Expire buyer tiers
-      const { data: expiredBuyers } = await supabase
+      const { data: expiredBuyers } = await observed(supabase
         .from('user_profiles')
         .select('id, buyer_tier')
         .lt('tier_expires_at', new Date().toISOString())
         .neq('buyer_tier', 'standard')
-        .limit(100)
+        .limit(100), { table: 'user_profiles' })
 
       if (expiredBuyers && expiredBuyers.length > 0) {
         const expiredIds = expiredBuyers.map(b => b.id)
@@ -2169,22 +2169,22 @@ export async function GET(request: NextRequest) {
       const nowISO = now.toISOString()
 
       // ── Phase 10a: Trial Reminders ──
-      const { data: trialVendors } = await supabase
+      const { data: trialVendors } = await observed(supabase
         .from('vendor_profiles')
         .select('id, user_id, trial_ends_at, vertical_id')
         .eq('subscription_status', 'trialing')
         .not('trial_ends_at', 'is', null)
         .gt('trial_ends_at', nowISO)
-        .limit(200)
+        .limit(200), { table: 'vendor_profiles' })
 
       if (trialVendors && trialVendors.length > 0) {
         // Batch dedup: 1 query for all recent trial reminders (replaces 1 query per vendor)
         const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()
-        const { data: recentTrialNotifs } = await supabase
+        const { data: recentTrialNotifs } = await observed(supabase
           .from('notifications')
           .select('user_id, type')
           .in('type', ['trial_reminder_14d', 'trial_reminder_7d', 'trial_reminder_3d'])
-          .gte('created_at', dayAgo)
+          .gte('created_at', dayAgo), { table: 'notifications' })
 
         const sentTrialReminders = new Set(
           (recentTrialNotifs || []).map(n => `${n.user_id}:${n.type}`)
@@ -2211,13 +2211,13 @@ export async function GET(request: NextRequest) {
       }
 
       // ── Phase 10b: Trial Expiration ──
-      const { data: expiredTrials } = await supabase
+      const { data: expiredTrials } = await observed(supabase
         .from('vendor_profiles')
         .select('id, user_id, trial_ends_at, trial_grace_ends_at, vertical_id')
         .eq('subscription_status', 'trialing')
         .not('trial_ends_at', 'is', null)
         .lt('trial_ends_at', nowISO)
-        .limit(100)
+        .limit(100), { table: 'vendor_profiles' })
 
       if (expiredTrials) {
         for (const vendor of expiredTrials) {
@@ -2247,13 +2247,13 @@ export async function GET(request: NextRequest) {
       }
 
       // ── Phase 10c: Grace Period Expiration — Auto-Unpublish Excess ──
-      const { data: graceExpired } = await supabase
+      const { data: graceExpired } = await observed(supabase
         .from('vendor_profiles')
         .select('id, user_id, vertical_id')
         .eq('tier', 'free')
         .not('trial_grace_ends_at', 'is', null)
         .lt('trial_grace_ends_at', nowISO)
-        .limit(100)
+        .limit(100), { table: 'vendor_profiles' })
 
       if (graceExpired) {
         for (const vendor of graceExpired) {
@@ -2265,13 +2265,13 @@ export async function GET(request: NextRequest) {
           let deactivatedBoxCount = 0
 
           // Get published listings ordered oldest first — keep oldest, unpublish newest
-          const { data: listings } = await supabase
+          const { data: listings } = await observed(supabase
             .from('listings')
             .select('id')
             .eq('vendor_profile_id', vendor.id)
             .eq('status', 'published')
             .is('deleted_at', null)
-            .order('created_at', { ascending: true })
+            .order('created_at', { ascending: true }), { table: 'listings' })
 
           if (listings && listings.length > freeListingLimit) {
             // Keep the oldest N listings (established ones), unpublish the rest
@@ -2284,12 +2284,12 @@ export async function GET(request: NextRequest) {
           }
 
           // Deactivate excess active market boxes beyond free tier limit
-          const { data: activeBoxes } = await supabase
+          const { data: activeBoxes } = await observed(supabase
             .from('market_box_offerings')
             .select('id')
             .eq('vendor_profile_id', vendor.id)
             .eq('active', true)
-            .order('created_at', { ascending: true })
+            .order('created_at', { ascending: true }), { table: 'market_box_offerings' })
 
           if (activeBoxes && activeBoxes.length > freeActiveBoxLimit) {
             const toDeactivate = activeBoxes.slice(freeActiveBoxLimit).map(b => b.id)
@@ -2333,11 +2333,11 @@ export async function GET(request: NextRequest) {
       const candidateDates = [utcToday, addDaysToDateString(utcToday, 1)]
 
       // Find events on those candidate dates that are in ready/active status
-      const { data: upcomingEvents } = await supabase
+      const { data: upcomingEvents } = await observed(supabase
         .from('catering_requests')
         .select('id, market_id, event_date, company_name, event_start_time, headcount, vertical_id, market:markets!catering_requests_market_id_fkey(timezone)')
         .in('status', ['ready', 'active'])
-        .in('event_date', candidateDates)
+        .in('event_date', candidateDates), { table: 'catering_requests' })
 
       if (upcomingEvents && upcomingEvents.length > 0) {
         for (const event of upcomingEvents) {
@@ -2347,11 +2347,11 @@ export async function GET(request: NextRequest) {
           if (event.event_date !== tomorrowInTimezone(tz)) continue
 
           // Get accepted vendors for this event
-          const { data: acceptedVendors } = await supabase
+          const { data: acceptedVendors } = await observed(supabase
             .from('market_vendors')
             .select('vendor_profile_id, vendor_profiles:vendor_profile_id(user_id)')
             .eq('market_id', event.market_id)
-            .eq('response_status', 'accepted')
+            .eq('response_status', 'accepted'), { table: 'market_vendors' })
 
           const acceptedCount = acceptedVendors?.length || 1
           const headcountPerVendor = Math.ceil((event.headcount || 0) / acceptedCount)
@@ -2392,7 +2392,7 @@ export async function GET(request: NextRequest) {
     let addressReminders = 0
     try {
       const stuckThreshold = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-      const { data: stuckEvents } = await supabase
+      const { data: stuckEvents } = await observed(supabase
         .from('catering_requests')
         .select('id, company_name, contact_email, vertical_id')
         .eq('status', 'new')
@@ -2400,7 +2400,7 @@ export async function GET(request: NextRequest) {
         .is('address', null)
         .is('address_reminder_sent_at', null)
         .lt('created_at', stuckThreshold)
-        .limit(100)
+        .limit(100), { table: 'catering_requests' })
 
       for (const ev of stuckEvents || []) {
         const email = (ev as any).contact_email as string | null
@@ -2430,23 +2430,23 @@ export async function GET(request: NextRequest) {
     try {
       const cutoffTime = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
 
-      const { data: pendingEvents } = await supabase
+      const { data: pendingEvents } = await observed(supabase
         .from('catering_requests')
         .select('id, company_name, contact_name, contact_email, event_date, event_start_time, event_end_time, headcount, vendor_count, city, state, vertical_id, market_id, event_token, auto_invite_sent_at')
         .eq('service_level', 'self_service')
         .eq('status', 'approved')
         .not('auto_invite_sent_at', 'is', null)
-        .lte('auto_invite_sent_at', cutoffTime)
+        .lte('auto_invite_sent_at', cutoffTime), { table: 'catering_requests' })
 
       if (pendingEvents && pendingEvents.length > 0) {
         for (const event of pendingEvents) {
           if (!event.market_id || !event.contact_email) continue
 
           // Get vendor responses for this event
-          const { data: responses } = await supabase
+          const { data: responses } = await observed(supabase
             .from('market_vendors')
             .select('vendor_profile_id, response_status, response_notes, vendor_profiles:vendor_profile_id(profile_data, profile_image_url, average_rating, rating_count, tier, pickup_lead_minutes)')
-            .eq('market_id', event.market_id)
+            .eq('market_id', event.market_id), { table: 'market_vendors' })
 
           if (!responses || responses.length === 0) continue
 
@@ -2574,14 +2574,14 @@ export async function GET(request: NextRequest) {
       const gapCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
       const gapMaxAge = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString() // Don't alert after 48hr (Phase 12 handles that)
 
-      const { data: gapEvents } = await supabase
+      const { data: gapEvents } = await observed(supabase
         .from('catering_requests')
         .select('id, company_name, event_date, vendor_count, market_id, vertical_id, auto_invite_sent_at')
         .eq('service_level', 'self_service')
         .eq('status', 'approved')
         .not('auto_invite_sent_at', 'is', null)
         .lte('auto_invite_sent_at', gapCutoff)
-        .gte('auto_invite_sent_at', gapMaxAge)
+        .gte('auto_invite_sent_at', gapMaxAge), { table: 'catering_requests' })
 
       if (gapEvents && gapEvents.length > 0) {
         for (const event of gapEvents) {
@@ -2611,10 +2611,10 @@ export async function GET(request: NextRequest) {
           if (alreadySent && alreadySent > 0) continue
 
           // Get admin users
-          const { data: admins } = await supabase
+          const { data: admins } = await observed(supabase
             .from('user_profiles')
             .select('user_id')
-            .or('role.eq.admin,role.eq.platform_admin')
+            .or('role.eq.admin,role.eq.platform_admin'), { table: 'user_profiles' })
 
           if (admins && admins.length > 0) {
             const eventDateFmt = event.event_date ? new Date(event.event_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '?'
@@ -2645,12 +2645,12 @@ export async function GET(request: NextRequest) {
     // order), so a failure result here just means the row changed mid-run.
     let waveReservationsExpired = 0
     try {
-      const { data: staleWaveReservations } = await supabase
+      const { data: staleWaveReservations } = await observed(supabase
         .from('event_wave_reservations')
         .select('id, user_id')
         .eq('status', 'reserved')
         .lt('expires_at', new Date().toISOString())
-        .limit(200)
+        .limit(200), { table: 'event_wave_reservations' })
 
       for (const staleRes of staleWaveReservations || []) {
         const { data: freedRow, error: freeErr } = await supabase
@@ -2680,10 +2680,10 @@ export async function GET(request: NextRequest) {
     // Uses each market's timezone for correct date comparison (not hardcoded CT).
     let eventsActivated = 0
     try {
-      const { data: readyEvents } = await supabase
+      const { data: readyEvents } = await observed(supabase
         .from('catering_requests')
         .select('id, event_date, market:markets!catering_requests_market_id_fkey(timezone)')
-        .eq('status', 'ready')
+        .eq('status', 'ready'), { table: 'catering_requests' })
 
       if (readyEvents && readyEvents.length > 0) {
         for (const event of readyEvents) {
@@ -2692,12 +2692,12 @@ export async function GET(request: NextRequest) {
           const todayStr = `${localNow.getFullYear()}-${String(localNow.getMonth() + 1).padStart(2, '0')}-${String(localNow.getDate()).padStart(2, '0')}`
 
           if (event.event_date && event.event_date <= todayStr) {
-            const { data: updated } = await supabase
+            const { data: updated } = await observed(supabase
               .from('catering_requests')
               .update({ status: 'active' })
               .eq('id', event.id)
               .eq('status', 'ready')
-              .select('id')
+              .select('id'), { table: 'catering_requests', operation: 'update' })
             if (updated && updated.length > 0) eventsActivated++
           }
         }
@@ -2710,10 +2710,10 @@ export async function GET(request: NextRequest) {
     // Uses each market's timezone for correct date comparison.
     let eventsToReview = 0
     try {
-      const { data: endedEvents } = await supabase
+      const { data: endedEvents } = await observed(supabase
         .from('catering_requests')
         .select('id, event_end_date, event_date, market:markets!catering_requests_market_id_fkey(timezone)')
-        .eq('status', 'active')
+        .eq('status', 'active'), { table: 'catering_requests' })
 
       if (endedEvents && endedEvents.length > 0) {
         for (const event of endedEvents) {
@@ -2723,12 +2723,12 @@ export async function GET(request: NextRequest) {
 
           const endDate = event.event_end_date || event.event_date
           if (endDate && endDate < todayStr) {
-            const { data: updated } = await supabase
+            const { data: updated } = await observed(supabase
               .from('catering_requests')
               .update({ status: 'review' })
               .eq('id', event.id)
               .eq('status', 'active')
-              .select('id')
+              .select('id'), { table: 'catering_requests', operation: 'update' })
             if (updated && updated.length > 0) eventsToReview++
           }
         }
@@ -2745,10 +2745,10 @@ export async function GET(request: NextRequest) {
     // can't double-fire. No money moves (payouts already happened at fulfillment).
     let eventsAutoCompleted = 0
     try {
-      const { data: reviewEvents } = await supabase
+      const { data: reviewEvents } = await observed(supabase
         .from('catering_requests')
         .select('id, market_id, vertical_id, company_name, contact_name, contact_email, event_date, event_end_date, market:markets!catering_requests_market_id_fkey(timezone)')
-        .eq('status', 'review')
+        .eq('status', 'review'), { table: 'catering_requests' })
 
       for (const ev of reviewEvents || []) {
         if (!ev.market_id) continue
@@ -2759,12 +2759,12 @@ export async function GET(request: NextRequest) {
         if (todayInTimezone(tz) < addDaysToDateString(effectiveEnd, 3)) continue
 
         // Status-guarded flip — only run the effects if we actually moved the row
-        const { data: flipped } = await supabase
+        const { data: flipped } = await observed(supabase
           .from('catering_requests')
           .update({ status: 'completed' })
           .eq('id', ev.id)
           .eq('status', 'review')
-          .select('id')
+          .select('id'), { table: 'catering_requests', operation: 'update' })
         if (!flipped || flipped.length === 0) continue
 
         await runEventCompletionEffects(supabase, {
@@ -2814,11 +2814,11 @@ export async function GET(request: NextRequest) {
       if (openEvents && openEvents.length > 0) {
         // One query for all acceptance counts, grouped in JS.
         const marketIds = openEvents.map(e => e.market_id as string)
-        const { data: acceptedRows } = await supabase
+        const { data: acceptedRows } = await observed(supabase
           .from('market_vendors')
           .select('market_id')
           .in('market_id', marketIds)
-          .eq('response_status', 'accepted')
+          .eq('response_status', 'accepted'), { table: 'market_vendors' })
         const acceptedByMarket = new Map<string, number>()
         for (const r of acceptedRows || []) {
           const mid = r.market_id as string
@@ -2915,12 +2915,12 @@ export async function GET(request: NextRequest) {
       const cancelledRentals = [...(orphans ?? []), ...(stale ?? [])]
       if (cancelledRentals.length > 0) {
         const rentalIds = cancelledRentals.map((r) => r.id as string)
-        const { data: redeemedForRentals } = await supabase
+        const { data: redeemedForRentals } = await observed(supabase
           .from('booth_credits')
           .select('related_rental_id, vendor_profile_id, market_id, amount_cents')
           .in('related_rental_id', rentalIds)
           .eq('source', 'redeemed')
-          .lt('amount_cents', 0)
+          .lt('amount_cents', 0), { table: 'booth_credits' })
         for (const r of redeemedForRentals ?? []) {
           const { error: releaseErr } = await supabase.from('booth_credits').insert({
             vendor_profile_id: r.vendor_profile_id,
@@ -2999,10 +2999,10 @@ export async function GET(request: NextRequest) {
           )]
           const emailByUser = new Map<string, string>()
           if (notifyUserIds.length > 0) {
-            const { data: emailRows } = await supabase
+            const { data: emailRows } = await observed(supabase
               .from('user_profiles')
               .select('user_id, email')
-              .in('user_id', notifyUserIds)
+              .in('user_id', notifyUserIds), { table: 'user_profiles' })
             for (const r of emailRows ?? []) {
               if (r.email) emailByUser.set(r.user_id as string, r.email as string)
             }
@@ -3143,10 +3143,10 @@ export async function GET(request: NextRequest) {
           // Orphan: no Stripe session was ever created (API died pre-checkout).
           if (!sessionId) {
             if (createdAt < thirtyMinAgoIso) {
-              const { data: res } = await supabase.rpc('cancel_season_group', {
+              const { data: res } = await observed(supabase.rpc('cancel_season_group', {
                 p_group_id: g.id,
                 p_reason: 'orphan_no_session',
-              })
+              }), { table: 'rpc:cancel_season_group', operation: 'rpc' })
               if (res === 'cancelled') seasonGroupsCancelled++
             }
             continue
@@ -3169,10 +3169,10 @@ export async function GET(request: NextRequest) {
           }
 
           if (sessionState.paymentStatus === 'paid') {
-            const { data: res } = await supabase.rpc('confirm_season_paid', {
+            const { data: res } = await observed(supabase.rpc('confirm_season_paid', {
               p_group_id: g.id,
               p_payment_intent: sessionState.paymentIntentId,
-            })
+            }), { table: 'rpc:confirm_season_paid', operation: 'rpc' })
             if (res === 'confirmed') {
               seasonGroupsConfirmed++
               await sendSeasonPaidNotifications(supabase, g.id as string)
@@ -3180,10 +3180,10 @@ export async function GET(request: NextRequest) {
               await logError(new TracedError('ERR_RECONCILE_001', `Season group ${g.id} paid in Stripe but cancelled in DB — manual reconciliation needed`, { route: '/api/cron/expire-orders', method: 'GET' }))
             }
           } else if (sessionState.status === 'expired' || createdAt < twentyFourHoursAgoIso) {
-            const { data: res } = await supabase.rpc('cancel_season_group', {
+            const { data: res } = await observed(supabase.rpc('cancel_season_group', {
               p_group_id: g.id,
               p_reason: 'unpaid_expired',
-            })
+            }), { table: 'rpc:cancel_season_group', operation: 'rpc' })
             if (res === 'cancelled') seasonGroupsCancelled++
           }
           // else: session still open and <24h old — vendor mid-checkout, leave it.
@@ -3296,17 +3296,17 @@ export async function GET(request: NextRequest) {
       // <= UTC-today); the real per-market cutoff is applied in the loop so a
       // season isn't ended/settled a day early during the evening drift window.
       const todayStr = new Date().toISOString().slice(0, 10)
-      const { data: activeSeasons } = await supabase
+      const { data: activeSeasons } = await observed(supabase
         .from('market_seasons')
         .select('id, market_id, end_date, refund_cap_days')
         .eq('status', 'active')
-        .lt('end_date', todayStr)
+        .lt('end_date', todayStr), { table: 'market_seasons' })
 
       // Resolve each season's market timezone for the market-local end-date test
       const seasonMarketIds = [...new Set((activeSeasons ?? []).map(s => s.market_id as string).filter(Boolean))]
       const seasonTzByMarket = new Map<string, string>()
       if (seasonMarketIds.length > 0) {
-        const { data: mkts } = await supabase.from('markets').select('id, timezone').in('id', seasonMarketIds)
+        const { data: mkts } = await observed(supabase.from('markets').select('id, timezone').in('id', seasonMarketIds), { table: 'markets' })
         for (const m of mkts || []) seasonTzByMarket.set(m.id as string, ((m as any).timezone as string) || 'America/Chicago')
       }
 

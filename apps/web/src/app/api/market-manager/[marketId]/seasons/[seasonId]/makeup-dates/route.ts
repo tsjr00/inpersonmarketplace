@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { marketLocalDate } from '@/lib/markets/checkin-eligibility'
@@ -47,11 +47,11 @@ interface EndedSeason {
 async function loadSeason(
   service: ReturnType<typeof createServiceClient>, marketId: string, seasonId: string,
 ): Promise<EndedSeason | null> {
-  const { data } = await service
+  const { data } = await observed(service
     .from('market_seasons')
     .select('id, market_id, name, end_date, status, potential_makeup_days')
     .eq('id', seasonId)
-    .maybeSingle()
+    .maybeSingle(), { table: 'market_seasons' })
   if (!data || data.market_id !== marketId) return null
   return data as EndedSeason
 }
@@ -60,13 +60,13 @@ async function loadSeason(
 async function scheduledMakeups(
   service: ReturnType<typeof createServiceClient>, marketId: string, endDate: string,
 ): Promise<string[]> {
-  const { data } = await service
+  const { data } = await observed(service
     .from('market_date_overrides')
     .select('override_date')
     .eq('market_id', marketId)
     .eq('status', 'special')
     .gt('override_date', endDate)
-    .order('override_date', { ascending: true })
+    .order('override_date', { ascending: true }), { table: 'market_date_overrides' })
   return (data ?? []).map((r) => r.override_date as string)
 }
 
@@ -124,11 +124,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'This season did not set a make-up buffer.' }, { status: 409 })
     }
 
-    const { data: market } = await service
+    const { data: market } = await observed(service
       .from('markets')
       .select('name, vertical_id, timezone')
       .eq('id', marketId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'markets' })
     if (!market) throw traced.notFound('ERR_MARKET_001', 'Market not found')
     const timezone = (market.timezone as string | null) ?? null
     const vertical = (market.vertical_id as string | undefined) || 'farmers_market'
@@ -178,17 +178,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         } catch { return date }
       })()
 
-      const { data: paidGroups } = await service
+      const { data: paidGroups } = await observed(service
         .from('booth_booking_groups')
         .select('vendor_profile_id')
         .eq('season_id', seasonId)
-        .eq('status', 'paid')
+        .eq('status', 'paid'), { table: 'booth_booking_groups' })
       const vendorIds = Array.from(new Set((paidGroups ?? []).map((g) => g.vendor_profile_id as string)))
       if (vendorIds.length > 0) {
-        const { data: vps } = await service
+        const { data: vps } = await observed(service
           .from('vendor_profiles')
           .select('user_id')
-          .in('id', vendorIds)
+          .in('id', vendorIds), { table: 'vendor_profiles' })
         const userIds = Array.from(new Set((vps ?? []).map((v) => v.user_id as string).filter(Boolean)))
         await Promise.all(userIds.map((uid) =>
           sendNotification(uid, 'booth_makeup_scheduled_vendor',

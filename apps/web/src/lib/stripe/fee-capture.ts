@@ -1,6 +1,7 @@
 import Stripe from 'stripe'
 import { stripe } from './config'
 import type { createServiceClient } from '@/lib/supabase/server'
+import { observed } from '@/lib/errors'
 
 /**
  * ADM-2 fee capture. The ACTUAL Stripe processing fee the platform bears on a
@@ -41,13 +42,13 @@ export async function backfillStripeFees(
   supabase: ReturnType<typeof createServiceClient>,
   limit: number,
 ): Promise<{ processed: number; updated: number; failed: number; remaining: number }> {
-  const { data: rows } = await supabase
+  const { data: rows } = await observed(supabase
     .from('payments')
     .select('stripe_payment_intent_id')
     .is('stripe_fee_cents', null)
     .not('stripe_payment_intent_id', 'is', null)
     .in('status', BACKFILLABLE_STATUSES)
-    .limit(limit)
+    .limit(limit), { table: 'payments' })
 
   let updated = 0
   let failed = 0

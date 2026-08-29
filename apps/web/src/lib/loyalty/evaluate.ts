@@ -24,6 +24,7 @@ import { after } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendNotification } from '@/lib/notifications'
 import { BADGE_CATALOG, SEGMENT_LABELS, getLoyaltyThresholds, type BadgeKey } from './config'
+import { observed } from '@/lib/errors'
 import {
   badgeIdentity,
   computeEarnedBadges,
@@ -186,10 +187,10 @@ async function notifyNewBadges(
   const vendorIds = [...new Set(badges.map((b) => b.vendorProfileId).filter((v): v is string => !!v))]
   const vendorById = new Map<string, { user_id: string | null; name: string }>()
   if (vendorIds.length > 0) {
-    const { data: vendors } = await service
+    const { data: vendors } = await observed(service
       .from('vendor_profiles')
       .select('id, user_id, profile_data')
-      .in('id', vendorIds)
+      .in('id', vendorIds), { table: 'vendor_profiles' })
     for (const v of (vendors ?? []) as Array<{ id: string; user_id: string | null; profile_data: Record<string, unknown> | null }>) {
       const pd = v.profile_data ?? {}
       const name = (pd.business_name as string) || (pd.farm_name as string) || 'the vendor'
@@ -199,11 +200,11 @@ async function notifyNewBadges(
 
   let buyerName = 'A customer'
   if (vendorIds.length > 0) {
-    const { data: profile } = await service
+    const { data: profile } = await observed(service
       .from('user_profiles')
       .select('display_name')
       .eq('user_id', userId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'user_profiles' })
     buyerName = (profile as { display_name?: string | null } | null)?.display_name || buyerName
   }
 

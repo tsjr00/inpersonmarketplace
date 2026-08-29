@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createRefund } from '@/lib/stripe/payments'
 import { stripe } from '@/lib/stripe/config'
 import { restoreInventory } from '@/lib/inventory'
-import { TracedError, logError } from '@/lib/errors'
+import { TracedError, logError, observed } from '@/lib/errors'
 import { FEES, proratedFlatFeeSimple, calculateSmallOrderFee, calculateBoothRentalFees } from '@/lib/pricing'
 
 /**
@@ -209,17 +209,17 @@ async function refundProductOrders(
 
   // Roll up any fully-cancelled orders + free event-wave slots.
   for (const oid of orderIds) {
-    const { data: remaining } = await service
+    const { data: remaining } = await observed(service
       .from('order_items')
       .select('id')
       .eq('order_id', oid)
-      .is('cancelled_at', null)
+      .is('cancelled_at', null), { table: 'order_items' })
     if (!remaining || remaining.length === 0) {
-      const { data: ord } = await service
+      const { data: ord } = await observed(service
         .from('orders')
         .select('status, stripe_checkout_session_id, tip_amount, subtotal_cents, vertical_id')
         .eq('id', oid)
-        .maybeSingle()
+        .maybeSingle(), { table: 'orders' })
 
       // MGR-3b (VOR-19 class, site 7): a still-pending order has a live Stripe
       // session — expire it BEFORE cancelling so a stale checkout tab can't pay
@@ -259,12 +259,12 @@ async function refundProductOrders(
       const orderSmallFeeCents = calculateSmallOrderFee((ord?.subtotal_cents as number) || 0, ord?.vertical_id as string | undefined)
       const orderFeeRefundCents = orderTipCents + orderSmallFeeCents
       if (orderFeeRefundCents > 0) {
-        const { data: feePayment } = await service
+        const { data: feePayment } = await observed(service
           .from('payments')
           .select('stripe_payment_intent_id')
           .eq('order_id', oid)
           .eq('status', 'succeeded')
-          .maybeSingle()
+          .maybeSingle(), { table: 'payments' })
         if (feePayment?.stripe_payment_intent_id) {
           try {
             await createRefund(feePayment.stripe_payment_intent_id, `${oid}-order-fees`, orderFeeRefundCents)
@@ -285,10 +285,10 @@ async function refundProductOrders(
   const vendorNotifs: VendorOrderNotif[] = []
   const profileIds = [...new Set([...vendorOrderKeys.values()].map((v) => v.vendorProfileId))]
   if (profileIds.length > 0) {
-    const { data: vps } = await service
+    const { data: vps } = await observed(service
       .from('vendor_profiles')
       .select('id, user_id')
-      .in('id', profileIds)
+      .in('id', profileIds), { table: 'vendor_profiles' })
     const userByProfile = new Map<string, string>()
     for (const vp of vps ?? []) {
       if (vp.user_id) userByProfile.set(vp.id as string, vp.user_id as string)
@@ -330,12 +330,12 @@ async function findAffectedBoothRenters(
   overrideDate: string,
 ): Promise<Set<string>> {
   const userIds = new Set<string>()
-  const { data: renters } = await service
+  const { data: renters } = await observed(service
     .from('weekly_booth_rentals')
     .select('vendor_profiles!inner ( user_id )')
     .eq('market_id', marketId)
     .eq('status', 'paid')
-    .eq('week_start_date', weekStartSunday(overrideDate))
+    .eq('week_start_date', weekStartSunday(overrideDate)), { table: 'weekly_booth_rentals' })
 
   type RenterRow = { vendor_profiles: { user_id: string | null } | { user_id: string | null }[] | null }
   for (const r of (renters ?? []) as RenterRow[]) {
@@ -354,11 +354,11 @@ async function creditMarketBoxPickups(
 ): Promise<number> {
   let credited = 0
   // MB pickups link to a market via offering.pickup_market_id.
-  const { data: pickups } = await service
+  const { data: pickups } = await observed(service
     .from('market_box_pickups')
     .select('id, is_extension, subscription:market_box_subscriptions!inner ( status, offering:market_box_offerings!inner ( pickup_market_id ) )')
     .eq('scheduled_date', overrideDate)
-    .in('status', ['scheduled', 'ready'])
+    .in('status', ['scheduled', 'ready']), { table: 'market_box_pickups' })
 
   type PickupRow = {
     id: string
@@ -417,11 +417,11 @@ async function creditParkSpotBookings(
     return { parkBookingsCancelled: 0, parkCreditNotifs: [] }
   }
 
-  const { data: market } = await service
+  const { data: market } = await observed(service
     .from('markets')
     .select('operator_keep_pct')
     .eq('id', marketId)
-    .maybeSingle()
+    .maybeSingle(), { table: 'markets' })
   const keepPct = (market?.operator_keep_pct as number | null) ?? undefined
 
   let parkBookingsCancelled = 0
@@ -477,10 +477,10 @@ async function creditParkSpotBookings(
   // Resolve credited vendors → user ids for the route's notification fan-out.
   const parkCreditNotifs: ParkCreditNotif[] = []
   if (creditByVendor.size > 0) {
-    const { data: vps } = await service
+    const { data: vps } = await observed(service
       .from('vendor_profiles')
       .select('id, user_id')
-      .in('id', [...creditByVendor.keys()])
+      .in('id', [...creditByVendor.keys()]), { table: 'vendor_profiles' })
     for (const vp of vps ?? []) {
       const amount = creditByVendor.get(vp.id as string)
       if (vp.user_id && amount) {

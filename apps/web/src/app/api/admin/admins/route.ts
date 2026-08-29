@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { hasPlatformAdminRole } from '@/lib/auth/admin'
 
 // GET - List all platform admins
@@ -22,12 +22,12 @@ export async function GET(request: NextRequest) {
       }
 
       // Verify caller is platform admin
-      const { data: callerProfile } = await supabase
+      const { data: callerProfile } = await observed(supabase
         .from('user_profiles')
         .select('role, roles, is_chief_platform_admin')
         .eq('user_id', user.id)
         .is('deleted_at', null)
-        .single()
+        .single(), { table: 'user_profiles' })
 
       // S4-2: platform_admin ONLY — managing platform admins is platform-level
       // (was hasAdminRole, so a vertical admin could list/create platform admins).
@@ -83,12 +83,12 @@ export async function POST(request: NextRequest) {
       }
 
       // Verify caller is platform admin (only platform admins can add other platform admins)
-      const { data: callerProfile } = await supabase
+      const { data: callerProfile } = await observed(supabase
         .from('user_profiles')
         .select('role, roles, is_chief_platform_admin')
         .eq('user_id', user.id)
         .is('deleted_at', null)
-        .single()
+        .single(), { table: 'user_profiles' })
 
       // S4-2: platform_admin ONLY — managing platform admins is platform-level
       // (was hasAdminRole, so a vertical admin could list/create platform admins).

@@ -7,7 +7,7 @@ import {
   rateLimitResponse,
   rateLimits,
 } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 
 interface RouteContext {
@@ -39,12 +39,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       }
 
-      const { data: userProfile } = await supabase
+      const { data: userProfile } = await observed(supabase
         .from('user_profiles')
         .select('role, roles')
         .eq('user_id', user.id)
         .is('deleted_at', null)
-        .single()
+        .single(), { table: 'user_profiles' })
 
       if (!hasAdminRole(userProfile || {})) {
         return NextResponse.json(
@@ -132,14 +132,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }
 
       // Check for existing invitations to avoid duplicates
-      const { data: existingVendors } = await serviceClient
+      const { data: existingVendors } = await observed(serviceClient
         .from('market_vendors')
         .select('vendor_profile_id')
         .eq('market_id', cateringReq.market_id)
         .in(
           'vendor_profile_id',
           vendors.map((v) => v.id)
-        )
+        ), { table: 'market_vendors' })
 
       const existingIds = new Set(
         (existingVendors || []).map((ev) => ev.vendor_profile_id)

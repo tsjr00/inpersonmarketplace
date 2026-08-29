@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { eventRefColumn } from '@/lib/events/event-ref'
 import {
@@ -52,11 +52,11 @@ export async function POST(
     const serviceClient = createServiceClient()
 
     crumb.supabase('select', 'catering_requests')
-    const { data: event } = await serviceClient
+    const { data: event } = await observed(serviceClient
       .from('catering_requests')
       .select('id, organizer_user_id, market_id, vertical_id')
       .eq(eventRefColumn(token), token)
-      .maybeSingle()
+      .maybeSingle(), { table: 'catering_requests' })
 
     if (!event || event.organizer_user_id !== user.id) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })

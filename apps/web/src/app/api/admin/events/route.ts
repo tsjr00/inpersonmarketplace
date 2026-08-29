@@ -7,7 +7,7 @@ import {
   rateLimitResponse,
   rateLimits,
 } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { approveEventRequest } from '@/lib/events/event-actions'
 
 /**
@@ -39,12 +39,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await observed(supabase
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
       .is('deleted_at', null)
-      .single()
+      .single(), { table: 'user_profiles' })
 
     if (!hasAdminRole(userProfile || {})) {
       return NextResponse.json(
@@ -87,12 +87,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch approved vendors with enriched data for invite UI + scoring
-    const { data: vendorProfiles } = await serviceClient
+    const { data: vendorProfiles } = await observed(serviceClient
       .from('vendor_profiles')
       .select('id, user_id, profile_data, event_approved, tier, average_rating, rating_count, pickup_lead_minutes, orders_confirmed_count, orders_cancelled_after_confirm_count')
       .eq('vertical_id', vertical)
       .eq('status', 'approved')
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: false }), { table: 'vendor_profiles' })
 
     // Get average listing price per vendor (for per-meal price matching)
     const vendorIds = (vendorProfiles || []).map(v => v.id)
@@ -101,12 +101,12 @@ export async function GET(request: NextRequest) {
     const eventItemMap: Record<string, number> = {}
 
     if (vendorIds.length > 0) {
-      const { data: listingStats } = await serviceClient
+      const { data: listingStats } = await observed(serviceClient
         .from('listings')
         .select('vendor_profile_id, price_cents, category, listing_data')
         .in('vendor_profile_id', vendorIds)
         .eq('status', 'published')
-        .is('deleted_at', null)
+        .is('deleted_at', null), { table: 'listings' })
 
       if (listingStats) {
         // Group by vendor, calculate average price, collect categories, count event items
@@ -195,17 +195,17 @@ export async function GET(request: NextRequest) {
     }>> = {}
 
     if (marketIds.length > 0) {
-      const { data: mvData } = await serviceClient
+      const { data: mvData } = await observed(serviceClient
         .from('market_vendors')
         .select('market_id, vendor_profile_id, response_status, response_notes, invited_at')
-        .in('market_id', marketIds)
+        .in('market_id', marketIds), { table: 'market_vendors' })
 
       if (mvData) {
         // Also fetch event_vendor_listings to show which items each vendor selected
-        const { data: evlData } = await serviceClient
+        const { data: evlData } = await observed(serviceClient
           .from('event_vendor_listings')
           .select('market_id, vendor_profile_id, listing:listings(title)')
-          .in('market_id', marketIds)
+          .in('market_id', marketIds), { table: 'event_vendor_listings' })
 
         // Build a map: market_id → vendor_profile_id → listing titles
         const menuItemsMap: Record<string, Record<string, string[]>> = {}
@@ -256,11 +256,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await observed(supabase
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
-      .single()
+      .single(), { table: 'user_profiles' })
 
     if (!hasAdminRole(userProfile || {})) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })

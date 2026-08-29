@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
+import { observed } from '@/lib/errors'
 
 export async function createClient() {
   const cookieStore = await cookies()
@@ -61,11 +62,11 @@ export async function createVerifiedServiceClient() {
     throw new Error('Not authenticated')
   }
 
-  const { data: profile } = await supabase
+  const { data: profile } = await observed(supabase
     .from('user_profiles')
     .select('role, roles')
     .eq('user_id', user.id)
-    .single()
+    .single(), { table: 'user_profiles' })
 
   const isAdmin = profile?.role === 'admin' ||
     profile?.role === 'platform_admin' ||

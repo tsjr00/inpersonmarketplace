@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import {
   validateSurveySubmission,
@@ -68,11 +68,11 @@ export async function POST(request: NextRequest) {
       }
 
       // Look up the vendor profile owning this survey
-      const { data: vp } = await serviceClient
+      const { data: vp } = await observed(serviceClient
         .from('vendor_profiles')
         .select('id')
         .eq('user_id', user.id)
-        .maybeSingle()
+        .maybeSingle(), { table: 'vendor_profiles' })
 
       const { data: row, error: rowErr } = await serviceClient
         .from('market_surveys')

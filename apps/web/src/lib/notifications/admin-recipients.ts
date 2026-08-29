@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { observed } from '@/lib/errors'
 
 /**
  * Who should be told about something that happened in ONE vertical.
@@ -65,10 +66,10 @@ export async function adminRecipientsForVertical(
 
   // ── Vertical admins for THIS vertical ──
   if (verticalId) {
-    const { data: verticalAdmins } = await serviceClient
+    const { data: verticalAdmins } = await observed(serviceClient
       .from('vertical_admins')
       .select('user_id')
-      .eq('vertical_id', verticalId)
+      .eq('vertical_id', verticalId), { table: 'vertical_admins' })
 
     const candidateIds = (verticalAdmins || [])
       .map(v => v.user_id as string)
@@ -76,11 +77,11 @@ export async function adminRecipientsForVertical(
 
     if (candidateIds.length > 0) {
       // Deleted accounts still have vertical_admins rows; do not notify them.
-      const { data: alive } = await serviceClient
+      const { data: alive } = await observed(serviceClient
         .from('user_profiles')
         .select('user_id')
         .in('user_id', candidateIds)
-        .is('deleted_at', null)
+        .is('deleted_at', null), { table: 'user_profiles' })
 
       for (const row of alive || []) {
         if (row.user_id) recipients.add(row.user_id as string)

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 
 /**
  * GET /api/market-manager/[marketId]/vendors
@@ -99,10 +99,10 @@ export async function GET(
     // entry in the snapshot). Drives the "View docs" link in the
     // manager UI vendor row + access gate to /vendor-docs/...
     crumb.supabase('select', 'vendor_market_agreement_acceptances')
-    const { data: acceptanceRows } = await serviceClient
+    const { data: acceptanceRows } = await observed(serviceClient
       .from('vendor_market_agreement_acceptances')
       .select('vendor_profile_id, statements_snapshot')
-      .eq('market_id', marketId)
+      .eq('market_id', marketId), { table: 'vendor_market_agreement_acceptances' })
 
     const consentSet = new Set<string>()
     for (const r of acceptanceRows ?? []) {
@@ -115,10 +115,10 @@ export async function GET(
     // B3 — park vetting status (blocked / review) per truck. FT parks only;
     // the table is empty for FM markets, so this is a cheap no-op there.
     crumb.supabase('select', 'park_vendor_vetting')
-    const { data: vettingRows } = await serviceClient
+    const { data: vettingRows } = await observed(serviceClient
       .from('park_vendor_vetting')
       .select('vendor_profile_id, blocked, review_status')
-      .eq('market_id', marketId)
+      .eq('market_id', marketId), { table: 'park_vendor_vetting' })
     const vettingByVendor = new Map<string, { blocked: boolean; review_status: string }>()
     for (const v of vettingRows ?? []) {
       vettingByVendor.set(v.vendor_profile_id as string, {

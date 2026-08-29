@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { hasAdminRole, verifyAdminScope } from '@/lib/auth/admin'
 
 /**
@@ -29,12 +29,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Verify user is admin
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await observed(supabase
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
       .is('deleted_at', null)
-      .single()
+      .single(), { table: 'user_profiles' })
 
     const isAdmin = hasAdminRole(userProfile || {})
     if (!isAdmin) {
@@ -68,11 +68,11 @@ export async function GET(request: NextRequest) {
       }
 
       // Also get recent scan logs
-      const { data: scanLogs } = await supabase
+      const { data: scanLogs } = await observed(supabase
         .from('vendor_activity_scan_log')
         .select('*')
         .order('started_at', { ascending: false })
-        .limit(10)
+        .limit(10), { table: 'vendor_activity_scan_log' })
 
       return NextResponse.json({
         settings: settings || [],
@@ -124,12 +124,12 @@ export async function PUT(request: NextRequest) {
     }
 
     // Verify user is admin
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await observed(supabase
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
       .is('deleted_at', null)
-      .single()
+      .single(), { table: 'user_profiles' })
 
     if (!hasAdminRole(userProfile || {})) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { findScheduleConflicts, padTime, dayOfWeekName, formatTimeDisplay, type ScheduleSlot } from '@/lib/utils/schedule-overlap'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -11,11 +11,11 @@ import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
  * Returns true if so (conflict checks are skipped for multi-truck vendors).
  */
 async function isMultiTruckVendor(supabase: SupabaseClient, vendorProfileId: string): Promise<boolean> {
-  const { data } = await supabase
+  const { data } = await observed(supabase
     .from('vendor_profiles')
     .select('profile_data')
     .eq('id', vendorProfileId)
-    .single()
+    .single(), { table: 'vendor_profiles' })
   return (data?.profile_data as Record<string, unknown>)?.multiple_trucks === true
 }
 
@@ -28,7 +28,7 @@ async function getOtherActiveSlots(
   vendorProfileId: string,
   excludeMarketId: string
 ): Promise<ScheduleSlot[]> {
-  const { data: otherSchedules } = await supabase
+  const { data: otherSchedules } = await observed(supabase
     .from('vendor_market_schedules')
     .select(`
       market_id,
@@ -40,7 +40,7 @@ async function getOtherActiveSlots(
     `)
     .eq('vendor_profile_id', vendorProfileId)
     .eq('is_active', true)
-    .neq('market_id', excludeMarketId)
+    .neq('market_id', excludeMarketId), { table: 'vendor_market_schedules' })
 
   return (otherSchedules || []).map(s => {
     const m = s.markets as any
@@ -238,10 +238,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         const multiTruck = await isMultiTruckVendor(supabase, vendorProfile.id)
         if (!multiTruck) {
           // Get day_of_week + times for each schedule being activated
-          const { data: scheduleDetails } = await supabase
+          const { data: scheduleDetails } = await observed(supabase
             .from('market_schedules')
             .select('id, day_of_week, start_time, end_time')
-            .in('id', scheduleIds)
+            .in('id', scheduleIds), { table: 'market_schedules' })
 
           if (scheduleDetails && scheduleDetails.length > 0) {
             const otherSlots = await getOtherActiveSlots(supabase, vendorProfile.id, marketId)
@@ -490,11 +490,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         const multiTruck = await isMultiTruckVendor(supabase, vendorProfile.id)
         if (!multiTruck) {
           // Get the day_of_week for this schedule
-          const { data: scheduleDetails } = await supabase
+          const { data: scheduleDetails } = await observed(supabase
             .from('market_schedules')
             .select('day_of_week')
             .eq('id', scheduleId)
-            .single()
+            .single(), { table: 'market_schedules' })
 
           if (scheduleDetails) {
             const effectiveStart = padTime(startTime || schedule.start_time)
@@ -586,11 +586,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
 
       // Check if vendor has any active schedules
-      const { data: hasActive } = await supabase
+      const { data: hasActive } = await observed(supabase
         .rpc('vendor_has_active_schedules', {
           p_vendor_profile_id: vendorProfile.id,
           p_market_id: marketId
-        })
+        }), { table: 'rpc:vendor_has_active_schedules', operation: 'rpc' })
 
       return NextResponse.json({
         success: true,

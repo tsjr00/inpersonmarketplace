@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced } from '@/lib/errors'
+import { withErrorTracing, traced, observed } from '@/lib/errors'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { marketLocalDate } from '@/lib/markets/checkin-eligibility'
 
@@ -26,16 +26,16 @@ export async function GET(
 
     const service = createServiceClient()
 
-    const { data: market } = await service
+    const { data: market } = await observed(service
       .from('markets')
       .select('timezone, vertical_id')
       .eq('id', marketId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'markets' })
 
     const date = request.nextUrl.searchParams.get('date')
       || marketLocalDate((market?.timezone as string) ?? null)
 
-    const { data: rows } = await service
+    const { data: rows } = await observed(service
       .from('market_day_checkins')
       .select(`
         vendor_profile_id, market_date, checked_in_at, checked_out_at, method,
@@ -44,7 +44,7 @@ export async function GET(
       `)
       .eq('market_id', marketId)
       .eq('market_date', date)
-      .order('checked_in_at', { ascending: true })
+      .order('checked_in_at', { ascending: true }), { table: 'market_day_checkins' })
 
     const attendance = (rows ?? []).map((r) => {
       const vp = r.vendor_profiles as unknown as { profile_data: Record<string, unknown> | null } | null
@@ -68,7 +68,7 @@ export async function GET(
     const noShows: Array<{ vendorProfileId: string; vendorName: string; spotLabel: string | null }> = []
     if ((market?.vertical_id as string | null) === 'food_trucks') {
       const checkedInIds = new Set(attendance.map((a) => a.vendorProfileId))
-      const { data: booked } = await service
+      const { data: booked } = await observed(service
         .from('park_spot_bookings')
         .select(`
           vendor_profile_id,
@@ -77,7 +77,7 @@ export async function GET(
         `)
         .eq('market_id', marketId)
         .eq('booking_date', date)
-        .eq('status', 'paid')
+        .eq('status', 'paid'), { table: 'park_spot_bookings' })
       const seen = new Set<string>()
       for (const b of booked ?? []) {
         const vpid = b.vendor_profile_id as string
@@ -127,24 +127,24 @@ export async function POST(
     }
 
     const service = createServiceClient()
-    const { data: market } = await service
+    const { data: market } = await observed(service
       .from('markets')
       .select('timezone')
       .eq('id', marketId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'markets' })
     const date = (typeof body?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date))
       ? body.date
       : marketLocalDate((market?.timezone as string) ?? null)
 
     // Eligibility: the truck must hold a PAID spot at this park that date.
-    const { data: booking } = await service
+    const { data: booking } = await observed(service
       .from('park_spot_bookings')
       .select('id, park_spots:spot_id ( label )')
       .eq('market_id', marketId)
       .eq('vendor_profile_id', vendorProfileId)
       .eq('booking_date', date)
       .eq('status', 'paid')
-      .maybeSingle()
+      .maybeSingle(), { table: 'park_spot_bookings' })
     if (!booking) {
       return NextResponse.json(
         { error: 'That truck has no paid spot at this park on that date.' },

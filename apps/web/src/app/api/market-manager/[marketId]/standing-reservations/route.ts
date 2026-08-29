@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { getStrikeCountsForReservations, PARK_STANDING_STRIKE_LIMIT } from '@/lib/markets/park-standing'
 
 /**
@@ -107,11 +107,11 @@ export async function PATCH(
     const service = createServiceClient()
 
     // Verify the reservation belongs to this market (guards id-spoofing).
-    const { data: existing } = await service
+    const { data: existing } = await observed(service
       .from('park_standing_reservations')
       .select('id, market_id, status')
       .eq('id', reservationId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'park_standing_reservations' })
     if (!existing || existing.market_id !== marketId) {
       return NextResponse.json({ error: 'Standing reservation not found at this park' }, { status: 404 })
     }

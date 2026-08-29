@@ -10,6 +10,7 @@ import { withErrorTracing } from '@/lib/errors/with-error-tracing'
 import { approveEventRequest, autoMatchAndInvite } from '@/lib/events/event-actions'
 import { leadTimeStatus, tooSoonMessage } from '@/lib/events/lead-time'
 import { term } from '@/lib/vertical/terminology'
+import { observed } from '@/lib/errors'
 
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/event-requests', 'POST', async () => {
@@ -192,14 +193,14 @@ export async function POST(request: NextRequest) {
 
     // Prevent vendor-as-organizer conflict: vendors must use a different email to request events
     const supabaseService = createServiceClient()
-    const { data: conflictingVendor } = await supabaseService
+    const { data: conflictingVendor } = await observed(supabaseService
       .from('vendor_profiles')
       .select('id')
       .eq('vertical_id', verticalId)
       .eq('status', 'approved')
       .filter('profile_data->>email', 'ilike', contact_email.toLowerCase().trim())
       .limit(1)
-      .maybeSingle()
+      .maybeSingle(), { table: 'vendor_profiles' })
 
     if (conflictingVendor) {
       return NextResponse.json(

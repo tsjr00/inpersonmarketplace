@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getFtTierExtras } from '@/lib/vendor-limits'
 
@@ -41,11 +41,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Verify ownership
-    const { data: vendorProfile } = await supabase
+    const { data: vendorProfile } = await observed(supabase
       .from('vendor_profiles')
       .select('id, user_id, tier, vertical_id')
       .eq('id', vendorId)
-      .single()
+      .single(), { table: 'vendor_profiles' })
 
     if (!vendorProfile || vendorProfile.user_id !== user.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
     // ═══════════════════════════════════════════════════════════
 
     // Get order items with market info and buyer info
-    const { data: orderItems } = await supabase
+    const { data: orderItems } = await observed(supabase
       .from('order_items')
       .select(`
         id, subtotal_cents, status, created_at, pickup_date,
@@ -78,15 +78,15 @@ export async function GET(request: NextRequest) {
       `)
       .eq('vendor_profile_id', vendorId)
       .gte('created_at', startDate)
-      .not('status', 'in', '("cancelled","refunded")')
+      .not('status', 'in', '("cancelled","refunded")'), { table: 'order_items' })
 
     // Get previous order items (for new vs repeat calculation)
-    const { data: previousItems } = await supabase
+    const { data: previousItems } = await observed(supabase
       .from('order_items')
       .select('order:orders!inner(buyer_user_id), market_id')
       .eq('vendor_profile_id', vendorId)
       .lt('created_at', startDate)
-      .not('status', 'in', '("cancelled","refunded")')
+      .not('status', 'in', '("cancelled","refunded")'), { table: 'order_items' })
 
     const previousBuyersByMarket = new Map<string, Set<string>>()
     for (const item of previousItems || []) {
@@ -235,11 +235,11 @@ export async function GET(request: NextRequest) {
     const vendorMarketIds = Array.from(marketStatsMap.keys())
 
     // Also get markets from vendor_market_schedules (may have scheduled markets with no orders yet)
-    const { data: vendorSchedules } = await supabase
+    const { data: vendorSchedules } = await observed(supabase
       .from('vendor_market_schedules')
       .select('market_id, markets(id, latitude, longitude)')
       .eq('vendor_profile_id', vendorId)
-      .eq('is_active', true)
+      .eq('is_active', true), { table: 'vendor_market_schedules' })
 
     const vendorMarketCoords: { lat: number; lng: number }[] = []
     const allVendorMarketIds = new Set(vendorMarketIds)
@@ -262,20 +262,20 @@ export async function GET(request: NextRequest) {
 
     // 5. Markets you're missing — active markets in same vertical within 25mi
     const serviceClient = createServiceClient()
-    const { data: allMarkets } = await serviceClient
+    const { data: allMarkets } = await observed(serviceClient
       .from('markets')
       .select('id, name, city, state, latitude, longitude, market_type')
       .eq('vertical_id', vertical)
       .eq('status', 'active')
       .eq('approval_status', 'approved')
       .not('latitude', 'is', null)
-      .not('longitude', 'is', null)
+      .not('longitude', 'is', null), { table: 'markets' })
 
     // Count vendors per market (from vendor_market_schedules)
-    const { data: marketVendorCounts } = await serviceClient
+    const { data: marketVendorCounts } = await observed(serviceClient
       .from('vendor_market_schedules')
       .select('market_id')
-      .eq('is_active', true)
+      .eq('is_active', true), { table: 'vendor_market_schedules' })
 
     const vendorCountMap = new Map<string, number>()
     for (const row of marketVendorCounts || []) {
@@ -374,11 +374,11 @@ export async function GET(request: NextRequest) {
     // ═══════════════════════════════════════════════════════════
 
     // 7. Buyer density near vendor's markets
-    const { data: allBuyerProfiles } = await serviceClient
+    const { data: allBuyerProfiles } = await observed(serviceClient
       .from('user_profiles')
       .select('latitude, longitude')
       .not('latitude', 'is', null)
-      .not('longitude', 'is', null)
+      .not('longitude', 'is', null), { table: 'user_profiles' })
 
     const buyerDensity: {
       marketId: string
@@ -418,12 +418,12 @@ export async function GET(request: NextRequest) {
 
     // 8. Coverage gaps — aggregate buyer_search_log by zip for vendor's vertical
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-    const { data: searchLogs } = await serviceClient
+    const { data: searchLogs } = await observed(serviceClient
       .from('buyer_search_log')
       .select('zip_code, results_count')
       .eq('vertical_id', vertical)
       .gte('created_at', thirtyDaysAgo)
-      .not('zip_code', 'is', null)
+      .not('zip_code', 'is', null), { table: 'buyer_search_log' })
 
     // Aggregate by zip
     const zipStats = new Map<string, { total: number; zeroResults: number }>()
@@ -446,10 +446,10 @@ export async function GET(request: NextRequest) {
     const zipDetails = new Map<string, { city: string; state: string }>()
 
     if (zipCodes.length > 0) {
-      const { data: zipData } = await serviceClient
+      const { data: zipData } = await observed(serviceClient
         .from('zip_codes')
         .select('zip, city, state')
-        .in('zip', zipCodes)
+        .in('zip', zipCodes), { table: 'zip_codes' })
 
       for (const z of zipData || []) {
         zipDetails.set(z.zip, { city: z.city, state: z.state })

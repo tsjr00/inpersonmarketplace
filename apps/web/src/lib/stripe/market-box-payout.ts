@@ -1,7 +1,7 @@
 import { transferMarketBoxPayout, getChargeIdFromPaymentIntent } from './payments'
 import { calculateVendorPayout } from '@/lib/pricing'
 import { sendNotification } from '@/lib/notifications'
-import { TracedError, logError } from '@/lib/errors'
+import { TracedError, logError, observed } from '@/lib/errors'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 export interface ProcessMarketBoxPayoutOpts {
@@ -39,21 +39,21 @@ export async function processMarketBoxPayout(opts: ProcessMarketBoxPayoutOpts): 
     // 'failed' and 'cancelled' are terminal and do NOT block — the unique
     // partial index on vendor_payouts(market_box_subscription_id) WHERE
     // status NOT IN ('failed','cancelled') matches this filter.
-    const { data: existingPayout } = await serviceClient
+    const { data: existingPayout } = await observed(serviceClient
       .from('vendor_payouts')
       .select('id')
       .eq('market_box_subscription_id', subscriptionId)
       .not('status', 'in', '("failed","cancelled")')
-      .maybeSingle()
+      .maybeSingle(), { table: 'vendor_payouts' })
 
     if (existingPayout) return
 
     // Resolve vendor from the offering
-    const { data: offering } = await serviceClient
+    const { data: offering } = await observed(serviceClient
       .from('market_box_offerings')
       .select('vendor_profile_id')
       .eq('id', offeringId)
-      .single()
+      .single(), { table: 'market_box_offerings' })
 
     if (!offering) {
       await logError(new TracedError('ERR_PAYOUT_006', `market box payout: offering ${offeringId} not found for paid subscription ${subscriptionId}`, {
@@ -65,11 +65,11 @@ export async function processMarketBoxPayout(opts: ProcessMarketBoxPayoutOpts): 
       return
     }
 
-    const { data: vendor } = await serviceClient
+    const { data: vendor } = await observed(serviceClient
       .from('vendor_profiles')
       .select('id, stripe_account_id, stripe_payouts_enabled, user_id, vertical_id')
       .eq('id', offering.vendor_profile_id)
-      .single()
+      .single(), { table: 'vendor_profiles' })
 
     if (!vendor) {
       await logError(new TracedError('ERR_PAYOUT_007', `market box payout: vendor ${offering.vendor_profile_id} not found for paid subscription ${subscriptionId}`, {
@@ -171,11 +171,11 @@ export async function processMarketBoxPayout(opts: ProcessMarketBoxPayoutOpts): 
         ])
         offeringName = (offeringRow?.name as string) || undefined
         if (subRow?.buyer_user_id) {
-          const { data: buyerProfile } = await serviceClient
+          const { data: buyerProfile } = await observed(serviceClient
             .from('user_profiles')
             .select('display_name')
             .eq('user_id', subRow.buyer_user_id)
-            .maybeSingle()
+            .maybeSingle(), { table: 'user_profiles' })
           buyerName = (buyerProfile?.display_name as string) || undefined
         }
       } catch {

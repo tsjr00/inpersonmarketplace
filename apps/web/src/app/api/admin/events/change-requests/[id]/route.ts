@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, crumb } from '@/lib/errors'
+import { withErrorTracing, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { verifyAdminScope } from '@/lib/auth/admin'
 import { CHANGEABLE_FIELDS, describeChanges, reasonLabel } from '@/lib/events/change-requests'
@@ -42,11 +42,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const serviceClient = createServiceClient()
 
     crumb.supabase('select', 'event_change_requests')
-    const { data: changeRequest } = await serviceClient
+    const { data: changeRequest } = await observed(serviceClient
       .from('event_change_requests')
       .select('id, catering_request_id, requested_changes, status, explanation, reason_category')
       .eq('id', id)
-      .maybeSingle()
+      .maybeSingle(), { table: 'event_change_requests' })
 
     if (!changeRequest) {
       return NextResponse.json({ error: 'Change request not found' }, { status: 404 })
@@ -59,11 +59,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       )
     }
 
-    const { data: event } = await serviceClient
+    const { data: event } = await observed(serviceClient
       .from('catering_requests')
       .select('id, vertical_id, service_level, event_start_time, event_end_time, market_id, organizer_user_id, event_date')
       .eq('id', changeRequest.catering_request_id as string)
-      .maybeSingle()
+      .maybeSingle(), { table: 'catering_requests' })
 
     if (!event) {
       return NextResponse.json({ error: 'The event for this request no longer exists' }, { status: 404 })
@@ -190,7 +190,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // marked approved with nothing applied — visible and fixable. The reverse
     // (applied but still pending) invites a second admin to apply it again.
     crumb.supabase('update', 'event_change_requests')
-    const { data: claimed } = await serviceClient
+    const { data: claimed } = await observed(serviceClient
       .from('event_change_requests')
       .update({
         status: 'approved',
@@ -202,7 +202,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       })
       .eq('id', id)
       .eq('status', 'pending')
-      .select('id')
+      .select('id'), { table: 'event_change_requests', operation: 'update' })
 
     if (!claimed || claimed.length === 0) {
       return NextResponse.json(
@@ -243,11 +243,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const summary = describeChanges(writeable)
 
     if (event.market_id) {
-      const { data: committed } = await serviceClient
+      const { data: committed } = await observed(serviceClient
         .from('market_vendors')
         .select('vendor_profile_id, vendor_profiles:vendor_profile_id(user_id)')
         .eq('market_id', event.market_id)
-        .eq('response_status', 'accepted')
+        .eq('response_status', 'accepted'), { table: 'market_vendors' })
 
       for (const mv of committed || []) {
         const vp = mv.vendor_profiles as unknown as { user_id: string } | null

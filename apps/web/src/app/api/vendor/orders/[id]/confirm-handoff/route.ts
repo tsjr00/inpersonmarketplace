@@ -24,7 +24,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { transferToVendor } from '@/lib/stripe/payments'
 import { getAccountStatus } from '@/lib/stripe/connect'
-import { withErrorTracing, traced, crumb, TracedError, logError } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, TracedError, logError, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { sendNotification } from '@/lib/notifications'
 import { claimVendorFeeDeduction } from '@/lib/payments/vendor-fees'
@@ -192,12 +192,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     // C3 FIX: Check if vendor was already paid (prevents double payout)
     crumb.supabase('select', 'vendor_payouts')
-    const { data: existingPayout } = await supabase
+    const { data: existingPayout } = await observed(supabase
       .from('vendor_payouts')
       .select('id, status')
       .eq('order_item_id', orderItem.id)
       .neq('status', 'failed')
-      .maybeSingle()
+      .maybeSingle(), { table: 'vendor_payouts' })
 
     if (existingPayout) {
       crumb.logic('Vendor payout already exists, skipping transfer', {

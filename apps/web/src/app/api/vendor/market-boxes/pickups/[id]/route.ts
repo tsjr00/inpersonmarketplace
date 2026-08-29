@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { calculateWindowExpiry } from '@/lib/cron/order-timing'
@@ -108,7 +108,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     // Get pickup first — need offering.vertical_id for multi-vertical vendor lookup
-    const { data: pickup } = await supabase
+    const { data: pickup } = await observed(supabase
       .from('market_box_pickups')
       .select(`
         id,
@@ -131,7 +131,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         )
       `)
       .eq('id', pickupId)
-      .single()
+      .single(), { table: 'market_box_pickups' })
 
     if (!pickup) {
       return NextResponse.json({ error: 'Pickup not found' }, { status: 404 })

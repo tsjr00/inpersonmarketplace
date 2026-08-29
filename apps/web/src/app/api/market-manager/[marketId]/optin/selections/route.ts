@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import type { OptinSelection } from '@/lib/markets/optin-types'
 
 /**
@@ -130,11 +130,11 @@ export async function PUT(
     // vertical scope (universal or the market's vertical) — a manager can't
     // smuggle in an out-of-vertical statement via a crafted request (mig 175).
     if (cleaned.length > 0) {
-      const { data: market } = await serviceClient
+      const { data: market } = await observed(serviceClient
         .from('markets')
         .select('vertical_id')
         .eq('id', marketId)
-        .maybeSingle()
+        .maybeSingle(), { table: 'markets' })
       const vertical = (market?.vertical_id as string | null) || 'farmers_market'
 
       crumb.supabase('select', 'market_optin_statement_catalog')

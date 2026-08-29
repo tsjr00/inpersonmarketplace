@@ -1,6 +1,6 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 const MAX_IMAGES_PER_LISTING = 5
@@ -219,11 +219,11 @@ export async function DELETE(
       }
 
       // Verify user owns this listing
-      const { data: listing } = await supabase
+      const { data: listing } = await observed(supabase
         .from('listings')
         .select('id, vendor_profiles!inner(user_id)')
         .eq('id', listingId)
-        .single()
+        .single(), { table: 'listings' })
 
       if (!listing) {
         return NextResponse.json({ error: 'Listing not found' }, { status: 404 })
@@ -235,12 +235,12 @@ export async function DELETE(
       }
 
       // Get image record
-      const { data: image } = await supabase
+      const { data: image } = await observed(supabase
         .from('listing_images')
         .select('*')
         .eq('id', imageId)
         .eq('listing_id', listingId)
-        .single()
+        .single(), { table: 'listing_images' })
 
       if (!image) {
         return NextResponse.json({ error: 'Image not found' }, { status: 404 })
@@ -270,12 +270,12 @@ export async function DELETE(
 
       // If this was the primary image, make the first remaining image primary
       if (image.is_primary) {
-        const { data: remainingImages } = await supabase
+        const { data: remainingImages } = await observed(supabase
           .from('listing_images')
           .select('id')
           .eq('listing_id', listingId)
           .order('display_order', { ascending: true })
-          .limit(1)
+          .limit(1), { table: 'listing_images' })
 
         if (remainingImages && remainingImages.length > 0) {
           await supabase
@@ -324,11 +324,11 @@ export async function PATCH(
       }
 
       // Verify user owns this listing
-      const { data: listing } = await supabase
+      const { data: listing } = await observed(supabase
         .from('listings')
         .select('id, vendor_profiles!inner(user_id)')
         .eq('id', listingId)
-        .single()
+        .single(), { table: 'listings' })
 
       if (!listing) {
         return NextResponse.json({ error: 'Listing not found' }, { status: 404 })

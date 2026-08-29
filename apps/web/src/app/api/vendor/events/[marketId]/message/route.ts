@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
@@ -48,35 +48,35 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const serviceClient = createServiceClient()
 
     // Look up the market's vertical to scope the vendor profile query
-    const { data: marketInfo } = await serviceClient
+    const { data: marketInfo } = await observed(serviceClient
       .from('markets')
       .select('vertical_id')
       .eq('id', marketId)
-      .single()
+      .single(), { table: 'markets' })
 
     if (!marketInfo) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     }
 
     // Get vendor profile for this user IN this vertical
-    const { data: vendorProfile } = await supabase
+    const { data: vendorProfile } = await observed(supabase
       .from('vendor_profiles')
       .select('id, profile_data')
       .eq('user_id', user.id)
       .eq('vertical_id', marketInfo.vertical_id)
-      .single()
+      .single(), { table: 'vendor_profiles' })
 
     if (!vendorProfile) {
       return NextResponse.json({ error: 'Vendor profile not found for this vertical' }, { status: 404 })
     }
 
     // Verify vendor is accepted for this event
-    const { data: marketVendor } = await serviceClient
+    const { data: marketVendor } = await observed(serviceClient
       .from('market_vendors')
       .select('response_status')
       .eq('market_id', marketId)
       .eq('vendor_profile_id', vendorProfile.id)
-      .single()
+      .single(), { table: 'market_vendors' })
 
     if (!marketVendor || marketVendor.response_status !== 'accepted') {
       return NextResponse.json(
@@ -86,21 +86,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Get event details + organizer contact
-    const { data: market } = await serviceClient
+    const { data: market } = await observed(serviceClient
       .from('markets')
       .select('name, catering_request_id, vertical_id')
       .eq('id', marketId)
-      .single()
+      .single(), { table: 'markets' })
 
     if (!market?.catering_request_id) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     }
 
-    const { data: cReq } = await serviceClient
+    const { data: cReq } = await observed(serviceClient
       .from('catering_requests')
       .select('contact_email, contact_name, event_date')
       .eq('id', market.catering_request_id)
-      .single()
+      .single(), { table: 'catering_requests' })
 
     if (!cReq?.contact_email) {
       return NextResponse.json({ error: 'Event organizer contact not available' }, { status: 404 })

@@ -1,4 +1,5 @@
 import type { SupabaseClient, User } from '@supabase/supabase-js'
+import { observed } from '@/lib/errors'
 
 /**
  * Returns true if the given user is the assigned manager of the given market
@@ -66,11 +67,11 @@ export async function getMarketManagerState(
     return { state: 'none', marketName: null }
   }
 
-  const { data: market } = await supabase
+  const { data: market } = await observed(supabase
     .from('markets')
     .select('name, manager_user_id, manager_email, manager_status')
     .eq('id', marketId)
-    .maybeSingle()
+    .maybeSingle(), { table: 'markets' })
 
   if (!market) {
     return { state: 'none', marketName: null }
@@ -96,7 +97,7 @@ export async function getMarketManagerState(
   }
 
   // Not the current manager — check history to distinguish 'removed' from 'none'.
-  const { data: historyRow } = await supabase
+  const { data: historyRow } = await observed(supabase
     .from('market_manager_history')
     .select('ended_at, end_reason')
     .eq('market_id', marketId)
@@ -104,7 +105,7 @@ export async function getMarketManagerState(
     .not('ended_at', 'is', null)
     .order('ended_at', { ascending: false })
     .limit(1)
-    .maybeSingle()
+    .maybeSingle(), { table: 'market_manager_history' })
 
   if (historyRow) {
     return {

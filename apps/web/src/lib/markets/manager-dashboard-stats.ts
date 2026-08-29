@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { calculateBoothRentalFees } from '@/lib/pricing'
 import { isBeforeSeason, isAfterSeason } from '@/lib/markets/season-window'
+import { observed } from '@/lib/errors'
 
 /**
  * Stats surfaced on the manager dashboard above the existing onboarding
@@ -61,10 +62,10 @@ export async function getManagerDashboardStats(
 
   // Schedules first — needed to compute nextMarketDate before the order
   // query (which filters by pickup_date = next market day).
-  const { data: schedules } = await serviceClient
+  const { data: schedules } = await observed(serviceClient
     .from('market_schedules')
     .select('day_of_week, start_time, active')
-    .eq('market_id', marketId)
+    .eq('market_id', marketId), { table: 'market_schedules' })
 
   const nextMarketDate = computeNextMarketDate(schedules ?? [], tz, seasonStart, seasonEnd)
   const nextMarketDateStr = nextMarketDate ? formatLocalDate(nextMarketDate) : null
@@ -329,13 +330,13 @@ export async function getMarketTransactionsAggregates(
     seasonRangeEnd > today ? seasonRangeEnd : today
   )
 
-  const { data: itemsRaw } = await serviceClient
+  const { data: itemsRaw } = await observed(serviceClient
     .from('order_items')
     .select('order_id, vendor_profile_id, subtotal_cents, pickup_date')
     .eq('market_id', marketId)
     .not('status', 'in', '(cancelled,refunded)')
     .gte('pickup_date', broadestStart)
-    .lte('pickup_date', broadestEnd)
+    .lte('pickup_date', broadestEnd), { table: 'order_items' })
 
   const items: OrderItemRow[] = (itemsRaw ?? []).map((r) => ({
     order_id: r.order_id as string,
@@ -561,11 +562,11 @@ export async function getParkManagerEarningsAggregates(
     seasonLabel = 'Last 90 days'
   }
 
-  const { data: mk } = await serviceClient
+  const { data: mk } = await observed(serviceClient
     .from('markets')
     .select('operator_keep_pct')
     .eq('id', marketId)
-    .maybeSingle()
+    .maybeSingle(), { table: 'markets' })
   const keepPct = (mk?.operator_keep_pct as number | null) ?? undefined
 
   // PRK-10 (mig 203): stamp-first with pre-migration legacy retry — see the

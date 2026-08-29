@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { stripe } from '@/lib/stripe/config'
 import { getBeneficiaryBalances } from './beneficiaries'
+import { observed } from '@/lib/errors'
 
 // Don't fire tiny transfers — batch until an org is owed at least this much.
 const MIN_REMIT_CENTS = 1000 // $10
@@ -42,12 +43,12 @@ export async function runCauseRemitSweep(
     connectBeneficiaries: 0, attempted: 0, paidCount: 0, paidCents: 0, failed: 0,
   }
 
-  const { data: beneficiaries } = await service
+  const { data: beneficiaries } = await observed(service
     .from('cause_beneficiaries')
     .select('id, name, stripe_account_id')
     .eq('active', true)
     .eq('remit_method', 'connect')
-    .not('stripe_account_id', 'is', null)
+    .not('stripe_account_id', 'is', null), { table: 'cause_beneficiaries' })
   if (!beneficiaries || beneficiaries.length === 0) return summary
   summary.connectBeneficiaries = beneficiaries.length
 

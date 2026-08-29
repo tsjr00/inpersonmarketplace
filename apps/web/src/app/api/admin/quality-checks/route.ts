@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { createClient as createRawClient } from '@supabase/supabase-js'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { verifyAdminScope } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import {
@@ -196,11 +196,11 @@ export async function POST(request: NextRequest) {
 
       // Check dismissals
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-      const { data: recentDismissals } = await serviceSupabase
+      const { data: recentDismissals } = await observed(serviceSupabase
         .from('vendor_quality_findings')
         .select('vendor_profile_id, check_type, reference_key')
         .eq('status', 'dismissed')
-        .gte('dismissed_at', sevenDaysAgo)
+        .gte('dismissed_at', sevenDaysAgo), { table: 'vendor_quality_findings' })
 
       const dismissedKeys = new Set(
         (recentDismissals || []).map(
@@ -250,10 +250,10 @@ export async function POST(request: NextRequest) {
       let vendorsNotified = 0
 
       if (vendorIds.length > 0) {
-        const { data: vendors } = await serviceSupabase
+        const { data: vendors } = await observed(serviceSupabase
           .from('vendor_profiles')
           .select('id, user_id')
-          .in('id', vendorIds)
+          .in('id', vendorIds), { table: 'vendor_profiles' })
 
         for (const vendor of vendors || []) {
           if (!vendor.user_id) continue

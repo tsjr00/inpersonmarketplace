@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { SUPPORTED_LOCALES, LOCALE_COOKIE, DEFAULT_LOCALE } from '@/lib/locale'
 import { createClient } from '@/lib/supabase/server'
+import { observed } from '@/lib/errors'
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
@@ -31,11 +32,11 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       // Read current notification_preferences, merge in locale
-      const { data: profile } = await supabase
+      const { data: profile } = await observed(supabase
         .from('user_profiles')
         .select('notification_preferences')
         .eq('user_id', user.id)
-        .single()
+        .single(), { table: 'user_profiles' })
       const currentPrefs = (profile?.notification_preferences as Record<string, unknown>) || {}
       await supabase
         .from('user_profiles')

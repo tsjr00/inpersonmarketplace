@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getTierLimits } from '@/lib/vendor-limits'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { geocodeZipCode } from '@/lib/geocode'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
@@ -156,10 +156,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         `${parseInt(String(d))}|${normTime(s)}|${normTime(e)}`
 
       crumb.supabase('select', 'market_schedules', { check: 'existing' })
-      const { data: existingSchedules } = await supabase
+      const { data: existingSchedules } = await observed(supabase
         .from('market_schedules')
         .select('id, day_of_week, start_time, end_time, active')
-        .eq('market_id', marketId)
+        .eq('market_id', marketId), { table: 'market_schedules' })
 
       const newWindowKeys = new Set(
         (pickup_windows as Array<{ day_of_week: number; start_time: string; end_time: string }>).map(w =>

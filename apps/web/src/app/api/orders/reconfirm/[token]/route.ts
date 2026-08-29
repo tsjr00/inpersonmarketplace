@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, crumb } from '@/lib/errors'
+import { withErrorTracing, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
@@ -31,11 +31,11 @@ interface RouteContext {
 async function loadOrderByToken(token: string) {
   const serviceClient = createServiceClient()
   crumb.supabase('select', 'orders')
-  const { data: order } = await serviceClient
+  const { data: order } = await observed(serviceClient
     .from('orders')
     .select('id, order_number, vertical_id, status, reconfirm_required_at, reconfirmed_at, reconfirm_refunded_at')
     .eq('reconfirm_token', token)
-    .maybeSingle()
+    .maybeSingle(), { table: 'orders' })
   return { serviceClient, order }
 }
 
@@ -66,30 +66,30 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     // The event's CURRENT facts — what the buyer is being asked to confirm.
     crumb.supabase('select', 'order_items')
-    const { data: items } = await serviceClient
+    const { data: items } = await observed(serviceClient
       .from('order_items')
       .select('market_id')
       .eq('order_id', order.id)
-      .limit(1)
+      .limit(1), { table: 'order_items' })
 
     let event: Record<string, unknown> | null = null
     const marketId = items?.[0]?.market_id as string | undefined
     if (marketId) {
       crumb.supabase('select', 'markets')
-      const { data: market } = await serviceClient
+      const { data: market } = await observed(serviceClient
         .from('markets')
         .select('name, address, city, state, catering_request_id')
         .eq('id', marketId)
-        .maybeSingle()
+        .maybeSingle(), { table: 'markets' })
 
       let times: { event_date?: string; event_start_time?: string; event_end_time?: string } = {}
       if (market?.catering_request_id) {
         crumb.supabase('select', 'catering_requests')
-        const { data: cr } = await serviceClient
+        const { data: cr } = await observed(serviceClient
           .from('catering_requests')
           .select('event_date, event_start_time, event_end_time')
           .eq('id', market.catering_request_id)
-          .maybeSingle()
+          .maybeSingle(), { table: 'catering_requests' })
         times = (cr as typeof times) || {}
       }
       event = {

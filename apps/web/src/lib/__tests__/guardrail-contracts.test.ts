@@ -369,3 +369,37 @@ describe('Guardrail Rule I: filters and function bodies name only real columns /
     expect(bad, `${newest.base}: plpgsql does not validate column names at CREATE time — mig 049 shipped with new_flags/auto_resolved/summary and the daily scan rolled back for six months`).toEqual([])
   })
 })
+
+// ── Rule J — dropped Supabase errors must not come back (2026-08-29) ────────
+//
+// `const { data } = await supabase.from(…)…` throws the error away. Six
+// months-old prod defects (Rule I above) hid behind exactly that shape and
+// never reached error_logs. lib/errors/observe.ts wraps the same call, keeps
+// the caller's behavior (data null on failure) and logs the failure.
+//
+// A codemod wrapped 706 sites on 2026-08-29. What remains is (a) the 13
+// critical-path money files, which change only with per-file approval, and
+// (b) a small residue the codemod could not parse. This is a RATCHET: the
+// count may go down, never up. Add a site → wrap it in observed().
+describe('Rule J — no new dropped-error Supabase calls', () => {
+  const BASELINE = 129 // 2026-08-29 after the sweep: 77 in critical-path files + 52 residue
+
+  it(`unwrapped \`const { data } = await …from/rpc(…)\` sites ≤ ${BASELINE}`, () => {
+    const roots = [path.join(SRC_DIR, 'app/api'), path.join(SRC_DIR, 'lib')]
+    const sites: string[] = []
+    for (const root of roots) {
+      for (const f of walkTsFiles(root)) {
+        const lines = read(f).split(/\r?\n/)
+        for (let i = 0; i < lines.length; i++) {
+          if (!/^\s*const \{ data(?:: \w+)? \} = await (?!observed\()/.test(lines[i]!)) continue
+          const window = lines.slice(i, i + 10).join('\n')
+          if (/\.(from|rpc)\(/.test(window)) sites.push(`${path.relative(SRC_DIR, f)}:${i + 1}`)
+        }
+      }
+    }
+    expect(
+      sites.length,
+      `New dropped-error site(s) — wrap them in observed(query, { table }) from '@/lib/errors'. Newest offenders:\n${sites.slice(-15).join('\n')}`
+    ).toBeLessThanOrEqual(BASELINE)
+  })
+})

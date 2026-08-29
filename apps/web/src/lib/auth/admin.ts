@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
+import { observed } from '@/lib/errors'
 
 import type { UserRole } from '@/lib/auth/roles'
 
@@ -86,11 +87,11 @@ export async function isAdminCheck(): Promise<boolean> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return false
 
-  const { data: profile } = await supabase
+  const { data: profile } = await observed(supabase
     .from('user_profiles')
     .select('role, roles')
     .eq('user_id', user.id)
-    .single()
+    .single(), { table: 'user_profiles' })
 
   // Check BOTH columns during transition — include platform_admin (matches requireAdmin + hasAdminRole)
   return hasAdminRole(profile || {})
@@ -107,11 +108,11 @@ export async function isPlatformAdminCheck(): Promise<boolean> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return false
 
-  const { data: profile } = await supabase
+  const { data: profile } = await observed(supabase
     .from('user_profiles')
     .select('role, roles')
     .eq('user_id', user.id)
-    .single()
+    .single(), { table: 'user_profiles' })
 
   // Platform admin is a distinct role - check both role columns
   return profile?.role === 'platform_admin' || profile?.roles?.includes('platform_admin') || false
@@ -156,11 +157,11 @@ export async function verifyAdminForApi(): Promise<{ isAdmin: boolean; userId: s
     return { isAdmin: false, userId: null }
   }
 
-  const { data: profile } = await supabase
+  const { data: profile } = await observed(supabase
     .from('user_profiles')
     .select('role, roles')
     .eq('user_id', user.id)
-    .single()
+    .single(), { table: 'user_profiles' })
 
   const isAdmin = hasAdminRole(profile || {})
   return { isAdmin, userId: user.id }
@@ -184,12 +185,12 @@ export async function verifyAdminScope(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const { data: profile } = await supabase
+  const { data: profile } = await observed(supabase
     .from('user_profiles')
     .select('role, roles')
     .eq('user_id', user.id)
     .is('deleted_at', null)
-    .single()
+    .single(), { table: 'user_profiles' })
 
   if (!profile) return null
 
@@ -210,12 +211,12 @@ export async function verifyAdminScope(
 
   if (isAdmin && requestedVerticalId) {
     // User has admin role — verify they manage the requested vertical
-    const { data: verticalAdmin } = await supabase
+    const { data: verticalAdmin } = await observed(supabase
       .from('vertical_admins')
       .select('id')
       .eq('user_id', user.id)
       .eq('vertical_id', requestedVerticalId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'vertical_admins' })
 
     if (verticalAdmin) {
       return {
@@ -229,10 +230,10 @@ export async function verifyAdminScope(
 
   // Check vertical_admins table as fallback (for users not in user_profiles as admin)
   if (!isAdmin) {
-    const { data: verticalAdmins } = await supabase
+    const { data: verticalAdmins } = await observed(supabase
       .from('vertical_admins')
       .select('vertical_id')
-      .eq('user_id', user.id)
+      .eq('user_id', user.id), { table: 'vertical_admins' })
 
     if (verticalAdmins && verticalAdmins.length > 0) {
       const allowedVerticals = verticalAdmins.map(va => va.vertical_id)

@@ -114,6 +114,11 @@ export {
 // Logger
 export { logErrorToDb, logError, isDbLoggingEnabled } from './logger'
 
+// Dropped-error observer — `const { data } = await observed(query, { table })`
+// keeps the caller's behavior and makes the failure visible (2026-08-29).
+export { observed } from './observe'
+export type { ObserveContext } from './observe'
+
 // Resolution tracking - verify fixes actually work
 export {
   // Query functions

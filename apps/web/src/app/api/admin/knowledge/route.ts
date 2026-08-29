@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { hasAdminRole, hasPlatformAdminRole } from '@/lib/auth/admin'
-import { withErrorTracing, traced } from '@/lib/errors'
+import { withErrorTracing, traced, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
@@ -22,20 +22,20 @@ async function resolveKnowledgeScope(): Promise<KnowledgeScope> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false, status: 401, error: 'Unauthorized' }
 
-  const { data: profile } = await supabase
+  const { data: profile } = await observed(supabase
     .from('user_profiles')
     .select('role, roles')
     .eq('user_id', user.id)
     .is('deleted_at', null)
-    .single()
+    .single(), { table: 'user_profiles' })
 
   if (!profile || !hasAdminRole(profile)) return { ok: false, status: 403, error: 'Admin access required' }
   if (hasPlatformAdminRole(profile)) return { ok: true, isPlatform: true, verticals: new Set() }
 
-  const { data: vas } = await supabase
+  const { data: vas } = await observed(supabase
     .from('vertical_admins')
     .select('vertical_id')
-    .eq('user_id', user.id)
+    .eq('user_id', user.id), { table: 'vertical_admins' })
   return { ok: true, isPlatform: false, verticals: new Set((vas || []).map(v => v.vertical_id as string)) }
 }
 
@@ -155,11 +155,11 @@ export async function PATCH(request: NextRequest) {
 
     // S4-2: a vertical admin may only edit an article in a vertical they manage —
     // and may not move it to platform-shared (null) or another vertical.
-    const { data: existing } = await serviceClient
+    const { data: existing } = await observed(serviceClient
       .from('knowledge_articles')
       .select('vertical_id')
       .eq('id', id)
-      .single()
+      .single(), { table: 'knowledge_articles' })
 
     if (!existing) {
       return NextResponse.json({ error: 'Article not found' }, { status: 404 })
@@ -219,11 +219,11 @@ export async function DELETE(request: NextRequest) {
     const serviceClient = createServiceClient()
 
     // S4-2: a vertical admin may only delete an article in a vertical they manage.
-    const { data: existing } = await serviceClient
+    const { data: existing } = await observed(serviceClient
       .from('knowledge_articles')
       .select('vertical_id')
       .eq('id', id)
-      .single()
+      .single(), { table: 'knowledge_articles' })
 
     if (!existing) {
       return NextResponse.json({ error: 'Article not found' }, { status: 404 })

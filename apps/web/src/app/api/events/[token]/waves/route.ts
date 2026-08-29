@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 // GET - Wave availability for an event (lightweight, cacheable)
@@ -17,20 +17,20 @@ export async function GET(
     const supabase = createServiceClient()
 
     // Look up market_id from token
-    const { data: event } = await supabase
+    const { data: event } = await observed(supabase
       .from('catering_requests')
       .select('market_id')
       .eq('event_token', token)
       .in('status', ['approved', 'ready', 'active'])
-      .single()
+      .single(), { table: 'catering_requests' })
 
     if (!event?.market_id) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     }
 
     // Fetch wave availability
-    const { data: waves } = await supabase
-      .rpc('get_event_waves_with_availability', { p_market_id: event.market_id })
+    const { data: waves } = await observed(supabase
+      .rpc('get_event_waves_with_availability', { p_market_id: event.market_id }), { table: 'rpc:get_event_waves_with_availability', operation: 'rpc' })
 
     return NextResponse.json({
       waves: (waves || []).map((w: Record<string, unknown>) => ({

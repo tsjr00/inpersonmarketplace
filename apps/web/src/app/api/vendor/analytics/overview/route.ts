@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getAnalyticsLimits } from '@/lib/vendor-limits'
 import { calculateVendorPayout } from '@/lib/pricing'
@@ -30,11 +30,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Verify the user owns this vendor profile
-    const { data: vendorProfile } = await supabase
+    const { data: vendorProfile } = await observed(supabase
       .from('vendor_profiles')
       .select('id, user_id, tier, vertical_id')
       .eq('id', vendorId)
-      .single()
+      .single(), { table: 'vendor_profiles' })
 
     if (!vendorProfile || vendorProfile.user_id !== user.id) {
       return NextResponse.json({ error: 'Unauthorized to view this vendor analytics' }, { status: 403 })
@@ -69,10 +69,10 @@ export async function GET(request: NextRequest) {
     // order_items rows). Vendor revenue is recognized at subscription creation
     // since the buyer prepays the full term and the vendor receives the Stripe
     // transfer at checkout (per processMarketBoxPayout helper).
-    const { data: vendorOfferings } = await supabase
+    const { data: vendorOfferings } = await observed(supabase
       .from('market_box_offerings')
       .select('id')
-      .eq('vendor_profile_id', vendorId)
+      .eq('vendor_profile_id', vendorId), { table: 'market_box_offerings' })
 
     const offeringIds = (vendorOfferings || []).map(o => o.id as string)
 

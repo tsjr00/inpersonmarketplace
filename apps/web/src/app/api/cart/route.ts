@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 /*
@@ -112,12 +112,12 @@ export async function GET(request: NextRequest) {
 
     // Find existing cart — don't create one just for browsing.
     // Carts are created only when items are added (POST /api/cart/items).
-    const { data: cart } = await supabase
+    const { data: cart } = await observed(supabase
       .from('carts')
       .select('id')
       .eq('user_id', user.id)
       .eq('vertical_id', vertical)
-      .maybeSingle()
+      .maybeSingle(), { table: 'carts' })
 
     if (!cart) {
       return NextResponse.json({
@@ -221,11 +221,11 @@ export async function GET(request: NextRequest) {
 
       if (checkPairs.length > 0) {
         const scheduleIds = [...new Set(checkPairs.map(p => p.scheduleId))]
-        const { data: vendorSchedules } = await supabase
+        const { data: vendorSchedules } = await observed(supabase
           .from('vendor_market_schedules')
           .select('schedule_id, vendor_profile_id, is_active')
           .in('schedule_id', scheduleIds)
-          .eq('is_active', true)
+          .eq('is_active', true), { table: 'vendor_market_schedules' })
 
         const activeVendorSchedules = new Set(
           (vendorSchedules || []).map(vs => `${vs.vendor_profile_id}|${vs.schedule_id}`)

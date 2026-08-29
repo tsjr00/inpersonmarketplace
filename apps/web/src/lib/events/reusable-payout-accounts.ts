@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { observed } from '@/lib/errors'
 
 /**
  * Reusable Stripe payout accounts for an event organizer (owner decision
@@ -35,13 +36,13 @@ export async function getReusablePayoutAccounts(
 
   // Their vendor payout account, if onboarding finished. Same-vertical profile
   // preferred when they vend in both.
-  const { data: vendorProfiles } = await serviceClient
+  const { data: vendorProfiles } = await observed(serviceClient
     .from('vendor_profiles')
     .select('vertical_id, profile_data, stripe_account_id, stripe_onboarding_complete')
     .eq('user_id', userId)
     .is('deleted_at', null)
     .not('stripe_account_id', 'is', null)
-    .eq('stripe_onboarding_complete', true)
+    .eq('stripe_onboarding_complete', true), { table: 'vendor_profiles' })
 
   const vendorProfile = (vendorProfiles || []).sort((a, b) =>
     (b.vertical_id === opts.verticalId ? 1 : 0) - (a.vertical_id === opts.verticalId ? 1 : 0)
@@ -58,23 +59,23 @@ export async function getReusablePayoutAccounts(
 
   // The account from the most recent PRIOR event they organized whose
   // onboarding finished.
-  const { data: priorEvents } = await serviceClient
+  const { data: priorEvents } = await observed(serviceClient
     .from('catering_requests')
     .select('market_id, event_date, company_name')
     .eq('organizer_user_id', userId)
     .not('market_id', 'is', null)
     .neq('market_id', opts.excludeMarketId)
     .order('event_date', { ascending: false })
-    .limit(20)
+    .limit(20), { table: 'catering_requests' })
 
   const priorMarketIds = (priorEvents || []).map(e => e.market_id as string)
   if (priorMarketIds.length > 0) {
-    const { data: priorMarkets } = await serviceClient
+    const { data: priorMarkets } = await observed(serviceClient
       .from('markets')
       .select('id, stripe_account_id')
       .in('id', priorMarketIds)
       .not('stripe_account_id', 'is', null)
-      .eq('stripe_onboarding_complete', true)
+      .eq('stripe_onboarding_complete', true), { table: 'markets' })
 
     const byMarketId = new Map((priorMarkets || []).map(m => [m.id as string, m.stripe_account_id as string]))
     // priorEvents is already newest-first; take the first with a usable account.
