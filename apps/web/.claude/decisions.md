@@ -239,3 +239,11 @@ Also 2026-08-26: intake form gets `noValidate` + visible/scrolled error box (iOS
 8. Checks run at invitation render AND at acceptance — days can pass between.
 Open at write time: blackout mechanism (stored table vs derived), check-in/no-show handling for a skipped paid day, operator notification, pre-order window definition, market-box pickups.
 Round 2 (owner, 2026-08-27): **stored** blackout table · park operator notice: wanted immediately so the spot can be re-rented, but "this is going to touch some complex logic and can get messy" → v1 notify-only proposed · **no bail-out on the no-show record** — the vendor made the choice · existing pre-order = **any open order on that date** at the conflicting location, unless fulfilled/cancelled by the time they accept (invitation-time notice gives them the window to resolve it) · FM flag **reuses the multiple_trucks logic, customized copy** · **whole-day** blackout.
+
+## Vendor delegates ("Team members") — decisions (owner, 2026-08-29; design `.claude/vendor_delegate_design.md`, NOT built)
+1. **Money-out actions are owner-only** (pay an event fee, book a park spot / booth week, plan upgrade, anything charging the owner's card or Connect account).
+2. **Delegates cannot accept event invitations — owners only.** (They can still prep, message the organizer, run pickup on event day.)
+3. **Cap per tier: free = 1 · pro = 3 · boss = 5** active delegates per vendor profile (FT tiers named; FM mapping to decide when built — same numbers by tier rank).
+4. **Payouts page is owner-only.**
+5. **Public-facing term is "Team member"** in BOTH verticals ("delegate" stays internal/code).
+Mechanism as recommended: delegate = own login linked via `vendor_delegates`; `user_vendor_profile_ids()` gains the delegate arm (payouts excluded via owner check); single resolver `getVendorProfileForVertical` + sweep; short owner-only allowlist.
