@@ -12,6 +12,7 @@ import { fetchMarketOptinForVendor } from '@/lib/markets/optin-public'
 import { computeAgreementVersionFromSnapshot } from '@/lib/markets/agreement-version'
 import { loadVendorAvailability, describeConflict, type VendorAvailability } from '@/lib/events/availability'
 import { writeEventBlackouts } from '@/lib/events/blackouts'
+import { vendorResponseRecipients } from '@/lib/events/organizer-recipient'
 
 interface RouteContext {
   params: Promise<{ marketId: string }>
@@ -464,31 +465,28 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           (profileData?.farm_name as string) ||
           'A vendor'
 
-        // Find admin user(s) to notify
-        const { data: admins } = await observed(serviceClient
-          .from('user_profiles')
-          .select('user_id')
-          .in('role', ['admin', 'platform_admin'])
-          .is('deleted_at', null)
-          .limit(5), { table: 'user_profiles' })
+        // Who hears about this (owner finding 2026-08-28): the organizer gets
+        // the organizer copy (links to THEIR event dashboard); admins get the
+        // admin copy (links to the admin panel) — and an admin who is also
+        // this event's organizer gets ONLY the organizer copy. The organizer
+        // id is resolved by email when the durable column is still empty.
+        const recipients = await vendorResponseRecipients(serviceClient, market.catering_request_id as string | null)
 
-        if (admins) {
-          for (const admin of admins) {
-            await sendNotification(
-              admin.user_id,
-              'catering_vendor_responded',
-              {
-                // T-08: these were `companyName` / `eventDate`, but the
-                // template reads `vendorName` / `marketName` — so every one of
-                // these rendered "undefined accepted the event invitation for
-                // undefined". Nothing was missing; the keys did not match.
-                vendorName,
-                responseAction: response_status,
-                marketName: market.name,
-              },
-              { vertical: market.vertical_id }
-            )
-          }
+        for (const adminUserId of recipients.adminUserIds) {
+          await sendNotification(
+            adminUserId,
+            'catering_vendor_responded',
+            {
+              // T-08: these were `companyName` / `eventDate`, but the
+              // template reads `vendorName` / `marketName` — so every one of
+              // these rendered "undefined accepted the event invitation for
+              // undefined". Nothing was missing; the keys did not match.
+              vendorName,
+              responseAction: response_status,
+              marketName: market.name,
+            },
+            { vertical: market.vertical_id }
+          )
         }
 
         // T-59: the ORGANIZER gets one too. Until now only admins were told
@@ -498,20 +496,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         // Uses its own type, not catering_vendor_responded — that one is
         // audience:'admin' and links to /admin/events.
         //
-        // ⚠ organizer_user_id is null until a logged-in user with the matching
-        // email loads /event-manager, so an organizer who has not finished
-        // signing up gets nothing here. That is why the email is not being
-        // replaced.
-        if (market.catering_request_id) {
-          const { data: cReq } = await observed(serviceClient
-            .from('catering_requests')
-            .select('id, organizer_user_id, vertical_id')
-            .eq('id', market.catering_request_id)
-            .single(), { table: 'catering_requests' })
-
-          if (cReq?.organizer_user_id) {
+        // organizer_user_id is stamped at intake when the submitter is logged
+        // in with the contact email, backfilled by email lookup in
+        // vendorResponseRecipients, and set on first /event-manager load — an
+        // organizer with no account at all still gets nothing here, which is
+        // why the results email is not being replaced.
+        if (market.catering_request_id && recipients.organizerUserId) {
+          const cReq = { id: market.catering_request_id as string, vertical_id: market.vertical_id as string }
+          {
             await sendNotification(
-              cReq.organizer_user_id,
+              recipients.organizerUserId,
               'event_vendor_responded_organizer',
               {
                 vendorName,

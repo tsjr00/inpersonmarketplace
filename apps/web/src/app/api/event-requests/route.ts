@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import {
   checkRateLimit,
   getClientIp,
@@ -229,6 +229,23 @@ export async function POST(request: NextRequest) {
     // Use service client (public form, no auth required)
     const supabase = createServiceClient()
 
+    // Stamp the organizer's user id at intake when the submitter is signed in
+    // with the SAME email (the "I already have an account" path). The
+    // organizer-only routes and the vendor-responded notification key on
+    // organizer_user_id, which otherwise stays null until they open
+    // /event-manager (owner finding 2026-08-28). A mismatched email never
+    // claims the event — that column gates fee waivers and agreements.
+    let organizerUserId: string | null = null
+    try {
+      const sessionClient = await createClient()
+      const { data: { user: sessionUser } } = await sessionClient.auth.getUser()
+      if (sessionUser?.email && sessionUser.email.toLowerCase() === String(contact_email).toLowerCase().trim()) {
+        organizerUserId = sessionUser.id
+      }
+    } catch {
+      // No session / cookie context — the form is public; leave null.
+    }
+
     // Validate new structured fields
     const validPaymentModels = ['company_paid', 'attendee_paid', 'hybrid']
     const validRecurringFreqs = ['weekly', 'biweekly', 'monthly', 'quarterly']
@@ -237,6 +254,7 @@ export async function POST(request: NextRequest) {
       .from('catering_requests')
       .insert({
         vertical_id: verticalId,
+        organizer_user_id: organizerUserId,
         company_name: String(company_name).slice(0, 200),
         contact_name: String(contact_name).slice(0, 200),
         contact_email: String(contact_email).toLowerCase().slice(0, 320),

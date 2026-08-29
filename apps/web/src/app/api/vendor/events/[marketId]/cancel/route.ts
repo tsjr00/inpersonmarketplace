@@ -8,6 +8,7 @@ import { createRefund } from '@/lib/stripe/payments'
 import { refundEventFeePayment } from '@/lib/stripe/event-fee-payments'
 import { decideFeeOutcome, waivableUntil } from '@/lib/events/fee-cancellation'
 import { liftEventBlackouts } from '@/lib/events/blackouts'
+import { vendorResponseRecipients } from '@/lib/events/organizer-recipient'
 import { stripe } from '@/lib/stripe/config'
 import { restoreInventory } from '@/lib/inventory'
 
@@ -442,22 +443,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }
     }
 
-    // 3. Notify admin
-    const { data: admins } = await observed(serviceClient
-      .from('user_profiles')
-      .select('user_id')
-      .in('role', ['admin', 'platform_admin'])
-      .is('deleted_at', null)
-      .limit(5), { table: 'user_profiles' })
-
-    if (admins) {
-      for (const admin of admins) {
-        await sendNotification(admin.user_id, 'catering_vendor_responded', {
-          companyName: vendorName,
-          responseAction: `cancelled${isLateCancellation ? ' (LATE)' : ''}`,
-          eventDate: market.event_start_date || market.name,
-        }, { vertical: market.vertical_id })
-      }
+    // 3. Notify admins — minus the organizer, who gets the organizer copy in
+    // step 4 (owner finding 2026-08-28). Keys fixed too: this template reads
+    // vendorName / marketName (T-08); the old companyName / eventDate keys
+    // rendered "undefined cancelled … for undefined".
+    const recipients = await vendorResponseRecipients(serviceClient, (market.catering_request_id as string | null) ?? null)
+    for (const adminUserId of recipients.adminUserIds) {
+      await sendNotification(adminUserId, 'catering_vendor_responded', {
+        vendorName,
+        responseAction: `cancelled${isLateCancellation ? ' (LATE)' : ''}`,
+        marketName: market.name,
+      }, { vertical: market.vertical_id })
     }
 
     // 4. Notify event organizer
@@ -507,8 +503,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
         }
       }
 
-      // Also send in-app notification if organizer has an account
-      if (cReq?.organizer_user_id) {
+      // Also send in-app notification if organizer has an account (resolved
+      // by vendorResponseRecipients — durable column or email lookup).
+      if (cReq && recipients.organizerUserId) {
         // M2 (closed 2026-08-13): this used to borrow the admin ACCEPT/DECLINE
         // template, which produced "X cancelled their commitment to the event
         // invitation for Y" — and before the T-08 key fix, "undefined …
@@ -516,7 +513,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         // 'cancelled' branch: organizer-appropriate copy, the vendor's reason
         // attributed, and a link to THEIR event dashboard instead of the admin
         // panel.
-        await sendNotification(cReq.organizer_user_id, 'event_vendor_responded_organizer', {
+        await sendNotification(recipients.organizerUserId, 'event_vendor_responded_organizer', {
           vendorName,
           responseAction: 'cancelled',
           marketName: market.name,

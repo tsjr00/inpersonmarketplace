@@ -2206,6 +2206,22 @@ describe('Event ↔ location availability', () => {
     expect(route).toMatch(/const isFirstConfirmation = previouslySelected\.size === 0/)
   })
 
+  it('vendor-response notifications resolve recipients through one helper (the organizer never gets the admin copy)', () => {
+    // Owner finding 2026-08-28: an admin who is also the organizer landed on
+    // the admin panel from "taco truck accepted" — the admin copy went to
+    // every admin and the organizer copy needed organizer_user_id set.
+    for (const file of ['app/api/vendor/events/[marketId]/respond/route.ts', 'app/api/vendor/events/[marketId]/cancel/route.ts']) {
+      const src = rd(file)
+      expect(src, `${file} must use vendorResponseRecipients`).toMatch(/vendorResponseRecipients\(serviceClient/)
+      expect(/\.in\('role', \['admin', 'platform_admin'\]\)/.test(src), `${file} must not query admins on its own`).toBe(false)
+      expect(src, `${file} admin copy iterates recipients.adminUserIds`).toMatch(/for \(const adminUserId of recipients\.adminUserIds\)/)
+    }
+    const helper = rd('lib/events/organizer-recipient.ts')
+    expect(helper, 'admins minus the organizer').toMatch(/filter\(id => id && id !== organizerUserId\)/)
+    const intake = rd('app/api/event-requests/route.ts')
+    expect(intake, 'intake stamps organizer_user_id for a signed-in submitter with the same email').toMatch(/organizer_user_id: organizerUserId,/)
+  })
+
   it('the multi-truck / multi-location flag is offered in BOTH verticals under one key', () => {
     const form = rd('app/[vertical]/vendor/edit/EditProfileForm.tsx')
     expect(form).toContain('I can staff more than one location at the same time')
