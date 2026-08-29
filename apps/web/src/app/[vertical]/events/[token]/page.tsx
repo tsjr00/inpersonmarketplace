@@ -227,7 +227,7 @@ export default async function EventPage({ params }: EventPageProps) {
         {vendors.length > 0 ? (
           <>
             <h2 style={{ fontSize: typography.sizes.xl, fontWeight: typography.weights.semibold, color: '#111827', margin: `0 0 ${spacing.md}` }}>
-              {vendors.length} Vendor{vendors.length !== 1 ? 's' : ''} Confirmed
+              {vendors.length} Vendor{vendors.length !== 1 ? 's' : ''} Attending
             </h2>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
@@ -332,7 +332,7 @@ export default async function EventPage({ params }: EventPageProps) {
         ) : (
           <div style={{ textAlign: 'center', padding: spacing.xl }}>
             <h2 style={{ color: '#6b7280', fontSize: typography.sizes.xl, margin: `0 0 ${spacing.xs}` }}>
-              Vendors Being Confirmed
+              Vendors Are Still Responding
             </h2>
             <p style={{ color: '#9ca3af', fontSize: typography.sizes.base, margin: 0 }}>
               {vertical === 'food_trucks'

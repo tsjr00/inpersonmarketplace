@@ -1082,7 +1082,7 @@ export function ShopClient({ vertical, token, initialData, isLoggedInInitial }: 
           color: statusColors.neutral500,
           fontSize: typography.sizes.sm,
         }}>
-          No vendors have confirmed for this event yet. Check back soon!
+          No vendors are attending this event yet. Check back soon!
         </div>
       ) : (
         vendors.map(vendor => {

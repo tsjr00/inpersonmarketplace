@@ -921,6 +921,23 @@ export default function AdminCateringPage() {
                       Cancel Event
                     </button>
                   )}
+
+                  {/* Restore event (ST-19, 2026-08-29) — the door to the route's
+                      misclick repair. The route decides: if any buyer was
+                      refunded or any vendor was told the event was off, it
+                      refuses with the reason (shown above as the action
+                      message); otherwise it rebuilds the listing links,
+                      re-activates the market and sets the event back to
+                      Approved. */}
+                  {selected.status === 'cancelled' && (
+                    <button
+                      onClick={() => updateStatus(selected.id, 'approved')}
+                      style={{ ...sizing.control, backgroundColor: statusColors.warningLight, color: statusColors.warningDark, border: `1px solid ${statusColors.warningBorder}`, cursor: 'pointer' }}
+                      title="Only works when nothing irreversible happened — no refunds sent, no vendors notified"
+                    >
+                      Restore Event
+                    </button>
+                  )}
                 </div>
 
                 {/* Cancel confirmation dialog */}

@@ -16,8 +16,9 @@ import { spacing, typography, radius, statusColors } from '@/lib/design-tokens'
  */
 
 interface ReconfirmState {
-  state: 'awaiting' | 'confirmed' | 'refunded' | 'not_required'
+  state: 'awaiting' | 'confirmed' | 'refunded' | 'not_required' | 'cancelled'
   order_number: string | null
+  vertical?: string
   event: {
     name: string
     address: string | null
@@ -26,7 +27,11 @@ interface ReconfirmState {
     event_date?: string
     event_start_time?: string
     event_end_time?: string
+    event_token?: string | null
   } | null
+  // ST-20 (2026-08-29): live vs cancelled items, so the copy can tell a
+  // withdrawal apart from "still stands".
+  items?: { total: number; live: number; cancelled: number; cancelled_by_vendor: boolean }
 }
 
 export default function ReconfirmPage() {
@@ -102,6 +107,29 @@ export default function ReconfirmPage() {
     )
   }
 
+  if (data.state === 'cancelled') {
+    const byVendor = data.items?.cancelled_by_vendor
+    const eventHref = data.vertical && data.event?.event_token ? `/${data.vertical}/events/${data.event.event_token}` : null
+    return shell(
+      <>
+        <div style={{ fontSize: '3rem', marginBottom: spacing.sm }}>🚫</div>
+        <h1 style={{ fontSize: typography.sizes.xl, color: statusColors.neutral900, margin: `0 0 ${spacing.xs}` }}>
+          {byVendor ? 'The vendor withdrew from this event' : 'Your order was cancelled'}
+        </h1>
+        <p style={{ color: statusColors.neutral600, margin: `0 0 ${spacing.sm}`, lineHeight: 1.6 }}>
+          {byVendor
+            ? `${data.order_number ? `Order ${data.order_number}` : 'Your order'} was cancelled because the vendor you ordered from is no longer attending. You have been refunded in full — nothing to confirm.`
+            : `${data.order_number ? `Order ${data.order_number}` : 'Your order'} was cancelled and refunded in full — nothing to confirm.`}
+        </p>
+        {eventHref && (
+          <p style={{ color: statusColors.neutral600, margin: 0, lineHeight: 1.6 }}>
+            Other vendors may still be there — <a href={eventHref} style={{ color: statusColors.info }}>see who&apos;s attending and order again</a>.
+          </p>
+        )}
+      </>
+    )
+  }
+
   if (confirmed || data.state === 'confirmed') {
     return shell(
       <>
@@ -130,8 +158,20 @@ export default function ReconfirmPage() {
       <h1 style={{ fontSize: typography.sizes.xl, color: statusColors.neutral900, margin: `0 0 ${spacing.xs}` }}>
         The event changed — are you still coming?
       </h1>
+      {/* ST-20: honest about what "stands" means — the vendors and offerings
+          may have changed since the order was placed; a withdrawn vendor's
+          items are already cancelled and refunded. */}
+      {data.items && data.items.cancelled > 0 && data.items.live > 0 && (
+        <div style={{ textAlign: 'left', backgroundColor: statusColors.warningLight, border: `1px solid ${statusColors.warningBorder}`, borderRadius: radius.md, padding: spacing.sm, marginBottom: spacing.sm, color: statusColors.warningDark, fontSize: typography.sizes.sm, lineHeight: 1.5 }}>
+          <strong>Part of this order was cancelled</strong> — {data.items.cancelled} of {data.items.total} item{data.items.total === 1 ? '' : 's'}{data.items.cancelled_by_vendor ? ' because that vendor withdrew from the event' : ''}. Those items were refunded. The rest is what you&apos;re confirming below.
+        </div>
+      )}
       <p style={{ color: statusColors.neutral600, margin: `0 0 ${spacing.md}`, lineHeight: 1.6 }}>
-        {data.order_number ? `Your pre-order (${data.order_number})` : 'Your pre-order'} still stands — just confirm the new details work for you. If nobody confirms an order, it&apos;s refunded before the event so vendors don&apos;t cook for no one.
+        {data.order_number ? `Your pre-order (${data.order_number})` : 'Your pre-order'} stands as of now — confirm that the new details work for you. Vendors and offerings can change before the event
+        {data.vertical && data.event?.event_token ? (
+          <> — <a href={`/${data.vertical}/events/${data.event.event_token}`} style={{ color: statusColors.info }}>check who&apos;s attending</a>.</>
+        ) : '.'}
+        {' '}If nobody confirms an order, it&apos;s refunded before the event so vendors don&apos;t cook for no one.
       </p>
 
       {data.event && (

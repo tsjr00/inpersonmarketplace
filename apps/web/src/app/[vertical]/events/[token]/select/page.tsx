@@ -424,7 +424,7 @@ export default function EventSelectPage() {
             border: `1px solid ${statusColors.neutral200}`,
           }}>
             <p style={{ color: statusColors.neutral500, margin: 0 }}>
-              No vendors have responded yet. You&apos;ll receive an updated email when responses come in.
+              No vendors have said yes yet. You&apos;ll receive an updated email when responses come in.
             </p>
           </div>
         ) : (

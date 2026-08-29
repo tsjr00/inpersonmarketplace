@@ -119,20 +119,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // ── B5 (owner decision 2026-08-15, option a): cancelling is one-way ──
     // Cancel's side effects run one direction only: it deactivates the market,
     // cancels order items, and refunds buyers (and, with Event Vendor Fees,
-    // paid fee rows get refunded too). Nothing re-activates the market or
-    // un-refunds anyone — so an un-cancelled event LOOKS repaired while staying
-    // invisible to shoppers and unusable by vendors, which is worse than a hard
-    // block because it reports success. Blocked with the why; the recovery is
-    // re-creating the event (the repeat route exists for exactly this).
-    if (status && cateringReq?.status === 'cancelled' && status !== 'cancelled') {
-      return NextResponse.json(
-        {
-          error:
-            'This event was cancelled, and cancelling is one-way: the event market was deactivated and any refunds already went out — changing the status back would make the event look repaired while staying invisible to shoppers and vendors. To run it again, re-create the event (Repeat event), which builds a fresh market and invitations.',
-        },
-        { status: 400 }
-      )
-    }
+    // paid fee rows get refunded too). Nothing un-refunds anyone — so an
+    // un-cancelled event would LOOK repaired while its buyers had been told it
+    // was off. The block below ("Un-cancelling") enforces exactly that: it
+    // refuses whenever a buyer was refunded or a vendor was notified, with the
+    // reason, and only lets the pure misclick case through (nothing sent,
+    // nothing refunded) — repairing the links and re-activating the market.
+    //
+    // 2026-08-29 (Restore-event, ST-19): an unconditional block used to sit
+    // here ABOVE that logic, so the misclick repair could never run and the
+    // admin UI had no door to it. Removed; the guarded check is the rule.
 
     if (fetchError || !cateringReq) {
       return NextResponse.json(

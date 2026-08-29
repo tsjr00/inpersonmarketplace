@@ -50,7 +50,7 @@ const STATUS_LABELS: Record<string, string> = {
   new: 'Submitted',
   reviewing: 'Under Review',
   approved: 'Approved — Inviting Vendors',
-  ready: 'Vendors Confirmed — Pre-Orders Open',
+  ready: 'Enough Vendors Said Yes — Pre-Orders Open',
   active: 'Event Day',
   review: 'Event Ended — Collecting Feedback',
   completed: 'Completed',
@@ -140,6 +140,7 @@ export default async function EventManagerDashboardPage({ params }: PageProps) {
   // Only meaningful once approval has created the market.
   const marketId = event.market_id as string | null
   let vendorsAccepted = 0
+  let vendorsSelected = 0
   let preOrderCount = 0
   let orderValueCents = 0
   let waves: Array<{ wave_number: number; capacity: number; reserved: number; status: string }> = []
@@ -148,7 +149,7 @@ export default async function EventManagerDashboardPage({ params }: PageProps) {
     const [vendorRes, orderRes, waveRes] = await Promise.all([
       serviceClient
         .from('market_vendors')
-        .select('id')
+        .select('id, organizer_selected_at, is_backup')
         .eq('market_id', marketId)
         .eq('response_status', 'accepted'),
       serviceClient
@@ -164,6 +165,8 @@ export default async function EventManagerDashboardPage({ params }: PageProps) {
     ])
 
     vendorsAccepted = (vendorRes.data || []).length
+    // ST-20 (d): "confirmed" means selected by the organizer, not "said yes".
+    vendorsSelected = (vendorRes.data || []).filter(r => r.organizer_selected_at != null && r.is_backup !== true).length
     preOrderCount = (orderRes.data || []).length
     orderValueCents = (orderRes.data || []).reduce(
       (sum, r) => sum + ((r.subtotal_cents as number) || 0),
@@ -301,7 +304,10 @@ export default async function EventManagerDashboardPage({ params }: PageProps) {
             fontSize: typography.sizes.sm,
             color: colors.textSecondary,
           }}>
-            <span><strong>{vendorsAccepted}</strong> of {(event.vendor_count as number) || '?'} vendors confirmed</span>
+            {/* ST-20 (d), 2026-08-29: one vocabulary across surfaces —
+                "said yes" = accepted the invitation, "selected" = you chose
+                them, "attending" = selected and (if there is a fee) paid. */}
+            <span><strong>{vendorsSelected}</strong> of {(event.vendor_count as number) || '?'} vendors selected · <strong>{vendorsAccepted}</strong> said yes</span>
             {preOrderCount > 0 && (
               <span><strong>{preOrderCount}</strong> pre-order{preOrderCount === 1 ? '' : 's'}</span>
             )}

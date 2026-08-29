@@ -55,25 +55,35 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
-    const state =
-      order.reconfirm_refunded_at || order.status === 'cancelled'
-        ? 'refunded'
-        : !order.reconfirm_required_at
-          ? 'not_required'
-          : order.reconfirmed_at
-            ? 'confirmed'
-            : 'awaiting'
-
-    // The event's CURRENT facts — what the buyer is being asked to confirm.
+    // ST-20 (owner testing 2026-08-25, built 2026-08-29): the page used to say
+    // "your pre-order still stands" from orders.status alone, AFTER a vendor
+    // had withdrawn and cancelled the items. Derive the state from the live
+    // items too: none left → cancelled (refunded by the withdrawal); some
+    // left → still awaiting, but say part of it was cancelled.
     crumb.supabase('select', 'order_items')
     const { data: items } = await observed(serviceClient
       .from('order_items')
-      .select('market_id')
-      .eq('order_id', order.id)
-      .limit(1), { table: 'order_items' })
+      .select('market_id, status, cancelled_by')
+      .eq('order_id', order.id), { table: 'order_items' })
+    const allItems = items ?? []
+    const liveItems = allItems.filter(i => i.status !== 'cancelled' && i.status !== 'refunded')
+    const cancelledItems = allItems.filter(i => i.status === 'cancelled' || i.status === 'refunded')
+    const cancelledByVendor = cancelledItems.some(i => i.cancelled_by === 'vendor')
 
+    const state =
+      order.reconfirm_refunded_at
+        ? 'refunded'
+        : order.status === 'cancelled' || (allItems.length > 0 && liveItems.length === 0)
+          ? 'cancelled'
+          : !order.reconfirm_required_at
+            ? 'not_required'
+            : order.reconfirmed_at
+              ? 'confirmed'
+              : 'awaiting'
+
+    // The event's CURRENT facts — what the buyer is being asked to confirm.
     let event: Record<string, unknown> | null = null
-    const marketId = items?.[0]?.market_id as string | undefined
+    const marketId = (liveItems[0] ?? allItems[0])?.market_id as string | undefined
     if (marketId) {
       crumb.supabase('select', 'markets')
       const { data: market } = await observed(serviceClient
@@ -82,12 +92,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
         .eq('id', marketId)
         .maybeSingle(), { table: 'markets' })
 
-      let times: { event_date?: string; event_start_time?: string; event_end_time?: string } = {}
+      let times: { event_date?: string; event_start_time?: string; event_end_time?: string; event_token?: string | null } = {}
       if (market?.catering_request_id) {
         crumb.supabase('select', 'catering_requests')
         const { data: cr } = await observed(serviceClient
           .from('catering_requests')
-          .select('event_date, event_start_time, event_end_time')
+          .select('event_date, event_start_time, event_end_time, event_token')
           .eq('id', market.catering_request_id)
           .maybeSingle(), { table: 'catering_requests' })
         times = (cr as typeof times) || {}
@@ -106,6 +116,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
       order_number: order.order_number,
       vertical: order.vertical_id,
       event,
+      items: {
+        total: allItems.length,
+        live: liveItems.length,
+        cancelled: cancelledItems.length,
+        cancelled_by_vendor: cancelledByVendor,
+      },
     })
   })
 }
