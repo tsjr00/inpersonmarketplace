@@ -1,5 +1,4 @@
 import { SupabaseClient } from '@supabase/supabase-js'
-import { observed } from '@/lib/errors'
 
 /**
  * Vendor Tier Limits - Centralized limit definitions and enforcement
@@ -179,7 +178,7 @@ export async function getTraditionalMarketUsage(
   supabase: SupabaseClient,
   vendorProfileId: string
 ): Promise<{ count: number; marketIds: string[] }> {
-  const { data: listingMarketRows } = await observed(supabase
+  const { data: listingMarketRows } = await supabase
     .from('listing_markets')
     .select(`
       market_id,
@@ -189,13 +188,13 @@ export async function getTraditionalMarketUsage(
     .eq('listings.vendor_profile_id', vendorProfileId)
     .eq('listings.status', 'published')
     .is('listings.deleted_at', null)
-    .eq('markets.market_type', 'traditional'), { table: 'listing_markets' })
+    .eq('markets.market_type', 'traditional')
 
-  const { data: boxMarkets } = await observed(supabase
+  const { data: boxMarkets } = await supabase
     .from('market_box_offerings')
     .select('pickup_market_id, markets!inner(market_type)')
     .eq('vendor_profile_id', vendorProfileId)
-    .eq('active', true), { table: 'market_box_offerings' })
+    .eq('active', true)
 
   const marketIds = new Set<string>()
 
@@ -230,7 +229,7 @@ export async function getTraditionalMarketUsageExcludingListing(
   vendorProfileId: string,
   excludeListingId: string
 ): Promise<{ count: number; marketIds: string[] }> {
-  const { data: listingMarketRows } = await observed(supabase
+  const { data: listingMarketRows } = await supabase
     .from('listing_markets')
     .select(`
       market_id,
@@ -241,13 +240,13 @@ export async function getTraditionalMarketUsageExcludingListing(
     .eq('listings.status', 'published')
     .is('listings.deleted_at', null)
     .eq('markets.market_type', 'traditional')
-    .neq('listing_id', excludeListingId), { table: 'listing_markets' })
+    .neq('listing_id', excludeListingId)
 
-  const { data: boxMarkets } = await observed(supabase
+  const { data: boxMarkets } = await supabase
     .from('market_box_offerings')
     .select('pickup_market_id, markets!inner(market_type)')
     .eq('vendor_profile_id', vendorProfileId)
-    .eq('active', true), { table: 'market_box_offerings' })
+    .eq('active', true)
 
   const marketIds = new Set<string>()
 
@@ -437,11 +436,11 @@ export async function getHomeMarket(
   supabase: SupabaseClient,
   vendorProfileId: string
 ): Promise<string | null> {
-  const { data: vendor } = await observed(supabase
+  const { data: vendor } = await supabase
     .from('vendor_profiles')
     .select('home_market_id')
     .eq('id', vendorProfileId)
-    .single(), { table: 'vendor_profiles' })
+    .single()
 
   return vendor?.home_market_id || null
 }

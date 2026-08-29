@@ -388,7 +388,14 @@ describe('Rule J — no new dropped-error Supabase calls', () => {
   // market-box / reconcile / notification-dedup residue was hand-wrapped.
   // What is left is `await <prebuilt query variable>` shapes and a few
   // chains with trailing comments — wrap them as you touch them.
-  const BASELINE = 18
+  //
+  // 23 (2026-08-29, later the same day): lib/vendor-limits.ts is bundled into
+  // CLIENT pages (insights, analytics, market-boxes, upgrade, VendorTierManager),
+  // and `@/lib/errors` pulls in breadcrumbs.ts → `async_hooks`, which does not
+  // exist in the browser — the staging push's `npm run build` failed on it.
+  // Its 5 sites are deliberately unwrapped; see the client-bundle guard in
+  // flow-integrity ("client-bundled libs never import @/lib/errors").
+  const BASELINE = 23
 
   it(`unwrapped \`const { data } = await …from/rpc(…)\` sites ≤ ${BASELINE}`, () => {
     const roots = [path.join(SRC_DIR, 'app/api'), path.join(SRC_DIR, 'lib')]

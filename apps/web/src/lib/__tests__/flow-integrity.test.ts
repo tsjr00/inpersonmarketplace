@@ -2238,6 +2238,42 @@ describe('Event ↔ location availability', () => {
     expect(fs.existsSync(path.join(SRC_DIR, 'app/[vertical]/vendor/pickup-signs/page.tsx'))).toBe(true)
   })
 
+  it('client-bundled libs never import @/lib/errors (breadcrumbs → async_hooks does not exist in the browser)', () => {
+    // 2026-08-29: the staging push failed `npm run build` because the
+    // observed() codemod gave lib/vendor-limits.ts an `@/lib/errors` import,
+    // and that module is bundled into client pages. Any lib module that a
+    // 'use client' file imports at runtime (not `import type`) must stay free
+    // of the errors index; wrap its queries only if the import chain is
+    // server-only, or log another way.
+    const clientFiles: string[] = []
+    const walk = (d: string) => {
+      for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+        const p = path.join(d, e.name)
+        if (e.isDirectory()) { if (e.name !== '__tests__' && e.name !== 'node_modules') walk(p) }
+        else if (/\.tsx?$/.test(e.name) && !/\.test\./.test(e.name)) {
+          const head = fs.readFileSync(p, 'utf-8').slice(0, 200)
+          if (/^\s*['"]use client['"]/.test(head)) clientFiles.push(p)
+        }
+      }
+    }
+    walk(path.join(SRC_DIR, 'app')); walk(path.join(SRC_DIR, 'components'))
+    const offenders = new Set<string>()
+    for (const f of clientFiles) {
+      const src = fs.readFileSync(f, 'utf-8')
+      for (const m of src.matchAll(/^import (?!type )[^'"]*from '@\/lib\/([^']+)'/gm)) {
+        const spec = m[1]!
+        // The index re-exports breadcrumbs (async_hooks). Client-safe
+        // submodules (error-catalog, types) are fine to import directly.
+        if (spec === 'errors' || spec === 'errors/index' || spec === 'errors/breadcrumbs' || spec === 'errors/logger') { offenders.add(`${path.relative(SRC_DIR, f)} imports @/lib/${spec} directly`); continue }
+        const candidates = [path.join(SRC_DIR, 'lib', `${spec}.ts`), path.join(SRC_DIR, 'lib', spec, 'index.ts')]
+        const target = candidates.find(c => fs.existsSync(c))
+        if (!target) continue
+        if (/from '@\/lib\/errors'/.test(fs.readFileSync(target, 'utf-8'))) offenders.add(`${path.relative(SRC_DIR, target)} (imported by ${path.relative(SRC_DIR, f)})`)
+      }
+    }
+    expect([...offenders], 'these would pull async_hooks into a client bundle and break `npm run build`').toEqual([])
+  })
+
   it('the multi-truck / multi-location flag is offered in BOTH verticals under one key', () => {
     const form = rd('app/[vertical]/vendor/edit/EditProfileForm.tsx')
     expect(form).toContain('I can staff more than one location at the same time')
