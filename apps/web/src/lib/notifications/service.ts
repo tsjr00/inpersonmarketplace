@@ -450,7 +450,7 @@ export async function sendNotification(
     const orderNumber = typeof td.orderNumber === 'string' ? td.orderNumber : undefined
     if (dedupRef) dedupQuery = dedupQuery.contains('data', { dedupRef })
     else if (orderNumber) dedupQuery = dedupQuery.contains('data', { orderNumber })
-    const { data: recentDup } = await dedupQuery
+    const { data: recentDup } = await observed(dedupQuery, { table: 'notifications' })
 
     if (recentDup && recentDup.length > 0) {
       return {

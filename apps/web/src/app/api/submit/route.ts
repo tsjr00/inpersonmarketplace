@@ -51,11 +51,11 @@ export async function POST(request: NextRequest) {
 
           // Ensure user_profile exists (trigger may have failed silently)
           // vendor_profiles.user_id references user_profiles.user_id
-          const { data: existingProfile } = await supabaseAdmin
+          const { data: existingProfile } = await observed(supabaseAdmin
             .from("user_profiles")
             .select("user_id")
             .eq("user_id", user_id)
-            .single();
+            .single(), { table: 'user_profiles' });
 
           if (!existingProfile) {
             // Create user_profile if it doesn't exist using upsert to handle race conditions
@@ -82,12 +82,12 @@ export async function POST(request: NextRequest) {
           }
 
           // Check if vendor profile already exists for this user+vertical
-          const { data: existing } = await supabaseAdmin
+          const { data: existing } = await observed(supabaseAdmin
             .from("vendor_profiles")
             .select("id")
             .eq("user_id", user_id)
             .eq("vertical_id", vertical)
-            .single();
+            .single(), { table: 'vendor_profiles' });
 
           if (existing) {
             return NextResponse.json(
@@ -100,12 +100,12 @@ export async function POST(request: NextRequest) {
         // Check for referral code
         let referredByVendorId: string | null = null;
         if (body.referral_code) {
-          const { data: referrer } = await supabaseAdmin
+          const { data: referrer } = await observed(supabaseAdmin
             .from("vendor_profiles")
             .select("id")
             .eq("referral_code", body.referral_code)
             .eq("vertical_id", vertical)
-            .single();
+            .single(), { table: 'vendor_profiles' });
 
           if (referrer) {
             referredByVendorId = referrer.id;
@@ -231,11 +231,11 @@ export async function POST(request: NextRequest) {
           // Validate market exists before inserting (defensive against
           // spoofed URL or stale invite link). One extra read but protects
           // against orphan rows.
-          const { data: marketExists } = await supabaseAdmin
+          const { data: marketExists } = await observed(supabaseAdmin
             .from("markets")
             .select("id")
             .eq("id", marketIdFromInvite)
-            .maybeSingle();
+            .maybeSingle(), { table: 'markets' });
 
           if (marketExists) {
             const { error: mvError } = await supabaseAdmin

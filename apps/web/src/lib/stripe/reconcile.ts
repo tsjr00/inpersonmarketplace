@@ -675,7 +675,7 @@ export async function reconcileByEmail(
     query = query.eq('vertical_id', scope.effectiveVerticalId)
   }
 
-  const { data: orders } = await query
+  const { data: orders } = await observed(query, { table: 'orders' })
   if (!orders || orders.length === 0) {
     return {
       stripeObject: null,

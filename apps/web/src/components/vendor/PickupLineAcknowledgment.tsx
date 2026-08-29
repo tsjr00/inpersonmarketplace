@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
-import { term } from '@/lib/vertical'
 
 /**
  * "Separate pickup line for app orders" — the one thing every vendor must
@@ -74,7 +73,7 @@ export default function PickupLineAcknowledgment({ vertical, onAcknowledged, var
       </div>
       <ul style={{ margin: `0 0 ${spacing.xs}`, paddingLeft: 18, fontSize: typography.sizes.xs, color: '#78350f', lineHeight: 1.55, display: 'flex', flexDirection: 'column', gap: 2 }}>
         <li><strong>In-app orders are separate from walk-up orders.</strong> App customers order ahead and pick their pickup time — they are not supposed to stand in your walk-up line.</li>
-        <li><strong>You run a second pickup line just for app orders</strong>, marked with the {term(vertical, 'vendor').toLowerCase() === 'vendor' ? 'branded' : 'branded'} pickup sign, so app customers know exactly where to collect their food.</li>
+        <li><strong>You run a second pickup line just for app orders</strong>, marked with the branded pickup sign, so app customers know exactly where to collect their food.</li>
         <li><strong>Why it matters:</strong> if app customers have to wait in line anyway, they order less. Skipping the line is what they are paying for.</li>
         <li>Your <em>Pickup Capacity</em> and <em>prep time</em> settings pace the app orders so both lines move.</li>
       </ul>

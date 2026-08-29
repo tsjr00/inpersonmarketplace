@@ -384,8 +384,11 @@ describe('Guardrail Rule I: filters and function bodies name only real columns /
 describe('Rule J — no new dropped-error Supabase calls', () => {
   // 129 after the first sweep (77 in critical-path files + 52 residue);
   // 58 after the owner approved the nine money files ("do all of them",
-  // 2026-08-29) — what is left is residue the codemod could not parse.
-  const BASELINE = 58
+  // 2026-08-29); 18 once comment lines were excluded and the signup /
+  // market-box / reconcile / notification-dedup residue was hand-wrapped.
+  // What is left is `await <prebuilt query variable>` shapes and a few
+  // chains with trailing comments — wrap them as you touch them.
+  const BASELINE = 18
 
   it(`unwrapped \`const { data } = await …from/rpc(…)\` sites ≤ ${BASELINE}`, () => {
     const roots = [path.join(SRC_DIR, 'app/api'), path.join(SRC_DIR, 'lib')]
@@ -394,6 +397,7 @@ describe('Rule J — no new dropped-error Supabase calls', () => {
       for (const f of walkTsFiles(root)) {
         const lines = read(f).split(/\r?\n/)
         for (let i = 0; i < lines.length; i++) {
+          if (/^\s*(\/\/|\*|\/\*)/.test(lines[i]!)) continue // comment lines (observe.ts documents the pattern)
           if (!/^\s*const \{ data(?:: \w+)? \} = await (?!observed\()/.test(lines[i]!)) continue
           const window = lines.slice(i, i + 10).join('\n')
           if (/\.(from|rpc)\(/.test(window)) sites.push(`${path.relative(SRC_DIR, f)}:${i + 1}`)

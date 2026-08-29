@@ -35,9 +35,13 @@ export default function CheckoutPage() {
   // after mount — sessionStorage does not exist on the server render.
   const [continueHref, setContinueHref] = useState(`/${vertical}/browse`)
   useEffect(() => {
-    const href = continueShoppingHref(vertical)
+    // Only steer back to the event shop when this checkout IS about an event
+    // (event items in the cart, or the cart just emptied) — a regular cart
+    // later in the same tab keeps its normal /browse link.
+    const eventContext = checkoutItems.length === 0 || checkoutItems.some(i => i.market_type === 'event')
+    const href = eventContext ? continueShoppingHref(vertical) : `/${vertical}/browse`
     queueMicrotask(() => setContinueHref(href))
-  }, [vertical])
+  }, [vertical, checkoutItems])
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState<{ message: string; code?: string; traceId?: string } | null>(null)
   const [user, setUser] = useState<{ id: string; email: string } | null>(null)

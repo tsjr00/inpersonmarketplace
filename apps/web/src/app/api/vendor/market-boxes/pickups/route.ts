@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, logError } from '@/lib/errors'
+import { withErrorTracing, traced, logError, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       offeringsQuery = offeringsQuery.eq('pickup_market_id', marketId)
     }
 
-    const { data: offerings } = await offeringsQuery
+    const { data: offerings } = await observed(offeringsQuery, { table: 'market_box_offerings' })
 
     if (!offerings || offerings.length === 0) {
       return NextResponse.json({ pickups: [], pickups_by_date: {}, total: 0 })
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
       subscriptionQuery = subscriptionQuery.eq('offering_id', offeringId)
     }
 
-    const { data: subscriptions } = await subscriptionQuery
+    const { data: subscriptions } = await observed(subscriptionQuery, { table: 'market_box_subscriptions' })
 
     if (!subscriptions || subscriptions.length === 0) {
       return NextResponse.json({ pickups: [], pickups_by_date: {}, total: 0 })
