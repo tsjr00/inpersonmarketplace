@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { createRefund } from '@/lib/stripe/payments'
 import { stripe } from '@/lib/stripe/config'
-import { withErrorTracing, TracedError, logError } from '@/lib/errors'
+import { withErrorTracing, TracedError, logError, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { restoreInventory } from '@/lib/inventory'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
@@ -163,12 +163,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const rejOrderPay = (orderItem as any).order as { payment_method?: string | null; payment_model?: string | null }
     const shouldCallStripeRefund = rejOrderPay?.payment_method === 'stripe'
       && rejOrderPay?.payment_model !== 'company_paid'
-    const { data: payment } = await rejectServiceClient
+    const { data: payment } = await observed(rejectServiceClient
       .from('payments')
       .select('stripe_payment_intent_id, status')
       .eq('order_id', orderItem.order_id)
       .eq('status', 'succeeded')
-      .maybeSingle()
+      .maybeSingle(), { table: 'payments' })
 
     if (payment?.stripe_payment_intent_id) {
       try {
@@ -198,11 +198,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Check if all items in the order are now cancelled
-    const { data: remainingItems } = await supabase
+    const { data: remainingItems } = await observed(supabase
       .from('order_items')
       .select('id, status')
       .eq('order_id', orderItem.order_id)
-      .is('cancelled_at', null)
+      .is('cancelled_at', null), { table: 'order_items' })
 
     if (!remainingItems || remainingItems.length === 0) {
       // VOR-19 FIX (CHK-1 family): if the order is still awaiting payment, expire
@@ -261,9 +261,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Track cancellation metrics — all rejections count toward vendor reliability
-    const { data: counts } = await supabase.rpc('increment_vendor_cancelled' as any, {
+    const { data: counts } = await observed(supabase.rpc('increment_vendor_cancelled' as any, {
       p_vendor_id: vendorProfile.id,
-    }).single()
+    }).single(), { table: 'rpc:increment_vendor_cancelled', operation: 'rpc' })
 
     // Check cancellation rate thresholds (only after 10+ confirmed orders)
     if (counts) {

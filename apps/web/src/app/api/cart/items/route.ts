@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { nextPickupDateInTimezone } from '@/lib/time/market-dates'
 import { getSubscriberDefault } from '@/lib/vendor-limits'
@@ -114,11 +114,11 @@ async function handleListingAdd(
 
   // Validate listing belongs to the requested vertical
   crumb.logic('Validating listing vertical match')
-  const { data: listingVertical } = await supabase
+  const { data: listingVertical } = await observed(supabase
     .from('listings')
     .select('vertical_id')
     .eq('id', listingId)
-    .single()
+    .single(), { table: 'listings' })
 
   if (listingVertical && listingVertical.vertical_id !== vertical) {
     throw traced.validation('ERR_CART_001', 'Item not available in this vertical')
@@ -208,21 +208,21 @@ async function handleListingAdd(
   // See lib/paired-rules.ts.
   // Cross-event cart isolation: prevent mixing event items with other markets
   crumb.logic('Checking cross-event cart isolation')
-  const { data: crossMarketItems } = await supabase
+  const { data: crossMarketItems } = await observed(supabase
     .from('cart_items')
     .select('market_id')
     .eq('cart_id', cartId)
     .neq('market_id', marketId)
-    .limit(1)
+    .limit(1), { table: 'cart_items' })
 
   if (crossMarketItems && crossMarketItems.length > 0) {
     const conflictMarketIds = [marketId, crossMarketItems[0].market_id as string]
-    const { data: eventMarkets } = await supabase
+    const { data: eventMarkets } = await observed(supabase
       .from('markets')
       .select('id')
       .in('id', conflictMarketIds)
       .eq('market_type', 'event')
-      .limit(1)
+      .limit(1), { table: 'markets' })
 
     if (eventMarkets && eventMarkets.length > 0) {
       throw traced.validation('ERR_CART_010',
@@ -256,11 +256,11 @@ async function handleListingAdd(
 
     crumb.logic('Updating existing cart item', { existingId: existingItem.id, newQuantity })
 
-    const { data: canUpdate } = await supabase
+    const { data: canUpdate } = await observed(supabase
       .rpc('validate_cart_item_inventory', {
         p_listing_id: listingId,
         p_quantity: newQuantity
-      })
+      }), { table: 'rpc:validate_cart_item_inventory', operation: 'rpc' })
 
     if (!canUpdate) {
       throw traced.validation('ERR_CART_002', 'Insufficient inventory for requested quantity', {
@@ -426,11 +426,11 @@ async function handleMarketBoxAdd(
   if (!subscriptionStartDate) {
     let pickupTz: string | null = null
     if (offering.pickup_market_id) {
-      const { data: mkt } = await supabase
+      const { data: mkt } = await observed(supabase
         .from('markets')
         .select('timezone')
         .eq('id', offering.pickup_market_id)
-        .maybeSingle()
+        .maybeSingle(), { table: 'markets' })
       pickupTz = (mkt?.timezone as string | null) ?? null
     }
     subscriptionStartDate = nextPickupDateInTimezone(offering.pickup_day_of_week, pickupTz)
@@ -459,21 +459,21 @@ async function handleMarketBoxAdd(
   const newMarketId = offering.pickup_market_id as string | null
   if (newMarketId) {
     crumb.logic('Checking cross-event cart isolation (market box)')
-    const { data: crossMarketItems } = await supabase
+    const { data: crossMarketItems } = await observed(supabase
       .from('cart_items')
       .select('market_id')
       .eq('cart_id', cartId)
       .neq('market_id', newMarketId)
-      .limit(1)
+      .limit(1), { table: 'cart_items' })
 
     if (crossMarketItems && crossMarketItems.length > 0) {
       const conflictMarketIds = [newMarketId, crossMarketItems[0].market_id as string]
-      const { data: eventMarkets } = await supabase
+      const { data: eventMarkets } = await observed(supabase
         .from('markets')
         .select('id')
         .in('id', conflictMarketIds)
         .eq('market_type', 'event')
-        .limit(1)
+        .limit(1), { table: 'markets' })
 
       if (eventMarkets && eventMarkets.length > 0) {
         throw traced.validation('ERR_CART_010',

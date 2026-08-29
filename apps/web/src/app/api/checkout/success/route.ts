@@ -4,7 +4,7 @@ import { stripe } from '@/lib/stripe/config'
 import { createRefund } from '@/lib/stripe/payments'
 import { FEES } from '@/lib/pricing'
 import { processMarketBoxPayout } from '@/lib/stripe/market-box-payout'
-import { withErrorTracing, traced, crumb, TracedError, logError } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, TracedError, logError, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import { sendNotification } from '@/lib/notifications'
@@ -92,11 +92,11 @@ export async function GET(request: NextRequest) {
         // Lost the race between our status read and the flip — re-read; a
         // cancel winning that race is THE CHK-1 race. A webhook flip winning
         // it just means the order is paid — continue normally.
-        const { data: raceOrder } = await serviceClient
+        const { data: raceOrder } = await observed(serviceClient
           .from('orders')
           .select('status')
           .eq('id', orderId)
-          .single()
+          .single(), { table: 'orders' })
         if (raceOrder && ['cancelled', 'refunded'].includes(raceOrder.status)) {
           deadOrderStatus = raceOrder.status
         }
@@ -135,11 +135,11 @@ export async function GET(request: NextRequest) {
 
     // Create payment record (idempotent - skip if already created by webhook)
     crumb.supabase('select', 'payments')
-    const { data: existingPayment } = await serviceClient
+    const { data: existingPayment } = await observed(serviceClient
       .from('payments')
       .select('id')
       .eq('stripe_payment_intent_id', paymentIntentId)
-      .single()
+      .single(), { table: 'payments' })
 
     if (!existingPayment) {
       crumb.supabase('insert', 'payments')
@@ -168,10 +168,10 @@ export async function GET(request: NextRequest) {
       // idempotent (sendNotification deduplicates within 10s windows).
       after(async () => {
         try {
-          const { data: deferredItems } = await serviceClient
+          const { data: deferredItems } = await observed(serviceClient
             .from('order_items')
             .select('listing_id, quantity')
-            .eq('order_id', orderId)
+            .eq('order_id', orderId), { table: 'order_items' })
 
           if (deferredItems && deferredItems.length > 0) {
             const quantityByListing = new Map<string, number>()
@@ -181,10 +181,10 @@ export async function GET(request: NextRequest) {
             }
 
             const listingIds = Array.from(quantityByListing.keys())
-            const { data: listings } = await serviceClient
+            const { data: listings } = await observed(serviceClient
               .from('listings')
               .select('id, quantity, title, category, vendor_profile_id, vendor_profiles(user_id, profile_data, vertical_id)')
-              .in('id', listingIds)
+              .in('id', listingIds), { table: 'listings' })
 
             if (listings && listings.length > 0) {
               const stockNotifications: Promise<unknown>[] = []
@@ -209,10 +209,10 @@ export async function GET(request: NextRequest) {
               await Promise.all(stockNotifications)
 
               // Activity events for social proof
-              const { data: itemsWithMarket } = await serviceClient
+              const { data: itemsWithMarket } = await observed(serviceClient
                 .from('order_items')
                 .select('listing_id, markets!market_id(city)')
-                .eq('order_id', orderId)
+                .eq('order_id', orderId), { table: 'order_items' })
 
               const marketCityByListing = new Map<string, string>()
               if (itemsWithMarket) {
@@ -371,11 +371,11 @@ export async function GET(request: NextRequest) {
     after(async () => {
       try {
         // Fetch buyer name for vendor notifications
-        const { data: buyerProfile } = await serviceClient
+        const { data: buyerProfile } = await observed(serviceClient
           .from('user_profiles')
           .select('display_name')
           .eq('user_id', capturedUserId)
-          .single()
+          .single(), { table: 'user_profiles' })
         const buyerDisplayName = buyerProfile?.display_name || 'A customer'
 
         // Vendor notifications
@@ -386,7 +386,7 @@ export async function GET(request: NextRequest) {
           .contains('data', { orderNumber: capturedOrderNumber })
 
         if ((existingNotifCount || 0) === 0) {
-          const { data: notifyItems } = await serviceClient
+          const { data: notifyItems } = await observed(serviceClient
             .from('order_items')
             .select(`
               vendor_profile_id,
@@ -395,7 +395,7 @@ export async function GET(request: NextRequest) {
               markets!market_id(name),
               vendor_profiles!vendor_profile_id(user_id)
             `)
-            .eq('order_id', orderId)
+            .eq('order_id', orderId), { table: 'order_items' })
 
           if (notifyItems && notifyItems.length > 0) {
             // Grouped by vendor AND market — an order can span markets, and one
@@ -446,7 +446,7 @@ export async function GET(request: NextRequest) {
           .contains('data', { orderNumber: capturedOrderNumber })
 
         if ((existingBuyerNotifCount || 0) === 0) {
-          const { data: buyerNotifyItems } = await serviceClient
+          const { data: buyerNotifyItems } = await observed(serviceClient
             .from('order_items')
             .select(`
               listing:listings(title, vendor_profiles(profile_data)),
@@ -454,7 +454,7 @@ export async function GET(request: NextRequest) {
               pickup_date,
               preferred_pickup_time
             `)
-            .eq('order_id', orderId)
+            .eq('order_id', orderId), { table: 'order_items' })
 
           const items = buyerNotifyItems as unknown as Array<{
             listing: { title: string; vendor_profiles: { profile_data: Record<string, unknown> } | null } | null
@@ -586,7 +586,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch full order details for the success page
     crumb.supabase('select', 'orders')
-    const { data: fullOrder } = await supabase
+    const { data: fullOrder } = await observed(supabase
       .from('orders')
       .select(`
         id,
@@ -615,13 +615,13 @@ export async function GET(request: NextRequest) {
         )
       `)
       .eq('id', orderId)
-      .single()
+      .single(), { table: 'orders' })
 
     // Fetch market box subscriptions linked to this order (if any)
     let marketBoxSubscriptions: Array<Record<string, unknown>> | null = null
     if (session.metadata?.has_market_boxes === 'true') {
       crumb.supabase('select', 'market_box_subscriptions')
-      const { data: mbSubs } = await serviceClient
+      const { data: mbSubs } = await observed(serviceClient
         .from('market_box_subscriptions')
         .select(`
           id,
@@ -640,7 +640,7 @@ export async function GET(request: NextRequest) {
           ),
           pickups:market_box_pickups(id)
         `)
-        .eq('order_id', orderId)
+        .eq('order_id', orderId), { table: 'market_box_subscriptions' })
 
       marketBoxSubscriptions = mbSubs as unknown as Array<Record<string, unknown>> | null
     }
@@ -676,10 +676,10 @@ export async function GET(request: NextRequest) {
       }
       if (marketIdByRequestId.size > 0) {
         crumb.supabase('select', 'catering_requests (event shop tokens)')
-        const { data: reqs } = await serviceClient
+        const { data: reqs } = await observed(serviceClient
           .from('catering_requests')
           .select('id, event_token')
-          .in('id', [...marketIdByRequestId.keys()])
+          .in('id', [...marketIdByRequestId.keys()]), { table: 'catering_requests' })
         for (const r of reqs ?? []) {
           const marketId = marketIdByRequestId.get(r.id as string)
           if (marketId && r.event_token) eventShopTokens[marketId] = r.event_token as string

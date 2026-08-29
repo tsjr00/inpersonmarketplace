@@ -382,7 +382,10 @@ describe('Guardrail Rule I: filters and function bodies name only real columns /
 // (b) a small residue the codemod could not parse. This is a RATCHET: the
 // count may go down, never up. Add a site → wrap it in observed().
 describe('Rule J — no new dropped-error Supabase calls', () => {
-  const BASELINE = 129 // 2026-08-29 after the sweep: 77 in critical-path files + 52 residue
+  // 129 after the first sweep (77 in critical-path files + 52 residue);
+  // 58 after the owner approved the nine money files ("do all of them",
+  // 2026-08-29) — what is left is residue the codemod could not parse.
+  const BASELINE = 58
 
   it(`unwrapped \`const { data } = await …from/rpc(…)\` sites ≤ ${BASELINE}`, () => {
     const roots = [path.join(SRC_DIR, 'app/api'), path.join(SRC_DIR, 'lib')]

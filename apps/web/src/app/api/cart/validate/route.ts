@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { recordRefusal } from '@/lib/telemetry/refusals'
 // Availability checked via get_listings_accepting_status() RPC (single SQL source of truth)
@@ -32,12 +32,12 @@ export async function GET(request: NextRequest) {
     const vertical = request.nextUrl.searchParams.get('vertical')
     let scopedCartId: string | null = null
     if (vertical) {
-      const { data: cart } = await supabase
+      const { data: cart } = await observed(supabase
         .from('carts')
         .select('id')
         .eq('user_id', user.id)
         .eq('vertical_id', vertical)
-        .maybeSingle()
+        .maybeSingle(), { table: 'carts' })
       if (!cart) {
         // No cart for this vertical yet — nothing to validate.
         return NextResponse.json({ valid: true, warnings: [], marketType: null, marketIds: [] })
@@ -142,9 +142,9 @@ export async function GET(request: NextRequest) {
     // Check availability via SQL source of truth (handles vendor attendance, timezone, cutoffs)
     if (itemsForCutoffCheck.length > 0) {
       const listingIds = itemsForCutoffCheck.map(i => i.id)
-      const { data: availData } = await supabase.rpc('get_listings_accepting_status', {
+      const { data: availData } = await observed(supabase.rpc('get_listings_accepting_status', {
         p_listing_ids: listingIds
-      })
+      }), { table: 'rpc:get_listings_accepting_status', operation: 'rpc' })
       const availMap = new Map((availData || []).map((a: { listing_id: string; is_accepting: boolean }) => [a.listing_id, a]))
 
       for (const item of itemsForCutoffCheck) {
@@ -272,9 +272,9 @@ export async function POST(request: NextRequest) {
       }
 
       // Batch availability check via SQL source of truth (handles vendor attendance, timezone, cutoffs)
-      const { data: availData } = await supabase.rpc('get_listings_accepting_status', {
+      const { data: availData } = await observed(supabase.rpc('get_listings_accepting_status', {
         p_listing_ids: listingIds
-      })
+      }), { table: 'rpc:get_listings_accepting_status', operation: 'rpc' })
       const availMap = new Map((availData || []).map((a: { listing_id: string; is_accepting: boolean }) => [a.listing_id, a]))
 
       // Build response with availability info

@@ -12,6 +12,7 @@ import { logError } from '@/lib/errors/logger'
 import { crumb } from '@/lib/errors/breadcrumbs'
 import { calculateBoothRentalFees, FEES } from '@/lib/pricing'
 import { sendSeasonPaidNotifications } from '@/lib/markets/season-notifications'
+import { observed } from '@/lib/errors'
 
 /**
  * H-6: Dedup helper — check if a notification was already sent recently.
@@ -29,14 +30,14 @@ async function wasNotificationSent(
   // CHK-13 FIX: match the specific reference (stored as data.dedupRef by every
   // caller's paired sendNotification) — user+type alone suppressed a vendor's
   // 2nd legitimate same-type notification within the window (2 payouts in a day).
-  const { data } = await supabase
+  const { data } = await observed(supabase
     .from('notifications')
     .select('id')
     .eq('user_id', userId)
     .eq('type', type)
     .contains('data', { dedupRef: referenceId })
     .gte('created_at', cutoff)
-    .limit(1)
+    .limit(1), { table: 'notifications' })
 
   return !!data && data.length > 0
 }
@@ -180,11 +181,11 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
 
   // CHK-1: read the order FIRST — its status drives the 3-way branch below,
   // and the row feeds the payment insert AND market box processing.
-  const { data: order } = await supabase
+  const { data: order } = await observed(supabase
     .from('orders')
     .select('status, platform_fee_cents, buyer_user_id, order_number, vertical_id, chipin_amount_cents, chipin_beneficiary_id')
     .eq('id', orderId)
-    .single()
+    .single(), { table: 'orders' })
 
   if (!order) {
     await logError(new TracedError('ERR_WEBHOOK_017', `checkout.session.completed for unknown order ${orderId} (PI ${paymentIntentId}) — no order row; manual review needed`, {
@@ -216,11 +217,11 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
   }
 
   // Idempotent insert - skip if success route already created the record
-  const { data: existingPayment } = await supabase
+  const { data: existingPayment } = await observed(supabase
     .from('payments')
     .select('id')
     .eq('stripe_payment_intent_id', paymentIntentId)
-    .single()
+    .single(), { table: 'payments' })
 
   if (!existingPayment) {
     const { error: insertError } = await supabase.from('payments').insert({
@@ -273,21 +274,21 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
   // A payment landing on a cancelled/refunded order is recorded above,
   // auto-refunded in full, and never reaches market-box processing.
   if (order.status === 'pending') {
-    const { data: flippedRows } = await supabase
+    const { data: flippedRows } = await observed(supabase
       .from('orders')
       .update({ status: 'paid' })
       .eq('id', orderId)
       .eq('status', 'pending')
-      .select('id')
+      .select('id'), { table: 'orders', operation: 'update' })
 
     if (!flippedRows || flippedRows.length === 0) {
       // Lost the race between our status read and the flip — THE CHK-1 race
       // (cleanup/cron cancelled the order mid-handler). Re-read and route.
-      const { data: raceOrder } = await supabase
+      const { data: raceOrder } = await observed(supabase
         .from('orders')
         .select('status')
         .eq('id', orderId)
-        .single()
+        .single(), { table: 'orders' })
       if (raceOrder && ['cancelled', 'refunded'].includes(raceOrder.status)) {
         await refundDeadOrder(raceOrder.status)
         return
@@ -530,11 +531,11 @@ async function handleMarketBoxCheckoutComplete(session: Stripe.Checkout.Session)
 
   // One offering lookup: term prices (MBX-1 fallback) + vendor frequency (LOW-2).
   // On lookup failure, frequency falls back to 'weekly' (preserves prior behavior).
-  const { data: offeringRow } = await supabase
+  const { data: offeringRow } = await observed(supabase
     .from('market_box_offerings')
     .select('price_cents, price_4week_cents, price_8week_cents, vendor_profiles!inner(market_box_frequency)')
     .eq('id', offeringId)
-    .single()
+    .single(), { table: 'market_box_offerings' })
 
   const baseActualPaidCents = offeringRow
     ? selectBasePriceForTermWeeks(
@@ -552,13 +553,13 @@ async function handleMarketBoxCheckoutComplete(session: Stripe.Checkout.Session)
   }
 
   // Check if subscription already exists (idempotency)
-  const { data: existing } = await supabase
+  const { data: existing } = await observed(supabase
     .from('market_box_subscriptions')
     .select('id')
     .eq('offering_id', offeringId)
     .eq('buyer_user_id', userId)
     .eq('stripe_payment_intent_id', paymentIntentId)
-    .single()
+    .single(), { table: 'market_box_subscriptions' })
 
   if (existing) {
     crumb.stripe(`Market box subscription already exists: ${existing.id}`)
@@ -784,13 +785,13 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
         if (publishedCount && publishedCount > maxListings) {
           const excessCount = publishedCount - maxListings
           // Get the newest excess listings (keep oldest ones published)
-          const { data: excessListings } = await supabase
+          const { data: excessListings } = await observed(supabase
             .from('listings')
             .select('id')
             .eq('vendor_profile_id', vp.id)
             .eq('status', 'published')
             .order('created_at', { ascending: false })
-            .limit(excessCount)
+            .limit(excessCount), { table: 'listings' })
 
           if (excessListings && excessListings.length > 0) {
             const excessIds = excessListings.map(l => l.id)
@@ -813,13 +814,13 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 
         if (activeBoxCount && activeBoxCount > maxActiveBoxes) {
           const excessBoxCount = activeBoxCount - maxActiveBoxes
-          const { data: excessBoxes } = await supabase
+          const { data: excessBoxes } = await observed(supabase
             .from('market_box_offerings')
             .select('id')
             .eq('vendor_profile_id', vp.id)
             .eq('status', 'active')
             .order('created_at', { ascending: false })
-            .limit(excessBoxCount)
+            .limit(excessBoxCount), { table: 'market_box_offerings' })
 
           if (excessBoxes && excessBoxes.length > 0) {
             const boxIds = excessBoxes.map(b => b.id)
@@ -959,14 +960,14 @@ async function handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent) {
   // checkout.session.completed is the authoritative handler that creates the order,
   // inserts the payment record, and sends notifications. This handler is a
   // secondary confirmation that simply marks an existing payment as succeeded.
-  const { data } = await supabase
+  const { data } = await observed(supabase
     .from('payments')
     .update({
       status: 'succeeded',
       paid_at: new Date().toISOString(),
     })
     .eq('stripe_payment_intent_id', paymentIntent.id)
-    .select('id')
+    .select('id'), { table: 'payments', operation: 'update' })
 
   if (!data || data.length === 0) {
     crumb.stripe(`payment_intent.succeeded: no payment record found for PI ${paymentIntent.id} — checkout.session.completed will handle this`)
@@ -1032,11 +1033,11 @@ async function handleTransferCreated(transfer: Stripe.Transfer) {
       .in('status', ['pending', 'processing'])
 
     // Notify vendor
-    const { data: payout } = await supabase
+    const { data: payout } = await observed(supabase
       .from('vendor_payouts')
       .select('vendor_profiles!inner(user_id, vertical_id)')
       .eq('market_box_subscription_id', mbSubscriptionId)
-      .single()
+      .single(), { table: 'vendor_payouts' })
 
     const vp = (payout as unknown as { vendor_profiles: { user_id: string; vertical_id: string } })?.vendor_profiles
     if (vp?.user_id) {
@@ -1068,11 +1069,11 @@ async function handleTransferCreated(transfer: Stripe.Transfer) {
     .in('status', ['pending', 'processing'])
 
   // Notify vendor that payout was processed
-  const { data: orderItem } = await supabase
+  const { data: orderItem } = await observed(supabase
     .from('order_items')
     .select('vendor_profiles!vendor_profile_id(user_id, vertical_id)')
     .eq('id', orderItemId)
-    .single()
+    .single(), { table: 'order_items' })
 
   const vendorProfile = (orderItem as unknown as { vendor_profiles: { user_id: string; vertical_id: string } | null })?.vendor_profiles
   if (vendorProfile?.user_id) {
@@ -1104,11 +1105,11 @@ async function handleTransferFailed(transfer: Stripe.Transfer) {
       .eq('stripe_transfer_id', transfer.id)
 
     // Notify vendor
-    const { data: payout } = await supabase
+    const { data: payout } = await observed(supabase
       .from('vendor_payouts')
       .select('vendor_profiles!inner(user_id, vertical_id)')
       .eq('market_box_subscription_id', mbSubscriptionId)
-      .single()
+      .single(), { table: 'vendor_payouts' })
 
     const vp = (payout as unknown as { vendor_profiles: { user_id: string; vertical_id: string } })?.vendor_profiles
     if (vp?.user_id) {
@@ -1137,11 +1138,11 @@ async function handleTransferFailed(transfer: Stripe.Transfer) {
     .eq('stripe_transfer_id', transfer.id)
 
   // Notify vendor that their payout was reversed
-  const { data: orderItem } = await supabase
+  const { data: orderItem } = await observed(supabase
     .from('order_items')
     .select('vendor_profiles!vendor_profile_id(user_id), order:orders(vertical_id, order_number)')
     .eq('id', orderItemId)
-    .single()
+    .single(), { table: 'order_items' })
 
   const vendorProfile = (orderItem as unknown as { vendor_profiles: { user_id: string } | null })?.vendor_profiles
   const orderData = (orderItem as unknown as { order: { vertical_id: string; order_number: string } | null })?.order
@@ -1176,11 +1177,11 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
   }
 
   // Find the order linked to this payment
-  const { data: payment } = await supabase
+  const { data: payment } = await observed(supabase
     .from('payments')
     .select('order_id')
     .eq('stripe_payment_intent_id', paymentIntentId)
-    .single()
+    .single(), { table: 'payments' })
 
   if (!payment?.order_id) {
     crumb.stripe(`charge.refunded: no order found for PI ${paymentIntentId}`)
@@ -1211,11 +1212,11 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
     // buyer). Proportional to subtotal, floor + remainder so the parts sum
     // EXACTLY to charge.amount_refunded. (No `status:` key here, so Rule A
     // does not flag these row-keyed updates.)
-    const { data: refundItems } = await supabase
+    const { data: refundItems } = await observed(supabase
       .from('order_items')
       .select('id, subtotal_cents')
       .eq('order_id', payment.order_id)
-      .is('cancelled_at', null)
+      .is('cancelled_at', null), { table: 'order_items' })
     if (refundItems && refundItems.length > 0) {
       const totalSubtotal = refundItems.reduce((s, it) => s + (it.subtotal_cents || 0), 0)
       let allocated = 0
@@ -1242,14 +1243,14 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
     .eq('stripe_payment_intent_id', paymentIntentId)
 
   // Get order details for notifications
-  const { data: order } = await supabase
+  const { data: order } = await observed(supabase
     .from('orders')
     .select(`
       order_number, buyer_user_id, vertical_id,
       order_items(vendor_profile_id, vendor_profiles!vendor_profile_id(user_id))
     `)
     .eq('id', payment.order_id)
-    .single()
+    .single(), { table: 'orders' })
 
   if (!order) return
 
@@ -1313,18 +1314,18 @@ async function handleChargeDisputeCreated(dispute: Stripe.Dispute) {
   let vertical: string | undefined
 
   if (paymentIntentId) {
-    const { data: payment } = await supabase
+    const { data: payment } = await observed(supabase
       .from('payments')
       .select('order_id')
       .eq('stripe_payment_intent_id', paymentIntentId)
-      .single()
+      .single(), { table: 'payments' })
 
     if (payment?.order_id) {
-      const { data: order } = await supabase
+      const { data: order } = await observed(supabase
         .from('orders')
         .select('order_number, vertical_id')
         .eq('id', payment.order_id)
-        .single()
+        .single(), { table: 'orders' })
 
       orderNumber = order?.order_number
       vertical = order?.vertical_id
@@ -1332,10 +1333,10 @@ async function handleChargeDisputeCreated(dispute: Stripe.Dispute) {
   }
 
   // Notify all admin users about the chargeback
-  const { data: admins } = await supabase
+  const { data: admins } = await observed(supabase
     .from('user_profiles')
     .select('user_id')
-    .or('role.eq.admin,role.eq.platform_admin')
+    .or('role.eq.admin,role.eq.platform_admin'), { table: 'user_profiles' })
 
   if (admins && admins.length > 0) {
     await Promise.all(
@@ -1397,11 +1398,11 @@ async function handleEventVendorFeeCheckoutComplete(session: Stripe.Checkout.Ses
 
   // Context for notifications (best-effort — a lookup failure must not
   // unpaid a paid row, so everything below is non-fatal).
-  const { data: row } = await supabase
+  const { data: row } = await observed(supabase
     .from('event_vendor_fee_payments')
     .select('market_id, catering_request_id, vendor_profile_id, vendor_pays_cents, organizer_receives_cents')
     .eq('id', paymentId)
-    .maybeSingle()
+    .maybeSingle(), { table: 'event_vendor_fee_payments' })
   if (!row) return
 
   const [{ data: vp }, { data: cr }] = await Promise.all([
@@ -1503,11 +1504,11 @@ async function handleBoothRentalCheckoutComplete(session: Stripe.Checkout.Sessio
   // Look up the rental row. If absent (e.g., DB rollback after Stripe
   // session created), surface to admin — money may have been charged
   // with no row to record it.
-  const { data: existing } = await supabase
+  const { data: existing } = await observed(supabase
     .from('weekly_booth_rentals')
     .select('id, status')
     .eq('id', rentalId)
-    .maybeSingle()
+    .maybeSingle(), { table: 'weekly_booth_rentals' })
 
   if (!existing) {
     await logError(new TracedError(
@@ -1600,11 +1601,11 @@ async function handleBoothRentalCheckoutComplete(session: Stripe.Checkout.Sessio
     // only got id, status. booth_number added in mig 144 (auto-assigned
     // at booking time inside the book_weekly_booth_atomic RPC); surfaced
     // in both vendor + manager confirmation notifications.
-    const { data: rental } = await supabase
+    const { data: rental } = await observed(supabase
       .from('weekly_booth_rentals')
       .select('vendor_profile_id, market_id, week_start_date, price_cents, booth_number')
       .eq('id', rentalId)
-      .maybeSingle()
+      .maybeSingle(), { table: 'weekly_booth_rentals' })
 
     if (rental) {
       const fees = calculateBoothRentalFees(rental.price_cents as number)
@@ -1752,11 +1753,11 @@ async function handleSeasonBoothCheckoutComplete(session: Stripe.Checkout.Sessio
     return
   }
 
-  const { data: group } = await supabase
+  const { data: group } = await observed(supabase
     .from('booth_booking_groups')
     .select('id, status, vendor_profile_id, market_id, week_count, total_vendor_cents, total_manager_cents')
     .eq('id', groupId)
-    .maybeSingle()
+    .maybeSingle(), { table: 'booth_booking_groups' })
 
   if (!group) {
     await logError(new TracedError(
@@ -1835,10 +1836,10 @@ async function handleParkSpotCheckoutComplete(session: Stripe.Checkout.Session) 
     return
   }
 
-  const { data: bookings } = await supabase
+  const { data: bookings } = await observed(supabase
     .from('park_spot_bookings')
     .select('id, status, market_id, vendor_profile_id, spot_id, booking_date')
-    .eq('booking_group_id', groupId)
+    .eq('booking_group_id', groupId), { table: 'park_spot_bookings' })
 
   if (!bookings || bookings.length === 0) {
     await logError(new TracedError(
@@ -1944,21 +1945,21 @@ async function handleParkSpotCheckoutComplete(session: Stripe.Checkout.Session) 
         })
     )
     if (bookedDows.size > 0) {
-      const { data: parkSchedules } = await supabase
+      const { data: parkSchedules } = await observed(supabase
         .from('market_schedules')
         .select('id, day_of_week')
         .eq('market_id', marketId)
-        .eq('active', true)
+        .eq('active', true), { table: 'market_schedules' })
       const targetScheduleIds = (parkSchedules ?? [])
         .filter((s) => bookedDows.has(s.day_of_week as number))
         .map((s) => s.id as string)
       if (targetScheduleIds.length > 0) {
-        const { data: existingVms } = await supabase
+        const { data: existingVms } = await observed(supabase
           .from('vendor_market_schedules')
           .select('schedule_id, is_active')
           .eq('vendor_profile_id', vendorProfileId)
           .eq('market_id', marketId)
-          .in('schedule_id', targetScheduleIds)
+          .in('schedule_id', targetScheduleIds), { table: 'vendor_market_schedules' })
         const existingBySchedule = new Map((existingVms ?? []).map((e) => [e.schedule_id as string, e.is_active as boolean | null]))
 
         const toInsert = targetScheduleIds.filter((sid) => !existingBySchedule.has(sid))

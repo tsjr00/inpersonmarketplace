@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { transferToVendor, getChargeIdFromPaymentIntent } from '@/lib/stripe/payments'
 import { getAccountStatus } from '@/lib/stripe/connect'
-import { withErrorTracing, traced, crumb, TracedError, logError } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, TracedError, logError, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import {
   claimVendorFeeDeduction,
@@ -45,7 +45,7 @@ export async function POST(
     // Fetch order item first — RLS restricts to this vendor's items, and the joined
     // order row gives us the vertical_id needed for multi-vertical vendor_profiles lookup
     crumb.supabase('select', 'order_items')
-    const { data: orderItem } = await supabase
+    const { data: orderItem } = await observed(supabase
       .from('order_items')
       .select(`
         id, status, vendor_payout_cents, order_id, subtotal_cents, vendor_profile_id,
@@ -54,7 +54,7 @@ export async function POST(
         listing:listings(title, vendor_profiles(profile_data))
       `)
       .eq('id', orderItemId)
-      .single()
+      .single(), { table: 'order_items' })
 
     if (!orderItem) {
       throw traced.notFound('ERR_ORDER_001', 'Order item not found', { orderItemId })
@@ -101,12 +101,12 @@ export async function POST(
       const orderIsPaid = ['paid', 'completed'].includes(orderData?.status)
       if (!orderIsPaid) {
         crumb.supabase('select', 'payments (VOR-1 paid gate)')
-        const { data: paidPayment } = await serviceClient
+        const { data: paidPayment } = await observed(serviceClient
           .from('payments')
           .select('id')
           .eq('order_id', orderItem.order_id)
           .eq('status', 'succeeded')
-          .maybeSingle()
+          .maybeSingle(), { table: 'payments' })
 
         if (!paidPayment) {
           throw traced.validation('ERR_ORDER_007', 'This order has not been paid yet, so it cannot be fulfilled.', {
@@ -173,7 +173,7 @@ export async function POST(
       // race where the item was cancelled/refunded after the fetch above (refund webhook
       // sets status='refunded' WITHOUT cancelled_at, so both conditions are needed).
       crumb.supabase('update', 'order_items')
-      const { data: fulfilledRows } = await supabase
+      const { data: fulfilledRows } = await observed(supabase
         .from('order_items')
         .update({
           status: 'fulfilled',
@@ -184,7 +184,7 @@ export async function POST(
         .eq('id', orderItemId)
         .eq('status', 'ready')
         .is('cancelled_at', null)
-        .select('id')
+        .select('id'), { table: 'order_items', operation: 'update' })
 
       if (!fulfilledRows || fulfilledRows.length === 0) {
         throw traced.validation('ERR_ORDER_004', 'This item can no longer be fulfilled — it may have been cancelled or refunded.', {
@@ -379,12 +379,12 @@ export async function POST(
         try {
           // Get charge ID from payment intent — allows transfer from pending funds
           let chargeId: string | undefined
-          const { data: payment } = await serviceClient
+          const { data: payment } = await observed(serviceClient
             .from('payments')
             .select('stripe_payment_intent_id')
             .eq('order_id', orderItem.order_id)
             .eq('status', 'succeeded')
-            .maybeSingle()
+            .maybeSingle(), { table: 'payments' })
 
           if (payment?.stripe_payment_intent_id) {
             chargeId = (await getChargeIdFromPaymentIntent(payment.stripe_payment_intent_id)) || undefined
@@ -490,7 +490,7 @@ export async function POST(
       // 'fulfilled' (buyer keeps the refund AND the vendor gets paid at buyer-confirm).
       // 'pending' stays allowed: direct pending→fulfilled is live behavior (VOR-11).
       crumb.supabase('update', 'order_items')
-      const { data: updatedRows } = await supabase
+      const { data: updatedRows } = await observed(supabase
         .from('order_items')
         .update({
           status: 'fulfilled',
@@ -499,7 +499,7 @@ export async function POST(
         .eq('id', orderItemId)
         .in('status', ['pending', 'confirmed', 'ready'])
         .is('cancelled_at', null)
-        .select('id')
+        .select('id'), { table: 'order_items', operation: 'update' })
 
       if (!updatedRows || updatedRows.length === 0) {
         throw traced.validation('ERR_ORDER_004', 'This item can no longer be fulfilled — it may have been cancelled or refunded.', {

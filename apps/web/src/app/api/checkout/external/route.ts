@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { generatePaymentLink, ExternalPaymentMethod } from '@/lib/payments/external-links'
 import { sendNotification } from '@/lib/notifications'
@@ -60,20 +60,20 @@ export async function POST(request: NextRequest) {
 
     // Get cart
     crumb.supabase('rpc', 'get_or_create_cart')
-    const { data: verticalData } = await supabase
+    const { data: verticalData } = await observed(supabase
       .from('verticals')
       .select('id')
       .eq('vertical_id', vertical)
-      .single()
+      .single(), { table: 'verticals' })
 
     if (!verticalData) {
       throw traced.validation('ERR_CHECKOUT_001', 'Invalid vertical')
     }
 
-    const { data: cartId } = await supabase.rpc('get_or_create_cart', {
+    const { data: cartId } = await observed(supabase.rpc('get_or_create_cart', {
       p_user_id: user.id,
       p_vertical_id: vertical
-    })
+    }), { table: 'rpc:get_or_create_cart', operation: 'rpc' })
 
     if (!cartId) {
       throw traced.validation('ERR_CHECKOUT_001', 'No cart found')

@@ -5,7 +5,7 @@ import { createCheckoutSession } from '@/lib/stripe/payments'
 import { stripe } from '@/lib/stripe/config'
 import { calculateOrderPricing, FEES, calculateSmallOrderFee, getSmallOrderFeeConfig, proratedFlatFee, getEffectiveVendorFeePercent } from '@/lib/pricing'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb, TracedError, logError } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, TracedError, logError, observed } from '@/lib/errors'
 import { cancelOrderItemsAndRestoreGuarded, restoreInventory } from '@/lib/inventory'
 import { randomUUID } from 'crypto'
 
@@ -187,7 +187,7 @@ export async function POST(request: NextRequest) {
     crumb.logic('Checking for existing pending orders')
     const tenMinFromNow = new Date(Date.now() - 10 * 60 * 1000).toISOString()
 
-    const { data: pendingOrders } = await supabase
+    const { data: pendingOrders } = await observed(supabase
       .from('orders')
       .select(`
         id,
@@ -205,7 +205,7 @@ export async function POST(request: NextRequest) {
       .eq('buyer_user_id', user.id)
       .eq('status', 'pending')
       .gte('created_at', tenMinFromNow)
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: false }), { table: 'orders' })
 
     if (pendingOrders && pendingOrders.length > 0) {
       // Check if any pending order matches current cart items and quantities
@@ -319,10 +319,10 @@ export async function POST(request: NextRequest) {
     const vendorFeeOverrides = new Map<string, number | null>()
     if (listings.length > 0) {
       const vendorProfileIds = [...new Set(listings.map(l => (l as Listing).vendor_profile_id))]
-      const { data: vendors } = await supabase
+      const { data: vendors } = await observed(supabase
         .from('vendor_profiles')
         .select('id, stripe_account_id, vendor_fee_override_percent')
-        .in('id', vendorProfileIds)
+        .in('id', vendorProfileIds), { table: 'vendor_profiles' })
 
       const vendorsWithoutStripe = (vendors || []).filter(v => !v.stripe_account_id)
       if (vendorsWithoutStripe.length > 0) {
@@ -353,15 +353,15 @@ export async function POST(request: NextRequest) {
 
     if (verticalData) {
       crumb.supabase('rpc', 'get_or_create_cart')
-      const { data: cartId } = await supabase
+      const { data: cartId } = await observed(supabase
         .rpc('get_or_create_cart', {
           p_user_id: user.id,
           p_vertical_id: vertical
-        })
+        }), { table: 'rpc:get_or_create_cart', operation: 'rpc' })
 
       if (cartId) {
         crumb.supabase('select', 'cart_items')
-        const { data: dbItems } = await supabase
+        const { data: dbItems } = await observed(supabase
           .from('cart_items')
           .select(`
             id,
@@ -379,7 +379,7 @@ export async function POST(request: NextRequest) {
               state
             )
           `)
-          .eq('cart_id', cartId)
+          .eq('cart_id', cartId), { table: 'cart_items' })
 
         cartItemsFromDB = (dbItems || []) as unknown as CartItemFromDB[]
       }
@@ -520,8 +520,8 @@ export async function POST(request: NextRequest) {
     for (const listing of listings) {
       if (acceptingMap.get(listing.id) === false) {
         // Get detailed availability info for better error message (only for the failed one)
-        const { data: availability } = await supabase
-          .rpc('get_listing_market_availability', { p_listing_id: listing.id })
+        const { data: availability } = await observed(supabase
+          .rpc('get_listing_market_availability', { p_listing_id: listing.id }), { table: 'rpc:get_listing_market_availability', operation: 'rpc' })
 
         const closedMarket = (availability as Array<{ market_name: string; next_market_at: string; is_accepting: boolean; market_type: string }> | null)
           ?.find(m => !m.is_accepting)
@@ -619,14 +619,14 @@ export async function POST(request: NextRequest) {
         listings.flatMap((l) => ((l as { listing_markets?: Array<{ market_id: string }> }).listing_markets ?? []).map((lm) => lm.market_id))
       )]
       // (1) Event chip-in: beneficiary must match an event market in the cart.
-      const { data: chipinMarket } = await supabase
+      const { data: chipinMarket } = await observed(supabase
         .from('markets')
         .select('id')
         .in('id', cartMarketIds.length ? cartMarketIds : ['00000000-0000-0000-0000-000000000000'])
         .eq('market_type', 'event')
         .eq('chipin_enabled', true)
         .eq('chipin_beneficiary_id', chipinBeneficiaryId)
-        .maybeSingle()
+        .maybeSingle(), { table: 'markets' })
       let chipinValid = !!chipinMarket
       // (2) Round-up campaign fallback: beneficiary must match an active campaign
       //     covering this cart (Feature B). cause_campaigns is service-role-only.
@@ -742,26 +742,26 @@ export async function POST(request: NextRequest) {
         // (a) The slot must be real: inside the vendor's hours for that weekday,
         //     not a past date, and past the prep lead time on same-day orders.
         //     Previously these rules existed ONLY in client-side generateTimeSlots.
-        const { data: timeOk } = await serviceClient.rpc('validate_pickup_slot_time', {
+        const { data: timeOk } = await observed(serviceClient.rpc('validate_pickup_slot_time', {
           p_vendor_profile_id: g.vendorId,
           p_market_id: g.marketId,
           p_pickup_date: g.date,
           p_pickup_time: g.time,
-        })
+        }), { table: 'rpc:validate_pickup_slot_time', operation: 'rpc' })
         if (timeOk === false) {
           throw traced.validation('ERR_CHECKOUT_SLOT',
             'That pickup time is no longer available. Please pick another time.')
         }
 
         // (b) Capacity: advisory-locked count of this slot vs the vendor's caps.
-        const { data: capRows } = await serviceClient.rpc('check_pickup_slot_capacity', {
+        const { data: capRows } = await observed(serviceClient.rpc('check_pickup_slot_capacity', {
           p_vendor_profile_id: g.vendorId,
           p_market_id: g.marketId,
           p_pickup_date: g.date,
           p_pickup_time: g.time,
           p_adding_items: g.items,
           p_order_id: orderId,
-        })
+        }), { table: 'rpc:check_pickup_slot_capacity', operation: 'rpc' })
         const cap = Array.isArray(capRows) ? capRows[0] : capRows
         if (cap && cap.allowed === false) {
           throw traced.validation('ERR_CHECKOUT_SLOT',
