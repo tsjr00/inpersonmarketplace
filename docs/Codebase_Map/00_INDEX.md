@@ -105,14 +105,14 @@ Each domain file was verified against the code at the commit shown. A stamp far 
 | 11_Vendor_Orders.md | 2026-08-27 | 05446012 |
 | 12_Market_Manager.md | 2026-07-18 | b9f82116 |
 | 13_FT_Park.md | 2026-07-18 | b9f82116 |
-| 14_Events.md | 2026-08-27 | d6f3e970 |
+| 14_Events.md | 2026-08-29 | d8316abb |
 | 15_MarketBoxes_Subs.md | 2026-07-18 | b9f82116 |
 | 16_Auth_RLS_Verticals.md | 2026-07-18 | b9f82116 |
-| 17_Crons.md | 2026-08-15 | 03f97d29 |
+| 17_Crons.md | 2026-08-29 | d8316abb |
 | 18_Notifications.md | 2026-08-25 | bfc60dfd |
 | 19_Admin.md | 2026-08-15 | 0d1e86d1 |
 | 20_Buyer_Public.md | 2026-08-25 | bfc60dfd |
-| 21_Lib_Reference.md | 2026-08-29 | 44dfd6a8 |
+| 21_Lib_Reference.md | 2026-08-29 | d8316abb |
 | 22_Components_UI.md | 2026-07-18 | b9f82116 |
 | 23_Test_Suites.md | 2026-07-18 | b9f82116 |
 
