@@ -2179,3 +2179,10 @@ The zero-obligation bench (shipped: mig 232 + Phase 3) is a call list, not insur
 
 ## 🧭 VENDOR DELEGATES ("Team members") — design written 2026-08-29, DECISIONS LOGGED (decisions.md), not built — ready to schedule
 Owner ask: a "delegate" who runs the truck/booth day to day without touching the business side. Design: `.claude/vendor_delegate_design.md` — recommended option B (delegate = own account linked via `vendor_delegates`; `user_vendor_profile_ids()` gains a UNION arm so every RLS policy honors it; `getVendorProfileForVertical` becomes the single resolver + sweep of 45 API/15 page raw lookups; short OWNER-ONLY allowlist for gating; money-out owner-only; caps per tier). Sizing ~2 sessions + 1. Five decisions listed at the end of the doc.
+
+## 🐛 PHANTOM COLUMNS — 7 selects naming columns that don't exist (found by Rule K, 2026-08-29; owner: backlog unless vital)
+Each query fails on every run (42703). All are wrapped in `observed()` so they now LOG to error_logs on each hit — expect noise there until fixed. None touch money or checkout.
+- `app/api/admin/reports/route.ts` :1229 `listings.stock_quantity` (listings has `quantity`) — admin listings report shows "Unlimited" stock for everything.
+- `app/api/admin/reports/route.ts` :1625 `vendor_fee_ledger.fee_cents, fee_type` (real: `amount_cents`, `type`) and :1638 `vendor_fee_balance.total_owed_cents, total_collected_cents` (real: `balance_cents` only) — admin vendor-fee report is empty.
+- `app/api/vendor/location-insights/route.ts` :379 `user_profiles.latitude, longitude` (real: `preferred_latitude`, `preferred_longitude`) — buyer-density section of vendor Location Insights is always empty.
+Fix = rename the columns + adjust the mapping code; remove each line from `KNOWN_PHANTOM_COLUMNS` in guardrail-contracts (the test enforces the list only shrinks).

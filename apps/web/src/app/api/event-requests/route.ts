@@ -554,7 +554,7 @@ async function sendOrganizerConfirmation(
       Thank you for choosing Food Truck'n to help with your event.
     </p>
     <p style="color:#4b5563;line-height:1.7;margin:0 0 16px">
-      Your event is approved and we have taken a first look at which food trucks fit it. Invitations do not go out yet: trucks decide on the details you give them, so the next step is yours &mdash; from your dashboard, set your vendor fee (or choose no fee), finish the budget, event-context and logistics questions, and click <strong>Send invitations</strong>. Trucks typically respond within 48 hours of that.
+      Your event is approved. Next step: sign in to your events dashboard, finish the remaining details, and click <strong>Send invitations</strong> &mdash; that is when trucks hear from you.
     </p>
     <p style="color:#4b5563;line-height:1.7;margin:0 0 16px">
       Please create an account using the link below so you can see your event details before they are published, and you can start sharing your event page. On your user dashboard you will find a section titled &ldquo;My Events&rdquo; that will have all the information you need to make your final selections for which truck you want at your event. Please watch your inbox as well as your in-app notifications for additional information.
@@ -566,7 +566,7 @@ async function sendOrganizerConfirmation(
       Thank you for choosing Farmers Marketing to help with your event.
     </p>
     <p style="color:#4b5563;line-height:1.7;margin:0 0 16px">
-      Your event is approved and we have taken a first look at which vendors fit it. Invitations do not go out yet: vendors decide on the details you give them, so the next step is yours &mdash; from your dashboard, set your vendor fee (or choose no fee), finish the budget, event-context and logistics questions, and click <strong>Send invitations</strong>. Vendors typically respond within 48 hours of that.
+      Your event is approved. Next step: sign in to your events dashboard, finish the remaining details, and click <strong>Send invitations</strong> &mdash; that is when vendors hear from you.
     </p>
     <p style="color:#4b5563;line-height:1.7;margin:0 0 16px">
       Please create an account using the link below so you can see your event details before they are published, and you can start sharing your event page. On your user dashboard you will find a section titled &ldquo;My Events&rdquo; that will have all the information you need to make your final selections for which vendors you want at your event. Please watch your inbox as well as your in-app notifications for additional information.

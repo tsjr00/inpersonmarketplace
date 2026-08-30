@@ -525,8 +525,7 @@ export function EventRequestForm({ vertical, vendorPreference, poolCapacityPerWa
                 the engine runs once per submission. Re-running is an action
                 the organizer takes from the dashboard. */}
             <p style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: accent, margin: `0 0 ${spacing.xs}` }}>
-              Based on what you&apos;ve told us so far, we&apos;ve preliminarily matched you with{' '}
-              {matchCount} {matchCount === 1 ? vendorWordSingular : vendorWord}
+              {matchCount} {matchCount === 1 ? vendorWordSingular : vendorWord} look like a fit so far
             </p>
             <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, lineHeight: 1.6, margin: `0 0 ${spacing.sm}` }}>
               They have not been invited yet — {vendorWord} decide on the details you give them.

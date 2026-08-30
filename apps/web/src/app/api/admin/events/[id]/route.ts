@@ -17,6 +17,7 @@ import { liftEventBlackouts } from '@/lib/events/blackouts'
 import { stripe } from '@/lib/stripe/config'
 import { createRefund } from '@/lib/stripe/payments'
 import { approveEventRequest, autoMatchAndInvite } from '@/lib/events/event-actions'
+import { invitationsHeld } from '@/lib/events/invitation-gate'
 import { runEventCompletionEffects, sendOrganizerStatusEmail } from '@/lib/events/complete-event'
 
 interface RouteContext {
@@ -480,8 +481,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     // On APPROVED: auto-invite vendors for full-service events + notify organizer
     if (status === 'approved' && cateringReq.status !== 'approved' && updated.market_id) {
-      // T3-1: Auto-invite vendors (full-service events only — self-service handles this in event-requests route)
-      if (updated.service_level !== 'self_service') {
+      // T3-1: Auto-invite vendors on approval. Self-service events are HELD
+      // (mig 239 invitation gate): the organizer sends invitations from their
+      // dashboard once the required details are in — including a self-service
+      // request that had no address at intake and was approved here later.
+      if (!invitationsHeld(updated)) {
         autoMatchAndInvite(serviceClient, updated, updated.market_id as string).catch(err =>
           console.error('[admin/events] Auto-invite failed:', err)
         )

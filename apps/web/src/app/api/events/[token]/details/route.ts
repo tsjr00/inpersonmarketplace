@@ -11,7 +11,7 @@ import {
 import { describeChanges } from '@/lib/events/change-requests'
 import { sendNotification } from '@/lib/notifications/service'
 import { requestEventReconfirmation } from '@/lib/events/reconfirmation'
-import { EVENT_CONTEXT_FIELDS, LOGISTICS_GATE_FIELDS } from '@/lib/events/invitation-gate'
+import { EVENT_CONTEXT_FIELDS, LOGISTICS_GATE_FIELDS, invitationsHeld } from '@/lib/events/invitation-gate'
 
 interface RouteContext {
   params: Promise<{ token: string }>
@@ -192,7 +192,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
         setup_instructions, additional_notes,
         vendor_stay_policy, estimated_dwell_hours,
         is_themed, theme_description, children_present, has_competing_vendors, is_ticketed,
-        is_recurring, recurring_frequency
+        is_recurring, recurring_frequency,
+        has_run_before, background_check_required, background_check_details, cancellation_risk_factors,
+        invitations_released_at
       `)
       .eq(eventRefColumn(token), token)
       .maybeSingle(), { table: 'catering_requests' })
@@ -268,6 +270,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({
       event,
+      // Invitation gate (mig 239): while held, the editor must not offer
+      // "Refresh matches" (it would 409) — the Send invitations card owns it.
+      invitations_held: invitationsHeld(event),
       change_cost: {
         preorder_count: preorderCount,
         // What is actually at stake in money. A count alone does not tell

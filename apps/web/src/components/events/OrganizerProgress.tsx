@@ -43,6 +43,10 @@ interface OrganizerProgressProps {
   vendorsAccepted: number
   vendorCount: number | null
   serviceLevel: string | null
+  /** Invitation gate (mig 239): self-service + not yet released. Stage 2 must
+   *  not claim "invitations are out" — they aren't until the organizer clicks
+   *  Send on the dashboard card. */
+  invitationsHeld?: boolean
   /**
    * The two halves render in different places on purpose:
    *   'strip' goes under Event details, beside the traction line, so progress
@@ -74,6 +78,7 @@ export default function OrganizerProgress({
   vendorsAccepted,
   vendorCount,
   serviceLevel,
+  invitationsHeld = false,
   part = 'strip',
 }: OrganizerProgressProps) {
   const vendorWord = term(vertical, 'vendors').toLowerCase()
@@ -118,6 +123,13 @@ export default function OrganizerProgress({
           actions,
         }
       case 2:
+        if (invitationsHeld) {
+          return {
+            done: 'Your event is approved.',
+            now: `Invitations have not gone out yet — ${vendorWord} decide on the details you give them. Finish the items in the Send invitations card above and click Send; they usually respond within 48 hours of that.`,
+            actions,
+          }
+        }
         // The stage that prompted all three findings.
         if (eventToken && serviceLevel === 'self_service' && vendorsAccepted > 0) {
           actions.push({ label: 'Review responses', href: `/${vertical}/events/${eventToken}/select` })

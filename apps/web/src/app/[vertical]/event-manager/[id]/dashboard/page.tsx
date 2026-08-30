@@ -333,6 +333,7 @@ export default async function EventManagerDashboardPage({ params }: PageProps) {
             vendorsAccepted={vendorsAccepted}
             vendorCount={(event.vendor_count as number) || null}
             serviceLevel={(event.service_level as string) || null}
+            invitationsHeld={invitationsHeld(event)}
           />
         </div>
 

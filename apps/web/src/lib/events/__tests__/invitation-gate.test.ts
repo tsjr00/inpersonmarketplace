@@ -45,11 +45,13 @@ describe('missingInvitationDetails', () => {
     expect(missingInvitationDetails({ ...complete, vendor_fee_decided_at: null, event_vendor_fee_cents: 2500 })).toEqual([])
   })
 
-  it('Budget: run-before must be answered either way, spend must be positive', () => {
+  it('Budget: run-before must be answered either way; spend is required only when the answer is Yes (owner 2026-08-29: contingent on past experience)', () => {
     expect(missingInvitationDetails({ ...complete, has_run_before: null }).map(m => m.key)).toEqual(['has_run_before'])
     expect(missingInvitationDetails({ ...complete, has_run_before: true })).toEqual([])
-    expect(missingInvitationDetails({ ...complete, estimated_spend_per_attendee_cents: 0 }).map(m => m.key)).toEqual(['estimated_spend'])
-    expect(missingInvitationDetails({ ...complete, estimated_spend_per_attendee_cents: null }).map(m => m.key)).toEqual(['estimated_spend'])
+    expect(missingInvitationDetails({ ...complete, has_run_before: true, estimated_spend_per_attendee_cents: 0 }).map(m => m.key)).toEqual(['estimated_spend'])
+    expect(missingInvitationDetails({ ...complete, has_run_before: true, estimated_spend_per_attendee_cents: null }).map(m => m.key)).toEqual(['estimated_spend'])
+    // First-time organizer: "No" is a complete answer, spend is not asked.
+    expect(missingInvitationDetails({ ...complete, has_run_before: false, estimated_spend_per_attendee_cents: null })).toEqual([])
   })
 
   it('Event Context: saving the section is the answer; other-food text only when other vendors are present', () => {
@@ -67,7 +69,7 @@ describe('missingInvitationDetails', () => {
 
   it('reports every gap at once, grouped for the dashboard', () => {
     const missing = missingInvitationDetails({ service_level: 'self_service' })
-    expect(missing.map(m => m.key)).toEqual(['fee', 'has_run_before', 'estimated_spend', 'event_context', 'background_check', 'risk_factors'])
+    expect(missing.map(m => m.key)).toEqual(['fee', 'has_run_before', 'event_context', 'background_check', 'risk_factors'])
     expect(new Set(missing.map(m => m.group))).toEqual(new Set(['fee', 'budget', 'context', 'logistics']))
   })
 })

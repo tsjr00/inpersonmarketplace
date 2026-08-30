@@ -1,3 +1,22 @@
+# SESSION 2026-08-29 (evening) — WRAP. Next session starts HERE.
+
+## ▶ FIRST THING NEXT SESSION (owner 2026-08-29)
+1. **Refresh the stale schema snapshot.** Owner runs `supabase/REFRESH_SCHEMA.sql` in the **Dev** SQL editor (Dev = 001–240) and pastes the full output; Claude rebuilds ONLY the structured sections of `supabase/SCHEMA_SNAPSHOT.md` (Tables/Columns/FKs/Indexes/Enums/Checks/Functions/Triggers/Views) — changelog untouched. Safety: guardrail Rule K unions snapshot ∪ migration DDL and its first assertion fails if the Columns section is missing/malformed. Today: 35 tables + ~50 columns absent from the structured tables.
+2. Owner retests **Protocol v4 section 1, steps 1–11** on staging (answer **No** to run-before once; try admin Rematch while held) + **[R5-8]**.
+3. Then the rest of Protocol v4 (chat 2026-08-29, restated per role/page) — sections 2–9.
+
+## Git / env — VERIFY, don't trust
+- Staging: this session's two pushes — `bb0dfd60` (batch) + the FIX PASS commit (see below). Prod: `e946c2c0`; owes migs **238 → 239 → 240** before the code push (window 21:00–07:00 CT).
+- Migrations 239 + 240: Dev + Staging applied 2026-08-29; files stay in `supabase/migrations/` root until prod.
+
+## ⚠ LESSON OF THE DAY (owner: "way below your normal standard")
+Six features in one push, verified only by tsc/lint/vitest. Missed: details GET never returned the gate fields (answers vanished on save), Yes-only checkbox couldn't say No, `user_profiles.full_name` doesn't exist (skipped schema gate while extending a copied query), three surfaces still said "invitations are out". Fixed with tests FIRST (T1 GET⊇whitelist · T2′ every inviter honors the hold · shared tri-state list · Rule K select-columns-exist). **Going forward: one feature per push; every new column reference gets the snapshot/migration read in the same turn; trace each feature through the app, don't stop at green gates.**
+
+## Backlog adds today
+- 7 phantom columns (backlog.md) — log noise in error_logs until fixed. Pickup-line copy done. Team members still on backlog.
+
+---
+
 # SESSION END 2026-08-26 (continuation) — WRAPPED. Read this block first; the 04:00 CT block below it is the same day's first half.
 
 ## Git / env — VERIFY, don't trust
@@ -2671,3 +2690,24 @@ W10 PROD (after prod push): Tier-2 smoke · API log clean · scan_log rows · Go
 - [R5-5] INVITATION GATE: submit a self-service event (with address) as ORG → success copy says trucks are NOT invited yet; organizer email says the same; TRUCK gets NO invitation. ORG `/food_trucks/event-manager/<id>/dashboard` → "Send invitations" card lists 6 items; button disabled. Fill: fee card Save (blank = free), Budget (run-before + spend), Event Context Save, Logistics (background check + risk) Save → list empties → Send invitations → trucks invited, card becomes the receipt. "Refresh matches" before sending → refused.
 - [R5-6] SURVEYS: TRUCK dashboard after a selling day → NO daily survey; on/after Sunday 18:00 local → ONE "Your week in review" notice + one email listing each place; `/food_trucks/vendor/surveys` intro copy updated. BUYER: orders 1 and 2 → per-day survey as before; order 3+ → nothing until week end, then one weekly notice; buyer survey form shows "Other places you'd like to see on the app?".
 - [R5-7] Pickup-line card: dashboard "A quick one before your next service day 👋" / onboarding "Your app customers get their own line…" — friendly copy, checkbox "Got it — …".
+
+### ✅ PUSHED TO STAGING 2026-08-29 (evening) — `30f7c15c..bb0dfd60` (2 commits: d8316abb feature batch + bb0dfd60 map stamp). Playwright 49✓. origin/staging = 20 commits ahead of prod (e946c2c0). PROD OWES: migs 238 → 239 → 240 pasted BEFORE the code push (window 21:00–07:00 CT). Owner retest: R5-1…R5-7 above + Protocol v3 remainder.
+
+## PROTOCOL v4 (2026-08-29 evening, staging bb0dfd60) — supersedes v3. Resolved/dropped: N1 (7-day window, now R5-2), N3 (schedule explained), N4 (→ R5-4), R4-8 (passed as W2-FIX-5).
+Accounts: ADMIN · ORG (self-service organizer) · TRUCK1/2/3 · BUYER · MGR. Staging, food_trucks unless stated.
+A. Event flow end to end (new gate): R5-5 → R4-3 (vocabulary) → R3-4 A/B (conflict box, park date gone) → ST-10 (unpaid can't sell → pay → sells) → ST-24 (reuse button) → ST-8 (risk checklist → bench rec) → R2-3 (backups sentence, invite-more, "You're confirmed") → R5-1 (status line at each stage) → R4-4 (admin-who-is-organizer gets ONE notice → ORG dashboard) → N2 (what does `/food_trucks/admin/events` show for this already-approved self-service row).
+B. Pre-orders + multi-truck (W3): R3-4 C (open order blocks accept; fulfil at `/food_trucks/vendor/orders` clears) · R3-4 D (`/food_trucks/vendor/edit` multi-truck flag → "cover both", no blackout, ORG sees note) · R3-4 E (paid park spot skipped → MGR notice) · R5-2 (prep sheet link + Upcoming note) · R5-3 (paid park, no listing → nudge).
+C. Deselect → bench → standby → refund (W4): R2-4 · ST-9 · ST-12 · ST-13 · ST-5 · R3-4 F · ST-14.
+D. Cancellation money (W5): ST-3 · ST-4 · B7 · R3-4 G · ST-15 · ST-1 · ST-2 · ST-6 · ST-18 · R4-1 (Restore Event).
+E. Reconfirm + prep (W6): ST-15 · ST-16 · ST-17 · R4-2.
+F. Buyer orders, loyalty, surveys (W7): R3-5 · T1-6 · MILESTONE · R3-1 · R5-6 (weekly cadence; buyer other-places box).
+G. My Locations + manager (W8): R3-3 · R5-4 (manager invite email + resend) · MGR invite still accepts.
+H. Onboarding + signs: R4-5 · R4-6 · R5-7 (friendly copy) · R4-7 (print).
+I. FM (W9): R3-4 H · FM event overlapping market day.
+J. Passive: R4-9 (error_logs after a day) · W10 prod checks after prod push.
+
+### FIX PASS 2026-08-29 (owner: "go back and rescan… make sure it meshes") — UNCOMMITTED, gates green (tsc, lint 0 err, 2095/2095)
+Tests first (owner-approved revised set): T1 details GET ⊇ ALLOWED_FIELDS · T2′ every autoMatchAndInvite caller checks invitationsHeld (+ intake dry-run only) · tri-state list shared gate→editor · Rule K: every .select() column exists in snapshot ∪ migration DDL (CREATE TABLE/ADD/RENAME COLUMN), comments stripped, KNOWN_PHANTOM_COLUMNS baseline (7 pre-existing silent bugs: admin/reports ×5, location-insights ×2) that may only shrink.
+Fixes: details GET returns has_run_before/background_check_*/cancellation_risk_factors/invitations_released_at + `invitations_held`; editor Yes/No radios for GATE_TRISTATE_FIELDS, spend shown+required only when run-before=Yes, red * + legend, Event Context group note, Refresh-matches banner hidden while held; OrganizerProgress held copy (prop from dashboard ×2); admin rematch + admin approval use invitationsHeld; weekly email display_name; intake success heading + email ¶2 shortened.
+FOUND, NOT FIXED (owner decision): 7 phantom columns above; snapshot structured tables stale (35 tables + ~50 columns missing → owner to run REFRESH_SCHEMA.sql).
+- TEST QUEUE ADD (owner 2026-08-29): [R5-8] self-service event submitted WITHOUT an address → ORG adds address from dashboard → ADMIN approves at /food_trucks/admin/events → no truck invited yet → ORG's Send invitations card → Send → trucks invited (this path used to invite nobody, ever).

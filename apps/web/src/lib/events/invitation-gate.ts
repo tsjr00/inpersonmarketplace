@@ -89,11 +89,24 @@ export const LOGISTICS_GATE_FIELDS = [
   'cancellation_risk_factors',
 ] as const
 
-/** Details-editor fields that carry the "required before invitations" tag. */
+/**
+ * Questions the gate needs a real answer to — unanswered / yes / no are three
+ * different things. The editor renders these as Yes / No radios (a lone "Yes"
+ * checkbox cannot say No, and an untouched one saves NULL, so the gate asked
+ * forever — owner finding 2026-08-29). The editor imports THIS list; the
+ * flow-integrity suite checks it does, so the two cannot drift.
+ */
+export const GATE_TRISTATE_FIELDS = [
+  'has_run_before',
+  'background_check_required',
+] as const
+
+/** Details-editor fields that carry the red required asterisk. Event Context
+ *  is a section-level requirement (save it once) and is annotated on the
+ *  group instead. */
 export const INVITATION_REQUIRED_DETAIL_FIELDS = new Set<string>([
   'has_run_before',
   'estimated_spend_per_attendee_cents',
-  ...EVENT_CONTEXT_FIELDS,
   'background_check_required',
   'background_check_details',
   'cancellation_risk_factors',
@@ -120,9 +133,11 @@ export function missingInvitationDetails(row: InvitationGateRow): MissingDetail[
 
   if (row.has_run_before !== true && row.has_run_before !== false) {
     missing.push({ key: 'has_run_before', label: 'Have you run this or a similar event before?', group: 'budget' })
-  }
-  if (!(typeof row.estimated_spend_per_attendee_cents === 'number' && row.estimated_spend_per_attendee_cents > 0)) {
-    missing.push({ key: 'estimated_spend', label: 'Anticipated spend per person who buys something', group: 'budget' })
+  } else if (row.has_run_before === true && !(typeof row.estimated_spend_per_attendee_cents === 'number' && row.estimated_spend_per_attendee_cents > 0)) {
+    // Owner 2026-08-29: the spend question is contingent on having run the
+    // event before — only then can they answer it from experience. A first-time
+    // organizer is not asked.
+    missing.push({ key: 'estimated_spend', label: 'Anticipated spend per person who buys something (from your past event)', group: 'budget' })
   }
 
   if (!row.event_context_confirmed_at) {

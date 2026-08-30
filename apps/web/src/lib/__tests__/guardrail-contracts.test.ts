@@ -417,3 +417,153 @@ describe('Rule J — no new dropped-error Supabase calls', () => {
     ).toBeLessThanOrEqual(BASELINE)
   })
 })
+
+describe('Rule K — every column named in a .select() exists in SCHEMA_SNAPSHOT.md', () => {
+  // 2026-08-29: `user_profiles.full_name` (a column that does not exist)
+  // shipped in a select. TypeScript cannot see database columns, so the
+  // query would have failed on every run and — because the caller swallows
+  // errors by design — no survey email would ever have gone out, silently.
+  // Same class as the 08-25 six-months-silent errors (day_of_week on the
+  // wrong table, a phantom status value). This rule is the general form:
+  // for every `.from('<table>')` whose snapshot has a column table, every
+  // plain column in the following `.select('…')` literal must exist there.
+  //
+  // What is deliberately skipped, so a stale snapshot never becomes noise:
+  //   · tables with no "Columns by Table" entry in the snapshot (listed by
+  //     the second test so the gap is visible, not silent)
+  //   · embeds (`markets!market_id ( id, name )`, `listings ( id )`), `*`,
+  //     template literals with interpolation, and `alias:column` (the
+  //     column part is still checked)
+  // If this fails on a column you KNOW exists, the snapshot is stale: run
+  // supabase/REFRESH_SCHEMA.sql — never allowlist the column here.
+  // Two sources, unioned: the snapshot's "Columns by Table" (rebuilt only
+  // when someone runs REFRESH_SCHEMA.sql — 35 tables and ~50 newer columns
+  // were missing on 2026-08-29) and the migration DDL itself (CREATE TABLE
+  // bodies + ADD/RENAME COLUMN), which is authoritative and always current.
+  function knownColumns(): Map<string, Set<string>> {
+    const map = new Map<string, Set<string>>()
+    const add = (t: string, c: string) => { if (!map.has(t)) map.set(t, new Set()); map.get(t)!.add(c) }
+    const text = read(SNAPSHOT)
+    const start = text.indexOf('\n## Columns by Table')
+    const end = text.indexOf('\n## ', start + 1)
+    let current: string | null = null
+    for (const line of text.slice(start, end === -1 ? undefined : end).split('\n')) {
+      const h = line.match(/^### ([a-z_]+)\s*$/)
+      if (h) { current = h[1]; add(current, '__table__'); continue }
+      const col = current && line.match(/^\| ([a-z_][a-z0-9_]*) \|/)
+      if (col && col[1] !== 'Column') add(current!, col[1])
+    }
+    for (const { full } of allMigrationFiles()) {
+      const sql = read(full).replace(/--.*$/gm, '')
+      for (const m of sql.matchAll(/CREATE TABLE(?: IF NOT EXISTS)?\s+(?:public\.)?([a-z_]+)\s*\(([\s\S]*?)\);/gi)) {
+        add(m[1], '__table__')
+        for (const raw of m[2].split('\n')) {
+          const cm = raw.trim().match(/^"?([a-z_][a-z0-9_]*)"?\s+[A-Za-z]/)
+          if (!cm) continue
+          if (['CONSTRAINT', 'PRIMARY', 'UNIQUE', 'CHECK', 'FOREIGN', 'EXCLUDE', 'LIKE'].includes(cm[1].toUpperCase())) continue
+          add(m[1], cm[1])
+        }
+      }
+      for (const m of sql.matchAll(/ALTER TABLE(?: ONLY)?\s+(?:IF EXISTS\s+)?(?:public\.)?([a-z_]+)([\s\S]*?);/gi)) {
+        for (const c of m[2].matchAll(/ADD COLUMN(?: IF NOT EXISTS)?\s+"?([a-z_][a-z0-9_]*)"?/gi)) add(m[1], c[1])
+        for (const c of m[2].matchAll(/RENAME COLUMN\s+"?[a-z_0-9]+"?\s+TO\s+"?([a-z_][a-z0-9_]*)"?/gi)) add(m[1], c[1])
+      }
+    }
+    return map
+  }
+  /** Top-level tokens of a select list; embeds (name followed by `(`) are flagged. */
+  function selectTokens(list: string): Array<{ token: string; embed: boolean }> {
+    const out: Array<{ token: string; embed: boolean }> = []
+    let depth = 0
+    let cur = ''
+    let embed = false
+    const flush = () => { const t = cur.trim(); if (t) out.push({ token: t, embed }); cur = ''; embed = false }
+    for (const ch of list) {
+      if (ch === '(') { if (depth === 0) embed = true; depth++; continue }
+      if (ch === ')') { depth--; continue }
+      if (depth > 0) continue
+      if (ch === ',') { flush(); continue }
+      cur += ch
+    }
+    flush()
+    return out
+  }
+  function walkK(dir: string, out: string[] = []): string[] {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name)
+      if (e.isDirectory()) { if (e.name !== "__tests__" && e.name !== "node_modules") walkK(p, out) }
+      else if ((e.name.endsWith(".ts") || e.name.endsWith(".tsx")) && !e.name.includes(".test.")) out.push(p)
+    }
+    return out
+  }
+  function chunksK(text: string, table: string): string[] {
+    const needle = ".from('" + table + "')"
+    const out: string[] = []
+    let idx = text.indexOf(needle)
+    while (idx !== -1) {
+      const next = text.indexOf(".from('", idx + needle.length)
+      out.push(text.slice(idx, Math.min(next === -1 ? text.length : next, idx + 2500)))
+      idx = text.indexOf(needle, idx + needle.length)
+    }
+    return out
+  }
+  const columns = knownColumns()
+
+  it('the snapshot parser sees the tables this rule relies on', () => {
+    expect(columns.get('user_profiles')?.has('email')).toBe(true)
+    expect(columns.get('order_items')?.has('pickup_date')).toBe(true)
+    expect(columns.size).toBeGreaterThan(50)
+  })
+
+  // Doc comments quote example queries (`supabase.from('x').select(…)`) — strip
+  // them so only real code is judged.
+  const stripComments = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+
+  it('no .select() names a column that no migration or snapshot defines', () => {
+    const offenders: string[] = []
+    for (const file of walkK(SRC_DIR)) {
+      const text = stripComments(read(file))
+      for (const [table, cols] of columns) {
+        for (const chunk of chunksK(text, table)) {
+          const sel = chunk.match(/\.select\(\s*(?:`([^`]*)`|'([^']*)'|"([^"]*)")\s*[,)]/)
+          if (!sel) continue
+          const list = sel[1] ?? sel[2] ?? sel[3] ?? ''
+          if (list.includes('${')) continue
+          for (const { token, embed } of selectTokens(list)) {
+            if (embed || token === '*') continue
+            const name = token.includes(':') ? token.split(':').pop()!.trim() : token
+            if (!/^[a-z_][a-z0-9_]*$/.test(name)) continue
+            if (!cols.has(name)) offenders.push(`${path.relative(SRC_DIR, file).split(path.sep).join('/')}: ${table}.${name}`)
+          }
+        }
+      }
+    }
+    // Pre-existing phantom columns found the day this rule landed (2026-08-29).
+    // Each is a query that fails on every run. Fix the code and delete the line —
+    // this list may only shrink.
+    const KNOWN_PHANTOM_COLUMNS = [
+      'app/api/admin/reports/route.ts: listings.stock_quantity',
+      'app/api/admin/reports/route.ts: vendor_fee_balance.total_collected_cents',
+      'app/api/admin/reports/route.ts: vendor_fee_balance.total_owed_cents',
+      'app/api/admin/reports/route.ts: vendor_fee_ledger.fee_cents',
+      'app/api/admin/reports/route.ts: vendor_fee_ledger.fee_type',
+      'app/api/vendor/location-insights/route.ts: user_profiles.latitude',
+      'app/api/vendor/location-insights/route.ts: user_profiles.longitude',
+    ]
+    const fresh = offenders.filter((o) => !KNOWN_PHANTOM_COLUMNS.includes(o))
+    expect(fresh, 'column(s) selected that no migration or snapshot defines — fix the code (a stale snapshot is NOT the cause: migration DDL is read too)').toEqual([])
+    for (const k of KNOWN_PHANTOM_COLUMNS) expect(offenders, `${k} is fixed — remove it from KNOWN_PHANTOM_COLUMNS`).toContain(k)
+  })
+
+  it('every table queried in code is defined by a migration or the snapshot (nothing is silently unchecked)', () => {
+    const queried = new Set<string>()
+    for (const file of walkK(SRC_DIR)) {
+      for (const m of stripComments(read(file)).matchAll(/\.from\('([a-z_]+)'\)/g)) queried.add(m[1])
+    }
+    const uncovered = [...queried].filter((t) => !columns.has(t)).sort()
+    // Visible inventory. Add here ONLY after checking the table really has no
+    // column table in the snapshot (REFRESH_SCHEMA.sql fixes it properly).
+    expect(uncovered).toEqual(UNCOVERED_TABLES_BASELINE)
+  })
+})
+const UNCOVERED_TABLES_BASELINE: string[] = []

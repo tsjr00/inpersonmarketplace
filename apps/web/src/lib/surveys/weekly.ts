@@ -280,7 +280,7 @@ export async function generateWeeklySurveys(
     if (!opts.sendEmail) continue
     const { data: userProfile } = await observed(service
       .from('user_profiles')
-      .select('email, survey_emails_opted_out, full_name')
+      .select('email, survey_emails_opted_out, display_name')
       .eq('user_id', b.userId)
       .maybeSingle(), { table: 'user_profiles' })
     if (!userProfile?.email) continue
@@ -290,7 +290,7 @@ export async function generateWeeklySurveys(
     const email = buildWeeklySurveyEmail({
       vertical: b.vertical,
       kind: b.kind,
-      recipientName: (userProfile.full_name as string | null) ?? null,
+      recipientName: (userProfile.display_name as string | null) ?? null,
       weekDisplay,
       places: b.places.map((p) => ({
         marketName: p.marketName,

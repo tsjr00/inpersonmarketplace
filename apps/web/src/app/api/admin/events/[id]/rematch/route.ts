@@ -9,6 +9,7 @@ import {
 } from '@/lib/rate-limit'
 import { withErrorTracing, observed } from '@/lib/errors'
 import { autoMatchAndInvite } from '@/lib/events/event-actions'
+import { invitationsHeld } from '@/lib/events/invitation-gate'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -91,6 +92,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
         )
       }
 
+      // Invitation gate (mig 239, owner 2026-08-29): a self-service organizer
+      // who has not clicked Send yet must not have an admin invite for them.
+      if (invitationsHeld(cateringRequest)) {
+        return NextResponse.json(
+          { error: 'This self-service organizer has not sent invitations yet — they must complete their event details and click Send invitations first.', invitations_held: true },
+          { status: 409 }
+        )
+      }
       // Run auto-match — it already skips vendors who are already invited
       const result = await autoMatchAndInvite(
         serviceClient,

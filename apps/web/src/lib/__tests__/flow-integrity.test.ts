@@ -2281,3 +2281,77 @@ describe('Event ↔ location availability', () => {
     expect(/\{vertical === 'food_trucks' && \(\s*<div style=\{\{\s*marginBottom: 12,/.test(form), 'the checkbox must no longer be FT-only').toBe(false)
   })
 })
+
+describe('Event invitation gate (mig 239) — the rule holds everywhere it can be broken', () => {
+  const SRC = path.resolve(__dirname, '../..')
+  const rd = (p: string) => fs.readFileSync(path.join(SRC, p), 'utf-8')
+  const code = (p: string) => rd(p).replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+
+  it('the organizer details editor can read back every field it is allowed to write', () => {
+    // 2026-08-29: the editor's PATCH whitelist accepted has_run_before and the
+    // mig 231/232 Logistics fields, but the GET never selected them — every
+    // save "took" and then vanished on refresh. The whitelist is the source of
+    // truth; GET must cover it, or every future field added there silently
+    // disappears the same way.
+    const src = code('app/api/events/[token]/details/route.ts')
+    const allowed = src.match(/const ALLOWED_FIELDS = \[([\s\S]*?)\n\]/)
+    expect(allowed, 'ALLOWED_FIELDS literal').toBeTruthy()
+    const fields = [...allowed![1].matchAll(/'([a-z_]+)'/g)].map((m) => m[1])
+    expect(fields.length).toBeGreaterThan(20)
+    const get = src.match(/export async function GET[\s\S]*?\.select\(`([\s\S]*?)`\)/)
+    expect(get, 'GET select literal').toBeTruthy()
+    const selected = new Set(get![1].split(/[,\s]+/).map((s) => s.trim()).filter(Boolean))
+    const missing = fields.filter((f) => !selected.has(f))
+    expect(missing, 'writable but never read back').toEqual([])
+  })
+
+  it('every path that can invite vendors honors the hold', () => {
+    // Owner decision 2026-08-29: self-service invitations go out only when the
+    // organizer clicks Send. Any caller of the engine that is not the intake
+    // dry run must check invitationsHeld first — a new cron phase or admin
+    // button that forgets this re-opens "trucks decide on a blank".
+    const callers = [
+      'app/api/admin/events/[id]/rematch/route.ts',
+      'app/api/admin/events/[id]/route.ts',
+      'app/api/cron/expire-orders/route.ts',
+      'app/api/events/[token]/refresh-matches/route.ts',
+      'app/api/events/[token]/release-invitations/route.ts',
+    ]
+    for (const file of callers) {
+      const src = code(file)
+      expect(src, `${file} calls the engine`).toMatch(/autoMatchAndInvite\(/)
+      expect(src, `${file} must check invitationsHeld( before inviting`).toMatch(/invitationsHeld\(/)
+    }
+    const intake = code('app/api/event-requests/route.ts')
+    expect(intake, 'intake only ever dry-runs the engine').toMatch(/autoMatchAndInvite\([^)]*\{ dryRun: true \}\)/)
+    expect(intake, 'intake must not stamp auto_invite_sent_at (the release route does)').not.toMatch(/auto_invite_sent_at:/)
+    // No caller outside this list — a new one must be added here AND honor the hold.
+    const all = new Set<string>()
+    const walk = (dir: string) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, e.name)
+        if (e.isDirectory()) { if (e.name !== '__tests__' && e.name !== 'node_modules') walk(p) }
+        else if (/\.tsx?$/.test(e.name) && !e.name.includes('.test.') && fs.readFileSync(p, 'utf-8').includes('autoMatchAndInvite(')) all.add(path.relative(SRC, p).split(path.sep).join('/'))
+      }
+    }
+    walk(SRC)
+    expect([...all].sort()).toEqual([...callers, 'app/api/event-requests/route.ts', 'lib/events/event-actions.ts'].sort())
+  })
+
+  it('three-state gate questions come from one list the editor renders as Yes / No', () => {
+    // A "Yes" checkbox cannot say No, and an unanswered checkbox saves null —
+    // the gate then asks forever. The gate module owns the list; the editor
+    // imports it, so the two cannot drift.
+    const gate = code('lib/events/invitation-gate.ts')
+    expect(gate).toMatch(/export const GATE_TRISTATE_FIELDS = \[\s*'has_run_before',\s*'background_check_required',?\s*\]/)
+    const editor = code('components/events/OrganizerEventDetails.tsx')
+    expect(editor).toMatch(/import \{[^}]*GATE_TRISTATE_FIELDS[^}]*\} from '@\/lib\/events\/invitation-gate'/)
+    expect(editor, 'tri-state control keyed on the shared list').toMatch(/GATE_TRISTATE_FIELDS\.includes\(field/)
+    // The plain "Yes" checkbox list must not carry a tri-state question.
+    const checkboxList = editor.match(/if \(\[([^\]]*)\]\.includes\(field\)\) \{[\s\S]{0,400}type="checkbox"/)
+    expect(checkboxList, 'the Yes-checkbox list still exists for real booleans').toBeTruthy()
+    for (const f of ['has_run_before', 'background_check_required']) {
+      expect(checkboxList![1], `${f} must not be in the Yes-checkbox list`).not.toContain(`'${f}'`)
+    }
+  })
+})

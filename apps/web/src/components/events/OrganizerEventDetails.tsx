@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { spacing, typography, radius, statusColors } from '@/lib/design-tokens'
 import { CANCELLATION_RISK_FACTORS } from '@/lib/events/backup-bench'
-import { INVITATION_REQUIRED_DETAIL_FIELDS } from '@/lib/events/invitation-gate'
+import { INVITATION_REQUIRED_DETAIL_FIELDS, GATE_TRISTATE_FIELDS } from '@/lib/events/invitation-gate'
 import { term } from '@/lib/vertical/terminology'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import {
@@ -107,7 +107,9 @@ const FIELD_GROUPS = [
   },
   {
     label: 'Event Context',
-    description: 'Helps vendors prepare for your specific event',
+    // Mig 239: the whole section counts as one required answer — save it once
+    // (unchecked boxes are real answers). Themed is optional.
+    description: 'Helps vendors prepare for your specific event. * Save this section once before invitations go out — "no" answers count; Themed is optional.',
     fields: ['beverages_provided', 'dessert_provided', 'competing_food_options', 'has_competing_vendors', 'is_themed', 'theme_description', 'children_present', 'is_ticketed'],
   },
   {
@@ -210,6 +212,9 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
 
   // Local form state
   const [formData, setFormData] = useState<Record<string, unknown>>({})
+  // Invitation gate (mig 239): while held, "Refresh matches" would 409 — the
+  // Send invitations card on the dashboard owns that moment.
+  const [invitationsHeldState, setInvitationsHeldState] = useState(false)
 
   // Re-match banner state. Set when API PATCH response says matchingChanged.
   // Cleared when user clicks "Refresh" or "Skip", or when banner action completes.
@@ -249,6 +254,7 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
         const data = await res.json()
         setDetails(data.event)
         setChangeCost(data.change_cost ?? null)
+        setInvitationsHeldState(!!data.invitations_held)
       }
     } catch { /* silent */ }
     setLoading(false)
@@ -325,6 +331,7 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
           const data = await refresh.json()
           setDetails(data.event)
           setChangeCost(data.change_cost ?? null)
+          setInvitationsHeldState(!!data.invitations_held)
         }
         setSaveMessage('Saved!')
         setEditGroup(null)
@@ -337,7 +344,7 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
         // gate existed the banner offered a button that could only fail. It was
         // unreachable pre-approval until 2026-08-08, when the editor stopped
         // being token-gated — this gate is the other half of that change.
-        if (saveResult.matchingChanged && details?.market_id) {
+        if (saveResult.matchingChanged && details?.market_id && !invitationsHeldState) {
           setShowRefreshBanner(true)
           setRefreshMessage(null)
         }
@@ -569,6 +576,9 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
 
                 <p style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, margin: `${spacing['3xs']} 0 0` }}>
                   {group.description}
+                  {group.fields.some(f => INVITATION_REQUIRED_DETAIL_FIELDS.has(f)) && (
+                    <> <span style={{ color: '#dc2626' }}>*</span> needed before invitations go out</>
+                  )}
                 </p>
 
                 {/* Read-only display when not editing */}
@@ -656,10 +666,15 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
                       const label = fieldLabel(f, vertical)
                       const val = formData[f]
                       const locked = isFieldLocked(f)
+                      // Owner 2026-08-29: the spend question is contingent on
+                      // having run the event before — only shown (and only
+                      // required) once that answer is Yes.
+                      if (f === 'estimated_spend_per_attendee_cents' && formData.has_run_before !== true) return null
+                      const required = INVITATION_REQUIRED_DETAIL_FIELDS.has(f)
                       return (
                         <div key={f} style={{ marginBottom: spacing.xs }}>
                           <label style={{ display: 'block', fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: statusColors.neutral700, marginBottom: 2 }}>
-                            {label}
+                            {label}{required && <span style={{ color: '#dc2626', marginLeft: 3 }} title="Needed before invitations go out">*</span>}
                           </label>
                           {locked ? (
                             <div style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500 }}>
@@ -957,10 +972,7 @@ function fieldLabel(field: string, vertical: string): string {
     is_recurring: 'Recurring Event?',
     recurring_frequency: 'How Often?',
   }
-  const base = labels[field] || field.replace(/_/g, ' ')
-  // Mig 239 (owner 2026-08-29): these answer the invitation gate — vendors are
-  // not invited until they are filled. Say so on the label itself.
-  return INVITATION_REQUIRED_DETAIL_FIELDS.has(field) ? `${base} · needed before invitations go out` : base
+  return labels[field] || field.replace(/_/g, ' ')
 }
 
 // Display labels for the event_type / event_setting / recurring_frequency enums.
@@ -1126,9 +1138,33 @@ function renderField(field: string, value: unknown, onChange: (v: unknown) => vo
     )
   }
 
+  // Invitation-gate questions (mig 239): three states — unanswered / Yes / No.
+  // A lone "Yes" checkbox cannot say No, and an untouched one saved NULL, so
+  // the gate asked forever (owner finding 2026-08-29). The list lives in the
+  // gate module so the control and the rule cannot drift.
+  if (GATE_TRISTATE_FIELDS.includes(field as (typeof GATE_TRISTATE_FIELDS)[number])) {
+    const answered = value === true || value === false
+    return (
+      <div style={{ display: 'flex', gap: spacing.sm, fontSize: typography.sizes.sm, alignItems: 'center' }}>
+        {[true, false].map((opt) => (
+          <label key={String(opt)} style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer' }}>
+            <input
+              type="radio"
+              name={`tristate-${field}`}
+              checked={value === opt}
+              onChange={() => onChange(opt)}
+            />
+            {opt ? 'Yes' : 'No'}
+          </label>
+        ))}
+        {!answered && <span style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500 }}>not answered yet</span>}
+      </div>
+    )
+  }
+
   // is_recurring also boolean — added to the boolean list below
   // Boolean fields
-  if (['beverages_provided', 'dessert_provided', 'is_themed', 'children_present', 'has_competing_vendors', 'is_ticketed', 'is_recurring', 'background_check_required', 'has_run_before'].includes(field)) {
+  if (['beverages_provided', 'dessert_provided', 'is_themed', 'children_present', 'has_competing_vendors', 'is_ticketed', 'is_recurring'].includes(field)) {
     return (
       <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], fontSize: typography.sizes.sm }}>
         <input
