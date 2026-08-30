@@ -32,7 +32,7 @@ A migration's location follows its real-world deployment state. The file is in `
    - **C. Structured tables** regenerated if columns/tables/FKs/indexes were added/altered (ask user to run `REFRESH_SCHEMA.sql`)
    - If user defers refresh, note staleness in `current_task.md`
    - **WHY:** Schema snapshot is not just for columns — it documents trigger behavior, function signatures, config data, and RLS policies. ANY migration that changes database behavior must be reflected here.
-3. **Claude updates `MIGRATION_LOG.md`** — adds the row showing `✅ Dev`, `✅ Staging`, and a `Pending Prod` note in the description column.
+3. ~~MIGRATION_LOG.md~~ — **RETIRED (owner 2026-08-30).** The snapshot Change Log row from step 2A IS the application record (guardrail Rule G enforces it). Do not maintain a separate log.
 4. **Claude does NOT move the file yet.** The file stays in `supabase/migrations/` because Prod has not yet been applied. Moving prematurely makes it look "done" when there's still a pending environment.
 5. **Claude commits:** With a message describing what was applied to dev + staging and that Prod is still pending.
 
@@ -40,7 +40,7 @@ A migration's location follows its real-world deployment state. The file is in `
 
 6. **User confirms:** "Migration [filename] applied to prod"
 7. **Claude moves the file:** `supabase/migrations/[file].sql` → `supabase/migrations/applied/[file].sql`
-8. **Claude updates `MIGRATION_LOG.md`** — replaces the "Pending Prod" note with the prod application date.
+8. ~~MIGRATION_LOG.md~~ — retired; nothing to do here.
 9. **Claude updates `SCHEMA_SNAPSHOT.md` Change Log entry** — replaces "Pending Prod" with "Applied to all 3 envs".
 10. **Claude commits:** "chore: migration NNN applied to prod — moved to applied/".
 
@@ -61,16 +61,16 @@ supabase/migrations/
 ├── applied/           # Confirmed applied to ALL 3 envs (Dev + Staging + Prod)
 │   ├── 20260103_001_initial_schema.sql
 │   └── ...
-├── MIGRATION_LOG.md   # Tracking log (always current)
+├── MIGRATION_LOG.md   # RETIRED pointer stub — the snapshot Change Log is the record
 ├── README.md          # Migration standards
 └── 20260205_004_new_feature.sql  # Pending migrations (not yet in all 3 envs)
 ```
 
 ## Rules
 
-- **Never move a migration** until user explicitly confirms it is applied to ALL 3 envs (Dev + Staging + Prod). Dev + Staging is the trigger for bookkeeping (changelog, MIGRATION_LOG row, snapshot updates) — but the file stays in `supabase/migrations/` until Prod is also applied.
+- **Never move a migration** until user explicitly confirms it is applied to ALL 3 envs (Dev + Staging + Prod). Dev + Staging is the trigger for bookkeeping (changelog + snapshot updates) — but the file stays in `supabase/migrations/` until Prod is also applied.
 - **Never delete migrations** — always move to `applied/`
-- **Update MIGRATION_LOG.md** in two passes: first when Dev + Staging are applied (mark `Pending Prod` in description), again when Prod is applied (replace `Pending Prod` with the prod date).
+- **The snapshot's structured tables carry a stamp** (`Structured tables rebuilt: <date> · current through migration NNN`, snapshot header). Guardrail Rule L fails the suite when any newer migration CREATEs a table or more than 5 migrations exist past the stamp — the fix is a real rebuild (owner runs `supabase/REFRESH_SCHEMA.sql` on Dev; Claude regenerates the structured sections and moves the stamp). Never move the stamp without a rebuild.
 - If only applied to Dev (not Staging), leave in root folder with ✅ Dev / ❌ Staging in log.
 
 ---

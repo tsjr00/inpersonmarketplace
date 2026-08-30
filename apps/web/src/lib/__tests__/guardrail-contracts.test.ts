@@ -567,3 +567,60 @@ describe('Rule K — every column named in a .select() exists in SCHEMA_SNAPSHOT
   })
 })
 const UNCOVERED_TABLES_BASELINE: string[] = []
+
+describe('Rule L — the snapshot structured tables cannot silently wander (owner rule 2026-08-30)', () => {
+  // The Change Log stayed current because Rule G enforces it; the STRUCTURED
+  // sections only update when someone runs REFRESH_SCHEMA.sql, and nothing
+  // ever forced that — by 2026-08-29 they were 35 tables and ~50 columns
+  // behind, and the schema gate was reading a reference that lied by omission.
+  // The stamp in the snapshot header records the last real rebuild; this rule
+  // fails when it falls behind. The ONLY correct fix is a real rebuild:
+  // owner runs supabase/REFRESH_SCHEMA.sql on Dev, Claude regenerates the
+  // structured sections and moves the stamp. Never move the stamp by itself.
+  const STALENESS_ALLOWANCE = 5 // migrations without a CREATE TABLE before a refresh is due
+
+  function migNumber(base: string): number {
+    // Two naming eras: 20260105_152200_001_x.sql (date_TIME_number) from the
+    // first days, and 20260814_228_x.sql (date_number) ever since. A 6-digit
+    // second segment followed by another number is a timestamp — skip it.
+    const ts = base.match(/^\d{8}_\d{6}_(\d+)_/)
+    if (ts) return parseInt(ts[1], 10)
+    const m = base.match(/^\d{8}_(\d+)/)
+    return m ? parseInt(m[1], 10) : 0
+  }
+
+  it('the stamp exists and no CREATE TABLE migration is newer than it', () => {
+    const snap = read(SNAPSHOT)
+    const stamp = snap.match(/\*\*Structured tables rebuilt:\*\* (\d{4}-\d{2}-\d{2}) · current through migration (\d+)/)
+    expect(stamp, 'SCHEMA_SNAPSHOT.md must carry the "Structured tables rebuilt: <date> · current through migration NNN" stamp').toBeTruthy()
+    const stampMig = parseInt(stamp![2], 10)
+    const offenders: string[] = []
+    for (const { base, full } of allMigrationFiles()) {
+      if (migNumber(base) <= stampMig) continue
+      const sql = read(full).replace(/--.*$/gm, '')
+      if (/CREATE TABLE/i.test(sql)) offenders.push(base)
+    }
+    expect(
+      offenders,
+      `Migration(s) newer than the snapshot stamp (through ${stampMig}) CREATE tables the structured sections don't list. ` +
+      `Ask the owner to run supabase/REFRESH_SCHEMA.sql on Dev, rebuild the structured sections, and move the stamp.`
+    ).toEqual([])
+  })
+
+  it(`at most ${STALENESS_ALLOWANCE} migrations may exist past the stamp`, () => {
+    const snap = read(SNAPSHOT)
+    const stamp = snap.match(/current through migration (\d+)/)
+    expect(stamp).toBeTruthy()
+    const stampMig = parseInt(stamp![1], 10)
+    const newer = new Set<number>()
+    for (const { base } of allMigrationFiles()) {
+      const n = migNumber(base)
+      if (n > stampMig) newer.add(n)
+    }
+    expect(
+      newer.size,
+      `${newer.size} migrations past the snapshot stamp (through ${stampMig}) — a refresh is due. ` +
+      `Owner runs supabase/REFRESH_SCHEMA.sql on Dev; Claude rebuilds the structured sections and moves the stamp.`
+    ).toBeLessThanOrEqual(STALENESS_ALLOWANCE)
+  })
+})

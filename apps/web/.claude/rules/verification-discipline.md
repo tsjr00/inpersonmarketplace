@@ -146,7 +146,9 @@ This is NOT optional. This is NOT just for column additions. This applies to ALL
 
 Migration 026 changed trigger function logic and added JSONB config data to the `verticals` table. The schema snapshot was NOT updated because the migration didn't add columns — only changed trigger behavior and config values. This was caught by the user, not by Claude. The root cause: prior rules only emphasized column/table changes, causing Claude to skip the snapshot for "logic-only" migrations.
 
-For the full migration workflow (file moves, MIGRATION_LOG updates, dev/staging/prod bookkeeping), see `apps/web/docs/migration-workflow.md`.
+**The structured tables carry a rebuild stamp** (owner rule 2026-08-30): `Structured tables rebuilt: <date> · current through migration NNN` in the snapshot header. Guardrail Rule L fails the test suite when a newer migration CREATEs a table, or when more than 5 migrations exist past the stamp. The only correct response is a real rebuild — the user runs `supabase/REFRESH_SCHEMA.sql` on Dev, Claude regenerates the structured sections and moves the stamp. Moving the stamp without a rebuild is falsifying the record. (MIGRATION_LOG.md was retired the same day — both copies had silently died at migs 002/137; the snapshot Change Log, enforced by Rule G, is the single application record.)
+
+For the full migration workflow (file moves, dev/staging/prod bookkeeping), see `apps/web/docs/migration-workflow.md`.
 
 ---
 
