@@ -74,7 +74,10 @@ export default function AdminShell({ scopes, groups, adminEmail, children }: Adm
         <span style={{ fontWeight: typography.weights.bold, fontSize: typography.sizes.sm, whiteSpace: 'nowrap' }}>
           ⚙️ Admin
         </span>
-        <nav aria-label="Admin scope" style={{ display: 'flex', gap: 6, overflowX: 'auto', flex: 1 }}>
+        {/* S6 fix (owner smoke 2026-08-30): a flex child only scrolls its
+            overflow if it may SHRINK — without minWidth: 0 the pills were cut
+            off on phones instead of scrolling. */}
+        <nav aria-label="Admin scope" style={{ display: 'flex', gap: 6, overflowX: 'auto', flex: 1, minWidth: 0, WebkitOverflowScrolling: 'touch' }}>
           {scopes.map(s => (
             <Link
               key={s.key}
