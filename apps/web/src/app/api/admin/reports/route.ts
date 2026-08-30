@@ -1233,7 +1233,7 @@ async function generateListingInventory(supabase: ReturnType<typeof createServic
       status,
       price_cents,
       category,
-      stock_quantity,
+      quantity,
       created_at,
       updated_at,
       vertical_id,
@@ -1262,7 +1262,10 @@ async function generateListingInventory(supabase: ReturnType<typeof createServic
       status: listing.status,
       category: listing.category || 'Uncategorized',
       price: formatCents(listing.price_cents),
-      stock: listing.stock_quantity ?? 'Unlimited',
+      // Phantom column fixed 2026-08-30 (Rule K): the column is `quantity` —
+      // `stock_quantity` never existed, so this report said 'Unlimited' for
+      // every listing since it shipped.
+      stock: listing.quantity ?? 'Unlimited',
       vendor: vendor?.business_name || vendor?.farm_name || 'Unknown',
       vendor_tier: listing.vendor_profiles?.tier || 'free',
       markets: markets || 'None',
@@ -1623,7 +1626,10 @@ async function generateExternalFeeLedger(supabase: ReturnType<typeof createServi
   // Part 2: Fee ledger entries
   const { data: ledgerEntries } = await observed(supabase
     .from('vendor_fee_ledger')
-    .select('id, vendor_profile_id, order_item_id, fee_cents, fee_type, created_at')
+    // Phantom columns fixed 2026-08-30 (Rule K): the ledger's columns are
+    // `amount_cents` + `type` — `fee_cents`/`fee_type` never existed, so this
+    // whole report section was empty since it shipped.
+    .select('id, vendor_profile_id, order_item_id, amount_cents, type, created_at')
     .gte('created_at', dateFrom)
     .lte('created_at', dateTo), { table: 'vendor_fee_ledger' })
 
@@ -1633,10 +1639,24 @@ async function generateExternalFeeLedger(supabase: ReturnType<typeof createServi
     if (e.order_item_id) ledgerMap.set(e.order_item_id, e)
   })
 
-  // Part 3: Current vendor balances
+  // Part 3: Current vendor balances.
+  // Phantom columns fixed 2026-08-30 (Rule K): the balance view only exposes
+  // `balance_cents` — total_owed/total_collected never existed there. All-time
+  // owed (debits) and collected (credits) are summed from the ledger instead
+  // (lib/payments/vendor-fees.ts writes type 'debit' | 'credit').
   const { data: balances } = await observed(supabase
     .from('vendor_fee_balance')
-    .select('vendor_profile_id, total_owed_cents, total_collected_cents, balance_cents'), { table: 'vendor_fee_balance' })
+    .select('vendor_profile_id, balance_cents'), { table: 'vendor_fee_balance' })
+  const { data: allTimeLedger } = await observed(supabase
+    .from('vendor_fee_ledger')
+    .select('vendor_profile_id, amount_cents, type'), { table: 'vendor_fee_ledger' })
+  const allTimeByVendor = new Map<string, { owed: number; collected: number }>()
+  allTimeLedger?.forEach((e: any) => {
+    const agg = allTimeByVendor.get(e.vendor_profile_id) || { owed: 0, collected: 0 }
+    if (e.type === 'debit') agg.owed += e.amount_cents || 0
+    else if (e.type === 'credit') agg.collected += e.amount_cents || 0
+    allTimeByVendor.set(e.vendor_profile_id, agg)
+  })
 
   const balanceMap = new Map<string, any>()
   balances?.forEach((b: any) => balanceMap.set(b.vendor_profile_id, b))
@@ -1666,7 +1686,7 @@ async function generateExternalFeeLedger(supabase: ReturnType<typeof createServi
       const ledgerEntry = ledgerMap.get(item.id)
       const subtotal = item.subtotal_cents || 0
       const buyerFee = item.platform_fee_cents || 0
-      const vendorFee = ledgerEntry?.fee_cents || 0
+      const vendorFee = ledgerEntry?.amount_cents || 0
 
       totalSubtotal += subtotal
       totalBuyerFee += buyerFee
@@ -1722,13 +1742,14 @@ async function generateExternalFeeLedger(supabase: ReturnType<typeof createServi
   vendorProfiles?.forEach((vp: any) => {
     const name = (vp.profile_data as any)?.business_name || (vp.profile_data as any)?.farm_name || 'Unknown'
     const balance = balanceMap.get(vp.id)
-    if (balance) {
+    const allTime = allTimeByVendor.get(vp.id)
+    if (balance || allTime) {
       lines.push([
         `"${name}"`,
         `"${vp.vertical_id}"`,
-        `"${formatCents(balance.total_owed_cents)}"`,
-        `"${formatCents(balance.total_collected_cents)}"`,
-        `"${formatCents(balance.balance_cents)}"`,
+        `"${formatCents(allTime?.owed ?? 0)}"`,
+        `"${formatCents(allTime?.collected ?? 0)}"`,
+        `"${formatCents(balance?.balance_cents ?? 0)}"`,
       ].join(','))
     }
   })

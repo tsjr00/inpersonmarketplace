@@ -376,9 +376,12 @@ export async function GET(request: NextRequest) {
     // 7. Buyer density near vendor's markets
     const { data: allBuyerProfiles } = await observed(serviceClient
       .from('user_profiles')
-      .select('latitude, longitude')
-      .not('latitude', 'is', null)
-      .not('longitude', 'is', null), { table: 'user_profiles' })
+      // Phantom columns fixed 2026-08-30 (Rule K): the columns are
+      // preferred_latitude/preferred_longitude — bare latitude/longitude never
+      // existed, so buyer density was empty since the feature shipped.
+      .select('preferred_latitude, preferred_longitude')
+      .not('preferred_latitude', 'is', null)
+      .not('preferred_longitude', 'is', null), { table: 'user_profiles' })
 
     const buyerDensity: {
       marketId: string
@@ -399,7 +402,7 @@ export async function GET(request: NextRequest) {
       let w5 = 0, w10 = 0, w25 = 0
 
       for (const buyer of allBuyerProfiles || []) {
-        const dist = haversineDistance(mLat, mLng, Number(buyer.latitude), Number(buyer.longitude))
+        const dist = haversineDistance(mLat, mLng, Number(buyer.preferred_latitude), Number(buyer.preferred_longitude))
         if (dist <= 5) w5++
         if (dist <= 10) w10++
         if (dist <= 25) w25++

@@ -541,15 +541,10 @@ describe('Rule K — every column named in a .select() exists in SCHEMA_SNAPSHOT
     // Pre-existing phantom columns found the day this rule landed (2026-08-29).
     // Each is a query that fails on every run. Fix the code and delete the line —
     // this list may only shrink.
-    const KNOWN_PHANTOM_COLUMNS = [
-      'app/api/admin/reports/route.ts: listings.stock_quantity',
-      'app/api/admin/reports/route.ts: vendor_fee_balance.total_collected_cents',
-      'app/api/admin/reports/route.ts: vendor_fee_balance.total_owed_cents',
-      'app/api/admin/reports/route.ts: vendor_fee_ledger.fee_cents',
-      'app/api/admin/reports/route.ts: vendor_fee_ledger.fee_type',
-      'app/api/vendor/location-insights/route.ts: user_profiles.latitude',
-      'app/api/vendor/location-insights/route.ts: user_profiles.longitude',
-    ]
+    // All seven day-one entries were fixed 2026-08-30 (admin reports ×5,
+    // location-insights ×2). This list may only shrink — never add to it to
+    // get past a failure; fix the code.
+    const KNOWN_PHANTOM_COLUMNS: string[] = []
     const fresh = offenders.filter((o) => !KNOWN_PHANTOM_COLUMNS.includes(o))
     expect(fresh, 'column(s) selected that no migration or snapshot defines — fix the code (a stale snapshot is NOT the cause: migration DDL is read too)').toEqual([])
     for (const k of KNOWN_PHANTOM_COLUMNS) expect(offenders, `${k} is fixed — remove it from KNOWN_PHANTOM_COLUMNS`).toContain(k)
