@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import AdminNav from '@/components/admin/AdminNav'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 
 interface OrderIssue {
@@ -138,7 +137,6 @@ export default function VerticalAdminOrderIssuesPage() {
       padding: spacing.lg
     }}>
       <div style={{ maxWidth: containers.xl, margin: '0 auto' }}>
-        <AdminNav type="vertical" vertical={vertical} />
 
         <h1 style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: colors.textPrimary, marginBottom: spacing.md }}>
           Order Issues

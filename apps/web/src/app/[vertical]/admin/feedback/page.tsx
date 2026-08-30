@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import AdminNav from '@/components/admin/AdminNav'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 type ShopperCategory = 'suggest_market' | 'technical_problem' | 'feature_request' | 'vendor_concern' | 'general_feedback'
@@ -291,7 +290,6 @@ export default function AdminFeedbackPage() {
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: colors.surfaceBase }}>
-        <AdminNav type="vertical" vertical={vertical} />
         <div style={{ padding: spacing.xl, textAlign: 'center' }}>
           <p style={{ color: colors.textSecondary }}>Loading feedback...</p>
         </div>
@@ -301,7 +299,6 @@ export default function AdminFeedbackPage() {
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: colors.surfaceBase }}>
-      <AdminNav type="vertical" vertical={vertical} />
 
       <div style={{ maxWidth: containers.xl, margin: '0 auto', padding: spacing.xl }}>
         {/* Header */}

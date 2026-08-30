@@ -1,6 +1,5 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import AdminNav from '@/components/admin/AdminNav'
 import { hasAdminRole } from '@/lib/auth/admin'
 import KnowledgeEditor from './KnowledgeEditor'
 
@@ -51,7 +50,6 @@ export default async function AdminKnowledgePage({ params }: AdminKnowledgePageP
 
   return (
     <div className="admin-page">
-      <AdminNav type="vertical" vertical={vertical} />
 
       <div style={{
         display: 'flex',

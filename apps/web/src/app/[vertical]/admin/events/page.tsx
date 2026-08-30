@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import AdminNav from '@/components/admin/AdminNav'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, statusColors, sizing } from '@/lib/design-tokens'
 import EventChipInControl from '@/components/events/EventChipInControl'
@@ -436,7 +435,6 @@ export default function AdminCateringPage() {
 
   return (
     <div style={{ maxWidth: 1200, margin: '0 auto', padding: '20px' }}>
-      <AdminNav type="vertical" vertical={vertical} />
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
         <h1 style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: statusColors.neutral900, margin: 0 }}>

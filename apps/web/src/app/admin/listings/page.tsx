@@ -1,6 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth/admin'
-import AdminNav from '@/components/admin/AdminNav'
 import ListingsTableClient from './ListingsTableClient'
 
 // Cache for 2 minutes
@@ -141,7 +140,6 @@ export default async function AdminListingsPage({ searchParams }: ListingsPagePr
 
   return (
     <div style={{ maxWidth: 1400, margin: '0 auto', padding: '40px 20px' }}>
-      <AdminNav type="platform" />
 
       {/* Header */}
       <div style={{

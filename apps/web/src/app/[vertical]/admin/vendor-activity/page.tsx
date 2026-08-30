@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
-import AdminNav from '@/components/admin/AdminNav'
 import VendorActivityClient from './VendorActivityClient'
 import { colors, spacing, typography, containers } from '@/lib/design-tokens'
 
@@ -82,7 +81,6 @@ export default async function VendorActivityPage({ params, searchParams }: Vendo
         </div>
 
         {/* Admin Navigation */}
-        <AdminNav type="vertical" vertical={vertical} />
 
         {/* Vendor Activity Client Component */}
         <VendorActivityClient

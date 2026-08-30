@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
-import AdminNav from '@/components/admin/AdminNav'
 import VendorManagementClient from './VendorManagementClient'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 
@@ -236,7 +235,6 @@ export default async function AdminVendorsPage({ params, searchParams }: AdminVe
         </div>
 
         {/* Admin Navigation */}
-        <AdminNav type="vertical" vertical={vertical} />
 
         {/* Query error banner */}
         {queryError && (

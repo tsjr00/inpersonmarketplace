@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import AdminNav from '@/components/admin/AdminNav'
 import { spacing, typography, radius, statusColors, sizing } from '@/lib/design-tokens'
 import { exportToCSV } from '@/lib/export-csv'
 
@@ -192,7 +191,6 @@ export default function SettlementReportPage() {
   if (loading) {
     return (
       <div style={{ maxWidth: 1000, margin: '0 auto', padding: '20px' }}>
-        <AdminNav type="vertical" vertical={vertical} />
         <p style={{ color: statusColors.neutral500, textAlign: 'center', marginTop: spacing.xl }}>
           Loading settlement report...
         </p>
@@ -203,7 +201,6 @@ export default function SettlementReportPage() {
   if (error || !data) {
     return (
       <div style={{ maxWidth: 1000, margin: '0 auto', padding: '20px' }}>
-        <AdminNav type="vertical" vertical={vertical} />
         <div style={{
           padding: spacing.md,
           backgroundColor: statusColors.dangerLight,
@@ -230,7 +227,6 @@ export default function SettlementReportPage() {
     <div style={{ maxWidth: 1000, margin: '0 auto', padding: '20px' }}>
       {/* Screen-only nav and controls */}
       <div className="no-print">
-        <AdminNav type="vertical" vertical={vertical} />
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
           <Link

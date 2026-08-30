@@ -1,43 +1,48 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { hasAdminRole } from '@/lib/auth/admin'
+import AdminShell from '@/components/admin/AdminShell'
 import AdminResponsiveStyles from '@/components/admin/AdminResponsiveStyles'
+import { resolveAdminShell } from '@/lib/admin/shell-data'
 
+/**
+ * Vertical admin layout — phase 1 of the admin UI rebuild (owner 2026-08-30).
+ * This tree previously had NO persistent navigation (pages dead-ended); the
+ * shared AdminShell adds the complete grouped nav + live queue badges + the
+ * scope switcher. Access rules unchanged: same hasAdminRole gate as before.
+ */
 export default async function AdminLayout({
   children,
+  params,
 }: {
   children: React.ReactNode
+  params: Promise<{ vertical: string }>
 }) {
+  const { vertical } = await params
   const supabase = await createClient()
 
-  // Check auth
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
-    // Redirect to generic login - page will handle vertical-specific redirect
     redirect('/login')
   }
 
-  // Verify admin role using centralized check (covers admin + platform_admin)
   const { data: userProfile } = await supabase
     .from('user_profiles')
-    .select('role, roles')
+    .select('role, roles, verticals, email')
     .eq('user_id', user.id)
     .single()
 
   if (!hasAdminRole(userProfile || {})) {
-    // Redirect to home - can't determine vertical here
     redirect('/')
   }
 
+  const shell = await resolveAdminShell(supabase, userProfile || {}, 'vertical', vertical)
+
   return (
     <>
-      {/* Overflow safety net: any inline-styled child that exceeds container
-          width is clipped instead of pushing the page horizontally past the
-          viewport. Inner scroll wrappers (.admin-table-wrap) still scroll
-          within their own bounds. */}
-      <div style={{ overflowX: 'hidden', minWidth: 0, width: '100%' }}>
+      <AdminShell scopes={shell.scopes} groups={shell.groups} adminEmail={shell.adminEmail}>
         {children}
-      </div>
+      </AdminShell>
       <AdminResponsiveStyles />
     </>
   )

@@ -4,7 +4,6 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import AdminNav from '@/components/admin/AdminNav'
 import MetricCard from '@/components/analytics/MetricCard'
 import dynamic from 'next/dynamic'
 const SalesChart = dynamic(() => import('@/components/analytics/SalesChart'), { ssr: false })
@@ -293,7 +292,6 @@ export default function AdminAnalyticsPage() {
         </div>
 
         {/* Admin Navigation */}
-        <AdminNav type="platform" />
 
         {/* Date Range Picker */}
         <div style={{

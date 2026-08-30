@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import AdminNav from '@/components/admin/AdminNav'
 import AdminMobileRow from '@/components/admin/AdminMobileRow'
 import MarketManagerAssignment from '@/components/market-manager/MarketManagerAssignment'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
@@ -562,7 +561,6 @@ export default function AdminMarketsPage() {
         </div>
 
         {/* Admin Navigation */}
-        <AdminNav type="vertical" vertical={vertical} />
 
         {/* Pending Alert */}
         {pendingCount > 0 && !showForm && (

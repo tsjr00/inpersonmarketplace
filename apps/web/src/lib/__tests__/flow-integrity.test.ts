@@ -2355,3 +2355,61 @@ describe('Event invitation gate (mig 239) — the rule holds everywhere it can b
     }
   })
 })
+
+describe('Admin shell nav completeness (phase 1, owner 2026-08-30)', () => {
+  // The defect this phase fixed: three nav systems, none complete — several
+  // admin pages were reachable only by typing the URL. The shell renders
+  // lib/admin/nav.ts; this test holds that definition to the filesystem, so a
+  // new admin page cannot silently fall out of navigation. A deliberate
+  // drill-in belongs in NAV_EXEMPT_PAGES — a visible decision, not an accident.
+  const SRC = path.resolve(__dirname, '../..')
+
+  function pagesUnder(dir: string, urlBase: string): string[] {
+    const out: string[] = []
+    const walk = (d: string, url: string) => {
+      for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+        if (e.isDirectory()) walk(path.join(d, e.name), url + '/' + e.name)
+        else if (e.name === 'page.tsx') out.push(url)
+      }
+    }
+    walk(dir, urlBase)
+    return out
+  }
+
+  it('every top-level admin page appears in the nav or the exempt list', async () => {
+    const { VERTICAL_ADMIN_NAV, PLATFORM_ADMIN_NAV, NAV_EXEMPT_PAGES } = await import('../admin/nav')
+    const navPaths = new Set<string>()
+    for (const g of PLATFORM_ADMIN_NAV) for (const l of g.links) navPaths.add('/admin' + l.path)
+    for (const g of VERTICAL_ADMIN_NAV) for (const l of g.links) navPaths.add('/[vertical]/admin' + l.path)
+    const exempt = new Set(NAV_EXEMPT_PAGES)
+
+    const pages = [
+      ...pagesUnder(path.join(SRC, 'app/admin'), '/admin'),
+      ...pagesUnder(path.join(SRC, 'app/[vertical]/admin'), '/[vertical]/admin'),
+    ]
+    const missing = pages.filter(p => !navPaths.has(p) && !exempt.has(p))
+    expect(missing, 'admin page(s) unreachable from the shell nav — add to lib/admin/nav.ts, or to NAV_EXEMPT_PAGES with a reason').toEqual([])
+
+    // The reverse: nav links must point at real pages.
+    const pageSet = new Set(pages)
+    const dead = [...navPaths].filter(p => !pageSet.has(p))
+    expect(dead, 'nav link(s) with no page behind them').toEqual([])
+  })
+
+  it('both admin layouts render the shared shell (no page-level nav remains)', () => {
+    const platform = fs.readFileSync(path.join(SRC, 'app/admin/layout.tsx'), 'utf-8')
+    const vertical = fs.readFileSync(path.join(SRC, 'app/[vertical]/admin/layout.tsx'), 'utf-8')
+    expect(platform).toContain('<AdminShell')
+    expect(vertical).toContain('<AdminShell')
+    // The retired per-page pill nav must not creep back.
+    const walk = (d: string, out: string[] = []): string[] => {
+      for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+        const p = path.join(d, e.name)
+        if (e.isDirectory()) walk(p, out)
+        else if (/\.tsx$/.test(e.name) && fs.readFileSync(p, 'utf-8').includes('<AdminNav')) out.push(p)
+      }
+      return out
+    }
+    expect(walk(path.join(SRC, 'app'))).toEqual([])
+  })
+})

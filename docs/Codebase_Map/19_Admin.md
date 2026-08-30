@@ -3,6 +3,7 @@
 <!-- map-stamp: domain=admin; verified=2026-08-16; commit=0ecb481b -->
 <!-- map-claims
 src/app/api/admin/**
+src/lib/admin/**
 src/lib/vendor-event-application.ts
 src/lib/reports/**
 src/components/admin/**
@@ -123,7 +124,9 @@ Consequence worth stating plainly: **platform revenue is not attributable per ve
 
 ## UI
 
-**Components** (`components/admin/`, 7 files): `AdminSidebar` / `AdminNav` (chrome) · `VendorVerificationPanel` (the three-gate UI) · `AdminMobileRow` (compressed <640px row; takes exactly one of `href` or `rightAction`) · `AdminResponsiveStyles` (shared CSS, included once per page) · `Pagination` · `ManagerHistoryPanel` (read-only manager-assignment audit).
+**Components** (`components/admin/`): **`AdminShell` — the ONE admin chrome for both tiers** (admin UI rebuild phase 1, owner 2026-08-30): sticky bar with scope pills (only held scopes; "Platform" pill = platform admins), ☰ grouped menu (Operate / People & places / Money / Quality / System) listing every top-level admin page with live queue badges, amber attention dot. Rendered by BOTH admin layouts; presentation-only (server layouts resolve data). `AdminSidebar` / `AdminNav` are RETIRED chrome (files kept, rendered nowhere — flow-integrity forbids `<AdminNav` returning) · `VendorVerificationPanel` (the three-gate UI) · `AdminMobileRow` (compressed <640px row; takes exactly one of `href` or `rightAction`) · `AdminResponsiveStyles` (shared CSS, included once per page) · `Pagination` · `ManagerHistoryPanel` (read-only manager-assignment audit).
+
+**`src/lib/admin/`** (phase 1, 2026-08-30): `nav.ts` — the single nav definition both tiers render, plus `NAV_EXEMPT_PAGES` (drill-ins/pre-auth); flow-integrity holds it to the filesystem in both directions, so a new admin page cannot fall out of navigation. `queue-badges.ts` — `getAdminQueueBadges(service, vertical|null)`: parallel HEAD counts for the owner-approved queue set (pending vendors 'submitted' · pending markets · event requests new/reviewing · open order issues · error reports pending/acknowledged · activity flags pending · unremitted cause paid_at NULL, platform-only); failures log via observed() and render 0. `shell-data.ts` — resolves scopes (verticals table ∩ admin's grants) + groups + badges for the layouts. Full redesign plan: `apps/web/.claude/admin_ui_redesign_research.md` (phases 2–7 pending).
 
 **Pages** exist in two parallel trees:
 - **`app/admin/**`** (20 pages) — the global console with its **own login and MFA flow** (`/admin/login`, `/admin/mfa/setup`, `/admin/mfa/verify`), separate from vertical user auth.

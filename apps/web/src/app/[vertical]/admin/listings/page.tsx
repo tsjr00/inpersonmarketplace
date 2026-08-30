@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import AdminNav from '@/components/admin/AdminNav'
 import ListingsTableClient from './ListingsTableClient'
 import { colors, spacing, typography, containers } from '@/lib/design-tokens'
 
@@ -188,7 +187,6 @@ export default async function AdminListingsPage({ params, searchParams }: AdminL
         </div>
 
         {/* Admin Navigation */}
-        <AdminNav type="vertical" vertical={vertical} />
 
         {/* Listings Table */}
         <ListingsTableClient

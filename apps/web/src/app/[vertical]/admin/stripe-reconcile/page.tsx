@@ -14,7 +14,6 @@
 import { useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import AdminNav from '@/components/admin/AdminNav'
 import { spacing, typography, radius, statusColors, sizing } from '@/lib/design-tokens'
 
 // Mirror of the lib types — kept loose for simplicity (no shared types package)
@@ -157,7 +156,6 @@ export default function StripeReconcilePage() {
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: spacing.lg }}>
-      <AdminNav type="vertical" vertical={vertical} />
       <div style={{ marginBottom: spacing.lg }}>
         <h1 style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, margin: 0 }}>
           Stripe Reconciliation

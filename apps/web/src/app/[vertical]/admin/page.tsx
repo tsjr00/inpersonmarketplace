@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
-import AdminNav from '@/components/admin/AdminNav'
 import AdminResponsiveStyles from '@/components/admin/AdminResponsiveStyles'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
@@ -182,7 +181,6 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
         </div>
 
         {/* Admin Navigation */}
-        <AdminNav type="vertical" vertical={vertical} />
 
         {/* Stale Vendor Warning */}
         {staleCount > 0 && (

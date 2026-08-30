@@ -1,6 +1,5 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth/admin'
-import AdminNav from '@/components/admin/AdminNav'
 import VendorsTableClient from './VendorsTableClient'
 
 // Cache for 2 minutes
@@ -111,7 +110,6 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
 
   return (
     <div className="admin-page">
-      <AdminNav type="platform" />
 
       {/* Query error banner */}
       {queryError && (

@@ -1,7 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import AdminNav from '@/components/admin/AdminNav'
 import VendorAdminActions from './VendorAdminActions'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { getEventApplicationState } from '@/lib/vendor-event-application'
@@ -163,7 +162,6 @@ export default async function VerticalAdminVendorDetailPage({ params }: VendorDe
     }}>
       <div style={{ maxWidth: containers.xl, margin: '0 auto' }}>
         {/* Nav */}
-        <AdminNav type="vertical" vertical={vertical} />
 
         {/* Header */}
         <div style={{ marginBottom: spacing.lg }}>

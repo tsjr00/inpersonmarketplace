@@ -1,6 +1,5 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import AdminNav from '@/components/admin/AdminNav'
 import { hasAdminRole } from '@/lib/auth/admin'
 import UsersTableClient from './UsersTableClient'
 
@@ -148,7 +147,6 @@ export default async function AdminUsersPage({ params, searchParams }: AdminUser
 
   return (
     <div style={{ maxWidth: 1400, margin: '0 auto', padding: '40px 20px' }}>
-      <AdminNav type="vertical" vertical={vertical} />
 
       {/* Header */}
       <div style={{
