@@ -476,6 +476,9 @@ export function EventRequestForm({ vertical, vendorPreference, poolCapacityPerWa
         typeof successData.match_count === 'number' ? successData.match_count : null
       )
       setSubmitted(true)
+      // Owner 2026-08-30: the form is long — without this the success screen
+      // appears mid-page and its headline is never seen.
+      window.scrollTo({ top: 0 })
     } catch {
       setError(t('erf.network_error', locale))
       setSubmitting(false)

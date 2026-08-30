@@ -161,3 +161,35 @@ export function missingInvitationDetails(row: InvitationGateRow): MissingDetail[
 export function invitationDetailsComplete(row: InvitationGateRow): boolean {
   return missingInvitationDetails(row).length === 0
 }
+
+export interface GateChecklistItem extends MissingDetail {
+  done: boolean
+}
+
+/**
+ * The FULL gate as a checklist — done items included (owner 2026-08-30: the
+ * Send-invitations card must show questions RESOLVING, not only what's left).
+ * Applicability rules match missingInvitationDetails: the spend item exists
+ * only when run-before = Yes; the other-food item only when other vendors are
+ * declared; the background-details item only when checks are required.
+ */
+export function invitationGateChecklist(row: InvitationGateRow): GateChecklistItem[] {
+  const missing = new Set(missingInvitationDetails(row).map(m => m.key))
+  const items: MissingDetail[] = [
+    { key: 'fee', label: 'Free or charged event — set a vendor fee, or save "no fee"', group: 'fee' },
+    { key: 'has_run_before', label: 'Have you run this or a similar event before?', group: 'budget' },
+  ]
+  if (row.has_run_before === true) {
+    items.push({ key: 'estimated_spend', label: 'Anticipated spend per person who buys something (from your past event)', group: 'budget' })
+  }
+  items.push({ key: 'event_context', label: 'Event Context — beverages, dessert, other food, children, ticketed (save the section)', group: 'context' })
+  if (row.event_context_confirmed_at && row.has_competing_vendors) {
+    items.push({ key: 'competing_food_options', label: 'Other food at venue — you said other vendors will be there; say what', group: 'context' })
+  }
+  items.push({ key: 'background_check', label: 'Do you require background checks for vendors?', group: 'logistics' })
+  if (row.background_check_required === true) {
+    items.push({ key: 'background_check_details', label: 'Background check process & cost', group: 'logistics' })
+  }
+  items.push({ key: 'risk_factors', label: 'Anything That Could Make Vendors Reconsider? (save the Logistics section — "None of these apply" counts)', group: 'logistics' })
+  return items.map(i => ({ ...i, done: !missing.has(i.key) }))
+}

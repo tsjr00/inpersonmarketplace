@@ -40,6 +40,7 @@ export default async function PickupSignsPage({ params }: PageProps) {
       logoPath={brand.logo_path}
       primary={brand.colors.primary}
       businessName={businessName}
+      vendorId={vendorProfile.id as string}
     />
   )
 }

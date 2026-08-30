@@ -17,7 +17,7 @@ import EventVendorFeeCard from '@/components/events/EventVendorFeeCard'
 import OrganizerEventActions from '@/components/events/OrganizerEventActions'
 import OrganizerProgress from '@/components/events/OrganizerProgress'
 import InvitationGateCard from '@/components/events/InvitationGateCard'
-import { invitationsHeld, missingInvitationDetails } from '@/lib/events/invitation-gate'
+import { invitationsHeld, invitationGateChecklist } from '@/lib/events/invitation-gate'
 
 interface PageProps {
   params: Promise<{ vertical: string; id: string }>
@@ -410,7 +410,7 @@ export default async function EventManagerDashboardPage({ params }: PageProps) {
           <InvitationGateCard
             eventRef={eventRef}
             vertical={vertical}
-            missing={missingInvitationDetails(event)}
+            checklist={invitationGateChecklist(event)}
             releasedAt={(event.invitations_released_at as string | null) ?? null}
             approved={!!event.market_id}
             primaryColor={colors.primary}
@@ -471,6 +471,7 @@ export default async function EventManagerDashboardPage({ params }: PageProps) {
           vendorsAccepted={vendorsAccepted}
           vendorCount={(event.vendor_count as number) || null}
           serviceLevel={(event.service_level as string) || null}
+          invitationsHeld={invitationsHeld(event)}
         />
       </DashboardCard>
 

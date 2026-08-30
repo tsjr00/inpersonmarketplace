@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { spacing, typography, radius, statusColors } from '@/lib/design-tokens'
 import { CANCELLATION_RISK_FACTORS } from '@/lib/events/backup-bench'
 import { INVITATION_REQUIRED_DETAIL_FIELDS, GATE_TRISTATE_FIELDS } from '@/lib/events/invitation-gate'
@@ -215,6 +216,7 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
   // Invitation gate (mig 239): while held, "Refresh matches" would 409 — the
   // Send invitations card on the dashboard owns that moment.
   const [invitationsHeldState, setInvitationsHeldState] = useState(false)
+  const router = useRouter()
 
   // Re-match banner state. Set when API PATCH response says matchingChanged.
   // Cleared when user clicks "Refresh" or "Skip", or when banner action completes.
@@ -278,6 +280,12 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
       // Locked fields are never put in formData, so they can never be PATCHed
       // even if the read-only rendering below were bypassed.
       if (isFieldLocked(f)) continue
+      // Risk checklist: a previously saved "none" answer (Logistics stamped,
+      // no factors stored) re-renders as the explicit None checkbox.
+      if (f === 'cancellation_risk_factors' && !details[f] && details['logistics_confirmed_at']) {
+        initial[f] = 'NONE'
+        continue
+      }
       initial[f] = details[f] ?? ''
     }
     setFormData(initial)
@@ -298,7 +306,10 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
       // Clean up form data: convert empty strings to null
       const cleaned: Record<string, unknown> = {}
       for (const [k, v] of Object.entries(formData)) {
-        if (v === '' || v === undefined) {
+        if (v === 'NONE') {
+          // "None of these apply" — stored as NULL; the save stamp is the answer.
+          cleaned[k] = null
+        } else if (v === '' || v === undefined) {
           cleaned[k] = null
         } else if (k.includes('cents') && typeof v === 'string') {
           const parsed = Math.round(parseFloat(v) * 100)
@@ -335,6 +346,10 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
         }
         setSaveMessage('Saved!')
         setEditGroup(null)
+        // Owner 2026-08-30: the Send-invitations card is server-rendered — it
+        // only learns about this save if the route re-renders. Without this,
+        // answered items never visibly cleared.
+        router.refresh()
         // If the save changed any matching-affecting field, surface a banner so
         // the organizer can choose to re-run the vendor match. Manual button —
         // not auto — to avoid spamming vendors with re-invites on every tweak.
@@ -535,6 +550,11 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
                   <div>
                     <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: statusColors.neutral700 }}>
                       {group.label}
+                      {/* Owner 2026-08-30: sections holding invitation-gate
+                          questions must announce it at the section level. */}
+                      {['Budget', 'Event Context', 'Logistics'].includes(group.label) && (
+                        <span style={{ color: '#dc2626', marginLeft: 4 }} title="Contains questions needed before invitations go out">*</span>
+                      )}
                     </span>
                     {/* T-50: this used to read "0 of 2 filled" on a section
                         holding EIGHT questions, because countTotalInGroup
@@ -1281,12 +1301,25 @@ function renderField(field: string, value: unknown, onChange: (v: unknown) => vo
   // risk gets them a bigger recommended bench, not a penalty.
   if (field === 'cancellation_risk_factors') {
     const checked = new Set(Array.isArray(value) ? (value as string[]) : [])
+    // Owner 2026-08-30: an EXPLICIT "None of these apply" option — saving with
+    // nothing checked was invisible as an answer. 'NONE' is a UI-only sentinel
+    // (saveGroup stores NULL; it never reaches the bench-scoring factor ids).
+    const noneChecked = value === 'NONE'
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
         <p style={{ margin: 0, fontSize: typography.sizes.xs, color: statusColors.neutral500, lineHeight: 1.5 }}>
           Check anything that applies — conditions like these make vendors likelier to cancel
           as the date nears, and we use them to recommend how many backup vendors to keep on standby.
         </p>
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: spacing['2xs'], fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: statusColors.neutral700, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={noneChecked}
+            style={{ marginTop: 2 }}
+            onChange={(e) => onChange(e.target.checked ? 'NONE' : '')}
+          />
+          None of these apply
+        </label>
         {CANCELLATION_RISK_FACTORS.map(rf => (
           <label key={rf.id} style={{ display: 'flex', alignItems: 'flex-start', gap: spacing['2xs'], fontSize: typography.sizes.xs, color: statusColors.neutral700, cursor: 'pointer' }}>
             <input
@@ -1294,7 +1327,8 @@ function renderField(field: string, value: unknown, onChange: (v: unknown) => vo
               checked={checked.has(rf.id)}
               style={{ marginTop: 2 }}
               onChange={(e) => {
-                const next = new Set(checked)
+                // Ticking a real factor clears "None of these apply".
+                const next = new Set(noneChecked ? [] : checked)
                 if (e.target.checked) next.add(rf.id)
                 else next.delete(rf.id)
                 onChange(next.size > 0 ? [...next] : null)

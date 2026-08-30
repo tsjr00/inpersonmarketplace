@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { spacing, typography, radius, statusColors } from '@/lib/design-tokens'
-import type { MissingDetail } from '@/lib/events/invitation-gate'
+import type { GateChecklistItem, MissingDetail } from '@/lib/events/invitation-gate'
 
 /**
  * Invitation gate card (mig 239, owner 2026-08-29) — Organizer Event Dashboard.
@@ -21,7 +21,9 @@ import type { MissingDetail } from '@/lib/events/invitation-gate'
 interface InvitationGateCardProps {
   eventRef: string
   vertical: string
-  missing: MissingDetail[]
+  /** The FULL gate with done flags (owner 2026-08-30: show items RESOLVING,
+   *  not only what's left). */
+  checklist: GateChecklistItem[]
   releasedAt: string | null
   /** Approved = has a market. Pre-approval the card only explains itself. */
   approved: boolean
@@ -35,11 +37,12 @@ const GROUP_HINT: Record<MissingDetail['group'], string> = {
   logistics: 'Add or edit details → Logistics',
 }
 
-export default function InvitationGateCard({ eventRef, vertical, missing, releasedAt, approved, primaryColor }: InvitationGateCardProps) {
+export default function InvitationGateCard({ eventRef, vertical, checklist, releasedAt, approved, primaryColor }: InvitationGateCardProps) {
   const router = useRouter()
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null)
   const vendorWord = vertical === 'farmers_market' ? 'vendors' : 'food trucks'
+  const missing: MissingDetail[] = checklist.filter(i => !i.done)
 
   if (releasedAt) {
     const when = new Date(releasedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -84,16 +87,18 @@ export default function InvitationGateCard({ eventRef, vertical, missing, releas
           Your event needs an address and approval first — see the note at the top of this page.
         </p>
       )}
-      {missing.length > 0 ? (
-        <ul style={{ margin: `0 0 ${spacing.sm}`, paddingLeft: 20, fontSize: typography.sizes.sm, color: statusColors.neutral800, lineHeight: 1.7 }}>
-          {missing.map(m => (
-            <li key={m.key}>
-              {m.label}
-              <span style={{ color: statusColors.neutral500, fontSize: typography.sizes.xs }}> — {GROUP_HINT[m.group]}</span>
-            </li>
-          ))}
-        </ul>
-      ) : (
+      <ul style={{ margin: `0 0 ${spacing.sm}`, paddingLeft: 0, listStyle: 'none', fontSize: typography.sizes.sm, lineHeight: 1.7 }}>
+        {checklist.map(item => (
+          <li key={item.key} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', color: item.done ? statusColors.neutral500 : statusColors.neutral800 }}>
+            <span aria-hidden style={{ color: item.done ? '#059669' : '#d97706', fontWeight: 700 }}>{item.done ? '✓' : '○'}</span>
+            <span style={item.done ? { textDecoration: 'line-through' } : undefined}>
+              {item.label}
+              {!item.done && <span style={{ color: statusColors.neutral500, fontSize: typography.sizes.xs }}> — {GROUP_HINT[item.group]}</span>}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {missing.length === 0 && (
         <p style={{ margin: `0 0 ${spacing.sm}`, fontSize: typography.sizes.sm, color: statusColors.successDark, fontWeight: typography.weights.semibold }}>
           Everything {vendorWord} need is answered.
         </p>

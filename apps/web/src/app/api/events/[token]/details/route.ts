@@ -194,7 +194,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         is_themed, theme_description, children_present, has_competing_vendors, is_ticketed,
         is_recurring, recurring_frequency,
         has_run_before, background_check_required, background_check_details, cancellation_risk_factors,
-        invitations_released_at
+        invitations_released_at, event_context_confirmed_at, logistics_confirmed_at
       `)
       .eq(eventRefColumn(token), token)
       .maybeSingle(), { table: 'catering_requests' })

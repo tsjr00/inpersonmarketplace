@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { spacing, typography, radius, statusColors } from '@/lib/design-tokens'
 
 /**
@@ -46,6 +47,7 @@ export default function EventVendorFeeCard({
   eventRef: string
   primaryColor: string
 }) {
+  const router = useRouter()
   const [state, setState] = useState<FeeState | null>(null)
   const [loading, setLoading] = useState(true)
   const [input, setInput] = useState('')
@@ -129,6 +131,9 @@ export default function EventVendorFeeCard({
         setState(prev => (prev ? { ...prev, fee_cents: data.fee_cents } : prev))
         setMessage(data.fee_cents ? 'Fee saved.' : 'Fee cleared — vendors join free.')
         setNeedsConnect(false)
+        // Owner 2026-08-30: the Send-invitations card is server-rendered —
+        // refresh so "Free or charged" visibly resolves the moment it's saved.
+        router.refresh()
       } else if (data.connect_required) {
         setNeedsConnect(true)
         setMessage(data.error || 'Connect a payout account first.')

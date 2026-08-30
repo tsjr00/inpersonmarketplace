@@ -635,7 +635,14 @@ export default function VendorCateringDetailPage() {
               {details.response_status !== 'accepted' && (
                 <> Accepting the invitation means you agree to this fee if selected.</>
               )}
-              {details.response_status === 'accepted' && !details.organizer_selected_at && (
+              {/* Owner 2026-08-30 (verified: display gap, not a workflow
+                  conflict — selection stamps organizer_selected_at only on the
+                  chosen and is_backup on the rest; step-in re-stamps it). A
+                  benched vendor must not read pre-selection copy. */}
+              {details.response_status === 'accepted' && details.is_backup && (
+                <> Nothing to pay while you&apos;re on the bench — if a spot opens and you step in, the fee applies then (or is covered by the departing {vertical === 'farmers_market' ? 'vendor' : 'truck'}&apos;s forfeit).</>
+              )}
+              {details.response_status === 'accepted' && !details.is_backup && !details.organizer_selected_at && (
                 <> The organizer hasn&apos;t made their selection yet — you&apos;ll be able to pay here once they do.</>
               )}
               {details.response_status === 'accepted' && details.organizer_selected_at && (
@@ -790,9 +797,16 @@ export default function VendorCateringDetailPage() {
             <p style={{ fontSize: typography.sizes.xs, color: '#d97706', margin: `${spacing['2xs']} 0 0` }}>
               ⚠ Other vendors/shopping options at venue — attendee spending may be split
             </p>
-          ) : (
+          ) : details.accepted_count <= 1 ? (
+            /* Owner 2026-08-30: "captive audience" is only true while YOU are
+               the sole confirmed vendor — keyed to confirmations, not to how
+               many the organizer wants. */
             <p style={{ fontSize: typography.sizes.xs, color: '#059669', margin: `${spacing['2xs']} 0 0` }}>
               ✓ No competing vendors — you&apos;ll have a captive audience
+            </p>
+          ) : (
+            <p style={{ fontSize: typography.sizes.xs, color: '#059669', margin: `${spacing['2xs']} 0 0` }}>
+              ✓ No outside food options at the venue — attendees buy from the event&apos;s {term(vertical, 'event_vendor_unit')}s
             </p>
           )}
         </div>

@@ -65,7 +65,15 @@ export default function PromoteCard({ vendorId, vendorName, vertical }: PromoteC
           is not a single door. `inGrid` — it is the sole occupant of
           .promote-grow-grid on the vendor dashboard, and a grid child needs
           height rather than a bottom margin. */}
-      <DashboardCard title="Promote My Business" inGrid>
+      <DashboardCard title="Marketing & Promotions" inGrid>
+        {/* Pickup signs (owner 2026-08-30): moved here from its own dashboard
+            tile — printable marketing material belongs with the QR code. */}
+        <p style={{ margin: `0 0 ${spacing.xs} 0`, fontSize: typography.sizes.sm }}>
+          <a href={`/${vertical}/vendor/pickup-signs`} style={{ color: colors.primary, fontWeight: 600, textDecoration: 'none' }}>
+            🖨 Print your &ldquo;App Order Pickup&rdquo; signs →
+          </a>
+          <span style={{ color: colors.textMuted }}> — mark the separate pickup line for app orders (8.5×11 / 11×17, with your QR code)</span>
+        </p>
         {/* Social sharing */}
         <p style={{
           margin: `0 0 ${spacing.xs} 0`,

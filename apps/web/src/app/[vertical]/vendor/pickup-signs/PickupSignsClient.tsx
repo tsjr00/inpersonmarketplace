@@ -1,9 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import QRCode from 'qrcode'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { defaultBranding } from '@/lib/branding'
 
 /**
  * Print-ready branded pickup signs (owner, 2026-08-28): one standardized sign
@@ -19,13 +21,30 @@ interface Props {
   logoPath: string
   primary: string
   businessName: string
+  vendorId: string
 }
 
 type Size = 'letter' | 'tabloid'
 
-export default function PickupSignsClient({ vertical, brandName, tagline, logoPath, primary, businessName }: Props) {
+export default function PickupSignsClient({ vertical, brandName, tagline, logoPath, primary, businessName, vendorId }: Props) {
   const [size, setSize] = useState<Size>('letter')
   const isFT = vertical === 'food_trucks'
+  // Owner 2026-08-30: the sign carries the vendor's profile QR code, so
+  // walk-up customers can scan it and order ahead next time. Same URL the
+  // Marketing & Promotions QR uses.
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
+  useEffect(() => {
+    const branding = defaultBranding[vertical] || defaultBranding.farmers_market
+    const url = branding?.domain
+      ? `https://${branding.domain}/${vertical}/vendor/${vendorId}/profile`
+      : `${window.location.protocol}//${window.location.host}/${vertical}/vendor/${vendorId}/profile`
+    QRCode.toDataURL(url, {
+      width: 400,
+      margin: 1,
+      color: { dark: '#1a1a1a', light: '#ffffff' },
+      errorCorrectionLevel: 'H',
+    }).then(setQrDataUrl).catch(() => { /* sign renders without the QR */ })
+  }, [vertical, vendorId])
 
   const print = (s: Size) => {
     setSize(s)
@@ -38,6 +57,9 @@ export default function PickupSignsClient({ vertical, brandName, tagline, logoPa
       <style>{`
         @media print {
           .no-print { display: none !important; }
+          /* Owner 2026-08-30: the print grabbed the site header/nav — the
+             paper must be ONLY the sign. */
+          header, nav, footer { display: none !important; }
           body { print-color-adjust: exact; -webkit-print-color-adjust: exact; margin: 0; }
           .sign-sheet { box-shadow: none !important; margin: 0 !important; width: 100% !important; height: 100vh !important; border-radius: 0 !important; }
           @page { size: ${size === 'letter' ? '8.5in 11in' : '11in 17in'} portrait; margin: 0.4in; }
@@ -90,6 +112,15 @@ export default function PickupSignsClient({ vertical, brandName, tagline, logoPa
           <div style={{ fontSize: 'clamp(12px, 2vw, 24px)', color: '#4b5563', lineHeight: 1.4, maxWidth: '85%' }}>
             Have your order number ready. No need to wait in the walk-up line — that&apos;s the point.
           </div>
+          {qrDataUrl && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1%', marginTop: '2%' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={qrDataUrl} alt="Order-ahead QR code" style={{ width: '22%', minWidth: 90, aspectRatio: '1 / 1' }} />
+              <div style={{ fontSize: 'clamp(11px, 1.8vw, 20px)', fontWeight: 600, color: '#1a1a1a' }}>
+                Waiting in the walk-up line? Scan to order ahead next time.
+              </div>
+            </div>
+          )}
         </div>
         <div style={{ borderTop: `6px solid ${primary}`, padding: '3% 6%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#6b7280', fontSize: 'clamp(10px, 1.6vw, 18px)' }}>
           <span>{tagline}</span>

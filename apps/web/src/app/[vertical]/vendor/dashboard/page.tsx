@@ -526,17 +526,8 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             </DashboardTile>
           )}
 
-          {/* Pickup signs — the standardized branded sign for the separate
-              app-order pickup line (owner, 2026-08-28). */}
-          {vendorProfile.status === 'approved' && (
-            <DashboardTile
-              href={`/${vertical}/vendor/pickup-signs`}
-              icon="readyForPickup"
-              title="Pickup Signs"
-            >
-              Print the branded &ldquo;App Order Pickup&rdquo; sign (8.5×11 / 11×17)
-            </DashboardTile>
-          )}
+          {/* Pickup signs moved into the Marketing & Promotions card (owner,
+              2026-08-30) — a print link does not earn a top-of-page tile. */}
 
           {/* Upcoming Pickups — compact tile (hidden pre-approval) */}
           {vendorProfile.status === 'approved' && (

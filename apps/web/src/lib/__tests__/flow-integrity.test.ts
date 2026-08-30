@@ -2232,7 +2232,11 @@ describe('Event ↔ location availability', () => {
     expect(ack).toContain('pickup_line_acknowledged_at: now')
     const dash = rd('app/[vertical]/vendor/dashboard/page.tsx')
     expect(dash).toContain('<PickupLineAcknowledgment vertical={vertical} variant="compact" />')
-    expect(dash).toContain('/vendor/pickup-signs')
+    // Owner 2026-08-30: the signs entry moved from its own dashboard tile into
+    // the Marketing & Promotions card (PromoteCard).
+    const promote = rd('app/[vertical]/vendor/dashboard/PromoteCard.tsx')
+    expect(promote).toContain('/vendor/pickup-signs')
+    expect(promote).toContain('Marketing & Promotions')
     const checklist = rd('components/vendor/OnboardingChecklist.tsx')
     expect(checklist).toContain('status.pickupLineAcknowledged === false')
     expect(fs.existsSync(path.join(SRC_DIR, 'app/[vertical]/vendor/pickup-signs/page.tsx'))).toBe(true)
