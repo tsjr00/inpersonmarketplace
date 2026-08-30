@@ -86,7 +86,7 @@ Seven scheduled jobs. One of them — `expire-orders` — is the platform's mast
 |---|---|
 | `cron/vendor-activity-scan/route.ts` | Calls a DB scan flagging inactive vendors and auto-resolving stale flags; `maxDuration = 30`; accepts an optional `?vertical=` |
 | `cron/vendor-quality-checks/route.ts` | Runs the five quality checks (schedule conflicts, low stock, price anomalies, ghost listings, inventory velocity) and sends **one grouped notification per vendor** |
-| `cron/surveys/route.ts` | Post-market survey generation with per-market local fire times (market closes before 18:00 → 18:00 same day; at/after 18:00 → 08:00 next day). Inserts `market_surveys`, sends in-app + branded email. **Also runs `runParkCheckinReminders`** — which is why this cron must stay hourly |
+| `cron/surveys/route.ts` | Survey generation (daily at 15:00 UTC): per-day buyer surveys for a buyer's first two purchases only, then the WEEKLY batch via `lib/surveys/weekly.ts` (vendors every week, buyers past purchase 2 — one row per place, one email per person; owner 2026-08-29). Per-market local fire times (market closes before 18:00 → 18:00 same day; at/after 18:00 → 08:00 next day; week ends Sunday 18:00). Inserts `market_surveys`, sends in-app + branded email. **Also runs `runParkCheckinReminders`** — which is why this cron must stay hourly |
 | `cron/park-docs-review/route.ts` | 36-line wrapper: auth check, then `runParkDocsReviewSweep()` from `lib/markets/park-docs-review` |
 | `cron/remit-cause-funds/route.ts` | Community Chip In (mig 213): batch-remits accumulated chip-in balances (≥ $10) to **Connect** beneficiaries via `runCauseRemitSweep` (`lib/cause/remit.ts`); deduct-first for no-double-pay; check-method orgs are paid manually at `/admin/cause` |
 

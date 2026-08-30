@@ -102,10 +102,10 @@ export default async function VendorSurveysPage({ params }: PageProps) {
         fontSize: typography.sizes.sm,
         lineHeight: 1.5,
       }}>
-        After each day you sell at a {term(vertical, 'market').toLowerCase()}, we send a short
-        survey about how it went for you — foot traffic, sales, layout and
-        signage, site access. The {term(vertical, 'manager').toLowerCase()} sees your ratings and
-        uses them to run a better day. Surveys close 30 days after the day.
+        Once a week we ask how each {term(vertical, 'market').toLowerCase()} you sold at that week
+        went for you — foot traffic, sales, layout and signage, site access — one short
+        survey per place. The {term(vertical, 'manager').toLowerCase()} sees your ratings and
+        uses them to run a better day. Surveys close 30 days after the week.
       </p>
 
       <Section title={`Pending (${pending.length})`} emptyText="No pending surveys right now.">

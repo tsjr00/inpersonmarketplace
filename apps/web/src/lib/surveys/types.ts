@@ -212,6 +212,14 @@ export function validateSurveySubmission(
     }
   }
 
+  // Mig 240 (survey cadence, 2026-08-29): buyer-only free text.
+  const other = (payload as { other_places_request?: unknown }).other_places_request
+  if (other !== undefined && other !== null) {
+    if (kind !== 'buyer') return 'Other places is a buyer survey field.'
+    if (typeof other !== 'string') return 'Other places must be a string.'
+    if (other.length > 1000) return 'Other places must be 1000 characters or fewer.'
+  }
+
   return null
 }
 
@@ -228,6 +236,10 @@ export function buildSubmissionUpdate(
   const update: Record<string, number | string | null> = {
     submitted_at: new Date().toISOString(),
     comment: (payload.comment as string | null) ?? null,
+  }
+  if (kind === 'buyer') {
+    const other = (payload as { other_places_request?: string | null }).other_places_request
+    update.other_places_request = other && other.trim() ? other.trim() : null
   }
   for (const cat of getCategoriesForKind(kind)) {
     update[cat.dbColumn] = (payload[cat.dbColumn as keyof typeof payload] as number | undefined) ?? null

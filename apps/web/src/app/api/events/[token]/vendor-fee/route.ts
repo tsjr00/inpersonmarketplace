@@ -205,7 +205,10 @@ export async function PUT(
     crumb.supabase('update', 'catering_requests')
     const { error: updateErr } = await serviceClient
       .from('catering_requests')
-      .update({ event_vendor_fee_cents: feeCents })
+      // vendor_fee_decided_at (mig 239): "no fee" saves as NULL, which is the
+      // same value as never-looked — the stamp is what tells the invitation
+      // gate the organizer actually chose free vs charged.
+      .update({ event_vendor_fee_cents: feeCents, vendor_fee_decided_at: new Date().toISOString() })
       .eq('id', event.id)
 
     if (updateErr) {

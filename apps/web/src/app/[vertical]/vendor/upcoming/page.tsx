@@ -210,6 +210,19 @@ export default async function UpcomingPickupsPage({ params }: UpcomingPageProps)
             }}>
               Orders will appear here as customers place them
             </p>
+            {/* (e) 2026-08-29 (owner): the greyed example above was read as a
+                real Prep List button that "wouldn't activate". Say what fills
+                it in and where event prep lives in the meantime. */}
+            <p style={{
+              margin: `${spacing.xs} 0 0 0`,
+              fontSize: typography.sizes.xs,
+              color: colors.textMuted,
+              textAlign: 'center',
+              lineHeight: 1.5,
+            }}>
+              The example above is a preview — the real Prep List and Orders buttons switch on once you have pickups within the next 7 days.
+              For a private event further out, open the event from your dashboard and use <strong>Open your prep sheet</strong> there.
+            </p>
           </div>
         ) : (
           /* ── Live data ── */

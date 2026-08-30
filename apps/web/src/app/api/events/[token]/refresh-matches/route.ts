@@ -9,6 +9,7 @@ import {
 import { withErrorTracing } from '@/lib/errors'
 import { autoMatchAndInvite } from '@/lib/events/event-actions'
 import { eventRefColumn } from '@/lib/events/event-ref'
+import { invitationsHeld } from '@/lib/events/invitation-gate'
 
 interface RouteContext {
   params: Promise<{ token: string }>
@@ -82,6 +83,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
         return NextResponse.json(
           { error: 'Event must be approved before vendor matches can be refreshed' },
           { status: 400 }
+        )
+      }
+
+      // Invitation gate (mig 239, owner 2026-08-29): "Refresh matches" invites
+      // new vendors, so it is the same act as sending invitations. Held until
+      // the organizer has completed the required details and clicked Send.
+      if (invitationsHeld(cateringRequest)) {
+        return NextResponse.json(
+          { error: 'Invitations have not been sent yet — complete your event details and click Send invitations first.', invitations_held: true },
+          { status: 409 }
         )
       }
 

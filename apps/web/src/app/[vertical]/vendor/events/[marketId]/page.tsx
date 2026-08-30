@@ -125,6 +125,31 @@ const PAYMENT_MODEL_LABELS: Record<string, string> = {
   hybrid: 'Organizer covers base, attendees can upgrade',
 }
 
+// (d) 2026-08-29 (owner): the header's single status line. Derivation order
+// matters — declined/withdrawn first, then bench, then selection, then money.
+// `vendor_fee_pays_cents` is what THIS vendor owes (may differ from the event
+// fee when part is covered); fall back to the event fee when it is absent.
+function eventStage(d: {
+  response_status: string | null
+  organizer_selected_at: string | null
+  is_backup: boolean
+  vendor_fee_cents: number | null
+  vendor_fee_pays_cents: number | null
+  vendor_fee_status: 'paid' | 'covered' | 'unpaid' | null
+}): { label: string; tone: 'success' | 'warning' | 'danger' | 'info' } {
+  if (d.response_status === 'declined') return { label: 'Declined', tone: 'danger' }
+  if (d.response_status === 'cancelled') return { label: 'Withdrawn', tone: 'danger' }
+  if (d.response_status !== 'accepted') return { label: 'Invited · waiting for your answer', tone: 'warning' }
+  if (d.is_backup) return { label: 'On the bench · backup vendor', tone: 'info' }
+  if (!d.organizer_selected_at) return { label: 'You said yes · awaiting the organizer’s selection', tone: 'warning' }
+  const fee = d.vendor_fee_cents ?? 0
+  if (fee <= 0) return { label: 'Confirmed · free event', tone: 'success' }
+  if (d.vendor_fee_status === 'paid') return { label: 'Confirmed & paid', tone: 'success' }
+  if (d.vendor_fee_status === 'covered') return { label: 'Confirmed · fee covered', tone: 'success' }
+  const due = d.vendor_fee_pays_cents ?? fee
+  return { label: `Selected · fee due $${(due / 100).toFixed(2)}`, tone: 'warning' }
+}
+
 export default function VendorCateringDetailPage() {
   const params = useParams()
   const vertical = params.vertical as string
@@ -529,28 +554,25 @@ export default function VendorCateringDetailPage() {
           <span style={{ ...sizing.badge, backgroundColor: statusColors.infoLight, color: statusColors.infoDark }}>
             {term(vertical, 'event_feature_name')}
           </span>
-          {details.response_status && (
-            <span
-              style={{
-                ...sizing.badge,
-                backgroundColor:
-                  details.response_status === 'accepted'
-                    ? statusColors.successLight
-                    : details.response_status === 'declined'
-                      ? statusColors.dangerLight
-                      : statusColors.warningLight,
-                color:
-                  details.response_status === 'accepted'
-                    ? statusColors.successDark
-                    : details.response_status === 'declined'
-                      ? statusColors.dangerDark
-                      : statusColors.warningDark,
-                textTransform: 'capitalize',
-              }}
-            >
-              {details.response_status}
-            </span>
-          )}
+          {(() => {
+            // (d) 2026-08-29 (owner): one status line — where the vendor is in
+            // the flow (invited → said yes → selected + fee due → confirmed & paid)
+            // instead of the raw response_status word.
+            const stage = eventStage(details)
+            const bg = stage.tone === 'success' ? statusColors.successLight
+              : stage.tone === 'danger' ? statusColors.dangerLight
+              : stage.tone === 'info' ? statusColors.infoLight
+              : statusColors.warningLight
+            const fg = stage.tone === 'success' ? statusColors.successDark
+              : stage.tone === 'danger' ? statusColors.dangerDark
+              : stage.tone === 'info' ? statusColors.infoDark
+              : statusColors.warningDark
+            return (
+              <span style={{ ...sizing.badge, backgroundColor: bg, color: fg }}>
+                {stage.label}
+              </span>
+            )
+          })()}
         </div>
         <h1
           style={{
@@ -570,6 +592,17 @@ export default function VendorCateringDetailPage() {
         {details.response_status !== 'accepted' && (
           <p style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, margin: `${spacing['2xs']} 0 0`, lineHeight: 1.5 }}>
             Accepting tells the organizer you&apos;re available. If they select you, you&apos;ll get a separate confirmation — that&apos;s when to block the date.
+          </p>
+        )}
+        {/* (e) 2026-08-29 (owner): the prep sheet used to be reachable only
+            from Pickup Mode / Upcoming (7-day window). Vendors need to know
+            where to go from the event itself. */}
+        {details.response_status === 'accepted' && (
+          <p style={{ fontSize: typography.sizes.sm, margin: `${spacing.xs} 0 0` }}>
+            <Link href={`/${vertical}/vendor/events/${marketId}/prep`} style={{ color: accent, fontWeight: typography.weights.semibold }}>
+              📋 Open your prep sheet →
+            </Link>
+            <span style={{ color: statusColors.neutral500, fontSize: typography.sizes.xs }}> — pre-orders for this event, grouped by item</span>
           </p>
         )}
       </div>

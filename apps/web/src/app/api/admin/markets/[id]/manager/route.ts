@@ -5,7 +5,38 @@ import { hasPlatformAdminRole } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
+import { sendExternalEmail } from '@/lib/notifications/service'
+import { getEmailBranding } from '@/lib/notifications/email-config'
 import type { NotificationType } from '@/lib/notifications/types'
+
+/**
+ * (g) 2026-08-29 (owner): assigning a manager used to send NOTHING — the
+ * in-app notifier needs a user_id, and an invited manager has no account
+ * yet. Until they sign in with this email, every manager-facing notice is
+ * skipped. So the assignment itself must carry the invitation, by plain
+ * email to the address the admin typed. Best-effort: never fails the assign.
+ */
+async function sendManagerInviteEmail(
+  email: string,
+  marketName: string,
+  vertical: string
+): Promise<boolean> {
+  const { brandName, brandDomain } = getEmailBranding(vertical)
+  const appBase = process.env.NEXT_PUBLIC_APP_URL || `https://${brandDomain}`
+  const signupUrl = `${appBase}/${vertical}/signup?email=${encodeURIComponent(email)}`
+  const body = [
+    `You've been set up as the manager for ${marketName} on ${brandName}.`,
+    '',
+    `To accept, create your account (or sign in) using this email address — ${email} — and open your dashboard. Your manager tools for ${marketName} appear as soon as you sign in:`,
+    signupUrl,
+    '',
+    'Once you are in you can review vendors, set the schedule and booth inventory, and see who is selling on each market day.',
+    '',
+    `If you were not expecting this, you can ignore it — nothing happens until you sign in.`,
+  ].join('\n')
+  const result = await sendExternalEmail(email, `You're the manager for ${marketName} — accept your invite`, body, vertical)
+  return result.success && !result.skipped
+}
 
 async function verifyAdminAccess(
   supabase: SupabaseClient,
@@ -226,14 +257,37 @@ export async function POST(
         })
       if (histError) throw traced.fromSupabase(histError, { table: 'market_manager_history', operation: 'insert' })
 
+      const inviteSent = await sendManagerInviteEmail(normalizedEmail, marketName, verticalId)
+
       return NextResponse.json({
         success: true,
         action: 'assigned',
         manager_email: normalizedEmail,
         manager_invited_at: now,
+        invite_email_sent: inviteSent,
       })
     }
 
-    throw traced.validation('ERR_VALIDATION_001', 'action must be "assign", "clear", "suspend", or "restore"')
+    // ── RESEND INVITE (g, 2026-08-29) ────────────────────────────────────
+    if (action === 'resend_invite') {
+      if (!currentManagerEmail) {
+        throw traced.validation('ERR_VALIDATION_006', 'No manager is assigned to invite')
+      }
+      if (currentManagerUserId) {
+        throw traced.validation('ERR_VALIDATION_007', 'This manager has already accepted — nothing to resend')
+      }
+      const inviteSent = await sendManagerInviteEmail(currentManagerEmail, marketName, verticalId)
+      if (!inviteSent) {
+        return NextResponse.json({ error: 'Email could not be sent — check the email service configuration' }, { status: 502 })
+      }
+      crumb.supabase('update', 'markets')
+      await observed(serviceClient
+        .from('markets')
+        .update({ manager_invited_at: now })
+        .eq('id', marketId), { table: 'markets', operation: 'update' })
+      return NextResponse.json({ success: true, action: 'invite_resent', manager_email: currentManagerEmail, manager_invited_at: now })
+    }
+
+    throw traced.validation('ERR_VALIDATION_001', 'action must be "assign", "clear", "suspend", "restore", or "resend_invite"')
   })
 }

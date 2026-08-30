@@ -179,6 +179,50 @@ export function buildBuyerSurveyEmailHtml(args: BuyerSurveyEmailInput): string {
  * descriptor (never throws — survey email failure should not abort
  * cron generation, which is the canonical record).
  */
+/**
+ * Weekly digest (cadence.ts, owner 2026-08-29): ONE email per person per week
+ * listing each place with its own survey link. Replaces the per-market-day
+ * email for vendors and for buyers past their second purchase.
+ */
+export function buildWeeklySurveyEmail(args: {
+  vertical: string
+  kind: 'vendor' | 'buyer'
+  recipientName: string | null
+  weekDisplay: string
+  places: Array<{ marketName: string; surveyUrl: string }>
+  listUrl: string
+  expiresAtDisplay: string
+  unsubscribeUrl: string | null
+}): { subject: string; html: string } {
+  const isVendor = args.kind === 'vendor'
+  const placeNoun = args.vertical === 'food_trucks' ? 'spot' : 'market'
+  const n = args.places.length
+  const subject = isVendor
+    ? `Your week in review — ${n} ${placeNoun}${n === 1 ? '' : 's'} to rate (${args.weekDisplay})`
+    : `How was your week? ${n} ${placeNoun}${n === 1 ? '' : 's'} to rate (${args.weekDisplay})`
+  const greeting = args.recipientName ? `Hi ${escapeHtml(args.recipientName.split(' ')[0]!)},` : 'Hi,'
+  const list = args.places.map((p) => `
+      <li style="margin:0 0 8px">
+        <a href="${escapeHtml(p.surveyUrl)}" style="color:${BRAND_GREEN};font-weight:600">${escapeHtml(p.marketName)}</a>
+      </li>`).join('')
+  const innerHtml = `
+    <p style="margin:0 0 12px">${greeting}</p>
+    <p style="margin:0 0 12px;line-height:1.6">
+      ${isVendor
+        ? `Once a week we ask how each place you set up at went for you — traffic, sales, layout, site access. This week (${escapeHtml(args.weekDisplay)}) that's:`
+        : `Once a week we ask how the places you picked up from went. This week (${escapeHtml(args.weekDisplay)}) that's:`}
+    </p>
+    <ul style="margin:0 0 12px;padding-left:20px">${list}</ul>
+    <p style="margin:0 0 12px;line-height:1.6">
+      Each one is 30 seconds. ${isVendor ? 'Only the organizer and platform admin see your ratings.' : 'Your answers stay anonymous, and if there are other places you wish were on the app, there is a spot to tell us.'}
+    </p>
+    <p style="margin:0 0 4px"><a href="${escapeHtml(args.listUrl)}" style="color:${BRAND_GREEN}">See all your surveys</a></p>
+    <p style="margin:0;font-size:12px;color:#666">Surveys close ${escapeHtml(args.expiresAtDisplay)}.</p>
+  `
+  const footerHtml = `Sent by ${brandName(args.vertical)}.${args.unsubscribeUrl ? `<br/><a href="${escapeHtml(args.unsubscribeUrl)}" style="color:#666">Unsubscribe from survey emails</a>` : ''}`
+  return { subject, html: shell({ marketLogoUrl: null, marketName: brandName(args.vertical), innerHtml, footerHtml }) }
+}
+
 export async function sendSurveyEmail(args: {
   to: string
   subject: string

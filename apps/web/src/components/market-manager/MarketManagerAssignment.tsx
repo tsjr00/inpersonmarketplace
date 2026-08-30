@@ -64,7 +64,7 @@ export default function MarketManagerAssignment({
   const [isSuspended, setIsSuspended] = useState(managerStatus === 'suspended')
 
   // Phase 1B — suspend/restore. Shares the same POST endpoint as assign/clear.
-  const performAction = async (action: 'suspend' | 'restore') => {
+  const performAction = async (action: 'suspend' | 'restore' | 'resend_invite') => {
     setConfirmingSuspend(false)
     setError(null)
     setSuccess(null)
@@ -79,8 +79,12 @@ export default function MarketManagerAssignment({
       if (!res.ok) {
         setError(data.error || `Failed to ${action} manager`)
       } else {
-        setIsSuspended(action === 'suspend')
-        setSuccess(action === 'suspend' ? 'Manager access suspended' : 'Manager access restored')
+        if (action !== 'resend_invite') setIsSuspended(action === 'suspend')
+        setSuccess(
+          action === 'suspend' ? 'Manager access suspended'
+            : action === 'restore' ? 'Manager access restored'
+            : `Invite email sent to ${data.manager_email || managerEmail}`
+        )
         router.refresh()
         onChange?.()
       }
@@ -195,13 +199,28 @@ export default function MarketManagerAssignment({
                 fontSize: 11,
                 fontWeight: 600,
               }}>
-                Pending sign-up
+                Invited · not yet accepted
               </span>
             )}
           </div>
           {managerInvitedAt && (
             <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
               Invited {formatDate(managerInvitedAt)}
+              {/* (g) 2026-08-29 (owner): until they sign in with this email
+                  they get NO notices, so give the admin a way to nudge. */}
+              {!isLinked && (
+                <>
+                  {' · '}
+                  <button
+                    type="button"
+                    onClick={() => void performAction('resend_invite')}
+                    disabled={loading}
+                    style={{ background: 'none', border: 'none', padding: 0, color: '#2d5016', fontWeight: 600, cursor: 'pointer', fontSize: 12, textDecoration: 'underline' }}
+                  >
+                    Resend invite email
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>

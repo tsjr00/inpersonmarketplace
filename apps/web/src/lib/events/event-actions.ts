@@ -202,7 +202,12 @@ const MAX_AUTO_INVITE = 15
 export async function autoMatchAndInvite(
   serviceClient: SupabaseClient,
   request: CateringRequest,
-  marketId: string
+  marketId: string,
+  // Invitation gate (mig 239, owner 2026-08-29): `dryRun` scores and counts
+  // exactly as a real run would but writes NO market_vendors rows and sends
+  // NO notifications. Intake uses it for the preliminary "N look like a fit"
+  // while invitations are held until the organizer completes their details.
+  options: { dryRun?: boolean } = {}
 ): Promise<AutoInviteResult> {
   // Guard against invalid vendor_count (prevents Infinity in headcount calculations)
   if (!request.vendor_count || request.vendor_count < 1) {
@@ -369,6 +374,9 @@ export async function autoMatchAndInvite(
 
   if (newInvites.length === 0) {
     return { success: true, invited: 0, matched: toInvite.length, error: 'All matched vendors already invited', skipped: skippedVendors }
+  }
+  if (options.dryRun) {
+    return { success: true, invited: 0, matched: toInvite.length, skipped: skippedVendors }
   }
 
   // 5. Create market_vendors records

@@ -280,8 +280,13 @@ describe('NI-014: Total notification types = 72', () => {
     // park spot accepted an event that day instead (R3-4 single-truck rule);
     // the operator is told immediately so they can re-let the spot. Notify
     // only — the booking stays paid, nothing is released.
+    // 119 → 121 (2026-08-29, owner approved "yes to tripwire"):
+    // survey_weekly_vendor + survey_weekly_buyer (in_app-only) — the survey
+    // cadence redesign (lib/surveys/cadence.ts): ONE notice per person per
+    // week covering every place they were at, replacing the per-market-day
+    // ask that was surveying a daily-park truck every single day.
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(119)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(121)
   })
 
   it('includes all buyer-facing types', () => {

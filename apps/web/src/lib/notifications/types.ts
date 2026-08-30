@@ -148,6 +148,8 @@ export type NotificationType =
   // Post-market surveys (Phase E Stage 2, mig 147)
   | 'survey_request_vendor'
   | 'survey_request_buyer'
+  | 'survey_weekly_vendor'
+  | 'survey_weekly_buyer'
   | 'pickup_confirmation_needed'
   | 'pickup_issue_reported'
   | 'inventory_low_stock'
@@ -369,6 +371,10 @@ export interface NotificationTemplateData {
    *  > 0, the email body and in-app message mention them with a link to
    *  the surveys-list page. */
   priorPendingCount?: number
+  // Weekly survey digest (lib/surveys/cadence.ts, 2026-08-29)
+  placeCount?: number
+  placeNames?: string
+  weekDisplay?: string
   // Market-day reminder + manager broadcast (Session 92 Phase B)
   /** Display-formatted operating hours for the market-day reminder,
    *  e.g. "8:00 AM – 1:00 PM". Optional — omitted when unparseable. */
@@ -1413,6 +1419,29 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
         : `/${d.vertical || 'farmers_market'}/`,
   },
 
+  // Survey cadence (owner 2026-08-29, lib/surveys/cadence.ts): ONE in-app
+  // notice per person per week covering every place they were at that week.
+  // in_app-only — the single weekly email ships from surveys/email.ts.
+  survey_weekly_vendor: {
+    urgency: 'info',
+    severity: 'info',
+    audience: 'vendor',
+    title: (d) =>
+      `Your week in review — ${d.placeCount ?? 1} place${(d.placeCount ?? 1) === 1 ? '' : 's'} to rate`,
+    message: (d) =>
+      `How did ${d.placeNames || 'your locations'} go for you this week (${d.weekDisplay || 'this week'})? 30 seconds each — traffic, sales, layout, site access. Only the organizer and platform admin see your ratings.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/surveys`,
+  },
+  survey_weekly_buyer: {
+    urgency: 'info',
+    severity: 'info',
+    audience: 'buyer',
+    title: (d) =>
+      `How was your week? ${d.placeCount ?? 1} place${(d.placeCount ?? 1) === 1 ? '' : 's'} to rate`,
+    message: (d) =>
+      `A few quick ratings for ${d.placeNames || 'the places you visited'} (${d.weekDisplay || 'this week'}) — and a spot to tell us other places you'd like to see on the app.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/surveys`,
+  },
   // Fires from cron Phase 16 (expire-orders/route.ts) when an abandoned
   // booth rental gets swept — vendor never completed payment within the
   // 30-min orphan window or the 24-h stale-session window. The UNIQUE

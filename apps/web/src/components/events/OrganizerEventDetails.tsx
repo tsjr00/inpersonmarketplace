@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { spacing, typography, radius, statusColors } from '@/lib/design-tokens'
 import { CANCELLATION_RISK_FACTORS } from '@/lib/events/backup-bench'
+import { INVITATION_REQUIRED_DETAIL_FIELDS } from '@/lib/events/invitation-gate'
 import { term } from '@/lib/vertical/terminology'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import {
@@ -36,6 +37,7 @@ interface EventDetails {
   total_food_budget_cents: number | null
   per_meal_budget_cents: number | null
   estimated_spend_per_attendee_cents: number | null
+  has_run_before?: boolean | null
   expected_meal_count: number | null
   budget_notes: string | null
   beverages_provided: boolean
@@ -98,8 +100,10 @@ const FIELD_GROUPS = [
   },
   {
     label: 'Budget',
-    description: 'Helps vendors plan their menu and pricing',
-    fields: ['total_food_budget_cents', 'per_meal_budget_cents', 'estimated_spend_per_attendee_cents', 'expected_meal_count', 'budget_notes'],
+    // Mig 239 (owner 2026-08-29): Part 1 "run this before?" then Part 2 the
+    // per-purchaser spend, worded to lean on Part 1. Both gate invitations.
+    description: 'Helps vendors plan their menu and pricing. If you have run this (or a similar) event before, base the spend estimate on that experience; if it is new, on what is planned and any new attractions.',
+    fields: ['has_run_before', 'estimated_spend_per_attendee_cents', 'total_food_budget_cents', 'per_meal_budget_cents', 'expected_meal_count', 'budget_notes'],
   },
   {
     label: 'Event Context',
@@ -916,7 +920,8 @@ function fieldLabel(field: string, vertical: string): string {
     preferred_vendor_categories: 'Preferred Vendor Types',
     total_food_budget_cents: 'Total Food Budget',
     per_meal_budget_cents: 'Budget Per Meal',
-    estimated_spend_per_attendee_cents: 'Estimated Spend Per Person',
+    has_run_before: 'Have You Run This (or a Similar) Event Before?',
+    estimated_spend_per_attendee_cents: 'Anticipated Spend Per Person Who Buys Something',
     expected_meal_count: 'Expected Meal Count',
     budget_notes: 'Budget Notes',
     beverages_provided: 'Beverages Already Provided?',
@@ -952,7 +957,10 @@ function fieldLabel(field: string, vertical: string): string {
     is_recurring: 'Recurring Event?',
     recurring_frequency: 'How Often?',
   }
-  return labels[field] || field.replace(/_/g, ' ')
+  const base = labels[field] || field.replace(/_/g, ' ')
+  // Mig 239 (owner 2026-08-29): these answer the invitation gate — vendors are
+  // not invited until they are filled. Say so on the label itself.
+  return INVITATION_REQUIRED_DETAIL_FIELDS.has(field) ? `${base} · needed before invitations go out` : base
 }
 
 // Display labels for the event_type / event_setting / recurring_frequency enums.
@@ -1120,7 +1128,7 @@ function renderField(field: string, value: unknown, onChange: (v: unknown) => vo
 
   // is_recurring also boolean — added to the boolean list below
   // Boolean fields
-  if (['beverages_provided', 'dessert_provided', 'is_themed', 'children_present', 'has_competing_vendors', 'is_ticketed', 'is_recurring', 'background_check_required'].includes(field)) {
+  if (['beverages_provided', 'dessert_provided', 'is_themed', 'children_present', 'has_competing_vendors', 'is_ticketed', 'is_recurring', 'background_check_required', 'has_run_before'].includes(field)) {
     return (
       <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], fontSize: typography.sizes.sm }}>
         <input

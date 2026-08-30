@@ -529,9 +529,10 @@ export function EventRequestForm({ vertical, vendorPreference, poolCapacityPerWa
               {matchCount} {matchCount === 1 ? vendorWordSingular : vendorWord}
             </p>
             <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, lineHeight: 1.6, margin: `0 0 ${spacing.sm}` }}>
-              We invited them just now — they typically respond within 48 hours. Create your free
-              account to complete your event profile: the more you tell us, the better we can
-              match, and you can re-run matching from your dashboard whenever you add details.
+              They have not been invited yet — {vendorWord} decide on the details you give them.
+              Create your free account, set your vendor fee (or choose no fee), answer the budget,
+              event-context and logistics questions, and click <strong>Send invitations</strong> from
+              your dashboard. They typically respond within 48 hours of that.
             </p>
           </>
         )}

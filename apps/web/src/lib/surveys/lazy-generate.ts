@@ -1,11 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendNotification } from '@/lib/notifications'
 import { generateSurveyToken } from './token'
+import { generateWeeklySurveys, isEarlyBuyer } from './weekly'
 import { observed } from '@/lib/errors'
 import {
   computeFireMomentLocal,
   nowInTimezoneAsLocalIso,
-  recentLocalDates,
   formatMarketDateDisplay,
   computeExpiresAt,
   formatYMD,
@@ -35,97 +35,12 @@ export async function ensurePendingVendorSurveys(
   vendorProfileId: string,
   vertical: string,
 ): Promise<void> {
+  void vertical
   try {
-    // The vendor's active market-day schedules → (market, schedule). day_of_week
-    // and end_time live on market_schedules (schedule_id), NOT on the vendor link
-    // row — selecting day_of_week here failed with 42703 on every vendor
-    // dashboard load from 2026-07-17 until the prod API log surfaced it
-    // 2026-08-25 (the catch below hid it: no vendor was ever lazily surveyed).
-    const { data: scheds } = await observed(service
-      .from('vendor_market_schedules')
-      .select('market_id, schedule_id')
-      .eq('vendor_profile_id', vendorProfileId)
-      .eq('is_active', true), { table: 'vendor_market_schedules' })
-    if (!scheds || scheds.length === 0) return
-
-    const scheduleIds = [...new Set(scheds.map((s) => s.schedule_id as string))]
-    const { data: scheduleRows } = await observed(service
-      .from('market_schedules')
-      .select('id, day_of_week, end_time')
-      .in('id', scheduleIds)
-      .eq('active', true), { table: 'market_schedules' })
-    const scheduleById = new Map(
-      (scheduleRows ?? []).map((r) => [r.id as string, { dow: r.day_of_week as number, endTime: (r.end_time as string | null) ?? null }])
-    )
-
-    const marketIds = [...new Set(scheds.map((s) => s.market_id as string))]
-
-    // Attendance requires BOTH an active schedule (above) AND an approved
-    // market_vendors row (matches the cron). Load the eligible active markets.
-    const [{ data: markets }, { data: approvedRows }, { data: vp }] = await Promise.all([
-      service.from('markets').select('id, name, timezone').in('id', marketIds).eq('active', true).eq('status', 'active'),
-      service.from('market_vendors').select('market_id').eq('vendor_profile_id', vendorProfileId).eq('approved', true).in('market_id', marketIds),
-      service.from('vendor_profiles').select('user_id').eq('id', vendorProfileId).maybeSingle(),
-    ])
-    const recipientUserId = vp?.user_id as string | undefined
-    if (!recipientUserId) return
-    const marketById = new Map((markets ?? []).map((m) => [m.id as string, m]))
-    const approvedMarkets = new Set((approvedRows ?? []).map((r) => r.market_id as string))
-
-    for (const s of scheds) {
-      const marketId = s.market_id as string
-      const sched = scheduleById.get(s.schedule_id as string)
-      if (!sched) continue // inactive or deleted schedule
-      const dow = sched.dow
-      const market = marketById.get(marketId)
-      if (!market || !approvedMarkets.has(marketId)) continue
-
-      const tz = (market.timezone as string | null) || 'America/Chicago'
-      const { today, yesterday, todayDayOfWeek, yesterdayDayOfWeek } = recentLocalDates(tz)
-      const nowLocal = nowInTimezoneAsLocalIso(tz)
-
-      const candidateDates: string[] = []
-      if (dow === todayDayOfWeek) candidateDates.push(today)
-      if (dow === yesterdayDayOfWeek) candidateDates.push(yesterday)
-      if (candidateDates.length === 0) continue
-
-      // end_time drives the fire moment (18:00 same day / 08:00 next day) —
-      // already loaded with the schedule above.
-      const endTime = sched.endTime
-
-      for (const marketDate of candidateDates) {
-        const fire = computeFireMomentLocal(marketDate, endTime)
-        if (!fire || nowLocal < fire.fireAtLocalIso) continue
-
-        const { data: inserted, error: insErr } = await service
-          .from('market_surveys')
-          .insert({
-            kind: 'vendor',
-            vendor_profile_id: vendorProfileId,
-            market_id: marketId,
-            market_date: marketDate,
-            expires_at: computeExpiresAt(marketDate),
-            notified_at: new Date().toISOString(),
-          })
-          .select('id')
-          .single()
-        // 23505 = the cron or a prior lazy pass already created it → nothing to do.
-        if (insErr || !inserted) continue
-
-        // in_app ONLY (survey_request_vendor is urgency 'info' = in_app-only).
-        await sendNotification(
-          recipientUserId,
-          'survey_request_vendor',
-          {
-            marketName: market.name as string,
-            surveyDate: formatMarketDateDisplay(marketDate),
-            surveyId: inserted.id as string,
-            marketId,
-          },
-          { vertical },
-        )
-      }
-    }
+    // Survey cadence (owner 2026-08-29): vendors are surveyed ONCE A WEEK,
+    // one row per place they were at that week (lib/surveys/weekly.ts). This
+    // on-return path creates the rows + the in-app bell, never the email.
+    await generateWeeklySurveys(service, { vendorProfileId, sendEmail: false })
   } catch {
     // Best-effort — never break the caller (a dashboard render).
   }
@@ -145,6 +60,12 @@ export async function ensurePendingBuyerSurveys(
   vertical: string,
 ): Promise<void> {
   try {
+    // Survey cadence (owner 2026-08-29): per-day surveys only for a buyer's
+    // first two purchases; afterwards the weekly digest (no email here).
+    if (!(await isEarlyBuyer(service, buyerUserId))) {
+      await generateWeeklySurveys(service, { buyerUserId, sendEmail: false })
+      return
+    }
     // Recent fulfilled/completed pickups → (market, pickup_date). Bounded to the
     // last few days: surveys only fire for today/yesterday market days, +cushion
     // for timezone + the 18:00/08:00-next-day fire window.

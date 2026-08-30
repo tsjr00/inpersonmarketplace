@@ -160,6 +160,12 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
   let lowStockCount = 0
   let publishedCount = 0
   let activeMarkets: ActiveMarket[] = []
+  // (f) paid park spots with no listing connected to that park (dashboard nudge)
+  const unlistedPaidParks: { market_id: string; market_name: string; first_date: string }[] = []
+  const formatDashboardDate = (ymd: string) => {
+    const [y, m, d] = ymd.split('-').map(Number)
+    return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+  }
   let pendingOrdersToConfirm = 0
   let needsFulfillment = 0
   let upcomingPickups: UpcomingPickup[] = []
@@ -189,7 +195,8 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
       pendingPayoutsResult,
       completedPayoutsResult,
       vendorEventsResult,
-      publishedResult
+      publishedResult,
+      paidParkBookingsResult
     ] = await Promise.all([
       // Draft listings
       supabase
@@ -312,6 +319,18 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
         .eq('vendor_profile_id', vendorProfile.id)
         .eq('status', 'published')
         .is('deleted_at', null),
+      // (f) 2026-08-29 (owner): paid park spots from today on. A paid spot
+      // creates the truck's schedule rows (webhooks.ts park-paid branch), but
+      // buyers only get pickup dates for listings CONNECTED to that park
+      // (mig 238 joins listing_markets) — so a paid park with no connected
+      // listing is an invisible truck. Compared against the connected set below.
+      supabase
+        .from('park_spot_bookings')
+        .select('market_id, booking_date, markets!market_id ( id, name )')
+        .eq('vendor_profile_id', vendorProfile.id)
+        .eq('status', 'paid')
+        .gte('booking_date', today.toISOString().split('T')[0])
+        .order('booking_date', { ascending: true }),
     ])
 
     // Extract results
@@ -345,6 +364,17 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
       if (market && !marketMap.has(market.id)) marketMap.set(market.id, market)
     })
     activeMarkets = Array.from(marketMap.values())
+
+    // (f) paid parks with NO listing connected — one entry per park, earliest date
+    const connectedMarketIds = new Set(
+      (vendorListingMarketsResult.data || []).map((lm: { market_id: string }) => lm.market_id)
+    )
+    const seenParks = new Set<string>()
+    for (const b of (paidParkBookingsResult.data || []) as unknown as Array<{ market_id: string; booking_date: string; markets: { id: string; name: string } | null }>) {
+      if (connectedMarketIds.has(b.market_id) || seenParks.has(b.market_id)) continue
+      seenParks.add(b.market_id)
+      unlistedPaidParks.push({ market_id: b.market_id, market_name: b.markets?.name || 'your park', first_date: b.booking_date })
+    }
 
     // Group upcoming items by pickup_date + market_id
     const pickupMap = new Map<string, UpcomingPickup>()
@@ -429,6 +459,36 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           !((vendorProfile.profile_data as Record<string, unknown> | null)?.pickup_line_acknowledged_at) && (
           <div style={{ marginBottom: spacing.md }}>
             <PickupLineAcknowledgment vertical={vertical} variant="compact" />
+          </div>
+        )}
+
+        {/* (f) 2026-08-29 (owner): "you're booked here but nothing is for sale
+            here yet" — a paid park spot with no listing connected to that park
+            means buyers can't order pickup there at all. */}
+        {unlistedPaidParks.length > 0 && (
+          <div style={{
+            marginBottom: spacing.md,
+            padding: spacing.sm,
+            backgroundColor: '#fffbeb',
+            border: '1px solid #fcd34d',
+            borderRadius: radius.md,
+          }}>
+            <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.bold, color: '#92400e', marginBottom: spacing['2xs'] }}>
+              {unlistedPaidParks.length === 1
+                ? `You're booked at ${unlistedPaidParks[0].market_name} — but nothing is for sale there yet`
+                : `You're booked at ${unlistedPaidParks.length} parks where nothing is for sale yet`}
+            </div>
+            <div style={{ fontSize: typography.sizes.xs, color: '#78350f', lineHeight: 1.5 }}>
+              Customers can only pre-order at a park once at least one of your listings is connected to it.
+              {unlistedPaidParks.map(p => (
+                <div key={p.market_id} style={{ marginTop: spacing['2xs'] }}>
+                  <Link href={`/${vertical}/vendor/listings?market=${p.market_id}`} style={{ color: '#92400e', fontWeight: typography.weights.semibold }}>
+                    Connect a listing to {p.market_name} →
+                  </Link>
+                  <span style={{ color: '#a16207' }}> (first booked day {formatDashboardDate(p.first_date)})</span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

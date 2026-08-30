@@ -16,6 +16,8 @@ import OrganizerEventDetails from '@/components/events/OrganizerEventDetails'
 import EventVendorFeeCard from '@/components/events/EventVendorFeeCard'
 import OrganizerEventActions from '@/components/events/OrganizerEventActions'
 import OrganizerProgress from '@/components/events/OrganizerProgress'
+import InvitationGateCard from '@/components/events/InvitationGateCard'
+import { invitationsHeld, missingInvitationDetails } from '@/lib/events/invitation-gate'
 
 interface PageProps {
   params: Promise<{ vertical: string; id: string }>
@@ -105,7 +107,7 @@ export default async function EventManagerDashboardPage({ params }: PageProps) {
   const serviceClient = createServiceClient()
   const { data: event } = await serviceClient
     .from('catering_requests')
-    .select('id, company_name, event_date, event_end_date, status, market_id, event_token, vendor_count, headcount, service_level, payment_model, access_code, organizer_user_id, vertical_id, address')
+    .select('id, company_name, event_date, event_end_date, status, market_id, event_token, vendor_count, headcount, service_level, payment_model, access_code, organizer_user_id, vertical_id, address, invitations_released_at, vendor_fee_decided_at, event_vendor_fee_cents, has_run_before, estimated_spend_per_attendee_cents, event_context_confirmed_at, has_competing_vendors, competing_food_options, logistics_confirmed_at, background_check_required, background_check_details')
     .eq('id', id)
     .maybeSingle()
 
@@ -395,6 +397,26 @@ export default async function EventManagerDashboardPage({ params }: PageProps) {
           approval and approval is what the address blocks. `address` has always
           been an allowed field here and 'new' has always been an editable
           status; the capability was reachable-by-nobody, not missing. */}
+      {/* Invitation gate (mig 239, owner 2026-08-29): self-service events hold
+          invitations until the organizer answers what vendors need, then
+          clicks Send. Not shown for admin-assisted events (their invitations
+          go out at approval — owner: admin assist later). */}
+      {event.service_level === 'self_service' && ['new', 'reviewing', 'approved', 'ready'].includes(status) && (
+        <DashboardCard
+          title={invitationsHeld(event) ? 'Send invitations' : 'Invitations'}
+          state={invitationsHeld(event) ? 'warning' : 'neutral'}
+        >
+          <InvitationGateCard
+            eventRef={eventRef}
+            vertical={vertical}
+            missing={missingInvitationDetails(event)}
+            releasedAt={(event.invitations_released_at as string | null) ?? null}
+            approved={!!event.market_id}
+            primaryColor={colors.primary}
+          />
+        </DashboardCard>
+      )}
+
       <DashboardCard title="Add or edit details" state={needsAddress ? 'warning' : 'neutral'}>
         <OrganizerEventDetails
           eventRef={eventRef}

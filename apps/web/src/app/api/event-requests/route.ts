@@ -399,24 +399,22 @@ export async function POST(request: NextRequest) {
           .update(approvalUpdate)
           .eq('id', requestId)
 
-        // Step 2: Auto-match and invite vendors
-        const inviteResult = await autoMatchAndInvite(supabase, requestData, approval.market_id)
+        // Step 2: PRELIMINARY match only (mig 239 invitation gate, owner
+        // 2026-08-29). Nothing is invited here any more — the organizer has
+        // not set a fee (only possible post-approval) or answered budget /
+        // event-context / logistics yet. Invitations go out when they click
+        // "Send invitations" on their dashboard (api/events/[token]/
+        // release-invitations), which is enabled once lib/events/
+        // invitation-gate.ts is satisfied. `auto_invite_sent_at` is stamped
+        // THERE, so the 24h/48h cron follow-ups start from the real send.
+        const inviteResult = await autoMatchAndInvite(supabase, requestData, approval.market_id, { dryRun: true })
 
         // This is the honest match number: scored against the organizer's own
         // criteria, red flags and deal-breakers dropped, below-threshold scores
-        // dropped, capped at MAX_AUTO_INVITE. At intake there are no prior
-        // invitations, so `matched` and `invited` agree.
+        // dropped, capped at MAX_AUTO_INVITE.
         matchedCount = inviteResult.matched
 
-        // Track when auto-invites were sent (for cron threshold check)
-        if (inviteResult.invited > 0) {
-          await supabase
-            .from('catering_requests')
-            .update({ auto_invite_sent_at: new Date().toISOString() })
-            .eq('id', requestId)
-        }
-
-        console.log(`[self-service] Event ${requestId}: approved, ${inviteResult.invited} vendors invited (${inviteResult.matched} matched)`)
+        console.log(`[self-service] Event ${requestId}: approved, invitations HELD, ${inviteResult.matched} vendors matched (preliminary)`)
       } else {
         console.error(`[self-service] Event ${requestId}: auto-approval failed:`, approval.error)
         // Request stays as 'new' — admin will need to handle manually
@@ -468,8 +466,8 @@ export async function POST(request: NextRequest) {
         : matchedCount === null
         ? `Got your request for ${String(company_name)}! Our team will review it and be in touch.`
         : matchedCount > 0
-        ? `We matched ${matchedCount} ${matchedCount === 1 ? vendorWord.replace(/s$/, '') : vendorWord} to your event and invited them just now — they typically respond within 48 hours.`
-        : `Your event is live, but no ${vendorWord} matched your exact criteria yet. Sign in to widen your criteria and reach more ${vendorWord}.`,
+        ? `${matchedCount} ${matchedCount === 1 ? vendorWord.replace(/s$/, '') : vendorWord} look like a fit so far. Finish your event details from your dashboard and click Send invitations — that's when they hear from you.`
+        : `Your event is approved, but no ${vendorWord} matched your exact criteria yet. Sign in to widen your criteria from your dashboard, then send invitations.`,
     })
   })
 }
@@ -556,7 +554,7 @@ async function sendOrganizerConfirmation(
       Thank you for choosing Food Truck'n to help with your event.
     </p>
     <p style="color:#4b5563;line-height:1.7;margin:0 0 16px">
-      Our system is matching your request with qualified food trucks right now based on the event details you provided and confirming their interest and availability. As available trucks respond you will be updated. We aim to have all available trucks respond within 48 hours and then present you with the menu options and details of the available trucks.
+      Your event is approved and we have taken a first look at which food trucks fit it. Invitations do not go out yet: trucks decide on the details you give them, so the next step is yours &mdash; from your dashboard, set your vendor fee (or choose no fee), finish the budget, event-context and logistics questions, and click <strong>Send invitations</strong>. Trucks typically respond within 48 hours of that.
     </p>
     <p style="color:#4b5563;line-height:1.7;margin:0 0 16px">
       Please create an account using the link below so you can see your event details before they are published, and you can start sharing your event page. On your user dashboard you will find a section titled &ldquo;My Events&rdquo; that will have all the information you need to make your final selections for which truck you want at your event. Please watch your inbox as well as your in-app notifications for additional information.
@@ -568,7 +566,7 @@ async function sendOrganizerConfirmation(
       Thank you for choosing Farmers Marketing to help with your event.
     </p>
     <p style="color:#4b5563;line-height:1.7;margin:0 0 16px">
-      Our system is matching your request with qualified vendors right now based on the event details you provided and confirming their interest and availability. As available vendors respond you will be updated. We aim to have all available vendors respond within 48 hours and then present you with information about the items they will offer at your event, as well as details about their space &amp; setup needs.
+      Your event is approved and we have taken a first look at which vendors fit it. Invitations do not go out yet: vendors decide on the details you give them, so the next step is yours &mdash; from your dashboard, set your vendor fee (or choose no fee), finish the budget, event-context and logistics questions, and click <strong>Send invitations</strong>. Vendors typically respond within 48 hours of that.
     </p>
     <p style="color:#4b5563;line-height:1.7;margin:0 0 16px">
       Please create an account using the link below so you can see your event details before they are published, and you can start sharing your event page. On your user dashboard you will find a section titled &ldquo;My Events&rdquo; that will have all the information you need to make your final selections for which vendors you want at your event. Please watch your inbox as well as your in-app notifications for additional information.

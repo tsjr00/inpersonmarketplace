@@ -69,21 +69,25 @@ export default function PickupLineAcknowledgment({ vertical, onAcknowledged, var
       borderRadius: radius.md,
     }}>
       <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: '#92400e', marginBottom: spacing['2xs'] }}>
-        {variant === 'full' ? 'How in-app orders work at your ' + place : 'One thing before your next service day'}
+        {/* Owner 2026-08-29: we are introducing a new idea, so sell it —
+            friendly, and framed as the great deal it is for them. */}
+        {variant === 'full'
+          ? 'Your app customers get their own line — and they’ll love you for it'
+          : 'A quick one before your next service day 👋'}
       </div>
-      <ul style={{ margin: `0 0 ${spacing.xs}`, paddingLeft: 18, fontSize: typography.sizes.xs, color: '#78350f', lineHeight: 1.55, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <li><strong>In-app orders are separate from walk-up orders.</strong> App customers order ahead and pick their pickup time — they are not supposed to stand in your walk-up line.</li>
-        <li><strong>You run a second pickup line just for app orders</strong>, marked with the branded pickup sign, so app customers know exactly where to collect their food.</li>
-        <li><strong>Why it matters:</strong> if app customers have to wait in line anyway, they order less. Skipping the line is what they are paying for.</li>
-        <li>Your <em>Pickup Capacity</em> and <em>prep time</em> settings pace the app orders so both lines move.</li>
-      </ul>
-      <p style={{ margin: `0 0 ${spacing.xs}`, fontSize: typography.sizes.xs, color: '#78350f' }}>
-        Print-ready signs (8.5×11 and 11×17) are on the{' '}
-        <Link href={`/${vertical}/vendor/pickup-signs`} style={{ color: '#92400e', fontWeight: typography.weights.semibold }}>Pickup signs</Link> page.
+      <p style={{ margin: `0 0 ${spacing.xs}`, fontSize: typography.sizes.xs, color: '#78350f', lineHeight: 1.55 }}>
+        App orders come in ahead of time with a pickup slot, so those customers can walk straight to a
+        second, clearly marked spot at your {place} and grab their food. No waiting behind the walk-up
+        line — that&apos;s the whole reason they ordered ahead, and it&apos;s why they come back and order more.
       </p>
+      <ul style={{ margin: `0 0 ${spacing.xs}`, paddingLeft: 18, fontSize: typography.sizes.xs, color: '#78350f', lineHeight: 1.55, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <li>Set up a small pickup spot with the branded sign — print-ready 8.5×11 and 11×17 versions are on the{' '}
+          <Link href={`/${vertical}/vendor/pickup-signs`} style={{ color: '#92400e', fontWeight: typography.weights.semibold }}>Pickup signs</Link> page.</li>
+        <li>Your <em>Pickup Capacity</em> and <em>prep time</em> settings keep both lines moving.</li>
+      </ul>
       <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: typography.sizes.xs, color: '#78350f', cursor: 'pointer', marginBottom: spacing.xs }}>
         <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} disabled={saving} style={{ marginTop: 2 }} />
-        <span>I understand in-app orders are picked up separately, and I will run a separate, clearly signed pickup line for app orders at my {place}.</span>
+        <span>Got it — app orders get their own clearly signed pickup spot at my {place}.</span>
       </label>
       {error && <div style={{ fontSize: typography.sizes.xs, color: '#991b1b', marginBottom: spacing['2xs'] }}>{error}</div>}
       <button

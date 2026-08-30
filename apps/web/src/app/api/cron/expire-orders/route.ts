@@ -11,6 +11,7 @@ import { getTierLimits, TRIAL_SYSTEM_ENABLED } from '@/lib/vendor-limits'
 import { todayInTimezone, tomorrowInTimezone, addDaysToDateString } from '@/lib/time/market-dates'
 import { runEventCompletionEffects } from '@/lib/events/complete-event'
 import { autoMatchAndInvite } from '@/lib/events/event-actions'
+import { invitationsHeld } from '@/lib/events/invitation-gate'
 import { recordExternalPaymentFee } from '@/lib/payments/vendor-fees'
 import { isCleanupDay, calculateRetentionCutoffs } from '@/lib/cron/retention'
 import { REMINDER_DELAY_MS, DEFAULT_REMINDER_DELAY_MS, isOrderOldEnoughForReminder, getAutoConfirmCutoffDate, areAllItemsPastPickupWindow, formatPaymentMethodLabel } from '@/lib/cron/external-payment'
@@ -2805,11 +2806,19 @@ export async function GET(request: NextRequest) {
       const todayStr = new Date().toISOString().split('T')[0]
       const { data: openEvents } = await supabase
         .from('catering_requests')
-        .select('id, vertical_id, company_name, event_date, event_end_date, event_start_time, event_end_time, headcount, expected_meal_count, address, city, state, zip, vendor_count, cuisine_preferences, event_type, payment_model, event_setting, children_present, contact_email, market_id, status')
+        .select('id, vertical_id, company_name, event_date, event_end_date, event_start_time, event_end_time, headcount, expected_meal_count, address, city, state, zip, vendor_count, cuisine_preferences, event_type, payment_model, event_setting, children_present, contact_email, market_id, status, service_level, invitations_released_at')
         .in('status', ['approved', 'ready'])
         .not('market_id', 'is', null)
         .gte('event_date', todayStr)
         .limit(25) // runtime cap; a platform with more open events than this needs its own job
+
+      if (openEvents && openEvents.length > 0) {
+        // Invitation gate (mig 239): a self-service organizer who has not yet
+        // clicked "Send invitations" must not have the sweep do it for them.
+        const releasedEvents = openEvents.filter(ev => !invitationsHeld(ev as { service_level: string | null; invitations_released_at: string | null }))
+        openEvents.length = 0
+        openEvents.push(...releasedEvents)
+      }
 
       if (openEvents && openEvents.length > 0) {
         // One query for all acceptance counts, grouped in JS.

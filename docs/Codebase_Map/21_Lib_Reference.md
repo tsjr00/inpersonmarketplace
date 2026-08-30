@@ -133,7 +133,7 @@ New user-facing strings go through `t()`, not hardcoded literals — the shared 
 
 ## Surveys
 
-`surveys/types.ts` (`CATEGORY_DEFINITIONS`, `validateSurveySubmission`) · `token.ts` · `email.ts` · `lazy-generate.ts` (`ensurePendingVendorSurveys` / `ensurePendingBuyerSurveys` — generates a survey when the user next returns, so returners never receive the email) · `cron-helpers.ts` (timezone-local fire-moment math).
+`surveys/types.ts` (`CATEGORY_DEFINITIONS`, `validateSurveySubmission`, buyer `other_places_request` mig 240) · `token.ts` · `email.ts` (+ `buildWeeklySurveyEmail`) · `lazy-generate.ts` (`ensurePendingVendorSurveys` / `ensurePendingBuyerSurveys` — generates a survey when the user next returns, so returners never receive the email) · `cron-helpers.ts` (timezone-local fire-moment math) · **`cadence.ts`** (owner 2026-08-29: vendors WEEKLY, buyers per-day for purchases 1–2 then weekly; Monday→Sunday week, fires Sunday 18:00 market-local; pure) · **`weekly.ts`** (`generateWeeklySurveys` — one row per place per person per week, ONE notification + ONE email per person; `isEarlyBuyer`; shared by the cron and the lazy path).
 
 ## Misc utilities
 

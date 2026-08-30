@@ -11,6 +11,7 @@ import {
 import { describeChanges } from '@/lib/events/change-requests'
 import { sendNotification } from '@/lib/notifications/service'
 import { requestEventReconfirmation } from '@/lib/events/reconfirmation'
+import { EVENT_CONTEXT_FIELDS, LOGISTICS_GATE_FIELDS } from '@/lib/events/invitation-gate'
 
 interface RouteContext {
   params: Promise<{ token: string }>
@@ -40,6 +41,8 @@ const ALLOWED_FIELDS = [
   'total_food_budget_cents',
   'per_meal_budget_cents',
   'estimated_spend_per_attendee_cents',
+  // Mig 239 (owner 2026-08-29): Budget Part 1 — run this before? Gates invitations.
+  'has_run_before',
   'expected_meal_count',
   'budget_notes',
   'beverages_provided',
@@ -337,6 +340,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
     }
+    // Invitation gate (mig 239): the Event Context booleans DEFAULT false and
+    // the risk checklist writes NULL for "none", so "answered" cannot be read
+    // from the values — saving the section is the answer. Stamp it.
+    const nowIso = new Date().toISOString()
+    if (EVENT_CONTEXT_FIELDS.some(f => f in updateData)) updateData.event_context_confirmed_at = nowIso
+    if (LOGISTICS_GATE_FIELDS.some(f => f in updateData)) updateData.logistics_confirmed_at = nowIso
 
     // Server-side enforcement of the market-copy rule. The UI also hides these
     // once a market exists, but the UI is not a security boundary.

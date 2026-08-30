@@ -63,10 +63,10 @@ export default async function PendingSurveysCard({
     >
       {pendingCount > 0 ? (
         <>
-          You have <strong>{pendingCount} pending survey{pendingCount === 1 ? '' : 's'}</strong> from recent selling day{pendingCount === 1 ? '' : 's'}. Each takes under a minute — tell the {term(vertical, 'manager').toLowerCase()} what worked for you and what didn&apos;t.
+          You have <strong>{pendingCount} pending survey{pendingCount === 1 ? '' : 's'}</strong> — one per place you sold at this week. Each takes under a minute — tell the {term(vertical, 'manager').toLowerCase()} what worked for you and what didn&apos;t.
         </>
       ) : (
-        <>No pending surveys right now. After each day you sell at a {term(vertical, 'market').toLowerCase()}, we&apos;ll ask for a quick rating of how it went for you — traffic, sales, layout, site access.</>
+        <>No pending surveys right now. Once a week we&apos;ll ask for a quick rating of each {term(vertical, 'market').toLowerCase()} you sold at that week — traffic, sales, layout, site access.</>
       )}
     </DashboardTile>
   )

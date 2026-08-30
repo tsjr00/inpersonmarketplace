@@ -109,9 +109,11 @@ export default async function BuyerSurveysPage({ params }: PageProps) {
         fontSize: typography.sizes.sm,
         lineHeight: 1.5,
       }}>
-        After each day you pick up an order at a {term(vertical, 'market').toLowerCase()}, we send a
-        short survey. Your ratings help that {term(vertical, 'market').toLowerCase()} keep improving.
-        Surveys close 30 days after the day, and your answers stay anonymous.
+        We ask for a quick rating after your first two orders, then once a week — one short
+        survey per {term(vertical, 'market').toLowerCase()} you picked up from that week, with a spot
+        to tell us other places you&apos;d like to see on the app. Your ratings help each
+        {' '}{term(vertical, 'market').toLowerCase()} keep improving. Surveys close after 30 days, and
+        your answers stay anonymous.
       </p>
 
       <Section title={`Pending (${pending.length})`} emptyText="No pending surveys right now.">

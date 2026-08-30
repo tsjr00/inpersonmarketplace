@@ -15,13 +15,12 @@ import { generateSurveyToken } from '@/lib/surveys/token'
 import { resolveMarketAudience } from '@/lib/markets/market-audience'
 import { runParkCheckinReminders } from '@/lib/markets/park-checkin-reminders'
 import {
-  buildVendorSurveyEmailSubject,
-  buildVendorSurveyEmailHtml,
   buildBuyerSurveyEmailSubject,
   buildBuyerSurveyEmailHtml,
   sendSurveyEmail,
 } from '@/lib/surveys/email'
 import { getAppUrl } from '@/lib/environment'
+import { generateWeeklySurveys, isEarlyBuyer } from '@/lib/surveys/weekly'
 
 /**
  * Post-market survey generation cron (Phase E Stage 2, mig 147).
@@ -79,7 +78,14 @@ export async function GET(request: NextRequest) {
     // planned additive enhancement.
     const SURVEY_GENERATION_UTC_HOUR = 15
     const summary = new Date().getUTCHours() === SURVEY_GENERATION_UTC_HOUR
-      ? await runSurveyCron()
+      ? await runSurveyCron().then(async (daily) => ({
+          ...daily,
+          // Survey cadence (owner 2026-08-29, lib/surveys/cadence.ts): the
+          // weekly batch — vendors every week, buyers past their 2nd purchase.
+          // Evaluates the most recently ENDED Monday→Sunday week per market
+          // timezone; idempotent, so running it daily is safe.
+          weekly: await generateWeeklySurveys(createServiceClient(), { sendEmail: true }),
+        }))
       : { skipped: true as const, reason: 'survey generation runs once daily (15:00 UTC)' }
     // Session 92 Phase B — market-day reminders to followers. Runs in the
     // same hourly cron; independent of the survey logic above. Failures are
@@ -374,154 +380,13 @@ async function generateForMarketDay(
   const baseUrl = getAppUrl()
   const vertical = market.vertical_id || 'farmers_market'
 
-  // ── 1. Vendors who attended ────────────────────────────────────────
-  // day_of_week lives on market_schedules, not on the vendor link row. The
-  // original `.eq('day_of_week', …)` against vendor_market_schedules failed
-  // with 42703 on every run since 2026-05-22 and the dropped `error` hid it —
-  // no vendor was ever surveyed by this cron. Found in the prod API log
-  // 2026-08-25 (the 10:00 CT quartet). Resolve the day's schedule ids first.
-  const { data: daySchedules } = await observed(serviceClient
-    .from('market_schedules')
-    .select('id')
-    .eq('market_id', market.id)
-    .eq('day_of_week', dayOfWeek)
-    .eq('active', true), { table: 'market_schedules' })
-  const dayScheduleIds = (daySchedules ?? []).map((s) => s.id as string)
-  const { data: vendorScheduleRows } = dayScheduleIds.length > 0
-    ? await serviceClient
-        .from('vendor_market_schedules')
-        .select('vendor_profile_id')
-        .eq('market_id', market.id)
-        .in('schedule_id', dayScheduleIds)
-        .eq('is_active', true)
-    : { data: [] as Array<{ vendor_profile_id: string }> }
-
-  const scheduledVendorIds = new Set(
-    (vendorScheduleRows ?? []).map((r) => r.vendor_profile_id as string)
-  )
-
-  const { data: marketVendors } = await observed(serviceClient
-    .from('market_vendors')
-    .select(`
-      vendor_profile_id,
-      vendor_profiles!market_vendors_vendor_profile_id_fkey (
-        id, user_id, profile_data
-      )
-    `)
-    .eq('market_id', market.id)
-    .eq('approved', true), { table: 'market_vendors' })
-
-  const attendedVendors = (marketVendors ?? []).filter((mv) =>
-    scheduledVendorIds.has(mv.vendor_profile_id as string)
-  )
-
-  for (const mv of attendedVendors) {
-    const vp = mv.vendor_profiles as unknown as
-      | { id: string; user_id: string; profile_data: Record<string, unknown> | null }
-      | { id: string; user_id: string; profile_data: Record<string, unknown> | null }[]
-      | null
-    const profile = Array.isArray(vp) ? vp[0] : vp
-    if (!profile?.user_id) continue
-
-    const profileData = profile.profile_data as { business_name?: string; farm_name?: string } | null
-    const vendorName =
-      (profileData?.business_name as string) ||
-      (profileData?.farm_name as string) ||
-      null
-
-    const { data: inserted, error: insertErr } = await serviceClient
-      .from('market_surveys')
-      .insert({
-        kind: 'vendor',
-        vendor_profile_id: mv.vendor_profile_id,
-        market_id: market.id,
-        market_date: marketDate,
-        expires_at: expiresAt,
-        notified_at: new Date().toISOString(),
-      })
-      .select('id')
-      .single()
-
-    if (insertErr) {
-      // 23505 = duplicate via UNIQUE constraint; just skip silently
-      if (insertErr.code !== '23505') {
-        summary.errors.push(
-          `Vendor survey insert failed for ${profile.id}: ${insertErr.message}`
-        )
-      }
-      continue
-    }
-    if (!inserted) continue
-    summary.vendorSurveysCreated++
-
-    // Count any other vendor surveys this vendor has pending (across markets)
-    const { count: priorCount } = await serviceClient
-      .from('market_surveys')
-      .select('id', { head: true, count: 'exact' })
-      .eq('vendor_profile_id', mv.vendor_profile_id)
-      .eq('kind', 'vendor')
-      .is('submitted_at', null)
-      .neq('id', inserted.id)
-      .gt('expires_at', new Date().toISOString())
-
-    const priorPendingCount = priorCount ?? 0
-
-    // In-app + standard email via sendNotification (template registry)
-    await sendNotification(
-      profile.user_id,
-      'survey_request_vendor',
-      {
-        marketName: market.name,
-        surveyDate: marketDateDisplay,
-        surveyId: inserted.id,
-        priorPendingCount,
-      },
-      { vertical }
-    )
-
-    // Custom HTML email with market logo (if uploaded). Best-effort —
-    // the in-app notification + standard email above is the
-    // canonical delivery; this is the polish layer.
-    const surveyUrl = `${baseUrl}/${vertical}/vendor/survey/${inserted.id}`
-    const priorUrl =
-      priorPendingCount > 0 ? `${baseUrl}/${vertical}/vendor/surveys` : null
-
-    // Look up vendor's contact email from user_profiles
-    const { data: userProfile } = await observed(serviceClient
-      .from('user_profiles')
-      .select('email')
-      .eq('user_id', profile.user_id)
-      .maybeSingle(), { table: 'user_profiles' })
-
-    if (userProfile?.email) {
-      summary.emailsAttempted++
-      const result = await sendSurveyEmail({
-        to: userProfile.email as string,
-        subject: buildVendorSurveyEmailSubject({
-          vendorName,
-          marketName: market.name,
-          marketLogoUrl: market.logo_url,
-          marketDateDisplay,
-          surveyUrl,
-          priorPendingCount,
-          priorPendingUrl: priorUrl,
-          expiresAtDisplay,
-        }),
-        html: buildVendorSurveyEmailHtml({
-          vertical,
-          vendorName,
-          marketName: market.name,
-          marketLogoUrl: market.logo_url,
-          marketDateDisplay,
-          surveyUrl,
-          priorPendingCount,
-          priorPendingUrl: priorUrl,
-          expiresAtDisplay,
-        }),
-      })
-      if (!result.ok) summary.emailsFailed++
-    }
-  }
+  // ── 1. Vendors ─────────────────────────────────────────────────────
+  // Survey cadence (owner 2026-08-29): vendors are no longer surveyed per
+  // market DAY — a truck at a daily park was being asked every day. They get
+  // ONE weekly ask covering each place they were at that week, generated by
+  // lib/surveys/weekly.ts (called from the daily branch in GET above and
+  // lazily from the vendor dashboard). Nothing per-day here any more.
+  void formatExpiryDisplay
 
   // ── 2. Buyers who picked up at this market on this date ────────────
   const { data: orderItems } = await observed(serviceClient
@@ -545,6 +410,10 @@ async function generateForMarketDay(
   }
 
   for (const buyerUserId of buyerUserIds) {
+    // Survey cadence (owner 2026-08-29): the per-day survey is for a buyer's
+    // FIRST and SECOND purchases only; after that they get the weekly digest
+    // (lib/surveys/weekly.ts) in weeks they bought something.
+    if (!(await isEarlyBuyer(serviceClient, buyerUserId))) continue
     const accessToken = generateSurveyToken()
 
     const { data: inserted, error: insertErr } = await serviceClient

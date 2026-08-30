@@ -40,6 +40,7 @@ export default function SurveyForm({
   const categories = getCategoriesForKind(kind)
   const [ratings, setRatings] = useState<Record<string, number>>({})
   const [comment, setComment] = useState('')
+  const [otherPlaces, setOtherPlaces] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
@@ -62,6 +63,7 @@ export default function SurveyForm({
         ...ratings,
         comment: comment.trim() || null,
       }
+      if (kind === 'buyer') body.other_places_request = otherPlaces.trim() || null
       if (surveyId) body.surveyId = surveyId
       if (accessToken) body.accessToken = accessToken
 
@@ -203,6 +205,40 @@ export default function SurveyForm({
               boxSizing: 'border-box',
             }}
           />
+          {/* Survey cadence (owner 2026-08-29, mig 240): buyers get one ask a
+              week — use it to learn where else they'd like to shop. */}
+          {kind === 'buyer' && (
+            <>
+              <label style={{
+                display: 'block',
+                fontWeight: typography.weights.semibold,
+                fontSize: typography.sizes.sm,
+                color: colors.textPrimary,
+                margin: `${spacing.sm} 0 ${spacing['2xs']}`,
+              }}>
+                Other places you&apos;d like to see on the app? (optional)
+              </label>
+              <textarea
+                value={otherPlaces}
+                onChange={(e) => setOtherPlaces(e.target.value)}
+                disabled={submitting}
+                maxLength={1000}
+                rows={2}
+                placeholder={`A ${term(vertical, 'market').toLowerCase()}, a truck, a farm stand — anywhere you wish you could order ahead`}
+                style={{
+                  width: '100%',
+                  padding: spacing.xs,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: radius.sm,
+                  fontSize: typography.sizes.sm,
+                  fontFamily: 'inherit',
+                  resize: 'vertical',
+                  minHeight: 50,
+                  boxSizing: 'border-box',
+                }}
+              />
+            </>
+          )}
         </div>
       </div>
 
