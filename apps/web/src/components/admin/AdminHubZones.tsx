@@ -21,6 +21,7 @@ import Link from 'next/link'
 import { spacing, typography, radius, shadows, colors } from '@/lib/design-tokens'
 import { formatPrice } from '@/lib/pricing'
 import DashboardTile, { TileBadge } from '@/components/dashboard/DashboardTile'
+import DashboardCard from '@/components/dashboard/DashboardCard'
 import GroupHeading from '@/components/dashboard/GroupHeading'
 import type { DashboardIconName } from '@/components/dashboard/icons'
 import type { AdminHubData } from '@/lib/admin/hub-data'
@@ -81,22 +82,36 @@ export default function AdminHubZones({ hub, base, navGroups, staleHref }: Admin
           : {})}
       />
 
+      {/* Owner (phase-2 smoke): ONE visual language — no old-style horizontal
+          banners next to the new tiles. Stuck orders = warning CARD (there is
+          no dedicated page to send it to); stale vendors = an attention TILE
+          in the same grid as the queues. */}
       {watch.stuckOrders > 0 && (
-        <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderLeft: '4px solid #ef4444', borderRadius: radius.sm, padding: spacing.sm, marginBottom: spacing.xs, color: '#991b1b', fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm }}>
-          {watch.stuckOrders} order{watch.stuckOrders === 1 ? '' : 's'} stuck in paid/confirmed for 24+ hours
-        </div>
-      )}
-      {watch.staleVendors > 0 && (
-        <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderLeft: '4px solid #f59e0b', borderRadius: radius.sm, padding: spacing.sm, marginBottom: spacing.xs, display: 'flex', justifyContent: 'space-between', gap: spacing.xs, fontSize: typography.sizes.sm }}>
-          <span style={{ color: '#92400e', fontWeight: typography.weights.semibold }}>
-            ⚠️ {watch.staleVendors} vendor{watch.staleVendors === 1 ? '' : 's'} pending approval for 2+ days
-          </span>
-          <Link href={staleHref} style={{ color: '#92400e', fontWeight: typography.weights.semibold, textDecoration: 'none', whiteSpace: 'nowrap' }}>Review now →</Link>
+        <div style={{ marginBottom: spacing.sm }}>
+          <DashboardCard
+            state="warning"
+            title={`${watch.stuckOrders} order${watch.stuckOrders === 1 ? '' : 's'} stuck in paid/confirmed for 24+ hours`}
+          >
+            <span style={{ fontSize: typography.sizes.sm }}>
+              A day old without fulfillment — worth checking with the vendor or in Stripe.
+            </span>
+          </DashboardCard>
         </div>
       )}
 
-      {queues.length > 0 && (
+      {(queues.length > 0 || watch.staleVendors > 0) && (
         <div className="admin-grid-3" style={{ gap: spacing.sm, marginBottom: spacing.md }}>
+          {watch.staleVendors > 0 && (
+            <DashboardTile
+              href={staleHref}
+              icon="browse"
+              title="Vendors waiting 2+ days"
+              state="attention"
+              badge={<TileBadge>{watch.staleVendors}</TileBadge>}
+            >
+              Oldest approvals first — tap to review
+            </DashboardTile>
+          )}
           {queues.map(q => (
             <DashboardTile
               key={q.key}
@@ -139,7 +154,10 @@ export default function AdminHubZones({ hub, base, navGroups, staleHref }: Admin
 
       {/* ── Zone 3: Activity snapshot ─────────────────────────────────── */}
       <GroupHeading title="Activity" subtitle="Rolling windows — last 24 hours and last 7 days" />
-      <div className="admin-grid-3" style={{ gap: spacing.sm, marginBottom: spacing.md }}>
+      {/* Owner (phase-2 smoke): keep the numbers dense on phones — a fixed
+          min-width auto-fit grid gives 2–3 columns everywhere instead of six
+          full-width cards to scroll past. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: spacing.xs, marginBottom: spacing.md }}>
         <SnapshotCell label="Orders · 24 h" value={String(snapshot.orders24h)} />
         <SnapshotCell label="Sales · 24 h" value={formatPrice(snapshot.sales24hCents)} />
         <SnapshotCell label="Orders · 7 d" value={String(snapshot.orders7d)} />
@@ -169,8 +187,10 @@ export default function AdminHubZones({ hub, base, navGroups, staleHref }: Admin
       {/* ── Zone 5: Browse (built from the nav definition) ─────────────── */}
       <GroupHeading title="Browse" />
       {navGroups.map(group => (
-        <div key={group.label} style={{ marginBottom: spacing.sm }}>
-          <div style={{ fontSize: typography.sizes.xs, fontWeight: typography.weights.bold, textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.textMuted, margin: `0 0 ${spacing['2xs']}` }}>{group.label}</div>
+        <div key={group.label} style={{ marginBottom: spacing.lg }}>
+          {/* Owner (phase-2 smoke): clearer subsection boundaries — underline
+              the group label and give groups more air between them. */}
+          <div style={{ fontSize: typography.sizes.xs, fontWeight: typography.weights.bold, textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.textMuted, borderBottom: '1px solid #e5e7eb', paddingBottom: 4, margin: `0 0 ${spacing.xs}` }}>{group.label}</div>
           <div className="admin-grid-3" style={{ gap: spacing.sm }}>
             {group.links.filter(l => l.path !== '').map(link => (
               <DashboardTile
