@@ -2757,3 +2757,6 @@ Session memory: project_session_2026-08-30b.md · new feedback memory: feedback_
 
 ### ADMIN PHASE 3 MERGE 3/11 — ADMINS (built 2026-08-31, owner "skip batching, one at a time"; UNCOMMITTED)
 components/admin/AdminsManager.tsx (mode platform|vertical — UI-shape merge ONLY; two different permission systems, endpoints + S4-2 gates verbatim per mode) + both routes thin wrappers. Superset gain: platform admins page now has the row-list mobile layout (old copy was table-only). Gates + commit proposal pending.
+
+### ADMIN PHASE 3 MERGES 4-6 BATCH (owner approved: 3 local commits, ONE push; money merges still solo)
+- MERGE 4/11 ERROR-LOGS built 2026-08-31: ErrorLogsAdminPage (client, vertical? prop; one shared API already). Superset 90d+active-window ∪ row-list+cross-link. Gates pending → local commit.
