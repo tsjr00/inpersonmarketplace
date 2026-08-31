@@ -6,9 +6,9 @@
  * 2026-08-30). Superset of the two former ListingsTableClient copies
  * (capability inventory in .claude/admin_ui_redesign_research.md):
  *   from the platform copy — vertical chip + vertical filter (all-scope
- *   only), Vertical CSV column, created date, tier chip shown for any paid
- *   tier (the vertical copy hid 'standard', which the platform copy showed);
+ *   only), Vertical CSV column, created date;
  *   from the vertical copy — scoped CSV filename.
+ *   (Tier chips deliberately dropped from rows — owner 2026-08-30.)
  * One row-list layout at ALL widths (owner, users-merge round 2: no wide
  * table, no sideways scrolling). The table-only columns — created date,
  * vertical, View link — live in each row's secondary line so the single
@@ -249,7 +249,6 @@ export default function ListingsAdminTable({
             listings.map((listing) => {
               const vendorName = listing.vendor_profiles?.profile_data?.business_name ||
                                 listing.vendor_profiles?.profile_data?.farm_name || 'Unknown'
-              const vendorTier = listing.vendor_profiles?.tier
               const isPublished = listing.status === 'published'
               const isPaused = listing.status === 'paused'
               const outOfStock = isPublished && listing.quantity !== null && listing.quantity === 0
@@ -282,9 +281,9 @@ export default function ListingsAdminTable({
                   secondary={
                     <>
                       {vendorName}
-                      {vendorTier && vendorTier !== 'free' && (
-                        <> <span style={{ color: vendorTier === 'pro' || vendorTier === 'premium' ? '#1e40af' : '#92400e', fontWeight: 600 }}>({vendorTier})</span></>
-                      )}
+                      {/* Tier chip removed (owner 2026-08-30): tier belongs to
+                          the vendor, not each listing row — it read as noise
+                          here. Tier still shows on the vendors/users pages. */}
                       {' · '}
                       {listing.category || 'Uncategorized'}
                       {' · '}

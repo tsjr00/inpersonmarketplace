@@ -66,6 +66,7 @@ interface EventDetails {
   city: string
   state: string
   status: string
+  event_vendor_fee_cents?: number | null
 }
 
 export default function EventSelectPage() {
@@ -244,6 +245,16 @@ export default function EventSelectPage() {
           <p style={{ color: statusColors.neutral500, fontSize: typography.sizes.sm }}>
             Your attendees can browse {isFM ? 'products' : 'menus'} and pre-order through the event page right away.
           </p>
+          {/* Fee events only (owner 2026-08-30): unpaid menus don't sell
+              (mig 234's paid/covered gate), so a first-time organizer
+              shouldn't blast the link before their vendors have paid. */}
+          {(event?.event_vendor_fee_cents ?? 0) > 0 && (
+            <p style={{ color: '#92400e', fontSize: typography.sizes.sm, marginTop: spacing.sm }}>
+              One heads-up before you share the link widely: your event charges a spot fee, and
+              {isFM ? ' items' : ' menus'} from your {vendorTermPlural} appear on the event page once
+              their fee is paid. You may want to wait for those payments before sending the link out.
+            </p>
+          )}
         </div>
       </div>
     )

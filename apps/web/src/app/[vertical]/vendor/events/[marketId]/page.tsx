@@ -378,7 +378,10 @@ export default function VendorCateringDetailPage() {
         }),
       })
       if (res.ok) {
-        setActionMessage(vertical === 'farmers_market' ? 'You accepted this event and your items have been submitted!' : 'You accepted this event and your menu has been submitted!')
+        // No success banner here (owner 2026-08-30): the status pill flips to
+        // "You said yes · awaiting the organizer's selection" and the
+        // prep-sheet line appears — a second green box was duplicative.
+        setActionMessage(null)
         setDetails((prev) => prev ? { ...prev, response_status: 'accepted' } : prev)
       } else {
         const err = await res.json()
@@ -609,8 +612,13 @@ export default function VendorCateringDetailPage() {
 
       {/* Event Vendor Fee (V1 2026-08-14). Disclosed BEFORE acceptance
           (decision 2). The pay button appears only when the organizer has
-          selected this vendor; a paid row is the spot being secured. */}
-      {details.vendor_fee_cents != null && details.vendor_fee_cents > 0 && details.response_status !== 'declined' && (
+          selected this vendor; a paid row is the spot being secured.
+          HIDDEN while BENCHED (owner 2026-08-30): a vendor just told they
+          weren't selected doesn't need fee info — the fee becomes real again
+          only at step-in, and the cancel route's promotion clears is_backup
+          and stamps organizer_selected_at, so this box (and its pay button)
+          returns on its own at that moment. */}
+      {details.vendor_fee_cents != null && details.vendor_fee_cents > 0 && details.response_status !== 'declined' && !details.is_backup && (
         <div style={{
           marginBottom: spacing.md,
           padding: spacing.sm,
@@ -634,13 +642,6 @@ export default function VendorCateringDetailPage() {
               secure your spot, paid only after the organizer selects you.
               {details.response_status !== 'accepted' && (
                 <> Accepting the invitation means you agree to this fee if selected.</>
-              )}
-              {/* Owner 2026-08-30 (verified: display gap, not a workflow
-                  conflict — selection stamps organizer_selected_at only on the
-                  chosen and is_backup on the rest; step-in re-stamps it). A
-                  benched vendor must not read pre-selection copy. */}
-              {details.response_status === 'accepted' && details.is_backup && (
-                <> Nothing to pay while you&apos;re on the bench — if a spot opens and you step in, the fee applies then (or is covered by the departing {vertical === 'farmers_market' ? 'vendor' : 'truck'}&apos;s forfeit).</>
               )}
               {details.response_status === 'accepted' && !details.is_backup && !details.organizer_selected_at && (
                 <> The organizer hasn&apos;t made their selection yet — you&apos;ll be able to pay here once they do.</>

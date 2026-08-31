@@ -2186,3 +2186,6 @@ Each query fails on every run (42703). All are wrapped in `observed()` so they n
 - `app/api/admin/reports/route.ts` :1625 `vendor_fee_ledger.fee_cents, fee_type` (real: `amount_cents`, `type`) and :1638 `vendor_fee_balance.total_owed_cents, total_collected_cents` (real: `balance_cents` only) — admin vendor-fee report is empty.
 - `app/api/vendor/location-insights/route.ts` :379 `user_profiles.latitude, longitude` (real: `preferred_latitude`, `preferred_longitude`) — buyer-density section of vendor Location Insights is always empty.
 Fix = rename the columns + adjust the mapping code; remove each line from `KNOWN_PHANTOM_COLUMNS` in guardrail-contracts (the test enforces the list only shrinks).
+
+## Background-check deadline enforcement (owner, 2026-08-30 session 2)
+The app can't know whether a required background check actually happened. Organizer needs a way to STOP a vendor from attending if the check isn't completed by a deadline (e.g., a "confirm check received" toggle per selected vendor + a cutoff date; unconfirmed by cutoff → organizer can drop the vendor with the normal deselect/refund flow). Design when event chunk reopens.

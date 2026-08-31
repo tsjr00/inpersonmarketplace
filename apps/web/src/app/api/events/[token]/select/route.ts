@@ -47,7 +47,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     // Find the catering request by token
     const { data: event } = await observed(serviceClient
       .from('catering_requests')
-      .select('id, company_name, contact_name, contact_email, event_date, event_start_time, event_end_time, headcount, vendor_count, expected_meal_count, cancellation_risk_factors, city, state, vertical_id, market_id, status, service_level, payment_model, event_type, is_ticketed, competing_food_options')
+      .select('id, company_name, contact_name, contact_email, event_date, event_start_time, event_end_time, headcount, vendor_count, expected_meal_count, cancellation_risk_factors, city, state, vertical_id, market_id, status, service_level, payment_model, event_type, is_ticketed, competing_food_options, event_vendor_fee_cents')
       .eq('event_token', token)
       .single(), { table: 'catering_requests' })
 
@@ -93,6 +93,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
           city: event.city,
           state: event.state,
           status: event.status,
+          // Fee events: the success screen warns not to share the event link
+          // before the selected vendors pay (unpaid menus don't sell — mig 234).
+          event_vendor_fee_cents: event.event_vendor_fee_cents ?? null,
         },
         vendors: [],
       })
@@ -236,6 +239,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
         city: event.city,
         state: event.state,
         status: event.status,
+        // Fee events: the success screen warns not to share the event link
+        // before the selected vendors pay (unpaid menus don't sell — mig 234).
+        event_vendor_fee_cents: event.event_vendor_fee_cents ?? null,
       },
       vendors,
       recommended_backups: bench.recommendedBackups,
