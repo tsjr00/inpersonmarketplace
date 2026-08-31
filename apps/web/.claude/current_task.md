@@ -2754,3 +2754,6 @@ STILL OPEN (Protocol v6): D deselect/refund money · C cancellation money · E r
 PROD: 33 commits behind e946c2c0, NO emergency (gaps = iPhone intake fix + invitation gate); wait for D/C/E money tests → then migs 238→239→240 paste + code push in window 21:00–07:00 CT.
 NEXT BUILD ON GO: admin merge 3/11 ADMINS, then error-logs/errors/event-ratings/order-issues/analytics/cause/reports; phases 4–6 designed in admin_ui_redesign_research.md.
 Session memory: project_session_2026-08-30b.md · new feedback memory: feedback_journey_sequencing.md · backlog+: background-check deadline enforcement.
+
+### ADMIN PHASE 3 MERGE 3/11 — ADMINS (built 2026-08-31, owner "skip batching, one at a time"; UNCOMMITTED)
+components/admin/AdminsManager.tsx (mode platform|vertical — UI-shape merge ONLY; two different permission systems, endpoints + S4-2 gates verbatim per mode) + both routes thin wrappers. Superset gain: platform admins page now has the row-list mobile layout (old copy was table-only). Gates + commit proposal pending.
