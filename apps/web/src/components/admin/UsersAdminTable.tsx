@@ -18,8 +18,8 @@
  */
 
 import { useState, useCallback } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useDebounce } from '@/lib/hooks/useDebounce'
 import Pagination from '@/components/admin/Pagination'
 import AdminMobileRow from '@/components/admin/AdminMobileRow'
@@ -270,116 +270,12 @@ export default function UsersAdminTable({
 
       {/* Table (desktop) */}
       <div style={{ backgroundColor: 'white', borderRadius: radius.md, boxShadow: shadows.sm }}>
-        <div className="admin-list-table">
-          <div className="admin-table-wrap">
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ backgroundColor: colors.surfaceMuted }}>
-                  <th style={thStyle}>Email</th>
-                  <th style={thStyle}>Name</th>
-                  <th style={thStyle}>Role</th>
-                  {!scope && <th style={thStyle}>Verticals</th>}
-                  <th style={thStyle}>Buyer Tier</th>
-                  <th style={thStyle}>Vendor Status</th>
-                  <th style={thStyle}>Vendor Tier</th>
-                  <th style={thStyle}>Joined</th>
-                  <th style={{ ...thStyle, textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.length === 0 ? (
-                  <tr>
-                    <td colSpan={scope ? 8 : 9} style={{ padding: spacing.lg, textAlign: 'center', color: colors.textMuted }}>
-                      No users found matching your filters
-                    </td>
-                  </tr>
-                ) : (
-                  users.map((user) => {
-                    const profiles = relevantProfiles(user)
-                    return (
-                      <tr key={user.id} style={{ borderBottom: `1px solid ${colors.border}` }}>
-                        <td style={tdStyle}>{user.email || '-'}</td>
-                        <td style={tdStyle}>{user.display_name || '-'}</td>
-                        <td style={tdStyle}><RoleChip user={user} /></td>
-                        {!scope && (
-                          <td style={tdStyle}>
-                            {user.verticals && user.verticals.length > 0 ? (
-                              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                                {user.verticals.map(v => (
-                                  <span key={v} style={{ padding: `${spacing['3xs']} ${spacing['2xs']}`, backgroundColor: '#f3f4f6', borderRadius: radius.sm, fontSize: typography.sizes.xs }}>{v}</span>
-                                ))}
-                              </div>
-                            ) : '-'}
-                          </td>
-                        )}
-                        <td style={tdStyle}>
-                          <span style={{ padding: `${spacing['3xs']} ${spacing['2xs']}`, backgroundColor: user.buyer_tier === 'premium' ? '#fef3c7' : '#f3f4f6', color: user.buyer_tier === 'premium' ? '#92400e' : '#6b7280', borderRadius: radius.sm, fontSize: typography.sizes.xs }}>
-                            {user.buyer_tier || 'free'}
-                          </span>
-                          {user.buyer_tier === 'premium' && user.buyer_tier_expires_at && (
-                            <div style={{ fontSize: 10, color: '#999', marginTop: 2 }}>
-                              exp: {new Date(user.buyer_tier_expires_at).toLocaleDateString()}
-                            </div>
-                          )}
-                        </td>
-                        <td style={tdStyle}>
-                          {profiles.length > 0 ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                              {profiles.map(vp => (
-                                <span key={vp.id} style={{
-                                  padding: `${spacing['3xs']} ${spacing['2xs']}`,
-                                  backgroundColor: vp.status === 'approved' ? '#dcfce7' : vp.status === 'rejected' ? '#fee2e2' : '#fef3c7',
-                                  color: vp.status === 'approved' ? '#166534' : vp.status === 'rejected' ? '#991b1b' : '#92400e',
-                                  borderRadius: radius.sm, fontSize: typography.sizes.xs, display: 'inline-block',
-                                }}>
-                                  {scope ? vp.status : `${vp.vertical_id}: ${vp.status}`}
-                                </span>
-                              ))}
-                            </div>
-                          ) : '-'}
-                        </td>
-                        <td style={tdStyle}>
-                          {profiles.length > 0 ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                              {profiles.map(vp => (
-                                <span key={vp.id} style={{ padding: `${spacing['3xs']} ${spacing['2xs']}`, backgroundColor: '#f3f4f6', borderRadius: radius.sm, fontSize: typography.sizes.xs, display: 'inline-block' }}>
-                                  {vp.tier || 'free'}
-                                </span>
-                              ))}
-                            </div>
-                          ) : '-'}
-                        </td>
-                        <td style={tdStyle}>{new Date(user.created_at).toLocaleDateString()}</td>
-                        <td style={{ ...tdStyle, textAlign: 'right' }}>
-                          <div style={{ display: 'flex', gap: spacing['2xs'], flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                            {profiles.map(vp => (
-                              <Link
-                                key={vp.id}
-                                href={`/${vp.vertical_id}/admin/vendors/${vp.id}`}
-                                style={{ padding: `${spacing['3xs']} ${spacing.xs}`, color: colors.primary, textDecoration: 'none', fontSize: typography.sizes.xs }}
-                              >
-                                {scope ? 'Vendor →' : `${vp.vertical_id} →`}
-                              </Link>
-                            ))}
-                            <button
-                              onClick={() => setSuspendTarget({ userId: user.user_id, name: user.display_name || user.email || 'User', action: user.deleted_at ? 'reactivate' : 'suspend' })}
-                              style={suspendButtonStyle(!!user.deleted_at)}
-                            >
-                              {user.deleted_at ? 'Reactivate' : 'Suspend'}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
+        {/* Owner (2026-08-30 round 2): NO wide table at any width — the
+            9-column desktop table forced sideways scrolling to reach the
+            buttons. One row-list layout everywhere, like the dashboards.
+            Column-level detail lives in the row chips + CSV export. */}
         {/* Mobile rows */}
-        <div className="admin-list-mobile">
+        <div>
           {users.length === 0 ? (
             <div className="admin-mobile-empty">No users found matching your filters</div>
           ) : (
@@ -405,10 +301,26 @@ export default function UsersAdminTable({
                     <>
                       {user.email}
                       {verticalsLabel && <> · {verticalsLabel}</>}
-                      {scope && profiles[0] && <> · vendor: {profiles[0].status}{profiles[0].tier ? ` (${profiles[0].tier})` : ''}</>}
-                      {user.buyer_tier === 'premium' && <> · <span style={{ color: '#92400e', fontWeight: 600 }}>premium</span></>}
+                      {user.buyer_tier === 'premium' && (
+                        <> · <span style={{ color: '#92400e', fontWeight: 600 }}>premium</span>
+                          {user.buyer_tier_expires_at && <> (exp {new Date(user.buyer_tier_expires_at).toLocaleDateString()})</>}
+                        </>
+                      )}
                       {' · '}
                       Joined {new Date(user.created_at).toLocaleDateString()}
+                      {/* The removed desktop table was the only home of the
+                          vendor drill-ins + per-profile detail — restored here
+                          so the single-layout page stays a superset. */}
+                      {profiles.map(vp => (
+                        <span key={vp.id} style={{ display: 'inline-block', marginLeft: 8 }}>
+                          <Link
+                            href={`/${vp.vertical_id}/admin/vendors/${vp.id}`}
+                            style={{ color: colors.primary, textDecoration: 'none', fontWeight: 600 }}
+                          >
+                            {scope ? 'vendor' : vp.vertical_id}: {vp.status}{vp.tier ? ` (${vp.tier})` : ''} →
+                          </Link>
+                        </span>
+                      ))}
                     </>
                   }
                 />
@@ -454,18 +366,4 @@ export default function UsersAdminTable({
       )}
     </>
   )
-}
-
-const thStyle = {
-  padding: spacing.sm,
-  textAlign: 'left' as const,
-  fontWeight: typography.weights.semibold,
-  fontSize: typography.sizes.sm,
-  color: colors.textSecondary,
-  borderBottom: `2px solid ${colors.border}`,
-}
-const tdStyle = {
-  padding: spacing.sm,
-  fontSize: typography.sizes.sm,
-  color: colors.textPrimary,
 }

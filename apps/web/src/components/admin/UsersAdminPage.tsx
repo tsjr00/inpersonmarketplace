@@ -41,19 +41,38 @@ export default async function UsersAdminPage({ scope, basePath, searchParams }: 
 
   const serviceClient = createServiceClient()
 
+  // Owner finding (2026-08-30 round 2): "the filters don't all work right."
+  // Root causes in the inherited pages: (a) vendor status/tier filtered
+  // CLIENT-SIDE on the current 20-row page only, so counts and pagination
+  // ignored the filter; (b) the role filter read `roles`, but vendor signup
+  // never writes 'vendor' into roles (api/submit upserts without it) and the
+  // upsert path writes no roles at all. Fixed server-side:
+  //   vendor status/tier and role=vendor → vendor_profiles!inner + dotted
+  //   filters (scoped to the vertical when scoped);
+  //   role=admin/buyer → or() across BOTH role columns.
+  const vendorJoinNeeded = !!(vendorStatus || vendorTier || role === 'vendor')
   let query = serviceClient
     .from('user_profiles')
     .select(`
       id, user_id, email, display_name, role, roles, verticals,
       buyer_tier, buyer_tier_expires_at, deleted_at, created_at,
-      vendor_profiles!left ( id, status, vertical_id, tier )
+      vendor_profiles${vendorJoinNeeded ? '!inner' : '!left'} ( id, status, vertical_id, tier )
     `, { count: 'exact' })
     .order('created_at', { ascending: false })
 
   if (scope) query = query.contains('verticals', [scope])
   else if (vertical) query = query.contains('verticals', [vertical])
   if (search) query = query.or(`email.ilike.%${search}%,display_name.ilike.%${search}%`)
-  if (role) query = query.contains('roles', [role])
+  if (role === 'admin') {
+    query = query.or('role.eq.admin,role.eq.platform_admin,roles.cs.{admin},roles.cs.{platform_admin}')
+  } else if (role === 'buyer') {
+    query = query.or('role.eq.buyer,roles.cs.{buyer}')
+  }
+  if (vendorJoinNeeded && scope) query = query.eq('vendor_profiles.vertical_id', scope)
+  if (vendorStatus === 'pending') query = query.in('vendor_profiles.status', ['submitted', 'draft'])
+  else if (vendorStatus) query = query.eq('vendor_profiles.status', vendorStatus)
+  if (vendorTier === 'free') query = query.or('tier.is.null,tier.eq.free', { foreignTable: 'vendor_profiles' })
+  else if (vendorTier) query = query.eq('vendor_profiles.tier', vendorTier)
   if (buyerTier) query = query.eq('buyer_tier', buyerTier)
   query = query.range(offset, offset + pageSize - 1)
 
@@ -62,27 +81,7 @@ export default async function UsersAdminPage({ scope, basePath, searchParams }: 
     console.error('Error fetching users:', error)
   }
 
-  // Vendor-side filters stay client-side (nested data); a profile only counts
-  // when it is inside the scope.
-  let filtered = users || []
-  if (vendorStatus || vendorTier) {
-    filtered = filtered.filter(user => {
-      const profiles = (user.vendor_profiles as AdminVendorProfile[] | null || [])
-        .filter(vp => !scope || vp.vertical_id === scope)
-      if (profiles.length === 0) return false
-      return profiles.some(vp => {
-        if (vendorStatus) {
-          if (vendorStatus === 'pending') {
-            if (vp.status !== 'submitted' && vp.status !== 'draft') return false
-          } else if (vp.status !== vendorStatus) {
-            return false
-          }
-        }
-        if (vendorTier && (vp.tier || 'free') !== vendorTier) return false
-        return true
-      })
-    })
-  }
+  const filtered = users || []
 
   // Vertical list for the all-scope filter dropdown.
   let availableVerticals: string[] = []

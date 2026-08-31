@@ -86,21 +86,22 @@ export default function AdminHubZones({ hub, base, navGroups, staleHref }: Admin
           banners next to the new tiles. Stuck orders = warning CARD (there is
           no dedicated page to send it to); stale vendors = an attention TILE
           in the same grid as the queues. */}
-      {watch.stuckOrders > 0 && (
-        <div style={{ marginBottom: spacing.sm }}>
-          <DashboardCard
-            state="warning"
-            title={`${watch.stuckOrders} order${watch.stuckOrders === 1 ? '' : 's'} stuck in paid/confirmed for 24+ hours`}
-          >
-            <span style={{ fontSize: typography.sizes.sm }}>
-              A day old without fulfillment — worth checking with the vendor or in Stripe.
-            </span>
-          </DashboardCard>
-        </div>
-      )}
-
-      {(queues.length > 0 || watch.staleVendors > 0) && (
+      {(queues.length > 0 || watch.staleVendors > 0 || watch.stuckOrders > 0) && (
         <div className="admin-grid-3" style={{ gap: spacing.sm, marginBottom: spacing.md }}>
+          {/* Owner (2026-08-30 round 2): ONE consistent notice format — the
+              stuck-orders card sits IN the grid at the same fixed width as
+              the tiles, not full-bleed above them. */}
+          {watch.stuckOrders > 0 && (
+            <DashboardCard
+              state="warning"
+              inGrid
+              title={`${watch.stuckOrders} order${watch.stuckOrders === 1 ? '' : 's'} stuck in paid/confirmed 24+ h`}
+            >
+              <span style={{ fontSize: typography.sizes.sm }}>
+                A day old without fulfillment — check with the vendor or in Stripe.
+              </span>
+            </DashboardCard>
+          )}
           {watch.staleVendors > 0 && (
             <DashboardTile
               href={staleHref}
