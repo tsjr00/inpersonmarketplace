@@ -1,5 +1,12 @@
 'use client'
 
+/**
+ * Client shim so the server-rendered vendor detail can hand
+ * VendorVerificationPanel an onRefresh (admin UI rebuild phase 4 — moved
+ * from app/admin/vendors/[vendorId]/, with the vertical prop added so the
+ * panel's food-truck-specific copy renders correctly on both tiers).
+ */
+
 import { useRouter } from 'next/navigation'
 import VendorVerificationPanel from '@/components/admin/VendorVerificationPanel'
 
@@ -26,15 +33,17 @@ interface Verification {
 interface Props {
   vendorId: string
   verification: Verification | null
+  vertical?: string
 }
 
-export default function VendorVerificationWrapper({ vendorId, verification }: Props) {
+export default function VendorVerificationWrapper({ vendorId, verification, vertical }: Props) {
   const router = useRouter()
   return (
     <VendorVerificationPanel
       vendorId={vendorId}
       verification={verification}
       onRefresh={() => router.refresh()}
+      {...(vertical ? { vertical } : {})}
     />
   )
 }

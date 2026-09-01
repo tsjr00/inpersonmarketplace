@@ -1,11 +1,21 @@
 'use client'
 
+/**
+ * VendorEventApproval — the ONE event-approval toggle for the merged vendor
+ * detail (admin UI rebuild phase 4, owner 2026-08-31). Verbatim from the
+ * vertical copy's VendorAdminActions, which carries the stricter superset
+ * rule: enabled for food_trucks AND farmers_market, gated on an approved
+ * Certificate of Insurance, with the T-62 not-applied warning (an admin
+ * once event-approved a vendor whose readiness questionnaire was empty).
+ * The old platform toggle (FT-only, no COI gate) is retired in its favor.
+ */
+
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 
-interface VendorAdminActionsProps {
+interface VendorEventApprovalProps {
   vendorId: string
   vertical: string
   currentStatus: string
@@ -15,14 +25,14 @@ interface VendorAdminActionsProps {
   hasApplied: boolean
 }
 
-export default function VendorAdminActions({
+export default function VendorEventApproval({
   vendorId,
   vertical,
   currentStatus,
   eventApproved: initialEventApproved,
   hasCoiApproved,
   hasApplied,
-}: VendorAdminActionsProps) {
+}: VendorEventApprovalProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [eventApproved, setEventApproved] = useState(initialEventApproved)
@@ -37,12 +47,7 @@ export default function VendorAdminActions({
       setMessage({ type: 'error', text: 'Vendor must have approved Certificate of Insurance before event approval.' })
       return
     }
-    // T-62: an admin granted event approval to a vendor who never applied,
-    // with no warning — the dialog was generic and blind to application state.
-    // The owner did exactly this by accident during testing. When the vendor
-    // has NOT applied, the dialog now names the mismatch and uses the danger
-    // styling; approving anyway stays possible (an admin may have context) but
-    // can no longer happen unknowingly.
+    // T-62: warn loudly when approving a non-applicant; override stays possible.
     const approvingNonApplicant = approve && !hasApplied
     setConfirmDialog({
       open: true,
@@ -103,7 +108,6 @@ export default function VendorAdminActions({
         </div>
       )}
 
-      {/* Event Approval — FT approved vendors only */}
       {isEventEnabled && isApproved && (
         <div>
           {!eventApproved ? (
@@ -155,7 +159,6 @@ export default function VendorAdminActions({
         </div>
       )}
 
-      {/* Not eligible message */}
       {isEventEnabled && !isApproved && (
         <p style={{ fontSize: typography.sizes.xs, color: colors.textMuted, margin: 0 }}>
           Vendor must be approved before event eligibility.
