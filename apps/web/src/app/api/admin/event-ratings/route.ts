@@ -80,10 +80,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch event ratings' }, { status: 500 })
     }
 
-    // Count by status for the filter tabs
-    const { data: allRows } = await observed(serviceClient
+    // Count by status for the filter tabs. Scoped the same way as the list
+    // (merge 6/11 repair, 2026-08-31): this used to count ALL verticals'
+    // ratings, so the vertical page's tab counts disagreed with its own
+    // scoped list whenever another vertical had ratings.
+    let countQ = serviceClient
       .from('event_ratings')
-      .select('status'), { table: 'event_ratings' })
+      .select('status, catering_requests!inner(vertical_id)')
+    if (scope.effectiveVerticalId) {
+      countQ = countQ.eq('catering_requests.vertical_id', scope.effectiveVerticalId)
+    }
+    const { data: allRows } = await observed(countQ, { table: 'event_ratings' })
 
     const counts: Record<string, number> = { pending: 0, approved: 0, hidden: 0, total: 0 }
     for (const r of allRows || []) {

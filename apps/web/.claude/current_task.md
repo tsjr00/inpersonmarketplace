@@ -2761,3 +2761,4 @@ components/admin/AdminsManager.tsx (mode platform|vertical — UI-shape merge ON
 ### ADMIN PHASE 3 MERGES 4-6 BATCH (owner approved: 3 local commits, ONE push; money merges still solo)
 - MERGE 4/11 ERROR-LOGS built 2026-08-31: ErrorLogsAdminPage (client, vertical? prop; one shared API already). Superset 90d+active-window ∪ row-list+cross-link. Gates pending → local commit.
 - MERGE 5/11 ERRORS built 2026-08-31: ErrorReportsAdminPage (client, vertical? prop; shared APIs). Action union + platform detail extras everywhere; drawer→sticky split. ⚠ Record-Fix-Attempt = pre-existing UI STUB carried over (posts nothing) — owner decision pending. Gates → local commit.
+- MERGE 6/11 EVENT-RATINGS built 2026-08-31: EventRatingsAdminPage (client, vertical? prop). Moderation platform-only split preserved (ADM-4). REPAIR: vertical tab counts were global → scoped via catering_requests!inner. Gates → local commit → batch push (merges 4+5+6).
