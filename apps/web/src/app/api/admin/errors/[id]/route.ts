@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb, getResolutionSummary, observed } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, getResolutionSummary, observed, recordFixAttempt } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { hasPlatformAdminRole } from '@/lib/auth/admin'
 
@@ -175,7 +175,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     // Parse request body
     const body = await request.json()
-    const { action, notes, assignToUserId, resolutionId, status } = body
+    const { action, notes, assignToUserId, resolutionId, status, attemptedFix, migrationFile } = body
 
     crumb.logic('Validating action', { action })
 
@@ -278,6 +278,38 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }
         updateData.status = status
         break
+
+      case 'record_fix_attempt': {
+        // Wired 2026-08-31 (owner-approved): the admin UI's Record Fix
+        // Attempt form writes a real error_resolutions row (status 'pending')
+        // via the same recordFixAttempt() helper Claude sessions use, so the
+        // resolution history this route reads back is fed from both sides.
+        // Platform-admin only — resolution history is cross-vertical.
+        if (!isPlatformAdmin) {
+          throw traced.auth('ERR_AUTH_002', 'Only platform admin can record fix attempts')
+        }
+        if (!currentReport.error_code) {
+          throw traced.validation('ERR_VALIDATION_007', 'This report has no error code to record a resolution for')
+        }
+        if (!attemptedFix || typeof attemptedFix !== 'string' || !attemptedFix.trim()) {
+          throw traced.validation('ERR_VALIDATION_008', 'attemptedFix is required')
+        }
+        crumb.supabase('insert', 'error_resolutions')
+        const resolutionRowId = await recordFixAttempt({
+          errorCode: currentReport.error_code,
+          attemptedFix: attemptedFix.trim(),
+          ...(migrationFile && typeof migrationFile === 'string' && migrationFile.trim()
+            ? { migrationFile: migrationFile.trim() }
+            : {}),
+          ...(currentReport.trace_id ? { traceId: currentReport.trace_id } : {}),
+          createdBy: user.id,
+        })
+        if (!resolutionRowId) {
+          throw traced.validation('ERR_VALIDATION_009', 'Failed to record the fix attempt')
+        }
+        // No error_reports update — the attempt lives in error_resolutions.
+        return NextResponse.json({ success: true, resolutionId: resolutionRowId })
+      }
 
       default:
         throw traced.validation('ERR_VALIDATION_006', `Unknown action: ${action}`)

@@ -10,8 +10,9 @@
  *   from the platform copy — escalation Level filter (all-scope only,
  *   default "Escalated to Platform"), vertical chip on rows, escalated-at
  *   line, Copy Context for Developer, breadcrumbs panel, similar-reports
- *   count, Record Fix Attempt form (NOTE: that form was and remains a UI
- *   stub — it posts nothing; carried over unchanged pending owner call);
+ *   count, Record Fix Attempt form (wired for real 2026-08-31: action
+ *   record_fix_attempt → recordFixAttempt() into error_resolutions;
+ *   platform mode only — was a stub that saved nothing);
  *   from the vertical copy — the fuller action set (acknowledge / escalate /
  *   mark duplicate / cannot reproduce, which the API always supported),
  *   message + user-description previews on the cards, reporter email and
@@ -150,17 +151,41 @@ export default function ErrorReportsAdminPage({ vertical }: { vertical?: string 
     }
   }
 
-  // Carried over from the old platform page UNCHANGED: this form has never
-  // posted anywhere — it only shows the banner. Flagged to the owner at merge
-  // time; do not quietly wire or remove it without their call.
-  function handleRecordResolution() {
+  // Wired for real (owner 2026-08-31 — "if we can wire it up and use it"):
+  // posts action record_fix_attempt to the [id] route, which calls the
+  // existing recordFixAttempt() writer into error_resolutions (the same
+  // table getResolutionSummary reads). Platform-admin only, like the rest of
+  // the resolution history. Was a UI stub that showed success while saving
+  // nothing.
+  async function handleRecordResolution() {
     if (!selectedReport?.error_code) {
       showBanner('warning', 'No error code to record resolution for')
       return
     }
-    showBanner('success', 'Resolution recorded! Run the migration and verify the fix, then mark verified or failed.')
-    setShowResolutionForm(false)
-    setResolutionForm({ attemptedFix: '', migrationFile: '' })
+    try {
+      setActionLoading(true)
+      const response = await fetch(`/api/admin/errors/${selectedReport.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'record_fix_attempt',
+          attemptedFix: resolutionForm.attemptedFix,
+          migrationFile: resolutionForm.migrationFile || undefined,
+        }),
+      })
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to record fix attempt')
+      }
+      showBanner('success', 'Fix attempt recorded — it now appears in this error code’s resolution history as pending verification.')
+      setShowResolutionForm(false)
+      setResolutionForm({ attemptedFix: '', migrationFile: '' })
+      fetchReportDetails(selectedReport.id)
+    } catch (err) {
+      showBanner('error', err instanceof Error ? err.message : 'Failed to record fix attempt')
+    } finally {
+      setActionLoading(false)
+    }
   }
 
   function generateDeveloperContext(): string {
@@ -462,10 +487,15 @@ export default function ErrorReportsAdminPage({ vertical }: { vertical?: string 
                     style={{ padding: spacing.xs, backgroundColor: colors.surfaceMuted, color: colors.textSecondary, border: `1px solid ${colors.border}`, borderRadius: radius.sm, cursor: 'pointer', fontSize: typography.sizes.sm }}>
                     Cannot Reproduce
                   </button>
-                  <button onClick={() => setShowResolutionForm(!showResolutionForm)}
-                    style={{ padding: spacing.xs, backgroundColor: colors.surfaceMuted, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: radius.sm, cursor: 'pointer', fontSize: typography.sizes.sm }}>
-                    {showResolutionForm ? 'Cancel' : 'Record Fix Attempt'}
-                  </button>
+                  {/* Platform-only, like the old surface: resolution history
+                      is cross-vertical developer data and the API action is
+                      platform-admin gated. */}
+                  {isPlatform && (
+                    <button onClick={() => setShowResolutionForm(!showResolutionForm)}
+                      style={{ padding: spacing.xs, backgroundColor: colors.surfaceMuted, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: radius.sm, cursor: 'pointer', fontSize: typography.sizes.sm }}>
+                      {showResolutionForm ? 'Cancel' : 'Record Fix Attempt'}
+                    </button>
+                  )}
                 </>
               )}
             </div>
