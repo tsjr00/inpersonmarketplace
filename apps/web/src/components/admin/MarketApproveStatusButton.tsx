@@ -9,7 +9,7 @@ import { useState } from 'react'
  * becomes visible to public browse + nearby + vendors-with-listings.
  *
  * Renders nothing when status !== 'pending'. The existing edit form
- * (admin/markets/[id]/edit) still handles all other field changes;
+ * (the vertical markets list ?edit form) still handles field changes;
  * this is purely the publish gate.
  *
  * Calls PUT /api/admin/markets/[id] with { status: 'active' }. The route

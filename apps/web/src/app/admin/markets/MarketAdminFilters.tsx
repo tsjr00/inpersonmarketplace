@@ -97,6 +97,7 @@ export default function MarketAdminFilters({
           <option value="">All Types</option>
           <option value="traditional">Traditional</option>
           <option value="private_pickup">Private Pickup</option>
+          <option value="event">🎪 Event</option>
         </select>
       </div>
 

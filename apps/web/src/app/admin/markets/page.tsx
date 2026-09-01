@@ -30,7 +30,10 @@ export default async function MarketsAdminPage({ searchParams }: MarketsAdminPag
   }
 
   if (type) {
-    query = query.eq('type', type)
+    // Phantom-column fix (phase 5): the column is market_type, not type —
+    // .eq('type') errored the query and blanked the list whenever the type
+    // filter was used.
+    query = query.eq('market_type', type)
   }
 
   if (active !== undefined) {
@@ -56,20 +59,26 @@ export default async function MarketsAdminPage({ searchParams }: MarketsAdminPag
     <div style={{ maxWidth: containers.wide, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
         <h1 style={{ color: '#333', margin: 0, fontSize: typography.sizes['2xl'] }}>Markets Management</h1>
-        <Link
-          href="/admin/markets/new"
-          style={{
-            padding: `${spacing['2xs']} ${spacing.md}`,
-            backgroundColor: '#0070f3',
-            color: 'white',
-            textDecoration: 'none',
-            borderRadius: radius.md,
-            fontSize: typography.sizes.sm,
-            fontWeight: typography.weights.medium,
-          }}
-        >
-          + New Market
-        </Link>
+        {/* Creation lives on the vertical Markets page (the one create/edit
+            form). The platform new/edit form was retired in phase 5 — its
+            API wrote phantom columns (type, zip_code) and errored on save.
+            The link appears once a vertical filter is chosen. */}
+        {vertical && (
+          <Link
+            href={`/${vertical}/admin/markets`}
+            style={{
+              padding: `${spacing['2xs']} ${spacing.md}`,
+              backgroundColor: '#0070f3',
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: radius.md,
+              fontSize: typography.sizes.sm,
+              fontWeight: typography.weights.medium,
+            }}
+          >
+            + New Market
+          </Link>
+        )}
       </div>
 
       {/* Filters */}
@@ -142,10 +151,10 @@ export default async function MarketsAdminPage({ searchParams }: MarketsAdminPag
                       borderRadius: radius.sm,
                       fontSize: typography.sizes.xs,
                       fontWeight: typography.weights.semibold,
-                      backgroundColor: market.type === 'traditional' ? '#e8f5e9' : '#fff3e0',
-                      color: market.type === 'traditional' ? '#2e7d32' : '#e65100',
+                      backgroundColor: market.market_type === 'traditional' ? '#e8f5e9' : market.market_type === 'event' ? '#fef3c7' : '#fff3e0',
+                      color: market.market_type === 'traditional' ? '#2e7d32' : market.market_type === 'event' ? '#92400e' : '#e65100',
                     }}>
-                      {market.type === 'traditional' ? 'Traditional' : 'Private Pickup'}
+                      {market.market_type === 'traditional' ? 'Traditional' : market.market_type === 'event' ? '🎪 Event' : 'Private Pickup'}
                     </span>
                   </td>
                   <td style={{ padding: spacing.sm, color: '#666', fontSize: typography.sizes.sm }}>
@@ -190,19 +199,21 @@ export default async function MarketsAdminPage({ searchParams }: MarketsAdminPag
                       >
                         View
                       </Link>
-                      <Link
-                        href={`/admin/markets/${market.id}/edit`}
-                        style={{
-                          padding: `${spacing['3xs']} ${spacing.xs}`,
-                          backgroundColor: '#0070f3',
-                          color: 'white',
-                          textDecoration: 'none',
-                          borderRadius: radius.sm,
-                          fontSize: typography.sizes.xs,
-                        }}
-                      >
-                        Edit
-                      </Link>
+                      {(market.market_type === 'traditional' || market.market_type === 'event') && (
+                        <Link
+                          href={`/${market.vertical_id}/admin/markets?edit=${market.id}`}
+                          style={{
+                            padding: `${spacing['3xs']} ${spacing.xs}`,
+                            backgroundColor: '#0070f3',
+                            color: 'white',
+                            textDecoration: 'none',
+                            borderRadius: radius.sm,
+                            fontSize: typography.sizes.xs,
+                          }}
+                        >
+                          Edit
+                        </Link>
+                      )}
                       <DeleteMarketButton marketId={market.id} marketName={market.name} />
                     </div>
                   </td>
@@ -216,7 +227,7 @@ export default async function MarketsAdminPage({ searchParams }: MarketsAdminPag
         <div className="admin-list-mobile">
           {transformedMarkets.map((market) => {
             const location = [market.city, market.state].filter(Boolean).join(', ')
-            const typeLabel = market.type === 'traditional' ? 'Traditional' : 'Private Pickup'
+            const typeLabel = market.market_type === 'traditional' ? 'Traditional' : market.market_type === 'event' ? '🎪 Event' : 'Private Pickup'
             const statusBadge = (
               <span style={{
                 padding: `${spacing['3xs']} ${spacing['2xs']}`,
@@ -259,20 +270,22 @@ export default async function MarketsAdminPage({ searchParams }: MarketsAdminPag
           textAlign: 'center',
         }}>
           <p style={{ color: '#666', fontSize: typography.sizes.base }}>No markets found matching filters.</p>
-          <Link
-            href="/admin/markets/new"
-            style={{
-              display: 'inline-block',
-              marginTop: spacing.sm,
-              padding: `${spacing['2xs']} ${spacing.md}`,
-              backgroundColor: '#0070f3',
-              color: 'white',
-              textDecoration: 'none',
-              borderRadius: radius.md,
-            }}
-          >
-            Create First Market
-          </Link>
+          {vertical && (
+            <Link
+              href={`/${vertical}/admin/markets`}
+              style={{
+                display: 'inline-block',
+                marginTop: spacing.sm,
+                padding: `${spacing['2xs']} ${spacing.md}`,
+                backgroundColor: '#0070f3',
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: radius.md,
+              }}
+            >
+              Create First Market
+            </Link>
+          )}
         </div>
       )}
     </div>

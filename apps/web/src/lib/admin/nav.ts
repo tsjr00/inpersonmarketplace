@@ -127,9 +127,8 @@ export const PLATFORM_ADMIN_NAV: AdminNavGroup[] = [
 export const NAV_EXEMPT_PAGES = [
   '/admin/login',
   '/admin/mfa/verify',
-  '/admin/markets/new', // reached from Markets
   '/admin/markets/[id]',
-  '/admin/markets/[id]/edit',
+  '/[vertical]/admin/markets/[id]',
   '/admin/vendors/[vendorId]',
   '/[vertical]/admin/events/[id]/settlement',
   '/[vertical]/admin/vendors/[vendorId]',

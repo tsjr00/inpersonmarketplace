@@ -19,7 +19,10 @@ export default function DeleteMarketButton({ marketId, marketName }: DeleteMarke
     setLoading(true)
 
     try {
-      const response = await fetch(`/api/markets/${marketId}`, {
+      // Guarded admin API (phase 5): blocks deletion when the market has
+      // listings or booth/park/credit financial history (ADM-3). The old
+      // target (/api/markets/[id] DELETE) had no such guard.
+      const response = await fetch(`/api/admin/markets/${marketId}`, {
         method: 'DELETE',
       })
 
@@ -61,7 +64,7 @@ export default function DeleteMarketButton({ marketId, marketName }: DeleteMarke
           }}>
             <h3 style={{ margin: '0 0 16px 0', color: '#333' }}>Delete Market?</h3>
             <p style={{ color: '#666', margin: '0 0 20px 0' }}>
-              Are you sure you want to delete <strong>{marketName}</strong>? This will also remove all schedules and vendor associations. This action cannot be undone.
+              Are you sure you want to delete <strong>{marketName}</strong>? Deletion is blocked if the market has listings or financial history (booth rentals, park bookings, credits) — deactivate it instead. This action cannot be undone.
             </p>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
               <button
