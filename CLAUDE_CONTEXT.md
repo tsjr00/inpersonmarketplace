@@ -488,6 +488,10 @@ One rule written in two independently-editable places with silent drift is this 
 
 ---
 
+## Session History — 2026-08-30/31 (admin UI rebuild phases 1–5)
+
+AdminShell + queues-first hubs (phases 1–2); phase 3 = 9 platform/vertical page-pair merges into `components/admin/` (+ 2 principled non-merges: cause = permission split, feedback = single-tier); phase 4 vendors superset; phase 5 markets — merged list + NEW `/[vertical]/admin/markets/[id]` detail; the platform markets tree was running on phantom columns (`type`/`zip_code` vs real `market_type`/`zip`): type filter blanked the list, labels all wrong, form save always errored → platform MarketForm retired, deletes rerouted to the guarded admin API. Latent-defect classes fixed throughout the merges: UUID vertical filters, per-vertical tier options, client-only search → server-side, phantom columns. Staging `32b74df7`. Phase 6 (events pipeline board) designed, not built. Details: `apps/web/.claude/admin_ui_redesign_research.md`.
+
 ## Session History — 2026-08-12/13 (deploy week finale)
 
 | Date | Key Work |

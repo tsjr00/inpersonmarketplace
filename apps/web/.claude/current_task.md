@@ -1,3 +1,24 @@
+# SESSION 2026-08-31 (overnight) — WRAP. Next session starts HERE.
+
+## Git / env — VERIFY, don't trust
+- `origin/staging` = local `main` = **`32b74df7`** (admin phase 5 markets). Tracked tree clean except this wrap's docs. PROD **`e946c2c0`** — ~45 commits behind; owes migs **238→239→240** before the code push (window 21:00–07:00 CT). No emergency (owner ruled 2026-08-30).
+
+## Staging pushes this session (Playwright 49✓ each)
+- `f7eed9cc` phase 4 vendors superset · **`32b74df7` phase 5 markets**: merged list (vertical 1,834-liner moved whole into components/admin/MarketsAdminPage, drill-in rows, `?edit=<id>` deep-link) + NEW `/[vertical]/admin/markets/[id]` → MarketDetailAdminPage (absorbs platform detail; manager section now traditional-any-vertical) + MarketDetailActions (approve/suspend/delete on detail — closes the mobile rotate-to-landscape finding). PHANTOM-COLUMN repairs: platform type filter `.eq('type')` blanked the list; labels all read "Private Pickup"; platform MarketForm + new/edit RETIRED (/api/markets POST/PATCH write phantom `type`+`zip_code` — saves always errored); DeleteMarketButton → GUARDED admin DELETE. After owner's compaction concern, extra verification: full `next build` ✓ + line diff vs git original (43+/37−, all intended).
+
+## Event-testing triage (owner findings 2026-08-31 — REPORT ONLY, fixes NOT approved)
+1. **"No Approve option" = by design**: self-serve + address auto-approves at intake (`api/event-requests/route.ts:333-341`); the control point is the invitation gate, which HELD correctly. Real defects found: **(A)** admin "Open Pre-Orders" (approved→ready, `admin/events/page.tsx:880-887`) is offered while `invitationsHeld` — pre-orders can open before any truck is invited; **(B)** OrganizerProgress `ready` stage says "Attendees can pre-order now" unconditionally (`components/events/OrganizerProgress.tsx:147-152`) — the invitationsHeld guard exists only on the `approved` stage (:127-133). Proposed fixes: hide/annotate the button + guard the copy. **AWAITING OWNER GO.**
+2. **Blackout "not visible" = expected**: buyer pickup dates generate only 8 days out (mig 234 `generate_series(0,7)`); the blackout row WAS written and the park notice sent, booking stays paid (respond route :318-360). Becomes observable when the event date enters the 8-day window — or retest with an event ≤7 days out.
+3. **ParkMGR vendor-docs crash** (Digest 1069903208, `/[vertical]/market-manager/[marketId]/vendor-docs/[vendorProfileId]`): full page + helpers read — no throw path provable; suspects = `.map()` over non-array JSONB (`vendor_profiles.certifications`, `coi_documents`, per-category `documents`) — Medium, unproven. **OWNER OWES: Vercel staging log line for the digest OR the 3 diagnostic SQLs (chat 2026-08-31, schema-gated).** Note: no literal "declined" renders in any manager component — the chip the owner saw may be ParkWeekCard's raw `StatusChip` (:170); identify once crash evidence is in.
+
+## ▶ NEXT SESSION
+1. Crash evidence (log or SQL) → fix the vendor-docs page; owner decides event fixes A+B; phase-5 markets smoke (3 items in chat: drill-in detail, ?edit round-trip, platform type filter).
+2. Owner decisions still parked: remove `/api/markets` POST/PATCH/DELETE (zero first-party callers; broken/unguarded) · gate `/api/admin/events/[id]/invite` with invitationsHeld · server-side platform gate on the 6 accounting reports.
+3. Build next on go: **admin phase 6 — events pipeline board** (design locked in `admin_ui_redesign_research.md`).
+4. Money tests remaining: Events A & B consolidated plan (chat 2026-08-31) — blackout assertion moves to a ≤7-days-out event.
+
+---
+
 # SESSION 2026-08-29 (evening) — WRAP. Next session starts HERE.
 
 ## ▶ FIRST THING NEXT SESSION (owner 2026-08-29)
