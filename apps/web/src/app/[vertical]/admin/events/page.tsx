@@ -10,6 +10,7 @@ import AdminEventFeePayments from '@/components/events/AdminEventFeePayments'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { term } from '@/lib/vertical/terminology'
 import { calculateViability, scoreVendorMatch, type EventScoreInput, type ScoreLevel, type VendorMatchInput } from '@/lib/events/viability'
+import { classifyVendorEventStage } from '@/lib/events/vendor-stage'
 
 interface CateringRequest {
   id: string
@@ -136,6 +137,11 @@ interface MarketVendor {
   response_status: string | null
   response_notes: string | null
   invited_at: string | null
+  /* Selection state (owner 2026-09-03) — stage chip derives from
+     lib/events/vendor-stage.ts, same ladder as every other surface. */
+  is_backup?: boolean | null
+  organizer_selected_at?: string | null
+  standby_opted_in_at?: string | null
   vendor_name?: string
   menu_items?: string[]
 }
@@ -1551,6 +1557,40 @@ export default function AdminCateringPage() {
                                   >
                                     {mv.response_status || 'invited'}
                                   </span>
+                                  {/* Stage chip (owner 2026-09-03): accepted alone
+                                      doesn't tell the admin who is attending —
+                                      selected vs bench vs still awaiting the
+                                      organizer's pick. Same classifier as the
+                                      vendor + organizer surfaces. */}
+                                  {(() => {
+                                    const stage = classifyVendorEventStage({
+                                      response_status: mv.response_status,
+                                      organizer_selected_at: mv.organizer_selected_at ?? null,
+                                      is_backup: mv.is_backup === true,
+                                    })
+                                    if (stage === 'selected') {
+                                      return (
+                                        <span style={{ ...sizing.badge, marginLeft: spacing['3xs'], backgroundColor: statusColors.successLight, color: statusColors.successDark }}>
+                                          Selected
+                                        </span>
+                                      )
+                                    }
+                                    if (stage === 'bench') {
+                                      return (
+                                        <span style={{ ...sizing.badge, marginLeft: spacing['3xs'], backgroundColor: statusColors.infoLight, color: statusColors.infoDark }}>
+                                          {mv.standby_opted_in_at ? 'Bench · standby' : 'Bench'}
+                                        </span>
+                                      )
+                                    }
+                                    if (stage === 'accepted_awaiting') {
+                                      return (
+                                        <span style={{ ...sizing.badge, marginLeft: spacing['3xs'], backgroundColor: statusColors.neutral100, color: statusColors.neutral600 }}>
+                                          Awaiting selection
+                                        </span>
+                                      )
+                                    }
+                                    return null
+                                  })()}
                                 </td>
                                 <td style={{ padding: spacing['2xs'], color: statusColors.neutral600, fontSize: typography.sizes.xs }}>
                                   {mv.menu_items && mv.menu_items.length > 0

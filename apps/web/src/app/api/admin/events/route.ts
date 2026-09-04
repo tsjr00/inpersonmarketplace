@@ -191,13 +191,19 @@ export async function GET(request: NextRequest) {
       response_status: string | null
       response_notes: string | null
       invited_at: string | null
+      is_backup: boolean
+      organizer_selected_at: string | null
+      standby_opted_in_at: string | null
       menu_items?: string[]
     }>> = {}
 
     if (marketIds.length > 0) {
+      // Selection state (owner 2026-09-03): the admin stepping into an event
+      // needs selected-vs-bench, not just accepted/declined — corporate
+      // caterings and admin-assisted events will lean on this page.
       const { data: mvData } = await observed(serviceClient
         .from('market_vendors')
-        .select('market_id, vendor_profile_id, response_status, response_notes, invited_at')
+        .select('market_id, vendor_profile_id, response_status, response_notes, invited_at, is_backup, organizer_selected_at, standby_opted_in_at')
         .in('market_id', marketIds), { table: 'market_vendors' })
 
       if (mvData) {
@@ -229,6 +235,9 @@ export async function GET(request: NextRequest) {
             response_status: mv.response_status as string | null,
             response_notes: mv.response_notes as string | null,
             invited_at: mv.invited_at as string | null,
+            is_backup: mv.is_backup === true,
+            organizer_selected_at: (mv.organizer_selected_at as string | null) ?? null,
+            standby_opted_in_at: (mv.standby_opted_in_at as string | null) ?? null,
             menu_items: menuItemsMap[mid]?.[vid] || [],
           })
         }

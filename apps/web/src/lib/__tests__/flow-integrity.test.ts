@@ -2436,6 +2436,8 @@ describe('Vendor event stage — shared classifier', () => {
       // P3 (owner 2026-09-03): the organizer's per-truck roster speaks the
       // same vocabulary as the vendor-facing surfaces.
       'app/[vertical]/event-manager/[id]/dashboard/page.tsx',
+      // P2 (owner 2026-09-03): the admin invitations table's stage chips.
+      'app/[vertical]/admin/events/page.tsx',
     ]) {
       expect(rd(file), `${file} must derive the stage from vendor-stage.ts`)
         .toMatch(/import \{[^}]*classifyVendorEventStage[^}]*\} from '@\/lib\/events\/vendor-stage'/)
