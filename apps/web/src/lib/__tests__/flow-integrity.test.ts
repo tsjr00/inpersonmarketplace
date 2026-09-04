@@ -2429,10 +2429,13 @@ describe('Vendor event stage — shared classifier', () => {
   const SRC = path.resolve(__dirname, '../..')
   const rd = (p: string) => fs.readFileSync(path.join(SRC, p), 'utf-8')
 
-  it('both surfaces import the shared classifier', () => {
+  it('every stage-displaying surface imports the shared classifier', () => {
     for (const file of [
       'app/[vertical]/vendor/events/[marketId]/page.tsx',
       'components/vendor/markets/EventMarketsSection.tsx',
+      // P3 (owner 2026-09-03): the organizer's per-truck roster speaks the
+      // same vocabulary as the vendor-facing surfaces.
+      'app/[vertical]/event-manager/[id]/dashboard/page.tsx',
     ]) {
       expect(rd(file), `${file} must derive the stage from vendor-stage.ts`)
         .toMatch(/import \{[^}]*classifyVendorEventStage[^}]*\} from '@\/lib\/events\/vendor-stage'/)

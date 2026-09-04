@@ -18,6 +18,7 @@ import OrganizerEventActions from '@/components/events/OrganizerEventActions'
 import OrganizerProgress from '@/components/events/OrganizerProgress'
 import InvitationGateCard from '@/components/events/InvitationGateCard'
 import { invitationsHeld, invitationGateChecklist } from '@/lib/events/invitation-gate'
+import { classifyVendorEventStage, type VendorEventStage } from '@/lib/events/vendor-stage'
 
 interface PageProps {
   params: Promise<{ vertical: string; id: string }>
@@ -146,14 +147,18 @@ export default async function EventManagerDashboardPage({ params }: PageProps) {
   let preOrderCount = 0
   let orderValueCents = 0
   let waves: Array<{ wave_number: number; capacity: number; reserved: number; status: string }> = []
+  // Per-truck roster (owner 2026-09-03): "with 10–15 trucks it would be very
+  // easy to lose track of which trucks are in what stage." FULL names at every
+  // stage — organizer→vendor disclosure only; the reverse (organizer identity
+  // to vendors) stays masked until acceptance per the organizer-identity rule.
+  let roster: Array<{ id: string; name: string; stage: VendorEventStage; standby: boolean }> = []
 
   if (marketId) {
     const [vendorRes, orderRes, waveRes] = await Promise.all([
       serviceClient
         .from('market_vendors')
-        .select('id, organizer_selected_at, is_backup')
-        .eq('market_id', marketId)
-        .eq('response_status', 'accepted'),
+        .select('id, response_status, organizer_selected_at, is_backup, standby_opted_in_at, vendor_profiles:vendor_profile_id(profile_data)')
+        .eq('market_id', marketId),
       serviceClient
         .from('order_items')
         .select('subtotal_cents')
@@ -166,9 +171,28 @@ export default async function EventManagerDashboardPage({ params }: PageProps) {
         .order('wave_number'),
     ])
 
-    vendorsAccepted = (vendorRes.data || []).length
+    const vendorRows = vendorRes.data || []
+    const acceptedRows = vendorRows.filter(r => r.response_status === 'accepted')
+    vendorsAccepted = acceptedRows.length
     // ST-20 (d): "confirmed" means selected by the organizer, not "said yes".
-    vendorsSelected = (vendorRes.data || []).filter(r => r.organizer_selected_at != null && r.is_backup !== true).length
+    vendorsSelected = acceptedRows.filter(r => r.organizer_selected_at != null && r.is_backup !== true).length
+
+    const STAGE_ORDER: VendorEventStage[] = ['selected', 'bench', 'accepted_awaiting', 'invited', 'declined', 'withdrawn', 'none']
+    roster = vendorRows
+      .map(r => {
+        const pd = (r.vendor_profiles as unknown as { profile_data: Record<string, unknown> } | null)?.profile_data || {}
+        return {
+          id: r.id as string,
+          name: (pd.business_name as string) || (pd.farm_name as string) || 'Vendor',
+          stage: classifyVendorEventStage({
+            response_status: (r.response_status as string | null) ?? null,
+            organizer_selected_at: (r.organizer_selected_at as string | null) ?? null,
+            is_backup: r.is_backup === true,
+          }),
+          standby: r.standby_opted_in_at != null,
+        }
+      })
+      .sort((a, b) => STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage) || a.name.localeCompare(b.name))
     preOrderCount = (orderRes.data || []).length
     orderValueCents = (orderRes.data || []).reduce(
       (sum, r) => sum + ((r.subtotal_cents as number) || 0),
@@ -367,6 +391,61 @@ export default async function EventManagerDashboardPage({ params }: PageProps) {
           )}
         </div>
       </DashboardCard>
+
+      {/* Per-truck roster (owner 2026-09-03): every invited truck and its
+          stage, so the organizer selecting from 10–15 trucks never loses
+          track of who is where. Stage labels come from the SAME classifier as
+          the Vendor Event Page and the vendor's locations pill
+          (lib/events/vendor-stage.ts) — one vocabulary, three surfaces.
+          Read-only; selecting happens on the Select Vendors page. */}
+      {roster.length > 0 && (
+        <DashboardCard title={`Your ${term(vertical, 'event_vendor_unit')}s (${roster.length} invited)`}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
+            {roster.map(r => {
+              const badge: Record<string, { label: string; bg: string; fg: string }> = {
+                selected: { label: 'Selected', bg: statusColors.successLight, fg: statusColors.successDark },
+                bench: { label: r.standby ? 'On the bench · standby' : 'On the bench', bg: statusColors.infoLight, fg: statusColors.infoDark },
+                accepted_awaiting: { label: 'Said yes — pick or bench them', bg: statusColors.infoLight, fg: statusColors.infoDark },
+                invited: { label: 'Invited · awaiting answer', bg: statusColors.warningLight, fg: statusColors.warningDark },
+                declined: { label: 'Declined', bg: statusColors.neutral100, fg: statusColors.neutral500 },
+                withdrawn: { label: 'Withdrawn', bg: statusColors.dangerLight, fg: statusColors.dangerDark },
+                none: { label: '—', bg: statusColors.neutral100, fg: statusColors.neutral500 },
+              }
+              const b = badge[r.stage]!
+              return (
+                <div key={r.id} style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: spacing.xs,
+                  padding: `${spacing['3xs']} 0`,
+                  borderBottom: `1px solid ${colors.border}`,
+                  fontSize: typography.sizes.sm,
+                }}>
+                  <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
+                  <span style={{
+                    flexShrink: 0,
+                    padding: `2px ${spacing['2xs']}`,
+                    backgroundColor: b.bg,
+                    color: b.fg,
+                    borderRadius: 10,
+                    fontSize: typography.sizes.xs,
+                    fontWeight: 600,
+                  }}>{b.label}</span>
+                </div>
+              )
+            })}
+          </div>
+          {event.event_token && event.service_level === 'self_service' && ['approved', 'ready'].includes(status) ? (
+            <p style={{ margin: `${spacing.xs} 0 0`, fontSize: typography.sizes.xs, color: colors.textMuted }}>
+              Selecting and benching happen on the{' '}
+              <Link href={`/${vertical}/events/${event.event_token}/select`} style={{ color: colors.primary }}>
+                Select vendors page →
+              </Link>
+            </p>
+          ) : null}
+        </DashboardCard>
+      )}
 
       {/* Wave utilisation — only exists for wave-ordering events, so the whole
           card stays out of the way when there are none. */}
