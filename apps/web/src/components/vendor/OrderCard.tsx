@@ -111,6 +111,8 @@ interface OrderCardProps {
      *  + their segment (lib/loyalty/config.ts). Optional — older callers omit. */
     customer_order_count?: number
     customer_segment?: CustomerSegment
+    /** A2 (mig 242): the vendor hand-picked this buyer as a VIP. */
+    customer_is_vip?: boolean
     total_cents: number
     created_at: string
     items: OrderItem[]
@@ -297,6 +299,23 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
                   {order.customer_segment === 'new'
                     ? SEGMENT_LABELS.new
                     : `${order.customer_segment === 'loyal' ? '🏆 ' : order.customer_segment === 'regular' ? '⭐ ' : ''}${SEGMENT_LABELS[order.customer_segment]} · ${order.customer_order_count ?? 0} order${(order.customer_order_count ?? 0) === 1 ? '' : 's'}`}
+                </span>
+              )}
+              {/* A2: YOUR pick — distinct from the automatic segment chip so
+                  the vendor recognizes their hand-chosen VIPs at the window. */}
+              {order.customer_is_vip && (
+                <span
+                  title="You added this customer to your VIP list"
+                  style={{
+                    padding: '2px 8px',
+                    backgroundColor: '#ede9fe',
+                    color: '#5b21b6',
+                    borderRadius: 4,
+                    fontSize: 11,
+                    fontWeight: 700
+                  }}
+                >
+                  ⭐ VIP
                 </span>
               )}
             </div>

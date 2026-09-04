@@ -49,6 +49,9 @@ export interface TierLimits {
   priorityPlacement: number     // 0=none, 1=2nd priority, 2=1st priority
   notificationChannels: readonly string[]
   locationInsights: 'basic' | 'pro' | 'boss'
+  /** VIP customer slots (A2, owner 2026-09-04: free 0 / pro 10 / boss 25).
+   *  Cap gates ADDING only — a downgrade never removes existing VIPs. */
+  vipCustomers: number
 }
 
 export const TIER_LIMITS: Record<VendorTier, TierLimits> = {
@@ -65,6 +68,7 @@ export const TIER_LIMITS: Record<VendorTier, TierLimits> = {
     priorityPlacement: 0,
     notificationChannels: ['in_app', 'email'],
     locationInsights: 'basic',
+    vipCustomers: 0,
   },
   pro: {
     productListings: 50,
@@ -79,6 +83,7 @@ export const TIER_LIMITS: Record<VendorTier, TierLimits> = {
     priorityPlacement: 1,
     notificationChannels: ['in_app', 'email', 'push'],
     locationInsights: 'pro',
+    vipCustomers: 10,
   },
   boss: {
     productListings: 100,
@@ -93,6 +98,7 @@ export const TIER_LIMITS: Record<VendorTier, TierLimits> = {
     priorityPlacement: 2,
     notificationChannels: ['in_app', 'email', 'push', 'sms'],
     locationInsights: 'boss',
+    vipCustomers: 25,
   },
 } as const
 

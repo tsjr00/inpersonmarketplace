@@ -216,6 +216,18 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // A2 (mig 242): the vendor's hand-picked VIPs — the star beside the
+    // segment chip so the vendor recognizes them at the window.
+    const vipSet = new Set<string>()
+    if (buyerIds.length > 0) {
+      const { data: vipRows } = await observed(supabaseService
+        .from('vendor_vip_customers')
+        .select('buyer_user_id')
+        .eq('vendor_profile_id', vendorProfile.id)
+        .in('buyer_user_id', buyerIds), { table: 'vendor_vip_customers' })
+      for (const r of vipRows || []) vipSet.add(r.buyer_user_id as string)
+    }
+
     // Transform to a more usable format - group by order
     const ordersMap = new Map()
 
@@ -233,6 +245,7 @@ export async function GET(request: NextRequest) {
           customer_name: buyerNames[buyerId] || 'Customer',
           customer_order_count: customerStats[buyerId]?.count ?? 0,
           customer_segment: customerStats[buyerId]?.segment ?? 'new',
+          customer_is_vip: vipSet.has(buyerId),
           total_cents: order?.total_cents || 0,
           created_at: order?.created_at || item.created_at,
           items: []
@@ -307,6 +320,7 @@ export async function GET(request: NextRequest) {
         customer_name: buyerNames[buyerId] || 'Customer',
         customer_order_count: customerStats[buyerId]?.count ?? 0,
         customer_segment: customerStats[buyerId]?.segment ?? 'new',
+        customer_is_vip: vipSet.has(buyerId),
         market_name: item.market?.name || 'Pickup Location',
         wave_number: item.wave?.wave_number || null,
         listing_title: item.listing?.title || 'Unknown',

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
-import { getFtTierExtras } from '@/lib/vendor-limits'
+import { getFtTierExtras, getTierLimits } from '@/lib/vendor-limits'
 import { classifyCustomer, dedupeOrders, toDay } from '@/lib/loyalty/segments'
 import type { CustomerSegment } from '@/lib/loyalty/config'
 
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
     // pattern the vendor orders route uses for the order-card chip).
     const serviceClient = createServiceClient()
 
-    const [{ data: fulfilledRows }, { data: favoriteRows }] = await Promise.all([
+    const [{ data: fulfilledRows }, { data: favoriteRows }, { data: vipRows }] = await Promise.all([
       observed(serviceClient
         .from('order_items')
         .select('order_id, pickup_date, pickup_confirmed_at, order:orders!inner(buyer_user_id)')
@@ -84,6 +84,12 @@ export async function GET(request: NextRequest) {
         .from('vendor_favorites')
         .select('user_id')
         .eq('vendor_profile_id', vendorProfile.id), { table: 'vendor_favorites' }),
+      // A2 (mig 242): who is already a VIP — the report is the management
+      // surface, so each row carries the flag + the response carries the meter.
+      observed(serviceClient
+        .from('vendor_vip_customers')
+        .select('buyer_user_id')
+        .eq('vendor_profile_id', vendorProfile.id), { table: 'vendor_vip_customers' }),
     ])
 
     // Collapse item rows → one entry per (buyer, order), earliest day wins —
@@ -121,6 +127,7 @@ export async function GET(request: NextRequest) {
     }
 
     const favoriteIds = new Set((favoriteRows || []).map(r => r.user_id as string))
+    const vipIds = new Set((vipRows || []).map(r => r.buyer_user_id as string))
 
     // Names: display_name only — the same source the order card shows.
     const nameIds = [...new Set([...byBuyer.keys()])]
@@ -148,6 +155,7 @@ export async function GET(request: NextRequest) {
       segment: CustomerSegment
       last_order_day: string
       is_favorite: boolean
+      is_vip: boolean
     }> = []
     for (const [buyerId, s] of byBuyer) {
       const segment = classifyCustomer(s.count, s.days)
@@ -159,6 +167,7 @@ export async function GET(request: NextRequest) {
         segment,
         last_order_day: s.lastDay,
         is_favorite: favoriteIds.has(buyerId),
+        is_vip: vipIds.has(buyerId),
       })
     }
     rows.sort((a, b) =>
@@ -173,6 +182,11 @@ export async function GET(request: NextRequest) {
       totals: {
         customers: byBuyer.size,
         favorites: favoriteIds.size,
+      },
+      // A2: the slot meter. Cap gates adding only (vendor-limits.ts).
+      vip: {
+        used: vipIds.size,
+        limit: getTierLimits(vendorProfile.tier || 'free', vendorProfile.vertical_id as string).vipCustomers,
       },
       rows: rows.slice(0, MAX_ROWS),
       truncated: rows.length > MAX_ROWS,

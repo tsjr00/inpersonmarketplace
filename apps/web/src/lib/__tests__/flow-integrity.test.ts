@@ -2034,6 +2034,30 @@ describe('Loyalty Layer 1 integrity', () => {
       'the report must not select or emit email/phone').toBe(false)
   })
 
+  it('VIP designation (A2, mig 242): the add route enforces the tier cap from vendor-limits', () => {
+    // The cap lives in ONE place — TierLimits.vipCustomers (0/10/25, owner
+    // Q1 2026-09-04) — and gates ADDING only: nothing anywhere deletes VIP
+    // rows on a tier change (a downgrade never strips a vendor's VIPs).
+    const route = rd('app/api/vendor/vip-customers/route.ts')
+    expect(route).toMatch(/import \{[^}]*getTierLimits[^}]*\} from '@\/lib\/vendor-limits'/)
+    expect(route).toMatch(/\.vipCustomers/)
+    expect(route, 'the buyer is told — recognition IS the Phase-A feature').toMatch(/sendNotification\(\s*buyer_user_id,\s*'vip_added'/)
+    const limits = rd('lib/vendor-limits.ts')
+    expect(limits).toMatch(/vipCustomers: 0/)
+    expect(limits).toMatch(/vipCustomers: 10/)
+    expect(limits).toMatch(/vipCustomers: 25/)
+  })
+
+  it('VIP state reaches every vendor recognition surface', () => {
+    // Report rows (the management surface), the orders API, and the order
+    // card the vendor looks at while handing food over.
+    expect(rd('app/api/vendor/customers/route.ts')).toMatch(/is_vip/)
+    expect(rd('app/api/vendor/orders/route.ts')).toMatch(/customer_is_vip/)
+    expect(rd('components/vendor/OrderCard.tsx')).toMatch(/customer_is_vip/)
+    // Buyer side: the Favorites vendor card carries the badge.
+    expect(rd('app/[vertical]/favorites/page.tsx')).toMatch(/vendor_vip_customers/)
+  })
+
   it('the order card renders the segment chip from SEGMENT_LABELS (no duplicated copy)', () => {
     const card = rd('components/vendor/OrderCard.tsx')
     expect(card).toMatch(/customer_segment/)

@@ -8,7 +8,7 @@
 
 > ⚠️ **EVERY structured section of this file is best-effort and may be stale — Columns, FKs, Indexes, Functions, Enum Types, CHECK Constraints, all of them.** The original banner named only four sections, and the Enum Types table sat outside it misleading readers for five months (missing `platform_admin`/`regional_admin`, added 2026-03-20). The Change Log's per-migration environment claims have also been wrong four separate times (210/211/212/215, all caught 2026-08-13). **Only `information_schema` / `pg_catalog` on the live environment is authoritative — for structure AND for what is deployed where.**
 >
-**Structured tables rebuilt:** 2026-08-30 · current through migration 240
+**Structured tables rebuilt:** 2026-09-04 · current through migration 242
 
 > ⚠ The stamp above is MACHINE-READ by guardrail Rule L (owner rule 2026-08-30): the test
 > suite fails when any newer migration CREATEs a table, or when more than 5 migrations exist
@@ -21,6 +21,7 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-09-04 | 20260904_242_vendor_vip_customers | ✅ **Dev + Staging 2026-09-04 (owner). ⏳ Prod PENDING — file stays in root; paste on prod after 238→239→240→241. PASTE-AND-GO, additive new table, inert (empty) on arrival.** Structured tables rebuilt same day (stamp → 242) from owner's live Dev information_schema output — scoped to the full delta since the 240 stamp (241's `host_status` + 242's table; columns/unique/indexes verified live, FKs from mig 242 DDL). `vendor_vip_customers` (vendor_profile_id FK CASCADE, buyer_user_id FK auth.users CASCADE, added_at, notes, UNIQUE pair; RLS enabled no policies — service-client only). VIP designation core (A2, decisions.md 2026-09-04); slot caps in vendor-limits.ts `vipCustomers` (0/10/25), enforced at the add route. Written by `api/vendor/vip-customers`. |
 | 2026-09-03 | 20260903_241_event_menu_host_status | ✅ **Dev + Staging 2026-09-03 (owner). ⏳ Prod PENDING — file stays in `supabase/migrations/` root; paste on prod after 238→239→240. PASTE-AND-GO, additive, inert on arrival.** `event_vendor_listings.host_status TEXT NOT NULL DEFAULT 'approved' CHECK (approved\|declined)` — host menu pare-down (P1, decisions.md 2026-09-03). Pare = host_status='declined' + delete that item's `listing_markets` link (the sell half — cart validates there); admin event-restore rebuilds links from APPROVED rows only. Written by the organizer select route; first round only, min 2 kept items, activated backups never pared. |
 | 2026-08-30 | — (snapshot rebuild) | **Structured tables rebuilt from a Dev `information_schema` export (migs 001–240)** — Tables (55→91), Columns by Table (67→91 tables, 1396 columns), Foreign Keys (167), Enum Types (regenerated), Views (10). **Indexes + Check Constraints sections retained from the prior snapshot** (Supabase's CSV export truncates values at 64 chars; definitions cannot survive it — treat those two sections as pre-124 best-effort). One cosmetic clip: `user_profiles.notification_preferences` default shown truncated with `...`. Same day: **MIGRATION_LOG.md retired** (both copies — dead at migs 002/137; this Change Log is the single application record, Rule G-enforced) and **guardrail Rule L** added — the stamp in the header is machine-read; suite fails when a newer migration CREATEs a table or >5 migrations exist past the stamp. |
 | 2026-08-29 | 20260829_240_survey_other_places | ✅ **Dev + Staging 2026-08-29 (owner). ⏳ Prod PENDING — file stays in `supabase/migrations/` root; paste on prod after 238 and 239.** Additive. `market_surveys.other_places_request TEXT NULL` — buyer weekly survey free text "other places you'd like to see on the app" (survey cadence redesign: vendors weekly, buyers after purchases 1+2 then weekly — `lib/surveys/cadence.ts`, `weekly.ts`). Written by `/api/surveys/respond`. |
@@ -284,7 +285,7 @@
 
 ---
 
-## Tables (91)
+## Tables (92)
 
 | Table Name |
 |------------|
@@ -375,6 +376,7 @@
 | vendor_quality_scan_log |
 | vendor_referral_credits |
 | vendor_verifications |
+| vendor_vip_customers |
 | vertical_admins |
 | verticals |
 | weekly_booth_rentals |
@@ -831,6 +833,7 @@
 | vendor_profile_id | uuid | NO | - |
 | listing_id | uuid | NO | - |
 | created_at | timestamptz | NO | now() |
+| host_status | text | NO | 'approved'::text |
 
 ### event_wave_reservations
 | Column | Type | Nullable | Default |
@@ -2122,6 +2125,15 @@
 | prohibited_items_acknowledged_at | timestamptz | YES | - |
 | onboarding_completed_at | timestamptz | YES | - |
 
+### vendor_vip_customers
+| Column | Type | Nullable | Default |
+|--------|------|----------|--------|
+| id | uuid | NO | gen_random_uuid() |
+| vendor_profile_id | uuid | NO | - |
+| buyer_user_id | uuid | NO | - |
+| added_at | timestamptz | NO | now() |
+| notes | text | YES | - |
+
 ### vertical_admins
 | Column | Type | Nullable | Default |
 |--------|------|----------|--------|
@@ -2651,6 +2663,12 @@
 |--------|------------|
 | coi_verified_by | user_profiles.id (ON DELETE SET NULL) |
 | reviewed_by | user_profiles.id (ON DELETE SET NULL) |
+| vendor_profile_id | vendor_profiles.id (ON DELETE CASCADE) |
+
+### vendor_vip_customers
+| Column | References |
+|--------|------------|
+| buyer_user_id | auth.users.id (ON DELETE CASCADE) |
 | vendor_profile_id | vendor_profiles.id (ON DELETE CASCADE) |
 
 ### vertical_admins
@@ -3195,6 +3213,14 @@
 | idx_vendor_verifications_vendor | btree (vendor_profile_id) |
 | idx_vendor_verifications_status | btree (status) |
 | vendor_verifications_pkey | UNIQUE btree (id) |
+
+### vendor_vip_customers
+| Index Name | Definition |
+|-----------|------------|
+| vendor_vip_customers_pkey | UNIQUE btree (id) |
+| vendor_vip_customers_vendor_profile_id_buyer_user_id_key | UNIQUE btree (vendor_profile_id, buyer_user_id) |
+| idx_vip_customers_vendor | btree (vendor_profile_id) |
+| idx_vip_customers_buyer | btree (buyer_user_id) |
 
 ### vertical_admins
 | Index Name | Definition |

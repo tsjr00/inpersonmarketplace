@@ -214,6 +214,18 @@ Badge copy is generated from `lib/loyalty/config.ts` BADGE_CATALOG — one sourc
 
 ---
 
+### VIP Added (`vip_added`) — A2, 2026-09-04 (mig 242)
+**Urgency:** Immediate (Push + In-app) — free channels; a delight moment worth a ping
+**Trigger:** a vendor adds this buyer to their VIP list (`api/vendor/vip-customers` POST; dedup key `vip:{vendor}:{buyer}` — re-adding never re-notifies)
+
+**In-app title:** ⭐ You're a VIP at {{vendor_name}}!
+**In-app message:** {{vendor_name}} added you to their VIP list — they know a great customer when they see one.
+**Action:** `/{{vertical}}/favorites` (the vendor card carries the "You're a VIP" badge)
+
+No removal notification (v1 stays quiet — being un-VIP'd is not a moment to ping someone about).
+
+---
+
 ## Vendor-Facing Notifications
 
 ---

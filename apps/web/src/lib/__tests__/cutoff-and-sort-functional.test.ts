@@ -285,8 +285,11 @@ describe('NI-014: Total notification types = 72', () => {
     // cadence redesign (lib/surveys/cadence.ts): ONE notice per person per
     // week covering every place they were at, replacing the per-market-day
     // ask that was surveying a daily-park truck every single day.
+    // 121 → 122 (2026-09-04, owner approved "yes, you can bump the tripwire"):
+    // vip_added (buyer, immediate = push+in_app, free channels) — a vendor
+    // hand-picked this buyer as a VIP (mig 242, A2 of the VIP buildout).
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(121)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(122)
   })
 
   it('includes all buyer-facing types', () => {

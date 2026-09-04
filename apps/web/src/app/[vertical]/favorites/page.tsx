@@ -69,6 +69,15 @@ export default async function FavoritesPage({ params }: FavoritesPageProps) {
     }
   })
 
+  // A2 (mig 242): vendors who hand-picked THIS buyer as a VIP — "getting VIP
+  // status feels exclusive and personal", so it shows where their vendors
+  // live. Service client (table is RLS-deny); scoped to this user's rows.
+  const { data: vipRows } = await createServiceClient()
+    .from('vendor_vip_customers')
+    .select('vendor_profile_id')
+    .eq('buyer_user_id', user.id)
+  const vipVendorIds = new Set((vipRows || []).map(r => r.vendor_profile_id as string))
+
   // Loyalty Layer 1 (owner 2026-08-25): badges live HERE, not on a new
   // dashboard tile — "we just cleaned up the dashboard, keep it consolidated".
   // Evaluating on page load is the lazy path: it self-heals and it is the
@@ -341,6 +350,19 @@ export default async function FavoritesPage({ params }: FavoritesPageProps) {
                     whiteSpace: 'nowrap',
                   }}>
                     {vendor.name}
+                    {vipVendorIds.has(vendor.id) && (
+                      <span style={{
+                        marginLeft: 6,
+                        padding: '1px 6px',
+                        backgroundColor: '#ede9fe',
+                        color: '#5b21b6',
+                        borderRadius: radius.sm,
+                        fontSize: typography.sizes.xs,
+                        fontWeight: typography.weights.semibold,
+                      }}>
+                        ⭐ You&apos;re a VIP
+                      </span>
+                    )}
                   </div>
                   {vendorBadgeByVendor.has(vendor.id) && (
                     <div style={{ fontSize: typography.sizes.xs, color: colors.primary, marginTop: 2, fontWeight: typography.weights.semibold }}>

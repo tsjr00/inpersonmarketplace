@@ -17,11 +17,13 @@ interface ScoreRow { marketId: string; marketName: string; score: number; factor
 interface DensityRow { marketId: string; marketName: string; within5mi: number; within10mi: number; within25mi: number }
 interface CoverageRow { zip: string; city: string; state: string; searchCount: number; zeroResultPct: number }
 
-/** A1 (vip_loyalty_buildout_plan.md): /api/vendor/customers response. */
+/** A1+A2 (vip_loyalty_buildout_plan.md): /api/vendor/customers response. */
 interface CustomersData {
   blocked?: boolean
   distribution: { one_timer: number; repeat: number; regular: number; loyal: number }
   totals: { customers: number; favorites: number }
+  /** A2: VIP slot meter — cap gates adding only (vendor-limits.ts). */
+  vip: { used: number; limit: number }
   rows: Array<{
     user_id: string
     name: string
@@ -29,6 +31,7 @@ interface CustomersData {
     segment: CustomerSegment
     last_order_day: string
     is_favorite: boolean
+    is_vip: boolean
   }>
   truncated: boolean
 }
@@ -230,6 +233,41 @@ export default function VendorInsightsPage() {
       .catch(() => { /* section simply doesn't render */ })
     return () => { alive = false }
   }, [vendorId, vertical])
+
+  // A2: tag/untag a VIP from the report row. Server enforces the slot cap;
+  // on success the row + meter update in place (no refetch).
+  const [vipBusy, setVipBusy] = useState<string | null>(null)
+  const [vipError, setVipError] = useState<string | null>(null)
+  async function toggleVip(buyerUserId: string, makeVip: boolean) {
+    if (!vendorId || vipBusy) return
+    setVipBusy(buyerUserId)
+    setVipError(null)
+    try {
+      const res = makeVip
+        ? await fetch('/api/vendor/vip-customers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ vendor_id: vendorId, vertical, buyer_user_id: buyerUserId }),
+          })
+        : await fetch(`/api/vendor/vip-customers?vendor_id=${vendorId}&vertical=${vertical}&buyer_user_id=${buyerUserId}`, {
+            method: 'DELETE',
+          })
+      if (res.ok) {
+        setCustomers(prev => prev ? {
+          ...prev,
+          vip: { ...prev.vip, used: prev.vip.used + (makeVip ? 1 : -1) },
+          rows: prev.rows.map(r => r.user_id === buyerUserId ? { ...r, is_vip: makeVip } : r),
+        } : prev)
+      } else {
+        const d = await res.json().catch(() => ({}))
+        setVipError(d.error || 'Could not update VIP status')
+      }
+    } catch {
+      setVipError('Could not update VIP status')
+    } finally {
+      setVipBusy(null)
+    }
+  }
 
   const isFt = vertical === 'food_trucks'
   const extras = getFtTierExtras(vendorTier)
@@ -588,7 +626,30 @@ export default function VendorInsightsPage() {
                   }}>
                     ♥ {customers.totals.favorites} favorited you
                   </span>
+                  {/* A2: the slot meter. Free tier sees the upgrade path. */}
+                  <span style={{
+                    padding: `${spacing['3xs']} ${spacing.xs}`,
+                    backgroundColor: '#ede9fe',
+                    color: '#5b21b6',
+                    borderRadius: radius.full,
+                    fontSize: typography.sizes.xs,
+                    fontWeight: typography.weights.semibold,
+                  }}>
+                    ⭐ {customers.vip.limit > 0
+                      ? `${customers.vip.used} of ${customers.vip.limit} VIP slots used`
+                      : 'VIPs are a Pro feature'}
+                  </span>
                 </div>
+                {customers.vip.limit > 0 && (
+                  <p style={{ margin: `0 0 ${spacing.xs}`, fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                    Tap ⭐ to add a customer to your VIP list — they&apos;ll be told you picked them, and you&apos;ll see the star on their orders.
+                  </p>
+                )}
+                {vipError && (
+                  <p style={{ margin: `0 0 ${spacing.xs}`, fontSize: typography.sizes.xs, color: statusColors.dangerDark }}>
+                    {vipError}
+                  </p>
+                )}
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
@@ -597,6 +658,7 @@ export default function VendorInsightsPage() {
                         <th style={{ ...tableHeaderCell, textAlign: 'right' }}>Orders</th>
                         <th style={tableHeaderCell}>Standing</th>
                         <th style={tableHeaderCell}>Last order</th>
+                        {customers.vip.limit > 0 && <th style={tableHeaderCell}>VIP</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -609,6 +671,29 @@ export default function VendorInsightsPage() {
                           <td style={{ ...tableCell, textAlign: 'right', fontWeight: typography.weights.semibold }}>{row.orders}</td>
                           <td style={tableCell}>{SEGMENT_LABELS[row.segment]}</td>
                           <td style={{ ...tableCell, color: colors.textMuted }}>{row.last_order_day}</td>
+                          {customers.vip.limit > 0 && (
+                            <td style={tableCell}>
+                              <button
+                                onClick={() => toggleVip(row.user_id, !row.is_vip)}
+                                disabled={vipBusy === row.user_id || (!row.is_vip && customers.vip.used >= customers.vip.limit)}
+                                title={row.is_vip
+                                  ? 'Remove from your VIP list'
+                                  : customers.vip.used >= customers.vip.limit
+                                    ? 'All VIP slots are used'
+                                    : 'Add to your VIP list'}
+                                style={{
+                                  border: 'none',
+                                  background: 'none',
+                                  cursor: vipBusy === row.user_id ? 'wait' : 'pointer',
+                                  fontSize: typography.sizes.base,
+                                  opacity: !row.is_vip && customers.vip.used >= customers.vip.limit ? 0.35 : 1,
+                                  padding: 0,
+                                }}
+                              >
+                                {row.is_vip ? '⭐' : '☆'}
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>

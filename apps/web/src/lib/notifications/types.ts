@@ -53,6 +53,7 @@ export type NotificationType =
   | 'market_box_pickup_missed'
   | 'issue_resolved'
   | 'badge_earned'
+  | 'vip_added'
   // Vendor-facing
   | 'new_paid_order'
   | 'new_external_order'
@@ -2188,6 +2189,8 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
   // fulfilled orders, Local Legend at 10 or 3 straight months). The owner's
   // ask: tell the vendor who to appreciate and call by name. In-app only —
   // the vendor sees it on their next visit to the dashboard.
+  // A2 (2026-09-04): the nudge now has a button behind it — links to the
+  // Your Customers report where "Add to VIP" lives, and says so.
   customer_milestone: {
     urgency: 'info',
     severity: 'info',
@@ -2196,9 +2199,23 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     message: (d) => {
       const n = d.orderCount
       const nth = n ? ` just picked up order #${n} from you` : ' keeps coming back'
-      return `${d.buyerName || 'A customer'}${nth} — they're a ${d.segmentLabel || 'Regular'} now. Worth a thank-you by name at the window.`
+      return `${d.buyerName || 'A customer'}${nth} — they're a ${d.segmentLabel || 'Regular'} now. Worth a thank-you by name at the window. Make them a VIP from Your Customers?`
     },
-    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/orders`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/insights`,
+  },
+
+  // A2 (mig 242, owner 2026-09-04): a vendor hand-picked this buyer as a VIP.
+  // Recognition is the feature in Phase A ("getting VIP status feels exclusive
+  // and personal"); Phase B perks attach to the same designation. Immediate =
+  // push + in_app, both free channels — a delight moment worth a ping.
+  vip_added: {
+    urgency: 'immediate',
+    severity: 'info',
+    audience: 'buyer',
+    title: (d) => `⭐ You're a VIP at ${d.vendorName || 'one of your vendors'}!`,
+    message: (d) =>
+      `${d.vendorName || 'A vendor you love'} added you to their VIP list — they know a great customer when they see one.`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/favorites`,
   },
 }
 

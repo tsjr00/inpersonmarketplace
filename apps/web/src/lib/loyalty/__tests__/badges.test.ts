@@ -252,7 +252,11 @@ describe('Loyalty — notifications are free channels only', () => {
     const cfg = NOTIFICATION_REGISTRY.customer_milestone
     expect(cfg.title({ buyerName: 'Jordan', segmentLabel: 'Regular' })).toBe('Jordan is now a Regular')
     expect(cfg.message({ buyerName: 'Jordan', segmentLabel: 'Regular', orderCount: 4 })).toContain('order #4')
-    expect(cfg.actionUrl({ vertical: 'food_trucks' })).toBe('/food_trucks/vendor/orders')
+    // A2 (owner-approved 2026-09-04): the nudge now lands on the Your
+    // Customers report where "Add to VIP" lives — an OWNER product change,
+    // updated to the new spec (was /vendor/orders in Layer 1).
+    expect(cfg.actionUrl({ vertical: 'food_trucks' })).toBe('/food_trucks/vendor/insights')
+    expect(cfg.message({ buyerName: 'Jordan', segmentLabel: 'Regular' })).toContain('VIP')
   })
 
   it('the buyer badge deep-links to the Favorites page (badges live there, not a new tile)', () => {
