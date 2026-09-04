@@ -1,6 +1,6 @@
 # 18 — Notifications
 
-<!-- map-stamp: domain=notifications; verified=2026-08-25; commit=bfc60dfd -->
+<!-- map-stamp: domain=notifications; verified=2026-09-04; commit=d09707d3 -->
 <!-- map-claims
 src/app/api/notifications/**
 src/app/api/webhooks/resend/**
@@ -10,7 +10,9 @@ src/app/[vertical]/notifications/**
 src/app/[vertical]/account/**
 -->
 
-One send pipe, 100 notification types, four channels. **Communication cost is a first-class design constraint here** — the channel mapping is a spending decision as much as a UX one.
+One send pipe, 123 notification types, four channels. **Communication cost is a first-class design constraint here** — the channel mapping is a spending decision as much as a UX one.
+
+**`lib/notifications/vendor-digest.ts` (A3, 2026-09-04):** the ONE consolidated 8am followed/VIP-vendor digest (`followed_vendor_digest`, free channels) — exactly one send site, per-buyer grouping, content-gated, once-per-day dedup via the notifications table; runs as a block in the hourly surveys cron. Flow-integrity pins the consolidation.
 
 ---
 

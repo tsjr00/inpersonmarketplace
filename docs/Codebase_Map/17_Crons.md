@@ -1,6 +1,6 @@
 # 17 — Crons / Scheduled Jobs ⚠ money
 
-<!-- map-stamp: domain=crons; verified=2026-08-15; commit=03f97d29 -->
+<!-- map-stamp: domain=crons; verified=2026-09-04; commit=d09707d3 -->
 <!-- map-claims
 src/app/api/cron/**
 src/lib/cron/**
@@ -105,3 +105,5 @@ Each has a dedicated unit-test file — the business rules live in these helpers
 ## Why the surveys cron is hourly
 
 Survey fire moments are **per-market-timezone local**, so a daily job cannot hit them correctly. The route is also shared with intraday work (park check-in reminders at open/midday/pre-close) that genuinely needs hourly cadence. The cost concern was addressed differently: survey *generation* is gated to once daily and supplemented by lazy on-return generation when a user next visits, so returners are never emailed. See `lib/surveys/lazy-generate.ts`.
+
+**Blocks hosted (2026-09-04):** survey generation + market-day reminders + park check-in reminders + the **followed-vendor digest** (`lib/notifications/vendor-digest.ts`, A3) — one 8am-local, content-gated digest per buyer per vertical per day covering their followed/VIP vendors' new items (owner: never 5 pings from 5 trucks; deliberately NOT its own vercel.json entry — flow-integrity pins that). Each block is independent try/catch; one failing never aborts the others.

@@ -2058,6 +2058,24 @@ describe('Loyalty Layer 1 integrity', () => {
     expect(rd('app/[vertical]/favorites/page.tsx')).toMatch(/vendor_vip_customers/)
   })
 
+  it('the followed-vendor digest CONSOLIDATES (A3): one send per buyer, wired into the hourly cron', () => {
+    // Owner rule 2026-09-04: "we don't want a user get 5 updates from 5
+    // trucks." The module must have exactly ONE send call, and it fires per
+    // BUYER group — a per-vendor send loop is the defect this pins against.
+    const digest = rd('lib/notifications/vendor-digest.ts')
+    const sendCalls = digest.match(/sendNotification\(/g) ?? []
+    expect(sendCalls, 'exactly one send site — consolidation by construction').toHaveLength(1)
+    expect(digest, 'audience = followers ∪ VIPs').toMatch(/vendor_favorites/)
+    expect(digest).toMatch(/vendor_vip_customers/)
+    expect(digest, 'content gate — zero new items, zero send').toMatch(/\.eq\('status', 'published'\)/)
+    expect(digest, 'once-per-day dedup via the notifications table').toMatch(/\.eq\('type', 'followed_vendor_digest'\)/)
+    // Rides the existing hourly cron — no new deployment config.
+    const cron = rd('app/api/cron/surveys/route.ts')
+    expect(cron).toMatch(/runFollowedVendorDigest\(/)
+    const vercel = fs.readFileSync(path.resolve(SRC_DIR, '../vercel.json'), 'utf-8')
+    expect(/vendor-digest/.test(vercel), 'the digest must NOT get its own cron entry').toBe(false)
+  })
+
   it('the order card renders the segment chip from SEGMENT_LABELS (no duplicated copy)', () => {
     const card = rd('components/vendor/OrderCard.tsx')
     expect(card).toMatch(/customer_segment/)

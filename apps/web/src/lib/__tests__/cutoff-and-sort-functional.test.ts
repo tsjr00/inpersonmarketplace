@@ -288,8 +288,12 @@ describe('NI-014: Total notification types = 72', () => {
     // 121 → 122 (2026-09-04, owner approved "yes, you can bump the tripwire"):
     // vip_added (buyer, immediate = push+in_app, free channels) — a vendor
     // hand-picked this buyer as a VIP (mig 242, A2 of the VIP buildout).
+    // 122 → 123 (2026-09-04, owner approved "yes, up the tripwire"):
+    // followed_vendor_digest (buyer, immediate, free channels) — the ONE
+    // consolidated 8am digest of followed/VIP vendors' new items (A3);
+    // per-vendor pings are the defect this type exists to prevent.
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(122)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(123)
   })
 
   it('includes all buyer-facing types', () => {

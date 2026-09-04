@@ -226,6 +226,18 @@ No removal notification (v1 stays quiet — being un-VIP'd is not a moment to pi
 
 ---
 
+### Followed-Vendor Digest (`followed_vendor_digest`) — A3, 2026-09-04
+**Urgency:** Immediate (Push + In-app) — free channels; an 8am "today's specials" earns the ping
+**Trigger:** the hourly surveys cron's digest block (`lib/notifications/vendor-digest.ts`) — 8:00–8:59 local (vendors' home-market timezone), content-gated (only when a followed/VIP vendor published new items in the last 24h), once per buyer per vertical per day (notifications-table dedup)
+
+**In-app title:** 🍴 New today from {{digest_vendor_count}} of your vendors _(single vendor: 🍴 New today at {{vendor_name}})_
+**In-app message:** {{digest_summary}} — e.g. "Smokestack BBQ: Brisket Plate, Ribs +2 more · Taco Truck: Al Pastor"
+**Action:** `/{{vertical}}/favorites`
+
+⚠ CONSOLIDATION IS THE RULE (owner 2026-09-04): one digest covering every vendor — never a per-vendor ping. Flow-integrity pins the module to exactly one send site.
+
+---
+
 ## Vendor-Facing Notifications
 
 ---

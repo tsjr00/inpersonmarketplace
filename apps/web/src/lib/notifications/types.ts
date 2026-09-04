@@ -54,6 +54,7 @@ export type NotificationType =
   | 'issue_resolved'
   | 'badge_earned'
   | 'vip_added'
+  | 'followed_vendor_digest'
   // Vendor-facing
   | 'new_paid_order'
   | 'new_external_order'
@@ -317,6 +318,9 @@ export interface NotificationTemplateData {
   badgeName?: string
   badgeDescription?: string
   segmentLabel?: string
+  /** A3 (2026-09-04) followed_vendor_digest: "Vendor A: item, item · Vendor B: item". */
+  digestSummary?: string
+  digestVendorCount?: number
   payoutAmount?: string
   eventToken?: string
   eventPageUrl?: string
@@ -2215,6 +2219,22 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: (d) => `⭐ You're a VIP at ${d.vendorName || 'one of your vendors'}!`,
     message: (d) =>
       `${d.vendorName || 'A vendor you love'} added you to their VIP list — they know a great customer when they see one.`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/favorites`,
+  },
+
+  // A3 (2026-09-04): ONE 8am digest per buyer per vertical per day covering
+  // every followed/VIP vendor's new items — never a per-vendor ping (owner:
+  // "we don't want a user get 5 updates from 5 trucks"). Content-gated: sent
+  // only when there IS something new. lib/notifications/vendor-digest.ts.
+  followed_vendor_digest: {
+    urgency: 'immediate',
+    severity: 'info',
+    audience: 'buyer',
+    title: (d) =>
+      d.digestVendorCount && d.digestVendorCount > 1
+        ? `🍴 New today from ${d.digestVendorCount} of your vendors`
+        : `🍴 New today at ${d.vendorName || 'a vendor you follow'}`,
+    message: (d) => d.digestSummary || 'Your vendors added new items today — take a look.',
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/favorites`,
   },
 }

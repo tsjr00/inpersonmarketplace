@@ -14,6 +14,7 @@ import {
 import { generateSurveyToken } from '@/lib/surveys/token'
 import { resolveMarketAudience } from '@/lib/markets/market-audience'
 import { runParkCheckinReminders } from '@/lib/markets/park-checkin-reminders'
+import { runFollowedVendorDigest } from '@/lib/notifications/vendor-digest'
 import {
   buildBuyerSurveyEmailSubject,
   buildBuyerSurveyEmailHtml,
@@ -99,7 +100,16 @@ export async function GET(request: NextRequest) {
     } catch (err) {
       parkCheckinReminders = { parksConsidered: 0, remindersSent: 0, errors: [err instanceof Error ? err.message : 'Unknown'] }
     }
-    return NextResponse.json({ ...summary, marketDay, parkCheckinReminders })
+    // A3 (2026-09-04) — the 8am followed/VIP-vendor digest. Independent block,
+    // failures isolated; the module itself gates on local hour + content +
+    // once-per-day dedup, so the hourly cadence here costs nothing off-hours.
+    let vendorDigest
+    try {
+      vendorDigest = await runFollowedVendorDigest(createServiceClient())
+    } catch (err) {
+      vendorDigest = { vendorsWithNewItems: 0, buyersNotified: 0, errors: [err instanceof Error ? err.message : 'Unknown'] }
+    }
+    return NextResponse.json({ ...summary, marketDay, parkCheckinReminders, vendorDigest })
   })
 }
 

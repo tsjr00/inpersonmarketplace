@@ -48,7 +48,7 @@ Both are VENDOR-FUNDED (2026-08-25: no platform-funded at launch) and ride the *
 - **Q1 — ✅ ANSWERED 2026-09-04**: keep free 0 / pro 10 / boss 25 (FM mapping by tier rank).
 - **Q2 — VIP auto-expiry**: auto-remove after 6 months without a purchase (vendor notified, can re-add)? March said yes; cheap to skip in v1.
 - **Q3 — ✅ ANSWERED 2026-09-04**: perks are **VIP-only for now** — "build it for VIPs now and we will get feedback." Widening to all customers is a later call driven by that feedback.
-- **Q4 — Digest cadence**: daily fixed hour? Market-day mornings? At most one per day regardless.
+- **Q4 — ✅ ANSWERED 2026-09-04**: "8am daily during the season and only if there is something for them to see. out of season they go to the app and look." → 8am local, content-gated (zero new items = zero send — which is also what makes off-season naturally silent; no separate season flag in v1, noted for revisit if off-season posting noise appears). Hard max one digest per buyer per day.
 - **Q5 — Punch card v1 mechanics**: vendor sets visits target (bounds?) + reward = % off next order (bounds?); free-item variant now or later?
 - **Q6 — Threshold discount bounds**: min/max % and threshold (guard against 90%-off mistakes)?
 - **Q7 — ✅ ANSWERED 2026-09-04: gate RE-OPENED** — Phase B may follow Phase A directly. Rationale: vendor-funded-only + subtotal-NET keeps tax clean ("we want taxes to be clean and easy for calculations & compliance"). **NO platform-funded discounts/perks yet, maybe later** — those stay behind chunk D.
