@@ -4,6 +4,11 @@ export type Schedule = {
   start_time: string
   end_time: string
   active?: boolean
+  /** P6 (owner 2026-09-03), fixed markets only: the vendor holds an active
+   *  vendor_market_schedules row on this window. The week-at-a-glance grid
+   *  shows only attending windows — a market day the vendor skips is not
+   *  "where I'll be". */
+  attending?: boolean
 }
 
 /**
@@ -54,6 +59,9 @@ export type Market = {
   organizerSelectedAt?: string | null
   boothAvailability?: BoothAvailability | null
   schedules?: Schedule[]
+  /** Fixed + event markets: the raw embed key the API forwards (private
+   *  pickups use `schedules`). Fixed-market entries carry `attending`. */
+  market_schedules?: Schedule[]
 }
 
 export type MarketSuggestion = {

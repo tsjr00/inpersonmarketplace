@@ -507,7 +507,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
         )}
 
         {/* ============================================= */}
-        {/* ROW 1: Operational - Pickup Mode, Upcoming Pickups, Manage Locations */}
+        {/* ROW 1: Operational - Pickup Mode, Upcoming Pickups, Locations & Schedule */}
         {/* ============================================= */}
         <div className="row-1-grid" style={{
           display: 'grid',
@@ -568,8 +568,10 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               open the log, jump to a specific location) rather than the whole
               surface being one door. See the tile/card taxonomy in
               docs/Codebase_Map/22_Components_UI.md. */}
+          {/* P6 (owner 2026-09-03): renamed from "Manage Locations" — the
+              locations page now carries the week-at-a-glance schedule. */}
           <DashboardCard
-            title="Manage Locations"
+            title="Locations & Schedule"
             inGrid
             headerAccessory={
               <Link
