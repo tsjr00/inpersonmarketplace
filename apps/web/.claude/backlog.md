@@ -4,7 +4,9 @@ Last updated: 2026-09-03 (added: owner testing thoughts — host menu pare-down 
 
 ## 🎪 OWNER TESTING THOUGHTS — 2026-09-03 (not defects; captured verbatim-ish, code anchors verified same day)
 
-**Build plans written (owner request 2026-09-03): `event_ux_findings_2026-09-03_plan.md`** — P1–P6 with files/lines, decision points, batching. Not yet approved to build.
+**✅ ALL SIX BUILT 2026-09-03** (staging `8df93d4b`; plan doc `event_ux_findings_2026-09-03_plan.md` has the build record; P1 decisions in decisions.md). Follow-ons captured:
+- [ ] **Week strip v2.1**: show 'special' make-up-day overrides + standing-occurrence "pay by X to keep your spot" flags on the strip (`lib/vendor/week-strip.ts` module doc).
+- [ ] **Selection notification menu summary**: the `event_vendor_selected` notification could carry "N of M items approved" (the Vendor Event Page block is the load-bearing surface; this is polish).
 
 1. [ ] **Host pare-down of proposed menus (DESIGN, likely with admin-assisted/host-paid events).** Trucks propose a menu; the host cannot subset it (truck proposes 7 items, host wants only 2 sold). Owner: "a feature many event hosts will want" — decide under what circumstances a host can select a subset. Touches listing↔event attachment + the shop's listing filter; interacts with "they must attend to sell" (mig 234) and per-item selection would need a per-(event, listing) state, which doesn't exist today. Design work now; build later.
 2. [ ] **Admin events page: show selected / backup / roles per truck.** `/[vertical]/admin/events` shows invited + accepted/declined but no selected-vs-backup indication (no `is_backup`/`organizer_selected_at`/"backup" reference anywhere in `admin/events/page.tsx` — grep-verified 2026-09-03). Admins stepping into an event (corporate catering, host-paid, admin-assisted) need the full roster picture. Same page will be the basis for admin-assisted events, so add now.
