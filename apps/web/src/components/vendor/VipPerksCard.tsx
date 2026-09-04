@@ -228,6 +228,9 @@ export default function VipPerksCard({ vendorId, vertical }: { vendorId: string;
         <div style={{ ...rowStyle, marginTop: spacing['2xs'] }}>
           <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
             Punches count from VIP designation; the reward applies automatically on the order after they earn it.
+            {/* FM cadence guidance (owner 2026-09-04): market shoppers visit
+                weekly, so a 12-visit card is ~a season — steer to 3–6. */}
+            {vertical === 'farmers_market' && ' Most market shoppers visit weekly — 3–6 visits is a realistic target.'}
           </span>
           <button
             onClick={() => save('punch_card', !punchEnabled)}

@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { parsePunchCard, parseSpendThreshold, PUNCH_CARD_BOUNDS, SPEND_THRESHOLD_BOUNDS } from '@/lib/loyalty/offers'
+import { getTierLimits } from '@/lib/vendor-limits'
 
 /**
  * VIP perk menu config (Phase B, mig 243 — owner D-menu 2026-09-04).
@@ -27,7 +28,7 @@ async function resolveVendor(vendorId: string | null, vertical: string | null) {
   }
   const { data: vendorProfile } = await observed(supabase
     .from('vendor_profiles')
-    .select('id, user_id, vertical_id')
+    .select('id, user_id, tier, vertical_id')
     .eq('id', vendorId)
     .single(), { table: 'vendor_profiles' })
   if (!vendorProfile || vendorProfile.user_id !== user.id) {
@@ -71,6 +72,18 @@ export async function PUT(request: NextRequest) {
     }
     const resolved = await resolveVendor(vendor_id ?? null, vertical ?? null)
     if ('error' in resolved) return resolved.error
+
+    // Review fix F2 (2026-09-04): perks are a VIP feature — the same tier
+    // that gates VIP slots gates SAVING perk config. The UI already hides the
+    // card at limit 0; this closes the direct-API path (a downgraded vendor's
+    // retained VIPs would otherwise still collect newly-enabled discounts).
+    const vipLimit = getTierLimits(resolved.vendorProfile.tier || 'free', resolved.vendorProfile.vertical_id as string).vipCustomers
+    if (vipLimit <= 0) {
+      return NextResponse.json(
+        { error: 'VIP perks are a Pro and Boss feature — upgrade to offer them.', code: 'ERR_VIP_TIER' },
+        { status: 403 }
+      )
+    }
 
     if (kind !== 'punch_card' && kind !== 'spend_threshold') {
       return NextResponse.json({ error: 'Unknown perk kind' }, { status: 400 })

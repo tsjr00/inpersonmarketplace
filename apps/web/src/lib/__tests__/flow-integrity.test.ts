@@ -2108,6 +2108,12 @@ describe('Loyalty Layer 1 integrity', () => {
     const offersApi = rd('app/api/vendor/offers/route.ts')
     expect(offersApi).toMatch(/parsePunchCard\(/)
     expect(offersApi).toMatch(/parseSpendThreshold\(/)
+    // Review fix F2: saving perk config is gated by the SAME tier limit that
+    // gates VIP slots — the UI hiding the card is not the enforcement.
+    expect(offersApi).toMatch(/\.vipCustomers/)
+    // Review fix F1: the page's VIP-deal display mirrors the server's
+    // per-listing net consolidation — never a single rounded discount total.
+    expect(rd('app/[vertical]/checkout/page.tsx')).toMatch(/vipDiscountsByListing/)
   })
 
   it('the followed-vendor digest CONSOLIDATES (A3): one send per buyer, wired into the hourly cron', () => {

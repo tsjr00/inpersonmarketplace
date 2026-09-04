@@ -79,3 +79,52 @@ Both are VENDOR-FUNDED (2026-08-25: no platform-funded at launch) and ride the *
 
 ## Build order proposal
 A1 → A2 (one push each, trace end-to-end) → A3 → B plumbing → punch card → threshold discount (gate re-opened 2026-09-04; vendor-funded only). Flash sales: not in this plan ("later, if at all").
+
+---
+
+## PHASE FM — apply VIP to the farmers-market vertical (REVISED 2026-09-04 after owner corrected the tier model)
+
+### The corrected tier model (verified vendor-limits.ts:6-9 + snapshot migs 089/061)
+Tiers are UNIFIED across both verticals: free → pro ($25/mo) → boss ($50/mo).
+"standard/premium/featured/basic" are LEGACY names accepted by the DB CHECK for
+backward compat only; normalizeTier maps them to free (vendor-limits.ts:27-35).
+Mig 061 grandfathered then-existing FM vendors at 'standard'. (An earlier draft
+of this section claimed FM had its own tier names — that came from a stale
+memory file, now corrected there too.)
+
+### Consequence: VIP already works for FM — there is NO code blocker
+An FM vendor on pro/boss gets 10/25 VIP slots TODAY (normalizeTier passes
+pro/boss through regardless of vertical). Verified in the 2026-09-04 review:
+insights page renders for FM, Your Customers gate passes, engine/checkout/
+preview/favorites/notifications/digest are vertical-agnostic, the punch
+qualifying bar auto-adjusts ($10 FM / $5 FT, pricing.ts:49-52), and punches
+accumulate at private pickup locations too (punchState filters only
+vendor+buyer+fulfilled — no market-type filter; the owner's stated reason for
+keeping "visits" wording). The "Pro and Boss feature" copy is CORRECT for FM.
+
+### Owner decisions (2026-09-04)
+1. FM mirrors FT numbers — ALREADY TRUE in code (pro 10 / boss 25, both verticals).
+2. "Featured gets slots: yes" — answered under the old model; featured is a
+   legacy value now. If the data check finds featured rows → propose migrating
+   them to boss (25). Owner re-confirms once data is in.
+3. Market boxes EXCLUDED from perks v1 — confirmed (already true: engine sees
+   listing items only).
+4. Punch wording stays "visits" — confirmed (private-pickup rationale above).
+
+### Remaining work
+- **Data check (owner runs, read-only, each env — prod matters most):**
+  `SELECT vertical_id, tier, count(*) FROM vendor_profiles GROUP BY 1, 2 ORDER BY 1, 2;`
+  → If legacy tier values (standard/premium/featured/basic) show up: owner
+  decides per group — migrate rows to the unified equivalent, or leave (they
+  behave as free ⇒ 0 VIP slots). Featured→boss proposal per #2.
+  **PROD RESULT (owner 2026-09-04):** FM free 2 / premium 1 / standard 7 ·
+  FT basic 2 / pro 1 / standard 2. No featured (decision 2 moot), no boss.
+  12 of 15 vendors on legacy values ⇒ behave as free, 0 VIP slots. OPEN
+  QUESTION for owner: the 1 FM `premium` vendor — if actually paying,
+  migrate that row to `pro`? (Data change, owner-run.) Standard/basic rows
+  presumably stay (grandfathered free).
+- **FM guidance copy (built 2026-09-04):** one line in VipPerksCard for
+  farmers_market — weekly cadence, 3–6 visits is a realistic target.
+- **Verify pass on staging:** FM pro/boss vendor runs the same loop as FT
+  (tag VIP → buyer badge/ping → enable perks → FM buyer checkout discount →
+  punch earn). No migration; code-only ship.

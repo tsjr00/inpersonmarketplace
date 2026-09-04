@@ -62,7 +62,7 @@ export default function CheckoutPage() {
   const [roundUpBeneficiaryName, setRoundUpBeneficiaryName] = useState<string>('')
   const [roundUpOn, setRoundUpOn] = useState(false)
   const [unresolvedExternalCount, setUnresolvedExternalCount] = useState(0)
-  const [vipDiscountCents, setVipDiscountCents] = useState(0)
+  const [vipDiscountsByListing, setVipDiscountsByListing] = useState<Map<string, number>>(new Map())
 
   // Ref to prevent double-click submissions (state update may not re-render in time)
   const isSubmittingRef = useRef(false)
@@ -70,10 +70,13 @@ export default function CheckoutPage() {
   // VIP perk preview (display-price pair): asks the server what discount
   // checkout/session will apply, via the SAME shared engine
   // (lib/loyalty/offers-checkout → /api/checkout/discount-preview), so the
-  // total shown here matches Stripe. 0 for non-VIPs and carts with no perk.
+  // total shown here matches Stripe. Empty for non-VIPs and carts with no
+  // perk. Kept PER LISTING because the server consolidates a discounted
+  // listing into one Stripe line rounded on the net — the mirror below must
+  // round the same way or the two screens drift by a cent.
   useEffect(() => {
     const listingItems = checkoutItems.filter(i => i.itemType !== 'market_box' && i.listingId)
-    if (listingItems.length === 0) { setVipDiscountCents(0); return }
+    if (listingItems.length === 0) { setVipDiscountsByListing(new Map()); return }
     let cancelled = false
     fetch('/api/checkout/discount-preview', {
       method: 'POST',
@@ -84,8 +87,17 @@ export default function CheckoutPage() {
       }),
     })
       .then(r => (r.ok ? r.json() : null))
-      .then(data => { if (!cancelled) setVipDiscountCents(data?.total_cents ?? 0) })
-      .catch(() => { if (!cancelled) setVipDiscountCents(0) })
+      .then(data => {
+        if (cancelled) return
+        const m = new Map<string, number>()
+        for (const d of (data?.discounts ?? []) as Array<{ listing_id?: string; cents?: number }>) {
+          if (d.listing_id && typeof d.cents === 'number' && d.cents > 0) {
+            m.set(d.listing_id, (m.get(d.listing_id) ?? 0) + d.cents)
+          }
+        }
+        setVipDiscountsByListing(m)
+      })
+      .catch(() => { if (!cancelled) setVipDiscountsByListing(new Map()) })
     return () => { cancelled = true }
   }, [checkoutItems, vertical])
 
@@ -594,10 +606,24 @@ export default function CheckoutPage() {
   }, 0)
   // Punch build (display-price pair): the server computes VIP perk discounts
   // via the SAME function this page previews (api/checkout/discount-preview →
-  // lib/loyalty/offers-checkout). The page mirrors them so this total and the
-  // Stripe total agree. 0 for everyone without an applicable perk.
+  // lib/loyalty/offers-checkout). 0 for everyone without an applicable perk.
+  const vipDiscountCents = [...vipDiscountsByListing.values()].reduce((a, b) => a + b, 0)
   const baseSubtotal = grossBaseSubtotal - vipDiscountCents
-  const vipDiscountDisplayCents = Math.round(vipDiscountCents * (1 + FEES.buyerFeePercent / 100))
+  // Review fix F1 (2026-09-04): mirror the SERVER's consolidation exactly —
+  // checkout/session renders a discounted listing as ONE Stripe line at
+  // round(net × 1.065). The VIP-deal display amount is therefore computed per
+  // listing as (per-item display sum − that consolidated line), never as
+  // round(discountTotal × 1.065), so subtotal − VIP deal equals the Stripe
+  // total to the cent.
+  const vipDiscountDisplayCents = [...vipDiscountsByListing.entries()].reduce((sum, [listingId, cents]) => {
+    const gross = checkoutItems.reduce((s, i) =>
+      i.itemType !== 'market_box' && i.listingId === listingId ? s + i.price_cents * i.quantity : s, 0)
+    if (gross <= 0) return sum
+    const grossDisplay = checkoutItems.reduce((s, i) =>
+      i.itemType !== 'market_box' && i.listingId === listingId ? s + calculateDisplayPrice(i.price_cents) * i.quantity : s, 0)
+    const net = gross - Math.min(cents, gross)
+    return sum + (grossDisplay - Math.round(net * (1 + FEES.buyerFeePercent / 100)))
+  }, 0)
 
   // Display subtotal = sum of per-item display prices (includes buyer % fee, per-item rounding)
   // This matches what's shown next to each item AND what Stripe charges

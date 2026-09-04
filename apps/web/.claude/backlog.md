@@ -2206,3 +2206,6 @@ Fix = rename the columns + adjust the mapping code; remove each line from `KNOWN
 
 ## Background-check deadline enforcement (owner, 2026-08-30 session 2)
 The app can't know whether a required background check actually happened. Organizer needs a way to STOP a vendor from attending if the check isn't completed by a deadline (e.g., a "confirm check received" toggle per selected vendor + a cutoff date; unconfirmed by cutoff → organizer can drop the vendor with the normal deselect/refund flow). Design when event chunk reopens.
+
+## Prod vendor tier labels are wrong (owner, 2026-09-04)
+Prod query showed 12 of 15 vendor_profiles on LEGACY tier values — FM: premium 1, standard 7 · FT: basic 2, standard 2 — which normalizeTier maps to free (0 VIP slots, no paid features). Owner: "those tiers on prod are wrong labels." Fix = owner-run data relabel (UPDATE vendor_profiles SET tier=... per vendor/group), NOT code. Blocked on owner mapping: which rows become pro/boss vs stay free. Schema gate applies when the SQL is composed. Does not break the VIP build — everything fails closed for legacy labels. Also check staging/dev for the same drift.

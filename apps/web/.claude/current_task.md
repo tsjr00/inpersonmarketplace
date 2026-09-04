@@ -13,8 +13,13 @@
 - **evaluate.ts** checkVipPunchRewards → `vip_reward_ready` (tripwire 123→124 owner-approved; dedup `punchready:{offer}:{anchor}` via explicit notifications query — CHK-13). Favorites: perk lines under vendor names (threshold label · punch "N of M visits" · "🎉 Reward ready").
 - Guards: punch flow-integrity test (engine pair, one punchState, no-stacking, parser validation) + B1 guard updated to the engine location (same invariant, math moved — transparent). Maps: 10 item 8, 11 perks block, 18, 20, 21 + stamps. MESSAGE_TEMPLATES vip_reward_ready.
 
+## POST-SHIP (same day): full review + fixes + FM plan
+- Punch build SHIPPED to staging `d4778507` (owner approved; ref-update + Playwright 49✓ verified).
+- Owner-ordered FULL review of all 5 VIP commits (post-compaction trust check) → `.claude/vip_review_2026-09-04_research.md`. System coherent; F1 (page-vs-Stripe cent drift under discounts) + F2 (offers PUT missing tier gate) found and FIXED (owner approved) — uncommitted. Guard pins added. Gates: tsc ✓ · 2145/2145 ✓ · lint 0 err.
+- **FM VIP plan written** → `vip_loyalty_buildout_plan.md` PHASE FM. Blocker is ONE thing: normalizeTier collapses FM tiers → free → 0 slots; getTierLimits(_vertical) is the extension point. Engine/digest/favorites/notifications all vertical-agnostic (verified). Awaiting owner: FM slot counts (a/b/c), featured?, market-box exclusion confirm, "visits" wording.
+
 ## ▶ NEXT SESSION / OWNER
-1. **Commit + push the punch build** (owner approval pending at wrap).
+1. **Commit + push the review fixes** (F1+F2, approval pending at wrap).
 2. Owner staging retests owed: FULL VIP loop — A1 report → A2 star toggle/push/badges → A3 digest (8am-hour cron GET) → B1+punch: configure perks on Insights → buyer sees Favorites perk lines → checkout shows VIP deal line → Stripe total matches → punch earn ping after Nth fulfilled qualifying order. Plus standing 2026-09-03 batch retests (P1 pare loop, week strip, stage surfaces).
 3. Two flagged interpretations for owner: "min platform threshold" = vertical small-order threshold ($5 FT/$10 FM) · $-off bounds $1–$50 (proposed).
 4. Standing queue unchanged: event-gate fixes A+B (awaiting go since 08-31) · vendor-docs crash evidence · admin phase 6 events board · Protocol v6 C/D/E money tests · money-on-activation tier-scope decision (owner thinking) · prod push in window when ready · backlog: platform-funded punch perk math (behind chunk D).
