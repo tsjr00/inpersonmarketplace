@@ -1,3 +1,11 @@
+# SESSION 2026-09-04 — VIP buildout: decisions locked + A1 BUILT, uncommitted. Gates: tsc ✓ · vitest 2123/2123 (+1 guard) · lint 0 err.
+- **Decisions (decisions.md "VIP buildout unblocked + perk-menu model")**: VIP unblocked from flash sales · perks = platform menu vendor toggles (punch card + spend-threshold discount v1) · digest-only follower notifications · Q1 slots 0/10/25 · Q3 VIP-only perks for feedback · **Q7 chunk-D gate RE-OPENED for vendor-funded Phase B; NO platform-funded perks yet**. Plan: `vip_loyalty_buildout_plan.md` (A1→A2→A3→B).
+- **A1 "Your Customers"**: NEW `api/vendor/customers` (lifetime distribution via the SHARED `classifyCustomer` — its third reader per the classifier's own doc; fulfilled-orders visit definition; `user_profiles.display_name` only, guard forbids email/phone; favorites via `vendor_favorites`; top 100 rows + truncated flag; location-insights auth/tier-gate shape). Insights page: "Your Customers" card after Customer Loyalty — distribution chips (Local Legends/Regulars/Repeat/One-timers/♥ favorited) + table (Customer · Orders · Standing · Last order, ♥ flag). Rows carry `user_id` — A2's "Add to VIP" hangs off these rows next. Flow-integrity: +1 guard (classifier + fulfilled + names-only). Map 11_Vendor_Orders + INDEX stamps.
+- Owner retest: /food_trucks/vendor/insights → "Your Customers" card shows the distribution + named rows matching order-card chips; ♥ marks favoriters.
+- NEXT: A2 VIP designation core (mig: `vendor_vip_customers`; ⚠ vendor-limits.ts protected — per-file approval for slots) on owner go.
+
+---
+
 # SESSION 2026-09-03 — WRAP. Next session starts HERE.
 
 ## Git / env — VERIFY, don't trust

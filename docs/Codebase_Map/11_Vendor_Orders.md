@@ -1,6 +1,6 @@
 # 11 — Vendor Orders & Vendor Dashboard ⚠ money
 
-<!-- map-stamp: domain=vendor-orders; verified=2026-09-03; commit=c27214b0 -->
+<!-- map-stamp: domain=vendor-orders; verified=2026-09-04; commit=8df93d4b -->
 <!-- map-claims
 src/app/api/vendor/**
 src/lib/orders/**
@@ -13,6 +13,8 @@ src/app/[vertical]/vendor-signup/**
 -->
 
 The largest single surface in the codebase: **74 route files** under `src/app/api/vendor/**`, plus the order state machine and the vendor dashboard.
+
+**Your Customers report (2026-09-04, A1 of `vip_loyalty_buildout_plan.md`):** `api/vendor/customers` — the vendor's LIFETIME customer distribution (one-timers → Local Legends + favorites), rendered as the "Your Customers" card on `[vertical]/vendor/insights`. THE shared classifier's third reader (`lib/loyalty/segments.ts` — chip, badges, this report; flow-integrity-guarded). Names = `user_profiles.display_name` only, never email/phone. Sibling of `location-insights` (lifetime/vendor-level vs windowed/per-location), same tier gate.
 
 **Week strip (2026-09-03, P6 v2):** `lib/vendor/week-strip.ts` (pure `assembleStrip` + loader — the vendor's next-14-DATES commitments: weekly schedules, own private-pickup windows, paid park days/booth weeks, SELECTED events; blackout-skipped and manager-cancelled days render STRUCK with the reason, never silently dropped) → served by `api/vendor/week-schedule` (client sends its local `start` date — no server timezone guess) → rendered by `components/vendor/markets/WeekAtAGlance.tsx` at the top of `/vendor/markets`. Commitment queries mirror `lib/events/availability.ts` patterns (its doc comment explains the split); date helpers imported from it. Unit spec: `lib/vendor/__tests__/week-strip.test.ts`.
 

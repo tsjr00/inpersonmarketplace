@@ -2022,6 +2022,18 @@ describe('Loyalty Layer 1 integrity', () => {
       .toMatch(/\.eq\('status', 'fulfilled'\)/)
   })
 
+  it('the Your Customers report (A1, 2026-09-04) uses the SAME classifier and visit definition', () => {
+    // The classifier doc names this report as its third reader — the report
+    // must never disagree with the chip or the badges, and it must never leak
+    // more than the display name (owner: names only, never email/phone).
+    const route = rd('app/api/vendor/customers/route.ts')
+    expect(route).toMatch(/import \{[^}]*classifyCustomer[^}]*\} from '@\/lib\/loyalty\/segments'/)
+    expect(route).toMatch(/\.eq\('status', 'fulfilled'\)/)
+    expect(route).toMatch(/\.select\('user_id, display_name'\)/)
+    expect(/email|phone/.test(route.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')),
+      'the report must not select or emit email/phone').toBe(false)
+  })
+
   it('the order card renders the segment chip from SEGMENT_LABELS (no duplicated copy)', () => {
     const card = rd('components/vendor/OrderCard.tsx')
     expect(card).toMatch(/customer_segment/)

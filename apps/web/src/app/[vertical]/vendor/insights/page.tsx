@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { colors, spacing, typography, radius, shadows, containers, statusColors } from '@/lib/design-tokens'
 import { getFtTierExtras, getFtTierLabel } from '@/lib/vendor-limits'
+import { SEGMENT_LABELS, type CustomerSegment } from '@/lib/loyalty/config'
 
 interface RevenueRow { marketId: string; marketName: string; city: string; revenue: number; orderCount: number }
 interface PeakDayRow { marketId: string; marketName: string; days: { day: string; dayIndex: number; count: number }[]; peakDay: string }
@@ -15,6 +16,22 @@ interface MissingMarketRow { marketId: string; name: string; city: string; state
 interface ScoreRow { marketId: string; marketName: string; score: number; factors: { volume: number; uniqueBuyers: number; avgTicket: number; repeatRate: number } }
 interface DensityRow { marketId: string; marketName: string; within5mi: number; within10mi: number; within25mi: number }
 interface CoverageRow { zip: string; city: string; state: string; searchCount: number; zeroResultPct: number }
+
+/** A1 (vip_loyalty_buildout_plan.md): /api/vendor/customers response. */
+interface CustomersData {
+  blocked?: boolean
+  distribution: { one_timer: number; repeat: number; regular: number; loyal: number }
+  totals: { customers: number; favorites: number }
+  rows: Array<{
+    user_id: string
+    name: string
+    orders: number
+    segment: CustomerSegment
+    last_order_day: string
+    is_favorite: boolean
+  }>
+  truncated: boolean
+}
 
 interface InsightsData {
   blocked?: boolean
@@ -156,6 +173,7 @@ export default function VendorInsightsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [data, setData] = useState<InsightsData | null>(null)
+  const [customers, setCustomers] = useState<CustomersData | null>(null)
   const [days, setDays] = useState(30)
 
   // Fetch vendor profile
@@ -200,6 +218,18 @@ export default function VendorInsightsPage() {
   useEffect(() => {
     if (vendorId) fetchInsights()
   }, [vendorId, fetchInsights])
+
+  // A1: lifetime customer distribution — not windowed, so it fetches once per
+  // vendor, independent of the days selector.
+  useEffect(() => {
+    if (!vendorId) return
+    let alive = true
+    fetch(`/api/vendor/customers?vendor_id=${vendorId}&vertical=${vertical}`)
+      .then(res => (res.ok ? res.json() : null))
+      .then(d => { if (alive && d && !d.blocked) setCustomers(d) })
+      .catch(() => { /* section simply doesn't render */ })
+    return () => { alive = false }
+  }, [vendorId, vertical])
 
   const isFt = vertical === 'food_trucks'
   const extras = getFtTierExtras(vendorTier)
@@ -519,6 +549,78 @@ export default function VendorInsightsPage() {
                 </div>
               )}
             </div>
+
+            {/* ═══ A1: Your Customers (vip_loyalty_buildout_plan.md) ═══
+                Lifetime distribution from the SAME classifier as the badges
+                and the order-card chip — "know who to appreciate, call by
+                name" (owner 2026-08-25). Names only, never email/phone. */}
+            {customers && customers.totals.customers > 0 && (
+              <div style={cardStyle}>
+                <h2 style={sectionTitle}>Your Customers</h2>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.sm }}>
+                  {([
+                    // Chip copy, pluralized per count (SEGMENT_LABELS stays the
+                    // per-row vocabulary — its one_timer label is "1 order",
+                    // which can't take a count in front of it).
+                    ['loyal', 'Local Legend', 'Local Legends', statusColors.successLight, statusColors.successDark],
+                    ['regular', 'Regular', 'Regulars', statusColors.infoLight, statusColors.infoDark],
+                    ['repeat', 'Repeat customer', 'Repeat customers', colors.surfaceMuted, colors.textSecondary],
+                    ['one_timer', 'One-timer', 'One-timers', colors.surfaceMuted, colors.textMuted],
+                  ] as Array<[keyof CustomersData['distribution'], string, string, string, string]>).map(([seg, one, many, bg, fg]) => (
+                    <span key={seg} style={{
+                      padding: `${spacing['3xs']} ${spacing.xs}`,
+                      backgroundColor: bg,
+                      color: fg,
+                      borderRadius: radius.full,
+                      fontSize: typography.sizes.xs,
+                      fontWeight: typography.weights.semibold,
+                    }}>
+                      {customers.distribution[seg]} {customers.distribution[seg] === 1 ? one : many}
+                    </span>
+                  ))}
+                  <span style={{
+                    padding: `${spacing['3xs']} ${spacing.xs}`,
+                    backgroundColor: '#fdf2f8',
+                    color: '#9d174d',
+                    borderRadius: radius.full,
+                    fontSize: typography.sizes.xs,
+                    fontWeight: typography.weights.semibold,
+                  }}>
+                    ♥ {customers.totals.favorites} favorited you
+                  </span>
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr>
+                        <th style={tableHeaderCell}>Customer</th>
+                        <th style={{ ...tableHeaderCell, textAlign: 'right' }}>Orders</th>
+                        <th style={tableHeaderCell}>Standing</th>
+                        <th style={tableHeaderCell}>Last order</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {customers.rows.map(row => (
+                        <tr key={row.user_id}>
+                          <td style={tableCell}>
+                            {row.name}
+                            {row.is_favorite && <span title="Favorited you" style={{ marginLeft: 6, color: '#db2777' }}>♥</span>}
+                          </td>
+                          <td style={{ ...tableCell, textAlign: 'right', fontWeight: typography.weights.semibold }}>{row.orders}</td>
+                          <td style={tableCell}>{SEGMENT_LABELS[row.segment]}</td>
+                          <td style={{ ...tableCell, color: colors.textMuted }}>{row.last_order_day}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {customers.truncated && (
+                  <p style={{ margin: `${spacing.xs} 0 0`, fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                    Showing your top {customers.rows.length} customers of {customers.totals.customers}.
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* ═══ PRO TIER or locked ═══ */}
             {showPro && data.missingMarkets ? (
