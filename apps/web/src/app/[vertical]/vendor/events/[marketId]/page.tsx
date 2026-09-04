@@ -10,6 +10,7 @@ import { term } from '@/lib/vertical/terminology'
 // by the wave count having two sources. The exported original was two
 // directories away the whole time. One definition, one place.
 import { calculateWaveCount } from '@/lib/events/viability'
+import { classifyVendorEventStage } from '@/lib/events/vendor-stage'
 import { estimateOrders, expectedPeakOrdersPerWave } from '@/lib/events/demand-model'
 import { createClient } from '@/lib/supabase/client'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
@@ -125,8 +126,9 @@ const PAYMENT_MODEL_LABELS: Record<string, string> = {
   hybrid: 'Organizer covers base, attendees can upgrade',
 }
 
-// (d) 2026-08-29 (owner): the header's single status line. Derivation order
-// matters — declined/withdrawn first, then bench, then selection, then money.
+// (d) 2026-08-29 (owner): the header's single status line. The stage ladder
+// itself lives in lib/events/vendor-stage.ts (shared with the locations-page
+// pill, 2026-09-03) — this function only layers the fee-detail labels on top.
 // `vendor_fee_pays_cents` is what THIS vendor owes (may differ from the event
 // fee when part is covered); fall back to the event fee when it is absent.
 function eventStage(d: {
@@ -137,11 +139,13 @@ function eventStage(d: {
   vendor_fee_pays_cents: number | null
   vendor_fee_status: 'paid' | 'covered' | 'unpaid' | null
 }): { label: string; tone: 'success' | 'warning' | 'danger' | 'info' } {
-  if (d.response_status === 'declined') return { label: 'Declined', tone: 'danger' }
-  if (d.response_status === 'cancelled') return { label: 'Withdrawn', tone: 'danger' }
-  if (d.response_status !== 'accepted') return { label: 'Invited · waiting for your answer', tone: 'warning' }
-  if (d.is_backup) return { label: 'On the bench · backup vendor', tone: 'info' }
-  if (!d.organizer_selected_at) return { label: 'You said yes · awaiting the organizer’s selection', tone: 'warning' }
+  const stage = classifyVendorEventStage(d)
+  if (stage === 'declined') return { label: 'Declined', tone: 'danger' }
+  if (stage === 'withdrawn') return { label: 'Withdrawn', tone: 'danger' }
+  if (stage === 'invited' || stage === 'none') return { label: 'Invited · waiting for your answer', tone: 'warning' }
+  if (stage === 'bench') return { label: 'On the bench · backup vendor', tone: 'info' }
+  if (stage === 'accepted_awaiting') return { label: 'You said yes · awaiting the organizer’s selection', tone: 'warning' }
+  // stage === 'selected' — the money detail
   const fee = d.vendor_fee_cents ?? 0
   if (fee <= 0) return { label: 'Confirmed · free event', tone: 'success' }
   if (d.vendor_fee_status === 'paid') return { label: 'Confirmed & paid', tone: 'success' }
@@ -529,9 +533,12 @@ export default function VendorCateringDetailPage() {
   const headcountPerVendor = headcountIsRange
     ? `${headcountPerVendorLow}–${headcountPerVendorHigh}`
     : String(headcountPerVendorLow)
-  /** "2 of 4 confirmed so far" — the reason the number is a range. */
+  /** "2 of 4 have said yes so far" — the reason the number is a range.
+      Owner 2026-09-03: never say "confirmed" for mere acceptance — an
+      undecided vendor reading "2 of 4 confirmed" may write the event off.
+      "Confirmed" is reserved for the selected(+paid) stage (eventStage). */
   const headcountBasis = headcountIsRange
-    ? `${details.headcount} guests ÷ ${expectedVendors} ${term(vertical, 'event_vendor_unit')}s if all confirm, ÷ ${committedVendors} if none else do (${details.accepted_count} of ${details.vendor_count} confirmed so far)`
+    ? `${details.headcount} guests ÷ ${expectedVendors} ${term(vertical, 'event_vendor_unit')}s if all say yes, ÷ ${committedVendors} if none else do (${details.accepted_count} of ${details.vendor_count} have said yes so far)`
     : `${details.headcount} total ÷ ${expectedVendors} ${term(vertical, 'event_vendor_unit')}s`
 
   return (
@@ -770,7 +777,7 @@ export default function VendorCateringDetailPage() {
           {details.payment_model && (
             <DetailRow label="Payment" value={PAYMENT_MODEL_LABELS[details.payment_model] || details.payment_model} />
           )}
-          <DetailRow label="Vendors confirmed" value={`${details.accepted_count} of ${details.vendor_count}`} />
+          <DetailRow label="Vendors who said yes" value={`${details.accepted_count} of ${details.vendor_count} invited`} />
           {details.is_ticketed && <DetailRow label="Ticketed" value="Yes — attendees have committed to attending" />}
           {details.children_present && <DetailRow label="Children" value="Yes — consider family-friendly offerings" />}
           {details.is_themed && <DetailRow label="Theme" value={details.theme_description || 'Yes'} />}

@@ -47,6 +47,11 @@ export type Market = {
    *  has no market_vendors row — i.e. a public event they found by browsing
    *  rather than an invitation they haven't answered (T-68). */
   responseStatus?: string | null
+  /** Events only (owner 2026-09-03). Selection state so the pill can tell
+   *  accepted-awaiting-selection from selected/benched — the stage label is
+   *  derived in lib/events/vendor-stage.ts, shared with the Vendor Event Page. */
+  isBackup?: boolean
+  organizerSelectedAt?: string | null
   boothAvailability?: BoothAvailability | null
   schedules?: Schedule[]
 }

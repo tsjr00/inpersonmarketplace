@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { term } from '@/lib/vertical'
+import { classifyVendorEventStage } from '@/lib/events/vendor-stage'
 import { colors, statusColors } from '@/lib/design-tokens'
 import type { Market, ErrorState } from './types'
 import { DAYS } from './utils'
@@ -226,26 +227,35 @@ export default function EventMarketsSection({
                   )}
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  {/* T-68: this pill used to read hasAttendance ? 'Attending'
-                      : 'Not Attending', which is a SCHEDULE fact answering an
-                      INVITATION question — a vendor who had been invited and
-                      simply hadn't replied yet was told they were "Not
-                      Attending". For events the invitation response is the
-                      real state (mig 223 made acceptance what lets an event
-                      sell), so read that first and fall back to the schedule.
-                      A null responseStatus means no invitation exists at all —
-                      a public event found by browsing, where "Not attending"
-                      is accurate. */}
+                  {/* T-68: this pill once read a SCHEDULE fact to answer an
+                      INVITATION question. Its successor said 'Attending' for
+                      any ACCEPTED truck — but accepted ≠ selected: the
+                      organizer may never pick them, and a truck planning its
+                      week trusts this pill (owner 2026-09-03). The stage now
+                      comes from lib/events/vendor-stage.ts — the SAME ladder
+                      the Vendor Event Page header uses, so the two surfaces
+                      cannot drift. 'none' (no market_vendors row = public
+                      event found by browsing) falls back to the schedule
+                      fact, where "Attending"/"Not attending" is accurate. */}
                   {(() => {
-                    const status = market.responseStatus
+                    const stage = classifyVendorEventStage({
+                      response_status: market.responseStatus ?? null,
+                      organizer_selected_at: market.organizerSelectedAt ?? null,
+                      is_backup: market.isBackup ?? false,
+                    })
                     const label =
-                      status === 'accepted' || market.hasAttendance ? 'Attending'
-                      : status === 'declined' ? 'Declined'
-                      : status ? 'Invited'
+                      stage === 'selected' ? 'Attending'
+                      : stage === 'bench' ? 'On the bench'
+                      : stage === 'accepted_awaiting' ? 'Said yes — awaiting selection'
+                      : stage === 'declined' ? 'Declined'
+                      : stage === 'withdrawn' ? 'Withdrawn'
+                      : stage === 'invited' ? 'Invited'
+                      : market.hasAttendance ? 'Attending'
                       : 'Not attending'
                     const tone =
                       label === 'Attending' ? { bg: statusColors.successLight, fg: statusColors.success }
-                      : label === 'Invited' ? { bg: statusColors.infoLight, fg: statusColors.info }
+                      : stage === 'bench' || stage === 'accepted_awaiting' || stage === 'invited'
+                        ? { bg: statusColors.infoLight, fg: statusColors.info }
                       : { bg: statusColors.warningLight, fg: statusColors.warning }
                     return (
                       <span style={{

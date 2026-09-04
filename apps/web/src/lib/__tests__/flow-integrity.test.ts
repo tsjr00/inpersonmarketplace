@@ -2417,3 +2417,61 @@ describe('Admin shell nav completeness (phase 1, owner 2026-08-30)', () => {
     expect(walk(path.join(SRC, 'app'))).toEqual([])
   })
 })
+
+// ── Vendor event stage — one classifier, no drift (owner 2026-09-03) ────
+//
+// The locations-page pill said "Attending" for a merely-ACCEPTED truck the
+// organizer might never select, because the pill and the Vendor Event Page
+// header each derived the stage independently. The ladder now lives in
+// lib/events/vendor-stage.ts and both surfaces consume it. A vendor planning
+// their week trusts the pill; accepted ≠ selected ≠ benched.
+describe('Vendor event stage — shared classifier', () => {
+  const SRC = path.resolve(__dirname, '../..')
+  const rd = (p: string) => fs.readFileSync(path.join(SRC, p), 'utf-8')
+
+  it('both surfaces import the shared classifier', () => {
+    for (const file of [
+      'app/[vertical]/vendor/events/[marketId]/page.tsx',
+      'components/vendor/markets/EventMarketsSection.tsx',
+    ]) {
+      expect(rd(file), `${file} must derive the stage from vendor-stage.ts`)
+        .toMatch(/import \{[^}]*classifyVendorEventStage[^}]*\} from '@\/lib\/events\/vendor-stage'/)
+    }
+  })
+
+  it('the pill no longer maps bare acceptance to "Attending"', () => {
+    const section = rd('components/vendor/markets/EventMarketsSection.tsx')
+    expect(/status === 'accepted'[^\n]*\?\s*'Attending'/.test(section),
+      'the pre-2026-09-03 accepted→Attending shortcut must stay gone').toBe(false)
+  })
+
+  it('the classifier orders the ladder correctly (bench outranks selection; accepted alone is not attending)', async () => {
+    const { classifyVendorEventStage } = await import('../events/vendor-stage')
+    // The selection round leaves non-selected vendors 'accepted' with
+    // is_backup=true AND may stamp organizer_selected_at on a later step-in —
+    // bench must win while the flag is set.
+    expect(classifyVendorEventStage({ response_status: 'accepted', is_backup: true, organizer_selected_at: '2026-09-01' })).toBe('bench')
+    expect(classifyVendorEventStage({ response_status: 'accepted', is_backup: false, organizer_selected_at: '2026-09-01' })).toBe('selected')
+    expect(classifyVendorEventStage({ response_status: 'accepted', is_backup: false, organizer_selected_at: null })).toBe('accepted_awaiting')
+    expect(classifyVendorEventStage({ response_status: 'invited' })).toBe('invited')
+    expect(classifyVendorEventStage({ response_status: 'declined' })).toBe('declined')
+    expect(classifyVendorEventStage({ response_status: 'cancelled' })).toBe('withdrawn')
+    expect(classifyVendorEventStage({ response_status: null })).toBe('none')
+  })
+
+  it('the API feeding the pill sends the selection fields', () => {
+    const route = rd('app/api/vendor/markets/route.ts')
+    expect(route).toMatch(/\.select\('market_id, response_status, is_backup, organizer_selected_at'\)/)
+    expect(route).toMatch(/isBackup: eventResponse\?\.isBackup \?\? false/)
+    expect(route).toMatch(/organizerSelectedAt: eventResponse\?\.organizerSelectedAt \?\? null/)
+  })
+
+  it('the Vendor Event Page never says "confirmed" for mere acceptance', () => {
+    // "Confirmed" is reserved for the selected(+paid) stage. The accepted
+    // count renders as said-yes language (owner 2026-09-03).
+    const page = rd('app/[vertical]/vendor/events/[marketId]/page.tsx')
+    expect(page).not.toContain('label="Vendors confirmed"')
+    expect(page).toContain('label="Vendors who said yes"')
+    expect(page).not.toContain('confirmed so far)')
+  })
+})

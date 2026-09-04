@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
       // vendor poaching via availability surfacing).
       supabase
         .from('market_vendors')
-        .select('market_id, response_status')
+        .select('market_id, response_status, is_backup, organizer_selected_at')
         .eq('vendor_profile_id', vendorProfile.id),
     ])
 
@@ -215,10 +215,21 @@ export async function GET(request: NextRequest) {
     // from "never invited" — T-68: the events list read "Not Attending" for an
     // invitation the vendor simply hadn't answered yet, because the pill was
     // derived from a schedule row and never saw the invitation at all.
-    const eventResponseByMarket = new Map<string, string | null>(
+    // Carries is_backup + organizer_selected_at too (owner 2026-09-03): the
+    // pill must distinguish accepted-awaiting-selection from selected/benched —
+    // "accepted" alone told a never-selected truck it was "Attending".
+    const eventResponseByMarket = new Map<string, {
+      status: string | null
+      isBackup: boolean
+      organizerSelectedAt: string | null
+    }>(
       (marketVendorRes.data || []).map((r) => [
         r.market_id as string,
-        (r.response_status as string | null) ?? null,
+        {
+          status: (r.response_status as string | null) ?? null,
+          isBackup: (r.is_backup as boolean | null) === true,
+          organizerSelectedAt: (r.organizer_selected_at as string | null) ?? null,
+        },
       ])
     )
 
@@ -237,7 +248,8 @@ export async function GET(request: NextRequest) {
             end_time: vendorTimes?.end || s.end_time,
           }
         })
-        const responseStatus = eventResponseByMarket.get(m.id as string) ?? null
+        const eventResponse = eventResponseByMarket.get(m.id as string) ?? null
+        const responseStatus = eventResponse?.status ?? null
         // T-75: a private event's real name IS the organizer's company
         // (`${company_name} ${suffix}` at approval). Masked until the vendor
         // has ACCEPTED — same rule as the address on the invitation page.
@@ -258,6 +270,10 @@ export async function GET(request: NextRequest) {
           // market_vendors row at all — a PUBLIC event the vendor found by
           // browsing, not an invitation they ignored (T-68).
           responseStatus,
+          // Selection state (owner 2026-09-03): the pill derives its label via
+          // lib/events/vendor-stage.ts — accepted ≠ selected ≠ benched.
+          isBackup: eventResponse?.isBackup ?? false,
+          organizerSelectedAt: eventResponse?.organizerSelectedAt ?? null,
         }
       })
 

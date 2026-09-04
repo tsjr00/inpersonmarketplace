@@ -1,3 +1,14 @@
+# SESSION 2026-09-03 — P4+P5 BUILT (owner "go ahead with 4+5"); UNCOMMITTED. Gates: tsc ✓ · vitest 2104/2104 (+5 guards) · lint 0 err.
+Plans doc: `event_ux_findings_2026-09-03_plan.md` (P1–P6 from owner testing thoughts; P1 design-only, P2/P3/P6 await go, decision parked: money-on-activation self-serve-vs-admin-assisted scope — owner thinking).
+- **P4** Vendor Event Page: `label="Vendors who said yes" … N of M invited` (was "Vendors confirmed", page:773) + headcount-basis line "have said yes so far" (:534). "Confirmed" reserved for the selected(+paid) stage.
+- **P5** NEW `lib/events/vendor-stage.ts` — ONE stage ladder (declined/withdrawn/invited/bench/accepted_awaiting/selected/none); Vendor Event Page `eventStage()` now layers fee labels on it; My Locations pill (`EventMarketsSection`) consumes it too — accepted-not-selected now reads "Said yes — awaiting selection", bench "On the bench", selected "Attending" (was: any accepted → "Attending"). API `api/vendor/markets` select += `is_backup, organizer_selected_at` (snapshot-gated), event markets emit `isBackup`/`organizerSelectedAt`; Market type extended.
+- Guards: flow-integrity "Vendor event stage — shared classifier" (5 tests: both imports, shortcut stays gone, ladder order, API fields, no accepted-as-confirmed copy). Map: 14_Events item 8 + stamp (fixed pre-existing stamp↔INDEX drift: file said 08-16, INDEX said 08-29; both now 2026-09-03).
+- Files: page.tsx (vendor/events/[marketId]) · api/vendor/markets/route.ts · components/vendor/markets/{EventMarketsSection.tsx,types.ts} · NEW lib/events/vendor-stage.ts · flow-integrity.test.ts · 14_Events.md · 00_INDEX.md · backlog.md (+2026-09-03 section) · plan doc.
+- Owner retest after push: locations page event pills (accepted truck ≠ "Attending"; benched = "On the bench"; selected = "Attending") · Vendor Event Page "Vendors who said yes N of M invited". ⚠ Owner mid-event-testing — ask before redeploying staging.
+- Conflict-test recipe (owner asked): give the truck a weekly schedule on DOW X at any park → create event on a DOW-X date ≥10 days out → accept as truck → amber conflict box.
+
+---
+
 # SESSION 2026-08-31 (overnight) — WRAP. Next session starts HERE.
 
 ## Git / env — VERIFY, don't trust
