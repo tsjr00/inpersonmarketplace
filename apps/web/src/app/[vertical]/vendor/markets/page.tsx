@@ -1,14 +1,13 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import MarketScheduleSelector from '@/components/vendor/MarketScheduleSelector'
 import ErrorDisplay from '@/components/shared/ErrorDisplay'
 import PendingMarketInvitations, { type PendingInvitation } from '@/components/vendor/PendingMarketInvitations'
-import PickupScheduleGrid from '@/components/vendor/PickupScheduleGrid'
-import { classifyVendorEventStage } from '@/lib/events/vendor-stage'
+import WeekAtAGlance from '@/components/vendor/markets/WeekAtAGlance'
 import { term } from '@/lib/vertical'
 import { colors, statusColors } from '@/lib/design-tokens'
 import type { Market, MarketSuggestion, MarketLimits, ErrorState } from '@/components/vendor/markets/types'
@@ -105,54 +104,6 @@ export default function VendorMarketsPage() {
 
   const isFoodTruck = vertical === 'food_trucks'
 
-  // P6 (owner 2026-09-03): "where am I going to be on what day" at a glance —
-  // the SAME grid the public vendor profile renders, fed with only real
-  // commitments: fixed-market windows the vendor attends (schedule.attending),
-  // the vendor's own active private-pickup windows, and events the organizer
-  // actually SELECTED them for (accepted-awaiting and benched events are not
-  // commitments — same accuracy rule as the event pill).
-  const gridLocations = useMemo(() => {
-    const fixed = fixedMarkets
-      .filter(m => m.hasAttendance)
-      .map(m => ({
-        id: m.id,
-        name: m.name,
-        address: m.address,
-        city: m.city,
-        state: m.state,
-        market_type: 'traditional' as const,
-        schedules: (m.market_schedules || []).filter(s => s.active !== false && s.attending === true),
-      }))
-      .filter(m => m.schedules.length > 0)
-    const privates = privatePickupMarkets.map(m => ({
-      id: m.id,
-      name: m.name,
-      address: m.address,
-      city: m.city,
-      state: m.state,
-      market_type: 'private_pickup' as const,
-      schedules: (m.schedules || []).filter(s => s.active !== false),
-    })).filter(m => m.schedules.length > 0)
-    const events = eventMarkets
-      .filter(m => classifyVendorEventStage({
-        response_status: m.responseStatus ?? null,
-        organizer_selected_at: m.organizerSelectedAt ?? null,
-        is_backup: m.isBackup ?? false,
-      }) === 'selected')
-      .map(m => ({
-        id: m.id,
-        name: m.name,
-        address: m.address,
-        city: m.city,
-        state: m.state,
-        market_type: 'event' as const,
-        event_start_date: m.event_start_date ?? null,
-        event_end_date: m.event_end_date ?? null,
-        schedules: (m.market_schedules || []).filter(s => s.active !== false),
-      }))
-    return [...fixed, ...privates, ...events]
-  }, [fixedMarkets, privatePickupMarkets, eventMarkets])
-
   if (loading) {
     return (
       <div style={{
@@ -207,22 +158,11 @@ export default function VendorMarketsPage() {
           />
         )}
 
-        {/* P6 (owner 2026-09-03): the week at a glance. Read-only — the truck
-            sees where they're already committed without opening each location.
-            Same component as the public vendor profile. Known v1 limit: a
-            day-of-week grid can't show an event-skipped park day as skipped
-            (vendor_date_blackouts); the date-based strip is the v2 design. */}
-        {gridLocations.length > 0 && (
-          <div style={{ marginBottom: 24 }}>
-            <h2 style={{ fontSize: 20, fontWeight: 600, margin: '0 0 8px 0' }}>
-              📅 Your week at a glance
-            </h2>
-            <p style={{ fontSize: 13, color: colors.textMuted, margin: '0 0 12px 0' }}>
-              Where you&apos;re committed to be — your attended {term(vertical, 'markets').toLowerCase()}, pickup windows, and selected {term(vertical, 'events').toLowerCase()}.
-            </p>
-            <PickupScheduleGrid locations={gridLocations} />
-          </div>
-        )}
+        {/* P6 v2 (owner 2026-09-03): the next-14-days strip. Date-based so
+            blackout-skipped park days and manager-cancelled market days render
+            struck WITH the reason — a DOW grid (v1) could not show either.
+            Reads its own endpoint; renders nothing while loading or on error. */}
+        <WeekAtAGlance vertical={vertical} />
 
         {/* NEW-8: pending manager-initiated invitations. Renders nothing
             when invitations list is empty. After accept/decline the

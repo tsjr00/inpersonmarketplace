@@ -91,12 +91,6 @@ export async function GET(request: NextRequest) {
     const marketsWithAttendance = new Set(
       (attendanceData || []).map(a => a.market_id as string)
     )
-    // Which specific schedule windows the vendor attends (P6, owner 2026-09-03):
-    // the week-at-a-glance grid must show only the days the vendor committed
-    // to, not every day the market operates.
-    const attendedScheduleIds = new Set(
-      (attendanceData || []).map(a => a.schedule_id as string | null).filter(Boolean)
-    )
 
     // Query markets where vendor actually has current commerce:
     // published listings OR active market boxes. Drives the "Active" badge
@@ -295,9 +289,6 @@ export async function GET(request: NextRequest) {
           // Use vendor times when available, otherwise market defaults
           start_time: vendorTimes?.start || s.start_time,
           end_time: vendorTimes?.end || s.end_time,
-          // P6: true only for windows the vendor has an active
-          // vendor_market_schedules row on — feeds the week grid.
-          attending: attendedScheduleIds.has(s.id),
         }
       })
       return {

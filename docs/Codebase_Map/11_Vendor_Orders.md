@@ -1,6 +1,6 @@
 # 11 — Vendor Orders & Vendor Dashboard ⚠ money
 
-<!-- map-stamp: domain=vendor-orders; verified=2026-08-25; commit=bfc60dfd -->
+<!-- map-stamp: domain=vendor-orders; verified=2026-09-03; commit=c27214b0 -->
 <!-- map-claims
 src/app/api/vendor/**
 src/lib/orders/**
@@ -13,6 +13,8 @@ src/app/[vertical]/vendor-signup/**
 -->
 
 The largest single surface in the codebase: **74 route files** under `src/app/api/vendor/**`, plus the order state machine and the vendor dashboard.
+
+**Week strip (2026-09-03, P6 v2):** `lib/vendor/week-strip.ts` (pure `assembleStrip` + loader — the vendor's next-14-DATES commitments: weekly schedules, own private-pickup windows, paid park days/booth weeks, SELECTED events; blackout-skipped and manager-cancelled days render STRUCK with the reason, never silently dropped) → served by `api/vendor/week-schedule` (client sends its local `start` date — no server timezone guess) → rendered by `components/vendor/markets/WeekAtAGlance.tsx` at the top of `/vendor/markets`. Commitment queries mirror `lib/events/availability.ts` patterns (its doc comment explains the split); date helpers imported from it. Unit spec: `lib/vendor/__tests__/week-strip.test.ts`.
 
 ---
 
