@@ -2480,3 +2480,51 @@ describe('Vendor event stage — shared classifier', () => {
     expect(page).not.toContain('confirmed so far)')
   })
 })
+
+// ── Host menu pare-down (P1, mig 241, owner decisions 2026-09-03) ───────
+//
+// event_vendor_listings.host_status is the DISPLAY half; the listing_markets
+// link is the SELL half (the cart validates there). A pare must act on both,
+// every menu-displaying reader must exclude declined rows, and the admin
+// event-restore must rebuild links from APPROVED rows only — one forgotten
+// reader is a pared item that still sells or still shows.
+describe('Host menu pare-down — the pair holds everywhere', () => {
+  const SRC = path.resolve(__dirname, '../..')
+  const rd = (p: string) => fs.readFileSync(path.join(SRC, p), 'utf-8')
+
+  it('every event-menu reader excludes host-declined rows', () => {
+    for (const file of [
+      'lib/events/shop-data.ts',                 // the attendee shop payload
+      'app/[vertical]/events/[token]/page.tsx',  // the Public Event Page roster
+      'lib/markets/vendors-with-listings.ts',    // the event market detail
+      'app/api/admin/events/route.ts',           // the admin menu display
+    ]) {
+      expect(rd(file), `${file} must filter host_status='declined'`)
+        .toMatch(/\.neq\('host_status', 'declined'\)/)
+    }
+  })
+
+  it('the select route validates with the shared rule and applies BOTH halves of the pare', () => {
+    const route = rd('app/api/events/[token]/select/route.ts')
+    expect(route).toMatch(/import \{[^}]*validatePare[^}]*\} from '@\/lib\/events\/menu-pare'/)
+    // first-round-only: paring refused once a selection stamp exists
+    expect(route).toMatch(/if \(!isFirstConfirmation\) \{/)
+    // display half + sell half, together
+    expect(route).toMatch(/\.update\(\{ host_status: 'declined' \}\)/)
+    expect(route).toMatch(/\.from\('listing_markets'\)\s*\.delete\(\)/)
+  })
+
+  it('admin event-restore rebuilds listing links from APPROVED rows only', () => {
+    const admin = rd('app/api/admin/events/[id]/route.ts')
+    const restore = admin.slice(admin.indexOf('repair what cancelling destroyed'), admin.indexOf('repair what cancelling destroyed') + 800)
+    expect(restore, 'the rebuild query must exclude pared rows').toMatch(/\.neq\('host_status', 'declined'\)/)
+  })
+
+  it('the accept route writes proposals without a host_status (default approved)', () => {
+    // The DB default is the contract: a new proposal is sellable until the
+    // organizer says otherwise. Writing 'approved' here would be harmless;
+    // writing anything else would be a policy change — pin the current shape.
+    const respond = rd('app/api/vendor/events/[marketId]/respond/route.ts')
+    expect(respond).not.toMatch(/host_status/)
+  })
+})

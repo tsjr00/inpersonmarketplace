@@ -51,6 +51,9 @@ interface InterestedVendor {
   pickup_lead_minutes: number
   profile_image_url: string | null
   catering_items: Array<{ title: string; price_cents: number }>
+  /** P1 (mig 241): the truck's actual PROPOSED menu (evl rows) — what the
+   *  organizer may pare. catering_items above is the full eligible catalog. */
+  proposed_items: Array<{ listing_id: string; title: string; price_cents: number; host_status: string }>
   /** T-59: the message the vendor typed when accepting the invitation. */
   response_notes: string | null
 }
@@ -107,6 +110,11 @@ export default function EventSelectPage() {
   // claimed per-wave capacity vs the expected peak wave — the real check;
   // the intake suggestion was only a starting number.
   const [capacityCheck, setCapacityCheck] = useState<CapacityCheckData | null>(null)
+  // P1 (owner 2026-09-03): host menu pare-down — FIRST selection round only
+  // (paring locks when the shop publishes); minimum 2 kept items per vendor.
+  const [canPare, setCanPare] = useState(false)
+  const [minKeptItems, setMinKeptItems] = useState(2)
+  const [paredIds, setParedIds] = useState<Record<string, string[]>>({})
 
   async function fetchData() {
     try {
@@ -123,6 +131,8 @@ export default function EventSelectPage() {
       setRecommendedBackups(data.recommended_backups || 0)
       setStandbyCount(data.standby_count || 0)
       setCapacityCheck(data.capacity_check || null)
+      setCanPare(data.can_pare === true)
+      setMinKeptItems(data.min_kept_items ?? 2)
       // T-80: pre-load prior confirmations so "Change selections" starts from
       // what the organizer already chose (menus were reviewed on that submit).
       const prior = ((data.vendors || []) as InterestedVendor[])
@@ -159,6 +169,21 @@ export default function EventSelectPage() {
     })
   }
 
+  // P1: tap an item chip to remove/restore it from this event. Client-side
+  // floor mirrors the server rule (validatePare): keep ≥ minKeptItems; a menu
+  // of ≤ minKeptItems items can't be trimmed at all.
+  function togglePareItem(vendorId: string, listingId: string, proposedCount: number) {
+    if (!canPare || proposedCount <= minKeptItems) return
+    setParedIds(prev => {
+      const current = prev[vendorId] ?? []
+      if (current.includes(listingId)) {
+        return { ...prev, [vendorId]: current.filter(id => id !== listingId) }
+      }
+      if (proposedCount - current.length - 1 < minKeptItems) return prev // floor reached
+      return { ...prev, [vendorId]: [...current, listingId] }
+    })
+  }
+
   async function handleSubmit() {
     if (!event || selectedIds.length === 0 || !termsAccepted || submitting) return
 
@@ -191,6 +216,12 @@ export default function EventSelectPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           selected_vendor_ids: selectedIds,
+          // P1: only for selected vendors, only on the first round.
+          pared_listing_ids: canPare
+            ? Object.fromEntries(
+                Object.entries(paredIds).filter(([vid, ids]) => selectedIds.includes(vid) && ids.length > 0)
+              )
+            : {},
           share_contact: shareContact,
           organizer_contact_name: shareContact ? contactName.trim() : null,
           organizer_contact_phone: shareContact ? contactPhone.trim() : null,
@@ -528,8 +559,51 @@ export default function EventSelectPage() {
                       </div>
                     )}
 
-                    {/* Catering menu preview */}
-                    {v.catering_items.length > 0 && (
+                    {/* P1 (owner 2026-09-03): the truck's PROPOSED event menu,
+                        pareable on the first round — tap an item to remove it
+                        from this event (min 2 kept; a 2-item menu can't be
+                        trimmed). After the first confirmation the verdicts
+                        render read-only. Falls back to the eligible catalog
+                        for legacy rows with no explicit proposal. */}
+                    {v.proposed_items.length > 0 ? (
+                      <div style={{ marginBottom: spacing.xs }}>
+                        <div style={{ fontSize: 11, fontWeight: typography.weights.semibold, color: statusColors.neutral500, marginBottom: spacing['3xs'] }}>
+                          PROPOSED EVENT MENU ({v.proposed_items.length} items)
+                        </div>
+                        {canPare && v.proposed_items.length > minKeptItems && (
+                          <p style={{ fontSize: 11, color: statusColors.neutral500, margin: `0 0 ${spacing['3xs']}` }}>
+                            Tap an item to remove it from this event — each {vendorTerm} keeps at least {minKeptItems} items. They&apos;ll see the final menu before paying any fee.
+                          </p>
+                        )}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing['2xs'] }}>
+                          {v.proposed_items.map(item => {
+                            const removed = canPare
+                              ? (paredIds[v.vendor_profile_id] ?? []).includes(item.listing_id)
+                              : item.host_status === 'declined'
+                            const pareable = canPare && v.proposed_items.length > minKeptItems
+                            return (
+                              <span
+                                key={item.listing_id}
+                                onClick={() => togglePareItem(v.vendor_profile_id, item.listing_id, v.proposed_items.length)}
+                                style={{
+                                  padding: `2px ${spacing.xs}`,
+                                  backgroundColor: removed ? statusColors.neutral100 : '#f0fdf4',
+                                  border: `1px solid ${removed ? statusColors.neutral300 : '#bbf7d0'}`,
+                                  borderRadius: radius.sm,
+                                  fontSize: 12,
+                                  color: removed ? statusColors.neutral500 : '#166534',
+                                  textDecoration: removed ? 'line-through' : 'none',
+                                  cursor: pareable ? 'pointer' : 'default',
+                                  userSelect: 'none',
+                                }}
+                              >
+                                {item.title} — {formatDisplayPrice(item.price_cents)}{removed && !canPare ? ' · removed' : ''}
+                              </span>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ) : v.catering_items.length > 0 && (
                       <div style={{ marginBottom: spacing.xs }}>
                         <div style={{ fontSize: 11, fontWeight: typography.weights.semibold, color: statusColors.neutral500, marginBottom: spacing['3xs'] }}>
                           {isFM ? 'EVENT ITEMS' : 'CATERING MENU'} ({v.catering_items.length} items)

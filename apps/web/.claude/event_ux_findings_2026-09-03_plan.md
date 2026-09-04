@@ -104,7 +104,17 @@ No coded rule found blocking (a) — the `organizer-identity` paired rule protec
 
 ---
 
-## P1 — Host pare-down of proposed menus — **DESIGN ONLY** (owner: "may just be design work now")
+## P1 — Host pare-down of proposed menus — **✅ BUILT 2026-09-03** (all 5 decisions locked incl. #3 sequence-protection; mig 241 ⏳ applied nowhere)
+
+**OWNER DECISIONS 2026-09-03:**
+1. **All organizers** get pare-down (not admin-assisted-only).
+2. **Paring happens BEFORE the shopping page is published** — the pare window closes when pre-orders open (status → ready at selection). No paring against live orders, ever — the timing rule replaces the block-vs-refund question entirely.
+3. Vendor consent: owner leans NO consent ("the organizer decides what gets sold") but flagged the fee-vendor concern (paying vendors need their best sellers) + possible withdraw-if-pared-too-much; asked Claude's view; wants simplicity. **CLAUDE'S RECOMMENDATION (presented, awaiting confirm): the sequence already protects fee vendors** — paring locks at selection, fee payment happens AFTER selection (`organizer_selected_at` arms the pay button), so a pared vendor sees their final approved menu BEFORE any money moves; not paying = existing free exit, no new machinery. Just make the selection notification/Vendor Event Page show the approved menu ("Your event menu: X, Y — 2 of 5 proposed items"). No withdraw window needed.
+4. **Minimum kept items = 2.** Corollary: a truck that proposed ≤2 items cannot be pared at all; toggles disable at the floor.
+5. **Activated backups are never pared** — full proposed menu ("host should be glad to have the truck"). Corollary (Claude): paring exists only in the pre-ready selection round; later additions (step-ins, change-selection adds) get full menus.
+- Fallback vendors (no explicit `event_vendor_listings` rows — legacy edge; the accept flow requires item selection today): un-pareable, nothing to pare. No materialization.
+
+**MECHANISM CONSTRAINT found in the 2026-09-03 reader inventory:** `event_vendor_listings` is only the DISPLAY half — **the cart validates via `listing_markets`** (respond route comment :439), and admin event-restore REBUILDS listing_markets FROM evl (flow-integrity-guarded). A pare must therefore act on BOTH: `host_status='declined'` on the evl row AND removal of the pared item's listing_markets link, with restore rebuilding only approved rows. Register the pair.
 
 **Current mechanics:** a truck proposes its event menu by selecting listings → `event_vendor_listings` rows (market_id, vendor_profile_id, listing_id — see admin route `:205-208`). The shop shows attending vendors' selected listings. The host has **no item-level control**; the sell gate (mig 234) is vendor-level ("must attend to sell"), not item-level.
 

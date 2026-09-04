@@ -197,9 +197,28 @@ export async function GET(request: NextRequest, context: RouteContext) {
         ? await loadVendorAvailability(serviceClient, vendorProfile.id, marketId)
         : null
 
+      // P1 (mig 241): the vendor's proposed menu with the organizer's verdict
+      // per item. This is the informed-consent surface — the vendor sees their
+      // FINAL approved menu here at the selected stage, BEFORE the pay button
+      // is pressed (paring locks at selection; payment arms after it).
+      const { data: menuRows } = hasAccepted
+        ? await observed(serviceClient
+            .from('event_vendor_listings')
+            .select('listing_id, host_status, listing:listings(title)')
+            .eq('market_id', marketId)
+            .eq('vendor_profile_id', vendorProfile.id), { table: 'event_vendor_listings' })
+        : { data: null }
+      const eventMenu = (menuRows || []).map(r => ({
+        listing_id: r.listing_id as string,
+        title: (r.listing as unknown as { title: string } | null)?.title ?? 'Item',
+        host_status: ((r.host_status as string | null) ?? 'approved') as 'approved' | 'declined',
+      }))
+
       return NextResponse.json({
         event: {
           availability,
+          // P1: [{listing_id, title, host_status}] — empty before acceptance.
+          event_menu: eventMenu,
           market_id: market.id,
           // T-75: the market's real name IS the organizer's company (built as
           // `${company_name} ${suffix}` at approval), so returning it here

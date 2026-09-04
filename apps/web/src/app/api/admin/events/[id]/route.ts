@@ -272,10 +272,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       // Nothing irreversible: repair what cancelling destroyed. The
       // event_vendor_listings rows survive a cancel (only listing_markets is
       // deleted), so they are the source for rebuilding the links.
+      // P1 (mig 241): rebuild from APPROVED rows only — a restore must not
+      // resurrect an item the organizer pared before the shop published.
       const { data: evLinks } = await observed(serviceClient
         .from('event_vendor_listings')
         .select('listing_id')
-        .eq('market_id', cateringReq.market_id), { table: 'event_vendor_listings' })
+        .eq('market_id', cateringReq.market_id)
+        .neq('host_status', 'declined'), { table: 'event_vendor_listings' })
 
       if (evLinks && evLinks.length > 0) {
         await serviceClient

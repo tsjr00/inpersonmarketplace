@@ -7,6 +7,7 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
 import { sendNotification } from '@/lib/notifications/service'
 import { recommendBackupBench } from '@/lib/events/backup-bench'
 import { liftEventBlackouts } from '@/lib/events/blackouts'
+import { validatePare, MIN_KEPT_ITEMS } from '@/lib/events/menu-pare'
 import {
   calculateWaveCount,
   checkAcceptedCapacity,
@@ -110,6 +111,28 @@ export async function GET(request: NextRequest, context: RouteContext) {
       .eq('status', 'published')
       .is('deleted_at', null), { table: 'listings' })
 
+    // P1 (owner 2026-09-03): the truck's actual PROPOSED event menu — its
+    // event_vendor_listings rows — for the organizer's pare-down toggles.
+    // Distinct from catering_items below, which is the vendor's whole
+    // event-eligible catalog (context, not the proposal).
+    const { data: evlRows } = await observed(serviceClient
+      .from('event_vendor_listings')
+      .select('vendor_profile_id, listing_id, host_status, listing:listings(title, price_cents)')
+      .eq('market_id', event.market_id)
+      .in('vendor_profile_id', vendorIds), { table: 'event_vendor_listings' })
+    const proposalsByVendor: Record<string, Array<{ listing_id: string; title: string; price_cents: number; host_status: string }>> = {}
+    for (const r of evlRows || []) {
+      const vid = r.vendor_profile_id as string
+      const listing = r.listing as unknown as { title: string; price_cents: number | null } | null
+      if (!proposalsByVendor[vid]) proposalsByVendor[vid] = []
+      proposalsByVendor[vid].push({
+        listing_id: r.listing_id as string,
+        title: listing?.title ?? 'Item',
+        price_cents: listing?.price_cents ?? 0,
+        host_status: (r.host_status as string | null) ?? 'approved',
+      })
+    }
+
     // Build per-vendor listing data
     const vendorListings: Record<string, Array<{ title: string; price_cents: number }>> = {}
     const vendorCategories: Record<string, string[]> = {}
@@ -178,6 +201,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
         pickup_lead_minutes: vp?.pickup_lead_minutes || 30,
         profile_image_url: vp?.profile_image_url || null,
         catering_items: vendorListings[vid] || [],
+        // P1: the proposed event menu (evl rows) the organizer may pare.
+        proposed_items: proposalsByVendor[vid] || [],
         // The vendor's per-event capacity claim (validated ≥ 1 at acceptance) —
         // the "better data" the selection-time capacity check runs on.
         event_max_orders_per_wave: (mv.event_max_orders_per_wave as number | null) ?? null,
@@ -244,6 +269,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
         event_vendor_fee_cents: event.event_vendor_fee_cents ?? null,
       },
       vendors,
+      // P1: paring is FIRST-round only (locks when the shop publishes) —
+      // available while no vendor carries a selection stamp yet.
+      can_pare: vendors.every(v => !v.selected),
+      min_kept_items: MIN_KEPT_ITEMS,
       recommended_backups: bench.recommendedBackups,
       standby_count: vendors.filter(v => v.on_standby).length,
       // Selection-time capacity check (owner 2026-08-26 #4): the confirmed
@@ -276,6 +305,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const body = await request.json()
     const {
       selected_vendor_ids,
+      // P1 (owner 2026-09-03): { [vendorProfileId]: listingIdsToRemove[] } —
+      // the organizer trimming a selected truck's proposed menu.
+      pared_listing_ids,
       share_contact,
       organizer_contact_name,
       organizer_contact_phone,
@@ -346,6 +378,50 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const isFirstConfirmation = previouslySelected.size === 0
     const newlySelectedIds = uniqueVendorIds.filter(id => !previouslySelected.has(id))
 
+    // ── Host menu pare-down (P1, owner decisions 2026-09-03) ──────────────
+    // Validate BEFORE any mutation. Rules: FIRST selection round only (paring
+    // locks when the shop publishes — later rounds and activated backups get
+    // full menus, decisions #2/#5); only vendors being selected; pared ids ⊆
+    // the truck's own proposal; minimum 2 kept items (validatePare, #4). The
+    // fee-vendor protection is the sequence itself: this runs at selection,
+    // and payment only arms AFTER selection — the truck sees its final menu
+    // before any money moves (#3).
+    const pareMap: Record<string, string[]> =
+      pared_listing_ids && typeof pared_listing_ids === 'object' && !Array.isArray(pared_listing_ids)
+        ? pared_listing_ids
+        : {}
+    const paredVendorIds = Object.keys(pareMap).filter(vid => (pareMap[vid] ?? []).length > 0)
+    const proposalByVendor = new Map<string, string[]>()
+    if (paredVendorIds.length > 0) {
+      if (!isFirstConfirmation) {
+        return NextResponse.json(
+          { error: 'Menus can only be trimmed on your first confirmation — pre-orders may already be open.' },
+          { status: 400 }
+        )
+      }
+      for (const vid of paredVendorIds) {
+        if (!uniqueVendorIds.includes(vid)) {
+          return NextResponse.json({ error: 'Menus can only be trimmed for vendors you are selecting' }, { status: 400 })
+        }
+      }
+      const { data: proposalRows } = await observed(serviceClient
+        .from('event_vendor_listings')
+        .select('vendor_profile_id, listing_id')
+        .eq('market_id', event.market_id)
+        .in('vendor_profile_id', paredVendorIds), { table: 'event_vendor_listings' })
+      for (const r of proposalRows || []) {
+        const vid = r.vendor_profile_id as string
+        if (!proposalByVendor.has(vid)) proposalByVendor.set(vid, [])
+        proposalByVendor.get(vid)!.push(r.listing_id as string)
+      }
+      for (const vid of paredVendorIds) {
+        const check = validatePare(proposalByVendor.get(vid) ?? [], pareMap[vid]!)
+        if (!check.ok) {
+          return NextResponse.json({ error: check.error }, { status: 400 })
+        }
+      }
+    }
+
     // Event Vendor Fees (mig 228): stamp WHEN the organizer selected each
     // vendor — starts the 12h protected pay window (decision 4). Only stamped
     // once: re-submitting selections must not extend a vendor's protection.
@@ -355,6 +431,26 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .eq('market_id', event.market_id)
       .in('vendor_profile_id', uniqueVendorIds)
       .is('organizer_selected_at', null)
+
+    // Apply the pare (validated above). THE PAIR — never one side alone:
+    // event_vendor_listings.host_status is the DISPLAY half (shop/roster
+    // menus); listing_markets is the SELL half (cart validates there, respond
+    // route created both at acceptance). Admin event-restore rebuilds links
+    // from APPROVED rows only, so a restore cannot resurrect a pared item.
+    for (const vid of paredVendorIds) {
+      const ids = pareMap[vid]!
+      await serviceClient
+        .from('event_vendor_listings')
+        .update({ host_status: 'declined' })
+        .eq('market_id', event.market_id)
+        .eq('vendor_profile_id', vid)
+        .in('listing_id', ids)
+      await serviceClient
+        .from('listing_markets')
+        .delete()
+        .eq('market_id', event.market_id)
+        .in('listing_id', ids)
+    }
 
     // Mark non-selected accepted vendors as 'not_selected' (they stay as backups)
     const { data: allAccepted } = await observed(serviceClient

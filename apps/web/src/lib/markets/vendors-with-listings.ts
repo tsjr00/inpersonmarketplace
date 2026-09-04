@@ -108,6 +108,7 @@ export async function getMarketVendorsWithListings(
   const vendorMap = new Map<string, VendorWithListings>()
 
   if (market.market_type === 'event') {
+    // P1 (mig 241): host-pared items excluded — mirrors shop-data.ts.
     const { data: eventListings, error } = await supabase
       .from('event_vendor_listings')
       .select(`
@@ -127,6 +128,7 @@ export async function getMarketVendorsWithListings(
         )
       `)
       .eq('market_id', marketId)
+      .neq('host_status', 'declined')
 
     if (error) {
       return {

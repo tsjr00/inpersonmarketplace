@@ -208,9 +208,11 @@ export async function GET(request: NextRequest) {
 
       if (mvData) {
         // Also fetch event_vendor_listings to show which items each vendor selected
+        // P1 (mig 241): host-pared items excluded — the menu shown is what sells.
         const { data: evlData } = await observed(serviceClient
           .from('event_vendor_listings')
           .select('market_id, vendor_profile_id, listing:listings(title)')
+          .neq('host_status', 'declined')
           .in('market_id', marketIds), { table: 'event_vendor_listings' })
 
         // Build a map: market_id → vendor_profile_id → listing titles

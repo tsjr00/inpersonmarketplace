@@ -17,6 +17,8 @@ import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import MarketAgreementBlock from '@/components/market-manager/MarketAgreementBlock'
 
 interface EventDetails {
+  /** P1 (mig 241): proposed menu + the organizer's verdict per item. */
+  event_menu?: Array<{ listing_id: string; title: string; host_status: 'approved' | 'declined' }>
   market_id: string
   market_name: string
   event_date: string
@@ -1358,6 +1360,47 @@ export default function VendorCateringDetailPage() {
           )}
         </div>
       )}
+
+      {/* P1 (owner 2026-09-03): the vendor's event menu with the organizer's
+          verdict per item — THE informed-consent surface. Paring locks at
+          selection and the pay button arms after it, so a pared vendor sees
+          their final menu here before any money moves. */}
+      {details.response_status === 'accepted' && (details.event_menu?.length ?? 0) > 0 && (() => {
+        const menu = details.event_menu!
+        const approved = menu.filter(m => m.host_status !== 'declined')
+        const pared = menu.filter(m => m.host_status === 'declined')
+        return (
+          <div style={{
+            padding: spacing.md,
+            backgroundColor: 'white',
+            border: `1px solid ${statusColors.neutral200}`,
+            borderRadius: radius.lg,
+            marginBottom: spacing.md,
+          }}>
+            <h3 style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, margin: `0 0 ${spacing['2xs']}` }}>
+              Your event menu
+            </h3>
+            {pared.length > 0 && (
+              <p style={{ fontSize: typography.sizes.sm, color: statusColors.warningDark, margin: `0 0 ${spacing['2xs']}` }}>
+                The organizer approved {approved.length} of your {menu.length} proposed items for this event.
+              </p>
+            )}
+            <ul style={{ margin: 0, paddingLeft: spacing.md, display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
+              {approved.map(m => (
+                <li key={m.listing_id} style={{ fontSize: typography.sizes.sm, color: statusColors.neutral800 }}>{m.title}</li>
+              ))}
+              {pared.map(m => (
+                <li key={m.listing_id} style={{ fontSize: typography.sizes.sm, color: statusColors.neutral500, textDecoration: 'line-through' }}>
+                  {m.title}
+                  <span style={{ marginLeft: 6, fontSize: typography.sizes.xs, textDecoration: 'none', display: 'inline-block' }}>
+                    — not part of this event
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )
+      })()}
 
       {/* If accepted, show next steps */}
       {details.response_status === 'accepted' && (

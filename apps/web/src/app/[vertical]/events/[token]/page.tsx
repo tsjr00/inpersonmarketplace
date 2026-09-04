@@ -79,10 +79,12 @@ export default async function EventPage({ params }: EventPageProps) {
       const profileMap = new Map((profiles || []).map(p => [p.id, p]))
 
       // 3. Batch-fetch event_vendor_listings for this market
+      // P1 (mig 241): host-pared items excluded — mirrors shop-data.ts.
       const { data: allEvlRows } = await supabase
         .from('event_vendor_listings')
         .select('vendor_profile_id, listing_id')
         .eq('market_id', event.market_id)
+        .neq('host_status', 'declined')
         .in('vendor_profile_id', acceptedVendorIds)
 
       const allListingIds = [...new Set((allEvlRows || []).map(r => r.listing_id as string))]

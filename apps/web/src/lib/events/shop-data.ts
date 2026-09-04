@@ -213,10 +213,14 @@ export async function getEventShopData(
 
   // Batch: get ALL event_vendor_listings for this market in one query,
   // then ALL listings in one query, then group by vendor in JS.
+  // P1 (mig 241): host-pared items (host_status='declined') never reach the
+  // shop — the organizer trimmed them before pre-orders opened. Their
+  // listing_markets links were removed at pare too (the sell half).
   const { data: allEvlRows } = await observed(serviceClient
     .from('event_vendor_listings')
     .select('vendor_profile_id, listing_id')
     .eq('market_id', event.market_id)
+    .neq('host_status', 'declined')
     .in('vendor_profile_id', acceptedVendorIds), { table: 'event_vendor_listings' })
 
   const allListingIds = [...new Set((allEvlRows || []).map(r => r.listing_id as string))]
