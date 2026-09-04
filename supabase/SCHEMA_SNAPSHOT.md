@@ -8,7 +8,7 @@
 
 > ⚠️ **EVERY structured section of this file is best-effort and may be stale — Columns, FKs, Indexes, Functions, Enum Types, CHECK Constraints, all of them.** The original banner named only four sections, and the Enum Types table sat outside it misleading readers for five months (missing `platform_admin`/`regional_admin`, added 2026-03-20). The Change Log's per-migration environment claims have also been wrong four separate times (210/211/212/215, all caught 2026-08-13). **Only `information_schema` / `pg_catalog` on the live environment is authoritative — for structure AND for what is deployed where.**
 >
-**Structured tables rebuilt:** 2026-09-04 · current through migration 242
+**Structured tables rebuilt:** 2026-09-04 · current through migration 243
 
 > ⚠ The stamp above is MACHINE-READ by guardrail Rule L (owner rule 2026-08-30): the test
 > suite fails when any newer migration CREATEs a table, or when more than 5 migrations exist
@@ -21,6 +21,7 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-09-04 | 20260904_243_vendor_offers_discount_plumbing | ✅ **Dev + Staging 2026-09-04 (owner). ⏳ Prod PENDING — file stays in root; paste on prod after 238→…→242. PASTE-AND-GO, additive, INERT (vendor_offers empty; discount columns default 0 — no money path changes until a vendor enables a perk).** Structured tables updated + stamp → 243 same day — NOTE: this rebuild is **DDL-derived + owner-confirmed-applied** (not live-query-verified like 242's; the paste-and-go DDL errors loudly on failure and the owner reported success on both envs; true-up available via the scoped queries in chat 2026-09-04 if ever doubted). `vendor_offers` (vendor_profile_id, vertical_id, kind punch_card\|spend_threshold, enabled, config JSONB, UNIQUE(vendor,kind); RLS no policies) + `order_items.discount_cents int4 NOT NULL 0` + `order_items.offer_id → vendor_offers SET NULL` + `orders.discount_cents int4 NOT NULL 0`. THE KEY: order_items.subtotal_cents stored NET post-discount (unit_price_cents = list) so every refund/fee/report/tax path reads net by construction. ⚠ Rule L note: CREATE TABLE past stamp 242 — structured-tables rebuild owed at apply time (same scoped-query flow as 242). |
 | 2026-09-04 | 20260904_242_vendor_vip_customers | ✅ **Dev + Staging 2026-09-04 (owner). ⏳ Prod PENDING — file stays in root; paste on prod after 238→239→240→241. PASTE-AND-GO, additive new table, inert (empty) on arrival.** Structured tables rebuilt same day (stamp → 242) from owner's live Dev information_schema output — scoped to the full delta since the 240 stamp (241's `host_status` + 242's table; columns/unique/indexes verified live, FKs from mig 242 DDL). `vendor_vip_customers` (vendor_profile_id FK CASCADE, buyer_user_id FK auth.users CASCADE, added_at, notes, UNIQUE pair; RLS enabled no policies — service-client only). VIP designation core (A2, decisions.md 2026-09-04); slot caps in vendor-limits.ts `vipCustomers` (0/10/25), enforced at the add route. Written by `api/vendor/vip-customers`. |
 | 2026-09-03 | 20260903_241_event_menu_host_status | ✅ **Dev + Staging 2026-09-03 (owner). ⏳ Prod PENDING — file stays in `supabase/migrations/` root; paste on prod after 238→239→240. PASTE-AND-GO, additive, inert on arrival.** `event_vendor_listings.host_status TEXT NOT NULL DEFAULT 'approved' CHECK (approved\|declined)` — host menu pare-down (P1, decisions.md 2026-09-03). Pare = host_status='declined' + delete that item's `listing_markets` link (the sell half — cart validates there); admin event-restore rebuilds links from APPROVED rows only. Written by the organizer select route; first round only, min 2 kept items, activated backups never pared. |
 | 2026-08-30 | — (snapshot rebuild) | **Structured tables rebuilt from a Dev `information_schema` export (migs 001–240)** — Tables (55→91), Columns by Table (67→91 tables, 1396 columns), Foreign Keys (167), Enum Types (regenerated), Views (10). **Indexes + Check Constraints sections retained from the prior snapshot** (Supabase's CSV export truncates values at 64 chars; definitions cannot survive it — treat those two sections as pre-124 best-effort). One cosmetic clip: `user_profiles.notification_preferences` default shown truncated with `...`. Same day: **MIGRATION_LOG.md retired** (both copies — dead at migs 002/137; this Change Log is the single application record, Rule G-enforced) and **guardrail Rule L** added — the stamp in the header is machine-read; suite fails when a newer migration CREATEs a table or >5 migrations exist past the stamp. |
@@ -285,7 +286,7 @@
 
 ---
 
-## Tables (92)
+## Tables (93)
 
 | Table Name |
 |------------|
@@ -370,6 +371,7 @@
 | vendor_location_cache |
 | vendor_market_agreement_acceptances |
 | vendor_market_schedules |
+| vendor_offers |
 | vendor_payouts |
 | vendor_profiles |
 | vendor_quality_findings |
@@ -1401,6 +1403,8 @@
 | tax_jurisdictions | jsonb | YES | - |
 | tax_rate_version | text | YES | - |
 | tax_source | text | YES | - |
+| discount_cents | int4 | NO | 0 |
+| offer_id | uuid | YES | - |
 
 ### order_ratings
 | Column | Type | Nullable | Default |
@@ -1449,6 +1453,7 @@
 | reconfirm_reminder_sent_at | timestamptz | YES | - |
 | reconfirm_final_sent_at | timestamptz | YES | - |
 | reconfirm_refunded_at | timestamptz | YES | - |
+| discount_cents | int4 | NO | 0 |
 
 ### organizations
 | Column | Type | Nullable | Default |
@@ -1957,6 +1962,18 @@
 | updated_at | timestamptz | YES | now() |
 | vendor_start_time | time | YES | - |
 | vendor_end_time | time | YES | - |
+
+### vendor_offers
+| Column | Type | Nullable | Default |
+|--------|------|----------|--------|
+| id | uuid | NO | gen_random_uuid() |
+| vendor_profile_id | uuid | NO | - |
+| vertical_id | text | NO | - |
+| kind | text | NO | - |
+| enabled | bool | NO | false |
+| config | jsonb | NO | '{}'::jsonb |
+| created_at | timestamptz | NO | now() |
+| updated_at | timestamptz | NO | now() |
 
 ### vendor_payouts
 | Column | Type | Nullable | Default |
@@ -2479,6 +2496,7 @@
 |--------|------------|
 | listing_id | listings.id |
 | market_id | markets.id |
+| offer_id | vendor_offers.id (ON DELETE SET NULL) |
 | order_id | orders.id (ON DELETE CASCADE) |
 | schedule_id | market_schedules.id (ON DELETE SET NULL) |
 | vendor_profile_id | vendor_profiles.id |
@@ -2627,6 +2645,12 @@
 | market_id | markets.id (ON DELETE CASCADE) |
 | schedule_id | market_schedules.id (ON DELETE CASCADE) |
 | vendor_profile_id | vendor_profiles.id (ON DELETE CASCADE) |
+
+### vendor_offers
+| Column | References |
+|--------|------------|
+| vendor_profile_id | vendor_profiles.id (ON DELETE CASCADE) |
+| vertical_id | verticals.vertical_id |
 
 ### vendor_payouts
 | Column | References |
@@ -3143,6 +3167,13 @@
 | idx_vms_schedule | btree (schedule_id) |
 | idx_vms_active | btree (is_active) WHERE (is_active = true) |
 | idx_vms_vendor_market_active | btree (vendor_profile_id, market_id) WHERE (is_active = true) |
+
+### vendor_offers
+| Index Name | Definition |
+|-----------|------------|
+| vendor_offers_pkey | UNIQUE btree (id) |
+| vendor_offers_vendor_profile_id_kind_key | UNIQUE btree (vendor_profile_id, kind) |
+| idx_vendor_offers_vendor | btree (vendor_profile_id) WHERE (enabled = true) |
 
 ### vendor_payouts
 | Index Name | Definition |

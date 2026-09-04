@@ -254,6 +254,24 @@ Cancelling stays one-way **once anything irreversible has happened** (a buyer re
 ## Event roster name disclosure — one-way (owner, 2026-09-03)
 The ORGANIZER sees full truck/vendor names at EVERY stage on their per-truck roster (invited, declined, accepted, selected, benched) — "go with full names so organizer can see trucks." The reverse stays as-is: **vendors still cannot see the organizer's identity until they accept** (the `organizer-identity` paired rule is untouched). Disclosure is asymmetric by design: the organizer invited these vendors into their own event; the organizer's identity remains the protected side.
 
+## VIP buildout — build-phase decisions (owner, 2026-09-04, second batch)
+1. **Q1 slots**: free 0 / pro 10 / boss 25 ("yes, keep those for the tiers") — in `vendor-limits.ts` (approved protected-file diff).
+2. **Q3 perks VIP-only**: "build it for VIPs now and we will get feedback" — widening to all customers is a later, feedback-driven call.
+3. **Q4 digest cadence**: "8am daily during the season and only if there is something for them to see; out of season they go to the app and look" → 8am local, content-gated (zero new items = zero send = the season gate), max one per buyer per vertical per day.
+4. **Tripwire bumps approved**: 121→122 `vip_added` ("yes, you can bump the tripwire") · 122→123 `followed_vendor_digest` ("yes, up the tripwire").
+5. **Milestone-nudge destination**: customer_milestone now lands on Your Customers (insights) and asks "Make them a VIP?" — owner-approved product change; badges.test.ts updated to the new spec transparently.
+6. **B1 checkout diff approved** ("approved - make the changes"): net-storage plumbing in checkout/session per the presented 5 hunks; refund paths untouched by design (guarded).
+7. **D-menu ANSWERED (owner, 2026-09-04)**:
+   - **D1 threshold discount**: two vendor controls — % off (5–25%) + sales threshold (**$15–$200**, "some FM vendors have higher dollar items"); system does the math backend. Coded in `offers.ts` SPEND_THRESHOLD_BOUNDS.
+   - **D2 punch card**: **3–12 visits** to earn; **each qualifying purchase must meet the min. platform threshold ("no small orders")** — Claude's working interpretation = the vertical's existing small-order-fee threshold (no new knob), FLAGGED for owner confirm at build. Reward = vendor's choice: **10%–100% off next purchase of $X or more** (at 100% the purchase-min is waived) **or $X off next order** ($-off bounds not yet specified — propose at build; ⚠ 100%-off solo orders hit the Stripe 50¢ minimum — handle per the 2026-08-25 min-order rule).
+   - **D5**: punches count **from VIP designation** (no retroactive windfall).
+   - **D6 (+D7)**: reward **auto-applies on the order after the target is hit**, the buyer is **notified their next order carries the discount** (new notification type at punch build → its own tripwire ask), **no saving, no stacking**.
+   - **D8**: perk toggles live in a **"VIP Perks" block with the Your Customers card** on Insights.
+   - **D9**: VIPs **see their perks on the Favorites vendor card** (+ the checkout "VIP deal" line).
+   - **D10**: perk-enabled announcements **fold into the daily digest** — no new type, no extra pings.
+   - **D4** (unobjected recommendation stands): a punch = a FULFILLED order, the Layer-1 visit definition.
+   - **BACKLOGGED (owner)**: "do the math on the platform offering a built-in punchcard perk system for premium buyers where we fund the free or discounted item(s)" — PLATFORM-FUNDED, so it sits behind chunk D per the standing gate; needs a cost model first.
+
 ## VIP buildout unblocked + perk-menu model (owner, 2026-09-04)
 1. **VIP no longer waits for flash sales** — supersedes the 2026-03-25 premise ("VIP customer tagging launches with flash sales, not before"). Owner: "flash sales are no longer a barrier, we have added other elements that are valuable; maybe we will get to flash sales for FM but it should not be a blocker." Flash sales themselves stay "later, if at all" (unchanged).
 2. **VIP perks = a small platform-defined benefits MENU the vendor toggles on/off** ("we need to pick some benefits and they turn them off or on"). V1 candidates the owner named: **virtual punch card** ("easy to understand") and **spend-threshold discount** ("10% off if you spend more than $30" example). More can be explored later. This pulls the punch card forward from "Layer 3 later" into the VIP perk menu.

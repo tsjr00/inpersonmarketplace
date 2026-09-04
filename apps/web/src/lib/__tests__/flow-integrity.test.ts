@@ -2058,6 +2058,32 @@ describe('Loyalty Layer 1 integrity', () => {
     expect(rd('app/[vertical]/favorites/page.tsx')).toMatch(/vendor_vip_customers/)
   })
 
+  it('B1 discount plumbing: checkout stores NET as subtotal_cents — the one invariant everything else rides on', () => {
+    // The design key (mig 243): unit_price_cents keeps LIST price,
+    // subtotal_cents is stored POST-discount, discount_cents + offer_id are
+    // the record. Every refund path recomputes buyer-paid from
+    // subtotal_cents, so net-storage makes reject/resolve/expire/cascade
+    // correct with ZERO edits — this guard keeps it that way.
+    const checkout = rd('app/api/checkout/session/route.ts')
+    expect(checkout).toMatch(/subtotal_cents: netSubtotal/)
+    expect(checkout).toMatch(/unit_price_cents: listing\.price_cents/)
+    expect(checkout).toMatch(/discount_cents: itemDiscount/)
+    expect(checkout, 'VIP-only gate — the discount reads vendor_vip_customers').toMatch(/vendor_vip_customers/)
+    expect(checkout, 'enabled offers only').toMatch(/\.eq\('enabled', true\)/)
+    expect(checkout, 'the shared math, never inline percentages').toMatch(/computeSpendThresholdDiscount\(/)
+    expect(checkout).toMatch(/allocateDiscount\(/)
+    // The refund paths stay discount-free BY DESIGN — a discount reference
+    // appearing in one means someone broke the net-storage contract.
+    for (const file of [
+      'app/api/vendor/orders/[id]/reject/route.ts',
+      'app/api/vendor/orders/[id]/resolve-issue/route.ts',
+      'lib/markets/cancel-date-cascade.ts',
+    ]) {
+      expect(/discount_cents|offer_id/.test(rd(file)),
+        `${file} must not reference discounts — net subtotal_cents already carries them`).toBe(false)
+    }
+  })
+
   it('the followed-vendor digest CONSOLIDATES (A3): one send per buyer, wired into the hourly cron', () => {
     // Owner rule 2026-09-04: "we don't want a user get 5 updates from 5
     // trucks." The module must have exactly ONE send call, and it fires per

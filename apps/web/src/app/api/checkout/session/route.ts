@@ -4,6 +4,7 @@ import { getActiveRoundUpCampaign } from '@/lib/cause/beneficiaries'
 import { createCheckoutSession } from '@/lib/stripe/payments'
 import { stripe } from '@/lib/stripe/config'
 import { calculateOrderPricing, FEES, calculateSmallOrderFee, getSmallOrderFeeConfig, proratedFlatFee, getEffectiveVendorFeePercent } from '@/lib/pricing'
+import { computeSpendThresholdDiscount, allocateDiscount, type VendorOffer } from '@/lib/loyalty/offers'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { withErrorTracing, traced, crumb, TracedError, logError, observed } from '@/lib/errors'
 import { cancelOrderItemsAndRestoreGuarded, restoreInventory } from '@/lib/inventory'
@@ -538,13 +539,71 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ============================================================
+    // Phase B1 (mig 243) — vendor-funded VIP perk discounts.
+    // INERT until a vendor enables an offer (vendor_offers is empty today):
+    // every current order computes discount 0 and byte-identical numbers.
+    // VIP-only (vendor_vip_customers), spend_threshold only in v1 (punch
+    // redemption arrives with the punch-card build). THE KEY: net (post-
+    // discount) is stored AS subtotal_cents below, so fees, payouts, every
+    // refund recompute, small-order fee, reports and chunk-D tax read the
+    // true amount by construction — no other money path changes.
+    // ============================================================
+    crumb.logic('Computing VIP perk discounts (0 unless a vendor offer applies)')
+    const discountByItemIndex = new Map<number, { cents: number; offerId: string }>()
+    {
+      const cartVendorIds = [...new Set(items.map((item) => (listings.find((l) => l.id === item.listingId) as Listing).vendor_profile_id))]
+      if (cartVendorIds.length > 0) {
+        const [{ data: offerRows }, { data: vipRows }] = await Promise.all([
+          serviceClient
+            .from('vendor_offers')
+            .select('id, vendor_profile_id, kind, enabled, config')
+            .in('vendor_profile_id', cartVendorIds)
+            .eq('enabled', true)
+            .eq('kind', 'spend_threshold'),
+          serviceClient
+            .from('vendor_vip_customers')
+            .select('vendor_profile_id')
+            .eq('buyer_user_id', user.id)
+            .in('vendor_profile_id', cartVendorIds),
+        ])
+        const vipVendors = new Set((vipRows ?? []).map((r) => r.vendor_profile_id as string))
+        for (const row of offerRows ?? []) {
+          const offerVendorId = row.vendor_profile_id as string
+          const vendorItemIndexes = items
+            .map((item, idx) => ({ item, idx }))
+            .filter(({ item }) => (listings.find((l) => l.id === item.listingId) as Listing).vendor_profile_id === offerVendorId)
+          const subtotals = vendorItemIndexes.map(({ item }) => (listings.find((l) => l.id === item.listingId) as Listing).price_cents * item.quantity)
+          const vendorTotal = subtotals.reduce((a, b) => a + b, 0)
+          const discount = computeSpendThresholdDiscount(
+            row as unknown as VendorOffer,
+            vipVendors.has(offerVendorId),
+            vendorTotal
+          )
+          if (discount > 0) {
+            const parts = allocateDiscount(subtotals, discount)
+            vendorItemIndexes.forEach(({ idx }, i) => {
+              if (parts[i]! > 0) discountByItemIndex.set(idx, { cents: parts[i]!, offerId: row.id as string })
+            })
+          }
+        }
+      }
+    }
+    const totalDiscountCents = [...discountByItemIndex.values()].reduce((a, d) => a + d.cents, 0)
+
     // Calculate totals using unified pricing module
     crumb.logic('Calculating order totals and fees')
 
     // Build items for pricing calculation (listings + market boxes)
-    const pricingItems = items.map((item) => {
+    // B1: pricing runs on NET — fee + small-order math reads what the buyer
+    // actually pays (owner 2026-08-25). pricing.ts itself untouched; it sums
+    // price×qty THEN rounds on the total (pricing.ts:124-136), so folding
+    // quantity into a per-item net entry is exactly identity at discount 0.
+    const pricingItems = items.map((item, idx) => {
       const listing = listings.find((l) => l.id === item.listingId) as Listing
-      return { price_cents: listing.price_cents, quantity: item.quantity }
+      const gross = listing.price_cents * item.quantity
+      const net = gross - (discountByItemIndex.get(idx)?.cents ?? 0)
+      return { price_cents: net, quantity: 1 }
     })
 
     // Add market box items to pricing
@@ -576,13 +635,20 @@ export async function POST(request: NextRequest) {
     const orderItems = items.map((item, idx) => {
       const listing = listings.find((l) => l.id === item.listingId) as Listing
       const itemSubtotal = listing.price_cents * item.quantity
+      // B1: net (post-discount) IS the stored subtotal — unit_price_cents
+      // keeps the list price, discount_cents + offer_id are the record.
+      // Every refund path recomputes buyer-paid from subtotal_cents, so
+      // storing net makes them all correct with zero edits. Vendor-funded:
+      // the payout comes off the same net.
+      const itemDiscount = discountByItemIndex.get(idx)?.cents ?? 0
+      const netSubtotal = itemSubtotal - itemDiscount
 
       // Per-item fees (percentage + prorated flat fee)
       // Vendor fee may be reduced for grant/partner vendors (3.6%–6.5%)
       const vendorOverride = vendorFeeOverrides.get(listing.vendor_profile_id) ?? null
       const effectiveVendorFeePercent = getEffectiveVendorFeePercent(vendorOverride)
-      const itemPercentFee = Math.round(itemSubtotal * (FEES.buyerFeePercent + effectiveVendorFeePercent) / 100)
-      const vendorPercentFee = Math.round(itemSubtotal * effectiveVendorFeePercent / 100)
+      const itemPercentFee = Math.round(netSubtotal * (FEES.buyerFeePercent + effectiveVendorFeePercent) / 100)
+      const vendorPercentFee = Math.round(netSubtotal * effectiveVendorFeePercent / 100)
       const itemVendorFlatFee = proratedFlatFee(FEES.vendorFlatFeeCents, items.length, idx)
 
       // Get the pickup info from request or cart
@@ -594,9 +660,11 @@ export async function POST(request: NextRequest) {
         vendor_profile_id: listing.vendor_profile_id,
         quantity: item.quantity,
         unit_price_cents: listing.price_cents,
-        subtotal_cents: itemSubtotal,
+        subtotal_cents: netSubtotal,
+        discount_cents: itemDiscount,
+        offer_id: discountByItemIndex.get(idx)?.offerId ?? null,
         platform_fee_cents: itemPercentFee,
-        vendor_payout_cents: itemSubtotal - vendorPercentFee - itemVendorFlatFee,
+        vendor_payout_cents: netSubtotal - vendorPercentFee - itemVendorFlatFee,
         market_id: pickupInfo?.marketId || null,
         schedule_id: item.scheduleId || ('scheduleId' in (pickupInfo || {}) ? (pickupInfo as PickupInfo).scheduleId : null),
         pickup_date: item.pickupDate || ('pickupDate' in (pickupInfo || {}) ? (pickupInfo as PickupInfo).pickupDate : null),
@@ -793,6 +861,24 @@ export async function POST(request: NextRequest) {
 
     for (const listing of listings) {
       const item = items.find((i) => i.listingId === listing.id)!
+      // B1: a discounted listing renders as ONE consolidated line at the net
+      // amount (Stripe forbids negative lines); undiscounted listings render
+      // byte-identically to before. Discount looked up across every item
+      // entry for this listing (a listing can appear on multiple items).
+      const listingDiscount = items.reduce((sum, it, idx) =>
+        it.listingId === listing.id ? sum + (discountByItemIndex.get(idx)?.cents ?? 0) : sum, 0)
+      if (listingDiscount > 0) {
+        const listingGross = items.reduce((sum, it) =>
+          it.listingId === listing.id ? sum + listing.price_cents * it.quantity : sum, 0)
+        const listingNet = listingGross - listingDiscount
+        checkoutItems.push({
+          name: `${listing.title}${item.quantity > 1 ? ` ×${item.quantity}` : ''} — VIP deal`,
+          description: listing.description || '',
+          amount: Math.round(listingNet * (1 + FEES.buyerFeePercent / 100)),
+          quantity: 1,
+        })
+        continue
+      }
       const priceWithPercentFee = Math.round(listing.price_cents * (1 + FEES.buyerFeePercent / 100))
 
       checkoutItems.push({
@@ -924,6 +1010,8 @@ export async function POST(request: NextRequest) {
         tip_amount: validTipAmount,
         tip_on_platform_fee_cents: tipOnPlatformFeeCents,
         small_order_fee_cents: smallOrderFeeCents,
+        // B1: order-level discount total (subtotal_cents above is already net).
+        discount_cents: totalDiscountCents,
         chipin_amount_cents: validChipinCents > 0 ? validChipinCents : null,
         chipin_beneficiary_id: validChipinCents > 0 ? chipinBeneficiaryId : null,
         stripe_checkout_session_id: session.id,

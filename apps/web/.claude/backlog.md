@@ -1,5 +1,9 @@
 # Backlog
 
+## 💳 PREMIUM-BUYER PLATFORM-FUNDED PUNCH CARD — "do the math" first (owner, 2026-09-04)
+
+Owner: "let's do the math on the platform offering a built-in punchcard perk system for premium buyers where we fund the free or discounted item(s)." A premium-tier benefit where the PLATFORM (not the vendor) funds the reward. ⚠ PLATFORM-FUNDED → sits behind chunk D per the standing gate (decisions.md 2026-09-04 #5: "no platform-funded discounts or perks yet, maybe later" — the funder ambiguity is exactly what the gate protects). Work when picked up: cost model (reward cost vs premium-subscription revenue vs retention lift; per-vertical punch economics), then design. The vendor-funded punch machinery (D2/D5/D6) will already exist to build on.
+
 Last updated: 2026-09-03 (added: owner testing thoughts — host menu pare-down design, admin/organizer roster visibility, accepted-vs-confirmed copy, event pill accuracy, vendor week-at-a-glance schedule)
 
 ## 🎪 OWNER TESTING THOUGHTS — 2026-09-03 (not defects; captured verbatim-ish, code anchors verified same day)

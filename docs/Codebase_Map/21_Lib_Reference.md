@@ -1,6 +1,7 @@
 # 21 — Shared Library Reference
 
-<!-- map-stamp: domain=lib-reference; verified=2026-08-29; commit=44dfd6a8 -->
+<!-- map-stamp: domain=lib-reference; verified=2026-09-04; commit=826b7623 -->
+<!-- lib/loyalty/offers.ts (B1, 2026-09-04): pure VIP perk math — computeSpendThresholdDiscount (VIP-gated, bounds-checked; D1 owner-confirmed 5–25% / $15–$200) + allocateDiscount (floor+remainder, sums exactly). Consumed by checkout/session; see 10_Checkout_Payments item 8 for the net-storage contract. -->
 <!-- map-claims
 src/lib/errors/**
 src/lib/telemetry/**

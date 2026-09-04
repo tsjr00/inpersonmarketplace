@@ -53,5 +53,29 @@ Both are VENDOR-FUNDED (2026-08-25: no platform-funded at launch) and ride the *
 - **Q6 — Threshold discount bounds**: min/max % and threshold (guard against 90%-off mistakes)?
 - **Q7 — ✅ ANSWERED 2026-09-04: gate RE-OPENED** — Phase B may follow Phase A directly. Rationale: vendor-funded-only + subtotal-NET keeps tax clean ("we want taxes to be clean and easy for calculations & compliance"). **NO platform-funded discounts/perks yet, maybe later** — those stay behind chunk D.
 
+## Perk-build decision menu (written 2026-09-04 at owner request — "write up your suggestions and I'll pick")
+
+**D1 — Q6 threshold-discount bounds** (coded as constants in `lib/loyalty/offers.ts`, pending confirm):
+(a) **RECOMMENDED: 5–25% off, threshold $15–$100** — wide enough for real strategies, blocks fat-fingered 90%-off. (b) Tighter: 5–15%, $20–$60. (c) Owner's own numbers.
+
+**D2 — Q5 punch-card bounds**: (a) **RECOMMENDED: target 3–15 visits, reward 5–25% off** the next order. (b) Fixed simple menu (5 or 10 visits; 10/15/20%) — fewer knobs, harder to misconfigure. (c) Owner's numbers.
+
+**D3 — punch reward type**: (a) **RECOMMENDED v1: %-off-next-order only** — rides the B1 plumbing as-built; no new money mechanics. (b) Free-item rewards too — reopens the Stripe 50¢-minimum + min-order rule (decided 2026-08-25) → real extra work; defer unless demanded.
+
+**D4 — what counts as a punch**: (a) **RECOMMENDED: a FULFILLED order** — the exact Layer-1 visit definition (same source as segments/badges; one definition, no drift). No real alternative worth having.
+
+**D5 — when punches start counting**: (a) **RECOMMENDED: from VIP designation** (or perk enablement, whichever is later) — clean expectations, no retroactive windfall. (b) Lifetime history counts — a 12-order Regular redeems instantly on enable; a delight-moment launch gift but cheapens the earn and complicates "progress". 
+**D6 — redemption**: (a) **RECOMMENDED: auto-applied at checkout on the order AFTER the target is hit** (no codes, no show-this-screen — consistent with the Layer-2 "auto-applied, no codes" decision and the auto-track/auto-deliver rule). Card repeats (every N visits). (b) Banked/choose-when-to-use — needs UI + state; defer.
+
+**D7 — stacking (punch reward + threshold discount on one order)**: (a) **RECOMMENDED: no stacking — the single best-for-buyer perk applies**; simple math, caps exposure at one discount. (b) Stack both — max ~50% off with max bounds; not recommended.
+
+**D8 — vendor perk-menu UI home**: (a) **RECOMMENDED: a "VIP Perks" block inside/below the Your Customers card on Insights** — one VIP home (slots, roster, perks together). (b) Own dashboard card. (c) Vendor edit page.
+
+**D9 — buyer-facing disclosure**: (a) **RECOMMENDED: VIPs SEE their perks** — on the Favorites vendor card ("VIP perk: 10% off orders over $30" / punch progress "3 of 5 visits") + a "VIP deal −$X" line in checkout. A secret discount changes no behavior; a visible one drives the spend it rewards. (b) Silent surprise at checkout only.
+
+**D10 — perk-enabled announcement**: (a) **RECOMMENDED: fold into the daily digest** ("Smokestack added a VIP perk: …") — no new notification type, respects the 5-pings rule. (b) Dedicated one-time notice to VIPs on enable (new type → tripwire). (c) None — discover via Favorites.
+
+**D11 — later menu candidates (NOT now, listed for completeness)**: First Order + Come Back offers (decided 2026-08-25) are inherently NOT VIP-only (First Order targets new customers by definition) — they join the menu after the VIP-only feedback round, when Q3 widens. Free-item punch rewards (D3b). Early access perks (tie to flash sales if ever built).
+
 ## Build order proposal
 A1 → A2 (one push each, trace end-to-end) → A3 → B plumbing → punch card → threshold discount (gate re-opened 2026-09-04; vendor-funded only). Flash sales: not in this plan ("later, if at all").

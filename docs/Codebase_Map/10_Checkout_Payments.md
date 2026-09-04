@@ -1,6 +1,6 @@
 # 10 — Checkout & Payments ⚠ money
 
-<!-- map-stamp: domain=checkout-payments; verified=2026-07-18; commit=b9f82116 -->
+<!-- map-stamp: domain=checkout-payments; verified=2026-09-04; commit=826b7623 -->
 <!-- map-claims
 src/app/api/cart/**
 src/app/api/checkout/**
@@ -27,6 +27,7 @@ src/app/[vertical]/checkout/**
 5. **Idempotency keys are load-bearing.** Every Stripe mutation carries a deterministic key. `createRefund`'s doc comment (`payments.ts:242-247`) records a real bug where two same-priced items produced identical keys and the second refund never happened. Never make a key *less* specific, and never use `Date.now()`.
 6. **Don't clean up the inline bug-history comments.** Tags like CHK-1, CHK-7, CRIT-1, F6, M12 each mark a production incident and the code preventing its recurrence — `inventory.ts:40-60` and `market-box-payout.ts:22-30` are the clearest examples.
 7. **Read `.claude/rules/change-discipline.md` Rule 3 first.** The Session 66 incident is why the mechanical gate exists: design-approved logic added to `cart/items/route.ts` broke the entire production cart, silently, with the UI still showing success.
+8. **VIP perk discounts (B1, mig 243, 2026-09-04) — the NET-STORAGE contract.** `checkout/session` computes vendor-funded VIP discounts (`lib/loyalty/offers.ts` — VIP-gated, enabled-offer-gated, spend_threshold only until the punch build) and stores `order_items.subtotal_cents` as the POST-discount amount; `unit_price_cents` keeps the list price; `discount_cents` + `offer_id` are the record. **Every refund path recomputes buyer-paid from subtotal_cents, so they are all correct with ZERO edits — flow-integrity forbids discount references in reject/resolve/cascade.** Fees/payout/small-order fee compute on net (pricing.ts untouched — it rounds on the summed total, so the qty-folded net pricingItems are identity at discount 0). A discounted listing renders as one consolidated Stripe line ("— VIP deal"); Stripe forbids negative lines.
 
 ## The fee model (verified against `lib/pricing.ts`)
 
