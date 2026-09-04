@@ -292,8 +292,11 @@ describe('NI-014: Total notification types = 72', () => {
     // followed_vendor_digest (buyer, immediate, free channels) — the ONE
     // consolidated 8am digest of followed/VIP vendors' new items (A3);
     // per-vendor pings are the defect this type exists to prevent.
+    // 123 → 124 (2026-09-04, owner approved "yes, bump the tripwire - build
+    // it"): vip_reward_ready (buyer, immediate, free channels) — the punch
+    // card completed; the NEXT order auto-carries the reward (D6).
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(123)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(124)
   })
 
   it('includes all buyer-facing types', () => {

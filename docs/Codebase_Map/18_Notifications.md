@@ -1,6 +1,6 @@
 # 18 — Notifications
 
-<!-- map-stamp: domain=notifications; verified=2026-09-04; commit=d09707d3 -->
+<!-- map-stamp: domain=notifications; verified=2026-09-04; commit=cec32fb5 -->
 <!-- map-claims
 src/app/api/notifications/**
 src/app/api/webhooks/resend/**
@@ -13,6 +13,8 @@ src/app/[vertical]/account/**
 One send pipe, 123 notification types, four channels. **Communication cost is a first-class design constraint here** — the channel mapping is a spending decision as much as a UX one.
 
 **`lib/notifications/vendor-digest.ts` (A3, 2026-09-04):** the ONE consolidated 8am followed/VIP-vendor digest (`followed_vendor_digest`, free channels) — exactly one send site, per-buyer grouping, content-gated, once-per-day dedup via the notifications table; runs as a block in the hourly surveys cron. Flow-integrity pins the consolidation.
+
+**`vip_reward_ready` (punch build, 2026-09-04):** buyer, immediate free channels — fired by `lib/loyalty/evaluate.ts` checkVipPunchRewards when the punch target is reached; dedup `punchready:{offer_id}:{anchor}` via an explicit notifications-table query (CHK-13: senders check, dedupRef is not automatic). Copy from `punchRewardLabel()` — one label source for ping, Favorites line, and vendor config card.
 
 ---
 

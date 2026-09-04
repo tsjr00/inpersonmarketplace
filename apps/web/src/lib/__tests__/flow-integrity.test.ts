@@ -2068,10 +2068,15 @@ describe('Loyalty Layer 1 integrity', () => {
     expect(checkout).toMatch(/subtotal_cents: netSubtotal/)
     expect(checkout).toMatch(/unit_price_cents: listing\.price_cents/)
     expect(checkout).toMatch(/discount_cents: itemDiscount/)
-    expect(checkout, 'VIP-only gate — the discount reads vendor_vip_customers').toMatch(/vendor_vip_customers/)
-    expect(checkout, 'enabled offers only').toMatch(/\.eq\('enabled', true\)/)
-    expect(checkout, 'the shared math, never inline percentages').toMatch(/computeSpendThresholdDiscount\(/)
-    expect(checkout).toMatch(/allocateDiscount\(/)
+    // Punch build moved the discount math into the ONE shared engine — the
+    // route delegates and never inlines percentages.
+    expect(checkout).toMatch(/computeCartDiscounts\(/)
+    const engine = rd('lib/loyalty/offers-checkout.ts')
+    expect(engine, 'VIP-only gate — the discount reads vendor_vip_customers').toMatch(/vendor_vip_customers/)
+    expect(engine, 'enabled offers only').toMatch(/\.eq\('enabled', true\)/)
+    expect(engine, 'the shared math, never inline percentages').toMatch(/computeSpendThresholdDiscount\(/)
+    expect(engine).toMatch(/computePunchRewardDiscount\(/)
+    expect(engine).toMatch(/allocateDiscount\(/)
     // The refund paths stay discount-free BY DESIGN — a discount reference
     // appearing in one means someone broke the net-storage contract.
     for (const file of [
@@ -2082,6 +2087,27 @@ describe('Loyalty Layer 1 integrity', () => {
       expect(/discount_cents|offer_id/.test(rd(file)),
         `${file} must not reference discounts — net subtotal_cents already carries them`).toBe(false)
     }
+  })
+
+  it('punch card: one engine, one punch definition, previewed exactly as charged', () => {
+    // Display-price pair: the checkout page's "VIP deal" line and the Stripe
+    // charge must come from the SAME function or they drift apart — the page
+    // mirrors via /api/checkout/discount-preview, which calls the engine.
+    expect(rd('app/api/checkout/discount-preview/route.ts')).toMatch(/computeCartDiscounts\(/)
+    expect(rd('app/[vertical]/checkout/page.tsx'), 'the page mirrors via the preview endpoint')
+      .toMatch(/\/api\/checkout\/discount-preview/)
+    // One punch-state definition: the reward-ready notifier and the Favorites
+    // progress line derive punches from the same function checkout redeems
+    // against. Two definitions = "you earned it" pings that checkout ignores.
+    expect(rd('lib/loyalty/evaluate.ts')).toMatch(/import \{ punchState \} from '\.\/offers-checkout'/)
+    expect(rd('app/[vertical]/favorites/page.tsx')).toMatch(/punchState\(/)
+    // No stacking (owner D6): the engine picks the single best perk per vendor.
+    expect(rd('lib/loyalty/offers-checkout.ts')).toMatch(/NO STACKING/)
+    // Config can only be saved in-bounds — the vendor API validates through
+    // the same parsers checkout trusts (defense in depth).
+    const offersApi = rd('app/api/vendor/offers/route.ts')
+    expect(offersApi).toMatch(/parsePunchCard\(/)
+    expect(offersApi).toMatch(/parseSpendThreshold\(/)
   })
 
   it('the followed-vendor digest CONSOLIDATES (A3): one send per buyer, wired into the hourly cron', () => {

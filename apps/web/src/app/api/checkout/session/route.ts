@@ -4,7 +4,7 @@ import { getActiveRoundUpCampaign } from '@/lib/cause/beneficiaries'
 import { createCheckoutSession } from '@/lib/stripe/payments'
 import { stripe } from '@/lib/stripe/config'
 import { calculateOrderPricing, FEES, calculateSmallOrderFee, getSmallOrderFeeConfig, proratedFlatFee, getEffectiveVendorFeePercent } from '@/lib/pricing'
-import { computeSpendThresholdDiscount, allocateDiscount, type VendorOffer } from '@/lib/loyalty/offers'
+import { computeCartDiscounts } from '@/lib/loyalty/offers-checkout'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { withErrorTracing, traced, crumb, TracedError, logError, observed } from '@/lib/errors'
 import { cancelOrderItemsAndRestoreGuarded, restoreInventory } from '@/lib/inventory'
@@ -549,47 +549,23 @@ export async function POST(request: NextRequest) {
     // refund recompute, small-order fee, reports and chunk-D tax read the
     // true amount by construction — no other money path changes.
     // ============================================================
+    // Punch build (2026-09-04): the discount math moved to the SHARED
+    // lib/loyalty/offers-checkout.ts — one source consumed by this route AND
+    // the checkout page's discount-preview, so the page total and the Stripe
+    // total can never disagree. Adds punch_card rewards (D6 auto-apply) beside
+    // spend_threshold, single-best-perk per vendor (no stacking).
     crumb.logic('Computing VIP perk discounts (0 unless a vendor offer applies)')
-    const discountByItemIndex = new Map<number, { cents: number; offerId: string }>()
-    {
-      const cartVendorIds = [...new Set(items.map((item) => (listings.find((l) => l.id === item.listingId) as Listing).vendor_profile_id))]
-      if (cartVendorIds.length > 0) {
-        const [{ data: offerRows }, { data: vipRows }] = await Promise.all([
-          serviceClient
-            .from('vendor_offers')
-            .select('id, vendor_profile_id, kind, enabled, config')
-            .in('vendor_profile_id', cartVendorIds)
-            .eq('enabled', true)
-            .eq('kind', 'spend_threshold'),
-          serviceClient
-            .from('vendor_vip_customers')
-            .select('vendor_profile_id')
-            .eq('buyer_user_id', user.id)
-            .in('vendor_profile_id', cartVendorIds),
-        ])
-        const vipVendors = new Set((vipRows ?? []).map((r) => r.vendor_profile_id as string))
-        for (const row of offerRows ?? []) {
-          const offerVendorId = row.vendor_profile_id as string
-          const vendorItemIndexes = items
-            .map((item, idx) => ({ item, idx }))
-            .filter(({ item }) => (listings.find((l) => l.id === item.listingId) as Listing).vendor_profile_id === offerVendorId)
-          const subtotals = vendorItemIndexes.map(({ item }) => (listings.find((l) => l.id === item.listingId) as Listing).price_cents * item.quantity)
-          const vendorTotal = subtotals.reduce((a, b) => a + b, 0)
-          const discount = computeSpendThresholdDiscount(
-            row as unknown as VendorOffer,
-            vipVendors.has(offerVendorId),
-            vendorTotal
-          )
-          if (discount > 0) {
-            const parts = allocateDiscount(subtotals, discount)
-            vendorItemIndexes.forEach(({ idx }, i) => {
-              if (parts[i]! > 0) discountByItemIndex.set(idx, { cents: parts[i]!, offerId: row.id as string })
-            })
-          }
-        }
-      }
-    }
-    const totalDiscountCents = [...discountByItemIndex.values()].reduce((a, d) => a + d.cents, 0)
+    const cartDiscounts = await computeCartDiscounts(
+      serviceClient,
+      user.id,
+      items.map((item, idx) => {
+        const l = listings.find((x) => x.id === item.listingId) as Listing
+        return { index: idx, listingId: item.listingId, vendorProfileId: l.vendor_profile_id, subtotalCents: l.price_cents * item.quantity }
+      }),
+      vertical || (listings[0] as Listing | undefined)?.vertical_id || 'food_trucks'
+    )
+    const discountByItemIndex = cartDiscounts.byIndex
+    const totalDiscountCents = cartDiscounts.totalCents
 
     // Calculate totals using unified pricing module
     crumb.logic('Calculating order totals and fees')
@@ -726,6 +702,17 @@ export async function POST(request: NextRequest) {
     const platformFeeCents = listingPercentFeeCents + mbPercentFeeCents
       + orderPricing.buyerFlatFeeCents + orderPricing.vendorFlatFeeCents + smallOrderFeeCents
     const totalCents = orderPricing.buyerTotalCents + smallOrderFeeCents + validTipAmount + validChipinCents
+
+    // Punch build (D2 100%-off + the 2026-08-25 min-order rule): Stripe cannot
+    // charge under 50¢. Only a discount can push a total this low (the 15¢
+    // service fee rides every order), so say so plainly instead of letting
+    // Stripe fail cryptically.
+    if (totalDiscountCents > 0 && totalCents < 50) {
+      throw traced.validation(
+        'ERR_CHECKOUT_001',
+        'Your VIP reward covers almost everything — add a little more to your order (50¢ minimum) to check out.'
+      )
+    }
 
     // Split tip into vendor portion and platform fee portion.
     // Customer's tip is calculated on displayed subtotal (food + buyer fee).

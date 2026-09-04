@@ -238,6 +238,18 @@ No removal notification (v1 stays quiet — being un-VIP'd is not a moment to pi
 
 ---
 
+### VIP Reward Ready (`vip_reward_ready`) — Punch card, 2026-09-04
+**Urgency:** Immediate (Push + In-app) — free channels; the earn moment is the whole point of a punch card (owner D6: "they get notified that their next order gets the discount")
+**Trigger:** `lib/loyalty/evaluate.ts` checkVipPunchRewards — lazy evaluation detects the buyer's fulfilled qualifying-visit count reached the vendor's punch target; dedup key `punchready:{offer_id}:{anchor}` (one ping per earned reward — the anchor moves when the reward is redeemed)
+
+**In-app title:** 🎉 You earned it — {{rewardLabel}} at {{vendor_name}}!
+**In-app message:** Your next qualifying order applies it automatically — nothing to redeem, no codes.
+**Action:** `/{{vertical}}/favorites` (the vendor card shows "Reward ready")
+
+{{rewardLabel}} comes from `punchRewardLabel()` in `lib/loyalty/offers.ts` — one source for the notification, the Favorites progress line, and the vendor config card. The reward auto-applies at checkout via the shared discount engine; never stacked with other perks (best single perk wins).
+
+---
+
 ## Vendor-Facing Notifications
 
 ---

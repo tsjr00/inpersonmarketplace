@@ -55,6 +55,7 @@ export type NotificationType =
   | 'badge_earned'
   | 'vip_added'
   | 'followed_vendor_digest'
+  | 'vip_reward_ready'
   // Vendor-facing
   | 'new_paid_order'
   | 'new_external_order'
@@ -321,6 +322,8 @@ export interface NotificationTemplateData {
   /** A3 (2026-09-04) followed_vendor_digest: "Vendor A: item, item · Vendor B: item". */
   digestSummary?: string
   digestVendorCount?: number
+  /** Punch build (2026-09-04) vip_reward_ready: "15% off" / "$5 off" (+ min-purchase clause). */
+  rewardLabel?: string
   payoutAmount?: string
   eventToken?: string
   eventPageUrl?: string
@@ -2235,6 +2238,19 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
         ? `🍴 New today from ${d.digestVendorCount} of your vendors`
         : `🍴 New today at ${d.vendorName || 'a vendor you follow'}`,
     message: (d) => d.digestSummary || 'Your vendors added new items today — take a look.',
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/favorites`,
+  },
+
+  // Punch build (2026-09-04, D6): the buyer just completed a punch card —
+  // their NEXT order at this vendor auto-carries the reward (no codes, no
+  // screens to show). Free channels; the earn is exactly the moment to ping.
+  vip_reward_ready: {
+    urgency: 'immediate',
+    severity: 'info',
+    audience: 'buyer',
+    title: (d) => `🎉 You earned it — ${d.rewardLabel || 'a VIP reward'} at ${d.vendorName || 'your vendor'}!`,
+    message: (d) =>
+      `Your next order at ${d.vendorName || 'this vendor'} automatically gets ${d.rewardLabel || 'your reward'}. Nothing to show, nothing to enter — just order.`,
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/favorites`,
   },
 }

@@ -1,6 +1,6 @@
 # 20 — Buyer & Public Surfaces
 
-<!-- map-stamp: domain=buyer-public; verified=2026-08-25; commit=bfc60dfd -->
+<!-- map-stamp: domain=buyer-public; verified=2026-09-04; commit=cec32fb5 -->
 <!-- map-claims
 src/app/api/buyer/**
 src/app/api/listings/**
@@ -139,7 +139,7 @@ All under `app/api/buyer/`, all wrapped in `withErrorTracing` + `checkRateLimit`
 
 **Discovery / public:** `[vertical]` (vertical home) · `browse` · `listing/[listingId]` · `market-box/[id]` · `markets` + `[id]` + `[id]/book` + `[id]/book-spot` · `vendors` · `vendor/[vendorId]/profile` + `/schedule` · `where-today` · `about` · `features` · `how-it-works` · `comingsoon` · `market-manager-program` · `terms` (+ `/partner`, `/vendor`) · `help` (+ `/setup`) · `support`.
 
-**Buyer:** `buyer/orders` + `[id]` · `buyer/subscriptions` + `[id]` · `buyer/surveys` · `buyer/upgrade` · `favorites` (since 2026-08-25 also the home of the buyer's loyalty badges — "My Badges" + next-up progress, evaluated on load by `lib/loyalty/evaluate.ts`; owner kept the dashboard consolidated instead of adding a tile) · `checkout` (+ `external`, `success`) · `subscription/success` · `survey/[token]`.
+**Buyer:** `buyer/orders` + `[id]` · `buyer/subscriptions` + `[id]` · `buyer/surveys` · `buyer/upgrade` · `favorites` (since 2026-08-25 also the home of the buyer's loyalty badges — "My Badges" + next-up progress, evaluated on load by `lib/loyalty/evaluate.ts`; owner kept the dashboard consolidated instead of adding a tile; since 2026-09-04 vendor cards also carry the "You're a VIP" badge plus active-perk lines — spend-and-save label and punch progress "N of M visits" / "Reward ready", derived by the same `punchState` checkout redeems against) · `checkout` (+ `external`, `success`) · `subscription/success` · `survey/[token]`.
 
 **Account:** `settings` · `account/email-preferences` · `dashboard` · `notifications`.
 

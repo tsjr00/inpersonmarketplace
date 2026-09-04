@@ -1,15 +1,23 @@
-# SESSION 2026-09-04 — CHECKPOINT ("save progress"). VIP buildout Phase A COMPLETE + B1 built. Next session starts HERE.
+# SESSION 2026-09-04 — VIP buildout: Phase A + B1 SHIPPED to staging; PUNCH CARD BUILT (uncommitted). Next session starts HERE.
 
 ## Git / env — VERIFY, don't trust
-- Local `main` = `826b7623` (A3) ← `d09707d3` (A2) ← `3e3cdaa9` (A1). **origin/staging = `3e3cdaa9`** (A1 pushed; A2+A3 LOCAL-ONLY — this machine is their only copy until pushed). Prod `e946c2c0`, owes migs **238→239→240→241→242→243** in order.
-- **UNCOMMITTED (blocked by design)**: B1 plumbing (checkout/session + lib/loyalty/offers.ts + mig 243 + guards) + today's docs. ⛔ **NO COMMIT POSSIBLE until owner pastes mig 243 (Dev+Staging) + runs the scoped rebuild queries** (in chat 2026-09-04) → Claude rebuilds structured tables + stamp → Rule L green → commit B1. Suite: 2137 green + Rule L red (expected).
-- Migs: 241+242 Dev+Staging ✅ (Prod pending) · **243 applied NOWHERE** (paste-and-go, inert).
+- **origin/staging = local `main` = `cec32fb5`** (B1) ← `826b7623` (A3) ← `d09707d3` (A2) ← `3e3cdaa9` (A1). Prod `e946c2c0`, owes migs **238→239→240→241→242→243** in order (window 21:00–07:00 CT).
+- Migs: 241+242+243 Dev+Staging ✅ (Prod pending). Snapshot stamp = 243 (Rule L green; 243 rebuild labeled DDL-derived + owner-confirmed).
+- **UNCOMMITTED: the whole punch card build** (see section below) + this file + CLAUDE_CONTEXT.md edits. Gates at last check: tsc ✓ · vitest **2145/2145** (tripwire 124) · lint pending final run.
+
+## ⚡ PUNCH CARD BUILD (owner: "yes, bump the tripwire - build it" + D1–D11 answers 2026-09-04)
+- **`lib/loyalty/offers.ts`**: PUNCH_CARD_BOUNDS (D2: 3–12 visits → 10–100% off next order of $10–$200 min, 100% waives min, or $1–$50 off) + parsePunchCard/computePunchRewardDiscount/punchRewardLabel; SPEND_THRESHOLD max → $200 (D1). 17 spec tests.
+- **`lib/loyalty/offers-checkout.ts`** (NEW): `computeCartDiscounts` = THE one discount engine (VIP-only, enabled offers, per-vendor BEST single perk — NO STACKING per D6) + `punchState` (punches = fulfilled qualifying orders since max(VIP added_at, last redemption via order_items.offer_id); qualifying = vendor-slice display price ≥ vertical small-order threshold — ⚠ FLAGGED interpretation, owner hasn't explicitly confirmed) + `punchEarned`.
+- **checkout/session** (⚠ protected, approved): inline B1 block → computeCartDiscounts; 50¢ Stripe floor validation (100%-off tiny carts get friendly error). **`api/checkout/discount-preview`** (NEW): same engine → checkout page shows "⭐ VIP deal −$X" line (display-price pair, flow-integrity-pinned).
+- **`api/vendor/offers`** (NEW GET/PUT): perk config upsert, bounds enforced via the same parsers. **`VipPerksCard.tsx`** (NEW) in "VIP Perks" block on Insights (gated vipCustomers > 0).
+- **evaluate.ts** checkVipPunchRewards → `vip_reward_ready` (tripwire 123→124 owner-approved; dedup `punchready:{offer}:{anchor}` via explicit notifications query — CHK-13). Favorites: perk lines under vendor names (threshold label · punch "N of M visits" · "🎉 Reward ready").
+- Guards: punch flow-integrity test (engine pair, one punchState, no-stacking, parser validation) + B1 guard updated to the engine location (same invariant, math moved — transparent). Maps: 10 item 8, 11 perks block, 18, 20, 21 + stamps. MESSAGE_TEMPLATES vip_reward_ready.
 
 ## ▶ NEXT SESSION / OWNER
-1. **Owner**: paste mig 243 Dev+Staging → run the scoped queries (vendor_offers columns + order_items discount cols + indexes) → paste output. Claude: rebuild + stamp 243 → commit B1 → push A2+A3+B1 to staging when owner ready to test.
-2. **Owner picks D1–D11** (perk decision menu — full text in chat 2026-09-04 + `vip_loyalty_buildout_plan.md`): bounds, reward type, punch start/redemption, stacking, UI home, disclosure, announcements. Then: punch card build (redemption state) → threshold UI → vendor perk-menu card.
-3. Owner staging retests owed: A2 VIP loop (star toggle→push→Favorites badge→OrderCard ⭐) · A3 digest (manual surveys-cron GET in the 8am hour) · plus the standing 2026-09-03 batch retests (P1 pare loop, week strip, stage surfaces).
-4. Standing queue unchanged: event-gate fixes A+B (awaiting go since 08-31) · vendor-docs crash evidence · admin phase 6 events board · Protocol v6 C/D/E money tests · money-on-activation tier-scope decision (owner thinking) · prod push in window when ready.
+1. **Commit + push the punch build** (owner approval pending at wrap).
+2. Owner staging retests owed: FULL VIP loop — A1 report → A2 star toggle/push/badges → A3 digest (8am-hour cron GET) → B1+punch: configure perks on Insights → buyer sees Favorites perk lines → checkout shows VIP deal line → Stripe total matches → punch earn ping after Nth fulfilled qualifying order. Plus standing 2026-09-03 batch retests (P1 pare loop, week strip, stage surfaces).
+3. Two flagged interpretations for owner: "min platform threshold" = vertical small-order threshold ($5 FT/$10 FM) · $-off bounds $1–$50 (proposed).
+4. Standing queue unchanged: event-gate fixes A+B (awaiting go since 08-31) · vendor-docs crash evidence · admin phase 6 events board · Protocol v6 C/D/E money tests · money-on-activation tier-scope decision (owner thinking) · prod push in window when ready · backlog: platform-funded punch perk math (behind chunk D).
 
 ---
 

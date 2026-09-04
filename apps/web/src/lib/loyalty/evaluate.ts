@@ -24,6 +24,8 @@ import { after } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendNotification } from '@/lib/notifications'
 import { BADGE_CATALOG, SEGMENT_LABELS, getLoyaltyThresholds, type BadgeKey } from './config'
+import { parsePunchCard, punchRewardLabel } from './offers'
+import { punchState } from './offers-checkout'
 import { observed } from '@/lib/errors'
 import {
   badgeIdentity,
@@ -161,11 +163,94 @@ export async function evaluateBuyerAchievements(
       await notifyNewBadges(service, userId, vertical, newlyEarned, orders)
     }
 
+    // Punch build (D6, 2026-09-04): tell the buyer the moment a punch card
+    // completes — their NEXT order auto-carries the reward. Best-effort, own
+    // try/catch; runs on the same triggers as badges (fulfill hook + lazy
+    // Favorites load), deduped per cycle via the punch anchor.
+    try {
+      await checkVipPunchRewards(service, userId, vertical, orders)
+    } catch {
+      // Never let a notification check disturb the evaluation result.
+    }
+
     const earnedKeys = new Set(existing.map((r) => badgeIdentity(r.badge_key, r.vendor_profile_id)))
     const progress = computeProgress(orders, thresholds, earnedKeys)
     return { earned: existing, newlyEarned, progress, orders, persisted: true }
   } catch {
     return EMPTY
+  }
+}
+
+/**
+ * For each vendor in the buyer's history with an enabled punch card where the
+ * buyer is a VIP: if the card just completed (punches ≥ target for the current
+ * cycle), send vip_reward_ready ONCE per cycle (dedupRef carries the cycle
+ * anchor — same anchor `punchState` uses, one definition).
+ */
+async function checkVipPunchRewards(
+  service: SupabaseClient,
+  userId: string,
+  vertical: string,
+  orders: FulfilledOrder[]
+): Promise<void> {
+  const vendorIds = [...new Set(orders.map((o) => o.vendorProfileId))]
+  if (vendorIds.length === 0) return
+
+  const [{ data: offerRows }, { data: vipRows }] = await Promise.all([
+    observed(service
+      .from('vendor_offers')
+      .select('id, vendor_profile_id, config, profile:vendor_profiles!vendor_profile_id(profile_data)')
+      .in('vendor_profile_id', vendorIds)
+      .eq('enabled', true)
+      .eq('kind', 'punch_card'), { table: 'vendor_offers' }),
+    observed(service
+      .from('vendor_vip_customers')
+      .select('vendor_profile_id, added_at')
+      .eq('buyer_user_id', userId)
+      .in('vendor_profile_id', vendorIds), { table: 'vendor_vip_customers' }),
+  ])
+  if (!offerRows || offerRows.length === 0) return
+  const vipByVendor = new Map((vipRows ?? []).map((r) => [r.vendor_profile_id as string, r.added_at as string]))
+
+  // CHK-13: dedupRef is checked by the SENDER — query prior sends explicitly
+  // (the digest/check-in-reminder pattern), or every Favorites load re-pings
+  // an earned-unredeemed card.
+  const { data: priorNotifs } = await observed(service
+    .from('notifications')
+    .select('data')
+    .eq('user_id', userId)
+    .eq('type', 'vip_reward_ready'), { table: 'notifications' })
+  const alreadyPinged = new Set(
+    (priorNotifs ?? []).map((n) => ((n.data ?? {}) as { dedupRef?: string }).dedupRef).filter(Boolean)
+  )
+
+  for (const row of offerRows) {
+    const vendorId = row.vendor_profile_id as string
+    const vipAddedAt = vipByVendor.get(vendorId)
+    if (!vipAddedAt) continue
+    const cfg = parsePunchCard(row.config as Record<string, unknown>)
+    if (!cfg) continue
+    const state = await punchState(service, userId, vendorId, row.id as string, vipAddedAt, vertical)
+    if (state.punches < cfg.visits) continue
+
+    // One ping per cycle: the anchor changes only when a redemption
+    // (or re-designation) starts a new cycle.
+    const dedupRef = `punchready:${row.id}:${state.anchor}`
+    if (alreadyPinged.has(dedupRef)) continue
+
+    const profile = row.profile as unknown as { profile_data: Record<string, unknown> | null } | { profile_data: Record<string, unknown> | null }[] | null
+    const pd = (Array.isArray(profile) ? profile[0]?.profile_data : profile?.profile_data) ?? {}
+    const vendorName = (pd.business_name as string) || (pd.farm_name as string) || ''
+    await sendNotification(
+      userId,
+      'vip_reward_ready',
+      {
+        dedupRef,
+        rewardLabel: punchRewardLabel(cfg.reward),
+        ...(vendorName ? { vendorName } : {}),
+      },
+      { vertical }
+    )
   }
 }
 

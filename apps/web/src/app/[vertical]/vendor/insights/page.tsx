@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { colors, spacing, typography, radius, shadows, containers, statusColors } from '@/lib/design-tokens'
 import { getFtTierExtras, getFtTierLabel } from '@/lib/vendor-limits'
 import { SEGMENT_LABELS, type CustomerSegment } from '@/lib/loyalty/config'
+import VipPerksCard from '@/components/vendor/VipPerksCard'
 
 interface RevenueRow { marketId: string; marketName: string; city: string; revenue: number; orderCount: number }
 interface PeakDayRow { marketId: string; marketName: string; days: { day: string; dayIndex: number; count: number }[]; peakDay: string }
@@ -705,6 +706,13 @@ export default function VendorInsightsPage() {
                   </p>
                 )}
               </div>
+            )}
+
+            {/* Punch build (D8, owner 2026-09-04): the perk menu lives WITH
+                Your Customers — slots, roster and perks in one VIP home.
+                Only rendered for tiers that HAVE VIP slots. */}
+            {customers && customers.vip.limit > 0 && vendorId && (
+              <VipPerksCard vendorId={vendorId} vertical={vertical} />
             )}
 
             {/* ═══ PRO TIER or locked ═══ */}

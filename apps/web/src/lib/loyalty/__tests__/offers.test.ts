@@ -10,8 +10,12 @@ import {
   computeSpendThresholdDiscount,
   allocateDiscount,
   parseSpendThreshold,
+  parsePunchCard,
+  computePunchRewardDiscount,
   SPEND_THRESHOLD_BOUNDS,
+  PUNCH_CARD_BOUNDS,
   type VendorOffer,
+  type PunchReward,
 } from '../offers'
 
 const offer = (config: Record<string, unknown>, enabled = true): VendorOffer => ({
@@ -59,6 +63,45 @@ describe('parseSpendThreshold bounds', () => {
     expect(parseSpendThreshold({ threshold_cents: b.minThresholdCents - 1, pct: 10 })).toBeNull()
     expect(parseSpendThreshold({ threshold_cents: 3000, pct: b.maxPct + 1 })).toBeNull()
     expect(parseSpendThreshold({ threshold_cents: 3000.5, pct: 10 })).toBeNull()
+  })
+})
+
+describe('punch card config + redemption math (D2/D6, owner 2026-09-04)', () => {
+  it('parses the percent reward with its purchase minimum', () => {
+    const cfg = parsePunchCard({ visits: 5, reward_type: 'percent', reward_pct: 15, min_purchase_cents: 2000 })
+    expect(cfg).toEqual({ visits: 5, reward: { type: 'percent', pct: 15, min_purchase_cents: 2000 } })
+  })
+
+  it('100% off waives the purchase minimum (owner: "if 100% off then no purchase min threshold")', () => {
+    const cfg = parsePunchCard({ visits: 5, reward_type: 'percent', reward_pct: 100 })
+    expect(cfg).toEqual({ visits: 5, reward: { type: 'percent', pct: 100, min_purchase_cents: 0 } })
+  })
+
+  it('parses the amount reward', () => {
+    const cfg = parsePunchCard({ visits: 10, reward_type: 'amount', reward_amount_cents: 500 })
+    expect(cfg).toEqual({ visits: 10, reward: { type: 'amount', amount_cents: 500 } })
+  })
+
+  it('rejects out-of-bounds knobs (visits 3–12; pct 10–100; the fat-finger guard)', () => {
+    expect(parsePunchCard({ visits: 2, reward_type: 'percent', reward_pct: 15, min_purchase_cents: 2000 })).toBeNull()
+    expect(parsePunchCard({ visits: 13, reward_type: 'percent', reward_pct: 15, min_purchase_cents: 2000 })).toBeNull()
+    expect(parsePunchCard({ visits: 5, reward_type: 'percent', reward_pct: 5, min_purchase_cents: 2000 })).toBeNull()
+    expect(parsePunchCard({ visits: 5, reward_type: 'amount', reward_amount_cents: PUNCH_CARD_BOUNDS.maxAmountOffCents + 1 })).toBeNull()
+    expect(parsePunchCard({ visits: 5 })).toBeNull()
+  })
+
+  it('percent redemption honors the vendor-set minimum; amount caps at the slice', () => {
+    const pct: PunchReward = { type: 'percent', pct: 20, min_purchase_cents: 2000 }
+    expect(computePunchRewardDiscount(pct, 1999)).toBe(0)
+    expect(computePunchRewardDiscount(pct, 2500)).toBe(500)
+    const amt: PunchReward = { type: 'amount', amount_cents: 500 }
+    expect(computePunchRewardDiscount(amt, 300)).toBe(300) // never negative
+    expect(computePunchRewardDiscount(amt, 5000)).toBe(500)
+  })
+
+  it('100% off has no minimum and discounts the whole slice', () => {
+    const full: PunchReward = { type: 'percent', pct: 100, min_purchase_cents: 0 }
+    expect(computePunchRewardDiscount(full, 750)).toBe(750)
   })
 })
 

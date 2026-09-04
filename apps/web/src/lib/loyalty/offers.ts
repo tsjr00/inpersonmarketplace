@@ -57,6 +57,84 @@ export function parseSpendThreshold(config: Record<string, unknown>): SpendThres
   return { threshold_cents: threshold, pct }
 }
 
+// ── Punch card (D2/D5/D6, owner 2026-09-04) ────────────────────────────────
+
+// D2 owner-confirmed: 3–12 visits to earn; reward = 10–100% off next purchase
+// of $X or more (min waived at 100%), OR $X off next order. Amount-off and
+// min-purchase bounds are Claude proposals (flagged in decisions.md #7),
+// aligned with the threshold-discount ranges.
+export const PUNCH_CARD_BOUNDS = {
+  minVisits: 3,
+  maxVisits: 12,
+  minRewardPct: 10,
+  maxRewardPct: 100,
+  minPurchaseMinCents: 1000,   // $10 floor for the vendor-set "next purchase of $X or more"
+  maxPurchaseMinCents: 20000,  // $200, matching the threshold ceiling
+  minAmountOffCents: 100,      // $1  (proposed, pending owner tweak)
+  maxAmountOffCents: 5000,     // $50 (proposed, pending owner tweak)
+} as const
+
+export type PunchReward =
+  | { type: 'percent'; pct: number; min_purchase_cents: number }
+  | { type: 'amount'; amount_cents: number }
+
+export interface PunchCardConfig {
+  visits: number
+  reward: PunchReward
+}
+
+/** Parse + bounds-check a punch_card config; null = invalid/ignore. */
+export function parsePunchCard(config: Record<string, unknown>): PunchCardConfig | null {
+  const visits = config.visits
+  if (typeof visits !== 'number' || !Number.isInteger(visits)) return null
+  const b = PUNCH_CARD_BOUNDS
+  if (visits < b.minVisits || visits > b.maxVisits) return null
+
+  if (config.reward_type === 'amount') {
+    const amount = config.reward_amount_cents
+    if (typeof amount !== 'number' || !Number.isInteger(amount)) return null
+    if (amount < b.minAmountOffCents || amount > b.maxAmountOffCents) return null
+    return { visits, reward: { type: 'amount', amount_cents: amount } }
+  }
+  if (config.reward_type === 'percent') {
+    const pct = config.reward_pct
+    if (typeof pct !== 'number' || !Number.isInteger(pct)) return null
+    if (pct < b.minRewardPct || pct > b.maxRewardPct) return null
+    // D2: "if 100% off then no purchase min threshold" — waived at 100.
+    if (pct === 100) return { visits, reward: { type: 'percent', pct, min_purchase_cents: 0 } }
+    const min = config.min_purchase_cents
+    if (typeof min !== 'number' || !Number.isInteger(min)) return null
+    if (min < b.minPurchaseMinCents || min > b.maxPurchaseMinCents) return null
+    return { visits, reward: { type: 'percent', pct, min_purchase_cents: min } }
+  }
+  return null
+}
+
+/** Human label for a punch reward — notification + UI copy share it. */
+export function punchRewardLabel(reward: PunchReward): string {
+  if (reward.type === 'amount') return `$${(reward.amount_cents / 100).toFixed(2)} off`
+  if (reward.pct === 100) return '100% off (a free order)'
+  return reward.min_purchase_cents > 0
+    ? `${reward.pct}% off (orders of $${(reward.min_purchase_cents / 100).toFixed(0)}+)`
+    : `${reward.pct}% off`
+}
+
+/**
+ * The punch reward for the CURRENT order, given the buyer has EARNED it
+ * (punch counting happens elsewhere — this is redemption math only).
+ * Percent rewards require the vendor slice to clear the vendor-set minimum
+ * (waived at 100%); amount rewards cap at the slice (never negative).
+ */
+export function computePunchRewardDiscount(
+  reward: PunchReward,
+  vendorSubtotalCents: number
+): number {
+  if (vendorSubtotalCents <= 0) return 0
+  if (reward.type === 'amount') return Math.min(reward.amount_cents, vendorSubtotalCents)
+  if (reward.min_purchase_cents > 0 && vendorSubtotalCents < reward.min_purchase_cents) return 0
+  return Math.round(vendorSubtotalCents * reward.pct / 100)
+}
+
 /**
  * The vendor-funded discount for ONE vendor's slice of a cart.
  *

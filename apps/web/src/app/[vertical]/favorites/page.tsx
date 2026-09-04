@@ -12,6 +12,8 @@ import { t } from '@/lib/locale/messages'
 import BackLink from '@/components/shared/BackLink'
 import { evaluateBuyerAchievements } from '@/lib/loyalty/evaluate'
 import { BADGE_CATALOG, getLoyaltyThresholds } from '@/lib/loyalty/config'
+import { parsePunchCard, parseSpendThreshold, punchRewardLabel } from '@/lib/loyalty/offers'
+import { punchState } from '@/lib/loyalty/offers-checkout'
 
 interface FavoritesPageProps {
   params: Promise<{ vertical: string }>
@@ -72,11 +74,44 @@ export default async function FavoritesPage({ params }: FavoritesPageProps) {
   // A2 (mig 242): vendors who hand-picked THIS buyer as a VIP — "getting VIP
   // status feels exclusive and personal", so it shows where their vendors
   // live. Service client (table is RLS-deny); scoped to this user's rows.
-  const { data: vipRows } = await createServiceClient()
+  const vipService = createServiceClient()
+  const { data: vipRows } = await vipService
     .from('vendor_vip_customers')
-    .select('vendor_profile_id')
+    .select('vendor_profile_id, added_at')
     .eq('buyer_user_id', user.id)
   const vipVendorIds = new Set((vipRows || []).map(r => r.vendor_profile_id as string))
+  const vipAddedAt = new Map((vipRows || []).map(r => [r.vendor_profile_id as string, r.added_at as string]))
+
+  // Punch build (D9, owner 2026-09-04): VIPs SEE their perks — a visible perk
+  // drives the spending it rewards. Per VIP vendor with enabled offers:
+  // perk labels + live punch progress ("3 of 5 visits").
+  const perkLinesByVendor = new Map<string, string[]>()
+  if (vipVendorIds.size > 0) {
+    const { data: offerRows } = await vipService
+      .from('vendor_offers')
+      .select('id, vendor_profile_id, kind, config')
+      .in('vendor_profile_id', [...vipVendorIds])
+      .eq('enabled', true)
+    for (const offer of offerRows || []) {
+      const vid = offer.vendor_profile_id as string
+      const lines = perkLinesByVendor.get(vid) ?? []
+      if (offer.kind === 'spend_threshold') {
+        const cfg = parseSpendThreshold(offer.config as Record<string, unknown>)
+        if (cfg) lines.push(`VIP perk: ${cfg.pct}% off orders over $${(cfg.threshold_cents / 100).toFixed(0)}`)
+      }
+      if (offer.kind === 'punch_card') {
+        const cfg = parsePunchCard(offer.config as Record<string, unknown>)
+        const addedAt = vipAddedAt.get(vid)
+        if (cfg && addedAt) {
+          const state = await punchState(vipService, user.id, vid, offer.id as string, addedAt, vertical)
+          lines.push(state.punches >= cfg.visits
+            ? `🎉 Reward ready — ${punchRewardLabel(cfg.reward)} auto-applies to your next order`
+            : `Punch card: ${Math.min(state.punches, cfg.visits)} of ${cfg.visits} visits — earns ${punchRewardLabel(cfg.reward)}`)
+        }
+      }
+      if (lines.length > 0) perkLinesByVendor.set(vid, lines)
+    }
+  }
 
   // Loyalty Layer 1 (owner 2026-08-25): badges live HERE, not on a new
   // dashboard tile — "we just cleaned up the dashboard, keep it consolidated".
@@ -369,6 +404,11 @@ export default async function FavoritesPage({ params }: FavoritesPageProps) {
                       {vendorBadgeByVendor.get(vendor.id)}
                     </div>
                   )}
+                  {(perkLinesByVendor.get(vendor.id) ?? []).map((line, i) => (
+                    <div key={i} style={{ fontSize: typography.sizes.xs, color: '#5b21b6', marginTop: 2 }}>
+                      {line}
+                    </div>
+                  ))}
                   {vendor.rating !== null && vendor.ratingCount !== null && vendor.ratingCount > 0 && (
                     <div style={{
                       fontSize: typography.sizes.xs,

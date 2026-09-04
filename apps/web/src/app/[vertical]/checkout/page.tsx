@@ -62,9 +62,32 @@ export default function CheckoutPage() {
   const [roundUpBeneficiaryName, setRoundUpBeneficiaryName] = useState<string>('')
   const [roundUpOn, setRoundUpOn] = useState(false)
   const [unresolvedExternalCount, setUnresolvedExternalCount] = useState(0)
+  const [vipDiscountCents, setVipDiscountCents] = useState(0)
 
   // Ref to prevent double-click submissions (state update may not re-render in time)
   const isSubmittingRef = useRef(false)
+
+  // VIP perk preview (display-price pair): asks the server what discount
+  // checkout/session will apply, via the SAME shared engine
+  // (lib/loyalty/offers-checkout → /api/checkout/discount-preview), so the
+  // total shown here matches Stripe. 0 for non-VIPs and carts with no perk.
+  useEffect(() => {
+    const listingItems = checkoutItems.filter(i => i.itemType !== 'market_box' && i.listingId)
+    if (listingItems.length === 0) { setVipDiscountCents(0); return }
+    let cancelled = false
+    fetch('/api/checkout/discount-preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        vertical,
+        items: listingItems.map(i => ({ listingId: i.listingId, quantity: i.quantity })),
+      }),
+    })
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => { if (!cancelled) setVipDiscountCents(data?.total_cents ?? 0) })
+      .catch(() => { if (!cancelled) setVipDiscountCents(0) })
+    return () => { cancelled = true }
+  }, [checkoutItems, vertical])
 
   // Community Chip In: fetch the cart's offers — an event's chip-in (when the
   // cart is an event order) and/or an active round-up campaign (Feature B).
@@ -563,12 +586,18 @@ export default function CheckoutPage() {
   }
 
   // Calculate base subtotal (before fees) for small order fee check
-  const baseSubtotal = checkoutItems.reduce((sum, item) => {
+  const grossBaseSubtotal = checkoutItems.reduce((sum, item) => {
     if (item.itemType === 'market_box') {
       return sum + (item.termPriceCents || item.price_cents || 0)
     }
     return sum + item.price_cents * item.quantity
   }, 0)
+  // Punch build (display-price pair): the server computes VIP perk discounts
+  // via the SAME function this page previews (api/checkout/discount-preview →
+  // lib/loyalty/offers-checkout). The page mirrors them so this total and the
+  // Stripe total agree. 0 for everyone without an applicable perk.
+  const baseSubtotal = grossBaseSubtotal - vipDiscountCents
+  const vipDiscountDisplayCents = Math.round(vipDiscountCents * (1 + FEES.buyerFeePercent / 100))
 
   // Display subtotal = sum of per-item display prices (includes buyer % fee, per-item rounding)
   // This matches what's shown next to each item AND what Stripe charges
@@ -577,7 +606,7 @@ export default function CheckoutPage() {
       return sum + calculateDisplayPrice(item.termPriceCents || item.price_cents || 0)
     }
     return sum + calculateDisplayPrice(item.price_cents) * item.quantity
-  }, 0)
+  }, 0) - vipDiscountDisplayCents
 
   // Tip calculation (food trucks only, on displayed subtotal so math matches what customer sees)
   const tipAmountCents = vertical === 'food_trucks' ? Math.round(displaySubtotal * tipPercentage / 100) : 0
@@ -901,8 +930,23 @@ export default function CheckoutPage() {
                   color: colors.textMuted,
                 }}>
                   <span>{t('checkout.subtotal', locale, { count: String(checkoutItems.reduce((s, i) => s + (i.itemType === 'market_box' ? 1 : i.quantity), 0)) })}</span>
-                  <span>{formatPrice(displaySubtotal)}</span>
+                  <span>{formatPrice(displaySubtotal + vipDiscountDisplayCents)}</span>
                 </div>
+                {/* VIP perk discount — matches what checkout/session applies
+                    (same shared engine; see the discount-preview effect above) */}
+                {vipDiscountDisplayCents > 0 && (
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    marginBottom: spacing['2xs'],
+                    fontSize: typography.sizes.sm,
+                    color: '#5b21b6',
+                    fontWeight: 600,
+                  }}>
+                    <span>⭐ VIP deal</span>
+                    <span>−{formatPrice(vipDiscountDisplayCents)}</span>
+                  </div>
+                )}
                 <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',
