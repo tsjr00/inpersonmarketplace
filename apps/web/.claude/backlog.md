@@ -2234,3 +2234,19 @@ UPDATE vendor_profiles SET tier = 'boss' WHERE tier = 'featured';
 -- 3) POST-CHECK: expect only free/pro/boss
 SELECT vertical_id, tier, count(*) FROM vendor_profiles GROUP BY 1, 2 ORDER BY 1, 2;
 ```
+
+## 🎯 EVENT SCORING v-NEXT — adopt the owner's matching/scoring research (2026-09-04)
+Research reviewed in full (5 docs, `Market Research/Event scoring/` — Formula v3 + Developer
+Handoff = spec of record; assessment in chat 2026-09-04): credible, evidence-tagged, config-driven.
+Architecture beats current engine on: denominator discipline (headcount ≠ attendance — biggest win),
+food centrality (1–5 vs one flat crowd band), ranges + confidence instead of point estimates,
+weighted vendor capture vs equal split, FM branch, preorder-coverage host-paid branch.
+- [ ] **PHASE 1 — planned, ready on go**: `.claude/event_scoring_phase1_plan.md` (denominator typing +
+      turnout stage, centrality question, ranges + confidence chip on admin viability, versioned
+      scoring-config module, actual-attendance calibration capture; 1 additive mig; 1–2 sessions;
+      admin-only shadow display; 4 owner decisions D1–D4 in the plan gate SHIP not build-start).
+- [ ] PHASE 2 (later): EDS/VMS/gates+caps structure in versioned config, weighted vendor capture
+      + overflow redistribution, FM category branch.
+- [ ] PHASE 3 (later): benchmark classes + dual-forecast reconciliation, sponsored-external funnel
+      (when those events exist).
+- [ ] Data-capture gap check rides Phase 1 (Policy §29 vs what rows already store).
