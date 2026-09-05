@@ -23,7 +23,15 @@ export function getAppUrl(vertical?: string): string {
     return VERTICAL_DOMAINS[vertical]
   }
   if (process.env.NEXT_PUBLIC_APP_URL) {
-    return process.env.NEXT_PUBLIC_APP_URL
+    // D4 fix (staging finding 2026-09-05): a staging cron emailed a survey
+    // link pointing at the PRODUCTION domain (404 — prod didn't have the
+    // feature yet) because NEXT_PUBLIC_APP_URL was scoped to all Vercel
+    // environments. A non-production deployment must never mint links to a
+    // production domain — fall through to the deployment's own URL instead.
+    const isProdDomain = Object.values(VERTICAL_DOMAINS).includes(process.env.NEXT_PUBLIC_APP_URL)
+    if (!(isProdDomain && process.env.VERCEL_ENV && process.env.VERCEL_ENV !== 'production')) {
+      return process.env.NEXT_PUBLIC_APP_URL
+    }
   }
   if (process.env.NEXT_PUBLIC_VERCEL_URL) {
     return `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`

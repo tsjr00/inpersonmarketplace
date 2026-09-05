@@ -2333,6 +2333,28 @@ describe('Event ↔ location availability', () => {
     }
   })
 
+  it('booking a date checks already-accepted events (the reverse of the accept-time blackout)', () => {
+    // Owner go 2026-09-05 (truck3 staging finding): mig 238's blackout is
+    // written at event-ACCEPT time against commitments existing THEN. The
+    // other direction — booking a market/park day on an already-accepted
+    // event's date — must be stopped at the booking routes, or a
+    // single-truck vendor ends up committed to two places with no blackout.
+    for (const file of [
+      'app/api/vendor/markets/[id]/book-park-spot/route.ts',
+      'app/api/vendor/markets/[id]/book/route.ts',
+      'app/api/vendor/markets/[id]/book-season/route.ts',
+    ]) {
+      expect(rd(file), `${file} must run the reverse event guard`).toMatch(/vendorEventConflictsOnDates\(/)
+    }
+    // The guard mirrors availability.ts's commitment definition: accepted,
+    // not benched, not revoked — with the same multiple_trucks exemption.
+    const guard = rd('lib/events/booking-event-guard.ts')
+    expect(guard).toMatch(/\.eq\('response_status', 'accepted'\)/)
+    expect(guard).toMatch(/is_backup/)
+    expect(guard).toMatch(/revoked_at/)
+    expect(guard).toMatch(/multiple_trucks/)
+  })
+
   it('the NEWEST definer of get_available_pickup_dates honors vendor_date_blackouts for non-event markets', () => {
     const dir = path.resolve(SRC_DIR, '../../../supabase/migrations')
     const files: string[] = []

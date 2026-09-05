@@ -82,6 +82,36 @@ export default async function FavoritesPage({ params }: FavoritesPageProps) {
   const vipVendorIds = new Set((vipRows || []).map(r => r.vendor_profile_id as string))
   const vipAddedAt = new Map((vipRows || []).map(r => [r.vendor_profile_id as string, r.added_at as string]))
 
+  // D1 fix (staging finding 2026-09-05): the vip_added notification lands
+  // HERE, but the cards above come only from vendor_favorites — a buyer
+  // VIP'd by a vendor they never favorited saw no acknowledgement at all
+  // (no badge, no perks). VIP vendors in this vertical always get a card now;
+  // the existing badge/perk rendering keys off vipVendorIds and just works.
+  const missingVipIds = [...vipVendorIds].filter(id => !vendorCards.some(v => v.id === id))
+  if (missingVipIds.length > 0) {
+    const { data: vipVendors } = await vipService
+      .from('vendor_profiles')
+      .select('id, profile_data, profile_image_url, average_rating, rating_count')
+      .in('id', missingVipIds)
+      .eq('vertical_id', vertical)
+      .is('deleted_at', null)
+    for (const vp of (vipVendors || []) as Array<{
+      id: string
+      profile_data: Record<string, unknown> | null
+      profile_image_url: string | null
+      average_rating: number | null
+      rating_count: number | null
+    }>) {
+      vendorCards.push({
+        id: vp.id,
+        name: (vp.profile_data?.business_name as string) || (vp.profile_data?.farm_name as string) || 'Vendor',
+        imageUrl: vp.profile_image_url,
+        rating: vp.average_rating,
+        ratingCount: vp.rating_count,
+      })
+    }
+  }
+
   // Punch build (D9, owner 2026-09-04): VIPs SEE their perks — a visible perk
   // drives the spending it rewards. Per VIP vendor with enabled offers:
   // perk labels + live punch progress ("3 of 5 visits").

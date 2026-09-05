@@ -167,11 +167,28 @@ export default function VipPerksCard({ vendorId, vertical }: { vendorId: string;
           <span>% off VIP orders over $</span>
           <input type="number" style={numInput} value={thresholdDollars} min={(b?.threshold.minThresholdCents ?? 1500) / 100} max={(b?.threshold.maxThresholdCents ?? 20000) / 100}
             onChange={e => setThresholdDollars(parseInt(e.target.value) || 0)} />
+          {/* D2 fix (staging finding 2026-09-05): with a perk ON, the only
+              button was "Turn off" — edited numbers had no save path. */}
+          {thresholdEnabled && (
+            <button
+              onClick={() => save('spend_threshold', true)}
+              disabled={saving === 'spend_threshold'}
+              style={{
+                marginLeft: 'auto',
+                padding: `${spacing['3xs']} ${spacing.xs}`,
+                backgroundColor: colors.primary,
+                color: 'white',
+                border: 'none', borderRadius: radius.sm, cursor: 'pointer',
+                fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold,
+              }}>
+              {saving === 'spend_threshold' ? 'Saving…' : 'Save changes'}
+            </button>
+          )}
           <button
             onClick={() => save('spend_threshold', !thresholdEnabled)}
             disabled={saving === 'spend_threshold'}
             style={{
-              marginLeft: 'auto',
+              marginLeft: thresholdEnabled ? undefined : 'auto',
               padding: `${spacing['3xs']} ${spacing.xs}`,
               backgroundColor: thresholdEnabled ? statusColors.neutral100 : colors.primary,
               color: thresholdEnabled ? statusColors.neutral700 : 'white',
@@ -232,11 +249,27 @@ export default function VipPerksCard({ vendorId, vertical }: { vendorId: string;
                 weekly, so a 12-visit card is ~a season — steer to 3–6. */}
             {vertical === 'farmers_market' && ' Most market shoppers visit weekly — 3–6 visits is a realistic target.'}
           </span>
+          {/* D2 fix: save edited numbers while the perk stays on. */}
+          {punchEnabled && (
+            <button
+              onClick={() => save('punch_card', true)}
+              disabled={saving === 'punch_card'}
+              style={{
+                marginLeft: 'auto',
+                padding: `${spacing['3xs']} ${spacing.xs}`,
+                backgroundColor: colors.primary,
+                color: 'white',
+                border: 'none', borderRadius: radius.sm, cursor: 'pointer',
+                fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold,
+              }}>
+              {saving === 'punch_card' ? 'Saving…' : 'Save changes'}
+            </button>
+          )}
           <button
             onClick={() => save('punch_card', !punchEnabled)}
             disabled={saving === 'punch_card'}
             style={{
-              marginLeft: 'auto',
+              marginLeft: punchEnabled ? undefined : 'auto',
               padding: `${spacing['3xs']} ${spacing.xs}`,
               backgroundColor: punchEnabled ? statusColors.neutral100 : colors.primary,
               color: punchEnabled ? statusColors.neutral700 : 'white',

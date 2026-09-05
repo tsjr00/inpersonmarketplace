@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb, logError, TracedError } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, logError, TracedError, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import { fetchMarketOptinForVendor } from '@/lib/markets/optin-public'
@@ -8,6 +8,7 @@ import { computeAgreementVersionFromSnapshot } from '@/lib/markets/agreement-ver
 import { calculateBoothRentalFees } from '@/lib/pricing'
 import { createSeasonBoothCheckoutSession } from '@/lib/stripe/payments'
 import { getSeasonBookableWeeks } from '@/lib/markets/season-weeks'
+import { vendorEventConflictsOnDates, describeEventDayConflicts } from '@/lib/events/booking-event-guard'
 import { createSeasonBookingGroup, SeasonWeekUnavailableError } from '@/lib/markets/season-booking'
 
 /**
@@ -143,6 +144,34 @@ export async function POST(
     }
     if (weekStartDates.length === 0) {
       return NextResponse.json({ error: 'This season has no bookable weeks.', field: 'season_id' }, { status: 400 })
+    }
+
+    // Reverse event-conflict guard (owner 2026-09-05, mirrors the one-off
+    // booth route): the market's operating dates across every booked week
+    // must not fall inside an already-accepted event — the accept-time
+    // blackout can't cover a booking made after the acceptance.
+    {
+      const { data: weekScheds } = await observed(serviceClient
+        .from('market_schedules')
+        .select('day_of_week')
+        .eq('market_id', marketId)
+        .eq('active', true), { table: 'market_schedules' })
+      const weekDows = new Set((weekScheds ?? []).map(s => s.day_of_week as number))
+      const operatingDates: string[] = []
+      for (const ws of weekStartDates) {
+        const [y, m, d] = ws.split('-').map(Number)
+        for (let i = 0; i < 7; i++) {
+          const dt = new Date(Date.UTC(y, m - 1, d + i))
+          if (weekDows.has(dt.getUTCDay())) operatingDates.push(dt.toISOString().slice(0, 10))
+        }
+      }
+      const eventConflicts = await vendorEventConflictsOnDates(serviceClient, profile.id, operatingDates)
+      if (eventConflicts.length > 0) {
+        return NextResponse.json(
+          { error: describeEventDayConflicts(eventConflicts), field: 'week_start_dates' },
+          { status: 409 }
+        )
+      }
     }
 
     // --- Agreement acceptance (mirrors the one-off route). ---

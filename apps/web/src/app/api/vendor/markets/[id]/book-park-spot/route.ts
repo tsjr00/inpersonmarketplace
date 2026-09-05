@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { vendorEventConflictsOnDates, describeEventDayConflicts } from '@/lib/events/booking-event-guard'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
@@ -197,6 +198,18 @@ export async function POST(
           { status: 400 }
         )
       }
+    }
+
+    // Reverse event-conflict guard (owner 2026-09-05): the accept-time
+    // blackout only covers commitments that existed WHEN the event was
+    // accepted — booking a spot on an already-accepted event's date must be
+    // stopped here or a single-truck vendor ends up committed to two places.
+    const eventConflicts = await vendorEventConflictsOnDates(serviceClient, profile.id, dates)
+    if (eventConflicts.length > 0) {
+      return NextResponse.json(
+        { error: describeEventDayConflicts(eventConflicts), field: 'booking_dates' },
+        { status: 409 }
+      )
     }
 
     // --- SAME-DAY RULE (tester finding + owner decision 2026-07-23) ---------

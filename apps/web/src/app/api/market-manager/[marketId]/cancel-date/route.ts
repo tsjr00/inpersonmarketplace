@@ -111,6 +111,7 @@ export async function POST(
     const result = await runCancelDateCascade(service, { marketId, overrideDate: date, reason: reason || 'Market day cancelled by manager' })
 
     // Notifications — never let a failure here surface as a 5xx (override already saved).
+    let rosterVendorsNotified = 0
     try {
       const dateLabel = (() => {
         try {
@@ -128,7 +129,39 @@ export async function POST(
         } catch { return undefined }
       }
 
+      // D3 fix (staging finding 2026-09-05): the four groups below are all
+      // MONEY-affected (refunded buyers, paid booth renters, cancelled-order
+      // vendors, paid park trucks). A vendor merely SCHEDULED for the day —
+      // weekly schedule or standing hold with nothing materialized/paid —
+      // heard nothing and could show up to a cancelled market. Fifth group:
+      // the market's approved roster (same recipient query as the broadcast
+      // fan-out, FK hint required — market_vendors has two vendor_profiles
+      // FKs), deduped against everyone the money groups already notify.
+      const alreadyNotified = new Set<string>([
+        ...result.boothRenterUserIds,
+        ...result.orderVendorNotifs.map(n => n.vendorUserId),
+        ...result.parkCreditNotifs.map(n => n.vendorUserId),
+      ])
+      const { data: rosterVendors } = await observed(service
+        .from('market_vendors')
+        .select('vendor_profile_id, vendor_profiles!market_vendors_vendor_profile_id_fkey ( user_id )')
+        .eq('market_id', marketId)
+        .eq('approved', true), { table: 'market_vendors' })
+      const rosterUserIds = new Set<string>()
+      for (const v of (rosterVendors ?? []) as Array<{ vendor_profiles: { user_id: string | null } | { user_id: string | null }[] | null }>) {
+        const vp = Array.isArray(v.vendor_profiles) ? v.vendor_profiles[0] : v.vendor_profiles
+        if (vp?.user_id && !alreadyNotified.has(vp.user_id)) rosterUserIds.add(vp.user_id)
+      }
+      rosterVendorsNotified = rosterUserIds.size
+
       await Promise.all([
+        // Scheduled/roster vendors with no money involvement on this date.
+        ...[...rosterUserIds].map(async (uid) => {
+          const email = await emailFor(uid)
+          return sendNotification(uid, 'market_date_cancelled_vendor',
+            { marketName, marketId, marketDate: dateLabel, rescheduleDate: rescheduleDate || undefined },
+            { vertical, ...(email ? { userEmail: email } : {}) })
+        }),
         ...result.buyerUserIds.map(async (uid) => {
           const email = await emailFor(uid)
           return sendNotification(uid, 'market_date_cancelled_buyer',
@@ -170,6 +203,7 @@ export async function POST(
       refundFailures: result.refundFailures,
       orderVendorsNotified: result.orderVendorNotifs.length,
       boothRentersNotified: result.boothRenterUserIds.length,
+      rosterVendorsNotified,
       marketBoxCredited: result.marketBoxCredited,
       parkBookingsCancelled: result.parkBookingsCancelled,
       parkTrucksCredited: result.parkCreditNotifs.length,

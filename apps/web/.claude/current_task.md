@@ -12,8 +12,48 @@ catalog/snapshot docs. GATES: tsc ✓ · vitest 2166/2166 ✓ · lint 0 err · n
 Flagged for owner: (a) assembly-buffer reading (Sat pickup ⇒ order through Thu; one-constant
 change if wrong) · (b) one-bundle-per-order qty 1 · (c) bundle-only orders (no mixed carts) ·
 (d) new bundle UI strings are EN-only v1 (es pass owed).
-Git: local main = de9baab6 + this UNCOMMITTED build; origin/staging 861526f2; prod e946c2c0
-owes migs 238→244 + code (window 21:00–07:00 CT, gated on the owner's test pass).
+Git: bundles build COMMITTED local `8c10a6f8` (45 files; owner approved). origin/staging 861526f2;
+prod e946c2c0 owes migs 238→244 + code (window 21:00–07:00 CT, gated on the owner's test pass).
+
+## 🧪 STAGING RESULTS TRIAGE 2026-09-05 (owner findings → 4 fixes BUILT, uncommitted)
+- **D1 favorites VIP gap** (A1b/A4, owner confirmed buyer hadn't favorited): cards came only from
+  vendor_favorites → VIP'd-but-unfavorited vendor invisible. FIX: favorites/page.tsx appends cards
+  for VIP vendors not in favorites (vertical-scoped); existing badge/perk render keys off
+  vipVendorIds and just works; empty-state check unaffected (cards appended before render).
+- **D2 perk save** (A2): only button was save(kind,!enabled) → edited numbers unsavable while ON.
+  FIX: VipPerksCard adds "Save changes" (save(kind,true)) beside Turn off for both perks.
+- **D3 cancel-date silent for scheduled vendors** (B3): route notified only money-affected groups.
+  FIX: fifth group = market_vendors approved roster (broadcast fan-out query w/ FK hint), deduped
+  vs money groups, sent market_date_cancelled_vendor (+rescheduleDate); response +=
+  rosterVendorsNotified. NOTE: audience = whole approved roster, not day-of-week-filtered —
+  stated to owner, veto = filter by schedule DOW later.
+- **D4 survey-email prod URL** (404): getAppUrl() used NEXT_PUBLIC_APP_URL even on preview when
+  set to a prod domain. FIX: environment.ts — non-production deployments skip a prod-domain
+  APP_URL and fall through to the deployment's own VERCEL_URL. OWNER STILL OWES: check Vercel
+  env-var scoping (NEXT_PUBLIC_APP_URL should be Production-scope only). Note: prod 404s on
+  survey links remain until prod catches up (routes shipped post-e946c2c0) — expected.
+- **Explained, no fix**: B1 standing hold invisible >7d out (PARK_STANDING_GENERATION_HORIZON_DAYS,
+  cron-materialized) → backlog enhancement. A5 strike/blocking: SQL1 returned ZERO blackout rows
+  for truck3 → no event-blocking exists for that vendor; the "closed" listings are cutoff/schedule
+  behavior — corrected SQL2/SQL3 handed to owner (SQL2 had a syntax error; SQL3 needed real ids).
+  ⚠ OPEN QUESTION: vendor accepted an event but NO blackout row written — why? (Blackouts write
+  on accept only for non-flagged vendors with a detected conflict; investigate once SQL2 lands.)
+- Backlog: 6 new entries (admin event-blocking flag · analytics/insights labels+rename ·
+  insights restructure · markets-missing Add-button revisit · standing-hold display · D2 UX).
+- **D5 reverse event-conflict guard BUILT** (owner go 2026-09-05 "we need to do that one"; backfill
+  sweep SKIPPED — test data only, ⚠ BUT when mig 238 pastes to PROD, check for real pre-paste
+  acceptances first): `lib/events/booking-event-guard.ts` vendorEventConflictsOnDates (mirrors
+  availability.ts:404-421 definition + revoked_at filter + multiple_trucks exemption) gates
+  book-park-spot (per-date), book (booth week → market operating dates), book-season (all weeks'
+  operating dates); 409 with withdraw-first message. Flow-integrity pin added (+1 test). Map 14
+  item 7 updated. TRUCK3 MYSTERY CLOSED: multi_truck_flag null, but both accepted events predate
+  mig 238 on staging (accepted 08-13/15 + ~08-27 vs mig applied 08-27) — the block didn't exist
+  when the choice was made; plus one-shot detection can't see commitments created after accept.
+- A5 "closed listings" CLOSED: SQL2 proved the split — advance_order_days=0 items are day-of-only
+  (accepting=false off-day, by design); advance_order_days=2 items accepting w/ 43h cutoff. Not
+  event blocking. Backlog: buyer copy "Order on market day" for day-of items.
+- Gates after all fixes (D1-D5): tsc ✓ · **2167/2167** ✓ · lint clean. UNCOMMITTED (commit ask
+  pending — owner hasn't answered the D1-D4 commit ask yet).
 
 # SESSION 2026-09-04 — VIP buildout: Phase A + B1 SHIPPED to staging; PUNCH CARD BUILT (uncommitted). Next session starts HERE.
 

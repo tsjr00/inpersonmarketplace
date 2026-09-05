@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { vendorEventConflictsOnDates, describeEventDayConflicts } from '@/lib/events/booking-event-guard'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb, logError, TracedError } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, logError, TracedError, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import { fetchMarketOptinForVendor } from '@/lib/markets/optin-public'
@@ -235,6 +236,33 @@ export async function POST(
         { error: 'week_start_date must be today or in the future', field: 'week_start_date' },
         { status: 400 }
       )
+    }
+
+    // Reverse event-conflict guard (owner 2026-09-05): the accept-time
+    // blackout only covers commitments existing WHEN an event was accepted.
+    // A booth week is a commitment to the market's operating days in that
+    // week — if any of those dates falls inside an already-accepted event,
+    // stop the booking (withdrawing from the event is its own explicit flow).
+    {
+      const { data: weekScheds } = await observed(serviceClient
+        .from('market_schedules')
+        .select('day_of_week')
+        .eq('market_id', marketId)
+        .eq('active', true), { table: 'market_schedules' })
+      const weekDows = new Set((weekScheds ?? []).map(s => s.day_of_week as number))
+      const operatingDates: string[] = []
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(weekStartUtc)
+        d.setUTCDate(d.getUTCDate() + i)
+        if (weekDows.has(d.getUTCDay())) operatingDates.push(d.toISOString().slice(0, 10))
+      }
+      const eventConflicts = await vendorEventConflictsOnDates(serviceClient, profile.id, operatingDates)
+      if (eventConflicts.length > 0) {
+        return NextResponse.json(
+          { error: describeEventDayConflicts(eventConflicts), field: 'week_start_date' },
+          { status: 409 }
+        )
+      }
     }
 
     // --- Gates 1-4 passed. Capacity check + rental insert handled atomically
