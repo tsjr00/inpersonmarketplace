@@ -250,6 +250,18 @@ No removal notification (v1 stays quiet — being un-VIP'd is not a moment to pi
 
 ---
 
+### Bundle Ready (`bundle_ready`) — Market bundles, 2026-09-05 (mig 244)
+**Urgency:** Immediate (Push + In-app) — free channels; pickup-day "come get it"
+**Trigger:** the manager taps "Ready — notify the buyer" on the run sheet (`/api/market-manager/[marketId]/bundles/orders/[orderId]/notify-ready`); one ping per order ever (notifications-table dedup on orderId)
+
+**In-app title:** 🧺 Your {{bundle_name}} is ready!
+**In-app message:** {{market_name}} has your "{{bundle_name}}" assembled and waiting. Pickup: {{bundle_pickup_notes}}
+**Action:** `/{{vertical}}/buyer/orders/{{order_id}}`
+
+Informational only — handoff (and the margin payout behind it) is the separate explicit step when the buyer actually collects.
+
+---
+
 ## Vendor-Facing Notifications
 
 ---
@@ -581,6 +593,28 @@ Notify only, by design (owner 2026-08-27: releasing without credit "is going to 
 **Action:** `/{{vertical}}/vendor/orders`
 
 Owner intent: tell the vendor who to appreciate and call by name. The buyer never has to show a card or a screen — the count is auto-tracked from fulfilled orders.
+
+---
+
+### Bundle Sold (`bundle_sold`) — Market bundles, 2026-09-05 (mig 244) — TO THE MARKET MANAGER
+**Urgency:** Standard (Email + In-app) — owner's bundle-comms decision: "notification + email"
+**Trigger:** the hourly cron sweep (`lib/bundles/sold-sweep.ts`) finds a PAID bundle order without a bundle_sold notification (per-order dedup). Hourly latency is fine by design — bundle ordering closes at least 2 days before pickup.
+
+**In-app title:** 🧺 Bundle sold: {{bundle_name}}
+**In-app message:** A buyer just purchased "{{bundle_name}}" for pickup on {{market_date}}. Your run sheet has the component pickup list — collect from each vendor, assemble, and mark it handed off when the buyer collects it (that's when your margin pays out).
+**Action:** `/{{vertical}}/market-manager/{{market_id}}/dashboard`
+
+---
+
+### Bundles Intro (`bundles_intro`) — Market bundles launch, 2026-09-05 (mig 244) — ONE-TIME
+**Urgency:** Standard (Email + In-app) — email approved by the owner for this single launch send
+**Trigger:** admin runs `/api/admin/bundles/send-intro` (idempotent per user — a vendor only ever gets one; re-running reaches only new vendors)
+
+**In-app title:** 🧺 New: market managers can feature your items in curated bundles
+**In-app message:** Your market's manager can now bundle items from several vendors into one curated purchase — you sell more, at your full listed price, and get paid exactly as you do today. You're included automatically. If you'd rather not participate, you can opt out anytime in your vendor settings.
+**Action:** `/{{vertical}}/vendor/dashboard`
+
+The consent model (default-IN, GLOBAL per-vendor opt-out via `vendor_profiles.bundles_opt_out`) is a locked owner decision — this announcement is what makes default-in fair.
 
 ---
 

@@ -56,6 +56,7 @@ export type NotificationType =
   | 'vip_added'
   | 'followed_vendor_digest'
   | 'vip_reward_ready'
+  | 'bundle_ready'
   // Vendor-facing
   | 'new_paid_order'
   | 'new_external_order'
@@ -213,6 +214,9 @@ export type NotificationType =
   | 'event_vendor_gap_alert'
   | 'listing_suspended'
   | 'customer_milestone'
+  // Market bundles (mig 244): bundle_sold → manager; bundles_intro → vendors (one-time)
+  | 'bundle_sold'
+  | 'bundles_intro'
 
 // ── Template Types ───────────────────────────────────────────────────
 
@@ -324,6 +328,9 @@ export interface NotificationTemplateData {
   digestVendorCount?: number
   /** Punch build (2026-09-04) vip_reward_ready: "15% off" / "$5 off" (+ min-purchase clause). */
   rewardLabel?: string
+  /** Market bundles (mig 244, 2026-09-05): bundle_sold / bundles_intro / bundle_ready. */
+  bundleName?: string
+  bundlePickupNotes?: string
   payoutAmount?: string
   eventToken?: string
   eventPageUrl?: string
@@ -2252,6 +2259,52 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     message: (d) =>
       `Your next order at ${d.vendorName || 'this vendor'} automatically gets ${d.rewardLabel || 'your reward'}. Nothing to show, nothing to enter — just order.`,
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/favorites`,
+  },
+
+  // ── Market bundles (mig 244, 2026-09-05 — tripwire 124→127 pre-approved
+  // with the build, owner Q7) ─────────────────────────────────────────────
+
+  // The manager's run-sheet call to action: a bundle order was paid. Sent by
+  // the hourly cron sweep (no protected-file touch; order cutoff is ≥2 days
+  // before pickup, so hourly latency is fine). standard = email + in_app per
+  // the owner's "notification + email" bundle-comms decision.
+  bundle_sold: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor', // market managers act from a vendor-adjacent role
+    title: (d) => `🧺 Bundle sold: ${d.bundleName || 'your curated bundle'}`,
+    message: (d) =>
+      `A buyer just purchased "${d.bundleName || 'your bundle'}" for pickup on ${d.marketDate || 'the market day'}. Your run sheet has the component pickup list — collect from each vendor, assemble, and mark it handed off when the buyer collects it (that's when your margin pays out).`,
+    actionUrl: (d) =>
+      d.marketId
+        ? `/${d.vertical || 'farmers_market'}/market-manager/${d.marketId}/dashboard`
+        : `/${d.vertical || 'farmers_market'}/dashboard`,
+  },
+
+  // One-time feature-launch announcement to vendors: bundles are DEFAULT-IN
+  // with a global opt-out (owner decision). Email approved for this one send.
+  bundles_intro: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: () => `🧺 New: market managers can feature your items in curated bundles`,
+    message: () =>
+      `Your market's manager can now bundle items from several vendors into one curated purchase — you sell more, at your full listed price, and get paid exactly as you do today. You're included automatically. If you'd rather not participate, you can opt out anytime in your vendor settings.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard`,
+  },
+
+  // Manager-triggered "it's assembled, come get it" ping on pickup day.
+  // immediate = push + in_app (free channels).
+  bundle_ready: {
+    urgency: 'immediate',
+    severity: 'info',
+    audience: 'buyer',
+    title: (d) => `🧺 Your ${d.bundleName || 'bundle'} is ready!`,
+    message: (d) =>
+      `${d.marketName || 'The market'} has your "${d.bundleName || 'bundle'}" assembled and waiting.${d.bundlePickupNotes ? ` Pickup: ${d.bundlePickupNotes}` : ''}`,
+    actionUrl: (d) => d.orderId
+      ? `/${d.vertical || 'farmers_market'}/buyer/orders/${d.orderId}`
+      : `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 }
 

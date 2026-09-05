@@ -2136,6 +2136,54 @@ describe('Loyalty Layer 1 integrity', () => {
     expect(/vendor-digest/.test(vercel), 'the digest must NOT get its own cron entry').toBe(false)
   })
 
+  it('market bundles: margin moves ONLY after handoff, to the market account, deterministically', () => {
+    // The mig-244 invariant set (market_bundles_build_plan.md): the manager's
+    // margin transfers only after bundle_handed_off_at — so a pre-handoff
+    // cancellation never needs a margin clawback — and only to
+    // markets.stripe_account_id, keyed deterministically.
+    const payout = rd('lib/bundles/margin-payout.ts')
+    expect(payout, 'handoff gate — refuses before bundle_handed_off_at').toMatch(/not_handed_off/)
+    expect(payout).toMatch(/bundle_handed_off_at/)
+    expect(payout, 'payee comes from the markets row (the booth-fee Connect rail)').toMatch(/from\('markets'\)/)
+    expect(payout, 'deterministic Stripe key from core').toMatch(/bundleMarginIdempotencyKey\(/)
+    expect(/Date\.now\(\)/.test(payout), 'no time-based idempotency anywhere near money').toBe(false)
+    expect(/Date\.now\(\)/.test(rd('lib/bundles/core.ts'))).toBe(false)
+    // Payment proof before money (VOR-1 mirror): a transfer without a
+    // succeeded payment would come from the platform's own balance.
+    expect(payout).toMatch(/'succeeded'/)
+    // B2: the cause share is a mig-213 LEDGER credit (remit sweep pays it —
+    // works for check-method orgs), never a second direct transfer here.
+    expect(payout).toMatch(/from\('cause_ledger'\)/)
+    expect(payout).toMatch(/splitMargin\(/)
+    // Handoff route: manager auth + this-market ownership + every vendor's
+    // own handoff (fulfilled) recorded before the margin can move.
+    const handoff = rd('app/api/market-manager/[marketId]/bundles/orders/[orderId]/handoff/route.ts')
+    expect(handoff).toMatch(/isMarketManager\(/)
+    expect(handoff, 'all non-cancelled items fulfilled first').toMatch(/\.neq\('status', 'fulfilled'\)/)
+    expect(handoff).toMatch(/payBundleMargin\(/)
+    // A full-order cancellation releases the bundle's sold slot inside the
+    // SAME guarded claim that restores component inventory (no double-release).
+    expect(rd('lib/inventory.ts')).toMatch(/atomic_release_bundle_sold/)
+    // Checkout expansion (the approved protected-file touch, 2026-09-05):
+    // components expand through the ONE core function at LIVE prices —
+    // no snapshot prices can exist because the expansion carries no price
+    // fields (spec-tested in bundle-core.test.ts).
+    const checkout = rd('app/api/checkout/session/route.ts')
+    expect(checkout).toMatch(/expandBundleComponents\(/)
+    // VIP perks are EXCLUDED on bundle orders as a stated rule — the
+    // expansion feeds `items`, so this explicit gate is the exclusion.
+    expect(checkout).toMatch(/const cartDiscounts = bundleContext/)
+    // The margin is its own addend beside tip/chipin — never inside
+    // orderPricing's vendor math.
+    expect(checkout).toMatch(/\+ bundleMarginAddendCents/)
+    // The order records the bundle + margin; the Stripe line prices via the
+    // shared display function (page/card/Stripe/total all agree).
+    expect(checkout).toMatch(/bundle_margin_cents: bundleContext\.marginCents/)
+    expect(checkout).toMatch(/bundleDisplayPriceCents\(/)
+    // Oversell guard rides the atomic RPC at checkout.
+    expect(checkout).toMatch(/atomic_increment_bundle_sold/)
+  })
+
   it('the order card renders the segment chip from SEGMENT_LABELS (no duplicated copy)', () => {
     const card = rd('components/vendor/OrderCard.tsx')
     expect(card).toMatch(/customer_segment/)

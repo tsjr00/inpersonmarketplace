@@ -1,6 +1,7 @@
 # 19 — Admin ⚠ money
 
-<!-- map-stamp: domain=admin; verified=2026-09-04; commit=53a61664 -->
+<!-- map-stamp: domain=admin; verified=2026-09-05; commit=de9baab6 -->
+<!-- Bundles queue (mig 244, 2026-09-05): /[vertical]/admin/bundles → components/admin/BundlesAdminPage.tsx — the per-bundle approval judgment (Q6: no code margin bounds; this review IS the bounds). Tabs by status; card shows market, components at live prices w/ vendor names + opt-out flags, margin absolute + % of items, derived buyer price, cause attachment, and the manager's value-add justification. Approve re-runs validateBundleComponents + the 3-active cap server-side (api/admin/bundles/[bundleId], verifyAdminScope via the market's vertical). Nav "Money" group, badgeKey pendingBundles (queue-badges joins market_bundles→markets for vertical scope). POST api/admin/bundles/send-intro = the ONE-TIME bundles_intro launch send (idempotent per user; platform admin for all-verticals). -->
 <!-- map-claims
 src/app/api/admin/**
 src/lib/admin/**

@@ -1,3 +1,20 @@
+# ▶▶ ACTIVE TASK (2026-09-05): MARKET BUNDLES B1+B2 — **BUILD COMPLETE, UNCOMMITTED**
+**The build log in `.claude/market_bundles_build_plan.md` (⚙ BUILD LOG section) is the full
+record.** Everything shipped in one session: mig 244 (✅ Dev+Staging, owner; snapshot rebuilt,
+stamp → 244) · lib/bundles/{core,margin-payout,validate,public,sold-sweep} + 15-test conservation
+spec · checkout/session expansion (9 owner-approved hunks, diff-verified 141+/5−) · handoff route
++ margin payout (transfer only after handoff; B2 cause share via cause_ledger) · manager
+CuratedBundlesCard + run sheet · admin /bundles queue + nav + badge + send-intro · vendor consent
+toggle · market-page bundle cards · BundleCheckout (?bundle= on the checkout page) · 3
+notification types (tripwire 124→127, pre-approved) + hourly bundle_sold sweep · maps/templates/
+catalog/snapshot docs. GATES: tsc ✓ · vitest 2166/2166 ✓ · lint 0 err · next build ✓ 172/172.
+⛔ STILL NO STAGING PUSHES while the owner's test pass runs. Commit = LOCAL, ask pending.
+Flagged for owner: (a) assembly-buffer reading (Sat pickup ⇒ order through Thu; one-constant
+change if wrong) · (b) one-bundle-per-order qty 1 · (c) bundle-only orders (no mixed carts) ·
+(d) new bundle UI strings are EN-only v1 (es pass owed).
+Git: local main = de9baab6 + this UNCOMMITTED build; origin/staging 861526f2; prod e946c2c0
+owes migs 238→244 + code (window 21:00–07:00 CT, gated on the owner's test pass).
+
 # SESSION 2026-09-04 — VIP buildout: Phase A + B1 SHIPPED to staging; PUNCH CARD BUILT (uncommitted). Next session starts HERE.
 
 ## Git / env — VERIFY, don't trust
@@ -29,8 +46,35 @@
 - **EVENT-GATE FIXES A+B BUILT** (owner go 2026-09-04; found 2026-08-31): (A) admin Open Pre-Orders disabled+explained while invitationsHeld (EventsAdminPage; + inviting-card "invitations HELD" summary; interface += invitations_released_at, rides list select('*')) · (B) OrganizerProgress case-3 held branch (ready-stage copy no longer claims orderability on a zero-invite event). ONE shared invitationsHeld() definition (invitation-gate.ts:123); both pinned in the honor-the-hold flow-integrity test. Gates: tsc ✓ · 2150/2150 ✓.
 - Owner approved: commit & push EVERYTHING to staging (phase 6 + A+B commits; push carries 53a61664 v2.1).
 
+## 2026-09-05 (continued): scoring plan + bundles designed end-to-end
+- Event scoring research reviewed (5 docs) → Phase 1 plan `.claude/event_scoring_phase1_plan.md` + backlog phases (pushed `5200bfc0`).
+- MARKET BUNDLES: 3 design rounds → single-order design locked → marketing/cause slices → **BUILD PLAN `.claude/market_bundles_build_plan.md` with ALL 8 owner answers recorded (2026-09-05) — BUILD-READY.** B1+B2 same release (core loop + cause %); tripwire bump pre-approved; eligibility = app-managed markets; limits 25/3/1-day. Backlog entries pushed `861526f2` + local `de9baab6`.
+- Full staging TEST PROTOCOL delivered in chat (A VIP loop ×9 · B week strip ×3 · C events board ×4 · D gate fixes ×2) — owner testing next.
+
+## STAGING TEST PROTOCOL (2026-09-05, staging = 861526f2) — owner runs; results gate prod push
+**A · VIP loop** (FT, pro/boss vendor + buyer):
+A1 /food_trucks/vendor/insights "Your Customers": ☆→⭐ toggle, slot meter, greyed at cap.
+A2 "VIP Perks" card: save spend-save 10%/$30 + punch 3 visits→15%/$15+; 50% attempt → ranges error.
+A3 buyer gets "You're a VIP" push/in-app.
+A4 /food_trucks/favorites vendor card: ⭐ badge + purple perk lines ("0 of 3 visits — earns 15%…").
+A5 cart >$30 incl. ONE MULTI-QTY item → checkout: full-price subtotal + "⭐ VIP deal −$X"; page total == Stripe total TO THE CENT.
+A6 non-VIP account, same cart: no deal line.
+A7 vendor order card: ⭐ VIP chip beside standing chip.
+A8 fulfill 3 qualifying (≥$5 displayed) orders → 🎉 reward-ready ping after 3rd; Favorites "Reward ready"; next qualifying order auto-discounts; resets after.
+A9 8–8:59am, after followed/VIP vendor posts new listing: surveys-cron GET ×2 → ONE digest, no dupe.
+**B · Week strip** (/food_trucks/vendor/markets "Your next two weeks"):
+B1 unpaid standing occurrence ≤14d → amber "Pay by {date}", NOT struck.
+B2 manager adds make-up day → "Make-up day added by the market" entry.
+B3 cancel a date WITH reschedule_date → struck note names the make-up date.
+**C · Events board** (/food_trucks/admin/events):
+C1 stage sections + jump-nav (…→ Closed ▸ collapsed). C2 test event card shows selected/bench/awaiting counts. C3 card click → full detail (invite panel, viability, settlement, chip-in, fee payments all present). C4 Closed expands; cancelled event offers Restore.
+**D · Gate fixes** (self-serve approved event, invitations NOT sent):
+D1 detail shows "Open Pre-Orders — invitations held" DISABLED + tooltip; Inviting card says invitations HELD.
+D2 (optional) force ready while held → organizer progress says nothing orderable (not "pre-order now").
+
 ## ▶ NEXT SESSION / OWNER
-1. Staging test pass: VIP loop + week strip v2.1 (pay-by/make-up) + events pipeline board (stages, summaries, held-disabled Open Pre-Orders) + organizer ready-stage held copy.
+1. Run the protocol above. Results gate the prod push (migs 238→243 + code, window 21:00–07:00 CT).
+2. Build queue (owner picks order): market bundles B1+B2 (plan ready) · G-4 privacy fix · vendor delegates · scoring Phase 1.
 2. Owner staging retests owed: FULL VIP loop — A1 report → A2 star toggle/push/badges → A3 digest (8am-hour cron GET) → B1+punch: configure perks on Insights → buyer sees Favorites perk lines → checkout shows VIP deal line → Stripe total matches → punch earn ping after Nth fulfilled qualifying order. Plus standing 2026-09-03 batch retests (P1 pare loop, week strip, stage surfaces).
 3. Two flagged interpretations for owner: "min platform threshold" = vertical small-order threshold ($5 FT/$10 FM) · $-off bounds $1–$50 (proposed).
 4. Standing queue unchanged: event-gate fixes A+B (awaiting go since 08-31) · vendor-docs crash evidence · admin phase 6 events board · Protocol v6 C/D/E money tests · money-on-activation tier-scope decision (owner thinking) · prod push in window when ready · backlog: platform-funded punch perk math (behind chunk D).

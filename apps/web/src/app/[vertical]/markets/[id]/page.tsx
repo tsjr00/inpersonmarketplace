@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
@@ -14,6 +14,8 @@ import { t } from '@/lib/locale/messages'
 import ShareButton from '@/components/marketing/ShareButton'
 import FollowMarketButton from './FollowMarketButton'
 import { getMarketVendorsWithListings } from '@/lib/markets/vendors-with-listings'
+import { getMarketBundleCards } from '@/lib/bundles/public'
+import MarketBundlesSection from '@/components/markets/MarketBundlesSection'
 
 interface MarketDetailPageProps {
   params: Promise<{ vertical: string; id: string }>
@@ -102,6 +104,16 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
   const isMarketDayToday = !isEvent && schedulesArr.some(
     (s) => s?.active !== false && s?.day_of_week === todayDayOfWeek
   )
+
+  // Curated bundles (mig 244) — active bundles for this market's public card
+  // section. Service client because market_bundles is service-only RLS; only
+  // active bundles' display fields are exposed. Failure renders no section.
+  let bundleCards: Awaited<ReturnType<typeof getMarketBundleCards>> = []
+  try {
+    bundleCards = await getMarketBundleCards(createServiceClient(), id, marketTz)
+  } catch (err) {
+    console.error('[MarketDetailPage] getMarketBundleCards threw:', err)
+  }
 
   try {
     const result = await getMarketVendorsWithListings(supabase, id)
@@ -603,6 +615,10 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
             </p>
           </div>
         )}
+
+        {/* Curated bundles (mig 244) — renders nothing when the market has
+            no active bundles. */}
+        <MarketBundlesSection vertical={vertical} marketName={market.name as string} bundles={bundleCards} />
 
         {/* Vendors Section */}
         <div style={{

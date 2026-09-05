@@ -27,6 +27,7 @@ export type AdminBadgeKey =
   | 'errorReports'
   | 'activityFlags'
   | 'causeUnremitted'
+  | 'pendingBundles'
 
 export type AdminBadges = Partial<Record<AdminBadgeKey, number>>
 
@@ -69,8 +70,14 @@ export async function getAdminQueueBadges(
   if (vertical) errorsQ = errorsQ.eq('vertical_id', vertical)
   let flagsQ = service.from('vendor_activity_flags').select('id', head).eq('status', 'pending')
   if (vertical) flagsQ = flagsQ.eq('vertical_id', vertical)
+  // Bundles awaiting approval (mig 244) — vertical scope joins through markets.
+  let bundlesQ = service
+    .from('market_bundles')
+    .select('id, markets!inner ( vertical_id )', head)
+    .eq('status', 'pending_approval')
+  if (vertical) bundlesQ = bundlesQ.eq('markets.vertical_id', vertical)
 
-  const [vendors, markets, events, issues, errors, flags, cause] = await Promise.all([
+  const [vendors, markets, events, issues, errors, flags, cause, pendingBundles] = await Promise.all([
     headCount(vendorsQ, 'vendor_profiles'),
     headCount(marketsQ, 'markets'),
     headCount(eventsQ, 'catering_requests'),
@@ -80,6 +87,7 @@ export async function getAdminQueueBadges(
     vertical
       ? Promise.resolve<number | null>(null)
       : headCount(service.from('cause_remittances').select('id', head).is('paid_at', null), 'cause_remittances'),
+    headCount(bundlesQ, 'market_bundles'),
   ])
 
   const badges: AdminBadges = {
@@ -89,6 +97,7 @@ export async function getAdminQueueBadges(
     orderIssues: issues,
     errorReports: errors,
     activityFlags: flags,
+    pendingBundles,
   }
   if (cause !== null) badges.causeUnremitted = cause
   return badges

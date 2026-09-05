@@ -1,6 +1,6 @@
 # 21 — Shared Library Reference
 
-<!-- map-stamp: domain=lib-reference; verified=2026-09-04; commit=cec32fb5 -->
+<!-- map-stamp: domain=lib-reference; verified=2026-09-05; commit=de9baab6 -->
 <!-- lib/loyalty/offers.ts (B1 + punch, 2026-09-04): pure VIP perk math + config parsers — spend_threshold (D1: 5–25% / $15–$200) and punch_card (D2: 3–12 visits → 10–100% off min-$X, or $1–$50 off; 100% waives the min). lib/loyalty/offers-checkout.ts: computeCartDiscounts, the ONE discount engine (VIP-only, best single perk, no stacking) + punchState (punches = fulfilled qualifying orders since max(VIP added_at, last redemption via order offer_id)). See 10_Checkout_Payments item 8. -->
 <!-- map-claims
 src/lib/errors/**
@@ -22,6 +22,7 @@ src/lib/test-utils/**
 src/lib/events/**
 src/lib/cause/**
 src/lib/loyalty/**
+src/lib/bundles/**
 src/lib/design-tokens.ts
 src/lib/pricing-display.ts
 src/lib/rate-limit.ts
@@ -44,6 +45,8 @@ Shared modules not owned by a single domain. **The lib layer is where the busine
 ---
 
 **`lib/loyalty/`** (new 2026-08-25, Loyalty Layer 1 — no money) — `config.ts` is the spec: badge catalog (First Bite/First Basket, Back for More, Regular, Local Legend, Around the World/Market Hopper, Explorer), customer segments (new · one-timer · repeat 2–3 · Regular 4–9 · Local Legend 10+ or 3 straight months) and per-vertical windows. `segments.ts` is pure math over a buyer's FULFILLED orders (a "visit" = the vendor's handoff) — one classifier feeding three readers: the buyer's badges (`[vertical]/favorites`), the vendor's order-card chip (`api/vendor/orders` → `OrderCard`), and the vendor milestone nudge. `evaluate.ts` loads history via the service client, persists only newly-earned rows to `buyer_achievements` (mig 236; unique index is the race guard), and sends `badge_earned` (buyer, push+in_app) + `customer_milestone` (vendor, in_app). **Never throws**; tolerant of the table not existing. Runs lazily on the Favorites page (also the backfill); a fulfill-route `after()` hook is a separate, per-file-approved change. `evaluate.ts` also fires `vip_reward_ready` (checkVipPunchRewards — punch target reached, dedup `punchready:{offer}:{anchor}`). **Layer 2/3 are BUILT (2026-09-04):** VIP lists (mig 242, `vendor-limits.ts` vipCustomers caps), vendor perk config (`api/vendor/offers` + `components/vendor/VipPerksCard` on Insights, bounds enforced via `offers.ts` parsers), and checkout discounts — see `offers.ts` / `offers-checkout.ts` above and 10_Checkout_Payments item 8.
+
+**`lib/bundles/core.ts`** (new 2026-09-05, market bundles B1+B2 — mig 244, `market_bundles_build_plan.md`) — the single source of bundle money math + Q5 limits (25 qty / 3 active per market / 1-day assembly buffer), pure, no I/O. `expandBundleComponents` turns a bundle purchase into plain cart-item shapes (listing ids + quantities ONLY — prices always come live, so component vendors' pricing/inventory/payout math is byte-identical to a plain order: the conservation invariant, spec-tested). `bundleDisplayPriceCents` = ONE round of (component sum + margin) × buyer % (market-box line contract); `marginWithBuyerFeeCents` is the orders.total_cents addend; `splitMargin` is the B2 cause split (exact conservation); `bundleMarginIdempotencyKey` is the deterministic Stripe key. Margin transfers to `markets.stripe_account_id` ONLY after handoff (no-clawback invariant). See 10_Checkout_Payments for the checkout touch.
 
 ## Read this first
 

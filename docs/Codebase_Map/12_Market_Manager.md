@@ -1,6 +1,6 @@
 # 12 — Market Manager (farmers-market side) ⚠ money
 
-<!-- map-stamp: domain=market-manager; verified=2026-08-07; commit=00f234c8 -->
+<!-- map-stamp: domain=market-manager; verified=2026-09-05; commit=de9baab6 -->
 <!-- map-claims
 src/app/api/market-manager/**
 src/app/api/markets/**
@@ -13,6 +13,8 @@ src/components/markets/**
 -->
 
 The **second money path**: vendors rent selling space from venue operators. This file covers the farmers-market side; the food-truck park equivalent is [13_FT_Park.md](13_FT_Park.md). Both share the `markets` table, the `booth_credits` ledger, and most of `lib/markets/**`.
+
+**Market-curated bundles (mig 244, 2026-09-05 — B1+B2)** ⚠ money: the manager curates a bundle of vendors' listings at a fixed margin; a sale expands into ordinary component order_items (vendor machinery byte-untouched — see 21_Lib_Reference `lib/bundles/core.ts`) plus one margin addend. `api/market-manager/[marketId]/bundles/orders/[orderId]/handoff` (POST) is the manager's "buyer collected it" stamp AND the one gate the margin payout sits behind: manager auth → this-market ownership → payment proof → every component item fulfilled → stamp `bundle_handed_off_at` → `lib/bundles/margin-payout.ts` `payBundleMargin` (atomic NULL→'pending' claim on `bundle_margin_transfer_id`, B2 cause share to the mig-213 cause_ledger, market remainder via separate Stripe transfer keyed `bundle-margin:{order_id}`; a failed transfer stays 'pending' for reconciliation — no automatic retry, no double-pay). Full-order cancellation releases the bundle slot inside `lib/inventory.ts`'s guarded claim. Flow-integrity-pinned.
 
 ---
 

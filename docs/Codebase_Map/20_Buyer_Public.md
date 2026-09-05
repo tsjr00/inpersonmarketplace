@@ -1,8 +1,10 @@
 # 20 — Buyer & Public Surfaces
 
-<!-- map-stamp: domain=buyer-public; verified=2026-09-04; commit=cec32fb5 -->
+<!-- map-stamp: domain=buyer-public; verified=2026-09-05; commit=de9baab6 -->
+<!-- Market bundles buyer side (mig 244, 2026-09-05): the public market page renders components/markets/MarketBundlesSection (5-pillar cards: curator · named makers w/ vendor links · scarcity · pickup · cause) fed by lib/bundles/public.ts getMarketBundleCards (service client — market_bundles is service-only RLS; active bundles only). "Buy this bundle" → /{vertical}/checkout?bundle=<id> (BundleCheckout view, see 10_Checkout_Payments). api/bundles/[bundleId] GET = public single-bundle detail at live prices; availability mirrors checkout via the shared componentIsLive check. -->
 <!-- map-claims
 src/app/api/buyer/**
+src/app/api/bundles/**
 src/app/api/listings/**
 src/app/api/trucks/**
 src/app/api/vendors/**

@@ -56,6 +56,7 @@ export const VERTICAL_ADMIN_NAV: AdminNavGroup[] = [
       { path: '/reports', label: 'Reports' },
       { path: '/stripe-reconcile', label: 'Stripe Reconcile' },
       { path: '/cause', label: 'Community Giving' },
+      { path: '/bundles', label: 'Bundles', badgeKey: 'pendingBundles' },
     ],
   },
   {

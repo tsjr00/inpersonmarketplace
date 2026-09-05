@@ -27,6 +27,7 @@ import MarketCancelDateCard from './MarketCancelDateCard'
 import MarketSeasonCard from './MarketSeasonCard'
 import MarketSeasonSettlementCard from './MarketSeasonSettlementCard'
 import MarketBroadcastCard from './MarketBroadcastCard'
+import CuratedBundlesCard from './CuratedBundlesCard'
 import MarketAttendanceCard from './MarketAttendanceCard'
 import SurveyResultsCard from './SurveyResultsCard'
 import ManagerSupportCard from './ManagerSupportCard'
@@ -203,6 +204,12 @@ export default function FmDashboardBody({
 
       {/* ⑤ MONEY & INSIGHTS */}
       <GroupHeading id="money" title="Money & insights" />
+      {/* Curated bundles (mig 244) — compose → admin approval → sell → run
+          sheet → hand off (margin pays out at handoff). FM-first (Q1); the FT
+          body waits for B3's container-rule enforcement. */}
+      <div id="bundles" style={{ scrollMarginTop: NAV_OFFSET }}>
+        <CuratedBundlesCard marketId={marketId} />
+      </div>
       <ManagerEarningsCard aggregates={earningsAggregates} vertical={vertical} />
       <MarketTransactionsCard aggregates={transactionsAggregates} vertical={vertical} />
       <div id="surveys" style={{ scrollMarginTop: NAV_OFFSET }}>

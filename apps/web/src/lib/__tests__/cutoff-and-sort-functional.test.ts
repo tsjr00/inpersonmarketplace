@@ -295,8 +295,15 @@ describe('NI-014: Total notification types = 72', () => {
     // 123 → 124 (2026-09-04, owner approved "yes, bump the tripwire - build
     // it"): vip_reward_ready (buyer, immediate, free channels) — the punch
     // card completed; the NEXT order auto-carries the reward (D6).
+    // 124 → 127 (2026-09-05, PRE-APPROVED with the bundles build — owner Q7,
+    // market_bundles_build_plan.md): bundle_sold (manager, standard =
+    // email+in_app — the run-sheet call to action, sent by the hourly cron
+    // sweep), bundles_intro (vendors, standard, ONE-TIME launch announcement
+    // of the default-in/global-opt-out consent model — email approved for
+    // this send), bundle_ready (buyer, immediate = push+in_app free channels
+    // — manager-triggered "assembled, come get it" on pickup day).
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(124)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(127)
   })
 
   it('includes all buyer-facing types', () => {

@@ -19,6 +19,7 @@ import { CheckoutMarketBoxItem } from './CheckoutMarketBoxItem'
 import { CheckoutPickupGroup } from './CheckoutPickupGroup'
 import { CrossSellSection } from './CrossSellSection'
 import { PaymentMethodSelector } from './PaymentMethodSelector'
+import BundleCheckout from './BundleCheckout'
 import type { CheckoutItem, SuggestedProduct, PaymentMethod, VendorPaymentInfo } from './types'
 
 export default function CheckoutPage() {
@@ -63,6 +64,16 @@ export default function CheckoutPage() {
   const [roundUpOn, setRoundUpOn] = useState(false)
   const [unresolvedExternalCount, setUnresolvedExternalCount] = useState(0)
   const [vipDiscountsByListing, setVipDiscountsByListing] = useState<Map<string, number>>(new Map())
+
+  // Market bundles (mig 244): ?bundle=<id> switches this page into the
+  // dedicated bundle-checkout view (a bundle is its own order — no cart).
+  // Read from window.location after mount rather than useSearchParams, which
+  // would force a Suspense boundary on this whole page.
+  const [bundleParam, setBundleParam] = useState<string | null>(null)
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('bundle')
+    if (id) queueMicrotask(() => setBundleParam(id))
+  }, [])
 
   // Ref to prevent double-click submissions (state update may not re-render in time)
   const isSubmittingRef = useRef(false)
@@ -697,6 +708,12 @@ export default function CheckoutPage() {
 
   const listingItems = checkoutItems.filter(i => i.itemType !== 'market_box')
   const marketBoxCheckoutItems = checkoutItems.filter(i => i.itemType === 'market_box')
+
+  // Bundle mode replaces the cart flow entirely (after all hooks, before any
+  // cart-derived render decisions).
+  if (bundleParam) {
+    return <BundleCheckout vertical={vertical} bundleId={bundleParam} />
+  }
 
   if (loading) {
     return <FullPageLoading message={t('checkout.loading', locale)} />

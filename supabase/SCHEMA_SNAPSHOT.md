@@ -8,7 +8,7 @@
 
 > ⚠️ **EVERY structured section of this file is best-effort and may be stale — Columns, FKs, Indexes, Functions, Enum Types, CHECK Constraints, all of them.** The original banner named only four sections, and the Enum Types table sat outside it misleading readers for five months (missing `platform_admin`/`regional_admin`, added 2026-03-20). The Change Log's per-migration environment claims have also been wrong four separate times (210/211/212/215, all caught 2026-08-13). **Only `information_schema` / `pg_catalog` on the live environment is authoritative — for structure AND for what is deployed where.**
 >
-**Structured tables rebuilt:** 2026-09-04 · current through migration 243
+**Structured tables rebuilt:** 2026-09-05 · current through migration 244
 
 > ⚠ The stamp above is MACHINE-READ by guardrail Rule L (owner rule 2026-08-30): the test
 > suite fails when any newer migration CREATEs a table, or when more than 5 migrations exist
@@ -21,6 +21,7 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-09-05 | 20260905_244_market_bundles | ✅ **Dev + Staging 2026-09-05 (owner). ⏳ Prod PENDING — file stays in root; paste on prod after 238→…→243. PASTE-AND-GO, additive + 2 new RPCs, INERT ON ARRIVAL**. Structured tables updated + stamp → 244 same day — **DDL-derived + owner-confirmed-applied** (243 precedent: paste-and-go DDL errors loudly, owner reported success on both envs; true-up via scoped information_schema queries if ever doubted). (market_bundles empty — no manager UI yet; all new columns default false/0/NULL — every existing money path reads yesterday's numbers). Market-curated bundles B1+B2 (`market_bundles_build_plan.md`, owner Q&As 2026-09-05). **New `market_bundles`** (market_id FK CASCADE, name, description, margin_cents ≥0, quantity_limit >0, quantity_sold ≥0 default 0, status CHECK draft\|pending_approval\|active\|archived\|rejected, justification, pickup_market_date DATE, pickup_notes, cause_beneficiary_id FK→cause_beneficiaries + cause_pct 1–100 [B2], approved_by/at, created_by, timestamps; RLS no policies — service-only). **New `market_bundle_components`** (bundle_id FK CASCADE, listing_id FK, quantity >0, UNIQUE(bundle,listing); listing reverse-lookup index). **New columns:** `vendor_profiles.bundles_opt_out bool NOT NULL false` (global consent, default-IN) · `listings.covered_container bool NOT NULL false` (FT container rule Q3, dormant until B3) · `orders.bundle_id FK→market_bundles` + `orders.bundle_margin_cents int4 NOT NULL 0` + `orders.bundle_handed_off_at timestamptz` + `orders.bundle_margin_transfer_id text` (transfer id = margin-paid flag; handoff stamp = the transfer gate — no-clawback invariant). Partial index `idx_orders_bundle WHERE bundle_id IS NOT NULL`. **2 RPCs** (SECURITY DEFINER, REVOKEd from anon/authenticated): `atomic_increment_bundle_sold` (oversell guard — WHERE quantity_sold+N ≤ limit AND status='active', RAISES on miss, mirrors atomic_decrement_inventory) + `atomic_release_bundle_sold` (floor-at-0 unwind). ⚠ Rule L: CREATE TABLEs past stamp 243 — structured-tables rebuild owed at apply time (same scoped-query flow as 242/243). |
 | 2026-09-04 | 20260904_243_vendor_offers_discount_plumbing | ✅ **Dev + Staging 2026-09-04 (owner). ⏳ Prod PENDING — file stays in root; paste on prod after 238→…→242. PASTE-AND-GO, additive, INERT (vendor_offers empty; discount columns default 0 — no money path changes until a vendor enables a perk).** Structured tables updated + stamp → 243 same day — NOTE: this rebuild is **DDL-derived + owner-confirmed-applied** (not live-query-verified like 242's; the paste-and-go DDL errors loudly on failure and the owner reported success on both envs; true-up available via the scoped queries in chat 2026-09-04 if ever doubted). `vendor_offers` (vendor_profile_id, vertical_id, kind punch_card\|spend_threshold, enabled, config JSONB, UNIQUE(vendor,kind); RLS no policies) + `order_items.discount_cents int4 NOT NULL 0` + `order_items.offer_id → vendor_offers SET NULL` + `orders.discount_cents int4 NOT NULL 0`. THE KEY: order_items.subtotal_cents stored NET post-discount (unit_price_cents = list) so every refund/fee/report/tax path reads net by construction. ⚠ Rule L note: CREATE TABLE past stamp 242 — structured-tables rebuild owed at apply time (same scoped-query flow as 242). |
 | 2026-09-04 | 20260904_242_vendor_vip_customers | ✅ **Dev + Staging 2026-09-04 (owner). ⏳ Prod PENDING — file stays in root; paste on prod after 238→239→240→241. PASTE-AND-GO, additive new table, inert (empty) on arrival.** Structured tables rebuilt same day (stamp → 242) from owner's live Dev information_schema output — scoped to the full delta since the 240 stamp (241's `host_status` + 242's table; columns/unique/indexes verified live, FKs from mig 242 DDL). `vendor_vip_customers` (vendor_profile_id FK CASCADE, buyer_user_id FK auth.users CASCADE, added_at, notes, UNIQUE pair; RLS enabled no policies — service-client only). VIP designation core (A2, decisions.md 2026-09-04); slot caps in vendor-limits.ts `vipCustomers` (0/10/25), enforced at the add route. Written by `api/vendor/vip-customers`. |
 | 2026-09-03 | 20260903_241_event_menu_host_status | ✅ **Dev + Staging 2026-09-03 (owner). ⏳ Prod PENDING — file stays in `supabase/migrations/` root; paste on prod after 238→239→240. PASTE-AND-GO, additive, inert on arrival.** `event_vendor_listings.host_status TEXT NOT NULL DEFAULT 'approved' CHECK (approved\|declined)` — host menu pare-down (P1, decisions.md 2026-09-03). Pare = host_status='declined' + delete that item's `listing_markets` link (the sell half — cart validates there); admin event-restore rebuilds links from APPROVED rows only. Written by the organizer select route; first round only, min 2 kept items, activated backups never pared. |
@@ -286,7 +287,7 @@
 
 ---
 
-## Tables (93)
+## Tables (95)
 
 | Table Name |
 |------------|
@@ -326,6 +327,8 @@
 | market_box_pickups |
 | market_box_subscriptions |
 | market_broadcasts |
+| market_bundle_components |
+| market_bundles |
 | market_date_overrides |
 | market_day_checkins |
 | market_day_notification_log |
@@ -964,6 +967,7 @@
 | advance_order_days | int4 | NO | 0 |
 | is_taxable | bool | NO | false |
 | search_vector | tsvector | YES | - |
+| covered_container | bool | NO | false |
 
 ### market_booth_inventory
 | Column | Type | Nullable | Default |
@@ -1066,6 +1070,37 @@
 | body | text | NO | - |
 | recipient_count | int4 | NO | 0 |
 | created_at | timestamptz | NO | now() |
+
+### market_bundle_components
+| Column | Type | Nullable | Default |
+|--------|------|----------|--------|
+| id | uuid | NO | gen_random_uuid() |
+| bundle_id | uuid | NO | - |
+| listing_id | uuid | NO | - |
+| quantity | int4 | NO | 1 |
+| created_at | timestamptz | NO | now() |
+
+### market_bundles
+| Column | Type | Nullable | Default |
+|--------|------|----------|--------|
+| id | uuid | NO | gen_random_uuid() |
+| market_id | uuid | NO | - |
+| name | text | NO | - |
+| description | text | YES | - |
+| margin_cents | int4 | NO | - |
+| quantity_limit | int4 | NO | - |
+| quantity_sold | int4 | NO | 0 |
+| status | text | NO | 'draft'::text |
+| justification | text | YES | - |
+| pickup_market_date | date | YES | - |
+| pickup_notes | text | YES | - |
+| cause_beneficiary_id | uuid | YES | - |
+| cause_pct | int4 | YES | - |
+| approved_by | uuid | YES | - |
+| approved_at | timestamptz | YES | - |
+| created_by | uuid | NO | - |
+| created_at | timestamptz | NO | now() |
+| updated_at | timestamptz | NO | now() |
 
 ### market_date_overrides
 | Column | Type | Nullable | Default |
@@ -1454,6 +1489,10 @@
 | reconfirm_final_sent_at | timestamptz | YES | - |
 | reconfirm_refunded_at | timestamptz | YES | - |
 | discount_cents | int4 | NO | 0 |
+| bundle_id | uuid | YES | - |
+| bundle_margin_cents | int4 | NO | 0 |
+| bundle_handed_off_at | timestamptz | YES | - |
+| bundle_margin_transfer_id | text | YES | - |
 
 ### organizations
 | Column | Type | Nullable | Default |
@@ -2057,6 +2096,7 @@
 | pickup_capacity_avg_items | int4 | YES | - |
 | pickup_capacity_items | int4 | YES | - |
 | pickup_capacity_slot_minutes | int4 | YES | - |
+| bundles_opt_out | bool | NO | false |
 
 ### vendor_quality_findings
 | Column | Type | Nullable | Default |
@@ -2415,6 +2455,18 @@
 |--------|------------|
 | market_id | markets.id (ON DELETE CASCADE) |
 
+### market_bundle_components
+| Column | References |
+|--------|------------|
+| bundle_id | market_bundles.id (ON DELETE CASCADE) |
+| listing_id | listings.id |
+
+### market_bundles
+| Column | References |
+|--------|------------|
+| cause_beneficiary_id | cause_beneficiaries.id |
+| market_id | markets.id (ON DELETE CASCADE) |
+
 ### market_date_overrides
 | Column | References |
 |--------|------------|
@@ -2511,6 +2563,7 @@
 ### orders
 | Column | References |
 |--------|------------|
+| bundle_id | market_bundles.id |
 | chipin_beneficiary_id | cause_beneficiaries.id (ON DELETE SET NULL) |
 | event_company_payment_id | event_company_payments.id (ON DELETE SET NULL) |
 | event_wave_reservation_id | event_wave_reservations.id |
@@ -2888,6 +2941,20 @@
 | idx_market_box_subscriptions_buyer_offering | btree (buyer_user_id, offering_id, status) |
 | idx_market_box_subscriptions_offering_active | btree (offering_id, status) WHERE (status = 'active'::market_box_subscription_status) |
 
+### market_bundle_components
+| Index Name | Definition |
+|-----------|------------|
+| market_bundle_components_pkey | UNIQUE btree (id) |
+| market_bundle_components_bundle_id_listing_id_key | UNIQUE btree (bundle_id, listing_id) |
+| idx_market_bundle_components_listing | btree (listing_id) |
+
+### market_bundles
+| Index Name | Definition |
+|-----------|------------|
+| market_bundles_pkey | UNIQUE btree (id) |
+| idx_market_bundles_market | btree (market_id) |
+| idx_market_bundles_active | btree (market_id, pickup_market_date) WHERE (status = 'active'::text) |
+
 ### market_schedules
 | Index Name | Definition |
 |-----------|------------|
@@ -3014,6 +3081,7 @@
 | idx_orders_buyer_status_created | btree (buyer_user_id, status, created_at DESC) |
 | idx_orders_wave_reservation | btree (event_wave_reservation_id) WHERE (event_wave_reservation_id IS NOT NULL) |
 | idx_orders_company_payment | btree (event_company_payment_id) WHERE (event_company_payment_id IS NOT NULL) |
+| idx_orders_bundle | btree (bundle_id) WHERE (bundle_id IS NOT NULL) |
 
 ### organizations
 | Index Name | Definition |
@@ -3342,6 +3410,12 @@
 | market_box_offerings | market_box_offerings_pickup_day_of_week_check | `((pickup_day_of_week >= 0) AND (pickup_day_of_week <= 6))` |
 | market_box_pickups | market_box_pickups_week_number_check | `((week_number >= 1) AND (week_number <= 16))` |
 | market_box_subscriptions | market_box_subscriptions_term_weeks_check | `(term_weeks = ANY (ARRAY[4, 8]))` |
+| market_bundle_components | market_bundle_components_quantity_check | `(quantity > 0)` |
+| market_bundles | market_bundles_cause_pct_check | `((cause_pct >= 1) AND (cause_pct <= 100))` |
+| market_bundles | market_bundles_margin_cents_check | `(margin_cents >= 0)` |
+| market_bundles | market_bundles_quantity_limit_check | `(quantity_limit > 0)` |
+| market_bundles | market_bundles_quantity_sold_check | `(quantity_sold >= 0)` |
+| market_bundles | market_bundles_status_check | `(status = ANY (ARRAY['draft'::text, 'pending_approval'::text, 'active'::text, 'archived'::text, 'rejected'::text]))` |
 | market_schedules | market_schedules_day_of_week_check | `((day_of_week >= 0) AND (day_of_week <= 6))` |
 | market_vendors | market_vendors_response_status_check | `(response_status = ANY (ARRAY['invited'::text, 'accepted'::text, 'declined'::text]))` |
 | markets | markets_day_of_week_check | `((day_of_week >= 0) AND (day_of_week <= 6))` |
@@ -3385,6 +3459,8 @@
 |----------|-----------|---------|----------|
 | atomic_complete_order_if_ready | p_order_id uuid | boolean | DEFINER |
 | atomic_decrement_inventory | p_listing_id uuid, p_quantity integer | TABLE(new_quantity integer) | DEFINER |
+| atomic_increment_bundle_sold | p_bundle_id uuid, p_quantity integer | TABLE(new_quantity_sold integer) | DEFINER |
+| atomic_release_bundle_sold | p_bundle_id uuid, p_quantity integer | TABLE(new_quantity_sold integer) | DEFINER |
 | atomic_restore_inventory | p_listing_id uuid, p_quantity integer | TABLE(new_quantity integer) | DEFINER |
 | auto_add_schedule_to_vendors | - | trigger | DEFINER |
 | auto_create_vendor_schedules | - | trigger | DEFINER |

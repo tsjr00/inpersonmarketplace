@@ -13,6 +13,7 @@ import EventReadinessForm from './EventReadinessForm'
 import PickupLeadTimeForm from '@/components/vendor/PickupLeadTimeForm'
 import PickupCapacityForm from '@/components/vendor/PickupCapacityForm'
 import CoverImageUpload from '@/components/vendor/CoverImageUpload'
+import BundleConsentToggle from '@/components/vendor/BundleConsentToggle'
 
 interface EditProfilePageProps {
   params: Promise<{ vertical: string }>
@@ -176,6 +177,15 @@ export default async function EditProfilePage({ params }: EditProfilePageProps) 
           />
         </div>
       )}
+
+      {/* Curated bundles consent (mig 244) — default-IN, global opt-out.
+          Announced to vendors by the one-time bundles_intro notification. */}
+      <div style={{ marginTop: 20 }}>
+        <BundleConsentToggle
+          vendorId={vendorProfile.id}
+          initialOptOut={!!vendorProfile.bundles_opt_out}
+        />
+      </div>
 
       {/* Unified Documents & Certifications Section. The "shared with the
           markets and parks you book with" explainer lives INSIDE the section

@@ -5,6 +5,8 @@ import { createCheckoutSession } from '@/lib/stripe/payments'
 import { stripe } from '@/lib/stripe/config'
 import { calculateOrderPricing, FEES, calculateSmallOrderFee, getSmallOrderFeeConfig, proratedFlatFee, getEffectiveVendorFeePercent } from '@/lib/pricing'
 import { computeCartDiscounts } from '@/lib/loyalty/offers-checkout'
+import { expandBundleComponents, bundleDisplayPriceCents, marginWithBuyerFeeCents, bundleOrderingOpen } from '@/lib/bundles/core'
+import { todayInTimezone, DEFAULT_TIMEZONE } from '@/lib/time/market-dates'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { withErrorTracing, traced, crumb, TracedError, logError, observed } from '@/lib/errors'
 import { cancelOrderItemsAndRestoreGuarded, restoreInventory } from '@/lib/inventory'
@@ -64,9 +66,10 @@ export async function POST(request: NextRequest) {
 
   return withErrorTracing('/api/checkout/session', 'POST', async () => {
     const supabase = await createClient()
-    const { items = [], marketBoxItems, vertical, tipAmountCents = 0, tipPercentage = 0, chipinAmountCents = 0, chipinBeneficiaryId = null } = await request.json() as {
+    const { items = [], marketBoxItems, bundleItem = null, vertical, tipAmountCents = 0, tipPercentage = 0, chipinAmountCents = 0, chipinBeneficiaryId = null } = await request.json() as {
       items: CartItem[]
       marketBoxItems?: MarketBoxCheckoutItem[]
+      bundleItem?: { bundleId: string } | null
       vertical?: string
       tipAmountCents?: number
       tipPercentage?: number
@@ -116,7 +119,7 @@ export async function POST(request: NextRequest) {
     // CHK-16: reject an empty/malformed cart with a 400 (was a 500 TypeError on
     // a body missing `items`). AFTER the auth check so unauthenticated requests
     // still get 401 first (api-route-guards contract).
-    if (!Array.isArray(items) || (items.length === 0 && !hasMarketBoxes)) {
+    if (!Array.isArray(items) || (items.length === 0 && !hasMarketBoxes && !bundleItem?.bundleId)) {
       throw traced.validation('ERR_CHECKOUT_001', 'Cart is empty or malformed')
     }
 
@@ -271,6 +274,73 @@ export async function POST(request: NextRequest) {
           }
         }
       }
+    }
+
+    // ============================================================
+    // MARKET BUNDLE EXPANSION (mig 244, market_bundles_build_plan.md)
+    // A bundle purchase is ITS OWN order (v1): one bundle, quantity 1,
+    // no other items. The bundle expands into ordinary component items
+    // at LIVE prices BEFORE any money math, so pricing/inventory/payout
+    // below run byte-identically to a plain cart. The margin is a
+    // separate addend and NEVER enters the vendor math.
+    // ============================================================
+    let bundleContext: { bundleId: string; name: string; marginCents: number; marketId: string; marketName: string; pickupDate: string } | null = null
+    if (bundleItem?.bundleId) {
+      if (items.length > 0 || hasMarketBoxes) {
+        throw traced.validation('ERR_CHECKOUT_001', 'A bundle is purchased on its own — please check out other items separately.')
+      }
+      crumb.supabase('select', 'market_bundles (expansion)')
+      const { data: bundle } = await observed(serviceClient
+        .from('market_bundles')
+        .select('id, market_id, name, margin_cents, quantity_limit, quantity_sold, status, pickup_market_date, market_bundle_components (listing_id, quantity)')
+        .eq('id', bundleItem.bundleId)
+        .maybeSingle(), { table: 'market_bundles' })
+      if (!bundle || bundle.status !== 'active') {
+        throw traced.validation('ERR_CHECKOUT_001', 'This bundle is not available.')
+      }
+      if ((bundle.quantity_sold as number) >= (bundle.quantity_limit as number)) {
+        throw traced.validation('ERR_CHECKOUT_001', 'This bundle is sold out.')
+      }
+      const components = (bundle.market_bundle_components ?? []) as Array<{ listing_id: string; quantity: number }>
+      if (components.length === 0 || !bundle.pickup_market_date) {
+        throw traced.validation('ERR_CHECKOUT_001', 'This bundle is not available.')
+      }
+      const { data: bundleMarket } = await observed(serviceClient
+        .from('markets')
+        .select('id, name, timezone, stripe_account_id')
+        .eq('id', bundle.market_id)
+        .maybeSingle(), { table: 'markets' })
+      if (!bundleMarket?.stripe_account_id) {
+        throw traced.validation('ERR_CHECKOUT_003', 'This market cannot accept bundle orders right now.')
+      }
+      if (!bundleOrderingOpen(todayInTimezone(bundleMarket.timezone || DEFAULT_TIMEZONE), bundle.pickup_market_date as string)) {
+        throw traced.validation('ERR_CHECKOUT_001', 'Ordering for this bundle has closed — the market needs time to assemble it.')
+      }
+      // Components live + vendors opted in (the auto-unavailable rule).
+      const { data: componentListings } = await observed(serviceClient
+        .from('listings')
+        .select('id, status, deleted_at, vendor_profile_id')
+        .in('id', components.map(c => c.listing_id)), { table: 'listings' })
+      const liveById = new Map((componentListings ?? []).map(l => [l.id, l]))
+      for (const c of components) {
+        const l = liveById.get(c.listing_id)
+        if (!l || l.status !== 'published' || l.deleted_at) {
+          throw traced.validation('ERR_CHECKOUT_001', 'An item in this bundle is no longer available.')
+        }
+      }
+      const { data: componentVendors } = await observed(serviceClient
+        .from('vendor_profiles')
+        .select('id, bundles_opt_out')
+        .in('id', [...new Set((componentListings ?? []).map(l => l.vendor_profile_id as string))]), { table: 'vendor_profiles' })
+      if ((componentVendors ?? []).some(v => v.bundles_opt_out)) {
+        throw traced.validation('ERR_CHECKOUT_001', 'An item in this bundle is no longer available.')
+      }
+      // Expand into plain cart items at LIVE prices (conservation invariant —
+      // lib/bundles/core.ts). Pickup = the bundle's market + date.
+      for (const e of expandBundleComponents(components, 1)) {
+        items.push({ listingId: e.listingId, quantity: e.quantity, marketId: bundle.market_id as string, pickupDate: bundle.pickup_market_date as string })
+      }
+      bundleContext = { bundleId: bundle.id as string, name: bundle.name as string, marginCents: bundle.margin_cents as number, marketId: bundle.market_id as string, marketName: bundleMarket.name as string, pickupDate: bundle.pickup_market_date as string }
     }
 
     // OPTIMIZATION: Parallel fetch - listings query doesn't depend on cart/vertical
@@ -555,7 +625,12 @@ export async function POST(request: NextRequest) {
     // total can never disagree. Adds punch_card rewards (D6 auto-apply) beside
     // spend_threshold, single-best-perk per vendor (no stacking).
     crumb.logic('Computing VIP perk discounts (0 unless a vendor offer applies)')
-    const cartDiscounts = await computeCartDiscounts(
+    // Bundle orders are EXCLUDED from VIP perks as a stated v1 rule: the
+    // expansion feeds `items`, so without this gate perks would silently
+    // apply to bundle components (flow-integrity-pinned).
+    const cartDiscounts = bundleContext
+      ? { byIndex: new Map<number, { cents: number; offerId: string }>(), totalCents: 0 }
+      : await computeCartDiscounts(
       serviceClient,
       user.id,
       items.map((item, idx) => {
@@ -699,9 +774,16 @@ export async function POST(request: NextRequest) {
     const listingPercentFeeCents = orderItems.reduce((sum, oi) => sum + oi.platform_fee_cents, 0)
     const mbSubtotalCents = orderPricing.subtotalCents - orderItems.reduce((sum, oi) => sum + oi.subtotal_cents, 0)
     const mbPercentFeeCents = Math.round(mbSubtotalCents * (FEES.buyerFeePercent + FEES.vendorFeePercent) / 100)
+    // Bundle margin (mig 244): the margin + its buyer fee ride beside
+    // tip/chipin as their own addend — never inside orderPricing's vendor
+    // math. The fee part is platform revenue; the margin itself transfers to
+    // the market at handoff (lib/bundles/margin-payout.ts).
+    const bundleMarginCents = bundleContext?.marginCents ?? 0
+    const bundleMarginAddendCents = bundleContext ? marginWithBuyerFeeCents(bundleMarginCents) : 0
     const platformFeeCents = listingPercentFeeCents + mbPercentFeeCents
       + orderPricing.buyerFlatFeeCents + orderPricing.vendorFlatFeeCents + smallOrderFeeCents
-    const totalCents = orderPricing.buyerTotalCents + smallOrderFeeCents + validTipAmount + validChipinCents
+      + (bundleMarginAddendCents - bundleMarginCents)
+    const totalCents = orderPricing.buyerTotalCents + smallOrderFeeCents + validTipAmount + validChipinCents + bundleMarginAddendCents
 
     // Punch build (D2 100%-off + the 2026-08-25 min-order rule): Stripe cannot
     // charge under 50¢. Only a discount can push a total this low (the 15¢
@@ -846,7 +928,17 @@ export async function POST(request: NextRequest) {
 
     const checkoutItems: Array<{ name: string; description: string; amount: number; quantity: number }> = []
 
-    for (const listing of listings) {
+    if (bundleContext) {
+      // ONE display line for the whole bundle; order_items carry the
+      // per-vendor truth. Split rounding (lib/bundles/core.ts) makes this
+      // equal orders.total_cents to the cent on a bundle-only order.
+      checkoutItems.push({
+        name: `${bundleContext.name} — curated by ${bundleContext.marketName}`,
+        description: `Market bundle · pickup ${bundleContext.pickupDate}`,
+        amount: bundleDisplayPriceCents(orderPricing.subtotalCents, bundleMarginCents),
+        quantity: 1,
+      })
+    } else for (const listing of listings) {
       const item = items.find((i) => i.listingId === listing.id)!
       // B1: a discounted listing renders as ONE consolidated line at the net
       // amount (Stripe forbids negative lines); undiscounted listings render
@@ -1002,6 +1094,7 @@ export async function POST(request: NextRequest) {
         chipin_amount_cents: validChipinCents > 0 ? validChipinCents : null,
         chipin_beneficiary_id: validChipinCents > 0 ? chipinBeneficiaryId : null,
         stripe_checkout_session_id: session.id,
+        ...(bundleContext ? { bundle_id: bundleContext.bundleId, bundle_margin_cents: bundleContext.marginCents } : {}),
       })
 
     if (orderError) throw traced.fromSupabase(orderError, { table: 'orders', operation: 'insert' })
@@ -1078,6 +1171,49 @@ export async function POST(request: NextRequest) {
           decremented.push({ listingId: item.listingId, quantity: item.quantity })
           // Note: When inventory hits 0, the RPC auto-drafts the listing.
           // Vendor notification for out-of-stock is sent from checkout success handler.
+        }
+      }
+
+      // Bundle slot claim (mig 244 oversell guard) — same race posture as
+      // inventory: the RPC's WHERE clause is the atomic check, two concurrent
+      // checkouts cannot both take the last bundle. On failure, unwind exactly
+      // like an insufficient-stock decrement (the slot was never claimed, so
+      // the unwind releases nothing bundle-side; a later cancellation of a
+      // SUCCESSFUL claim releases via cancelOrderItemsAndRestoreGuarded).
+      if (bundleContext) {
+        crumb.logic('Claiming bundle slot (oversell guard)')
+        const { error: bundleClaimErr } = await serviceClient.rpc('atomic_increment_bundle_sold', {
+          p_bundle_id: bundleContext.bundleId,
+          p_quantity: 1,
+        })
+        if (bundleClaimErr) {
+          try {
+            await stripe.checkout.sessions.expire(session.id)
+          } catch (expireErr) {
+            await logError(new TracedError('ERR_CHECKOUT_005', `Session expire failed unwinding sold-out-bundle checkout ${orderId} (session ${session.id}): ${expireErr instanceof Error ? expireErr.message : String(expireErr)}`, {
+              route: '/api/checkout/session',
+              method: 'POST',
+            }))
+          }
+          await serviceClient
+            .from('order_items')
+            .update({
+              status: 'cancelled',
+              cancelled_at: new Date().toISOString(),
+              cancelled_by: 'system',
+              cancellation_reason: 'Bundle sold out at checkout'
+            })
+            .eq('order_id', orderId)
+            .is('cancelled_at', null)
+          await serviceClient
+            .from('orders')
+            .update({ status: 'cancelled' })
+            .eq('id', orderId)
+            .eq('status', 'pending')
+          for (const d of decremented) {
+            await restoreInventory(serviceClient, d.listingId, d.quantity)
+          }
+          throw traced.validation('ERR_CHECKOUT_001', 'This bundle just sold out.')
         }
       }
     }

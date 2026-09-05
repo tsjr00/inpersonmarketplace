@@ -15,6 +15,7 @@ import { generateSurveyToken } from '@/lib/surveys/token'
 import { resolveMarketAudience } from '@/lib/markets/market-audience'
 import { runParkCheckinReminders } from '@/lib/markets/park-checkin-reminders'
 import { runFollowedVendorDigest } from '@/lib/notifications/vendor-digest'
+import { runBundleSoldSweep } from '@/lib/bundles/sold-sweep'
 import {
   buildBuyerSurveyEmailSubject,
   buildBuyerSurveyEmailHtml,
@@ -109,7 +110,16 @@ export async function GET(request: NextRequest) {
     } catch (err) {
       vendorDigest = { vendorsWithNewItems: 0, buyersNotified: 0, errors: [err instanceof Error ? err.message : 'Unknown'] }
     }
-    return NextResponse.json({ ...summary, marketDay, parkCheckinReminders, vendorDigest })
+    // Market bundles (mig 244) — bundle_sold to the manager for paid bundle
+    // orders (per-order dedup inside). Independent block, failures isolated;
+    // hourly latency is fine because bundle ordering closes days before pickup.
+    let bundleSold
+    try {
+      bundleSold = await runBundleSoldSweep(createServiceClient())
+    } catch (err) {
+      bundleSold = { ordersConsidered: 0, managersNotified: 0, errors: [err instanceof Error ? err.message : 'Unknown'] }
+    }
+    return NextResponse.json({ ...summary, marketDay, parkCheckinReminders, vendorDigest, bundleSold })
   })
 }
 

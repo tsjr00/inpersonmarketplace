@@ -93,6 +93,29 @@ export async function cancelOrderItemsAndRestoreGuarded(
     return { claimed: 0, restored: 0, failed: 0, skipped: 0 }
   }
 
+  // Bundle orders (mig 244): a full-order cancellation releases the bundle's
+  // sold slot alongside the component inventory. Rides THIS claim so a
+  // concurrent sweep (which matched zero rows above) can never double-release.
+  // v1 sells one bundle copy per order, so the release quantity is 1. Margin
+  // never needs unwinding here — it only transfers after handoff (invariant).
+  const { data: bundleOrder } = await observed(serviceClient
+    .from('orders')
+    .select('bundle_id')
+    .eq('id', orderId)
+    .maybeSingle(), { table: 'orders' })
+  if (bundleOrder?.bundle_id) {
+    const { error: releaseErr } = await serviceClient.rpc('atomic_release_bundle_sold', {
+      p_bundle_id: bundleOrder.bundle_id,
+      p_quantity: 1,
+    })
+    if (releaseErr) {
+      // Floor-at-0 RPC never legitimately fails; a missing function
+      // (pre-migration env) lands here — log direction only, never block
+      // the cancellation itself.
+      console.error('Failed to release bundle slot:', releaseErr.message)
+    }
+  }
+
   const claimedIds = new Set(claimedRows.map(r => r.id))
   const restorableItems = activeItems.filter(item =>
     claimedIds.has(item.id) &&

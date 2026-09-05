@@ -286,4 +286,53 @@ export const CHECKOUT_ERRORS: ErrorCatalogEntry[] = [
     ],
     pgCodes: [],
   },
+  {
+    code: 'ERR_BUNDLE_001',
+    title: 'Bundle Margin Payout Blocked — Market Has No Stripe Account',
+    category: 'ORDER',
+    severity: 'high',
+    description: 'payBundleMargin (mig 244) found no markets.stripe_account_id at payout time. Bundle eligibility (Q4) requires the Connect account to create a bundle, so this is a data anomaly — the account was cleared after the bundle sold. No money moved; bundle_margin_transfer_id stays NULL.',
+    userGuidance: '',
+    causes: [
+      'The market\'s Stripe account was disconnected/cleared after the bundle was sold',
+      'A bundle row was created outside the eligibility-checked UI path',
+    ],
+    solutions: [
+      'Re-onboard the market\'s Stripe Connect account, then re-run the handoff payout',
+      'Query: orders WHERE bundle_id IS NOT NULL AND bundle_handed_off_at IS NOT NULL AND bundle_margin_transfer_id IS NULL',
+    ],
+    pgCodes: [],
+  },
+  {
+    code: 'ERR_BUNDLE_002',
+    title: 'Bundle Cause-Ledger Write Failed',
+    category: 'ORDER',
+    severity: 'high',
+    description: 'The B2 cause-share credit to cause_ledger failed during a bundle margin payout. NOTHING moved: the claim was released (bundle_margin_transfer_id back to NULL), so the payout can safely re-run.',
+    userGuidance: '',
+    causes: [
+      'cause_beneficiaries row deleted while referenced (FK)',
+      'Database error inserting the ledger row',
+    ],
+    solutions: [
+      'Check the beneficiary still exists and is active, then re-run the handoff payout',
+    ],
+    pgCodes: [],
+  },
+  {
+    code: 'ERR_BUNDLE_003',
+    title: 'Bundle Margin Transfer Failed — Payout Pending Reconciliation',
+    category: 'ORDER',
+    severity: 'critical',
+    description: 'The Stripe transfer of the market\'s margin share failed AFTER the claim (and after any cause-ledger credit). bundle_margin_transfer_id is stuck at \'pending\' ON PURPOSE — re-entering the claim path would double-credit the cause share. Same no-double-pay-over-completeness trade as runCauseRemitSweep.',
+    userGuidance: '',
+    causes: [
+      'Stripe transfer rejected (balance, account state, API error)',
+    ],
+    solutions: [
+      'Reconciliation query: orders WHERE bundle_margin_transfer_id = \'pending\'',
+      'Manually retry the transfer with idempotency key bundle-margin:{order_id} (safe at Stripe), then write the transfer id into bundle_margin_transfer_id',
+    ],
+    pgCodes: [],
+  },
 ]

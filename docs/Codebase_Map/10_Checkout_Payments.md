@@ -1,6 +1,6 @@
 # 10 — Checkout & Payments ⚠ money
 
-<!-- map-stamp: domain=checkout-payments; verified=2026-09-04; commit=cec32fb5 -->
+<!-- map-stamp: domain=checkout-payments; verified=2026-09-05; commit=de9baab6 -->
 <!-- map-claims
 src/app/api/cart/**
 src/app/api/checkout/**
@@ -77,6 +77,10 @@ src/app/[vertical]/checkout/**
 | `api/checkout/external/route.ts` ⚠ | Dormant. Creates an order paid outside Stripe and returns a deep link; hard-gated off at `:35-37`. Single-vendor carts only. |
 | `api/checkout/payment-methods/route.ts` | POST. Returns the intersection of payment methods all cart vendors support, so the UI can render the selector. Read-only. |
 | `api/webhooks/stripe/route.ts` | Webhook entrypoint. Verifies the signature (400 on failure = no retry), delegates to `handleWebhookEvent`, returns 500 on throw so Stripe retries (up to 16× over 72h). `maxDuration = 30`. |
+
+## Market bundles (mig 244, 2026-09-05 — B1+B2) ⚠ money
+
+A bundle purchase is ITS OWN order (v1: one bundle, quantity 1, no mixing): `checkout/session` expands the bundle's components into ordinary `items` entries at LIVE prices BEFORE the pricing block — inventory, fees, order_items, and vendor payouts run byte-identically to a plain cart (conservation spec-tested) — and adds the fixed margin as its own addend beside tip/chipin (`round(margin × 1.065)`; the fee part is platform revenue). One Stripe line at `bundleDisplayPriceCents` (split rounding ⇒ Stripe charge == page == market card == `orders.total_cents` to the cent). VIP perks are explicitly gated OFF for bundle orders. Oversell rides `atomic_increment_bundle_sold` after the inventory loop with a full unwind; a full-order cancellation releases the slot inside `lib/inventory.ts`'s guarded claim. The margin transfers to `markets.stripe_account_id` ONLY at handoff — see [12_Market_Manager.md](12_Market_Manager.md) for the payout half. `lib/bundles/core.ts` is the single money-math source ([21_Lib_Reference.md](21_Lib_Reference.md)); `app/[vertical]/checkout/BundleCheckout.tsx` is the dedicated buyer view (`?bundle=` on the checkout page); `api/bundles/[bundleId]` is the public detail endpoint ([20_Buyer_Public.md](20_Buyer_Public.md)). All flow-integrity-pinned.
 
 ## Stripe library
 
