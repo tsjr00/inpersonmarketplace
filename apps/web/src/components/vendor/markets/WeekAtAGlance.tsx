@@ -21,7 +21,7 @@ interface StripEntry {
   marketType: string
   startTime: string | null
   endTime: string | null
-  status: 'on' | 'skipped_for_event' | 'cancelled_by_market'
+  status: 'on' | 'skipped_for_event' | 'cancelled_by_market' | 'payment_due'
   note: string | null
 }
 
@@ -106,7 +106,9 @@ export default function WeekAtAGlance({ vertical }: { vertical: string }) {
               </span>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
                 {day.entries.map((e, i) => {
-                  const struck = e.status !== 'on'
+                  // v2.1: payment_due is a live commitment awaiting prepay —
+                  // amber note (rendered below), never struck.
+                  const struck = e.status === 'skipped_for_event' || e.status === 'cancelled_by_market'
                   return (
                     <div key={`${e.marketId}-${i}`} style={{ fontSize: 13, minWidth: 0 }}>
                       <span style={{

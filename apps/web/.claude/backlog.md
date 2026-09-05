@@ -9,7 +9,7 @@ Last updated: 2026-09-03 (added: owner testing thoughts — host menu pare-down 
 ## 🎪 OWNER TESTING THOUGHTS — 2026-09-03 (not defects; captured verbatim-ish, code anchors verified same day)
 
 **✅ ALL SIX BUILT 2026-09-03** (staging `8df93d4b`; plan doc `event_ux_findings_2026-09-03_plan.md` has the build record; P1 decisions in decisions.md). Follow-ons captured:
-- [ ] **Week strip v2.1**: show 'special' make-up-day overrides + standing-occurrence "pay by X to keep your spot" flags on the strip (`lib/vendor/week-strip.ts` module doc).
+- [x] **Week strip v2.1** — BUILT 2026-09-04 (owner conditional go: "verify the make-up-day data source, if workable proceed" — both sources verified live: makeup-dates route writes status='special'; park-standing prepayCutoffISO is the pay-by definition). Pending occurrences render `payment_due` (never struck), make-up days informational, reschedule_date named on cancelled days. +5 specs.
 - [ ] **Selection notification menu summary**: the `event_vendor_selected` notification could carry "N of M items approved" (the Vendor Event Page block is the load-bearing surface; this is polish).
 
 1. [ ] **Host pare-down of proposed menus (DESIGN, likely with admin-assisted/host-paid events).** Trucks propose a menu; the host cannot subset it (truck proposes 7 items, host wants only 2 sold). Owner: "a feature many event hosts will want" — decide under what circumstances a host can select a subset. Touches listing↔event attachment + the shop's listing filter; interacts with "they must attend to sell" (mig 234) and per-item selection would need a per-(event, listing) state, which doesn't exist today. Design work now; build later.
@@ -2209,3 +2209,28 @@ The app can't know whether a required background check actually happened. Organi
 
 ## Prod vendor tier labels are wrong (owner, 2026-09-04)
 Prod query showed 12 of 15 vendor_profiles on LEGACY tier values — FM: premium 1, standard 7 · FT: basic 2, standard 2 — which normalizeTier maps to free (0 VIP slots, no paid features). Owner: "those tiers on prod are wrong labels." Fix = owner-run data relabel (UPDATE vendor_profiles SET tier=... per vendor/group), NOT code. Blocked on owner mapping: which rows become pro/boss vs stay free. Schema gate applies when the SQL is composed. Does not break the VIP build — everything fails closed for legacy labels. Also check staging/dev for the same drift.
+
+### Drafted relabel SQL (2026-09-04, owner-approved mapping: premium→pro, standard/basic→free, featured→boss)
+Owner-run, prod first (then staging/dev if the same drift shows). NOT a migration file — data fix.
+⚠ Before running: the pre-check lists each vendor with subscription_status — confirm the FM
+'premium' vendor's billing intent, because 'pro' grants paid entitlements (10 VIP slots, pro
+listing caps) regardless of Stripe state. standard/basic→free changes NOTHING they have today
+(legacy names already resolve to free limits in code AND in enforce_listing_tier_limit, mig 089).
+
+```sql
+-- 1) PRE-CHECK (read-only): who gets touched, with billing context
+SELECT id, vertical_id, tier, subscription_status,
+       profile_data->>'business_name' AS business_name,
+       profile_data->>'farm_name'     AS farm_name
+FROM vendor_profiles
+WHERE tier IN ('standard', 'premium', 'basic', 'featured')
+ORDER BY vertical_id, tier;
+
+-- 2) RELABEL (run after reviewing #1; row counts should be 1, 11, 0 on prod per the 2026-09-04 query)
+UPDATE vendor_profiles SET tier = 'pro'  WHERE tier = 'premium';
+UPDATE vendor_profiles SET tier = 'free' WHERE tier IN ('standard', 'basic');
+UPDATE vendor_profiles SET tier = 'boss' WHERE tier = 'featured';
+
+-- 3) POST-CHECK: expect only free/pro/boss
+SELECT vertical_id, tier, count(*) FROM vendor_profiles GROUP BY 1, 2 ORDER BY 1, 2;
+```

@@ -18,8 +18,13 @@
 - Owner-ordered FULL review of all 5 VIP commits (post-compaction trust check) → `.claude/vip_review_2026-09-04_research.md`. System coherent; F1 (page-vs-Stripe cent drift under discounts) + F2 (offers PUT missing tier gate) found and FIXED (owner approved) — uncommitted. Guard pins added. Gates: tsc ✓ · 2145/2145 ✓ · lint 0 err.
 - **FM VIP plan written** → `vip_loyalty_buildout_plan.md` PHASE FM. Blocker is ONE thing: normalizeTier collapses FM tiers → free → 0 slots; getTierLimits(_vertical) is the extension point. Engine/digest/favorites/notifications all vertical-agnostic (verified). Awaiting owner: FM slot counts (a/b/c), featured?, market-box exclusion confirm, "visits" wording.
 
+## POST-REVIEW (same day, continued): fixes shipped + FM plan resolved + week strip v2.1 built
+- Review fixes F1+F2 SHIPPED to staging `6a8f90b1` (first chain attempt failed on cwd-relative paths — reran from repo root, ref-update verified).
+- FM VIP: owner corrected the tier model → tiers are UNIFIED (free/pro/boss both verticals, mig 089; my memory was stale, MEMORY.md corrected). FM VIP works TODAY for pro/boss; only real item = prod tier-label relabel (12/15 vendors on legacy labels → behave as free). Relabel SQL drafted in backlog.md (owner-approved mapping premium→pro, standard/basic→free, featured→boss); owner runs it later — fails closed meanwhile. FM punch guidance line shipped in 6a8f90b1.
+- **Week strip v2.1 BUILT (uncommitted)** — owner picked it as fastest mid-stream finish; conditional go honored (data sources verified live first): week-strip.ts pending standing occurrences (`payment_due`, pay-by from park-standing prepayCutoffISO — one definition) + 'special' make-up days (informational, relationship-gated) + reschedule_date in cancel notes; WeekAtAGlance struck-logic fix; +5 specs (12/12); map 11 updated. Gates at wrap: tsc ✓ · week-strip 12/12 · full suite pending final run.
+
 ## ▶ NEXT SESSION / OWNER
-1. **Commit + push the review fixes** (F1+F2, approval pending at wrap).
+1. **Commit + push week strip v2.1** (approval pending at wrap).
 2. Owner staging retests owed: FULL VIP loop — A1 report → A2 star toggle/push/badges → A3 digest (8am-hour cron GET) → B1+punch: configure perks on Insights → buyer sees Favorites perk lines → checkout shows VIP deal line → Stripe total matches → punch earn ping after Nth fulfilled qualifying order. Plus standing 2026-09-03 batch retests (P1 pare loop, week strip, stage surfaces).
 3. Two flagged interpretations for owner: "min platform threshold" = vertical small-order threshold ($5 FT/$10 FM) · $-off bounds $1–$50 (proposed).
 4. Standing queue unchanged: event-gate fixes A+B (awaiting go since 08-31) · vendor-docs crash evidence · admin phase 6 events board · Protocol v6 C/D/E money tests · money-on-activation tier-scope decision (owner thinking) · prod push in window when ready · backlog: platform-funded punch perk math (behind chunk D).

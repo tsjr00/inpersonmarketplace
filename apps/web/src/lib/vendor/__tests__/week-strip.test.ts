@@ -11,6 +11,15 @@
  *  · a manager-cancelled date strikes with its own reason
  *  · strikes never apply to the event entry itself
  *  · events span start..end dates; booth weeks only land on market-open days
+ *
+ * v2.1 (owner go 2026-09-04):
+ *  · an unpaid standing occurrence shows as payment_due with the pay-by date,
+ *    outranks the weekly projection, and never renders struck styling
+ *  · a 'special' make-up day shows informationally — only for markets the
+ *    vendor already appears at, with schedule hours only when the DOW matches
+ *  · a cancelled day whose override carries reschedule_date names it
+ *  · a strike (blackout/cancel) overrides payment_due — the changed day is
+ *    the more important fact
  */
 
 import { describe, it, expect } from 'vitest'
@@ -86,6 +95,63 @@ describe('assembleStrip', () => {
       events: [{ marketId: 'ev1', name: 'Fest', startDate: '2026-09-06', endDate: '2026-09-08', startTime: null, endTime: null }],
     })
     expect(days.map(d => d.entries.length)).toEqual([1, 1, 0])
+  })
+
+  it('an unpaid standing occurrence is payment_due with the pay-by date, and outranks the weekly projection', () => {
+    const days = assembleStrip(DATES, {
+      ...base,
+      schedules: [{ marketId: 'm1', marketName: 'Park A', marketType: 'traditional', kind: 'schedule' as const, dayOfWeek: 2, startTime: '11:00', endTime: '14:00' }],
+      pendingOccurrences: [{ marketId: 'm1', marketName: 'Park A', marketType: 'traditional', date: '2026-09-08', payBy: '2026-09-06', startTime: '11:00', endTime: '14:00' }],
+    })
+    expect(days[1]!.entries).toHaveLength(1)
+    expect(days[1]!.entries[0]).toMatchObject({ kind: 'park_booking', status: 'payment_due' })
+    expect(days[1]!.entries[0]!.note).toContain('Pay by 2026-09-06')
+  })
+
+  it("a 'special' make-up day renders informationally for a market the vendor appears at — and not otherwise", () => {
+    const days = assembleStrip(DATES, {
+      ...base,
+      // vendor's schedule at m1 is Tuesday; the make-up day lands Monday (off-DOW)
+      schedules: [{ marketId: 'm1', marketName: 'Park A', marketType: 'traditional', kind: 'schedule' as const, dayOfWeek: 2, startTime: '11:00', endTime: '14:00' }],
+      specialOverrides: [
+        { marketId: 'm1', date: '2026-09-07' },
+        { marketId: 'stranger', date: '2026-09-07' }, // no relationship — not the vendor's news
+      ],
+    })
+    expect(days[0]!.entries).toHaveLength(1)
+    expect(days[0]!.entries[0]).toMatchObject({ marketId: 'm1', status: 'on', startTime: null })
+    expect(days[0]!.entries[0]!.note).toContain('Make-up day')
+  })
+
+  it('a make-up day matching the schedule DOW carries the schedule hours', () => {
+    const days = assembleStrip(DATES, {
+      ...base,
+      schedules: [{ marketId: 'm1', marketName: 'Park A', marketType: 'traditional', kind: 'schedule' as const, dayOfWeek: 1, startTime: '09:00', endTime: '12:00' }],
+      // Monday 2026-09-07 already projects from the schedule; the special row
+      // must not duplicate it
+      specialOverrides: [{ marketId: 'm1', date: '2026-09-07' }],
+    })
+    expect(days[0]!.entries).toHaveLength(1)
+  })
+
+  it('a cancelled day with a reschedule_date names the make-up date in its note', () => {
+    const days = assembleStrip(DATES, {
+      ...base,
+      schedules: [{ marketId: 'm1', marketName: 'Park A', marketType: 'traditional', kind: 'schedule' as const, dayOfWeek: 2, startTime: '11:00', endTime: '14:00' }],
+      cancelledOverrides: [{ marketId: 'm1', date: '2026-09-08', rescheduleDate: '2026-09-15' }],
+    })
+    const entry = days[1]!.entries[0]!
+    expect(entry.status).toBe('cancelled_by_market')
+    expect(entry.note).toContain('2026-09-15')
+  })
+
+  it('a strike overrides payment_due — the changed day is the more important fact', () => {
+    const days = assembleStrip(DATES, {
+      ...base,
+      pendingOccurrences: [{ marketId: 'm1', marketName: 'Park A', marketType: 'traditional', date: '2026-09-08', payBy: '2026-09-06', startTime: null, endTime: null }],
+      blackouts: [{ marketId: 'm1', date: '2026-09-08', sourceEventName: 'Big Fair' }],
+    })
+    expect(days[1]!.entries[0]).toMatchObject({ status: 'skipped_for_event' })
   })
 
   it('entries sort by start time; all-day (null) entries last', () => {

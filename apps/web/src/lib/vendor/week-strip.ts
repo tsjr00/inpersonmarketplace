@@ -22,9 +22,19 @@
  *
  * Events shown: SELECTED only (organizer_selected_at, not benched) — the same
  * accuracy rule as the event pill; an accepted-awaiting event is not a
- * commitment. NOT shown (v2.1 candidates): 'special' make-up-day overrides
- * (attendance semantics are booth-week territory) and pending standing
- * occurrences ("pay by X to keep your spot").
+ * commitment.
+ *
+ * v2.1 (owner go 2026-09-04): two more date-specific facts —
+ *   · 'special' make-up-day overrides (market_date_overrides, written by the
+ *     manager's season makeup-dates route) render as an INFORMATIONAL entry
+ *     for vendors with a weekly schedule or commitment at that market ("the
+ *     market added a day") — no attendance claim; booth weeks are NOT
+ *     extended onto them. A cancelled day whose override carries
+ *     reschedule_date names the make-up date in its strike note.
+ *   · pending standing occurrences (park_spot_bookings status
+ *     'pending_payment' WITH standing_reservation_id) render as
+ *     status 'payment_due' with "Pay by {date}" — the date comes from
+ *     park-standing.ts prepayCutoffISO, the ONE cutoff definition.
  *
  * `assembleStrip` is pure (unit-tested); `loadVendorWeekStrip` does the reads.
  */
@@ -32,9 +42,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { observed } from '@/lib/errors'
 import { dayOfWeekOf, datesBetween, padTime, shiftDate } from '@/lib/events/availability'
+import { prepayCutoffISO } from '@/lib/markets/park-standing'
 
 export type StripEntryKind = 'schedule' | 'park_booking' | 'booth' | 'private_pickup' | 'event'
-export type StripEntryStatus = 'on' | 'skipped_for_event' | 'cancelled_by_market'
+export type StripEntryStatus = 'on' | 'skipped_for_event' | 'cancelled_by_market' | 'payment_due'
 
 export interface StripEntry {
   marketId: string
@@ -84,19 +95,44 @@ export interface StripEventInput {
   endTime: string | null
 }
 
+export interface StripPendingOccurrenceInput {
+  marketId: string
+  marketName: string
+  marketType: string
+  date: string
+  /** last day to pay (prepayCutoffISO of the occurrence date) */
+  payBy: string
+  startTime: string | null
+  endTime: string | null
+}
+
 export interface StripAssembleInput {
   schedules: StripScheduleInput[]
   dateCommitments: StripDateInput[]
   events: StripEventInput[]
-  /** market_date_overrides with status='cancelled' in the window */
-  cancelledOverrides: Array<{ marketId: string; date: string }>
+  /** market_date_overrides with status='cancelled' in the window
+   *  (rescheduleDate = the manager's advisory make-up date, when set) */
+  cancelledOverrides: Array<{ marketId: string; date: string; rescheduleDate?: string | null }>
   /** vendor_date_blackouts in the window */
   blackouts: Array<{ marketId: string; date: string; sourceEventName: string | null }>
+  /** v2.1: market_date_overrides with status='special' — make-up days the
+   *  market added; shown only for markets the vendor already appears at */
+  specialOverrides?: Array<{ marketId: string; date: string }>
+  /** v2.1: unpaid standing-occurrence park days ("pay by X to keep your spot") */
+  pendingOccurrences?: StripPendingOccurrenceInput[]
 }
 
 export function assembleStrip(dates: string[], input: StripAssembleInput): StripDay[] {
-  const cancelled = new Set(input.cancelledOverrides.map(o => `${o.marketId}|${o.date}`))
+  const cancelledByKey = new Map(input.cancelledOverrides.map(o => [`${o.marketId}|${o.date}`, o]))
   const blackoutByKey = new Map(input.blackouts.map(b => [`${b.marketId}|${b.date}`, b]))
+
+  // v2.1: market identity lookup for make-up-day entries — a special override
+  // only renders for a market the vendor already has a relationship with.
+  const marketInfo = new Map<string, { name: string; marketType: string }>()
+  for (const s of input.schedules) marketInfo.set(s.marketId, { name: s.marketName, marketType: s.marketType })
+  for (const dc of input.dateCommitments) {
+    if (!marketInfo.has(dc.marketId)) marketInfo.set(dc.marketId, { name: dc.marketName, marketType: dc.marketType })
+  }
 
   const days: StripDay[] = []
   for (const date of dates) {
@@ -121,6 +157,23 @@ export function assembleStrip(dates: string[], input: StripAssembleInput): Strip
       })
     }
 
+    // v2.1: an unpaid standing occurrence is a real (conditional) commitment —
+    // it outranks the weekly projection the same way a paid day does, but
+    // renders as payment_due with the pay-by date.
+    for (const po of input.pendingOccurrences ?? []) {
+      if (po.date !== date || has(po.marketId)) continue
+      entries.push({
+        marketId: po.marketId,
+        name: po.marketName,
+        kind: 'park_booking',
+        marketType: po.marketType,
+        startTime: po.startTime ? padTime(po.startTime) : null,
+        endTime: po.endTime ? padTime(po.endTime) : null,
+        status: 'payment_due',
+        note: `Pay by ${po.payBy} to keep your spot`,
+      })
+    }
+
     for (const s of input.schedules) {
       if (s.dayOfWeek !== dow) continue
       if (has(s.marketId)) continue
@@ -133,6 +186,27 @@ export function assembleStrip(dates: string[], input: StripAssembleInput): Strip
         endTime: padTime(s.endTime),
         status: 'on',
         note: null,
+      })
+    }
+
+    // v2.1: make-up days the market added ('special' overrides). Informational
+    // — the vendor sees the market runs that day; booth weeks are not extended
+    // and no attendance is implied. Hours come from the vendor's schedule for
+    // that weekday when one exists (rare — make-up days usually fall off-DOW).
+    for (const so of input.specialOverrides ?? []) {
+      if (so.date !== date || has(so.marketId)) continue
+      const m = marketInfo.get(so.marketId)
+      if (!m) continue // no relationship with this market — not the vendor's news
+      const sched = input.schedules.find(s => s.marketId === so.marketId && s.dayOfWeek === dow)
+      entries.push({
+        marketId: so.marketId,
+        name: m.name,
+        kind: 'schedule',
+        marketType: m.marketType,
+        startTime: sched ? padTime(sched.startTime) : null,
+        endTime: sched ? padTime(sched.endTime) : null,
+        status: 'on',
+        note: 'Make-up day added by the market',
       })
     }
 
@@ -151,6 +225,8 @@ export function assembleStrip(dates: string[], input: StripAssembleInput): Strip
     }
 
     // Strike layers — an entry is kept and explained, never silently dropped.
+    // Strikes also override payment_due: a cancelled/skipped day is the more
+    // important fact than an open pay-by window on it.
     for (const e of entries) {
       if (e.kind === 'event') continue // blackouts/cancellations never apply to the event itself
       const b = blackoutByKey.get(`${e.marketId}|${date}`)
@@ -159,9 +235,13 @@ export function assembleStrip(dates: string[], input: StripAssembleInput): Strip
         e.note = b.sourceEventName ? `Skipped — you're at ${b.sourceEventName}` : 'Skipped for this date'
         continue
       }
-      if (cancelled.has(`${e.marketId}|${date}`)) {
+      const c = cancelledByKey.get(`${e.marketId}|${date}`)
+      if (c) {
         e.status = 'cancelled_by_market'
-        e.note = 'This day was cancelled by the market'
+        // v2.1: name the manager's advisory make-up date when the override has one.
+        e.note = c.rescheduleDate
+          ? `This day was cancelled by the market — make-up day ${c.rescheduleDate}`
+          : 'This day was cancelled by the market'
       }
     }
 
@@ -251,11 +331,14 @@ export async function loadVendorWeekStrip(
   //    weeks. Hours come from the location's schedule on that weekday.
   const dateCommitments: StripDateInput[] = []
   const [{ data: parkRows }, { data: boothRows }] = await Promise.all([
+    // v2.1: pending_payment included — but only standing-occurrence rows
+    // become entries (an unpaid ONE-OFF booking is an abandoned checkout,
+    // not a commitment); filtered below.
     observed(service
       .from('park_spot_bookings')
-      .select('market_id, booking_date, markets:market_id ( id, name, market_type )')
+      .select('market_id, booking_date, status, standing_reservation_id, markets:market_id ( id, name, market_type )')
       .eq('vendor_profile_id', vendorProfileId)
-      .eq('status', 'paid')
+      .in('status', ['paid', 'pending_payment'])
       .is('manager_barred_at', null)
       .in('booking_date', dates), { table: 'park_spot_bookings' }),
     observed(service
@@ -288,10 +371,24 @@ export async function loadVendorWeekStrip(
   }
   const hoursFor = (marketId: string, date: string) => hoursByMarketDow.get(`${marketId}|${dayOfWeekOf(date)}`)
 
+  const pendingOccurrences: StripPendingOccurrenceInput[] = []
   for (const r of parkRows ?? []) {
     const m = one(r.markets as MarketEmbed)
     if (!m) continue
     const h = hoursFor(r.market_id as string, r.booking_date as string)
+    if (r.status === 'pending_payment') {
+      if (!r.standing_reservation_id) continue // abandoned one-off checkout
+      pendingOccurrences.push({
+        marketId: r.market_id as string,
+        marketName: m.name,
+        marketType: m.market_type,
+        date: r.booking_date as string,
+        payBy: prepayCutoffISO(r.booking_date as string),
+        startTime: h?.start ?? null,
+        endTime: h?.end ?? null,
+      })
+      continue
+    }
     dateCommitments.push({
       kind: 'park_booking',
       marketId: r.market_id as string,
@@ -360,21 +457,33 @@ export async function loadVendorWeekStrip(
   for (const p of pending) events.push(p.ev)
 
   // 5. Strike layers: manager-cancelled days + the vendor's blackouts.
+  //    v2.1: the same query now also carries 'special' make-up days and the
+  //    cancelled rows' advisory reschedule_date.
   const involvedMarketIds = new Set<string>([
     ...schedules.map(s => s.marketId),
     ...dateCommitments.map(d => d.marketId),
+    ...pendingOccurrences.map(p => p.marketId),
   ])
-  const cancelledOverrides: Array<{ marketId: string; date: string }> = []
+  const cancelledOverrides: Array<{ marketId: string; date: string; rescheduleDate: string | null }> = []
+  const specialOverrides: Array<{ marketId: string; date: string }> = []
   if (involvedMarketIds.size > 0) {
     const { data: ovRows } = await observed(service
       .from('market_date_overrides')
-      .select('market_id, override_date, status')
+      .select('market_id, override_date, status, reschedule_date')
       .in('market_id', [...involvedMarketIds])
       .gte('override_date', minDate)
       .lte('override_date', maxDate)
-      .eq('status', 'cancelled'), { table: 'market_date_overrides' })
+      .in('status', ['cancelled', 'special']), { table: 'market_date_overrides' })
     for (const o of ovRows ?? []) {
-      cancelledOverrides.push({ marketId: o.market_id as string, date: o.override_date as string })
+      if (o.status === 'special') {
+        specialOverrides.push({ marketId: o.market_id as string, date: o.override_date as string })
+      } else {
+        cancelledOverrides.push({
+          marketId: o.market_id as string,
+          date: o.override_date as string,
+          rescheduleDate: (o.reschedule_date as string | null) ?? null,
+        })
+      }
     }
   }
 
@@ -399,5 +508,5 @@ export async function loadVendorWeekStrip(
     sourceEventName: b.source_event_market_id ? eventNameById.get(b.source_event_market_id as string) ?? null : null,
   }))
 
-  return assembleStrip(dates, { schedules, dateCommitments, events, cancelledOverrides, blackouts })
+  return assembleStrip(dates, { schedules, dateCommitments, events, cancelledOverrides, blackouts, specialOverrides, pendingOccurrences })
 }
