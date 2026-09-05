@@ -2280,3 +2280,36 @@ BUILD SHAPE (when scheduled): bundles table + manager dashboard card + admin app
 checkout expansion (⚠ checkout/session touch, additive) + bundle status/margin transfer + vendor
 order-card "bundle — manager pickup" flag + auto-unavailable on component stockout. FT date-night
 timing + delivery variants = later phases.
+
+## 📣 BUNDLES — MARKETING & CAUSE SLICES (owner ask 2026-09-05: "dig into all the possibilities… add to backlog for marketing explanations + listing-page copy")
+KEY STRUCTURAL FACT: the cause rails ALREADY EXIST (mig 213 system: cause_beneficiaries + Connect
+onboarding + event chip-in + round-up). Cause-percentage bundles = composing bundles with built
+machinery, not new money paths. Route all cause money through beneficiary rails (auditable, real
+numbers) — never informal pledges.
+SLICES (strongest first):
+1. **Fundraiser campaigns** (flagship): time-boxed bundle series FOR an org (PTA/school/nonprofit),
+   visible goal/raised counter, pickup on market day. THE org's network does the selling — each
+   campaign imports a new audience + walks them into the market. Positioning: "replaces the
+   wrapping-paper fundraiser — money stays in town twice." Mechanism backed by scoring research
+   sources S29–S31 (financial incentives move market spending; info-only doesn't).
+2. **Cause-event tie-ins**: race-finish recovery baskets, school-picnic packs, FT dinner-for-a-cause.
+   DELINEATION RULE (owner): event managers HOST/feature, market managers OPERATE — bundles are
+   always market-operated; event page links the market's bundle, event's chip-in beneficiary
+   auto-attaches.
+3. **Occasion retail**: Teacher Appreciation (PTA-sold), holiday gifting, B2B repeaters (realtor
+   closing gifts, corporate local gifts — the recurring-buyer slice), welcome-basket (pairs w/
+   future delivery phase).
+4. **Listing-page copy template — 5 pillars**: curator ("assembled by the people who run this
+   market") · named makers w/ vendor-profile links (bundle = vendor DISCOVERY funnel / sampler →
+   feeds loyalty/VIP) · cause line w/ REAL dollar figure (never "a portion of proceeds") ·
+   quality+scarcity ("hand-assembled · only 8 this week") · the visit ("pick up Saturday — stay
+   for the rest").
+5. **Platform-adoption pitch**: manager recruitment ("revenue stream that doesn't exist without
+   the app + easiest org partnership") · new-market launch playbook = founding-week campaign w/
+   one anchor org (foot traffic + local-press hook) · strengthens grant/community-impact narrative
+   (CITA notes).
+CAUTIONS: ⚖ "X% goes to charity" advertising can trigger commercial co-venturer rules in some
+states — ADD TO ATTORNEY LIST (with handling disclaimer + child-safety clauses). ⚠ No external
+cause-marketing statistics in public copy until sourced (real-numbers rule).
+METRICS to design in: new-buyer % per campaign, org-audience conversion, post-bundle repeat rate,
+per-vendor discovery clicks from bundle pages.
