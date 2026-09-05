@@ -1882,7 +1882,9 @@ describe('Matching readiness integrity', () => {
 
   it('the admin match preview reads real readiness, not hardcoded inputs', () => {
     // The exact shape of the T-64 bug: literal `max_headcount_per_wave: 30`.
-    const page = rd('app/[vertical]/admin/events/page.tsx')
+    // Phase 6 (2026-09-04): the surface moved verbatim into the board
+    // component; the route is a thin wrapper. Same invariant, new home.
+    const page = rd('components/admin/EventsAdminPage.tsx')
     expect(/max_headcount_per_wave: 30,/.test(page),
       'a hardcoded capacity in the admin preview is the T-64 divergence').toBe(false)
     expect(page, 'the preview must read the vendor readiness the API now sends')
@@ -2441,6 +2443,17 @@ describe('Event invitation gate (mig 239) — the rule holds everywhere it can b
     const intake = code('app/api/event-requests/route.ts')
     expect(intake, 'intake only ever dry-runs the engine').toMatch(/autoMatchAndInvite\([^)]*\{ dryRun: true \}\)/)
     expect(intake, 'intake must not stamp auto_invite_sent_at (the release route does)').not.toMatch(/auto_invite_sent_at:/)
+    // Gate fixes A+B (2026-08-31 findings, built 2026-09-04): surfaces that
+    // DESCRIBE or ADVANCE the pre-order state honor the same hold —
+    // (A) the admin board's Open Pre-Orders gates on invitationsHeld;
+    // (B) the organizer's ready-stage copy carries the held branch (the
+    // approved-stage guard alone let 'ready' claim orderability on a
+    // zero-invite event).
+    expect(code('components/admin/EventsAdminPage.tsx'), 'admin Open Pre-Orders honors the hold')
+      .toMatch(/import \{ invitationsHeld \} from '@\/lib\/events\/invitation-gate'/)
+    const progress = code('components/events/OrganizerProgress.tsx')
+    expect(progress, 'ready-stage copy has a held branch (case 3)')
+      .toMatch(/case 3:[\s\S]{0,600}invitationsHeld/)
     // No caller outside this list — a new one must be added here AND honor the hold.
     const all = new Set<string>()
     const walk = (dir: string) => {
@@ -2548,8 +2561,9 @@ describe('Vendor event stage — shared classifier', () => {
       // P3 (owner 2026-09-03): the organizer's per-truck roster speaks the
       // same vocabulary as the vendor-facing surfaces.
       'app/[vertical]/event-manager/[id]/dashboard/page.tsx',
-      // P2 (owner 2026-09-03): the admin invitations table's stage chips.
-      'app/[vertical]/admin/events/page.tsx',
+      // P2 (owner 2026-09-03): the admin invitations table's stage chips —
+      // phase 6 (2026-09-04) moved the surface into the board component.
+      'components/admin/EventsAdminPage.tsx',
     ]) {
       expect(rd(file), `${file} must derive the stage from vendor-stage.ts`)
         .toMatch(/import \{[^}]*classifyVendorEventStage[^}]*\} from '@\/lib\/events\/vendor-stage'/)

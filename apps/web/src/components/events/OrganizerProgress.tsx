@@ -142,6 +142,17 @@ export default function OrganizerProgress({
           actions,
         }
       case 3:
+        // Gate fix B (owner go 2026-09-04, found 2026-08-31): the held guard
+        // existed only on the approved stage — an event reaching 'ready' with
+        // invitations still held told the organizer attendees could order
+        // when no vendor has even been invited. Same truth, every stage.
+        if (invitationsHeld) {
+          return {
+            done: 'Your event page is set up.',
+            now: `But invitations have not gone out yet, so no ${vendorWord} are confirmed and there is nothing for attendees to order. Finish the items in the Send invitations card above and click Send.`,
+            actions,
+          }
+        }
         if (eventToken) {
           actions.push({ label: 'View the attendee page', href: `/${vertical}/events/${eventToken}/shop` })
         }
