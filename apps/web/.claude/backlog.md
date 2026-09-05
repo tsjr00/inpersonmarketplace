@@ -2250,3 +2250,33 @@ weighted vendor capture vs equal split, FM branch, preorder-coverage host-paid b
 - [ ] PHASE 3 (later): benchmark classes + dual-forecast reconciliation, sponsored-external funnel
       (when those events exist).
 - [ ] Data-capture gap check rides Phase 1 (Policy §29 vs what rows already store).
+
+## 🧺 MANAGER-CURATED BUNDLES — design locked 2026-09-05 (owner concept, 3 design rounds in chat 2026-09-04/05)
+THE DESIGN (final, single-order): a bundle = a market-owned product whose checkout expands into
+ordinary component order_items at each vendor's LIVE price (existing multi-vendor machinery:
+atomic inventory decrement, per-vendor fulfillment + payout UNTOUCHED — the manager is just the
+person at the window) + ONE new payee line: the manager's margin, paid to the market's existing
+Stripe Connect rail on bundle handoff. One-off, limited qty, lead-time listing. NO fee suspension,
+NO two-leg transaction, NO speculative inventory — earlier buy-first/two-leg versions superseded.
+Manager no-show = existing buyer-no-show handling per vendor + bundle-level refund policy.
+OWNER DECISIONS (2026-09-05):
+- Price recalculates automatically: margin FIXED, bundle price DERIVED (live component sum + margin)
+  — confirmed the CHEAPER build; matches existing live-price cart validation.
+- Vendor consent CONFIRMED 2026-09-05: DEFAULT-IN. Vendors' items are bundle-eligible by default;
+  they get in-app + email asking if they want to OPT OUT of the manager grouping their items.
+  GLOBAL per-vendor setting, NOT per item.
+- Margin is seller-fee-FREE (perk; platform still nets buyer fee on the markup) + per-bundle ADMIN
+  APPROVAL with a value-add justification field (draft→pending→active; re-approval on margin
+  increase only; approval verifies component vendors have not opted out). Owner approved the
+  tuning suggestions as proposed.
+- Attorney: owner CONFIRMED terms must disclaim manager handling (queue with child-safety clauses).
+- NEW PRODUCT RULE (owner 2026-09-05, FT side): every item eligible for meal aggregation must come
+  in a SELF-CONTAINED, COVERED container — nothing open to the elements, same standard as packaging
+  for a delivery driver. Build shape: an FT bundle-eligibility check at composition time (container
+  flag on the listing or readiness data; exact source decided at design).
+- TAX FLAG for chunk D: assembled bundle may be a different taxable object than its components;
+  manager may owe tax on the assembled item. Design chunk D with this case in scope.
+BUILD SHAPE (when scheduled): bundles table + manager dashboard card + admin approval queue card +
+checkout expansion (⚠ checkout/session touch, additive) + bundle status/margin transfer + vendor
+order-card "bundle — manager pickup" flag + auto-unavailable on component stockout. FT date-night
+timing + delivery variants = later phases.
