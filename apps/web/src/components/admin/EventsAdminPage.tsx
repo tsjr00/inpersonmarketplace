@@ -220,6 +220,9 @@ export default function EventsAdminPage({ vertical }: { vertical: string }) {
   // Vendor invite state
   const [vendors, setVendors] = useState<VendorOption[]>([])
   const [mvMap, setMvMap] = useState<Record<string, MarketVendor[]>>({})
+  // Owner 2026-09-05: mig-238 blackouts sourced from this event — the admin
+  // flag that a vendor's market sales are BLOCKED because they chose it.
+  const [blocking, setBlocking] = useState<Record<string, Array<{ vendor_profile_id: string; blocked_market_name: string; blackout_date: string }>>>({})
   const [selectedVendors, setSelectedVendors] = useState<string[]>([])
   const [inviting, setInviting] = useState(false)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
@@ -269,6 +272,7 @@ export default function EventsAdminPage({ vertical }: { vertical: string }) {
         setRequests(data.requests || [])
         setVendors(data.vendors || [])
         setMvMap(data.marketVendorsMap || {})
+        setBlocking(data.blocking || {})
       }
       if (appsRes.ok) {
         const data = await appsRes.json()
@@ -1625,6 +1629,27 @@ export default function EventsAdminPage({ vertical }: { vertical: string }) {
               {selected.market_id && (
                 <Section title="Vendor Fee Payments">
                   <AdminEventFeePayments eventId={selected.id} />
+                </Section>
+              )}
+
+              {/* Sales-blocking flag (owner 2026-09-05): vendors whose OTHER
+                  locations are blacked out because they chose this event —
+                  the strike on the vendor's own strip isn't admin-visible. */}
+              {selected.market_id && (blocking[selected.market_id] ?? []).length > 0 && (
+                <Section title="Market-Sales Blocking In Effect">
+                  <div style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, marginBottom: spacing['2xs'] }}>
+                    These vendors&apos; market days are blocked (no buyer orders) because they chose this event:
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: spacing.md, fontSize: typography.sizes.sm, color: statusColors.neutral800 }}>
+                    {(blocking[selected.market_id] ?? []).map((b, i) => {
+                      const vendorInfo = vendors.find((v) => v.id === b.vendor_profile_id)
+                      return (
+                        <li key={i}>
+                          {vendorInfo?.business_name || b.vendor_profile_id.slice(0, 8)} — {b.blocked_market_name} on {b.blackout_date}
+                        </li>
+                      )
+                    })}
+                  </ul>
                 </Section>
               )}
 

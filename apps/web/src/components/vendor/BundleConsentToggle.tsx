@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { colors, spacing, typography, radius, statusColors } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 /**
  * Vendor bundle consent (mig 244) — the GLOBAL opt-out. Vendors are IN by
@@ -17,6 +19,7 @@ interface BundleConsentToggleProps {
 }
 
 export default function BundleConsentToggle({ vendorId, initialOptOut }: BundleConsentToggleProps) {
+  const locale = getClientLocale()
   const [optOut, setOptOut] = useState(initialOptOut)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -36,15 +39,13 @@ export default function BundleConsentToggle({ vendorId, initialOptOut }: BundleC
         setOptOut(nextOptOut)
         setResult({
           type: 'success',
-          text: nextOptOut
-            ? 'You\'re opted out — your items won\'t appear in any new or existing bundles.'
-            : 'You\'re in — market managers can feature your items in curated bundles.',
+          text: nextOptOut ? t('bundle.consent_out_msg', locale) : t('bundle.consent_in_msg', locale),
         })
       } else {
-        setResult({ type: 'error', text: (data.error as string) || 'Could not save.' })
+        setResult({ type: 'error', text: (data.error as string) || t('bundle.consent_error', locale) })
       }
     } catch {
-      setResult({ type: 'error', text: 'Could not save — please retry.' })
+      setResult({ type: 'error', text: t('bundle.consent_error', locale) })
     } finally {
       setBusy(false)
     }
@@ -52,11 +53,9 @@ export default function BundleConsentToggle({ vendorId, initialOptOut }: BundleC
 
   return (
     <div style={{ backgroundColor: 'white', borderRadius: 12, padding: 24, border: '1px solid #e5e7eb' }}>
-      <h2 style={{ margin: '0 0 8px 0', fontSize: 20, fontWeight: 600 }}>🧺 Curated bundles</h2>
+      <h2 style={{ margin: '0 0 8px 0', fontSize: 20, fontWeight: 600 }}>🧺 {t('bundle.consent_title', locale)}</h2>
       <p style={{ margin: `0 0 ${spacing.sm}`, fontSize: typography.sizes.sm, color: colors.textMuted, lineHeight: 1.5 }}>
-        Market managers can assemble items from several vendors into one curated purchase.
-        Your items sell at your full listed price and you&apos;re paid exactly as on a regular order —
-        the manager&apos;s curation margin never comes out of your side.
+        {t('bundle.consent_desc', locale)}
       </p>
       <label style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, fontSize: typography.sizes.sm, color: colors.textPrimary, cursor: busy ? 'wait' : 'pointer' }}>
         <input
@@ -65,7 +64,7 @@ export default function BundleConsentToggle({ vendorId, initialOptOut }: BundleC
           disabled={busy}
           onChange={(e) => toggle(!e.target.checked)}
         />
-        Allow the market manager to include my items in curated bundles
+        {t('bundle.consent_label', locale)}
       </label>
       {result && (
         <div style={{

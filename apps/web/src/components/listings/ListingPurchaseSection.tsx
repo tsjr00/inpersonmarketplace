@@ -26,6 +26,8 @@ interface ListingPurchaseSectionProps {
   availablePickupDates?: AvailablePickupDate[] | undefined
   pickupLeadMinutes?: number | undefined
   paymentBadges?: React.ReactNode | undefined
+  /** Day-of FT item — off-day "closed" reads as "orders open on the operating day". */
+  dayOfOnly?: boolean | undefined
 }
 
 export default function ListingPurchaseSection({
@@ -36,7 +38,8 @@ export default function ListingPurchaseSection({
   isPremiumRestricted = false,
   availablePickupDates = [],
   pickupLeadMinutes,
-  paymentBadges
+  paymentBadges,
+  dayOfOnly = false
 }: ListingPurchaseSectionProps) {
   const locale = getClientLocale()
 
@@ -106,6 +109,7 @@ export default function ListingPurchaseSection({
       showMixedAvailabilityWarning={hasMixedAvailability}
       pickupLeadMinutes={pickupLeadMinutes}
       paymentBadges={paymentBadges}
+      dayOfOnly={dayOfOnly}
     />
   )
 }

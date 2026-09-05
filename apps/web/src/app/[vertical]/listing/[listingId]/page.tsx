@@ -433,6 +433,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                   primaryColor={branding.colors.primary}
                   vertical={vertical}
                   isPremiumRestricted={isPremiumRestricted}
+                    dayOfOnly={vertical === 'food_trucks' && ((listing.advance_order_days as number | null) ?? 0) === 0}
                     availablePickupDates={(availablePickupDates as AvailablePickupDate[] | null) || []}
                     pickupLeadMinutes={vendorProfile.pickup_lead_minutes as number | undefined}
                     paymentBadges={
@@ -463,6 +464,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                   primaryColor={branding.colors.primary}
                   vertical={vertical}
                   isPremiumRestricted={isPremiumRestricted}
+                  dayOfOnly={vertical === 'food_trucks' && ((listing.advance_order_days as number | null) ?? 0) === 0}
                   availablePickupDates={(availablePickupDates as AvailablePickupDate[] | null) || []}
                   pickupLeadMinutes={vendorProfile.pickup_lead_minutes as number | undefined}
                   paymentBadges={

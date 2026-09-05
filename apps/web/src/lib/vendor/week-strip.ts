@@ -45,7 +45,7 @@ import { dayOfWeekOf, datesBetween, padTime, shiftDate } from '@/lib/events/avai
 import { prepayCutoffISO } from '@/lib/markets/park-standing'
 
 export type StripEntryKind = 'schedule' | 'park_booking' | 'booth' | 'private_pickup' | 'event'
-export type StripEntryStatus = 'on' | 'skipped_for_event' | 'cancelled_by_market' | 'payment_due'
+export type StripEntryStatus = 'on' | 'skipped_for_event' | 'cancelled_by_market' | 'payment_due' | 'standing_hold'
 
 export interface StripEntry {
   marketId: string
@@ -120,6 +120,10 @@ export interface StripAssembleInput {
   specialOverrides?: Array<{ marketId: string; date: string }>
   /** v2.1: unpaid standing-occurrence park days ("pay by X to keep your spot") */
   pendingOccurrences?: StripPendingOccurrenceInput[]
+  /** v2.2 (owner finding 2026-09-05): APPROVED standing holds whose occurrence
+   *  hasn't materialized yet (occurrences generate ≤7 days out, park-standing
+   *  GENERATION_HORIZON) — the vendor's approved claim was invisible until then. */
+  standingHolds?: Array<{ marketId: string; marketName: string; marketType: string; dayOfWeek: number; startTime: string | null; endTime: string | null }>
 }
 
 export function assembleStrip(dates: string[], input: StripAssembleInput): StripDay[] {
@@ -171,6 +175,24 @@ export function assembleStrip(dates: string[], input: StripAssembleInput): Strip
         endTime: po.endTime ? padTime(po.endTime) : null,
         status: 'payment_due',
         note: `Pay by ${po.payBy} to keep your spot`,
+      })
+    }
+
+    // v2.2: an approved standing hold with NO materialized occurrence yet —
+    // renders on its weekday so the claim is visible immediately after
+    // approval. A materialized occurrence (paid or payment_due) for the same
+    // market+date pushed above already, so has() keeps this from doubling.
+    for (const sh of input.standingHolds ?? []) {
+      if (sh.dayOfWeek !== dow || has(sh.marketId)) continue
+      entries.push({
+        marketId: sh.marketId,
+        name: sh.marketName,
+        kind: 'park_booking',
+        marketType: sh.marketType,
+        startTime: sh.startTime ? padTime(sh.startTime) : null,
+        endTime: sh.endTime ? padTime(sh.endTime) : null,
+        status: 'standing_hold',
+        note: 'Standing spot hold — the pay-by window opens within 7 days of the date',
       })
     }
 
@@ -330,7 +352,7 @@ export async function loadVendorWeekStrip(
   // 3. Paid, date-native commitments: park-spot days (not barred) and booth
   //    weeks. Hours come from the location's schedule on that weekday.
   const dateCommitments: StripDateInput[] = []
-  const [{ data: parkRows }, { data: boothRows }] = await Promise.all([
+  const [{ data: parkRows }, { data: boothRows }, { data: holdRows }] = await Promise.all([
     // v2.1: pending_payment included — but only standing-occurrence rows
     // become entries (an unpaid ONE-OFF booking is an abandoned checkout,
     // not a commitment); filtered below.
@@ -348,11 +370,19 @@ export async function loadVendorWeekStrip(
       .eq('status', 'paid')
       .gte('week_start_date', shiftDate(minDate, -6))
       .lte('week_start_date', maxDate), { table: 'weekly_booth_rentals' }),
+    // v2.2: ACTIVE standing holds — the approved recurring claim itself, for
+    // weekdays whose occurrence hasn't materialized yet (≤7-day horizon).
+    observed(service
+      .from('park_standing_reservations')
+      .select('market_id, day_of_week, markets:market_id ( id, name, market_type, vertical_id )')
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('status', 'active'), { table: 'park_standing_reservations' }),
   ])
 
   const hoursMarketIds = new Set<string>()
   for (const r of parkRows ?? []) hoursMarketIds.add(r.market_id as string)
   for (const r of boothRows ?? []) hoursMarketIds.add(r.market_id as string)
+  for (const r of holdRows ?? []) hoursMarketIds.add(r.market_id as string)
   const hoursByMarketDow = new Map<string, { start: string; end: string }>()
   if (hoursMarketIds.size > 0) {
     const { data: msRows } = await observed(service
@@ -508,5 +538,23 @@ export async function loadVendorWeekStrip(
     sourceEventName: b.source_event_market_id ? eventNameById.get(b.source_event_market_id as string) ?? null : null,
   }))
 
-  return assembleStrip(dates, { schedules, dateCommitments, events, cancelledOverrides, blackouts, specialOverrides, pendingOccurrences })
+  // v2.2: standing holds shaped for the assembler (hours from the market's
+  // schedule on the hold's weekday; vertical-scoped like everything else).
+  const standingHolds: NonNullable<StripAssembleInput['standingHolds']> = []
+  for (const r of holdRows ?? []) {
+    const m = one(r.markets as (MarketEmbed & { vertical_id?: string }) | null)
+    if (!m || (m as { vertical_id?: string }).vertical_id !== vertical) continue
+    if (!dows.has(r.day_of_week as number)) continue
+    const h = hoursByMarketDow.get(`${r.market_id}|${r.day_of_week}`)
+    standingHolds.push({
+      marketId: r.market_id as string,
+      marketName: m.name,
+      marketType: m.market_type,
+      dayOfWeek: r.day_of_week as number,
+      startTime: h?.start ?? null,
+      endTime: h?.end ?? null,
+    })
+  }
+
+  return assembleStrip(dates, { schedules, dateCommitments, events, cancelledOverrides, blackouts, specialOverrides, pendingOccurrences, standingHolds })
 }

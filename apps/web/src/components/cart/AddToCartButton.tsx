@@ -40,6 +40,10 @@ interface AddToCartButtonProps {
   pickupLeadMinutes?: number | undefined
   /** Payment method badges to render in section 3 */
   paymentBadges?: React.ReactNode | undefined
+  /** Owner 2026-09-05 (SQL2 finding): a day-of FT item off-day is not
+   *  "closed for prep" — orders simply open on the truck's operating day.
+   *  Say that instead of the generic closed label. */
+  dayOfOnly?: boolean | undefined
 }
 
 interface PickupSelection {
@@ -60,7 +64,8 @@ export function AddToCartButton({
   availablePickupDates = [],
   showMixedAvailabilityWarning = false,
   pickupLeadMinutes,
-  paymentBadges
+  paymentBadges,
+  dayOfOnly = false
 }: AddToCartButtonProps) {
   const locale = getClientLocale()
   const { addToCart, items } = useCart()
@@ -710,7 +715,7 @@ export function AddToCartButton({
         {adding ? (
           t('atc.adding', locale)
         ) : ordersClosed || !hasAcceptingDates ? (
-          t('atc.orders_closed', locale)
+          dayOfOnly ? t('atc.orders_open_market_day', locale) : t('atc.orders_closed', locale)
         ) : isSoldOut ? (
           t('atc.sold_out', locale)
         ) : availableToAdd <= 0 ? (

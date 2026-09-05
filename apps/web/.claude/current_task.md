@@ -52,8 +52,39 @@ prod e946c2c0 owes migs 238→244 + code (window 21:00–07:00 CT, gated on the 
 - A5 "closed listings" CLOSED: SQL2 proved the split — advance_order_days=0 items are day-of-only
   (accepting=false off-day, by design); advance_order_days=2 items accepting w/ 43h cutoff. Not
   event blocking. Backlog: buyer copy "Order on market day" for day-of items.
-- Gates after all fixes (D1-D5): tsc ✓ · **2167/2167** ✓ · lint clean. UNCOMMITTED (commit ask
-  pending — owner hasn't answered the D1-D4 commit ask yet).
+- Gates after all fixes (D1-D5): tsc ✓ · **2167/2167** ✓ · lint clean.
+- **SHIPPED 2026-09-05: fixes committed `3954f307` + STAGING PUSHED `861526f2..3954f307`**
+  (owner: "commit and push staging"); build ✓ + Playwright 49/49 ✓ + ref-update verified.
+  Staging now = bundles B1+B2 (`8c10a6f8`) + 5 fixes (`3954f307`).
+## 🧰 POLISH BATCH (owner: "keep the two changes and continue the polish batch") — BUILT, UNCOMMITTED
+1. Insights restructure ✅ (kept per owner): page renamed "Insights"; MajorSectionHeading × 2 —
+   📍 Location insights (basic 4 + Pro/Boss blocks, period-governed) · 👥 Customer insights
+   (Your Customers + VipPerksCard moved below, noted lifetime/not-windowed). Dashboard card:
+   ANALYTICS / INSIGHTS labels around the divider; link → "Location & customer insights".
+2. Day-of buyer copy ✅ (kept): FT advance_order_days=0 listing off-day shows "Orders Open on
+   Operating Days" (AddToCartButton dayOfOnly prop ← ListingPurchaseSection ← listing page both
+   call sites); badge tooltip no longer claims vendor-prep (en+es).
+3. Week strip v2.2: 'standing_hold' status — ACTIVE park_standing_reservations render on their
+   weekday before the occurrence materializes (loader third query; has() dedup vs materialized
+   occurrence; note "pay-by window opens within 7 days"). +2 specs (14/14).
+4. Admin event-blocking flag: /api/admin/events returns `blocking` (vendor_date_blackouts by
+   source_event_market_id + blocked market name); EventsAdminPage detail renders
+   "Market-Sales Blocking In Effect" section above Vendor Invitations.
+5. Bundle UI Spanish: 38 bundle.* keys en+es; MarketBundlesSection (locale prop from market
+   page), BundleCheckout (getClientLocale), BundleConsentToggle converted to t(). Manager/admin
+   bundle surfaces stay EN (house pattern). Also window.location.assign fix (lint immutability).
+6. Markets-missing button: REVIEW ONLY presented in chat (rec: link each row to the market's own
+   public page where ApplyToMarketButton already handles state; relabel "Add"→"View market") —
+   NOT built, awaiting owner go.
+Gates: tsc ✓ · 2169/2169 ✓ · lint 0 errors. Commit ask pending.
+
+- **TEST PROTOCOL v2 issued in chat 2026-09-05** (tested items removed): E-series = the full
+  bundles loop (needs an FM market the owner manages WITH Stripe Connect + ≥2 published listings
+  from opted-in vendors) · F-series = the 5 fix retests (F1 VIP acknowledgement unfavorited,
+  F2 Save changes, F3 cancel-date roster notification, F4 survey-email staging URL (+ owner
+  fixes Vercel NEXT_PUBLIC_APP_URL scoping), F5 reverse event guard blocks truck3 booking) ·
+  A5-A9 VIP remainder (A5 unblocked: use the 2-day-lead listings or market day) · B1 (needs
+  occurrence ≤7d + cron) + B2 · C1-C4 events board · D1-D2 gate fixes — results gate prod push.
 
 # SESSION 2026-09-04 — VIP buildout: Phase A + B1 SHIPPED to staging; PUNCH CARD BUILT (uncommitted). Next session starts HERE.
 

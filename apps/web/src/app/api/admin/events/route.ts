@@ -246,9 +246,32 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Sales-blocking flag (owner 2026-09-05): which vendors have market days
+    // BLACKED OUT because they chose this event (mig 238 rows sourced from the
+    // event's market). Admin needs to see the blocking is in effect — a strike
+    // on the vendor's own strip isn't visible to admins.
+    const blockingMap: Record<string, Array<{ vendor_profile_id: string; blocked_market_name: string; blackout_date: string }>> = {}
+    if (marketIds.length > 0) {
+      const { data: blackoutRows } = await observed(serviceClient
+        .from('vendor_date_blackouts')
+        .select('vendor_profile_id, blackout_date, source_event_market_id, blocked:market_id ( name )')
+        .in('source_event_market_id', marketIds), { table: 'vendor_date_blackouts' })
+      for (const b of blackoutRows ?? []) {
+        const eid = b.source_event_market_id as string
+        if (!blockingMap[eid]) blockingMap[eid] = []
+        const blocked = Array.isArray(b.blocked) ? b.blocked[0] : b.blocked
+        blockingMap[eid].push({
+          vendor_profile_id: b.vendor_profile_id as string,
+          blocked_market_name: (blocked as { name?: string } | null)?.name ?? 'a location',
+          blackout_date: b.blackout_date as string,
+        })
+      }
+    }
+
     return NextResponse.json({
       requests: requests || [],
       vendors,
+      blocking: blockingMap,
       marketVendorsMap,
     })
   })

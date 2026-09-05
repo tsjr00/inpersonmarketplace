@@ -618,7 +618,7 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
 
         {/* Curated bundles (mig 244) — renders nothing when the market has
             no active bundles. */}
-        <MarketBundlesSection vertical={vertical} marketName={market.name as string} bundles={bundleCards} />
+        <MarketBundlesSection vertical={vertical} marketName={market.name as string} bundles={bundleCards} locale={locale} />
 
         {/* Vendors Section */}
         <div style={{

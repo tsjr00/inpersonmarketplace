@@ -1000,7 +1000,19 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                  surface cannot be one door. Small enough to stay a grid peer
                  (inGrid), like My Vendor Events in row 2. */
               <DashboardCard title="Analytics & Insights" inGrid>
+                {/* Owner 2026-09-05: label each half — above the divider is
+                    ANALYTICS, below is INSIGHTS — so the two destinations
+                    read as distinct sections, not one list. */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+                  <div style={{
+                    fontSize: typography.sizes.xs,
+                    fontWeight: typography.weights.semibold,
+                    color: colors.textMuted,
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5,
+                  }}>
+                    Analytics
+                  </div>
                   <Link
                     href={`/${vertical}/vendor/analytics`}
                     style={{
@@ -1016,6 +1028,17 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                     <span>📈</span>
                     <span>Sales trends &amp; top products</span>
                   </Link>
+                  <div style={{
+                    fontSize: typography.sizes.xs,
+                    fontWeight: typography.weights.semibold,
+                    color: colors.textMuted,
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5,
+                    paddingTop: spacing['2xs'],
+                    borderTop: `1px solid ${colors.borderMuted}`,
+                  }}>
+                    Insights
+                  </div>
                   <Link
                     href={`/${vertical}/vendor/insights`}
                     style={{
@@ -1026,11 +1049,10 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                       color: isInsightsLocked ? statusColors.warning : colors.textSecondary,
                       fontSize: typography.sizes.sm,
                       padding: `${spacing['2xs']} 0`,
-                      borderTop: `1px solid ${colors.borderMuted}`,
                     }}
                   >
                     <span>📍</span>
-                    <span>{isInsightsLocked ? 'Location Insights (upgrade to unlock)' : 'Location performance'}</span>
+                    <span>{isInsightsLocked ? 'Insights (upgrade to unlock)' : 'Location & customer insights'}</span>
                   </Link>
                 </div>
               </DashboardCard>

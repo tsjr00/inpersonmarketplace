@@ -165,4 +165,28 @@ describe('assembleStrip', () => {
     })
     expect(days[0]!.entries.map(e => e.name)).toEqual(['Early Park', 'Late Park', 'All Day Fest'])
   })
+
+  // v2.2 (owner finding 2026-09-05): an APPROVED standing hold was invisible
+  // until its occurrence materialized (≤7-day horizon). Spec: the hold renders
+  // on its weekday immediately after approval; a materialized occurrence for
+  // the same market+date replaces it (never both).
+  it('an approved standing hold renders on its weekday before any occurrence exists', () => {
+    const days = assembleStrip(DATES, {
+      ...base,
+      standingHolds: [{ marketId: 'm1', marketName: 'Park A', marketType: 'traditional', dayOfWeek: 2, startTime: '11:00', endTime: '14:00' }],
+    })
+    expect(days.map(d => d.entries.length)).toEqual([0, 1, 0])
+    expect(days[1]!.entries[0]).toMatchObject({ marketId: 'm1', kind: 'park_booking', status: 'standing_hold' })
+    expect(days[1]!.entries[0]!.note).toContain('Standing spot hold')
+  })
+
+  it('a materialized occurrence (payment_due) suppresses the standing-hold entry for that date', () => {
+    const days = assembleStrip(DATES, {
+      ...base,
+      standingHolds: [{ marketId: 'm1', marketName: 'Park A', marketType: 'traditional', dayOfWeek: 2, startTime: '11:00', endTime: '14:00' }],
+      pendingOccurrences: [{ marketId: 'm1', marketName: 'Park A', marketType: 'traditional', date: '2026-09-08', payBy: '2026-09-06', startTime: '11:00', endTime: '14:00' }],
+    })
+    expect(days[1]!.entries).toHaveLength(1)
+    expect(days[1]!.entries[0]!.status).toBe('payment_due')
+  })
 })

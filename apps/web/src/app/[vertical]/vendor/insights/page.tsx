@@ -69,6 +69,20 @@ const sectionTitle: React.CSSProperties = {
   color: colors.textPrimary,
 }
 
+/** Owner 2026-09-05: the page has TWO major sections — Location insights and
+ *  Customer insights — so customer/VIP material reads as deliberately broken
+ *  out, never as inserted into the location data. */
+function MajorSectionHeading({ emoji, title, subtitle }: { emoji: string; title: string; subtitle: string }) {
+  return (
+    <div style={{ margin: `${spacing.lg} 0 ${spacing.sm}`, paddingBottom: spacing['2xs'], borderBottom: `2px solid ${colors.border}` }}>
+      <h2 style={{ margin: 0, fontSize: typography.sizes.xl, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
+        {emoji} {title}
+      </h2>
+      <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.sm, color: colors.textMuted }}>{subtitle}</p>
+    </div>
+  )
+}
+
 const tableHeaderCell: React.CSSProperties = {
   padding: `${spacing['2xs']} ${spacing.xs}`,
   textAlign: 'left' as const,
@@ -404,7 +418,7 @@ export default function VendorInsightsPage() {
         }}>
           <div>
             <h1 style={{ color: colors.primary, margin: 0, fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold }}>
-              Location Insights
+              Insights
             </h1>
             <p style={{ margin: `${spacing['2xs']} 0 0`, fontSize: typography.sizes.sm, color: colors.textMuted }}>
               {tierLabel} Plan
@@ -464,6 +478,13 @@ export default function VendorInsightsPage() {
           </div>
         ) : data && !data.blocked ? (
           <>
+            {/* ═════════════ MAJOR SECTION 1: LOCATION INSIGHTS ═════════════ */}
+            <MajorSectionHeading
+              emoji="📍"
+              title="Location insights"
+              subtitle={`Where you sell — revenue, peak days, order size, and loyalty per location, over the selected ${days}-day period.`}
+            />
+
             {/* ═══ BASIC TIER: Revenue by Location ═══ */}
             <div style={cardStyle}>
               <h2 style={sectionTitle}>Revenue by Location</h2>
@@ -588,132 +609,6 @@ export default function VendorInsightsPage() {
                 </div>
               )}
             </div>
-
-            {/* ═══ A1: Your Customers (vip_loyalty_buildout_plan.md) ═══
-                Lifetime distribution from the SAME classifier as the badges
-                and the order-card chip — "know who to appreciate, call by
-                name" (owner 2026-08-25). Names only, never email/phone. */}
-            {customers && customers.totals.customers > 0 && (
-              <div style={cardStyle}>
-                <h2 style={sectionTitle}>Your Customers</h2>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.sm }}>
-                  {([
-                    // Chip copy, pluralized per count (SEGMENT_LABELS stays the
-                    // per-row vocabulary — its one_timer label is "1 order",
-                    // which can't take a count in front of it).
-                    ['loyal', 'Local Legend', 'Local Legends', statusColors.successLight, statusColors.successDark],
-                    ['regular', 'Regular', 'Regulars', statusColors.infoLight, statusColors.infoDark],
-                    ['repeat', 'Repeat customer', 'Repeat customers', colors.surfaceMuted, colors.textSecondary],
-                    ['one_timer', 'One-timer', 'One-timers', colors.surfaceMuted, colors.textMuted],
-                  ] as Array<[keyof CustomersData['distribution'], string, string, string, string]>).map(([seg, one, many, bg, fg]) => (
-                    <span key={seg} style={{
-                      padding: `${spacing['3xs']} ${spacing.xs}`,
-                      backgroundColor: bg,
-                      color: fg,
-                      borderRadius: radius.full,
-                      fontSize: typography.sizes.xs,
-                      fontWeight: typography.weights.semibold,
-                    }}>
-                      {customers.distribution[seg]} {customers.distribution[seg] === 1 ? one : many}
-                    </span>
-                  ))}
-                  <span style={{
-                    padding: `${spacing['3xs']} ${spacing.xs}`,
-                    backgroundColor: '#fdf2f8',
-                    color: '#9d174d',
-                    borderRadius: radius.full,
-                    fontSize: typography.sizes.xs,
-                    fontWeight: typography.weights.semibold,
-                  }}>
-                    ♥ {customers.totals.favorites} favorited you
-                  </span>
-                  {/* A2: the slot meter. Free tier sees the upgrade path. */}
-                  <span style={{
-                    padding: `${spacing['3xs']} ${spacing.xs}`,
-                    backgroundColor: '#ede9fe',
-                    color: '#5b21b6',
-                    borderRadius: radius.full,
-                    fontSize: typography.sizes.xs,
-                    fontWeight: typography.weights.semibold,
-                  }}>
-                    ⭐ {customers.vip.limit > 0
-                      ? `${customers.vip.used} of ${customers.vip.limit} VIP slots used`
-                      : 'VIPs are a Pro feature'}
-                  </span>
-                </div>
-                {customers.vip.limit > 0 && (
-                  <p style={{ margin: `0 0 ${spacing.xs}`, fontSize: typography.sizes.xs, color: colors.textMuted }}>
-                    Tap ⭐ to add a customer to your VIP list — they&apos;ll be told you picked them, and you&apos;ll see the star on their orders.
-                  </p>
-                )}
-                {vipError && (
-                  <p style={{ margin: `0 0 ${spacing.xs}`, fontSize: typography.sizes.xs, color: statusColors.dangerDark }}>
-                    {vipError}
-                  </p>
-                )}
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr>
-                        <th style={tableHeaderCell}>Customer</th>
-                        <th style={{ ...tableHeaderCell, textAlign: 'right' }}>Orders</th>
-                        <th style={tableHeaderCell}>Standing</th>
-                        <th style={tableHeaderCell}>Last order</th>
-                        {customers.vip.limit > 0 && <th style={tableHeaderCell}>VIP</th>}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {customers.rows.map(row => (
-                        <tr key={row.user_id}>
-                          <td style={tableCell}>
-                            {row.name}
-                            {row.is_favorite && <span title="Favorited you" style={{ marginLeft: 6, color: '#db2777' }}>♥</span>}
-                          </td>
-                          <td style={{ ...tableCell, textAlign: 'right', fontWeight: typography.weights.semibold }}>{row.orders}</td>
-                          <td style={tableCell}>{SEGMENT_LABELS[row.segment]}</td>
-                          <td style={{ ...tableCell, color: colors.textMuted }}>{row.last_order_day}</td>
-                          {customers.vip.limit > 0 && (
-                            <td style={tableCell}>
-                              <button
-                                onClick={() => toggleVip(row.user_id, !row.is_vip)}
-                                disabled={vipBusy === row.user_id || (!row.is_vip && customers.vip.used >= customers.vip.limit)}
-                                title={row.is_vip
-                                  ? 'Remove from your VIP list'
-                                  : customers.vip.used >= customers.vip.limit
-                                    ? 'All VIP slots are used'
-                                    : 'Add to your VIP list'}
-                                style={{
-                                  border: 'none',
-                                  background: 'none',
-                                  cursor: vipBusy === row.user_id ? 'wait' : 'pointer',
-                                  fontSize: typography.sizes.base,
-                                  opacity: !row.is_vip && customers.vip.used >= customers.vip.limit ? 0.35 : 1,
-                                  padding: 0,
-                                }}
-                              >
-                                {row.is_vip ? '⭐' : '☆'}
-                              </button>
-                            </td>
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {customers.truncated && (
-                  <p style={{ margin: `${spacing.xs} 0 0`, fontSize: typography.sizes.xs, color: colors.textMuted }}>
-                    Showing your top {customers.rows.length} customers of {customers.totals.customers}.
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Punch build (D8, owner 2026-09-04): the perk menu lives WITH
-                Your Customers — slots, roster and perks in one VIP home.
-                Only rendered for tiers that HAVE VIP slots. */}
-            {customers && customers.vip.limit > 0 && vendorId && (
-              <VipPerksCard vendorId={vendorId} vertical={vertical} />
-            )}
 
             {/* ═══ PRO TIER or locked ═══ */}
             {showPro && data.missingMarkets ? (
@@ -899,6 +794,144 @@ export default function VendorInsightsPage() {
                 vertical={vertical}
               />
             ) : null}
+
+            {/* ═════════════ MAJOR SECTION 2: CUSTOMER INSIGHTS ═════════════ */}
+            {/* Owner 2026-09-05: deliberately broken out from the location
+                data — customer material is LIFETIME (not windowed by the
+                period selector above). */}
+            {customers && customers.totals.customers > 0 && (
+              <MajorSectionHeading
+                emoji="👥"
+                title="Customer insights"
+                subtitle="Who buys from you — lifetime standings, favorites, your VIP list, and the perks you offer them. Not affected by the period selector."
+              />
+            )}
+
+            {/* ═══ A1: Your Customers (vip_loyalty_buildout_plan.md) ═══
+                Lifetime distribution from the SAME classifier as the badges
+                and the order-card chip — "know who to appreciate, call by
+                name" (owner 2026-08-25). Names only, never email/phone. */}
+            {customers && customers.totals.customers > 0 && (
+              <div style={cardStyle}>
+                <h2 style={sectionTitle}>Your Customers</h2>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.sm }}>
+                  {([
+                    // Chip copy, pluralized per count (SEGMENT_LABELS stays the
+                    // per-row vocabulary — its one_timer label is "1 order",
+                    // which can't take a count in front of it).
+                    ['loyal', 'Local Legend', 'Local Legends', statusColors.successLight, statusColors.successDark],
+                    ['regular', 'Regular', 'Regulars', statusColors.infoLight, statusColors.infoDark],
+                    ['repeat', 'Repeat customer', 'Repeat customers', colors.surfaceMuted, colors.textSecondary],
+                    ['one_timer', 'One-timer', 'One-timers', colors.surfaceMuted, colors.textMuted],
+                  ] as Array<[keyof CustomersData['distribution'], string, string, string, string]>).map(([seg, one, many, bg, fg]) => (
+                    <span key={seg} style={{
+                      padding: `${spacing['3xs']} ${spacing.xs}`,
+                      backgroundColor: bg,
+                      color: fg,
+                      borderRadius: radius.full,
+                      fontSize: typography.sizes.xs,
+                      fontWeight: typography.weights.semibold,
+                    }}>
+                      {customers.distribution[seg]} {customers.distribution[seg] === 1 ? one : many}
+                    </span>
+                  ))}
+                  <span style={{
+                    padding: `${spacing['3xs']} ${spacing.xs}`,
+                    backgroundColor: '#fdf2f8',
+                    color: '#9d174d',
+                    borderRadius: radius.full,
+                    fontSize: typography.sizes.xs,
+                    fontWeight: typography.weights.semibold,
+                  }}>
+                    ♥ {customers.totals.favorites} favorited you
+                  </span>
+                  {/* A2: the slot meter. Free tier sees the upgrade path. */}
+                  <span style={{
+                    padding: `${spacing['3xs']} ${spacing.xs}`,
+                    backgroundColor: '#ede9fe',
+                    color: '#5b21b6',
+                    borderRadius: radius.full,
+                    fontSize: typography.sizes.xs,
+                    fontWeight: typography.weights.semibold,
+                  }}>
+                    ⭐ {customers.vip.limit > 0
+                      ? `${customers.vip.used} of ${customers.vip.limit} VIP slots used`
+                      : 'VIPs are a Pro feature'}
+                  </span>
+                </div>
+                {customers.vip.limit > 0 && (
+                  <p style={{ margin: `0 0 ${spacing.xs}`, fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                    Tap ⭐ to add a customer to your VIP list — they&apos;ll be told you picked them, and you&apos;ll see the star on their orders.
+                  </p>
+                )}
+                {vipError && (
+                  <p style={{ margin: `0 0 ${spacing.xs}`, fontSize: typography.sizes.xs, color: statusColors.dangerDark }}>
+                    {vipError}
+                  </p>
+                )}
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr>
+                        <th style={tableHeaderCell}>Customer</th>
+                        <th style={{ ...tableHeaderCell, textAlign: 'right' }}>Orders</th>
+                        <th style={tableHeaderCell}>Standing</th>
+                        <th style={tableHeaderCell}>Last order</th>
+                        {customers.vip.limit > 0 && <th style={tableHeaderCell}>VIP</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {customers.rows.map(row => (
+                        <tr key={row.user_id}>
+                          <td style={tableCell}>
+                            {row.name}
+                            {row.is_favorite && <span title="Favorited you" style={{ marginLeft: 6, color: '#db2777' }}>♥</span>}
+                          </td>
+                          <td style={{ ...tableCell, textAlign: 'right', fontWeight: typography.weights.semibold }}>{row.orders}</td>
+                          <td style={tableCell}>{SEGMENT_LABELS[row.segment]}</td>
+                          <td style={{ ...tableCell, color: colors.textMuted }}>{row.last_order_day}</td>
+                          {customers.vip.limit > 0 && (
+                            <td style={tableCell}>
+                              <button
+                                onClick={() => toggleVip(row.user_id, !row.is_vip)}
+                                disabled={vipBusy === row.user_id || (!row.is_vip && customers.vip.used >= customers.vip.limit)}
+                                title={row.is_vip
+                                  ? 'Remove from your VIP list'
+                                  : customers.vip.used >= customers.vip.limit
+                                    ? 'All VIP slots are used'
+                                    : 'Add to your VIP list'}
+                                style={{
+                                  border: 'none',
+                                  background: 'none',
+                                  cursor: vipBusy === row.user_id ? 'wait' : 'pointer',
+                                  fontSize: typography.sizes.base,
+                                  opacity: !row.is_vip && customers.vip.used >= customers.vip.limit ? 0.35 : 1,
+                                  padding: 0,
+                                }}
+                              >
+                                {row.is_vip ? '⭐' : '☆'}
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {customers.truncated && (
+                  <p style={{ margin: `${spacing.xs} 0 0`, fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                    Showing your top {customers.rows.length} customers of {customers.totals.customers}.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Punch build (D8, owner 2026-09-04): the perk menu lives WITH
+                Your Customers — slots, roster and perks in one VIP home.
+                Only rendered for tiers that HAVE VIP slots. */}
+            {customers && customers.vip.limit > 0 && vendorId && (
+              <VipPerksCard vendorId={vendorId} vertical={vertical} />
+            )}
           </>
         ) : null}
       </div>

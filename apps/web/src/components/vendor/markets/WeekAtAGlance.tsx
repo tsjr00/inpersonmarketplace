@@ -21,7 +21,7 @@ interface StripEntry {
   marketType: string
   startTime: string | null
   endTime: string | null
-  status: 'on' | 'skipped_for_event' | 'cancelled_by_market' | 'payment_due'
+  status: 'on' | 'skipped_for_event' | 'cancelled_by_market' | 'payment_due' | 'standing_hold'
   note: string | null
 }
 

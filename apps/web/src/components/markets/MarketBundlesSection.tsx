@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 import { formatPrice } from '@/lib/pricing'
+import { t } from '@/lib/locale/messages'
 
 /**
  * Buyer-facing bundle cards on the public market page (mig 244).
@@ -33,18 +34,19 @@ interface MarketBundlesSectionProps {
   vertical: string
   marketName: string
   bundles: BundleCardData[]
+  locale?: string
 }
 
-export default function MarketBundlesSection({ vertical, marketName, bundles }: MarketBundlesSectionProps) {
+export default function MarketBundlesSection({ vertical, marketName, bundles, locale = 'en' }: MarketBundlesSectionProps) {
   if (bundles.length === 0) return null
 
   return (
     <section style={{ marginBottom: spacing.lg }}>
       <h2 style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, color: colors.textPrimary, margin: `0 0 ${spacing.xs}` }}>
-        🧺 Curated bundles
+        🧺 {t('bundle.section_title', locale)}
       </h2>
       <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, margin: `0 0 ${spacing.sm}` }}>
-        Hand-assembled by the {marketName} team from this market&apos;s vendors — one purchase, picked up ready to go.
+        {t('bundle.section_sub', locale, { market: marketName })}
       </p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: spacing.sm }}>
         {bundles.map(b => (
@@ -62,7 +64,7 @@ export default function MarketBundlesSection({ vertical, marketName, bundles }: 
 
             {/* ② Named makers */}
             <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
-              Made by{' '}
+              {t('bundle.made_by', locale)}{' '}
               {b.makers.map((m, i) => (
                 <span key={m.vendorProfileId}>
                   {i > 0 && (i === b.makers.length - 1 ? ' & ' : ', ')}
@@ -75,9 +77,9 @@ export default function MarketBundlesSection({ vertical, marketName, bundles }: 
 
             {/* ③ Scarcity + ④ pickup + ⑤ cause */}
             <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
-              {b.remaining <= 5 ? <strong style={{ color: '#b45309' }}>Only {b.remaining} left · </strong> : null}
-              Pickup {b.pickupMarketDate}{b.pickupNotes ? ` — ${b.pickupNotes}` : ' at the market'}
-              {b.causeName && b.causePct ? <> · 🤝 supports {b.causeName}</> : null}
+              {b.remaining <= 5 ? <strong style={{ color: '#b45309' }}>{t('bundle.only_n_left', locale, { n: String(b.remaining) })} · </strong> : null}
+              {t('bundle.pickup_on', locale, { date: b.pickupMarketDate })}{b.pickupNotes ? ` — ${b.pickupNotes}` : ` ${t('bundle.pickup_at_market', locale)}`}
+              {b.causeName && b.causePct ? <> · 🤝 {t('bundle.supports', locale, { org: b.causeName })}</> : null}
             </div>
 
             {b.available ? (
@@ -96,11 +98,11 @@ export default function MarketBundlesSection({ vertical, marketName, bundles }: 
                   textDecoration: 'none',
                 }}
               >
-                Buy this bundle
+                {t('bundle.buy', locale)}
               </Link>
             ) : (
               <div style={{ marginTop: 'auto', textAlign: 'center', padding: `${spacing.xs} ${spacing.md}`, backgroundColor: colors.surfaceBase, color: colors.textMuted, borderRadius: radius.sm, fontSize: typography.sizes.sm }}>
-                {b.remaining === 0 ? 'Sold out' : 'Ordering closed for this pickup day'}
+                {b.remaining === 0 ? t('bundle.sold_out', locale) : t('bundle.ordering_closed', locale)}
               </div>
             )}
           </div>

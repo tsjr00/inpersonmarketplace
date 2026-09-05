@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { colors, statusColors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { FullPageLoading } from '@/components/shared/Spinner'
 import { formatPrice, FEES, calculateSmallOrderFee, getSmallOrderFeeConfig } from '@/lib/pricing'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 /**
  * Bundle checkout (mig 244) — the dedicated view the checkout page renders
@@ -42,6 +44,7 @@ interface BundleCheckoutProps {
 }
 
 export default function BundleCheckout({ vertical, bundleId }: BundleCheckoutProps) {
+  const locale = getClientLocale()
   const [bundle, setBundle] = useState<BundleDetail | null>(null)
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'gone'>('loading')
   const [user, setUser] = useState<{ id: string } | null>(null)
@@ -88,21 +91,21 @@ export default function BundleCheckout({ vertical, bundleId }: BundleCheckoutPro
       })
       const data = await res.json().catch(() => ({}))
       if (res.ok && data.url) {
-        window.location.href = data.url as string
+        window.location.assign(data.url as string)
       } else {
-        setError((data.error as string) || 'Could not start checkout. Please try again.')
+        setError((data.error as string) || t('bundle.error_checkout', locale))
         isSubmittingRef.current = false
         setProcessing(false)
       }
     } catch {
-      setError('Something went wrong. Please try again.')
+      setError(t('bundle.error_generic', locale))
       isSubmittingRef.current = false
       setProcessing(false)
     }
   }
 
   if (loadState === 'loading') {
-    return <FullPageLoading message="Loading bundle…" />
+    return <FullPageLoading message={t('bundle.loading', locale)} />
   }
 
   const card = (children: React.ReactNode) => (
@@ -116,11 +119,11 @@ export default function BundleCheckout({ vertical, bundleId }: BundleCheckoutPro
   if (loadState === 'gone' || !bundle) {
     return card(
       <>
-        <h1 style={{ fontSize: typography.sizes.lg, margin: `0 0 ${spacing.sm}` }}>This bundle isn&apos;t available</h1>
+        <h1 style={{ fontSize: typography.sizes.lg, margin: `0 0 ${spacing.sm}` }}>{t('bundle.gone_title', locale)}</h1>
         <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
-          It may have sold out or its ordering window closed.
+          {t('bundle.gone_desc', locale)}
         </p>
-        <Link href={`/${vertical}/browse`} style={{ color: colors.primary, fontSize: typography.sizes.sm }}>← Keep shopping</Link>
+        <Link href={`/${vertical}/browse`} style={{ color: colors.primary, fontSize: typography.sizes.sm }}>{t('bundle.keep_shopping', locale)}</Link>
       </>
     )
   }
@@ -134,8 +137,8 @@ export default function BundleCheckout({ vertical, bundleId }: BundleCheckoutPro
         🧺 {bundle.name}
       </h1>
       <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, margin: `0 0 ${spacing.sm}` }}>
-        Curated by the {bundle.market.name} team
-        {bundle.pickupMarketDate ? <> · pickup {bundle.pickupMarketDate}{bundle.pickupNotes ? ` — ${bundle.pickupNotes}` : ''}</> : null}
+        {t('bundle.curated_by', locale, { market: bundle.market.name })}
+        {bundle.pickupMarketDate ? <> · {t('bundle.pickup_on', locale, { date: bundle.pickupMarketDate })}{bundle.pickupNotes ? ` — ${bundle.pickupNotes}` : ''}</> : null}
       </p>
 
       {bundle.description && (
@@ -156,31 +159,31 @@ export default function BundleCheckout({ vertical, bundleId }: BundleCheckoutPro
       {/* The money block — mirrors checkout/session exactly */}
       <div style={{ fontSize: typography.sizes.sm, color: colors.textPrimary, display: 'flex', flexDirection: 'column', gap: spacing['3xs'], marginBottom: spacing.sm }}>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <span>Bundle (items + curation)</span><span>{formatPrice(bundle.displayPriceCents)}</span>
+          <span>{t('bundle.items_line', locale)}</span><span>{formatPrice(bundle.displayPriceCents)}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', color: colors.textMuted }}>
-          <span>Service fee</span><span>{formatPrice(FEES.buyerFlatFeeCents)}</span>
+          <span>{t('bundle.service_fee', locale)}</span><span>{formatPrice(FEES.buyerFlatFeeCents)}</span>
         </div>
         {smallOrderFeeCents > 0 && (
           <div style={{ display: 'flex', justifyContent: 'space-between', color: colors.textMuted }}>
-            <span>Small order fee (orders under {formatPrice(getSmallOrderFeeConfig(vertical).thresholdCents)})</span>
+            <span>{t('bundle.small_order_fee', locale, { amount: formatPrice(getSmallOrderFeeConfig(vertical).thresholdCents) })}</span>
             <span>{formatPrice(smallOrderFeeCents)}</span>
           </div>
         )}
         <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: typography.weights.bold, borderTop: `1px solid ${colors.border}`, paddingTop: spacing['3xs'] }}>
-          <span>Total</span><span>{formatPrice(totalCents)}</span>
+          <span>{t('bundle.total', locale)}</span><span>{formatPrice(totalCents)}</span>
         </div>
       </div>
 
       {bundle.cause && (
         <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing.sm }}>
-          🤝 {bundle.cause.pct}% of the market&apos;s curation margin supports {bundle.cause.name}.
+          🤝 {t('bundle.cause_line', locale, { pct: String(bundle.cause.pct), org: bundle.cause.name })}
         </div>
       )}
 
       {bundle.remaining <= 5 && bundle.remaining > 0 && (
         <div style={{ fontSize: typography.sizes.xs, color: '#b45309', fontWeight: typography.weights.semibold, marginBottom: spacing.sm }}>
-          Only {bundle.remaining} left.
+          {t('bundle.only_n_left', locale, { n: String(bundle.remaining) })}
         </div>
       )}
 
@@ -192,14 +195,14 @@ export default function BundleCheckout({ vertical, bundleId }: BundleCheckoutPro
 
       {!bundle.available ? (
         <div style={{ textAlign: 'center', padding: spacing.sm, backgroundColor: colors.surfaceBase, borderRadius: radius.sm, fontSize: typography.sizes.sm, color: colors.textMuted }}>
-          {bundle.remaining === 0 ? 'Sold out.' : 'Ordering has closed for this pickup day.'}
+          {bundle.remaining === 0 ? t('bundle.sold_out_msg', locale) : t('bundle.ordering_closed_msg', locale)}
         </div>
       ) : authChecked && !user ? (
         <Link
           href={`/${vertical}/login?redirect=${encodeURIComponent(`/${vertical}/checkout?bundle=${bundleId}`)}`}
           style={{ display: 'block', textAlign: 'center', padding: `${spacing.sm} ${spacing.md}`, backgroundColor: colors.primary, color: 'white', borderRadius: radius.sm, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, textDecoration: 'none' }}
         >
-          Sign in to buy this bundle
+          {t('bundle.sign_in', locale)}
         </Link>
       ) : (
         <button
@@ -214,13 +217,13 @@ export default function BundleCheckout({ vertical, bundleId }: BundleCheckoutPro
             cursor: processing ? 'wait' : 'pointer',
           }}
         >
-          {processing ? 'Starting checkout…' : `Pay ${formatPrice(totalCents)}`}
+          {processing ? t('bundle.starting', locale) : t('bundle.pay', locale, { amount: formatPrice(totalCents) })}
         </button>
       )}
 
       <div style={{ marginTop: spacing.sm, textAlign: 'center' }}>
         <Link href={`/${vertical}/markets/${bundle.market.id}`} style={{ color: colors.textMuted, fontSize: typography.sizes.xs, textDecoration: 'none' }}>
-          ← Back to {bundle.market.name}
+          {t('bundle.back_to', locale, { market: bundle.market.name })}
         </Link>
       </div>
     </>
