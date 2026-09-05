@@ -110,7 +110,7 @@ Each domain file was verified against the code at the commit shown. A stamp far 
 | 16_Auth_RLS_Verticals.md | 2026-07-18 | b9f82116 |
 | 17_Crons.md | 2026-09-04 | d09707d3 |
 | 18_Notifications.md | 2026-09-04 | cec32fb5 |
-| 19_Admin.md | 2026-08-31 | f7eed9cc |
+| 19_Admin.md | 2026-09-04 | 53a61664 |
 | 20_Buyer_Public.md | 2026-09-04 | cec32fb5 |
 | 21_Lib_Reference.md | 2026-09-04 | cec32fb5 |
 | 22_Components_UI.md | 2026-07-18 | b9f82116 |
