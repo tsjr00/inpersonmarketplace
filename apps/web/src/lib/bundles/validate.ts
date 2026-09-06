@@ -83,6 +83,7 @@ export function validateBundleFields(body: {
   marginCents?: unknown
   quantityLimit?: unknown
   pickupMarketDate?: unknown
+  pickupNotes?: unknown
   justification?: unknown
   causeBeneficiaryId?: unknown
   causePct?: unknown
@@ -102,6 +103,12 @@ export function validateBundleFields(body: {
   }
   if (typeof body.pickupMarketDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(body.pickupMarketDate)) {
     return { ok: false, error: 'Pick the market day this bundle is for.' }
+  }
+  // REQUIRED as of 2026-09-06 (owner E5 finding): without a named in-market
+  // spot, buyers hunt each component vendor. An easy pickup spot is part of
+  // the manager's value-add.
+  if (typeof body.pickupNotes !== 'string' || body.pickupNotes.trim().length < 3) {
+    return { ok: false, error: 'Name the spot at the market where buyers collect the bundle (e.g. "the info booth at the main entrance").' }
   }
   if (typeof body.justification !== 'string' || body.justification.trim().length < 10) {
     return { ok: false, error: 'Explain the value you add (at least a sentence) — the approval reviewer reads this.' }

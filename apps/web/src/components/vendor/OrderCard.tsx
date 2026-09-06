@@ -113,6 +113,9 @@ interface OrderCardProps {
     customer_segment?: CustomerSegment
     /** A2 (mig 242): the vendor hand-picked this buyer as a VIP. */
     customer_is_vip?: boolean
+    /** Market bundle order (mig 244): the MARKET MANAGER collects this —
+     *  the vendor should not expect the end buyer at their stand. */
+    is_bundle?: boolean
     total_cents: number
     created_at: string
     items: OrderItem[]
@@ -279,6 +282,24 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
               }}>
                 {isExternalPayment ? formatPaymentMethod(order.payment_method!) : 'CARD'}
               </span>
+              {/* Market bundle: the manager is the pickup party, not the buyer
+                  (owner E5 2026-09-06). Same tap sequence as any pickup — wait
+                  for the manager's tap, then Fulfill, and you're paid then. */}
+              {order.is_bundle && (
+                <span
+                  title="This order is part of a market bundle. The market manager collects it from your stand — wait for their tap, then tap Fulfill within 30 seconds (that's when you're paid). Don't expect the end buyer."
+                  style={{
+                    padding: '2px 8px',
+                    backgroundColor: '#fefce8',
+                    color: '#854d0e',
+                    borderRadius: 4,
+                    fontSize: 11,
+                    fontWeight: 700
+                  }}
+                >
+                  🧺 MARKET BUNDLE · manager picks up
+                </span>
+              )}
               {/* Loyalty Layer 1 — who is this? "New customer" is the one the
                   owner wants vendors to notice (make the first greeting count);
                   everyone else shows their standing + lifetime order count. */}

@@ -60,6 +60,7 @@ export interface CancellationResult {
  * Layer 2: After window AND vendor has confirmed/prepared → 25% cancellation fee
  * Layer 3: After window but vendor NOT confirmed → full refund
  */
+// (calculateBundleCancellation, the whole-bundle variant, is defined below.)
 export function calculateCancellationFee(input: CancellationInput): CancellationResult {
   const { subtotalCents, totalItemsInOrder, orderStatus, orderCreatedAt } = input
   const now = input.now ?? new Date()
@@ -105,5 +106,100 @@ export function calculateCancellationFee(input: CancellationInput): Cancellation
     feeApplied: true,
     withinGracePeriod,
     vendorHadConfirmed,
+  }
+}
+
+// ── Bundle cancellation (owner rulings 2026-09-06) ──────────────────────────
+//
+// A bundle is ONE product: cancellation is all-or-nothing, and the fee test
+// runs at BUNDLE level — once ANY vendor has confirmed (and the grace window
+// has passed), the 25% fee applies to the WHOLE bundle total, margin
+// included. The tip is excluded here: house rule refunds tips in full
+// (VOR-16), the caller refunds it separately. The fee's vendor-compensation
+// share goes only to vendors who actually confirmed (they prepped);
+// unconfirmed vendors' fee portions stay with the platform. The manager
+// never receives a fee share — pre-handoff they have done no assembly, so
+// the margin simply refunds (75% when the fee applies, 100% otherwise).
+
+export interface BundleCancellationItem {
+  id: string
+  subtotalCents: number
+  status: string
+}
+
+export interface BundleCancellationInput {
+  /** LIVE (non-cancelled) items only. */
+  items: BundleCancellationItem[]
+  /** ALL items ever on the order — the flat/small-fee proration denominator. */
+  totalItemsInOrder: number
+  orderCreatedAt: Date
+  vertical?: string
+  smallOrderFeeCents?: number
+  /** What the buyer paid for the manager's margin (marginWithBuyerFeeCents). */
+  marginAddendCents: number
+  now?: Date
+}
+
+export interface BundleCancellationItemResult {
+  id: string
+  refundCents: number
+  feeCents: number
+  vendorShareCents: number
+  platformShareCents: number
+  vendorConfirmed: boolean
+}
+
+export interface BundleCancellationResult {
+  feeApplied: boolean
+  withinGracePeriod: boolean
+  anyVendorConfirmed: boolean
+  perItem: BundleCancellationItemResult[]
+  marginRefundCents: number
+  /** Items + margin. The tip is NOT included — callers refund it in full. */
+  totalRefundCents: number
+  totalFeeCents: number
+}
+
+export function calculateBundleCancellation(input: BundleCancellationInput): BundleCancellationResult {
+  const now = input.now ?? new Date()
+  const gracePeriodMs = getGracePeriodMs(input.vertical)
+  const withinGracePeriod = now < new Date(input.orderCreatedAt.getTime() + gracePeriodMs)
+  const anyVendorConfirmed = input.items.some(i => ['confirmed', 'ready'].includes(i.status))
+  const feeApplied = !withinGracePeriod && anyVendorConfirmed
+
+  const flatFeePerItem = proratedFlatFeeSimple(STRIPE_CONFIG.buyerFlatFeeCents, input.totalItemsInOrder)
+  const smallOrderFeePerItem = Math.round((input.smallOrderFeeCents || 0) / input.totalItemsInOrder)
+
+  const perItem: BundleCancellationItemResult[] = input.items.map(item => {
+    const buyerPaidForItem = item.subtotalCents
+      + Math.round(item.subtotalCents * (STRIPE_CONFIG.buyerFeePercent / 100))
+      + flatFeePerItem
+      + smallOrderFeePerItem
+    if (!feeApplied) {
+      return { id: item.id, refundCents: buyerPaidForItem, feeCents: 0, vendorShareCents: 0, platformShareCents: 0, vendorConfirmed: ['confirmed', 'ready'].includes(item.status) }
+    }
+    const refundCents = Math.round(buyerPaidForItem * (1 - CANCELLATION_FEE_PERCENT / 100))
+    const feeCents = buyerPaidForItem - refundCents
+    const vendorConfirmed = ['confirmed', 'ready'].includes(item.status)
+    // Fee split only compensates the vendor who actually prepped.
+    const platformShareCents = vendorConfirmed
+      ? Math.round(feeCents * (STRIPE_CONFIG.applicationFeePercent / 100))
+      : feeCents
+    const vendorShareCents = feeCents - platformShareCents
+    return { id: item.id, refundCents, feeCents, vendorShareCents, platformShareCents, vendorConfirmed }
+  })
+
+  const marginRefundCents = feeApplied
+    ? Math.round(input.marginAddendCents * (1 - CANCELLATION_FEE_PERCENT / 100))
+    : input.marginAddendCents
+
+  return {
+    feeApplied,
+    withinGracePeriod,
+    anyVendorConfirmed,
+    perItem,
+    marginRefundCents,
+    totalRefundCents: perItem.reduce((s, i) => s + i.refundCents, 0) + marginRefundCents,
+    totalFeeCents: perItem.reduce((s, i) => s + i.feeCents, 0) + (input.marginAddendCents - marginRefundCents),
   }
 }

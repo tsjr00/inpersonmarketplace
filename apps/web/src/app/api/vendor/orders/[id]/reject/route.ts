@@ -298,6 +298,32 @@ export async function POST(request: NextRequest, context: RouteContext) {
       reason,
     }, { vertical: rejectOrderData.vertical_id })
 
+    // Bundle orders (owner ruling 2026-09-06): a vendor pulling a component
+    // breaks the assembled product — the manager hears immediately instead of
+    // discovering it at collection. Additive + non-throwing: any failure here
+    // never affects the completed reject/refund above.
+    try {
+      const { data: bundleOrder } = await observed(rejectServiceClient
+        .from('orders').select('bundle_id').eq('id', orderItem.order_id).maybeSingle(), { table: 'orders' })
+      if (bundleOrder?.bundle_id) {
+        const { data: bundle } = await observed(rejectServiceClient
+          .from('market_bundles').select('id, name, market_id').eq('id', bundleOrder.bundle_id).maybeSingle(), { table: 'market_bundles' })
+        const { data: market } = bundle ? await observed(rejectServiceClient
+          .from('markets').select('id, manager_user_id').eq('id', bundle.market_id).maybeSingle(), { table: 'markets' }) : { data: null }
+        if (bundle && market?.manager_user_id) {
+          await sendNotification(market.manager_user_id, 'bundle_component_removed', {
+            orderNumber: rejectOrderData.order_number, bundleName: bundle.name,
+            itemTitle: rejectListing?.title, vendorName: rejectVendorName,
+            marketId: market.id, reason,
+          }, { vertical: rejectOrderData.vertical_id })
+        }
+      }
+    } catch (bundleNotifErr) {
+      await logError(new TracedError('ERR_ORDER_001', `Bundle manager notification failed on reject of item ${orderItemId}: ${bundleNotifErr instanceof Error ? bundleNotifErr.message : 'Unknown'}`, {
+        route: '/api/vendor/orders/[id]/reject', method: 'POST', orderItemId,
+      }))
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Item rejected successfully',

@@ -19,9 +19,12 @@ interface MarketVendorsListProps {
   vendors: Vendor[]
   categories: string[]
   vertical: string
+  /** Active curated bundles at this market — >0 pins a Market Bundles row
+   *  at the top of the vendor list, jumping to the bundle cards below. */
+  bundleCount?: number
 }
 
-export default function MarketVendorsList({ vendors, categories, vertical }: MarketVendorsListProps) {
+export default function MarketVendorsList({ vendors, categories, vertical, bundleCount = 0 }: MarketVendorsListProps) {
   const locale = getClientLocale()
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
 
@@ -76,8 +79,66 @@ export default function MarketVendorsList({ vendors, categories, vertical }: Mar
       )}
 
       {/* Vendors List */}
-      {filteredVendors.length > 0 ? (
+      {(filteredVendors.length > 0 || bundleCount > 0) ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+          {/* Pinned Market Bundles row — always first, above the alphabet and
+              unaffected by the category filter (owner E4 2026-09-06). Jumps to
+              the bundle cards section anchored lower on the page. */}
+          {bundleCount > 0 && (
+            <a
+              href="#curated-bundles"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: `${spacing.sm} ${spacing.md}`,
+                backgroundColor: colors.surfaceMuted,
+                borderRadius: radius.md,
+                textDecoration: 'none',
+                minHeight: 56
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                <div style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: radius.full,
+                  backgroundColor: colors.primaryLight,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: typography.sizes.base
+                }}>
+                  🧺
+                </div>
+                <span style={{
+                  fontWeight: typography.weights.semibold,
+                  color: colors.primary,
+                  fontSize: typography.sizes.base
+                }}>
+                  {t('markets.bundles_row_name', locale)}
+                </span>
+              </div>
+              <span style={{
+                padding: `${spacing['3xs']} ${spacing.xs}`,
+                backgroundColor: colors.primaryLight,
+                color: colors.primaryDark,
+                borderRadius: radius.full,
+                fontSize: typography.sizes.xs,
+                fontWeight: typography.weights.medium,
+                whiteSpace: 'nowrap'
+              }}>
+                {t('markets.bundles_row_hint', locale, { count: String(bundleCount) })}
+              </span>
+            </a>
+          )}
+          {filteredVendors.length === 0 && (
+            <p style={{ color: colors.textSecondary, margin: 0 }}>
+              {selectedCategory === 'all'
+                ? t('markets.no_vendors_active', locale)
+                : t('markets.no_vendors_cat', locale, { category: selectedCategory })}
+            </p>
+          )}
           {filteredVendors.map((vendor) => (
             <Link
               key={vendor.vendor_profile_id}

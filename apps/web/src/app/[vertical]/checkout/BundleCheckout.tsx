@@ -159,7 +159,7 @@ export default function BundleCheckout({ vertical, bundleId }: BundleCheckoutPro
       {/* The money block — mirrors checkout/session exactly */}
       <div style={{ fontSize: typography.sizes.sm, color: colors.textPrimary, display: 'flex', flexDirection: 'column', gap: spacing['3xs'], marginBottom: spacing.sm }}>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <span>{t('bundle.items_line', locale)}</span><span>{formatPrice(bundle.displayPriceCents)}</span>
+          <span>{t('bundle.items_line', locale, { name: bundle.name })}</span><span>{formatPrice(bundle.displayPriceCents)}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', color: colors.textMuted }}>
           <span>{t('bundle.service_fee', locale)}</span><span>{formatPrice(FEES.buyerFlatFeeCents)}</span>
@@ -177,7 +177,7 @@ export default function BundleCheckout({ vertical, bundleId }: BundleCheckoutPro
 
       {bundle.cause && (
         <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing.sm }}>
-          🤝 {t('bundle.cause_line', locale, { pct: String(bundle.cause.pct), org: bundle.cause.name })}
+          🤝 {t('bundle.cause_line', locale, { org: bundle.cause.name })}
         </div>
       )}
 

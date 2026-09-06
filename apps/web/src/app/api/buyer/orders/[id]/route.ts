@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { withErrorTracing } from '@/lib/errors'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 interface RouteContext {
@@ -102,6 +102,19 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
     }
 
+    // Bundle orders: pull the bundle's name + in-market pickup spot for the
+    // buyer surfaces (market_bundles is RLS service-only — ownership is
+    // already proven by the buyer_user_id filter above).
+    let bundleInfo: { name: string; pickup_notes: string | null } | null = null
+    if ((order as Record<string, unknown>).bundle_id) {
+      const { data: bundleRow } = await observed(createServiceClient()
+        .from('market_bundles')
+        .select('name, pickup_notes')
+        .eq('id', (order as Record<string, unknown>).bundle_id as string)
+        .maybeSingle(), { table: 'market_bundles' })
+      if (bundleRow) bundleInfo = { name: bundleRow.name as string, pickup_notes: (bundleRow.pickup_notes as string) || null }
+    }
+
     // Transform order
     const transformedOrder = {
       id: order.id,
@@ -120,6 +133,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
       bundle_buyer_ack_at: (order as Record<string, unknown>).bundle_buyer_ack_at || null,
       bundle_margin_settled: !!(order as Record<string, unknown>).bundle_margin_transfer_id
         && (order as Record<string, unknown>).bundle_margin_transfer_id !== 'pending',
+      bundle_name: bundleInfo?.name || null,
+      bundle_pickup_notes: bundleInfo?.pickup_notes || null,
       items: (order.order_items || []).map((item: any) => {
         const listing = item.listing
         const vendorProfile = listing?.vendor_profiles

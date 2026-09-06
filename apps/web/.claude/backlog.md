@@ -2324,3 +2324,16 @@ states — ADD TO ATTORNEY LIST (with handling disclaimer + child-safety clauses
 cause-marketing statistics in public copy until sourced (real-numbers rule).
 METRICS to design in: new-buyer % per campaign, org-audience conversion, post-bundle repeat rate,
 per-vendor discovery clicks from bundle pages.
+
+## 2026-09-06 (E-series testing round)
+- **Push-notification opportunity map** (owner): internal notifications ≠ push (push needs opt-in).
+  Evaluate every flow where a PUSH beats an in-app notification (order ready, bundle ready, 30s
+  handoff windows, cancellations...), then a pass adding enable-push prompts in proximity to each
+  of those moments (like the checkout-success blue box). Separate value-add pass, nothing yet.
+- **Regional-manager survey insights** (owner): anonymized cross-market survey analytics for the
+  regional-manager role — category/zip-level vendor-experience patterns across a region's markets.
+  Separate build, after the role is established. Depends on: survey data enrichment (category+zip).
+- **Manager "What's on your plate" → 2-week glance rework** (owner, thoughts requested first):
+  reuse the vendor week-strip v2 date-based pattern for the manager dashboard top section — next
+  2 weeks of market days with at-a-glance chips (booths rented, events, cancellations, blackouts),
+  detail stays in the sections below. Owner asked for lift estimate before deciding.

@@ -95,6 +95,12 @@ interface OrderDetails {
   created_at: string
   items: OrderItem[]
   marketBoxSubscriptions: MarketBoxSubscription[]
+  // Bundle orders (mig 244): market-centric What's-next bullets + the
+  // in-market pickup spot. Filled by the buyer orders API (the session-path
+  // payload doesn't carry them; an enrichment fetch below picks them up).
+  bundle_id?: string | null
+  bundle_name?: string | null
+  bundle_pickup_notes?: string | null
 }
 
 export default function CheckoutSuccessPage() {
@@ -130,7 +136,25 @@ export default function CheckoutSuccessPage() {
           if (response.ok) {
             const data = await response.json()
             if (data.order) {
-              setOrder(transformOrder(data.order, data.marketBoxSubscriptions))
+              let transformed = transformOrder(data.order, data.marketBoxSubscriptions)
+              // Bundle enrichment: the session payload has no bundle fields —
+              // one follow-up read of the buyer orders API fills name + spot.
+              try {
+                const enrich = await fetch(`/api/buyer/orders/${data.order.id}`)
+                if (enrich.ok) {
+                  const enrichData = await enrich.json()
+                  const eo = enrichData.order || enrichData
+                  if (eo?.bundle_id) {
+                    transformed = {
+                      ...transformed,
+                      bundle_id: eo.bundle_id,
+                      bundle_name: eo.bundle_name || null,
+                      bundle_pickup_notes: eo.bundle_pickup_notes || null,
+                    }
+                  }
+                }
+              } catch { /* enrichment is best-effort — bullets fall back to standard */ }
+              setOrder(transformed)
             }
             if (data.eventShopTokens) setEventShopTokens(data.eventShopTokens)
             // Refresh client-side cart state (server already cleared DB cart)
@@ -536,7 +560,20 @@ export default function CheckoutSuccessPage() {
             {t('success.whats_next', locale)}
           </h2>
           <ul style={{ margin: 0, paddingLeft: spacing.md, color: colors.textSecondary, fontSize: typography.sizes.sm, lineHeight: typography.leading.loose, listStyleType: 'disc' }}>
-            {order?.items && order.items.length > 0 && (
+            {order?.bundle_id ? (
+              /* Bundle orders: the MARKET runs this order, not individual
+                 vendors (owner E5 2026-09-06) — bullets say so, and the
+                 in-market pickup spot leads. */
+              <>
+                <li>{t('success.next_bundle_confirm', locale)}</li>
+                <li>{t('success.next_bundle_ready', locale)}</li>
+                <li>
+                  {order.bundle_pickup_notes
+                    ? t('success.next_bundle_spot', locale, { spot: order.bundle_pickup_notes })
+                    : t('success.next_bundle_spot_fallback', locale)}
+                </li>
+              </>
+            ) : order?.items && order.items.length > 0 && (
               <>
                 <li>{t('success.next_vendor_confirm', locale)}</li>
                 <li>{t('success.next_notification', locale)}</li>

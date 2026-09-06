@@ -613,11 +613,9 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
           </div>
         )}
 
-        {/* Curated bundles (mig 244) — renders nothing when the market has
-            no active bundles. */}
-        <MarketBundlesSection vertical={vertical} marketName={market.name as string} bundles={bundleCards} locale={locale} />
-
-        {/* Vendors Section */}
+        {/* Vendors Section — bundles ride INSIDE this list as a pinned first
+            row (owner E4 2026-09-06: work with the vendors, don't overshadow
+            them); the row jumps to the bundle cards anchored below. */}
         <div style={{
           padding: spacing.lg,
           backgroundColor: colors.surfaceElevated,
@@ -638,7 +636,14 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
             vendors={vendorsData.vendors}
             categories={vendorsData.categories}
             vertical={vertical}
+            bundleCount={bundleCards.length}
           />
+        </div>
+
+        {/* Curated bundles (mig 244) — the pinned row above jumps here;
+            renders nothing when the market has no active bundles. */}
+        <div id="curated-bundles" style={{ scrollMarginTop: 80 }}>
+          <MarketBundlesSection vertical={vertical} marketName={market.name as string} bundles={bundleCards} locale={locale} />
         </div>
       </div>
 

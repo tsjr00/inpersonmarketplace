@@ -77,6 +77,7 @@ export default async function DashboardPage({ params, searchParams }: DashboardP
     { count: orderCount },
     { data: readyOrders },
     { data: ordersNeedingConfirmation },
+    { data: bundleOrderCandidates },
   ] = await Promise.all([
     // Get vendor profile for THIS vertical (if exists) — only need status + tier
     supabase
@@ -133,6 +134,9 @@ export default async function DashboardPage({ params, searchParams }: DashboardP
       .is('order_items.cancelled_at', null)
       .is('order_items.issue_reported_at', null)
       .is('order_items.buyer_confirmed_at', null)
+      // Bundle orders never summon the buyer at item-ready — the MANAGER
+      // collects those; their own band below fires at true pickup time.
+      .is('bundle_id', null)
       .order('created_at', { ascending: false })
       .limit(3),
     // Get orders needing buyer confirmation (vendor handed off but buyer hasn't confirmed)
@@ -153,7 +157,22 @@ export default async function DashboardPage({ params, searchParams }: DashboardP
       .is('order_items.buyer_confirmed_at', null)
       .is('order_items.cancelled_at', null)
       .is('order_items.issue_reported_at', null)
+      // Bundle handoffs complete through the bundle acknowledge (which also
+      // sweeps any early-fulfilled item) — not the per-item badge.
+      .is('bundle_id', null)
       .limit(10),
+    // Bundle orders awaiting the buyer's pickup from the market manager:
+    // every live item collected (fulfilled) and the margin not yet settled.
+    // The all-fulfilled test runs in JS below (PostgREST can't express it).
+    supabase
+      .from('orders')
+      .select('id, order_number, bundle_id, bundle_margin_transfer_id, order_items (status, cancelled_at)')
+      .eq('buyer_user_id', user.id)
+      .eq('vertical_id', vertical)
+      .not('bundle_id', 'is', null)
+      .in('status', ['paid', 'completed'])
+      .order('created_at', { ascending: false })
+      .limit(5),
   ])
 
   const isVendor = !!vendorProfile
@@ -263,6 +282,15 @@ export default async function DashboardPage({ params, searchParams }: DashboardP
       total_active_count: totalActiveItems,
       pickups: Object.values(pickupGroups)
     }
+  })
+
+  // Bundle orders whose assembled bundle awaits the BUYER (mig 246 two-part
+  // handoff): all live items collected by the manager, margin unsettled.
+  const bundleReadyOrders = (bundleOrderCandidates || []).filter((o: any) => {
+    const settled = !!o.bundle_margin_transfer_id && o.bundle_margin_transfer_id !== 'pending'
+    if (settled) return false
+    const live = (o.order_items || []).filter((i: any) => !i.cancelled_at)
+    return live.length > 0 && live.every((i: any) => i.status === 'fulfilled')
   })
 
   const navDestinations = await getNavDestinations(supabase, user, vertical, { isVendor })
@@ -384,6 +412,43 @@ export default async function DashboardPage({ params, searchParams }: DashboardP
 
             ⚠ Function unchanged, and deliberately so. This is the buyer's most
             operationally important block. */}
+        {/* BUNDLE READY — same prominence, market-manager pickup (mig 246):
+            fires only when every component is collected and the assembled
+            bundle awaits the buyer. Opens the order page, where the
+            acknowledge + 30-second handoff live. */}
+        {bundleReadyOrders.length > 0 && (
+          <DashboardCard
+            state="active"
+            prominent
+            title={t('dash.bundle_ready_for_pickup', locale)}
+            headerAccessory={<TileBadge tone="primary">{bundleReadyOrders.length}</TileBadge>}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+              {bundleReadyOrders.map((o: any) => (
+                <Link
+                  key={o.id}
+                  href={`/${vertical}/buyer/orders/${o.id}`}
+                  style={{
+                    display: 'block',
+                    padding: spacing.sm,
+                    backgroundColor: 'white',
+                    borderRadius: radius.md,
+                    textDecoration: 'none',
+                    border: `1px solid ${colors.border}`
+                  }}
+                >
+                  <div style={{ fontWeight: typography.weights.bold, color: colors.textPrimary, fontSize: typography.sizes.base, fontFamily: 'monospace' }}>
+                    {o.order_number}
+                  </div>
+                  <div style={{ color: colors.primaryDark, fontSize: typography.sizes.sm }}>
+                    🧺 {t('dash.bundle_ready_hint', locale)}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </DashboardCard>
+        )}
+
         {ordersReadyForPickup.length > 0 && (
           <DashboardCard
             state="active"

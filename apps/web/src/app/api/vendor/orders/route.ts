@@ -151,7 +151,7 @@ export async function GET(request: NextRequest) {
     if (orderIds.length > 0) {
       const { data: orders } = await observed(supabaseService
         .from('orders')
-        .select('id, order_number, status, total_cents, created_at, buyer_user_id, payment_method')
+        .select('id, order_number, status, total_cents, created_at, buyer_user_id, payment_method, bundle_id')
         .in('id', orderIds), { table: 'orders' })
 
       orders?.forEach((o: any) => {
@@ -248,6 +248,9 @@ export async function GET(request: NextRequest) {
           customer_is_vip: vipSet.has(buyerId),
           total_cents: order?.total_cents || 0,
           created_at: order?.created_at || item.created_at,
+          // Bundle orders (mig 244): the MARKET MANAGER collects — the card
+          // tells the vendor not to expect the buyer at their stand.
+          is_bundle: !!order?.bundle_id,
           items: []
         })
       }

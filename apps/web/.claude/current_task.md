@@ -168,6 +168,33 @@ Gates: tsc ✓ · **2170/2170** ✓ · lint 0 err. COMMITTED (owner 2026-09-05).
   lever = cap dropdown 28→14d, NOT built, awaiting owner word).
 - **Owner go: "commit & push staging"** — the ONE staging push carrying all local commits.
 
+## 🧺 E4/E5 BATCH + CANCEL-BUNDLE (owner rulings 2026-09-06: bundle-level 25% fee once ANY
+## vendor confirms · cancel only until collection begins · dashboard band approved) — BUILT, UNCOMMITTED
+- E2E review FIRST (owner order): `pickup_status_progression_review.md` — full status machine map;
+  money always on the SECOND act; bundle deviations characterized before touching anything.
+- **BUILT**: E4 pinned "Market Bundles" row in MarketVendorsList (bundleCount prop, #curated-bundles
+  anchor; cards moved below vendors) · checkout labels ("Bundle ({name})" + cause line "A portion…
+  thank you", en+es, pct dropped) · pickup spot REQUIRED (form + validate.ts ≥3 chars; helper says
+  buyer-collects-here + value-add) · success page bundle bullets (market-centric; spot shown;
+  enrichment fetch from buyer orders API since session payload lacks bundle fields) · buyer orders
+  API += bundle_name/bundle_pickup_notes (service lookup) · buyer order page: isBundleOrder gating
+  (hero = bundleAwaitingPickup ONLY; banners market-centric incl. bundle-only 'confirmed' banner;
+  per-item cancel/fee-warning/hints suppressed; bundle card += spot + name + state-aware copy +
+  Cancel-bundle button w/ ConfirmDialog) · **cancel-bundle route** (all-or-nothing; closed once any
+  item fulfilled/acked; calculateBundleCancellation in cancellation-fees.ts — grace wins, ANY-vendor-
+  confirmed → 25% on items+margin, tip always full, vendor share only to confirmed vendors, margin
+  75/100; guarded flips; slot release; deterministic refund keys item/-bundle-margin/-order-fees;
+  payout-row-before-transfer; 5-spec money test) · bundle_cancelled notification (manager, tripwire
+  128→**129**) · dashboard: item-level queries exclude bundles (.is bundle_id null ×2) + third query
+  + prominent "Your Bundle Is Ready" band → order page · vendor OrderCard 🧺 "MARKET BUNDLE · manager
+  picks up" chip (is_bundle from vendor orders API) · "hand-picked" value-add category REMOVED
+  (vendor chooses what they hand over) · 2 flow-integrity pins.
+- Gates: tsc ✓ · **2179/2179** ✓ (88 files; +bundle-cancellation spec) · lint 0 err.
+- **Reject route APPLIED** (owner "yes, modify reject route"; protected-path hook deny-once →
+  verified Rule 3 approval → retried): bundle_component_removed manager notice (tripwire 129→**130**,
+  OL-R13 ceiling 3→4 documented, calls observed()-wrapped, catch uses logError per ratchet).
+- Final gates: tsc ✓ · **2179/2179** ✓ · lint 0 err. COMMIT+PUSH STAGING (owner go).
+
 ## ▶ POST-COMPACTION QUEUE (owner-approved next items)
 1. **Locations-page "Apply required" chip (owner: "add optional polish... for after compaction")**:
    the Available-markets rows on /vendor/markets should LABEL gated markets before the toggle

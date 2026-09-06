@@ -307,8 +307,14 @@ describe('NI-014: Total notification types = 72', () => {
     // market_vendor_application (manager, standard = email+in_app) — a vendor
     // applied through the FIXED Apply-to-Sell-Here flow (its ownership check
     // had 403'd every application ever; markets/[id]/vendors :143).
+    // 128 → 129 (2026-09-06, owner batch go "yes... proceed" + cancel-bundle
+    // rulings): bundle_cancelled (manager, standard) — buyer cancelled a
+    // whole bundle order; the run-sheet entry vanished, manager hears now.
+    // 129 → 130 (2026-09-06, owner "yes, modify reject route"):
+    // bundle_component_removed (manager, warning) — a vendor rejected one
+    // component of a sold bundle; buyer refunded, manager must hear.
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(128)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(130)
   })
 
   it('includes all buyer-facing types', () => {

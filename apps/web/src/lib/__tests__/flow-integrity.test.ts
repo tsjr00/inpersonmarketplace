@@ -2413,6 +2413,30 @@ describe('Event ↔ location availability', () => {
     expect(buyerAck, 'buyer-second edge releases the margin via the same idempotent payer').toMatch(/payBundleMargin/)
   })
 
+  it('bundle orders never summon the buyer for the manager\'s steps (E4/E5 batch 2026-09-06)', () => {
+    // The manager collects components; the buyer's moment is the assembled
+    // bundle. Dashboard ready + needs-confirmation queries exclude bundle
+    // orders (their own band fires at true pickup time), and the order page
+    // gates the green pickup hero to the bundle-awaiting state.
+    const dash = rd('app/[vertical]/dashboard/page.tsx')
+    const exclusions = dash.match(/\.is\('bundle_id', null\)/g) ?? []
+    expect(exclusions.length, 'both item-level dashboard queries exclude bundles').toBeGreaterThanOrEqual(2)
+    expect(dash, 'the bundle pickup band exists').toMatch(/bundleReadyOrders/)
+    const orderPage = rd('app/[vertical]/buyer/orders/[id]/page.tsx')
+    expect(orderPage, 'hero gated to the bundle pickup state').toMatch(/isBundleOrder\s*\?\s*bundleAwaitingPickup/)
+    expect(orderPage, 'per-item cancel suppressed on bundles').toMatch(/!isBundleOrder &&/)
+  })
+
+  it('cancel-bundle: all-or-nothing, bundle-level fee, closed at collection (owner rulings 2026-09-06)', () => {
+    const route = rd('app/api/buyer/orders/[id]/cancel-bundle/route.ts')
+    expect(route, 'door closes once the manager starts collecting').toMatch(/status === 'fulfilled' \|\| i\.buyer_confirmed_at/)
+    expect(route, 'sold slot released').toMatch(/atomic_release_bundle_sold/)
+    expect(route, 'margin refund rides its deterministic key').toMatch(/-bundle-margin/)
+    expect(route, 'tip refunds in full on the shared key').toMatch(/-order-fees/)
+    const fees = rd('lib/payments/cancellation-fees.ts')
+    expect(fees, 'fee trigger is ANY vendor confirmed, bundle-level').toMatch(/anyVendorConfirmed/)
+  })
+
   it('the NEWEST definer of get_available_pickup_dates honors vendor_date_blackouts for non-event markets', () => {
     const dir = path.resolve(SRC_DIR, '../../../supabase/migrations')
     const files: string[] = []

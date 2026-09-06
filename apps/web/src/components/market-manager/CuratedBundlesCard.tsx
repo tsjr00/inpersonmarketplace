@@ -71,7 +71,6 @@ const VALUE_ADD_CATEGORIES = [
   'Gift basket / ready-to-use kit',
   'Displayed & sold at an event outside the market',
   'Cross-marketed with a portion donated to a community cause',
-  'Curated same-morning selection',
   'Other',
 ] as const
 
@@ -640,7 +639,10 @@ export default function CuratedBundlesCard({ marketId }: CuratedBundlesCardProps
                 ⚠️ Including fresh produce? Keep the pickup window short — once a vendor hands their items to you, they&apos;re in your care. If produce wilts or degrades while you hold it, any customer dissatisfaction is on you, along with the refund.
               </div>
 
-              <label style={labelStyle}>Where at the market buyers collect it (optional)</label>
+              <label style={labelStyle}>Where at the market buyers collect it</label>
+              <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing['3xs'] }}>
+                Name one specific spot — this is where the buyer comes to collect the assembled bundle from you. Without it, buyers wander the market hunting each vendor. An easy, obvious pickup spot is part of the value you add.
+              </div>
               <input type="text" value={form.pickupNotes} onChange={e => setForm(f => ({ ...f, pickupNotes: e.target.value.slice(0, 200) }))} placeholder="e.g. the info booth at the main entrance" style={inputStyle} />
 
               <label style={labelStyle}>5 · What value do you add?</label>
@@ -681,10 +683,10 @@ export default function CuratedBundlesCard({ marketId }: CuratedBundlesCardProps
                 </button>
                 <button
                   onClick={submit}
-                  disabled={busy || form.components.size < 2 || !form.name.trim() || !form.pickupMarketDate || enteredPriceCents <= 0 || priceBelowItems || !form.valueAddCategory || form.valueAddDetails.trim().length < 10}
+                  disabled={busy || form.components.size < 2 || !form.name.trim() || !form.pickupMarketDate || !form.pickupNotes.trim() || enteredPriceCents <= 0 || priceBelowItems || !form.valueAddCategory || form.valueAddDetails.trim().length < 10}
                   style={{
                     padding: `${spacing.xs} ${spacing.md}`,
-                    backgroundColor: busy || form.components.size < 2 || !form.name.trim() || !form.pickupMarketDate || enteredPriceCents <= 0 || priceBelowItems || !form.valueAddCategory || form.valueAddDetails.trim().length < 10 ? colors.border : colors.primary,
+                    backgroundColor: busy || form.components.size < 2 || !form.name.trim() || !form.pickupMarketDate || !form.pickupNotes.trim() || enteredPriceCents <= 0 || priceBelowItems || !form.valueAddCategory || form.valueAddDetails.trim().length < 10 ? colors.border : colors.primary,
                     color: 'white', border: 'none', borderRadius: radius.sm,
                     fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold,
                     cursor: busy ? 'not-allowed' : 'pointer',

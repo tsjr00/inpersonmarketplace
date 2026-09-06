@@ -216,6 +216,8 @@ export type NotificationType =
   | 'customer_milestone'
   // Market bundles (mig 244): bundle_sold → manager; bundles_intro → vendors (one-time)
   | 'bundle_sold'
+  | 'bundle_cancelled'
+  | 'bundle_component_removed'
   | 'bundles_intro'
   // Option A (2026-09-05): a vendor applied to a managed market → its manager
   | 'market_vendor_application'
@@ -2277,6 +2279,39 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: (d) => `🧺 Bundle sold: ${d.bundleName || 'your curated bundle'}`,
     message: (d) =>
       `A buyer just purchased "${d.bundleName || 'your bundle'}" for pickup on ${d.marketDate || 'the market day'}. Your run sheet has the component pickup list — collect from each vendor, assemble, and mark it handed off when the buyer collects it (that's when your margin pays out).`,
+    actionUrl: (d) =>
+      d.marketId
+        ? `/${d.vertical || 'farmers_market'}/market-manager/${d.marketId}/dashboard`
+        : `/${d.vertical || 'farmers_market'}/dashboard`,
+  },
+
+  // Buyer cancelled a whole bundle order (all-or-nothing, owner ruling
+  // 2026-09-06) — the manager's run-sheet entry just vanished, so they hear
+  // immediately instead of discovering it at collection time.
+  bundle_cancelled: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor', // market managers act from a vendor-adjacent role
+    title: (d) => `🧺 Bundle order cancelled: ${d.bundleName || 'a curated bundle'}`,
+    message: (d) =>
+      `The buyer cancelled order ${d.orderNumber ? `#${d.orderNumber}` : ''} for "${d.bundleName || 'your bundle'}"${d.reason ? ` — reason: ${d.reason}` : ''}. The slot is back on sale and nothing needs collecting for this order.`,
+    actionUrl: (d) =>
+      d.marketId
+        ? `/${d.vertical || 'farmers_market'}/market-manager/${d.marketId}/dashboard`
+        : `/${d.vertical || 'farmers_market'}/dashboard`,
+  },
+
+  // A vendor rejected one component of a sold bundle (owner ruling
+  // 2026-09-06): the buyer got the standard item-cancellation notice; the
+  // MANAGER hears here — the assembled product they promised just lost a
+  // piece, and the buyer holds a reduced bundle.
+  bundle_component_removed: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'vendor', // market managers act from a vendor-adjacent role
+    title: (d) => `🧺 Bundle item removed: ${d.bundleName || 'a curated bundle'}`,
+    message: (d) =>
+      `${d.vendorName || 'A vendor'} cancelled "${d.itemTitle || 'an item'}" from bundle order ${d.orderNumber ? `#${d.orderNumber}` : ''}${d.reason ? ` — reason: ${d.reason}` : ''}. The buyer was refunded for that item and now holds a reduced bundle — consider reaching out to them.`,
     actionUrl: (d) =>
       d.marketId
         ? `/${d.vertical || 'farmers_market'}/market-manager/${d.marketId}/dashboard`

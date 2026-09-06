@@ -55,7 +55,10 @@ describe('OL-R13: one notification per status transition', () => {
     const notifCalls = (route.match(/sendNotification/g) || []).length
     // Should have notification calls but not excessive duplicates for same transition
     expect(notifCalls).toBeGreaterThan(0)
-    expect(notifCalls).toBeLessThanOrEqual(3) // buyer notif + optional vendor warning
+    // 3 → 4 (2026-09-06, owner "yes, modify reject route"): + the
+    // bundle_component_removed MANAGER notice on bundle orders — a different
+    // recipient for a bundle sub-case, not a duplicate of the buyer notice.
+    expect(notifCalls).toBeLessThanOrEqual(4) // buyer notif + optional vendor warning + bundle manager notice
   })
 
   it('confirm route sends notification on status change', () => {

@@ -110,6 +110,8 @@ interface OrderDetail {
   bundle_handed_off_at?: string | null
   bundle_buyer_ack_at?: string | null
   bundle_margin_settled?: boolean
+  bundle_name?: string | null
+  bundle_pickup_notes?: string | null
   items: OrderItem[]
 }
 
@@ -218,6 +220,46 @@ export default function BuyerOrderDetailPage() {
     } finally {
       setBundleAcking(false)
     }
+  }
+
+  // Cancel bundle — all-or-nothing (owner ruling 2026-09-06): one action
+  // cancels every item, refunds per the bundle policy (grace/unconfirmed →
+  // full; any vendor confirmed → 25% fee on everything except the tip), and
+  // releases the bundle's sold slot. Server enforces the collection cutoff.
+  const [cancellingBundle, setCancellingBundle] = useState(false)
+  const handleCancelBundle = () => {
+    setConfirmDialog({
+      open: true,
+      title: t('order.cancel_bundle_title', locale),
+      message: t('order.cancel_bundle_msg', locale),
+      confirmLabel: t('order.cancel_bundle_btn', locale),
+      variant: 'danger',
+      showInput: true,
+      inputLabel: t('order.cancel_reason', locale),
+      inputPlaceholder: t('order.cancel_placeholder', locale),
+      onConfirm: async (input?: string) => {
+        setConfirmDialog(d => ({ ...d, open: false }))
+        setCancellingBundle(true)
+        try {
+          const res = await fetch(`/api/buyer/orders/${orderId}/cancel-bundle`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason: input || '' }),
+          })
+          const data = await res.json().catch(() => ({}))
+          if (res.ok) {
+            showBanner(data.message || t('order.cancel_success', locale), 'success')
+          } else {
+            showBanner(data.error || t('order.cancel_bundle_error', locale), 'error')
+          }
+          fetchOrder()
+        } catch {
+          showBanner(t('order.cancel_bundle_error', locale), 'error')
+        } finally {
+          setCancellingBundle(false)
+        }
+      },
+    })
   }
 
   const executeConfirmPickup = async (itemId: string) => {
@@ -500,6 +542,18 @@ export default function BuyerOrderDetailPage() {
 
   const effectiveStatus = computeEffectiveStatus()
 
+  // Bundle orders (mig 246, owner rulings 2026-09-06): the MARKET runs this
+  // order, not individual vendors. The manager's collection stamps items
+  // fulfilled+acked, so item-level states must not summon the buyer — the
+  // green pickup screen turns on only when the assembled bundle is actually
+  // awaiting the buyer (every live item collected, margin unsettled).
+  const isBundleOrder = !!order.bundle_id
+  const liveItems = order.items.filter(i => !i.cancelled_at)
+  const bundleCollectionStarted = isBundleOrder &&
+    liveItems.some(i => i.status === 'fulfilled' || !!i.buyer_confirmed_at)
+  const bundleAwaitingPickup = isBundleOrder && !order.bundle_margin_settled &&
+    liveItems.length > 0 && liveItems.every(i => i.status === 'fulfilled')
+
   // Group items by market
   const marketGroups = order.items.reduce((acc, item) => {
     const marketId = item.market.id
@@ -526,7 +580,9 @@ export default function BuyerOrderDetailPage() {
   const isMultiVendor = uniqueVendors > 1
 
   // Is this order in a pickup-ready state? Show the mobile pickup presentation
-  const isPickupReady = ['ready', 'handed_off'].includes(effectiveStatus)
+  const isPickupReady = isBundleOrder
+    ? bundleAwaitingPickup
+    : ['ready', 'handed_off'].includes(effectiveStatus)
   // Get primary vendor/market for the hero section — prioritize ready items
   const primaryItem = order.items.find(i => i.status === 'ready' && !i.cancelled_at)
     || order.items.find(i => i.status === 'fulfilled' && !i.buyer_confirmed_at && !i.cancelled_at)
@@ -547,8 +603,9 @@ export default function BuyerOrderDetailPage() {
     }}>
       <div style={{ maxWidth: containers.xl, margin: '0 auto' }}>
 
-        {/* Bundle handoff acknowledge — shown until the margin settles */}
-        {order.bundle_id && !order.bundle_margin_settled && (
+        {/* Bundle card — pickup spot, the handoff acknowledge, and (until the
+            manager starts collecting) the all-or-nothing Cancel bundle. */}
+        {order.bundle_id && !order.bundle_margin_settled && effectiveStatus !== 'cancelled' && (
           <div style={{
             margin: isPickupReady ? spacing.md : `0 0 ${spacing.md}`,
             padding: spacing.md,
@@ -557,26 +614,57 @@ export default function BuyerOrderDetailPage() {
             borderRadius: radius.md,
           }}>
             <div style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing['2xs'] }}>
-              🧺 {t('order.bundle_ack_title', locale)}
+              🧺 {order.bundle_name ? `${t('order.bundle_ack_title', locale)} — ${order.bundle_name}` : t('order.bundle_ack_title', locale)}
             </div>
+            {order.bundle_pickup_notes && (
+              <p style={{ margin: `0 0 ${spacing.xs}`, fontSize: typography.sizes.sm, color: colors.textPrimary }}>
+                📍 {t('order.bundle_spot', locale, { spot: order.bundle_pickup_notes })}
+              </p>
+            )}
             <p style={{ margin: `0 0 ${spacing.sm}`, fontSize: typography.sizes.sm, color: colors.textSecondary }}>
               {order.bundle_handed_off_at
                 ? t('order.bundle_ack_manager_first', locale)
-                : t('order.bundle_ack_explain', locale)}
+                : bundleAwaitingPickup
+                  ? t('order.bundle_ack_explain', locale)
+                  : t('order.bundle_collecting', locale)}
             </p>
-            <button
-              onClick={handleBundleAck}
-              disabled={bundleAcking}
-              style={{
-                padding: `${spacing.xs} ${spacing.md}`,
-                backgroundColor: '#ca8a04', color: 'white', border: 'none',
-                borderRadius: radius.sm, fontSize: typography.sizes.sm,
-                fontWeight: typography.weights.semibold,
-                cursor: bundleAcking ? 'wait' : 'pointer',
-              }}
-            >
-              {bundleAcking ? t('order.bundle_ack_working', locale) : t('order.bundle_ack_button', locale)}
-            </button>
+            {(bundleAwaitingPickup || order.bundle_handed_off_at) && (
+              <button
+                onClick={handleBundleAck}
+                disabled={bundleAcking}
+                style={{
+                  padding: `${spacing.xs} ${spacing.md}`,
+                  backgroundColor: '#ca8a04', color: 'white', border: 'none',
+                  borderRadius: radius.sm, fontSize: typography.sizes.sm,
+                  fontWeight: typography.weights.semibold,
+                  cursor: bundleAcking ? 'wait' : 'pointer',
+                }}
+              >
+                {bundleAcking ? t('order.bundle_ack_working', locale) : t('order.bundle_ack_button', locale)}
+              </button>
+            )}
+            {/* Cancel bundle — one product, all-or-nothing (owner ruling
+                2026-09-06); closes the moment collection begins. */}
+            {!bundleCollectionStarted && !order.bundle_handed_off_at && (
+              <div style={{ marginTop: spacing.sm, paddingTop: spacing.sm, borderTop: '1px dashed #eab308' }}>
+                <button
+                  onClick={handleCancelBundle}
+                  disabled={cancellingBundle}
+                  style={{
+                    padding: `${spacing['3xs']} ${spacing.sm}`,
+                    backgroundColor: 'white', color: '#dc2626',
+                    border: '1px solid #fca5a5', borderRadius: radius.sm,
+                    fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold,
+                    cursor: cancellingBundle ? 'wait' : 'pointer',
+                  }}
+                >
+                  {cancellingBundle ? t('order.cancelling', locale) : t('order.cancel_bundle_btn', locale)}
+                </button>
+                <p style={{ margin: `${spacing['2xs']} 0 0`, fontSize: typography.sizes.xs, color: '#991b1b', fontStyle: 'italic' }}>
+                  {t('order.cancel_bundle_fee_warning', locale)}
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -881,12 +969,24 @@ export default function BuyerOrderDetailPage() {
               const bannerConfig: Record<string, { bg: string; border: string; color: string; text: string }> = {
                 pending: {
                   bg: '#fffbeb', border: '#fde68a', color: '#92400e',
-                  text: t('order.banner_pending', locale, { vendor: primaryVendorName })
+                  // Bundle orders: the market is the counterparty — never name
+                  // an individual vendor as who the buyer is waiting on.
+                  text: isBundleOrder
+                    ? t('order.banner_pending_bundle', locale)
+                    : t('order.banner_pending', locale, { vendor: primaryVendorName })
                 },
                 ready: {
                   bg: '#eff6ff', border: '#93c5fd', color: '#1e40af',
-                  text: t('order.banner_ready', locale)
+                  text: isBundleOrder ? t('order.banner_collecting_bundle', locale) : t('order.banner_ready', locale)
                 },
+                // Bundle-only: 'confirmed' gets a banner (collection under way)
+                // — non-bundle confirmed orders keep their no-banner behavior.
+                ...(isBundleOrder ? {
+                  confirmed: {
+                    bg: '#eff6ff', border: '#93c5fd', color: '#1e40af',
+                    text: t('order.banner_collecting_bundle', locale)
+                  },
+                } : {}),
                 cancelled: (() => {
                   const buyerCancelled = order.items.some(i => i.cancelled_by === 'buyer')
                   const systemCancelled = order.items.some(i => i.cancelled_by === 'system')
@@ -1170,8 +1270,11 @@ export default function BuyerOrderDetailPage() {
                         {t('order.status_label', locale)} {statusLabel}
                       </span>
 
-                      {/* Cancel Button - on same row as status */}
-                      {!['completed', 'cancelled', 'fulfilled'].includes(effectiveStatus) &&
+                      {/* Cancel Button - on same row as status. Bundle orders
+                          have NO per-item cancel — the bundle is one product;
+                          the Cancel-bundle action lives on the bundle card. */}
+                      {!isBundleOrder &&
+                       !['completed', 'cancelled', 'fulfilled'].includes(effectiveStatus) &&
                        ['pending', 'paid', 'confirmed', 'ready'].includes(item.status) &&
                        !item.cancelled_at &&
                        !item.buyer_confirmed_at && (
@@ -1196,7 +1299,8 @@ export default function BuyerOrderDetailPage() {
                     </div>
 
                     {/* Cancellation fee warning */}
-                    {!['completed', 'cancelled', 'fulfilled'].includes(effectiveStatus) &&
+                    {!isBundleOrder &&
+                     !['completed', 'cancelled', 'fulfilled'].includes(effectiveStatus) &&
                      ['confirmed', 'ready'].includes(item.status) &&
                      !item.cancelled_at &&
                      !item.buyer_confirmed_at && (
@@ -1254,8 +1358,10 @@ export default function BuyerOrderDetailPage() {
                       </div>
                     )}
 
-                    {/* Status message for items awaiting confirmation */}
-                    {['ready', 'fulfilled'].includes(item.status) && !item.buyer_confirmed_at && !item.cancelled_at && !item.issue_reported_at && (
+                    {/* Status message for items awaiting confirmation —
+                        suppressed on bundle orders (the banner + bundle card
+                        carry the market-centric story instead). */}
+                    {!isBundleOrder && ['ready', 'fulfilled'].includes(item.status) && !item.buyer_confirmed_at && !item.cancelled_at && !item.issue_reported_at && (
                       <p style={{
                         margin: `${spacing['2xs']} 0 0 0`,
                         fontSize: typography.sizes.xs,
