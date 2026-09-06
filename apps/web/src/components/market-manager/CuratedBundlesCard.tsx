@@ -564,7 +564,7 @@ export default function CuratedBundlesCard({ marketId }: CuratedBundlesCardProps
               <input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value.slice(0, 120) }))} placeholder={`e.g. "Farm Dinner Box"`} style={inputStyle} />
 
               <label style={labelStyle}>Description shown to buyers (optional)</label>
-              <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value.slice(0, 600) }))} rows={2} style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }} />
+              <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value.slice(0, 600) }))} rows={2} placeholder="A sentence or two buyers will read — what's inside and why it's special. e.g. Everything for a farm dinner for four: fresh pasta, seasonal vegetables, bread, and a dessert." style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }} />
 
               <label style={labelStyle}>2 · Pick the items (at least 2)</label>
               {available.length === 0 ? (
@@ -641,13 +641,13 @@ export default function CuratedBundlesCard({ marketId }: CuratedBundlesCardProps
 
               <label style={labelStyle}>5 · What value do you add?</label>
               <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing['3xs'] }}>
-                Every bundle gets a quick platform review before it goes on sale. Pick the category that best fits what you&apos;re adding beyond the items themselves, then describe it — the reviewer approves bundles whose price reflects real added value.
+                Every bundle gets a quick platform review before it goes on sale. Pick the category that best fits what you&apos;re adding beyond the items themselves, then describe it in a couple of sentences — the reviewer approves bundles whose price reflects real added value.
               </div>
               <select value={form.valueAddCategory} onChange={e => setForm(f => ({ ...f, valueAddCategory: e.target.value }))} style={inputStyle}>
                 <option value="">Pick a category…</option>
                 {VALUE_ADD_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-              <textarea value={form.valueAddDetails} onChange={e => setForm(f => ({ ...f, valueAddDetails: e.target.value.slice(0, 1000) }))} rows={2} placeholder="e.g. I select the best of each vendor's harvest that morning and arrange it in a reusable gift basket." style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit', marginTop: spacing['3xs'] }} />
+              <textarea value={form.valueAddDetails} onChange={e => setForm(f => ({ ...f, valueAddDetails: e.target.value.slice(0, 1000) }))} rows={2} placeholder="A couple of sentences — e.g. I select the best of each vendor's harvest that morning and arrange it in a reusable gift basket with a recipe card." style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit', marginTop: spacing['3xs'] }} />
 
               {beneficiaries.length > 0 && (
                 <div style={{ display: 'flex', gap: spacing.sm, flexWrap: 'wrap' }}>
@@ -677,10 +677,10 @@ export default function CuratedBundlesCard({ marketId }: CuratedBundlesCardProps
                 </button>
                 <button
                   onClick={submit}
-                  disabled={busy || form.components.size < 2 || !form.name.trim() || !form.pickupMarketDate || enteredPriceCents <= 0 || priceBelowItems || !form.valueAddCategory || !form.valueAddDetails.trim()}
+                  disabled={busy || form.components.size < 2 || !form.name.trim() || !form.pickupMarketDate || enteredPriceCents <= 0 || priceBelowItems || !form.valueAddCategory || form.valueAddDetails.trim().length < 10}
                   style={{
                     padding: `${spacing.xs} ${spacing.md}`,
-                    backgroundColor: busy || form.components.size < 2 || !form.name.trim() || !form.pickupMarketDate || enteredPriceCents <= 0 || priceBelowItems || !form.valueAddCategory || !form.valueAddDetails.trim() ? colors.border : colors.primary,
+                    backgroundColor: busy || form.components.size < 2 || !form.name.trim() || !form.pickupMarketDate || enteredPriceCents <= 0 || priceBelowItems || !form.valueAddCategory || form.valueAddDetails.trim().length < 10 ? colors.border : colors.primary,
                     color: 'white', border: 'none', borderRadius: radius.sm,
                     fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold,
                     cursor: busy ? 'not-allowed' : 'pointer',

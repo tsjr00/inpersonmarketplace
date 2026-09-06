@@ -165,7 +165,7 @@ export default function BundlesAdminPage({ vertical }: BundlesAdminPageProps) {
           Nothing {tab === 'pending_approval' ? 'awaiting review' : `in ${TABS.find(t => t.key === tab)?.label.toLowerCase()}`}.
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
           {bundles.map(b => {
             const market = markets.get(b.market_id)
             const componentSum = b.market_bundle_components.reduce((s, c) => {
@@ -179,7 +179,7 @@ export default function BundlesAdminPage({ vertical }: BundlesAdminPageProps) {
               .map(c => listings.get(c.listing_id))
               .filter(l => l?.vendor_profiles?.bundles_opt_out)
             return (
-              <div key={b.id} style={{ padding: spacing.md, backgroundColor: 'white', border: `1px solid ${colors.border}`, borderRadius: radius.md }}>
+              <div key={b.id} style={{ padding: `${spacing.sm} ${spacing.md}`, backgroundColor: 'white', border: `1px solid ${colors.border}`, borderRadius: radius.md }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: spacing.sm, flexWrap: 'wrap' }}>
                   <div>
                     <span style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.bold, color: colors.textPrimary }}>{b.name}</span>
@@ -198,7 +198,7 @@ export default function BundlesAdminPage({ vertical }: BundlesAdminPageProps) {
                 )}
 
                 {/* The money picture — what the approval judgment weighs */}
-                <div style={{ marginTop: spacing.sm, padding: spacing.sm, backgroundColor: colors.surfaceBase, borderRadius: radius.sm, fontSize: typography.sizes.sm, color: colors.textPrimary }}>
+                <div style={{ marginTop: spacing.xs, padding: `${spacing['2xs']} ${spacing.xs}`, backgroundColor: colors.surfaceBase, borderRadius: radius.sm, fontSize: typography.sizes.sm, color: colors.textPrimary }}>
                   Items {formatPrice(componentSum)} + margin <strong>{formatPrice(b.margin_cents)}</strong> ({marginPct}% of items)
                   → buyer pays <strong>{formatPrice(buyerPays)}</strong> · up to {b.quantity_limit} sold
                   {b.cause_pct && b.cause_beneficiary_id ? (
@@ -221,12 +221,12 @@ export default function BundlesAdminPage({ vertical }: BundlesAdminPageProps) {
                 </ul>
 
                 {/* The value-add justification — the heart of the review */}
-                <div style={{ marginTop: spacing.sm, padding: spacing.sm, borderLeft: `3px solid ${colors.primary}`, backgroundColor: colors.surfaceBase, fontSize: typography.sizes.sm, color: colors.textPrimary, fontStyle: 'italic' }}>
+                <div style={{ marginTop: spacing.xs, padding: `${spacing['2xs']} ${spacing.xs}`, borderLeft: `3px solid ${colors.primary}`, backgroundColor: colors.surfaceBase, fontSize: typography.sizes.sm, color: colors.textPrimary, fontStyle: 'italic' }}>
                   “{b.justification || 'No justification provided.'}”
                 </div>
 
                 {b.status === 'pending_approval' && (
-                  <div style={{ display: 'flex', gap: spacing.xs, marginTop: spacing.sm, justifyContent: 'flex-end' }}>
+                  <div style={{ display: 'flex', gap: spacing.xs, marginTop: spacing.xs, justifyContent: 'flex-end' }}>
                     <button
                       onClick={() => setRejectTarget(b)}
                       disabled={busy === b.id}

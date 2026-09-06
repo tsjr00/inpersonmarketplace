@@ -159,7 +159,14 @@ Gates: tsc ✓ · **2170/2170** ✓ · lint 0 err. COMMITTED (owner 2026-09-05).
   consent card en/es ("wait for the manager's tap, then Fulfill within 30s — paid right then") +
   manager run-sheet coaching line ("tap Receiving now first — vendor paid on the spot").
 - Gates: tsc ✓ · **2172/2172** ✓ · lint 0 err. COMMITTED local (owner "commit local").
-- Owner has MORE FEEDBACK coming before the staging push — hold the push.
+- **E3 round (owner 2026-09-06)**: E3 admin approve loop PASSED end-to-end. Fixes built on the
+  go: description + value-add placeholders w/ length guidance (client gate now matches server's
+  10-char min) · admin bundle card compacted (~20%: list gap sm→xs, card+block padding trimmed).
+  Pre-order lead-time question ANSWERED in chat (inventory reserved at purchase; sold-out
+  components kill the card via componentIsLive + checkout OUT_OF_STOCK; per-listing windows
+  enforced at checkout :590-592 — caveat: "currently accepting", not per-bundle-date; optional
+  lever = cap dropdown 28→14d, NOT built, awaiting owner word).
+- **Owner go: "commit & push staging"** — the ONE staging push carrying all local commits.
 
 ## ▶ POST-COMPACTION QUEUE (owner-approved next items)
 1. **Locations-page "Apply required" chip (owner: "add optional polish... for after compaction")**:
