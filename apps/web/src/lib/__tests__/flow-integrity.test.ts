@@ -2355,6 +2355,25 @@ describe('Event ↔ location availability', () => {
     expect(guard).toMatch(/multiple_trucks/)
   })
 
+  it('the schedule side door is closed for managed PAYING markets (free stays open)', () => {
+    // Owner 2026-09-05 (option A follow-through): the vendor schedules route
+    // was the side door — joining any market by toggling days, bypassing the
+    // manager's roster and the application flow. The gate blocks NEW joins at
+    // markets that are managed AND charge vendors (FT: park_mode !== 'free';
+    // FM: priced booth inventory — park_mode defaults 'free' everywhere so it
+    // cannot carry the FM signal). Free markets keep the zero-friction join;
+    // approved-roster vendors and anyone with existing schedule rows are
+    // grandfathered.
+    const route = rd('app/api/vendor/markets/[id]/schedules/route.ts')
+    const gateCalls = route.match(/await managedJoinBlocked\(/g) ?? []
+    expect(gateCalls.length, 'both writers (PUT + PATCH) run the gate').toBeGreaterThanOrEqual(2)
+    expect(route, 'FT free-park exemption').toMatch(/park_mode !== 'free'/)
+    expect(route, 'FM signal = priced booth inventory, never park_mode').toMatch(/\.gt\('weekly_price_cents', 0\)/)
+    expect(route, 'approved roster row exempts').toMatch(/roster\?\.approved === true/)
+    expect(route, 'existing schedule rows grandfather').toMatch(/from\('vendor_market_schedules'\)/)
+    expect(route, 'refusal routes to the application flow').toMatch(/ERR_MARKET_APPLY_REQUIRED/)
+  })
+
   it('the NEWEST definer of get_available_pickup_dates honors vendor_date_blackouts for non-event markets', () => {
     const dir = path.resolve(SRC_DIR, '../../../supabase/migrations')
     const files: string[] = []

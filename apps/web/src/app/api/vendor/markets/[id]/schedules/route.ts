@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { findScheduleConflicts, padTime, dayOfWeekName, formatTimeDisplay, type ScheduleSlot } from '@/lib/utils/schedule-overlap'
@@ -17,6 +17,65 @@ async function isMultiTruckVendor(supabase: SupabaseClient, vendorProfileId: str
     .eq('id', vendorProfileId)
     .single(), { table: 'vendor_profiles' })
   return (data?.profile_data as Record<string, unknown>)?.multiple_trucks === true
+}
+
+/**
+ * Side-door gate (owner option A + free exemption, 2026-09-05).
+ *
+ * This route WAS the side door: any vendor could join ANY market — managed
+ * included — by toggling attendance days, bypassing the manager's roster and
+ * the (now-fixed) application flow entirely. The gate closes it for markets
+ * that are BOTH managed AND charge vendors through the app:
+ *   · FT: park_mode !== 'free'
+ *   · FM: has booth inventory with a real price (park_mode is an FT concept —
+ *     it defaults 'free' on every market row, so it can't carry the FM signal)
+ * Free markets of either kind keep today's zero-friction join (owner: "if
+ * it's free then even if it's managed we don't force vendors through the
+ * application path").
+ *
+ * Exempt (grandfathered): a vendor with an APPROVED roster row, or with ANY
+ * existing schedule row at the market (they were already in before the gate).
+ * Returns the market name for the refusal message, or null when allowed.
+ */
+async function managedJoinBlocked(
+  marketId: string,
+  vendorProfileId: string,
+  market: { name?: string | null; vertical_id: string; manager_user_id?: string | null; park_mode?: string | null }
+): Promise<string | null> {
+  if (!market.manager_user_id) return null
+  const service = createServiceClient()
+
+  let chargesVendors = false
+  if (market.vertical_id === 'food_trucks') {
+    chargesVendors = market.park_mode !== 'free'
+  } else {
+    const { data: pricedInventory } = await observed(service
+      .from('market_booth_inventory')
+      .select('id')
+      .eq('market_id', marketId)
+      .gt('weekly_price_cents', 0)
+      .limit(1), { table: 'market_booth_inventory' })
+    chargesVendors = (pricedInventory ?? []).length > 0
+  }
+  if (!chargesVendors) return null
+
+  const { data: roster } = await observed(service
+    .from('market_vendors')
+    .select('approved')
+    .eq('market_id', marketId)
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle(), { table: 'market_vendors' })
+  if (roster?.approved === true) return null
+
+  const { data: existing } = await observed(service
+    .from('vendor_market_schedules')
+    .select('id')
+    .eq('market_id', marketId)
+    .eq('vendor_profile_id', vendorProfileId)
+    .limit(1), { table: 'vendor_market_schedules' })
+  if ((existing ?? []).length > 0) return null
+
+  return market.name || 'This market'
 }
 
 /**
@@ -192,7 +251,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       // Verify market exists and is a traditional market (not private pickup)
       const { data: market, error: marketError } = await supabase
         .from('markets')
-        .select('id, market_type, status, vertical_id')
+        .select('id, name, market_type, status, vertical_id, manager_user_id, park_mode')
         .eq('id', marketId)
         .single()
 
@@ -206,6 +265,19 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
       if (market.status !== 'active') {
         return NextResponse.json({ error: 'This market is not currently active' }, { status: 400 })
+      }
+
+      // Side-door gate: joining a managed, paying market goes through the
+      // application flow — not a schedule toggle. Empty scheduleIds = leaving,
+      // always allowed.
+      if (scheduleIds.length > 0) {
+        const blockedName = await managedJoinBlocked(marketId, vendorProfile.id, market)
+        if (blockedName) {
+          return NextResponse.json({
+            error: `${blockedName} reviews vendor applications. Apply from the market's page — the manager will be notified and you'll be able to set your schedule once approved.`,
+            code: 'ERR_MARKET_APPLY_REQUIRED',
+          }, { status: 403 })
+        }
       }
 
       // Get all active schedules for validation
@@ -427,7 +499,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       // Verify market exists and is a traditional market
       const { data: market, error: marketError } = await supabase
         .from('markets')
-        .select('id, market_type, status, vertical_id')
+        .select('id, name, market_type, status, vertical_id, manager_user_id, park_mode')
         .eq('id', marketId)
         .single()
 
@@ -441,6 +513,19 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
       if (market.status !== 'active') {
         return NextResponse.json({ error: 'This market is not currently active' }, { status: 400 })
+      }
+
+      // Side-door gate (mirrors the PUT branch): activating attendance at a
+      // managed, paying market requires the application flow. Deactivation
+      // is always allowed.
+      if (isActive) {
+        const blockedName = await managedJoinBlocked(marketId, vendorProfile.id, market)
+        if (blockedName) {
+          return NextResponse.json({
+            error: `${blockedName} reviews vendor applications. Apply from the market's page — the manager will be notified and you'll be able to set your schedule once approved.`,
+            code: 'ERR_MARKET_APPLY_REQUIRED',
+          }, { status: 403 })
+        }
       }
 
       // Verify schedule exists, belongs to this market, AND is active.

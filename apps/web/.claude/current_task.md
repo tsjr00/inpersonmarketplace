@@ -86,7 +86,35 @@ never rendered, POSTs always 403'd) · market_vendor_application type (manager, 
 → owner's 3-case design (lead line + Managed/Not-managed groups, contact info on unmanaged,
 market-page links) · API rows += managed/contact fields. Trigger verified: schedules only on
 approved=true → applying ≠ selling. Side-door governance question deliberately parked.
-Gates: tsc ✓ · 2169/2169 ✓ · lint 0 err. Commit ask pending.
+Gates: tsc ✓ · 2169/2169 ✓ · lint 0 err. COMMITTED `e8cfd3ff`.
+
+## 🚪 SIDE DOOR CLOSED (owner 2026-09-05: commit + option (b) free-exempt, extended to FM-free
+## by shared rule "gate = managed AND charges vendors on the app") — BUILT, UNCOMMITTED
+`api/vendor/markets/[id]/schedules`: managedJoinBlocked() helper gates PUT (scheduleIds>0) +
+PATCH (isActive) — FT paying = park_mode!=='free'; FM paying = priced market_booth_inventory
+(⚠ park_mode defaults 'free' on EVERY row — never use it for FM); exempt: approved roster row
+OR any existing vms row (grandfather); refusal = 403 ERR_MARKET_APPLY_REQUIRED with apply-flow
+message (MarketScheduleSelector surfaces it via its error state — row-level "Apply required"
+chip on the Locations page = optional polish, not built). Flow-integrity pin added (+1).
+Gates: tsc ✓ · **2170/2170** ✓ · lint 0 err. COMMITTED (owner 2026-09-05).
+
+## ▶ POST-COMPACTION QUEUE (owner-approved next items)
+1. **Locations-page "Apply required" chip (owner: "add optional polish... for after compaction")**:
+   the Available-markets rows on /vendor/markets should LABEL gated markets before the toggle
+   fails — extend /api/vendor/markets GET rows with the same managed+charges signal
+   (managedJoinBlocked's market-side half: manager_user_id + (FT park_mode!=='free' | FM priced
+   market_booth_inventory)), then render "Application required — apply on the market page" (link)
+   in place of the join checkbox for gated rows the vendor isn't grandfathered into. The server
+   gate already enforces; this is purely pre-emptive labeling. NEEDS ITS OWN GO before building
+   anything else beyond it.
+2. Owner testing continues against Test Protocol v2 (issued in chat; summary above) — staging
+   still at `3954f307`; local main now carries bundles + fixes + polish + apply-flow + side-door
+   gate awaiting ONE staging push on owner's word (⛔ no push while their pass runs).
+3. Standing queue unchanged: scoring Phase 1 (plan ready, D1-D4 gate ship) · G-4 privacy fix ·
+   vendor delegates · markets-missing deep plan (superseded parts marked in
+   markets_missing_streamline_plan.md) · prod push (migs 238→244 IN ORDER + code, window
+   21:00-07:00 CT, gated on test pass; ⚠ at mig-238 prod paste: check for real pre-paste event
+   acceptances — blackout backfill question).
 
 - **TEST PROTOCOL v2 issued in chat 2026-09-05** (tested items removed): E-series = the full
   bundles loop (needs an FM market the owner manages WITH Stripe Connect + ≥2 published listings
