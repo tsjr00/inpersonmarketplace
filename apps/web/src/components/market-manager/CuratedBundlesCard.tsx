@@ -636,6 +636,10 @@ export default function CuratedBundlesCard({ marketId }: CuratedBundlesCardProps
                 <input type="date" value={form.pickupMarketDate} onChange={e => setForm(f => ({ ...f, pickupMarketDate: e.target.value }))} style={inputStyle} />
               )}
 
+              <div style={{ marginTop: spacing['3xs'], fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                ⚠️ Including fresh produce? Keep the pickup window short — once a vendor hands their items to you, they&apos;re in your care. If produce wilts or degrades while you hold it, any customer dissatisfaction is on you, along with the refund.
+              </div>
+
               <label style={labelStyle}>Where at the market buyers collect it (optional)</label>
               <input type="text" value={form.pickupNotes} onChange={e => setForm(f => ({ ...f, pickupNotes: e.target.value.slice(0, 200) }))} placeholder="e.g. the info booth at the main entrance" style={inputStyle} />
 
