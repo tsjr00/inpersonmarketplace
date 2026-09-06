@@ -207,6 +207,7 @@ export async function POST(
       marketBoxCredited: result.marketBoxCredited,
       parkBookingsCancelled: result.parkBookingsCancelled,
       parkTrucksCredited: result.parkCreditNotifs.length,
+      parkCreditTotalCents: result.parkCreditNotifs.reduce((sum, n) => sum + n.amountCents, 0),
     })
   })
 }

@@ -98,6 +98,35 @@ message (MarketScheduleSelector surfaces it via its error state — row-level "A
 chip on the Locations page = optional polish, not built). Flow-integrity pin added (+1).
 Gates: tsc ✓ · **2170/2170** ✓ · lint 0 err. COMMITTED (owner 2026-09-05).
 
+## 🔎 TEST ROUND 3 TRIAGE (2026-09-05 post-compaction) — F3+A5 BUILT (owner "yes, build as explained"), UNCOMMITTED
+- **Round results**: F1 ✅ F2 ✅ C1-C4 ✅ · B2 = already covered by last round's makeup-day
+  strip render (cancel+reschedule is the only makeup path) · A6-A9 still untestable.
+- **F3 findings (3 threads, no data damage)**: (1) D3's rosterVendorsNotified was API-only —
+  card never read it (MarketCancelDateCard 73-77,110); (2) "0 spot renters" = the FM
+  weekly_booth_rentals count, always 0 at a park — the FT path (parkTrucksCredited) wasn't
+  displayed; (3) credit-despite-makeup-choice = G3/PRK-16 DESIGN (2026-07-18): park paid
+  bookings ALWAYS cancel+credit at cancel time (route never passes disposition to cascade,
+  route:111); dedup lets the credit email replace the plain roster notification (route:140-144).
+  UI defect = the card offered FT managers a do-nothing credit/reschedule choice.
+- **A5 root cause (Confirmed)**: detail page filters event-market dates
+  (listing/[listingId]/page.tsx:162-165, events sell via /events/[token]/shop) but browse's
+  batch RPC aggregated ALL dates (mig 067:26-30, no market_type filter) → event-selected
+  listings: open pill on browse, closed on detail. Pill = the liar.
+- **BUILT**: **mig 245** (root; DROP 1-arg + CREATE 2-arg `p_exclude_event_markets DEFAULT
+  false`, filter `apd.market_type != 'event'` in the LATERAL ON; grants anon+authenticated
+  restored per mig-149 public list; markets.market_type NOT NULL verified) · browse passes
+  true at both call sites (money gates cart-validate/checkout/vendor-listings keep default
+  false) · F3a: cancel-date response += parkCreditTotalCents; card result line now
+  vertical-aware (FT: refunds · order-vendors · trucks credited ($ total) · roster; FM: adds
+  booth renters + market-box, drops trucks) · F3b: FT card replaces disposition radios with
+  auto-credit note + optional make-up date (submit derives disposition from date presence;
+  FM unchanged); confirm-dialog bullets + description split by vertical · flow-integrity pin
+  (+1: browse excludes, detail keeps filter, money gates must NOT exclude) · snapshot
+  changelog row + function-catalog row updated (245 ⏳ NOT APPLIED anywhere).
+- **Mig 245 ✅ Dev+Staging 2026-09-05 (owner)** — ordering requirement met (pasted before
+  any staging code push). Prod owes 238→245 now.
+- Gates: tsc ✓ · **2171/2171** ✓ · lint 0 err. COMMITTED local (owner "commit locally").
+
 ## ▶ POST-COMPACTION QUEUE (owner-approved next items)
 1. **Locations-page "Apply required" chip (owner: "add optional polish... for after compaction")**:
    the Available-markets rows on /vendor/markets should LABEL gated markets before the toggle

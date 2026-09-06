@@ -18,6 +18,10 @@ interface Result {
   refundedItems: number
   boothRentersNotified: number
   marketBoxCredited: number
+  orderVendorsNotified: number
+  rosterVendorsNotified: number
+  parkTrucksCredited: number
+  parkCreditTotalCents: number
 }
 
 /**
@@ -40,10 +44,19 @@ export default function MarketCancelDateCard({ marketId, vertical }: { marketId:
   const minDate = isoDate(1)
   const maxDate = isoDate(56)
 
+  // FT parks have no credit/reschedule choice: paid spot bookings are ALWAYS
+  // cancelled + credited at cancel time (G3/PRK-16 decision 2026-07-18 — parks
+  // have no season settlement). The disposition radios only ever applied to FM
+  // booth renters, so at parks we show a plain explanation + an optional
+  // make-up date instead of a choice that does nothing.
+  const isPark = vertical === 'food_trucks'
+  const effectiveDisposition: 'credit' | 'reschedule' =
+    isPark ? (rescheduleDate ? 'reschedule' : 'credit') : disposition
+
   function openConfirm() {
     setError(null)
     if (!date) { setError(`Pick the ${term(vertical, 'market').toLowerCase()} date to cancel.`); return }
-    if (disposition === 'reschedule' && !rescheduleDate) {
+    if (!isPark && disposition === 'reschedule' && !rescheduleDate) {
       setError('Pick the make-up date, or choose Credit instead.'); return
     }
     setAcknowledged(false)
@@ -61,8 +74,8 @@ export default function MarketCancelDateCard({ marketId, vertical }: { marketId:
         body: JSON.stringify({
           date,
           reason,
-          boothDisposition: disposition,
-          ...(disposition === 'reschedule' ? { rescheduleDate } : {}),
+          boothDisposition: effectiveDisposition,
+          ...(effectiveDisposition === 'reschedule' ? { rescheduleDate } : {}),
           acknowledged: true,
         }),
       })
@@ -74,6 +87,10 @@ export default function MarketCancelDateCard({ marketId, vertical }: { marketId:
           refundedItems: data.refundedItems ?? 0,
           boothRentersNotified: data.boothRentersNotified ?? 0,
           marketBoxCredited: data.marketBoxCredited ?? 0,
+          orderVendorsNotified: data.orderVendorsNotified ?? 0,
+          rosterVendorsNotified: data.rosterVendorsNotified ?? 0,
+          parkTrucksCredited: data.parkTrucksCredited ?? 0,
+          parkCreditTotalCents: data.parkCreditTotalCents ?? 0,
         })
         setConfirming(false)
         setDate(''); setReason(''); setDisposition('credit'); setRescheduleDate('')
@@ -99,7 +116,9 @@ export default function MarketCancelDateCard({ marketId, vertical }: { marketId:
     <DashboardCard
       id="cancel-date"
       title={vertical === 'food_trucks' ? 'Cancel a Date' : `Cancel a ${term(vertical, 'market').toLowerCase()} day`}
-      description={`Close a single upcoming date (e.g. weather). Buyers with orders are refunded automatically; paid ${term(vertical, 'booth').toLowerCase()} renters are credited or rescheduled; market-box pickups are credited. This can't be undone.`}
+      description={isPark
+        ? `Close a single upcoming date (e.g. weather). Buyers with orders are refunded automatically; paid trucks are credited toward their next booking; scheduled vendors are notified. This can't be undone.`
+        : `Close a single upcoming date (e.g. weather). Buyers with orders are refunded automatically; paid ${term(vertical, 'booth').toLowerCase()} renters are credited or rescheduled; market-box pickups are credited. This can't be undone.`}
     >
       {result && (
         <div style={{
@@ -107,7 +126,14 @@ export default function MarketCancelDateCard({ marketId, vertical }: { marketId:
           backgroundColor: colors.primaryLight, border: `1px solid ${colors.primary}`,
           borderRadius: radius.sm, fontSize: typography.sizes.sm, color: colors.primaryDark,
         }}>
-          Date cancelled. {result.refundedItems} buyer item(s) refunded · {result.boothRentersNotified} {term(vertical, 'booth').toLowerCase()} renter(s) notified · {result.marketBoxCredited} market-box pickup(s) credited.
+          {/* F3a: every count shown is real for this market type — the FM booth-renter
+              and market-box figures are meaningless at an FT park (and vice versa for
+              truck credits), so each vertical gets its own line. */}
+          {isPark ? (
+            <>Date cancelled. {result.refundedItems} buyer item(s) refunded · {result.orderVendorsNotified} vendor(s) notified of cancelled orders · {result.parkTrucksCredited} truck(s) credited{result.parkCreditTotalCents > 0 ? ` ($${(result.parkCreditTotalCents / 100).toFixed(2)} total)` : ''} · {result.rosterVendorsNotified} roster vendor(s) notified.</>
+          ) : (
+            <>Date cancelled. {result.refundedItems} buyer item(s) refunded · {result.orderVendorsNotified} vendor(s) notified of cancelled orders · {result.boothRentersNotified} {term(vertical, 'booth').toLowerCase()} renter(s) notified · {result.rosterVendorsNotified} roster vendor(s) notified · {result.marketBoxCredited} market-box pickup(s) credited.</>
+          )}
         </div>
       )}
 
@@ -128,24 +154,42 @@ export default function MarketCancelDateCard({ marketId, vertical }: { marketId:
             onChange={(e) => setReason(e.target.value)} style={inputStyle} />
         </label>
 
-        <fieldset style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
-          <legend style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, padding: 0, marginBottom: spacing['3xs'] }}>
-            For paid {term(vertical, 'booth').toLowerCase()} renters
-          </legend>
-          <label style={{ display: 'flex', gap: spacing['2xs'], alignItems: 'center', fontSize: typography.sizes.sm, color: colors.textPrimary }}>
-            <input type="radio" name="disposition" checked={disposition === 'credit'} onChange={() => setDisposition('credit')} />
-            Credit their {term(vertical, 'booth').toLowerCase()} fee
-          </label>
-          <label style={{ display: 'flex', gap: spacing['2xs'], alignItems: 'center', fontSize: typography.sizes.sm, color: colors.textPrimary }}>
-            <input type="radio" name="disposition" checked={disposition === 'reschedule'} onChange={() => setDisposition('reschedule')} />
-            Reschedule to a make-up date
-          </label>
-          {disposition === 'reschedule' && (
-            <input type="date" value={rescheduleDate} min={minDate}
-              onChange={(e) => setRescheduleDate(e.target.value)}
-              style={{ ...inputStyle, maxWidth: 200, marginTop: spacing['3xs'] }} />
-          )}
-        </fieldset>
+        {isPark ? (
+          /* F3b: no credit/reschedule choice at parks — paid spot bookings are
+             always credited automatically. Make-up date stays optional. */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+            <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>
+              Paid trucks are automatically credited — the credit applies to their next booking at this park (including a make-up date, if you add one).
+            </span>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
+              <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
+                Make-up date (optional)
+              </span>
+              <input type="date" value={rescheduleDate} min={minDate}
+                onChange={(e) => setRescheduleDate(e.target.value)}
+                style={{ ...inputStyle, maxWidth: 200 }} />
+            </label>
+          </div>
+        ) : (
+          <fieldset style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+            <legend style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, padding: 0, marginBottom: spacing['3xs'] }}>
+              For paid {term(vertical, 'booth').toLowerCase()} renters
+            </legend>
+            <label style={{ display: 'flex', gap: spacing['2xs'], alignItems: 'center', fontSize: typography.sizes.sm, color: colors.textPrimary }}>
+              <input type="radio" name="disposition" checked={disposition === 'credit'} onChange={() => setDisposition('credit')} />
+              Credit their {term(vertical, 'booth').toLowerCase()} fee
+            </label>
+            <label style={{ display: 'flex', gap: spacing['2xs'], alignItems: 'center', fontSize: typography.sizes.sm, color: colors.textPrimary }}>
+              <input type="radio" name="disposition" checked={disposition === 'reschedule'} onChange={() => setDisposition('reschedule')} />
+              Reschedule to a make-up date
+            </label>
+            {disposition === 'reschedule' && (
+              <input type="date" value={rescheduleDate} min={minDate}
+                onChange={(e) => setRescheduleDate(e.target.value)}
+                style={{ ...inputStyle, maxWidth: 200, marginTop: spacing['3xs'] }} />
+            )}
+          </fieldset>
+        )}
 
         {error && <span style={{ fontSize: typography.sizes.sm, color: DANGER }}>{error}</span>}
 
@@ -181,8 +225,14 @@ export default function MarketCancelDateCard({ marketId, vertical }: { marketId:
             </h3>
             <ul style={{ margin: 0, paddingLeft: spacing.md, fontSize: typography.sizes.sm, color: colors.textSecondary, lineHeight: 1.5 }}>
               <li>Buyers with orders for this date are <strong>refunded automatically</strong>.</li>
-              <li>Paid {term(vertical, 'booth').toLowerCase()} renters are <strong>{disposition === 'reschedule' ? `rescheduled${rescheduleDate ? ` to ${rescheduleDate}` : ''}` : 'credited'}</strong> — you contact them directly.</li>
-              <li>Market-box pickups on this date are <strong>credited</strong> (subscription extended a week).</li>
+              {isPark ? (
+                <li>Paid trucks are <strong>automatically credited</strong> — the credit applies to their next booking{rescheduleDate ? <>, including the make-up date <strong>{rescheduleDate}</strong></> : null}.</li>
+              ) : (
+                <>
+                  <li>Paid {term(vertical, 'booth').toLowerCase()} renters are <strong>{disposition === 'reschedule' ? `rescheduled${rescheduleDate ? ` to ${rescheduleDate}` : ''}` : 'credited'}</strong> — you contact them directly.</li>
+                  <li>Market-box pickups on this date are <strong>credited</strong> (subscription extended a week).</li>
+                </>
+              )}
               <li>This <strong>cannot be undone</strong>.</li>
             </ul>
             <label style={{ display: 'flex', gap: spacing['2xs'], alignItems: 'flex-start', fontSize: typography.sizes.sm, color: colors.textPrimary }}>

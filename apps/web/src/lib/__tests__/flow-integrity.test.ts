@@ -2374,6 +2374,23 @@ describe('Event ↔ location availability', () => {
     expect(route, 'refusal routes to the application flow').toMatch(/ERR_MARKET_APPLY_REQUIRED/)
   })
 
+  it('the browse pill answers the detail-page question — event markets excluded (mig 245)', () => {
+    // A5 staging finding 2026-09-05: listings selected for an event showed
+    // "open" on browse (the batch RPC counted the event date) but closed on
+    // the detail page, which filters event dates out (events sell via their
+    // own /events/[token]/shop flow). The pill must show Closed exactly when
+    // the click-through will. Browse passes the exclusion flag; the MONEY
+    // gates (cart validate, checkout session) intentionally do NOT — event
+    // orders must keep validating against event dates.
+    const browse = rd('app/[vertical]/browse/page.tsx')
+    const browseCalls = browse.match(/p_exclude_event_markets: true/g) ?? []
+    expect(browseCalls.length, 'both browse availability calls exclude event markets').toBeGreaterThanOrEqual(2)
+    expect(rd('app/[vertical]/listing/[listingId]/page.tsx'), 'detail page keeps its event filter').toMatch(/market_type !== 'event'/)
+    for (const file of ['app/api/cart/validate/route.ts', 'app/api/checkout/session/route.ts']) {
+      expect(rd(file), `${file} must NOT exclude event markets (money gate)`).not.toMatch(/p_exclude_event_markets/)
+    }
+  })
+
   it('the NEWEST definer of get_available_pickup_dates honors vendor_date_blackouts for non-event markets', () => {
     const dir = path.resolve(SRC_DIR, '../../../supabase/migrations')
     const files: string[] = []

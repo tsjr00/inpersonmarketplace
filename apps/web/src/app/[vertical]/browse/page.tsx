@@ -760,8 +760,11 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
 
   if (isAvailableNow && listings && listings.length > 0) {
     // Fetch availability for ALL listings (needed to filter before pagination)
+    // A5 (mig 245): exclude event-market dates — the pill must match the detail
+    // page, which filters them out (events sell via /events/[token]/shop).
     const { data: allAvailData, error: allAvailError } = await supabase.rpc('get_listings_accepting_status', {
-      p_listing_ids: listings.map(l => l.id)
+      p_listing_ids: listings.map(l => l.id),
+      p_exclude_event_markets: true
     })
     if (allAvailError) {
       console.error('[browse] availability RPC failed (all listings):', allAvailError.message)
@@ -786,8 +789,10 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
 
   // Fetch availability for paginated slice — only if not already fetched above
   if (paginatedListings.length > 0 && !isAvailableNow) {
+    // A5 (mig 245): same event-market exclusion as the all-listings call above.
     const { data: availData, error: availError } = await supabase.rpc('get_listings_accepting_status', {
-      p_listing_ids: paginatedListings.map(l => l.id)
+      p_listing_ids: paginatedListings.map(l => l.id),
+      p_exclude_event_markets: true
     })
     if (availError) {
       console.error('[browse] availability RPC failed (page slice):', availError.message)
