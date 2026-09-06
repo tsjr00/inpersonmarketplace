@@ -618,6 +618,18 @@ The consent model (default-IN, GLOBAL per-vendor opt-out via `vendor_profiles.bu
 
 ---
 
+### Market Vendor Application (`market_vendor_application`) — Option A, 2026-09-05 — TO THE MARKET MANAGER
+**Urgency:** Standard (Email + In-app) — owner: "add the notification + email to market managers... no point in waiting"
+**Trigger:** a vendor submits the (fixed) "Apply to Sell Here" flow on a managed market's page (`POST /api/markets/[id]/vendors`). Managed markets only — unmanaged markets have no recipient.
+
+**In-app title:** New vendor application — {{vendor_name}}
+**In-app message:** {{vendor_name}} applied to sell at {{market_name}}. Review and approve them from your market dashboard's vendor list.
+**Action:** `/{{vertical}}/market-manager/{{market_id}}/dashboard`
+
+The application row (market_vendors, approved=false) appears on the manager's existing roster list with the approve toggle; approval auto-creates the vendor's attendance schedules (trigger guards on approved=true, mig 210 body) and the vendor gets the existing approval notification (B-close-2).
+
+---
+
 ## Admin-Facing Notifications
 
 ---

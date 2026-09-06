@@ -76,7 +76,17 @@ prod e946c2c0 owes migs 238→244 + code (window 21:00–07:00 CT, gated on the 
 6. Markets-missing button: REVIEW ONLY presented in chat (rec: link each row to the market's own
    public page where ApplyToMarketButton already handles state; relabel "Add"→"View market") —
    NOT built, awaiting owner go.
-Gates: tsc ✓ · 2169/2169 ✓ · lint 0 errors. Commit ask pending.
+Gates: tsc ✓ · 2169/2169 ✓ · lint 0 errors. COMMITTED `954bec18`.
+
+## 🎯 OPTION A — vendor apply flow (owner go 2026-09-05: "Go with option A and add the
+## notification + email") — BUILT, UNCOMMITTED. Record: markets_missing_streamline_plan.md ✅ block.
+Apply bug fixed at BOTH sites (route ownership check + market-page vendor lookup — button had
+never rendered, POSTs always 403'd) · market_vendor_application type (manager, email+in_app,
+**tripwire 127→128**) sent from apply POST on managed markets · insights Markets-You're-Missing
+→ owner's 3-case design (lead line + Managed/Not-managed groups, contact info on unmanaged,
+market-page links) · API rows += managed/contact fields. Trigger verified: schedules only on
+approved=true → applying ≠ selling. Side-door governance question deliberately parked.
+Gates: tsc ✓ · 2169/2169 ✓ · lint 0 err. Commit ask pending.
 
 - **TEST PROTOCOL v2 issued in chat 2026-09-05** (tested items removed): E-series = the full
   bundles loop (needs an FM market the owner manages WITH Stripe Connect + ≥2 published listings

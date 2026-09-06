@@ -13,7 +13,7 @@ interface RevenueRow { marketId: string; marketName: string; city: string; reven
 interface PeakDayRow { marketId: string; marketName: string; days: { day: string; dayIndex: number; count: number }[]; peakDay: string }
 interface AvgOrderRow { marketId: string; marketName: string; avgOrderCents: number; orderCount: number }
 interface LoyaltyRow { marketId: string; marketName: string; totalCustomers: number; newCustomers: number; repeatCustomers: number; repeatPct: number }
-interface MissingMarketRow { marketId: string; name: string; city: string; state: string; distanceMiles: number; vendorCount: number; marketType: string }
+interface MissingMarketRow { marketId: string; name: string; city: string; state: string; distanceMiles: number; vendorCount: number; marketType: string; managed?: boolean; contactEmail?: string | null; contactPhone?: string | null; website?: string | null }
 interface ScoreRow { marketId: string; marketName: string; score: number; factors: { volume: number; uniqueBuyers: number; avgTicket: number; repeatRate: number } }
 interface DensityRow { marketId: string; marketName: string; within5mi: number; within10mi: number; within25mi: number }
 interface CoverageRow { zip: string; city: string; state: string; searchCount: number; zeroResultPct: number }
@@ -613,49 +613,95 @@ export default function VendorInsightsPage() {
             {/* ═══ PRO TIER or locked ═══ */}
             {showPro && data.missingMarkets ? (
               <>
-                {/* Markets You're Missing */}
+                {/* Markets You're Missing — owner's 3-case design (2026-09-05):
+                    ① lead line: already selling somewhere here off-app? attach
+                    listings so pre-orders work. ② managed markets → the market
+                    page's (fixed) Apply flow. ③ unmanaged → contact info +
+                    apply direct, wire up after. */}
                 <div style={cardStyle}>
                   <h2 style={sectionTitle}>Markets You&apos;re Missing</h2>
                   <p style={{ margin: `0 0 ${spacing.sm}`, fontSize: typography.sizes.sm, color: colors.textMuted }}>
-                    Active markets within 25 miles of your current locations
+                    Active markets within 25 miles of your current locations.{' '}
+                    <strong>Already selling at one of these in person?</strong> Add your listings to it from{' '}
+                    <Link href={`/${vertical}/vendor/markets`} style={{ color: colors.primary }}>your Locations page</Link>{' '}
+                    so we can help you take pre-orders there.
                   </p>
                   {data.missingMarkets.length === 0 ? (
                     <p style={{ color: colors.textMuted, fontSize: typography.sizes.sm }}>
                       You&apos;re already at all nearby markets. Nice coverage!
                     </p>
                   ) : (
-                    <div className="insights-missing-grid" style={{ display: 'grid', gap: spacing.xs }}>
-                      {data.missingMarkets.map(m => (
-                        <div key={m.marketId} style={{
-                          padding: spacing.xs,
-                          backgroundColor: colors.surfaceMuted,
-                          borderRadius: radius.sm,
-                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                          flexWrap: 'wrap', gap: spacing.xs,
-                        }}>
-                          <div>
-                            <div style={{ fontWeight: typography.weights.medium, fontSize: typography.sizes.sm }}>{m.name}</div>
-                            <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
-                              {m.city}{m.state ? `, ${m.state}` : ''} &middot; {m.distanceMiles} mi &middot; {m.vendorCount} vendor{m.vendorCount !== 1 ? 's' : ''}
-                            </div>
+                    <>
+                      {[
+                        {
+                          key: 'managed',
+                          title: 'Managed on the app',
+                          sub: 'These markets handle vendor applications right here — apply from the market’s page and the manager reviews it.',
+                          rows: data.missingMarkets.filter(m => m.managed),
+                        },
+                        {
+                          key: 'unmanaged',
+                          title: 'Not on the app yet',
+                          sub: 'Reach out to the market directly to apply. Once you’re in, add it on your Locations page and attach your listings so pre-orders work there too.',
+                          rows: data.missingMarkets.filter(m => !m.managed),
+                        },
+                      ].filter(g => g.rows.length > 0).map(group => (
+                        <div key={group.key} style={{ marginBottom: spacing.sm }}>
+                          <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing['3xs'] }}>
+                            {group.title}
                           </div>
-                          <Link
-                            href={`/${vertical}/vendor/markets`}
-                            style={{
-                              fontSize: typography.sizes.xs,
-                              color: colors.primary,
-                              textDecoration: 'none',
-                              padding: `${spacing['3xs']} ${spacing.xs}`,
-                              backgroundColor: colors.surfaceElevated,
-                              borderRadius: radius.sm,
-                              border: `1px solid ${colors.border}`,
-                            }}
-                          >
-                            Add
-                          </Link>
+                          <p style={{ margin: `0 0 ${spacing.xs}`, fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                            {group.sub}
+                          </p>
+                          <div className="insights-missing-grid" style={{ display: 'grid', gap: spacing.xs }}>
+                            {group.rows.map(m => (
+                              <div key={m.marketId} style={{
+                                padding: spacing.xs,
+                                backgroundColor: colors.surfaceMuted,
+                                borderRadius: radius.sm,
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                flexWrap: 'wrap', gap: spacing.xs,
+                              }}>
+                                <div style={{ minWidth: 0 }}>
+                                  <div style={{ fontWeight: typography.weights.medium, fontSize: typography.sizes.sm }}>{m.name}</div>
+                                  <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                                    {m.city}{m.state ? `, ${m.state}` : ''} &middot; {m.distanceMiles} mi &middot; {m.vendorCount} vendor{m.vendorCount !== 1 ? 's' : ''}
+                                  </div>
+                                  {!m.managed && (m.contactEmail || m.contactPhone || m.website) && (
+                                    <div style={{ fontSize: typography.sizes.xs, color: colors.textSecondary, marginTop: 2, overflowWrap: 'anywhere' }}>
+                                      {m.contactEmail && <span>✉ {m.contactEmail}</span>}
+                                      {m.contactEmail && m.contactPhone && ' · '}
+                                      {m.contactPhone && <span>☎ {m.contactPhone}</span>}
+                                      {(m.contactEmail || m.contactPhone) && m.website && ' · '}
+                                      {m.website && (
+                                        <a href={m.website.startsWith('http') ? m.website : `https://${m.website}`} target="_blank" rel="noopener noreferrer" style={{ color: colors.primary }}>
+                                          website
+                                        </a>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                                <Link
+                                  href={`/${vertical}/markets/${m.marketId}`}
+                                  style={{
+                                    fontSize: typography.sizes.xs,
+                                    color: colors.primary,
+                                    textDecoration: 'none',
+                                    padding: `${spacing['3xs']} ${spacing.xs}`,
+                                    backgroundColor: colors.surfaceElevated,
+                                    borderRadius: radius.sm,
+                                    border: `1px solid ${colors.border}`,
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {m.managed ? 'View & apply' : 'View market'}
+                                </Link>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       ))}
-                    </div>
+                    </>
                   )}
                 </div>
 

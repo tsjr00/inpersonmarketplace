@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { sendNotification } from '@/lib/notifications'
 
 // GET /api/markets/[id]/vendors - List vendors at market
 export async function GET(
@@ -105,18 +106,6 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user profile
-    const { data: userProfile } = await observed(supabase
-      .from('user_profiles')
-      .select('id')
-      .eq('user_id', user.id)
-      .is('deleted_at', null)
-      .single(), { table: 'user_profiles' })
-
-    if (!userProfile) {
-      return NextResponse.json({ error: 'User profile not found' }, { status: 404 })
-    }
-
     // Parse request body
     const body = await request.json()
     const { vendor_profile_id, notes } = body
@@ -140,7 +129,12 @@ export async function POST(
       return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
     }
 
-    if (vendorProfile.user_id !== userProfile.id) {
+    // FIX 2026-09-05 (owner option A): this used to compare
+    // vendor_profiles.user_id (an AUTH uid) against user_profiles.id (that
+    // table's OWN generated PK — the signup trigger only sets user_id), so
+    // EVERY application ever submitted 403'd here. The ownership check is
+    // simply auth-uid to auth-uid.
+    if (vendorProfile.user_id !== user.id) {
       return NextResponse.json(
         { error: 'You can only apply with your own vendor profile' },
         { status: 403 }
@@ -150,7 +144,7 @@ export async function POST(
     // Verify market exists and matches vendor vertical
     const { data: market, error: marketError } = await supabase
       .from('markets')
-      .select('id, vertical_id, active')
+      .select('id, name, vertical_id, active, manager_user_id')
       .eq('id', marketId)
       .single()
 
@@ -201,6 +195,36 @@ export async function POST(
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Owner option A (2026-09-05): tell the MANAGER a new application landed
+    // (in-app + email) — the roster row alone waited silently for their next
+    // dashboard visit. Managed markets only (unmanaged have no recipient).
+    // Non-throwing: the application row is already saved.
+    if (market.manager_user_id) {
+      try {
+        const serviceClient = createServiceClient()
+        const { data: vpData } = await observed(serviceClient
+          .from('vendor_profiles')
+          .select('profile_data')
+          .eq('id', vendor_profile_id)
+          .maybeSingle(), { table: 'vendor_profiles' })
+        const pd = (vpData?.profile_data ?? {}) as Record<string, unknown>
+        const vendorName = (pd.business_name as string) || (pd.farm_name as string) || 'A vendor'
+        let managerEmail: string | undefined
+        try {
+          const { data: authUser } = await serviceClient.auth.admin.getUserById(market.manager_user_id as string)
+          managerEmail = authUser?.user?.email ?? undefined
+        } catch { /* email channel skipped */ }
+        await sendNotification(
+          market.manager_user_id as string,
+          'market_vendor_application',
+          { vendorName, marketName: market.name as string, marketId },
+          { vertical: market.vertical_id as string, ...(managerEmail ? { userEmail: managerEmail } : {}) }
+        )
+      } catch (notifErr) {
+        console.error('[markets/vendors] application notification failed:', notifErr instanceof Error ? notifErr.message : 'Unknown')
+      }
     }
 
     return NextResponse.json(

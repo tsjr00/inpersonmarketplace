@@ -302,8 +302,13 @@ describe('NI-014: Total notification types = 72', () => {
     // of the default-in/global-opt-out consent model — email approved for
     // this send), bundle_ready (buyer, immediate = push+in_app free channels
     // — manager-triggered "assembled, come get it" on pickup day).
+    // 127 → 128 (2026-09-05, owner approved with option A: "add the
+    // notification + email to market managers... no point in waiting"):
+    // market_vendor_application (manager, standard = email+in_app) — a vendor
+    // applied through the FIXED Apply-to-Sell-Here flow (its ownership check
+    // had 403'd every application ever; markets/[id]/vendors :143).
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(127)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(128)
   })
 
   it('includes all buyer-facing types', () => {

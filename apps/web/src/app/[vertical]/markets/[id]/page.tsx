@@ -133,33 +133,30 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
   let hasApplied = false
 
   if (user) {
-    const { data: userProfile } = await supabase
-      .from('user_profiles')
-      .select('id')
+    // FIX 2026-09-05 (option A, same bug as the apply route): this looked up
+    // vendor_profiles by user_profiles.id — that table's OWN generated PK, not
+    // the auth uid vendor_profiles.user_id holds — so vendorProfile was always
+    // null and the Apply button never rendered for any vendor. Query by the
+    // auth uid directly.
+    const { data: vendorProfile } = await supabase
+      .from('vendor_profiles')
+      .select('id, profile_data')
       .eq('user_id', user.id)
+      .eq('vertical_id', vertical)
       .single()
 
-    if (userProfile) {
-      const { data: vendorProfile } = await supabase
-        .from('vendor_profiles')
-        .select('id, profile_data')
-        .eq('user_id', userProfile.id)
-        .eq('vertical_id', vertical)
+    if (vendorProfile) {
+      userVendorProfile = vendorProfile
+
+      // Check if already applied
+      const { data: existingApplication } = await supabase
+        .from('market_vendors')
+        .select('id')
+        .eq('market_id', id)
+        .eq('vendor_profile_id', vendorProfile.id)
         .single()
 
-      if (vendorProfile) {
-        userVendorProfile = vendorProfile
-
-        // Check if already applied
-        const { data: existingApplication } = await supabase
-          .from('market_vendors')
-          .select('id')
-          .eq('market_id', id)
-          .eq('vendor_profile_id', vendorProfile.id)
-          .single()
-
-        hasApplied = !!existingApplication
-      }
+      hasApplied = !!existingApplication
     }
   }
 

@@ -262,9 +262,13 @@ export async function GET(request: NextRequest) {
 
     // 5. Markets you're missing — active markets in same vertical within 25mi
     const serviceClient = createServiceClient()
+    // Option A (owner 2026-09-05): rows split managed-vs-not and carry contact
+    // info so the section can route each market to its true join path — managed →
+    // the market page's (fixed) Apply flow; unmanaged → apply direct via the
+    // market's own contact details.
     const { data: allMarkets } = await observed(serviceClient
       .from('markets')
-      .select('id, name, city, state, latitude, longitude, market_type')
+      .select('id, name, city, state, latitude, longitude, market_type, manager_user_id, contact_email, contact_phone, website')
       .eq('vertical_id', vertical)
       .eq('status', 'active')
       .eq('approval_status', 'approved')
@@ -290,6 +294,10 @@ export async function GET(request: NextRequest) {
       distanceMiles: number
       vendorCount: number
       marketType: string
+      managed: boolean
+      contactEmail: string | null
+      contactPhone: string | null
+      website: string | null
     }[] = []
 
     for (const market of allMarkets || []) {
@@ -314,6 +322,10 @@ export async function GET(request: NextRequest) {
           distanceMiles: Math.round(minDist * 10) / 10,
           vendorCount: vendorCountMap.get(market.id) || 0,
           marketType: market.market_type || 'traditional',
+          managed: !!market.manager_user_id,
+          contactEmail: (market.contact_email as string | null) || null,
+          contactPhone: (market.contact_phone as string | null) || null,
+          website: (market.website as string | null) || null,
         })
       }
     }

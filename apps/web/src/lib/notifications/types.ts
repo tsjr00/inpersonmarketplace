@@ -217,6 +217,8 @@ export type NotificationType =
   // Market bundles (mig 244): bundle_sold → manager; bundles_intro → vendors (one-time)
   | 'bundle_sold'
   | 'bundles_intro'
+  // Option A (2026-09-05): a vendor applied to a managed market → its manager
+  | 'market_vendor_application'
 
 // ── Template Types ───────────────────────────────────────────────────
 
@@ -2291,6 +2293,23 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     message: () =>
       `Your market's manager can now bundle items from several vendors into one curated purchase — you sell more, at your full listed price, and get paid exactly as you do today. You're included automatically. If you'd rather not participate, you can opt out anytime in your vendor settings.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard`,
+  },
+
+  // Option A (owner 2026-09-05, markets_missing_streamline_plan.md): a vendor
+  // used the FIXED "Apply to Sell Here" flow at a managed market. The manager
+  // reviews on their existing roster list (approve toggle) — this is the
+  // "don't wait for their next dashboard visit" ping. standard = email+in_app.
+  market_vendor_application: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor', // market managers act from a vendor-adjacent role
+    title: (d) => `New vendor application — ${d.vendorName || 'a vendor'}`,
+    message: (d) =>
+      `${d.vendorName || 'A vendor'} applied to sell at ${d.marketName || 'your market'}. Review and approve them from your market dashboard's vendor list.`,
+    actionUrl: (d) =>
+      d.marketId
+        ? `/${d.vertical || 'farmers_market'}/market-manager/${d.marketId}/dashboard`
+        : `/${d.vertical || 'farmers_market'}/dashboard`,
   },
 
   // Manager-triggered "it's assembled, come get it" ping on pickup day.
