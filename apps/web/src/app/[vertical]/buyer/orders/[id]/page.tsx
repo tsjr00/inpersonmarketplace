@@ -103,6 +103,13 @@ interface OrderDetail {
   tip_amount: number
   created_at: string
   updated_at: string
+  // Bundle two-part confirmation (mig 246): the buyer acknowledges receiving
+  // the assembled bundle from the market manager; margin settles when both
+  // this ack and the manager's handoff stamp exist.
+  bundle_id?: string | null
+  bundle_handed_off_at?: string | null
+  bundle_buyer_ack_at?: string | null
+  bundle_margin_settled?: boolean
   items: OrderItem[]
 }
 
@@ -180,6 +187,36 @@ export default function BuyerOrderDetailPage() {
       setError({ message: err instanceof Error ? err.message : 'Failed to load order' })
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Bundle handoff 2: acknowledge receiving the assembled bundle. First
+  // sweeps per-item confirms for any vendor who fulfilled early (their payout
+  // waits on a buyer ack — same endpoint, same money path as a normal
+  // pickup), then records the bundle-level ack that opens the manager's
+  // 30-second confirm window (or, if the manager confirmed first, releases
+  // the margin as the second act).
+  const [bundleAcking, setBundleAcking] = useState(false)
+  const handleBundleAck = async () => {
+    if (!order || bundleAcking) return
+    setBundleAcking(true)
+    try {
+      const sweep = order.items.filter(i => i.status === 'fulfilled' && !i.buyer_confirmed_at && !i.cancelled_at)
+      for (const item of sweep) {
+        await fetch(`/api/buyer/orders/${item.id}/confirm`, { method: 'POST' }).catch(() => {})
+      }
+      const res = await fetch(`/api/buyer/orders/${order.id}/bundle-ack`, { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        showBanner(data.message || t('order.bundle_ack_done', locale), 'success')
+      } else {
+        showBanner(data.error || t('order.bundle_ack_error', locale), 'error')
+      }
+      fetchOrder()
+    } catch {
+      showBanner(t('order.bundle_ack_error', locale), 'error')
+    } finally {
+      setBundleAcking(false)
     }
   }
 
@@ -509,6 +546,39 @@ export default function BuyerOrderDetailPage() {
       padding: isPickupReady ? `0 0 ${spacing.xl} 0` : `${spacing.xl} ${spacing.md}`
     }}>
       <div style={{ maxWidth: containers.xl, margin: '0 auto' }}>
+
+        {/* Bundle handoff acknowledge — shown until the margin settles */}
+        {order.bundle_id && !order.bundle_margin_settled && (
+          <div style={{
+            margin: isPickupReady ? spacing.md : `0 0 ${spacing.md}`,
+            padding: spacing.md,
+            backgroundColor: '#fefce8',
+            border: '1px solid #eab308',
+            borderRadius: radius.md,
+          }}>
+            <div style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing['2xs'] }}>
+              🧺 {t('order.bundle_ack_title', locale)}
+            </div>
+            <p style={{ margin: `0 0 ${spacing.sm}`, fontSize: typography.sizes.sm, color: colors.textSecondary }}>
+              {order.bundle_handed_off_at
+                ? t('order.bundle_ack_manager_first', locale)
+                : t('order.bundle_ack_explain', locale)}
+            </p>
+            <button
+              onClick={handleBundleAck}
+              disabled={bundleAcking}
+              style={{
+                padding: `${spacing.xs} ${spacing.md}`,
+                backgroundColor: '#ca8a04', color: 'white', border: 'none',
+                borderRadius: radius.sm, fontSize: typography.sizes.sm,
+                fontWeight: typography.weights.semibold,
+                cursor: bundleAcking ? 'wait' : 'pointer',
+              }}
+            >
+              {bundleAcking ? t('order.bundle_ack_working', locale) : t('order.bundle_ack_button', locale)}
+            </button>
+          </div>
+        )}
 
         {/* === PICKUP PRESENTATION MODE === */}
         {isPickupReady && (

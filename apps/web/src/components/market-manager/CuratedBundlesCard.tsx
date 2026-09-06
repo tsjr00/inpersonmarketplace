@@ -46,10 +46,11 @@ interface AvailableListing {
   id: string
   title: string
   price_cents: number
+  category: string
   vendor_profile_id: string
   vendor_name: string
 }
-interface OrderItemRow { listing_id: string; quantity: number; status: string }
+interface OrderItemRow { id: string; listing_id: string; quantity: number; status: string; buyer_confirmed_at: string | null }
 interface BundleOrderRow {
   id: string
   order_number: string
@@ -59,9 +60,29 @@ interface BundleOrderRow {
   bundle_margin_cents: number
   bundle_handed_off_at: string | null
   bundle_margin_transfer_id: string | null
+  bundle_buyer_ack_at: string | null
   order_items: OrderItemRow[]
 }
 interface Beneficiary { id: string; name: string }
+
+/** Value-add categories the approval reviewer sees (owner list 2026-09-06).
+ *  Stored as a "[Category] details" prefix in the justification field. */
+const VALUE_ADD_CATEGORIES = [
+  'Gift basket / ready-to-use kit',
+  'Displayed & sold at an event outside the market',
+  'Cross-marketed with a portion donated to a community cause',
+  'Curated same-morning selection',
+  'Other',
+] as const
+
+/** Split a stored "[Category] details" justification back into its parts. */
+function parseJustification(stored: string): { category: string; details: string } {
+  const m = stored.match(/^\[([^\]]+)\]\s*([\s\S]*)$/)
+  if (m && (VALUE_ADD_CATEGORIES as readonly string[]).includes(m[1])) {
+    return { category: m[1], details: m[2] }
+  }
+  return { category: '', details: stored }
+}
 
 const STATUS_LABELS: Record<string, { label: string; bg: string; fg: string }> = {
   pending_approval: { label: 'Awaiting approval', bg: '#fef3c7', fg: '#92400e' },
@@ -74,19 +95,22 @@ const STATUS_LABELS: Record<string, { label: string; bg: string; fg: string }> =
 interface FormState {
   name: string
   description: string
-  marginDollars: string
+  /** The bundle's price AFTER the manager's value-add (items + margin) —
+   *  the manager sets a price, the margin is derived. */
+  priceDollars: string
   quantityLimit: string
   pickupMarketDate: string
   pickupNotes: string
-  justification: string
+  valueAddCategory: string
+  valueAddDetails: string
   causeBeneficiaryId: string
   causePct: string
   components: Map<string, number> // listingId → quantity
 }
 
 const emptyForm = (): FormState => ({
-  name: '', description: '', marginDollars: '', quantityLimit: '5',
-  pickupMarketDate: '', pickupNotes: '', justification: '',
+  name: '', description: '', priceDollars: '', quantityLimit: '5',
+  pickupMarketDate: '', pickupNotes: '', valueAddCategory: '', valueAddDetails: '',
   causeBeneficiaryId: '', causePct: '',
   components: new Map(),
 })
@@ -95,6 +119,7 @@ export default function CuratedBundlesCard({ marketId }: CuratedBundlesCardProps
   const [bundles, setBundles] = useState<BundleRow[] | null>(null)
   const [orders, setOrders] = useState<BundleOrderRow[]>([])
   const [available, setAvailable] = useState<AvailableListing[]>([])
+  const [upcomingDates, setUpcomingDates] = useState<string[]>([])
   const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([])
   const [listingTitles, setListingTitles] = useState<Map<string, { title: string; price_cents: number }>>(new Map())
 
@@ -114,6 +139,7 @@ export default function CuratedBundlesCard({ marketId }: CuratedBundlesCardProps
         setBundles((data.bundles as BundleRow[]) || [])
         setOrders((data.orders as BundleOrderRow[]) || [])
         setAvailable((data.availableListings as AvailableListing[]) || [])
+        setUpcomingDates((data.upcomingMarketDates as string[]) || [])
         setBeneficiaries((data.beneficiaries as Beneficiary[]) || [])
         const titles = new Map<string, { title: string; price_cents: number }>()
         for (const l of ((data.listings as Array<{ id: string; title: string; price_cents: number }>) || [])) {
@@ -142,14 +168,20 @@ export default function CuratedBundlesCard({ marketId }: CuratedBundlesCardProps
 
   const openEdit = (b: BundleRow) => {
     setEditingId(b.id)
+    const sumCents = b.market_bundle_components.reduce((s, c) => {
+      const l = listingTitles.get(c.listing_id)
+      return s + (l ? l.price_cents * c.quantity : 0)
+    }, 0)
+    const parsed = parseJustification(b.justification || '')
     setForm({
       name: b.name,
       description: b.description || '',
-      marginDollars: (b.margin_cents / 100).toFixed(2),
+      priceDollars: ((sumCents + b.margin_cents) / 100).toFixed(2),
       quantityLimit: String(b.quantity_limit),
       pickupMarketDate: b.pickup_market_date || '',
       pickupNotes: b.pickup_notes || '',
-      justification: b.justification || '',
+      valueAddCategory: parsed.category,
+      valueAddDetails: parsed.details,
       causeBeneficiaryId: b.cause_beneficiary_id || '',
       causePct: b.cause_pct != null ? String(b.cause_pct) : '',
       components: new Map(b.market_bundle_components.map(c => [c.listing_id, c.quantity])),
@@ -179,8 +211,36 @@ export default function CuratedBundlesCard({ marketId }: CuratedBundlesCardProps
     const l = listingTitles.get(id)
     return sum + (l ? l.price_cents * qty : 0)
   }, 0)
-  const marginCents = Math.round(parseFloat(form.marginDollars || '0') * 100) || 0
+  // Price-first entry (owner 2026-09-05): the manager sets the bundle price
+  // after their value-add; the stored margin is derived. The margin stays
+  // fixed after creation — component items always follow vendors' live prices.
+  const enteredPriceCents = Math.round(parseFloat(form.priceDollars || '0') * 100) || 0
+  const priceBelowItems = enteredPriceCents > 0 && enteredPriceCents < componentSumCents
+  const marginCents = Math.max(0, enteredPriceCents - componentSumCents)
   const previewPriceCents = bundleDisplayPriceCents(componentSumCents, marginCents)
+
+  // Item picker grouping: vendor → (category, title) — E2 finding 2026-09-05.
+  const groupedAvailable = (() => {
+    const byVendor = new Map<string, AvailableListing[]>()
+    for (const l of available) {
+      const arr = byVendor.get(l.vendor_name) ?? []
+      arr.push(l)
+      byVendor.set(l.vendor_name, arr)
+    }
+    return [...byVendor.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([vendor, items]) =>
+        [vendor, [...items].sort((a, b) => a.category.localeCompare(b.category) || a.title.localeCompare(b.title))] as const)
+  })()
+
+  const marketDayLabel = (iso: string): string => {
+    try {
+      const [y, m, d] = iso.split('-').map(Number)
+      return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', {
+        weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC',
+      })
+    } catch { return iso }
+  }
 
   const submit = async () => {
     if (busy) return
@@ -194,7 +254,9 @@ export default function CuratedBundlesCard({ marketId }: CuratedBundlesCardProps
         quantityLimit: parseInt(form.quantityLimit, 10),
         pickupMarketDate: form.pickupMarketDate,
         pickupNotes: form.pickupNotes || undefined,
-        justification: form.justification,
+        justification: form.valueAddCategory
+          ? `[${form.valueAddCategory}] ${form.valueAddDetails}`
+          : form.valueAddDetails,
         components: [...form.components.entries()].map(([listingId, quantity]) => ({ listingId, quantity })),
         causeBeneficiaryId: form.causeBeneficiaryId || null,
         causePct: form.causeBeneficiaryId ? (parseInt(form.causePct, 10) || null) : null,
@@ -239,6 +301,27 @@ export default function CuratedBundlesCard({ marketId }: CuratedBundlesCardProps
     load()
   }
 
+  // Handoff 1 of the two-part confirmation: at collection the manager plays
+  // the buyer's role — this tap opens the vendor's normal 30-second fulfill
+  // window (and the vendor's fulfill inside it is what pays them).
+  const collectAck = async (orderId: string, orderItemId: string) => {
+    setOrderBusy(orderId)
+    try {
+      const res = await fetch(`/api/market-manager/${marketId}/bundles/orders/${orderId}/collect-ack`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderItemId }),
+      })
+      const data = await res.json().catch(() => ({}))
+      setResult(res.ok
+        ? { type: 'success', text: 'Acknowledged — the vendor has 30 seconds to tap Fulfill.' }
+        : { type: 'error', text: data.error || 'Could not acknowledge the item.' })
+      load()
+    } finally {
+      setOrderBusy(null)
+    }
+  }
+
   const notifyReady = async (orderId: string) => {
     setOrderBusy(orderId)
     try {
@@ -258,14 +341,16 @@ export default function CuratedBundlesCard({ marketId }: CuratedBundlesCardProps
       const res = await fetch(`/api/market-manager/${marketId}/bundles/orders/${orderId}/handoff`, { method: 'POST' })
       const data = await res.json().catch(() => ({}))
       if (res.ok) {
-        const margin = data.margin as { status: string } | undefined
+        const margin = data.margin as { status: string; note?: string } | undefined
         setResult({
           type: 'success',
           text: margin?.status === 'paid'
             ? 'Handed off — your margin is on its way to your payout account.'
-            : margin?.status === 'pending'
-              ? 'Handed off. The margin payout needs attention — the platform has been notified.'
-              : 'Handed off.',
+            : margin?.status === 'awaiting_buyer_ack'
+              ? (margin.note || 'Handed off. Your margin pays out when the buyer taps acknowledge on their order.')
+              : margin?.status === 'pending'
+                ? 'Handed off. The margin payout needs attention — the platform has been notified.'
+                : 'Handed off.',
         })
         load()
       } else {
@@ -373,15 +458,39 @@ export default function CuratedBundlesCard({ marketId }: CuratedBundlesCardProps
                             <div style={{ fontSize: typography.sizes.xs, color: colors.textPrimary, fontWeight: typography.weights.semibold }}>
                               #{o.order_number}
                               {o.bundle_handed_off_at
-                                ? paidOut ? ' · ✅ handed off — margin paid' : ' · handed off — margin payout in progress'
+                                ? paidOut
+                                  ? ' · ✅ handed off — margin paid'
+                                  : !o.bundle_buyer_ack_at && !o.bundle_margin_transfer_id
+                                    ? ' · handed off — margin releases when the buyer acknowledges'
+                                    : ' · handed off — margin payout in progress'
                                 : openItems.length > 0
                                   ? ` · ${openItems.length} item(s) still to collect from vendors`
                                   : ' · all components collected — assemble & hand off'}
                             </div>
+                            {openItems.length > 0 && !o.bundle_handed_off_at && (
+                              <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
+                                At each stand: tap <strong>Receiving now</strong> first — the vendor then taps Fulfill within 30 seconds and is paid on the spot.
+                              </div>
+                            )}
                             <ul style={{ margin: `${spacing['3xs']} 0 0`, paddingLeft: spacing.md, fontSize: typography.sizes.xs, color: colors.textMuted }}>
-                              {o.order_items.map((i, idx) => (
-                                <li key={idx}>
+                              {o.order_items.map((i) => (
+                                <li key={i.id} style={{ marginBottom: spacing['3xs'] }}>
                                   {i.quantity}× {listingTitles.get(i.listing_id)?.title || 'Item'} — {i.status === 'fulfilled' ? '✓ collected' : i.status}
+                                  {/* Handoff 1: at the vendor's stand, tap Receiving now — the
+                                      vendor then fulfills inside the 30-second window, exactly
+                                      like any other pickup. */}
+                                  {i.status === 'ready' && !i.buyer_confirmed_at && (
+                                    <button
+                                      onClick={() => collectAck(o.id, i.id)}
+                                      disabled={orderBusy === o.id}
+                                      style={{ marginLeft: spacing.xs, padding: `1px ${spacing.xs}`, backgroundColor: 'white', color: colors.primary, border: `1px solid ${colors.primary}`, borderRadius: radius.sm, fontSize: typography.sizes.xs, cursor: 'pointer' }}
+                                    >
+                                      🤝 Receiving now
+                                    </button>
+                                  )}
+                                  {i.status !== 'fulfilled' && i.status !== 'cancelled' && i.buyer_confirmed_at && (
+                                    <span style={{ marginLeft: spacing.xs }}>⏱ acknowledged — vendor fulfilling</span>
+                                  )}
                                 </li>
                               ))}
                             </ul>
@@ -408,6 +517,13 @@ export default function CuratedBundlesCard({ marketId }: CuratedBundlesCardProps
                                 >
                                   {orderBusy === o.id ? 'Working…' : 'Mark handed off'}
                                 </button>
+                                {openItems.length === 0 && (
+                                  <span style={{ flexBasis: '100%', fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                                    {o.bundle_buyer_ack_at
+                                      ? '✅ Buyer acknowledged — tap Mark handed off within 30 seconds.'
+                                      : 'Final handoff: the buyer taps acknowledge on their order, then you tap Mark handed off within 30 seconds.'}
+                                  </span>
+                                )}
                               </div>
                             )}
                           </div>
@@ -420,73 +536,123 @@ export default function CuratedBundlesCard({ marketId }: CuratedBundlesCardProps
             })}
           </ul>
 
-          {/* Create / edit form */}
+          {/* Result banner ALSO at the form position — the top-of-card copy
+              scrolls out of view on long cards, which read as "nothing
+              happened" after submit (E2 staging finding 2026-09-05). */}
+          {result && !formOpen && (
+            <div style={{
+              marginTop: spacing.sm,
+              padding: `${spacing.xs} ${spacing.sm}`,
+              borderRadius: radius.sm,
+              fontSize: typography.sizes.sm,
+              backgroundColor: result.type === 'success' ? statusColors.successLight : statusColors.dangerLight,
+              color: result.type === 'success' ? statusColors.successDark : statusColors.dangerDark,
+              border: `1px solid ${result.type === 'success' ? statusColors.successBorder : statusColors.dangerBorder}`,
+            }}>
+              {result.text}
+            </div>
+          )}
+
+          {/* Create / edit form — numbered steps so the flow guides itself */}
           {formOpen ? (
             <div style={{ marginTop: spacing.md, padding: spacing.sm, border: `1px solid ${colors.border}`, borderRadius: radius.sm, backgroundColor: colors.surfaceBase }}>
               <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, marginBottom: spacing.xs }}>
                 {editingId ? 'Edit bundle' : 'New bundle'}
               </div>
 
-              <label style={labelStyle}>Bundle name</label>
+              <label style={labelStyle}>1 · Bundle name</label>
               <input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value.slice(0, 120) }))} placeholder={`e.g. "Farm Dinner Box"`} style={inputStyle} />
 
               <label style={labelStyle}>Description shown to buyers (optional)</label>
               <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value.slice(0, 600) }))} rows={2} style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }} />
 
-              <label style={labelStyle}>Items in the bundle (pick at least 2)</label>
+              <label style={labelStyle}>2 · Pick the items (at least 2)</label>
               {available.length === 0 ? (
                 <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, fontStyle: 'italic' }}>
                   No published listings from opted-in vendors at this market yet.
                 </div>
               ) : (
-                <div style={{ maxHeight: 220, overflowY: 'auto', border: `1px solid ${colors.border}`, borderRadius: radius.sm, backgroundColor: 'white' }}>
-                  {available.map(l => {
-                    const selected = form.components.has(l.id)
-                    return (
-                      <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, padding: `${spacing['3xs']} ${spacing.sm}`, borderBottom: `1px solid ${colors.surfaceBase}` }}>
-                        <input type="checkbox" checked={selected} onChange={() => toggleComponent(l.id)} id={`bundle-item-${l.id}`} />
-                        <label htmlFor={`bundle-item-${l.id}`} style={{ flex: 1, fontSize: typography.sizes.xs, color: colors.textPrimary, cursor: 'pointer' }}>
-                          {l.title} <span style={{ color: colors.textMuted }}>· {l.vendor_name} · {formatPrice(l.price_cents)}</span>
-                        </label>
-                        {selected && (
-                          <input
-                            type="number" min={1} max={25}
-                            value={form.components.get(l.id) ?? 1}
-                            onChange={e => setComponentQty(l.id, parseInt(e.target.value, 10) || 1)}
-                            style={{ width: 52, padding: spacing['3xs'], border: `1px solid ${colors.border}`, borderRadius: radius.sm, fontSize: typography.sizes.xs }}
-                          />
-                        )}
+                <div style={{ maxHeight: 260, overflowY: 'auto', border: `1px solid ${colors.border}`, borderRadius: radius.sm, backgroundColor: 'white' }}>
+                  {groupedAvailable.map(([vendorName, items]) => (
+                    <div key={vendorName}>
+                      <div style={{ padding: `${spacing['3xs']} ${spacing.sm}`, backgroundColor: colors.surfaceBase, fontSize: typography.sizes.xs, fontWeight: typography.weights.bold, color: colors.textPrimary, position: 'sticky', top: 0 }}>
+                        {vendorName}
                       </div>
-                    )
-                  })}
+                      {items.map(l => {
+                        const selected = form.components.has(l.id)
+                        return (
+                          <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, padding: `${spacing['3xs']} ${spacing.sm}`, borderBottom: `1px solid ${colors.surfaceBase}` }}>
+                            <input type="checkbox" checked={selected} onChange={() => toggleComponent(l.id)} id={`bundle-item-${l.id}`} />
+                            <label htmlFor={`bundle-item-${l.id}`} style={{ flex: 1, fontSize: typography.sizes.xs, color: colors.textPrimary, cursor: 'pointer' }}>
+                              {l.title} <span style={{ color: colors.textMuted }}>· {l.category} · {formatPrice(l.price_cents)}</span>
+                            </label>
+                            {selected && (
+                              <input
+                                type="number" min={1} max={25}
+                                value={form.components.get(l.id) ?? 1}
+                                onChange={e => setComponentQty(l.id, parseInt(e.target.value, 10) || 1)}
+                                style={{ width: 52, padding: spacing['3xs'], border: `1px solid ${colors.border}`, borderRadius: radius.sm, fontSize: typography.sizes.xs }}
+                              />
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {form.components.size > 0 && (
+                <div style={{ marginTop: spacing['3xs'], fontSize: typography.sizes.xs, color: colors.textPrimary }}>
+                  {form.components.size} item(s) selected · items total <strong>{formatPrice(componentSumCents)}</strong> (before your value-add)
                 </div>
               )}
 
               <div style={{ display: 'flex', gap: spacing.sm, flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: 120 }}>
-                  <label style={labelStyle}>Your margin ($)</label>
-                  <input type="number" min={0} step="0.01" value={form.marginDollars} onChange={e => setForm(f => ({ ...f, marginDollars: e.target.value }))} placeholder="15.00" style={inputStyle} />
+                <div style={{ flex: 1, minWidth: 160 }}>
+                  <label style={labelStyle}>3 · Bundle price after your value-add ($)</label>
+                  <input type="number" min={0} step="0.01" value={form.priceDollars} onChange={e => setForm(f => ({ ...f, priceDollars: e.target.value }))} placeholder={componentSumCents > 0 ? ((componentSumCents + 1000) / 100).toFixed(2) : '45.00'} style={inputStyle} />
+                  <div style={{ marginTop: spacing['3xs'], fontSize: typography.sizes.xs, color: priceBelowItems ? statusColors.dangerDark : colors.textMuted }}>
+                    {priceBelowItems
+                      ? `Price can't be below the items total (${formatPrice(componentSumCents)}).`
+                      : `Items ${formatPrice(componentSumCents)} + your value-add ${formatPrice(marginCents)}`}
+                  </div>
                 </div>
                 <div style={{ flex: 1, minWidth: 120 }}>
                   <label style={labelStyle}>How many to sell (max {BUNDLE_LIMITS.maxQuantityPerBundle})</label>
                   <input type="number" min={1} max={BUNDLE_LIMITS.maxQuantityPerBundle} value={form.quantityLimit} onChange={e => setForm(f => ({ ...f, quantityLimit: e.target.value }))} style={inputStyle} />
                 </div>
-                <div style={{ flex: 1, minWidth: 140 }}>
-                  <label style={labelStyle}>Pickup market day</label>
-                  <input type="date" value={form.pickupMarketDate} onChange={e => setForm(f => ({ ...f, pickupMarketDate: e.target.value }))} style={inputStyle} />
-                </div>
               </div>
+
+              <label style={labelStyle}>4 · Pickup market day</label>
+              {upcomingDates.length > 0 ? (
+                <select value={form.pickupMarketDate} onChange={e => setForm(f => ({ ...f, pickupMarketDate: e.target.value }))} style={inputStyle}>
+                  <option value="">Pick a market day…</option>
+                  {upcomingDates.map(d => <option key={d} value={d}>{marketDayLabel(d)}</option>)}
+                  {form.pickupMarketDate && !upcomingDates.includes(form.pickupMarketDate) && (
+                    <option value={form.pickupMarketDate}>{marketDayLabel(form.pickupMarketDate)} (previously chosen)</option>
+                  )}
+                </select>
+              ) : (
+                <input type="date" value={form.pickupMarketDate} onChange={e => setForm(f => ({ ...f, pickupMarketDate: e.target.value }))} style={inputStyle} />
+              )}
 
               <label style={labelStyle}>Where at the market buyers collect it (optional)</label>
               <input type="text" value={form.pickupNotes} onChange={e => setForm(f => ({ ...f, pickupNotes: e.target.value.slice(0, 200) }))} placeholder="e.g. the info booth at the main entrance" style={inputStyle} />
 
-              <label style={labelStyle}>What value do you add? (the approval reviewer reads this)</label>
-              <textarea value={form.justification} onChange={e => setForm(f => ({ ...f, justification: e.target.value.slice(0, 1000) }))} rows={2} placeholder="e.g. I select the best of each vendor's harvest that morning and assemble a complete dinner for four." style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }} />
+              <label style={labelStyle}>5 · What value do you add?</label>
+              <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing['3xs'] }}>
+                Every bundle gets a quick platform review before it goes on sale. Pick the category that best fits what you&apos;re adding beyond the items themselves, then describe it — the reviewer approves bundles whose price reflects real added value.
+              </div>
+              <select value={form.valueAddCategory} onChange={e => setForm(f => ({ ...f, valueAddCategory: e.target.value }))} style={inputStyle}>
+                <option value="">Pick a category…</option>
+                {VALUE_ADD_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <textarea value={form.valueAddDetails} onChange={e => setForm(f => ({ ...f, valueAddDetails: e.target.value.slice(0, 1000) }))} rows={2} placeholder="e.g. I select the best of each vendor's harvest that morning and arrange it in a reusable gift basket." style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit', marginTop: spacing['3xs'] }} />
 
               {beneficiaries.length > 0 && (
                 <div style={{ display: 'flex', gap: spacing.sm, flexWrap: 'wrap' }}>
                   <div style={{ flex: 2, minWidth: 160 }}>
-                    <label style={labelStyle}>Support a cause with this bundle (optional)</label>
+                    <label style={labelStyle}>6 · Support a cause with this bundle (optional)</label>
                     <select value={form.causeBeneficiaryId} onChange={e => setForm(f => ({ ...f, causeBeneficiaryId: e.target.value }))} style={inputStyle}>
                       <option value="">No cause</option>
                       {beneficiaries.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -511,10 +677,10 @@ export default function CuratedBundlesCard({ marketId }: CuratedBundlesCardProps
                 </button>
                 <button
                   onClick={submit}
-                  disabled={busy || form.components.size < 2 || !form.name.trim() || !form.pickupMarketDate}
+                  disabled={busy || form.components.size < 2 || !form.name.trim() || !form.pickupMarketDate || enteredPriceCents <= 0 || priceBelowItems || !form.valueAddCategory || !form.valueAddDetails.trim()}
                   style={{
                     padding: `${spacing.xs} ${spacing.md}`,
-                    backgroundColor: busy || form.components.size < 2 || !form.name.trim() || !form.pickupMarketDate ? colors.border : colors.primary,
+                    backgroundColor: busy || form.components.size < 2 || !form.name.trim() || !form.pickupMarketDate || enteredPriceCents <= 0 || priceBelowItems || !form.valueAddCategory || !form.valueAddDetails.trim() ? colors.border : colors.primary,
                     color: 'white', border: 'none', borderRadius: radius.sm,
                     fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold,
                     cursor: busy ? 'not-allowed' : 'pointer',

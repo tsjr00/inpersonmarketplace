@@ -4,6 +4,7 @@ import { isMarketManager } from '@/lib/markets/manager-auth'
 import { payBundleMargin } from '@/lib/bundles/margin-payout'
 import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { CONFIRMATION_WINDOW_SECONDS } from '@/lib/cron/order-timing'
 
 /**
  * POST /api/market-manager/[marketId]/bundles/orders/[orderId]/handoff
@@ -53,7 +54,7 @@ export async function POST(
     crumb.supabase('select', 'orders (bundle handoff)')
     const { data: order } = await observed(serviceClient
       .from('orders')
-      .select('id, status, bundle_id, bundle_handed_off_at, bundle_margin_transfer_id')
+      .select('id, status, bundle_id, bundle_handed_off_at, bundle_margin_transfer_id, bundle_buyer_ack_at')
       .eq('id', orderId)
       .maybeSingle(), { table: 'orders' })
 
@@ -100,8 +101,36 @@ export async function POST(
       )
     }
 
-    // Stamp the handoff (idempotent — only the first write sets it).
+    // Two-part confirmation (mig 246, owner decision 2026-09-06) — the
+    // transition INTO handed-off mirrors the per-item machine:
+    //   Normal flow: buyer bundle-acknowledged and the manager confirms
+    //     inside the 30-second window → stamp + margin pays below.
+    //   Stale ack: window expired → reset the ack and ask for a fresh one
+    //     (mirrors fulfill's expired-window reset).
+    //   No ack yet: mirror of vendor-fulfills-first — stamp the handoff,
+    //     but the margin waits; the buyer's later acknowledge releases it
+    //     (money always requires both parties, whichever order they act).
+    // An ALREADY handed-off order skips the window logic — both stamps are
+    // what money needs, the window only governs the handshake moment.
+    let ackMissing = false
     if (!order.bundle_handed_off_at) {
+      if (order.bundle_buyer_ack_at) {
+        const ackAge = Date.now() - new Date(order.bundle_buyer_ack_at as string).getTime()
+        if (ackAge > CONFIRMATION_WINDOW_SECONDS * 1000) {
+          crumb.supabase('update', 'orders (stale bundle ack reset)')
+          await serviceClient
+            .from('orders')
+            .update({ bundle_buyer_ack_at: null })
+            .eq('id', orderId)
+            .is('bundle_handed_off_at', null)
+          return NextResponse.json(
+            { error: 'The confirmation window expired. Ask the buyer to tap acknowledge again, then confirm within 30 seconds.' },
+            { status: 409 }
+          )
+        }
+      } else {
+        ackMissing = true
+      }
       crumb.supabase('update', 'orders (bundle_handed_off_at)')
       await serviceClient
         .from('orders')
@@ -130,6 +159,16 @@ export async function POST(
         return NextResponse.json({ handedOff: true, margin: { status: 'none' } })
       case 'not_paid':
         return NextResponse.json({ error: 'This order has no confirmed payment yet.' }, { status: 409 })
+      case 'awaiting_buyer_ack':
+        return NextResponse.json({
+          handedOff: true,
+          margin: {
+            status: 'awaiting_buyer_ack',
+            note: ackMissing
+              ? 'Handoff recorded. Your margin pays out when the buyer taps acknowledge on their order.'
+              : 'Handoff recorded. Waiting on the buyer acknowledgment to release the margin.',
+          },
+        })
       case 'not_handed_off':
         // Unreachable after the stamp above; report honestly if it ever fires.
         return NextResponse.json({ error: 'Handoff could not be recorded. Please retry.' }, { status: 500 })

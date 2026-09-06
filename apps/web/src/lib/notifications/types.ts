@@ -2291,7 +2291,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     audience: 'vendor',
     title: () => `🧺 New: market managers can feature your items in curated bundles`,
     message: () =>
-      `Your market's manager can now bundle items from several vendors into one curated purchase — you sell more, at your full listed price, and get paid exactly as you do today. You're included automatically. If you'd rather not participate, you can opt out anytime in your vendor settings.`,
+      `Your market's manager can now bundle items from several vendors into one curated purchase — you sell more, at your full listed price, and get paid exactly as you do today. At the market, the manager comes to your stand and taps to receive your bundle items — then you tap Fulfill within 30 seconds, same as any pickup, and you're paid on the spot (wait for the manager's tap before fulfilling). You're included automatically. If you'd rather not participate, you can opt out anytime in your vendor settings.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard`,
   },
 

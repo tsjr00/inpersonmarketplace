@@ -41,6 +41,7 @@ export type BundleMarginResult =
   | { status: 'payout_pending' }   // a prior attempt claimed but didn't finish — needs reconciliation
   | { status: 'nothing_to_pay' }   // not a bundle order, or zero margin
   | { status: 'not_handed_off' }
+  | { status: 'awaiting_buyer_ack' } // two-part confirmation: buyer hasn't acknowledged the bundle yet
   | { status: 'not_paid' }         // no proven buyer payment — money must not move
   | { status: 'failed'; reason: string }
 
@@ -52,7 +53,7 @@ export async function payBundleMargin(
 ): Promise<BundleMarginResult> {
   const { data: order } = await observed(serviceClient
     .from('orders')
-    .select('id, order_number, status, bundle_id, bundle_margin_cents, bundle_handed_off_at, bundle_margin_transfer_id')
+    .select('id, order_number, status, bundle_id, bundle_margin_cents, bundle_handed_off_at, bundle_margin_transfer_id, bundle_buyer_ack_at')
     .eq('id', orderId)
     .maybeSingle(), { table: 'orders' })
 
@@ -60,6 +61,11 @@ export async function payBundleMargin(
     return { status: 'nothing_to_pay' }
   }
   if (!order.bundle_handed_off_at) return { status: 'not_handed_off' }
+  // Two-part confirmation (mig 246, owner decision 2026-09-06): the margin
+  // moves only when BOTH parties have acted — the manager's handoff stamp
+  // AND the buyer's bundle acknowledge — mirroring the per-item machine
+  // where money moves on the second of buyer-ack/vendor-fulfill.
+  if (!order.bundle_buyer_ack_at) return { status: 'awaiting_buyer_ack' }
   if (order.bundle_margin_transfer_id === PENDING_SENTINEL) return { status: 'payout_pending' }
   if (order.bundle_margin_transfer_id) return { status: 'already_paid' }
 

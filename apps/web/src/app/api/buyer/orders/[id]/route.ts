@@ -37,6 +37,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
         tip_amount,
         created_at,
         updated_at,
+        bundle_id,
+        bundle_handed_off_at,
+        bundle_buyer_ack_at,
+        bundle_margin_transfer_id,
         order_items (
           id,
           quantity,
@@ -109,6 +113,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
       tip_amount: (order as Record<string, unknown>).tip_amount || 0,
       created_at: order.created_at,
       updated_at: order.updated_at,
+      // Bundle two-part confirmation state (mig 246) — drives the buyer's
+      // "I'm receiving my bundle" acknowledge on the order page.
+      bundle_id: (order as Record<string, unknown>).bundle_id || null,
+      bundle_handed_off_at: (order as Record<string, unknown>).bundle_handed_off_at || null,
+      bundle_buyer_ack_at: (order as Record<string, unknown>).bundle_buyer_ack_at || null,
+      bundle_margin_settled: !!(order as Record<string, unknown>).bundle_margin_transfer_id
+        && (order as Record<string, unknown>).bundle_margin_transfer_id !== 'pending',
       items: (order.order_items || []).map((item: any) => {
         const listing = item.listing
         const vendorProfile = listing?.vendor_profiles

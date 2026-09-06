@@ -127,6 +127,40 @@ Gates: tsc ✓ · **2170/2170** ✓ · lint 0 err. COMMITTED (owner 2026-09-05).
   any staging code push). Prod owes 238→245 now.
 - Gates: tsc ✓ · **2171/2171** ✓ · lint 0 err. COMMITTED local (owner "commit locally").
 
+## 🧺 E1/E2 BUNDLE BATCH + TWO-PART CONFIRMATION (owner "yes, build as explained... roll it in
+## ... proceed" 2026-09-06) — BUILT, UNCOMMITTED
+- **⚠ KEY FINDING (Confirmed)**: shipped bundle build had a VENDOR-PAYMENT GAP — vendors
+  fulfilling at collection with no buyer ack land in fulfill's vendor-first edge branch
+  (fulfill/route.ts:486-490 pays NOTHING; payment waits on a per-item buyer ack bundle buyers
+  never send; no cron phase sweeps fulfilled-unacked). The two-part confirmation IS the fix.
+- **Design (owner's vision, mirrors the per-item 30s machine, roles rotated)**: Handoff 1
+  vendor→manager: manager stand-in "collect-ack" sets the SAME buyer_confirmed_at +
+  confirmation_window_expires_at + pickup_confirmation_needed nudge → vendor fulfills in
+  window via their NORMAL flow (= what pays them; zero vendor process change). NO money in
+  the stand-in route (ready-only items). Handoff 2 manager→buyer at BUNDLE level: buyer
+  bundle-ack (orders.bundle_buyer_ack_at, **mig 246** ⏳ not applied, root) ↔ manager
+  Mark-handed-off within 30s; margin pays on the SECOND act whichever order (manager-first
+  edge → stamp, defer margin; buyer's later ack releases via payBundleMargin's idempotent
+  claim). Stale ack → reset + re-ack 409 (mirrors fulfill). payBundleMargin now REQUIRES
+  bundle_buyer_ack_at (defense-in-depth, 'awaiting_buyer_ack' status).
+- **Files**: collect-ack route (new) · bundle-ack route (new) · handoff route (window gate) ·
+  margin-payout.ts (+ack gate) · buyer orders [id] API+page (bundle fields + 🧺 ack card,
+  7 en+es keys; ack sweeps per-item confirms for early-fulfilled items = pays those vendors) ·
+  bundles GET (+category, +upcomingMarketDates filtered by bundleOrderingOpen, run-sheet +item
+  id/buyer_confirmed_at/bundle_buyer_ack_at) · CuratedBundlesCard (E2: vendor→category grouped
+  picker · price-first entry, margin derived, below-items validation · market-day dropdown ·
+  value-add category select ["[Category] details" in justification, no migration] + helper ·
+  numbered steps 1-6 · result banner at form position · run-sheet 🤝 Receiving-now buttons +
+  handoff hints + awaiting-buyer status) · E1a consent copy en+es (margin mention removed →
+  "manager collects your items") · flow-integrity pin (+1: stand-in no-money/ready-only,
+  margin needs both stamps, window enforced, buyer-ack ownership-gated).
+- **Mig 246 ✅ Dev+Staging 2026-09-06 (owner)**; snapshot changelog + orders column row updated.
+- **Training nudges added (owner: "training will do", no mechanics)**: bundles_intro template +
+  consent card en/es ("wait for the manager's tap, then Fulfill within 30s — paid right then") +
+  manager run-sheet coaching line ("tap Receiving now first — vendor paid on the spot").
+- Gates: tsc ✓ · **2172/2172** ✓ · lint 0 err. COMMITTED local (owner "commit local").
+- Owner has MORE FEEDBACK coming before the staging push — hold the push.
+
 ## ▶ POST-COMPACTION QUEUE (owner-approved next items)
 1. **Locations-page "Apply required" chip (owner: "add optional polish... for after compaction")**:
    the Available-markets rows on /vendor/markets should LABEL gated markets before the toggle

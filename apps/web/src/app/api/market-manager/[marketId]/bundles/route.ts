@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { validateBundleComponents, validateBundleFields, type BundleComponentInput } from '@/lib/bundles/validate'
+import { buildOperatingDates } from '@/lib/markets/park-week-schedule'
+import { bundleOrderingOpen } from '@/lib/bundles/core'
 import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
@@ -58,11 +60,14 @@ export async function GET(
           .in('id', listingIds), { table: 'listings' })
       : { data: [] }
 
-    // Run-sheet: paid orders per bundle with per-item status.
+    // Run-sheet: paid orders per bundle with per-item status. Item id +
+    // buyer_confirmed_at drive the manager's collect-acknowledge buttons
+    // (handoff 1 of the two-part confirmation); bundle_buyer_ack_at is the
+    // buyer's half of handoff 2.
     const { data: orders } = bundleIds.length
       ? await observed(serviceClient
           .from('orders')
-          .select('id, order_number, status, created_at, bundle_id, bundle_margin_cents, bundle_handed_off_at, bundle_margin_transfer_id, order_items (listing_id, quantity, status)')
+          .select('id, order_number, status, created_at, bundle_id, bundle_margin_cents, bundle_handed_off_at, bundle_margin_transfer_id, bundle_buyer_ack_at, order_items (id, listing_id, quantity, status, buyer_confirmed_at)')
           .in('bundle_id', bundleIds)
           .in('status', ['paid', 'completed'])
           .order('created_at', { ascending: false }), { table: 'orders' })
@@ -73,7 +78,7 @@ export async function GET(
     // picker can't offer what submit would reject).
     const { data: availableRaw } = await observed(serviceClient
       .from('listings')
-      .select('id, title, price_cents, vendor_profile_id, listing_markets!inner (market_id), vendor_profiles!inner (id, bundles_opt_out, profile_data)')
+      .select('id, title, price_cents, category, vendor_profile_id, listing_markets!inner (market_id), vendor_profiles!inner (id, bundles_opt_out, profile_data)')
       .eq('listing_markets.market_id', marketId)
       .eq('status', 'published')
       .is('deleted_at', null), { table: 'listings' })
@@ -85,10 +90,42 @@ export async function GET(
           id: l.id,
           title: l.title,
           price_cents: l.price_cents,
+          category: (l.category as string | null) || 'Other',
           vendor_profile_id: l.vendor_profile_id,
           vendor_name: (pd.business_name as string) || (pd.farm_name as string) || 'Vendor',
         }
       })
+
+    // Pickup-day picker: the market's next operating dates (schedule DOWs,
+    // minus cancelled overrides, plus make-up dates) — the manager picks a
+    // real market day instead of free-typing a calendar date.
+    crumb.supabase('select', 'market_schedules (bundle pickup days)')
+    const { data: schedRows } = await observed(serviceClient
+      .from('market_schedules')
+      .select('day_of_week, active')
+      .eq('market_id', marketId), { table: 'market_schedules' })
+    const { data: overrideRows } = await observed(serviceClient
+      .from('market_date_overrides')
+      .select('override_date, status, reschedule_date')
+      .eq('market_id', marketId), { table: 'market_date_overrides' })
+    const activeDows = new Set((schedRows ?? []).filter(s => s.active !== false).map(s => s.day_of_week as number))
+    const cancelledDates = new Set((overrideRows ?? [])
+      .filter(o => o.status === 'cancelled')
+      .map(o => o.override_date as string))
+    const todayISO = new Date().toISOString().slice(0, 10)
+    const dateSet = new Set(buildOperatingDates(todayISO, activeDows, cancelledDates, 28))
+    for (const o of overrideRows ?? []) {
+      // Make-up days count as operating dates.
+      if (o.reschedule_date && (o.reschedule_date as string) > todayISO && !cancelledDates.has(o.reschedule_date as string)) {
+        dateSet.add(o.reschedule_date as string)
+      }
+    }
+    // Only days the assembly buffer leaves an ordering window for — a pickup
+    // day inside the buffer would create a bundle nobody can ever order.
+    const upcomingMarketDates = [...dateSet]
+      .filter(d => bundleOrderingOpen(todayISO, d))
+      .sort()
+      .slice(0, 6)
 
     // Cause picker (B2): active beneficiaries only.
     const { data: beneficiaries } = await observed(serviceClient
@@ -102,6 +139,7 @@ export async function GET(
       orders: orders ?? [],
       availableListings,
       beneficiaries: beneficiaries ?? [],
+      upcomingMarketDates,
     })
   })
 }

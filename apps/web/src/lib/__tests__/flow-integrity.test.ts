@@ -2391,6 +2391,28 @@ describe('Event ↔ location availability', () => {
     }
   })
 
+  it('bundle handoffs run the two-part 30-second confirmation at both ends (mig 246)', () => {
+    // Owner decision 2026-09-06: same ritual as every pickup, roles rotated.
+    // Handoff 1 (vendor → manager): the manager's stand-in acknowledge must
+    // move NO money — it only opens the vendor's normal fulfill window
+    // (fulfill's normal-flow branch is what pays the vendor; without the
+    // stand-in, bundle items landed in the vendor-first edge branch whose
+    // payout waits for a per-item buyer ack that never came).
+    const collectAck = rd('app/api/market-manager/[marketId]/bundles/orders/[orderId]/collect-ack/route.ts')
+    expect(collectAck, 'stand-in sets the SAME window fields the buyer tap sets').toMatch(/confirmation_window_expires_at/)
+    expect(collectAck, 'only ready items — the fulfilled edge branch moves money and is off-limits here').toMatch(/\.eq\('status', 'ready'\)/)
+    expect(collectAck, 'no money in the stand-in route').not.toMatch(/stripe|transferToVendor|payBundleMargin|vendor_payouts/)
+    // Handoff 2 (manager → buyer): margin moves only when BOTH stamps exist.
+    const marginPayout = rd('lib/bundles/margin-payout.ts')
+    expect(marginPayout, 'margin requires the buyer bundle ack').toMatch(/bundle_buyer_ack_at/)
+    expect(marginPayout, 'margin requires the handoff stamp').toMatch(/bundle_handed_off_at/)
+    const handoff = rd('app/api/market-manager/[marketId]/bundles/orders/[orderId]/handoff/route.ts')
+    expect(handoff, 'handoff enforces the 30-second window').toMatch(/CONFIRMATION_WINDOW_SECONDS/)
+    const buyerAck = rd('app/api/buyer/orders/[id]/bundle-ack/route.ts')
+    expect(buyerAck, 'buyer ack is ownership-gated').toMatch(/buyer_user_id !== user\.id/)
+    expect(buyerAck, 'buyer-second edge releases the margin via the same idempotent payer').toMatch(/payBundleMargin/)
+  })
+
   it('the NEWEST definer of get_available_pickup_dates honors vendor_date_blackouts for non-event markets', () => {
     const dir = path.resolve(SRC_DIR, '../../../supabase/migrations')
     const files: string[] = []
