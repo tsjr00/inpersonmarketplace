@@ -488,6 +488,30 @@ One rule written in two independently-editable places with silent drift is this 
 
 ---
 
+## Session History — 2026-09-05→06 (bundles hardening: E-series testing → two-part handoff, cancel policy, notification sequence)
+
+The owner ran the full bundle loop on staging across four feedback rounds; every finding was
+triaged, ruled on, and shipped same-day (staging tip `05cdc869`, 5 pushes). **Migs 245+246**
+(Dev+Staging, owner): 245 = browse-pill event-market exclusion (`get_listings_accepting_status`
+2-arg, DROP old signature — money callers keep default); 246 = `orders.bundle_buyer_ack_at`.
+**Key discovery**: fulfill-without-buyer-ack defers vendor payment (edge branch) and bundle
+buyers never per-item ack — the owner's two-part 30s confirmation design (both handoffs, roles
+rotated) is what pays vendors at collection; buyer bundle-ack sweeps early-fulfils. **Cancel
+policy** (decisions.md): bundle = one product, all-or-nothing, bundle-level 25% fee once ANY
+vendor confirms past grace, margin included, closes at collection start
+(`calculateBundleCancellation` + cancel-bundle route). **Notification sequence** (decisions.md
+info-minimalism): bundle buyers get ONE ready signal (manager's); vendor ready/fulfilled sends
+bundle-gated off (protected fulfill route file-approved ×2 this arc: reject + fulfill);
+manager notified at vendor-ready (`bundle_component_ready`; tripwire 128→131 across the arc).
+Also: E4 pinned Market Bundles row in the vendor list; price-first create form w/ grouped
+picker, real market-day dropdown, required pickup spot; buyer dashboard "Your Bundle Is Ready"
+band + green-hero gating; cancel-date card vertical-truthing; F3/A5 fixes. **Process arc**:
+owner challenged an overconfident event reconstruction + an unverified UI claim → confidence
+memory broadened (reconstructions/UI-claims/corrections need >80% or a % label; timestamps >
+narratives); the SQL ground-truth then settled the sequence exactly. Cron caveat learned:
+Vercel crons never run on staging previews — trigger via curl. Tests 2170→2179. Prod owes
+migs 238→246 + 76 commits.
+
 ## Session History — 2026-09-04 (VIP buildout: Phase A + discount plumbing)
 
 VIP unblocked from flash sales (decisions.md — perks = vendor-toggled menu, VIP-only for feedback; chunk-D gate re-opened for VENDOR-FUNDED only, "taxes clean and easy"; no platform-funded yet). **Phase A shipped same day:** A1 Your Customers report (`api/vendor/customers` — the loyalty classifier's third reader, names-only guarded) · A2 VIP designation (mig 242 `vendor_vip_customers`; slots 0/10/25 in ⚠vendor-limits.ts approved diff; star toggle + meter on the report; `vip_added` push; OrderCard ⭐; Favorites badge; milestone nudge → "Make them a VIP?") · A3 consolidated digest (`lib/notifications/vendor-digest.ts` — ONE send site guard-counted, 8am-local content-gated = season gate, rides the hourly surveys cron, guard forbids its own cron entry). **B1 discount plumbing** (mig 243 vendor_offers + discount columns, INERT; `lib/loyalty/offers.ts` VIP-gated threshold math + exact-sum allocation): **net-storage key** — `subtotal_cents` stored POST-discount, `unit_price_cents` = list — so fees/payouts/refunds/small-order/chunk-D tax read true amounts with ZERO refund-path edits (guarded). checkout/session 5-hunk diff owner-approved; pricing.ts untouched (rounds on the sum). Rule L fired on both CREATE TABLEs (first since the rule) — 242 rebuilt same day from scoped live queries; **243's rebuild + the B1 commit wait on the owner's paste**. Tripwires 121→123 (both owner-approved). Tests 2126→2137 (+Rule L red pending). D1–D11 perk decision menu presented — punch card + threshold UI build on the owner's picks. A2+A3 local-only at checkpoint.

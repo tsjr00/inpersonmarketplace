@@ -1,4 +1,26 @@
-# ▶▶ ACTIVE TASK (2026-09-05): MARKET BUNDLES B1+B2 — **BUILD COMPLETE, UNCOMMITTED**
+# ✅ SESSION WRAPPED 2026-09-06 — bundles hardening arc COMPLETE & SHIPPED TO STAGING
+**State at wrap:** staging = local main = `05cdc869` (docs wrap commit follows). Tree clean
+(tracked). Migs 245+246 ✅ Dev+Staging. Gates: tsc ✓ · 2179/2179 ✓ · lint 0 err.
+**Session records:** this file (sections below, newest at top of each arc) ·
+`pickup_status_progression_review.md` (status machine + notification audit) · decisions.md
+(bundle handoff/cancel/info-flow rulings 2026-09-06) · CLAUDE_CONTEXT.md session history ·
+memory `project_session_2026-09-05_06.md`.
+
+## ▶ NEXT SESSION PICKS UP
+1. **Owner retest tail**: finish FA-2026-48926539 handoff (Mark handed off now unblocked →
+   buyer ack → margin pays — the LAST untested money move); fresh-order notification sequence;
+   E6 via curl (⚠ Vercel crons never run on staging previews); bundle_ready EMAIL copy review
+   (the "stale" email may have been the now-suppressed storm — re-check after).
+2. Then: remaining Test Protocol rounds → prod push (migs 238→246 IN ORDER + 76 commits,
+   window 21:00–07:00 CT; ⚠ at mig-238 paste check real pre-paste event acceptances).
+3. Gated/parked: locations-page "Apply required" chip (needs its own go) · scoring Phase 1 ·
+   G-4 privacy fix · backlog (push-notification map, regional-manager insights, manager
+   2-week glance, cron P4 bundle-no-show copy, vendor window-item display question).
+⚠ Standing: owner applies migrations · commits/pushes need explicit approval · protected
+files per-file diffs (hook deny-once→verify→retry is the working pattern) · confidence rule
+BROADENED: % labels on event reconstructions/UI claims/corrections; timestamps > narratives.
+
+# ▶▶ ARCHIVE — 2026-09-05 session start state: MARKET BUNDLES B1+B2 — **BUILD COMPLETE, UNCOMMITTED**
 **The build log in `.claude/market_bundles_build_plan.md` (⚙ BUILD LOG section) is the full
 record.** Everything shipped in one session: mig 244 (✅ Dev+Staging, owner; snapshot rebuilt,
 stamp → 244) · lib/bundles/{core,margin-payout,validate,public,sold-sweep} + 15-test conservation

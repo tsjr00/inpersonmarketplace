@@ -289,3 +289,29 @@ Mechanism note: `event_vendor_listings` is display-only — the cart validates v
 
 ## 2026-08-30 — Admin UI rebuild (owner)
 Admin panel/dashboard (vertical + platform) will be rebuilt mobile-first & modular on the vendor/manager/organizer dashboard patterns. Decisions: (1) merge the duplicated platform/vertical page pairs into ONE vertical-parameterized set — vertical pages are the daily driver; platform tree keeps login/MFA/platform-admins/cause/cross-vertical reports; scope switcher shows only held scopes; API auth untouched. (2) Hubs become queues-first "Needs you now" mission control. (3) Markets → list + drill-in detail, Events → stage-grouped pipeline board: designed in the central plan NOW (apps/web/.claude/admin_ui_redesign_research.md), built later in their own phases. (4) Badges v1: pending vendors/markets/event requests/order-issues/error reports/unremitted cause/activity flags. (5) No legacy redirects. Phasing: 1 shell+nav+badges → 2 hubs → 3 page merges (one per push) → 4 vendors superset → 5 markets → 6 events → 7 regions scaffold (with regional managers feature).
+
+## Market bundles — handoff, cancellation & information flow (owner, 2026-09-06)
+1. **Two-part 30-second confirmation at BOTH handoffs** (mig 246) — same ritual as every pickup,
+   roles rotated: at collection the MANAGER plays the buyer (collect-ack opens the vendor's
+   normal fulfill window = what pays the vendor); at final handoff the buyer bundle-acks ↔
+   manager Marks-handed-off within 30s. Money always moves on the SECOND act, whichever order.
+2. **Vendors MAY pre-fulfil an unacknowledged bundle item** (option a, data-ground-truthed
+   2026-09-06): the buyer's acknowledge sweep pays them later; training covers it; NO
+   mechanical block, vendor flow stays identical to regular orders.
+3. **Buyer-initiated cancellation = all-or-nothing**: grace window (order-creation clock, FM
+   1hr/FT 15min) → 100% refund; past grace with ANY vendor confirmed → 25% fee on the WHOLE
+   total including margin; tip always refunds full; the fee's vendor share goes only to vendors
+   who confirmed; the manager never gets a fee share (margin refunds 75/100). Cancellation
+   closes the moment collection begins. Warning copy = owner's verbatim wording ("Cancelling
+   after the first hour or once a vendor has confirmed incurs a 25% cancellation fee.").
+4. **Vendor-initiated**: one item removed + that portion refunded; buyer keeps the reduced
+   bundle; manager notified (bundle_component_removed).
+5. **Buyer information minimalism**: bundle buyers never see behind-the-scenes steps — no
+   per-item ready/fulfilled notices, no "manager is collecting" banner. Exactly ONE ready
+   signal, sent by the manager. Manager IS notified when a vendor marks a component ready
+   (skip at confirm). ⚠ Process rule (owner): ASK before assuming who gets what info, how.
+6. **Pickup spot REQUIRED at creation** — it's where the BUYER collects; an easy spot is part
+   of the manager's value-add. Bundle contents are FIXED listed items (vendors choose what
+   they hand over — "hand-picked selection" category removed; not a mystery box).
+7. **Bundles present WITH the vendors, not over them**: pinned Market Bundles row atop the
+   vendor list; bundle cards below the vendors section.
