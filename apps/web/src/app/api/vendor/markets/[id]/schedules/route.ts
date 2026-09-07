@@ -439,6 +439,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
         if (upsertError) {
           console.error('[/api/vendor/markets/[id]/schedules] Error upserting schedules:', upsertError)
+          // Surface a conflict-trigger RAISE (mig 066/247) — see PATCH branch.
+          if (upsertError.message?.includes('Schedule conflict')) {
+            return NextResponse.json({ error: upsertError.message, code: 'ERR_SCHEDULE_CONFLICT' }, { status: 409 })
+          }
           return NextResponse.json({ error: 'Failed to update schedules' }, { status: 500 })
         }
       }
@@ -667,6 +671,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
       if (upsertError) {
         console.error('[/api/vendor/markets/[id]/schedules] Error toggling schedule:', upsertError)
+        // The DB conflict trigger (mig 066/247) RAISEs a user-appropriate
+        // message — surface it instead of a bare 500 (2026-09-07 finding:
+        // the masked message made the FM trigger bug undiagnosable from UI).
+        if (upsertError.message?.includes('Schedule conflict')) {
+          return NextResponse.json({ error: upsertError.message, code: 'ERR_SCHEDULE_CONFLICT' }, { status: 409 })
+        }
         return NextResponse.json({ error: 'Failed to update schedule' }, { status: 500 })
       }
 

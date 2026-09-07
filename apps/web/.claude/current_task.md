@@ -3217,3 +3217,14 @@ VendorsAdminPage/Table (merged list, 3 filter repairs) + VendorDetailAdminPage (
   dead TaxCloud half) + stamp. INERT — nothing calls it. Gates: tsc ✓ 2193/2193 ✓ lint 0.
   III.7 intake appends (plan + design) ride this commit. NEXT: Batch 2 wiring (protected
   files, per-file diffs, TAX_STREAM1_ENABLED dark flag) on owner go.
+- **TEST ROUND (items 11-13 + booking obs) RESOLVED 2026-09-07**: ① Apply button now
+  MANAGED-ONLY (markets/[id]/page.tsx hasActiveManager gate — owner: "make sure we can
+  facilitate before we offer"; unmanaged → insights contact-info path; manager pending list
+  verified = VendorBoothList pending_approval filter) + apply dialog guidance/disclosure
+  copy. ② #12 ROOT CAUSE (code-confirmed ~90%): mig-066 DB trigger check_vendor_schedule_conflict
+  RAISEs cross-market same-day conflicts for ALL verticals while the API deliberately exempts
+  FM → masked 500 "Failed to update schedule" → **mig 247** (root, ⏳ unapplied: FT-only early
+  return) + route PUT/PATCH now surface trigger RAISE as 409 ERR_SCHEDULE_CONFLICT. ③ VIP
+  perks hidden pre-Pro = BY DESIGN (vip.limit>0 gate; free tier 0 slots) — answered. ④ Booking
+  page restates operating days ("covers all N operating days of the week you pick").
+  Gates: tsc ✓ 2193/2193 ✓ lint 0. UNCOMMITTED (rides with Batch 1 commit already local).

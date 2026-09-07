@@ -71,14 +71,23 @@ export default function ApplyToMarketButton({ marketId, vendorProfileId }: Apply
       padding: 16,
       minWidth: 280,
     }}>
-      <h4 style={{ margin: '0 0 12px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
+      <h4 style={{ margin: '0 0 8px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
         Apply to Market
       </h4>
+
+      {/* Owner 2026-09-07: tell the vendor what rides along + guide the
+          message. Their business profile goes with the application, so the
+          note should cover what the profile can't. */}
+      <p style={{ margin: '0 0 10px 0', fontSize: 13, color: '#555', lineHeight: 1.45 }}>
+        Your business profile is shared with the market automatically — no need to repeat it.
+        Use this note for what the market can&apos;t see: what you&apos;d like to sell here,
+        which days you&apos;re hoping to attend, and anything that makes your booth a good fit.
+      </p>
 
       <textarea
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
-        placeholder="Optional: Add notes for the market admin..."
+        placeholder="e.g. We sell small-batch salsas and fresh produce — hoping to join your Saturday market starting next month."
         style={{
           width: '100%',
           padding: 10,

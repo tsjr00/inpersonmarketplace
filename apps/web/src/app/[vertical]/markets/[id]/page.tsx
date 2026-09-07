@@ -316,8 +316,11 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
             }}>
               {market.name}
             </h1>
-            {/* Apply button for vendors */}
-            {userVendorProfile && !hasApplied && (
+            {/* Apply button for vendors — MANAGED markets only (owner
+                2026-09-07: "make sure we can facilitate an application before
+                we offer it"). An unmanaged market has no one to review the
+                application; the insights page routes those to contact info. */}
+            {userVendorProfile && !hasApplied && hasActiveManager && (
               <div style={{ marginLeft: 'auto' }}>
                 <ApplyToMarketButton
                   marketId={id}

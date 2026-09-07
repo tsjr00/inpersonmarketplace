@@ -267,6 +267,26 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
   // Booth map (mig 205) — tolerant read so this page renders pre-migration.
   const boothMapUrl = await getBoothMapUrl(serviceClient, marketId)
 
+  // Operating days (owner 2026-09-07): restate the market's open days right
+  // where the vendor picks a week, so the weekly price reads as "N days of
+  // access" instead of an abstract week.
+  const { data: schedRows } = await serviceClient
+    .from('market_schedules')
+    .select('day_of_week, start_time, end_time, active')
+    .eq('market_id', marketId)
+    .order('day_of_week')
+  const DAY_NAMES = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays']
+  const fmtT = (t: string) => {
+    const [h, m] = (t || '').split(':').map(Number)
+    if (!Number.isFinite(h)) return t
+    const ampm = h >= 12 ? 'PM' : 'AM'
+    const h12 = h % 12 === 0 ? 12 : h % 12
+    return `${h12}:${String(m || 0).padStart(2, '0')} ${ampm}`
+  }
+  const operatingDays = (schedRows ?? [])
+    .filter(s => s.active !== false)
+    .map(s => `${DAY_NAMES[s.day_of_week as number] ?? ''} ${fmtT(s.start_time as string)}–${fmtT(s.end_time as string)}`)
+
   return (
     <div style={{ maxWidth: containers.lg, margin: '0 auto', padding: spacing.md }}>
       <div style={{ marginBottom: spacing.md }}>
@@ -283,6 +303,12 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
         manager can&apos;t change it after the fact. Payment is collected at
         booking via Stripe; the manager receives their portion automatically.
       </p>
+      {operatingDays.length > 0 && (
+        <p style={{ ...mutedStyle, fontWeight: typography.weights.semibold }}>
+          {market.name} operates {operatingDays.join(' · ')} — your weekly
+          booking covers {operatingDays.length === 1 ? 'that day' : `all ${operatingDays.length} operating days`} of the week you pick.
+        </p>
+      )}
       {boothMapUrl && (
         <div style={{ marginBottom: spacing.md }}>
           <p style={{ ...mutedStyle, marginBottom: spacing.xs, fontWeight: typography.weights.semibold }}>Where your booth will be</p>
