@@ -3193,3 +3193,16 @@ VendorsAdminPage/Table (merged list, 3 filter repairs) + VendorDetailAdminPage (
   market-payment framing (run sheet "market paid", handoff route notes, card list line
   "your value-add"). Outstanding-test list otherwise unchanged (section above).
 - Gates: tsc ✓ · 2179/2179 ✓. Committing + pushing staging (owner-approved).
+- **TAX SEQUENCE STARTED (owner "proceed with that sequence" + bundle ruling: taxability
+  follows items, assembly changes nothing)**: ① `cpa_letter_2026-09-07.md` — email-ready
+  Q1-Q11 (8/2 version was chat-only, never saved; rebuilt from plan §6 + new Q8 bundles
+  w/ owner position, Q9 event fees, Q10 market boxes, Q11 buyer fees). ② `tax_phase1_design.md`
+  — KEY FINDING: Checkout automatic_tax = ONE address/session but orders SPAN MARKETS →
+  recommended Option C: Tax Calculations API (explicit market address per calc, per-line
+  tax codes, bundle calc on EXPANDED components per ruling, one "Sales tax" display line,
+  Tax Transactions recorded post-payment → Stripe reports stay alive) + reversal per refund
+  path. automatic_tax stays for Phase-2 subscriptions only. Phase 1a (listing→txcd map)
+  next on owner design-OK. Phase 0 DONE: Stripe sandbox configured (origin, SaaS default,
+  TX registration collecting-now, Connect flow skipped, banner expected) + §11.12/13 PASS.
+  Money loop VERIFIED IN STRIPE: $9.00 margin transfer + $24.31×2 booth shares ($26 booth
+  × 6.5% exact) + $1.00 cause_ledger row (note self-identifying, order_id null).

@@ -522,3 +522,29 @@ prod go-live, CONFIRM the real street address for every live market and re-run i
 Locator lookup — codes entered against an estimated address are provisional. (The mig-215
 re-verify trigger fires on any address correction, so fixing an address automatically flags
 its codes for re-confirmation — §11.13, verified passing 2026-09-07.)
+
+## III.6 Phase 1 mechanism DECIDED (owner ratified 2026-09-07): self-computed tax (Option A′)
+
+**Amends III.3 Phase 1** (whose 1a/1b described the Stripe-calculated path). Full analysis
+in `tax_phase1_design.md` (options A/B/C + the A′ revision with the dependency/guardrail
+table). Owner: "this seems like a reasonable trade off."
+
+- **Facilitated sales (stream 1) tax is COMPUTED BY US** from the mig-214 market
+  jurisdictions via one seam function `computeCartTax(cart)` — per item,
+  `is_taxable ? line × market's stored combined rate : 0`, per-jurisdiction split via the
+  existing computeItemTax; bundles = each component's own is_taxable (owner ruling);
+  ONE "Sales tax" line at checkout; snapshot written from OUR codes (no name mapping).
+  Zero external calls; no per-transaction Stripe Tax fee on product sales.
+- **Why not Stripe-calculated:** Checkout automatic_tax = one address per session but our
+  orders span markets; the Calculations-API fix (Option C) works but adds per-checkout
+  API calls/data movement for capability TX-only doesn't need. C remains the designed
+  UPGRADE SEAM — the multi-state trigger swaps computeCartTax's internals, nothing else.
+- **Stripe Tax's remaining roles:** subscriptions (Phase 2, automatic_tax + SaaS code) ·
+  optional verifier spot-checks · the future resolver/filing stack at the III.2 trigger.
+- **New REQUIRED mechanisms (the A′ tax):** ① quarterly rate-refresh job WITH loud-fail
+  stamp check (stale rate version → tax computation refuses/flags, never silent) ·
+  ② per-market tax-readiness gate (no verified jurisdictions → no taxed sales there,
+  loudly) + admin needs-codes queue · ③ TX-only hard assert in the seam · ④ anomaly
+  report on vendor is_taxable (light) · ⑤ optional Stripe verifier sample. ①② are
+  one-time day-scale builds, near-zero ongoing, and partially required for FILING under
+  any mechanism.
