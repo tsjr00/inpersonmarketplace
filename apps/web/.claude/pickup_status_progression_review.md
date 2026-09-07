@@ -67,3 +67,29 @@ platform/vendor (vendor share transferred :296-334). Tip refunds only on LAST li
 (:281-291). Inventory restored; vendor notified; last item → order cancelled + wave freed +
 pending-session expired. NO bundle margin handling anywhere; slot release only on full-order
 claim path (inventory.ts:96-117).
+
+## Notification lifecycle audit (owner-ordered double-check, 2026-09-06 round 2)
+Every send in the pickup/handoff lifecycle, read from code this session. Regular-order column
+NEVER changes; bundle column = gated additions/suppressions only (gate = order.bundle_id).
+
+| Moment | Regular order (verified) | Bundle today | Bundle proposed |
+|---|---|---|---|
+| Order placed | vendors notified per vendor+market (checkout/success); buyer sees success page | same + bundle_sold→mgr (hourly sweep) | NO CHANGE |
+| Vendor confirms | buyer "confirmed" notice (owner OK'd for bundles) | same | NO CHANGE (owner: skip mgr notice on confirm) |
+| Vendor marks ready | buyer order_ready (ready/route.ts:94) | same → the STORM leak #1 | suppress buyer send; ADD bundle_component_ready→mgr (new type, tripwire 130→131; ready route order embed :37 needs bundle_id — unprotected file) |
+| Manager Receiving-now | n/a | vendor gets pickup_confirmation_needed (collect-ack) — vendor side identical to a buyer tap | NO CHANGE (separate UX gap: vendor screen doesn't name WHICH item's window opened — investigate) |
+| Vendor fulfills (window) | buyer order_fulfilled ×3 sites: company-paid :213 · normal :252 · payout-failed :435 | same → STORM leak #2 ("order complete") | suppress all 3 for bundles — PROTECTED fulfill route: add bundle_id to embed select :53 + `if (!orderData?.bundle_id)` around each send. Nothing else changes; payouts/statuses untouched |
+| Vendor fulfills early (edge :486-523) | NO buyer notification (verified) | same | NO CHANGE |
+| Mgr "Ready — notify buyer" | n/a | bundle_ready→buyer (immediate) — THE one ready signal | ADD persistent "✓ Buyer notified" state (bundles GET reads notifications dedup; button label flips) |
+| Buyer bundle-ack (+sweep) | n/a | no sends (confirm edge branch sends nothing — verified) | NO CHANGE |
+| Mark handed off | n/a | response only; margin pays | NO CHANGE |
+| Vendor rejects item | buyer order_cancelled_by_vendor | + bundle_component_removed→mgr (shipped) | NO CHANGE |
+| Buyer cancels bundle | n/a | vendors order_cancelled_by_buyer + bundle_cancelled→mgr (shipped) | NO CHANGE |
+| Cron P4 no-show (ready past pickup) | flips+pays vendor, buyer "missed pickup" | same — if the MANAGER no-shows a bundle, buyer copy would read wrong | FLAGGED only, no change (working cron; edge case) |
+
+Disconnect hypothesis REVISED (owner challenge): original story had causality backwards
+(presented ~settled, deserved ~55%). Fitting ALL observations (~75%, hypothesis): mgr acked
+item A; vendor fulfilled item B (unacked → edge, unpaid); A showed "⏱ acknowledged" (no
+button), B "✓ collected" → both buttons gone; vendor's second Fulfill = A (paid). Buyer's
+later ack-sweep paid B. Ground truth = timestamps (SQL offered post-fix). UX gap either way:
+vendor can't see WHICH item the 30s window is open for.

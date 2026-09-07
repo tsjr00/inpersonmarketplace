@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
@@ -34,7 +34,7 @@ export async function POST(
         id,
         status,
         vendor_profile_id,
-        order:orders!inner(id, order_number, buyer_user_id, vertical_id, payment_method),
+        order:orders!inner(id, order_number, buyer_user_id, vertical_id, payment_method, bundle_id),
         listing:listings(title, vendor_profiles(profile_data)),
         market:markets!market_id(name)
       `)
@@ -88,16 +88,43 @@ export async function POST(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Notify buyer that their order is ready for pickup (IMMEDIATE urgency)
     const listing = (orderItem as any).listing as any
     const vendorName = listing?.vendor_profiles?.profile_data?.business_name || 'Vendor'
-    await sendNotification(orderData.buyer_user_id, 'order_ready', {
-      orderNumber: orderData.order_number,
-      orderId: orderData.id,
-      vendorName,
-      itemTitle: listing?.title,
-      marketName: ((orderItem as any).market as any)?.name,
-    }, { vertical: orderData.vertical_id })
+
+    if (!orderData.bundle_id) {
+      // Notify buyer that their order is ready for pickup (IMMEDIATE urgency)
+      await sendNotification(orderData.buyer_user_id, 'order_ready', {
+        orderNumber: orderData.order_number,
+        orderId: orderData.id,
+        vendorName,
+        itemTitle: listing?.title,
+        marketName: ((orderItem as any).market as any)?.name,
+      }, { vertical: orderData.vertical_id })
+    } else {
+      // Bundle orders (owner rulings 2026-09-06): the buyer hears "ready"
+      // exactly once, from the MANAGER's notify-ready — a vendor readying a
+      // component summons the manager to collect, not the buyer (the 23:29
+      // storm leak, data-confirmed). Non-throwing: a notify failure never
+      // fails the status flip above.
+      try {
+        const svc = createServiceClient()
+        const { data: bundle } = await observed(svc
+          .from('market_bundles').select('id, name, market_id').eq('id', orderData.bundle_id).maybeSingle(), { table: 'market_bundles' })
+        const { data: market } = bundle ? await observed(svc
+          .from('markets').select('id, manager_user_id').eq('id', bundle.market_id).maybeSingle(), { table: 'markets' }) : { data: null }
+        if (bundle && market?.manager_user_id) {
+          await sendNotification(market.manager_user_id, 'bundle_component_ready', {
+            orderNumber: orderData.order_number,
+            bundleName: bundle.name,
+            itemTitle: listing?.title,
+            vendorName,
+            marketId: market.id,
+          }, { vertical: orderData.vertical_id })
+        }
+      } catch (notifyErr) {
+        console.error('[ready] bundle manager notification failed:', notifyErr instanceof Error ? notifyErr.message : 'Unknown')
+      }
+    }
 
     return NextResponse.json({ success: true })
   })

@@ -127,6 +127,25 @@ export async function GET(
       .sort()
       .slice(0, 6)
 
+    // "✓ Buyer notified" persistence (owner 2026-09-06): which orders already
+    // got the manager's bundle_ready send — same notifications-table source
+    // the sold-sweep dedups against, so it can't disagree with reality.
+    const runSheetOrderIds = new Set((orders ?? []).map(o => o.id as string))
+    const bundleReadyNotified: Record<string, string> = {}
+    if (runSheetOrderIds.size > 0) {
+      const { data: readyNotifs } = await observed(serviceClient
+        .from('notifications')
+        .select('data, created_at')
+        .eq('type', 'bundle_ready')
+        .gte('created_at', new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString()), { table: 'notifications' })
+      for (const n of readyNotifs ?? []) {
+        const oid = (n.data as { orderId?: string } | null)?.orderId
+        if (oid && runSheetOrderIds.has(oid) && !bundleReadyNotified[oid]) {
+          bundleReadyNotified[oid] = n.created_at as string
+        }
+      }
+    }
+
     // Cause picker (B2): active beneficiaries only.
     const { data: beneficiaries } = await observed(serviceClient
       .from('cause_beneficiaries')
@@ -140,6 +159,7 @@ export async function GET(
       availableListings,
       beneficiaries: beneficiaries ?? [],
       upcomingMarketDates,
+      bundleReadyNotified,
     })
   })
 }

@@ -218,6 +218,7 @@ export type NotificationType =
   | 'bundle_sold'
   | 'bundle_cancelled'
   | 'bundle_component_removed'
+  | 'bundle_component_ready'
   | 'bundles_intro'
   // Option A (2026-09-05): a vendor applied to a managed market → its manager
   | 'market_vendor_application'
@@ -2295,6 +2296,22 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: (d) => `🧺 Bundle order cancelled: ${d.bundleName || 'a curated bundle'}`,
     message: (d) =>
       `The buyer cancelled order ${d.orderNumber ? `#${d.orderNumber}` : ''} for "${d.bundleName || 'your bundle'}"${d.reason ? ` — reason: ${d.reason}` : ''}. The slot is back on sale and nothing needs collecting for this order.`,
+    actionUrl: (d) =>
+      d.marketId
+        ? `/${d.vertical || 'farmers_market'}/market-manager/${d.marketId}/dashboard`
+        : `/${d.vertical || 'farmers_market'}/dashboard`,
+  },
+
+  // A vendor marked a bundle component READY for the manager to collect
+  // (owner ruling 2026-09-06: manager notified at ready; skip at confirm).
+  // The buyer's own "ready" comes only from the manager's notify-ready.
+  bundle_component_ready: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor', // market managers act from a vendor-adjacent role
+    title: (d) => `🧺 Ready to collect: ${d.itemTitle || 'a bundle item'}`,
+    message: (d) =>
+      `${d.vendorName || 'A vendor'} marked "${d.itemTitle || 'an item'}" ready for you to collect for bundle order ${d.orderNumber ? `#${d.orderNumber}` : ''} ("${d.bundleName || 'bundle'}"). At their stand, tap Receiving now — they then fulfill within 30 seconds.`,
     actionUrl: (d) =>
       d.marketId
         ? `/${d.vertical || 'farmers_market'}/market-manager/${d.marketId}/dashboard`

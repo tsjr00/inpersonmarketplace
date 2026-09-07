@@ -313,8 +313,11 @@ describe('NI-014: Total notification types = 72', () => {
     // 129 → 130 (2026-09-06, owner "yes, modify reject route"):
     // bundle_component_removed (manager, warning) — a vendor rejected one
     // component of a sold bundle; buyer refunded, manager must hear.
+    // 130 → 131 (2026-09-06, owner: "manager should be notified when vendors
+    // make products ready to pickup"): bundle_component_ready (manager,
+    // standard) — replaces the buyer order_ready leak on bundle components.
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(130)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(131)
   })
 
   it('includes all buyer-facing types', () => {

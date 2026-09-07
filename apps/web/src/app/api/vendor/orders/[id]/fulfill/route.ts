@@ -50,7 +50,7 @@ export async function POST(
       .select(`
         id, status, vendor_payout_cents, order_id, subtotal_cents, vendor_profile_id,
         buyer_confirmed_at, vendor_confirmed_at, confirmation_window_expires_at,
-        order:orders!inner(id, order_number, buyer_user_id, vertical_id, payment_method, payment_model, tip_amount, tip_on_platform_fee_cents, status),
+        order:orders!inner(id, order_number, buyer_user_id, vertical_id, payment_method, payment_model, tip_amount, tip_on_platform_fee_cents, status, bundle_id),
         listing:listings(title, vendor_profiles(profile_data))
       `)
       .eq('id', orderItemId)
@@ -210,12 +210,16 @@ export async function POST(
 
         const cpListing = (orderItem as any).listing as any
         const cpVendorName = cpListing?.vendor_profiles?.profile_data?.business_name || 'Vendor'
-        await sendNotification(orderData.buyer_user_id, 'order_fulfilled', {
-          orderNumber: orderData.order_number,
-          orderId: orderData.id,
-          vendorName: cpVendorName,
-          itemTitle: cpListing?.title,
-        }, { vertical: orderData.vertical_id })
+        // Bundle orders (owner 2026-09-06): no per-item fulfilled notices to
+        // the buyer — that's the manager collecting, not the buyer's pickup.
+        if (!orderData?.bundle_id) {
+          await sendNotification(orderData.buyer_user_id, 'order_fulfilled', {
+            orderNumber: orderData.order_number,
+            orderId: orderData.id,
+            vendorName: cpVendorName,
+            itemTitle: cpListing?.title,
+          }, { vertical: orderData.vertical_id })
+        }
 
         return NextResponse.json({
           success: true,
@@ -246,15 +250,18 @@ export async function POST(
         crumb.logic('Checking atomic order completion')
         await supabase.rpc('atomic_complete_order_if_ready', { p_order_id: orderItem.order_id })
 
-        // Notify buyer that order is fulfilled
+        // Notify buyer that order is fulfilled — bundle orders excluded
+        // (owner 2026-09-06): this fulfill is the MANAGER collecting.
         const fulfillListing = (orderItem as any).listing as any
         const fulfillVendorName = fulfillListing?.vendor_profiles?.profile_data?.business_name || 'Vendor'
-        await sendNotification(orderData.buyer_user_id, 'order_fulfilled', {
-          orderNumber: orderData.order_number,
-          orderId: orderData.id,
-          vendorName: fulfillVendorName,
-          itemTitle: fulfillListing?.title,
-        }, { vertical: orderData.vertical_id })
+        if (!orderData?.bundle_id) {
+          await sendNotification(orderData.buyer_user_id, 'order_fulfilled', {
+            orderNumber: orderData.order_number,
+            orderId: orderData.id,
+            vendorName: fulfillVendorName,
+            itemTitle: fulfillListing?.title,
+          }, { vertical: orderData.vertical_id })
+        }
 
         return NextResponse.json({
           success: true,
@@ -429,15 +436,18 @@ export async function POST(
           // Atomically mark order completed — fulfillment succeeded even though payout failed
           await supabase.rpc('atomic_complete_order_if_ready', { p_order_id: orderItem.order_id })
 
-          // Notify buyer that order is fulfilled (payout issue is vendor-side only)
+          // Notify buyer that order is fulfilled (payout issue is vendor-side
+          // only) — bundle orders excluded (owner 2026-09-06).
           const failedListing = (orderItem as any).listing as any
           const failedVendorName = failedListing?.vendor_profiles?.profile_data?.business_name || 'Vendor'
-          await sendNotification(orderData.buyer_user_id, 'order_fulfilled', {
-            orderNumber: orderData.order_number,
-            orderId: orderData.id,
-            vendorName: failedVendorName,
-            itemTitle: failedListing?.title,
-          }, { vertical: orderData.vertical_id })
+          if (!orderData?.bundle_id) {
+            await sendNotification(orderData.buyer_user_id, 'order_fulfilled', {
+              orderNumber: orderData.order_number,
+              orderId: orderData.id,
+              vendorName: failedVendorName,
+              itemTitle: failedListing?.title,
+            }, { vertical: orderData.vertical_id })
+          }
 
           return NextResponse.json({
             success: true,

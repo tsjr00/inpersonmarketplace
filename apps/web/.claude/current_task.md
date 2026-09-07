@@ -195,6 +195,26 @@ Gates: tsc ✓ · **2170/2170** ✓ · lint 0 err. COMMITTED (owner 2026-09-05).
   OL-R13 ceiling 3→4 documented, calls observed()-wrapped, catch uses logError per ratchet).
 - Final gates: tsc ✓ · **2179/2179** ✓ · lint 0 err. COMMIT+PUSH STAGING (owner go).
 
+## 🔔 NOTIFICATION-SEQUENCE FIX BATCH (owner "proceed with fix batch" 2026-09-06 after
+## data ground-truthing) — BUILT, UNCOMMITTED
+- **Trust round first**: owner challenged an overconfident event reconstruction + an unverified
+  UI claim → memory feedback_causation_confidence_threshold BROADENED (reconstructions, UI-state
+  claims, corrections all need >80% or a % label; timestamps > narratives). SQL ground truth on
+  order FA-2026-48926539 CONFIRMED: one Receiving-now tap (Spinach 23:42:50); vendor fulfilled
+  Chard UNACKED at 23:43:00 (edge, unpaid) then Spinach 23:43:14 (paid); buyer ack sweep 23:58:54
+  paid Chard; handoff blocked ONLY by the run-sheet filter bug. Machine worked as coded (~95%).
+  Green-hero = timing (owner confirmed hero present live). Owner ruling: vendors MAY pre-fulfil,
+  leave as-is (option a). Audit table in pickup_status_progression_review.md.
+- **BUILT**: run-sheet openItems excludes 'refunded' (unblocks Mark handed off) · ready route:
+  bundle orders skip buyer order_ready, manager gets **bundle_component_ready** (new type,
+  tripwire 130→**131**) · fulfill route (protected, approved + hook-gated retry): bundle orders
+  skip all 3 buyer order_fulfilled sends (+bundle_id in embed select; external-payment logic
+  untouched) · blue collecting banner REMOVED (bundle ready/confirmed = no banner; yellow-card
+  copy trimmed to "you'll be notified…") · cancel text = owner's verbatim wording (en+es) ·
+  "✓ Buyer notified" persistence (bundles GET reads bundle_ready notifications ≤60d →
+  bundleReadyNotified map; button flips green + local update on send).
+- Gates: tsc ✓ · **2179/2179** ✓ · lint 0 err. UNCOMMITTED — commit+push proposal pending.
+
 ## ▶ POST-COMPACTION QUEUE (owner-approved next items)
 1. **Locations-page "Apply required" chip (owner: "add optional polish... for after compaction")**:
    the Available-markets rows on /vendor/markets should LABEL gated markets before the toggle

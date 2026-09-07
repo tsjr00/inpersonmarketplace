@@ -119,6 +119,7 @@ export default function CuratedBundlesCard({ marketId }: CuratedBundlesCardProps
   const [orders, setOrders] = useState<BundleOrderRow[]>([])
   const [available, setAvailable] = useState<AvailableListing[]>([])
   const [upcomingDates, setUpcomingDates] = useState<string[]>([])
+  const [readyNotified, setReadyNotified] = useState<Record<string, string>>({})
   const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([])
   const [listingTitles, setListingTitles] = useState<Map<string, { title: string; price_cents: number }>>(new Map())
 
@@ -139,6 +140,7 @@ export default function CuratedBundlesCard({ marketId }: CuratedBundlesCardProps
         setOrders((data.orders as BundleOrderRow[]) || [])
         setAvailable((data.availableListings as AvailableListing[]) || [])
         setUpcomingDates((data.upcomingMarketDates as string[]) || [])
+        setReadyNotified((data.bundleReadyNotified as Record<string, string>) || {})
         setBeneficiaries((data.beneficiaries as Beneficiary[]) || [])
         const titles = new Map<string, { title: string; price_cents: number }>()
         for (const l of ((data.listings as Array<{ id: string; title: string; price_cents: number }>) || [])) {
@@ -329,6 +331,9 @@ export default function CuratedBundlesCard({ marketId }: CuratedBundlesCardProps
       setResult(res.ok
         ? { type: 'success', text: data.sent ? 'Buyer notified.' : 'Buyer was already notified.' }
         : { type: 'error', text: data.error || 'Could not notify the buyer.' })
+      if (res.ok) {
+        setReadyNotified(prev => ({ ...prev, [orderId]: new Date().toISOString() }))
+      }
     } finally {
       setOrderBusy(null)
     }
@@ -450,7 +455,11 @@ export default function CuratedBundlesCard({ marketId }: CuratedBundlesCardProps
                         Run sheet — {bundleOrders.length} sold
                       </div>
                       {bundleOrders.map(o => {
-                        const openItems = o.order_items.filter(i => i.status !== 'fulfilled' && i.status !== 'cancelled')
+                        // Open = still to collect. Refunded items (vendor
+                        // rejected + refund landed) are DONE, not open — they
+                        // were permanently disabling Mark handed off
+                        // (2026-09-06 staging finding, data-confirmed).
+                        const openItems = o.order_items.filter(i => !['fulfilled', 'cancelled', 'refunded'].includes(i.status))
                         const paidOut = !!o.bundle_margin_transfer_id && o.bundle_margin_transfer_id !== 'pending'
                         return (
                           <div key={o.id} style={{ padding: spacing.xs, marginBottom: spacing.xs, backgroundColor: 'white', border: `1px solid ${colors.border}`, borderRadius: radius.sm }}>
@@ -498,9 +507,10 @@ export default function CuratedBundlesCard({ marketId }: CuratedBundlesCardProps
                                 <button
                                   onClick={() => notifyReady(o.id)}
                                   disabled={orderBusy === o.id}
-                                  style={{ padding: `${spacing['3xs']} ${spacing.sm}`, backgroundColor: 'white', color: colors.primary, border: `1px solid ${colors.primary}`, borderRadius: radius.sm, fontSize: typography.sizes.xs, cursor: 'pointer' }}
+                                  title={readyNotified[o.id] ? 'Already sent — tap to send again' : undefined}
+                                  style={{ padding: `${spacing['3xs']} ${spacing.sm}`, backgroundColor: 'white', color: readyNotified[o.id] ? statusColors.successDark : colors.primary, border: `1px solid ${readyNotified[o.id] ? statusColors.successBorder : colors.primary}`, borderRadius: radius.sm, fontSize: typography.sizes.xs, cursor: 'pointer' }}
                                 >
-                                  Ready — notify buyer
+                                  {readyNotified[o.id] ? '✓ Buyer notified' : 'Ready — notify buyer'}
                                 </button>
                                 <button
                                   onClick={() => markHandedOff(o.id)}

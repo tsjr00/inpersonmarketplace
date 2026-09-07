@@ -975,18 +975,15 @@ export default function BuyerOrderDetailPage() {
                     ? t('order.banner_pending_bundle', locale)
                     : t('order.banner_pending', locale, { vendor: primaryVendorName })
                 },
-                ready: {
-                  bg: '#eff6ff', border: '#93c5fd', color: '#1e40af',
-                  text: isBundleOrder ? t('order.banner_collecting_bundle', locale) : t('order.banner_ready', locale)
-                },
-                // Bundle-only: 'confirmed' gets a banner (collection under way)
-                // — non-bundle confirmed orders keep their no-banner behavior.
-                ...(isBundleOrder ? {
-                  confirmed: {
+                // Bundle orders show NO banner in ready/confirmed states
+                // (owner 2026-09-06: buyers don't need the behind-the-scenes
+                // collection story — they hear when to show up, nothing else).
+                ...(isBundleOrder ? {} : {
+                  ready: {
                     bg: '#eff6ff', border: '#93c5fd', color: '#1e40af',
-                    text: t('order.banner_collecting_bundle', locale)
+                    text: t('order.banner_ready', locale)
                   },
-                } : {}),
+                }),
                 cancelled: (() => {
                   const buyerCancelled = order.items.some(i => i.cancelled_by === 'buyer')
                   const systemCancelled = order.items.some(i => i.cancelled_by === 'system')
