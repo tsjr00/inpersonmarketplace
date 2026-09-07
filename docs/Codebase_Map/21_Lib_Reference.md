@@ -147,10 +147,27 @@ New user-facing strings go through `t()`, not hardcoded literals — the shared 
 
 `test-utils/supabase-test-client.ts` — `TEST_PREFIX = '__test_'`, `createTestClient`, `testId`, `cleanupTestData`, `cleanupAllTestData`. Integration tests run against dev Supabase and clean up after themselves via this prefix convention.
 
-## ⚠ `lib/tax/` is dead code
+## `lib/tax/` — the sales-tax core (Phase 1 in progress; NOT yet wired to checkout)
 
-**Verified unwired.** Two files — `tax/taxcloud.ts` (245 lines) and `tax/tic-codes.ts` — with **zero importers anywhere in the application**. A repo-wide search for the module path and for every exported symbol (`lookupTax`, `captureTransaction`, `reportReturn`, `TIC_CODES`, `getTICForListing`) returns no hits outside `lib/tax/` itself.
+**The living half** (plan: `apps/web/.claude/sales_tax_readiness.md` Part III + `tax_phase1_design.md`):
+- `tax/jurisdictions.ts` — TX jurisdiction model + pure math (mig 214): `computeItemTax`
+  (per-jurisdiction rounding, total derived from parts), `validateJurisdictions`,
+  `buildListSupplement` (Form 01-116 rollup), `parseJurisdictions`. Consumed by the admin
+  jurisdictions route + the seam below. 22 tests.
+- `tax/compute-cart-tax.ts` — **THE TAX SEAM** (Batch 1, 2026-09-07, owner-ratified A′
+  design): `computeCartTax(items, markets)` computes facilitated-sales tax from stored
+  market jurisdictions — zero external calls; bundle components carry their own
+  `is_taxable` (owner ruling: taxability follows the items). Guardrails refuse loudly:
+  TX-only assert · III.7 intake readiness (codes entered + verified) · stale-quarter
+  rate_version check (⚠ the quarterly refresh job must exist before TAX_STREAM1 enables,
+  or quarter-turns halt taxable sales). Multi-state future = swap this seam's internals
+  for the Stripe Tax Calculations API; callers never move. **Inert until Batch 2 wires
+  checkout/capture behind the flag.** 14 tests.
 
-The module is complete and plausible, and depends on `TAXCLOUD_API_LOGIN_ID` / `TAXCLOUD_API_KEY`. Its own header notes the TIC codes were never validated against TaxCloud's live list, which suggests the account was never provisioned and the integration was written ahead of a decision that never landed.
+**⚠ The dead half — do not build on:** `tax/taxcloud.ts` + `tax/tic-codes.ts` are
+artifacts of the REJECTED pre-8/1 TaxCloud plan (zero importers; env vars never
+provisioned). Retirement queued in plan Part III.1.
 
-**No sales tax is calculated by this code today.** Treat it as a build-or-delete decision for the incoming team, not as live behavior. (Vendor-facing tax *advisory copy* is a separate thing and does live: `lib/vendor/tax-notice.ts`, plus the vendor `analytics/tax-summary` report.)
+(Vendor-facing tax *advisory copy* lives separately: `lib/vendor/tax-notice.ts` — whose
+"will be automatically applied" line is a known guardrail item — plus the vendor
+`analytics/tax-summary` report.)

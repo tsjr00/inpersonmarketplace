@@ -3206,3 +3206,14 @@ VendorsAdminPage/Table (merged list, 3 filter repairs) + VendorDetailAdminPage (
   TX registration collecting-now, Connect flow skipped, banner expected) + §11.12/13 PASS.
   Money loop VERIFIED IN STRIPE: $9.00 margin transfer + $24.31×2 booth shares ($26 booth
   × 6.5% exact) + $1.00 cause_ledger row (note self-identifying, order_id null).
+- **TAX BATCH 1 BUILT (owner "go - build batch 1")**: `lib/tax/compute-cart-tax.ts` — THE
+  SEAM (computeCartTax; caller supplies taxableBaseCents per item = Q11 policy stays at
+  call site; bundle components carry own is_taxable; ALL-OR-NOTHING refusals: not_texas /
+  no_jurisdictions / invalid / unverified / stale_rates via currentQuarterLabel; exempt-only
+  markets need no codes) + 14-spec suite (conservation, multi-market, mixed bundle, every
+  refusal). ⚠ ENABLE-GATE: quarterly refresh job (Batch 4) REQUIRED before TAX_STREAM1
+  flips anywhere (strict current-quarter check halts taxable sales at quarter-turns).
+  Codebase map 21 lib/tax section rewritten (was stale "all dead code"; now living seam +
+  dead TaxCloud half) + stamp. INERT — nothing calls it. Gates: tsc ✓ 2193/2193 ✓ lint 0.
+  III.7 intake appends (plan + design) ride this commit. NEXT: Batch 2 wiring (protected
+  files, per-file diffs, TAX_STREAM1_ENABLED dark flag) on owner go.

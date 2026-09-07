@@ -124,3 +124,9 @@ design pointed at.
 refresh (with its loud-fail stamp) and the per-market readiness gate. Both are one-time
 builds with near-zero ongoing cost, and #1 is required for the FILING data even under C.
 **RECOMMENDATION (revised): A′ for the Texas launch, seam designed for C, verifier optional.**
+
+**Guardrail #2 amended (owner directive 2026-09-07 — plan III.7):** the readiness gate is
+implemented as the LOCATION INTAKE flow — submission → admin enters codes → approval — for
+BOTH markets and private pickup locations (verify at build whether private pickups
+currently skip approval; add the pending state if so). Auto-resolver demotes to a scale
+optimization; admin entry at approval is the launch mechanism.

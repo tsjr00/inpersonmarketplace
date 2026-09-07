@@ -548,3 +548,25 @@ table). Owner: "this seems like a reasonable trade off."
   report on vendor is_taxable (light) · ⑤ optional Stripe verifier sample. ①② are
   one-time day-scale builds, near-zero ongoing, and partially required for FILING under
   any mechanism.
+
+## III.7 Location intake = submission → ADMIN CODES → approval (owner directive 2026-09-07)
+
+**Amends III.5 and design-doc guardrail #2.** Owner: every location — traditional markets
+AND private pickup locations — gets a **lag between submission and approval, during which
+an admin enters the jurisdiction codes**. Code entry becomes part of the approval gate
+itself: a location is not approved (and cannot sell) until its seven-digit codes are
+entered and verified.
+
+- Markets already carry `approval_status` (pending → approved w/ admin approve/reject);
+  the tax-readiness gate folds INTO that flow: the approval action surfaces the tax
+  jurisdictions card, and approving requires verified codes (or an explicit
+  admin override, logged).
+- **Private pickup locations must ALSO pass through this intake** — ⚠ VERIFY AT BUILD
+  whether vendor-created private pickups currently activate without approval; if so, add
+  the pending state for new ones (existing live locations grandfathered + queued for
+  backfill entry).
+- Consequence for III.5: the **auto-resolver demotes back to a scale optimization** — the
+  human-in-the-loop admin entry at approval covers correctness at launch volume; the
+  resolver returns when the approval queue's code-entry step becomes the bottleneck.
+- Build home: Batch 1 readiness helpers + the approval-flow integration lands with
+  Batch 4 operations (admin needs-codes queue becomes "pending locations awaiting codes").
