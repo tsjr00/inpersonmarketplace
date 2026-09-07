@@ -349,11 +349,11 @@ export default function CuratedBundlesCard({ marketId }: CuratedBundlesCardProps
         setResult({
           type: 'success',
           text: margin?.status === 'paid'
-            ? 'Handed off — your margin is on its way to your payout account.'
+            ? 'Handed off — your market\'s payment is on its way to its payout account.'
             : margin?.status === 'awaiting_buyer_ack'
-              ? (margin.note || 'Handed off. Your margin pays out when the buyer taps acknowledge on their order.')
+              ? (margin.note || 'Handed off. Your market gets paid when the buyer taps acknowledge on their order.')
               : margin?.status === 'pending'
-                ? 'Handed off. The margin payout needs attention — the platform has been notified.'
+                ? 'Handed off. The payment needs attention — the platform has been notified.'
                 : 'Handed off.',
         })
         load()
@@ -430,7 +430,7 @@ export default function CuratedBundlesCard({ marketId }: CuratedBundlesCardProps
                     </span>
                   </div>
                   <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
-                    {b.market_bundle_components.length} items · buyer pays {formatPrice(bundleDisplayPriceCents(sumCents, b.margin_cents))} · your margin {formatPrice(b.margin_cents)}
+                    {b.market_bundle_components.length} items · buyer pays {formatPrice(bundleDisplayPriceCents(sumCents, b.margin_cents))} · your value-add {formatPrice(b.margin_cents)}
                     {b.cause_pct ? ` (${b.cause_pct}% to your cause)` : ''}
                     {b.pickup_market_date ? ` · pickup ${b.pickup_market_date}` : ''}
                     {b.status === 'active' ? ` · sold ${b.quantity_sold} of ${b.quantity_limit}` : ''}
@@ -467,10 +467,10 @@ export default function CuratedBundlesCard({ marketId }: CuratedBundlesCardProps
                               #{o.order_number}
                               {o.bundle_handed_off_at
                                 ? paidOut
-                                  ? ' · ✅ handed off — margin paid'
+                                  ? ' · ✅ handed off — market paid'
                                   : !o.bundle_buyer_ack_at && !o.bundle_margin_transfer_id
-                                    ? ' · handed off — margin releases when the buyer acknowledges'
-                                    : ' · handed off — margin payout in progress'
+                                    ? ' · handed off — payment releases when the buyer acknowledges'
+                                    : ' · handed off — payment on its way'
                                 : openItems.length > 0
                                   ? ` · ${openItems.length} item(s) still to collect from vendors`
                                   : ' · all components collected — assemble & hand off'}

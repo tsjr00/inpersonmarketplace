@@ -143,6 +143,14 @@ export default function AdminResponsiveStyles() {
         min-width: 1100px;
       }
 
+      /* Slimmed tables (owner 2026-09-07, markets first): 5 columns after
+         moving schedule + street address to the drill-in detail — fits a
+         laptop window with the sidebar, no horizontal scroll. Other admin
+         tables keep the 1100px rule above. */
+      .admin-table-wrap table.admin-table-narrow {
+        min-width: 700px;
+      }
+
       /* ============================================= */
       /* STACK ON MOBILE                               */
       /* ============================================= */

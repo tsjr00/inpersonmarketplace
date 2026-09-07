@@ -3173,3 +3173,23 @@ VendorsAdminPage/Table (merged list, 3 filter repairs) + VendorDetailAdminPage (
 - nav.ts NAV_EXEMPT: +/[vertical]/admin/markets/[id]; −markets/new; −markets/[id]/edit.
 - Gates: tsc ✓ (needed rm -rf .next — stale validator refs to deleted routes) · vitest 2099 ✓ · lint 0 errors. Details: admin_ui_redesign_research.md PHASE 5.
 - ⚠ OWNER DECISIONS PENDING: (1) remove /api/markets POST/PATCH/DELETE (zero first-party callers now; broken/unguarded)? (2) gate /api/admin/events/[id]/invite with invitationsHeld; (3) server-side platform gate on the 6 accounting reports.
+
+## ▶ 2026-09-07 SESSION (post-wrap continuation)
+- **Sales tax review COMPLETE** (owner-ordered, report-only): plan verified structurally
+  sound; **Part III + III.5 appended** to sales_tax_readiness.md (drift table, Q8-Q11 CPA
+  additions, staging-parity build Phases 0-4, transition playbook, private-pickup resolver
+  requirement, address-estimates pre-prod caveat). Stripe Sessions 2026: TaxJar-powered US
+  filing GA (needs Tax Complete) — §4 Basic+Webfile decision stands; multi-state trigger now
+  resolves to Stripe. Research: sales_tax_review_2026-09-07_research.md.
+- **Tax Phase 0 started**: §11.12 PASS · §11.13 PASS · §11.14 deferred (no vertical-only
+  admin account). Owner entering real jurisdiction codes.
+- **Admin markets slim table** (owner go): 7→5 columns (schedule + street address →
+  drill-in; Status+Approval merged State chip, pending rows keep submission context —
+  renders nowhere else); markets table min-width 1100→700 via .admin-table-narrow (other
+  admin tables untouched). Serves BOTH verticals (one merged component — answered owner's
+  "FT only?" question: it never was).
+- **Bundle handoff E2E COMPLETE** (owner): buyer-notified ✓ handoff ✓ margin PAID ✓ (the
+  last untested money move). Copy fix on the go: manager-facing "margin" language →
+  market-payment framing (run sheet "market paid", handoff route notes, card list line
+  "your value-add"). Outstanding-test list otherwise unchanged (section above).
+- Gates: tsc ✓ · 2179/2179 ✓. Committing + pushing staging (owner-approved).

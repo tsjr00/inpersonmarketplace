@@ -1496,7 +1496,7 @@ export default function MarketsAdminPage({ vertical }: { vertical: string }) {
                 <>
                 <div className="admin-list-table">
                 <div className="admin-table-wrap">
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <table className="admin-table-narrow" style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ backgroundColor: colors.surfaceSubtle }}>
                       <th style={{ textAlign: 'left', padding: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold }}>
@@ -1506,16 +1506,10 @@ export default function MarketsAdminPage({ vertical }: { vertical: string }) {
                         Location
                       </th>
                       <th style={{ textAlign: 'left', padding: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold }}>
-                        Schedule
-                      </th>
-                      <th style={{ textAlign: 'left', padding: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold }}>
                         Type
                       </th>
                       <th style={{ textAlign: 'left', padding: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold }}>
-                        Status
-                      </th>
-                      <th style={{ textAlign: 'left', padding: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold }}>
-                        Approval
+                        State
                       </th>
                       <th style={{ textAlign: 'right', padding: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold }}>
                         Actions
@@ -1532,27 +1526,14 @@ export default function MarketsAdminPage({ vertical }: { vertical: string }) {
                             </div>
                           </Link>
                         </td>
+                        {/* Slim-table split (owner 2026-09-07): street address +
+                            schedule moved to the drill-in detail — city/state is
+                            enough at list level, and the multi-line schedule was
+                            the column forcing horizontal scroll. */}
                         <td style={{ padding: spacing.sm }}>
                           <div style={{ color: colors.textPrimary, fontSize: typography.sizes.sm }}>
                             {market.city}, {market.state}
                           </div>
-                          <div style={{ color: colors.textSecondary, fontSize: typography.sizes.xs }}>
-                            {market.address}
-                          </div>
-                        </td>
-                        <td style={{ padding: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.sm }}>
-                          {market.schedules && market.schedules.length > 0 ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
-                              {market.schedules.filter(s => s.active !== false).map((schedule, idx) => (
-                                <div key={idx}>
-                                  {DAYS[schedule.day_of_week]}
-                                  <span style={{ fontSize: typography.sizes.xs, marginLeft: spacing['3xs'] }}>
-                                    {schedule.start_time} - {schedule.end_time}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          ) : '—'}
                         </td>
                         <td style={{ padding: spacing.sm }}>
                           <span style={{
@@ -1566,6 +1547,11 @@ export default function MarketsAdminPage({ vertical }: { vertical: string }) {
                             {market.market_type === 'event' ? '🎪 Event' : market.market_type === 'traditional' ? 'Traditional' : 'Private Pickup'}
                           </span>
                         </td>
+                        {/* Merged State chip (owner 2026-09-07): the mobile rows'
+                            logic — approval pending trumps status; otherwise
+                            active/suspended/inactive/rejected. Submission
+                            context renders ONLY on pending rows (it exists
+                            nowhere else, and that's when it's read). */}
                         <td style={{ padding: spacing.sm }}>
                           <span style={{
                             padding: `${spacing['3xs']} ${spacing.xs}`,
@@ -1573,65 +1559,46 @@ export default function MarketsAdminPage({ vertical }: { vertical: string }) {
                             fontSize: typography.sizes.xs,
                             fontWeight: typography.weights.semibold,
                             backgroundColor:
+                              market.approval_status === 'pending' ? '#fef3c7' :
+                              market.approval_status === 'rejected' ? '#fee2e2' :
                               market.status === 'active' ? '#d1fae5' :
                               market.status === 'suspended' ? '#fee2e2' :
-                              market.status === 'inactive' ? '#f3f4f6' :
-                              '#fef3c7',
+                              '#f3f4f6',
                             color:
+                              market.approval_status === 'pending' ? '#92400e' :
+                              market.approval_status === 'rejected' ? '#991b1b' :
                               market.status === 'active' ? '#065f46' :
                               market.status === 'suspended' ? '#991b1b' :
-                              market.status === 'inactive' ? '#6b7280' :
-                              '#92400e'
+                              '#6b7280'
                           }}>
-                            {market.status === 'suspended' ? 'SUSPENDED' : market.status}
+                            {market.approval_status === 'pending' ? 'pending'
+                              : market.approval_status === 'rejected' ? 'rejected'
+                                : market.status === 'suspended' ? 'SUSPENDED' : market.status}
                           </span>
-                        </td>
-                        <td style={{ padding: spacing.sm }}>
-                          <div>
-                            <span style={{
-                              padding: `${spacing['3xs']} ${spacing.xs}`,
-                              borderRadius: radius.sm,
-                              fontSize: typography.sizes.xs,
-                              fontWeight: typography.weights.semibold,
-                              backgroundColor:
-                                market.approval_status === 'approved' ? '#d1fae5' :
-                                market.approval_status === 'pending' ? '#fef3c7' :
-                                market.approval_status === 'rejected' ? '#fee2e2' :
-                                '#f3f4f6',
-                              color:
-                                market.approval_status === 'approved' ? '#065f46' :
-                                market.approval_status === 'pending' ? '#92400e' :
-                                market.approval_status === 'rejected' ? '#991b1b' :
-                                '#6b7280'
-                            }}>
-                              {market.approval_status || 'approved'}
-                            </span>
-                            {market.submitted_by_name && (
-                              <div style={{ fontSize: typography.sizes.xs, color: colors.textSecondary, marginTop: spacing['3xs'] }}>
-                                by {market.submitted_by_name}
-                              </div>
-                            )}
-                            {market.submitted_at && (
-                              <div style={{ fontSize: typography.sizes.xs, color: colors.textSecondary }}>
-                                {new Date(market.submitted_at).toLocaleDateString()}
-                              </div>
-                            )}
-                            {/* Show if vendor sells here or just a lead */}
-                            {market.submitted_by_vendor_id && (
-                              <div style={{
-                                marginTop: spacing['3xs'],
-                                padding: `${spacing['3xs']} ${spacing.xs}`,
-                                borderRadius: radius.sm,
-                                fontSize: typography.sizes.xs,
-                                fontWeight: typography.weights.medium,
-                                display: 'inline-block',
-                                backgroundColor: market.vendor_sells_at_market !== false ? '#dbeafe' : '#fef3c7',
-                                color: market.vendor_sells_at_market !== false ? '#1e40af' : '#92400e'
-                              }}>
-                                {market.vendor_sells_at_market !== false ? 'Vendor sells here' : 'Lead only'}
-                              </div>
-                            )}
-                          </div>
+                          {market.approval_status === 'pending' && (
+                            <div style={{ marginTop: spacing['3xs'] }}>
+                              {market.submitted_by_name && (
+                                <div style={{ fontSize: typography.sizes.xs, color: colors.textSecondary }}>
+                                  by {market.submitted_by_name}
+                                  {market.submitted_at ? ` · ${new Date(market.submitted_at).toLocaleDateString()}` : ''}
+                                </div>
+                              )}
+                              {market.submitted_by_vendor_id && (
+                                <div style={{
+                                  marginTop: spacing['3xs'],
+                                  padding: `${spacing['3xs']} ${spacing.xs}`,
+                                  borderRadius: radius.sm,
+                                  fontSize: typography.sizes.xs,
+                                  fontWeight: typography.weights.medium,
+                                  display: 'inline-block',
+                                  backgroundColor: market.vendor_sells_at_market !== false ? '#dbeafe' : '#fef3c7',
+                                  color: market.vendor_sells_at_market !== false ? '#1e40af' : '#92400e'
+                                }}>
+                                  {market.vendor_sells_at_market !== false ? 'Vendor sells here' : 'Lead only'}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </td>
                         <td style={{ padding: spacing.sm, textAlign: 'right' }}>
                           <div style={{ display: 'flex', gap: spacing.xs, justifyContent: 'flex-end', flexWrap: 'wrap' }}>

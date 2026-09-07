@@ -395,3 +395,130 @@ Both the Webfile screens and the EDI 813 map ask for return-level figures — **
 - Grant Thornton, TX data processing rule update (4/11/2025): https://www.grantthornton.com/insights/alerts/tax/2025/salt/p-t/tx-updates-data-processing-services-tax-rule-04-11
 - McDermott / Inside SALT, "tax on 130% of marketplace sales": https://www.insidesalt.com/2024/09/texas-comptroller-proposes-rule-changes-cementing-tax-on-130-of-marketplace-sales/
 - Bracewell, 89th Legislature tax update: https://www.bracewell.com/resources/texas-tax-update-key-changes-enacted-during-the-89th-legislature/
+
+---
+---
+
+# PART III — 2026-09-07: The plan being pursued (staging-parity build + transition playbook)
+
+**Added 2026-09-07 after a full review** (`sales_tax_review_2026-09-07_research.md`) ordered by
+the owner ahead of resuming tax work. **Nothing above is deleted or rewritten** — Part II's
+model, vendor decision, stream analysis, and storage design all VERIFIED STILL CORRECT
+(re-checked against code 2026-09-07: still $0.00 collected, no automatic_tax anywhere,
+storage unwired — the ▶ RESUME block remains accurate). This part records (a) what changed
+in the app since Part II, (b) the resulting plan additions, and (c) the build order now
+being pursued: make STAGING behave exactly as live-tax prod will, then flip prod by config.
+
+## III.1 Drift since Part II (what the app built 8/4→9/7 that the plan must absorb)
+
+| Change | Tax consequence | Disposition |
+|---|---|---|
+| Discounts/VIP (migs 242-243): item subtotals stored NET | tax reads net by construction | ✅ strengthens Part II §3 (deliberate — decisions.md 9/4) |
+| **Bundles (mig 244)**: checkout charges ONE Stripe line per bundle; manager margin = new revenue type; cause-share rides margin | (a) single line defeats per-SKU tax codes (exempt tomatoes + taxable salsa in one line; TX bundled-transaction doctrine may drag the whole charge taxable) (b) margin unclassified | → CPA **Q8**; checkout-line design decision REQUIRED before stream 1 builds |
+| Event money (migs 228-235, built 8/16): event vendor fees, company-paid orders | vendor fees unclassified (booth-rent-like vs taxable service); company-paid = stream 1 sale to a company | → CPA **Q9** |
+| Market-box subscriptions (existed, never in the stream map) | recurring FOOD sales — stream 1 treatment, NOT 80/20 SaaS | → CPA **Q10**; add to §1 stream table |
+| Buyer-side platform fees (6.5% + flat + small-order; embedded per item in Stripe lines) | facilitator charges to the buyer may join the taxable sales price | → CPA **Q11** (tip already in Q2) |
+| Refund surface multiplied: cancel-bundle, cancel-date cascade, no-show payouts, vendor reject, bundle margin | §2b affected-file list now ALSO includes: lib/bundles/margin-payout.ts, api/buyer/orders/[id]/cancel-bundle, lib/markets/cancel-date-cascade.ts, cron no-show phase, event fee routes. Principle unchanged: EVERY refund path reverses tax at the ORIGINAL stored rate | fold into stream-1 build |
+| lib/tax/taxcloud.ts + tic-codes.ts | dead code from the REJECTED Part I plan | retire when tax work resumes (prevent building on the wrong plan) |
+
+## III.2 Stripe's new tool (Sessions 2026) — §4 decision REAFFIRMED, §4 trigger RESOLVED
+
+**GA at Sessions 2026: automated US tax filing inside the Stripe Dashboard, powered by TaxJar**
+(Stripe-owned) — all 46 sales-tax states; TaxJar app installs from the Dashboard, files +
+remits on the assigned frequency via ACH, applies timely discounts, monthly pre-filing review
+(pause by the 6th). Stripe can also REGISTER with states on our behalf + monitors nexus.
+- **Requires Tax COMPLETE** ($90/mo tier 1; ~$1.5k+/yr at monthly cadence). Not on Basic.
+- **Files only transactions Stripe Tax calculated** — worthless until streams flow.
+- ⚠ Unverified: whether it files the TX marketplace-provider long form + List Supplement —
+  ask Stripe/TaxJar sales AT TRIGGER TIME.
+- **Verdict:** Basic + free Webfile stands for TX-only low volume (we keep the 1.75%
+  discounts). The §4 trigger ("second state / volume / reconciliation >2h") now resolves to:
+  flip to Complete + Stripe registrations + in-Dashboard TaxJar filing. The deferred
+  TaxCloud/Avalara-class re-evaluation is DEAD — Stripe completed the stack.
+
+## III.3 The build being pursued — staging-parity list (EDI stays excluded per §4.5)
+
+**Phase 0 · Configuration, no code (START HERE):**
+0a. Enter REAL seven-digit jurisdiction codes for the real markets (admin card + Rate
+    Locator) — staging checklist §11.12-14, never run. Cheapest item; blocks everything.
+0b. Stripe Tax setup on the STAGING Stripe account (test mode = the REAL calc engine, free):
+    head-office tax settings + TX registration (test mode supports registrations) + default
+    product tax code. Prod twin comes later via the same steps/script (III.4).
+
+**Phase 1 · Calculation + capture (code):**
+1a. Listing → Stripe `txcd_` mapping (is_taxable + category → per-line tax codes; decide
+    codes for tip / small-order fee / subscription lines; VERIFY Stripe's SaaS code applies
+    TX's 20% data-processing exemption automatically).
+1b. `automatic_tax[enabled] + liability=self (+ issuer=self)` on every session creator;
+    webhooks/success capture `amount_tax` → orders.tax_total_cents + per-item jurisdiction
+    snapshot (marrying Stripe's number to the market's stored codes — two-source audit).
+1c. Buyer-facing display: tax line on checkout/success/order pages; page total == Stripe
+    total == order rows TO THE CENT, conservation-tested WITH tax.
+
+**Phase 2 · Stream 2 subscriptions live-able** (one Stripe object, no payout surgery) —
+    also satisfies the tax-notice guardrail the honest way.
+
+**Phase 3 · Stream 1 facilitated sales** — payout withholding (gross-minus-tax transfers,
+    §2b + III.1 extended file list, per-file approvals) + tax reversal in EVERY refund path
+    at original rate. ⛔ GATED on CPA Q1 (sourcing) and the Q8 bundle-line decision.
+
+**Phase 4 · Operations:** quarterly rate refresh (designed §4.5) · monthly filing report
+    (admin surface over buildListSupplement + reconciliation vs Stripe itemized export).
+
+**Cross-cutting, early:** send the CPA letter NOW (Q1-Q7 drafted 8/2 + new Q8-Q11) — Q1
+gates Phase 3 and has mail latency. Fix-or-fulfill tax-notice.ts copy (nearest edge).
+
+## III.4 Transition playbook — prod flip = config, not code
+
+1. **Script the Stripe-side setup** (registrations API + tax settings + default codes):
+   staging config applied by script ⇒ prod setup = same script, prod keys, REAL effective
+   date. No checklist archaeology.
+2. **Ship dark behind per-stream flags** (`TAX_*_ENABLED` per stream): tax code rides
+   normal prod pushes inert; go-live = flag flip on the chosen date (must not collect
+   before the registration's effective date). Flip order: subscriptions → watch a cycle →
+   facilitated sales.
+3. **One full simulated month on staging**: orders across taxable/exempt/bundle + every
+   refund flavor + a subscription cycle → produce the List Supplement → reconcile vs
+   Stripe test-mode itemized export to the cent. The first real month is then a rehearsed
+   query.
+4. **Front-load externals**: CPA letter out early; prod market jurisdiction codes entered
+   as soon as migs 214/215 reach prod (they ride the pending 238→246 push).
+
+Prod transition = push (already dark) → run config script → flip one flag → watch a
+rehearsed month.
+
+## III.5 Private pickup locations — the manual-entry model does NOT extend to them (added 2026-09-07)
+
+Owner question that exposed the gap: "is that how it will need to be done for each market and
+each private pickup location going forward?"
+
+**Part II §3.1's "bounded set of addresses" argument silently assumed admin-created
+traditional markets.** Private pickup locations are ALSO market rows with addresses (mig 214
+put the jurisdiction columns on every markets row) — but they are **vendor-created,
+self-serve, with no admin in the loop**. Manual Rate-Locator entry there means new pickup
+locations silently missing codes the moment a vendor adds one.
+
+**Resolution (amends §3.1 and §4.5 gap #2):**
+- Phase 0's manual entry is a ONE-TIME SEEDING of the current real markets, not the ongoing
+  process.
+- **An automated jurisdiction resolver becomes REQUIRED (not "nice at scale") before
+  private pickup locations can sell taxable goods.** Design: resolve at location creation —
+  determine the jurisdictions for an address (Comptroller Rate Locator API if one exists
+  [VERIFY at build time], else match Stripe Tax's own jurisdiction-name output against the
+  Comptroller's quarterly rate file, which lists every jurisdiction's name + seven-digit
+  code + rate) → auto-fill the codes → admin card becomes review/override → unresolvable
+  addresses get FLAGGED, never silently blank. Same quarterly file feeds the rate-refresh
+  job — one data source, two jobs.
+- Note the division of labor: Stripe Tax computes the CORRECT TAX per order from the raw
+  address regardless (calculation never depends on our stored codes). The stored codes
+  exist for the TEXAS RETURN (names→codes bridge). So a missing-code location mischarges
+  nobody — it breaks FILING attribution. The resolver's failure mode is a reporting gap,
+  not a money error; the flag-not-blank rule is what keeps it visible.
+- Slot into the build: resolver lands with Phase 4 operations at the latest, or earlier if
+  private-pickup taxable sales precede it.
+
+**III.4 addendum (owner, 2026-09-07):** some STAGING market addresses are estimates. Before
+prod go-live, CONFIRM the real street address for every live market and re-run its Rate
+Locator lookup — codes entered against an estimated address are provisional. (The mig-215
+re-verify trigger fires on any address correction, so fixing an address automatically flags
+its codes for re-confirmation — §11.13, verified passing 2026-09-07.)

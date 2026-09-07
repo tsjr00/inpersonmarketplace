@@ -153,7 +153,7 @@ export async function POST(
       case 'payout_pending':
         return NextResponse.json({
           handedOff: true,
-          margin: { status: 'pending', note: 'Handoff recorded. The margin payout needs attention — the platform has been notified.' },
+          margin: { status: 'pending', note: 'Handoff recorded. The payment needs attention — the platform has been notified.' },
         })
       case 'nothing_to_pay':
         return NextResponse.json({ handedOff: true, margin: { status: 'none' } })
@@ -165,8 +165,8 @@ export async function POST(
           margin: {
             status: 'awaiting_buyer_ack',
             note: ackMissing
-              ? 'Handoff recorded. Your margin pays out when the buyer taps acknowledge on their order.'
-              : 'Handoff recorded. Waiting on the buyer acknowledgment to release the margin.',
+              ? 'Handoff recorded. Your market gets paid when the buyer taps acknowledge on their order.'
+              : 'Handoff recorded. Waiting on the buyer acknowledgment to release the payment.',
           },
         })
       case 'not_handed_off':
@@ -175,7 +175,7 @@ export async function POST(
       case 'failed':
         return NextResponse.json({
           handedOff: true,
-          margin: { status: 'pending', note: 'Handoff recorded. The margin payout hit an error and is queued for reconciliation.' },
+          margin: { status: 'pending', note: 'Handoff recorded. The payment hit an error and is queued for reconciliation.' },
         })
     }
   })
