@@ -1,5 +1,15 @@
 # Backlog
 
+## 💰 TAX — market boxes may need their own `is_taxable` flag (owner, 2026-09-08)
+
+Batch 2 ships with market boxes EXCLUDED from tax (treatment = CPA Q10, recurring food
+sales). Owner directive at the Batch-2 policy approval: "we may need to include an
+'is_taxable' flag on market boxes as well and then put guidance language around it for
+vendors to read." When picked up (after Q10 answers): add `is_taxable` (or equivalent) to
+`market_box_offerings`, wire it through the checkout-tax engine's base build, and write
+vendor-facing guidance copy (offering create/edit form) explaining taxable vs exempt box
+contents — mirroring the listings.is_taxable guidance pattern.
+
 ## 🧪 STAGING RESULTS 2026-09-05 — design asks + enhancements (defect fixes tracked in chat/current_task; triage in the 2026-09-05 report)
 
 1. [ ] **Admin flag: event-supersedes-market sales blocking.** When a vendor's event acceptance blacks out a market day, admin has no indicator that market sales are blocked for that vendor/date. Owner: "an admin flag is also good" even with the week-strip strike. Home candidate: admin event detail (blacked-out vendor count / list) + maybe the market detail page.

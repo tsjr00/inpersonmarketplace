@@ -64,6 +64,11 @@ export default function CheckoutPage() {
   const [roundUpOn, setRoundUpOn] = useState(false)
   const [unresolvedExternalCount, setUnresolvedExternalCount] = useState(0)
   const [vipDiscountsByListing, setVipDiscountsByListing] = useState<Map<string, number>>(new Map())
+  // Tax Batch 2 (display-price pair): the sales-tax line the session route
+  // will charge, from the SAME engine via discount-preview. 0 while
+  // TAX_STREAM1_ENABLED is false or when tax can't be previewed — the session
+  // route is the authority and refuses loudly on a not-ready market.
+  const [taxPreviewCents, setTaxPreviewCents] = useState<number>(0)
 
   // Market bundles (mig 244): ?bundle=<id> switches this page into the
   // dedicated bundle-checkout view (a bundle is its own order — no cart).
@@ -87,14 +92,16 @@ export default function CheckoutPage() {
   // round the same way or the two screens drift by a cent.
   useEffect(() => {
     const listingItems = checkoutItems.filter(i => i.itemType !== 'market_box' && i.listingId)
-    if (listingItems.length === 0) { setVipDiscountsByListing(new Map()); return }
+    if (listingItems.length === 0) { setVipDiscountsByListing(new Map()); setTaxPreviewCents(0); return }
     let cancelled = false
     fetch('/api/checkout/discount-preview', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         vertical,
-        items: listingItems.map(i => ({ listingId: i.listingId, quantity: i.quantity })),
+        // marketId rides along for the tax mirror (Batch 2) — the server
+        // computes the sales-tax line per item's own market.
+        items: listingItems.map(i => ({ listingId: i.listingId, quantity: i.quantity, marketId: i.market_id })),
       }),
     })
       .then(r => (r.ok ? r.json() : null))
@@ -107,8 +114,9 @@ export default function CheckoutPage() {
           }
         }
         setVipDiscountsByListing(m)
+        setTaxPreviewCents(typeof data?.tax_total_cents === 'number' && data.tax_total_cents > 0 ? data.tax_total_cents : 0)
       })
-      .catch(() => { if (!cancelled) setVipDiscountsByListing(new Map()) })
+      .catch(() => { if (!cancelled) { setVipDiscountsByListing(new Map()); setTaxPreviewCents(0) } })
     return () => { cancelled = true }
   }, [checkoutItems, vertical])
 
@@ -653,11 +661,13 @@ export default function CheckoutPage() {
   const hasSmallOrderFee = smallOrderFeeCents > 0
   const smallOrderFeeConfig = getSmallOrderFeeConfig(vertical)
 
-  // Total = displayed subtotal + flat fee + small order fee + tip
+  // Total = displayed subtotal + flat fee + small order fee + sales tax + tip
+  // (tax sits INSIDE preChipinTotal so the round-up still lands the final
+  // total on a whole dollar; tip stays computed on displaySubtotal only).
   // Community Chip In: the active contribution is EITHER the event chip-in (when
   // an event beneficiary was offered) OR the round-up amount (when a round-up
   // campaign is offered and the buyer toggled it on). Never both.
-  const preChipinTotal = displaySubtotal + FEES.buyerFlatFeeCents + smallOrderFeeCents + tipAmountCents
+  const preChipinTotal = displaySubtotal + FEES.buyerFlatFeeCents + smallOrderFeeCents + taxPreviewCents + tipAmountCents
   const roundUpRemainder = preChipinTotal % 100
   const roundUpAmountCents = roundUpRemainder === 0 ? 100 : 100 - roundUpRemainder
   const activeChipinCents = chipinBeneficiaryId ? chipinCents : (roundUpOn && roundUpBeneficiaryId ? roundUpAmountCents : 0)
@@ -1021,6 +1031,21 @@ export default function CheckoutPage() {
                   }}>
                     <span>{t('checkout.small_order_fee', locale)}</span>
                     <span>{formatPrice(smallOrderFeeCents)}</span>
+                  </div>
+                )}
+
+                {/* Sales tax (Batch 2) — renders only when the engine returns
+                    a nonzero line (dark until TAX_STREAM1_ENABLED flips). */}
+                {taxPreviewCents > 0 && (
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    marginBottom: spacing['2xs'],
+                    fontSize: typography.sizes.sm,
+                    color: colors.textMuted,
+                  }}>
+                    <span>{t('checkout.sales_tax', locale)}</span>
+                    <span>{formatPrice(taxPreviewCents)}</span>
                   </div>
                 )}
 

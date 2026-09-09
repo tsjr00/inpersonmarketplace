@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { bundleDisplayPriceCents, bundleOrderingOpen, BUNDLE_LIMITS } from '@/lib/bundles/core'
 import { componentIsLive, vendorDisplayName } from '@/lib/bundles/public'
+import { computeCheckoutTax } from '@/lib/tax/checkout-tax'
 import { todayInTimezone, DEFAULT_TIMEZONE } from '@/lib/time/market-dates'
 import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
@@ -77,6 +78,27 @@ export async function GET(
       ? bundleOrderingOpen(todayInTimezone((market.timezone as string) || DEFAULT_TIMEZONE), bundle.pickup_market_date as string)
       : false
 
+    // Tax mirror (Batch 2) — same engine as checkout/session, run on the
+    // expanded components + margin so BundleCheckout's total matches Stripe.
+    // Display-only: failure degrades to a hidden line (null), never a 500.
+    // 0 while TAX_STREAM1_ENABLED is false.
+    let taxTotalCents: number | null = 0
+    try {
+      const taxResult = await computeCheckoutTax(
+        serviceClient,
+        componentView.map((c, i) => ({
+          ref: String(i),
+          listingId: c.listingId,
+          marketId: bundle.market_id as string,
+          netSubtotalCents: c.priceCents * c.quantity,
+        })),
+        { marketId: bundle.market_id as string, marginCents: bundle.margin_cents as number }
+      )
+      taxTotalCents = !taxResult.enabled ? 0 : taxResult.ok ? taxResult.totalTaxCents : null
+    } catch {
+      taxTotalCents = null
+    }
+
     let causeName: string | null = null
     if (bundle.cause_beneficiary_id) {
       const { data: beneficiary } = await observed(serviceClient
@@ -98,6 +120,7 @@ export async function GET(
       componentSumCents,
       marginCents: bundle.margin_cents,
       displayPriceCents: bundleDisplayPriceCents(componentSumCents, bundle.margin_cents as number),
+      taxTotalCents,
       remaining,
       quantityLimit: bundle.quantity_limit,
       available: allAvailable && remaining > 0 && orderingOpen,

@@ -2806,3 +2806,54 @@ describe('Host menu pare-down — the pair holds everywhere', () => {
     expect(respond).not.toMatch(/host_status/)
   })
 })
+
+// ── Sales tax Batch 2 (plan III.6, owner-approved 2026-09-08) ───────────
+//
+// One engine, dark flag. The seam's whole safety story is that checkout,
+// the page preview, and the bundle preview all price tax through the SAME
+// function, and that the stream ships DARK until the Batch-3/4
+// prerequisites exist (see lib/tax/flags.ts). A second tax computation or
+// an early flag flip is exactly the drift these pins exist to catch.
+describe('Sales tax Batch 2 — one engine, dark flag', () => {
+  const SRC = path.resolve(__dirname, '../..')
+  const rd = (p: string) => fs.readFileSync(path.join(SRC, p), 'utf-8')
+
+  it('TAX_STREAM1_ENABLED ships FALSE (dark until Batch 3+4 + owner flip)', () => {
+    // Flipping this is a go-live act: it requires the quarterly rate-refresh
+    // job, refund reversals, the event-order route wired, and entered
+    // jurisdiction codes (flags.ts header) — and OWNER approval. Update this
+    // pin in the SAME approved change that flips the flag.
+    expect(rd('lib/tax/flags.ts')).toMatch(/export const TAX_STREAM1_ENABLED = false/)
+  })
+
+  it('checkout/session, discount-preview, and the bundle detail all use the ONE engine', () => {
+    for (const file of [
+      'app/api/checkout/session/route.ts',        // authoritative charge
+      'app/api/checkout/discount-preview/route.ts', // page mirror
+      'app/api/bundles/[bundleId]/route.ts',      // bundle-checkout mirror
+    ]) {
+      expect(rd(file), `${file} must price tax via computeCheckoutTax`)
+        .toMatch(/computeCheckoutTax/)
+    }
+  })
+
+  it('the session route refuses ALL-OR-NOTHING and snapshots per item', () => {
+    const route = rd('app/api/checkout/session/route.ts')
+    // A not-ready market blocks the whole checkout loudly (seam rule) —
+    // never a silent partial tax.
+    expect(route).toMatch(/ERR_CHECKOUT_TAX/)
+    // The snapshot is written from OUR computation, marked with its source,
+    // and the tax line rides orders.total_cents (conservation).
+    expect(route).toMatch(/tax_source: 'self_computed_v1'/)
+    expect(route).toMatch(/\+ bundleMarginAddendCents \+ taxTotalCents/)
+  })
+
+  it('the engine owns the flag gate and the base policy, not the callers', () => {
+    const engine = rd('lib/tax/checkout-tax.ts')
+    expect(engine).toMatch(/if \(!TAX_STREAM1_ENABLED\) return/)
+    // Q11 interim: net + embedded buyer % fee share (owner 2026-09-08).
+    expect(engine).toMatch(/FEES\.buyerFeePercent/)
+    // Q8 interim: margin folded into TAXABLE component bases only.
+    expect(engine).toMatch(/allocateMarginToTaxable/)
+  })
+})

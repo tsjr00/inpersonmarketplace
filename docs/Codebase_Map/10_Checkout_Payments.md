@@ -1,6 +1,6 @@
 # 10 — Checkout & Payments ⚠ money
 
-<!-- map-stamp: domain=checkout-payments; verified=2026-09-05; commit=de9baab6 -->
+<!-- map-stamp: domain=checkout-payments; verified=2026-09-08; commit=d34eae7f -->
 <!-- map-claims
 src/app/api/cart/**
 src/app/api/checkout/**
@@ -26,6 +26,15 @@ src/app/[vertical]/checkout/**
 4. **Two paths finalize every payment** — the Stripe webhook and the `/checkout/success` route — in either order, sometimes both. Any new post-payment side effect must be idempotent *and* added to both files, or it silently won't run for buyers who close the tab. `success/route.ts:271-355` and `webhooks.ts:299-375` are deliberate near-duplicates.
 5. **Idempotency keys are load-bearing.** Every Stripe mutation carries a deterministic key. `createRefund`'s doc comment (`payments.ts:242-247`) records a real bug where two same-priced items produced identical keys and the second refund never happened. Never make a key *less* specific, and never use `Date.now()`.
 6. **Don't clean up the inline bug-history comments.** Tags like CHK-1, CHK-7, CRIT-1, F6, M12 each mark a production incident and the code preventing its recurrence — `inventory.ts:40-60` and `market-box-payout.ts:22-30` are the clearest examples.
+7a. **Sales tax (Batch 2, 2026-09-08) — wired DARK.** `lib/tax/checkout-tax.ts`
+   `computeCheckoutTax` is the one tax engine (flag-gated on `lib/tax/flags.ts`
+   `TAX_STREAM1_ENABLED = false`); `checkout/session` computes after chip-in validation,
+   adds a "Sales tax" Stripe line + `+ taxTotalCents` into `total_cents`, writes
+   `orders.tax_total_cents` and the per-item `order_items.tax_*` snapshot (mig 214;
+   `tax_source='self_computed_v1'`) — all only when the flag is on; a not-tax-ready
+   market REFUSES the whole checkout (`ERR_CHECKOUT_TAX`, all-or-nothing). Mirrors:
+   `discount-preview` (+`tax_total_cents`) and `bundles/[bundleId]` (+`taxTotalCents`)
+   call the same engine — flow-integrity-pinned. Market boxes excluded (CPA Q10).
 7. **Read `.claude/rules/change-discipline.md` Rule 3 first.** The Session 66 incident is why the mechanical gate exists: design-approved logic added to `cart/items/route.ts` broke the entire production cart, silently, with the UI still showing success.
 8. **VIP perk discounts (B1 + punch build, mig 243, 2026-09-04) — the NET-STORAGE contract.** `lib/loyalty/offers-checkout.ts` `computeCartDiscounts` is the ONE discount engine (VIP-gated, enabled-offer-gated; perks = spend_threshold + punch_card reward; per vendor the single BEST perk applies, never stacked — owner D6). Two callers, by design: `checkout/session` (the charge) and `api/checkout/discount-preview` (the checkout page's "⭐ VIP deal" mirror line) — flow-integrity pins the pair so display and charge can't drift. The route stores `order_items.subtotal_cents` POST-discount; `unit_price_cents` keeps the list price; `discount_cents` + `offer_id` are the record (`offer_id` on an order is ALSO the punch-card redemption marker — `punchState` counts fulfilled qualifying orders since max(VIP added_at, last redemption)). **Every refund path recomputes buyer-paid from subtotal_cents, so they are all correct with ZERO edits — flow-integrity forbids discount references in reject/resolve/cascade.** Fees/payout/small-order fee compute on net (pricing.ts untouched — it rounds on the summed total, so the qty-folded net pricingItems are identity at discount 0). A discounted listing renders as one consolidated Stripe line ("— VIP deal"); Stripe forbids negative lines, and a discount that drops the total under Stripe's 50¢ minimum is rejected with a friendly add-a-little-more error.
 

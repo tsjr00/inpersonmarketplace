@@ -90,6 +90,7 @@ interface OrderDetails {
   order_number: string
   status: string
   total_cents: number
+  tax_total_cents: number
   tip_percentage: number
   tip_amount: number
   created_at: string
@@ -297,6 +298,12 @@ export default function CheckoutSuccessPage() {
                   </p>
                 </div>
               </div>
+              {/* Sales tax note (Batch 2 — the Total above already includes it) */}
+              {order.tax_total_cents > 0 && (
+                <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: 0 }}>
+                  {t('success.tax_info', locale, { amount: (order.tax_total_cents / 100).toFixed(2) })}
+                </p>
+              )}
               {/* Row 3: Tip info (if applicable) */}
               {order.tip_amount > 0 && (
                 <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: 0 }}>
@@ -722,6 +729,8 @@ function transformOrder(raw: Record<string, unknown>, rawMarketBoxSubs?: Array<R
     order_number: raw.order_number as string,
     status: raw.status as string,
     total_cents: raw.total_cents as number,
+    // Tax Batch 2 — 0 until the success API's order select carries the column.
+    tax_total_cents: (raw.tax_total_cents as number) || 0,
     tip_percentage: (raw.tip_percentage as number) || 0,
     tip_amount: (raw.tip_amount as number) || 0,
     created_at: raw.created_at as string,

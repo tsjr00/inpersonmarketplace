@@ -1,6 +1,6 @@
 # 21 — Shared Library Reference
 
-<!-- map-stamp: domain=lib-reference; verified=2026-09-05; commit=de9baab6 -->
+<!-- map-stamp: domain=lib-reference; verified=2026-09-08; commit=d34eae7f -->
 <!-- lib/loyalty/offers.ts (B1 + punch, 2026-09-04): pure VIP perk math + config parsers — spend_threshold (D1: 5–25% / $15–$200) and punch_card (D2: 3–12 visits → 10–100% off min-$X, or $1–$50 off; 100% waives the min). lib/loyalty/offers-checkout.ts: computeCartDiscounts, the ONE discount engine (VIP-only, best single perk, no stacking) + punchState (punches = fulfilled qualifying orders since max(VIP added_at, last redemption via order offer_id)). See 10_Checkout_Payments item 8. -->
 <!-- map-claims
 src/lib/errors/**
@@ -147,7 +147,7 @@ New user-facing strings go through `t()`, not hardcoded literals — the shared 
 
 `test-utils/supabase-test-client.ts` — `TEST_PREFIX = '__test_'`, `createTestClient`, `testId`, `cleanupTestData`, `cleanupAllTestData`. Integration tests run against dev Supabase and clean up after themselves via this prefix convention.
 
-## `lib/tax/` — the sales-tax core (Phase 1 in progress; NOT yet wired to checkout)
+## `lib/tax/` — the sales-tax core (Phase 1; wired to checkout DARK behind TAX_STREAM1_ENABLED)
 
 **The living half** (plan: `apps/web/.claude/sales_tax_readiness.md` Part III + `tax_phase1_design.md`):
 - `tax/jurisdictions.ts` — TX jurisdiction model + pure math (mig 214): `computeItemTax`
@@ -161,8 +161,17 @@ New user-facing strings go through `t()`, not hardcoded literals — the shared 
   TX-only assert · III.7 intake readiness (codes entered + verified) · stale-quarter
   rate_version check (⚠ the quarterly refresh job must exist before TAX_STREAM1 enables,
   or quarter-turns halt taxable sales). Multi-state future = swap this seam's internals
-  for the Stripe Tax Calculations API; callers never move. **Inert until Batch 2 wires
-  checkout/capture behind the flag.** 14 tests.
+  for the Stripe Tax Calculations API; callers never move. 14 tests.
+- `tax/checkout-tax.ts` — **the checkout engine** (Batch 2, 2026-09-08): the ONE caller
+  of the seam for checkout — loads `listings.is_taxable` + market tax columns, applies
+  the owner-approved interim base policy (Q11: net + embedded buyer % fee share; flat/
+  small-order fee, tip, chip-in excluded; Q8: bundle margin folded pro-rata into TAXABLE
+  component bases, conservation-exact; Q10: market boxes excluded), calls the seam.
+  Consumed by checkout/session (authoritative) + discount-preview + bundles/[bundleId]
+  (mirrors) — flow-integrity-pinned as the single engine. 10 tests.
+- `tax/flags.ts` — `TAX_STREAM1_ENABLED = false` (dark-ship pin in flow-integrity;
+  header lists the flip prerequisites: rate-refresh job, Batch-3 refund reversals,
+  event-order route wired, jurisdiction codes entered).
 
 **⚠ The dead half — do not build on:** `tax/taxcloud.ts` + `tax/tic-codes.ts` are
 artifacts of the REJECTED pre-8/1 TaxCloud plan (zero importers; env vars never

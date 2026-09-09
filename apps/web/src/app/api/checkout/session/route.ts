@@ -6,6 +6,7 @@ import { stripe } from '@/lib/stripe/config'
 import { calculateOrderPricing, FEES, calculateSmallOrderFee, getSmallOrderFeeConfig, proratedFlatFee, getEffectiveVendorFeePercent } from '@/lib/pricing'
 import { computeCartDiscounts } from '@/lib/loyalty/offers-checkout'
 import { expandBundleComponents, bundleDisplayPriceCents, marginWithBuyerFeeCents, bundleOrderingOpen } from '@/lib/bundles/core'
+import { computeCheckoutTax } from '@/lib/tax/checkout-tax'
 import { todayInTimezone, DEFAULT_TIMEZONE } from '@/lib/time/market-dates'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { withErrorTracing, traced, crumb, TracedError, logError, observed } from '@/lib/errors'
@@ -762,6 +763,30 @@ export async function POST(request: NextRequest) {
       validChipinCents = requestedChipin
     }
 
+    // Tax Batch 2 (plan III.6): sales-tax line + per-item snapshot via the
+    // ONE engine the checkout page also previews. INERT while
+    // TAX_STREAM1_ENABLED is false — enabled:false, zeros, no line, no writes.
+    crumb.logic('Computing sales tax (0 while TAX_STREAM1_ENABLED is false)')
+    const taxResult = await computeCheckoutTax(
+      serviceClient,
+      orderItems.map((oi, idx) => ({
+        ref: String(idx),
+        listingId: oi.listing_id,
+        marketId: oi.market_id,
+        netSubtotalCents: oi.subtotal_cents,
+      })),
+      bundleContext ? { marketId: bundleContext.marketId, marginCents: bundleContext.marginCents } : null
+    )
+    if (taxResult.enabled && !taxResult.ok) {
+      // ALL-OR-NOTHING (seam rule): a market not tax-ready blocks checkout
+      // loudly — never a silent partial tax.
+      throw traced.validation('ERR_CHECKOUT_TAX',
+        "Sales tax can't be calculated for one of your pickup locations yet. Please try again soon.",
+        { refusals: taxResult.refusals })
+    }
+    const taxByRef = new Map(taxResult.enabled && taxResult.ok ? taxResult.items.map(i => [i.ref, i]) : [])
+    const taxTotalCents = taxResult.enabled && taxResult.ok ? taxResult.totalTaxCents : 0
+
     // Use order-level totals from unified pricing (tip + small order fee are additive on top)
     const subtotalCents = orderPricing.subtotalCents
     // CHK-15: order-level platform fee built from the override-aware per-item
@@ -783,7 +808,7 @@ export async function POST(request: NextRequest) {
     const platformFeeCents = listingPercentFeeCents + mbPercentFeeCents
       + orderPricing.buyerFlatFeeCents + orderPricing.vendorFlatFeeCents + smallOrderFeeCents
       + (bundleMarginAddendCents - bundleMarginCents)
-    const totalCents = orderPricing.buyerTotalCents + smallOrderFeeCents + validTipAmount + validChipinCents + bundleMarginAddendCents
+    const totalCents = orderPricing.buyerTotalCents + smallOrderFeeCents + validTipAmount + validChipinCents + bundleMarginAddendCents + taxTotalCents
 
     // Punch build (D2 100%-off + the 2026-08-25 min-order rule): Stripe cannot
     // charge under 50¢. Only a discount can push a total this low (the 15¢
@@ -1008,6 +1033,16 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Sales tax line (Batch 2) — absent until TAX_STREAM1_ENABLED flips.
+    if (taxTotalCents > 0) {
+      checkoutItems.push({
+        name: 'Sales tax',
+        description: 'Texas sales tax',
+        amount: taxTotalCents,
+        quantity: 1,
+      })
+    }
+
     // Add tip as Stripe line item (food trucks)
     if (validTipAmount > 0) {
       checkoutItems.push({
@@ -1095,6 +1130,9 @@ export async function POST(request: NextRequest) {
         chipin_beneficiary_id: validChipinCents > 0 ? chipinBeneficiaryId : null,
         stripe_checkout_session_id: session.id,
         ...(bundleContext ? { bundle_id: bundleContext.bundleId, bundle_margin_cents: bundleContext.marginCents } : {}),
+        // Tax Batch 2: real zero when computed (all-exempt cart), NULL when
+        // the stream is dark — "computed 0" and "never computed" stay distinct.
+        ...(taxResult.enabled ? { tax_total_cents: taxTotalCents } : {}),
       })
 
     if (orderError) throw traced.fromSupabase(orderError, { table: 'orders', operation: 'insert' })
@@ -1104,9 +1142,19 @@ export async function POST(request: NextRequest) {
     if (orderItemsWithSnapshots.length > 0) {
       crumb.supabase('insert', 'order_items')
       const { error: itemsError } = await supabase.from('order_items').insert(
-        orderItemsWithSnapshots.map((item) => ({
+        orderItemsWithSnapshots.map((item, idx) => ({
           ...item,
           order_id: orderId,
+          // Tax Batch 2 per-item snapshot (mig 214 columns) — written only
+          // when the stream is live; idx aligns with the tax refs because
+          // orderItemsWithSnapshots preserves orderItems order.
+          ...(taxResult.enabled ? {
+            tax_amount_cents: taxByRef.get(String(idx))?.taxAmountCents ?? 0,
+            taxable_amount_cents: taxByRef.get(String(idx))?.taxableAmountCents ?? 0,
+            tax_jurisdictions: taxByRef.get(String(idx))?.jurisdictions ?? [],
+            tax_rate_version: taxByRef.get(String(idx))?.rateVersion ?? null,
+            tax_source: 'self_computed_v1',
+          } : {}),
         }))
       )
 

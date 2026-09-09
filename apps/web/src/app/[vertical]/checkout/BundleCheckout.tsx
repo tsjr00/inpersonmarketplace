@@ -32,6 +32,7 @@ interface BundleDetail {
   componentSumCents: number
   marginCents: number
   displayPriceCents: number
+  taxTotalCents?: number | null
   remaining: number
   available: boolean
   orderingOpen: boolean
@@ -129,7 +130,10 @@ export default function BundleCheckout({ vertical, bundleId }: BundleCheckoutPro
   }
 
   const smallOrderFeeCents = calculateSmallOrderFee(bundle.componentSumCents, vertical)
-  const totalCents = bundle.displayPriceCents + FEES.buyerFlatFeeCents + smallOrderFeeCents
+  // Sales tax (Batch 2): server-computed via the same engine checkout/session
+  // uses; 0 while dark, null when unpreviewable (line hidden, server decides).
+  const taxCents = typeof bundle.taxTotalCents === 'number' && bundle.taxTotalCents > 0 ? bundle.taxTotalCents : 0
+  const totalCents = bundle.displayPriceCents + FEES.buyerFlatFeeCents + smallOrderFeeCents + taxCents
 
   return card(
     <>
@@ -168,6 +172,12 @@ export default function BundleCheckout({ vertical, bundleId }: BundleCheckoutPro
           <div style={{ display: 'flex', justifyContent: 'space-between', color: colors.textMuted }}>
             <span>{t('bundle.small_order_fee', locale, { amount: formatPrice(getSmallOrderFeeConfig(vertical).thresholdCents) })}</span>
             <span>{formatPrice(smallOrderFeeCents)}</span>
+          </div>
+        )}
+        {taxCents > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', color: colors.textMuted }}>
+            <span>{t('bundle.sales_tax', locale)}</span>
+            <span>{formatPrice(taxCents)}</span>
           </div>
         )}
         <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: typography.weights.bold, borderTop: `1px solid ${colors.border}`, paddingTop: spacing['3xs'] }}>

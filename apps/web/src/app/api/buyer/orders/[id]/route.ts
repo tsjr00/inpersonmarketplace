@@ -33,6 +33,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         payment_method,
         total_cents,
         small_order_fee_cents,
+        tax_total_cents,
         tip_percentage,
         tip_amount,
         created_at,
@@ -122,6 +123,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
       status: order.status,
       total_cents: order.total_cents,
       small_order_fee_cents: (order as Record<string, unknown>).small_order_fee_cents || 0,
+      // Tax Batch 2: snapshot written at checkout; 0/null on pre-tax orders.
+      tax_total_cents: (order as Record<string, unknown>).tax_total_cents || 0,
       tip_percentage: (order as Record<string, unknown>).tip_percentage || 0,
       tip_amount: (order as Record<string, unknown>).tip_amount || 0,
       created_at: order.created_at,

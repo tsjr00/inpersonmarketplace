@@ -99,6 +99,7 @@ interface OrderDetail {
   payment_method?: string
   total_cents: number
   small_order_fee_cents: number
+  tax_total_cents: number
   tip_percentage: number
   tip_amount: number
   created_at: string
@@ -1416,6 +1417,24 @@ export default function BuyerOrderDetailPage() {
               </span>
               <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
                 {formatPrice(order.small_order_fee_cents)}
+              </span>
+            </div>
+          )}
+          {/* Sales tax (Batch 2 — present only on orders taxed at checkout) */}
+          {order.tax_total_cents > 0 && (
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingBottom: spacing.xs,
+              marginBottom: spacing.xs,
+              borderBottom: `1px solid ${colors.borderMuted}`,
+            }}>
+              <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
+                {t('order.sales_tax', locale)}
+              </span>
+              <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
+                {formatPrice(order.tax_total_cents)}
               </span>
             </div>
           )}

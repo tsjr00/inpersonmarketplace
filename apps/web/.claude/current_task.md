@@ -1,3 +1,40 @@
+# ⛳ 2026-09-08: TAX BATCH 2 BUILT (uncommitted) — record: tax_batch2_plan.md ⚙ BUILD LOG
+Owner ratified the 3 interim policies (Q11 base / Q8 margin pro-rata / Q10 MB excluded +
+backlog item) and approved BOTH protected files by name. The checkout tax wiring is in,
+DARK behind TAX_STREAM1_ENABLED=false (flags.ts header = flip prereqs): engine
+lib/tax/checkout-tax.ts consumed by session route (authoritative) + discount-preview +
+bundles/[bundleId] (pinned single-engine); per-item snapshot + orders.tax_total_cents
+write at session time (orders are CREATED there — success only flips status); buyer
+display on checkout/bundle/success/order pages, en+es. Gates: tsc ✓ 2207/2207 ✓ lint 0.
+NEXT: commit (awaiting owner word; staging push held while owner's test pass runs) →
+Batch 3 refund reversals → Batch 4 ops. A fresh 17-item test list was issued in chat
+2026-09-08 (bundles tail, curl crons, fix retests, 09-07 round, deferred F-items).
+
+# ⛳ STATE AT 2026-09-07 SESSION CLOSE — READ FIRST
+**Git:** staging = local main = `d34eae7f` (81 commits ahead of prod `e946c2c0`). Tree clean.
+**Migs:** 245/246/247 ✅ Dev+Staging; PROD OWES 238→247 IN ORDER (window 21:00–07:00 CT;
+⚠ at mig-238 paste check real pre-paste event acceptances). Gates: tsc ✓ 2193/2193 ✓ lint 0.
+**Two workstreams interleaved:**
+1. **SALES TAX (the launch gate)** — plan `sales_tax_readiness.md` (Parts I-III; III.6 = A′
+   self-computed decision, III.7 = intake approval flow) + `tax_phase1_design.md` +
+   `cpa_letter_2026-09-07.md` (owner still to SEND). Phase 0 done (Stripe sandbox configured;
+   §11.12/13 PASS, §11.14 deferred). **Batch 1 SHIPPED** (`computeCartTax` seam, inert).
+   **NEXT: Batch 2** = wire checkout/capture/display behind dark `TAX_STREAM1_ENABLED` flag —
+   PROTECTED files, per-file diffs, needs owner go. Then Batch 3 refund reversals, Batch 4 ops
+   (quarterly refresh job REQUIRED before the flag ever flips). Owner parallel: send CPA
+   letter, enter 0a jurisdiction codes for test markets.
+2. **STAGING TEST BURNDOWN** — bundle money loop VERIFIED IN STRIPE end-to-end (margin $9.00,
+   cause $1.00, booth $24.31×2, all reconciled to formulas). Latest round fixed: apply-button
+   managed-only, mig-247 FM trigger exemption (#12 root cause), booking-days line, VIP =
+   by-design answer. AWAITING RETEST of that round + outstanding items 2-10 & 14-16
+   (fresh-order bundle notifications, cancel-bundle fee paths, E6/A9 via curl — crons NEVER
+   run on staging previews — browse pill, cancel-date card, survey email link, insights,
+   day-of copy, week-strip hold, admin blocking flag) + §11.14 + A6-A8 when testable.
+**Standing rules that bit this session:** % confidence labels on event reconstructions /
+UI-state claims / corrections; timestamps > narratives (memory broadened) · ASK before
+assuming who gets what info (blue-box incident) · protected-file hook = deny-once → verify
+approval → retry · owner wordings go into copy VERBATIM.
+
 # ✅ SESSION WRAPPED 2026-09-06 — bundles hardening arc COMPLETE & SHIPPED TO STAGING
 **State at wrap:** staging = local main = `05cdc869` (docs wrap commit follows). Tree clean
 (tracked). Migs 245+246 ✅ Dev+Staging. Gates: tsc ✓ · 2179/2179 ✓ · lint 0 err.

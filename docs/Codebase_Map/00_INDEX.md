@@ -101,7 +101,7 @@ Each domain file was verified against the code at the commit shown. A stamp far 
 |---|---|---|
 | 01_System_Overview.md | 2026-07-18 | b9f82116 |
 | 02_Money_Flow.md | 2026-08-09 | 106fed3c |
-| 10_Checkout_Payments.md | 2026-09-05 | de9baab6 |
+| 10_Checkout_Payments.md | 2026-09-08 | d34eae7f |
 | 11_Vendor_Orders.md | 2026-09-04 | cec32fb5 |
 | 12_Market_Manager.md | 2026-09-05 | de9baab6 |
 | 13_FT_Park.md | 2026-07-18 | b9f82116 |
@@ -112,7 +112,7 @@ Each domain file was verified against the code at the commit shown. A stamp far 
 | 18_Notifications.md | 2026-09-04 | cec32fb5 |
 | 19_Admin.md | 2026-09-05 | de9baab6 |
 | 20_Buyer_Public.md | 2026-09-05 | de9baab6 |
-| 21_Lib_Reference.md | 2026-09-07 | a550952a |
+| 21_Lib_Reference.md | 2026-09-08 | d34eae7f |
 | 22_Components_UI.md | 2026-07-18 | b9f82116 |
 | 23_Test_Suites.md | 2026-07-18 | b9f82116 |
 
