@@ -8,9 +8,17 @@ guard test, (8) shared escapeHtml + 3 email builders · T3 (9) trim browse selec
 STANDING STOPS: protected file = per-file diff + ask · vaulted file = git diff vault + present · commit/push
 = ask (propose together for staging) · any test failure = decision point · no test expectation edits.
 Owner-side still open: Upstash plan, live RLS query (plan item 10), staging test-pass findings.
-PROGRESS: [x] 1 [x] 2 [ ] 2b [x] 3 [ ] 4 [ ] 5 [ ] 6 [ ] 7 [ ] 8 [ ] 9 [ ] 10 [ ] 11 [ ] 12
-Owner 2026-09-11: "Commit and push staging including tax batch 2 now" → 3 commits (docs · next 16.3.4 ·
-limiter visibility) + staging push carrying 6fdf6760 (tax batch 2, dark). Verify ref-update line + Vercel build.
+PROGRESS: [x] 1 [x] 2 [x] 2b [x] 3 [x] 4 (browse only — see scope change) [x] 5 [x] 6 [ ] 7 [ ] 8 [ ] 9 [ ] 10 [ ] 11 [ ] 12
+2026-09-11 second push (owner: "proceed … then commit + push, then stop"): deps pins (audit 27→8, all 5 remaining
+highs transitive: axios/form-data←twilio, ws←supabase realtime, browserslist/picomatch build-time) · slot-availability
+rate limit · market-box PATCH $1 floor · browse page 9 Supabase calls → observed() (vault diff read; PERF-R1 intact,
+2 RPC sites). Sentry JAVASCRIPT-NEXTJS-11 "destination stream closed early" = LOCAL Playwright client aborts
+(stack path C:\GitHub\…), env 'development'; benign; suggestion: gate Sentry `enabled` on VERCEL_ENV (owner config).
+NEXT SESSION: item 7 (JSON-LD safe serializer + guard test) → 8 (shared escapeHtml, 3 email builders) → T3.
+✅ 2026-09-11 staging push: `d34eae7f..1d6a1c66 staging -> staging` (874ff598 docs · 179cb483 next 16.3.4 ·
+1d6a1c66 limiter visibility; carries 6fdf6760 tax batch 2 dark). Chain exit 0, Playwright passed. Vercel build
+status: owner to confirm. Item 4 SCOPE CHANGE: pickup/orders/checkout pages are CLIENT components (their errors
+already log via the API routes) → item 4 = browse page only (vaulted → diff presented, awaiting go).
 
 # ⛳ 2026-09-10 SESSION — LAUNCH READINESS REVIEW (report only) · CLAUDE_CONTEXT tier-table fix DONE
 **Git at kickoff:** main `6fdf6760` (tax batch 2, committed 2026-09-08 21:50 — the "uncommitted"

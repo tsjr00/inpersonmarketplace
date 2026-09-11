@@ -21,6 +21,13 @@ import { cookies } from 'next/headers'
 import { LOCATION_COOKIE_NAME, DEFAULT_RADIUS, VALID_RADIUS_OPTIONS } from '@/lib/location/server'
 import { getLocale } from '@/lib/locale/server'
 import { t } from '@/lib/locale/messages'
+import { observed } from '@/lib/errors'
+
+// 2026-09-11 (launch_fix_plan item 7): every Supabase call below runs through
+// observed() so a failing query reaches error_logs + the admin alert instead of
+// a console line nobody reads. Behavior is unchanged — data is null on failure,
+// exactly as before. Server component: no breadcrumb trail, so `route` is passed.
+const BROWSE_ROUTE = '/[vertical]/browse'
 
 // This page is DYNAMIC — it reads cookies (user_location) for distance filtering.
 // Do NOT add export const revalidate here — it would cause CDN caching that
@@ -211,14 +218,11 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
     location_text: string | null
   } | null = null
   if (user) {
-    const { data: userProfile, error: userProfileError } = await supabase
+    const { data: userProfile } = await observed(supabase
       .from('user_profiles')
       .select('buyer_tier, preferred_latitude, preferred_longitude, location_source, location_text')
       .eq('user_id', user.id)
-      .single()
-    if (userProfileError) {
-      console.error('[browse] user_profiles query failed:', userProfileError.message)
-    }
+      .single(), { table: 'user_profiles', route: BROWSE_ROUTE })
     isPremiumBuyer = userProfile?.buyer_tier === 'premium'
     profileLocation = userProfile
   }
@@ -228,7 +232,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
 
   // If viewing market boxes, fetch those instead
   if (currentView === 'market-boxes') {
-    const { data: marketBoxes, error: marketBoxError } = await supabase
+    const { data: marketBoxes } = await observed(supabase
       .from('market_box_offerings')
       .select(`
         id,
@@ -260,26 +264,18 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
         )
       `)
       .eq('vertical_id', vertical)
-      .eq('active', true)
-
-    if (marketBoxError) {
-      console.error('[browse] market_box_offerings query failed:', marketBoxError.message)
-    }
+      .eq('active', true), { table: 'market_box_offerings', route: BROWSE_ROUTE })
 
     // Get all subscription counts in ONE query instead of N queries (N+1 fix)
     const offeringIds = (marketBoxes || []).map(o => o.id)
     const subscriptionCounts = new Map<string, number>()
 
     if (offeringIds.length > 0) {
-      const { data: subCounts, error: subCountsError } = await supabase
+      const { data: subCounts } = await observed(supabase
         .from('market_box_subscriptions')
         .select('offering_id')
         .in('offering_id', offeringIds)
-        .eq('status', 'active')
-
-      if (subCountsError) {
-        console.error('[browse] market_box_subscriptions query failed:', subCountsError.message)
-      }
+        .eq('status', 'active'), { table: 'market_box_subscriptions', route: BROWSE_ROUTE })
 
       // Count subscriptions per offering
       for (const sub of subCounts || []) {
@@ -540,17 +536,10 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
     }
   }
 
-  const { data: rawListings, error: listingsError } = await query
-
-  if (listingsError) {
-    console.error('[browse] listings query failed:', {
-      vertical,
-      category,
-      search,
-      error: listingsError.message,
-      code: listingsError.code,
-    })
-  }
+  const { data: rawListings } = await observed(query, {
+    table: 'listings', route: BROWSE_ROUTE,
+    extra: { additionalContext: { vertical, category: category ?? null, search: search ?? null } },
+  })
 
   // Type assertion for listings
   const allListings = rawListings as unknown as Listing[] | null
@@ -589,15 +578,12 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
 
   // Source 1: URL ?zip= param
   if (zip) {
-    const { data: zipData, error: zipError } = await supabase
+    // observed() skips PGRST116 (no row) by default — same as the old explicit check.
+    const { data: zipData } = await observed(supabase
       .from('zip_codes')
       .select('latitude, longitude, city')
       .eq('zip', zip)
-      .single()
-
-    if (zipError && zipError.code !== 'PGRST116') {
-      console.error('[browse] zip_codes lookup failed:', zipError.message)
-    }
+      .single(), { table: 'zip_codes', route: BROWSE_ROUTE })
 
     if (zipData?.latitude && zipData?.longitude) {
       resolvedLocation = {
@@ -658,7 +644,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
   if (resolvedLocation && listings && listings.length > 0) {
     const sanitizedSearch = search ? search.replace(/[%_]/g, '') : null
 
-    const { data: postgisListings, error: postgisError } = await supabase.rpc(
+    const { data: postgisListings, error: postgisError } = await observed(supabase.rpc(
       'get_listings_within_radius',
       {
         user_lat: resolvedLocation.latitude,
@@ -670,7 +656,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
         page_size: 1000, // Fetch up to 1000 for client-side premium/availability filtering
         page_offset: 0,
       }
-    )
+    ), { table: 'rpc:get_listings_within_radius', operation: 'rpc', route: BROWSE_ROUTE })
 
     if (!postgisError && postgisListings && postgisListings.length > 0) {
       // PostGIS succeeded — use its results
@@ -684,7 +670,8 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
       listings = listings.filter(l => postgisIds.has(l.id))
     } else {
       if (postgisError) {
-        console.error('[browse] PostGIS radius query failed, falling back to Haversine:', postgisError.message)
+        // Already in error_logs via observed(); the Haversine fallback below is
+        // the vaulted behavior and is unchanged.
       }
       // PostGIS failed or returned empty — fall back to JS Haversine
       // This preserves the exact pre-PostGIS behavior
@@ -722,15 +709,11 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
     uniqueCategories = FOOD_TRUCK_CATEGORIES
   } else {
     // Fall back to database config for other verticals
-    const { data: verticalData, error: verticalError } = await supabase
+    const { data: verticalData } = await observed(supabase
       .from('verticals')
       .select('config')
       .eq('vertical_id', vertical)
-      .single()
-
-    if (verticalError) {
-      console.error('[browse] verticals config query failed:', verticalError.message)
-    }
+      .single(), { table: 'verticals', route: BROWSE_ROUTE })
 
     const listingFields = (verticalData?.config as Record<string, unknown>)?.listing_fields as Array<Record<string, unknown>> || []
     const categoryField = listingFields.find(
@@ -762,13 +745,10 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
     // Fetch availability for ALL listings (needed to filter before pagination)
     // A5 (mig 245): exclude event-market dates — the pill must match the detail
     // page, which filters them out (events sell via /events/[token]/shop).
-    const { data: allAvailData, error: allAvailError } = await supabase.rpc('get_listings_accepting_status', {
+    const { data: allAvailData } = await observed(supabase.rpc('get_listings_accepting_status', {
       p_listing_ids: listings.map(l => l.id),
       p_exclude_event_markets: true
-    })
-    if (allAvailError) {
-      console.error('[browse] availability RPC failed (all listings):', allAvailError.message)
-    }
+    }), { table: 'rpc:get_listings_accepting_status', operation: 'rpc', route: BROWSE_ROUTE })
     if (allAvailData) {
       // Store ALL availability data — we'll reuse it for the paginated slice
       for (const a of allAvailData) {
@@ -790,13 +770,10 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
   // Fetch availability for paginated slice — only if not already fetched above
   if (paginatedListings.length > 0 && !isAvailableNow) {
     // A5 (mig 245): same event-market exclusion as the all-listings call above.
-    const { data: availData, error: availError } = await supabase.rpc('get_listings_accepting_status', {
+    const { data: availData } = await observed(supabase.rpc('get_listings_accepting_status', {
       p_listing_ids: paginatedListings.map(l => l.id),
       p_exclude_event_markets: true
-    })
-    if (availError) {
-      console.error('[browse] availability RPC failed (page slice):', availError.message)
-    }
+    }), { table: 'rpc:get_listings_accepting_status', operation: 'rpc', route: BROWSE_ROUTE })
     if (availData) {
       for (const a of availData) {
         availabilityMap.set(a.listing_id, a)
