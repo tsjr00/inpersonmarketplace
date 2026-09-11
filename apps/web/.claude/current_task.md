@@ -36,7 +36,18 @@ Session-70 pattern). Owner reports ~2 s after a radius change (logged in). MEASU
 (pre-push vs current local builds equal); staging anon at Amarillo: initial load 1.1–1.4 s, click→results 0.77 s
 (PATCH 0.2 s + 0.38 s before refresh starts + 0.4 s server render). Fix = Stage E items 1-3 (pulled forward right
 after the 248/249 push) + NEW Stage E option 4: radius as URL param with cookie persisted in background (vaulted →
-owner decision). Owner 2026-09-11: "go ahead with the commit and staging push" (248/249 code half). Two test-harness decisions pending: rate-limit
+owner decision). Owner 2026-09-11: "go ahead with the commit and staging push" (248/249 code half).
+✅ PUSHED: `51a1b13c..7365a1ab staging -> staging` (commit 7365a1ab). First attempt failed pre-push Playwright
+(FM login page stuck at "Loading...") — ROOT CAUSE (high confidence): playwright.config `reuseExistingServer:
+true` on :3002 reused MY stray `next start` from the radius investigation, whose .next had been rebuilt
+underneath it → stale/mismatched client chunks. Killed :3002/:3003, re-pushed → passed. LESSON: never leave a
+`next start` running on 3002 during a push (memory saved). Local servers + temp worktree now removed.
+✅ 2026-09-11 owner: "migrations 248 and 249 applied to dev and staging" → snapshot changelog rows flipped to
+Dev+Staging ✅ / Prod PENDING (privileges + function-body only → no structured-table rebuild; files stay in root).
+PROD ORDER (window 21:00–07:00 CT): deploy code 7365a1ab FIRST → paste 248 → paste 249 (prod also still owes
+migs 238→247 in order before these). Owner's post-migration smoke on staging pending (checkout; vendor
+confirm/ready/fulfill; buyer confirm-pickup + cancel; logout/login; /api/health redis).
+NEXT: bookkeeping commit + push (proposed) → Stage E (browse perf) with the 2026-09-11 timings as baseline. Two test-harness decisions pending: rate-limit
 stub exports (item 10) and PERF-R1 execution-level re-expression (item 5).
 ✅ 2026-09-11 staging push: `d34eae7f..1d6a1c66 staging -> staging` (874ff598 docs · 179cb483 next 16.3.4 ·
 1d6a1c66 limiter visibility; carries 6fdf6760 tax batch 2 dark). Chain exit 0, Playwright passed. Vercel build
