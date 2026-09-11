@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import { calculateDisplayPrice, formatDisplayPrice } from '@/lib/constants'
-import { marketBoxJsonLd } from '@/lib/marketing/json-ld'
+import { marketBoxJsonLd, toJsonLdHtml } from '@/lib/marketing/json-ld'
 import MarketBoxDetailClient from './MarketBoxDetailClient'
 import { getAppUrl } from '@/lib/environment'
 import { getLocale } from '@/lib/locale/server'
@@ -118,11 +118,13 @@ export default async function MarketBoxDetailPage({ params }: MarketBoxPageProps
       vendorName,
     })
 
-    // Safe: JSON-LD structured data — server-rendered, no user input
+    // Carries VENDOR-SUPPLIED text (offering name, description, vendor name). The
+    // old comment here claimed "no user input" — wrong, and it hid a stored-XSS
+    // hole until 2026-09-12 (audit C4). toJsonLdHtml escapes `<`.
     jsonLdScript = (
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: toJsonLdHtml(jsonLd) }}
       />
     )
   }

@@ -7,7 +7,7 @@ import ListingImageGallery from '@/components/listings/ListingImageGallery'
 import PickupLocationsCard from '@/components/listings/PickupLocationsCard'
 import BackLink from '@/components/shared/BackLink'
 import ShareButton from '@/components/marketing/ShareButton'
-import { listingJsonLd } from '@/lib/marketing/json-ld'
+import { listingJsonLd, toJsonLdHtml } from '@/lib/marketing/json-ld'
 import { getAppUrl } from '@/lib/environment'
 import { calculateDisplayPrice, formatDisplayPrice, formatQuantityDisplay } from '@/lib/constants'
 import { isBuyerPremiumEnabled } from '@/lib/vertical'
@@ -235,10 +235,13 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
       }}
       className="listing-detail-page"
     >
-      {/* Safe: JSON-LD structured data — server-rendered, no user input */}
+      {/* Carries VENDOR-SUPPLIED text (title, description, vendor name). The old
+          comment here claimed "no user input" — it was wrong, and that claim hid a
+          stored-XSS hole until 2026-09-12 (audit C4). toJsonLdHtml escapes `<` so a
+          description cannot close this tag. */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: toJsonLdHtml(jsonLd) }}
       />
       {/* Back Link - uses browser history to go back to previous page */}
       <div style={{

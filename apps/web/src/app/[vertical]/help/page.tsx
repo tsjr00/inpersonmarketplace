@@ -3,7 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { statusColors, spacing, typography, radius } from '@/lib/design-tokens'
 import { defaultBranding } from '@/lib/branding'
-import { faqPageJsonLd, breadcrumbJsonLd } from '@/lib/marketing/json-ld'
+import { faqPageJsonLd, breadcrumbJsonLd, toJsonLdHtml } from '@/lib/marketing/json-ld'
 import HelpArticleList from '@/components/help/HelpArticleList'
 import { getLocale } from '@/lib/locale/server'
 import { t } from '@/lib/locale/messages'
@@ -59,15 +59,17 @@ export default async function HelpPage({ params, searchParams }: HelpPageProps) 
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: '40px 20px' }}>
+      {/* Built from knowledge_articles — admin-authored, so semi-trusted rather than
+          public input, but it is still stored text reaching a script tag (audit C4). */}
       {faqSchema && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+          dangerouslySetInnerHTML={{ __html: toJsonLdHtml(faqSchema) }}
         />
       )}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbs) }}
+        dangerouslySetInnerHTML={{ __html: toJsonLdHtml(breadcrumbs) }}
       />
       <div style={{ marginBottom: spacing.lg }}>
         <div style={{ display: 'flex', gap: spacing.sm, alignItems: 'center' }}>

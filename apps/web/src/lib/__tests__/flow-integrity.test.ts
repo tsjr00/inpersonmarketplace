@@ -2857,3 +2857,88 @@ describe('Sales tax Batch 2 — one engine, dark flag', () => {
     expect(engine).toMatch(/allocateMarginToTaxable/)
   })
 })
+
+// ═══════════════════════════════════════════════════════════════════════
+// JSON-LD sinks — user text never reaches a <script> raw (audit C4, 2026-09-12)
+//
+// JSON.stringify does not escape `<`. A vendor description containing
+// `</script><script>…` closed the tag and ran for every buyer — and every admin
+// — viewing that listing, market box or vendor profile. Three of those sinks
+// carried a comment asserting "no user input", which is precisely why two
+// earlier reviews walked past it. The CSP allows 'unsafe-inline', so it is not
+// a backstop.
+//
+// The allowlist below is the set of sinks whose data is a compile-time constant
+// (branding, breadcrumbs, static how-it-works copy). One of them lives in the
+// VAULTED landing page, deliberately untouched. The list may shrink, never grow:
+// a new sink must use toJsonLdHtml.
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('JSON-LD: no raw JSON.stringify inside a script tag', () => {
+  const CONSTANT_DATA_SINKS: Record<string, number> = {
+    'app/[vertical]/about/page.tsx': 2,                    // org schema + breadcrumbs
+    'app/[vertical]/how-it-works/page.tsx': 2,             // static HowTo + breadcrumbs
+    'app/[vertical]/layout.tsx': 1,                        // WebSite schema (branding)
+    'app/[vertical]/market-manager-program/page.tsx': 1,   // breadcrumbs
+    'app/[vertical]/page.tsx': 1,                          // landing page — VAULTED, do not touch
+  }
+
+  function tsxFiles(dir: string, out: string[] = []): string[] {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, e.name)
+      if (e.isDirectory()) tsxFiles(full, out)
+      else if (e.name.endsWith('.tsx')) out.push(full)
+    }
+    return out
+  }
+
+  it('every sink carrying user-supplied data uses toJsonLdHtml', () => {
+    const offenders: string[] = []
+    for (const full of tsxFiles(SRC_DIR)) {
+      const rel = path.relative(SRC_DIR, full).split(path.sep).join('/')
+      const raw = (fs.readFileSync(full, 'utf-8').match(/__html:\s*JSON\.stringify\(/g) ?? []).length
+      if (raw === 0) continue
+      const allowed = CONSTANT_DATA_SINKS[rel] ?? 0
+      if (raw !== allowed) {
+        offenders.push(`${rel}: ${raw} raw sink(s), ${allowed} allowed`)
+      }
+    }
+    expect(
+      offenders,
+      'A <script> tag is being fed raw JSON.stringify output. JSON.stringify does not escape "<", so any stored ' +
+        'user text in that object can close the tag and execute. Use toJsonLdHtml() from lib/marketing/json-ld. ' +
+        'If the data really is a compile-time constant, add it to CONSTANT_DATA_SINKS with a reason.\n' +
+        offenders.join('\n')
+    ).toEqual([])
+  })
+
+  it('allowlist entries still match real code (no rot)', () => {
+    const stale: string[] = []
+    for (const [rel, expected] of Object.entries(CONSTANT_DATA_SINKS)) {
+      const full = path.join(SRC_DIR, rel)
+      const raw = fs.existsSync(full)
+        ? (fs.readFileSync(full, 'utf-8').match(/__html:\s*JSON\.stringify\(/g) ?? []).length
+        : -1
+      if (raw !== expected) stale.push(`${rel}: expected ${expected}, found ${raw === -1 ? 'file missing' : raw}`)
+    }
+    expect(stale, `Stale allowlist entry — if a sink was converted, remove its entry:\n${stale.join('\n')}`).toEqual([])
+  })
+
+  it('toJsonLdHtml neutralizes a closing-tag breakout in vendor text', async () => {
+    const { toJsonLdHtml } = await import('../marketing/json-ld')
+    const out = toJsonLdHtml({ description: '</script><script>alert(1)</script>' })
+    expect(out).not.toContain('</script>')
+    expect(out).not.toContain('<')
+    expect(out).toContain('\\u003c')
+    // Still valid JSON carrying the ORIGINAL characters — Google reads it unchanged.
+    expect(JSON.parse(out)).toEqual({ description: '</script><script>alert(1)</script>' })
+  })
+
+  it('toJsonLdHtml escapes the JS line terminators that are legal in JSON', async () => {
+    const { toJsonLdHtml } = await import('../marketing/json-ld')
+    const out = toJsonLdHtml({ t: '\u2028\u2029' })
+    expect(out).toContain('\\u2028')
+    expect(out).toContain('\\u2029')
+    expect(JSON.parse(out)).toEqual({ t: '\u2028\u2029' })
+  })
+})

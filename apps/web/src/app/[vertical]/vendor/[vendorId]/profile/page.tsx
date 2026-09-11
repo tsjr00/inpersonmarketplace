@@ -9,7 +9,7 @@ import TierBadge from '@/components/shared/TierBadge'
 import BackLink from '@/components/shared/BackLink'
 import ShareButton from '@/components/marketing/ShareButton'
 import { getAppUrl } from '@/lib/environment'
-import { vendorProfileJsonLd } from '@/lib/marketing/json-ld'
+import { vendorProfileJsonLd, toJsonLdHtml } from '@/lib/marketing/json-ld'
 import PickupScheduleGrid from '@/components/vendor/PickupScheduleGrid'
 import { isBuyerPremiumEnabled, term } from '@/lib/vertical'
 import PaymentMethodBadges from '@/components/vendor/PaymentMethodBadges'
@@ -476,10 +476,12 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
       }}
       className="vendor-profile-page"
     >
-      {/* Safe: JSON-LD structured data — server-rendered, no user input */}
+      {/* Carries VENDOR-SUPPLIED text (business/farm name, description, image URL,
+          social links). The old comment here claimed "no user input" — wrong, and it
+          hid a stored-XSS hole until 2026-09-12 (audit C4). toJsonLdHtml escapes `<`. */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: toJsonLdHtml(jsonLd) }}
       />
       {/* Admin Status Banner for non-approved vendors */}
       {isAdmin && vendorStatus !== 'approved' && (

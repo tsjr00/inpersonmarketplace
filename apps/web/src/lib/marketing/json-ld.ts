@@ -5,6 +5,33 @@
  * Used in server components via <script type="application/ld+json">.
  */
 
+/**
+ * Serialize an object for embedding inside <script type="application/ld+json">.
+ *
+ * WHY (audit item C4, 2026-09-12): `JSON.stringify` does NOT escape `<`, so a
+ * vendor-supplied listing title, description, business name or market-box name
+ * containing `</script><script>…` closes the tag and runs as script for every
+ * buyer — and every admin — who opens that page. Three of these sinks carried a
+ * comment claiming "no user input", which is what kept the hole invisible
+ * through two prior reviews: the listing, market-box and vendor-profile pages
+ * all embed vendor-authored text. The site CSP allows 'unsafe-inline' for
+ * scripts, so it does not backstop this.
+ *
+ * `<` and friends are valid JSON escapes — Google's parser reads them
+ * exactly as the original characters, so Rich Results are unaffected. U+2028
+ * and U+2029 are legal in JSON strings but are line terminators in JavaScript
+ * source, which breaks the embedded literal; escaping them is the standard
+ * safe-JSON treatment.
+ */
+export function toJsonLdHtml(data: unknown): string {
+  return JSON.stringify(data)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029')
+}
+
 interface VendorProfileJsonLdParams {
   name: string
   url: string
