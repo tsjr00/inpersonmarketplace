@@ -16,7 +16,7 @@
     "qa": "npx tsx ../../scripts/qa-checklist.ts"
   },
   "dependencies": {
-    "@sentry/nextjs": "^10.40.0",
+    "@sentry/nextjs": "^10.74.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.89.0",
     "@upstash/ratelimit": "^2.0.8",
@@ -29,10 +29,10 @@
     "react": "19.2.3",
     "react-chartjs-2": "^5.3.1",
     "react-dom": "19.2.3",
-    "resend": "^6.9.1",
+    "resend": "^6.27.0",
     "standardwebhooks": "^1.0.0",
     "stripe": "^20.1.2",
-    "svix": "^1.86.0",
+    "svix": "^1.99.1",
     "swr": "^2.4.1",
     "twilio": "^5.12.1",
     "web-push": "^3.6.7",
