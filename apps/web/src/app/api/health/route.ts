@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getRateLimiterStatus } from '@/lib/rate-limit'
 
 // GET /api/health — Simple health check for monitoring
-// Verifies: server is running + database is reachable
+// Verifies: server is running + database is reachable + rate limiter mode
+// (per instance: 'redis' shared · 'memory' no Redis configured · 'memory-fallback'
+// Redis configured but failing — launch_fix_plan item 4). Does not touch Redis itself.
 // Uses anon key directly (no auth needed, verticals table has public SELECT)
 export async function GET() {
   const start = Date.now()
@@ -28,7 +31,7 @@ export async function GET() {
     }
 
     return NextResponse.json(
-      { status: 'healthy', db: 'connected', latency_ms: Date.now() - start },
+      { status: 'healthy', db: 'connected', latency_ms: Date.now() - start, rateLimiter: getRateLimiterStatus() },
       { status: 200, headers: { 'Cache-Control': 'no-store' } }
     )
   } catch (err) {

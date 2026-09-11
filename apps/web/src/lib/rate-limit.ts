@@ -7,6 +7,7 @@
 
 import { Redis } from '@upstash/redis'
 import { Ratelimit } from '@upstash/ratelimit'
+import { TracedError, logError } from '@/lib/errors'
 
 // ── Upstash Redis Client ───────────────────────────────
 
@@ -16,6 +17,56 @@ const redis = process.env.UPSTASH_REDIS_REST_URL
       token: process.env.UPSTASH_REDIS_REST_TOKEN!,
     })
   : null
+
+// ── Limiter mode visibility (launch_fix_plan item 4) ───
+//
+// The Redis→memory fallback below is silent by construction: the only symptom
+// of a quota-exhausted or unreachable Upstash was a console.error nobody reads.
+// This tracks the live mode per instance so /api/health can report it and so
+// error_logs gets ONE ERR_RATE_001 per instance per 5 minutes (not one per
+// request — a spike is exactly when the fallback fires).
+
+export type RateLimiterMode = 'redis' | 'memory' | 'memory-fallback'
+
+let limiterMode: RateLimiterMode = redis ? 'redis' : 'memory'
+let redisErrorCount = 0
+let lastRedisErrorAt: number | null = null
+let lastFallbackLogAt = 0
+const FALLBACK_LOG_INTERVAL_MS = 5 * 60 * 1000
+
+export interface RateLimiterStatus {
+  /** 'redis' = shared limits · 'memory' = no Redis configured (dev) · 'memory-fallback' = Redis configured but failing */
+  mode: RateLimiterMode
+  redisConfigured: boolean
+  redisErrorCount: number
+  lastRedisErrorAt: string | null
+}
+
+/** Live limiter mode for this server instance. Read-only; used by /api/health. */
+export function getRateLimiterStatus(): RateLimiterStatus {
+  return {
+    mode: limiterMode,
+    redisConfigured: redis !== null,
+    redisErrorCount,
+    lastRedisErrorAt: lastRedisErrorAt ? new Date(lastRedisErrorAt).toISOString() : null,
+  }
+}
+
+async function recordRedisFailure(err: unknown): Promise<void> {
+  const now = Date.now()
+  limiterMode = 'memory-fallback'
+  redisErrorCount++
+  lastRedisErrorAt = now
+  if (now - lastFallbackLogAt < FALLBACK_LOG_INTERVAL_MS) return
+  lastFallbackLogAt = now
+  try {
+    await logError(new TracedError('ERR_RATE_001',
+      `Rate limiter degraded to per-instance memory — Redis unavailable: ${err instanceof Error ? err.message : String(err)}`,
+      { route: 'lib/rate-limit', method: 'checkRateLimit', redisErrorCount }))
+  } catch {
+    // Visibility must never become the failure.
+  }
+}
 
 // Cache Ratelimit instances per config to avoid re-creation
 const limiters = new Map<string, Ratelimit>()
@@ -172,6 +223,8 @@ export async function checkRateLimit(
     try {
       const limiter = getLimiter(config)
       const result = await limiter.limit(identifier)
+      // Recovered (or never failed): shared limiting is live again.
+      if (limiterMode === 'memory-fallback') limiterMode = 'redis'
       return {
         success: result.success,
         remaining: result.remaining,
@@ -190,8 +243,10 @@ export async function checkRateLimit(
       // could be down for days and the only symptom would be a rate limit that
       // quietly stopped being global. Verified 2026-08-13 while closing the
       // "does the limiter fail open?" question — it doesn't, but nothing told
-      // anyone either way.
+      // anyone either way. 2026-09-11: now also error_logs (ERR_RATE_001,
+      // throttled) + /api/health mode, via recordRedisFailure.
       console.error('[rate-limit] Redis unavailable — degraded to per-instance limiting', err)
+      await recordRedisFailure(err)
     }
   }
 

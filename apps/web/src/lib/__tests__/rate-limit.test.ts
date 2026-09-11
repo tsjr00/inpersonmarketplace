@@ -2,7 +2,7 @@
  * Rate limiting tests.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import { checkRateLimit, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { checkRateLimit, rateLimits, rateLimitResponse, getRateLimiterStatus } from '@/lib/rate-limit'
 
 describe('checkRateLimit', () => {
   // Use unique identifiers per test AND per run to avoid cross-test and
@@ -83,5 +83,30 @@ describe('rateLimitResponse', () => {
     expect(response.headers.get('Content-Type')).toBe('application/json')
     expect(response.headers.get('X-RateLimit-Remaining')).toBe('0')
     expect(response.headers.get('Retry-After')).toBeTruthy()
+  })
+})
+
+// launch_fix_plan item 4 (2026-09-11): the Redis→memory fallback used to be
+// invisible. /api/health now reports this status; pin its contract.
+describe('getRateLimiterStatus', () => {
+  it('reports a mode consistent with whether Redis is configured', async () => {
+    await checkRateLimit(`status-probe-${Date.now().toString(36)}`, rateLimits.api)
+    const status = getRateLimiterStatus()
+    expect(['redis', 'memory', 'memory-fallback']).toContain(status.mode)
+    expect(typeof status.redisConfigured).toBe('boolean')
+    // No Redis configured ⇒ plain 'memory', never 'redis' and never a fallback.
+    if (!status.redisConfigured) {
+      expect(status.mode).toBe('memory')
+      expect(status.redisErrorCount).toBe(0)
+      expect(status.lastRedisErrorAt).toBeNull()
+    } else {
+      // Redis configured ⇒ 'redis' while healthy; a fallback must carry evidence.
+      if (status.mode === 'memory-fallback') {
+        expect(status.redisErrorCount).toBeGreaterThan(0)
+        expect(status.lastRedisErrorAt).not.toBeNull()
+      } else {
+        expect(status.mode).toBe('redis')
+      }
+    }
   })
 })

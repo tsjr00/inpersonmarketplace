@@ -265,4 +265,24 @@ export const DB_ERRORS: ErrorCatalogEntry[] = [
       'Add new error code mapping if this error recurs',
     ],
   },
+
+  // Rate limiter infrastructure (launch_fix_plan item 4, 2026-09-11)
+  {
+    code: 'ERR_RATE_001',
+    title: 'Rate Limiter Degraded to Per-Instance Memory',
+    category: 'RATE',
+    severity: 'high',
+    description: 'Upstash Redis was unavailable (error, quota exhausted, or misconfigured) so checkRateLimit fell back to the in-memory store. Limits are still enforced, but PER Vercel instance instead of globally — the effective ceiling becomes (instances × limit). Logged at most once per 5 minutes per instance; /api/health reports the live mode.',
+    userGuidance: '',
+    causes: [
+      'Upstash daily command quota exhausted (free tier = 10K commands/day ≈ 5K checks)',
+      'Upstash outage or network failure from the Vercel region',
+      'UPSTASH_REDIS_REST_TOKEN rotated or invalid',
+    ],
+    solutions: [
+      'Check the Upstash console for quota/usage and errors',
+      'Verify UPSTASH_REDIS_REST_URL / _TOKEN in Vercel env',
+      'GET /api/health → rateLimiter.mode shows "memory-fallback" until Redis recovers ("redis" after)',
+    ],
+  },
 ]
