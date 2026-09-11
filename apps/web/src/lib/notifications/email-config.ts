@@ -10,6 +10,42 @@
 
 import { defaultBranding } from '@/lib/branding/defaults'
 
+/**
+ * Escape a value before interpolating it into an HTML email body.
+ *
+ * WHY (audit item C5, 2026-09-12): three outbound templates interpolated
+ * vendor- and organizer-supplied text straight into HTML — the event-results
+ * email (`cron/expire-orders`), the vendor→organizer message relay
+ * (`vendor/events/[marketId]/message`) and the event confirmation
+ * (`events/[token]/select`). Mail clients do not run script, so this is not
+ * browser XSS; it is HTML injection into a platform-branded email. A vendor
+ * whose business name is `<a href="...">Click to claim your refund</a>` gets a
+ * live link rendered inside a message the organizer believes came from us.
+ *
+ * Six private copies of this function already exist in individual routes. They
+ * are left alone deliberately — they work, and rewriting them would be churn.
+ * New sites use this one.
+ */
+export function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+/**
+ * Sanitize a value destined for an email SUBJECT line.
+ *
+ * Subjects are headers, not markup: the risk is a CR or LF turning one header
+ * into two (header injection). Escaping is pointless there and would show raw
+ * entities to the reader, so collapse line breaks to spaces instead.
+ */
+export function sanitizeSubjectValue(value: unknown): string {
+  return String(value ?? '').replace(/[\r\n]+/g, ' ').trim()
+}
+
 /** Verified email domains — each requires Resend DNS verification on mail. subdomain */
 export const VERIFIED_EMAIL_DOMAINS: Record<string, string> = {
   farmers_market: 'updates@mail.farmersmarketing.app',

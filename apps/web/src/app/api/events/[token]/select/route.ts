@@ -5,6 +5,7 @@ import { logError, TracedError, observed } from '@/lib/errors'
 import { refundEventFeePayment } from '@/lib/stripe/event-fee-payments'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { sendNotification } from '@/lib/notifications/service'
+import { escapeHtml } from '@/lib/notifications/email-config'
 import { recommendBackupBench } from '@/lib/events/backup-bench'
 import { liftEventBlackouts } from '@/lib/events/blackouts'
 import { validatePare, MIN_KEPT_ITEMS } from '@/lib/events/menu-pare'
@@ -714,7 +715,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
           <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto">
             <h2 style="color:${accentColor};margin:0 0 8px">Your Event Is Confirmed!</h2>
-            <p style="color:#374151;margin:0 0 16px">Hi ${event.contact_name || 'there'},</p>
+            <p style="color:#374151;margin:0 0 16px">Hi ${escapeHtml(event.contact_name || 'there')},</p>
             <p style="color:#4b5563;line-height:1.6;margin:0 0 20px">
               Your ${uniqueVendorIds.length} selected ${vendorLabel}${uniqueVendorIds.length > 1 ? 's are' : ' is'} confirmed for
               <strong>${event.event_date}</strong>. They&rsquo;re connecting their menus to your event page now.
@@ -739,7 +740,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
               <div style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;margin:0 0 8px">EMAIL TO STAFF / ATTENDEES</div>
               <div style="font-size:13px;color:#374151;line-height:1.6">
                 <p style="margin:0 0 8px"><strong>Subject:</strong> Food at our upcoming event — pre-order now!</p>
-                <p style="margin:0 0 8px">We&rsquo;ve arranged ${vendorLabel}s for our event on ${event.event_date} featuring ${cuisineList}.</p>
+                <p style="margin:0 0 8px">We&rsquo;ve arranged ${vendorLabel}s for our event on ${escapeHtml(event.event_date)} featuring ${escapeHtml(cuisineList)}.</p>
                 <p style="margin:0 0 8px"><strong>Pre-order your meal ahead of time and skip the line!</strong> Browse menus, pick what you want, and it&rsquo;ll be ready when you arrive. More time enjoying the event, less time waiting.</p>
                 <p style="margin:0">Order here: ${eventPageUrl}</p>
               </div>

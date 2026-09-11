@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
+import { escapeHtml, sanitizeSubjectValue } from '@/lib/notifications/email-config'
 
 /**
  * POST /api/vendor/events/[marketId]/message
@@ -123,13 +124,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
       await resend.emails.send({
         from: `${senderName} <updates@${senderDomain}>`,
         to: cReq.contact_email,
-        subject: `Message from ${vendorName} about your event`,
+        subject: `Message from ${sanitizeSubjectValue(vendorName)} about your event`,
         html: `
           <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto">
             <h2 style="color:${accentColor};margin:0 0 8px">Message from a Vendor</h2>
-            <p style="color:#374151;margin:0 0 16px">Hi ${cReq.contact_name || 'there'},</p>
+            <p style="color:#374151;margin:0 0 16px">Hi ${escapeHtml(cReq.contact_name || 'there')},</p>
             <p style="color:#4b5563;margin:0 0 8px">
-              <strong>${vendorName}</strong> sent you a message about your event on <strong>${cReq.event_date}</strong>:
+              <strong>${escapeHtml(vendorName)}</strong> sent you a message about your event on <strong>${escapeHtml(cReq.event_date)}</strong>:
             </p>
             <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:0 0 20px">
               <p style="margin:0;color:#374151;line-height:1.6;white-space:pre-wrap">${message.trim().replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>

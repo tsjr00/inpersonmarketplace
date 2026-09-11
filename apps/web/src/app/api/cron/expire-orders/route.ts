@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { notifyOrderExpired, sendNotification } from '@/lib/notifications'
+import { escapeHtml } from '@/lib/notifications/email-config'
 import { createRefund, transferToVendor, transferMarketBoxPayout, getChargeIdFromPaymentIntent } from '@/lib/stripe/payments'
 import { classifyExistingTransfer } from '@/lib/stripe/payout-reconcile'
 import { cancelOrderItemsAndRestoreGuarded, restoreInventory, restoreOrderInventory } from '@/lib/inventory'
@@ -2499,7 +2500,7 @@ export async function GET(request: NextRequest) {
             const vendorListHtml = vendorDetails.length > 0
               ? vendorDetails.map((v: { name: string; rating: number | null | undefined; ratingCount: number; tier: string; leadTime: number }, i: number) => `
                 <tr>
-                  <td style="padding:8px 12px;border-bottom:1px solid #eee">${i + 1}. <strong>${v.name}</strong></td>
+                  <td style="padding:8px 12px;border-bottom:1px solid #eee">${i + 1}. <strong>${escapeHtml(v.name)}</strong></td>
                   <td style="padding:8px 12px;border-bottom:1px solid #eee">${v.rating ? `${v.rating.toFixed(1)}★ (${v.ratingCount})` : 'New'}</td>
                   <td style="padding:8px 12px;border-bottom:1px solid #eee">${v.leadTime <= 15 ? '15 min ⚡' : '30 min'}</td>
                 </tr>
@@ -2515,10 +2516,10 @@ export async function GET(request: NextRequest) {
               html: `
                 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto">
                   <h2 style="color:${accentColor};margin:0 0 8px">Your Event Results</h2>
-                  <p style="color:#374151;margin:0 0 16px">Hi ${event.contact_name || 'there'},</p>
+                  <p style="color:#374151;margin:0 0 16px">Hi ${escapeHtml(event.contact_name || 'there')},</p>
                   <p style="color:#4b5563;line-height:1.6;margin:0 0 16px">
                     ${accepted.length > 0
-                      ? `Great news! <strong>${accepted.length}</strong> ${accepted.length > 1 ? vendorNounPlural + ' have' : vendorNoun + ' has'} expressed interest in your event on <strong>${event.event_date}</strong> in ${event.city}, ${event.state}.`
+                      ? `Great news! <strong>${accepted.length}</strong> ${accepted.length > 1 ? vendorNounPlural + ' have' : vendorNoun + ' has'} expressed interest in your event on <strong>${escapeHtml(event.event_date)}</strong> in ${escapeHtml(event.city)}, ${escapeHtml(event.state)}.`
                       : `We sent your event details to qualified ${vendorNounPlural}, but haven't received responses yet. This can happen with very specific criteria or dates. You're welcome to submit a new request with broader preferences.`
                     }
                   </p>

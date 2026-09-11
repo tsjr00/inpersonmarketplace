@@ -11,7 +11,48 @@ import {
   VERIFIED_EMAIL_DOMAINS,
   getEmailFromAddress,
   getEmailBranding,
+  escapeHtml,
+  sanitizeSubjectValue,
 } from '../email-config'
+
+// ── Audit item C5 (2026-09-12): HTML injection into platform-branded email ──
+// Not browser XSS — mail clients do not run script — but a vendor-supplied name
+// containing markup renders as live content in an organizer's inbox.
+describe('escapeHtml', () => {
+  it('neutralizes a link injected through a vendor business name', () => {
+    const injected = '<a href="https://evil.example">Click to claim your refund</a>'
+    const out = escapeHtml(injected)
+    expect(out).not.toContain('<a')
+    expect(out).toContain('&lt;a href=&quot;https://evil.example&quot;&gt;')
+  })
+
+  it('escapes the five HTML-significant characters', () => {
+    expect(escapeHtml(`& < > " '`)).toBe('&amp; &lt; &gt; &quot; &#39;')
+  })
+
+  it('escapes ampersands first so entities are not double-broken', () => {
+    expect(escapeHtml('&lt;')).toBe('&amp;lt;')
+  })
+
+  it('renders null and undefined as an empty string, never "null"', () => {
+    expect(escapeHtml(null)).toBe('')
+    expect(escapeHtml(undefined)).toBe('')
+  })
+})
+
+describe('sanitizeSubjectValue', () => {
+  it('collapses CR/LF so a vendor name cannot forge a mail header', () => {
+    expect(sanitizeSubjectValue('Farm\r\nBcc: victim@example.com')).toBe('Farm Bcc: victim@example.com')
+  })
+
+  it('does NOT escape markup — a subject is a header, not HTML', () => {
+    expect(sanitizeSubjectValue('Bob & Sons <Farm>')).toBe('Bob & Sons <Farm>')
+  })
+
+  it('trims surrounding whitespace', () => {
+    expect(sanitizeSubjectValue('  Green Acres  ')).toBe('Green Acres')
+  })
+})
 
 describe('Email Configuration', () => {
   // ── VERIFIED_EMAIL_DOMAINS ─────────────────────────────────────
