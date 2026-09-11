@@ -99,6 +99,21 @@ smoke list (2-3 items from the diff) → `git log origin/staging` ref check → 
   get_available_pickup_dates, get_listing_* , get_zip_*, get_vertical_config, can_*/is_*/has_role
   (auth.uid-based, empty for anon), build_pickup_snapshot, calculate_order_item_expiration.
 
+## Stage E status (2026-09-11, pre-compaction)
+- **E1 DONE (471e5770):** browse catalog select trimmed (market_schedules embed + 7 unread market columns).
+  BEFORE (staging anon Amarillo): full page 0.59–0.80 s · click→results 0.77 s · initial 1.1–1.4 s. **AFTER: not
+  yet measured** (probe interrupted). Rule 2.1: measure, record in PERFORMANCE_BASELINE change log; revert if not better.
+- **NEW FINDING E-0 (CONFIRMED by dev-DB repro):** `get_listings_within_radius` → 42804 (declares `vendor_status
+  TEXT`, `vendor_profiles.status` is enum; mig 087) and `get_markets_within_radius` → 42703 (`m.zip_code`; column
+  is `zip`; mig 004). Both have NEVER worked; browse always used JS Haversine, markets/nearby always used the
+  bounding-box fallback. The Supabase-log "structure of query does not match function result type" storm the owner
+  saw = every browse-with-location hit (+ my probe). **Options (owner undecided):** (a) mig 250 fixing both
+  (`vp.status::text`; `m.zip AS zip_code`) — PREREQ snapshot rebuild (Rule L: 245-249 = 5 already) and, for
+  markets, the PostGIS branch omits `vendor_count` that the fallback supplies → read the consumer first;
+  (b) browse-only: remove the redundant PostGIS call from the vaulted page (Haversine stays) — no migration,
+  zero behavior change; (c) both. Not a regression from today's work.
+- E2/E3/E4 unchanged (see Sequencing + item 5). E2 also needs the snapshot rebuild if it lands as a migration.
+
 ## What this plan did NOT verify
 - Live prod RLS/ACLs, Upstash/Supabase/Vercel plan tiers (owner-side).
 - Advisory applicability statements come from agent-fetched advisory pages (URLs in R4's transcript);

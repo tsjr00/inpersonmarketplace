@@ -1,3 +1,45 @@
+# ⛳⛳ CHECKPOINT 2026-09-11 (pre-compaction) — READ THIS BLOCK FIRST, THEN STOP AND ASK THE OWNER
+**Git:** main = origin/staging = `471e5770` (tree clean except this doc). Prod = `e946c2c0` (owes migs 238→249
+in order + ~90 commits; prod order for the new ones: deploy code FIRST, then 248, then 249 — both differential).
+**Mode:** owner approved a STAGED plan (A→F) 2026-09-11 and "proceed with the proposed order"; Fix-mode for
+that scope only. Standing stops: protected file = per-file diff+ask · vaulted file (browse page) = vault diff +
+present + ask · commit/push = ask (propose together) · migrations = owner applies · NO test-expectation edits.
+**Shipped to staging today (all owner-smoked OK):** docs/baseline re-measure · next 16.3.4 · limiter mode on
+/api/health (ERR_RATE_001) · sentry/resend/svix pins · slot-availability rate limit + market-box PATCH price
+floor · browse page 9 Supabase calls → observed() · **migs 248 (revoke PUBLIC on 5 write fns) + 249 (order money
+columns service-only via column privileges) APPLIED Dev+Staging** with skip-route + checkout/session service-
+client changes (7365a1ab) · bookkeeping (eeeaf0e4) · Stage E step 1 = browse catalog select trimmed (471e5770).
+**Records:** `.claude/launch_readiness_review_2026-09-10.md` (scored review) · `.claude/launch_fix_plan_2026-09-10.md`
+(18 items + Stage A results A-1/A-2) · `.claude/mig_248_249_design.md` · decisions.md 2026-09-11 · memory
+`project_playwright_reuses_port_3002.md`.
+**⚠ OPEN / UNDECIDED (owner must rule — do NOT act on these without a fresh go):**
+1. **Two pre-existing broken PostGIS functions (CONFIRMED by dev-DB repro 2026-09-11):** `get_listings_within_radius`
+   fails 42804 (declares `vendor_status TEXT`, column is enum `vendor_status`; mig 087) → browse has ALWAYS used the
+   JS Haversine fallback; `get_markets_within_radius` fails 42703 (`m.zip_code`, column is `zip`; mig 004) → markets
+   nearby has ALWAYS used the bounding-box fallback. Owner sees "structure of query does not match function result
+   type" in Supabase logs every browse-with-location (my probe amplified it; probe STOPPED). Proposed **mig 250**:
+   cast `vp.status::text` + `m.zip AS zip_code`. ⚠ PREREQ: Rule L allows ≤5 migrations past the snapshot stamp;
+   245-249 = 5 → owner must run `supabase/REFRESH_SCHEMA.sql` on Dev, Claude rebuilds structured sections + moves
+   stamp to 249, BEFORE 250 exists. ⚠ markets PostGIS branch returns NO vendor_count (fallback does) — read the
+   markets-page consumer before enabling. ALT for browse only: drop the redundant PostGIS call in the vaulted page
+   (Haversine stays) — zero behavior change, no migration. Owner has NOT chosen.
+2. **Stage E step 1 AFTER-measurement not done** (probe stopped mid-run; Vercel build state of 471e5770 unknown).
+   BEFORE (staging, anon, Amarillo 35.2217,-101.8313): full page 0.59–0.80 s, click→results 0.77 s, initial load
+   1.1–1.4 s. Probe scripts in the session scratchpad may be gone after compaction — re-create: curl full-page
+   timings with the location cookie; Playwright click timing. Then PERFORMANCE_BASELINE change-log row (Rule 2.1).
+   Owner's perceived ~2 s (logged in) is NOT a regression (pre-push vs current builds equal).
+3. **Stage E remaining:** E2 set-based `get_listings_accepting_status` (integration test FIRST; needs the same
+   snapshot rebuild) · E3 unstable_cache catalog fetch (vaulted; disclose private-event delta) · E4 radius as URL
+   param + background cookie (vaulted; owner decision).
+4. **Two test-harness decisions still pending owner:** (a) add the rate-limit helper export to the stubs in
+   api-route-guards + money-authorization tests (item 10 helper design) — NOT yet authorized; (b) re-express PERF-R1
+   "exactly 2 RPC call sites" as an execution-level test, its own earlier commit — only if the spike works.
+5. **Stage B/C/D not started:** rules-file fix (protected table lists nonexistent vendor/payouts route), rate-limit
+   helper, JSON-LD safe serializer (C10 stored XSS — real), email escapeHtml (3 builders), two-tier rate limits.
+6. **Owner-side open:** Upstash plan tier (health shows redis, 0 errors); buyer-cancel smoke step not reported;
+   staging test-pass findings never received; Sentry emails from local Playwright (gating = owner config call).
+7. Phase-2 hardening noted in mig 249 header (refund/fee cols + orders.status still user-writable; reports-only).
+
 # ⛳ 2026-09-11 — OWNER GO: "proceed with your proposed order of fixes" (Fix mode for the launch_fix_plan order)
 Order approved (chat 2026-09-11): T0 (1) perf-baseline re-measure docs, (2) next@16.3.4 + (2b) dep pins ·
 T1 (3) limiter visibility health+logError, (4) page-level observed() on browse/pickup/orders/checkout,

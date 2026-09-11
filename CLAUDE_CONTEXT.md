@@ -493,6 +493,10 @@ One rule written in two independently-editable places with silent drift is this 
 
 ---
 
+## Session History — 2026-09-10→11 (launch-readiness review → staged fix plan → Stage A security lockdown)
+
+Full-app code review scored Security 7 · Stability 8 · Traffic 4 · Efficiency 6 (`apps/web/.claude/launch_readiness_review_2026-09-10.md`); 18-item fix plan with owner-approved staged order (`launch_fix_plan_2026-09-10.md`). **Shipped to staging (all owner-smoked):** perf-baseline re-measure (PERF-R9 would have fired 09-13) + browse rows corrected; **Next 16.1.6→16.3.4** (GHSA-26hh middleware-bypass-with-Turbopack applied to this app; Vercel absorbs the two RCEs); limiter mode on `/api/health` + ERR_RATE_001; sentry/resend/svix pins (audit 32→8, all transitive); slot-availability rate limit; market-box PATCH $1 floor; browse page Supabase calls → `observed()`; **live-PROD catalog queries found A-1 (5 anon-callable write SECURITY DEFINER fns, no caller check) and A-2 (buyer could UPDATE `order_items.vendor_payout_cents` on own orders; fulfill transfers it verbatim) → migs 248 + 249 (column privileges) applied Dev+Staging with skip-route + checkout/session service-client changes; PROD ORDER = code first, then 248, then 249.** Stage E step 1 (browse select trim) pushed, AFTER-measurement pending. **Discovered but undecided:** `get_listings_within_radius` (mig 087, enum-vs-text) and `get_markets_within_radius` (mig 004, `zip_code` vs `zip`) have NEVER worked — both pages always ran their fallbacks; fix = mig 250 after a snapshot rebuild (Rule L at its 5-migration limit). Lessons: Playwright pre-push reuses a stray :3002 server → "Loading..." false failure (memory saved); first radius "failure" was deploy lag, not code.
+
 ## Session History — 2026-09-05→06 (bundles hardening: E-series testing → two-part handoff, cancel policy, notification sequence)
 
 The owner ran the full bundle loop on staging across four feedback rounds; every finding was
