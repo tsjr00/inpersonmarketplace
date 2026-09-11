@@ -294,6 +294,12 @@ describe('R3: non-duplicate payout-insert failure blocks the transfer', () => {
       }
       if (q.table === 'order_items' && q.op === 'update') return { data: [{ id: 'item-1' }], error: null }
       if (q.table === 'order_items' && q.op === 'select') return { data: null, error: null, count: 1 }
+      // 2026-09-12 (audit item B1): this case models a GENUINELY paid order, so it
+      // carries a succeeded payment row. Without one the fixture is the exact state
+      // F-1 says must never pay — status 'paid' with no payment behind it — and once
+      // the payout gates stop trusting orders.status, this case would fail at the
+      // gate instead of at the payout insert it exists to test.
+      if (q.table === 'payments') return { data: { id: 'pay-1', stripe_payment_intent_id: 'pi_1' }, error: null }
       if (q.table === 'vendor_payouts' && q.op === 'select') return { data: null, error: null }
       if (q.table === 'vendor_payouts' && q.op === 'insert') {
         return { data: null, error: { code: 'XX000', message: 'db exploded' } }
