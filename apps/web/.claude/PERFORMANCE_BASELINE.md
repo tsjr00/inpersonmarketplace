@@ -1,6 +1,6 @@
 # Performance Baseline
 
-**Last measured: 2026-07-14 (pre-re-release review series)**
+**Last measured: 2026-09-11 (launch-readiness re-measure — browse rows corrected: the page has been `force-dynamic` since the Session 59 location-search restore; the ISR claims below were stale)**
 **Purpose:** Source of truth for performance metrics. Any session proposing performance changes must measure against these baselines and demonstrate improvement before committing.
 
 ---
@@ -13,8 +13,8 @@ These metrics are derived from code analysis. They do not depend on network cond
 
 | Page | Total DB Calls | Sequential | Parallelized | Max Waterfall Depth | Notes |
 |------|---------------|------------|-------------|--------------------|----|
-| `/[vertical]/browse` (listings) | 2-3 | 2-3 | 0 | 2-3 | **ISR-cached (Session 59).** Uses anonSupabase (no cookies). Auth/tier/locale moved to BrowseBuyerOverlay client component. Queries: listings, availability RPC, optionally zip_codes. |
-| `/[vertical]/browse` (market-boxes) | 2 | 2 | 0 | 2 | **ISR-cached (Session 59).** Uses anonSupabase. Queries: offerings, subscription counts. Auth/tier moved to client overlay. |
+| `/[vertical]/browse` (listings) | 2 (anon) → up to 6 (signed-in + location + available=true) | up to 5 | 2 (auth ‖ locale) | up to 5 | **DYNAMIC (`force-dynamic`, page.tsx:28) — NOT cached.** Uses `createClient()` (cookies) — required by the httpOnly `user_location` cookie path (vaulted, Session 59 restore). Per request: `auth.getUser()` ‖ `getLocale()` (:200) → `user_profiles` if signed in (:214-221) → **whole-vertical published catalog with nested vendor/market/schedule/image embeds, no DB pagination** (:468-541) → `zip_codes` if `?zip=` (:592-597) → `get_listings_within_radius` RPC if a location resolves (:660-671, page_size 1000) → `get_listings_accepting_status` RPC over the 50-item page slice (:792-795), or over ALL post-filter listings when `?available=true` (:764-767). Anonymous visitors with no session skip the auth network call (auth-js short-circuits without a session token). Measured 2026-09-11 by code read; see launch_fix_plan item 5 for the reduction plan. |
+| `/[vertical]/browse` (market-boxes) | 3-4 | 3-4 | 0 | 3-4 | **DYNAMIC** (same page, same client). `auth.getUser()` → `user_profiles` if signed in → offerings (:232-262) → subscription counts in ONE query (:270-276). |
 | `/[vertical]/markets` | 5 | 1 | 4 | 2 | Excellent — 4-way parallel, then vendor counts. |
 | `/[vertical]/vendors` | 4 | 0 | 4 | 2 | Optimal — two parallel phases. |
 | `/[vertical]/listing/[id]` | 5 | 0 | 5 | 2 | Optimal — two parallel phases with data dependencies. |
@@ -42,6 +42,10 @@ These metrics are derived from code analysis. They do not depend on network cond
 | Total client JS chunk count | 160 | 2026-07-14 | +7 over 2 months (FT park-operator system, Events Tier-1 agreement/broadcast/ratings, help KB, FM dashboard phases). Organic page growth; 20% headroom to the 200 ceiling. |
 | Largest chunk | 541 KB | 2026-07-14 | Same Next.js framework chunk (slightly smaller than 5/15). |
 | Total client JS (`.next/static/chunks/`) | 5.9 MB | 2026-07-14 | +0.5 MB since 5/15; tracks page-count growth, no single bad import. |
+| Total client JS chunk count | 169 | 2026-09-11 | +9 over 2 months (bundles, VIP/loyalty, tax batch 1-2, events UX, admin rebuild). 15% headroom to the 200 ceiling. |
+| Largest chunk | 555 KB | 2026-09-11 | Same Next.js framework chunk (+14 KB; Next 16.1.6). |
+| Total client JS (`.next/static/chunks/`) | 6.1 MB | 2026-09-11 | +0.2 MB since 7/14. Fresh `npm run build`, `find .next/static/chunks -name '*.js' \| wc -l` + `du -sh`. |
+| Chunks / total JS after Next 16.3.4 upgrade | 173 / 5.9 MB | 2026-09-11 | Same day, post-upgrade build (exit 0). Chunking changed with the framework bump; total shrank 0.2 MB. 27 chunks headroom to the 200 ceiling. |
 
 **Rule:** Total client JS must not increase beyond 5% (4.5 MB ceiling) without justification. Chunk count ceiling enforced by `performance-baseline.test.ts` PERF-R7.
 
@@ -50,13 +54,9 @@ These metrics are derived from code analysis. They do not depend on network cond
 ## Architectural Decisions (Context for Future Sessions)
 
 ### Browse Page ISR (`revalidate = 300`)
-**Status: EFFECTIVE (Session 59)** — Browse page uses `anonSupabase` (no cookies). `revalidate = 300` now works: first request renders server-side, then CDN caches for 5 minutes. All users hitting the same URL get cache hits (~50ms vs ~500ms dynamic). User-specific data (auth, buyer tier, premium window filtering) handled by `BrowseBuyerOverlay` client component.
+**Status: REVERTED — page is `force-dynamic` (corrected 2026-09-11).** The Session 59 ISR conversion (anonSupabase + `revalidate = 300` + client overlay) broke cookie-based location search and was rolled back; the restored page reads the `user_location` cookie server-side and carries an explicit comment forbidding `export const revalidate` (page.tsx:25-28). This section previously still said "EFFECTIVE" — that was stale and misled a 2026-09-10 review until the code was read.
 
-**Tradeoffs accepted:**
-- Cookie-based location filtering removed — users use `?zip=` URL param instead
-- Premium-window items hidden via CSS class + client overlay (brief ~200ms delay for premium users to see them)
-- Locale defaults to 'en' on server (client can override, rare scenario for US app)
-- **Rollback:** Replace `anonSupabase` with `createClient()` to restore dynamic rendering instantly
+**Current posture (vaulted — see `.claude/vault-manifest.md` Location Search):** every browse request is server-rendered with the cookie/profile/zip location filter applied after a whole-catalog fetch. Do NOT re-add `revalidate`, remove cookie reads, or drop the Haversine fallback. Cost-reduction options that keep this behavior are ranked in `.claude/launch_fix_plan_2026-09-10.md` item 5 (trim the unused `market_schedules` embed; set-based rewrite of `get_listings_accepting_status`; `unstable_cache` on the catalog fetch only). Each needs a before/after measurement against THIS row.
 
 ### Browse Page `loading.tsx`
 **Status: WORKING CORRECTLY** — The skeleton reveals existing server rendering latency (~0.5s on staging). The latency existed before the skeleton was added. The skeleton improves perceived performance by showing structure immediately instead of a white screen. **Do not remove the skeleton to "fix" slowness — the slowness is server-side query time, not the skeleton.**
@@ -70,7 +70,7 @@ These metrics are derived from code analysis. They do not depend on network cond
 
 | Area | Ceiling | Reason |
 |------|---------|--------|
-| Browse page TTFB | ~50ms (CDN hit), ~500ms (cache miss) | ISR-cached with 5-min revalidation. First request per URL is dynamic; subsequent requests served from CDN. |
+| Browse page TTFB | Every request dynamic (no CDN hits). Server time = catalog fetch + availability RPC; UNMEASURED in wall-clock terms as of 2026-09-11 — the prior "~50ms CDN hit" figure described the reverted ISR build and is withdrawn. | `force-dynamic` for the cookie location filter (vaulted). The availability RPC (`LEFT JOIN LATERAL get_available_pickup_dates` per listing, mig 245) is the CPU-heavy step. |
 | Dashboard page | Auth guard + auth.getUser + 5-way parallel + conditional | Parallelized in Session 59. Remaining sequential: enforceVerticalAccess (auth+profile) + auth.getUser (needed for user.id). |
 
 ---
@@ -85,3 +85,4 @@ These metrics are derived from code analysis. They do not depend on network cond
 | 2026-03-16 | 59 | Browse page ISR: anonSupabase, auth/tier/locale to client overlay | 7 queries (3 seq + 2 parallel), depth 5, every request dynamic | 2-3 queries, depth 2-3, ISR-cached at CDN (5 min) | Code analysis + architecture change |
 | 2026-05-15 | 82 | Phase B agreement loop ship | 152 chunks / 5.4 MB / 553 KB largest | 153 chunks / 5.4 MB / 553 KB largest | Bundle measurement (`ls .next/static/chunks/`). Query structure unchanged on browse/markets/vendors/listing/dashboard — no perf-sensitive paths touched. |
 | 2026-07-14 | 94 | 60-day staleness re-measure (PERF-R9 fired; no perf change made) | 153 chunks / 5.4 MB / 553 KB largest | 160 chunks / 5.9 MB / 541 KB largest | Bundle measurement from fresh `npm run build` (`find .next/static/chunks`). Structural query metrics verified current by the passing PERF-R1..R8 tests. Growth = 2 months of features (park operator, Events Tier-1, help KB). |
+| 2026-09-11 | launch-readiness (date-named session) | 60-day re-measure ahead of PERF-R9 (would have fired 2026-09-13) + **correction**: browse rows/ISR section/TTFB ceiling rewritten to match the `force-dynamic` code; no perf change made | 160 chunks / 5.9 MB / 541 KB; browse documented as ISR | 169 chunks / 6.1 MB / 555 KB; browse documented as dynamic with per-request query list | Bundle from fresh `npm run build` 2026-09-10. Browse structure by code read (`browse/page.tsx` line refs in the table). Other page rows verified current by passing PERF-R1..R8 (90 files / 2207 tests green 2026-09-10). |

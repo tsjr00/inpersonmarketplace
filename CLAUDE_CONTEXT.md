@@ -2,7 +2,7 @@
 
 **Purpose:** Help future Claude sessions understand this project quickly and avoid repeating mistakes.
 
-**Last Updated:** 2026-08-07 (dashboard redesign slices 1–4 → staging; 30 commits + migs 213–218 still pending prod = relaunch-scale push)
+**Last Updated:** 2026-09-10 (vendor tier table corrected to the unified free/pro/boss system; session entries run through 2026-09-06)
 
 ## Session highlights (2026-08-07) — dashboard redesign: shared card/tile system, new role dashboards, switcher → STAGING
 
@@ -282,24 +282,29 @@ verifier - Can verify vendor applications
 
 ### 6. Vendor Tier System
 
-Defined in `src/lib/vendor-limits.ts`. **Tiers differ by vertical:**
+Defined in `src/lib/vendor-limits.ts`. **UNIFIED across both verticals since mig 089: free / pro / boss.**
+Legacy names (basic, standard, premium, featured) are still accepted by the DB CHECK for old rows
+and normalize to FREE via `normalizeTier()`. Prices live in `pricing.ts` `SUBSCRIPTION_AMOUNTS`
+(never quote them from memory): Pro $25/mo or $208.15/yr; Boss $50/mo or $481.50/yr.
 
-**Farmers Market:**
-| Feature | Standard (Free) | Premium |
-|---------|-----------------|---------|
-| Traditional Markets | 1 | 4 |
-| Private Pickups | 1 | 5 |
-| Product Listings | 5 | 15 |
-| Market Boxes | 2 (1 active) | 6 (4 active) |
+| Limit | Free | Pro | Boss |
+|---|---|---|---|
+| Product listings | 20 | 50 | 100 |
+| Traditional markets | 3 | 5 | 8 |
+| Private pickup locations | 3 | 5 | 15 |
+| Pickup windows / location | 7 | 14 | 21 |
+| Market boxes | 3 | 6 | 10 |
+| Subscribers / offering (max / default) | 10 / 10 | 20 / 20 | 50 / 50 |
+| Analytics history | 30 d | 60 d | 90 d |
+| Analytics export | no | no | yes |
+| Priority placement | none | 2nd | 1st |
+| Notification channels | in-app, email | + push | + SMS |
+| VIP customer slots | 0 | 10 | 25 |
 
-**Food Trucks:**
-| Feature | Free | Basic ($10/mo) | Pro ($30/mo) | Boss ($50/mo) |
-|---------|------|----------------|--------------|----------------|
-| Locations | 1 | 3 | 6 | 10 |
-| Menu Items | 3 | 10 | 25 | 50 |
-| Chef Boxes | 0 | 2 | 5 | 10 |
-
-Use `getTierLimits(tier, vertical)` — always pass vertical. Use `isPremiumTier(tier, vertical)` to check premium status (FT: pro/boss, FM: premium).
+Trial system is DISABLED (`TRIAL_SYSTEM_ENABLED = false`). Use `getTierLimits()` after
+`normalizeTier()`; the old per-vertical helpers are deprecated. (Corrected 2026-09-10 from
+`vendor-limits.ts:57-103` + `pricing.ts:23-28`; the previous per-vertical tables were stale
+since mig 089 and caused a wrong plan on 2026-09-04.)
 
 ### 7. Market Box / Chef Box Subscriptions
 

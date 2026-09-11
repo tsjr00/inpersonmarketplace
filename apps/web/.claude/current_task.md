@@ -1,4 +1,41 @@
-# ⛳ 2026-09-08: TAX BATCH 2 BUILT (uncommitted) — record: tax_batch2_plan.md ⚙ BUILD LOG
+# ⛳ 2026-09-11 — OWNER GO: "proceed with your proposed order of fixes" (Fix mode for the launch_fix_plan order)
+Order approved (chat 2026-09-11): T0 (1) perf-baseline re-measure docs, (2) next@16.3.4 + (2b) dep pins ·
+T1 (3) limiter visibility health+logError, (4) page-level observed() on browse/pickup/orders/checkout,
+(5) slot-availability rate limit, (6) market-box PATCH price floor · T2 (7) JSON-LD safe serializer +
+guard test, (8) shared escapeHtml + 3 email builders · T3 (9) trim browse select [vault diff first],
+(10) two-tier rate limits money routes [5 protected diffs], (11) set-based availability RPC [test first],
+(12) unstable_cache catalog fetch [vault + disclose delta] · T4 post-launch.
+STANDING STOPS: protected file = per-file diff + ask · vaulted file = git diff vault + present · commit/push
+= ask (propose together for staging) · any test failure = decision point · no test expectation edits.
+Owner-side still open: Upstash plan, live RLS query (plan item 10), staging test-pass findings.
+PROGRESS: [x] 1 [x] 2 [ ] 2b [x] 3 [ ] 4 [ ] 5 [ ] 6 [ ] 7 [ ] 8 [ ] 9 [ ] 10 [ ] 11 [ ] 12
+Owner 2026-09-11: "Commit and push staging including tax batch 2 now" → 3 commits (docs · next 16.3.4 ·
+limiter visibility) + staging push carrying 6fdf6760 (tax batch 2, dark). Verify ref-update line + Vercel build.
+
+# ⛳ 2026-09-10 SESSION — LAUNCH READINESS REVIEW (report only) · CLAUDE_CONTEXT tier-table fix DONE
+**Git at kickoff:** main `6fdf6760` (tax batch 2, committed 2026-09-08 21:50 — the "uncommitted"
+note below is STALE) · staging `d34eae7f` · prod `e946c2c0`. Tree clean. Batch 2 NOT on staging
+(push held while owner's 17-item test pass runs — pass NOT finished; owner has extra findings to
+cover later). Gates re-run this session: vitest 90 files / 2207 ✓.
+**Done this session:** full-app code review written to `.claude/launch_readiness_review_2026-09-10.md`
+(scores: Security 7 · Stability 8 · Traffic 4 · Efficiency 6; prioritized fix list at bottom —
+NOTHING built, report mode). Removed one over-broad permission allow rule from
+`.claude/settings.local.json` (owner-approved).
+**Session scope agreed:** (1) ✅ CLAUDE_CONTEXT.md §6 tier table + header fixed (owner "yes" 2026-09-10,
+uncommitted); (2) ✅ the review above; (3) ✅ fix PLAN written → `.claude/launch_fix_plan_2026-09-10.md` (18 items, 4 batches,
+plan only — NOTHING built). All 5 agent inputs verified by Claude against the code before inclusion.
+⚠ TIME BOMB: `performance-baseline.test.ts` 60-day staleness check fires 2026-09-13 (Last measured
+2026-07-14) → suite/pre-commit go red; owner decision (docs re-measure), never a pre-planned test edit.
+Reclassifications from the plan research: Next advisories = medium prod exposure (Vercel absorbs the
+criticals) but GHSA-26hh middleware-bypass-with-Turbopack APPLIES → still upgrade to 16.3.4;
+`change-discipline.md:149` lists a nonexistent `vendor/payouts` route; market-boxes PATCH lacks the
+POST price floor; 3 email builders interpolate vendor/organizer names unescaped;
+(4) owner's staging test-pass findings NOT yet received — Section Z of the plan reserved.
+**Open owner questions from kickoff:** schema-gate wording conflict (CLAUDE.md allows earlier-read;
+rule file forbids — Claude follows the rule file until told otherwise); vault is 6 months old
+(manifest lists retired trial system) — owner's call on a refresh after next prod verification.
+
+# ⛳ 2026-09-08: TAX BATCH 2 BUILT (⚠ STALE — committed 2026-09-08 21:50 as 6fdf6760; see block above) — record: tax_batch2_plan.md ⚙ BUILD LOG
 Owner ratified the 3 interim policies (Q11 base / Q8 margin pro-rata / Q10 MB excluded +
 backlog item) and approved BOTH protected files by name. The checkout tax wiring is in,
 DARK behind TAX_STREAM1_ENABLED=false (flags.ts header = flip prereqs): engine
