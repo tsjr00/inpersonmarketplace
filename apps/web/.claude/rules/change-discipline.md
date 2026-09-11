@@ -146,7 +146,6 @@ These files handle money, inventory, and order fulfillment. A bug in any of them
 | `src/lib/stripe/webhooks.ts` | Processes Stripe webhook events. Missed or mishandled events = payments not recorded. |
 | `src/app/api/vendor/orders/[id]/reject/route.ts` | Refund + inventory restore. Errors mean buyer not refunded or inventory not restored. |
 | `src/app/api/vendor/orders/[id]/fulfill/route.ts` | Triggers vendor payout. Errors mean vendor doesn't get paid. |
-| `src/app/api/vendor/payouts/route.ts` | Vendor payout initiation. Double-payout prevention lives here. |
 | `src/lib/pricing.ts` | Fee calculations. Every cent displayed and charged comes from this file. |
 | `src/lib/vendor-limits.ts` | Tier limits and subscriber caps. Controls what vendors can do. |
 

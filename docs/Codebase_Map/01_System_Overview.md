@@ -156,7 +156,7 @@ A fuller operational guide lives at `docs/Environment_Configuration_Guide.md`.
 
 These files handle money, inventory, or fulfillment. They are enforced by a PreToolUse hook (`apps/web/.claude/protected-paths.txt` → `scripts/hooks/protected-paths-check.mjs`) and by `change-discipline.md` Rule 3, which requires per-file approval with exact diffs before any edit. Throughout this map they carry a ⚠ marker.
 
-`api/cart/items/route.ts` · `api/cart/items/[id]/route.ts` · `api/cart/validate/route.ts` · `api/checkout/session/route.ts` · `api/checkout/success/route.ts` · `api/checkout/external/route.ts` · `lib/stripe/payments.ts` · `lib/stripe/webhooks.ts` · `api/vendor/orders/[id]/reject/route.ts` · `api/vendor/orders/[id]/fulfill/route.ts` · `api/vendor/payouts/route.ts` · `lib/pricing.ts` · `lib/vendor-limits.ts` · `lib/payments/vendor-fees.ts` · `api/vendor/orders/[id]/confirm-external-payment/route.ts` · `lib/constants.ts`
+`api/cart/items/route.ts` · `api/cart/items/[id]/route.ts` · `api/cart/validate/route.ts` · `api/checkout/session/route.ts` · `api/checkout/success/route.ts` · `api/checkout/external/route.ts` · `lib/stripe/payments.ts` · `lib/stripe/webhooks.ts` · `api/vendor/orders/[id]/reject/route.ts` · `api/vendor/orders/[id]/fulfill/route.ts` · `lib/pricing.ts` · `lib/vendor-limits.ts` · `lib/payments/vendor-fees.ts` · `api/vendor/orders/[id]/confirm-external-payment/route.ts` · `lib/constants.ts`
 
 ## Architectural facts a new dev must know
 

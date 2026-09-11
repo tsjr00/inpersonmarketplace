@@ -47,7 +47,9 @@ These metrics are derived from code analysis. They do not depend on network cond
 | Total client JS (`.next/static/chunks/`) | 6.1 MB | 2026-09-11 | +0.2 MB since 7/14. Fresh `npm run build`, `find .next/static/chunks -name '*.js' \| wc -l` + `du -sh`. |
 | Chunks / total JS after Next 16.3.4 upgrade | 173 / 5.9 MB | 2026-09-11 | Same day, post-upgrade build (exit 0). Chunking changed with the framework bump; total shrank 0.2 MB. 27 chunks headroom to the 200 ceiling. |
 
-**Rule:** Total client JS must not increase beyond 5% (4.5 MB ceiling) without justification. Chunk count ceiling enforced by `performance-baseline.test.ts` PERF-R7.
+**Rule:** Total client JS must not increase beyond 5% in a single change without justification. The chunk-count ceiling of 200 is the enforced limit (`performance-baseline.test.ts` PERF-R7); total size is tracked, not gated. (Corrected 2026-09-12: this line read "4.5 MB ceiling" while the same file recorded 5.9–6.1 MB, so the stated ceiling had been passed for months without anyone noticing the contradiction.)
+
+**Correction (2026-09-12):** the 2026-09-11 browse catalog-select trim (`471e5770`) shipped WITHOUT the after-measurement its commit message claims. Measured afterwards against Dev with the anon key: payload for the same result set fell 13,073 → 10,080 bytes (−23%), median query time unchanged within noise (~106–117 ms both ways, network-bound at Dev volume). A staging wall-clock before/after is still owed and is paired with the browse radius-call removal.
 
 ---
 

@@ -1,3 +1,31 @@
+# ⛳⛳⛳ 2026-09-12 — SESSION AUDIT DONE (Parts 1+2), PART 3 NOT STARTED — READ `.claude/session_audit_2026-09-12.md` FIRST
+Owner's kickoff prompt (2026-09-12): audit the 2026-09-10/11 session, then a fresh audit, then propose; NO
+code/config/migration/test changes until a specific proposal is approved. **Report mode.** Tree: only the new
+audit file (untracked) + this block. Headline (details + citations in the audit file): F-1 HIGH any buyer/vendor
+can set `orders.status='paid'` and the fulfill/confirm/no-show payout gates skip the `payments` check (contradicts
+mig 249's header + decisions.md:7); F-4 HIGH ~20 write SECURITY DEFINER fns executable by any authenticated user
+(152-class), 2 by anon (mig 244); F-2 HIGH mig 248 revoked FROM PUBLIC only → anon grant likely survives (Q1);
+F-3 markets/vendor_profiles public rows expose PII columns to the anon key; 51a1b13c wired the always-failing
+radius RPC into an error_logs INSERT per located browse request. Scores: Sec 7→4, Stab 8→7, Traffic 4, Eff 6.
+Owner queries Q1–Q8 RUN 2026-09-12 (results in audit §2.9): F-2 CONFIRMED (anon=X survives on all 6 fns, Dev+Staging) ·
+F-4 CONFIRMED on Dev+Staging+PROD · F-1 latent (Q6 = 0 rows Staging+Prod) · F-3 downgraded to MEDIUM (handles/contacts
+empty on Prod) · E-0 confirmed on Staging · 118 error_logs rows from 51a1b13c on Staging. Follow-ups run: Q2a = mig 249
+fully verified (no INSERT/UPDATE for anon/authenticated) · Q9 = ensure_user_profile guard live → F-2 narrows to 5 fns
+(vendor_skip_week HIGH) · Q10 = 8/14 prod vendors expose business-address coords, 3 Stripe acct ids (markets half unshown).
+PART 3 PROPOSALS WRITTEN 2026-09-12 (audit file, "PART 3") — NOTHING BUILT; each item needs its own go.
+New while designing: F-10 vendor can write buyer_confirmed_at → fulfill pays without buyer ack; F-5 extended
+(get_vendors_within_radius also broken); F-11 dormant confirm-handoff has no paid gate (blocked only by RLS on
+vendor_payouts insert); F-1 = 5 live sites (fulfill, buyer confirm, cron P4 + P7, margin-payout.ts). Suggested
+order: R1–R5 → B1 → C2 → snapshot rebuild → B2 → C1 → C3 → B3 → E0 → C4 → C5 → D1.
+REVISED PROPOSAL SET = audit file "PART 3 REVISED" (supersedes the first list): adds C1b vendor counters,
+C6 close VOR-7 with a 410 stub + B4 allowlist shrink, C7 no-active-pickup-location filter (Q13 = 0 rows today),
+D1 resized (mark-ready 10/min per address is the binding limit), E0 option A confirmed (radius fn fails on Prod too).
+Prod state confirmed by Q12: A-2 AND F-1 both live on Prod. Owner answers 2026-09-12 recorded in audit "Part 3 addendum" (buyer-only ack ✔, partial refunds still pay ✔,
+shared Wi-Fi ✔, Prod urgency = owner's call, vendors deleted at launch). New: C1b (vendor counters matter:
+warnings + event matching). Pending owner: Q4-Prod, Q11, Q12, Q13, Q14 results; inactive-market browse rule;
+peak checkouts/minute + vendors per market for D1; Upstash test go. Everything below this block
+is the prior session's state, now to be read as CLAIMS the audit has evaluated.
+
 # ⛳⛳ CHECKPOINT 2026-09-11 (pre-compaction) — READ THIS BLOCK FIRST, THEN STOP AND ASK THE OWNER
 **Git:** main = origin/staging = `471e5770` (tree clean except this doc). Prod = `e946c2c0` (owes migs 238→249
 in order + ~90 commits; prod order for the new ones: deploy code FIRST, then 248, then 249 — both differential).

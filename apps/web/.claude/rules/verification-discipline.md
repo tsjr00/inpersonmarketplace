@@ -98,6 +98,8 @@ This applies equally to:
 
 If the snapshot fails — column missing from a live query result that the snapshot claimed exists, OR the snapshot has a "STALE" warning for the affected tables — STOP and run `information_schema.columns` discovery against the live database before composing any further SQL. **The snapshot is best-effort; only `information_schema` is authoritative for the live env.**
 
+**The same applies to function BODIES (added 2026-09-12).** Before writing any `CREATE OR REPLACE FUNCTION`, pull the live definition from the target environment — `SELECT pg_get_functiondef('public.fn(argtypes)'::regprocedure);` — and diff it against the migration text you are about to base the rewrite on. Repo migrations are not a reliable record of what is deployed: on 2026-09-12 Staging was found running a `get_markets_within_radius` body that no migration in the repo defines, and `validate_cart_item_inventory` exists on all three environments with no repo definition at all. Replacing a function from the repo text silently reverts whatever drifted.
+
 ### Self-Check Before Any SQL
 
 1. List the tables the SQL touches.
@@ -141,6 +143,9 @@ This is NOT optional. This is NOT just for column additions. This applies to ALL
 - Config/JSONB data updates (e.g., `verticals.config`)
 - RPC function changes
 - Any DDL statement
+- Privilege changes (GRANT/REVOKE) — including EXECUTE on functions
+
+**Function lockdowns have a fixed shape and a fixed verification (added 2026-09-12).** Supabase grants EXECUTE explicitly to `anon`, `authenticated` and `service_role` when a function is created, IN ADDITION to Postgres's default grant to PUBLIC. So `REVOKE … FROM PUBLIC` alone closes nothing. A lockdown is `REVOKE EXECUTE ON FUNCTION … FROM PUBLIC, anon, authenticated;` followed by `GRANT EXECUTE … TO service_role;`, and it is not done until `has_function_privilege` has been run on the live environment for ALL THREE roles. Migration 248 (2026-09-11) revoked only FROM PUBLIC, its own post-check was never run, and the hole it was written to close stayed open on Dev and Staging until the 2026-09-12 audit queried it.
 
 ### Why This Exists
 

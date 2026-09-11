@@ -40,7 +40,13 @@ src/lib/stripe/payments.ts :: change-discipline.md Rule 3 critical path — file
 src/lib/stripe/webhooks.ts :: change-discipline.md Rule 3 critical path — file-level approval required
 src/app/api/vendor/orders/[id]/reject/route.ts :: change-discipline.md Rule 3 critical path — file-level approval required
 src/app/api/vendor/orders/[id]/fulfill/route.ts :: change-discipline.md Rule 3 critical path — file-level approval required + decisions.md External Payment Fee Flow (cash-fee branch)
-src/app/api/vendor/payouts/route.ts :: change-discipline.md Rule 3 critical path — file-level approval required
+# REMOVED 2026-09-12 (owner-directed, audit item R4): src/app/api/vendor/payouts/route.ts
+# does not exist and never has in this repo. It was listed here, in
+# change-discipline.md and in two codebase-map files, all agreeing with each
+# other, which is why no test caught it. Payout initiation actually lives in
+# vendor/orders/[id]/fulfill (already protected), lib/stripe/payments.ts
+# (already protected), lib/stripe/payout-reconcile.ts and lib/bundles/margin-payout.ts.
+# Whether those last two join this list is an open owner decision.
 src/lib/pricing.ts :: change-discipline.md Rule 3 critical path — single source of truth for all fees
 src/lib/vendor-limits.ts :: change-discipline.md Rule 3 critical path — tier limits + TRIAL_SYSTEM_ENABLED flag
 

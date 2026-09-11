@@ -173,7 +173,7 @@ Roughly 51 green tests exercise this module across two suites, which makes it **
 
 ## Protected & money-touching files
 
-**Tier 1 — moves real money.** `orders/[id]/fulfill` ⚠ · `orders/[id]/reject` ⚠ · `orders/[id]/resolve-issue` · `orders/[id]/confirm-external-payment` ⚠ · `orders/[id]/confirm-handoff` (dormant) · `fees/pay` · `markets/[id]/book`, `book-season`, `book-park-spot` · `park-occurrences/[bookingId]/pay` · `booth-groups/[groupId]/cancel` · `stripe/onboard` · `subscription/downgrade-free` · `tier/downgrade` · `vendor/payouts/route.ts` ⚠.
+**Tier 1 — moves real money.** `orders/[id]/fulfill` ⚠ · `orders/[id]/reject` ⚠ · `orders/[id]/resolve-issue` · `orders/[id]/confirm-external-payment` ⚠ · `orders/[id]/confirm-handoff` (dormant) · `fees/pay` · `markets/[id]/book`, `book-season`, `book-park-spot` · `park-occurrences/[bookingId]/pay` · `booth-groups/[groupId]/cancel` · `stripe/onboard` · `subscription/downgrade-free` · `tier/downgrade`.
 
 **Tier 2 — gates or reports money.** `lib/vendor/getVendorProfile.ts` (a wrong profile pays the wrong vendor) · `lib/orders/checkout-helpers.ts` (idempotency keys) · `lib/vendor-limits.ts` ⚠ (paid entitlements) · `stripe/status` · `fees/route.ts` · `analytics/tax-summary` · `listings/[listingId]/publish`.
 

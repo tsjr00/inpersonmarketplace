@@ -50,7 +50,15 @@
 -- cancellation_fee_cents and orders.status stay user-writable because 7 buyer/
 -- vendor routes write them through the user client. Today they feed reports and
 -- order display only — never a Stripe amount (fulfill also requires a payments
--- row, so a faked status cannot unlock a payout).
+-- row).
+--
+-- ⚠ CORRECTION 2026-09-12 (audit): the sentence above was WRONG about status.
+-- The payout gates skip the payments check when orders.status is already
+-- 'paid'/'completed' (fulfill/route.ts:100-115, buyer confirm :120-135, cron
+-- Phases 4 and 7, lib/bundles/margin-payout.ts:77), and orders_update lets the
+-- buyer OR any vendor on the order write status. Keeping status writable is
+-- therefore NOT safe on its own. Being fixed in code (payout gates require a
+-- payments row) and in migration 251 (authenticated may only set 'cancelled').
 --
 -- PRE-CHECK (expect INSERT/UPDATE/DELETE rows for anon + authenticated = hole open):
 --   SELECT grantee, table_name, privilege_type FROM information_schema.role_table_grants

@@ -238,7 +238,7 @@ reconfirm_refunded_at, discount_cents, bundle_id, bundle_margin_cents, bundle_ha
 bundle_margin_transfer_id, bundle_buyer_ack_at.
 **orders — user-writable:** status, external_payment_confirmed_at, external_payment_confirmed_by, updated_at.
 (`status` stays user-writable in phase 1 because 7 vendor/buyer routes write it; faking `status='paid'`
-does NOT unlock a payout — fulfill also requires a `payments` row, `fulfill/route.ts:101-112`.)
+DOES unlock a payout — **CORRECTED 2026-09-12**: the gate SKIPS the `payments` check when status is already paid (`fulfill/route.ts:100-115`); see `session_audit_2026-09-12.md` F-1 — the original claim below was wrong — fulfill also requires a `payments` row, `fulfill/route.ts:101-112`.)
 
 ### OPTION A (recommended) — column-level privileges, declarative, no trigger
 Postgres checks column privileges before RLS. Revoke the blanket table UPDATE/INSERT the Supabase
