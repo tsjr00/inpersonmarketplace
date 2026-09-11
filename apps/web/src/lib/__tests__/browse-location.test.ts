@@ -77,13 +77,16 @@ describe('LOC-1: Browse page reads location cookie and filters by Haversine dist
     expect(source).toContain('LOCATION_COOKIE_NAME')
   })
 
-  it('uses PostGIS RPC for distance filtering with JS Haversine as fallback', () => {
+  it('filters by distance in JS (Haversine) — the path that has always run', () => {
     const source = browsePage()
-    // PostGIS RPC is the primary path (database-level filtering, scales to 50k+ listings)
-    expect(source).toContain("get_listings_within_radius")
-    // JS Haversine is the fallback when PostGIS fails or returns empty
+    // 2026-09-12 (audit item B3): the two assertions that pinned the PostGIS RPC
+    // call site were removed. That function has never worked on ANY environment —
+    // it raises 42804 on Dev, Staging and Prod because it declares vendor_status
+    // as TEXT while the column is an enum (mig 087) — so browse has always fallen
+    // through to this JS filter. Pinning the text of a call that cannot succeed
+    // protected nothing and blocked its removal. The distance behaviour below is
+    // what actually guards the feature.
     expect(source).toContain('distanceKm')
-    expect(source).toContain('// PostGIS failed or returned empty')
   })
 
   it('checks authenticated user profile location before cookie fallback', () => {
