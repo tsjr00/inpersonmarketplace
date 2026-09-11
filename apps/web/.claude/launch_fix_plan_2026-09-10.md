@@ -50,6 +50,55 @@ expectation is modified anywhere in this plan; `middleware.ts` is not renamed to
 **Verification standard for every batch:** pre-commit (lint/tsc/vitest) → staging push → owner Tier-1
 smoke list (2-3 items from the diff) → `git log origin/staging` ref check → Vercel build status.
 
+## Stage A results — live PROD catalog queries run by owner 2026-09-11
+
+- **Tables without RLS:** only `spatial_ref_sys` (PostGIS system table). ✅
+- **Views:** all 8 application views carry `security_invoker=true` → no RLS bypass via updatable views
+  (`active_markets`, `v_failed_approaches`, `vendor_referral_summary` are updatable but run as caller). ✅
+- **Anon table grants:** ALL privileges on every table = Supabase default; RLS is the enforcement (my
+  earlier "expect SELECT only" was wrong). Policies for `{public}` non-SELECT exist on ~45 tables — their
+  USING/WITH CHECK expressions (Query C) decide exposure; pending owner run.
+- **🔴 NEW FINDING A-1 — five write-capable SECURITY DEFINER functions are EXECUTE-able by anon (and any
+  authenticated user) over PostgREST, and none checks the caller** (bodies read; `auth.uid`/`is_admin`
+  absent from their defining files):
+  | function | what it writes | callers today | fix |
+  |---|---|---|---|
+  | `vendor_skip_week(p_pickup_id, p_reason)` | UPDATE market_box_pickups, INSERT extension pickup, UPDATE market_box_subscriptions (mig 124:128-224) | skip route via USER client after its own ownership check (`pickups/[id]/skip/route.ts:9,36,102`); `cancel-date-cascade.ts:376` via service | REVOKE FROM PUBLIC; GRANT service_role; route switches to service client after ownership check (route already owns the check) |
+  | `ensure_user_profile(p_user_id, p_email, p_display_name)` | INSERT user_profiles for ARBITRARY user_id/email (085b:56-86) | login page via user client with the caller's own id (`login/page.tsx:110`) | replace param with `auth.uid()` inside the function (any logged-in user can pre-create/poison another user's profile row today — needs the victim's auth uuid) → new function version; REVOKE anon |
+  | `cleanup_cart_items_invalid_schedules()` | DELETE cart_items platform-wide; returns user_id + listing titles | none in src | REVOKE FROM PUBLIC; GRANT service_role |
+  | `refresh_all_vendor_locations()` / `refresh_vendor_location(uuid)` | DELETE + rebuild vendor_location_cache (nearby search goes empty mid-rebuild) | none in src | REVOKE FROM PUBLIC; GRANT service_role |
+  | `scan_vendor_activity(p_vertical_id)` | INSERT scan log, UPDATE/INSERT vendor_activity_flags | cron via SERVICE key only (`vendor-activity-scan/route.ts:18-19,74`) | REVOKE FROM PUBLIC; GRANT service_role — zero app impact |
+  Severity: vendor_skip_week = HIGH (subscription/pickup state, callable by anyone with the public anon
+  key); the rest MEDIUM (data destruction / cache DoS / flag spam / profile poisoning). Pattern to
+  mirror: mig 152 (`REVOKE EXECUTE … FROM PUBLIC`, then explicit GRANTs). Proposed as **mig 248**,
+  differential class (behavior changes for anon/authenticated callers) → pre-check counts + the
+  skip-route client change in the SAME push. Owner decides.
+- **🔴 NEW FINDING A-2 — buyers can rewrite their own order_items money columns via PostgREST, and the
+  payout code trusts them.** Query C (owner-run) shows every `{public}` write policy is identity-bound
+  EXCEPT the intentional `buyer_interests_insert` (`true`). But identity-bound ≠ safe: `order_items_update`
+  (mig 20260201_004) lets the ORDER'S BUYER update any column of their own items (no WITH CHECK, no column
+  list); `order_items_insert` (mig 011:90) lets the buyer INSERT items into their own order; `orders_update`
+  (mig 011:69) lets the buyer update any column of their own order. The fulfill route transfers exactly
+  `orderItem.vendor_payout_cents` (`fulfill/route.ts:341,353,400-401`), same in buyer-confirm
+  (`confirm/route.ts:222-272`). Paid gate checks the `payments` table too (`fulfill/route.ts:101-112`),
+  so faking `orders.status` alone does NOT unlock a payout — but on a GENUINELY paid order a buyer can
+  (a) inflate `vendor_payout_cents` on their items → platform pays a vendor/colluder from its Stripe balance
+  at fulfill; (b) INSERT extra items (free goods, attacker-chosen payout) between session creation and
+  payment or after. Only DB-level protection today: an `updated_at` trigger (mig 095:108). **Severity: HIGH
+  (money).** Load-bearing: `checkout/session/route.ts:1112,1144` inserts orders + order_items with the USER
+  client; buyer cancel/confirm/report-issue routes update via user client (inventory: ~60 write sites, client
+  per site to be classified before any policy change). **Fix direction (additive-first, per
+  feedback_load_bearing_bug_additive_first):** (1) BEFORE INSERT/UPDATE trigger on `order_items` (and
+  money columns of `orders`) that RAISEs when `current_user <> 'service_role'` touches
+  `vendor_payout_cents / subtotal_cents / platform_fee_cents / unit_price_cents / quantity / listing_id /
+  vendor_profile_id / order_id / discount_cents` (status + pickup/ack columns stay writable so vendor and
+  buyer routes keep working); (2) ⚠ checkout/session two inserts → `serviceClient` (protected file diff);
+  (3) THEN drop `order_items_insert` for buyers and narrow `order_items_update`/`orders_update` with
+  WITH CHECK column guards. Mig 248 (functions) and mig 249 (this) — owner decides; each differential.
+- **Read-only anon-callable helpers (fine by design):** get_*_within_radius, get_listings_accepting_status,
+  get_available_pickup_dates, get_listing_* , get_zip_*, get_vertical_config, can_*/is_*/has_role
+  (auth.uid-based, empty for anon), build_pickup_snapshot, calculate_order_item_expiration.
+
 ## What this plan did NOT verify
 - Live prod RLS/ACLs, Upstash/Supabase/Vercel plan tiers (owner-side).
 - Advisory applicability statements come from agent-fetched advisory pages (URLs in R4's transcript);

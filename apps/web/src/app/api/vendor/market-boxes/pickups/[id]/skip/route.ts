@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, logError, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { sendNotification } from '@/lib/notifications/service'
@@ -98,8 +98,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const body = await request.json().catch(() => ({}))
   const reason = body.reason || null
 
-  // Call the database function to handle the skip
-  const { data: result, error } = await supabase.rpc('vendor_skip_week', {
+  // Call the database function to handle the skip.
+  // mig 248 (2026-09-11): vendor_skip_week is service-role-only now — it used
+  // to be EXECUTE-able by anyone with the anon key. Ownership was verified
+  // above (offering.vendor_profile_id === vendor.id), so the elevated call is
+  // safe; every read and the notification below stay on the user client.
+  const { data: result, error } = await createServiceClient().rpc('vendor_skip_week', {
     p_pickup_id: pickupId,
     p_reason: reason
   })

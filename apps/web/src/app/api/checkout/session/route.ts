@@ -1109,7 +1109,7 @@ export async function POST(request: NextRequest) {
       || vertical
 
     crumb.supabase('insert', 'orders')
-    const { error: orderError } = await supabase
+    const { error: orderError } = await serviceClient
       .from('orders')
       .insert({
         id: orderId,
@@ -1141,7 +1141,7 @@ export async function POST(request: NextRequest) {
     // Market box subscriptions are created after payment succeeds (webhook/success handler)
     if (orderItemsWithSnapshots.length > 0) {
       crumb.supabase('insert', 'order_items')
-      const { error: itemsError } = await supabase.from('order_items').insert(
+      const { error: itemsError } = await serviceClient.from('order_items').insert(
         orderItemsWithSnapshots.map((item, idx) => ({
           ...item,
           order_id: orderId,

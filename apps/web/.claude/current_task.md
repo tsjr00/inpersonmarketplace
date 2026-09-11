@@ -14,7 +14,30 @@ highs transitive: axios/form-data←twilio, ws←supabase realtime, browserslist
 rate limit · market-box PATCH $1 floor · browse page 9 Supabase calls → observed() (vault diff read; PERF-R1 intact,
 2 RPC sites). Sentry JAVASCRIPT-NEXTJS-11 "destination stream closed early" = LOCAL Playwright client aborts
 (stack path C:\GitHub\…), env 'development'; benign; suggestion: gate Sentry `enabled` on VERCEL_ENV (owner config).
-NEXT SESSION: item 7 (JSON-LD safe serializer + guard test) → 8 (shared escapeHtml, 3 email builders) → T3.
+STAGE A (verify shipped work) IN PROGRESS 2026-09-11: Vercel ✅ · health redis ✅ · RLS tables ✅ · views ✅ ·
+⚠ owner smoke: "cannot change distance on browse (logged in)" — scripted probes (anon: local current build,
+local pre-push build, live staging) all show cookie PATCH + router.refresh re-render with new radius WORKING;
+logged-in probe blocked by Turnstile; leading hypothesis = data (profile-centered results equidistant) ~45%;
+owner F5 test requested. 🔴 NEW A-1: 5 write SECURITY DEFINER functions anon-EXECUTE-able with no caller
+check (vendor_skip_week HIGH) → proposed mig 248 (see plan "Stage A results"). Query C (policy quals) pending.
+Local servers still running: next start :3002 (current) and :3003 (pre-push worktree at
+C:\Users\tracy\AppData\Local\Temp\claude\wt-prepush) — kill + `git worktree remove` when Stage A closes.
+STAGED PLAN (A→F) APPROVED by owner 2026-09-11 (plan of record = launch_fix_plan "Sequencing" + staged
+breakdown in chat). Owner also approved DESIGNING mig 248/249 + checkout diff → `.claude/mig_248_249_design.md`
+(complete; 248 = REVOKE PUBLIC on 5 write fns + auth.uid guard in ensure_user_profile; 249 = column-level
+privileges making order money columns service-only; code-first sequencing). Owner 2026-09-11: Option A (column privileges) ✅ · checkout/external left untouched, revival note in 249 ✅ ·
+go-to-write steps 1+2 ✅ → WRITTEN (uncommitted): `supabase/migrations/20260911_248_*.sql`, `…_249_*.sql`,
+skip route → service client, SCHEMA_SNAPSHOT changelog rows (Rule G) for both (⏳ NOT APPLIED). Gates: tsc 0,
+vitest 2208 ✓ with the new files present (Rule L now AT its 5-past-stamp limit: 245-249 — mig 250 needs a
+snapshot rebuild first). STEP 3 = checkout/session protected diff (2 tokens, :1112 + :1144) PRESENTED, awaiting
+file-specific approval; then ONE push (code) → owner applies 248 → 249 on Dev+Staging → smoke list (in chat).
+Radius: RESOLVED (owner: works, accurate, survives F5, worked on the 8th → deploy-propagation lag on first check,
+Session-70 pattern). Owner reports ~2 s after a radius change (logged in). MEASURED 2026-09-11: NOT a regression
+(pre-push vs current local builds equal); staging anon at Amarillo: initial load 1.1–1.4 s, click→results 0.77 s
+(PATCH 0.2 s + 0.38 s before refresh starts + 0.4 s server render). Fix = Stage E items 1-3 (pulled forward right
+after the 248/249 push) + NEW Stage E option 4: radius as URL param with cookie persisted in background (vaulted →
+owner decision). Owner 2026-09-11: "go ahead with the commit and staging push" (248/249 code half). Two test-harness decisions pending: rate-limit
+stub exports (item 10) and PERF-R1 execution-level re-expression (item 5).
 ✅ 2026-09-11 staging push: `d34eae7f..1d6a1c66 staging -> staging` (874ff598 docs · 179cb483 next 16.3.4 ·
 1d6a1c66 limiter visibility; carries 6fdf6760 tax batch 2 dark). Chain exit 0, Playwright passed. Vercel build
 status: owner to confirm. Item 4 SCOPE CHANGE: pickup/orders/checkout pages are CLIENT components (their errors
