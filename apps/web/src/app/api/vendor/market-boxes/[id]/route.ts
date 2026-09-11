@@ -6,7 +6,7 @@ import {
   getTierLimits,
   getTraditionalMarketUsage,
 } from '@/lib/vendor-limits'
-import { withErrorTracing, observed } from '@/lib/errors'
+import { withErrorTracing, observed, traced } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 
@@ -208,6 +208,18 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       quantity_amount,
       quantity_unit,
     } = body
+
+    // Price floor — mirrors POST (market-boxes/route.ts ERR_MBOX_006). Until
+    // 2026-09-11 a PATCH could set a box to $0 or negative; Stripe then rejects
+    // the checkout line and buyers see a broken product (launch_fix_plan item 8 gap).
+    const MIN_BOX_PRICE_CENTS = 100
+    const patched4Week = price_4week_cents !== undefined ? price_4week_cents : price_cents
+    if (patched4Week !== undefined && (typeof patched4Week !== 'number' || !Number.isInteger(patched4Week) || patched4Week < MIN_BOX_PRICE_CENTS)) {
+      throw traced.validation('ERR_MBOX_006', '4-week price must be a whole number of cents, at least $1.00', { providedPrice: patched4Week })
+    }
+    if (price_8week_cents !== undefined && price_8week_cents !== null && (typeof price_8week_cents !== 'number' || !Number.isInteger(price_8week_cents) || price_8week_cents < MIN_BOX_PRICE_CENTS)) {
+      throw traced.validation('ERR_MBOX_006', '8-week price must be a whole number of cents, at least $1.00 (or null to disable)', { providedPrice: price_8week_cents })
+    }
 
     // Don't allow changing pickup location/time if there are active subscribers
     if ((activeSubscribers || 0) > 0) {

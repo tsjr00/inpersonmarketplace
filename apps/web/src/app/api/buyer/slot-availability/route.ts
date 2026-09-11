@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing, observed } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { isStripeCheckoutExpired } from '@/lib/cron/order-timing'
 
 /**
@@ -22,6 +23,12 @@ import { isStripeCheckoutExpired } from '@/lib/cron/order-timing'
  */
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/buyer/slot-availability', 'GET', async () => {
+    // Public + unauthenticated + 3 service-role queries per call: rate-limit by
+    // IP like every other anonymous route (launch_fix_plan item 6, 2026-09-11).
+    const clientIp = getClientIp(request)
+    const rateLimitResult = await checkRateLimit(`slot-availability:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const listingId = request.nextUrl.searchParams.get('listingId')
     const marketId = request.nextUrl.searchParams.get('marketId')
     const pickupDate = request.nextUrl.searchParams.get('pickupDate')
