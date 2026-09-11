@@ -47,7 +47,15 @@ Dev+Staging ✅ / Prod PENDING (privileges + function-body only → no structure
 PROD ORDER (window 21:00–07:00 CT): deploy code 7365a1ab FIRST → paste 248 → paste 249 (prod also still owes
 migs 238→247 in order before these). Owner's post-migration smoke on staging pending (checkout; vendor
 confirm/ready/fulfill; buyer confirm-pickup + cancel; logout/login; /api/health redis).
-NEXT: bookkeeping commit + push (proposed) → Stage E (browse perf) with the 2026-09-11 timings as baseline. Two test-harness decisions pending: rate-limit
+✅ bookkeeping pushed `7365a1ab..eeeaf0e4`. STAGE E STARTED (owner "go on both"):
+E1 trim browse catalog select — owner approved the diff; APPLIED (uncommitted): MarketSchedule interface +
+7 unread market columns + nested market_schedules embed removed from `browse/page.tsx` select (−31/+8);
+tsc 0, lint 0, targeted 311 ✓. BEFORE (staging, anon, Amarillo, 2026-09-11 AM): full page 0.59–0.80 s,
+click→results 0.77 s, initial load 1.1–1.4 s. AFTER: measure with the same curl + radius-timing.mjs probe
+once Vercel builds the push, then add a PERFORMANCE_BASELINE change-log row (before/after).
+E2 next = set-based get_listings_accepting_status (integration test FIRST, then mig 250 — ⚠ Rule L: snapshot
+rebuild required before a 250th-past-stamp migration; 245-249 already = 5). E3 = unstable_cache catalog fetch.
+E4 (owner decision) = radius as URL param + background cookie persist. Two test-harness decisions pending: rate-limit
 stub exports (item 10) and PERF-R1 execution-level re-expression (item 5).
 ✅ 2026-09-11 staging push: `d34eae7f..1d6a1c66 staging -> staging` (874ff598 docs · 179cb483 next 16.3.4 ·
 1d6a1c66 limiter visibility; carries 6fdf6760 tax batch 2 dark). Chain exit 0, Playwright passed. Vercel build

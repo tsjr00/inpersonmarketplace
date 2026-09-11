@@ -54,28 +54,19 @@ interface BrowsePageProps {
   searchParams: Promise<{ category?: string; search?: string; view?: string; zip?: string; page?: string; available?: string; menu?: string }>
 }
 
-interface MarketSchedule {
-  id: string
-  day_of_week: number
-  start_time: string
-  end_time: string
-  active: boolean
-}
-
+// Stage E step 1 (2026-09-11): the catalog select carries ONLY the market fields
+// the page reads — name + market_type for the card label, latitude/longitude for
+// the Haversine fallback. The former address/city/state/vertical_id/cutoff_hours/
+// timezone/active columns and the nested market_schedules rows were fetched on
+// every browse request and never read (symbol-enumerated across this file).
 interface ListingMarket {
   market_id: string
   markets: {
     id: string
     name: string
     market_type: string
-    address: string
-    city: string
-    state: string
-    vertical_id: string | null
-    cutoff_hours: number | null
-    timezone: string | null
-    active: boolean
-    market_schedules: MarketSchedule[]
+    latitude: number | null
+    longitude: number | null
   } | null
 }
 
@@ -489,22 +480,8 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
           id,
           name,
           market_type,
-          address,
-          city,
-          state,
-          vertical_id,
-          cutoff_hours,
-          timezone,
-          active,
           latitude,
-          longitude,
-          market_schedules (
-            id,
-            day_of_week,
-            start_time,
-            end_time,
-            active
-          )
+          longitude
         )
       ),
       listing_images (
