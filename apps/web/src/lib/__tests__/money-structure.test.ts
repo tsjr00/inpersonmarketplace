@@ -120,7 +120,8 @@ const FLIP_ALLOWLIST: FlipAllow[] = [
   //    their own gates) ──
   { file: 'app/api/vendor/orders/[id]/confirm/route.ts', table: 'order_items', status: 'confirmed', count: 1, reason: 'fetch-checked pending→confirmed; non-money flip' },
   { file: 'app/api/vendor/orders/[id]/ready/route.ts', table: 'order_items', status: 'ready', count: 1, reason: 'fetch-checked (F4) pending/confirmed→ready; non-money flip' },
-  { file: 'app/api/vendor/orders/[id]/confirm-handoff/route.ts', table: 'order_items', status: 'fulfilled', count: 1, reason: 'VOR-7 OPEN — dormant route (not UI-reachable); 410-stub or port pending' },
+  // VOR-7 closed 2026-09-12 — confirm-handoff is a 410 tombstone now, so it
+  // performs no status flip at all. Entry removed per the shrink direction.
 ]
 
 describe('Money structure — Rule A: guarded status flips', () => {
@@ -250,7 +251,9 @@ describe('Money structure — Rule C: money files feed error_logs, not the conso
 describe('Money structure — Rule D: transfers carry sourceTransaction', () => {
   const BARE_ALLOWLIST: Array<{ file: string; count: number; findingId: string }> = [
     // VOR-17 (buyer-cancel) + VOR-18 (buyer-confirm) fixed 2026-07-14 — entries removed.
-    { file: 'app/api/vendor/orders/[id]/confirm-handoff/route.ts', count: 1, findingId: 'VOR-7 (dormant route)' },
+    // VOR-7 (confirm-handoff) closed 2026-09-12 — the route is a 410 tombstone, so
+    // it fires no transfer at all. The allowlist is empty again, which is the point:
+    // every vendor transfer in the codebase now carries a charge id.
   ]
 
   const bare: Record<string, number> = {}

@@ -115,7 +115,7 @@ Two patterns recur across the whole vendor surface:
 | `orders/[id]/confirm-external-payment/route.ts` ⚠ | Vendor confirms Venmo/CashApp/PayPal/cash received; records platform fees owed. Ownership check is order-level | **YES** (ledger) |
 | `orders/[id]/cancel-nonpayment/route.ts` | External order cancelled for non-payment; restores inventory; no refund | No |
 | `orders/[id]/payment-not-received/route.ts` | Nudge only — notifies the buyer, changes no status | No |
-| `orders/[id]/confirm-handoff/route.ts` | Strict buyer-first fulfill variant. **Dead code, deliberately retained** — not called by any UI as of 2026-04-16 (`:1-21`); still money-touching if re-armed | **YES** if reached |
+| `orders/[id]/confirm-handoff/route.ts` | **Deprecated tombstone returning HTTP 410** (2026-09-12, finding VOR-7). Was a strict buyer-first fulfill variant, unreferenced since 2026-04-16; its payout body had no paid gate and no `source_transaction`, and was blocked only by RLS refusing the user-client `vendor_payouts` insert. The header records the buyer-first rule for whoever revives it | No |
 | `orders/[id]/confirm-cash-complete/route.ts` | Deprecated tombstone returning HTTP 410 | No |
 
 ### Payouts, fees, Stripe, subscription (8)
@@ -173,7 +173,7 @@ Roughly 51 green tests exercise this module across two suites, which makes it **
 
 ## Protected & money-touching files
 
-**Tier 1 — moves real money.** `orders/[id]/fulfill` ⚠ · `orders/[id]/reject` ⚠ · `orders/[id]/resolve-issue` · `orders/[id]/confirm-external-payment` ⚠ · `orders/[id]/confirm-handoff` (dormant) · `fees/pay` · `markets/[id]/book`, `book-season`, `book-park-spot` · `park-occurrences/[bookingId]/pay` · `booth-groups/[groupId]/cancel` · `stripe/onboard` · `subscription/downgrade-free` · `tier/downgrade`.
+**Tier 1 — moves real money.** `orders/[id]/fulfill` ⚠ · `orders/[id]/reject` ⚠ · `orders/[id]/resolve-issue` · `orders/[id]/confirm-external-payment` ⚠ · `fees/pay` · `markets/[id]/book`, `book-season`, `book-park-spot` · `park-occurrences/[bookingId]/pay` · `booth-groups/[groupId]/cancel` · `stripe/onboard` · `subscription/downgrade-free` · `tier/downgrade`.
 
 **Tier 2 — gates or reports money.** `lib/vendor/getVendorProfile.ts` (a wrong profile pays the wrong vendor) · `lib/orders/checkout-helpers.ts` (idempotency keys) · `lib/vendor-limits.ts` ⚠ (paid entitlements) · `stripe/status` · `fees/route.ts` · `analytics/tax-summary` · `listings/[listingId]/publish`.
 

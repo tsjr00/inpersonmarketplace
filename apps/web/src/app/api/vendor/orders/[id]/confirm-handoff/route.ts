@@ -1,335 +1,39 @@
 // ============================================================================
-// NOT CURRENTLY IN USE — KEEP, DO NOT DELETE
+// DEPRECATED TOMBSTONE — returns HTTP 410. KEEP, DO NOT DELETE.
 // ============================================================================
-// As of 2026-04-16: this route is not called by any UI in the app.
-// The active handoff flow uses /api/vendor/orders/[id]/fulfill instead, which
-// supports both buyer-first and vendor-first ordering.
+// As of 2026-04-16 this route was not called by any UI in the app, and a
+// repo-wide search on 2026-09-12 confirmed nothing references it or consumes
+// its output. The active handoff flow is /api/vendor/orders/[id]/fulfill,
+// which supports both buyer-first and vendor-first ordering.
 //
-// This route enforces a STRICT buyer-first sequence (vendor cannot
-// counter-confirm until buyer_confirmed_at is set). It exists as the
-// stricter alternative for a future product decision where mandatory
-// buyer-first acknowledgment is wanted.
+// WHY THE BODY WAS REMOVED (finding VOR-7, closed 2026-09-12):
+// The live implementation had no payment proof before paying a vendor — it
+// never checked for a succeeded `payments` row — and it fired the Stripe
+// transfer WITHOUT source_transaction, so the money would have come from the
+// platform's own balance (the Session-74 incident pattern). It was harmless
+// only by accident: its vendor_payouts insert ran on the user client and
+// `vendor_payouts` has no INSERT policy, so RLS refused the insert and the
+// route threw before reaching the transfer. One added policy, or one switch to
+// a service client, would have turned a dormant route into an unguarded payout
+// path. A deployed, authenticated endpoint that pays vendors on request is not
+// something to leave lying around for a product decision that may never come.
 //
-// Reasons to keep this file rather than delete:
-//  1. The strict-ordering business logic is non-trivial; rewriting it
-//     later would re-introduce risk that's already been resolved here.
-//  2. Re-activation just requires pointing the UI at this route; no
-//     code changes needed inside this file.
+// THE STRICT BUYER-FIRST RULE IT ENFORCED (the part worth keeping):
+// the vendor could not counter-confirm until `order_items.buyer_confirmed_at`
+// was set, i.e. mandatory buyer-first acknowledgment, in contrast to fulfill's
+// either-order handoff. If that product decision is ever made, implement it as
+// a guard inside fulfill rather than as a second payout route: fulfill already
+// carries the paid gate, the charge id, the atomic fee claim and the
+// double-payout guard that this file would have to duplicate correctly.
 //
-// If you are in this file because of an investigation, the active flow
-// is in ./fulfill/route.ts — start there.
+// Mirrors ./confirm-cash-complete/route.ts, the other deprecated tombstone.
 // ============================================================================
 
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { transferToVendor } from '@/lib/stripe/payments'
-import { getAccountStatus } from '@/lib/stripe/connect'
-import { withErrorTracing, traced, crumb, TracedError, logError, observed } from '@/lib/errors'
-import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
-import { sendNotification } from '@/lib/notifications'
-import { claimVendorFeeDeduction } from '@/lib/payments/vendor-fees'
-import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
+import { NextResponse } from 'next/server'
 
-interface RouteContext {
-  params: Promise<{ id: string }>
-}
-
-// POST /api/vendor/orders/[id]/confirm-handoff
-// Vendor counter-confirms that they handed off items to the buyer.
-// This triggers the Stripe transfer to the vendor.
-export async function POST(request: NextRequest, context: RouteContext) {
-  const { id: orderItemId } = await context.params
-
-  return withErrorTracing('/api/vendor/orders/[id]/confirm-handoff', 'POST', async () => {
-    const clientIp = getClientIp(request)
-    const rateLimitResult = await checkRateLimit(`vendor-confirm-handoff:${clientIp}`, rateLimits.submit)
-    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
-
-    const supabase = await createClient()
-
-    crumb.auth('Checking user authentication')
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      throw traced.auth('ERR_AUTH_001', 'Not authenticated')
-    }
-
-    // Fetch order item first — the joined order row provides vertical_id for multi-vertical vendor lookup
-    crumb.supabase('select', 'order_items')
-    const { data: orderItem, error: fetchError } = await supabase
-      .from('order_items')
-      .select(`
-        id, status, vendor_payout_cents, order_id,
-        buyer_confirmed_at, vendor_confirmed_at, vendor_profile_id,
-        order:orders!inner(id, order_number, buyer_user_id, vertical_id, payment_method, tip_amount, tip_on_platform_fee_cents),
-        listing:listings(title, vendor_profiles(profile_data))
-      `)
-      .eq('id', orderItemId)
-      .single()
-
-    if (fetchError || !orderItem) {
-      throw traced.notFound('ERR_ORDER_001', 'Order item not found', { orderItemId })
-    }
-
-    const orderVerticalId = ((orderItem as any).order as { vertical_id: string }).vertical_id
-
-    // Get vendor profile scoped to this order's vertical
-    crumb.supabase('select', 'vendor_profiles')
-    const { profile: vendorProfile } = await getVendorProfileForVertical<{
-      id: string
-      stripe_account_id: string | null
-      stripe_payouts_enabled: boolean | null
-    }>(supabase, user.id, orderVerticalId, 'id, stripe_account_id, stripe_payouts_enabled')
-
-    if (!vendorProfile) {
-      throw traced.notFound('ERR_ORDER_001', 'Vendor not found')
-    }
-
-    // Defense in depth — verify ownership
-    if (orderItem.vendor_profile_id !== vendorProfile.id) {
-      throw traced.notFound('ERR_ORDER_001', 'Order item not found', { orderItemId })
-    }
-
-    // Buyer must have confirmed first
-    crumb.logic('Checking buyer confirmation status')
-    if (!orderItem.buyer_confirmed_at) {
-      throw traced.validation('ERR_ORDER_004', 'Buyer has not acknowledged receipt yet. Wait for buyer to acknowledge first.')
-    }
-
-    // Already confirmed
-    if (orderItem.vendor_confirmed_at) {
-      throw traced.validation('ERR_ORDER_004', 'Already confirmed', { vendor_confirmed_at: orderItem.vendor_confirmed_at })
-    }
-
-    const now = new Date()
-    const handoffOrderData = (orderItem as any).order as any
-    const isExternalPayment = handoffOrderData?.payment_method && handoffOrderData.payment_method !== 'stripe'
-
-    // Verify Stripe is ready BEFORE marking fulfilled (skip for external payment orders)
-    const isProd = process.env.NODE_ENV === 'production'
-    const isDev = !isProd
-    const hasStripe = !!vendorProfile.stripe_account_id
-
-    if (!isExternalPayment && isProd && hasStripe && !vendorProfile.stripe_payouts_enabled) {
-      crumb.logic('Cached stripe_payouts_enabled is falsy, checking live status')
-      try {
-        const liveStatus = await getAccountStatus(vendorProfile.stripe_account_id!)
-        await supabase
-          .from('vendor_profiles')
-          .update({
-            stripe_charges_enabled: liveStatus.chargesEnabled,
-            stripe_payouts_enabled: liveStatus.payoutsEnabled,
-            stripe_onboarding_complete: liveStatus.detailsSubmitted,
-          })
-          .eq('id', vendorProfile.id)
-
-        if (!liveStatus.payoutsEnabled) {
-          throw traced.validation('ERR_ORDER_005', 'Your Stripe account is not yet enabled for payouts. Please complete your Stripe verification before confirming handoffs.')
-        }
-      } catch (err) {
-        if (err && typeof err === 'object' && 'code' in err) throw err
-        console.error('Stripe live status check failed:', err)
-      }
-    }
-
-    // Set vendor confirmation and clear lockdown
-    crumb.supabase('update', 'order_items')
-    await supabase
-      .from('order_items')
-      .update({
-        vendor_confirmed_at: now.toISOString(),
-        lockdown_active: false,
-        lockdown_initiated_at: null,
-        status: 'fulfilled'
-      })
-      .eq('id', orderItemId)
-
-    if (isExternalPayment) {
-      // External payment: no Stripe transfer needed — fees handled via ledger
-      crumb.logic('External payment order — skipping Stripe transfer')
-      await supabase.rpc('atomic_complete_order_if_ready', { p_order_id: orderItem.order_id })
-
-      const handoffListing = (orderItem as any).listing as any
-      const handoffVendorName = handoffListing?.vendor_profiles?.profile_data?.business_name || 'Vendor'
-      await sendNotification(handoffOrderData.buyer_user_id, 'order_fulfilled', {
-        orderNumber: handoffOrderData.order_number,
-        orderId: handoffOrderData.id,
-        vendorName: handoffVendorName,
-        itemTitle: handoffListing?.title,
-      }, { vertical: handoffOrderData.vertical_id })
-
-      return NextResponse.json({
-        success: true,
-        message: 'Handoff confirmed. External payment was already confirmed.',
-        vendor_confirmed_at: now.toISOString()
-      })
-    }
-
-    // Trigger Stripe transfer to vendor
-    crumb.logic('Processing vendor payout')
-
-    // C1 FIX: Calculate tip share for this item
-    // Vendor gets tip on food cost only (total tip minus platform fee tip portion)
-    let tipShareCents = 0
-    if (handoffOrderData?.tip_amount && handoffOrderData.tip_amount > 0) {
-      const vendorTipCents = handoffOrderData.tip_amount - (handoffOrderData.tip_on_platform_fee_cents || 0)
-      const { count: totalItemsInOrder } = await supabase
-        .from('order_items')
-        .select('id', { count: 'exact', head: true })
-        .eq('order_id', orderItem.order_id)
-      tipShareCents = totalItemsInOrder
-        ? Math.round(vendorTipCents / totalItemsInOrder)
-        : 0
-      crumb.logic('Tip share calculated', {
-        totalTip: handoffOrderData.tip_amount,
-        platformFeeTip: handoffOrderData.tip_on_platform_fee_cents || 0,
-        vendorTip: vendorTipCents,
-        items: totalItemsInOrder,
-        share: tipShareCents
-      })
-    }
-
-    const serviceClient = createServiceClient()
-
-    // C3 FIX: Check if vendor was already paid (prevents double payout)
-    crumb.supabase('select', 'vendor_payouts')
-    const { data: existingPayout } = await observed(supabase
-      .from('vendor_payouts')
-      .select('id, status')
-      .eq('order_item_id', orderItem.id)
-      .neq('status', 'failed')
-      .maybeSingle(), { table: 'vendor_payouts' })
-
-    if (existingPayout) {
-      crumb.logic('Vendor payout already exists, skipping transfer', {
-        payoutId: existingPayout.id,
-        status: existingPayout.status
-      })
-      return NextResponse.json({
-        success: true,
-        message: 'Handoff confirmed. Payment was already processed.',
-        vendor_confirmed_at: now.toISOString()
-      })
-    }
-
-    // VOR-8/VOR-9 FIX (mig 197): atomic claim-first fee deduction (replaces
-    // read-compute-deduct + post-transfer recordFeeCredit). Guarded so the
-    // no-Stripe/no-dev tail (which throws — no payout) never claims. Claim
-    // failure → deduct 0 + logError; the fee stays on the ledger.
-    let feeDeductionCents = 0
-    if (hasStripe || isDev) {
-      const { grantedCents, error: feeClaimErr } = await claimVendorFeeDeduction(
-        serviceClient,
-        vendorProfile.id,
-        orderItem.order_id,
-        orderItem.id,
-        orderItem.vendor_payout_cents
-      )
-      feeDeductionCents = grantedCents
-      if (feeClaimErr) {
-        await logError(new TracedError('ERR_FEE_002', `Fee deduction claim failed for order item ${orderItem.id}: ${feeClaimErr}`, {
-          route: '/api/vendor/orders/[id]/confirm-handoff', method: 'POST',
-          orderItemId: orderItem.id, orderId: orderItem.order_id, vendorProfileId: vendorProfile.id,
-        }))
-      }
-      if (feeDeductionCents > 0) {
-        crumb.logic('Fee deduction claimed', { deduction: feeDeductionCents, payout: orderItem.vendor_payout_cents })
-      }
-    }
-
-    const actualPayoutCents = orderItem.vendor_payout_cents - feeDeductionCents + tipShareCents
-
-    let payoutFailed = false
-    if (hasStripe) {
-      // M-11 FIX: Insert payout record BEFORE transfer to prevent tracking gaps.
-      // Pattern: insert 'pending' -> transfer -> update to 'processing' or 'failed'
-      crumb.supabase('insert', 'vendor_payouts (pending)')
-      const { data: payoutRecord, error: payoutInsertErr } = await supabase.from('vendor_payouts').insert({
-        order_item_id: orderItem.id,
-        vendor_profile_id: vendorProfile.id,
-        amount_cents: actualPayoutCents,
-        stripe_transfer_id: null,
-        status: 'pending',
-      }).select('id').single()
-
-      if (payoutInsertErr) {
-        if (payoutInsertErr.code === '23505') {
-          crumb.logic('Vendor payout already exists (concurrent insert), skipping transfer')
-          return NextResponse.json({
-            success: true,
-            message: 'Handoff confirmed. Payment was already processed.',
-            vendor_confirmed_at: now.toISOString()
-          })
-        }
-        // VOR-15 class (2026-07-18): a non-duplicate insert failure must be
-        // fatal — continuing fired the transfer with no tracking record,
-        // invisible to the retry cron and reconciliation (mirrors the VOR-3/
-        // VOR-15 fixes in buyer-confirm and fulfill). No money moves untracked.
-        throw traced.fromSupabase(payoutInsertErr, { table: 'vendor_payouts', operation: 'insert' })
-      }
-
-      try {
-        const transfer = await transferToVendor({
-          amount: actualPayoutCents,
-          destination: vendorProfile.stripe_account_id!,
-          orderId: orderItem.order_id,
-          orderItemId: orderItem.id,
-        })
-
-        crumb.supabase('update', 'vendor_payouts')
-        if (payoutRecord) {
-          await supabase.from('vendor_payouts')
-            .update({ stripe_transfer_id: transfer.id, status: 'processing', updated_at: new Date().toISOString() })
-            .eq('id', payoutRecord.id)
-        }
-
-        // Fee credit already claimed atomically above (mig 197) — no
-        // post-transfer ledger write remains (VOR-9 class).
-      } catch (transferError) {
-        console.error('Stripe transfer failed:', transferError)
-        payoutFailed = true
-        // Update to failed for retry cron — handoff already happened
-        if (payoutRecord) {
-          await supabase.from('vendor_payouts')
-            .update({ status: 'failed', updated_at: new Date().toISOString() })
-            .eq('id', payoutRecord.id)
-        }
-      }
-    } else if (isDev) {
-      // Dev mode without Stripe
-      console.log(`[DEV] Skipping Stripe payout for order item ${orderItemId}`)
-      crumb.supabase('insert', 'vendor_payouts')
-      await supabase.from('vendor_payouts').insert({
-        order_item_id: orderItem.id,
-        vendor_profile_id: vendorProfile.id,
-        amount_cents: actualPayoutCents,
-        stripe_transfer_id: `dev_skip_${orderItemId}`,
-        status: 'skipped_dev',
-      })
-    } else {
-      throw traced.validation('ERR_ORDER_004', 'Stripe account not connected')
-    }
-
-    // Atomically mark order completed if all items are fully confirmed
-    crumb.logic('Checking atomic order completion')
-    await supabase.rpc('atomic_complete_order_if_ready', { p_order_id: orderItem.order_id })
-
-    // Notify buyer that order is fulfilled
-    const stripeHandoffListing = (orderItem as any).listing as any
-    const stripeHandoffVendorName = stripeHandoffListing?.vendor_profiles?.profile_data?.business_name || 'Vendor'
-    await sendNotification(handoffOrderData.buyer_user_id, 'order_fulfilled', {
-      orderNumber: handoffOrderData.order_number,
-      orderId: handoffOrderData.id,
-      vendorName: stripeHandoffVendorName,
-      itemTitle: stripeHandoffListing?.title,
-    }, { vertical: handoffOrderData.vertical_id })
-
-    return NextResponse.json({
-      success: true,
-      message: payoutFailed
-        ? 'Handoff confirmed. Payment transfer encountered an issue and will be retried automatically.'
-        : 'Handoff confirmed. Payment is being transferred to your account.',
-      payoutFailed,
-      vendor_confirmed_at: now.toISOString()
-    })
-  })
+export async function POST() {
+  return NextResponse.json({
+    error: 'This endpoint is deprecated. Vendor handoff runs through the standard confirm → ready → fulfill flow.',
+    code: 'ENDPOINT_DEPRECATED'
+  }, { status: 410 })
 }
