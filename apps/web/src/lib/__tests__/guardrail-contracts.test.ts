@@ -619,3 +619,92 @@ describe('Rule L — the snapshot structured tables cannot silently wander (owne
     ).toBeLessThanOrEqual(STALENESS_ALLOWANCE)
   })
 })
+
+// ═══════════════════════════════════════════════════════════════════════
+// Rule M — a new SECURITY DEFINER function is locked down against all three
+// PostgREST roles, or says why not (audit item B2, 2026-09-12)
+//
+// Supabase grants EXECUTE explicitly to anon, authenticated and service_role
+// when a function is created, ON TOP OF Postgres's own default grant to
+// PUBLIC. `REVOKE ... FROM PUBLIC` therefore closes nothing on its own — mig
+// 152's header documented that from a live proacl read in June, and mig 248
+// still shipped a PUBLIC-only revoke in September. A live check on 2026-09-12
+// found anon still able to execute all six functions 248 was written to close,
+// plus ~15 more that any logged-in user could call with no caller check.
+//
+// This rule applies only to migrations NEWER than the audit (number > 249), so
+// it is green on arrival and ratchets from here. Legacy functions are being
+// closed by migration 250; it is deliberately NOT a retroactive sweep, because
+// a rule that fails on day one gets disabled instead of obeyed.
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('Guardrail Rule M: new SECURITY DEFINER functions are revoked from PUBLIC, anon and authenticated', () => {
+  const FIRST_GOVERNED_MIGRATION = 249 // exclusive — 250 onward must comply
+  const EXEMPT_MARKER = 'EXEC-GRANT-EXEMPT'
+
+  function migNumberOf(base: string): number {
+    const ts = base.match(/^\d{8}_\d{6}_(\d+)_/)
+    if (ts) return parseInt(ts[1], 10)
+    const m = base.match(/^\d{8}_(\d+)/)
+    return m ? parseInt(m[1], 10) : 0
+  }
+
+  it('every new definer function names all three roles in a REVOKE (or is marked exempt)', () => {
+    const offenders: string[] = []
+
+    for (const { base, full } of allMigrationFiles()) {
+      if (migNumberOf(base) <= FIRST_GOVERNED_MIGRATION) continue
+      const sql = read(full)
+      if (sql.includes(EXEMPT_MARKER)) continue
+
+      // Function definitions in this file. The SECURITY DEFINER marker can sit
+      // EITHER before the dollar-quoted body (LANGUAGE plpgsql SECURITY DEFINER AS
+      // $$...$$) or after it (AS $$...$$ LANGUAGE plpgsql SECURITY DEFINER), and
+      // this repo uses the second form. So the window must span the whole
+      // statement: from CREATE FUNCTION past the closing dollar-quote to the ';'.
+      // (An earlier draft stopped at the closing $$ and therefore detected zero
+      // definer functions — it would have passed every migration silently.)
+      const defRe = /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(?:public\.)?([a-z0-9_]+)\s*\(/gi
+      let m: RegExpExecArray | null
+      while ((m = defRe.exec(sql)) !== null) {
+        const fnName = m[1]
+        const rest = sql.slice(m.index)
+        const tag = /\$[a-zA-Z_]*\$/.exec(rest)
+        let end: number
+        if (tag) {
+          const openIdx = m.index + tag.index
+          const closeIdx = sql.indexOf(tag[0], openIdx + tag[0].length)
+          const semi = closeIdx === -1 ? -1 : sql.indexOf(';', closeIdx + tag[0].length)
+          end = semi === -1 ? sql.length : semi + 1
+        } else {
+          const semi = sql.indexOf(';', m.index)
+          end = semi === -1 ? sql.length : semi + 1
+        }
+        const body = sql.slice(m.index, end)
+        if (!/SECURITY\s+DEFINER/i.test(body)) continue
+
+        // Collect every REVOKE EXECUTE that names this function anywhere in the file.
+        const revokes = sql
+          .split('\n')
+          .filter((l) => /REVOKE\s+EXECUTE/i.test(l) && l.includes(fnName))
+          .join(' ')
+          .toLowerCase()
+
+        const missing = ['public', 'anon', 'authenticated'].filter((role) => !revokes.includes(role))
+        if (missing.length > 0) {
+          offenders.push(`${base}: ${fnName}() — REVOKE EXECUTE does not name ${missing.join(', ')}`)
+        }
+      }
+    }
+
+    expect(
+      offenders,
+      'A write-capable SECURITY DEFINER function is only locked down when EXECUTE is revoked from PUBLIC, anon ' +
+        'AND authenticated, then granted back to service_role, and verified live with has_function_privilege for ' +
+        'all three roles. Revoking FROM PUBLIC alone leaves the explicit Supabase grants in place (mig 152 header; ' +
+        'mig 248 proved it again on 2026-09-11). Fix the migration, or add a line comment containing ' +
+        `${EXEMPT_MARKER} with the reason (e.g. a read-only helper that browse calls anonymously).\n` +
+        offenders.join('\n')
+    ).toEqual([])
+  })
+})
