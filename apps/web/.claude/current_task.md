@@ -1,3 +1,45 @@
+# 🏁 2026-09-12 SESSION CLOSE — MIGS 250 + 251 SHIPPED TO STAGING · STEP 9 REVERTED · TREE CLEAN
+
+**Staging = `6f21ca29`** (verified against `git log origin/staging`). Three commits today:
+`b667af6e` mig 250 · `ccb3a262` records · `6f21ca29` mig 251. Local `main` level with staging.
+**⚠ PROD IS UNTOUCHED AND STILL CARRIES EVERY FINDING** — it owes code + migs 238→247, 248, 249, 250, 251.
+
+**Closed on Dev + Staging only:**
+- **F-2 + F-4** by **mig 250** — 22 write-capable signatures locked to `service_role`; post-check verified on
+  ALL THREE roles on BOTH environments (the verification mig 248 never had).
+- **F-10 + F-1** by **mig 251** — two BEFORE UPDATE triggers; both confirmed present on both environments.
+
+**Owner decisions this session:** snapshot stamp moved 244 → 249 on DDL-derived evidence (a real rebuild is
+still owed) · **Shape A** — lockdown minus the two vendor reliability counters, so no code change was needed ·
+**option (a)** — let the inactive external-payments confirm route go inert rather than carve a `'paid'`
+exception into a security trigger · **step 9 reverted.**
+
+## ▶ AGREED ORDER FROM HERE (owner asked "propose the correct order of action", 2026-09-12)
+1. ✅ **Step-9 keep-or-revert — DONE (reverted).**
+2. ⏳ **OWNER STAGING SMOKE — the next action, and it gates the prod push.** Four items on `6f21ca29`:
+   skip a week as a vendor (`vendor_skip_week`, revoked by 250 — the sharpest test of it) · one checkout
+   (`atomic_decrement_inventory`) · one buyer cancel (`atomic_restore_inventory` + proves 251's `orders`
+   trigger ALLOWS `'cancelled'`) · one normal buyer-ack-then-fulfill handshake (proves 251's `order_items`
+   trigger passes a legitimate acknowledgment).
+3. **E0** — remove the broken radius call from browse. ⚠ vaulted; zero behaviour change (the function fails on
+   all three envs). **MUST precede the prod code push** — `51a1b13c` is not on prod, and shipping it un-fixed
+   adds a failing round trip + an `error_logs` INSERT to every located browse view at launch volume.
+4. **PROD PUSH** — code, then 238→247, 248, 249, 250, 251 **in order**, window 21:00–07:00 CT. The only step
+   that closes real exposure.
+5. **Snapshot rebuild** — owner runs `supabase/REFRESH_SCHEMA.sql` on Dev; Claude rebuilds the structured
+   sections and stamps to 251. Catches drift older than 2026-09-05, which the stamp move says nothing about.
+6. **C1b** vendor reliability counters — code first (⚠ `reject/route.ts` protected), then mig 252.
+7. **C7** hide listings whose every pickup location is inactive (⚠ vaulted; Q13 = 0 rows, provably inert).
+8. **D1** two-tier rate limits — needs the Upstash plan + the deferred command-cost test; ~20 routes, 5 protected.
+
+## ⚑ THE PROCESS THAT WORKED — repeat it
+Both migrations were written only AFTER reading every non-test call site of every affected function and column.
+That is the direct answer to the failure this session opened with, and it caught two things assumption would
+have missed: the bundle manager stand-in writes `buyer_confirmed_at` through the **service** client
+(`collect-ack:104`), so 251 does not break bundle collection; and `SECURITY DEFINER` on the 251 guards would
+have made `current_user` the function owner, so both triggers would have existed and **silently never fired**.
+A guard that cannot fire is worse than no guard, because it reads as protection.
+
 # ⛳⛳⛳⛳⛳ 2026-09-12 (continued) — MIGRATION 250 WRITTEN AND APPLIED TO DEV + STAGING
 
 **Owner decisions this turn:** (1) move the snapshot stamp 244 → 249 on DDL-derived evidence instead of
@@ -36,9 +78,25 @@ output: `anon_exec` false and `auth_exec` false on all 23 signatures, `service_e
 inflate a vendor's cancellation rate — reputational, not money), `atomic_complete_order_if_ready`,
 `get_or_create_cart`, `validate_cart_item_inventory`.
 
-**UNCOMMITTED:** mig 250 + `SCHEMA_SNAPSHOT.md` (this work) · plus the four pre-existing files — the two handoff
-docs and the two step-9 payout-gate files still awaiting the owner's keep-or-revert. Commit + push proposed
-(two commits, one push, no application code), **not yet approved.**
+**STEP 9 (the payout gate) — REVERTED 2026-09-12 on the owner's call. The working tree is clean.**
+`buyer/orders/[id]/confirm/route.ts` and `cron/expire-orders/route.ts` are back to their committed form
+(`['paid','completed'].includes(status)` at confirm:122, expire-orders:809 and :1898). Nothing was committed.
+
+**Why revert rather than keep** (the reasoning, so this is not relitigated from scratch): (1) mig 251's
+`orders` trigger closes F-1 at the database, so the exploit those edits defended against is dead from a user
+session — the edits were reduced to defense-in-depth against a service-role path writing `'paid'` wrongly;
+(2) the change was **partial — two of five sites**: `fulfill/route.ts` (the primary payout path) and
+`lib/bundles/margin-payout.ts` were never edited because they are protected and were never approved, so
+committing it would have left the no-show cron demanding payment proof while fulfill did not; (3) it was
+never smoked — `checkout/success` flips the order to `'paid'` at `:83-86` and inserts the payment row later,
+so a non-23505 insert failure would have BLOCKED a vendor from fulfilling until the webhook caught up, which
+is exactly what the two never-run Stripe test-mode runs were meant to prove.
+
+**If C2 is wanted later, rebuild it WHOLE, not in pieces:** all five gates (fulfill ⚠protected, buyer confirm,
+cron Phases 4 + 7, `lib/bundles/margin-payout.ts` ⚠protected-list-approved-but-not-yet-added), the predicate
+`payments.status IN ('succeeded','partially_refunded')`, plus the two staging Stripe runs (card payment →
+fulfill immediately; two-item order, cancel one → fulfill the other). Full design: `session_audit_2026-09-12.md`
+PART 3 → C2.
 
 **MIG 251 WRITTEN 2026-09-12** — `supabase/migrations/20260912_251_order_actor_guards.sql`, two BEFORE UPDATE
 triggers closing F-10 (only the order's buyer may SET `buyer_confirmed_at`; clearing to NULL stays open for
