@@ -40,10 +40,35 @@ inflate a vendor's cancellation rate — reputational, not money), `atomic_compl
 docs and the two step-9 payout-gate files still awaiting the owner's keep-or-revert. Commit + push proposed
 (two commits, one push, no application code), **not yet approved.**
 
-**NEXT:** mig 251 — order actor guards (F-10: a vendor can write `order_items.buyer_confirmed_at` and fulfill
-then pays without the buyer's handoff ack). ⚠ It defines trigger functions, so Rule M will fire and needs an
-`EXEC-GRANT-EXEMPT` marker with a stated reason — trigger functions are not PostgREST-callable, so a revoke
-would be meaningless ceremony.
+**MIG 251 WRITTEN 2026-09-12** — `supabase/migrations/20260912_251_order_actor_guards.sql`, two BEFORE UPDATE
+triggers closing F-10 (only the order's buyer may SET `buyer_confirmed_at`; clearing to NULL stays open for
+fulfill's stale-window reset) and F-1 (a logged-in caller may only move `orders.status` to `'cancelled'`).
+**✅ APPLIED + VERIFIED Dev + Staging 2026-09-12 (owner)** — `pg_trigger` returns both `trg_251_*` rows on both
+environments, each bound to its guard function. ⏳ Prod PENDING (after 238→247, 248, 249, 250).
+
+**⚠ CORRECTION to what this block said an hour ago:** I wrote that 251 would need a Rule M `EXEC-GRANT-EXEMPT`
+marker. **That was wrong.** Rule M keys on `/SECURITY\s+DEFINER/i` inside the statement window
+(`guardrail-contracts.test.ts:684`) and skips anything without it — and these guards *must* be SECURITY
+INVOKER, because inside a DEFINER function `current_user` resolves to the function's OWNER, not the caller, so
+`current_user = 'authenticated'` would never be true and both triggers would silently never fire. No marker,
+and no revoke: the functions RETURN TRIGGER and cannot be called over `/rpc/` at all.
+
+**Verification done before writing a line** (owner: "no guessing, verify & validate before writing"): every
+writer of both constrained fields was read. The trap that would have broken a live feature — the bundle
+manager stand-in that sets `buyer_confirmed_at` on the buyer's behalf — writes through the **service** client
+(`collect-ack:104`; the manager's own session at `:37` is used only for the `isMarketManager` check), so the
+guard never fires on it and bundle collection is untouched. All four user-client `orders.status` writes were
+resolved to `'cancelled'` (reject:229, cancel-nonpayment:103, resolve-issue:297, buyer cancel:206); the
+`'refunded'` write at buyer cancel:261 targets `order_items`, not `orders`. `orders_select`
+(20260209_002:39-45) confirms the buyer can read their own order, so the INVOKER lookup returns a real id and
+the guard rejects for the right reason rather than failing closed by accident. Schema gate re-run fresh
+immediately before composing the SQL; `order_status` labels confirmed at `SCHEMA_SNAPSHOT.md:3377`.
+
+**⚠ One deliberate break, owner-chosen (option (a) over a carve-out):**
+`vendor/orders/[id]/confirm-external-payment:111-117` sets `orders.status = 'paid'` with the USER client and
+will now fail. External payments are inactive (`EXTERNAL_PAYMENTS_ENABLED = false`) and mig 249 already
+inerted the checkout half of that flow. Revival = move that one write to the service client after its
+ownership check, exactly as the skip route did for mig 248. Recorded in the 251 header and the changelog row.
 
 # ⛳⛳⛳⛳ 2026-09-12 SESSION CLOSE — READ THIS BLOCK, THEN `.claude/session_audit_2026-09-12.md`
 
