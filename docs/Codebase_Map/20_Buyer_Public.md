@@ -1,6 +1,6 @@
 # 20 — Buyer & Public Surfaces
 
-<!-- map-stamp: domain=buyer-public; verified=2026-09-05; commit=de9baab6 -->
+<!-- map-stamp: domain=buyer-public; verified=2026-09-13; commit=3f6b61ce -->
 <!-- Market bundles buyer side (mig 244, 2026-09-05): the public market page renders components/markets/MarketBundlesSection (5-pillar cards: curator · named makers w/ vendor links · scarcity · pickup · cause) fed by lib/bundles/public.ts getMarketBundleCards (service client — market_bundles is service-only RLS; active bundles only). "Buy this bundle" → /{vertical}/checkout?bundle=<id> (BundleCheckout view, see 10_Checkout_Payments). api/bundles/[bundleId] GET = public single-bundle detail at live prices; availability mirrors checkout via the shared componentIsLive check. -->
 <!-- map-claims
 src/app/api/buyer/**
@@ -90,9 +90,9 @@ The cookie is `user_location` (`lib/location/server.ts:4`): httpOnly, 30-day max
 - `getServerLocation()` (`lib/location/server.ts:19-78`) — an authenticated **profile beats the cookie** for coordinates, but **radius always comes from the cookie** (the profile stores no radius).
 - The **browse page reimplements this inline** rather than calling `getServerLocation`: **`?zip=` param first** (hardcoding radius 25), then profile, then cookie (`browse/page.tsx:591-648`).
 
-**Distance filtering is PostGIS-first with a JS fallback.** With a location resolved, browse calls `get_listings_within_radius`, passing `vertical_filter` — **this is where vertical isolation happens on the browse path**. If the RPC errors *or returns zero rows*, it falls back to an inline Haversine computation.
+**Distance filtering is an inline Haversine computation in JS** (`browse/page.tsx`, the block after location resolution): each listing survives if any of its markets' coordinates fall within the cookie radius. Vertical isolation on the browse path happens EARLIER, in the catalog query (`.eq('vertical_id', vertical)`), not in the distance step.
 
-> Worth knowing: the fallback condition treats an empty PostGIS result identically to an error, so a legitimately-empty radius silently triggers the Haversine path. Harmless today, but surprising when debugging.
+> History (2026-09-13): a `get_listings_within_radius` PostGIS RPC was wired ahead of this filter and removed. It never returned a row on any environment (42804 — declares `vendor_status TEXT` where the column is an enum), and it sat AFTER the whole-catalog fetch, so fixing it alone would not have reduced load. The design intent and the correct rebuild (radius query FIRST, fetch only matching rows — same problem as launch-review H1) are recorded in `apps/web/.claude/PERFORMANCE_BASELINE.md` "Browse location filtering" and tracked in `backlog.md`. The function itself is still in the database.
 
 `api/markets/nearby` uses a different technique entirely — a 20%-buffered bounding box rather than the RPC.
 

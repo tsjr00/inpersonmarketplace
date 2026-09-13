@@ -542,12 +542,15 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
 
   // Location-based proximity filtering
   // Priority: 1) ?zip= URL param  2) user_location cookie  3) no filtering
-  // When location IS available: use PostGIS RPC for DB-level filtering (scales to 50k+ listings)
-  // When location is NOT available: existing fetch-all query is fine (no distance filter needed)
+  // Distance filtering runs in JS (Haversine) against the market coordinates
+  // already fetched with each listing. A DB-level radius RPC was wired here and
+  // removed 2026-09-13: it never executed on any environment (42804) and sat
+  // AFTER the catalog fetch, so it could not deliver the scale benefit it was
+  // built for. Intent + the correct rebuild: PERFORMANCE_BASELINE.md
+  // "Browse location filtering"; tracked in backlog.md with launch-review H1.
   let locationText: string | null = null
   let hasLocationFilter = false
   let currentRadius = 25 // default radius in miles
-  // postgisUsed and postgisTotalCount reserved for future server-side pagination
 
   // Resolve user location from all sources (cookie, profile, zip param)
   type LocationData = { latitude: number; longitude: number; locationText: string; radius: number }
@@ -619,62 +622,25 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
 
   // If we have both a location AND listings, apply distance filtering
   if (resolvedLocation && listings && listings.length > 0) {
-    const sanitizedSearch = search ? search.replace(/[%_]/g, '') : null
-
-    const { data: postgisListings, error: postgisError } = await observed(supabase.rpc(
-      'get_listings_within_radius',
-      {
-        user_lat: resolvedLocation.latitude,
-        user_lng: resolvedLocation.longitude,
-        radius_miles: resolvedLocation.radius,
-        vertical_filter: vertical,
-        category_filter: category || null,
-        search_term: sanitizedSearch || null,
-        page_size: 1000, // Fetch up to 1000 for client-side premium/availability filtering
-        page_offset: 0,
-      }
-    ), { table: 'rpc:get_listings_within_radius', operation: 'rpc', route: BROWSE_ROUTE })
-
-    if (!postgisError && postgisListings && postgisListings.length > 0) {
-      // PostGIS succeeded — use its results
-      hasLocationFilter = true
-      locationText = resolvedLocation.locationText
-      currentRadius = resolvedLocation.radius
-
-      // Map PostGIS results back to Listing shape for downstream compatibility
-      // We still need listing_markets and listing_images from the original query
-      const postgisIds = new Set(postgisListings.map((r: { listing_id: string }) => r.listing_id))
-      listings = listings.filter(l => postgisIds.has(l.id))
-    } else {
-      if (postgisError) {
-        // Already in error_logs via observed(); the Haversine fallback below is
-        // the vaulted behavior and is unchanged.
-      }
-      // PostGIS failed or returned empty — fall back to JS Haversine
-      // This preserves the exact pre-PostGIS behavior
-      const distanceKm = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
-        const R = 6371
-        const dLat = (lat2 - lat1) * Math.PI / 180
-        const dLng = (lng2 - lng1) * Math.PI / 180
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-          Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-          Math.sin(dLng / 2) * Math.sin(dLng / 2)
-        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-      }
-      const maxDistKm = resolvedLocation.radius * 1.609
-
-      listings = listings.filter(listing => {
-        const markets = listing.listing_markets || []
-        return markets.some(lm => {
-          const m = lm.markets as unknown as { latitude?: number; longitude?: number }
-          if (!m?.latitude || !m?.longitude) return false
-          return distanceKm(resolvedLocation!.latitude, resolvedLocation!.longitude, Number(m.latitude), Number(m.longitude)) <= maxDistKm
-        })
-      })
-      hasLocationFilter = true
-      locationText = resolvedLocation.locationText
-      currentRadius = resolvedLocation.radius
+    const distanceKm = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+      const R = 6371
+      const dLat = (lat2 - lat1) * Math.PI / 180
+      const dLng = (lng2 - lng1) * Math.PI / 180
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLng / 2) * Math.sin(dLng / 2)
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
     }
+    const maxDistKm = resolvedLocation.radius * 1.609
+
+    listings = listings.filter(listing => {
+      const markets = listing.listing_markets || []
+      return markets.some(lm => {
+        const m = lm.markets as unknown as { latitude?: number; longitude?: number }
+        if (!m?.latitude || !m?.longitude) return false
+        return distanceKm(resolvedLocation!.latitude, resolvedLocation!.longitude, Number(m.latitude), Number(m.longitude)) <= maxDistKm
+      })
+    })
   }
 
   // Get categories - use CATEGORIES constant for farmers_market, or fall back to config

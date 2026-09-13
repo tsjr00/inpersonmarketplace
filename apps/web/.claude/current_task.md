@@ -1,3 +1,22 @@
+# ⛳ 2026-09-13 (session 2) — E0 BUILT IN WORKING TREE, GATES GREEN, NOT YET COMMITTED
+
+**Git verified at kickoff:** local `main` = `origin/staging` = `3f6b61ce` (the close block below is stale on this point — its "2 commits unpushed" were pushed before session end). Prod `origin/main` = `e946c2c0`, 109 behind. Vercel staging green on `3f6b61c` (owner).
+
+**Prod measured, not inferred (owner-run catalog Script A, 2026-09-13):** NONE of migs 238→251 present on Prod; `anon` and `authenticated` can still EXECUTE `vendor_skip_week`; `authenticated` can still INSERT `orders`/`order_items`; 0 `trg_251_*` triggers. Staging: all 20 checks match the record. **F-1/F-2/F-4/F-10 confirmed live on Prod.**
+
+**Owner smoke on staging (2026-09-13):** items 2, 3, 4 PASS (item 4 was a REGULAR listing order → 251 order_items guard allows a legitimate ack). Market-box: box alone reaches payment; box + other-market listing → multi-location notice, pays. **Item 1 (vendor skip-a-week, the sharpest mig-250 test) was NOT run — still open.** Five findings from the smoke are already in backlog.md (market-box section).
+
+**E0 evidence, fresh this session:** `get_listings_within_radius` raises 42804 on Staging AND Prod (owner-run, "Returned type vendor_status does not match expected type text in column 15"). `error_logs` on Staging: 130 rows pg_code 42804 attributed to it, 2026-09-11 16:13 → 2026-09-13 23:23. Prod: 0 rows (lacks `51a1b13c`). Browse with a location set works on staging (owner: result count changes with radius).
+
+**E0 built (owner: "go with A" — delete the call, JS Haversine only; option C = radius-first rebuild stays in backlog with H1):**
+- `src/app/[vertical]/browse/page.tsx` — RPC call + result branch removed; Haversine filter now unconditional inside `if (resolvedLocation && listings…)`; 3 duplicate assignments dropped (already set at the `if (resolvedLocation)` block above); `sanitizedSearch` (RPC-only) removed; comment rewritten to point at PERFORMANCE_BASELINE.md.
+- `docs/Codebase_Map/20_Buyer_Public.md` — browse paragraph rewritten (it claimed the RPC "is where vertical isolation happens" — false; the catalog query's `.eq('vertical_id')` is); stamp → 2026-09-13 / 3f6b61ce; `00_INDEX.md` row bumped.
+- Gates: eslint 0 · tsc 0 · vitest 90 files / 2225 tests / exit 0. **No test file changed.**
+
+**Next:** commit + push staging (owner's word) → owner browser check (location set, change radius, count changes) + Script C on Staging (last_seen should stop advancing — check, don't assume) → item-1 skip-a-week smoke → PROD PUSH (code, then 238→247, 248, 249, 250, 251; window 21:00–07:00 CT; read mig 225's header first — it must NOT be pasted).
+
+---
+
 # 🏁 2026-09-13 SESSION CLOSE — READ THIS BLOCK FIRST
 
 **Staging = `b4ce81aa`. Local `main` = `d4b5c3eb` — 2 commits ahead, NOT pushed. Tree clean.**
