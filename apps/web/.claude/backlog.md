@@ -2441,3 +2441,43 @@ per-vendor discovery clicks from bundle pages.
   reuse the vendor week-strip v2 date-based pattern for the manager dashboard top section — next
   2 weeks of market days with at-a-glance chips (booths rented, events, cancellations, blackouts),
   detail stays in the sections below. Owner asked for lift estimate before deciding.
+
+## 🧾 LOW PRIORITY — nine database functions the repo cannot rebuild (found 2026-09-12, owner: backlog)
+
+Nine functions exist on **Dev, Staging AND Prod** that **no migration in `supabase/migrations/` creates**. They
+were applied by hand outside the migration flow, so the migrations directory is not a complete description of
+the database. Nothing is broken today — every environment already has them. This is insurance against a
+situation we are not currently in (a new environment, or a rebuild from scratch), which is why it is low
+priority.
+
+```
+can_vendor_add_fixed_market          get_vendor_fixed_market_count
+can_vendor_add_listing_to_market     get_vendor_fixed_market_limit
+get_buyer_order_ids                  get_vendor_listing_count_at_market
+get_listing_markets_summary          get_vendor_order_ids
+validate_cart_item_inventory
+```
+
+**Only ONE is live.** `validate_cart_item_inventory` is called from two source files (the cart-add routes) and
+referenced by four migrations — it is the one whose absence would actually break something (adding to cart).
+The other **eight are called by nothing**: no application code, no migration, and none appears inside an RLS
+policy (all verified 2026-09-12). ⚠ An earlier note in this session described `get_buyer_order_ids` /
+`get_vendor_order_ids` as "RLS-adjacent" — that was inferred from their names and is **wrong**; nothing
+references them. `validate_cart_item_inventory` was already known as audit finding F-9 (migs 149/152 call it
+"prod-only").
+
+**Two candidate resolutions — decide which before doing either:**
+
+1. **Capture them** into a migration (`CREATE OR REPLACE` from the live definitions), making the repo able to
+   rebuild the database. Inert wherever they already exist.
+2. **Drop the eight dead ones** and capture only `validate_cart_item_inventory`. Enshrining functions nobody
+   calls makes them permanent; the eight look like an abandoned tier-limit feature and are worth understanding
+   before they are preserved forever.
+
+⚠ **Prerequisite for EITHER path — do not skip.** Any capture would take definitions from Dev. The 2026-09-12
+signature hash that matched across environments compared names, identity arguments and security modes — it
+**never compared function bodies**. If Prod is running a different body for one of these, capturing Dev's and
+later applying it would silently overwrite Prod. Pull `pg_get_functiondef` for all nine on all three
+environments and diff them first. If they differ, that is a larger finding than the missing definitions, and
+it belongs with audit finding F-9 (Staging was already found running a `get_markets_within_radius` body that no
+migration defines).

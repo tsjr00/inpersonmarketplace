@@ -4109,9 +4109,28 @@ text to diff against (verification-discipline Rule 2).
 - `validate_cart_item_inventory`
 
 `validate_cart_item_inventory` was already known from audit finding F-9 (migs 149 and 152 describe it as
-prod-only). The other eight were found during this rebuild. `get_buyer_order_ids` and `get_vendor_order_ids` are
-the RLS-adjacent pair — the same family as `user_vendor_order_ids`, which the `orders_update` policy uses to decide
-who may write an order.
+prod-only). The other eight were found during this rebuild.
+
+**Only ONE of the nine is actually called by anything** (verified 2026-09-13 by searching migrations, RLS policy
+bodies and all non-test application source):
+
+| Function | Referenced by |
+|---|---|
+| `validate_cart_item_inventory` | 2 source files (the cart-add routes) + 4 migrations |
+| `get_listing_markets_summary` | 1 migration, no application code |
+| the other seven | **nothing** — no code, no migration, no RLS policy |
+
+So the practical exposure is narrow: `validate_cart_item_inventory` is the only one whose absence would break a
+user-facing path (adding to cart). The remaining eight look like an abandoned tier-limit feature, and whether
+they should be captured into a migration or dropped is an open question — enshrining functions nobody calls
+makes them permanent. Tracked in `apps/web/.claude/backlog.md`.
+
+> ⚠ **CORRECTION 2026-09-13.** An earlier revision of this section stated that `get_buyer_order_ids` and
+> `get_vendor_order_ids` were "the RLS-adjacent pair — the same family as `user_vendor_order_ids`, which the
+> `orders_update` policy uses". **That was wrong.** It was inferred from the function names and never checked;
+> nothing in this repository references either function. It is recorded here rather than silently deleted
+> because it was committed to this file and a future session may have read it. Names are not evidence — see
+> verification-discipline Rule 7.
 
 ### PostGIS entries retained from the pre-2026-09-12 section
 
