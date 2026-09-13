@@ -493,6 +493,42 @@ One rule written in two independently-editable places with silent drift is this 
 
 ---
 
+## Session History — 2026-09-13 (migrations verified behaviourally · schema rebuilt from live reads · market-box checkout fixed)
+
+**Migs 250 and 251 proven, not just applied.** Owner-run SQL confirmed mig 251's guards work in BOTH
+directions: they permit a legitimate buyer acknowledgment, DEFINER-driven order completion and a buyer
+cancellation, and they REFUSE a forged `status='paid'` (42501 from `guard_order_status_actor`) and a forged
+`buyer_confirmed_at` (42501 from `guard_order_item_buyer_ack`). That distinction matters — a trigger that never
+fires is indistinguishable from one that fires and allows, so the "allow" tests alone would have proven
+nothing. **F-1, F-2, F-4 and F-10 are closed on Dev + Staging; Prod still carries all four.**
+
+**The snapshot was rebuilt from eleven live catalog queries, and the refresh earned its keep.** The earlier
+DDL-derived stamp move was correct for columns, tables, FKs and enums — all matched Dev exactly — but blind to
+the sections nobody had checked: **36 tables had no index documentation at all**, 84 check constraints were
+missing, 57 application functions were absent, and two security modes were recorded backwards on the exact
+DEFINER-vs-INVOKER property mig 251 depends on. Guardrail **Rules N and O** now fail the commit when a
+migration creates a table without an index block, or a function the Functions section doesn't name; both were
+proven RED against the pre-rebuild file before the data was fixed.
+
+**Market-box checkout was blocked and is fixed** (`b4ce81aa`). `cart/validate` treated every cart row as a
+listing, so a market box — which carries `offering_id` and no `listing_id` — reported "Unknown item is not
+available at any markets" and disabled the pay button. Broken on staging AND production since `f4b2700c`
+(2026-07-12) closed a fail-open that had been masking a loop which never handled market boxes: the
+reactivation class the ledger already warns about. The fix branches on `item_type` rather than skipping the
+row, because `cart/items` enforces event isolation for market boxes and the paired-rule registry makes it
+authoritative.
+
+**Nine application functions exist on all three environments that no migration creates** — one live
+(`validate_cart_item_inventory`, the cart-add routes), eight referenced by nothing. Documented in the snapshot;
+capture-or-drop is a low-priority backlog item, gated on diffing their bodies across environments first.
+
+**Process, recorded because it cost the owner real time:** multiple claims were asserted as fact without being
+checked — including one written into `SCHEMA_SNAPSHOT.md` and committed. Every error was a false POSITIVE about
+a relationship or a magnitude, never a false absence; that asymmetry is the signature of pattern-completion
+from active context being mistaken for a derived conclusion. The operative correction: a sentence in a summary
+is a new claim and needs the same citation as a sentence in a finding, and only a search that *could have come
+back empty* licenses a relationship claim.
+
 ## Session History — 2026-09-12 (audit follow-through: migrations 250 + 251, the DB privilege layer closed)
 
 Two security migrations written, applied to Dev + Staging, and verified live. **Mig 250** closes audit findings

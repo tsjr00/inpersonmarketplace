@@ -1,4 +1,59 @@
-# 🔴 OPEN DEFECT FOUND 2026-09-12 DURING THE OWNER'S SMOKE — MARKET-BOX CHECKOUT IS BLOCKED
+# 🏁 2026-09-13 SESSION CLOSE — READ THIS BLOCK FIRST
+
+**Staging = `b4ce81aa`. Local `main` = `d4b5c3eb` — 2 commits ahead, NOT pushed. Tree clean.**
+**⚠ PROD UNTOUCHED and still carries every audit finding.** It owes code + migs 238→247, 248, 249, 250, 251.
+
+## ⚠ TRUST STATE — read before acting on anything below
+The owner ended this session having lost confidence in my output, for cause. In one session I asserted, as
+fact, at least five things I had not checked: a function-reference relationship written into
+`SCHEMA_SNAPSHOT.md` and committed (`b308a926`, corrected in `d4b5c3eb`), two function/table counts taken from
+narrative prose instead of counted, a prediction about my own file's contents, and a claim about my own prior
+message. Each was one tool call away from being verified. **Treat any claim in this file that is not backed by
+a quoted command output or a `path:line` as unverified, including claims I wrote.**
+
+The pattern, for the next session: every error was a FALSE POSITIVE about a relationship or a magnitude —
+"X belongs with Y", "there are N of these". None was a false absence. That asymmetry is diagnostic: these
+sentences are produced by pattern-completion from whatever is active in context, and at the point of writing
+they are indistinguishable from derived conclusions. The only separator is whether a search was run **that
+could have come back empty**. Having read a related object elsewhere does not license a claim about this one.
+
+## ✅ WHAT SHIPPED AND IS VERIFIED (behaviourally, not by assertion)
+- **Mig 250** (functions locked to service_role) — applied Dev+Staging, post-check on ALL THREE roles on BOTH.
+- **Mig 251** (order actor guards) — applied Dev+Staging and **proven in both directions by owner-run SQL**:
+  permits a legitimate buyer ack, permits DEFINER-driven order completion, permits `'cancelled'`; and REFUSES
+  a forged `'paid'` (`42501` from `guard_order_status_actor` line 12) and a forged acknowledgment (`42501`
+  from `guard_order_item_buyer_ack` line 24). F-1, F-2, F-4 and F-10 are closed on Dev + Staging.
+- **Market-box checkout fix** (`b4ce81aa`) — owner-verified on staging both ways: a box alone reaches payment;
+  a box + a listing from another market gives the multi-location acknowledgment, not a block.
+- **Snapshot rebuilt from live catalog reads** + guardrail **Rules N and O**, both proven RED first.
+- Full order lifecycle end-to-end on staging with both migrations applied: order → pay → ready → buyer ack →
+  vendor fulfil → payout; and buyer-cancel → refund → vendor notified.
+
+## 🛑 E0 — NOT DONE, AND DELIBERATELY SO
+Removing the dead PostGIS radius call from `browse/page.tsx`. **The code is UNCHANGED — nothing was deleted.**
+The reasoning is fully documented and committed (`b9a19aa6`): `PERFORMANCE_BASELINE.md` holds why it was built
+and why removal is safe, `backlog.md` holds the real scale rebuild alongside launch-review H1, `decisions.md`
+holds the owner decision. The owner approved the change in principle, then said at wrap that my performance had
+cost him confidence in it. **Do not treat that approval as still live — re-present the diff and get a fresh go.**
+⚠ The file is VAULTED; start with `git diff vault -- "apps/web/src/app/[vertical]/browse/page.tsx"`.
+It must land BEFORE the Prod code push: Prod lacks `51a1b13c`, so shipping as-is starts writing one
+`error_logs` row per located browse.
+
+## ▶ ORDER FROM HERE
+1. **Push the 2 local commits to staging** (`b9a19aa6` E0 docs, `d4b5c3eb` the correction) — owner's word.
+2. **E0** — re-present the diff, fresh approval, then delete + owner's browser check on the radius pills.
+3. **PROD PUSH** — code, then 238→247, 248, 249, 250, 251 in order, window 21:00–07:00 CT.
+4. Mig 252 (nine no-repo functions — LOW priority, see backlog; body-diff across all 3 envs is a prerequisite).
+5. C1b vendor counters · C7 inactive-location filter · D1 two-tier rate limits.
+
+## 📋 OPEN FINDINGS LOGGED THIS SESSION (all in `backlog.md`)
+Market-box: pickup count disagrees between `/buyer/subscriptions` and `/buyer/orders` · no order number on the
+vendor market-box page · **market boxes invisible in vendor schedule + upcoming pickups (ranked highest — the
+buyer has prepaid and cannot cancel)** · dashboard reminder for boxes due. Vendor orders page: status count
+cards exclude a cancelled order the list shows — same shape as the pickup-count mismatch, likely one shared
+predicate bug. Schema: `fulfillments` looks dead; unused-index check before launch.
+
+# 🔴 OPEN DEFECT FOUND 2026-09-12 DURING THE OWNER'S SMOKE — MARKET-BOX CHECKOUT IS BLOCKED (FIXED — see above)
 
 **A cart containing a market box cannot check out.** The owner hit this on staging: the checkout page shows
 "Market Compatibility Issues: *Unknown item* is not available at any markets". **NOT caused by migs 250/251** —
