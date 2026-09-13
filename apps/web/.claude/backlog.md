@@ -1,5 +1,69 @@
 # Backlog
 
+## 🚦 BROWSE AT VOLUME — the real scale item (H1 + the radius filter, same problem)
+
+**Not urgent at current volume; it is the reason Traffic scored 4/10 in the 2026-09-10 launch review.**
+
+On every browse request the page fetches the ENTIRE published catalog for the vertical with no limit, then
+filters, paginates and checks availability in the app. That is launch-review finding H1. The
+`get_listings_within_radius` PostGIS call was built to address exactly this — filter at the database instead —
+but it was wired AFTER the catalog fetch, so it could only narrow rows already in memory, and it never
+executed on any environment because of a type error in its own definition (see `PERFORMANCE_BASELINE.md`,
+"Browse location filtering"). It was removed 2026-09-13 by owner decision, with the intent preserved there.
+
+**The correct fix, when volume justifies it:** resolve the location first, ask the database for the listing ids
+within the radius, and fetch only those rows. That requires (a) fixing `get_listings_within_radius` — it
+declares `vendor_status TEXT` where the column is an enum, mig 087 — and (b) restructuring the page's data flow
+so the radius query precedes the catalog fetch rather than following it.
+
+⚠ **Two constraints that make this more than a refactor.** The browse page is VAULTED (Session 59: a
+performance audit broke location search and cost an entire session) — start with `git diff vault`. And
+`PERF-R1` in `performance-baseline.test.ts` pins the availability-RPC call sites; any restructure that adds or
+removes one is a decision point for the owner, never a to-do. Measure before and after per code-stability
+Rule 2.1; there is no honest browse wall-clock baseline today.
+
+## 🧺 MARKET BOX FINDINGS — owner staging smoke, 2026-09-13 (staging `b4ce81aa`)
+
+Found while verifying the market-box checkout fix. The fix itself PASSED both ways (box alone reaches payment;
+box + a listing from another market gives the multi-location acknowledgment, not a block). These four are
+separate pre-existing issues the smoke surfaced. None blocks the Prod push.
+
+1. [ ] **🔴 DEFECT — pickup count disagrees between two buyer surfaces.** After the first of two pickups was
+   completed (buyer confirmed, vendor confirmed within the 30s window, status → "Picked up"):
+   - `/buyer/subscriptions/[id]` correctly shows **1 of 2 pickups completed**
+   - `/buyer/orders` shows **0 of 2 pickups completed** for the same subscription (order FA-2026-09284952)
+   - …while the SAME orders page correctly shows the next pickup as **October 3**, i.e. the 2nd date — so it has
+     already resolved the first pickup as done. The count and the next-date are derived from the same underlying
+     facts and disagree.
+   **Why this is the dominant defect class here:** two surfaces computing one fact independently, one of them
+   wrong, no test pinning them together — the same shape as the multi-market cart drift and the event-token
+   guard. Start by finding what each surface counts (`market_box_pickups.status`? `picked_up_at`? a derived
+   count?) — they are probably using different predicates. Consider a paired-rule registry entry once the two
+   sites are known. Display-only: no money or fulfilment impact.
+
+2. [ ] **Vendor market-box page shows no order number.** `/vendor/market-boxes/[id]` was the only place the
+   owner could confirm the pickup, and it exposes no order reference. A vendor confirming a handoff has nothing
+   to tie it to. ⚠ Owner's own caveat: this may be an artefact of forcing the pickup early for testing — confirm
+   the normal flow before treating it as a defect.
+
+3. [ ] **🔴 Market boxes are invisible in the vendor's operational surfaces.** After a market-box purchase, the
+   box did NOT appear in the vendor's "My markets & schedules" page schedule, nor under "My upcoming pickups"
+   from the dashboard card. **Rank this highest of the four**: the failure mode is a vendor not showing up for a
+   pickup the buyer has already paid for (market boxes are prepaid for the whole 4/8-week term, and per
+   decisions.md 2026-06-27 there is no cancellation — the buyer cannot recover by cancelling). The vendor's
+   normal workflow simply never mentions it.
+
+4. [ ] **Vendor dashboard reminder for market boxes due this week / next week** (owner: "explore"). The natural
+   home for the fix to #3 rather than a separate feature — if the schedule and upcoming-pickups surfaces learn
+   about market boxes, a dashboard reminder is the same data presented once more.
+
+5. [ ] **Vendor orders page: status count cards exclude a cancelled order that the list below does show.**
+   Found 2026-09-13 on `/vendor/orders` after a buyer cancelled a paid order pre-confirmation. The order appears
+   correctly in the list at the bottom of the page, but the per-status count cards at the top do not reflect it.
+   Small and display-only — but note it is the **same shape as finding #1 above**: a count and a list derived
+   from the same rows, disagreeing, with nothing pinning them together. Worth fixing alongside #1, since the
+   likely cause is the same (the count query and the list query using different status predicates).
+
 ## 🗃️ SCHEMA HOUSEKEEPING — two observations from the 2026-09-12 measured snapshot rebuild
 
 Both surfaced while rebuilding the structured sections from live catalog reads. Neither is urgent; both are

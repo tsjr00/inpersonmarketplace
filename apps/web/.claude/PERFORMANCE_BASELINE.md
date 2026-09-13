@@ -63,6 +63,39 @@ These metrics are derived from code analysis. They do not depend on network cond
 ### Browse Page `loading.tsx`
 **Status: WORKING CORRECTLY** — The skeleton reveals existing server rendering latency (~0.5s on staging). The latency existed before the skeleton was added. The skeleton improves perceived performance by showing structure immediately instead of a white screen. **Do not remove the skeleton to "fix" slowness — the slowness is server-side query time, not the skeleton.**
 
+### Browse location filtering — why the PostGIS radius call was built, and why it was removed (2026-09-13)
+
+**The design intent was correct and is worth preserving.** `get_listings_within_radius` was added so that a
+located browse search would filter at the DATABASE rather than hauling the catalog into the app and filtering
+there — the page's own comment said "use PostGIS RPC for DB-level filtering (scales to 50k+ listings)". At
+volume that is the right architecture, and nothing below argues otherwise.
+
+**Two things were true of the implementation as built:**
+
+1. **It never ran.** The function raises `42804` on Dev, Staging AND Prod — it declares `vendor_status` as
+   `TEXT` while the column is an enum (mig 087). Verified by direct RPC call against all three environments,
+   2026-09-12. Every located browse since it was added has silently used the JS Haversine fallback. Since
+   `51a1b13c` wrapped the call in `observed()`, each failure also wrote an `error_logs` row — one per located
+   browse view.
+2. **Its position in the flow meant it could not deliver the scale benefit even once fixed.** The page fetches
+   the entire published catalog for the vertical FIRST (no limit), then calls the RPC, then uses the returned
+   ids only to filter rows it already holds in memory. The expensive fetch has already happened by the time the
+   database is asked anything. Fixing the function alone would buy a working call that still does not scale.
+
+**Owner decision 2026-09-13: remove the call, keep the intent recorded here.** Removing it changes no result
+for any user — the Haversine filter has produced every result every shopper has ever seen — and it drops one
+guaranteed-failing round trip plus one `error_logs` insert from every located search. It had to land before the
+Prod code push, because Prod does not yet have `51a1b13c` and would otherwise start writing an error row per
+located browse at launch volume.
+
+**What a CORRECT implementation looks like, when volume justifies it:** query by radius FIRST and fetch only the
+matching listings — not fetch-everything-then-intersect. That is a restructure of the page's data flow, not a
+one-line cast, and it belongs with the unlimited catalog fetch (launch review H1), because they are the same
+problem: the browse page reads the whole vertical on every request. See `backlog.md`.
+
+⚠ The browse page is VAULTED (Session 59 location-search incident). Any future attempt at the above starts with
+`git diff vault -- src/app/[vertical]/browse/page.tsx`, not with a rewrite.
+
 ### `get_listings_accepting_status` RPC
 **Status: HEAVY BUT NECESSARY** — Called via `LEFT JOIN LATERAL` on `get_available_pickup_dates`, executing once per listing. For the browse page with 50+ listings, this is the single slowest operation. Three improvement options were analyzed in Session 59 (set-based rewrite, lightweight is-accepting function, cache table). Deferred to a future session.
 
