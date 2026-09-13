@@ -54,6 +54,12 @@ export async function GET(request: NextRequest) {
         quantity,
         listing_id,
         market_id,
+        item_type,
+        markets!market_id (
+          id,
+          name,
+          market_type
+        ),
         listings (
           id,
           title,
@@ -109,6 +115,34 @@ export async function GET(request: NextRequest) {
     let noMarketsRefusal = false
 
     for (const item of cartItems) {
+      // A market box is NOT a listing: it carries offering_id + market_id and no
+      // listing_id, so the `listings` join below is null for it. Until 2026-09-12
+      // this loop ran the listing path over EVERY row, so a market box reported
+      // «"Unknown item" is not available at any markets», set valid=false, and
+      // blocked checkout for the whole cart. It survived ~2 months because the
+      // loop sat behind a fail-open bug (a filter on a non-existent user_id
+      // column) until f4b2700c closed it on 2026-07-12 — the reactivation class:
+      // inert code has never been tested by production, and the day it wakes up
+      // is its first real run.
+      //
+      // @paired-rule multi-market-cart — a market box DOES take part in event
+      // isolation: cart/items enforces exactly that at add time (:455-485,
+      // mirroring the listing-side guard at :203-233). So its market still
+      // counts toward marketTypes/marketIds; only the LISTING-specific checks
+      // are skipped — the listing_markets lookup and the availability/cutoff
+      // RPC, neither of which applies to a subscription.
+      if ((item as { item_type?: string }).item_type === 'market_box') {
+        const boxMarket = item.markets as unknown as { id: string; market_type: string } | null
+        if (boxMarket) {
+          marketTypes.add(boxMarket.market_type)
+          marketIds.add(boxMarket.id)
+        }
+        // Offering with no pickup market: cart/items fails OPEN here too
+        // (:457-459). Matching that is deliberate — the pair must forbid the
+        // same set, no more and no less.
+        continue
+      }
+
       const listing = item.listings as unknown as {
         id: string
         title: string

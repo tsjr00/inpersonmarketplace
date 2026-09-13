@@ -1463,6 +1463,54 @@ describe('Multi-location cart rule', () => {
     expect(page, 'checkout stays disabled until the buyer acknowledges the locations')
       .toMatch(/hasMultiplePickupLocations && !multiLocationAcknowledged/)
   })
+
+  // ── Market boxes in the cart (added 2026-09-12) ──────────────────────
+  //
+  // Found by the owner's staging smoke: a cart containing a market box could not
+  // check out. Market boxes and listings share cart_items, distinguished by
+  // item_type; a market-box row carries offering_id + market_id and NO
+  // listing_id. cart/validate joined `listings` for every row, so the box had no
+  // listing, fell into the no-markets branch, reported «"Unknown item" is not
+  // available at any markets», and set valid=false — which the checkout page
+  // treats as a hard block.
+  //
+  // It survived ~2 months for the same reason the multi-market bug above did:
+  // the whole loop sat behind a fail-open (a filter on a non-existent user_id
+  // column) until f4b2700c closed it on 2026-07-12. Nothing put a market box
+  // through validate, so nothing noticed the loop had never handled one.
+
+  it('cart/validate branches on item_type before the listing lookup', () => {
+    expect(validate, 'a market-box row must not be run through the listings path')
+      .toMatch(/item_type\s*===\s*'market_box'/)
+    expect(validate, 'the row-level market must be selected so a box can resolve its own market')
+      .toMatch(/markets!market_id/)
+  })
+
+  it('a market box still counts toward event isolation', () => {
+    // NOT merely skipped. cart/items enforces event isolation for market boxes
+    // at add time (ERR_CART_010, mirroring the listing-side guard), and the
+    // registry makes cart/items authoritative — validate must forbid the same
+    // set, no more and no less. Skipping the row outright would let an event
+    // item + a market box pass validate while add-to-cart refuses it, which is
+    // exactly the drift this whole block exists to catch.
+    const boxBranch = validate.slice(
+      validate.indexOf("item_type === 'market_box'"),
+      validate.indexOf('const listing = item.listings')
+    )
+    expect(boxBranch, 'the box branch must contribute its market to the isolation sets')
+      .toMatch(/marketTypes\.add/)
+    expect(boxBranch, 'the box branch must contribute its market id to the isolation sets')
+      .toMatch(/marketIds\.add/)
+  })
+
+  it('the no-markets warning is still reachable for listing rows', () => {
+    // The fix must not silence the genuine case: a LISTING attached to no
+    // markets is still a real refusal.
+    expect(validate, 'listing rows keep the no-markets refusal')
+      .toContain('is not available at any markets')
+    expect(validate, 'and it still records the refusal for telemetry')
+      .toMatch(/noMarketsRefusal\s*=\s*true/)
+  })
 })
 
 // ── Event token format (added 2026-08-10) ────────────────────────────
