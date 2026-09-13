@@ -8,9 +8,42 @@
 
 > ⚠️ **EVERY structured section of this file is best-effort and may be stale — Columns, FKs, Indexes, Functions, Enum Types, CHECK Constraints, all of them.** The original banner named only four sections, and the Enum Types table sat outside it misleading readers for five months (missing `platform_admin`/`regional_admin`, added 2026-03-20). The Change Log's per-migration environment claims have also been wrong four separate times (210/211/212/215, all caught 2026-08-13). **Only `information_schema` / `pg_catalog` on the live environment is authoritative — for structure AND for what is deployed where.**
 >
-**Structured tables rebuilt:** 2026-09-05 · current through migration 249
+**Structured tables rebuilt:** 2026-09-12 · current through migration 251
 
-> ⚠ **The stamp moved 244 → 249 on 2026-09-12 WITHOUT a live rebuild — owner-authorized, DDL-derived.** The date above is deliberately unchanged: it still records the last real rebuild. Migrations 245–249 contain exactly ONE structural change between them — mig 246's `ALTER TABLE orders ADD COLUMN bundle_buyer_ack_at timestamptz` — and that column was written into the `orders` Columns-by-Table entry the day it was applied (see its changelog row). 245 and 247 replace function bodies; 248 and 249 change privileges only; none of the five creates or alters a table. So the structured sections below are current through 249 by construction, not by assumption. Same basis as the 242, 243 and 244 stamp moves. **A real `supabase/REFRESH_SCHEMA.sql` rebuild is still owed** — it is the only thing that catches drift OLDER than the 2026-09-05 rebuild, which this reasoning says nothing about.
+> ✅ **This is a MEASURED rebuild, not a derived one.** On 2026-09-12 the owner ran nine live catalog queries on
+> Dev and two on Staging; every structured section below was regenerated from that output. It supersedes the
+> DDL-derived stamp move made earlier the same day (244 → 249), which reasoned that migrations 245–249 contained
+> no unrecorded structural change. That reasoning turned out to be correct — columns, tables, foreign keys and
+> enums all matched exactly — but it was reasoning, and it was blind to the sections nobody had checked.
+>
+> **What the rebuild actually found, in the sections the earlier reasoning did not cover:**
+> - **Indexes** 346 → 514. **36 tables had no index block at all** — every one created during this year's feature
+>   work (booth/season family, `cause_*`, park spots, `buyer_achievements`, `vendor_date_blackouts`, …).
+> - **Check constraints** 65 → 149, plus four values restored from an older CSV export that cut at 64 characters.
+> - **Functions** 113 → 152 application functions. **57 were missing**, including `ensure_user_profile`,
+>   `confirm_season_paid`, `create_company_paid_order`, `claim_vendor_fee_deduction`, `redeem_booth_credit`,
+>   `get_available_pickup_dates` and `get_listings_accepting_status`. **Two security modes were wrong** —
+>   `create_market_box_pickups` and `set_order_item_expiration`, documented DEFINER, live INVOKER — and
+>   DEFINER-vs-INVOKER is the property migration 251's guards depend on.
+>
+> **What was verified, and how:** columns (1,443 rows), tables (95 + 10 views), foreign keys, indexes, check
+> constraints and enums from Dev. Functions verified on **both** Dev and Staging: 873 functions, 125 SECURITY
+> DEFINER, identical signature hash `ae502804506cdcd09d5d520c8e7e1569`.
+>
+> **What this does NOT establish — read before trusting it for a migration:**
+> 1. **Function bodies are not covered.** The signature hash spans name, identity arguments and security mode
+>    only. Finding F-9 showed Staging running a `get_markets_within_radius` body that no migration defines, and
+>    this rebuild would not detect that. Pull `pg_get_functiondef` from the target environment before any
+>    `CREATE OR REPLACE` (verification-discipline Rule 2).
+> 2. **Nine application functions have no definition anywhere in this repo** — see the list under ## Functions.
+>    The migrations directory alone cannot rebuild this database.
+> 3. **Prod was not queried.** Everything here describes Dev, verified against Staging for functions. Prod is
+>    behind by migrations 238→251 and is not expected to match.
+>
+> Two guardrail rules were added the same day to stop the drift this rebuild had to repair: **Rule N** (a table
+> documented in Columns must have an Indexes block — every table has a primary key, so an empty one is always
+> wrong) and **Rule O** (a function created by a current-era migration must be named under ## Functions). Both
+> were proven red against the pre-rebuild file — 36 tables and 19 functions — before the data was fixed.
 
 > ⚠ The stamp above is MACHINE-READ by guardrail Rule L (owner rule 2026-08-30): the test
 > suite fails when any newer migration CREATEs a table, or when more than 5 migrations exist
@@ -1747,7 +1780,7 @@
 | subscription_cycle | text | YES | - |
 | tier_started_at | timestamptz | YES | - |
 | tier_expires_at | timestamptz | YES | - |
-| notification_preferences | jsonb | YES | '{"sms_marketing": false, "email_marketing": false, "sms_... |
+| notification_preferences | jsonb | YES | '{"sms_marketing": false, "email_marketing": false, "sms_order_updates": false, "email_order_updates": true}'::jsonb |
 | survey_emails_opted_out | bool | NO | false |
 | email_suppressed_at | timestamptz | YES | - |
 | email_suppression_reason | text | YES | - |
@@ -2776,61 +2809,144 @@
 
 ## Indexes
 
+**Rebuilt 2026-09-12 from a live `pg_indexes` read on Dev** — 514 indexes across 95 tables. The previous section
+documented 346 across 59 tables: 36 tables created during this year of feature work had no block at all, because
+nothing checked that a migration which creates a table also documents its indexes. Guardrail Rule N now does.
+
+Definitions use the compact form this section has always used (`UNIQUE btree (col)`); the full `CREATE INDEX`
+statement is recoverable from the creating migration.
+
+> **Superseded names are kept, not deleted** (owner direction, 2026-09-12). Where a later migration renamed an
+> index, the old name stays with a superseded marker pointing at what replaced it. Someone reading an older
+> migration needs to be able to find the old name. The cost of a stale entry is loud — a DROP or ALTER against a
+> non-existent index errors immediately — while the cost of losing the trail is silent.
+
 ### admin_activity_log
 | Index Name | Definition |
 |-----------|------------|
 | admin_activity_log_pkey | UNIQUE btree (id) |
-| idx_admin_activity_log_target | btree (target_user_id) |
-| idx_admin_activity_log_performed_by | btree (performed_by) |
 | idx_admin_activity_log_created_at | btree (created_at DESC) |
+| idx_admin_activity_log_performed_by | btree (performed_by) |
+| idx_admin_activity_log_target | btree (target_user_id) |
+| idx_admin_activity_log_vertical | btree (vertical_id) |
 
 ### audit_log
 | Index Name | Definition |
 |-----------|------------|
 | audit_log_pkey | UNIQUE btree (id) |
-| idx_audit_log_user | btree (user_id) |
-| idx_audit_log_table | btree (table_name) |
 | idx_audit_log_created | btree (created_at) |
+| idx_audit_log_table | btree (table_name) |
+| idx_audit_log_user | btree (user_id) |
+
+### booth_booking_groups
+| Index Name | Definition |
+|-----------|------------|
+| booth_booking_groups_pkey | UNIQUE btree (id) |
+| idx_booth_groups_market | btree (market_id, created_at DESC) |
+| idx_booth_groups_season | btree (season_id) WHERE (season_id IS NOT NULL) |
+| idx_booth_groups_vendor | btree (vendor_profile_id, created_at DESC) |
+
+### booth_credits
+| Index Name | Definition |
+|-----------|------------|
+| booth_credits_pkey | UNIQUE btree (id) |
+| idx_booth_credits_park_booking | btree (related_park_booking_id) WHERE (related_park_booking_id IS NOT NULL) |
+| idx_booth_credits_related_rental | btree (related_rental_id) WHERE (related_rental_id IS NOT NULL) |
+| idx_booth_credits_vendor_market | btree (vendor_profile_id, market_id) |
+| uq_booth_credit_park_booking_grant | UNIQUE btree (related_park_booking_id) WHERE ((source = 'park_date_cancel'::text) AND (related_park_booking_id IS NOT NULL)) |
+
+### buyer_achievements
+| Index Name | Definition |
+|-----------|------------|
+| buyer_achievements_pkey | UNIQUE btree (id) |
+| idx_buyer_achievements_user | btree (user_id, vertical_id) |
+| idx_buyer_achievements_vendor | btree (vendor_profile_id) WHERE (vendor_profile_id IS NOT NULL) |
+| uq_buyer_achievements_once | UNIQUE btree (user_id, vertical_id, badge_key, COALESCE(vendor_profile_id, '00000000-0000-0000-0000-000000000000'::uuid)) |
+
+### buyer_interests
+| Index Name | Definition |
+|-----------|------------|
+| buyer_interests_pkey | UNIQUE btree (id) |
+| idx_buyer_interests_created | btree (created_at DESC) |
+| idx_buyer_interests_email_vertical | UNIQUE btree (email, vertical_id) WHERE (email IS NOT NULL) |
+| idx_buyer_interests_vertical | btree (vertical_id) |
+| idx_buyer_interests_zip | btree (zip_code) WHERE (zip_code IS NOT NULL) |
 
 ### buyer_search_log
 | Index Name | Definition |
 |-----------|------------|
 | buyer_search_log_pkey | UNIQUE btree (id) |
 | idx_bsl_vertical_created | btree (vertical_id, created_at DESC) |
-| idx_bsl_zip_vertical | btree (zip_code, vertical_id) WHERE zip_code IS NOT NULL |
-| idx_bsl_zero_results | btree (vertical_id, created_at DESC) WHERE results_count = 0 |
+| idx_bsl_zero_results | btree (vertical_id, created_at DESC) WHERE (results_count = 0) |
+| idx_bsl_zip_vertical | btree (zip_code, vertical_id) WHERE (zip_code IS NOT NULL) |
 
 ### cart_items
 | Index Name | Definition |
 |-----------|------------|
+| cart_items_cart_listing_legacy_key | UNIQUE btree (cart_id, listing_id) WHERE (schedule_id IS NULL) |
+| cart_items_cart_listing_schedule_date_key | UNIQUE btree (cart_id, listing_id, schedule_id, pickup_date) WHERE ((schedule_id IS NOT NULL) AND (pickup_date IS NOT NULL)) |
 | cart_items_pkey | UNIQUE btree (id) |
 | idx_cart_items_cart | btree (cart_id) |
 | idx_cart_items_listing | btree (listing_id) |
 | idx_cart_items_market | btree (market_id) |
-| cart_items_cart_listing_schedule_date_key | UNIQUE btree (cart_id, listing_id, schedule_id, pickup_date) WHERE ((schedule_id IS NOT NULL) AND (pickup_date IS NOT NULL)) |
-| cart_items_cart_listing_legacy_key | UNIQUE btree (cart_id, listing_id) WHERE (schedule_id IS NULL) |
-| idx_cart_items_schedule | btree (schedule_id) WHERE (schedule_id IS NOT NULL) |
 | idx_cart_items_market_box_unique | UNIQUE btree (cart_id, offering_id) WHERE (item_type = 'market_box'::text) |
 | idx_cart_items_offering_id | btree (offering_id) WHERE (offering_id IS NOT NULL) |
+| idx_cart_items_schedule | btree (schedule_id) WHERE (schedule_id IS NOT NULL) |
 
 ### carts
 | Index Name | Definition |
 |-----------|------------|
 | carts_pkey | UNIQUE btree (id) |
+| carts_user_id_vertical_id_key | UNIQUE btree (user_id, vertical_id) |
 | idx_carts_user | btree (user_id) |
 | idx_carts_vertical | btree (vertical_id) |
-| carts_user_id_vertical_id_key | UNIQUE btree (user_id, vertical_id) |
 
 ### catering_requests
 | Index Name | Definition |
 |-----------|------------|
+| catering_requests_event_token_key | UNIQUE btree (event_token) |
 | catering_requests_pkey | UNIQUE btree (id) |
-| idx_catering_requests_status | btree (status) |
+| idx_catering_requests_access_code | UNIQUE btree (access_code) WHERE (access_code IS NOT NULL) |
 | idx_catering_requests_created | btree (created_at DESC) |
-| idx_catering_requests_market | btree (market_id) WHERE (market_id IS NOT NULL) |
 | idx_catering_requests_event_token | btree (event_token) WHERE (event_token IS NOT NULL) |
+| idx_catering_requests_market | btree (market_id) WHERE (market_id IS NOT NULL) |
 | idx_catering_requests_organizer | btree (organizer_user_id) WHERE (organizer_user_id IS NOT NULL) |
+| idx_catering_requests_status | btree (status) |
 | idx_catering_requests_status_created | btree (status, created_at DESC) |
+
+### cause_beneficiaries
+| Index Name | Definition |
+|-----------|------------|
+| cause_beneficiaries_pkey | UNIQUE btree (id) |
+| uq_cause_beneficiaries_onboarding_token | UNIQUE btree (onboarding_token) WHERE (onboarding_token IS NOT NULL) |
+
+### cause_campaigns
+| Index Name | Definition |
+|-----------|------------|
+| cause_campaigns_pkey | UNIQUE btree (id) |
+| idx_cause_campaigns_active_window | btree (active, starts_at, ends_at) |
+
+### cause_ledger
+| Index Name | Definition |
+|-----------|------------|
+| cause_ledger_pkey | UNIQUE btree (id) |
+| idx_cause_ledger_beneficiary | btree (beneficiary_id, type) |
+| uq_cause_ledger_collected_order | UNIQUE btree (order_id) WHERE ((type = 'collected'::text) AND (order_id IS NOT NULL)) |
+
+### cause_remittances
+| Index Name | Definition |
+|-----------|------------|
+| cause_remittances_pkey | UNIQUE btree (id) |
+| idx_cause_remittances_beneficiary | btree (beneficiary_id, status) |
+
+### email_events
+| Index Name | Definition |
+|-----------|------------|
+| email_events_pkey | UNIQUE btree (id) |
+| email_events_resend_event_id_key | UNIQUE btree (resend_event_id) |
+| idx_email_events_created | btree (created_at DESC) |
+| idx_email_events_email | btree (email_to) |
+| idx_email_events_type | btree (event_type) |
 
 ### error_logs
 | Index Name | Definition |
@@ -2838,260 +2954,408 @@
 | error_logs_pkey | UNIQUE btree (id) |
 | idx_error_logs_code | btree (error_code) |
 | idx_error_logs_created | btree (created_at DESC) |
-| idx_error_logs_user | btree (user_id) |
-| idx_error_logs_route | btree (route) |
 | idx_error_logs_pg_code | btree (pg_code) |
+| idx_error_logs_route | btree (route) |
 | idx_error_logs_severity | btree (severity) |
+| idx_error_logs_user | btree (user_id) |
 | idx_error_logs_vertical | btree (vertical_id) WHERE (vertical_id IS NOT NULL) |
 
 ### error_reports
 | Index Name | Definition |
 |-----------|------------|
 | error_reports_pkey | UNIQUE btree (id) |
-| idx_error_reports_vertical | btree (vertical_id, status, created_at DESC) |
+| idx_error_reports_assigned_to | btree (assigned_to_user_id) |
 | idx_error_reports_code | btree (error_code, created_at DESC) |
 | idx_error_reports_escalated | btree (escalation_level, status, created_at DESC) WHERE (escalation_level = 'platform_admin'::text) |
+| idx_error_reports_escalated_by | btree (escalated_by_user_id) |
 | idx_error_reports_pending | btree (status, created_at DESC) WHERE (status = 'pending'::text) |
-| idx_error_reports_trace | btree (trace_id) WHERE (trace_id IS NOT NULL) |
+| idx_error_reports_reported_by | btree (reported_by_user_id) |
 | idx_error_reports_resolution | btree (resolution_id) WHERE (resolution_id IS NOT NULL) |
+| idx_error_reports_resolved_by | btree (resolved_by_user_id) |
+| idx_error_reports_trace | btree (trace_id) WHERE (trace_id IS NOT NULL) |
+| idx_error_reports_vertical | btree (vertical_id, status, created_at DESC) |
 
 ### error_resolutions
 | Index Name | Definition |
 |-----------|------------|
 | error_resolutions_pkey | UNIQUE btree (id) |
 | idx_error_resolutions_code | btree (error_code) |
-| idx_error_resolutions_verified | btree (error_code, status) WHERE (status = 'verified'::text) |
 | idx_error_resolutions_failed | btree (error_code, status) WHERE (status = 'failed'::text) |
 | idx_error_resolutions_pending | btree (status, created_at) WHERE (status = 'pending'::text) |
 | idx_error_resolutions_trace | btree (trace_id) WHERE (trace_id IS NOT NULL) |
+| idx_error_resolutions_verified | btree (error_code, status) WHERE (status = 'verified'::text) |
 
-### fulfillments
+### event_change_requests
 | Index Name | Definition |
 |-----------|------------|
-| fulfillments_pkey | UNIQUE btree (id) |
-| fulfillments_transaction_id_key | UNIQUE btree (transaction_id) |
-| idx_fulfillments_transaction | btree (transaction_id) |
-| idx_fulfillments_status | btree (status) |
-
-### knowledge_articles
-| Index Name | Definition |
-|-----------|------------|
-| knowledge_articles_pkey | UNIQUE btree (id) |
-| idx_knowledge_articles_published | btree (is_published, vertical_id, category, sort_order) |
-
-### listing_images
-| Index Name | Definition |
-|-----------|------------|
-| listing_images_pkey | UNIQUE btree (id) |
-| idx_listing_images_listing_id | btree (listing_id) |
-| idx_listing_images_order | btree (listing_id, display_order) |
-
-### listing_markets
-| Index Name | Definition |
-|-----------|------------|
-| listing_markets_pkey | UNIQUE btree (id) |
-| listing_markets_listing_id_market_id_key | UNIQUE btree (listing_id, market_id) |
-| idx_listing_markets_listing | btree (listing_id) |
-| idx_listing_markets_market | btree (market_id) |
-
-### listings
-| Index Name | Definition |
-|-----------|------------|
-| idx_listings_location | btree (latitude, longitude) WHERE (latitude IS NOT NULL) |
-| idx_listings_vendor | btree (vendor_profile_id) |
-| idx_listings_vertical | btree (vertical_id) |
-| idx_listings_status | btree (status) |
-| idx_listings_city | btree (city) |
-| idx_listings_available | btree (available_from, available_to) |
-| listings_pkey | UNIQUE btree (id) |
-| idx_listings_data | gin (listing_data) |
-| idx_listings_vendor_status | btree (vendor_profile_id, status) WHERE (deleted_at IS NULL) |
-| idx_listings_vertical_status | btree (vertical_id, status) WHERE (deleted_at IS NULL) |
-| idx_listings_category | btree (vertical_id, category) WHERE (deleted_at IS NULL) |
-| idx_listings_vertical_status_created | btree (vertical_id, status, created_at DESC) WHERE (deleted_at IS NULL) |
-| idx_listings_vendor_created | btree (vendor_profile_id, created_at DESC) WHERE (deleted_at IS NULL) |
-| idx_listings_premium_window | btree (premium_window_ends_at) WHERE (premium_window_ends_at IS NOT NULL) |
-| idx_listings_vertical_created | btree (vertical_id, deleted_at, created_at DESC) WHERE (deleted_at IS NULL) |
-| idx_listings_quantity_unit | btree (quantity_unit) WHERE (quantity_unit IS NOT NULL) |
-
-### market_box_offerings
-| Index Name | Definition |
-|-----------|------------|
-| market_box_offerings_pkey | UNIQUE btree (id) |
-| idx_market_box_offerings_vendor | btree (vendor_profile_id) |
-| idx_market_box_offerings_vertical | btree (vertical_id) |
-| idx_market_box_offerings_active | btree (active) WHERE (active = true) |
-| idx_market_box_offerings_market | btree (pickup_market_id) |
-| idx_market_box_premium_window | btree (premium_window_ends_at) WHERE (premium_window_ends_at IS NOT NULL) |
-| idx_market_box_offerings_vendor_active | btree (vendor_profile_id, active) |
-| idx_market_box_offerings_quantity_unit | btree (quantity_unit) WHERE (quantity_unit IS NOT NULL) |
-
-### market_box_pickups
-| Index Name | Definition |
-|-----------|------------|
-| market_box_pickups_pkey | UNIQUE btree (id) |
-| market_box_pickups_subscription_id_week_number_key | UNIQUE btree (subscription_id, week_number) |
-| idx_market_box_pickups_sub | btree (subscription_id) |
-| idx_market_box_pickups_date | btree (scheduled_date) |
-| idx_market_box_pickups_status | btree (status) |
-| idx_market_box_pickups_upcoming | btree (scheduled_date, status) WHERE (status = ANY (ARRAY['scheduled'::market_box_pickup_status, 'ready'::market_box_pickup_status])) |
-| idx_market_box_pickups_sub_date_status | btree (subscription_id, scheduled_date, status) WHERE (status = ANY (ARRAY['scheduled'::market_box_pickup_status, 'ready'::market_box_pickup_status])) |
-
-### market_box_subscriptions
-| Index Name | Definition |
-|-----------|------------|
-| market_box_subscriptions_pkey | UNIQUE btree (id) |
-| idx_market_box_subs_offering | btree (offering_id) |
-| idx_market_box_subs_buyer | btree (buyer_user_id) |
-| idx_market_box_subs_status | btree (status) |
-| idx_market_box_subs_active | btree (offering_id, status) WHERE (status = 'active'::market_box_subscription_status) |
-| idx_market_box_subscriptions_offering_status | btree (offering_id, status) |
-| idx_market_box_subscriptions_user | btree (buyer_user_id, status) |
-| idx_market_box_subscriptions_payment_intent | UNIQUE btree (stripe_payment_intent_id) WHERE (stripe_payment_intent_id IS NOT NULL) |
-| idx_market_box_subscriptions_buyer_offering | btree (buyer_user_id, offering_id, status) |
-| idx_market_box_subscriptions_offering_active | btree (offering_id, status) WHERE (status = 'active'::market_box_subscription_status) |
-
-### market_bundle_components
-| Index Name | Definition |
-|-----------|------------|
-| market_bundle_components_pkey | UNIQUE btree (id) |
-| market_bundle_components_bundle_id_listing_id_key | UNIQUE btree (bundle_id, listing_id) |
-| idx_market_bundle_components_listing | btree (listing_id) |
-
-### market_bundles
-| Index Name | Definition |
-|-----------|------------|
-| market_bundles_pkey | UNIQUE btree (id) |
-| idx_market_bundles_market | btree (market_id) |
-| idx_market_bundles_active | btree (market_id, pickup_market_date) WHERE (status = 'active'::text) |
-
-### market_schedules
-| Index Name | Definition |
-|-----------|------------|
-| market_schedules_pkey | UNIQUE btree (id) |
-| idx_market_schedules_market | btree (market_id) |
-| idx_market_schedules_day | btree (day_of_week) |
-| idx_market_schedules_market_active | btree (market_id, active) WHERE (active = true) |
-
-### market_vendors
-| Index Name | Definition |
-|-----------|------------|
-| market_vendors_pkey | UNIQUE btree (id) |
-| market_vendors_market_id_vendor_profile_id_key | UNIQUE btree (market_id, vendor_profile_id) |
-| idx_market_vendors_market | btree (market_id) |
-| idx_market_vendors_vendor | btree (vendor_profile_id) |
-| idx_market_vendors_market_approved | btree (market_id, approved) |
-| idx_market_vendors_response | btree (market_id, response_status) WHERE (response_status IS NOT NULL) |
-| idx_market_vendors_backup | btree (market_id, is_backup, backup_priority) WHERE (is_backup = true) |
-
-### event_waves
-| Index Name | Definition |
-|-----------|------------|
-| event_waves_pkey | UNIQUE btree (id) |
-| event_waves_market_id_wave_number_key | UNIQUE btree (market_id, wave_number) |
-
-### event_wave_reservations
-| Index Name | Definition |
-|-----------|------------|
-| event_wave_reservations_pkey | UNIQUE btree (id) |
-| event_wave_reservations_market_id_user_id_key | UNIQUE btree (market_id, user_id) |
-| idx_event_wave_reservations_status | btree (status) |
+| event_change_requests_pkey | UNIQUE btree (id) |
+| idx_event_change_requests_event | btree (catering_request_id, created_at DESC) |
+| idx_event_change_requests_pending | btree (created_at) WHERE (status = 'pending'::text) |
+| uq_event_change_requests_one_pending | UNIQUE btree (catering_request_id) WHERE (status = 'pending'::text) |
 
 ### event_company_payments
 | Index Name | Definition |
 |-----------|------------|
 | event_company_payments_pkey | UNIQUE btree (id) |
 | idx_event_company_payments_catering | btree (catering_request_id) |
+| idx_event_company_payments_market | btree (market_id) |
 
 ### event_ratings
 | Index Name | Definition |
 |-----------|------------|
-| event_ratings_pkey | UNIQUE btree (id) |
 | event_ratings_catering_request_id_user_id_key | UNIQUE btree (catering_request_id, user_id) |
+| event_ratings_pkey | UNIQUE btree (id) |
 | idx_event_ratings_event | btree (catering_request_id) |
-| idx_event_ratings_user | btree (user_id) |
 | idx_event_ratings_status | btree (status) |
+| idx_event_ratings_user | btree (user_id) |
+
+### event_vendor_fee_payments
+| Index Name | Definition |
+|-----------|------------|
+| event_vendor_fee_payments_pkey | UNIQUE btree (id) |
+| idx_evfp_market_status | btree (market_id, status) |
+| idx_evfp_vendor | btree (vendor_profile_id) |
+| uq_evfp_one_live_per_vendor | UNIQUE btree (market_id, vendor_profile_id) WHERE (status = ANY (ARRAY['pending_payment'::text, 'paid'::text, 'covered'::text])) |
+
+### event_vendor_listings
+| Index Name | Definition |
+|-----------|------------|
+| event_vendor_listings_pkey | UNIQUE btree (id) |
+| event_vendor_listings_unique | UNIQUE btree (market_id, listing_id) |
+| idx_event_vendor_listings_listing | btree (listing_id) |
+| idx_event_vendor_listings_market_vendor | btree (market_id, vendor_profile_id) |
+
+### event_wave_reservations
+| Index Name | Definition |
+|-----------|------------|
+| event_wave_reservations_pkey | UNIQUE btree (id) |
+| idx_event_wave_reservations_market_user | btree (market_id, user_id) |
+| idx_event_wave_reservations_status | btree (status) |
+| idx_event_wave_reservations_wave | btree (wave_id) |
+| uq_event_wave_reservations_market_user | UNIQUE btree (market_id, user_id) |
+| ~~event_wave_reservations_market_id_user_id_key~~ | SUPERSEDED — documented before 2026-09-12, not on Dev/Staging today. Was: UNIQUE btree (market_id, user_id) |
+
+### event_waves
+| Index Name | Definition |
+|-----------|------------|
+| event_waves_pkey | UNIQUE btree (id) |
+| idx_event_waves_market | btree (market_id) |
+| uq_event_waves_market_number | UNIQUE btree (market_id, wave_number) |
+| ~~event_waves_market_id_wave_number_key~~ | SUPERSEDED — documented before 2026-09-12, not on Dev/Staging today. Was: UNIQUE btree (market_id, wave_number) |
+
+### fulfillments
+| Index Name | Definition |
+|-----------|------------|
+| fulfillments_pkey | UNIQUE btree (id) |
+| fulfillments_transaction_id_key | UNIQUE btree (transaction_id) |
+| ~~idx_fulfillments_transaction~~ | SUPERSEDED — documented before 2026-09-12, not on Dev/Staging today. Was: btree (transaction_id) |
+| ~~idx_fulfillments_status~~ | SUPERSEDED — documented before 2026-09-12, not on Dev/Staging today. Was: btree (status) |
+
+### knowledge_articles
+| Index Name | Definition |
+|-----------|------------|
+| idx_knowledge_articles_published | btree (is_published, vertical_id, category, sort_order) |
+| idx_knowledge_articles_vertical | btree (vertical_id) |
+| knowledge_articles_pkey | UNIQUE btree (id) |
+
+### listing_images
+| Index Name | Definition |
+|-----------|------------|
+| idx_listing_images_listing_id | btree (listing_id) |
+| idx_listing_images_order | btree (listing_id, display_order) |
+| listing_images_pkey | UNIQUE btree (id) |
+
+### listing_markets
+| Index Name | Definition |
+|-----------|------------|
+| idx_listing_markets_listing | btree (listing_id) |
+| idx_listing_markets_market | btree (market_id) |
+| listing_markets_listing_id_market_id_key | UNIQUE btree (listing_id, market_id) |
+| listing_markets_pkey | UNIQUE btree (id) |
+
+### listings
+| Index Name | Definition |
+|-----------|------------|
+| idx_listings_available | btree (available_from, available_to) |
+| idx_listings_category | btree (vertical_id, category) WHERE (deleted_at IS NULL) |
+| idx_listings_city | btree (city) |
+| idx_listings_data | gin (listing_data) |
+| idx_listings_location | btree (latitude, longitude) WHERE (latitude IS NOT NULL) |
+| idx_listings_premium_window | btree (premium_window_ends_at) WHERE (premium_window_ends_at IS NOT NULL) |
+| idx_listings_quantity_unit | btree (quantity_unit) WHERE (quantity_unit IS NOT NULL) |
+| idx_listings_search_vector | gin (search_vector) |
+| idx_listings_status | btree (status) |
+| idx_listings_vendor | btree (vendor_profile_id) |
+| idx_listings_vendor_created | btree (vendor_profile_id, created_at DESC) WHERE (deleted_at IS NULL) |
+| idx_listings_vendor_status | btree (vendor_profile_id, status) WHERE (deleted_at IS NULL) |
+| idx_listings_vertical | btree (vertical_id) |
+| idx_listings_vertical_created | btree (vertical_id, deleted_at, created_at DESC) WHERE (deleted_at IS NULL) |
+| idx_listings_vertical_status | btree (vertical_id, status) WHERE (deleted_at IS NULL) |
+| idx_listings_vertical_status_created | btree (vertical_id, status, created_at DESC) WHERE (deleted_at IS NULL) |
+| listings_pkey | UNIQUE btree (id) |
+
+### market_booth_inventory
+| Index Name | Definition |
+|-----------|------------|
+| idx_market_booth_inventory_market | btree (market_id) |
+| market_booth_inventory_market_id_size_label_key | UNIQUE btree (market_id, size_label) |
+| market_booth_inventory_pkey | UNIQUE btree (id) |
+
+### market_booth_placeholders
+| Index Name | Definition |
+|-----------|------------|
+| idx_market_booth_placeholders_inventory | btree (inventory_id) WHERE (inventory_id IS NOT NULL) |
+| idx_market_booth_placeholders_market | btree (market_id) |
+| market_booth_placeholders_market_id_booth_number_key | UNIQUE btree (market_id, booth_number) |
+| market_booth_placeholders_pkey | UNIQUE btree (id) |
+
+### market_box_offerings
+| Index Name | Definition |
+|-----------|------------|
+| idx_market_box_offerings_active | btree (active) WHERE (active = true) |
+| idx_market_box_offerings_market | btree (pickup_market_id) |
+| idx_market_box_offerings_quantity_unit | btree (quantity_unit) WHERE (quantity_unit IS NOT NULL) |
+| idx_market_box_offerings_vendor | btree (vendor_profile_id) |
+| idx_market_box_offerings_vendor_active | btree (vendor_profile_id, active) |
+| idx_market_box_offerings_vertical | btree (vertical_id) |
+| idx_market_box_premium_window | btree (premium_window_ends_at) WHERE (premium_window_ends_at IS NOT NULL) |
+| market_box_offerings_pkey | UNIQUE btree (id) |
+
+### market_box_pickups
+| Index Name | Definition |
+|-----------|------------|
+| idx_market_box_pickups_date | btree (scheduled_date) |
+| idx_market_box_pickups_status | btree (status) |
+| idx_market_box_pickups_sub | btree (subscription_id) |
+| idx_market_box_pickups_sub_date_status | btree (subscription_id, scheduled_date, status) WHERE (status = ANY (ARRAY['scheduled'::market_box_pickup_status, 'ready'::market_box_pickup_status])) |
+| idx_market_box_pickups_upcoming | btree (scheduled_date, status) WHERE (status = ANY (ARRAY['scheduled'::market_box_pickup_status, 'ready'::market_box_pickup_status])) |
+| market_box_pickups_pkey | UNIQUE btree (id) |
+| market_box_pickups_subscription_id_week_number_key | UNIQUE btree (subscription_id, week_number) |
+
+### market_box_subscriptions
+| Index Name | Definition |
+|-----------|------------|
+| idx_market_box_subs_active | btree (offering_id, status) WHERE (status = 'active'::market_box_subscription_status) |
+| idx_market_box_subs_buyer | btree (buyer_user_id) |
+| idx_market_box_subs_offering | btree (offering_id) |
+| idx_market_box_subs_order | btree (order_id) |
+| idx_market_box_subs_status | btree (status) |
+| idx_market_box_subscriptions_buyer_offering | btree (buyer_user_id, offering_id, status) |
+| idx_market_box_subscriptions_offering_status | btree (offering_id, status) |
+| idx_market_box_subscriptions_payment_intent | UNIQUE btree (stripe_payment_intent_id) WHERE (stripe_payment_intent_id IS NOT NULL) |
+| idx_market_box_subscriptions_user | btree (buyer_user_id, status) |
+| market_box_subscriptions_pkey | UNIQUE btree (id) |
+| ~~idx_market_box_subscriptions_offering_active~~ | SUPERSEDED — documented before 2026-09-12, not on Dev/Staging today. Was: btree (offering_id, status) WHERE (status = 'active'::market_box_subscription_status) |
+
+### market_broadcasts
+| Index Name | Definition |
+|-----------|------------|
+| idx_market_broadcasts_market | btree (market_id, created_at DESC) |
+| market_broadcasts_pkey | UNIQUE btree (id) |
+
+### market_bundle_components
+| Index Name | Definition |
+|-----------|------------|
+| idx_market_bundle_components_listing | btree (listing_id) |
+| market_bundle_components_bundle_id_listing_id_key | UNIQUE btree (bundle_id, listing_id) |
+| market_bundle_components_pkey | UNIQUE btree (id) |
+
+### market_bundles
+| Index Name | Definition |
+|-----------|------------|
+| idx_market_bundles_active | btree (market_id, pickup_market_date) WHERE (status = 'active'::text) |
+| idx_market_bundles_market | btree (market_id) |
+| market_bundles_pkey | UNIQUE btree (id) |
+
+### market_date_overrides
+| Index Name | Definition |
+|-----------|------------|
+| idx_market_date_overrides_market_date | btree (market_id, override_date) |
+| market_date_overrides_market_id_override_date_key | UNIQUE btree (market_id, override_date) |
+| market_date_overrides_pkey | UNIQUE btree (id) |
+
+### market_day_checkins
+| Index Name | Definition |
+|-----------|------------|
+| idx_market_day_checkins_market_date | btree (market_id, market_date) |
+| idx_market_day_checkins_vendor_date | btree (vendor_profile_id, market_date) |
+| market_day_checkins_market_id_vendor_profile_id_market_date_key | UNIQUE btree (market_id, vendor_profile_id, market_date) |
+| market_day_checkins_pkey | UNIQUE btree (id) |
+
+### market_day_notification_log
+| Index Name | Definition |
+|-----------|------------|
+| idx_market_day_notif_log_market | btree (market_id, market_date DESC) |
+| market_day_notification_log_market_id_market_date_key | UNIQUE btree (market_id, market_date) |
+| market_day_notification_log_pkey | UNIQUE btree (id) |
+
+### market_documents
+| Index Name | Definition |
+|-----------|------------|
+| idx_market_documents_market | btree (market_id, uploaded_at DESC) |
+| idx_market_documents_uploader | btree (uploader_user_id) |
+| market_documents_pkey | UNIQUE btree (id) |
+
+### market_favorites
+| Index Name | Definition |
+|-----------|------------|
+| idx_market_favorites_market | btree (market_id) |
+| idx_market_favorites_user | btree (user_id) |
+| market_favorites_pkey | UNIQUE btree (id) |
+| market_favorites_user_id_market_id_key | UNIQUE btree (user_id, market_id) |
+
+### market_manager_history
+| Index Name | Definition |
+|-----------|------------|
+| idx_market_manager_history_market_assigned | btree (market_id, assigned_at DESC) |
+| idx_market_manager_history_user | btree (manager_user_id, assigned_at DESC) WHERE (manager_user_id IS NOT NULL) |
+| market_manager_history_pkey | UNIQUE btree (id) |
+| uq_market_manager_history_active | UNIQUE btree (market_id) WHERE (ended_at IS NULL) |
+
+### market_optin_selections
+| Index Name | Definition |
+|-----------|------------|
+| idx_market_optin_selections_market | btree (market_id) |
+| market_optin_selections_market_id_statement_id_key | UNIQUE btree (market_id, statement_id) |
+| market_optin_selections_pkey | UNIQUE btree (id) |
+
+### market_optin_statement_catalog
+| Index Name | Definition |
+|-----------|------------|
+| idx_optin_catalog_event_eligible | btree (event_eligible) WHERE (event_eligible = true) |
+| idx_optin_catalog_vertical | btree (vertical_id) WHERE (vertical_id IS NOT NULL) |
+| market_optin_statement_catalog_pkey | UNIQUE btree (id) |
+
+### market_schedules
+| Index Name | Definition |
+|-----------|------------|
+| idx_market_schedules_day | btree (day_of_week) |
+| idx_market_schedules_market | btree (market_id) |
+| idx_market_schedules_market_active | btree (market_id, active) WHERE (active = true) |
+| market_schedules_pkey | UNIQUE btree (id) |
+
+### market_seasons
+| Index Name | Definition |
+|-----------|------------|
+| idx_market_seasons_market_start | btree (market_id, start_date) |
+| market_seasons_pkey | UNIQUE btree (id) |
+| uq_market_seasons_one_open | UNIQUE btree (market_id) WHERE (prepay_open = true) |
+
+### market_surveys
+| Index Name | Definition |
+|-----------|------------|
+| idx_market_surveys_buyer_pending | btree (buyer_user_id, expires_at) WHERE ((submitted_at IS NULL) AND (kind = 'buyer'::text)) |
+| idx_market_surveys_market_date | btree (market_id, market_date) |
+| idx_market_surveys_notified | btree (market_id, market_date, kind) WHERE (notified_at IS NULL) |
+| idx_market_surveys_token | UNIQUE btree (access_token) WHERE (access_token IS NOT NULL) |
+| idx_market_surveys_vendor_pending | btree (vendor_profile_id, expires_at) WHERE ((submitted_at IS NULL) AND (kind = 'vendor'::text)) |
+| market_surveys_pkey | UNIQUE btree (id) |
+| uq_market_surveys_buyer | UNIQUE btree (buyer_user_id, market_id, market_date) NULLS NOT DISTINCT |
+| uq_market_surveys_vendor | UNIQUE btree (vendor_profile_id, market_id, market_date) NULLS NOT DISTINCT |
+
+### market_vendors
+| Index Name | Definition |
+|-----------|------------|
+| idx_market_vendors_backup | btree (market_id, is_backup, backup_priority) WHERE (is_backup = true) |
+| idx_market_vendors_inventory | btree (inventory_id) WHERE (inventory_id IS NOT NULL) |
+| idx_market_vendors_market | btree (market_id) |
+| idx_market_vendors_market_approved | btree (market_id, approved) |
+| idx_market_vendors_response | btree (market_id, response_status) WHERE (response_status IS NOT NULL) |
+| idx_market_vendors_vendor | btree (vendor_profile_id) |
+| market_vendors_market_id_vendor_profile_id_key | UNIQUE btree (market_id, vendor_profile_id) |
+| market_vendors_pkey | UNIQUE btree (id) |
 
 ### markets
 | Index Name | Definition |
 |-----------|------------|
-| markets_pkey | UNIQUE btree (id) |
-| idx_markets_vertical | btree (vertical_id) |
-| idx_markets_vendor | btree (vendor_profile_id) |
-| idx_markets_type | btree (market_type) |
-| idx_markets_status | btree (status) |
 | idx_markets_active | btree (active) |
-| idx_markets_submitted_by | btree (submitted_by) |
-| idx_markets_pending | btree (status, vertical_id) WHERE (status = 'pending'::text) |
-| idx_markets_coordinates | btree (latitude, longitude) WHERE ((latitude IS NOT NULL) AND (longitude IS NOT NULL)) |
-| idx_markets_location | btree (latitude, longitude) WHERE (latitude IS NOT NULL) |
-| idx_markets_vertical_status | btree (vertical_id, status) |
-| idx_markets_expires_at | btree (expires_at) WHERE (expires_at IS NOT NULL) |
-| idx_markets_submitted_by_vendor_id | btree (submitted_by_vendor_id) |
-| idx_markets_event_dates | btree (vertical_id, event_start_date, event_end_date) WHERE (market_type = 'event' AND active = true) |
 | idx_markets_catering_request | btree (catering_request_id) WHERE (catering_request_id IS NOT NULL) |
+| idx_markets_coordinates | btree (latitude, longitude) WHERE ((latitude IS NOT NULL) AND (longitude IS NOT NULL)) |
+| idx_markets_event_dates | btree (vertical_id, event_start_date, event_end_date) WHERE ((market_type = 'event'::text) AND (active = true)) |
+| idx_markets_expires_at | btree (expires_at) WHERE (expires_at IS NOT NULL) |
+| idx_markets_is_private | btree (is_private) WHERE (is_private = true) |
+| idx_markets_location | btree (latitude, longitude) WHERE (latitude IS NOT NULL) |
+| idx_markets_manager_email | btree (lower(manager_email)) WHERE (manager_email IS NOT NULL) |
+| idx_markets_manager_user_id | btree (manager_user_id) WHERE (manager_user_id IS NOT NULL) |
+| idx_markets_pending | btree (status, vertical_id) WHERE (status = 'pending'::text) |
+| idx_markets_reviewed_by | btree (reviewed_by) |
+| idx_markets_status | btree (status) |
+| idx_markets_stripe_account_id | btree (stripe_account_id) WHERE (stripe_account_id IS NOT NULL) |
+| idx_markets_submitted_by | btree (submitted_by) |
+| idx_markets_submitted_by_vendor_id | btree (submitted_by_vendor_id) |
+| idx_markets_type | btree (market_type) |
+| idx_markets_vendor | btree (vendor_profile_id) |
+| idx_markets_vertical | btree (vertical_id) |
+| idx_markets_vertical_status | btree (vertical_id, status) |
+| markets_pkey | UNIQUE btree (id) |
 
 ### notifications
 | Index Name | Definition |
 |-----------|------------|
-| notifications_pkey | UNIQUE btree (id) |
-| idx_notifications_user | btree (user_id) |
 | idx_notifications_unread | btree (user_id) WHERE (read_at IS NULL) |
-| idx_notifications_user_unread | btree (user_id, read_at, created_at DESC) WHERE (read_at IS NULL) |
+| idx_notifications_user | btree (user_id) |
 | idx_notifications_user_created | btree (user_id, created_at DESC) |
+| idx_notifications_user_unread | btree (user_id, read_at, created_at DESC) WHERE (read_at IS NULL) |
 | idx_notifications_user_vertical | btree (user_id, vertical_id) |
+| notifications_pkey | UNIQUE btree (id) |
 
 ### order_items
 | Index Name | Definition |
 |-----------|------------|
-| order_items_pkey | UNIQUE btree (id) |
-| idx_order_items_order | btree (order_id) |
-| idx_order_items_vendor | btree (vendor_profile_id) |
-| idx_order_items_listing | btree (listing_id) |
-| idx_order_items_status | btree (status) |
 | idx_order_items_buyer_confirmed | btree (buyer_confirmed_at) WHERE (buyer_confirmed_at IS NOT NULL) |
 | idx_order_items_cancelled | btree (cancelled_at) WHERE (cancelled_at IS NOT NULL) |
 | idx_order_items_expires_at | btree (expires_at) WHERE ((expires_at IS NOT NULL) AND (status = 'pending'::order_item_status) AND (cancelled_at IS NULL)) |
-| idx_order_items_market | btree (market_id) |
-| idx_order_items_unresolved_confirmation | btree (vendor_confirmed_at) WHERE ((buyer_confirmed_at IS NOT NULL) AND (vendor_confirmed_at IS NULL)) |
-| idx_order_items_lockdown | btree (lockdown_active) WHERE (lockdown_active = true) |
 | idx_order_items_issue_reported | btree (issue_reported_at) WHERE (issue_reported_at IS NOT NULL) |
 | idx_order_items_issue_status | btree (issue_status) WHERE (issue_reported_at IS NOT NULL) |
-| idx_order_items_vendor_pickup | btree (vendor_profile_id, pickup_date, schedule_id) |
-| idx_order_items_schedule | btree (schedule_id) WHERE (schedule_id IS NOT NULL) |
-| idx_order_items_status_expires | btree (status, expires_at) WHERE ((status = 'pending'::order_item_status) AND (cancelled_at IS NULL)) |
-| idx_order_items_vendor_status_created | btree (vendor_profile_id, status, created_at DESC) WHERE (cancelled_at IS NULL) |
+| idx_order_items_listing | btree (listing_id) |
+| idx_order_items_lockdown | btree (lockdown_active) WHERE (lockdown_active = true) |
+| idx_order_items_market | btree (market_id) |
+| idx_order_items_order | btree (order_id) |
 | idx_order_items_pickup_date_market | btree (pickup_date, market_id, status) WHERE ((status <> 'cancelled'::order_item_status) AND (pickup_date IS NOT NULL)) |
-| idx_order_items_order_id | btree (order_id) |
+| idx_order_items_pickup_slot | btree (vendor_profile_id, market_id, pickup_date, preferred_pickup_time) WHERE ((preferred_pickup_time IS NOT NULL) AND (cancelled_at IS NULL)) |
+| idx_order_items_schedule | btree (schedule_id) WHERE (schedule_id IS NOT NULL) |
+| idx_order_items_status | btree (status) |
+| idx_order_items_status_expires | btree (status, expires_at) WHERE ((status = 'pending'::order_item_status) AND (cancelled_at IS NULL)) |
+| idx_order_items_tax_collected | btree (created_at) WHERE ((tax_amount_cents IS NOT NULL) AND (tax_amount_cents > 0)) |
+| idx_order_items_unresolved_confirmation | btree (vendor_confirmed_at) WHERE ((buyer_confirmed_at IS NOT NULL) AND (vendor_confirmed_at IS NULL)) |
+| idx_order_items_vendor | btree (vendor_profile_id) |
+| idx_order_items_vendor_pickup | btree (vendor_profile_id, pickup_date, schedule_id) |
+| idx_order_items_vendor_status_created | btree (vendor_profile_id, status, created_at DESC) WHERE (cancelled_at IS NULL) |
+| order_items_pkey | UNIQUE btree (id) |
+| ~~idx_order_items_order_id~~ | SUPERSEDED — documented before 2026-09-12, not on Dev/Staging today. Was: btree (order_id) |
 
 ### order_ratings
 | Index Name | Definition |
 |-----------|------------|
-| order_ratings_pkey | UNIQUE btree (id) |
-| order_ratings_order_id_vendor_profile_id_key | UNIQUE btree (order_id, vendor_profile_id) |
-| idx_order_ratings_vendor | btree (vendor_profile_id) |
 | idx_order_ratings_buyer | btree (buyer_user_id) |
 | idx_order_ratings_order | btree (order_id) |
+| idx_order_ratings_vendor | btree (vendor_profile_id) |
+| order_ratings_order_id_vendor_profile_id_key | UNIQUE btree (order_id, vendor_profile_id) |
+| order_ratings_pkey | UNIQUE btree (id) |
 
 ### orders
 | Index Name | Definition |
 |-----------|------------|
-| orders_pkey | UNIQUE btree (id) |
-| orders_order_number_key | UNIQUE btree (order_number) |
-| idx_orders_buyer | btree (buyer_user_id) |
-| idx_orders_status | btree (status) |
-| idx_orders_created | btree (created_at DESC) |
-| idx_orders_vertical | btree (vertical_id) |
-| idx_orders_buyer_created | btree (buyer_user_id, created_at DESC) |
-| idx_orders_payment_method | btree (payment_method) |
-| idx_orders_parent | btree (parent_order_id) WHERE (parent_order_id IS NOT NULL) |
-| idx_orders_parent_id | btree (parent_order_id) WHERE (parent_order_id IS NOT NULL) |
-| idx_orders_vertical_created | btree (vertical_id, created_at DESC) |
-| idx_orders_buyer_user_id | btree (buyer_user_id) |
-| idx_orders_buyer_status_created | btree (buyer_user_id, status, created_at DESC) |
-| idx_orders_wave_reservation | btree (event_wave_reservation_id) WHERE (event_wave_reservation_id IS NOT NULL) |
-| idx_orders_company_payment | btree (event_company_payment_id) WHERE (event_company_payment_id IS NOT NULL) |
 | idx_orders_bundle | btree (bundle_id) WHERE (bundle_id IS NOT NULL) |
+| idx_orders_buyer | btree (buyer_user_id) |
+| idx_orders_buyer_created | btree (buyer_user_id, created_at DESC) |
+| idx_orders_buyer_status_created | btree (buyer_user_id, status, created_at DESC) |
+| idx_orders_company_payment | btree (event_company_payment_id) WHERE (event_company_payment_id IS NOT NULL) |
+| idx_orders_created | btree (created_at DESC) |
+| idx_orders_ext_payment_confirmed_by | btree (external_payment_confirmed_by) |
+| idx_orders_parent | btree (parent_order_id) WHERE (parent_order_id IS NOT NULL) |
+| idx_orders_payment_method | btree (payment_method) |
+| idx_orders_payment_model | btree (payment_model) WHERE (payment_model IS NOT NULL) |
+| idx_orders_reconfirm_pending | btree (reconfirm_required_at) WHERE ((reconfirm_required_at IS NOT NULL) AND (reconfirmed_at IS NULL) AND (reconfirm_refunded_at IS NULL)) |
+| idx_orders_status | btree (status) |
+| idx_orders_vertical | btree (vertical_id) |
+| idx_orders_vertical_created | btree (vertical_id, created_at DESC) |
+| idx_orders_wave_reservation | btree (event_wave_reservation_id) WHERE (event_wave_reservation_id IS NOT NULL) |
+| orders_order_number_key | UNIQUE btree (order_number) |
+| orders_pkey | UNIQUE btree (id) |
+| uq_orders_reconfirm_token | UNIQUE btree (reconfirm_token) WHERE (reconfirm_token IS NOT NULL) |
+| ~~idx_orders_parent_id~~ | SUPERSEDED — documented before 2026-09-12, not on Dev/Staging today. Was: btree (parent_order_id) WHERE (parent_order_id IS NOT NULL) |
+| ~~idx_orders_buyer_user_id~~ | SUPERSEDED — documented before 2026-09-12, not on Dev/Staging today. Was: btree (buyer_user_id) |
 
 ### organizations
 | Index Name | Definition |
@@ -3099,14 +3363,48 @@
 | idx_organizations_owner | btree (owner_user_id) |
 | organizations_pkey | UNIQUE btree (id) |
 
+### park_spot_bookings
+| Index Name | Definition |
+|-----------|------------|
+| idx_park_spot_bookings_group | btree (booking_group_id) WHERE (booking_group_id IS NOT NULL) |
+| idx_park_spot_bookings_market_date | btree (market_id, booking_date) |
+| idx_park_spot_bookings_standing | btree (standing_reservation_id) WHERE (standing_reservation_id IS NOT NULL) |
+| idx_park_spot_bookings_vendor_date | btree (vendor_profile_id, booking_date) |
+| park_spot_bookings_pkey | UNIQUE btree (id) |
+| uq_park_spot_booking_active | UNIQUE btree (spot_id, booking_date) WHERE (status = ANY (ARRAY['pending_payment'::text, 'paid'::text])) |
+| uq_park_spot_vendor_active | UNIQUE btree (vendor_profile_id, market_id, booking_date) WHERE (status = ANY (ARRAY['pending_payment'::text, 'paid'::text])) |
+
+### park_spots
+| Index Name | Definition |
+|-----------|------------|
+| idx_park_spots_market | btree (market_id) |
+| park_spots_market_id_label_key | UNIQUE btree (market_id, label) |
+| park_spots_pkey | UNIQUE btree (id) |
+
+### park_standing_reservations
+| Index Name | Definition |
+|-----------|------------|
+| idx_park_standing_market | btree (market_id) |
+| idx_park_standing_vendor | btree (vendor_profile_id) |
+| park_standing_reservations_pkey | UNIQUE btree (id) |
+| uq_park_standing_active | UNIQUE btree (spot_id, day_of_week) WHERE (status = ANY (ARRAY['requested'::text, 'active'::text])) |
+
+### park_vendor_vetting
+| Index Name | Definition |
+|-----------|------------|
+| idx_park_vendor_vetting_blocked | btree (market_id, vendor_profile_id) WHERE (blocked = true) |
+| idx_park_vendor_vetting_market | btree (market_id) |
+| park_vendor_vetting_market_id_vendor_profile_id_key | UNIQUE btree (market_id, vendor_profile_id) |
+| park_vendor_vetting_pkey | UNIQUE btree (id) |
+
 ### payments
 | Index Name | Definition |
 |-----------|------------|
+| idx_payments_order | btree (order_id) |
+| idx_payments_status | btree (status) |
+| idx_payments_stripe | btree (stripe_payment_intent_id) |
 | payments_pkey | UNIQUE btree (id) |
 | payments_stripe_payment_intent_id_key | UNIQUE btree (stripe_payment_intent_id) |
-| idx_payments_order | btree (order_id) |
-| idx_payments_stripe | btree (stripe_payment_intent_id) |
-| idx_payments_status | btree (status) |
 
 ### platform_settings
 | Index Name | Definition |
@@ -3116,69 +3414,94 @@
 ### public_activity_events
 | Index Name | Definition |
 |-----------|------------|
-| public_activity_events_pkey | UNIQUE btree (id) |
 | idx_public_activity_recent | btree (vertical_id, created_at DESC) |
+| public_activity_events_pkey | UNIQUE btree (id) |
 
 ### push_subscriptions
 | Index Name | Definition |
 |-----------|------------|
+| idx_push_subscriptions_user_id | btree (user_id) |
 | push_subscriptions_pkey | UNIQUE btree (id) |
 | push_subscriptions_user_id_endpoint_key | UNIQUE btree (user_id, endpoint) |
-| idx_push_subscriptions_user_id | btree (user_id) |
+
+### rule_refusals
+| Index Name | Definition |
+|-----------|------------|
+| idx_rule_refusals_created | btree (created_at DESC) |
+| idx_rule_refusals_key_created | btree (rule_key, created_at DESC) |
+| idx_rule_refusals_vertical | btree (vertical_id) WHERE (vertical_id IS NOT NULL) |
+| rule_refusals_pkey | UNIQUE btree (id) |
 
 ### shopper_feedback
 | Index Name | Definition |
 |-----------|------------|
-| shopper_feedback_pkey | UNIQUE btree (id) |
+| idx_shopper_feedback_category | btree (category) |
+| idx_shopper_feedback_created | btree (created_at DESC) |
+| idx_shopper_feedback_resolved_by | btree (resolved_by) |
+| idx_shopper_feedback_status | btree (status) |
 | idx_shopper_feedback_user | btree (user_id) |
 | idx_shopper_feedback_vertical | btree (vertical_id) |
-| idx_shopper_feedback_category | btree (category) |
-| idx_shopper_feedback_status | btree (status) |
-| idx_shopper_feedback_created | btree (created_at DESC) |
+| shopper_feedback_pkey | UNIQUE btree (id) |
 
 ### spatial_ref_sys
 | Index Name | Definition |
 |-----------|------------|
 | spatial_ref_sys_pkey | UNIQUE btree (srid) |
 
+### support_tickets
+| Index Name | Definition |
+|-----------|------------|
+| idx_support_tickets_created | btree (created_at DESC) |
+| idx_support_tickets_status | btree (status) |
+| idx_support_tickets_vertical | btree (vertical_id) |
+| support_tickets_pkey | UNIQUE btree (id) |
+
 ### transactions
 | Index Name | Definition |
 |-----------|------------|
-| idx_transactions_listing | btree (listing_id) |
-| idx_transactions_vendor | btree (vendor_profile_id) |
 | idx_transactions_buyer | btree (buyer_user_id) |
 | idx_transactions_status | btree (status) |
-| transactions_pkey | UNIQUE btree (id) |
 | idx_transactions_vendor_created | btree (vendor_profile_id, created_at DESC) |
 | idx_transactions_vertical_id | btree (vertical_id) |
 | idx_transactions_vertical_status_created | btree (vertical_id, status, created_at DESC) |
+| transactions_pkey | UNIQUE btree (id) |
+| ~~idx_transactions_listing~~ | SUPERSEDED — documented before 2026-09-12, not on Dev/Staging today. Was: btree (listing_id) |
+| ~~idx_transactions_vendor~~ | SUPERSEDED — documented before 2026-09-12, not on Dev/Staging today. Was: btree (vendor_profile_id) |
+
+### user_agreement_acceptances
+| Index Name | Definition |
+|-----------|------------|
+| idx_uaa_type_version | btree (agreement_type, agreement_version) |
+| idx_uaa_user_id | btree (user_id) |
+| user_agreement_acceptances_pkey | UNIQUE btree (id) |
 
 ### user_profiles
 | Index Name | Definition |
 |-----------|------------|
-| idx_user_profiles_user_id | btree (user_id) |
+| idx_user_buyer_tier | btree (buyer_tier) WHERE (buyer_tier = 'premium'::text) |
+| idx_user_profiles_buyer_tier | btree (buyer_tier) |
+| idx_user_profiles_deleted_at | btree (deleted_at) WHERE (deleted_at IS NULL) |
 | idx_user_profiles_email | btree (email) |
+| idx_user_profiles_location | btree (preferred_latitude, preferred_longitude) WHERE (preferred_latitude IS NOT NULL) |
+| idx_user_profiles_role | btree (role) |
+| idx_user_profiles_tutorial | btree (user_id) WHERE ((tutorial_completed_at IS NULL) AND (tutorial_skipped_at IS NULL)) |
+| idx_user_profiles_user_id | btree (user_id) |
+| idx_user_profiles_verticals | gin (verticals) |
+| idx_user_stripe_customer | btree (stripe_customer_id) WHERE (stripe_customer_id IS NOT NULL) |
+| idx_user_subscription_status | btree (subscription_status) WHERE (subscription_status IS NOT NULL) |
 | user_profiles_pkey | UNIQUE btree (id) |
 | user_profiles_user_id_key | UNIQUE btree (user_id) |
-| idx_user_profiles_role | btree (role) |
-| idx_user_profiles_verticals | gin (verticals) |
-| idx_user_profiles_buyer_tier | btree (buyer_tier) |
-| idx_user_profiles_location | btree (preferred_latitude, preferred_longitude) WHERE (preferred_latitude IS NOT NULL) |
-| idx_user_profiles_tutorial | btree (user_id) WHERE ((tutorial_completed_at IS NULL) AND (tutorial_skipped_at IS NULL)) |
-| idx_user_stripe_customer | btree (stripe_customer_id) WHERE (stripe_customer_id IS NOT NULL) |
-| idx_user_buyer_tier | btree (buyer_tier) WHERE (buyer_tier = 'premium'::text) |
-| idx_user_subscription_status | btree (subscription_status) WHERE (subscription_status IS NOT NULL) |
-| idx_user_profiles_deleted_at | btree (deleted_at) WHERE (deleted_at IS NULL) |
 
 ### vendor_activity_flags
 | Index Name | Definition |
 |-----------|------------|
-| vendor_activity_flags_pkey | UNIQUE btree (id) |
-| idx_vendor_flags_pending_unique | UNIQUE btree (vendor_profile_id, reason) WHERE (status = 'pending'::vendor_flag_status) |
-| idx_vendor_flags_vertical | btree (vertical_id) |
-| idx_vendor_flags_status | btree (status) |
+| idx_vendor_activity_flags_resolved_by | btree (resolved_by) |
 | idx_vendor_flags_created | btree (created_at) |
+| idx_vendor_flags_pending_unique | UNIQUE btree (vendor_profile_id, reason) WHERE (status = 'pending'::vendor_flag_status) |
+| idx_vendor_flags_status | btree (status) |
 | idx_vendor_flags_vendor | btree (vendor_profile_id) |
+| idx_vendor_flags_vertical | btree (vertical_id) |
+| vendor_activity_flags_pkey | UNIQUE btree (id) |
 
 ### vendor_activity_scan_log
 | Index Name | Definition |
@@ -3188,179 +3511,219 @@
 ### vendor_activity_settings
 | Index Name | Definition |
 |-----------|------------|
+| idx_vendor_activity_settings_updated_by | btree (updated_by) |
 | vendor_activity_settings_pkey | UNIQUE btree (id) |
 | vendor_activity_settings_vertical_id_key | UNIQUE btree (vertical_id) |
+
+### vendor_date_blackouts
+| Index Name | Definition |
+|-----------|------------|
+| idx_vendor_date_blackouts_source | btree (source_event_market_id) WHERE (source_event_market_id IS NOT NULL) |
+| uq_vendor_date_blackout | UNIQUE btree (vendor_profile_id, market_id, blackout_date) |
+| vendor_date_blackouts_pkey | UNIQUE btree (id) |
+
+### vendor_favorites
+| Index Name | Definition |
+|-----------|------------|
+| idx_vendor_favorites_user | btree (user_id) |
+| idx_vendor_favorites_vendor | btree (vendor_profile_id) |
+| vendor_favorites_pkey | UNIQUE btree (id) |
+| vendor_favorites_user_id_vendor_profile_id_key | UNIQUE btree (user_id, vendor_profile_id) |
 
 ### vendor_fee_balance
 | Index Name | Definition |
 |-----------|------------|
-| vendor_fee_balance_vendor_profile_id_key | UNIQUE btree (vendor_profile_id) |
-| vendor_fee_balance_pkey | UNIQUE btree (id) |
 | idx_vendor_fee_balance_vendor | btree (vendor_profile_id) |
+| vendor_fee_balance_pkey | UNIQUE btree (id) |
+| vendor_fee_balance_vendor_profile_id_key | UNIQUE btree (vendor_profile_id) |
 
 ### vendor_fee_ledger
 | Index Name | Definition |
 |-----------|------------|
-| vendor_fee_ledger_pkey | UNIQUE btree (id) |
-| idx_vendor_fee_ledger_vendor | btree (vendor_profile_id) |
 | idx_vendor_fee_ledger_order | btree (order_id) |
+| idx_vendor_fee_ledger_order_item | btree (order_item_id) WHERE (order_item_id IS NOT NULL) |
+| idx_vendor_fee_ledger_vendor | btree (vendor_profile_id) |
+| uq_vendor_fee_ledger_credit_item | UNIQUE btree (order_item_id) WHERE ((type = 'credit'::text) AND (order_item_id IS NOT NULL)) |
+| uq_vendor_fee_ledger_debit_item | UNIQUE btree (order_item_id) WHERE ((type = 'debit'::text) AND (order_item_id IS NOT NULL)) |
+| vendor_fee_ledger_pkey | UNIQUE btree (id) |
 
 ### vendor_feedback
 | Index Name | Definition |
 |-----------|------------|
-| vendor_feedback_pkey | UNIQUE btree (id) |
-| idx_vendor_feedback_vendor | btree (vendor_profile_id) |
-| idx_vendor_feedback_user | btree (user_id) |
-| idx_vendor_feedback_vertical | btree (vertical_id) |
 | idx_vendor_feedback_category | btree (category) |
-| idx_vendor_feedback_status | btree (status) |
 | idx_vendor_feedback_created | btree (created_at DESC) |
+| idx_vendor_feedback_resolved_by | btree (resolved_by) |
+| idx_vendor_feedback_status | btree (status) |
+| idx_vendor_feedback_user | btree (user_id) |
+| idx_vendor_feedback_vendor | btree (vendor_profile_id) |
+| idx_vendor_feedback_vertical | btree (vertical_id) |
+| vendor_feedback_pkey | UNIQUE btree (id) |
 
 ### vendor_leads
 | Index Name | Definition |
 |-----------|------------|
-| vendor_leads_pkey | UNIQUE btree (id) |
+| idx_vendor_leads_created | btree (created_at DESC) |
 | idx_vendor_leads_email_vertical | UNIQUE btree (email, vertical_id) |
 | idx_vendor_leads_status | btree (status) |
-| idx_vendor_leads_created | btree (created_at DESC) |
+| vendor_leads_pkey | UNIQUE btree (id) |
 
 ### vendor_location_cache
 | Index Name | Definition |
 |-----------|------------|
-| vendor_location_cache_pkey | UNIQUE btree (id) |
-| idx_vlc_vendor_market_unique | UNIQUE btree (vendor_profile_id, COALESCE(source_market_id, '00000000-0000-0000-0000-000000000000'::uuid) |
+| idx_vendor_location_cache_source_market | btree (source_market_id) |
+| idx_vlc_coords | btree (latitude, longitude) |
 | idx_vlc_lat | btree (latitude) |
 | idx_vlc_lng | btree (longitude) |
-| idx_vlc_coords | btree (latitude, longitude) |
 | idx_vlc_vendor | btree (vendor_profile_id) |
+| idx_vlc_vendor_market_unique | UNIQUE btree (vendor_profile_id, COALESCE(source_market_id, '00000000-0000-0000-0000-000000000000'::uuid)) |
 | idx_vlc_vertical | btree (vertical_id) |
+| vendor_location_cache_pkey | UNIQUE btree (id) |
+
+### vendor_market_agreement_acceptances
+| Index Name | Definition |
+|-----------|------------|
+| idx_vmaa_market | btree (market_id, accepted_at DESC) |
+| idx_vmaa_vendor | btree (vendor_profile_id) |
+| vendor_market_agreement_accep_vendor_profile_id_market_id_a_key | UNIQUE btree (vendor_profile_id, market_id, agreement_version) NULLS NOT DISTINCT |
+| vendor_market_agreement_acceptances_pkey | UNIQUE btree (id) |
 
 ### vendor_market_schedules
 | Index Name | Definition |
 |-----------|------------|
-| vendor_market_schedules_pkey | UNIQUE btree (id) |
-| vendor_market_schedules_vendor_profile_id_schedule_id_key | UNIQUE btree (vendor_profile_id, schedule_id) |
-| idx_vms_vendor | btree (vendor_profile_id) |
+| idx_vms_active | btree (is_active) WHERE (is_active = true) |
 | idx_vms_market | btree (market_id) |
 | idx_vms_schedule | btree (schedule_id) |
-| idx_vms_active | btree (is_active) WHERE (is_active = true) |
+| idx_vms_vendor | btree (vendor_profile_id) |
 | idx_vms_vendor_market_active | btree (vendor_profile_id, market_id) WHERE (is_active = true) |
+| vendor_market_schedules_pkey | UNIQUE btree (id) |
+| vendor_market_schedules_vendor_profile_id_schedule_id_key | UNIQUE btree (vendor_profile_id, schedule_id) |
 
 ### vendor_offers
 | Index Name | Definition |
 |-----------|------------|
+| idx_vendor_offers_vendor | btree (vendor_profile_id) WHERE (enabled = true) |
 | vendor_offers_pkey | UNIQUE btree (id) |
 | vendor_offers_vendor_profile_id_kind_key | UNIQUE btree (vendor_profile_id, kind) |
-| idx_vendor_offers_vendor | btree (vendor_profile_id) WHERE (enabled = true) |
 
 ### vendor_payouts
 | Index Name | Definition |
 |-----------|------------|
+| idx_payouts_market_box_pickup | btree (market_box_pickup_id) WHERE (market_box_pickup_id IS NOT NULL) |
+| idx_payouts_mb_subscription | btree (market_box_subscription_id) WHERE (market_box_subscription_id IS NOT NULL) |
+| idx_payouts_order_item | btree (order_item_id) |
+| idx_payouts_status | btree (status) |
+| idx_payouts_vendor | btree (vendor_profile_id) |
+| idx_vendor_payouts_mb_sub_unique | UNIQUE btree (market_box_subscription_id) WHERE ((market_box_subscription_id IS NOT NULL) AND (status <> ALL (ARRAY['failed'::payout_status, 'cancelled'::payout_status]))) |
+| idx_vendor_payouts_order_item_unique | UNIQUE btree (order_item_id) WHERE (status <> ALL (ARRAY['failed'::payout_status, 'cancelled'::payout_status])) |
 | vendor_payouts_pkey | UNIQUE btree (id) |
 | vendor_payouts_stripe_transfer_id_key | UNIQUE btree (stripe_transfer_id) |
-| idx_payouts_vendor | btree (vendor_profile_id) |
-| idx_payouts_order_item | btree (order_item_id) |
-| idx_payouts_market_box_pickup | btree (market_box_pickup_id) WHERE market_box_pickup_id IS NOT NULL |
-| idx_vendor_payouts_order_item_unique | UNIQUE btree (order_item_id) WHERE status NOT IN ('failed', 'cancelled') |
-| idx_vendor_payouts_mb_sub_unique | UNIQUE btree (market_box_subscription_id) WHERE market_box_subscription_id IS NOT NULL AND status NOT IN ('failed', 'cancelled') |
-| idx_payouts_mb_subscription | btree (market_box_subscription_id) WHERE market_box_subscription_id IS NOT NULL |
-| idx_payouts_status | btree (status) |
+
+### vendor_profiles
+| Index Name | Definition |
+|-----------|------------|
+| idx_vendor_profiles_approved_at | btree (approved_at) WHERE (status = 'approved'::vendor_status) |
+| idx_vendor_profiles_certifications | gin (certifications) |
+| idx_vendor_profiles_coordinates | btree (latitude, longitude) WHERE ((latitude IS NOT NULL) AND (longitude IS NOT NULL)) |
+| idx_vendor_profiles_data | gin (profile_data) |
+| idx_vendor_profiles_email | btree (((profile_data ->> 'email'::text))) |
+| idx_vendor_profiles_event_approved | btree (event_approved) WHERE (event_approved = true) |
+| idx_vendor_profiles_home_market_id | btree (home_market_id) |
+| idx_vendor_profiles_org | btree (organization_id) |
+| idx_vendor_profiles_referral_code | btree (referral_code) |
+| idx_vendor_profiles_referred_by | btree (referred_by_vendor_id) |
+| idx_vendor_profiles_status | btree (status) |
+| idx_vendor_profiles_tier | btree (tier) |
+| idx_vendor_profiles_trial_active | btree (trial_ends_at) WHERE ((trial_ends_at IS NOT NULL) AND (subscription_status = 'trialing'::text)) |
+| idx_vendor_profiles_user | btree (user_id) |
+| idx_vendor_profiles_user_vertical | btree (user_id, vertical_id) |
+| idx_vendor_profiles_vertical | btree (vertical_id) |
+| idx_vendor_profiles_vertical_status | btree (vertical_id, status) |
+| idx_vendor_profiles_vertical_tier | btree (vertical_id, tier) |
+| idx_vendor_stripe_customer | btree (stripe_customer_id) WHERE (stripe_customer_id IS NOT NULL) |
+| idx_vendor_subscription_status | btree (subscription_status) WHERE (subscription_status IS NOT NULL) |
+| unique_user_vertical | UNIQUE btree (user_id, vertical_id) |
+| vendor_profiles_pkey | UNIQUE btree (id) |
+| vendor_profiles_referral_code_key | UNIQUE btree (referral_code) |
 
 ### vendor_quality_findings
 | Index Name | Definition |
 |-----------|------------|
-| vendor_quality_findings_pkey | UNIQUE btree (id) |
-| idx_vqf_vendor_active | btree (vendor_profile_id, status) WHERE status = 'active' |
-| idx_vqf_vendor_dismissed | btree (vendor_profile_id, check_type, reference_key) WHERE status = 'dismissed' |
 | idx_vqf_batch | btree (batch_id) |
+| idx_vqf_vendor_active | btree (vendor_profile_id, status) WHERE (status = 'active'::text) |
+| idx_vqf_vendor_dismissed | btree (vendor_profile_id, check_type, reference_key) WHERE (status = 'dismissed'::text) |
+| vendor_quality_findings_pkey | UNIQUE btree (id) |
 
 ### vendor_quality_scan_log
 | Index Name | Definition |
 |-----------|------------|
 | vendor_quality_scan_log_pkey | UNIQUE btree (id) |
 
-### vendor_profiles
-| Index Name | Definition |
-|-----------|------------|
-| idx_vendor_profiles_user | btree (user_id) |
-| idx_vendor_profiles_org | btree (organization_id) |
-| idx_vendor_profiles_vertical | btree (vertical_id) |
-| idx_vendor_profiles_status | btree (status) |
-| vendor_profiles_pkey | UNIQUE btree (id) |
-| idx_vendor_profiles_data | gin (profile_data) |
-| idx_vendor_profiles_email | btree (((profile_data ->> 'email'::text) |
-| unique_user_vertical | UNIQUE btree (user_id, vertical_id) |
-| idx_vendor_profiles_user_vertical | btree (user_id, vertical_id) |
-| idx_vendor_profiles_tier | btree (tier) |
-| idx_vendor_profiles_home_market_id | btree (home_market_id) |
-| idx_vendor_profiles_coordinates | btree (latitude, longitude) WHERE ((latitude IS NOT NULL) AND (longitude IS NOT NULL)) |
-| idx_vendor_profiles_vertical_status | btree (vertical_id, status) |
-| idx_vendor_profiles_vertical_tier | btree (vertical_id, tier) |
-| vendor_profiles_referral_code_key | UNIQUE btree (referral_code) |
-| idx_vendor_profiles_referral_code | btree (referral_code) |
-| idx_vendor_profiles_referred_by | btree (referred_by_vendor_id) |
-| idx_vendor_profiles_approved_at | btree (approved_at) WHERE (status = 'approved'::vendor_status) |
-| idx_vendor_stripe_customer | btree (stripe_customer_id) WHERE (stripe_customer_id IS NOT NULL) |
-| idx_vendor_subscription_status | btree (subscription_status) WHERE (subscription_status IS NOT NULL) |
-| idx_vendor_profiles_certifications | gin (certifications) |
-| idx_vendor_profiles_trial_active | btree (trial_ends_at) WHERE (trial_ends_at IS NOT NULL AND subscription_status = 'trialing') |
-| idx_vendor_profiles_event_approved | btree (event_approved) WHERE (event_approved = true) |
-
 ### vendor_referral_credits
 | Index Name | Definition |
 |-----------|------------|
+| idx_referral_credits_expires | btree (expires_at) WHERE (status = 'earned'::text) |
+| idx_referral_credits_referred | btree (referred_vendor_id) |
+| idx_referral_credits_referrer | btree (referrer_vendor_id) |
+| idx_referral_credits_status | btree (status) |
+| idx_vendor_referral_credits_voided_by | btree (voided_by) |
 | vendor_referral_credits_pkey | UNIQUE btree (id) |
 | vendor_referral_credits_referrer_vendor_id_referred_vendor__key | UNIQUE btree (referrer_vendor_id, referred_vendor_id) |
-| idx_referral_credits_referrer | btree (referrer_vendor_id) |
-| idx_referral_credits_referred | btree (referred_vendor_id) |
-| idx_referral_credits_status | btree (status) |
-| idx_referral_credits_expires | btree (expires_at) WHERE (status = 'earned'::text) |
 
 ### vendor_verifications
 | Index Name | Definition |
 |-----------|------------|
-| idx_vendor_verifications_vendor | btree (vendor_profile_id) |
+| idx_vendor_verifications_coi_verified_by | btree (coi_verified_by) |
+| idx_vendor_verifications_reviewed_by | btree (reviewed_by) |
 | idx_vendor_verifications_status | btree (status) |
+| idx_vendor_verifications_vendor | btree (vendor_profile_id) |
 | vendor_verifications_pkey | UNIQUE btree (id) |
 
 ### vendor_vip_customers
 | Index Name | Definition |
 |-----------|------------|
+| idx_vip_customers_buyer | btree (buyer_user_id) |
+| idx_vip_customers_vendor | btree (vendor_profile_id) |
 | vendor_vip_customers_pkey | UNIQUE btree (id) |
 | vendor_vip_customers_vendor_profile_id_buyer_user_id_key | UNIQUE btree (vendor_profile_id, buyer_user_id) |
-| idx_vip_customers_vendor | btree (vendor_profile_id) |
-| idx_vip_customers_buyer | btree (buyer_user_id) |
 
 ### vertical_admins
 | Index Name | Definition |
 |-----------|------------|
-| vertical_admins_pkey | UNIQUE btree (id) |
-| vertical_admins_user_id_vertical_id_key | UNIQUE btree (user_id, vertical_id) |
+| idx_vertical_admins_granted_by | btree (granted_by) |
 | idx_vertical_admins_user_id | btree (user_id) |
 | idx_vertical_admins_vertical_id | btree (vertical_id) |
+| vertical_admins_pkey | UNIQUE btree (id) |
+| vertical_admins_user_id_vertical_id_key | UNIQUE btree (user_id, vertical_id) |
 
 ### verticals
 | Index Name | Definition |
 |-----------|------------|
-| idx_verticals_vertical_id | btree (vertical_id) |
 | idx_verticals_active | btree (is_active) WHERE (is_active = true) |
+| idx_verticals_config_gin | gin (config) |
+| idx_verticals_vertical_id | btree (vertical_id) |
 | verticals_pkey | UNIQUE btree (id) |
 | verticals_vertical_id_key | UNIQUE btree (vertical_id) |
-| idx_verticals_config_gin | gin (config) |
+
+### weekly_booth_rentals
+| Index Name | Definition |
+|-----------|------------|
+| idx_wbr_group | btree (group_id) WHERE (group_id IS NOT NULL) |
+| idx_wbr_market_week | btree (market_id, week_start_date) |
+| idx_wbr_market_week_booth | UNIQUE btree (market_id, week_start_date, booth_number) WHERE ((booth_number IS NOT NULL) AND (status <> 'cancelled'::text)) |
+| idx_wbr_market_week_status | btree (market_id, week_start_date, status) |
+| idx_wbr_vendor_week | btree (vendor_profile_id, week_start_date) |
+| uq_wbr_vendor_market_week_active | UNIQUE btree (vendor_profile_id, market_id, week_start_date) WHERE (status = ANY (ARRAY['pending_payment'::text, 'paid'::text, 'completed'::text])) |
+| weekly_booth_rentals_pkey | UNIQUE btree (id) |
 
 ### zip_codes
 | Index Name | Definition |
 |-----------|------------|
-| zip_codes_pkey | UNIQUE btree (zip) |
-| idx_zip_codes_state | btree (state) |
-| idx_zip_codes_region | btree (region_code) WHERE (region_code IS NOT NULL) |
 | idx_zip_codes_active_market | btree (active_market_area) WHERE (active_market_area = true) |
 | idx_zip_codes_city_state | btree (city, state) |
 | idx_zip_codes_coords | btree (latitude, longitude) |
-
-
-
----
+| idx_zip_codes_region | btree (region_code) WHERE (region_code IS NOT NULL) |
+| idx_zip_codes_state | btree (state) |
+| zip_codes_pkey | UNIQUE btree (zip) |
 
 ## Enum Types
 
@@ -3392,24 +3755,59 @@
 
 ## Check Constraints
 
+**Rebuilt 2026-09-12 from a live `information_schema.check_constraints` read on Dev** — 149 constraints. The
+previous section carried 65, four of them truncated by an older CSV export that cut values at 64 characters. Those
+are restored in full. Constraints documented earlier but absent from the live database are kept below as superseded
+rather than removed.
+
 | Table | Constraint | Condition |
 |-------|-----------|----------|
+| booth_booking_groups | booth_booking_groups_kind_check | `(kind = ANY (ARRAY['season'::text, 'partial'::text]))` |
+| booth_booking_groups | booth_booking_groups_status_check | `(status = ANY (ARRAY['pending_payment'::text, 'paid'::text, 'cancelled'::text]))` |
+| booth_booking_groups | booth_booking_groups_total_manager_cents_check | `(total_manager_cents >= 0)` |
+| booth_booking_groups | booth_booking_groups_total_vendor_cents_check | `(total_vendor_cents >= 0)` |
+| booth_booking_groups | booth_booking_groups_week_count_check | `(week_count > 0)` |
+| booth_credits | booth_credits_source_check | `(source = ANY (ARRAY['season_settlement'::text, 'vendor_cancel_pre'::text, 'vendor_cancel_post'::text, 'redeemed'::text, 'expired'::text, 'park_date_cancel'::text]))` |
 | buyer_interests | buyer_interests_has_contact | `((email IS NOT NULL) OR (phone IS NOT NULL))` |
 | buyer_search_log | buyer_search_log_search_type_check | `(search_type = ANY (ARRAY['markets'::text, 'vendors'::text]))` |
 | cart_items | cart_items_item_type_check | `(item_type = ANY (ARRAY['listing'::text, 'market_box'::text]))` |
 | cart_items | cart_items_quantity_check | `(quantity > 0)` |
 | cart_items | cart_items_term_weeks_check | `((term_weeks IS NULL) OR (term_weeks = ANY (ARRAY[4, 8])))` |
-| cart_items | cart_items_type_fields_check | `(((item_type = 'listing'::text) AND (listing_id IS NOT NULL)) OR ((item_type = 'market_box'::text) AND (offering_id I...` |
-| catering_requests | catering_requests_status_check | `(status = ANY (ARRAY['new'::text, 'reviewing'::text, 'approved'::text, 'declined'::text, 'ready'::text, 'active'::text, 'review'::text, 'completed'::text]))` |
+| cart_items | cart_items_type_fields_check | `(((item_type = 'listing'::text) AND (listing_id IS NOT NULL)) OR ((item_type = 'market_box'::text) AND (offering_id IS NOT NULL) AND (term_weeks IS NOT NULL)))` |
+| catering_requests | catering_requests_event_setting_check | `((event_setting IS NULL) OR (event_setting = ANY (ARRAY['indoor'::text, 'outdoor'::text, 'either'::text])))` |
+| catering_requests | catering_requests_status_check | `(status = ANY (ARRAY['new'::text, 'reviewing'::text, 'approved'::text, 'declined'::text, 'ready'::text, 'active'::text, 'review'::text, 'completed'::text, 'cancelled'::text]))` |
+| catering_requests | ck_catering_requests_vendor_fee_non_negative | `((event_vendor_fee_cents IS NULL) OR (event_vendor_fee_cents >= 0))` |
+| catering_requests | ck_company_max_per_attendee_positive | `((company_max_per_attendee_cents IS NULL) OR (company_max_per_attendee_cents > 0))` |
+| catering_requests | ck_event_requires_times | `((event_date IS NULL) OR ((event_start_time IS NOT NULL) AND (event_end_time IS NOT NULL)))` |
+| cause_beneficiaries | cause_beneficiaries_remit_method_check | `(remit_method = ANY (ARRAY['connect'::text, 'check'::text]))` |
+| cause_campaigns | cause_campaigns_check | `(ends_at > starts_at)` |
+| cause_ledger | cause_ledger_type_check | `(type = ANY (ARRAY['collected'::text, 'remitted'::text, 'reversed'::text]))` |
+| cause_remittances | cause_remittances_amount_cents_check | `(amount_cents > 0)` |
+| cause_remittances | cause_remittances_method_check | `(method = ANY (ARRAY['connect'::text, 'check'::text]))` |
+| cause_remittances | cause_remittances_status_check | `(status = ANY (ARRAY['pending'::text, 'paid'::text, 'failed'::text]))` |
 | error_logs | error_logs_severity_check | `(severity = ANY (ARRAY['low'::text, 'medium'::text, 'high'::text, 'critical'::text]))` |
 | error_reports | error_reports_escalation_level_check | `(escalation_level = ANY (ARRAY['vertical_admin'::text, 'platform_admin'::text]))` |
-| error_reports | error_reports_status_check | `(status = ANY (ARRAY['pending'::text, 'acknowledged'::text, 'escalated'::text, 'in_progress'::text, 'resolved'::text,...` |
+| error_reports | error_reports_status_check | `(status = ANY (ARRAY['pending'::text, 'acknowledged'::text, 'escalated'::text, 'in_progress'::text, 'resolved'::text, 'duplicate'::text, 'cannot_reproduce'::text]))` |
 | error_resolutions | error_resolutions_status_check | `(status = ANY (ARRAY['pending'::text, 'verified'::text, 'failed'::text, 'partial'::text]))` |
+| event_change_requests | ck_ecr_decline_needs_reason | `((status <> 'declined'::text) OR ((review_note IS NOT NULL) AND (length(btrim(review_note)) > 0)))` |
+| event_change_requests | ck_ecr_resolved_has_reviewer | `((status <> ALL (ARRAY['approved'::text, 'declined'::text])) OR ((reviewed_by IS NOT NULL) AND (reviewed_at IS NOT NULL)))` |
+| event_change_requests | ck_ecr_value_non_negative | `(preorder_value_cents_at_request >= 0)` |
+| event_change_requests | event_change_requests_explanation_check | `((length(btrim(explanation)) >= 10) AND (length(btrim(explanation)) <= 1000))` |
+| event_change_requests | event_change_requests_order_action_check | `((order_action IS NULL) OR (order_action = ANY (ARRAY['refund_all'::text, 'keep_all'::text, 'handled_manually'::text])))` |
+| event_change_requests | event_change_requests_preorder_count_at_request_check | `(preorder_count_at_request >= 0)` |
+| event_change_requests | event_change_requests_reason_category_check | `(reason_category = ANY (ARRAY['venue_cancelled'::text, 'weather_safety'::text, 'personal_emergency'::text, 'venue_scheduling_conflict'::text, 'wrong_date_booked'::text, 'other'::text]))` |
+| event_change_requests | event_change_requests_status_check | `(status = ANY (ARRAY['pending'::text, 'approved'::text, 'declined'::text, 'withdrawn'::text, 'expired'::text]))` |
 | event_company_payments | ck_event_company_payments_positive | `(amount_cents > 0)` |
 | event_company_payments | ck_event_company_payments_status | `(status = ANY (ARRAY['pending'::text, 'paid'::text, 'refunded'::text]))` |
 | event_company_payments | ck_event_company_payments_type | `(payment_type = ANY (ARRAY['deposit'::text, 'final_settlement'::text]))` |
 | event_ratings | event_ratings_rating_check | `((rating >= 1) AND (rating <= 5))` |
 | event_ratings | event_ratings_status_check | `(status = ANY (ARRAY['pending'::text, 'approved'::text, 'hidden'::text]))` |
+| event_vendor_fee_payments | ck_evfp_status | `(status = ANY (ARRAY['pending_payment'::text, 'paid'::text, 'refunded'::text, 'released'::text, 'forfeited'::text, 'covered'::text]))` |
+| event_vendor_fee_payments | event_vendor_fee_payments_fee_cents_check | `(fee_cents > 0)` |
+| event_vendor_fee_payments | event_vendor_fee_payments_organizer_receives_cents_check | `(organizer_receives_cents >= 0)` |
+| event_vendor_fee_payments | event_vendor_fee_payments_platform_keeps_cents_check | `(platform_keeps_cents >= 0)` |
+| event_vendor_fee_payments | event_vendor_fee_payments_vendor_pays_cents_check | `(vendor_pays_cents > 0)` |
+| event_vendor_listings | event_vendor_listings_host_status_check | `(host_status = ANY (ARRAY['approved'::text, 'declined'::text]))` |
 | event_wave_reservations | ck_event_wave_reservations_status | `(status = ANY (ARRAY['reserved'::text, 'ordered'::text, 'cancelled'::text, 'walk_up'::text]))` |
 | event_wave_reservations | ck_ordered_requires_order_id | `((status <> 'ordered'::text) OR (order_id IS NOT NULL))` |
 | event_waves | ck_event_waves_no_overbook | `(reserved_count <= capacity)` |
@@ -3417,8 +3815,11 @@
 | event_waves | ck_event_waves_positive_number | `(wave_number > 0)` |
 | event_waves | ck_event_waves_valid_status | `(status = ANY (ARRAY['open'::text, 'full'::text, 'closed'::text]))` |
 | listings | listings_quantity_required_for_publish | `((status <> 'published'::listing_status) OR ((quantity_amount IS NOT NULL) AND (quantity_unit IS NOT NULL)))` |
+| market_booth_inventory | market_booth_inventory_count_check | `(count >= 0)` |
+| market_booth_inventory | market_booth_inventory_weekly_price_cents_check | `(weekly_price_cents >= 0)` |
 | market_box_offerings | market_box_offerings_pickup_day_of_week_check | `((pickup_day_of_week >= 0) AND (pickup_day_of_week <= 6))` |
 | market_box_pickups | market_box_pickups_week_number_check | `((week_number >= 1) AND (week_number <= 16))` |
+| market_box_subscriptions | ck_subscription_pickup_frequency | `(pickup_frequency = ANY (ARRAY['weekly'::text, 'biweekly'::text]))` |
 | market_box_subscriptions | market_box_subscriptions_term_weeks_check | `(term_weeks = ANY (ARRAY[4, 8]))` |
 | market_bundle_components | market_bundle_components_quantity_check | `(quantity > 0)` |
 | market_bundles | market_bundles_cause_pct_check | `((cause_pct >= 1) AND (cause_pct <= 100))` |
@@ -3426,44 +3827,111 @@
 | market_bundles | market_bundles_quantity_limit_check | `(quantity_limit > 0)` |
 | market_bundles | market_bundles_quantity_sold_check | `(quantity_sold >= 0)` |
 | market_bundles | market_bundles_status_check | `(status = ANY (ARRAY['draft'::text, 'pending_approval'::text, 'active'::text, 'archived'::text, 'rejected'::text]))` |
+| market_date_overrides | market_date_overrides_booth_disposition_check | `(booth_disposition = ANY (ARRAY['credit'::text, 'reschedule'::text]))` |
+| market_date_overrides | market_date_overrides_status_check | `(status = ANY (ARRAY['cancelled'::text, 'special'::text]))` |
+| market_day_checkins | market_day_checkins_method_check | `(method = ANY (ARRAY['self_attest'::text, 'geolocation'::text, 'manager'::text, 'qr'::text]))` |
+| market_documents | market_documents_document_type_check | `(document_type = ANY (ARRAY['legal_entity_filing'::text, 'owners_managers_list'::text, 'market_website'::text, 'insurance_coi'::text, 'venue_proof'::text, 'other'::text]))` |
+| market_documents | market_documents_file_size_bytes_check | `(file_size_bytes > 0)` |
+| market_manager_history | market_manager_history_check | `((ended_at IS NULL) OR (ended_at >= assigned_at))` |
+| market_optin_statement_catalog | market_optin_statement_catalog_category_check | `(category = ANY (ARRAY['product_quality'::text, 'conduct'::text, 'insurance'::text, 'fees'::text, 'compliance'::text]))` |
 | market_schedules | market_schedules_day_of_week_check | `((day_of_week >= 0) AND (day_of_week <= 6))` |
-| market_vendors | market_vendors_response_status_check | `(response_status = ANY (ARRAY['invited'::text, 'accepted'::text, 'declined'::text]))` |
+| market_seasons | market_seasons_dates_ok | `(end_date >= start_date)` |
+| market_seasons | market_seasons_potential_makeup_days_ok | `((potential_makeup_days = 0) OR (potential_makeup_days >= 2))` |
+| market_seasons | market_seasons_refund_cap_days_check | `(refund_cap_days >= 0)` |
+| market_seasons | market_seasons_status_check | `(status = ANY (ARRAY['draft'::text, 'open'::text, 'active'::text, 'ended'::text, 'settled'::text]))` |
+| market_surveys | ck_market_surveys_audience_xor | `(((kind = 'vendor'::text) AND (vendor_profile_id IS NOT NULL) AND (buyer_user_id IS NULL)) OR ((kind = 'buyer'::text) AND (buyer_user_id IS NOT NULL) AND (vendor_profile_id IS NULL)))` |
+| market_surveys | market_surveys_kind_check | `(kind = ANY (ARRAY['vendor'::text, 'buyer'::text]))` |
+| market_surveys | market_surveys_rating_accessibility_check | `((rating_accessibility >= 1) AND (rating_accessibility <= 5))` |
+| market_surveys | market_surveys_rating_atmosphere_check | `((rating_atmosphere >= 1) AND (rating_atmosphere <= 5))` |
+| market_surveys | market_surveys_rating_foot_traffic_check | `((rating_foot_traffic >= 1) AND (rating_foot_traffic <= 5))` |
+| market_surveys | market_surveys_rating_layout_check | `((rating_layout >= 1) AND (rating_layout <= 5))` |
+| market_surveys | market_surveys_rating_manager_support_check | `((rating_manager_support >= 1) AND (rating_manager_support <= 5))` |
+| market_surveys | market_surveys_rating_market_organization_check | `((rating_market_organization >= 1) AND (rating_market_organization <= 5))` |
+| market_surveys | market_surveys_rating_overall_check | `((rating_overall >= 1) AND (rating_overall <= 5))` |
+| market_surveys | market_surveys_rating_quality_check | `((rating_quality >= 1) AND (rating_quality <= 5))` |
+| market_surveys | market_surveys_rating_sales_check | `((rating_sales >= 1) AND (rating_sales <= 5))` |
+| market_surveys | market_surveys_rating_variety_check | `((rating_variety >= 1) AND (rating_variety <= 5))` |
+| market_vendors | market_vendors_response_status_check | `(response_status = ANY (ARRAY['invited'::text, 'accepted'::text, 'declined'::text, 'cancelled'::text]))` |
+| markets | ck_markets_tax_rate_ceiling | `((tax_rate_total_pct IS NULL) OR ((tax_rate_total_pct >= (0)::numeric) AND (tax_rate_total_pct <= 8.25)))` |
 | markets | markets_day_of_week_check | `((day_of_week >= 0) AND (day_of_week <= 6))` |
+| markets | markets_event_dates_check | `((market_type <> 'event'::text) OR ((event_start_date IS NOT NULL) AND (event_end_date IS NOT NULL) AND (event_end_date >= event_start_date)))` |
+| markets | markets_manager_status_check | `(manager_status = ANY (ARRAY['active'::text, 'suspended'::text]))` |
 | markets | markets_market_type_check | `(market_type = ANY (ARRAY['traditional'::text, 'private_pickup'::text, 'event'::text]))` |
-| markets | markets_event_dates_check | `(market_type != 'event' OR (event_start_date IS NOT NULL AND event_end_date IS NOT NULL AND event_end_date >= event_start_date))` |
+| markets | markets_operator_keep_pct_check | `((operator_keep_pct >= 0.935) AND (operator_keep_pct <= 1.000))` |
+| markets | markets_park_mode_check | `(park_mode = ANY (ARRAY['free'::text, 'paid'::text]))` |
 | markets | markets_status_check | `(status = ANY (ARRAY['pending'::text, 'active'::text, 'inactive'::text, 'rejected'::text, 'suspended'::text]))` |
 | markets | valid_market_status | `(status = ANY (ARRAY['pending'::text, 'active'::text, 'inactive'::text, 'rejected'::text]))` |
 | order_items | order_items_cancelled_by_check | `(cancelled_by = ANY (ARRAY['buyer'::text, 'vendor'::text, 'system'::text]))` |
 | order_items | order_items_issue_status_check | `(issue_status = ANY (ARRAY['new'::text, 'in_review'::text, 'resolved'::text, 'closed'::text]))` |
+| order_items | order_items_tax_amount_cents_check | `((tax_amount_cents IS NULL) OR (tax_amount_cents >= 0))` |
+| order_items | order_items_tax_source_check | `((tax_source IS NULL) OR (tax_source = ANY (ARRAY['none'::text, 'manual'::text, 'stripe'::text])))` |
+| order_items | order_items_taxable_amount_cents_check | `((taxable_amount_cents IS NULL) OR (taxable_amount_cents >= 0))` |
 | order_ratings | order_ratings_rating_check | `((rating >= 1) AND (rating <= 5))` |
+| orders | orders_chipin_amount_cents_check | `((chipin_amount_cents IS NULL) OR (chipin_amount_cents >= 0))` |
+| orders | orders_tax_total_cents_check | `((tax_total_cents IS NULL) OR (tax_total_cents >= 0))` |
+| park_spot_bookings | park_spot_bookings_manager_receives_cents_check | `((manager_receives_cents IS NULL) OR (manager_receives_cents >= 0))` |
+| park_spot_bookings | park_spot_bookings_price_cents_check | `(price_cents >= 0)` |
+| park_spot_bookings | park_spot_bookings_status_check | `(status = ANY (ARRAY['pending_payment'::text, 'paid'::text, 'cancelled'::text, 'completed'::text, 'expired'::text]))` |
+| park_spots | park_spots_base_price_cents_check | `(base_price_cents >= 0)` |
+| park_spots | park_spots_max_length_ft_check | `((max_length_ft IS NULL) OR (max_length_ft > 0))` |
+| park_spots | park_spots_power_check | `(power = ANY (ARRAY['shore'::text, 'generator_ok'::text, 'none'::text]))` |
+| park_standing_reservations | park_standing_reservations_day_of_week_check | `((day_of_week >= 0) AND (day_of_week <= 6))` |
+| park_standing_reservations | park_standing_reservations_status_check | `(status = ANY (ARRAY['requested'::text, 'active'::text, 'suspended'::text, 'revoked'::text]))` |
+| park_vendor_vetting | park_vendor_vetting_review_status_check | `(review_status = ANY (ARRAY['pending'::text, 'reviewed'::text, 'flagged'::text]))` |
 | public_activity_events | public_activity_events_event_type_check | `(event_type = ANY (ARRAY['purchase'::text, 'new_vendor'::text, 'sold_out'::text, 'new_listing'::text]))` |
 | support_tickets | support_tickets_category_check | `(category = ANY (ARRAY['technical_problem'::text, 'order_issue'::text, 'account_help'::text, 'feature_request'::text, 'general'::text]))` |
 | support_tickets | support_tickets_status_check | `(status = ANY (ARRAY['new'::text, 'in_progress'::text, 'resolved'::text, 'closed'::text]))` |
 | user_agreement_acceptances | user_agreement_acceptances_agreement_type_check | `(agreement_type = ANY (ARRAY['platform_user'::text, 'vendor_service'::text, 'vendor_partner'::text]))` |
 | user_profiles | user_profiles_buyer_tier_check | `(buyer_tier = ANY (ARRAY['standard'::text, 'premium'::text]))` |
 | user_profiles | user_profiles_location_source_check | `(location_source = ANY (ARRAY['gps'::text, 'manual'::text, 'ip'::text]))` |
-| user_profiles | user_profiles_subscription_cycle_check | `((subscription_cycle = ANY (ARRAY['monthly'::text, 'annual'::text])) OR (subscription_cycle IS NULL))` |
-| user_profiles | user_profiles_subscription_status_check | `((subscription_status = ANY (ARRAY['active'::text, 'past_due'::text, 'canceled'::text, 'trialing'::text])) OR (subscr...` |
 | vendor_activity_scan_log | vendor_activity_scan_log_status_check | `(status = ANY (ARRAY['running'::text, 'completed'::text, 'failed'::text]))` |
+| vendor_fee_ledger | vendor_fee_ledger_type_check | `(type = ANY (ARRAY['debit'::text, 'credit'::text]))` |
+| vendor_leads | vendor_leads_status_check | `(status = ANY (ARRAY['new'::text, 'contacted'::text, 'converted'::text, 'rejected'::text]))` |
+| vendor_location_cache | vendor_location_cache_location_source_check | `(location_source = ANY (ARRAY['direct'::text, 'market'::text]))` |
+| vendor_offers | vendor_offers_kind_check | `(kind = ANY (ARRAY['punch_card'::text, 'spend_threshold'::text]))` |
+| vendor_payouts | vendor_payouts_has_reference | `((order_item_id IS NOT NULL) OR (market_box_pickup_id IS NOT NULL) OR (market_box_subscription_id IS NOT NULL))` |
+| vendor_profiles | chk_pickup_lead_minutes | `(pickup_lead_minutes = ANY (ARRAY[15, 30]))` |
+| vendor_profiles | ck_vendor_fee_override_floor | `((vendor_fee_override_percent IS NULL) OR ((vendor_fee_override_percent >= 3.6) AND (vendor_fee_override_percent <= 6.5)))` |
+| vendor_profiles | ck_vendor_market_box_frequency | `(market_box_frequency = ANY (ARRAY['weekly'::text, 'biweekly'::text]))` |
+| vendor_profiles | vendor_profiles_pickup_capacity_app_orders_check | `((pickup_capacity_app_orders IS NULL) OR (pickup_capacity_app_orders > 0))` |
+| vendor_profiles | vendor_profiles_pickup_capacity_avg_items_check | `((pickup_capacity_avg_items IS NULL) OR (pickup_capacity_avg_items > 0))` |
+| vendor_profiles | vendor_profiles_pickup_capacity_items_check | `((pickup_capacity_items IS NULL) OR (pickup_capacity_items > 0))` |
+| vendor_profiles | vendor_profiles_pickup_capacity_slot_minutes_check | `((pickup_capacity_slot_minutes IS NULL) OR (pickup_capacity_slot_minutes = ANY (ARRAY[15, 30])))` |
+| vendor_profiles | vendor_profiles_pickup_capacity_total_per_slot_check | `((pickup_capacity_total_per_slot IS NULL) OR (pickup_capacity_total_per_slot > 0))` |
+| vendor_profiles | vendor_profiles_production_category_valid | `((production_category IS NULL) OR (production_category <@ ARRAY['1'::text, '2'::text, '3'::text, '4'::text]))` |
+| vendor_profiles | vendor_profiles_subscription_cycle_check | `((subscription_cycle = ANY (ARRAY['monthly'::text, 'annual'::text])) OR (subscription_cycle IS NULL))` |
+| vendor_profiles | vendor_profiles_subscription_status_check | `((subscription_status = ANY (ARRAY['active'::text, 'past_due'::text, 'canceled'::text, 'trialing'::text])) OR (subscription_status IS NULL))` |
+| vendor_profiles | vendor_profiles_tier_check | `(tier = ANY (ARRAY['free'::text, 'pro'::text, 'boss'::text, 'standard'::text, 'premium'::text, 'featured'::text, 'basic'::text]))` |
 | vendor_quality_findings | vendor_quality_findings_check_type_check | `(check_type = ANY (ARRAY['schedule_conflict'::text, 'low_stock_event'::text, 'price_anomaly'::text, 'ghost_listing'::text, 'inventory_velocity'::text]))` |
 | vendor_quality_findings | vendor_quality_findings_severity_check | `(severity = ANY (ARRAY['action_required'::text, 'heads_up'::text, 'suggestion'::text]))` |
 | vendor_quality_findings | vendor_quality_findings_status_check | `(status = ANY (ARRAY['active'::text, 'dismissed'::text, 'superseded'::text]))` |
 | vendor_quality_scan_log | vendor_quality_scan_log_status_check | `(status = ANY (ARRAY['running'::text, 'completed'::text, 'failed'::text]))` |
-| vendor_fee_ledger | vendor_fee_ledger_type_check | `(type = ANY (ARRAY['debit'::text, 'credit'::text]))` |
-| vendor_leads | vendor_leads_status_check | `(status = ANY (ARRAY['new'::text, 'contacted'::text, 'converted'::text, 'rejected'::text]))` |
-| vendor_location_cache | vendor_location_cache_location_source_check | `(location_source = ANY (ARRAY['direct'::text, 'market'::text]))` |
-| vendor_payouts | vendor_payouts_has_reference | `((order_item_id IS NOT NULL) OR (market_box_pickup_id IS NOT NULL))` |
-| vendor_profiles | chk_pickup_lead_minutes | `(pickup_lead_minutes = ANY (ARRAY[15, 30]))` |
-| vendor_profiles | vendor_profiles_subscription_cycle_check | `((subscription_cycle = ANY (ARRAY['monthly'::text, 'annual'::text])) OR (subscription_cycle IS NULL))` |
-| vendor_profiles | vendor_profiles_subscription_status_check | `((subscription_status = ANY (ARRAY['active'::text, 'past_due'::text, 'canceled'::text, 'trialing'::text])) OR (subscr...` |
-| vendor_profiles | vendor_profiles_tier_check | `(tier = ANY (ARRAY['standard'::text, 'premium'::text, 'featured'::text, 'free'::text, 'basic'::text, 'pro'::text, 'boss'::text]))` |
 | vendor_referral_credits | vendor_referral_credits_status_check | `(status = ANY (ARRAY['pending'::text, 'earned'::text, 'applied'::text, 'expired'::text, 'voided'::text]))` |
 | vendor_verifications | vendor_verifications_coi_status_check | `(coi_status = ANY (ARRAY['not_submitted'::text, 'pending'::text, 'approved'::text, 'rejected'::text]))` |
-
-
----
+| weekly_booth_rentals | weekly_booth_rentals_manager_receives_cents_check | `((manager_receives_cents IS NULL) OR (manager_receives_cents >= 0))` |
+| weekly_booth_rentals | weekly_booth_rentals_price_cents_check | `(price_cents >= 0)` |
+| weekly_booth_rentals | weekly_booth_rentals_status_check | `(status = ANY (ARRAY['pending_payment'::text, 'paid'::text, 'cancelled'::text, 'completed'::text]))` |
+| user_profiles | ~~user_profiles_subscription_cycle_check~~ | SUPERSEDED — documented before 2026-09-12, not on Dev/Staging today. Was: `((subscription_cycle = ANY (ARRAY['monthly'::text, 'annual'::text])) OR (subscription_cycle IS NULL))` |
+| user_profiles | ~~user_profiles_subscription_status_check~~ | SUPERSEDED — documented before 2026-09-12, not on Dev/Staging today. Was: `((subscription_status = ANY (ARRAY['active'::text, 'past_due'::text, 'canceled'::text, 'trialing'::text])) OR (subscr...` |
 
 ## Functions
+
+**Rebuilt 2026-09-12 from a live `pg_proc` read on Dev**, with the application/extension split taken from
+`pg_depend` rather than guessed from names. Scope: the 152 application functions (149 distinct names).
+A further 721 functions belong to the PostGIS extension and are deliberately excluded — their absence is not drift.
+
+**Verified identical on Staging**: both environments return 873 functions, 125 of them SECURITY DEFINER, with the
+same signature hash `ae502804506cdcd09d5d520c8e7e1569` (name + identity arguments + security mode). That hash does
+**not** cover function bodies — see the provenance note below.
+
+> **Why the Security column is load-bearing.** `DEFINER` runs a function as its owner; `INVOKER` runs it as the
+> caller. Migration 251 depends on this: as INVOKER its guards see `current_user = 'authenticated'` and can compare
+> `auth.uid()` to the row, whereas as DEFINER `current_user` would be the function owner, and both triggers would
+> exist while silently never firing. Before this rebuild, two rows were wrong — `create_market_box_pickups` and
+> `set_order_item_expiration`, both documented DEFINER, both live INVOKER — and 57 application functions were
+> missing outright, including `ensure_user_profile`, `confirm_season_paid`, `claim_vendor_fee_deduction` and
+> `redeem_booth_credit`. Guardrail Rule O now fails the commit when a migration creates a function this section
+> does not name.
 
 | Function | Arguments | Returns | Security |
 |----------|-----------|---------|----------|
@@ -3473,71 +3941,86 @@
 | atomic_release_bundle_sold | p_bundle_id uuid, p_quantity integer | TABLE(new_quantity_sold integer) | DEFINER |
 | atomic_restore_inventory | p_listing_id uuid, p_quantity integer | TABLE(new_quantity integer) | DEFINER |
 | auto_add_schedule_to_vendors | - | trigger | DEFINER |
+| auto_cancel_order_if_all_items_cancelled | - | trigger | DEFINER |
 | auto_create_vendor_schedules | - | trigger | DEFINER |
 | auto_create_vendor_schedules_insert | - | trigger | DEFINER |
 | auto_create_vendor_verification | - | trigger | DEFINER |
 | award_referral_credit_on_first_sale | - | trigger | INVOKER |
-| box | geometry | box | INVOKER |
-| box | box3d | box | INVOKER |
+| book_park_spot_atomic | p_vendor_profile_id uuid, p_market_id uuid, p_spot_id uuid, p_booking_dates date[], p_group_id uuid, p_acceptance_id uuid | TABLE(booking_id uuid, booked_date date, booking_price_cents integer) | DEFINER |
+| book_season_atomic | p_vendor_profile_id uuid, p_market_id uuid, p_inventory_id uuid, p_acceptance_id uuid, p_season_id uuid, p_kind text, p_week_start_dates date[], p_purchase_date date | TABLE(group_id uuid, rental_id uuid, rental_week_start_date date, rental_price_cents integer, rental_booth_number text) | DEFINER |
+| book_weekly_booth_atomic | p_vendor_profile_id uuid, p_market_id uuid, p_inventory_id uuid, p_week_start_date date, p_acceptance_id uuid | TABLE(rental_id uuid, rental_price_cents integer, rental_status text, rental_week_start_date date, rental_booth_number text) | DEFINER |
 | build_pickup_snapshot | p_schedule_id uuid, p_pickup_date date | jsonb | DEFINER |
-| bytea | geometry | bytea | INVOKER |
-| bytea | geography | bytea | INVOKER |
-| calculate_order_item_expiration | p_pickup_date date, p_vertical_id text DEFAULT NULL, p_created_at timestamptz DEFAULT NOW() | timestamp with time zone | DEFINER |
+| calculate_order_item_expiration | p_pickup_date date, p_buffer_hours integer DEFAULT 18 | timestamp with time zone | DEFINER |
+| calculate_order_item_expiration | p_pickup_date date, p_vertical_id text DEFAULT NULL::text, p_created_at timestamp with time zone DEFAULT now() | timestamp with time zone | INVOKER |
 | can_access_pickup | p_subscription_id uuid | boolean | DEFINER |
 | can_access_subscription | sub_id uuid | boolean | DEFINER |
 | can_admin_market | p_market_id uuid | boolean | DEFINER |
 | can_admin_order | p_order_id uuid | boolean | DEFINER |
 | can_admin_vendor | p_vendor_profile_id uuid | boolean | DEFINER |
-| can_delete_schedule | p_schedule_id uuid | TABLE(can_delete boolean, blocking_order_count integer, b... | DEFINER |
+| can_delete_schedule | p_schedule_id uuid | TABLE(can_delete boolean, blocking_order_count integer, blocking_orders jsonb) | DEFINER |
 | can_vendor_add_fixed_market | p_vendor_profile_id uuid, p_vertical_id text | boolean | DEFINER |
 | can_vendor_add_listing_to_market | p_vendor_profile_id uuid, p_market_id uuid, p_listing_id uuid DEFAULT NULL::uuid | boolean | DEFINER |
-| can_vendor_publish | p_vendor_profile_id uuid, p_category text | boolean | DEFINER | Checks vendor approval status + category authorization. Returns true if vendor is approved AND category is authorized (or no docs required). COI check REMOVED (migration 083) — COI is a soft gate for publishing, hard gate for events only. Called by `enforce_listing_tier_limit()` trigger. |
+| can_vendor_publish | p_vendor_profile_id uuid, p_category text | boolean | DEFINER |
+| cancel_season_group | p_group_id uuid, p_reason text DEFAULT NULL::text | text | DEFINER |
+| cancel_wave_reservation | p_reservation_id uuid, p_user_id uuid | TABLE(success boolean, error text) | DEFINER |
+| check_booth_group_market_integrity | - | trigger | INVOKER |
+| check_booth_number_uniqueness | - | trigger | INVOKER |
+| check_booth_placeholder_inventory_market | - | trigger | INVOKER |
+| check_market_vendor_inventory_market | - | trigger | INVOKER |
+| check_park_spot_booking_market | - | trigger | INVOKER |
+| check_park_standing_market | - | trigger | INVOKER |
+| check_pickup_slot_capacity | p_vendor_profile_id uuid, p_market_id uuid, p_pickup_date date, p_pickup_time time without time zone, p_adding_items integer DEFAULT 1, p_order_id uuid DEFAULT NULL::uuid | TABLE(allowed boolean, reason text, orders_used integer, orders_cap integer, items_used integer, items_cap integer) | DEFINER |
 | check_subscription_completion | - | trigger | INVOKER |
-| check_vendor_schedule_conflict | - | trigger | DEFINER | BEFORE INSERT/UPDATE on vendor_market_schedules. Prevents single-truck vendors from having overlapping active schedules at different markets on same day. Skips if is_active=false or multiple_trucks=true. Resolves effective times (vendor overrides or market defaults). RAISE EXCEPTION on conflict. |
-| cleanup_cart_items_invalid_schedules | - | TABLE(cart_item_id uuid, user_id uuid, listing_title text... | DEFINER |
-| create_market_box_pickups | - | trigger | DEFINER |
+| check_vendor_schedule_conflict | - | trigger | DEFINER |
+| check_weekly_booth_rental_inventory_market | - | trigger | INVOKER |
+| claim_vendor_fee_deduction | p_vendor_profile_id uuid, p_order_id uuid, p_order_item_id uuid, p_max_deduct_cents integer | integer | DEFINER |
+| cleanup_cancelled_event | - | trigger | DEFINER |
+| cleanup_cart_items_invalid_schedules | - | TABLE(cart_item_id uuid, user_id uuid, listing_title text, removed_reason text) | DEFINER |
+| clear_email_suppression_on_change | - | trigger | DEFINER |
+| clear_tax_jurisdiction_verification_on_address_change | - | trigger | DEFINER |
+| confirm_season_paid | p_group_id uuid, p_payment_intent text | text | DEFINER |
+| create_company_paid_order | p_user_id uuid, p_market_id uuid, p_reservation_id uuid, p_listing_id uuid, p_vendor_profile_id uuid, p_wave_id uuid | TABLE(success boolean, order_id uuid, order_number text, error text) | DEFINER |
+| create_event_fee_payment_if_eligible | p_market_id uuid, p_vendor_profile_id uuid, p_fee_cents integer, p_vendor_pays_cents integer, p_organizer_receives_cents integer, p_platform_keeps_cents integer | jsonb | DEFINER |
+| create_market_box_pickups | - | trigger | INVOKER |
 | create_profile_for_user | - | trigger | DEFINER |
-| ensure_admin_premium_tier | - | trigger | DEFINER | BEFORE INSERT OR UPDATE OF role, roles, buyer_tier on user_profiles. Stamps buyer_tier='premium' + buyer_tier_expires_at=NULL on rows where role IN ('admin','platform_admin') OR roles && ARRAY['admin','platform_admin']::user_role[]. Grant-only (no revocation). Migration 115, Session 70. |
-| equals | geom1 geometry, geom2 geometry | boolean | INVOKER |
-| find_srid | character varying, character varying, character varying | integer | INVOKER |
+| enforce_listing_tier_limit | - | trigger | DEFINER |
+| enforce_market_box_tier_limit | - | trigger | DEFINER |
+| ensure_admin_premium_tier | - | trigger | DEFINER |
+| ensure_user_profile | p_user_id uuid, p_email text, p_display_name text DEFAULT ''::text | jsonb | DEFINER |
+| find_next_available_wave | p_market_id uuid | TABLE(wave_id uuid, wave_number integer, start_time time without time zone, end_time time without time zone, remaining integer) | DEFINER |
+| free_wave_on_order_cancel | p_order_id uuid | void | DEFINER |
 | generate_vendor_referral_code | vendor_id uuid | text | INVOKER |
-| geog_brin_inclusion_add_value | internal, internal, internal, internal | boolean | INVOKER |
-| geom2d_brin_inclusion_add_value | internal, internal, internal, internal | boolean | INVOKER |
-| geom3d_brin_inclusion_add_value | internal, internal, internal, internal | boolean | INVOKER |
-| geom4d_brin_inclusion_add_value | internal, internal, internal, internal | boolean | INVOKER |
-| geomfromewkb | bytea | geometry | INVOKER |
-| geomfromewkt | text | geometry | INVOKER |
-| get_available_pickup_dates | p_listing_id uuid | TABLE(market_id uuid, market_name text, market_type text, address text, city text, state text, schedule_id uuid, day_of_week int, pickup_date date, start_time time, end_time time, cutoff_at timestamptz, is_accepting bool, hours_until_cutoff numeric, cutoff_hours int) | DEFINER | JOINs listings for vendor_profile_id + advance_order_days, LEFT JOINs vendor_market_schedules (active only) for attendance + vendor times. All dates use market-local timezone (NOT UTC). **Migration 131 (2026-05-04):** Traditional markets in ALL verticals require an active vendor_market_schedules row (previously FM was exempt). Private pickup: no vms requirement. FT events: vms required. FM events: no vms requirement (organizer-driven). FT parks regular (advance_order_days=0): today only, cutoff=0. FT parks catering (advance_order_days>0): 2-day min lead time (48hr rule), window [local_today+2, local_today+advance_order_days]. FT events: 7-day window, advance cutoff (default 24h). FM: 7 days, advance cutoff. Events filtered by event_start/end_date range + auto-excludes past events. |
+| get_available_pickup_dates | p_listing_id uuid | TABLE(market_id uuid, market_name text, market_type text, address text, city text, state text, schedule_id uuid, day_of_week integer, pickup_date date, start_time time without time zone, end_time time without time zone, cutoff_at timestamp with time zone, is_accepting boolean, hours_until_cutoff numeric, cutoff_hours integer) | DEFINER |
+| get_booth_credit_expiry_state | - | TABLE(vendor_profile_id uuid, market_id uuid, balance_cents bigint, has_live_grant boolean, nearest_live_grant_expiry timestamp with time zone) | DEFINER |
 | get_buyer_order_ids | - | SETOF uuid | DEFINER |
-| get_cart_summary | p_cart_id uuid | TABLE(total_items bigint, total_cents bigint, vendor_coun... | DEFINER |
+| get_cart_summary | p_cart_id uuid | TABLE(total_items bigint, total_cents bigint, vendor_count bigint) | DEFINER |
+| get_event_waves_with_availability | p_market_id uuid | TABLE(wave_id uuid, wave_number integer, start_time time without time zone, end_time time without time zone, capacity integer, reserved_count integer, remaining integer, status text) | DEFINER |
 | get_listing_fields | v_id text | jsonb | DEFINER |
-| get_listings_accepting_status | p_listing_ids uuid[], p_exclude_event_markets boolean DEFAULT false | TABLE(listing_id uuid, is_accepting boolean, hours_until_cutoff numeric, cutoff_hours integer) | DEFINER | Batch availability check. Calls get_available_pickup_dates() via LEFT JOIN LATERAL for each listing, aggregates per-listing. Guaranteed sync with detail page availability logic. **Mig 245 (Dev+Staging 2026-09-05, Prod PENDING):** old 1-arg signature dropped; `p_exclude_event_markets=true` filters event-market dates from the aggregate (browse pill only — cart/checkout/vendor callers use the default false). |
-| get_listing_market_availability | p_listing_id uuid | jsonb | INVOKER | Per-market availability JSONB for a listing (is_accepting, cutoff_at, next_market_at, reason). Display/messaging only — NOT the checkout money gate (that's is_listing_accepting_orders). **Mig 184 (Dev+Staging 2026-07-10, Prod PENDING):** "next schedule" weekday now resolved market-local (`EXTRACT(DOW FROM NOW() AT TIME ZONE market tz)`) instead of UTC. |
-| get_listing_markets_summary | p_listing_id uuid | TABLE(market_id uuid, market_name text, market_type text,... | DEFINER |
-| get_listing_open_markets | p_listing_id uuid | TABLE(market_id uuid, market_name text, market_type text,... | DEFINER |
+| get_listing_market_availability | p_listing_id uuid | jsonb | INVOKER |
+| get_listing_markets_summary | p_listing_id uuid | TABLE(market_id uuid, market_name text, market_type text, address text, city text, state text, day_of_week integer, start_time time without time zone, end_time time without time zone) | DEFINER |
+| get_listing_open_markets | p_listing_id uuid | TABLE(market_id uuid, market_name text, market_type text, address text, city text, state text, is_accepting boolean, next_pickup_at timestamp with time zone) | DEFINER |
+| get_listings_accepting_status | p_listing_ids uuid[], p_exclude_event_markets boolean DEFAULT false | TABLE(listing_id uuid, is_accepting boolean, hours_until_cutoff numeric, cutoff_hours integer) | DEFINER |
+| get_listings_within_radius | user_lat numeric, user_lng numeric, radius_miles numeric DEFAULT 25, vertical_filter text DEFAULT NULL::text, category_filter text DEFAULT NULL::text, search_term text DEFAULT NULL::text, page_size integer DEFAULT 50, page_offset integer DEFAULT 0 | TABLE(listing_id uuid, title text, description text, price_cents integer, quantity integer, quantity_amount numeric, quantity_unit text, category text, created_at timestamp with time zone, vendor_profile_id uuid, listing_data jsonb, premium_window_ends_at timestamp with time zone, vendor_id uuid, vendor_profile_data jsonb, vendor_status text, vendor_tier text, vendor_tier_started_at timestamp with time zone, nearest_market_distance_miles numeric, total_count bigint) | DEFINER |
 | get_market_cutoff | p_market_id uuid | timestamp with time zone | INVOKER |
-| get_listings_within_radius | user_lat numeric, user_lng numeric, radius_miles numeric DEFAULT 25, vertical_filter text, category_filter text, search_term text, page_size int DEFAULT 50, page_offset int DEFAULT 0 | TABLE(listing_id uuid, title text, ..., nearest_market_distance_miles numeric, total_count bigint) | DEFINER |
-| get_markets_within_radius | user_lat numeric, user_lng numeric, radius_meters numeric, vertical_filter te... | TABLE(id uuid, name text, description text, address text,... | DEFINER |
-| get_nearby_zip_codes | user_lat numeric, user_lng numeric, limit_count integer DEFAULT 5 | TABLE(zip character varying, city character varying, stat... | DEFINER |
-| get_next_market_datetime | p_day_of_week integer, p_start_time time without time zone, p_timezone text D... | timestamp with time zone | INVOKER |
+| get_markets_within_radius | user_lat numeric, user_lng numeric, radius_meters numeric, vertical_filter text DEFAULT NULL::text, market_type_filter text DEFAULT NULL::text | TABLE(id uuid, name text, description text, address text, city text, state text, zip_code text, latitude numeric, longitude numeric, market_type text, vertical_id text, status text, active boolean, created_at timestamp with time zone, updated_at timestamp with time zone, distance_miles numeric) | DEFINER |
+| get_nearby_zip_codes | user_lat numeric, user_lng numeric, limit_count integer DEFAULT 5 | TABLE(zip character varying, city character varying, state character varying, distance_miles numeric) | DEFINER |
+| get_next_market_datetime | p_day_of_week integer, p_start_time time without time zone, p_timezone text DEFAULT 'America/Chicago'::text | timestamp with time zone | INVOKER |
 | get_or_create_cart | p_user_id uuid, p_vertical_id text | uuid | DEFINER |
-| get_proj4_from_srid | integer | text | INVOKER |
-| get_region_zip_codes | region character varying | TABLE(zip character varying, city character varying, stat... | DEFINER |
+| get_region_zip_codes | region character varying | TABLE(zip character varying, city character varying, state character varying, latitude numeric, longitude numeric) | DEFINER |
 | get_schedule_active_order_count | p_schedule_id uuid | integer | DEFINER |
-| get_user_admin_verticals | - | TABLE(vertical_id text, is_platform_admin boolean, is_ver... | DEFINER |
+| get_user_admin_verticals | - | TABLE(vertical_id text, is_platform_admin boolean, is_vertical_admin boolean) | DEFINER |
 | get_user_vendor_ids | - | SETOF uuid | DEFINER |
 | get_vendor_fields | v_id text | jsonb | DEFINER |
 | get_vendor_fixed_market_count | p_vendor_profile_id uuid, p_vertical_id text | integer | DEFINER |
 | get_vendor_fixed_market_limit | p_vendor_profile_id uuid | integer | DEFINER |
 | get_vendor_listing_count_at_market | p_vendor_profile_id uuid, p_market_id uuid | integer | DEFINER |
-| get_vendor_next_pickup_date | p_vendor_profile_id uuid, p_market_id uuid, p_from_date date DEFAULT CURRENT_... | date | DEFINER |
+| get_vendor_next_pickup_date | p_vendor_profile_id uuid, p_market_id uuid, p_from_date date DEFAULT CURRENT_DATE | date | DEFINER |
 | get_vendor_order_ids | - | SETOF uuid | DEFINER |
-| get_vendors_within_radius | user_lat numeric, user_lng numeric, radius_meters numeric, vertical_filter te... | TABLE(id uuid, user_id uuid, business_name text, descript... | DEFINER |
+| get_vendors_within_radius | user_lat numeric, user_lng numeric, radius_meters numeric, vertical_filter text DEFAULT NULL::text | TABLE(id uuid, user_id uuid, business_name text, description text, address text, city text, state text, zip_code text, latitude numeric, longitude numeric, vertical_id text, status text, tier text, created_at timestamp with time zone, distance_miles numeric) | DEFINER |
 | get_vertical_config | v_id text | jsonb | DEFINER |
-| get_zip_coordinates | zip_code character varying | TABLE(latitude numeric, longitude numeric, city character... | DEFINER |
-| gettransactionid | - | xid | INVOKER |
-| gidx_in | cstring | gidx | INVOKER |
-| gidx_out | gidx | cstring | INVOKER |
+| get_zip_coordinates | zip_code character varying | TABLE(latitude numeric, longitude numeric, city character varying, state character varying) | DEFINER |
+| guard_order_item_buyer_ack | - | trigger | INVOKER |
+| guard_order_status_actor | - | trigger | INVOKER |
 | handle_market_schedule_deactivation | - | trigger | DEFINER |
 | handle_new_user | - | trigger | DEFINER |
 | has_role | check_role text | boolean | DEFINER |
@@ -3547,56 +4030,121 @@
 | is_admin | - | boolean | DEFINER |
 | is_admin_for_vertical | p_vertical_id text | boolean | DEFINER |
 | is_any_admin | - | boolean | DEFINER |
+| is_event_market | m_id uuid | boolean | DEFINER |
+| is_event_organizer | cr_id uuid | boolean | DEFINER |
 | is_listing_accepting_orders | p_listing_id uuid | boolean | DEFINER |
 | is_order_buyer | order_uuid uuid | boolean | DEFINER |
 | is_platform_admin | - | boolean | DEFINER |
+| is_private_event_market | m_id uuid | boolean | DEFINER |
+| is_regional_admin | - | boolean | DEFINER |
 | is_verifier | - | boolean | DEFINER |
 | is_vertical_admin | p_vertical_id text | boolean | DEFINER |
-| json | geometry | json | INVOKER |
-| jsonb | geometry | jsonb | INVOKER |
+| mark_event_fee_paid_if_capacity | p_payment_id uuid, p_session_id text, p_payment_intent_id text | jsonb | DEFINER |
 | notify_transaction_status_change | - | trigger | DEFINER |
-| overlaps_geog | gidx, geography | boolean | INVOKER |
-| overlaps_geog | gidx, gidx | boolean | INVOKER |
-| overlaps_geog | geography, gidx | boolean | INVOKER |
-| path | geometry | path | INVOKER |
-| point | geometry | point | INVOKER |
-| polygon | geometry | polygon | INVOKER |
+| recalculate_wave_capacity | p_market_id uuid | TABLE(waves_updated integer, new_capacity integer) | DEFINER |
+| redeem_booth_credit | p_vendor_profile_id uuid, p_market_id uuid, p_group_id uuid, p_requested_cents integer, p_rental_id uuid DEFAULT NULL::uuid, p_park_booking_id uuid DEFAULT NULL::uuid | integer | DEFINER |
 | refresh_all_vendor_locations | - | void | DEFINER |
 | refresh_vendor_location | p_vendor_id uuid | void | DEFINER |
-| scan_vendor_activity | p_vertical_id text DEFAULT NULL::text | TABLE(scan_id uuid, vendors_scanned integer, new_flags in... | DEFINER | Validates p_vertical_id against verticals table when non-NULL; raises exception for invalid values. NULL = scan all verticals. |
-| set_listing_premium_window | - | trigger | DEFINER | Checks `verticals.config->>'buyer_premium_enabled'`; skips premium window if false |
-| set_market_box_premium_window | - | trigger | DEFINER | Checks `verticals.config->>'buyer_premium_enabled'`; skips premium window if false |
-| set_order_item_expiration | - | trigger | DEFINER |
+| replace_market_optin_selections | p_market_id uuid, p_selections jsonb | TABLE(selection_id uuid, selection_market_id uuid, selection_statement_id text, selection_placeholder_values jsonb, selection_selected_at timestamp with time zone) | DEFINER |
+| reserve_event_wave | p_wave_id uuid, p_market_id uuid, p_user_id uuid | TABLE(success boolean, reservation_id uuid, error text) | DEFINER |
+| scan_vendor_activity | p_vertical_id text DEFAULT NULL::text | TABLE(scan_id uuid, vendors_scanned integer, new_flags integer, auto_resolved integer) | DEFINER |
+| set_default_vendor_tier | - | trigger | INVOKER |
+| set_ft_default_tier | - | trigger | INVOKER |
+| set_listing_premium_window | - | trigger | DEFINER |
+| set_market_box_premium_window | - | trigger | DEFINER |
+| set_order_item_expiration | - | trigger | INVOKER |
 | soft_delete | - | trigger | INVOKER |
-| subscribe_to_market_box_if_capacity | p_offering_id uuid, p_buyer_user_id uuid, p_order_id uuid, p_total_paid_cents... | json | DEFINER |
+| subscribe_to_market_box_if_capacity | p_offering_id uuid, p_buyer_user_id uuid, p_order_id uuid, p_total_paid_cents integer, p_start_date date, p_term_weeks integer, p_stripe_payment_intent_id text | json | DEFINER |
+| subscribe_to_market_box_if_capacity | p_offering_id uuid, p_buyer_user_id uuid, p_order_id uuid, p_total_paid_cents integer, p_start_date date, p_term_weeks integer, p_stripe_payment_intent_id text, p_pickup_frequency text DEFAULT 'weekly'::text | json | DEFINER |
+| sync_event_request_to_market | - | trigger | DEFINER |
 | sync_verification_status | - | trigger | DEFINER |
-| text | geometry | text | INVOKER |
 | track_vendor_status_change | - | trigger | DEFINER |
 | trg_refresh_vendor_location | - | trigger | DEFINER |
 | trigger_cleanup_cart_on_schedule_change | - | trigger | DEFINER |
 | trigger_generate_referral_code | - | trigger | INVOKER |
 | update_error_reports_updated_at | - | trigger | INVOKER |
 | update_error_resolutions_updated_at | - | trigger | INVOKER |
+| update_market_booth_inventory_updated_at | - | trigger | INVOKER |
+| update_market_booth_placeholders_updated_at | - | trigger | INVOKER |
+| update_support_tickets_updated_at | - | trigger | INVOKER |
 | update_updated_at_column | - | trigger | INVOKER |
 | update_vendor_activity_on_listing | - | trigger | DEFINER |
 | update_vendor_activity_on_order | - | trigger | DEFINER |
 | update_vendor_fee_balance | - | trigger | DEFINER |
 | update_vendor_last_login | - | trigger | DEFINER |
 | update_vendor_rating_stats | - | trigger | INVOKER |
+| update_weekly_booth_rentals_updated_at | - | trigger | INVOKER |
 | user_buyer_order_ids | - | SETOF uuid | DEFINER |
 | user_is_subscription_buyer | sub_id uuid | boolean | DEFINER |
 | user_is_subscription_vendor | sub_id uuid | boolean | DEFINER |
 | user_owns_vendor | vendor_id uuid | boolean | DEFINER |
+| user_vendor_market_ids | - | SETOF uuid | DEFINER |
 | user_vendor_order_ids | - | SETOF uuid | DEFINER |
 | user_vendor_profile_ids | - | SETOF uuid | DEFINER |
 | validate_cart_item_inventory | p_listing_id uuid, p_quantity integer | boolean | DEFINER |
 | validate_cart_item_market | p_listing_id uuid, p_market_id uuid | boolean | DEFINER |
 | validate_cart_item_schedule | p_listing_id uuid, p_schedule_id uuid, p_pickup_date date | boolean | DEFINER |
+| validate_pickup_slot_time | p_vendor_profile_id uuid, p_market_id uuid, p_pickup_date date, p_pickup_time time without time zone | boolean | DEFINER |
 | vendor_has_active_schedules | p_vendor_profile_id uuid, p_market_id uuid | boolean | DEFINER |
-| vendor_skip_week | p_pickup_id uuid, p_reason text DEFAULT NULL::text | TABLE(skipped_pickup_id uuid, extension_pickup_id uuid, n... | DEFINER |
+| vendor_skip_week | p_pickup_id uuid, p_reason text DEFAULT NULL::text | TABLE(skipped_pickup_id uuid, extension_pickup_id uuid, new_scheduled_date date, new_extended_weeks integer) | DEFINER |
 
+### Functions with no definition anywhere in this repo
 
----
+These nine exist on Dev **and** Staging but are created by no migration in `supabase/migrations/`. They were
+applied outside the migration flow, which means the migrations directory alone cannot rebuild this database.
+Guardrail Rule O reasons from migrations and is therefore structurally blind to them: it can prove that a
+migration's work was documented, never that the documentation covers the database.
+
+**Before changing any of these, pull `pg_get_functiondef` from the target environment first** — the repo has no
+text to diff against (verification-discipline Rule 2).
+
+- `can_vendor_add_fixed_market`
+- `can_vendor_add_listing_to_market`
+- `get_buyer_order_ids`
+- `get_listing_markets_summary`
+- `get_vendor_fixed_market_count`
+- `get_vendor_fixed_market_limit`
+- `get_vendor_listing_count_at_market`
+- `get_vendor_order_ids`
+- `validate_cart_item_inventory`
+
+`validate_cart_item_inventory` was already known from audit finding F-9 (migs 149 and 152 describe it as
+prod-only). The other eight were found during this rebuild. `get_buyer_order_ids` and `get_vendor_order_ids` are
+the RLS-adjacent pair — the same family as `user_vendor_order_ids`, which the `orders_update` policy uses to decide
+who may write an order.
+
+### PostGIS entries retained from the pre-2026-09-12 section
+
+Listed alongside application functions before the `pg_depend` split existed. Kept and marked rather than deleted,
+so a reader comparing against an older revision can see why they left the main table.
+
+| Function | Arguments |
+|----------|-----------|
+| box | geometry |
+| box | box3d |
+| bytea | geometry |
+| bytea | geography |
+| equals | geom1 geometry, geom2 geometry |
+| find_srid | character varying, character varying, character varying |
+| geog_brin_inclusion_add_value | internal, internal, internal, internal |
+| geom2d_brin_inclusion_add_value | internal, internal, internal, internal |
+| geom3d_brin_inclusion_add_value | internal, internal, internal, internal |
+| geom4d_brin_inclusion_add_value | internal, internal, internal, internal |
+| geomfromewkb | bytea |
+| geomfromewkt | text |
+| get_proj4_from_srid | integer |
+| gettransactionid | - |
+| gidx_in | cstring |
+| gidx_out | gidx |
+| json | geometry |
+| jsonb | geometry |
+| overlaps_geog | gidx, geography |
+| overlaps_geog | gidx, gidx |
+| overlaps_geog | geography, gidx |
+| path | geometry |
+| point | geometry |
+| polygon | geometry |
+| text | geometry |
 
 ## Triggers
 

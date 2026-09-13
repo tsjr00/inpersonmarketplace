@@ -708,3 +708,143 @@ describe('Guardrail Rule M: new SECURITY DEFINER functions are revoked from PUBL
     ).toEqual([])
   })
 })
+
+// ═══════════════════════════════════════════════════════════════════════
+// Rule N — a documented table has a documented index block
+//          (audit follow-through 2026-09-12)
+//
+// Rule G forces a CHANGELOG ROW per migration, and Rule L forces a rebuild
+// when migrations pile up past the stamp. Neither checks whether an object a
+// migration CREATED ever reached the structured sections. That gap is why
+// mig 244 could create market_bundles, earn its changelog row, and leave the
+// Indexes and Check Constraints sections none the wiser: the prose said what
+// happened, the tables never did. By 2026-09-12, 36 tables carried a "Columns
+// by Table" block and no "Indexes" block at all — every one of them created
+// during this year's feature work.
+//
+// Every table has a PRIMARY KEY, and a primary key is an index. So a table
+// documented in Columns with no Indexes block is ALWAYS wrong — which makes
+// this checkable from the repo alone, with no database.
+//
+// This is a PRESENCE test, not an accuracy test. It cannot tell you the index
+// definitions are right, the same way codebase-map coverage cannot tell you a
+// file description is still true (verification-discipline Rule 6). Presence is
+// what failed here.
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('Guardrail Rule N: every documented table has a documented index block', () => {
+  function sectionBlock(lines: string[], heading: RegExp): string[] {
+    const start = lines.findIndex((l) => heading.test(l))
+    if (start === -1) return []
+    const end = lines.findIndex((l, i) => i > start && /^## /.test(l))
+    return lines.slice(start, end === -1 ? lines.length : end)
+  }
+
+  function tableNamesIn(block: string[]): Set<string> {
+    const names = new Set<string>()
+    for (const line of block) {
+      const m = line.match(/^### ([a-z0-9_]+)\s*$/)
+      if (m) names.add(m[1])
+    }
+    return names
+  }
+
+  it('a table with a Columns block also has an Indexes block', () => {
+    const lines = read(SNAPSHOT).split(/\r?\n/)
+    const columnTables = tableNamesIn(sectionBlock(lines, /^## Columns by Table/))
+    const indexTables = tableNamesIn(sectionBlock(lines, /^## Indexes/))
+
+    expect(columnTables.size, 'SCHEMA_SNAPSHOT.md must document columns per table').toBeGreaterThan(0)
+
+    // Views appear in information_schema.columns and therefore in Columns by
+    // Table, but a view has no indexes. Exclude anything the Views section
+    // names so this rule cannot be satisfied by deleting a view's column block.
+    const viewNames = new Set<string>()
+    for (const line of sectionBlock(lines, /^## Views/)) {
+      const m = line.match(/^\|\s*([a-z0-9_]+)\s*\|/)
+      if (m && m[1] !== 'View' && m[1] !== 'View Name') viewNames.add(m[1])
+    }
+
+    const undocumented = [...columnTables].filter((t) => !viewNames.has(t) && !indexTables.has(t)).sort()
+
+    expect(
+      undocumented,
+      `${undocumented.length} table(s) are documented in "Columns by Table" but have NO block in "Indexes". ` +
+        'Every table has a primary key, so an empty index block is always wrong — these tables were created by a ' +
+        'migration whose structured-section entry was never written. Add an "### <table>" block under ## Indexes ' +
+        'listing at least the primary key. (Rule G keeps the Change Log current; it cannot see this.)\n' +
+        undocumented.join('\n')
+    ).toEqual([])
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════
+// Rule O — a function a migration creates is a function the snapshot names
+//          (audit follow-through 2026-09-12)
+//
+// On 2026-09-12 a live pg_proc read found 152 application functions on Dev
+// (721 further functions belong to PostGIS, split out via pg_depend). The
+// snapshot's Functions section named 113 of them — 57 application functions
+// were absent, including ensure_user_profile, confirm_season_paid,
+// create_company_paid_order, claim_vendor_fee_deduction, redeem_booth_credit,
+// get_available_pickup_dates and get_listings_accepting_status. Migration 250
+// locked down 22 signatures; most had never been documented at all.
+//
+// The Functions section records the SECURITY mode, and DEFINER-vs-INVOKER is
+// load-bearing: mig 251's guards only work as INVOKER, because inside a
+// DEFINER function current_user is the function's owner rather than the
+// caller. A session reasoning from a missing or wrong row reasons wrongly.
+//
+// Scope: functions defined by migrations in the current era. Trigger functions
+// count — auto_cancel_order_if_all_items_cancelled writes orders.status from
+// inside a trigger, which is exactly the kind of thing a future session must
+// be able to look up.
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('Guardrail Rule O: every function a migration creates appears in the snapshot Functions section', () => {
+  const ERA_START = 184 // matches Rule G's grandfather line
+
+  function migNumberOf(base: string): number {
+    const ts = base.match(/^\d{8}_\d{6}_(\d+)_/)
+    if (ts) return parseInt(ts[1], 10)
+    const m = base.match(/^\d{8}_(\d+)/)
+    return m ? parseInt(m[1], 10) : 0
+  }
+
+  it('a CREATE FUNCTION in a current-era migration is named under ## Functions', () => {
+    const lines = read(SNAPSHOT).split(/\r?\n/)
+    const start = lines.findIndex((l) => /^## Functions\s*$/.test(l))
+    const end = lines.findIndex((l, i) => i > start && /^## /.test(l))
+    const documented = new Set<string>()
+    for (const line of lines.slice(start, end === -1 ? lines.length : end)) {
+      const m = line.match(/^\|\s*([a-z0-9_]+)\s*\|/)
+      if (m && m[1] !== 'Function') documented.add(m[1])
+    }
+
+    expect(documented.size, 'SCHEMA_SNAPSHOT.md must carry a ## Functions section').toBeGreaterThan(0)
+
+    const created = new Map<string, string>() // fn -> first migration that creates it
+    for (const { base, full } of allMigrationFiles()) {
+      if (migNumberOf(base) < ERA_START) continue
+      const sql = read(full).replace(/--.*$/gm, '')
+      const re = /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(?:public\.)?([a-z0-9_]+)\s*\(/gi
+      let m: RegExpExecArray | null
+      while ((m = re.exec(sql)) !== null) {
+        if (!created.has(m[1])) created.set(m[1], base)
+      }
+    }
+
+    const missing = [...created.entries()]
+      .filter(([fn]) => !documented.has(fn))
+      .map(([fn, base]) => `${fn}  (created by ${base})`)
+      .sort()
+
+    expect(
+      missing,
+      `${missing.length} function(s) are created by a current-era migration but do not appear in the snapshot's ` +
+        '## Functions section. That section records the SECURITY mode, and DEFINER-vs-INVOKER decides whether a ' +
+        'guard fires at all (mig 251). Add a row: | name | arguments | returns | DEFINER\|INVOKER |.\n' +
+        missing.join('\n')
+    ).toEqual([])
+  })
+})
