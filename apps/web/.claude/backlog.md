@@ -1,5 +1,35 @@
 # Backlog
 
+## 🗃️ SCHEMA HOUSEKEEPING — two observations from the 2026-09-12 measured snapshot rebuild
+
+Both surfaced while rebuilding the structured sections from live catalog reads. Neither is urgent; both are
+cheap to settle and easy to lose if not written down.
+
+1. [ ] **`fulfillments` looks like a dead table.** The pre-rebuild snapshot documented `idx_fulfillments_transaction`
+   and `idx_fulfillments_status`; neither exists on Dev or Staging today, so they are now marked SUPERSEDED in the
+   Indexes section. The table dates from mig `20260103_003_functions_triggers.sql` (it has an
+   `update_fulfillments_updated_at` trigger) and predates the order-items model the app actually uses. **Before
+   concluding anything, check whether any code reads or writes it** — grep `from('fulfillments')` across `src`, and
+   check row counts on all three environments. If it is genuinely unused, the decision is whether to drop it or
+   leave it documented as legacy; a table nobody uses still costs nothing but confuses every future reader of the
+   schema. ⚠ Do not drop anything on the strength of a missing index — that is exactly the mig-211 mistake
+   (a false "no booking = phantom" premise that deactivated live rows).
+
+2. [ ] **Check for unused indexes before launch.** The rebuild found 514 indexes across 95 tables (~5.4 per table).
+   Indexes are not free: every INSERT, UPDATE and DELETE must update every index on the table, and they consume
+   storage and cache. An index nothing queries is pure write-tax. That matters most on `orders` / `order_items`
+   during a market rush — the exact window where writes spike. One read-only query answers it (run per environment;
+   `idx_scan = 0` means never read since stats were last reset, so check `stats_reset` before trusting a zero):
+   ```sql
+   SELECT relname AS table_name, indexrelname AS index_name, idx_scan,
+          pg_size_pretty(pg_relation_size(indexrelid)) AS size
+   FROM pg_stat_user_indexes
+   WHERE schemaname = 'public'
+   ORDER BY idx_scan ASC, pg_relation_size(indexrelid) DESC;
+   ```
+   ⚠ A zero-scan index may still be load-bearing: it can enforce a UNIQUE constraint, back a foreign key, or serve
+   a query path that has not run yet on a pre-launch database. Never drop on `idx_scan = 0` alone.
+
 ## 💰 TAX — market boxes may need their own `is_taxable` flag (owner, 2026-09-08)
 
 Batch 2 ships with market boxes EXCLUDED from tax (treatment = CPA Q10, recurring food

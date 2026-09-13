@@ -111,12 +111,30 @@
 --   WHERE NOT t.tgisinternal AND n.nspname = 'public'
 --     AND c.relname IN ('orders','order_items')
 --   ORDER BY 1, 2;
---   Expect (repo-derived, verify against the output): orders_updated_at and
---   order_items_updated_at (BEFORE UPDATE, timestamp only),
---   trigger_set_order_item_expiration (BEFORE INSERT OR UPDATE),
---   referral_credit_on_sale_trigger (AFTER UPDATE on orders),
---   vendor_activity_order_trigger (AFTER INSERT on orders). None of these
---   writes buyer_confirmed_at or status, so ordering against them is immaterial.
+--   VERIFIED 2026-09-12 against a live pg_trigger + pg_proc read on Dev (the
+--   repo-derived list below was incomplete — a truncated grep missed one):
+--     order_items: order_items_updated_at (BEFORE UPDATE, timestamp only,
+--                    update_updated_at_column = INVOKER)
+--                  trigger_set_order_item_expiration (BEFORE INSERT OR UPDATE,
+--                    set_order_item_expiration = INVOKER)
+--                  ⚠ trg_auto_cancel_order (AFTER UPDATE) ->
+--                    auto_cancel_order_if_all_items_cancelled = SECURITY DEFINER
+--     orders:      orders_updated_at (BEFORE UPDATE, timestamp only)
+--                  referral_credit_on_sale_trigger (AFTER UPDATE, INVOKER)
+--                  vendor_activity_order_trigger (AFTER INSERT, DEFINER)
+--
+--   ⚠ trg_auto_cancel_order MATTERS and was nearly missed. It cancels the parent
+--   order when every item is cancelled — i.e. it WRITES orders.status from
+--   inside a trigger, which is precisely what guard #2 below restricts. It is
+--   safe ONLY because auto_cancel_order_if_all_items_cancelled is SECURITY
+--   DEFINER: it therefore runs as its owner, current_user is not
+--   'authenticated', and the guard returns NEW untouched. Confirmed from the
+--   live catalog on 2026-09-12, not inferred. If that function is ever
+--   recreated as SECURITY INVOKER, this trigger starts running as the calling
+--   user and guard #2 will block the parent-order auto-cancel — which would
+--   surface as orders that never leave 'paid' once all their items are
+--   cancelled. The three INVOKER trigger functions above touch neither
+--   orders.status nor buyer_confirmed_at, so none of them trips either guard.
 --
 -- POST-CHECK — re-run the query above; the two trg_251_* rows must be present.
 --   Behavioural proof (safe, nothing persists — it ends in a rollback):

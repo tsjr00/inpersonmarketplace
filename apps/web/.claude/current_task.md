@@ -1,3 +1,29 @@
+# 🔴 OPEN DEFECT FOUND 2026-09-12 DURING THE OWNER'S SMOKE — MARKET-BOX CHECKOUT IS BLOCKED
+
+**A cart containing a market box cannot check out.** The owner hit this on staging: the checkout page shows
+"Market Compatibility Issues: *Unknown item* is not available at any markets". **NOT caused by migs 250/251** —
+verified: 250 names the cart functions only in two comment lines marking them excluded, `get_listings_accepting_status`
+(validate's only RPC) is not in it, and 251 contains no cart or listing reference at all.
+
+**Mechanism (every link read 2026-09-12):** market boxes and listings share `cart_items`, distinguished by
+`item_type` (`SCHEMA_SNAPSHOT.md`: `item_type text NOT NULL DEFAULT 'listing'`, `listing_id` and `offering_id` both
+nullable). The market-box insert writes `item_type: 'market_box'` + `offering_id` and **no `listing_id`**
+(`cart/items/route.ts:525-533`). `cart/validate/route.ts` selects a `listings(...)` join and loops EVERY cart row
+(`:111`) with **no `item_type` filter anywhere in the file** — so a market-box row has no listing, falls into `:121`,
+and pushes `"${listing?.title || 'Unknown item'}" is not available at any markets`. Then `valid = warnings.length === 0`
+(`:162`), and the checkout page sets `marketValid` false on ANY warning (`checkout/page.tsx:335`) → pay button blocked.
+The vendor-side save the owner tried worked because that path never touches cart validation.
+
+**Regression point — MEDIUM confidence, not verified:** commit `f4b2700c` (2026-07-12, ledger CHK-3) closed a
+fail-open where validate filtered on a non-existent `user_id` column, so the query always errored, the error was
+discarded, and validation always passed. Closing that switched this loop on for the first time. If so, market-box
+checkout has been broken since mid-July and no test caught it — the suite has no case that puts a market box through
+validate. **To confirm: read the pre-`f4b2700c` version of the loop.** Not done.
+
+**Fix shape (NOT built, needs its own go):** skip or separately handle non-`listing` rows in that loop. ⚠ It is a
+money-path file in a paired-rule relationship with `cart/items` — the pair must stay in step, and a test that puts a
+market box through validate should land with it, since its absence is why this survived two months.
+
 # 🏁 2026-09-12 SESSION CLOSE — MIGS 250 + 251 SHIPPED TO STAGING · STEP 9 REVERTED · TREE CLEAN
 
 **Staging = `6f21ca29`** (verified against `git log origin/staging`). Three commits today:
