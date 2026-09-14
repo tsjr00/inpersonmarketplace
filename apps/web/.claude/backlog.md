@@ -1,5 +1,38 @@
 # Backlog
 
+## 🧪 OWNER TEST NOTES — 2026-09-13 late (staging `0fce9518` / prod `d704d3bb`) — matched to code, NOT yet matched to the A–D test doc
+
+1. [ ] **🐞 Market page → Market Bundles card: a line overflows its container on MOBILE (fine on desktop).** Owner: the
+   line reading "created by this market" runs past the row; wants it to wrap like the maker rows. Code read
+   2026-09-13: `components/markets/MarketBundlesSection.tsx` — the section subtitle is a plain `<p>` (`:48-50`,
+   `bundle.section_sub` with the market name), the description is a plain `<div>` (`:61-63`), and the ONLY
+   `whiteSpace: nowrap` is on the PRICE span (`:56`). Card grid is `minmax(280px, 1fr)` (`:51`). **Cause
+   UNVERIFIED** — candidates: the 280px min column on a narrow phone, a long unbroken string in a bundle description,
+   or the name/price flex row. Need a screenshot or the exact text before proposing a fix.
+2. [ ] **Share button: add Instagram / TikTok / Snapchat (marketing reach).** Today `components/marketing/ShareButton.tsx`
+   offers Facebook + Twitter via URL intents (`:83`, `:289-295`, list in `SHARE_PLATFORMS`). Those three platforms
+   have NO web share-URL endpoints — the standard route is the Web Share API (`navigator.share`) on mobile, which opens
+   the OS share sheet listing whichever apps are installed (Instagram, TikTok, Snapchat, Messages…), with copy-link as
+   the desktop fallback. grep found no `navigator.share` in the component (presence-only; full read pending). Scope
+   when picked up: add a "Share…" (native sheet) option first, keep FB/X as explicit buttons.
+3. [ ] **Browse: market boxes are lost under the filter; users don't look there.** Owner: revisit placement — options
+   floated: (a) keep the filter AND add a market-box section on the VENDOR profile (mirrors the new bundles-on-market
+   pattern); (b) move it under the vendor entirely. Owner leans (a). Code: the market-boxes view is a filter option in
+   `browse/BrowseFiltersPopup.tsx:60-62` (`view=market-boxes`). Design item — present options with mockups.
+4. [ ] **Browse: "everything available to order right now" filter.** ⚠ It EXISTS — the "Available now" toggle in the same
+   filters popup (`BrowseFiltersPopup.tsx:66-71`, `?available=true`; server filters via the availability RPC before
+   pagination, `browse/page.tsx` "isAvailableNow"). Owner did not find it → same discoverability problem as #3: the
+   popup hides the two most valuable controls. Treat #3 + #4 as ONE design pass on the browse filter surface.
+5. [ ] **🐞 Admin hub: "N orders stuck in paid/confirmed 24+ h" card does nothing on tap.** Owner: "took the form but
+   not the function." Code read: `components/admin/AdminHubZones.tsx:85-99` — it is deliberately a non-clickable
+   warning CARD, comment: "there is no dedicated page to send it to" (owner phase-2 smoke, 2026-08-30 round 2 asked
+   for one visual language). So it never had a destination after the rebuild. Fix = give it one: an admin orders list
+   filtered to stuck orders (does such a page/filter exist? UNVERIFIED — check `admin/orders` before designing).
+6. [ ] **💡 FUTURE — Park ↔ truck matchmaking (paid-tier feature).** Owner idea: reuse the events matching criteria to
+   match trucks with parks (equipment fit, cuisine mix already in the park when the park is app-managed), push
+   proactive "parks that fit you today/this week" to trucks on a cadence; candidate free→paid upgrade driver. Parks
+   already have rental pricing + invite/apply flows to build on. Explore after the prod push settles.
+
 ## 🧪 OWNER TEST ROUND — 2026-09-13 evening (staging `d704d3bb`; the 09-07 fix round, items 11–17)
 
 **Passed by owner:** 12 apply-button managed-only + copy · 13 booking-page operating-days line · 14 admin markets slim
