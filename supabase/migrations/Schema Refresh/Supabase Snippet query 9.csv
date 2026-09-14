@@ -1,0 +1,874 @@
+proname,args,owner
+atomic_complete_order_if_ready,p_order_id uuid,application
+atomic_decrement_inventory,"p_listing_id uuid, p_quantity integer",application
+atomic_increment_bundle_sold,"p_bundle_id uuid, p_quantity integer",application
+atomic_release_bundle_sold,"p_bundle_id uuid, p_quantity integer",application
+atomic_restore_inventory,"p_listing_id uuid, p_quantity integer",application
+auto_add_schedule_to_vendors,,application
+auto_cancel_order_if_all_items_cancelled,,application
+auto_create_vendor_schedules,,application
+auto_create_vendor_schedules_insert,,application
+auto_create_vendor_verification,,application
+award_referral_credit_on_first_sale,,application
+book_park_spot_atomic,"p_vendor_profile_id uuid, p_market_id uuid, p_spot_id uuid, p_booking_dates date[], p_group_id uuid, p_acceptance_id uuid",application
+book_season_atomic,"p_vendor_profile_id uuid, p_market_id uuid, p_inventory_id uuid, p_acceptance_id uuid, p_season_id uuid, p_kind text, p_week_start_dates date[], p_purchase_date date",application
+book_weekly_booth_atomic,"p_vendor_profile_id uuid, p_market_id uuid, p_inventory_id uuid, p_week_start_date date, p_acceptance_id uuid",application
+build_pickup_snapshot,"p_schedule_id uuid, p_pickup_date date",application
+calculate_order_item_expiration,"p_pickup_date date, p_vertical_id text, p_created_at timestamp with time zone",application
+calculate_order_item_expiration,"p_pickup_date date, p_buffer_hours integer",application
+can_access_pickup,p_subscription_id uuid,application
+can_access_subscription,sub_id uuid,application
+can_admin_market,p_market_id uuid,application
+can_admin_order,p_order_id uuid,application
+can_admin_vendor,p_vendor_profile_id uuid,application
+can_delete_schedule,p_schedule_id uuid,application
+can_vendor_add_fixed_market,"p_vendor_profile_id uuid, p_vertical_id text",application
+can_vendor_add_listing_to_market,"p_vendor_profile_id uuid, p_market_id uuid, p_listing_id uuid",application
+can_vendor_publish,"p_vendor_profile_id uuid, p_category text",application
+cancel_season_group,"p_group_id uuid, p_reason text",application
+cancel_wave_reservation,"p_reservation_id uuid, p_user_id uuid",application
+check_booth_group_market_integrity,,application
+check_booth_number_uniqueness,,application
+check_booth_placeholder_inventory_market,,application
+check_market_vendor_inventory_market,,application
+check_park_spot_booking_market,,application
+check_park_standing_market,,application
+check_pickup_slot_capacity,"p_vendor_profile_id uuid, p_market_id uuid, p_pickup_date date, p_pickup_time time without time zone, p_adding_items integer, p_order_id uuid",application
+check_subscription_completion,,application
+check_vendor_schedule_conflict,,application
+check_weekly_booth_rental_inventory_market,,application
+claim_vendor_fee_deduction,"p_vendor_profile_id uuid, p_order_id uuid, p_order_item_id uuid, p_max_deduct_cents integer",application
+cleanup_cancelled_event,,application
+cleanup_cart_items_invalid_schedules,,application
+clear_email_suppression_on_change,,application
+clear_tax_jurisdiction_verification_on_address_change,,application
+confirm_season_paid,"p_group_id uuid, p_payment_intent text",application
+create_company_paid_order,"p_user_id uuid, p_market_id uuid, p_reservation_id uuid, p_listing_id uuid, p_vendor_profile_id uuid, p_wave_id uuid",application
+create_event_fee_payment_if_eligible,"p_market_id uuid, p_vendor_profile_id uuid, p_fee_cents integer, p_vendor_pays_cents integer, p_organizer_receives_cents integer, p_platform_keeps_cents integer",application
+create_market_box_pickups,,application
+create_profile_for_user,,application
+enforce_listing_tier_limit,,application
+enforce_market_box_tier_limit,,application
+ensure_admin_premium_tier,,application
+ensure_user_profile,"p_user_id uuid, p_email text, p_display_name text",application
+find_next_available_wave,p_market_id uuid,application
+free_wave_on_order_cancel,p_order_id uuid,application
+generate_vendor_referral_code,vendor_id uuid,application
+get_available_pickup_dates,p_listing_id uuid,application
+get_booth_credit_expiry_state,,application
+get_buyer_order_ids,,application
+get_cart_summary,p_cart_id uuid,application
+get_event_waves_with_availability,p_market_id uuid,application
+get_listing_fields,v_id text,application
+get_listing_market_availability,p_listing_id uuid,application
+get_listing_markets_summary,p_listing_id uuid,application
+get_listing_open_markets,p_listing_id uuid,application
+get_listings_accepting_status,"p_listing_ids uuid[], p_exclude_event_markets boolean",application
+get_listings_within_radius,"user_lat numeric, user_lng numeric, radius_miles numeric, vertical_filter text, category_filter text, search_term text, page_size integer, page_offset integer",application
+get_market_cutoff,p_market_id uuid,application
+get_markets_within_radius,"user_lat numeric, user_lng numeric, radius_meters numeric, vertical_filter text, market_type_filter text",application
+get_nearby_zip_codes,"user_lat numeric, user_lng numeric, limit_count integer",application
+get_next_market_datetime,"p_day_of_week integer, p_start_time time without time zone, p_timezone text",application
+get_or_create_cart,"p_user_id uuid, p_vertical_id text",application
+get_region_zip_codes,region character varying,application
+get_schedule_active_order_count,p_schedule_id uuid,application
+get_user_admin_verticals,,application
+get_user_vendor_ids,,application
+get_vendor_fields,v_id text,application
+get_vendor_fixed_market_count,"p_vendor_profile_id uuid, p_vertical_id text",application
+get_vendor_fixed_market_limit,p_vendor_profile_id uuid,application
+get_vendor_listing_count_at_market,"p_vendor_profile_id uuid, p_market_id uuid",application
+get_vendor_next_pickup_date,"p_vendor_profile_id uuid, p_market_id uuid, p_from_date date",application
+get_vendor_order_ids,,application
+get_vendors_within_radius,"user_lat numeric, user_lng numeric, radius_meters numeric, vertical_filter text",application
+get_vertical_config,v_id text,application
+get_zip_coordinates,zip_code character varying,application
+guard_order_item_buyer_ack,,application
+guard_order_status_actor,,application
+handle_market_schedule_deactivation,,application
+handle_new_user,,application
+has_role,check_role user_role,application
+has_role,check_role text,application
+increment_vendor_cancelled,p_vendor_id uuid,application
+increment_vendor_confirmed,p_vendor_id uuid,application
+is_admin,,application
+is_admin_for_vertical,p_vertical_id text,application
+is_any_admin,,application
+is_event_market,m_id uuid,application
+is_event_organizer,cr_id uuid,application
+is_listing_accepting_orders,p_listing_id uuid,application
+is_order_buyer,order_uuid uuid,application
+is_platform_admin,,application
+is_private_event_market,m_id uuid,application
+is_regional_admin,,application
+is_verifier,,application
+is_vertical_admin,p_vertical_id text,application
+mark_event_fee_paid_if_capacity,"p_payment_id uuid, p_session_id text, p_payment_intent_id text",application
+notify_transaction_status_change,,application
+recalculate_wave_capacity,p_market_id uuid,application
+redeem_booth_credit,"p_vendor_profile_id uuid, p_market_id uuid, p_group_id uuid, p_requested_cents integer, p_rental_id uuid, p_park_booking_id uuid",application
+refresh_all_vendor_locations,,application
+refresh_vendor_location,p_vendor_id uuid,application
+replace_market_optin_selections,"p_market_id uuid, p_selections jsonb",application
+reserve_event_wave,"p_wave_id uuid, p_market_id uuid, p_user_id uuid",application
+scan_vendor_activity,p_vertical_id text,application
+set_default_vendor_tier,,application
+set_ft_default_tier,,application
+set_listing_premium_window,,application
+set_market_box_premium_window,,application
+set_order_item_expiration,,application
+soft_delete,,application
+subscribe_to_market_box_if_capacity,"p_offering_id uuid, p_buyer_user_id uuid, p_order_id uuid, p_total_paid_cents integer, p_start_date date, p_term_weeks integer, p_stripe_payment_intent_id text, p_pickup_frequency text",application
+subscribe_to_market_box_if_capacity,"p_offering_id uuid, p_buyer_user_id uuid, p_order_id uuid, p_total_paid_cents integer, p_start_date date, p_term_weeks integer, p_stripe_payment_intent_id text",application
+sync_event_request_to_market,,application
+sync_verification_status,,application
+track_vendor_status_change,,application
+trg_refresh_vendor_location,,application
+trigger_cleanup_cart_on_schedule_change,,application
+trigger_generate_referral_code,,application
+update_error_reports_updated_at,,application
+update_error_resolutions_updated_at,,application
+update_market_booth_inventory_updated_at,,application
+update_market_booth_placeholders_updated_at,,application
+update_support_tickets_updated_at,,application
+update_updated_at_column,,application
+update_vendor_activity_on_listing,,application
+update_vendor_activity_on_order,,application
+update_vendor_fee_balance,,application
+update_vendor_last_login,,application
+update_vendor_rating_stats,,application
+update_weekly_booth_rentals_updated_at,,application
+user_buyer_order_ids,,application
+user_is_subscription_buyer,sub_id uuid,application
+user_is_subscription_vendor,sub_id uuid,application
+user_owns_vendor,vendor_id uuid,application
+user_vendor_market_ids,,application
+user_vendor_order_ids,,application
+user_vendor_profile_ids,,application
+validate_cart_item_inventory,"p_listing_id uuid, p_quantity integer",application
+validate_cart_item_market,"p_listing_id uuid, p_market_id uuid",application
+validate_cart_item_schedule,"p_listing_id uuid, p_schedule_id uuid, p_pickup_date date",application
+validate_pickup_slot_time,"p_vendor_profile_id uuid, p_market_id uuid, p_pickup_date date, p_pickup_time time without time zone",application
+vendor_has_active_schedules,"p_vendor_profile_id uuid, p_market_id uuid",application
+vendor_skip_week,"p_pickup_id uuid, p_reason text",application
+_postgis_deprecate,"oldname text, newname text, version text",postgis
+_postgis_index_extent,"tbl regclass, col text",postgis
+_postgis_join_selectivity,"regclass, text, regclass, text, text",postgis
+_postgis_pgsql_version,,postgis
+_postgis_scripts_pgsql_version,,postgis
+_postgis_selectivity,"tbl regclass, att_name text, geom geometry, mode text",postgis
+_postgis_stats,"tbl regclass, att_name text, text",postgis
+_st_3ddfullywithin,"geom1 geometry, geom2 geometry, double precision",postgis
+_st_3ddwithin,"geom1 geometry, geom2 geometry, double precision",postgis
+_st_3dintersects,"geom1 geometry, geom2 geometry",postgis
+_st_asgml,"integer, geometry, integer, integer, text, text",postgis
+_st_asx3d,"integer, geometry, integer, integer, text",postgis
+_st_bestsrid,"geography, geography",postgis
+_st_bestsrid,geography,postgis
+_st_contains,"geom1 geometry, geom2 geometry",postgis
+_st_containsproperly,"geom1 geometry, geom2 geometry",postgis
+_st_coveredby,"geom1 geometry, geom2 geometry",postgis
+_st_coveredby,"geog1 geography, geog2 geography",postgis
+_st_covers,"geog1 geography, geog2 geography",postgis
+_st_covers,"geom1 geometry, geom2 geometry",postgis
+_st_crosses,"geom1 geometry, geom2 geometry",postgis
+_st_dfullywithin,"geom1 geometry, geom2 geometry, double precision",postgis
+_st_distancetree,"geography, geography",postgis
+_st_distancetree,"geography, geography, double precision, boolean",postgis
+_st_distanceuncached,"geography, geography, double precision, boolean",postgis
+_st_distanceuncached,"geography, geography",postgis
+_st_distanceuncached,"geography, geography, boolean",postgis
+_st_dwithin,"geom1 geometry, geom2 geometry, double precision",postgis
+_st_dwithin,"geog1 geography, geog2 geography, tolerance double precision, use_spheroid boolean",postgis
+_st_dwithinuncached,"geography, geography, double precision, boolean",postgis
+_st_dwithinuncached,"geography, geography, double precision",postgis
+_st_equals,"geom1 geometry, geom2 geometry",postgis
+_st_expand,"geography, double precision",postgis
+_st_geomfromgml,"text, integer",postgis
+_st_intersects,"geom1 geometry, geom2 geometry",postgis
+_st_linecrossingdirection,"line1 geometry, line2 geometry",postgis
+_st_longestline,"geom1 geometry, geom2 geometry",postgis
+_st_maxdistance,"geom1 geometry, geom2 geometry",postgis
+_st_orderingequals,"geom1 geometry, geom2 geometry",postgis
+_st_overlaps,"geom1 geometry, geom2 geometry",postgis
+_st_pointoutside,geography,postgis
+_st_sortablehash,geom geometry,postgis
+_st_touches,"geom1 geometry, geom2 geometry",postgis
+_st_voronoi,"g1 geometry, clip geometry, tolerance double precision, return_polygons boolean",postgis
+_st_within,"geom1 geometry, geom2 geometry",postgis
+addauth,text,postgis
+addgeometrycolumn,"schema_name character varying, table_name character varying, column_name character varying, new_srid integer, new_type character varying, new_dim integer, use_typmod boolean",postgis
+addgeometrycolumn,"table_name character varying, column_name character varying, new_srid integer, new_type character varying, new_dim integer, use_typmod boolean",postgis
+addgeometrycolumn,"catalog_name character varying, schema_name character varying, table_name character varying, column_name character varying, new_srid_in integer, new_type character varying, new_dim integer, use_typmod boolean",postgis
+box,box3d,postgis
+box,geometry,postgis
+box2d,box3d,postgis
+box2d,geometry,postgis
+box2d_in,cstring,postgis
+box2d_out,box2d,postgis
+box2df_in,cstring,postgis
+box2df_out,box2df,postgis
+box3d,geometry,postgis
+box3d,box2d,postgis
+box3d_in,cstring,postgis
+box3d_out,box3d,postgis
+box3dtobox,box3d,postgis
+bytea,geometry,postgis
+bytea,geography,postgis
+checkauth,"text, text",postgis
+checkauth,"text, text, text",postgis
+checkauthtrigger,,postgis
+contains_2d,"box2df, geometry",postgis
+contains_2d,"geometry, box2df",postgis
+contains_2d,"box2df, box2df",postgis
+disablelongtransactions,,postgis
+dropgeometrycolumn,"table_name character varying, column_name character varying",postgis
+dropgeometrycolumn,"schema_name character varying, table_name character varying, column_name character varying",postgis
+dropgeometrycolumn,"catalog_name character varying, schema_name character varying, table_name character varying, column_name character varying",postgis
+dropgeometrytable,"catalog_name character varying, schema_name character varying, table_name character varying",postgis
+dropgeometrytable,"schema_name character varying, table_name character varying",postgis
+dropgeometrytable,table_name character varying,postgis
+enablelongtransactions,,postgis
+equals,"geom1 geometry, geom2 geometry",postgis
+find_srid,"character varying, character varying, character varying",postgis
+geog_brin_inclusion_add_value,"internal, internal, internal, internal",postgis
+geography,bytea,postgis
+geography,geometry,postgis
+geography,"geography, integer, boolean",postgis
+geography_analyze,internal,postgis
+geography_cmp,"geography, geography",postgis
+geography_distance_knn,"geography, geography",postgis
+geography_eq,"geography, geography",postgis
+geography_ge,"geography, geography",postgis
+geography_gist_compress,internal,postgis
+geography_gist_consistent,"internal, geography, integer",postgis
+geography_gist_decompress,internal,postgis
+geography_gist_distance,"internal, geography, integer",postgis
+geography_gist_penalty,"internal, internal, internal",postgis
+geography_gist_picksplit,"internal, internal",postgis
+geography_gist_same,"box2d, box2d, internal",postgis
+geography_gist_union,"bytea, internal",postgis
+geography_gt,"geography, geography",postgis
+geography_in,"cstring, oid, integer",postgis
+geography_le,"geography, geography",postgis
+geography_lt,"geography, geography",postgis
+geography_out,geography,postgis
+geography_overlaps,"geography, geography",postgis
+geography_recv,"internal, oid, integer",postgis
+geography_send,geography,postgis
+geography_spgist_choose_nd,"internal, internal",postgis
+geography_spgist_compress_nd,internal,postgis
+geography_spgist_config_nd,"internal, internal",postgis
+geography_spgist_inner_consistent_nd,"internal, internal",postgis
+geography_spgist_leaf_consistent_nd,"internal, internal",postgis
+geography_spgist_picksplit_nd,"internal, internal",postgis
+geography_typmod_in,cstring[],postgis
+geography_typmod_out,integer,postgis
+geom2d_brin_inclusion_add_value,"internal, internal, internal, internal",postgis
+geom3d_brin_inclusion_add_value,"internal, internal, internal, internal",postgis
+geom4d_brin_inclusion_add_value,"internal, internal, internal, internal",postgis
+geometry,"geometry, integer, boolean",postgis
+geometry,geography,postgis
+geometry,box2d,postgis
+geometry,box3d,postgis
+geometry,text,postgis
+geometry,bytea,postgis
+geometry,point,postgis
+geometry,path,postgis
+geometry,polygon,postgis
+geometry_above,"geom1 geometry, geom2 geometry",postgis
+geometry_analyze,internal,postgis
+geometry_below,"geom1 geometry, geom2 geometry",postgis
+geometry_cmp,"geom1 geometry, geom2 geometry",postgis
+geometry_contained_3d,"geom1 geometry, geom2 geometry",postgis
+geometry_contains,"geom1 geometry, geom2 geometry",postgis
+geometry_contains_3d,"geom1 geometry, geom2 geometry",postgis
+geometry_contains_nd,"geometry, geometry",postgis
+geometry_distance_box,"geom1 geometry, geom2 geometry",postgis
+geometry_distance_centroid,"geom1 geometry, geom2 geometry",postgis
+geometry_distance_centroid_nd,"geometry, geometry",postgis
+geometry_distance_cpa,"geometry, geometry",postgis
+geometry_eq,"geom1 geometry, geom2 geometry",postgis
+geometry_ge,"geom1 geometry, geom2 geometry",postgis
+geometry_gist_compress_2d,internal,postgis
+geometry_gist_compress_nd,internal,postgis
+geometry_gist_consistent_2d,"internal, geometry, integer",postgis
+geometry_gist_consistent_nd,"internal, geometry, integer",postgis
+geometry_gist_decompress_2d,internal,postgis
+geometry_gist_decompress_nd,internal,postgis
+geometry_gist_distance_2d,"internal, geometry, integer",postgis
+geometry_gist_distance_nd,"internal, geometry, integer",postgis
+geometry_gist_penalty_2d,"internal, internal, internal",postgis
+geometry_gist_penalty_nd,"internal, internal, internal",postgis
+geometry_gist_picksplit_2d,"internal, internal",postgis
+geometry_gist_picksplit_nd,"internal, internal",postgis
+geometry_gist_same_2d,"geom1 geometry, geom2 geometry, internal",postgis
+geometry_gist_same_nd,"geometry, geometry, internal",postgis
+geometry_gist_sortsupport_2d,internal,postgis
+geometry_gist_union_2d,"bytea, internal",postgis
+geometry_gist_union_nd,"bytea, internal",postgis
+geometry_gt,"geom1 geometry, geom2 geometry",postgis
+geometry_hash,geometry,postgis
+geometry_in,cstring,postgis
+geometry_le,"geom1 geometry, geom2 geometry",postgis
+geometry_left,"geom1 geometry, geom2 geometry",postgis
+geometry_lt,"geom1 geometry, geom2 geometry",postgis
+geometry_out,geometry,postgis
+geometry_overabove,"geom1 geometry, geom2 geometry",postgis
+geometry_overbelow,"geom1 geometry, geom2 geometry",postgis
+geometry_overlaps,"geom1 geometry, geom2 geometry",postgis
+geometry_overlaps_3d,"geom1 geometry, geom2 geometry",postgis
+geometry_overlaps_nd,"geometry, geometry",postgis
+geometry_overleft,"geom1 geometry, geom2 geometry",postgis
+geometry_overright,"geom1 geometry, geom2 geometry",postgis
+geometry_recv,internal,postgis
+geometry_right,"geom1 geometry, geom2 geometry",postgis
+geometry_same,"geom1 geometry, geom2 geometry",postgis
+geometry_same_3d,"geom1 geometry, geom2 geometry",postgis
+geometry_same_nd,"geometry, geometry",postgis
+geometry_send,geometry,postgis
+geometry_sortsupport,internal,postgis
+geometry_spgist_choose_2d,"internal, internal",postgis
+geometry_spgist_choose_3d,"internal, internal",postgis
+geometry_spgist_choose_nd,"internal, internal",postgis
+geometry_spgist_compress_2d,internal,postgis
+geometry_spgist_compress_3d,internal,postgis
+geometry_spgist_compress_nd,internal,postgis
+geometry_spgist_config_2d,"internal, internal",postgis
+geometry_spgist_config_3d,"internal, internal",postgis
+geometry_spgist_config_nd,"internal, internal",postgis
+geometry_spgist_inner_consistent_2d,"internal, internal",postgis
+geometry_spgist_inner_consistent_3d,"internal, internal",postgis
+geometry_spgist_inner_consistent_nd,"internal, internal",postgis
+geometry_spgist_leaf_consistent_2d,"internal, internal",postgis
+geometry_spgist_leaf_consistent_3d,"internal, internal",postgis
+geometry_spgist_leaf_consistent_nd,"internal, internal",postgis
+geometry_spgist_picksplit_2d,"internal, internal",postgis
+geometry_spgist_picksplit_3d,"internal, internal",postgis
+geometry_spgist_picksplit_nd,"internal, internal",postgis
+geometry_typmod_in,cstring[],postgis
+geometry_typmod_out,integer,postgis
+geometry_within,"geom1 geometry, geom2 geometry",postgis
+geometry_within_nd,"geometry, geometry",postgis
+geometrytype,geometry,postgis
+geometrytype,geography,postgis
+geomfromewkb,bytea,postgis
+geomfromewkt,text,postgis
+get_proj4_from_srid,integer,postgis
+gettransactionid,,postgis
+gidx_in,cstring,postgis
+gidx_out,gidx,postgis
+gserialized_gist_joinsel_2d,"internal, oid, internal, smallint",postgis
+gserialized_gist_joinsel_nd,"internal, oid, internal, smallint",postgis
+gserialized_gist_sel_2d,"internal, oid, internal, integer",postgis
+gserialized_gist_sel_nd,"internal, oid, internal, integer",postgis
+is_contained_2d,"geometry, box2df",postgis
+is_contained_2d,"box2df, geometry",postgis
+is_contained_2d,"box2df, box2df",postgis
+json,geometry,postgis
+jsonb,geometry,postgis
+lockrow,"text, text, text, text",postgis
+lockrow,"text, text, text, timestamp without time zone",postgis
+lockrow,"text, text, text",postgis
+lockrow,"text, text, text, text, timestamp without time zone",postgis
+longtransactionsenabled,,postgis
+overlaps_2d,"geometry, box2df",postgis
+overlaps_2d,"box2df, geometry",postgis
+overlaps_2d,"box2df, box2df",postgis
+overlaps_geog,"geography, gidx",postgis
+overlaps_geog,"gidx, gidx",postgis
+overlaps_geog,"gidx, geography",postgis
+overlaps_nd,"gidx, gidx",postgis
+overlaps_nd,"gidx, geometry",postgis
+overlaps_nd,"geometry, gidx",postgis
+path,geometry,postgis
+pgis_asflatgeobuf_finalfn,internal,postgis
+pgis_asflatgeobuf_transfn,"internal, anyelement, boolean",postgis
+pgis_asflatgeobuf_transfn,"internal, anyelement, boolean, text",postgis
+pgis_asflatgeobuf_transfn,"internal, anyelement",postgis
+pgis_asgeobuf_finalfn,internal,postgis
+pgis_asgeobuf_transfn,"internal, anyelement",postgis
+pgis_asgeobuf_transfn,"internal, anyelement, text",postgis
+pgis_asmvt_combinefn,"internal, internal",postgis
+pgis_asmvt_deserialfn,"bytea, internal",postgis
+pgis_asmvt_finalfn,internal,postgis
+pgis_asmvt_serialfn,internal,postgis
+pgis_asmvt_transfn,"internal, anyelement, text, integer, text",postgis
+pgis_asmvt_transfn,"internal, anyelement, text, integer, text, text",postgis
+pgis_asmvt_transfn,"internal, anyelement, text, integer",postgis
+pgis_asmvt_transfn,"internal, anyelement, text",postgis
+pgis_asmvt_transfn,"internal, anyelement",postgis
+pgis_geometry_accum_transfn,"internal, geometry, double precision",postgis
+pgis_geometry_accum_transfn,"internal, geometry, double precision, integer",postgis
+pgis_geometry_accum_transfn,"internal, geometry",postgis
+pgis_geometry_clusterintersecting_finalfn,internal,postgis
+pgis_geometry_clusterwithin_finalfn,internal,postgis
+pgis_geometry_collect_finalfn,internal,postgis
+pgis_geometry_makeline_finalfn,internal,postgis
+pgis_geometry_polygonize_finalfn,internal,postgis
+pgis_geometry_union_parallel_combinefn,"internal, internal",postgis
+pgis_geometry_union_parallel_deserialfn,"bytea, internal",postgis
+pgis_geometry_union_parallel_finalfn,internal,postgis
+pgis_geometry_union_parallel_serialfn,internal,postgis
+pgis_geometry_union_parallel_transfn,"internal, geometry",postgis
+pgis_geometry_union_parallel_transfn,"internal, geometry, double precision",postgis
+point,geometry,postgis
+polygon,geometry,postgis
+populate_geometry_columns,"tbl_oid oid, use_typmod boolean",postgis
+populate_geometry_columns,use_typmod boolean,postgis
+postgis_addbbox,geometry,postgis
+postgis_cache_bbox,,postgis
+postgis_constraint_dims,"geomschema text, geomtable text, geomcolumn text",postgis
+postgis_constraint_srid,"geomschema text, geomtable text, geomcolumn text",postgis
+postgis_constraint_type,"geomschema text, geomtable text, geomcolumn text",postgis
+postgis_dropbbox,geometry,postgis
+postgis_extensions_upgrade,,postgis
+postgis_full_version,,postgis
+postgis_geos_noop,geometry,postgis
+postgis_geos_version,,postgis
+postgis_getbbox,geometry,postgis
+postgis_hasbbox,geometry,postgis
+postgis_index_supportfn,internal,postgis
+postgis_lib_build_date,,postgis
+postgis_lib_revision,,postgis
+postgis_lib_version,,postgis
+postgis_libjson_version,,postgis
+postgis_liblwgeom_version,,postgis
+postgis_libprotobuf_version,,postgis
+postgis_libxml_version,,postgis
+postgis_noop,geometry,postgis
+postgis_proj_version,,postgis
+postgis_scripts_build_date,,postgis
+postgis_scripts_installed,,postgis
+postgis_scripts_released,,postgis
+postgis_svn_version,,postgis
+postgis_transform_geometry,"geom geometry, text, text, integer",postgis
+postgis_type_name,"geomname character varying, coord_dimension integer, use_new_name boolean",postgis
+postgis_typmod_dims,integer,postgis
+postgis_typmod_srid,integer,postgis
+postgis_typmod_type,integer,postgis
+postgis_version,,postgis
+postgis_wagyu_version,,postgis
+spheroid_in,cstring,postgis
+spheroid_out,spheroid,postgis
+st_3dclosestpoint,"geom1 geometry, geom2 geometry",postgis
+st_3ddfullywithin,"geom1 geometry, geom2 geometry, double precision",postgis
+st_3ddistance,"geom1 geometry, geom2 geometry",postgis
+st_3ddwithin,"geom1 geometry, geom2 geometry, double precision",postgis
+st_3dintersects,"geom1 geometry, geom2 geometry",postgis
+st_3dlength,geometry,postgis
+st_3dlineinterpolatepoint,"geometry, double precision",postgis
+st_3dlongestline,"geom1 geometry, geom2 geometry",postgis
+st_3dmakebox,"geom1 geometry, geom2 geometry",postgis
+st_3dmaxdistance,"geom1 geometry, geom2 geometry",postgis
+st_3dperimeter,geometry,postgis
+st_3dshortestline,"geom1 geometry, geom2 geometry",postgis
+st_addmeasure,"geometry, double precision, double precision",postgis
+st_addpoint,"geom1 geometry, geom2 geometry, integer",postgis
+st_addpoint,"geom1 geometry, geom2 geometry",postgis
+st_affine,"geometry, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision",postgis
+st_affine,"geometry, double precision, double precision, double precision, double precision, double precision, double precision",postgis
+st_angle,"pt1 geometry, pt2 geometry, pt3 geometry, pt4 geometry",postgis
+st_angle,"line1 geometry, line2 geometry",postgis
+st_area,geometry,postgis
+st_area,text,postgis
+st_area,"geog geography, use_spheroid boolean",postgis
+st_area2d,geometry,postgis
+st_asbinary,"geometry, text",postgis
+st_asbinary,"geography, text",postgis
+st_asbinary,geometry,postgis
+st_asbinary,geography,postgis
+st_asencodedpolyline,"geom geometry, nprecision integer",postgis
+st_asewkb,geometry,postgis
+st_asewkb,"geometry, text",postgis
+st_asewkt,text,postgis
+st_asewkt,"geometry, integer",postgis
+st_asewkt,geography,postgis
+st_asewkt,"geography, integer",postgis
+st_asewkt,geometry,postgis
+st_asgeojson,"geog geography, maxdecimaldigits integer, options integer",postgis
+st_asgeojson,text,postgis
+st_asgeojson,"r record, geom_column text, maxdecimaldigits integer, pretty_bool boolean",postgis
+st_asgeojson,"geom geometry, maxdecimaldigits integer, options integer",postgis
+st_asgml,"geog geography, maxdecimaldigits integer, options integer, nprefix text, id text",postgis
+st_asgml,"version integer, geom geometry, maxdecimaldigits integer, options integer, nprefix text, id text",postgis
+st_asgml,text,postgis
+st_asgml,"geom geometry, maxdecimaldigits integer, options integer",postgis
+st_asgml,"version integer, geog geography, maxdecimaldigits integer, options integer, nprefix text, id text",postgis
+st_ashexewkb,geometry,postgis
+st_ashexewkb,"geometry, text",postgis
+st_askml,text,postgis
+st_askml,"geog geography, maxdecimaldigits integer, nprefix text",postgis
+st_askml,"geom geometry, maxdecimaldigits integer, nprefix text",postgis
+st_aslatlontext,"geom geometry, tmpl text",postgis
+st_asmarc21,"geom geometry, format text",postgis
+st_asmvtgeom,"geom geometry, bounds box2d, extent integer, buffer integer, clip_geom boolean",postgis
+st_assvg,"geom geometry, rel integer, maxdecimaldigits integer",postgis
+st_assvg,text,postgis
+st_assvg,"geog geography, rel integer, maxdecimaldigits integer",postgis
+st_astext,geography,postgis
+st_astext,text,postgis
+st_astext,"geography, integer",postgis
+st_astext,"geometry, integer",postgis
+st_astext,geometry,postgis
+st_astwkb,"geom geometry, prec integer, prec_z integer, prec_m integer, with_sizes boolean, with_boxes boolean",postgis
+st_astwkb,"geom geometry[], ids bigint[], prec integer, prec_z integer, prec_m integer, with_sizes boolean, with_boxes boolean",postgis
+st_asx3d,"geom geometry, maxdecimaldigits integer, options integer",postgis
+st_azimuth,"geog1 geography, geog2 geography",postgis
+st_azimuth,"geom1 geometry, geom2 geometry",postgis
+st_bdmpolyfromtext,"text, integer",postgis
+st_bdpolyfromtext,"text, integer",postgis
+st_boundary,geometry,postgis
+st_boundingdiagonal,"geom geometry, fits boolean",postgis
+st_box2dfromgeohash,"text, integer",postgis
+st_buffer,"geography, double precision, text",postgis
+st_buffer,"geom geometry, radius double precision, options text",postgis
+st_buffer,"geom geometry, radius double precision, quadsegs integer",postgis
+st_buffer,"geography, double precision",postgis
+st_buffer,"geography, double precision, integer",postgis
+st_buffer,"text, double precision",postgis
+st_buffer,"text, double precision, integer",postgis
+st_buffer,"text, double precision, text",postgis
+st_buildarea,geometry,postgis
+st_centroid,geometry,postgis
+st_centroid,"geography, use_spheroid boolean",postgis
+st_centroid,text,postgis
+st_chaikinsmoothing,"geometry, integer, boolean",postgis
+st_cleangeometry,geometry,postgis
+st_clipbybox2d,"geom geometry, box box2d",postgis
+st_closestpoint,"geom1 geometry, geom2 geometry",postgis
+st_closestpointofapproach,"geometry, geometry",postgis
+st_clusterintersecting,geometry[],postgis
+st_clusterwithin,"geometry[], double precision",postgis
+st_collect,geometry[],postgis
+st_collect,"geom1 geometry, geom2 geometry",postgis
+st_collectionextract,"geometry, integer",postgis
+st_collectionextract,geometry,postgis
+st_collectionhomogenize,geometry,postgis
+st_combinebbox,"box2d, geometry",postgis
+st_combinebbox,"box3d, geometry",postgis
+st_combinebbox,"box3d, box3d",postgis
+st_concavehull,"param_geom geometry, param_pctconvex double precision, param_allow_holes boolean",postgis
+st_contains,"geom1 geometry, geom2 geometry",postgis
+st_containsproperly,"geom1 geometry, geom2 geometry",postgis
+st_convexhull,geometry,postgis
+st_coorddim,geometry geometry,postgis
+st_coveredby,"geog1 geography, geog2 geography",postgis
+st_coveredby,"geom1 geometry, geom2 geometry",postgis
+st_coveredby,"text, text",postgis
+st_covers,"geom1 geometry, geom2 geometry",postgis
+st_covers,"geog1 geography, geog2 geography",postgis
+st_covers,"text, text",postgis
+st_cpawithin,"geometry, geometry, double precision",postgis
+st_crosses,"geom1 geometry, geom2 geometry",postgis
+st_curvetoline,"geom geometry, tol double precision, toltype integer, flags integer",postgis
+st_delaunaytriangles,"g1 geometry, tolerance double precision, flags integer",postgis
+st_dfullywithin,"geom1 geometry, geom2 geometry, double precision",postgis
+st_difference,"geom1 geometry, geom2 geometry, gridsize double precision",postgis
+st_dimension,geometry,postgis
+st_disjoint,"geom1 geometry, geom2 geometry",postgis
+st_distance,"text, text",postgis
+st_distance,"geog1 geography, geog2 geography, use_spheroid boolean",postgis
+st_distance,"geom1 geometry, geom2 geometry",postgis
+st_distancecpa,"geometry, geometry",postgis
+st_distancesphere,"geom1 geometry, geom2 geometry, radius double precision",postgis
+st_distancesphere,"geom1 geometry, geom2 geometry",postgis
+st_distancespheroid,"geom1 geometry, geom2 geometry",postgis
+st_distancespheroid,"geom1 geometry, geom2 geometry, spheroid",postgis
+st_dump,geometry,postgis
+st_dumppoints,geometry,postgis
+st_dumprings,geometry,postgis
+st_dumpsegments,geometry,postgis
+st_dwithin,"geog1 geography, geog2 geography, tolerance double precision, use_spheroid boolean",postgis
+st_dwithin,"geom1 geometry, geom2 geometry, double precision",postgis
+st_dwithin,"text, text, double precision",postgis
+st_endpoint,geometry,postgis
+st_envelope,geometry,postgis
+st_equals,"geom1 geometry, geom2 geometry",postgis
+st_estimatedextent,"text, text, text, boolean",postgis
+st_estimatedextent,"text, text, text",postgis
+st_estimatedextent,"text, text",postgis
+st_expand,"box2d, double precision",postgis
+st_expand,"geometry, double precision",postgis
+st_expand,"box box3d, dx double precision, dy double precision, dz double precision",postgis
+st_expand,"box box2d, dx double precision, dy double precision",postgis
+st_expand,"geom geometry, dx double precision, dy double precision, dz double precision, dm double precision",postgis
+st_expand,"box3d, double precision",postgis
+st_exteriorring,geometry,postgis
+st_filterbym,"geometry, double precision, double precision, boolean",postgis
+st_findextent,"text, text",postgis
+st_findextent,"text, text, text",postgis
+st_flipcoordinates,geometry,postgis
+st_force2d,geometry,postgis
+st_force3d,"geom geometry, zvalue double precision",postgis
+st_force3dm,"geom geometry, mvalue double precision",postgis
+st_force3dz,"geom geometry, zvalue double precision",postgis
+st_force4d,"geom geometry, zvalue double precision, mvalue double precision",postgis
+st_forcecollection,geometry,postgis
+st_forcecurve,geometry,postgis
+st_forcepolygonccw,geometry,postgis
+st_forcepolygoncw,geometry,postgis
+st_forcerhr,geometry,postgis
+st_forcesfs,"geometry, version text",postgis
+st_forcesfs,geometry,postgis
+st_frechetdistance,"geom1 geometry, geom2 geometry, double precision",postgis
+st_fromflatgeobuf,"anyelement, bytea",postgis
+st_fromflatgeobuftotable,"text, text, bytea",postgis
+st_generatepoints,"area geometry, npoints integer, seed integer",postgis
+st_generatepoints,"area geometry, npoints integer",postgis
+st_geogfromtext,text,postgis
+st_geogfromwkb,bytea,postgis
+st_geographyfromtext,text,postgis
+st_geohash,"geom geometry, maxchars integer",postgis
+st_geohash,"geog geography, maxchars integer",postgis
+st_geomcollfromtext,text,postgis
+st_geomcollfromtext,"text, integer",postgis
+st_geomcollfromwkb,"bytea, integer",postgis
+st_geomcollfromwkb,bytea,postgis
+st_geometricmedian,"g geometry, tolerance double precision, max_iter integer, fail_if_not_converged boolean",postgis
+st_geometryfromtext,"text, integer",postgis
+st_geometryfromtext,text,postgis
+st_geometryn,"geometry, integer",postgis
+st_geometrytype,geometry,postgis
+st_geomfromewkb,bytea,postgis
+st_geomfromewkt,text,postgis
+st_geomfromgeohash,"text, integer",postgis
+st_geomfromgeojson,jsonb,postgis
+st_geomfromgeojson,json,postgis
+st_geomfromgeojson,text,postgis
+st_geomfromgml,"text, integer",postgis
+st_geomfromgml,text,postgis
+st_geomfromkml,text,postgis
+st_geomfrommarc21,marc21xml text,postgis
+st_geomfromtext,text,postgis
+st_geomfromtext,"text, integer",postgis
+st_geomfromtwkb,bytea,postgis
+st_geomfromwkb,"bytea, integer",postgis
+st_geomfromwkb,bytea,postgis
+st_gmltosql,text,postgis
+st_gmltosql,"text, integer",postgis
+st_hasarc,geometry geometry,postgis
+st_hausdorffdistance,"geom1 geometry, geom2 geometry",postgis
+st_hausdorffdistance,"geom1 geometry, geom2 geometry, double precision",postgis
+st_hexagon,"size double precision, cell_i integer, cell_j integer, origin geometry",postgis
+st_hexagongrid,"size double precision, bounds geometry, OUT geom geometry, OUT i integer, OUT j integer",postgis
+st_interiorringn,"geometry, integer",postgis
+st_interpolatepoint,"line geometry, point geometry",postgis
+st_intersection,"text, text",postgis
+st_intersection,"geography, geography",postgis
+st_intersection,"geom1 geometry, geom2 geometry, gridsize double precision",postgis
+st_intersects,"text, text",postgis
+st_intersects,"geog1 geography, geog2 geography",postgis
+st_intersects,"geom1 geometry, geom2 geometry",postgis
+st_isclosed,geometry,postgis
+st_iscollection,geometry,postgis
+st_isempty,geometry,postgis
+st_ispolygonccw,geometry,postgis
+st_ispolygoncw,geometry,postgis
+st_isring,geometry,postgis
+st_issimple,geometry,postgis
+st_isvalid,geometry,postgis
+st_isvalid,"geometry, integer",postgis
+st_isvaliddetail,"geom geometry, flags integer",postgis
+st_isvalidreason,geometry,postgis
+st_isvalidreason,"geometry, integer",postgis
+st_isvalidtrajectory,geometry,postgis
+st_length,text,postgis
+st_length,"geog geography, use_spheroid boolean",postgis
+st_length,geometry,postgis
+st_length2d,geometry,postgis
+st_length2dspheroid,"geometry, spheroid",postgis
+st_lengthspheroid,"geometry, spheroid",postgis
+st_letters,"letters text, font json",postgis
+st_linecrossingdirection,"line1 geometry, line2 geometry",postgis
+st_linefromencodedpolyline,"txtin text, nprecision integer",postgis
+st_linefrommultipoint,geometry,postgis
+st_linefromtext,text,postgis
+st_linefromtext,"text, integer",postgis
+st_linefromwkb,"bytea, integer",postgis
+st_linefromwkb,bytea,postgis
+st_lineinterpolatepoint,"geometry, double precision",postgis
+st_lineinterpolatepoints,"geometry, double precision, repeat boolean",postgis
+st_linelocatepoint,"geom1 geometry, geom2 geometry",postgis
+st_linemerge,geometry,postgis
+st_linemerge,"geometry, boolean",postgis
+st_linestringfromwkb,bytea,postgis
+st_linestringfromwkb,"bytea, integer",postgis
+st_linesubstring,"geometry, double precision, double precision",postgis
+st_linetocurve,geometry geometry,postgis
+st_locatealong,"geometry geometry, measure double precision, leftrightoffset double precision",postgis
+st_locatebetween,"geometry geometry, frommeasure double precision, tomeasure double precision, leftrightoffset double precision",postgis
+st_locatebetweenelevations,"geometry geometry, fromelevation double precision, toelevation double precision",postgis
+st_longestline,"geom1 geometry, geom2 geometry",postgis
+st_m,geometry,postgis
+st_makebox2d,"geom1 geometry, geom2 geometry",postgis
+st_makeenvelope,"double precision, double precision, double precision, double precision, integer",postgis
+st_makeline,"geom1 geometry, geom2 geometry",postgis
+st_makeline,geometry[],postgis
+st_makepoint,"double precision, double precision",postgis
+st_makepoint,"double precision, double precision, double precision, double precision",postgis
+st_makepoint,"double precision, double precision, double precision",postgis
+st_makepointm,"double precision, double precision, double precision",postgis
+st_makepolygon,geometry,postgis
+st_makepolygon,"geometry, geometry[]",postgis
+st_makevalid,"geom geometry, params text",postgis
+st_makevalid,geometry,postgis
+st_maxdistance,"geom1 geometry, geom2 geometry",postgis
+st_maximuminscribedcircle,"geometry, OUT center geometry, OUT nearest geometry, OUT radius double precision",postgis
+st_memsize,geometry,postgis
+st_minimumboundingcircle,"inputgeom geometry, segs_per_quarter integer",postgis
+st_minimumboundingradius,"geometry, OUT center geometry, OUT radius double precision",postgis
+st_minimumclearance,geometry,postgis
+st_minimumclearanceline,geometry,postgis
+st_mlinefromtext,text,postgis
+st_mlinefromtext,"text, integer",postgis
+st_mlinefromwkb,"bytea, integer",postgis
+st_mlinefromwkb,bytea,postgis
+st_mpointfromtext,text,postgis
+st_mpointfromtext,"text, integer",postgis
+st_mpointfromwkb,bytea,postgis
+st_mpointfromwkb,"bytea, integer",postgis
+st_mpolyfromtext,"text, integer",postgis
+st_mpolyfromtext,text,postgis
+st_mpolyfromwkb,"bytea, integer",postgis
+st_mpolyfromwkb,bytea,postgis
+st_multi,geometry,postgis
+st_multilinefromwkb,bytea,postgis
+st_multilinestringfromtext,"text, integer",postgis
+st_multilinestringfromtext,text,postgis
+st_multipointfromtext,text,postgis
+st_multipointfromwkb,"bytea, integer",postgis
+st_multipointfromwkb,bytea,postgis
+st_multipolyfromwkb,"bytea, integer",postgis
+st_multipolyfromwkb,bytea,postgis
+st_multipolygonfromtext,"text, integer",postgis
+st_multipolygonfromtext,text,postgis
+st_ndims,geometry,postgis
+st_node,g geometry,postgis
+st_normalize,geom geometry,postgis
+st_npoints,geometry,postgis
+st_nrings,geometry,postgis
+st_numgeometries,geometry,postgis
+st_numinteriorring,geometry,postgis
+st_numinteriorrings,geometry,postgis
+st_numpatches,geometry,postgis
+st_numpoints,geometry,postgis
+st_offsetcurve,"line geometry, distance double precision, params text",postgis
+st_orderingequals,"geom1 geometry, geom2 geometry",postgis
+st_orientedenvelope,geometry,postgis
+st_overlaps,"geom1 geometry, geom2 geometry",postgis
+st_patchn,"geometry, integer",postgis
+st_perimeter,geometry,postgis
+st_perimeter,"geog geography, use_spheroid boolean",postgis
+st_perimeter2d,geometry,postgis
+st_point,"double precision, double precision",postgis
+st_point,"double precision, double precision, srid integer",postgis
+st_pointfromgeohash,"text, integer",postgis
+st_pointfromtext,"text, integer",postgis
+st_pointfromtext,text,postgis
+st_pointfromwkb,bytea,postgis
+st_pointfromwkb,"bytea, integer",postgis
+st_pointinsidecircle,"geometry, double precision, double precision, double precision",postgis
+st_pointm,"xcoordinate double precision, ycoordinate double precision, mcoordinate double precision, srid integer",postgis
+st_pointn,"geometry, integer",postgis
+st_pointonsurface,geometry,postgis
+st_points,geometry,postgis
+st_pointz,"xcoordinate double precision, ycoordinate double precision, zcoordinate double precision, srid integer",postgis
+st_pointzm,"xcoordinate double precision, ycoordinate double precision, zcoordinate double precision, mcoordinate double precision, srid integer",postgis
+st_polyfromtext,text,postgis
+st_polyfromtext,"text, integer",postgis
+st_polyfromwkb,"bytea, integer",postgis
+st_polyfromwkb,bytea,postgis
+st_polygon,"geometry, integer",postgis
+st_polygonfromtext,"text, integer",postgis
+st_polygonfromtext,text,postgis
+st_polygonfromwkb,"bytea, integer",postgis
+st_polygonfromwkb,bytea,postgis
+st_polygonize,geometry[],postgis
+st_project,"geog geography, distance double precision, azimuth double precision",postgis
+st_quantizecoordinates,"g geometry, prec_x integer, prec_y integer, prec_z integer, prec_m integer",postgis
+st_reduceprecision,"geom geometry, gridsize double precision",postgis
+st_relate,"geom1 geometry, geom2 geometry, integer",postgis
+st_relate,"geom1 geometry, geom2 geometry",postgis
+st_relate,"geom1 geometry, geom2 geometry, text",postgis
+st_relatematch,"text, text",postgis
+st_removepoint,"geometry, integer",postgis
+st_removerepeatedpoints,"geom geometry, tolerance double precision",postgis
+st_reverse,geometry,postgis
+st_rotate,"geometry, double precision, geometry",postgis
+st_rotate,"geometry, double precision, double precision, double precision",postgis
+st_rotate,"geometry, double precision",postgis
+st_rotatex,"geometry, double precision",postgis
+st_rotatey,"geometry, double precision",postgis
+st_rotatez,"geometry, double precision",postgis
+st_scale,"geometry, double precision, double precision, double precision",postgis
+st_scale,"geometry, double precision, double precision",postgis
+st_scale,"geometry, geometry, origin geometry",postgis
+st_scale,"geometry, geometry",postgis
+st_scroll,"geometry, geometry",postgis
+st_segmentize,"geog geography, max_segment_length double precision",postgis
+st_segmentize,"geometry, double precision",postgis
+st_seteffectivearea,"geometry, double precision, integer",postgis
+st_setpoint,"geometry, integer, geometry",postgis
+st_setsrid,"geom geometry, srid integer",postgis
+st_setsrid,"geog geography, srid integer",postgis
+st_sharedpaths,"geom1 geometry, geom2 geometry",postgis
+st_shiftlongitude,geometry,postgis
+st_shortestline,"geom1 geometry, geom2 geometry",postgis
+st_simplify,"geometry, double precision",postgis
+st_simplify,"geometry, double precision, boolean",postgis
+st_simplifypolygonhull,"geom geometry, vertex_fraction double precision, is_outer boolean",postgis
+st_simplifypreservetopology,"geometry, double precision",postgis
+st_simplifyvw,"geometry, double precision",postgis
+st_snap,"geom1 geometry, geom2 geometry, double precision",postgis
+st_snaptogrid,"geometry, double precision",postgis
+st_snaptogrid,"geom1 geometry, geom2 geometry, double precision, double precision, double precision, double precision",postgis
+st_snaptogrid,"geometry, double precision, double precision, double precision, double precision",postgis
+st_snaptogrid,"geometry, double precision, double precision",postgis
+st_split,"geom1 geometry, geom2 geometry",postgis
+st_square,"size double precision, cell_i integer, cell_j integer, origin geometry",postgis
+st_squaregrid,"size double precision, bounds geometry, OUT geom geometry, OUT i integer, OUT j integer",postgis
+st_srid,geog geography,postgis
+st_srid,geom geometry,postgis
+st_startpoint,geometry,postgis
+st_subdivide,"geom geometry, maxvertices integer, gridsize double precision",postgis
+st_summary,geography,postgis
+st_summary,geometry,postgis
+st_swapordinates,"geom geometry, ords cstring",postgis
+st_symdifference,"geom1 geometry, geom2 geometry, gridsize double precision",postgis
+st_symmetricdifference,"geom1 geometry, geom2 geometry",postgis
+st_tileenvelope,"zoom integer, x integer, y integer, bounds geometry, margin double precision",postgis
+st_touches,"geom1 geometry, geom2 geometry",postgis
+st_transform,"geometry, integer",postgis
+st_transform,"geom geometry, to_proj text",postgis
+st_transform,"geom geometry, from_proj text, to_proj text",postgis
+st_transform,"geom geometry, from_proj text, to_srid integer",postgis
+st_translate,"geometry, double precision, double precision, double precision",postgis
+st_translate,"geometry, double precision, double precision",postgis
+st_transscale,"geometry, double precision, double precision, double precision, double precision",postgis
+st_triangulatepolygon,g1 geometry,postgis
+st_unaryunion,"geometry, gridsize double precision",postgis
+st_union,"geom1 geometry, geom2 geometry, gridsize double precision",postgis
+st_union,"geom1 geometry, geom2 geometry",postgis
+st_union,geometry[],postgis
+st_voronoilines,"g1 geometry, tolerance double precision, extend_to geometry",postgis
+st_voronoipolygons,"g1 geometry, tolerance double precision, extend_to geometry",postgis
+st_within,"geom1 geometry, geom2 geometry",postgis
+st_wkbtosql,wkb bytea,postgis
+st_wkttosql,text,postgis
+st_wrapx,"geom geometry, wrap double precision, move double precision",postgis
+st_x,geometry,postgis
+st_xmax,box3d,postgis
+st_xmin,box3d,postgis
+st_y,geometry,postgis
+st_ymax,box3d,postgis
+st_ymin,box3d,postgis
+st_z,geometry,postgis
+st_zmax,box3d,postgis
+st_zmflag,geometry,postgis
+st_zmin,box3d,postgis
+text,geometry,postgis
+unlockrows,text,postgis
+updategeometrysrid,"character varying, character varying, character varying, integer",postgis
+updategeometrysrid,"catalogn_name character varying, schema_name character varying, table_name character varying, column_name character varying, new_srid_in integer",postgis
+updategeometrysrid,"character varying, character varying, integer",postgis

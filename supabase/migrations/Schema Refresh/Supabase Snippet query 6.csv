@@ -1,0 +1,874 @@
+function_name,arguments,return_type,security
+_postgis_deprecate,"oldname text, newname text, version text",void,SECURITY INVOKER
+_postgis_index_extent,"tbl regclass, col text",box2d,SECURITY INVOKER
+_postgis_join_selectivity,"regclass, text, regclass, text, text DEFAULT '2'::text",double precision,SECURITY INVOKER
+_postgis_pgsql_version,,text,SECURITY INVOKER
+_postgis_scripts_pgsql_version,,text,SECURITY INVOKER
+_postgis_selectivity,"tbl regclass, att_name text, geom geometry, mode text DEFAULT '2'::text",double precision,SECURITY INVOKER
+_postgis_stats,"tbl regclass, att_name text, text DEFAULT '2'::text",text,SECURITY INVOKER
+_st_3ddfullywithin,"geom1 geometry, geom2 geometry, double precision",boolean,SECURITY INVOKER
+_st_3ddwithin,"geom1 geometry, geom2 geometry, double precision",boolean,SECURITY INVOKER
+_st_3dintersects,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+_st_asgml,"integer, geometry, integer, integer, text, text",text,SECURITY INVOKER
+_st_asx3d,"integer, geometry, integer, integer, text",text,SECURITY INVOKER
+_st_bestsrid,geography,integer,SECURITY INVOKER
+_st_bestsrid,"geography, geography",integer,SECURITY INVOKER
+_st_contains,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+_st_containsproperly,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+_st_coveredby,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+_st_coveredby,"geog1 geography, geog2 geography",boolean,SECURITY INVOKER
+_st_covers,"geog1 geography, geog2 geography",boolean,SECURITY INVOKER
+_st_covers,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+_st_crosses,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+_st_dfullywithin,"geom1 geometry, geom2 geometry, double precision",boolean,SECURITY INVOKER
+_st_distancetree,"geography, geography, double precision, boolean",double precision,SECURITY INVOKER
+_st_distancetree,"geography, geography",double precision,SECURITY INVOKER
+_st_distanceuncached,"geography, geography, double precision, boolean",double precision,SECURITY INVOKER
+_st_distanceuncached,"geography, geography, boolean",double precision,SECURITY INVOKER
+_st_distanceuncached,"geography, geography",double precision,SECURITY INVOKER
+_st_dwithin,"geog1 geography, geog2 geography, tolerance double precision, use_spheroid boolean DEFAULT true",boolean,SECURITY INVOKER
+_st_dwithin,"geom1 geometry, geom2 geometry, double precision",boolean,SECURITY INVOKER
+_st_dwithinuncached,"geography, geography, double precision",boolean,SECURITY INVOKER
+_st_dwithinuncached,"geography, geography, double precision, boolean",boolean,SECURITY INVOKER
+_st_equals,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+_st_expand,"geography, double precision",geography,SECURITY INVOKER
+_st_geomfromgml,"text, integer",geometry,SECURITY INVOKER
+_st_intersects,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+_st_linecrossingdirection,"line1 geometry, line2 geometry",integer,SECURITY INVOKER
+_st_longestline,"geom1 geometry, geom2 geometry",geometry,SECURITY INVOKER
+_st_maxdistance,"geom1 geometry, geom2 geometry",double precision,SECURITY INVOKER
+_st_orderingequals,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+_st_overlaps,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+_st_pointoutside,geography,geography,SECURITY INVOKER
+_st_sortablehash,geom geometry,bigint,SECURITY INVOKER
+_st_touches,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+_st_voronoi,"g1 geometry, clip geometry DEFAULT NULL::geometry, tolerance double precision DEFAULT 0.0, return_polygons boolean DEFAULT true",geometry,SECURITY INVOKER
+_st_within,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+addauth,text,boolean,SECURITY INVOKER
+addgeometrycolumn,"table_name character varying, column_name character varying, new_srid integer, new_type character varying, new_dim integer, use_typmod boolean DEFAULT true",text,SECURITY INVOKER
+addgeometrycolumn,"schema_name character varying, table_name character varying, column_name character varying, new_srid integer, new_type character varying, new_dim integer, use_typmod boolean DEFAULT true",text,SECURITY INVOKER
+addgeometrycolumn,"catalog_name character varying, schema_name character varying, table_name character varying, column_name character varying, new_srid_in integer, new_type character varying, new_dim integer, use_typmod boolean DEFAULT true",text,SECURITY INVOKER
+atomic_complete_order_if_ready,p_order_id uuid,boolean,SECURITY DEFINER
+atomic_decrement_inventory,"p_listing_id uuid, p_quantity integer",TABLE(new_quantity integer),SECURITY DEFINER
+atomic_increment_bundle_sold,"p_bundle_id uuid, p_quantity integer",TABLE(new_quantity_sold integer),SECURITY DEFINER
+atomic_release_bundle_sold,"p_bundle_id uuid, p_quantity integer",TABLE(new_quantity_sold integer),SECURITY DEFINER
+atomic_restore_inventory,"p_listing_id uuid, p_quantity integer",TABLE(new_quantity integer),SECURITY DEFINER
+auto_add_schedule_to_vendors,,trigger,SECURITY DEFINER
+auto_cancel_order_if_all_items_cancelled,,trigger,SECURITY DEFINER
+auto_create_vendor_schedules,,trigger,SECURITY DEFINER
+auto_create_vendor_schedules_insert,,trigger,SECURITY DEFINER
+auto_create_vendor_verification,,trigger,SECURITY DEFINER
+award_referral_credit_on_first_sale,,trigger,SECURITY INVOKER
+book_park_spot_atomic,"p_vendor_profile_id uuid, p_market_id uuid, p_spot_id uuid, p_booking_dates date[], p_group_id uuid, p_acceptance_id uuid","TABLE(booking_id uuid, booked_date date, booking_price_cents integer)",SECURITY DEFINER
+book_season_atomic,"p_vendor_profile_id uuid, p_market_id uuid, p_inventory_id uuid, p_acceptance_id uuid, p_season_id uuid, p_kind text, p_week_start_dates date[], p_purchase_date date","TABLE(group_id uuid, rental_id uuid, rental_week_start_date date, rental_price_cents integer, rental_booth_number text)",SECURITY DEFINER
+book_weekly_booth_atomic,"p_vendor_profile_id uuid, p_market_id uuid, p_inventory_id uuid, p_week_start_date date, p_acceptance_id uuid","TABLE(rental_id uuid, rental_price_cents integer, rental_status text, rental_week_start_date date, rental_booth_number text)",SECURITY DEFINER
+box,geometry,box,SECURITY INVOKER
+box,box3d,box,SECURITY INVOKER
+box2d,box3d,box2d,SECURITY INVOKER
+box2d,geometry,box2d,SECURITY INVOKER
+box2d_in,cstring,box2d,SECURITY INVOKER
+box2d_out,box2d,cstring,SECURITY INVOKER
+box2df_in,cstring,box2df,SECURITY INVOKER
+box2df_out,box2df,cstring,SECURITY INVOKER
+box3d,box2d,box3d,SECURITY INVOKER
+box3d,geometry,box3d,SECURITY INVOKER
+box3d_in,cstring,box3d,SECURITY INVOKER
+box3d_out,box3d,cstring,SECURITY INVOKER
+box3dtobox,box3d,box,SECURITY INVOKER
+build_pickup_snapshot,"p_schedule_id uuid, p_pickup_date date",jsonb,SECURITY DEFINER
+bytea,geometry,bytea,SECURITY INVOKER
+bytea,geography,bytea,SECURITY INVOKER
+calculate_order_item_expiration,"p_pickup_date date, p_vertical_id text DEFAULT NULL::text, p_created_at timestamp with time zone DEFAULT now()",timestamp with time zone,SECURITY INVOKER
+calculate_order_item_expiration,"p_pickup_date date, p_buffer_hours integer DEFAULT 18",timestamp with time zone,SECURITY DEFINER
+can_access_pickup,p_subscription_id uuid,boolean,SECURITY DEFINER
+can_access_subscription,sub_id uuid,boolean,SECURITY DEFINER
+can_admin_market,p_market_id uuid,boolean,SECURITY DEFINER
+can_admin_order,p_order_id uuid,boolean,SECURITY DEFINER
+can_admin_vendor,p_vendor_profile_id uuid,boolean,SECURITY DEFINER
+can_delete_schedule,p_schedule_id uuid,"TABLE(can_delete boolean, blocking_order_count integer, blocking_orders jsonb)",SECURITY DEFINER
+can_vendor_add_fixed_market,"p_vendor_profile_id uuid, p_vertical_id text",boolean,SECURITY DEFINER
+can_vendor_add_listing_to_market,"p_vendor_profile_id uuid, p_market_id uuid, p_listing_id uuid DEFAULT NULL::uuid",boolean,SECURITY DEFINER
+can_vendor_publish,"p_vendor_profile_id uuid, p_category text",boolean,SECURITY DEFINER
+cancel_season_group,"p_group_id uuid, p_reason text DEFAULT NULL::text",text,SECURITY DEFINER
+cancel_wave_reservation,"p_reservation_id uuid, p_user_id uuid","TABLE(success boolean, error text)",SECURITY DEFINER
+check_booth_group_market_integrity,,trigger,SECURITY INVOKER
+check_booth_number_uniqueness,,trigger,SECURITY INVOKER
+check_booth_placeholder_inventory_market,,trigger,SECURITY INVOKER
+check_market_vendor_inventory_market,,trigger,SECURITY INVOKER
+check_park_spot_booking_market,,trigger,SECURITY INVOKER
+check_park_standing_market,,trigger,SECURITY INVOKER
+check_pickup_slot_capacity,"p_vendor_profile_id uuid, p_market_id uuid, p_pickup_date date, p_pickup_time time without time zone, p_adding_items integer DEFAULT 1, p_order_id uuid DEFAULT NULL::uuid","TABLE(allowed boolean, reason text, orders_used integer, orders_cap integer, items_used integer, items_cap integer)",SECURITY DEFINER
+check_subscription_completion,,trigger,SECURITY INVOKER
+check_vendor_schedule_conflict,,trigger,SECURITY DEFINER
+check_weekly_booth_rental_inventory_market,,trigger,SECURITY INVOKER
+checkauth,"text, text",integer,SECURITY INVOKER
+checkauth,"text, text, text",integer,SECURITY INVOKER
+checkauthtrigger,,trigger,SECURITY INVOKER
+claim_vendor_fee_deduction,"p_vendor_profile_id uuid, p_order_id uuid, p_order_item_id uuid, p_max_deduct_cents integer",integer,SECURITY DEFINER
+cleanup_cancelled_event,,trigger,SECURITY DEFINER
+cleanup_cart_items_invalid_schedules,,"TABLE(cart_item_id uuid, user_id uuid, listing_title text, removed_reason text)",SECURITY DEFINER
+clear_email_suppression_on_change,,trigger,SECURITY DEFINER
+clear_tax_jurisdiction_verification_on_address_change,,trigger,SECURITY DEFINER
+confirm_season_paid,"p_group_id uuid, p_payment_intent text",text,SECURITY DEFINER
+contains_2d,"box2df, geometry",boolean,SECURITY INVOKER
+contains_2d,"box2df, box2df",boolean,SECURITY INVOKER
+contains_2d,"geometry, box2df",boolean,SECURITY INVOKER
+create_company_paid_order,"p_user_id uuid, p_market_id uuid, p_reservation_id uuid, p_listing_id uuid, p_vendor_profile_id uuid, p_wave_id uuid","TABLE(success boolean, order_id uuid, order_number text, error text)",SECURITY DEFINER
+create_event_fee_payment_if_eligible,"p_market_id uuid, p_vendor_profile_id uuid, p_fee_cents integer, p_vendor_pays_cents integer, p_organizer_receives_cents integer, p_platform_keeps_cents integer",jsonb,SECURITY DEFINER
+create_market_box_pickups,,trigger,SECURITY INVOKER
+create_profile_for_user,,trigger,SECURITY DEFINER
+disablelongtransactions,,text,SECURITY INVOKER
+dropgeometrycolumn,"table_name character varying, column_name character varying",text,SECURITY INVOKER
+dropgeometrycolumn,"catalog_name character varying, schema_name character varying, table_name character varying, column_name character varying",text,SECURITY INVOKER
+dropgeometrycolumn,"schema_name character varying, table_name character varying, column_name character varying",text,SECURITY INVOKER
+dropgeometrytable,"schema_name character varying, table_name character varying",text,SECURITY INVOKER
+dropgeometrytable,table_name character varying,text,SECURITY INVOKER
+dropgeometrytable,"catalog_name character varying, schema_name character varying, table_name character varying",text,SECURITY INVOKER
+enablelongtransactions,,text,SECURITY INVOKER
+enforce_listing_tier_limit,,trigger,SECURITY DEFINER
+enforce_market_box_tier_limit,,trigger,SECURITY DEFINER
+ensure_admin_premium_tier,,trigger,SECURITY DEFINER
+ensure_user_profile,"p_user_id uuid, p_email text, p_display_name text DEFAULT ''::text",jsonb,SECURITY DEFINER
+equals,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+find_next_available_wave,p_market_id uuid,"TABLE(wave_id uuid, wave_number integer, start_time time without time zone, end_time time without time zone, remaining integer)",SECURITY DEFINER
+find_srid,"character varying, character varying, character varying",integer,SECURITY INVOKER
+free_wave_on_order_cancel,p_order_id uuid,void,SECURITY DEFINER
+generate_vendor_referral_code,vendor_id uuid,text,SECURITY INVOKER
+geog_brin_inclusion_add_value,"internal, internal, internal, internal",boolean,SECURITY INVOKER
+geography,bytea,geography,SECURITY INVOKER
+geography,geometry,geography,SECURITY INVOKER
+geography,"geography, integer, boolean",geography,SECURITY INVOKER
+geography_analyze,internal,boolean,SECURITY INVOKER
+geography_cmp,"geography, geography",integer,SECURITY INVOKER
+geography_distance_knn,"geography, geography",double precision,SECURITY INVOKER
+geography_eq,"geography, geography",boolean,SECURITY INVOKER
+geography_ge,"geography, geography",boolean,SECURITY INVOKER
+geography_gist_compress,internal,internal,SECURITY INVOKER
+geography_gist_consistent,"internal, geography, integer",boolean,SECURITY INVOKER
+geography_gist_decompress,internal,internal,SECURITY INVOKER
+geography_gist_distance,"internal, geography, integer",double precision,SECURITY INVOKER
+geography_gist_penalty,"internal, internal, internal",internal,SECURITY INVOKER
+geography_gist_picksplit,"internal, internal",internal,SECURITY INVOKER
+geography_gist_same,"box2d, box2d, internal",internal,SECURITY INVOKER
+geography_gist_union,"bytea, internal",internal,SECURITY INVOKER
+geography_gt,"geography, geography",boolean,SECURITY INVOKER
+geography_in,"cstring, oid, integer",geography,SECURITY INVOKER
+geography_le,"geography, geography",boolean,SECURITY INVOKER
+geography_lt,"geography, geography",boolean,SECURITY INVOKER
+geography_out,geography,cstring,SECURITY INVOKER
+geography_overlaps,"geography, geography",boolean,SECURITY INVOKER
+geography_recv,"internal, oid, integer",geography,SECURITY INVOKER
+geography_send,geography,bytea,SECURITY INVOKER
+geography_spgist_choose_nd,"internal, internal",void,SECURITY INVOKER
+geography_spgist_compress_nd,internal,internal,SECURITY INVOKER
+geography_spgist_config_nd,"internal, internal",void,SECURITY INVOKER
+geography_spgist_inner_consistent_nd,"internal, internal",void,SECURITY INVOKER
+geography_spgist_leaf_consistent_nd,"internal, internal",boolean,SECURITY INVOKER
+geography_spgist_picksplit_nd,"internal, internal",void,SECURITY INVOKER
+geography_typmod_in,cstring[],integer,SECURITY INVOKER
+geography_typmod_out,integer,cstring,SECURITY INVOKER
+geom2d_brin_inclusion_add_value,"internal, internal, internal, internal",boolean,SECURITY INVOKER
+geom3d_brin_inclusion_add_value,"internal, internal, internal, internal",boolean,SECURITY INVOKER
+geom4d_brin_inclusion_add_value,"internal, internal, internal, internal",boolean,SECURITY INVOKER
+geometry,box3d,geometry,SECURITY INVOKER
+geometry,text,geometry,SECURITY INVOKER
+geometry,geography,geometry,SECURITY INVOKER
+geometry,path,geometry,SECURITY INVOKER
+geometry,point,geometry,SECURITY INVOKER
+geometry,"geometry, integer, boolean",geometry,SECURITY INVOKER
+geometry,bytea,geometry,SECURITY INVOKER
+geometry,box2d,geometry,SECURITY INVOKER
+geometry,polygon,geometry,SECURITY INVOKER
+geometry_above,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+geometry_analyze,internal,boolean,SECURITY INVOKER
+geometry_below,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+geometry_cmp,"geom1 geometry, geom2 geometry",integer,SECURITY INVOKER
+geometry_contained_3d,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+geometry_contains,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+geometry_contains_3d,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+geometry_contains_nd,"geometry, geometry",boolean,SECURITY INVOKER
+geometry_distance_box,"geom1 geometry, geom2 geometry",double precision,SECURITY INVOKER
+geometry_distance_centroid,"geom1 geometry, geom2 geometry",double precision,SECURITY INVOKER
+geometry_distance_centroid_nd,"geometry, geometry",double precision,SECURITY INVOKER
+geometry_distance_cpa,"geometry, geometry",double precision,SECURITY INVOKER
+geometry_eq,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+geometry_ge,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+geometry_gist_compress_2d,internal,internal,SECURITY INVOKER
+geometry_gist_compress_nd,internal,internal,SECURITY INVOKER
+geometry_gist_consistent_2d,"internal, geometry, integer",boolean,SECURITY INVOKER
+geometry_gist_consistent_nd,"internal, geometry, integer",boolean,SECURITY INVOKER
+geometry_gist_decompress_2d,internal,internal,SECURITY INVOKER
+geometry_gist_decompress_nd,internal,internal,SECURITY INVOKER
+geometry_gist_distance_2d,"internal, geometry, integer",double precision,SECURITY INVOKER
+geometry_gist_distance_nd,"internal, geometry, integer",double precision,SECURITY INVOKER
+geometry_gist_penalty_2d,"internal, internal, internal",internal,SECURITY INVOKER
+geometry_gist_penalty_nd,"internal, internal, internal",internal,SECURITY INVOKER
+geometry_gist_picksplit_2d,"internal, internal",internal,SECURITY INVOKER
+geometry_gist_picksplit_nd,"internal, internal",internal,SECURITY INVOKER
+geometry_gist_same_2d,"geom1 geometry, geom2 geometry, internal",internal,SECURITY INVOKER
+geometry_gist_same_nd,"geometry, geometry, internal",internal,SECURITY INVOKER
+geometry_gist_sortsupport_2d,internal,void,SECURITY INVOKER
+geometry_gist_union_2d,"bytea, internal",internal,SECURITY INVOKER
+geometry_gist_union_nd,"bytea, internal",internal,SECURITY INVOKER
+geometry_gt,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+geometry_hash,geometry,integer,SECURITY INVOKER
+geometry_in,cstring,geometry,SECURITY INVOKER
+geometry_le,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+geometry_left,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+geometry_lt,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+geometry_out,geometry,cstring,SECURITY INVOKER
+geometry_overabove,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+geometry_overbelow,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+geometry_overlaps,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+geometry_overlaps_3d,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+geometry_overlaps_nd,"geometry, geometry",boolean,SECURITY INVOKER
+geometry_overleft,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+geometry_overright,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+geometry_recv,internal,geometry,SECURITY INVOKER
+geometry_right,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+geometry_same,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+geometry_same_3d,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+geometry_same_nd,"geometry, geometry",boolean,SECURITY INVOKER
+geometry_send,geometry,bytea,SECURITY INVOKER
+geometry_sortsupport,internal,void,SECURITY INVOKER
+geometry_spgist_choose_2d,"internal, internal",void,SECURITY INVOKER
+geometry_spgist_choose_3d,"internal, internal",void,SECURITY INVOKER
+geometry_spgist_choose_nd,"internal, internal",void,SECURITY INVOKER
+geometry_spgist_compress_2d,internal,internal,SECURITY INVOKER
+geometry_spgist_compress_3d,internal,internal,SECURITY INVOKER
+geometry_spgist_compress_nd,internal,internal,SECURITY INVOKER
+geometry_spgist_config_2d,"internal, internal",void,SECURITY INVOKER
+geometry_spgist_config_3d,"internal, internal",void,SECURITY INVOKER
+geometry_spgist_config_nd,"internal, internal",void,SECURITY INVOKER
+geometry_spgist_inner_consistent_2d,"internal, internal",void,SECURITY INVOKER
+geometry_spgist_inner_consistent_3d,"internal, internal",void,SECURITY INVOKER
+geometry_spgist_inner_consistent_nd,"internal, internal",void,SECURITY INVOKER
+geometry_spgist_leaf_consistent_2d,"internal, internal",boolean,SECURITY INVOKER
+geometry_spgist_leaf_consistent_3d,"internal, internal",boolean,SECURITY INVOKER
+geometry_spgist_leaf_consistent_nd,"internal, internal",boolean,SECURITY INVOKER
+geometry_spgist_picksplit_2d,"internal, internal",void,SECURITY INVOKER
+geometry_spgist_picksplit_3d,"internal, internal",void,SECURITY INVOKER
+geometry_spgist_picksplit_nd,"internal, internal",void,SECURITY INVOKER
+geometry_typmod_in,cstring[],integer,SECURITY INVOKER
+geometry_typmod_out,integer,cstring,SECURITY INVOKER
+geometry_within,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+geometry_within_nd,"geometry, geometry",boolean,SECURITY INVOKER
+geometrytype,geometry,text,SECURITY INVOKER
+geometrytype,geography,text,SECURITY INVOKER
+geomfromewkb,bytea,geometry,SECURITY INVOKER
+geomfromewkt,text,geometry,SECURITY INVOKER
+get_available_pickup_dates,p_listing_id uuid,"TABLE(market_id uuid, market_name text, market_type text, address text, city text, state text, schedule_id uuid, day_of_week integer, pickup_date date, start_time time without time zone, end_time time without time zone, cutoff_at timestamp with time zone, is_accepting boolean, hours_until_cutoff numeric, cutoff_hours integer)",SECURITY DEFINER
+get_booth_credit_expiry_state,,"TABLE(vendor_profile_id uuid, market_id uuid, balance_cents bigint, has_live_grant boolean, nearest_live_grant_expiry timestamp with time zone)",SECURITY DEFINER
+get_buyer_order_ids,,SETOF uuid,SECURITY DEFINER
+get_cart_summary,p_cart_id uuid,"TABLE(total_items bigint, total_cents bigint, vendor_count bigint)",SECURITY DEFINER
+get_event_waves_with_availability,p_market_id uuid,"TABLE(wave_id uuid, wave_number integer, start_time time without time zone, end_time time without time zone, capacity integer, reserved_count integer, remaining integer, status text)",SECURITY DEFINER
+get_listing_fields,v_id text,jsonb,SECURITY DEFINER
+get_listing_market_availability,p_listing_id uuid,jsonb,SECURITY INVOKER
+get_listing_markets_summary,p_listing_id uuid,"TABLE(market_id uuid, market_name text, market_type text, address text, city text, state text, day_of_week integer, start_time time without time zone, end_time time without time zone)",SECURITY DEFINER
+get_listing_open_markets,p_listing_id uuid,"TABLE(market_id uuid, market_name text, market_type text, address text, city text, state text, is_accepting boolean, next_pickup_at timestamp with time zone)",SECURITY DEFINER
+get_listings_accepting_status,"p_listing_ids uuid[], p_exclude_event_markets boolean DEFAULT false","TABLE(listing_id uuid, is_accepting boolean, hours_until_cutoff numeric, cutoff_hours integer)",SECURITY DEFINER
+get_listings_within_radius,"user_lat numeric, user_lng numeric, radius_miles numeric DEFAULT 25, vertical_filter text DEFAULT NULL::text, category_filter text DEFAULT NULL::text, search_term text DEFAULT NULL::text, page_size integer DEFAULT 50, page_offset integer DEFAULT 0","TABLE(listing_id uuid, title text, description text, price_cents integer, quantity integer, quantity_amount numeric, quantity_unit text, category text, created_at timestamp with time zone, vendor_profile_id uuid, listing_data jsonb, premium_window_ends_at timestamp with time zone, vendor_id uuid, vendor_profile_data jsonb, vendor_status text, vendor_tier text, vendor_tier_started_at timestamp with time zone, nearest_market_distance_miles numeric, total_count bigint)",SECURITY DEFINER
+get_market_cutoff,p_market_id uuid,timestamp with time zone,SECURITY INVOKER
+get_markets_within_radius,"user_lat numeric, user_lng numeric, radius_meters numeric, vertical_filter text DEFAULT NULL::text, market_type_filter text DEFAULT NULL::text","TABLE(id uuid, name text, description text, address text, city text, state text, zip_code text, latitude numeric, longitude numeric, market_type text, vertical_id text, status text, active boolean, created_at timestamp with time zone, updated_at timestamp with time zone, distance_miles numeric)",SECURITY DEFINER
+get_nearby_zip_codes,"user_lat numeric, user_lng numeric, limit_count integer DEFAULT 5","TABLE(zip character varying, city character varying, state character varying, distance_miles numeric)",SECURITY DEFINER
+get_next_market_datetime,"p_day_of_week integer, p_start_time time without time zone, p_timezone text DEFAULT 'America/Chicago'::text",timestamp with time zone,SECURITY INVOKER
+get_or_create_cart,"p_user_id uuid, p_vertical_id text",uuid,SECURITY DEFINER
+get_proj4_from_srid,integer,text,SECURITY INVOKER
+get_region_zip_codes,region character varying,"TABLE(zip character varying, city character varying, state character varying, latitude numeric, longitude numeric)",SECURITY DEFINER
+get_schedule_active_order_count,p_schedule_id uuid,integer,SECURITY DEFINER
+get_user_admin_verticals,,"TABLE(vertical_id text, is_platform_admin boolean, is_vertical_admin boolean)",SECURITY DEFINER
+get_user_vendor_ids,,SETOF uuid,SECURITY DEFINER
+get_vendor_fields,v_id text,jsonb,SECURITY DEFINER
+get_vendor_fixed_market_count,"p_vendor_profile_id uuid, p_vertical_id text",integer,SECURITY DEFINER
+get_vendor_fixed_market_limit,p_vendor_profile_id uuid,integer,SECURITY DEFINER
+get_vendor_listing_count_at_market,"p_vendor_profile_id uuid, p_market_id uuid",integer,SECURITY DEFINER
+get_vendor_next_pickup_date,"p_vendor_profile_id uuid, p_market_id uuid, p_from_date date DEFAULT CURRENT_DATE",date,SECURITY DEFINER
+get_vendor_order_ids,,SETOF uuid,SECURITY DEFINER
+get_vendors_within_radius,"user_lat numeric, user_lng numeric, radius_meters numeric, vertical_filter text DEFAULT NULL::text","TABLE(id uuid, user_id uuid, business_name text, description text, address text, city text, state text, zip_code text, latitude numeric, longitude numeric, vertical_id text, status text, tier text, created_at timestamp with time zone, distance_miles numeric)",SECURITY DEFINER
+get_vertical_config,v_id text,jsonb,SECURITY DEFINER
+get_zip_coordinates,zip_code character varying,"TABLE(latitude numeric, longitude numeric, city character varying, state character varying)",SECURITY DEFINER
+gettransactionid,,xid,SECURITY INVOKER
+gidx_in,cstring,gidx,SECURITY INVOKER
+gidx_out,gidx,cstring,SECURITY INVOKER
+gserialized_gist_joinsel_2d,"internal, oid, internal, smallint",double precision,SECURITY INVOKER
+gserialized_gist_joinsel_nd,"internal, oid, internal, smallint",double precision,SECURITY INVOKER
+gserialized_gist_sel_2d,"internal, oid, internal, integer",double precision,SECURITY INVOKER
+gserialized_gist_sel_nd,"internal, oid, internal, integer",double precision,SECURITY INVOKER
+guard_order_item_buyer_ack,,trigger,SECURITY INVOKER
+guard_order_status_actor,,trigger,SECURITY INVOKER
+handle_market_schedule_deactivation,,trigger,SECURITY DEFINER
+handle_new_user,,trigger,SECURITY DEFINER
+has_role,check_role user_role,boolean,SECURITY DEFINER
+has_role,check_role text,boolean,SECURITY DEFINER
+increment_vendor_cancelled,p_vendor_id uuid,"TABLE(confirmed_count integer, cancelled_count integer)",SECURITY DEFINER
+increment_vendor_confirmed,p_vendor_id uuid,void,SECURITY DEFINER
+is_admin,,boolean,SECURITY DEFINER
+is_admin_for_vertical,p_vertical_id text,boolean,SECURITY DEFINER
+is_any_admin,,boolean,SECURITY DEFINER
+is_contained_2d,"box2df, geometry",boolean,SECURITY INVOKER
+is_contained_2d,"box2df, box2df",boolean,SECURITY INVOKER
+is_contained_2d,"geometry, box2df",boolean,SECURITY INVOKER
+is_event_market,m_id uuid,boolean,SECURITY DEFINER
+is_event_organizer,cr_id uuid,boolean,SECURITY DEFINER
+is_listing_accepting_orders,p_listing_id uuid,boolean,SECURITY DEFINER
+is_order_buyer,order_uuid uuid,boolean,SECURITY DEFINER
+is_platform_admin,,boolean,SECURITY DEFINER
+is_private_event_market,m_id uuid,boolean,SECURITY DEFINER
+is_regional_admin,,boolean,SECURITY DEFINER
+is_verifier,,boolean,SECURITY DEFINER
+is_vertical_admin,p_vertical_id text,boolean,SECURITY DEFINER
+json,geometry,json,SECURITY INVOKER
+jsonb,geometry,jsonb,SECURITY INVOKER
+lockrow,"text, text, text",integer,SECURITY INVOKER
+lockrow,"text, text, text, text, timestamp without time zone",integer,SECURITY INVOKER
+lockrow,"text, text, text, timestamp without time zone",integer,SECURITY INVOKER
+lockrow,"text, text, text, text",integer,SECURITY INVOKER
+longtransactionsenabled,,boolean,SECURITY INVOKER
+mark_event_fee_paid_if_capacity,"p_payment_id uuid, p_session_id text, p_payment_intent_id text",jsonb,SECURITY DEFINER
+notify_transaction_status_change,,trigger,SECURITY DEFINER
+overlaps_2d,"geometry, box2df",boolean,SECURITY INVOKER
+overlaps_2d,"box2df, box2df",boolean,SECURITY INVOKER
+overlaps_2d,"box2df, geometry",boolean,SECURITY INVOKER
+overlaps_geog,"geography, gidx",boolean,SECURITY INVOKER
+overlaps_geog,"gidx, geography",boolean,SECURITY INVOKER
+overlaps_geog,"gidx, gidx",boolean,SECURITY INVOKER
+overlaps_nd,"gidx, gidx",boolean,SECURITY INVOKER
+overlaps_nd,"geometry, gidx",boolean,SECURITY INVOKER
+overlaps_nd,"gidx, geometry",boolean,SECURITY INVOKER
+path,geometry,path,SECURITY INVOKER
+pgis_asflatgeobuf_finalfn,internal,bytea,SECURITY INVOKER
+pgis_asflatgeobuf_transfn,"internal, anyelement, boolean",internal,SECURITY INVOKER
+pgis_asflatgeobuf_transfn,"internal, anyelement, boolean, text",internal,SECURITY INVOKER
+pgis_asflatgeobuf_transfn,"internal, anyelement",internal,SECURITY INVOKER
+pgis_asgeobuf_finalfn,internal,bytea,SECURITY INVOKER
+pgis_asgeobuf_transfn,"internal, anyelement, text",internal,SECURITY INVOKER
+pgis_asgeobuf_transfn,"internal, anyelement",internal,SECURITY INVOKER
+pgis_asmvt_combinefn,"internal, internal",internal,SECURITY INVOKER
+pgis_asmvt_deserialfn,"bytea, internal",internal,SECURITY INVOKER
+pgis_asmvt_finalfn,internal,bytea,SECURITY INVOKER
+pgis_asmvt_serialfn,internal,bytea,SECURITY INVOKER
+pgis_asmvt_transfn,"internal, anyelement",internal,SECURITY INVOKER
+pgis_asmvt_transfn,"internal, anyelement, text",internal,SECURITY INVOKER
+pgis_asmvt_transfn,"internal, anyelement, text, integer",internal,SECURITY INVOKER
+pgis_asmvt_transfn,"internal, anyelement, text, integer, text",internal,SECURITY INVOKER
+pgis_asmvt_transfn,"internal, anyelement, text, integer, text, text",internal,SECURITY INVOKER
+pgis_geometry_accum_transfn,"internal, geometry",internal,SECURITY INVOKER
+pgis_geometry_accum_transfn,"internal, geometry, double precision, integer",internal,SECURITY INVOKER
+pgis_geometry_accum_transfn,"internal, geometry, double precision",internal,SECURITY INVOKER
+pgis_geometry_clusterintersecting_finalfn,internal,geometry[],SECURITY INVOKER
+pgis_geometry_clusterwithin_finalfn,internal,geometry[],SECURITY INVOKER
+pgis_geometry_collect_finalfn,internal,geometry,SECURITY INVOKER
+pgis_geometry_makeline_finalfn,internal,geometry,SECURITY INVOKER
+pgis_geometry_polygonize_finalfn,internal,geometry,SECURITY INVOKER
+pgis_geometry_union_parallel_combinefn,"internal, internal",internal,SECURITY INVOKER
+pgis_geometry_union_parallel_deserialfn,"bytea, internal",internal,SECURITY INVOKER
+pgis_geometry_union_parallel_finalfn,internal,geometry,SECURITY INVOKER
+pgis_geometry_union_parallel_serialfn,internal,bytea,SECURITY INVOKER
+pgis_geometry_union_parallel_transfn,"internal, geometry",internal,SECURITY INVOKER
+pgis_geometry_union_parallel_transfn,"internal, geometry, double precision",internal,SECURITY INVOKER
+point,geometry,point,SECURITY INVOKER
+polygon,geometry,polygon,SECURITY INVOKER
+populate_geometry_columns,use_typmod boolean DEFAULT true,text,SECURITY INVOKER
+populate_geometry_columns,"tbl_oid oid, use_typmod boolean DEFAULT true",integer,SECURITY INVOKER
+postgis_addbbox,geometry,geometry,SECURITY INVOKER
+postgis_cache_bbox,,trigger,SECURITY INVOKER
+postgis_constraint_dims,"geomschema text, geomtable text, geomcolumn text",integer,SECURITY INVOKER
+postgis_constraint_srid,"geomschema text, geomtable text, geomcolumn text",integer,SECURITY INVOKER
+postgis_constraint_type,"geomschema text, geomtable text, geomcolumn text",character varying,SECURITY INVOKER
+postgis_dropbbox,geometry,geometry,SECURITY INVOKER
+postgis_extensions_upgrade,,text,SECURITY INVOKER
+postgis_full_version,,text,SECURITY INVOKER
+postgis_geos_noop,geometry,geometry,SECURITY INVOKER
+postgis_geos_version,,text,SECURITY INVOKER
+postgis_getbbox,geometry,box2d,SECURITY INVOKER
+postgis_hasbbox,geometry,boolean,SECURITY INVOKER
+postgis_index_supportfn,internal,internal,SECURITY INVOKER
+postgis_lib_build_date,,text,SECURITY INVOKER
+postgis_lib_revision,,text,SECURITY INVOKER
+postgis_lib_version,,text,SECURITY INVOKER
+postgis_libjson_version,,text,SECURITY INVOKER
+postgis_liblwgeom_version,,text,SECURITY INVOKER
+postgis_libprotobuf_version,,text,SECURITY INVOKER
+postgis_libxml_version,,text,SECURITY INVOKER
+postgis_noop,geometry,geometry,SECURITY INVOKER
+postgis_proj_version,,text,SECURITY INVOKER
+postgis_scripts_build_date,,text,SECURITY INVOKER
+postgis_scripts_installed,,text,SECURITY INVOKER
+postgis_scripts_released,,text,SECURITY INVOKER
+postgis_svn_version,,text,SECURITY INVOKER
+postgis_transform_geometry,"geom geometry, text, text, integer",geometry,SECURITY INVOKER
+postgis_type_name,"geomname character varying, coord_dimension integer, use_new_name boolean DEFAULT true",character varying,SECURITY INVOKER
+postgis_typmod_dims,integer,integer,SECURITY INVOKER
+postgis_typmod_srid,integer,integer,SECURITY INVOKER
+postgis_typmod_type,integer,text,SECURITY INVOKER
+postgis_version,,text,SECURITY INVOKER
+postgis_wagyu_version,,text,SECURITY INVOKER
+recalculate_wave_capacity,p_market_id uuid,"TABLE(waves_updated integer, new_capacity integer)",SECURITY DEFINER
+redeem_booth_credit,"p_vendor_profile_id uuid, p_market_id uuid, p_group_id uuid, p_requested_cents integer, p_rental_id uuid DEFAULT NULL::uuid, p_park_booking_id uuid DEFAULT NULL::uuid",integer,SECURITY DEFINER
+refresh_all_vendor_locations,,void,SECURITY DEFINER
+refresh_vendor_location,p_vendor_id uuid,void,SECURITY DEFINER
+replace_market_optin_selections,"p_market_id uuid, p_selections jsonb","TABLE(selection_id uuid, selection_market_id uuid, selection_statement_id text, selection_placeholder_values jsonb, selection_selected_at timestamp with time zone)",SECURITY DEFINER
+reserve_event_wave,"p_wave_id uuid, p_market_id uuid, p_user_id uuid","TABLE(success boolean, reservation_id uuid, error text)",SECURITY DEFINER
+scan_vendor_activity,p_vertical_id text DEFAULT NULL::text,"TABLE(scan_id uuid, vendors_scanned integer, new_flags integer, auto_resolved integer)",SECURITY DEFINER
+set_default_vendor_tier,,trigger,SECURITY INVOKER
+set_ft_default_tier,,trigger,SECURITY INVOKER
+set_listing_premium_window,,trigger,SECURITY DEFINER
+set_market_box_premium_window,,trigger,SECURITY DEFINER
+set_order_item_expiration,,trigger,SECURITY INVOKER
+soft_delete,,trigger,SECURITY INVOKER
+spheroid_in,cstring,spheroid,SECURITY INVOKER
+spheroid_out,spheroid,cstring,SECURITY INVOKER
+st_3dclosestpoint,"geom1 geometry, geom2 geometry",geometry,SECURITY INVOKER
+st_3ddfullywithin,"geom1 geometry, geom2 geometry, double precision",boolean,SECURITY INVOKER
+st_3ddistance,"geom1 geometry, geom2 geometry",double precision,SECURITY INVOKER
+st_3ddwithin,"geom1 geometry, geom2 geometry, double precision",boolean,SECURITY INVOKER
+st_3dintersects,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+st_3dlength,geometry,double precision,SECURITY INVOKER
+st_3dlineinterpolatepoint,"geometry, double precision",geometry,SECURITY INVOKER
+st_3dlongestline,"geom1 geometry, geom2 geometry",geometry,SECURITY INVOKER
+st_3dmakebox,"geom1 geometry, geom2 geometry",box3d,SECURITY INVOKER
+st_3dmaxdistance,"geom1 geometry, geom2 geometry",double precision,SECURITY INVOKER
+st_3dperimeter,geometry,double precision,SECURITY INVOKER
+st_3dshortestline,"geom1 geometry, geom2 geometry",geometry,SECURITY INVOKER
+st_addmeasure,"geometry, double precision, double precision",geometry,SECURITY INVOKER
+st_addpoint,"geom1 geometry, geom2 geometry, integer",geometry,SECURITY INVOKER
+st_addpoint,"geom1 geometry, geom2 geometry",geometry,SECURITY INVOKER
+st_affine,"geometry, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision",geometry,SECURITY INVOKER
+st_affine,"geometry, double precision, double precision, double precision, double precision, double precision, double precision",geometry,SECURITY INVOKER
+st_angle,"line1 geometry, line2 geometry",double precision,SECURITY INVOKER
+st_angle,"pt1 geometry, pt2 geometry, pt3 geometry, pt4 geometry DEFAULT '0101000000000000000000F87F000000000000F87F'::geometry",double precision,SECURITY INVOKER
+st_area,"geog geography, use_spheroid boolean DEFAULT true",double precision,SECURITY INVOKER
+st_area,text,double precision,SECURITY INVOKER
+st_area,geometry,double precision,SECURITY INVOKER
+st_area2d,geometry,double precision,SECURITY INVOKER
+st_asbinary,geometry,bytea,SECURITY INVOKER
+st_asbinary,"geometry, text",bytea,SECURITY INVOKER
+st_asbinary,"geography, text",bytea,SECURITY INVOKER
+st_asbinary,geography,bytea,SECURITY INVOKER
+st_asencodedpolyline,"geom geometry, nprecision integer DEFAULT 5",text,SECURITY INVOKER
+st_asewkb,"geometry, text",bytea,SECURITY INVOKER
+st_asewkb,geometry,bytea,SECURITY INVOKER
+st_asewkt,geometry,text,SECURITY INVOKER
+st_asewkt,"geography, integer",text,SECURITY INVOKER
+st_asewkt,geography,text,SECURITY INVOKER
+st_asewkt,"geometry, integer",text,SECURITY INVOKER
+st_asewkt,text,text,SECURITY INVOKER
+st_asgeojson,"geom geometry, maxdecimaldigits integer DEFAULT 9, options integer DEFAULT 8",text,SECURITY INVOKER
+st_asgeojson,text,text,SECURITY INVOKER
+st_asgeojson,"geog geography, maxdecimaldigits integer DEFAULT 9, options integer DEFAULT 0",text,SECURITY INVOKER
+st_asgeojson,"r record, geom_column text DEFAULT ''::text, maxdecimaldigits integer DEFAULT 9, pretty_bool boolean DEFAULT false",text,SECURITY INVOKER
+st_asgml,"geom geometry, maxdecimaldigits integer DEFAULT 15, options integer DEFAULT 0",text,SECURITY INVOKER
+st_asgml,"version integer, geom geometry, maxdecimaldigits integer DEFAULT 15, options integer DEFAULT 0, nprefix text DEFAULT NULL::text, id text DEFAULT NULL::text",text,SECURITY INVOKER
+st_asgml,text,text,SECURITY INVOKER
+st_asgml,"geog geography, maxdecimaldigits integer DEFAULT 15, options integer DEFAULT 0, nprefix text DEFAULT 'gml'::text, id text DEFAULT ''::text",text,SECURITY INVOKER
+st_asgml,"version integer, geog geography, maxdecimaldigits integer DEFAULT 15, options integer DEFAULT 0, nprefix text DEFAULT 'gml'::text, id text DEFAULT ''::text",text,SECURITY INVOKER
+st_ashexewkb,geometry,text,SECURITY INVOKER
+st_ashexewkb,"geometry, text",text,SECURITY INVOKER
+st_askml,"geog geography, maxdecimaldigits integer DEFAULT 15, nprefix text DEFAULT ''::text",text,SECURITY INVOKER
+st_askml,"geom geometry, maxdecimaldigits integer DEFAULT 15, nprefix text DEFAULT ''::text",text,SECURITY INVOKER
+st_askml,text,text,SECURITY INVOKER
+st_aslatlontext,"geom geometry, tmpl text DEFAULT ''::text",text,SECURITY INVOKER
+st_asmarc21,"geom geometry, format text DEFAULT 'hdddmmss'::text",text,SECURITY INVOKER
+st_asmvtgeom,"geom geometry, bounds box2d, extent integer DEFAULT 4096, buffer integer DEFAULT 256, clip_geom boolean DEFAULT true",geometry,SECURITY INVOKER
+st_assvg,"geog geography, rel integer DEFAULT 0, maxdecimaldigits integer DEFAULT 15",text,SECURITY INVOKER
+st_assvg,"geom geometry, rel integer DEFAULT 0, maxdecimaldigits integer DEFAULT 15",text,SECURITY INVOKER
+st_assvg,text,text,SECURITY INVOKER
+st_astext,geography,text,SECURITY INVOKER
+st_astext,geometry,text,SECURITY INVOKER
+st_astext,"geometry, integer",text,SECURITY INVOKER
+st_astext,text,text,SECURITY INVOKER
+st_astext,"geography, integer",text,SECURITY INVOKER
+st_astwkb,"geom geometry[], ids bigint[], prec integer DEFAULT NULL::integer, prec_z integer DEFAULT NULL::integer, prec_m integer DEFAULT NULL::integer, with_sizes boolean DEFAULT NULL::boolean, with_boxes boolean DEFAULT NULL::boolean",bytea,SECURITY INVOKER
+st_astwkb,"geom geometry, prec integer DEFAULT NULL::integer, prec_z integer DEFAULT NULL::integer, prec_m integer DEFAULT NULL::integer, with_sizes boolean DEFAULT NULL::boolean, with_boxes boolean DEFAULT NULL::boolean",bytea,SECURITY INVOKER
+st_asx3d,"geom geometry, maxdecimaldigits integer DEFAULT 15, options integer DEFAULT 0",text,SECURITY INVOKER
+st_azimuth,"geom1 geometry, geom2 geometry",double precision,SECURITY INVOKER
+st_azimuth,"geog1 geography, geog2 geography",double precision,SECURITY INVOKER
+st_bdmpolyfromtext,"text, integer",geometry,SECURITY INVOKER
+st_bdpolyfromtext,"text, integer",geometry,SECURITY INVOKER
+st_boundary,geometry,geometry,SECURITY INVOKER
+st_boundingdiagonal,"geom geometry, fits boolean DEFAULT false",geometry,SECURITY INVOKER
+st_box2dfromgeohash,"text, integer DEFAULT NULL::integer",box2d,SECURITY INVOKER
+st_buffer,"text, double precision",geometry,SECURITY INVOKER
+st_buffer,"geom geometry, radius double precision, options text DEFAULT ''::text",geometry,SECURITY INVOKER
+st_buffer,"geom geometry, radius double precision, quadsegs integer",geometry,SECURITY INVOKER
+st_buffer,"geography, double precision",geography,SECURITY INVOKER
+st_buffer,"geography, double precision, integer",geography,SECURITY INVOKER
+st_buffer,"geography, double precision, text",geography,SECURITY INVOKER
+st_buffer,"text, double precision, text",geometry,SECURITY INVOKER
+st_buffer,"text, double precision, integer",geometry,SECURITY INVOKER
+st_buildarea,geometry,geometry,SECURITY INVOKER
+st_centroid,text,geometry,SECURITY INVOKER
+st_centroid,"geography, use_spheroid boolean DEFAULT true",geography,SECURITY INVOKER
+st_centroid,geometry,geometry,SECURITY INVOKER
+st_chaikinsmoothing,"geometry, integer DEFAULT 1, boolean DEFAULT false",geometry,SECURITY INVOKER
+st_cleangeometry,geometry,geometry,SECURITY INVOKER
+st_clipbybox2d,"geom geometry, box box2d",geometry,SECURITY INVOKER
+st_closestpoint,"geom1 geometry, geom2 geometry",geometry,SECURITY INVOKER
+st_closestpointofapproach,"geometry, geometry",double precision,SECURITY INVOKER
+st_clusterintersecting,geometry[],geometry[],SECURITY INVOKER
+st_clusterwithin,"geometry[], double precision",geometry[],SECURITY INVOKER
+st_collect,geometry[],geometry,SECURITY INVOKER
+st_collect,"geom1 geometry, geom2 geometry",geometry,SECURITY INVOKER
+st_collectionextract,"geometry, integer",geometry,SECURITY INVOKER
+st_collectionextract,geometry,geometry,SECURITY INVOKER
+st_collectionhomogenize,geometry,geometry,SECURITY INVOKER
+st_combinebbox,"box2d, geometry",box2d,SECURITY INVOKER
+st_combinebbox,"box3d, box3d",box3d,SECURITY INVOKER
+st_combinebbox,"box3d, geometry",box3d,SECURITY INVOKER
+st_concavehull,"param_geom geometry, param_pctconvex double precision, param_allow_holes boolean DEFAULT false",geometry,SECURITY INVOKER
+st_contains,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+st_containsproperly,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+st_convexhull,geometry,geometry,SECURITY INVOKER
+st_coorddim,geometry geometry,smallint,SECURITY INVOKER
+st_coveredby,"text, text",boolean,SECURITY INVOKER
+st_coveredby,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+st_coveredby,"geog1 geography, geog2 geography",boolean,SECURITY INVOKER
+st_covers,"text, text",boolean,SECURITY INVOKER
+st_covers,"geog1 geography, geog2 geography",boolean,SECURITY INVOKER
+st_covers,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+st_cpawithin,"geometry, geometry, double precision",boolean,SECURITY INVOKER
+st_crosses,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+st_curvetoline,"geom geometry, tol double precision DEFAULT 32, toltype integer DEFAULT 0, flags integer DEFAULT 0",geometry,SECURITY INVOKER
+st_delaunaytriangles,"g1 geometry, tolerance double precision DEFAULT 0.0, flags integer DEFAULT 0",geometry,SECURITY INVOKER
+st_dfullywithin,"geom1 geometry, geom2 geometry, double precision",boolean,SECURITY INVOKER
+st_difference,"geom1 geometry, geom2 geometry, gridsize double precision DEFAULT '-1.0'::numeric",geometry,SECURITY INVOKER
+st_dimension,geometry,integer,SECURITY INVOKER
+st_disjoint,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+st_distance,"text, text",double precision,SECURITY INVOKER
+st_distance,"geom1 geometry, geom2 geometry",double precision,SECURITY INVOKER
+st_distance,"geog1 geography, geog2 geography, use_spheroid boolean DEFAULT true",double precision,SECURITY INVOKER
+st_distancecpa,"geometry, geometry",double precision,SECURITY INVOKER
+st_distancesphere,"geom1 geometry, geom2 geometry",double precision,SECURITY INVOKER
+st_distancesphere,"geom1 geometry, geom2 geometry, radius double precision",double precision,SECURITY INVOKER
+st_distancespheroid,"geom1 geometry, geom2 geometry",double precision,SECURITY INVOKER
+st_distancespheroid,"geom1 geometry, geom2 geometry, spheroid",double precision,SECURITY INVOKER
+st_dump,geometry,SETOF geometry_dump,SECURITY INVOKER
+st_dumppoints,geometry,SETOF geometry_dump,SECURITY INVOKER
+st_dumprings,geometry,SETOF geometry_dump,SECURITY INVOKER
+st_dumpsegments,geometry,SETOF geometry_dump,SECURITY INVOKER
+st_dwithin,"geom1 geometry, geom2 geometry, double precision",boolean,SECURITY INVOKER
+st_dwithin,"geog1 geography, geog2 geography, tolerance double precision, use_spheroid boolean DEFAULT true",boolean,SECURITY INVOKER
+st_dwithin,"text, text, double precision",boolean,SECURITY INVOKER
+st_endpoint,geometry,geometry,SECURITY INVOKER
+st_envelope,geometry,geometry,SECURITY INVOKER
+st_equals,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+st_estimatedextent,"text, text",box2d,SECURITY DEFINER
+st_estimatedextent,"text, text, text, boolean",box2d,SECURITY DEFINER
+st_estimatedextent,"text, text, text",box2d,SECURITY DEFINER
+st_expand,"geom geometry, dx double precision, dy double precision, dz double precision DEFAULT 0, dm double precision DEFAULT 0",geometry,SECURITY INVOKER
+st_expand,"box box2d, dx double precision, dy double precision",box2d,SECURITY INVOKER
+st_expand,"box2d, double precision",box2d,SECURITY INVOKER
+st_expand,"box3d, double precision",box3d,SECURITY INVOKER
+st_expand,"geometry, double precision",geometry,SECURITY INVOKER
+st_expand,"box box3d, dx double precision, dy double precision, dz double precision DEFAULT 0",box3d,SECURITY INVOKER
+st_exteriorring,geometry,geometry,SECURITY INVOKER
+st_filterbym,"geometry, double precision, double precision DEFAULT NULL::double precision, boolean DEFAULT false",geometry,SECURITY INVOKER
+st_findextent,"text, text",box2d,SECURITY INVOKER
+st_findextent,"text, text, text",box2d,SECURITY INVOKER
+st_flipcoordinates,geometry,geometry,SECURITY INVOKER
+st_force2d,geometry,geometry,SECURITY INVOKER
+st_force3d,"geom geometry, zvalue double precision DEFAULT 0.0",geometry,SECURITY INVOKER
+st_force3dm,"geom geometry, mvalue double precision DEFAULT 0.0",geometry,SECURITY INVOKER
+st_force3dz,"geom geometry, zvalue double precision DEFAULT 0.0",geometry,SECURITY INVOKER
+st_force4d,"geom geometry, zvalue double precision DEFAULT 0.0, mvalue double precision DEFAULT 0.0",geometry,SECURITY INVOKER
+st_forcecollection,geometry,geometry,SECURITY INVOKER
+st_forcecurve,geometry,geometry,SECURITY INVOKER
+st_forcepolygonccw,geometry,geometry,SECURITY INVOKER
+st_forcepolygoncw,geometry,geometry,SECURITY INVOKER
+st_forcerhr,geometry,geometry,SECURITY INVOKER
+st_forcesfs,geometry,geometry,SECURITY INVOKER
+st_forcesfs,"geometry, version text",geometry,SECURITY INVOKER
+st_frechetdistance,"geom1 geometry, geom2 geometry, double precision DEFAULT '-1'::integer",double precision,SECURITY INVOKER
+st_fromflatgeobuf,"anyelement, bytea",SETOF anyelement,SECURITY INVOKER
+st_fromflatgeobuftotable,"text, text, bytea",void,SECURITY INVOKER
+st_generatepoints,"area geometry, npoints integer",geometry,SECURITY INVOKER
+st_generatepoints,"area geometry, npoints integer, seed integer",geometry,SECURITY INVOKER
+st_geogfromtext,text,geography,SECURITY INVOKER
+st_geogfromwkb,bytea,geography,SECURITY INVOKER
+st_geographyfromtext,text,geography,SECURITY INVOKER
+st_geohash,"geom geometry, maxchars integer DEFAULT 0",text,SECURITY INVOKER
+st_geohash,"geog geography, maxchars integer DEFAULT 0",text,SECURITY INVOKER
+st_geomcollfromtext,"text, integer",geometry,SECURITY INVOKER
+st_geomcollfromtext,text,geometry,SECURITY INVOKER
+st_geomcollfromwkb,bytea,geometry,SECURITY INVOKER
+st_geomcollfromwkb,"bytea, integer",geometry,SECURITY INVOKER
+st_geometricmedian,"g geometry, tolerance double precision DEFAULT NULL::double precision, max_iter integer DEFAULT 10000, fail_if_not_converged boolean DEFAULT false",geometry,SECURITY INVOKER
+st_geometryfromtext,text,geometry,SECURITY INVOKER
+st_geometryfromtext,"text, integer",geometry,SECURITY INVOKER
+st_geometryn,"geometry, integer",geometry,SECURITY INVOKER
+st_geometrytype,geometry,text,SECURITY INVOKER
+st_geomfromewkb,bytea,geometry,SECURITY INVOKER
+st_geomfromewkt,text,geometry,SECURITY INVOKER
+st_geomfromgeohash,"text, integer DEFAULT NULL::integer",geometry,SECURITY INVOKER
+st_geomfromgeojson,jsonb,geometry,SECURITY INVOKER
+st_geomfromgeojson,text,geometry,SECURITY INVOKER
+st_geomfromgeojson,json,geometry,SECURITY INVOKER
+st_geomfromgml,text,geometry,SECURITY INVOKER
+st_geomfromgml,"text, integer",geometry,SECURITY INVOKER
+st_geomfromkml,text,geometry,SECURITY INVOKER
+st_geomfrommarc21,marc21xml text,geometry,SECURITY INVOKER
+st_geomfromtext,"text, integer",geometry,SECURITY INVOKER
+st_geomfromtext,text,geometry,SECURITY INVOKER
+st_geomfromtwkb,bytea,geometry,SECURITY INVOKER
+st_geomfromwkb,bytea,geometry,SECURITY INVOKER
+st_geomfromwkb,"bytea, integer",geometry,SECURITY INVOKER
+st_gmltosql,text,geometry,SECURITY INVOKER
+st_gmltosql,"text, integer",geometry,SECURITY INVOKER
+st_hasarc,geometry geometry,boolean,SECURITY INVOKER
+st_hausdorffdistance,"geom1 geometry, geom2 geometry, double precision",double precision,SECURITY INVOKER
+st_hausdorffdistance,"geom1 geometry, geom2 geometry",double precision,SECURITY INVOKER
+st_hexagon,"size double precision, cell_i integer, cell_j integer, origin geometry DEFAULT '010100000000000000000000000000000000000000'::geometry",geometry,SECURITY INVOKER
+st_hexagongrid,"size double precision, bounds geometry, OUT geom geometry, OUT i integer, OUT j integer",SETOF record,SECURITY INVOKER
+st_interiorringn,"geometry, integer",geometry,SECURITY INVOKER
+st_interpolatepoint,"line geometry, point geometry",double precision,SECURITY INVOKER
+st_intersection,"geography, geography",geography,SECURITY INVOKER
+st_intersection,"geom1 geometry, geom2 geometry, gridsize double precision DEFAULT '-1'::integer",geometry,SECURITY INVOKER
+st_intersection,"text, text",geometry,SECURITY INVOKER
+st_intersects,"geog1 geography, geog2 geography",boolean,SECURITY INVOKER
+st_intersects,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+st_intersects,"text, text",boolean,SECURITY INVOKER
+st_isclosed,geometry,boolean,SECURITY INVOKER
+st_iscollection,geometry,boolean,SECURITY INVOKER
+st_isempty,geometry,boolean,SECURITY INVOKER
+st_ispolygonccw,geometry,boolean,SECURITY INVOKER
+st_ispolygoncw,geometry,boolean,SECURITY INVOKER
+st_isring,geometry,boolean,SECURITY INVOKER
+st_issimple,geometry,boolean,SECURITY INVOKER
+st_isvalid,geometry,boolean,SECURITY INVOKER
+st_isvalid,"geometry, integer",boolean,SECURITY INVOKER
+st_isvaliddetail,"geom geometry, flags integer DEFAULT 0",valid_detail,SECURITY INVOKER
+st_isvalidreason,"geometry, integer",text,SECURITY INVOKER
+st_isvalidreason,geometry,text,SECURITY INVOKER
+st_isvalidtrajectory,geometry,boolean,SECURITY INVOKER
+st_length,geometry,double precision,SECURITY INVOKER
+st_length,"geog geography, use_spheroid boolean DEFAULT true",double precision,SECURITY INVOKER
+st_length,text,double precision,SECURITY INVOKER
+st_length2d,geometry,double precision,SECURITY INVOKER
+st_length2dspheroid,"geometry, spheroid",double precision,SECURITY INVOKER
+st_lengthspheroid,"geometry, spheroid",double precision,SECURITY INVOKER
+st_letters,"letters text, font json DEFAULT NULL::json",geometry,SECURITY INVOKER
+st_linecrossingdirection,"line1 geometry, line2 geometry",integer,SECURITY INVOKER
+st_linefromencodedpolyline,"txtin text, nprecision integer DEFAULT 5",geometry,SECURITY INVOKER
+st_linefrommultipoint,geometry,geometry,SECURITY INVOKER
+st_linefromtext,text,geometry,SECURITY INVOKER
+st_linefromtext,"text, integer",geometry,SECURITY INVOKER
+st_linefromwkb,bytea,geometry,SECURITY INVOKER
+st_linefromwkb,"bytea, integer",geometry,SECURITY INVOKER
+st_lineinterpolatepoint,"geometry, double precision",geometry,SECURITY INVOKER
+st_lineinterpolatepoints,"geometry, double precision, repeat boolean DEFAULT true",geometry,SECURITY INVOKER
+st_linelocatepoint,"geom1 geometry, geom2 geometry",double precision,SECURITY INVOKER
+st_linemerge,geometry,geometry,SECURITY INVOKER
+st_linemerge,"geometry, boolean",geometry,SECURITY INVOKER
+st_linestringfromwkb,"bytea, integer",geometry,SECURITY INVOKER
+st_linestringfromwkb,bytea,geometry,SECURITY INVOKER
+st_linesubstring,"geometry, double precision, double precision",geometry,SECURITY INVOKER
+st_linetocurve,geometry geometry,geometry,SECURITY INVOKER
+st_locatealong,"geometry geometry, measure double precision, leftrightoffset double precision DEFAULT 0.0",geometry,SECURITY INVOKER
+st_locatebetween,"geometry geometry, frommeasure double precision, tomeasure double precision, leftrightoffset double precision DEFAULT 0.0",geometry,SECURITY INVOKER
+st_locatebetweenelevations,"geometry geometry, fromelevation double precision, toelevation double precision",geometry,SECURITY INVOKER
+st_longestline,"geom1 geometry, geom2 geometry",geometry,SECURITY INVOKER
+st_m,geometry,double precision,SECURITY INVOKER
+st_makebox2d,"geom1 geometry, geom2 geometry",box2d,SECURITY INVOKER
+st_makeenvelope,"double precision, double precision, double precision, double precision, integer DEFAULT 0",geometry,SECURITY INVOKER
+st_makeline,geometry[],geometry,SECURITY INVOKER
+st_makeline,"geom1 geometry, geom2 geometry",geometry,SECURITY INVOKER
+st_makepoint,"double precision, double precision, double precision",geometry,SECURITY INVOKER
+st_makepoint,"double precision, double precision",geometry,SECURITY INVOKER
+st_makepoint,"double precision, double precision, double precision, double precision",geometry,SECURITY INVOKER
+st_makepointm,"double precision, double precision, double precision",geometry,SECURITY INVOKER
+st_makepolygon,geometry,geometry,SECURITY INVOKER
+st_makepolygon,"geometry, geometry[]",geometry,SECURITY INVOKER
+st_makevalid,"geom geometry, params text",geometry,SECURITY INVOKER
+st_makevalid,geometry,geometry,SECURITY INVOKER
+st_maxdistance,"geom1 geometry, geom2 geometry",double precision,SECURITY INVOKER
+st_maximuminscribedcircle,"geometry, OUT center geometry, OUT nearest geometry, OUT radius double precision",record,SECURITY INVOKER
+st_memsize,geometry,integer,SECURITY INVOKER
+st_minimumboundingcircle,"inputgeom geometry, segs_per_quarter integer DEFAULT 48",geometry,SECURITY INVOKER
+st_minimumboundingradius,"geometry, OUT center geometry, OUT radius double precision",record,SECURITY INVOKER
+st_minimumclearance,geometry,double precision,SECURITY INVOKER
+st_minimumclearanceline,geometry,geometry,SECURITY INVOKER
+st_mlinefromtext,"text, integer",geometry,SECURITY INVOKER
+st_mlinefromtext,text,geometry,SECURITY INVOKER
+st_mlinefromwkb,"bytea, integer",geometry,SECURITY INVOKER
+st_mlinefromwkb,bytea,geometry,SECURITY INVOKER
+st_mpointfromtext,"text, integer",geometry,SECURITY INVOKER
+st_mpointfromtext,text,geometry,SECURITY INVOKER
+st_mpointfromwkb,bytea,geometry,SECURITY INVOKER
+st_mpointfromwkb,"bytea, integer",geometry,SECURITY INVOKER
+st_mpolyfromtext,text,geometry,SECURITY INVOKER
+st_mpolyfromtext,"text, integer",geometry,SECURITY INVOKER
+st_mpolyfromwkb,bytea,geometry,SECURITY INVOKER
+st_mpolyfromwkb,"bytea, integer",geometry,SECURITY INVOKER
+st_multi,geometry,geometry,SECURITY INVOKER
+st_multilinefromwkb,bytea,geometry,SECURITY INVOKER
+st_multilinestringfromtext,text,geometry,SECURITY INVOKER
+st_multilinestringfromtext,"text, integer",geometry,SECURITY INVOKER
+st_multipointfromtext,text,geometry,SECURITY INVOKER
+st_multipointfromwkb,"bytea, integer",geometry,SECURITY INVOKER
+st_multipointfromwkb,bytea,geometry,SECURITY INVOKER
+st_multipolyfromwkb,"bytea, integer",geometry,SECURITY INVOKER
+st_multipolyfromwkb,bytea,geometry,SECURITY INVOKER
+st_multipolygonfromtext,text,geometry,SECURITY INVOKER
+st_multipolygonfromtext,"text, integer",geometry,SECURITY INVOKER
+st_ndims,geometry,smallint,SECURITY INVOKER
+st_node,g geometry,geometry,SECURITY INVOKER
+st_normalize,geom geometry,geometry,SECURITY INVOKER
+st_npoints,geometry,integer,SECURITY INVOKER
+st_nrings,geometry,integer,SECURITY INVOKER
+st_numgeometries,geometry,integer,SECURITY INVOKER
+st_numinteriorring,geometry,integer,SECURITY INVOKER
+st_numinteriorrings,geometry,integer,SECURITY INVOKER
+st_numpatches,geometry,integer,SECURITY INVOKER
+st_numpoints,geometry,integer,SECURITY INVOKER
+st_offsetcurve,"line geometry, distance double precision, params text DEFAULT ''::text",geometry,SECURITY INVOKER
+st_orderingequals,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+st_orientedenvelope,geometry,geometry,SECURITY INVOKER
+st_overlaps,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+st_patchn,"geometry, integer",geometry,SECURITY INVOKER
+st_perimeter,"geog geography, use_spheroid boolean DEFAULT true",double precision,SECURITY INVOKER
+st_perimeter,geometry,double precision,SECURITY INVOKER
+st_perimeter2d,geometry,double precision,SECURITY INVOKER
+st_point,"double precision, double precision, srid integer",geometry,SECURITY INVOKER
+st_point,"double precision, double precision",geometry,SECURITY INVOKER
+st_pointfromgeohash,"text, integer DEFAULT NULL::integer",geometry,SECURITY INVOKER
+st_pointfromtext,text,geometry,SECURITY INVOKER
+st_pointfromtext,"text, integer",geometry,SECURITY INVOKER
+st_pointfromwkb,"bytea, integer",geometry,SECURITY INVOKER
+st_pointfromwkb,bytea,geometry,SECURITY INVOKER
+st_pointinsidecircle,"geometry, double precision, double precision, double precision",boolean,SECURITY INVOKER
+st_pointm,"xcoordinate double precision, ycoordinate double precision, mcoordinate double precision, srid integer DEFAULT 0",geometry,SECURITY INVOKER
+st_pointn,"geometry, integer",geometry,SECURITY INVOKER
+st_pointonsurface,geometry,geometry,SECURITY INVOKER
+st_points,geometry,geometry,SECURITY INVOKER
+st_pointz,"xcoordinate double precision, ycoordinate double precision, zcoordinate double precision, srid integer DEFAULT 0",geometry,SECURITY INVOKER
+st_pointzm,"xcoordinate double precision, ycoordinate double precision, zcoordinate double precision, mcoordinate double precision, srid integer DEFAULT 0",geometry,SECURITY INVOKER
+st_polyfromtext,"text, integer",geometry,SECURITY INVOKER
+st_polyfromtext,text,geometry,SECURITY INVOKER
+st_polyfromwkb,bytea,geometry,SECURITY INVOKER
+st_polyfromwkb,"bytea, integer",geometry,SECURITY INVOKER
+st_polygon,"geometry, integer",geometry,SECURITY INVOKER
+st_polygonfromtext,"text, integer",geometry,SECURITY INVOKER
+st_polygonfromtext,text,geometry,SECURITY INVOKER
+st_polygonfromwkb,"bytea, integer",geometry,SECURITY INVOKER
+st_polygonfromwkb,bytea,geometry,SECURITY INVOKER
+st_polygonize,geometry[],geometry,SECURITY INVOKER
+st_project,"geog geography, distance double precision, azimuth double precision",geography,SECURITY INVOKER
+st_quantizecoordinates,"g geometry, prec_x integer, prec_y integer DEFAULT NULL::integer, prec_z integer DEFAULT NULL::integer, prec_m integer DEFAULT NULL::integer",geometry,SECURITY INVOKER
+st_reduceprecision,"geom geometry, gridsize double precision",geometry,SECURITY INVOKER
+st_relate,"geom1 geometry, geom2 geometry",text,SECURITY INVOKER
+st_relate,"geom1 geometry, geom2 geometry, text",boolean,SECURITY INVOKER
+st_relate,"geom1 geometry, geom2 geometry, integer",text,SECURITY INVOKER
+st_relatematch,"text, text",boolean,SECURITY INVOKER
+st_removepoint,"geometry, integer",geometry,SECURITY INVOKER
+st_removerepeatedpoints,"geom geometry, tolerance double precision DEFAULT 0.0",geometry,SECURITY INVOKER
+st_reverse,geometry,geometry,SECURITY INVOKER
+st_rotate,"geometry, double precision",geometry,SECURITY INVOKER
+st_rotate,"geometry, double precision, double precision, double precision",geometry,SECURITY INVOKER
+st_rotate,"geometry, double precision, geometry",geometry,SECURITY INVOKER
+st_rotatex,"geometry, double precision",geometry,SECURITY INVOKER
+st_rotatey,"geometry, double precision",geometry,SECURITY INVOKER
+st_rotatez,"geometry, double precision",geometry,SECURITY INVOKER
+st_scale,"geometry, double precision, double precision",geometry,SECURITY INVOKER
+st_scale,"geometry, double precision, double precision, double precision",geometry,SECURITY INVOKER
+st_scale,"geometry, geometry",geometry,SECURITY INVOKER
+st_scale,"geometry, geometry, origin geometry",geometry,SECURITY INVOKER
+st_scroll,"geometry, geometry",geometry,SECURITY INVOKER
+st_segmentize,"geometry, double precision",geometry,SECURITY INVOKER
+st_segmentize,"geog geography, max_segment_length double precision",geography,SECURITY INVOKER
+st_seteffectivearea,"geometry, double precision DEFAULT '-1'::integer, integer DEFAULT 1",geometry,SECURITY INVOKER
+st_setpoint,"geometry, integer, geometry",geometry,SECURITY INVOKER
+st_setsrid,"geom geometry, srid integer",geometry,SECURITY INVOKER
+st_setsrid,"geog geography, srid integer",geography,SECURITY INVOKER
+st_sharedpaths,"geom1 geometry, geom2 geometry",geometry,SECURITY INVOKER
+st_shiftlongitude,geometry,geometry,SECURITY INVOKER
+st_shortestline,"geom1 geometry, geom2 geometry",geometry,SECURITY INVOKER
+st_simplify,"geometry, double precision, boolean",geometry,SECURITY INVOKER
+st_simplify,"geometry, double precision",geometry,SECURITY INVOKER
+st_simplifypolygonhull,"geom geometry, vertex_fraction double precision, is_outer boolean DEFAULT true",geometry,SECURITY INVOKER
+st_simplifypreservetopology,"geometry, double precision",geometry,SECURITY INVOKER
+st_simplifyvw,"geometry, double precision",geometry,SECURITY INVOKER
+st_snap,"geom1 geometry, geom2 geometry, double precision",geometry,SECURITY INVOKER
+st_snaptogrid,"geometry, double precision, double precision",geometry,SECURITY INVOKER
+st_snaptogrid,"geometry, double precision",geometry,SECURITY INVOKER
+st_snaptogrid,"geom1 geometry, geom2 geometry, double precision, double precision, double precision, double precision",geometry,SECURITY INVOKER
+st_snaptogrid,"geometry, double precision, double precision, double precision, double precision",geometry,SECURITY INVOKER
+st_split,"geom1 geometry, geom2 geometry",geometry,SECURITY INVOKER
+st_square,"size double precision, cell_i integer, cell_j integer, origin geometry DEFAULT '010100000000000000000000000000000000000000'::geometry",geometry,SECURITY INVOKER
+st_squaregrid,"size double precision, bounds geometry, OUT geom geometry, OUT i integer, OUT j integer",SETOF record,SECURITY INVOKER
+st_srid,geom geometry,integer,SECURITY INVOKER
+st_srid,geog geography,integer,SECURITY INVOKER
+st_startpoint,geometry,geometry,SECURITY INVOKER
+st_subdivide,"geom geometry, maxvertices integer DEFAULT 256, gridsize double precision DEFAULT '-1.0'::numeric",SETOF geometry,SECURITY INVOKER
+st_summary,geometry,text,SECURITY INVOKER
+st_summary,geography,text,SECURITY INVOKER
+st_swapordinates,"geom geometry, ords cstring",geometry,SECURITY INVOKER
+st_symdifference,"geom1 geometry, geom2 geometry, gridsize double precision DEFAULT '-1.0'::numeric",geometry,SECURITY INVOKER
+st_symmetricdifference,"geom1 geometry, geom2 geometry",geometry,SECURITY INVOKER
+st_tileenvelope,"zoom integer, x integer, y integer, bounds geometry DEFAULT '0102000020110F00000200000093107C45F81B73C193107C45F81B73C193107C45F81B734193107C45F81B7341'::geometry, margin double precision DEFAULT 0.0",geometry,SECURITY INVOKER
+st_touches,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+st_transform,"geometry, integer",geometry,SECURITY INVOKER
+st_transform,"geom geometry, to_proj text",geometry,SECURITY INVOKER
+st_transform,"geom geometry, from_proj text, to_srid integer",geometry,SECURITY INVOKER
+st_transform,"geom geometry, from_proj text, to_proj text",geometry,SECURITY INVOKER
+st_translate,"geometry, double precision, double precision, double precision",geometry,SECURITY INVOKER
+st_translate,"geometry, double precision, double precision",geometry,SECURITY INVOKER
+st_transscale,"geometry, double precision, double precision, double precision, double precision",geometry,SECURITY INVOKER
+st_triangulatepolygon,g1 geometry,geometry,SECURITY INVOKER
+st_unaryunion,"geometry, gridsize double precision DEFAULT '-1.0'::numeric",geometry,SECURITY INVOKER
+st_union,"geom1 geometry, geom2 geometry, gridsize double precision",geometry,SECURITY INVOKER
+st_union,geometry[],geometry,SECURITY INVOKER
+st_union,"geom1 geometry, geom2 geometry",geometry,SECURITY INVOKER
+st_voronoilines,"g1 geometry, tolerance double precision DEFAULT 0.0, extend_to geometry DEFAULT NULL::geometry",geometry,SECURITY INVOKER
+st_voronoipolygons,"g1 geometry, tolerance double precision DEFAULT 0.0, extend_to geometry DEFAULT NULL::geometry",geometry,SECURITY INVOKER
+st_within,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+st_wkbtosql,wkb bytea,geometry,SECURITY INVOKER
+st_wkttosql,text,geometry,SECURITY INVOKER
+st_wrapx,"geom geometry, wrap double precision, move double precision",geometry,SECURITY INVOKER
+st_x,geometry,double precision,SECURITY INVOKER
+st_xmax,box3d,double precision,SECURITY INVOKER
+st_xmin,box3d,double precision,SECURITY INVOKER
+st_y,geometry,double precision,SECURITY INVOKER
+st_ymax,box3d,double precision,SECURITY INVOKER
+st_ymin,box3d,double precision,SECURITY INVOKER
+st_z,geometry,double precision,SECURITY INVOKER
+st_zmax,box3d,double precision,SECURITY INVOKER
+st_zmflag,geometry,smallint,SECURITY INVOKER
+st_zmin,box3d,double precision,SECURITY INVOKER
+subscribe_to_market_box_if_capacity,"p_offering_id uuid, p_buyer_user_id uuid, p_order_id uuid, p_total_paid_cents integer, p_start_date date, p_term_weeks integer, p_stripe_payment_intent_id text",json,SECURITY DEFINER
+subscribe_to_market_box_if_capacity,"p_offering_id uuid, p_buyer_user_id uuid, p_order_id uuid, p_total_paid_cents integer, p_start_date date, p_term_weeks integer, p_stripe_payment_intent_id text, p_pickup_frequency text DEFAULT 'weekly'::text",json,SECURITY DEFINER
+sync_event_request_to_market,,trigger,SECURITY DEFINER
+sync_verification_status,,trigger,SECURITY DEFINER
+text,geometry,text,SECURITY INVOKER
+track_vendor_status_change,,trigger,SECURITY DEFINER
+trg_refresh_vendor_location,,trigger,SECURITY DEFINER
+trigger_cleanup_cart_on_schedule_change,,trigger,SECURITY DEFINER
+trigger_generate_referral_code,,trigger,SECURITY INVOKER
+unlockrows,text,integer,SECURITY INVOKER
+update_error_reports_updated_at,,trigger,SECURITY INVOKER
+update_error_resolutions_updated_at,,trigger,SECURITY INVOKER
+update_market_booth_inventory_updated_at,,trigger,SECURITY INVOKER
+update_market_booth_placeholders_updated_at,,trigger,SECURITY INVOKER
+update_support_tickets_updated_at,,trigger,SECURITY INVOKER
+update_updated_at_column,,trigger,SECURITY INVOKER
+update_vendor_activity_on_listing,,trigger,SECURITY DEFINER
+update_vendor_activity_on_order,,trigger,SECURITY DEFINER
+update_vendor_fee_balance,,trigger,SECURITY DEFINER
+update_vendor_last_login,,trigger,SECURITY DEFINER
+update_vendor_rating_stats,,trigger,SECURITY INVOKER
+update_weekly_booth_rentals_updated_at,,trigger,SECURITY INVOKER
+updategeometrysrid,"character varying, character varying, integer",text,SECURITY INVOKER
+updategeometrysrid,"catalogn_name character varying, schema_name character varying, table_name character varying, column_name character varying, new_srid_in integer",text,SECURITY INVOKER
+updategeometrysrid,"character varying, character varying, character varying, integer",text,SECURITY INVOKER
+user_buyer_order_ids,,SETOF uuid,SECURITY DEFINER
+user_is_subscription_buyer,sub_id uuid,boolean,SECURITY DEFINER
+user_is_subscription_vendor,sub_id uuid,boolean,SECURITY DEFINER
+user_owns_vendor,vendor_id uuid,boolean,SECURITY DEFINER
+user_vendor_market_ids,,SETOF uuid,SECURITY DEFINER
+user_vendor_order_ids,,SETOF uuid,SECURITY DEFINER
+user_vendor_profile_ids,,SETOF uuid,SECURITY DEFINER
+validate_cart_item_inventory,"p_listing_id uuid, p_quantity integer",boolean,SECURITY DEFINER
+validate_cart_item_market,"p_listing_id uuid, p_market_id uuid",boolean,SECURITY DEFINER
+validate_cart_item_schedule,"p_listing_id uuid, p_schedule_id uuid, p_pickup_date date",boolean,SECURITY DEFINER
+validate_pickup_slot_time,"p_vendor_profile_id uuid, p_market_id uuid, p_pickup_date date, p_pickup_time time without time zone",boolean,SECURITY DEFINER
+vendor_has_active_schedules,"p_vendor_profile_id uuid, p_market_id uuid",boolean,SECURITY DEFINER
+vendor_skip_week,"p_pickup_id uuid, p_reason text DEFAULT NULL::text","TABLE(skipped_pickup_id uuid, extension_pickup_id uuid, new_scheduled_date date, new_extended_weeks integer)",SECURITY DEFINER

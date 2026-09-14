@@ -1,5 +1,35 @@
 # Backlog
 
+## 🧪 OWNER TEST ROUND — 2026-09-13 evening (staging `d704d3bb`; the 09-07 fix round, items 11–17)
+
+**Passed by owner:** 12 apply-button managed-only + copy · 13 booking-page operating-days line · 14 admin markets slim
+table · 17 admin event-blocking section. Recorded here so the 09-07 round is closed except for the two items below.
+
+1. [ ] **🔴 RULED 2026-09-13 (decisions.md): the checkbox gates BOTH verticals — BUILD PENDING. Item 11: FM vendor double-booked the same Saturday time at two traditional markets with
+   "I can staff more than one location at the same time" UNCHECKED (`/vendor/edit`).** Owner: "vendors should not be
+   able to double book without confirming they can cover two places." ⚠ This CONTRADICTS the current design: mig 066's
+   conflict trigger was deliberately scoped to food trucks by mig 247 (2026-09-07) because the API layer "deliberately
+   exempts FM (cross-market product conflicts are caught at listing-publish time)" — see the 247 changelog row. So today
+   FM = no same-day/same-time conflict check anywhere at booking time (UNVERIFIED which code path the owner's booking
+   took — schedule toggle vs booth booking; the test text's "toggle attendance ON" control does not exist on
+   `/vendor/markets` per the owner). Before any code: owner rules whether the FM exemption stands or the multi-location
+   checkbox must gate BOTH verticals. If the latter, the fix is a rule change touching the trigger (migration, function
+   replace — pull `pg_get_functiondef` first) and/or the schedules route, plus a business-rule test. Not for tonight.
+2. [ ] **Item 13 follow-up (UX): the operating-days line renders ABOVE the market map on `/…/markets/[id]/book` when a
+   map is uploaded.** Owner: land it BELOW the map and ABOVE the week + booth-size selection box, where it informs the
+   choice. Display-only.
+3. [ ] **DESIGN QUESTION — bundle purchase review prompt.** After a market-bundle purchase the buyer was asked to
+   evaluate "the vendor". Owner asks: does the buyer evaluate ALL vendors in a bundle, or one? Should the BUNDLE (as a
+   product) receive the star review, or the vendors? Nothing read yet — start at the rating prompt's data source
+   (order → order_items → vendor) and `market_bundles`; a bundle order carries `orders.bundle_id` (mig 244).
+4. [ ] **UX — `/[vertical]/admin/events` page structure.** Owner: lots of valuable info, but sections blur together and
+   related pieces sit apart. Asks: (a) section headings ~2pt larger, (b) ~½-line more vertical space between sections,
+   (c) regroup so the info an admin needs to manage/oversee an event sits together. Inventory the sections first
+   (verification-discipline Rule 7 — map every block before proposing the grouping).
+
+5. [ ] **Prod gap from mig 238 (known, low):** two event acceptances on Prod predate the blackout table — event "Chef Prep Pop-Up Market" (FM), vendor profiles `ee000000-0001-4000-8000-000000000001` and `ee000000-0003-4000-8000-000000000003` (both the owner’s test vendors, acceptances 2026-03-30). No `vendor_date_blackouts` rows sourced from that event. Effect, if any: those two profiles could show regular pickup dates on the event day at their home market. Owner-only profiles → left as-is 2026-09-13. Fix if wanted = a service-side INSERT of the two rows (schema-gate read first), not a migration.
+
+
 ## 🚦 BROWSE AT VOLUME — the real scale item (H1 + the radius filter, same problem)
 
 **Not urgent at current volume; it is the reason Traffic scored 4/10 in the 2026-09-10 launch review.**

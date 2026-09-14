@@ -1,3 +1,62 @@
+# 🏁 2026-09-13 (session 2) — PROD CAUGHT UP: `d704d3bb` + migs 238→251 · E0 SHIPPED · F-1/F-2/F-4/F-10 CLOSED EVERYWHERE
+
+**DONE 2026-09-13 ~8 PM CT (owner-run):** 238→247 pasted on Prod → code pushed `e946c2c0..d704d3bb main -> main` (owner ran it with `PUSH_WINDOW_OVERRIDE=hotfix` after confirming nobody was on the platform; the auto-mode classifier blocks Claude from running the override) → Vercel Ready → 248→251 pasted → 12-row catalog post-check on Prod matched Staging on every row. Mig 225 never pasted. **Bookkeeping done in tree (uncommitted): 14 files → `applied/`, 14 changelog rows → ALL THREE ENVIRONMENTS, snapshot header note, CLAUDE_CONTEXT migrations line + session row, decisions.md item-11 ruling, backlog.** ✅ Owner critical-path pass on Prod: pages · login · located browse (radius changes count) PASS. ⏳ **Checkout and ack+fulfill NOT run on Prod — no real vendor with Stripe set up yet; the first real Prod order is the remaining behavioural proof of 249/250/251 (structurally confirmed by the catalog post-check; behaviourally proven on Staging).** **Next: commit + push staging (owner word), then prod docs-only push.**
+
+---
+
+# (earlier in the session) E0 build + runbook, kept for the record
+
+**Git verified at kickoff:** local `main` = `origin/staging` = `3f6b61ce` (the close block below is stale on this point — its "2 commits unpushed" were pushed before session end). Prod `origin/main` = `e946c2c0`, 109 behind. Vercel staging green on `3f6b61c` (owner).
+
+**Prod measured, not inferred (owner-run catalog Script A, 2026-09-13):** NONE of migs 238→251 present on Prod; `anon` and `authenticated` can still EXECUTE `vendor_skip_week`; `authenticated` can still INSERT `orders`/`order_items`; 0 `trg_251_*` triggers. Staging: all 20 checks match the record. **F-1/F-2/F-4/F-10 confirmed live on Prod.**
+
+**Owner smoke on staging (2026-09-13):** items 2, 3, 4 PASS (item 4 was a REGULAR listing order → 251 order_items guard allows a legitimate ack). Market-box: box alone reaches payment; box + other-market listing → multi-location notice, pays. **Item 1 (vendor skip-a-week, the sharpest mig-250 test) was NOT run — still open.** Five findings from the smoke are already in backlog.md (market-box section).
+
+**E0 evidence, fresh this session:** `get_listings_within_radius` raises 42804 on Staging AND Prod (owner-run, "Returned type vendor_status does not match expected type text in column 15"). `error_logs` on Staging: 130 rows pg_code 42804 attributed to it, 2026-09-11 16:13 → 2026-09-13 23:23. Prod: 0 rows (lacks `51a1b13c`). Browse with a location set works on staging (owner: result count changes with radius).
+
+**E0 built (owner: "go with A" — delete the call, JS Haversine only; option C = radius-first rebuild stays in backlog with H1):**
+- `src/app/[vertical]/browse/page.tsx` — RPC call + result branch removed; Haversine filter now unconditional inside `if (resolvedLocation && listings…)`; 3 duplicate assignments dropped (already set at the `if (resolvedLocation)` block above); `sanitizedSearch` (RPC-only) removed; comment rewritten to point at PERFORMANCE_BASELINE.md.
+- `docs/Codebase_Map/20_Buyer_Public.md` — browse paragraph rewritten (it claimed the RPC "is where vertical isolation happens" — false; the catalog query's `.eq('vertical_id')` is); stamp → 2026-09-13 / 3f6b61ce; `00_INDEX.md` row bumped.
+- Gates: eslint 0 · tsc 0 · vitest 90 files / 2225 tests / exit 0. **No test file changed.**
+
+**E0 SHIPPED `d704d3bb` (staging, Vercel Ready, owner-verified: radius works; 42804 rows stopped after a hard refresh — the 6 rows at 00:04–00:05 UTC came from a pre-deploy tab, ~70% hypothesis).**
+
+## ▶ PROD PUSH RUNBOOK — 2026-09-13 night (owner-approved sequence; window 21:00–07:00 CT)
+
+**State going in:** staging = `d704d3bb`, Vercel Ready, owner-verified (4 smoke items + market-box both halves + E0
+proven: zero new 42804 rows after a hard refresh). Prod = `e946c2c0`; Script A on Prod 2026-09-13 = NONE of 238→251
+present. **Uncommitted in tree on purpose:** `decisions.md` + `backlog.md` (item-11 ruling) — commit them AFTER the
+push so Prod receives exactly the staging-verified commit.
+
+**STOP RULE (any model, any step):** a paste error, a Prod post-check row that differs from Staging, or a hook failure
+→ STOP, report verbatim, do not fix forward. No `--no-verify`, no amend, no rebase.
+
+1. **Owner pastes on PROD, in order, one at a time, result before the next.** All ten are paste-and-go per their
+   changelog rows (238 inert · 239/240/241 additive · 242/243/244 additive+inert · 245 function replace, 2-arg with
+   DEFAULT so Prod's 1-arg callers keep working · 246 additive · 247 function replace). May run before the window.
+   `20260827_238_vendor_date_blackouts` → `20260829_239_invitation_gate` → `20260829_240_survey_other_places` →
+   `20260903_241_event_menu_host_status` → `20260904_242_vendor_vip_customers` →
+   `20260904_243_vendor_offers_discount_plumbing` → `20260905_244_market_bundles` →
+   `20260905_245_browse_pill_exclude_event_markets` → `20260906_246_bundle_buyer_ack` →
+   `20260907_247_fm_exempt_schedule_conflict_trigger`.
+   ⛔ `20260812_225_*` is NEVER pasted (its header: superseded by 234, which is on Prod since 2026-08-16).
+   After 238: write the backlog's "acceptances made before the paste" read-only check — FRESH schema read of
+   `vendor_date_blackouts` + `market_vendors` in the same turn before composing it.
+2. **Code push (≥ 21:00 CT, owner says go).** Rule 7 explanation first (prod deploy; push-window hook fires; pre-push
+   = build + Playwright; commit cannot be amended after). Chain: `git checkout main && git push origin main`.
+   Verify by the ref-update line + `git log origin/main -1` = `d704d3bb`. Then owner confirms Vercel Production
+   shows `d704d3b` Ready.
+3. **Owner pastes on PROD, only after step 2 is live:** `20260911_248_revoke_public_execute_write_functions` →
+   `20260911_249_order_money_columns_service_only` → `20260912_250_lockdown_write_functions` →
+   `20260912_251_order_actor_guards`. (248/249 rows: code FIRST or checkout + skip-a-week break.)
+4. **Post-checks:** Script A on Prod (the 20-row catalog script from this session; drop the current_database row) —
+   every row must match Staging's grid. Owner critical path: pages load · login · one browse with a location set
+   (radius changes count) · one checkout.
+5. **Bookkeeping (standing approval, no re-ask):** snapshot changelog rows 238→251 → "ALL THREE ENVIRONMENTS (Prod
+   2026-09-1x, owner)"; move the 14 files to `supabase/migrations/applied/` per `docs/migration-workflow.md`;
+   CLAUDE_CONTEXT.md applied-migrations table + session row; then PROPOSE the commit (+ the two .claude doc edits)
+   and the staging push — commit needs the owner's word.
+
 # ⛳ 2026-09-13 (session 2) — E0 BUILT IN WORKING TREE, GATES GREEN, NOT YET COMMITTED
 
 **Git verified at kickoff:** local `main` = `origin/staging` = `3f6b61ce` (the close block below is stale on this point — its "2 commits unpushed" were pushed before session end). Prod `origin/main` = `e946c2c0`, 109 behind. Vercel staging green on `3f6b61c` (owner).

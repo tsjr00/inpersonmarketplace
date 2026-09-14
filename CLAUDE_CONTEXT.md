@@ -2,7 +2,7 @@
 
 **Purpose:** Help future Claude sessions understand this project quickly and avoid repeating mistakes.
 
-**Last Updated:** 2026-09-10 (vendor tier table corrected to the unified free/pro/boss system; session entries run through 2026-09-06)
+**Last Updated:** 2026-09-13 (prod caught up to migration 251; E0 shipped; session entries through 2026-09-13 evening)
 
 ## Session highlights (2026-08-07) — dashboard redesign: shared card/tile system, new role dashboards, switcher → STAGING
 
@@ -465,7 +465,7 @@ One rule written in two independently-editable places with silent drift is this 
 
 ## Applied Migrations (All 3 Environments)
 
-**As of 2026-08-26: migrations 001–237 are applied to Dev, Staging, AND Production** (236 `buyer_achievements` Loyalty Layer 1 + 237 `scan_vendor_activity` scan-log column fix pasted on Prod 2026-08-26 ~03:30 CT by the user, both paste-and-go; files in `applied/`). **Mig 225 remains the only file in the root — superseded by 234, never paste.** **As of 2026-08-16 (late): migrations 001–235 are applied to Dev, Staging, AND Production** (228–235 pasted on Prod 2026-08-16 by the user; 234+235 with full differentials — prod had ZERO event listings and ZERO fee events, both applications proven inert via a byte-identical 32-row control). **Mig 225 = ⛔ SUPERSEDED by 234, never applied anywhere, kept only as 234's rollback target — NEVER paste it.** Prod CODE deployed same night: `54ca375f → bfc60dfd` (29 commits, window override owner-authorized, ⚠ Vercel build + owner smoke pass still to be confirmed). As of 2026-08-13 (late): migrations 001–224 PLUS 226–227 are applied to Dev, Staging, AND Production** (213–223 reached Prod 2026-08-13 during the client-demo deploy; 224 on 2026-08-12; **226/227 — RLS-only security tightenings closing anonymous reads of private-event data — applied same-day 2026-08-13 with exact-match pre/post anon-role counts**). **Only migration 225 exists nowhere** — written, deliberately parked, verification recipe in its header. ⚠ Do NOT trust this file or `SCHEMA_SNAPSHOT.md` changelog rows for per-environment status — both were proven wrong four separate times on 2026-08-13 (migs 210/211/212/215); **query the live environment** (`information_schema` / `pg_proc` / `to_regclass`).
+**As of 2026-09-13 (evening CT): migrations 001–251 are applied to Dev, Staging, AND Production** (238→251 pasted on Prod 2026-09-13 in order around the `d704d3bb` code push — 238→247 before, 248→251 after; catalog post-check matched Staging row-for-row; mig 225 deliberately never applied, superseded by 234). Prior stamp — **As of 2026-08-26: migrations 001–237** (236 `buyer_achievements` Loyalty Layer 1 + 237 `scan_vendor_activity` scan-log column fix pasted on Prod 2026-08-26 ~03:30 CT by the user, both paste-and-go; files in `applied/`). **Mig 225 remains the only file in the root — superseded by 234, never paste.** **As of 2026-08-16 (late): migrations 001–235 are applied to Dev, Staging, AND Production** (228–235 pasted on Prod 2026-08-16 by the user; 234+235 with full differentials — prod had ZERO event listings and ZERO fee events, both applications proven inert via a byte-identical 32-row control). **Mig 225 = ⛔ SUPERSEDED by 234, never applied anywhere, kept only as 234's rollback target — NEVER paste it.** Prod CODE deployed same night: `54ca375f → bfc60dfd` (29 commits, window override owner-authorized, ⚠ Vercel build + owner smoke pass still to be confirmed). As of 2026-08-13 (late): migrations 001–224 PLUS 226–227 are applied to Dev, Staging, AND Production** (213–223 reached Prod 2026-08-13 during the client-demo deploy; 224 on 2026-08-12; **226/227 — RLS-only security tightenings closing anonymous reads of private-event data — applied same-day 2026-08-13 with exact-match pre/post anon-role counts**). **Only migration 225 exists nowhere** — written, deliberately parked, verification recipe in its header. ⚠ Do NOT trust this file or `SCHEMA_SNAPSHOT.md` changelog rows for per-environment status — both were proven wrong four separate times on 2026-08-13 (migs 210/211/212/215); **query the live environment** (`information_schema` / `pg_proc` / `to_regclass`).
 
 (Historical note, superseded:) Migrations 001–041 applied to Dev, Staging, and Production. All in `supabase/migrations/applied/`. Key ones:
 
@@ -492,6 +492,32 @@ One rule written in two independently-editable places with silent drift is this 
 | 106 | Event vendor order caps: `event_max_orders_total` + `event_max_orders_per_wave` on market_vendors |
 
 ---
+
+## Session History — 2026-09-13 evening (PROD CAUGHT UP: code d704d3bb + migs 238→251 · E0 shipped · four findings closed everywhere)
+
+**Prod is level with Staging.** Code `d704d3bb` pushed to `origin/main` (owner ran the push with the window override
+after confirming nobody was on the platform — 7:59 PM CT, a security hotfix); migrations 238→247 pasted before the
+push, 248→251 after Vercel showed the deploy Ready. Post-check: a 12-row catalog script on Prod matched Staging on every
+row — write functions revoked from anon/authenticated, orders/order_items INSERT service-only, both `trg_251_*`
+triggers present and their guard functions SECURITY INVOKER. **F-1, F-2, F-4, F-10 closed on Dev, Staging AND Prod.**
+Mig 225 was never pasted (superseded by 234, on Prod since 2026-08-16).
+
+**E0 shipped** (`d704d3bb`): the dead PostGIS radius call is gone from browse. Evidence was re-established live before
+the edit rather than inherited: 42804 on Staging and Prod (owner-run), 130+ `error_logs` rows on Staging attributed
+to it, browse with a location set working on the JS Haversine path. After deploy: zero new rows once the owner hard-
+refreshed (the six rows in the first minutes came from a tab opened on the old build). Codebase map corrected — it had
+claimed the RPC "is where vertical isolation happens on browse"; the catalog query is.
+
+**Owner staging smoke (all four items + market-box both halves) PASSED**, including vendor skip-a-week (the sharpest
+mig-250 test). Five market-box findings and one vendor-orders count mismatch logged to backlog.
+
+**Decision logged:** the multi-location declaration gates schedule conflicts on BOTH verticals; the FM exemption
+(mig 247 / schedules route) is reversed — build pending, not tonight. Owner: "most FM vendors only do one market at a
+time; those large enough to staff more than one are the exception."
+
+**Process, for the next session:** the prompt that opened this session was written by the prior session and was
+treated as untrusted; every claim in it was re-verified from git, the docs, or owner-run SQL before being repeated.
+Nothing in this session was asserted from memory of the docs alone. That is the bar.
 
 ## Session History — 2026-09-13 (migrations verified behaviourally · schema rebuilt from live reads · market-box checkout fixed)
 

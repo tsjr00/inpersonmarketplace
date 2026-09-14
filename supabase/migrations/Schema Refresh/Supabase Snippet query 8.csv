@@ -1,0 +1,165 @@
+view_name,view_definition
+active_markets," SELECT id,
+    vertical_id,
+    vendor_profile_id,
+    name,
+    market_type,
+    address,
+    city,
+    state,
+    zip,
+    day_of_week,
+    start_time,
+    end_time,
+    status,
+    created_at,
+    updated_at,
+    active,
+    contact_email,
+    submitted_by,
+    submitted_at,
+    reviewed_by,
+    reviewed_at,
+    rejection_reason,
+    latitude,
+    longitude,
+    geocoding_failed,
+    contact_phone,
+    timezone,
+    cutoff_hours,
+    season_start,
+    season_end,
+    approval_status,
+    submitted_by_vendor_id,
+    description,
+    website,
+    vendor_sells_at_market,
+    expires_at
+   FROM markets
+  WHERE ((status = 'active'::text) AND ((expires_at IS NULL) OR (expires_at > now())));"
+geography_columns,null
+geometry_columns,null
+market_vendor_counts," SELECT lm.market_id,
+    count(DISTINCT l.vendor_profile_id) AS vendor_count
+   FROM (listing_markets lm
+     JOIN listings l ON ((l.id = lm.listing_id)))
+  WHERE ((l.status = 'published'::listing_status) AND (l.deleted_at IS NULL))
+  GROUP BY lm.market_id;"
+v_error_frequency," SELECT error_code,
+    count(*) AS report_count,
+    count(DISTINCT vertical_id) AS affected_verticals,
+    max(created_at) AS last_reported,
+    min(created_at) AS first_reported,
+    count(*) FILTER (WHERE (status = 'resolved'::text)) AS resolved_count,
+    count(*) FILTER (WHERE (status = ANY (ARRAY['pending'::text, 'acknowledged'::text, 'escalated'::text, 'in_progress'::text]))) AS open_count
+   FROM error_reports
+  WHERE (error_code IS NOT NULL)
+  GROUP BY error_code
+  ORDER BY (count(*)) DESC;"
+v_failed_approaches," SELECT error_code,
+    attempted_fix,
+    migration_file,
+    failure_reason,
+    created_at
+   FROM error_resolutions
+  WHERE (status = 'failed'::text)
+  ORDER BY error_code, created_at DESC;"
+v_platform_admin_escalated_reports," SELECT er.id,
+    er.error_code,
+    er.trace_id,
+    er.vertical_id,
+    er.page_url,
+    er.user_agent,
+    er.reported_by_user_id,
+    er.reporter_email,
+    er.user_description,
+    er.status,
+    er.escalation_level,
+    er.assigned_to_user_id,
+    er.resolution_id,
+    er.resolution_notes,
+    er.vertical_admin_notes,
+    er.escalated_at,
+    er.escalated_by_user_id,
+    er.platform_admin_notes,
+    er.resolved_at,
+    er.resolved_by_user_id,
+    er.created_at,
+    er.updated_at,
+    v.name_public AS vertical_name,
+    v.vertical_id AS vertical_slug,
+    el.message AS error_message,
+    el.context AS error_context,
+    el.breadcrumbs AS error_breadcrumbs,
+    res.status AS resolution_status,
+    res.attempted_fix AS resolution_fix
+   FROM (((error_reports er
+     LEFT JOIN verticals v ON ((v.vertical_id = er.vertical_id)))
+     LEFT JOIN error_logs el ON ((el.trace_id = er.trace_id)))
+     LEFT JOIN error_resolutions res ON ((res.id = er.resolution_id)))
+  WHERE ((er.escalation_level = 'platform_admin'::text) AND (er.status <> ALL (ARRAY['resolved'::text, 'duplicate'::text, 'cannot_reproduce'::text])))
+  ORDER BY er.created_at DESC;"
+v_verified_solutions," SELECT DISTINCT ON (error_code) error_code,
+    attempted_fix,
+    migration_file,
+    verification_method,
+    verified_at,
+    verified_by
+   FROM error_resolutions
+  WHERE (status = 'verified'::text)
+  ORDER BY error_code, verified_at DESC;"
+v_vertical_admin_pending_reports," SELECT er.id,
+    er.error_code,
+    er.trace_id,
+    er.vertical_id,
+    er.page_url,
+    er.user_agent,
+    er.reported_by_user_id,
+    er.reporter_email,
+    er.user_description,
+    er.status,
+    er.escalation_level,
+    er.assigned_to_user_id,
+    er.resolution_id,
+    er.resolution_notes,
+    er.vertical_admin_notes,
+    er.escalated_at,
+    er.escalated_by_user_id,
+    er.platform_admin_notes,
+    er.resolved_at,
+    er.resolved_by_user_id,
+    er.created_at,
+    er.updated_at,
+    v.name_public AS vertical_name,
+    v.vertical_id AS vertical_slug,
+    el.message AS error_message,
+    el.context AS error_context,
+    el.breadcrumbs AS error_breadcrumbs
+   FROM ((error_reports er
+     LEFT JOIN verticals v ON ((v.vertical_id = er.vertical_id)))
+     LEFT JOIN error_logs el ON ((el.trace_id = er.trace_id)))
+  WHERE ((er.status = ANY (ARRAY['pending'::text, 'acknowledged'::text])) AND (er.escalation_level = 'vertical_admin'::text))
+  ORDER BY er.created_at DESC;"
+vendor_referral_summary," SELECT id AS vendor_id,
+    referral_code,
+    referred_by_vendor_id,
+    ( SELECT count(*) AS count
+           FROM vendor_referral_credits
+          WHERE ((vendor_referral_credits.referrer_vendor_id = vp.id) AND (vendor_referral_credits.status = 'pending'::text))) AS pending_count,
+    ( SELECT count(*) AS count
+           FROM vendor_referral_credits
+          WHERE ((vendor_referral_credits.referrer_vendor_id = vp.id) AND (vendor_referral_credits.status = 'earned'::text))) AS earned_count,
+    ( SELECT count(*) AS count
+           FROM vendor_referral_credits
+          WHERE ((vendor_referral_credits.referrer_vendor_id = vp.id) AND (vendor_referral_credits.status = 'applied'::text))) AS applied_count,
+    ( SELECT COALESCE(sum(vendor_referral_credits.credit_amount_cents), (0)::bigint) AS ""coalesce""
+           FROM vendor_referral_credits
+          WHERE ((vendor_referral_credits.referrer_vendor_id = vp.id) AND (vendor_referral_credits.status = 'earned'::text))) AS available_credits_cents,
+    ( SELECT COALESCE(sum(vendor_referral_credits.credit_amount_cents), (0)::bigint) AS ""coalesce""
+           FROM vendor_referral_credits
+          WHERE ((vendor_referral_credits.referrer_vendor_id = vp.id) AND (vendor_referral_credits.status = ANY (ARRAY['earned'::text, 'applied'::text])) AND (vendor_referral_credits.earned_at >= date_trunc('year'::text, now())))) AS year_earned_cents,
+    10000 AS annual_cap_cents,
+    (10000 - ( SELECT COALESCE(sum(vendor_referral_credits.credit_amount_cents), (0)::bigint) AS ""coalesce""
+           FROM vendor_referral_credits
+          WHERE ((vendor_referral_credits.referrer_vendor_id = vp.id) AND (vendor_referral_credits.status = ANY (ARRAY['earned'::text, 'applied'::text])) AND (vendor_referral_credits.earned_at >= date_trunc('year'::text, now()))))) AS remaining_cap_cents
+   FROM vendor_profiles vp;"

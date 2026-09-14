@@ -1,0 +1,101 @@
+function_name,arguments,return_type,security
+_postgis_deprecate,"oldname text, newname text, version text",void,SECURITY INVOKER
+_postgis_index_extent,"tbl regclass, col text",box2d,SECURITY INVOKER
+_postgis_join_selectivity,"regclass, text, regclass, text, text DEFAULT '2'::text",double precision,SECURITY INVOKER
+_postgis_pgsql_version,,text,SECURITY INVOKER
+_postgis_scripts_pgsql_version,,text,SECURITY INVOKER
+_postgis_selectivity,"tbl regclass, att_name text, geom geometry, mode text DEFAULT '2'::text",double precision,SECURITY INVOKER
+_postgis_stats,"tbl regclass, att_name text, text DEFAULT '2'::text",text,SECURITY INVOKER
+_st_3ddfullywithin,"geom1 geometry, geom2 geometry, double precision",boolean,SECURITY INVOKER
+_st_3ddwithin,"geom1 geometry, geom2 geometry, double precision",boolean,SECURITY INVOKER
+_st_3dintersects,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+_st_asgml,"integer, geometry, integer, integer, text, text",text,SECURITY INVOKER
+_st_asx3d,"integer, geometry, integer, integer, text",text,SECURITY INVOKER
+_st_bestsrid,geography,integer,SECURITY INVOKER
+_st_bestsrid,"geography, geography",integer,SECURITY INVOKER
+_st_contains,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+_st_containsproperly,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+_st_coveredby,"geog1 geography, geog2 geography",boolean,SECURITY INVOKER
+_st_coveredby,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+_st_covers,"geog1 geography, geog2 geography",boolean,SECURITY INVOKER
+_st_covers,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+_st_crosses,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+_st_dfullywithin,"geom1 geometry, geom2 geometry, double precision",boolean,SECURITY INVOKER
+_st_distancetree,"geography, geography, double precision, boolean",double precision,SECURITY INVOKER
+_st_distancetree,"geography, geography",double precision,SECURITY INVOKER
+_st_distanceuncached,"geography, geography, double precision, boolean",double precision,SECURITY INVOKER
+_st_distanceuncached,"geography, geography",double precision,SECURITY INVOKER
+_st_distanceuncached,"geography, geography, boolean",double precision,SECURITY INVOKER
+_st_dwithin,"geom1 geometry, geom2 geometry, double precision",boolean,SECURITY INVOKER
+_st_dwithin,"geog1 geography, geog2 geography, tolerance double precision, use_spheroid boolean DEFAULT true",boolean,SECURITY INVOKER
+_st_dwithinuncached,"geography, geography, double precision",boolean,SECURITY INVOKER
+_st_dwithinuncached,"geography, geography, double precision, boolean",boolean,SECURITY INVOKER
+_st_equals,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+_st_expand,"geography, double precision",geography,SECURITY INVOKER
+_st_geomfromgml,"text, integer",geometry,SECURITY INVOKER
+_st_intersects,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+_st_linecrossingdirection,"line1 geometry, line2 geometry",integer,SECURITY INVOKER
+_st_longestline,"geom1 geometry, geom2 geometry",geometry,SECURITY INVOKER
+_st_maxdistance,"geom1 geometry, geom2 geometry",double precision,SECURITY INVOKER
+_st_orderingequals,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+_st_overlaps,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+_st_pointoutside,geography,geography,SECURITY INVOKER
+_st_sortablehash,geom geometry,bigint,SECURITY INVOKER
+_st_touches,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+_st_voronoi,"g1 geometry, clip geometry DEFAULT NULL::geometry, tolerance double precision DEFAULT 0.0, return_polygons boolean DEFAULT true",geometry,SECURITY INVOKER
+_st_within,"geom1 geometry, geom2 geometry",boolean,SECURITY INVOKER
+addauth,text,boolean,SECURITY INVOKER
+addgeometrycolumn,"table_name character varying, column_name character varying, new_srid integer, new_type character varying, new_dim integer, use_typmod boolean DEFAULT true",text,SECURITY INVOKER
+addgeometrycolumn,"schema_name character varying, table_name character varying, column_name character varying, new_srid integer, new_type character varying, new_dim integer, use_typmod boolean DEFAULT true",text,SECURITY INVOKER
+addgeometrycolumn,"catalog_name character varying, schema_name character varying, table_name character varying, column_name character varying, new_srid_in integer, new_type character varying, new_dim integer, use_typmod boolean DEFAULT true",text,SECURITY INVOKER
+atomic_complete_order_if_ready,p_order_id uuid,boolean,SECURITY DEFINER
+atomic_decrement_inventory,"p_listing_id uuid, p_quantity integer",TABLE(new_quantity integer),SECURITY DEFINER
+atomic_increment_bundle_sold,"p_bundle_id uuid, p_quantity integer",TABLE(new_quantity_sold integer),SECURITY DEFINER
+atomic_release_bundle_sold,"p_bundle_id uuid, p_quantity integer",TABLE(new_quantity_sold integer),SECURITY DEFINER
+atomic_restore_inventory,"p_listing_id uuid, p_quantity integer",TABLE(new_quantity integer),SECURITY DEFINER
+auto_add_schedule_to_vendors,,trigger,SECURITY DEFINER
+auto_cancel_order_if_all_items_cancelled,,trigger,SECURITY DEFINER
+auto_create_vendor_schedules,,trigger,SECURITY DEFINER
+auto_create_vendor_schedules_insert,,trigger,SECURITY DEFINER
+auto_create_vendor_verification,,trigger,SECURITY DEFINER
+award_referral_credit_on_first_sale,,trigger,SECURITY INVOKER
+book_park_spot_atomic,"p_vendor_profile_id uuid, p_market_id uuid, p_spot_id uuid, p_booking_dates date[], p_group_id uuid, p_acceptance_id uuid","TABLE(booking_id uuid, booked_date date, booking_price_cents integer)",SECURITY DEFINER
+book_season_atomic,"p_vendor_profile_id uuid, p_market_id uuid, p_inventory_id uuid, p_acceptance_id uuid, p_season_id uuid, p_kind text, p_week_start_dates date[], p_purchase_date date","TABLE(group_id uuid, rental_id uuid, rental_week_start_date date, rental_price_cents integer, rental_booth_number text)",SECURITY DEFINER
+book_weekly_booth_atomic,"p_vendor_profile_id uuid, p_market_id uuid, p_inventory_id uuid, p_week_start_date date, p_acceptance_id uuid","TABLE(rental_id uuid, rental_price_cents integer, rental_status text, rental_week_start_date date, rental_booth_number text)",SECURITY DEFINER
+box,box3d,box,SECURITY INVOKER
+box,geometry,box,SECURITY INVOKER
+box2d,box3d,box2d,SECURITY INVOKER
+box2d,geometry,box2d,SECURITY INVOKER
+box2d_in,cstring,box2d,SECURITY INVOKER
+box2d_out,box2d,cstring,SECURITY INVOKER
+box2df_in,cstring,box2df,SECURITY INVOKER
+box2df_out,box2df,cstring,SECURITY INVOKER
+box3d,box2d,box3d,SECURITY INVOKER
+box3d,geometry,box3d,SECURITY INVOKER
+box3d_in,cstring,box3d,SECURITY INVOKER
+box3d_out,box3d,cstring,SECURITY INVOKER
+box3dtobox,box3d,box,SECURITY INVOKER
+build_pickup_snapshot,"p_schedule_id uuid, p_pickup_date date",jsonb,SECURITY DEFINER
+bytea,geometry,bytea,SECURITY INVOKER
+bytea,geography,bytea,SECURITY INVOKER
+calculate_order_item_expiration,"p_pickup_date date, p_buffer_hours integer DEFAULT 18",timestamp with time zone,SECURITY DEFINER
+calculate_order_item_expiration,"p_pickup_date date, p_vertical_id text DEFAULT NULL::text, p_created_at timestamp with time zone DEFAULT now()",timestamp with time zone,SECURITY INVOKER
+can_access_pickup,p_subscription_id uuid,boolean,SECURITY DEFINER
+can_access_subscription,sub_id uuid,boolean,SECURITY DEFINER
+can_admin_market,p_market_id uuid,boolean,SECURITY DEFINER
+can_admin_order,p_order_id uuid,boolean,SECURITY DEFINER
+can_admin_vendor,p_vendor_profile_id uuid,boolean,SECURITY DEFINER
+can_delete_schedule,p_schedule_id uuid,"TABLE(can_delete boolean, blocking_order_count integer, blocking_orders jsonb)",SECURITY DEFINER
+can_vendor_add_fixed_market,"p_vendor_profile_id uuid, p_vertical_id text",boolean,SECURITY DEFINER
+can_vendor_add_listing_to_market,"p_vendor_profile_id uuid, p_market_id uuid, p_listing_id uuid DEFAULT NULL::uuid",boolean,SECURITY DEFINER
+can_vendor_publish,"p_vendor_profile_id uuid, p_category text",boolean,SECURITY DEFINER
+cancel_season_group,"p_group_id uuid, p_reason text DEFAULT NULL::text",text,SECURITY DEFINER
+cancel_wave_reservation,"p_reservation_id uuid, p_user_id uuid","TABLE(success boolean, error text)",SECURITY DEFINER
+check_booth_group_market_integrity,,trigger,SECURITY INVOKER
+check_booth_number_uniqueness,,trigger,SECURITY INVOKER
+check_booth_placeholder_inventory_market,,trigger,SECURITY INVOKER
+check_market_vendor_inventory_market,,trigger,SECURITY INVOKER
+check_park_spot_booking_market,,trigger,SECURITY INVOKER
+check_park_standing_market,,trigger,SECURITY INVOKER
+check_pickup_slot_capacity,"p_vendor_profile_id uuid, p_market_id uuid, p_pickup_date date, p_pickup_time time without time zone, p_adding_items integer DEFAULT 1, p_order_id uuid DEFAULT NULL::uuid","TABLE(allowed boolean, reason text, orders_used integer, orders_cap integer, items_used integer, items_cap integer)",SECURITY DEFINER
+check_subscription_completion,,trigger,SECURITY INVOKER

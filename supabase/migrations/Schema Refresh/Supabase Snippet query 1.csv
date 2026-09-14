@@ -1,0 +1,1444 @@
+table_name,column_name,data_type,udt_name,is_nullable,column_default
+active_markets,id,uuid,uuid,YES,null
+active_markets,vertical_id,text,text,YES,null
+active_markets,vendor_profile_id,uuid,uuid,YES,null
+active_markets,name,text,text,YES,null
+active_markets,market_type,text,text,YES,null
+active_markets,address,text,text,YES,null
+active_markets,city,text,text,YES,null
+active_markets,state,text,text,YES,null
+active_markets,zip,text,text,YES,null
+active_markets,day_of_week,integer,int4,YES,null
+active_markets,start_time,time without time zone,time,YES,null
+active_markets,end_time,time without time zone,time,YES,null
+active_markets,status,text,text,YES,null
+active_markets,created_at,timestamp with time zone,timestamptz,YES,null
+active_markets,updated_at,timestamp with time zone,timestamptz,YES,null
+active_markets,active,boolean,bool,YES,null
+active_markets,contact_email,text,text,YES,null
+active_markets,submitted_by,uuid,uuid,YES,null
+active_markets,submitted_at,timestamp with time zone,timestamptz,YES,null
+active_markets,reviewed_by,uuid,uuid,YES,null
+active_markets,reviewed_at,timestamp with time zone,timestamptz,YES,null
+active_markets,rejection_reason,text,text,YES,null
+active_markets,latitude,numeric,numeric,YES,null
+active_markets,longitude,numeric,numeric,YES,null
+active_markets,geocoding_failed,boolean,bool,YES,null
+active_markets,contact_phone,text,text,YES,null
+active_markets,timezone,text,text,YES,null
+active_markets,cutoff_hours,integer,int4,YES,null
+active_markets,season_start,date,date,YES,null
+active_markets,season_end,date,date,YES,null
+active_markets,approval_status,USER-DEFINED,market_approval_status,YES,null
+active_markets,submitted_by_vendor_id,uuid,uuid,YES,null
+active_markets,description,text,text,YES,null
+active_markets,website,text,text,YES,null
+active_markets,vendor_sells_at_market,boolean,bool,YES,null
+active_markets,expires_at,timestamp with time zone,timestamptz,YES,null
+admin_activity_log,id,uuid,uuid,NO,uuid_generate_v4()
+admin_activity_log,action,text,text,NO,null
+admin_activity_log,target_user_id,uuid,uuid,NO,null
+admin_activity_log,performed_by,uuid,uuid,NO,null
+admin_activity_log,vertical_id,text,text,YES,null
+admin_activity_log,details,jsonb,jsonb,YES,null
+admin_activity_log,created_at,timestamp with time zone,timestamptz,NO,now()
+audit_log,id,uuid,uuid,NO,uuid_generate_v4()
+audit_log,user_id,uuid,uuid,YES,null
+audit_log,action,text,text,NO,null
+audit_log,table_name,text,text,NO,null
+audit_log,record_id,uuid,uuid,YES,null
+audit_log,old_data,jsonb,jsonb,YES,null
+audit_log,new_data,jsonb,jsonb,YES,null
+audit_log,ip_address,inet,inet,YES,null
+audit_log,user_agent,text,text,YES,null
+audit_log,created_at,timestamp with time zone,timestamptz,YES,now()
+booth_booking_groups,id,uuid,uuid,NO,gen_random_uuid()
+booth_booking_groups,vendor_profile_id,uuid,uuid,NO,null
+booth_booking_groups,market_id,uuid,uuid,NO,null
+booth_booking_groups,inventory_id,uuid,uuid,NO,null
+booth_booking_groups,season_id,uuid,uuid,YES,null
+booth_booking_groups,kind,text,text,NO,null
+booth_booking_groups,week_count,integer,int4,NO,null
+booth_booking_groups,total_vendor_cents,integer,int4,NO,null
+booth_booking_groups,total_manager_cents,integer,int4,NO,null
+booth_booking_groups,purchase_date,date,date,YES,null
+booth_booking_groups,status,text,text,NO,'pending_payment'::text
+booth_booking_groups,stripe_checkout_session_id,text,text,YES,null
+booth_booking_groups,stripe_payment_intent_id,text,text,YES,null
+booth_booking_groups,agreement_acceptance_id,uuid,uuid,YES,null
+booth_booking_groups,created_at,timestamp with time zone,timestamptz,NO,now()
+booth_booking_groups,updated_at,timestamp with time zone,timestamptz,NO,now()
+booth_credits,id,uuid,uuid,NO,gen_random_uuid()
+booth_credits,vendor_profile_id,uuid,uuid,NO,null
+booth_credits,market_id,uuid,uuid,NO,null
+booth_credits,amount_cents,integer,int4,NO,null
+booth_credits,source,text,text,NO,null
+booth_credits,related_group_id,uuid,uuid,YES,null
+booth_credits,note,text,text,YES,null
+booth_credits,expires_at,timestamp with time zone,timestamptz,YES,null
+booth_credits,created_at,timestamp with time zone,timestamptz,NO,now()
+booth_credits,related_rental_id,uuid,uuid,YES,null
+booth_credits,related_park_booking_id,uuid,uuid,YES,null
+buyer_achievements,id,uuid,uuid,NO,gen_random_uuid()
+buyer_achievements,user_id,uuid,uuid,NO,null
+buyer_achievements,vertical_id,text,text,NO,null
+buyer_achievements,badge_key,text,text,NO,null
+buyer_achievements,vendor_profile_id,uuid,uuid,YES,null
+buyer_achievements,earned_at,timestamp with time zone,timestamptz,NO,now()
+buyer_achievements,context,jsonb,jsonb,YES,null
+buyer_achievements,notified_at,timestamp with time zone,timestamptz,YES,null
+buyer_achievements,created_at,timestamp with time zone,timestamptz,NO,now()
+buyer_interests,id,uuid,uuid,NO,gen_random_uuid()
+buyer_interests,vertical_id,text,text,NO,'food_trucks'::text
+buyer_interests,email,text,text,YES,null
+buyer_interests,phone,text,text,YES,null
+buyer_interests,zip_code,text,text,YES,null
+buyer_interests,city,text,text,YES,null
+buyer_interests,source,text,text,NO,'browse_empty'::text
+buyer_interests,created_at,timestamp with time zone,timestamptz,NO,now()
+buyer_search_log,id,uuid,uuid,NO,gen_random_uuid()
+buyer_search_log,zip_code,text,text,YES,null
+buyer_search_log,vertical_id,text,text,YES,null
+buyer_search_log,results_count,integer,int4,NO,0
+buyer_search_log,search_type,text,text,NO,null
+buyer_search_log,created_at,timestamp with time zone,timestamptz,NO,now()
+cart_items,id,uuid,uuid,NO,gen_random_uuid()
+cart_items,cart_id,uuid,uuid,NO,null
+cart_items,listing_id,uuid,uuid,YES,null
+cart_items,quantity,integer,int4,NO,null
+cart_items,created_at,timestamp with time zone,timestamptz,NO,now()
+cart_items,updated_at,timestamp with time zone,timestamptz,NO,now()
+cart_items,market_id,uuid,uuid,YES,null
+cart_items,schedule_id,uuid,uuid,YES,null
+cart_items,pickup_date,date,date,YES,null
+cart_items,item_type,text,text,NO,'listing'::text
+cart_items,offering_id,uuid,uuid,YES,null
+cart_items,term_weeks,integer,int4,YES,null
+cart_items,start_date,date,date,YES,null
+cart_items,preferred_pickup_time,time without time zone,time,YES,null
+carts,id,uuid,uuid,NO,gen_random_uuid()
+carts,user_id,uuid,uuid,NO,null
+carts,vertical_id,text,text,NO,null
+carts,created_at,timestamp with time zone,timestamptz,NO,now()
+carts,updated_at,timestamp with time zone,timestamptz,NO,now()
+catering_requests,id,uuid,uuid,NO,gen_random_uuid()
+catering_requests,vertical_id,text,text,NO,'food_trucks'::text
+catering_requests,status,text,text,NO,'new'::text
+catering_requests,company_name,text,text,NO,null
+catering_requests,contact_name,text,text,NO,null
+catering_requests,contact_email,text,text,NO,null
+catering_requests,contact_phone,text,text,YES,null
+catering_requests,event_date,date,date,NO,null
+catering_requests,event_end_date,date,date,YES,null
+catering_requests,event_start_time,time without time zone,time,YES,null
+catering_requests,event_end_time,time without time zone,time,YES,null
+catering_requests,headcount,integer,int4,NO,null
+catering_requests,address,text,text,YES,null
+catering_requests,city,text,text,NO,null
+catering_requests,state,text,text,NO,null
+catering_requests,zip,text,text,NO,null
+catering_requests,cuisine_preferences,text,text,YES,null
+catering_requests,dietary_notes,text,text,YES,null
+catering_requests,budget_notes,text,text,YES,null
+catering_requests,vendor_count,integer,int4,YES,2
+catering_requests,setup_instructions,text,text,YES,null
+catering_requests,additional_notes,text,text,YES,null
+catering_requests,market_id,uuid,uuid,YES,null
+catering_requests,admin_notes,text,text,YES,null
+catering_requests,created_at,timestamp with time zone,timestamptz,NO,now()
+catering_requests,updated_at,timestamp with time zone,timestamptz,NO,now()
+catering_requests,event_token,text,text,YES,null
+catering_requests,event_type,text,text,YES,null
+catering_requests,payment_model,text,text,YES,null
+catering_requests,total_food_budget_cents,integer,int4,YES,null
+catering_requests,expected_meal_count,integer,int4,YES,null
+catering_requests,beverages_provided,boolean,bool,YES,false
+catering_requests,dessert_provided,boolean,bool,YES,false
+catering_requests,is_recurring,boolean,bool,YES,false
+catering_requests,recurring_frequency,text,text,YES,null
+catering_requests,per_meal_budget_cents,integer,int4,YES,null
+catering_requests,competing_food_options,text,text,YES,null
+catering_requests,is_ticketed,boolean,bool,YES,false
+catering_requests,estimated_dwell_hours,numeric,numeric,YES,null
+catering_requests,service_level,text,text,YES,'full_service'::text
+catering_requests,auto_invite_sent_at,timestamp with time zone,timestamptz,YES,null
+catering_requests,organizer_user_id,uuid,uuid,YES,null
+catering_requests,vendor_preferences,jsonb,jsonb,YES,null
+catering_requests,children_present,boolean,bool,NO,false
+catering_requests,is_themed,boolean,bool,NO,false
+catering_requests,theme_description,text,text,YES,null
+catering_requests,has_competing_vendors,boolean,bool,NO,false
+catering_requests,estimated_spend_per_attendee_cents,integer,int4,YES,null
+catering_requests,preferred_vendor_categories,ARRAY,_text,YES,null
+catering_requests,vendor_stay_policy,text,text,YES,null
+catering_requests,access_code,text,text,YES,null
+catering_requests,company_max_per_attendee_cents,integer,int4,YES,null
+catering_requests,selection_email_sent_at,timestamp with time zone,timestamptz,YES,null
+catering_requests,event_setting,text,text,YES,null
+catering_requests,address_reminder_sent_at,timestamp with time zone,timestamptz,YES,null
+catering_requests,event_vendor_fee_cents,integer,int4,YES,null
+catering_requests,background_check_required,boolean,bool,YES,null
+catering_requests,background_check_details,text,text,YES,null
+catering_requests,cancellation_risk_factors,ARRAY,_text,YES,null
+catering_requests,has_run_before,boolean,bool,YES,null
+catering_requests,vendor_fee_decided_at,timestamp with time zone,timestamptz,YES,null
+catering_requests,event_context_confirmed_at,timestamp with time zone,timestamptz,YES,null
+catering_requests,logistics_confirmed_at,timestamp with time zone,timestamptz,YES,null
+catering_requests,invitations_released_at,timestamp with time zone,timestamptz,YES,null
+cause_beneficiaries,id,uuid,uuid,NO,gen_random_uuid()
+cause_beneficiaries,name,text,text,NO,null
+cause_beneficiaries,contact_email,text,text,YES,null
+cause_beneficiaries,stripe_account_id,text,text,YES,null
+cause_beneficiaries,remit_method,text,text,NO,'check'::text
+cause_beneficiaries,mailing_address,text,text,YES,null
+cause_beneficiaries,active,boolean,bool,NO,true
+cause_beneficiaries,notes,text,text,YES,null
+cause_beneficiaries,created_at,timestamp with time zone,timestamptz,NO,now()
+cause_beneficiaries,updated_at,timestamp with time zone,timestamptz,NO,now()
+cause_beneficiaries,onboarding_token,uuid,uuid,YES,null
+cause_beneficiaries,onboarding_invited_at,timestamp with time zone,timestamptz,YES,null
+cause_campaigns,id,uuid,uuid,NO,gen_random_uuid()
+cause_campaigns,beneficiary_id,uuid,uuid,NO,null
+cause_campaigns,name,text,text,NO,null
+cause_campaigns,starts_at,timestamp with time zone,timestamptz,NO,null
+cause_campaigns,ends_at,timestamp with time zone,timestamptz,NO,null
+cause_campaigns,vertical_id,text,text,YES,null
+cause_campaigns,market_ids,ARRAY,_uuid,YES,null
+cause_campaigns,round_up_enabled,boolean,bool,NO,true
+cause_campaigns,active,boolean,bool,NO,true
+cause_campaigns,created_at,timestamp with time zone,timestamptz,NO,now()
+cause_ledger,id,uuid,uuid,NO,gen_random_uuid()
+cause_ledger,beneficiary_id,uuid,uuid,NO,null
+cause_ledger,order_id,uuid,uuid,YES,null
+cause_ledger,amount_cents,integer,int4,NO,null
+cause_ledger,type,text,text,NO,null
+cause_ledger,remittance_id,uuid,uuid,YES,null
+cause_ledger,note,text,text,YES,null
+cause_ledger,created_at,timestamp with time zone,timestamptz,NO,now()
+cause_remittances,id,uuid,uuid,NO,gen_random_uuid()
+cause_remittances,beneficiary_id,uuid,uuid,NO,null
+cause_remittances,amount_cents,integer,int4,NO,null
+cause_remittances,method,text,text,NO,null
+cause_remittances,stripe_transfer_id,text,text,YES,null
+cause_remittances,status,text,text,NO,'pending'::text
+cause_remittances,period_start,date,date,YES,null
+cause_remittances,period_end,date,date,YES,null
+cause_remittances,notes,text,text,YES,null
+cause_remittances,created_at,timestamp with time zone,timestamptz,NO,now()
+cause_remittances,paid_at,timestamp with time zone,timestamptz,YES,null
+email_events,id,uuid,uuid,NO,gen_random_uuid()
+email_events,resend_event_id,text,text,NO,null
+email_events,event_type,text,text,NO,null
+email_events,email_to,text,text,NO,null
+email_events,email_from,text,text,YES,null
+email_events,subject,text,text,YES,null
+email_events,bounce_type,text,text,YES,null
+email_events,error_message,text,text,YES,null
+email_events,raw_payload,jsonb,jsonb,YES,null
+email_events,created_at,timestamp with time zone,timestamptz,YES,now()
+error_logs,id,uuid,uuid,NO,gen_random_uuid()
+error_logs,trace_id,text,text,NO,null
+error_logs,error_code,text,text,NO,null
+error_logs,message,text,text,NO,null
+error_logs,context,jsonb,jsonb,YES,'{}'::jsonb
+error_logs,breadcrumbs,jsonb,jsonb,YES,'[]'::jsonb
+error_logs,user_id,uuid,uuid,YES,null
+error_logs,route,text,text,YES,null
+error_logs,method,text,text,YES,null
+error_logs,pg_code,text,text,YES,null
+error_logs,severity,text,text,YES,null
+error_logs,created_at,timestamp with time zone,timestamptz,NO,now()
+error_logs,vertical_id,text,text,YES,null
+error_reports,id,uuid,uuid,NO,gen_random_uuid()
+error_reports,error_code,text,text,YES,null
+error_reports,trace_id,text,text,YES,null
+error_reports,vertical_id,text,text,YES,null
+error_reports,page_url,text,text,YES,null
+error_reports,user_agent,text,text,YES,null
+error_reports,reported_by_user_id,uuid,uuid,YES,null
+error_reports,reporter_email,text,text,YES,null
+error_reports,user_description,text,text,YES,null
+error_reports,status,text,text,NO,'pending'::text
+error_reports,escalation_level,text,text,NO,'vertical_admin'::text
+error_reports,assigned_to_user_id,uuid,uuid,YES,null
+error_reports,resolution_id,uuid,uuid,YES,null
+error_reports,resolution_notes,text,text,YES,null
+error_reports,vertical_admin_notes,text,text,YES,null
+error_reports,escalated_at,timestamp with time zone,timestamptz,YES,null
+error_reports,escalated_by_user_id,uuid,uuid,YES,null
+error_reports,platform_admin_notes,text,text,YES,null
+error_reports,resolved_at,timestamp with time zone,timestamptz,YES,null
+error_reports,resolved_by_user_id,uuid,uuid,YES,null
+error_reports,created_at,timestamp with time zone,timestamptz,NO,now()
+error_reports,updated_at,timestamp with time zone,timestamptz,NO,now()
+error_resolutions,id,uuid,uuid,NO,gen_random_uuid()
+error_resolutions,error_code,text,text,NO,null
+error_resolutions,trace_id,text,text,YES,null
+error_resolutions,attempted_fix,text,text,NO,null
+error_resolutions,migration_file,text,text,YES,null
+error_resolutions,code_changes,text,text,YES,null
+error_resolutions,status,text,text,NO,'pending'::text
+error_resolutions,failure_reason,text,text,YES,null
+error_resolutions,partial_notes,text,text,YES,null
+error_resolutions,verification_method,text,text,YES,null
+error_resolutions,verification_query,text,text,YES,null
+error_resolutions,verification_result,text,text,YES,null
+error_resolutions,verified_at,timestamp with time zone,timestamptz,YES,null
+error_resolutions,verified_by,text,text,YES,null
+error_resolutions,created_at,timestamp with time zone,timestamptz,YES,now()
+error_resolutions,updated_at,timestamp with time zone,timestamptz,YES,now()
+error_resolutions,created_by,text,text,YES,null
+event_change_requests,id,uuid,uuid,NO,gen_random_uuid()
+event_change_requests,catering_request_id,uuid,uuid,NO,null
+event_change_requests,requested_by,uuid,uuid,YES,null
+event_change_requests,reason_category,text,text,NO,null
+event_change_requests,explanation,text,text,NO,null
+event_change_requests,requested_changes,jsonb,jsonb,NO,null
+event_change_requests,preorder_count_at_request,integer,int4,NO,0
+event_change_requests,status,text,text,NO,'pending'::text
+event_change_requests,reviewed_by,uuid,uuid,YES,null
+event_change_requests,reviewed_at,timestamp with time zone,timestamptz,YES,null
+event_change_requests,review_note,text,text,YES,null
+event_change_requests,applied_changes,jsonb,jsonb,YES,null
+event_change_requests,order_action,text,text,YES,null
+event_change_requests,created_at,timestamp with time zone,timestamptz,NO,now()
+event_change_requests,updated_at,timestamp with time zone,timestamptz,NO,now()
+event_change_requests,preorder_value_cents_at_request,integer,int4,NO,0
+event_company_payments,id,uuid,uuid,NO,gen_random_uuid()
+event_company_payments,market_id,uuid,uuid,NO,null
+event_company_payments,catering_request_id,uuid,uuid,NO,null
+event_company_payments,payment_type,text,text,NO,null
+event_company_payments,amount_cents,integer,int4,NO,null
+event_company_payments,payment_method,text,text,YES,null
+event_company_payments,stripe_payment_intent_id,text,text,YES,null
+event_company_payments,status,text,text,NO,'pending'::text
+event_company_payments,notes,text,text,YES,null
+event_company_payments,created_at,timestamp with time zone,timestamptz,NO,now()
+event_company_payments,paid_at,timestamp with time zone,timestamptz,YES,null
+event_ratings,id,uuid,uuid,NO,gen_random_uuid()
+event_ratings,catering_request_id,uuid,uuid,NO,null
+event_ratings,user_id,uuid,uuid,NO,null
+event_ratings,rating,smallint,int2,NO,null
+event_ratings,comment,text,text,YES,null
+event_ratings,status,text,text,NO,'pending'::text
+event_ratings,created_at,timestamp with time zone,timestamptz,NO,now()
+event_ratings,updated_at,timestamp with time zone,timestamptz,NO,now()
+event_ratings,moderated_at,timestamp with time zone,timestamptz,YES,null
+event_ratings,moderated_by,uuid,uuid,YES,null
+event_vendor_fee_payments,id,uuid,uuid,NO,gen_random_uuid()
+event_vendor_fee_payments,catering_request_id,uuid,uuid,NO,null
+event_vendor_fee_payments,market_id,uuid,uuid,NO,null
+event_vendor_fee_payments,vendor_profile_id,uuid,uuid,NO,null
+event_vendor_fee_payments,fee_cents,integer,int4,NO,null
+event_vendor_fee_payments,vendor_pays_cents,integer,int4,NO,null
+event_vendor_fee_payments,organizer_receives_cents,integer,int4,NO,null
+event_vendor_fee_payments,platform_keeps_cents,integer,int4,NO,null
+event_vendor_fee_payments,status,text,text,NO,'pending_payment'::text
+event_vendor_fee_payments,stripe_checkout_session_id,text,text,YES,null
+event_vendor_fee_payments,stripe_payment_intent_id,text,text,YES,null
+event_vendor_fee_payments,paid_at,timestamp with time zone,timestamptz,YES,null
+event_vendor_fee_payments,refunded_at,timestamp with time zone,timestamptz,YES,null
+event_vendor_fee_payments,refund_reason,text,text,YES,null
+event_vendor_fee_payments,created_at,timestamp with time zone,timestamptz,NO,now()
+event_vendor_fee_payments,updated_at,timestamp with time zone,timestamptz,NO,now()
+event_vendor_fee_payments,cancel_requested_at,timestamp with time zone,timestamptz,YES,null
+event_vendor_fee_payments,cancel_reason,text,text,YES,null
+event_vendor_fee_payments,forfeited_at,timestamp with time zone,timestamptz,YES,null
+event_vendor_fee_payments,waiver_decided_at,timestamp with time zone,timestamptz,YES,null
+event_vendor_fee_payments,covering_payment_id,uuid,uuid,YES,null
+event_vendor_listings,id,uuid,uuid,NO,gen_random_uuid()
+event_vendor_listings,market_id,uuid,uuid,NO,null
+event_vendor_listings,vendor_profile_id,uuid,uuid,NO,null
+event_vendor_listings,listing_id,uuid,uuid,NO,null
+event_vendor_listings,created_at,timestamp with time zone,timestamptz,NO,now()
+event_vendor_listings,host_status,text,text,NO,'approved'::text
+event_wave_reservations,id,uuid,uuid,NO,gen_random_uuid()
+event_wave_reservations,wave_id,uuid,uuid,NO,null
+event_wave_reservations,market_id,uuid,uuid,NO,null
+event_wave_reservations,user_id,uuid,uuid,NO,null
+event_wave_reservations,status,text,text,NO,'reserved'::text
+event_wave_reservations,reserved_at,timestamp with time zone,timestamptz,NO,now()
+event_wave_reservations,order_id,uuid,uuid,YES,null
+event_wave_reservations,expires_at,timestamp with time zone,timestamptz,YES,null
+event_waves,id,uuid,uuid,NO,gen_random_uuid()
+event_waves,market_id,uuid,uuid,NO,null
+event_waves,wave_number,integer,int4,NO,null
+event_waves,start_time,time without time zone,time,NO,null
+event_waves,end_time,time without time zone,time,NO,null
+event_waves,capacity,integer,int4,NO,null
+event_waves,reserved_count,integer,int4,NO,0
+event_waves,status,text,text,NO,'open'::text
+event_waves,created_at,timestamp with time zone,timestamptz,NO,now()
+fulfillments,id,uuid,uuid,NO,uuid_generate_v4()
+fulfillments,transaction_id,uuid,uuid,NO,null
+fulfillments,mode,USER-DEFINED,fulfillment_mode,NO,null
+fulfillments,status,USER-DEFINED,fulfillment_status,YES,'pending'::fulfillment_status
+fulfillments,scheduled_at,timestamp with time zone,timestamptz,YES,null
+fulfillments,confirmed_at,timestamp with time zone,timestamptz,YES,null
+fulfillments,completed_at,timestamp with time zone,timestamptz,YES,null
+fulfillments,location_notes,text,text,YES,null
+fulfillments,created_at,timestamp with time zone,timestamptz,YES,now()
+fulfillments,updated_at,timestamp with time zone,timestamptz,YES,now()
+geography_columns,f_table_catalog,name,name,YES,null
+geography_columns,f_table_schema,name,name,YES,null
+geography_columns,f_table_name,name,name,YES,null
+geography_columns,f_geography_column,name,name,YES,null
+geography_columns,coord_dimension,integer,int4,YES,null
+geography_columns,srid,integer,int4,YES,null
+geography_columns,type,text,text,YES,null
+geometry_columns,f_table_catalog,character varying,varchar,YES,null
+geometry_columns,f_table_schema,name,name,YES,null
+geometry_columns,f_table_name,name,name,YES,null
+geometry_columns,f_geometry_column,name,name,YES,null
+geometry_columns,coord_dimension,integer,int4,YES,null
+geometry_columns,srid,integer,int4,YES,null
+geometry_columns,type,character varying,varchar,YES,null
+knowledge_articles,id,uuid,uuid,NO,gen_random_uuid()
+knowledge_articles,vertical_id,text,text,YES,null
+knowledge_articles,category,text,text,NO,null
+knowledge_articles,title,text,text,NO,null
+knowledge_articles,body,text,text,NO,null
+knowledge_articles,sort_order,integer,int4,NO,0
+knowledge_articles,is_published,boolean,bool,NO,false
+knowledge_articles,created_at,timestamp with time zone,timestamptz,NO,now()
+knowledge_articles,updated_at,timestamp with time zone,timestamptz,NO,now()
+listing_images,id,uuid,uuid,NO,uuid_generate_v4()
+listing_images,listing_id,uuid,uuid,NO,null
+listing_images,storage_path,text,text,NO,null
+listing_images,url,text,text,YES,null
+listing_images,alt_text,text,text,YES,null
+listing_images,display_order,integer,int4,YES,0
+listing_images,is_primary,boolean,bool,YES,false
+listing_images,created_at,timestamp with time zone,timestamptz,YES,now()
+listing_markets,id,uuid,uuid,NO,gen_random_uuid()
+listing_markets,listing_id,uuid,uuid,NO,null
+listing_markets,market_id,uuid,uuid,NO,null
+listing_markets,available_dates,jsonb,jsonb,YES,null
+listing_markets,created_at,timestamp with time zone,timestamptz,NO,now()
+listings,id,uuid,uuid,NO,uuid_generate_v4()
+listings,vendor_profile_id,uuid,uuid,NO,null
+listings,vertical_id,text,text,NO,null
+listings,status,USER-DEFINED,listing_status,YES,'draft'::listing_status
+listings,listing_data,jsonb,jsonb,YES,'{}'::jsonb
+listings,address,text,text,YES,null
+listings,city,text,text,YES,null
+listings,state,text,text,YES,null
+listings,zip,text,text,YES,null
+listings,latitude,numeric,numeric,YES,null
+listings,longitude,numeric,numeric,YES,null
+listings,available_from,date,date,YES,null
+listings,available_to,date,date,YES,null
+listings,created_at,timestamp with time zone,timestamptz,YES,now()
+listings,updated_at,timestamp with time zone,timestamptz,YES,now()
+listings,deleted_at,timestamp with time zone,timestamptz,YES,null
+listings,title,text,text,YES,null
+listings,description,text,text,YES,null
+listings,price_cents,integer,int4,YES,0
+listings,quantity,integer,int4,YES,0
+listings,category,text,text,YES,null
+listings,image_urls,ARRAY,_text,YES,'{}'::text[]
+listings,listing_type,USER-DEFINED,listing_type,YES,'presale'::listing_type
+listings,premium_window_ends_at,timestamp with time zone,timestamptz,YES,null
+listings,quantity_amount,numeric,numeric,YES,null
+listings,quantity_unit,text,text,YES,null
+listings,advance_order_days,integer,int4,NO,0
+listings,is_taxable,boolean,bool,NO,false
+listings,search_vector,tsvector,tsvector,YES,null
+listings,covered_container,boolean,bool,NO,false
+market_booth_inventory,id,uuid,uuid,NO,gen_random_uuid()
+market_booth_inventory,market_id,uuid,uuid,NO,null
+market_booth_inventory,size_label,text,text,NO,null
+market_booth_inventory,dimensions,text,text,YES,null
+market_booth_inventory,count,integer,int4,NO,null
+market_booth_inventory,weekly_price_cents,integer,int4,NO,null
+market_booth_inventory,created_at,timestamp with time zone,timestamptz,NO,now()
+market_booth_inventory,updated_at,timestamp with time zone,timestamptz,NO,now()
+market_booth_placeholders,id,uuid,uuid,NO,gen_random_uuid()
+market_booth_placeholders,market_id,uuid,uuid,NO,null
+market_booth_placeholders,inventory_id,uuid,uuid,YES,null
+market_booth_placeholders,booth_number,text,text,NO,null
+market_booth_placeholders,notes,text,text,YES,null
+market_booth_placeholders,created_at,timestamp with time zone,timestamptz,NO,now()
+market_booth_placeholders,updated_at,timestamp with time zone,timestamptz,NO,now()
+market_box_offerings,id,uuid,uuid,NO,uuid_generate_v4()
+market_box_offerings,vendor_profile_id,uuid,uuid,NO,null
+market_box_offerings,vertical_id,text,text,NO,null
+market_box_offerings,name,text,text,NO,null
+market_box_offerings,description,text,text,YES,null
+market_box_offerings,image_urls,ARRAY,_text,YES,'{}'::text[]
+market_box_offerings,price_cents,integer,int4,NO,null
+market_box_offerings,pickup_market_id,uuid,uuid,NO,null
+market_box_offerings,pickup_day_of_week,integer,int4,NO,null
+market_box_offerings,pickup_start_time,time without time zone,time,NO,null
+market_box_offerings,pickup_end_time,time without time zone,time,NO,null
+market_box_offerings,max_subscribers,integer,int4,YES,null
+market_box_offerings,active,boolean,bool,YES,true
+market_box_offerings,created_at,timestamp with time zone,timestamptz,YES,now()
+market_box_offerings,updated_at,timestamp with time zone,timestamptz,YES,now()
+market_box_offerings,price_4week_cents,integer,int4,NO,null
+market_box_offerings,price_8week_cents,integer,int4,YES,null
+market_box_offerings,premium_window_ends_at,timestamp with time zone,timestamptz,YES,null
+market_box_offerings,quantity_amount,numeric,numeric,YES,null
+market_box_offerings,quantity_unit,text,text,YES,null
+market_box_offerings,box_type,text,text,YES,null
+market_box_pickups,id,uuid,uuid,NO,uuid_generate_v4()
+market_box_pickups,subscription_id,uuid,uuid,NO,null
+market_box_pickups,week_number,integer,int4,NO,null
+market_box_pickups,scheduled_date,date,date,NO,null
+market_box_pickups,status,USER-DEFINED,market_box_pickup_status,YES,'scheduled'::market_box_pickup_status
+market_box_pickups,ready_at,timestamp with time zone,timestamptz,YES,null
+market_box_pickups,picked_up_at,timestamp with time zone,timestamptz,YES,null
+market_box_pickups,missed_at,timestamp with time zone,timestamptz,YES,null
+market_box_pickups,rescheduled_to,date,date,YES,null
+market_box_pickups,vendor_notes,text,text,YES,null
+market_box_pickups,created_at,timestamp with time zone,timestamptz,YES,now()
+market_box_pickups,updated_at,timestamp with time zone,timestamptz,YES,now()
+market_box_pickups,is_extension,boolean,bool,YES,false
+market_box_pickups,skipped_by_vendor_at,timestamp with time zone,timestamptz,YES,null
+market_box_pickups,skip_reason,text,text,YES,null
+market_box_pickups,buyer_confirmed_at,timestamp with time zone,timestamptz,YES,null
+market_box_pickups,vendor_confirmed_at,timestamp with time zone,timestamptz,YES,null
+market_box_pickups,confirmation_window_expires_at,timestamp with time zone,timestamptz,YES,null
+market_box_subscriptions,id,uuid,uuid,NO,uuid_generate_v4()
+market_box_subscriptions,offering_id,uuid,uuid,NO,null
+market_box_subscriptions,buyer_user_id,uuid,uuid,NO,null
+market_box_subscriptions,order_id,uuid,uuid,YES,null
+market_box_subscriptions,total_paid_cents,integer,int4,NO,null
+market_box_subscriptions,start_date,date,date,NO,null
+market_box_subscriptions,status,USER-DEFINED,market_box_subscription_status,YES,'active'::market_box_subscription_status
+market_box_subscriptions,weeks_completed,integer,int4,YES,0
+market_box_subscriptions,created_at,timestamp with time zone,timestamptz,YES,now()
+market_box_subscriptions,updated_at,timestamp with time zone,timestamptz,YES,now()
+market_box_subscriptions,completed_at,timestamp with time zone,timestamptz,YES,null
+market_box_subscriptions,cancelled_at,timestamp with time zone,timestamptz,YES,null
+market_box_subscriptions,term_weeks,integer,int4,NO,4
+market_box_subscriptions,original_end_date,date,date,YES,null
+market_box_subscriptions,extended_weeks,integer,int4,YES,0
+market_box_subscriptions,stripe_payment_intent_id,text,text,YES,null
+market_box_subscriptions,pickup_frequency,text,text,NO,'weekly'::text
+market_broadcasts,id,uuid,uuid,NO,gen_random_uuid()
+market_broadcasts,market_id,uuid,uuid,NO,null
+market_broadcasts,sender_user_id,uuid,uuid,YES,null
+market_broadcasts,subject,text,text,YES,null
+market_broadcasts,body,text,text,NO,null
+market_broadcasts,recipient_count,integer,int4,NO,0
+market_broadcasts,created_at,timestamp with time zone,timestamptz,NO,now()
+market_bundle_components,id,uuid,uuid,NO,gen_random_uuid()
+market_bundle_components,bundle_id,uuid,uuid,NO,null
+market_bundle_components,listing_id,uuid,uuid,NO,null
+market_bundle_components,quantity,integer,int4,NO,1
+market_bundle_components,created_at,timestamp with time zone,timestamptz,NO,now()
+market_bundles,id,uuid,uuid,NO,gen_random_uuid()
+market_bundles,market_id,uuid,uuid,NO,null
+market_bundles,name,text,text,NO,null
+market_bundles,description,text,text,YES,null
+market_bundles,margin_cents,integer,int4,NO,null
+market_bundles,quantity_limit,integer,int4,NO,null
+market_bundles,quantity_sold,integer,int4,NO,0
+market_bundles,status,text,text,NO,'draft'::text
+market_bundles,justification,text,text,YES,null
+market_bundles,pickup_market_date,date,date,YES,null
+market_bundles,pickup_notes,text,text,YES,null
+market_bundles,cause_beneficiary_id,uuid,uuid,YES,null
+market_bundles,cause_pct,integer,int4,YES,null
+market_bundles,approved_by,uuid,uuid,YES,null
+market_bundles,approved_at,timestamp with time zone,timestamptz,YES,null
+market_bundles,created_by,uuid,uuid,NO,null
+market_bundles,created_at,timestamp with time zone,timestamptz,NO,now()
+market_bundles,updated_at,timestamp with time zone,timestamptz,NO,now()
+market_date_overrides,id,uuid,uuid,NO,gen_random_uuid()
+market_date_overrides,market_id,uuid,uuid,NO,null
+market_date_overrides,override_date,date,date,NO,null
+market_date_overrides,status,text,text,NO,'cancelled'::text
+market_date_overrides,booth_disposition,text,text,YES,null
+market_date_overrides,reschedule_date,date,date,YES,null
+market_date_overrides,reason,text,text,YES,null
+market_date_overrides,created_by,uuid,uuid,YES,null
+market_date_overrides,created_at,timestamp with time zone,timestamptz,NO,now()
+market_day_checkins,id,uuid,uuid,NO,gen_random_uuid()
+market_day_checkins,market_id,uuid,uuid,NO,null
+market_day_checkins,vendor_profile_id,uuid,uuid,NO,null
+market_day_checkins,market_date,date,date,NO,null
+market_day_checkins,checked_in_at,timestamp with time zone,timestamptz,NO,now()
+market_day_checkins,checked_out_at,timestamp with time zone,timestamptz,YES,null
+market_day_checkins,method,text,text,NO,'self_attest'::text
+market_day_checkins,self_attested,boolean,bool,NO,true
+market_day_checkins,attestation_text,text,text,YES,null
+market_day_checkins,attestation_version,text,text,YES,null
+market_day_checkins,booth_number,text,text,YES,null
+market_day_checkins,captured_latitude,numeric,numeric,YES,null
+market_day_checkins,captured_longitude,numeric,numeric,YES,null
+market_day_checkins,location_accuracy_m,numeric,numeric,YES,null
+market_day_checkins,distance_from_market_m,numeric,numeric,YES,null
+market_day_checkins,within_geofence,boolean,bool,YES,null
+market_day_checkins,checkout_latitude,numeric,numeric,YES,null
+market_day_checkins,checkout_longitude,numeric,numeric,YES,null
+market_day_checkins,manager_confirmed,boolean,bool,NO,false
+market_day_checkins,manager_confirmed_by,uuid,uuid,YES,null
+market_day_checkins,manager_confirmed_at,timestamp with time zone,timestamptz,YES,null
+market_day_checkins,notes,text,text,YES,null
+market_day_checkins,created_at,timestamp with time zone,timestamptz,NO,now()
+market_day_checkins,updated_at,timestamp with time zone,timestamptz,NO,now()
+market_day_notification_log,id,uuid,uuid,NO,gen_random_uuid()
+market_day_notification_log,market_id,uuid,uuid,NO,null
+market_day_notification_log,market_date,date,date,NO,null
+market_day_notification_log,recipient_count,integer,int4,NO,0
+market_day_notification_log,notified_at,timestamp with time zone,timestamptz,NO,now()
+market_documents,id,uuid,uuid,NO,gen_random_uuid()
+market_documents,market_id,uuid,uuid,NO,null
+market_documents,uploader_user_id,uuid,uuid,NO,null
+market_documents,document_type,text,text,NO,null
+market_documents,storage_path,text,text,NO,null
+market_documents,file_name,text,text,NO,null
+market_documents,file_size_bytes,integer,int4,NO,null
+market_documents,mime_type,text,text,NO,null
+market_documents,notes,text,text,YES,null
+market_documents,uploaded_at,timestamp with time zone,timestamptz,NO,now()
+market_documents,created_at,timestamp with time zone,timestamptz,NO,now()
+market_favorites,id,uuid,uuid,NO,gen_random_uuid()
+market_favorites,user_id,uuid,uuid,NO,null
+market_favorites,market_id,uuid,uuid,NO,null
+market_favorites,created_at,timestamp with time zone,timestamptz,NO,now()
+market_manager_history,id,uuid,uuid,NO,gen_random_uuid()
+market_manager_history,market_id,uuid,uuid,NO,null
+market_manager_history,manager_user_id,uuid,uuid,YES,null
+market_manager_history,manager_email_snapshot,text,text,NO,null
+market_manager_history,assigned_at,timestamp with time zone,timestamptz,NO,now()
+market_manager_history,assigned_by_user_id,uuid,uuid,YES,null
+market_manager_history,ended_at,timestamp with time zone,timestamptz,YES,null
+market_manager_history,ended_by_user_id,uuid,uuid,YES,null
+market_manager_history,end_reason,text,text,YES,null
+market_manager_history,created_at,timestamp with time zone,timestamptz,NO,now()
+market_optin_selections,id,uuid,uuid,NO,gen_random_uuid()
+market_optin_selections,market_id,uuid,uuid,NO,null
+market_optin_selections,statement_id,text,text,NO,null
+market_optin_selections,placeholder_values,jsonb,jsonb,NO,'{}'::jsonb
+market_optin_selections,selected_at,timestamp with time zone,timestamptz,NO,now()
+market_optin_statement_catalog,id,text,text,NO,null
+market_optin_statement_catalog,category,text,text,NO,null
+market_optin_statement_catalog,statement,text,text,NO,null
+market_optin_statement_catalog,placeholders,ARRAY,_text,NO,'{}'::text[]
+market_optin_statement_catalog,active,boolean,bool,NO,true
+market_optin_statement_catalog,sort_order,integer,int4,NO,0
+market_optin_statement_catalog,created_at,timestamp with time zone,timestamptz,NO,now()
+market_optin_statement_catalog,vertical_id,text,text,YES,null
+market_optin_statement_catalog,event_eligible,boolean,bool,NO,false
+market_schedules,id,uuid,uuid,NO,gen_random_uuid()
+market_schedules,market_id,uuid,uuid,NO,null
+market_schedules,day_of_week,integer,int4,NO,null
+market_schedules,start_time,time without time zone,time,NO,null
+market_schedules,end_time,time without time zone,time,NO,null
+market_schedules,active,boolean,bool,YES,true
+market_schedules,created_at,timestamp with time zone,timestamptz,YES,now()
+market_seasons,id,uuid,uuid,NO,gen_random_uuid()
+market_seasons,market_id,uuid,uuid,NO,null
+market_seasons,name,text,text,NO,null
+market_seasons,start_date,date,date,NO,null
+market_seasons,end_date,date,date,NO,null
+market_seasons,declared_market_days,integer,int4,YES,null
+market_seasons,refund_cap_days,integer,int4,NO,1
+market_seasons,prepay_open,boolean,bool,NO,false
+market_seasons,prepay_opened_at,timestamp with time zone,timestamptz,YES,null
+market_seasons,prepay_closes_at,timestamp with time zone,timestamptz,YES,null
+market_seasons,status,text,text,NO,'draft'::text
+market_seasons,created_at,timestamp with time zone,timestamptz,NO,now()
+market_seasons,updated_at,timestamp with time zone,timestamptz,NO,now()
+market_seasons,potential_makeup_days,integer,int4,NO,0
+market_seasons,days_per_week_snapshot,integer,int4,YES,null
+market_surveys,id,uuid,uuid,NO,gen_random_uuid()
+market_surveys,kind,text,text,NO,null
+market_surveys,vendor_profile_id,uuid,uuid,YES,null
+market_surveys,buyer_user_id,uuid,uuid,YES,null
+market_surveys,market_id,uuid,uuid,NO,null
+market_surveys,market_date,date,date,NO,null
+market_surveys,access_token,text,text,YES,null
+market_surveys,expires_at,timestamp with time zone,timestamptz,NO,null
+market_surveys,rating_overall,integer,int4,YES,null
+market_surveys,rating_foot_traffic,integer,int4,YES,null
+market_surveys,rating_sales,integer,int4,YES,null
+market_surveys,rating_market_organization,integer,int4,YES,null
+market_surveys,rating_manager_support,integer,int4,YES,null
+market_surveys,rating_variety,integer,int4,YES,null
+market_surveys,rating_quality,integer,int4,YES,null
+market_surveys,rating_atmosphere,integer,int4,YES,null
+market_surveys,rating_layout,integer,int4,YES,null
+market_surveys,rating_accessibility,integer,int4,YES,null
+market_surveys,comment,text,text,YES,null
+market_surveys,submitted_at,timestamp with time zone,timestamptz,YES,null
+market_surveys,notified_at,timestamp with time zone,timestamptz,YES,null
+market_surveys,created_at,timestamp with time zone,timestamptz,NO,now()
+market_surveys,other_places_request,text,text,YES,null
+market_vendor_counts,market_id,uuid,uuid,YES,null
+market_vendor_counts,vendor_count,bigint,int8,YES,null
+market_vendors,id,uuid,uuid,NO,gen_random_uuid()
+market_vendors,market_id,uuid,uuid,NO,null
+market_vendors,vendor_profile_id,uuid,uuid,NO,null
+market_vendors,approved,boolean,bool,YES,false
+market_vendors,booth_number,text,text,YES,null
+market_vendors,notes,text,text,YES,null
+market_vendors,created_at,timestamp with time zone,timestamptz,YES,now()
+market_vendors,updated_at,timestamp with time zone,timestamptz,YES,now()
+market_vendors,response_status,text,text,YES,null
+market_vendors,response_notes,text,text,YES,null
+market_vendors,invited_at,timestamp with time zone,timestamptz,YES,null
+market_vendors,is_backup,boolean,bool,YES,false
+market_vendors,backup_priority,integer,int4,YES,null
+market_vendors,replaced_vendor_id,uuid,uuid,YES,null
+market_vendors,event_max_orders_total,integer,int4,YES,null
+market_vendors,event_max_orders_per_wave,integer,int4,YES,null
+market_vendors,inventory_id,uuid,uuid,YES,null
+market_vendors,revoked_at,timestamp with time zone,timestamptz,YES,null
+market_vendors,revoked_by,uuid,uuid,YES,null
+market_vendors,organizer_selected_at,timestamp with time zone,timestamptz,YES,null
+market_vendors,standby_opted_in_at,timestamp with time zone,timestamptz,YES,null
+markets,id,uuid,uuid,NO,gen_random_uuid()
+markets,vertical_id,text,text,NO,null
+markets,vendor_profile_id,uuid,uuid,YES,null
+markets,name,text,text,NO,null
+markets,market_type,text,text,NO,null
+markets,address,text,text,YES,null
+markets,city,text,text,YES,null
+markets,state,text,text,YES,null
+markets,zip,text,text,YES,null
+markets,day_of_week,integer,int4,YES,null
+markets,start_time,time without time zone,time,YES,null
+markets,end_time,time without time zone,time,YES,null
+markets,status,text,text,NO,'active'::text
+markets,created_at,timestamp with time zone,timestamptz,NO,now()
+markets,updated_at,timestamp with time zone,timestamptz,NO,now()
+markets,active,boolean,bool,NO,true
+markets,contact_email,text,text,YES,null
+markets,submitted_by,uuid,uuid,YES,null
+markets,submitted_at,timestamp with time zone,timestamptz,YES,null
+markets,reviewed_by,uuid,uuid,YES,null
+markets,reviewed_at,timestamp with time zone,timestamptz,YES,null
+markets,rejection_reason,text,text,YES,null
+markets,latitude,numeric,numeric,YES,null
+markets,longitude,numeric,numeric,YES,null
+markets,geocoding_failed,boolean,bool,YES,false
+markets,contact_phone,text,text,YES,null
+markets,timezone,text,text,YES,'America/Chicago'::text
+markets,cutoff_hours,integer,int4,YES,18
+markets,season_start,date,date,YES,null
+markets,season_end,date,date,YES,null
+markets,approval_status,USER-DEFINED,market_approval_status,YES,'approved'::market_approval_status
+markets,submitted_by_vendor_id,uuid,uuid,YES,null
+markets,description,text,text,YES,null
+markets,website,text,text,YES,null
+markets,vendor_sells_at_market,boolean,bool,YES,true
+markets,expires_at,timestamp with time zone,timestamptz,YES,null
+markets,catering_request_id,uuid,uuid,YES,null
+markets,headcount,integer,int4,YES,null
+markets,is_private,boolean,bool,YES,false
+markets,event_allow_day_of_orders,boolean,bool,NO,false
+markets,wave_ordering_enabled,boolean,bool,NO,false
+markets,wave_duration_minutes,integer,int4,NO,30
+markets,manager_email,text,text,YES,null
+markets,manager_user_id,uuid,uuid,YES,null
+markets,manager_invited_at,timestamp with time zone,timestamptz,YES,null
+markets,manager_accepted_at,timestamp with time zone,timestamptz,YES,null
+markets,logo_url,text,text,YES,null
+markets,stripe_account_id,text,text,YES,null
+markets,stripe_onboarding_complete,boolean,bool,NO,false
+markets,stripe_charges_enabled,boolean,bool,NO,false
+markets,stripe_payouts_enabled,boolean,bool,NO,false
+markets,booth_label_start,text,text,YES,null
+markets,booth_label_end,text,text,YES,null
+markets,onboarding_no_existing_vendors_ack,boolean,bool,NO,false
+markets,onboarding_no_placeholders_ack,boolean,bool,NO,false
+markets,manager_status,text,text,NO,'active'::text
+markets,schedule_confirmed_at,timestamp with time zone,timestamptz,YES,null
+markets,park_mode,text,text,NO,'free'::text
+markets,operator_keep_pct,numeric,numeric,NO,0.935
+markets,required_docs_note,text,text,YES,null
+markets,booth_map_url,text,text,YES,null
+markets,required_docs,jsonb,jsonb,NO,'[]'::jsonb
+markets,insurance_self_certified,boolean,bool,NO,false
+markets,insurance_self_certified_at,timestamp with time zone,timestamptz,YES,null
+markets,operator_platform_ack,boolean,bool,NO,false
+markets,operator_platform_ack_at,timestamp with time zone,timestamptz,YES,null
+markets,cover_image_url,text,text,YES,null
+markets,chipin_enabled,boolean,bool,NO,false
+markets,chipin_beneficiary_id,uuid,uuid,YES,null
+markets,tax_jurisdictions,jsonb,jsonb,NO,'[]'::jsonb
+markets,tax_rate_total_pct,numeric,numeric,YES,null
+markets,tax_rate_version,text,text,YES,null
+markets,tax_jurisdiction_verified_at,timestamp with time zone,timestamptz,YES,null
+markets,tax_jurisdiction_note,text,text,YES,null
+markets,event_start_date,date,date,YES,null
+markets,event_end_date,date,date,YES,null
+markets,event_url,text,text,YES,null
+notifications,id,uuid,uuid,NO,uuid_generate_v4()
+notifications,user_id,uuid,uuid,NO,null
+notifications,type,text,text,NO,null
+notifications,title,text,text,NO,null
+notifications,message,text,text,YES,null
+notifications,data,jsonb,jsonb,YES,'{}'::jsonb
+notifications,read_at,timestamp with time zone,timestamptz,YES,null
+notifications,created_at,timestamp with time zone,timestamptz,YES,now()
+notifications,vertical_id,text,text,YES,null
+order_items,id,uuid,uuid,NO,uuid_generate_v4()
+order_items,order_id,uuid,uuid,NO,null
+order_items,listing_id,uuid,uuid,NO,null
+order_items,vendor_profile_id,uuid,uuid,NO,null
+order_items,quantity,integer,int4,NO,1
+order_items,unit_price_cents,integer,int4,NO,null
+order_items,subtotal_cents,integer,int4,NO,null
+order_items,platform_fee_cents,integer,int4,NO,null
+order_items,vendor_payout_cents,integer,int4,NO,null
+order_items,status,USER-DEFINED,order_item_status,NO,'pending'::order_item_status
+order_items,pickup_confirmed_at,timestamp with time zone,timestamptz,YES,null
+order_items,created_at,timestamp with time zone,timestamptz,NO,now()
+order_items,updated_at,timestamp with time zone,timestamptz,NO,now()
+order_items,buyer_confirmed_at,timestamp with time zone,timestamptz,YES,null
+order_items,cancelled_at,timestamp with time zone,timestamptz,YES,null
+order_items,cancelled_by,text,text,YES,null
+order_items,cancellation_reason,text,text,YES,null
+order_items,refund_amount_cents,integer,int4,YES,null
+order_items,expires_at,timestamp with time zone,timestamptz,YES,null
+order_items,pickup_date,date,date,YES,null
+order_items,market_id,uuid,uuid,YES,null
+order_items,vendor_confirmed_at,timestamp with time zone,timestamptz,YES,null
+order_items,confirmation_window_expires_at,timestamp with time zone,timestamptz,YES,null
+order_items,lockdown_active,boolean,bool,YES,false
+order_items,lockdown_initiated_at,timestamp with time zone,timestamptz,YES,null
+order_items,issue_reported_at,timestamp with time zone,timestamptz,YES,null
+order_items,issue_reported_by,text,text,YES,null
+order_items,issue_description,text,text,YES,null
+order_items,issue_resolved_at,timestamp with time zone,timestamptz,YES,null
+order_items,issue_resolved_by,text,text,YES,null
+order_items,issue_status,text,text,YES,'new'::text
+order_items,issue_admin_notes,text,text,YES,null
+order_items,schedule_id,uuid,uuid,YES,null
+order_items,pickup_snapshot,jsonb,jsonb,YES,null
+order_items,preferred_pickup_time,time without time zone,time,YES,null
+order_items,cancellation_fee_cents,integer,int4,YES,null
+order_items,wave_id,uuid,uuid,YES,null
+order_items,tax_amount_cents,integer,int4,YES,null
+order_items,taxable_amount_cents,integer,int4,YES,null
+order_items,tax_jurisdictions,jsonb,jsonb,YES,null
+order_items,tax_rate_version,text,text,YES,null
+order_items,tax_source,text,text,YES,null
+order_items,discount_cents,integer,int4,NO,0
+order_items,offer_id,uuid,uuid,YES,null
+order_ratings,id,uuid,uuid,NO,gen_random_uuid()
+order_ratings,order_id,uuid,uuid,NO,null
+order_ratings,buyer_user_id,uuid,uuid,NO,null
+order_ratings,vendor_profile_id,uuid,uuid,NO,null
+order_ratings,rating,integer,int4,NO,null
+order_ratings,comment,text,text,YES,null
+order_ratings,created_at,timestamp with time zone,timestamptz,YES,now()
+order_ratings,updated_at,timestamp with time zone,timestamptz,YES,now()
+orders,id,uuid,uuid,NO,uuid_generate_v4()
+orders,buyer_user_id,uuid,uuid,NO,null
+orders,vertical_id,text,text,NO,null
+orders,order_number,text,text,NO,null
+orders,status,USER-DEFINED,order_status,NO,'pending'::order_status
+orders,subtotal_cents,integer,int4,NO,null
+orders,platform_fee_cents,integer,int4,NO,null
+orders,total_cents,integer,int4,NO,null
+orders,stripe_checkout_session_id,text,text,YES,null
+orders,created_at,timestamp with time zone,timestamptz,NO,now()
+orders,updated_at,timestamp with time zone,timestamptz,NO,now()
+orders,payment_method,USER-DEFINED,payment_method,YES,'stripe'::payment_method
+orders,external_payment_confirmed_at,timestamp with time zone,timestamptz,YES,null
+orders,external_payment_confirmed_by,uuid,uuid,YES,null
+orders,parent_order_id,uuid,uuid,YES,null
+orders,order_suffix,character varying,varchar,YES,null
+orders,tip_percentage,smallint,int2,YES,0
+orders,tip_amount,integer,int4,YES,0
+orders,tip_on_platform_fee_cents,integer,int4,NO,0
+orders,small_order_fee_cents,integer,int4,NO,0
+orders,payment_model,text,text,YES,null
+orders,event_wave_reservation_id,uuid,uuid,YES,null
+orders,event_company_payment_id,uuid,uuid,YES,null
+orders,chipin_amount_cents,integer,int4,YES,null
+orders,chipin_beneficiary_id,uuid,uuid,YES,null
+orders,tax_total_cents,integer,int4,YES,null
+orders,reconfirm_required_at,timestamp with time zone,timestamptz,YES,null
+orders,reconfirm_token,uuid,uuid,YES,null
+orders,reconfirmed_at,timestamp with time zone,timestamptz,YES,null
+orders,reconfirm_reminder_sent_at,timestamp with time zone,timestamptz,YES,null
+orders,reconfirm_final_sent_at,timestamp with time zone,timestamptz,YES,null
+orders,reconfirm_refunded_at,timestamp with time zone,timestamptz,YES,null
+orders,discount_cents,integer,int4,NO,0
+orders,bundle_id,uuid,uuid,YES,null
+orders,bundle_margin_cents,integer,int4,NO,0
+orders,bundle_handed_off_at,timestamp with time zone,timestamptz,YES,null
+orders,bundle_margin_transfer_id,text,text,YES,null
+orders,bundle_buyer_ack_at,timestamp with time zone,timestamptz,YES,null
+organizations,id,uuid,uuid,NO,uuid_generate_v4()
+organizations,legal_name,text,text,NO,null
+organizations,dba_name,text,text,YES,null
+organizations,owner_user_id,uuid,uuid,NO,null
+organizations,tax_id,text,text,YES,null
+organizations,created_at,timestamp with time zone,timestamptz,YES,now()
+organizations,updated_at,timestamp with time zone,timestamptz,YES,now()
+organizations,deleted_at,timestamp with time zone,timestamptz,YES,null
+park_spot_bookings,id,uuid,uuid,NO,gen_random_uuid()
+park_spot_bookings,market_id,uuid,uuid,NO,null
+park_spot_bookings,vendor_profile_id,uuid,uuid,NO,null
+park_spot_bookings,spot_id,uuid,uuid,NO,null
+park_spot_bookings,booking_date,date,date,NO,null
+park_spot_bookings,price_cents,integer,int4,NO,null
+park_spot_bookings,status,text,text,NO,'pending_payment'::text
+park_spot_bookings,booking_group_id,uuid,uuid,YES,null
+park_spot_bookings,stripe_checkout_session_id,text,text,YES,null
+park_spot_bookings,stripe_payment_intent_id,text,text,YES,null
+park_spot_bookings,agreement_acceptance_id,uuid,uuid,YES,null
+park_spot_bookings,booked_at,timestamp with time zone,timestamptz,NO,now()
+park_spot_bookings,paid_at,timestamp with time zone,timestamptz,YES,null
+park_spot_bookings,cancelled_at,timestamp with time zone,timestamptz,YES,null
+park_spot_bookings,created_at,timestamp with time zone,timestamptz,NO,now()
+park_spot_bookings,updated_at,timestamp with time zone,timestamptz,NO,now()
+park_spot_bookings,standing_reservation_id,uuid,uuid,YES,null
+park_spot_bookings,manager_barred_at,timestamp with time zone,timestamptz,YES,null
+park_spot_bookings,bar_reason,text,text,YES,null
+park_spot_bookings,manager_receives_cents,integer,int4,YES,null
+park_spots,id,uuid,uuid,NO,gen_random_uuid()
+park_spots,market_id,uuid,uuid,NO,null
+park_spots,label,text,text,NO,null
+park_spots,max_length_ft,integer,int4,YES,null
+park_spots,power,text,text,NO,'none'::text
+park_spots,has_water,boolean,bool,NO,false
+park_spots,base_price_cents,integer,int4,NO,null
+park_spots,recurring_eligible,boolean,bool,NO,false
+park_spots,active,boolean,bool,NO,true
+park_spots,created_at,timestamp with time zone,timestamptz,NO,now()
+park_spots,updated_at,timestamp with time zone,timestamptz,NO,now()
+park_standing_reservations,id,uuid,uuid,NO,gen_random_uuid()
+park_standing_reservations,market_id,uuid,uuid,NO,null
+park_standing_reservations,vendor_profile_id,uuid,uuid,NO,null
+park_standing_reservations,spot_id,uuid,uuid,NO,null
+park_standing_reservations,day_of_week,integer,int4,NO,null
+park_standing_reservations,status,text,text,NO,'requested'::text
+park_standing_reservations,approved_by,uuid,uuid,YES,null
+park_standing_reservations,approved_at,timestamp with time zone,timestamptz,YES,null
+park_standing_reservations,created_at,timestamp with time zone,timestamptz,NO,now()
+park_standing_reservations,updated_at,timestamp with time zone,timestamptz,NO,now()
+park_standing_reservations,strikes_reset_at,timestamp with time zone,timestamptz,YES,null
+park_standing_reservations,requested_start_date,date,date,YES,null
+park_vendor_vetting,id,uuid,uuid,NO,gen_random_uuid()
+park_vendor_vetting,market_id,uuid,uuid,NO,null
+park_vendor_vetting,vendor_profile_id,uuid,uuid,NO,null
+park_vendor_vetting,docs_reviewed_at,timestamp with time zone,timestamptz,YES,null
+park_vendor_vetting,review_status,text,text,NO,'pending'::text
+park_vendor_vetting,blocked,boolean,bool,NO,false
+park_vendor_vetting,block_reason,text,text,YES,null
+park_vendor_vetting,blocked_at,timestamp with time zone,timestamptz,YES,null
+park_vendor_vetting,created_at,timestamp with time zone,timestamptz,NO,now()
+park_vendor_vetting,updated_at,timestamp with time zone,timestamptz,NO,now()
+park_vendor_vetting,docs_notified_at,timestamp with time zone,timestamptz,YES,null
+payments,id,uuid,uuid,NO,uuid_generate_v4()
+payments,order_id,uuid,uuid,NO,null
+payments,stripe_payment_intent_id,text,text,NO,null
+payments,amount_cents,integer,int4,NO,null
+payments,platform_fee_cents,integer,int4,NO,null
+payments,status,USER-DEFINED,payment_status,NO,'pending'::payment_status
+payments,paid_at,timestamp with time zone,timestamptz,YES,null
+payments,refunded_at,timestamp with time zone,timestamptz,YES,null
+payments,refund_amount_cents,integer,int4,YES,null
+payments,created_at,timestamp with time zone,timestamptz,YES,now()
+payments,updated_at,timestamp with time zone,timestamptz,YES,now()
+payments,stripe_fee_cents,integer,int4,YES,null
+platform_settings,key,text,text,NO,null
+platform_settings,value,text,text,NO,null
+platform_settings,description,text,text,YES,null
+platform_settings,updated_at,timestamp with time zone,timestamptz,YES,now()
+public_activity_events,id,uuid,uuid,NO,gen_random_uuid()
+public_activity_events,vertical_id,text,text,NO,null
+public_activity_events,event_type,text,text,NO,null
+public_activity_events,city,text,text,YES,null
+public_activity_events,item_name,text,text,YES,null
+public_activity_events,vendor_display_name,text,text,YES,null
+public_activity_events,item_category,text,text,YES,null
+public_activity_events,created_at,timestamp with time zone,timestamptz,NO,now()
+public_activity_events,expires_at,timestamp with time zone,timestamptz,NO,(now() + '7 days'::interval)
+push_subscriptions,id,uuid,uuid,NO,gen_random_uuid()
+push_subscriptions,user_id,uuid,uuid,NO,null
+push_subscriptions,endpoint,text,text,NO,null
+push_subscriptions,p256dh,text,text,NO,null
+push_subscriptions,auth,text,text,NO,null
+push_subscriptions,created_at,timestamp with time zone,timestamptz,NO,now()
+rule_refusals,id,uuid,uuid,NO,gen_random_uuid()
+rule_refusals,rule_key,text,text,NO,null
+rule_refusals,vertical_id,text,text,YES,null
+rule_refusals,route,text,text,YES,null
+rule_refusals,method,text,text,YES,null
+rule_refusals,user_id,uuid,uuid,YES,null
+rule_refusals,context,jsonb,jsonb,NO,'{}'::jsonb
+rule_refusals,created_at,timestamp with time zone,timestamptz,NO,now()
+shopper_feedback,id,uuid,uuid,NO,gen_random_uuid()
+shopper_feedback,user_id,uuid,uuid,NO,null
+shopper_feedback,vertical_id,text,text,NO,null
+shopper_feedback,category,USER-DEFINED,shopper_feedback_category,NO,null
+shopper_feedback,message,text,text,NO,null
+shopper_feedback,market_name,text,text,YES,null
+shopper_feedback,market_location,text,text,YES,null
+shopper_feedback,market_schedule,text,text,YES,null
+shopper_feedback,status,USER-DEFINED,feedback_status,YES,'new'::feedback_status
+shopper_feedback,admin_notes,text,text,YES,null
+shopper_feedback,resolved_at,timestamp with time zone,timestamptz,YES,null
+shopper_feedback,resolved_by,uuid,uuid,YES,null
+shopper_feedback,created_at,timestamp with time zone,timestamptz,YES,now()
+shopper_feedback,updated_at,timestamp with time zone,timestamptz,YES,now()
+spatial_ref_sys,srid,integer,int4,NO,null
+spatial_ref_sys,auth_name,character varying,varchar,YES,null
+spatial_ref_sys,auth_srid,integer,int4,YES,null
+spatial_ref_sys,srtext,character varying,varchar,YES,null
+spatial_ref_sys,proj4text,character varying,varchar,YES,null
+support_tickets,id,uuid,uuid,NO,gen_random_uuid()
+support_tickets,vertical_id,text,text,NO,null
+support_tickets,name,text,text,NO,null
+support_tickets,email,text,text,NO,null
+support_tickets,category,text,text,NO,'general'::text
+support_tickets,message,text,text,NO,null
+support_tickets,user_id,uuid,uuid,YES,null
+support_tickets,status,text,text,NO,'new'::text
+support_tickets,admin_notes,text,text,YES,null
+support_tickets,created_at,timestamp with time zone,timestamptz,YES,now()
+support_tickets,updated_at,timestamp with time zone,timestamptz,YES,now()
+transactions,id,uuid,uuid,NO,uuid_generate_v4()
+transactions,listing_id,uuid,uuid,NO,null
+transactions,vendor_profile_id,uuid,uuid,NO,null
+transactions,buyer_user_id,uuid,uuid,NO,null
+transactions,vertical_id,text,text,NO,null
+transactions,status,USER-DEFINED,transaction_status,YES,'initiated'::transaction_status
+transactions,buyer_data,jsonb,jsonb,YES,'{}'::jsonb
+transactions,notes,text,text,YES,null
+transactions,created_at,timestamp with time zone,timestamptz,YES,now()
+transactions,updated_at,timestamp with time zone,timestamptz,YES,now()
+user_agreement_acceptances,id,uuid,uuid,NO,gen_random_uuid()
+user_agreement_acceptances,user_id,uuid,uuid,NO,null
+user_agreement_acceptances,agreement_type,text,text,NO,null
+user_agreement_acceptances,agreement_version,text,text,NO,null
+user_agreement_acceptances,accepted_at,timestamp with time zone,timestamptz,NO,now()
+user_agreement_acceptances,ip_address,inet,inet,YES,null
+user_agreement_acceptances,user_agent,text,text,YES,null
+user_agreement_acceptances,vertical_id,text,text,YES,null
+user_agreement_acceptances,created_at,timestamp with time zone,timestamptz,NO,now()
+user_profiles,id,uuid,uuid,NO,uuid_generate_v4()
+user_profiles,user_id,uuid,uuid,NO,null
+user_profiles,email,text,text,YES,null
+user_profiles,phone,text,text,YES,null
+user_profiles,display_name,text,text,YES,null
+user_profiles,roles,ARRAY,_user_role,YES,ARRAY['buyer'::user_role]
+user_profiles,avatar_url,text,text,YES,null
+user_profiles,created_at,timestamp with time zone,timestamptz,YES,now()
+user_profiles,updated_at,timestamp with time zone,timestamptz,YES,now()
+user_profiles,deleted_at,timestamp with time zone,timestamptz,YES,null
+user_profiles,role,USER-DEFINED,user_role,YES,null
+user_profiles,verticals,ARRAY,_text,YES,'{}'::text[]
+user_profiles,buyer_tier,text,text,YES,'standard'::text
+user_profiles,buyer_tier_expires_at,timestamp with time zone,timestamptz,YES,null
+user_profiles,stripe_subscription_id,text,text,YES,null
+user_profiles,preferred_latitude,numeric,numeric,YES,null
+user_profiles,preferred_longitude,numeric,numeric,YES,null
+user_profiles,location_source,text,text,YES,null
+user_profiles,location_updated_at,timestamp with time zone,timestamptz,YES,null
+user_profiles,is_chief_platform_admin,boolean,bool,YES,false
+user_profiles,tutorial_completed_at,timestamp with time zone,timestamptz,YES,null
+user_profiles,tutorial_skipped_at,timestamp with time zone,timestamptz,YES,null
+user_profiles,vendor_tutorial_completed_at,timestamp with time zone,timestamptz,YES,null
+user_profiles,vendor_tutorial_skipped_at,timestamp with time zone,timestamptz,YES,null
+user_profiles,location_text,text,text,YES,null
+user_profiles,stripe_customer_id,text,text,YES,null
+user_profiles,subscription_status,text,text,YES,null
+user_profiles,subscription_cycle,text,text,YES,null
+user_profiles,tier_started_at,timestamp with time zone,timestamptz,YES,null
+user_profiles,tier_expires_at,timestamp with time zone,timestamptz,YES,null
+user_profiles,notification_preferences,jsonb,jsonb,YES,"'{""sms_marketing"": false, ""email_marketing"": false, ""sms_order_updates"": false, ""email_order_updates"": true}'::jsonb"
+user_profiles,survey_emails_opted_out,boolean,bool,NO,false
+user_profiles,email_suppressed_at,timestamp with time zone,timestamptz,YES,null
+user_profiles,email_suppression_reason,text,text,YES,null
+v_error_frequency,error_code,text,text,YES,null
+v_error_frequency,report_count,bigint,int8,YES,null
+v_error_frequency,affected_verticals,bigint,int8,YES,null
+v_error_frequency,last_reported,timestamp with time zone,timestamptz,YES,null
+v_error_frequency,first_reported,timestamp with time zone,timestamptz,YES,null
+v_error_frequency,resolved_count,bigint,int8,YES,null
+v_error_frequency,open_count,bigint,int8,YES,null
+v_failed_approaches,error_code,text,text,YES,null
+v_failed_approaches,attempted_fix,text,text,YES,null
+v_failed_approaches,migration_file,text,text,YES,null
+v_failed_approaches,failure_reason,text,text,YES,null
+v_failed_approaches,created_at,timestamp with time zone,timestamptz,YES,null
+v_platform_admin_escalated_reports,id,uuid,uuid,YES,null
+v_platform_admin_escalated_reports,error_code,text,text,YES,null
+v_platform_admin_escalated_reports,trace_id,text,text,YES,null
+v_platform_admin_escalated_reports,vertical_id,text,text,YES,null
+v_platform_admin_escalated_reports,page_url,text,text,YES,null
+v_platform_admin_escalated_reports,user_agent,text,text,YES,null
+v_platform_admin_escalated_reports,reported_by_user_id,uuid,uuid,YES,null
+v_platform_admin_escalated_reports,reporter_email,text,text,YES,null
+v_platform_admin_escalated_reports,user_description,text,text,YES,null
+v_platform_admin_escalated_reports,status,text,text,YES,null
+v_platform_admin_escalated_reports,escalation_level,text,text,YES,null
+v_platform_admin_escalated_reports,assigned_to_user_id,uuid,uuid,YES,null
+v_platform_admin_escalated_reports,resolution_id,uuid,uuid,YES,null
+v_platform_admin_escalated_reports,resolution_notes,text,text,YES,null
+v_platform_admin_escalated_reports,vertical_admin_notes,text,text,YES,null
+v_platform_admin_escalated_reports,escalated_at,timestamp with time zone,timestamptz,YES,null
+v_platform_admin_escalated_reports,escalated_by_user_id,uuid,uuid,YES,null
+v_platform_admin_escalated_reports,platform_admin_notes,text,text,YES,null
+v_platform_admin_escalated_reports,resolved_at,timestamp with time zone,timestamptz,YES,null
+v_platform_admin_escalated_reports,resolved_by_user_id,uuid,uuid,YES,null
+v_platform_admin_escalated_reports,created_at,timestamp with time zone,timestamptz,YES,null
+v_platform_admin_escalated_reports,updated_at,timestamp with time zone,timestamptz,YES,null
+v_platform_admin_escalated_reports,vertical_name,text,text,YES,null
+v_platform_admin_escalated_reports,vertical_slug,text,text,YES,null
+v_platform_admin_escalated_reports,error_message,text,text,YES,null
+v_platform_admin_escalated_reports,error_context,jsonb,jsonb,YES,null
+v_platform_admin_escalated_reports,error_breadcrumbs,jsonb,jsonb,YES,null
+v_platform_admin_escalated_reports,resolution_status,text,text,YES,null
+v_platform_admin_escalated_reports,resolution_fix,text,text,YES,null
+v_verified_solutions,error_code,text,text,YES,null
+v_verified_solutions,attempted_fix,text,text,YES,null
+v_verified_solutions,migration_file,text,text,YES,null
+v_verified_solutions,verification_method,text,text,YES,null
+v_verified_solutions,verified_at,timestamp with time zone,timestamptz,YES,null
+v_verified_solutions,verified_by,text,text,YES,null
+v_vertical_admin_pending_reports,id,uuid,uuid,YES,null
+v_vertical_admin_pending_reports,error_code,text,text,YES,null
+v_vertical_admin_pending_reports,trace_id,text,text,YES,null
+v_vertical_admin_pending_reports,vertical_id,text,text,YES,null
+v_vertical_admin_pending_reports,page_url,text,text,YES,null
+v_vertical_admin_pending_reports,user_agent,text,text,YES,null
+v_vertical_admin_pending_reports,reported_by_user_id,uuid,uuid,YES,null
+v_vertical_admin_pending_reports,reporter_email,text,text,YES,null
+v_vertical_admin_pending_reports,user_description,text,text,YES,null
+v_vertical_admin_pending_reports,status,text,text,YES,null
+v_vertical_admin_pending_reports,escalation_level,text,text,YES,null
+v_vertical_admin_pending_reports,assigned_to_user_id,uuid,uuid,YES,null
+v_vertical_admin_pending_reports,resolution_id,uuid,uuid,YES,null
+v_vertical_admin_pending_reports,resolution_notes,text,text,YES,null
+v_vertical_admin_pending_reports,vertical_admin_notes,text,text,YES,null
+v_vertical_admin_pending_reports,escalated_at,timestamp with time zone,timestamptz,YES,null
+v_vertical_admin_pending_reports,escalated_by_user_id,uuid,uuid,YES,null
+v_vertical_admin_pending_reports,platform_admin_notes,text,text,YES,null
+v_vertical_admin_pending_reports,resolved_at,timestamp with time zone,timestamptz,YES,null
+v_vertical_admin_pending_reports,resolved_by_user_id,uuid,uuid,YES,null
+v_vertical_admin_pending_reports,created_at,timestamp with time zone,timestamptz,YES,null
+v_vertical_admin_pending_reports,updated_at,timestamp with time zone,timestamptz,YES,null
+v_vertical_admin_pending_reports,vertical_name,text,text,YES,null
+v_vertical_admin_pending_reports,vertical_slug,text,text,YES,null
+v_vertical_admin_pending_reports,error_message,text,text,YES,null
+v_vertical_admin_pending_reports,error_context,jsonb,jsonb,YES,null
+v_vertical_admin_pending_reports,error_breadcrumbs,jsonb,jsonb,YES,null
+vendor_activity_flags,id,uuid,uuid,NO,uuid_generate_v4()
+vendor_activity_flags,vendor_profile_id,uuid,uuid,NO,null
+vendor_activity_flags,vertical_id,text,text,NO,null
+vendor_activity_flags,reason,USER-DEFINED,vendor_flag_reason,NO,null
+vendor_activity_flags,status,USER-DEFINED,vendor_flag_status,NO,'pending'::vendor_flag_status
+vendor_activity_flags,details,jsonb,jsonb,YES,'{}'::jsonb
+vendor_activity_flags,resolved_at,timestamp with time zone,timestamptz,YES,null
+vendor_activity_flags,resolved_by,uuid,uuid,YES,null
+vendor_activity_flags,resolution_notes,text,text,YES,null
+vendor_activity_flags,action_taken,text,text,YES,null
+vendor_activity_flags,created_at,timestamp with time zone,timestamptz,YES,now()
+vendor_activity_flags,updated_at,timestamp with time zone,timestamptz,YES,now()
+vendor_activity_scan_log,id,uuid,uuid,NO,uuid_generate_v4()
+vendor_activity_scan_log,vertical_id,text,text,YES,null
+vendor_activity_scan_log,vendors_scanned,integer,int4,NO,0
+vendor_activity_scan_log,new_flags_created,integer,int4,NO,0
+vendor_activity_scan_log,flags_auto_resolved,integer,int4,NO,0
+vendor_activity_scan_log,flags_by_reason,jsonb,jsonb,YES,'{}'::jsonb
+vendor_activity_scan_log,started_at,timestamp with time zone,timestamptz,NO,now()
+vendor_activity_scan_log,completed_at,timestamp with time zone,timestamptz,YES,null
+vendor_activity_scan_log,duration_ms,integer,int4,YES,null
+vendor_activity_scan_log,status,text,text,NO,'running'::text
+vendor_activity_scan_log,error_message,text,text,YES,null
+vendor_activity_settings,id,uuid,uuid,NO,uuid_generate_v4()
+vendor_activity_settings,vertical_id,text,text,NO,null
+vendor_activity_settings,monitoring_enabled,boolean,bool,NO,true
+vendor_activity_settings,days_no_login_threshold,integer,int4,NO,90
+vendor_activity_settings,days_no_orders_threshold,integer,int4,NO,120
+vendor_activity_settings,days_no_listing_activity_threshold,integer,int4,NO,180
+vendor_activity_settings,days_incomplete_onboarding_threshold,integer,int4,NO,30
+vendor_activity_settings,check_no_login,boolean,bool,NO,true
+vendor_activity_settings,check_no_orders,boolean,bool,NO,true
+vendor_activity_settings,check_no_listing_activity,boolean,bool,NO,true
+vendor_activity_settings,check_no_published_listings,boolean,bool,NO,true
+vendor_activity_settings,check_incomplete_onboarding,boolean,bool,NO,true
+vendor_activity_settings,updated_at,timestamp with time zone,timestamptz,YES,now()
+vendor_activity_settings,updated_by,uuid,uuid,YES,null
+vendor_activity_settings,created_at,timestamp with time zone,timestamptz,YES,now()
+vendor_date_blackouts,id,uuid,uuid,NO,gen_random_uuid()
+vendor_date_blackouts,vendor_profile_id,uuid,uuid,NO,null
+vendor_date_blackouts,market_id,uuid,uuid,NO,null
+vendor_date_blackouts,blackout_date,date,date,NO,null
+vendor_date_blackouts,source_event_market_id,uuid,uuid,YES,null
+vendor_date_blackouts,reason,text,text,YES,null
+vendor_date_blackouts,created_at,timestamp with time zone,timestamptz,NO,now()
+vendor_favorites,id,uuid,uuid,NO,gen_random_uuid()
+vendor_favorites,user_id,uuid,uuid,NO,null
+vendor_favorites,vendor_profile_id,uuid,uuid,NO,null
+vendor_favorites,created_at,timestamp with time zone,timestamptz,NO,now()
+vendor_fee_balance,id,uuid,uuid,NO,uuid_generate_v4()
+vendor_fee_balance,vendor_profile_id,uuid,uuid,NO,null
+vendor_fee_balance,balance_cents,integer,int4,NO,0
+vendor_fee_balance,oldest_unpaid_at,timestamp with time zone,timestamptz,YES,null
+vendor_fee_balance,last_invoice_at,timestamp with time zone,timestamptz,YES,null
+vendor_fee_balance,created_at,timestamp with time zone,timestamptz,YES,now()
+vendor_fee_balance,updated_at,timestamp with time zone,timestamptz,YES,now()
+vendor_fee_ledger,id,uuid,uuid,NO,uuid_generate_v4()
+vendor_fee_ledger,vendor_profile_id,uuid,uuid,NO,null
+vendor_fee_ledger,order_id,uuid,uuid,YES,null
+vendor_fee_ledger,amount_cents,integer,int4,NO,null
+vendor_fee_ledger,type,text,text,NO,null
+vendor_fee_ledger,description,text,text,YES,null
+vendor_fee_ledger,created_at,timestamp with time zone,timestamptz,YES,now()
+vendor_fee_ledger,order_item_id,uuid,uuid,YES,null
+vendor_feedback,id,uuid,uuid,NO,gen_random_uuid()
+vendor_feedback,vendor_profile_id,uuid,uuid,NO,null
+vendor_feedback,user_id,uuid,uuid,NO,null
+vendor_feedback,vertical_id,text,text,NO,null
+vendor_feedback,category,USER-DEFINED,vendor_feedback_category,NO,null
+vendor_feedback,message,text,text,NO,null
+vendor_feedback,market_name,text,text,YES,null
+vendor_feedback,market_location,text,text,YES,null
+vendor_feedback,market_schedule,text,text,YES,null
+vendor_feedback,status,USER-DEFINED,feedback_status,YES,'new'::feedback_status
+vendor_feedback,admin_notes,text,text,YES,null
+vendor_feedback,resolved_at,timestamp with time zone,timestamptz,YES,null
+vendor_feedback,resolved_by,uuid,uuid,YES,null
+vendor_feedback,created_at,timestamp with time zone,timestamptz,YES,now()
+vendor_feedback,updated_at,timestamp with time zone,timestamptz,YES,now()
+vendor_leads,id,uuid,uuid,NO,gen_random_uuid()
+vendor_leads,vertical_id,text,text,NO,'food_trucks'::text
+vendor_leads,business_name,text,text,NO,null
+vendor_leads,first_name,text,text,NO,null
+vendor_leads,last_name,text,text,NO,null
+vendor_leads,phone,text,text,NO,null
+vendor_leads,email,text,text,NO,null
+vendor_leads,social_link,text,text,YES,null
+vendor_leads,website,text,text,YES,null
+vendor_leads,interested_in_demo,boolean,bool,NO,false
+vendor_leads,questions,text,text,YES,null
+vendor_leads,status,text,text,NO,'new'::text
+vendor_leads,notes,text,text,YES,null
+vendor_leads,created_at,timestamp with time zone,timestamptz,NO,now()
+vendor_leads,updated_at,timestamp with time zone,timestamptz,NO,now()
+vendor_location_cache,id,uuid,uuid,NO,gen_random_uuid()
+vendor_location_cache,vendor_profile_id,uuid,uuid,NO,null
+vendor_location_cache,latitude,numeric,numeric,NO,null
+vendor_location_cache,longitude,numeric,numeric,NO,null
+vendor_location_cache,location_source,text,text,NO,null
+vendor_location_cache,source_market_id,uuid,uuid,YES,null
+vendor_location_cache,vertical_id,text,text,YES,null
+vendor_location_cache,updated_at,timestamp with time zone,timestamptz,YES,now()
+vendor_market_agreement_acceptances,id,uuid,uuid,NO,gen_random_uuid()
+vendor_market_agreement_acceptances,vendor_profile_id,uuid,uuid,NO,null
+vendor_market_agreement_acceptances,market_id,uuid,uuid,NO,null
+vendor_market_agreement_acceptances,accepted_at,timestamp with time zone,timestamptz,NO,now()
+vendor_market_agreement_acceptances,statements_snapshot,jsonb,jsonb,NO,null
+vendor_market_agreement_acceptances,agreement_version,text,text,YES,null
+vendor_market_agreement_acceptances,created_at,timestamp with time zone,timestamptz,NO,now()
+vendor_market_schedules,id,uuid,uuid,NO,gen_random_uuid()
+vendor_market_schedules,vendor_profile_id,uuid,uuid,NO,null
+vendor_market_schedules,market_id,uuid,uuid,NO,null
+vendor_market_schedules,schedule_id,uuid,uuid,NO,null
+vendor_market_schedules,is_active,boolean,bool,YES,true
+vendor_market_schedules,created_at,timestamp with time zone,timestamptz,YES,now()
+vendor_market_schedules,updated_at,timestamp with time zone,timestamptz,YES,now()
+vendor_market_schedules,vendor_start_time,time without time zone,time,YES,null
+vendor_market_schedules,vendor_end_time,time without time zone,time,YES,null
+vendor_offers,id,uuid,uuid,NO,gen_random_uuid()
+vendor_offers,vendor_profile_id,uuid,uuid,NO,null
+vendor_offers,vertical_id,text,text,NO,null
+vendor_offers,kind,text,text,NO,null
+vendor_offers,enabled,boolean,bool,NO,false
+vendor_offers,config,jsonb,jsonb,NO,'{}'::jsonb
+vendor_offers,created_at,timestamp with time zone,timestamptz,NO,now()
+vendor_offers,updated_at,timestamp with time zone,timestamptz,NO,now()
+vendor_payouts,id,uuid,uuid,NO,uuid_generate_v4()
+vendor_payouts,order_item_id,uuid,uuid,YES,null
+vendor_payouts,vendor_profile_id,uuid,uuid,NO,null
+vendor_payouts,amount_cents,integer,int4,NO,null
+vendor_payouts,stripe_transfer_id,text,text,YES,null
+vendor_payouts,status,USER-DEFINED,payout_status,NO,'pending'::payout_status
+vendor_payouts,transferred_at,timestamp with time zone,timestamptz,YES,null
+vendor_payouts,created_at,timestamp with time zone,timestamptz,YES,now()
+vendor_payouts,updated_at,timestamp with time zone,timestamptz,YES,now()
+vendor_payouts,market_box_pickup_id,uuid,uuid,YES,null
+vendor_payouts,market_box_subscription_id,uuid,uuid,YES,null
+vendor_profiles,id,uuid,uuid,NO,uuid_generate_v4()
+vendor_profiles,user_id,uuid,uuid,YES,null
+vendor_profiles,organization_id,uuid,uuid,YES,null
+vendor_profiles,vertical_id,text,text,NO,null
+vendor_profiles,status,USER-DEFINED,vendor_status,YES,'draft'::vendor_status
+vendor_profiles,profile_data,jsonb,jsonb,YES,'{}'::jsonb
+vendor_profiles,created_at,timestamp with time zone,timestamptz,YES,now()
+vendor_profiles,updated_at,timestamp with time zone,timestamptz,YES,now()
+vendor_profiles,deleted_at,timestamp with time zone,timestamptz,YES,null
+vendor_profiles,stripe_account_id,text,text,YES,null
+vendor_profiles,stripe_onboarding_complete,boolean,bool,YES,false
+vendor_profiles,stripe_charges_enabled,boolean,bool,YES,false
+vendor_profiles,stripe_payouts_enabled,boolean,bool,YES,false
+vendor_profiles,tier,text,text,YES,'standard'::text
+vendor_profiles,profile_image_url,text,text,YES,null
+vendor_profiles,description,text,text,YES,null
+vendor_profiles,social_links,jsonb,jsonb,YES,'{}'::jsonb
+vendor_profiles,home_market_id,uuid,uuid,YES,null
+vendor_profiles,latitude,numeric,numeric,YES,null
+vendor_profiles,longitude,numeric,numeric,YES,null
+vendor_profiles,geocoding_failed,boolean,bool,YES,false
+vendor_profiles,referral_code,text,text,YES,null
+vendor_profiles,referred_by_vendor_id,uuid,uuid,YES,null
+vendor_profiles,is_founding_vendor,boolean,bool,YES,false
+vendor_profiles,founding_vendor_granted_at,timestamp with time zone,timestamptz,YES,null
+vendor_profiles,last_active_at,timestamp with time zone,timestamptz,YES,null
+vendor_profiles,last_login_at,timestamp with time zone,timestamptz,YES,null
+vendor_profiles,first_listing_at,timestamp with time zone,timestamptz,YES,null
+vendor_profiles,approved_at,timestamp with time zone,timestamptz,YES,null
+vendor_profiles,average_rating,numeric,numeric,YES,null
+vendor_profiles,rating_count,integer,int4,YES,0
+vendor_profiles,subscription_status,text,text,YES,null
+vendor_profiles,subscription_cycle,text,text,YES,null
+vendor_profiles,tier_started_at,timestamp with time zone,timestamptz,YES,null
+vendor_profiles,tier_expires_at,timestamp with time zone,timestamptz,YES,null
+vendor_profiles,stripe_customer_id,text,text,YES,null
+vendor_profiles,venmo_username,text,text,YES,null
+vendor_profiles,cashapp_cashtag,text,text,YES,null
+vendor_profiles,paypal_username,text,text,YES,null
+vendor_profiles,accepts_cash_at_pickup,boolean,bool,YES,false
+vendor_profiles,certifications,jsonb,jsonb,YES,'[]'::jsonb
+vendor_profiles,orders_confirmed_count,integer,int4,NO,0
+vendor_profiles,orders_cancelled_after_confirm_count,integer,int4,NO,0
+vendor_profiles,cancellation_warning_sent_at,timestamp with time zone,timestamptz,YES,null
+vendor_profiles,stripe_subscription_id,text,text,YES,null
+vendor_profiles,trial_started_at,timestamp with time zone,timestamptz,YES,null
+vendor_profiles,trial_ends_at,timestamp with time zone,timestamptz,YES,null
+vendor_profiles,trial_grace_ends_at,timestamp with time zone,timestamptz,YES,null
+vendor_profiles,event_approved,boolean,bool,YES,false
+vendor_profiles,event_approved_at,timestamp with time zone,timestamptz,YES,null
+vendor_profiles,pickup_lead_minutes,integer,int4,YES,30
+vendor_profiles,cover_image_url,text,text,YES,null
+vendor_profiles,vendor_fee_override_percent,numeric,numeric,YES,null
+vendor_profiles,fee_discount_code,text,text,YES,null
+vendor_profiles,fee_discount_approved_by,uuid,uuid,YES,null
+vendor_profiles,fee_discount_approved_at,timestamp with time zone,timestamptz,YES,null
+vendor_profiles,market_box_frequency,text,text,NO,'weekly'::text
+vendor_profiles,production_category,ARRAY,_text,YES,null
+vendor_profiles,sell_eligible,boolean,bool,NO,true
+vendor_profiles,pickup_capacity_total_per_slot,integer,int4,YES,null
+vendor_profiles,pickup_capacity_app_orders,integer,int4,YES,null
+vendor_profiles,pickup_capacity_avg_items,integer,int4,YES,null
+vendor_profiles,pickup_capacity_items,integer,int4,YES,null
+vendor_profiles,pickup_capacity_slot_minutes,integer,int4,YES,null
+vendor_profiles,bundles_opt_out,boolean,bool,NO,false
+vendor_quality_findings,id,uuid,uuid,NO,gen_random_uuid()
+vendor_quality_findings,vendor_profile_id,uuid,uuid,NO,null
+vendor_quality_findings,vertical_id,text,text,NO,null
+vendor_quality_findings,check_type,text,text,NO,null
+vendor_quality_findings,severity,text,text,NO,null
+vendor_quality_findings,title,text,text,NO,null
+vendor_quality_findings,message,text,text,NO,null
+vendor_quality_findings,details,jsonb,jsonb,YES,'{}'::jsonb
+vendor_quality_findings,reference_key,text,text,NO,null
+vendor_quality_findings,status,text,text,NO,'active'::text
+vendor_quality_findings,batch_id,uuid,uuid,YES,null
+vendor_quality_findings,dismissed_at,timestamp with time zone,timestamptz,YES,null
+vendor_quality_findings,created_at,timestamp with time zone,timestamptz,NO,now()
+vendor_quality_scan_log,id,uuid,uuid,NO,gen_random_uuid()
+vendor_quality_scan_log,started_at,timestamp with time zone,timestamptz,NO,now()
+vendor_quality_scan_log,completed_at,timestamp with time zone,timestamptz,YES,null
+vendor_quality_scan_log,vendors_scanned,integer,int4,NO,0
+vendor_quality_scan_log,findings_created,integer,int4,NO,0
+vendor_quality_scan_log,findings_by_check,jsonb,jsonb,YES,'{}'::jsonb
+vendor_quality_scan_log,status,text,text,NO,'running'::text
+vendor_quality_scan_log,error_message,text,text,YES,null
+vendor_quality_scan_log,created_at,timestamp with time zone,timestamptz,NO,now()
+vendor_referral_credits,id,uuid,uuid,NO,uuid_generate_v4()
+vendor_referral_credits,referrer_vendor_id,uuid,uuid,NO,null
+vendor_referral_credits,referred_vendor_id,uuid,uuid,NO,null
+vendor_referral_credits,credit_amount_cents,integer,int4,NO,1000
+vendor_referral_credits,status,text,text,NO,'pending'::text
+vendor_referral_credits,created_at,timestamp with time zone,timestamptz,YES,now()
+vendor_referral_credits,earned_at,timestamp with time zone,timestamptz,YES,null
+vendor_referral_credits,applied_at,timestamp with time zone,timestamptz,YES,null
+vendor_referral_credits,expires_at,timestamp with time zone,timestamptz,YES,null
+vendor_referral_credits,applied_to,text,text,YES,null
+vendor_referral_credits,applied_amount_cents,integer,int4,YES,null
+vendor_referral_credits,voided_reason,text,text,YES,null
+vendor_referral_credits,voided_at,timestamp with time zone,timestamptz,YES,null
+vendor_referral_credits,voided_by,uuid,uuid,YES,null
+vendor_referral_summary,vendor_id,uuid,uuid,YES,null
+vendor_referral_summary,referral_code,text,text,YES,null
+vendor_referral_summary,referred_by_vendor_id,uuid,uuid,YES,null
+vendor_referral_summary,pending_count,bigint,int8,YES,null
+vendor_referral_summary,earned_count,bigint,int8,YES,null
+vendor_referral_summary,applied_count,bigint,int8,YES,null
+vendor_referral_summary,available_credits_cents,bigint,int8,YES,null
+vendor_referral_summary,year_earned_cents,bigint,int8,YES,null
+vendor_referral_summary,annual_cap_cents,integer,int4,YES,null
+vendor_referral_summary,remaining_cap_cents,bigint,int8,YES,null
+vendor_verifications,id,uuid,uuid,NO,uuid_generate_v4()
+vendor_verifications,vendor_profile_id,uuid,uuid,NO,null
+vendor_verifications,status,USER-DEFINED,verification_status,YES,'pending'::verification_status
+vendor_verifications,submitted_at,timestamp with time zone,timestamptz,YES,null
+vendor_verifications,reviewed_at,timestamp with time zone,timestamptz,YES,null
+vendor_verifications,reviewed_by,uuid,uuid,YES,null
+vendor_verifications,notes,text,text,YES,null
+vendor_verifications,documents,jsonb,jsonb,YES,'[]'::jsonb
+vendor_verifications,created_at,timestamp with time zone,timestamptz,YES,now()
+vendor_verifications,updated_at,timestamp with time zone,timestamptz,YES,now()
+vendor_verifications,requested_categories,ARRAY,_text,YES,'{}'::text[]
+vendor_verifications,category_verifications,jsonb,jsonb,YES,'{}'::jsonb
+vendor_verifications,coi_documents,jsonb,jsonb,YES,'[]'::jsonb
+vendor_verifications,coi_status,text,text,YES,'not_submitted'::text
+vendor_verifications,coi_verified_at,timestamp with time zone,timestamptz,YES,null
+vendor_verifications,coi_verified_by,uuid,uuid,YES,null
+vendor_verifications,prohibited_items_acknowledged_at,timestamp with time zone,timestamptz,YES,null
+vendor_verifications,onboarding_completed_at,timestamp with time zone,timestamptz,YES,null
+vendor_vip_customers,id,uuid,uuid,NO,gen_random_uuid()
+vendor_vip_customers,vendor_profile_id,uuid,uuid,NO,null
+vendor_vip_customers,buyer_user_id,uuid,uuid,NO,null
+vendor_vip_customers,added_at,timestamp with time zone,timestamptz,NO,now()
+vendor_vip_customers,notes,text,text,YES,null
+vertical_admins,id,uuid,uuid,NO,uuid_generate_v4()
+vertical_admins,user_id,uuid,uuid,NO,null
+vertical_admins,vertical_id,text,text,NO,null
+vertical_admins,is_chief,boolean,bool,YES,false
+vertical_admins,granted_by,uuid,uuid,YES,null
+vertical_admins,granted_at,timestamp with time zone,timestamptz,YES,now()
+verticals,id,uuid,uuid,NO,uuid_generate_v4()
+verticals,vertical_id,text,text,NO,null
+verticals,name_public,text,text,NO,null
+verticals,config,jsonb,jsonb,NO,null
+verticals,is_active,boolean,bool,YES,true
+verticals,created_at,timestamp with time zone,timestamptz,YES,now()
+verticals,updated_at,timestamp with time zone,timestamptz,YES,now()
+verticals,buyer_fee_percent,numeric,numeric,YES,6.5
+verticals,vendor_fee_percent,numeric,numeric,YES,6.5
+weekly_booth_rentals,id,uuid,uuid,NO,gen_random_uuid()
+weekly_booth_rentals,vendor_profile_id,uuid,uuid,NO,null
+weekly_booth_rentals,market_id,uuid,uuid,NO,null
+weekly_booth_rentals,week_start_date,date,date,NO,null
+weekly_booth_rentals,inventory_id,uuid,uuid,NO,null
+weekly_booth_rentals,booth_number,text,text,YES,null
+weekly_booth_rentals,price_cents,integer,int4,NO,null
+weekly_booth_rentals,status,text,text,NO,'pending_payment'::text
+weekly_booth_rentals,stripe_checkout_session_id,text,text,YES,null
+weekly_booth_rentals,stripe_payment_intent_id,text,text,YES,null
+weekly_booth_rentals,agreement_acceptance_id,uuid,uuid,YES,null
+weekly_booth_rentals,booked_at,timestamp with time zone,timestamptz,NO,now()
+weekly_booth_rentals,paid_at,timestamp with time zone,timestamptz,YES,null
+weekly_booth_rentals,cancelled_at,timestamp with time zone,timestamptz,YES,null
+weekly_booth_rentals,created_at,timestamp with time zone,timestamptz,NO,now()
+weekly_booth_rentals,updated_at,timestamp with time zone,timestamptz,NO,now()
+weekly_booth_rentals,group_id,uuid,uuid,YES,null
+weekly_booth_rentals,manager_receives_cents,integer,int4,YES,null
+zip_codes,zip,character varying,varchar,NO,null
+zip_codes,city,character varying,varchar,NO,null
+zip_codes,state,character varying,varchar,NO,null
+zip_codes,state_name,character varying,varchar,YES,null
+zip_codes,county,character varying,varchar,YES,null
+zip_codes,latitude,numeric,numeric,NO,null
+zip_codes,longitude,numeric,numeric,NO,null
+zip_codes,timezone,character varying,varchar,YES,null
+zip_codes,population,integer,int4,YES,null
+zip_codes,region_code,character varying,varchar,YES,null
+zip_codes,active_market_area,boolean,bool,YES,false
+zip_codes,created_at,timestamp with time zone,timestamptz,YES,now()
+zip_codes,updated_at,timestamp with time zone,timestamptz,YES,now()
