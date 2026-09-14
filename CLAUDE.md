@@ -15,6 +15,7 @@ Every session, in this order:
 5. **`CLAUDE_CONTEXT.md`** — app overview, architecture, lessons learned
 6. **`supabase/SCHEMA_SNAPSHOT.md`** — current database schema
 7. **`PROCESSES_AND_PROTOCOLS.md`** — session workflows, quality gates, the 8 protocols
+8. **`docs/testing/TEST_REGISTRY.md`** — what has and has not been verified by a tester; tester reports go to `docs/testing/OBSERVATIONS.md` (process: `docs/testing/README.md`)
 
 ---
 

@@ -27,7 +27,7 @@ Sessions that start broad ("what else do we need?") lead to scope creep. We've h
 ### The Protocol
 At the start of every session, before any code work:
 
-1. **Claude reads** `current_task.md`, `backlog.md`, and this file
+1. **Claude reads** `current_task.md`, `backlog.md`, `docs/testing/TEST_REGISTRY.md` (open/fail rows = the testing debt), and this file
 2. **Claude summarizes** the current state: carryover items, top backlog priorities, any uncommitted changes
 3. **User states goals** — 1-3 items maximum for this session
 4. **Both agree on scope** before any work begins
@@ -186,6 +186,7 @@ Before ending any session, Claude produces:
 3. **List uncommitted changes** — files modified but not committed
 4. **Backlog additions** — any new items from this session
 5. **Update `decisions.md`** — any decisions made this session
+6. **Testing intake** — any tester reports pasted this session are in `docs/testing/OBSERVATIONS.md` with a triage line, and `docs/testing/TEST_REGISTRY.md` statuses reflect every result recorded this session (see `docs/testing/README.md`)
 
 ### User Prompts
 > "Let's wrap up."

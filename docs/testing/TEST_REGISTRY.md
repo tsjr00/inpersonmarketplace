@@ -1,0 +1,81 @@
+# Test Registry — the source of truth for what has and has not been verified
+
+**Read at session kickoff, updated at session close and at every triage.** One row per test item. A result exists
+only if it is written here (date · tester · evidence). Status vocabulary in `README.md`.
+IDs are stable: never renumber; retire with `dropped`. Steps name page URL · visible card/section · widget.
+
+Seeded 2026-09-14 from `apps/web/.claude/testing_status_research.md` (events + market bundles sweep of every test
+protocol recorded since 2026-08-15). Older scripted checklists migrate in as they are run.
+
+## Bundles
+
+| ID | What it proves | How to run | Status | Last result | Obs |
+|---|---|---|---|---|---|
+| TR-001 | Fresh bundle order: quiet notification sequence (vendor ready → manager "🧺 Ready to collect", buyer silent; vendor fulfils → buyer silent; manager "Ready — notify buyer" → buyer's ONE ready notice; buyer order page = yellow status card, no blue "collecting" box) | Buyer: buy a bundle on `/[vertical]/markets/[id]` "Market Bundles" section. Vendor: `/vendor/orders` → Ready. Manager: `/market-manager/[marketId]` bundles run-sheet → Receiving now → Ready — notify buyer. Count every message on all three sides. | open | — | — |
+| TR-002 | Cancel bundle (a) within first hour → full refund to the cent | Buyer `/buyer/orders/[id]` bundle card → Cancel bundle, inside 60 min of purchase | open | — | — |
+| TR-003 | Cancel bundle (b) after the hour AND a vendor has confirmed → 75% refund (25% fee on items + margin), tip refunded in full, dialog shows the owner's wording ("Cancelling after the first hour or once a vendor has confirmed…") | Same page, second order; a vendor confirms first | open | — | — |
+| TR-004 | Checkout success screen shows the bundle pickup spot | `/[vertical]/checkout/success` after a bundle purchase → bundle bullets → spot line present | open (blank once, pre-fix) | — | — |
+| TR-005 | `bundle_ready` buyer email reads correctly (post-storm-fix) | Re-read the buyer's ready email after TR-001 | open | — | — |
+| TR-006 | Manager-first handoff edge: "Mark handed off" before buyer ack → handoff recorded, margin HOLDS; buyer's later ack releases the transfer | Manager run-sheet → Mark handed off first; then buyer `/buyer/orders/[id]` 🧺 ack card → confirm margin pays only then (Stripe transfer) | open | — | — |
+| TR-007 | E6 bundle-sold cron sweep: manager gets "🧺 Bundle sold" (in-app + email) once; second run = no duplicate | After a bundle sale, call `/api/cron/surveys` on staging with the cron bearer token, twice (staging previews never run crons) | open | — | — |
+| TR-008 | Bundle money loop end-to-end reconciles in Stripe (margin, cause, booth) | Full loop, then Stripe dashboard amounts vs formulas | pass | 2026-09-07 owner — margin $9.00, cause $1.00, booth $24.31×2 (current_task 09-07 close) | — |
+| TR-009 | Admin bundle approve loop | `/[vertical]/admin` bundles queue → approve → bundle visible on market page | pass | 2026-09-06 owner (E3) | — |
+| TR-010 | Market page "Market Bundles" card lines wrap on mobile | `/[vertical]/markets/[id]` "Market Bundles" section on a phone | fail | 2026-09-13 owner — a line overflows its container (which line: unconfirmed, screenshot owed) | OB-007 |
+
+## Market boxes
+
+| ID | What it proves | How to run | Status | Last result | Obs |
+|---|---|---|---|---|---|
+| TR-011 | Market box alone reaches payment (cart validate fix) | Cart with one box → `/[vertical]/checkout` → pay button enabled | pass | 2026-09-13 owner | OB-001 |
+| TR-012 | Box + listing from another market → multi-location acknowledgment, pays | Same, add a listing from a second market | pass | 2026-09-13 owner | OB-001 |
+| TR-013 | Vendor skip-a-week works (mig 250 service-client path) | Vendor `/vendor/market-boxes/[id]` → skip week; buyer sees new date + "extended by 1 week" | pass | 2026-09-13 owner (staging) | OB-002 |
+| TR-014 | Pickup count agrees between `/buyer/subscriptions/[id]` and `/buyer/orders` | After completing pickup 1 of 2, compare both pages | fail | 2026-09-13 owner — 1 of 2 vs 0 of 2 (order FA-2026-09284952) | OB-001 |
+| TR-015 | Market boxes appear in vendor "My markets & schedules" and "My upcoming pickups" | After a box purchase, vendor `/vendor/markets` schedule + dashboard "Upcoming pickups" card | fail | 2026-09-13 owner — absent from both (backlog rank #1) | OB-001 |
+| TR-016 | Vendor market-box page shows an order number | `/vendor/market-boxes/[id]` | fail (may be a test artefact — owner forced pickup early) | 2026-09-13 owner | OB-001 |
+
+## Events
+
+| ID | What it proves | How to run | Status | Last result | Obs |
+|---|---|---|---|---|---|
+| TR-020 | Admin events board: stage sections + jump-nav, card counts, card → full detail, Closed expands + cancelled offers Restore (C1–C4) | `/food_trucks/admin/events` | pass | 2026-09-05 owner (round 3) | — |
+| TR-021 | Host menu pare-down loop: first-round select → tap items off a 3+-item truck (floor 2) → confirm → shop + public page lack pared items → truck's event page shows "approved N of M" (P1) | Organizer `/event-manager/[token]/select` → shop → vendor `/vendor/events/[marketId]` | open | — (owed since 09-03) | — |
+| TR-022 | Stage surfaces agree: locations pill accepted ≠ Attending · organizer roster badges · admin chips · "Vendors who said yes: N of M" · dashboard "Locations & Schedule" card (P2–P5) | `/vendor/markets` events section · `/event-manager/[id]/dashboard` · `/[vertical]/admin/events` · `/vendor/events/[marketId]` | open | — (owed since 09-03) | — |
+| TR-023 | Invitations-held gate: "Open Pre-Orders — invitations held" button DISABLED with tooltip; Inviting card says HELD (D1) | Admin event detail for a self-serve approved event with invitations not sent | open | — | — |
+| TR-024 | Forced-ready while held → organizer progress says nothing orderable, not "pre-order now" (D2, optional) | Same event, force ready | open | — | — |
+| TR-025 | Reverse event-conflict guard: a truck with an accepted event on date X cannot book a park spot / booth / season covering X → 409 "withdraw first" (F5) | `/vendor/markets/[id]/book-park-spot` (or book / book-season) on the event date | open | — | — |
+| TR-026 | Browse "Closed" pill on an event-selected listing matches its detail page (mig 245) | `/[vertical]/browse` card face vs `/[vertical]/listing/[id]` | open (fix shipped 09-05, retest owed) | — | — |
+| TR-027 | Admin event detail shows "Market-Sales Blocking In Effect" naming the blocked market | `/[vertical]/admin/events` → event with blackouts | pass | 2026-09-13 owner (item 17) | OB-003 |
+| TR-028 | Event cancellation money (Protocol v6 C) | Consolidated plan in chat 2026-08-31 — steps to be re-issued | open | — (open since 08-30) | — |
+| TR-029 | Event deselect / refund money (Protocol v6 D) | as above | open | — (open since 08-30) | — |
+| TR-030 | Event reconfirm + prep (Protocol v6 E) | `/reconfirm/[token]` page states after vendor withdrawal | open | — (open since 08-30) | — |
+| TR-031 | Protocol v6 remainder: buyer items + buyer weekly survey (B) · onboarding copy (O) · manager new-email invite + resend (L) · FM mirror (F) · print chrome (M2) · G7 | see current_task 3571 (08-28 workflow edition) | open | — | — |
+| TR-032 | "Not eligible" badge for a vendor-UNapproved applicant who submits Private Events Readiness | needs a FRESH unapproved vendor → `/[vertical]/admin/events` yellow box | open | — | — |
+| TR-033 | Fee card reuse-button styling (outlined, side-by-side desktop / stacked mobile) | vendor event page fee card | open | — | — |
+| TR-034 | Capacity copy on `/vendor/edit` (Pickup Capacity sentence + Private Events Readiness paragraph) | `/[vertical]/vendor/edit` | open | — | — |
+| TR-035 | Below-claim amber advisory on invitation accept form | accept form, "Custom for this event" below profile default | open | — | — |
+| TR-036 | ParkMGR vendor-docs page crash — evidence | `/[vertical]/market-manager/[marketId]/vendor-docs/[vendorProfileId]` — need a Vercel log line or the 3 SQLs | open (evidence) | — | — |
+
+## Parks / schedules / other (from the same rounds)
+
+| ID | What it proves | How to run | Status | Last result | Obs |
+|---|---|---|---|---|---|
+| TR-040 | Cancel-date result card: truthful counts (trucks credited with $ total, roster notified); FT card = auto-credit note + optional make-up date, no radio buttons (F3a/F3b) | Manager `/market-manager/[marketId]` → cancel a park date | open (fix shipped 09-05) | — | — |
+| TR-041 | Survey email links to the STAGING deployment (D4) + owner scopes `NEXT_PUBLIC_APP_URL` to Production in Vercel | trigger a survey email on staging; open link | open | — | — |
+| TR-042 | Day-of buyer copy: FT 0-day-advance listing on a non-operating day → "Orders Open on Operating Days"; badge tooltip no longer claims prep time | `/food_trucks/listing/[id]` off-day | open | — | — |
+| TR-043 | Week-strip standing hold: active standing reservation shows on its weekday >7d out with "pay-by window opens within 7 days" | `/food_trucks/vendor/markets` "Your next two weeks" | open | — | — |
+| TR-044 | Schedule conflict + multi-location declaration: unchecked box + overlapping schedules at two markets is REFUSED on BOTH verticals (decision 2026-09-13) | `/farmers_market/vendor/markets` join a second market on an occupied weekday; `/vendor/edit` box unchecked | fail → build pending | 2026-09-13 owner — FM double-book allowed (item 11) | OB-002 |
+| TR-045 | Apply button managed-only + guidance copy; application reaches manager pending list + notification | market page of a managed market | pass | 2026-09-13 owner (item 12) | OB-002 |
+| TR-046 | Booking page operating-days line present; layout ask: below the market map, above week/booth selection | `/[vertical]/markets/[id]/book` | pass (layout follow-up in backlog) | 2026-09-13 owner (item 13) | OB-002 |
+| TR-047 | Admin markets list: 5 columns, no horizontal scroll, one State chip, row → detail with schedule + address | `/[vertical]/admin/markets` | pass | 2026-09-13 owner (item 14) | OB-002 |
+| TR-048 | Vendor orders page status count cards include a cancelled order the list shows | `/[vertical]/vendor/orders` after a buyer cancel | fail | 2026-09-13 owner | OB-001 |
+| TR-049 | Admin hub "orders stuck in paid/confirmed 24+ h" card leads somewhere useful | `/[vertical]/admin` "Needs you now" card | fail (by design today: no destination) | 2026-09-13 owner | OB-007 |
+| TR-050 | Browse filters: users find "Available now" and market boxes | `/[vertical]/browse` Filters popup | fail (discoverability) | 2026-09-13 owner | OB-007 |
+
+## Security / prod (smoke items from 2026-09-12/13)
+
+| ID | What it proves | How to run | Status | Last result | Obs |
+|---|---|---|---|---|---|
+| TR-060 | Normal checkout decrements stock (mig 250 service path) | buy a regular listing | pass (staging) · open on Prod (no Stripe vendor yet) | 2026-09-13 owner | OB-001 |
+| TR-061 | Buyer cancel before confirmation → refund shown, inventory restored, vendor notified (mig 251 allows 'cancelled') | `/buyer/orders/[id]` cancel | pass (staging) | 2026-09-13 owner | OB-001 |
+| TR-062 | Buyer ack + vendor fulfil inside 30 s on a regular order → payout moves (mig 251 allows a legitimate ack) | pickup handoff | pass (staging) · open on Prod | 2026-09-13 owner | OB-001 |
+| TR-063 | Located browse works after E0 (radius pills change the count; no new 42804 error rows) | `/[vertical]/browse` with a location; `error_logs` count | pass (staging + prod) | 2026-09-13 owner + Script C | OB-001 |
