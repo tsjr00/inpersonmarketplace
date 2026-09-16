@@ -46,7 +46,7 @@ Three defects, one batch, one staging push, retest = TR-001 end to end. Evidence
    filters popup (`BrowseFiltersPopup.tsx:66-71`, `?available=true`; server filters via the availability RPC before
    pagination, `browse/page.tsx` "isAvailableNow"). Owner did not find it → same discoverability problem as #3: the
    popup hides the two most valuable controls. Treat #3 + #4 as ONE design pass on the browse filter surface.
-5. [ ] **🐞 Admin hub: "N orders stuck in paid/confirmed 24+ h" card does nothing on tap.** Owner: "took the form but
+5. [ ] **🐞 Admin hub: "N orders stuck in paid/confirmed 24+ h" card does nothing on tap.** DEFERRED by owner 2026-09-15. Design when picked up: a read-only admin page "Stuck orders" (order number · vendor · buyer · hours stuck · link to vendor) reusing the hub card's predicate; the card becomes a tile that opens it. Owner: "took the form but
    not the function." Code read: `components/admin/AdminHubZones.tsx:85-99` — it is deliberately a non-clickable
    warning CARD, comment: "there is no dedicated page to send it to" (owner phase-2 smoke, 2026-08-30 round 2 asked
    for one visual language). So it never had a destination after the rebuild. Fix = give it one: an admin orders list
@@ -61,7 +61,7 @@ Three defects, one batch, one staging push, retest = TR-001 end to end. Evidence
 **Passed by owner:** 12 apply-button managed-only + copy · 13 booking-page operating-days line · 14 admin markets slim
 table · 17 admin event-blocking section. Recorded here so the 09-07 round is closed except for the two items below.
 
-1. [ ] **🔴 RULED 2026-09-13 (decisions.md): the checkbox gates BOTH verticals — BUILD PENDING. Item 11: FM vendor double-booked the same Saturday time at two traditional markets with
+1. [x] **RULED 2026-09-13 → BUILT 2026-09-15 as Push C (route + mig 253 + flow-integrity pin). Retest TR-044. Item 11: FM vendor double-booked the same Saturday time at two traditional markets with
    "I can staff more than one location at the same time" UNCHECKED (`/vendor/edit`).** Owner: "vendors should not be
    able to double book without confirming they can cover two places." ⚠ This CONTRADICTS the current design: mig 066's
    conflict trigger was deliberately scoped to food trucks by mig 247 (2026-09-07) because the API layer "deliberately
@@ -71,7 +71,7 @@ table · 17 admin event-blocking section. Recorded here so the 09-07 round is cl
    `/vendor/markets` per the owner). Before any code: owner rules whether the FM exemption stands or the multi-location
    checkbox must gate BOTH verticals. If the latter, the fix is a rule change touching the trigger (migration, function
    replace — pull `pg_get_functiondef` first) and/or the schedules route, plus a business-rule test. Not for tonight.
-2. [ ] **Item 13 follow-up (UX): the operating-days line renders ABOVE the market map on `/…/markets/[id]/book` when a
+2. [x] **BUILT 2026-09-15 (Push D). Item 13 follow-up (UX): the operating-days line renders ABOVE the market map on `/…/markets/[id]/book` when a
    map is uploaded.** Owner: land it BELOW the map and ABOVE the week + booth-size selection box, where it informs the
    choice. Display-only.
 3. [ ] **DESIGN QUESTION — bundle purchase review prompt.** After a market-bundle purchase the buyer was asked to

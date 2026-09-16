@@ -48,11 +48,15 @@ export default function MarketBundlesSection({ vertical, marketName, bundles, lo
       <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, margin: `0 0 ${spacing.sm}` }}>
         {t('bundle.section_sub', locale, { market: marketName })}
       </p>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: spacing.sm }}>
+      {/* TR-010 (owner 2026-09-13): on a narrow phone a fixed 280px column
+          minimum is wider than the screen minus page padding, so the whole
+          card — and every line in it — ran past the edge. The column may now
+          shrink to the container width; long unbroken words wrap. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(280px, 100%), 1fr))', gap: spacing.sm }}>
         {bundles.map(b => (
-          <div key={b.id} style={{ padding: spacing.md, backgroundColor: 'white', border: `1px solid ${colors.border}`, borderRadius: radius.md, boxShadow: shadows.sm, display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: spacing.xs }}>
-              <span style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.bold, color: colors.textPrimary }}>{b.name}</span>
+          <div key={b.id} style={{ minWidth: 0, overflowWrap: 'anywhere', padding: spacing.md, backgroundColor: 'white', border: `1px solid ${colors.border}`, borderRadius: radius.md, boxShadow: shadows.sm, display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: spacing.xs, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.bold, color: colors.textPrimary, minWidth: 0 }}>{b.name}</span>
               <span style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.bold, color: colors.primary, whiteSpace: 'nowrap' }}>
                 {formatPrice(b.displayPriceCents)}
               </span>

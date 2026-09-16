@@ -301,12 +301,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         }
       }
 
-      // Schedule conflict check: FT-only. Single-truck food trucks can't
-      // physically be in two places at once; the multiple_trucks toggle is the
-      // FT-specific opt-out. FM vendors are exempt — a farm/baker/maker can
-      // staff multiple markets simultaneously. Cross-market product conflicts
-      // for FM are caught downstream at listing-publish time, not here.
-      if (scheduleIds.length > 0 && market.vertical_id === 'food_trucks') {
+      // Schedule conflict check — BOTH verticals (owner ruling 2026-09-14,
+      // decisions.md; mig 253 mirrors it at the database). A vendor who has
+      // not declared they can staff more than one location at the same time
+      // (profile_data.multiple_trucks — same key on the FM edit form) may not
+      // hold overlapping schedules at two markets. The old FM exemption rested
+      // on "a farm/baker/maker can staff multiple markets simultaneously",
+      // which the owner rejected: that is the exception, not the rule.
+      if (scheduleIds.length > 0) {
         const multiTruck = await isMultiTruckVendor(supabase, vendorProfile.id)
         if (!multiTruck) {
           // Get day_of_week + times for each schedule being activated
@@ -572,10 +574,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }
       }
 
-      // Schedule conflict check: FT-only (see PUT branch above for rationale).
-      // FM vendors exempt; cross-market product conflicts are caught at
-      // listing-publish time, not here.
-      if (isActive && market.vertical_id === 'food_trucks') {
+      // Schedule conflict check — BOTH verticals (see PUT branch above; owner
+      // ruling 2026-09-14, mig 253).
+      if (isActive) {
         const multiTruck = await isMultiTruckVendor(supabase, vendorProfile.id)
         if (!multiTruck) {
           // Get the day_of_week for this schedule

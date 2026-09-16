@@ -303,17 +303,19 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
         manager can&apos;t change it after the fact. Payment is collected at
         booking via Stripe; the manager receives their portion automatically.
       </p>
-      {operatingDays.length > 0 && (
-        <p style={{ ...mutedStyle, fontWeight: typography.weights.semibold }}>
-          {market.name} operates {operatingDays.join(' · ')} — your weekly
-          booking covers {operatingDays.length === 1 ? 'that day' : `all ${operatingDays.length} operating days`} of the week you pick.
-        </p>
-      )}
       {boothMapUrl && (
         <div style={{ marginBottom: spacing.md }}>
           <p style={{ ...mutedStyle, marginBottom: spacing.xs, fontWeight: typography.weights.semibold }}>Where your booth will be</p>
           <BoothMapViewer url={boothMapUrl} alt={`Booth map for ${market.name}`} />
         </div>
+      )}
+      {/* Owner 2026-09-13 (item 13): the operating-days line sits BELOW the map
+          and directly above the week + booth-size selection it informs. */}
+      {operatingDays.length > 0 && (
+        <p style={{ ...mutedStyle, fontWeight: typography.weights.semibold }}>
+          {market.name} operates {operatingDays.join(' · ')} — your weekly
+          booking covers {operatingDays.length === 1 ? 'that day' : `all ${operatingDays.length} operating days`} of the week you pick.
+        </p>
       )}
       <BookBoothForm
         marketId={marketId}

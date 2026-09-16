@@ -11,7 +11,7 @@
 - Push A = the 7-item bundles batch + placed-notice bundle copy + bundle_ready email channel. Retest owed: TR-001 + TR-005 on a fresh bundle order.
 - Fixture passwords in the 4 integration tests updated (Dev auth policy now requires upper+lower+digit+symbol; owner did NOT change it — origin unknown).
 - ⚠ `docs/testing/TEST_PROTOCOL_open_items.md` was swept into the commit (git add on the folder). Owner: keep it; **OVERWRITE it with the ready-to-run list in the NEXT push** (no separate commit).
-- Next: Push B market-box visibility (TR-014/015/016/048) → Push C multi-location gate (TR-044) → Push D small UI (TR-046 layout, TR-049 destination, TR-010 once the screenshot arrives). Present each change with its own question directly beneath it (memory feedback_ask_right_after_each_change).
+- Push B SHIPPED `594902f7` (TR-014/015/016/048 + mig 252 Dev+Staging, Prod pending). Push C+D BUILT (TR-044 route + mig 253 Dev+Staging + pin; TR-046 layout) — one push (owner: no unnecessary separate pushes). TR-049 deferred; TR-010 waits on screenshot. Prod owes migs 252 + 253 + the code since d704d3bb. ONE change per message, question last (memory feedback_ask_right_after_each_change).
 
 ## 🔚 SESSION WRAP 2026-09-13 late — what the next session picks up
 - **Alert emails (ERR_DB_UNKNOWN / 42804) — CLOSED.** Trace `mu0he30k-uqze2x` = Staging row 00:04:50 UTC from the pre-refresh tab; owner: no alerts after 7:05 PM CT. Prod never wrote one.

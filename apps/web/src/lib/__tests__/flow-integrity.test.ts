@@ -2503,6 +2503,39 @@ describe('Event ↔ location availability', () => {
       .toMatch(/ls\.market_type = 'event'\s+OR NOT EXISTS \(\s+SELECT 1 FROM vendor_date_blackouts vb/)
   })
 
+  it('schedule-conflict check applies to BOTH verticals — route and trigger (owner ruling 2026-09-14, mig 253)', () => {
+    // decisions.md 2026-09-14: the "I can staff more than one location at the
+    // same time" declaration (profile_data.multiple_trucks) gates schedule
+    // conflicts on farmers markets too. The FM exemption (schedules route +
+    // mig 247's trigger early-return) is REVERSED. Expected values come from
+    // the decision, not from the code. Owner test TR-044: an FM vendor with the
+    // box unchecked double-booked a Saturday at two traditional markets.
+    const route = rd('app/api/vendor/markets/[id]/schedules/route.ts')
+    // The two conflict checks must not be gated on the market's vertical.
+    expect(route, 'PUT conflict check is vertical-blind').toMatch(/if \(scheduleIds\.length > 0\) \{\s*\n\s*const multiTruck = await isMultiTruckVendor/)
+    expect(route, 'PATCH conflict check is vertical-blind').toMatch(/if \(isActive\) \{\s*\n\s*const multiTruck = await isMultiTruckVendor/)
+    expect(route, 'no vertical gate on the conflict check anywhere').not.toMatch(/vertical_id === 'food_trucks'\) \{\s*\n\s*const multiTruck/)
+    // The NEWEST migration defining the trigger must carry no FM early return.
+    const dir = path.resolve(SRC_DIR, '../../../supabase/migrations')
+    const files: string[] = []
+    const walk = (d: string) => {
+      for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+        const p = path.join(d, e.name)
+        if (e.isDirectory()) walk(p)
+        else if (e.name.endsWith('.sql') && /CREATE OR REPLACE FUNCTION (public\.)?check_vendor_schedule_conflict/.test(fs.readFileSync(p, 'utf-8'))) files.push(p)
+      }
+    }
+    walk(dir)
+    const num = (p: string) => parseInt(path.basename(p).split('_')[1]!, 10)
+    const newest = files.sort((a, b) => num(a) - num(b))[files.length - 1]!
+    const sql = fs.readFileSync(newest, 'utf-8').replace(/--[^\n]*/g, '')
+    expect(num(newest), 'the newest definer must be mig 253 or later').toBeGreaterThanOrEqual(253)
+    expect(sql, `${path.basename(newest)} must NOT early-return for non-food_trucks markets`)
+      .not.toMatch(/IS DISTINCT FROM 'food_trucks'/)
+    expect(sql, 'the multiple_trucks exemption survives (the declaration is the only opt-out)')
+      .toMatch(/profile_data->>'multiple_trucks'/)
+  })
+
   it('event cards on My Locations carry no schedule controls (attendance is the acceptance row)', () => {
     const section = rd('components/vendor/markets/EventMarketsSection.tsx')
     expect(section).not.toContain('MarketScheduleSelector')
