@@ -29,9 +29,9 @@ protocol recorded since 2026-08-15). Older scripted checklists migrate in as the
 | TR-011 | Market box alone reaches payment (cart validate fix) | Cart with one box → `/[vertical]/checkout` → pay button enabled | pass | 2026-09-13 owner | OB-001 |
 | TR-012 | Box + listing from another market → multi-location acknowledgment, pays | Same, add a listing from a second market | pass | 2026-09-13 owner | OB-001 |
 | TR-013 | Vendor skip-a-week works (mig 250 service-client path) | Vendor `/vendor/market-boxes/[id]` → skip week; buyer sees new date + "extended by 1 week" | pass | 2026-09-13 owner (staging) | OB-002 |
-| TR-014 | Pickup count agrees between `/buyer/subscriptions/[id]` and `/buyer/orders` | After completing pickup 1 of 2, compare both pages | fail | 2026-09-13 owner — 1 of 2 vs 0 of 2 (order FA-2026-09284952) | OB-001 |
-| TR-015 | Market boxes appear in vendor "My markets & schedules" and "My upcoming pickups" | After a box purchase, vendor `/vendor/markets` schedule + dashboard "Upcoming pickups" card | fail | 2026-09-13 owner — absent from both (backlog rank #1) | OB-001 |
-| TR-016 | Vendor market-box page shows an order number | `/vendor/market-boxes/[id]` | fail (may be a test artefact — owner forced pickup early) | 2026-09-13 owner | OB-001 |
+| TR-014 | Pickup count agrees between `/buyer/subscriptions/[id]` and `/buyer/orders` | After completing pickup 1 of 2, compare both pages | fixed-unverified — Push B: orders list counts picked-up pickups (same predicate as the subscription page) + mig 252 lets the trigger's counter write land | 2026-09-15 cause confirmed: trigger INVOKER + no UPDATE policy on market_box_subscriptions → counter filtered to 0 | OB-001, OB-022 |
+| TR-015 | Market boxes appear in vendor "My markets & schedules" and "My upcoming pickups" | After a box purchase, vendor `/vendor/markets` schedule + dashboard "Upcoming pickups" card | fixed-unverified — Push B: dashboard tile + week strip both read market_box_pickups | 2026-09-15 | OB-001, OB-022 |
+| TR-016 | Vendor market-box page shows an order number | `/vendor/market-boxes/[id]` | fixed-unverified — Push B: order number shown on the subscribers and pickups tabs | 2026-09-15 | OB-001, OB-022 |
 
 ## Events
 
@@ -67,7 +67,7 @@ protocol recorded since 2026-08-15). Older scripted checklists migrate in as the
 | TR-045 | Apply button managed-only + guidance copy; application reaches manager pending list + notification | market page of a managed market | pass | 2026-09-13 owner (item 12) | OB-002 |
 | TR-046 | Booking page operating-days line present; layout ask: below the market map, above week/booth selection | `/[vertical]/markets/[id]/book` | pass (layout follow-up in backlog) | 2026-09-13 owner (item 13) | OB-002 |
 | TR-047 | Admin markets list: 5 columns, no horizontal scroll, one State chip, row → detail with schedule + address | `/[vertical]/admin/markets` | pass | 2026-09-13 owner (item 14) | OB-002 |
-| TR-048 | Vendor orders page status count cards include a cancelled order the list shows | `/[vertical]/vendor/orders` after a buyer cancel | fail | 2026-09-13 owner | OB-001 |
+| TR-048 | Vendor orders page status count cards include a cancelled order the list shows | `/[vertical]/vendor/orders` after a buyer cancel | fixed-unverified — Push B: cancelled card counts 'refunded' items too | 2026-09-15 cause confirmed by SQL: items 'refunded', card counted 'cancelled' only | OB-001, OB-022 |
 | TR-049 | Admin hub "orders stuck in paid/confirmed 24+ h" card leads somewhere useful | `/[vertical]/admin` "Needs you now" card | fail (by design today: no destination) | 2026-09-13 owner | OB-007 |
 | TR-050 | Browse filters: users find "Available now" and market boxes | `/[vertical]/browse` Filters popup | fail (discoverability) | 2026-09-13 owner | OB-007 |
 

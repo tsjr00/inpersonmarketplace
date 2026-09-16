@@ -447,7 +447,12 @@ export async function GET(request: NextRequest) {
             name: (market.name as string) || 'Unknown',
             type: (market.market_type as string) || 'traditional',
           } : null,
-          weeks_completed: (sub.weeks_completed as number) || 0,
+          // Count actual picked-up pickups — the same predicate the subscription
+          // detail page uses — instead of the stored counter. The counter is
+          // written only by a trigger whose update is filtered by RLS (no UPDATE
+          // policy on market_box_subscriptions), so it has always read 0
+          // (owner 2026-09-13 TR-014: "1 of 2" on one page, "0 of 2" on this one).
+          weeks_completed: pickups.filter(p => p.status === 'picked_up').length,
           total_weeks: totalWeeks,
           term_weeks: termWeeks,
           extended_weeks: extendedWeeks,

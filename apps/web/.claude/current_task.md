@@ -7,6 +7,12 @@
 - **Owner ran TR-001/004/005/006/007 on order FA-2026-03444755:** money loop PROVEN end to end incl. the vendor-first edge item and the manager-first handoff-2 (4 transfers, reconciles: 31.25 to accounts, 3.72 platform). Passes: TR-004, TR-006, TR-007, one-ready-notice. Fails → **backlog "BUNDLES NOTIFICATION + EDGE BATCH"** (7 items, owner: fix later in one batch): vendor-confirm notices to bundle buyers (ruled: none) · fulfil route :483 ungated "Order Complete" (⚠ protected) · vendor-first edge: manager tap refused + swallowed + list page prompts buyer · placed-email copy · ONE acknowledge control on bundle orders (two buttons tonight) · bundle-ready emails (per-vendor leak + no combined email — TRACE FIRST).
 - Untracked: `docs/testing/TEST_PROTOCOL_open_items.md` (stale on-screen protocol; owner undecided — leave it).
 
+## ▶ PUSH A SHIPPED 2026-09-15 (`ac1dca1c` staging) — fix plan in progress
+- Push A = the 7-item bundles batch + placed-notice bundle copy + bundle_ready email channel. Retest owed: TR-001 + TR-005 on a fresh bundle order.
+- Fixture passwords in the 4 integration tests updated (Dev auth policy now requires upper+lower+digit+symbol; owner did NOT change it — origin unknown).
+- ⚠ `docs/testing/TEST_PROTOCOL_open_items.md` was swept into the commit (git add on the folder). Owner: keep it; **OVERWRITE it with the ready-to-run list in the NEXT push** (no separate commit).
+- Next: Push B market-box visibility (TR-014/015/016/048) → Push C multi-location gate (TR-044) → Push D small UI (TR-046 layout, TR-049 destination, TR-010 once the screenshot arrives). Present each change with its own question directly beneath it (memory feedback_ask_right_after_each_change).
+
 ## 🔚 SESSION WRAP 2026-09-13 late — what the next session picks up
 - **Alert emails (ERR_DB_UNKNOWN / 42804) — CLOSED.** Trace `mu0he30k-uqze2x` = Staging row 00:04:50 UTC from the pre-refresh tab; owner: no alerts after 7:05 PM CT. Prod never wrote one.
 - **Owner test notes 2026-09-13 late → backlog top section (6 items):** bundle-card mobile overflow (cause UNVERIFIED — need screenshot/exact text) · share button → native share sheet for IG/TikTok/Snap · browse filter surface redesign (market-boxes view + the EXISTING "Available now" toggle are both hidden in the popup; owner leans: keep filter + add market-box section on vendor profile) · admin stuck-orders card has NO destination by design (needs one) · park↔truck matchmaking (future, paid tier).

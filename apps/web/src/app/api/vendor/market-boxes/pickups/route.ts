@@ -104,6 +104,7 @@ export async function GET(request: NextRequest) {
           status,
           term_weeks,
           extended_weeks,
+          order:orders!order_id ( order_number ),
           buyer:user_profiles!market_box_subscriptions_buyer_user_id_fkey (
             display_name,
             email

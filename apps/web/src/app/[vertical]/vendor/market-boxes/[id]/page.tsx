@@ -42,6 +42,7 @@ interface Subscriber {
   weeks_completed: number
   term_weeks: number
   extended_weeks: number
+  order_number: string | null
   buyer: {
     display_name: string
     email: string
@@ -69,6 +70,7 @@ interface Pickup {
     start_date: string
     term_weeks: number
     extended_weeks: number
+    order?: { order_number: string } | { order_number: string }[] | null
     buyer: {
       display_name: string
       email: string
@@ -77,6 +79,14 @@ interface Pickup {
       name: string
     }
   }
+}
+
+// TR-016 (2026-09-15): the order that paid for a subscription — the reference
+// a vendor quotes when confirming a handoff. Embeds may arrive as object or array.
+function orderNumberOf(o: { order_number: string } | { order_number: string }[] | null | undefined): string | null {
+  if (!o) return null
+  const one = Array.isArray(o) ? o[0] : o
+  return one?.order_number ?? null
 }
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -132,6 +142,7 @@ export default function VendorMarketBoxDetailPage() {
           weeks_completed: (s.weeks_completed as number) || 0,
           term_weeks: (s.term_weeks as number) || 4,
           extended_weeks: (s.extended_weeks as number) || 0,
+          order_number: orderNumberOf(s.order as { order_number: string } | { order_number: string }[] | null),
           buyer: {
             display_name: (buyer?.display_name as string) || 'Buyer',
             email: (buyer?.email as string) || '',
@@ -544,6 +555,7 @@ export default function VendorMarketBoxDetailPage() {
                           <div style={{ fontSize: 13, color: '#6b7280' }}>Started {formatDate(sub.start_date)}</div>
                           <div style={{ fontSize: 13, color: '#374151' }}>
                             Week {sub.weeks_completed} of {sub.term_weeks + sub.extended_weeks}
+                            {sub.order_number && <span style={{ color: '#6b7280' }}> · Order #{sub.order_number}</span>}
                           </div>
                         </div>
                         <span style={{
@@ -650,6 +662,7 @@ export default function VendorMarketBoxDetailPage() {
                           </div>
                           <div style={{ fontSize: 13, color: '#6b7280' }}>
                             Week {pickup.week_number} of {(pickup.subscription?.term_weeks || 4) + (pickup.subscription?.extended_weeks || 0)} • {pickup.subscription?.buyer?.display_name || 'Buyer'}
+                            {orderNumberOf(pickup.subscription?.order) && <span> • Order #{orderNumberOf(pickup.subscription?.order)}</span>}
                             {pickup.is_extension && (
                               <span style={{
                                 marginLeft: 8,

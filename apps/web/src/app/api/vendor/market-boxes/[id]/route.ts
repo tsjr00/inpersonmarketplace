@@ -108,6 +108,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         extended_weeks,
         original_end_date,
         created_at,
+        order:orders!order_id ( order_number ),
         buyer:user_profiles!market_box_subscriptions_buyer_user_id_fkey (
           display_name,
           email

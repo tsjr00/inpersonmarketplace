@@ -17,7 +17,7 @@ import { colors, statusColors } from '@/lib/design-tokens'
 interface StripEntry {
   marketId: string
   name: string
-  kind: 'schedule' | 'park_booking' | 'booth' | 'private_pickup' | 'event'
+  kind: 'schedule' | 'park_booking' | 'booth' | 'private_pickup' | 'event' | 'market_box'
   marketType: string
   startTime: string | null
   endTime: string | null
@@ -36,6 +36,7 @@ const KIND_LABEL: Record<StripEntry['kind'], string> = {
   booth: 'booth',
   private_pickup: 'pickup',
   event: 'event',
+  market_box: 'market box', // TR-015 (2026-09-15): prepaid box pickups on their day
 }
 
 function fmtTime(t: string): string {

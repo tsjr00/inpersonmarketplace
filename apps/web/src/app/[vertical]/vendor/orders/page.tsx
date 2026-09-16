@@ -370,7 +370,10 @@ export default function VendorOrdersPage() {
     confirmed: allItems.filter(i => i.status === 'confirmed').length,
     ready: allItems.filter(i => i.status === 'ready').length,
     fulfilled: allItems.filter(i => i.status === 'fulfilled').length,
-    cancelled: allItems.filter(i => i.status === 'cancelled').length
+    // A buyer cancellation leaves the item 'refunded', not 'cancelled' (cancel
+    // route :261); the list below already treats both as cancelled — the cards
+    // must count the same set (owner 2026-09-13 TR-048).
+    cancelled: allItems.filter(i => i.status === 'cancelled' || i.status === 'refunded').length
   }
 
   // Sort orders by most urgent item status: ready > confirmed > pending > fulfilled > cancelled

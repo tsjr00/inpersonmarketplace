@@ -108,7 +108,7 @@ performance audit broke location search and cost an entire session) — start wi
 removes one is a decision point for the owner, never a to-do. Measure before and after per code-stability
 Rule 2.1; there is no honest browse wall-clock baseline today.
 
-## 🧺 MARKET BOX FINDINGS — owner staging smoke, 2026-09-13 (staging `b4ce81aa`)
+## 🧺 MARKET BOX FINDINGS — owner staging smoke, 2026-09-13 — BUILT 2026-09-15 as Push B (items 1, 2, 3 + vendor-orders #5; item 4 dashboard reminder = the upcoming-pickups tile now counts boxes). Retest = TR-014/015/016/048.
 
 Found while verifying the market-box checkout fix. The fix itself PASSED both ways (box alone reaches payment;
 box + a listing from another market gives the multi-location acknowledgment, not a block). These four are

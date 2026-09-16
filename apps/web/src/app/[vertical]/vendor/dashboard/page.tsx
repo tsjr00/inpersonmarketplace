@@ -196,7 +196,8 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
       completedPayoutsResult,
       vendorEventsResult,
       publishedResult,
-      paidParkBookingsResult
+      paidParkBookingsResult,
+      marketBoxPickupsResult
     ] = await Promise.all([
       // Draft listings
       supabase
@@ -331,6 +332,20 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
         .eq('status', 'paid')
         .gte('booking_date', today.toISOString().split('T')[0])
         .order('booking_date', { ascending: true }),
+      // Market-box pickups in the same 7-day window (owner 2026-09-13 TR-015:
+      // boxes were invisible here — the buyer has prepaid and cannot cancel, so
+      // the vendor must see them where they see everything else). Appended
+      // LAST so the positional destructure above stays intact.
+      supabase
+        .from('market_box_pickups')
+        .select(`scheduled_date, status,
+          subscription:market_box_subscriptions!inner(status,
+            offering:market_box_offerings!inner(vendor_profile_id, pickup_market_id, markets!pickup_market_id(name)))`)
+        .eq('subscription.offering.vendor_profile_id', vendorProfile.id)
+        .eq('subscription.status', 'active')
+        .in('status', ['scheduled', 'ready'])
+        .gte('scheduled_date', today.toISOString().split('T')[0])
+        .lte('scheduled_date', nextWeek.toISOString().split('T')[0]),
     ])
 
     // Extract results
@@ -393,6 +408,27 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             item_count: 1
           })
         }
+      }
+    }
+    // Market-box pickups merge into the same date|market entries (TR-015).
+    type MbPickupRow = {
+      scheduled_date: string
+      subscription: { offering: { pickup_market_id: string; markets: { name: string } | null } | null } | null
+    }
+    for (const row of (marketBoxPickupsResult.data as unknown as MbPickupRow[] | null) || []) {
+      const marketId = row.subscription?.offering?.pickup_market_id
+      if (!row.scheduled_date || !marketId) continue
+      const key = `${row.scheduled_date}|${marketId}`
+      const existing = pickupMap.get(key)
+      if (existing) {
+        existing.item_count++
+      } else {
+        pickupMap.set(key, {
+          pickup_date: row.scheduled_date,
+          market_id: marketId,
+          market_name: row.subscription?.offering?.markets?.name || 'Pickup Location',
+          item_count: 1
+        })
       }
     }
     upcomingPickups = Array.from(pickupMap.values()).sort((a, b) => a.pickup_date.localeCompare(b.pickup_date))

@@ -44,7 +44,7 @@ import { observed } from '@/lib/errors'
 import { dayOfWeekOf, datesBetween, padTime, shiftDate } from '@/lib/events/availability'
 import { prepayCutoffISO } from '@/lib/markets/park-standing'
 
-export type StripEntryKind = 'schedule' | 'park_booking' | 'booth' | 'private_pickup' | 'event'
+export type StripEntryKind = 'schedule' | 'park_booking' | 'booth' | 'private_pickup' | 'event' | 'market_box'
 export type StripEntryStatus = 'on' | 'skipped_for_event' | 'cancelled_by_market' | 'payment_due' | 'standing_hold'
 
 export interface StripEntry {
@@ -77,7 +77,7 @@ export interface StripScheduleInput {
 }
 
 export interface StripDateInput {
-  kind: 'park_booking' | 'booth'
+  kind: 'park_booking' | 'booth' | 'market_box'
   marketId: string
   marketName: string
   marketType: string
@@ -447,6 +447,45 @@ export async function loadVendorWeekStrip(
         endTime: h.end,
       })
     }
+  }
+
+  // 3b. Market-box pickups in the window (owner 2026-09-13 TR-015: boxes were
+  //     invisible on the strip — the buyer has prepaid and cannot cancel, so
+  //     the vendor must see the pickup day here like every other commitment).
+  //     Active subscriptions only; pickups still scheduled/ready; hours from
+  //     the offering. One entry per pickup date + market (dedup below).
+  const { data: mbRows } = await observed(service
+    .from('market_box_pickups')
+    .select(`scheduled_date, status,
+      subscription:market_box_subscriptions!inner(status,
+        offering:market_box_offerings!inner(vendor_profile_id, vertical_id, pickup_market_id, pickup_start_time, pickup_end_time,
+          markets:pickup_market_id ( id, name, market_type )))`)
+    .eq('subscription.offering.vendor_profile_id', vendorProfileId)
+    .eq('subscription.offering.vertical_id', vertical)
+    .eq('subscription.status', 'active')
+    .in('status', ['scheduled', 'ready'])
+    .gte('scheduled_date', minDate)
+    .lte('scheduled_date', maxDate), { table: 'market_box_pickups' })
+  const mbSeen = new Set<string>()
+  for (const r of mbRows ?? []) {
+    type MbOffering = { pickup_market_id: string; pickup_start_time: string | null; pickup_end_time: string | null; markets?: MarketEmbed }
+    const sub = one(r.subscription as { offering?: MbOffering | MbOffering[] | null } | null)
+    const off = sub ? one(sub.offering ?? null) : null
+    const m = off ? one(off.markets as MarketEmbed) : null
+    if (!off || !m) continue
+    const date = r.scheduled_date as string
+    const key = `${date}|${off.pickup_market_id}`
+    if (mbSeen.has(key)) continue
+    mbSeen.add(key)
+    dateCommitments.push({
+      kind: 'market_box',
+      marketId: off.pickup_market_id,
+      marketName: m.name,
+      marketType: m.market_type,
+      date,
+      startTime: off.pickup_start_time,
+      endTime: off.pickup_end_time,
+    })
   }
 
   // 4. SELECTED events in the window (same rule as the event pill).
