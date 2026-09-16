@@ -568,6 +568,8 @@ export const en: Record<string, string> = {
   // confirmation has to list every location \u2014 previously it named only the first.
   'notif.order_placed_multi_msg': 'Thank you for using {brandName}!\n\n\u2022 Your order #{orderNumber} has been placed with {vendorName}.\n\u2022 This order has {pickupCount} pickup locations. Please collect your items at each:\n\n{pickupSummary}\n\nWe will notify you when your order has been confirmed. {signOff}',
   'notif.order_placed_pickup_line': '\u2022 {marketName}, {marketAddress} \u2014 {pickupDate} at {pickupTime}',
+  // Bundle orders (owner wording 2026-09-14): the manager collects, not the buyer.
+  'notif.order_placed_bundle_msg': 'Thank you for using {brandName}!\n\nYour bundle "{bundleName}" from {marketName} has been placed. The market manager will collect your items from each vendor and let you know when it is ready to pick up. Pickup spot: {spot}.\n\n{signOff}',
   'notif.order_confirmed_title': 'Order Confirmed',
   'notif.order_confirmed_msg': '{vendorName} confirmed your order #{orderNumber}{forItem}. We\'ll notify you when it\'s ready for pickup. When you arrive, you\'ll show your order screen to the vendor and both of you will confirm the handoff.',
   'notif.order_ready_title': 'Order Ready for Pickup',

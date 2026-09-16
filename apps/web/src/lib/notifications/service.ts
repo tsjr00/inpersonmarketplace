@@ -478,9 +478,10 @@ export async function sendNotification(
     })
   } catch { actionUrl = '' }
 
-  // Determine channels based on per-vertical urgency (NI-R19)
+  // Determine channels based on per-vertical urgency (NI-R19) — unless the
+  // type declares an explicit channel list (bundle_ready, 2026-09-14).
   const urgency = getNotificationUrgency(type, options?.vertical)
-  let channels = URGENCY_CHANNELS[urgency]
+  let channels = config.channels ?? URGENCY_CHANNELS[urgency]
 
   // Fetch user preferences and email (for email channel)
   let preferences = DEFAULT_PREFERENCES

@@ -87,7 +87,7 @@ beforeAll(async () => {
   const testEmail = `__test_ol_${Date.now()}@integration.test`
   const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
     email: testEmail,
-    password: 'test-password-ol-1234',
+    password: 'Test-Password-OL-1234!',
     email_confirm: true,
   })
   if (authError) throw new Error(`Setup auth failed: ${authError.message}`)

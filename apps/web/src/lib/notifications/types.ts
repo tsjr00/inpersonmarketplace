@@ -438,6 +438,13 @@ export interface NotificationTypeConfig {
   message: (data: NotificationTemplateData, locale?: string) => string
   /** Returns the path to navigate to when notification is clicked */
   actionUrl: (data: NotificationTemplateData & { vertical?: string }) => string
+  /**
+   * Optional explicit channel list. When set, it REPLACES the urgency→channels
+   * mapping for this type (tier gating and preferences still apply after).
+   * Added 2026-09-14 for bundle_ready (owner: keep the push, add an email —
+   * the buyer must walk to a specific spot, so it belongs in writing).
+   */
+  channels?: NotificationChannel[]
 }
 
 // ── Type Registry ────────────────────────────────────────────────────
@@ -462,6 +469,20 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
         farmers_market: 'Thanks again for shopping local!',
       }
       const signOff = signOffs[d.vertical as string] || 'Thanks again!'
+
+      // Bundle orders (owner 2026-09-14, wording approved): name the bundle,
+      // the market and the pickup spot — the buyer deals with the market
+      // manager, not the vendors. `bundleName` is only sent for bundle orders.
+      if (d.bundleName) {
+        return t('notif.order_placed_bundle_msg', locale, {
+          orderNumber: d.orderNumber || '',
+          bundleName: d.bundleName,
+          marketName: d.marketName || 'the market',
+          spot: d.bundlePickupNotes || '',
+          brandName: d.brandName || "Food Truck'n",
+          signOff,
+        })
+      }
 
       // Multi-pickup orders get their own message listing EVERY location.
       // The single-pickup path below is untouched — `pickups` is only sent
@@ -2368,6 +2389,9 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
   // immediate = push + in_app (free channels).
   bundle_ready: {
     urgency: 'immediate',
+    // Owner 2026-09-14: push + in-app (immediate) PLUS one email per bundle
+    // order — the pickup spot belongs in writing. Only this type overrides.
+    channels: ['push', 'in_app', 'email'],
     severity: 'info',
     audience: 'buyer',
     title: (d) => `🧺 Your ${d.bundleName || 'bundle'} is ready!`,

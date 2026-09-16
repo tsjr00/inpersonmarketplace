@@ -775,8 +775,12 @@ export default function BuyerOrderDetailPage() {
               </p>
             </div>
 
-            {/* Big Acknowledge Receipt Button - immediately below hero */}
-            {itemsNeedingConfirm.length > 0 && !showProblemSection && (
+            {/* Big Acknowledge Receipt Button - immediately below hero.
+                Bundle orders (owner 2026-09-14): NEVER — the yellow bundle card's
+                acknowledge is the only control; two buttons with the same words
+                and different money behind them is how tonight's order got a
+                per-item confirm the buyer should not have been offered. */}
+            {itemsNeedingConfirm.length > 0 && !showProblemSection && !isBundleOrder && (
               <div style={{ padding: `${spacing.sm} ${spacing.md}`, backgroundColor: colors.primaryLight, borderBottom: `2px solid ${colors.primary}` }}>
                 <button
                   onClick={() => {

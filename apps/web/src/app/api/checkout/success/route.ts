@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     crumb.supabase('select', 'orders')
     const { data: order, error: orderError } = await serviceClient
       .from('orders')
-      .select('status, platform_fee_cents, buyer_user_id, order_number, vertical_id')
+      .select('status, platform_fee_cents, buyer_user_id, order_number, vertical_id, bundle_id')
       .eq('id', orderId)
       .single()
 
@@ -540,6 +540,22 @@ export async function GET(request: NextRequest) {
 
           const branding = defaultBranding[capturedVerticalId as keyof typeof defaultBranding]
 
+          // Bundle orders (owner 2026-09-14): the placed notice names the bundle,
+          // the market and the pickup spot instead of per-vendor wording — the
+          // buyer deals with the market manager, not the vendors. Read-only,
+          // best-effort: a failed lookup falls back to the generic wording.
+          let bundleName: string | undefined
+          let bundlePickupNotes: string | undefined
+          if (order.bundle_id) {
+            const { data: bundle } = await observed(serviceClient
+              .from('market_bundles')
+              .select('name, pickup_notes')
+              .eq('id', order.bundle_id)
+              .maybeSingle(), { table: 'market_bundles' })
+            bundleName = bundle?.name ?? undefined
+            bundlePickupNotes = bundle?.pickup_notes ?? undefined
+          }
+
           await sendNotification(capturedUserId, 'order_placed', {
             orderNumber: capturedOrderNumber,
             orderId,
@@ -550,6 +566,7 @@ export async function GET(request: NextRequest) {
             pickupDate,
             pickupTime,
             ...(vendorName !== undefined ? { vendorName } : {}),
+            ...(bundleName ? { bundleName, bundlePickupNotes: bundlePickupNotes ?? '' } : {}),
             // Only sent when the order genuinely spans pickups. The template
             // branches on its presence, so a single-pickup order renders
             // exactly as it did before (T-05).

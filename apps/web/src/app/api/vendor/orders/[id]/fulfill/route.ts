@@ -476,16 +476,21 @@ export async function POST(
       crumb.logic('Checking atomic order completion')
       await supabase.rpc('atomic_complete_order_if_ready', { p_order_id: orderItem.order_id })
 
-      // Notify buyer that order is fulfilled
+      // Notify buyer that order is fulfilled — bundle orders excluded
+      // (owner 2026-09-06 / 2026-09-14): this fulfill is the MANAGER
+      // collecting; the buyer hears only from the manager. The three sibling
+      // sends above were gated 2026-09-06; this fourth one was missed.
       const fulfillOrderData = (orderItem as any).order as any
       const fulfillListing = (orderItem as any).listing as any
       const fulfillVendorName = fulfillListing?.vendor_profiles?.profile_data?.business_name || 'Vendor'
-      await sendNotification(fulfillOrderData.buyer_user_id, 'order_fulfilled', {
-        orderNumber: fulfillOrderData.order_number,
-        orderId: fulfillOrderData.id,
-        vendorName: fulfillVendorName,
-        itemTitle: fulfillListing?.title,
-      }, { vertical: fulfillOrderData.vertical_id })
+      if (!orderData?.bundle_id) {
+        await sendNotification(fulfillOrderData.buyer_user_id, 'order_fulfilled', {
+          orderNumber: fulfillOrderData.order_number,
+          orderId: fulfillOrderData.id,
+          vendorName: fulfillVendorName,
+          itemTitle: fulfillListing?.title,
+        }, { vertical: fulfillOrderData.vertical_id })
+      }
 
       return NextResponse.json({
         success: true,
@@ -496,6 +501,16 @@ export async function POST(
     } else {
       // EDGE CASE: Vendor fulfilling before buyer acknowledged
       // Just mark as fulfilled, buyer will acknowledge after.
+      // Bundle items (owner ruling 2026-09-14): the manager's Receiving-now tap
+      // IS the acknowledgment. Without it, refuse — otherwise the item lands
+      // fulfilled-unacked, the manager's later tap cannot attach (collect-ack
+      // is ready-only), and the buyer is prompted for a per-item confirm they
+      // should never see (order FA-2026-03444755, the chard).
+      if (orderData?.bundle_id) {
+        return NextResponse.json({
+          error: 'Wait for the market manager to tap Receiving now, then tap Fulfill within 30 seconds.',
+        }, { status: 409 })
+      }
       // VOR-2 FIX: guarded update — a cancelled/refunded item must not flip back to
       // 'fulfilled' (buyer keeps the refund AND the vendor gets paid at buyer-confirm).
       // 'pending' stays allowed: direct pending→fulfilled is live behavior (VOR-11).

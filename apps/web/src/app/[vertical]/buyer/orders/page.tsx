@@ -34,6 +34,7 @@ interface Order {
   status: string
   payment_method?: string
   total_cents: number
+  bundle_id?: string | null
   created_at: string
   type?: 'order' | 'market_box'
   readyCount?: number
@@ -455,9 +456,11 @@ export default function BuyerOrdersPage() {
             // Sum subtotals first, then apply buyer price (includes flat fee once)
             const orderTotal = order.total_cents
 
-            // Determine visual urgency styling
+            // Determine visual urgency styling. Bundle orders (owner 2026-09-14)
+            // never show the per-item handed-off prompt here — the buyer's only
+            // acknowledge is the bundle card on the order page.
             const isReady = order.status === 'ready'
-            const isHandedOff = order.status === 'handed_off'
+            const isHandedOff = order.status === 'handed_off' && !order.bundle_id
             const needsAttention = isReady || isHandedOff
 
             return (
@@ -657,8 +660,8 @@ export default function BuyerOrdersPage() {
                   </div>
                 )}
 
-                {/* Handed Off Banner - Needs buyer confirmation */}
-                {order.status === 'handed_off' && (
+                {/* Handed Off Banner - Needs buyer confirmation (never on bundle orders) */}
+                {isHandedOff && (
                   <div style={{
                     padding: `${spacing.sm} ${spacing.md}`,
                     borderTop: `1px solid #fcd34d`,

@@ -85,7 +85,7 @@ export async function POST(
       // branch there moves money, which this stand-in must never do.
       throw traced.validation('ERR_ORDER_003',
         item.status === 'fulfilled'
-          ? 'Already collected — the vendor marked this item fulfilled.'
+          ? 'This item was fulfilled before your tap. It now waits for the buyer\'s acknowledgment; nothing more is needed from you.'
           : 'The vendor has not marked this item ready yet.',
         { status: item.status })
     }

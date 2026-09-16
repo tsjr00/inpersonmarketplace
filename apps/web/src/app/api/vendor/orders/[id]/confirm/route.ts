@@ -39,7 +39,7 @@ export async function POST(
       id,
       status,
       vendor_profile_id,
-      order:orders!inner(id, order_number, buyer_user_id, vertical_id, payment_method),
+      order:orders!inner(id, order_number, buyer_user_id, vertical_id, payment_method, bundle_id),
       listing:listings(title, vendor_profiles(profile_data))
     `)
     .eq('id', orderItemId)
@@ -97,15 +97,20 @@ export async function POST(
     p_vendor_id: vendorProfile.id,
   })
 
-  // Notify buyer that vendor confirmed their order
+  // Notify buyer that vendor confirmed their order — bundle orders excluded
+  // (owner ruling 2026-09-14): the buyer of a bundle deals only with the
+  // market manager; the per-vendor confirm email even carries per-item
+  // handoff instructions that are wrong for a bundle.
   const listing = (orderItem as any).listing as any
   const vendorName = listing?.vendor_profiles?.profile_data?.business_name || 'Vendor'
-  await sendNotification(orderData.buyer_user_id, 'order_confirmed', {
-    orderNumber: orderData.order_number,
-    orderId: orderData.id,
-    vendorName,
-    itemTitle: listing?.title,
-  }, { vertical: orderData.vertical_id })
+  if (!orderData?.bundle_id) {
+    await sendNotification(orderData.buyer_user_id, 'order_confirmed', {
+      orderNumber: orderData.order_number,
+      orderId: orderData.id,
+      vendorName,
+      itemTitle: listing?.title,
+    }, { vertical: orderData.vertical_id })
+  }
 
   return NextResponse.json({ success: true })
   })

@@ -47,6 +47,7 @@ export async function GET(request: NextRequest) {
         status,
         payment_method,
         total_cents,
+        bundle_id,
         created_at,
         updated_at,
         order_items(

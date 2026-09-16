@@ -1,6 +1,18 @@
 # Backlog
 
-## 🧺 BUNDLES NOTIFICATION + EDGE BATCH — owner 2026-09-14: "fix later in larger batch" (from TR-001, order FA-2026-03444755)
+## 💡 PRO INCENTIVE — vendor upgrade auto-grants buyer premium (owner idea 2026-09-15)
+
+Owner: "As a way to incentivize vendors to upgrade to Pro, we automatically upgrade their buyer tier when they
+upgrade their vendor tier. Vendors can be buyers too → should produce deeper use of the app."
+Shape (to design, not built): when a vendor subscription becomes paid (pro/boss), set the same user's
+`user_profiles.buyer_tier` to premium; revert when the vendor subscription lapses. Touches the subscription
+webhook (⚠ `lib/stripe/webhooks.ts`, protected) + vendor dashboard/upgrade copy. Decisions for the owner at
+design: (1) pro only or pro+boss; (2) revert on downgrade/lapse or keep for the paid period; (3) both verticals
+(premium buyer perks are per-vertical — check `isBuyerPremiumEnabled`); (4) whether the vendor sees it advertised
+on the upgrade screen (the incentive only works if it is visible). Placed in build plan package P6 (growth), or
+pull forward after P2 if revenue levers are wanted earlier. Size S–M.
+
+## 🧺 BUNDLES NOTIFICATION + EDGE BATCH — BUILT 2026-09-15 as Push A (items 1–7; item 3 = option (i) vendor Fulfil refused until the manager taps + wording; run-sheet banner PLACEMENT not done — banner exists but the owner did not see it). RETEST = TR-001 + TR-005 end to end on a fresh bundle order.
 
 Three defects, one batch, one staging push, retest = TR-001 end to end. Evidence in docs/testing/OBSERVATIONS.md OB-010/014/015.
 1. [ ] **Vendor confirm notice reaches bundle buyers** (ruled 2026-09-14: none). `api/vendor/orders/[id]/confirm/route.ts:103` sends `order_confirmed` with no bundle gate; the email's copy gives per-item handoff instructions. Fix = skip when `orders.bundle_id` is set (mirror the 09-06 gates in ready/fulfil).

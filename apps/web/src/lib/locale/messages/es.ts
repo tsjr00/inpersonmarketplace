@@ -566,6 +566,8 @@ export const es: Record<string, string> = {
   // T-05: para pedidos con m\u00e1s de un lugar de recogida.
   'notif.order_placed_multi_msg': '\u00a1Gracias por usar {brandName}!\n\n\u2022 Tu pedido #{orderNumber} ha sido realizado con {vendorName}.\n\u2022 Este pedido tiene {pickupCount} lugares de recogida. Recoge tus art\u00edculos en cada uno:\n\n{pickupSummary}\n\nTe notificaremos cuando tu pedido sea confirmado. {signOff}',
   'notif.order_placed_pickup_line': '\u2022 {marketName}, {marketAddress} \u2014 {pickupDate} a las {pickupTime}',
+  // Pedidos de paquete (2026-09-14): el administrador del mercado recoge, no el comprador.
+  'notif.order_placed_bundle_msg': '\u00a1Gracias por usar {brandName}!\n\nTu paquete "{bundleName}" de {marketName} ha sido realizado. El administrador del mercado recoger\u00e1 tus art\u00edculos de cada vendedor y te avisar\u00e1 cuando est\u00e9 listo para recoger. Punto de recogida: {spot}.\n\n{signOff}',
   'notif.order_confirmed_title': 'Pedido Confirmado',
   'notif.order_confirmed_msg': '{vendorName} confirmó tu pedido #{orderNumber}{forItem}. Te notificaremos cuando esté listo para recoger. Cuando llegues, mostrarás tu pantalla de pedido al vendedor y ambos confirmarán la entrega.',
   'notif.order_ready_title': 'Pedido Listo para Recoger',
