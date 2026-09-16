@@ -12,7 +12,32 @@ design: (1) pro only or pro+boss; (2) revert on downgrade/lapse or keep for the 
 on the upgrade screen (the incentive only works if it is visible). Placed in build plan package P6 (growth), or
 pull forward after P2 if revenue levers are wanted earlier. Size S–M.
 
-## 🎪 EVENTS ROUND — owner test 2026-09-15 (OB-024; staging `b9a9709b`) — DESIGN PASS NEEDED, nothing built
+## 🎪 EVENTS ROUND — owner test 2026-09-15 (OB-024; staging `b9a9709b`) — PLAN COMMITTED 2026-09-16, nothing built
+
+**Rulings 2026-09-16.** A (item 2) = the vendor MUST hold the profile declaration to accept a conflicting
+invitation; the acknowledgment box may not stand in ("they can leave the page and go change their profile but
+we can't just let them check a box in the moment") → decisions.md. B (item 3) = NOT YET RULED; Claude's
+recommendation on the table: allow rolling selection, move the menu-trim lock from the event to the vendor
+(trimmable once, at the vendor's first selection; promoted backups keep full menus). Owner: "commit the plan
+and we will start on it next time." Evidence for every line below: `apps/web/.claude/events_round_research.md`.
+
+**Build order (one change per message; items 1–3 each get a flow-integrity pin for the new rule):**
+1. Item 6 — public event page + shop treat attending = SELECTED (stamp set, not benched) for self-service
+   events; admin-managed events keep accepted-not-benched (admins never stamp — only the select route and
+   the cancel route's step-in promotion write `organizer_selected_at`).
+2. Item 2 — ruling A: respond route refuses on `needsSkipAcknowledgment` regardless of the box; vendor event
+   page shows the blocked state with profile-declaration guidance; box removed. availability.ts and its
+   tests untouched (test "must acknowledge the skip (blackout follows)" keeps passing as a classifier test;
+   retitling it = test change → owner's separate call).
+3. Item 3 — ruling B once given: per-vendor pare gate in the select route (pareable iff no stamp yet and not
+   promoted from the bench), per-vendor toggles + copy on the select page ("trim once, when first picked;
+   unticked = benched"). Known edges: `vendor_count` is a hard cap (adding past it = drop one → refund +
+   bench, page already confirms); kit email stays first-confirmation-only.
+4. Item 4 — the only re-invite tool is "Refresh matches" inside the details editor, shown only after a
+   Stage-2 edit; either always offer it or fix the select-page copy.
+5. Item 5 — `router.refresh()` after `router.push` in NotificationBell + DashboardNotifications.
+6. Item 1 — FM wording pass on OrganizerEventDetails labels (food/meal terms). Asterisk half: code renders
+   them with NO vertical condition → need the owner to name the FT screen they compared against.
 
 1. [ ] **FM organizer dashboard parity with FT**: required-field asterisks for the "Send Invitations" prerequisites, and every food/meal/truck term → products/items/vendor wording. Diff the FT-only changes since ~2026-08 and carry over what applies (owner: "most or all should carry over").
 2. [ ] **RULING NEEDED — conflict acknowledgment vs the multi-location declaration.** Today an invited vendor with a schedule conflict can accept by ticking "I acknowledge the conflict" without having declared they can staff more than one location. Owner's TR-044 ruling says the declaration is the gate for schedules; should the event accept path require the SAME declaration (or refuse until the vendor withdraws elsewhere)? Read `api/vendor/events/[marketId]/respond` + `lib/events/availability.ts` before proposing.

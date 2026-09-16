@@ -1,3 +1,15 @@
+# 🏁 2026-09-16 (short session) — EVENTS ROUND PLAN COMMITTED · RULING A LOGGED · RULING B PENDING · NOTHING BUILT
+
+Git verified at kickoff: `main` = `origin/staging` = `a7d02280`; Prod `d704d3bb`; tree clean. No new owner
+retests received (the pasted TR-021/TR-022 results were the same round already logged as OB-024). Research
+(6 items, all files read, cited): `apps/web/.claude/events_round_research.md`. Plan + build order: backlog
+"EVENTS ROUND". Ruling A → decisions.md 2026-09-16. **Ruling B still owed** (recommendation: rolling
+selection + per-vendor menu-trim lock). Next session: kickoff → owner's Section 0 retests if any → ruling B
+→ build item 6 first (public page attending = selected), ONE change per message. Prod push still owed
+(code since d704d3bb + migs 252/253) whenever the retests pass.
+
+---
+
 # 🏁 2026-09-15 SESSION CLOSE — FIX PLAN A/B/C/D SHIPPED TO STAGING · PROD OWES CODE + MIGS 252, 253 · EVENTS ROUND LOGGED
 
 **Git at close:** local `main` = `origin/staging` = `b9a9709b` (+ the docs commit that follows this block). Prod = `d704d3bb`
