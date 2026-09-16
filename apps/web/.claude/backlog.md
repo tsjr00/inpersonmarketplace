@@ -12,6 +12,15 @@ design: (1) pro only or pro+boss; (2) revert on downgrade/lapse or keep for the 
 on the upgrade screen (the incentive only works if it is visible). Placed in build plan package P6 (growth), or
 pull forward after P2 if revenue levers are wanted earlier. Size S–M.
 
+## 🎪 EVENTS ROUND — owner test 2026-09-15 (OB-024; staging `b9a9709b`) — DESIGN PASS NEEDED, nothing built
+
+1. [ ] **FM organizer dashboard parity with FT**: required-field asterisks for the "Send Invitations" prerequisites, and every food/meal/truck term → products/items/vendor wording. Diff the FT-only changes since ~2026-08 and carry over what applies (owner: "most or all should carry over").
+2. [ ] **RULING NEEDED — conflict acknowledgment vs the multi-location declaration.** Today an invited vendor with a schedule conflict can accept by ticking "I acknowledge the conflict" without having declared they can staff more than one location. Owner's TR-044 ruling says the declaration is the gate for schedules; should the event accept path require the SAME declaration (or refuse until the vendor withdraws elsewhere)? Read `api/vendor/events/[marketId]/respond` + `lib/events/availability.ts` before proposing.
+3. [ ] **RULING NEEDED — what locks after the organizer's first selection.** Decisions.md 2026-09-03 P1: menu pare-down is FIRST-round only and locks when the shop publishes. Owner now wants the organizer to keep approving/paring/benching vendors who respond after the first selection. Design the round model (rolling selection? a re-open action?) + confirm whether "select more later" is possible at all. Surfaces: `event-manager/[token]/select`, bench copy, notifications.
+4. [ ] **"Invite more vendors from your event dashboard" copy points at a path the organizer cannot find.** Either build the re-invite entry point on the dashboard or change the copy.
+5. [ ] **Selection notification lands on a stale page** (no reload → approved items not visible until refresh). Small; likely `router.refresh()` on notification navigation.
+6. [ ] **🐞 Public event page** `/[vertical]/events/[token]` **counts and lists accepted-but-unselected vendors ("3 Vendors attending")** while the order page correctly hides them. Same stage-classifier rule as P2–P5 (`lib/events/vendor-stage.ts`) — this surface was missed. TR-022 partial fail.
+
 ## 🧺 BUNDLES NOTIFICATION + EDGE BATCH — BUILT 2026-09-15 as Push A (items 1–7; item 3 = option (i) vendor Fulfil refused until the manager taps + wording; run-sheet banner PLACEMENT not done — banner exists but the owner did not see it). RETEST = TR-001 + TR-005 end to end on a fresh bundle order.
 
 Three defects, one batch, one staging push, retest = TR-001 end to end. Evidence in docs/testing/OBSERVATIONS.md OB-010/014/015.

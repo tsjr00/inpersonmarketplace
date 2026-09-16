@@ -1,3 +1,51 @@
+# 🏁 2026-09-15 SESSION CLOSE — FIX PLAN A/B/C/D SHIPPED TO STAGING · PROD OWES CODE + MIGS 252, 253 · EVENTS ROUND LOGGED
+
+**Git at close:** local `main` = `origin/staging` = `b9a9709b` (+ the docs commit that follows this block). Prod = `d704d3bb`
+(migs 001–251). **Prod owes:** the code since `d704d3bb` (Push A `ac1dca1c`, Push B `594902f7`, Push C+D `b9a9709b`) +
+**migs 252 and 253** (both Dev+Staging ✅, paste-and-go, any order relative to code; files in root). Window 21:00–07:00 CT.
+⚠ `PUSH_WINDOW_OVERRIDE` pushes must be run by the OWNER via `!` — the auto-mode classifier blocks Claude from running them.
+
+## What shipped this session (all on staging, all retest-owed — docs/testing/TEST_PROTOCOL_open_items.md Section 0)
+- **Push A** (bundles, 7 items + placed-notice copy + bundle_ready email): TR-001, TR-005.
+- **Push B** (market boxes): TR-014 (+ mig 252 = trigger DEFINER; counter was RLS-filtered to 0 forever), TR-015, TR-016, TR-048.
+- **Push C+D**: TR-044 (route + mig 253 + flow-integrity pin), TR-046, TR-010. TR-049 DEFERRED (owner).
+- Testing structure: docs/testing/ (README · CHARTERS · TEST_REGISTRY · OBSERVATIONS · TEST_PROTOCOL_open_items). Kickoff reads
+  the registry (CLAUDE.md item 8, PROCESSES Protocol 1); close updates it (Protocol 6 step 6).
+- Decisions logged 2026-09-14/15: bundle buyers get NO vendor-level notices · vendor Fulfil waits for the manager's tap on bundle
+  items · no review prompt at bundle ack · multi-location declaration gates schedules on BOTH verticals.
+
+## Owner test results received this session
+Passes: TR-004, TR-006, TR-007, TR-021 (loop), TR-022 (dashboard half), TR-027, TR-045/046/047, TR-013, TR-011/012, TR-060–063 (staging).
+Fails → built: TR-001, TR-005, TR-014/015/016/048, TR-044, TR-046 layout, TR-010. Fail → deferred: TR-049.
+**New (OB-024, backlog "EVENTS ROUND 2026-09-15"), NOT designed:** FM organizer dashboard parity with FT (asterisks + wording) ·
+conflict-acknowledge box lets an FM vendor accept an event without the multi-location declaration (RULING NEEDED) · what locks
+after the organizer's first selection — owner wants rolling approve/pare/bench (RULING NEEDED; decisions 2026-09-03 P1 says first
+round only) · "invite more vendors" copy points nowhere · selection notification lands on a stale page · public event page
+/[vertical]/events/[token] counts + lists accepted-but-unselected vendors (TR-022 partial fail; stage-classifier surface missed).
+
+## ▶ NEXT SESSION, in order
+1. Kickoff per protocol; read docs/testing/TEST_REGISTRY.md (open/fail/fixed-unverified rows).
+2. Owner retests Section 0 (9 items) → registry. Any fail = decision point.
+3. **PROD PUSH** (window): code `git push origin main` (owner runs if override needed) → owner pastes 252, 253 on Prod → post-checks
+   (prosecdef for both functions; 253: body lacks 'food_trucks') → bookkeeping (move files, flip rows, CLAUDE_CONTEXT).
+4. **Events round design pass** (backlog section): get the two rulings FIRST, then read the named files, then present ONE change
+   per message. Item 6 (public event page stage) is a straight bug — same classifier as P2–P5.
+5. Then the remaining plan: P3 security tail (JSON-LD serializer, email escaping, vendor counters, session marketId), P5 tax
+   (owner: CPA letter + jurisdiction codes), P4 traffic, P6 growth (browse filter surface, market-box section on vendor profile,
+   share sheet, pro incentive), P7 matching. Owner-side: Google Vision billing OFF (moderation fail-open), Vercel APP_URL scoping,
+   Upstash plan, paid-fee test event for TR-028/029.
+
+## Process rules confirmed this session (memories updated)
+- ONE change per message, question LAST, then stop (feedback_ask_right_after_each_change). Multiple asks in one message = the owner
+  digs and questions get lost (TR-048 was asked 3× unseen).
+- No unnecessary separate pushes — small independent fixes ride together; each has its own registry row for retest
+  (feedback_one_feature_per_push refined). Money/vaulted changes still get their own push.
+- Quote the owner's words first; logic before syntax; every claim cited or marked UNVERIFIED; docs from prior sessions are leads.
+- Dev Supabase auth now requires upper+lower+digit+symbol passwords (origin unknown; owner did not change it) — test fixtures updated.
+- Vercel deploy + open tab: HARD REFRESH before filing (stale tab kept hitting the old build for minutes after Ready).
+
+---
+
 # 🏁 2026-09-13 (session 2) — PROD CAUGHT UP: `d704d3bb` + migs 238→251 · E0 SHIPPED · F-1/F-2/F-4/F-10 CLOSED EVERYWHERE
 
 **DONE 2026-09-13 ~8 PM CT (owner-run):** 238→247 pasted on Prod → code pushed `e946c2c0..d704d3bb main -> main` (owner ran it with `PUSH_WINDOW_OVERRIDE=hotfix` after confirming nobody was on the platform; the auto-mode classifier blocks Claude from running the override) → Vercel Ready → 248→251 pasted → 12-row catalog post-check on Prod matched Staging on every row. Mig 225 never pasted. **Bookkeeping done in tree (uncommitted): 14 files → `applied/`, 14 changelog rows → ALL THREE ENVIRONMENTS, snapshot header note, CLAUDE_CONTEXT migrations line + session row, decisions.md item-11 ruling, backlog.** ✅ Owner critical-path pass on Prod: pages · login · located browse (radius changes count) PASS. ⏳ **Checkout and ack+fulfill NOT run on Prod — no real vendor with Stripe set up yet; the first real Prod order is the remaining behavioural proof of 249/250/251 (structurally confirmed by the catalog post-check; behaviourally proven on Staging).** **Bookkeeping COMMITTED `0fce9518` → staging (docs only; Prod stays at `d704d3bb` — no behaviour difference).**
