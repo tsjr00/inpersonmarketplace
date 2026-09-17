@@ -16,8 +16,9 @@ pull forward after P2 if revenue levers are wanted earlier. Size S–M.
 
 **Rulings 2026-09-16.** A (item 2) = the vendor MUST hold the profile declaration to accept a conflicting
 invitation; the acknowledgment box may not stand in ("they can leave the page and go change their profile but
-we can't just let them check a box in the moment") → decisions.md. B (item 3) = NOT YET RULED; Claude's
-recommendation on the table: allow rolling selection, move the menu-trim lock from the event to the vendor
+we can't just let them check a box in the moment") → decisions.md. B (item 3) = **RULED 2026-09-17: "go with
+your recommendation"** → decisions.md 2026-09-17. Item 1 asterisk half WITHDRAWN 2026-09-17 (owner: "i
+misspoke"); wording half stands. The recommendation as ruled: allow rolling selection, move the menu-trim lock from the event to the vendor
 (trimmable once, at the vendor's first selection; promoted backups keep full menus). Owner: "commit the plan
 and we will start on it next time." Evidence for every line below: `apps/web/.claude/events_round_research.md`.
 

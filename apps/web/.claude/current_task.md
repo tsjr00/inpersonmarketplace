@@ -1,3 +1,42 @@
+# ▶ 2026-09-17 — post-restart kickoff (Windows update rebooted the machine; NOTHING was lost)
+
+Verified: tree clean, no stash, `main` = `staging` = `origin/staging` = `ae76681e`; prior transcript ends on the
+pushed commit. Owner this session: **ruling B GIVEN** = rolling selection + per-vendor menu-trim lock
+(decisions.md 2026-09-17) · **NO PROD PUSH YET** (owner) · events item 1 asterisk question WITHDRAWN ("i
+misspoke") — asterisk half dropped; FM wording half stands unless the owner says otherwise. Outstanding-test
+list restated in chat from the registry: 9 retests (TR-001/005/010/014/015/016/044/046/048) + open rows
+(TR-002/003/023–026/028–036/040–043). `docs/testing/TEST_PROTOCOL_open_items.md` REGENERATED 2026-09-17 on the owner's word (was stale: listed
+TR-021/TR-022, lacked Push C+D retests TR-044/046/010; now 9 retests + open rows + a "not runnable yet"
+section) — UNCOMMITTED, rides with the next push. Registry checked row by row against OBSERVATIONS OB-001→024:
+no status changes needed. Item 6 re-verified from code this session (public page `events/[token]/page.tsx:57-68`
+and shop `shop-data.ts:163-171` both filter on is_backup only; classifier `vendor-stage.ts:36-38`;
+`catering_requests.service_level` exists, snapshot :645). No code built.
+**SHIPPING (owner 2026-09-17):** "unless an item needs its own push it doesn't get one. we may commit in between
+but we stack commits then push together unless there is a specific reason not to." → events round = five
+changes, commits stacked locally as each is approved + gated, ONE staging push at the end (with the regenerated
+test list). No named reason for a separate push exists today; if one appears, NAME it and ask.
+**PRE-BUILD DEEP READ 2026-09-17 (owner: "read all the code that touches your changes") — 3 HAZARDS FOUND,
+details in `events_round_research.md` top section:** (1) change 1 is NOT display-only on the shop side — the
+shop filter is a registered paired rule with the SQL sell gate (`paired-rules.ts:88-102`, mig 238 `:186-206`);
+split into 1a public page only (safe) and 1b sell-gate ruling + migration (owner decision; on FREE self-service
+events every accepted vendor is orderable before/without selection). (2) My ruling-B rationale ("no orders can
+exist against an unselected vendor") is FALSE on free events — B needs 1b or a live-order check in the pare.
+(3) Ruling A kills the R3-4 blackout path and collides with two flow-integrity pins (`:2351`, `:2356`) — owner
+decision, test gate.
+**OWNER RULINGS 2026-09-17 (all in decisions.md):** 1a agreed · 1b = event pre-orders only once SELECTED, never a
+penalty on regular sales · change 2 = branch B (declaration must come from the PROFILE; pause feature retired;
+the two pins' expectation change still needs the owner's explicit yes at build time) · ruling B stands, made safe
+by 1b · changes 4 + 5 "proceed" = present each before/after (code read, notes in research file).
+**BUILT, UNCOMMITTED — change 1a:** `app/[vertical]/events/[token]/page.tsx` (roster = classifier 'selected' on
+self-service, accepted+not-benched on admin-managed; hero "Pre-Orders Open" needs ≥1 listed vendor) ·
+`flow-integrity.test.ts` (public page ADDED to the "imports the shared classifier" list — additive pin, no
+expectation changed) · Codebase_Map 14_Events (2 lines) + 00_INDEX stamp. Gates: tsc 0 · eslint 0 errors ·
+vitest 90 files / 2226. Also uncommitted: regenerated TEST_PROTOCOL_open_items.md + .claude docs.
+NEXT: commit 1a locally on the owner's word → present 1b (migration: pull `pg_get_functiondef` from all 3 envs
+FIRST) → change 2 → change 3 → 4 → 5 → ONE staging push. TR-022 → fixed-unverified at push time.
+
+---
+
 # 🏁 2026-09-16 (short session) — EVENTS ROUND PLAN COMMITTED · RULING A LOGGED · RULING B PENDING · NOTHING BUILT
 
 Git verified at kickoff: `main` = `origin/staging` = `a7d02280`; Prod `d704d3bb`; tree clean. No new owner

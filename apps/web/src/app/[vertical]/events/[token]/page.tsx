@@ -6,6 +6,7 @@ import { formatDisplayPrice } from '@/lib/constants'
 import { spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { defaultBranding } from '@/lib/branding/defaults'
 import EventFeedbackForm from '@/components/events/EventFeedbackForm'
+import { classifyVendorEventStage } from '@/lib/events/vendor-stage'
 
 export const dynamic = 'force-dynamic'
 
@@ -56,15 +57,23 @@ export default async function EventPage({ params }: EventPageProps) {
     // 1. Get accepted vendor IDs (simple query, no embed)
     const { data: marketVendors } = await supabase
       .from('market_vendors')
-      .select('vendor_profile_id, is_backup')
+      .select('vendor_profile_id, response_status, is_backup, organizer_selected_at')
       .eq('market_id', event.market_id)
       .eq('response_status', 'accepted')
 
-    // Attending only (owner 2026-08-26): a truck the organizer deselected is
-    // benched (is_backup) — its menu is already gone from the shop
-    // (shop-data.ts attending filter), so it must not stay on the poster either.
+    // Attending only. Accepted is NOT attending (owner 2026-09-03, TR-022
+    // 2026-09-15): on a SELF-SERVICE event the poster lists only vendors the
+    // organizer has SELECTED — the shared classifier's 'selected' stage (stamp
+    // set, not benched). Before this, everyone who said yes showed as
+    // "attending" from the moment the event turned 'ready', and so did a late
+    // responder the organizer had not looked at yet. ADMIN-MANAGED events keep
+    // accepted + not benched: admins never record a selection (only the select
+    // route and the cancel route's step-in write organizer_selected_at).
+    const selfService = event.service_level === 'self_service'
     const acceptedVendorIds = (marketVendors || [])
-      .filter(mv => mv.is_backup !== true)
+      .filter(mv => selfService
+        ? classifyVendorEventStage(mv) === 'selected'
+        : mv.is_backup !== true)
       .map(mv => mv.vendor_profile_id as string)
 
     if (acceptedVendorIds.length > 0) {
@@ -186,7 +195,7 @@ export default async function EventPage({ params }: EventPageProps) {
       }}>
         <div style={{ maxWidth: containers.md, margin: '0 auto' }}>
           <p style={{ fontSize: typography.sizes.sm, color: '#9ca3af', margin: `0 0 ${spacing.xs}`, textTransform: 'uppercase', letterSpacing: 1 }}>
-            {isCompleted ? 'Past Event' : isOrderable ? 'Pre-Orders Open' : 'Upcoming Event'}
+            {isCompleted ? 'Past Event' : isOrderable && vendors.length > 0 ? 'Pre-Orders Open' : 'Upcoming Event'}
           </p>
           <h1 style={{ margin: `0 0 ${spacing.sm}`, fontSize: typography.sizes['3xl'], fontWeight: typography.weights.bold }}>
             {event.company_name}

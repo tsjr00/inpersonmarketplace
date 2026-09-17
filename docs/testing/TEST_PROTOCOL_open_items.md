@@ -1,7 +1,8 @@
 STAGING TEST PROTOCOL — READY TO RUN
-Regenerated 2026-09-15 from the Test Registry (docs/testing/TEST_REGISTRY.md). Plain text: paste into Word as-is.
-Only items that are built and have no recorded result. Items waiting on a fix are NOT here — they are in the
-registry as "fail" and return to this list when their fix ships.
+Regenerated 2026-09-17 from the Test Registry (docs/testing/TEST_REGISTRY.md). Plain text: paste into Word as-is.
+Only items with no recorded result from the owner. Removed: every test reported as passing, and every test
+reported as failing whose fix has not shipped yet (those are in the registry as "fail" / "partial" and return
+to this list when their fix ships).
 Staging: https://inpersonmarketplace-git-staging-tsjr00s-projects.vercel.app
 Replace [vertical] in any path with farmers_market or food_trucks.
 
@@ -12,7 +13,7 @@ HOW TO USE
 
 
 ==================================================
-SECTION 0 — RETESTS OF SHIPPED FIXES (run these first; they close the most rows)
+SECTION 0 — RETESTS OF SHIPPED FIXES (9 — run these first; they close the most rows)
 ==================================================
 
 TR-001  Fresh bundle order: the quiet notification sequence  (fix shipped: Push A)
@@ -57,6 +58,25 @@ Where: /[vertical]/vendor/orders after a buyer cancels an order pre-confirmation
 Expect: the "cancelled" count card at the top includes it, matching the list below.
 Result: ____________   Notes:
 
+TR-044  Double-booking needs the multi-location declaration, on BOTH verticals  (fix shipped: Push C + migration 253)
+Where: /[vertical]/vendor/edit, the box "I can staff more than one location at the same time";
+/[vertical]/vendor/markets.
+Steps: as a farmers_market vendor with the box UNCHECKED, activate a second market on a weekday and time you
+already occupy elsewhere. Then check the box and try again. Repeat once on food_trucks.
+Expect: unchecked → refused, with a message naming the market you are already at; checked → succeeds.
+Result: ____________   Notes:
+
+TR-046  Booking page: operating-days line placement  (fix shipped: Push D)
+Where: /[vertical]/markets/[id]/book on a market that shows a booth map.
+Expect: the operating-days line sits BELOW the map and ABOVE the week / booth selection.
+Result: ____________   Notes:
+
+TR-010  Market Bundles cards fit a narrow phone  (fix shipped: Push D)
+Where: /[vertical]/markets/[id], section "Market Bundles", on a phone.
+Expect: nothing runs past the edge of the card or the screen; long lines (e.g. "created by this market") wrap;
+the name / price row wraps if it has to. A screenshot either way helps — the cause was read from code only.
+Result: ____________   Notes:
+
 
 ==================================================
 SECTION 1 — MARKET BUNDLES, still open
@@ -81,21 +101,9 @@ SECTION 2 — EVENTS (organizer, vendor/truck, admin)
 ==================================================
 Background: an organizer requests an event; trucks are invited and accept; the organizer selects a roster and
 approves menus; the event opens for pre-orders; the shop sells; settlement follows. "Accepted" is not "selected".
-
-TR-021  Host menu pare-down loop
-Where: organizer — /[vertical]/event-manager/[token]/select; the event shop; the public event page; the truck's
-page /[vertical]/vendor/events/[marketId].
-Steps: tap items off a truck with 3+ items (try to go below 2: it should stop); confirm; open the shop and the
-public page; open the truck's event page.
-Expect: pared items absent from shop and public page; the truck's page shows "approved N of M".
-Result: ____________   Notes:
-
-TR-022  Stage surfaces agree (accepted is not attending)
-Where: /[vertical]/vendor/markets (events pill); /[vertical]/event-manager/[id]/dashboard (roster badges);
-/[vertical]/admin/events (chips); /[vertical]/vendor/events/[marketId] ("Vendors who said yes: N of M"); the
-vendor dashboard card "Locations & Schedule".
-Expect: every surface shows the same stage for the same truck.
-Result: ____________   Notes:
+(TR-021 and TR-022 were reported 2026-09-15 and are no longer here: TR-021 passed; TR-022 passed on the
+dashboard and failed on the public event page — that fix is first in the events round and TR-022 returns to
+Section 0 when it ships.)
 
 TR-023  Invitations-held gate
 Where: admin event detail on /[vertical]/admin/events for a self-serve approved event, invitations not sent.
@@ -114,12 +122,6 @@ Result: ____________   Notes:
 TR-026  Browse "Closed" pill matches the detail page
 Where: /[vertical]/browse card vs /[vertical]/listing/[id] for an event-selected listing.
 Expect: same Open/Closed pill on both.
-Result: ____________   Notes:
-
-TR-028  Event cancellation money
-TR-029  Event deselect and refund money
-Why: the only open tests that move real money on events. Need an event with a paid vendor fee.
-Steps: to be issued once a paid-fee event exists on staging.
 Result: ____________   Notes:
 
 TR-030  Re-confirm page after a vendor withdraws
@@ -173,3 +175,21 @@ TR-043  Week-strip standing hold
 Where: /food_trucks/vendor/markets "Your next two weeks".
 Expect: an active standing reservation shows on its weekday more than 7 days out, with the pay-by note.
 Result: ____________   Notes:
+
+
+==================================================
+SECTION 4 — OPEN, BUT NOT RUNNABLE YET (nothing for you to do until the blocker clears)
+==================================================
+
+TR-028  Event cancellation money
+TR-029  Event deselect and refund money
+Why: the only open tests that move real money on events. Blocker: need an event with a PAID vendor fee on
+staging. Steps will be issued once one exists.
+
+TR-031  Protocol v6 remainder (buyer items + weekly survey · onboarding copy · manager new-email invite and
+resend · farmers-market mirror · print chrome)
+Blocker: the steps live in an old working note and must be re-issued in this format before they can be run.
+
+TR-060  Normal checkout decrements stock — ON PROD
+TR-062  Buyer acknowledge + vendor fulfil inside 30 seconds moves the payout — ON PROD
+Both passed on staging 2026-09-13. Blocker on Prod: no real vendor with Stripe set up yet.

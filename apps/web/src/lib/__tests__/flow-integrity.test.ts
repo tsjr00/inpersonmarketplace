@@ -2797,6 +2797,10 @@ describe('Vendor event stage — shared classifier', () => {
       // P2 (owner 2026-09-03): the admin invitations table's stage chips —
       // phase 6 (2026-09-04) moved the surface into the board component.
       'components/admin/EventsAdminPage.tsx',
+      // TR-022 (owner 2026-09-15): the PUBLIC event poster was the missed
+      // surface — it listed every accepted vendor as "attending". On a
+      // self-service event attending = the classifier's 'selected' stage.
+      'app/[vertical]/events/[token]/page.tsx',
     ]) {
       expect(rd(file), `${file} must derive the stage from vendor-stage.ts`)
         .toMatch(/import \{[^}]*classifyVendorEventStage[^}]*\} from '@\/lib\/events\/vendor-stage'/)
