@@ -26,7 +26,10 @@ and we will start on it next time." Evidence for every line below: `apps/web/.cl
 1. Item 6 — public event page + shop treat attending = SELECTED (stamp set, not benched) for self-service
    events; admin-managed events keep accepted-not-benched (admins never stamp — only the select route and
    the cancel route's step-in promotion write `organizer_selected_at`).
-2. Item 2 — ruling A: respond route refuses on `needsSkipAcknowledgment` regardless of the box; vendor event
+2. ~~Item 2 — ruling A~~ **WITHDRAWN 2026-09-17 (owner, decisions.md FINAL row): single-location vendors keep
+   the trade-a-market-day-for-an-event option; the box and the pre-order pause stay; only the PROFILE flag ever
+   grants cover-both (already how the code works). No build. Optional: wording pass on the trade box.**
+   Original plan line, kept for the record: respond route refuses on `needsSkipAcknowledgment` regardless of the box; vendor event
    page shows the blocked state with profile-declaration guidance; box removed. availability.ts and its
    tests untouched (test "must acknowledge the skip (blackout follows)" keeps passing as a classifier test;
    retitling it = test change → owner's separate call).
@@ -39,6 +42,25 @@ and we will start on it next time." Evidence for every line below: `apps/web/.cl
 5. Item 5 — `router.refresh()` after `router.push` in NotificationBell + DashboardNotifications.
 6. Item 1 — FM wording pass on OrganizerEventDetails labels (food/meal terms). Asterisk half: code renders
    them with NO vertical condition → need the owner to name the FT screen they compared against.
+
+- [ ] **FUTURE (owner 2026-09-17: "leave the logic alone + add a task to improve the trade language") — reword
+  the event-conflict TRADE box so it leads with the trade.** Vendor event page
+  `app/[vertical]/vendor/events/[marketId]/page.tsx:1289-1299` (owner wording 2026-08-28, four bullets) opens
+  with "Our records show you operate one location at a time" and reaches the trade only in bullet 3 — in the
+  09-15 test it read like a multi-location permission. Copy only: say first that the vendor is TRADING their
+  market day for this event (won't sell there that day, pre-orders there paused, a paid spot is not refunded),
+  then the profile-declaration pointer for vendors who really can cover both. Matching server message:
+  respond route `:248`. NO logic change (decisions.md 2026-09-17 FINAL row); the two pins stay. Size XS.
+
+- [ ] **🐞 A vendor dropped in a selection change still shows as "confirmed" and comes pre-ticked** (found
+  2026-09-17 building change 3; matters more now that selection is rolling). The select POST benches a dropped
+  vendor but never clears `organizer_selected_at` (`select/route.ts` bench block), and GET sends
+  `selected: mv.organizer_selected_at != null` (`:191`) → the select page lists them under "Your vendors are
+  confirmed" (`select/page.tsx:307`) and pre-ticks them in change mode (`:138-145`). A re-submit without noticing
+  re-selects a vendor whose fee was already refunded, with no new notification (they count as previously
+  selected). Fix = `selected` means stamp AND not benched (the shared classifier's rule) in GET + the POST's
+  `previouslySelected`. ⚠ `flow-integrity.test.ts:2552` pins the exact current `selected:` line (written to stop
+  deriving it from status='ready') → expectation change = owner's explicit call. Size S.
 
 **Found in the 2026-09-17 pre-build code read — NOT built, owner has seen both (one line each in chat):**
 - [ ] **Wave capacity counts vendors who cannot sell.** `recalculate_wave_capacity` (mig 191 `:55-59`) and

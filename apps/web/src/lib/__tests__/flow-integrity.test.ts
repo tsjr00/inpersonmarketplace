@@ -2903,8 +2903,19 @@ describe('Host menu pare-down — the pair holds everywhere', () => {
   it('the select route validates with the shared rule and applies BOTH halves of the pare', () => {
     const route = rd('app/api/events/[token]/select/route.ts')
     expect(route).toMatch(/import \{[^}]*validatePare[^}]*\} from '@\/lib\/events\/menu-pare'/)
-    // first-round-only: paring refused once a selection stamp exists
-    expect(route).toMatch(/if \(!isFirstConfirmation\) \{/)
+    // Per-VENDOR trim lock — owner ruling B 2026-09-17 (decisions.md), which
+    // REPLACED the 2026-09-03 event-wide "first confirmation only" lock this
+    // line used to pin (expectation changed with the owner's explicit
+    // approval, same day). A menu is trimmable once, at that vendor's first
+    // selection: refused for an already-selected vendor (buyers may have
+    // ordered) and for a vendor coming off the bench (full menu, P1 #5). Safe
+    // because unselected vendors cannot take event pre-orders (mig 254).
+    expect(route).toMatch(/if \(previouslySelected\.has\(vid\)\) \{/)
+    expect(route).toMatch(/if \(priorBenched\.has\(vid\)\) \{/)
+    expect(/if \(!isFirstConfirmation\) \{/.test(route),
+      'the event-wide first-confirmation trim lock must stay gone (ruling B)').toBe(false)
+    // the page is told per vendor, by the same rule
+    expect(route).toMatch(/can_pare: mv\.organizer_selected_at == null && mv\.is_backup !== true,/)
     // display half + sell half, together
     expect(route).toMatch(/\.update\(\{ host_status: 'declined' \}\)/)
     expect(route).toMatch(/\.from\('listing_markets'\)\s*\.delete\(\)/)

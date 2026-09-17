@@ -204,6 +204,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
         catering_items: vendorListings[vid] || [],
         // P1: the proposed event menu (evl rows) the organizer may pare.
         proposed_items: proposalsByVendor[vid] || [],
+        // Ruling B (owner 2026-09-17): the trim lock is per VENDOR — a menu
+        // can be trimmed once, at that vendor's FIRST selection. Already
+        // selected = locked (buyers may have ordered); on the bench = a
+        // promotion brings the full menu (P1 #5). Same rule as the POST gate.
+        can_pare: mv.organizer_selected_at == null && mv.is_backup !== true,
         // The vendor's per-event capacity claim (validated ≥ 1 at acceptance) —
         // the "better data" the selection-time capacity check runs on.
         event_max_orders_per_wave: (mv.event_max_orders_per_wave as number | null) ?? null,
@@ -270,9 +275,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         event_vendor_fee_cents: event.event_vendor_fee_cents ?? null,
       },
       vendors,
-      // P1: paring is FIRST-round only (locks when the shop publishes) —
-      // available while no vendor carries a selection stamp yet.
-      can_pare: vendors.every(v => !v.selected),
+      // P1 trim availability is per vendor now (`can_pare` on each row).
       min_kept_items: MIN_KEPT_ITEMS,
       recommended_backups: bench.recommendedBackups,
       standby_count: vendors.filter(v => v.on_standby).length,
@@ -379,14 +382,24 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const isFirstConfirmation = previouslySelected.size === 0
     const newlySelectedIds = uniqueVendorIds.filter(id => !previouslySelected.has(id))
 
-    // ── Host menu pare-down (P1, owner decisions 2026-09-03) ──────────────
-    // Validate BEFORE any mutation. Rules: FIRST selection round only (paring
-    // locks when the shop publishes — later rounds and activated backups get
-    // full menus, decisions #2/#5); only vendors being selected; pared ids ⊆
-    // the truck's own proposal; minimum 2 kept items (validatePare, #4). The
-    // fee-vendor protection is the sequence itself: this runs at selection,
-    // and payment only arms AFTER selection — the truck sees its final menu
-    // before any money moves (#3).
+    // ── Host menu pare-down (P1, owner decisions 2026-09-03; lock moved to
+    // the VENDOR by ruling B, owner 2026-09-17) ──────────────────────────────
+    // Validate BEFORE any mutation. Rules: a vendor's menu can be trimmed
+    // ONCE, at that vendor's FIRST selection — so an organizer can keep
+    // selecting (and trimming) vendors who respond after the first round. An
+    // already-selected vendor is locked (buyers may have ordered); a vendor
+    // coming off the bench brings its full menu (#5). Safe because a vendor
+    // cannot take event pre-orders until selected (mig 254) — no order can
+    // exist against an item trimmed at first selection. Also: only vendors
+    // being selected; pared ids ⊆ the truck's own proposal; minimum 2 kept
+    // items (validatePare, #4). The fee-vendor protection is the sequence
+    // itself: this runs at selection, and payment only arms AFTER selection —
+    // the truck sees its final menu before any money moves (#3).
+    const priorBenched = new Set(
+      (priorRows || [])
+        .filter(r => r.is_backup === true)
+        .map(r => r.vendor_profile_id as string)
+    )
     const pareMap: Record<string, string[]> =
       pared_listing_ids && typeof pared_listing_ids === 'object' && !Array.isArray(pared_listing_ids)
         ? pared_listing_ids
@@ -394,15 +407,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const paredVendorIds = Object.keys(pareMap).filter(vid => (pareMap[vid] ?? []).length > 0)
     const proposalByVendor = new Map<string, string[]>()
     if (paredVendorIds.length > 0) {
-      if (!isFirstConfirmation) {
-        return NextResponse.json(
-          { error: 'Menus can only be trimmed on your first confirmation — pre-orders may already be open.' },
-          { status: 400 }
-        )
-      }
       for (const vid of paredVendorIds) {
         if (!uniqueVendorIds.includes(vid)) {
           return NextResponse.json({ error: 'Menus can only be trimmed for vendors you are selecting' }, { status: 400 })
+        }
+        if (previouslySelected.has(vid)) {
+          return NextResponse.json(
+            { error: 'That menu was set when you first selected the vendor — pre-orders may already be open, so it can no longer be trimmed.' },
+            { status: 400 }
+          )
+        }
+        if (priorBenched.has(vid)) {
+          return NextResponse.json(
+            { error: 'A backup vendor brings their full menu — it can\'t be trimmed.' },
+            { status: 400 }
+          )
         }
       }
       const { data: proposalRows } = await observed(serviceClient

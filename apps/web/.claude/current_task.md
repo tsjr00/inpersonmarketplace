@@ -46,6 +46,28 @@ row marked NOT YET APPLIED ANYWHERE (Rule G needs the row at file creation) · C
 line. Gates: tsc 0 · eslint 0 errors · vitest 90 / 2228. New body fingerprints (post-check): CRLF
 `e1c0d827187c971c62a15e4434ae2a46`/11280 · LF `c00f182bdbc032a916007faa50fa3511`/11023. ⚠ SQL never executed
 (no local DB) — Dev paste is the syntax proof. ⛔ 254 = PRE-CHECK FIRST class (query in the file header).
+**1b COMMITTED `6840fd50` (local, not pushed; main = origin/staging + 2). MIG 254 ✅ DEV 2026-09-17** (owner:
+pre-check 0 rows → pasted → post-check `e1c0d827…`/11280/true = exact match → the SQL is syntax-proven).
+Staging paste = AFTER the staging push; Prod held. Snapshot changelog row flipped to Dev ✅ (uncommitted — rides
+with the next commit). NEXT = present change 2 (ruling A, branch B) incl. the two pins' expectation change for
+the owner's explicit yes.
+**CHANGE 2 WITHDRAWN BY THE OWNER 2026-09-17** (on seeing the refuse-branch build presented): single-location
+vendors KEEP the option to trade a market day for an event; "trading 1 event for 1 market is not the same as being
+at two places at the same time." NO code changed, the two pins (`:2351`, `:2356`) untouched. decisions.md FINAL row
+supersedes both ruling-A rows. The code already separates the two acts (cover-both only via the PROFILE flag).
+Only open point: optional wording pass on the trade box. NEXT = change 3 (rolling selection, per-vendor trim).
+**CHANGE 3 BUILT 2026-09-17 on the owner's "yes" (incl. the explicit yes for the one pin line) — UNCOMMITTED.**
+`api/events/[token]/select/route.ts` (GET: per-vendor `can_pare`, top-level key removed; POST: event-wide
+first-confirmation refusal → per-vendor refusals `previouslySelected.has(vid)` / `priorBenched.has(vid)`; refund,
+notify, kit, wave code untouched) · `events/[token]/select/page.tsx` (page-level canPare state removed; controls,
+hint and submit keyed on `v.can_pare`; locked-card lines) · `menu-pare.ts` header comment · `flow-integrity.test.ts`
+`:2907` line replaced per ruling B (owner-approved) · Codebase_Map 14_Events line 33 · snapshot row 254 → Dev ✅.
+Gates: tsc 0 · eslint 0 errors (2 old warnings) · vitest 90 / 2228.
+FOUND, NOT BUILT (→ backlog): a vendor DROPPED in a selection change keeps `organizer_selected_at`, and GET sends
+`selected: stamp != null` (route `:191`) → they still list under "Your vendors are confirmed" (page `:307`) and come
+PRE-TICKED in change mode (`:138-145`); a careless re-submit re-selects them after their fee was refunded. Fix =
+selected means stamp AND not benched (classifier rule); a pin (`flow-integrity :2552`) matches that exact line →
+test gate, owner's call.
 BACKLOG-OWED (found in the read, not built): wave capacity counts unselected/unpaid vendors (mig 191 `:55-59`);
 event MARKET page lists every vendor with proposed items, no attendance filter (`vendors-with-listings.ts:110-131`).
 NEXT (was): commit 1a locally on the owner's word → present 1b (migration: pull `pg_get_functiondef` from all 3 envs

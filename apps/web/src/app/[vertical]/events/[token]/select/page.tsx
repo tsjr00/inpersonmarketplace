@@ -54,6 +54,10 @@ interface InterestedVendor {
   /** P1 (mig 241): the truck's actual PROPOSED menu (evl rows) — what the
    *  organizer may pare. catering_items above is the full eligible catalog. */
   proposed_items: Array<{ listing_id: string; title: string; price_cents: number; host_status: string }>
+  /** Ruling B (owner 2026-09-17): this vendor's menu may be trimmed in THIS
+   *  confirmation — true only at their first selection (never selected
+   *  before, not on the bench). The server enforces the same rule. */
+  can_pare?: boolean
   /** T-59: the message the vendor typed when accepting the invitation. */
   response_notes: string | null
 }
@@ -110,9 +114,9 @@ export default function EventSelectPage() {
   // claimed per-wave capacity vs the expected peak wave — the real check;
   // the intake suggestion was only a starting number.
   const [capacityCheck, setCapacityCheck] = useState<CapacityCheckData | null>(null)
-  // P1 (owner 2026-09-03): host menu pare-down — FIRST selection round only
-  // (paring locks when the shop publishes); minimum 2 kept items per vendor.
-  const [canPare, setCanPare] = useState(false)
+  // P1 (owner 2026-09-03): host menu pare-down; minimum 2 kept items per
+  // vendor. Ruling B (owner 2026-09-17): the lock is per VENDOR (`can_pare` on
+  // each row) — trimmable once, at that vendor's first selection.
   const [minKeptItems, setMinKeptItems] = useState(2)
   const [paredIds, setParedIds] = useState<Record<string, string[]>>({})
 
@@ -131,7 +135,6 @@ export default function EventSelectPage() {
       setRecommendedBackups(data.recommended_backups || 0)
       setStandbyCount(data.standby_count || 0)
       setCapacityCheck(data.capacity_check || null)
-      setCanPare(data.can_pare === true)
       setMinKeptItems(data.min_kept_items ?? 2)
       // T-80: pre-load prior confirmations so "Change selections" starts from
       // what the organizer already chose (menus were reviewed on that submit).
@@ -173,7 +176,8 @@ export default function EventSelectPage() {
   // floor mirrors the server rule (validatePare): keep ≥ minKeptItems; a menu
   // of ≤ minKeptItems items can't be trimmed at all.
   function togglePareItem(vendorId: string, listingId: string, proposedCount: number) {
-    if (!canPare || proposedCount <= minKeptItems) return
+    const vendorCanPare = vendors.find(v => v.vendor_profile_id === vendorId)?.can_pare === true
+    if (!vendorCanPare || proposedCount <= minKeptItems) return
     setParedIds(prev => {
       const current = prev[vendorId] ?? []
       if (current.includes(listingId)) {
@@ -216,12 +220,15 @@ export default function EventSelectPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           selected_vendor_ids: selectedIds,
-          // P1: only for selected vendors, only on the first round.
-          pared_listing_ids: canPare
-            ? Object.fromEntries(
-                Object.entries(paredIds).filter(([vid, ids]) => selectedIds.includes(vid) && ids.length > 0)
-              )
-            : {},
+          // P1: only for selected vendors whose menu is still trimmable
+          // (their first selection — ruling B).
+          pared_listing_ids: Object.fromEntries(
+            Object.entries(paredIds).filter(([vid, ids]) =>
+              selectedIds.includes(vid) &&
+              ids.length > 0 &&
+              vendors.find(v => v.vendor_profile_id === vid)?.can_pare === true
+            )
+          ),
           share_contact: shareContact,
           organizer_contact_name: shareContact ? contactName.trim() : null,
           organizer_contact_phone: shareContact ? contactPhone.trim() : null,
@@ -559,24 +566,34 @@ export default function EventSelectPage() {
                       </div>
                     )}
 
-                    {/* P1 (owner 2026-09-03): the truck's PROPOSED event menu,
-                        pareable on the first round — tap an item to remove it
-                        from this event (min 2 kept; a 2-item menu can't be
-                        trimmed). After the first confirmation the verdicts
-                        render read-only. Falls back to the eligible catalog
-                        for legacy rows with no explicit proposal. */}
+                    {/* P1 (owner 2026-09-03): the truck's PROPOSED event menu —
+                        tap an item to remove it from this event (min 2 kept; a
+                        2-item menu can't be trimmed). Ruling B (owner
+                        2026-09-17): trimmable ONCE per vendor, at their first
+                        selection (`can_pare`); an already-selected vendor's
+                        verdicts render read-only, and a bench vendor brings
+                        the full menu. Falls back to the eligible catalog for
+                        legacy rows with no explicit proposal. */}
                     {v.proposed_items.length > 0 ? (
                       <div style={{ marginBottom: spacing.xs }}>
                         <div style={{ fontSize: 11, fontWeight: typography.weights.semibold, color: statusColors.neutral500, marginBottom: spacing['3xs'] }}>
                           PROPOSED EVENT MENU ({v.proposed_items.length} items)
                         </div>
-                        {canPare && v.proposed_items.length > minKeptItems && (
+                        {v.can_pare === true && v.proposed_items.length > minKeptItems && (
                           <p style={{ fontSize: 11, color: statusColors.neutral500, margin: `0 0 ${spacing['3xs']}` }}>
-                            Tap an item to remove it from this event — each {vendorTerm} keeps at least {minKeptItems} items. They&apos;ll see the final menu before paying any fee.
+                            Tap an item to remove it from this event. You can trim a {vendorTerm}&apos;s menu once, when you first select them — each {vendorTerm} keeps at least {minKeptItems} items, and they&apos;ll see the final menu before paying any fee.
+                          </p>
+                        )}
+                        {v.can_pare !== true && (
+                          <p style={{ fontSize: 11, color: statusColors.neutral500, margin: `0 0 ${spacing['3xs']}` }}>
+                            {v.selected
+                              ? `Menu set when you selected this ${vendorTerm}.`
+                              : `Backup ${vendorTermPlural} bring their full menu.`}
                           </p>
                         )}
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing['2xs'] }}>
                           {v.proposed_items.map(item => {
+                            const canPare = v.can_pare === true
                             const removed = canPare
                               ? (paredIds[v.vendor_profile_id] ?? []).includes(item.listing_id)
                               : item.host_status === 'declined'

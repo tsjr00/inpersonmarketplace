@@ -7,9 +7,10 @@
  *   · minimum kept items = 2 (owner: "min items is 2")
  *   · a truck that proposed ≤2 items cannot be pared at all
  *   · pared ids must be a subset of the truck's own proposal
- * Timing (first-selection-round only) and the backup exemption are enforced
- * by the caller (the select route) — they are event-state facts, not list
- * arithmetic.
+ * Timing and the backup exemption are enforced by the caller (the select
+ * route) — they are event-state facts, not list arithmetic. Timing since
+ * ruling B (owner 2026-09-17): per VENDOR — trimmable once, at that vendor's
+ * first selection (was: the event's first confirmation only).
  */
 
 export const MIN_KEPT_ITEMS = 2
