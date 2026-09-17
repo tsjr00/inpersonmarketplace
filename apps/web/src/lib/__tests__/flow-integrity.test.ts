@@ -1718,6 +1718,39 @@ describe('Event token format', () => {
       .toMatch(/feeCents\s*>\s*0/)
   })
 
+  it('the NEWEST definer sells SELF-SERVICE events on SELECTION, not acceptance (mig 254)', () => {
+    // Owner ruling 2026-09-17: "vendor D can't take pre-orders for the event
+    // until selected by the event organizer." A self-service event turns
+    // 'ready' at the acceptance threshold — before the organizer picks anyone —
+    // and a late responder arrives un-benched; on a FREE event both sold with
+    // no selection at all (fee events were protected only because unselected
+    // vendors have not paid). The selection conjunct must sit INSIDE the
+    // acceptance EXISTS, after the bench exclusion, and must be scoped to
+    // self-service events: admin-managed events never stamp a selection, so
+    // an unscoped stamp requirement would stop every managed event selling.
+    const { name, sql } = newestPickupDatesDefiner()
+    expect(
+      sql,
+      `${name} must require organizer_selected_at on self_service events inside the acceptance EXISTS (mig 254)`
+    // `\s+` between the bench exclusion and the selection conjunct, not a
+    // character window: stripping the `--` comments leaves each comment line's
+    // indentation behind, and this conjunct is heavily commented.
+    ).toMatch(/COALESCE\(mv\.is_backup,\s*false\)\s*=\s*false\s+AND\s*\(\s*mv\.organizer_selected_at\s+IS\s+NOT\s+NULL\s+OR\s+NOT\s+EXISTS\s*\([\s\S]{0,200}service_level\s*=\s*'self_service'/)
+  })
+
+  it('the shop payload mirrors the selection rule (paired surface of mig 254)', () => {
+    // Same pair as the attendance mirror above: if the shop lists a vendor the
+    // SQL gate will not sell, attendees see a menu that errors at the cart; if
+    // it hides one the gate sells, a sellable menu vanishes.
+    const shopData = rd('lib/events/shop-data.ts')
+    expect(shopData, 'shop payload must load the event service level')
+      .toMatch(/\.select\('[^']*\bservice_level\b[^']*'\)/)
+    expect(shopData, 'shop payload must scope the selection rule to self-service events')
+      .toMatch(/service_level\s*===\s*'self_service'/)
+    expect(shopData, 'shop payload must require the organizer selection stamp')
+      .toMatch(/organizer_selected_at\s*!=\s*null/)
+  })
+
   it('the event accept route still does NOT write vendor_market_schedules', () => {
     // The rejected alternative. Creating a vms row on acceptance would make
     // "is this vendor attending?" answerable from two places that can drift —

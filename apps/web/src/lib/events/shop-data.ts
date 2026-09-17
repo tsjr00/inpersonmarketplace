@@ -126,7 +126,7 @@ export async function getEventShopData(
   // Fetch event by token
   const { data: event, error: eventError } = await serviceClient
     .from('catering_requests')
-    .select('id, company_name, event_date, event_end_date, event_start_time, event_end_time, headcount, address, city, state, zip, vertical_id, market_id, status, vendor_count, is_themed, theme_description, children_present, payment_model, company_max_per_attendee_cents, event_vendor_fee_cents')
+    .select('id, company_name, event_date, event_end_date, event_start_time, event_end_time, headcount, address, city, state, zip, vertical_id, market_id, status, vendor_count, is_themed, theme_description, children_present, payment_model, company_max_per_attendee_cents, event_vendor_fee_cents, service_level')
     .eq('event_token', token)
     .in('status', ['approved', 'ready', 'active'])
     .single()
@@ -160,14 +160,24 @@ export async function getEventShopData(
   // sell gate (get_available_pickup_dates, mig 234) enforces the same rule at
   // cart time; this mirror keeps non-attending menus out of the shop so
   // attendees never see items that would error at checkout.
+  //
+  // SELECTION (mig 254 mirror, owner 2026-09-17): on a SELF-SERVICE event the
+  // vendor must also be SELECTED by the organizer (organizer_selected_at) —
+  // accepted is not attending. The event turns 'ready' at the acceptance
+  // threshold, before anyone is picked, and a late responder arrives
+  // un-benched; on a free event both used to sell. Admin-managed events never
+  // stamp a selection, so they keep accepted + not benched — the same split
+  // the SQL gate makes on catering_requests.service_level.
   const { data: marketVendors } = await observed(serviceClient
     .from('market_vendors')
-    .select('vendor_profile_id, is_backup')
+    .select('vendor_profile_id, is_backup, organizer_selected_at')
     .eq('market_id', event.market_id)
     .eq('response_status', 'accepted'), { table: 'market_vendors' })
 
+  const selfService = event.service_level === 'self_service'
   let attendingVendorIds = (marketVendors || [])
     .filter(mv => mv.is_backup !== true)
+    .filter(mv => !selfService || mv.organizer_selected_at != null)
     .map(mv => mv.vendor_profile_id as string)
 
   const feeCents = (event.event_vendor_fee_cents as number | null) || 0

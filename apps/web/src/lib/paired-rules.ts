@@ -88,7 +88,9 @@ export const PAIRED_RULES: PairedRule[] = [
     key: 'event-sells-on-acceptance',
     // Rule UPDATED by mig 234 (owner 2026-08-16, "they must attend to sell") —
     // key kept stable because @paired-rule tags in migration files reference it.
-    rule: 'An event listing sells iff the vendor is ATTENDING: ACCEPTED market_vendors row + NOT benched (is_backup=false) + fee PAID or COVERED when the event charges an Event Vendor Fee (free events: acceptance + not-benched). Attendance lives in market_vendors + event_vendor_fee_payments — never mirrored into vendor_market_schedules. The shop payload (lib/events/shop-data.ts) must apply the SAME filter so menus match orderability.',
+    // Rule EXTENDED by mig 254 (owner 2026-09-17): self-service events sell on
+    // SELECTION — accepted is not attending.
+    rule: 'An event listing sells iff the vendor is ATTENDING: ACCEPTED market_vendors row + NOT benched (is_backup=false) + on SELF-SERVICE events SELECTED by the organizer (organizer_selected_at set; admin-managed events never stamp and keep the acceptance rule) + fee PAID or COVERED when the event charges an Event Vendor Fee (free events: the fee conjunct is skipped). Attendance lives in market_vendors + event_vendor_fee_payments — never mirrored into vendor_market_schedules. The shop payload (lib/events/shop-data.ts) must apply the SAME filter so menus match orderability.',
     authoritative: 'the newest SQL definer of get_available_pickup_dates (found by migration NUMBER, not file date)',
     whyDriftIsSilent:
       'App ↔ SQL pair: TypeScript cannot see the function body. The respond route writing a vms row ' +

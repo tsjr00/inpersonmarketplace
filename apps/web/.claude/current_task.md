@@ -32,7 +32,23 @@ self-service, accepted+not-benched on admin-managed; hero "Pre-Orders Open" need
 `flow-integrity.test.ts` (public page ADDED to the "imports the shared classifier" list — additive pin, no
 expectation changed) · Codebase_Map 14_Events (2 lines) + 00_INDEX stamp. Gates: tsc 0 · eslint 0 errors ·
 vitest 90 files / 2226. Also uncommitted: regenerated TEST_PROTOCOL_open_items.md + .claude docs.
-NEXT: commit 1a locally on the owner's word → present 1b (migration: pull `pg_get_functiondef` from all 3 envs
+**1a COMMITTED `f8b74c35` (local main, NOT pushed; main = origin/staging + 1).** 1b pre-check handed to the owner:
+fingerprint of the live `get_available_pickup_dates` body on Dev/Staging/Prod vs repo mig 238 body — expected
+md5 `b91a9dc32163cda899d0a3e9c62893dd` / length 9791 (LF) or `89d0fc71bac65cb00b9bb82d7756e54d` / 10028 (CRLF).
+A mismatch = drift → pull the full `pg_get_functiondef` before writing anything.
+**1b BUILT 2026-09-17 on the owner's "yes, build change 1b" — UNCOMMITTED.** Live body confirmed = mig 238 on all 3
+envs (owner-run md5 `89d0fc71…`/10028 ×3). Files: NEW `supabase/migrations/20260917_254_events_sell_on_selection.sql`
+(generated from 238's text by script; diff = exactly 2 hunks: the selection conjunct + one COMMENT sentence;
+`EXEC-GRANT-EXEMPT` — the public listing page calls it as anon, `listing/[listingId]/page.tsx:112,151`) ·
+`lib/events/shop-data.ts` (select + service_level; filter + stamp on self-service) · `lib/paired-rules.ts` (rule
+text) · `flow-integrity.test.ts` (+2 NEW pins; no existing expectation changed) · `SCHEMA_SNAPSHOT.md` changelog
+row marked NOT YET APPLIED ANYWHERE (Rule G needs the row at file creation) · Codebase_Map 14_Events shop-data
+line. Gates: tsc 0 · eslint 0 errors · vitest 90 / 2228. New body fingerprints (post-check): CRLF
+`e1c0d827187c971c62a15e4434ae2a46`/11280 · LF `c00f182bdbc032a916007faa50fa3511`/11023. ⚠ SQL never executed
+(no local DB) — Dev paste is the syntax proof. ⛔ 254 = PRE-CHECK FIRST class (query in the file header).
+BACKLOG-OWED (found in the read, not built): wave capacity counts unselected/unpaid vendors (mig 191 `:55-59`);
+event MARKET page lists every vendor with proposed items, no attendance filter (`vendors-with-listings.ts:110-131`).
+NEXT (was): commit 1a locally on the owner's word → present 1b (migration: pull `pg_get_functiondef` from all 3 envs
 FIRST) → change 2 → change 3 → 4 → 5 → ONE staging push. TR-022 → fixed-unverified at push time.
 
 ---

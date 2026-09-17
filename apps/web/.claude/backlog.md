@@ -40,6 +40,17 @@ and we will start on it next time." Evidence for every line below: `apps/web/.cl
 6. Item 1 — FM wording pass on OrganizerEventDetails labels (food/meal terms). Asterisk half: code renders
    them with NO vertical condition → need the owner to name the FT screen they compared against.
 
+**Found in the 2026-09-17 pre-build code read — NOT built, owner has seen both (one line each in chat):**
+- [ ] **Wave capacity counts vendors who cannot sell.** `recalculate_wave_capacity` (mig 191 `:55-59`) and
+  `generateEventWaves` (`wave-generation.ts:95-100`) sum every accepted, un-benched vendor — no selection check,
+  no fee-paid check. Already true on fee events (unselected/unpaid vendors inflate the wave size); after mig 254
+  also true on free events between a late acceptance and the organizer's decision (respond route `:386-398`
+  recalcs on every accept). Fix = second function replace + the TS mirror, same "attending" rule as the sell
+  gate. Own change; pull the live body from all 3 envs first.
+- [ ] **Event MARKET page has no attendance filter at all.** `lib/markets/vendors-with-listings.ts:110-131` lists
+  every vendor with non-declined `event_vendor_listings` rows — benched and unselected included. Display only
+  (ordering goes through the SQL gate). Small; same rule as the public event page (change 1a).
+
 1. [ ] **FM organizer dashboard parity with FT**: required-field asterisks for the "Send Invitations" prerequisites, and every food/meal/truck term → products/items/vendor wording. Diff the FT-only changes since ~2026-08 and carry over what applies (owner: "most or all should carry over").
 2. [ ] **RULING NEEDED — conflict acknowledgment vs the multi-location declaration.** Today an invited vendor with a schedule conflict can accept by ticking "I acknowledge the conflict" without having declared they can staff more than one location. Owner's TR-044 ruling says the declaration is the gate for schedules; should the event accept path require the SAME declaration (or refuse until the vendor withdraws elsewhere)? Read `api/vendor/events/[marketId]/respond` + `lib/events/availability.ts` before proposing.
 3. [ ] **RULING NEEDED — what locks after the organizer's first selection.** Decisions.md 2026-09-03 P1: menu pare-down is FIRST-round only and locks when the shop publishes. Owner now wants the organizer to keep approving/paring/benching vendors who respond after the first selection. Design the round model (rolling selection? a re-open action?) + confirm whether "select more later" is possible at all. Surfaces: `event-manager/[token]/select`, bench copy, notifications.
