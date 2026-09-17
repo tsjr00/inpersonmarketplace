@@ -52,7 +52,7 @@ and we will start on it next time." Evidence for every line below: `apps/web/.cl
   then the profile-declaration pointer for vendors who really can cover both. Matching server message:
   respond route `:248`. NO logic change (decisions.md 2026-09-17 FINAL row); the two pins stay. Size XS.
 
-- [ ] **🐞 A vendor dropped in a selection change still shows as "confirmed" and comes pre-ticked** (found
+- [x] **BUILT 2026-09-17 (owner "yes") — the bench write now also clears `organizer_selected_at` (one update in the select route) + a new flow-integrity pin; no existing check changed. Staging rows dropped before this keep their old stamp (no backfill of test data).** Original finding: 🐞 A vendor dropped in a selection change still shows as "confirmed" and comes pre-ticked (found
   2026-09-17 building change 3; matters more now that selection is rolling). The select POST benches a dropped
   vendor but never clears `organizer_selected_at` (`select/route.ts` bench block), and GET sends
   `selected: mv.organizer_selected_at != null` (`:191`) → the select page lists them under "Your vendors are

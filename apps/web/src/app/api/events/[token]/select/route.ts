@@ -485,10 +485,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .filter(id => !uniqueVendorIds.includes(id))
 
       if (notSelectedIds.length > 0) {
-        // Keep as accepted but mark as backup (they can still be escalated)
+        // Keep as accepted but mark as backup (they can still be escalated).
+        // The selection stamp is CLEARED with the benching (owner 2026-09-17):
+        // a vendor DROPPED in a selection change kept organizer_selected_at, so
+        // the select page still listed them under "confirmed" and pre-ticked
+        // them in change mode — a careless re-submit re-selected a vendor whose
+        // fee had just been refunded, silently (they counted as previously
+        // selected, so no notification). Cleared, a deliberate re-selection is
+        // a NEW selection: re-stamped, re-notified, fee payable again. Their
+        // menu stays locked either way (bench → full-menu rule, priorBenched).
         await serviceClient
           .from('market_vendors')
-          .update({ is_backup: true })
+          .update({ is_backup: true, organizer_selected_at: null })
           .eq('market_id', event.market_id)
           .in('vendor_profile_id', notSelectedIds)
 

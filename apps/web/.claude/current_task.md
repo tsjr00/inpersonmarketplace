@@ -68,6 +68,12 @@ FOUND, NOT BUILT (→ backlog): a vendor DROPPED in a selection change keeps `or
 PRE-TICKED in change mode (`:138-145`); a careless re-submit re-selects them after their fee was refunded. Fix =
 selected means stamp AND not benched (classifier rule); a pin (`flow-integrity :2552`) matches that exact line →
 test gate, owner's call.
+**CHANGE 3 COMMITTED `d1797382` (local; main = origin/staging + 3).** **DROPPED-VENDOR FIX BUILT 2026-09-17 on
+the owner's "yes" — UNCOMMITTED:** select route bench write = `{ is_backup: true, organizer_selected_at: null }`
+(a dropped vendor no longer lists as confirmed / pre-ticked; deliberate re-selection = new selection) + 1 NEW pin.
+Gates: tsc 0 · eslint 0 errors · vitest 90 / 2229. NEXT: commit → change 4 ("invite more" sentence; owner choice:
+reword with the real steps vs always-visible button) → change 5 (FM wording table) → ONE staging push → owner
+pastes 254 on Staging (pre-check first) → registry rows for the new retests.
 BACKLOG-OWED (found in the read, not built): wave capacity counts unselected/unpaid vendors (mig 191 `:55-59`);
 event MARKET page lists every vendor with proposed items, no attendance filter (`vendors-with-listings.ts:110-131`).
 NEXT (was): commit 1a locally on the owner's word → present 1b (migration: pull `pg_get_functiondef` from all 3 envs

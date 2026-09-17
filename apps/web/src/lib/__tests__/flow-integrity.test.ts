@@ -2586,6 +2586,16 @@ describe('Event ↔ location availability', () => {
     expect(route).toMatch(/const isFirstConfirmation = previouslySelected\.size === 0/)
   })
 
+  it('dropping a confirmed vendor clears the selection stamp with the benching', () => {
+    // Owner 2026-09-17: selection state derives from the stamp alone (above),
+    // so a DROPPED vendor who kept the stamp still listed as "confirmed" on
+    // the select page and came pre-ticked in change mode — a re-submit
+    // re-selected a vendor whose fee had just been refunded, with no
+    // notification. The bench write and the stamp clear must be ONE update.
+    const route = rd('app/api/events/[token]/select/route.ts')
+    expect(route).toMatch(/\.update\(\{ is_backup: true, organizer_selected_at: null \}\)/)
+  })
+
   it('vendor-response notifications resolve recipients through one helper (the organizer never gets the admin copy)', () => {
     // Owner finding 2026-08-28: an admin who is also the organizer landed on
     // the admin panel from "taco truck accepted" — the admin copy went to
