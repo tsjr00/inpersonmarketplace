@@ -384,7 +384,12 @@ export default function EventSelectPage() {
               <strong>{standbyCount}</strong> {standbyCount === 1 ? 'is' : 'are'} on standby now.
               {standbyCount < recommendedBackups && (
                 <>
-                  {' '}Short on options? <a href={`/${vertical}/event-manager/${event.id}/dashboard`} style={{ color: '#2563eb', fontWeight: typography.weights.semibold }}>Invite more {vendorTermPlural}</a> from your event dashboard — widening your criteria reaches {vendorTermPlural} that weren&apos;t matched the first time.
+                  {/* Owner 2026-09-17 (OB-024 #4): this used to say "Invite more
+                      from your event dashboard" — the dashboard has no invite
+                      button. The real path is the Stage-2 editor: a save that
+                      changes a matching field offers "Refresh matches", which
+                      invites only vendors not invited before. Say the steps. */}
+                  {' '}Short on options? Open <a href={`/${vertical}/event-manager/${event.id}/dashboard`} style={{ color: '#2563eb', fontWeight: typography.weights.semibold }}>Event Details on your event dashboard</a>, widen what you&apos;re looking for ({vendorTerm} types, preferences, or how many {vendorTermPlural} you want) and save. You&apos;ll be offered <strong>Refresh matches</strong>, which invites {vendorTermPlural} that weren&apos;t matched the first time.
                 </>
               )}
             </div>

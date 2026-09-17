@@ -43,6 +43,11 @@ and we will start on it next time." Evidence for every line below: `apps/web/.cl
 6. Item 1 — FM wording pass on OrganizerEventDetails labels (food/meal terms). Asterisk half: code renders
    them with NO vertical condition → need the owner to name the FT screen they compared against.
 
+- [ ] **FUTURE — always-visible "Find more vendors" button on the organizer dashboard** (change 4 option B, not
+  chosen 2026-09-17; owner took option A = reword the select-page sentence with the real steps). Revisit only if
+  organizers still get stuck: without widened criteria `refresh-matches` almost always finds nobody new, and when
+  it does it sends real invitations (comms cost). Tool today: `OrganizerEventDetails.tsx` banner after a
+  matching-field save.
 - [ ] **FUTURE (owner 2026-09-17: "leave the logic alone + add a task to improve the trade language") — reword
   the event-conflict TRADE box so it leads with the trade.** Vendor event page
   `app/[vertical]/vendor/events/[marketId]/page.tsx:1289-1299` (owner wording 2026-08-28, four bullets) opens

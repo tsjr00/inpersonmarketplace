@@ -74,6 +74,15 @@ the owner's "yes" — UNCOMMITTED:** select route bench write = `{ is_backup: tr
 Gates: tsc 0 · eslint 0 errors · vitest 90 / 2229. NEXT: commit → change 4 ("invite more" sentence; owner choice:
 reword with the real steps vs always-visible button) → change 5 (FM wording table) → ONE staging push → owner
 pastes 254 on Staging (pre-check first) → registry rows for the new retests.
+**DROPPED-VENDOR FIX COMMITTED `35295ad9`. CHANGES 4 + 5 BUILT + COMMITTED TOGETHER 2026-09-17 (owner: "option A -
+go" / "yes - make the changes then commit local"):** 4 = select page "Short on options?" sentence now gives the real
+steps (Event Details → widen → save → Refresh matches); option B (always-visible button) → backlog. 5 = FM-only
+display wording in `OrganizerEventDetails.tsx` per the owner-approved 12-row table (group label/description
+overrides keyed on the stable label, fmLabels map, event-type label, 3 placeholders, access-code note; `renderField`
++ `formatFieldValue` now receive the vertical). FT output unchanged; Beverages/Dessert labels deliberately left.
+Gates: tsc 0 · eslint 0 errors · vitest 90 / 2229. **EVENTS ROUND BUILD COMPLETE — 5 local commits on main, NOT
+pushed.** NEXT: owner's word for the ONE staging push → owner pastes 254 on Staging (pre-check first) → registry:
+TR-022 → fixed-unverified + new rows for 1b, change 3, dropped-vendor, change 4, change 5 → regenerate test list.
 BACKLOG-OWED (found in the read, not built): wave capacity counts unselected/unpaid vendors (mig 191 `:55-59`);
 event MARKET page lists every vendor with proposed items, no attendance filter (`vendors-with-listings.ts:110-131`).
 NEXT (was): commit 1a locally on the owner's word → present 1b (migration: pull `pg_get_functiondef` from all 3 envs

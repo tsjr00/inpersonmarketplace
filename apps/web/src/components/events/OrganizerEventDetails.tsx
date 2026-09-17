@@ -125,6 +125,23 @@ const FIELD_GROUPS = [
   },
 ]
 
+// Farmers-market wording (owner 2026-09-17, OB-024 #1): this editor was written
+// for food trucks, so an FM organizer read "Food Preferences", "Budget Per
+// Meal", "Expected Meal Count". DISPLAY ONLY — the `label` above stays the
+// stable key (the required-asterisk logic matches on it), no question is added
+// or removed, and food-truck organizers see exactly what they saw before.
+const FM_GROUP_LABELS: Record<string, string> = {
+  'Food Preferences': 'Product Preferences',
+}
+const FM_GROUP_DESCRIPTIONS: Record<string, string> = {
+  Budget: 'Helps vendors plan what to bring and how to price it. If you have run this (or a similar) event before, base the spend estimate on that experience; if it is new, on what is planned and any new attractions.',
+}
+const isFMVertical = (vertical: string) => vertical === 'farmers_market'
+const groupLabel = (label: string, vertical: string) =>
+  (isFMVertical(vertical) && FM_GROUP_LABELS[label]) || label
+const groupDescription = (label: string, description: string, vertical: string) =>
+  (isFMVertical(vertical) && FM_GROUP_DESCRIPTIONS[label]) || description
+
 function isFieldFilled(details: EventDetails, field: string): boolean {
   const val = details[field]
   if (val === null || val === undefined || val === '') return false
@@ -467,7 +484,7 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
                 {details.access_code}
               </div>
               <p style={{ fontSize: typography.sizes.xs, color: statusColors.info, margin: 0 }}>
-                Share this code with attendees so they can order their company-covered meal.
+                Share this code with attendees so they can order their company-covered {isFMVertical(vertical) ? 'item' : 'meal'}.
                 {details.company_max_per_attendee_cents && (
                   <> Each person gets one item up to <strong>${(details.company_max_per_attendee_cents as number / 100).toFixed(2)}</strong>.</>
                 )}
@@ -549,7 +566,7 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: statusColors.neutral700 }}>
-                      {group.label}
+                      {groupLabel(group.label, vertical)}
                       {/* Owner 2026-08-30: sections holding invitation-gate
                           questions must announce it at the section level. */}
                       {['Budget', 'Event Context', 'Logistics'].includes(group.label) && (
@@ -595,7 +612,7 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
                 </div>
 
                 <p style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, margin: `${spacing['3xs']} 0 0` }}>
-                  {group.description}
+                  {groupDescription(group.label, group.description, vertical)}
                   {group.fields.some(f => INVITATION_REQUIRED_DETAIL_FIELDS.has(f)) && (
                     <> <span style={{ color: '#dc2626' }}>*</span> needed before invitations go out</>
                   )}
@@ -608,7 +625,7 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
                       if (!isFieldFilled(details, f)) return null
                       const val = details[f]
                       const label = fieldLabel(f, vertical)
-                      const display = formatFieldValue(f, val)
+                      const display = formatFieldValue(f, val, vertical)
                       return (
                         <div key={f} style={{ marginBottom: 2 }}>
                           <strong>{label}:</strong> {display}
@@ -698,13 +715,13 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
                           </label>
                           {locked ? (
                             <div style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500 }}>
-                              {formatFieldValue(f, details[f]) || '—'}
+                              {formatFieldValue(f, details[f], vertical) || '—'}
                               <span style={{ fontStyle: 'italic', marginLeft: spacing['2xs'] }}>
                                 — locked now that your event is approved. Contact us to change it.
                               </span>
                             </div>
                           ) : (
-                            renderField(f, val, (v) => setFormData(prev => ({ ...prev, [f]: v })))
+                            renderField(f, val, (v) => setFormData(prev => ({ ...prev, [f]: v })), vertical)
                           )}
                         </div>
                       )
@@ -809,7 +826,7 @@ export default function OrganizerEventDetails({ eventRef, status, vertical, prim
               <strong>What you are asking to change:</strong>
               <ul style={{ margin: `${spacing['3xs']} 0 0`, paddingLeft: '1.2em' }}>
                 {Object.entries(blockedChange.changes).map(([f, v]) => (
-                  <li key={f}>{fieldLabel(f, vertical)}: {formatFieldValue(f, v)}</li>
+                  <li key={f}>{fieldLabel(f, vertical)}: {formatFieldValue(f, v, vertical)}</li>
                 ))}
               </ul>
             </div>
@@ -992,6 +1009,18 @@ function fieldLabel(field: string, vertical: string): string {
     is_recurring: 'Recurring Event?',
     recurring_frequency: 'How Often?',
   }
+  // Farmers-market wording (owner-approved table 2026-09-17). Beverages /
+  // Dessert "Already Provided?" are deliberately NOT reworded — a lemonade or
+  // bakery vendor cares about the answer.
+  const fmLabels: Record<string, string> = {
+    dietary_notes: 'Dietary or Product Requirements',
+    total_food_budget_cents: 'Total Budget',
+    per_meal_budget_cents: 'Budget Per Person',
+    expected_meal_count: 'Expected Number of Buyers',
+    competing_food_options: 'Other Food or Products at Venue',
+    has_competing_vendors: 'Other Vendors Present?',
+  }
+  if (isFMVertical(vertical) && fmLabels[field]) return fmLabels[field]
   return labels[field] || field.replace(/_/g, ' ')
 }
 
@@ -1005,6 +1034,9 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   private_party: 'Private Party / Celebration',
   other: 'Other',
 }
+// FM display override — the stored value stays 'corporate_lunch'.
+const eventTypeLabel = (value: string, label: string, vertical?: string) =>
+  vertical && isFMVertical(vertical) && value === 'corporate_lunch' ? 'Corporate / Workplace Event' : label
 const EVENT_SETTING_LABELS: Record<string, string> = {
   indoor: 'Indoor',
   outdoor: 'Outdoor',
@@ -1017,7 +1049,7 @@ const RECURRING_FREQ_LABELS: Record<string, string> = {
   quarterly: 'Quarterly',
 }
 
-function formatFieldValue(field: string, val: unknown): string {
+function formatFieldValue(field: string, val: unknown, vertical?: string): string {
   if (val === null || val === undefined) return ''
   if (typeof val === 'boolean') return val ? 'Yes' : 'No'
   if (Array.isArray(val)) return val.join(', ') || 'None'
@@ -1030,7 +1062,7 @@ function formatFieldValue(field: string, val: unknown): string {
     }
     return map[val as string] || String(val)
   }
-  if (field === 'event_type') return EVENT_TYPE_LABELS[val as string] || String(val)
+  if (field === 'event_type') return eventTypeLabel(val as string, EVENT_TYPE_LABELS[val as string] || String(val), vertical)
   if (field === 'event_setting') return EVENT_SETTING_LABELS[val as string] || String(val)
   if (field === 'recurring_frequency') return RECURRING_FREQ_LABELS[val as string] || String(val)
   return String(val)
@@ -1045,7 +1077,8 @@ const inputStyle = {
   boxSizing: 'border-box' as const,
 }
 
-function renderField(field: string, value: unknown, onChange: (v: unknown) => void) {
+function renderField(field: string, value: unknown, onChange: (v: unknown) => void, vertical: string) {
+  const isFM = isFMVertical(vertical)
   // Event date
   if (field === 'event_date') {
     return (
@@ -1107,7 +1140,7 @@ function renderField(field: string, value: unknown, onChange: (v: unknown) => vo
       >
         <option value="">-- Select event type --</option>
         {Object.entries(EVENT_TYPE_LABELS).map(([v, label]) => (
-          <option key={v} value={v}>{label}</option>
+          <option key={v} value={v}>{eventTypeLabel(v, label, vertical)}</option>
         ))}
       </select>
     )
@@ -1276,14 +1309,16 @@ function renderField(field: string, value: unknown, onChange: (v: unknown) => vo
     return (
       <textarea
         rows={3}
-        placeholder={field === 'cuisine_preferences' ? 'e.g. BBQ, Mexican, Asian fusion...'
+        placeholder={field === 'cuisine_preferences' ? (isFM ? `e.g. ${term(vertical, 'event_preference_placeholder')}` : 'e.g. BBQ, Mexican, Asian fusion...')
           : field === 'dietary_notes' ? 'e.g. Nut-free options needed, vegetarian options...'
           : field === 'setup_instructions' ? 'e.g. Loading dock at back entrance, 20A power available...'
           // T-50: "Other Food at Venue" sat directly under "Other Food Vendors
           // Present?" and read as a sub-question of it. It is not — this is any
           // food that will be there regardless of us, which changes how hungry
           // the crowd is and therefore what a truck should bring.
-          : field === 'competing_food_options' ? 'e.g. attendees bringing dishes, a nearby food court, catering already booked...'
+          : field === 'competing_food_options' ? (isFM
+              ? 'e.g. a nearby grocery or café, another market the same day, vendors you booked yourself...'
+              : 'e.g. attendees bringing dishes, a nearby food court, catering already booked...')
           : field === 'theme_description' ? 'e.g. 1920s speakeasy, Hawaiian luau, company colours...'
           // Owner 2026-08-15: prompt the organizer to include the COST — a
           // vendor deciding whether to apply needs to know what a check runs.
@@ -1346,7 +1381,7 @@ function renderField(field: string, value: unknown, onChange: (v: unknown) => vo
     return (
       <input
         type="text"
-        placeholder="e.g. BBQ, Tacos, Desserts (comma-separated)"
+        placeholder={isFM ? 'e.g. Produce, Baked goods, Crafts (comma-separated)' : 'e.g. BBQ, Tacos, Desserts (comma-separated)'}
         value={Array.isArray(value) ? value.join(', ') : (value as string) || ''}
         onChange={(e) => {
           const arr = e.target.value.split(',').map(s => s.trim()).filter(Boolean)
