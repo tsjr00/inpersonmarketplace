@@ -1,5 +1,5 @@
 STAGING TEST PROTOCOL — READY TO RUN
-Regenerated 2026-09-17 from the Test Registry (docs/testing/TEST_REGISTRY.md). Plain text: paste into Word as-is.
+Regenerated 2026-09-17 (after the events-round push) from the Test Registry (docs/testing/TEST_REGISTRY.md). Plain text: paste into Word as-is.
 Only items with no recorded result from the owner. Removed: every test reported as passing, and every test
 reported as failing whose fix has not shipped yet (those are in the registry as "fail" / "partial" and return
 to this list when their fix ships).
@@ -13,8 +13,64 @@ HOW TO USE
 
 
 ==================================================
-SECTION 0 — RETESTS OF SHIPPED FIXES (9 — run these first; they close the most rows)
+SECTION 0 — RETESTS OF SHIPPED FIXES (15 — run these first; they close the most rows)
 ==================================================
+
+--- Events round, shipped 2026-09-17 (hard-refresh first) ---
+
+TR-022  Public event page lists only the vendors you selected  (fix shipped: change 1a)
+Where: /[vertical]/events/[token] for a SELF-SERVICE event.
+Steps: before selecting anyone, open the page; then select 2 of 3 accepted vendors on
+/[vertical]/events/[token]/select and reload; then have another vendor accept late and reload again.
+Expect: before any selection — "Upcoming Event" and "Vendors Are Still Responding" (no vendor listed); after —
+"2 Vendors Attending" with only those two menus; the late vendor does NOT appear until you select them.
+Result: ____________   Notes:
+
+TR-064  Vendors take event pre-orders only once selected  (fix shipped: change 1b + migration 254)
+⚠ Run only AFTER migration 254 is pasted on Staging.
+Where: /[vertical]/events/[token]/shop and an accepted vendor's item page /[vertical]/listing/[id], on a FREE
+self-service event with 3 accepted vendors.
+Steps: before selecting anyone, open the shop and one accepted vendor's item page; select 2 vendors; check again;
+then check the unselected vendor's items at their REGULAR market.
+Expect: before selection — the shop shows no menus and the item page offers no pickup date for the event; after —
+the two selected vendors' menus appear and can be ordered, the third vendor's do not; the third vendor's
+regular-market items stay orderable the whole time (not being selected is never a penalty).
+Result: ____________   Notes:
+
+TR-065  Rolling selection: each menu can be trimmed once, when you first select that vendor  (fix shipped: change 3)
+Where: /[vertical]/events/[token]/select.
+Steps: select 2 of 3 vendors, trim one menu, confirm. Have a 4th vendor accept late. Tap "Change selections".
+Select the late vendor, trim one item, confirm. Tap "Change selections" once more.
+Expect: in change mode the first two are pre-ticked, show "Menu set when you selected this vendor" and have NO
+trim controls; the late vendor HAS trim controls; a benched vendor shows "Backup vendors bring their full menu".
+After confirming, the late vendor's page /[vertical]/vendor/events/[marketId] shows "approved N of M" and the
+removed item is absent from the shop. On the last visit the late vendor is locked too.
+Result: ____________   Notes:
+
+TR-066  A dropped vendor no longer shows as confirmed  (fix shipped 2026-09-17)
+Where: /[vertical]/events/[token]/select. Use a FRESH drop — vendors dropped before this push keep the old behaviour.
+Steps: Change selections → untick a confirmed vendor → confirm the drop → reload the page → Change selections.
+Expect: the dropped vendor is NOT under "Your vendors are confirmed" and is NOT pre-ticked. If you select them
+again on purpose, they receive a new "you're selected" notification.
+Result: ____________   Notes:
+
+TR-067  "Short on options?" now tells you how to reach more vendors  (fix shipped: change 4)
+Where: the confirmed view of /[vertical]/events/[token]/select, in the Backup box (it shows when fewer vendors are
+on standby than recommended).
+Steps: follow the sentence — event dashboard → Event Details → widen vendor types / preferences / number of
+vendors → Save → tap "Refresh matches".
+Expect: the Refresh matches prompt appears after the save, and tapping it reports new invitations (or that no new
+vendors qualified).
+Result: ____________   Notes:
+
+TR-068  Farmers-market wording on the organizer's Event Details  (fix shipped: change 5)
+Where: /farmers_market/event-manager/[id]/dashboard → Event Details; compare /food_trucks/event-manager/[id]/dashboard.
+Expect (farmers market): "Product Preferences", "Total Budget", "Budget Per Person", "Expected Number of Buyers",
+"Dietary or Product Requirements", "Other Food or Products at Venue", "Other Vendors Present?", event type
+"Corporate / Workplace Event", produce / baked goods / crafts example text. Food trucks: exactly as before.
+Result: ____________   Notes:
+
+--- Earlier pushes ---
 
 TR-001  Fresh bundle order: the quiet notification sequence  (fix shipped: Push A)
 Where: buyer — market page /[vertical]/markets/[id], section "Market Bundles"; vendor — /[vertical]/vendor/orders;
@@ -101,9 +157,8 @@ SECTION 2 — EVENTS (organizer, vendor/truck, admin)
 ==================================================
 Background: an organizer requests an event; trucks are invited and accept; the organizer selects a roster and
 approves menus; the event opens for pre-orders; the shop sells; settlement follows. "Accepted" is not "selected".
-(TR-021 and TR-022 were reported 2026-09-15 and are no longer here: TR-021 passed; TR-022 passed on the
-dashboard and failed on the public event page — that fix is first in the events round and TR-022 returns to
-Section 0 when it ships.)
+(TR-021 was reported 2026-09-15 as passed and is no longer here. TR-022's public-page fix shipped 2026-09-17 —
+its retest is in Section 0.)
 
 TR-023  Invitations-held gate
 Where: admin event detail on /[vertical]/admin/events for a self-serve approved event, invitations not sent.
