@@ -1,3 +1,16 @@
+# ▶ 2026-09-18 — TEST-DATA RESET: DEV + STAGING PURGED (transactional layer); new destructive-data workflow
+
+Dev purge ran 2026-09-18 (incident: deletes committed without the post-check — see rule-incidents + memory
+`feedback_destructive_sql_process`); Staging purge ran under the NEW workflow (`apps/web/docs/destructive-data-workflow.md`:
+one atomic DO block, failing-guard dry run first) — dry run tripped as designed, real run 1 rolled back on an FK
+ordering miss (payouts before subscriptions), real run 2 success, confirmation exact. Files:
+`supabase/maintenance/20260918_{dev,staging}_transactional_purge.sql`. Research: `.claude/test_data_reset_research.md`.
+Kept on both: accounts, vendor profiles, listings, regular markets + schedules + attendance + roster, offerings, bundles.
+Owner owes: retests start from a clean slate — create a NEW self-service event for TR-022/064/065/066. Prod purge =
+at launch, targeted rows only. UNCOMMITTED: the staging maintenance file + research + this note (docs commit proposed).
+
+---
+
 # 🏁 2026-09-17 SESSION CLOSE — EVENTS ROUND + EASY WINS ON STAGING `14b7c627` · MIG 254 DEV+STAGING · PROD OWES 16 COMMITS + 252/253/254
 
 **Git at close:** `origin/staging` = local `main` = `14b7c627`; tree clean except this note + CLAUDE_CONTEXT.md (docs commit

@@ -89,6 +89,19 @@ Root causes + the new process: memory `feedback_destructive_sql_process` (exact 
 prove the guard fails first · read-only state after any error · blast radius in the pre-check · script in a file).
 STAGING/PROD: not before the owner accepts the new process.
 
+## STAGING PURGE — DONE 2026-09-18 UNDER THE NEW WORKFLOW
+Inventory (exact): orders 54 · items 59 · payments 47 · payouts 16 · subs 9 · pickups 32 · events 14 · event markets
+14 · market_vendors 49 (26 event) · evl 52 · fee payments 6 · blackouts 6 · booth rentals 24 · park bookings 11 ·
+groups 1 · credits 2 · standing 5 · carts 24 · notifications 454 · error_logs 246. Stripe: all test mode (owner in
+writing). Blockers: none (1 orphan event market, 1 pre-approval event — both deleted directly).
+Runs: dry run tripped the guard as designed (54/14/454/246 unchanged) → real run 1 failed INSIDE the block on
+`vendor_payouts.market_box_subscription_id` (NO ACTION) — my ordering miss; atomic rollback proven → payouts moved
+first → real run 2 success. Confirmation exact: 0×6 · 37 / 28 / 69 / 18 / 23 / 12. File:
+`supabase/maintenance/20260918_staging_transactional_purge.sql`.
+Consequence for testing: the 09-15 test event is gone — TR-022 / TR-064–066 need a NEW self-service event; bundle
+and market-box retests start from fresh orders (structure intact).
+PROD: at launch, same workflow; targeted rows only (seed prefixes dd/ee + the one test vendor's rows).
+
 ## Open scope questions for the owner (asked 2026-09-18) — ANSWERED above
 1. Keep accounts (your test buyers/vendors/managers/organizers) + vendor profiles + listings, and purge only the
    TRANSACTIONAL layer (orders, subscriptions, events, bookings, notifications)? Or purge markets/listings too?
