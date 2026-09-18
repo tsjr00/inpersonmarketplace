@@ -83,6 +83,26 @@ overrides keyed on the stable label, fmLabels map, event-type label, 3 placehold
 Gates: tsc 0 · eslint 0 errors · vitest 90 / 2229. **EVENTS ROUND BUILD COMPLETE — 5 local commits on main, NOT
 pushed.** NEXT: owner's word for the ONE staging push → owner pastes 254 on Staging (pre-check first) → registry:
 TR-022 → fixed-unverified + new rows for 1b, change 3, dropped-vendor, change 4, change 5 → regenerate test list.
+**✅ PUSHED TO STAGING 2026-09-17: `ae76681e..8b8f0e75 staging -> staging` (6 commits: 1a, 1b, change 3,
+dropped-vendor, 4+5, testing docs). Verified from the push output, not the exit code: build compiled, Playwright
+49 passed / 1 standing skip, `origin/staging` = `main` = `8b8f0e75`, back on main, tree clean. ("destination stream
+closed early" lines = the usual test-server teardown noise after the suite finished.)** Prod untouched
+(`d704d3bb`; owes code + migs 252, 253, 254 — owner: no prod push yet).
+**MIG 254 ✅ DEV + STAGING 2026-09-17** (Staging pre-check: 1 row = the OB-024 test event's unselected third
+vendor, intended; post-check matched `e1c0d827…`/11280/true on both). Snapshot row flipped (bookkeeping batch
+done; UNCOMMITTED docs-only change). **Prod owes: code since `d704d3bb` (14 commits) + migs 252, 253, 254** —
+owner: no prod push yet; 254 pre-check must be re-run on Prod on the day and its rows READ (real organizers).
+OWED NOW: owner retests Section 0 (15 items) on staging `8b8f0e75` after a hard refresh.
+**EASY-WINS BATCH BUILT 2026-09-17 (owner: "can you do 1,2,3 together?") — UNCOMMITTED:** (1) event MARKET page
+attending-only roster (`lib/markets/vendors-with-listings.ts` + both callers pass `createServiceClient()` for the
+attendance read — mig 226 G-1/G-2 closed public reads of market_vendors/catering_requests on event markets, so the
+visitor's client would have emptied every roster; query errors returned as `query_error`, Rule J guardrail caught
+the first unwrapped draft) · (2) trade-box bullets reordered to lead with the trade (vendor event page
+`:1289-1299` region) + matching respond-route message `:248`; no logic change, pins untouched · (3) admin events
+detail `Section` heading sm → base, gap md → lg (owner judges on staging). Codebase_Map 12_Market_Manager line +
+stamp. Gates: tsc 0 · eslint 0 errors · vitest 90 / 2229. Also uncommitted: snapshot 254 row (Dev+Staging).
+NEXT: commit (owner's word) → these ride on the NEXT push (no push needed now unless the owner wants it).
+At wrap: CLAUDE_CONTEXT.md is stale since 2026-09-13 (no 09-14/15/17 session rows, migs 252–254 missing).
 BACKLOG-OWED (found in the read, not built): wave capacity counts unselected/unpaid vendors (mig 191 `:55-59`);
 event MARKET page lists every vendor with proposed items, no attendance filter (`vendors-with-listings.ts:110-131`).
 NEXT (was): commit 1a locally on the owner's word → present 1b (migration: pull `pg_get_functiondef` from all 3 envs

@@ -116,7 +116,8 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
   }
 
   try {
-    const result = await getMarketVendorsWithListings(supabase, id)
+    // Service client = event attendance read only (see the lib's doc comment).
+    const result = await getMarketVendorsWithListings(supabase, id, createServiceClient())
     if (result.reason) {
       console.error(
         `[MarketDetailPage] vendors-with-listings returned empty — reason=${result.reason}${result.errorMessage ? ` message=${result.errorMessage}` : ''}`

@@ -1963,11 +1963,15 @@ function Section({
   title: string
   children: React.ReactNode
 }) {
+  // Owner 2026-09-13 (OB-005): the detail's sections blurred together —
+  // heading ~2pt larger (sm → base) and ~½ line more air between sections
+  // (md 24px → lg 32px). Applied 2026-09-17; the regrouping half of that note
+  // is a separate design item (backlog).
   return (
-    <div style={{ marginBottom: spacing.md }}>
+    <div style={{ marginBottom: spacing.lg }}>
       <h3
         style={{
-          fontSize: typography.sizes.sm,
+          fontSize: typography.sizes.base,
           fontWeight: typography.weights.semibold,
           color: statusColors.neutral700,
           marginBottom: spacing['2xs'],

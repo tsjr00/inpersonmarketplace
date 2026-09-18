@@ -245,7 +245,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
             if (skip_conflicts_acknowledged !== true) {
               return NextResponse.json(
                 {
-                  error: `You're scheduled elsewhere during this event (${list.join('; ')}). Our records show you operate one ${isFT ? 'truck' : 'location'} at a time, so accepting means you won't sell there that day and pre-orders there will be paused. Acknowledge to continue, or turn on "${flagLabel}" in your profile if you can cover both.`,
+                  // Reworded 2026-09-17 to match the page: lead with the trade.
+                  error: `You're scheduled elsewhere during this event (${list.join('; ')}). Taking the event trades that day: you won't sell there and pre-orders there will be paused. Tick the acknowledgment to make the trade, or turn on "${flagLabel}" in your profile if you really can cover both — that is the only thing that grants it.`,
                   code: 'ERR_CONFLICT_ACK_REQUIRED',
                   ...conflictPayload,
                 },

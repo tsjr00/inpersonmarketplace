@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getMarketVendorsWithListings } from '@/lib/markets/vendors-with-listings'
@@ -21,7 +21,8 @@ export async function GET(
     const supabase = await createClient()
     const { id: marketId } = await params
 
-    const result = await getMarketVendorsWithListings(supabase, marketId)
+    // Service client = event attendance read only (see the lib's doc comment).
+    const result = await getMarketVendorsWithListings(supabase, marketId, createServiceClient())
 
     if (result.reason === 'not_found') {
       return NextResponse.json({ error: 'Market not found' }, { status: 404 })

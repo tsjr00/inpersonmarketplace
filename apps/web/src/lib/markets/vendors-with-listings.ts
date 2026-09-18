@@ -76,7 +76,15 @@ interface EventListingRow {
  */
 export async function getMarketVendorsWithListings(
   supabase: SupabaseClient,
-  marketId: string
+  marketId: string,
+  /**
+   * Service client, used ONLY to read event attendance (market_vendors +
+   * catering_requests.service_level). Mig 226 (G-1/G-2) closed public reads
+   * of both for event markets, so the visitor's own client would see nothing
+   * and every event roster would render empty. Same pattern as the public
+   * event page. Never used for the listing reads above it.
+   */
+  serviceClient: SupabaseClient
 ): Promise<MarketVendorsResult> {
   const empty: Omit<MarketVendorsResult, 'reason' | 'errorMessage'> = {
     market: null,
@@ -87,7 +95,7 @@ export async function getMarketVendorsWithListings(
 
   const { data: market, error: marketError } = await supabase
     .from('markets')
-    .select('id, name, market_type, status')
+    .select('id, name, market_type, status, catering_request_id')
     .eq('id', marketId)
     .single()
 
@@ -141,9 +149,48 @@ export async function getMarketVendorsWithListings(
       }
     }
 
+    // ATTENDING vendors only (2026-09-17; the rule of the public event page,
+    // change 1a). This roster used to list every vendor with a proposal —
+    // benched and never-selected included. Attending = accepted + not benched,
+    // and on a SELF-SERVICE event also organizer-SELECTED (admins never stamp
+    // a selection, so managed events keep the acceptance rule). Display only:
+    // whether an item can be ORDERED is decided by get_available_pickup_dates
+    // (mig 254), which applies the same rule.
+    const queryError = (message: string): MarketVendorsResult => ({
+      market: { id: market.id, name: market.name, market_type: market.market_type },
+      vendors: [],
+      categories: [],
+      vendor_count: 0,
+      reason: 'query_error',
+      errorMessage: message,
+    })
+    const { data: attendanceRows, error: attendanceError } = await serviceClient
+      .from('market_vendors')
+      .select('vendor_profile_id, is_backup, organizer_selected_at')
+      .eq('market_id', marketId)
+      .eq('response_status', 'accepted')
+    if (attendanceError) return queryError(attendanceError.message)
+    let selfService = false
+    if (market.catering_request_id) {
+      const { data: cReq, error: cReqError } = await serviceClient
+        .from('catering_requests')
+        .select('service_level')
+        .eq('id', market.catering_request_id as string)
+        .maybeSingle()
+      if (cReqError) return queryError(cReqError.message)
+      selfService = cReq?.service_level === 'self_service'
+    }
+    const attending = new Set(
+      (attendanceRows || [])
+        .filter(r => r.is_backup !== true)
+        .filter(r => !selfService || r.organizer_selected_at != null)
+        .map(r => r.vendor_profile_id as string)
+    )
+
     for (const el of (eventListings || []) as unknown as EventListingRow[]) {
       if (el.listings.status !== 'published') continue
       if (el.vendor_profiles.status !== 'approved') continue
+      if (!attending.has(el.vendor_profile_id)) continue
 
       const vendorId = el.vendor_profile_id
       const profileData = el.vendor_profiles.profile_data as Record<string, unknown>

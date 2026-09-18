@@ -116,7 +116,7 @@ Shared with the park domain; FM is where it originated. Table: `booth_credits`. 
 | `cancel-credit.ts` · `booth-credit-balance.ts` | The credit formula and expiry anchor; the SUM balance |
 | `season-notifications.ts` | Season-paid notifications; swallows all errors so a webhook is never retried |
 | `checkin-eligibility.ts` | Check-in eligibility + geo helpers |
-| `market-visibility.ts` · `visible-markets.ts` · `vendors-with-listings.ts` | The buyer-visibility gate (same vendor needs a published listing **and** an active schedule row) and its dashboard breakdown |
+| `market-visibility.ts` · `visible-markets.ts` · `vendors-with-listings.ts` | The buyer-visibility gate (same vendor needs a published listing **and** an active schedule row) and its dashboard breakdown. `vendors-with-listings` on an EVENT market lists ATTENDING vendors only (2026-09-17: accepted + not benched, and organizer-selected on self-service events — the public event page's rule); attendance is read with the service client (mig 226 closed public reads of `market_vendors` for event markets), so both callers pass one |
 | `market-audience.ts` | Resolves notify-target user IDs by audience tier (only `followers` wired today) |
 | `cancel-date-cascade.ts` ⚠ | The cancel-a-day engine — four paths, highest blast radius in the repo |
 

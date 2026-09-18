@@ -48,8 +48,8 @@ and we will start on it next time." Evidence for every line below: `apps/web/.cl
   organizers still get stuck: without widened criteria `refresh-matches` almost always finds nobody new, and when
   it does it sends real invitations (comms cost). Tool today: `OrganizerEventDetails.tsx` banner after a
   matching-field save.
-- [ ] **FUTURE (owner 2026-09-17: "leave the logic alone + add a task to improve the trade language") — reword
-  the event-conflict TRADE box so it leads with the trade.** Vendor event page
+- [x] **BUILT 2026-09-17 (owner: "1,2,3 together", same day) — four bullets reordered to lead with the trade + the matching server message; NO logic change, both pins untouched.** Was: FUTURE — reword
+  the event-conflict TRADE box so it leads with the trade. Vendor event page
   `app/[vertical]/vendor/events/[marketId]/page.tsx:1289-1299` (owner wording 2026-08-28, four bullets) opens
   with "Our records show you operate one location at a time" and reaches the trade only in bullet 3 — in the
   09-15 test it read like a multi-location permission. Copy only: say first that the vendor is TRADING their
@@ -74,7 +74,7 @@ and we will start on it next time." Evidence for every line below: `apps/web/.cl
   also true on free events between a late acceptance and the organizer's decision (respond route `:386-398`
   recalcs on every accept). Fix = second function replace + the TS mirror, same "attending" rule as the sell
   gate. Own change; pull the live body from all 3 envs first.
-- [ ] **Event MARKET page has no attendance filter at all.** `lib/markets/vendors-with-listings.ts:110-131` lists
+- [x] **BUILT 2026-09-17 (owner: "1,2,3 together") — attending-only roster on the event market page, attendance read with the service client (mig 226 closed public reads), query errors surfaced not swallowed.** Was: Event MARKET page has no attendance filter at all. `lib/markets/vendors-with-listings.ts:110-131` lists
   every vendor with non-declined `event_vendor_listings` rows — benched and unselected included. Display only
   (ordering goes through the SQL gate). Small; same rule as the public event page (change 1a).
 
@@ -152,8 +152,9 @@ table · 17 admin event-blocking section. Recorded here so the 09-07 round is cl
    product) receive the star review, or the vendors? Nothing read yet — start at the rating prompt's data source
    (order → order_items → vendor) and `market_bundles`; a bundle order carries `orders.bundle_id` (mig 244).
 4. [ ] **UX — `/[vertical]/admin/events` page structure.** Owner: lots of valuable info, but sections blur together and
-   related pieces sit apart. Asks: (a) section headings ~2pt larger, (b) ~½-line more vertical space between sections,
-   (c) regroup so the info an admin needs to manage/oversee an event sits together. Inventory the sections first
+   related pieces sit apart. Asks: (a) section headings ~2pt larger, (b) ~½-line more vertical space between sections
+   — **(a)+(b) BUILT 2026-09-17** in the shared `Section` component (`EventsAdminPage.tsx`: heading sm → base, gap
+   24px → 32px; all 12 detail sections; owner judges on staging) — (c) regroup so the info an admin needs to manage/oversee an event sits together. Inventory the sections first
    (verification-discipline Rule 7 — map every block before proposing the grouping).
 
 5. [ ] **Prod gap from mig 238 (known, low):** two event acceptances on Prod predate the blackout table — event "Chef Prep Pop-Up Market" (FM), vendor profiles `ee000000-0001-4000-8000-000000000001` and `ee000000-0003-4000-8000-000000000003` (both the owner’s test vendors, acceptances 2026-03-30). No `vendor_date_blackouts` rows sourced from that event. Effect, if any: those two profiles could show regular pickup dates on the event day at their home market. Owner-only profiles → left as-is 2026-09-13. Fix if wanted = a service-side INSERT of the two rows (schema-gate read first), not a migration.

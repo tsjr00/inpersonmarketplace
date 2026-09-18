@@ -1289,12 +1289,17 @@ export default function VendorCateringDetailPage() {
                     ) : (
                       <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: typography.sizes.sm, color: statusColors.warningDark, cursor: 'pointer' }}>
                         <input type="checkbox" checked={conflictAck} onChange={(e) => setConflictAck(e.target.checked)} style={{ marginTop: 3 }} />
-                        {/* Owner wording 2026-08-28 — four separate points, not one run-on sentence. */}
+                        {/* Owner wording 2026-08-28 — four separate points, not one run-on
+                            sentence. Reordered 2026-09-17 (owner, decisions.md FINAL row): LEAD
+                            with the trade. In the 09-15 test the old order ("Our records show
+                            you operate one location at a time…") read like a multi-location
+                            permission; it is a one-day trade — one market day for one event —
+                            and only the profile declaration ever grants covering both. */}
                         <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          <li>Our records show you operate one {isFT ? 'truck' : 'location'} at a time.</li>
-                          <li>If you operate multiple {isFT ? 'trucks' : 'locations'} or can cover both sales opportunities, turn on <Link href={`/${vertical}/vendor/edit`} style={{ color: statusColors.warningDark, fontWeight: typography.weights.semibold }}>&ldquo;{flagLabel}&rdquo; in your profile</Link>.</li>
-                          <li><strong>I understand that by taking this event I won&apos;t sell at the place{a.conflicts.length === 1 ? '' : 's'} above that day.</strong></li>
-                          <li>Pre-orders from my conflicting sales location / schedule will be paused for the day so I can sell at the event{a.conflicts.some(c => c.paid) ? ' (a paid spot is not refunded)' : ''}.</li>
+                          <li><strong>Taking this event means trading your {isFT ? 'park' : 'market'} day for it: I won&apos;t sell at the place{a.conflicts.length === 1 ? '' : 's'} above that day.</strong></li>
+                          <li>Pre-orders there will be paused for the day so nothing lands while I&apos;m at the event{a.conflicts.some(c => c.paid) ? ' (a paid spot is not refunded)' : ''}.</li>
+                          <li>This is a one-day trade — it does not mean being in two places at once.</li>
+                          <li>If you really can cover both, turn on <Link href={`/${vertical}/vendor/edit`} style={{ color: statusColors.warningDark, fontWeight: typography.weights.semibold }}>&ldquo;{flagLabel}&rdquo; in your profile</Link> instead — that is the only thing that grants it.</li>
                         </ul>
                       </label>
                     )}
