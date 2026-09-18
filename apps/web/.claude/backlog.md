@@ -304,8 +304,8 @@ Owner: trucks/vendors should see a distribution of their **one-timers, repeat cl
 
 ## 🔧 SMALL FIXES DESIGNED, AWAITING GO (2026-08-25 staging results ST-19/20 — code findings in current_task.md)
 
-- [ ] **Restore-event button** (ST-19): `admin/events/[id]/route.ts:213-268` already allows un-cancelling when nothing irreversible happened (misclick case) and refuses otherwise with a clear message — but the admin UI shows no action for a cancelled event (`admin/events/page.tsx:795`, lifecycle buttons `:853-916` are live-status only). A recovery path with no door (address-deadlock class). Button → route → its message; makes ST-19 testable.
-- [ ] **Re-confirm page: item-based state + copy** (ST-20 b/c): `api/orders/reconfirm/[token]/route.ts:59-65` keys on `orders.status` only; `reconfirm/[token]/page.tsx:131-134` says "still stands" as fixed text. After a vendor withdrawal (items cancelled, order flipped only when no live items remain — `vendor/events/[marketId]/cancel/route.ts:333-341, :404-408`) the buyer was told their order stands. Derive from live items: all cancelled → withdrawal copy + link; some → partial copy + event-page link; live → "stands as of now — check current vendors/offerings". Owner's diagnostic query (in chat 2026-08-25) tells which path the test order took.
+- [x] **DONE — built 2026-08-29 (`EventsAdminPage.tsx` "Restore Event", ST-19), owner-passed as TR-020 2026-09-05; line closed 2026-09-17.** Restore-event button (ST-19): `admin/events/[id]/route.ts:213-268` already allows un-cancelling when nothing irreversible happened (misclick case) and refuses otherwise with a clear message — but the admin UI shows no action for a cancelled event (`admin/events/page.tsx:795`, lifecycle buttons `:853-916` are live-status only). A recovery path with no door (address-deadlock class). Button → route → its message; makes ST-19 testable.
+- [x] **DONE — `reconfirm/[token]/page.tsx` derives withdrawn / partial / stands-as-of-now from live items (`:33, :139, :161-170`); retest = TR-030 (open); line closed 2026-09-17.** Re-confirm page: item-based state + copy (ST-20 b/c): `api/orders/reconfirm/[token]/route.ts:59-65` keys on `orders.status` only; `reconfirm/[token]/page.tsx:131-134` says "still stands" as fixed text. After a vendor withdrawal (items cancelled, order flipped only when no live items remain — `vendor/events/[marketId]/cancel/route.ts:333-341, :404-408`) the buyer was told their order stands. Derive from live items: all cancelled → withdrawal copy + link; some → partial copy + event-page link; live → "stands as of now — check current vendors/offerings". Owner's diagnostic query (in chat 2026-08-25) tells which path the test order took.
 - [ ] **Event status-copy drift** (ST-20 d): same event read "0 of 3 vendors confirmed, 1 pre-order" (organizer dashboard) / "vendors being confirmed" (event page) / "no vendors confirmed" (shop) / "no vendors responded" (select). Owner: detail, later.
 - [ ] **Dropped-PostgREST-error sweep**: every one of the six 2026-08-25 prod defects was `const { data } = await …` with `error` never read — silent for months, invisible to error_logs. Sweep `src/` for that shape on server paths; at minimum log via `logError`. Consider adding "check the Supabase API log" to PROCESSES Protocol 8 (owner authorizes process-doc edits).
 - [ ] **Vendor withdrawal accountability** (ST-20 a, owner call): a withdrawal never touches reliability/rating (only `reject` increments `orders_cancelled_after_confirm_count`) — which also means a withdrawal with NO organizer change costs nothing beyond the <72h fee forfeit. Leave until real behavior shows a pattern.
@@ -729,7 +729,7 @@ The signup route stores the ENTIRE signup form into `vendor_profiles.profile_dat
 
 Related residual (lower stakes): the public vendor page and any embed selecting `vendor_profiles(profile_data)` ships the whole blob to the browser for approved vendors — fixing at the DB layer per above fixes these too.
 
-## 🐛 FM LANDING PAGE SCROLLS SIDEWAYS ON A NARROW PHONE — diagnosed 2026-08-09, NOT FIXED
+## ✅ FM LANDING PAGE SCROLLS SIDEWAYS ON A NARROW PHONE — diagnosed 2026-08-09; the `VendorPitch.tsx:58` nowrap was REMOVED 2026-08-09 (comment at that line); the latent `LocationEntry.tsx:191` nowrap removed 2026-09-17 (owner "do them all"). Section closed 2026-09-17; method notes kept.
 
 **Symptom (owner, on staging):** FM landing page on a phone, logged out, is left-justified with a big empty stripe down the right. **FT does not do it.**
 
@@ -1248,7 +1248,7 @@ Three wrong assumptions were made about this rule in one session, each corrected
 
 </details>
 
-## 🟠 ADMIN NOTIFICATIONS GO TO THE WRONG VERTICAL — and get truncated (found 2026-08-09, NOT fixed)
+## ✅ ADMIN NOTIFICATIONS GO TO THE WRONG VERTICAL — and get truncated (found 2026-08-09) — FIXED 2026-09-17: all three sites now resolve through `adminRecipientsForVertical` (respond + cancel via `vendorResponseRecipients`, whose inline `.in('role',…).limit(5)` was the last copy of the bug; the expire-orders event-gap alert directly). Retest: an FM-only admin gets no FT event alerts. ⚠ Send volume: the cap is gone — verify the real admin count per vertical on Prod before the prod push.
 
 **Owner-flagged 2026-08-09:** an admin from one vertical is being notified about events they have nothing to do with.
 

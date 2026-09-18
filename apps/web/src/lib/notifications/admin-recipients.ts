@@ -6,8 +6,11 @@ import { observed } from '@/lib/errors'
  *
  * WHY THIS EXISTS
  *
- * Three places already answer this question and all three answer it wrong, in
- * the same three ways:
+ * When this was written (2026-08-09) three places already answered this
+ * question and all three answered it wrong, in the same three ways — all three
+ * now resolve through this function (respond + cancel via
+ * lib/events/organizer-recipient's vendorResponseRecipients; the expire-orders
+ * event-gap alert directly — both swapped 2026-09-17):
  *
  *   api/vendor/events/[marketId]/respond          .in('role',[…]).limit(5)
  *   api/vendor/events/[marketId]/cancel           .in('role',[…]).limit(5)

@@ -188,7 +188,12 @@ export function LocationEntry({ vertical, initialCity, onLocationSet, locale }: 
           justifyContent: 'center',
           gap: '4px',
           fontWeight: typography.weights.medium,
-          whiteSpace: 'nowrap',
+          // No `whiteSpace: 'nowrap'` here (removed 2026-09-17). This string is
+          // built from term(vertical, 'vendors') so its width is
+          // vertical-dependent — the same trap that made the FM landing page
+          // scroll sideways at 375px (VendorPitch, fixed 2026-08-09). Nowrap
+          // does nothing when the text fits; it only acts when it would wrap,
+          // which is exactly when we want it to.
         }}
       >
         <MapPin style={{ width: 16, height: 16, color: colors.primary, flexShrink: 0 }} />

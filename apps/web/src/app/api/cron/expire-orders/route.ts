@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { notifyOrderExpired, sendNotification } from '@/lib/notifications'
+import { adminRecipientsForVertical } from '@/lib/notifications/admin-recipients'
 import { escapeHtml } from '@/lib/notifications/email-config'
 import { createRefund, transferToVendor, transferMarketBoxPayout, getChargeIdFromPaymentIntent } from '@/lib/stripe/payments'
 import { classifyExistingTransfer } from '@/lib/stripe/payout-reconcile'
@@ -2612,16 +2613,18 @@ export async function GET(request: NextRequest) {
 
           if (alreadySent && alreadySent > 0) continue
 
-          // Get admin users
-          const { data: admins } = await observed(supabase
-            .from('user_profiles')
-            .select('user_id')
-            .or('role.eq.admin,role.eq.platform_admin'), { table: 'user_profiles' })
+          // Who hears about it: the shared resolver (platform admins + THIS
+          // vertical's admins, deleted accounts excluded, no cap). This was the
+          // last of the three hand-rolled admin lookups (backlog 2026-08-09):
+          // it ignored the vertical, so an FM admin was alerted about FT
+          // events, and it never excluded deleted accounts. `supabase` here is
+          // the service-role client the resolver requires.
+          const adminIds = await adminRecipientsForVertical(supabase, event.vertical_id as string | null)
 
-          if (admins && admins.length > 0) {
+          if (adminIds.length > 0) {
             const eventDateFmt = event.event_date ? new Date(event.event_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '?'
-            for (const admin of admins) {
-              await sendNotification(admin.user_id, 'event_vendor_gap_alert', {
+            for (const adminId of adminIds) {
+              await sendNotification(adminId, 'event_vendor_gap_alert', {
                 vendorName: event.company_name || 'Unknown Event',
                 pickupDate: eventDateFmt,
                 quantity: accepted,

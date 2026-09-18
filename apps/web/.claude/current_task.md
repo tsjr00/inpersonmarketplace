@@ -102,6 +102,13 @@ the first unwrapped draft) · (2) trade-box bullets reordered to lead with the t
 detail `Section` heading sm → base, gap md → lg (owner judges on staging). Codebase_Map 12_Market_Manager line +
 stamp. Gates: tsc 0 · eslint 0 errors · vitest 90 / 2229. Also uncommitted: snapshot 254 row (Dev+Staging).
 NEXT: commit (owner's word) → these ride on the NEXT push (no push needed now unless the owner wants it).
+**EASY-WINS BATCH 2 COMMITTED `c9a5f72d`… then BATCH 3 BUILT 2026-09-17 (owner "do them all") — UNCOMMITTED:**
+admin-notification recipients → `adminRecipientsForVertical` at ALL three sites (correction: respond/cancel had
+been centralized into `vendorResponseRecipients`, which still did `.in('role',…).limit(5)` with no vertical — that
+helper now delegates; the expire-orders event-gap alert swapped directly) · `LocationEntry.tsx:191` nowrap removed
+(owner to glance at the landing page on a phone) · backlog: 4 stale lines closed (restore button, reconfirm states,
+FM landing scroll, admin notifications). Gates: tsc 0 · eslint 0 errors (cron file's 42 warnings pre-existing) ·
+vitest 90 / 2229. ⚠ Prod note: the admin-alert cap is gone — check the admin count per vertical before prod.
 At wrap: CLAUDE_CONTEXT.md is stale since 2026-09-13 (no 09-14/15/17 session rows, migs 252–254 missing).
 BACKLOG-OWED (found in the read, not built): wave capacity counts unselected/unpaid vendors (mig 191 `:55-59`);
 event MARKET page lists every vendor with proposed items, no attendance filter (`vendors-with-listings.ts:110-131`).

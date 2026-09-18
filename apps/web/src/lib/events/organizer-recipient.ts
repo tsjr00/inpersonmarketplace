@@ -23,6 +23,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { observed } from '@/lib/errors'
+import { adminRecipientsForVertical } from '@/lib/notifications/admin-recipients'
 
 export async function resolveOrganizerUserId(
   service: SupabaseClient,
@@ -68,14 +69,21 @@ export async function vendorResponseRecipients(
   cateringRequestId: string | null
 ): Promise<VendorResponseRecipients> {
   const organizerUserId = cateringRequestId ? await resolveOrganizerUserId(service, cateringRequestId) : null
-  const { data: admins } = await observed(service
-    .from('user_profiles')
-    .select('user_id')
-    .in('role', ['admin', 'platform_admin'])
-    .is('deleted_at', null)
-    .limit(5), { table: 'user_profiles' })
-  const adminUserIds = (admins ?? [])
-    .map(a => a.user_id as string)
+  // Admin set = the shared resolver (2026-09-17; backlog 2026-08-09 "admin
+  // notifications go to the wrong vertical"): platform admins + THIS vertical's
+  // admins, deleted accounts excluded, no cap. The previous inline lookup
+  // ignored the vertical and stopped at an arbitrary 5.
+  let verticalId: string | null = null
+  if (cateringRequestId) {
+    const { data: cReq } = await observed(service
+      .from('catering_requests')
+      .select('vertical_id')
+      .eq('id', cateringRequestId)
+      .maybeSingle(), { table: 'catering_requests' })
+    verticalId = (cReq?.vertical_id as string | null) ?? null
+  }
+  const admins = await adminRecipientsForVertical(service, verticalId)
+  const adminUserIds = admins
     .filter(id => id && id !== organizerUserId)
   return { organizerUserId, adminUserIds }
 }
