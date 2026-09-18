@@ -1,3 +1,24 @@
+# 🏁 2026-09-17 SESSION CLOSE — EVENTS ROUND + EASY WINS ON STAGING `14b7c627` · MIG 254 DEV+STAGING · PROD OWES 16 COMMITS + 252/253/254
+
+**Git at close:** `origin/staging` = local `main` = `14b7c627`; tree clean except this note + CLAUDE_CONTEXT.md (docs commit
+proposed). Prod = `d704d3bb`. **Owner: no prod push yet.** When it comes: code first (or together), then 252, 253, 254 —
+**254 is PRE-CHECK FIRST** (query in its header; READ the rows, real organizers) — then move the three files to
+`applied/` + flip snapshot rows (bookkeeping batch, standing approval). Also before prod: admin-alert cap removed
+today → check admin counts per vertical.
+
+**Owner owes:** Section 0 retests (15) in `docs/testing/TEST_PROTOCOL_open_items.md` on staging after a hard refresh
+(TR-064 needs 254 — already on Staging) + a glance at the easy-win surfaces (event market page roster, trade box,
+admin event detail spacing, landing page on a phone). Any fail = decision point.
+
+**Rulings today** (decisions.md 2026-09-17): sell on SELECTION (self-service) · ruling B rolling selection ·
+ruling A WITHDRAWN (trade-a-market-day stays; profile flag alone grants cover-both).
+
+**Next session, in order:** kickoff (registry) → retest results → fails → prod push when the owner says → backlog
+"found not built": wave capacity counts non-selling vendors (2nd function replace) · admin events regrouping (c) ·
+browse filter design · stuck-orders page. The full play-by-play of today is in the block below.
+
+---
+
 # ▶ 2026-09-17 — post-restart kickoff (Windows update rebooted the machine; NOTHING was lost)
 
 Verified: tree clean, no stash, `main` = `staging` = `origin/staging` = `ae76681e`; prior transcript ends on the
@@ -109,6 +130,11 @@ helper now delegates; the expire-orders event-gap alert swapped directly) · `Lo
 (owner to glance at the landing page on a phone) · backlog: 4 stale lines closed (restore button, reconfirm states,
 FM landing scroll, admin notifications). Gates: tsc 0 · eslint 0 errors (cron file's 42 warnings pre-existing) ·
 vitest 90 / 2229. ⚠ Prod note: the admin-alert cap is gone — check the admin count per vertical before prod.
+**BATCH 3 COMMITTED `14b7c627` → ✅ PUSHED TO STAGING `8b8f0e75..14b7c627 staging -> staging` (build compiled,
+Playwright 49 passed / 1 standing skip; `origin/staging` = `main` = `14b7c627`, back on main, tree clean).**
+Staging now carries: events round (6 commits) + easy wins (2 commits); mig 254 applied. Prod untouched
+(`d704d3bb`; owes 16 commits + migs 252/253/254). Owner: retest Section 0 (15) + glance at: event MARKET page
+roster, trade box wording, admin event detail spacing, landing page on a phone.
 At wrap: CLAUDE_CONTEXT.md is stale since 2026-09-13 (no 09-14/15/17 session rows, migs 252–254 missing).
 BACKLOG-OWED (found in the read, not built): wave capacity counts unselected/unpaid vendors (mig 191 `:55-59`);
 event MARKET page lists every vendor with proposed items, no attendance filter (`vendors-with-listings.ts:110-131`).

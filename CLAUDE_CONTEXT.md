@@ -2,7 +2,7 @@
 
 **Purpose:** Help future Claude sessions understand this project quickly and avoid repeating mistakes.
 
-**Last Updated:** 2026-09-13 (prod caught up to migration 251; E0 shipped; session entries through 2026-09-13 evening)
+**Last Updated:** 2026-09-17 (events round + easy wins on Staging; migs 252–254 on Dev + Staging, Prod pending; session entries through 2026-09-17)
 
 ## Session highlights (2026-08-07) — dashboard redesign: shared card/tile system, new role dashboards, switcher → STAGING
 
@@ -465,7 +465,7 @@ One rule written in two independently-editable places with silent drift is this 
 
 ## Applied Migrations (All 3 Environments)
 
-**As of 2026-09-13 (evening CT): migrations 001–251 are applied to Dev, Staging, AND Production** (238→251 pasted on Prod 2026-09-13 in order around the `d704d3bb` code push — 238→247 before, 248→251 after; catalog post-check matched Staging row-for-row; mig 225 deliberately never applied, superseded by 234). Prior stamp — **As of 2026-08-26: migrations 001–237** (236 `buyer_achievements` Loyalty Layer 1 + 237 `scan_vendor_activity` scan-log column fix pasted on Prod 2026-08-26 ~03:30 CT by the user, both paste-and-go; files in `applied/`). **Mig 225 remains the only file in the root — superseded by 234, never paste.** **As of 2026-08-16 (late): migrations 001–235 are applied to Dev, Staging, AND Production** (228–235 pasted on Prod 2026-08-16 by the user; 234+235 with full differentials — prod had ZERO event listings and ZERO fee events, both applications proven inert via a byte-identical 32-row control). **Mig 225 = ⛔ SUPERSEDED by 234, never applied anywhere, kept only as 234's rollback target — NEVER paste it.** Prod CODE deployed same night: `54ca375f → bfc60dfd` (29 commits, window override owner-authorized, ⚠ Vercel build + owner smoke pass still to be confirmed). As of 2026-08-13 (late): migrations 001–224 PLUS 226–227 are applied to Dev, Staging, AND Production** (213–223 reached Prod 2026-08-13 during the client-demo deploy; 224 on 2026-08-12; **226/227 — RLS-only security tightenings closing anonymous reads of private-event data — applied same-day 2026-08-13 with exact-match pre/post anon-role counts**). **Only migration 225 exists nowhere** — written, deliberately parked, verification recipe in its header. ⚠ Do NOT trust this file or `SCHEMA_SNAPSHOT.md` changelog rows for per-environment status — both were proven wrong four separate times on 2026-08-13 (migs 210/211/212/215); **query the live environment** (`information_schema` / `pg_proc` / `to_regclass`).
+**As of 2026-09-17: 252, 253, 254 are on Dev + Staging only — Prod PENDING** (files in the migrations root until Prod has them; 252 `check_subscription_completion` → SECURITY DEFINER, 253 schedule-conflict trigger on both verticals, 254 `get_available_pickup_dates` sells self-service events on SELECTION — 254 is PRE-CHECK FIRST class, query in its header; all three paste-and-go otherwise, code first or together). Prod also owes the code since `d704d3bb` (16 commits as of 2026-09-17). **As of 2026-09-13 (evening CT): migrations 001–251 are applied to Dev, Staging, AND Production** (238→251 pasted on Prod 2026-09-13 in order around the `d704d3bb` code push — 238→247 before, 248→251 after; catalog post-check matched Staging row-for-row; mig 225 deliberately never applied, superseded by 234). Prior stamp — **As of 2026-08-26: migrations 001–237** (236 `buyer_achievements` Loyalty Layer 1 + 237 `scan_vendor_activity` scan-log column fix pasted on Prod 2026-08-26 ~03:30 CT by the user, both paste-and-go; files in `applied/`). **Mig 225 remains the only file in the root — superseded by 234, never paste.** **As of 2026-08-16 (late): migrations 001–235 are applied to Dev, Staging, AND Production** (228–235 pasted on Prod 2026-08-16 by the user; 234+235 with full differentials — prod had ZERO event listings and ZERO fee events, both applications proven inert via a byte-identical 32-row control). **Mig 225 = ⛔ SUPERSEDED by 234, never applied anywhere, kept only as 234's rollback target — NEVER paste it.** Prod CODE deployed same night: `54ca375f → bfc60dfd` (29 commits, window override owner-authorized, ⚠ Vercel build + owner smoke pass still to be confirmed). As of 2026-08-13 (late): migrations 001–224 PLUS 226–227 are applied to Dev, Staging, AND Production** (213–223 reached Prod 2026-08-13 during the client-demo deploy; 224 on 2026-08-12; **226/227 — RLS-only security tightenings closing anonymous reads of private-event data — applied same-day 2026-08-13 with exact-match pre/post anon-role counts**). **Only migration 225 exists nowhere** — written, deliberately parked, verification recipe in its header. ⚠ Do NOT trust this file or `SCHEMA_SNAPSHOT.md` changelog rows for per-environment status — both were proven wrong four separate times on 2026-08-13 (migs 210/211/212/215); **query the live environment** (`information_schema` / `pg_proc` / `to_regclass`).
 
 (Historical note, superseded:) Migrations 001–041 applied to Dev, Staging, and Production. All in `supabase/migrations/applied/`. Key ones:
 
@@ -492,6 +492,47 @@ One rule written in two independently-editable places with silent drift is this 
 | 106 | Event vendor order caps: `event_max_orders_total` + `event_max_orders_per_wave` on market_vendors |
 
 ---
+
+## Session History — 2026-09-17 (events round built + shipped to Staging · mig 254 · easy wins · two owner rulings, one withdrawn)
+
+**Opened after a Windows-update restart; nothing was lost** (tree clean, last transcript ended on the pushed commit).
+
+**Rulings (decisions.md 2026-09-17):** (1) on SELF-SERVICE events a vendor takes event pre-orders only once the
+organizer has SELECTED them — never a penalty on their regular locations (found in the pre-build code read: the
+event turns 'ready' at the acceptance threshold, before any selection, and on a FREE event every accepted vendor sold);
+(2) ruling B — selection is ROLLING, the menu-trim lock moves from the event to each vendor (trimmable once, at that
+vendor's first selection); (3) ruling A (refuse a conflicting invitation without the profile declaration) was
+WITHDRAWN once its consequence was shown — single-location vendors keep the option to TRADE a market day for an
+event; "trading 1 event for 1 market is not the same as being at two places at the same time." Only the profile
+declaration ever grants covering both (already how the code works).
+
+**Shipped to Staging (`8b8f0e75` then `14b7c627`; Prod untouched):** 1a public event page lists selected vendors
+only · 1b mig 254 + shop mirror + paired-rule text + 2 pins (live body verified = mig 238 on all 3 envs BEFORE
+writing; Dev + Staging applied, post-check fingerprints matched) · change 3 per-vendor trim lock (select route +
+page; one pin line replaced with explicit approval) · dropped vendor's selection stamp cleared with the benching
+(found building change 3) · "Short on options?" sentence gives the real steps · FM wording on the organizer's Event
+Details (FT unchanged) · event MARKET page lists attending vendors only (attendance read with the service client —
+mig 226 closed public reads) · trade box leads with the trade (copy) · admin event detail spacing · admin event
+alerts resolve through `adminRecipientsForVertical` at all three sites (the shared helper still had the old
+any-admin/limit-5 lookup) · latent landing-page nowrap removed. Registry rows TR-064–068, OB-025.
+
+**Found, not built (backlog):** wave capacity counts vendors who cannot sell (second function replace); admin-alert
+cap is gone — check admin counts per vertical before the prod push.
+
+**Process:** owner restated the push rule (stack commits, ONE push; a separate push needs a named reason) and the
+approval-message format (decision + enough context, not every nuance, not code-speak) — both in memory.
+
+## Session History — 2026-09-14/15 (testing structure · fix plan A/B/C/D → Staging · events round logged)
+
+`docs/testing/` created (README · CHARTERS · TEST_REGISTRY · OBSERVATIONS · TEST_PROTOCOL_open_items) — the registry
+is the source of truth for what has been verified; kickoff reads it, close updates it. Owner's bundle test round on
+FA-2026-03444755 proved the bundle money loop end to end in Stripe (4 transfers, reconciles to the cent). Fix plan
+shipped to Staging in three pushes: A bundles (buyer hears only from the manager; vendor Fulfil waits for the
+manager's tap; one acknowledge control; bundle-ready email), B market boxes (visible to the vendor; pickup counts
+agree — mig 252 makes the completion trigger DEFINER; order number on the box page; cancelled cards count refunds),
+C+D schedule conflicts gated by the multi-location declaration on BOTH verticals (route + mig 253 + pin) plus the
+booking-page line under the map and bundle cards on narrow phones. Events test round (OB-024) logged for the
+2026-09-17 design pass.
 
 ## Session History — 2026-09-13 evening (PROD CAUGHT UP: code d704d3bb + migs 238→251 · E0 shipped · four findings closed everywhere)
 
