@@ -36,6 +36,7 @@ Every session, in this order:
 | File | When to read |
 |---|---|
 | `apps/web/docs/migration-workflow.md` | Creating, applying, or moving migrations |
+| `apps/web/docs/destructive-data-workflow.md` | ANY SQL that deletes rows outside a migration (test-data purges, seed removal, resets) — one atomic DO block, failing-guard dry run first |
 | `apps/web/docs/rls-policy-workflow.md` | RLS policy changes (incl. SECURITY DEFINER rules) |
 | `apps/web/docs/api-route-security-checklist.md` | New API route OR pre-merge feature review |
 | `apps/web/docs/error-resolution-workflow.md` | Fixing any error (query `error_resolutions` first) |

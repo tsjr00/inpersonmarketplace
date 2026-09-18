@@ -139,3 +139,17 @@ Caught by user before shipping. Code reverted via `git checkout HEAD --`.
 **Root cause:** pattern momentum from optin selections; failure to read the `active` column's intent; failure to read the FK CASCADE as a destructive signal that demanded redesign rather than acknowledgment.
 
 **The information was not hidden.** Both signals were in the same migration file I had read in the same session. The cost of running the three checks: ~30 seconds each. The cost of skipping them: an entire feature that would have silently destroyed vendor attendance data on every Save click.
+
+### Rule 4 — Data-First Policy + Rule 2 — Schema Mechanical Gate (2026-09-18, Dev test-data purge)
+
+A destructive purge script for Dev failed three times, then its deletes **committed without the post-check running**. The outcome was correct by luck.
+
+1. A post-check guard was hard-coded to `user_profiles = 5` — the number came from `pg_stat_user_tables`, an ESTIMATE. The owner had pasted the exact count (6) in the same conversation. An estimate was used as truth; the exact figure on screen was not cross-checked.
+2. The script relied on `BEGIN`/`COMMIT` and a TEMP table carrying state across statements. The Supabase SQL editor did not carry it; the temp table vanished, the `DO` post-check errored, and the preceding `DELETE`s had already committed.
+3. Three revisions were sent live in a row, none dry-run; one had a syntax error (multi-line `+` arithmetic).
+4. After run one, "nothing was deleted" was asserted from transaction reasoning, not from a read-only count — the same unverified assumption that failed on run three.
+5. A purge received less ceremony than a migration — no class banner, no pre-check in a file, no failing-guard dry run.
+
+**Root cause:** no planning step that PROVES the safety net works before the payload runs, and no verification of the execution tool's semantics. Guards were designed and trusted untested, on the one class of script where an untested guard is worthless.
+
+**Codified:** `apps/web/docs/destructive-data-workflow.md` (pointed to from `CLAUDE.md`): exact counts only · one atomic `DO` block · failing-guard dry run first · read-only count after any error · blast radius in the pre-check · script in a file · never table-wide deletes on Staging/Prod. Memory: `feedback_destructive_sql_process`.

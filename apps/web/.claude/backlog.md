@@ -67,6 +67,13 @@ and we will start on it next time." Evidence for every line below: `apps/web/.cl
   `previouslySelected`. ⚠ `flow-integrity.test.ts:2552` pins the exact current `selected:` line (written to stop
   deriving it from status='ready') → expectation change = owner's explicit call. Size S.
 
+- [ ] **🧪 The unit-test suite writes ~15 rows into Dev's `error_logs` on EVERY run** (found 2026-09-18 from the
+  Dev error summary: 15,900 of 16,002 rows, counts identical across the guard-test routes, last_seen = the day of
+  the runs). Mechanism: `lib/errors/logger.ts:36-56` builds a service client from env creds; vitest loads
+  `.env.local` (Dev); no test mocks `@/lib/errors`. Fix = make `logErrorToDb` a no-op under vitest (env guard or a
+  global mock in the test setup) — a test-SETUP change, not a business-rule expectation. Until then Dev's error log
+  is useless for spotting real Dev errors. Size XS.
+
 **Found in the 2026-09-17 pre-build code read — NOT built, owner has seen both (one line each in chat):**
 - [ ] **Wave capacity counts vendors who cannot sell.** `recalculate_wave_capacity` (mig 191 `:55-59`) and
   `generateEventWaves` (`wave-generation.ts:95-100`) sum every accepted, un-benched vendor — no selection check,
