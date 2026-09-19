@@ -1,4 +1,41 @@
-# ✅ PUSHED TO STAGING 2026-09-18 night: `0ff23581..de96f902` (fcf0360a OB-027 part 1 · 356f1201 managed-market set · de96f902 terms ruling docs). Build compiled, Playwright 49/1 skip, `origin/staging` = `main` = `de96f902`, tree clean. Prod untouched (owes 24 commits + migs 252/253/254/255). **TERMS-ON-FREE-MARKETS BUILT 2026-09-18 (owner "go - build it") — UNCOMMITTED, gates green (90 / 2234 with the new pin):** schedules GET `needs_terms` · `freeManagedTermsNeeded` (managed, not charging, no roster row AND no acceptance) · both writers 409 `ERR_MARKET_TERMS_REQUIRED` without `agreement_accepted` · `ensureFreeManagedRosterRow` now also records the acceptance (+ `_info_sharing_consent`) · `MarketScheduleSelector` shows `MarketAgreementBlock` + sharing opt-in above the days, toggles locked until "I agree", first activation carries the acceptance · registry TR-077 · map line. NEXT: commit + push (owner's word).
+# 🏁 2026-09-19 CLOSE (pre-compaction) — BOOTH MODEL REVIEW IN PROGRESS · staging `041fd629` · Prod owes 25 commits + migs 252–255
+
+**State:** `origin/staging` = `main` = `041fd629`, tree has UNCOMMITTED DOCS ONLY (test list regrouped + ★ WHAT'S NEW,
+testing README rule, OB-028 + TR-078 in OBSERVATIONS/REGISTRY, `.claude/booth_model_review.md`, this note). Migs 254 +
+255 on Dev + Staging. Prod untouched (owner: no prod push yet).
+
+**Active investigation — BOOTH MODEL (OB-028, TR-078):** owner booked a booth as a pinned vendor → BOOTH_CONFLICT on
+their OWN pin (mig 186 honors the pin, mig 146 trigger self-excludes only within the same table). Owner: "core
+function… has to be right… dig deep… communicate it to managers & vendors." Full model + 10 ranked conflicts (C1–C10)
+in `apps/web/.claude/booth_model_review.md`. NOT yet read: manager occupancy grid / WeeklyBookingsCard, booth_credits
+redemption, season-booking edges, FT park analog. Owner's last question pending: decision brief on C2/C3/C4/C6/C9 now,
+or finish reading first? NO build go given for any booth fix yet (C1 fix = mig 256 + `booth-conflict-checks.ts`).
+
+**Owner's TR-069 note** (written INTO the printable list): the market picker greys out beyond-tier markets — the
+09-18 message is only reachable if the picker is bypassed → recommend closing TR-069 as covered (owner's call).
+
+**Also this session:** OB-026/027 fixes pushed (`0ff23581`), managed-market obligation set + mig 255 (`356f1201`),
+terms on free managed markets + middle path (`041fd629`); rulings D1–D5, D6 → middle path, terms required at free
+markets (decisions.md 2026-09-18); Dev + Staging transactional purge done (workflow `docs/destructive-data-workflow.md`).
+
+## ▶ NEXT-SESSION PROMPT (owner asked for this)
+Read in order: CLAUDE.md · this file · `.claude/rules/*` · `docs/testing/TEST_REGISTRY.md` · `.claude/booth_model_review.md`
+· decisions.md rows dated 2026-09-18/19. Then summarize state and STOP for the owner's instruction.
+How we work (owner-confirmed this week): approvals = decision brief (decision + enough context, no code-speak, no
+nuance dump; memory `feedback_decision_brief_format`) · ONE change per message, question LAST · stack commits, ONE
+push, separate push only for a NAMED reason · tests described by WHAT they check, and every shipped fix lands in
+`docs/testing/TEST_PROTOCOL_open_items.md` (★ WHAT'S NEW + its group) in the SAME push · destructive SQL only via
+`docs/destructive-data-workflow.md` · migrations: pull the live fingerprint from all 3 envs before writing, PRE-CHECK
+FIRST banner, snapshot row at file creation · read ALL code touching a change before proposing; cite or mark UNVERIFIED
+· never change a business-rule test without the owner's explicit yes; a ruling that reverses a recorded decision must
+be shown as a CONFLICT first (D6 incident 2026-09-18) · no file edits while a background git chain runs.
+Resume: (1) ask the owner: brief on C2/C3/C4/C6/C9 now vs finish the unread pieces; (2) mechanical fixes C1/C5/C7/C8
+can be proposed as one set once the owner rules; (3) owner still owes retests (★ WHAT'S NEW list) + Section 0.
+
+---
+
+# ✅ PUSHED TO STAGING 2026-09-18 night: `0ff23581..de96f902` (fcf0360a OB-027 part 1 · 356f1201 managed-market set · de96f902 terms ruling docs). Build compiled, Playwright 49/1 skip, `origin/staging` = `main` = `de96f902`, tree clean. Prod untouched (owes 24 commits + migs 252/253/254/255). **✅ PUSHED 2026-09-19 `de96f902..041fd629 staging -> staging`** (terms on free managed markets + the "why" line under both doc-sharing boxes + 255 snapshot row). Build compiled, Playwright 49/1 skip, `origin/staging` = `main` = `041fd629`, tree clean. Prod untouched (owes 25 commits + migs 252–255). Owner owes: retests TR-072–077 + Section 0.
+**TERMS-ON-FREE-MARKETS BUILT 2026-09-18 (owner "go - build it") — was UNCOMMITTED, gates green (90 / 2234 with the new pin):** schedules GET `needs_terms` · `freeManagedTermsNeeded` (managed, not charging, no roster row AND no acceptance) · both writers 409 `ERR_MARKET_TERMS_REQUIRED` without `agreement_accepted` · `ensureFreeManagedRosterRow` now also records the acceptance (+ `_info_sharing_consent`) · `MarketScheduleSelector` shows `MarketAgreementBlock` + sharing opt-in above the days, toggles locked until "I agree", first activation carries the acceptance · registry TR-077 · map line. NEXT: commit + push (owner's word).
 **MIG 255 ✅ DEV + STAGING 2026-09-18** (pre-check 21 test vendors across 4 fee markets — intended; post-check `dd446c1a…`/12790/true). Snapshot row flipped (uncommitted docs). Prod owes 24 commits + 252/253/254/255 (254 before 255). NEXT: owner retests TR-072–076 (+ Section 0); terms-on-free-markets build on the owner's go. Then: terms-on-free-markets build (shape in the design file) on the owner's go. ⚠ Lesson: no file edits while a background git chain runs (checkout refused; recovered with a docs commit).
 
 # ▶ 2026-09-18 (evening, later) — SET COMPLETE: pieces 1–4 + mig 255 + MIDDLE PATH (piece 5 → auto-approved roster row at free managed markets) — UNCOMMITTED, gates green (90 / 2233 after the new pin)
