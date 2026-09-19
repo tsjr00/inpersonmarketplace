@@ -1751,6 +1751,41 @@ describe('Event token format', () => {
       .toMatch(/organizer_selected_at\s*!=\s*null/)
   })
 
+  describe('Managed fee markets sell paid weeks only (mig 255, owner rulings 2026-09-18)', () => {
+    // Owner: "scheduled" at an app-managed market that charges must mean a REAL
+    // booking — the FT paid-park rule (mig 199) applied to FM. The SQL gate is
+    // authoritative; buyer visibility (both hand-kept implementations) and the
+    // vendor week strip read the same TS helper so the four cannot drift.
+    it('the NEWEST definer requires a PAID booth week at managed, fee-charging FM markets', () => {
+      const { name, sql } = newestPickupDatesDefiner()
+      expect(sql, `${name} must carry manager_user_id into the date rows`).toMatch(/m\.manager_user_id/)
+      expect(
+        sql,
+        `${name} must gate FM dates on a paid weekly_booth_rentals row when the market is managed and has a priced tier (mig 255)`
+      ).toMatch(/ls\.manager_user_id\s+IS\s+NULL[\s\S]{0,400}weekly_price_cents\s*>\s*0[\s\S]{0,400}weekly_booth_rentals\s+wbr[\s\S]{0,300}status\s*=\s*'paid'[\s\S]{0,200}week_start_date\s*\+\s*6/)
+    })
+
+    it('buyer visibility (both implementations) and the week strip read the shared helper', () => {
+      for (const file of ['lib/markets/visible-markets.ts', 'lib/markets/market-visibility.ts']) {
+        const text = rd(file)
+        expect(text, `${file} must import the shared managed-fee gate`).toMatch(/from '@\/lib\/markets\/managed-fee-gate'/)
+        expect(text, `${file} must require a paid week where the gate applies`).toMatch(/getPaidWeekPairs\(/)
+      }
+      const strip = rd('lib/vendor/week-strip.ts')
+      expect(strip).toMatch(/from '@\/lib\/markets\/managed-fee-gate'/)
+      expect(strip, 'flagged schedules render as payment_due, never on').toMatch(/status: unpaidManagedWeek \? 'payment_due' : 'on'/)
+    })
+
+    it('the helper scopes the rule to FM traditional managed markets with a priced tier', () => {
+      const gate = rd('lib/markets/managed-fee-gate.ts')
+      expect(gate).toMatch(/\.eq\('vertical_id', 'farmers_market'\)/)
+      expect(gate).toMatch(/\.eq\('market_type', 'traditional'\)/)
+      expect(gate).toMatch(/\.not\('manager_user_id', 'is', null\)/)
+      expect(gate).toMatch(/\.gt\('weekly_price_cents', 0\)/)
+      expect(gate).toMatch(/\.eq\('status', 'paid'\)/)
+    })
+  })
+
   it('the event accept route still does NOT write vendor_market_schedules', () => {
     // The rejected alternative. Creating a vms row on acceptance would make
     // "is this vendor attending?" answerable from two places that can drift —
@@ -2453,6 +2488,20 @@ describe('Event ↔ location availability', () => {
     expect(route, 'approved roster row exempts').toMatch(/roster\?\.approved === true/)
     expect(route, 'existing schedule rows grandfather').toMatch(/from\('vendor_market_schedules'\)/)
     expect(route, 'refusal routes to the application flow').toMatch(/ERR_MARKET_APPLY_REQUIRED/)
+  })
+
+  it('a vendor who self-schedules at a FREE managed market gets an APPROVED roster row (middle path, owner 2026-09-18)', () => {
+    // The 2026-09-05 zero-friction join stands, but without a roster row the
+    // manager could not see, booth-assign, broadcast to or revoke the vendor.
+    // Both writers (PUT + PATCH) ensure the row; charging markets never reach it
+    // (managedJoinBlocked already routed them to the application flow); an
+    // existing row (e.g. revoked) is never overwritten.
+    const route = rd('app/api/vendor/markets/[id]/schedules/route.ts')
+    const calls = route.match(/await ensureFreeManagedRosterRow\(/g) ?? []
+    expect(calls.length, 'both writers (PUT + PATCH) ensure the roster row').toBeGreaterThanOrEqual(2)
+    expect(route, 'only managed markets').toMatch(/if \(!market\.manager_user_id\) return/)
+    expect(route, 'only markets that do NOT charge').toMatch(/if \(await marketChargesVendors\(service, market\)\) return/)
+    expect(route, 'approved, never overwriting an existing row').toMatch(/approved: true \},\s*\{ onConflict: 'market_id,vendor_profile_id', ignoreDuplicates: true \}/)
   })
 
   it('the browse pill answers the detail-page question — event markets excluded (mig 245)', () => {

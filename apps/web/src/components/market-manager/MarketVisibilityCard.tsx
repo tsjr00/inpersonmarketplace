@@ -41,7 +41,7 @@ export default function MarketVisibilityCard({ status }: MarketVisibilityCardPro
         </span>
         <span style={{ fontSize: typography.sizes.xs, color: '#15803d' }}>
           {status.vendorsWithBoth} vendor{status.vendorsWithBoth === 1 ? ' is' : 's are'} fully
-          set up (published listing + active schedule), which lists your market in the public directory.
+          set up (published listing + active schedule{status.requiresPaidWeek ? ' + a paid booth week' : ''}), which lists your market in the public directory.
         </span>
       </div>
     )
@@ -73,7 +73,11 @@ export default function MarketVisibilityCard({ status }: MarketVisibilityCardPro
       }}>
         Markets appear in the public directory once at least one vendor has{' '}
         <strong>both</strong> a published listing at your market <strong>and</strong> an
-        active attendance schedule. This keeps buyers from finding markets they
+        active attendance schedule
+        {/* Owner 2026-09-18: managed fee markets add the paid-week clause — the
+            explanation must name the same rule buyers are held to. */}
+        {status.requiresPaidWeek && <> <strong>and</strong> a paid booth week (your market charges for booths, so a vendor counts only once they&apos;ve paid for a current or upcoming week)</>}
+        . This keeps buyers from finding markets they
         can&apos;t actually order from — so attracting and activating your first
         vendor is the step that puts you on the map.
       </p>
@@ -86,7 +90,7 @@ export default function MarketVisibilityCard({ status }: MarketVisibilityCardPro
         {[
           { label: 'With published listings', value: status.vendorsWithListings },
           { label: 'With active schedules', value: status.vendorsWithSchedules },
-          { label: 'With both (needed: 1+)', value: status.vendorsWithBoth },
+          { label: status.requiresPaidWeek ? 'With all three (needed: 1+)' : 'With both (needed: 1+)', value: status.vendorsWithBoth },
         ].map((item) => (
           <div key={item.label} style={{
             padding: `${spacing['2xs']} ${spacing.sm}`,

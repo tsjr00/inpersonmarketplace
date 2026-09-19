@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { getManagedFeeMarketIds, getPaidWeekPairs } from '@/lib/markets/managed-fee-gate'
 
 /**
  * Per-market breakdown of the buyer-visibility gate for the manager
@@ -31,6 +32,8 @@ export interface MarketVisibilityStatus {
   vendorsWithSchedules: number
   /** Distinct vendors satisfying both — the count that makes the market visible. */
   vendorsWithBoth: number
+  /** True when this is a managed, fee-charging FM market: vendors also need a paid booth week to count (owner 2026-09-18). */
+  requiresPaidWeek: boolean
 }
 
 // @paired-rule market-visibility — mirror of getFullyOnboardedMarketIds in
@@ -66,13 +69,26 @@ export async function getMarketVisibilityStatus(
     (vmsRes.data ?? []).map((r) => r.vendor_profile_id as string)
   )
 
+  // (c) managed fee market (owner 2026-09-18): the vendor must ALSO hold a paid
+  // current/upcoming booth week — @paired-rule managed-fee-market-sells-paid-weeks.
+  // Same helper as the buyer-side batch rule, so the manager's explanation
+  // matches what buyers see.
+  const managedFeeIds = await getManagedFeeMarketIds(serviceClient, [marketId])
+  const requiresPaidWeek = managedFeeIds.has(marketId)
+  const paidPairs = requiresPaidWeek
+    ? await getPaidWeekPairs(serviceClient, [marketId], new Date().toISOString().slice(0, 10))
+    : new Set<string>()
+
   let vendorsWithBoth = 0
   for (const vpid of listingVendors) {
-    if (scheduleVendors.has(vpid)) vendorsWithBoth++
+    if (!scheduleVendors.has(vpid)) continue
+    if (requiresPaidWeek && !paidPairs.has(`${marketId}|${vpid}`)) continue
+    vendorsWithBoth++
   }
 
   return {
     isVisible: vendorsWithBoth > 0,
+    requiresPaidWeek,
     vendorsWithListings: listingVendors.size,
     vendorsWithSchedules: scheduleVendors.size,
     vendorsWithBoth,

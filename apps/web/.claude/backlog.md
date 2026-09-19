@@ -67,7 +67,14 @@ and we will start on it next time." Evidence for every line below: `apps/web/.cl
   `previouslySelected`. ⚠ `flow-integrity.test.ts:2552` pins the exact current `selected:` line (written to stop
   deriving it from status='ready') → expectation change = owner's explicit call. Size S.
 
-- [ ] **DESIGN STAGE (owner 2026-09-18: "i like the idea, add the plan/design stage to the todo list") — "Your next
+- [ ] **The self-schedule path shows and records NO market agreement** (found 2026-09-18 building the middle path).
+  The Apply path (2026-09-18) and booth/park booking record `vendor_market_agreement_acceptances`; a vendor who
+  joins a FREE managed market by toggling schedule days never sees the market's terms and never consents to
+  document sharing. Fix = show `MarketAgreementBlock` on first activation at a managed market and record the
+  acceptance in the schedules route (the auto-roster row now exists to hang it on). Size S–M. Owner's call on
+  whether free markets should require the terms at all.
+- [x] **BUILT 2026-09-18 as the managed-market obligation set (rulings D1–D5 + middle path; mig 255 pending Staging paste):**
+  **DESIGN STAGE (owner 2026-09-18: "i like the idea, add the plan/design stage to the todo list") — "Your next
   two weeks" strip + schedule gates: managed markets require a real booking.** Rule of record: OFF-APP markets
   (no `markets.manager_user_id`) → the vendor's own active attendance row is the obligation (today's rule,
   `week-strip.ts:301-308`). APP-MANAGED markets (`manager_user_id` set — the same flag the Apply button and

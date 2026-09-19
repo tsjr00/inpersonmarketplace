@@ -43,6 +43,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { observed } from '@/lib/errors'
 import { dayOfWeekOf, datesBetween, padTime, shiftDate } from '@/lib/events/availability'
 import { prepayCutoffISO } from '@/lib/markets/park-standing'
+import { getManagedFeeMarketIds } from '@/lib/markets/managed-fee-gate'
 
 export type StripEntryKind = 'schedule' | 'park_booking' | 'booth' | 'private_pickup' | 'event' | 'market_box'
 export type StripEntryStatus = 'on' | 'skipped_for_event' | 'cancelled_by_market' | 'payment_due' | 'standing_hold'
@@ -74,6 +75,11 @@ export interface StripScheduleInput {
   dayOfWeek: number
   startTime: string
   endTime: string
+  /** Owner 2026-09-18 (@paired-rule managed-fee-market-sells-paid-weeks): a
+   *  MANAGED, FEE-CHARGING farmers market — the weekly projection alone is not
+   *  an obligation there; only a PAID booth week is. Without one the weekday
+   *  renders as 'payment_due' ("no paid booth week"), never as 'on'. */
+  requiresPaidWeek?: boolean
 }
 
 export interface StripDateInput {
@@ -198,7 +204,11 @@ export function assembleStrip(dates: string[], input: StripAssembleInput): Strip
 
     for (const s of input.schedules) {
       if (s.dayOfWeek !== dow) continue
-      if (has(s.marketId)) continue
+      if (has(s.marketId)) continue // a PAID booth week for this market+date already pushed above
+      // Managed fee market with no paid week covering this date (owner ruling
+      // 2026-09-18, D3): shown, but as a payment-due day — the vendor is not
+      // selling there until a week is booked and paid.
+      const unpaidManagedWeek = s.requiresPaidWeek === true
       entries.push({
         marketId: s.marketId,
         name: s.marketName,
@@ -206,8 +216,8 @@ export function assembleStrip(dates: string[], input: StripAssembleInput): Strip
         marketType: s.marketType,
         startTime: padTime(s.startTime),
         endTime: padTime(s.endTime),
-        status: 'on',
-        note: null,
+        status: unpaidManagedWeek ? 'payment_due' : 'on',
+        note: unpaidManagedWeek ? 'No paid booth week — book this week to sell here' : null,
       })
     }
 
@@ -324,6 +334,17 @@ export async function loadVendorWeekStrip(
       startTime: (r.vendor_start_time as string | null) ?? ms.start_time,
       endTime: (r.vendor_end_time as string | null) ?? ms.end_time,
     })
+  }
+
+  // 1b. Owner 2026-09-18 (D3): flag the schedules at MANAGED, FEE-CHARGING FM
+  //     markets — there the weekly projection is not an obligation; the paid
+  //     booth weeks loaded in (3) are. assembleStrip renders an unflagged
+  //     projection as 'on' and a flagged one without a paid week as
+  //     'payment_due'. Same helper as the sell gate's TS twin and buyer
+  //     visibility (@paired-rule managed-fee-market-sells-paid-weeks).
+  const managedFeeIds = await getManagedFeeMarketIds(service, [...new Set(schedules.map(s => s.marketId))])
+  for (const s of schedules) {
+    if (managedFeeIds.has(s.marketId)) s.requiresPaidWeek = true
   }
 
   // 2. The vendor's own private-pickup windows.

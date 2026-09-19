@@ -1,3 +1,25 @@
+# ▶ 2026-09-18 (evening, later) — SET COMPLETE: pieces 1–4 + mig 255 + MIDDLE PATH (piece 5 → auto-approved roster row at free managed markets) — UNCOMMITTED, gates green (90 / 2233 after the new pin)
+
+Owner on the D6 conflict: first "Keep the 2026-09-05 rule", then asked for the conflicts either way → chose the
+MIDDLE PATH (zero-friction join stands; self-scheduling at a FREE managed market now creates an APPROVED roster row
+so the manager can see / booth / broadcast / revoke). Built in `schedules/route.ts` (`ensureFreeManagedRosterRow`,
+both writers) + 1 pin; the 2026-09-05 pin untouched. Registry TR-073–076. Backlog: self-schedule path records no
+agreement. NEXT: commit + ONE staging push (owner's word) → 255 pre-check + paste on Staging (dry-run workflow n/a —
+it's a migration, not a purge) → retests.
+
+---
+
+# ▶ 2026-09-18 (evening) — MANAGED-MARKET OBLIGATION SET: pieces 1–4 + mig 255 BUILT (uncommitted), piece 5 STOPPED
+
+Rulings D1–D6 logged (decisions.md). Built + green (tsc 0 · vitest 90/2232): TS twin `lib/markets/managed-fee-gate.ts`,
+buyer visibility (both impls + manager card copy), week strip payment_due, mig 255 (PRE-CHECK FIRST; Prod needs 254
+first), paired rule + 3 pins, snapshot row, map. **STOPPED piece 5 (D6):** reverses the owner's 2026-09-05 rule
+"free managed markets keep the zero-friction join" pinned at `flow-integrity.test.ts:2439-2456` — presented as a
+CONFLICT, awaiting a knowing ruling. Also committed earlier today: OB-027 part 1 `fcf0360a`. Design file:
+`.claude/managed_market_obligation_design.md`.
+
+---
+
 # ▶ 2026-09-18 (later) — OB-026 fixes PUSHED TO STAGING `14b7c627..0ff23581` (4 commits: 3 docs + 1 fix)
 
 Fix commit `0ff23581`: TR-069 market-limit message names counted markets · TR-034 FM no longer pointed at Pickup

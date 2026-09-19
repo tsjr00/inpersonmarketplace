@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, observed } from '@/lib/errors'
+import { withErrorTracing, observed, logError, traced } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { findScheduleConflicts, padTime, dayOfWeekName, formatTimeDisplay, type ScheduleSlot } from '@/lib/utils/schedule-overlap'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
+import { marketChargesVendors, type MarketFeeShape } from '@/lib/markets/managed-fee-gate'
 
 /**
  * Check if a vendor has multiple_trucks enabled in their profile_data.
@@ -76,6 +77,39 @@ async function managedJoinBlocked(
   if ((existing ?? []).length > 0) return null
 
   return market.name || 'This market'
+}
+
+/**
+ * Middle path (owner 2026-09-18, decisions.md "Ruling 6 → the MIDDLE PATH"): the
+ * 2026-09-05 zero-friction join at FREE managed markets stands — but until now a
+ * vendor who joined that way had NO roster row, so the manager could not see
+ * them, assign a booth (vendor-booth 404s without the row), broadcast to them
+ * (approved-roster recipients) or revoke them, while buyers saw the market as
+ * open on their listing + schedule. This creates the roster row, APPROVED, the
+ * first time a vendor activates a schedule at a managed market that does not
+ * charge. `ignoreDuplicates` never touches an existing row — a revoked vendor
+ * stays revoked on the manager's screen. Charging markets never reach here:
+ * managedJoinBlocked already routed them through the application flow.
+ * Best-effort: a failure is logged, the schedule change stands (the row is a
+ * manager-side convenience, not a gate).
+ */
+async function ensureFreeManagedRosterRow(
+  marketId: string,
+  vendorProfileId: string,
+  market: MarketFeeShape & { manager_user_id?: string | null }
+): Promise<void> {
+  if (!market.manager_user_id) return
+  const service = createServiceClient()
+  if (await marketChargesVendors(service, market)) return
+  const { error } = await service
+    .from('market_vendors')
+    .upsert(
+      { market_id: marketId, vendor_profile_id: vendorProfileId, approved: true },
+      { onConflict: 'market_id,vendor_profile_id', ignoreDuplicates: true }
+    )
+  if (error) {
+    await logError(traced.fromSupabase(error, { table: 'market_vendors', operation: 'insert' }))
+  }
 }
 
 /**
@@ -452,6 +486,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       // Return warning if no schedules selected
       const hasAnyActive = scheduleIds.length > 0
 
+      if (hasAnyActive) {
+        await ensureFreeManagedRosterRow(marketId, vendorProfile.id, market)
+      }
+
       return NextResponse.json({
         success: true,
         hasAnyActive,
@@ -679,6 +717,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           return NextResponse.json({ error: upsertError.message, code: 'ERR_SCHEDULE_CONFLICT' }, { status: 409 })
         }
         return NextResponse.json({ error: 'Failed to update schedule' }, { status: 500 })
+      }
+
+      if (upsertData.is_active === true) {
+        await ensureFreeManagedRosterRow(marketId, vendorProfile.id, market)
       }
 
       // Check if vendor has any active schedules

@@ -1,12 +1,17 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getManagedFeeMarketIds, getPaidWeekPairs } from '@/lib/markets/managed-fee-gate'
 
 /**
  * Returns the subset of marketIds where at least one vendor satisfies the
  * full visibility rule (mirror of migration 131's pickup-availability rule):
  *   (a) vendor has a published, non-deleted listing connected via listing_markets
  *   (b) same vendor has an active vendor_market_schedules row at the market
+ *   (c) at a MANAGED, FEE-CHARGING farmers market (owner 2026-09-18, decisions.md),
+ *       the same vendor also holds a PAID booth week that is current or upcoming
+ *       — @paired-rule managed-fee-market-sells-paid-weeks (lib/markets/managed-fee-gate.ts)
  *
- * Both conditions must be true for the SAME vendor at the SAME market. Used
+ * All conditions must be true for the SAME vendor at the SAME market. Used
  * to hide traditional markets from the public list when no vendor has
  * completed the schedule + listing onboarding for the market.
  *
@@ -59,11 +64,23 @@ export async function getFullyOnboardedMarketIds(
     return new Set()
   }
 
+  // (c) managed fee markets: the same vendor must hold a paid current/upcoming
+  // week. Read with the service client — rentals and priced tiers are not
+  // public-readable. The 6-day lookback in getPaidWeekPairs makes the UTC date
+  // safe across US timezones (a week that ended yesterday local can, at worst,
+  // count for one more day).
+  const service = createServiceClient()
+  const managedFeeIds = await getManagedFeeMarketIds(service, marketIds)
+  const paidPairs = managedFeeIds.size > 0
+    ? await getPaidWeekPairs(service, [...managedFeeIds], new Date().toISOString().slice(0, 10))
+    : new Set<string>()
+
   const validMarketIds = new Set<string>()
   for (const row of vmsRows ?? []) {
-    if (listingPairs.has(`${row.market_id}|${row.vendor_profile_id}`)) {
-      validMarketIds.add(row.market_id as string)
-    }
+    const pair = `${row.market_id}|${row.vendor_profile_id}`
+    if (!listingPairs.has(pair)) continue
+    if (managedFeeIds.has(row.market_id as string) && !paidPairs.has(pair)) continue
+    validMarketIds.add(row.market_id as string)
   }
 
   return validMarketIds

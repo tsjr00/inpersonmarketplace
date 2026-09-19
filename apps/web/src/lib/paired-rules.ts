@@ -103,6 +103,16 @@ export const PAIRED_RULES: PairedRule[] = [
     },
   },
   {
+    key: 'managed-fee-market-sells-paid-weeks',
+    rule: 'At a MANAGED (markets.manager_user_id set), FEE-CHARGING (any market_booth_inventory.weekly_price_cents > 0) farmers market, a vendor sells a date — and counts as "open"/"scheduled" there — only with a PAID weekly_booth_rentals row covering it (week_start_date .. +6). Everywhere else the attendance row (vendor_market_schedules.is_active) is the rule. Conflict checks and schedule gates keep attendance rows as commitments (owner ruling 5).',
+    authoritative: 'the newest SQL definer of get_available_pickup_dates (mig 255 predicate) — buyer visibility and the vendor week strip read lib/markets/managed-fee-gate.ts, the TS twin',
+    whyDriftIsSilent:
+      'App ↔ SQL pair plus three app readers. Before 2026-09-18 the app READ paid weeks in four places and REQUIRED ' +
+      'them in none — an approved vendor at a fee market sold weeks they never paid for, with every test green. A ' +
+      'reader that stops calling the shared helper, or a definer rewritten from an older copy, reopens that silently.',
+    behaviouralTest: { file: 'src/lib/__tests__/flow-integrity.test.ts', marker: 'Managed fee markets sell paid weeks only' },
+  },
+  {
     key: 'capacity-seeding',
     rule: 'The capacity number a vendor SEES on the event invitation and the number the form SUBMITS come from the same computation.',
     authoritative: 'the shared calculateWaveCount + loader seed (display is a view of the submitted value, never a parallel computation)',
