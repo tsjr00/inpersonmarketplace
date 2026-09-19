@@ -92,6 +92,21 @@ D6. **Free managed markets:** "approved roster + attendance row" — S12 today l
   through the application path"; `flow-integrity.test.ts:2439-2456` pins "free stays open". D6 as ruled today
   reverses that. Per Absolute Rule 2: no code, no test change until the owner rules on the conflict knowingly.
 
+## FOLLOW-UP RULED 2026-09-18: "free markets should require the terms" (decisions.md) — NOT YET BUILT
+Shape (read 2026-09-18): the vendor UI is `components/vendor/MarketScheduleSelector.tsx` (461 lines; PATCH per
+toggle at `:110`, `:160`; GET `:76`; used only by `app/[vertical]/vendor/markets/page.tsx`). Plan:
+1. Schedules GET returns `needs_terms` = managed market AND no roster row / no `vendor_market_agreement_acceptances`
+   row for this vendor+market (grandfathered = has either).
+2. Selector: when `needs_terms`, render `MarketAgreementBlock` (+ the doc-sharing opt-in used by Apply) ABOVE the
+   day toggles; toggles disabled until "I agree"; the first activating PATCH sends `agreement_accepted` +
+   `info_sharing_accepted`.
+3. Schedules route (PUT + PATCH): when the market is managed, free, and the vendor has no roster/acceptance row,
+   an activating write without `agreement_accepted === true` → 409 `ERR_MARKET_TERMS_REQUIRED`; with it → record
+   the acceptance (statements + platform clauses + optional consent; same shape as Apply) alongside the auto
+   roster row. Charging markets are unaffected (Apply already records).
+4. Pin: both writers require terms on first join at a free managed market; GET exposes `needs_terms`.
+Size S–M. Owner's go still needed.
+
 ## Build plan (after decisions) — one coordinated change set, ONE push
 1. Shared predicate `vendorSellsAtMarketOnDate(vendor, market, date)` in `lib/markets/` + SQL twin in the sell
    gate (mig 255) — register as a paired rule with a behavioural pin (same pattern as event-sells-on-acceptance).
