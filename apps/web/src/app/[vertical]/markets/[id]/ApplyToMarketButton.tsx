@@ -2,18 +2,30 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import MarketAgreementBlock from '@/components/market-manager/MarketAgreementBlock'
 
 interface ApplyToMarketButtonProps {
   marketId: string
   vendorProfileId: string
+  /** Selects the brand name in the fixed platform clauses of the agreement block. */
+  vertical: string
 }
 
-export default function ApplyToMarketButton({ marketId, vendorProfileId }: ApplyToMarketButtonProps) {
+export default function ApplyToMarketButton({ marketId, vendorProfileId, vertical }: ApplyToMarketButtonProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [notes, setNotes] = useState('')
   const [error, setError] = useState('')
+  // Owner 2026-09-18 (TR-036, option A): applying now shows the market's
+  // agreement (the same block signup and booth booking use — it always has at
+  // least the platform clauses, so acceptance is always required) plus an
+  // opt-in to share onboarding documents with this market's manager. The
+  // manager's "View docs" link keys off that consent inside the acceptance
+  // record; before this, Apply wrote no acceptance at all, so a vendor who
+  // joined by applying could never be reviewed.
+  const [agreementAccepted, setAgreementAccepted] = useState(false)
+  const [shareDocs, setShareDocs] = useState(false)
 
   const handleApply = async () => {
     setLoading(true)
@@ -26,6 +38,8 @@ export default function ApplyToMarketButton({ marketId, vendorProfileId }: Apply
         body: JSON.stringify({
           vendor_profile_id: vendorProfileId,
           notes: notes.trim() || undefined,
+          agreement_accepted: agreementAccepted,
+          info_sharing_accepted: shareDocs,
         }),
       })
 
@@ -70,6 +84,7 @@ export default function ApplyToMarketButton({ marketId, vendorProfileId }: Apply
       borderRadius: 8,
       padding: 16,
       minWidth: 280,
+      maxWidth: 520,
     }}>
       <h4 style={{ margin: '0 0 8px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
         Apply to Market
@@ -101,6 +116,27 @@ export default function ApplyToMarketButton({ marketId, vendorProfileId }: Apply
         }}
       />
 
+      {/* The market's agreement — accepted here, recorded with the application. */}
+      <MarketAgreementBlock marketId={marketId} vertical={vertical} onChange={setAgreementAccepted} />
+
+      {/* Document-sharing opt-in (owner 2026-09-18). Off by default: the vendor
+          chooses to let THIS market's manager review their onboarding documents
+          (licenses, insurance, permits). Without it the manager sees no
+          "View docs" link for them. */}
+      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: '#333', lineHeight: 1.45, margin: '12px 0', cursor: 'pointer' }}>
+        <input
+          type="checkbox"
+          checked={shareDocs}
+          onChange={(e) => setShareDocs(e.target.checked)}
+          style={{ marginTop: 3, minWidth: 16, minHeight: 16 }}
+        />
+        <span>
+          <strong>Share my onboarding documents with this market&apos;s manager.</strong>{' '}
+          Lets the manager review the licenses, permits and insurance you uploaded, so they can
+          approve you without asking for copies. Optional — you can apply without it.
+        </span>
+      </label>
+
       {error && (
         <div style={{
           padding: '8px 12px',
@@ -117,17 +153,18 @@ export default function ApplyToMarketButton({ marketId, vendorProfileId }: Apply
       <div style={{ display: 'flex', gap: 8 }}>
         <button
           onClick={handleApply}
-          disabled={loading}
+          disabled={loading || !agreementAccepted}
+          title={!agreementAccepted ? 'Please accept the market agreement above' : undefined}
           style={{
             flex: 1,
             padding: '10px 16px',
-            backgroundColor: loading ? '#ccc' : '#0070f3',
+            backgroundColor: loading || !agreementAccepted ? '#ccc' : '#0070f3',
             color: 'white',
             border: 'none',
             borderRadius: 6,
             fontSize: 14,
             fontWeight: 500,
-            cursor: loading ? 'not-allowed' : 'pointer',
+            cursor: loading || !agreementAccepted ? 'not-allowed' : 'pointer',
           }}
         >
           {loading ? 'Applying...' : 'Submit Application'}

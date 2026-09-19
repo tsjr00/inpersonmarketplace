@@ -326,6 +326,7 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
                 <ApplyToMarketButton
                   marketId={id}
                   vendorProfileId={userVendorProfile.id}
+                  vertical={vertical}
                 />
               </div>
             )}

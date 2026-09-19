@@ -607,7 +607,10 @@ export default function EventReadinessForm({
               <br /><br />
               The system uses algorithms that factor in your capacity as part of the process of matching you with events that are a good fit for you.
               <br /><br />
-              Your event capacity is separate from your Pickup Capacity setting above (which paces your everyday, non-event, orders). We know that your capacity may change with your products and the amount of help you have, so when you accept a specific event invitation, you&rsquo;ll be able to change and confirm your capacity for that event. Your event capacity is important for keeping events running smoothly, be as accurate as you can be.
+              {/* FM has no Pickup Capacity section (FT only, mig 216) — owner
+                  2026-09-18 (TR-034): never point FM vendors at a setting that
+                  does not exist. */}
+              We know that your capacity may change with your products and the amount of help you have, so when you accept a specific event invitation, you&rsquo;ll be able to change and confirm your capacity for that event. Your event capacity is important for keeping events running smoothly, be as accurate as you can be.
             </>
           )}
         </p>

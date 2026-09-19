@@ -83,7 +83,10 @@ export default function PickupLineAcknowledgment({ vertical, onAcknowledged, var
       <ul style={{ margin: `0 0 ${spacing.xs}`, paddingLeft: 18, fontSize: typography.sizes.xs, color: '#78350f', lineHeight: 1.55, display: 'flex', flexDirection: 'column', gap: 2 }}>
         <li>Set up a small pickup spot with the branded sign — print-ready 8.5×11 and 11×17 versions are on the{' '}
           <Link href={`/${vertical}/vendor/pickup-signs`} style={{ color: '#92400e', fontWeight: typography.weights.semibold }}>Pickup signs</Link> page.</li>
-        <li>Your <em>Pickup Capacity</em> and <em>prep time</em> settings keep both lines moving.</li>
+        {/* Pickup Capacity + prep time are FOOD-TRUCK settings (mig 216; the
+            edit page renders them for FT only) — owner 2026-09-18 (TR-034):
+            don't send FM vendors looking for them. */}
+        {isFT && <li>Your <em>Pickup Capacity</em> and <em>prep time</em> settings keep both lines moving.</li>}
       </ul>
       <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: typography.sizes.xs, color: '#78350f', cursor: 'pointer', marginBottom: spacing.xs }}>
         <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} disabled={saving} style={{ marginTop: 2 }} />

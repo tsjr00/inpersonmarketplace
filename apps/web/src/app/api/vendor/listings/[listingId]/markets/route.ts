@@ -8,6 +8,7 @@ import {
 import {
   getTierLimits,
   getTraditionalMarketUsageExcludingListing,
+  normalizeTier,
 } from '@/lib/vendor-limits'
 
 /**
@@ -173,9 +174,28 @@ export async function POST(
         }
 
         if (combinedTraditionalIds.size > tierLimits.traditionalMarkets) {
+          // Owner 2026-09-18 (OB-026 #1, TR-069): the limit is VENDOR-WIDE —
+          // distinct traditional markets across every other listing plus
+          // market-box pickup markets — so "remove this listing from another
+          // market" could never clear it. Name the markets that are counted,
+          // and the plan by its real name (legacy tier names normalize to free).
+          crumb.supabase('select', 'markets', { check: 'counted names' })
+          const { data: countedMarkets, error: countedError } = await supabase
+            .from('markets')
+            .select('name')
+            .in('id', existingUsage.marketIds)
+            .order('name')
+          if (countedError) {
+            throw traced.fromSupabase(countedError, { table: 'markets', operation: 'select' })
+          }
+          const countedNames = (countedMarkets || []).map((m) => m.name as string)
+          const planName = normalizeTier(tier)
+          const alreadyAt = countedNames.length > 0
+            ? ` You already have active listings (or a market box) at: ${countedNames.join(', ')}.`
+            : ''
           return NextResponse.json(
             {
-              error: `Market limit reached (${combinedTraditionalIds.size}/${tierLimits.traditionalMarkets}). Your ${tier} plan allows up to ${tierLimits.traditionalMarkets} traditional markets. Remove this listing from another market first, or upgrade your plan.`,
+              error: `Your ${planName} plan allows active listings at up to ${tierLimits.traditionalMarkets} traditional markets, counted across all your listings and market-box pickup markets.${alreadyAt} Remove a market from those listings first, or upgrade your plan.`,
               code: 'ERR_MARKET_LIMIT',
               currentCount: existingUsage.count,
               proposedCount: combinedTraditionalIds.size,

@@ -67,6 +67,18 @@ and we will start on it next time." Evidence for every line below: `apps/web/.cl
   `previouslySelected`. ⚠ `flow-integrity.test.ts:2552` pins the exact current `selected:` line (written to stop
   deriving it from status='ready') → expectation change = owner's explicit call. Size S.
 
+- [ ] **DESIGN STAGE (owner 2026-09-18: "i like the idea, add the plan/design stage to the todo list") — "Your next
+  two weeks" strip + schedule gates: managed markets require a real booking.** Rule of record: OFF-APP markets
+  (no `markets.manager_user_id`) → the vendor's own active attendance row is the obligation (today's rule,
+  `week-strip.ts:301-308`). APP-MANAGED markets (`manager_user_id` set — the same flag the Apply button and
+  manager tools key off, `markets/[id]/page.tsx:61`) → show/count only with a real booking that week: paid park
+  spot (FT paid parks — already the selling rule, mig 199), paid booth week (FM with fees), or approved roster +
+  attendance row for free managed markets. Design pass first: inventory every surface that answers "is this
+  vendor scheduled here" (strip, dashboard tile, conflict checker `availability.ts`, booking guard, sell gate),
+  decide per surface, THEN build. TR-070. Size M.
+- [ ] **FUTURE — FM equivalent of Pickup Capacity?** Owner 2026-09-18: not now (listing quantity caps FM orders).
+  2026-09-18: FM-facing mentions of the FT-only setting removed (EventReadinessForm FM branch,
+  PickupLineAcknowledgment bullet). Revisit only if a farm needs "no more than N pickups per market day".
 - [ ] **🧪 The unit-test suite writes ~15 rows into Dev's `error_logs` on EVERY run** (found 2026-09-18 from the
   Dev error summary: 15,900 of 16,002 rows, counts identical across the guard-test routes, last_seen = the day of
   the runs). Mechanism: `lib/errors/logger.ts:36-56` builds a service client from env creds; vitest loads

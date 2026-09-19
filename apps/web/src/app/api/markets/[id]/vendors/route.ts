@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { withErrorTracing, observed } from '@/lib/errors'
+import { withErrorTracing, observed, logError, traced } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { sendNotification } from '@/lib/notifications'
+import { fetchMarketOptinForVendor } from '@/lib/markets/optin-public'
+import { computeAgreementVersionFromSnapshot } from '@/lib/markets/agreement-version'
+import { getTruckPlatformClauses } from '@/lib/markets/platform-agreement-clauses'
 
 // GET /api/markets/[id]/vendors - List vendors at market
 export async function GET(
@@ -108,11 +111,28 @@ export async function POST(
 
     // Parse request body
     const body = await request.json()
-    const { vendor_profile_id, notes } = body
+    const { vendor_profile_id, notes, agreement_accepted, info_sharing_accepted } = body as {
+      vendor_profile_id?: string
+      notes?: string
+      /** The vendor ticked "I agree" under the market's agreement block. */
+      agreement_accepted?: boolean
+      /** Opt-in: let this market's manager review the vendor's onboarding documents. */
+      info_sharing_accepted?: boolean
+    }
 
     if (!vendor_profile_id) {
       return NextResponse.json(
         { error: 'Missing required field: vendor_profile_id' },
+        { status: 400 }
+      )
+    }
+
+    // Owner 2026-09-18 (TR-036, option A): applying records acceptance of the
+    // market's agreement, like signup and booth booking do — the block always
+    // carries the platform clauses, so there is always something to accept.
+    if (agreement_accepted !== true) {
+      return NextResponse.json(
+        { error: 'Please accept the market agreement to apply' },
         { status: 400 }
       )
     }
@@ -195,6 +215,50 @@ export async function POST(
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Record the agreement acceptance (+ the optional document-sharing consent)
+    // in vendor_market_agreement_acceptances — the same shape the signup and
+    // park-booking paths write, so the manager's "View docs" link (which looks
+    // for the synthetic `_info_sharing_consent` entry in the snapshot) works for
+    // vendors who joined by applying. Non-atomic with the roster insert above,
+    // like the signup path: a failure here is logged, the application stands.
+    try {
+      const serviceClient = createServiceClient()
+      const { snapshot } = await fetchMarketOptinForVendor(marketId)
+      const platformClauseEntries = getTruckPlatformClauses(market.vertical_id as string).map((c) => ({
+        statement_id: c.statement_id,
+        category: '_platform',
+        statement_text: c.text,
+        placeholder_values: {},
+      }))
+      const finalSnapshot = [
+        ...snapshot,
+        ...platformClauseEntries,
+        ...(info_sharing_accepted === true
+          ? [{
+              statement_id: '_info_sharing_consent',
+              category: '_meta',
+              statement_text: 'Vendor authorizes the platform to share their onboarding documentation with the market manager.',
+              placeholder_values: {},
+            }]
+          : []),
+      ]
+      const { error: vmaaErr } = await serviceClient
+        .from('vendor_market_agreement_acceptances')
+        .insert({
+          vendor_profile_id,
+          market_id: marketId,
+          statements_snapshot: finalSnapshot,
+          agreement_version: computeAgreementVersionFromSnapshot(snapshot),
+        })
+      // 23505 = this vendor already accepted this exact version (e.g. re-applied
+      // after a revocation) — the earlier record stands.
+      if (vmaaErr && vmaaErr.code !== '23505') {
+        await logError(traced.fromSupabase(vmaaErr, { table: 'vendor_market_agreement_acceptances', operation: 'insert' }))
+      }
+    } catch (acceptErr) {
+      console.error('[markets/vendors] agreement acceptance write failed:', acceptErr instanceof Error ? acceptErr.message : 'Unknown')
     }
 
     // Owner option A (2026-09-05): tell the MANAGER a new application landed

@@ -98,7 +98,7 @@ Shared with the park domain; FM is where it originated. Table: `booth_credits`. 
 
 ## Public market routes
 
-`api/markets/route.ts` (public list; POST create is admin-only) · `nearby/route.ts` (geo search) · `[id]/route.ts` (detail; PATCH/DELETE admin) · `[id]/schedules/**` · `[id]/vendors/**` (GET roster; POST = vendor applies) · `[id]/vendors-with-listings/route.ts` · `[id]/optin-public/route.ts` (anonymous terms read) · `[id]/follow/route.ts` (`market_favorites`).
+`api/markets/route.ts` (public list; POST create is admin-only) · `nearby/route.ts` (geo search) · `[id]/route.ts` (detail; PATCH/DELETE admin) · `[id]/schedules/**` · `[id]/vendors/**` (GET roster; POST = vendor applies — since 2026-09-18 requires `agreement_accepted` and records a `vendor_market_agreement_acceptances` row with the market's statements + platform clauses + the optional `_info_sharing_consent` entry, which is what unlocks the manager's "View docs" link) · `[id]/vendors-with-listings/route.ts` · `[id]/optin-public/route.ts` (anonymous terms read) · `[id]/follow/route.ts` (`market_favorites`).
 
 ## Library (`lib/markets/**` — FM-side)
 
