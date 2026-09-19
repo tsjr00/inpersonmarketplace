@@ -1,5 +1,14 @@
 # Backlog
 
+## 🚚 FT — spot-booking must respect an active standing hold (F1) · designed 2026-09-19, NOT built
+Found during the booth-model review (`booth_model_review.md` Piece 4). The one-off spot-booking route never reads
+`park_standing_reservations`; a hold is protected only by the pending occurrence the sweep creates ≤ 7 days out
+(`park-standing.ts:31`), so another truck can book the anchor's spot 8+ days ahead and the sweep silently skips the
+anchor's week (`:375-379`). Owner 2026-09-19: "write the design… roll in now or backlog, as long as we don't lose
+track of what we are changing and can defend it later." **Design + defensible rationale: `booth_model_design.md` §7**
+(F1-1 block held spot on its weekday unless the anchor forfeited; F1-2 notify anchor + operator on a skipped week;
+F1-3 page badge). No migration. Recommended to ride with booth part A as its own commit.
+
 ## 💡 PRO INCENTIVE — vendor upgrade auto-grants buyer premium (owner idea 2026-09-15)
 
 Owner: "As a way to incentivize vendors to upgrade to Pro, we automatically upgrade their buyer tier when they

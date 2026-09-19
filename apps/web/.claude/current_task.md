@@ -4,6 +4,20 @@
 testing README rule, OB-028 + TR-078 in OBSERVATIONS/REGISTRY, `.claude/booth_model_review.md`, this note). Migs 254 +
 255 on Dev + Staging. Prod untouched (owner: no prod push yet).
 
+**2026-09-19 (post-compaction) — pass 2 of the booth review DONE** (owner: "finish reading the four pieces first,
+then give me the brief… accuracy not efficiency"). All four pieces read and written into `booth_model_review.md`
+("Pass 2" section): occupancy grid, credits, seasons, FT parks. New conflicts: **C11** (a paid one-off week cannot
+be cancelled by anyone in-app), **C12** (occupancy grid keys paid rentals on MONDAY; rentals are SUNDAY-keyed → grid
+never shows paid renters), **F1** (FT: one-off booking can take a standing holder's spot 8+ days out; FT round, not
+now). FT precedent for C2: paid park booking auto-creates roster row + activates schedules (`webhooks.ts:1931-1993`).
+Decision brief delivered; **owner RULED on everything** (decisions.md 2026-09-19 row, BR-1…BR-12) and asked for the
+complete design → `apps/web/.claude/booth_model_design.md` (vocabulary, 12 rules, migs 256/257, 14 surfaces, build
+order A→D, guardrails, 4 open items). Uncommitted docs: review file, design file, decisions row, this note.
+**NEXT:** owner reads the design; answer §6 open items (season children numbers; grandfather clause; BR-9 day count);
+then part A on the owner's "go" — first step is the live fingerprint query for `check_booth_number_uniqueness`,
+`book_weekly_booth_atomic`, `book_season_atomic` on Dev/Staging/Prod (schema-gate read before composing it).
+No build go yet.
+
 **Active investigation — BOOTH MODEL (OB-028, TR-078):** owner booked a booth as a pinned vendor → BOOTH_CONFLICT on
 their OWN pin (mig 186 honors the pin, mig 146 trigger self-excludes only within the same table). Owner: "core
 function… has to be right… dig deep… communicate it to managers & vendors." Full model + 10 ranked conflicts (C1–C10)
