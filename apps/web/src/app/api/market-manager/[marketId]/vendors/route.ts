@@ -112,6 +112,39 @@ export async function GET(
       }
     }
 
+    // Owner 2026-09-18 (OB-027 part 1): a pinned booth number is the manager's
+    // standing assignment; PAYING is a separate per-week act by the vendor
+    // (weekly_booth_rentals). Managers assigning booths could not see that no
+    // week had been paid. Two facts for the row: does this market charge for
+    // booths at all (any inventory tier with a price — free markets get no
+    // note), and does this vendor hold a PAID rental for the current or an
+    // upcoming week (a week runs 7 days from week_start_date).
+    crumb.supabase('select', 'market_booth_inventory')
+    const { data: pricedTiers, error: tiersErr } = await serviceClient
+      .from('market_booth_inventory')
+      .select('id')
+      .eq('market_id', marketId)
+      .gt('weekly_price_cents', 0)
+      .limit(1)
+    if (tiersErr) {
+      throw traced.fromSupabase(tiersErr, { table: 'market_booth_inventory', operation: 'select' })
+    }
+    const marketChargesBooths = (pricedTiers ?? []).length > 0
+
+    const weekAgo = new Date()
+    weekAgo.setUTCDate(weekAgo.getUTCDate() - 6)
+    crumb.supabase('select', 'weekly_booth_rentals')
+    const { data: paidRentals, error: rentalsErr } = await serviceClient
+      .from('weekly_booth_rentals')
+      .select('vendor_profile_id')
+      .eq('market_id', marketId)
+      .eq('status', 'paid')
+      .gte('week_start_date', weekAgo.toISOString().slice(0, 10))
+    if (rentalsErr) {
+      throw traced.fromSupabase(rentalsErr, { table: 'weekly_booth_rentals', operation: 'select' })
+    }
+    const paidWeekSet = new Set((paidRentals ?? []).map((r) => r.vendor_profile_id as string))
+
     // B3 — park vetting status (blocked / review) per truck. FT parks only;
     // the table is empty for FM markets, so this is a cheap no-op there.
     crumb.supabase('select', 'park_vendor_vetting')
@@ -152,6 +185,8 @@ export async function GET(
         on_platform: true as const,
         is_active_schedule: activeScheduleSet.has(row.vendor_profile_id as string),
         has_info_sharing_consent: consentSet.has(row.vendor_profile_id as string),
+        market_charges_booths: marketChargesBooths,
+        has_paid_booth_week: paidWeekSet.has(row.vendor_profile_id as string),
         blocked: vettingByVendor.get(row.vendor_profile_id as string)?.blocked ?? false,
         review_status: vettingByVendor.get(row.vendor_profile_id as string)?.review_status ?? 'pending',
         created_at: row.created_at as string,

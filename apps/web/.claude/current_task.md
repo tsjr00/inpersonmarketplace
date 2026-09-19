@@ -1,3 +1,13 @@
+# ▶ 2026-09-18 (later) — OB-026 fixes PUSHED TO STAGING `14b7c627..0ff23581` (4 commits: 3 docs + 1 fix)
+
+Fix commit `0ff23581`: TR-069 market-limit message names counted markets · TR-034 FM no longer pointed at Pickup
+Capacity · TR-036/071 Apply shows the market agreement + doc-sharing opt-in and records the acceptance (option A).
+Build compiled, Playwright 49/1 skip, `origin/staging` = `main` = `0ff23581`, tree clean. Prod untouched (`d704d3bb`).
+Owner owes: retests (Section 0 + TR-069/071/036 door) on a fresh self-service event; rulings logged (no
+grandfathered vendors; managed-market "scheduled = booking" design stage in backlog; no FM Pickup Capacity).
+
+---
+
 # ▶ 2026-09-18 — TEST-DATA RESET: DEV + STAGING PURGED (transactional layer); new destructive-data workflow
 
 Dev purge ran 2026-09-18 (incident: deletes committed without the post-check — see rule-incidents + memory

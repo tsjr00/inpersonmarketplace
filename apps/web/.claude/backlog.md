@@ -76,6 +76,11 @@ and we will start on it next time." Evidence for every line below: `apps/web/.cl
   attendance row for free managed markets. Design pass first: inventory every surface that answers "is this
   vendor scheduled here" (strip, dashboard tile, conflict checker `availability.ts`, booking guard, sell gate),
   decide per surface, THEN build. TR-070. Size M.
+  **+ Part 2 of OB-027 (owner 2026-09-18):** may an UNPAID vendor sell a week at a fee-charging managed FM market?
+  Today yes (FM sell gate = attendance row only, mig 238 `:162`); FT paid parks already say no (mig 199, booking =
+  selling = paid). The same "real booking" rule would close it. Owner: "begin the planning process so we can
+  correctly tie these decisions together and build them correctly." Planning file:
+  `apps/web/.claude/managed_market_obligation_design.md`.
 - [ ] **FUTURE — FM equivalent of Pickup Capacity?** Owner 2026-09-18: not now (listing quantity caps FM orders).
   2026-09-18: FM-facing mentions of the FT-only setting removed (EventReadinessForm FM branch,
   PickupLineAcknowledgment bullet). Revisit only if a farm needs "no more than N pickups per market day".

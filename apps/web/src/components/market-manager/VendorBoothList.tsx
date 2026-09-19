@@ -20,6 +20,10 @@ interface Vendor {
   on_platform: true
   is_active_schedule: boolean
   has_info_sharing_consent: boolean
+  /** Owner 2026-09-18: this market has at least one priced booth tier. */
+  market_charges_booths?: boolean
+  /** Owner 2026-09-18: the vendor holds a PAID booth rental for the current or an upcoming week. */
+  has_paid_booth_week?: boolean
   /** FT park vetting (B3): blocked from future bookings + doc review status. */
   blocked: boolean
   review_status: string
@@ -553,6 +557,15 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                   )}
                   {!v.is_active_schedule && <span>· not scheduled</span>}
                   {!isFoodTruck && !v.booth_number && v.approved && v.is_active_schedule && <span>· needs {term(vertical, 'booth').toLowerCase()} #</span>}
+                  {/* Owner 2026-09-18 (OB-027): a booth # is a standing pin, not a
+                      payment — say so where the manager assigns it, at markets
+                      that charge for booths. Whether an UNPAID vendor may sell a
+                      week at all is the managed-market design item (backlog). */}
+                  {!isFoodTruck && v.approved && v.market_charges_booths && !v.has_paid_booth_week && (
+                    <span style={{ color: '#a16207' }} title={`Assigning a ${term(vertical, 'booth').toLowerCase()} number reserves the spot. The vendor pays week by week from their own account — no paid week is on file yet.`}>
+                      · no paid week yet
+                    </span>
+                  )}
                   {/* Mig 145: surface "tier not set" for approved vendors
                       missing inventory_id. Doesn't block bookings (tier
                       is informational for capacity math + occupancy
