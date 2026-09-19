@@ -6,6 +6,9 @@ import { findScheduleConflicts, padTime, dayOfWeekName, formatTimeDisplay, type 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import { marketChargesVendors, type MarketFeeShape } from '@/lib/markets/managed-fee-gate'
+import { fetchMarketOptinForVendor } from '@/lib/markets/optin-public'
+import { computeAgreementVersionFromSnapshot } from '@/lib/markets/agreement-version'
+import { getTruckPlatformClauses } from '@/lib/markets/platform-agreement-clauses'
 
 /**
  * Check if a vendor has multiple_trucks enabled in their profile_data.
@@ -96,7 +99,8 @@ async function managedJoinBlocked(
 async function ensureFreeManagedRosterRow(
   marketId: string,
   vendorProfileId: string,
-  market: MarketFeeShape & { manager_user_id?: string | null }
+  market: MarketFeeShape & { manager_user_id?: string | null },
+  terms?: { agreementAccepted: boolean; infoSharingAccepted: boolean }
 ): Promise<void> {
   if (!market.manager_user_id) return
   const service = createServiceClient()
@@ -110,6 +114,80 @@ async function ensureFreeManagedRosterRow(
   if (error) {
     await logError(traced.fromSupabase(error, { table: 'market_vendors', operation: 'insert' }))
   }
+
+  // Owner 2026-09-18 ("free markets should require the terms"): the first
+  // activation at a free managed market carries the vendor's acceptance of the
+  // market agreement (+ the optional document-sharing consent). Recorded in
+  // the same shape as Apply / signup / booth booking; 23505 = this exact
+  // version was already accepted (re-join) — the earlier record stands.
+  if (terms?.agreementAccepted === true) {
+    try {
+      const { snapshot } = await fetchMarketOptinForVendor(marketId)
+      const platformClauseEntries = getTruckPlatformClauses(market.vertical_id).map((c) => ({
+        statement_id: c.statement_id,
+        category: '_platform',
+        statement_text: c.text,
+        placeholder_values: {},
+      }))
+      const finalSnapshot = [
+        ...snapshot,
+        ...platformClauseEntries,
+        ...(terms.infoSharingAccepted === true
+          ? [{
+              statement_id: '_info_sharing_consent',
+              category: '_meta',
+              statement_text: 'Vendor authorizes the platform to share their onboarding documentation with the market manager.',
+              placeholder_values: {},
+            }]
+          : []),
+      ]
+      const { error: vmaaErr } = await service
+        .from('vendor_market_agreement_acceptances')
+        .insert({
+          vendor_profile_id: vendorProfileId,
+          market_id: marketId,
+          statements_snapshot: finalSnapshot,
+          agreement_version: computeAgreementVersionFromSnapshot(snapshot),
+        })
+      if (vmaaErr && vmaaErr.code !== '23505') {
+        await logError(traced.fromSupabase(vmaaErr, { table: 'vendor_market_agreement_acceptances', operation: 'insert' }))
+      }
+    } catch (acceptErr) {
+      console.error('[schedules] agreement acceptance write failed:', acceptErr instanceof Error ? acceptErr.message : 'Unknown')
+    }
+  }
+}
+
+/**
+ * Owner 2026-09-18: does this vendor still owe the market's terms before their
+ * first activation here? True at a MANAGED market that does NOT charge (a
+ * charging one routes through Apply, which records the terms) when the vendor
+ * has neither a roster row nor a recorded agreement acceptance — i.e. this is
+ * their first join. Events have their own agreement at invitation acceptance.
+ */
+async function freeManagedTermsNeeded(
+  marketId: string,
+  vendorProfileId: string,
+  market: MarketFeeShape & { manager_user_id?: string | null; market_type?: string | null }
+): Promise<boolean> {
+  if (!market.manager_user_id || market.market_type === 'event') return false
+  const service = createServiceClient()
+  if (await marketChargesVendors(service, market)) return false
+  const [{ data: roster }, { data: acceptance }] = await Promise.all([
+    observed(service
+      .from('market_vendors')
+      .select('id')
+      .eq('market_id', marketId)
+      .eq('vendor_profile_id', vendorProfileId)
+      .limit(1), { table: 'market_vendors' }),
+    observed(service
+      .from('vendor_market_agreement_acceptances')
+      .select('id')
+      .eq('market_id', marketId)
+      .eq('vendor_profile_id', vendorProfileId)
+      .limit(1), { table: 'vendor_market_agreement_acceptances' }),
+  ])
+  return (roster ?? []).length === 0 && (acceptance ?? []).length === 0
 }
 
 /**
@@ -235,9 +313,22 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         }
       }) || []
 
+      // Owner 2026-09-18: tell the selector whether the market's terms are still
+      // owed (first join at a free managed market) so it can show the agreement
+      // block before the first activation.
+      const { data: marketRow } = await observed(supabase
+        .from('markets')
+        .select('id, vertical_id, manager_user_id, park_mode, market_type')
+        .eq('id', marketId)
+        .maybeSingle(), { table: 'markets' })
+      const needsTerms = marketRow
+        ? await freeManagedTermsNeeded(marketId, vendorProfile.id, marketRow as MarketFeeShape & { manager_user_id?: string | null; market_type?: string | null })
+        : false
+
       return NextResponse.json({
         schedules: schedulesWithAttendance,
-        hasAnyActive: schedulesWithAttendance.some(s => s.is_attending)
+        hasAnyActive: schedulesWithAttendance.some(s => s.is_attending),
+        needs_terms: needsTerms,
       })
     } catch (error) {
       console.error('[/api/vendor/markets/[id]/schedules] Unexpected error:', error)
@@ -311,6 +402,15 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
             error: `${blockedName} reviews vendor applications. Apply from the market's page — the manager will be notified and you'll be able to set your schedule once approved.`,
             code: 'ERR_MARKET_APPLY_REQUIRED',
           }, { status: 403 })
+        }
+        // Owner 2026-09-18: a FREE managed market still requires the market's
+        // terms on the vendor's first join — zero-friction means no manager
+        // review, not no terms.
+        if (body?.agreement_accepted !== true && await freeManagedTermsNeeded(marketId, vendorProfile.id, market)) {
+          return NextResponse.json({
+            error: `Please read and accept ${market.name || 'this market'}'s agreement before selecting your days.`,
+            code: 'ERR_MARKET_TERMS_REQUIRED',
+          }, { status: 409 })
         }
       }
 
@@ -487,7 +587,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       const hasAnyActive = scheduleIds.length > 0
 
       if (hasAnyActive) {
-        await ensureFreeManagedRosterRow(marketId, vendorProfile.id, market)
+        await ensureFreeManagedRosterRow(marketId, vendorProfile.id, market, {
+          agreementAccepted: body?.agreement_accepted === true,
+          infoSharingAccepted: body?.info_sharing_accepted === true,
+        })
       }
 
       return NextResponse.json({
@@ -569,6 +672,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             error: `${blockedName} reviews vendor applications. Apply from the market's page — the manager will be notified and you'll be able to set your schedule once approved.`,
             code: 'ERR_MARKET_APPLY_REQUIRED',
           }, { status: 403 })
+        }
+        // Owner 2026-09-18: terms on first join at a FREE managed market (mirrors PUT).
+        if (body?.agreement_accepted !== true && await freeManagedTermsNeeded(marketId, vendorProfile.id, market)) {
+          return NextResponse.json({
+            error: `Please read and accept ${market.name || 'this market'}'s agreement before selecting your days.`,
+            code: 'ERR_MARKET_TERMS_REQUIRED',
+          }, { status: 409 })
         }
       }
 
@@ -720,7 +830,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
 
       if (upsertData.is_active === true) {
-        await ensureFreeManagedRosterRow(marketId, vendorProfile.id, market)
+        await ensureFreeManagedRosterRow(marketId, vendorProfile.id, market, {
+          agreementAccepted: body?.agreement_accepted === true,
+          infoSharingAccepted: body?.info_sharing_accepted === true,
+        })
       }
 
       // Check if vendor has any active schedules

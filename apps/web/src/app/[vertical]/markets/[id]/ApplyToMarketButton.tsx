@@ -136,6 +136,10 @@ export default function ApplyToMarketButton({ marketId, vendorProfileId, vertica
           approve you without asking for copies. Optional — you can apply without it.
         </span>
       </label>
+      {/* Owner 2026-09-19: say WHY, so the ask doesn't read as red tape. */}
+      <p style={{ margin: '-6px 0 12px 24px', fontSize: 12, color: '#6b7280', lineHeight: 1.4 }}>
+        Market managers need to review applicants&apos; documents to ensure vendors in their markets meet certain standards.
+      </p>
 
       {error && (
         <div style={{

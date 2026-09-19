@@ -67,7 +67,7 @@ and we will start on it next time." Evidence for every line below: `apps/web/.cl
   `previouslySelected`. ⚠ `flow-integrity.test.ts:2552` pins the exact current `selected:` line (written to stop
   deriving it from status='ready') → expectation change = owner's explicit call. Size S.
 
-- [ ] **The self-schedule path shows and records NO market agreement** (found 2026-09-18 building the middle path).
+- [x] **BUILT 2026-09-18 (owner: "free markets should require the terms"; TR-077): the schedules GET exposes `needs_terms`, the selector shows the agreement block + doc-sharing opt-in on the first join at a free managed market, both writers refuse an activation without `agreement_accepted` while terms are owed and record the acceptance next to the auto roster row.** Was: The self-schedule path shows and records NO market agreement (found 2026-09-18 building the middle path).
   The Apply path (2026-09-18) and booth/park booking record `vendor_market_agreement_acceptances`; a vendor who
   joins a FREE managed market by toggling schedule days never sees the market's terms and never consents to
   document sharing. Fix = show `MarketAgreementBlock` on first activation at a managed market and record the

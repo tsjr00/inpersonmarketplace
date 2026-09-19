@@ -2504,6 +2504,22 @@ describe('Event ↔ location availability', () => {
     expect(route, 'approved, never overwriting an existing row').toMatch(/approved: true \},\s*\{ onConflict: 'market_id,vendor_profile_id', ignoreDuplicates: true \}/)
   })
 
+  it('a FREE managed market requires its terms on the first join (owner 2026-09-18)', () => {
+    // Zero-friction = no manager review, not no terms. The GET tells the
+    // selector whether the terms are still owed; both writers refuse an
+    // activation without agreement_accepted while they are; the acceptance is
+    // recorded next to the auto roster row.
+    const route = rd('app/api/vendor/markets/[id]/schedules/route.ts')
+    const refusals = route.match(/code: 'ERR_MARKET_TERMS_REQUIRED'/g) ?? []
+    expect(refusals.length, 'both writers (PUT + PATCH) refuse without the terms').toBeGreaterThanOrEqual(2)
+    expect(route, 'GET exposes needs_terms').toMatch(/needs_terms: needsTerms/)
+    expect(route, 'terms are owed only while no roster row AND no acceptance exists').toMatch(/\(roster \?\? \[\]\)\.length === 0 && \(acceptance \?\? \[\]\)\.length === 0/)
+    expect(route, 'the acceptance is recorded with the roster row').toMatch(/from\('vendor_market_agreement_acceptances'\)\s*\.insert\(/)
+    const selector = rd('components/vendor/MarketScheduleSelector.tsx')
+    expect(selector).toMatch(/import MarketAgreementBlock from '@\/components\/market-manager\/MarketAgreementBlock'/)
+    expect(selector, 'first activation carries the acceptance').toMatch(/patchBody\.agreement_accepted = agreementAccepted/)
+  })
+
   it('the browse pill answers the detail-page question — event markets excluded (mig 245)', () => {
     // A5 staging finding 2026-09-05: listings selected for an event showed
     // "open" on browse (the batch RPC counted the event date) but closed on
