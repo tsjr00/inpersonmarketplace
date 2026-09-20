@@ -30,7 +30,11 @@ import VendorLocationEditor from '@/components/admin/VendorLocationEditor'
 import VendorFeeOverride from '@/components/admin/VendorFeeOverride'
 import VendorDocLink, { extractVendorDocPathFromPublicUrl } from '@/components/shared/VendorDocLink'
 import { getEventApplicationState } from '@/lib/vendor-event-application'
+import { eventReadinessRows } from '@/lib/vendor/event-readiness-labels'
+import { getVendorTierLabel } from '@/lib/vendor-limits'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+
+const DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 interface VendorDetailAdminPageProps {
   vendorId: string
@@ -69,20 +73,67 @@ export default async function VendorDetailAdminPage({ vendorId, vertical }: Vend
   const vendorLongitude = vendor.longitude as number | null
   const eventReadiness = profileData.event_readiness as Record<string, unknown> | null
 
-  const [listingsResult, verificationResult] = await Promise.all([
+  // Listings = PUBLISHED and not deleted (owner 2026-09-19 — the list page and
+  // this page disagreed because one counted soft-deleted rows; drafts are out
+  // on both now). Market boxes live in their own table and are shown separately.
+  const [listingsResult, boxesResult, verificationResult, rosterResult] = await Promise.all([
     supabase
       .from('listings')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('vendor_profile_id', vendorId)
+      .eq('status', 'published')
       .is('deleted_at', null),
+    supabase
+      .from('market_box_offerings')
+      .select('id', { count: 'exact', head: true })
+      .eq('vendor_profile_id', vendorId)
+      .eq('active', true),
     supabase
       .from('vendor_verifications')
       .select('*')
       .eq('vendor_profile_id', vendorId)
       .single(),
+    // Markets this vendor is on (roster rows), with the days they declared.
+    supabase
+      .from('market_vendors')
+      .select(`
+        market_id, approved, revoked_at, booth_number,
+        markets ( name, market_type, city, state ),
+        market_booth_inventory!market_vendors_inventory_id_fkey ( size_label )
+      `)
+      .eq('vendor_profile_id', vendorId)
+      .order('created_at', { ascending: true }),
   ])
   const listingsCount = listingsResult.count || 0
+  const boxesCount = boxesResult.count || 0
   const verification = verificationResult.data
+
+  type RosterRow = {
+    market_id: string
+    approved: boolean | null
+    revoked_at: string | null
+    booth_number: string | null
+    markets: { name: string; market_type: string; city: string | null; state: string | null } | null
+    market_booth_inventory: { size_label: string } | null
+  }
+  const roster = ((rosterResult.data ?? []) as unknown as RosterRow[])
+  // Declared days per market (vendor_market_schedules → market_schedules.day_of_week).
+  const declaredByMarket = new Map<string, number[]>()
+  if (roster.length > 0) {
+    const { data: declared } = await supabase
+      .from('vendor_market_schedules')
+      .select('market_id, market_schedules ( day_of_week )')
+      .eq('vendor_profile_id', vendorId)
+      .eq('is_active', true)
+      .in('market_id', roster.map(r => r.market_id))
+    for (const d of (declared ?? []) as unknown as Array<{ market_id: string; market_schedules: { day_of_week: number } | null }>) {
+      const dow = d.market_schedules?.day_of_week
+      if (typeof dow !== 'number') continue
+      const list = declaredByMarket.get(d.market_id) ?? []
+      if (!list.includes(dow)) list.push(dow)
+      declaredByMarket.set(d.market_id, list)
+    }
+  }
 
   const verificationData = verification ? {
     status: (verification.status as string) || 'pending',
@@ -252,27 +303,56 @@ export default async function VendorDetailAdminPage({ vendorId, vertical }: Vend
             </div>
           )}
 
-          {/* Event Readiness Application */}
+          {/* Markets this vendor is on — roster status, booth, declared days.
+              Owner 2026-09-19: "a big part of the vendor's profile info" and
+              it was missing here (only the list page loaded markets). */}
+          <div style={cardStyle}>
+            <h2 style={sectionTitle}>Markets</h2>
+            {rosterResult.error ? (
+              // Never a silent empty state: a failed roster read (e.g. an FK hint
+              // PostgREST does not recognize) must show as a failure.
+              <p style={{ margin: 0, fontSize: typography.sizes.sm, color: '#991b1b' }}>Couldn&apos;t load markets: {rosterResult.error.message}</p>
+            ) : roster.length === 0 ? (
+              <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.textMuted }}>Not on any market roster yet.</p>
+            ) : (
+              <div style={{ display: 'grid', gap: 12 }}>
+                {roster.map((r) => {
+                  const status = r.revoked_at ? 'revoked' : r.approved ? 'approved' : 'pending'
+                  const days = (declaredByMarket.get(r.market_id) ?? []).sort((a, b) => a - b).map(d => DAY_ABBR[d]).join(', ')
+                  const place = [r.markets?.city, r.markets?.state].filter(Boolean).join(', ')
+                  return (
+                    <div key={r.market_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap', padding: 12, backgroundColor: '#f8f9fa', borderRadius: 6, border: '1px solid #eee' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <Link href={`/${verticalId}/admin/markets/${r.market_id}`} style={{ fontWeight: 600, fontSize: 14, color: colors.primary, textDecoration: 'none' }}>
+                          {r.markets?.name || 'Unknown market'}
+                        </Link>
+                        <div style={{ fontSize: 13, color: '#666', marginTop: 4 }}>
+                          {r.markets?.market_type === 'event' ? 'Event' : 'Market'}{place ? ` · ${place}` : ''}
+                          {r.booth_number ? ` · Booth #${r.booth_number}` : ''}
+                          {r.market_booth_inventory?.size_label ? ` (${r.market_booth_inventory.size_label})` : ''}
+                        </div>
+                        <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>
+                          {days ? `Days declared: ${days}` : 'No days declared'}
+                        </div>
+                      </div>
+                      {badge(
+                        status === 'approved' ? '#d1fae5' : status === 'revoked' ? '#fef2f2' : '#fef3c7',
+                        status === 'approved' ? '#065f46' : status === 'revoked' ? '#991b1b' : '#92400e',
+                        status.toUpperCase()
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Event Readiness Application — labels + answer wording from the
+              shared per-vertical map (an FM vendor's answers used to render
+              through FT wording here). */}
           {eventReadiness && eventApplication.hasApplied && (() => {
             const er = eventReadiness
-            const fieldRows: Array<{ label: string; value: string }> = [
-              { label: 'Vehicle Type', value: er.vehicle_type === 'food_truck' ? 'Food Truck' : 'Food Trailer (truck + trailer)' },
-              { label: 'Vehicle Length', value: `${er.vehicle_length_feet} feet` },
-              { label: 'Requires Generator', value: er.requires_generator ? 'Yes' : 'No' },
-              ...(er.requires_generator ? [
-                { label: 'Generator Type', value: er.generator_type === 'quiet_inverter' ? 'Quiet / Inverter' : 'Standard' },
-                { label: 'Generator Fuel', value: er.generator_fuel === 'propane' ? 'Propane (minimal smell)' : er.generator_fuel === 'gasoline' ? 'Gasoline' : 'Diesel' },
-              ] : []),
-              { label: 'Max Runtime (no external power)', value: `${er.max_runtime_hours} hours` },
-              { label: 'Strong Cooking Odors', value: er.strong_odors ? `Yes — ${er.odor_description || ''}` : 'No' },
-              { label: 'Food Perishability', value: er.food_perishability === 'immediate' ? 'Must eat immediately' : er.food_perishability === 'within_15_min' ? 'Best within 15 min' : 'Can sit 30+ min' },
-              { label: 'Packaging', value: (er.packaging as string) || 'N/A' },
-              { label: 'Utensils Required', value: er.utensils_required ? 'Yes' : 'No' },
-              { label: 'Seating Recommended', value: er.seating_recommended ? 'Yes' : 'No' },
-              { label: 'Max Headcount Per Wave', value: `${er.max_headcount_per_wave} people / 30 min` },
-              { label: 'Event Experience', value: er.has_event_experience ? `Yes — ${er.event_experience_description || ''}` : 'No' },
-              ...(er.additional_notes ? [{ label: 'Additional Notes', value: er.additional_notes as string }] : []),
-            ]
+            const fieldRows = eventReadinessRows(er, verticalId)
             return (
               <div style={cardStyle}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm, gap: spacing.xs, flexWrap: 'wrap' }}>
@@ -344,12 +424,17 @@ export default async function VendorDetailAdminPage({ vendorId, vertical }: Vend
             <div style={{ marginBottom: spacing.sm }}>
               <div style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>Tier</div>
               <div style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
-                {((vendor.tier as string) || 'free').charAt(0).toUpperCase() + ((vendor.tier as string) || 'free').slice(1)}
+                {/* Normalized: legacy names (standard/premium/featured/basic) are Free everywhere else in the app. */}
+                {getVendorTierLabel((vendor.tier as string) || 'free')}
               </div>
             </div>
             <div style={{ marginBottom: spacing.sm }}>
-              <div style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>Listings</div>
+              <div style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>Published listings</div>
               <div style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>{listingsCount}</div>
+            </div>
+            <div style={{ marginBottom: spacing.sm }}>
+              <div style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>Active market boxes</div>
+              <div style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>{boxesCount}</div>
             </div>
             <div style={{ marginBottom: spacing.sm }}>
               <div style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>Stripe Connected</div>

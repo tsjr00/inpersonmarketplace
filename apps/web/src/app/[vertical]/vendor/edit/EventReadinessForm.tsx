@@ -2,6 +2,10 @@
 
 import { useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import {
+  SETUP_TYPE_OPTIONS, GENERATOR_TYPE_OPTIONS, GENERATOR_FUEL_OPTIONS, PERISHABILITY_OPTIONS,
+  QUESTION_LABELS, BOOLEAN_ANSWERS, toEventReadinessVertical,
+} from '@/lib/vendor/event-readiness-labels'
 
 interface EventReadinessData {
   vehicle_type: string
@@ -67,6 +71,11 @@ export default function EventReadinessForm({
   initialData,
   eventApproved,
 }: EventReadinessFormProps) {
+  // Labels + option wording come from the shared map so the admin read-out
+  // can never disagree with what the vendor was asked.
+  const rv = toEventReadinessVertical(vertical)
+  const L = QUESTION_LABELS[rv]
+  const B = BOOLEAN_ANSWERS[rv]
   const d = initialData as Partial<EventReadinessData> | null
   const [form, setForm] = useState<EventReadinessData>({
     vehicle_type: d?.vehicle_type || '',
@@ -224,21 +233,20 @@ export default function EventReadinessForm({
 
         {/* 1. Vehicle Type */}
         <div style={{ marginBottom: spacing.sm }}>
-          <label style={labelStyle}>Vehicle Type *</label>
+          <label style={labelStyle}>{L.vehicle_type} *</label>
           <select
             value={form.vehicle_type}
             onChange={(e) => updateField('vehicle_type', e.target.value)}
             style={inputStyle}
           >
             <option value="">Select...</option>
-            <option value="food_truck">Food Truck</option>
-            <option value="food_trailer">Food Trailer (truck + trailer)</option>
+            {SETUP_TYPE_OPTIONS.food_trucks.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
 
         {/* 2. Vehicle Length */}
         <div style={{ marginBottom: spacing.sm }}>
-          <label style={labelStyle}>Vehicle Length (feet) *</label>
+          <label style={labelStyle}>{L.vehicle_length_feet} *</label>
           <input
             type="number"
             min={5}
@@ -255,7 +263,7 @@ export default function EventReadinessForm({
 
         {/* 3. Requires Generator */}
         <div style={{ marginBottom: spacing.sm }}>
-          <label style={labelStyle}>Requires Generator? *</label>
+          <label style={labelStyle}>{L.requires_generator} *</label>
           <div style={{ display: 'flex', gap: spacing.md }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.base }}>
               <input
@@ -283,15 +291,14 @@ export default function EventReadinessForm({
         {/* 4. Generator Type (conditional) */}
         {form.requires_generator && (
           <div style={{ marginBottom: spacing.sm }}>
-            <label style={labelStyle}>Generator Type *</label>
+            <label style={labelStyle}>{L.generator_type} *</label>
             <select
               value={form.generator_type || ''}
               onChange={(e) => updateField('generator_type', e.target.value)}
               style={inputStyle}
             >
               <option value="">Select...</option>
-              <option value="quiet_inverter">Quiet / Inverter Generator</option>
-              <option value="standard">Standard Generator</option>
+              {GENERATOR_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
             <p style={hintStyle}>Many venues require quiet generators for noise restrictions</p>
           </div>
@@ -300,23 +307,21 @@ export default function EventReadinessForm({
         {/* 5. Generator Fuel (conditional) */}
         {form.requires_generator && (
           <div style={{ marginBottom: spacing.sm }}>
-            <label style={labelStyle}>Generator Fuel *</label>
+            <label style={labelStyle}>{L.generator_fuel} *</label>
             <select
               value={form.generator_fuel || ''}
               onChange={(e) => updateField('generator_fuel', e.target.value)}
               style={inputStyle}
             >
               <option value="">Select...</option>
-              <option value="propane">Propane (minimal smell)</option>
-              <option value="gasoline">Gasoline</option>
-              <option value="diesel">Diesel</option>
+              {GENERATOR_FUEL_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
         )}
 
         {/* 6. Max Runtime */}
         <div style={{ marginBottom: spacing.md }}>
-          <label style={labelStyle}>Max Runtime Without External Power (hours) *</label>
+          <label style={labelStyle}>{L.max_runtime_hours} *</label>
           <input
             type="number"
             min={1}
@@ -344,23 +349,20 @@ export default function EventReadinessForm({
 
         {/* FM: Setup type */}
         <div style={{ marginBottom: spacing.sm }}>
-          <label style={labelStyle}>Setup Type *</label>
+          <label style={labelStyle}>{L.vehicle_type} *</label>
           <select
             value={form.vehicle_type}
             onChange={(e) => updateField('vehicle_type', e.target.value)}
             style={inputStyle}
           >
             <option value="">Select...</option>
-            <option value="tent_booth">Tent / Booth</option>
-            <option value="table_only">Table Only</option>
-            <option value="trailer">Trailer</option>
-            <option value="vehicle_booth">Vehicle + Booth</option>
+            {SETUP_TYPE_OPTIONS.farmers_market.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
 
         {/* FM: Space needed */}
         <div style={{ marginBottom: spacing.sm }}>
-          <label style={labelStyle}>Space Needed (feet wide) *</label>
+          <label style={labelStyle}>{L.vehicle_length_feet} *</label>
           <input
             type="number"
             min={4}
@@ -375,7 +377,7 @@ export default function EventReadinessForm({
 
         {/* FM: Power needed */}
         <div style={{ marginBottom: spacing.md }}>
-          <label style={labelStyle}>Do You Need Access to Electrical Power? *</label>
+          <label style={labelStyle}>{L.requires_generator} *</label>
           <div style={{ display: 'flex', gap: spacing.md }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.base }}>
               <input
@@ -416,11 +418,7 @@ export default function EventReadinessForm({
 
       {/* 7. Strong Odors */}
       <div style={{ marginBottom: spacing.sm }}>
-        <label style={labelStyle}>
-          {vertical === 'food_trucks'
-            ? 'Does Your Cooking Produce Strong Odors? *'
-            : 'Does Your Setup Produce Strong Odors? (e.g., cooking demos, samples) *'}
-        </label>
+        <label style={labelStyle}>{L.strong_odors} *</label>
         <div style={{ display: 'flex', gap: spacing.md }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.base }}>
             <input
@@ -448,7 +446,7 @@ export default function EventReadinessForm({
       {/* 7b. Odor Description (conditional) */}
       {form.strong_odors && (
         <div style={{ marginBottom: spacing.sm }}>
-          <label style={labelStyle}>Describe the Odors *</label>
+          <label style={labelStyle}>{L.odor_description} *</label>
           <input
             type="text"
             value={form.odor_description || ''}
@@ -461,37 +459,21 @@ export default function EventReadinessForm({
 
       {/* 8. Product Perishability / Storage */}
       <div style={{ marginBottom: spacing.sm }}>
-        <label style={labelStyle}>
-          {vertical === 'food_trucks' ? 'Food Perishability *' : 'Product Storage Needs *'}
-        </label>
+        <label style={labelStyle}>{L.food_perishability} *</label>
         <select
           value={form.food_perishability}
           onChange={(e) => updateField('food_perishability', e.target.value)}
           style={inputStyle}
         >
           <option value="">Select...</option>
-          {vertical === 'food_trucks' ? (<>
-            <option value="immediate">Must be eaten immediately (ice cream, frozen items)</option>
-            <option value="within_15_min">Best within 15 minutes (fried items, hot plates)</option>
-            {/* T-69: examples here are PACKAGED ONLY, deliberately. This list
-                used to read "(tacos, sandwiches, packaged items)" — naming hot
-                prepared food as fine to sit 30+ minutes reads as the platform
-                endorsing a food-safety practice a health inspector would not.
-                Do not re-add hot or prepared items to this option. */}
-            <option value="can_sit_30_plus">Can sit 30+ minutes (packaged or wrapped items)</option>
-          </>) : (<>
-            <option value="refrigerated">Requires refrigeration or ice (dairy, meat, produce)</option>
-            <option value="shade_required">Needs shade / temperature control (chocolate, baked goods)</option>
-            <option value="shelf_stable">Shelf-stable (jams, honey, crafts, dry goods)</option>
-          </>)}
+          {/* T-69 food-safety wording note lives with the options in event-readiness-labels.ts. */}
+          {PERISHABILITY_OPTIONS[rv].map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </div>
 
       {/* 9. Packaging / Display */}
       <div style={{ marginBottom: spacing.sm }}>
-        <label style={labelStyle}>
-          {vertical === 'food_trucks' ? 'Packaging Used for Serving *' : 'Product Display Setup *'}
-        </label>
+        <label style={labelStyle}>{L.packaging} *</label>
         <input
           type="text"
           value={form.packaging}
@@ -503,69 +485,39 @@ export default function EventReadinessForm({
         />
       </div>
 
-      {/* FT: Utensils + Seating | FM: Samples + Weather */}
-      {vertical === 'food_trucks' ? (<>
-        {/* 10. Utensils Required */}
-        <div style={{ marginBottom: spacing.sm }}>
-          <label style={labelStyle}>Does Your Food Require Utensils? *</label>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.sm }}>
-              <input type="radio" name="utensils_required" checked={form.utensils_required === true} onChange={() => updateField('utensils_required', true)} style={{ width: 16, height: 16 }} />
-              Yes (forks, knives, or spoons needed)
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.sm }}>
-              <input type="radio" name="utensils_required" checked={form.utensils_required === false} onChange={() => updateField('utensils_required', false)} style={{ width: 16, height: 16 }} />
-              No (handheld)
-            </label>
-          </div>
+      {/* FT: Utensils + Seating | FM: Samples + Weather — same two stored
+          booleans, per-vertical wording from the shared map. FM lists the
+          "no" answer first for Outdoor Suitability (the common case). */}
+      {/* 10. utensils_required */}
+      <div style={{ marginBottom: spacing.sm }}>
+        <label style={labelStyle}>{L.utensils_required} *</label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.sm }}>
+            <input type="radio" name="utensils_required" checked={form.utensils_required === true} onChange={() => updateField('utensils_required', true)} style={{ width: 16, height: 16 }} />
+            {B.utensils_required!.yes}
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.sm }}>
+            <input type="radio" name="utensils_required" checked={form.utensils_required === false} onChange={() => updateField('utensils_required', false)} style={{ width: 16, height: 16 }} />
+            {B.utensils_required!.no}
+          </label>
         </div>
-
-        {/* 11. Seating Recommended */}
-        <div style={{ marginBottom: spacing.md }}>
-          <label style={labelStyle}>Should Guests Have Seating? *</label>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.sm }}>
-              <input type="radio" name="seating_recommended" checked={form.seating_recommended === true} onChange={() => updateField('seating_recommended', true)} style={{ width: 16, height: 16 }} />
-              Yes (e.g., BBQ plates, full meals)
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.sm }}>
-              <input type="radio" name="seating_recommended" checked={form.seating_recommended === false} onChange={() => updateField('seating_recommended', false)} style={{ width: 16, height: 16 }} />
-              No (handheld, walk-and-eat)
-            </label>
-          </div>
-        </div>
-      </>) : (<>
-        {/* FM 10. Samples Available */}
-        <div style={{ marginBottom: spacing.sm }}>
-          <label style={labelStyle}>Can You Offer Product Samples at Events? *</label>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.sm }}>
-              <input type="radio" name="utensils_required" checked={form.utensils_required === true} onChange={() => updateField('utensils_required', true)} style={{ width: 16, height: 16 }} />
-              Yes — I can provide samples or tastings
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.sm }}>
-              <input type="radio" name="utensils_required" checked={form.utensils_required === false} onChange={() => updateField('utensils_required', false)} style={{ width: 16, height: 16 }} />
-              No — display and sell only
-            </label>
-          </div>
+        {rv === 'farmers_market' && (
           <p style={hintStyle}>Event organizers love vendors who offer samples — it drives foot traffic to your booth</p>
-        </div>
+        )}
+      </div>
 
-        {/* FM 11. Weather Sensitivity */}
-        <div style={{ marginBottom: spacing.md }}>
-          <label style={labelStyle}>Outdoor Event Suitability *</label>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.sm }}>
-              <input type="radio" name="seating_recommended" checked={form.seating_recommended === false} onChange={() => updateField('seating_recommended', false)} style={{ width: 16, height: 16 }} />
-              Fully outdoor OK — my products and setup handle sun, wind, and light rain
+      {/* 11. seating_recommended */}
+      <div style={{ marginBottom: spacing.md }}>
+        <label style={labelStyle}>{L.seating_recommended} *</label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+          {(rv === 'food_trucks' ? [true, false] : [false, true]).map((answer) => (
+            <label key={String(answer)} style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.sm }}>
+              <input type="radio" name="seating_recommended" checked={form.seating_recommended === answer} onChange={() => updateField('seating_recommended', answer)} style={{ width: 16, height: 16 }} />
+              {answer ? B.seating_recommended!.yes : B.seating_recommended!.no}
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.sm }}>
-              <input type="radio" name="seating_recommended" checked={form.seating_recommended === true} onChange={() => updateField('seating_recommended', true)} style={{ width: 16, height: 16 }} />
-              Needs covered / indoor space — products are weather-sensitive
-            </label>
-          </div>
+          ))}
         </div>
-      </>)}
+      </div>
 
       {/* ── Capacity & Experience ── */}
       <h3 style={{
@@ -614,11 +566,7 @@ export default function EventReadinessForm({
             </>
           )}
         </p>
-        <label style={labelStyle}>
-          {vertical === 'food_trucks'
-            ? 'Max Headcount Per 30-Minute Wave *'
-            : 'How Many Customers Can You Serve Per Hour? *'}
-        </label>
+        <label style={labelStyle}>{L.max_headcount_per_wave} *</label>
         <input
           type="number"
           min={5}
@@ -637,7 +585,7 @@ export default function EventReadinessForm({
 
       {/* 13. Event Experience */}
       <div style={{ marginBottom: spacing.sm }}>
-        <label style={labelStyle}>Do You Have Event or Catering Experience? *</label>
+        <label style={labelStyle}>{L.has_event_experience} *</label>
         <div style={{ display: 'flex', gap: spacing.md }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.base }}>
             <input
@@ -696,7 +644,7 @@ export default function EventReadinessForm({
 
       {/* 14. Additional Notes */}
       <div style={{ marginBottom: spacing.md }}>
-        <label style={labelStyle}>Anything Else About Your Event Capabilities?</label>
+        <label style={labelStyle}>{L.additional_notes}</label>
         <textarea
           value={form.additional_notes || ''}
           onChange={(e) => updateField('additional_notes', e.target.value)}

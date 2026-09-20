@@ -23,6 +23,12 @@ Fixes shipped since your last results (2026-09-18, OB-026/OB-027; 2026-09-19 OB-
 points at its full block below. When this section is empty, there is nothing new to retest — go straight to the
 regular groups.
 
+ADMIN VENDOR PAGES (your 09-19 user-feedback review, OB-029 part A — no migration):
+⚪ TR-093  Admin vendor detail lists the vendor's markets (status, booth, declared days)
+⚪ TR-094  FM vendor's event-readiness answers read back in FM words — no vehicle/generator rows
+⚪ TR-095  Tier filter is Free / Pro / Boss; legacy "standard" rows read Free
+⚪ TR-096  List and detail agree on published-listing count; market boxes counted separately
+
 BOOTH ROUND PART D (your 09-19 rulings: FM credits modeled on FT; manager may cancel a paid week — migration 257 is on Staging):
 🟠 TR-091  Cancelling a market day credits paid one-off weeks per declared day; the notice states the amount
 🟠 TR-092  Manager cancels a paid week → vendor credited for the remaining days, told why; no vendor self-cancel
@@ -70,6 +76,7 @@ GROUPS
 🟣 Events (organizer, vendor, admin)
 🟡 Market bundles
 🟤 Market boxes
+⚪ Platform admin pages
 🔴 Orders
 ⚫ Not runnable yet
 
@@ -585,6 +592,55 @@ Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
 🟤 TR-016  Order number on the vendor's market-box page  (fix shipped: Push B)
 Where: /\[vertical]/vendor/market-boxes/\[id], tabs Subscribers and Pickups.
 Expect: each row shows "Order #FA-…" beside the week line.
+Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+
+
+
+==================================================
+⚪ GROUP 6 — PLATFORM ADMIN PAGES   (4 tests)
+===
+
+Screens: /farmers\_market/admin/vendors · /farmers\_market/admin/vendors/\[id]. Log in as the platform admin.
+All four shipped 2026-09-19 from your user-feedback review (OB-029 part A). No migration needed.
+
+
+
+⚪ TR-093  Admin vendor detail lists the vendor's markets  (fix shipped 2026-09-19)
+Where: /farmers\_market/admin/vendors → a vendor who is on 2 or more markets → Details.
+Expect: a "Markets" card in the main column (under Business Information): one line per market with the market
+name (click → the admin market page), a status pill APPROVED / PENDING / REVOKED, "Booth #N (size)" when the
+manager has pinned them, and "Days declared: Sat, Wed" (or "No days declared"). A vendor on no market reads
+"Not on any market roster yet."
+Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+
+
+
+⚪ TR-094  FM vendor's event-readiness answers read back in FM words  (fix shipped 2026-09-19)
+Where: /farmers\_market/admin/vendors/\[id] for an FM vendor who submitted Private Events Readiness on
+/farmers\_market/vendor/edit (open both side by side).
+Expect: "Event Readiness Application" shows the FM questions only — Setup Type, Space Needed (feet wide), Do You
+Need Access to Electrical Power?, Product Storage Needs, Product Display Setup, Can You Offer Product Samples,
+Outdoor Event Suitability, How Many Customers Can You Serve Per Hour? — and every value is the exact option text
+the vendor picked on the form. No "Vehicle Type", no Generator rows, no "Max Runtime", no "undefined".
+Then open a FOOD TRUCK vendor's detail: Vehicle Type / Generator / Max Runtime are still there.
+Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+
+
+
+⚪ TR-095  Tier filter and labels use Free / Pro / Boss  (fix shipped 2026-09-19)
+Where: /farmers\_market/admin/vendors → the Tier dropdown.
+Expect: exactly three options — Free, Pro, Boss. Pick Free: vendors whose row used to say "standard",
+"premium" or "featured" are in the result and their row now reads "Free". Open any of them → Details →
+Quick Stats → Tier says Free. The CSV export's Tier column matches.
+Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+
+
+
+⚪ TR-096  List and detail agree on listing counts; market boxes separate  (fix shipped 2026-09-19)
+Where: /farmers\_market/admin/vendors → Valley Verde Farm (the 10-vs-9 vendor).
+Expect: the row reads "📦 N published" (plus "🧺 N boxes" when the vendor has active market boxes); Details →
+Quick Stats shows "Published listings" and "Active market boxes" with the SAME two numbers. Draft and deleted
+listings are not counted on either page. (Before: the list counted deleted listings, the detail did not.)
 Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
 
 

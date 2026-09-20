@@ -57,7 +57,8 @@ export default async function VendorsAdminPage({ scope, basePath, searchParams }
       profile_data, orders_confirmed_count, orders_cancelled_after_confirm_count,
       stripe_account_id,
       market_vendors!market_vendors_vendor_profile_id_fkey ( market_id, markets ( name ) ),
-      listings ( id )
+      listings ( id, status, deleted_at ),
+      market_box_offerings ( id, active )
     `, { count: 'exact' })
     .order('created_at', { ascending: false })
 
@@ -68,7 +69,15 @@ export default async function VendorsAdminPage({ scope, basePath, searchParams }
     if (status === 'pending') query = query.in('status', ['submitted', 'draft'])
     else query = query.eq('status', status)
   }
-  if (tier) query = query.eq('tier', tier)
+  // Unified tiers (mig 089): the filter offers Free / Pro / Boss. "Free" must
+  // also catch rows still carrying a legacy name (standard/premium/featured/
+  // basic) and NULL — normalizeTier() treats everything that is not pro/boss
+  // as free, so the filter says exactly that.
+  if (tier === 'free') {
+    query = query.or('tier.is.null,tier.not.in.(pro,boss)')
+  } else if (tier) {
+    query = query.eq('tier', tier)
+  }
 
   if (search) {
     // Server-side JSONB name/email search — single table, so a plain or()
@@ -98,7 +107,12 @@ export default async function VendorsAdminPage({ scope, basePath, searchParams }
     orders_confirmed_count: ((vendor as Record<string, unknown>).orders_confirmed_count as number) || 0,
     orders_cancelled_after_confirm_count: ((vendor as Record<string, unknown>).orders_cancelled_after_confirm_count as number) || 0,
     stripe_connected: !!(vendor as Record<string, unknown>).stripe_account_id,
-    listing_count: (((vendor as Record<string, unknown>).listings as Array<{ id: string }> | null) || []).length,
+    // Published + not deleted — the same definition the detail page uses
+    // (owner 2026-09-19; the two pages used to disagree by the deleted rows).
+    listing_count: (((vendor as Record<string, unknown>).listings as Array<{ id: string; status: string | null; deleted_at: string | null }> | null) || [])
+      .filter(l => l.status === 'published' && !l.deleted_at).length,
+    market_box_count: (((vendor as Record<string, unknown>).market_box_offerings as Array<{ id: string; active: boolean | null }> | null) || [])
+      .filter(b => b.active !== false).length,
     days_pending: Math.floor(
       (new Date().getTime() - new Date(vendor.created_at as string).getTime()) / (1000 * 60 * 60 * 24)
     ),

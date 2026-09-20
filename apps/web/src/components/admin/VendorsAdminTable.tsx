@@ -10,9 +10,9 @@
  *   (VendorVerificationPanel);
  *   from the platform copy — the vertical filter + chip (all-scope only),
  *   the Cancel% signal, and the 'suspended' status option.
- * One row-list at ALL widths (owner standard); per-vertical tier options
- * (FT: free/basic/pro/boss · FM: free/standard/premium/featured · all:
- * union) — each old copy hard-coded ONE vertical's tiers for every route.
+ * One row-list at ALL widths (owner standard). Tiers are the UNIFIED set
+ * (mig 089: Free / Pro / Boss, both verticals) — the per-vertical legacy
+ * option lists were retired 2026-09-19; rows print the normalized label.
  * Approve/Reject go through the same API routes as before (trial grant on
  * approve lives in the route).
  *
@@ -29,6 +29,7 @@ import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { exportToCSV, formatDateForExport } from '@/lib/export-csv'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 import { useStatusBanner } from '@/hooks/useStatusBanner'
+import { getVendorTierLabel } from '@/lib/vendor-limits'
 
 export interface AdminVendorRow {
   id: string
@@ -49,7 +50,10 @@ export interface AdminVendorRow {
   orders_confirmed_count: number
   orders_cancelled_after_confirm_count: number
   stripe_connected: boolean
+  /** Published, not deleted. */
   listing_count: number
+  /** Active market-box offerings (separate table; never part of listing_count). */
+  market_box_count: number
   days_pending: number
   markets: Array<{ market_id: string; markets: { name: string } | null }>
 }
@@ -93,14 +97,9 @@ interface VendorsAdminTableProps {
   }
 }
 
-const FT_TIERS = ['free', 'basic', 'pro', 'boss']
-const FM_TIERS = ['free', 'standard', 'premium', 'featured']
-
-function tierOptions(scope: string | null): string[] {
-  if (scope === 'food_trucks') return FT_TIERS
-  if (scope === 'farmers_market') return FM_TIERS
-  return [...new Set([...FT_TIERS, ...FM_TIERS])]
-}
+// Unified tiers (vendor-limits.ts normalizeTier). "free" in the filter also
+// matches legacy names + NULL — see VendorsAdminPage.
+const TIER_OPTIONS = ['free', 'pro', 'boss']
 
 function VendorStatusChip({ status }: { status: string }) {
   const display = status === 'submitted' || status === 'draft' ? 'pending' : status
@@ -223,7 +222,9 @@ export default function VendorsAdminTable({
         },
         { key: 'vertical_id', header: 'Vertical' },
         { key: 'status', header: 'Status' },
-        { key: 'tier', header: 'Tier', getValue: (row) => row.tier || 'free' },
+        { key: 'tier', header: 'Tier', getValue: (row) => getVendorTierLabel(row.tier || 'free') },
+        { key: 'listing_count', header: 'Published Listings' },
+        { key: 'market_box_count', header: 'Active Market Boxes' },
         { key: 'markets', header: 'Markets', getValue: (row) => row.markets.map(m => m.markets?.name || 'Unknown').join('; ') },
         { key: 'created_at', header: 'Created', getValue: (row) => formatDateForExport(row.created_at) },
       ])
@@ -279,7 +280,7 @@ export default function VendorsAdminTable({
         </select>
         <select value={tier} onChange={(e) => { setTier(e.target.value); updateFilters({ tier: e.target.value }) }} style={selectStyle}>
           <option value="">All Tiers</option>
-          {tierOptions(scope).map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+          {TIER_OPTIONS.map(t => <option key={t} value={t}>{getVendorTierLabel(t)}</option>)}
         </select>
         {hasFilters && (
           <button onClick={clearFilters} style={{ padding: `${spacing['2xs']} ${spacing.xs}`, backgroundColor: 'white', border: `1px solid ${colors.border}`, borderRadius: radius.sm, cursor: 'pointer', fontSize: typography.sizes.sm }}>
@@ -326,8 +327,9 @@ export default function VendorsAdminTable({
                   {/* Line 2: signals */}
                   <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5, marginTop: 4, wordBreak: 'break-word' }}>
                     {!scope && <>{vendor.vertical_id}{' · '}</>}
-                    {(vendor.tier || 'free')}
-                    {' · '}📦 {vendor.listing_count}
+                    {getVendorTierLabel(vendor.tier || 'free')}
+                    {' · '}📦 {vendor.listing_count} published
+                    {vendor.market_box_count > 0 && <>{' · '}🧺 {vendor.market_box_count} box{vendor.market_box_count !== 1 ? 'es' : ''}</>}
                     {' · '}{marketCount} market{marketCount !== 1 ? 's' : ''}
                     {!vendor.stripe_connected && <> · <span style={{ color: '#991b1b' }}>no Stripe</span></>}
                     {cancelRate !== null && (

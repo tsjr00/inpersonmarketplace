@@ -1,3 +1,29 @@
+# ▶ 2026-09-19 (later) — OB-029 UI FEEDBACK ROUND: PART A BUILT (uncommitted, gates green: tsc 0 · eslint 0 · vitest 92 files / 2259)
+
+Owner's user-feedback review (4 parts, OBSERVATIONS.md OB-029): admin vendor detail lacks markets + shows FT
+readiness wording to FM vendors; admin vendor list old tier labels + 10-vs-9 listing count; FM manager dashboard
+regroup/rename + new schedule strip + "Action Items"; "weekly bookings vs occupancy grid?" (not a dup — grid =
+this week's capacity picture, list = act on bookings week by week). Owner rulings: listings = PUBLISHED + not
+deleted; market boxes a separate number; Action Items = pending approvals + booth assignments only.
+**Part A built:** `lib/vendor/event-readiness-labels.ts` (ONE per-vertical label/option map; `EventReadinessForm`
+renders from it, admin `eventReadinessRows()` reads from it; unit test 8 cases) · `VendorDetailAdminPage` (Markets
+card: name→admin market, status pill, booth #+size via `market_booth_inventory!market_vendors_inventory_id_fkey`
+hint — needed because mig 256 added a 2nd FK to that table, declared days via vendor_market_schedules→
+market_schedules; tier via `getVendorTierLabel`; published listings + active boxes) · `VendorsAdminPage` (embeds
+`listings(id,status,deleted_at)` + `market_box_offerings(id,active)`, counts filtered in JS; Free filter =
+`tier.is.null,tier.not.in.(pro,boss)`) · `VendorsAdminTable` (TIER_OPTIONS free/pro/boss, normalized display,
+"📦 N published · 🧺 N boxes", CSV columns) · map 11 + 19 · registry TR-093–096 · printable list ★ WHAT'S NEW +
+NEW GROUP 6 ⚪ Platform admin pages · OB-029 entry. ⚠ `vendor-limits.ts` (protected) NOT touched — its
+LEGACY_FREE_TIERS is not exported, so the filter uses not-in(pro,boss), which is normalizeTier's exact rule.
+**NEXT:** owner's word to commit A → part B (FmDashboardBody regroup: Setup · Booths & Occupancy [grid → weekly
+bookings → inventory → placeholders → map] · Vendors [attendance → roster] · Money & Activity [revenue → activity
+→ bundles] · Communication & insights [announce → surveys → cancel a day → help]; ManagerJumpNav labels; two
+descriptions state grid-vs-list) → C (ManagerActionSummary → "Action Items", drop next-market-day line) → D
+(manager 14-day strip: operating dates, declared vendors, paid weeks, orders, cancelled struck; server-rendered in
+market tz) → ONE staging push → retests TR-093–096 + B/C/D rows. Rule L debt still owed (allowance 6, stamp 251).
+
+---
+
 # 🏁 2026-09-19 LATE CLOSE — BOOTH ROUND A–D PUSHED TO STAGING `80e66d59..a52cd6f0` (build compiled, Playwright 49/1 skip) · migs 256 + 257 ✅ Dev + Staging · `origin/staging` = `main` = `a52cd6f0` · Prod untouched (owes 33 commits + migs 252–257)
 
 **UPDATE after the block below was written:** 257 was pasted on Dev + Staging (post-check clean, snapshot row flipped) and B+C+D were pushed. Owner retests TR-078–092 next (★ WHAT'S NEW). Rule L debt still owed (allowance 6; stamp 251) — FIRST job next session. Everything below this line predates the push.
