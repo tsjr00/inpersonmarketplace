@@ -378,6 +378,12 @@ export interface NotificationTemplateData {
    *  paid-confirmation notifications. Falls back to "manager will reach
    *  out" copy when absent (legacy data or pre-mig-144 bookings). */
   boothNumber?: string
+  /** BR-3 (2026-09-19): the booth size tier the manager set at approval
+   *  (market_booth_inventory.size_label). */
+  boothSizeLabel?: string
+  /** BR-3: the manager's free-text note to the vendor at approval — why a
+   *  different size than requested, where the booth is, etc. */
+  managerNote?: string
   // Post-market surveys (Phase E Stage 2)
   /** Survey row UUID for vendor surveys; used to build the action URL
    *  /[vertical]/vendor/survey/[surveyId]. */
@@ -845,6 +851,10 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
   // Fires from /api/market-manager/[marketId]/vendor-approval when the
   // manager flips approved=true. Distinct from `vendor_approved` (which
   // is platform-level onboarding approval); this is per-market.
+  // BR-3/BR-8 (owner 2026-09-19): approval may carry the booth SIZE and NUMBER
+  // the manager set (a pin — a hold, not a paid booking) and a note explaining a
+  // size different from the one requested. Sent as ONE notification with the
+  // approval, not a second one. Data: boothSizeLabel?, boothNumber?, managerNote?.
   vendor_market_approval_granted: {
     urgency: 'standard',
     severity: 'info',
@@ -853,8 +863,18 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       d.marketName
         ? `You're approved at ${d.marketName}`
         : `You're approved at a new market`,
-    message: (d) =>
-      `The manager of ${d.marketName || 'the market'} approved your vendor association. You're now active and visible to buyers at this market.`,
+    message: (d) => {
+      const base = `The manager of ${d.marketName || 'the market'} approved your vendor association. Pick the days you attend on your Markets page — then you can book booth weeks here.`
+      const parts: string[] = []
+      if (d.boothSizeLabel || d.boothNumber) {
+        parts.push(
+          `Your booth: ${d.boothNumber ? `#${d.boothNumber}` : ''}${d.boothNumber && d.boothSizeLabel ? ' · ' : ''}${d.boothSizeLabel ? `${d.boothSizeLabel} size` : ''}. ` +
+          `The number is held for you; it becomes yours once you pay for a week, and it's the size you'll be charged for.`
+        )
+      }
+      if (d.managerNote) parts.push(`Note from the manager: ${d.managerNote}`)
+      return parts.length > 0 ? `${base} ${parts.join(' ')}` : base
+    },
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/markets`,
   },
 

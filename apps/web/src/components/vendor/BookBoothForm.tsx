@@ -37,6 +37,15 @@ interface BookBoothFormProps {
    *  renders a confirmation/cancellation state instead of the booking
    *  form. Server reads ?session= query param and passes the flag in. */
   returnFlash?: 'success' | 'cancel'
+  /** BR-4 (owner 2026-09-19): the tier the manager set on the vendor's pin.
+   *  When present the size picker is locked to it — booking is the vendor's
+   *  acceptance of the size the manager assigned. */
+  lockedInventoryId?: string | null
+  /** BR-5: the booth number pinned for this vendor (a hold until they pay). */
+  pinnedBoothNumber?: string | null
+  /** BR-13: when set, booking is blocked for this reason (e.g. no days
+   *  declared yet) — the submit button stays disabled and says why. */
+  bookingBlockedReason?: string | null
 }
 
 function formatWeekLabel(yyyyMmDd: string): string {
@@ -66,9 +75,16 @@ export default function BookBoothForm({
   inventory,
   creditBalanceCents = 0,
   returnFlash,
+  lockedInventoryId = null,
+  pinnedBoothNumber = null,
+  bookingBlockedReason = null,
 }: BookBoothFormProps) {
   const [selectedWeek, setSelectedWeek] = useState<string>(weeks[0] ?? '')
-  const [selectedInventoryId, setSelectedInventoryId] = useState<string>(inventory[0]?.id ?? '')
+  // BR-4: a pin with a tier pre-selects and locks that tier.
+  const lockedTierExists = !!lockedInventoryId && inventory.some((i) => i.id === lockedInventoryId)
+  const [selectedInventoryId, setSelectedInventoryId] = useState<string>(
+    lockedTierExists ? (lockedInventoryId as string) : (inventory[0]?.id ?? '')
+  )
   const [agreementAccepted, setAgreementAccepted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -293,15 +309,38 @@ export default function BookBoothForm({
         </select>
       </label>
 
+      {/* BR-4/BR-5 (owner 2026-09-19): what the manager set at approval. The
+          number is a hold until the first paid week; the size is locked. */}
+      {(pinnedBoothNumber || lockedTierExists) && (
+        <div style={{
+          marginBottom: spacing.md,
+          padding: spacing.sm,
+          backgroundColor: colors.primaryLight,
+          border: `1px solid ${colors.primary}`,
+          borderRadius: radius.sm,
+          fontSize: typography.sizes.sm,
+          color: colors.textPrimary,
+          lineHeight: 1.5,
+        }}>
+          <strong>Your booth at {marketName}:</strong>{' '}
+          {pinnedBoothNumber ? `#${pinnedBoothNumber}` : 'number set when you pay'}
+          {lockedTierExists ? ` · ${inventory.find((i) => i.id === lockedInventoryId)?.size_label ?? ''} size` : ''}
+          {' — assigned by the manager. '}
+          {lockedTierExists ? 'That is the size you will be charged for; ask the manager if you need a different one. ' : ''}
+          {pinnedBoothNumber ? 'The number is held for you and becomes yours once you pay for a week.' : ''}
+        </div>
+      )}
+
       {/* Booth size picker */}
       <label style={{ display: 'block', marginBottom: spacing.md }}>
         <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing['2xs'] }}>
-          Booth size
+          Booth size{lockedTierExists ? ' (set by the manager)' : ''}
         </div>
         <select
           value={selectedInventoryId}
           onChange={(e) => setSelectedInventoryId(e.target.value)}
-          disabled={submitting}
+          disabled={submitting || lockedTierExists}
+          title={lockedTierExists ? 'Your booth size was set by the manager at approval' : undefined}
           style={{
             width: '100%',
             padding: spacing.xs,
@@ -407,9 +446,17 @@ export default function BookBoothForm({
         </div>
       )}
 
+      {/* BR-13: blocked until the vendor has declared days at this market (the
+          gate above the form). The server refuses too (ERR_DECLARE_DAYS_FIRST). */}
+      {bookingBlockedReason && (
+        <p style={{ margin: `0 0 ${spacing.sm} 0`, fontSize: typography.sizes.sm, color: '#78350f' }}>
+          {bookingBlockedReason}
+        </p>
+      )}
       <button
         type="submit"
-        disabled={submitting || !agreementAccepted}
+        disabled={submitting || !agreementAccepted || !!bookingBlockedReason}
+        title={bookingBlockedReason ?? undefined}
         style={{
           padding: `${spacing.sm} ${spacing.md}`,
           backgroundColor: colors.primary,
@@ -418,8 +465,8 @@ export default function BookBoothForm({
           borderRadius: radius.sm,
           fontSize: typography.sizes.base,
           fontWeight: typography.weights.semibold,
-          cursor: (submitting || !agreementAccepted) ? 'not-allowed' : 'pointer',
-          opacity: (submitting || !agreementAccepted) ? 0.6 : 1,
+          cursor: (submitting || !agreementAccepted || !!bookingBlockedReason) ? 'not-allowed' : 'pointer',
+          opacity: (submitting || !agreementAccepted || !!bookingBlockedReason) ? 0.6 : 1,
         }}
       >
         {submitting ? 'Booking…' : 'Continue to payment →'}

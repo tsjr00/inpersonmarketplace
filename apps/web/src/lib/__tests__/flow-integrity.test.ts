@@ -1832,6 +1832,41 @@ describe('Event token format', () => {
       expect(season, 'a season fails for want of ONE booth across all weeks — say so').toMatch(/err\.reason\.includes\('LABELS_EXHAUSTED'\)/)
     })
 
+    it('part B: both booking routes and the booking page run the ONE shared gate — approved once, days declared, tier locked (BR-1/13/4)', () => {
+      for (const file of [
+        'app/api/vendor/markets/[id]/book/route.ts',
+        'app/api/vendor/markets/[id]/book-season/route.ts',
+        'app/[vertical]/markets/[id]/book/page.tsx',
+      ]) {
+        const text = rd(file)
+        expect(text, `${file} must import the shared gate`).toMatch(/from '@\/lib\/markets\/booking-gates'/)
+        expect(text, `${file} must run it`).toMatch(/await checkBookingGates\(/)
+        expect(text, `${file} must load manager_user_id to know the market is managed`).toMatch(/manager_user_id/)
+      }
+      const gate = rd('lib/markets/booking-gates.ts')
+      expect(gate, 'BR-1: managed markets need an approved roster row').toMatch(/market\.manager_user_id && roster\?\.approved !== true/)
+      expect(gate, 'BR-13: at least one active declaration row').toMatch(/from\('vendor_market_schedules'\)[\s\S]{0,200}\.eq\('is_active', true\)/)
+      expect(gate, 'BR-4: the pin\'s tier locks the booking').toMatch(/pin\.inventory_id && pin\.inventory_id !== inventoryId/)
+      for (const code of ['ERR_MARKET_APPROVAL_REQUIRED', 'ERR_DECLARE_DAYS_FIRST', 'ERR_BOOTH_TIER_LOCKED']) {
+        expect(gate, `gate must be able to answer ${code}`).toContain(`code: '${code}'`)
+      }
+    })
+
+    it('part B: Apply asks for a booth size and approval sets size + number + note (BR-2/BR-3)', () => {
+      const applyRoute = rd('app/api/markets/[id]/vendors/route.ts')
+      expect(applyRoute, 'the request is validated against THIS market\'s tiers').toMatch(/from\('market_booth_inventory'\)[\s\S]{0,200}\.eq\('id', requestedTierId\)[\s\S]{0,80}\.eq\('market_id', marketId\)/)
+      expect(applyRoute, 'the request is stored in its own column').toMatch(/\.update\(\{ requested_inventory_id: requestedTierId \}\)/)
+      const applyForm = rd('app/[vertical]/markets/[id]/ApplyToMarketButton.tsx')
+      expect(applyForm, 'the form sends the request').toMatch(/requested_inventory_id: requestedTierId/)
+      const approval = rd('app/api/market-manager/[marketId]/vendor-approval/route.ts')
+      expect(approval, 'approval writes the tier when sent').toMatch(/approved && sizeProvided \? \{ inventory_id: inventoryId \}/)
+      expect(approval, 'approval writes the pin when sent').toMatch(/approved && boothProvided \? \{ booth_number: boothNumber \}/)
+      expect(approval, 'the pin pre-flight excludes the vendor\'s own rentals (BR-11)').toMatch(/vendorProfileId,\s*\n\s*\}\)/)
+      expect(approval, 'the approval notification carries size, number and note (one send)').toMatch(/boothSizeLabel[\s\S]{0,120}boothNumber[\s\S]{0,120}managerNote/)
+      const roster = rd('api/market-manager/[marketId]/vendors/route.ts'.replace(/^api/, 'app/api'))
+      expect(roster, 'the roster shows the requested size').toMatch(/requested_size_label/)
+    })
+
     it('the newest booking RPC honors the same-vendor rule and the soft-pin fallback (mig 256)', () => {
       const migDir = path.resolve(__dirname, '../../../../../supabase/migrations')
       const files: string[] = []
@@ -2539,53 +2574,55 @@ describe('Event ↔ location availability', () => {
     expect(guard).toMatch(/multiple_trucks/)
   })
 
-  it('the schedule side door is closed for managed PAYING markets (free stays open)', () => {
-    // Owner 2026-09-05 (option A follow-through): the vendor schedules route
-    // was the side door — joining any market by toggling days, bypassing the
-    // manager's roster and the application flow. The gate blocks NEW joins at
-    // markets that are managed AND charge vendors (FT: park_mode !== 'free';
-    // FM: priced booth inventory — park_mode defaults 'free' everywhere so it
-    // cannot carry the FM signal). Free markets keep the zero-friction join;
-    // approved-roster vendors and anyone with existing schedule rows are
-    // grandfathered.
+  it('the schedule side door is closed at EVERY managed market — manager veto, once (BR-1, owner 2026-09-19)', () => {
+    // History: the 2026-09-05 gate closed the side door only at markets that
+    // CHARGE vendors and kept free managed markets zero-friction; the 2026-09-18
+    // middle path auto-approved a roster row there instead. Owner 2026-09-19
+    // reversed both knowingly ("we need market managers on our side"): a vendor
+    // needs the manager's one-time approval before picking days at ANY managed
+    // market. Off-app markets (no manager) and events (never managed) are
+    // untouched; approved-roster vendors and anyone with existing schedule rows
+    // are grandfathered ("keep the grandfathered vendors").
     const route = rd('app/api/vendor/markets/[id]/schedules/route.ts')
-    const gateCalls = route.match(/await managedJoinBlocked\(/g) ?? []
+    // Comments stripped for the ABSENCE checks — the header documents the rules
+    // it replaced by name (verification-discipline Rule 7).
+    const code = route.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+    const gateCalls = code.match(/await managedJoinBlocked\(/g) ?? []
     expect(gateCalls.length, 'both writers (PUT + PATCH) run the gate').toBeGreaterThanOrEqual(2)
-    expect(route, 'FT free-park exemption').toMatch(/park_mode !== 'free'/)
-    expect(route, 'FM signal = priced booth inventory, never park_mode').toMatch(/\.gt\('weekly_price_cents', 0\)/)
-    expect(route, 'approved roster row exempts').toMatch(/roster\?\.approved === true/)
-    expect(route, 'existing schedule rows grandfather').toMatch(/from\('vendor_market_schedules'\)/)
-    expect(route, 'refusal routes to the application flow').toMatch(/ERR_MARKET_APPLY_REQUIRED/)
+    expect(code, 'the gate applies to every managed market').toMatch(/if \(!market\.manager_user_id\) return null/)
+    expect(/park_mode !== 'free'/.test(code), 'no FT free-park exemption remains').toBe(false)
+    expect(/\.gt\('weekly_price_cents', 0\)/.test(code), 'no FM charging test remains — free managed markets are gated too').toBe(false)
+    expect(/marketChargesVendors\(/.test(code), 'the gate no longer asks whether the market charges').toBe(false)
+    expect(code, 'approved roster row exempts').toMatch(/roster\?\.approved === true/)
+    expect(code, 'existing schedule rows grandfather').toMatch(/from\('vendor_market_schedules'\)/)
+    expect(code, 'refusal routes to the application flow').toMatch(/ERR_MARKET_APPLY_REQUIRED/)
+    expect(code, 'a pending applicant is told to wait, not to apply again').toMatch(/blocked\.pending\s*\?/)
   })
 
-  it('a vendor who self-schedules at a FREE managed market gets an APPROVED roster row (middle path, owner 2026-09-18)', () => {
-    // The 2026-09-05 zero-friction join stands, but without a roster row the
-    // manager could not see, booth-assign, broadcast to or revoke the vendor.
-    // Both writers (PUT + PATCH) ensure the row; charging markets never reach it
-    // (managedJoinBlocked already routed them to the application flow); an
-    // existing row (e.g. revoked) is never overwritten.
-    const route = rd('app/api/vendor/markets/[id]/schedules/route.ts')
-    const calls = route.match(/await ensureFreeManagedRosterRow\(/g) ?? []
-    expect(calls.length, 'both writers (PUT + PATCH) ensure the roster row').toBeGreaterThanOrEqual(2)
-    expect(route, 'only managed markets').toMatch(/if \(!market\.manager_user_id\) return/)
-    expect(route, 'only markets that do NOT charge').toMatch(/if \(await marketChargesVendors\(service, market\)\) return/)
-    expect(route, 'approved, never overwriting an existing row').toMatch(/approved: true \},\s*\{ onConflict: 'market_id,vendor_profile_id', ignoreDuplicates: true \}/)
+  it('the middle path is retired: self-scheduling never creates a roster row (BR-1 supersedes the 2026-09-18 ruling)', () => {
+    // Under BR-1 the roster row comes from Apply and the manager's approval —
+    // never from a schedule toggle. If a writer here ever upserts market_vendors
+    // again, the manager veto has a hole in it.
+    const code = rd('app/api/vendor/markets/[id]/schedules/route.ts').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+    expect(/ensureFreeManagedRosterRow/.test(code), 'the auto-roster helper must be gone').toBe(false)
+    expect(/from\('market_vendors'\)\s*\.upsert\(/.test(code), 'no writer upserts market_vendors').toBe(false)
+    expect(/from\('market_vendors'\)\s*\.insert\(/.test(code), 'no writer inserts market_vendors').toBe(false)
   })
 
-  it('a FREE managed market requires its terms on the first join (owner 2026-09-18)', () => {
-    // Zero-friction = no manager review, not no terms. The GET tells the
-    // selector whether the terms are still owed; both writers refuse an
-    // activation without agreement_accepted while they are; the acceptance is
-    // recorded next to the auto roster row.
-    const route = rd('app/api/vendor/markets/[id]/schedules/route.ts')
-    const refusals = route.match(/code: 'ERR_MARKET_TERMS_REQUIRED'/g) ?? []
-    expect(refusals.length, 'both writers (PUT + PATCH) refuse without the terms').toBeGreaterThanOrEqual(2)
-    expect(route, 'GET exposes needs_terms').toMatch(/needs_terms: needsTerms/)
-    expect(route, 'terms are owed only while no roster row AND no acceptance exists').toMatch(/\(roster \?\? \[\]\)\.length === 0 && \(acceptance \?\? \[\]\)\.length === 0/)
-    expect(route, 'the acceptance is recorded with the roster row').toMatch(/from\('vendor_market_agreement_acceptances'\)\s*\.insert\(/)
-    const selector = rd('components/vendor/MarketScheduleSelector.tsx')
-    expect(selector).toMatch(/import MarketAgreementBlock from '@\/components\/market-manager\/MarketAgreementBlock'/)
-    expect(selector, 'first activation carries the acceptance').toMatch(/patchBody\.agreement_accepted = agreementAccepted/)
+  it('the market terms are collected in Apply, not in the schedule selector (BR-1/BR-2)', () => {
+    // The 2026-09-18 "terms on first join at a free market" path is retired with
+    // the middle path: every managed market's first contact is Apply, which
+    // requires the agreement and offers the document-sharing opt-in.
+    const route = rd('app/api/vendor/markets/[id]/schedules/route.ts').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+    expect(/ERR_MARKET_TERMS_REQUIRED/.test(route), 'the schedules route no longer refuses for terms').toBe(false)
+    expect(/needs_terms/.test(route), 'GET no longer reports terms owed').toBe(false)
+    const selector = rd('components/vendor/MarketScheduleSelector.tsx').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+    expect(/MarketAgreementBlock/.test(selector), 'the selector shows no agreement block').toBe(false)
+    expect(selector, 'an unapproved vendor sees the refusal as blocking, not a soft warning').toMatch(/data\.code === 'ERR_MARKET_APPLY_REQUIRED'/)
+    const apply = rd('app/api/markets/[id]/vendors/route.ts')
+    expect(apply, 'Apply requires the agreement').toMatch(/agreement_accepted !== true/)
+    expect(apply, 'Apply records the acceptance (+ optional document-sharing consent)').toMatch(/from\('vendor_market_agreement_acceptances'\)\s*\.insert\(/)
+    expect(apply).toMatch(/_info_sharing_consent/)
   })
 
   it('the browse pill answers the detail-page question — event markets excluded (mig 245)', () => {

@@ -7,6 +7,7 @@ import { fetchMarketOptinForVendor } from '@/lib/markets/optin-public'
 import { computeAgreementVersionFromSnapshot } from '@/lib/markets/agreement-version'
 import { calculateBoothRentalFees } from '@/lib/pricing'
 import { createSeasonBoothCheckoutSession } from '@/lib/stripe/payments'
+import { checkBookingGates } from '@/lib/markets/booking-gates'
 import { getSeasonBookableWeeks } from '@/lib/markets/season-weeks'
 import { vendorEventConflictsOnDates, describeEventDayConflicts } from '@/lib/events/booking-event-guard'
 import { createSeasonBookingGroup, SeasonWeekUnavailableError } from '@/lib/markets/season-booking'
@@ -68,7 +69,7 @@ export async function POST(
     crumb.supabase('select', 'markets')
     const { data: market, error: marketErr } = await supabase
       .from('markets')
-      .select('id, vertical_id, timezone, name, stripe_account_id, stripe_charges_enabled')
+      .select('id, vertical_id, timezone, name, stripe_account_id, stripe_charges_enabled, manager_user_id')
       .eq('id', marketId)
       .maybeSingle()
     if (marketErr) throw traced.fromSupabase(marketErr, { table: 'markets', operation: 'select' })
@@ -118,6 +119,22 @@ export async function POST(
     if (!inventory) return NextResponse.json({ error: 'Booth size tier not found', field: 'inventory_id' }, { status: 404 })
     if (inventory.market_id !== marketId) {
       return NextResponse.json({ error: 'Booth size tier does not belong to this market', field: 'inventory_id' }, { status: 400 })
+    }
+
+    // --- BR-1 / BR-13 / BR-4 (owner 2026-09-19) — the same gate as the one-off
+    //     route: approved once at a managed market → days declared → tier
+    //     matches the pin. ---
+    const gate = await checkBookingGates(serviceClient, {
+      marketId,
+      vendorProfileId: profile.id,
+      market: { name: market.name as string | null, manager_user_id: market.manager_user_id as string | null },
+      inventoryId,
+    })
+    if (!gate.ok) {
+      return NextResponse.json(
+        { error: gate.message, code: gate.code, field: gate.code === 'ERR_BOOTH_TIER_LOCKED' ? 'inventory_id' : undefined },
+        { status: gate.status }
+      )
     }
 
     // --- Enumerate the season's bookable weeks; resolve season vs partial. ---

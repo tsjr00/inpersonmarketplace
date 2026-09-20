@@ -4,14 +4,25 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import MarketAgreementBlock from '@/components/market-manager/MarketAgreementBlock'
 
+interface ApplyTier {
+  id: string
+  size_label: string
+  dimensions: string | null
+  weekly_price_cents: number
+}
+
 interface ApplyToMarketButtonProps {
   marketId: string
   vendorProfileId: string
   /** Selects the brand name in the fixed platform clauses of the agreement block. */
   vertical: string
+  /** BR-2 (owner 2026-09-19): the market's PRICED booth tiers. When non-empty
+   *  the form asks which size the vendor wants; the manager confirms or changes
+   *  it at approval. Empty = the market has no priced booths, no question asked. */
+  tiers?: ApplyTier[]
 }
 
-export default function ApplyToMarketButton({ marketId, vendorProfileId, vertical }: ApplyToMarketButtonProps) {
+export default function ApplyToMarketButton({ marketId, vendorProfileId, vertical, tiers = [] }: ApplyToMarketButtonProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
@@ -26,6 +37,10 @@ export default function ApplyToMarketButton({ marketId, vendorProfileId, vertica
   // joined by applying could never be reviewed.
   const [agreementAccepted, setAgreementAccepted] = useState(false)
   const [shareDocs, setShareDocs] = useState(false)
+  // BR-2: requested booth size — required when the market has priced tiers.
+  const [requestedTierId, setRequestedTierId] = useState('')
+  const asksForSize = tiers.length > 0
+  const sizeMissing = asksForSize && !requestedTierId
 
   const handleApply = async () => {
     setLoading(true)
@@ -40,6 +55,7 @@ export default function ApplyToMarketButton({ marketId, vendorProfileId, vertica
           notes: notes.trim() || undefined,
           agreement_accepted: agreementAccepted,
           info_sharing_accepted: shareDocs,
+          ...(requestedTierId ? { requested_inventory_id: requestedTierId } : {}),
         }),
       })
 
@@ -116,6 +132,34 @@ export default function ApplyToMarketButton({ marketId, vendorProfileId, vertica
         }}
       />
 
+      {/* BR-2 (owner 2026-09-19): booth size request. The manager confirms the
+          size and sets a booth number when they approve; if they can only offer
+          a different size, they say why. Booking later locks to what they set. */}
+      {asksForSize && (
+        <div style={{ marginBottom: 12 }}>
+          <label htmlFor="apply-booth-size" style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#333', marginBottom: 4 }}>
+            Booth size you&apos;d like
+          </label>
+          <select
+            id="apply-booth-size"
+            value={requestedTierId}
+            onChange={(e) => setRequestedTierId(e.target.value)}
+            style={{ width: '100%', padding: 10, border: '1px solid #ddd', borderRadius: 6, fontSize: 14, backgroundColor: 'white', boxSizing: 'border-box' }}
+          >
+            <option value="">Choose a size…</option>
+            {tiers.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.size_label}{t.dimensions ? ` (${t.dimensions})` : ''} — ${(t.weekly_price_cents / 100).toFixed(2)}/week
+              </option>
+            ))}
+          </select>
+          <p style={{ margin: '6px 0 0', fontSize: 12, color: '#6b7280', lineHeight: 1.4 }}>
+            The market manager confirms your size and booth number when they approve you. If they can only offer a
+            different size, they&apos;ll tell you why. Once approved, you pick the days you attend and book weeks as you choose.
+          </p>
+        </div>
+      )}
+
       {/* The market's agreement — accepted here, recorded with the application. */}
       <MarketAgreementBlock marketId={marketId} vertical={vertical} onChange={setAgreementAccepted} />
 
@@ -157,18 +201,18 @@ export default function ApplyToMarketButton({ marketId, vendorProfileId, vertica
       <div style={{ display: 'flex', gap: 8 }}>
         <button
           onClick={handleApply}
-          disabled={loading || !agreementAccepted}
-          title={!agreementAccepted ? 'Please accept the market agreement above' : undefined}
+          disabled={loading || !agreementAccepted || sizeMissing}
+          title={sizeMissing ? 'Choose the booth size you want' : !agreementAccepted ? 'Please accept the market agreement above' : undefined}
           style={{
             flex: 1,
             padding: '10px 16px',
-            backgroundColor: loading || !agreementAccepted ? '#ccc' : '#0070f3',
+            backgroundColor: loading || !agreementAccepted || sizeMissing ? '#ccc' : '#0070f3',
             color: 'white',
             border: 'none',
             borderRadius: 6,
             fontSize: 14,
             fontWeight: 500,
-            cursor: loading || !agreementAccepted ? 'not-allowed' : 'pointer',
+            cursor: loading || !agreementAccepted || sizeMissing ? 'not-allowed' : 'pointer',
           }}
         >
           {loading ? 'Applying...' : 'Submit Application'}

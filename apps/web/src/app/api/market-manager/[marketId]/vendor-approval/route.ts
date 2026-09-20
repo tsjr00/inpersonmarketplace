@@ -23,7 +23,17 @@ import { sendNotification } from '@/lib/notifications'
  * boundary rules. The approved flag is a soft activation toggle; the
  * vendor stays associated with the market either way.
  *
- * Body: { vendor_profile_id: string, approved: boolean }
+ * Body: { vendor_profile_id: string, approved: boolean,
+ *         inventory_id?: string | null,   // BR-3: booth SIZE the manager grants (FM)
+ *         booth_number?: string | null,   // BR-3: booth number — a PIN (hold), BR-5
+ *         note?: string }                 // BR-3: note to the vendor (why a different size, etc.)
+ *
+ * BR-3 (owner 2026-09-19, booth_model_design.md): approval is where the manager
+ * sets the vendor's booth size and number. The vendor asked for a size on their
+ * application (market_vendors.requested_inventory_id, mig 256); the manager
+ * confirms it or grants a different one and says why in the note. Booking is the
+ * vendor's acceptance of what is set here (BR-4 locks the booking to the tier).
+ * All three are optional so the old approve-only call still works.
  *
  * Auth: caller must be the assigned manager of the market (dual-key via
  * isMarketManager). 403 otherwise.
@@ -60,7 +70,55 @@ export async function PATCH(
     }
     const approved = body.approved as boolean
 
+    // BR-3 fields (approve only). Absent = don't touch; empty string = clear.
+    const sizeProvided = Object.prototype.hasOwnProperty.call(body ?? {}, 'inventory_id')
+    const inventoryId: string | null =
+      typeof body?.inventory_id === 'string' && body.inventory_id.length > 0 ? body.inventory_id : null
+    const boothProvided = Object.prototype.hasOwnProperty.call(body ?? {}, 'booth_number')
+    const rawBooth = typeof body?.booth_number === 'string' ? body.booth_number.trim() : ''
+    const boothNumber: string | null = rawBooth.length > 0 ? rawBooth : null
+    if (boothNumber !== null && boothNumber.length > 50) {
+      throw traced.validation('ERR_VALIDATION_003', 'booth_number must be 50 characters or fewer')
+    }
+    const managerNote: string | null =
+      typeof body?.note === 'string' && body.note.trim().length > 0 ? body.note.trim().slice(0, 500) : null
+
     const serviceClient = createServiceClient()
+
+    // BR-3 pre-flights (approve with a booth number): the number must be free —
+    // never against this vendor's own rentals (BR-11); the tier must belong to
+    // this market (the mig 145 trigger is the backstop).
+    if (approved && boothNumber !== null) {
+      const { checkBoothNumberAvailable } = await import('@/lib/markets/booth-conflict-checks')
+      const { data: existingMv } = await observed(serviceClient
+        .from('market_vendors')
+        .select('id')
+        .eq('market_id', marketId)
+        .eq('vendor_profile_id', vendorProfileId)
+        .maybeSingle(), { table: 'market_vendors' })
+      const conflict = await checkBoothNumberAvailable(serviceClient, {
+        marketId,
+        boothNumber,
+        ...(existingMv ? { excludeSelf: { kind: 'market_vendors' as const, id: existingMv.id as string } } : {}),
+        vendorProfileId,
+      })
+      if (conflict) {
+        return NextResponse.json({ error: conflict.message }, { status: 409 })
+      }
+    }
+    let sizeLabel: string | null = null
+    if (approved && sizeProvided && inventoryId) {
+      const { data: tier } = await observed(serviceClient
+        .from('market_booth_inventory')
+        .select('id, size_label')
+        .eq('id', inventoryId)
+        .eq('market_id', marketId)
+        .maybeSingle(), { table: 'market_booth_inventory' })
+      if (!tier) {
+        return NextResponse.json({ error: 'Selected booth size tier does not belong to this market.' }, { status: 400 })
+      }
+      sizeLabel = tier.size_label as string
+    }
 
     crumb.supabase('update', 'market_vendors')
     // mig 217: `approved` alone cannot tell "never reviewed" from "the manager
@@ -82,14 +140,25 @@ export async function PATCH(
         revoked_at: approved ? null : new Date().toISOString(),
         revoked_by: approved ? null : user.id,
         ...(approved ? {} : { booth_number: null, inventory_id: null }),
+        // BR-3: size + number set at approval (only when the caller sent them).
+        ...(approved && sizeProvided ? { inventory_id: inventoryId } : {}),
+        ...(approved && boothProvided ? { booth_number: boothNumber } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq('market_id', marketId)
       .eq('vendor_profile_id', vendorProfileId)
-      .select('id, vendor_profile_id, approved, revoked_at')
+      .select('id, vendor_profile_id, approved, revoked_at, booth_number, inventory_id')
       .maybeSingle()
 
     if (error) {
+      // BR-3: the booth number collided at the trigger (race past the pre-flight,
+      // or the mig 145 cross-market tier check). Same 409/400 shape as vendor-booth.
+      if (error.code === 'P0005' && error.message.startsWith('BOOTH_CONFLICT')) {
+        return NextResponse.json({ error: error.message.replace(/^BOOTH_CONFLICT:s*/, '') }, { status: 409 })
+      }
+      if (error.code === 'P0001' && error.message.includes('does not belong to market')) {
+        return NextResponse.json({ error: 'Selected booth size tier does not belong to this market.' }, { status: 400 })
+      }
       throw traced.fromSupabase(error, { table: 'market_vendors', operation: 'update' })
     }
 
@@ -145,6 +214,11 @@ export async function PATCH(
             marketName: (market?.name as string | undefined) || 'the market',
             ...(vendorName ? { vendorName } : {}),
             marketId,
+            // BR-3/BR-8: the approval carries the booth size + number (a hold) and
+            // the manager's note — one send, not a second "booth pinned" message.
+            ...(sizeLabel ? { boothSizeLabel: sizeLabel } : {}),
+            ...(data.booth_number ? { boothNumber: data.booth_number as string } : {}),
+            ...(managerNote ? { managerNote } : {}),
           },
           {
             vertical: (market?.vertical_id as string | undefined) || (vp.vertical_id as string | undefined) || 'farmers_market',
@@ -160,6 +234,8 @@ export async function PATCH(
       vendor_profile_id: data.vendor_profile_id,
       approved: data.approved,
       revoked_at: data.revoked_at ?? null,
+      booth_number: (data.booth_number as string | null) ?? null,
+      inventory_id: (data.inventory_id as string | null) ?? null,
     })
   })
 }

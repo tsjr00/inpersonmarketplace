@@ -160,6 +160,31 @@ export async function GET(
       })
     }
 
+    // BR-2/BR-3 (2026-09-19): the booth SIZE each applicant asked for
+    // (market_vendors.requested_inventory_id, mig 256), resolved to its label so
+    // the approve form can show "Requested: Medium". Queried separately and
+    // tolerantly: on an environment where mig 256 has not run yet the column is
+    // absent, the query errors, and the roster simply shows no request.
+    // (FT parks have no priced tiers, so the query is a cheap empty result there.)
+    const requestedTierByVendor = new Map<string, { id: string; label: string }>()
+    crumb.supabase('select', 'market_vendors')
+    const { data: requestRows, error: requestErr } = await serviceClient
+      .from('market_vendors')
+      .select('vendor_profile_id, requested_inventory_id')
+      .eq('market_id', marketId)
+      .not('requested_inventory_id', 'is', null)
+    if (!requestErr && (requestRows ?? []).length > 0) {
+      const { data: tierRows } = await observed(serviceClient
+        .from('market_booth_inventory')
+        .select('id, size_label')
+        .eq('market_id', marketId), { table: 'market_booth_inventory' })
+      const labelById = new Map((tierRows ?? []).map((t) => [t.id as string, t.size_label as string]))
+      for (const r of requestRows ?? []) {
+        const tierId = r.requested_inventory_id as string
+        requestedTierByVendor.set(r.vendor_profile_id as string, { id: tierId, label: labelById.get(tierId) ?? 'Unknown size' })
+      }
+    }
+
     const vendors = (rows || []).map((row) => {
       const vp = row.vendor_profiles as unknown as
         | { id: string; status: string; profile_data: Record<string, unknown> | null }
@@ -187,6 +212,9 @@ export async function GET(
         has_info_sharing_consent: consentSet.has(row.vendor_profile_id as string),
         market_charges_booths: marketChargesBooths,
         has_paid_booth_week: paidWeekSet.has(row.vendor_profile_id as string),
+        // BR-2: the size the vendor asked for on their application (null = none).
+        requested_inventory_id: requestedTierByVendor.get(row.vendor_profile_id as string)?.id ?? null,
+        requested_size_label: requestedTierByVendor.get(row.vendor_profile_id as string)?.label ?? null,
         blocked: vettingByVendor.get(row.vendor_profile_id as string)?.blocked ?? false,
         review_status: vettingByVendor.get(row.vendor_profile_id as string)?.review_status ?? 'pending',
         created_at: row.created_at as string,

@@ -23,7 +23,14 @@ Fixes shipped since your last results (2026-09-18, OB-026/OB-027; 2026-09-19 OB-
 points at its full block below. When this section is empty, there is nothing new to retest — go straight to the
 regular groups.
 
-BOOTH ROUND PART A (your 09-19 booth-conflict report; migration 256 on Dev, Staging pending your paste):
+BOOTH ROUND PART B (your 09-19 rulings: manager veto at every managed market, size at Apply, size + number at approval):
+🔵 TR-083  Every managed market — free too — needs the manager's approval before picking days  (replaces TR-076/077)
+🔵 TR-084  Apply asks which booth size you want; the manager sees the request
+🔵 TR-085  Approve sets size + booth number + note in one step; the vendor is told
+🟠 TR-086  Booking is locked to the assigned size; unapproved vendors see the apply door
+🟠 TR-087  Booking needs at least one declared day — the day picker unlocks the form
+
+BOOTH ROUND PART A (your 09-19 booth-conflict report; migration 256 on Dev + Staging):
 🟠 TR-078  A pinned vendor can book their own booth (the bug you hit)         (your 09-19 report)
 🟠 TR-079  A season purchase keeps ONE booth number for every week           (your 09-19 ruling)
 🟠 TR-080  Manager can pin a vendor to the booth they already rent           (found in the review)
@@ -34,9 +41,8 @@ EARLIER (2026-09-18 push, still to run):
 🟢 TR-069  Market-limit refusal now names the 4 counted markets              (your 09-18 report, item 1)
 🟢 TR-034  FM no longer mentions "Pickup Capacity"; FT half still to run       (your 09-18 report, item 4)
 🔵 TR-071  Apply shows the market agreement + document-sharing box            (your 09-18 TR-036 question)
-🔵 TR-077  Free managed market asks for its terms on first join               (your 09-18 ruling)
-🔵 TR-076  Self-scheduling at a free managed market puts you on the roster    (your 09-18 ruling)
-🔵 TR-036  Manager "View docs" page — now reachable via TR-071 / TR-077
+🔵 TR-036  Manager "View docs" page — now reachable via TR-071
+   (TR-076 and TR-077 are withdrawn — your 09-19 ruling replaced the free-market rules they tested; see TR-083.)
 🔵 TR-072  "No paid week yet" on the manager's roster                         (your 09-18 booth question)
 🟠 TR-073  Fee-market items sell only for a paid booth week (migration 255)   (your 09-18 rulings)
 🟠 TR-074  Week strip shows "payment due" until a week is paid
@@ -119,12 +125,14 @@ Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
 
 
 ==================================================
-🔵 GROUP 2 — VENDOR JOINS A MARKET · MANAGER'S ROSTER   (5 tests)
+🔵 GROUP 2 — VENDOR JOINS A MARKET · MANAGER'S ROSTER   (6 tests)
 ===
 
 Screens: /\[vertical]/markets/\[id] (Apply) · /\[vertical]/vendor/markets (day picker) · manager dashboard roster.
-Setup that serves all five: one vendor with no history at a FREE managed market (no priced booth tier), one
-vendor applying to a CHARGING managed market, and the manager account for each.
+Setup that serves the group: one vendor with no history at a FREE managed market (no priced booth tier), one
+vendor with no history at a CHARGING managed market, and the manager account for each.
+The rule since 2026-09-19: EVERY managed market — free or charging — needs the manager's one-time approval
+before a vendor can pick days or book. Apply is the front door; approval sets the vendor's booth size and number.
 
 
 
@@ -138,25 +146,38 @@ Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
 
 
 
-🔵 TR-077  A FREE managed market asks for its terms on the vendor's first join  (fix shipped 2026-09-19)
+🔵 TR-083  Every managed market needs the manager's approval before a vendor can pick days  (your 09-19 ruling; replaces TR-076/077)
 Where: as a vendor with NO history at a managed market with NO priced booth tier, /\[vertical]/vendor/markets →
-open that market's day picker.
-Expect: the market agreement + "Share my onboarding documents" box (with the grey "why" line) appear ABOVE the
-days; day checkboxes are disabled until "I agree"; tick it, select a day → saves; reopen → the block is gone.
+open that market's day picker and tick a day.
+Expect: refused with a red (blocking) message — "«Market» reviews vendor applications. Apply from the market's
+page…". No agreement block appears in the picker any more (Apply carries it). Apply from the market page, then as
+the manager approve the vendor → the toggle now saves. A vendor who already had days at this market before
+today keeps editing them (grandfathered).
 Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
 
 
 
-🔵 TR-076  Self-scheduling at a FREE managed market puts the vendor on the manager's roster  (fix shipped 2026-09-18)
-Where: right after TR-077, as that market's manager.
-Expect: the vendor appears on the roster as approved; a booth number can be assigned; a broadcast reaches them;
-"View docs" shows only if they ticked the sharing box.
+🔵 TR-084  Apply asks which booth size you want; the manager sees the request  (your 09-19 ruling)
+Where: /\[vertical]/markets/\[id] for a managed market WITH priced booth tiers → "Apply to Sell Here".
+Expect: a "Booth size you'd like" select lists the tiers with weekly prices and Submit stays disabled until one is
+chosen (plus the agreement, as before). A market with no priced tiers shows no size question. As the manager,
+the pending row on the roster reads "Requested: <size>".
+Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+
+
+
+🔵 TR-085  Approve sets size + booth number + note in one step; the vendor is told  (your 09-19 ruling)
+Where: manager dashboard → vendor roster → the pending row from TR-084.
+Expect: next to Approve there is a size select (pre-set to what they requested), a booth # field and a "Note to
+vendor" field. Change the size, type a number and a note, Approve → the row shows the number and tier. The vendor's
+notification (bell + email) reads "Your booth: #N · <size> size…" and includes your note. Approving with the
+fields left blank still works (nothing set).
 Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
 
 
 
 🔵 TR-036  Manager vendor-docs page  (evidence only — the door shipped 2026-09-18)
-Where: manager dashboard → vendor roster → "View docs" on a vendor who ticked the sharing box (TR-071 or TR-077).
+Where: manager dashboard → vendor roster → "View docs" on a vendor who ticked the sharing box (TR-071).
 Steps: open it. If it errors, capture the on-screen error or the Vercel log line.
 Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
 
@@ -171,7 +192,7 @@ Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
 
 
 ==================================================
-🟠 GROUP 3 — BOOTH WEEKS AND MONEY AT MANAGED MARKETS   (10 tests)
+🟠 GROUP 3 — BOOTH WEEKS AND MONEY AT MANAGED MARKETS   (12 tests)
 ===
 
 Screens: /\[vertical]/markets/\[id]/book · manager dashboard (vendor roster, booth occupancy) · /\[vertical]/listing/\[id] ·
@@ -225,6 +246,25 @@ vendor who has not booked.
 Expect: the paying vendor appears under their tier as "Paid this week" (before this fix they never appeared); a
 pending checkout appears as "Pending payment"; the pinned vendor appears as "Pinned (hold)". The tier's "N of M
 occupied" counts the bookings only, not the hold.
+Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+
+
+
+🟠 TR-086  Booking is locked to the assigned size; an unapproved vendor sees the apply door  (your 09-19 ruling)
+Where: /\[vertical]/markets/\[id]/book.
+Expect: as the vendor approved in TR-085 — a box "Your booth at «Market»: #N · <size> size — assigned by the
+manager", the size picker disabled on that size ("set by the manager"), and "Continue to payment" works. As a
+vendor with no approval at a managed market — "Apply to «Market» first" (or "Your application… is with the
+manager") with a link, and no form.
+Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+
+
+
+🟠 TR-087  Booking needs at least one declared day — the day picker unlocks the form  (your 09-19 ruling "C")
+Where: /\[vertical]/markets/\[id]/book as an approved vendor who has NOT ticked any days at this market.
+Expect: an amber "First, pick the days you attend «Market»" box with the day toggles sits above the form,
+"Continue to payment" is disabled with the reason, and the season picker is hidden. Tick a day → "Done — continue
+to booking" → the form unlocks and the season picker appears.
 Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
 
 

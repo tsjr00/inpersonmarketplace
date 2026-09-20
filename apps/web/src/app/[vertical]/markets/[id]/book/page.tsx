@@ -7,16 +7,20 @@ import BoothMapViewer from '@/components/market-manager/BoothMapViewer'
 import { getBoothMapUrl } from '@/lib/markets/booth-map'
 import SeasonBookingSection from '@/components/vendor/SeasonBookingSection'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
+import { checkBookingGates } from '@/lib/markets/booking-gates'
+import DeclareDaysGate from '@/components/vendor/DeclareDaysGate'
 
 /**
  * Vendor weekly booth booking page. Phase C Stage 1 (2026-05-16).
  *
- * Server component: auth-checks the user, fetches market + inventory,
- * verifies the vendor is approved at this market. Renders one of:
+ * Server component: auth-checks the user, fetches market + inventory, runs
+ * the shared booking gates (lib/markets/booking-gates.ts — owner 2026-09-19).
+ * Renders one of:
  *   - Login prompt (no user)
- *   - "Apply via invite link first" (no market_vendors row)
- *   - "Pending manager approval" (market_vendors.approved=false)
- *   - The booking form (approved=true)
+ *   - "Apply first" / "Your application is with the manager" (BR-1: no
+ *     approved roster row at a MANAGED market)
+ *   - The day picker above a locked form (BR-13: no declared days here yet)
+ *   - The booking form — size locked to the pin's tier when one exists (BR-4)
  *
  * No Stripe integration — the form's submit hits
  * /api/vendor/markets/[id]/book which writes a row with
@@ -99,7 +103,7 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
   // copy ("you need to be a vendor at <market name> to book").
   const { data: market } = await supabase
     .from('markets')
-    .select('id, name, vertical_id, timezone, address, city, state, stripe_charges_enabled, season_start, season_end')
+.select('id, name, vertical_id, timezone, address, city, state, stripe_charges_enabled, season_start, season_end, manager_user_id')
     .eq('id', marketId)
     .maybeSingle()
 
@@ -171,12 +175,35 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
     )
   }
 
-  // Phase C Stage 3 design correction (2026-05-17): booth booking is an
-  // open marketplace — no manager pre-approval gate. The vendor profile
-  // + market existence are the only association checks. Availability +
-  // payment enforce supply.
   // Service client — market_booth_inventory is RLS-deny for non-managers.
   const serviceClient = createServiceClient()
+
+  // BR-1 / BR-13 / BR-4 (owner 2026-09-19): approved once at a managed market
+  // → days declared → tier locked to the pin. Same decision the routes make;
+  // here it chooses what to render. (2026-05-17 "no per-rental approval" still
+  // holds — approval is one-time, then the vendor books freely.)
+  const gate = await checkBookingGates(serviceClient, {
+    marketId,
+    vendorProfileId: profile.id,
+    market: { name: market.name as string | null, manager_user_id: market.manager_user_id as string | null },
+  })
+  if (!gate.ok && gate.code === 'ERR_MARKET_APPROVAL_REQUIRED') {
+    return (
+      <Centered>
+        <h1 style={headingStyle}>{gate.pending ? `Your application to ${market.name} is with the manager` : `Apply to ${market.name} first`}</h1>
+        <p style={mutedStyle}>
+          {gate.pending
+            ? 'The manager approves vendors before booth weeks can be booked. You will get a notification the moment they approve you — then come back here to book.'
+            : 'The manager approves vendors before booth weeks can be booked. Apply from the market page: you will be asked for the booth size you want, and the manager confirms it when they approve you.'}
+        </p>
+        <Link href={`/${vertical}/markets/${marketId}`} style={primaryButtonStyle}>
+          {gate.pending ? `Back to ${market.name}` : `Apply at ${market.name}`}
+        </Link>
+      </Centered>
+    )
+  }
+  const needsDeclaredDays = !gate.ok && gate.code === 'ERR_DECLARE_DAYS_FIRST'
+  const pin = gate.ok ? gate.pin : { booth_number: null, inventory_id: null }
 
   // Fetch the inventory tiers + compute week options.
   const { data: inventoryRaw } = await serviceClient
@@ -317,6 +344,11 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
           booking covers {operatingDays.length === 1 ? 'that day' : `all ${operatingDays.length} operating days`} of the week you pick.
         </p>
       )}
+      {/* BR-13: declare days before booking — inline, so the vendor never has to
+          leave the page at the moment of paying. */}
+      {needsDeclaredDays && (
+        <DeclareDaysGate marketId={marketId} marketName={market.name as string} vertical={vertical} />
+      )}
       <BookBoothForm
         marketId={marketId}
         marketName={market.name as string}
@@ -324,12 +356,17 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
         weeks={weeks}
         inventory={inventory}
         creditBalanceCents={creditBalanceCents}
+        lockedInventoryId={pin.inventory_id}
+        pinnedBoothNumber={pin.booth_number}
+        bookingBlockedReason={needsDeclaredDays ? `Pick at least one day you attend ${market.name} (above) to unlock booking.` : null}
         {...(returnFlash ? { returnFlash } : {})}
       />
 
       {/* Phase E — season pre-sale picker. Renders only when this market has
-          OPEN seasons; otherwise the component returns null. */}
-      <SeasonBookingSection marketId={marketId} />
+          OPEN seasons; otherwise the component returns null. Hidden while the
+          vendor still owes their declared days (BR-13 — the season route would
+          refuse anyway; don't invite a purchase that can't go through). */}
+      {!needsDeclaredDays && <SeasonBookingSection marketId={marketId} />}
     </div>
   )
 }

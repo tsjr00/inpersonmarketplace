@@ -111,13 +111,17 @@ export async function POST(
 
     // Parse request body
     const body = await request.json()
-    const { vendor_profile_id, notes, agreement_accepted, info_sharing_accepted } = body as {
+    const { vendor_profile_id, notes, agreement_accepted, info_sharing_accepted, requested_inventory_id } = body as {
       vendor_profile_id?: string
       notes?: string
       /** The vendor ticked "I agree" under the market's agreement block. */
       agreement_accepted?: boolean
       /** Opt-in: let this market's manager review the vendor's onboarding documents. */
       info_sharing_accepted?: boolean
+      /** BR-2 (owner 2026-09-19): the booth SIZE tier the vendor wants; the
+       *  manager confirms or changes it at approval. Optional at markets with
+       *  no priced tiers. */
+      requested_inventory_id?: string
     }
 
     if (!vendor_profile_id) {
@@ -201,6 +205,22 @@ export async function POST(
       )
     }
 
+    // BR-2: a requested size must be one of THIS market's tiers.
+    const requestedTierId = typeof requested_inventory_id === 'string' && requested_inventory_id.length > 0
+      ? requested_inventory_id
+      : null
+    if (requestedTierId) {
+      const { data: tier } = await observed(createServiceClient()
+        .from('market_booth_inventory')
+        .select('id')
+        .eq('id', requestedTierId)
+        .eq('market_id', marketId)
+        .maybeSingle(), { table: 'market_booth_inventory' })
+      if (!tier) {
+        return NextResponse.json({ error: 'That booth size does not belong to this market' }, { status: 400 })
+      }
+    }
+
     // Create application
     const { data: marketVendor, error } = await supabase
       .from('market_vendors')
@@ -215,6 +235,20 @@ export async function POST(
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // BR-2: record the size request in its own column (mig 256). Written as a
+    // separate best-effort update so an environment where mig 256 has not run
+    // yet still accepts applications — the request is simply not stored there,
+    // and the failure is logged rather than shown.
+    if (requestedTierId) {
+      const { error: reqErr } = await createServiceClient()
+        .from('market_vendors')
+        .update({ requested_inventory_id: requestedTierId })
+        .eq('id', marketVendor.id as string)
+      if (reqErr) {
+        await logError(traced.fromSupabase(reqErr, { table: 'market_vendors', operation: 'update' }))
+      }
     }
 
     // Record the agreement acceptance (+ the optional document-sharing consent)

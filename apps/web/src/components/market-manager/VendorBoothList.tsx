@@ -27,6 +27,9 @@ interface Vendor {
   /** FT park vetting (B3): blocked from future bookings + doc review status. */
   blocked: boolean
   review_status: string
+  /** BR-2 (2026-09-19): the booth size the vendor asked for on their application. */
+  requested_inventory_id?: string | null
+  requested_size_label?: string | null
 }
 
 interface TierOption {
@@ -93,6 +96,8 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
   // Mig 145: per-row tier edits. Keyed by vendor_profile_id. Empty
   // string means "no tier selected" (saved as NULL).
   const [tierEdits, setTierEdits] = useState<Record<string, string>>({})
+  // BR-3: the manager's note to the vendor at approval (why a different size, etc.).
+  const [noteEdits, setNoteEdits] = useState<Record<string, string>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [rowError, setRowError] = useState<Record<string, string>>({})
@@ -135,7 +140,8 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
         const initialTier: Record<string, string> = {}
         for (const v of data.vendors || []) {
           initialBooth[v.vendor_profile_id] = v.booth_number ?? ''
-          initialTier[v.vendor_profile_id] = v.inventory_id ?? ''
+          // BR-3: a pending applicant's tier field starts at the size they asked for.
+          initialTier[v.vendor_profile_id] = v.inventory_id ?? (!v.approved ? (v.requested_inventory_id ?? '') : '')
         }
         setEdits(initialBooth)
         setTierEdits(initialTier)
@@ -275,12 +281,23 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
     setRowError((s) => ({ ...s, [vendorProfileId]: '' }))
     setRowSuccess((s) => ({ ...s, [vendorProfileId]: false }))
     try {
+      // BR-3: an FM approval carries the booth size + number the manager set in
+      // the row's form (both optional) and the note to the vendor. Revoke and
+      // FT approvals send the flag alone.
+      const approvalExtras = nextApproved && !isFoodTruck
+        ? {
+            inventory_id: tierEdits[vendorProfileId] ?? '',
+            booth_number: edits[vendorProfileId] ?? '',
+            note: noteEdits[vendorProfileId] ?? '',
+          }
+        : {}
       const res = await fetch(`/api/market-manager/${marketId}/vendor-approval`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           vendor_profile_id: vendorProfileId,
           approved: nextApproved,
+          ...approvalExtras,
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -299,7 +316,10 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                   ...v,
                   approved: !!data.approved,
                   revoked_at: data.revoked_at ?? null,
-                  ...(data.approved ? {} : { booth_number: null, inventory_id: null }),
+                  ...(data.approved
+                    // BR-3: the approval response carries what was set.
+                    ? { booth_number: data.booth_number ?? v.booth_number ?? null, inventory_id: data.inventory_id ?? v.inventory_id ?? null }
+                    : { booth_number: null, inventory_id: null }),
                 }
               : v
           )
@@ -595,7 +615,51 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                   No action — {term(vertical, 'vendor').toLowerCase()} must respond
                 </div>
               ) : !v.approved ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], flexWrap: 'wrap' }}>
+                  {/* BR-3 (owner 2026-09-19): approval sets the vendor's booth SIZE and
+                      NUMBER. The size starts at what they requested; the manager may
+                      grant a different one and say why in the note. The number is a
+                      PIN — a hold until the vendor pays for a week (BR-5). All optional. */}
+                  {!isFoodTruck && (
+                    <>
+                      {v.requested_size_label && (
+                        <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                          Requested: <strong>{v.requested_size_label}</strong>
+                        </span>
+                      )}
+                      <select
+                        value={tierEdits[v.vendor_profile_id] ?? ''}
+                        onChange={(e) => setTierEdits((s) => ({ ...s, [v.vendor_profile_id]: e.target.value }))}
+                        disabled={isApproving}
+                        title="Booth size to grant"
+                        style={{ padding: `${spacing['3xs']} ${spacing.xs}`, border: `1px solid ${colors.border}`, borderRadius: radius.sm, fontSize: typography.sizes.xs, minHeight: 32 }}
+                      >
+                        <option value="">Size: not set</option>
+                        {tiers.map((t) => (
+                          <option key={t.id} value={t.id}>{t.size_label}</option>
+                        ))}
+                      </select>
+                      <input
+                        type="text"
+                        value={edits[v.vendor_profile_id] ?? ''}
+                        onChange={(e) => setEdits((s) => ({ ...s, [v.vendor_profile_id]: e.target.value }))}
+                        placeholder={`${term(vertical, 'booth')} # (hold)`}
+                        disabled={isApproving}
+                        maxLength={50}
+                        title="Booth number to hold for this vendor — theirs once they pay for a week"
+                        style={{ width: 96, padding: `${spacing['3xs']} ${spacing.xs}`, border: `1px solid ${colors.border}`, borderRadius: radius.sm, fontSize: typography.sizes.xs, minHeight: 32 }}
+                      />
+                      <input
+                        type="text"
+                        value={noteEdits[v.vendor_profile_id] ?? ''}
+                        onChange={(e) => setNoteEdits((s) => ({ ...s, [v.vendor_profile_id]: e.target.value }))}
+                        placeholder="Note to vendor (optional)"
+                        disabled={isApproving}
+                        maxLength={500}
+                        style={{ flex: '1 1 160px', padding: `${spacing['3xs']} ${spacing.xs}`, border: `1px solid ${colors.border}`, borderRadius: radius.sm, fontSize: typography.sizes.xs, minHeight: 32 }}
+                      />
+                    </>
+                  )}
                   <button
                     onClick={() => handleApprove(v.vendor_profile_id, true)}
                     disabled={isApproving}

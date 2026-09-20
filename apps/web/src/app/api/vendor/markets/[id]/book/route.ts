@@ -8,6 +8,7 @@ import { fetchMarketOptinForVendor } from '@/lib/markets/optin-public'
 import { computeAgreementVersionFromSnapshot } from '@/lib/markets/agreement-version'
 import { calculateBoothRentalFees } from '@/lib/pricing'
 import { createBoothRentalCheckoutSession } from '@/lib/stripe/payments'
+import { checkBookingGates } from '@/lib/markets/booking-gates'
 
 /**
  * POST /api/vendor/markets/[id]/book
@@ -30,10 +31,11 @@ import { createBoothRentalCheckoutSession } from '@/lib/stripe/payments'
  *   2. Market exists, is FM, and is Stripe-ready
  *   3. Vendor profile exists in market's vertical
  *   4. Inventory tier exists AND belongs to this market
- *   (No roster-approval gate TODAY — owner 2026-05-17, see the note above
- *   Gate 4 below. Owner 2026-09-19 (BR-1, design booth_model_design.md):
- *   a one-time manager approval becomes required at MANAGED markets — built
- *   in part B of the booth round, not yet here.)
+ *   5. checkBookingGates (lib/markets/booking-gates.ts, owner 2026-09-19):
+ *      BR-1 approved ONCE by the manager at a managed market (403,
+ *      ERR_MARKET_APPROVAL_REQUIRED) → BR-13 at least one declared day here
+ *      (400, ERR_DECLARE_DAYS_FIRST) → BR-4 tier matches the pin's tier
+ *      (400, ERR_BOOTH_TIER_LOCKED). Never per rental (2026-05-17 stands).
  *
  * Validation:
  *   - week_start_date parses as YYYY-MM-DD
@@ -120,7 +122,7 @@ export async function POST(
     crumb.supabase('select', 'markets')
     const { data: market, error: marketErr } = await supabase
       .from('markets')
-      .select('id, vertical_id, timezone, name, stripe_account_id, stripe_charges_enabled')
+      .select('id, vertical_id, timezone, name, stripe_account_id, stripe_charges_enabled, manager_user_id')
       .eq('id', marketId)
       .maybeSingle()
 
@@ -166,17 +168,16 @@ export async function POST(
       )
     }
 
-    // Phase C Stage 3 design correction (2026-05-17): booth booking
-    // does NOT require manager pre-approval. Per user direction:
-    // "approving each rental wouldn't save the manager time — if there
-    // are open booths and the vendor agrees + pays, the system should
-    // let them." Manager controls supply (booth inventory + placeholders);
-    // demand routes through automatically.
-    //
-    // The market_vendors relationship is for REGULAR vendors with
-    // permanent booth assignments. A booth-rental booking does not need
-    // it. Manager sees rentals in WeeklyBookingsCard regardless of
-    // whether the vendor has a market_vendors row.
+    // Roster approval — two rulings, read together:
+    //   2026-05-17: no PER-RENTAL approval. "Approving each rental wouldn't
+    //   save the manager time — if there are open booths and the vendor
+    //   agrees + pays, the system should let them." Still true.
+    //   2026-09-19 (BR-1, booth_model_design.md): at a MANAGED market the
+    //   manager approves the vendor ONCE (the veto); after that they book
+    //   freely. Off-app markets have no manager and skip the gate. Enforced by
+    //   checkBookingGates below, together with BR-13 (declared days first) and
+    //   BR-4 (tier locked to the pin). Owner: "we need market managers on our
+    //   side."
 
     const serviceClient = createServiceClient()
 
@@ -202,6 +203,22 @@ export async function POST(
       return NextResponse.json(
         { error: 'Booth size tier does not belong to this market', field: 'inventory_id' },
         { status: 400 }
+      )
+    }
+
+    // --- BR-1 / BR-13 / BR-4 (owner 2026-09-19): approved once at a managed
+    //     market → days declared → tier matches the pin. One shared decision
+    //     with the season route and the booking page. ---
+    const gate = await checkBookingGates(serviceClient, {
+      marketId,
+      vendorProfileId: profile.id,
+      market: { name: market.name as string | null, manager_user_id: market.manager_user_id as string | null },
+      inventoryId,
+    })
+    if (!gate.ok) {
+      return NextResponse.json(
+        { error: gate.message, code: gate.code, field: gate.code === 'ERR_BOOTH_TIER_LOCKED' ? 'inventory_id' : undefined },
+        { status: gate.status }
       )
     }
 

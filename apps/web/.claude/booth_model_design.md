@@ -1,4 +1,5 @@
-# Booth model — DESIGN (farmers-market booths) · 2026-09-19 · STATUS: owner-approved rulings, NOTHING BUILT
+# Booth model — DESIGN (farmers-market booths) · 2026-09-19 · STATUS: part A SHIPPED to staging (`80e66d59`, mig 256 Dev+Staging) · part B BUILT 2026-09-19 (uncommitted at time of writing) · parts C, D not started
+Part B build notes: BR-1 gate = `managedJoinBlocked` (schedules) + `lib/markets/booking-gates.ts` `checkBookingGates` (both booking routes + page). Booking is NOT grandfathered (only day-editing is) — a vendor with old declaration rows and no approved roster row sees the apply door when booking; Staging test data only, Prod wiped before push. BR-13 gate is inline (`DeclareDaysGate`). The three 09-05/09-18 test pins were rewritten with the owner's yes ("have you reviewed… if so proceed").
 Reference point for the build. Check every change against this file before and after building it.
 Findings this rests on: `booth_model_review.md` (C1–C12, F1). Owner rulings 2026-09-19 (chat), logged in decisions.md.
 Owner-confirmed choices: pin transfers on PAYMENT (not at booking) · manager cancel of a paid week credits the FULL

@@ -1,6 +1,6 @@
 # 12 — Market Manager (farmers-market side) ⚠ money
 
-<!-- map-stamp: domain=market-manager; verified=2026-09-05; commit=de9baab6 -->
+<!-- map-stamp: domain=market-manager; verified=2026-09-19; commit=booth-round-B -->
 <!-- map-claims
 src/app/api/market-manager/**
 src/app/api/markets/**
@@ -42,7 +42,7 @@ Note that **market manager is not a `UserRole`** in the platform role system —
 3. **Booth inventory.** Size tiers with weekly prices (`booth-inventory/route.ts`), then a market-wide booth-label range whose count must equal the sum of inventory counts (`booth-labels/route.ts:9-21`). Any inventory mutation runs `booth-label-drift-server.ts`, which **auto-clears a now-stale label range and warns rather than blocking**.
 4. **Payments enabled.** `stripe/onboard` creates the market's Connect Express account; `stripe/status` lazily syncs `stripe_charges_enabled` / `payouts_enabled` back from Stripe. Booking routes hard-gate on these.
 5. **Opt-in agreement.** The manager selects statements from a curated catalog (managers select, never author). `lib/markets/agreement-version.ts` hashes the selected set into a version; vendors re-accept when it changes. Anonymous invite-link visitors read the terms pre-signup via `api/markets/[id]/optin-public/route.ts`.
-6. **Vendor onboarding.** Bulk invite → vendor responds → `vendor-approval/route.ts` toggles `approved`. Booth and tier assignment enforce uniqueness across vendors, placeholders and active rentals via `lib/markets/booth-conflict-checks.ts`.
+6. **Vendor onboarding — MANAGER VETO, ONCE (BR-1, owner 2026-09-19; `apps/web/.claude/booth_model_design.md`).** At ANY managed market a vendor needs an APPROVED roster row before they can pick their days (`api/vendor/markets/[id]/schedules/route.ts` `managedJoinBlocked`) or book a booth week/season (`lib/markets/booking-gates.ts` `checkBookingGates`, run by both booking routes and the booking page). Approval is one-time, never per rental. Front door = Apply (`api/markets/[id]/vendors/route.ts`): agreement + optional document-sharing consent + **requested booth size** (`market_vendors.requested_inventory_id`, mig 256). `vendor-approval/route.ts` approves and in the same call sets the vendor's tier, booth number (a PIN — a soft hold, BR-5) and a note; the approval notification carries all three. Revoke clears the pin (BR-12). Reverses the 2026-09-05 free-market zero-friction join and the 2026-09-18 middle path (both retired). Booth-number uniqueness across vendors, placeholders and active rentals: `lib/markets/booth-conflict-checks.ts` — a vendor never conflicts with their OWN pin or rentals (BR-11); pins are NOT capacity (`checkTierCapacity` counts placeholders only, BR-6).
 7. **Season setup.** A season is created in `status='draft'`; `PATCH action='open_prepay'` enforces a 60-day lead cap and a one-season-ahead rule, refusing while a prior season is still `'ended'` (`seasons/route.ts:210`). `set_cap` sets `refund_cap_days`.
 8. **Booking + payment** (vendor-initiated — routes live under `api/vendor/`, see [11_Vendor_Orders.md](11_Vendor_Orders.md)):
    - *Single week:* atomic rental insert → credit redemption → `createBoothRentalCheckoutSession`. On Stripe failure the row is deleted so the vendor can retry immediately.
@@ -107,7 +107,8 @@ Shared with the park domain; FM is where it originated. Table: `booth_credits`. 
 | `manager-auth.ts` · `manager-queries.ts` | The manager gate; markets a user manages, by vertical |
 | `manager-dashboard-stats.ts` | Aggregated dashboard figures (~630 lines); uses `markets.timezone` with an `America/Chicago` fallback |
 | `onboarding-progress.ts` | Step completion computed read-only from entered data (no completion flag), honoring the ack toggles |
-| `booth-types.ts` · `placeholder-types.ts` · `booth-labels.ts` · `booth-label-drift-server.ts` · `booth-conflict-checks.ts` | Booth inventory, placeholders, label ranges and uniqueness/capacity checks |
+| `booth-types.ts` · `placeholder-types.ts` · `booth-labels.ts` · `booth-label-drift-server.ts` · `booth-conflict-checks.ts` | Booth inventory, placeholders, label ranges and uniqueness/capacity checks (same-vendor exclusion + placeholders-only capacity since 2026-09-19, BR-11/BR-6) |
+| `booking-gates.ts` | **Booth-booking eligibility (owner 2026-09-19, BR-1/13/4):** ONE decision for the one-off route, the season route and the booking page — approved once at a managed market → at least one declared day here → tier matches the pin's tier. Returns the refusal code + copy; callers translate to 403/400. |
 | `optin-types.ts` · `optin-public.ts` · `agreement-version.ts` | Opt-in statements, service-side public fetch (RLS is default-deny), and the deterministic agreement-version hash |
 | `document-types.ts` | Verification-document taxonomy, mirrored by a DB CHECK |
 | `season-window.ts` · `season-weeks.ts` | Season boundaries; enumerates bookable weeks — a week is skipped only when **all** its operating days are cancelled |

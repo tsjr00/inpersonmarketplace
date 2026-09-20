@@ -161,6 +161,27 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
     }
   }
 
+  // BR-2 (owner 2026-09-19): at a market that charges for booths, the
+  // application asks which booth SIZE the vendor wants; the manager confirms
+  // or changes it at approval. Priced tiers only — a market with none (or a
+  // food-truck park) shows no size question. Service client: the inventory
+  // table is RLS-deny for non-managers.
+  let applyTiers: Array<{ id: string; size_label: string; dimensions: string | null; weekly_price_cents: number }> = []
+  if (userVendorProfile && !hasApplied && hasActiveManager && !isEvent && vertical !== 'food_trucks') {
+    const { data: tierRows } = await createServiceClient()
+      .from('market_booth_inventory')
+      .select('id, size_label, dimensions, weekly_price_cents')
+      .eq('market_id', id)
+      .gt('weekly_price_cents', 0)
+      .order('weekly_price_cents', { ascending: true })
+    applyTiers = (tierRows ?? []).map((r) => ({
+      id: r.id as string,
+      size_label: r.size_label as string,
+      dimensions: (r.dimensions as string | null) ?? null,
+      weekly_price_cents: r.weekly_price_cents as number,
+    }))
+  }
+
   const locationParts = [market.address, market.city, market.state, market.zip].filter(Boolean)
   const fullAddress = locationParts.join(', ')
 
@@ -327,6 +348,7 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
                   marketId={id}
                   vendorProfileId={userVendorProfile.id}
                   vertical={vertical}
+                  tiers={applyTiers}
                 />
               </div>
             )}

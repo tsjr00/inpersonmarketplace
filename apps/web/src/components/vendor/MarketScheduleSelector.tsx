@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { colors } from '@/lib/design-tokens'
-import MarketAgreementBlock from '@/components/market-manager/MarketAgreementBlock'
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
@@ -55,15 +54,11 @@ export default function MarketScheduleSelector({
   const [saved, setSaved] = useState<string | null>(null) // schedule ID just saved
   const [error, setError] = useState<string | null>(null)
   const [errorType, setErrorType] = useState<'warning' | 'blocking'>('warning')
-  // Owner 2026-09-18 ("free markets should require the terms"): a FREE managed
-  // market asks for the market agreement (+ optional document sharing) on the
-  // vendor's FIRST join here — the server says whether it is still owed
-  // (`needs_terms`), the day toggles stay disabled until "I agree", and the
-  // first activating PATCH carries the acceptance. Charging markets never
-  // reach this: they route through Apply, which records the terms.
-  const [needsTerms, setNeedsTerms] = useState(false)
-  const [agreementAccepted, setAgreementAccepted] = useState(false)
-  const [shareDocs, setShareDocs] = useState(false)
+  // BR-1 (owner 2026-09-19): every managed market — free or charging — routes
+  // a new vendor through Apply (agreement + document-sharing opt-in live
+  // there) and the manager's one-time approval. This selector never collects
+  // terms any more; an unapproved vendor gets ERR_MARKET_APPLY_REQUIRED from
+  // the server and a blocking message pointing at the market's page.
 
   const isFT = vertical === 'food_trucks'
   const isEvent = marketType === 'event'
@@ -88,7 +83,6 @@ export default function MarketScheduleSelector({
         const data = await res.json()
         setSchedules(data.schedules || [])
         setHasAnyActive(data.hasAnyActive)
-        setNeedsTerms(data.needs_terms === true)
       } else {
         const errData = await res.json()
         setError(errData.error || 'Failed to load schedules')
@@ -116,11 +110,6 @@ export default function MarketScheduleSelector({
       patchBody.startTime = schedule.market_start_time
       patchBody.endTime = schedule.market_end_time
     }
-    if (needsTerms && !currentlyAttending) {
-      // First activation at a free managed market: the acceptance rides along.
-      patchBody.agreement_accepted = agreementAccepted
-      patchBody.info_sharing_accepted = shareDocs
-    }
 
     try {
       const res = await fetch(`/api/vendor/markets/${marketId}/schedules${vertical ? `?vertical=${vertical}` : ''}`, {
@@ -147,13 +136,12 @@ export default function MarketScheduleSelector({
         )
         setHasAnyActive(data.hasAnyActive)
         setErrorType('warning')
-        if (needsTerms && !currentlyAttending) setNeedsTerms(false) // recorded with this activation
 
         if (data.warning) {
           setError(data.warning)
         }
       } else {
-        if (data.code === 'ERR_SCHEDULE_HAS_ORDERS' || data.code === 'ERR_SCHEDULE_CONFLICT' || data.code === 'ERR_MARKET_TERMS_REQUIRED') {
+        if (data.code === 'ERR_SCHEDULE_HAS_ORDERS' || data.code === 'ERR_SCHEDULE_CONFLICT' || data.code === 'ERR_MARKET_APPLY_REQUIRED') {
           setErrorType('blocking')
         } else {
           setErrorType('warning')
@@ -312,35 +300,6 @@ export default function MarketScheduleSelector({
         </div>
       )}
 
-      {/* Owner 2026-09-18: the market's terms on the vendor's first join at a
-          FREE managed market — read, agree, then pick days. The block always
-          carries the platform clauses, so there is always something to accept. */}
-      {needsTerms && !isEvent && vertical && (
-        <div style={{ marginBottom: 16 }}>
-          <p style={{ margin: '0 0 8px 0', fontSize: 13, color: '#374151', lineHeight: 1.45 }}>
-            <strong>{marketName}</strong> asks vendors to accept its agreement before selling here. Read it, tick
-            &ldquo;I agree&rdquo;, and your day selections below will unlock. No application or approval is needed at this {locationLabel}.
-          </p>
-          <MarketAgreementBlock marketId={marketId} vertical={vertical} onChange={setAgreementAccepted} />
-          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: '#374151', lineHeight: 1.45, margin: '10px 0 0', cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={shareDocs}
-              onChange={(e) => setShareDocs(e.target.checked)}
-              style={{ marginTop: 3, minWidth: 16, minHeight: 16 }}
-            />
-            <span>
-              <strong>Share my onboarding documents with this {locationLabel}&apos;s manager.</strong>{' '}
-              Lets the manager review the licenses, permits and insurance you uploaded. Optional.
-            </span>
-          </label>
-          {/* Owner 2026-09-19: say WHY, so the ask doesn't read as red tape. */}
-          <p style={{ margin: '6px 0 0 24px', fontSize: 12, color: '#6b7280', lineHeight: 1.4 }}>
-            Market managers need to review applicants&apos; documents to ensure vendors in their markets meet certain standards.
-          </p>
-        </div>
-      )}
-
       {/* Schedule checkboxes */}
       {schedules.length === 0 ? (
         <p style={{ margin: 0, color: '#6b7280', fontStyle: 'italic' }}>
@@ -367,9 +326,7 @@ export default function MarketScheduleSelector({
                 <input
                   type="checkbox"
                   checked={isSingleDayEvent ? true : schedule.is_attending}
-                  // Terms owed and not yet agreed: activating is locked (deactivating never is).
-                  disabled={saving === schedule.id || isSingleDayEvent || (needsTerms && !agreementAccepted && !schedule.is_attending)}
-                  title={needsTerms && !agreementAccepted && !schedule.is_attending ? 'Accept the market agreement above first' : undefined}
+                  disabled={saving === schedule.id || isSingleDayEvent}
                   onChange={() => { if (!isSingleDayEvent) handleToggleSchedule(schedule.id, schedule.is_attending) }}
                   style={{
                     width: 20,
