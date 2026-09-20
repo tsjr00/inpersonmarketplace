@@ -11,19 +11,20 @@ interface ManagerActionSummaryProps {
 }
 
 /**
- * "What needs your attention" card on the manager dashboard. Sits BELOW
- * the OnboardingChecklist (which handles required-setup nudges) and
- * surfaces actionable items the manager can act on right now:
+ * "Action Items" — the first card on the manager dashboard (owner 2026-09-19,
+ * OB-029 part C: "a distillation of action items for the manager to DO, not
+ * just things he needs to be aware of"). Every line is something the manager
+ * can click and finish here:
  *
- *  - Active vendors needing a booth number assigned
- *  - Next market day stat (date + scheduled order count)
+ *  - Vendors pending approval            → Review on the roster
+ *  - Active vendors needing a booth #    → Assign on the roster
  *
- * Renders nothing if there are zero actionable items AND no upcoming
- * market day data — keeps the dashboard quiet when there's nothing to do.
+ * Awareness-only items do NOT belong here. The next-market-day line that used
+ * to sit in this card moved to the manager's schedule strip (part D).
  *
  * NOT a replacement for OnboardingChecklist — they show different things.
  * Onboarding checklist = "you haven't finished setup yet."
- * Action summary    = "setup is done; here's what's next on your plate."
+ * Action Items         = "setup is done; here's what needs your hand."
  */
 export default function ManagerActionSummary({
   vertical,
@@ -40,25 +41,24 @@ export default function ManagerActionSummary({
   // park_spot_bookings, so activeVendorsNeedingBooth (booth_number IS NULL)
   // counts every truck. Suppress the "needs a spot number assigned" nag for FT.
   const hasNeedsBooth = vertical !== 'food_trucks' && stats.activeVendorsNeedingBooth > 0
-  const hasNextMarket = stats.nextMarketDate !== null
 
-  // Collapses rather than disappearing (owner, 2026-08-08). "Nothing on your
-  // plate" is genuinely useful information for a manager — it is the difference
+  // Collapses rather than disappearing (owner, 2026-08-08). "Nothing to do"
+  // is genuinely useful information for a manager — it is the difference
   // between "I'm caught up" and "I wonder if this page is broken".
   //
   // ⚠ NOTE the early return above is NOT converted. `setupIncomplete` is not an
   // empty state — OnboardingChecklist owns that moment, and rendering a second
   // prompt beside it is the competing-prompt problem that return exists to
   // avoid. Only the genuinely-nothing-to-do case collapses.
-  const nothingToDo = !hasPendingApproval && !hasNeedsBooth && !hasNextMarket
+  const nothingToDo = !hasPendingApproval && !hasNeedsBooth
 
   return (
     <DashboardCard
-      title="What's on your plate"
+      title="Action Items"
       {...(nothingToDo ? {
         empty: {
           kind: 'waiting' as const,
-          message: `Nothing needs you right now — pending ${term(vertical, 'vendor').toLowerCase()} approvals, ${term(vertical, 'booth').toLowerCase()} assignments and your next ${term(vertical, 'market').toLowerCase()} day all show up here.`,
+          message: `Nothing needs you right now — ${term(vertical, 'vendor').toLowerCase()} applications to review and ${term(vertical, 'booth').toLowerCase()} numbers to assign show up here.`,
         },
       } : {})}
     >
@@ -128,36 +128,6 @@ export default function ManagerActionSummary({
             >
               Assign now →
             </a>
-          </li>
-        )}
-        {hasNextMarket && stats.nextMarketDate && (
-          <li style={{
-            fontSize: typography.sizes.sm,
-            color: colors.textPrimary,
-            display: 'flex',
-            alignItems: 'baseline',
-            gap: spacing['2xs'],
-            flexWrap: 'wrap',
-          }}>
-            <span>📅</span>
-            <span>
-              Next {term(vertical, 'market').toLowerCase()} day:{' '}
-              <strong>
-                {stats.nextMarketDate.toLocaleDateString('en-US', {
-                  weekday: 'short',
-                  month: 'short',
-                  day: 'numeric',
-                })}
-              </strong>
-              {' · '}
-              {stats.nextMarketDayOrderCount === 0
-                ? 'no orders scheduled yet'
-                : (
-                  <>
-                    <strong>{stats.nextMarketDayOrderCount}</strong> order{stats.nextMarketDayOrderCount === 1 ? '' : 's'} scheduled
-                  </>
-                )}
-            </span>
           </li>
         )}
       </ul>

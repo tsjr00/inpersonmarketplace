@@ -131,7 +131,7 @@ export default function FmDashboardBody({
           Keep setting up in the meantime; you&apos;ll be able to connect Stripe once it&apos;s approved.
         </div>
       )}
-      {/* ① Triage */}
+      {/* ① Action Items — only things the manager can click and finish */}
       <ManagerActionSummary vertical={vertical} progress={onboardingProgress} stats={dashboardStats} />
 
       {/* ② SETUP — first, onboarding-style (Phase 4a). A new manager configures

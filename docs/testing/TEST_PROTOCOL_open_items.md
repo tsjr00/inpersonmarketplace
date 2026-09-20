@@ -23,8 +23,9 @@ Fixes shipped since your last results (2026-09-18, OB-026/OB-027; 2026-09-19 OB-
 points at its full block below. When this section is empty, there is nothing new to retest — go straight to the
 regular groups.
 
-FM MANAGER DASHBOARD (your 09-19 user-feedback review, OB-029 part B — no migration):
+FM MANAGER DASHBOARD (your 09-19 user-feedback review, OB-029 parts B + C — no migration):
 🟠 TR-097  Dashboard regrouped in your order; jump-nav chips and Action Items links land on the right cards
+🟠 TR-098  "Action Items" lists only approvals to review and booth numbers to assign
 
 ADMIN VENDOR PAGES (your 09-19 user-feedback review, OB-029 part A — no migration):
 ⚪ TR-093  Admin vendor detail lists the vendor's markets (status, booth, declared days)
@@ -211,7 +212,7 @@ Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
 
 
 ==================================================
-🟠 GROUP 3 — BOOTH WEEKS AND MONEY AT MANAGED MARKETS   (18 tests)
+🟠 GROUP 3 — BOOTH WEEKS AND MONEY AT MANAGED MARKETS   (19 tests)
 ===
 
 Screens: /\[vertical]/markets/\[id]/book · manager dashboard (vendor roster, booth occupancy) · /\[vertical]/listing/\[id] ·
@@ -227,7 +228,7 @@ BOOKING: a week the vendor booked and paid for. Migration 256 must be on Staging
 
 🟠 TR-097  Manager dashboard regrouped in your order  (shipped 2026-09-19 — run this one first, it's the map for the rest)
 Where: /farmers\_market/market-manager/\[id]/dashboard, top to bottom.
-Expect this order: Action Items (see TR-098 when it ships) → Setup (collapsible, as before) → "Booths & occupancy":
+Expect this order: Action Items (TR-098) → Setup (collapsible, as before) → "Booths & occupancy":
 Booth occupancy — this week · Weekly booth bookings · Booth inventory · Off-platform booth placeholders · Booth map
 → "Vendors": Vendor attendance · Vendors at this market (Roster / Invite tabs) → "Money & activity": Your booth
 revenue · Market activity · Curated bundles → "Communication & insights": Send an announcement · Survey results ·
@@ -235,6 +236,18 @@ Cancel a market day · Need help?. Jump-nav chips read Setup · Booths & occupan
 Communication and each scrolls to its heading. With a pending applicant, "Review →" in Action Items lands on the
 roster card, not the group heading. The occupancy card says it is the picture ("Is there room?"); the bookings card
 says it is where you act.
+Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+
+
+
+🟠 TR-098  "Action Items" = only things you can click and finish  (shipped 2026-09-19)
+Where: the first card on /farmers\_market/market-manager/\[id]/dashboard, on a market whose setup is complete.
+Setup: one vendor with an application pending, one approved vendor with no booth number.
+Expect: the card is titled "Action Items" and shows two lines — "1 vendor pending your approval. Review →" and
+"1 active vendor needs a booth number assigned. Assign now →" — each landing on the roster card. No "Next market
+day" line any more (that belongs to the schedule strip, TR-099). Approve the applicant and assign the number →
+the card collapses to "Nothing needs you right now — vendor applications to review and booth numbers to assign
+show up here." On a market still in setup the card does not appear at all.
 Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
 
 

@@ -33,7 +33,8 @@ import type { ParkWeekSchedule } from '@/lib/markets/park-week-schedule'
 /**
  * FT park-manager dashboard body — the FT-only card arrangement, grouped by
  * how a park operator actually works instead of one flat card per data table:
- *   ① What's on your plate (triage)
+ *   ① Action Items (approvals only on FT — spots have no booth numbers; the
+ *      week itself is the "This week at your park" card)
  *   ② This week — operations hub (bookings + attendance + cancel a day)
  *   ③ Your trucks — relationships (roster/approvals + recurring holds + invite)
  *   ④ Park setup — collapsible, occasional config (Stripe, spots, schedule, …)
