@@ -9,7 +9,13 @@ build order U-A…U-D, §8 four open questions). **⛔ Rule L refresh must land 
 §8 ALL RESOLVED (letters = assumed + required for NEW markets, optional for "existing" via a one-question scheme
 indicator `markets.booth_numbering_scheme`; legacy re-entered by hand; six Action Items incl. Stripe; multi-slot
 DEFERRED — touches Stripe — backlog top entry). decisions.md 2026-09-20 row written.
-NEXT: **Rule L refresh FIRST (owner: "before any actual build work")** → mig 258 → U-A → U-B → U-C → U-D → one push.
+**RULE L DEBT CLOSED 2026-09-20:** owner ran the scoped delta on Dev (`supabase/migrations/Schema Refresh/09202026/
+scoped_delta_252-257_dev.csv`, 69 rows) → snapshot rebuilt for 252–257 (7 functions w/ fingerprints, market_vendors +
+booth_credits columns/FKs/indexes/CHECK, changelog row), stamp 251→257, `STALENESS_ALLOWANCE` 6→5; guardrail suite
+green. Refresh exports now live one folder per date (`09132026/` full export; `09202026/` scoped) — convention in
+`docs/migration-workflow.md`; the 09-13 move staged as a rename.
+NEXT: mig 258 file (PRE-CHECK FIRST, snapshot row at creation, fingerprints of the 3 booth functions on all 3 envs
+first) → U-A → U-B → U-C → U-D → one push.
 
 ---
 

@@ -8,8 +8,9 @@
 
 > ⚠️ **EVERY structured section of this file is best-effort and may be stale — Columns, FKs, Indexes, Functions, Enum Types, CHECK Constraints, all of them.** The original banner named only four sections, and the Enum Types table sat outside it misleading readers for five months (missing `platform_admin`/`regional_admin`, added 2026-03-20). The Change Log's per-migration environment claims have also been wrong four separate times (210/211/212/215, all caught 2026-08-13). **Only `information_schema` / `pg_catalog` on the live environment is authoritative — for structure AND for what is deployed where.**
 >
-**Structured tables rebuilt:** 2026-09-12 · current through migration 251
-**⚠ REFRESH OWED (owner-authorized deferral 2026-09-19):** migs 252–257 are past the stamp (Rule L allowance temporarily 6, guardrail-contracts.test.ts). Delta = functions 252/253/254/255/256 (signatures in `## Functions` marked ⏳/✅), `market_vendors.requested_inventory_id` (256), `booth_credits.related_cancel_date` + CHECK + 2 partial unique indexes (257). Next session: owner pastes 257 on Dev (pre-check first), runs the scoped delta query, Claude rebuilds those sections, stamps 257, restores the allowance to 5.
+**Structured tables rebuilt:** 2026-09-20 · current through migration 257
+**Refresh 2026-09-20 (scoped delta, owner's live Dev catalog export `supabase/migrations/Schema Refresh/09202026/scoped_delta_252-257_dev.csv`):** every object migs 252–257 touched, enumerated from the migration files — 7 functions (signature, return, security, `md5(prosrc)`), `market_vendors` + `booth_credits` columns / FKs / indexes / CHECKs. No table was created in 252–257. The Rule L deferral below is CLOSED (allowance back to 5).
+**(closed) ⚠ REFRESH OWED (owner-authorized deferral 2026-09-19):** migs 252–257 are past the stamp (Rule L allowance temporarily 6, guardrail-contracts.test.ts). Delta = functions 252/253/254/255/256 (signatures in `## Functions` marked ⏳/✅), `market_vendors.requested_inventory_id` (256), `booth_credits.related_cancel_date` + CHECK + 2 partial unique indexes (257). Next session: owner pastes 257 on Dev (pre-check first), runs the scoped delta query, Claude rebuilds those sections, stamps 257, restores the allowance to 5.
 
 > ✅ **This is a MEASURED rebuild, not a derived one.** On 2026-09-12 the owner ran nine live catalog queries on
 > Dev and two on Staging; every structured section below was regenerated from that output. It supersedes the
@@ -60,6 +61,7 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-09-20 | — (snapshot rebuild, scoped) | **Structured tables rebuilt for the 252–257 delta from the owner's live Dev catalog export (stamp 251 → 257; Rule L allowance restored to 5).** Objects enumerated from the migration files, not memory: functions `check_subscription_completion` (252), `check_vendor_schedule_conflict` (253), `get_available_pickup_dates` (254/255), `check_booth_number_uniqueness` · `book_weekly_booth_atomic` · `book_season_atomic` · `booth_label_candidates` (256) — signatures, returns, security mode and `md5(prosrc)` recorded in `## Functions`; the four 256 hashes equal the 2026-09-19 post-checks. `market_vendors`: 22 columns incl. `requested_inventory_id`; FKs now list constraint NAMES (two FKs to `market_booth_inventory` — embeds need the hint) + `revoked_by → auth.users`. `booth_credits`: 12 columns incl. `related_cancel_date`; 7 indexes incl. the two mig-257 partial uniques; `booth_credits_source_check` with 8 values. No table created in 252–257. Source file: `supabase/migrations/Schema Refresh/09202026/scoped_delta_252-257_dev.csv` (the 09-13 full export behind the 251 stamp is in `Schema Refresh/09132026/`). |
 | 2026-09-19 | 20260919_257_booth_credits_fm_cancellations | ✅ **DEV + STAGING 2026-09-19 (owner). Pre-check: 0 rows with the new sources. Staging post-check: CHECK carries all eight values ending `fm_date_cancel`, `manager_week_cancel`; `related_cancel_date date nullable=YES`; both indexes present.** ⏳ **Prod PENDING (owner: no prod push yet) — PRE-CHECK FIRST. Order: 254 → 255 → 256 → 257. File stays in root until Prod.** Booth model part D (owner rulings 2026-09-19 BR-9/BR-10; design `booth_model_design.md` §2, §6-3). Additive, no function bodies: **(1)** `booth_credits_source_check` + `fm_date_cancel` (manager cancelled a market DAY → per-day grant on a paid one-off week) + `manager_week_cancel` (manager cancelled a paid one-off week). **(2)** `booth_credits.related_cancel_date DATE NULL` — the cancelled date a per-day grant is for. **(3)** partial UNIQUE `uq_booth_credit_fm_date_cancel_grant (related_rental_id, related_cancel_date) WHERE source='fm_date_cancel'` and `uq_booth_credit_manager_week_cancel_grant (related_rental_id) WHERE source='manager_week_cancel'` — one grant per (booking, date) / per booking, ever. Companion code (same push): `cancel-date-cascade.ts` path B credits + amount on `market_date_cancelled_vendor`; `weekly-rental/[rentalId]/cancel` route. Pre-migration safe (grant failures log + skip). |
 | 2026-09-19 | 20260919_256_booth_soft_pins_same_vendor | ✅ **DEV + STAGING 2026-09-19 (owner). Dev pre-check 0 conflicts / 0 pins / column absent; Staging pre-check 0 conflicts / 15 pinned vendors, 0 assigned (all soft — post-purge test pins) / column absent. Post-check identical on both: `check_booth_number_uniqueness` `90ffe70791ccca424c9383ceb7a77988`/3557 · `book_weekly_booth_atomic(…, p_forced_label text)` `b84e54198c38fa91f0bfda4fb4a91dfb`/7391 · `book_season_atomic` `b34c4fb3ad2271cdb12d6561e84b7d54`/5063 · `booth_label_candidates` `01a78c56385e91142be482a6ec2e3605`/1206 — all = file (CRLF), COMMENT "Mig 256" on all four, anon/auth false + svc true on the three callables, old 5-arg weekly fn gone.** ⏳ **Prod PENDING (owner: no prod push yet) — PRE-CHECK FIRST (header query 1 must return 0 rows; READ the rows — real pins). Order: 254 → 255 → 256. Prod post-check must reproduce the four fingerprints above. File stays in root until Prod.** Booth model (OB-028 / TR-078; design `apps/web/.claude/booth_model_design.md` BR-5/6/11, §2, §6-1). Live bodies fingerprinted on Dev/Staging/Prod 2026-09-19 — all three identical to the repo (146 `e2b105d6…`/1981 · 186 `9ddfd1a7…`/7001 · 165 `537d395c…`/2022; triggers mounted + enabled). **(1)** `market_vendors.requested_inventory_id UUID NULL → market_booth_inventory ON DELETE SET NULL` — the vendor's booth-size REQUEST from Apply (BR-2); `inventory_id` stays the manager's decision. **(2)** NEW `booth_label_candidates(p_market_id)` → TABLE(n, label): mig 144 label-range rule extracted, service-role only. **(3)** `check_booth_number_uniqueness()` replaced: a row never conflicts with the SAME vendor's pin/rentals (C1/C7); a RENTAL is blocked by another vendor's pin only when it is an ASSIGNMENT (holder has a paid rental under it with `week_start_date + 6 >= CURRENT_DATE`) — soft pins yield; arm (c) "current/upcoming" tightened to `+ 6`. **(4)** `book_weekly_booth_atomic` DROP + CREATE: + `p_forced_label text DEFAULT NULL`, + return col `yielded_from_vendor_id`; own pin → forced label → auto-assign (excludes all pins) → NEW soft-pin fallback → LABELS_EXHAUSTED; capacity unchanged (pins are not capacity). **(5)** `book_season_atomic` DROP + CREATE: ONE label for every requested week (own pin / free-in-all-weeks / soft-in-all-weeks / SEASON_BOOK_FAILED reason=LABELS_EXHAUSTED), + return col. Grants: REVOKE PUBLIC, anon, authenticated + GRANT service_role on the three callables; post-check in the file footer. Companion code (same push, part A): `booth-conflict-checks.ts` same-vendor exclusion, book routes translate P0005, revoke clears pin, occupancy grid Sunday key. |
 | 2026-09-18 | 20260918_255_managed_fee_markets_sell_paid_weeks | ✅ **Dev + Staging 2026-09-18 (owner). Staging pre-check: 21 rows = every approved, scheduled test vendor at the 4 fee-charging managed FM markets (Amarillo Community, Market 2 Test, River Road, Westgate Mall), none with a paid week — intended; they book a week to sell (TR-073). Post-check on both: `md5(prosrc)` = `dd446c1a4b70b10db45708e568181156` / 12790, COMMENT carries "Mig 255".** ⏳ **Prod PENDING (owner: no prod push yet). ⚠ Prod needs 254 BEFORE 255 (this text = 254 + one predicate); re-run the pre-check on Prod on the day. File stays in root. PRE-CHECK FIRST class.** Owner rulings 2026-09-18 (decisions.md "Managed-market obligation"): at a MANAGED (`markets.manager_user_id` set), FEE-CHARGING (any `market_booth_inventory.weekly_price_cents > 0`) farmers market a date sells only with a PAID `weekly_booth_rentals` row covering it (`week_start_date .. +6`) — the FT paid-park rule (mig 199) applied to FM. **Function replace:** `get_available_pickup_dates(uuid)` = the mig-254 body (Dev + Staging live fingerprint `e1c0d827…`/11280) + `m.manager_user_id` carried into the CTE + ONE predicate in `matched_dates` after the T5 park block + one COMMENT sentence (diffed at build). Off-app markets, free managed markets, private pickups, FT and events untouched (short-circuits). `EXEC-GRANT-EXEMPT` (Rule M): read-only STABLE, public listing page calls it as anon. Companion code, same push: `lib/markets/managed-fee-gate.ts` (TS twin) read by `visible-markets.ts` + `market-visibility.ts` (buyer visibility, manager card) and `week-strip.ts` (payment_due entries); paired rule `managed-fee-market-sells-paid-weeks` + 3 pins. Post-check fingerprints in the header. ROLLBACK: re-run the function statement from …_254_. The Functions row is signature-only and unchanged; flip this row per environment. |
@@ -542,7 +544,7 @@
 | created_at | timestamptz | NO | now() |
 | related_rental_id | uuid | YES | - |
 | related_park_booking_id | uuid | YES | - |
-| related_cancel_date | date | YES | - | ✅ mig 257 (Dev + Staging) — cancelled market date a per-day fm_date_cancel grant is for (idempotency key with related_rental_id) |
+| related_cancel_date | date | YES | - | mig 257 — cancelled market date a per-day fm_date_cancel grant is for (idempotency key with related_rental_id). Live-verified Dev 2026-09-20 |
 
 ### buyer_achievements
 | Column | Type | Nullable | Default |
@@ -1351,7 +1353,7 @@
 | revoked_by | uuid | YES | - |
 | organizer_selected_at | timestamptz | YES | - |
 | standby_opted_in_at | timestamptz | YES | - |
-| requested_inventory_id | uuid | YES | - | ✅ mig 256 (Dev + Staging) — the booth-size tier the vendor REQUESTED on Apply (BR-2); inventory_id stays the manager's decision |
+| requested_inventory_id | uuid | YES | - | mig 256 — the booth-size tier the vendor REQUESTED on Apply (BR-2); inventory_id stays the manager's decision. Live-verified Dev 2026-09-20 |
 
 ### markets
 | Column | Type | Nullable | Default |
@@ -2578,10 +2580,12 @@
 ### market_vendors
 | Column | References |
 |--------|------------|
-| inventory_id | market_booth_inventory.id (ON DELETE SET NULL) |
+| inventory_id | market_booth_inventory.id (ON DELETE SET NULL) — constraint `market_vendors_inventory_id_fkey` |
 | market_id | markets.id (ON DELETE CASCADE) |
-| replaced_vendor_id | vendor_profiles.id (ON DELETE SET NULL) |
-| vendor_profile_id | vendor_profiles.id (ON DELETE CASCADE) |
+| replaced_vendor_id | vendor_profiles.id (ON DELETE SET NULL) — constraint `fk_market_vendors_replaced_vendor` |
+| requested_inventory_id | market_booth_inventory.id (ON DELETE SET NULL) — constraint `market_vendors_requested_inventory_id_fkey` (mig 256). ⚠ Two FKs to market_booth_inventory: PostgREST embeds need the constraint-name hint |
+| revoked_by | auth.users.id (ON DELETE SET NULL) |
+| vendor_profile_id | vendor_profiles.id (ON DELETE CASCADE) — constraint `market_vendors_vendor_profile_id_fkey` |
 
 ### markets
 | Column | References |
@@ -2865,6 +2869,8 @@ statement is recoverable from the creating migration.
 | idx_booth_credits_park_booking | btree (related_park_booking_id) WHERE (related_park_booking_id IS NOT NULL) |
 | idx_booth_credits_related_rental | btree (related_rental_id) WHERE (related_rental_id IS NOT NULL) |
 | idx_booth_credits_vendor_market | btree (vendor_profile_id, market_id) |
+| uq_booth_credit_fm_date_cancel_grant | UNIQUE btree (related_rental_id, related_cancel_date) WHERE ((source = 'fm_date_cancel'::text) AND (related_rental_id IS NOT NULL) AND (related_cancel_date IS NOT NULL)) — mig 257 |
+| uq_booth_credit_manager_week_cancel_grant | UNIQUE btree (related_rental_id) WHERE ((source = 'manager_week_cancel'::text) AND (related_rental_id IS NOT NULL)) — mig 257 |
 | uq_booth_credit_park_booking_grant | UNIQUE btree (related_park_booking_id) WHERE ((source = 'park_date_cancel'::text) AND (related_park_booking_id IS NOT NULL)) |
 
 ### buyer_achievements
@@ -3779,7 +3785,7 @@ rather than removed.
 | booth_booking_groups | booth_booking_groups_total_manager_cents_check | `(total_manager_cents >= 0)` |
 | booth_booking_groups | booth_booking_groups_total_vendor_cents_check | `(total_vendor_cents >= 0)` |
 | booth_booking_groups | booth_booking_groups_week_count_check | `(week_count > 0)` |
-| booth_credits | booth_credits_source_check | `(source = ANY (ARRAY['season_settlement'::text, 'vendor_cancel_pre'::text, 'vendor_cancel_post'::text, 'redeemed'::text, 'expired'::text, 'park_date_cancel'::text]))` |
+| booth_credits | booth_credits_source_check | `(source = ANY (ARRAY['season_settlement'::text, 'vendor_cancel_pre'::text, 'vendor_cancel_post'::text, 'redeemed'::text, 'expired'::text, 'park_date_cancel'::text, 'fm_date_cancel'::text, 'manager_week_cancel'::text]))` — mig 257, live-verified Dev 2026-09-20 |
 | buyer_interests | buyer_interests_has_contact | `((email IS NOT NULL) OR (phone IS NOT NULL))` |
 | buyer_search_log | buyer_search_log_search_type_check | `(search_type = ANY (ARRAY['markets'::text, 'vendors'::text]))` |
 | cart_items | cart_items_item_type_check | `(item_type = ANY (ARRAY['listing'::text, 'market_box'::text]))` |
@@ -3959,9 +3965,9 @@ same signature hash `ae502804506cdcd09d5d520c8e7e1569` (name + identity argument
 | auto_create_vendor_verification | - | trigger | DEFINER |
 | award_referral_credit_on_first_sale | - | trigger | INVOKER |
 | book_park_spot_atomic | p_vendor_profile_id uuid, p_market_id uuid, p_spot_id uuid, p_booking_dates date[], p_group_id uuid, p_acceptance_id uuid | TABLE(booking_id uuid, booked_date date, booking_price_cents integer) | DEFINER |
-| book_season_atomic | p_vendor_profile_id uuid, p_market_id uuid, p_inventory_id uuid, p_acceptance_id uuid, p_season_id uuid, p_kind text, p_week_start_dates date[], p_purchase_date date | TABLE(group_id uuid, rental_id uuid, rental_week_start_date date, rental_price_cents integer, rental_booth_number text, yielded_from_vendor_id uuid) ⏳ mig 256 pending (was 5 cols) | DEFINER |
-| book_weekly_booth_atomic | p_vendor_profile_id uuid, p_market_id uuid, p_inventory_id uuid, p_week_start_date date, p_acceptance_id uuid, p_forced_label text DEFAULT NULL | TABLE(rental_id uuid, rental_price_cents integer, rental_status text, rental_week_start_date date, rental_booth_number text, yielded_from_vendor_id uuid) ⏳ mig 256 pending (was 5 args / 5 cols) | DEFINER |
-| booth_label_candidates | p_market_id uuid | TABLE(n integer, label text) ⏳ mig 256 pending — a market's booth labels in order (mig 144 range rule), shared by the two booking RPCs | INVOKER |
+| book_season_atomic | p_vendor_profile_id uuid, p_market_id uuid, p_inventory_id uuid, p_acceptance_id uuid, p_season_id uuid, p_kind text, p_week_start_dates date[], p_purchase_date date | TABLE(group_id uuid, rental_id uuid, rental_week_start_date date, rental_price_cents integer, rental_booth_number text, yielded_from_vendor_id uuid) — mig 256 (was 5 cols); live Dev 2026-09-20 `b34c4fb3ad2271cdb12d6561e84b7d54`/5063 | DEFINER |
+| book_weekly_booth_atomic | p_vendor_profile_id uuid, p_market_id uuid, p_inventory_id uuid, p_week_start_date date, p_acceptance_id uuid, p_forced_label text DEFAULT NULL | TABLE(rental_id uuid, rental_price_cents integer, rental_status text, rental_week_start_date date, rental_booth_number text, yielded_from_vendor_id uuid) — mig 256 (was 5 args / 5 cols); live Dev 2026-09-20 `b84e54198c38fa91f0bfda4fb4a91dfb`/7391 | DEFINER |
+| booth_label_candidates | p_market_id uuid | TABLE(n integer, label text) — mig 256: a market's booth labels in order (mig 144 range rule), shared by the two booking RPCs; live Dev 2026-09-20 `01a78c56385e91142be482a6ec2e3605`/1206 | INVOKER |
 | build_pickup_snapshot | p_schedule_id uuid, p_pickup_date date | jsonb | DEFINER |
 | calculate_order_item_expiration | p_pickup_date date, p_buffer_hours integer DEFAULT 18 | timestamp with time zone | DEFINER |
 | calculate_order_item_expiration | p_pickup_date date, p_vertical_id text DEFAULT NULL::text, p_created_at timestamp with time zone DEFAULT now() | timestamp with time zone | INVOKER |
@@ -3977,14 +3983,14 @@ same signature hash `ae502804506cdcd09d5d520c8e7e1569` (name + identity argument
 | cancel_season_group | p_group_id uuid, p_reason text DEFAULT NULL::text | text | DEFINER |
 | cancel_wave_reservation | p_reservation_id uuid, p_user_id uuid | TABLE(success boolean, error text) | DEFINER |
 | check_booth_group_market_integrity | - | trigger | INVOKER |
-| check_booth_number_uniqueness | - | trigger | INVOKER |
+| check_booth_number_uniqueness | - | trigger — mig 256 body (same-vendor exclusion, soft pins yield); live Dev 2026-09-20 `90ffe70791ccca424c9383ceb7a77988`/3557 | INVOKER |
 | check_booth_placeholder_inventory_market | - | trigger | INVOKER |
 | check_market_vendor_inventory_market | - | trigger | INVOKER |
 | check_park_spot_booking_market | - | trigger | INVOKER |
 | check_park_standing_market | - | trigger | INVOKER |
 | check_pickup_slot_capacity | p_vendor_profile_id uuid, p_market_id uuid, p_pickup_date date, p_pickup_time time without time zone, p_adding_items integer DEFAULT 1, p_order_id uuid DEFAULT NULL::uuid | TABLE(allowed boolean, reason text, orders_used integer, orders_cap integer, items_used integer, items_cap integer) | DEFINER |
-| check_subscription_completion | - | trigger | DEFINER |
-| check_vendor_schedule_conflict | - | trigger | DEFINER |
+| check_subscription_completion | - | trigger — mig 252 (DEFINER); live Dev 2026-09-20 `bced1bb7c87ca6b4712152b01dafed40`/1042 | DEFINER |
+| check_vendor_schedule_conflict | - | trigger — mig 253 (both verticals); live Dev 2026-09-20 `1f2f42076083a5420523b34f12eb1db5`/2257 | DEFINER |
 | check_weekly_booth_rental_inventory_market | - | trigger | INVOKER |
 | claim_vendor_fee_deduction | p_vendor_profile_id uuid, p_order_id uuid, p_order_item_id uuid, p_max_deduct_cents integer | integer | DEFINER |
 | cleanup_cancelled_event | - | trigger | DEFINER |
@@ -4003,7 +4009,7 @@ same signature hash `ae502804506cdcd09d5d520c8e7e1569` (name + identity argument
 | find_next_available_wave | p_market_id uuid | TABLE(wave_id uuid, wave_number integer, start_time time without time zone, end_time time without time zone, remaining integer) | DEFINER |
 | free_wave_on_order_cancel | p_order_id uuid | void | DEFINER |
 | generate_vendor_referral_code | vendor_id uuid | text | INVOKER |
-| get_available_pickup_dates | p_listing_id uuid | TABLE(market_id uuid, market_name text, market_type text, address text, city text, state text, schedule_id uuid, day_of_week integer, pickup_date date, start_time time without time zone, end_time time without time zone, cutoff_at timestamp with time zone, is_accepting boolean, hours_until_cutoff numeric, cutoff_hours integer) | DEFINER |
+| get_available_pickup_dates | p_listing_id uuid | TABLE(market_id uuid, market_name text, market_type text, address text, city text, state text, schedule_id uuid, day_of_week integer, pickup_date date, start_time time without time zone, end_time time without time zone, cutoff_at timestamp with time zone, is_accepting boolean, hours_until_cutoff numeric, cutoff_hours integer) — mig 255 body (sell-on-selection 254 + paid-week gate 255); live Dev 2026-09-20 `dd446c1a4b70b10db45708e568181156`/12790 | DEFINER |
 | get_booth_credit_expiry_state | - | TABLE(vendor_profile_id uuid, market_id uuid, balance_cents bigint, has_live_grant boolean, nearest_live_grant_expiry timestamp with time zone) | DEFINER |
 | get_buyer_order_ids | - | SETOF uuid | DEFINER |
 | get_cart_summary | p_cart_id uuid | TABLE(total_items bigint, total_cents bigint, vendor_count bigint) | DEFINER |

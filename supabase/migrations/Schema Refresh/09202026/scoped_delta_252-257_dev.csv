@@ -1,0 +1,70 @@
+section,item,detail
+FUNCTION,"book_season_atomic(p_vendor_profile_id uuid, p_market_id uuid, p_inventory_id uuid, p_acceptance_id uuid, p_season_id uuid, p_kind text, p_week_start_dates date[], p_purchase_date date)","returns TABLE(group_id uuid, rental_id uuid, rental_week_start_date date, rental_price_cents integer, rental_booth_number text, yielded_from_vendor_id uuid) · DEFINER · b34c4fb3ad2271cdb12d6561e84b7d54 · len 5063"
+FUNCTION,"book_weekly_booth_atomic(p_vendor_profile_id uuid, p_market_id uuid, p_inventory_id uuid, p_week_start_date date, p_acceptance_id uuid, p_forced_label text)","returns TABLE(rental_id uuid, rental_price_cents integer, rental_status text, rental_week_start_date date, rental_booth_number text, yielded_from_vendor_id uuid) · DEFINER · b84e54198c38fa91f0bfda4fb4a91dfb · len 7391"
+FUNCTION,booth_label_candidates(p_market_id uuid),"returns TABLE(n integer, label text) · INVOKER · 01a78c56385e91142be482a6ec2e3605 · len 1206"
+FUNCTION,check_booth_number_uniqueness(),returns trigger · INVOKER · 90ffe70791ccca424c9383ceb7a77988 · len 3557
+FUNCTION,check_subscription_completion(),returns trigger · DEFINER · bced1bb7c87ca6b4712152b01dafed40 · len 1042
+FUNCTION,check_vendor_schedule_conflict(),returns trigger · DEFINER · 1f2f42076083a5420523b34f12eb1db5 · len 2257
+FUNCTION,get_available_pickup_dates(p_listing_id uuid),"returns TABLE(market_id uuid, market_name text, market_type text, address text, city text, state text, schedule_id uuid, day_of_week integer, pickup_date date, start_time time without time zone, end_time time without time zone, cutoff_at timestamp with time zone, is_accepting boolean, hours_until_cutoff numeric, cutoff_hours integer) · DEFINER · dd446c1a4b70b10db45708e568181156 · len 12790"
+COLUMN,booth_credits.amount_cents,integer · nullable NO · default -
+COLUMN,booth_credits.created_at,timestamp with time zone · nullable NO · default now()
+COLUMN,booth_credits.expires_at,timestamp with time zone · nullable YES · default -
+COLUMN,booth_credits.id,uuid · nullable NO · default gen_random_uuid()
+COLUMN,booth_credits.market_id,uuid · nullable NO · default -
+COLUMN,booth_credits.note,text · nullable YES · default -
+COLUMN,booth_credits.related_cancel_date,date · nullable YES · default -
+COLUMN,booth_credits.related_group_id,uuid · nullable YES · default -
+COLUMN,booth_credits.related_park_booking_id,uuid · nullable YES · default -
+COLUMN,booth_credits.related_rental_id,uuid · nullable YES · default -
+COLUMN,booth_credits.source,text · nullable NO · default -
+COLUMN,booth_credits.vendor_profile_id,uuid · nullable NO · default -
+COLUMN,market_vendors.approved,boolean · nullable YES · default false
+COLUMN,market_vendors.backup_priority,integer · nullable YES · default -
+COLUMN,market_vendors.booth_number,text · nullable YES · default -
+COLUMN,market_vendors.created_at,timestamp with time zone · nullable YES · default now()
+COLUMN,market_vendors.event_max_orders_per_wave,integer · nullable YES · default -
+COLUMN,market_vendors.event_max_orders_total,integer · nullable YES · default -
+COLUMN,market_vendors.id,uuid · nullable NO · default gen_random_uuid()
+COLUMN,market_vendors.inventory_id,uuid · nullable YES · default -
+COLUMN,market_vendors.invited_at,timestamp with time zone · nullable YES · default -
+COLUMN,market_vendors.is_backup,boolean · nullable YES · default false
+COLUMN,market_vendors.market_id,uuid · nullable NO · default -
+COLUMN,market_vendors.notes,text · nullable YES · default -
+COLUMN,market_vendors.organizer_selected_at,timestamp with time zone · nullable YES · default -
+COLUMN,market_vendors.replaced_vendor_id,uuid · nullable YES · default -
+COLUMN,market_vendors.requested_inventory_id,uuid · nullable YES · default -
+COLUMN,market_vendors.response_notes,text · nullable YES · default -
+COLUMN,market_vendors.response_status,text · nullable YES · default -
+COLUMN,market_vendors.revoked_at,timestamp with time zone · nullable YES · default -
+COLUMN,market_vendors.revoked_by,uuid · nullable YES · default -
+COLUMN,market_vendors.standby_opted_in_at,timestamp with time zone · nullable YES · default -
+COLUMN,market_vendors.updated_at,timestamp with time zone · nullable YES · default now()
+COLUMN,market_vendors.vendor_profile_id,uuid · nullable NO · default -
+FOREIGN KEY,booth_credits.booth_credits_market_id_fkey,FOREIGN KEY (market_id) REFERENCES markets(id) ON DELETE CASCADE
+FOREIGN KEY,booth_credits.booth_credits_related_group_id_fkey,FOREIGN KEY (related_group_id) REFERENCES booth_booking_groups(id) ON DELETE SET NULL
+FOREIGN KEY,booth_credits.booth_credits_related_park_booking_id_fkey,FOREIGN KEY (related_park_booking_id) REFERENCES park_spot_bookings(id) ON DELETE SET NULL
+FOREIGN KEY,booth_credits.booth_credits_related_rental_id_fkey,FOREIGN KEY (related_rental_id) REFERENCES weekly_booth_rentals(id) ON DELETE SET NULL
+FOREIGN KEY,booth_credits.booth_credits_vendor_profile_id_fkey,FOREIGN KEY (vendor_profile_id) REFERENCES vendor_profiles(id) ON DELETE RESTRICT
+FOREIGN KEY,market_vendors.fk_market_vendors_replaced_vendor,FOREIGN KEY (replaced_vendor_id) REFERENCES vendor_profiles(id) ON DELETE SET NULL
+FOREIGN KEY,market_vendors.market_vendors_inventory_id_fkey,FOREIGN KEY (inventory_id) REFERENCES market_booth_inventory(id) ON DELETE SET NULL
+FOREIGN KEY,market_vendors.market_vendors_market_id_fkey,FOREIGN KEY (market_id) REFERENCES markets(id) ON DELETE CASCADE
+FOREIGN KEY,market_vendors.market_vendors_requested_inventory_id_fkey,FOREIGN KEY (requested_inventory_id) REFERENCES market_booth_inventory(id) ON DELETE SET NULL
+FOREIGN KEY,market_vendors.market_vendors_revoked_by_fkey,FOREIGN KEY (revoked_by) REFERENCES auth.users(id) ON DELETE SET NULL
+FOREIGN KEY,market_vendors.market_vendors_vendor_profile_id_fkey,FOREIGN KEY (vendor_profile_id) REFERENCES vendor_profiles(id) ON DELETE CASCADE
+INDEX,booth_credits.booth_credits_pkey,CREATE UNIQUE INDEX booth_credits_pkey ON public.booth_credits USING btree (id)
+INDEX,booth_credits.idx_booth_credits_park_booking,CREATE INDEX idx_booth_credits_park_booking ON public.booth_credits USING btree (related_park_booking_id) WHERE (related_park_booking_id IS NOT NULL)
+INDEX,booth_credits.idx_booth_credits_related_rental,CREATE INDEX idx_booth_credits_related_rental ON public.booth_credits USING btree (related_rental_id) WHERE (related_rental_id IS NOT NULL)
+INDEX,booth_credits.idx_booth_credits_vendor_market,"CREATE INDEX idx_booth_credits_vendor_market ON public.booth_credits USING btree (vendor_profile_id, market_id)"
+INDEX,booth_credits.uq_booth_credit_fm_date_cancel_grant,"CREATE UNIQUE INDEX uq_booth_credit_fm_date_cancel_grant ON public.booth_credits USING btree (related_rental_id, related_cancel_date) WHERE ((source = 'fm_date_cancel'::text) AND (related_rental_id IS NOT NULL) AND (related_cancel_date IS NOT NULL))"
+INDEX,booth_credits.uq_booth_credit_manager_week_cancel_grant,CREATE UNIQUE INDEX uq_booth_credit_manager_week_cancel_grant ON public.booth_credits USING btree (related_rental_id) WHERE ((source = 'manager_week_cancel'::text) AND (related_rental_id IS NOT NULL))
+INDEX,booth_credits.uq_booth_credit_park_booking_grant,CREATE UNIQUE INDEX uq_booth_credit_park_booking_grant ON public.booth_credits USING btree (related_park_booking_id) WHERE ((source = 'park_date_cancel'::text) AND (related_park_booking_id IS NOT NULL))
+INDEX,market_vendors.idx_market_vendors_backup,"CREATE INDEX idx_market_vendors_backup ON public.market_vendors USING btree (market_id, is_backup, backup_priority) WHERE (is_backup = true)"
+INDEX,market_vendors.idx_market_vendors_inventory,CREATE INDEX idx_market_vendors_inventory ON public.market_vendors USING btree (inventory_id) WHERE (inventory_id IS NOT NULL)
+INDEX,market_vendors.idx_market_vendors_market,CREATE INDEX idx_market_vendors_market ON public.market_vendors USING btree (market_id)
+INDEX,market_vendors.idx_market_vendors_market_approved,"CREATE INDEX idx_market_vendors_market_approved ON public.market_vendors USING btree (market_id, approved)"
+INDEX,market_vendors.idx_market_vendors_response,"CREATE INDEX idx_market_vendors_response ON public.market_vendors USING btree (market_id, response_status) WHERE (response_status IS NOT NULL)"
+INDEX,market_vendors.idx_market_vendors_vendor,CREATE INDEX idx_market_vendors_vendor ON public.market_vendors USING btree (vendor_profile_id)
+INDEX,market_vendors.market_vendors_market_id_vendor_profile_id_key,"CREATE UNIQUE INDEX market_vendors_market_id_vendor_profile_id_key ON public.market_vendors USING btree (market_id, vendor_profile_id)"
+INDEX,market_vendors.market_vendors_pkey,CREATE UNIQUE INDEX market_vendors_pkey ON public.market_vendors USING btree (id)
+CHECK,booth_credits.booth_credits_source_check,"CHECK ((source = ANY (ARRAY['season_settlement'::text, 'vendor_cancel_pre'::text, 'vendor_cancel_post'::text, 'redeemed'::text, 'expired'::text, 'park_date_cancel'::text, 'fm_date_cancel'::text, 'manager_week_cancel'::text])))"
+CHECK,market_vendors.market_vendors_response_status_check,"CHECK ((response_status = ANY (ARRAY['invited'::text, 'accepted'::text, 'declined'::text, 'cancelled'::text])))"

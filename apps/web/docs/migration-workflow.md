@@ -71,6 +71,7 @@ supabase/migrations/
 - **Never move a migration** until user explicitly confirms it is applied to ALL 3 envs (Dev + Staging + Prod). Dev + Staging is the trigger for bookkeeping (changelog + snapshot updates) — but the file stays in `supabase/migrations/` until Prod is also applied.
 - **Never delete migrations** — always move to `applied/`
 - **The snapshot's structured tables carry a stamp** (`Structured tables rebuilt: <date> · current through migration NNN`, snapshot header). Guardrail Rule L fails the suite when any newer migration CREATEs a table or more than 5 migrations exist past the stamp — the fix is a real rebuild (owner runs `supabase/REFRESH_SCHEMA.sql` on Dev; Claude regenerates the structured sections and moves the stamp). Never move the stamp without a rebuild.
+- **Refresh exports are kept as provenance** in `supabase/migrations/Schema Refresh/<MMDDYYYY>/` — one folder per export date (`09132026/` = the full REFRESH_SCHEMA.sql export behind the 251 stamp; `09202026/` = the scoped 252–257 delta behind the 257 stamp). A future rebuild diffs a fresh export against the last folder to see exactly what drifted, instead of trusting the snapshot. The snapshot changelog row names the folder it was rebuilt from. Moving files here is a `git mv` (stage old + new in one commit) so history follows them.
 - If only applied to Dev (not Staging), leave in root folder with ✅ Dev / ❌ Staging in log.
 
 ---
