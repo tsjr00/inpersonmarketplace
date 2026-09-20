@@ -1,3 +1,35 @@
+# 🏁 2026-09-19 LATE CLOSE (pre-compaction, owner-directed) — BOOTH ROUND A–D ALL COMMITTED · main `a8416831` · staging `80e66d59` (part A only) · Prod untouched
+
+**Git:** `main` = `a8416831` (A `0dc0de03` → snapshot `80e66d59` → B `09143e29` → C `5cf7d64b` → D `a8416831`). `origin/staging` = `80e66d59`
+(part A + mig 256). **B, C, D are local only — NOT pushed.** Tree clean. Prod = `d704d3bb` (owes 31 commits + migs 252–257).
+**Migrations:** 256 ✅ Dev + Staging (fingerprints identical, snapshot row). **257 file exists, NOT applied anywhere**
+(PRE-CHECK FIRST; the D code is pre-migration safe — grants log + skip).
+**Rule L SUSPENDED ONCE by the owner** (context 76%): allowance 5→6 in `guardrail-contracts.test.ts`; stamp still 251;
+debt written in the test, the snapshot header ("⚠ REFRESH OWED") and decisions.md. **First job next session:** owner
+pastes 257 on Dev (pre-check → paste → post-check, all in the file) → scoped delta refresh query → rebuild the
+structured sections → stamp 257 → allowance back to 5 → commit.
+**Then:** 257 on Staging (pre-check first) → ONE staging push (B+C+D, `80e66d59..`) → owner retests ★ WHAT'S NEW in
+`docs/testing/TEST_PROTOCOL_open_items.md`: TR-078–092 (parts A–D) + the earlier list.
+**Design + record:** `apps/web/.claude/booth_model_design.md` (STATUS line, anti-bloat pass, BR-1…13), decisions.md
+2026-09-19 rows (rulings; Rule L deferral + anti-bloat), `booth_model_review.md` (findings C1–C12, F1).
+**Anti-bloat lesson (owner):** "building things that users don't benefit from is just bloat" — the 7+2 notification plan
+became 1+1; a cut that would confuse a user is reversed, not defended. Check every new surface against this.
+
+## ▶ NEXT-SESSION PROMPT
+Read in order: CLAUDE.md · this file (this block) · `.claude/rules/*` · `.claude/booth_model_design.md` STATUS + §1 ·
+decisions.md rows dated 2026-09-19 · `docs/testing/TEST_REGISTRY.md` rows TR-078–092. Summarize state, then STOP.
+How we work: decision briefs (decision + enough context + what you give up), one change per message, question last;
+stack commits, ONE push unless a named reason; every shipped fix into the printable list in the same push, tests named
+by what they check; migrations = live fingerprint on all 3 envs first, PRE-CHECK FIRST banner, snapshot row at file
+creation; read all code touching a change before proposing; cite or mark UNVERIFIED; never change a business-rule
+test without the owner's explicit yes; a ruling that reverses a recorded decision is shown as a CONFLICT first; no
+edits during a background git chain; no bloat — ask "does a user benefit?" before adding any surface or message.
+Resume: (1) Rule L debt (above) — do this FIRST; (2) 257 on Staging + one push; (3) retests; (4) FT F1 design
+(`booth_model_design.md` §7) is backlogged; (5) Prod push when the owner says — code first, then 252→257 in order,
+each pre-check first.
+
+---
+
 # 🏁 2026-09-19 CLOSE (pre-compaction) — BOOTH MODEL REVIEW IN PROGRESS · staging `041fd629` · Prod owes 25 commits + migs 252–255
 
 **State:** `origin/staging` = `main` = `041fd629`, tree has UNCOMMITTED DOCS ONLY (test list regrouped + ★ WHAT'S NEW,
