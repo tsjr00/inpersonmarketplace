@@ -23,6 +23,9 @@ Fixes shipped since your last results (2026-09-18, OB-026/OB-027; 2026-09-19 OB-
 points at its full block below. When this section is empty, there is nothing new to retest — go straight to the
 regular groups.
 
+FM MANAGER DASHBOARD (your 09-19 user-feedback review, OB-029 part B — no migration):
+🟠 TR-097  Dashboard regrouped in your order; jump-nav chips and Action Items links land on the right cards
+
 ADMIN VENDOR PAGES (your 09-19 user-feedback review, OB-029 part A — no migration):
 ⚪ TR-093  Admin vendor detail lists the vendor's markets (status, booth, declared days)
 ⚪ TR-094  FM vendor's event-readiness answers read back in FM words — no vehicle/generator rows
@@ -208,7 +211,7 @@ Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
 
 
 ==================================================
-🟠 GROUP 3 — BOOTH WEEKS AND MONEY AT MANAGED MARKETS   (17 tests)
+🟠 GROUP 3 — BOOTH WEEKS AND MONEY AT MANAGED MARKETS   (18 tests)
 ===
 
 Screens: /\[vertical]/markets/\[id]/book · manager dashboard (vendor roster, booth occupancy) · /\[vertical]/listing/\[id] ·
@@ -219,6 +222,20 @@ Test, River Road or Westgate Mall — all four charge for booths). Check everyth
 book + pay one week, then check everything again.
 Words used below — PIN: the booth number the manager types on the roster (a hold; the vendor may never pay).
 BOOKING: a week the vendor booked and paid for. Migration 256 must be on Staging before the first five tests.
+
+
+
+🟠 TR-097  Manager dashboard regrouped in your order  (shipped 2026-09-19 — run this one first, it's the map for the rest)
+Where: /farmers\_market/market-manager/\[id]/dashboard, top to bottom.
+Expect this order: Action Items (see TR-098 when it ships) → Setup (collapsible, as before) → "Booths & occupancy":
+Booth occupancy — this week · Weekly booth bookings · Booth inventory · Off-platform booth placeholders · Booth map
+→ "Vendors": Vendor attendance · Vendors at this market (Roster / Invite tabs) → "Money & activity": Your booth
+revenue · Market activity · Curated bundles → "Communication & insights": Send an announcement · Survey results ·
+Cancel a market day · Need help?. Jump-nav chips read Setup · Booths & occupancy · Vendors · Money & activity ·
+Communication and each scrolls to its heading. With a pending applicant, "Review →" in Action Items lands on the
+roster card, not the group heading. The occupancy card says it is the picture ("Is there room?"); the bookings card
+says it is where you act.
+Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
 
 
 

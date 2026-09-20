@@ -108,7 +108,7 @@ export default async function WeeklyBookingsCard({ marketId, vertical }: WeeklyB
   return (
     <DashboardCard
       title={`Weekly ${term(vertical, 'booth').toLowerCase()} bookings`}
-      description={`One week at a time — use the arrows to move between weeks. Set a ${term(vertical, 'booth').toLowerCase()} number on any row. Anyone booked for several weeks is summarized once at the bottom instead of repeating on every week.`}
+      description={`Manage the bookings: any week, not just this one — use the arrows to move between weeks, set a ${term(vertical, 'booth').toLowerCase()} number on a row, see who has paid, cancel a paid week if you must. Anyone booked for several weeks is summarized once at the bottom instead of repeating on every week. (The occupancy card above is the picture; this is where you act.)`}
       {...(noBookingsYet ? {
         empty: {
           kind: 'waiting' as const,

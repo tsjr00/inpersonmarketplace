@@ -84,13 +84,15 @@ export default function ManagerActionSummary({
               <strong>{stats.pendingApprovalCount}</strong> {stats.pendingApprovalCount === 1 ? term(vertical, 'vendor').toLowerCase() : term(vertical, 'vendors').toLowerCase()} pending your approval.
             </span>
             {/* Plain anchor, NOT next/link. This card is always on the same page
-                as #vendors, and a <Link> to a full path + hash silently stops
+                as #roster, and a <Link> to a full path + hash silently stops
                 working after the first click: once the URL already ends in
-                #vendors the router sees no change, fires no navigation, and
+                #roster the router sees no change, fires no navigation, and
                 nothing scrolls. A native same-page anchor re-scrolls every time.
-                Matches ManagerJumpNav, which uses plain anchors for this reason. */}
+                Matches ManagerJumpNav, which uses plain anchors for this reason.
+                #roster = the roster card (FmDashboardBody); #vendors is now the
+                group heading above the attendance card. */}
             <a
-              href="#vendors"
+              href="#roster"
               style={{
                 color: colors.primary,
                 textDecoration: 'underline',
@@ -116,7 +118,7 @@ export default function ManagerActionSummary({
               <strong>{stats.activeVendorsNeedingBooth}</strong> active {stats.activeVendorsNeedingBooth === 1 ? `${term(vertical, 'vendor').toLowerCase()} needs` : `${term(vertical, 'vendors').toLowerCase()} need`} a {term(vertical, 'booth').toLowerCase()} number assigned.
             </span>
             <a
-              href="#vendors"
+              href="#roster"
               style={{
                 color: colors.primary,
                 textDecoration: 'underline',

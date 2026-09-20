@@ -30,14 +30,14 @@ export default function ManagerJumpNav({ vertical, showMoney = false }: ManagerJ
     { id: 'announce', label: 'Communicate' },
   ]
   // FM uses the grouped layout (FmDashboardBody) — chips map to the groups,
-  // in visual order. Setup leads (Phase 4a moved it ahead of the operational
-  // groups).
+  // in visual order (owner regroup 2026-09-19: Setup · Booths & occupancy ·
+  // Vendors · Money & activity · Communication & insights).
   const FM_SECTIONS: Array<{ id: string; label: string }> = [
     { id: 'setup', label: 'Setup' },
-    { id: 'booths', label: term(vertical, 'booths') },
+    { id: 'booths', label: `${term(vertical, 'booths')} & occupancy` },
     { id: 'vendors', label: term(vertical, 'vendors') },
-    { id: 'money', label: 'Money' },
-    { id: 'announce', label: 'Communicate' },
+    { id: 'money', label: 'Money & activity' },
+    { id: 'announce', label: 'Communication' },
   ]
   const SECTIONS = isFoodTrucks ? FT_SECTIONS : FM_SECTIONS
 

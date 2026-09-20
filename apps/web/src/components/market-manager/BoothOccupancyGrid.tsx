@@ -224,7 +224,7 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone, ver
   return (
     <DashboardCard
       title={<>{term(vertical, 'booth')} occupancy — {anchoredToSeason ? 'upcoming market week' : 'this week'}:{' '}<span style={{ fontWeight: typography.weights.normal, color: colors.textMuted }}>{formatDisplayDate(weekStart)}</span></>}
-      description={`Per-tier view of who's at the ${term(vertical, 'market').toLowerCase()} ${anchoredToSeason ? 'that week' : 'this week'} — off-platform placeholders and this week's bookings take ${term(vertical, 'booths').toLowerCase()}; a "Pinned (hold)" ${term(vertical, 'vendor').toLowerCase()} has a ${term(vertical, 'booth').toLowerCase()} number reserved but hasn't paid for this week, so they don't count against capacity${anchoredToSeason ? ' (showing the first week of the season, since it hasn’t started yet)' : ''}. Manage each source from the cards below.`}
+      description={`Is there room? A read-only, per-size picture of ${anchoredToSeason ? 'that week' : 'this week'}: off-platform placeholders and this week's bookings take ${term(vertical, 'booths').toLowerCase()}; a "Pinned (hold)" ${term(vertical, 'vendor').toLowerCase()} has a ${term(vertical, 'booth').toLowerCase()} number reserved but hasn't paid for this week, so they don't count against capacity${anchoredToSeason ? ' (showing the first week of the season, since it hasn’t started yet)' : ''}. To change a booking, use Weekly ${term(vertical, 'booth').toLowerCase()} bookings below; placeholders and inventory have their own cards.`}
       {...(noTiersConfigured ? {
         empty: {
           kind: 'setup' as const,

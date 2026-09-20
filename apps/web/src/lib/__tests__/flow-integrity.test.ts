@@ -1347,6 +1347,28 @@ describe('Dashboard empty-state convention', () => {
     }
   })
 
+  it('FM manager dashboard: every same-page anchor lands on an id the body renders', () => {
+    // Owner regroup 2026-09-19 (OB-029 part B): the jump nav chips and the
+    // Action Items "Review →" / "Assign now →" links are plain `#id` anchors.
+    // An id that stops existing fails silently — the click just does nothing.
+    const body = bare('components/market-manager/FmDashboardBody.tsx')
+    const ids = new Set(Array.from(body.matchAll(/\bid="([a-z-]+)"/g), m => m[1]))
+    const nav = bare('components/market-manager/ManagerJumpNav.tsx')
+    const fmBlock = nav.slice(nav.indexOf('FM_SECTIONS'), nav.indexOf('const SECTIONS'))
+    for (const m of fmBlock.matchAll(/id: '([a-z-]+)'/g)) {
+      expect(ids.has(m[1]!), `jump-nav chip #${m[1]} has no target in FmDashboardBody`).toBe(true)
+    }
+    const summary = bare('components/market-manager/ManagerActionSummary.tsx')
+    for (const m of summary.matchAll(/href="#([a-z-]+)"/g)) {
+      expect(ids.has(m[1]!), `Action Items link #${m[1]} has no target in FmDashboardBody`).toBe(true)
+    }
+    // The owner's order, top to bottom (group heads only).
+    const order = ['id="setup"', 'id="booths"', 'id="vendors"', 'id="roster"', 'id="money"', 'id="announce"']
+      .map(s => body.indexOf(s))
+    expect(order.every(i => i >= 0)).toBe(true)
+    expect([...order].sort((a, b) => a - b)).toEqual(order)
+  })
+
   it('every early return in an exception component is a DOCUMENTED one', () => {
     // Each of these hides for a specific, approved reason. The counts are
     // asserted so an UNDOCUMENTED early return — the tidy-up that quietly

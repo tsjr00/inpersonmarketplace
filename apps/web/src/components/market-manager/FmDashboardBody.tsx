@@ -36,15 +36,20 @@ import type { ManagerDashboardStats, ManagerEarningsAggregates } from '@/lib/mar
 
 /**
  * FM (farmers-market) manager dashboard body — the FM-only card arrangement,
- * grouped by how a market manager works instead of one flat card per table:
- *   ① What's on your plate · ② Setup (collapsible; first, onboarding-style —
- *   collapsed once onboarding is complete) · ③ Booths & this week · ④ Your
- *   vendors (tabbed) · ⑤ Money & insights · ⑥ Communicate.
- *   (Phase 4a moved Setup ahead of the operational groups.)
+ * grouped by how a market manager works, most-used items first inside each
+ * group (owner's user-feedback review, 2026-09-19 — OB-029 part B):
+ *   ① Action Items · ② Setup (collapsible; collapsed once onboarding is
+ *   complete) · ③ Booths & Occupancy — occupancy grid → weekly bookings →
+ *   inventory → off-platform placeholders → booth map · ④ Vendors —
+ *   attendance → roster/invite · ⑤ Money & Activity — booth revenue → market
+ *   activity → curated bundles · ⑥ Communication & insights — announcement →
+ *   survey results → cancel a market day → help.
  *
  * FT parks use FtParkDashboardBody. Cards are reused with the SAME props they
- * had inline — presentation-only regroup, no logic touched. Booth inventory +
- * occupancy + off-platform placeholders are kept together (id="booths").
+ * had inline — presentation-only regroup, no logic touched. Anchor ids the
+ * jump nav (ManagerJumpNav) and ManagerActionSummary link to: setup · booths ·
+ * vendors · roster · money · announce (+ schedule, seasons, weekly-bookings,
+ * bundles, surveys for deep links).
  */
 interface FmDashboardBodyProps {
   vertical: string
@@ -74,8 +79,8 @@ export default function FmDashboardBody({
 
   const rosterTab: ReactNode = (
     <DashboardCard
-      title={`${term(vertical, 'vendors')} at this ${term(vertical, 'market').toLowerCase()}`}
-      description={`Assign ${term(vertical, 'booth').toLowerCase()} numbers to ${term(vertical, 'vendors').toLowerCase()} who are on the platform and at this ${term(vertical, 'market').toLowerCase()}.`}
+      title="Roster"
+      description={`Approve applications and assign ${term(vertical, 'booth').toLowerCase()} numbers to ${term(vertical, 'vendors').toLowerCase()} who are on the platform and at this ${term(vertical, 'market').toLowerCase()}.`}
       headerAccessory={dashboardStats.activeVendorsNeedingBooth > 0 ? (
         <span style={{ fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: '#92400e', backgroundColor: '#fef3c7', padding: `${spacing['3xs']} ${spacing.xs}`, borderRadius: radius.sm }}>
           {dashboardStats.activeVendorsNeedingBooth} need{dashboardStats.activeVendorsNeedingBooth === 1 ? 's' : ''} {term(vertical, 'booth').toLowerCase()} #
@@ -170,57 +175,59 @@ export default function FmDashboardBody({
         {visibilityStatus && <MarketVisibilityCard status={visibilityStatus} />}
       </CollapsibleSection>
 
-      {/* ③ BOOTHS & THIS WEEK — inventory + occupancy + off-platform + weekly bookings + day-of ops */}
-      <GroupHeading id="booths" title={`${term(vertical, 'booths')} & this week`} subtitle="Inventory, occupancy, bookings, attendance" />
+      {/* ③ BOOTHS & OCCUPANCY — this week's picture first, then the bookings
+          you act on, then the setup that feeds both. */}
+      <GroupHeading id="booths" title={`${term(vertical, 'booths')} & occupancy`} subtitle="Who's where this week, bookings, inventory, placeholders, map" />
+      <BoothOccupancyGrid marketId={marketId} marketTimezone={(market.timezone as string | null) ?? null} vertical={vertical} />
+      <div id="weekly-bookings" style={{ scrollMarginTop: NAV_OFFSET }}>
+        <WeeklyBookingsCard marketId={marketId} marketTimezone={(market.timezone as string | null) ?? null} vertical={vertical} />
+      </div>
       <DashboardCard
         title={`${term(vertical, 'booth')} inventory`}
         description={`Configure the ${term(vertical, 'booth').toLowerCase()} size tiers at your ${term(vertical, 'market').toLowerCase()} — how many of each size you have and the weekly rental price. This is the foundation for the weekly ${term(vertical, 'vendor').toLowerCase()} booking flow.`}
       >
         <BoothInventoryManager marketId={marketId} vertical={vertical} />
       </DashboardCard>
-      <MarketMapCard marketId={marketId} vertical={vertical} initialBoothMapUrl={(market.booth_map_url as string | null) ?? null} />
-      <BoothOccupancyGrid marketId={marketId} marketTimezone={(market.timezone as string | null) ?? null} vertical={vertical} />
       <DashboardCard
         title={`Off-platform ${term(vertical, 'booth').toLowerCase()} placeholders`}
         description={`Track ${term(vertical, 'booths').toLowerCase()} occupied by ${term(vertical, 'vendors').toLowerCase()} who are not on the platform. No ${term(vertical, 'vendor').toLowerCase()} identity is captured — just the ${term(vertical, 'booth').toLowerCase()} number and (optionally) which size tier it counts against.`}
       >
         <BoothPlaceholderManager marketId={marketId} vertical={vertical} />
       </DashboardCard>
-      <div id="weekly-bookings" style={{ scrollMarginTop: NAV_OFFSET }}>
-        <WeeklyBookingsCard marketId={marketId} marketTimezone={(market.timezone as string | null) ?? null} vertical={vertical} />
-      </div>
-      <MarketAttendanceCard marketId={marketId} vertical={vertical} />
-      <MarketCancelDateCard marketId={marketId} vertical={vertical} />
+      <MarketMapCard marketId={marketId} vertical={vertical} initialBoothMapUrl={(market.booth_map_url as string | null) ?? null} />
 
-      {/* ④ YOUR VENDORS — roster + invite (tabbed) */}
+      {/* ④ VENDORS — attendance first (day-of), then the roster + invite tabs.
+          `#vendors` = the group (jump nav); `#roster` = the roster card
+          (Action Items' "Review →" / "Assign now →"). */}
+      <GroupHeading id="vendors" title={`${term(vertical, 'vendors')}`} subtitle="Attendance, roster, invitations" />
+      <MarketAttendanceCard marketId={marketId} vertical={vertical} />
       <TabbedCard
-        id="vendors"
-        title={`${term(vertical, 'vendors')}`}
+        id="roster"
+        title={`${term(vertical, 'vendors')} at this ${term(vertical, 'market').toLowerCase()}`}
         tabs={[
           { id: 'roster', label: 'At this market', content: rosterTab },
           { id: 'invite', label: 'Invite', content: inviteTab },
         ]}
       />
 
-      {/* ⑤ MONEY & INSIGHTS */}
-      <GroupHeading id="money" title="Money & insights" />
+      {/* ⑤ MONEY & ACTIVITY */}
+      <GroupHeading id="money" title="Money & activity" />
+      <ManagerEarningsCard aggregates={earningsAggregates} vertical={vertical} />
+      <MarketTransactionsCard aggregates={transactionsAggregates} vertical={vertical} />
       {/* Curated bundles (mig 244) — compose → admin approval → sell → run
           sheet → hand off (margin pays out at handoff). FM-first (Q1); the FT
           body waits for B3's container-rule enforcement. */}
       <div id="bundles" style={{ scrollMarginTop: NAV_OFFSET }}>
         <CuratedBundlesCard marketId={marketId} />
       </div>
-      <ManagerEarningsCard aggregates={earningsAggregates} vertical={vertical} />
-      <MarketTransactionsCard aggregates={transactionsAggregates} vertical={vertical} />
+
+      {/* ⑥ COMMUNICATION & INSIGHTS */}
+      <GroupHeading id="announce" title="Communication & insights" />
+      <MarketBroadcastCard marketId={marketId} vertical={vertical} />
       <div id="surveys" style={{ scrollMarginTop: NAV_OFFSET }}>
         <SurveyResultsCard marketId={marketId} vertical={vertical} />
       </div>
-
-      {/* ⑥ COMMUNICATE */}
-      <GroupHeading title="Communicate & learn" />
-      <div id="announce" style={{ scrollMarginTop: NAV_OFFSET }}>
-        <MarketBroadcastCard marketId={marketId} vertical={vertical} />
-      </div>
+      <MarketCancelDateCard marketId={marketId} vertical={vertical} />
       <ManagerSupportCard vertical={vertical} />
     </div>
   )
