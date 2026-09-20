@@ -23,6 +23,11 @@ Fixes shipped since your last results (2026-09-18, OB-026/OB-027; 2026-09-19 OB-
 points at its full block below. When this section is empty, there is nothing new to retest — go straight to the
 regular groups.
 
+EASY WINS (your 09-20 "what are we missing" review — no migration):
+🟠 TR-107  FT park dashboard: Action Items appears at last (approvals incl. who already booked · hold requests); section renamed
+🟠 TR-108  "Print this week's sheet" — the clipboard roster for the market day
+🟠 TR-109  FT F1: a one-off truck can't take a recurring truck's spot on their day; both told if it ever happens anyway
+
 BOOTH NUMBERING — OPTION U, parts A–D (your 09-20 rulings: numbers belong to sizes; migration 258 is on Dev + Staging):
 🟠 TR-100  Booth inventory asks "new or existing numbers?", then numbers each size (A1–A4…); count derived; overlaps refused by name
 🟠 TR-101  The same "How booth numbers work here" paragraph on all four booth cards, with your market's number map
@@ -222,7 +227,7 @@ Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
 
 
 ==================================================
-🟠 GROUP 3 — BOOTH WEEKS AND MONEY AT MANAGED MARKETS   (27 tests)
+🟠 GROUP 3 — BOOTH WEEKS AND MONEY AT MANAGED MARKETS   (30 tests)
 ===
 
 Screens: /\[vertical]/markets/\[id]/book · manager dashboard (vendor roster, booth occupancy) · /\[vertical]/listing/\[id] ·
@@ -313,6 +318,41 @@ Where: the Vendors section of the dashboard; then any Action Item that points in
 Expect: "Vendors" has the accent rail (section); "Vendors at this market" below it is a plain bold card title with
 no rail. With Setup collapsed, click "Set numbers →" or "Settle →" → Setup opens by itself and the page scrolls to
 Booth inventory / Seasons. The jump-nav "Setup" chip still works.
+Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+
+
+
+🟠 TR-107  FT park dashboard — Action Items, at last  (shipped 2026-09-20)
+Where: /food\_trucks/market-manager/\[park]/dashboard on a park whose setup checklist is complete.
+Background: this card had NEVER shown on a park — it waited for booth inventory, which parks don't have.
+Setup: one truck that booked a spot this week but isn't approved yet; one recurring-hold request still "requested".
+Expect: the first card reads "Action Items" with "1 truck pending your approval — 1 has already booked this week.
+Review →" and "1 recurring-hold request is waiting for your yes or no (Recurring holds tab). Decide →"; both links
+land on Your trucks. Approve + decide → "Nothing needs you right now — truck approvals and recurring-hold requests
+show up here." The last section is now titled "Communication & insights" (was "Communicate & learn").
+Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+
+
+
+🟠 TR-108  Print this week's sheet  (shipped 2026-09-20)
+Where: FM manager dashboard → Weekly booth bookings → the week header → "🖨 Print this week's sheet" (new tab).
+Expect: a plain page titled "\[Market] — week sheet", one row per booth: booth # · vendor · size · status (Paid /
+Booked · NOT paid / Held · no booking this week / Off-platform) · a ✓ under each market day the vendor declared ·
+an empty "Checked in" column for your pen. Rows match the bookings list for that week; placeholders and held
+numbers appear too. Previous/Next week links; Print → the browser preview shows only the table.
+Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+
+
+
+🟠 TR-109  FT F1 — a recurring truck's spot is theirs until they skip paying  (shipped 2026-09-20)
+Where: /food\_trucks/markets/\[park]/book-spot as truck B, where truck A has an APPROVED (active) Saturday hold on
+Spot A; a paid park.
+Expect: Spot A's card says "Held on Saturdays — recurring truck"; in the day list Saturdays are greyed "— held by a
+recurring truck"; in Prepay-a-week, a week containing a Saturday is greyed with the reason. Try to force it (pick
+Spot A, switch to a Saturday via the week mode on another spot, then change spot) → the server refuses: "Spot A is
+held by a recurring truck on Saturdays. It opens to other trucks only if they don't pay by the … cutoff — check
+back after that, or pick another spot." Truck A booking Spot A on a Saturday early still works. Once truck A's
+occurrence for a Saturday expires (didn't pay by Thursday) that Saturday opens to truck B.
 Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
 
 

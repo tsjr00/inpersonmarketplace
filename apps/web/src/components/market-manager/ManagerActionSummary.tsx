@@ -11,6 +11,12 @@ interface ManagerActionSummaryProps {
   stats: ManagerDashboardStats
   /** The four signals beyond approvals/booth numbers (booth_numbering_design.md §3.9). FM only; FT passes nothing. */
   signals?: ManagerActionSignals | undefined
+  /** FT parks (2026-09-20): setup is the PARK-shaped checklist — the FM one
+   *  checks booth inventory a park never has, so the card never rendered for
+   *  a park. When given, this replaces the FM-derived gate. */
+  setupComplete?: boolean | undefined
+  /** FT parks: the two park to-dos that already exist as badges on the page. */
+  ftSignals?: { trucksBookedNeedingApproval: number; holdRequests: number } | undefined
 }
 
 /**
@@ -40,10 +46,13 @@ export default function ManagerActionSummary({
   progress,
   stats,
   signals,
+  setupComplete,
+  ftSignals,
 }: ManagerActionSummaryProps) {
   // If onboarding isn't complete, defer to OnboardingChecklist. Don't
-  // render a competing prompt during the setup flow.
-  const setupIncomplete = !progress.inventory_done || !progress.optin_done
+  // render a competing prompt during the setup flow. FT passes its own
+  // park-shaped answer (see setupComplete).
+  const setupIncomplete = setupComplete !== undefined ? !setupComplete : (!progress.inventory_done || !progress.optin_done)
   if (setupIncomplete) return null
 
   const isFoodTrucks = vertical === 'food_trucks'
@@ -53,10 +62,24 @@ export default function ManagerActionSummary({
 
   const items: Array<{ key: string; icon: string; text: React.ReactNode; href: string; cta: string }> = []
 
+  // FM: the roster card is #roster; FT: the "Your trucks" tabbed group is #vendors.
+  const rosterHref = isFoodTrucks ? '#vendors' : '#roster'
   if (stats.pendingApprovalCount > 0) {
+    // FT: a truck that has already BOOKED this week and is still unapproved is
+    // the urgent subset — name it (the week card's accessory said this before).
+    const urgent = ftSignals?.trucksBookedNeedingApproval ?? 0
     items.push({
-      key: 'approvals', icon: '📥', href: '#roster', cta: 'Review →',
-      text: <><strong>{stats.pendingApprovalCount}</strong> {stats.pendingApprovalCount === 1 ? vendorOne : vendorMany} pending your approval.</>,
+      key: 'approvals', icon: '📥', href: rosterHref, cta: 'Review →',
+      text: <>
+        <strong>{stats.pendingApprovalCount}</strong> {stats.pendingApprovalCount === 1 ? vendorOne : vendorMany} pending your approval
+        {urgent > 0 ? <> — <strong>{urgent}</strong> {urgent === 1 ? 'has' : 'have'} already booked this week</> : null}.
+      </>,
+    })
+  }
+  if (ftSignals && ftSignals.holdRequests > 0) {
+    items.push({
+      key: 'holds', icon: '📌', href: '#vendors', cta: 'Decide →',
+      text: <><strong>{ftSignals.holdRequests}</strong> recurring-hold {ftSignals.holdRequests === 1 ? 'request is' : 'requests are'} waiting for your yes or no (Recurring holds tab).</>,
     })
   }
   // FT parks have no booth-number model — a truck's spot lives in
@@ -65,7 +88,7 @@ export default function ManagerActionSummary({
   // arrives with the booking, so it is not the manager's to-do (F2a).
   if (!isFoodTrucks && !stats.marketChargesBooths && stats.activeVendorsNeedingBooth > 0) {
     items.push({
-      key: 'booth', icon: '📋', href: '#roster', cta: 'Assign now →',
+      key: 'booth', icon: '📋', href: rosterHref, cta: 'Assign now →',
       text: <><strong>{stats.activeVendorsNeedingBooth}</strong> active {stats.activeVendorsNeedingBooth === 1 ? `${vendorOne} needs` : `${vendorMany} need`} a {booth} number.</>,
     })
   }
@@ -116,7 +139,9 @@ export default function ManagerActionSummary({
       {...(nothingToDo ? {
         empty: {
           kind: 'waiting' as const,
-          message: `Nothing needs you right now — ${vendorOne} applications, ${booth} numbers, sizes over capacity, Stripe requests and season settlements show up here.`,
+          message: isFoodTrucks
+            ? `Nothing needs you right now — truck approvals and recurring-hold requests show up here.`
+            : `Nothing needs you right now — ${vendorOne} applications, ${booth} numbers, sizes over capacity, Stripe requests and season settlements show up here.`,
         },
       } : {})}
     >

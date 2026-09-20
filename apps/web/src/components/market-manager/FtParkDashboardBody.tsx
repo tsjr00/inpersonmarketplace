@@ -33,12 +33,15 @@ import type { ParkWeekSchedule } from '@/lib/markets/park-week-schedule'
 /**
  * FT park-manager dashboard body — the FT-only card arrangement, grouped by
  * how a park operator actually works instead of one flat card per data table:
- *   ① Action Items (approvals only on FT — spots have no booth numbers; the
- *      week itself is the "This week at your park" card)
+ *   ① Action Items (FT: truck approvals — naming those who already booked —
+ *      and recurring-hold requests; spots have no booth numbers; the week
+ *      itself is the "This week at your park" card). Gated on the PARK
+ *      checklist since 2026-09-20 — the FM gate (booth inventory) never
+ *      opened for a park, so the card had never rendered here.
  *   ② This week — operations hub (bookings + attendance + cancel a day)
  *   ③ Your trucks — relationships (roster/approvals + recurring holds + invite)
  *   ④ Park setup — collapsible, occasional config (Stripe, spots, schedule, …)
- *   ⑤ Communicate & learn (announce, surveys, support)
+ *   ⑤ Communication & insights (announce, surveys, support)
  *
  * FM markets do NOT use this component — the shared page keeps its existing
  * flat layout for FM (vaulted, byte-identical). Cards are reused with the
@@ -107,8 +110,16 @@ export default function FtParkDashboardBody({
           new operators were landing here with no pointer to setup. */}
       <ParkOnboardingChecklist progress={parkOnboarding} />
 
-      {/* ① Triage */}
-      <ManagerActionSummary vertical={vertical} progress={onboardingProgress} stats={dashboardStats} />
+      {/* ① Action Items (2026-09-20): gated on the PARK checklist (the FM gate
+          never opened for a park), with the two park to-dos that used to live
+          only as badges lower down. */}
+      <ManagerActionSummary
+        vertical={vertical}
+        progress={onboardingProgress}
+        stats={dashboardStats}
+        setupComplete={parkSetupComplete}
+        ftSignals={{ trucksBookedNeedingApproval: parkWeek?.needingApproval ?? 0, holdRequests: pendingHoldRequests }}
+      />
 
       {/* ② THIS WEEK — operations hub */}
       <GroupHeading id="week-group" title="This week" subtitle="Who's booked, and who showed up" />
@@ -238,8 +249,8 @@ export default function FtParkDashboardBody({
         {visibilityStatus && <MarketVisibilityCard status={visibilityStatus} />}
       </CollapsibleSection>
 
-      {/* ⑤ COMMUNICATE & LEARN */}
-      <GroupHeading title="Communicate & learn" />
+      {/* ⑤ COMMUNICATION & INSIGHTS — same name as the FM dashboard (owner 2026-09-20). */}
+      <GroupHeading title="Communication & insights" />
       <div id="announce" style={{ scrollMarginTop: NAV_OFFSET }}>
         <MarketBroadcastCard marketId={marketId} vertical={vertical} />
       </div>

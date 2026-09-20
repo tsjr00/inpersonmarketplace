@@ -88,7 +88,8 @@ These live under `api/vendor/`, not `market-manager/`:
 |---|---|
 | `lib/markets/park-spot-types.ts` | Types for `park_spots`; `base_price_cents` is **per day**, fed to the unit-agnostic `calculateBoothRentalFees` |
 | `lib/markets/park-booking-types.ts` | Types + `PARK_SPOT_MIN_CHARGE_CENTS`, `PARK_SPOT_MAX_DATES` |
-| `lib/markets/park-standing.ts` ⚠ | The occurrence engine (~440 lines): generate, expire, strike, auto-suspend |
+| `lib/markets/park-standing.ts` ⚠ | The occurrence engine (~490 lines): generate, expire, strike, auto-suspend. F1-2 (2026-09-20): when the slot is already occupied at generation, `notifyOccurrenceSkipped` tells the anchor + the operator once per (hold, date) — `park_standing_occurrence_skipped[_manager]`, idempotent via `notifications.data->>occurrenceKey` |
+| `lib/markets/park-hold-guard.ts` | F1-1 (2026-09-20, booth_model_design.md §7): a one-off booking of spot S on date D is refused while ANOTHER truck's ACTIVE recurring hold covers (S, weekday of D), unless the anchor forfeited D (expired/cancelled occurrence). `datesBlockedByHolds` is pure (unit-tested); `findHeldDateConflict` does the two reads; `heldSpotMessage` names the weekday + prepay cutoff. Called by `book-park-spot/route.ts` → 409 `ERR_PARK_SPOT_HELD`. Before this the route never read `park_standing_reservations` and a truck could take the anchor's spot 8+ days out |
 | `lib/markets/park-week-schedule.ts` | Day-scoped "week at this park" view: per operating day, trucks with spot, recurrence and payment state, plus glance counts |
 | `lib/markets/park-docs-review.ts` | Notifies an operator once when an affiliated consented truck's docs changed since last review; all comparisons are absolute instants |
 | `lib/markets/park-checkin-reminders.ts` | Day-of check-in nudges; guards against false no-show strikes |

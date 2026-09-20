@@ -157,6 +157,7 @@ export default async function BookParkSpotPage({ params }: PageProps) {
   // this park, or operator-reviewed documents. Mirrors the server gate in
   // api/vendor/markets/[id]/book-park-spot; the server remains authoritative.
   let sameDayEligible = false
+  let selfVendorProfileId: string | null = null
   const authClient = await createClient()
   const { data: { user } } = await authClient.auth.getUser()
   if (user) {
@@ -164,6 +165,7 @@ export default async function BookParkSpotPage({ params }: PageProps) {
       authClient, user.id, 'food_trucks', 'id, profile_data'
     )
     if (profile) {
+      selfVendorProfileId = profile.id
       const readiness = ((profile.profile_data as Record<string, unknown> | null)?.event_readiness ?? {}) as Record<string, unknown>
       truckLengthFt = typeof readiness.vehicle_length_feet === 'number' && readiness.vehicle_length_feet > 0
         ? readiness.vehicle_length_feet
@@ -248,6 +250,25 @@ export default async function BookParkSpotPage({ params }: PageProps) {
     }
   }
 
+  // F1-3 (2026-09-20): OTHER trucks' active recurring holds, per spot → weekdays.
+  // The form marks the spot ("Held on Saturdays — recurring truck") and disables
+  // those days so nobody is invited into a refusal; the route (F1-1) is the gate.
+  // Only spot + weekday leave the server — no vendor identity.
+  const heldDowsBySpot: Record<string, number[]> = {}
+  {
+    const { data: activeHolds } = await supabase
+      .from('park_standing_reservations')
+      .select('spot_id, day_of_week, vendor_profile_id')
+      .eq('market_id', id)
+      .eq('status', 'active')
+    for (const h of activeHolds ?? []) {
+      if (selfVendorProfileId && h.vendor_profile_id === selfVendorProfileId) continue
+      const list = heldDowsBySpot[h.spot_id as string] ?? []
+      if (!list.includes(h.day_of_week as number)) list.push(h.day_of_week as number)
+      heldDowsBySpot[h.spot_id as string] = list.sort()
+    }
+  }
+
   // Booth/spot map (mig 205) — tolerant read so this page renders pre-migration.
   const boothMapUrl = await getBoothMapUrl(supabase, id)
 
@@ -282,6 +303,7 @@ export default async function BookParkSpotPage({ params }: PageProps) {
         pendingOccurrences={pendingOccurrences}
         hasPriorPaidRental={hasPriorPaidRental}
         myHolds={myHolds}
+        heldDowsBySpot={heldDowsBySpot}
         seasonStart={(market.season_start as string | null) ?? null}
         seasonEnd={(market.season_end as string | null) ?? null}
         truckLengthFt={truckLengthFt}

@@ -327,8 +327,13 @@ describe('NI-014: Total notification types = 72', () => {
     // a PAID one-off week; the vendor's remaining declared days come back as a
     // credit (BR-10). The day-cancel credit (BR-9) rides on the EXISTING
     // market_date_cancelled_vendor notice — no type added for it.
+    // 133 → 135 (2026-09-20, owner "F1 = YES" on the §7 design, which names
+    // both): park_standing_occurrence_skipped (anchor truck) +
+    // park_standing_occurrence_skipped_manager (operator) — the nightly sweep
+    // found the anchor's spot already booked on their recurring day; before
+    // F1 the week was skipped and nobody was told. Once per (hold, date).
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(133)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(135)
   })
 
   it('includes all buyer-facing types', () => {

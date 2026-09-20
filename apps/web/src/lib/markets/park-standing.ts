@@ -41,6 +41,54 @@ export function addDaysISO(iso: string, n: number): string {
 }
 
 /** First date on or after `fromISO` whose day-of-week (0=Sun..6=Sat) === dow. */
+/**
+ * F1-2: one notification pair per (hold, date) when the sweep finds the
+ * anchor's slot already occupied. Idempotent via the notifications table —
+ * the sweep runs nightly and the slot stays taken until the date passes.
+ */
+async function notifyOccurrenceSkipped(
+  serviceClient: SupabaseClient,
+  res: Record<string, unknown>,
+  occ: string,
+): Promise<void> {
+  const market = res.markets as unknown as { name: string; vertical_id: string; manager_user_id: string | null } | null
+  const vp = res.vendor_profiles as unknown as { user_id: string } | null
+  const spot = res.park_spots as unknown as { label: string } | null
+  const occurrenceKey = `${res.id}|${occ}`
+  const { data: already } = await observed(serviceClient
+    .from('notifications')
+    .select('id')
+    .eq('type', 'park_standing_occurrence_skipped')
+    .eq('data->>occurrenceKey', occurrenceKey)
+    .limit(1), { table: 'notifications' })
+  if ((already ?? []).length > 0) return
+
+  const payload = {
+    marketName: market?.name ?? 'the park',
+    marketId: res.market_id as string,
+    spotLabel: spot?.label ?? 'your spot',
+    marketDate: occ,
+    occurrenceKey,
+  }
+  const opts = { vertical: market?.vertical_id ?? 'food_trucks' }
+  if (vp?.user_id) {
+    await sendNotification(vp.user_id, 'park_standing_occurrence_skipped', payload, opts)
+  }
+  if (market?.manager_user_id) {
+    // Name the anchor for the operator.
+    const { data: anchor } = await observed(serviceClient
+      .from('vendor_profiles')
+      .select('profile_data')
+      .eq('id', res.vendor_profile_id as string)
+      .maybeSingle(), { table: 'vendor_profiles' })
+    const pd = (anchor?.profile_data ?? {}) as { business_name?: string; farm_name?: string }
+    await sendNotification(market.manager_user_id, 'park_standing_occurrence_skipped_manager', {
+      ...payload,
+      vendorName: pd.business_name || pd.farm_name || 'A recurring truck',
+    }, opts)
+  }
+}
+
 export function nextOccurrenceOnOrAfter(dow: number, fromISO: string): string {
   const [y, m, d] = fromISO.split('-').map(Number)
   const dt = new Date(Date.UTC(y, m - 1, d))
@@ -312,7 +360,7 @@ export async function runStandingOccurrenceSweep(
     .select(`
       id, market_id, vendor_profile_id, spot_id, day_of_week, strikes_reset_at, requested_start_date,
       park_spots:spot_id ( label, base_price_cents, active ),
-      markets:market_id ( name, vertical_id, timezone, park_mode, stripe_charges_enabled, season_start, season_end ),
+      markets:market_id ( name, vertical_id, timezone, park_mode, stripe_charges_enabled, season_start, season_end, manager_user_id ),
       vendor_profiles:vendor_profile_id ( user_id )
     `)
     .eq('status', 'active'), { table: 'park_standing_reservations' })
@@ -376,7 +424,14 @@ export async function runStandingOccurrenceSweep(
         .eq('spot_id', res.spot_id).eq('booking_date', occ).in('status', ['pending_payment', 'paid']).limit(1),
     ])
     if ((mine.data ?? []).length > 0) continue
-    if ((slot.data ?? []).length > 0) continue
+    if ((slot.data ?? []).length > 0) {
+      // F1-2 (booth_model_design.md §7, owner 2026-09-20): the anchor's spot is
+      // already taken on their day — a one-off booked before the F1-1 route
+      // guard shipped, or a race at the horizon. Tell the anchor and the
+      // operator ONCE per (hold, date); the operator can move someone.
+      await notifyOccurrenceSkipped(serviceClient, res, occ)
+      continue
+    }
 
     const { data: inserted, error: insErr } = await serviceClient
       .from('park_spot_bookings')

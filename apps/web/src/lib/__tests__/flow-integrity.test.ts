@@ -1347,6 +1347,25 @@ describe('Dashboard empty-state convention', () => {
     }
   })
 
+  it('F1: a one-off park booking respects an active standing hold; the sweep tells both sides when it cannot', () => {
+    // booth_model_design.md §7 (owner 2026-09-20 "F1 = YES"). Before this the
+    // route never read park_standing_reservations (0 references) and the sweep
+    // skipped the anchor's week in silence.
+    const route = bare('app/api/vendor/markets/[id]/book-park-spot/route.ts')
+    expect(route, 'route runs the hold guard').toContain('findHeldDateConflict')
+    expect(route, 'refusal carries its own code').toContain('ERR_PARK_SPOT_HELD')
+    const guard = bare('lib/markets/park-hold-guard.ts')
+    expect(guard).toMatch(/from\('park_standing_reservations'\)/)
+    expect(guard, 'forfeited dates (expired/cancelled occurrence) reopen the spot').toMatch(/\.in\('status', \['expired', 'cancelled'\]\)/)
+    const sweep = bare('lib/markets/park-standing.ts')
+    expect(sweep, 'the occupied-slot skip notifies instead of continuing silently').toMatch(/notifyOccurrenceSkipped\(serviceClient, res, occ\)/)
+    expect(sweep).toContain("'park_standing_occurrence_skipped'")
+    expect(sweep).toContain("'park_standing_occurrence_skipped_manager'")
+    expect(sweep, 'once per (hold, date)').toMatch(/eq\('data->>occurrenceKey', occurrenceKey\)/)
+    const page = bare('app/[vertical]/markets/[id]/book-spot/page.tsx')
+    expect(page, 'the page marks held weekdays').toContain('heldDowsBySpot')
+  })
+
   it('booth numbering U (N-4/N-8): managers PICK numbers — no free-text booth # input; one shared help paragraph', () => {
     // Owner 2026-09-20 (booth_numbering_design.md). Four cards set or show a
     // booth number. Each must (a) offer numbers through BoothNumberPicker, never

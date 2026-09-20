@@ -85,6 +85,10 @@ interface BookParkSpotFormProps {
   /** The truck's own requested/active weekly holds here (so they can see what
    *  they've already asked for — a pending request blocks a duplicate). */
   myHolds?: MyHold[]
+  /** F1-3 (2026-09-20): OTHER trucks' active recurring holds, spot id → weekdays
+   *  (0=Sun). The spot says "Held on Saturdays — recurring truck" and those days
+   *  are disabled in the picker; the server (F1-1) remains authoritative. */
+  heldDowsBySpot?: Record<string, number[]>
   /** P2 (2026-07-15): the park's season window (markets.season_start/end).
    *  Bounds the booking horizon; the booking API enforces it server-side. */
   seasonStart?: string | null
@@ -128,6 +132,14 @@ function formatDayLabel(ymd: string): string {
   })
 }
 
+/** F1-3 copy: "Held on Saturdays". */
+const DOW_PLURAL = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays']
+
+function dowOfYmd(ymd: string): number {
+  const [y, m, d] = ymd.split('-').map(Number)
+  return new Date(y!, m! - 1, d!).getDay()
+}
+
 function formatShort(ymd: string): string {
   return fromYmd(ymd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
@@ -154,6 +166,7 @@ export default function BookParkSpotForm({
   pendingOccurrences = [],
   hasPriorPaidRental = false,
   myHolds = [],
+  heldDowsBySpot = {},
   seasonStart = null,
   seasonEnd = null,
   truckLengthFt = null,
@@ -454,6 +467,8 @@ export default function BookParkSpotForm({
   }
 
   const holdEligibleSpot = !!(selectedSpot?.recurring_eligible && scheduleDows.length > 0)
+  // F1-3: weekdays another truck holds on the selected spot.
+  const heldDowsForSelected = new Set<number>(selectedSpotId ? (heldDowsBySpot[selectedSpotId] ?? []) : [])
 
   return (
     <>
@@ -603,6 +618,13 @@ export default function BookParkSpotForm({
                         spot.has_water ? 'Water' : null,
                       ].filter(Boolean).join(' · ')}
                     </div>
+                    {/* F1-3: another truck's recurring hold — those days are theirs
+                        unless they skip paying; the picker disables them below. */}
+                    {(heldDowsBySpot[spot.id] ?? []).length > 0 && (
+                      <div style={{ fontSize: typography.sizes.xs, color: statusColors.warningDark, marginTop: spacing['3xs'] }}>
+                        Held on {(heldDowsBySpot[spot.id] ?? []).map((d) => DOW_PLURAL[d]).join(', ')} — recurring truck
+                      </div>
+                    )}
                   </div>
                   <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, whiteSpace: 'nowrap' }}>
                     {formatPrice(spot.base_price_cents)}/day
@@ -829,10 +851,20 @@ export default function BookParkSpotForm({
                     color: colors.textPrimary,
                   }}
                 >
-                  {operatingDates.map((d) => (
-                    <option key={d} value={d}>{formatDayLabel(d)}</option>
-                  ))}
+                  {operatingDates.map((d) => {
+                    const held = heldDowsForSelected.has(dowOfYmd(d))
+                    return (
+                      <option key={d} value={d} disabled={held}>
+                        {formatDayLabel(d)}{held ? ' — held by a recurring truck' : ''}
+                      </option>
+                    )
+                  })}
                 </select>
+                {heldDowsForSelected.size > 0 && (
+                  <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
+                    Held days open to other trucks only if the recurring truck doesn&apos;t pay by the Thursday before.
+                  </div>
+                )}
               </label>
             ) : (
               <div style={{ marginBottom: spacing.md }}>
@@ -851,6 +883,8 @@ export default function BookParkSpotForm({
                     const first = w.dates[0]
                     const last = w.dates[w.dates.length - 1]
                     const range = first === last ? formatShort(first) : `${formatShort(first)} – ${formatShort(last)}`
+                    // F1-3: a week that includes a held day can't be prepaid on this spot.
+                    const heldDay = w.dates.find((d) => heldDowsForSelected.has(dowOfYmd(d)))
                     return (
                       <label
                         key={w.key}
@@ -862,7 +896,8 @@ export default function BookParkSpotForm({
                           border: `1px solid ${selected ? colors.primary : colors.border}`,
                           borderRadius: radius.sm,
                           backgroundColor: selected ? colors.surfaceBase : 'transparent',
-                          cursor: 'pointer',
+                          cursor: heldDay ? 'not-allowed' : 'pointer',
+                          opacity: heldDay ? 0.55 : 1,
                         }}
                       >
                         <input
@@ -871,14 +906,15 @@ export default function BookParkSpotForm({
                           value={w.key}
                           checked={selected}
                           onChange={() => setSelectedWeekKey(w.key)}
-                          disabled={submitting}
+                          disabled={submitting || !!heldDay}
                         />
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: typography.sizes.sm, color: colors.textPrimary }}>
                             {range}
                           </div>
-                          <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
+                          <div style={{ fontSize: typography.sizes.xs, color: heldDay ? statusColors.warningDark : colors.textMuted, marginTop: spacing['3xs'] }}>
                             {w.dates.length} day{w.dates.length === 1 ? '' : 's'}
+                            {heldDay ? ` · ${formatShort(heldDay)} is held by a recurring truck — pick another spot for this week` : ''}
                           </div>
                         </div>
                       </label>

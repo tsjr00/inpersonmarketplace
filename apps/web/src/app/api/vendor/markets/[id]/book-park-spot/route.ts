@@ -212,6 +212,20 @@ export async function POST(
       )
     }
 
+    // F1 (booth_model_design.md §7, owner 2026-09-20): an active recurring hold
+    // on this spot for that weekday belongs to its anchor until they forfeit
+    // the date. Before this the hold was protected only inside the sweep's
+    // 7-day horizon, so a one-off truck could take the anchor's spot 8+ days
+    // out and the anchor's week was silently skipped.
+    const { findHeldDateConflict, heldSpotMessage } = await import('@/lib/markets/park-hold-guard')
+    const held = await findHeldDateConflict(serviceClient, { marketId, spotId, vendorProfileId: profile.id, dates })
+    if (held) {
+      return NextResponse.json(
+        { error: heldSpotMessage((spot.label as string) || 'That spot', held.date), code: 'ERR_PARK_SPOT_HELD', field: 'booking_dates' },
+        { status: 409 }
+      )
+    }
+
     // --- SAME-DAY RULE (tester finding + owner decision 2026-07-23) ---------
     // Previously the only date gate was "not in the past", so a truck could buy
     // a spot for today at any hour — including after the park had opened, or

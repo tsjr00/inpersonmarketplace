@@ -130,6 +130,9 @@ export type NotificationType =
   | 'market_date_cancelled_order_vendor'
   // FT park-manager P4b — standing (recurring) spot holds.
   | 'park_standing_occurrence_ready'
+  // F1-2 (2026-09-20): the sweep found the anchor's spot already taken on their day.
+  | 'park_standing_occurrence_skipped'
+  | 'park_standing_occurrence_skipped_manager'
   | 'park_date_cancelled_truck'
   // R3-4 (2026-08-27): a truck with a PAID spot chose an event that day
   // instead — the operator is told (notify only; the booking stays paid).
@@ -435,6 +438,8 @@ export interface NotificationTemplateData {
   spotLabel?: string
   /** Pay-by cutoff date (YYYY-MM-DD) for a generated recurring occurrence. */
   payByDate?: string
+  /** F1-2: `${holdId}|${date}` — the once-per-(hold, date) idempotency key for a skipped occurrence. */
+  occurrenceKey?: string
   /** P4b-2 check-in reminder window: 'open' | 'midday' | 'close'. */
   window?: string
   /** P2b park-spot paid confirmation: number of days in the booking group. */
@@ -1203,6 +1208,30 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     message: (d) =>
       `Your recurring hold at ${d.marketName || 'the park'} has ${d.spotLabel || 'your spot'} reserved for ${d.marketDate || 'your next day'}. Pay by ${d.payByDate || 'the cutoff'} to keep it — otherwise it opens back up and counts as a missed week. Heads up: customers can't place food orders for that date until it's paid, so paying early opens your order window sooner.`,
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/markets/${d.marketId || ''}/book-spot`,
+  },
+
+  // F1-2 (booth_model_design.md §7, owner 2026-09-20) — the nightly sweep found
+  // the anchor's spot already booked by someone else on their recurring day
+  // (a one-off placed before the F1-1 guard, or a horizon race). The anchor
+  // learns their week was skipped instead of finding out at the park; the
+  // operator learns so they can move one truck. Once per (hold, date).
+  park_standing_occurrence_skipped: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'vendor',
+    title: (d) => `Your ${d.marketDate || 'recurring'} day at ${d.spotLabel || 'your spot'} couldn't be reserved`,
+    message: (d) =>
+      `Your recurring hold at ${d.marketName || 'the park'} usually reserves ${d.spotLabel || 'your spot'} — but on ${d.marketDate || 'that date'} another truck already holds that spot, so no reservation was made for you and it does not count as a missed week. The operator has been told and can move one of you; you can also book another spot for that day.`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/markets/${d.marketId || ''}/book-spot`,
+  },
+  park_standing_occurrence_skipped_manager: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'vendor', // managers operate from a vendor-adjacent role; closest fit (as booth_rental_paid_manager)
+    title: (d) => `${d.vendorName || 'A recurring truck'}'s ${d.spotLabel || 'spot'} is double-booked on ${d.marketDate || 'their day'}`,
+    message: (d) =>
+      `${d.vendorName || 'A recurring truck'} holds ${d.spotLabel || 'a spot'} at ${d.marketName || 'your park'} every week, but another truck already has a booking for ${d.spotLabel || 'that spot'} on ${d.marketDate || 'that date'}, so no reservation could be made for the recurring truck. Move one of them from the week view, or let it stand.`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/market-manager/${d.marketId || ''}/dashboard#week`,
   },
 
   // NOT-5 (mig 202, user decision 2026-07-18) — the user's email hard-bounced

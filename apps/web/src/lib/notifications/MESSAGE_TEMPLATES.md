@@ -660,6 +660,24 @@ Also 2026-09-19 (BR-9, NO new type): when a manager cancels a market DAY, the ex
 
 ---
 
+### Recurring Hold — Occurrence Skipped (`park_standing_occurrence_skipped`) — FT F1-2, 2026-09-20 — TO THE ANCHOR TRUCK
+**Urgency:** Standard (Email + In-app) · **Severity:** warning
+**Rule (booth_model_design.md §7):** an approved recurring hold is a promise of "this spot, this weekday". F1-1 now refuses one-off bookings of a held spot on that weekday (the route), so this fires only for bookings placed before F1 shipped or a race at the sweep's 7-day horizon. Sent ONCE per (hold, date) — the sweep runs nightly; `data.occurrenceKey` = `{{hold_id}}|{{date}}` is the idempotency key.
+**Trigger:** nightly standing-hold sweep (`lib/markets/park-standing.ts`) finds the anchor's spot already booked by another truck on their day.
+
+**In-app title:** Your {{date}} day at {{spot_label}} couldn't be reserved
+**In-app message:** Your recurring hold at {{market_name}} usually reserves {{spot_label}} — but on {{date}} another truck already holds that spot, so no reservation was made for you and it does not count as a missed week. The operator has been told and can move one of you; you can also book another spot for that day.
+**Action:** `/{{vertical}}/markets/{{market_id}}/book-spot`
+
+### Recurring Hold — Occurrence Skipped (`park_standing_occurrence_skipped_manager`) — FT F1-2, 2026-09-20 — TO THE OPERATOR
+**Urgency:** Standard (Email + In-app) · **Severity:** warning · same trigger and once-per-(hold, date) rule as above.
+
+**In-app title:** {{vendor_name}}'s {{spot_label}} is double-booked on {{date}}
+**In-app message:** {{vendor_name}} holds {{spot_label}} at {{market_name}} every week, but another truck already has a booking for {{spot_label}} on {{date}}, so no reservation could be made for the recurring truck. Move one of them from the week view, or let it stand.
+**Action:** `/{{vertical}}/market-manager/{{market_id}}/dashboard#week`
+
+---
+
 ## Admin-Facing Notifications
 
 ---

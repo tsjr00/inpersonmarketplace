@@ -272,6 +272,16 @@ export default function WeeklyBookingsList({ marketId, vertical, bookings: initi
             {weekBookings.length} booking{weekBookings.length === 1 ? '' : 's'} this week
             {weeks.length > 1 && ` · week ${weekIndex + 1} of ${weeks.length}`}
           </span>
+          {/* The printable week sheet (owner 2026-09-20): booth #, vendor, size,
+              paid/held, declared days, a check-in column — for the clipboard. */}
+          <a
+            href={`/${vertical}/market-manager/${marketId}/week-sheet?week=${selectedWeek}`}
+            target="_blank"
+            rel="noopener"
+            style={{ marginLeft: 'auto', fontSize: typography.sizes.xs, color: colors.primary, textDecoration: 'underline', fontWeight: typography.weights.semibold }}
+          >
+            🖨 Print this week&apos;s sheet
+          </a>
         </div>
       )}
 

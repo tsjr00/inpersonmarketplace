@@ -1,4 +1,29 @@
-# ▶ 2026-09-20 (build) — OPTION U: mig 258 ✅ Dev + Staging · U-A `446db932` · U-B `fec2ff61` · U-C `bf58d206` COMMITTED · U-D BUILT (uncommitted, gates green tsc 0 · eslint 0 · vitest 94/2287)
+# 🏁 2026-09-20 CLOSE (context exhausted) — OPTION U A–D ON STAGING `005396d4` · EASY-WINS ROUND BUILT, committed local `<see git log>`, NOT PUSHED
+
+**Staging** = `005396d4` (Option U parts A–D + earlier docs). **Prod** untouched `d704d3bb` (owes 44+ commits, migs 252–258).
+**Easy-wins round (owner "YES" ×4, 2026-09-20), BUILT, gates green (tsc 0 · eslint 0 · vitest 95/2294), committed
+LOCAL only — push owed:** (1) FT dashboard section renamed "Communication & insights"; (2) **FT Action Items now
+RENDERS** (finding: it never had — the gate checked booth inventory, `onboarding-progress.ts:114`; fixed with
+`setupComplete` prop = park checklist) + lists truck approvals (naming those who already booked) + recurring-hold
+requests (`ftSignals`); (3) **printable week sheet** `market-manager/[marketId]/week-sheet?week=` (+ `PrintButton.tsx`),
+linked from the weekly-bookings header; (4) **F1** = `lib/markets/park-hold-guard.ts` (F1-1 route guard in
+`book-park-spot/route.ts` → 409 ERR_PARK_SPOT_HELD), F1-2 `notifyOccurrenceSkipped` in `park-standing.ts` (2 new
+notification types, tripwire 133→135 cited), F1-3 `heldDowsBySpot` on the book-spot page/form. Tests: park-hold-guard
+(6), F1 flow pin. Registry TR-107/108/109 + printable list (★ EASY WINS + Group 3 blocks). Maps 12/13. MESSAGE_TEMPLATES.
+Backlog: F1 + address-deadlock cluster + A-AUDIT 2/4 + H2 + T-43 marked DONE (verified in code); **backlog is ~30%
+stale — owner agreed a pruning pass is due.**
+**Retraction recorded:** I told the owner to "re-rule on the address deadlock"; it was fixed 2026-08-08 (backlog stale).
+**Not built (owner did not pick):** manager uninvite (~1 hr), booking-form refund notice (15 LOC), route-audit pass.
+
+## ▶ NEXT-SESSION PROMPT
+Read: CLAUDE.md · this block · `.claude/rules/*` · decisions.md 2026-09-19/20 rows · registry TR-078–109. Summarize, STOP.
+Resume: (1) **push the easy-wins commit(s) to staging** (owner's word; chain in git-and-deployment.md; port 3002 free);
+(2) owner: enter booth numbers on Staging test markets (TR-100 FIRST), then retests TR-100–109, TR-093–099, TR-078–092;
+(3) backlog pruning pass (1 hr — check off with the closing commit); (4) parked: multi-slot (§9), delete
+`booth-labels.ts` + `booth-label-drift-server.ts` after retest; (5) Prod when owner says — wipe first, code, then
+migs 252→258 each pre-check first.
+
+# (superseded) 2026-09-20 (build) — OPTION U: mig 258 ✅ Dev + Staging · U-A `446db932` · U-B `fec2ff61` · U-C `bf58d206` COMMITTED · U-D BUILT
 **U-D built:** `lib/markets/manager-action-items.ts` (signals 3–6: unnumbered sizes · untiered numbers · over capacity
 this week · Stripe needs action [short-circuit on synced columns, 2.5 s timeout] · settlements owed) · `manager-dashboard-
 stats.ts` + `marketChargesBooths` · `ManagerActionSummary` six kinds w/ links (#roster/#setup/#booths/#seasons) ·
