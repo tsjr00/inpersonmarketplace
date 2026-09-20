@@ -293,10 +293,21 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
             v.vendor_profile_id === vendorProfileId
               // mig 217: track revoked_at too, or the row would fall back into
               // "pending approval" on screen until the next reload.
-              ? { ...v, approved: !!data.approved, revoked_at: data.revoked_at ?? null }
+              // BR-12: a revoke clears the pin + tier server-side; mirror it
+              // here so the row doesn't keep showing a booth nobody holds.
+              ? {
+                  ...v,
+                  approved: !!data.approved,
+                  revoked_at: data.revoked_at ?? null,
+                  ...(data.approved ? {} : { booth_number: null, inventory_id: null }),
+                }
               : v
           )
         )
+        if (!data.approved) {
+          setEdits((s) => ({ ...s, [vendorProfileId]: '' }))
+          setTierEdits((s) => ({ ...s, [vendorProfileId]: '' }))
+        }
         setTimeout(() => {
           setRowSuccess((s) => ({ ...s, [vendorProfileId]: false }))
         }, 1500)

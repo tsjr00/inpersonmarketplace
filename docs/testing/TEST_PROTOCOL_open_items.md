@@ -18,10 +18,19 @@ covered a test while running another, say so — the ID is what gets recorded, n
 ★ WHAT'S NEW — retest these first
 ===
 
-Last update: 2026-09-19 · staging build 041fd629 (hard-refresh before testing).
-Fixes shipped since your last results (2026-09-18, OB-026/OB-027). Each line points at its full block below.
-When this section is empty, there is nothing new to retest — go straight to the regular groups.
+Last update: 2026-09-19 (evening) · staging build PENDING PUSH (hard-refresh before testing).
+Fixes shipped since your last results (2026-09-18, OB-026/OB-027; 2026-09-19 OB-028 booth conflict). Each line
+points at its full block below. When this section is empty, there is nothing new to retest — go straight to the
+regular groups.
 
+BOOTH ROUND PART A (your 09-19 booth-conflict report; migration 256 on Dev, Staging pending your paste):
+🟠 TR-078  A pinned vendor can book their own booth (the bug you hit)         (your 09-19 report)
+🟠 TR-079  A season purchase keeps ONE booth number for every week           (your 09-19 ruling)
+🟠 TR-080  Manager can pin a vendor to the booth they already rent           (found in the review)
+🟠 TR-081  Revoking a vendor frees their booth number                        (found in the review)
+🟠 TR-082  Occupancy grid shows paid renters; pins listed as holds, not counted (found in the review)
+
+EARLIER (2026-09-18 push, still to run):
 🟢 TR-069  Market-limit refusal now names the 4 counted markets              (your 09-18 report, item 1)
 🟢 TR-034  FM no longer mentions "Pickup Capacity"; FT half still to run       (your 09-18 report, item 4)
 🔵 TR-071  Apply shows the market agreement + document-sharing box            (your 09-18 TR-036 question)
@@ -162,14 +171,61 @@ Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
 
 
 ==================================================
-🟠 GROUP 3 — BOOTH WEEKS AND MONEY AT MANAGED MARKETS   (5 tests)
+🟠 GROUP 3 — BOOTH WEEKS AND MONEY AT MANAGED MARKETS   (10 tests)
 ===
 
-Screens: /\[vertical]/listing/\[id] · /\[vertical]/vendor/markets "Your next two weeks" · manager visibility card ·
-/\[vertical]/markets public list · manager cancel-date.
-Setup that serves the first three: ONE of the 21 vendors from the 255 pre-check (Amarillo Community, Market 2
+Screens: /\[vertical]/markets/\[id]/book · manager dashboard (vendor roster, booth occupancy) · /\[vertical]/listing/\[id] ·
+/\[vertical]/vendor/markets "Your next two weeks" · manager visibility card · /\[vertical]/markets public list ·
+manager cancel-date.
+Setup that serves most of this group: ONE of the 21 vendors from the 255 pre-check (Amarillo Community, Market 2
 Test, River Road or Westgate Mall — all four charge for booths). Check everything BEFORE they pay, then have them
 book + pay one week, then check everything again.
+Words used below — PIN: the booth number the manager types on the roster (a hold; the vendor may never pay).
+BOOKING: a week the vendor booked and paid for. Migration 256 must be on Staging before the first five tests.
+
+
+
+🟠 TR-078  A pinned vendor can book their own booth  (the bug from your 09-19 report; migration 256)
+Where: as the manager, pin the test vendor to booth #5 on the roster. Then as that vendor, /\[vertical]/markets/\[id]/book:
+pick any tier, agree, Continue to payment.
+Expect: reaches Stripe — no "BOOTH_CONFLICT" message. After paying, the booking shows booth #5 (the pin, whatever the
+tier). Pin a DIFFERENT vendor to #5 while the first still holds a paid week → refused with a plain-English message.
+Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+
+
+
+🟠 TR-079  A season purchase keeps ONE booth number for every week  (your 09-19 ruling; migration 256)
+Where: a market with an open pre-season window; buy the season (or a partial set of weeks) as the pinned vendor,
+then as a vendor with no pin. /\[vertical]/vendor/bookings afterwards.
+Expect: pinned vendor — every week shows the pinned number. Unpinned vendor — every week shows the SAME
+auto-assigned number. If no single booth is free for all the weeks, the message says "a season keeps one booth all
+season" rather than blaming one week.
+Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+
+
+
+🟠 TR-080  Manager can pin a vendor to the booth they already rent  (found in the booth review)
+Where: manager dashboard → vendor roster. A vendor holds a paid (or pending) week at auto-assigned booth #N.
+Expect: typing N into THAT vendor's booth field and saving works. Typing N for a different vendor is still refused.
+Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+
+
+
+🟠 TR-081  Revoking a vendor frees their booth number  (found in the booth review)
+Where: manager dashboard → vendor roster. Pin an approved vendor to #N, then Revoke them.
+Expect: the row shows no booth or tier; pinning another vendor to #N now works. (Any week the revoked vendor already
+paid for is untouched — it is still theirs.)
+Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+
+
+
+🟠 TR-082  Occupancy grid shows paid renters; pins are listed as holds and not counted  (found in the booth review)
+Where: manager dashboard → "Booth occupancy — this week", on a market with one paid booking THIS week and one pinned
+vendor who has not booked.
+Expect: the paying vendor appears under their tier as "Paid this week" (before this fix they never appeared); a
+pending checkout appears as "Pending payment"; the pinned vendor appears as "Pinned (hold)". The tier's "N of M
+occupied" counts the bookings only, not the hold.
+Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
 
 
 

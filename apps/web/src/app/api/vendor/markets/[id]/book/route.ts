@@ -27,13 +27,13 @@ import { createBoothRentalCheckoutSession } from '@/lib/stripe/payments'
  *
  * Auth gates (in order — first failure short-circuits with a clear error):
  *   1. Authenticated user
- *   2. Vendor profile exists in market's vertical
- *   3. Market exists
- *   4. `market_vendors` row exists with approved=true — vendor must be
- *      approved at this market before booking. Rejects "not at market"
- *      and "pending approval" with distinct messages so the vendor knows
- *      whether to apply or wait.
- *   5. Inventory tier exists AND belongs to this market
+ *   2. Market exists, is FM, and is Stripe-ready
+ *   3. Vendor profile exists in market's vertical
+ *   4. Inventory tier exists AND belongs to this market
+ *   (No roster-approval gate TODAY — owner 2026-05-17, see the note above
+ *   Gate 4 below. Owner 2026-09-19 (BR-1, design booth_model_design.md):
+ *   a one-time manager approval becomes required at MANAGED markets — built
+ *   in part B of the booth round, not yet here.)
  *
  * Validation:
  *   - week_start_date parses as YYYY-MM-DD
@@ -266,11 +266,14 @@ export async function POST(
     }
 
     // --- Gates 1-4 passed. Capacity check + rental insert handled atomically
-    //     by mig 142 book_weekly_booth_atomic RPC (race-safe under
+    //     by book_weekly_booth_atomic (mig 256; race-safe under
     //     pg_advisory_xact_lock). The RPC RAISEs:
     //       - P0001 OVERBOOKED        : all slots taken for this week+size
     //       - P0002 DUPLICATE         : this vendor already booked this week
     //       - P0003 INVENTORY_NOT_FOUND : inventory_id missing for this market
+    //       - P0004 LABELS_EXHAUSTED  : no booth number left (range too short)
+    //       - P0008 BOOTH_TAKEN       : the vendor's pinned booth is booked that week
+    //       - P0005 BOOTH_CONFLICT    : the uniqueness trigger refused the label
     //     Translated below to the same HTTP shape the prior inline checks
     //     returned. ---
 
@@ -387,6 +390,20 @@ export async function POST(
         return NextResponse.json(
           {
             error: `Your assigned booth is already booked for that week at ${(market.name as string) || 'this market'}. Please contact the market manager to resolve it.`,
+          },
+          { status: 409 }
+        )
+      }
+      if (msg.includes('BOOTH_CONFLICT')) {
+        // Uniqueness trigger (mig 256) refused the label the RPC chose. Since
+        // mig 256 a vendor's OWN pin is never a conflict (OB-028: before it,
+        // every pinned vendor got this error booking their own booth), so this
+        // now means the label belongs to someone with a paid week — a race, or
+        // pre-migration data. Never show the raw trigger text to the vendor.
+        logError(traced.fromSupabase(rpcErr, { table: 'weekly_booth_rentals', operation: 'rpc' }))
+        return NextResponse.json(
+          {
+            error: `That booth is held by another vendor at ${(market.name as string) || 'this market'} for that week. Please contact the market manager to resolve it.`,
           },
           { status: 409 }
         )

@@ -69,12 +69,19 @@ export async function PATCH(
     // re-approve someone they had just taken off the market. Revoking now stamps
     // revoked_at; re-approving CLEARS it, so a reinstated vendor carries no
     // permanent mark and can be revoked again later.
+    //
+    // BR-12 (owner 2026-09-19, OB-028 review C5): revoking also CLEARS the
+    // vendor's booth pin + tier. Before this, the pin outlived the vendor —
+    // the number stayed blocked for everyone (trigger + auto-assign) with
+    // nobody in it. Paid weeks the vendor already holds are untouched (the
+    // week is theirs, BR-10); only the standing hold goes.
     const { data, error } = await serviceClient
       .from('market_vendors')
       .update({
         approved,
         revoked_at: approved ? null : new Date().toISOString(),
         revoked_by: approved ? null : user.id,
+        ...(approved ? {} : { booth_number: null, inventory_id: null }),
         updated_at: new Date().toISOString(),
       })
       .eq('market_id', marketId)

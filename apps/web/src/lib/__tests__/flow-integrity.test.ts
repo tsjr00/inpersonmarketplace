@@ -1786,6 +1786,74 @@ describe('Event token format', () => {
     })
   })
 
+  describe('Booth model part A (mig 256, owner rulings 2026-09-19 — booth_model_design.md)', () => {
+    // OB-028: a vendor the manager PINNED to a booth could not book it — the
+    // uniqueness trigger treated their own pin as another vendor's. BR-11: a
+    // vendor never conflicts with their own pin or rentals; BR-6: a pin is a
+    // soft hold, never capacity; C12: the occupancy grid keys on SUNDAY like
+    // every rental.
+    it('the app-side conflict checker excludes the same vendor from the pin and rental arms (BR-11)', () => {
+      const checks = rd('lib/markets/booth-conflict-checks.ts')
+      expect(checks, 'callers must be able to name the vendor the row belongs to').toMatch(/vendorProfileId\?: string/)
+      const sameVendor = checks.match(/q = q\.neq\('vendor_profile_id', vendorProfileId\)/g) ?? []
+      expect(sameVendor.length, 'both the pin arm (a) and the rental arm (c) must skip the same vendor').toBe(2)
+    })
+
+    it('the manager pin route passes the vendor through and no longer counts pins as capacity (BR-6)', () => {
+      const pinRoute = rd('app/api/market-manager/[marketId]/vendor-booth/route.ts')
+      expect(pinRoute, 'pin route must exclude the vendor\'s own rentals').toMatch(/vendorProfileId,\s*\n\s*\}\)/)
+      expect(/checkTierCapacity\(/.test(pinRoute), 'a pin is a soft hold — it must not be capacity-checked').toBe(false)
+      const tierRoute = rd('app/api/market-manager/[marketId]/vendor-tier/route.ts')
+      expect(/checkTierCapacity\(/.test(tierRoute), 'the vendor\'s tier is a soft hold too').toBe(false)
+      const checks = rd('lib/markets/booth-conflict-checks.ts')
+      expect(/\.from\('market_vendors'\)[\s\S]{0,200}\.eq\('inventory_id', inventoryId\)/.test(checks),
+        'checkTierCapacity must count placeholders only, never pins').toBe(false)
+    })
+
+    it('revoking a vendor clears their booth pin (BR-12)', () => {
+      const approval = rd('app/api/market-manager/[marketId]/vendor-approval/route.ts')
+      expect(approval).toMatch(/\.\.\.\(approved \? \{\} : \{ booth_number: null, inventory_id: null \}\)/)
+    })
+
+    it('the occupancy grid keys the week on SUNDAY and does not count pins (C12, BR-6)', () => {
+      const grid = rd('components/market-manager/BoothOccupancyGrid.tsx')
+      // Comments stripped for the ABSENCE check — the file documents the bug it
+      // fixed by naming the old helper (verification-discipline Rule 7).
+      const gridCode = grid.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+      expect(/mondayOf\(/.test(gridCode), 'a Monday key never matches a Sunday-keyed rental').toBe(false)
+      expect(grid).toMatch(/const weekStart = sundayOf\(todayLocal\)/)
+      expect(grid, 'holds are listed but not counted').toMatch(/occupants\.filter\(countsAgainstCapacity\)\.length/)
+    })
+
+    it('the booking routes translate the trigger\'s BOOTH_CONFLICT instead of leaking it (OB-028)', () => {
+      const book = rd('app/api/vendor/markets/[id]/book/route.ts')
+      expect(book).toMatch(/msg\.includes\('BOOTH_CONFLICT'\)/)
+      const season = rd('app/api/vendor/markets/[id]/book-season/route.ts')
+      expect(season, 'a season fails for want of ONE booth across all weeks — say so').toMatch(/err\.reason\.includes\('LABELS_EXHAUSTED'\)/)
+    })
+
+    it('the newest booking RPC honors the same-vendor rule and the soft-pin fallback (mig 256)', () => {
+      const migDir = path.resolve(__dirname, '../../../../../supabase/migrations')
+      const files: string[] = []
+      for (const dir of [migDir, path.join(migDir, 'applied')]) {
+        if (!fs.existsSync(dir)) continue
+        for (const f of fs.readdirSync(dir)) {
+          if (/^\d{8}_\d{3}_.*\.sql$/.test(f) && fs.readFileSync(path.join(dir, f), 'utf-8').includes('FUNCTION check_booth_number_uniqueness')) {
+            files.push(path.join(dir, f))
+          }
+        }
+      }
+      files.sort((a, b) => path.basename(a).localeCompare(path.basename(b)))
+      const newest = fs.readFileSync(files[files.length - 1], 'utf-8')
+      expect(path.basename(files[files.length - 1])).toMatch(/_256_/)
+      expect(newest, 'trigger arm (a) must skip the same vendor').toMatch(/mv\.vendor_profile_id <> v_vendor/)
+      expect(newest, 'a rental is blocked by another pin only when that pin is an ASSIGNMENT (paid current/upcoming week)')
+        .toMatch(/r\.status = 'paid'\s+AND r\.week_start_date \+ 6 >= CURRENT_DATE/)
+      expect(newest, 'the weekly RPC must fall back to a soft pin, returning whose it was').toMatch(/yielded_from_vendor_id/)
+      expect(newest, 'the season RPC must choose ONE label for every week').toMatch(/r\.week_start_date = ANY \(p_week_start_dates\)/)
+    })
+  })
+
   it('the event accept route still does NOT write vendor_market_schedules', () => {
     // The rejected alternative. Creating a vms row on acceptance would make
     // "is this vendor attending?" answerable from two places that can drift —

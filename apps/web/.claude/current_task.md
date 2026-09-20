@@ -13,10 +13,18 @@ now). FT precedent for C2: paid park booking auto-creates roster row + activates
 Decision brief delivered; **owner RULED on everything** (decisions.md 2026-09-19 row, BR-1…BR-12) and asked for the
 complete design → `apps/web/.claude/booth_model_design.md` (vocabulary, 12 rules, migs 256/257, 14 surfaces, build
 order A→D, guardrails, 4 open items). Uncommitted docs: review file, design file, decisions row, this note.
-**NEXT:** owner reads the design; answer §6 open items (season children numbers; grandfather clause; BR-9 day count);
-then part A on the owner's "go" — first step is the live fingerprint query for `check_booth_number_uniqueness`,
-`book_weekly_booth_atomic`, `book_season_atomic` on Dev/Staging/Prod (schema-gate read before composing it).
-No build go yet.
+**PART A BUILT 2026-09-19 (owner "commit the docs local and start part A"; docs commit `ea3d628b`).** Fingerprints
+on Dev/Staging/Prod all matched the repo (146/186/165) + triggers enabled. **Mig 256 ✅ DEV** (pre-check 0/0/0;
+owner "256 ran on dev"; post-check A result STILL OWED by the owner — record the four fingerprints in the snapshot
+row when it arrives). Staging + Prod pending (PRE-CHECK FIRST on each). Code (uncommitted, gates green: tsc 0 ·
+eslint clean · vitest 90 files / 2234 + 6 new flow pins → 248 in flow-integrity): `booth-conflict-checks.ts`
+(same-vendor exclusion, capacity = placeholders only), `vendor-booth` + `vendor-tier` routes (no pin capacity
+check), `vendor-approval` (revoke clears pin) + `VendorBoothList` mirror, `book` + `book-season` routes
+(BOOTH_CONFLICT / LABELS_EXHAUSTED translation, header fixed), `BoothOccupancyGrid` (Sunday key, holds not counted,
+pending shown), snapshot rows (256 changelog + Functions), registry TR-078 fixed-unverified + TR-079–082, printable
+list ★ WHAT'S NEW + Group 3 blocks, OB-028 fix line. **NEXT:** owner posts post-check A → commit part A locally
+(owner's word) → part B (BR-1 veto once, Apply size, approval sets tier/number; needs owner's explicit yes to change
+the 09-05 + middle-path test pins) → Staging paste of 256 (pre-check first) → ONE staging push.
 
 **Active investigation — BOOTH MODEL (OB-028, TR-078):** owner booked a booth as a pinned vendor → BOOTH_CONFLICT on
 their OWN pin (mig 186 honors the pin, mig 146 trigger self-excludes only within the same table). Owner: "core

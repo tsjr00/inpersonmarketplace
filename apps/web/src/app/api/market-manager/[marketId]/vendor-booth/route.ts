@@ -22,12 +22,20 @@ import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
  *     Pass `null` (or empty string after trim) to clear the booth.
  *
  * Booth numbers ARE unique per market: `checkBoothNumberAvailable` (below)
- * rejects a number already held by another on-platform vendor, an
- * off-platform placeholder, or an active current/upcoming rental (409),
- * and the mig 146 trigger (BOOTH_CONFLICT P0005) is the canonical backstop.
- * This is what lets the booking RPC (mig 186) treat a vendor's pinned booth
- * as unambiguously theirs. (Prior note here claimed duplicates were allowed —
- * that was stale; mig 146 closed it.)
+ * rejects a number already held by ANOTHER on-platform vendor, an
+ * off-platform placeholder, or another vendor's active current/upcoming
+ * rental (409), and the mig 256 trigger (BOOTH_CONFLICT P0005) is the
+ * canonical backstop. This is what lets the booking RPC treat a vendor's
+ * pinned booth as unambiguously theirs. The vendor's OWN rental of the number
+ * is never a conflict (BR-11, OB-028 review C7): the manager may pin a vendor
+ * to the booth that vendor already rents.
+ *
+ * A pin is a SOFT HOLD, not capacity (owner 2026-09-19, BR-6): the pinned
+ * vendor may never pay, so pins are not counted against the tier's booth
+ * count and a manager may pin more vendors than a tier holds. Only paid
+ * weeks occupy booths (the booking RPC counts placeholders + active
+ * rentals). The tier value set here is the vendor's booth size; the booking
+ * page locks to it (BR-4, part B).
  */
 export async function PATCH(
   request: NextRequest,
@@ -99,33 +107,24 @@ export async function PATCH(
     }
 
     // Mig 146 Issue 1: booth_number uniqueness pre-flight (friendly
-    // error before the DB trigger fires).
+    // error before the DB trigger fires). The vendor's own rental of this
+    // number is not a conflict (BR-11) — `vendorProfileId` excludes it.
     if (boothNumber !== null) {
       const { checkBoothNumberAvailable } = await import('@/lib/markets/booth-conflict-checks')
       const conflict = await checkBoothNumberAvailable(serviceClient, {
         marketId,
         boothNumber,
         excludeSelf: { kind: 'market_vendors', id: existingMv.id as string },
+        vendorProfileId,
       })
       if (conflict) {
         return NextResponse.json({ error: conflict.message }, { status: 409 })
       }
     }
 
-    // Mig 146 Issue 2: tier capacity check. Only runs when the tier is
-    // CHANGING to a non-null value (no need to re-check if vendor stays
-    // in the same tier — they were already counted). Excludes self.
-    if (inventoryIdProvided && typeof inventoryId === 'string' && inventoryId !== existingMv.inventory_id) {
-      const { checkTierCapacity } = await import('@/lib/markets/booth-conflict-checks')
-      const cap = await checkTierCapacity(serviceClient, {
-        marketId,
-        inventoryId,
-        excludeSelf: { kind: 'market_vendors', id: existingMv.id as string },
-      })
-      if (!cap.ok) {
-        return NextResponse.json({ error: cap.message }, { status: 409 })
-      }
-    }
+    // No tier-capacity check on pins (was "mig 146 Issue 2"): a pin is a soft
+    // hold and does not occupy a booth until a week is paid for (BR-6, owner
+    // 2026-09-19). Placeholders still respect tier capacity in their own route.
 
     const updates: Record<string, unknown> = {
       booth_number: boothNumber,

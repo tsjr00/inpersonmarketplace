@@ -226,6 +226,22 @@ export async function POST(
       })
     } catch (err) {
       if (err instanceof SeasonWeekUnavailableError) {
+        // Mig 256: a season gets ONE booth number for every week (owner
+        // 2026-09-19). LABELS_EXHAUSTED here means no single booth is free
+        // across all the requested weeks — "adjust your selection" (fewer
+        // weeks) can help, but the honest message names the real cause.
+        if (err.reason.includes('LABELS_EXHAUSTED')) {
+          return NextResponse.json({
+            error: `No single booth is free for every week you picked at ${(market.name as string) || 'this market'} — a season keeps one booth all season. Pick fewer weeks, or ask the manager to assign you a booth.`,
+            field: 'week_start_dates',
+          }, { status: 409 })
+        }
+        if (err.reason.includes('BOOTH_CONFLICT') || err.reason.includes('BOOTH_TAKEN')) {
+          return NextResponse.json({
+            error: `Your booth is already held for the week of ${err.week} at ${(market.name as string) || 'this market'}. Please contact the market manager to resolve it.`,
+            field: 'week_start_dates',
+          }, { status: 409 })
+        }
         return NextResponse.json({
           error: `Week of ${err.week} is no longer available — adjust your selection and try again.`,
           field: 'week_start_dates',

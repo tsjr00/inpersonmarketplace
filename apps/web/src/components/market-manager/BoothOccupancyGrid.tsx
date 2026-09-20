@@ -38,17 +38,39 @@ interface PaidRentalOccupant extends OccupantBase {
   vendor_profile_id: string
 }
 
-type Occupant = PlaceholderOccupant | OnPlatformOccupant | PaidRentalOccupant
+interface PendingRentalOccupant extends OccupantBase {
+  source: 'weekly_pending'
+  vendor_profile_id: string
+}
+
+type Occupant = PlaceholderOccupant | OnPlatformOccupant | PaidRentalOccupant | PendingRentalOccupant
+
+/** Rows that take a booth for the week — what the booking RPC counts. A pin
+ *  ('on_platform') is a hold, not an occupant. */
+function countsAgainstCapacity(occ: Occupant): boolean {
+  return occ.source !== 'on_platform'
+}
 
 /**
  * Manager-side visual booth occupancy view for the current week.
  *
  * Sources (all unioned in JS, grouped by tier in render):
  *   - market_booth_placeholders (off-platform; always present)
- *   - market_vendors approved=true (on-platform; always present at this
- *     market, not week-specific)
- *   - weekly_booth_rentals status='paid' WHERE week_start_date = current
- *     week start (this-week additions on top of permanent occupants)
+ *   - market_vendors approved=true WITH a booth pin (on-platform; a standing
+ *     HOLD at this market, not week-specific). Shown as "Pinned (hold)" and
+ *     NOT counted against capacity — a pin is a soft hold the vendor may never
+ *     pay for (owner 2026-09-19, BR-6). Approved vendors without a pin are not
+ *     drawn: they occupy nothing.
+ *   - weekly_booth_rentals status IN (pending_payment, paid) WHERE
+ *     week_start_date = the week's SUNDAY — these are the week's real
+ *     occupants and the only rows counted, matching the booking RPC's capacity
+ *     (placeholders + active rentals per tier).
+ *
+ * Week key (OB-028 review C12, 2026-09-19): rentals are stored against the
+ * SUNDAY that starts the week (api/vendor/markets/[id]/book rejects any other
+ * day; season enumeration anchors to Sunday). This card used a Monday key, so
+ * its paid-rentals query matched NOTHING and no paying vendor ever appeared
+ * here unless they also had a pin. Fixed to Sunday.
  *
  * Why server component: read-only snapshot, no interactivity beyond
  * navigation. RLS is default-deny on manager-scoped tables; we use
@@ -83,7 +105,7 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone, ver
     .maybeSingle()
   const seasonStart = (seasonRow?.season_start as string | null) ?? null
 
-  const weekStart = mondayOf(todayLocal)
+  const weekStart = sundayOf(todayLocal)
   if (seasonStart) {
     let guard = 0
     while (isBeforeSeason(formatLocalDate(weekStart), seasonStart) && guard < 520) {
@@ -94,7 +116,7 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone, ver
   const weekStartStr = formatLocalDate(weekStart)
   // True when we moved off the real current week to the first in-season week —
   // used to label the card "upcoming market week" instead of "this week".
-  const anchoredToSeason = weekStartStr !== formatLocalDate(mondayOf(todayLocal))
+  const anchoredToSeason = weekStartStr !== formatLocalDate(sundayOf(todayLocal))
 
   const [tiersResult, placeholdersResult, vendorsResult, paidResult] = await Promise.all([
     serviceClient
@@ -113,16 +135,17 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone, ver
         vendor_profiles!market_vendors_vendor_profile_id_fkey ( profile_data )
       `)
       .eq('market_id', marketId)
-      .eq('approved', true),
+      .eq('approved', true)
+      .not('booth_number', 'is', null),
     serviceClient
       .from('weekly_booth_rentals')
       .select(`
-        id, booth_number, inventory_id, vendor_profile_id,
+        id, booth_number, inventory_id, vendor_profile_id, status,
         vendor_profiles!weekly_booth_rentals_vendor_profile_id_fkey ( profile_data )
       `)
       .eq('market_id', marketId)
       .eq('week_start_date', weekStartStr)
-      .eq('status', 'paid'),
+      .in('status', ['pending_payment', 'paid']),
   ])
 
   const tiers: TierRow[] = (tiersResult.data ?? []) as TierRow[]
@@ -153,15 +176,15 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone, ver
     vendor_profile_id: v.vendor_profile_id as string,
   }))
 
-  // Avoid double-counting: when an on-platform vendor has a paid
-  // rental THIS WEEK, prefer the rental row (it carries the exact
-  // booth_number assigned by auto-assignment for the week).
-  const paidVendorProfileIds = new Set(
+  // Avoid double-counting: when a pinned vendor has an active rental THIS
+  // WEEK, prefer the rental row (it carries the exact booth_number for the
+  // week and it is the row that occupies capacity).
+  const rentingVendorProfileIds = new Set(
     (paidResult.data ?? []).map((r) => r.vendor_profile_id as string)
   )
 
-  const paidOccupants: PaidRentalOccupant[] = (paidResult.data ?? []).map((r) => ({
-    source: 'weekly_paid' as const,
+  const rentalOccupants: Array<PaidRentalOccupant | PendingRentalOccupant> = (paidResult.data ?? []).map((r) => ({
+    source: r.status === 'paid' ? ('weekly_paid' as const) : ('weekly_pending' as const),
     booth_number: (r.booth_number as string | null) ?? null,
     name: extractName(r.vendor_profiles),
     inventory_id: (r.inventory_id as string | null) ?? null,
@@ -169,13 +192,13 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone, ver
   }))
 
   const onPlatformFiltered = onPlatformOccupants.filter(
-    (v) => !paidVendorProfileIds.has(v.vendor_profile_id)
+    (v) => !rentingVendorProfileIds.has(v.vendor_profile_id)
   )
 
   const allOccupants: Occupant[] = [
     ...placeholderOccupants,
     ...onPlatformFiltered,
-    ...paidOccupants,
+    ...rentalOccupants,
   ]
 
   // Group occupants by inventory_id (null bucket = unknown tier)
@@ -201,7 +224,7 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone, ver
   return (
     <DashboardCard
       title={<>{term(vertical, 'booth')} occupancy — {anchoredToSeason ? 'upcoming market week' : 'this week'}:{' '}<span style={{ fontWeight: typography.weights.normal, color: colors.textMuted }}>{formatDisplayDate(weekStart)}</span></>}
-      description={`Per-tier view of who's at the ${term(vertical, 'market').toLowerCase()} ${anchoredToSeason ? 'that week' : 'this week'} — combines off-platform placeholders, on-platform ${term(vertical, 'vendors').toLowerCase()}, and paid weekly bookings${anchoredToSeason ? ' (showing the first week of the season, since it hasn’t started yet)' : ''}. Manage each source from the cards below.`}
+      description={`Per-tier view of who's at the ${term(vertical, 'market').toLowerCase()} ${anchoredToSeason ? 'that week' : 'this week'} — off-platform placeholders and this week's bookings take ${term(vertical, 'booths').toLowerCase()}; a "Pinned (hold)" ${term(vertical, 'vendor').toLowerCase()} has a ${term(vertical, 'booth').toLowerCase()} number reserved but hasn't paid for this week, so they don't count against capacity${anchoredToSeason ? ' (showing the first week of the season, since it hasn’t started yet)' : ''}. Manage each source from the cards below.`}
       {...(noTiersConfigured ? {
         empty: {
           kind: 'setup' as const,
@@ -212,7 +235,9 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone, ver
       <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
         {tiers.map((tier, idx) => {
           const occupants = byTier.get(tier.id) ?? []
-          const filled = occupants.length
+          // Holds (pins) are listed but not counted — same arithmetic as the
+          // booking RPC, so "N open" here is what a vendor can actually book.
+          const filled = occupants.filter(countsAgainstCapacity).length
           const total = tier.count
           const available = Math.max(0, total - filled)
           const isOversub = filled > total
@@ -309,24 +334,33 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone, ver
 }
 
 function OccupantPill({ occ, vertical }: { occ: Occupant; vertical: string }) {
+  // Four sources, four looks: paid (blue) and pending (amber) bookings take the
+  // booth this week; a pin (green) is a hold that takes nothing until paid;
+  // a placeholder (grey) is an off-platform vendor the manager recorded.
   const badgeBg =
     occ.source === 'weekly_paid'
       ? '#dbeafe'
-      : occ.source === 'on_platform'
-        ? '#dcfce7'
-        : '#f3f4f6'
+      : occ.source === 'weekly_pending'
+        ? '#fef3c7'
+        : occ.source === 'on_platform'
+          ? '#dcfce7'
+          : '#f3f4f6'
   const badgeColor =
     occ.source === 'weekly_paid'
       ? '#1e40af'
-      : occ.source === 'on_platform'
-        ? '#166534'
-        : '#374151'
+      : occ.source === 'weekly_pending'
+        ? '#92400e'
+        : occ.source === 'on_platform'
+          ? '#166534'
+          : '#374151'
   const badgeLabel =
     occ.source === 'weekly_paid'
       ? 'Paid this week'
-      : occ.source === 'on_platform'
-        ? 'On platform'
-        : 'Off platform'
+      : occ.source === 'weekly_pending'
+        ? 'Pending payment'
+        : occ.source === 'on_platform'
+          ? 'Pinned (hold)'
+          : 'Off platform'
 
   return (
     <div style={{
@@ -376,13 +410,13 @@ function sortByBoothNumber(a: Occupant, b: Occupant): number {
   return an - bn
 }
 
-function mondayOf(d: Date): Date {
-  // Returns local-time Monday at 00:00 for the week containing d.
-  // Sunday is treated as the END of the previous week (Monday = week start).
+function sundayOf(d: Date): Date {
+  // Returns local-time SUNDAY at 00:00 for the week containing d — the same
+  // week key weekly_booth_rentals.week_start_date uses (book route requires
+  // a Sunday; season enumeration anchors to Sunday; mig 255 covers Sun..Sat).
+  // Was mondayOf(): a Monday key never matched a stored rental (C12).
   const out = new Date(d.getFullYear(), d.getMonth(), d.getDate())
-  const day = out.getDay()
-  const offset = day === 0 ? -6 : 1 - day
-  out.setDate(out.getDate() + offset)
+  out.setDate(out.getDate() - out.getDay())
   return out
 }
 

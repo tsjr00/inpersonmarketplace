@@ -7,14 +7,22 @@ import { observed } from '@/lib/errors'
  * Two concerns:
  *   1. booth_number uniqueness across market_vendors + market_booth_placeholders
  *      + weekly_booth_rentals (Issue 1 from Session 84 testing).
- *   2. Per-tier capacity — placeholders + on-platform vendors in a tier
- *      can't exceed market_booth_inventory.count (Issue 2).
+ *   2. Per-tier capacity — placeholders in a tier can't exceed
+ *      market_booth_inventory.count (Issue 2). Pins are NOT capacity
+ *      (owner 2026-09-19, BR-6: a pin is a soft hold — "put a pin in it" —
+ *      the pinned vendor may never pay), so on-platform vendors are no longer
+ *      counted here; the booking RPC (mig 256) counts placeholders + active
+ *      rentals, and this helper mirrors the placeholder half.
  *
- * Mig 146 adds DB triggers as the canonical correctness gate. These
- * helpers are the friendly-error layer that runs BEFORE the trigger
- * fires, so the manager sees a clear UI message instead of a raw PG
- * exception (BOOTH_CONFLICT P0005). The trigger remains as the
- * safety net if any code path skips these helpers.
+ * Mig 146 (replaced by mig 256) adds DB triggers as the canonical correctness
+ * gate. These helpers are the friendly-error layer that runs BEFORE the
+ * trigger fires, so the manager sees a clear UI message instead of a raw PG
+ * exception (BOOTH_CONFLICT P0005). The trigger remains as the safety net if
+ * any code path skips these helpers.
+ *
+ * Same-vendor rule (BR-11, OB-028): a vendor never conflicts with their own
+ * pin or their own rentals. Pass `vendorProfileId` so a manager can pin a
+ * vendor to the booth that vendor already rents (booth_model_review.md C7).
  */
 
 export type BoothConflictSource =
@@ -35,6 +43,10 @@ interface CheckBoothNumberAvailableOpts {
     kind: 'market_vendors' | 'market_booth_placeholders' | 'weekly_booth_rentals'
     id: string
   }
+  /** The vendor the row belongs to. Their own pin and their own rentals are
+   *  never a conflict (BR-11) — a pinned vendor books their booth, a manager
+   *  pins a vendor to the booth they already rent. Omit for placeholders. */
+  vendorProfileId?: string
 }
 
 /**
@@ -46,9 +58,9 @@ export async function checkBoothNumberAvailable(
   serviceClient: SupabaseClient,
   opts: CheckBoothNumberAvailableOpts
 ): Promise<BoothConflict | null> {
-  const { marketId, boothNumber, excludeSelf } = opts
+  const { marketId, boothNumber, excludeSelf, vendorProfileId } = opts
 
-  // (a) on-platform vendor conflict
+  // (a) on-platform vendor conflict — never the same vendor's own pin
   {
     let q = serviceClient
       .from('market_vendors')
@@ -57,6 +69,9 @@ export async function checkBoothNumberAvailable(
       .eq('booth_number', boothNumber)
     if (excludeSelf?.kind === 'market_vendors') {
       q = q.neq('id', excludeSelf.id)
+    }
+    if (vendorProfileId) {
+      q = q.neq('vendor_profile_id', vendorProfileId)
     }
     const { count } = await q
     if ((count ?? 0) > 0) {
@@ -86,21 +101,29 @@ export async function checkBoothNumberAvailable(
     }
   }
 
-  // (c) active current/future weekly rental conflict — only relevant
+  // (c) active current/upcoming weekly rental conflict — only relevant
   // when the caller is NOT inserting into weekly_booth_rentals itself
   // (the partial UNIQUE index handles within-rentals; the trigger
-  // covers any cross-table case we miss here).
+  // covers any cross-table case we miss here). "Current" = the week in
+  // progress counts (week_start_date + 6 >= today), matching the mig 256
+  // trigger; the date is UTC because the trigger compares CURRENT_DATE on
+  // the DB server, not the market's clock. Never the same vendor's rentals.
   if (excludeSelf?.kind !== 'weekly_booth_rentals') {
-    const today = new Date()
-    const isoToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    const weekAgo = new Date()
+    weekAgo.setUTCDate(weekAgo.getUTCDate() - 6)
+    const isoWeekAgo = weekAgo.toISOString().slice(0, 10)
 
-    const { count } = await serviceClient
+    let q = serviceClient
       .from('weekly_booth_rentals')
       .select('id', { head: true, count: 'exact' })
       .eq('market_id', marketId)
       .eq('booth_number', boothNumber)
       .in('status', ['pending_payment', 'paid'])
-      .gte('week_start_date', isoToday)
+      .gte('week_start_date', isoWeekAgo)
+    if (vendorProfileId) {
+      q = q.neq('vendor_profile_id', vendorProfileId)
+    }
+    const { count } = await q
 
     if ((count ?? 0) > 0) {
       return {
@@ -116,8 +139,10 @@ export async function checkBoothNumberAvailable(
 interface CheckTierCapacityOpts {
   marketId: string
   inventoryId: string
-  /** When editing an existing row in a tier, exclude it from the count
-   *  so a same-tier edit doesn't false-trigger over-capacity. */
+  /** When editing an existing placeholder in a tier, exclude it from the
+   *  count so a same-tier edit doesn't false-trigger over-capacity.
+   *  `market_vendors` is accepted for callers' backward compatibility but
+   *  has no effect — pins are not counted (BR-6). */
   excludeSelf?: {
     kind: 'market_vendors' | 'market_booth_placeholders'
     id: string
@@ -133,24 +158,26 @@ export interface CapacityCheckResult {
     size_label: string
     count: number
   }
-  /** Current count of placeholders + on-platform vendors in this tier
-   *  (excluding the self row if `excludeSelf` was provided). */
+  /** Current count of placeholders in this tier (excluding the self row if
+   *  `excludeSelf` names a placeholder). */
   currentCount: number
   message?: string
 }
 
 /**
- * Counts current permanent occupants (placeholders + on-platform
- * vendors with this tier set) and compares against tier.count.
- * If the caller is going to ADD a row (or move a row INTO this tier),
- * the caller should treat `currentCount` as the count BEFORE the add
- * — i.e., reject if `currentCount + 1 > tier.count`. The helper does
- * this comparison and sets `ok` accordingly.
+ * Counts the tier's PERMANENT occupants — off-platform placeholders — and
+ * compares against tier.count. If the caller is going to ADD a placeholder
+ * (or move one INTO this tier), `currentCount` is the count BEFORE the add
+ * — i.e., reject if `currentCount + 1 > tier.count`. The helper does this
+ * comparison and sets `ok` accordingly.
  *
- * Weekly rentals are NOT counted here. They're week-specific and the
- * RPC handles per-week capacity (placeholders + active rentals <=
- * tier.count); permanent occupants (vendors + placeholders) layered
- * on top is the contract this helper enforces.
+ * On-platform vendors' pins are NOT counted (owner 2026-09-19, BR-6): a pin
+ * is a soft hold that may never be paid for, so a manager may pin more
+ * vendors than a tier has booths; only a paid week occupies one. Weekly
+ * rentals are NOT counted either — they are week-specific and the booking
+ * RPC (mig 256) enforces placeholders + active rentals <= tier.count per
+ * week. Placeholders are the only occupant this helper guards, because
+ * every placeholder removes a booth from every week's capacity.
  */
 export async function checkTierCapacity(
   serviceClient: SupabaseClient,
@@ -179,7 +206,7 @@ export async function checkTierCapacity(
     count: tierRow.count as number,
   }
 
-  // Count placeholders in this tier
+  // Count placeholders in this tier (the only permanent occupant — BR-6).
   let phQuery = serviceClient
     .from('market_booth_placeholders')
     .select('id', { head: true, count: 'exact' })
@@ -189,18 +216,8 @@ export async function checkTierCapacity(
     phQuery = phQuery.neq('id', excludeSelf.id)
   }
 
-  // Count market_vendors in this tier
-  let mvQuery = serviceClient
-    .from('market_vendors')
-    .select('id', { head: true, count: 'exact' })
-    .eq('market_id', marketId)
-    .eq('inventory_id', inventoryId)
-  if (excludeSelf?.kind === 'market_vendors') {
-    mvQuery = mvQuery.neq('id', excludeSelf.id)
-  }
-
-  const [phResult, mvResult] = await Promise.all([phQuery, mvQuery])
-  const currentCount = (phResult.count ?? 0) + (mvResult.count ?? 0)
+  const phResult = await phQuery
+  const currentCount = phResult.count ?? 0
 
   const wouldBe = currentCount + 1
   if (wouldBe > tier.count) {
@@ -209,7 +226,7 @@ export async function checkTierCapacity(
       tier,
       currentCount,
       message:
-        `The ${tier.size_label} tier already has ${currentCount} of ${tier.count} booths assigned. ` +
+        `The ${tier.size_label} tier already has ${currentCount} of ${tier.count} booths taken by off-platform placeholders. ` +
         `Increase the tier's count first, or pick a different tier.`,
     }
   }
