@@ -3,6 +3,7 @@ import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import DashboardCard from '@/components/dashboard/DashboardCard'
 import { term } from '@/lib/vertical/terminology'
 import { isBeforeSeason } from '@/lib/markets/season-window'
+import { tierLabels } from '@/lib/markets/booth-types'
 
 interface BoothOccupancyGridProps {
   marketId: string
@@ -16,6 +17,11 @@ interface TierRow {
   dimensions: string | null
   count: number
   weekly_price_cents: number
+  // mig 258: the tier's own booth numbers (range or list)
+  label_prefix: string | null
+  label_start: number | null
+  label_end: number | null
+  labels: string[] | null
 }
 
 interface OccupantBase {
@@ -65,6 +71,13 @@ function countsAgainstCapacity(occ: Occupant): boolean {
  *     week_start_date = the week's SUNDAY — these are the week's real
  *     occupants and the only rows counted, matching the booking RPC's capacity
  *     (placeholders + active rentals per tier).
+ *
+ * Mig 258 (booth numbering Option U, owner 2026-09-20): each size tier OWNS
+ * its numbers, so this card draws EVERY numbered slot per tier — occupied or
+ * "free" — instead of only the occupants (design §3.6). A tier with no numbers
+ * yet is flagged (not bookable, N-7). An occupant whose number is not one of
+ * its tier's numbers (legacy data) is listed under the tier so the manager
+ * can re-pick it.
  *
  * Week key (OB-028 review C12, 2026-09-19): rentals are stored against the
  * SUNDAY that starts the week (api/vendor/markets/[id]/book rejects any other
@@ -121,7 +134,7 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone, ver
   const [tiersResult, placeholdersResult, vendorsResult, paidResult] = await Promise.all([
     serviceClient
       .from('market_booth_inventory')
-      .select('id, size_label, dimensions, count, weekly_price_cents')
+      .select('id, size_label, dimensions, count, weekly_price_cents, label_prefix, label_start, label_end, labels')
       .eq('market_id', marketId)
       .order('size_label', { ascending: true }),
     serviceClient
@@ -224,7 +237,7 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone, ver
   return (
     <DashboardCard
       title={<>{term(vertical, 'booth')} occupancy — {anchoredToSeason ? 'upcoming market week' : 'this week'}:{' '}<span style={{ fontWeight: typography.weights.normal, color: colors.textMuted }}>{formatDisplayDate(weekStart)}</span></>}
-      description={`Is there room? A read-only, per-size picture of ${anchoredToSeason ? 'that week' : 'this week'}: off-platform placeholders and this week's bookings take ${term(vertical, 'booths').toLowerCase()}; a "Pinned (hold)" ${term(vertical, 'vendor').toLowerCase()} has a ${term(vertical, 'booth').toLowerCase()} number reserved but hasn't paid for this week, so they don't count against capacity${anchoredToSeason ? ' (showing the first week of the season, since it hasn’t started yet)' : ''}. To change a booking, use Weekly ${term(vertical, 'booth').toLowerCase()} bookings below; placeholders and inventory have their own cards.`}
+      description={`Is there room? Every numbered ${term(vertical, 'booth').toLowerCase()} in each size, ${anchoredToSeason ? 'that week' : 'this week'}: off-platform placeholders and this week's bookings take ${term(vertical, 'booths').toLowerCase()}; a "Held" ${term(vertical, 'vendor').toLowerCase()} has the number reserved but hasn't paid for this week, so it still counts as open; "free" means nobody${anchoredToSeason ? ' (showing the first week of the season, since it hasn’t started yet)' : ''}. To change a booking, use Weekly ${term(vertical, 'booth').toLowerCase()} bookings below; numbers and placeholders have their own cards.`}
       {...(noTiersConfigured ? {
         empty: {
           kind: 'setup' as const,
@@ -241,6 +254,22 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone, ver
           const total = tier.count
           const available = Math.max(0, total - filled)
           const isOversub = filled > total
+          // Mig 258: the tier's numbered slots. Occupants sit in their slot;
+          // legacy occupants whose number is not one of the tier's are listed
+          // after the slots so they can be re-picked.
+          const slots = tierLabels(tier)
+          const slotSet = new Set(slots)
+          const bySlot = new Map<string, Occupant[]>()
+          const offMap: Occupant[] = []
+          for (const occ of occupants) {
+            if (occ.booth_number && slotSet.has(occ.booth_number)) {
+              const list = bySlot.get(occ.booth_number) ?? []
+              list.push(occ)
+              bySlot.set(occ.booth_number, list)
+            } else {
+              offMap.push(occ)
+            }
+          }
 
           return (
             <div
@@ -278,9 +307,10 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone, ver
                 </div>
               </div>
 
-              {occupants.length === 0 ? (
-                <div style={{ fontSize: typography.sizes.sm, color: colors.textMuted, fontStyle: 'italic' }}>
-                  No occupants yet — {term(vertical, 'vendors').toLowerCase()} can book this tier.
+              {slots.length === 0 ? (
+                // N-7: a size without numbers cannot be booked. Point at the fix.
+                <div style={{ fontSize: typography.sizes.sm, color: '#92400e', fontWeight: typography.weights.semibold }}>
+                  ⚠ No {term(vertical, 'booth').toLowerCase()} numbers yet — {term(vertical, 'vendors').toLowerCase()} can&apos;t book this size until you set them in {term(vertical, 'booth')} inventory.
                 </div>
               ) : (
                 <ul style={{
@@ -291,15 +321,36 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone, ver
                   gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
                   gap: spacing['2xs'],
                 }}>
-                  {occupants
-                    .slice()
-                    .sort(sortByBoothNumber)
-                    .map((occ, idx) => (
-                      <li key={`${occ.source}-${idx}-${occ.booth_number ?? ''}`}>
+                  {slots.map((label) => {
+                    const here = bySlot.get(label) ?? []
+                    if (here.length === 0) {
+                      return (
+                        <li key={`free-${label}`}>
+                          <FreeSlotPill label={label} />
+                        </li>
+                      )
+                    }
+                    return here.map((occ, i) => (
+                      <li key={`${occ.source}-${label}-${i}`}>
+                        <OccupantPill occ={occ} vertical={vertical} />
+                      </li>
+                    ))
+                  })}
+                </ul>
+              )}
+              {offMap.length > 0 && (
+                <div style={{ marginTop: spacing.xs }}>
+                  <div style={{ fontSize: typography.sizes.xs, color: '#92400e', marginBottom: spacing['3xs'] }}>
+                    Not one of this size&apos;s numbers — re-pick the number on the roster / placeholders card:
+                  </div>
+                  <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: spacing['2xs'] }}>
+                    {offMap.slice().sort(sortByBoothNumber).map((occ, i) => (
+                      <li key={`off-${occ.source}-${i}-${occ.booth_number ?? ''}`}>
                         <OccupantPill occ={occ} vertical={vertical} />
                       </li>
                     ))}
-                </ul>
+                  </ul>
+                </div>
               )}
             </div>
           )
@@ -317,7 +368,7 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone, ver
               ⚠️ {unknownTier.length} occupant{unknownTier.length === 1 ? '' : 's'} without a size tier set
             </div>
             <div style={{ fontSize: typography.sizes.xs, marginBottom: spacing['2xs'] }}>
-              Tier wasn&apos;t set when they were added. Set it in the relevant card below so they show up under the right size.
+              Added before numbers belonged to sizes. Re-pick each one&apos;s number (roster or placeholders card) and it lands under the right size.
             </div>
             <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: spacing['2xs'] }}>
               {unknownTier.sort(sortByBoothNumber).map((occ, idx) => (
@@ -330,6 +381,26 @@ export default async function BoothOccupancyGrid({ marketId, marketTimezone, ver
         )}
       </div>
     </DashboardCard>
+  )
+}
+
+/** An empty numbered slot (mig 258) — the grid shows every booth, not just the taken ones. */
+function FreeSlotPill({ label }: { label: string }) {
+  return (
+    <div style={{
+      padding: `${spacing['3xs']} ${spacing.xs}`,
+      backgroundColor: 'transparent',
+      border: `1px dashed ${colors.border}`,
+      borderRadius: radius.sm,
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'baseline',
+      gap: spacing['2xs'],
+      minWidth: 0,
+    }}>
+      <span style={{ fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm, color: colors.textMuted }}>#{label}</span>
+      <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 999, backgroundColor: '#f0fdf4', color: '#166534', whiteSpace: 'nowrap' }}>free</span>
+    </div>
   )
 }
 
@@ -359,7 +430,7 @@ function OccupantPill({ occ, vertical }: { occ: Occupant; vertical: string }) {
       : occ.source === 'weekly_pending'
         ? 'Pending payment'
         : occ.source === 'on_platform'
-          ? 'Pinned (hold)'
+          ? 'Held (not paid)'
           : 'Off platform'
 
   return (

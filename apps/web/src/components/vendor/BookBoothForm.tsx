@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical/terminology'
 import MarketAgreementBlock from '@/components/market-manager/MarketAgreementBlock'
 import { calculateBoothRentalFees } from '@/lib/pricing'
 
@@ -360,6 +361,13 @@ export default function BookBoothForm({
             </option>
           ))}
         </select>
+        {/* Mig 258 (design §3.8): numbers belong to sizes — an unpinned vendor
+            is given the lowest free number of the size they book. */}
+        {!pinnedBoothNumber && (
+          <div style={{ marginTop: spacing['2xs'], fontSize: typography.sizes.xs, color: colors.textMuted }}>
+            You&apos;ll be given the lowest free {term(vertical, 'booth').toLowerCase()} number in this size when you book; paying for the week makes it yours.
+          </div>
+        )}
       </label>
 
       {/* Price display — Stripe-only model (revised 2026-05-18). The booth

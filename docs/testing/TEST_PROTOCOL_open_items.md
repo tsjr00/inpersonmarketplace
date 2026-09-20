@@ -28,6 +28,7 @@ BOOTH NUMBERING — OPTION U, parts A + B (your 09-20 rulings: numbers belong to
 🟠 TR-101  The same "How booth numbers work here" paragraph on all four booth cards, with your market's number map
 🟠 TR-102  Every booth number is PICKED (size → number), never typed; taken numbers show who holds them
 🟠 TR-103  Paid weeks show their number locked with the reason; "needs booth #" only at markets that don't charge
+🟠 TR-104  Occupancy grid shows every numbered booth, free ones included; vendor form says which number they'll get
 
 FM MANAGER DASHBOARD (your 09-19 user-feedback review, OB-029 parts B + C + D — no migration):
 🟠 TR-097  Dashboard regrouped in your order; jump-nav chips and Action Items links land on the right cards
@@ -219,7 +220,7 @@ Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
 
 
 ==================================================
-🟠 GROUP 3 — BOOTH WEEKS AND MONEY AT MANAGED MARKETS   (24 tests)
+🟠 GROUP 3 — BOOTH WEEKS AND MONEY AT MANAGED MARKETS   (25 tests)
 ===
 
 Screens: /\[vertical]/markets/\[id]/book · manager dashboard (vendor roster, booth occupancy) · /\[vertical]/listing/\[id] ·
@@ -272,6 +273,19 @@ Expect: the paid row reads "Booth #A2 — locked, paid week. Changes only after 
 below." with no dropdown; the pending row has the size/number picker (size fixed). At a charging market the roster
 has NO "Needs booth #" chip and an unnumbered vendor reads "gets a booth # when they book"; at a free market the chip
 and "needs booth #" are still there.
+Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+
+
+
+🟠 TR-104  The grid shows every booth, not just the taken ones  (shipped 2026-09-20)
+Where: Manager dashboard → "Booth occupancy — this week" (after TR-100 gave each size its numbers) · as a vendor
+with NO held number: /farmers\_market/markets/\[id]/book.
+Expect: under each size, one tile per number — free ones dashed ("#A3 · free"), taken ones labelled "Held (not
+paid)", "Pending payment", "Paid this week" or "Off platform" with the name. A size you haven't numbered yet reads
+"⚠ No booth numbers yet — vendors can't book this size until you set them in Booth inventory." The "N of M occupied ·
+K open" line still matches the tiles. On the vendor's booking form, under the size dropdown: "You'll be given the
+lowest free booth number in this size when you book; paying for the week makes it yours." Book → the confirmation
+names a number from THAT size.
 Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
 
 
