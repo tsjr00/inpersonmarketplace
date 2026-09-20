@@ -168,10 +168,13 @@ export async function POST(
             { marketName, marketId, marketDate: dateLabel },
             { vertical, ...(email ? { userEmail: email } : {}) })
         }),
+        // BR-9 (2026-09-19): one-off renters credited per day — the amount rides on
+        // the SAME notice they already got (no new type; owner anti-bloat pass).
         ...result.boothRenterUserIds.map(async (uid) => {
           const email = await emailFor(uid)
+          const amountCents = result.boothRenterCredits.get(uid) ?? 0
           return sendNotification(uid, 'market_date_cancelled_vendor',
-            { marketName, marketId, marketDate: dateLabel, boothDisposition: boothDisposition || undefined, rescheduleDate: rescheduleDate || undefined },
+            { marketName, marketId, marketDate: dateLabel, boothDisposition: boothDisposition || undefined, rescheduleDate: rescheduleDate || undefined, ...(amountCents > 0 ? { amountCents } : {}) },
             { vertical, ...(email ? { userEmail: email } : {}) })
         }),
         // Vendors whose product orders were cancelled by the closure — every
@@ -203,6 +206,8 @@ export async function POST(
       refundFailures: result.refundFailures,
       orderVendorsNotified: result.orderVendorNotifs.length,
       boothRentersNotified: result.boothRenterUserIds.length,
+      boothRentersCredited: [...result.boothRenterCredits.values()].filter((c) => c > 0).length,
+      boothCreditTotalCents: [...result.boothRenterCredits.values()].reduce((sum, c) => sum + c, 0),
       rosterVendorsNotified,
       marketBoxCredited: result.marketBoxCredited,
       parkBookingsCancelled: result.parkBookingsCancelled,

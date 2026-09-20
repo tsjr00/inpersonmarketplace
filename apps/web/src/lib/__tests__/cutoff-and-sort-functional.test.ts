@@ -321,8 +321,14 @@ describe('NI-014: Total notification types = 72', () => {
     // the booth a vendor was told is theirs changed or is no longer held
     // (manager moved / cleared it, or a paying vendor took the soft hold, BR-8).
     // The manager's side is one extra line on the EXISTING paid confirmation.
+    // 132 → 133 (2026-09-19, owner "proceed to D" on the trimmed scope: "one
+    // notification for that cancel (money moved — they must know)"):
+    // booth_week_cancelled_by_manager (vendor, warning) — the manager cancelled
+    // a PAID one-off week; the vendor's remaining declared days come back as a
+    // credit (BR-10). The day-cancel credit (BR-9) rides on the EXISTING
+    // market_date_cancelled_vendor notice — no type added for it.
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(132)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(133)
   })
 
   it('includes all buyer-facing types', () => {

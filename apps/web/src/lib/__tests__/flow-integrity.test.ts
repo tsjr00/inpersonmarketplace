@@ -1906,6 +1906,49 @@ describe('Event token format', () => {
       expect(types, 'manager paid confirmations carry the hold-moved line').toMatch(/holdMovedFromName/)
     })
 
+    it('part D: a cancelled FM market day credits paid ONE-OFF weeks per declared day; seasons stay on the cap rule (BR-9)', () => {
+      const cascade = rd('lib/markets/cancel-date-cascade.ts')
+      expect(cascade).toMatch(/from '@\/lib\/markets\/booth-cancel-credit'/)
+      expect(cascade, 'season children are never credited here').toMatch(/if \(r\.group_id\) continue/)
+      expect(cascade, 'only a day the vendor declared').toMatch(/if \(!declared\.includes\(overrideDate\)\) continue/)
+      expect(cascade, 'the grant carries the (booking, date) idempotency key').toMatch(/source: 'fm_date_cancel',\s*\n\s*related_rental_id: r\.id,\s*\n\s*related_cancel_date: overrideDate/)
+      expect(cascade, 'a re-run is a no-op').toMatch(/grantErr\.code === '23505'/)
+      const route = rd('app/api/market-manager/[marketId]/cancel-date/route.ts')
+      expect(route, 'the amount rides on the EXISTING renter notice — no new type').toMatch(/boothRenterCredits\.get\(uid\)/)
+      expect(route, 'past dates are refused, so no credit is ever for a day already gone').toMatch(/date <= today/)
+    })
+
+    it('part D: only the MANAGER can cancel a paid one-off week, with a reason, credit not cash (BR-10 = owner "B")', () => {
+      const cancel = rd('app/api/market-manager/[marketId]/weekly-rental/[rentalId]/cancel/route.ts')
+      expect(cancel, 'reason is required — the vendor reads it').toMatch(/if \(!reason\)/)
+      expect(cancel, 'season children refused').toMatch(/if \(rental\.group_id\)/)
+      expect(cancel, 'claim-first guarded flip before any mint').toMatch(/\.update\(\{ status: 'cancelled', cancelled_at[\s\S]{0,80}\.eq\('status', 'paid'\)/)
+      const flipIdx = cancel.indexOf(".eq('status', 'paid')\n      .select('id')")
+      const grantIdx = cancel.indexOf("source: 'manager_week_cancel'")
+      expect(flipIdx).toBeGreaterThan(-1)
+      expect(grantIdx, 'the grant comes AFTER the claim').toBeGreaterThan(flipIdx)
+      expect(cancel, 'redeemed credit on the booking is released').toMatch(/note: 'Released — week cancelled by the market manager'/)
+      expect(cancel, 'the vendor is told, with the amount').toMatch(/'booth_week_cancelled_by_manager'/)
+      expect(/createRefund\(|refunds\.create/.test(cancel), 'never cash — credit only').toBe(false)
+      // No vendor-side cancel exists for a one-off week (they bear the risk).
+      const vendorApi = path.join(SRC_DIR, 'app/api/vendor')
+      const offenders: string[] = []
+      const walk = (dir: string) => {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          const full = path.join(dir, entry.name)
+          if (entry.isDirectory()) walk(full)
+          else if (entry.name === 'route.ts') {
+            const src = fs.readFileSync(full, 'utf-8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+            if (/from\('weekly_booth_rentals'\)\s*\.update\(\{\s*status: 'cancelled'/.test(src) && !full.includes('booth-groups')) {
+              offenders.push(path.relative(SRC_DIR, full))
+            }
+          }
+        }
+      }
+      walk(vendorApi)
+      expect(offenders, 'a vendor route must not cancel a one-off paid week (BR-10)').toEqual([])
+    })
+
     it('the newest booking RPC honors the same-vendor rule and the soft-pin fallback (mig 256)', () => {
       const migDir = path.resolve(__dirname, '../../../../../supabase/migrations')
       const files: string[] = []

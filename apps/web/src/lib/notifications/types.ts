@@ -92,6 +92,9 @@ export type NotificationType =
   // BR-8 (owner 2026-09-19): the ONE booth-change notification — the booth a
   // vendor was told is theirs changed, or is no longer held for them.
   | 'booth_number_changed'
+  // BR-10 (owner 2026-09-19, C11 = B): the manager cancelled a vendor's PAID
+  // one-off week — money moved to credit, the vendor must hear.
+  | 'booth_week_cancelled_by_manager'
   // Phase E: season/partial booth purchase (one payment, N weeks)
   | 'booth_season_paid_vendor'
   | 'booth_season_paid_manager'
@@ -1029,6 +1032,25 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/bookings`,
   },
 
+  // BR-10 (owner 2026-09-19): the manager cancelled a PAID one-off week. The
+  // vendor bears the risk on their own side (no vendor cancel, no refund) but a
+  // MANAGER cancel returns the remaining declared days as a credit at that market
+  // (full amount if the week had not started). Money moved → they must hear.
+  booth_week_cancelled_by_manager: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'vendor',
+    title: (d) => `${d.marketName || 'The market'} cancelled your booth week of ${d.weekStartDate || 'an upcoming week'}`,
+    message: (d) => {
+      const credit = d.amountCents
+        ? ` You have a ${(d.amountCents / 100).toFixed(2)} credit at ${d.marketName || 'this market'}, applied automatically to your next booking there.`
+        : ''
+      const why = d.reason ? ` Reason: ${d.reason}.` : ''
+      return `The manager of ${d.marketName || 'the market'} cancelled your booth${d.boothNumber ? ` #${d.boothNumber}` : ''} for the week of ${d.weekStartDate || 'an upcoming week'}.${why}${credit} Your other weeks are not affected.`
+    },
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/bookings`,
+  },
+
   // Phase E: vendor confirmation when a season/partial booth purchase is paid
   // (one payment, N weeks). Summary — booth numbers are per-week, shown on My Bookings.
   booth_season_paid_vendor: {
@@ -1161,7 +1183,11 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     message: (d) =>
       d.boothDisposition === 'reschedule'
         ? `${d.marketName || 'The market'} is closed on ${d.marketDate || 'an upcoming market day'}. The manager plans a make-up market day${d.rescheduleDate ? ` on ${d.rescheduleDate}` : ''} — they'll be in touch with details.`
-        : `${d.marketName || 'The market'} is closed on ${d.marketDate || 'an upcoming market day'}. Your booth fee for that day will be credited — the manager will reach out with details.`,
+        // BR-9 (2026-09-19): one-off weeks are credited automatically, per day —
+        // say the amount. Season buyers (no amountCents) keep the settlement copy.
+        : d.amountCents
+          ? `${d.marketName || 'The market'} is closed on ${d.marketDate || 'an upcoming market day'}. Your paid booth week is credited ${(d.amountCents / 100).toFixed(2)} for that day — applied automatically to your next booking at this market.`
+          : `${d.marketName || 'The market'} is closed on ${d.marketDate || 'an upcoming market day'}. Your booth fee for that day is handled at season settlement — the manager will reach out with details.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/bookings`,
   },
 

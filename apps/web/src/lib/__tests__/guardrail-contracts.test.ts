@@ -572,7 +572,14 @@ describe('Rule L — the snapshot structured tables cannot silently wander (owne
   // fails when it falls behind. The ONLY correct fix is a real rebuild:
   // owner runs supabase/REFRESH_SCHEMA.sql on Dev, Claude regenerates the
   // structured sections and moves the stamp. Never move the stamp by itself.
-  const STALENESS_ALLOWANCE = 5 // migrations without a CREATE TABLE before a refresh is due
+  // ⚠ TEMPORARY 6 (was 5) — owner 2026-09-19, mid booth-round part D at 76%
+  // context: "i authorize the suspension of that rule for this situation so we
+  // don't ruin our progress by autocompaction in the middle of a build." The
+  // stamp was NOT moved (still 251); migs 252–257 are the debt. First job of
+  // the next session: owner runs the scoped refresh on Dev (with 257 applied),
+  // Claude rebuilds the structured sections, moves the stamp to 257 and puts
+  // this back to 5. Do not raise it again.
+  const STALENESS_ALLOWANCE = 6 // migrations without a CREATE TABLE before a refresh is due
 
   function migNumber(base: string): number {
     // Two naming eras: 20260105_152200_001_x.sql (date_TIME_number) from the

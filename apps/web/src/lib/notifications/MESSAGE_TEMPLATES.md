@@ -647,6 +647,19 @@ Manager side — NO new type: when a payment took a number that was held for ano
 
 ---
 
+### Booth Week Cancelled By Manager (`booth_week_cancelled_by_manager`) — Booth model BR-10, 2026-09-19 — TO THE VENDOR
+**Urgency:** Standard (Email + In-app) · **Severity:** warning
+**Rule (owner, C11 = B):** a vendor bears the risk on a paid one-off week — no vendor cancel, no refund. The MANAGER may cancel one; the vendor's remaining declared days come back as a CREDIT at that market (full amount if the week had not started), never cash.
+**Trigger:** `POST /api/market-manager/[marketId]/weekly-rental/[rentalId]/cancel` (Weekly booth bookings card → "Cancel week", reason required).
+
+**In-app title:** {{market_name}} cancelled your booth week of {{week}}
+**In-app message:** The manager of {{market_name}} cancelled your booth #{{booth_number}} for the week of {{week}}. Reason: {{reason}}. You have a ${{amount}} credit at {{market_name}}, applied automatically to your next booking there. Your other weeks are not affected.
+**Action:** `/{{vertical}}/vendor/bookings`
+
+Also 2026-09-19 (BR-9, NO new type): when a manager cancels a market DAY, the existing `market_date_cancelled_vendor` notice to a paid ONE-OFF renter now states the automatic per-day credit — "Your paid booth week is credited ${{amount}} for that day — applied automatically to your next booking at this market." Season buyers keep the settlement wording.
+
+---
+
 ## Admin-Facing Notifications
 
 ---

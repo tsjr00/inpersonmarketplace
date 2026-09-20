@@ -23,6 +23,10 @@ Fixes shipped since your last results (2026-09-18, OB-026/OB-027; 2026-09-19 OB-
 points at its full block below. When this section is empty, there is nothing new to retest — go straight to the
 regular groups.
 
+BOOTH ROUND PART D (your 09-19 rulings: FM credits modeled on FT; manager may cancel a paid week — migration 257 needed on Staging):
+🟠 TR-091  Cancelling a market day credits paid one-off weeks per declared day; the notice states the amount
+🟠 TR-092  Manager cancels a paid week → vendor credited for the remaining days, told why; no vendor self-cancel
+
 BOOTH ROUND PART C (your 09-19 rulings: paying makes the number yours; assigned numbers freeze; one change notice):
 🟠 TR-088  Paying a week makes the booth number the vendor's; a held number yields to a payer, both sides told
 🟠 TR-089  An assigned number is locked while a paid week is on file
@@ -197,7 +201,7 @@ Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
 
 
 ==================================================
-🟠 GROUP 3 — BOOTH WEEKS AND MONEY AT MANAGED MARKETS   (15 tests)
+🟠 GROUP 3 — BOOTH WEEKS AND MONEY AT MANAGED MARKETS   (17 tests)
 ===
 
 Screens: /\[vertical]/markets/\[id]/book · manager dashboard (vendor roster, booth occupancy) · /\[vertical]/listing/\[id] ·
@@ -301,6 +305,28 @@ Expect: move their number #7 → #9 → they get "Your booth at «Market» is no
 you." Clear the number → "no longer held for you." Change only their size, or approve a new vendor with a first
 number → NO extra message (the approval and paid confirmations already carry the number).
 Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+
+
+
+🟠 TR-091  Cancelling a market day credits paid one-off weeks, per declared day  (your 09-19 ruling; migration 257 on Staging)
+Where: manager Cancel-a-Date card, FM market, a future date. Setup: vendor A holds a PAID one-off week covering that
+date and has that weekday ticked at the market; vendor B holds a paid SEASON week.
+Expect: A's cancellation notice reads "Your paid booth week is credited $X for that day — applied automatically…"
+where X = what A paid for the week ÷ the days A ticked that week (2 ticked of 3 open → half). B's notice keeps the
+settlement wording and B gets no credit. Cancel the same date again → no second credit. A's next booking at that
+market shows the credit applied.
+Result: ____________   Notes:
+
+
+
+🟠 TR-092  Manager cancels a paid week → vendor credited for the remaining days, and told why  (your 09-19 ruling B)
+Where: manager dashboard → Weekly booth bookings → a PAID one-off row → "Cancel week".
+Expect: a reason box appears (Confirm stays disabled until you type one); Confirm → the row shows Cancelled and a
+green line states the credit. Before the week starts the credit is the full amount the vendor paid; mid-week it is
+the remaining ticked days only. The vendor's bell + email: "…cancelled your booth #N for the week of … Reason: …
+You have a $X credit…". A season week refuses ("settle at season end"). The vendor's own bookings page has no
+cancel button for a paid week — that is by design (they bear the risk).
+Result: ____________   Notes:
 
 
 

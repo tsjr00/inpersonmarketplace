@@ -4,6 +4,7 @@ import { stripe } from '@/lib/stripe/config'
 import { restoreInventory } from '@/lib/inventory'
 import { TracedError, logError, observed } from '@/lib/errors'
 import { FEES, proratedFlatFeeSimple, calculateSmallOrderFee, calculateBoothRentalFees } from '@/lib/pricing'
+import { declaredDatesForWeek, vendorPaidCents, perDayShareCents, cancellationCreditsGranted, capCredit } from '@/lib/markets/booth-cancel-credit'
 
 /**
  * Phase C — cancel-a-market-day cascade.
@@ -16,9 +17,12 @@ import { FEES, proratedFlatFeeSimple, calculateSmallOrderFee, calculateBoothRent
  *      EXCEPT it never calls increment_vendor_cancelled — a market-day cancellation
  *      is the manager's/weather's doing, not the vendor's, so vendor reliability is
  *      untouched. cancelled_by = 'market'.
- *   B. Paid booth renters    -> identified for notification only. The credit/reschedule
- *      disposition lives on the market_date_overrides row (no money movement; feeds
- *      Phase E's cancelled-day counter).
+ *   B. Paid booth renters    -> notified; since 2026-09-19 (BR-9, owner: "model FM after
+ *      FT") a PAID ONE-OFF week covering the date is CREDITED automatically, per day:
+ *      the vendor-paid share of that day (week ÷ the operating days the vendor
+ *      declared), never for an undeclared day, never above what they paid, one grant
+ *      per (booking, date) via mig 257's partial unique. Season/partial groups stay on
+ *      the cap-based settlement (their cancelled-day counter feeds it) — notify only.
  *   C. Market-box pickups    -> credited via the existing vendor_skip_week RPC
  *      (skip + makeup-extension + extend-by-one-week). vendor_skip_week notifies the
  *      subscriber itself (market_box_skip), so no extra MB notification here.
@@ -40,6 +44,8 @@ export interface CancelDateCascadeResult {
   buyerUserIds: string[]
   orderVendorNotifs: VendorOrderNotif[]
   boothRenterUserIds: string[]
+  /** BR-9: per renter user, the credit granted for this date (0 = notified only). */
+  boothRenterCredits: Map<string, number>
   marketBoxCredited: number
   parkBookingsCancelled: number
   parkCreditNotifs: ParkCreditNotif[]
@@ -323,26 +329,74 @@ export async function runBarredBookingOrderCascade(
   }
 }
 
-/** B. Paid booth renters whose rented week contains the cancelled date. */
-async function findAffectedBoothRenters(
+/** B. Paid booth renters whose rented week contains the cancelled date — notified,
+ *  and (BR-9, 2026-09-19) one-off weeks credited per day. Returns the renter user
+ *  ids plus the credit granted to each (0 for season children and undeclared days). */
+async function creditAndFindBoothRenters(
   service: SupabaseClient,
   marketId: string,
   overrideDate: string,
-): Promise<Set<string>> {
+  reason: string,
+): Promise<{ userIds: Set<string>; credits: Map<string, number> }> {
   const userIds = new Set<string>()
+  const credits = new Map<string, number>()
   const { data: renters } = await observed(service
     .from('weekly_booth_rentals')
-    .select('vendor_profiles!inner ( user_id )')
+    .select('id, vendor_profile_id, group_id, price_cents, week_start_date, vendor_profiles!inner ( user_id )')
     .eq('market_id', marketId)
     .eq('status', 'paid')
     .eq('week_start_date', weekStartSunday(overrideDate)), { table: 'weekly_booth_rentals' })
 
-  type RenterRow = { vendor_profiles: { user_id: string | null } | { user_id: string | null }[] | null }
+  type RenterRow = {
+    id: string
+    vendor_profile_id: string
+    group_id: string | null
+    price_cents: number
+    week_start_date: string
+    vendor_profiles: { user_id: string | null } | { user_id: string | null }[] | null
+  }
   for (const r of (renters ?? []) as RenterRow[]) {
     const vp = Array.isArray(r.vendor_profiles) ? r.vendor_profiles[0] : r.vendor_profiles
-    if (vp?.user_id) userIds.add(vp.user_id)
+    const uid = vp?.user_id ?? null
+    if (uid) userIds.add(uid)
+
+    // Season/partial children: the cap-based settlement owns their compensation.
+    if (r.group_id) continue
+
+    // (a) only a day the vendor declared; (b) the cancelled date is today or
+    // later by construction (the route refuses past dates).
+    const declared = await declaredDatesForWeek(service, {
+      marketId, vendorProfileId: r.vendor_profile_id, weekStartSunday: r.week_start_date,
+    })
+    if (!declared.includes(overrideDate)) continue
+
+    const paid = vendorPaidCents(r.price_cents)
+    const share = perDayShareCents(paid, declared.length)
+    const already = await cancellationCreditsGranted(service, r.id)
+    const creditCents = capCredit(share, paid, already)               // (c)
+    if (creditCents <= 0) continue
+
+    const { error: grantErr } = await service.from('booth_credits').insert({
+      vendor_profile_id: r.vendor_profile_id,
+      market_id: marketId,
+      amount_cents: creditCents,
+      source: 'fm_date_cancel',
+      related_rental_id: r.id,
+      related_cancel_date: overrideDate,
+      note: `Market day ${overrideDate} cancelled by the manager — ${reason}`,
+    })
+    if (grantErr) {
+      if (grantErr.code === '23505') continue // already granted for this (booking, date) — re-run
+      // CHECK violation / unknown column = mig 257 not applied, or a real failure —
+      // the vendor is owed a credit; make it visible (mirrors the park branch).
+      await logError(new TracedError('ERR_REFUND_001',
+        `FM date-cancel credit grant failed for rental ${r.id} (${creditCents}¢ owed to vendor ${r.vendor_profile_id} for ${overrideDate}): ${grantErr.message}`,
+        { route: '/api/market-manager/[marketId]/cancel-date', method: 'POST', amountCents: creditCents }))
+      continue
+    }
+    if (uid) credits.set(uid, (credits.get(uid) ?? 0) + creditCents)
   }
-  return userIds
+  return { userIds, credits }
 }
 
 /** C. Credit market-box pickups on the cancelled date via vendor_skip_week. */
@@ -499,7 +553,7 @@ export async function runCancelDateCascade(
   const { marketId, overrideDate, reason } = params
 
   const refunds = await refundProductOrders(service, marketId, overrideDate, reason)
-  const boothRenterUserIds = await findAffectedBoothRenters(service, marketId, overrideDate)
+  const boothRenters = await creditAndFindBoothRenters(service, marketId, overrideDate, reason)
   const marketBoxCredited = await creditMarketBoxPickups(service, marketId, overrideDate, reason)
   const parks = await creditParkSpotBookings(service, marketId, overrideDate, reason)
 
@@ -508,7 +562,8 @@ export async function runCancelDateCascade(
     refundFailures: refunds.refundFailures,
     buyerUserIds: [...refunds.buyerUserIds],
     orderVendorNotifs: refunds.vendorNotifs,
-    boothRenterUserIds: [...boothRenterUserIds],
+    boothRenterUserIds: [...boothRenters.userIds],
+    boothRenterCredits: boothRenters.credits,
     marketBoxCredited,
     parkBookingsCancelled: parks.parkBookingsCancelled,
     parkCreditNotifs: parks.parkCreditNotifs,

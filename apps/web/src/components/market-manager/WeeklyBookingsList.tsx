@@ -106,6 +106,14 @@ export default function WeeklyBookingsList({ marketId, vertical, bookings: initi
   const [savingId, setSavingId] = useState<string | null>(null)
   const [rowError, setRowError] = useState<Record<string, string>>({})
   const [rowSuccess, setRowSuccess] = useState<Record<string, boolean>>({})
+  // BR-10 (owner 2026-09-19): the manager may cancel a PAID one-off week — the
+  // vendor gets a credit for the remaining declared days, never cash. A reason
+  // is required because the vendor reads it. Two-step (open, then confirm with
+  // the reason typed) — no window.confirm/prompt (blocked on mobile).
+  const [cancelOpenId, setCancelOpenId] = useState<string | null>(null)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancellingId, setCancellingId] = useState<string | null>(null)
+  const [cancelResult, setCancelResult] = useState<Record<string, string>>({})
 
   // Every week that has at least one booking, oldest first.
   const weeks = useMemo(
@@ -175,6 +183,41 @@ export default function WeeklyBookingsList({ marketId, vertical, bookings: initi
       setRowError((s) => ({ ...s, [rentalId]: 'Network error' }))
     } finally {
       setSavingId(null)
+    }
+  }
+
+  const handleCancelWeek = async (rentalId: string) => {
+    if (!cancelReason.trim()) {
+      setRowError((s) => ({ ...s, [rentalId]: 'Type a short reason — the vendor reads it.' }))
+      return
+    }
+    setCancellingId(rentalId)
+    setRowError((s) => ({ ...s, [rentalId]: '' }))
+    try {
+      const res = await fetch(`/api/market-manager/${marketId}/weekly-rental/${rentalId}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: cancelReason.trim() }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setRowError((s) => ({ ...s, [rentalId]: data.error || 'Cancel failed' }))
+      } else {
+        setBookings((bs) => bs.map((b) => (b.id === rentalId ? { ...b, status: 'cancelled' } : b)))
+        const credit = typeof data.credit_cents === 'number' ? data.credit_cents : 0
+        setCancelResult((s) => ({
+          ...s,
+          [rentalId]: credit > 0
+            ? `Cancelled — the vendor has a ${formatPrice(credit)} credit here, applied to their next booking. It comes out of your future receipts.`
+            : 'Cancelled — no credit was due (no remaining declared days).',
+        }))
+        setCancelOpenId(null)
+        setCancelReason('')
+      }
+    } catch {
+      setRowError((s) => ({ ...s, [rentalId]: 'Network error' }))
+    } finally {
+      setCancellingId(null)
     }
   }
 
@@ -326,6 +369,57 @@ export default function WeeklyBookingsList({ marketId, vertical, bookings: initi
             }}>
               {badge.label}
             </span>
+
+            {/* BR-10: cancel a PAID week → vendor credit. Vendors cannot cancel
+                their own paid week (they bear that risk); only the manager can. */}
+            {b.status === 'paid' && cancelOpenId !== b.id && (
+              <button
+                type="button"
+                onClick={() => { setCancelOpenId(b.id); setCancelReason('') }}
+                disabled={cancellingId === b.id}
+                title="Cancel this paid week — the vendor is credited for the remaining declared days"
+                style={{ ...navButton, color: '#991b1b', borderColor: '#f5c6cb', fontSize: typography.sizes.xs, minHeight: 32 }}
+              >
+                Cancel week
+              </button>
+            )}
+            {cancelOpenId === b.id && (
+              <div style={{ width: '100%', display: 'flex', gap: spacing['2xs'], alignItems: 'center', flexWrap: 'wrap', marginTop: spacing['3xs'] }}>
+                <input
+                  type="text"
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  placeholder="Reason the vendor will read (required)"
+                  maxLength={500}
+                  disabled={cancellingId === b.id}
+                  style={{ flex: '1 1 220px', padding: `${spacing['3xs']} ${spacing.xs}`, border: `1px solid ${colors.border}`, borderRadius: radius.sm, fontSize: typography.sizes.sm }}
+                />
+                <button
+                  type="button"
+                  onClick={() => handleCancelWeek(b.id)}
+                  disabled={cancellingId === b.id || !cancelReason.trim()}
+                  style={{ ...navButton, background: '#991b1b', color: 'white', borderColor: '#991b1b', fontSize: typography.sizes.xs, minHeight: 32, opacity: cancellingId === b.id || !cancelReason.trim() ? 0.6 : 1 }}
+                >
+                  {cancellingId === b.id ? 'Cancelling…' : 'Confirm cancel + credit vendor'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setCancelOpenId(null); setCancelReason('') }}
+                  disabled={cancellingId === b.id}
+                  style={{ ...navButton, fontSize: typography.sizes.xs, minHeight: 32 }}
+                >
+                  Keep
+                </button>
+                <span style={{ width: '100%', fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                  The vendor keeps nothing they already used; the rest of what they paid becomes a credit at this market (never cash). This week&apos;s booth opens up.
+                </span>
+              </div>
+            )}
+            {cancelResult[b.id] && (
+              <div style={{ width: '100%', fontSize: typography.sizes.xs, color: '#166534', marginTop: spacing['3xs'] }}>
+                {cancelResult[b.id]}
+              </div>
+            )}
 
             {rowError[b.id] && (
               <div style={{

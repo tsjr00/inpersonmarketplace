@@ -1,6 +1,6 @@
 # 12 — Market Manager (farmers-market side) ⚠ money
 
-<!-- map-stamp: domain=market-manager; verified=2026-09-19; commit=booth-round-C -->
+<!-- map-stamp: domain=market-manager; verified=2026-09-19; commit=booth-round-D -->
 <!-- map-claims
 src/app/api/market-manager/**
 src/app/api/markets/**
@@ -110,6 +110,7 @@ Shared with the park domain; FM is where it originated. Table: `booth_credits`. 
 | `booth-types.ts` · `placeholder-types.ts` · `booth-labels.ts` · `booth-label-drift-server.ts` · `booth-conflict-checks.ts` | Booth inventory, placeholders, label ranges and uniqueness/capacity checks (same-vendor exclusion + placeholders-only capacity since 2026-09-19, BR-11/BR-6) |
 | `booth-assignment.ts` | **Payment writes the assignment (BR-5/6, 2026-09-19):** called by the Stripe webhook after a booth week / season is paid — the booking's number becomes the vendor's pin; a yielded soft pin transfers (old holder cleared + told via `booth_number_changed`; manager told on their paid confirmation); an ASSIGNED pin (holder has a paid current/upcoming week) is never moved — logged instead. Idempotent, non-throwing by contract. |
 | `booth-freeze.ts` | **Assigned numbers are frozen (BR-7):** `boothAssignmentFrozenUntil` = the vendor holds a PAID current/upcoming week under their pinned number → `vendor-booth`, `vendor-tier` and `weekly-rental` refuse changes (409 `ERR_BOOTH_ASSIGNED_FROZEN`, shared copy) until a week is missed or the paid week is cancelled (BR-10, part D). Pending weeks never freeze. |
+| `booth-cancel-credit.ts` | **FM cancellation credit math (BR-9/BR-10, 2026-09-19 — FT mig 201 applied to the week):** declared operating dates of a week for a vendor (falls back to the market's days for pre-BR-13 rows), per-day share = vendor-paid ÷ declared days, and the cap so total credits never exceed what the vendor paid. Read by `cancel-date-cascade.ts` path B (per-day grant, source `fm_date_cancel`, one per (booking, date) — mig 257) and by `weekly-rental/[rentalId]/cancel/route.ts` (manager cancels a PAID one-off week → remaining declared days credited, source `manager_week_cancel`; vendors have no cancel of their own). Credit, never cash. |
 | `booking-gates.ts` | **Booth-booking eligibility (owner 2026-09-19, BR-1/13/4):** ONE decision for the one-off route, the season route and the booking page — approved once at a managed market → at least one declared day here → tier matches the pin's tier. Returns the refusal code + copy; callers translate to 403/400. |
 | `optin-types.ts` · `optin-public.ts` · `agreement-version.ts` | Opt-in statements, service-side public fetch (RLS is default-deny), and the deterministic agreement-version hash |
 | `document-types.ts` | Verification-document taxonomy, mirrored by a DB CHECK |
