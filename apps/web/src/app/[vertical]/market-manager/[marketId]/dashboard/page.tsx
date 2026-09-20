@@ -14,6 +14,7 @@ import { getManagerDashboardStats, getMarketTransactionsAggregates, getManagerEa
 import { getParkWeekSchedule } from '@/lib/markets/park-week-schedule'
 import { getMarketVisibilityStatus } from '@/lib/markets/market-visibility'
 import { loadManagerWeekStrip } from '@/lib/markets/manager-week-strip'
+import { loadManagerActionSignals } from '@/lib/markets/manager-action-items'
 import ManagerWeekStrip from '@/components/market-manager/ManagerWeekStrip'
 
 interface PageProps {
@@ -161,15 +162,21 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
   // FM: the manager's next-14-days strip (OB-029 part D) — under the market
   // name, above the jump nav, like the other dashboards. FT parks keep their
   // own "This week at your park" card (per-day spot model).
-  const weekStrip = isFoodTrucks
-    ? null
-    : await loadManagerWeekStrip(
-        createServiceClient(),
-        marketId,
-        (market.timezone as string | null) ?? null,
-        (market.season_start as string | null) ?? null,
-        (market.season_end as string | null) ?? null,
-      )
+  // The strip and the Action Items signals are independent — one round trip.
+  const [weekStrip, actionSignals] = isFoodTrucks
+    ? [null, undefined]
+    : await Promise.all([
+        loadManagerWeekStrip(
+          createServiceClient(),
+          marketId,
+          (market.timezone as string | null) ?? null,
+          (market.season_start as string | null) ?? null,
+          (market.season_end as string | null) ?? null,
+        ),
+        // Option U part D (owner 2026-09-20): unnumbered sizes · untiered
+        // numbers · over capacity · Stripe needs action · settlements owed.
+        loadManagerActionSignals(createServiceClient(), marketId, (market.timezone as string | null) ?? null),
+      ])
 
   const navDestinations = await getNavDestinations(supabase, user, vertical)
 
@@ -251,6 +258,7 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           transactionsAggregates={transactionsAggregates}
           schedules={schedules}
           visibilityStatus={visibilityStatus}
+          actionSignals={actionSignals}
         />
       )}
       <DashboardNavSpacer destinations={navDestinations} />

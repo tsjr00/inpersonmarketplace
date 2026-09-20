@@ -1,4 +1,15 @@
-# ▶ 2026-09-20 (build) — OPTION U: mig 258 ✅ Dev (+Staging applied, post-check paste owed) · U-A COMMITTED `446db932` · U-B BUILT (uncommitted, gates green tsc 0 · eslint 0 · vitest 94/2287)
+# ▶ 2026-09-20 (build) — OPTION U: mig 258 ✅ Dev + Staging · U-A `446db932` · U-B `fec2ff61` · U-C `bf58d206` COMMITTED · U-D BUILT (uncommitted, gates green tsc 0 · eslint 0 · vitest 94/2287)
+**U-D built:** `lib/markets/manager-action-items.ts` (signals 3–6: unnumbered sizes · untiered numbers · over capacity
+this week · Stripe needs action [short-circuit on synced columns, 2.5 s timeout] · settlements owed) · `manager-dashboard-
+stats.ts` + `marketChargesBooths` · `ManagerActionSummary` six kinds w/ links (#roster/#setup/#booths/#seasons) ·
+`CollapsibleSection` opens on hash for `id` or `childIds` (FM Setup passes schedule/seasons) · `TabbedCard heading='card'`
+(FM roster) · dashboard page loads signals in parallel with the strip (FM only) · anchor pin widened (items-array hrefs,
+six keys, childIds) · registry TR-105/106 + printable list · maps 12 + 22.
+**NEXT:** owner's word → commit U-D → ONE staging push (`514f0928..`, docs + U-A–D) → owner: enter booth numbers on the
+Staging test markets (TR-100 first), then retests TR-100–106 (+ TR-093–099, TR-078–092). Rule L: stamp 257, 1 migration
+past (258) — fine.
+
+(superseded) U-B status:
 **U-B built:** `BoothNumberPicker` (size → number; feed `booth-labels?inventory_id=…`; taken numbers disabled with
 holder) wired into `VendorBoothList` (hold + approval; "needs booth #" only where the market does NOT charge —
 `marketChargesBooths`; legacy "size not set — re-pick"), `BoothPlaceholderManager` (add + edit, allowClear=false),

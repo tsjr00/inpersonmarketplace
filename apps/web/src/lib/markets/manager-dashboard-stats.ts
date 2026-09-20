@@ -45,6 +45,10 @@ export interface ManagerDashboardStats {
    *  MarketScheduleCard to skip the acknowledgment dialog entirely for
    *  brand-new markets where the warning copy doesn't apply. */
   hasScheduleChangeRecipients: boolean
+  /** Owner 2026-09-18/20: this market has at least one priced booth tier. At a
+   *  charging market a vendor gets a number when they book, so "needs a booth
+   *  number" is not the manager's to-do there (F2a). */
+  marketChargesBooths: boolean
 }
 
 export async function getManagerDashboardStats(
@@ -97,6 +101,7 @@ export async function getManagerDashboardStats(
     pendingApprovalResult,
     approvedVendorsResult,
     paidRentersResult,
+    pricedTiersResult,
   ] = await Promise.all([
     serviceClient
       .from('vendor_market_schedules')
@@ -137,6 +142,12 @@ export async function getManagerDashboardStats(
       .eq('market_id', marketId)
       .eq('status', 'paid')
       .gte('week_start_date', todayMarketLocal),
+    // 7. Does this market charge for booths? (any tier with a price > 0)
+    serviceClient
+      .from('market_booth_inventory')
+      .select('id', { count: 'exact', head: true })
+      .eq('market_id', marketId)
+      .gt('weekly_price_cents', 0),
   ])
 
   const activeScheduleSet = new Set(
@@ -163,6 +174,7 @@ export async function getManagerDashboardStats(
     activeVendorsNeedingBooth,
     pendingApprovalCount,
     hasScheduleChangeRecipients,
+    marketChargesBooths: (pricedTiersResult.count ?? 0) > 0,
   }
 }
 

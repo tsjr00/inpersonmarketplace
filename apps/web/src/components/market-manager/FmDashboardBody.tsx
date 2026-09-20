@@ -33,6 +33,7 @@ import SurveyResultsCard from './SurveyResultsCard'
 import ManagerSupportCard from './ManagerSupportCard'
 import type { OnboardingProgress } from '@/lib/markets/onboarding-progress'
 import type { ManagerDashboardStats, ManagerEarningsAggregates } from '@/lib/markets/manager-dashboard-stats'
+import type { ManagerActionSignals } from '@/lib/markets/manager-action-items'
 
 /**
  * FM (farmers-market) manager dashboard body — the FM-only card arrangement,
@@ -61,6 +62,8 @@ interface FmDashboardBodyProps {
   transactionsAggregates: ComponentProps<typeof MarketTransactionsCard>['aggregates']
   schedules: Array<{ day_of_week: number; start_time: string | null; end_time: string | null; active: boolean | null }>
   visibilityStatus: ComponentProps<typeof MarketVisibilityCard>['status'] | null
+  /** Action Items signals 3–6 (Option U part D). */
+  actionSignals?: ManagerActionSignals | undefined
 }
 
 export default function FmDashboardBody({
@@ -73,6 +76,7 @@ export default function FmDashboardBody({
   transactionsAggregates,
   schedules,
   visibilityStatus,
+  actionSignals,
 }: FmDashboardBodyProps) {
   const marketName = market.name as string
   const onboardingComplete = onboardingProgress.required_complete === onboardingProgress.required_total
@@ -132,12 +136,12 @@ export default function FmDashboardBody({
         </div>
       )}
       {/* ① Action Items — only things the manager can click and finish */}
-      <ManagerActionSummary vertical={vertical} progress={onboardingProgress} stats={dashboardStats} />
+      <ManagerActionSummary vertical={vertical} progress={onboardingProgress} stats={dashboardStats} signals={actionSignals} />
 
       {/* ② SETUP — first, onboarding-style (Phase 4a). A new manager configures
           the market before the operational groups below. Collapsed by default
           only once onboarding is complete (Q5 — saves space post-setup). */}
-      <CollapsibleSection id="setup" title="Setup" subtitle="Onboarding, payments, schedule, seasons, agreements, branding" defaultCollapsed={onboardingComplete}>
+      <CollapsibleSection id="setup" title="Setup" subtitle="Onboarding, payments, schedule, seasons, agreements, branding" defaultCollapsed={onboardingComplete} childIds={['schedule', 'seasons']}>
         <OnboardingChecklist vertical={vertical} marketId={marketId} progress={onboardingProgress} />
         <MarketStripeConnectCard marketId={marketId} marketStatus={(market.status as string | null) ?? null} vertical={vertical} />
         <div id="schedule" style={{ scrollMarginTop: NAV_OFFSET }}>
@@ -203,6 +207,7 @@ export default function FmDashboardBody({
       <MarketAttendanceCard marketId={marketId} vertical={vertical} />
       <TabbedCard
         id="roster"
+        heading="card"
         title={`${term(vertical, 'vendors')} at this ${term(vertical, 'market').toLowerCase()}`}
         tabs={[
           { id: 'roster', label: 'At this market', content: rosterTab },

@@ -1397,9 +1397,18 @@ describe('Dashboard empty-state convention', () => {
       expect(ids.has(m[1]!), `jump-nav chip #${m[1]} has no target in FmDashboardBody`).toBe(true)
     }
     const summary = bare('components/market-manager/ManagerActionSummary.tsx')
-    for (const m of summary.matchAll(/href="#([a-z-]+)"/g)) {
-      expect(ids.has(m[1]!), `Action Items link #${m[1]} has no target in FmDashboardBody`).toBe(true)
+    // Both spellings: JSX `href="#x"` and the items-array `href: '#x'` (U-D).
+    const linkTargets = Array.from(summary.matchAll(/href(?:="|: ')#([a-z-]+)['"]/g), m => m[1]!)
+    expect(linkTargets.length, 'Action Items must link somewhere').toBeGreaterThan(0)
+    for (const t of linkTargets) {
+      expect(ids.has(t), `Action Items link #${t} has no target in FmDashboardBody`).toBe(true)
     }
+    // The six Action Item kinds (owner 2026-09-20, design §3.9) are all present.
+    for (const key of ["key: 'approvals'", "key: 'booth'", "key: 'unnumbered'", "key: 'untiered'", "key: 'overcap'", "key: 'stripe'", "key: 'settle'"]) {
+      expect(summary, `Action Items must include ${key}`).toContain(key)
+    }
+    // Deep links into the collapsed Setup section must open it (CollapsibleSection childIds).
+    expect(body).toMatch(/childIds=\{\['schedule', 'seasons'\]\}/)
     // The owner's order, top to bottom (group heads only).
     const order = ['id="setup"', 'id="booths"', 'id="vendors"', 'id="roster"', 'id="money"', 'id="announce"']
       .map(s => body.indexOf(s))

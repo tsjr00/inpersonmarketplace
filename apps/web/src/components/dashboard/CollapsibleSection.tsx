@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import { NAV_OFFSET } from './DashboardCard'
@@ -17,21 +17,50 @@ import { NAV_OFFSET } from './DashboardCard'
  * (owner, 2026-08-07). Only collapse a group whose `subtitle` says what is
  * inside — a count, a status, or the next action — so nobody has to open it to
  * find out whether it needs them.
+ *
+ * Deep links (2026-09-20): a same-page anchor to this section or to one of
+ * `childIds` (ids that live INSIDE the collapsed children — they are not in the
+ * DOM while collapsed, so the section has to be told) opens it first, then lets
+ * the browser scroll. Action Items → #setup / #seasons and the notification
+ * links → #schedule rely on this.
  */
 export default function CollapsibleSection({
   id,
   title,
   subtitle,
   defaultCollapsed = false,
+  childIds = [],
   children,
 }: {
   id?: string
   title: string
   subtitle?: string
   defaultCollapsed?: boolean
+  /** Anchor ids rendered inside `children` that should open this section when targeted. */
+  childIds?: string[]
   children: ReactNode
 }) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
+
+  // Stable dependency for an inline `childIds={[…]}` literal.
+  const childKey = childIds.join('|')
+  useEffect(() => {
+    const targets = new Set([id, ...childKey.split('|')].filter((x): x is string => !!x))
+    if (targets.size === 0) return
+    const openForHash = () => {
+      const hash = window.location.hash.replace(/^#/, '')
+      if (!hash || !targets.has(hash)) return
+      // Off the synchronous effect path (repo rule: react-hooks/set-state-in-effect).
+      queueMicrotask(() => {
+        setCollapsed(false)
+        // Children mount on the next paint; then scroll to the real target.
+        requestAnimationFrame(() => document.getElementById(hash)?.scrollIntoView({ block: 'start' }))
+      })
+    }
+    openForHash()
+    window.addEventListener('hashchange', openForHash)
+    return () => window.removeEventListener('hashchange', openForHash)
+  }, [id, childKey])
   return (
     <section
       id={id}

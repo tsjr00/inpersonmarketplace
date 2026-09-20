@@ -97,8 +97,8 @@ Promoted out of `components/market-manager/` on **2026-08-07** (Slice 1 of the d
 | `DashboardTile.tsx` | **The tile ("a door")** — whole surface is a `next/link`, equal height in a grid, `icon` + `title` + `badge` + status line, semantic `state`. Also exports `TileBadge` (the count pill) | **server** |
 | `states.ts` | **The shared state vocabulary** — `DashboardState` + `DASHBOARD_STATES`. One palette used by BOTH tile and card, so "needs your attention" looks identical everywhere | n/a |
 | `GroupHeading.tsx` | Banner grouping several cards under one heading; optional right-aligned `accessory`. Consolidated from two identical private copies in `FmDashboardBody` and `FtParkDashboardBody` | **server** |
-| `CollapsibleSection.tsx` | Expand/collapse group wrapper | client |
-| `TabbedCard.tsx` | Segmented tab bar swapping one panel at a time | client |
+| `CollapsibleSection.tsx` | Expand/collapse group wrapper. 2026-09-20: opens itself when the URL hash targets its `id` or one of `childIds` (anchors inside the collapsed children — not in the DOM while closed), then scrolls; Action Items → `#setup`/`#seasons` and notification deep links rely on it | client |
+| `TabbedCard.tsx` | Segmented tab bar swapping one panel at a time. `heading='group'` (default, accent rail + xl — it IS a section, FT "Your trucks") or `'card'` (lg header, no rail — nested under a GroupHeading, FM roster; owner 2026-09-20: it read as a section) | client |
 | `ScrollToSection.tsx` | Scroll helper used by the shopper dashboard | client |
 
 **The seven states** (`states.ts`): `neutral` resting · `active` in flight and healthy · **`attention`** you must act and nobody else can · `warning` degrading not broken · `danger` broken or blocking · `pending` you have done your part, someone else has not · `locked` your tier does not include it.

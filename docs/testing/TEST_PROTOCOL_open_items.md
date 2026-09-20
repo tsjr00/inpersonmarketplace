@@ -18,17 +18,19 @@ covered a test while running another, say so — the ID is what gets recorded, n
 ★ WHAT'S NEW — retest these first
 ===
 
-Last update: 2026-09-19 (late) · staging build a52cd6f0 — migrations 256 + 257 are on Staging (hard-refresh before testing).
+Last update: 2026-09-20 · staging build (pending push) — migrations 256 + 257 + 258 are on Staging (hard-refresh before testing). ⚠ After 258 your test markets' sizes have NO booth numbers until you enter them (TR-100) — do that first, or the booking tests below can't run.
 Fixes shipped since your last results (2026-09-18, OB-026/OB-027; 2026-09-19 OB-028 booth conflict). Each line
 points at its full block below. When this section is empty, there is nothing new to retest — go straight to the
 regular groups.
 
-BOOTH NUMBERING — OPTION U, parts A + B (your 09-20 rulings: numbers belong to sizes; migration 258 is on Dev + Staging):
+BOOTH NUMBERING — OPTION U, parts A–D (your 09-20 rulings: numbers belong to sizes; migration 258 is on Dev + Staging):
 🟠 TR-100  Booth inventory asks "new or existing numbers?", then numbers each size (A1–A4…); count derived; overlaps refused by name
 🟠 TR-101  The same "How booth numbers work here" paragraph on all four booth cards, with your market's number map
 🟠 TR-102  Every booth number is PICKED (size → number), never typed; taken numbers show who holds them
 🟠 TR-103  Paid weeks show their number locked with the reason; "needs booth #" only at markets that don't charge
 🟠 TR-104  Occupancy grid shows every numbered booth, free ones included; vendor form says which number they'll get
+🟠 TR-105  Action Items lists all six kinds, each linking to its card
+🟠 TR-106  "Vendors at this market" reads as a card, not a section; links into collapsed Setup open it
 
 FM MANAGER DASHBOARD (your 09-19 user-feedback review, OB-029 parts B + C + D — no migration):
 🟠 TR-097  Dashboard regrouped in your order; jump-nav chips and Action Items links land on the right cards
@@ -220,7 +222,7 @@ Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
 
 
 ==================================================
-🟠 GROUP 3 — BOOTH WEEKS AND MONEY AT MANAGED MARKETS   (25 tests)
+🟠 GROUP 3 — BOOTH WEEKS AND MONEY AT MANAGED MARKETS   (27 tests)
 ===
 
 Screens: /\[vertical]/markets/\[id]/book · manager dashboard (vendor roster, booth occupancy) · /\[vertical]/listing/\[id] ·
@@ -286,6 +288,31 @@ paid)", "Pending payment", "Paid this week" or "Off platform" with the name. A s
 K open" line still matches the tiles. On the vendor's booking form, under the size dropdown: "You'll be given the
 lowest free booth number in this size when you book; paying for the week makes it yours." Book → the confirmation
 names a number from THAT size.
+Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+
+
+
+🟠 TR-105  Action Items — all six kinds  (shipped 2026-09-20)
+Where: the first card on /farmers\_market/market-manager/\[id]/dashboard (setup complete).
+Provoke what you can: leave one size without numbers · put more placeholders in a size than it has booths this
+week · have a pending applicant · at a market that does NOT charge for booths, an approved vendor without a number.
+Expect one line per kind, each with a working link: "N vendors pending your approval. Review →" (roster) ·
+"N active vendors need a booth number. Assign now →" (roster — ONLY at a non-charging market; at a charging market
+this line never appears) · "Medium has no booth numbers yet… Set numbers →" (Setup) · "N held or placeholder
+numbers have no size… Re-pick →" (roster) · "Small is over capacity this week… Fix →" (Booths & occupancy) ·
+"Stripe needs more information… Finish →" (Setup; only when Stripe is blocked on you) · "N season vendors are owed
+a settlement… Settle →" (Seasons; only after an ended season with cancelled days past the cap). Clear them all →
+"Nothing needs you right now — vendor applications, booth numbers, sizes over capacity, Stripe requests and
+season settlements show up here."
+Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+
+
+
+🟠 TR-106  Card vs section; links open a collapsed Setup  (shipped 2026-09-20)
+Where: the Vendors section of the dashboard; then any Action Item that points into Setup.
+Expect: "Vendors" has the accent rail (section); "Vendors at this market" below it is a plain bold card title with
+no rail. With Setup collapsed, click "Set numbers →" or "Settle →" → Setup opens by itself and the page scrolls to
+Booth inventory / Seasons. The jump-nav "Setup" chip still works.
 Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
 
 
