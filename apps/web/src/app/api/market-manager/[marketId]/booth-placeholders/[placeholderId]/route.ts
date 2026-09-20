@@ -114,8 +114,14 @@ export async function PATCH(
         .eq('id', placeholderId)
         .maybeSingle(), { table: 'market_booth_placeholders' })
 
+      // Mig 258 (N-1): the number must be one of this size's numbers.
+      const { checkBoothNumberAvailable, checkTierCapacity, checkLabelBelongsToTier } = await import('@/lib/markets/booth-conflict-checks')
+      const belongs = await checkLabelBelongsToTier(serviceClient, { marketId, label: input.booth_number, inventoryId: input.inventory_id })
+      if (!belongs.ok) {
+        return NextResponse.json({ error: belongs.message, code: 'ERR_BOOTH_LABEL_NOT_IN_SIZE' }, { status: 400 })
+      }
+
       // Mig 146 Issue 1: booth_number uniqueness pre-flight.
-      const { checkBoothNumberAvailable, checkTierCapacity } = await import('@/lib/markets/booth-conflict-checks')
       const conflict = await checkBoothNumberAvailable(serviceClient, {
         marketId,
         boothNumber: input.booth_number,

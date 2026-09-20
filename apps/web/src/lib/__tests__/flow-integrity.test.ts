@@ -1347,6 +1347,44 @@ describe('Dashboard empty-state convention', () => {
     }
   })
 
+  it('booth numbering U (N-4/N-8): managers PICK numbers — no free-text booth # input; one shared help paragraph', () => {
+    // Owner 2026-09-20 (booth_numbering_design.md). Four cards set or show a
+    // booth number. Each must (a) offer numbers through BoothNumberPicker, never
+    // a typed input, and (b) render BoothNumberingHelp — the ONE story.
+    // Rule 7: strip comments before the absence check.
+    const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+    for (const f of [
+      'components/market-manager/VendorBoothList.tsx',
+      'components/market-manager/BoothPlaceholderManager.tsx',
+      'components/market-manager/WeeklyBookingsList.tsx',
+    ]) {
+      const src = strip(bare(f))
+      expect(src, `${f} must use BoothNumberPicker`).toContain('<BoothNumberPicker')
+      // A text input whose placeholder names a booth number = free text (retired).
+      expect(src, `${f} must not offer a typed booth # input`).not.toMatch(/placeholder=\{`\$\{term\(vertical, 'booth'\)\} #/)
+    }
+    for (const f of [
+      'components/market-manager/BoothInventoryManager.tsx',
+      'components/market-manager/VendorBoothList.tsx',
+      'components/market-manager/BoothPlaceholderManager.tsx',
+      'components/market-manager/WeeklyBookingsCard.tsx',
+    ]) {
+      expect(strip(bare(f)), `${f} must render the shared BoothNumberingHelp`).toContain('<BoothNumberingHelp')
+    }
+    // The picker itself never types a number either.
+    expect(strip(bare('components/market-manager/BoothNumberPicker.tsx'))).not.toMatch(/<input[^>]*type="text"/)
+    // Every writer of a number checks the label belongs to the chosen size (N-1).
+    for (const f of [
+      'app/api/market-manager/[marketId]/vendor-booth/route.ts',
+      'app/api/market-manager/[marketId]/vendor-approval/route.ts',
+      'app/api/market-manager/[marketId]/booth-placeholders/route.ts',
+      'app/api/market-manager/[marketId]/booth-placeholders/[placeholderId]/route.ts',
+      'app/api/market-manager/[marketId]/weekly-rental/[rentalId]/route.ts',
+    ]) {
+      expect(bare(f), `${f} must call checkLabelBelongsToTier`).toContain('checkLabelBelongsToTier')
+    }
+  })
+
   it('FM manager dashboard: every same-page anchor lands on an id the body renders', () => {
     // Owner regroup 2026-09-19 (OB-029 part B): the jump nav chips and the
     // Action Items "Review →" / "Assign now →" links are plain `#id` anchors.
@@ -1881,7 +1919,9 @@ describe('Event token format', () => {
       const applyForm = rd('app/[vertical]/markets/[id]/ApplyToMarketButton.tsx')
       expect(applyForm, 'the form sends the request').toMatch(/requested_inventory_id: requestedTierId/)
       const approval = rd('app/api/market-manager/[marketId]/vendor-approval/route.ts')
-      expect(approval, 'approval writes the tier when sent').toMatch(/approved && sizeProvided \? \{ inventory_id: inventoryId \}/)
+      // Mig 258 (N-1, owner yes 2026-09-20): the tier is written when a size is
+      // sent OR when a number decides it (resolvedInventoryId).
+      expect(approval, 'approval writes the tier when sent (or when the number decides it)').toMatch(/approved && \(sizeProvided \|\| boothNumber !== null\) \? \{ inventory_id: resolvedInventoryId \}/)
       expect(approval, 'approval writes the pin when sent').toMatch(/approved && boothProvided \? \{ booth_number: boothNumber \}/)
       expect(approval, 'the pin pre-flight excludes the vendor\'s own rentals (BR-11)').toMatch(/vendorProfileId,\s*\n\s*\}\)/)
       expect(approval, 'the approval notification carries size, number and note (one send)').toMatch(/boothSizeLabel[\s\S]{0,120}boothNumber[\s\S]{0,120}managerNote/)

@@ -23,6 +23,12 @@ Fixes shipped since your last results (2026-09-18, OB-026/OB-027; 2026-09-19 OB-
 points at its full block below. When this section is empty, there is nothing new to retest — go straight to the
 regular groups.
 
+BOOTH NUMBERING — OPTION U, parts A + B (your 09-20 rulings: numbers belong to sizes; migration 258 is on Dev + Staging):
+🟠 TR-100  Booth inventory asks "new or existing numbers?", then numbers each size (A1–A4…); count derived; overlaps refused by name
+🟠 TR-101  The same "How booth numbers work here" paragraph on all four booth cards, with your market's number map
+🟠 TR-102  Every booth number is PICKED (size → number), never typed; taken numbers show who holds them
+🟠 TR-103  Paid weeks show their number locked with the reason; "needs booth #" only at markets that don't charge
+
 FM MANAGER DASHBOARD (your 09-19 user-feedback review, OB-029 parts B + C + D — no migration):
 🟠 TR-097  Dashboard regrouped in your order; jump-nav chips and Action Items links land on the right cards
 🟠 TR-098  "Action Items" lists only approvals to review and booth numbers to assign
@@ -213,7 +219,7 @@ Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
 
 
 ==================================================
-🟠 GROUP 3 — BOOTH WEEKS AND MONEY AT MANAGED MARKETS   (20 tests)
+🟠 GROUP 3 — BOOTH WEEKS AND MONEY AT MANAGED MARKETS   (24 tests)
 ===
 
 Screens: /\[vertical]/markets/\[id]/book · manager dashboard (vendor roster, booth occupancy) · /\[vertical]/listing/\[id] ·
@@ -224,6 +230,49 @@ Test, River Road or Westgate Mall — all four charge for booths). Check everyth
 book + pay one week, then check everything again.
 Words used below — PIN: the booth number the manager types on the roster (a hold; the vendor may never pay).
 BOOKING: a week the vendor booked and paid for. Migration 256 must be on Staging before the first five tests.
+
+
+
+🟠 TR-100  Booth inventory numbers booths BY SIZE  (shipped 2026-09-20 — migration 258 on Staging; do this FIRST — every other booth test needs numbers)
+Where: /farmers\_market/market-manager/\[id]/dashboard → Setup → Booth inventory. Your test tiers have NO numbers after
+the migration (by design — we said re-enter them).
+Steps: answer "Is this a new market, or does it already have booth numbers?" (try "New market"). Edit each size:
+the letter is pre-filled (A, then B, then C); give first/last numbers; Save. Then: (a) try to give a second size a
+number the first already has → refused by name ("A3 is already a Small booth"); (b) hold #A2 for a vendor on the
+roster, come back and shrink Small to A1–A1 → refused ("A2 is still held…"); (c) switch the market to "Existing
+numbers" via "change" → a size may now have a prefix-less range or a comma list ("3, 5, 7").
+Expect: count reads "= N booths" and is not typed; the card's map line shows "Small A1–A4 · Medium B1–B3…"; a size
+with no numbers is flagged "⚠ No booth numbers yet — not bookable".
+Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+
+
+
+🟠 TR-101  One paragraph, four cards  (shipped 2026-09-20)
+Where: Booth inventory · Vendors at this market (roster) · Off-platform booth placeholders · Weekly booth bookings.
+Expect: the same "How booth numbers work here." paragraph on each, showing your market's number map; when a size has
+no numbers yet, an amber sentence at the end names it. No other card explains booth numbers differently.
+Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+
+
+
+🟠 TR-102  Numbers are picked, never typed  (shipped 2026-09-20)
+Where: roster (an approved vendor's row, and a pending vendor's Approve row) · Off-platform placeholders (Add, Edit)
+· Weekly booth bookings (a pending row).
+Expect: two dropdowns — size, then number — and a "N free" count. Taken numbers are listed but greyed with who holds
+them ("A3 — held: Sunrise Bakery", "A4 — paid, locked: Valley Verde through 2026-10-03", "B1 — off-platform: …").
+Nowhere can you type a number. Pick a size with no numbers → "Set this size's numbers in Booth inventory first."
+Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+
+
+
+🟠 TR-103  Locked paid rows · "needs booth #" only where it's your job  (shipped 2026-09-20)
+Where: Weekly booth bookings → a PAID current/upcoming row and a PENDING row; the roster at a market that CHARGES
+for booths and at one that doesn't.
+Expect: the paid row reads "Booth #A2 — locked, paid week. Changes only after a missed week, or cancel the week
+below." with no dropdown; the pending row has the size/number picker (size fixed). At a charging market the roster
+has NO "Needs booth #" chip and an unnumbered vendor reads "gets a booth # when they book"; at a free market the chip
+and "needs booth #" are still there.
+Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
 
 
 

@@ -71,7 +71,7 @@ export async function PATCH(
     // Read the row first (scoped to this market) for the freeze + pre-check.
     const { data: current } = await observed(serviceClient
       .from('weekly_booth_rentals')
-      .select('id, vendor_profile_id, week_start_date, booth_number, status, vendor_profiles!weekly_booth_rentals_vendor_profile_id_fkey ( user_id, profile_data )')
+      .select('id, vendor_profile_id, week_start_date, booth_number, status, inventory_id, vendor_profiles!weekly_booth_rentals_vendor_profile_id_fkey ( user_id, profile_data )')
       .eq('id', rentalId)
       .eq('market_id', marketId)
       .maybeSingle(), { table: 'weekly_booth_rentals' })
@@ -93,6 +93,19 @@ export async function PATCH(
           { error: frozenBoothMessage(vendorName, previousBooth, weekEnd), code: 'ERR_BOOTH_ASSIGNED_FROZEN' },
           { status: 409 }
         )
+      }
+    }
+
+    // Mig 258 (N-1): the new number must be one of the BOOKED size's numbers —
+    // a booking's tier is its price; moving it to another size's number is a
+    // different booking, not an override.
+    if (!unchanged && boothNumber !== null) {
+      const { checkLabelBelongsToTier } = await import('@/lib/markets/booth-conflict-checks')
+      const belongs = await checkLabelBelongsToTier(serviceClient, {
+        marketId, label: boothNumber, inventoryId: (current.inventory_id as string | null) ?? null,
+      })
+      if (!belongs.ok) {
+        return NextResponse.json({ error: belongs.message, code: 'ERR_BOOTH_LABEL_NOT_IN_SIZE' }, { status: 400 })
       }
     }
 

@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { term } from '@/lib/vertical/terminology'
+import BoothNumberPicker from './BoothNumberPicker'
+import BoothNumberingHelp from './BoothNumberingHelp'
+import { describeTierLabels, type BoothInventoryRow } from '@/lib/markets/booth-types'
 
 interface Vendor {
   market_vendor_id: string
@@ -35,6 +38,8 @@ interface Vendor {
 interface TierOption {
   id: string
   size_label: string
+  /** Mig 258: "A1–A4" · "" when the size has no numbers yet. */
+  description: string
 }
 
 interface VendorBoothListProps {
@@ -68,12 +73,17 @@ type FilterMode = 'active' | 'needs_booth' | 'pending_approval' | 'invited' | 'r
  * Per-row actions:
  *   - Pending vendors (approved=false) — show "Approve" button. Clicking
  *     PATCHes /api/market-manager/[marketId]/vendor-approval with
- *     approved=true. Booth controls are hidden until approval.
- *   - Approved vendors — show booth_number input + Save. Clicking PATCHes
- *     /api/market-manager/[marketId]/vendor-booth.
+ *     approved=true (+ the size/number/note the manager picked, BR-3).
+ *   - Approved vendors — BoothNumberPicker (size → number) + Save. Clicking
+ *     PATCHes /api/market-manager/[marketId]/vendor-booth.
  *
- * Read-only fields: name, status. Editable: approved (via Approve button),
- * booth_number (after approval).
+ * Mig 258 (booth numbering Option U, owner 2026-09-20): a number is PICKED
+ * from the chosen size's own numbers, never typed (N-4) — taken numbers show
+ * who holds them. "Needs booth #" is only a to-do at markets that do NOT
+ * charge for booths: at a charging market the vendor receives a number when
+ * they book (mig 186/258), so the roster says "gets a number when they book"
+ * instead (booth_numbering_review.md F2a). The one helper paragraph
+ * (BoothNumberingHelp) sits above the list.
  *
  * Calls:
  *  - GET   /api/market-manager/[marketId]/vendors            on mount
@@ -153,8 +163,8 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
           // tiers as an empty array and kept the per-vendor tier <select>
           // permanently disabled (`disabled={... || tiers.length === 0}`).
           // Caught in Session 84 manager testing — Test 3.
-          const rows = (tierData.inventory as Array<{ id: string; size_label: string }>) ?? []
-          setTiers(rows.map((r) => ({ id: r.id, size_label: r.size_label })))
+          const rows = (tierData.inventory as BoothInventoryRow[]) ?? []
+          setTiers(rows.map((r) => ({ id: r.id, size_label: r.size_label, description: describeTierLabels(r) })))
         }
       } catch {
         setLoadError('Network error loading vendors')
@@ -367,7 +377,11 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
 
   // Filter computations
   const activeVendors = vendors.filter((v) => v.approved && v.is_active_schedule)
-  const needsBoothVendors = activeVendors.filter((v) => !v.booth_number)
+  // F2a (2026-09-20): at a market that CHARGES for booths the vendor gets a
+  // number when they book — nothing for the manager to do. The to-do exists
+  // only where the roster hold is the way a vendor gets a number.
+  const marketChargesBooths = vendors.some((v) => v.market_charges_booths)
+  const needsBoothVendors = marketChargesBooths ? [] : activeVendors.filter((v) => !v.booth_number)
   // NEW-8: pending-approval bucket excludes manager-initiated invitations
   // (response_status='invited') so those don't double-count. Self-joined
   // vendors awaiting manager approval have response_status=NULL.
@@ -432,8 +446,9 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
         <span>Show:</span>
         {renderFilterChip('active', 'Active', activeVendors.length)}
         {/* FT parks have no booth-number model — spots live in park_spot_bookings.
-            Hide the "Needs spot #" filter for FT. */}
-        {!isFoodTruck && (
+            Hide the "Needs spot #" filter for FT; at a charging FM market the
+            number arrives with the booking, so the chip is hidden there too. */}
+        {!isFoodTruck && !marketChargesBooths && (
           <>
             <span>·</span>
             {renderFilterChip('needs_booth', `Needs ${term(vertical, 'booth').toLowerCase()} #`, needsBoothVendors.length)}
@@ -454,6 +469,9 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
         <span>·</span>
         {renderFilterChip('all', 'All', vendors.length)}
       </div>
+
+      {/* The one booth-numbers story (N-8) — FM only; FT parks use spots. */}
+      {!isFoodTruck && <BoothNumberingHelp vertical={vertical} tiers={tiers} compact />}
 
       {/* Tester finding 2026-07-25: a first-time operator was confused that an
           un-approved truck could already hold a booking. Explain book-then-vet
@@ -587,7 +605,11 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                     <span>· {v.response_status.replace(/_/g, ' ')}</span>
                   )}
                   {!v.is_active_schedule && <span>· not scheduled</span>}
-                  {!isFoodTruck && !v.booth_number && v.approved && v.is_active_schedule && <span>· needs {term(vertical, 'booth').toLowerCase()} #</span>}
+                  {!isFoodTruck && !v.booth_number && v.approved && v.is_active_schedule && (
+                    marketChargesBooths
+                      ? <span>· gets a {term(vertical, 'booth').toLowerCase()} # when they book</span>
+                      : <span>· needs {term(vertical, 'booth').toLowerCase()} #</span>
+                  )}
                   {/* Owner 2026-09-18 (OB-027): a booth # is a standing pin, not a
                       payment — say so where the manager assigns it, at markets
                       that charge for booths. Whether an UNPAID vendor may sell a
@@ -597,11 +619,9 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                       · no paid week yet
                     </span>
                   )}
-                  {/* Mig 145: surface "tier not set" for approved vendors
-                      missing inventory_id. Doesn't block bookings (tier
-                      is informational for capacity math + occupancy
-                      grid) but signals data quality. FT parks have no tiers. */}
-                  {!isFoodTruck && !v.inventory_id && v.approved && <span style={{ color: '#a16207' }}>· tier not set</span>}
+                  {/* Mig 258: a HELD number without a size is legacy data (the
+                      picker can no longer create one) — flag it until re-picked. */}
+                  {!isFoodTruck && !!v.booth_number && !v.inventory_id && v.approved && <span style={{ color: '#a16207' }}>· size not set — re-pick the number</span>}
                   {isFoodTruck && v.blocked && <span style={{ color: '#991b1b', fontWeight: typography.weights.semibold }}>· 🚫 Blocked from booking</span>}
                 </div>
               </div>
@@ -627,27 +647,19 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                           Requested: <strong>{v.requested_size_label}</strong>
                         </span>
                       )}
-                      <select
-                        value={tierEdits[v.vendor_profile_id] ?? ''}
-                        onChange={(e) => setTierEdits((s) => ({ ...s, [v.vendor_profile_id]: e.target.value }))}
-                        disabled={isApproving}
-                        title="Booth size to grant"
-                        style={{ padding: `${spacing['3xs']} ${spacing.xs}`, border: `1px solid ${colors.border}`, borderRadius: radius.sm, fontSize: typography.sizes.xs, minHeight: 32 }}
-                      >
-                        <option value="">Size: not set</option>
-                        {tiers.map((t) => (
-                          <option key={t.id} value={t.id}>{t.size_label}</option>
-                        ))}
-                      </select>
-                      <input
-                        type="text"
+                      {/* Mig 258 (N-4): size → number, picked from that size's own
+                          numbers. A hold is optional at approval (the vendor gets a
+                          number when they book); the size is what BR-4 locks. */}
+                      <BoothNumberPicker
+                        marketId={marketId}
+                        vertical={vertical}
+                        tiers={tiers}
+                        inventoryId={tierEdits[v.vendor_profile_id] ?? ''}
+                        onInventoryChange={(id) => setTierEdits((s) => ({ ...s, [v.vendor_profile_id]: id }))}
                         value={edits[v.vendor_profile_id] ?? ''}
-                        onChange={(e) => setEdits((s) => ({ ...s, [v.vendor_profile_id]: e.target.value }))}
-                        placeholder={`${term(vertical, 'booth')} # (hold)`}
+                        onChange={(label) => setEdits((s) => ({ ...s, [v.vendor_profile_id]: label }))}
+                        vendorProfileId={v.vendor_profile_id}
                         disabled={isApproving}
-                        maxLength={50}
-                        title="Booth number to hold for this vendor — theirs once they pay for a week"
-                        style={{ width: 96, padding: `${spacing['3xs']} ${spacing.xs}`, border: `1px solid ${colors.border}`, borderRadius: radius.sm, fontSize: typography.sizes.xs, minHeight: 32 }}
                       />
                       <input
                         type="text"
@@ -716,47 +728,20 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                   {/* BR-7 (owner 2026-09-19): a pinned number backed by a paid
                       current/upcoming week is FROZEN — the vendor paid for that
                       booth. The server refuses the edit; the field says why
-                      inline (phones have no hover). Pending weeks don't freeze. */}
-                  <input
-                    type="text"
+                      inline (phones have no hover). Pending weeks don't freeze.
+                      Mig 258 (N-4): size → number picked from that size's own
+                      numbers (taken ones show who holds them). */}
+                  <BoothNumberPicker
+                    marketId={marketId}
+                    vertical={vertical}
+                    tiers={tiers}
+                    inventoryId={editedTier}
+                    onInventoryChange={(id) => setTierEdits((s) => ({ ...s, [v.vendor_profile_id]: id }))}
                     value={editedValue}
-                    onChange={(e) => setEdits((s) => ({ ...s, [v.vendor_profile_id]: e.target.value }))}
-                    placeholder={`${term(vertical, 'booth')} #`}
+                    onChange={(label) => setEdits((s) => ({ ...s, [v.vendor_profile_id]: label }))}
+                    vendorProfileId={v.vendor_profile_id}
                     disabled={isSaving || (!!v.booth_number && !!v.has_paid_booth_week)}
-                    maxLength={50}
-                    style={{
-                      width: 90,
-                      padding: `${spacing['3xs']} ${spacing.xs}`,
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: radius.sm,
-                      fontSize: typography.sizes.sm,
-                    }}
                   />
-                  {/* Mig 145: per-row tier selector. Tied to
-                      market_vendors.inventory_id; required by data
-                      quality + occupancy grid. Existing rows may have
-                      NULL tier until manager fills in. */}
-                  <select
-                    value={editedTier}
-                    onChange={(e) => setTierEdits((s) => ({ ...s, [v.vendor_profile_id]: e.target.value }))}
-                    disabled={isSaving || tiers.length === 0 || (!!v.booth_number && !!v.has_paid_booth_week)}
-                    title={tiers.length === 0 ? `Set up ${term(vertical, 'booth').toLowerCase()} inventory tiers first` : `${term(vertical, 'booth')} size tier`}
-                    style={{
-                      maxWidth: 140,
-                      padding: `${spacing['3xs']} ${spacing.xs}`,
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: radius.sm,
-                      fontSize: typography.sizes.sm,
-                      backgroundColor: 'white',
-                    }}
-                  >
-                    <option value="">— Tier —</option>
-                    {tiers.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.size_label}
-                      </option>
-                    ))}
-                  </select>
                   <button
                     onClick={() => handleSave(v.vendor_profile_id)}
                     disabled={isSaving || !dirty}

@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
+import BoothNumberPicker from './BoothNumberPicker'
 
 /**
  * Interactive list of weekly booth rental bookings. Phase C Stage 1A
@@ -22,8 +23,12 @@ import { term } from '@/lib/vertical/terminology'
  *
  * Per-row UX:
  *   - Vendor name + week + size + price + status badge (read-only)
- *   - Inline booth-number input + Save button. Save calls
+ *   - PENDING rows: BoothNumberPicker locked to the booking's size and week
+ *     (mig 258 N-4 — pick another free number of the same size) + Save →
  *     PATCH /api/market-manager/[marketId]/weekly-rental/[rentalId].
+ *   - PAID current/upcoming rows: number shown read-only with the reason
+ *     (BR-7 freeze — the server refused the edit before; now the field says
+ *     so instead of inviting a click that fails, booth_numbering_review F2b).
  *   - Save button disables when value matches current booth_number
  *     (no-op prevention) or while saving.
  *   - "✓ Saved" flash on success; per-row error display.
@@ -38,6 +43,8 @@ export interface WeeklyBookingRow {
   vendor_profile_id: string
   vendor_name: string
   week_start_date: string
+  /** The booked size — the picker offers only this size's numbers (mig 258). */
+  inventory_id: string
   size_label: string
   booth_number: string | null
   price_cents: number
@@ -279,7 +286,15 @@ export default function WeeklyBookingsList({ marketId, vertical, bookings: initi
         const editedValue = edits[b.id] ?? ''
         const dirty = editedValue !== (b.booth_number ?? '')
         const badge = statusBadge(b.status)
-        const editable = b.status !== 'cancelled'
+        // BR-7: a PAID current/upcoming week is frozen — show it locked with the
+        // reason instead of an input the server will refuse. Past paid weeks
+        // and pending weeks stay editable (pending never freezes).
+        const weekSaturday = (() => {
+          const [y, m, d] = b.week_start_date.split('-').map(Number)
+          return new Date(Date.UTC(y, m - 1, d + 6)).toISOString().slice(0, 10)
+        })()
+        const frozen = b.status === 'paid' && !!b.booth_number && weekSaturday >= new Date().toISOString().slice(0, 10)
+        const editable = b.status !== 'cancelled' && !frozen
 
         return (
           <div
@@ -311,21 +326,20 @@ export default function WeeklyBookingsList({ marketId, vertical, bookings: initi
             </div>
 
             {editable ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-                <input
-                  type="text"
+              <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], flexWrap: 'wrap' }}>
+                {/* Mig 258 (N-4): size is the booking's own — only its numbers are offered, for THIS week. */}
+                <BoothNumberPicker
+                  marketId={marketId}
+                  vertical={vertical}
+                  tiers={[{ id: b.inventory_id, size_label: b.size_label }]}
+                  inventoryId={b.inventory_id}
+                  onInventoryChange={() => { /* the booked size cannot change here */ }}
                   value={editedValue}
-                  onChange={(e) => setEdits((s) => ({ ...s, [b.id]: e.target.value }))}
-                  placeholder={`${term(vertical, 'booth')} #`}
+                  onChange={(label) => setEdits((s) => ({ ...s, [b.id]: label }))}
+                  vendorProfileId={b.vendor_profile_id}
+                  weekStartDate={b.week_start_date}
                   disabled={isSaving}
-                  maxLength={50}
-                  style={{
-                    width: 110,
-                    padding: `${spacing['3xs']} ${spacing.xs}`,
-                    border: `1px solid ${colors.border}`,
-                    borderRadius: radius.sm,
-                    fontSize: typography.sizes.sm,
-                  }}
+                  allowClear={false}
                 />
                 <button
                   onClick={() => handleSave(b.id)}
@@ -349,6 +363,13 @@ export default function WeeklyBookingsList({ marketId, vertical, bookings: initi
                     ✓ Saved
                   </span>
                 )}
+              </div>
+            ) : frozen ? (
+              // BR-7 (F2b): paid current/upcoming — the number is theirs. Say so
+              // here instead of offering an input the server will refuse.
+              <div style={{ fontSize: typography.sizes.xs, color: '#a16207', maxWidth: 320 }}>
+                <strong style={{ color: colors.textPrimary }}>{term(vertical, 'booth')} #{b.booth_number}</strong> — locked, paid week.
+                Changes only after a missed week, or cancel the week below.
               </div>
             ) : (
               // Cancelled bookings: show the booth_number (if any) but no

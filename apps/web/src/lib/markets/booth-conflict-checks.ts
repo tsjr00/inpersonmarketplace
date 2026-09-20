@@ -136,6 +136,35 @@ export async function checkBoothNumberAvailable(
   return null
 }
 
+/**
+ * Mig 258 (N-1/N-3): a booth number belongs to exactly one size at the market.
+ * Every writer of a number (pin, approval, placeholder, weekly override) runs
+ * this before writing: the label must be one of the market's numbers, and it
+ * must be in the size the caller chose (or decides the size when the caller
+ * did not pick one). Source of truth is the DB function booth_tier_for_label.
+ */
+export async function checkLabelBelongsToTier(
+  serviceClient: SupabaseClient,
+  opts: { marketId: string; label: string; inventoryId?: string | null }
+): Promise<{ ok: true; inventoryId: string } | { ok: false; message: string }> {
+  const { data: tierId } = await observed(serviceClient
+    .rpc('booth_tier_for_label', { p_market_id: opts.marketId, p_label: opts.label }), { table: 'market_booth_inventory' })
+  const resolved = (tierId as string | null) ?? null
+  if (!resolved) {
+    return { ok: false, message: `#${opts.label} isn't one of this market's booth numbers. Pick a number from the list (set each size's numbers in Booth inventory).` }
+  }
+  if (opts.inventoryId && opts.inventoryId !== resolved) {
+    const { data: tier } = await observed(serviceClient
+      .from('market_booth_inventory')
+      .select('size_label')
+      .eq('id', resolved)
+      .maybeSingle(), { table: 'market_booth_inventory' })
+    const size = (tier?.size_label as string | undefined) || 'another size'
+    return { ok: false, message: `#${opts.label} is a ${size} booth. Pick a number from the size you chose, or change the size.` }
+  }
+  return { ok: true, inventoryId: resolved }
+}
+
 interface CheckTierCapacityOpts {
   marketId: string
   inventoryId: string

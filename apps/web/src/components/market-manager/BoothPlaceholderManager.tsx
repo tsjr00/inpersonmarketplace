@@ -5,7 +5,9 @@ import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { term } from '@/lib/vertical/terminology'
 import type { BoothPlaceholderRow, BoothPlaceholderInput } from '@/lib/markets/placeholder-types'
-import type { BoothInventoryRow } from '@/lib/markets/booth-types'
+import { describeTierLabels, type BoothInventoryRow } from '@/lib/markets/booth-types'
+import BoothNumberPicker from './BoothNumberPicker'
+import BoothNumberingHelp from './BoothNumberingHelp'
 
 interface BoothPlaceholderManagerProps {
   marketId: string
@@ -32,10 +34,12 @@ interface BoothPlaceholderManagerProps {
  *   - PATCH  /api/market-manager/[marketId]/booth-placeholders/[id]
  *   - DELETE /api/market-manager/[marketId]/booth-placeholders/[id]
  *
- * Loads booth-inventory in parallel so the size dropdown reflects the
- * tiers configured for this market. The dropdown is optional —
- * managers can leave it unset if they don't track size on a particular
- * placeholder.
+ * Loads booth-inventory in parallel so the size picker reflects the tiers
+ * configured for this market. Mig 258 (N-4, owner 2026-09-20): the number is
+ * PICKED from the chosen size's own numbers via BoothNumberPicker — never
+ * typed — so a placeholder always carries its size and can never take a
+ * number that belongs to another size. The one helper paragraph
+ * (BoothNumberingHelp) sits above the list.
  */
 export default function BoothPlaceholderManager({ marketId, vertical }: BoothPlaceholderManagerProps) {
   const [rows, setRows] = useState<BoothPlaceholderRow[] | null>(null)
@@ -248,8 +252,14 @@ export default function BoothPlaceholderManager({ marketId, vertical }: BoothPla
     }
   }
 
+  // Mig 258: the picker wants id + size + the map line; the help paragraph wants the map.
+  const pickerTiers = tiers.map((t) => ({ id: t.id, size_label: t.size_label, description: describeTierLabels(t) }))
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+      {/* The one booth-numbers story (N-8). */}
+      <BoothNumberingHelp vertical={vertical} tiers={pickerTiers} compact />
+
       {/* Summary */}
       <div style={{
         display: 'flex',
@@ -353,30 +363,18 @@ export default function BoothPlaceholderManager({ marketId, vertical }: BoothPla
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-                    <div style={{ display: 'flex', gap: spacing.xs, flexWrap: 'wrap' }}>
-                      <input
-                        type="text"
-                        value={editForm.booth_number}
-                        onChange={(e) => setEditForm((s) => ({ ...s, booth_number: e.target.value }))}
-                        placeholder={`${term(vertical, 'booth')} number`}
-                        disabled={isLoading}
-                        maxLength={50}
-                        style={{ flex: '1 1 140px', padding: `${spacing['3xs']} ${spacing.xs}`, border: `1px solid ${colors.border}`, borderRadius: radius.sm, fontSize: typography.sizes.sm }}
-                      />
-                      <select
-                        value={editForm.inventory_id}
-                        onChange={(e) => setEditForm((s) => ({ ...s, inventory_id: e.target.value }))}
-                        disabled={isLoading}
-                        style={{ flex: '1 1 160px', padding: `${spacing['3xs']} ${spacing.xs}`, border: `1px solid ${colors.border}`, borderRadius: radius.sm, fontSize: typography.sizes.sm, backgroundColor: 'white' }}
-                      >
-                        <option value="">— Select size tier —</option>
-                        {tiers.map((tier) => (
-                          <option key={tier.id} value={tier.id}>
-                            {tier.size_label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    <BoothNumberPicker
+                      marketId={marketId}
+                      vertical={vertical}
+                      tiers={pickerTiers}
+                      inventoryId={editForm.inventory_id}
+                      onInventoryChange={(id) => setEditForm((s) => ({ ...s, inventory_id: id }))}
+                      value={editForm.booth_number}
+                      onChange={(label) => setEditForm((s) => ({ ...s, booth_number: label }))}
+                      disabled={isLoading}
+                      allowClear={false}
+                      compact={false}
+                    />
                     <input
                       type="text"
                       value={editForm.notes}
@@ -443,29 +441,19 @@ export default function BoothPlaceholderManager({ marketId, vertical }: BoothPla
         <div style={{ fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm, marginBottom: spacing.xs }}>
           Add an off-platform {term(vertical, 'booth').toLowerCase()} placeholder
         </div>
-        <div style={{ display: 'flex', gap: spacing.xs, flexWrap: 'wrap', marginBottom: spacing.xs }}>
-          <input
-            type="text"
+        <div style={{ marginBottom: spacing.xs }}>
+          <BoothNumberPicker
+            marketId={marketId}
+            vertical={vertical}
+            tiers={pickerTiers}
+            inventoryId={addForm.inventory_id}
+            onInventoryChange={(id) => setAddForm((s) => ({ ...s, inventory_id: id }))}
             value={addForm.booth_number}
-            onChange={(e) => setAddForm((s) => ({ ...s, booth_number: e.target.value }))}
-            placeholder={`${term(vertical, 'booth')} number (e.g., 12, A3)`}
+            onChange={(label) => setAddForm((s) => ({ ...s, booth_number: label }))}
             disabled={addLoading}
-            maxLength={50}
-            style={{ flex: '1 1 160px', padding: `${spacing['3xs']} ${spacing.xs}`, border: `1px solid ${colors.border}`, borderRadius: radius.sm, fontSize: typography.sizes.sm }}
+            allowClear={false}
+            compact={false}
           />
-          <select
-            value={addForm.inventory_id}
-            onChange={(e) => setAddForm((s) => ({ ...s, inventory_id: e.target.value }))}
-            disabled={addLoading || tiers.length === 0}
-            style={{ flex: '1 1 160px', padding: `${spacing['3xs']} ${spacing.xs}`, border: `1px solid ${colors.border}`, borderRadius: radius.sm, fontSize: typography.sizes.sm, backgroundColor: 'white' }}
-          >
-            <option value="">{tiers.length === 0 ? `(set up ${term(vertical, 'booth').toLowerCase()} inventory first)` : '— Select size tier —'}</option>
-            {tiers.map((tier) => (
-              <option key={tier.id} value={tier.id}>
-                {tier.size_label}
-              </option>
-            ))}
-          </select>
         </div>
         <input
           type="text"

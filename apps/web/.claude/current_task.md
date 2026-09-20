@@ -1,4 +1,19 @@
-# ▶ 2026-09-20 (later) — BOOTH NUMBERING OPTION U: DESIGN WRITTEN, NOTHING BUILT
+# ▶ 2026-09-20 (build) — OPTION U: mig 258 ✅ Dev (+Staging applied, post-check paste owed) · U-A COMMITTED `446db932` · U-B BUILT (uncommitted, gates green tsc 0 · eslint 0 · vitest 94/2287)
+**U-B built:** `BoothNumberPicker` (size → number; feed `booth-labels?inventory_id=…`; taken numbers disabled with
+holder) wired into `VendorBoothList` (hold + approval; "needs booth #" only where the market does NOT charge —
+`marketChargesBooths`; legacy "size not set — re-pick"), `BoothPlaceholderManager` (add + edit, allowClear=false),
+`WeeklyBookingsList` (pending rows: picker fixed to the booking's size + week; PAID current/upcoming rows locked
+read-only with the reason) · `WeeklyBookingsCard` new description/empty copy + help paragraph · N-1 server check
+`checkLabelBelongsToTier()` (booth-conflict-checks.ts, RPC `booth_tier_for_label`) in vendor-booth, vendor-approval,
+booth-placeholders (POST + PATCH), weekly-rental · flow pin (no typed booth # input; help on 4 cards; 5 routes call the
+check) · part-B pin regex widened WITH the owner's yes (N-1 writes the tier when the number decides it) · registry
+TR-100–103 + printable list (★ + Group 3 blocks) · map 12.
+**NEXT:** owner's word → commit U-B → U-C (grid draws every slot per size; vendor book page copy) → U-D (six Action
+Items + TabbedCard heading) → one push. Staging 258 post-check paste still owed (record → flip ✅ Staging).
+
+---
+
+# (superseded) 2026-09-20 (later) — BOOTH NUMBERING OPTION U: DESIGN WRITTEN
 Owner reviewed the new dashboard: 5 items (TabbedCard title looks like a section; "you can assign booth numbers"
 stale; Action Items must include the grid's "N occupants without a size tier" + everything else actionable; Booth
 numbering copy review; are the 3+ number-assignment paths harmonious?). Review → `.claude/booth_numbering_review.md`

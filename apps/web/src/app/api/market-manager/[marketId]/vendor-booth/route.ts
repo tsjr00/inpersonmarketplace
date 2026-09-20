@@ -130,6 +130,21 @@ export async function PATCH(
       }
     }
 
+    // Mig 258 (N-1): the number must be one of this market's numbers and must
+    // belong to the chosen size; when no size was sent, the number decides it.
+    if (boothNumber !== null) {
+      const { checkLabelBelongsToTier } = await import('@/lib/markets/booth-conflict-checks')
+      const belongs = await checkLabelBelongsToTier(serviceClient, {
+        marketId,
+        label: boothNumber,
+        inventoryId: inventoryIdProvided ? inventoryId ?? null : (existingMv.inventory_id as string | null),
+      })
+      if (!belongs.ok) {
+        return NextResponse.json({ error: belongs.message, code: 'ERR_BOOTH_LABEL_NOT_IN_SIZE' }, { status: 400 })
+      }
+      inventoryId = belongs.inventoryId
+    }
+
     // Mig 146 Issue 1: booth_number uniqueness pre-flight (friendly
     // error before the DB trigger fires). The vendor's own rental of this
     // number is not a conflict (BR-11) — `vendorProfileId` excludes it.
@@ -154,7 +169,10 @@ export async function PATCH(
       booth_number: boothNumber,
       updated_at: new Date().toISOString(),
     }
-    if (inventoryIdProvided) {
+    // Mig 258: with a number, the size always travels with it (resolved above).
+    if (boothNumber !== null) {
+      updates.inventory_id = inventoryId
+    } else if (inventoryIdProvided && inventoryId !== undefined) {
       updates.inventory_id = inventoryId
     }
 

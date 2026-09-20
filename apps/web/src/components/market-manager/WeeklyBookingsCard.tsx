@@ -1,7 +1,9 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import WeeklyBookingsList, { type WeeklyBookingRow } from '@/components/market-manager/WeeklyBookingsList'
 import DashboardCard from '@/components/dashboard/DashboardCard'
+import BoothNumberingHelp from '@/components/market-manager/BoothNumberingHelp'
 import { term } from '@/lib/vertical/terminology'
+import { describeTierLabels, type BoothInventoryRow } from '@/lib/markets/booth-types'
 
 /**
  * Manager dashboard card showing weekly booth rental bookings at this
@@ -78,8 +80,9 @@ export default async function WeeklyBookingsCard({ marketId, vertical }: WeeklyB
 
   // 2 + 3. Stitch in vendor business names + inventory size labels.
   const vendorIds = Array.from(new Set(rentals.map((r) => r.vendor_profile_id)))
-  const inventoryIds = Array.from(new Set(rentals.map((r) => r.inventory_id)))
 
+  // Every tier at the market (not just the booked ones): the help paragraph
+  // shows the whole number map (mig 258).
   const [vendorsResult, inventoryResult] = await Promise.all([
     serviceClient
       .from('vendor_profiles')
@@ -87,8 +90,9 @@ export default async function WeeklyBookingsCard({ marketId, vertical }: WeeklyB
       .in('id', vendorIds),
     serviceClient
       .from('market_booth_inventory')
-      .select('id, size_label')
-      .in('id', inventoryIds),
+      .select('id, size_label, label_prefix, label_start, label_end, labels')
+      .eq('market_id', marketId)
+      .order('size_label', { ascending: true }),
   ])
 
   const vendorNameById = new Map<string, string>()
@@ -104,18 +108,26 @@ export default async function WeeklyBookingsCard({ marketId, vertical }: WeeklyB
   for (const inv of inventoryResult.data ?? []) {
     sizeLabelById.set(inv.id as string, inv.size_label as string)
   }
+  const helpTiers = ((inventoryResult.data ?? []) as unknown as BoothInventoryRow[])
+    .map((t) => ({ size_label: t.size_label, description: describeTierLabels(t) }))
 
   return (
     <DashboardCard
       title={`Weekly ${term(vertical, 'booth').toLowerCase()} bookings`}
-      description={`Manage the bookings: any week, not just this one — use the arrows to move between weeks, set a ${term(vertical, 'booth').toLowerCase()} number on a row, see who has paid, cancel a paid week if you must. Anyone booked for several weeks is summarized once at the bottom instead of repeating on every week. (The occupancy card above is the picture; this is where you act.)`}
+      description={`Manage the bookings: any week, not just this one — use the arrows to move between weeks. Bookings get their number automatically (the vendor's held number if they have one, else the lowest free number in their size); you only step in here to move an UNPAID booking to another number of the same size, or to cancel a paid week. Anyone booked for several weeks is summarized once at the bottom. (The occupancy card above is the picture; this is where you act.)`}
       {...(noBookingsYet ? {
         empty: {
           kind: 'waiting' as const,
-          message: `Once ${term(vertical, 'vendors').toLowerCase()} book a ${term(vertical, 'booth').toLowerCase()}, each week's roster shows up here and you can assign ${term(vertical, 'booth').toLowerCase()} numbers.`,
+          // Mig 258 / F2a: numbers arrive WITH the booking — the manager is not
+          // assigning them here.
+          message: `Once ${term(vertical, 'vendors').toLowerCase()} book, each week's roster shows up here with the ${term(vertical, 'booth').toLowerCase()} number each one was given.`,
         },
       } : {})}
     >
+      {/* The one booth-numbers story (N-8). */}
+      <div style={{ marginBottom: 12 }}>
+        <BoothNumberingHelp vertical={vertical} tiers={helpTiers} compact />
+      </div>
       <WeeklyBookingsList
         marketId={marketId}
         vertical={vertical}
@@ -124,6 +136,7 @@ export default async function WeeklyBookingsCard({ marketId, vertical }: WeeklyB
           vendor_profile_id: r.vendor_profile_id,
           vendor_name: vendorNameById.get(r.vendor_profile_id) || 'Unknown vendor',
           week_start_date: r.week_start_date,
+          inventory_id: r.inventory_id,
           size_label: sizeLabelById.get(r.inventory_id) || '—',
           booth_number: r.booth_number,
           price_cents: r.price_cents,

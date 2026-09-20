@@ -85,6 +85,18 @@ export async function PATCH(
 
     const serviceClient = createServiceClient()
 
+    // Mig 258 (N-1): a number belongs to one size — it must be one of this
+    // market's numbers and match the size chosen (or decide the size).
+    let resolvedInventoryId: string | null = inventoryId
+    if (approved && boothNumber !== null) {
+      const { checkLabelBelongsToTier } = await import('@/lib/markets/booth-conflict-checks')
+      const belongs = await checkLabelBelongsToTier(serviceClient, { marketId, label: boothNumber, inventoryId })
+      if (!belongs.ok) {
+        return NextResponse.json({ error: belongs.message, code: 'ERR_BOOTH_LABEL_NOT_IN_SIZE' }, { status: 400 })
+      }
+      resolvedInventoryId = belongs.inventoryId
+    }
+
     // BR-3 pre-flights (approve with a booth number): the number must be free —
     // never against this vendor's own rentals (BR-11); the tier must belong to
     // this market (the mig 145 trigger is the backstop).
@@ -107,11 +119,11 @@ export async function PATCH(
       }
     }
     let sizeLabel: string | null = null
-    if (approved && sizeProvided && inventoryId) {
+    if (approved && (sizeProvided || boothNumber !== null) && resolvedInventoryId) {
       const { data: tier } = await observed(serviceClient
         .from('market_booth_inventory')
         .select('id, size_label')
-        .eq('id', inventoryId)
+        .eq('id', resolvedInventoryId)
         .eq('market_id', marketId)
         .maybeSingle(), { table: 'market_booth_inventory' })
       if (!tier) {
@@ -141,7 +153,8 @@ export async function PATCH(
         revoked_by: approved ? null : user.id,
         ...(approved ? {} : { booth_number: null, inventory_id: null }),
         // BR-3: size + number set at approval (only when the caller sent them).
-        ...(approved && sizeProvided ? { inventory_id: inventoryId } : {}),
+        // Mig 258: a number always carries its size (resolvedInventoryId).
+        ...(approved && (sizeProvided || boothNumber !== null) ? { inventory_id: resolvedInventoryId } : {}),
         ...(approved && boothProvided ? { booth_number: boothNumber } : {}),
         updated_at: new Date().toISOString(),
       })
