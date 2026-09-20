@@ -1,4 +1,8 @@
-# 🏁 2026-09-19 LATE CLOSE (pre-compaction, owner-directed) — BOOTH ROUND A–D ALL COMMITTED · main `a8416831` · staging `80e66d59` (part A only) · Prod untouched
+# 🏁 2026-09-19 LATE CLOSE — BOOTH ROUND A–D PUSHED TO STAGING `80e66d59..a52cd6f0` (build compiled, Playwright 49/1 skip) · migs 256 + 257 ✅ Dev + Staging · `origin/staging` = `main` = `a52cd6f0` · Prod untouched (owes 33 commits + migs 252–257)
+
+**UPDATE after the block below was written:** 257 was pasted on Dev + Staging (post-check clean, snapshot row flipped) and B+C+D were pushed. Owner retests TR-078–092 next (★ WHAT'S NEW). Rule L debt still owed (allowance 6; stamp 251) — FIRST job next session. Everything below this line predates the push.
+
+# (superseded header) BOOTH ROUND A–D ALL COMMITTED · main `a8416831` · staging `80e66d59` (part A only) · Prod untouched
 
 **Git:** `main` = `a8416831` (A `0dc0de03` → snapshot `80e66d59` → B `09143e29` → C `5cf7d64b` → D `a8416831`). `origin/staging` = `80e66d59`
 (part A + mig 256). **B, C, D are local only — NOT pushed.** Tree clean. Prod = `d704d3bb` (owes 31 commits + migs 252–257).

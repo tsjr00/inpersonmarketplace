@@ -1919,7 +1919,9 @@ describe('Event token format', () => {
     })
 
     it('part D: only the MANAGER can cancel a paid one-off week, with a reason, credit not cash (BR-10 = owner "B")', () => {
-      const cancel = rd('app/api/market-manager/[marketId]/weekly-rental/[rentalId]/cancel/route.ts')
+      // Normalized to LF: git converts this file to CRLF on Windows checkouts and
+      // the multi-line index search below must not depend on that.
+      const cancel = rd('app/api/market-manager/[marketId]/weekly-rental/[rentalId]/cancel/route.ts').replace(/\r\n/g, '\n')
       expect(cancel, 'reason is required — the vendor reads it').toMatch(/if \(!reason\)/)
       expect(cancel, 'season children refused').toMatch(/if \(rental\.group_id\)/)
       expect(cancel, 'claim-first guarded flip before any mint').toMatch(/\.update\(\{ status: 'cancelled', cancelled_at[\s\S]{0,80}\.eq\('status', 'paid'\)/)

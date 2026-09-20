@@ -18,12 +18,12 @@ covered a test while running another, say so — the ID is what gets recorded, n
 ★ WHAT'S NEW — retest these first
 ===
 
-Last update: 2026-09-19 (evening) · staging build PENDING PUSH (hard-refresh before testing).
+Last update: 2026-09-19 (late) · staging build a52cd6f0 — migrations 256 + 257 are on Staging (hard-refresh before testing).
 Fixes shipped since your last results (2026-09-18, OB-026/OB-027; 2026-09-19 OB-028 booth conflict). Each line
 points at its full block below. When this section is empty, there is nothing new to retest — go straight to the
 regular groups.
 
-BOOTH ROUND PART D (your 09-19 rulings: FM credits modeled on FT; manager may cancel a paid week — migration 257 needed on Staging):
+BOOTH ROUND PART D (your 09-19 rulings: FM credits modeled on FT; manager may cancel a paid week — migration 257 is on Staging):
 🟠 TR-091  Cancelling a market day credits paid one-off weeks per declared day; the notice states the amount
 🟠 TR-092  Manager cancels a paid week → vendor credited for the remaining days, told why; no vendor self-cancel
 
