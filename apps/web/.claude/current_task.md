@@ -1,4 +1,45 @@
-# ▶ 2026-09-20 — OB-029 UI FEEDBACK ROUND: A `cba53412` · B `7b0be867` · C `bc7ac4e5` COMMITTED · D BUILT (uncommitted, gates green: tsc 0 · eslint 0 · vitest 93 / 2268) · NOTHING PUSHED YET (`origin/staging` = `a52cd6f0`)
+# ▶ 2026-09-20 (later) — BOOTH NUMBERING OPTION U: DESIGN WRITTEN, NOTHING BUILT
+Owner reviewed the new dashboard: 5 items (TabbedCard title looks like a section; "you can assign booth numbers"
+stale; Action Items must include the grid's "N occupants without a size tier" + everything else actionable; Booth
+numbering copy review; are the 3+ number-assignment paths harmonious?). Review → `.claude/booth_numbering_review.md`
+(F0: labels are a flat market range, tiers are counts — a Large booking can land on #1; F1 six writers; F2a–e copy/
+UI breaks; F3 action-signal inventory; F4 unified process warranted). Owner ruled **Option U (numbers belong to
+sizes), all six Action Items, design first** → `.claude/booth_numbering_design.md` (N-1…N-9, mig 258, 10 surfaces,
+build order U-A…U-D, §8 four open questions). **⛔ Rule L refresh must land BEFORE the 258 file exists.**
+§8 ALL RESOLVED (letters = assumed + required for NEW markets, optional for "existing" via a one-question scheme
+indicator `markets.booth_numbering_scheme`; legacy re-entered by hand; six Action Items incl. Stripe; multi-slot
+DEFERRED — touches Stripe — backlog top entry). decisions.md 2026-09-20 row written.
+NEXT: **Rule L refresh FIRST (owner: "before any actual build work")** → mig 258 → U-A → U-B → U-C → U-D → one push.
+
+---
+
+# 🏁 2026-09-20 CLOSE — OB-029 UI ROUND A–D PUSHED TO STAGING `a52cd6f0..514f0928` (build compiled, Playwright 49/1 skip) · `origin/staging` = `main` = `514f0928` · Prod untouched `d704d3bb` (owes 38 commits + migs 252–257) · no migration this round
+
+**Wrap state:** tree has UNCOMMITTED DOCS ONLY (this note, decisions.md UX row, backlog follow-ups, CLAUDE_CONTEXT
+session history 09-18→20). Commit them on the owner's word (`git checkout main && git add … && git commit`), push
+optional (docs only). Migs 256 + 257 ✅ Dev + Staging. **Rule L debt still owed** (allowance 6 in
+`guardrail-contracts.test.ts`, stamp 251, snapshot header "⚠ REFRESH OWED").
+
+## ▶ NEXT-SESSION PROMPT
+Read in order: CLAUDE.md · this file (this block) · `.claude/rules/*` · decisions.md rows dated 2026-09-19 ·
+`docs/testing/TEST_REGISTRY.md` rows TR-078–099 · backlog top entry. Summarize state, then STOP.
+How we work: decision briefs (decision + enough context + what you give up), one change per message, question last;
+stack commits, ONE push unless a named reason; every shipped fix into the printable list in the same push, tests
+named by what they check; migrations = live fingerprint on all 3 envs first, PRE-CHECK FIRST banner, snapshot row at
+file creation; read all code touching a change before proposing; cite or mark UNVERIFIED; never change a
+business-rule test without the owner's explicit yes; a ruling that reverses a recorded decision is shown as a
+CONFLICT first; no edits during a background git chain; no bloat — "does a user benefit?" before any surface.
+Resume: (1) **Rule L debt FIRST** — 257 is on Dev: give the owner the scoped delta query (market_vendors +
+booth_credits columns, booth_credits indexes + CHECK, signatures of check_booth_number_uniqueness /
+book_weekly_booth_atomic / book_season_atomic / booth_label_candidates / redeem_booth_credit) → rebuild those
+structured sections → stamp 257 → allowance back to 5 → commit; (2) owner retests ★ WHAT'S NEW: TR-093–099 (this
+round) + TR-078–092 (booth) + earlier; findings → OBSERVATIONS.md; (3) backlog top entry follow-ups only if the
+retest asks for them; (4) FT F1 (design §7) backlogged; (5) Prod push when the owner says — owner wipes Prod first;
+code, then migs 252→253→254→255→256→257 in order, each pre-check first (256's pre-check reads real pins).
+
+---
+
+# (superseded) 2026-09-20 — OB-029 UI FEEDBACK ROUND: A `cba53412` · B `7b0be867` · C `bc7ac4e5` COMMITTED · D BUILT
 
 **Part D built:** `lib/markets/manager-week-strip.ts` (pure `buildManagerStripDays` + `loadManagerWeekStrip`: 5 parallel
 service reads — market_schedules, vendor_market_schedules, weekly_booth_rentals (Sunday-keyed weeks, paid + pending),

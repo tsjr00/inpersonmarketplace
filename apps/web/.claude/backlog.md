@@ -1,5 +1,25 @@
 # Backlog
 
+## 🏷️ MULTI-SLOT BOOTH BOOKING — one vendor rents two adjacent booths (owner 2026-09-20: "revisit later if it touches Stripe" — it does)
+Design parked in `booth_numbering_design.md` §9: one rental row per slot sharing a `group_id` (kind 'multi_slot'),
+adjacency preferred not required, pin = the home slot, ONE Stripe session for the group (the season path's pattern),
+credits/freeze/uniqueness unchanged per row; vendor "How many booths?" stepper (max 3). ~1 day + a wrapper RPC
+(`book_weekly_booths_atomic(quantity)`) in its own migration. Season × quantity in the same round. Do AFTER the
+Option U numbering round ships and is retested.
+
+## 🧭 MANAGER DASHBOARD — follow-ups from the OB-029 round (2026-09-20, after the owner's retest)
+- **Candidate Action Item, deliberately deferred:** at a FEE-charging managed market, vendors declared for the next
+  market day with NO paid booth week cannot sell (mig 238/255 gate). A line "3 vendors declared for Saturday haven't
+  paid — they won't be able to sell" is actionable (nudge via announcement). Not built: the strip already shows
+  declared vs paid per day; add only if managers ask. Data: `vendor_market_schedules` × `weekly_booth_rentals`
+  (Sunday-keyed) × `getManagedFeeMarketIds`.
+- **Owner-eye checks after retest:** strip density on a phone (one wrapping line per date — `ManagerWeekStrip.tsx`);
+  "Vendors at this market" card title over a "Roster" tab may read redundant (`FmDashboardBody.tsx` rosterTab).
+- **FT parity:** the FT park dashboard shares "Action Items" (lost the next-market-day line too; ParkWeekCard covers
+  the week). FT gets no `ManagerWeekStrip` — decide whether ParkWeekCard should adopt the strip's per-day counts.
+- **Quick Stats "Applied" label** on the admin vendor detail is the profile's created_at, not an application date —
+  rename if it confuses (`VendorDetailAdminPage.tsx`).
+
 ## 🚚 FT — spot-booking must respect an active standing hold (F1) · designed 2026-09-19, NOT built
 Found during the booth-model review (`booth_model_review.md` Piece 4). The one-off spot-booking route never reads
 `park_standing_reservations`; a hold is protected only by the pending occurrence the sweep creates ≤ 7 days out

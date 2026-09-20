@@ -493,6 +493,50 @@ One rule written in two independently-editable places with silent drift is this 
 
 ---
 
+## Session History — 2026-09-18 → 20 (managed-market obligation set · booth model rebuilt on 13 rulings · admin + manager UI round · migs 255–257)
+
+**Staging tip `514f0928`; Prod untouched at `d704d3bb` (owes 38 commits + migs 252→257, each pre-check first; owner
+wipes Prod before that push).** Migs 255, 256, 257 are on Dev + Staging with recorded post-checks.
+
+**09-18 — managed-market obligation set (decisions D1–D6):** TS twin of the fee gate (`lib/markets/managed-fee-gate.ts`),
+buyer visibility of fee markets only once a vendor has paid, week strip "payment due", mig 255 (sell gate at a
+fee-charging managed market = declaration AND paid week), middle path (auto-approved roster row at free managed
+markets — superseded next day by BR-1), terms + doc-sharing opt-in at free managed markets. Dev + Staging test data
+purged under the new `docs/destructive-data-workflow.md` (Dev purge incident: deletes committed with the post-check
+never running → workflow + memory `feedback_destructive_sql_process`).
+
+**09-19 — booth model (OB-028: a pinned vendor got BOOTH_CONFLICT booking their OWN booth).** Full model read
+(`apps/web/.claude/booth_model_review.md`, conflicts C1–C12 + FT F1) → owner ruled BR-1…BR-13
+(`booth_model_design.md`; decisions.md). Headline: **manager veto ONCE at any managed market** (knowingly reverses
+09-05 + the 09-18 middle path); a pin is a SOFT HOLD, payment makes it the ASSIGNMENT; assigned numbers freeze;
+one booth-change notification; FM cancellation credits modeled on FT per declared day; manager may cancel a paid
+week → credit; declared days before booking. Built and pushed as parts A–D: **mig 256** (uniqueness trigger
+same-vendor exclusion, soft-pin fallback in the booking RPC, one label per season, `requested_inventory_id`),
+`booth-conflict-checks.ts`, `booking-gates.ts` (BR-1 → BR-13 → BR-4, one definition for both routes + the page),
+Apply asks size / approval sets size + number + note, `booth-assignment.ts` (payment writes the pin; a yielded soft
+pin transfers; never an assigned one), `booth-freeze.ts`, **mig 257** (booth_credits sources `fm_date_cancel` /
+`manager_week_cancel`, `related_cancel_date`, idempotency indexes), `booth-cancel-credit.ts`, cancel-date cascade
+path B, manager cancel-paid-week route. `webhooks.ts` ⚠ touched with per-file approval (two try/catch blocks after
+the paid flips, `ERR_WEBHOOK_020`). Anti-bloat pass (owner: "are you overbuilding?") cut the notification plan from
+7+2 types to 1+1. **Rule L (schema-refresh staleness) suspended once by the owner** — allowance 6, stamp still 251,
+debt recorded in the test, the snapshot header and decisions.md; **first job next session.** Registry TR-078–092.
+
+**09-19/20 — admin + manager UI round (OB-029, owner's user-feedback review), no migration:** admin vendor detail
+gained a Markets card and now reads event-readiness answers through ONE per-vertical label map shared with the
+vendor form (`lib/vendor/event-readiness-labels.ts` — FM "Tent / Booth" used to display as "Food Trailer"); admin
+vendor list/detail use unified Free/Pro/Boss and count PUBLISHED, not-deleted listings with market boxes separate
+(the 10-vs-9 defect was soft-deleted rows counted on one page only); FM manager dashboard regrouped in the owner's
+order (Booths & occupancy → Vendors → Money & activity → Communication & insights; `#roster` anchor; flow pin on
+anchors + order); top card is **"Action Items"** (click-and-finish only); new **"Your next two weeks" strip**
+(`lib/markets/manager-week-strip.ts`, pure builder + 5 reads, market-timezone). Registry TR-093–099; printable list
+gained ⚪ Group 6 "Platform admin pages". Decisions row 2026-09-19 UX.
+
+**Process this stretch:** decision briefs (decision + enough context + what you give up); one change per message,
+question last; stack commits, ONE push; every shipped fix into the printable list in the same push, tests named by
+what they check; migrations = live fingerprint on all 3 envs first, PRE-CHECK FIRST banner, snapshot row at file
+creation; a ruling that reverses a recorded decision is shown as a CONFLICT first; no file edits during a background
+git chain; "post check" only when asked for explicitly.
+
 ## Session History — 2026-09-17 (events round built + shipped to Staging · mig 254 · easy wins · two owner rulings, one withdrawn)
 
 **Opened after a Windows-update restart; nothing was lost** (tree clean, last transcript ended on the pushed commit).
