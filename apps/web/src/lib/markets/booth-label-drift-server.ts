@@ -2,6 +2,15 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { detectBoothLabelDrift } from '@/lib/markets/booth-labels'
 
 /**
+ * ⚠ RETIRED 2026-09-20 — NOTHING CALLS THIS. Kept, not deleted, by the owner's
+ * call (revisit deletion once the Option U numbering round is retested). Why
+ * dead: mig 258 gave each size tier its own labels; the market-wide range this
+ * reconciled (markets.booth_label_start/end) is no longer read anywhere, so
+ * "drift" between that range and the inventory total cannot matter. The
+ * booth-inventory routes stopped calling reconcileBoothLabelsAfterInventoryChange
+ * in the U-A commit. Delete together with lib/markets/booth-labels.ts.
+ *
+ * ---- original header ----
  * Server-only helper. Called from the booth-inventory routes after any
  * mutation (POST a new tier, PATCH a tier's count, DELETE a tier). If
  * the new inventory total no longer matches the manager's configured

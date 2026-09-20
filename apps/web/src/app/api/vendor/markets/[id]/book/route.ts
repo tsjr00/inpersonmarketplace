@@ -386,14 +386,28 @@ export async function POST(
         )
       }
       if (msg.includes('LABELS_EXHAUSTED')) {
-        // Mig 144 RPC RAISE: manager's declared booth label range
-        // (markets.booth_label_start/end) is shorter than the configured
-        // inventory total. Capacity exists but no label is available.
-        // Vendor can't self-fix this — they need the manager to update
-        // their booth label range.
+        // Mig 258: candidates are the booked SIZE's own numbers. No label left
+        // means every number of this size is a placeholder, an assignment or
+        // booked this week — or the manager has not numbered this size yet.
+        // Either way the vendor picks another size/week or the manager fixes
+        // the inventory; the vendor cannot self-fix.
         return NextResponse.json(
           {
-            error: `${(market.name as string) || 'This market'} can't accept new bookings right now — the manager needs to update their booth label range. Please contact the market manager directly.`,
+            error: `No ${inventory.size_label} booth is available for the week of ${weekStartDate} at ${(market.name as string) || 'this market'} — try another size or week, or contact the market manager.`,
+            field: 'inventory_id',
+          },
+          { status: 409 }
+        )
+      }
+      if (msg.includes('TIER_MISMATCH')) {
+        // Mig 258 (N-3): the vendor's held number belongs to a different size
+        // than the one they are booking (or to no size yet). The booking page
+        // locks the size to the pin (BR-4), so this is a stale page or a pin
+        // the manager moved between sizes.
+        return NextResponse.json(
+          {
+            error: `Your held booth at ${(market.name as string) || 'this market'} is a different size than ${inventory.size_label}. Reload the page and book the size shown for your booth, or ask the manager.`,
+            field: 'inventory_id',
           },
           { status: 409 }
         )

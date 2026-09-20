@@ -3,8 +3,10 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
-import { validateBoothInventoryInput, type BoothInventoryRow } from '@/lib/markets/booth-types'
-import { reconcileBoothLabelsAfterInventoryChange } from '@/lib/markets/booth-label-drift-server'
+import {
+  validateBoothInventoryInput, validateTierLabelsInput, labelsInputFromBody, labelColumnsFor,
+  friendlyTierLabelError, type BoothInventoryRow, type BoothNumberingScheme,
+} from '@/lib/markets/booth-types'
 
 /**
  * PATCH /api/market-manager/[marketId]/booth-inventory/[inventoryId]
@@ -12,7 +14,9 @@ import { reconcileBoothLabelsAfterInventoryChange } from '@/lib/markets/booth-la
  *
  * Edit or remove a single booth size tier. PATCH validates input via
  * validateBoothInventoryInput(); body shape matches the POST endpoint
- * on the parent route. Auth: assigned manager of the market only.
+ * on the parent route (incl. mig-258 `labels`; the DB trigger refuses a
+ * change that would orphan a held/booked label — surfaced as a 400 naming
+ * it). Auth: assigned manager of the market only.
  *
  * Both endpoints check that the inventoryId actually belongs to the
  * marketId in the URL — guards against id-spoofing across markets.
@@ -86,6 +90,7 @@ export async function PATCH(
             : null,
         count: Number(body?.count),
         weekly_price_cents: Number(body?.weekly_price_cents),
+        labels: labelsInputFromBody(body),
       }
 
       const validationError = validateBoothInventoryInput(input)
@@ -95,14 +100,25 @@ export async function PATCH(
 
       const serviceClient = createServiceClient()
 
+      if (input.labels) {
+        const { data: mk } = await observed(serviceClient
+          .from('markets')
+          .select('booth_numbering_scheme')
+          .eq('id', marketId)
+          .maybeSingle(), { table: 'markets' })
+        const labelsError = validateTierLabelsInput(input.labels, (mk?.booth_numbering_scheme as BoothNumberingScheme | null) ?? null)
+        if (labelsError) throw traced.validation('ERR_VALIDATION_004', labelsError)
+      }
+
       crumb.supabase('update', 'market_booth_inventory')
       const { data, error } = await serviceClient
         .from('market_booth_inventory')
         .update({
           size_label: input.size_label,
           dimensions: input.dimensions,
-          count: input.count,
+          count: input.labels ? 0 : input.count, // derived by the trigger when labels are set
           weekly_price_cents: input.weekly_price_cents,
+          ...labelColumnsFor(input.labels),
         })
         .eq('id', inventoryId)
         .select('*')
@@ -115,18 +131,15 @@ export async function PATCH(
             { status: 409 }
           )
         }
+        const friendly = friendlyTierLabelError(error.code, error.message, input.size_label)
+        if (friendly) return NextResponse.json({ error: friendly, code: error.code }, { status: 400 })
         throw traced.fromSupabase(error, {
           table: 'market_booth_inventory',
           operation: 'update',
         })
       }
 
-      const labelWarning = await reconcileBoothLabelsAfterInventoryChange(serviceClient, marketId)
-
-      return NextResponse.json({
-        row: data as BoothInventoryRow,
-        ...(labelWarning ? { warning: labelWarning } : {}),
-      })
+      return NextResponse.json({ row: data as BoothInventoryRow })
     }
   )
 }
@@ -171,12 +184,7 @@ export async function DELETE(
         })
       }
 
-      const labelWarning = await reconcileBoothLabelsAfterInventoryChange(serviceClient, marketId)
-
-      return NextResponse.json({
-        success: true,
-        ...(labelWarning ? { warning: labelWarning } : {}),
-      })
+      return NextResponse.json({ success: true })
     }
   )
 }

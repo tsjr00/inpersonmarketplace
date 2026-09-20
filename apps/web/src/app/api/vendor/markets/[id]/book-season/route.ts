@@ -248,9 +248,18 @@ export async function POST(
         // across all the requested weeks — "adjust your selection" (fewer
         // weeks) can help, but the honest message names the real cause.
         if (err.reason.includes('LABELS_EXHAUSTED')) {
+          // Mig 258: within the booked SIZE only (a size not yet numbered
+          // reads the same way to the vendor).
           return NextResponse.json({
-            error: `No single booth is free for every week you picked at ${(market.name as string) || 'this market'} — a season keeps one booth all season. Pick fewer weeks, or ask the manager to assign you a booth.`,
+            error: `No single booth of that size is free for every week you picked at ${(market.name as string) || 'this market'} — a season keeps one booth all season. Pick fewer weeks or another size, or ask the manager to assign you a booth.`,
             field: 'week_start_dates',
+          }, { status: 409 })
+        }
+        if (err.reason.includes('TIER_MISMATCH')) {
+          // Mig 258 (N-3): the vendor's held number is a different size than the one booked.
+          return NextResponse.json({
+            error: `Your held booth at ${(market.name as string) || 'this market'} is a different size than the one you picked. Reload the page and book the size shown for your booth, or ask the manager.`,
+            field: 'inventory_id',
           }, { status: 409 })
         }
         if (err.reason.includes('BOOTH_CONFLICT') || err.reason.includes('BOOTH_TAKEN')) {

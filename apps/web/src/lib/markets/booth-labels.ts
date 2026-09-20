@@ -1,4 +1,18 @@
 /**
+ * ⚠ RETIRED 2026-09-20 — NOTHING IMPORTS THIS FILE. Kept, not deleted, by the
+ * owner's call ("keep the dead files with references to why they are dead;
+ * revisit the delete option after all new functions are working right").
+ *
+ * Why dead: mig 258 (booth numbering Option U, booth_numbering_design.md)
+ * moved booth labels from ONE market-wide range (markets.booth_label_start/end,
+ * mig 144 — what these helpers parse/validate) to per-size-tier labels on
+ * market_booth_inventory (label_prefix/start/end or labels[]). The manager UI,
+ * the booth-labels route and the booking RPCs no longer read the market range.
+ * The replacement helpers live in lib/markets/booth-types.ts (tierLabels,
+ * validateTierLabelsInput, …). Delete this file + booth-label-drift-server.ts
+ * together once the Option U round is retested.
+ *
+ * ---- original header ----
  * Booth-label parsing + range validation (mig 144 — auto-assignment).
  *
  * The market manager declares a single market-wide range of booth labels
