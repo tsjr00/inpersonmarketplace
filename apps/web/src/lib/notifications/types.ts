@@ -89,6 +89,9 @@ export type NotificationType =
   // Booth rental payment lifecycle (Phase C Stage 3 follow-ups, 2026-05-19)
   | 'booth_rental_paid_vendor'
   | 'booth_rental_paid_manager'
+  // BR-8 (owner 2026-09-19): the ONE booth-change notification — the booth a
+  // vendor was told is theirs changed, or is no longer held for them.
+  | 'booth_number_changed'
   // Phase E: season/partial booth purchase (one payment, N weeks)
   | 'booth_season_paid_vendor'
   | 'booth_season_paid_manager'
@@ -384,6 +387,13 @@ export interface NotificationTemplateData {
   /** BR-3: the manager's free-text note to the vendor at approval — why a
    *  different size than requested, where the booth is, etc. */
   managerNote?: string
+  /** BR-8: the booth number the vendor HAD before a change (booth_number_changed). */
+  previousBoothNumber?: string
+  /** BR-8: plain-English reason for a booth change, written by the caller. */
+  boothChangeReason?: string
+  /** BR-6: on a manager's paid confirmation — the vendor whose HELD number this
+   *  payment took (soft pin yielded). Absent when no hold moved. */
+  holdMovedFromName?: string
   // Post-market surveys (Phase E Stage 2)
   /** Survey row UUID for vendor surveys; used to build the action URL
    *  /[vertical]/vendor/survey/[surveyId]. */
@@ -976,7 +986,14 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       // manager can sync their physical-layout records without checking
       // the dashboard.
       const boothPart = d.boothNumber ? ` (booth ${d.boothNumber})` : ''
-      return `${d.vendorName || 'A vendor'} paid for a booth${boothPart} at ${d.marketName || 'your market'} for the week of ${d.weekStartDate || 'the booked date'}.${amount}`
+      // BR-6 (owner 2026-09-19): this payment took a number that was HELD for
+      // another vendor who had no paid week while the market was full — the
+      // hold moved. Said here, in the message the manager already gets, so the
+      // roster change is never a surprise.
+      const moved = d.holdMovedFromName
+        ? ` Booth ${d.boothNumber || 'this one'} was held for ${d.holdMovedFromName}; the hold moved to ${d.vendorName || 'this vendor'} because ${d.holdMovedFromName} had no paid week and the other booths were taken. Re-pin ${d.holdMovedFromName} from the roster if you want them elsewhere.`
+        : ''
+      return `${d.vendorName || 'A vendor'} paid for a booth${boothPart} at ${d.marketName || 'your market'} for the week of ${d.weekStartDate || 'the booked date'}.${amount}${moved}`
     },
     // Anchor link drops the manager right at the Weekly bookings card
     // (id="weekly-bookings" on the dashboard wrapper).
@@ -984,6 +1001,32 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       d.marketId
         ? `/${d.vertical || 'farmers_market'}/market-manager/${d.marketId}/dashboard#weekly-bookings`
         : `/${d.vertical || 'farmers_market'}/dashboard`,
+  },
+
+  // BR-8 (owner 2026-09-19, booth_model_design.md): the booth a vendor was told
+  // is theirs changed, or is no longer held for them. Three causes, one message:
+  // the manager moved them (boothNumber set), the manager cleared the number, or
+  // the held number went to a paying vendor while they had no paid week (BR-6).
+  // The caller writes the reason in plain English. A vendor who shows up at the
+  // wrong booth is the failure this prevents.
+  booth_number_changed: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'vendor',
+    title: (d) =>
+      d.boothNumber
+        ? `Your booth at ${d.marketName || 'the market'} is now #${d.boothNumber}`
+        : `Booth ${d.previousBoothNumber ? '#' + d.previousBoothNumber : 'number'} at ${d.marketName || 'the market'} is no longer held for you`,
+    message: (d) => {
+      const reason = d.boothChangeReason ? ` ${d.boothChangeReason}` : ''
+      if (d.boothNumber) {
+        const was = d.previousBoothNumber ? ` (was #${d.previousBoothNumber})` : ''
+        const week = d.weekStartDate ? ` for the week of ${d.weekStartDate}` : ''
+        return `Your booth at ${d.marketName || 'the market'} is now #${d.boothNumber}${was}${week}.${reason} Set up there.`
+      }
+      return `Booth ${d.previousBoothNumber ? '#' + d.previousBoothNumber : ''} at ${d.marketName || 'the market'} is no longer held for you.${reason} The manager can hold another booth for you — your booked weeks are not affected.`
+    },
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/bookings`,
   },
 
   // Phase E: vendor confirmation when a season/partial booth purchase is paid
@@ -1015,7 +1058,12 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
         ? ` Your portion ($${(d.managerReceivesAmountCents / 100).toFixed(2)}) will arrive in your Stripe account.`
         : ' Your portion will arrive in your Stripe account.'
       const weeks = d.weekCount ? `${d.weekCount} week${d.weekCount === 1 ? '' : 's'}` : 'multiple weeks'
-      return `${d.vendorName || 'A vendor'} paid for ${weeks} at ${d.marketName || 'your market'}.${amount}`
+      // BR-6 (2026-09-19): same hold-moved line as booth_rental_paid_manager —
+      // a season keeps one booth for every week (mig 256), so one line covers it.
+      const moved = d.holdMovedFromName
+        ? ` Booth ${d.boothNumber ? '#' + d.boothNumber : 'for the season'} was held for ${d.holdMovedFromName}; the hold moved to ${d.vendorName || 'this vendor'} because ${d.holdMovedFromName} had no paid week and the other booths were taken. Re-pin ${d.holdMovedFromName} from the roster if you want them elsewhere.`
+        : ''
+      return `${d.vendorName || 'A vendor'} paid for ${weeks} at ${d.marketName || 'your market'}.${amount}${moved}`
     },
     actionUrl: (d) =>
       d.marketId

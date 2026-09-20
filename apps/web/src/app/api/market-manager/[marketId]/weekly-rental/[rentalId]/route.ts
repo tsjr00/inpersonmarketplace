@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
+import { sendNotification } from '@/lib/notifications'
+import { frozenBoothMessage } from '@/lib/markets/booth-freeze'
 
 /**
  * PATCH /api/market-manager/[marketId]/weekly-rental/[rentalId]
@@ -24,10 +26,13 @@ import { withErrorTracing, traced, crumb } from '@/lib/errors'
  * row's market_id is matched against the URL marketId for cross-market
  * spoofing rejection.
  *
- * No status enforcement on which rentals can be edited — manager can
- * adjust booth_number on pending/paid/cancelled/completed rows alike
- * (they may need to correct a typo retroactively). Future Stage 3
- * polish could restrict to non-cancelled.
+ * Status rule (BR-7, owner 2026-09-19 — booth_model_design.md): a PAID
+ * current/upcoming week is FROZEN — the vendor paid for that booth; the
+ * number does not change until a week is missed or the manager cancels the
+ * paid week (BR-10). Pending (unpaid) weeks and past weeks stay editable.
+ * The number is pre-checked against other vendors' pins, placeholders and
+ * rentals (never the vendor's own — BR-11) and the vendor is told when a
+ * pending week's number changes (BR-8).
  *
  * No critical-path files touched. No Stripe SDK calls.
  */
@@ -62,6 +67,49 @@ export async function PATCH(
     }
 
     const serviceClient = createServiceClient()
+
+    // Read the row first (scoped to this market) for the freeze + pre-check.
+    const { data: current } = await observed(serviceClient
+      .from('weekly_booth_rentals')
+      .select('id, vendor_profile_id, week_start_date, booth_number, status, vendor_profiles!weekly_booth_rentals_vendor_profile_id_fkey ( user_id, profile_data )')
+      .eq('id', rentalId)
+      .eq('market_id', marketId)
+      .maybeSingle(), { table: 'weekly_booth_rentals' })
+    if (!current) {
+      return NextResponse.json({ error: 'Booking not found at this market' }, { status: 404 })
+    }
+    const vpRel = current.vendor_profiles as unknown as { user_id?: string | null; profile_data?: Record<string, unknown> } | { user_id?: string | null; profile_data?: Record<string, unknown> }[] | null
+    const vp = Array.isArray(vpRel) ? vpRel[0] : vpRel
+    const vendorName = (vp?.profile_data?.business_name as string) || (vp?.profile_data?.farm_name as string) || 'This vendor'
+    const previousBooth = (current.booth_number as string | null) ?? null
+    const unchanged = boothNumber === previousBooth
+
+    // BR-7: a paid current/upcoming week is frozen.
+    if (!unchanged && current.status === 'paid' && previousBooth) {
+      const [y, m, d] = (current.week_start_date as string).split('-').map(Number)
+      const weekEnd = new Date(Date.UTC(y, m - 1, d + 6)).toISOString().slice(0, 10)
+      if (weekEnd >= new Date().toISOString().slice(0, 10)) {
+        return NextResponse.json(
+          { error: frozenBoothMessage(vendorName, previousBooth, weekEnd), code: 'ERR_BOOTH_ASSIGNED_FROZEN' },
+          { status: 409 }
+        )
+      }
+    }
+
+    // Friendly pre-check before the trigger (BR-11: never against this
+    // vendor's own pin or rentals).
+    if (!unchanged && boothNumber !== null) {
+      const { checkBoothNumberAvailable } = await import('@/lib/markets/booth-conflict-checks')
+      const conflict = await checkBoothNumberAvailable(serviceClient, {
+        marketId,
+        boothNumber,
+        excludeSelf: { kind: 'weekly_booth_rentals', id: rentalId },
+        vendorProfileId: current.vendor_profile_id as string,
+      })
+      if (conflict) {
+        return NextResponse.json({ error: conflict.message }, { status: 409 })
+      }
+    }
 
     // Update + match BOTH id AND market_id so a manager of market A can't
     // spoof a rentalId belonging to market B. If the row doesn't match,
@@ -109,6 +157,28 @@ export async function PATCH(
         { error: 'Booking not found at this market' },
         { status: 404 }
       )
+    }
+
+    // BR-8: the vendor is told their booth for that week changed. Best-effort.
+    if (!unchanged && previousBooth && vp?.user_id) {
+      try {
+        const { data: marketRow } = await observed(serviceClient
+          .from('markets')
+          .select('name, vertical_id')
+          .eq('id', marketId)
+          .maybeSingle(), { table: 'markets' })
+        const [y, m, d] = (data.week_start_date as string).split('-').map(Number)
+        const weekLabel = new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        await sendNotification(vp.user_id, 'booth_number_changed', {
+          marketName: (marketRow?.name as string | undefined) || 'the market',
+          previousBoothNumber: previousBooth,
+          ...(data.booth_number ? { boothNumber: data.booth_number as string } : {}),
+          weekStartDate: weekLabel,
+          boothChangeReason: 'The market manager moved your booking for this week.',
+        }, { vertical: (marketRow?.vertical_id as string | undefined) || 'farmers_market' })
+      } catch (notifErr) {
+        console.error('[weekly-rental] booth_number_changed notification failed:', notifErr instanceof Error ? notifErr.message : 'Unknown')
+      }
     }
 
     return NextResponse.json({

@@ -316,8 +316,13 @@ describe('NI-014: Total notification types = 72', () => {
     // 130 → 131 (2026-09-06, owner: "manager should be notified when vendors
     // make products ready to pickup"): bundle_component_ready (manager,
     // standard) — replaces the buyer order_ready leak on bundle components.
+    // 131 → 132 (2026-09-19, owner "go on that" after cutting a 7-type plan to
+    // one — "are you overbuilding?"): booth_number_changed (vendor, warning) —
+    // the booth a vendor was told is theirs changed or is no longer held
+    // (manager moved / cleared it, or a paying vendor took the soft hold, BR-8).
+    // The manager's side is one extra line on the EXISTING paid confirmation.
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(131)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(132)
   })
 
   it('includes all buyer-facing types', () => {

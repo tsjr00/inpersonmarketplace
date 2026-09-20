@@ -12,6 +12,7 @@ import { logError } from '@/lib/errors/logger'
 import { crumb } from '@/lib/errors/breadcrumbs'
 import { calculateBoothRentalFees, FEES } from '@/lib/pricing'
 import { sendSeasonPaidNotifications } from '@/lib/markets/season-notifications'
+import { applyPaidBoothAssignment } from '@/lib/markets/booth-assignment'
 import { observed } from '@/lib/errors'
 
 /**
@@ -1577,6 +1578,24 @@ async function handleBoothRentalCheckoutComplete(session: Stripe.Checkout.Sessio
 
   crumb.stripe(`booth_rental ${rentalId} flipped to paid (payment_intent ${paymentIntentId ?? 'unknown'})`)
 
+  // BR-5/BR-6 (owner 2026-09-19, booth_model_design.md): a PAID week makes the
+  // booth number the vendor's assignment — written onto their roster row, or
+  // transferred from a soft pin this booking took. Lives in
+  // lib/markets/booth-assignment.ts. Non-throwing and AFTER the flip: a bug
+  // here cannot touch payment integrity; it can only mis-set a pin the roster
+  // shows and the manager can correct. The result feeds one line of the
+  // manager's paid confirmation below.
+  let holdMovedFromName: string | undefined
+  try {
+    holdMovedFromName = (await applyPaidBoothAssignment(supabase, { rentalId })).holdMovedFromName
+  } catch (assignErr) {
+    await logError(new TracedError(
+      'ERR_WEBHOOK_020',
+      `[handleBoothRentalCheckoutComplete] booth assignment failed for rental ${rentalId}: ${assignErr instanceof Error ? assignErr.message : 'Unknown'}`,
+      { route: '/webhooks/stripe', method: 'POST' }
+    ))
+  }
+
   // PRK-10 (mig 203): stamp the charge-time NET manager take from the
   // session's own metadata (exact truth — no recompute). Separate
   // non-blocking update so a pre-migration deploy can't break the paid flip.
@@ -1709,6 +1728,7 @@ async function handleBoothRentalCheckoutComplete(session: Stripe.Checkout.Sessio
             marketId: rental.market_id as string,
             ...(vendorName ? { vendorName } : {}),
             ...(boothNumber ? { boothNumber } : {}),
+            ...(holdMovedFromName ? { holdMovedFromName } : {}),
           },
           {
             vertical,
@@ -1808,8 +1828,22 @@ async function handleSeasonBoothCheckoutComplete(session: Stripe.Checkout.Sessio
 
   crumb.stripe(`booth season ${groupId} flipped to paid (payment_intent ${paymentIntentId ?? 'unknown'})`)
 
+  // BR-5/BR-6 (owner 2026-09-19): same as the one-off handler — the season's
+  // one booth number (mig 256) becomes the vendor's assignment; a yielded soft
+  // pin transfers. Non-throwing, after the flip.
+  let seasonHoldMovedFromName: string | undefined
+  try {
+    seasonHoldMovedFromName = (await applyPaidBoothAssignment(supabase, { groupId })).holdMovedFromName
+  } catch (assignErr) {
+    await logError(new TracedError(
+      'ERR_WEBHOOK_020',
+      `[handleSeasonBoothCheckoutComplete] booth assignment failed for group ${groupId}: ${assignErr instanceof Error ? assignErr.message : 'Unknown'}`,
+      { route: '/webhooks/stripe', method: 'POST' }
+    ))
+  }
+
   // Vendor + manager "season paid" notifications (best-effort; never throws).
-  await sendSeasonPaidNotifications(supabase, groupId)
+  await sendSeasonPaidNotifications(supabase, groupId, seasonHoldMovedFromName ? { holdMovedFromName: seasonHoldMovedFromName } : undefined)
 }
 
 /**

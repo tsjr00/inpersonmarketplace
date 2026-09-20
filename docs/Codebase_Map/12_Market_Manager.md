@@ -1,6 +1,6 @@
 # 12 — Market Manager (farmers-market side) ⚠ money
 
-<!-- map-stamp: domain=market-manager; verified=2026-09-19; commit=booth-round-B -->
+<!-- map-stamp: domain=market-manager; verified=2026-09-19; commit=booth-round-C -->
 <!-- map-claims
 src/app/api/market-manager/**
 src/app/api/markets/**
@@ -108,6 +108,8 @@ Shared with the park domain; FM is where it originated. Table: `booth_credits`. 
 | `manager-dashboard-stats.ts` | Aggregated dashboard figures (~630 lines); uses `markets.timezone` with an `America/Chicago` fallback |
 | `onboarding-progress.ts` | Step completion computed read-only from entered data (no completion flag), honoring the ack toggles |
 | `booth-types.ts` · `placeholder-types.ts` · `booth-labels.ts` · `booth-label-drift-server.ts` · `booth-conflict-checks.ts` | Booth inventory, placeholders, label ranges and uniqueness/capacity checks (same-vendor exclusion + placeholders-only capacity since 2026-09-19, BR-11/BR-6) |
+| `booth-assignment.ts` | **Payment writes the assignment (BR-5/6, 2026-09-19):** called by the Stripe webhook after a booth week / season is paid — the booking's number becomes the vendor's pin; a yielded soft pin transfers (old holder cleared + told via `booth_number_changed`; manager told on their paid confirmation); an ASSIGNED pin (holder has a paid current/upcoming week) is never moved — logged instead. Idempotent, non-throwing by contract. |
+| `booth-freeze.ts` | **Assigned numbers are frozen (BR-7):** `boothAssignmentFrozenUntil` = the vendor holds a PAID current/upcoming week under their pinned number → `vendor-booth`, `vendor-tier` and `weekly-rental` refuse changes (409 `ERR_BOOTH_ASSIGNED_FROZEN`, shared copy) until a week is missed or the paid week is cancelled (BR-10, part D). Pending weeks never freeze. |
 | `booking-gates.ts` | **Booth-booking eligibility (owner 2026-09-19, BR-1/13/4):** ONE decision for the one-off route, the season route and the booking page — approved once at a managed market → at least one declared day here → tier matches the pin's tier. Returns the refusal code + copy; callers translate to 403/400. |
 | `optin-types.ts` · `optin-public.ts` · `agreement-version.ts` | Opt-in statements, service-side public fetch (RLS is default-deny), and the deterministic agreement-version hash |
 | `document-types.ts` | Verification-document taxonomy, mirrored by a DB CHECK |

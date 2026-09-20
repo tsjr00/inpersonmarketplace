@@ -3,6 +3,8 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
+import { sendNotification } from '@/lib/notifications'
+import { boothAssignmentFrozenUntil, frozenBoothMessage } from '@/lib/markets/booth-freeze'
 
 /**
  * PATCH /api/market-manager/[marketId]/vendor-booth
@@ -94,7 +96,7 @@ export async function PATCH(
     // us the prior inventory_id so we know whether the tier is changing.
     const { data: existingMv } = await observed(serviceClient
       .from('market_vendors')
-      .select('id, inventory_id')
+      .select('id, inventory_id, booth_number, vendor_profiles!market_vendors_vendor_profile_id_fkey ( user_id, profile_data )')
       .eq('market_id', marketId)
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle(), { table: 'market_vendors' })
@@ -104,6 +106,28 @@ export async function PATCH(
         { error: 'Vendor not associated with this market' },
         { status: 404 }
       )
+    }
+
+    const previousBooth = (existingMv.booth_number as string | null) ?? null
+    const boothChanging = boothNumber !== previousBooth
+    const tierChanging = inventoryIdProvided && inventoryId !== undefined && inventoryId !== (existingMv.inventory_id as string | null)
+
+    // BR-7 (owner 2026-09-19): an ASSIGNED number is frozen — the vendor has
+    // paid for a current/upcoming week under it. Neither the number nor the
+    // tier (their price) changes until a week is missed or the paid week is
+    // cancelled (BR-10). Clearing the pin is refused too: the vendor paid for
+    // that booth.
+    if ((boothChanging || tierChanging) && previousBooth) {
+      const paidThrough = await boothAssignmentFrozenUntil(serviceClient, { marketId, vendorProfileId, boothNumber: previousBooth })
+      if (paidThrough) {
+        const vpRel = existingMv.vendor_profiles as unknown as { profile_data?: Record<string, unknown> } | { profile_data?: Record<string, unknown> }[] | null
+        const vp = Array.isArray(vpRel) ? vpRel[0] : vpRel
+        const name = (vp?.profile_data?.business_name as string) || (vp?.profile_data?.farm_name as string) || 'This vendor'
+        return NextResponse.json(
+          { error: frozenBoothMessage(name, previousBooth, paidThrough), code: 'ERR_BOOTH_ASSIGNED_FROZEN' },
+          { status: 409 }
+        )
+      }
     }
 
     // Mig 146 Issue 1: booth_number uniqueness pre-flight (friendly
@@ -169,6 +193,34 @@ export async function PATCH(
         { error: 'Vendor not associated with this market' },
         { status: 404 }
       )
+    }
+
+    // BR-8 (owner 2026-09-19): a vendor is told every time the booth they were
+    // told is theirs changes — moved to another number, or no longer held. A
+    // change to the tier alone, or setting a first pin (the approval message
+    // already says it), sends nothing. Best-effort; never fails the save.
+    if (boothChanging && previousBooth) {
+      try {
+        const vpRel = existingMv.vendor_profiles as unknown as { user_id?: string | null } | { user_id?: string | null }[] | null
+        const vp = Array.isArray(vpRel) ? vpRel[0] : vpRel
+        const { data: marketRow } = await observed(serviceClient
+          .from('markets')
+          .select('name, vertical_id')
+          .eq('id', marketId)
+          .maybeSingle(), { table: 'markets' })
+        if (vp?.user_id) {
+          await sendNotification(vp.user_id, 'booth_number_changed', {
+            marketName: (marketRow?.name as string | undefined) || 'the market',
+            previousBoothNumber: previousBooth,
+            ...(data.booth_number ? { boothNumber: data.booth_number as string } : {}),
+            boothChangeReason: data.booth_number
+              ? 'The market manager moved you.'
+              : 'The market manager cleared your booth number.',
+          }, { vertical: (marketRow?.vertical_id as string | undefined) || 'farmers_market' })
+        }
+      } catch (notifErr) {
+        console.error('[vendor-booth] booth_number_changed notification failed:', notifErr instanceof Error ? notifErr.message : 'Unknown')
+      }
     }
 
     return NextResponse.json({

@@ -15,6 +15,9 @@ import { observed } from '@/lib/errors'
 export async function sendSeasonPaidNotifications(
   serviceClient: SupabaseClient,
   groupId: string,
+  /** BR-6 (2026-09-19): the vendor whose HELD booth number this season payment
+   *  took (soft pin yielded) — one extra line on the manager's message. */
+  opts?: { holdMovedFromName?: string; boothNumber?: string },
 ): Promise<void> {
   try {
     const { data: group } = await observed(serviceClient
@@ -107,6 +110,8 @@ export async function sendSeasonPaidNotifications(
           managerReceivesAmountCents: managerReceivesNetCents,
           marketId: group.market_id as string,
           ...(vendorName ? { vendorName } : {}),
+          ...(opts?.holdMovedFromName ? { holdMovedFromName: opts.holdMovedFromName } : {}),
+          ...(opts?.boothNumber ? { boothNumber: opts.boothNumber } : {}),
         },
         {
           vertical,

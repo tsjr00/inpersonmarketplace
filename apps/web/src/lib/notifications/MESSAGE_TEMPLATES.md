@@ -628,6 +628,23 @@ The consent model (default-IN, GLOBAL per-vendor opt-out via `vendor_profiles.bu
 
 The application row (market_vendors, approved=false) appears on the manager's existing roster list with the approve toggle; approval auto-creates the vendor's attendance schedules (trigger guards on approved=true, mig 210 body) and the vendor gets the existing approval notification (B-close-2).
 
+Since 2026-09-19 (BR-2/BR-3): the application carries the booth SIZE the vendor wants, and the approval message (`vendor_market_approval_granted`) gains "Your booth: #{{booth_number}} · {{size}} size — held for you; yours once you pay for a week" plus the manager's note, when the manager set them.
+
+---
+
+### Booth Number Changed (`booth_number_changed`) — Booth model BR-8, 2026-09-19 — TO THE VENDOR
+**Urgency:** Standard (Email + In-app) · **Severity:** warning
+**Why only one type:** owner 2026-09-19 ("are you overbuilding?") cut a seven-message plan to this one. The vendor already learns their number twice (approval, paid confirmation); the only thing they must additionally hear is that the booth they were told is theirs CHANGED.
+**Trigger:** any of — the manager moves the vendor's pin (`vendor-booth`), the manager clears it, the manager moves one pending week's number (`weekly-rental`), or a soft hold went to a paying vendor while this vendor had no paid week (`lib/markets/booth-assignment.ts`, on payment).
+
+**In-app title (moved):** Your booth at {{market_name}} is now #{{booth_number}}
+**In-app message (moved):** Your booth at {{market_name}} is now #{{booth_number}} (was #{{previous_booth_number}}) [for the week of {{week}}]. {{reason}} Set up there.
+**In-app title (lost):** Booth #{{previous_booth_number}} at {{market_name}} is no longer held for you
+**In-app message (lost):** Booth #{{previous_booth_number}} at {{market_name}} is no longer held for you. {{reason}} The manager can hold another booth for you — your booked weeks are not affected.
+**Action:** `/{{vertical}}/vendor/bookings`
+
+Manager side — NO new type: when a payment took a number that was held for another vendor, the manager's existing `booth_rental_paid_manager` / `booth_season_paid_manager` message gains one line: "Booth #N was held for {{old_vendor}}; the hold moved to {{vendor}} because {{old_vendor}} had no paid week and the other booths were taken. Re-pin {{old_vendor}} from the roster if you want them elsewhere."
+
 ---
 
 ## Admin-Facing Notifications

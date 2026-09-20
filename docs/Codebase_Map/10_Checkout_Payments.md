@@ -1,6 +1,6 @@
 # 10 — Checkout & Payments ⚠ money
 
-<!-- map-stamp: domain=checkout-payments; verified=2026-09-08; commit=d34eae7f -->
+<!-- map-stamp: domain=checkout-payments; verified=2026-09-19; commit=booth-round-C -->
 <!-- map-claims
 src/app/api/cart/**
 src/app/api/checkout/**
@@ -96,7 +96,7 @@ A bundle purchase is ITS OWN order (v1: one bundle, quantity 1, no mixing): `che
 | File | Purpose |
 |---|---|
 | `lib/stripe/payments.ts` ⚠ | All session/transfer/refund creation, each with a deterministic idempotency key. **Product orders use the separate-transfer pattern; booth/season/park bookings use destination charges** (`transfer_data.destination`). Exports `createCheckoutSession`, `transferToVendor`, `createRefund`, `createMarketBoxCheckoutSession`, `transferMarketBoxPayout`, `createBoothRentalCheckoutSession`, `createSeasonBoothCheckoutSession`, `createParkSpotCheckoutSession`, `getChargeIdFromPaymentIntent`, `getStatementSuffix`. |
-| `lib/stripe/webhooks.ts` ⚠ | ~1,900 lines: the event router plus every handler. `handleCheckoutComplete` (`:129`) dispatches by `session.mode`/`metadata.type` into subscription, market-box, booth-rental, season-booth, park-spot or regular-order paths (`:133-165`). Also handles payment success/failure, `account.updated`, transfer created/reversed, `charge.refunded` (`:1127`), disputes (`:1230`), and subscription/invoice lifecycle. |
+| `lib/stripe/webhooks.ts` ⚠ | ~1,900 lines: the event router plus every handler. `handleCheckoutComplete` (`:129`) dispatches by `session.mode`/`metadata.type` into subscription, market-box, booth-rental, season-booth, park-spot or regular-order paths (`:133-165`). Also handles payment success/failure, `account.updated`, transfer created/reversed, `charge.refunded` (`:1127`), disputes (`:1230`), and subscription/invoice lifecycle. **2026-09-19 (booth BR-5/BR-6):** the booth-rental and season-booth paid handlers call `lib/markets/booth-assignment.ts` AFTER the paid flip, inside a try/catch (`ERR_WEBHOOK_020`) — a paid week writes the booth number onto the vendor's roster row as their assignment, or transfers a yielded soft pin; the result feeds one line of the manager's paid confirmation. Payment integrity untouched. |
 | `lib/stripe/config.ts` | Lazily constructs the SDK (null without `STRIPE_SECRET_KEY` so builds succeed, `:7-12`); API version `2025-12-15.clover`; holds per-vertical subscription price IDs and lookup helpers. |
 | `lib/stripe/webhook-utils.ts` | Pure helpers extracted from webhooks.ts: the canonical handled-event list, and market-box base-price selection with a logged fallback. |
 | `lib/stripe/market-box-payout.ts` | Idempotently creates the `vendor_payouts` row and fires the transfer for a paid box subscription. Pays on `actualPaidCents` (CRIT-1 fix: previously overpaid biweekly subs) and threads `source_transaction` (CRIT-2 fix: previously hit `balance_insufficient`). |

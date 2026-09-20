@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isMarketManager } from '@/lib/markets/manager-auth'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
+import { boothAssignmentFrozenUntil, frozenBoothMessage } from '@/lib/markets/booth-freeze'
 
 /**
  * PATCH /api/market-manager/[marketId]/vendor-tier
@@ -64,6 +65,27 @@ export async function PATCH(
     // pin — it occupies nothing until a week is paid for (BR-6, owner
     // 2026-09-19). The booking RPC enforces per-week capacity from
     // placeholders + active rentals; placeholders keep their own check.
+
+    // BR-7: while the vendor holds a paid current/upcoming week under their
+    // pinned number, the size (their price) is frozen with the number.
+    const { data: existingMv } = await observed(serviceClient
+      .from('market_vendors')
+      .select('booth_number, inventory_id, vendor_profiles!market_vendors_vendor_profile_id_fkey ( profile_data )')
+      .eq('market_id', marketId)
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle(), { table: 'market_vendors' })
+    if (existingMv?.booth_number && inventoryId !== (existingMv.inventory_id as string | null)) {
+      const paidThrough = await boothAssignmentFrozenUntil(serviceClient, { marketId, vendorProfileId, boothNumber: existingMv.booth_number as string })
+      if (paidThrough) {
+        const vpRel = existingMv.vendor_profiles as unknown as { profile_data?: Record<string, unknown> } | { profile_data?: Record<string, unknown> }[] | null
+        const vp = Array.isArray(vpRel) ? vpRel[0] : vpRel
+        const name = (vp?.profile_data?.business_name as string) || (vp?.profile_data?.farm_name as string) || 'This vendor'
+        return NextResponse.json(
+          { error: frozenBoothMessage(name, existingMv.booth_number as string, paidThrough), code: 'ERR_BOOTH_ASSIGNED_FROZEN' },
+          { status: 409 }
+        )
+      }
+    }
 
     crumb.supabase('update', 'market_vendors')
     const { data, error } = await serviceClient

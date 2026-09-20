@@ -159,4 +159,22 @@ export const WEBHOOK_ERRORS: ErrorCatalogEntry[] = [
     ],
     pgCodes: [],
   },
+  {
+    code: 'ERR_WEBHOOK_020',
+    title: 'Booth Assignment After Payment Failed',
+    category: 'STRIPE',
+    severity: 'low',
+    description: 'After a booth week (or season) was flipped to paid, writing the booth number onto the vendor\x27s roster row as their assignment — or transferring a yielded soft pin (BR-5/BR-6, 2026-09-19) — threw. NOT a money-safety issue: the paid flip, the Stripe 2xx and the paid confirmations are unaffected. The vendor keeps the week they paid for under the number on the booking; only the standing pin on the roster may be missing or stale.',
+    userGuidance: '',
+    causes: [
+      'Transient DB error writing market_vendors.booth_number',
+      'The uniqueness trigger refused the pin write (another vendor holds an active rental under that number in a later week)',
+      'mig 256 not yet applied on this environment',
+    ],
+    solutions: [
+      'Open the manager roster for the market in the message and set the vendor\x27s booth number to the number on their paid booking',
+      'If another vendor\x27s pin blocked it, decide who keeps the number and re-pin the other',
+    ],
+    pgCodes: ['P0005'],
+  },
 ]

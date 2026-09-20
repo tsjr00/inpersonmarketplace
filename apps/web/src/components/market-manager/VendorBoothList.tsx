@@ -713,12 +713,16 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                 <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], flexWrap: 'wrap' }}>
                   {!isFoodTruck && (
                   <>
+                  {/* BR-7 (owner 2026-09-19): a pinned number backed by a paid
+                      current/upcoming week is FROZEN — the vendor paid for that
+                      booth. The server refuses the edit; the field says why
+                      inline (phones have no hover). Pending weeks don't freeze. */}
                   <input
                     type="text"
                     value={editedValue}
                     onChange={(e) => setEdits((s) => ({ ...s, [v.vendor_profile_id]: e.target.value }))}
                     placeholder={`${term(vertical, 'booth')} #`}
-                    disabled={isSaving}
+                    disabled={isSaving || (!!v.booth_number && !!v.has_paid_booth_week)}
                     maxLength={50}
                     style={{
                       width: 90,
@@ -735,7 +739,7 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                   <select
                     value={editedTier}
                     onChange={(e) => setTierEdits((s) => ({ ...s, [v.vendor_profile_id]: e.target.value }))}
-                    disabled={isSaving || tiers.length === 0}
+                    disabled={isSaving || tiers.length === 0 || (!!v.booth_number && !!v.has_paid_booth_week)}
                     title={tiers.length === 0 ? `Set up ${term(vertical, 'booth').toLowerCase()} inventory tiers first` : `${term(vertical, 'booth')} size tier`}
                     style={{
                       maxWidth: 140,
@@ -773,6 +777,16 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                   {rowSuccess[v.vendor_profile_id] && (
                     <span style={{ color: colors.primary, fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold }}>
                       ✓ Saved
+                    </span>
+                  )}
+                  {!!v.booth_number && !!v.has_paid_booth_week && (
+                    <span style={{ fontSize: typography.sizes.xs, color: '#a16207', flexBasis: '100%' }}>
+                      Locked — paid week on file. The number changes only after a missed week, or if you cancel the paid week.
+                    </span>
+                  )}
+                  {!!v.booth_number && !v.has_paid_booth_week && v.market_charges_booths && (
+                    <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted, flexBasis: '100%' }}>
+                      Held for this vendor until they pay for a week; theirs while they keep paying.
                     </span>
                   )}
                   </>

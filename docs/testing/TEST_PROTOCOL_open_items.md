@@ -23,6 +23,11 @@ Fixes shipped since your last results (2026-09-18, OB-026/OB-027; 2026-09-19 OB-
 points at its full block below. When this section is empty, there is nothing new to retest — go straight to the
 regular groups.
 
+BOOTH ROUND PART C (your 09-19 rulings: paying makes the number yours; assigned numbers freeze; one change notice):
+🟠 TR-088  Paying a week makes the booth number the vendor's; a held number yields to a payer, both sides told
+🟠 TR-089  An assigned number is locked while a paid week is on file
+🟠 TR-090  A vendor is told when their booth changes — and only then
+
 BOOTH ROUND PART B (your 09-19 rulings: manager veto at every managed market, size at Apply, size + number at approval):
 🔵 TR-083  Every managed market — free too — needs the manager's approval before picking days  (replaces TR-076/077)
 🔵 TR-084  Apply asks which booth size you want; the manager sees the request
@@ -192,7 +197,7 @@ Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
 
 
 ==================================================
-🟠 GROUP 3 — BOOTH WEEKS AND MONEY AT MANAGED MARKETS   (12 tests)
+🟠 GROUP 3 — BOOTH WEEKS AND MONEY AT MANAGED MARKETS   (15 tests)
 ===
 
 Screens: /\[vertical]/markets/\[id]/book · manager dashboard (vendor roster, booth occupancy) · /\[vertical]/listing/\[id] ·
@@ -265,6 +270,36 @@ Where: /\[vertical]/markets/\[id]/book as an approved vendor who has NOT ticked 
 Expect: an amber "First, pick the days you attend «Market»" box with the day toggles sits above the form,
 "Continue to payment" is disabled with the reason, and the season picker is hidden. Tick a day → "Done — continue
 to booking" → the form unlocks and the season picker appears.
+Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+
+
+
+🟠 TR-088  Paying a week makes the booth number the vendor's; a held number yields to a payer  (your 09-19 rulings)
+Where: manager roster + a vendor account. Part 1: a vendor with NO booth number books and pays a week (auto-assigned,
+say #3).
+Expect: the roster now shows them pinned to #3 with the tier they booked. Part 2 (the yield): pin vendor A to #5 and
+have A pay nothing; fill the tier so #5 is the only number left; vendor B books and PAYS.
+Expect: roster shows B pinned to #5 and A with no number; A's bell + email: "Booth #5 at «Market» is no longer held
+for you. It went to a vendor who paid…"; your own "B paid for a booth" message ends "Booth #5 was held for A; the
+hold moved to B…". If B never pays, nothing moves.
+Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+
+
+
+🟠 TR-089  An assigned number is locked while a paid week is on file  (your 09-19 ruling)
+Where: manager roster, the vendor from TR-088 part 1 (paid upcoming week under #3).
+Expect: their booth # field and size select are greyed with "Locked — paid week on file…" under them. In the
+Weekly bookings card, changing the number on their PAID week is refused ("…has paid for booth #3 through <date>");
+changing a PENDING week's number still works and the vendor is told.
+Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+
+
+
+🟠 TR-090  A vendor is told when their booth changes — and only then  (your 09-19 ruling; no bloat)
+Where: manager roster with an UNPAID pinned vendor.
+Expect: move their number #7 → #9 → they get "Your booth at «Market» is now #9 (was #7). The market manager moved
+you." Clear the number → "no longer held for you." Change only their size, or approve a new vendor with a first
+number → NO extra message (the approval and paid confirmations already carry the number).
 Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
 
 

@@ -1867,6 +1867,45 @@ describe('Event token format', () => {
       expect(roster, 'the roster shows the requested size').toMatch(/requested_size_label/)
     })
 
+    it('part C: payment writes the assignment from BOTH paid handlers, after the flip, never throwing into the webhook (BR-5/6)', () => {
+      const wh = rd('lib/stripe/webhooks.ts')
+      expect(wh).toMatch(/from '@\/lib\/markets\/booth-assignment'/)
+      const calls = wh.match(/await applyPaidBoothAssignment\(supabase, \{ (rentalId|groupId) \}\)/g) ?? []
+      expect(calls.length, 'one-off + season handlers both assign').toBe(2)
+      // Each call sits inside a try — a bug here can never fail the paid flip.
+      for (const m of wh.matchAll(/try \{\s*\n\s*(?:holdMovedFromName|seasonHoldMovedFromName) = \(await applyPaidBoothAssignment/g)) {
+        expect(m).toBeTruthy()
+      }
+      expect((wh.match(/ERR_WEBHOOK_020/g) ?? []).length, 'both failures are logged under their own catalog code').toBe(2)
+      const idx = wh.indexOf('await applyPaidBoothAssignment(supabase, { rentalId })')
+      const flip = wh.indexOf("flipped to paid (payment_intent")
+      expect(idx, 'assignment runs AFTER the paid flip').toBeGreaterThan(flip)
+      const mod = rd('lib/markets/booth-assignment.ts')
+      expect(mod, 'a soft pin yields only when the holder has NO paid current/upcoming week under it').toMatch(/\.eq\('booth_number', label\)\s*\n\s*\.eq\('status', 'paid'\)/)
+      expect(mod, 'the yielded holder is told').toMatch(/sendNotification\(vp\.user_id, 'booth_number_changed'/)
+      expect(mod, 'the manager learns a hold moved via the existing paid confirmation, not a new type').toMatch(/holdMovedFromName/)
+    })
+
+    it('part C: assigned numbers are frozen on all three manager routes, and there is exactly ONE booth-change notification (BR-7/8)', () => {
+      for (const file of [
+        'app/api/market-manager/[marketId]/vendor-booth/route.ts',
+        'app/api/market-manager/[marketId]/vendor-tier/route.ts',
+        'app/api/market-manager/[marketId]/weekly-rental/[rentalId]/route.ts',
+      ]) {
+        const text = rd(file)
+        expect(text, `${file} refuses while the number is assigned`).toContain("code: 'ERR_BOOTH_ASSIGNED_FROZEN'")
+        expect(text, `${file} shares the refusal copy`).toMatch(/frozenBoothMessage\(/)
+      }
+      const types = rd('lib/notifications/types.ts')
+      expect(types).toMatch(/\| 'booth_number_changed'/)
+      // Owner 2026-09-19 ("are you overbuilding?"): the 7-type plan was cut to
+      // ONE vendor notification + one line on the manager's existing message.
+      for (const bloat of ['booth_assigned', 'booth_transferred_out', 'booth_transferred_in', 'booth_transferred_manager', 'booth_pin_dropped', 'booth_transfer_conflict']) {
+        expect(types.includes(`'${bloat}'`), `${bloat} must not exist — cut as bloat`).toBe(false)
+      }
+      expect(types, 'manager paid confirmations carry the hold-moved line').toMatch(/holdMovedFromName/)
+    })
+
     it('the newest booking RPC honors the same-vendor rule and the soft-pin fallback (mig 256)', () => {
       const migDir = path.resolve(__dirname, '../../../../../supabase/migrations')
       const files: string[] = []
