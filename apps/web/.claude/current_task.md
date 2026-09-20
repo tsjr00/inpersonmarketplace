@@ -1,4 +1,19 @@
-# ▶ 2026-09-19 (later) — OB-029 UI FEEDBACK ROUND: PART A BUILT (uncommitted, gates green: tsc 0 · eslint 0 · vitest 92 files / 2259)
+# ▶ 2026-09-20 — OB-029 UI FEEDBACK ROUND: A `cba53412` · B `7b0be867` · C `bc7ac4e5` COMMITTED · D BUILT (uncommitted, gates green: tsc 0 · eslint 0 · vitest 93 / 2268) · NOTHING PUSHED YET (`origin/staging` = `a52cd6f0`)
+
+**Part D built:** `lib/markets/manager-week-strip.ts` (pure `buildManagerStripDays` + `loadManagerWeekStrip`: 5 parallel
+service reads — market_schedules, vendor_market_schedules, weekly_booth_rentals (Sunday-keyed weeks, paid + pending),
+order_items (distinct orders, pending/confirmed/ready), market_date_overrides (cancelled/special) — market-tz today;
+unit test 8 cases) · `components/market-manager/ManagerWeekStrip.tsx` (FM only, rendered in dashboard `page.tsx`
+between the address and `ManagerJumpNav`; FT keeps ParkWeekCard) · map 12 · registry TR-099 · printable list.
+**Part B/C recap:** FmDashboardBody regroup (`#vendors` = group, `#roster` = card; Action Items anchors → `#roster`),
+grid/bookings descriptions, flow pin (anchors resolve + group order), ManagerActionSummary → "Action Items" (no
+next-market-day line; FT shares the card). Registry TR-097/098.
+**NEXT:** owner's word → commit D → ONE staging push (A–D, `a52cd6f0..`) → owner retests TR-093–099 (+ the booth
+round TR-078–092 still owed). Rule L debt still owed (allowance 6, stamp 251) — 257 is on Dev, scoped refresh ready.
+
+---
+
+# (superseded) 2026-09-19 (later) — OB-029 UI FEEDBACK ROUND: PART A BUILT
 
 Owner's user-feedback review (4 parts, OBSERVATIONS.md OB-029): admin vendor detail lacks markets + shows FT
 readiness wording to FM vendors; admin vendor list old tier labels + 10-vs-9 listing count; FM manager dashboard

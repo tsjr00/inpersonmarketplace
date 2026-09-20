@@ -13,6 +13,8 @@ import { getBoothMapUrl } from '@/lib/markets/booth-map'
 import { getManagerDashboardStats, getMarketTransactionsAggregates, getManagerEarningsAggregates, getParkManagerEarningsAggregates } from '@/lib/markets/manager-dashboard-stats'
 import { getParkWeekSchedule } from '@/lib/markets/park-week-schedule'
 import { getMarketVisibilityStatus } from '@/lib/markets/market-visibility'
+import { loadManagerWeekStrip } from '@/lib/markets/manager-week-strip'
+import ManagerWeekStrip from '@/components/market-manager/ManagerWeekStrip'
 
 interface PageProps {
   params: Promise<{ vertical: string; marketId: string }>
@@ -156,6 +158,19 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
     pendingHoldRequests = count ?? 0
   }
 
+  // FM: the manager's next-14-days strip (OB-029 part D) — under the market
+  // name, above the jump nav, like the other dashboards. FT parks keep their
+  // own "This week at your park" card (per-day spot model).
+  const weekStrip = isFoodTrucks
+    ? null
+    : await loadManagerWeekStrip(
+        createServiceClient(),
+        marketId,
+        (market.timezone as string | null) ?? null,
+        (market.season_start as string | null) ?? null,
+        (market.season_end as string | null) ?? null,
+      )
+
   const navDestinations = await getNavDestinations(supabase, user, vertical)
 
   return (
@@ -201,6 +216,8 @@ export default async function MarketManagerDashboardPage({ params }: PageProps) 
           {[market.address, market.city, market.state].filter(Boolean).join(' · ')}
         </p>
       )}
+
+      {weekStrip && <ManagerWeekStrip vertical={vertical} days={weekStrip.days} today={weekStrip.today} />}
 
       {/* Sticky in-page jump nav (Session 92 design pass) — chips scroll to
           each section group; ids must match the group-leader cards below. */}
