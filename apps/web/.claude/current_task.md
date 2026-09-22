@@ -1,4 +1,18 @@
-# 🏁 2026-09-20 CLOSE (context exhausted) — OPTION U A–D ON STAGING `005396d4` · EASY-WINS ROUND BUILT, committed local `<see git log>`, NOT PUSHED
+# 2026-09-21 — EASY-WINS PUSHED TO STAGING `005396d4..2c507430` (build 48s · Playwright 49/1 skip) · `origin/staging` = `main` = `2c507430` · STAGING LEGACY TIERS NUMBERED BY SQL
+
+**Staging data fix (owner-run DO block, 2026-09-21, no code):** after 258 every legacy tier had no numbers and the trigger
+(P0011) requires first-time numbering to INCLUDE every number the tier already holds — re-entering by hand per market
+would have stalled testing. Owner had already numbered Amarillo (`existing`, 1–10/11–20) and Space Camp (`lettered`,
+A/B/C) in the UI. SQL set `existing` + ranges on **Market 2 Test** (1–5 · 6–15 · 16–20), **Westgate mall** (lowercase;
+1–10 · 11–15), **River Road** (4–13 · 14–23 · Large Tent LIST `{1, Booth 2, 3, 24, 25}` — it already held 1/3/"Booth 2"
+while Small held 4/5). No vendor/placeholder/rental rows touched; post-check: 18 held numbers `ok`. **Left alone:**
+Sixth Street (FT park — tiers unused, FT passes no booth signals) and **Westgate Mall (capital M) — two vendors both
+hold "01" in different sizes; owner runs TR-100 "Existing numbers" there by hand** (the "01" overlap IS test (a)).
+UX note for OBSERVATIONS if it trips: first-time numbering that omits a held number says "…free it before REMOVING it
+from this size" — right rule, wrong verb (`258…sql:321`). Printable-list header still says "sizes have NO numbers" —
+refresh at next docs commit.
+
+# (superseded) 🏁 2026-09-20 CLOSE (context exhausted) — OPTION U A–D ON STAGING `005396d4` · EASY-WINS ROUND BUILT, committed local `2c507430`, NOT PUSHED
 
 **Staging** = `005396d4` (Option U parts A–D + earlier docs). **Prod** untouched `d704d3bb` (owes 44+ commits, migs 252–258).
 **Easy-wins round (owner "YES" ×4, 2026-09-20), BUILT, gates green (tsc 0 · eslint 0 · vitest 95/2294), committed

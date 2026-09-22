@@ -1,851 +1,508 @@
-STAGING TEST PROTOCOL — READY TO RUN
-Regenerated 2026-09-19 from the Test Registry (docs/testing/TEST\_REGISTRY.md). Plain text: paste into Word as-is.
-Only items with no recorded result from the owner. Tests you reported as passing are gone; tests reported as
-failing return here when their fix ships.
-Staging: https://inpersonmarketplace-git-staging-tsjr00s-projects.vercel.app
-Replace \[vertical] in any path with farmers\_market or food\_trucks.
+STAGING TEST WORKFLOWS — READY TO RUN
+Regenerated 2026-09-21 from the Test Registry (docs/testing/TEST_REGISTRY.md) as WORKFLOWS (owner 2026-09-21:
+"design a workflow test that would cover multiple items at once"). Plain text: paste into Word as-is.
+Staging: https://inpersonmarketplace-git-staging-tsjr00s-projects.vercel.app  — build 2c507430 (2026-09-21).
+Migrations 256 + 257 + 258 are on Staging. Hard-refresh after any new deploy.
 
-HOW TO USE
+HOW THIS WORKS
+* Each workflow (W1, W2, …) is one role's real sequence of work. Run it top to bottom in one sitting. Each step has
+  ONE "Expect" line. The small TR-tags after a step are for Claude's bookkeeping — ignore them.
+* Report ONE of three things, per workflow, in your own words:
+    "W2 pass"
+    "W2 step 6: the picker showed no numbers"      ← what you saw; keep going if you can
+    "W2 step 6 skipped: no pending applicant"      ← couldn't do it; not a failure
+  Claude maps your report onto the registry (which tests passed, which failed, which are untested) and asks only
+  where something is unclear. Screenshots help. Do not rate severity.
+* SETUP lines at the top of a workflow list the test data it needs. Create that data once, then run the workflow.
+* "Where" lines name the page, then the card or section title, then the widget. Replace [vertical] with
+  farmers_market or food_trucks; replace [id] with the market's id from its dashboard URL.
 
-* Tests are GROUPED BY WORKFLOW, each group with its own colored dot. Run a group in one sitting: the tests in a
-group share the same screens and the same setup, so you will often knock out several in one pass.
-* Each block is one test. Quote the ID back: "TR-026 passed" is a complete result. If you notice you already
-covered a test while running another, say so — the ID is what gets recorded, not the order you ran them in.
-* Result line: Pass, Fail, or Couldn't run, plus the date. Anything unexpected goes in Notes, in your own words.
-* Do not rate severity. Screenshots help. Hard-refresh after any new deploy.
+STATE OF THE TEST MARKETS (2026-09-21)
+  Amarillo Community Market   charging · numbered 1–10 (10x10) / 11–20 (10x15) · six pins + placeholder #1    ← W1
+  Market 2 Test               charging · numbered 1–5 small / 6–15 medium / 16–20 large · pin #7, placeholder #1  ← W2, W3
+  Westgate mall (lowercase)   charging · numbered 1–10 Small / 11–15 Large · placeholders #1, #15               ← spare
+  River Road                  charging · Small Tent 4–13 / Medium Tent 14–23 / Large Tent list 1, Booth 2, 3, 24, 25
+  Westgate Mall (capital M)   numbered by hand 2026-09-21 (TR-100 passed there)                                ← spare
+  Space Camp Musicians        lettered A1–A5 / B1–B10 / C1–C20 · placeholder A1                                ← spare
+  Sixth Street Food Park      food trucks — spots, not booths                                                  ← W4
+  Every one of these is a MANAGED market: a vendor with no history there must Apply and be approved before
+  picking days or booking (rule since 2026-09-19).
 
-==================================================
-★ WHAT'S NEW — retest these first
-===
-
-Last update: 2026-09-20 · staging build (pending push) — migrations 256 + 257 + 258 are on Staging (hard-refresh before testing). ⚠ After 258 your test markets' sizes have NO booth numbers until you enter them (TR-100) — do that first, or the booking tests below can't run.
-Fixes shipped since your last results (2026-09-18, OB-026/OB-027; 2026-09-19 OB-028 booth conflict). Each line
-points at its full block below. When this section is empty, there is nothing new to retest — go straight to the
-regular groups.
-
-EASY WINS (your 09-20 "what are we missing" review — no migration):
-🟠 TR-107  FT park dashboard: Action Items appears at last (approvals incl. who already booked · hold requests); section renamed
-🟠 TR-108  "Print this week's sheet" — the clipboard roster for the market day
-🟠 TR-109  FT F1: a one-off truck can't take a recurring truck's spot on their day; both told if it ever happens anyway
-
-BOOTH NUMBERING — OPTION U, parts A–D (your 09-20 rulings: numbers belong to sizes; migration 258 is on Dev + Staging):
-🟠 TR-100  Booth inventory asks "new or existing numbers?", then numbers each size (A1–A4…); count derived; overlaps refused by name
-🟠 TR-101  The same "How booth numbers work here" paragraph on all four booth cards, with your market's number map
-🟠 TR-102  Every booth number is PICKED (size → number), never typed; taken numbers show who holds them
-🟠 TR-103  Paid weeks show their number locked with the reason; "needs booth #" only at markets that don't charge
-🟠 TR-104  Occupancy grid shows every numbered booth, free ones included; vendor form says which number they'll get
-🟠 TR-105  Action Items lists all six kinds, each linking to its card
-🟠 TR-106  "Vendors at this market" reads as a card, not a section; links into collapsed Setup open it
-
-FM MANAGER DASHBOARD (your 09-19 user-feedback review, OB-029 parts B + C + D — no migration):
-🟠 TR-097  Dashboard regrouped in your order; jump-nav chips and Action Items links land on the right cards
-🟠 TR-098  "Action Items" lists only approvals to review and booth numbers to assign
-🟠 TR-099  "Your next two weeks" strip: declared · paid weeks · orders per market day; cancelled days struck
-
-ADMIN VENDOR PAGES (your 09-19 user-feedback review, OB-029 part A — no migration):
-⚪ TR-093  Admin vendor detail lists the vendor's markets (status, booth, declared days)
-⚪ TR-094  FM vendor's event-readiness answers read back in FM words — no vehicle/generator rows
-⚪ TR-095  Tier filter is Free / Pro / Boss; legacy "standard" rows read Free
-⚪ TR-096  List and detail agree on published-listing count; market boxes counted separately
-
-BOOTH ROUND PART D (your 09-19 rulings: FM credits modeled on FT; manager may cancel a paid week — migration 257 is on Staging):
-🟠 TR-091  Cancelling a market day credits paid one-off weeks per declared day; the notice states the amount
-🟠 TR-092  Manager cancels a paid week → vendor credited for the remaining days, told why; no vendor self-cancel
-
-BOOTH ROUND PART C (your 09-19 rulings: paying makes the number yours; assigned numbers freeze; one change notice):
-🟠 TR-088  Paying a week makes the booth number the vendor's; a held number yields to a payer, both sides told
-🟠 TR-089  An assigned number is locked while a paid week is on file
-🟠 TR-090  A vendor is told when their booth changes — and only then
-
-BOOTH ROUND PART B (your 09-19 rulings: manager veto at every managed market, size at Apply, size + number at approval):
-🔵 TR-083  Every managed market — free too — needs the manager's approval before picking days  (replaces TR-076/077)
-🔵 TR-084  Apply asks which booth size you want; the manager sees the request
-🔵 TR-085  Approve sets size + booth number + note in one step; the vendor is told
-🟠 TR-086  Booking is locked to the assigned size; unapproved vendors see the apply door
-🟠 TR-087  Booking needs at least one declared day — the day picker unlocks the form
-
-BOOTH ROUND PART A (your 09-19 booth-conflict report; migration 256 on Dev + Staging):
-🟠 TR-078  A pinned vendor can book their own booth (the bug you hit)         (your 09-19 report)
-🟠 TR-079  A season purchase keeps ONE booth number for every week           (your 09-19 ruling)
-🟠 TR-080  Manager can pin a vendor to the booth they already rent           (found in the review)
-🟠 TR-081  Revoking a vendor frees their booth number                        (found in the review)
-🟠 TR-082  Occupancy grid shows paid renters; pins listed as holds, not counted (found in the review)
-
-EARLIER (2026-09-18 push, still to run):
-🟢 TR-069  Market-limit refusal now names the 4 counted markets              (your 09-18 report, item 1)
-🟢 TR-034  FM no longer mentions "Pickup Capacity"; FT half still to run       (your 09-18 report, item 4)
-🔵 TR-071  Apply shows the market agreement + document-sharing box            (your 09-18 TR-036 question)
-🔵 TR-036  Manager "View docs" page — now reachable via TR-071
-   (TR-076 and TR-077 are withdrawn — your 09-19 ruling replaced the free-market rules they tested; see TR-083.)
-🔵 TR-072  "No paid week yet" on the manager's roster                         (your 09-18 booth question)
-🟠 TR-073  Fee-market items sell only for a paid booth week (migration 255)   (your 09-18 rulings)
-🟠 TR-074  Week strip shows "payment due" until a week is paid
-🟠 TR-075  Buyers see a fee market only once a vendor has paid; manager card says so
-🟣 TR-025  Re-run with a vendor whose multi-location box is UNCHECKED          (your 09-18 attempt was by-design)
-
-Still open from the 2026-09-17 events push (never reported): 🟣 TR-022, 064, 065, 066, 067, 068 — all on one fresh
-self-service event, in that order.
-
-
-
-GROUPS
-🟢 Vendor sets up listings, schedules and markets
-🔵 Vendor joins a market · manager's roster
-🟠 Booth weeks and money at managed markets
-🟣 Events (organizer, vendor, admin)
-🟡 Market bundles
-🟤 Market boxes
-⚪ Platform admin pages
-🔴 Orders
-⚫ Not runnable yet
+WORKFLOWS
+  W1  Manager runs a charging market's dashboard, booth numbers, roster and week sheet   (Amarillo · ~40 min)
+  W2  Vendor applies, is approved, books and pays a week; the number becomes theirs      (Market 2 Test · ~60 min)
+  W3  Manager cancels a market day and a paid week — credits and notices                 (Market 2 Test · ~20 min)
+  W4  Food-truck park: operator Action Items, recurring holds, cancel a date             (Sixth Street · ~30 min)
+  W5  Vendor sets up listings and markets — limits, double-booking, copy                 (~25 min)
+  W6  Admin looks up a vendor                                                             (~5 min)
+  W7  Events — one fresh self-service event, start to shop                               (~45 min)
+  W8  Market bundles — three fresh orders                                                (~30 min + a 1-hour wait)
+  W9  Market boxes — one purchase                                                        (~15 min)
+  W10 Survey email link                                                                  (~2 min)
+  Not runnable yet — listed at the end; nothing for you to do.
 
 
 
 ==================================================
-🟢 GROUP 1 — VENDOR SETS UP LISTINGS, SCHEDULES AND MARKETS   (6 tests)
+W1 — MANAGER RUNS A CHARGING MARKET  (Amarillo Community Market)
 ===
+SETUP: you are the manager of Amarillo. It already has: 10x10 numbered 1–10 with pins #5 Sunrise Organic, #6 Happy
+Hens, #7 Texas Honey, #8 Lone Star Succulents, #9 Sweet Rise and placeholder #1 (manager booth); 10x15 numbered
+11–20 with pin #11 Valley Verde. Plus ONE vendor with an application pending (apply from the market page as any
+test vendor with no history at Amarillo before you start — that also seeds W2's habit).
+Page for the whole workflow: /farmers_market/market-manager/[id]/dashboard
 
-Screens: /\[vertical]/vendor/listings/\[id]/edit · /\[vertical]/vendor/edit · /\[vertical]/vendor/markets · booking pages.
+ 1. Open the dashboard and read it top to bottom.
+    Expect this order: Action Items → Setup (collapsible) → "Booths & occupancy": Booth occupancy — this week ·
+    Weekly booth bookings · Booth inventory · Off-platform booth placeholders · Booth map → "Vendors": Vendor
+    attendance · Vendors at this market (Roster / Invite tabs) → "Money & activity": Your booth revenue · Market
+    activity · Curated bundles → "Communication & insights": Send an announcement · Survey results · Cancel a market
+    day · Need help?. Jump-nav chips: Setup · Booths & occupancy · Vendors · Money & activity · Communication; each
+    scrolls to its heading. The occupancy card says it is the picture ("Is there room?"); the bookings card says it is
+    where you act.                                                                                    TR-097
 
+ 2. "Your next two weeks" strip — directly under the market name/address, above the chips.
+    Expect one line per market day in the next 14 days, e.g. "Sat, Sep 26  8a–12p · 3 vendors declared · 2 paid
+    booth weeks (1 booked, unpaid) · 4 orders scheduled". Today's line highlighted. Check ONE line against the pages
+    that own each number: declared = roster's declared days for that weekday; paid/unpaid = Weekly booth bookings for
+    that week; orders = an order placed for pickup that day. (The "Cancelled — struck through" part is W3 step 1.)
+                                                                                                      TR-099
 
+ 3. "Action Items" — the first card.
+    Expect: titled "Action Items"; a line "1 vendor pending your approval. Review →" whose link lands on the ROSTER
+    CARD (not the Vendors heading). NO "Needs a booth number" line (this market charges — vendors get their number
+    when they book). NO "Next market day" line (the strip's job). Any of these may also appear and each link must
+    work: "<size> has no booth numbers yet… Set numbers →" (Setup) · "N held or placeholder numbers have no size…
+    Re-pick →" (roster) · "<size> is over capacity this week… Fix →" (Booths & occupancy) · "Stripe needs more
+    information… Finish →" (Setup) · "N season vendors are owed a settlement… Settle →" (Seasons).
+                                                                                             TR-098 TR-105
 
-🟢 TR-069  Market-limit refusal names the markets already counted  (fix shipped 2026-09-18)
-Where: /farmers\_market/vendor/listings/\[id]/edit on the vendor who hit "Market limit reached (4/3)".
-Steps: tick a traditional market and save.
-Expect: the refusal says your free plan allows 3 traditional markets counted across ALL your listings and
-market-box pickup markets, and LISTS the 4 markets already counted. (No grandfathering — the count stands.)
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   
+ 4. Collapse Setup. Click any Action Item link that points INTO Setup (if none shows, use the jump-nav "Setup" chip
+    and then a "#setup" link from the browser bar is not needed — just confirm the chip works).
+    Expect: Setup opens by itself and the page scrolls to the target card.                          TR-106
 
-Notes: >++> I think another fix forces this issue resolved and makes it so i cant test it - when a vendor has used up their markets available for their tier the other markets are not selectable - accessible markets have a line around them and a clickable - but only 3 of the 7 markets shown for this vendor. maybe its because ths markets have not accepted the vendors
+ 5. Vendors section → the "Vendors at this market" card.
+    Expect: "Vendors" has the accent rail (a section); "Vendors at this market" below it is a plain bold CARD title,
+    no rail. On approved vendors with no paid week: an amber "· no paid week yet" (hover explains). NO "Needs booth #"
+    chip anywhere on this roster; an unnumbered approved vendor reads "gets a booth # when they book".
+                                                                                     TR-106 TR-072 TR-103
 
+ 6. Same card — the pending applicant's row → the Approve controls.
+    Expect: "Requested: <size>" if they chose one on Apply; next to Approve a SIZE dropdown (preset to what they
+    requested), then a NUMBER dropdown (this size's numbers; taken ones greyed with who holds them, e.g. "5 — held:
+    Sunrise Organic Farm"), a "N free" count, and a "Note to vendor" field. Nowhere can you TYPE a number. Pick a
+    number, type a note, Approve → row shows the number and size; the vendor's bell + email read "Your booth: #N ·
+    <size> size…" and include your note.                                                  TR-085 TR-102
 
+ 7. Same card — Texas Honey Co. (#7): change the number to #10 → Save.
+    Expect: the vendor is told "Your booth at Amarillo… is now #10 (was #7). The market manager moved you." Now
+    clear the number ("— no booth # —") → Save → they are told it is "no longer held for you". Put #7 back → Save
+    → a third message (it is a move again). Change ONLY the size of some other vendor → NO message.  TR-090
 
-🟢 TR-034  Capacity copy  (Private Events Readiness half PASSED 09-18; the other half is FOOD TRUCKS ONLY)
-Where: /food\_trucks/vendor/edit — the Pickup Capacity section exists only for food trucks.
-Expect: the new sentence under Pickup Capacity. Also on /farmers\_market/vendor/edit and the FM dashboard
-pickup-line notice: no mention of "Pickup Capacity" anywhere (removed 09-18).
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+ 8. Same card — Lone Star Succulents (#8): Revoke.
+    Expect: the row shows no booth or size. Pick #8 for another vendor → Save works. (Re-invite / re-approve Lone
+    Star afterwards if you want them back — optional.)                                             TR-081
 
+ 9. "Booth occupancy — this week" card.
+    Expect: under 10x10 one tile per number 1–10 — #1 "Off platform: Market Manager Booth", the pinned numbers
+    "Held (not paid)", the rest dashed "#N · free"; under 10x15 tiles 11–20 with #11 held. The "N of M occupied ·
+    K open" line counts BOOKINGS only — holds are listed but not counted, so with no paid weeks it reads 1 of 10 (the
+    placeholder) and 0 of 10.                                                             TR-104 TR-082
 
+10. "Off-platform booth placeholders" card → Add.
+    Expect: size dropdown then number dropdown, no text field for the number; taken numbers greyed with the holder.
+    Add one (e.g. 10x15 #20, note "test placeholder") → it appears; Edit it → same picker; Delete it.
+                                                                                                      TR-102
 
-🟢 TR-044  Double-booking needs the multi-location declaration, on BOTH verticals  (fix shipped: Push C + migration 253)
-Where: /\[vertical]/vendor/edit, the box "I can staff more than one location at the same time";
-/\[vertical]/vendor/markets.
-Steps: as a farmers\_market vendor with the box UNCHECKED, activate a second market on a weekday and time you
-already occupy elsewhere. Then check the box and try again. Repeat once on food\_trucks.
-Expect: unchecked → refused, with a message naming the market you are already at; checked → succeeds.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+11. The FOUR booth cards — Booth inventory · Vendors at this market · Off-platform booth placeholders · Weekly
+    booth bookings.
+    Expect: the SAME "How booth numbers work here." paragraph on each, ending with this market's map "10x10 1–10 ·
+    10x15 11–20". No other card explains numbers differently.                                        TR-101
 
-
-
-🟢 TR-046  Booking page: operating-days line placement  (fix shipped: Push D)
-Where: /\[vertical]/markets/\[id]/book on a market that shows a booth map.
-Expect: the operating-days line sits BELOW the map and ABOVE the week / booth selection.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟢 TR-042  Day-of buyer copy
-Where: /food\_trucks/listing/\[id] with 0-day advance ordering, on a non-operating day.
-Expect: "Orders Open on Operating Days"; badge tooltip no longer claims prep time.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟢 TR-043  Week-strip standing hold
-Where: /food\_trucks/vendor/markets "Your next two weeks".
-Expect: an active standing reservation shows on its weekday more than 7 days out, with the pay-by note.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+12. "Weekly booth bookings" card → week header → "🖨 Print this week's sheet" (new tab).
+    Expect: a plain page "Amarillo Community Market — week sheet": one row per booth: booth # · vendor · size ·
+    status (Paid / Booked · NOT paid / Held · no booking this week / Off-platform) · a ✓ under each market day the
+    vendor declared · an empty "Checked in" column. Holds and the placeholder appear. Previous/Next week links work;
+    Print → the browser preview shows only the table. "← Back to the dashboard" lands on the bookings card.
+                                                                                                      TR-108
 
 
 
 ==================================================
-🔵 GROUP 2 — VENDOR JOINS A MARKET · MANAGER'S ROSTER   (6 tests)
+W2 — VENDOR APPLIES, IS APPROVED, BOOKS AND PAYS  (Market 2 Test)
 ===
+SETUP: two test vendor accounts with NO history at Market 2 Test — call them V1 and V2 — each with at least one
+published listing. The manager account for Market 2 Test. Market 2 Test charges for booths (small $25 / medium $35 /
+large $50) and has pin #7 (medium, Hill Country Herbals) and placeholder #1 (small). Stripe test card 4242….
+The one FREE-market step (step 2) needs a managed FM market with a $0 booth tier — if you don't have one, skip it and
+say so.
 
-Screens: /\[vertical]/markets/\[id] (Apply) · /\[vertical]/vendor/markets (day picker) · manager dashboard roster.
-Setup that serves the group: one vendor with no history at a FREE managed market (no priced booth tier), one
-vendor with no history at a CHARGING managed market, and the manager account for each.
-The rule since 2026-09-19: EVERY managed market — free or charging — needs the manager's one-time approval
-before a vendor can pick days or book. Apply is the front door; approval sets the vendor's booth size and number.
+ 1. As V1: /farmers_market/vendor/markets → open Market 2 Test's day picker → tick a day.
+    Expect: refused with a RED (blocking) message "«Market 2 Test» reviews vendor applications. Apply from the
+    market's page…". No agreement block in the picker any more.                                      TR-083
 
+ 2. (Free market, if you have one) As a vendor with no history there, same day-picker attempt.
+    Expect: the same red refusal — free markets need approval too.                                    TR-083
 
+ 3. As V1: /farmers_market/markets/[Market 2 id] → "Apply to Sell Here".
+    Expect: the market agreement with an "I agree" box; below it "Share my onboarding documents with this market's
+    manager" with a grey line explaining why; a "Booth size you'd like" select listing the sizes with weekly prices.
+    Submit stays disabled until BOTH "I agree" and a size are chosen. Tick sharing, pick MEDIUM, submit.
+                                                                                             TR-071 TR-084
 
-🔵 TR-071  Applying to a market shows its agreement and a document-sharing box  (fix shipped 2026-09-18)
-Where: /\[vertical]/markets/\[id] for a MANAGED market → "Apply to Sell Here".
-Expect: the form shows the market agreement with an "I agree" box, and below it "Share my onboarding documents
-with this market's manager" with a small grey line explaining why managers review documents. Submit stays
-disabled until "I agree" is ticked. After submitting, the manager's roster shows you; "View docs" appears on
-your row only if you ticked the sharing box.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+ 4. As V2: same page, same steps — pick SMALL, do NOT tick document sharing.                       TR-084
 
+ 5. As manager: dashboard → Vendors at this market.
+    Expect: two pending rows; V1 reads "Requested: medium" and shows "View docs"; V2 reads "Requested: small" and
+    has NO "View docs". Open V1's "View docs".
+    Expect: the documents page opens (if it errors, capture the on-screen error or Vercel log line).
+                                                                                             TR-084 TR-036
 
+ 6. As manager: approve V1 — change the size to LARGE, pick number 16, note "moved you to large" → Approve.
+    Expect: row shows #16 · large. V1's bell + email: "Your booth: #16 · large size…" with your note.
+    Approve V2 with size SMALL and NO number, no note.
+    Expect: works; V2's row shows small, no number, "gets a booth # when they book".                TR-085
 
-🔵 TR-083  Every managed market needs the manager's approval before a vendor can pick days  (your 09-19 ruling; replaces TR-076/077)
-Where: as a vendor with NO history at a managed market with NO priced booth tier, /\[vertical]/vendor/markets →
-open that market's day picker and tick a day.
-Expect: refused with a red (blocking) message — "«Market» reviews vendor applications. Apply from the market's
-page…". No agreement block appears in the picker any more (Apply carries it). Apply from the market page, then as
-the manager approve the vendor → the toggle now saves. A vendor who already had days at this market before
-today keeps editing them (grandfathered).
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+ 7. As V1: /farmers_market/vendor/markets → Market 2 Test day picker → tick a day → UNTICK it again (so V1 has no
+    days for step 8).
+    Expect: the toggle saves now.                                                                    TR-083
 
+ 8. As V1 (no days ticked): /farmers_market/markets/[Market 2 id]/book.
+    Expect: an amber "First, pick the days you attend «Market 2 Test»" box with day toggles ABOVE the form;
+    "Continue to payment" disabled with the reason; season picker hidden. Tick a day → "Done — continue to booking"
+    → the form unlocks and the season picker appears.                                                TR-087
 
+ 9. Still on the book page as V1.
+    Expect: a box "Your booth at «Market 2 Test»: #16 · large size — assigned by the manager"; the size picker is
+    disabled on LARGE ("set by the manager"). Also: the operating-days line sits BELOW the booth map and ABOVE the
+    week/booth selection.                                                                  TR-086 TR-046
 
-🔵 TR-084  Apply asks which booth size you want; the manager sees the request  (your 09-19 ruling)
-Where: /\[vertical]/markets/\[id] for a managed market WITH priced booth tiers → "Apply to Sell Here".
-Expect: a "Booth size you'd like" select lists the tiers with weekly prices and Submit stays disabled until one is
-chosen (plus the agreement, as before). A market with no priced tiers shows no size question. As the manager,
-the pending row on the roster reads "Requested: <size>".
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+10. BEFORE paying — three checks as V1 / as anyone:
+    a. /farmers_market/listing/[one of V1's items] → no pickup dates at Market 2 Test; it cannot be carted there.
+    b. /farmers_market/vendor/markets "Your next two weeks" → Market 2 Test's weekday renders amber "No paid booth
+       week — book this week to sell here".
+    c. As manager: the dashboard's visibility card says the market isn't visible and names "a paid booth week" as the
+       third requirement; /farmers_market/markets (public list) omits Market 2 Test.
+                                                                                     TR-073 TR-074 TR-075
 
+11. As V1: back on the book page → pick this week → agree → "Continue to payment" → pay with the test card.
+    Expect: reaches Stripe, NO "BOOTH_CONFLICT". After paying, the booking shows booth #16.          TR-078
 
+12. AFTER paying — the same three checks flip:
+    a. V1's listing shows pickup dates for THAT WEEK ONLY at Market 2 Test.
+    b. The week strip shows those dates as a normal booth entry.
+    c. The visibility card says visible; the public list includes Market 2 Test.
+    A free managed market and an off-app market are unchanged throughout.                  TR-073 TR-074 TR-075
 
-🔵 TR-085  Approve sets size + booth number + note in one step; the vendor is told  (your 09-19 ruling)
-Where: manager dashboard → vendor roster → the pending row from TR-084.
-Expect: next to Approve there is a size select (pre-set to what they requested), a booth # field and a "Note to
-vendor" field. Change the size, type a number and a note, Approve → the row shows the number and tier. The vendor's
-notification (bell + email) reads "Your booth: #N · <size> size…" and includes your note. Approving with the
-fields left blank still works (nothing set).
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+13. As manager: roster → V1's row.
+    Expect: the size and number are greyed with "Locked — paid week on file…" under them. Weekly booth bookings →
+    V1's PAID row reads "Booth #16 — locked, paid week. Changes only after a missed week, or cancel the week below."
+    with no dropdown.                                                                       TR-089 TR-103
 
+14. As manager: roster → some OTHER approved vendor → size large → number dropdown.
+    Expect: "16 — paid, locked: <V1's name> through <Saturday>" greyed. Pick 17 → Save works. Roster → V1's own row
+    is locked (step 13), which is the same rule from the other side.                        TR-102 TR-080
 
+15. As V2 (approved small, no number): /farmers_market/markets/[Market 2 id]/book → tick a day if asked.
+    Expect: the size picker allows small; under it: "You'll be given the lowest free booth number in this size when
+    you book; paying for the week makes it yours." Book this week → the confirmation names a SMALL number (#2 — #1 is
+    the placeholder). Do NOT pay yet.
+    Expect (manager): Weekly booth bookings shows V2's row as PENDING with the size/number picker (size fixed to
+    small); the occupancy grid shows #2 "Pending payment". Change V2's pending number to #3 → Save → V2 is told.
+                                                                                     TR-104 TR-089 TR-103
 
-🔵 TR-036  Manager vendor-docs page  (evidence only — the door shipped 2026-09-18)
-Where: manager dashboard → vendor roster → "View docs" on a vendor who ticked the sharing box (TR-071).
-Steps: open it. If it errors, capture the on-screen error or the Vercel log line.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+16. As V2: pay the pending week.
+    Expect: the roster now shows V2 pinned to #3 · small. Booth occupancy → #3 "Paid this week" under small; the
+    "N of M occupied" line now counts it.                                                    TR-088 TR-082
 
+17. The yield (a held number goes to whoever pays). As manager, on SMALL: pin three other approved vendors to #4, #5
+    and, if you have a fourth, leave #4/#5 as the only holds — the point is that EVERY small number is now a
+    placeholder (#1), paid (#3) or a hold. Then as a vendor V3 with no number (approve one to small without a number)
+    book a small week.
+    Expect: V3's confirmation names the LOWEST held number (#4). V3 pays.
+    Expect: roster shows V3 pinned to #4 and the vendor who held #4 with NO number; that vendor's bell + email:
+    "Booth #4 at «Market 2 Test» is no longer held for you. It went to a vendor who paid…"; your own "V3 paid for a
+    booth" message ends "Booth #4 was held for <name>; the hold moved to V3…". If V3 never pays, nothing moves.
+                                                                                                      TR-088
 
-
-🔵 TR-072  "No paid week yet" note on the manager's roster  (fix shipped 2026-09-18)
-Where: /\[vertical]/market-manager/\[marketId] vendor roster, at an FM market that has a PRICED booth tier.
-Expect: an approved vendor with no paid booth week shows an amber "· no paid week yet" (hover explains); after
-that vendor pays a week it disappears. A market with no priced booth tier shows no note at all.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+18. (Only if a market has an OPEN pre-season window.) Buy the season (or a partial set of weeks) as a pinned vendor,
+    then as an unpinned one; then /farmers_market/vendor/bookings.
+    Expect: pinned vendor — every week shows the pinned number; unpinned vendor — every week shows the SAME
+    auto-assigned number. If no single booth is free for all the weeks: "a season keeps one booth all season" rather
+    than blaming one week.                                                                            TR-079
 
 
 
 ==================================================
-🟠 GROUP 3 — BOOTH WEEKS AND MONEY AT MANAGED MARKETS   (30 tests)
+W3 — MANAGER CANCELS A MARKET DAY AND A PAID WEEK  (Market 2 Test, right after W2)
 ===
-
-Screens: /\[vertical]/markets/\[id]/book · manager dashboard (vendor roster, booth occupancy) · /\[vertical]/listing/\[id] ·
-/\[vertical]/vendor/markets "Your next two weeks" · manager visibility card · /\[vertical]/markets public list ·
-manager cancel-date.
-Setup that serves most of this group: ONE of the 21 vendors from the 255 pre-check (Amarillo Community, Market 2
-Test, River Road or Westgate Mall — all four charge for booths). Check everything BEFORE they pay, then have them
-book + pay one week, then check everything again.
-Words used below — PIN: the booth number the manager types on the roster (a hold; the vendor may never pay).
-BOOKING: a week the vendor booked and paid for. Migration 256 must be on Staging before the first five tests.
-
-
-
-🟠 TR-100  Booth inventory numbers booths BY SIZE  (shipped 2026-09-20 — migration 258 on Staging; do this FIRST — every other booth test needs numbers)
-Where: /farmers\_market/market-manager/\[id]/dashboard → Setup → Booth inventory. Your test tiers have NO numbers after
-the migration (by design — we said re-enter them).
-Steps: answer "Is this a new market, or does it already have booth numbers?" (try "New market"). Edit each size:
-the letter is pre-filled (A, then B, then C); give first/last numbers; Save. Then: (a) try to give a second size a
-number the first already has → refused by name ("A3 is already a Small booth"); (b) hold #A2 for a vendor on the
-roster, come back and shrink Small to A1–A1 → refused ("A2 is still held…"); (c) switch the market to "Existing
-numbers" via "change" → a size may now have a prefix-less range or a comma list ("3, 5, 7").
-Expect: count reads "= N booths" and is not typed; the card's map line shows "Small A1–A4 · Medium B1–B3…"; a size
-with no numbers is flagged "⚠ No booth numbers yet — not bookable".
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟠 TR-101  One paragraph, four cards  (shipped 2026-09-20)
-Where: Booth inventory · Vendors at this market (roster) · Off-platform booth placeholders · Weekly booth bookings.
-Expect: the same "How booth numbers work here." paragraph on each, showing your market's number map; when a size has
-no numbers yet, an amber sentence at the end names it. No other card explains booth numbers differently.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟠 TR-102  Numbers are picked, never typed  (shipped 2026-09-20)
-Where: roster (an approved vendor's row, and a pending vendor's Approve row) · Off-platform placeholders (Add, Edit)
-· Weekly booth bookings (a pending row).
-Expect: two dropdowns — size, then number — and a "N free" count. Taken numbers are listed but greyed with who holds
-them ("A3 — held: Sunrise Bakery", "A4 — paid, locked: Valley Verde through 2026-10-03", "B1 — off-platform: …").
-Nowhere can you type a number. Pick a size with no numbers → "Set this size's numbers in Booth inventory first."
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟠 TR-103  Locked paid rows · "needs booth #" only where it's your job  (shipped 2026-09-20)
-Where: Weekly booth bookings → a PAID current/upcoming row and a PENDING row; the roster at a market that CHARGES
-for booths and at one that doesn't.
-Expect: the paid row reads "Booth #A2 — locked, paid week. Changes only after a missed week, or cancel the week
-below." with no dropdown; the pending row has the size/number picker (size fixed). At a charging market the roster
-has NO "Needs booth #" chip and an unnumbered vendor reads "gets a booth # when they book"; at a free market the chip
-and "needs booth #" are still there.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟠 TR-104  The grid shows every booth, not just the taken ones  (shipped 2026-09-20)
-Where: Manager dashboard → "Booth occupancy — this week" (after TR-100 gave each size its numbers) · as a vendor
-with NO held number: /farmers\_market/markets/\[id]/book.
-Expect: under each size, one tile per number — free ones dashed ("#A3 · free"), taken ones labelled "Held (not
-paid)", "Pending payment", "Paid this week" or "Off platform" with the name. A size you haven't numbered yet reads
-"⚠ No booth numbers yet — vendors can't book this size until you set them in Booth inventory." The "N of M occupied ·
-K open" line still matches the tiles. On the vendor's booking form, under the size dropdown: "You'll be given the
-lowest free booth number in this size when you book; paying for the week makes it yours." Book → the confirmation
-names a number from THAT size.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟠 TR-105  Action Items — all six kinds  (shipped 2026-09-20)
-Where: the first card on /farmers\_market/market-manager/\[id]/dashboard (setup complete).
-Provoke what you can: leave one size without numbers · put more placeholders in a size than it has booths this
-week · have a pending applicant · at a market that does NOT charge for booths, an approved vendor without a number.
-Expect one line per kind, each with a working link: "N vendors pending your approval. Review →" (roster) ·
-"N active vendors need a booth number. Assign now →" (roster — ONLY at a non-charging market; at a charging market
-this line never appears) · "Medium has no booth numbers yet… Set numbers →" (Setup) · "N held or placeholder
-numbers have no size… Re-pick →" (roster) · "Small is over capacity this week… Fix →" (Booths & occupancy) ·
-"Stripe needs more information… Finish →" (Setup; only when Stripe is blocked on you) · "N season vendors are owed
-a settlement… Settle →" (Seasons; only after an ended season with cancelled days past the cap). Clear them all →
-"Nothing needs you right now — vendor applications, booth numbers, sizes over capacity, Stripe requests and
-season settlements show up here."
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟠 TR-106  Card vs section; links open a collapsed Setup  (shipped 2026-09-20)
-Where: the Vendors section of the dashboard; then any Action Item that points into Setup.
-Expect: "Vendors" has the accent rail (section); "Vendors at this market" below it is a plain bold card title with
-no rail. With Setup collapsed, click "Set numbers →" or "Settle →" → Setup opens by itself and the page scrolls to
-Booth inventory / Seasons. The jump-nav "Setup" chip still works.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟠 TR-107  FT park dashboard — Action Items, at last  (shipped 2026-09-20)
-Where: /food\_trucks/market-manager/\[park]/dashboard on a park whose setup checklist is complete.
-Background: this card had NEVER shown on a park — it waited for booth inventory, which parks don't have.
-Setup: one truck that booked a spot this week but isn't approved yet; one recurring-hold request still "requested".
-Expect: the first card reads "Action Items" with "1 truck pending your approval — 1 has already booked this week.
-Review →" and "1 recurring-hold request is waiting for your yes or no (Recurring holds tab). Decide →"; both links
-land on Your trucks. Approve + decide → "Nothing needs you right now — truck approvals and recurring-hold requests
-show up here." The last section is now titled "Communication & insights" (was "Communicate & learn").
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟠 TR-108  Print this week's sheet  (shipped 2026-09-20)
-Where: FM manager dashboard → Weekly booth bookings → the week header → "🖨 Print this week's sheet" (new tab).
-Expect: a plain page titled "\[Market] — week sheet", one row per booth: booth # · vendor · size · status (Paid /
-Booked · NOT paid / Held · no booking this week / Off-platform) · a ✓ under each market day the vendor declared ·
-an empty "Checked in" column for your pen. Rows match the bookings list for that week; placeholders and held
-numbers appear too. Previous/Next week links; Print → the browser preview shows only the table.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟠 TR-109  FT F1 — a recurring truck's spot is theirs until they skip paying  (shipped 2026-09-20)
-Where: /food\_trucks/markets/\[park]/book-spot as truck B, where truck A has an APPROVED (active) Saturday hold on
-Spot A; a paid park.
-Expect: Spot A's card says "Held on Saturdays — recurring truck"; in the day list Saturdays are greyed "— held by a
-recurring truck"; in Prepay-a-week, a week containing a Saturday is greyed with the reason. Try to force it (pick
-Spot A, switch to a Saturday via the week mode on another spot, then change spot) → the server refuses: "Spot A is
-held by a recurring truck on Saturdays. It opens to other trucks only if they don't pay by the … cutoff — check
-back after that, or pick another spot." Truck A booking Spot A on a Saturday early still works. Once truck A's
-occurrence for a Saturday expires (didn't pay by Thursday) that Saturday opens to truck B.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟠 TR-097  Manager dashboard regrouped in your order  (shipped 2026-09-19 — run this one first, it's the map for the rest)
-Where: /farmers\_market/market-manager/\[id]/dashboard, top to bottom.
-Expect this order: Action Items (TR-098) → Setup (collapsible, as before) → "Booths & occupancy":
-Booth occupancy — this week · Weekly booth bookings · Booth inventory · Off-platform booth placeholders · Booth map
-→ "Vendors": Vendor attendance · Vendors at this market (Roster / Invite tabs) → "Money & activity": Your booth
-revenue · Market activity · Curated bundles → "Communication & insights": Send an announcement · Survey results ·
-Cancel a market day · Need help?. Jump-nav chips read Setup · Booths & occupancy · Vendors · Money & activity ·
-Communication and each scrolls to its heading. With a pending applicant, "Review →" in Action Items lands on the
-roster card, not the group heading. The occupancy card says it is the picture ("Is there room?"); the bookings card
-says it is where you act.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟠 TR-098  "Action Items" = only things you can click and finish  (shipped 2026-09-19)
-Where: the first card on /farmers\_market/market-manager/\[id]/dashboard, on a market whose setup is complete.
-Setup: one vendor with an application pending, one approved vendor with no booth number.
-Expect: the card is titled "Action Items" and shows two lines — "1 vendor pending your approval. Review →" and
-"1 active vendor needs a booth number assigned. Assign now →" — each landing on the roster card. No "Next market
-day" line any more (that is the strip's job, TR-099). Approve the applicant and assign the number →
-the card collapses to "Nothing needs you right now — vendor applications to review and booth numbers to assign
-show up here." On a market still in setup the card does not appear at all.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟠 TR-099  "Your next two weeks" — the manager's schedule strip  (shipped 2026-09-19)
-Where: /farmers\_market/market-manager/\[id]/dashboard, directly under the market name and address, above the
-jump-nav chips (same spot as the vendor dashboard's strip).
-Expect: one line per market day in the next 14 days, e.g. "Sat, Sep 26   8a–12p · 3 vendors declared · 2 paid
-booth weeks (1 booked, unpaid) · 4 orders scheduled". Check one line against the pages that own each number:
-declared = the roster's declared days for that weekday; paid / unpaid = Weekly booth bookings for that week;
-orders = an order you place for pickup that day. Today's line is highlighted. Then Cancel a market day for one of
-the dates → its line is struck through and reads "Cancelled — make-up day …" (or just "Cancelled"). A market with
-no schedule reads "No market days in the next 14 days — check the schedule and season in Setup." rather than hiding.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟠 TR-078  A pinned vendor can book their own booth  (the bug from your 09-19 report; migration 256)
-Where: as the manager, pin the test vendor to booth #5 on the roster. Then as that vendor, /\[vertical]/markets/\[id]/book:
-pick any tier, agree, Continue to payment.
-Expect: reaches Stripe — no "BOOTH_CONFLICT" message. After paying, the booking shows booth #5 (the pin, whatever the
-tier). Pin a DIFFERENT vendor to #5 while the first still holds a paid week → refused with a plain-English message.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟠 TR-079  A season purchase keeps ONE booth number for every week  (your 09-19 ruling; migration 256)
-Where: a market with an open pre-season window; buy the season (or a partial set of weeks) as the pinned vendor,
-then as a vendor with no pin. /\[vertical]/vendor/bookings afterwards.
-Expect: pinned vendor — every week shows the pinned number. Unpinned vendor — every week shows the SAME
-auto-assigned number. If no single booth is free for all the weeks, the message says "a season keeps one booth all
-season" rather than blaming one week.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟠 TR-080  Manager can pin a vendor to the booth they already rent  (found in the booth review)
-Where: manager dashboard → vendor roster. A vendor holds a paid (or pending) week at auto-assigned booth #N.
-Expect: typing N into THAT vendor's booth field and saving works. Typing N for a different vendor is still refused.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟠 TR-081  Revoking a vendor frees their booth number  (found in the booth review)
-Where: manager dashboard → vendor roster. Pin an approved vendor to #N, then Revoke them.
-Expect: the row shows no booth or tier; pinning another vendor to #N now works. (Any week the revoked vendor already
-paid for is untouched — it is still theirs.)
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟠 TR-082  Occupancy grid shows paid renters; pins are listed as holds and not counted  (found in the booth review)
-Where: manager dashboard → "Booth occupancy — this week", on a market with one paid booking THIS week and one pinned
-vendor who has not booked.
-Expect: the paying vendor appears under their tier as "Paid this week" (before this fix they never appeared); a
-pending checkout appears as "Pending payment"; the pinned vendor appears as "Pinned (hold)". The tier's "N of M
-occupied" counts the bookings only, not the hold.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟠 TR-086  Booking is locked to the assigned size; an unapproved vendor sees the apply door  (your 09-19 ruling)
-Where: /\[vertical]/markets/\[id]/book.
-Expect: as the vendor approved in TR-085 — a box "Your booth at «Market»: #N · <size> size — assigned by the
-manager", the size picker disabled on that size ("set by the manager"), and "Continue to payment" works. As a
-vendor with no approval at a managed market — "Apply to «Market» first" (or "Your application… is with the
-manager") with a link, and no form.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟠 TR-087  Booking needs at least one declared day — the day picker unlocks the form  (your 09-19 ruling "C")
-Where: /\[vertical]/markets/\[id]/book as an approved vendor who has NOT ticked any days at this market.
-Expect: an amber "First, pick the days you attend «Market»" box with the day toggles sits above the form,
-"Continue to payment" is disabled with the reason, and the season picker is hidden. Tick a day → "Done — continue
-to booking" → the form unlocks and the season picker appears.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟠 TR-088  Paying a week makes the booth number the vendor's; a held number yields to a payer  (your 09-19 rulings)
-Where: manager roster + a vendor account. Part 1: a vendor with NO booth number books and pays a week (auto-assigned,
-say #3).
-Expect: the roster now shows them pinned to #3 with the tier they booked. Part 2 (the yield): pin vendor A to #5 and
-have A pay nothing; fill the tier so #5 is the only number left; vendor B books and PAYS.
-Expect: roster shows B pinned to #5 and A with no number; A's bell + email: "Booth #5 at «Market» is no longer held
-for you. It went to a vendor who paid…"; your own "B paid for a booth" message ends "Booth #5 was held for A; the
-hold moved to B…". If B never pays, nothing moves.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟠 TR-089  An assigned number is locked while a paid week is on file  (your 09-19 ruling)
-Where: manager roster, the vendor from TR-088 part 1 (paid upcoming week under #3).
-Expect: their booth # field and size select are greyed with "Locked — paid week on file…" under them. In the
-Weekly bookings card, changing the number on their PAID week is refused ("…has paid for booth #3 through <date>");
-changing a PENDING week's number still works and the vendor is told.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟠 TR-090  A vendor is told when their booth changes — and only then  (your 09-19 ruling; no bloat)
-Where: manager roster with an UNPAID pinned vendor.
-Expect: move their number #7 → #9 → they get "Your booth at «Market» is now #9 (was #7). The market manager moved
-you." Clear the number → "no longer held for you." Change only their size, or approve a new vendor with a first
-number → NO extra message (the approval and paid confirmations already carry the number).
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟠 TR-091  Cancelling a market day credits paid one-off weeks, per declared day  (your 09-19 ruling; migration 257 on Staging)
-Where: manager Cancel-a-Date card, FM market, a future date. Setup: vendor A holds a PAID one-off week covering that
-date and has that weekday ticked at the market; vendor B holds a paid SEASON week.
-Expect: A's cancellation notice reads "Your paid booth week is credited $X for that day — applied automatically…"
-where X = what A paid for the week ÷ the days A ticked that week (2 ticked of 3 open → half). B's notice keeps the
-settlement wording and B gets no credit. Cancel the same date again → no second credit. A's next booking at that
-market shows the credit applied.
-Result: ____________   Notes:
-
-
-
-🟠 TR-092  Manager cancels a paid week → vendor credited for the remaining days, and told why  (your 09-19 ruling B)
-Where: manager dashboard → Weekly booth bookings → a PAID one-off row → "Cancel week".
-Expect: a reason box appears (Confirm stays disabled until you type one); Confirm → the row shows Cancelled and a
-green line states the credit. Before the week starts the credit is the full amount the vendor paid; mid-week it is
-the remaining ticked days only. The vendor's bell + email: "…cancelled your booth #N for the week of … Reason: …
-You have a $X credit…". A season week refuses ("settle at season end"). The vendor's own bookings page has no
-cancel button for a paid week — that is by design (they bear the risk).
-Result: ____________   Notes:
-
-
-
-🟠 TR-073  A vendor sells at a fee-charging managed FM market ONLY with a paid booth week  (migration 255 is on Staging)
-Where: one of that vendor's items, /\[vertical]/listing/\[id].
-Expect: before paying — no pickup dates at that market and the item cannot be carted there; after paying — dates
-appear for that week only. A free managed market and an off-app market are unchanged.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟠 TR-074  Week strip shows "payment due" at a fee market until a week is paid  (fix shipped 2026-09-18)
-Where: /\[vertical]/vendor/markets, "Your next two weeks", as that vendor.
-Expect: the fee market's weekday renders amber "No paid booth week — book this week to sell here"; after paying a
-week those dates render as a normal booth entry. Off-app markets still render normally.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟠 TR-075  Buyers see a fee market only when a vendor has paid a week; the manager's card says so  (fix shipped 2026-09-18)
-Where: manager dashboard visibility card on that fee market; /\[vertical]/markets public list.
-Expect: before paying — the card says the market isn't visible and names "a paid booth week" as the third
-requirement; the public list omits the market. After paying — both flip.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟠 TR-040  Cancel-date result card
-Where: manager — /\[vertical]/market-manager/\[marketId], cancel a park date.
-Expect: truthful counts (trucks credited with a $ total, roster notified); FT card shows an auto-credit note plus
-optional make-up date, no radio buttons.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟠 TR-041  Survey email links to staging
-Expect: a survey email sent from staging links to the staging deployment.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+SETUP: W2 left V1 with a PAID one-off week (#16) and at least one weekday ticked. If a vendor holds a paid SEASON
+week too, step 1 checks their notice as well; otherwise skip that sentence.
+
+ 1. As manager: Communication & insights → "Cancel a market day" → pick a FUTURE date inside V1's paid week that V1
+    has ticked → cancel.
+    Expect: V1's notice reads "Your paid booth week is credited $X for that day — applied automatically…" where X =
+    what V1 paid for the week ÷ the days V1 ticked that week (2 ticked of 3 open → half). A season vendor's notice
+    keeps the settlement wording and gets no credit. The strip's line for that date is struck through and reads
+    "Cancelled — make-up day …" (or just "Cancelled").                                      TR-091 TR-099
+
+ 2. Cancel the SAME date again.
+    Expect: no second credit.                                                                        TR-091
+
+ 3. As V1: book another week at Market 2 Test.
+    Expect: the credit is applied at checkout.                                                       TR-091
+
+ 4. As manager: Weekly booth bookings → a PAID one-off row (V2's #3 from W2, or V1's) → "Cancel week".
+    Expect: a reason box appears; Confirm stays disabled until you type one. Confirm → the row shows Cancelled and a
+    green line states the credit — the FULL amount before the week starts, the remaining ticked days only mid-week.
+    The vendor's bell + email: "…cancelled your booth #N for the week of … Reason: … You have a $X credit…". A
+    SEASON week refuses ("settle at season end"). The vendor's own bookings page has NO cancel button for a paid week
+    (by design — they bear the risk).                                                                TR-092
 
 
 
 ==================================================
-🟣 GROUP 4 — EVENTS (organizer, vendor, admin)   (14 tests)
+W4 — FOOD-TRUCK PARK  (Sixth Street Food Park)
 ===
+SETUP: you operate Sixth Street (setup checklist complete). Trucks: T1 (unapproved at Sixth Street) books a spot for
+THIS week before you start; T2 (approved) submits a recurring-hold request for Saturdays on Spot A and leaves it at
+"requested"; T3 (approved) is a second truck to try to take the spot. A paid park.
 
-Background: an organizer requests an event; vendors are invited and accept; the organizer selects a roster and
-trims menus; the event opens for pre-orders; the shop sells. "Accepted" is not "selected".
-Setup that serves the first six: ONE fresh self-service event with 3 accepted vendors, then a 4th who accepts
-after your first selection. Run TR-022 → 064 → 065 → 066 → 067 → 068 in that order on the same event.
+ 1. As T1: /food_trucks/vendor/edit.
+    Expect: the new sentence under "Pickup Capacity". Then /farmers_market/vendor/edit and the FM dashboard
+    pickup-line notice: NO mention of "Pickup Capacity" anywhere.                                    TR-034
 
+ 2. As operator: /food_trucks/market-manager/[park id]/dashboard.
+    Expect: the FIRST card is "Action Items" (it never showed on a park before) with "1 truck pending your approval —
+    1 has already booked this week. Review →" and "1 recurring-hold request is waiting for your yes or no (Recurring
+    holds tab). Decide →"; both links land on "Your trucks". The LAST section is titled "Communication & insights".
+    Approve T1 and APPROVE T2's Saturday hold.
+    Expect: the card collapses to "Nothing needs you right now — truck approvals and recurring-hold requests show up
+    here."                                                                                            TR-107
 
+ 3. As T2: /food_trucks/vendor/markets "Your next two weeks".
+    Expect: the standing reservation shows on its Saturday MORE than 7 days out, with the pay-by note.  TR-043
 
-🟣 TR-022  Public event page lists only the vendors you selected  (fix shipped 2026-09-17)
-Where: /\[vertical]/events/\[token] for a SELF-SERVICE event.
-Steps: before selecting anyone, open the page; then select 2 of 3 accepted vendors on
-/\[vertical]/events/\[token]/select and reload; then have another vendor accept late and reload again.
-Expect: before any selection — "Upcoming Event" and "Vendors Are Still Responding" (no vendor listed); after —
-"2 Vendors Attending" with only those two menus; the late vendor does NOT appear until you select them.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+ 4. As T3: /food_trucks/markets/[park id]/book-spot.
+    Expect: Spot A's card says "Held on Saturdays — recurring truck"; in the day list Saturdays are greyed "— held by
+    a recurring truck"; in Prepay-a-week a week containing a Saturday is greyed with the reason. Try to force it (pick
+    Spot A, switch to a Saturday via week mode on another spot, then change spot) → the server refuses: "Spot A is
+    held by a recurring truck on Saturdays. It opens to other trucks only if they don't pay by the … cutoff — check
+    back after that, or pick another spot."                                                          TR-109
 
+ 5. As T2: book Spot A on a Saturday early (before the sweep creates it).
+    Expect: works — the anchor may take their own spot.                                              TR-109
 
+ 6. As operator: Cancel a park date (a future date).
+    Expect: the result card shows truthful counts (trucks credited with a $ total, roster notified), an auto-credit
+    note plus an optional make-up date, and NO radio buttons.                                        TR-040
 
-🟣 TR-064  Vendors take event pre-orders only once selected  (fix shipped 2026-09-17 + migration 254, ON STAGING)
-Where: /\[vertical]/events/\[token]/shop and an accepted vendor's item page /\[vertical]/listing/\[id], on a FREE
-self-service event with 3 accepted vendors.
-Steps: before selecting anyone, open the shop and one accepted vendor's item page; select 2 vendors; check again;
-then check the unselected vendor's items at their REGULAR market.
-Expect: before selection — the shop shows no menus and the item page offers no pickup date for the event; after —
-the two selected vendors' menus appear and can be ordered, the third vendor's do not; the third vendor's
-regular-market items stay orderable the whole time (not being selected is never a penalty).
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟣 TR-065  Rolling selection: each menu can be trimmed once, when you first select that vendor  (fix shipped 2026-09-17)
-Where: /\[vertical]/events/\[token]/select.
-Steps: select 2 of 3 vendors, trim one menu, confirm. Have a 4th vendor accept late. Tap "Change selections".
-Select the late vendor, trim one item, confirm. Tap "Change selections" once more.
-Expect: in change mode the first two are pre-ticked, show "Menu set when you selected this vendor" and have NO
-trim controls; the late vendor HAS trim controls; a benched vendor shows "Backup vendors bring their full menu".
-After confirming, the late vendor's page /\[vertical]/vendor/events/\[marketId] shows "approved N of M" and the
-removed item is absent from the shop. On the last visit the late vendor is locked too.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟣 TR-066  A dropped vendor no longer shows as confirmed  (fix shipped 2026-09-17)
-Where: /\[vertical]/events/\[token]/select. Use a FRESH drop — vendors dropped before this push keep the old behaviour.
-Steps: Change selections → untick a confirmed vendor → confirm the drop → reload the page → Change selections.
-Expect: the dropped vendor is NOT under "Your vendors are confirmed" and is NOT pre-ticked. If you select them
-again on purpose, they receive a new "you're selected" notification.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟣 TR-067  "Short on options?" now tells you how to reach more vendors  (fix shipped 2026-09-17)
-Where: the confirmed view of /\[vertical]/events/\[token]/select, in the Backup box (it shows when fewer vendors are
-on standby than recommended).
-Steps: follow the sentence — event dashboard → Event Details → widen vendor types / preferences / number of
-vendors → Save → tap "Refresh matches".
-Expect: the Refresh matches prompt appears after the save, and tapping it reports new invitations (or that no new
-vendors qualified).
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟣 TR-068  Farmers-market wording on the organizer's Event Details  (fix shipped 2026-09-17)
-Where: /farmers\_market/event-manager/\[id]/dashboard → Event Details; compare /food\_trucks/event-manager/\[id]/dashboard.
-Expect (farmers market): "Product Preferences", "Total Budget", "Budget Per Person", "Expected Number of Buyers",
-"Dietary or Product Requirements", "Other Food or Products at Venue", "Other Vendors Present?", event type
-"Corporate / Workplace Event", produce / baked goods / crafts example text. Food trucks: exactly as before.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟣 TR-023  Invitations-held gate
-Where: admin event detail on /\[vertical]/admin/events for a self-serve approved event, invitations not sent.
-Expect: "Open Pre-Orders — invitations held" DISABLED with a tooltip; Inviting card says held.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟣 TR-024  Forced ready while held (optional)
-Expect: the organizer's progress view says nothing is orderable, not "pre-order now".
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟣 TR-025  Reverse event-conflict guard  (your 09-18 attempt used a vendor WITH the multi-location box — that vendor
-is exempt by design, so it was not a result)
-Where: /\[vertical]/vendor/markets/\[id]/book-park-spot (or booth / season forms) on the accepted event's date, as a
-vendor whose multi-location box on /vendor/edit is UNCHECKED.
-Expect: refused with a message to withdraw from the event first.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟣 TR-026  Browse "Closed" pill matches the detail page
-Where: /\[vertical]/browse card vs /\[vertical]/listing/\[id] for an event-selected listing.
-Expect: same Open/Closed pill on both.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟣 TR-030  Re-confirm page after a vendor withdraws
-Where: /\[vertical]/reconfirm/\[token].
-Expect: reflects live items (all cancelled → withdrawal copy; some → partial; live → "stands").
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟣 TR-032  "Not eligible" badge for an unapproved applicant
-Where: a FRESH vendor signup left unapproved submits Private Events Readiness → /\[vertical]/admin/events.
-Expect: the gray "not eligible — vendor not yet approved" badge.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟣 TR-033  Fee card reuse-button styling
-Expect: outlined natural-width buttons over the yellow box; side by side desktop, stacked mobile.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟣 TR-035  Below-claim note on the invitation accept form
-Expect: amber advisory when the number entered is below the profile default.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+ 7. (Later, optional) After T2's Saturday occurrence expires unpaid (didn't pay by Thursday), as T3 book that
+    Saturday on Spot A.
+    Expect: it is open now.                                                                          TR-109
 
 
 
 ==================================================
-🟡 GROUP 5 — MARKET BUNDLES   (5 tests)
+W5 — VENDOR SETS UP LISTINGS AND MARKETS
 ===
+SETUP: a FREE-tier FM vendor already at 3 traditional markets (the one who hit "Market limit reached (4/3)"); an FM
+vendor and an FT vendor with the multi-location box UNCHECKED on /[vertical]/vendor/edit; an FT listing with 0-day
+advance ordering; a buyer account.
 
-Screens: /\[vertical]/markets/\[id] "Market Bundles" · /\[vertical]/vendor/orders · manager bundles run-sheet ·
-/\[vertical]/buyer/orders/\[id].
-Setup: ONE fresh bundle order carries TR-001 and TR-005; TR-002 and TR-003 each need their own fresh order.
+ 1. As the 3-market vendor: /farmers_market/vendor/listings/[id]/edit → tick a 4th traditional market → save.
+    Expect: refused; the message says your free plan allows 3 traditional markets counted across ALL listings and
+    market-box pickup markets, and LISTS the 4 markets already counted. (Your 09-18 note: the extra markets may
+    not be selectable at all — if that is what you see, say so; it is a different behaviour to rule on.)  TR-069
 
+ 2. As the FM vendor (box UNCHECKED): /farmers_market/vendor/markets → activate a second market on a weekday and
+    time you already occupy elsewhere.
+    Expect: refused, naming the market you are already at. Check the box on /vendor/edit → try again → succeeds.
+    Repeat once as the FT vendor.                                                                     TR-044
 
+ 3. As a buyer: /food_trucks/listing/[the 0-day item] on a NON-operating day.
+    Expect: "Orders Open on Operating Days"; the badge tooltip no longer claims prep time.            TR-042
 
-🟡 TR-001  Fresh bundle order: the quiet notification sequence  (fix shipped: Push A)
-Where: buyer — market page /\[vertical]/markets/\[id], section "Market Bundles"; vendor — /\[vertical]/vendor/orders;
-manager — /\[vertical]/market-manager/\[marketId], the bundles run-sheet.
-Steps: buy a bundle; each vendor marks Ready; as manager tap "Receiving now" per vendor and let the vendor tap
-Fulfill within 30 seconds; tap "Ready — notify buyer"; tap "Mark handed off"; as buyer open the ORDER DETAIL
-page and tap the yellow acknowledge.
-Expect: the buyer receives NOTHING when vendors confirm or fulfil; if a vendor taps Fulfill before your
-Receiving-now tap they see "Wait for the market manager to tap Receiving now…" and nothing changes; after
-"Ready — notify buyer" the buyer gets exactly ONE ready notice; the order detail page shows ONLY the yellow
-bundle acknowledge (no green per-item acknowledge); the orders list shows no "confirm you received it" banner;
-after the acknowledge no review popup; the placed email names the bundle, the market and the pickup spot.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟡 TR-005  The buyer's "bundle ready" email  (fix shipped: Push A)
-Where: the buyer's inbox after the manager's "Ready — notify buyer" tap in TR-001.
-Expect: one email, naming the bundle and the market, with the pickup spot. (The manager's own "Ready to
-collect" emails are the manager's, not the buyer's.)
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟡 TR-010  Market Bundles cards fit a narrow phone  (fix shipped: Push D)
-Where: /\[vertical]/markets/\[id], section "Market Bundles", on a phone.
-Expect: nothing runs past the edge of the card or the screen; long lines (e.g. "created by this market") wrap;
-the name / price row wraps if it has to. A screenshot either way helps — the cause was read from code only.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟡 TR-002  Cancel a bundle inside the first hour
-Why: refund money that has never been run by a person.
-Where: buyer — /\[vertical]/buyer/orders/\[id], the bundle card, "Cancel bundle".
-Steps: buy a fresh bundle; within 60 minutes, cancel it.
-Expect: full refund, to the cent, on the page and in Stripe.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟡 TR-003  Cancel a bundle after the hour, once a vendor has confirmed
-Where: same page, a different order; a vendor confirms first; wait past the first hour; cancel.
-Expect: 75% refund (25% fee on items and margin), tip refunded in full, dialog wording "Cancelling after the
-first hour or once a vendor has confirmed…".
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+ 4. As a buyer: place an order with any vendor, then cancel it BEFORE the vendor confirms. As that vendor:
+    /[vertical]/vendor/orders.
+    Expect: the "cancelled" count card at the top includes it, matching the list below.              TR-048
 
 
 
 ==================================================
-🟤 GROUP 6 — MARKET BOXES   (3 tests)
+W6 — ADMIN LOOKS UP A VENDOR  (platform admin)
 ===
+ 1. /farmers_market/admin/vendors → Tier dropdown → Free.
+    Expect: exactly three options (Free / Pro / Boss); vendors whose row used to say "standard", "premium" or
+    "featured" are in the result and read "Free".                                                    TR-095
 
-Screens: vendor dashboard "My Upcoming Pickups" · /\[vertical]/vendor/markets · /\[vertical]/buyer/subscriptions/\[id]
-· /\[vertical]/buyer/orders · /\[vertical]/vendor/market-boxes/\[id].
-Setup: ONE market-box purchase carries all three.
+ 2. Find Valley Verde Farm's row (the 10-vs-9 vendor).
+    Expect: "📦 N published" (plus "🧺 N boxes" if they have active market boxes). Note N.           TR-096
 
+ 3. Details → Quick Stats.
+    Expect: "Published listings" = the same N; "Active market boxes" shown separately; Tier says Free. Drafts and
+    deleted listings are counted on NEITHER page. The CSV export's Tier column matches.     TR-095 TR-096
 
+ 4. Same page → "Markets" card (under Business Information).
+    Expect: one line per market: market name (click → admin market page), status pill APPROVED / PENDING / REVOKED,
+    "Booth #N (size)" where pinned, "Days declared: Sat, Wed" or "No days declared". A vendor on no market reads
+    "Not on any market roster yet."                                                                  TR-093
 
-🟤 TR-015  Market box appears in the vendor's upcoming pickups and week strip  (fix shipped: Push B)
-Where: vendor dashboard card "My Upcoming Pickups"; /\[vertical]/vendor/markets "Your next two weeks".
-Steps: buy a market box as a buyer with a pickup date inside the next 7 / 14 days.
-Expect: the box's pickup day shows on the dashboard tile (counted as an item at that market) and on the week
-strip as a "market box" entry at the pickup market with the offering's hours.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟤 TR-014  Pickup count agrees between two buyer pages  (fix shipped: Push B + migration 252)
-Where: /\[vertical]/buyer/subscriptions/\[id] and /\[vertical]/buyer/orders.
-Steps: complete pickup 1 of a box (buyer confirms, vendor confirms within 30 seconds).
-Expect: both pages show "1 of N pickups completed". SQL check: the subscription's weeks\_completed reads 1.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-🟤 TR-016  Order number on the vendor's market-box page  (fix shipped: Push B)
-Where: /\[vertical]/vendor/market-boxes/\[id], tabs Subscribers and Pickups.
-Expect: each row shows "Order #FA-…" beside the week line.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+ 5. Same page → "Event Readiness Application" (an FM vendor who submitted it on /farmers_market/vendor/edit; open
+    both side by side).
+    Expect: the FM questions only — Setup Type, Space Needed (feet wide), Do You Need Access to Electrical Power?,
+    Product Storage Needs, Product Display Setup, Can You Offer Product Samples, Outdoor Event Suitability, How Many
+    Customers Can You Serve Per Hour? — every value is the exact option text picked. No Vehicle Type, Generator, Max
+    Runtime, or "undefined". Then a FOOD TRUCK vendor's detail: Vehicle Type / Generator / Max Runtime still there.
+                                                                                                      TR-094
 
 
 
 ==================================================
-⚪ GROUP 6 — PLATFORM ADMIN PAGES   (4 tests)
+W7 — EVENTS: ONE FRESH SELF-SERVICE EVENT, START TO SHOP
 ===
+SETUP: an organizer account; four vendor accounts (A, B, C accept at once; D accepts LATE, after step 3); a FREE
+self-service event so no vendor fee is involved. One of A–C must have the multi-location box UNCHECKED (step 9).
+Background: "accepted" is not "selected". Run steps 1–8 in order on the same event.
 
-Screens: /farmers\_market/admin/vendors · /farmers\_market/admin/vendors/\[id]. Log in as the platform admin.
-All four shipped 2026-09-19 from your user-feedback review (OB-029 part A). No migration needed.
+ 1. Before selecting anyone: /[vertical]/events/[token] (public page) and /[vertical]/events/[token]/shop, plus one
+    accepted vendor's item page /[vertical]/listing/[id].
+    Expect: public page says "Upcoming Event" and "Vendors Are Still Responding" with no vendor listed; the shop shows
+    no menus; the item page offers no pickup date for the event.                            TR-022 TR-064
 
+ 2. /[vertical]/events/[token]/select → select A and B (not C) → trim one item from A's menu → confirm.
+    Expect: public page "2 Vendors Attending" with only A's and B's menus (A's trimmed); the shop sells A and B, not C;
+    C's items at their REGULAR market stay orderable the whole time.                        TR-022 TR-064
 
+ 3. Have D accept now. Reload the public page and the shop.
+    Expect: D does NOT appear anywhere until selected.                                               TR-022
 
-⚪ TR-093  Admin vendor detail lists the vendor's markets  (fix shipped 2026-09-19)
-Where: /farmers\_market/admin/vendors → a vendor who is on 2 or more markets → Details.
-Expect: a "Markets" card in the main column (under Business Information): one line per market with the market
-name (click → the admin market page), a status pill APPROVED / PENDING / REVOKED, "Booth #N (size)" when the
-manager has pinned them, and "Days declared: Sat, Wed" (or "No days declared"). A vendor on no market reads
-"Not on any market roster yet."
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+ 4. Select page → "Change selections".
+    Expect: A and B pre-ticked, "Menu set when you selected this vendor", NO trim controls; D HAS trim controls; C
+    (benched) shows "Backup vendors bring their full menu". Select D, trim one item, confirm.
+    Expect: D's page /[vertical]/vendor/events/[marketId] shows "approved N of M"; the removed item is absent from the
+    shop. "Change selections" once more → D is locked too.                                          TR-065
 
+ 5. "Change selections" → untick B → confirm the drop → reload → "Change selections".
+    Expect: B is NOT under "Your vendors are confirmed" and NOT pre-ticked. Select B again on purpose → B gets a NEW
+    "you're selected" notification.                                                                  TR-066
 
+ 6. Confirmed view → the Backup box ("Short on options?") → follow its sentence: event dashboard → Event Details →
+    widen vendor types / preferences / number of vendors → Save → tap "Refresh matches".
+    Expect: the Refresh-matches prompt appears after the save; tapping it reports new invitations or that no new
+    vendors qualified.                                                                                TR-067
 
-⚪ TR-094  FM vendor's event-readiness answers read back in FM words  (fix shipped 2026-09-19)
-Where: /farmers\_market/admin/vendors/\[id] for an FM vendor who submitted Private Events Readiness on
-/farmers\_market/vendor/edit (open both side by side).
-Expect: "Event Readiness Application" shows the FM questions only — Setup Type, Space Needed (feet wide), Do You
-Need Access to Electrical Power?, Product Storage Needs, Product Display Setup, Can You Offer Product Samples,
-Outdoor Event Suitability, How Many Customers Can You Serve Per Hour? — and every value is the exact option text
-the vendor picked on the form. No "Vehicle Type", no Generator rows, no "Max Runtime", no "undefined".
-Then open a FOOD TRUCK vendor's detail: Vehicle Type / Generator / Max Runtime are still there.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+ 7. /farmers_market/event-manager/[id]/dashboard → Event Details; compare a food_trucks event.
+    Expect (farmers market): "Product Preferences", "Total Budget", "Budget Per Person", "Expected Number of Buyers",
+    "Dietary or Product Requirements", "Other Food or Products at Venue", "Other Vendors Present?", event type
+    "Corporate / Workplace Event", produce / baked goods / crafts examples. Food trucks: exactly as before.  TR-068
 
+ 8. /[vertical]/browse card vs /[vertical]/listing/[id] for one of A's event-selected listings.
+    Expect: the same Open/Closed pill on both.                                                       TR-026
 
+ 9. As the vendor with the multi-location box UNCHECKED (accepted to this event): /[vertical]/vendor/markets/[id]/
+    book-park-spot (or a booth / season form) on the EVENT's date.
+    Expect: refused with a message to withdraw from the event first.                                 TR-025
 
-⚪ TR-095  Tier filter and labels use Free / Pro / Boss  (fix shipped 2026-09-19)
-Where: /farmers\_market/admin/vendors → the Tier dropdown.
-Expect: exactly three options — Free, Pro, Boss. Pick Free: vendors whose row used to say "standard",
-"premium" or "featured" are in the result and their row now reads "Free". Open any of them → Details →
-Quick Stats → Tier says Free. The CSV export's Tier column matches.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
-
-
-
-⚪ TR-096  List and detail agree on listing counts; market boxes separate  (fix shipped 2026-09-19)
-Where: /farmers\_market/admin/vendors → Valley Verde Farm (the 10-vs-9 vendor).
-Expect: the row reads "📦 N published" (plus "🧺 N boxes" when the vendor has active market boxes); Details →
-Quick Stats shows "Published listings" and "Active market boxes" with the SAME two numbers. Draft and deleted
-listings are not counted on either page. (Before: the list counted deleted listings, the detail did not.)
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+10. Side checks (any event that fits):
+    a. Admin event detail (/[vertical]/admin/events) on a self-serve APPROVED event with invitations NOT sent.
+       Expect: "Open Pre-Orders — invitations held" DISABLED with a tooltip; the Inviting card says held.   TR-023
+    b. (Optional) force ready while held → the organizer's progress view says nothing is orderable, not "pre-order
+       now".                                                                                          TR-024
+    c. A vendor withdraws → /[vertical]/reconfirm/[token] reflects live items (all cancelled → withdrawal copy; some →
+       partial; live → "stands").                                                                    TR-030
+    d. A FRESH vendor signup left UNAPPROVED submits Private Events Readiness → /[vertical]/admin/events shows the
+       grey "not eligible — vendor not yet approved" badge.                                          TR-032
+    e. Fee card: outlined natural-width reuse buttons over the yellow box; side by side desktop, stacked mobile.
+                                                                                                      TR-033
+    f. Invitation accept form: amber advisory when the number entered is below the profile default.  TR-035
 
 
 
 ==================================================
-🔴 GROUP 7 — ORDERS   (1 test)
+W8 — MARKET BUNDLES: THREE FRESH ORDERS
 ===
+SETUP: a market with a bundle; a buyer; the bundle's vendors; the manager. Order 1 carries steps 1–3; order 2 is
+step 4; order 3 is step 5 (needs a vendor confirm + a 1-hour wait).
 
+ 1. As buyer on a PHONE: /[vertical]/markets/[id] → "Market Bundles".
+    Expect: nothing runs past the card or screen edge; long lines wrap; the name/price row wraps if it must. A
+    screenshot either way.                                                                           TR-010
 
+ 2. Buy the bundle (order 1). Each vendor marks Ready. As manager tap "Receiving now" per vendor and let the vendor
+    tap Fulfill within 30 seconds; tap "Ready — notify buyer"; tap "Mark handed off". As buyer open the ORDER DETAIL
+    page and tap the yellow acknowledge.
+    Expect: the buyer receives NOTHING when vendors confirm or fulfil; a vendor who taps Fulfill before your
+    Receiving-now sees "Wait for the market manager to tap Receiving now…" and nothing changes; after "Ready — notify
+    buyer" the buyer gets exactly ONE ready notice; the order detail shows ONLY the yellow bundle acknowledge (no green
+    per-item one); the orders list shows no "confirm you received it" banner; no review popup after acknowledging;
+    the placed email names the bundle, the market and the pickup spot.                              TR-001
 
-🔴 TR-048  Vendor orders count cards include buyer-cancelled orders  (fix shipped: Push B)
-Where: /\[vertical]/vendor/orders after a buyer cancels an order pre-confirmation.
-Expect: the "cancelled" count card at the top includes it, matching the list below.
-Result: \_\_\_\_\_\_\_\_\_\_\_\_   Notes:
+ 3. The buyer's inbox after "Ready — notify buyer".
+    Expect: ONE email naming the bundle and the market, with the pickup spot (the manager's own "Ready to collect"
+    emails don't count).                                                                              TR-005
+
+ 4. Order 2: buy a fresh bundle; within 60 minutes → /[vertical]/buyer/orders/[id] → "Cancel bundle".
+    Expect: full refund, to the cent, on the page and in Stripe.                                     TR-002
+
+ 5. Order 3: buy a fresh bundle; a vendor confirms; wait past the first hour; cancel.
+    Expect: 75% refund (25% fee on items and margin), tip refunded in full; dialog wording "Cancelling after the first
+    hour or once a vendor has confirmed…".                                                           TR-003
 
 
 
 ==================================================
-⚫ GROUP 8 — OPEN, BUT NOT RUNNABLE YET (nothing for you to do until the blocker clears)
+W9 — MARKET BOXES: ONE PURCHASE
 ===
+SETUP: a vendor with a market-box offering; a buyer. Pickup date inside the next 7 days.
 
-⚫ TR-028  Event cancellation money
-⚫ TR-029  Event deselect and refund money
-Why: the only open tests that move real money on events. Blocker: need an event with a PAID vendor fee on
-staging. Steps will be issued once one exists.
+ 1. Buy the box as the buyer. As the vendor: dashboard card "My Upcoming Pickups" and /[vertical]/vendor/markets
+    "Your next two weeks".
+    Expect: the pickup day shows on the dashboard tile (counted as an item at that market) and on the strip as a
+    "market box" entry at the pickup market with the offering's hours.                               TR-015
 
-⚫ TR-031  Protocol v6 remainder (buyer items + weekly survey · onboarding copy · manager new-email invite and
-resend · farmers-market mirror · print chrome)
-Blocker: the steps live in an old working note and must be re-issued in this format before they can be run.
+ 2. /[vertical]/vendor/market-boxes/[id] → Subscribers and Pickups tabs.
+    Expect: each row shows "Order #FA-…" beside the week line.                                       TR-016
 
-⚫ TR-060  Normal checkout decrements stock — ON PROD
-⚫ TR-062  Buyer acknowledge + vendor fulfil inside 30 seconds moves the payout — ON PROD
-Both passed on staging 2026-09-13. Blocker on Prod: no real vendor with Stripe set up yet.
+ 3. Complete pickup 1 (buyer confirms, vendor confirms within 30 seconds). Then /[vertical]/buyer/subscriptions/[id]
+    and /[vertical]/buyer/orders.
+    Expect: BOTH pages read "1 of N pickups completed". (SQL check if you like: the subscription's weeks_completed
+    reads 1.)                                                                                         TR-014
 
+
+
+==================================================
+W10 — SURVEY EMAIL
+===
+ 1. Trigger a survey email from staging (Communication & insights → Survey results, or wait for the weekly one).
+    Expect: its links point at the STAGING deployment, not production.                               TR-041
+
+
+
+==================================================
+NOT RUNNABLE YET — nothing for you to do until the blocker clears
+===
+  TR-028 Event cancellation money · TR-029 Event deselect and refund money — need an event with a PAID vendor fee on
+         staging; steps will be issued once one exists.
+  TR-031 Protocol v6 remainder (buyer items + weekly survey · onboarding copy · manager new-email invite and resend ·
+         farmers-market mirror · print chrome) — steps must be re-issued in this format first.
+  TR-060 Normal checkout decrements stock — ON PROD · TR-062 Acknowledge + fulfil inside 30 s moves the payout — ON
+         PROD. Both passed on staging 2026-09-13; blocked until a real vendor has Stripe set up on Prod.
+
+
+
+==================================================
+FOR CLAUDE — TR → WORKFLOW INDEX (owner: ignore)
+===
+W1: 097 098 099 105 106 072 103 085 102 090 081 104 082 101 108
+W2: 083 071 084 036 085 087 086 046 073 074 075 078 089 103 102 080 104 088 082 079
+W3: 091 099 092
+W4: 034 107 043 109 040
+W5: 069 044 042 048
+W6: 095 096 093 094
+W7: 022 064 065 066 067 068 026 025 023 024 030 032 033 035
+W8: 010 001 005 002 003
+W9: 015 016 014
+W10: 041
+Passed 2026-09-21 (removed): TR-100 (Westgate Mall, capital M — Existing-numbers path incl. overlap + held refusals).
+Not runnable: 028 029 031 060 062.

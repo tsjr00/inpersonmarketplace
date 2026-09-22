@@ -15,7 +15,7 @@ on the project side. Testers never assign severity or decide whether something i
 | `CHARTERS.md` | project (owner sets priorities) | Tester-facing missions by role + the report format. Share this. |
 | `OBSERVATIONS.md` | Claude transcribes what the owner pastes | Append-only intake log, one entry per report, tester's words verbatim, never edited after entry. A triage line beneath each entry records the registry match and the owner's ruling. |
 | `TEST_REGISTRY.md` | Claude, at triage and at every session close | The source of truth: one row per test item with a stable ID, how to run it, status, last result, linked observations. |
-| `TEST_PROTOCOL_open_items.md` | Claude, in the SAME push as every shipped fix | **The owner's working list** — the registry's open rows rendered as runnable blocks, grouped by workflow (colored dots), with a "★ WHAT'S NEW" section at the top listing the retests shipped since the owner's last results (date + staging build). A fix is not "ready for retest" until its block is here. Owner 2026-09-19. |
+| `TEST_PROTOCOL_open_items.md` | Claude, in the SAME push as every shipped fix | **The owner's working list** — the registry's open rows rendered as **WORKFLOWS** (W1, W2, …): one role's real sequence, numbered steps, one Expect line per step, the TR-ids a step satisfies as small tags the owner ignores. The owner reports per workflow — "W2 pass" · "W2 step 6: <what I saw>" · "W2 step 6 skipped: <why>" — and Claude maps that onto the registry (steps before a failure passed; the failing step's tags are the candidates; skipped = untested). A fix is not "ready for retest" until its step is here; a new fix goes into the workflow where it naturally falls, and a "★ WHAT'S NEW" line at the top names the workflow(s) to run first. Owner 2026-09-19 (list) · 2026-09-21 (workflows: "I am not a machine… design a workflow test that covers multiple items at once"). |
 
 ## The loop (every session that has new reports)
 
@@ -25,10 +25,13 @@ on the project side. Testers never assign severity or decide whether something i
 3. Owner rules: **fix now · backlog · by-design · duplicate · needs more info.** Claude writes the ruling on the
    triage line and updates the registry status.
 4. Fixes ship through the normal staging-first process; the registry row moves to `fixed-unverified` until a tester
-   or the owner re-runs it, then `pass`. **In the same push**, the fix's block goes into `TEST_PROTOCOL_open_items.md`
-   under its workflow group AND into the "★ WHAT'S NEW" section (with the staging build id). When the owner reports
-   results, the answered blocks leave both places; when WHAT'S NEW is empty, the owner runs the regular groups.
+   or the owner re-runs it, then `pass`. **In the same push**, the fix becomes a step (or an Expect clause) in the
+   workflow where it naturally falls in `TEST_PROTOCOL_open_items.md`, and "★ WHAT'S NEW" names that workflow (with
+   the staging build id). When the owner reports a workflow, Claude records every satisfied TR row as `pass` in the
+   registry, removes those steps, and re-sequences the workflow if it has become thin.
 5. In chat, name a test by WHAT it checks with the TR id as a tag — never a bare range of ids (owner 2026-09-19).
+6. Owner's results are per WORKFLOW, not per test: "W2 pass" / "W2 step 6: …" / "W2 step 6 skipped: …". Claude
+   never asks the owner to look up a TR id; the mapping is Claude's job (owner 2026-09-21).
 
 ## Status vocabulary (registry)
 
