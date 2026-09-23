@@ -1,4 +1,17 @@
-# 2026-09-21 — EASY-WINS PUSHED TO STAGING `005396d4..2c507430` (build 48s · Playwright 49/1 skip) · `origin/staging` = `main` = `2c507430` · STAGING LEGACY TIERS NUMBERED BY SQL
+# 2026-09-22 — TESTING BY WORKFLOWS (v2, self-contained) · HOST-PAID EVENTS DESIGNED · NEXT SESSION: SALES TAXES
+
+**Owner's next topic (2026-09-22): "next time let's take another look at sales taxes."** Start from decisions.md
+"Sales Tax Implementation Plan (Updated Session 72 — TaxCloud)" + the TAX PIVOT A′ notes (session 2026-09-05→07:
+Batch 2 dark, CPA letter ready) + `orders.tax_total_cents`; read the current tax code paths before proposing.
+**Today:** printable test list rewritten TWICE — first as workflows (`39ba0f1a`), then as a SELF-CONTAINED v2 after
+tester feedback that steps used shorthand/TR references (owner: "not very useful for testing with someone who does
+not have history") — every Expect now quotes on-screen wording pulled from code; mapping appendix at the end.
+Host-paid events V1 DESIGNED (`host_paid_events_design.md`, 19 rulings in decisions.md; §8 five open questions;
+build plan "probably soon"). Bundles-at-a-shared-lot analysed (no code: managed free market is the bolt-on).
+Staging legacy tiers numbered by SQL (see block below). Tests ongoing with a second tester — results arrive as
+"W# pass / W# step N: …"; I map to TR rows.
+
+# (superseded) 2026-09-21 — EASY-WINS PUSHED TO STAGING `005396d4..2c507430` (build 48s · Playwright 49/1 skip) · `origin/staging` = `main` = `2c507430` · STAGING LEGACY TIERS NUMBERED BY SQL
 
 **Staging data fix (owner-run DO block, 2026-09-21, no code):** after 258 every legacy tier had no numbers and the trigger
 (P0011) requires first-time numbering to INCLUDE every number the tier already holds — re-entering by hand per market
