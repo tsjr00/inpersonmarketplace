@@ -1678,6 +1678,8 @@ Claude should NOT decide this — it is a legal/business call. Note this is dist
 
 ## 🔶 DEFERRED FEATURE PACKAGE — Company-paid events (USER DECISION 2026-07-14: "WE WILL NEED IT LATER, BUT NOT NOW")
 
+**→ 2026-09-22: DESIGNED as "host-paid events V1" — `host_paid_events_design.md` (rules H-1…H-14, mig 259, surfaces, build order A–E, §8 open questions). Owner: build plan "probably soon". Items 1–7 below are absorbed into that design (EVT-1/17 → §2 RPC rewrite; EVT-2 → §3.6; EVT-7 → §3.5; EVT-11 → §3.10; EVT-13 → H-13; VOR-14 → verify (confirm route now has an isCompanyPaid branch, `confirm/route.ts:114`); EVT-15 half → §3.6 cancel).**
+
 **State discovered in review slice 5 (full detail: `apps/web/.claude/review/FINDINGS_LEDGER.md` slice-5 section): company-paid ordering has NEVER been executable end-to-end.** Three independent breaks, plus adjacent items. Nothing here leaks money today — the flow is dead, and cron/webhook transfer paths were verified unreachable by company-paid orders (session-id-scoped gates). When the feature is scheduled, fix as ONE project in this order:
 
 1. **EVT-1 (P0) + EVT-17** — `create_company_paid_order` (mig 119) INSERTs non-existent `orders` columns (`user_id, market_id, buyer_fee_cents, service_fee_cents, vendor_payout_cents`) and omits NOT-NULL `buyer_user_id`; cap-check queries the same phantoms. Rewrite the RPC against the real schema (**run `information_schema.columns` on `orders` FIRST**; per-item money belongs on `order_items`), add `FOR UPDATE` on the reservation + guarded final UPDATE (EVT-17 double-order race), swap the order route's `console.error` → `logError`. MIGRATION.
