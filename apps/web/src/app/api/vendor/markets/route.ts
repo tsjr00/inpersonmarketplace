@@ -9,6 +9,7 @@ import { DEFAULT_CUTOFF_HOURS } from '@/lib/constants'
 import { maskedEventName } from '@/lib/events/event-name'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import { observed } from '@/lib/errors'
+import { shiftIsoDate, todayInZone } from '@/lib/markets/managed-fee-gate'
 
 // GET - Get vendor's markets
 export async function GET(request: NextRequest) {
@@ -98,7 +99,7 @@ export async function GET(request: NextRequest) {
     // vs. merely enrolled (attendance row only). Separate from the attendance
     // set above, which persists across listing churn and drives FT pickup
     // availability via get_available_pickup_dates.
-    const [listingMarketsRes, activeBoxesRes, marketVendorRes] = await Promise.all([
+    const [listingMarketsRes, activeBoxesRes, marketVendorRes, paidWeeksRes] = await Promise.all([
       supabase
         .from('listing_markets')
         .select('market_id, listings!inner(vendor_profile_id, status, deleted_at)')
@@ -118,9 +119,39 @@ export async function GET(request: NextRequest) {
       // vendor poaching via availability surfacing).
       supabase
         .from('market_vendors')
-        .select('market_id, response_status, is_backup, organizer_selected_at')
+        .select('market_id, response_status, is_backup, organizer_selected_at, approved, revoked_at')
         .eq('vendor_profile_id', vendorProfile.id),
+      // OB-030 (f): this vendor's PAID one-off/season booth weeks from a week
+      // ago on — "Book a booth" is done at a market with a current or upcoming
+      // paid week (per-market "today" applied below). FM only: FT spot days are
+      // not weeks, so the card leaves that step's state unknown there.
+      // Service client: weekly_booth_rentals is RLS default-deny; scoped to
+      // this vendor, whose auth was checked above.
+      vertical === 'farmers_market'
+        ? createServiceClient()
+            .from('weekly_booth_rentals')
+            .select('market_id, week_start_date')
+            .eq('vendor_profile_id', vendorProfile.id)
+            .eq('status', 'paid')
+            .gte('week_start_date', shiftIsoDate(new Date().toISOString().slice(0, 10), -7))
+        : Promise.resolve({ data: [] as Array<{ market_id: string; week_start_date: string }>, error: null }),
     ])
+
+    // OB-030 (f): roster state per market for the card's Apply step (mig 217:
+    // approved → active · revoked_at → revoked · otherwise pending).
+    const rosterStatusByMarket = new Map<string, 'approved' | 'pending' | 'revoked'>()
+    for (const row of marketVendorRes.data || []) {
+      rosterStatusByMarket.set(
+        row.market_id as string,
+        row.approved === true ? 'approved' : row.revoked_at ? 'revoked' : 'pending'
+      )
+    }
+    const paidWeekStartsByMarket = new Map<string, string[]>()
+    for (const r of paidWeeksRes.data || []) {
+      const list = paidWeekStartsByMarket.get(r.market_id as string) || []
+      list.push(r.week_start_date as string)
+      paidWeekStartsByMarket.set(r.market_id as string, list)
+    }
 
     const marketsWithListings = new Set<string>()
     for (const row of listingMarketsRes.data || []) {
@@ -302,6 +333,18 @@ export async function GET(request: NextRequest) {
         homeMarketRestricted: false,
         hasAttendance: marketsWithAttendance.has(m.id),
         hasListings: marketsWithListings.has(m.id),
+        // OB-030 (f) — the card's step sequence (lib/vendor/market-steps.ts).
+        // Only the yes/no leaves the server, never the manager's account id.
+        isManaged: !!m.manager_user_id,
+        // Event invitations share market_vendors; a traditional market's row
+        // is its roster row (apply/approve/revoke).
+        rosterStatus: rosterStatusByMarket.get(m.id as string) ?? null,
+        bookable: m.stripe_charges_enabled === true,
+        bookDone: vertical === 'farmers_market'
+          ? (paidWeekStartsByMarket.get(m.id as string) || []).some(
+              (w) => w >= shiftIsoDate(todayInZone((m.timezone as string | null) || 'America/Chicago'), -6)
+            )
+          : null,
       }
     })
 

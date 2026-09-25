@@ -3242,9 +3242,31 @@ describe('Vendor event stage — shared classifier', () => {
 
   it('the API feeding the pill sends the selection fields', () => {
     const route = rd('app/api/vendor/markets/route.ts')
-    expect(route).toMatch(/\.select\('market_id, response_status, is_backup, organizer_selected_at'\)/)
+    // Owner 2026-09-25 (OB-030 (f)): the same read also carries the roster
+    // fields for the card's Apply step, so require the four selection fields
+    // to be PRESENT in the market_vendors select rather than the exact list.
+    const mvSelect = route.match(/from\('market_vendors'\)\s*\.select\('([^']*)'\)/)
+    expect(mvSelect, 'the market_vendors read must exist').not.toBeNull()
+    const mvCols = mvSelect![1].split(',').map((c) => c.trim())
+    for (const col of ['market_id', 'response_status', 'is_backup', 'organizer_selected_at']) {
+      expect(mvCols, `the pill needs ${col}`).toContain(col)
+    }
     expect(route).toMatch(/isBackup: eventResponse\?\.isBackup \?\? false/)
     expect(route).toMatch(/organizerSelectedAt: eventResponse\?\.organizerSelectedAt \?\? null/)
+  })
+
+  it('the vendor Markets card sequence gets its inputs from the API (OB-030 (f))', () => {
+    const route = rd('app/api/vendor/markets/route.ts')
+    const mvCols = route.match(/from\('market_vendors'\)\s*\.select\('([^']*)'\)/)![1].split(',').map((c) => c.trim())
+    expect(mvCols, 'Apply step reads approval + revocation').toEqual(expect.arrayContaining(['approved', 'revoked_at']))
+    for (const field of ['isManaged: !!m.manager_user_id', 'rosterStatus: rosterStatusByMarket.get', 'bookable: m.stripe_charges_enabled === true', 'bookDone: vertical === \'farmers_market\'']) {
+      expect(route, `the API must send ${field.split(':')[0]}`).toContain(field)
+    }
+    const buttons = rd('components/vendor/markets/MarketStepButtons.tsx')
+    expect(buttons, 'the card computes its steps from the shared sequence').toMatch(/computeMarketSteps\(\{/)
+    const page = rd('app/[vertical]/vendor/markets/page.tsx')
+    expect(page, 'the page renders the ordered step row').toMatch(/<MarketStepButtons/)
+    expect(page, 'the home market is not auto-expanded (owner (c))').toMatch(/const activeMarkets = fixedMarkets\.filter\(m => expandedMarketIds\.has\(m\.id\)\)/)
   })
 
   it('the Vendor Event Page never says "confirmed" for mere acceptance', () => {

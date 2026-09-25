@@ -8,6 +8,8 @@ import MarketScheduleSelector from '@/components/vendor/MarketScheduleSelector'
 import ErrorDisplay from '@/components/shared/ErrorDisplay'
 import PendingMarketInvitations, { type PendingInvitation } from '@/components/vendor/PendingMarketInvitations'
 import WeekAtAGlance from '@/components/vendor/markets/WeekAtAGlance'
+import MarketStepButtons from '@/components/vendor/markets/MarketStepButtons'
+import { computeMarketSteps } from '@/lib/vendor/market-steps'
 import { term } from '@/lib/vertical'
 import { colors, statusColors } from '@/lib/design-tokens'
 import type { Market, MarketSuggestion, MarketLimits, ErrorState } from '@/components/vendor/markets/types'
@@ -251,8 +253,11 @@ export default function VendorMarketsPage() {
               No {term(vertical, 'traditional_markets').toLowerCase()} available yet. Check back soon!
             </p>
           ) : (() => {
-            const activeMarkets = fixedMarkets.filter(m => m.isHomeMarket || expandedMarketIds.has(m.id))
-            const availableMarkets = fixedMarkets.filter(m => !m.isHomeMarket && !expandedMarketIds.has(m.id))
+            // Owner 2026-09-25 (OB-030 (c)): the home market is NOT auto-expanded —
+            // an always-open card made it easy to act on the wrong market and made
+            // other cards jump around it. It keeps its badge + shading instead.
+            const activeMarkets = fixedMarkets.filter(m => expandedMarketIds.has(m.id))
+            const availableMarkets = fixedMarkets.filter(m => !expandedMarketIds.has(m.id))
             return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {activeMarkets.map(market => (
@@ -265,28 +270,26 @@ export default function VendorMarketsPage() {
                     backgroundColor: market.isHomeMarket ? statusColors.infoLight : 'white'
                   }}
                 >
-                  {/* Market name — full width across top, with collapse button for non-home */}
+                  {/* Market name — full width across top, with collapse button */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
                       {market.name}
                     </h3>
-                    {!market.isHomeMarket && (
-                      <button
-                        onClick={() => setExpandedMarketIds(prev => { const next = new Set(prev); next.delete(market.id); return next })}
-                        style={{
-                          padding: '2px 8px',
-                          backgroundColor: 'transparent',
-                          color: statusColors.neutral400,
-                          border: `1px solid ${statusColors.neutral300}`,
-                          borderRadius: 4,
-                          fontSize: 11,
-                          cursor: 'pointer',
-                          flexShrink: 0
-                        }}
-                      >
-                        Collapse
-                      </button>
-                    )}
+                    <button
+                      onClick={() => setExpandedMarketIds(prev => { const next = new Set(prev); next.delete(market.id); return next })}
+                      style={{
+                        padding: '2px 8px',
+                        backgroundColor: 'transparent',
+                        color: statusColors.neutral400,
+                        border: `1px solid ${statusColors.neutral300}`,
+                        borderRadius: 4,
+                        fontSize: 11,
+                        cursor: 'pointer',
+                        flexShrink: 0
+                      }}
+                    >
+                      Collapse
+                    </button>
                   </div>
 
                   {/* Home market badge + helper OR set-as-home button */}
@@ -405,91 +408,46 @@ export default function VendorMarketsPage() {
                     </div>
                   )}
 
-                  {/* Attendance prompt for markets without schedule set */}
-                  {!market.hasAttendance && (
-                    <div style={{
-                      marginBottom: 8,
-                      padding: '6px 10px',
-                      backgroundColor: statusColors.warningLight,
-                      border: `1px solid ${statusColors.warningBorder}`,
-                      borderRadius: 6,
-                      fontSize: 12,
-                      color: statusColors.warningDark,
-                    }}>
-                      Set your schedule to start accepting orders at this {vertical === 'food_trucks' ? 'park' : 'market'}.
-                    </div>
-                  )}
+                  {/* Owner 2026-09-25 (OB-030 (f)): ONE note naming the next step, then
+                      the buttons in the order the work happens (MarketStepButtons). */}
+                  {(() => {
+                    const seq = computeMarketSteps({
+                      isManaged: market.isManaged === true,
+                      rosterStatus: market.rosterStatus ?? null,
+                      hasAttendance: market.hasAttendance === true,
+                      hasListings: market.hasListings === true,
+                      bookable: market.bookable === true,
+                      bookDone: market.bookDone ?? null,
+                    })
+                    const where = vertical === 'food_trucks' ? 'park' : 'market'
+                    const text = seq.awaitingApproval
+                      ? `Your application is with the manager — you'll pick your days here once they approve you.`
+                      : seq.next === 'apply'
+                        ? `This ${where} reviews vendors first: apply from its page (step 1), then set your schedule.`
+                        : !market.hasAttendance
+                          ? `Set your schedule to start accepting orders at this ${where}.`
+                          : null
+                    return text ? (
+                      <div style={{
+                        marginBottom: 8,
+                        padding: '6px 10px',
+                        backgroundColor: statusColors.warningLight,
+                        border: `1px solid ${statusColors.warningBorder}`,
+                        borderRadius: 6,
+                        fontSize: 12,
+                        color: statusColors.warningDark,
+                      }}>
+                        {text}
+                      </div>
+                    ) : null
+                  })()}
 
-                  {/* Action buttons — side by side */}
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    <button
-                      onClick={() => router.push(`/${vertical}/vendor/listings?market=${market.id}`)}
-                      style={{
-                        padding: '6px 12px',
-                        backgroundColor: statusColors.info,
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: 6,
-                        fontSize: 13,
-                        fontWeight: 600,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Manage Listings
-                    </button>
-                    <button
-                      onClick={() => setSelectedMarketForSchedule(market)}
-                      style={{
-                        padding: '6px 12px',
-                        backgroundColor: !market.hasAttendance ? statusColors.warning : colors.primary,
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: 6,
-                        fontSize: 13,
-                        fontWeight: 600,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {!market.hasAttendance ? 'Set Schedule' : 'Manage Schedule'}
-                    </button>
-                    {/* Phase C Stage 1 (2026-05-17): Book a Booth Space CTA.
-                        Links to the universal booking page which handles
-                        all auth/approval/inventory gating itself. Outline
-                        style mirrors the Prep Sheet button for a
-                        consistent secondary-action treatment. */}
-                    <Link
-                      href={`/${vertical}/markets/${market.id}/${isFoodTruck ? 'book-spot' : 'book'}`}
-                      style={{
-                        padding: '6px 12px',
-                        backgroundColor: 'transparent',
-                        color: colors.primary,
-                        border: `1px solid ${colors.primary}`,
-                        borderRadius: 6,
-                        fontSize: 13,
-                        fontWeight: 600,
-                        textDecoration: 'none',
-                        display: 'inline-block'
-                      }}
-                    >
-                      {isFoodTruck ? 'Book a Spot' : 'Book a Booth Space'}
-                    </Link>
-                    <Link
-                      href={`/${vertical}/vendor/markets/${market.id}/prep`}
-                      style={{
-                        padding: '6px 12px',
-                        backgroundColor: 'transparent',
-                        color: colors.primary,
-                        border: `1px solid ${colors.primary}`,
-                        borderRadius: 6,
-                        fontSize: 13,
-                        fontWeight: 600,
-                        textDecoration: 'none',
-                        display: 'inline-block'
-                      }}
-                    >
-                      📋 Prep Sheet
-                    </Link>
-                  </div>
+                  <MarketStepButtons
+                    market={market}
+                    vertical={vertical}
+                    onSetSchedule={() => setSelectedMarketForSchedule(market)}
+                    onManageListings={() => router.push(`/${vertical}/vendor/listings?market=${market.id}`)}
+                  />
 
                   {/* Schedule Selector - shown inline when this market is selected */}
                   {selectedMarketForSchedule?.id === market.id && (
@@ -534,7 +492,7 @@ export default function VendorMarketsPage() {
                         padding: '8px 12px',
                         borderBottom: idx < availableMarkets.length - 1 ? `1px solid ${statusColors.neutral100}` : 'none',
                         cursor: 'pointer',
-                        backgroundColor: market.hasListings ? statusColors.successLight : 'white'
+                        backgroundColor: market.isHomeMarket ? statusColors.infoLight : market.hasListings ? statusColors.successLight : 'white'
                       }}
                       onClick={() => setExpandedMarketIds(prev => { const next = new Set(prev); next.add(market.id); return next })}
                     >
@@ -545,6 +503,11 @@ export default function VendorMarketsPage() {
                         style={{ width: 16, height: 16, cursor: 'pointer', flexShrink: 0 }}
                       />
                       <div style={{ flex: 1, minWidth: 0 }}>
+                        {market.isHomeMarket && (
+                          <span style={{ marginRight: 6, padding: '1px 6px', backgroundColor: statusColors.info, color: 'white', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
+                            🏠 {vertical === 'food_trucks' ? 'Home Park' : 'Home Market'}
+                          </span>
+                        )}
                         <span style={{ fontSize: 14, fontWeight: 500 }}>{market.name}</span>
                         <span style={{ fontSize: 12, color: statusColors.neutral400, marginLeft: 8 }}>
                           {market.city}, {market.state}

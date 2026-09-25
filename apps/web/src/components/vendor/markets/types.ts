@@ -54,6 +54,12 @@ export type Market = {
   organizerSelectedAt?: string | null
   boothAvailability?: BoothAvailability | null
   schedules?: Schedule[]
+  /** Traditional markets (OB-030 (f)) — the card's step sequence inputs,
+   *  from /api/vendor/markets; see lib/vendor/market-steps.ts. */
+  isManaged?: boolean
+  rosterStatus?: 'approved' | 'pending' | 'revoked' | null
+  bookable?: boolean
+  bookDone?: boolean | null
 }
 
 export type MarketSuggestion = {
