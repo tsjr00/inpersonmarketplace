@@ -5,6 +5,7 @@ import { withErrorTracing, observed } from '@/lib/errors'
 import { verifyAdminScope } from '@/lib/auth/admin'
 import { FEES, SUBSCRIPTION_AMOUNTS } from '@/lib/pricing'
 import { computeOrderPlatformRevenue } from '@/lib/reports/platform-revenue'
+import { buildListSupplement, type TaxJurisdictionSnapshot } from '@/lib/tax/jurisdictions'
 
 interface ReportRequest {
   reportId: string
@@ -233,6 +234,11 @@ export async function POST(request: NextRequest) {
         case 'tax_summary':
           csvContent = await generateTaxSummary(supabaseService, dateFromStart, dateToEnd, verticalId)
           filename = `${verticalPrefix}tax_summary_${dateFrom}_to_${dateTo}.csv`
+          break
+
+        case 'tax_list_supplement':
+          csvContent = await generateTaxListSupplement(supabaseService, dateFromStart, dateToEnd, verticalId)
+          filename = `${verticalPrefix}tax_list_supplement_${dateFrom}_to_${dateTo}.csv`
           break
 
         case 'monthly_pnl':
@@ -1904,6 +1910,102 @@ async function generateTaxSummary(supabase: ReturnType<typeof createServiceClien
     // than presented as total platform revenue (see revenue_fees / monthly_pnl
     // for the order-level gross/net figures).
     { key: 'platform_fees', label: 'Platform % Fees (excl. flat/small-order fees)' },
+  ])
+}
+
+/**
+ * Texas List Supplement (Form 01-116) — v1, snapshots only.
+ *
+ * The monthly return is a PER-JURISDICTION table (seven-digit code · amount
+ * subject to tax · rate · tax due). Every taxed order item carries that
+ * breakdown frozen at checkout (mig 214; written by checkout/session while
+ * TAX_STREAM1_ENABLED), so the report is a group-by over those snapshots —
+ * `buildListSupplement` — and NEVER a recomputation against today's rates.
+ *
+ * v1 scope (plan step 6, before the reversal ledger exists): items whose
+ * status is cancelled/refunded are excluded outright (their tax came back in
+ * full through the refund paths' full-PI refunds, or will once Batch 3 lands);
+ * PARTIAL refunds are not yet reversed here — Batch 3 adds the ledger and this
+ * report gains a "minus reversals" pass. Until the flag flips this report is
+ * empty by construction (tax_source IS NULL on every row) — that is the honest
+ * answer, not a bug.
+ */
+async function generateTaxListSupplement(supabase: ReturnType<typeof createServiceClient>, dateFrom: string, dateTo: string, verticalId?: string) {
+  let query = supabase
+    .from('order_items')
+    .select(`
+      taxable_amount_cents,
+      tax_amount_cents,
+      tax_jurisdictions,
+      tax_rate_version,
+      status,
+      order:orders!inner (vertical_id, status)
+    `)
+    .gte('created_at', dateFrom)
+    .lte('created_at', dateTo)
+    .not('tax_source', 'is', null)
+    .not('status', 'in', '("cancelled","refunded")')
+    .not('order.status', 'in', '("pending","cancelled","refunded")')
+
+  if (verticalId) {
+    query = query.eq('order.vertical_id', verticalId)
+  }
+
+  const { data: items, error } = await query
+  if (error) throw error
+
+  const snapshotRows = (items || []).map((it: any) => ({
+    taxable_amount_cents: it.taxable_amount_cents as number | null,
+    tax_jurisdictions: it.tax_jurisdictions as TaxJurisdictionSnapshot[] | null,
+  }))
+  const supplement = buildListSupplement(snapshotRows)
+
+  // Item count per code + the rate versions seen, so a quarter-straddling
+  // period is visible on the sheet instead of silently blended.
+  const itemsByCode = new Map<string, number>()
+  const versions = new Set<string>()
+  for (const it of items || []) {
+    if (it.tax_rate_version) versions.add(String(it.tax_rate_version))
+    for (const j of (it.tax_jurisdictions as TaxJurisdictionSnapshot[] | null) || []) {
+      itemsByCode.set(j.code, (itemsByCode.get(j.code) || 0) + 1)
+    }
+  }
+
+  const rows: Record<string, unknown>[] = supplement.map((r) => ({
+    code: r.code,
+    name: r.name,
+    level: r.level,
+    rate_pct: r.rate_pct,
+    amount_subject_to_tax: formatCents(r.amountSubjectToTaxCents),
+    tax_due: formatCents(r.taxDueCents),
+    items: itemsByCode.get(r.code) || 0,
+    rate_versions: [...versions].sort().join(' '),
+  }))
+
+  const totalTaxDue = supplement.reduce((s, r) => s + r.taxDueCents, 0)
+  const stateRow = supplement.find((r) => r.level === 'state')
+  rows.push({
+    code: 'TOTAL',
+    name: 'Tax due, all jurisdictions',
+    level: '',
+    rate_pct: '',
+    // The state line's base is the total taxable sales for the period (every
+    // taxed item sources to exactly one state row).
+    amount_subject_to_tax: formatCents(stateRow?.amountSubjectToTaxCents ?? 0),
+    tax_due: formatCents(totalTaxDue),
+    items: (items || []).length,
+    rate_versions: [...versions].sort().join(' '),
+  })
+
+  return toCSV(rows, [
+    { key: 'code', label: 'Local Code (Form 01-116 col 2)' },
+    { key: 'name', label: 'Jurisdiction' },
+    { key: 'level', label: 'Level' },
+    { key: 'rate_pct', label: 'Rate %' },
+    { key: 'amount_subject_to_tax', label: 'Amount Subject to Tax' },
+    { key: 'tax_due', label: 'Tax Due' },
+    { key: 'items', label: 'Taxed Items' },
+    { key: 'rate_versions', label: 'Rate Version(s) in Period' },
   ])
 }
 

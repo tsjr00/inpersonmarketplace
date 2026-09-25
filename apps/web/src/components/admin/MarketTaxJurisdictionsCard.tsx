@@ -10,6 +10,7 @@ import {
   type TaxJurisdiction,
   type JurisdictionLevel,
 } from '@/lib/tax/jurisdictions'
+import { currentQuarterLabel } from '@/lib/tax/compute-cart-tax'
 
 interface Props {
   marketId: string
@@ -32,11 +33,12 @@ const TX_STATE_ROW: TaxJurisdiction = {
   code: '7000000', name: 'TEXAS', level: 'state', rate_pct: TX_STATE_RATE_PCT,
 }
 
-/** Suggest the current quarter, e.g. "2026-Q3" — rates change quarterly. */
-function currentQuarter(): string {
-  const now = new Date()
-  return `${now.getFullYear()}-Q${Math.floor(now.getMonth() / 3) + 1}`
-}
+/**
+ * Suggest the current quarter, e.g. "2026-Q3" — rates change quarterly. Uses
+ * the ENGINE's label (UTC) so the card and the checkout freshness check can
+ * never disagree about which quarter it is.
+ */
+const currentQuarter = () => currentQuarterLabel()
 
 /**
  * Texas sales-tax jurisdictions for a market — set at APPROVAL time, next to
@@ -123,6 +125,9 @@ export default function MarketTaxJurisdictionsCard({ marketId }: Props) {
         setVerifiedAt(new Date().toISOString())
         setNeedsReverification(false)
         setServerWarnings(data.warnings || [])
+        // The server fills a blank version with the current quarter — show
+        // what was actually stored, not the blank the admin left.
+        if (typeof data.rateVersion === 'string' && data.rateVersion) setRateVersion(data.rateVersion)
       } else {
         setMsg({ text: data.error || 'Save failed', ok: false })
       }
@@ -368,7 +373,7 @@ export default function MarketTaxJurisdictionsCard({ marketId }: Props) {
       <div style={{ display: 'flex', gap: spacing.sm, marginTop: spacing.sm, flexWrap: 'wrap', alignItems: 'center' }}>
         <label style={{ fontSize: typography.sizes.xs, color: colors.textSecondary }}>
           Rate version{' '}
-          <input style={{ ...input, width: 96 }} value={rateVersion} onChange={(e) => setRateVersion(e.target.value)} placeholder="2026-Q3" />
+          <input style={{ ...input, width: 96 }} value={rateVersion} onChange={(e) => setRateVersion(e.target.value)} placeholder={currentQuarter()} pattern="[0-9]{4}-Q[1-4]" title="Year-quarter, e.g. 2026-Q3 — the checkout engine refuses any other form" />
         </label>
         <input
           style={{ ...input, flex: 1, minWidth: 180 }}

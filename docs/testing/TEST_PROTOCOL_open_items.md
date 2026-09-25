@@ -87,6 +87,7 @@ THE WORKFLOWS
   W8  Market bundles — three fresh orders                                           ~30 min + a 1-hour wait
   W9  Market boxes — one purchase                                                   ~15 min
   W10 Survey email                                                                  ~2 min
+  W11 Platform admin: sales-tax readiness — filter, tax card, Form 01-116 report      Amarillo · ~10 min
 
 
 
@@ -613,6 +614,47 @@ W10 — SURVEY EMAIL   (~2 min)
 
 
 ==================================================
+W11 — PLATFORM ADMIN: SALES-TAX READINESS   (platform admin login · Amarillo Community Market · ~10 min)
+===
+Background for this workflow: sales tax is NOT live yet. What you are testing is the admin's preparation
+tools — the list that shows which markets still need Texas tax codes, and the card where the codes are entered.
+No buyer is charged anything in this workflow. Use the codes ALREADY on the card — do not add or remove
+jurisdiction rows. If the card shows only the TEXAS row and nothing else, STOP and tell the owner before saving
+(saving would mark the market ready with state tax only).
+
+ 1. /farmers_market/admin/markets → the dropdown right after "All Types" (it starts as "Tax codes: any").
+    Expect: the choices are exactly: "Tax codes: any", "Tax: needs attention", "Tax: no codes entered",
+    "Tax: address changed, re-verify", "Tax: rate quarter stale", "Tax: ready". Choose "Tax: needs attention".
+    Expect: every row listed carries a small chip reading one of "tax: no codes", "tax: re-verify",
+    "tax: stale quarter". Now choose "Tax: ready".
+    Expect: no row shown carries any "tax:" chip. Set it back to "Tax codes: any".
+
+ 2. Open Amarillo Community Market (tap the row) → find the card "Sales tax jurisdictions".
+    Expect: a box labelled "Rate version" whose grey placeholder is the current quarter written like "2026-Q3"
+    (year, dash, Q, quarter number). Clear the box so it is EMPTY, leave everything else, tap Save.
+    Expect: "Saved", and the Rate version box now reads the current quarter (same text as the placeholder was).
+
+ 3. Same card → type   Sept rates   in the Rate version box → Save.
+    Expect: the save is REFUSED and the message begins "Rate version must look like" and names the current
+    quarter. Nothing else on the card changed.
+
+ 4. Same card → type LAST quarter in the box (if the current quarter is 2026-Q3, type 2026-Q2) → Save.
+    Expect: "Saved", AND a warning line appears that begins with "Rate version" and contains
+    "is not the current quarter". Go back to the markets list.
+    Expect: Amarillo's row now carries the chip "tax: stale quarter". Open the card again, put the current
+    quarter back, Save.
+    Expect: the chip is gone from Amarillo's row.
+
+ 5. /farmers_market/admin/reports → the "Accounting" group → tick "Texas List Supplement (Form 01-116)" →
+    any date range → Download.
+    Expect: a CSV file downloads. Its first line is the header
+    "Local Code (Form 01-116 col 2)","Jurisdiction","Level","Rate %","Amount Subject to Tax","Tax Due",
+    "Taxed Items","Rate Version(s) in Period" and the only other line is a TOTAL row showing $0.00 — because no
+    tax has been collected yet. (An empty file or an error message IS a finding.)
+
+
+
+==================================================
 NOT RUNNABLE YET — nothing for you to do
 ===
 • Event money on cancellation / de-selection — needs an event with a PAID vendor fee on staging.
@@ -644,6 +686,7 @@ W7  1→TR-022 TR-064 · 2→TR-022 TR-064 · 3→TR-022 · 4→TR-065 · 5→TR
 W8  1→TR-010 · 2→TR-001 · 3→TR-005 · 4→TR-002 · 5→TR-003
 W9  1→TR-015 · 2→TR-016 · 3→TR-014
 W10 1→TR-041
+W11 1→TR-112 · 2→TR-110 · 3→TR-110 · 4→TR-110 TR-112 · 5→TR-113   (TR-111 = W11.4-style address change, not scripted: needs an address edit)
 Passed already (removed): TR-100. Not runnable: TR-028 TR-029 TR-031 TR-060 TR-062.
 Wording quoted from code 2026-09-22 (BoothNumberingHelp, ManagerActionSummary, BoothNumberPicker, VendorBoothList,
 BoothOccupancyGrid, WeeklyBookingsList, week-sheet page, notifications/types.ts 889/1026-1035/1002/1194/1054,

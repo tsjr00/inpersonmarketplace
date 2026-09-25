@@ -8,7 +8,7 @@
 
 > ⚠️ **EVERY structured section of this file is best-effort and may be stale — Columns, FKs, Indexes, Functions, Enum Types, CHECK Constraints, all of them.** The original banner named only four sections, and the Enum Types table sat outside it misleading readers for five months (missing `platform_admin`/`regional_admin`, added 2026-03-20). The Change Log's per-migration environment claims have also been wrong four separate times (210/211/212/215, all caught 2026-08-13). **Only `information_schema` / `pg_catalog` on the live environment is authoritative — for structure AND for what is deployed where.**
 >
-**Structured tables rebuilt:** 2026-09-20 · current through migration 257
+**Structured tables rebuilt:** 2026-09-24 · current through migration 260
 **Refresh 2026-09-20 (scoped delta, owner's live Dev catalog export `supabase/migrations/Schema Refresh/09202026/scoped_delta_252-257_dev.csv`):** every object migs 252–257 touched, enumerated from the migration files — 7 functions (signature, return, security, `md5(prosrc)`), `market_vendors` + `booth_credits` columns / FKs / indexes / CHECKs. No table was created in 252–257. The Rule L deferral below is CLOSED (allowance back to 5).
 **(closed) ⚠ REFRESH OWED (owner-authorized deferral 2026-09-19):** migs 252–257 are past the stamp (Rule L allowance temporarily 6, guardrail-contracts.test.ts). Delta = functions 252/253/254/255/256 (signatures in `## Functions` marked ⏳/✅), `market_vendors.requested_inventory_id` (256), `booth_credits.related_cancel_date` + CHECK + 2 partial unique indexes (257). Next session: owner pastes 257 on Dev (pre-check first), runs the scoped delta query, Claude rebuilds those sections, stamps 257, restores the allowance to 5.
 
@@ -61,6 +61,9 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-09-24 | — (snapshot rebuild, scoped) | **Structured tables rebuilt for the 258–260 delta (stamp 257 → 260).** 258's five columns were already recorded row-by-row at apply time (market_booth_inventory ×4, markets ×1); 259 changed one CHECK (recorded from the measured post-check); 260's two NEW tables were rebuilt from the owner's live Dev post-check export (the migration's trailing SELECT: 18 columns · 3 FKs · 4 CHECKs · 4 unique/PK · 8 indexes · RLS on/0 policies ×2 · grants service_role only — anon/authenticated absent). Sections touched: Tables (95 → 97), Columns, Foreign Keys, Indexes, Check Constraints. Provenance: the export is in the 2026-09-24 chat (pasted by the owner); no CSV folder this time — the export is fully reproduced in the 260 row below. |
+| 2026-09-24 | 20260924_260_tax_reversal_ledger | ✅ **DEV + STAGING 2026-09-24 (owner: "260 ran on dev & staging"; Dev live post-check export pasted and used for the rebuild — Staging export paste still owed for the identical check). Prod pending (after 259). Note: service_role holds ALL table privileges (Supabase's default grant; the explicit S/I/U grant was additive) — anon/authenticated hold none.** Tax build step 7 (research file B3; owner rulings Q1/Q2 2026-09-24). NEW TABLE `order_item_tax_reversals` (append-only ledger: `order_item_id → order_items`, `order_id → orders`, `reversal_kind` CHECK item_refund/order_refund/dashboard_refund, `refund_ref`, `taxable_amount_cents ≥0`, `tax_cents ≥0`, `tax_jurisdictions jsonb NOT NULL` (snapshot shape), `tax_rate_version`, `created_at`; UNIQUE (order_item_id, refund_ref); indexes on item / created_at / order). NEW TABLE `order_tax_reversal_queue` ("reversal owed" for PARTIAL Stripe-dashboard refunds: `order_id → orders`, `stripe_refund_id UNIQUE`, `refund_amount_cents >0`, `created_at`, `resolved_at`, `resolved_by`, `note`; partial index on open rows). Both: RLS ON, NO policies, REVOKE ALL from anon/authenticated, GRANT S/I/U to service_role. No triggers, functions, policies or existing-object changes. NOT WIRED — steps 8–11 write the ledger; the report's "minus reversals" pass reads it. |
+| 2026-09-24 | 20260924_259_order_items_tax_source_self_computed | ✅ **DEV + STAGING 2026-09-24 (owner; live post-check on both: `CHECK (((tax_source IS NULL) OR (tax_source = ANY (ARRAY['none'::text, 'manual'::text, 'stripe'::text, 'self_computed_v1'::text]))))` — IDENTICAL). Prod pending (no dependency on 252–258; can run alone or in order after 258).** Tax build step 1 (`apps/web/.claude/tax_build_review_research.md` C-addendum): the mig-214 CHECK `order_items_tax_source_check` allows only `none/manual/stripe`, but checkout writes `tax_source = 'self_computed_v1'` while `TAX_STREAM1_ENABLED` (dark today) → the flag flip would 23514 every taxable order_items insert. This migration DROP+ADDs the same-named CHECK with `'self_computed_v1'` added and rewrites the column comment. No columns, indexes, functions, RLS or data touched. CHECK-constraint structured row updated 2026-09-24 from the measured Dev/Staging post-check text (not from the file). Rule L: 258 + 259 = 2 past the 257 stamp; no CREATE TABLE. |
 | 2026-09-20 | 20260920_258_booth_tier_label_ranges | ✅ **DEV + STAGING 2026-09-20 (owner; both post-checks clean and IDENTICAL: 5 columns · 6 functions · trigger mounted · lockdown anon=f authed=f service=t). Prod pending (PRE-CHECK FIRST; order 252→…→257→258).** Dev fingerprints: `book_weekly_booth_atomic` `2a3eb880328cd87f37f121a8fa4e5490`/7649 · `book_season_atomic` `9694e403485b4d30951e9d04290f1068`/5505 · `booth_label_candidates(uuid,uuid)` `97edc591832c09556e5334a9849a8ef4`/700 · `booth_tier_for_label` `c22280cb2a30ebb54362477f5b4ce5ac`/195 · `booth_tier_labels` `a96036c08f7be7ad672d8f031957186a`/539 · `enforce_booth_tier_labels` `a84cd53150d51520a5174810a44cc569`/5237. Booth numbering Option U (owner rulings 2026-09-20, `booth_numbering_design.md` N-1…N-10): **numbers belong to sizes.** `market_booth_inventory` + `label_prefix TEXT`, `label_start INT`, `label_end INT`, `labels TEXT[]` (RANGE or LIST shape per tier; `count` derived by trigger). `markets` + `booth_numbering_scheme TEXT CHECK ('lettered','existing')` — answered once; lettered = alphabetic prefix + range only. NEW trigger `trg_enforce_booth_tier_labels` (BEFORE INS/UPD on market_booth_inventory; fn `enforce_booth_tier_labels`): one shape, scheme rules, derived count, no label in two tiers (P0010), never orphan an occupied label (P0011). NEW fns `booth_tier_labels(uuid)`, `booth_tier_for_label(uuid,text)`; `booth_label_candidates(uuid)` DROPPED → `booth_label_candidates(uuid, uuid DEFAULT NULL)` (per-tier; no tier → all tiers). `book_weekly_booth_atomic` + `book_season_atomic` DROP+CREATE: mig-256 bodies with candidates = the booked tier and TIER_MISMATCH (P0012) on a pin/forced label of another size. New codes P0009–P0014. `markets.booth_label_start/end` no longer read (kept). Transition: every existing tier has NO labels after apply → unbookable until the manager answers the scheme + numbers each tier (owner: test data, re-enter by hand). |
 | 2026-09-20 | — (snapshot rebuild, scoped) | **Structured tables rebuilt for the 252–257 delta from the owner's live Dev catalog export (stamp 251 → 257; Rule L allowance restored to 5).** Objects enumerated from the migration files, not memory: functions `check_subscription_completion` (252), `check_vendor_schedule_conflict` (253), `get_available_pickup_dates` (254/255), `check_booth_number_uniqueness` · `book_weekly_booth_atomic` · `book_season_atomic` · `booth_label_candidates` (256) — signatures, returns, security mode and `md5(prosrc)` recorded in `## Functions`; the four 256 hashes equal the 2026-09-19 post-checks. `market_vendors`: 22 columns incl. `requested_inventory_id`; FKs now list constraint NAMES (two FKs to `market_booth_inventory` — embeds need the hint) + `revoked_by → auth.users`. `booth_credits`: 12 columns incl. `related_cancel_date`; 7 indexes incl. the two mig-257 partial uniques; `booth_credits_source_check` with 8 values. No table created in 252–257. Source file: `supabase/migrations/Schema Refresh/09202026/scoped_delta_252-257_dev.csv` (the 09-13 full export behind the 251 stamp is in `Schema Refresh/09132026/`). |
 | 2026-09-19 | 20260919_257_booth_credits_fm_cancellations | ✅ **DEV + STAGING 2026-09-19 (owner). Pre-check: 0 rows with the new sources. Staging post-check: CHECK carries all eight values ending `fm_date_cancel`, `manager_week_cancel`; `related_cancel_date date nullable=YES`; both indexes present.** ⏳ **Prod PENDING (owner: no prod push yet) — PRE-CHECK FIRST. Order: 254 → 255 → 256 → 257. File stays in root until Prod.** Booth model part D (owner rulings 2026-09-19 BR-9/BR-10; design `booth_model_design.md` §2, §6-3). Additive, no function bodies: **(1)** `booth_credits_source_check` + `fm_date_cancel` (manager cancelled a market DAY → per-day grant on a paid one-off week) + `manager_week_cancel` (manager cancelled a paid one-off week). **(2)** `booth_credits.related_cancel_date DATE NULL` — the cancelled date a per-day grant is for. **(3)** partial UNIQUE `uq_booth_credit_fm_date_cancel_grant (related_rental_id, related_cancel_date) WHERE source='fm_date_cancel'` and `uq_booth_credit_manager_week_cancel_grant (related_rental_id) WHERE source='manager_week_cancel'` — one grant per (booking, date) / per booking, ever. Companion code (same push): `cancel-date-cascade.ts` path B credits + amount on `market_date_cancelled_vendor`; `weekly-rental/[rentalId]/cancel` route. Pre-migration safe (grant failures log + skip). |
@@ -342,7 +345,7 @@
 
 ---
 
-## Tables (95)
+## Tables (97)
 
 | Table Name |
 |------------|
@@ -398,9 +401,11 @@
 | market_vendors |
 | markets |
 | notifications |
+| order_item_tax_reversals |
 | order_items |
 | order_ratings |
 | orders |
+| order_tax_reversal_queue |
 | organizations |
 | park_spot_bookings |
 | park_spots |
@@ -1454,6 +1459,20 @@
 | read_at | timestamptz | YES | - |
 | created_at | timestamptz | YES | now() |
 | vertical_id | text | YES | - |
+### order_item_tax_reversals
+| Column | Type | Nullable | Default |
+|--------|------|----------|--------|
+| id | uuid | NO | gen_random_uuid() |
+| order_item_id | uuid | NO | - |
+| order_id | uuid | NO | - |
+| reversal_kind | text | NO | - |
+| refund_ref | text | NO | - |
+| taxable_amount_cents | int4 | NO | - |
+| tax_cents | int4 | NO | - |
+| tax_jurisdictions | jsonb | NO | - |
+| tax_rate_version | text | YES | - |
+| created_at | timestamptz | NO | now() |
+
 
 ### order_items
 | Column | Type | Nullable | Default |
@@ -1556,6 +1575,18 @@
 | bundle_handed_off_at | timestamptz | YES | - |
 | bundle_margin_transfer_id | text | YES | - |
 | bundle_buyer_ack_at | timestamptz | YES | - |
+
+### order_tax_reversal_queue
+| Column | Type | Nullable | Default |
+|--------|------|----------|--------|
+| id | uuid | NO | gen_random_uuid() |
+| order_id | uuid | NO | - |
+| stripe_refund_id | text | NO | - |
+| refund_amount_cents | int4 | NO | - |
+| created_at | timestamptz | NO | now() |
+| resolved_at | timestamptz | YES | - |
+| resolved_by | uuid | YES | - |
+| note | text | YES | - |
 
 ### organizations
 | Column | Type | Nullable | Default |
@@ -2608,6 +2639,12 @@
 |--------|------------|
 | vertical_id | verticals.vertical_id |
 
+### order_item_tax_reversals
+| Column | References |
+|--------|------------|
+| order_id | orders.id |
+| order_item_id | order_items.id |
+
 ### order_items
 | Column | References |
 |--------|------------|
@@ -2634,6 +2671,11 @@
 | event_wave_reservation_id | event_wave_reservations.id |
 | parent_order_id | orders.id |
 | vertical_id | verticals.vertical_id |
+
+### order_tax_reversal_queue
+| Column | References |
+|--------|------------|
+| order_id | orders.id |
 
 ### organizations
 | Column | References |
@@ -3323,6 +3365,15 @@ statement is recoverable from the creating migration.
 | idx_notifications_user_vertical | btree (user_id, vertical_id) |
 | notifications_pkey | UNIQUE btree (id) |
 
+### order_item_tax_reversals
+| Index Name | Definition |
+|-----------|------------|
+| idx_order_item_tax_reversals_created | btree (created_at) |
+| idx_order_item_tax_reversals_item | btree (order_item_id) |
+| idx_order_item_tax_reversals_order | btree (order_id) |
+| order_item_tax_reversals_one_per_refund | UNIQUE btree (order_item_id, refund_ref) |
+| order_item_tax_reversals_pkey | UNIQUE btree (id) |
+
 ### order_items
 | Index Name | Definition |
 |-----------|------------|
@@ -3380,6 +3431,13 @@ statement is recoverable from the creating migration.
 | uq_orders_reconfirm_token | UNIQUE btree (reconfirm_token) WHERE (reconfirm_token IS NOT NULL) |
 | ~~idx_orders_parent_id~~ | SUPERSEDED — documented before 2026-09-12, not on Dev/Staging today. Was: btree (parent_order_id) WHERE (parent_order_id IS NOT NULL) |
 | ~~idx_orders_buyer_user_id~~ | SUPERSEDED — documented before 2026-09-12, not on Dev/Staging today. Was: btree (buyer_user_id) |
+
+### order_tax_reversal_queue
+| Index Name | Definition |
+|-----------|------------|
+| idx_order_tax_reversal_queue_open | btree (created_at) WHERE (resolved_at IS NULL) |
+| order_tax_reversal_queue_pkey | UNIQUE btree (id) |
+| order_tax_reversal_queue_stripe_refund_id_key | UNIQUE btree (stripe_refund_id) |
 
 ### organizations
 | Index Name | Definition |
@@ -3885,14 +3943,18 @@ rather than removed.
 | markets | markets_park_mode_check | `(park_mode = ANY (ARRAY['free'::text, 'paid'::text]))` |
 | markets | markets_status_check | `(status = ANY (ARRAY['pending'::text, 'active'::text, 'inactive'::text, 'rejected'::text, 'suspended'::text]))` |
 | markets | valid_market_status | `(status = ANY (ARRAY['pending'::text, 'active'::text, 'inactive'::text, 'rejected'::text]))` |
+| order_item_tax_reversals | order_item_tax_reversals_reversal_kind_check | `((reversal_kind = ANY (ARRAY['item_refund'::text, 'order_refund'::text, 'dashboard_refund'::text])))` |
+| order_item_tax_reversals | order_item_tax_reversals_tax_cents_check | `((tax_cents >= 0))` |
+| order_item_tax_reversals | order_item_tax_reversals_taxable_amount_cents_check | `((taxable_amount_cents >= 0))` |
 | order_items | order_items_cancelled_by_check | `(cancelled_by = ANY (ARRAY['buyer'::text, 'vendor'::text, 'system'::text]))` |
 | order_items | order_items_issue_status_check | `(issue_status = ANY (ARRAY['new'::text, 'in_review'::text, 'resolved'::text, 'closed'::text]))` |
 | order_items | order_items_tax_amount_cents_check | `((tax_amount_cents IS NULL) OR (tax_amount_cents >= 0))` |
-| order_items | order_items_tax_source_check | `((tax_source IS NULL) OR (tax_source = ANY (ARRAY['none'::text, 'manual'::text, 'stripe'::text])))` |
+| order_items | order_items_tax_source_check | `((tax_source IS NULL) OR (tax_source = ANY (ARRAY['none'::text, 'manual'::text, 'stripe'::text, 'self_computed_v1'::text])))` ✅ mig 259 (Dev + Staging 2026-09-24, measured; Prod pending) |
 | order_items | order_items_taxable_amount_cents_check | `((taxable_amount_cents IS NULL) OR (taxable_amount_cents >= 0))` |
 | order_ratings | order_ratings_rating_check | `((rating >= 1) AND (rating <= 5))` |
 | orders | orders_chipin_amount_cents_check | `((chipin_amount_cents IS NULL) OR (chipin_amount_cents >= 0))` |
 | orders | orders_tax_total_cents_check | `((tax_total_cents IS NULL) OR (tax_total_cents >= 0))` |
+| order_tax_reversal_queue | order_tax_reversal_queue_refund_amount_cents_check | `((refund_amount_cents > 0))` |
 | park_spot_bookings | park_spot_bookings_manager_receives_cents_check | `((manager_receives_cents IS NULL) OR (manager_receives_cents >= 0))` |
 | park_spot_bookings | park_spot_bookings_price_cents_check | `(price_cents >= 0)` |
 | park_spot_bookings | park_spot_bookings_status_check | `(status = ANY (ARRAY['pending_payment'::text, 'paid'::text, 'cancelled'::text, 'completed'::text, 'expired'::text]))` |

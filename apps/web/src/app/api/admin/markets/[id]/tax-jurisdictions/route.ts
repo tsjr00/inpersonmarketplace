@@ -10,6 +10,16 @@ import {
   type TaxJurisdiction,
   type JurisdictionLevel,
 } from '@/lib/tax/jurisdictions'
+import { currentQuarterLabel, isRateVersionFresh } from '@/lib/tax/compute-cart-tax'
+
+/**
+ * The tax engine treats `markets.tax_rate_version` as FRESH only when it
+ * equals the current UTC quarter label, e.g. "2026-Q3" (compute-cart-tax.ts).
+ * Free text here ("Sept rates", "2026 Q3") would make every taxable checkout
+ * at the market refuse with `stale_rates` — so the shape is enforced at save
+ * time and an off-quarter value is returned as a warning the admin can read.
+ */
+const RATE_VERSION_RE = /^\d{4}-Q[1-4]$/
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -108,6 +118,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
       // changes, so jurisdictions-without-a-stamp means the address moved out
       // from under them and they must be re-checked before they can be trusted.
       needsReverification: jurisdictions.length > 0 && !verifiedAt,
+      // What the engine will compare the stored version against today, and
+      // whether the stored one passes — so the card can say "stale" plainly.
+      currentQuarter: currentQuarterLabel(),
+      rateVersionFresh: isRateVersionFresh((market.tax_rate_version as string | null) ?? null),
       warnings: corroborateAgainstAddress(jurisdictions, (market.city as string | null) ?? null),
       note: (market.tax_jurisdiction_note as string | null) ?? null,
       address: {
@@ -193,6 +207,14 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       errors.push(`This market is in ${marketState}; only Texas jurisdictions are supported today.`)
     }
 
+    // Rate version: blank → the current quarter (the Rate Locator shows current
+    // rates, so that is what was just verified); anything else must already be
+    // in the engine's "YYYY-Qn" shape or the save is refused.
+    const rateVersionFinal = (rateVersion ?? '').trim() || currentQuarterLabel()
+    if (!RATE_VERSION_RE.test(rateVersionFinal)) {
+      errors.push(`Rate version must look like "${currentQuarterLabel()}" (year-Qn). "${rateVersionFinal}" would make the checkout tax engine refuse every taxable sale at this market.`)
+    }
+
     if (errors.length > 0) {
       return NextResponse.json({ error: errors.join(' · '), errors }, { status: 400 })
     }
@@ -203,7 +225,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       .update({
         tax_jurisdictions: normalized,
         tax_rate_total_pct: total,
-        tax_rate_version: rateVersion?.trim() || null,
+        tax_rate_version: rateVersionFinal,
         tax_jurisdiction_verified_at: new Date().toISOString(),
         tax_jurisdiction_note: note?.trim() || null,
       })
@@ -217,11 +239,17 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       )
     }
 
+    const warnings = corroborateAgainstAddress(normalized, (market.city as string | null) ?? null)
+    if (!isRateVersionFresh(rateVersionFinal)) {
+      warnings.push(`Rate version "${rateVersionFinal}" is not the current quarter (${currentQuarterLabel()}). Until it is, the checkout tax engine refuses taxable sales at this market as stale — re-verify the rates and save with the current quarter.`)
+    }
+
     return NextResponse.json({
       success: true,
       jurisdictions: normalized,
       totalRatePct: total,
-      warnings: corroborateAgainstAddress(normalized, (market.city as string | null) ?? null),
+      rateVersion: rateVersionFinal,
+      warnings,
     })
   })
 }

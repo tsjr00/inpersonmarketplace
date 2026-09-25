@@ -2,10 +2,25 @@
 
 ## Current Vault
 - **Branch:** `vault`
-- **Commit:** `7f895e5` — i18n: translate BackLink and ConfirmDialog defaults
-- **Date vaulted:** 2026-03-16
-- **Vaulted by:** User (pre-Session 59, before performance audit)
-- **Tag:** `vault/pre-session-59`
+- **Commit:** `d704d3bb` — fix(browse): remove the dead PostGIS radius call (E0) — the commit PRODUCTION has run since 2026-09-13
+- **Date vaulted:** 2026-09-24
+- **Vaulted by:** Owner ("move the vault to the current Prod commit before we touch the refund paths" — tax Batch 3 ahead)
+- **Tag:** `vault/prod-2026-09-13-pre-tax-batch3`
+- **What this vault holds that the old one did not:** the whole 2026-04→09 money-path history — refund paths for
+  buyer cancel / bundle cancel / vendor reject / resolve-issue / cron expiry / market-day cancellation / event
+  cancellation, the sales-tax seam wired DARK into checkout (`lib/tax/*`, `TAX_STREAM1_ENABLED=false`), booth
+  rentals + credits, bundles, VIP/offers, events. `git diff vault -- <money file>` is meaningful again for
+  `payments.ts`, `webhooks.ts`, `pricing.ts`, the checkout routes and the refund routes.
+- **Caveat:** Prod at `d704d3bb` is owed migrations 252→258 and ~40 commits (Staging is ahead); this vault is
+  "last state a real user population ran on", not "everything verified on Staging".
+
+## Previous Vault — kept, do not lose (owner 2026-09-24: "it was pretty stable")
+- **Commit:** `7f895e5` — i18n: translate BackLink and ConfirmDialog defaults · vaulted 2026-03-16 · tag
+  `vault/pre-session-59` (still present; `git checkout vault/pre-session-59 -- <file>` restores from it).
+- What it was: the last good state before the Session-59 performance audit broke location search. Six months of
+  verified-stable operation on the pre-tax, pre-booth-model, pre-bundles code. Its checkout/payments/webhooks are
+  the SIMPLER money paths — a fallback reference if a later change to the refund paths needs a known-quiet
+  baseline to compare against.
 
 ## What the Vault Is
 
@@ -38,4 +53,5 @@ These systems were confirmed working at the vault commit. Before modifying any o
 
 | Tag | Commit | Date | Note |
 |-----|--------|------|------|
-| `vault/pre-session-59` | `7f895e5` | 2026-03-16 | Initial vault. Last good state before perf audit broke location search. |
+| `vault/pre-session-59` | `7f895e5` | 2026-03-16 | Initial vault. Last good state before perf audit broke location search. Kept as the "pretty stable" pre-tax baseline (owner 2026-09-24). |
+| `vault/prod-2026-09-13-pre-tax-batch3` | `d704d3bb` | 2026-09-24 | Moved to the Prod commit before the tax refund-path build (Batch 3). Money files diff meaningfully again. |

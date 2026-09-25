@@ -51,7 +51,7 @@ Stripe.
 
 ---
 
-## §2 Migration 259 — `2026MMDD_259_host_paid_events_v1.sql` (⛔ PRE-CHECK FIRST; snapshot changelog row the moment the file exists; live fingerprints on Dev/Staging/Prod before writing)
+## §2 Migration — `2026MMDD_NNN_host_paid_events_v1.sql` (⚠ NNN = the next FREE number when this file is created; owner 2026-09-24: numbers are never reserved ahead — 259 went to the tax build) (⛔ PRE-CHECK FIRST; snapshot changelog row the moment the file exists; live fingerprints on Dev/Staging/Prod before writing)
 
 **Pre-check (paste, expect):**
 1. `information_schema.columns` for `orders`, `order_items`, `listings`, `event_company_payments`,

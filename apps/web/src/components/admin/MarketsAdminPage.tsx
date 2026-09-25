@@ -14,6 +14,8 @@ import DuplicateMarketBanner, { type DuplicateMarketSummary } from '@/components
 import ApproveStatusButton from '@/components/admin/MarketApproveStatusButton'
 import MarketTaxJurisdictionsCard from '@/components/admin/MarketTaxJurisdictionsCard'
 import MarketDocumentsViewer from '@/components/markets/MarketDocumentsViewer'
+import { parseJurisdictions } from '@/lib/tax/jurisdictions'
+import { isRateVersionFresh } from '@/lib/tax/compute-cart-tax'
 
 type Schedule = {
   id: string
@@ -50,6 +52,31 @@ type Market = {
   manager_invited_at?: string | null
   manager_accepted_at?: string | null
   manager_status?: string | null
+  // Sales-tax readiness (mig 214/215) — also via select('*'). Read only for
+  // the "Tax codes" filter + chip; the card on the edit form is where they change.
+  tax_jurisdictions?: unknown
+  tax_jurisdiction_verified_at?: string | null
+  tax_rate_version?: string | null
+}
+
+/**
+ * What the checkout tax engine would say about this market TODAY (the same
+ * three guardrails as compute-cart-tax.ts, in the same order): no codes →
+ * not verified (address changed, mig 215) → rate stamp not this quarter →
+ * ready. Surfaced here so an admin sees the gap before a buyer hits it — a
+ * taxable item at a not-ready market is refused at checkout, loudly.
+ */
+type TaxReadiness = 'no_codes' | 'unverified' | 'stale' | 'ready'
+function taxReadiness(m: Market): TaxReadiness {
+  if (parseJurisdictions(m.tax_jurisdictions).length === 0) return 'no_codes'
+  if (!m.tax_jurisdiction_verified_at) return 'unverified'
+  if (!isRateVersionFresh(m.tax_rate_version ?? null)) return 'stale'
+  return 'ready'
+}
+const TAX_CHIP: Record<Exclude<TaxReadiness, 'ready'>, { label: string; bg: string; color: string }> = {
+  no_codes: { label: 'tax: no codes', bg: '#fee2e2', color: '#991b1b' },
+  unverified: { label: 'tax: re-verify', bg: '#fef3c7', color: '#92400e' },
+  stale: { label: 'tax: stale quarter', bg: '#fef3c7', color: '#92400e' },
 }
 
 type FormSchedule = {
@@ -81,6 +108,9 @@ export default function MarketsAdminPage({ vertical }: { vertical: string }) {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [approvalFilter, setApprovalFilter] = useState<string>('all')
   const [typeFilter, setTypeFilter] = useState<string>('all')
+  // 'all' | a TaxReadiness value | 'not_ready' (every gap at once — the
+  // "what do I still have to enter before tax can go live" view).
+  const [taxFilter, setTaxFilter] = useState<string>('all')
 
   const [formData, setFormData] = useState({
     name: '',
@@ -209,17 +239,24 @@ export default function MarketsAdminPage({ vertical }: { vertical: string }) {
         return false
       }
 
+      // Tax readiness filter
+      if (taxFilter !== 'all') {
+        const r = taxReadiness(market)
+        if (taxFilter === 'not_ready' ? r === 'ready' : r !== taxFilter) return false
+      }
+
       return true
     })
-  }, [markets, searchTerm, statusFilter, approvalFilter, typeFilter])
+  }, [markets, searchTerm, statusFilter, approvalFilter, typeFilter, taxFilter])
 
-  const hasActiveFilters = searchTerm || statusFilter !== 'all' || approvalFilter !== 'all' || typeFilter !== 'all'
+  const hasActiveFilters = searchTerm || statusFilter !== 'all' || approvalFilter !== 'all' || typeFilter !== 'all' || taxFilter !== 'all'
 
   const clearFilters = () => {
     setSearchTerm('')
     setStatusFilter('all')
     setApprovalFilter('all')
     setTypeFilter('all')
+    setTaxFilter('all')
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1417,6 +1454,29 @@ export default function MarketsAdminPage({ vertical }: { vertical: string }) {
                 <option value="event">🎪 Event</option>
               </select>
 
+              {/* Tax codes filter — the III.7 "needs codes" queue lives here
+                  rather than on its own page: same list, one more dropdown. */}
+              <select
+                value={taxFilter}
+                onChange={(e) => setTaxFilter(e.target.value)}
+                title="Sales-tax readiness: what the checkout tax engine would say about each market today"
+                style={{
+                  padding: `${spacing.xs} ${spacing.sm}`,
+                  fontSize: typography.sizes.sm,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: radius.sm,
+                  backgroundColor: taxFilter !== 'all' && taxFilter !== 'ready' ? '#fef3c7' : 'white',
+                  minWidth: 160
+                }}
+              >
+                <option value="all">Tax codes: any</option>
+                <option value="not_ready">Tax: needs attention</option>
+                <option value="no_codes">Tax: no codes entered</option>
+                <option value="unverified">Tax: address changed, re-verify</option>
+                <option value="stale">Tax: rate quarter stale</option>
+                <option value="ready">Tax: ready</option>
+              </select>
+
               {/* Clear Filters */}
               {hasActiveFilters && (
                 <button
@@ -1575,6 +1635,25 @@ export default function MarketsAdminPage({ vertical }: { vertical: string }) {
                               : market.approval_status === 'rejected' ? 'rejected'
                                 : market.status === 'suspended' ? 'SUSPENDED' : market.status}
                           </span>
+                          {/* Tax readiness chip — only when something is missing
+                              (a ready market says nothing; the filter has "ready"). */}
+                          {taxReadiness(market) !== 'ready' && (
+                            <span
+                              title="Open the market → Sales tax jurisdictions card"
+                              style={{
+                                marginLeft: spacing['3xs'],
+                                padding: `${spacing['3xs']} ${spacing.xs}`,
+                                borderRadius: radius.sm,
+                                fontSize: typography.sizes.xs,
+                                fontWeight: typography.weights.medium,
+                                backgroundColor: TAX_CHIP[taxReadiness(market) as Exclude<TaxReadiness, 'ready'>].bg,
+                                color: TAX_CHIP[taxReadiness(market) as Exclude<TaxReadiness, 'ready'>].color,
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {TAX_CHIP[taxReadiness(market) as Exclude<TaxReadiness, 'ready'>].label}
+                            </span>
+                          )}
                           {market.approval_status === 'pending' && (
                             <div style={{ marginTop: spacing['3xs'] }}>
                               {market.submitted_by_name && (

@@ -166,6 +166,88 @@ export function buildListSupplement(
   })
 }
 
+/**
+ * One Form 01-116 line NET of reversals, with both sides kept for audit.
+ * `amountSubjectToTaxCents` / `taxDueCents` are the NET figures (sales minus
+ * reversals) — what goes on the return line. The four gross fields let the
+ * filer show their work and let the reconciliation against Stripe's export
+ * tie out side by side.
+ */
+export interface NetListSupplementRow extends ListSupplementRow {
+  salesBaseCents: number
+  salesTaxCents: number
+  reversedBaseCents: number
+  reversedTaxCents: number
+}
+
+/**
+ * The monthly return net of refunds (tax build step "minus reversals",
+ * `apps/web/.claude/tax_build_review_research.md`).
+ *
+ * Inputs are the same shape on both sides: sale snapshots (order_items rows
+ * frozen at checkout) and reversal rows (the refund ledger — each carrying the
+ * per-jurisdiction cents that were reversed, at the ORIGINAL rate, see
+ * refund-tax.ts). Both are rolled up with buildListSupplement and subtracted
+ * by seven-digit code. Nothing is recomputed against a rate.
+ *
+ * Rules this encodes:
+ * - Period placement is the caller's: a reversal recorded in a later month
+ *   than its sale belongs to THAT later month's return, so a code can net
+ *   NEGATIVE here. Negatives are preserved, never clamped — a credit on the
+ *   return is a real thing the filer must see (how Texas wants a negative line
+ *   reported is CPA Q13; the math must not hide it either way).
+ * - A code that appears only in reversals still gets a line (all-negative).
+ * - Conservation: Σ net taxDueCents == Σ sales tax − Σ reversed tax, always.
+ * - Ordering mirrors buildListSupplement (state first, then locals by code).
+ */
+export function buildNetListSupplement(
+  sales: Array<{ taxable_amount_cents: number | null; tax_jurisdictions: TaxJurisdictionSnapshot[] | null }>,
+  reversals: Array<{ taxable_amount_cents: number | null; tax_jurisdictions: TaxJurisdictionSnapshot[] | null }>
+): NetListSupplementRow[] {
+  const sold = buildListSupplement(sales)
+  const reversed = buildListSupplement(reversals)
+  const byCode = new Map<string, NetListSupplementRow>()
+
+  for (const r of sold) {
+    byCode.set(r.code, {
+      ...r,
+      salesBaseCents: r.amountSubjectToTaxCents,
+      salesTaxCents: r.taxDueCents,
+      reversedBaseCents: 0,
+      reversedTaxCents: 0,
+    })
+  }
+  for (const r of reversed) {
+    const existing = byCode.get(r.code)
+    if (existing) {
+      existing.reversedBaseCents = r.amountSubjectToTaxCents
+      existing.reversedTaxCents = r.taxDueCents
+      existing.amountSubjectToTaxCents = existing.salesBaseCents - r.amountSubjectToTaxCents
+      existing.taxDueCents = existing.salesTaxCents - r.taxDueCents
+    } else {
+      // Reversal with no sale in the period — a credit line.
+      byCode.set(r.code, {
+        code: r.code,
+        name: r.name,
+        level: r.level,
+        rate_pct: r.rate_pct,
+        amountSubjectToTaxCents: -r.amountSubjectToTaxCents,
+        taxDueCents: -r.taxDueCents,
+        salesBaseCents: 0,
+        salesTaxCents: 0,
+        reversedBaseCents: r.amountSubjectToTaxCents,
+        reversedTaxCents: r.taxDueCents,
+      })
+    }
+  }
+
+  return [...byCode.values()].sort((a, b) => {
+    if (a.level === 'state' && b.level !== 'state') return -1
+    if (b.level === 'state' && a.level !== 'state') return 1
+    return a.code.localeCompare(b.code)
+  })
+}
+
 /** Tolerant parse of the JSONB column — unresolved/malformed reads as empty. */
 export function parseJurisdictions(raw: unknown): TaxJurisdiction[] {
   if (!Array.isArray(raw)) return []

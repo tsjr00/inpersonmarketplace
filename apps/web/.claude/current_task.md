@@ -1,3 +1,27 @@
+# 2026-09-24 — SALES TAX: DECISION LOG CLEANED (TaxCloud OUT, Stripe Tax) · PRE-BUILD REVIEW DONE → `tax_build_review_research.md` · NO CODE CHANGED
+
+**Owner today:** "remove tax cloud from decisions… we are going with Stripe Tax" (done: decisions.md TaxCloud rows
+struck + 2026-09-24 row; plan section = pointer to `sales_tax_readiness.md`). Then: "thorough code and systems review
+of all the elements that will be impacted by the tax build before you change any code… then create a plan."
+**Review written to `apps/web/.claude/tax_build_review_research.md`** (sections A–N + Plan B3/B4/B5/B6 + 8 owner
+questions). Headline findings: (1) 🔴 latent bug — `order_items.tax_source` CHECK (mig 214:91) allows only
+none/manual/stripe but the session route writes `'self_computed_v1'` (`:1156`) → flag flip would 23514 every taxable
+checkout; (2) every in-app refund path rebuilds `buyerPaidForItem` from subtotal and EXCLUDES tax → Batch 3 = add the
+snapshot tax + an append-only `order_item_tax_reversals` ledger (CHECK ≥0 forbids negative item rows); (3) private
+pickup markets auto-approve (`vendor/markets/route.ts:685`) → III.7 needs a product ruling; (4) admin `rateVersion`
+is free text → must be `YYYY-Qn` or every checkout at that market refuses; (5) vault (`7f895e5`) predates the tax
+build — money-file baseline is Prod `d704d3bb`. Uncommitted: decisions.md, sales_tax_readiness.md (STATUS block from
+the earlier session today), the research file, this note.
+**Later 2026-09-24:** questions rewritten as real questions (memory `feedback_questions_must_be_real_questions`);
+build order v2 = certainty first, then learning (table in the research file); owner: "proceed with the items you
+don't need answers for." **BUILT, UNCOMMITTED** (gates: tsc 0 · eslint 0 err · vitest 333/333 incl. map coverage):
+step 2 rate-version validation (admin PUT `YYYY-Qn`, blank → current quarter, off-quarter warning; card uses the
+engine's UTC label + shows the stored version after save) · step 4 "Tax codes" filter + not-ready chip on the
+markets admin list (no new page) · step 5 `lib/tax/refund-tax.ts` + 11 specs (pure, inert, policy-neutral) · step 6
+`tax_list_supplement` report (Form 01-116 over snapshots, v1). Docs same batch: map 19/21 + index stamps, registry
+TR-110–113, printable list W11 + mapping row. Step 12 spike (Comptroller rate-file source) in progress — no code.
+**All eight questions answered 2026-09-24** (decisions.md row): Q1 pro-rata · Q2 partial dashboard refund = "reversal owed" marker + admin item picker · Q3 taxable waits for codes + admin notified + seller advised · Q4 carry-forward + daily admin reminder · Q5 leave the copy · Q6 keep the TaxCloud files (fallback) · Q7 numbers follow build order → **mig 259 = tax CHECK fix — ✅ Dev + Staging 2026-09-24 (measured post-checks identical), Prod pending; snapshot changelog + constraint row updated; file stays in `supabase/migrations/`** · Q8 vault moved to Prod `d704d3bb` (tag `vault/prod-2026-09-13-pre-tax-batch3`; old vault kept under `vault/pre-session-59`, manifest updated). **Later:** item 1 `buildNetListSupplement` + 8 specs ✅ · **mig 260 (ledger + dashboard queue) ✅ Dev + Staging 2026-09-24; snapshot structured sections rebuilt from the owner's Dev export (Tables 97, columns/FKs/indexes/checks; stamp 257 → 260); full guardrail + pins + tax suites GREEN 364/364. Staging export paste still owed (identical check).** NEXT: commit on the owner's word (chain shown first) · owner step 0 codes on Staging · then step 7 ledger migration (260) + Rule L refresh session · steps 8–11 call sites. Commit = owner's word.
+
 # 2026-09-22 — TESTING BY WORKFLOWS (v2, self-contained) · HOST-PAID EVENTS DESIGNED · NEXT SESSION: SALES TAXES
 
 **Owner's next topic (2026-09-22): "next time let's take another look at sales taxes."** Start from decisions.md

@@ -89,6 +89,25 @@ All findings below verified 2026-08-01 against primary sources (TX Comptroller p
 
 ---
 
+## ▶ STATUS 2026-09-24 (code-verified this date; supersedes the 08-02 block below for "where are we")
+- **Batch 1 (seam) + Batch 2 (checkout wiring, DARK)** are committed AND on Prod (`6fdf6760` ⊂ prod `d704d3bb`):
+  `computeCheckoutTax` runs on every checkout, returns zeros while `TAX_STREAM1_ENABLED=false`
+  (`checkout-tax.ts:94`; session route :769-788). Tax is added to `totalCents` only (:811) — vendor payout
+  math is untouched, so the §2b "withhold from payouts" work is ALREADY the shape of the code: tax never
+  enters `platform_fee_cents`/`vendor_payout_cents`. Snapshot columns exist (orders.tax_total_cents,
+  order_items.tax_*). Still $0.00 collected on all four streams.
+- **Not built:** Batch 3 refund reversals (15 refund call sites — see 09-24 report) · Batch 4 ops
+  (quarterly rate-refresh job + loud-fail stamp; III.7 location intake = codes at approval; admin
+  needs-codes queue; monthly List Supplement report) · Stream 2 subscriptions (`automatic_tax` appears
+  nowhere in code) · anomaly report on is_taxable · retire taxcloud.ts/tic-codes.ts (dead, needs deletion ok).
+- **Flag prereqs (flags.ts:9-16):** Batch 4 refresh · Batch 3 reversals · event order route through the seam
+  (→ now part of `host_paid_events_design.md` §2 RPC rewrite — ADD tax to that design) · codes entered +
+  verified for every live market + registration effective date.
+- **Owner-side unknowns (ask, don't assume):** CPA letter `cpa_letter_2026-09-07.md` sent? · Q1 sourcing
+  answered? · any Staging/Prod market with real verified codes? (one SQL) · registration effective date.
+- **Nearest edge unchanged:** `lib/vendor/tax-notice.ts:9,36` still says "Sales tax will be automatically
+  applied to your listings" — false until the flag flips.
+
 ## ▶ RESUME HERE (status as of 2026-08-02)
 
 **The platform currently collects $0.00 of sales tax on all four streams.** What exists is the *filing substrate* — storage, validation, and admin entry — not collection. Read this block first; the sections below are the reference material behind it.

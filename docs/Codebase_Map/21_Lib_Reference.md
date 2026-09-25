@@ -152,7 +152,8 @@ New user-facing strings go through `t()`, not hardcoded literals — the shared 
 **The living half** (plan: `apps/web/.claude/sales_tax_readiness.md` Part III + `tax_phase1_design.md`):
 - `tax/jurisdictions.ts` — TX jurisdiction model + pure math (mig 214): `computeItemTax`
   (per-jurisdiction rounding, total derived from parts), `validateJurisdictions`,
-  `buildListSupplement` (Form 01-116 rollup), `parseJurisdictions`. Consumed by the admin
+  `buildListSupplement` (Form 01-116 rollup), `buildNetListSupplement` (2026-09-24: sales minus
+  reversal-ledger rows by code, negatives preserved, gross sides kept — 8 tests), `parseJurisdictions`. Consumed by the admin
   jurisdictions route + the seam below. 22 tests.
 - `tax/compute-cart-tax.ts` — **THE TAX SEAM** (Batch 1, 2026-09-07, owner-ratified A′
   design): `computeCartTax(items, markets)` computes facilitated-sales tax from stored
@@ -172,6 +173,13 @@ New user-facing strings go through `t()`, not hardcoded literals — the shared 
 - `tax/flags.ts` — `TAX_STREAM1_ENABLED = false` (dark-ship pin in flow-integrity;
   header lists the flip prerequisites: rate-refresh job, Batch-3 refund reversals,
   event-order route wired, jurisdiction codes entered).
+- `tax/refund-tax.ts` — **refund-side math, PURE, NOT WIRED** (2026-09-24, plan step 5 of
+  `.claude/tax_build_review_research.md`): `taxReversalForItem(snapshot, portion, alreadyReversed)`
+  turns "this much of the item's base came back" into per-jurisdiction tax reversed — from the
+  item's FROZEN snapshot only (original-rate rule, readiness §3), floor+remainder conservation,
+  capped at the snapshot so racing refund paths can never over-reverse; `refundAmountWithTax`
+  = the money paths' buyerPaidForItem + the reversal. Policy-neutral: the refunded fraction
+  (full / post-fee 75% / per-day) is the CALLER's — owner Q1 lives at the call sites. 11 tests.
 
 **⚠ The dead half — do not build on:** `tax/taxcloud.ts` + `tax/tic-codes.ts` are
 artifacts of the REJECTED pre-8/1 TaxCloud plan (zero importers; env vars never
