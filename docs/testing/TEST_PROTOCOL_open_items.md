@@ -1,5 +1,5 @@
 STAGING TEST WORKFLOWS — SELF-CONTAINED EDITION
-Version 2 · 2026-09-22 · written for a tester who has ONLY this document and the app.
+Version 3 · 2026-09-25 · written for a tester who has ONLY this document and the app.
 Nothing in here refers to any other document. If a step tells you to expect words on the screen, those are the
 words the app is supposed to show. If the screen shows something different, that difference IS your finding.
 
@@ -9,6 +9,13 @@ start with one of those two words. Where you see [id], use the id from the page'
 market, it is the long code after /market-manager/ or /markets/ in the address bar).
 
 Before every session: hard-refresh the page (Ctrl+F5 on Windows, Cmd+Shift+R on Mac) so you get the newest build.
+
+★ WHAT'S NEW (2026-09-25 build): run W2 first, then W1, then W3.
+  W2 is rewritten for a FRESH vendor at River Road (the owner prepares the accounts): the vendor Markets card now
+  lists its buttons in the order the work happens, a vendor can get back to an unfinished payment, and saving a
+  listing no longer picks market days by itself. W1 is now only the retests: the "not visible to buyers" warning
+  moved under Action Items, and the week sheet can be printed before any booking exists and shows app check-ins.
+  W3 step 4's button is now called "Cancel this booking".
 
 
 ==================================================
@@ -62,13 +69,13 @@ THE TEST MARKETS (all on staging; ask the owner for the logins)
 Amarillo Community Market     farmers market · charges for booths · two sizes: "10x10" numbered 1–10 and
                               "10x15" numbered 11–20 · holds already in place: #5 Sunrise Organic Farm,
                               #6 Happy Hens Farm, #7 Texas Honey Co., #8 Lone Star Succulents, #9 Sweet Rise
-                              Bakery, #11 Valley Verde Farm · placeholder #1 "Market Manager Booth"        → W1
+                              Bakery, #11 Valley Verde Farm · placeholder #1 "Market Manager Booth"        → W1 (retests)
 Market 2 Test                 farmers market · charges · sizes "small" 1–5 ($25/wk), "medium" 6–15 ($35/wk),
                               "large" 16–20 ($50/wk) · hold #7 Hill Country Herbals (medium) · placeholder #1
-                              "Check-in / market manager booth" (small)                                     → W2, W3
+                              "Check-in / market manager booth" (small)                                     → W2 steps 11–12, W3
 Westgate mall Farmers Market  (lowercase "mall") · charges · "Small" 1–10, "Large" 11–15 · placeholders #1, #15  → spare
 River Road Farmers Market     charges · "Small Tent" 4–13, "Medium Tent" 14–23, "Large Tent" numbered 1, Booth 2, 3,
-                              24, 25 (an odd list on purpose)                                                → spare
+                              24, 25 (an odd list on purpose)                                                → W2
 Westgate Mall Farmers Market  (capital "Mall") · already fully tested — do not use
 Space Camp Musicians Market   lettered numbers A1–A5, B1–B10, C1–C20                                        → spare
 Sixth Street Food Park        food trucks — spots, not booths                                               → W4
@@ -77,8 +84,8 @@ Sixth Street Food Park        food trucks — spots, not booths                 
 ==================================================
 THE WORKFLOWS
 ===
-  W1  Manager runs a charging market's dashboard, holds, roster and week sheet     Amarillo · ~40 min
-  W2  Vendor applies, is approved, books and pays a week                            Market 2 Test · ~60 min
+  W1  Manager dashboard retests: visibility warning, booth-number wording, week sheet  Amarillo · ~15 min
+  W2  A fresh vendor, start to paid week, in the new order                           River Road · ~60 min
   W3  Manager cancels a market day and a paid week — credits and notices            Market 2 Test, after W2 · ~20 min
   W4  Food-truck park: operator to-dos, recurring holds, cancel a date              Sixth Street · ~30 min
   W5  Vendor sets up listings and markets — limits, double-booking, wording         ~25 min
@@ -92,235 +99,166 @@ THE WORKFLOWS
 
 
 ==================================================
-W1 — MANAGER RUNS A CHARGING MARKET   (Amarillo Community Market · manager login · ~40 min)
+W1 — MANAGER DASHBOARD: RETESTS AFTER THE 2026-09-25 FIXES   (Amarillo Community Market · manager login · ~15 min)
 ===
-BEFORE YOU START: log in as any test VENDOR who is NOT yet at Amarillo, open
-/farmers_market/markets/[Amarillo id], tap "Apply to Sell Here", tick "I agree", pick any booth size, submit.
-That gives the manager one pending application to work with. Then log in as the Amarillo MANAGER.
+Most of W1 passed on 2026-09-25. These steps re-check only what changed or was not reachable then.
 All steps happen on /farmers_market/market-manager/[Amarillo id]/dashboard unless a step says otherwise.
 
- 1. Read the dashboard top to bottom.
-    Expect, in this order: a card titled "Action Items" · a collapsible section "Setup" · a section heading
-    "Booths & occupancy" containing these cards in this order: "Booth occupancy — this week", "Weekly booth
-    bookings", "Booth inventory", "Off-platform booth placeholders", "Booth map" · a section "Vendors" containing
-    "Vendor attendance" and "Vendors at this market" (the latter has two tabs, Roster and Invite) · a section
-    "Money & activity" containing "Your booth revenue", "Market activity", "Curated bundles" · a section
-    "Communication & insights" containing "Send an announcement", "Survey results", "Cancel a market day",
-    "Need help?". Near the top, a row of small "chips" (buttons) reading Setup · Booths & occupancy · Vendors ·
-    Money & activity · Communication — tapping each one scrolls the page to that section.
+ 1. The "Action Items" card (the first card).
+    Some extra lines appear ONLY when something at the market needs fixing, for example
+    "<size name> has no booth numbers yet…" with a link "Set numbers →". If you see any such line, tap its link.
+    Expect: the page scrolls to the section the link names (Setup opens by itself if the link points into it).
+    If no extra line appears, write "none appeared" — that is not a failure.
 
- 2. Directly under the market's name and address, above the chips: a block titled "Your next two weeks".
-    Expect one line per upcoming market day (next 14 days) — a date, the hours, and counts like
-    "3 vendors declared · 2 paid booth weeks (1 booked, unpaid) · 4 orders scheduled". Today's line looks
-    highlighted. Pick ONE line and check its numbers against the pages that own them: "declared" = how many
-    vendors on the roster have that weekday ticked; "paid booth weeks" = the paid rows in "Weekly booth bookings"
-    for that week; "orders" = orders placed for pickup that day. Report if a number is wrong.
+ 2. Look directly UNDER the "Action Items" card.
+    Expect ONE of these two:
+      a) an amber card titled "Your market isn't visible to buyers yet", right there under Action Items; then
+         open /farmers_market/markets (the public list, logged out or as a buyer) — Amarillo is NOT in it.
+      b) nothing there; then open the "Setup" section — its last card is a green line
+         "✓ Your market is visible to buyers", and Amarillo IS in the public list.
+    Write down which one you saw. A mismatch (amber card but Amarillo is in the public list, or the reverse) is a
+    finding.
 
- 3. The "Action Items" card.
-    Expect: a line "1 vendor pending your approval." followed by a link "Review →". Tapping "Review →" scrolls to
-    the "Vendors at this market" CARD (not just to the "Vendors" heading). There must be NO line about vendors
-    needing a booth number (this market charges, so vendors get their number when they book). There must be NO
-    "Next market day" line. Other lines MAY appear, and each one's link must scroll to the right place:
-      "<size name> has no booth numbers yet…"                    → link "Set numbers →" → Setup section
-      "N held or placeholder numbers have no size…"             → link "Re-pick →"     → Vendors at this market
-      "<size name> is over capacity this week…"                 → link "Fix →"         → Booths & occupancy
-      "Stripe needs more information before it can pay you…"    → link "Finish →"      → Setup section
-      "N season vendors are owed a settlement…"                 → link "Settle →"      → a Seasons card in Setup
+ 3. Read the small paragraph that begins in bold "How booth numbers work here." on these three cards:
+    "Booth inventory" (inside Setup), "Vendors at this market", "Off-platform booth placeholders".
+    Expect: the same paragraph on all three, and the sizes now read with the numbers in brackets:
+    "10x10 (1–10) · 10x15 (11–20)".
 
- 4. Collapse the "Setup" section (tap its header). Now tap the "Setup" chip at the top.
-    Expect: the page scrolls to Setup and Setup OPENS by itself. (If any Action Item link pointed into Setup in
-    step 3, tap that too — same expectation: Setup opens and the page lands on the named card.)
+ 4. The card "Weekly booth bookings" (in "Booths & occupancy").
+    CHECK FIRST: does the card show a week header with arrows (← →)? If yes, Amarillo has bookings now — skip to
+    step 4b.
+    4a. (no bookings yet) Expect: the card is ONE line: "No bookings yet. Once vendors book, each week's roster
+        shows up here with the booth number each one was given. The week sheet already lists your holds and
+        off-platform booths." followed by a link "🖨 Print the week sheet →".
+    4b. (has bookings) Expect: the same "How booth numbers work here." paragraph as step 3, and in the week header
+        a link "🖨 Print this week's sheet". The week shown when the page opens is the CURRENT week.
 
- 5. Scroll to the "Vendors" section.
-    Expect: the word "Vendors" is a SECTION heading with a colored bar on its left edge. Below it, "Vendors at
-    this market" is a plain bold CARD title with no colored bar. On the Roster tab, approved vendors who have
-    not paid for any week show, in amber, "· no paid week yet" (hover over it: a tooltip beginning "Assigning a
-    booth number reserves the spot…"). NOWHERE on this roster is there a chip reading "Needs booth #".
+ 5. Tap the print link from step 4.
+    Expect: a plain page titled "Amarillo Community Market — week sheet".
+    - The line under the title says "(this week)" — or "(next week)" if every Amarillo market day this week has
+      already passed (that lets a manager print the coming week early).
+    - Above the table, a line in bold starting "Market day:" or "Market days:" listing each market day WITH its
+      date (e.g. "Sat, Sep 27").
+    - Table columns: Booth # · Vendor · Size · Status · one column per market day (with its date) · "Checked in".
+    - Rows: each held number reads "Held · no booking this week"; #1 reads "Off-platform"; a ✓ under a day means
+      that vendor said they attend that day. The "Checked in" column is blank (for a pen).
+    - "← Previous week" / "Next week →" change the week; the Print button shows a print preview with just the
+      page (no links or buttons); "← Back to the dashboard" returns you to the dashboard.
 
- 6. Same card, Roster tab — the pending application's row (the vendor you applied with).
-    Expect: if you picked a size when applying, the row says "Requested: <that size>". Beside the Approve
-    button: a SIZE dropdown (pre-set to the requested size), then a NUMBER dropdown, a small "N free" count, and
-    a text box "Note to vendor (optional)". Open the number dropdown.
-    Expect: the numbers of that size listed; taken numbers are greyed out and say who holds them, e.g.
-    "5 — held: Sunrise Organic Farm" or "1 — off-platform: Market Manager Booth". There is NO box where you can
-    TYPE a number anywhere. Pick a free number, type a note, tap Approve.
-    Expect: the row now shows that number and size. (If you can check the vendor's account: their notifications
-    bell and email say "Your booth: #N · <size> size." and include your note.)
-
- 7. Same card — the row for Texas Honey Co. (currently #7).
-    a. Open the number dropdown, choose 10, tap Save.
-       Expect: the row shows #10. The vendor is told "Your booth at Amarillo Community Market is now #10
-       (was #7)…" (check their bell/email if you can).
-    b. Open the dropdown again, choose the top option "— no booth # —", tap Save.
-       Expect: the row shows no number. The vendor is told "Booth #10 at Amarillo Community Market is no longer
-       held for you…".
-    c. Put #7 back and Save.
-       Expect: the row shows #7 again (the vendor gets a third "is now #7" message).
-    d. On some OTHER vendor's row, change ONLY the size dropdown (leave the number), Save.
-       Expect: it saves and NO message goes to that vendor (a size-only change is silent).
-
- 8. Same card — the row for Lone Star Succulents (#8). Tap "Revoke" and confirm.
-    Expect: the row shows no booth number and no size. Now open another vendor's number dropdown.
-    Expect: #8 is offered as free; pick it and Save — it saves. (Lone Star can be re-invited afterwards if you
-    want them back; not required.)
-
- 9. The card "Booth occupancy — this week".
-    Expect: under "10x10", ONE tile per number 1 through 10: #1 reads "Off platform" with "Market Manager
-    Booth"; the numbers with holds read "Held (not paid)" with the vendor's name; every other number is a dashed
-    tile reading "#N · free". Under "10x15", tiles 11 through 20 with #11 "Held (not paid)". Each size has a
-    line "N of M occupied · K open" — this counts PAID bookings and placeholders only, NOT holds. So with no
-    paid weeks it should read "1 of 10 occupied" for 10x10 (the placeholder) and "0 of 10 occupied" for 10x15.
-
-10. The card "Off-platform booth placeholders". Tap Add.
-    Expect: a SIZE dropdown, then a NUMBER dropdown — no text box for the number; taken numbers greyed with the
-    holder's name. Choose 10x15 and number 20, type a note "test placeholder", save.
-    Expect: it appears in the list. Tap Edit on it.
-    Expect: the same two dropdowns. Cancel. Tap Delete on it and confirm.
-    Expect: it disappears.
-
-11. Read the small explanatory paragraph on each of these FOUR cards: "Booth inventory" (inside Setup),
-    "Vendors at this market", "Off-platform booth placeholders", "Weekly booth bookings".
-    Expect: the SAME paragraph on all four. It begins in bold "How booth numbers work here." and continues
-    "Every booth has a number and a size — 10x10 1–10 · 10x15 11–20. When a vendor books, they get their held
-    number if you gave them one, otherwise the lowest free number in the size they booked. Paying for a week
-    makes that number theirs until they miss a week. You hold a number for a vendor from the roster; you record
-    booths rented off the platform as placeholders; both take that number out of circulation. Numbers only
-    change for unpaid weeks, or if you cancel a paid week." No card explains booth numbers in a different way.
-
-12. The card "Weekly booth bookings" — in its week header, tap "🖨 Print this week's sheet".
-    Expect: a new tab opens with a plain page titled "Amarillo Community Market — week sheet". A table with
-    columns: Booth # · Vendor · Size · Status · one column per market day that week · "Checked in" (empty, for a
-    pen). One row per booth in use: the holds (Status "Held · no booking this week"), the placeholder (Status
-    "Off-platform"), any paid or unpaid bookings (Status "Paid" or "Booked · NOT paid"). A ✓ appears under a
-    market day the vendor has declared. Links "← Previous week" / "Next week →" change the week. Tap the Print
-    button.
-    Expect: the browser's print preview shows just the table (no links or buttons). Tap "← Back to the
-    dashboard".
-    Expect: you land on the dashboard at the "Weekly booth bookings" card.
+ 6. ONLY on an Amarillo market day, with a vendor approved at Amarillo (skip otherwise):
+    As that VENDOR, open the vendor dashboard and tap "📍 Check in to Amarillo Community Market now" (allow or
+    skip location). As the MANAGER, reload the week sheet from step 5.
+    Expect: in that vendor's row, under today's column, "In <time>" (e.g. "In 7:42 AM"). A vendor who checked in
+    but has no booking or hold this week still gets a row, with the status "Checked in · no booking this week".
 
 
 
 ==================================================
-W2 — VENDOR APPLIES, IS APPROVED, BOOKS AND PAYS A WEEK   (Market 2 Test · ~60 min)
+W2 — A FRESH VENDOR, START TO PAID WEEK, IN THE NEW ORDER   (River Road Farmers Market · ~60 min)
 ===
-YOU NEED: two vendor accounts with NO history at Market 2 Test — call them V1 and V2 — each with at least one
-published listing (an item for sale). The Market 2 Test MANAGER account. A test card (4242 4242 4242 4242, any
-future date, any CVC). Optional for step 17: a third vendor V3 and two or three more approved vendors.
-Market 2 Test charges: small $25/week, medium $35/week, large $50/week.
+PREPARED BY THE OWNER BEFORE YOU START (ask for these logins — do not build them yourself):
+  • V4 and V5: two vendor accounts that have NEVER been at River Road Farmers Market. Each has ONE published
+    listing that is NOT attached to River Road, uses FEWER than 3 traditional markets (so River Road can still be
+    ticked), and has a home market set somewhere else.
+  • The River Road MANAGER login.
+  • A test card: 4242 4242 4242 4242, any future date, any CVC.
+CHECK FIRST (write down the answers — some steps depend on them):
+  (i)  /farmers_market/markets (logged out): is River Road Farmers Market in the list? If YES, skip the parts of
+       steps 6 and 10 marked [visibility] — the market is already visible, so they cannot show the change.
+  (ii) /farmers_market/markets/[River Road id]/book as V4: if it says online booking is not available, STOP and
+       tell the owner (River Road must take bookings for this workflow).
 
- 1. As V1: open /farmers_market/vendor/markets. Find Market 2 Test and open its day picker (the weekday
-    toggles). Tick a day.
-    Expect: it is refused with a RED message: "Market 2 Test reviews vendor applications. Apply from the
-    market's page — the manager will be notified and you'll be able to set your schedule once approved." There
-    is no agreement text inside the day picker.
+ 1. As V4: open /farmers_market/vendor/markets.
+    Expect: V4's home market is NOT open on arrival. In the list of markets it shows a small blue
+    "🏠 Home Market" badge and a light-blue row. Tick River Road Farmers Market to open its card.
+    Expect on River Road's card: an amber note "This market reviews vendors first: apply from its page (step 1),
+    then set your schedule." and the buttons, left to right, each with a number:
+    "1 NEXT: Apply" (the only filled button) · "2 Set Schedule" · "3 Book a Booth Space" · "4 Manage Listings" ·
+    "5 📋 Prep Sheet".
 
- 2. As V1: open /farmers_market/markets/[Market 2 Test id]. Tap "Apply to Sell Here".
-    Expect: a form showing the market's agreement text with a tick box "I agree"; below it a tick box in bold
-    "Share my onboarding documents with this market's manager." with a grey explanatory line under it; and a
-    dropdown labelled "Booth size you'd like" listing small / medium / large with their weekly prices. The
-    Submit button stays disabled until BOTH "I agree" is ticked AND a size is chosen. Tick "I agree", tick the
-    document-sharing box, choose MEDIUM, submit.
-    Expect: a confirmation that the application went in.
+ 2. Still as V4, on River Road's card: tap "Set Schedule" (doing step 2 before step 1 on purpose) and tick any
+    day in the day picker that opens.
+    Expect: refused in a RED box headed "Manager approval needed" with the text "River Road Farmers Market
+    reviews vendor applications. Apply from the market's page — the manager will be notified and you'll be able
+    to set your schedule once approved."
 
- 3. As V2: same page, same form. Tick "I agree", do NOT tick document sharing, choose SMALL, submit.
+ 3. Still as V4: open V4's listing (/farmers_market/vendor/listings → the listing → Edit), tick River Road Farmers
+    Market under "Available at", Save. Go back to /farmers_market/vendor/markets and open River Road's card.
+    Expect: the second button still reads "Set Schedule" (NOT "Manage Schedule") and the amber note still asks
+    you to apply first. (Saving a listing must NOT pick market days for the vendor at a market with a manager.)
 
- 4. As the MANAGER: dashboard → "Vendors at this market" (Roster tab).
-    Expect: two pending rows. V1's row reads "Requested: medium" and has a link "View docs". V2's row reads
-    "Requested: small" and has NO "View docs" link. Tap V1's "View docs".
-    Expect: a page listing the documents V1 shared (or saying none were uploaded). If instead you get an error
-    page, write down exactly what it says — that is the finding.
+ 4. Tap "1 NEXT: Apply" → on the market's page tap "Apply to Sell Here", tick "I agree", pick any booth size,
+    submit. Go back to /farmers_market/vendor/markets and open River Road's card.
+    Expect: the note now reads "Your application is with the manager — you'll pick your days here once they
+    approve you." The first button reads "Application sent" and NO button says NEXT.
 
- 5. As the MANAGER: on V1's pending row, change the size dropdown to LARGE, open the number dropdown and choose
-    16, type "moved you to large" in the note box, tap Approve.
-    Expect: V1's row now shows #16 and large. On V2's row, leave the size as small, leave the number blank, no
-    note, tap Approve.
-    Expect: V2's row shows small, no number, and the text "gets a booth # when they book".
-    (V1's bell/email should read "Your booth: #16 · large size." followed by your note.)
+ 5. As the River Road MANAGER: dashboard → "Vendors at this market" → V4's pending row → leave the number blank →
+    Approve. As V4: reopen River Road's card.
+    Expect: the first button shows ✓ and reads "Apply"; the filled button is "2 NEXT: Set Schedule".
 
- 6. As V1: /farmers_market/vendor/markets → Market 2 Test day picker → tick a day.
-    Expect: it saves now (no red message). Now UNTICK it again and save, so V1 has no declared days for step 7.
+ 6. As V4 (still no days picked): open /farmers_market/markets/[River Road id]/book.
+    Expect: an amber box "First, pick the days you attend River Road Farmers Market" with the weekday toggles, and
+    "Continue to payment" is disabled. Tick a day, tap "Done — continue to booking".
+    Expect: the booking form unlocks. (A season option appears ONLY if River Road has a season on sale — if you
+    see none, that is not a failure.)
+    [visibility] As the MANAGER: directly under "Action Items", the amber card "Your market isn't visible to
+    buyers yet"; its explanation includes "…and a paid booth week (your market charges for booths, so a vendor
+    counts only once they've paid for a current or upcoming week)". River Road is NOT in the public list.
 
- 7. As V1 (no days declared): open /farmers_market/markets/[Market 2 Test id]/book.
-    Expect: an amber box above the booking form reading "First, pick the days you attend Market 2 Test" with
-    the weekday toggles inside it. The "Continue to payment" button is disabled and says why. There is no
-    season option visible. Tick a day, then tap "Done — continue to booking".
-    Expect: the booking form unlocks and the season option appears.
+ 7. As V4 on the book page: choose THIS week, tick the agreement, tap "Continue to payment". On the Stripe page,
+    do NOT pay — use the browser's Back button.
+    Expect: a yellow box "You stepped away from payment" saying no charge was made and the payment page stays open
+    for up to 24 hours, with a "Continue payment" button. Tap "Continue payment".
+    Expect: you are back on the SAME Stripe payment page (same amount). Use Back again.
 
- 8. Still on the book page as V1.
-    Expect: a box reading "Your booth at Market 2 Test: #16 · large size — assigned by the manager." The booth
-    size dropdown is fixed on "large" and its label reads "Booth size (set by the manager)". Also: the line
-    listing the market's operating days sits BELOW the booth map picture and ABOVE the week/booth choice.
+ 8. On the book page, choose the SAME week again and tap "Continue to payment".
+    Expect: a red box "You already started booking this week and it is waiting for payment. Continue the payment
+    below." with a "Continue payment" button under it (not a dead end).
 
- 9. BEFORE paying — three checks:
-    a. Open one of V1's items: /farmers_market/listing/[item id].
-       Expect: Market 2 Test offers NO pickup dates; the item cannot be added to a cart for that market.
-    b. As V1: /farmers_market/vendor/markets → "Your next two weeks".
-       Expect: Market 2 Test's day shows an amber note "No paid booth week — book this week to sell here".
-    c. As the MANAGER: the dashboard's visibility card.
-       Expect: it reads "Your market isn't visible to buyers yet" and, in its list of what a vendor needs,
-       includes "…and a paid booth week (your market charges for booths, so a vendor counts only once they've
-       paid for a current or upcoming week)". Open /farmers_market/markets (the public list, logged out or as a
-       buyer).
-       Expect: Market 2 Test is NOT in the list.
+ 9. As V4: open /farmers_market/vendor/bookings.
+    Expect: River Road's week shows the badge "Pending payment" and a "Continue payment" button. Tap it and pay
+    with the test card.
+    Expect: the booking confirmation shows a booth number.
 
-10. As V1: back on the book page. Choose THIS week, tick the agreement, tap "Continue to payment", pay with the
-    test card.
-    Expect: you reach the Stripe payment page with no error, and after paying the booking confirmation shows
-    booth #16.
+10. After paying:
+    a. As V4, River Road's card on /farmers_market/vendor/markets: steps 1–4 show ✓ and no button says NEXT.
+    b. [visibility] As the MANAGER: the amber card under Action Items is gone; at the bottom of Setup, the green
+       "✓ Your market is visible to buyers". River Road IS in the public list.
+    c. As the MANAGER, "Vendors at this market" → V4's row: the size and number dropdowns look GREYED (grey
+       background, and the pointer shows "not allowed"), with the line "Locked — paid week on file. The number
+       changes only after a missed week, or if you cancel the paid week." under them.
 
-11. AFTER paying — the same three checks flip:
-    a. V1's item now shows pickup dates at Market 2 Test for THAT WEEK ONLY.
-    b. The week strip shows those days as a normal booth entry (no amber note).
-    c. The manager's visibility card reads "✓ Your market is visible to buyers", and Market 2 Test appears in
-       the public list.
+11. Leftover from the 2026-09-25 run, at Market 2 Test: as V2, open /farmers_market/vendor/bookings. If V2's
+    Market 2 Test week still reads "Pending payment", tap "Continue payment".
+    Expect (that payment page is more than 24 hours old): "That payment page had expired, so the unpaid booking
+    was released. You can book the week again now." and a "Book the week again" button. Tap it, book a SMALL week
+    at Market 2 Test and pay.
+    Expect (manager, Market 2 Test): the roster shows V2 with a small number; "Booth occupancy — this week" shows
+    that number as "Paid this week" and the small size's "N of M occupied" count went up by one.
+    (If V2's week no longer shows as pending, write down what it shows and skip to step 12.)
 
-12. As the MANAGER: roster → V1's row.
-    Expect: the size and number controls are greyed out with a note under them beginning "Locked — paid week on
-    file". Then the card "Weekly booth bookings": V1's PAID row reads "Booth #16 — locked, paid week. Changes
-    only after a missed week, or cancel the week below." and has no dropdown.
+12. Market 2 Test, as the MANAGER, on the small size: give every remaining free small number to other approved
+    vendors as HOLDS (roster → size small → number → Save) so that every small number is a placeholder (#1), paid,
+    or held. Approve V5 to Market 2 Test on small with NO number (V5 applies first from the market's page).
+    As V5: pick a day, book a small week and pay.
+    Expect: V5's confirmation names the LOWEST held number — a hold yields to someone who books and pays. The
+    roster now shows V5 with that number, and the vendor who HELD it has no number. That vendor's bell/email:
+    "Booth #N at Market 2 Test is no longer held for you…". The MANAGER's own "paid for a booth" message ends
+    "Booth #N was held for <name>; the hold moved to <V5> because <name> had no paid week and the other booths
+    were taken. Re-pin <name> from the roster if…".
 
-13. As the MANAGER: roster → some OTHER approved vendor → size dropdown "large" → number dropdown.
-    Expect: "16 — paid, locked: <V1's business name> through <a Saturday date>" greyed out. Choose 17, Save.
-    Expect: it saves.
-
-14. As V2 (approved, small, no number): /farmers_market/markets/[Market 2 Test id]/book. Tick a day if asked.
-    Expect: the size dropdown is fixed on small. Under it: "You'll be given the lowest free booth number in
-    this size when you book; paying for the week makes it yours." Choose THIS week and book — but STOP before
-    paying (close the Stripe page).
-    Expect: the confirmation names a SMALL number — #2 (because #1 is the placeholder).
-    As the MANAGER: "Weekly booth bookings" shows V2's row as pending (unpaid) with a size/number dropdown (size
-    fixed to small); "Booth occupancy — this week" shows #2 as "Pending payment". On V2's pending row change
-    the number to 3 and Save.
-    Expect: it saves; V2 is told about the change (bell/email).
-
-15. As V2: go back and pay for that week.
-    Expect (manager): the roster now shows V2 with #3 and small. "Booth occupancy — this week" shows #3 as
-    "Paid this week" and the small size's "N of M occupied" count went up by one.
-
-16. As the MANAGER, on the small size: give every remaining small number (4 and 5) to other approved vendors as
-    HOLDS (roster → size small → number → Save) so that every small number is now a placeholder (#1), paid (#3)
-    or held (#2, #4, #5). Approve a third vendor V3 to small with NO number.
-    As V3: book a small week.
-    Expect: the confirmation names the LOWEST held number (#2) — a hold yields to someone who books. V3 pays.
-    Expect: the roster now shows V3 with #2, and the vendor who HELD #2 now has NO number. That vendor's
-    bell/email: "Booth #2 at Market 2 Test is no longer held for you…". The MANAGER's own "V3 paid for a booth"
-    message ends "Booth #2 was held for <name>; the hold moved to V3 because <name> had no paid week and the
-    other booths were taken. Re-pin <name> from the roster if…". (If V3 had never paid, nothing would have
-    moved.)
-
-17. ONLY IF a test market has a season on sale (a "season" or "pre-season" option on its book page): buy the
-    season (or several weeks of it) as a vendor WITH a hold, then as a vendor WITHOUT one; then open
-    /farmers_market/vendor/bookings.
-    Expect: the vendor with a hold sees their held number on EVERY week; the vendor without a hold sees the
-    SAME automatically assigned number on every week. If no single booth is free for all the weeks, the
-    message says a season keeps one booth all season (it does not blame one particular week).
+13. ONLY IF a test market has a season on sale (a "season" option on its book page): buy the season as a vendor
+    WITH a hold, then as a vendor WITHOUT one; open /farmers_market/vendor/bookings.
+    Expect: the vendor with a hold sees their held number on EVERY week; the vendor without one sees the SAME
+    automatically assigned number on every week. If no season is on sale anywhere, write "no season on sale".
 
 
 
 ==================================================
-W3 — MANAGER CANCELS A MARKET DAY AND A PAID WEEK   (Market 2 Test, right after W2 · ~20 min)
+W3 — MANAGER CANCELS A MARKET DAY AND A PAID WEEK   (Market 2 Test · ~20 min)
 ===
-YOU NEED: W2 done — V1 has a PAID week (#16) with at least one weekday declared. Manager login.
+YOU NEED: V1 has a PAID week (#16) at Market 2 Test with at least one weekday declared (done on 2026-09-25 —
+ask the owner for V1's login). Market 2 Test manager login.
 
  1. As the MANAGER: "Communication & insights" → "Cancel a market day". Pick a FUTURE date that falls inside
     V1's paid week AND is a weekday V1 has declared. Cancel it.
@@ -336,13 +274,13 @@ YOU NEED: W2 done — V1 has a PAID week (#16) with at least one weekday declare
  3. As V1: book another week at Market 2 Test.
     Expect: at checkout the credit from step 1 is applied (the total is reduced by that amount).
 
- 4. As the MANAGER: "Weekly booth bookings" → find a PAID row (V2's #3 or V1's #16) → tap "Cancel week".
+ 4. As the MANAGER: "Weekly booth bookings" → find a PAID row (V2's or V1's #16) → tap "Cancel this booking".
     Expect: a box asking for a reason appears; the Confirm button stays disabled until you type one. Type a
     reason and confirm.
     Expect: the row now shows Cancelled and a green line stating the credit — the FULL amount the vendor paid if
     the week hasn't started, or only the remaining declared days if the week is in progress. The vendor's
     bell/email: "The manager of Market 2 Test cancelled your booth #N for the week of <date>. … You have a
-    $X credit…". Try "Cancel week" on a row that is part of a SEASON purchase (if one exists).
+    $X credit…". Try "Cancel this booking" on a row that is part of a SEASON purchase (if one exists).
     Expect: refused with "This week is part of a season purchase. Season bookings settle at season end under the
     refund cap — cancel a market day instead, or settle the season." Finally, as the vendor, open
     /farmers_market/vendor/bookings.
@@ -691,13 +629,11 @@ NOT RUNNABLE YET — nothing for you to do
 APPENDIX — FOR CLAUDE'S BOOKKEEPING ONLY. Testers: stop reading here.
 ============================================================================================================
 Registry rows satisfied by each step (a step may cover several rows; a row may span steps):
-W1  1→TR-097 · 2→TR-099 (strike-through part → W3.1) · 3→TR-098 TR-105 · 4→TR-106 · 5→TR-106 TR-072 TR-103
-    · 6→TR-085 TR-102 · 7→TR-090 · 8→TR-081 · 9→TR-104(manager half) TR-082 · 10→TR-102 · 11→TR-101 · 12→TR-108
-W2  1→TR-083 · 2→TR-071 TR-084 · 3→TR-084 · 4→TR-084 TR-036 · 5→TR-085 · 6→TR-083 · 7→TR-087 · 8→TR-086 TR-046
-    · 9→TR-073 TR-074 TR-075 (before) · 10→TR-078 · 11→TR-073 TR-074 TR-075 (after) · 12→TR-089 TR-103
-    · 13→TR-102 TR-080 · 14→TR-104(vendor half) TR-089 TR-103 · 15→TR-088(part 1) TR-082 · 16→TR-088(part 2)
-    · 17→TR-079
-W3  1→TR-091 TR-099 · 2→TR-091 · 3→TR-091 · 4→TR-092
+W1  (v3, retests) 1→TR-105 · 2→TR-121 (TR-075 manager half) · 3→TR-101 · 4→TR-101 TR-108 TR-120 · 5→TR-108 TR-120 · 6→TR-120
+W2  (v3, fresh vendor at River Road) 1→TR-119 · 2→TR-083 · 3→TR-117 · 4→TR-119 TR-084 · 5→TR-119 TR-085 · 6→TR-087 TR-121 TR-075
+    · 7→TR-118 · 8→TR-118 · 9→TR-118 TR-078 · 10→TR-119 TR-121 TR-075 TR-089 · 11→TR-118 TR-088(part 1) TR-082 · 12→TR-088(part 2)
+    · 13→TR-079   (v2 steps that PASSED 2026-09-25 were removed — see TEST_REGISTRY OB-030 rows)
+W3  1→TR-091 TR-099 · 2→TR-091 · 3→TR-091 · 4→TR-092 (button now "Cancel this booking", OB-030 (e))
 W4  1→TR-034 · 2→TR-107 · 3→TR-043 · 4→TR-109 · 5→TR-109 · 6→TR-040 · 7→TR-109
 W5  1→TR-069 · 2→TR-044 · 3→TR-042 · 4→TR-048
 W6  1→TR-095 · 2→TR-096 · 3→TR-095 TR-096 · 4→TR-093 · 5→TR-094

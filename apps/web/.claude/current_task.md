@@ -1,3 +1,9 @@
+# 2026-09-25 (evening) — TESTER ROUND OB-030 BUILT · 4 local commits c0d81b25 → fffb54c2 + docs commit pending · NOT pushed (origin/staging = 48463c41)
+Tester W1/W2 report → OB-030 (verbatim) + triage (`triage_2026-09-25_tester_W1W2.md` = the working file; read it first). Owner rulings in decisions.md 2026-09-25 row.
+Built in order: (1) D6 listing save never picks days at a managed market · (2) D1 Continue payment (resume route; BR-10 pin allows only it — owner ruling a) · (3) Markets card in workflow order + NEXT cue + home not auto-expanded (owner: loosen the pill test) · (4–6) empty bookings card keeps collapse rule + "Print the week sheet" (owner option a), week sheet next-week default + market-day dates + app check-ins, not-visible warning under Action Items (FM+FT), locked pickers grey, "Manager approval needed", "Cancel this booking".
+Docs: printable v3 (W2 fresh vendor at River Road — OWNER MUST PREPARE V4/V5; W1 retests; W3 wording) · registry TR-117–121 + fixed rows · maps 11/12. Full suite 2375 green at fffb54c2.
+NEXT: commit docs → owner says push → staging chain → owner prepares V4/V5 → tester runs W2, W1, W3. Then: tax refund call sites 8–11 (unchanged plan below). Backlog adds: bulk disconnect listings; limited vendor refund (contract research).
+
 # 2026-09-25 — mig 261 ✅ Dev + Staging (exports identical, 14 rows) · snapshot rebuilt, stamp 261 · FULL SUITE GREEN 2353/2353 · step 12 + monthly-filing corrections + Central-time report UNCOMMITTED, awaiting the owner's commit/push word
 
 # 2026-09-25 (later) — MONTHLY FILING: rate corrections + Central-time report periods BUILT · mig 261 (now column + table tax_rate_corrections) FILE WRITTEN, NOT APPLIED · Rule L RED BY DESIGN until 261 applied + snapshot rebuilt
