@@ -6,6 +6,7 @@ import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
 import MarketAgreementBlock from '@/components/market-manager/MarketAgreementBlock'
 import { calculateBoothRentalFees } from '@/lib/pricing'
+import ContinueBoothPaymentButton from '@/components/vendor/ContinueBoothPaymentButton'
 
 /**
  * Vendor weekly booth booking form. Phase C Stage 1 (2026-05-16).
@@ -47,6 +48,9 @@ interface BookBoothFormProps {
   /** BR-13: when set, booking is blocked for this reason (e.g. no days
    *  declared yet) — the submit button stays disabled and says why. */
   bookingBlockedReason?: string | null
+  /** OB-030 D1: the booking the vendor just stepped away from (from Stripe's
+   *  cancel link) — the cancel banner offers "Continue payment" for it. */
+  returnRentalId?: string | null
 }
 
 function formatWeekLabel(yyyyMmDd: string): string {
@@ -79,6 +83,7 @@ export default function BookBoothForm({
   lockedInventoryId = null,
   pinnedBoothNumber = null,
   bookingBlockedReason = null,
+  returnRentalId = null,
 }: BookBoothFormProps) {
   const [selectedWeek, setSelectedWeek] = useState<string>(weeks[0] ?? '')
   // BR-4: a pin with a tier pre-selects and locks that tier.
@@ -89,6 +94,9 @@ export default function BookBoothForm({
   const [agreementAccepted, setAgreementAccepted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // OB-030 D1: set when the server says this week is already this vendor's
+  // UNPAID booking — the error box then offers "Continue payment".
+  const [pendingRentalId, setPendingRentalId] = useState<string | null>(null)
 
   const selectedInventory = useMemo(
     () => inventory.find((i) => i.id === selectedInventoryId) ?? null,
@@ -99,6 +107,7 @@ export default function BookBoothForm({
     e.preventDefault()
     if (submitting) return
     setError(null)
+    setPendingRentalId(null)
 
     if (!agreementAccepted) {
       setError("Please accept the market's agreement before booking.")
@@ -127,6 +136,7 @@ export default function BookBoothForm({
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
         setError(data.error || 'Could not complete booking. Try again.')
+        setPendingRentalId(typeof data.pending_rental_id === 'string' ? data.pending_rental_id : null)
         setSubmitting(false)
         return
       }
@@ -219,11 +229,16 @@ export default function BookBoothForm({
           You stepped away from payment
         </h2>
         <p style={{ margin: 0, marginBottom: spacing.sm, fontSize: typography.sizes.sm, lineHeight: 1.5 }}>
-          No charge was made. Your booking is still on file as pending —
-          it will be released automatically in about 30 minutes if you
-          don&apos;t come back to complete payment.
+          No charge was made. Your booking is waiting for payment, and your
+          payment page stays open for up to 24 hours — tap Continue payment to
+          finish it. If the page has expired by then, the button releases the
+          unpaid booking so you can book the week again.
         </p>
-        <div style={{ display: 'flex', gap: spacing.sm, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: spacing.sm, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          {returnRentalId && (
+            <ContinueBoothPaymentButton rentalId={returnRentalId} vertical={vertical} marketId={marketId} />
+          )}
+          {!returnRentalId && (
           <Link
             href={`/${vertical}/markets/${marketId}/book`}
             style={{
@@ -237,8 +252,9 @@ export default function BookBoothForm({
               textDecoration: 'none',
             }}
           >
-            Try again
+            Back to booking
           </Link>
+          )}
           <Link
             href={`/${vertical}/vendor/dashboard`}
             style={{
@@ -451,6 +467,11 @@ export default function BookBoothForm({
           marginBottom: spacing.sm,
         }}>
           {error}
+          {pendingRentalId && (
+            <div style={{ marginTop: spacing.xs }}>
+              <ContinueBoothPaymentButton rentalId={pendingRentalId} vertical={vertical} marketId={marketId} />
+            </div>
+          )}
         </div>
       )}
 

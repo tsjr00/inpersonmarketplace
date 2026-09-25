@@ -371,10 +371,27 @@ export async function POST(
         )
       }
       if (msg.includes('DUPLICATE')) {
+        // OB-030 D1: when the existing row is this vendor's own UNPAID one-off
+        // week, point at it so the form can offer "Continue payment" (the
+        // resume route returns to the same Stripe page, or releases it if the
+        // page expired) instead of a dead end.
+        const { data: existingRow } = await observed(serviceClient
+          .from('weekly_booth_rentals')
+          .select('id, status, group_id')
+          .eq('vendor_profile_id', profile.id)
+          .eq('market_id', marketId)
+          .eq('week_start_date', weekStartDate)
+          .maybeSingle(), { table: 'weekly_booth_rentals' })
+        const pendingRentalId = existingRow && existingRow.status === 'pending_payment' && !existingRow.group_id
+          ? (existingRow.id as string)
+          : null
         return NextResponse.json(
           {
-            error: 'You already have a booking for this week. If you need to change anything, contact the market manager.',
+            error: pendingRentalId
+              ? 'You already started booking this week and it is waiting for payment. Continue the payment below.'
+              : 'You already have a booking for this week. If you need to change anything, contact the market manager.',
             field: 'week_start_date',
+            ...(pendingRentalId ? { pending_rental_id: pendingRentalId } : {}),
           },
           { status: 409 }
         )
@@ -511,7 +528,7 @@ export async function POST(
       const baseUrl = request.nextUrl.origin
       const vertical = (market.vertical_id as string) || 'farmers_market'
       const successUrl = `${baseUrl}/${vertical}/markets/${marketId}/book?session=success&rental=${rental.id}`
-      const cancelUrl = `${baseUrl}/${vertical}/markets/${marketId}/book?session=cancel`
+      const cancelUrl = `${baseUrl}/${vertical}/markets/${marketId}/book?session=cancel&rental=${rental.id}`
 
       const session = await createBoothRentalCheckoutSession({
         rentalId: rental.id as string,

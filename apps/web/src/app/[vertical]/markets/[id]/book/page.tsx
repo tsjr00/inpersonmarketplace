@@ -30,7 +30,8 @@ interface PageProps {
   params: Promise<{ vertical: string; id: string }>
   /** Phase C Stage 3 (2026-05-17): Stripe sets these on return.
    *  ?session=success&rental=<id>  → vendor completed Checkout.
-   *  ?session=cancel               → vendor stepped away from Checkout. */
+   *  ?session=cancel&rental=<id>   → vendor stepped away from Checkout
+   *  (the rental id drives "Continue payment", OB-030 D1). */
   searchParams: Promise<{ session?: string; rental?: string }>
 }
 
@@ -90,7 +91,9 @@ function nextSundays(
 
 export default async function BookBoothPage({ params, searchParams }: PageProps) {
   const { vertical, id: marketId } = await params
-  const { session: sessionFlag } = await searchParams
+  const { session: sessionFlag, rental: returnRentalParam } = await searchParams
+  // Only a UUID is passed on; the resume route checks ownership itself.
+  const returnRentalId = typeof returnRentalParam === 'string' && /^[0-9a-f-]{36}$/i.test(returnRentalParam) ? returnRentalParam : null
   const returnFlash: 'success' | 'cancel' | undefined =
     sessionFlag === 'success' ? 'success'
     : sessionFlag === 'cancel' ? 'cancel'
@@ -360,6 +363,7 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
         pinnedBoothNumber={pin.booth_number}
         bookingBlockedReason={needsDeclaredDays ? `Pick at least one day you attend ${market.name} (above) to unlock booking.` : null}
         {...(returnFlash ? { returnFlash } : {})}
+        returnRentalId={returnRentalId}
       />
 
       {/* Phase E — season pre-sale picker. Renders only when this market has

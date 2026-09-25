@@ -7,6 +7,7 @@ import { getBoothMapUrl } from '@/lib/markets/booth-map'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import { calculateBoothRentalFees } from '@/lib/pricing'
 import CancelSeasonButton from '@/components/vendor/CancelSeasonButton'
+import ContinueBoothPaymentButton from '@/components/vendor/ContinueBoothPaymentButton'
 
 /**
  * Vendor "My Bookings" page — read-only list of the authenticated vendor's
@@ -453,6 +454,13 @@ export default async function VendorBookingsPage({ params }: PageProps) {
               }}>
                 {badge.label}
               </span>
+              {/* OB-030 D1: an unpaid week gets its way back to the payment page
+                  (tester: "Pending payments need a link … to show where to go to pay"). */}
+              {r.status === 'pending_payment' && (
+                <div style={{ flex: '1 1 100%', display: 'flex', justifyContent: 'flex-end' }}>
+                  <ContinueBoothPaymentButton rentalId={r.id} vertical={vertical} marketId={r.market_id} />
+                </div>
+              )}
             </div>
           )
         })}

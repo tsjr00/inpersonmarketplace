@@ -2045,7 +2045,11 @@ describe('Event token format', () => {
           if (entry.isDirectory()) walk(full)
           else if (entry.name === 'route.ts') {
             const src = fs.readFileSync(full, 'utf-8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
-            if (/from\('weekly_booth_rentals'\)\s*\.update\(\{\s*status: 'cancelled'/.test(src) && !full.includes('booth-groups')) {
+            // Owner ruling 2026-09-25 (OB-030 D1, option a): the ONE allowed
+            // vendor-side writer is "Continue payment" releasing an UNPAID week
+            // whose Stripe page has EXPIRED — its guards are pinned just below.
+            const isExpiredRelease = full.includes(path.join('booth-rentals', '[rentalId]', 'resume'))
+            if (/from\('weekly_booth_rentals'\)\s*\.update\(\{\s*status: 'cancelled'/.test(src) && !full.includes('booth-groups') && !isExpiredRelease) {
               offenders.push(path.relative(SRC_DIR, full))
             }
           }
@@ -2053,6 +2057,14 @@ describe('Event token format', () => {
       }
       walk(vendorApi)
       expect(offenders, 'a vendor route must not cancel a one-off paid week (BR-10)').toEqual([])
+
+      // The expired-page release can never touch a paid week (owner 2026-09-25).
+      const resume = rd('app/api/vendor/booth-rentals/[rentalId]/resume/route.ts').replace(/\r\n/g, '\n')
+      expect(resume, 'only a row still pending, on the SAME session, one-off').toMatch(/\.update\(\{ status: 'cancelled', cancelled_at: new Date\(\)\.toISOString\(\) \}\)\s*\.eq\('id', rentalId\)\s*\.eq\('status', 'pending_payment'\)\s*\.eq\('stripe_checkout_session_id', sessionId as string\)\s*\.is\('group_id', null\)/)
+      expect(resume, 'the release runs only on the release decision').toMatch(/if \(decision\.action !== 'release'\) \{[\s\S]{0,200}\}[\s\S]{0,400}\.update\(\{ status: 'cancelled'/)
+      expect(/createRefund\(|refunds\.create|sessions\.create\(/.test(resume), 'never money, never a second Stripe session').toBe(false)
+      const decide = rd('lib/markets/pending-booth-rental.ts').replace(/\r\n/g, '\n')
+      expect(decide, 'release is decided ONLY by Stripe saying expired').toMatch(/if \(s\.status === 'expired'\) return \{ action: 'release' \}/)
     })
 
     it('the newest booking RPC honors the same-vendor rule and the soft-pin fallback (mig 256)', () => {

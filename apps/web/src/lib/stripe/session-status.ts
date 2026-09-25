@@ -28,3 +28,16 @@ export async function getSeasonCheckoutSessionState(
     paymentIntentId,
   }
 }
+
+/**
+ * Status + hosted URL of a booth-week Checkout Session, for "Continue payment"
+ * (lib/markets/pending-booth-rental.ts, OB-030 D1). The URL is only usable
+ * while status is 'open'; the caller sends the vendor back to THAT session —
+ * never a new one — so a week can be paid at most once.
+ */
+export async function getCheckoutSessionResumeState(
+  sessionId: string,
+): Promise<{ status: string | null; url: string | null }> {
+  const session = await stripe.checkout.sessions.retrieve(sessionId)
+  return { status: session.status ?? null, url: session.url ?? null }
+}
