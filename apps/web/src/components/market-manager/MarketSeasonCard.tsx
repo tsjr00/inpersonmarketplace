@@ -337,7 +337,15 @@ export default function MarketSeasonCard({
             const pastEnd = !!s.end_date && s.end_date <= todayStr()
             const isEnded = s.status === 'ended'
             const isSettled = s.status === 'settled'
-            const canEnd = s.status === 'active' && pastEnd && !s.prepay_open
+            // A pre-sale window LAPSES at prepay_closes_at (start + 14 days), but
+            // nothing flips prepay_open then — vendors stop seeing it (the
+            // vendor seasons route + book-season both check the date) while this
+            // card kept saying "Pre-sales open" and hid End season (2026-09-25,
+            // Westgate "summer 2 test": closed Aug 16, still "open"). Show the
+            // truth: a lapsed window is closed.
+            const presaleLive = s.prepay_open && (!s.prepay_closes_at || new Date(s.prepay_closes_at) > new Date())
+            const presaleLapsed = s.prepay_open && !presaleLive
+            const canEnd = (s.status === 'active' || presaleLapsed) && pastEnd && !presaleLive
             return (
               <div key={s.id} style={{
                 padding: spacing.xs, border: `1px solid ${colors.border}`, borderRadius: radius.sm,
@@ -350,10 +358,10 @@ export default function MarketSeasonCard({
                       <span style={{
                         marginLeft: spacing.xs, padding: `0 ${spacing['2xs']}`, borderRadius: radius.full,
                         fontSize: typography.sizes.xs, fontWeight: typography.weights.medium,
-                        backgroundColor: s.prepay_open ? colors.primaryLight : colors.surfaceMuted,
-                        color: s.prepay_open ? colors.primaryDark : colors.textMuted,
+                        backgroundColor: presaleLive ? colors.primaryLight : colors.surfaceMuted,
+                        color: presaleLive ? colors.primaryDark : colors.textMuted,
                       }}>
-                        {s.prepay_open ? 'Pre-sales open' : s.status}
+                        {presaleLive ? 'Pre-sales open' : presaleLapsed ? 'Pre-sales closed' : s.status}
                       </span>
                       {outOfSync && (
                         <span style={{
@@ -374,7 +382,8 @@ export default function MarketSeasonCard({
                         - "make-up buffer" = potential_makeup_days: 0 or 2+ (separate rule). */}
                     <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
                       {fmtDate(s.start_date)} – {fmtDate(s.end_date)} · {s.declared_market_days ?? '?'} market days · refund cap {s.refund_cap_days ?? '?'} days · make-up buffer {s.potential_makeup_days ?? 0}
-                      {s.prepay_open && s.prepay_closes_at ? ` · closes ${fmtDate(s.prepay_closes_at.slice(0, 10))}` : ''}
+                      {presaleLive && s.prepay_closes_at ? ` · closes ${fmtDate(s.prepay_closes_at.slice(0, 10))}` : ''}
+                      {presaleLapsed && s.prepay_closes_at ? ` · pre-sales closed ${fmtDate(s.prepay_closes_at.slice(0, 10))}` : ''}
                     </div>
                   </div>
                   {isSettled ? (
@@ -392,7 +401,7 @@ export default function MarketSeasonCard({
                     }}>
                       Make-up window
                     </span>
-                  ) : s.prepay_open ? (
+                  ) : presaleLive ? (
                     <button onClick={() => act(s.id, 'close_prepay')} disabled={busyId === s.id} style={{
                       padding: `${spacing['2xs']} ${spacing.sm}`, backgroundColor: colors.surfaceBase,
                       color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: radius.sm,
@@ -409,7 +418,7 @@ export default function MarketSeasonCard({
                     }}>
                       {busyId === s.id ? '…' : 'End season & open make-up window'}
                     </button>
-                  ) : (
+                  ) : presaleLapsed ? null : (
                     <button onClick={() => act(s.id, 'open_prepay')} disabled={busyId === s.id || openBlocked} style={{
                       padding: `${spacing['2xs']} ${spacing.sm}`,
                       backgroundColor: openBlocked ? colors.surfaceBase : colors.primary,

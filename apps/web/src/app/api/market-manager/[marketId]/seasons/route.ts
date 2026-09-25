@@ -228,6 +228,32 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       if (today >= addDaysUtc(start, PRESALE_GRACE_DAYS + 1)) {
         return NextResponse.json({ error: 'This season is too far underway to open pre-sales.' }, { status: 409 })
       }
+      // A season whose pre-sale window already LAPSED still carries
+      // prepay_open=true (nothing flips it at prepay_closes_at) and would hold
+      // the one-open-season index against this one ("Another season is already
+      // open…"). Its window is closed to vendors already (vendor seasons route +
+      // book-season check the date), so close it here exactly as close_prepay
+      // would — only lapsed rows, only live statuses (2026-09-25).
+      const nowIso = new Date().toISOString()
+      const { data: lapsed } = await observed(service
+        .from('market_seasons')
+        .select('id, start_date')
+        .eq('market_id', marketId)
+        .eq('prepay_open', true)
+        .neq('id', seasonId)
+        .lt('prepay_closes_at', nowIso)
+        .in('status', ['draft', 'open', 'active']), { table: 'market_seasons' })
+      for (const l of lapsed ?? []) {
+        const lapsedStatus = today >= parseUtc(l.start_date as string) ? 'active' : 'draft'
+        const { error: lapseErr } = await service
+          .from('market_seasons')
+          .update({ prepay_open: false, status: lapsedStatus })
+          .eq('id', l.id as string)
+          .eq('prepay_open', true)
+          .lt('prepay_closes_at', nowIso)
+          .in('status', ['draft', 'open', 'active'])
+        if (lapseErr) throw traced.fromSupabase(lapseErr, { table: 'market_seasons', operation: 'update' })
+      }
       const closesAt = addDaysUtc(start, PRESALE_GRACE_DAYS + 1) // start..start+14 inclusive
       const { error: updErr } = await service
         .from('market_seasons')

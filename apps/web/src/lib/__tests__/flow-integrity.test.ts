@@ -1343,6 +1343,21 @@ describe('Dashboard empty-state convention', () => {
     expect(card, 'the empty card links the week sheet with no fixed week').toMatch(/action: \{ href: `\/\$\{vertical\}\/market-manager\/\$\{marketId\}\/week-sheet`/)
   })
 
+  it('a LAPSED season pre-sale reads as closed and never blocks the next season (2026-09-25)', () => {
+    // Nothing flips prepay_open at prepay_closes_at; vendors already stop seeing
+    // a lapsed window, so the manager side must agree with them.
+    const card = bare('components/market-manager/MarketSeasonCard.tsx')
+    expect(card, 'live = open flag AND window not past').toMatch(/const presaleLive = s\.prepay_open && \(!s\.prepay_closes_at \|\| new Date\(s\.prepay_closes_at\) > new Date\(\)\)/)
+    expect(card, 'the pill says closed for a lapsed window').toContain("presaleLapsed ? 'Pre-sales closed'")
+    const route = bare('app/api/market-manager/[marketId]/seasons/route.ts')
+    const lapseIdx = route.indexOf(".lt('prepay_closes_at', nowIso)")
+    const openIdx = route.indexOf('prepay_open: true,')
+    expect(lapseIdx, 'open_prepay closes lapsed seasons').toBeGreaterThan(-1)
+    expect(openIdx, 'before it opens this one').toBeGreaterThan(lapseIdx)
+    const vendor = bare('app/api/vendor/markets/[id]/book-season/route.ts')
+    expect(vendor, 'a lapsed window still refuses a purchase').toContain("new Date() > new Date(season.prepay_closes_at as string)")
+  })
+
   it('sections with nothing to show collapse instead of vanishing', () => {
     // These four used to `return null` on an empty result.
     for (const f of [

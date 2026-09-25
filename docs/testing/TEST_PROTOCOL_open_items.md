@@ -10,12 +10,13 @@ market, it is the long code after /market-manager/ or /markets/ in the address b
 
 Before every session: hard-refresh the page (Ctrl+F5 on Windows, Cmd+Shift+R on Mac) so you get the newest build.
 
-★ WHAT'S NEW (2026-09-25 build): run W2 first, then W1, then W3.
+★ WHAT'S NEW (2026-09-25 build): run W2 first, then W1, then W3, then W12.
   W2 is rewritten for a FRESH vendor at River Road (the owner prepares the accounts): the vendor Markets card now
   lists its buttons in the order the work happens, a vendor can get back to an unfinished payment, and saving a
   listing no longer picks market days by itself. W1 is now only the retests: the "not visible to buyers" warning
   moved under Action Items, and the week sheet can be printed before any booking exists and shows app check-ins.
   W3 step 4's button is now called "Cancel this booking".
+  NEW W12: seasons end to end (no season was on sale anywhere — every pre-sale window had passed). Run it after W3.
 
 
 ==================================================
@@ -95,6 +96,7 @@ THE WORKFLOWS
   W9  Market boxes — one purchase                                                   ~15 min
   W10 Survey email                                                                  ~2 min
   W11 Platform admin: sales-tax readiness — filter, tax card, Form 01-116 report      Amarillo · ~10 min
+  W12 Seasons — create one, open pre-sale, two vendors buy it                       Market 2 Test · ~30 min
 
 
 
@@ -247,10 +249,7 @@ CHECK FIRST (write down the answers — some steps depend on them):
     "Booth #N was held for <name>; the hold moved to <V5> because <name> had no paid week and the other booths
     were taken. Re-pin <name> from the roster if…".
 
-13. ONLY IF a test market has a season on sale (a "season" option on its book page): buy the season as a vendor
-    WITH a hold, then as a vendor WITHOUT one; open /farmers_market/vendor/bookings.
-    Expect: the vendor with a hold sees their held number on EVERY week; the vendor without one sees the SAME
-    automatically assigned number on every week. If no season is on sale anywhere, write "no season on sale".
+13. Seasons are tested on their own now — see W12 (it creates a fresh season, so it always runs).
 
 
 
@@ -612,6 +611,55 @@ jurisdiction rows. If the card shows only the TEXAS row and nothing else, STOP a
 
 
 ==================================================
+W12 — SEASONS: CREATE ONE, OPEN PRE-SALE, TWO VENDORS BUY IT   (Market 2 Test · ~30 min)
+===
+BACKGROUND: a "season" lets a vendor pay once for a booth for every market week of a date range. The manager
+creates the season and opens "pre-sales"; pre-sales can open at most 60 days before the season starts and close by
+themselves 14 days after it starts.
+YOU NEED (ask the owner): the Market 2 Test MANAGER login · the Westgate Mall Farmers Market (capital "Mall")
+MANAGER login, for step 1 only (look, do not change anything there) · two vendors APPROVED at Market 2 Test who
+have at least one day picked there: VA whose roster row shows a booth NUMBER, and VB whose roster row shows NO
+number · the test card 4242 4242 4242 4242.
+
+ 1. As the Westgate Mall MANAGER: dashboard → open "Setup" → the card "Season pre-sales".
+    Expect: the season "summer 2 test" shows a grey pill "Pre-sales closed" and, in its details line,
+    "· pre-sales closed Aug 16". It shows NO "Close pre-sales" button and NO "Open pre-sales" button.
+    (Its pre-sale window ended on Aug 16; before this fix the card still said "Pre-sales open".)
+
+ 2. As the Market 2 Test MANAGER: dashboard → open "Setup" → "Season pre-sales" → the form at the bottom.
+    Type a name (e.g. "W12 test season"), Start = the NEXT Sunday, End = about six weeks later, leave the make-up
+    buffer at 0, tap "Create season".
+    Expect: either the season is created, or a tick box appears "I confirm my market schedule (operating days &
+    times) is accurate — the season's market-day count is derived from it." — tick it and tap "Create season"
+    again. The new season appears in the list with its dates and "N market days".
+    If a yellow warning about the dates not matching the admin's season appears on the new season, tick "I
+    understand the season dates don't match…" under it (needed before step 3).
+
+ 3. On the new season, tap "Open pre-sales".
+    Expect: the pill turns to "Pre-sales open" with "· closes <date>" = 14 days after your Start date.
+
+ 4. As VA: open /farmers_market/markets/[Market 2 Test id]/book.
+    Expect: below the weekly booking form, a section "Reserve a whole season". Pick your season, pick VA's booth
+    size, tick "I accept the market agreement and the season cancellation policy above.", tap
+    "Reserve season — $…" and pay with the test card.
+    Expect: after paying you land on /farmers_market/vendor/bookings with no error.
+
+ 5. As VB: the same, with any booth size. Pay.
+
+ 6. As the Market 2 Test MANAGER: "Weekly booth bookings" → use the → arrow to step through the season's weeks.
+    Expect: VA appears in EVERY season week with the SAME booth number VA's roster row showed before step 4; VB
+    appears in every season week with ONE number that stays the same every week. As VA and as VB,
+    /farmers_market/vendor/bookings lists the purchase under "Season bookings" as "Season · N weeks · <dates> ·
+    <size>" with the badge "Paid".
+    If a purchase is refused, write down the exact message — especially one saying a season keeps one booth for
+    the whole season.
+
+ 7. Clean up so the next tester starts fresh: as the MANAGER, on the new season tap "Close pre-sales".
+    Expect: the pill no longer says "Pre-sales open".
+
+
+
+==================================================
 NOT RUNNABLE YET — nothing for you to do
 ===
 • Event money on cancellation / de-selection — needs an event with a PAID vendor fee on staging.
@@ -632,8 +680,9 @@ Registry rows satisfied by each step (a step may cover several rows; a row may s
 W1  (v3, retests) 1→TR-105 · 2→TR-121 (TR-075 manager half) · 3→TR-101 · 4→TR-101 TR-108 TR-120 · 5→TR-108 TR-120 · 6→TR-120
 W2  (v3, fresh vendor at River Road) 1→TR-119 · 2→TR-083 · 3→TR-117 · 4→TR-119 TR-084 · 5→TR-119 TR-085 · 6→TR-087 TR-121 TR-075
     · 7→TR-118 · 8→TR-118 · 9→TR-118 TR-078 · 10→TR-119 TR-121 TR-075 TR-089 · 11→TR-118 TR-088(part 1) TR-082 · 12→TR-088(part 2)
-    · 13→TR-079   (v2 steps that PASSED 2026-09-25 were removed — see TEST_REGISTRY OB-030 rows)
+    · 13→(see W12)   (v2 steps that PASSED 2026-09-25 were removed — see TEST_REGISTRY OB-030 rows)
 W3  1→TR-091 TR-099 · 2→TR-091 · 3→TR-091 · 4→TR-092 (button now "Cancel this booking", OB-030 (e))
+W12 1→TR-122 · 2→TR-079 (setup) · 3→TR-122 TR-079 · 4→TR-079 · 5→TR-079 · 6→TR-079 · 7→TR-122   (W2 v3 step 13 now points here)
 W4  1→TR-034 · 2→TR-107 · 3→TR-043 · 4→TR-109 · 5→TR-109 · 6→TR-040 · 7→TR-109
 W5  1→TR-069 · 2→TR-044 · 3→TR-042 · 4→TR-048
 W6  1→TR-095 · 2→TR-096 · 3→TR-095 TR-096 · 4→TR-093 · 5→TR-094
