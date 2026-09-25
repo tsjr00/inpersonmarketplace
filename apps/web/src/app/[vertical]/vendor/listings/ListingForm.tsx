@@ -1169,6 +1169,30 @@ export default function ListingForm({
               </div>
             )
           })()}
+          {/* Managed markets (owner 2026-09-25): saving a listing no longer picks
+              market days at a market with a manager (BR-1 + BR-13, OB-030 D6), so
+              say where the days ARE picked — with the link — whenever such a
+              market is ticked. Unmanaged markets still get their days on save. */}
+          {(() => {
+            const managed = marketData.filter(m => selectedMarketIds.includes(m.id) && m.market_type === 'traditional' && m.isManaged === true)
+            if (managed.length === 0) return null
+            return (
+              <div style={{
+                marginTop: 10,
+                padding: '10px 12px',
+                backgroundColor: '#eff6ff',
+                border: '1px solid #bfdbfe',
+                borderRadius: 6,
+                fontSize: 13,
+                color: '#1e3a5f',
+              }}>
+                {managed.map(m => m.name).join(', ')} {managed.length === 1 ? 'has' : 'have'} a market manager, so this item sells there only on the days you pick (after the manager approves you).{' '}
+                <Link href={`/${vertical}/vendor/markets`} style={{ color: '#1d4ed8', fontWeight: 600, textDecoration: 'underline' }}>
+                  Pick or check your days on your Markets page →
+                </Link>
+              </div>
+            )
+          })()}
         </div>
 
         {/* Status - only show full options for fully onboarded vendors */}

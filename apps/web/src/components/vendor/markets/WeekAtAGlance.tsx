@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { colors, statusColors } from '@/lib/design-tokens'
 
 /**
@@ -137,6 +138,20 @@ export default function WeekAtAGlance({ vertical }: { vertical: string }) {
                       {e.note && (
                         <span style={{ marginLeft: 8, fontSize: 12, color: statusColors.warningDark }}>
                           {e.note}
+                          {/* 2026-09-25 (owner): the unpaid managed-market week is fixed in
+                              one tap — link straight to that market's booking page. Only
+                              the FM booth-week note; the FT "Pay by" spot note is unchanged. */}
+                          {e.status === 'payment_due' && e.kind !== 'park_booking' && (
+                            <>
+                              {' '}
+                              <Link
+                                href={`/${vertical}/markets/${e.marketId}/book`}
+                                style={{ color: colors.primary, fontWeight: 600, textDecoration: 'underline', whiteSpace: 'nowrap' }}
+                              >
+                                Book this week →
+                              </Link>
+                            </>
+                          )}
                         </span>
                       )}
                     </div>
