@@ -332,8 +332,14 @@ describe('NI-014: Total notification types = 72', () => {
     // park_standing_occurrence_skipped_manager (operator) — the nightly sweep
     // found the anchor's spot already booked on their recurring day; before
     // F1 the week was skipped and nobody was told. Once per (hold, date).
+    // 135 → 136 (2026-09-24, owner "yes, bump the tripwire" — sales-tax Q3
+    // ruling "taxable items wait for codes + admin gets notified that someone
+    // is waiting"): tax_codes_needed_admin (admin, standard = email+in_app,
+    // warning) — a vendor attached a TAXABLE listing to a location whose Texas
+    // tax codes are not entered/verified; sent from
+    // api/vendor/listings/[listingId]/markets, once per market per 24 h.
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(135)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(136)
   })
 
   it('includes all buyer-facing types', () => {

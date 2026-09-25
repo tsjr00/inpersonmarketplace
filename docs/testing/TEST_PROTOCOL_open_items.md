@@ -654,6 +654,22 @@ jurisdiction rows. If the card shows only the TEXAS row and nothing else, STOP a
     and the only other line is a TOTAL row showing $0.00 — because no
     tax has been collected yet. (An empty file or an error message IS a finding.)
 
+ 6. Log in as a VENDOR (Valley Verde Farm) → /farmers_market/vendor/listings/new → choose category "Prepared Foods"
+    (the sales-tax box locks to "Sales tax applies to this item") → under "Available at", tick Amarillo Community
+    Market (which has no tax codes yet).
+    Expect: an amber note appears right under the market list beginning "Heads up — sales tax setup is pending at
+    one of these locations." and it names Amarillo Community Market. Now change the category to "Produce" (the box
+    flips to "This item is exempt from sales tax").
+    Expect: the amber note is gone. (Nothing is saved in this step — leave the form.)
+
+ 7. Still as the vendor: put the category back to "Prepared Foods" (taxable), keep Amarillo Community Market ticked,
+    fill the required fields (title, price, quantity) and Save.
+    Expect: the listing saves normally (no error). Now log in as the PLATFORM ADMIN → the bell / notifications.
+    Expect: a notification titled "Tax codes needed at Amarillo Community Market — a vendor is waiting". Tap it.
+    Expect: you land on the markets admin page with Amarillo's edit form open. Save the vendor's listing a second
+    time within the hour.
+    Expect: NO second notification (one per market per day).
+
 
 
 ==================================================
@@ -688,7 +704,7 @@ W7  1→TR-022 TR-064 · 2→TR-022 TR-064 · 3→TR-022 · 4→TR-065 · 5→TR
 W8  1→TR-010 · 2→TR-001 · 3→TR-005 · 4→TR-002 · 5→TR-003
 W9  1→TR-015 · 2→TR-016 · 3→TR-014
 W10 1→TR-041
-W11 1→TR-112 · 2→TR-110 · 3→TR-110 · 4→TR-110 TR-112 · 5→TR-113   (TR-111 = W11.4-style address change, not scripted: needs an address edit)
+W11 1→TR-112 · 2→TR-110 · 3→TR-110 · 4→TR-110 TR-112 · 5→TR-113 · 6→TR-114 · 7→TR-115   (TR-111 = W11.4-style address change, not scripted: needs an address edit)
 Passed already (removed): TR-100. Not runnable: TR-028 TR-029 TR-031 TR-060 TR-062.
 Wording quoted from code 2026-09-22 (BoothNumberingHelp, ManagerActionSummary, BoothNumberPicker, VendorBoothList,
 BoothOccupancyGrid, WeeklyBookingsList, week-sheet page, notifications/types.ts 889/1026-1035/1002/1194/1054,

@@ -416,3 +416,46 @@ Zero importers; `TAXCLOUD_API_LOGIN_ID/KEY` never provisioned.
   the Accounting group by design, `ReportsAdminPage.tsx:156-157`).
 - NEXT (certainty order): Q3 non-money pieces (seller advisory on taxable listing ↔ private pickup; admin "someone is
   waiting" notification) → step 12 rate-refresh cron (carry-forward + daily reminder) → steps 8–11 call sites.
+- ✅ **Q3 seller advisory built** (uncommitted): `lib/tax/readiness.ts` (shared `marketTaxReadiness`; MarketsAdminPage now
+  imports it instead of its inline copy) · `api/vendor/market-stats` selects the three tax columns + returns
+  `taxReadiness` per market · `MarketSelector` type carries it · `ListingForm` renders an amber "Heads up — sales tax
+  setup is pending…" note under "Available at" when the item is taxable AND a selected market is not ready (names the
+  markets; exempt items never see it). Registry TR-114, printable W11.6. Gates: tsc 0 · eslint 0 err · 364/364.
+- ✅ **Q3 admin notification BUILT (owner "yes, bump the tripwire" 2026-09-24; tripwire 135→136 with dated reason):** new type
+  `tax_codes_needed_admin` (audience admin · standard · warning; action → `/{vertical}/admin/markets?edit=<marketId>`),
+  sent from `api/vendor/listings/[listingId]/markets` after a successful attach when `listing.is_taxable` and a chosen
+  market is not ready; recipients = `adminRecipientsForVertical(serviceClient, listing.vertical_id)`; once per market per
+  24 h (notifications `data.dedupRef = marketId`, the H-6 pattern); route gains a service client for the fan-out only.
+  Also: MESSAGE_TEMPLATES entry, map 18 note, tripwire comment line with the dated reason.
+
+---
+
+## 🏁 2026-09-24 SESSION CLOSE — progress + what doing the certain items first taught us
+
+### Done today (all on staging after the push that follows this note; Prod untouched at `d704d3bb`)
+| Step | What shipped | Learned |
+|---|---|---|
+| Decision log | TaxCloud struck + 2026-09-24 provider row; 8 owner rulings Q1–Q8 in one row | The additive-only hook is right: strike, never delete. |
+| Review | `tax_build_review_research.md` A–N: every refund path, the seam, schema, display, event route, admin intake read with citations | The latent `tax_source` CHECK bug (mig 214 vs checkout) was findable ONLY by reading both sides; a flag flip would have 23514'd every taxable checkout. Reading before building paid for the whole day. |
+| 1 · mig 259 | CHECK extended; live trailing SELECT as post-check | **Paste-whole files with a LIVE post-check** give the owner one action and give us MEASURED text for the snapshot. Pre-check is optional for idempotent DDL — say so in the header. Numbers follow build order (259 tax, host-paid takes the next free). |
+| 2 · rate version | Admin PUT enforces `YYYY-Qn`, blank → current quarter, off-quarter warning; card + engine share one UTC quarter label | Two quarter helpers (local vs UTC) already existed — a drift nobody would have noticed until a boundary. Shared helper closed it. |
+| 4 · needs-codes queue | "Tax codes" filter + chip on the EXISTING markets admin list | No new page needed; the same three engine guardrails, surfaced. Extracted to `lib/tax/readiness.ts` once a third consumer appeared (vendor picker). |
+| 5 · refund math | `refund-tax.ts` pure, policy-neutral, 11 specs | Making the refunded FRACTION a caller input let Q1 be answered later without touching the math. Cap-by-already-reversed fell out of the spec. |
+| 6 · report v1 → net | Form 01-116 CSV: snapshots only, then NET of the ledger (13 columns) | Writing the READ side before the ledger existed told us the ledger's exact columns and that period placement = reversal `created_at`. The sale side must KEEP cancelled/refunded items or reversals double-remove. |
+| item 1 · net math | `buildNetListSupplement`, 8 specs | Negatives must be preserved (later-month refunds) — CPA Q13 on how Texas wants a credit line. |
+| 7 · mig 260 | Ledger + dashboard-refund queue, service-only; Rule L red-by-design → rebuilt from the owner's export → stamp 260; Dev = Staging (41 rows) | The trailing-SELECT export made the Rule L rebuild a 10-minute mechanical job instead of a refresh session. Rebuild sections bottom-up by line number in one script. |
+| Q3 · seller advisory | market-stats `taxReadiness` → ListingForm amber note when a TAXABLE item is attached to a not-ready location | The picker didn't know taxability, the form did — put the advisory where both facts meet, not in the picker. |
+| Q3 · admin alert | `tax_codes_needed_admin` (tripwire 135→136, owner yes); attach route fan-out, once per market per 24 h, non-throwing | Tripwire bumps are a test change → the owner's word, every time. Codes aren't catalog-validated; routes use their own. |
+| spike · rate file | `comptroller.texas.gov/data/edi/sales-tax/taxrates.txt` parsed: header names the quarter; 1,937 codes, one rate each; col 2 not always a city | **Q4 file was NOT published 6 days before Q4; Q3's landed 22 days late.** No advance machine-readable source → carry-forward (owner Q4) is the only workable design. |
+
+### Process lessons (already saved as memories)
+- Owner questions must be written as real questions (context → "?" → options). `feedback_questions_must_be_real_questions`.
+- Migration files are pasted whole; pre-check optional when idempotent; live post-check last. `feedback_migration_files_paste_whole`, `feedback_precheck_sized_to_migration_risk`.
+- Accounting reports live on `/admin/reports` (platform) — the vertical page hides that group; the test docs pointed at the wrong URL once.
+- Certainty-first ordering: each low-risk step produced a fact the next step needed. Keep doing it.
+
+### Where the next session starts (build order v2, remaining)
+1. **Step 12 rate-refresh cron** — daily; fetch `taxrates.txt` (ETag/Last-Modified); parse header quarter + code→rate map from all four (code, rate) triples; for each verified market: rates match → stamp current quarter; changed → update `rate_pct`/`tax_rate_total_pct` + stamp + admin notice; code missing → clear `verified_at` + admin queue; file quarter behind the calendar → **carry forward** (owner Q4: stamp current, re-check daily, apply forward, list in-between orders, DAILY admin reminder while the file is missing). New cron = `vercel.json` + map 17 + a notification type (tripwire, owner yes) for the reminder/notice. ⚠ Staging previews never run Vercel crons — curl it.
+2. **Steps 8–11 refund call sites** (Q1 pro-rata; Q2 queue for dashboard partials): unprotected 7 first (simplest full-refund path first), whole-order paths (ledger rows only), then the 3 protected files last with per-file approval. Pattern: `amount = buyerPaidForItem + taxReversalForItem(...).taxCents`, ledger row AFTER Stripe succeeds, never fail the refund on a ledger error.
+3. Admin list for the dashboard-refund queue (Q2) + approval gate (13) + event route inside host-paid (14) + simulated month (15) + flag flip (its own approved change; pin `flow-integrity:3309`).
+4. Owner side: real codes on Staging test markets (step 0); W11 steps 1–7 retest; Prod when the owner says (wipe first; migs 252→260 in order).

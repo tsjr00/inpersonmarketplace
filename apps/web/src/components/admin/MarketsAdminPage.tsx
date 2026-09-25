@@ -14,8 +14,7 @@ import DuplicateMarketBanner, { type DuplicateMarketSummary } from '@/components
 import ApproveStatusButton from '@/components/admin/MarketApproveStatusButton'
 import MarketTaxJurisdictionsCard from '@/components/admin/MarketTaxJurisdictionsCard'
 import MarketDocumentsViewer from '@/components/markets/MarketDocumentsViewer'
-import { parseJurisdictions } from '@/lib/tax/jurisdictions'
-import { isRateVersionFresh } from '@/lib/tax/compute-cart-tax'
+import { marketTaxReadiness, TAX_READINESS_LABEL, type TaxReadiness } from '@/lib/tax/readiness'
 
 type Schedule = {
   id: string
@@ -60,23 +59,17 @@ type Market = {
 }
 
 /**
- * What the checkout tax engine would say about this market TODAY (the same
- * three guardrails as compute-cart-tax.ts, in the same order): no codes →
- * not verified (address changed, mig 215) → rate stamp not this quarter →
- * ready. Surfaced here so an admin sees the gap before a buyer hits it — a
- * taxable item at a not-ready market is refused at checkout, loudly.
+ * What the checkout tax engine would say about this market TODAY — from the
+ * ONE shared helper (lib/tax/readiness.ts: no codes → not verified after an
+ * address change → rate stamp not this quarter → ready). Surfaced here so an
+ * admin sees the gap before a buyer hits it — a taxable item at a not-ready
+ * market is refused at checkout, loudly.
  */
-type TaxReadiness = 'no_codes' | 'unverified' | 'stale' | 'ready'
-function taxReadiness(m: Market): TaxReadiness {
-  if (parseJurisdictions(m.tax_jurisdictions).length === 0) return 'no_codes'
-  if (!m.tax_jurisdiction_verified_at) return 'unverified'
-  if (!isRateVersionFresh(m.tax_rate_version ?? null)) return 'stale'
-  return 'ready'
-}
+const taxReadiness = (m: Market): TaxReadiness => marketTaxReadiness(m)
 const TAX_CHIP: Record<Exclude<TaxReadiness, 'ready'>, { label: string; bg: string; color: string }> = {
-  no_codes: { label: 'tax: no codes', bg: '#fee2e2', color: '#991b1b' },
-  unverified: { label: 'tax: re-verify', bg: '#fef3c7', color: '#92400e' },
-  stale: { label: 'tax: stale quarter', bg: '#fef3c7', color: '#92400e' },
+  no_codes: { label: TAX_READINESS_LABEL.no_codes, bg: '#fee2e2', color: '#991b1b' },
+  unverified: { label: TAX_READINESS_LABEL.unverified, bg: '#fef3c7', color: '#92400e' },
+  stale: { label: TAX_READINESS_LABEL.stale, bg: '#fef3c7', color: '#92400e' },
 }
 
 type FormSchedule = {

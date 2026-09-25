@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { withErrorTracing, traced, crumb, logError, TracedError, observed } from '@/lib/errors'
+import { sendNotification } from '@/lib/notifications/service'
+import { adminRecipientsForVertical } from '@/lib/notifications/admin-recipients'
+import { marketTaxReadiness } from '@/lib/tax/readiness'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import {
   getVendorProfileForVertical,
@@ -91,7 +94,7 @@ export async function POST(
       crumb.supabase('select', 'listings')
       const { data: listing, error: listingError } = await supabase
         .from('listings')
-        .select('id, vendor_profile_id, vertical_id')
+        .select('id, vendor_profile_id, vertical_id, is_taxable, title')
         .eq('id', listingId)
         .is('deleted_at', null)
         .single()
@@ -126,12 +129,18 @@ export async function POST(
         )
       }
 
+      // Hoisted so the post-insert tax alert can read the chosen markets.
+      let chosenMarkets: Array<Record<string, unknown>> = []
+
       if (uniqueMarketIds.length > 0) {
         crumb.supabase('select', 'markets', { check: 'types' })
+        // Tax columns ride along for the owner-Q3 admin alert below (a
+        // TAXABLE listing attached to a location without verified codes).
         const { data: markets, error: marketsError } = await supabase
           .from('markets')
-          .select('id, market_type')
+          .select('id, name, market_type, tax_jurisdictions, tax_jurisdiction_verified_at, tax_rate_version')
           .in('id', uniqueMarketIds)
+        chosenMarkets = markets || []
 
         if (marketsError) {
           throw traced.fromSupabase(marketsError, {
@@ -236,6 +245,50 @@ export async function POST(
             table: 'listing_markets',
             operation: 'insert',
           })
+        }
+      }
+
+      // Owner ruling Q3 (2026-09-24): "taxable items wait for codes + admin
+      // gets notified that someone is waiting". The attach above succeeded;
+      // if this listing is taxable and any chosen location is not tax-ready
+      // (lib/tax/readiness.ts — the engine would refuse a taxable sale there),
+      // tell the admins who can enter the codes. Once per market per 24 h
+      // (H-6 dedupe pattern: notifications.data.dedupRef = market id).
+      // Additive + non-throwing: a notification problem never fails the save
+      // the vendor just made — it is logged instead.
+      if (listing.is_taxable && chosenMarkets.length > 0) {
+        try {
+          const waiting = chosenMarkets.filter(
+            (m) => uniqueMarketIds.includes(m.id as string) && marketTaxReadiness(m) !== 'ready'
+          )
+          if (waiting.length > 0) {
+            const serviceClient = createServiceClient()
+            const admins = await adminRecipientsForVertical(serviceClient, listing.vertical_id as string)
+            const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+            for (const m of waiting) {
+              const { data: recent } = await observed(serviceClient
+                .from('notifications')
+                .select('id')
+                .eq('type', 'tax_codes_needed_admin')
+                .contains('data', { dedupRef: m.id })
+                .gte('created_at', cutoff)
+                .limit(1), { table: 'notifications' })
+              if (recent && recent.length > 0) continue
+              for (const adminId of admins) {
+                await sendNotification(adminId, 'tax_codes_needed_admin', {
+                  marketName: (m.name as string) || 'a market',
+                  marketId: m.id as string,
+                  itemTitle: (listing.title as string) || '',
+                  vertical: listing.vertical_id as string,
+                  dedupRef: m.id as string,
+                }, { vertical: listing.vertical_id as string })
+              }
+            }
+          }
+        } catch (notifyErr) {
+          await logError(new TracedError('ERR_LISTING_001', `tax_codes_needed_admin fan-out failed for listing ${listingId}: ${notifyErr instanceof Error ? notifyErr.message : String(notifyErr)}`, {
+            route: '/api/vendor/listings/[listingId]/markets', method: 'POST',
+          }))
         }
       }
 

@@ -173,6 +173,10 @@ New user-facing strings go through `t()`, not hardcoded literals — the shared 
 - `tax/flags.ts` — `TAX_STREAM1_ENABLED = false` (dark-ship pin in flow-integrity;
   header lists the flip prerequisites: rate-refresh job, Batch-3 refund reversals,
   event-order route wired, jurisdiction codes entered).
+- `tax/readiness.ts` — `marketTaxReadiness(marketTaxColumns)` → no_codes | unverified | stale | ready: the ONE
+  answer to "would the engine tax a sale here today", mirroring the seam's three market guardrails in order.
+  Consumed by the markets admin filter/chip, `api/vendor/market-stats` (→ the listing form's seller advisory,
+  owner Q3 2026-09-24). Pure. (2026-09-24)
 - `tax/refund-tax.ts` — **refund-side math, PURE, NOT WIRED** (2026-09-24, plan step 5 of
   `.claude/tax_build_review_research.md`): `taxReversalForItem(snapshot, portion, alreadyReversed)`
   turns "this much of the item's base came back" into per-jurisdiction tax reversed — from the

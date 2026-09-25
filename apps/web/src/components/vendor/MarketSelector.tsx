@@ -9,6 +9,9 @@ type Market = {
   id: string
   name: string
   market_type: string
+  /** Sales-tax readiness from /api/vendor/market-stats (lib/tax/readiness.ts);
+   *  the listing form turns it into an advisory when the item is taxable. */
+  taxReadiness?: 'no_codes' | 'unverified' | 'stale' | 'ready'
   address: string
   city: string
   state: string

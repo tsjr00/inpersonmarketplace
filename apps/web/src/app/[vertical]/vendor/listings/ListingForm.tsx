@@ -169,7 +169,7 @@ export default function ListingForm({
   const [hasMarkets, setHasMarkets] = useState(true) // Assume true until loaded
   const [vendorTier, setVendorTier] = useState<string>('standard')
   const [homeMarketId, setHomeMarketId] = useState<string | null>(null)
-  const [marketData, setMarketData] = useState<{ id: string; market_type: string }[]>([])
+  const [marketData, setMarketData] = useState<{ id: string; name: string; market_type: string; taxReadiness?: string }[]>([])
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -1128,7 +1128,7 @@ export default function ListingForm({
             onChange={setSelectedMarketIds}
             onMarketsLoaded={(markets) => {
               setHasMarkets(markets.length > 0)
-              setMarketData(markets.map(m => ({ id: m.id, market_type: m.market_type })))
+              setMarketData(markets.map(m => ({ id: m.id, name: m.name, market_type: m.market_type, ...(m.taxReadiness ? { taxReadiness: m.taxReadiness } : {}) })))
             }}
             onMetadataLoaded={(tier, homeId) => {
               setVendorTier(tier)
@@ -1137,6 +1137,32 @@ export default function ListingForm({
             disabled={loading}
             primaryColor={branding.colors.primary}
           />
+          {/* Sales-tax advisory (owner ruling Q3, 2026-09-24): a TAXABLE item at
+              a location whose Texas tax codes an admin has not yet entered and
+              verified cannot be sold there until they are — checkout refuses it
+              rather than guess the tax. Tell the seller now, name the locations,
+              and say it may take a little while, so the wait is not a mystery.
+              Exempt items are unaffected, so nothing shows for them. */}
+          {isTaxable && (() => {
+            const waiting = marketData.filter(m => selectedMarketIds.includes(m.id) && m.taxReadiness && m.taxReadiness !== 'ready')
+            if (waiting.length === 0) return null
+            return (
+              <div style={{
+                marginTop: 10,
+                padding: '10px 12px',
+                backgroundColor: '#fef3c7',
+                border: '1px solid #f59e0b',
+                borderRadius: 6,
+                fontSize: 13,
+                color: '#92400e',
+              }}>
+                <strong>Heads up — sales tax setup is pending at {waiting.length === 1 ? 'one of these locations' : `${waiting.length} of these locations`}.</strong>{' '}
+                This item is subject to sales tax, and the following {waiting.length === 1 ? 'location does' : 'locations do'} not have {waiting.length === 1 ? 'its' : 'their'} Texas tax codes entered yet:{' '}
+                {waiting.map(m => m.name).join(', ')}.{' '}
+                Once tax collection is live, buyers will not be able to check out with this item there until an admin enters the codes. That is admin work, not yours — we have been told, and it may take a little while. Your tax-exempt items are not affected.
+              </div>
+            )
+          })()}
         </div>
 
         {/* Status - only show full options for fully onboarded vendors */}

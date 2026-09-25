@@ -493,6 +493,34 @@ One rule written in two independently-editable places with silent drift is this 
 
 ---
 
+## Session History — 2026-09-24 (sales tax rounds 1–3: TaxCloud out · pre-build review · certainty-first build · migs 259–260)
+
+**Staging tip = the close commit of this session (see `git log origin/staging -1`); Prod untouched at `d704d3bb` (owes
+migs 252→260, ~52 commits; owner wipes Prod first).** Migs 259 + 260 on Dev + Staging with measured post-checks; snapshot
+structured tables rebuilt from the owner's live export (stamp 260).
+
+**Rulings (decisions.md 2026-09-24):** Stripe Tax is the provider, TaxCloud is out (files kept as fallback, Q6); Q1 pro-rata
+tax on 75 % refunds; Q2 dashboard partial refunds → "reversal owed" queue + admin item pick, never a guess; Q3 taxable items
+wait for codes + admin notified + seller advised; Q4 quarter-turn carry-forward + daily admin reminder; Q5 FT notice stays
+until go-live; Q7 migration numbers follow build order (never reserved); Q8 vault moved to Prod `d704d3bb`
+(`vault/prod-2026-09-13-pre-tax-batch3`; old vault kept as `vault/pre-session-59`).
+
+**Built:** mig 259 (`order_items.tax_source` CHECK + `self_computed_v1` — the latent flag-flip 23514 bug) · mig 260
+(`order_item_tax_reversals` append-only ledger + `order_tax_reversal_queue`, RLS on/no policies, service-only) · admin
+rate-version guard (`YYYY-Qn`, blank → current quarter) · "Tax codes" filter + not-ready chip on the markets admin list
+(= the needs-codes queue) · `lib/tax/refund-tax.ts` (pure reversal math, policy-neutral) · `buildNetListSupplement` ·
+Form 01-116 report NET of the ledger (`/admin/reports`, platform page only — the vertical page hides Accounting) ·
+`lib/tax/readiness.ts` (one readiness answer for every surface) · seller advisory on the listing form ·
+`tax_codes_needed_admin` (tripwire 135→136). Full record + learnings: `apps/web/.claude/tax_build_review_research.md`.
+
+**Key facts learned:** the Comptroller quarterly rate file (`comptroller.texas.gov/data/edi/sales-tax/taxrates.txt`) names
+its own quarter in the header and holds 1,937 codes with one rate each — but the next quarter's file is not published in
+advance and Q3's landed 22 days late, so the refresh job must carry rates forward. Migration handoffs now = paste-whole
+file, optional pre-check when idempotent, LIVE trailing SELECT as the measured post-check.
+
+**Next:** step 12 rate-refresh cron → refund call sites 8–11 (unprotected first, protected last) → dashboard-refund
+admin list → event route (host-paid build) → simulated month → flag flip.
+
 ## Session History — 2026-09-18 → 20 (managed-market obligation set · booth model rebuilt on 13 rulings · admin + manager UI round · migs 255–257)
 
 **Staging tip `514f0928`; Prod untouched at `d704d3bb` (owes 38 commits + migs 252→257, each pre-check first; owner

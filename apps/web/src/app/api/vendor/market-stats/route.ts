@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { marketTaxReadiness } from '@/lib/tax/readiness'
 import { createClient } from '@/lib/supabase/server'
 import { isPremiumTier, getTierLimits, getTraditionalMarketUsage } from '@/lib/vendor-limits'
 import { withErrorTracing, observed } from '@/lib/errors'
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
       // Get all active markets for this vertical (both fixed and vendor's private pickup)
       const { data: allMarkets, error: marketsError } = await supabase
         .from('markets')
-        .select('id, name, market_type, address, city, state, day_of_week, start_time, end_time, vendor_profile_id')
+        .select('id, name, market_type, address, city, state, day_of_week, start_time, end_time, vendor_profile_id, tax_jurisdictions, tax_jurisdiction_verified_at, tax_rate_version')
         .eq('vertical_id', vertical)
         .eq('status', 'active')
         .order('market_type')
@@ -155,6 +156,10 @@ export async function GET(request: NextRequest) {
           // Kept for backward compatibility with clients that still read it — always false now
           homeMarketRestricted: false,
           marketLimitReached, // true if this market is blocked due to traditional market count cap
+          // Sales-tax readiness (owner Q3, 2026-09-24): a TAXABLE item at a
+          // location without verified codes is refused at checkout until an
+          // admin enters them — the picker + listing form warn the seller.
+          taxReadiness: marketTaxReadiness(market),
         }
       })
 

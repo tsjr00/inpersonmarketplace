@@ -89,6 +89,26 @@ All findings below verified 2026-08-01 against primary sources (TX Comptroller p
 
 ---
 
+## ▶ STATUS 2026-09-24 EVENING (supersedes the morning block below where they differ)
+- **Provider ruling recorded:** TaxCloud OUT, Stripe Tax (decisions.md 2026-09-24). Mechanism unchanged: A′ self-computed for
+  stream 1 (III.6); Stripe Tax for subscriptions + the multi-state upgrade seam. The dead TaxCloud files STAY (owner Q6:
+  fallback options) — still zero importers, still "do not build on".
+- **Built today (pushed to staging, Prod untouched):** mig 259 (`tax_source` CHECK now allows `self_computed_v1` — the
+  flag-flip 23514 bug is closed) · mig 260 (`order_item_tax_reversals` ledger + `order_tax_reversal_queue`, service-only;
+  Dev = Staging) · admin rate-version guard (`YYYY-Qn`) · "Tax codes" filter + chip on the markets admin list (= the
+  III.7 needs-codes queue) · `lib/tax/refund-tax.ts` (pure reversal math) · `buildNetListSupplement` · Form 01-116 report
+  NET of the ledger on `/admin/reports` · `lib/tax/readiness.ts` · seller advisory on the listing form ·
+  `tax_codes_needed_admin` notification. Nothing writes the ledger yet (refund call sites = steps 8–11).
+- **Owner rulings Q1–Q8** (decisions.md): Q1 pro-rata · Q2 dashboard partial → queue + admin pick · Q3 taxable waits +
+  admin notified + seller advised · Q4 carry-forward + daily reminder · Q5 notice stays · Q6 keep files · Q7 numbers
+  follow build order · Q8 vault → Prod `d704d3bb`.
+- **Rate-refresh facts (spike):** `comptroller.texas.gov/data/edi/sales-tax/taxrates.txt`, tab-separated, header field 2 =
+  the quarter it covers; 1,937 codes, one rate each; **the next quarter's file is not published in advance and Q3's
+  landed 22 days late** → the job must carry forward (Q4). Design + remaining order: `tax_build_review_research.md`
+  "Where the next session starts".
+- **Flag prereqs now:** Batch 3 call sites (8–11) · rate-refresh cron (12) · event order route (host-paid build) · real
+  codes verified on every live market · registration effective date · one simulated month.
+
 ## ▶ STATUS 2026-09-24 (code-verified this date; supersedes the 08-02 block below for "where are we")
 - **Batch 1 (seam) + Batch 2 (checkout wiring, DARK)** are committed AND on Prod (`6fdf6760` ⊂ prod `d704d3bb`):
   `computeCheckoutTax` runs on every checkout, returns zeros while `TAX_STREAM1_ENABLED=false`

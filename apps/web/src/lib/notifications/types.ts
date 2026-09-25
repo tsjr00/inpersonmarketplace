@@ -133,6 +133,11 @@ export type NotificationType =
   // F1-2 (2026-09-20): the sweep found the anchor's spot already taken on their day.
   | 'park_standing_occurrence_skipped'
   | 'park_standing_occurrence_skipped_manager'
+  // Sales tax, owner Q3 (2026-09-24): a vendor attached a TAXABLE listing to a
+  // location whose Texas tax codes an admin has not entered/verified — the
+  // item cannot sell there (checkout refuses it) until the admin does. Sent to
+  // platform admins + the vertical's admins, once per market per 24 h.
+  | 'tax_codes_needed_admin'
   | 'park_date_cancelled_truck'
   // R3-4 (2026-08-27): a truck with a PAID spot chose an event that day
   // instead — the operator is told (notify only; the booking stays paid).
@@ -1232,6 +1237,21 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     message: (d) =>
       `${d.vendorName || 'A recurring truck'} holds ${d.spotLabel || 'a spot'} at ${d.marketName || 'your park'} every week, but another truck already has a booking for ${d.spotLabel || 'that spot'} on ${d.marketDate || 'that date'}, so no reservation could be made for the recurring truck. Move one of them from the week view, or let it stand.`,
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/market-manager/${d.marketId || ''}/dashboard#week`,
+  },
+
+  // Sales tax, owner Q3 (2026-09-24): "taxable items wait for codes + admin
+  // gets notified that someone is waiting". Standard = email + in_app — an
+  // admin who only opens the app weekly would otherwise leave a vendor's
+  // taxable item unsellable at that location for weeks. Deep-links to the
+  // market's edit form, where the Sales tax jurisdictions card lives.
+  tax_codes_needed_admin: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'admin',
+    title: (d) => `Tax codes needed at ${d.marketName || 'a market'} — a vendor is waiting`,
+    message: (d) =>
+      `${d.vendorName || 'A vendor'} added ${d.itemTitle ? `"${d.itemTitle}"` : 'a taxable item'} at ${d.marketName || 'a location'}, which does not have its Texas sales-tax codes entered and verified yet. Until you enter them on the market's Sales tax jurisdictions card, buyers cannot check out with taxable items there. The vendor has been told it may take a little while.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/admin/markets${d.marketId ? `?edit=${d.marketId}` : ''}`,
   },
 
   // NOT-5 (mig 202, user decision 2026-07-18) — the user's email hard-bounced

@@ -1,4 +1,25 @@
-# 2026-09-24 — SALES TAX ROUND 1 PUSHED TO STAGING `915f4e8d..55950dc8` (one commit; vitest 2313/2313 · build 49s · Playwright 49/1 skip) · migs 259 + 260 ✅ Dev + Staging · `origin/staging` = `main` = `55950dc8` · Prod untouched `d704d3bb` (owes 252→260) · owner tests W11 next; 260 Staging export = Dev (identical)
+# 🏁 2026-09-24 CLOSE — SALES TAX ROUNDS 1–3 · `origin/staging` = `main` (see git log; close commit follows this note) · migs 259 + 260 ✅ Dev + Staging · Prod untouched `d704d3bb` (owes 252→260, ~52 commits)
+
+**Read first:** `apps/web/.claude/tax_build_review_research.md` → "🏁 2026-09-24 SESSION CLOSE" (progress table + what each
+certain step taught + "Where the next session starts"). Then `sales_tax_readiness.md` ▶ STATUS 2026-09-24 EVENING.
+Rulings Q1–Q8: decisions.md 2026-09-24 rows. Memory: `project_session_2026-09-24`.
+
+**State:** everything built today is on staging (round 1 push `55950dc8`; rounds 2–3 = local commits then the close
+push). Owner smoke: W11.1–2 passed; W11.3 (report) not yet run at the corrected URL `/admin/reports`; W11.4–7 open.
+Uncommitted at close: none (the close commit carries the docs + Q3 build).
+
+## ▶ NEXT-SESSION PROMPT
+Read: CLAUDE.md · this block · `.claude/rules/*` · research file "SESSION CLOSE" + "Where the next session starts" ·
+decisions.md 2026-09-24 rows · registry TR-110–115. Summarize state, then STOP.
+How we work: certainty first, then learning; owner questions as REAL questions (context → ? → options); one change per
+message, question last; migrations = paste-whole files, pre-check optional when idempotent, LIVE post-check last;
+numbers follow build order; tripwire bumps need the owner's word; cite or UNVERIFIED; stack commits, one push.
+Resume: (1) step 12 rate-refresh cron (design facts in the research file; Q4 carry-forward + daily reminder; needs a
+notification type → tripwire ask); (2) steps 8–11 refund call sites (unprotected first, protected last, per-file
+approval; Q1 pro-rata; Q2 queue); (3) admin list for the dashboard-refund queue; (4) owner: real codes on Staging test
+markets (step 0) + W11 retests; (5) Prod when the owner says — wipe first, code, then migs 252→260 in order.
+
+# (superseded) 2026-09-24 — SALES TAX ROUND 1 PUSHED TO STAGING `915f4e8d..55950dc8` (one commit; vitest 2313/2313 · build 49s · Playwright 49/1 skip) · migs 259 + 260 ✅ Dev + Staging · `origin/staging` = `main` = `55950dc8` · Prod untouched `d704d3bb` (owes 252→260) · owner tests W11 next; 260 Staging export = Dev (identical)
 
 **Owner today:** "remove tax cloud from decisions… we are going with Stripe Tax" (done: decisions.md TaxCloud rows
 struck + 2026-09-24 row; plan section = pointer to `sales_tax_readiness.md`). Then: "thorough code and systems review
@@ -20,7 +41,7 @@ engine's UTC label + shows the stored version after save) · step 4 "Tax codes" 
 markets admin list (no new page) · step 5 `lib/tax/refund-tax.ts` + 11 specs (pure, inert, policy-neutral) · step 6
 `tax_list_supplement` report (Form 01-116 over snapshots, v1). Docs same batch: map 19/21 + index stamps, registry
 TR-110–113, printable list W11 + mapping row. Step 12 spike (Comptroller rate-file source) in progress — no code.
-**All eight questions answered 2026-09-24** (decisions.md row): Q1 pro-rata · Q2 partial dashboard refund = "reversal owed" marker + admin item picker · Q3 taxable waits for codes + admin notified + seller advised · Q4 carry-forward + daily admin reminder · Q5 leave the copy · Q6 keep the TaxCloud files (fallback) · Q7 numbers follow build order → **mig 259 = tax CHECK fix — ✅ Dev + Staging 2026-09-24 (measured post-checks identical), Prod pending; snapshot changelog + constraint row updated; file stays in `supabase/migrations/`** · Q8 vault moved to Prod `d704d3bb` (tag `vault/prod-2026-09-13-pre-tax-batch3`; old vault kept under `vault/pre-session-59`, manifest updated). **Later:** item 1 `buildNetListSupplement` + 8 specs ✅ · **mig 260 (ledger + dashboard queue) ✅ Dev + Staging 2026-09-24; snapshot structured sections rebuilt from the owner's Dev export (Tables 97, columns/FKs/indexes/checks; stamp 257 → 260); full guardrail + pins + tax suites GREEN 364/364. Staging export paste still owed (identical check).** **Round 2 (uncommitted): List Supplement report now NET of the ledger (13 columns), report URL fixed to `/admin/reports` in the test docs; gates green.** NEXT: Q3 non-money pieces → rate-refresh cron → call sites · owner step 0 codes on Staging · then step 7 ledger migration (260) + Rule L refresh session · steps 8–11 call sites. Commit = owner's word.
+**All eight questions answered 2026-09-24** (decisions.md row): Q1 pro-rata · Q2 partial dashboard refund = "reversal owed" marker + admin item picker · Q3 taxable waits for codes + admin notified + seller advised · Q4 carry-forward + daily admin reminder · Q5 leave the copy · Q6 keep the TaxCloud files (fallback) · Q7 numbers follow build order → **mig 259 = tax CHECK fix — ✅ Dev + Staging 2026-09-24 (measured post-checks identical), Prod pending; snapshot changelog + constraint row updated; file stays in `supabase/migrations/`** · Q8 vault moved to Prod `d704d3bb` (tag `vault/prod-2026-09-13-pre-tax-batch3`; old vault kept under `vault/pre-session-59`, manifest updated). **Later:** item 1 `buildNetListSupplement` + 8 specs ✅ · **mig 260 (ledger + dashboard queue) ✅ Dev + Staging 2026-09-24; snapshot structured sections rebuilt from the owner's Dev export (Tables 97, columns/FKs/indexes/checks; stamp 257 → 260); full guardrail + pins + tax suites GREEN 364/364. Staging export paste still owed (identical check).** **Round 2 committed `a2b69308` (List Supplement NET of the ledger).** **Round 3 (uncommitted): Q3 seller advisory built — `lib/tax/readiness.ts` shared helper, market-stats `taxReadiness`, ListingForm amber note (TR-114, W11.6); gates green. Q3 admin notification BUILT (`tax_codes_needed_admin`, tripwire 135→136 owner-approved; attach route fan-out via `adminRecipientsForVertical`, once per market per 24 h; TR-115, W11.7; MESSAGE_TEMPLATES + map 18).** NEXT: commit on the owner's word → rate-refresh cron → call sites · owner step 0 codes on Staging · then step 7 ledger migration (260) + Rule L refresh session · steps 8–11 call sites. Commit = owner's word.
 
 # 2026-09-22 — TESTING BY WORKFLOWS (v2, self-contained) · HOST-PAID EVENTS DESIGNED · NEXT SESSION: SALES TAXES
 

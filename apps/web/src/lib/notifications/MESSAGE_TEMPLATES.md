@@ -709,6 +709,18 @@ Farmers Marketing (automated)
 
 ---
 
+### Tax codes needed — a vendor is waiting (`tax_codes_needed_admin`)
+**Urgency:** Standard (Email + In-app) · **Severity:** warning · **Audience:** platform admins + the vertical's admins
+**Trigger:** a vendor attaches a listing marked "Sales tax applies" to a market/pickup location whose Texas tax codes are not entered and verified (`lib/tax/readiness.ts` ≠ ready). Once per market per 24 hours. Owner ruling Q3, 2026-09-24.
+
+**In-app title:** Tax codes needed at {{market_name}} — a vendor is waiting
+**In-app message:** {{vendor_name}} added "{{item_title}}" at {{market_name}}, which does not have its Texas sales-tax codes entered and verified yet. Until you enter them on the market's Sales tax jurisdictions card, buyers cannot check out with taxable items there. The vendor has been told it may take a little while.
+
+**Email subject:** Tax codes needed at {{market_name}} — a vendor is waiting
+**Email body:** same as in-app. **Action:** /{{vertical}}/admin/markets?edit={{market_id}}
+
+---
+
 ## SMS Guidelines
 
 All SMS messages must:
