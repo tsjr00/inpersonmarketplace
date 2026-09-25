@@ -1913,6 +1913,20 @@ describe('Event token format', () => {
       expect(grid, 'holds are listed but not counted').toMatch(/occupants\.filter\(countsAgainstCapacity\)\.length/)
     })
 
+    it('saving a listing never declares days at a MANAGED market (BR-1 + BR-13, OB-030 D6)', () => {
+      // A managed market approves the vendor BEFORE they pick days, and the
+      // vendor picks WHICH days. The listing form's old convenience (declare
+      // every day of every ticked market) skipped both and grandfathered the
+      // vendor past the day picker's gate. Only unmanaged markets keep it, and
+      // a market whose managed flag is unknown is treated as managed.
+      const form = rd('app/[vertical]/vendor/listings/ListingForm.tsx')
+      expect(form, 'the auto-declare filter must require an explicitly UNMANAGED market').toMatch(/m\.market_type === 'traditional' && m\.isManaged === false/)
+      expect(form, 'the flag must pass through unconverted so "unknown" stays unknown').toMatch(/typeof m\.isManaged === 'boolean' \? \{ isManaged: m\.isManaged \}/)
+      const stats = rd('app/api/vendor/market-stats/route.ts')
+      expect(stats, 'the picker source must load manager_user_id').toMatch(/\.select\('[^']*manager_user_id[^']*'\)/)
+      expect(stats, 'and send the yes/no, not the id').toMatch(/isManaged: !!market\.manager_user_id/)
+    })
+
     it('the booking routes translate the trigger\'s BOOTH_CONFLICT instead of leaking it (OB-028)', () => {
       const book = rd('app/api/vendor/markets/[id]/book/route.ts')
       expect(book).toMatch(/msg\.includes\('BOOTH_CONFLICT'\)/)

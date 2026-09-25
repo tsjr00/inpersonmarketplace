@@ -12,6 +12,8 @@ type Market = {
   /** Sales-tax readiness from /api/vendor/market-stats (lib/tax/readiness.ts);
    *  the listing form turns it into an advisory when the item is taxable. */
   taxReadiness?: 'no_codes' | 'unverified' | 'stale' | 'ready'
+  /** A manager account runs this market (BR-1: approval before picking days). */
+  isManaged?: boolean
   address: string
   city: string
   state: string

@@ -1,5 +1,9 @@
 # Backlog
 
+## 🧪 TESTER W1/W2 ROUND — owner rulings 2026-09-25 (triage: `triage_2026-09-25_tester_W1W2.md`)
+- **(a) "Disconnect all listings from this market" — one action on the vendor Markets page** instead of editing every listing when leaving a market. Owner: "worth exploring". Open questions before design: what happens to open orders / pickup dates at that market, and whether it also ends the vendor's declared days and booth holds there.
+- **(d) Vendor cancel / refund of a paid booth week — LIMITED.** Today by design: a vendor cannot cancel a paid week (only the manager can, as credit). Owner is researching contracts; refunds may be needed to support contract performance. If built: limited situations, limited timing (e.g. a short window after booking), or a limited number of refunded cancellations per season. Wait for the owner's contract research before designing.
+
 ## 🏷️ MULTI-SLOT BOOTH BOOKING — one vendor rents two adjacent booths (owner 2026-09-20: "revisit later if it touches Stripe" — it does)
 Design parked in `booth_numbering_design.md` §9: one rental row per slot sharing a `group_id` (kind 'multi_slot'),
 adjacency preferred not required, pin = the home slot, ONE Stripe session for the group (the season path's pattern),

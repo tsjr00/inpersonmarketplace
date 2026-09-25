@@ -174,3 +174,74 @@ Fix (2026-09-19, booth round part A): full model read → `apps/web/.claude/boot
 ### OB-027 · 2026-09-18 · owner · market manager (FM) · staging `0ff23581`
 Report: "As market mgr I received applications from vendors and accepted them – then the system prompted me to assign a booth number. I did but the vendor did not request a certain booth or pay for a booth yet – should the system alert the market mgr when they are assigning booth numbers for on-app vendors that the vendor has not purchased a booth yet? Did we allow a grace period or something that would support the assignment of a booth without payment?"
 Triage (code read): the booth number is the manager's STANDING pin (`market-manager/[marketId]/vendor-booth/route.ts` header — the booking RPC treats the pinned booth as the vendor's); paying is a separate per-week act by the vendor (`weekly_booth_rentals`, Codebase_Map 12 items 6 + 8). No grace period exists because nothing was ever timed against payment. Nothing warned the manager at assignment, and the FM sell gate only requires an active attendance row (mig 238 `:162`), so an unpaid vendor can sell a week at a fee-charging FM market. Owner ruling: **part 1** (alert at assignment) → BUILT 2026-09-18, TR-072: the roster row shows "· no paid week yet" for approved FM vendors at markets with a priced booth tier who hold no paid current/upcoming rental. **Part 2** (should an unpaid vendor be able to sell a week at a fee-charging managed market?) → folded into the managed-market design stage (backlog, TR-070); owner: begin the planning process so the decisions are tied together. → "View docs" link, rendered ONLY for vendors who ticked info-sharing consent at signup (`components/market-manager/VendorBoothList.tsx:35-38, :510`; consent captured on `vendor-signup/page.tsx`). Test path: a vendor signed up WITH the consent box ticked and on that market's roster → manager opens the roster → View docs. Row updated with the path.
+
+### OB-030 · 2026-09-25 · tester (via owner) · manager + vendors (FM) · W1 + W2 of the self-contained workflows · staging build not stated
+Report (tester's words, verbatim as pasted by the owner):
+
+Test responses:
+++Group W1 tests:++
+• All W1  tests not mentioned = passed.
+• W1 tests that did not completely pass =  3, 11, 12
+• Tester reported that this portion of the item 3 test failed or was not able to be done:
+“Other lines MAY appear, and each one's link must scroll to the right place: "has no booth numbers yet…" → link "Set numbers →" → Setup section "N held or placeholder numbers have no size…" → link "Re-pick →" → Vendors at this market " is over capacity this week…" → link "Fix →" → Booths & occupancy "Stripe needs more information before it can pay you…" → link "Finish →" → Setup section "N season vendors are owed a settlement…" → link "Settle →" → a Seasons card in Setup”    >> Notes :  This info doesn’t seem to apply to this section.
+• Tester reported that this portion of the item 11 test failed or had a problem:
+problem with “Weekly booth bookings”, “10x10 1–10 · 10x15 11–20.”,  >> Notes:  I would add a parenthesis around the booth numbers, the size and booth numbers need to have some kind of separation. No weekly bookings, so there is no statement here.
+• Tester reported that this portion of the item 12 test failed or had a problem:
+Notes : I cant find a “weekly booth bookings” card, so I can’t test this one. Where is it?
+
+++Group W2 tests:++
+• All W2  tests not mentioned = passed.
+• W2 tests that did not completely pass =  1, 7, 9, 11, 12, 14, 15, 16, 17
+• Tester reported that this portion of the item 1 test failed or had a problem:
+“As V1: open /farmers_market/vendor/markets. Find Market 2 Test and open its day picker (the weekday toggles). Tick a day. Expect: it is refused with a RED message: "Market 2 Test reviews vendor applications”    Notes: > Not sure where to find this..there is no day picker, just their market hours and no way to select it. It’s just text.  
+• Tester reported that this portion of the item 1 test failed or had a problem – Notes : There is no agreement text inside the day picker. No day picker in this section
+• The other portions of item 1 were marked green so were considered to have performed correctly.  Analyze the test and review the code to determine what worked & what didn’t
+
+• Tester reported that this portion of the item 7 test failed or had a problem: 
+“Tick a day, then tap "Done — continue to booking"  Notes > Said “continue to payment” Expect: the booking form unlocks and the season option appears. I had booked through the market link, not locations. Didn’t see a season pop up. It went to book a booth at Market 2 test. Then pick a week drop down. There was a green box showing the booth number and assigned by the manager. The market agreement check box and then continue to payment. I paid and booked it. No other options after that.
+• The other portions of item 7 were marked green so were considered to have performed correctly.  Analyze the test and review the code to determine what worked & what didn’t
+
+• Tester reported that this portion of the item 9 test failed or had a problem: 
+“As the MANAGER: the dashboard's visibility card. Expect: it reads "Your market isn't visible to buyers yet" and, in its list of what a vendor needs, includes "…and a paid booth week (your market charges for booths, so a vendor counts only once they've paid for a current or upcoming week)". Open /farmers_market/markets (the public list, logged out or as a buyer). Expect: Market 2 Test is NOT in the list”   
+Notes  >  This is confusing, nothing coming up saying market isn’t visible when signed in as a manager. Not sure where to find a list of what the vendor needs..Also, when I went through it before, I added the listing with vendor 1 so that i could find the market and apply as a vendor…so it’s visible, the vendor has paid so it shows 2 vendors, with listings. I may have to create 2 new vendors not associated at all and try again. There is no visibility card.
+• The other portions of item 9 were marked green so were considered to have performed correctly.  Analyze the test and review the code to determine what worked & what didn’t
+
+• Tester reported that this portion of the item 11 test failed or had a problem:  
+“The manager's visibility card reads "✓ Your market is visible to buyers"”   Notes: > not seeing this anywhere
+• The other portions of item11 were marked green so were considered to have performed correctly.  Analyze the test and review the code to determine what worked & what didn’t
+
+• Tester reported that this portion of the item 12 test failed or had a problem:  
+‘controls are greyed out’  - No notes accompanied the reported problem.
+• The other portions of item12 were marked green so were considered to have performed correctly.  Analyze the test and review the code to determine what worked & what didn’t
+
+• Tester reported that this portion of the item 14 test failed or had a problem:  
+“but STOP before paying (close the Stripe page).”    - Notes: > There was no way to close stripe, I had to hit the back button on browser and it says “stepped away from payment” No charge was made. Your booking is still on file as pending
+• The other portions of item14 were marked green so were considered to have performed correctly.  Analyze the test and review the code to determine what worked & what didn’t
+
+• Tester reported that item 15 test failed or had a problem:  
+“As V2: go back and pay for that week. Expect (manager): the roster now shows V2 with #3 and small. "Booth occupancy — this week" shows #3 as "Paid this week" and the small size's "N of M occupied" count went up by one. 
+Notes: > I got error message “You already have a booking for this week. If you need to change anything, contact the market manager.”  I can’t test this because of the error message and not being able to pay for the booking as V2.”
+
+• Tester reported that item 16 test failed or had a problem:    
+Notes > Not enough information to test. Because of the error payment message, the vendors do not have a paid booth yet.
+
+• Tester reported that item 17 test failed or had a problem:    
+Notes: > There is no season option visible.
+
+Additional notes from the tester not specifically associated with a particular test :  (review these, see where they fit and include in your response to testing.
+
+Errors: Disconnect all listings from this market button under manage my listings. So that you don’t have to edit all listings when you take off a market. 
+I had to take too many steps to be able to setup a vendor with no history. There was no listing for market 2, because there were no vendors with listings. When I looked at admin and saw Hill country had been a vendor and had a place holder, I logged into that account and rented a booth. But I was not able to add any listings to market 2, because Hill country had 3 markets with held booths, but only 1 paid booth. So market 2 was greyed out. I had to go back through all of Hill country’s listings and edit and remove Westgate mall off each one. After that I was able to choose Market 2 test. Next I have to search for Hill country in the new vendor (v1) login to be able to see market 2 and rent a booth as vendor 1. 
+
+https://inpersonmarketplace-git-staging-tsjr00s-projects.vercel.app/farmers_market/vendor/markets - on this page keeping the home market open makes it easy to select the wrong market. Suggest that it not be auto expanded.
+
+Needs some way to refund if they picked the wrong date. Or within 24 hrs. Haven’t found a way for the vendor to cancel. On the market manager’s side, maybe change “cancel this week” say “cancel this booking” sounds like you are cancelling the market for the week. 
+
+Needs a prompt to set your schedule before payment, a sequence to set up a booking. 
+
+Pending payments need a link or something to show where to go to pay. When I tried to book again, got the error message about already having booked it. 
+
+Triage (code read 2026-09-25; working file `apps/web/.claude/triage_2026-09-25_tester_W1W2.md`; owner: "don't assume" — untested is not pass):
+DEFECTS — D1 (BLOCKER, W2.15–17) an abandoned booth Checkout leaves the week pending_payment; re-booking → DUPLICATE (`api/vendor/markets/[id]/book/route.ts:370-378`); no Pay-now for a pending FM booth (FT spots have one, `BookParkSpotForm.tsx:1109`); release = expire-orders Phase 16 after 24h, daily, Prod only (`cron/expire-orders/route.ts:73-75, :2908-2916`) while the banner says ~30 min (`BookBoothForm.tsx:219-224`). · D2 (W1.11/12) "Weekly booth bookings" with no bookings ever collapses to one line and hides its help paragraph and the Print week sheet (`WeeklyBookingsCard.tsx:118-125`, `DashboardCard.tsx:186`). · D3 (W2.12, ~80%) locked roster dropdowns are disabled but styled white (`BoothNumberPicker.tsx:79-86`). · D4 (W2.1) the apply-required refusal carries the heading "Cannot deactivate" (`MarketScheduleSelector.tsx:144-145, :296-298`). · D5 (W2.9/11) the visibility card lives inside the collapsed Setup section (`FmDashboardBody.tsx:144, :179`). · D6 (W2.7 + W2.9, ~85%) saving a listing with a traditional market auto-declares EVERY operating day there, client-side (`ListingForm.tsx:428-455`) — violates BR-1(a) (approval before activating days at a managed market) and BR-13's intent; the rows then grandfather the vendor past the day-picker's approval gate (`schedules/route.ts:62-68`). The tester's "I added the listing with vendor 1 so that i could find the market" is the matching act; the successful booking proves an active day existed (`booking-gates.ts:81-91`).
+NOT DEFECTS — W1.3 conditional lines appear only when their condition exists (`ManagerActionSummary.tsx:97-122`) → required checks pass, optional links UNTESTED · W2.1 picker path = tick the market to expand → Set/Manage Schedule (`vendor/markets/page.tsx:437-453`) → UNTESTED · W2.7 season renders only with an open season (`SeasonBookingSection.tsx:69-70`) → UNTESTED · W2.14 PASS (Back is the way out of Stripe; banner as designed) · W2.17 UNTESTED · the tester's "setup took too many steps" = plan limit (3 traditional markets) + radius-filtered market list (`api/vendor/markets/route.ts:178-190`) + D6.
+OWNER RULINGS 2026-09-25 — (a) bulk "disconnect all listings from this market" → backlog · (b) setup friction → no app change; training note for writing protocols · (c) home market not auto-expanded (badge/shading ok) → fix · (d) vendor cancel/refund of a paid week → backlog, limited, pending the owner's contract research · (e) "Cancel week" → "Cancel this booking" → fix · (f) vendor Markets card buttons in workflow order with an Apply step and next-step reinforcement → fix, together with D6 · tester's parentheses ask (W1.11 "10x10 (1–10)") → with D2, pending owner go.

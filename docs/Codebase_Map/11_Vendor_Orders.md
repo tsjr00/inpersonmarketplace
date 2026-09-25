@@ -148,7 +148,7 @@ Two patterns recur across the whole vendor surface:
 
 ### Everything else (10)
 
-`checkins/route.ts` · `checkins/log/route.ts` · `location-insights/route.ts` (tier-gated) · `market-stats/route.ts` (2026-09-24: + `taxReadiness` per market from `lib/tax/readiness.ts` — the listing form shows a seller advisory when a TAXABLE item is attached to a not-ready location, owner Q3) · `home-market/route.ts` (cooldown via `canChangeHomeMarket`) · `favorites/route.ts` · `referrals/route.ts` · `reviews/route.ts` · `feedback/route.ts` · `quality-findings/route.ts`.
+`checkins/route.ts` · `checkins/log/route.ts` · `location-insights/route.ts` (tier-gated) · `market-stats/route.ts` (2026-09-24: + `taxReadiness` per market from `lib/tax/readiness.ts` — the listing form shows a seller advisory when a TAXABLE item is attached to a not-ready location, owner Q3; 2026-09-25: + `isManaged` (yes/no only, never the manager id) — the listing form no longer declares every day at a MANAGED market on save, BR-1 + BR-13, OB-030 D6; unmanaged markets keep the auto-declare) · `home-market/route.ts` (cooldown via `canChangeHomeMarket`) · `favorites/route.ts` · `referrals/route.ts` · `reviews/route.ts` · `feedback/route.ts` · `quality-findings/route.ts`.
 
 ## Library
 

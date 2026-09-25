@@ -169,7 +169,7 @@ export default function ListingForm({
   const [hasMarkets, setHasMarkets] = useState(true) // Assume true until loaded
   const [vendorTier, setVendorTier] = useState<string>('standard')
   const [homeMarketId, setHomeMarketId] = useState<string | null>(null)
-  const [marketData, setMarketData] = useState<{ id: string; name: string; market_type: string; taxReadiness?: string }[]>([])
+  const [marketData, setMarketData] = useState<{ id: string; name: string; market_type: string; isManaged?: boolean; taxReadiness?: string }[]>([])
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -427,9 +427,15 @@ export default function ListingForm({
 
       // Auto-create vendor attendance records for traditional markets
       // This ensures the SQL function can find this vendor's attendance
+      // NOT at a MANAGED market (BR-1, OB-030 D6): there the manager approves the
+      // vendor before they pick days, and the vendor picks WHICH days (BR-13).
+      // Declaring every day on a listing save skipped both, and the rows then
+      // grandfathered the vendor past the day picker's approval gate. Markets
+      // without a manager keep the old convenience. Unknown (flag missing) =
+      // treated as managed: never declare days we cannot prove are allowed.
       const traditionalIds = selectedMarketIds.filter(id => {
         const m = marketData.find(md => md.id === id)
-        return m && m.market_type === 'traditional'
+        return m && m.market_type === 'traditional' && m.isManaged === false
       })
       if (traditionalIds.length > 0) {
         // Batch fetch all schedules for selected traditional markets (avoids N+1)
@@ -1128,7 +1134,7 @@ export default function ListingForm({
             onChange={setSelectedMarketIds}
             onMarketsLoaded={(markets) => {
               setHasMarkets(markets.length > 0)
-              setMarketData(markets.map(m => ({ id: m.id, name: m.name, market_type: m.market_type, ...(m.taxReadiness ? { taxReadiness: m.taxReadiness } : {}) })))
+              setMarketData(markets.map(m => ({ id: m.id, name: m.name, market_type: m.market_type, ...(typeof m.isManaged === 'boolean' ? { isManaged: m.isManaged } : {}), ...(m.taxReadiness ? { taxReadiness: m.taxReadiness } : {}) })))
             }}
             onMetadataLoaded={(tier, homeId) => {
               setVendorTier(tier)

@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       // Get all active markets for this vertical (both fixed and vendor's private pickup)
       const { data: allMarkets, error: marketsError } = await supabase
         .from('markets')
-        .select('id, name, market_type, address, city, state, day_of_week, start_time, end_time, vendor_profile_id, tax_jurisdictions, tax_jurisdiction_verified_at, tax_rate_version')
+        .select('id, name, market_type, address, city, state, day_of_week, start_time, end_time, vendor_profile_id, manager_user_id, tax_jurisdictions, tax_jurisdiction_verified_at, tax_rate_version')
         .eq('vertical_id', vertical)
         .eq('status', 'active')
         .order('market_type')
@@ -160,6 +160,11 @@ export async function GET(request: NextRequest) {
           // location without verified codes is refused at checkout until an
           // admin enters them — the picker + listing form warn the seller.
           taxReadiness: marketTaxReadiness(market),
+          // BR-1: a managed market (a manager account runs it) approves vendors
+          // before they pick days there — the listing form must not declare days
+          // for the vendor at such a market (OB-030 D6). Only the yes/no leaves the
+          // server, never the manager's account id.
+          isManaged: !!market.manager_user_id,
         }
       })
 
