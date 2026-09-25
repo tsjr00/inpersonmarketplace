@@ -645,11 +645,13 @@ jurisdiction rows. If the card shows only the TEXAS row and nothing else, STOP a
     quarter back, Save.
     Expect: the chip is gone from Amarillo's row.
 
- 5. /farmers_market/admin/reports → the "Accounting" group → tick "Texas List Supplement (Form 01-116)" →
+ 5. /admin/reports (the PLATFORM admin page — the Accounting group is not shown on /farmers_market/admin/reports)
+    → the "Accounting" group → tick "Texas List Supplement (Form 01-116)" →
     any date range → Download.
     Expect: a CSV file downloads. Its first line is the header
-    "Local Code (Form 01-116 col 2)","Jurisdiction","Level","Rate %","Amount Subject to Tax","Tax Due",
-    "Taxed Items","Rate Version(s) in Period" and the only other line is a TOTAL row showing $0.00 — because no
+    "Local Code (Form 01-116 col 2)","Jurisdiction","Level","Rate %","Sales Base","Sales Tax Collected","Refunded Base",
+    "Tax Refunded","Amount Subject to Tax (net)","Tax Due (net)","Taxed Items","Reversal Rows","Rate Version(s) in Period"
+    and the only other line is a TOTAL row showing $0.00 — because no
     tax has been collected yet. (An empty file or an error message IS a finding.)
 
 

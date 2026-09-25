@@ -324,7 +324,7 @@ market (owner + admin, Staging first) · registration effective date (owner) · 
 | 4 | Needs-codes queue = "Tax codes" filter + not-ready chip on the existing markets admin list (no new page) | ✅ BUILT |
 | 5 | `lib/tax/refund-tax.ts` pure reversal math + 11 specs (policy-neutral: portion is the caller's) | ✅ BUILT |
 | 6 | Report `tax_list_supplement` (Form 01-116) over snapshots, CSV, on the existing reports page | ✅ BUILT |
-| 7 | **Item 1 ✅** `buildNetListSupplement` (pure, 8 specs) · **Migration 260 FILE WRITTEN** — `order_item_tax_reversals` ledger + `order_tax_reversal_queue` (Q2), service-only, live post-check = scoped catalog export; Rule L suite RED BY DESIGN until Dev + Staging apply → owner pastes the export → structured sections rebuilt → stamp 260 | ✅ 260 APPLIED Dev + Staging 2026-09-24; snapshot rebuilt from the Dev export (stamp 257 → 260); guardrail suite GREEN 364/364; Staging export paste owed for the identical check |
+| 7 | **Item 1 ✅** `buildNetListSupplement` (pure, 8 specs) · **Migration 260 FILE WRITTEN** — `order_item_tax_reversals` ledger + `order_tax_reversal_queue` (Q2), service-only, live post-check = scoped catalog export; Rule L suite RED BY DESIGN until Dev + Staging apply → owner pastes the export → structured sections rebuilt → stamp 260 | ✅ 260 APPLIED Dev + Staging 2026-09-24; snapshot rebuilt from the Dev export (stamp 257 → 260); guardrail suite GREEN 364/364; Staging export received: identical to Dev, 41 rows |
 | 8–11 | Refund call sites (unprotected first, protected last) | waits Q1/Q2 + step 7 |
 | 12 | Rate-refresh: verify Comptroller file source, then cron | spike next (no code) |
 | 13–15 | Approval gate (Q3), event route (host-paid build), simulated month → flip | later |
@@ -405,3 +405,14 @@ Zero importers; `TAXCLOUD_API_LOGIN_ID/KEY` never provisioned.
   - CONDITIONAL (either; the flag decides — no anomaly): `Meat & Seafood`, `Baked Goods`
   - food_trucks vertical: everything taxable (expect true; the listing form already forces it — decision 2026-03-24)
   - no/unknown category: the flag stands, no anomaly
+
+### Round 2 (after the push `55950dc8`) — progress
+- ✅ **"Minus reversals" wired into the List Supplement report** (`reports/route.ts` `generateTaxListSupplement`): sales =
+  every taxed item on a non-pending order (cancelled/refunded items INCLUDED — their tax returns via the ledger, never by
+  dropping the sale); reversals = `order_item_tax_reversals` rows created in the period, vertical-scoped through
+  `orders`; `buildNetListSupplement`; 13 CSV columns (gross both sides + net + counts + versions); TOTAL row net.
+  Catalogue description updated; registry TR-113 + printable W11.5 header updated; map 19 updated. Gates: tsc 0 ·
+  eslint 0 err · 364/364. Report URL corrected everywhere to `/admin/reports` (platform page; the vertical page hides
+  the Accounting group by design, `ReportsAdminPage.tsx:156-157`).
+- NEXT (certainty order): Q3 non-money pieces (seller advisory on taxable listing ↔ private pickup; admin "someone is
+  waiting" notification) → step 12 rate-refresh cron (carry-forward + daily reminder) → steps 8–11 call sites.

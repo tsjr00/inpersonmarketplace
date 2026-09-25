@@ -5,7 +5,7 @@ import { withErrorTracing, observed } from '@/lib/errors'
 import { verifyAdminScope } from '@/lib/auth/admin'
 import { FEES, SUBSCRIPTION_AMOUNTS } from '@/lib/pricing'
 import { computeOrderPlatformRevenue } from '@/lib/reports/platform-revenue'
-import { buildListSupplement, type TaxJurisdictionSnapshot } from '@/lib/tax/jurisdictions'
+import { buildNetListSupplement, type TaxJurisdictionSnapshot } from '@/lib/tax/jurisdictions'
 
 interface ReportRequest {
   reportId: string
@@ -1914,24 +1914,30 @@ async function generateTaxSummary(supabase: ReturnType<typeof createServiceClien
 }
 
 /**
- * Texas List Supplement (Form 01-116) — v1, snapshots only.
+ * Texas List Supplement (Form 01-116) — NET of refunds.
  *
  * The monthly return is a PER-JURISDICTION table (seven-digit code · amount
  * subject to tax · rate · tax due). Every taxed order item carries that
  * breakdown frozen at checkout (mig 214; written by checkout/session while
- * TAX_STREAM1_ENABLED), so the report is a group-by over those snapshots —
- * `buildListSupplement` — and NEVER a recomputation against today's rates.
+ * TAX_STREAM1_ENABLED), and every refund of tax writes a row to the reversal
+ * ledger (mig 260) carrying the same breakdown at the ORIGINAL rate. The report
+ * is therefore two group-bys and a subtraction — `buildNetListSupplement` —
+ * and NEVER a recomputation against today's rates.
  *
- * v1 scope (plan step 6, before the reversal ledger exists): items whose
- * status is cancelled/refunded are excluded outright (their tax came back in
- * full through the refund paths' full-PI refunds, or will once Batch 3 lands);
- * PARTIAL refunds are not yet reversed here — Batch 3 adds the ledger and this
- * report gains a "minus reversals" pass. Until the flag flips this report is
- * empty by construction (tax_source IS NULL on every row) — that is the honest
- * answer, not a bug.
+ * Period placement: a SALE belongs to the month it was created; a REVERSAL
+ * belongs to the month the refund happened (ledger created_at). A refund in a
+ * later month than its sale shows as a NEGATIVE line that month — preserved,
+ * never clamped (how Texas wants a credit line reported is CPA Q13).
+ *
+ * Sales side: every taxed item on an order that reached payment (order not
+ * pending), INCLUDING items later cancelled/refunded — their tax comes back
+ * through the ledger, not by dropping the sale (dropping AND subtracting would
+ * double-remove). Until the flag flips this report is empty by construction
+ * (tax_source IS NULL on every row) — that is the honest answer, not a bug.
  */
 async function generateTaxListSupplement(supabase: ReturnType<typeof createServiceClient>, dateFrom: string, dateTo: string, verticalId?: string) {
-  let query = supabase
+  // ── Sales: the per-item snapshots frozen at checkout ──
+  let salesQuery = supabase
     .from('order_items')
     .select(`
       taxable_amount_cents,
@@ -1944,25 +1950,50 @@ async function generateTaxListSupplement(supabase: ReturnType<typeof createServi
     .gte('created_at', dateFrom)
     .lte('created_at', dateTo)
     .not('tax_source', 'is', null)
-    .not('status', 'in', '("cancelled","refunded")')
-    .not('order.status', 'in', '("pending","cancelled","refunded")')
+    .neq('order.status', 'pending')
 
   if (verticalId) {
-    query = query.eq('order.vertical_id', verticalId)
+    salesQuery = salesQuery.eq('order.vertical_id', verticalId)
   }
 
-  const { data: items, error } = await query
+  const { data: items, error } = await salesQuery
   if (error) throw error
+
+  // ── Reversals: the refund ledger rows created in the period (mig 260) ──
+  let reversalQuery = supabase
+    .from('order_item_tax_reversals')
+    .select(`
+      taxable_amount_cents,
+      tax_cents,
+      tax_jurisdictions,
+      tax_rate_version,
+      created_at,
+      order:orders!inner (vertical_id)
+    `)
+    .gte('created_at', dateFrom)
+    .lte('created_at', dateTo)
+
+  if (verticalId) {
+    reversalQuery = reversalQuery.eq('order.vertical_id', verticalId)
+  }
+
+  const { data: reversals, error: reversalError } = await reversalQuery
+  if (reversalError) throw reversalError
 
   const snapshotRows = (items || []).map((it: any) => ({
     taxable_amount_cents: it.taxable_amount_cents as number | null,
     tax_jurisdictions: it.tax_jurisdictions as TaxJurisdictionSnapshot[] | null,
   }))
-  const supplement = buildListSupplement(snapshotRows)
+  const reversalRows = (reversals || []).map((r: any) => ({
+    taxable_amount_cents: r.taxable_amount_cents as number | null,
+    tax_jurisdictions: r.tax_jurisdictions as TaxJurisdictionSnapshot[] | null,
+  }))
+  const supplement = buildNetListSupplement(snapshotRows, reversalRows)
 
-  // Item count per code + the rate versions seen, so a quarter-straddling
-  // period is visible on the sheet instead of silently blended.
+  // Counts per code + the rate versions seen on either side, so a quarter-
+  // straddling period is visible on the sheet instead of silently blended.
   const itemsByCode = new Map<string, number>()
+  const reversalsByCode = new Map<string, number>()
   const versions = new Set<string>()
   for (const it of items || []) {
     if (it.tax_rate_version) versions.add(String(it.tax_rate_version))
@@ -1970,31 +2001,47 @@ async function generateTaxListSupplement(supabase: ReturnType<typeof createServi
       itemsByCode.set(j.code, (itemsByCode.get(j.code) || 0) + 1)
     }
   }
+  for (const r of reversals || []) {
+    if (r.tax_rate_version) versions.add(String(r.tax_rate_version))
+    for (const j of (r.tax_jurisdictions as TaxJurisdictionSnapshot[] | null) || []) {
+      reversalsByCode.set(j.code, (reversalsByCode.get(j.code) || 0) + 1)
+    }
+  }
+  const versionsLabel = [...versions].sort().join(' ')
 
   const rows: Record<string, unknown>[] = supplement.map((r) => ({
     code: r.code,
     name: r.name,
     level: r.level,
     rate_pct: r.rate_pct,
+    sales_base: formatCents(r.salesBaseCents),
+    sales_tax: formatCents(r.salesTaxCents),
+    reversed_base: formatCents(r.reversedBaseCents),
+    reversed_tax: formatCents(r.reversedTaxCents),
     amount_subject_to_tax: formatCents(r.amountSubjectToTaxCents),
     tax_due: formatCents(r.taxDueCents),
     items: itemsByCode.get(r.code) || 0,
-    rate_versions: [...versions].sort().join(' '),
+    reversals: reversalsByCode.get(r.code) || 0,
+    rate_versions: versionsLabel,
   }))
 
-  const totalTaxDue = supplement.reduce((s, r) => s + r.taxDueCents, 0)
+  // The state line carries every taxed item exactly once, so its base is the
+  // period's total taxable sales (and its reversed base the total reversed).
   const stateRow = supplement.find((r) => r.level === 'state')
   rows.push({
     code: 'TOTAL',
-    name: 'Tax due, all jurisdictions',
+    name: 'Tax due, all jurisdictions (net)',
     level: '',
     rate_pct: '',
-    // The state line's base is the total taxable sales for the period (every
-    // taxed item sources to exactly one state row).
+    sales_base: formatCents(stateRow?.salesBaseCents ?? 0),
+    sales_tax: formatCents(supplement.reduce((s, r) => s + r.salesTaxCents, 0)),
+    reversed_base: formatCents(stateRow?.reversedBaseCents ?? 0),
+    reversed_tax: formatCents(supplement.reduce((s, r) => s + r.reversedTaxCents, 0)),
     amount_subject_to_tax: formatCents(stateRow?.amountSubjectToTaxCents ?? 0),
-    tax_due: formatCents(totalTaxDue),
+    tax_due: formatCents(supplement.reduce((s, r) => s + r.taxDueCents, 0)),
     items: (items || []).length,
-    rate_versions: [...versions].sort().join(' '),
+    reversals: (reversals || []).length,
+    rate_versions: versionsLabel,
   })
 
   return toCSV(rows, [
@@ -2002,9 +2049,14 @@ async function generateTaxListSupplement(supabase: ReturnType<typeof createServi
     { key: 'name', label: 'Jurisdiction' },
     { key: 'level', label: 'Level' },
     { key: 'rate_pct', label: 'Rate %' },
-    { key: 'amount_subject_to_tax', label: 'Amount Subject to Tax' },
-    { key: 'tax_due', label: 'Tax Due' },
+    { key: 'sales_base', label: 'Sales Base' },
+    { key: 'sales_tax', label: 'Sales Tax Collected' },
+    { key: 'reversed_base', label: 'Refunded Base' },
+    { key: 'reversed_tax', label: 'Tax Refunded' },
+    { key: 'amount_subject_to_tax', label: 'Amount Subject to Tax (net)' },
+    { key: 'tax_due', label: 'Tax Due (net)' },
     { key: 'items', label: 'Taxed Items' },
+    { key: 'reversals', label: 'Reversal Rows' },
     { key: 'rate_versions', label: 'Rate Version(s) in Period' },
   ])
 }
