@@ -721,6 +721,24 @@ Farmers Marketing (automated)
 
 ---
 
+### Sales tax rates: check a market (`tax_rates_changed_admin`)
+**Urgency:** Standard (Email + In-app) · **Severity:** warning · **Audience:** platform admins + the vertical's admins
+**Trigger:** the quarterly rate refresh (`lib/tax/rate-refresh.ts`) (a) applied a changed Comptroller rate, (b) found one of the market's codes missing from the file (market set to "re-verify"), or (c) during a carry-forward, found saved rates that differ from the newest file. Once per market per quarter per kind.
+**In-app title:** Sales tax rates: check {{market_name}}
+**In-app message:** {{change_summary}} — e.g. "The Comptroller's 2026-Q4 file changed Amarillo 2% → 1.75%. The new rates are applied. 4 taxed items sold at this market on the carried-forward rates since 2026-10-01; the difference is the platform's to absorb."
+**Action:** /{{vertical}}/admin/markets?edit={{market_id}}
+
+---
+
+### Sales tax: this quarter's rate file is not published yet (`tax_rate_file_missing_admin`)
+**Urgency:** Info (In-app only — COMM-3) · **Audience:** platform admins + the vertical's admins
+**Trigger:** a new quarter has begun, the Comptroller's file still describes last quarter, and markets were carried forward. Once per vertical per day while it lasts (owner Q4: "a daily reminder to admin to check progress").
+**In-app title:** Sales tax: this quarter's rate file is not published yet
+**In-app message:** It is {{current_quarter}}, but the Comptroller has not published the {{current_quarter}} rate file yet (newest is {{file_quarter}}). Markets are running on last quarter's rates, carried forward, and the job re-checks every day this month. Nothing to do unless this keeps up past mid-month — then check comptroller.texas.gov/taxes/file-pay/edi/sales-tax-rates.php.
+**Action:** /{{vertical}}/admin/markets
+
+---
+
 ## SMS Guidelines
 
 All SMS messages must:

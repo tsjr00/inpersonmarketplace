@@ -1,3 +1,14 @@
+# 2026-09-25 — mig 261 ✅ Dev + Staging (exports identical, 14 rows) · snapshot rebuilt, stamp 261 · FULL SUITE GREEN 2353/2353 · step 12 + monthly-filing corrections + Central-time report UNCOMMITTED, awaiting the owner's commit/push word
+
+# 2026-09-25 (later) — MONTHLY FILING: rate corrections + Central-time report periods BUILT · mig 261 (now column + table tax_rate_corrections) FILE WRITTEN, NOT APPLIED · Rule L RED BY DESIGN until 261 applied + snapshot rebuilt
+NEXT: owner pastes 20260925_261_tax_rate_refresh.sql on Dev + Staging (paste-whole; live post-check = catalog export) -> rebuild snapshot from the export (stamp 260 -> 261) -> suite green -> commit + push -> TR-116 curl on Staging. Detail: research file 2026-09-25 (later).
+
+# 2026-09-25 — STEP 12 RATE-REFRESH CRON BUILT (uncommitted; gates green 2341/2341) · mig 261 FILE WRITTEN, NOT APPLIED
+Model switched Fable → Opus mid-step; nothing lost (no compaction). Owner asked for a full implication review before
+finishing: 3 findings confirmed + 2 new found and fixed (see research file "2026-09-25 — Step 12"). Tripwire 136→138
+owner-approved. NEXT: owner pastes 261 on Dev + Staging (paste-whole; live post-check returns the column) → snapshot
+row flipped from the measured result → commit + push → TR-116 (curl the cron on Staging) → refund call sites 8–11.
+
 # 🏁 2026-09-24 CLOSE — SALES TAX ROUNDS 1–3 · `origin/staging` = `main` (see git log; close commit follows this note) · migs 259 + 260 ✅ Dev + Staging · Prod untouched `d704d3bb` (owes 252→260, ~52 commits)
 
 **Read first:** `apps/web/.claude/tax_build_review_research.md` → "🏁 2026-09-24 SESSION CLOSE" (progress table + what each

@@ -1,0 +1,32 @@
+1	20263	202609	2026 - 3rd	0.0625	0	3715	||***Required Upgrade is Now Available***||Sales Tax v7.2 is no longer being supported and must be upgraded to v7.3.  Please go to the Comptroller's EDI webpage to download and install v7.3.||The link is available at:||https://comptroller.texas.gov/taxes/file-pay/edi/||	v7.2N			
+20261	q	4/20/2026									
+20262	q	7/20/2026									
+20263	q	10/20/2025									
+20264	q	1/20/2027									
+202601	m	2/20/2026									
+202602	m	3/20/2026									
+202603	m	4/20/2026									
+202604	m	5/20/2026									
+202605	m	6/22/2026									
+202606	m	7/20/2026									
+202607	m	8/20/2026									
+202608	m	9/21/2026									
+202609	m	10/20/2026									
+202610	m	11/20/2026									
+202611	m	12/21/2026									
+202612	m	1/20/2027									
+Abbott 	2109064	0.015	Hill 	4109000	0.005	n/a	n/a	0	n/a	n/a	0
+Abilene 	2221012	0.02	Jones 	n/a	0	n/a	n/a	0	n/a	n/a	0
+Abilene 	2221012	0.02	Taylor 	n/a	0	n/a	n/a	0	n/a	n/a	0
+Amarillo 	2188013	0.02	Potter 	n/a	0	n/a	n/a	0	n/a	n/a	0
+Amarillo 	2188013	0.02	Randall 	n/a	0	n/a	n/a	0	n/a	n/a	0
+Austin 	2227016	0.01	Travis 	n/a	0	n/a	n/a	0	Austin MTA 	3227999	0.01
+Austin 	2227016	0.01	Williamson 	n/a	0	n/a	n/a	0	Austin MTA 	3227999	0.01
+Canyon 	2191018	0.02	Randall 	n/a	0	n/a	n/a	0	n/a	n/a	0
+Canyon City 	n/a	0	Comal 	4046006	0.005	Comal County ESD 3 	5046523	0.01	n/a	n/a	0
+Canyon Lake 	n/a	0	Comal 	4046006	0.005	Comal County ESD 3 	5046523	0.01	n/a	n/a	0
+Dallas 	2057011	0.01	Collin 	n/a	0	n/a	n/a	0	Dallas MTA 	3057994	0.01
+Dallas 	2057011	0.01	Dallas 	n/a	0	n/a	n/a	0	Dallas MTA 	3057994	0.01
+Dallas 	2057011	0.01	Denton 	n/a	0	n/a	n/a	0	Dallas MTA 	3057994	0.01
+Dallas 	2057011	0.01	Kaufman 	n/a	0	n/a	n/a	0	Dallas MTA 	3057994	0.01
+Dallas 	2057011	0.01	Rockwall 	n/a	0	n/a	n/a	0	Dallas MTA 	3057994	0.01

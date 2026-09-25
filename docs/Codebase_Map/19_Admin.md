@@ -114,7 +114,7 @@ Consequence worth stating plainly: **platform revenue is not attributable per ve
 ### Money & finance tooling
 | Route | Purpose |
 |---|---|
-| `reports/route.ts` ⚠ | The revenue/report engine — highest money density of any admin route. 2026-09-24: + `tax_list_supplement` (Texas Form 01-116 NET of refunds — `buildNetListSupplement` over the per-item tax snapshots sold in the period minus the `order_item_tax_reversals` ledger rows created in the period; gross sides shown; negatives preserved; empty until `TAX_STREAM1_ENABLED`) |
+| `reports/route.ts` ⚠ | The revenue/report engine — highest money density of any admin route. 2026-09-24: + `tax_list_supplement` (Texas Form 01-116 NET of refunds — `buildNetListSupplement` over the per-item tax snapshots sold in the period minus the `order_item_tax_reversals` ledger rows created in the period; gross sides shown; negatives preserved; 2026-09-25: month cut at CENTRAL midnight (`lib/tax/filing-period.ts` — owner: we file monthly in Texas time; the other reports keep UTC days) and old-rate sales re-stated from `tax_rate_corrections` (mig 261) into a "Rate Correction" column, refunds re-stated too; empty until `TAX_STREAM1_ENABLED`) |
 | `stripe-reconcile/route.ts` ⚠ | Natural-language Stripe reconciliation, vertical-scoped |
 | `backfill-stripe-fees/route.ts` ⚠ | Backfills `payments.stripe_fee_cents` from Stripe (default 100, max 500 per call; repeat until `remaining: 0`) |
 | `analytics/overview` · `top-vendors` · `trends` | Platform KPIs from live `orders` + `market_box_subscriptions` (a legacy SQL analytics function was abandoned) |

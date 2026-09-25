@@ -459,3 +459,42 @@ Zero importers; `TAXCLOUD_API_LOGIN_ID/KEY` never provisioned.
 2. **Steps 8–11 refund call sites** (Q1 pro-rata; Q2 queue for dashboard partials): unprotected 7 first (simplest full-refund path first), whole-order paths (ledger rows only), then the 3 protected files last with per-file approval. Pattern: `amount = buyerPaidForItem + taxReversalForItem(...).taxCents`, ledger row AFTER Stripe succeeds, never fail the refund on a ledger error.
 3. Admin list for the dashboard-refund queue (Q2) + approval gate (13) + event route inside host-paid (14) + simulated month (15) + flag flip (its own approved change; pin `flow-integrity:3309`).
 4. Owner side: real codes on Staging test markets (step 0); W11 steps 1–7 retest; Prod when the owner says (wipe first; migs 252→260 in order).
+
+## 2026-09-25 — Step 12 rate-refresh cron BUILT (uncommitted) · mig 261 file written, NOT applied
+- Owner: "monthly with a contingency to run again if the monthly comes up empty" → a cron cannot retry itself, so the
+  SCHEDULE encodes it: `0 9 1 * *` (1st of every month) + `0 9 2-31 1,4,7,10 *` (daily for the rest of the first month
+  of each quarter, when the new file is expected). Two entries, same path (Vercel docs: supported; `x-vercel-cron-schedule`
+  tells them apart). Tripwire 136→138 owner-approved.
+- Files: `lib/tax/rate-file.ts` (parser, 12 specs on a real-file fixture), `lib/tax/rate-refresh.ts` (pure planner + runner,
+  16 specs), `api/cron/tax-rate-refresh/route.ts`, `apps/web/vercel.json`, types `tax_rates_changed_admin` (standard) +
+  `tax_rate_file_missing_admin` (info = free in-app, daily), mig 261 `markets.tax_rates_carried_forward_at`.
+- **Review before finishing (owner asked for a full implication trail after the model switch)** — confirmed + fixed:
+  (1) conflict notice would repeat daily → every notice deduped by dedupRef (spec'd); (2) job overwrote the admin's card
+  note → appends dated "(auto)" lines (spec'd); (3) Prod gets code before migs → 261 banner carries the deploy order;
+  NEW (4) an admin who verified during the gap from the Rate Locator (already showing the NEW quarter) would be nagged
+  daily AND (5) a new-this-quarter jurisdiction would be flagged missing and the market BLOCKED → markets verified this
+  quarter (not by carry-forward) are never second-guessed by an older file (spec'd); (6) explicit `cache: 'no-store'`
+  on the fetch. Known, accepted: a file later than the first month is only re-checked on the 1st of the next month
+  (observed worst case 22 days). Every market write is now error-checked + logged.
+- Gates: tsc 0 · eslint 0 errors · vitest 2341/2341. Docs: map 17/18/21 + stamps, MESSAGE_TEMPLATES, registry TR-116,
+  printable "not runnable" note.
+- NEXT: owner pastes 261 (Dev, Staging) → commit + push → TR-116 curl on Staging → refund call sites 8–11.
+
+## 2026-09-25 (later) — Monthly filing: rate corrections + Central-time periods BUILT (uncommitted)
+- Owner: "marketplaces, at least ours, file every month — what does that do?" → cron cadence unchanged (Texas local rates
+  change only at quarter starts; the Comptroller file is quarterly and lists MONTHLY due dates, the 20th). Two report
+  consequences, both approved ("yes to both — use central time for the tax report"):
+  1. **Rate correction.** Sales in a carry-forward window are frozen at the OLD rate, but Texas is owed the rate in effect;
+     the first return of each quarter is filed after the late file lands. The job now writes `tax_rate_corrections`
+     (market, quarter, applied_at, [{code, old, new}]) on EVERY applied rate change; the report re-states matching lines
+     (same market, same quarter, sold before applied_at, line still at the old rate) at the new rate, for sales AND their
+     refunds (so a refunded carried sale nets to zero), and shows the difference in a "Rate Correction" column. Platform
+     absorbs it; snapshots never edited. `lib/tax/rate-corrections.ts`.
+  2. **Central-time months.** The report cut days at UTC midnight — an 8 pm Halloween sale landed on November's return.
+     `lib/tax/filing-period.ts` cuts at America/Chicago midnight, DST-aware; a PERIOD row states the clock. Tax report only.
+- Mig 261 re-scoped + renamed `20260925_261_tax_rate_refresh.sql`: the carry-forward column + NEW TABLE
+  `tax_rate_corrections` (service-only). Still NOT applied anywhere. **Rule L is RED BY DESIGN** (CREATE TABLE past the
+  260 stamp) — the only failing test (2352/2353); clears when the owner pastes 261 on Dev + Staging and the snapshot is
+  rebuilt from the live export (stamp → 261). Nothing can be committed until then.
+- Specs: rate-corrections 12 (incl. both 2026 DST switch days, the Halloween sale, refund nets to zero); rate-refresh now
+  asserts the correction record. Docs: TR-113 (14 columns + PERIOD row), W11.5 header, map 19/21 + stamps.

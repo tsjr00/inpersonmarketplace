@@ -173,6 +173,19 @@ New user-facing strings go through `t()`, not hardcoded literals — the shared 
 - `tax/flags.ts` — `TAX_STREAM1_ENABLED = false` (dark-ship pin in flow-integrity;
   header lists the flip prerequisites: rate-refresh job, Batch-3 refund reversals,
   event-order route wired, jurisdiction codes entered).
+- `tax/rate-file.ts` — parser for the Comptroller quarterly rate file (`taxrates.txt`): header field 2 = the quarter the
+  file DESCRIBES (→ "YYYY-Qn"), code → rate from all four (name, code, rate) slots, level from the code's first digit,
+  decimals → percent, conflicts surfaced never resolved; refuses an undatable file. 12 tests on a real-file fixture. (2026-09-25)
+- `tax/rate-refresh.ts` — the quarterly refresh: pure `planMarketRefresh` (stamp / update / flag_missing / carry_forward /
+  carry_forward_conflict / skip / noop) + `runTaxRateRefresh` (I/O; cron `tax-rate-refresh`). Owner Q4: carry forward when
+  the new file is late + daily reminder; admin-verified-this-quarter markets never second-guessed; notices deduped;
+  card notes appended. 16 tests. (2026-09-25)
+- `tax/filing-period.ts` — `taxPeriodBoundsUtc(from, to)`: a report's days cut at America/Chicago midnight, DST-aware, no
+  library (we file MONTHLY in Texas time; an 8 pm sale on the 31st is that month's). Tax report only. (2026-09-25)
+- `tax/rate-corrections.ts` — `applyRateCorrections(rows, corrections, sign)`: re-states a sale's (or its refund's) lines
+  still at the OLD rate for a code a late file changed — same market, same quarter, sold before the correction was applied —
+  at the new rate (per-line rounding as `computeItemTax`); returns the extra tax by code. Snapshots never edited. 12 tests
+  (incl. Central-time periods). (2026-09-25)
 - `tax/readiness.ts` — `marketTaxReadiness(marketTaxColumns)` → no_codes | unverified | stale | ready: the ONE
   answer to "would the engine tax a sale here today", mirroring the seam's three market guardrails in order.
   Consumed by the markets admin filter/chip, `api/vendor/market-stats` (→ the listing form's seller advisory,

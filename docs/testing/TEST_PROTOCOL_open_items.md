@@ -650,8 +650,9 @@ jurisdiction rows. If the card shows only the TEXAS row and nothing else, STOP a
     any date range → Download.
     Expect: a CSV file downloads. Its first line is the header
     "Local Code (Form 01-116 col 2)","Jurisdiction","Level","Rate %","Sales Base","Sales Tax Collected","Refunded Base",
-    "Tax Refunded","Amount Subject to Tax (net)","Tax Due (net)","Taxed Items","Reversal Rows","Rate Version(s) in Period"
-    and the only other line is a TOTAL row showing $0.00 — because no
+    "Tax Refunded","Rate Correction (owed on old-rate sales; platform pays)","Amount Subject to Tax (net)",
+    "Tax Due (net)","Taxed Items","Reversal Rows","Rate Version(s) in Period". Below it: a TOTAL row showing $0.00,
+    and a last row starting PERIOD that names the dates you picked "…America/Chicago (Central)". Totals are $0.00 because no
     tax has been collected yet. (An empty file or an error message IS a finding.)
 
  6. Log in as a VENDOR (Valley Verde Farm) → /farmers_market/vendor/listings/new → choose category "Prepared Foods"
@@ -678,6 +679,7 @@ NOT RUNNABLE YET — nothing for you to do
 • Event money on cancellation / de-selection — needs an event with a PAID vendor fee on staging.
 • "Protocol v6 remainder" (buyer items + weekly survey · onboarding copy · manager new-email invite and resend ·
   farmers-market mirror · print chrome) — steps still being rewritten.
+• The sales-tax rate-refresh job (runs on a schedule on production only; the owner triggers it on staging by hand).
 • Two production-only checks (stock decrement at checkout; payout timing) — wait for a real vendor with Stripe
   on production.
 

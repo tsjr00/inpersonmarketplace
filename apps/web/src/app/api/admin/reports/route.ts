@@ -6,6 +6,8 @@ import { verifyAdminScope } from '@/lib/auth/admin'
 import { FEES, SUBSCRIPTION_AMOUNTS } from '@/lib/pricing'
 import { computeOrderPlatformRevenue } from '@/lib/reports/platform-revenue'
 import { buildNetListSupplement, type TaxJurisdictionSnapshot } from '@/lib/tax/jurisdictions'
+import { applyRateCorrections, type RateCorrection } from '@/lib/tax/rate-corrections'
+import { taxPeriodBoundsUtc } from '@/lib/tax/filing-period'
 
 interface ReportRequest {
   reportId: string
@@ -237,7 +239,9 @@ export async function POST(request: NextRequest) {
           break
 
         case 'tax_list_supplement':
-          csvContent = await generateTaxListSupplement(supabaseService, dateFromStart, dateToEnd, verticalId)
+          // Tax return = a Texas calendar month: the generator cuts days at CENTRAL
+          // midnight from the raw dates (owner 2026-09-25), not the UTC bounds above.
+          csvContent = await generateTaxListSupplement(supabaseService, dateFrom, dateTo, verticalId)
           filename = `${verticalPrefix}tax_list_supplement_${dateFrom}_to_${dateTo}.csv`
           break
 
@@ -1935,7 +1939,11 @@ async function generateTaxSummary(supabase: ReturnType<typeof createServiceClien
  * double-remove). Until the flag flips this report is empty by construction
  * (tax_source IS NULL on every row) — that is the honest answer, not a bug.
  */
-async function generateTaxListSupplement(supabase: ReturnType<typeof createServiceClient>, dateFrom: string, dateTo: string, verticalId?: string) {
+async function generateTaxListSupplement(supabase: ReturnType<typeof createServiceClient>, dateFromDay: string, dateToDay: string, verticalId?: string) {
+  // Monthly Texas returns cover a LOCAL calendar month (owner 2026-09-25: Central
+  // time for the tax report) — an 8 pm sale on the 31st belongs to that month.
+  const { startIso: dateFrom, endIso: dateTo } = taxPeriodBoundsUtc(dateFromDay, dateToDay)
+
   // ── Sales: the per-item snapshots frozen at checkout ──
   let salesQuery = supabase
     .from('order_items')
@@ -1945,6 +1953,8 @@ async function generateTaxListSupplement(supabase: ReturnType<typeof createServi
       tax_jurisdictions,
       tax_rate_version,
       status,
+      market_id,
+      created_at,
       order:orders!inner (vertical_id, status)
     `)
     .gte('created_at', dateFrom)
@@ -1968,7 +1978,8 @@ async function generateTaxListSupplement(supabase: ReturnType<typeof createServi
       tax_jurisdictions,
       tax_rate_version,
       created_at,
-      order:orders!inner (vertical_id)
+      order:orders!inner (vertical_id),
+      order_item:order_items!inner (market_id, created_at)
     `)
     .gte('created_at', dateFrom)
     .lte('created_at', dateTo)
@@ -1980,15 +1991,52 @@ async function generateTaxListSupplement(supabase: ReturnType<typeof createServi
   const { data: reversals, error: reversalError } = await reversalQuery
   if (reversalError) throw reversalError
 
+  // ── Rate corrections (mig 261; owner 2026-09-25) ──
+  // A late Comptroller file that changed a rate leaves sales this quarter at
+  // the OLD rate on their snapshots. Texas is owed the rate in effect, so those
+  // lines are re-stated here (the platform absorbs the difference). Refund
+  // rows for the same sales are re-stated too, so a refunded sale nets to zero.
+  const quartersInPeriod = [...new Set(
+    [...(items || []), ...(reversals || [])]
+      .map((r: any) => r.tax_rate_version as string | null)
+      .filter((q): q is string => !!q)
+  )]
+  const { data: correctionRows, error: correctionError } = quartersInPeriod.length
+    ? await supabase.from('tax_rate_corrections').select('market_id, quarter, applied_at, changes').in('quarter', quartersInPeriod)
+    : { data: [], error: null }
+  if (correctionError) throw correctionError
+  const corrections: RateCorrection[] = (correctionRows || []).map((c: any) => ({
+    market_id: c.market_id as string,
+    quarter: c.quarter as string,
+    applied_at: new Date(c.applied_at as string).toISOString(),
+    changes: (c.changes as RateCorrection['changes']) || [],
+  }))
+
   const snapshotRows = (items || []).map((it: any) => ({
     taxable_amount_cents: it.taxable_amount_cents as number | null,
     tax_jurisdictions: it.tax_jurisdictions as TaxJurisdictionSnapshot[] | null,
+    market_id: (it.market_id as string | null) ?? null,
+    sold_at: it.created_at ? new Date(it.created_at as string).toISOString() : null,
+    tax_rate_version: (it.tax_rate_version as string | null) ?? null,
   }))
   const reversalRows = (reversals || []).map((r: any) => ({
     taxable_amount_cents: r.taxable_amount_cents as number | null,
     tax_jurisdictions: r.tax_jurisdictions as TaxJurisdictionSnapshot[] | null,
+    // The ORIGINAL sale's market and time decide whether a correction applies.
+    market_id: (r.order_item?.market_id as string | null) ?? null,
+    sold_at: r.order_item?.created_at ? new Date(r.order_item.created_at as string).toISOString() : null,
+    tax_rate_version: (r.tax_rate_version as string | null) ?? null,
   }))
-  const supplement = buildNetListSupplement(snapshotRows, reversalRows)
+  const correctedSales = applyRateCorrections(snapshotRows, corrections, 1)
+  const correctedReversals = applyRateCorrections(reversalRows, corrections, -1)
+  const correctionByCode = new Map<string, number>()
+  for (const d of [correctedSales.deltaByCode, correctedReversals.deltaByCode]) {
+    for (const [code, cents] of d) correctionByCode.set(code, (correctionByCode.get(code) || 0) + cents)
+  }
+  const supplement = buildNetListSupplement(correctedSales.rows, correctedReversals.rows)
+  // What was actually collected / refunded (before re-statement), per code.
+  const salesDeltaOf = (code: string) => correctedSales.deltaByCode.get(code) || 0
+  const reversalDeltaOf = (code: string) => -(correctedReversals.deltaByCode.get(code) || 0)
 
   // Counts per code + the rate versions seen on either side, so a quarter-
   // straddling period is visible on the sheet instead of silently blended.
@@ -2015,9 +2063,10 @@ async function generateTaxListSupplement(supabase: ReturnType<typeof createServi
     level: r.level,
     rate_pct: r.rate_pct,
     sales_base: formatCents(r.salesBaseCents),
-    sales_tax: formatCents(r.salesTaxCents),
+    sales_tax: formatCents(r.salesTaxCents - salesDeltaOf(r.code)),
     reversed_base: formatCents(r.reversedBaseCents),
-    reversed_tax: formatCents(r.reversedTaxCents),
+    reversed_tax: formatCents(r.reversedTaxCents - reversalDeltaOf(r.code)),
+    rate_correction: formatCents(correctionByCode.get(r.code) || 0),
     amount_subject_to_tax: formatCents(r.amountSubjectToTaxCents),
     tax_due: formatCents(r.taxDueCents),
     items: itemsByCode.get(r.code) || 0,
@@ -2034,15 +2083,18 @@ async function generateTaxListSupplement(supabase: ReturnType<typeof createServi
     level: '',
     rate_pct: '',
     sales_base: formatCents(stateRow?.salesBaseCents ?? 0),
-    sales_tax: formatCents(supplement.reduce((s, r) => s + r.salesTaxCents, 0)),
+    sales_tax: formatCents(supplement.reduce((s, r) => s + r.salesTaxCents - salesDeltaOf(r.code), 0)),
     reversed_base: formatCents(stateRow?.reversedBaseCents ?? 0),
-    reversed_tax: formatCents(supplement.reduce((s, r) => s + r.reversedTaxCents, 0)),
+    reversed_tax: formatCents(supplement.reduce((s, r) => s + r.reversedTaxCents - reversalDeltaOf(r.code), 0)),
+    rate_correction: formatCents([...correctionByCode.values()].reduce((s, c) => s + c, 0)),
     amount_subject_to_tax: formatCents(stateRow?.amountSubjectToTaxCents ?? 0),
     tax_due: formatCents(supplement.reduce((s, r) => s + r.taxDueCents, 0)),
     items: (items || []).length,
     reversals: (reversals || []).length,
     rate_versions: versionsLabel,
   })
+  // Say plainly which clock the month was cut on.
+  rows.push({ code: 'PERIOD', name: `${dateFromDay} 00:00 through ${dateToDay} 23:59:59 America/Chicago (Central)`, level: '', rate_pct: '' })
 
   return toCSV(rows, [
     { key: 'code', label: 'Local Code (Form 01-116 col 2)' },
@@ -2053,6 +2105,7 @@ async function generateTaxListSupplement(supabase: ReturnType<typeof createServi
     { key: 'sales_tax', label: 'Sales Tax Collected' },
     { key: 'reversed_base', label: 'Refunded Base' },
     { key: 'reversed_tax', label: 'Tax Refunded' },
+    { key: 'rate_correction', label: 'Rate Correction (owed on old-rate sales; platform pays)' },
     { key: 'amount_subject_to_tax', label: 'Amount Subject to Tax (net)' },
     { key: 'tax_due', label: 'Tax Due (net)' },
     { key: 'items', label: 'Taxed Items' },

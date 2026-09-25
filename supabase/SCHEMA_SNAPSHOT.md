@@ -8,7 +8,7 @@
 
 > ⚠️ **EVERY structured section of this file is best-effort and may be stale — Columns, FKs, Indexes, Functions, Enum Types, CHECK Constraints, all of them.** The original banner named only four sections, and the Enum Types table sat outside it misleading readers for five months (missing `platform_admin`/`regional_admin`, added 2026-03-20). The Change Log's per-migration environment claims have also been wrong four separate times (210/211/212/215, all caught 2026-08-13). **Only `information_schema` / `pg_catalog` on the live environment is authoritative — for structure AND for what is deployed where.**
 >
-**Structured tables rebuilt:** 2026-09-24 · current through migration 260
+**Structured tables rebuilt:** 2026-09-25 · current through migration 261
 **Refresh 2026-09-20 (scoped delta, owner's live Dev catalog export `supabase/migrations/Schema Refresh/09202026/scoped_delta_252-257_dev.csv`):** every object migs 252–257 touched, enumerated from the migration files — 7 functions (signature, return, security, `md5(prosrc)`), `market_vendors` + `booth_credits` columns / FKs / indexes / CHECKs. No table was created in 252–257. The Rule L deferral below is CLOSED (allowance back to 5).
 **(closed) ⚠ REFRESH OWED (owner-authorized deferral 2026-09-19):** migs 252–257 are past the stamp (Rule L allowance temporarily 6, guardrail-contracts.test.ts). Delta = functions 252/253/254/255/256 (signatures in `## Functions` marked ⏳/✅), `market_vendors.requested_inventory_id` (256), `booth_credits.related_cancel_date` + CHECK + 2 partial unique indexes (257). Next session: owner pastes 257 on Dev (pre-check first), runs the scoped delta query, Claude rebuilds those sections, stamps 257, restores the allowance to 5.
 
@@ -61,6 +61,8 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-09-25 | — (snapshot rebuild, scoped) | **Structured tables rebuilt for 261 (stamp 260 → 261)** from the owner's live Dev post-check export (14 rows: 1 CHECK · 7 COLUMN · 1 FK · 1 GRANT · 2 INDEX · 1 RLS · 1 PK); the Staging export is IDENTICAL row for row. Sections touched: Tables (97 → 98), Columns (`tax_rate_corrections`; `markets.tax_rates_carried_forward_at` marker ⏳ → ✅), Foreign Keys, Indexes, Check Constraints. service_role holds all table privileges (Supabase default; the explicit S/I grant was additive); anon/authenticated none. |
+| 2026-09-25 | 20260925_261_tax_rate_refresh | ✅ **DEV + STAGING 2026-09-25 (owner: "261 ran on dev & staging"; Dev live post-check export used for the rebuild above — matches the migration exactly). Prod pending (after 260; apply BEFORE the first scheduled cron run after the code push).** Tax build step 12 (rate-refresh cron; owner Q4 carry-forward + 2026-09-25 "yes" to a rate-correction line — we file MONTHLY). (1) `markets` + `tax_rates_carried_forward_at TIMESTAMPTZ NULL` — set by `lib/tax/rate-refresh.ts` when it stamps the current quarter on last quarter's rates; cleared when a current-quarter file confirms/replaces them. (2) NEW TABLE `tax_rate_corrections` (append-only): `market_id → markets`, `quarter` CHECK `^[0-9]{4}-Q[1-4]$`, `applied_at`, `changes jsonb` [{code, old_rate_pct, new_rate_pct}], `created_at`; index on quarter; RLS on / no policies; REVOKE ALL anon/authenticated; GRANT S/I service_role. Written by the job on every applied rate change; read by the Form 01-116 report to re-state sales still at the old rate (`lib/tax/rate-corrections.ts`). Markets column row added below from the migration text (⏳ marker); table sections added at the rebuild from the measured export. |
 | 2026-09-24 | — (snapshot rebuild, scoped) | **Structured tables rebuilt for the 258–260 delta (stamp 257 → 260).** 258's five columns were already recorded row-by-row at apply time (market_booth_inventory ×4, markets ×1); 259 changed one CHECK (recorded from the measured post-check); 260's two NEW tables were rebuilt from the owner's live Dev post-check export (the migration's trailing SELECT: 18 columns · 3 FKs · 4 CHECKs · 4 unique/PK · 8 indexes · RLS on/0 policies ×2 · grants service_role only — anon/authenticated absent). Sections touched: Tables (95 → 97), Columns, Foreign Keys, Indexes, Check Constraints. Provenance: the export is in the 2026-09-24 chat (pasted by the owner); no CSV folder this time — the export is fully reproduced in the 260 row below. |
 | 2026-09-24 | 20260924_260_tax_reversal_ledger | ✅ **DEV + STAGING 2026-09-24 (owner: "260 ran on dev & staging"; Dev AND Staging live post-check exports pasted; IDENTICAL row for row — 41 rows: 4 CHECK · 18 COLUMN · 3 FK · 2 GRANT · 8 INDEX · 2 RLS · 4 UNIQUE/PK; Dev export used for the rebuild). Prod pending (after 259). Note: service_role holds ALL table privileges (Supabase's default grant; the explicit S/I/U grant was additive) — anon/authenticated hold none.** Tax build step 7 (research file B3; owner rulings Q1/Q2 2026-09-24). NEW TABLE `order_item_tax_reversals` (append-only ledger: `order_item_id → order_items`, `order_id → orders`, `reversal_kind` CHECK item_refund/order_refund/dashboard_refund, `refund_ref`, `taxable_amount_cents ≥0`, `tax_cents ≥0`, `tax_jurisdictions jsonb NOT NULL` (snapshot shape), `tax_rate_version`, `created_at`; UNIQUE (order_item_id, refund_ref); indexes on item / created_at / order). NEW TABLE `order_tax_reversal_queue` ("reversal owed" for PARTIAL Stripe-dashboard refunds: `order_id → orders`, `stripe_refund_id UNIQUE`, `refund_amount_cents >0`, `created_at`, `resolved_at`, `resolved_by`, `note`; partial index on open rows). Both: RLS ON, NO policies, REVOKE ALL from anon/authenticated, GRANT S/I/U to service_role. No triggers, functions, policies or existing-object changes. NOT WIRED — steps 8–11 write the ledger; the report's "minus reversals" pass reads it. |
 | 2026-09-24 | 20260924_259_order_items_tax_source_self_computed | ✅ **DEV + STAGING 2026-09-24 (owner; live post-check on both: `CHECK (((tax_source IS NULL) OR (tax_source = ANY (ARRAY['none'::text, 'manual'::text, 'stripe'::text, 'self_computed_v1'::text]))))` — IDENTICAL). Prod pending (no dependency on 252–258; can run alone or in order after 258).** Tax build step 1 (`apps/web/.claude/tax_build_review_research.md` C-addendum): the mig-214 CHECK `order_items_tax_source_check` allows only `none/manual/stripe`, but checkout writes `tax_source = 'self_computed_v1'` while `TAX_STREAM1_ENABLED` (dark today) → the flag flip would 23514 every taxable order_items insert. This migration DROP+ADDs the same-named CHECK with `'self_computed_v1'` added and rewrites the column comment. No columns, indexes, functions, RLS or data touched. CHECK-constraint structured row updated 2026-09-24 from the measured Dev/Staging post-check text (not from the file). Rule L: 258 + 259 = 2 past the 257 stamp; no CREATE TABLE. |
@@ -345,7 +347,7 @@
 
 ---
 
-## Tables (97)
+## Tables (98)
 
 | Table Name |
 |------------|
@@ -419,6 +421,7 @@
 | shopper_feedback |
 | spatial_ref_sys |
 | support_tickets |
+| tax_rate_corrections |
 | transactions |
 | user_agreement_acceptances |
 | user_profiles |
@@ -1442,6 +1445,7 @@
 | tax_rate_version | text | YES | - |
 | tax_jurisdiction_verified_at | timestamptz | YES | - |
 | tax_jurisdiction_note | text | YES | - |
+| tax_rates_carried_forward_at | timestamptz | YES | - | ✅ mig 261 (Dev + Staging 2026-09-25, measured) — set by the rate-refresh job while last quarter's rates are carried forward |
 | event_start_date | date | YES | - |
 | event_end_date | date | YES | - |
 | event_url | text | YES | - |
@@ -1770,6 +1774,16 @@
 | admin_notes | text | YES | - |
 | created_at | timestamptz | YES | now() |
 | updated_at | timestamptz | YES | now() |
+
+### tax_rate_corrections
+| Column | Type | Nullable | Default |
+|--------|------|----------|--------|
+| id | uuid | NO | gen_random_uuid() |
+| market_id | uuid | NO | - |
+| quarter | text | NO | - |
+| applied_at | timestamptz | NO | - |
+| changes | jsonb | NO | - |
+| created_at | timestamptz | NO | now() |
 
 ### transactions
 | Column | Type | Nullable | Default |
@@ -2734,6 +2748,11 @@
 |--------|------------|
 | vertical_id | verticals.vertical_id |
 
+### tax_rate_corrections
+| Column | References |
+|--------|------------|
+| market_id | markets.id |
+
 ### transactions
 | Column | References |
 |--------|------------|
@@ -3538,6 +3557,12 @@ statement is recoverable from the creating migration.
 | idx_support_tickets_vertical | btree (vertical_id) |
 | support_tickets_pkey | UNIQUE btree (id) |
 
+### tax_rate_corrections
+| Index Name | Definition |
+|-----------|------------|
+| idx_tax_rate_corrections_quarter | btree (quarter) |
+| tax_rate_corrections_pkey | UNIQUE btree (id) |
+
 ### transactions
 | Index Name | Definition |
 |-----------|------------|
@@ -3967,6 +3992,7 @@ rather than removed.
 | public_activity_events | public_activity_events_event_type_check | `(event_type = ANY (ARRAY['purchase'::text, 'new_vendor'::text, 'sold_out'::text, 'new_listing'::text]))` |
 | support_tickets | support_tickets_category_check | `(category = ANY (ARRAY['technical_problem'::text, 'order_issue'::text, 'account_help'::text, 'feature_request'::text, 'general'::text]))` |
 | support_tickets | support_tickets_status_check | `(status = ANY (ARRAY['new'::text, 'in_progress'::text, 'resolved'::text, 'closed'::text]))` |
+| tax_rate_corrections | tax_rate_corrections_quarter_check | `((quarter ~ '^[0-9]{4}-Q[1-4]$'::text))` |
 | user_agreement_acceptances | user_agreement_acceptances_agreement_type_check | `(agreement_type = ANY (ARRAY['platform_user'::text, 'vendor_service'::text, 'vendor_partner'::text]))` |
 | user_profiles | user_profiles_buyer_tier_check | `(buyer_tier = ANY (ARRAY['standard'::text, 'premium'::text]))` |
 | user_profiles | user_profiles_location_source_check | `(location_source = ANY (ARRAY['gps'::text, 'manual'::text, 'ip'::text]))` |

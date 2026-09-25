@@ -1,18 +1,18 @@
 # 17 — Crons / Scheduled Jobs ⚠ money
 
-<!-- map-stamp: domain=crons; verified=2026-09-04; commit=d09707d3 -->
+<!-- map-stamp: domain=crons; verified=2026-09-25; commit=2cc1959b -->
 <!-- map-claims
 src/app/api/cron/**
 src/lib/cron/**
 -->
 
-Seven scheduled jobs. One of them — `expire-orders` — is the platform's master sweeper and the highest-risk recurring process in the system.
+Eight scheduled jobs (nine schedule lines — `tax-rate-refresh` has two). One of them — `expire-orders` — is the platform's master sweeper and the highest-risk recurring process in the system.
 
 ---
 
 ## Read this first
 
-1. `apps/web/vercel.json` (25 lines) — all five schedules.
+1. `apps/web/vercel.json` (25 lines) — all the schedules.
 2. `expire-orders/route.ts:39-129` — the phase index, the `maxDuration` rationale, and the soft-budget mechanism. These 90 lines explain the structure of the 3,292-line file.
 3. The five pure helpers in `lib/cron/` (68–87 lines each, all unit-tested) — they hold the actual business rules.
 
@@ -30,11 +30,12 @@ Seven scheduled jobs. One of them — `expire-orders` — is the platform's mast
 | `/api/cron/surveys` | `0 * * * *` | hourly | No |
 | `/api/cron/park-docs-review` | `0 12-23,0-2 * * *` | hourly, ~7am–8pm CT (DST-safe) | No |
 | `/api/cron/remit-cause-funds` | `0 8 * * 1` | weekly Mon 08:00 UTC (~3am CT) | **YES** — Community Chip In Connect payouts |
+| `/api/cron/tax-rate-refresh` | `0 9 1 * *` + `0 9 2-31 1,4,7,10 *` | 1st of every month 09:00 UTC (health check) + DAILY for the rest of Jan/Apr/Jul/Oct (the window the Comptroller's new-quarter file is expected; owner 2026-09-25 "monthly with a contingency") | No money moves — edits markets' tax rate columns; ⚠ the checkout tax engine refuses taxable sales at a market whose stamp is not the current quarter, so this job keeps tax flowing |
 | `/api/cron/event-reconfirm` | `30 * * * *` | hourly at :30 | **YES** — full-order Stripe refunds for unconfirmed event orders |
 
 **Crons run on PRODUCTION only** — Vercel does not fire schedules on preview or staging deployments. `expire-orders` and `vendor-activity-scan` additionally hard-skip when `VERCEL_ENV !== 'production'`. To exercise a cron elsewhere, invoke the route manually with the `CRON_SECRET` bearer token.
 
-**Auth (all seven):** `Bearer ${CRON_SECRET}` with a timing-safe comparison.
+**Auth (all eight):** `Bearer ${CRON_SECRET}` with a timing-safe comparison.
 
 ## `event-reconfirm` — B3 re-confirmation sweep (mig 230, 2026-08-15) ⚠ money
 
@@ -88,6 +89,7 @@ Seven scheduled jobs. One of them — `expire-orders` — is the platform's mast
 | `cron/vendor-quality-checks/route.ts` | Runs the five quality checks (schedule conflicts, low stock, price anomalies, ghost listings, inventory velocity) and sends **one grouped notification per vendor** |
 | `cron/surveys/route.ts` | Survey generation (daily at 15:00 UTC): per-day buyer surveys for a buyer's first two purchases only, then the WEEKLY batch via `lib/surveys/weekly.ts` (vendors every week, buyers past purchase 2 — one row per place, one email per person; owner 2026-08-29). Per-market local fire times (market closes before 18:00 → 18:00 same day; at/after 18:00 → 08:00 next day; week ends Sunday 18:00). Inserts `market_surveys`, sends in-app + branded email. **Also runs `runParkCheckinReminders`** — which is why this cron must stay hourly |
 | `cron/park-docs-review/route.ts` | 36-line wrapper: auth check, then `runParkDocsReviewSweep()` from `lib/markets/park-docs-review` |
+| `cron/tax-rate-refresh/route.ts` | Sales-tax quarterly rate refresh (2026-09-25, tax step 12; owner Q4 carry-forward): `runTaxRateRefresh` (`lib/tax/rate-refresh.ts`) fetches the Comptroller's `taxrates.txt` (never cached), parses it (`lib/tax/rate-file.ts`), and per ADMIN-VERIFIED market: stamps the current quarter / applies changed rates / sets re-verify on a vanished code / carries last quarter's rates forward when the new file is late (records `markets.tax_rates_carried_forward_at`, mig 261; daily in-app reminder). Admin-verified-this-quarter markets are never second-guessed by an older file. Notices once per market+quarter+kind; appends to (never overwrites) the card note. ⚠ Needs mig 261 applied before it runs on an env (Prod: apply 261 before the first cron after the code push). |
 | `cron/remit-cause-funds/route.ts` | Community Chip In (mig 213): batch-remits accumulated chip-in balances (≥ $10) to **Connect** beneficiaries via `runCauseRemitSweep` (`lib/cause/remit.ts`); deduct-first for no-double-pay; check-method orgs are paid manually at `/admin/cause` |
 
 ## Library

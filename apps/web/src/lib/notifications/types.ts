@@ -138,6 +138,13 @@ export type NotificationType =
   // item cannot sell there (checkout refuses it) until the admin does. Sent to
   // platform admins + the vertical's admins, once per market per 24 h.
   | 'tax_codes_needed_admin'
+  // Sales tax rate refresh (step 12, owner Q4 2026-09-24): the Comptroller's
+  // file changed a market's rate (applied), dropped one of its codes (market
+  // set to re-verify), or disagrees with it during a carry-forward.
+  | 'tax_rates_changed_admin'
+  // …and the DAILY reminder while the new quarter's file is not published
+  // and markets run on last quarter's rates, carried forward.
+  | 'tax_rate_file_missing_admin'
   | 'park_date_cancelled_truck'
   // R3-4 (2026-08-27): a truck with a PAID spot chose an event that day
   // instead — the operator is told (notify only; the booking stays paid).
@@ -1252,6 +1259,32 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     message: (d) =>
       `${d.vendorName || 'A vendor'} added ${d.itemTitle ? `"${d.itemTitle}"` : 'a taxable item'} at ${d.marketName || 'a location'}, which does not have its Texas sales-tax codes entered and verified yet. Until you enter them on the market's Sales tax jurisdictions card, buyers cannot check out with taxable items there. The vendor has been told it may take a little while.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/admin/markets${d.marketId ? `?edit=${d.marketId}` : ''}`,
+  },
+
+  // Rate refresh (lib/tax/rate-refresh.ts). Standard = email + in_app: a
+  // dropped code stops taxable sales at the market until the admin acts, and a
+  // changed rate is something the admin must know was applied. One notice per
+  // market per quarter per kind (dedupRef).
+  tax_rates_changed_admin: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'admin',
+    title: (d) => `Sales tax rates: check ${d.marketName || 'a market'}`,
+    message: (d) => d.changeSummary || 'The quarterly sales-tax rate check found something at this market that needs your attention.',
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/admin/markets${d.marketId ? `?edit=${d.marketId}` : ''}`,
+  },
+
+  // Daily while carrying forward (owner Q4: "a daily reminder to admin to check
+  // progress"). 'info' = FREE in_app only (COMM-3 frugality) — a daily EMAIL for
+  // up to three weeks would be the cost inverse of a reminder nobody must act on
+  // unless it runs long. Once per vertical per calendar day.
+  tax_rate_file_missing_admin: {
+    urgency: 'info',
+    severity: 'info',
+    audience: 'admin',
+    title: () => 'Sales tax: this quarter\'s rate file is not published yet',
+    message: (d) => d.changeSummary || 'The Comptroller has not published this quarter\'s rate file yet; markets are using last quarter\'s rates, carried forward.',
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/admin/markets`,
   },
 
   // NOT-5 (mig 202, user decision 2026-07-18) — the user's email hard-bounced

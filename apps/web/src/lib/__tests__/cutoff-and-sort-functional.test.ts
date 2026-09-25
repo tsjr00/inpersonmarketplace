@@ -338,8 +338,16 @@ describe('NI-014: Total notification types = 72', () => {
     // warning) — a vendor attached a TAXABLE listing to a location whose Texas
     // tax codes are not entered/verified; sent from
     // api/vendor/listings/[listingId]/markets, once per market per 24 h.
+    // 136 → 138 (2026-09-25, owner "yes, bump the notification limit" — tax
+    // rate-refresh cron, Q4 carry-forward ruling): tax_rates_changed_admin
+    // (admin, standard = email+in_app, warning — a rate changed and was
+    // applied, a code vanished and the market is set to re-verify, or saved
+    // rates disagree with the file during a carry-forward; once per market per
+    // quarter per kind) + tax_rate_file_missing_admin (admin, info = FREE
+    // in_app only — the daily reminder while the new quarter's file is late;
+    // once per vertical per day). Both sent only by lib/tax/rate-refresh.ts.
     // Inventory tripwire — update when types are intentionally added/removed.
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(136)
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(138)
   })
 
   it('includes all buyer-facing types', () => {
