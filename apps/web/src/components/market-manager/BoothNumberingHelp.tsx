@@ -25,7 +25,9 @@ export default function BoothNumberingHelp({
   const vendor = term(vertical, 'vendor').toLowerCase()
   const numbered = tiers.filter((t) => t.description)
   const unnumbered = tiers.filter((t) => !t.description)
-  const map = numbered.map((t) => `${t.size_label} ${t.description}`).join(' · ')
+  // Size, then its numbers in parentheses — "10x10 (1–10) · 10x15 (11–20)"
+  // (tester OB-030: the size and the numbers read as one run without them).
+  const map = numbered.map((t) => `${t.size_label} (${t.description})`).join(' · ')
 
   return (
     <div style={{

@@ -16,8 +16,16 @@ import PrintButton from './PrintButton'
  * Off-platform placeholders are listed too, so the sheet is the whole market.
  *
  * `?week=YYYY-MM-DD` (any date; snapped to its Sunday) — default: the current
- * week in the market's timezone. Print-styled: the page chrome hides under
- * @media print and the table is black on white.
+ * week in the market's timezone, or NEXT week once every market day of this
+ * week has passed (owner 2026-09-25: lets a manager print the coming week's
+ * sheet early). Print-styled: the page chrome hides under @media print and the
+ * table is black on white.
+ *
+ * App check-ins (owner 2026-09-25): vendors self check in on the app
+ * (market_day_checkins, Phase D); the paper sheet is the BACKUP to that, so a
+ * vendor already checked in for a market day shows "In <time>" under that day,
+ * and a checked-in vendor with no booking or hold this week still gets a row.
+ * The "Checked in" column stays blank for the pen.
  *
  * Auth: manager of this market (isMarketManager). Service client for the
  * reads (manager-scoped tables are RLS default-deny).
@@ -59,11 +67,20 @@ export default async function WeekSheetPage({ params, searchParams }: PageProps)
   const tz = (market.timezone as string | null) || 'America/Chicago'
   const localNow = new Date(new Date().toLocaleString('en-US', { timeZone: tz }))
   const today = `${localNow.getFullYear()}-${String(localNow.getMonth() + 1).padStart(2, '0')}-${String(localNow.getDate()).padStart(2, '0')}`
-  const anchor = weekParam && /^\d{4}-\d{2}-\d{2}$/.test(weekParam) ? weekParam : today
-  const week = sundayOf(anchor)
+  const explicitWeek = weekParam && /^\d{4}-\d{2}-\d{2}$/.test(weekParam) ? weekParam : null
+  // The schedule decides the default week, so read it first (one small query).
+  const { data: schedRows } = await observed(service
+    .from('market_schedules')
+    .select('day_of_week, start_time, end_time')
+    .eq('market_id', marketId)
+    .eq('active', true), { table: 'market_schedules' })
+  const marketDays = Array.from(new Set((schedRows ?? []).map((s) => s.day_of_week as number))).sort()
+  const thisWeek = sundayOf(today)
+  const thisWeekOver = marketDays.length > 0 && marketDays.every((dow) => addDays(thisWeek, dow) < today)
+  const week = explicitWeek ? sundayOf(explicitWeek) : thisWeekOver ? addDays(thisWeek, 7) : thisWeek
   const weekEnd = addDays(week, 6)
 
-  const [rentalsRes, pinsRes, placeholdersRes, tiersRes, schedRes] = await Promise.all([
+  const [rentalsRes, pinsRes, placeholdersRes, tiersRes, checkinsRes] = await Promise.all([
     observed(service
       .from('weekly_booth_rentals')
       .select('id, vendor_profile_id, booth_number, inventory_id, status, price_cents, vendor_profiles!weekly_booth_rentals_vendor_profile_id_fkey ( profile_data )')
@@ -84,15 +101,22 @@ export default async function WeekSheetPage({ params, searchParams }: PageProps)
       .from('market_booth_inventory')
       .select('id, size_label')
       .eq('market_id', marketId), { table: 'market_booth_inventory' }),
+    // Vendors' own app check-ins for this week's dates (one row per vendor per
+    // market day — UNIQUE (market_id, vendor_profile_id, market_date)).
     observed(service
-      .from('market_schedules')
-      .select('day_of_week, start_time, end_time')
+      .from('market_day_checkins')
+      .select('vendor_profile_id, market_date, checked_in_at, vendor_profiles!market_day_checkins_vendor_profile_id_fkey ( profile_data )')
       .eq('market_id', marketId)
-      .eq('active', true), { table: 'market_schedules' }),
+      .gte('market_date', week)
+      .lte('market_date', weekEnd), { table: 'market_day_checkins' }),
   ])
 
   const sizeById = new Map((tiersRes.data ?? []).map((t) => [t.id as string, t.size_label as string]))
-  const marketDays = Array.from(new Set((schedRes.data ?? []).map((s) => s.day_of_week as number))).sort()
+  const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' })
+  const checkinAt = new Map<string, string>()
+  for (const c of checkinsRes.data ?? []) {
+    checkinAt.set(`${c.vendor_profile_id}|${c.market_date}`, fmtTime(c.checked_in_at as string))
+  }
   const marketDates = marketDays.map((dow) => {
     const date = addDays(week, dow)
     return { dow, date, label: `${DAY_ABBR[dow]} ${fmtDate(date).replace(/^\w+, /, '')}` }
@@ -129,6 +153,23 @@ export default async function WeekSheetPage({ params, searchParams }: PageProps)
       vendorId,
     })
   }
+  // Checked in on the app but no booking or hold this week (e.g. a free
+  // market): still on the sheet, so the paper matches who is actually there.
+  const onSheet = new Set(rows.map((r) => r.vendorId).filter(Boolean) as string[])
+  for (const c of checkinsRes.data ?? []) {
+    const vendorId = c.vendor_profile_id as string
+    if (onSheet.has(vendorId)) continue
+    onSheet.add(vendorId)
+    const vp = c.vendor_profiles as unknown as { profile_data: unknown } | { profile_data: unknown }[] | null
+    rows.push({
+      name: nameOf((Array.isArray(vp) ? vp[0] : vp)?.profile_data),
+      booth: '—',
+      size: '—',
+      status: 'Checked in · no booking this week',
+      declared: new Set<string>(),
+      vendorId,
+    })
+  }
   for (const ph of placeholdersRes.data ?? []) {
     rows.push({
       name: ((ph.notes as string | null) || '').trim() || 'Off-platform vendor',
@@ -155,7 +196,8 @@ export default async function WeekSheetPage({ params, searchParams }: PageProps)
   const booth = term(vertical, 'booth')
   const prevWeek = addDays(week, -7)
   const nextWeek = addDays(week, 7)
-  const isCurrent = week === sundayOf(today)
+  const isCurrent = week === thisWeek
+  const isNext = week === addDays(thisWeek, 7)
 
   return (
     <div style={{ maxWidth: 960, margin: '0 auto', padding: '24px 16px', fontFamily: 'system-ui, sans-serif', color: '#111' }}>
@@ -182,9 +224,16 @@ export default async function WeekSheetPage({ params, searchParams }: PageProps)
 
       <h1 style={{ margin: '0 0 4px', fontSize: 22 }}>{market.name as string} — week sheet</h1>
       <p style={{ margin: '0 0 16px', fontSize: 14, color: '#444' }}>
-        Week of {fmtDate(week)} – {fmtDate(weekEnd)}{isCurrent ? ' (this week)' : ''} · {rows.length} {rows.length === 1 ? 'row' : 'rows'} ·
+        Week of {fmtDate(week)} – {fmtDate(weekEnd)}{isCurrent ? ' (this week)' : isNext ? ' (next week)' : ''} · {rows.length} {rows.length === 1 ? 'row' : 'rows'} ·
         {' '}printed {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
       </p>
+
+      {/* The market days with their dates, above the table (owner 2026-09-25). */}
+      {marketDates.length > 0 && (
+        <p style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 600 }}>
+          Market {marketDates.length === 1 ? 'day' : 'days'}: {marketDates.map((d) => fmtDate(d.date)).join(' · ')}
+        </p>
+      )}
 
       {rows.length === 0 ? (
         <p style={{ fontSize: 14, color: '#444' }}>Nothing on the books for this week yet.</p>
@@ -208,7 +257,12 @@ export default async function WeekSheetPage({ params, searchParams }: PageProps)
                 <td>{r.size}</td>
                 <td>{r.status}</td>
                 {marketDates.map((d) => (
-                  <td key={d.date} className="c">{r.declared.has(d.date) ? '✓' : ''}</td>
+                  <td key={d.date} className="c">
+                    {r.declared.has(d.date) ? '✓' : ''}
+                    {r.vendorId && checkinAt.has(`${r.vendorId}|${d.date}`) && (
+                      <div style={{ fontSize: 12, fontWeight: 700 }}>In {checkinAt.get(`${r.vendorId}|${d.date}`)}</div>
+                    )}
+                  </td>
                 ))}
                 <td></td>
               </tr>
@@ -218,7 +272,7 @@ export default async function WeekSheetPage({ params, searchParams }: PageProps)
       )}
 
       <p style={{ marginTop: 16, fontSize: 12, color: '#666' }}>
-        ✓ = the vendor declared that day. &ldquo;Held&rdquo; = the number is reserved for them but no week is booked. &ldquo;Booked · NOT paid&rdquo; = they cannot sell until they pay (fee markets).
+        ✓ = the vendor declared that day. &ldquo;In 7:42 AM&rdquo; = the vendor already checked in on the app that day (times in the market&apos;s time zone); use the Checked-in column for anyone who has not. &ldquo;Held&rdquo; = the number is reserved for them but no week is booked. &ldquo;Booked · NOT paid&rdquo; = they cannot sell until they pay (fee markets).
         {marketDates.length === 0 ? ' No operating days are set for this market.' : ''}
       </p>
       <p className="no-print" style={{ fontSize: 12, color: '#666' }}>

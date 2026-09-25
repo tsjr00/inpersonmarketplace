@@ -120,6 +120,11 @@ export default function FtParkDashboardBody({
         setupComplete={parkSetupComplete}
         ftSignals={{ trucksBookedNeedingApproval: parkWeek?.needingApproval ?? 0, holdRequests: pendingHoldRequests }}
       />
+      {/* OB-030 D5 (2026-09-25): "not visible to buyers" is bad news the manager
+          must see — it sat inside Setup, which is collapsed once onboarding is
+          complete. It shows here, under Action Items, until the market is
+          visible; the green confirmation stays inside Setup. */}
+      {visibilityStatus && !visibilityStatus.isVisible && <MarketVisibilityCard status={visibilityStatus} />}
 
       {/* ② THIS WEEK — operations hub */}
       <GroupHeading id="week-group" title="This week" subtitle="Who's booked, and who showed up" />
@@ -246,7 +251,7 @@ export default function FtParkDashboardBody({
           initialDescription={(market.description as string | null) ?? null}
         />
         <VerificationDocumentsCard marketId={marketId} vertical={vertical} />
-        {visibilityStatus && <MarketVisibilityCard status={visibilityStatus} />}
+        {visibilityStatus?.isVisible && <MarketVisibilityCard status={visibilityStatus} />}
       </CollapsibleSection>
 
       {/* ⑤ COMMUNICATION & INSIGHTS — same name as the FM dashboard (owner 2026-09-20). */}

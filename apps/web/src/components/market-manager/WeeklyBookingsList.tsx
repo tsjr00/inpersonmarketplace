@@ -97,6 +97,16 @@ function todayLocalISO(): string {
   return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
 }
 
+/** The Sunday starting the booth week that contains `ymd` (rentals are
+ *  Sunday-keyed). Same math as lib/markets/manager-week-strip.ts sundayOf,
+ *  inlined because that module imports server-only error tracing. */
+function sundayOfLocal(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number)
+  const dt = new Date(Date.UTC(y!, m! - 1, d!))
+  dt.setUTCDate(dt.getUTCDate() - dt.getUTCDay())
+  return dt.toISOString().slice(0, 10)
+}
+
 function formatPrice(cents: number): string {
   // Always show cents on a transaction amount — otherwise $159.90 renders as
   // "$159.9" and $160.00 as "$160" (tester finding 2026-07-23).
@@ -122,18 +132,23 @@ export default function WeeklyBookingsList({ marketId, vertical, bookings: initi
   const [cancellingId, setCancellingId] = useState<string | null>(null)
   const [cancelResult, setCancelResult] = useState<Record<string, string>>({})
 
-  // Every week that has at least one booking, oldest first.
+  // Every week that has at least one booking, PLUS the current week, oldest
+  // first. The current week is always here (OB-030 D2, 2026-09-25): before, a
+  // market with no bookings had no week header at all — so no "Print this
+  // week's sheet", though the sheet lists holds and placeholders the manager
+  // needs before anyone books — and on any day but Sunday the current week's
+  // Sunday (< today) was skipped by the opening pick below.
+  const currentSunday = sundayOfLocal(todayLocalISO())
   const weeks = useMemo(
-    () => Array.from(new Set(bookings.map((b) => b.week_start_date))).sort(),
-    [bookings]
+    () => Array.from(new Set([...bookings.map((b) => b.week_start_date), currentSunday])).sort(),
+    [bookings, currentSunday]
   )
 
   // Open on the current week if it has bookings, otherwise the next upcoming
   // one, otherwise the most recent past one. A manager arriving mid-season
   // should see this week's line-up without clicking anything.
   const [weekIndex, setWeekIndex] = useState(() => {
-    const today = todayLocalISO()
-    const upcoming = weeks.findIndex((w) => w >= today)
+    const upcoming = weeks.findIndex((w) => w >= currentSunday)
     return upcoming === -1 ? Math.max(0, weeks.length - 1) : upcoming
   })
   const selectedWeek = weeks[Math.min(weekIndex, weeks.length - 1)] ?? null
@@ -411,7 +426,8 @@ export default function WeeklyBookingsList({ marketId, vertical, bookings: initi
                 title="Cancel this paid week — the vendor is credited for the remaining declared days"
                 style={{ ...navButton, color: '#991b1b', borderColor: '#f5c6cb', fontSize: typography.sizes.xs, minHeight: 32 }}
               >
-                Cancel week
+                {/* OB-030 (e): "Cancel week" read like cancelling the market's week. */}
+                Cancel this booking
               </button>
             )}
             {cancelOpenId === b.id && (

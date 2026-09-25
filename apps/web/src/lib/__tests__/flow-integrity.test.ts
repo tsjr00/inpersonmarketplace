@@ -1334,6 +1334,15 @@ describe('Dashboard empty-state convention', () => {
       .toMatch(/DASHBOARD_STATES\[empty \? 'neutral' : state\]/)
   })
 
+  it('the week sheet is the backup to app check-ins and opens on the coming week once this one is over (owner 2026-09-25)', () => {
+    const sheet = bare('app/[vertical]/market-manager/[marketId]/week-sheet/page.tsx')
+    expect(sheet, 'reads the vendors\' own app check-ins for the week').toMatch(/from\('market_day_checkins'\)[\s\S]{0,300}\.gte\('market_date', week\)[\s\S]{0,40}\.lte\('market_date', weekEnd\)/)
+    expect(sheet, 'no ?week + every market day past -> next week').toMatch(/explicitWeek \? sundayOf\(explicitWeek\) : thisWeekOver \? addDays\(thisWeek, 7\) : thisWeek/)
+    expect(sheet, 'the market days are listed with their dates').toMatch(/Market \{marketDates\.length === 1 \? 'day' : 'days'\}/)
+    const card = rd('components/market-manager/WeeklyBookingsCard.tsx')
+    expect(card, 'the empty card links the week sheet with no fixed week').toMatch(/action: \{ href: `\/\$\{vertical\}\/market-manager\/\$\{marketId\}\/week-sheet`/)
+  })
+
   it('sections with nothing to show collapse instead of vanishing', () => {
     // These four used to `return null` on an empty result.
     for (const f of [

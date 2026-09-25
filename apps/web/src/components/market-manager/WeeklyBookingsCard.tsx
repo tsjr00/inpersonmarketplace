@@ -16,8 +16,12 @@ import { describeTierLabels, type BoothInventoryRow } from '@/lib/markets/booth-
  * relationship-hint surprises, matches the pattern in
  * api/market-manager/[marketId]/vendors/route.ts.
  *
- * Renders nothing when there are no bookings — keeps the dashboard quiet
- * before vendors start booking.
+ * With no bookings yet it COLLAPSES to one line (owner rule 2026-08-08: empty
+ * sections collapse, never vanish) — and that line carries the week sheet
+ * (OB-030 D2, owner option (a) 2026-09-25): the sheet lists holds and
+ * off-platform booths, which a manager needs before anyone books. The link
+ * has no ?week, so the sheet opens on the current week in the MARKET's
+ * timezone — or next week once this week's last market day has passed.
  *
  * Payment information NOT shown — payment ships in Stage 3 via Stripe.
  *
@@ -114,15 +118,18 @@ export default async function WeeklyBookingsCard({ marketId, vertical }: WeeklyB
   return (
     <DashboardCard
       title={`Weekly ${term(vertical, 'booth').toLowerCase()} bookings`}
-      description={`Manage the bookings: any week, not just this one — use the arrows to move between weeks. Bookings get their number automatically (the vendor's held number if they have one, else the lowest free number in their size); you only step in here to move an UNPAID booking to another number of the same size, or to cancel a paid week. Anyone booked for several weeks is summarized once at the bottom. (The occupancy card above is the picture; this is where you act.)`}
       {...(noBookingsYet ? {
         empty: {
           kind: 'waiting' as const,
           // Mig 258 / F2a: numbers arrive WITH the booking — the manager is not
           // assigning them here.
-          message: `Once ${term(vertical, 'vendors').toLowerCase()} book, each week's roster shows up here with the ${term(vertical, 'booth').toLowerCase()} number each one was given.`,
+          message: `No bookings yet. Once ${term(vertical, 'vendors').toLowerCase()} book, each week's roster shows up here with the ${term(vertical, 'booth').toLowerCase()} number each one was given. The week sheet already lists your holds and off-platform ${term(vertical, 'booths').toLowerCase()}.`,
+          // No ?week: the sheet opens on this week, or next week once this week's
+          // last market day has passed (owner 2026-09-25).
+          action: { href: `/${vertical}/market-manager/${marketId}/week-sheet`, label: '🖨 Print the week sheet' },
         },
       } : {})}
+      description={`Manage the bookings: any week, not just this one — use the arrows to move between weeks. Bookings get their number automatically (the vendor's held number if they have one, else the lowest free number in their size); you only step in here to move an UNPAID booking to another number of the same size, or to cancel a paid week. Anyone booked for several weeks is summarized once at the bottom. (The occupancy card above is the picture; this is where you act.)`}
     >
       {/* The one booth-numbers story (N-8). */}
       <div style={{ marginBottom: 12 }}>

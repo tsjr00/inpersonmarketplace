@@ -137,6 +137,11 @@ export default function FmDashboardBody({
       )}
       {/* ① Action Items — only things the manager can click and finish */}
       <ManagerActionSummary vertical={vertical} progress={onboardingProgress} stats={dashboardStats} signals={actionSignals} />
+      {/* OB-030 D5 (2026-09-25): "not visible to buyers" is bad news the manager
+          must see — it sat inside Setup, which is collapsed once onboarding is
+          complete. It shows here, under Action Items, until the market is
+          visible; the green confirmation stays inside Setup. */}
+      {visibilityStatus && !visibilityStatus.isVisible && <MarketVisibilityCard status={visibilityStatus} />}
 
       {/* ② SETUP — first, onboarding-style (Phase 4a). A new manager configures
           the market before the operational groups below. Collapsed by default
@@ -176,7 +181,7 @@ export default function FmDashboardBody({
           initialDescription={(market.description as string | null) ?? null}
         />
         <VerificationDocumentsCard marketId={marketId} vertical={vertical} />
-        {visibilityStatus && <MarketVisibilityCard status={visibilityStatus} />}
+        {visibilityStatus?.isVisible && <MarketVisibilityCard status={visibilityStatus} />}
       </CollapsibleSection>
 
       {/* ③ BOOTHS & OCCUPANCY — this week's picture first, then the bookings

@@ -84,18 +84,25 @@ export default function BoothNumberPicker({
     minHeight: 32,
     backgroundColor: 'white',
   } as const
+  // OB-030 D3: a locked (disabled) picker must LOOK locked — the explicit white
+  // background overrode the browser's grey, so paid-week locks looked editable.
+  const lockedStyle = (isDisabled: boolean) => (isDisabled
+    ? { backgroundColor: colors.surfaceMuted, color: colors.textMuted, cursor: 'not-allowed' as const }
+    : {})
+  const sizeDisabled = disabled || tiers.length === 0
 
   const noNumbersYet = !!inventoryId && rows !== null && rows.length === 0 && !loadError
   const freeCount = (rows ?? []).filter((r) => r.state === 'free' || r.state === 'own').length
+  const numberDisabled = disabled || !inventoryId || rows === null || noNumbersYet
 
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: spacing['2xs'], flexWrap: 'wrap' }}>
       <select
         value={inventoryId}
         onChange={(e) => { onInventoryChange(e.target.value); onChange('') }}
-        disabled={disabled || tiers.length === 0}
+        disabled={sizeDisabled}
         title={tiers.length === 0 ? `Set up ${booth} inventory first` : `${term(vertical, 'booth')} size`}
-        style={{ ...selectStyle, maxWidth: 150 }}
+        style={{ ...selectStyle, maxWidth: 150, ...lockedStyle(sizeDisabled) }}
       >
         <option value="">Size…</option>
         {tiers.map((t) => <option key={t.id} value={t.id}>{t.size_label}</option>)}
@@ -103,9 +110,9 @@ export default function BoothNumberPicker({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        disabled={disabled || !inventoryId || rows === null || noNumbersYet}
+        disabled={numberDisabled}
         title={!inventoryId ? 'Pick a size first' : `${term(vertical, 'booth')} number — taken numbers show who holds them`}
-        style={{ ...selectStyle, maxWidth: 220 }}
+        style={{ ...selectStyle, maxWidth: 220, ...lockedStyle(numberDisabled) }}
       >
         {!inventoryId ? (
           <option value="">Pick a size first</option>

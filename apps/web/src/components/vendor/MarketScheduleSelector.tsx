@@ -54,6 +54,9 @@ export default function MarketScheduleSelector({
   const [saved, setSaved] = useState<string | null>(null) // schedule ID just saved
   const [error, setError] = useState<string | null>(null)
   const [errorType, setErrorType] = useState<'warning' | 'blocking'>('warning')
+  // The refusal's code picks the bold heading (OB-030 D4: the apply-required
+  // refusal used to be headed "Cannot deactivate").
+  const [errorCode, setErrorCode] = useState<string | null>(null)
   // BR-1 (owner 2026-09-19): every managed market — free or charging — routes
   // a new vendor through Apply (agreement + document-sharing opt-in live
   // there) and the manager's one-time approval. This selector never collects
@@ -146,6 +149,7 @@ export default function MarketScheduleSelector({
         } else {
           setErrorType('warning')
         }
+        setErrorCode(typeof data.code === 'string' ? data.code : null)
         setError(data.error || 'Failed to update schedule')
       }
     } catch (err) {
@@ -293,7 +297,7 @@ export default function MarketScheduleSelector({
         }}>
           {errorType === 'blocking' && (
             <strong style={{ display: 'block', marginBottom: 4 }}>
-              {error.includes('Schedule conflict') ? 'Schedule Conflict' : 'Cannot deactivate'}
+              {errorCode === 'ERR_MARKET_APPLY_REQUIRED' ? 'Manager approval needed' : error.includes('Schedule conflict') ? 'Schedule Conflict' : 'Cannot deactivate'}
             </strong>
           )}
           {error}
