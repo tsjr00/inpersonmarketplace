@@ -197,6 +197,14 @@ New user-facing strings go through `t()`, not hardcoded literals — the shared 
   capped at the snapshot so racing refund paths can never over-reverse; `refundAmountWithTax`
   = the money paths' buyerPaidForItem + the reversal. Policy-neutral: the refunded fraction
   (full / post-fee 75% / per-day) is the CALLER's — owner Q1 lives at the call sites. 11 tests.
+- `tax/refund-ledger.ts` — **the ONE reader/writer of `order_item_tax_reversals`** (mig 260; step 8,
+  2026-09-26): `taxReversalForOrderItem(service, itemId, snapshot, portion)` = the pure math capped by
+  what the ledger already holds for the item (read BEFORE the refund; a failed read THROWS — nothing has
+  moved yet); `recordTaxReversal(service, {…, refundRef: the Stripe refund id, kind})` appends the row
+  AFTER Stripe succeeds and NEVER throws (`recorded | duplicate | skipped | failed`; 23505 = the retry /
+  charge.refunded-webhook race converging on one row; failures logged with what to re-enter);
+  `taxReversalRecorded(service, refundId)` is how the webhook tells our refunds from dashboard ones
+  (owner Q2). 11 tests. Call sites wired in steps 8–11.
 
 **⚠ The dead half — do not build on:** `tax/taxcloud.ts` + `tax/tic-codes.ts` are
 artifacts of the REJECTED pre-8/1 TaxCloud plan (zero importers; env vars never
