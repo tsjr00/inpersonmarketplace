@@ -22,6 +22,8 @@ import { STRIPE_CHECKOUT_EXPIRY_MS, PAYOUT_RETRY_MAX_DAYS, STALE_CONFIRMATION_WI
 import { getSeasonCheckoutSessionState } from '@/lib/stripe/session-status'
 import { stripe } from '@/lib/stripe/config'
 import { sendSeasonPaidNotifications } from '@/lib/markets/season-notifications'
+import { refundAmountWithTax, type ItemTaxSnapshot } from '@/lib/tax/refund-tax'
+import { taxReversalForOrderItem, recordTaxReversal } from '@/lib/tax/refund-ledger'
 import { seasonHasOutstandingDebt } from '@/lib/markets/season-debt'
 import { runStandingOccurrenceSweep } from '@/lib/markets/park-standing'
 
@@ -146,6 +148,10 @@ export async function GET(request: NextRequest) {
           quantity,
           subtotal_cents,
           status,
+          tax_amount_cents,
+          taxable_amount_cents,
+          tax_jurisdictions,
+          tax_rate_version,
           listing:listings (
             title
           ),
@@ -213,6 +219,24 @@ export async function GET(request: NextRequest) {
             const itemFlatFee = totalItemsInOrder ? proratedFlatFeeSimple(FEES.buyerFlatFeeCents, totalItemsInOrder) : 0
             const buyerPaidForItem = item.subtotal_cents + buyerPercentFee + itemFlatFee
 
+            // Sales tax (Batch 3, step 8): the buyer also paid this item's tax,
+            // frozen on the row at checkout (mig 214). Expiry is a full refund →
+            // the whole snapshot reverses at the ORIGINAL rate, capped by anything
+            // an earlier refund already reversed (ledger read; a failure throws
+            // into this item's catch before anything moves — observed() has
+            // already logged it). Pre-tax (NULL) / exempt (0) rows reverse
+            // nothing, so their amounts are unchanged. refund_amount_cents and
+            // the Stripe amount are tax-INCLUSIVE; the ledger row lands after
+            // Stripe succeeds.
+            const taxSnapshot: ItemTaxSnapshot = {
+              taxable_amount_cents: (item.taxable_amount_cents as number | null) ?? null,
+              tax_amount_cents: (item.tax_amount_cents as number | null) ?? null,
+              tax_jurisdictions: (item.tax_jurisdictions as ItemTaxSnapshot['tax_jurisdictions']) ?? null,
+              tax_rate_version: (item.tax_rate_version as string | null) ?? null,
+            }
+            const taxReversal = await taxReversalForOrderItem(supabase, item.id, taxSnapshot, { kind: 'full' })
+            const buyerRefundCents = refundAmountWithTax(buyerPaidForItem, taxReversal)
+
             // H3 FIX: Conditional UPDATE — only succeeds if cancelled_at IS NULL.
             // Prevents race with manual buyer/vendor cancel happening concurrently.
             const { data: expiredRows, error: updateError } = await supabase
@@ -222,7 +246,7 @@ export async function GET(request: NextRequest) {
                 cancelled_at: new Date().toISOString(),
                 cancelled_by: 'system',
                 cancellation_reason: 'Order expired - vendor did not confirm in time',
-                refund_amount_cents: buyerPaidForItem
+                refund_amount_cents: buyerRefundCents
               })
               .eq('id', item.id)
               .is('cancelled_at', null)
@@ -289,7 +313,13 @@ export async function GET(request: NextRequest) {
               const payment = paymentByOrder.get(item.order_id as string)
               if (payment?.stripe_payment_intent_id) {
                 try {
-                  await createRefund(payment.stripe_payment_intent_id, item.id, buyerPaidForItem)
+                  const refund = await createRefund(payment.stripe_payment_intent_id, item.id, buyerRefundCents)
+                  // Ledger row for the return (mig 260) — keyed by the Stripe
+                  // refund id; never throws, a failure is logged for manual entry.
+                  await recordTaxReversal(supabase, {
+                    orderItemId: item.id, orderId: item.order_id, kind: 'item_refund', refundRef: refund.id,
+                    reversal: taxReversal, route: '/api/cron/expire-orders',
+                  })
                 } catch (refundError) {
                   // Continue processing — refund needs manual admin attention.
                   // Must reach error_logs (console.error is invisible to the
@@ -297,7 +327,7 @@ export async function GET(request: NextRequest) {
                   await logError(new TracedError('ERR_REFUND_001', `Stripe refund failed for expired item: ${refundError instanceof Error ? refundError.message : String(refundError)}`, {
                     route: '/api/cron/expire-orders', method: 'GET',
                     orderItemId: item.id, orderId: item.order_id,
-                    amountCents: buyerPaidForItem,
+                    amountCents: buyerRefundCents,
                   }))
                 }
               }
@@ -315,7 +345,7 @@ export async function GET(request: NextRequest) {
                   orderNumber: order.order_number || item.order_id.slice(0, 8),
                   itemTitle: listing?.title || 'Item',
                   vendorName: (vendorData?.business_name as string) || (vendorData?.farm_name as string) || 'Vendor',
-                  amountCents: buyerPaidForItem
+                  amountCents: buyerRefundCents
                 },
                 { userEmail: order.buyer?.email, vertical: order.vertical_id }
               )
