@@ -252,6 +252,10 @@ export async function createRefund(paymentIntentId: string, idempotencySuffix: s
     {
       payment_intent: paymentIntentId,
       ...(amount !== undefined ? { amount } : {}),
+      // Sales tax Batch 3: marks the refund as OURS so the charge.refunded
+      // webhook can tell an in-app refund from one made by hand in the
+      // dashboard (owner Q2) without depending on timing.
+      metadata: { source: 'app', ref: idempotencySuffix },
     },
     {
       idempotencyKey,
