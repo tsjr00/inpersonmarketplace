@@ -8,6 +8,8 @@ import { shouldRestoreInventory } from '@/lib/inventory-rules'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { FEES, proratedFlatFeeSimple, calculateSmallOrderFee } from '@/lib/pricing'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
+import { refundAmountWithTax, type ItemTaxSnapshot } from '@/lib/tax/refund-tax'
+import { taxReversalForOrderItem, recordTaxReversal } from '@/lib/tax/refund-ledger'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -49,6 +51,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .select(`
         id, status, order_id, vendor_profile_id, listing_id, quantity,
         subtotal_cents, issue_reported_at, issue_status,
+        tax_amount_cents, taxable_amount_cents, tax_jurisdictions, tax_rate_version,
         order:orders!inner(id, order_number, buyer_user_id, vertical_id, payment_method, payment_model, tip_amount, subtotal_cents)
       `)
       .eq('id', orderItemId)
@@ -151,6 +154,23 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const itemFlatFee = totalItemsInOrder ? proratedFlatFeeSimple(FEES.buyerFlatFeeCents, totalItemsInOrder) : 0
       const buyerPaidForItem = orderItem.subtotal_cents + buyerPercentFee + itemFlatFee
 
+      // Sales tax (Batch 3, step 8): the buyer also paid this item's tax, frozen
+      // on the row at checkout (mig 214). A full refund reverses the whole
+      // snapshot at the ORIGINAL rate, capped by anything an earlier refund
+      // already reversed (ledger read — throws before anything moves). Pre-tax
+      // rows (NULL) and exempt items (0) reverse nothing, so nothing changes
+      // for them. The stored refund_amount_cents and the Stripe amount are
+      // both tax-INCLUSIVE; the ledger row is written after Stripe succeeds.
+      const serviceClient = createServiceClient()
+      const taxSnapshot: ItemTaxSnapshot = {
+        taxable_amount_cents: (orderItem.taxable_amount_cents as number | null) ?? null,
+        tax_amount_cents: (orderItem.tax_amount_cents as number | null) ?? null,
+        tax_jurisdictions: (orderItem.tax_jurisdictions as ItemTaxSnapshot['tax_jurisdictions']) ?? null,
+        tax_rate_version: (orderItem.tax_rate_version as string | null) ?? null,
+      }
+      const taxReversal = await taxReversalForOrderItem(serviceClient, orderItemId, taxSnapshot, { kind: 'full' })
+      const buyerRefundCents = refundAmountWithTax(buyerPaidForItem, taxReversal)
+
       crumb.supabase('update', 'order_items')
       // S2-2: guard the cancel so a prior cancellation can't double-refund. If
       // the buyer already cancelled this item (e.g. a post-grace 75% refund),
@@ -165,7 +185,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           cancelled_at: new Date().toISOString(),
           cancelled_by: 'vendor',
           cancellation_reason: `Vendor-initiated refund for reported issue.${notes ? ` Notes: ${notes}` : ''}`,
-          refund_amount_cents: buyerPaidForItem,
+          refund_amount_cents: buyerRefundCents,
           issue_status: 'resolved',
           issue_resolved_at: new Date().toISOString(),
           issue_resolved_by: user.id,
@@ -197,7 +217,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
       // Restore inventory — but NOT for food truck fulfilled items (cooked food can't be resold)
       if (orderItem.listing_id && shouldRestoreInventory(orderItem.status, order.vertical_id)) {
-        const serviceClient = createServiceClient()
         await restoreInventory(serviceClient, orderItem.listing_id, orderItem.quantity || 1)
       }
 
@@ -207,7 +226,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
       // package assumptions). For Stripe-paid orders a MISSING succeeded row
       // is logged instead of silently skipped (buyer refund would be lost).
       if (order.payment_method === 'stripe' && order.payment_model !== 'company_paid') {
-        const serviceClient = createServiceClient()
         const { data: payment } = await observed(serviceClient
           .from('payments')
           .select('stripe_payment_intent_id, status')
@@ -217,25 +235,31 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
         if (payment?.stripe_payment_intent_id) {
           try {
-            await createRefund(payment.stripe_payment_intent_id, orderItemId, buyerPaidForItem)
+            const refund = await createRefund(payment.stripe_payment_intent_id, orderItemId, buyerRefundCents)
             await supabase
               .from('order_items')
               .update({ status: 'refunded' })
               .eq('id', orderItemId)
+            // Ledger row for the return (mig 260) — keyed by the Stripe refund
+            // id; never throws, a failure is logged for manual entry.
+            await recordTaxReversal(serviceClient, {
+              orderItemId, orderId: order.id, kind: 'item_refund', refundRef: refund.id,
+              reversal: taxReversal, route: '/api/vendor/orders/[id]/resolve-issue',
+            })
           } catch (refundError) {
             // Refund failed — must reach error_logs (console.error is invisible
             // to the error-log review). Needs manual processing.
             await logError(new TracedError('ERR_REFUND_001', `Stripe refund failed for issue resolution: ${refundError instanceof Error ? refundError.message : String(refundError)}`, {
               route: '/api/vendor/orders/[id]/resolve-issue', method: 'POST',
               orderItemId, orderId: order.id,
-              amountCents: buyerPaidForItem,
+              amountCents: buyerRefundCents,
             }))
           }
         } else {
-          await logError(new TracedError('ERR_REFUND_001', `No succeeded payment row for Stripe-paid order ${order.id} at issue resolution — buyer refund of ${buyerPaidForItem}¢ needs manual processing`, {
+          await logError(new TracedError('ERR_REFUND_001', `No succeeded payment row for Stripe-paid order ${order.id} at issue resolution — buyer refund of ${buyerRefundCents}¢ needs manual processing`, {
             route: '/api/vendor/orders/[id]/resolve-issue', method: 'POST',
             orderItemId, orderId: order.id,
-            amountCents: buyerPaidForItem,
+            amountCents: buyerRefundCents,
           }))
         }
       }
