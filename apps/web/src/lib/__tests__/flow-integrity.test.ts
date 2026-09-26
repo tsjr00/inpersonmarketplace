@@ -1343,6 +1343,16 @@ describe('Dashboard empty-state convention', () => {
     expect(card, 'the empty card links the week sheet with no fixed week').toMatch(/action: \{ href: `\/\$\{vertical\}\/market-manager\/\$\{marketId\}\/week-sheet`/)
   })
 
+  it('OB-033: the vendor dashboard pickup tile judges "today" in the PICKUP MARKET\'s timezone and dates each line', () => {
+    const dash = bare('app/[vertical]/vendor/dashboard/page.tsx')
+    expect(dash, 'both pickup sources read the market timezone').toContain('markets!market_id(name, timezone)')
+    expect(dash).toContain('markets!pickup_market_id(name, timezone)')
+    expect(dash, 'a day is kept by its market\'s own today, never the server\'s UTC date').toMatch(/const localToday = todayInZone\(tz \|\| 'America\/Chicago'\)/)
+    expect(/p\.pickup_date === today\b/.test(dash), 'no UTC "today" comparison left').toBe(false)
+    const box = bare('app/[vertical]/vendor/market-boxes/[id]/page.tsx')
+    expect(box, 'the pickups tab says what it is for').toContain("tab === 'pickups' ? 'Manage Pickups' : tab")
+  })
+
   it('OB-031: a vendor retrying their OWN held-booth week gets Continue payment, not "assigned booth is already booked"', () => {
     const book = bare('app/api/vendor/markets/[id]/book/route.ts')
     expect(book, 'both codes first look for this vendor\'s own live row').toMatch(/msg\.includes\('DUPLICATE'\) \|\| msg\.includes\('BOOTH_TAKEN'\)/)

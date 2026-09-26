@@ -1,5 +1,5 @@
 STAGING TEST WORKFLOWS — SELF-CONTAINED EDITION
-Version 3.1 · 2026-09-25 (late) · written for a tester who has ONLY this document and the app.
+Version 3.3 · 2026-09-26 · written for a tester who has ONLY this document and the app.
 Nothing in here refers to any other document. If a step tells you to expect words on the screen, those are the
 words the app is supposed to show. If the screen shows something different, that difference IS your finding.
 
@@ -17,6 +17,8 @@ Before every session: hard-refresh the page (Ctrl+F5 on Windows, Cmd+Shift+R on 
   moved under Action Items, and the week sheet can be printed before any booking exists and shows app check-ins.
   W3 step 4's button is now called "Cancel this booking".
   NEW W12: seasons end to end (no season was on sale anywhere — every pre-sale window had passed). Run it after W3.
+  W9 (market boxes): the dashboard pickup tile now lists dated days (Today / Tomorrow / a date) in the pickup
+  market's own time zone, and the market-box page's tab is called "Manage Pickups".
   W5 is rewritten after the latest report: the market-limit box now names the markets it counts; a vendor booked
   in two places at the same time is warned on the profile and refused at booking; retrying your own unpaid week
   with a held booth number offers "Continue payment". W1 gained a check of the documents card wording.
@@ -93,10 +95,10 @@ THE WORKFLOWS
   W3  Manager cancels a market day and a paid week — credits and notices            Market 2 Test, after W2 · ~20 min
   W4  Food-truck park: operator to-dos, recurring holds, cancel a date              Sixth Street · ~30 min
   W5  Vendor sets up listings and markets — limits, double-booking, wording         ~30 min
-  W6  Platform admin looks up a vendor                                              ~5 min
+  W6  Platform admin looks up a vendor — the two items left (boxes, two questions)  ~5 min
   W7  Events — one fresh self-service event, start to shop                          ~45 min
   W8  Market bundles — three fresh orders                                           ~30 min + a 1-hour wait
-  W9  Market boxes — one purchase                                                   ~15 min
+  W9  Market boxes — dated pickup tile, "Manage Pickups", pickup progress            ~15 min
   W10 Survey email                                                                  ~2 min
   W11 Platform admin: sales-tax readiness — filter, tax card, Form 01-116 report      Amarillo · ~10 min
   W12 Seasons — create one, open pre-sale, two vendors buy it                       Market 2 Test · ~30 min
@@ -405,34 +407,25 @@ it); a food-truck listing set to allow same-day ordering ("0 days advance"); a b
 
 
 ==================================================
-W6 — PLATFORM ADMIN LOOKS UP A VENDOR   (platform admin login · ~5 min)
+W6 — PLATFORM ADMIN LOOKS UP A VENDOR — what is left   (platform admin login · ~5 min)
 ===
- 1. /farmers_market/admin/vendors → the "Tier" dropdown.
-    Expect: exactly three choices: Free, Pro, Boss. Choose Free.
-    Expect: the list includes vendors whose tier used to be called "standard", "premium" or "featured", and
-    every one of their rows now reads "Free".
+Passed 2026-09-25 and removed: the Free/Pro/Boss tier filter; Valley Verde Farm's listing count agreeing on the list
+and the details page; the Markets card; the farmers-market Event Readiness read-out and the food-truck one.
+YOU NEED (ask the owner): a vendor who sells MARKET BOXES (at least one active box offering), and a farmers-market
+vendor who answered "Yes" to event experience and typed something in "Anything Else About Your Event
+Capabilities?" on /farmers_market/vendor/edit → "Private Events Readiness".
 
- 2. In the list, find Valley Verde Farm.
-    Expect: the row shows "📦 N published" (and "🧺 N boxes" if they sell market boxes). Write down N.
+ 1. /farmers_market/admin/vendors → find the vendor who sells market boxes.
+    Expect: the row shows "📦 N published" AND "🧺 N boxes" (the box count appears only for vendors who have
+    active boxes — a vendor with none shows no 🧺). Write down the box number.
+    Open that vendor → Details → "Quick Stats".
+    Expect: "Active market boxes" shows the SAME box number as the list. (For a vendor with no boxes this line
+    reads 0 — that is correct.)
 
- 3. Open Valley Verde Farm → Details → "Quick Stats".
-    Expect: "Published listings" shows the SAME N as the list; "Active market boxes" is shown separately;
-    "Tier" reads Free. (Draft and deleted listings are not counted on either page.) If there is a CSV export,
-    its Tier column matches.
-
- 4. Same page → the card "Markets" (under Business Information).
-    Expect: one line per market the vendor is on: the market name (tap it → the admin's market page), a status
-    pill APPROVED / PENDING / REVOKED, "Booth #N (size)" where the manager gave them a number, and
-    "Days declared: Sat, Wed" or "No days declared". A vendor on no market reads "Not on any market roster yet."
-
- 5. Same page → the card "Event Readiness Application" — for a FARMERS-MARKET vendor who has filled in
-    "Private Events Readiness" on /farmers_market/vendor/edit (open both side by side).
-    Expect: farmers-market questions only — Setup Type · Space Needed (feet wide) · Do You Need Access to
-    Electrical Power? · Product Storage Needs · Product Display Setup · Can You Offer Product Samples · Outdoor
-    Event Suitability · How Many Customers Can You Serve Per Hour? — and each value is exactly the option text
-    the vendor picked on the form. NO "Vehicle Type", NO "Generator", NO "Max Runtime", and the word "undefined"
-    appears nowhere. Then open a FOOD-TRUCK vendor's detail page.
-    Expect: Vehicle Type / Generator / Max Runtime ARE shown there.
+ 2. Open the farmers-market vendor from "YOU NEED" → Details → the card "Event Readiness Application".
+    Expect: besides the questions checked last time, the card also shows "Do You Have Event or Catering
+    Experience?" reading "Yes — <what they typed>", and "Anything Else About Your Event Capabilities?" with the
+    text they typed. (A vendor who left "Anything Else" empty shows no line for it — that is correct.)
 
 
 
@@ -551,21 +544,31 @@ YOU NEED: a market with an active bundle; a buyer; logins for the bundle's vendo
 
 
 ==================================================
-W9 — MARKET BOXES: ONE PURCHASE   (~15 min)
+W9 — MARKET BOXES: WHAT IS LEFT   (~15 min)
 ===
+Passed 2026-09-26 and removed: the market box on the vendor's "Your next two weeks" strip (right market, right
+day); "Order #FA-" beside each week on the Subscribers and Pickups tabs.
 BACKGROUND: a "market box" is a subscription a vendor sells — the buyer pays for N pickups of a box.
-YOU NEED: a vendor with a market-box offering whose next pickup date is within 7 days; a buyer.
+YOU NEED: a vendor with a market-box offering whose next pickup date is within 7 days (CHECK FIRST: if the next
+pickup is further away than 7 days, step 1's "Expect" is the "Nothing to prep" line instead); a buyer who has
+bought that box.
 
- 1. As the BUYER, buy the box. As the VENDOR: the vendor dashboard's card "My Upcoming Pickups", and
-    /[vertical]/vendor/markets → "Your next two weeks".
-    Expect: the pickup day appears on the dashboard tile (counted as an item at that market) AND on the week
-    strip as a "market box" entry at the pickup market showing the offering's hours.
+ 1. As the VENDOR: the vendor dashboard → the tile "My Upcoming Pickups".
+    Expect: one line per pickup day and location, soonest first, each starting with the day in bold —
+    "Today", "Tomorrow", or a date like "Wed, Oct 1" — then the market, then what is due, e.g.
+    "Wed, Oct 1 · Amarillo Community Market · 1 market box" (listings read "N items"). At most three lines, then
+    "+N more pickup days in the next 7 days" if there are more.
+    If nothing is due in the next 7 days, the tile reads "Nothing to prep in the next 7 days — prep lists, pick
+    tickets & order details show up here for each pickup day."
+    Also check once in the EVENING (after 7 PM Central): a pickup due today still reads "Today" (not missing,
+    and not shown as tomorrow's).
 
- 2. As the VENDOR: /[vertical]/vendor/market-boxes/[offering id] → tabs "Subscribers" and "Pickups".
-    Expect: each row shows an order number beginning "Order #FA-" next to the week.
+ 2. As the VENDOR: /[vertical]/vendor/market-boxes/[offering id].
+    Expect: the tabs read "Overview", "Subscribers (N)" and "Manage Pickups (N upcoming)". Open "Manage Pickups"
+    — this is where a box is marked ready and a pickup is completed.
 
- 3. Complete pickup 1: the buyer confirms receipt, the vendor confirms within 30 seconds. Then open, as the
-    buyer, /[vertical]/buyer/subscriptions/[id] and /[vertical]/buyer/orders.
+ 3. Complete pickup 1: the buyer confirms receipt, the vendor confirms within 30 seconds (on "Manage Pickups").
+    Then open, as the buyer, /[vertical]/buyer/subscriptions/[id] and /[vertical]/buyer/orders.
     Expect: BOTH pages show the same progress — 1 of N pickups completed.
 
 
@@ -715,11 +718,11 @@ W3  1→TR-091 TR-099 · 2→TR-091 · 3→TR-091 · 4→TR-092 (button now "Can
 W12 1→TR-122 · 2→TR-079 (setup) · 3→TR-122 TR-079 · 4→TR-079 · 5→TR-079 · 6→TR-079 · 7→TR-122   (W2 v3 step 13 now points here)
 W4  1→TR-034 · 2→TR-107 · 3→TR-043 · 4→TR-109 · 5→TR-109 · 6→TR-040 · 7→TR-109
 W5  (v3.1) 1→TR-069 · 2→TR-044 · 3→TR-044 · 4→TR-123 · 5→TR-042 · 6→TR-048
-W6  1→TR-095 · 2→TR-096 · 3→TR-095 TR-096 · 4→TR-093 · 5→TR-094
+W6  (v3.2) 1→TR-096 (boxes half) · 2→TR-094 (two FM questions)   (v3.1 steps 1–5 PASSED 2026-09-25, OB-032: TR-093 TR-095 pass)
 W7  1→TR-022 TR-064 · 2→TR-022 TR-064 · 3→TR-022 · 4→TR-065 · 5→TR-066 · 6→TR-067 · 7→TR-068 · 8→TR-026
     · 9→TR-025 · 10a→TR-023 · 10b→TR-024 · 10c→TR-030 · 10d→TR-032 · 10e→TR-033 · 10f→TR-035
 W8  1→TR-010 · 2→TR-001 · 3→TR-005 · 4→TR-002 · 5→TR-003
-W9  1→TR-015 · 2→TR-016 · 3→TR-014
+W9  (v3.3) 1→TR-015 (dashboard tile) TR-125 · 2→TR-125 · 3→TR-014   (v3.2 strip + "Order #FA-" PASSED 2026-09-26, OB-033)
 W10 1→TR-041
 W11 1→TR-112 · 2→TR-110 · 3→TR-110 · 4→TR-110 TR-112 · 5→TR-113 · 6→TR-114 · 7→TR-115   (TR-111 = W11.4-style address change, not scripted: needs an address edit)
 Passed already (removed): TR-100. Not runnable: TR-028 TR-029 TR-031 TR-060 TR-062.

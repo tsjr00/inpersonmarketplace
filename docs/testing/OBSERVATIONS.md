@@ -276,3 +276,43 @@ DEFECTS / GAPS, all fixed 2026-09-25 (`3f71e947`):
  3. Booked at two markets the same Saturday with the multi-location box off: the rule runs only when days are PICKED (schedules route + mig 253, which left existing picks untouched, `…_253_…sql:25-27`); booking never checked (`booking-gates.ts`) and unticking the box never checked. Owner: fix both — (a) booking-gates step 4 refuses booking at a market whose picked days overlap picked days elsewhere (week, season, page); (b) the profile shows an amber note listing overlaps while the box is off (`/api/vendor/schedule-overlaps`) (TR-044).
  4. "3 of 3" yet a market tickable: by design — the count is distinct markets across ALL published listings + market boxes (`vendor-limits.ts:188-203`); a market already counted elsewhere stays tickable. Fixed the explanation: the helper names the counted markets and each gets "· counted" (TR-069).
 Printable list: W1 v3 step 2 removed (passed), new W1 step 6 (documents wording); W5 rewritten — steps 1 (counted markets), 3 (overlaps: profile note + booking refusal), 4 (held-number retry).
+
+### OB-032 · 2026-09-26 · tester (via owner, file `docs/testing/W6.docx`) · platform admin · printable v3.1 W6 · staging `4dfe8fe4`
+Report (tester's words verbatim; colour key from the owner: GREEN = pass · RED = not pass · BLACK = explanation. Colour runs transcribed as [GREEN]/[RED]/[BLACK]):
+
+[BLACK] W6 — PLATFORM ADMIN LOOKS UP A VENDOR   (platform admin login · ~5 min)
+[GREEN] /farmers_market/admin/vendors → the "Tier" dropdown. Expect: exactly three choices: Free, Pro, Boss. Choose Free. Expect: the list includes vendors whose tier used to be called "standard", "premium" or "featured", and every one of their rows now reads "Free".
+[GREEN] In the list, find Valley Verde Farm. Expect: the row shows "📦 N published" [RED] (and "🧺 N boxes" if they sell market boxes). [GREEN] Write down N. [BLACK] 9 Published. No boxes shown (no basket either)
+[GREEN] Open Valley Verde Farm → Details → "Quick Stats". Expect: "Published listings" shows the SAME N as the list; [RED] "Active market boxes" is shown separately; [GREEN] "Tier" reads Free. (Draft and deleted listings are not counted on either page.) If there is a CSV export, its Tier column matches. [BLACK] No active boxes.
+[GREEN] Same page → the card "Markets" (under Business Information). Expect: one line per market the vendor is on: the market name (tap it → the admin's market page), a status pill APPROVED / PENDING / REVOKED, "Booth #N (size)" where the manager gave them a number, and "Days declared: Sat, Wed" or "No days declared". A vendor on no market reads "Not on any market roster yet."
+[GREEN] Same page → the card "Event Readiness Application" — for a FARMERS-MARKET vendor who has filled in "Private Events Readiness" on /farmers_market/vendor/edit (open both side by side). Expect: farmers-market questions only — Setup Type · Space Needed (feet wide) · Do You Need Access to Electrical Power? · Product Storage Needs · Product Display Setup · Can You Offer Product Samples · Outdoor Event Suitability · How Many Customers Can You Serve Per Hour? — and each value is exactly the option text the vendor picked on the form. NO "Vehicle Type", NO "Generator", NO "Max Runtime", and the word "undefined" appears nowhere. Then open a FOOD-TRUCK vendor's detail page. Expect: Vehicle Type / Generator / Max Runtime ARE shown there.
+[BLACK] Missing in this list, but on the farmer's market form "Do You Have Event or Catering Experience? Anything Else About Your Event Capabilities?
+
+Triage (code read 2026-09-26; owner: no further answers from the tester — decide from the code, adjust the next test):
+PASS — step 1 tier filter + "Free" rows (TR-095) · step 2 "📦 9 published" (TR-096 listings) · step 3 same 9 + Tier Free (TR-095/096) · step 4 Markets card (TR-093) · step 5 FM read-out FM-only + FT page shows vehicle/generator/runtime (TR-094).
+RED items, NOT defects (from the code): "🧺 N boxes" renders only when the vendor has active boxes (`VendorsAdminTable.tsx:332`) — Valley Verde has none, so absent is correct (box display UNTESTED). "Active market boxes" is drawn unconditionally in Quick Stats with its count (`VendorDetailAdminPage.tsx:416-438`) — it read 0 here; the red marks "nothing to see", not a missing line (~90%).
+TEST-DOC GAP: the step-5 expected list omitted "Do You Have Event or Catering Experience?" (always shown) and "Anything Else About Your Event Capabilities?" (shown when filled) — both ARE in the admin read-out (`event-readiness-labels.ts:169-175`, rendered `VendorDetailAdminPage.tsx:353-355`). Printable W6 reduced to the two untested items: a vendor WITH boxes (list 🧺 = Quick Stats count) and the two questions.
+
+### OB-033 · 2026-09-26 · tester (via owner) · vendor (FM) · printable v3.2 W9 · staging `4dfe8fe4`
+Report (tester's words, verbatim as pasted by the owner):
+
+W9 — MARKET BOXES: ONE PURCHASE   (~15 min)
+BACKGROUND: a "market box" is a subscription a vendor sells — the buyer pays for N pickups of a box. YOU NEED: a vendor with a market-box offering whose next pickup date is within 7 days; a buyer.
+
+As the BUYER, buy the box. As the VENDOR: the vendor dashboard's card "My Upcoming Pickups", and /[vertical]/vendor/markets → "Your next two weeks". Expect: the pickup day appears on the dashboard tile (counted as an item at that market) AND on the week strip as a "market box" entry at the pickup market showing the offering's hours.
+
+As vendor, the upcoming pickups card does not show the box (it is set for next week pickup) but this screen does not show any items for pickup - we should put a date on this alongside notations of today / tomorrow 
+As vendor, in ‘Next 2 weeks’ it shows the market box on the right market on the right day 
+
+As the VENDOR: /[vertical]/vendor/market-boxes/[offering id] → tabs "Subscribers" and "Pickups". Expect: each row shows an order number beginning "Order #FA-" next to the week.
+Yes, passed
+
+Complete pickup 1: the buyer confirms receipt, the vendor confirms within 30 seconds. Then open, as the buyer, /[vertical]/buyer/subscriptions/[id] and /[vertical]/buyer/orders. Expect: BOTH pages show the same progress — 1 of N pickups completed.
+
+On page https://inpersonmarketplace-git-staging-tsjr00s-projects.vercel.app/farmers_market/vendor/market-boxes/56777d66-fdf9-401e-b473-0827021a5d32 the way to marking the box ready for pickup seems obscured (not clear) - the vendor has to click on ‘Pickups - upcoming’  - lets change that to say ‘Manage Pickups’ that lets the vendor know what that section is for. 
+
+Triage (code read 2026-09-26):
+PASS — week strip shows the box at the right market and day (TR-015 strip half) · "Order #FA-" on both tabs (TR-016).
+NOT A DEFECT — the dashboard tile looks 7 days ahead (`vendor/dashboard/page.tsx:180-182`); a box due "next week" beyond 7 days is correctly absent, and the tile then showed only its default line. UNTESTED — step 3 progress (not reported).
+FOUND WHILE READING — the tile's "today" was the SERVER's UTC date (`vendor/dashboard/page.tsx:179-180, :579-580`): after ~7 PM Central, today's pickups dropped off and "Today:" counted tomorrow.
+OWNER RULINGS 2026-09-26 — (1) the tile lists dated lines "Today / Tomorrow / Wed, Oct 1 · market · N items · N market boxes" (up to 3, then "+N more"), empty = "Nothing to prep in the next 7 days…"; (2) the tab reads "Manage Pickups (N upcoming)"; (3) "today"/"tomorrow" judged in the PICKUP MARKET's timezone (markets.timezone). All three BUILT 2026-09-26 (uncommitted at triage). Printable W9 reduced to: dated tile (+ an evening check) · the renamed tab · step 3 progress.

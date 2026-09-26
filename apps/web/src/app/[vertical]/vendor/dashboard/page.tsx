@@ -15,6 +15,7 @@ import { DashboardNotifications } from '@/components/notifications/DashboardNoti
 import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import { formatPrice } from '@/lib/pricing'
 import { colors, spacing, typography, radius, containers, statusColors } from '@/lib/design-tokens'
+import { todayInZone, shiftIsoDate } from '@/lib/markets/managed-fee-gate'
 import DashboardCard from '@/components/dashboard/DashboardCard'
 import DashboardTile, { TileBadge } from '@/components/dashboard/DashboardTile'
 import DashboardNav, { DashboardNavSpacer } from '@/components/dashboard/DashboardNav'
@@ -136,7 +137,14 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
     pickup_date: string
     market_id: string
     market_name: string
+    /** Order items (listings) for that day at that market. */
     item_count: number
+    /** Market-box pickups for that day at that market. */
+    box_count: number
+    /** "Today" / "Tomorrow" / "Wed, Oct 1" — judged in the PICKUP MARKET's
+     *  timezone (owner 2026-09-26, OB-033: the server runs on UTC, so after
+     *  ~7 PM Central "today" used to be tomorrow). */
+    day_label: string
   }
   interface VendorEvent {
     id: string
@@ -269,11 +277,13 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
       // Upcoming pickups (next 7 days)
       supabase
         .from('order_items')
-        .select(`pickup_date, market_id, markets!market_id(name)`)
+        .select(`pickup_date, market_id, markets!market_id(name, timezone)`)
         .eq('vendor_profile_id', vendorProfile.id)
         .not('pickup_date', 'is', null)
-        .gte('pickup_date', today.toISOString().split('T')[0])
-        .lte('pickup_date', nextWeek.toISOString().split('T')[0])
+        // One extra day each side of the UTC window; each row is then kept or
+        // dropped by ITS market's own "today" (below).
+        .gte('pickup_date', shiftIsoDate(today.toISOString().split('T')[0], -1))
+        .lte('pickup_date', shiftIsoDate(nextWeek.toISOString().split('T')[0], 1))
         .not('status', 'in', '("fulfilled","cancelled")')
         .is('cancelled_at', null),
       // M-5: Monthly sales (fulfilled order items this month)
@@ -340,12 +350,12 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
         .from('market_box_pickups')
         .select(`scheduled_date, status,
           subscription:market_box_subscriptions!inner(status,
-            offering:market_box_offerings!inner(vendor_profile_id, pickup_market_id, markets!pickup_market_id(name)))`)
+            offering:market_box_offerings!inner(vendor_profile_id, pickup_market_id, markets!pickup_market_id(name, timezone)))`)
         .eq('subscription.offering.vendor_profile_id', vendorProfile.id)
         .eq('subscription.status', 'active')
         .in('status', ['scheduled', 'ready'])
-        .gte('scheduled_date', today.toISOString().split('T')[0])
-        .lte('scheduled_date', nextWeek.toISOString().split('T')[0]),
+        .gte('scheduled_date', shiftIsoDate(today.toISOString().split('T')[0], -1))
+        .lte('scheduled_date', shiftIsoDate(nextWeek.toISOString().split('T')[0], 1)),
     ])
 
     // Extract results
@@ -391,45 +401,41 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
       unlistedPaidParks.push({ market_id: b.market_id, market_name: b.markets?.name || 'your park', first_date: b.booking_date })
     }
 
-    // Group upcoming items by pickup_date + market_id
+    // Group upcoming items by pickup_date + market_id. A day counts only if it
+    // falls in the next 7 days as seen from ITS market's timezone (owner
+    // 2026-09-26: "use the time zone for the market being picked up from").
     const pickupMap = new Map<string, UpcomingPickup>()
+    const dayLabelFor = (date: string, tz: string | null): string | null => {
+      const localToday = todayInZone(tz || 'America/Chicago')
+      if (date < localToday || date > shiftIsoDate(localToday, 7)) return null
+      if (date === localToday) return 'Today'
+      if (date === shiftIsoDate(localToday, 1)) return 'Tomorrow'
+      const [y, m, d] = date.split('-').map(Number)
+      return new Date(Date.UTC(y!, m! - 1, d!)).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
+    }
+    const addPickup = (date: string, marketId: string, market: { name: string; timezone: string | null } | null, kind: 'item' | 'box') => {
+      const label = dayLabelFor(date, market?.timezone ?? null)
+      if (!label) return
+      const key = `${date}|${marketId}`
+      const entry = pickupMap.get(key) ?? { pickup_date: date, market_id: marketId, market_name: market?.name || 'Pickup Location', item_count: 0, box_count: 0, day_label: label }
+      if (kind === 'item') entry.item_count++
+      else entry.box_count++
+      pickupMap.set(key, entry)
+    }
     for (const item of upcomingResult.data || []) {
       if (item.pickup_date && item.market_id) {
-        const key = `${item.pickup_date}|${item.market_id}`
-        const market = item.markets as unknown as { name: string } | null
-        const existing = pickupMap.get(key)
-        if (existing) {
-          existing.item_count++
-        } else {
-          pickupMap.set(key, {
-            pickup_date: item.pickup_date,
-            market_id: item.market_id,
-            market_name: market?.name || 'Pickup Location',
-            item_count: 1
-          })
-        }
+        addPickup(item.pickup_date, item.market_id, item.markets as unknown as { name: string; timezone: string | null } | null, 'item')
       }
     }
     // Market-box pickups merge into the same date|market entries (TR-015).
     type MbPickupRow = {
       scheduled_date: string
-      subscription: { offering: { pickup_market_id: string; markets: { name: string } | null } | null } | null
+      subscription: { offering: { pickup_market_id: string; markets: { name: string; timezone: string | null } | null } | null } | null
     }
     for (const row of (marketBoxPickupsResult.data as unknown as MbPickupRow[] | null) || []) {
       const marketId = row.subscription?.offering?.pickup_market_id
       if (!row.scheduled_date || !marketId) continue
-      const key = `${row.scheduled_date}|${marketId}`
-      const existing = pickupMap.get(key)
-      if (existing) {
-        existing.item_count++
-      } else {
-        pickupMap.set(key, {
-          pickup_date: row.scheduled_date,
-          market_id: marketId,
-          market_name: row.subscription?.offering?.markets?.name || 'Pickup Location',
-          item_count: 1
-        })
-      }
+      addPickup(row.scheduled_date, marketId, row.subscription?.offering?.markets ?? null, 'box')
     }
     upcomingPickups = Array.from(pickupMap.values()).sort((a, b) => a.pickup_date.localeCompare(b.pickup_date))
   }
@@ -574,26 +580,30 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               state={upcomingPickups.length > 0 ? 'active' : 'neutral'}
             >
               {upcomingPickups.length === 0 ? (
-                'Prep lists, pick tickets & order details for each pickup day'
+                'Nothing to prep in the next 7 days — prep lists, pick tickets & order details show up here for each pickup day.'
               ) : (() => {
-                const today = new Date().toISOString().split('T')[0]
-                const todayCount = upcomingPickups.filter(p => p.pickup_date === today)
-                const totalItems = upcomingPickups.reduce((sum, p) => sum + p.item_count, 0)
-                const locationCount = new Set(upcomingPickups.map(p => p.market_id)).size
+                // One line per pickup day + location, dated, soonest first
+                // (owner 2026-09-26, OB-033). "Today"/"Tomorrow" are the
+                // pickup market's own days.
+                const shown = upcomingPickups.slice(0, 3)
+                const more = upcomingPickups.length - shown.length
+                const what = (p: UpcomingPickup) => [
+                  p.item_count > 0 ? `${p.item_count} item${p.item_count !== 1 ? 's' : ''}` : null,
+                  p.box_count > 0 ? `${p.box_count} market box${p.box_count !== 1 ? 'es' : ''}` : null,
+                ].filter(Boolean).join(' · ')
                 return (
                   <>
-                    {todayCount.length > 0 && (
-                      <p style={{
+                    {shown.map((p) => (
+                      <p key={`${p.pickup_date}|${p.market_id}`} style={{
                         margin: `0 0 ${spacing['3xs']} 0`,
-                        fontWeight: typography.weights.bold,
-                        color: colors.primaryDark,
+                        color: p.day_label === 'Today' ? colors.primaryDark : undefined,
                       }}>
-                        Today: {todayCount.reduce((s, p) => s + p.item_count, 0)} item{todayCount.reduce((s, p) => s + p.item_count, 0) !== 1 ? 's' : ''} at {todayCount.length} location{todayCount.length !== 1 ? 's' : ''}
+                        <strong>{p.day_label}</strong> · {p.market_name} · {what(p)}
                       </p>
+                    ))}
+                    {more > 0 && (
+                      <p style={{ margin: 0 }}>+{more} more pickup day{more !== 1 ? 's' : ''} in the next 7 days</p>
                     )}
-                    <p style={{ margin: 0 }}>
-                      {upcomingPickups.length} pickup{upcomingPickups.length !== 1 ? 's' : ''} · {locationCount} location{locationCount !== 1 ? 's' : ''} · {totalItems} item{totalItems !== 1 ? 's' : ''} this week
-                    </p>
                   </>
                 )
               })()}

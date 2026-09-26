@@ -414,7 +414,10 @@ export default function VendorMarketBoxDetailPage() {
                 textTransform: 'capitalize'
               }}
             >
-              {tab}
+              {/* OB-033 (owner 2026-09-26): "Pickups" read like a history list —
+                  this tab is where the vendor marks boxes ready and completes
+                  pickups, so it says so. */}
+              {tab === 'pickups' ? 'Manage Pickups' : tab}
               {tab === 'subscribers' && ` (${activeSubscriberCount})`}
               {tab === 'pickups' && ` (${pickups.filter(p => p.status === 'scheduled' || p.status === 'ready').length} upcoming)`}
             </button>
