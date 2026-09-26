@@ -5,6 +5,8 @@ import { restoreInventory } from '@/lib/inventory'
 import { TracedError, logError, observed } from '@/lib/errors'
 import { FEES, proratedFlatFeeSimple, calculateSmallOrderFee, calculateBoothRentalFees } from '@/lib/pricing'
 import { declaredDatesForWeek, vendorPaidCents, perDayShareCents, cancellationCreditsGranted, capCredit } from '@/lib/markets/booth-cancel-credit'
+import { refundAmountWithTax, type ItemTaxSnapshot } from '@/lib/tax/refund-tax'
+import { taxReversalForOrderItem, recordTaxReversal } from '@/lib/tax/refund-ledger'
 
 /**
  * Phase C — cancel-a-market-day cascade.
@@ -70,6 +72,11 @@ type OrderItemRow = {
   quantity: number | null
   subtotal_cents: number
   vendor_profile_id: string | null
+  // mig 214 per-item tax snapshot — reversed at the ORIGINAL rate on refund.
+  tax_amount_cents: number | null
+  taxable_amount_cents: number | null
+  tax_jurisdictions: ItemTaxSnapshot['tax_jurisdictions']
+  tax_rate_version: string | null
   order: OrderEmbed | OrderEmbed[] | null
 }
 
@@ -100,7 +107,7 @@ async function refundProductOrders(
 
   let itemsQuery = service
     .from('order_items')
-    .select('id, order_id, listing_id, quantity, subtotal_cents, vendor_profile_id, order:orders!inner ( id, buyer_user_id, order_number )')
+    .select('id, order_id, listing_id, quantity, subtotal_cents, vendor_profile_id, tax_amount_cents, taxable_amount_cents, tax_jurisdictions, tax_rate_version, order:orders!inner ( id, buyer_user_id, order_number )')
     .eq('market_id', marketId)
     .eq('pickup_date', overrideDate)
     .is('cancelled_at', null)
@@ -135,6 +142,21 @@ async function refundProductOrders(
     const itemFlatFee = proratedFlatFeeSimple(FEES.buyerFlatFeeCents, totalItems)
     const buyerPaidForItem = item.subtotal_cents + buyerPercentFee + itemFlatFee
 
+    // Sales tax (Batch 3, step 8): the buyer also paid this item's tax, frozen
+    // on the row at checkout (mig 214). A market-day cancellation is a full
+    // refund → the whole snapshot reverses at the ORIGINAL rate, capped by
+    // anything an earlier refund already reversed (ledger read — throws before
+    // anything moves, like the itemsErr guard above). Pre-tax (NULL) / exempt
+    // (0) rows reverse nothing. refund_amount_cents and the Stripe amount are
+    // tax-INCLUSIVE; the ledger row lands after Stripe succeeds.
+    const taxReversal = await taxReversalForOrderItem(service, item.id, {
+      taxable_amount_cents: item.taxable_amount_cents ?? null,
+      tax_amount_cents: item.tax_amount_cents ?? null,
+      tax_jurisdictions: item.tax_jurisdictions ?? null,
+      tax_rate_version: item.tax_rate_version ?? null,
+    }, { kind: 'full' })
+    const buyerRefundCents = refundAmountWithTax(buyerPaidForItem, taxReversal)
+
     // Conditional update — only the request that wins the race proceeds.
     // cancelled_by must satisfy order_items_cancelled_by_check ('buyer' |
     // 'vendor' | 'system'). We use 'system' for a market-day cancellation —
@@ -148,7 +170,7 @@ async function refundProductOrders(
         cancelled_at: new Date().toISOString(),
         cancelled_by: 'system',
         cancellation_reason: reason,
-        refund_amount_cents: buyerPaidForItem,
+        refund_amount_cents: buyerRefundCents,
       })
       .eq('id', item.id)
       .is('cancelled_at', null)
@@ -182,13 +204,19 @@ async function refundProductOrders(
         { route: '/api/market-manager/[marketId]/cancel-date', method: 'POST', orderItemId: item.id, orderId: item.order_id }))
     } else if (payment?.stripe_payment_intent_id) {
       try {
-        await createRefund(payment.stripe_payment_intent_id, item.id, buyerPaidForItem)
+        const refund = await createRefund(payment.stripe_payment_intent_id, item.id, buyerRefundCents)
         await service.from('order_items').update({ status: 'refunded' }).eq('id', item.id)
+        // Ledger row for the return (mig 260) — keyed by the Stripe refund id;
+        // never throws, a failure is logged for manual entry.
+        await recordTaxReversal(service, {
+          orderItemId: item.id, orderId: item.order_id, kind: 'item_refund', refundRef: refund.id,
+          reversal: taxReversal, route: '/api/market-manager/[marketId]/cancel-date',
+        })
       } catch (refundError) {
         refundFailures++
         await logError(new TracedError('ERR_REFUND_001',
           `Stripe refund failed for market-day cancellation: ${refundError instanceof Error ? refundError.message : String(refundError)}`,
-          { route: '/api/market-manager/[marketId]/cancel-date', method: 'POST', orderItemId: item.id, orderId: item.order_id, amountCents: buyerPaidForItem }))
+          { route: '/api/market-manager/[marketId]/cancel-date', method: 'POST', orderItemId: item.id, orderId: item.order_id, amountCents: buyerRefundCents }))
       }
     }
 
