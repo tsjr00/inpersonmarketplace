@@ -208,8 +208,14 @@ New user-facing strings go through `t()`, not hardcoded literals — the shared 
   (one per item still live on the order, full remaining reversal, one refund id; never throws). 15 tests.
   Wired (step 8, 2026-09-26): resolve-issue · expire-orders Phase 1 · cancel-date cascade · vendor event
   withdraw · buyer cancel + cancel-bundle (Q1 pro-rata) · events cancel (organizer + admin) · event-reconfirm.
-  Still owed: the three protected files (reject, checkout/success dead-order, webhooks dead-order +
-  charge.refunded/Q2 queue).
+  Protected three wired 2026-09-26 with file-level approval: reject · checkout/success dead-order (rows) ·
+  webhooks dead-order (rows) + charge.refunded (below). ALL 13 createRefund callers wired; pin owed-list empty.
+- `tax/dashboard-refund.ts` — `reconcileChargeRefundTax(service, listRefunds, charge, orderId)`: what the
+  charge.refunded webhook does about tax (owner Q2). Finds the triggering refund (charge.refunds when present, else
+  one refunds.list by payment intent, newest); OURS (createRefund's `metadata.source='app'`, or a ledger row under
+  the id) → nothing; dashboard FULL → `recordOrderTaxReversals` (kind dashboard_refund); dashboard PARTIAL on a
+  taxed order → ONE `order_tax_reversal_queue` row (never a pro-rata guess; UNIQUE refund id = retry-safe).
+  NEVER throws (a throw would make Stripe retry the event). 8 tests. Admin list for the queue: not built yet.
 
 **⚠ The dead half — do not build on:** `tax/taxcloud.ts` + `tax/tic-codes.ts` are
 artifacts of the REJECTED pre-8/1 TaxCloud plan (zero importers; env vars never

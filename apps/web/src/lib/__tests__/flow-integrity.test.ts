@@ -3475,11 +3475,10 @@ describe('Sales tax Batch 3 — every refund path reverses tax through the ledge
   })(SRC)
   callers.sort()
 
-  // Protected money files (change-discipline Rule 3) awaiting their own
-  // file-level approval — each one leaves this list in the commit that wires it.
-  const OWED: Record<string, string> = {
-    'lib/stripe/webhooks.ts': 'step 11 — dead-order + charge.refunded/Q2 queue, per-file approval pending (2026-09-26)',
-  }
+  // Sites awaiting their own file-level approval — each leaves this list in
+  // the commit that wires it. EMPTY since 2026-09-26 (all 13 sites wired);
+  // a new refund path must be wired or ruled exempt here, dated, with a reason.
+  const OWED: Record<string, string> = {}
 
   it('the set of refund call sites is the known one — a new refund path is a decision, not a drift', () => {
     // Scanned 2026-09-26. Adding a file here means: it reverses tax (below) or

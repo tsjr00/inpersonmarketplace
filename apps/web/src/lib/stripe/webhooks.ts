@@ -14,6 +14,8 @@ import { calculateBoothRentalFees, FEES } from '@/lib/pricing'
 import { sendSeasonPaidNotifications } from '@/lib/markets/season-notifications'
 import { applyPaidBoothAssignment } from '@/lib/markets/booth-assignment'
 import { observed } from '@/lib/errors'
+import { recordOrderTaxReversals } from '@/lib/tax/refund-ledger'
+import { reconcileChargeRefundTax } from '@/lib/tax/dashboard-refund'
 
 /**
  * H-6: Dedup helper — check if a notification was already sent recently.
@@ -201,7 +203,7 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
   // checkout/success so the two paths can never double-refund.
   const refundDeadOrder = async (deadStatus: string) => {
     try {
-      await createRefund(paymentIntentId, `${orderId}-dead-order`, session.amount_total!)
+      const refund = await createRefund(paymentIntentId, `${orderId}-dead-order`, session.amount_total!)
       await logError(new TracedError('ERR_WEBHOOK_017', `Payment landed on dead order ${orderId} (status ${deadStatus}) — full auto-refund of ${session.amount_total}¢ initiated`, {
         route: '/webhooks/stripe', method: 'POST',
       }))
@@ -210,6 +212,13 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
         orderId,
         amountCents: session.amount_total!,
       }, { vertical: order.vertical_id })
+      // Sales tax (Batch 3, step 11; owner file-level approval 2026-09-26):
+      // the whole charge came back → one ledger row per item still live on
+      // the order. Amount unchanged; never throws. Shares checkout/success's
+      // refund id, so both paths converge on one row.
+      await recordOrderTaxReversals(supabase, {
+        orderId, refundRef: refund.id, kind: 'order_refund', route: '/webhooks/stripe',
+      })
     } catch (refundErr) {
       await logError(new TracedError('ERR_WEBHOOK_017', `CRITICAL: payment landed on dead order ${orderId} AND auto-refund failed — manual refund of ${session.amount_total}¢ needed: ${refundErr instanceof Error ? refundErr.message : String(refundErr)}`, {
         route: '/webhooks/stripe', method: 'POST',
@@ -1242,6 +1251,20 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
     .from('payments')
     .update({ status: isFullRefund ? 'refunded' : 'partially_refunded' })
     .eq('stripe_payment_intent_id', paymentIntentId)
+
+  // Sales tax (Batch 3, step 11; owner Q2; file-level approval 2026-09-26):
+  // this event fires for OUR refunds too (already handled by their routes)
+  // and for refunds made by hand in the dashboard. lib/tax/dashboard-refund.ts
+  // tells them apart (createRefund's metadata tag, else the ledger) and does
+  // the dashboard case's bookkeeping: full → ledger rows; partial → one
+  // "reversal owed" queue row for an admin to allocate. NEVER throws.
+  await reconcileChargeRefundTax(
+    supabase,
+    async () => (await stripe.refunds.list({ payment_intent: paymentIntentId, limit: 10 })).data
+      .map((r) => ({ id: r.id, amount: r.amount, created: r.created, metadata: r.metadata })),
+    { amount: charge.amount, amount_refunded: charge.amount_refunded, refunds: charge.refunds ? { data: charge.refunds.data.map((r) => ({ id: r.id, amount: r.amount, created: r.created, metadata: r.metadata })) } : null },
+    payment.order_id as string
+  )
 
   // Get order details for notifications
   const { data: order } = await observed(supabase
