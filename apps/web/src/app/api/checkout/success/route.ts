@@ -2,6 +2,7 @@ import { NextRequest, NextResponse, after } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/config'
 import { createRefund } from '@/lib/stripe/payments'
+import { recordOrderTaxReversals } from '@/lib/tax/refund-ledger'
 import { FEES } from '@/lib/pricing'
 import { processMarketBoxPayout } from '@/lib/stripe/market-box-payout'
 import { withErrorTracing, traced, crumb, TracedError, logError, observed } from '@/lib/errors'
@@ -121,10 +122,17 @@ export async function GET(request: NextRequest) {
         throw traced.fromSupabase(deadInsertErr, { table: 'payments', operation: 'insert' })
       }
       try {
-        await createRefund(paymentIntentId, `${orderId}-dead-order`, session.amount_total!)
+        const refund = await createRefund(paymentIntentId, `${orderId}-dead-order`, session.amount_total!)
         await logError(new TracedError('ERR_CHECKOUT_006', `Buyer paid dead order ${orderId} (status ${deadOrderStatus}) via stale tab — full auto-refund of ${session.amount_total}¢ initiated`, {
           route: '/api/checkout/success', method: 'GET',
         }))
+        // Sales tax (Batch 3, step 10; owner file-level approval 2026-09-26):
+        // the whole charge came back, so the return needs one ledger row per
+        // item still live on the order. Amount unchanged; never throws. Shares
+        // the webhook dead-order path's refund id, so both converge on one row.
+        await recordOrderTaxReversals(serviceClient, {
+          orderId, refundRef: refund.id, kind: 'order_refund', route: '/api/checkout/success',
+        })
       } catch (refundErr) {
         await logError(new TracedError('ERR_CHECKOUT_006', `CRITICAL: buyer paid dead order ${orderId} AND auto-refund failed — manual refund of ${session.amount_total}¢ needed: ${refundErr instanceof Error ? refundErr.message : String(refundErr)}`, {
           route: '/api/checkout/success', method: 'GET',

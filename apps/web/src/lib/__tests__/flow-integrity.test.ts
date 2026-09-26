@@ -3478,7 +3478,6 @@ describe('Sales tax Batch 3 — every refund path reverses tax through the ledge
   // Protected money files (change-discipline Rule 3) awaiting their own
   // file-level approval — each one leaves this list in the commit that wires it.
   const OWED: Record<string, string> = {
-    'app/api/checkout/success/route.ts': 'step 10 — dead-order block, per-file approval pending (2026-09-26)',
     'lib/stripe/webhooks.ts': 'step 11 — dead-order + charge.refunded/Q2 queue, per-file approval pending (2026-09-26)',
   }
 
