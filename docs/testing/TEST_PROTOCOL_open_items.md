@@ -699,6 +699,8 @@ NOT RUNNABLE YET — nothing for you to do
 • "Protocol v6 remainder" (buyer items + weekly survey · onboarding copy · manager new-email invite and resend ·
   farmers-market mirror · print chrome) — steps still being rewritten.
 • The sales-tax rate-refresh job (runs on a schedule on production only; the owner triggers it on staging by hand).
+• Sales tax on refunds (a refunded item's tax comes back to the buyer and lands on the monthly tax report) — sales
+  tax is not switched on yet, so today every refund amount is exactly what it was before. Nothing to check until it is.
 • Two production-only checks (stock decrement at checkout; payout timing) — wait for a real vendor with Stripe
   on production.
 
