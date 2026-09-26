@@ -11,6 +11,8 @@ import { liftEventBlackouts } from '@/lib/events/blackouts'
 import { vendorResponseRecipients } from '@/lib/events/organizer-recipient'
 import { stripe } from '@/lib/stripe/config'
 import { restoreInventory } from '@/lib/inventory'
+import { refundAmountWithTax, type ItemTaxSnapshot } from '@/lib/tax/refund-tax'
+import { taxReversalForOrderItem, recordTaxReversal } from '@/lib/tax/refund-ledger'
 
 /**
  * POST /api/vendor/events/[marketId]/cancel
@@ -302,6 +304,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .from('order_items')
       .select(`
         id, order_id, quantity, subtotal_cents, listing_id,
+        tax_amount_cents, taxable_amount_cents, tax_jurisdictions, tax_rate_version,
         order:orders!inner(id, order_number, buyer_user_id, vertical_id, status, stripe_checkout_session_id),
         listing:listings(title)
       `)
@@ -337,6 +340,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
         const itemFlatFee = proratedFlatFeeSimple(FEES.buyerFlatFeeCents, totalItems)
         const buyerPaidForItem = (item.subtotal_cents as number) + buyerPercentFee + itemFlatFee
 
+        // Sales tax (Batch 3, step 8): the buyer also paid this item's tax,
+        // frozen on the row at checkout (mig 214). A withdrawal is a full
+        // refund → the whole snapshot reverses at the ORIGINAL rate, capped by
+        // anything an earlier refund already reversed (ledger read — throws
+        // before anything moves). Pre-tax (NULL) / exempt (0) rows reverse
+        // nothing. refund_amount_cents and the Stripe amount are
+        // tax-INCLUSIVE; the ledger row lands after Stripe succeeds.
+        const taxSnapshot: ItemTaxSnapshot = {
+          taxable_amount_cents: (item.taxable_amount_cents as number | null) ?? null,
+          tax_amount_cents: (item.tax_amount_cents as number | null) ?? null,
+          tax_jurisdictions: (item.tax_jurisdictions as ItemTaxSnapshot['tax_jurisdictions']) ?? null,
+          tax_rate_version: (item.tax_rate_version as string | null) ?? null,
+        }
+        const taxReversal = await taxReversalForOrderItem(serviceClient, item.id as string, taxSnapshot, { kind: 'full' })
+        const buyerRefundCents = refundAmountWithTax(buyerPaidForItem, taxReversal)
+
         // Guarded cancel (H3 pattern) — a concurrent cancel path wins, skip
         const { data: cancelledRows } = await observed(serviceClient
           .from('order_items')
@@ -345,7 +364,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             cancelled_at: new Date().toISOString(),
             cancelled_by: 'vendor',
             cancellation_reason: 'Vendor withdrew from this event',
-            refund_amount_cents: buyerPaidForItem,
+            refund_amount_cents: buyerRefundCents,
           })
           .eq('id', item.id)
           .is('cancelled_at', null)
@@ -359,16 +378,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
         const paymentIntentId = paymentByOrder.get(item.order_id as string)
         if (paymentIntentId) {
           try {
-            await createRefund(paymentIntentId, item.id as string, buyerPaidForItem)
+            const refund = await createRefund(paymentIntentId, item.id as string, buyerRefundCents)
             await serviceClient
               .from('order_items')
               .update({ status: 'refunded' })
               .eq('id', item.id)
               .eq('status', 'cancelled')
+            // Ledger row for the return (mig 260) — keyed by the Stripe refund
+            // id; never throws, a failure is logged for manual entry.
+            await recordTaxReversal(serviceClient, {
+              orderItemId: item.id as string, orderId: item.order_id as string, kind: 'item_refund', refundRef: refund.id,
+              reversal: taxReversal, route: '/api/vendor/events/[marketId]/cancel',
+            })
           } catch (refundErr) {
             await logError(new TracedError('ERR_REFUND_001', `[vendor-event-cancel] Refund failed for item ${item.id}: ${refundErr instanceof Error ? refundErr.message : String(refundErr)}`, {
               route: '/api/vendor/events/[marketId]/cancel', method: 'POST',
-              orderItemId: item.id as string, amountCents: buyerPaidForItem,
+              orderItemId: item.id as string, amountCents: buyerRefundCents,
             }))
           }
         }
