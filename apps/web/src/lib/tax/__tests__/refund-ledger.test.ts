@@ -72,14 +72,27 @@ function fakeService(opts: { rows?: Row[]; orderItems?: Row[]; readError?: { mes
     }
     return chain
   }
+  const queueResolved: Array<{ patch: Row; refundRef: unknown }> = []
   const client = {
     from: (table: string) => {
       if (table === 'order_items') return query(opts.orderItems ?? [])
+      if (table === 'order_tax_reversal_queue') {
+        // update(...).eq('stripe_refund_id', ref).is('resolved_at', null) → { error }
+        let patch: Row = {}
+        let refundRef: unknown
+        const chain = {
+          update: (p: Row) => { patch = p; return chain },
+          eq: (_k: string, v: unknown) => { refundRef = v; return chain },
+          is: () => chain,
+          then: (resolve: (v: unknown) => unknown) => { queueResolved.push({ patch, refundRef }); return Promise.resolve({ error: null }).then(resolve) },
+        }
+        return chain
+      }
       if (table !== TAX_REVERSAL_LEDGER) throw new Error(`unexpected table ${table}`)
       return { ...query(rows), insert: async (row: Row) => { if (opts.insertError) return { error: opts.insertError }; inserted.push(row); rows.push(row); return { error: null } } }
     },
   }
-  return { client: client as unknown as SupabaseClient, inserted }
+  return { client: client as unknown as SupabaseClient, inserted, queueResolved }
 }
 
 beforeEach(() => { logged.length = 0 })
@@ -138,6 +151,19 @@ describe('recordTaxReversal — one append-only row after Stripe succeeded', () 
     const svc = fakeService()
     expect(await recordTaxReversal(svc.client, { ...input, reversal: { ...reversal, taxCents: 0, jurisdictions: [] } })).toBe('skipped')
     expect(svc.inserted).toEqual([])
+    expect(svc.queueResolved).toEqual([])
+  })
+  it('SELF-HEAL: recording (or re-recording) our refund closes any "owed" queue row the webhook opened for it', async () => {
+    // The charge.refunded webhook can arrive before this write; if it queued
+    // the refund as a dashboard one, the ledger row is the allocation — close it.
+    const svc = fakeService()
+    await recordTaxReversal(svc.client, input)
+    expect(svc.queueResolved).toHaveLength(1)
+    expect(svc.queueResolved[0].refundRef).toBe('re_abc')
+    expect(svc.queueResolved[0].patch).toMatchObject({ resolved_at: expect.any(String), note: expect.stringMatching(/made in-app/) })
+    const dup = fakeService({ insertError: { code: '23505', message: 'duplicate' } })
+    expect(await recordTaxReversal(dup.client, input)).toBe('duplicate')
+    expect(dup.queueResolved).toHaveLength(1)
   })
   it('the same item + Stripe refund id twice is a duplicate, not a second row (retry / webhook race)', async () => {
     const svc = fakeService({ insertError: { code: '23505', message: 'duplicate key value violates unique constraint' } })

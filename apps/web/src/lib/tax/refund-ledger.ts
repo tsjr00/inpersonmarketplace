@@ -38,6 +38,8 @@ import {
 } from './refund-tax'
 
 export const TAX_REVERSAL_LEDGER = 'order_item_tax_reversals'
+/** Owner Q2: "reversal OWED" rows for partial refunds made by hand in the Stripe dashboard (mig 260). */
+export const TAX_REVERSAL_QUEUE = 'order_tax_reversal_queue'
 
 /** Mirrors the mig-260 CHECK on reversal_kind. */
 export type TaxReversalKind = 'item_refund' | 'order_refund' | 'dashboard_refund'
@@ -98,8 +100,23 @@ export async function recordTaxReversal(service: SupabaseClient, input: RecordTa
     tax_jurisdictions: reversal.jurisdictions,
     tax_rate_version: reversal.rateVersion,
   })
-  if (!error) return 'recorded'
-  if (error.code === '23505') return 'duplicate'
+  if (!error || error.code === '23505') {
+    // Self-healing (owner 2026-09-26): if the charge.refunded webhook beat this
+    // write and, unable to recognise the refund as ours, queued it as a
+    // dashboard refund "owed" an admin allocation, close that queue row now —
+    // the ledger row IS the allocation. Best effort; never affects the outcome.
+    const { error: queueErr } = await service
+      .from(TAX_REVERSAL_QUEUE)
+      .update({ resolved_at: new Date().toISOString(), note: 'resolved automatically: the refund was made in-app and its tax reversal is in the ledger' })
+      .eq('stripe_refund_id', input.refundRef)
+      .is('resolved_at', null)
+    if (queueErr) {
+      await logError(new TracedError('ERR_REFUND_001',
+        `Tax reversal queue self-heal failed for refund ${input.refundRef}: ${queueErr.message} — an admin may see an already-handled refund on the queue`,
+        { route: input.route, method: 'POST', orderId: input.orderId }))
+    }
+    return error ? 'duplicate' : 'recorded'
+  }
 
   // The buyer already has the money. This row is what the return needs —
   // say exactly what to re-enter so the error-log review can do it by hand.
