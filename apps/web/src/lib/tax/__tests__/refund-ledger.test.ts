@@ -32,6 +32,7 @@ import {
   alreadyReversedCents,
   taxReversalForOrderItem,
   recordTaxReversal,
+  recordOrderTaxReversals,
   taxReversalRecorded,
   TAX_REVERSAL_LEDGER,
 } from '../refund-ledger'
@@ -50,22 +51,32 @@ function snapshotFor(baseCents: number): ItemTaxSnapshot {
 }
 
 type Row = Record<string, unknown>
-/** A fake service client: `rows` is the ledger; `readError`/`insertError` fault the two sides. */
-function fakeService(opts: { rows?: Row[]; readError?: { message: string }; insertError?: { code?: string; message: string } } = {}) {
+/** A fake service client: `rows` is the ledger, `orderItems` the order's items; `readError`/`insertError` fault the two sides. */
+function fakeService(opts: { rows?: Row[]; orderItems?: Row[]; readError?: { message: string }; insertError?: { code?: string; message: string } } = {}) {
   const rows = [...(opts.rows ?? [])]
   const inserted: Row[] = []
-  const filters: Row = {}
-  const result = () => ({ data: opts.readError ? null : rows.filter((r) => Object.entries(filters).every(([k, v]) => r[k] === v)), error: opts.readError ?? null })
-  const chain = {
-    select: () => chain,
-    eq: (k: string, v: unknown) => { filters[k] = v; return chain },
-    limit: () => chain,
-    then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) => Promise.resolve(result()).then(resolve, reject),
+  // Every call to from() gets its own filter set, so one query's .eq never leaks into the next.
+  const query = (source: Row[]) => {
+    const filters: Row = {}
+    let nullFilter: string | null = null
+    const result = () => ({
+      data: opts.readError ? null : source.filter((r) => Object.entries(filters).every(([k, v]) => r[k] === v) && (nullFilter === null || r[nullFilter] == null)),
+      error: opts.readError ?? null,
+    })
+    const chain = {
+      select: () => chain,
+      eq: (k: string, v: unknown) => { filters[k] = v; return chain },
+      is: (k: string) => { nullFilter = k; return chain },
+      limit: () => chain,
+      then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) => Promise.resolve(result()).then(resolve, reject),
+    }
+    return chain
   }
   const client = {
     from: (table: string) => {
+      if (table === 'order_items') return query(opts.orderItems ?? [])
       if (table !== TAX_REVERSAL_LEDGER) throw new Error(`unexpected table ${table}`)
-      return { ...chain, insert: async (row: Row) => { if (opts.insertError) return { error: opts.insertError }; inserted.push(row); return { error: null } } }
+      return { ...query(rows), insert: async (row: Row) => { if (opts.insertError) return { error: opts.insertError }; inserted.push(row); rows.push(row); return { error: null } } }
     },
   }
   return { client: client as unknown as SupabaseClient, inserted }
@@ -140,6 +151,42 @@ describe('recordTaxReversal — one append-only row after Stripe succeeded', () 
     expect(logged[0].code).toBe('ERR_REFUND_001')
     expect(logged[0].message).toMatch(/item-1.*re_abc.*83¢/)
     expect(logged[0].context).toMatchObject({ route: '/api/test', orderItemId: 'item-1', orderId: 'order-1', amountCents: 83 })
+  })
+})
+
+describe('recordOrderTaxReversals — a whole-payment refund writes one row per live taxed item', () => {
+  const snap = snapshotFor(1000) // 83¢ of tax
+  const exempt = { taxable_amount_cents: 0, tax_amount_cents: 0, tax_jurisdictions: [], tax_rate_version: '2026-Q3' }
+  const orderItems = [
+    { id: 'item-a', order_id: 'order-1', cancelled_at: null, ...snap },
+    { id: 'item-b', order_id: 'order-1', cancelled_at: null, ...exempt },
+    { id: 'item-c', order_id: 'order-1', cancelled_at: '2026-09-20T00:00:00Z', ...snap }, // refunded earlier, per item
+    { id: 'item-z', order_id: 'order-2', cancelled_at: null, ...snap },                   // another order
+  ]
+  const input = { orderId: 'order-1', refundRef: 're_whole', kind: 'order_refund' as const, route: '/api/test' }
+
+  it('rows for the live taxed items only, all under the one Stripe refund id; exempt = skipped, cancelled/other orders untouched', async () => {
+    const svc = fakeService({ orderItems })
+    const s = await recordOrderTaxReversals(svc.client, input)
+    expect(s).toEqual({ items: 2, recorded: 1, duplicate: 0, skipped: 1, failed: 0 })
+    expect(svc.inserted).toEqual([expect.objectContaining({ order_item_id: 'item-a', order_id: 'order-1', reversal_kind: 'order_refund', refund_ref: 're_whole', tax_cents: 83 })])
+  })
+  it('an item partly reversed before gets only what remains (cap)', async () => {
+    const svc = fakeService({ orderItems, rows: [{ order_item_id: 'item-a', tax_cents: 62, refund_ref: 're_earlier' }] })
+    await recordOrderTaxReversals(svc.client, input)
+    expect(svc.inserted[0]).toMatchObject({ order_item_id: 'item-a', tax_cents: 83 - 62 })
+  })
+  it('a retried whole refund is all duplicates, never a second row', async () => {
+    const svc = fakeService({ orderItems, insertError: { code: '23505', message: 'duplicate' } })
+    const s = await recordOrderTaxReversals(svc.client, input)
+    expect(s.duplicate).toBe(1)
+    expect(logged).toEqual([])
+  })
+  it('NEVER throws after Stripe succeeded — a read failure is logged with the refund id', async () => {
+    const svc = fakeService({ orderItems, readError: { message: 'timeout' } })
+    const s = await recordOrderTaxReversals(svc.client, input)
+    expect(s.failed).toBe(1)
+    expect(logged.some((l) => l.code === 'ERR_REFUND_001' && /order-1.*re_whole/.test(l.message))).toBe(true)
   })
 })
 

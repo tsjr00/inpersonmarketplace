@@ -109,6 +109,60 @@ export async function recordTaxReversal(service: SupabaseClient, input: RecordTa
   return 'failed'
 }
 
+export interface OrderTaxReversalSummary {
+  /** Live (un-cancelled) items the order had at refund time. */
+  items: number
+  recorded: number
+  duplicate: number
+  skipped: number
+  failed: number
+}
+
+/**
+ * A WHOLE-payment refund (event cancelled, order not re-confirmed, a payment
+ * that landed on a dead order, a full dashboard refund): Stripe already
+ * returned everything, so nothing about the amount changes here — this only
+ * writes the return's ledger rows: one per item still live on the order,
+ * each the item's full remaining reversal, all keyed by the ONE Stripe
+ * refund id. Items cancelled earlier by a per-item path are excluded — their
+ * tax already went back under their own refund id; the cap covers any item
+ * that was partly reversed before.
+ *
+ * Runs AFTER Stripe succeeded, so it never throws: a read or write failure
+ * is logged (with the refund id, so the rows can be entered by hand) and the
+ * refund stands.
+ */
+export async function recordOrderTaxReversals(
+  service: SupabaseClient,
+  input: { orderId: string; refundRef: string; kind: TaxReversalKind; route: string }
+): Promise<OrderTaxReversalSummary> {
+  const summary: OrderTaxReversalSummary = { items: 0, recorded: 0, duplicate: 0, skipped: 0, failed: 0 }
+  try {
+    const { data: items, error } = await observed(service
+      .from('order_items')
+      .select('id, tax_amount_cents, taxable_amount_cents, tax_jurisdictions, tax_rate_version')
+      .eq('order_id', input.orderId)
+      .is('cancelled_at', null), { table: 'order_items' })
+    if (error) throw new TracedError('ERR_REFUND_001', `order_items read failed: ${error.message}`)
+    const rows = (items ?? []) as Array<{ id: string } & ItemTaxSnapshot>
+    summary.items = rows.length
+    for (const row of rows) {
+      const reversal = await taxReversalForOrderItem(service, row.id, row, { kind: 'full' })
+      const outcome = await recordTaxReversal(service, {
+        orderItemId: row.id, orderId: input.orderId, kind: input.kind, refundRef: input.refundRef,
+        reversal, route: input.route,
+      })
+      summary[outcome]++
+    }
+  } catch (err) {
+    await logError(new TracedError('ERR_REFUND_001',
+      `Tax reversal ledger rows for order ${input.orderId} (whole-payment refund ${input.refundRef}) could not be written: ${err instanceof Error ? err.message : String(err)} — enter the order's remaining item reversals by hand before the return is filed`,
+      { route: input.route, method: 'POST', orderId: input.orderId }))
+    summary.failed++
+  }
+  return summary
+}
+
 /** Has ANY ledger row been written for this Stripe refund? Throws on a read failure. */
 export async function taxReversalRecorded(service: SupabaseClient, refundRef: string): Promise<boolean> {
   const { data, error } = await observed(service

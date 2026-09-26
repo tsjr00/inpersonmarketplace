@@ -204,7 +204,12 @@ New user-facing strings go through `t()`, not hardcoded literals — the shared 
   AFTER Stripe succeeds and NEVER throws (`recorded | duplicate | skipped | failed`; 23505 = the retry /
   charge.refunded-webhook race converging on one row; failures logged with what to re-enter);
   `taxReversalRecorded(service, refundId)` is how the webhook tells our refunds from dashboard ones
-  (owner Q2). 11 tests. Call sites wired in steps 8–11.
+  (owner Q2); `recordOrderTaxReversals(service, {orderId, refundRef, kind})` = a WHOLE-payment refund's rows
+  (one per item still live on the order, full remaining reversal, one refund id; never throws). 15 tests.
+  Wired (step 8, 2026-09-26): resolve-issue · expire-orders Phase 1 · cancel-date cascade · vendor event
+  withdraw · buyer cancel + cancel-bundle (Q1 pro-rata) · events cancel (organizer + admin) · event-reconfirm.
+  Still owed: the three protected files (reject, checkout/success dead-order, webhooks dead-order +
+  charge.refunded/Q2 queue).
 
 **⚠ The dead half — do not build on:** `tax/taxcloud.ts` + `tax/tic-codes.ts` are
 artifacts of the REJECTED pre-8/1 TaxCloud plan (zero importers; env vars never

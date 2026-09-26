@@ -5,6 +5,7 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
 import { sendNotification } from '@/lib/notifications/service'
 import { stripe } from '@/lib/stripe/config'
 import { createRefund } from '@/lib/stripe/payments'
+import { recordOrderTaxReversals } from '@/lib/tax/refund-ledger'
 import { refundAllEventFeePayments } from '@/lib/events/event-fee-refunds'
 import { eventRefColumn } from '@/lib/events/event-ref'
 import { liftEventBlackouts } from '@/lib/events/blackouts'
@@ -229,7 +230,14 @@ export async function POST(
               }))
             } else {
               try {
-                await createRefund(paymentIntentId, `${order.id}-event-cancel`)
+                const refund = await createRefund(paymentIntentId, `${order.id}-event-cancel`)
+                // Sales tax (Batch 3, step 8): the whole payment came back, so
+                // the return needs one ledger row per item still live on the
+                // order (items already refunded per item carry their own rows).
+                // Amount unchanged; never throws.
+                await recordOrderTaxReversals(serviceClient, {
+                  orderId: order.id as string, refundRef: refund.id, kind: 'order_refund', route: '/api/events/[token]/cancel',
+                })
               } catch (refundErr) {
                 await logError(new TracedError('ERR_REFUND_001', `[event-cancel] Refund failed for order ${order.id}: ${refundErr instanceof Error ? refundErr.message : String(refundErr)}`, {
                   route: '/api/events/[token]/cancel', method: 'POST', orderId: order.id,

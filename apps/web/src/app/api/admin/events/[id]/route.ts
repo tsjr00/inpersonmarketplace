@@ -16,6 +16,7 @@ import { refundAllEventFeePayments } from '@/lib/events/event-fee-refunds'
 import { liftEventBlackouts } from '@/lib/events/blackouts'
 import { stripe } from '@/lib/stripe/config'
 import { createRefund } from '@/lib/stripe/payments'
+import { recordOrderTaxReversals } from '@/lib/tax/refund-ledger'
 import { approveEventRequest, autoMatchAndInvite } from '@/lib/events/event-actions'
 import { invitationsHeld } from '@/lib/events/invitation-gate'
 import { runEventCompletionEffects, sendOrganizerStatusEmail } from '@/lib/events/complete-event'
@@ -670,7 +671,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
               }))
             } else {
               try {
-                await createRefund(paymentIntentId, `${order.id}-event-cancel`)
+                const refund = await createRefund(paymentIntentId, `${order.id}-event-cancel`)
+                // Sales tax (Batch 3, step 8): the whole payment came back, so
+                // the return needs one ledger row per item still live on the
+                // order (items already refunded per item carry their own rows).
+                // Amount unchanged; never throws.
+                await recordOrderTaxReversals(serviceClient, {
+                  orderId: order.id as string, refundRef: refund.id, kind: 'order_refund', route: '/api/admin/events/[id]',
+                })
               } catch (refundErr) {
                 await logError(new TracedError('ERR_REFUND_001', `[admin/events cancel] Refund failed for order ${order.id}: ${refundErr instanceof Error ? refundErr.message : String(refundErr)}`, {
                   route: '/api/admin/events/[id]', method: 'PATCH', orderId: order.id,

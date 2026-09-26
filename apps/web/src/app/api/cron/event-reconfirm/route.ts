@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing, TracedError, logError, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications/service'
 import { createRefund } from '@/lib/stripe/payments'
+import { recordOrderTaxReversals } from '@/lib/tax/refund-ledger'
 import { restoreInventory } from '@/lib/inventory'
 import { hoursUntilEvent } from '@/lib/events/change-window'
 
@@ -147,7 +148,13 @@ export async function GET(request: NextRequest) {
           const payment = paymentByOrder.get(order.id as string)
           if (payment?.stripe_payment_intent_id) {
             try {
-              await createRefund(payment.stripe_payment_intent_id as string, `${order.id}-reconfirm`)
+              const refund = await createRefund(payment.stripe_payment_intent_id as string, `${order.id}-reconfirm`)
+              // Sales tax (Batch 3, step 8): the whole payment came back, so
+              // the return needs one ledger row per item still live on the
+              // order (cancelled just below). Amount unchanged; never throws.
+              await recordOrderTaxReversals(supabase, {
+                orderId: order.id as string, refundRef: refund.id, kind: 'order_refund', route: '/api/cron/event-reconfirm',
+              })
             } catch (refundErr) {
               errors++
               await logError(new TracedError('ERR_REFUND_001', `[event-reconfirm] Stripe refund failed for unconfirmed order: ${refundErr instanceof Error ? refundErr.message : String(refundErr)}`, {
