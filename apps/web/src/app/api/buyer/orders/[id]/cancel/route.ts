@@ -7,6 +7,8 @@ import { sendNotification } from '@/lib/notifications'
 import { restoreInventory } from '@/lib/inventory'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { calculateCancellationFee, CANCELLATION_FEE_PERCENT } from '@/lib/payments/cancellation-fees'
+import { refundAmountWithTax, type ItemTaxSnapshot, type RefundPortion } from '@/lib/tax/refund-tax'
+import { taxReversalForOrderItem, recordTaxReversal } from '@/lib/tax/refund-ledger'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -57,6 +59,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
         platform_fee_cents,
         vendor_payout_cents,
         cancelled_at,
+        tax_amount_cents,
+        taxable_amount_cents,
+        tax_jurisdictions,
+        tax_rate_version,
         listing:listings (
           id,
           vendor_profile_id,
@@ -135,6 +141,30 @@ export async function POST(request: NextRequest, context: RouteContext) {
       smallOrderFeeCents: (order as Record<string, unknown>).small_order_fee_cents as number || 0,
     })
 
+    // Sales tax (Batch 3, step 8; owner Q1 2026-09-24): the buyer also paid
+    // this item's tax, frozen on the row at checkout (mig 214). A full refund
+    // reverses the whole snapshot; when the 25% cancellation fee applies the
+    // buyer gets 75% of the item back, so 75% of its tax comes back too — the
+    // tax on the retained 25% stays collected and is remitted (pro-rata,
+    // interim; CPA Q12). Reversed at the ORIGINAL rate, capped by anything an
+    // earlier refund already reversed (ledger read — throws before anything
+    // moves). Pre-tax (NULL) / exempt (0) rows reverse nothing.
+    // refund_amount_cents and the Stripe amount are tax-INCLUSIVE;
+    // cancellation_fee_cents stays money-only (its platform/vendor split is
+    // unchanged); the ledger row lands after Stripe succeeds.
+    const cancelServiceClient = createServiceClient()
+    const taxSnapshot: ItemTaxSnapshot = {
+      taxable_amount_cents: (orderItem.taxable_amount_cents as number | null) ?? null,
+      tax_amount_cents: (orderItem.tax_amount_cents as number | null) ?? null,
+      tax_jurisdictions: (orderItem.tax_jurisdictions as ItemTaxSnapshot['tax_jurisdictions']) ?? null,
+      tax_rate_version: (orderItem.tax_rate_version as string | null) ?? null,
+    }
+    const taxPortion: RefundPortion = cancellationFeeApplied
+      ? { kind: 'partial', refundedBaseCents: Math.round((taxSnapshot.taxable_amount_cents ?? 0) * (1 - CANCELLATION_FEE_PERCENT / 100)) }
+      : { kind: 'full' }
+    const taxReversal = await taxReversalForOrderItem(cancelServiceClient, orderItemId, taxSnapshot, taxPortion)
+    const buyerRefundCents = refundAmountWithTax(refundAmountCents, taxReversal)
+
     // H3 FIX: Conditional UPDATE — only succeeds if cancelled_at IS NULL.
     // Prevents double-cancel race (buyer+vendor, double-click, cron+manual).
     // PostgreSQL's implicit row lock ensures only one concurrent UPDATE matches.
@@ -146,7 +176,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         cancelled_at: new Date().toISOString(),
         cancelled_by: 'buyer',
         cancellation_reason: reason || 'Cancelled by buyer',
-        refund_amount_cents: refundAmountCents,
+        refund_amount_cents: buyerRefundCents,
         cancellation_fee_cents: cancellationFeeCents
       })
       .eq('id', orderItemId)
@@ -167,7 +197,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     // Restore inventory for cancelled item
     crumb.logic('Restoring inventory for cancelled item')
-    const cancelServiceClient = createServiceClient()
     const cancelListing = orderItem.listing as any
     if (cancelListing?.id) {
       await restoreInventory(cancelServiceClient, cancelListing.id, (orderItem as any).quantity || 1)
@@ -252,7 +281,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (payment?.stripe_payment_intent_id) {
       try {
         crumb.logic('Processing Stripe refund')
-        const refund = await createRefund(payment.stripe_payment_intent_id, orderItemId, refundAmountCents)
+        const refund = await createRefund(payment.stripe_payment_intent_id, orderItemId, buyerRefundCents)
         stripeRefundId = refund.id
 
         // M4 FIX: Update status to 'refunded' after successful Stripe refund
@@ -260,6 +289,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
           .from('order_items')
           .update({ status: 'refunded' })
           .eq('id', orderItemId)
+        // Ledger row for the return (mig 260) — keyed by the Stripe refund id;
+        // never throws, a failure is logged for manual entry.
+        await recordTaxReversal(cancelServiceClient, {
+          orderItemId, orderId: order.id, kind: 'item_refund', refundRef: refund.id,
+          reversal: taxReversal, route: '/api/buyer/orders/[id]/cancel',
+        })
       } catch (refundError) {
         // DB is already updated as cancelled. Refund needs manual processing.
         // Must reach error_logs (console.error is invisible to the error-log review).
@@ -267,7 +302,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         await logError(new TracedError('ERR_REFUND_001', `Stripe refund failed for buyer cancellation: ${refundError instanceof Error ? refundError.message : String(refundError)}`, {
           route: '/api/buyer/orders/[id]/cancel', method: 'POST',
           orderItemId: orderItem.id, orderId: order.id,
-          amountCents: refundAmountCents,
+          amountCents: buyerRefundCents,
         }))
       }
 
@@ -354,10 +389,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       message: refundFailed
         ? 'Item cancelled. Refund processing encountered an issue and will be handled manually.'
         : cancellationFeeApplied
-          ? `Item cancelled. A ${CANCELLATION_FEE_PERCENT}% cancellation fee was applied. You will be refunded $${(refundAmountCents / 100).toFixed(2)}.`
+          ? `Item cancelled. A ${CANCELLATION_FEE_PERCENT}% cancellation fee was applied. You will be refunded $${(buyerRefundCents / 100).toFixed(2)}.`
           : 'Item cancelled successfully. Full refund will be processed.',
       cancelled_at: new Date().toISOString(),
-      refund_amount_cents: refundAmountCents,
+      refund_amount_cents: buyerRefundCents,
       cancellation_fee_cents: cancellationFeeCents,
       vendor_share_cents: vendorShareCents,
       platform_share_cents: platformShareCents,
