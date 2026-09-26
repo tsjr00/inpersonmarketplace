@@ -1,5 +1,5 @@
 STAGING TEST WORKFLOWS — SELF-CONTAINED EDITION
-Version 3 · 2026-09-25 · written for a tester who has ONLY this document and the app.
+Version 3.1 · 2026-09-25 (late) · written for a tester who has ONLY this document and the app.
 Nothing in here refers to any other document. If a step tells you to expect words on the screen, those are the
 words the app is supposed to show. If the screen shows something different, that difference IS your finding.
 
@@ -10,13 +10,16 @@ market, it is the long code after /market-manager/ or /markets/ in the address b
 
 Before every session: hard-refresh the page (Ctrl+F5 on Windows, Cmd+Shift+R on Mac) so you get the newest build.
 
-★ WHAT'S NEW (2026-09-25 build): run W2 first, then W1, then W3, then W12.
+★ WHAT'S NEW (2026-09-25 build `3f71e947`): run W2 first, then W1, then W3, then W12, then W5.
   W2 is rewritten for a FRESH vendor at River Road (the owner prepares the accounts): the vendor Markets card now
   lists its buttons in the order the work happens, a vendor can get back to an unfinished payment, and saving a
   listing no longer picks market days by itself. W1 is now only the retests: the "not visible to buyers" warning
   moved under Action Items, and the week sheet can be printed before any booking exists and shows app check-ins.
   W3 step 4's button is now called "Cancel this booking".
   NEW W12: seasons end to end (no season was on sale anywhere — every pre-sale window had passed). Run it after W3.
+  W5 is rewritten after the latest report: the market-limit box now names the markets it counts; a vendor booked
+  in two places at the same time is warned on the profile and refused at booking; retrying your own unpaid week
+  with a held booth number offers "Continue payment". W1 gained a check of the documents card wording.
 
 
 ==================================================
@@ -89,7 +92,7 @@ THE WORKFLOWS
   W2  A fresh vendor, start to paid week, in the new order                           River Road · ~60 min
   W3  Manager cancels a market day and a paid week — credits and notices            Market 2 Test, after W2 · ~20 min
   W4  Food-truck park: operator to-dos, recurring holds, cancel a date              Sixth Street · ~30 min
-  W5  Vendor sets up listings and markets — limits, double-booking, wording         ~25 min
+  W5  Vendor sets up listings and markets — limits, double-booking, wording         ~30 min
   W6  Platform admin looks up a vendor                                              ~5 min
   W7  Events — one fresh self-service event, start to shop                          ~45 min
   W8  Market bundles — three fresh orders                                           ~30 min + a 1-hour wait
@@ -104,6 +107,8 @@ THE WORKFLOWS
 W1 — MANAGER DASHBOARD: RETESTS AFTER THE 2026-09-25 FIXES   (Amarillo Community Market · manager login · ~15 min)
 ===
 Most of W1 passed on 2026-09-25. These steps re-check only what changed or was not reachable then.
+(Passed 2026-09-25 and removed: the "not visible to buyers" card sitting under Action Items — checked at Westgate
+Mall; and "1 vendor pending your approval" clearing after the approval.)
 All steps happen on /farmers_market/market-manager/[Amarillo id]/dashboard unless a step says otherwise.
 
  1. The "Action Items" card (the first card).
@@ -112,30 +117,21 @@ All steps happen on /farmers_market/market-manager/[Amarillo id]/dashboard unles
     Expect: the page scrolls to the section the link names (Setup opens by itself if the link points into it).
     If no extra line appears, write "none appeared" — that is not a failure.
 
- 2. Look directly UNDER the "Action Items" card.
-    Expect ONE of these two:
-      a) an amber card titled "Your market isn't visible to buyers yet", right there under Action Items; then
-         open /farmers_market/markets (the public list, logged out or as a buyer) — Amarillo is NOT in it.
-      b) nothing there; then open the "Setup" section — its last card is a green line
-         "✓ Your market is visible to buyers", and Amarillo IS in the public list.
-    Write down which one you saw. A mismatch (amber card but Amarillo is in the public list, or the reverse) is a
-    finding.
-
- 3. Read the small paragraph that begins in bold "How booth numbers work here." on these three cards:
+ 2. Read the small paragraph that begins in bold "How booth numbers work here." on these three cards:
     "Booth inventory" (inside Setup), "Vendors at this market", "Off-platform booth placeholders".
     Expect: the same paragraph on all three, and the sizes now read with the numbers in brackets:
     "10x10 (1–10) · 10x15 (11–20)".
 
- 4. The card "Weekly booth bookings" (in "Booths & occupancy").
+ 3. The card "Weekly booth bookings" (in "Booths & occupancy").
     CHECK FIRST: does the card show a week header with arrows (← →)? If yes, Amarillo has bookings now — skip to
-    step 4b.
-    4a. (no bookings yet) Expect: the card is ONE line: "No bookings yet. Once vendors book, each week's roster
+    step 3b.
+    3a. (no bookings yet) Expect: the card is ONE line: "No bookings yet. Once vendors book, each week's roster
         shows up here with the booth number each one was given. The week sheet already lists your holds and
         off-platform booths." followed by a link "🖨 Print the week sheet →".
-    4b. (has bookings) Expect: the same "How booth numbers work here." paragraph as step 3, and in the week header
+    3b. (has bookings) Expect: the same "How booth numbers work here." paragraph as step 2, and in the week header
         a link "🖨 Print this week's sheet". The week shown when the page opens is the CURRENT week.
 
- 5. Tap the print link from step 4.
+ 4. Tap the print link from step 3.
     Expect: a plain page titled "Amarillo Community Market — week sheet".
     - The line under the title says "(this week)" — or "(next week)" if every Amarillo market day this week has
       already passed (that lets a manager print the coming week early).
@@ -147,11 +143,19 @@ All steps happen on /farmers_market/market-manager/[Amarillo id]/dashboard unles
     - "← Previous week" / "Next week →" change the week; the Print button shows a print preview with just the
       page (no links or buttons); "← Back to the dashboard" returns you to the dashboard.
 
- 6. ONLY on an Amarillo market day, with a vendor approved at Amarillo (skip otherwise):
+ 5. ONLY on an Amarillo market day, with a vendor approved at Amarillo (skip otherwise):
     As that VENDOR, open the vendor dashboard and tap "📍 Check in to Amarillo Community Market now" (allow or
-    skip location). As the MANAGER, reload the week sheet from step 5.
+    skip location). As the MANAGER, reload the week sheet from step 4.
     Expect: in that vendor's row, under today's column, "In <time>" (e.g. "In 7:42 AM"). A vendor who checked in
     but has no booking or hold this week still gets a row, with the status "Checked in · no booking this week".
+
+ 6. Open "Setup" → the card "Verification Documents" → the box "What we need from you".
+    Expect: each line starts with a small dot (•) or a ✅ — these are status marks, NOT boxes to tick — and reads
+    "<document> · Requested by the platform · not uploaded yet" (or "· uploaded"). The insurance line reads
+    "Insurance self-certification · Requested by the platform · not done yet — the checkbox is below" (or
+    "· done"). Under the list: "These are not part of the setup steps above." and, because Amarillo is already
+    approved, "…is already approved — keep them current so the platform can verify you if asked." The words
+    "before approving your market" do NOT appear.
 
 
 
@@ -344,30 +348,56 @@ THIS week (a spot booking, unpaid is fine). As T2, request a recurring hold for 
 
 
 ==================================================
-W5 — VENDOR SETS UP LISTINGS AND MARKETS   (~25 min)
+W5 — VENDOR SETS UP LISTINGS AND MARKETS   (~30 min)
 ===
 YOU NEED: a FREE-tier farmers-market vendor who is already at 3 traditional markets; a farmers-market vendor and
 a food-truck vendor who each have the box "I can staff more than one location at the same time" UNTICKED on
-/[vertical]/vendor/edit; a food-truck listing set to allow same-day ordering ("0 days advance"); a buyer.
+/[vertical]/vendor/edit; a farmers-market vendor with a booth NUMBER held at Amarillo (the Amarillo roster shows
+it); a food-truck listing set to allow same-day ordering ("0 days advance"); a buyer.
 
- 1. As the 3-market vendor: /farmers_market/vendor/listings/[any listing id]/edit → tick a FOURTH traditional
-    market → save.
-    Expect: refused; the message says "Your Free plan allows active listings at up to 3 traditional markets,
-    counted across all your listings…" and LISTS the markets already counted. — OR — the extra markets cannot
-    be ticked at all (they look disabled). Either way, tell me which of the two you saw.
+ 1. As the 3-market vendor: /farmers_market/vendor/listings/[any listing id]/edit → the market list.
+    Expect: the grey box above the list reads "Your plan allows 3 unique traditional markets across ALL your
+    listings (currently using 3 of 3: <the three market names>)." — and each of those three markets carries a
+    small grey "· counted" after its name.
+    a. Tick a market that shows "· counted" and save.
+       Expect: it saves with no error and the box still says 3 of 3 (that market was already counted through
+       another listing, so it uses no new slot).
+    b. Try to tick a market WITHOUT "· counted".
+       Expect: it cannot be ticked (it looks faded), because a fourth market would go over the plan.
 
- 2. As the farmers-market vendor with the box UNTICKED: /farmers_market/vendor/markets → activate a SECOND
-    market that meets on the same weekday and overlapping hours as one you already attend.
+ 2. As the farmers-market vendor with the box UNTICKED: /farmers_market/vendor/markets → open a SECOND market that
+    meets on the same weekday and overlapping hours as one you already attend → "Set Schedule" → tick that day.
     Expect: refused, with a message that names the market you are already at during that time. Tick the box
     on /farmers_market/vendor/edit, save, try again.
     Expect: it succeeds. Repeat once as the food-truck vendor on /food_trucks/…
 
- 3. As a BUYER: open the same-day food-truck listing (/food_trucks/listing/[id]) on a day the truck is NOT
+ 3. Two places at once, already on the books — as a farmers-market vendor who has the SAME day and time picked at
+    two markets (the owner can name one; farmersmarketingapp+cottagevendor1 had Amarillo and River Road on
+    Saturdays on 2026-09-25):
+    a. /farmers_market/vendor/edit with the box "I can staff more than one location at the same time" UNTICKED.
+       Expect: an amber note under the box, "With this box off, you're scheduled in two places at the same
+       time:" listing both markets with their times and the day, and a link "Change your days on your Markets
+       page →".
+    b. Open /farmers_market/markets/[one of those two markets' id]/book.
+       Expect: under the form, a line beginning "You're also scheduled at "<the other market>" on <day>s from
+       <time>… You can't be at both." and the "Continue to payment" button is disabled.
+    c. Remove that day at ONE of the two markets (Markets page → the market → Manage Schedule), then reload both
+       pages.
+       Expect: the amber note is gone and the booking page lets you continue.
+
+ 4. As the vendor with a booth NUMBER held at Amarillo: open /farmers_market/markets/[Amarillo id]/book, choose a
+    week, tick the agreement, "Continue to payment" — then leave the Stripe page with the browser's Back button.
+    Choose the SAME week again and tap "Continue to payment".
+    Expect: a red box "You already started booking this week and it is waiting for payment. Continue the payment
+    below." with a "Continue payment" button — NOT "Your assigned booth is already booked for that week…".
+    Tap "Continue payment" — you are back on the same Stripe page.
+
+ 5. As a BUYER: open the same-day food-truck listing (/food_trucks/listing/[id]) on a day the truck is NOT
     operating.
     Expect: the availability text reads "Orders Open on Operating Days". Hover the availability badge.
     Expect: the tooltip does not mention preparation time.
 
- 4. As a BUYER: place an order with any vendor, then cancel it BEFORE the vendor confirms it. As that VENDOR:
+ 6. As a BUYER: place an order with any vendor, then cancel it BEFORE the vendor confirms it. As that VENDOR:
     /[vertical]/vendor/orders.
     Expect: the count card at the top labelled cancelled includes this order, and the number matches how many
     cancelled/refunded orders appear in the list below.
@@ -677,14 +707,14 @@ NOT RUNNABLE YET — nothing for you to do
 APPENDIX — FOR CLAUDE'S BOOKKEEPING ONLY. Testers: stop reading here.
 ============================================================================================================
 Registry rows satisfied by each step (a step may cover several rows; a row may span steps):
-W1  (v3, retests) 1→TR-105 · 2→TR-121 (TR-075 manager half) · 3→TR-101 · 4→TR-101 TR-108 TR-120 · 5→TR-108 TR-120 · 6→TR-120
+W1  (v3.1, retests) 1→TR-105 · 2→TR-101 · 3→TR-101 TR-108 TR-120 · 4→TR-108 TR-120 · 5→TR-120 · 6→TR-124   (old step 2 = TR-121 PASSED 2026-09-25, OB-031)
 W2  (v3, fresh vendor at River Road) 1→TR-119 · 2→TR-083 · 3→TR-117 · 4→TR-119 TR-084 · 5→TR-119 TR-085 · 6→TR-087 TR-121 TR-075
     · 7→TR-118 · 8→TR-118 · 9→TR-118 TR-078 · 10→TR-119 TR-121 TR-075 TR-089 · 11→TR-118 TR-088(part 1) TR-082 · 12→TR-088(part 2)
     · 13→(see W12)   (v2 steps that PASSED 2026-09-25 were removed — see TEST_REGISTRY OB-030 rows)
 W3  1→TR-091 TR-099 · 2→TR-091 · 3→TR-091 · 4→TR-092 (button now "Cancel this booking", OB-030 (e))
 W12 1→TR-122 · 2→TR-079 (setup) · 3→TR-122 TR-079 · 4→TR-079 · 5→TR-079 · 6→TR-079 · 7→TR-122   (W2 v3 step 13 now points here)
 W4  1→TR-034 · 2→TR-107 · 3→TR-043 · 4→TR-109 · 5→TR-109 · 6→TR-040 · 7→TR-109
-W5  1→TR-069 · 2→TR-044 · 3→TR-042 · 4→TR-048
+W5  (v3.1) 1→TR-069 · 2→TR-044 · 3→TR-044 · 4→TR-123 · 5→TR-042 · 6→TR-048
 W6  1→TR-095 · 2→TR-096 · 3→TR-095 TR-096 · 4→TR-093 · 5→TR-094
 W7  1→TR-022 TR-064 · 2→TR-022 TR-064 · 3→TR-022 · 4→TR-065 · 5→TR-066 · 6→TR-067 · 7→TR-068 · 8→TR-026
     · 9→TR-025 · 10a→TR-023 · 10b→TR-024 · 10c→TR-030 · 10d→TR-032 · 10e→TR-033 · 10f→TR-035

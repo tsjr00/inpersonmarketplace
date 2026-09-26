@@ -1,3 +1,7 @@
+# 2026-09-25 (late) — OB-031 round on Staging `3f71e947` · printable v3.1 + registry TR-123/124 + OB-031 logged (local commit)
+After the OB-030 push: season check (none on sale — every pre-sale window lapsed; lapsed flag fixed, W12 added, `ab1cd64b`); tester OB-031 (W1.2 PASS at Westgate Mall; W5): own held-booth retry → Continue payment; booking-gates step 4 refuses two-places-at-once + profile overlap note (owner: both a and b); counted markets named; documents wording. Vercel env vars marked Sensitive by owner (none exposed; no rotation).
+NEXT: tester continues (order W2 · W1 · W3 · W12 · W5); owner prepares V4/V5 (W2) and the W12 vendors. Backlog (g) season Continue payment. Then tax refund call sites 8–11.
+
 # 2026-09-25 (evening) — TESTER ROUND OB-030 BUILT · 4 local commits c0d81b25 → fffb54c2 + docs commit pending · NOT pushed (origin/staging = 48463c41)
 Tester W1/W2 report → OB-030 (verbatim) + triage (`triage_2026-09-25_tester_W1W2.md` = the working file; read it first). Owner rulings in decisions.md 2026-09-25 row.
 Built in order: (1) D6 listing save never picks days at a managed market · (2) D1 Continue payment (resume route; BR-10 pin allows only it — owner ruling a) · (3) Markets card in workflow order + NEXT cue + home not auto-expanded (owner: loosen the pill test) · (4–6) empty bookings card keeps collapse rule + "Print the week sheet" (owner option a), week sheet next-week default + market-day dates + app check-ins, not-visible warning under Action Items (FM+FT), locked pickers grey, "Manager approval needed", "Cancel this booking".
