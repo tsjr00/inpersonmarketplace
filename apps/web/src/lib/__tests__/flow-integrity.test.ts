@@ -3443,6 +3443,102 @@ describe('Sales tax Batch 2 — one engine, dark flag', () => {
   })
 })
 
+// ── Sales tax Batch 3 — every refund path reverses tax through the ledger ──
+//
+// The rule (sales_tax_readiness.md §3; owner rulings 2026-09-24 Q1/Q2; plan
+// tax_build_review_research.md steps 8–11): once a buyer is refunded, the tax
+// they paid on that item comes back with the money and is recorded in
+// order_item_tax_reversals at the ORIGINAL rate — never recomputed from today's
+// market rates — so the monthly List Supplement can subtract it. A refund
+// path that does not go through the ledger silently keeps the buyer's tax and
+// misreports the return. The callers are ENUMERATED BY SCAN each run, never
+// from a typed list: a new route that refunds without tax handling turns this
+// red the day it is written. Sites not yet wired sit on a DATED owed-list that
+// shrinks with each file-level approval; an owed file that starts using the
+// ledger must leave the list (so the list can never go stale the other way).
+describe('Sales tax Batch 3 — every refund path reverses tax through the ledger', () => {
+  const SRC = path.resolve(__dirname, '../..')
+  const rd = (p: string) => fs.readFileSync(path.join(SRC, p), 'utf-8')
+  const rel = (abs: string) => path.relative(SRC, abs).split(path.sep).join('/')
+
+  /** Every source file (tests excluded) that CALLS createRefund — the definition itself excluded. */
+  const callers: string[] = []
+  ;(function walk(d: string) {
+    for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
+      const full = path.join(d, entry.name)
+      if (entry.isDirectory()) { if (!entry.name.startsWith('.') && entry.name !== 'node_modules' && entry.name !== '__tests__') walk(full); continue }
+      if (!entry.name.endsWith('.ts') && !entry.name.endsWith('.tsx')) continue
+      const f = rel(full)
+      if (f === 'lib/stripe/payments.ts') continue
+      if (/\bcreateRefund\(/.test(fs.readFileSync(full, 'utf-8'))) callers.push(f)
+    }
+  })(SRC)
+  callers.sort()
+
+  // Protected money files (change-discipline Rule 3) awaiting their own
+  // file-level approval — each one leaves this list in the commit that wires it.
+  const OWED: Record<string, string> = {
+    'app/api/vendor/orders/[id]/reject/route.ts': 'step 9 — per-file approval pending (2026-09-26)',
+    'app/api/checkout/success/route.ts': 'step 10 — dead-order block, per-file approval pending (2026-09-26)',
+    'lib/stripe/webhooks.ts': 'step 11 — dead-order + charge.refunded/Q2 queue, per-file approval pending (2026-09-26)',
+  }
+
+  it('the set of refund call sites is the known one — a new refund path is a decision, not a drift', () => {
+    // Scanned 2026-09-26. Adding a file here means: it reverses tax (below) or
+    // the owner ruled it exempt with a reason in this block.
+    expect(callers).toEqual([
+      'app/api/admin/events/[id]/route.ts',
+      'app/api/buyer/orders/[id]/cancel-bundle/route.ts',
+      'app/api/buyer/orders/[id]/cancel/route.ts',
+      'app/api/checkout/success/route.ts',
+      'app/api/cron/event-reconfirm/route.ts',
+      'app/api/cron/expire-orders/route.ts',
+      'app/api/events/[token]/cancel/route.ts',
+      'app/api/vendor/events/[marketId]/cancel/route.ts',
+      'app/api/vendor/orders/[id]/reject/route.ts',
+      'app/api/vendor/orders/[id]/resolve-issue/route.ts',
+      'lib/markets/cancel-date-cascade.ts',
+      'lib/stripe/webhooks.ts',
+    ])
+  })
+
+  it('every caller writes the ledger after Stripe, or is on the dated owed-list', () => {
+    for (const file of callers) {
+      const src = rd(file)
+      const usesLedger = /from '@\/lib\/tax\/refund-ledger'/.test(src) && /record(Order)?TaxReversals?\(/.test(src)
+      if (file in OWED) {
+        expect(usesLedger, `${file} is on the owed-list but already uses the ledger — remove it from OWED (${OWED[file]})`).toBe(false)
+        continue
+      }
+      expect(usesLedger, `${file} calls createRefund but never records a tax reversal`).toBe(true)
+      // The row is written AFTER the refund succeeds, never before (a ledger
+      // row for money that never moved would put a phantom credit on the return).
+      expect(src.indexOf('createRefund('), `${file}: ledger write must follow the Stripe call`)
+        .toBeLessThan(src.search(/record(Order)?TaxReversals?\(/))
+    }
+  })
+
+  it('per-item sites store and refund the TAX-INCLUSIVE amount, computed before the item is cancelled', () => {
+    for (const file of callers) {
+      if (file in OWED) continue
+      const src = rd(file)
+      if (!/recordTaxReversal\(/.test(src)) continue // whole-order sites: amount unchanged (rows only)
+      expect(src, `${file}: buyer refund must include the reversal (refundAmountWithTax)`).toMatch(/refundAmountWithTax\(/)
+      // Read the ledger BEFORE the item's cancel write (the update that stores
+      // refund_amount_cents) so the stored figure is already tax-inclusive.
+      expect(src.search(/taxReversalForOrderItem\(/), `${file}: reversal must be computed before the item's refund_amount_cents write`)
+        .toBeLessThan(src.indexOf('refund_amount_cents:'))
+    }
+  })
+
+  it('no refund path recomputes tax from today\'s market rates (original-rate rule)', () => {
+    for (const file of callers) {
+      expect(rd(file), `${file} must reverse from the item snapshot, never the checkout engine`)
+        .not.toMatch(/computeItemTax|computeCartTax|computeCheckoutTax/)
+    }
+  })
+})
+
 // ═══════════════════════════════════════════════════════════════════════
 // JSON-LD sinks — user text never reaches a <script> raw (audit C4, 2026-09-12)
 //
