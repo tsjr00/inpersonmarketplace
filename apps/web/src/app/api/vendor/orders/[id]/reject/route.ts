@@ -8,6 +8,8 @@ import { restoreInventory } from '@/lib/inventory'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { FEES, proratedFlatFeeSimple, calculateSmallOrderFee } from '@/lib/pricing'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
+import { refundAmountWithTax, type ItemTaxSnapshot } from '@/lib/tax/refund-tax'
+import { taxReversalForOrderItem, recordTaxReversal } from '@/lib/tax/refund-ledger'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -60,6 +62,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         vendor_profile_id,
         order_id,
         listing_id,
+        tax_amount_cents, taxable_amount_cents, tax_jurisdictions, tax_rate_version,
         order:orders!inner(id, order_number, buyer_user_id, vertical_id, status, stripe_checkout_session_id, payment_method, payment_model, tip_amount, subtotal_cents),
         listing:listings(title, vendor_profiles(profile_data))
       `)
@@ -117,6 +120,24 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const itemFlatFee = totalItemsInOrder ? proratedFlatFeeSimple(FEES.buyerFlatFeeCents, totalItemsInOrder) : 0
     const buyerPaidForItem = orderItem.subtotal_cents + buyerPercentFee + itemFlatFee
 
+    // Sales tax (Batch 3, step 9; owner file-level approval 2026-09-26): the
+    // buyer also paid this item's tax, frozen on the row at checkout (mig 214).
+    // A rejection is a full refund → the whole snapshot reverses at the
+    // ORIGINAL rate, capped by anything an earlier refund already reversed
+    // (ledger read — throws before anything moves). Pre-tax (NULL) / exempt
+    // (0) rows reverse nothing, so their amounts are unchanged.
+    // refund_amount_cents and the Stripe amount are tax-INCLUSIVE; the ledger
+    // row lands after Stripe succeeds.
+    const rejectServiceClient = createServiceClient()
+    const taxSnapshot: ItemTaxSnapshot = {
+      taxable_amount_cents: (orderItem.taxable_amount_cents as number | null) ?? null,
+      tax_amount_cents: (orderItem.tax_amount_cents as number | null) ?? null,
+      tax_jurisdictions: (orderItem.tax_jurisdictions as ItemTaxSnapshot['tax_jurisdictions']) ?? null,
+      tax_rate_version: (orderItem.tax_rate_version as string | null) ?? null,
+    }
+    const taxReversal = await taxReversalForOrderItem(rejectServiceClient, orderItemId, taxSnapshot, { kind: 'full' })
+    const buyerRefundCents = refundAmountWithTax(buyerPaidForItem, taxReversal)
+
     // H3 FIX: Conditional UPDATE — only succeeds if cancelled_at IS NULL.
     // Prevents double-cancel race (buyer+vendor simultaneous, double-click).
     const { data: updatedRows, error: updateError } = await supabase
@@ -126,7 +147,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         cancelled_at: new Date().toISOString(),
         cancelled_by: 'vendor',
         cancellation_reason: reason,
-        refund_amount_cents: buyerPaidForItem // Full refund of what buyer actually paid
+        refund_amount_cents: buyerRefundCents // Full refund of what buyer actually paid, tax included
       })
       .eq('id', orderItemId)
       .is('cancelled_at', null)
@@ -146,7 +167,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Restore inventory for rejected item
-    const rejectServiceClient = createServiceClient()
     if (orderItem.listing_id) {
       await restoreInventory(rejectServiceClient, orderItem.listing_id, orderItem.quantity || 1)
     }
@@ -172,7 +192,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     if (payment?.stripe_payment_intent_id) {
       try {
-        const refund = await createRefund(payment.stripe_payment_intent_id, orderItem.id, buyerPaidForItem)
+        const refund = await createRefund(payment.stripe_payment_intent_id, orderItem.id, buyerRefundCents)
         stripeRefundId = refund.id
 
         // M4 FIX: Update status to 'refunded' after successful Stripe refund
@@ -180,20 +200,26 @@ export async function POST(request: NextRequest, context: RouteContext) {
           .from('order_items')
           .update({ status: 'refunded' })
           .eq('id', orderItemId)
+        // Ledger row for the return (mig 260) — keyed by the Stripe refund id;
+        // never throws, a failure is logged for manual entry.
+        await recordTaxReversal(rejectServiceClient, {
+          orderItemId: orderItem.id, orderId: orderItem.order_id, kind: 'item_refund', refundRef: refund.id,
+          reversal: taxReversal, route: '/api/vendor/orders/[id]/reject',
+        })
       } catch (refundError) {
         // DB already updated as cancelled — refund needs manual processing.
         // Must reach error_logs (console.error is invisible to the error-log review).
         await logError(new TracedError('ERR_REFUND_001', `Stripe refund failed for vendor rejection: ${refundError instanceof Error ? refundError.message : String(refundError)}`, {
           route: '/api/vendor/orders/[id]/reject', method: 'POST',
           orderItemId: orderItem.id, orderId: orderItem.order_id,
-          amountCents: buyerPaidForItem,
+          amountCents: buyerRefundCents,
         }))
       }
     } else if (shouldCallStripeRefund) {
-      await logError(new TracedError('ERR_REFUND_001', `No succeeded payment row for Stripe-paid order ${orderItem.order_id} at vendor rejection — buyer refund of ${buyerPaidForItem}¢ needs manual processing`, {
+      await logError(new TracedError('ERR_REFUND_001', `No succeeded payment row for Stripe-paid order ${orderItem.order_id} at vendor rejection — buyer refund of ${buyerRefundCents}¢ needs manual processing`, {
         route: '/api/vendor/orders/[id]/reject', method: 'POST',
         orderItemId: orderItem.id, orderId: orderItem.order_id,
-        amountCents: buyerPaidForItem,
+        amountCents: buyerRefundCents,
       }))
     }
 
@@ -328,7 +354,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       success: true,
       message: 'Item rejected successfully',
       cancelled_at: new Date().toISOString(),
-      refund_amount_cents: buyerPaidForItem,
+      refund_amount_cents: buyerRefundCents,
       reason: reason
     })
   })

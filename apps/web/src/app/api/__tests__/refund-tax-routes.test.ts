@@ -38,9 +38,11 @@ const H = vi.hoisted(() => {
 type QRec = (typeof H.state.calls)[number]
 
 function makeClient() {
+  // rpc(): awaitable directly (restoreInventory) AND .single()-able (reject's increment_vendor_cancelled).
+  const rpcResult = () => Object.assign(Promise.resolve({ data: null, error: null }), { single: async () => ({ data: null, error: null }) })
   return {
     auth: { getUser: async () => ({ data: { user: H.state.user }, error: null }) },
-    rpc: vi.fn(async () => ({ data: null, error: null })),
+    rpc: vi.fn(() => rpcResult()),
     from(table: string) {
       const q: QRec = { table, op: 'select', values: null, filters: [] }
       const chain: Record<string, unknown> = {}
@@ -86,6 +88,7 @@ vi.mock('@/lib/notifications', () => ({
 vi.mock('@/lib/vendor/getVendorProfile', () => ({ getVendorProfileForVertical: H.mockGetVendorProfile }))
 
 import { POST as buyerCancelPOST } from '../buyer/orders/[id]/cancel/route'
+import { POST as vendorRejectPOST } from '../vendor/orders/[id]/reject/route'
 
 // ── Fixtures ────────────────────────────────────────────────────────────
 // Austin: 6.25 state + 1.00 city + 1.00 transit. Checkout taxed the $10.00
@@ -208,5 +211,45 @@ describe('buyer cancel × sales tax', () => {
     expect(res.status).toBe(200)
     expect((await res.json()).refundFailed).toBe(true)
     expect(ledgerInserts()).toEqual([])
+  })
+})
+
+// ── Vendor reject (protected route; owner file-level approval 2026-09-26) ──
+const VENDOR = { id: 'vendor-1' }
+function rejectItem(tax: Record<string, unknown>) {
+  return {
+    id: 'item-1', status: 'confirmed', quantity: 1, subtotal_cents: 1000, cancelled_at: null,
+    vendor_profile_id: 'vp-1', order_id: 'order-1', listing_id: 'listing-1', ...tax,
+    order: { id: 'order-1', order_number: 'FM-1', buyer_user_id: 'buyer-1', vertical_id: 'farmers_market', status: 'paid', stripe_checkout_session_id: null, payment_method: 'stripe', payment_model: null, tip_amount: 0, subtotal_cents: 1000 },
+    listing: { title: 'Salsa', vendor_profiles: { profile_data: { business_name: 'Farm' } } },
+  }
+}
+const rejectReq = (url: string) => new NextRequest(new Request(`http://localhost${url}`, { method: 'POST', body: JSON.stringify({ reason: 'Sold out' }) }))
+
+describe('vendor reject × sales tax', () => {
+  beforeEach(() => {
+    H.state.user = VENDOR
+    H.mockGetVendorProfile.mockReset().mockResolvedValue({ profile: { id: 'vp-1' }, error: null })
+  })
+
+  it('a rejection is a full refund: money + ALL the tax, stored tax-inclusive, one ledger row after Stripe', async () => {
+    resolveWith(rejectItem(TAXED), {})
+    const res = await vendorRejectPOST(rejectReq('/api/vendor/orders/item-1/reject'), params('item-1'))
+    expect(res.status).toBe(200)
+    expect(H.mockCreateRefund).toHaveBeenCalledWith('pi_test', 'item-1', BUYER_PAID + 89)
+    expect(cancelWrite()).toMatchObject({ refund_amount_cents: BUYER_PAID + 89, cancelled_by: 'vendor' })
+    const rows = ledgerInserts()
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ order_item_id: 'item-1', order_id: 'order-1', reversal_kind: 'item_refund', refund_ref: 're_test', taxable_amount_cents: 1065, tax_cents: 89 })
+    expect((await res.json()).refund_amount_cents).toBe(BUYER_PAID + 89)
+  })
+
+  it('DARK STREAM: an untaxed item refunds exactly what it always did — no ledger read, no row', async () => {
+    resolveWith(rejectItem(UNTAXED), {})
+    const res = await vendorRejectPOST(rejectReq('/api/vendor/orders/item-1/reject'), params('item-1'))
+    expect(res.status).toBe(200)
+    expect(H.mockCreateRefund).toHaveBeenCalledWith('pi_test', 'item-1', BUYER_PAID)
+    expect(cancelWrite()).toMatchObject({ refund_amount_cents: BUYER_PAID })
+    expect(H.state.calls.some(c => c.table === 'order_item_tax_reversals')).toBe(false)
   })
 })
