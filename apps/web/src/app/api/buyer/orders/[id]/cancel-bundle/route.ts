@@ -8,6 +8,8 @@ import { restoreInventory } from '@/lib/inventory'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { calculateBundleCancellation, CANCELLATION_FEE_PERCENT } from '@/lib/payments/cancellation-fees'
 import { marginWithBuyerFeeCents } from '@/lib/bundles/core'
+import { refundAmountWithTax, type ItemTaxSnapshot, type RefundPortion, type TaxReversal } from '@/lib/tax/refund-tax'
+import { taxReversalForOrderItem, recordTaxReversal } from '@/lib/tax/refund-ledger'
 
 /**
  * POST /api/buyer/orders/[id]/cancel-bundle — [id] is the ORDER id.
@@ -72,7 +74,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     crumb.supabase('select', 'order_items (cancel-bundle)')
     const { data: allItems } = await observed(serviceClient
       .from('order_items')
-      .select('id, status, quantity, subtotal_cents, cancelled_at, buyer_confirmed_at, listing_id, vendor_profile_id')
+      .select('id, status, quantity, subtotal_cents, cancelled_at, buyer_confirmed_at, listing_id, vendor_profile_id, tax_amount_cents, taxable_amount_cents, tax_jurisdictions, tax_rate_version')
       .eq('order_id', orderId), { table: 'order_items' })
     const liveItems = (allItems ?? []).filter(i => !i.cancelled_at)
     if (liveItems.length === 0) {
@@ -99,6 +101,34 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       marginAddendCents,
     })
 
+    // Sales tax (Batch 3, step 8; owner Q1 2026-09-24): each component carries
+    // its own frozen tax (mig 214; the manager margin's tax already lives
+    // inside the taxable components' snapshots — checkout-tax.ts — so the
+    // margin refund below needs no reversal of its own). Full refund → the
+    // whole snapshot; fee applied → 75% of the component's tax comes back
+    // with its 75% refund (tax on the retained 25% stays remitted). Reversed
+    // at the ORIGINAL rate, capped by earlier reversals. ALL reads happen
+    // BEFORE the first flip: this route flips every component and refunds
+    // afterwards, so a ledger read failure must abort with nothing moved.
+    // refund_amount_cents and each Stripe amount are tax-INCLUSIVE;
+    // cancellation_fee_cents stays money-only (fee split unchanged).
+    const reversalByItem = new Map<string, { reversal: TaxReversal; refundCents: number }>()
+    for (const item of liveItems) {
+      const per = calc.perItem.find(p => p.id === item.id)!
+      const snapshot: ItemTaxSnapshot = {
+        taxable_amount_cents: (item.taxable_amount_cents as number | null) ?? null,
+        tax_amount_cents: (item.tax_amount_cents as number | null) ?? null,
+        tax_jurisdictions: (item.tax_jurisdictions as ItemTaxSnapshot['tax_jurisdictions']) ?? null,
+        tax_rate_version: (item.tax_rate_version as string | null) ?? null,
+      }
+      const portion: RefundPortion = calc.feeApplied
+        ? { kind: 'partial', refundedBaseCents: Math.round((snapshot.taxable_amount_cents ?? 0) * (1 - CANCELLATION_FEE_PERCENT / 100)) }
+        : { kind: 'full' }
+      const reversal = await taxReversalForOrderItem(serviceClient, item.id as string, snapshot, portion)
+      reversalByItem.set(item.id as string, { reversal, refundCents: refundAmountWithTax(per.refundCents, reversal) })
+    }
+    const taxRefundTotalCents = [...reversalByItem.values()].reduce((s, r) => s + r.reversal.taxCents, 0)
+
     // Guarded per-item flips — only items that win the race proceed.
     const nowIso = new Date().toISOString()
     const flippedIds: string[] = []
@@ -111,7 +141,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
           cancelled_at: nowIso,
           cancelled_by: 'buyer',
           cancellation_reason: reason || 'Bundle cancelled by buyer',
-          refund_amount_cents: per.refundCents,
+          refund_amount_cents: reversalByItem.get(item.id as string)!.refundCents,
           cancellation_fee_cents: per.feeCents,
         })
         .eq('id', item.id)
@@ -172,18 +202,25 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     if (payment?.stripe_payment_intent_id) {
       // Per-item refunds (deterministic key = item id, same as single cancel).
       for (const per of calc.perItem) {
-        if (!flippedIds.includes(per.id) || per.refundCents <= 0) continue
+        const withTax = reversalByItem.get(per.id)!
+        if (!flippedIds.includes(per.id) || withTax.refundCents <= 0) continue
         try {
-          await createRefund(payment.stripe_payment_intent_id, per.id, per.refundCents)
+          const refund = await createRefund(payment.stripe_payment_intent_id, per.id, withTax.refundCents)
           // Guarded: only the cancelled row this route just flipped.
           await serviceClient.from('order_items')
             .update({ status: 'refunded' })
             .eq('id', per.id)
             .eq('status', 'cancelled')
+          // Ledger row for the return (mig 260) — keyed by the Stripe refund
+          // id; never throws, a failure is logged for manual entry.
+          await recordTaxReversal(serviceClient, {
+            orderItemId: per.id, orderId, kind: 'item_refund', refundRef: refund.id,
+            reversal: withTax.reversal, route: '/api/buyer/orders/[id]/cancel-bundle',
+          })
         } catch (refundErr) {
           refundFailures++
-          await logError(new TracedError('ERR_REFUND_001', `Bundle-cancel item refund failed (item ${per.id}, ${per.refundCents}¢): ${refundErr instanceof Error ? refundErr.message : String(refundErr)}`, {
-            route: '/api/buyer/orders/[id]/cancel-bundle', method: 'POST', orderId, orderItemId: per.id, amountCents: per.refundCents,
+          await logError(new TracedError('ERR_REFUND_001', `Bundle-cancel item refund failed (item ${per.id}, ${withTax.refundCents}¢): ${refundErr instanceof Error ? refundErr.message : String(refundErr)}`, {
+            route: '/api/buyer/orders/[id]/cancel-bundle', method: 'POST', orderId, orderItemId: per.id, amountCents: withTax.refundCents,
           }))
         }
       }
@@ -306,12 +343,12 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     return NextResponse.json({
       success: true,
       message: calc.feeApplied
-        ? `Bundle cancelled. A ${CANCELLATION_FEE_PERCENT}% cancellation fee was applied — you'll be refunded $${((calc.totalRefundCents + ((order.tip_amount as number | null) || 0)) / 100).toFixed(2)}.`
+        ? `Bundle cancelled. A ${CANCELLATION_FEE_PERCENT}% cancellation fee was applied — you'll be refunded $${((calc.totalRefundCents + taxRefundTotalCents + ((order.tip_amount as number | null) || 0)) / 100).toFixed(2)}.`
         : 'Bundle cancelled. Your full refund is on the way.',
       fee_applied: calc.feeApplied,
       within_grace_period: calc.withinGracePeriod,
       items_cancelled: flippedIds.length,
-      refund_total_cents: calc.totalRefundCents + ((order.tip_amount as number | null) || 0),
+      refund_total_cents: calc.totalRefundCents + taxRefundTotalCents + ((order.tip_amount as number | null) || 0),
       fee_total_cents: calc.totalFeeCents,
       refund_failures: refundFailures,
     })
