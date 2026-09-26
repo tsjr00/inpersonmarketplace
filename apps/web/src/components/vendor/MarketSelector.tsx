@@ -14,6 +14,8 @@ type Market = {
   taxReadiness?: 'no_codes' | 'unverified' | 'stale' | 'ready'
   /** A manager account runs this market (BR-1: approval before picking days). */
   isManaged?: boolean
+  /** One of the markets counted toward the plan's traditional-market limit (OB-031). */
+  countsTowardLimit?: boolean
   address: string
   city: string
   state: string
@@ -234,7 +236,13 @@ export default function MarketSelector({
               <strong style={{ color: '#374151' }}>
                 Your plan allows {traditionalMarketLimit} unique traditional market{traditionalMarketLimit !== 1 ? 's' : ''} across ALL your listings
               </strong>
-              {' '}(currently using {traditionalMarketCount} of {traditionalMarketLimit}).
+              {' '}(currently using {traditionalMarketCount} of {traditionalMarketLimit}{(() => {
+                // OB-031: name the counted markets — a market already counted
+                // (via another listing or a market box) can be ticked here
+                // without using a new slot.
+                const counted = fixedMarkets.filter((m) => m.countsTowardLimit).map((m) => m.name)
+                return counted.length > 0 ? `: ${counted.join(', ')}` : ''
+              })()}).
               {traditionalMarketCount >= traditionalMarketLimit && ' To make a new market available, remove an existing market from every listing that uses it, then save.'}
               {' '}Market availability updates after you save — changes in this form don&apos;t affect it until saved.
             </div>
@@ -287,6 +295,11 @@ export default function MarketSelector({
                           gap: 4
                         }}>
                           🏠 Home Market
+                        </span>
+                      )}
+                      {market.countsTowardLimit && (
+                        <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }} title="Already counted toward your plan's market limit — ticking it here uses no new slot">
+                          · counted
                         </span>
                       )}
                     </div>

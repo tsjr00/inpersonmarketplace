@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { VerticalBranding } from '@/lib/branding'
@@ -34,6 +35,19 @@ export default function EditProfileForm({ vertical, vendorProfile, branding }: E
     business_name: (profileData.business_name as string) || (profileData.farm_name as string) || '',
   })
   const [multipleTrucks, setMultipleTrucks] = useState(!!profileData.multiple_trucks)
+  // OB-031 option b (owner 2026-09-25): the days this vendor has picked that
+  // overlap at two markets. Shown while the multi-location box is OFF — with it
+  // off, booking a week at either of those markets is refused.
+  type Overlap = { marketA: string; marketB: string; day: string; timeA: string; timeB: string }
+  const [overlaps, setOverlaps] = useState<Overlap[]>([])
+  useEffect(() => {
+    let alive = true
+    fetch(`/api/vendor/schedule-overlaps?vertical=${vertical}`)
+      .then((r) => (r.ok ? r.json() : { overlaps: [] }))
+      .then((d) => { if (alive) setOverlaps((d.overlaps ?? []) as Overlap[]) })
+      .catch(() => { /* advisory only — no note on failure */ })
+    return () => { alive = false }
+  }, [vertical])
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -243,6 +257,30 @@ export default function EditProfileForm({ vertical, vendorProfile, branding }: E
                 </p>
               </div>
             </label>
+            {!multipleTrucks && overlaps.length > 0 && (
+              <div style={{
+                marginTop: 10,
+                padding: '10px 12px',
+                backgroundColor: '#fffbeb',
+                border: '1px solid #fcd34d',
+                borderRadius: 6,
+                fontSize: 13,
+                color: '#92400e',
+                lineHeight: 1.5,
+              }}>
+                <strong>With this box off, you&apos;re scheduled in two places at the same time:</strong>
+                <ul style={{ margin: '4px 0', paddingLeft: 18 }}>
+                  {overlaps.map((o, i) => (
+                    <li key={i}>{o.marketA} ({o.timeA}) and {o.marketB} ({o.timeB}) on {o.day}</li>
+                  ))}
+                </ul>
+                You won&apos;t be able to book booth weeks at those markets until you remove one of those days.{' '}
+                <Link href={`/${vertical}/vendor/markets`} style={{ color: '#92400e', fontWeight: 600, textDecoration: 'underline' }}>
+                  Change your days on your Markets page →
+                </Link>
+                {' '}Or tick the box if you really can staff both at once.
+              </div>
+            )}
           </div>
         )}
 

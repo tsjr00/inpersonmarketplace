@@ -370,7 +370,12 @@ export async function POST(
           { status: 409 }
         )
       }
-      if (msg.includes('DUPLICATE')) {
+      // OB-031 (2026-09-25): a vendor with a HELD booth number who retries a week
+      // they already started gets BOOTH_TAKEN, not DUPLICATE — the function checks
+      // "is the held booth booked this week?" before the insert, and the booking
+      // holding it is the vendor's OWN. So both codes first ask: is there already
+      // a row for THIS vendor, market and week? If yes, it is a duplicate.
+      if (msg.includes('DUPLICATE') || msg.includes('BOOTH_TAKEN')) {
         // OB-030 D1: when the existing row is this vendor's own UNPAID one-off
         // week, point at it so the form can offer "Continue payment" (the
         // resume route returns to the same Stripe page, or releases it if the
@@ -381,10 +386,23 @@ export async function POST(
           .eq('vendor_profile_id', profile.id)
           .eq('market_id', marketId)
           .eq('week_start_date', weekStartDate)
+          // A released (cancelled) row can sit beside the live one after
+          // Continue payment freed an expired page — only the live row counts.
+          .neq('status', 'cancelled')
           .maybeSingle(), { table: 'weekly_booth_rentals' })
         const pendingRentalId = existingRow && existingRow.status === 'pending_payment' && !existingRow.group_id
           ? (existingRow.id as string)
           : null
+        // BOOTH_TAKEN with no own row this week = the held booth really is
+        // someone else's booking — the original refusal below.
+        if (msg.includes('BOOTH_TAKEN') && !existingRow) {
+          return NextResponse.json(
+            {
+              error: `Your assigned booth is already booked for that week at ${(market.name as string) || 'this market'}. Please contact the market manager to resolve it.`,
+            },
+            { status: 409 }
+          )
+        }
         return NextResponse.json(
           {
             error: pendingRentalId

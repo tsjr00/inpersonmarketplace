@@ -206,7 +206,10 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
     )
   }
   const needsDeclaredDays = !gate.ok && gate.code === 'ERR_DECLARE_DAYS_FIRST'
-  const pin = gate.ok ? gate.pin : { booth_number: null, inventory_id: null }
+  // OB-031: already scheduled at another market at the same time (and no
+  // multi-location box) — the form stays visible but locked, with the reason.
+  const scheduleConflict = !gate.ok && gate.code === 'ERR_SCHEDULE_CONFLICT' ? gate.message : null
+  const pin = gate.ok ? gate.pin : (gate.pin ?? { booth_number: null, inventory_id: null })
 
   // Fetch the inventory tiers + compute week options.
   const { data: inventoryRaw } = await serviceClient
@@ -361,7 +364,7 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
         creditBalanceCents={creditBalanceCents}
         lockedInventoryId={pin.inventory_id}
         pinnedBoothNumber={pin.booth_number}
-        bookingBlockedReason={needsDeclaredDays ? `Pick at least one day you attend ${market.name} (above) to unlock booking.` : null}
+        bookingBlockedReason={needsDeclaredDays ? `Pick at least one day you attend ${market.name} (above) to unlock booking.` : scheduleConflict}
         {...(returnFlash ? { returnFlash } : {})}
         returnRentalId={returnRentalId}
       />
@@ -370,7 +373,7 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
           OPEN seasons; otherwise the component returns null. Hidden while the
           vendor still owes their declared days (BR-13 — the season route would
           refuse anyway; don't invite a purchase that can't go through). */}
-      {!needsDeclaredDays && <SeasonBookingSection marketId={marketId} />}
+      {!needsDeclaredDays && !scheduleConflict && <SeasonBookingSection marketId={marketId} />}
     </div>
   )
 }

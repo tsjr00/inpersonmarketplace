@@ -1343,6 +1343,26 @@ describe('Dashboard empty-state convention', () => {
     expect(card, 'the empty card links the week sheet with no fixed week').toMatch(/action: \{ href: `\/\$\{vertical\}\/market-manager\/\$\{marketId\}\/week-sheet`/)
   })
 
+  it('OB-031: a vendor retrying their OWN held-booth week gets Continue payment, not "assigned booth is already booked"', () => {
+    const book = bare('app/api/vendor/markets/[id]/book/route.ts')
+    expect(book, 'both codes first look for this vendor\'s own live row').toMatch(/msg\.includes\('DUPLICATE'\) \|\| msg\.includes\('BOOTH_TAKEN'\)/)
+    expect(book, 'the own-row lookup skips released (cancelled) rows').toMatch(/\.eq\('week_start_date', weekStartDate\)\s*\.neq\('status', 'cancelled'\)\s*\.maybeSingle\(\)/)
+    expect(book, 'someone else\'s booking keeps the original refusal').toMatch(/if \(msg\.includes\('BOOTH_TAKEN'\) && !existingRow\)/)
+  })
+
+  it('OB-031: booking refuses a vendor scheduled at another market at the same time (no multi-location box); the profile shows the overlaps', () => {
+    const gate = bare('lib/markets/booking-gates.ts')
+    expect(gate, 'step 4 runs the day-picker overlap rule').toMatch(/const conflict = await findDeclaredDayConflict\(service, vendorProfileId, marketId\)/)
+    expect(gate, 'the multi-location box exempts').toMatch(/multiple_trucks === true\) return null/)
+    expect(gate, 'same overlap helper as the day picker').toMatch(/findScheduleConflicts\(s, elsewhere\)/)
+    expect(gate).toContain("code: 'ERR_SCHEDULE_CONFLICT'")
+    const page = bare('app/[vertical]/markets/[id]/book/page.tsx')
+    expect(page, 'the page locks the form with the reason').toMatch(/: scheduleConflict\}/)
+    const form = bare('app/[vertical]/vendor/edit/EditProfileForm.tsx')
+    expect(form, 'profile reads the overlaps').toContain('/api/vendor/schedule-overlaps?vertical=')
+    expect(form, 'shown only while the box is off').toMatch(/!multipleTrucks && overlaps\.length > 0/)
+  })
+
   it('a LAPSED season pre-sale reads as closed and never blocks the next season (2026-09-25)', () => {
     // Nothing flips prepay_open at prepay_closes_at; vendors already stop seeing
     // a lapsed window, so the manager side must agree with them.

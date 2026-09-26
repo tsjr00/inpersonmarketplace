@@ -38,6 +38,9 @@ import {
 interface VerificationDocumentsCardProps {
   vertical: string
   marketId: string
+  /** markets.status — once 'active' (admin-approved) the "speeds up approval"
+   *  line no longer applies (tester 2026-09-25, OB-031). */
+  marketStatus?: string | null
 }
 
 const MAX_NOTES_CHARS = 200
@@ -53,7 +56,7 @@ function formatUploadedAt(iso: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-export default function VerificationDocumentsCard({ vertical, marketId }: VerificationDocumentsCardProps) {
+export default function VerificationDocumentsCard({ vertical, marketId, marketStatus = null }: VerificationDocumentsCardProps) {
   const [documents, setDocuments] = useState<MarketDocumentRow[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
 
@@ -250,23 +253,28 @@ export default function VerificationDocumentsCard({ vertical, marketId }: Verifi
               const have = uploadedTypes.has(def.value)
               return (
                 <li key={def.value} style={{ display: 'flex', alignItems: 'flex-start', gap: spacing.xs, fontSize: typography.sizes.sm }}>
-                  <span aria-hidden style={{ marginTop: 1 }}>{have ? '✅' : '⬜'}</span>
+                  {/* Status, not a control (tester OB-031 tried to tick the old ⬜). */}
+                  <span aria-hidden style={{ marginTop: 1 }}>{have ? '✅' : '•'}</span>
                   <span style={{ color: colors.textPrimary }}>
-                    <strong>{def.label}</strong> <span style={{ color: colors.textMuted }}>· Required</span>
+                    <strong>{def.label}</strong> <span style={{ color: colors.textMuted }}>· Requested by the platform · {have ? 'uploaded' : 'not uploaded yet'}</span>
                   </span>
                 </li>
               )
             })}
             {/* Insurance = self-certified, not a document */}
             <li style={{ display: 'flex', alignItems: 'flex-start', gap: spacing.xs, fontSize: typography.sizes.sm }}>
-              <span aria-hidden style={{ marginTop: 1 }}>{insuranceCertified ? '✅' : '⬜'}</span>
+              <span aria-hidden style={{ marginTop: 1 }}>{insuranceCertified ? '✅' : '•'}</span>
               <span style={{ color: colors.textPrimary }}>
-                <strong>Insurance self-certification</strong> <span style={{ color: colors.textMuted }}>· Required (see below)</span>
+                <strong>Insurance self-certification</strong> <span style={{ color: colors.textMuted }}>· Requested by the platform · {insuranceCertified ? 'done' : 'not done yet — the checkbox is below'}</span>
               </span>
             </li>
           </ul>
           <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing.xs }}>
-            Uploading everything isn’t a hard gate — but the platform admin reviews these before approving your {term(vertical, 'market').toLowerCase()}, so complete them to speed up approval.
+            {/* Documents are advisory — they are NOT among the setup steps counted
+                in "Setup complete" (OnboardingChecklist). */}
+            {marketStatus === 'active'
+              ? <>These are not part of the setup steps above. Your {term(vertical, 'market').toLowerCase()} is already approved — keep them current so the platform can verify you if asked.</>
+              : <>These are not part of the setup steps above and don’t block setup — but the platform admin reviews them before approving your {term(vertical, 'market').toLowerCase()}, so complete them to speed up approval.</>}
           </div>
         </div>
       )}

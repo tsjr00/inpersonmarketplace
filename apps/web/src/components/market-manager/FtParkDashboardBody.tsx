@@ -250,7 +250,7 @@ export default function FtParkDashboardBody({
           initialCoverImageUrl={(market.cover_image_url as string | null) ?? null}
           initialDescription={(market.description as string | null) ?? null}
         />
-        <VerificationDocumentsCard marketId={marketId} vertical={vertical} />
+        <VerificationDocumentsCard marketId={marketId} vertical={vertical} marketStatus={(market.status as string | null) ?? null} />
         {visibilityStatus?.isVisible && <MarketVisibilityCard status={visibilityStatus} />}
       </CollapsibleSection>
 

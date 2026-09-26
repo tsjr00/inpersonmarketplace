@@ -165,6 +165,10 @@ export async function GET(request: NextRequest) {
           // for the vendor at such a market (OB-030 D6). Only the yes/no leaves the
           // server, never the manager's account id.
           isManaged: !!market.manager_user_id,
+          // OB-031 (owner 2026-09-25): this market is one of the N counted toward
+          // the plan's traditional-market limit (across ALL listings + boxes) —
+          // the picker names them and tags each, so "3 of 3" is explainable.
+          countsTowardLimit: isTraditionalMarket && usedTraditionalIds.has(market.id),
         }
       })
 

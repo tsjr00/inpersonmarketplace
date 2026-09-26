@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { observed } from '@/lib/errors'
+import { findScheduleConflicts, padTime, dayOfWeekName, formatTimeDisplay, type ScheduleSlot } from '@/lib/utils/schedule-overlap'
 
 /**
  * Booth-booking eligibility gates (owner rulings 2026-09-19 — design
@@ -26,11 +27,13 @@ import { observed } from '@/lib/errors'
 
 export type BookingGateFailure = {
   ok: false
-  code: 'ERR_MARKET_APPROVAL_REQUIRED' | 'ERR_DECLARE_DAYS_FIRST' | 'ERR_BOOTH_TIER_LOCKED'
-  status: 400 | 403
+  code: 'ERR_MARKET_APPROVAL_REQUIRED' | 'ERR_DECLARE_DAYS_FIRST' | 'ERR_BOOTH_TIER_LOCKED' | 'ERR_SCHEDULE_CONFLICT'
+  status: 400 | 403 | 409
   message: string
   /** For the page: a pending application exists (vs none). */
   pending?: boolean
+  /** ERR_SCHEDULE_CONFLICT only: the pin, so the page still shows the held booth. */
+  pin?: { booth_number: string | null; inventory_id: string | null }
 }
 
 export type BookingGatePass = {
@@ -114,5 +117,102 @@ export async function checkBookingGates(
     }
   }
 
+  // 4. Two places at once (owner 2026-09-25, OB-031). The day picker refuses
+  //    overlapping days for a vendor without the "I can staff more than one
+  //    location at the same time" box (schedules route + mig 253) — but only
+  //    when days are PICKED. Days picked before that rule, or while the box was
+  //    ticked, were never re-checked, and booking never looked. So booking now
+  //    asks the same question the day picker does.
+  const conflict = await findDeclaredDayConflict(service, vendorProfileId, marketId)
+  if (conflict) {
+    return {
+      ok: false,
+      code: 'ERR_SCHEDULE_CONFLICT',
+      status: 409,
+      pin,
+      message: `You're also scheduled at "${conflict.marketName}" on ${dayOfWeekName(conflict.dayOfWeek)}s from ${formatTimeDisplay(conflict.startTime)} - ${formatTimeDisplay(conflict.endTime)}, the same time as ${marketName}. You can't be at both. Remove that day from one market's schedule on your Markets page — or, if you can staff more than one location at the same time, tick that box on your profile.`,
+    }
+  }
+
   return { ok: true, pin, hasDeclaredDays }
+}
+
+/**
+ * The first overlap between this vendor's picked days HERE and their picked
+ * days at any OTHER non-event market — the same overlap rule as the day picker
+ * (lib/utils/schedule-overlap). Null when the vendor has the multi-location
+ * declaration (profile_data.multiple_trucks — the key both verticals' edit
+ * forms write) or nothing overlaps. Events have their own date-based guard
+ * (booking-event-guard), so event markets are left out here.
+ */
+export async function findDeclaredDayConflict(
+  service: SupabaseClient,
+  vendorProfileId: string,
+  marketId: string,
+): Promise<ScheduleSlot | null> {
+  const { data: vp } = await observed(service
+    .from('vendor_profiles')
+    .select('profile_data')
+    .eq('id', vendorProfileId)
+    .maybeSingle(), { table: 'vendor_profiles' })
+  if ((vp?.profile_data as Record<string, unknown> | null)?.multiple_trucks === true) return null
+
+  const slots = await loadActiveDeclaredSlots(service, vendorProfileId)
+  const here = slots.filter((s) => s.marketId === marketId)
+  const elsewhere = slots.filter((s) => s.marketId !== marketId)
+  for (const s of here) {
+    const hit = findScheduleConflicts(s, elsewhere)[0]
+    if (hit) return hit.existing
+  }
+  return null
+}
+
+/**
+ * Every pair of this vendor's picked days that overlap at two DIFFERENT
+ * non-event markets, regardless of the multi-location box — the profile page
+ * shows them while the box is off (owner 2026-09-25, OB-031 option b).
+ */
+export async function findAllDeclaredOverlaps(
+  service: SupabaseClient,
+  vendorProfileId: string,
+): Promise<Array<{ a: ScheduleSlot; b: ScheduleSlot }>> {
+  const slots = await loadActiveDeclaredSlots(service, vendorProfileId)
+  const pairs: Array<{ a: ScheduleSlot; b: ScheduleSlot }> = []
+  const seen = new Set<string>()
+  for (const s of slots) {
+    for (const hit of findScheduleConflicts(s, slots.filter((o) => o.marketId !== s.marketId))) {
+      const key = [s.marketId, hit.existing.marketId].sort().join('|') + '|' + s.dayOfWeek
+      if (seen.has(key)) continue
+      seen.add(key)
+      pairs.push({ a: s, b: hit.existing })
+    }
+  }
+  return pairs
+}
+
+/** This vendor's ACTIVE picked days at non-event markets, with their times. */
+async function loadActiveDeclaredSlots(service: SupabaseClient, vendorProfileId: string): Promise<ScheduleSlot[]> {
+  const { data: rows } = await observed(service
+    .from('vendor_market_schedules')
+    .select('market_id, schedule_id, vendor_start_time, vendor_end_time, markets!inner ( name, market_type ), market_schedules!inner ( day_of_week, start_time, end_time, active )')
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('is_active', true), { table: 'vendor_market_schedules' })
+
+  const slots: ScheduleSlot[] = []
+  for (const r of rows ?? []) {
+    const m = r.markets as unknown as { name: string; market_type: string } | null
+    const ms = r.market_schedules as unknown as { day_of_week: number; start_time: string; end_time: string; active: boolean | null } | null
+    if (!m || !ms || ms.active === false) continue
+    const slot: ScheduleSlot = {
+      marketId: r.market_id as string,
+      marketName: m.name,
+      scheduleId: r.schedule_id as string,
+      dayOfWeek: ms.day_of_week,
+      startTime: padTime((r.vendor_start_time as string | null) || ms.start_time),
+      endTime: padTime((r.vendor_end_time as string | null) || ms.end_time),
+    }
+    // Events have their own date-based guard (booking-event-guard).
+    if (m.market_type !== 'event') slots.push(slot)
+  }
+  return slots
 }
