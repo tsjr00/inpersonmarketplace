@@ -701,6 +701,8 @@ NOT RUNNABLE YET — nothing for you to do
 • The sales-tax rate-refresh job (runs on a schedule on production only; the owner triggers it on staging by hand).
 • Sales tax on refunds (a refunded item's tax comes back to the buyer and lands on the monthly tax report) — sales
   tax is not switched on yet, so today every refund amount is exactly what it was before. Nothing to check until it is.
+• The admin "Tax Reversals" page (platform admin → Money) — where a partial refund made by hand in Stripe on a taxed
+  order gets allocated to items. Empty until sales tax is on; the page and its nav link exist now.
 • Two production-only checks (stock decrement at checkout; payout timing) — wait for a real vendor with Stripe
   on production.
 

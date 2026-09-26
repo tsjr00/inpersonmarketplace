@@ -105,6 +105,9 @@ export async function recordTaxReversal(service: SupabaseClient, input: RecordTa
     // write and, unable to recognise the refund as ours, queued it as a
     // dashboard refund "owed" an admin allocation, close that queue row now —
     // the ledger row IS the allocation. Best effort; never affects the outcome.
+    // Not for dashboard_refund rows: those ARE the admin's allocation from the
+    // queue, and the resolve route closes the row itself with who/when/note.
+    if (input.kind === 'dashboard_refund') return error ? 'duplicate' : 'recorded'
     const { error: queueErr } = await service
       .from(TAX_REVERSAL_QUEUE)
       .update({ resolved_at: new Date().toISOString(), note: 'resolved automatically: the refund was made in-app and its tax reversal is in the ledger' })

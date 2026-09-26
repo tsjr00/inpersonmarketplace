@@ -28,6 +28,10 @@ export type AdminBadgeKey =
   | 'activityFlags'
   | 'causeUnremitted'
   | 'pendingBundles'
+  // Sales tax (owner Q2, 2026-09-26): partial Stripe-dashboard refunds on taxed
+  // orders awaiting an admin's item allocation (order_tax_reversal_queue open
+  // rows). Platform only — accounting is platform-admin work.
+  | 'taxReversals'
 
 export type AdminBadges = Partial<Record<AdminBadgeKey, number>>
 
@@ -77,7 +81,7 @@ export async function getAdminQueueBadges(
     .eq('status', 'pending_approval')
   if (vertical) bundlesQ = bundlesQ.eq('markets.vertical_id', vertical)
 
-  const [vendors, markets, events, issues, errors, flags, cause, pendingBundles] = await Promise.all([
+  const [vendors, markets, events, issues, errors, flags, cause, pendingBundles, taxReversals] = await Promise.all([
     headCount(vendorsQ, 'vendor_profiles'),
     headCount(marketsQ, 'markets'),
     headCount(eventsQ, 'catering_requests'),
@@ -88,6 +92,9 @@ export async function getAdminQueueBadges(
       ? Promise.resolve<number | null>(null)
       : headCount(service.from('cause_remittances').select('id', head).is('paid_at', null), 'cause_remittances'),
     headCount(bundlesQ, 'market_bundles'),
+    vertical
+      ? Promise.resolve<number | null>(null)
+      : headCount(service.from('order_tax_reversal_queue').select('id', head).is('resolved_at', null), 'order_tax_reversal_queue'),
   ])
 
   const badges: AdminBadges = {
@@ -100,5 +107,6 @@ export async function getAdminQueueBadges(
     pendingBundles,
   }
   if (cause !== null) badges.causeUnremitted = cause
+  if (taxReversals !== null) badges.taxReversals = taxReversals
   return badges
 }

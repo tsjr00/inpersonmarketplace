@@ -164,6 +164,11 @@ describe('recordTaxReversal — one append-only row after Stripe succeeded', () 
     const dup = fakeService({ insertError: { code: '23505', message: 'duplicate' } })
     expect(await recordTaxReversal(dup.client, input)).toBe('duplicate')
     expect(dup.queueResolved).toHaveLength(1)
+    // A dashboard_refund row IS the admin's allocation from the queue — the
+    // resolve route closes the queue row itself (who/when/note); no self-heal.
+    const dash = fakeService()
+    expect(await recordTaxReversal(dash.client, { ...input, kind: 'dashboard_refund' })).toBe('recorded')
+    expect(dash.queueResolved).toEqual([])
   })
   it('the same item + Stripe refund id twice is a duplicate, not a second row (retry / webhook race)', async () => {
     const svc = fakeService({ insertError: { code: '23505', message: 'duplicate key value violates unique constraint' } })

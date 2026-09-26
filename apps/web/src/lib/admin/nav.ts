@@ -100,6 +100,7 @@ export const PLATFORM_ADMIN_NAV: AdminNavGroup[] = [
     label: 'Money',
     links: [
       { path: '/reports', label: 'Reports' },
+      { path: '/tax-reversals', label: 'Tax Reversals', badgeKey: 'taxReversals' },
       { path: '/cause', label: 'Community Giving', badgeKey: 'causeUnremitted' },
     ],
   },
