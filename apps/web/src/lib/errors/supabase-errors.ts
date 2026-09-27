@@ -6,7 +6,7 @@
  * error code system.
  */
 
-import { ErrorContext, SupabaseError } from './types'
+import { ErrorContext, SupabaseError, HTTP_STATUS_MAP } from './types'
 import { TracedError } from './traced-error'
 
 /**
@@ -128,10 +128,13 @@ export const traced = {
     parseSupabaseError(error, context),
 
   /**
-   * Create auth error
+   * Create auth error — 401 unless the code table says otherwise (ERR_AUTH_002 = 403).
+   * The INTENT sets the status (2026-09-26): codes are reused across intents
+   * (ERR_ORDER_001 is thrown as both not-found and validation), so a code
+   * table alone can never be right, and an unlisted code used to answer 500.
    */
   auth: (code: string, message: string, context?: Partial<ErrorContext>) =>
-    new TracedError(code, message, context),
+    new TracedError(code, message, context, code in HTTP_STATUS_MAP ? HTTP_STATUS_MAP[code] : 401),
 
   /**
    * Create RLS error with table context
@@ -148,14 +151,14 @@ export const traced = {
    * Usage: traced.notFound('ERR_NOT_FOUND', 'Resource not found')
    */
   notFound: (code: string, message: string, context?: Partial<ErrorContext>) =>
-    new TracedError(code, message, context),
+    new TracedError(code, message, context, 404),
 
   /**
    * Create validation error
    * Usage: traced.validation('ERR_VALIDATION_001', 'Field is required')
    */
   validation: (code: string, message: string, context?: Partial<ErrorContext>) =>
-    new TracedError(code, message, context),
+    new TracedError(code, message, context, 400),
 
   /**
    * Create generic error with code

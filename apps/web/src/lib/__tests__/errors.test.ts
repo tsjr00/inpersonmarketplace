@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { TracedError } from '@/lib/errors/traced-error'
 import { getHttpStatus } from '@/lib/errors/types'
+import { traced } from '@/lib/errors/supabase-errors'
 
 describe('TracedError', () => {
   it('creates error with code and message', () => {
@@ -80,5 +81,30 @@ describe('getHttpStatus', () => {
 
   it('defaults unknown codes to 500', () => {
     expect(getHttpStatus('ERR_UNKNOWN_999')).toBe(500)
+  })
+})
+
+describe('traced.* helpers — the INTENT sets the HTTP status (2026-09-26)', () => {
+  // The rule: a refusal of the caller's input is a 400, a missing thing a
+  // 404, a missing/insufficient login 401/403 — whatever the code, because
+  // codes are reused across intents and most are not in the status table.
+  // Only genuine server failures (traced.error / unknown) stay 500.
+  it('validation → 400 even for a code the table does not list (was 500)', () => {
+    expect(traced.validation('ERR_CHECKOUT_001', 'Orders closed').httpStatus).toBe(400)
+    expect(traced.validation('ERR_VALIDATION_001', 'Missing field').httpStatus).toBe(400)
+  })
+  it('notFound → 404 whatever the code (ERR_ORDER_001 is also thrown as validation elsewhere)', () => {
+    expect(traced.notFound('ERR_ORDER_001', 'Order not found').httpStatus).toBe(404)
+    expect(traced.validation('ERR_ORDER_001', 'Cannot cancel').httpStatus).toBe(400)
+  })
+  it('auth → 401 by default, 403 where the table says so', () => {
+    expect(traced.auth('ERR_AUTH_001', 'Not authenticated').httpStatus).toBe(401)
+    expect(traced.auth('ERR_AUTH_002', 'Not yours').httpStatus).toBe(403)
+    expect(traced.auth('ERR_AUTH_099', 'Unlisted').httpStatus).toBe(401)
+  })
+  it('generic / external errors are unchanged: table, else 500', () => {
+    expect(traced.error('ERR_SOMETHING_001', 'boom').httpStatus).toBe(500)
+    expect(traced.external('ERR_CHECKOUT_002', 'Stripe down').httpStatus).toBe(500)
+    expect(new TracedError('ERR_RLS_002', 'denied').httpStatus).toBe(403)
   })
 })

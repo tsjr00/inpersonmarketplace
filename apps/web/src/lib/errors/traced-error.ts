@@ -52,14 +52,21 @@ export class TracedError extends Error {
   public readonly severity: ErrorSeverity
   public readonly httpStatus: number
 
-  constructor(code: string, message: string, context?: Partial<ErrorContext>) {
+  /**
+   * @param httpStatus — the INTENT's status (the `traced.*` helpers pass it:
+   *   validation 400, notFound 404, auth 401 unless the code table says 403).
+   *   Without it the code table decides, and an unlisted code answers 500 —
+   *   which is how ~200 validation/not-found throws were reaching callers
+   *   (and Sentry) as server errors before 2026-09-26.
+   */
+  constructor(code: string, message: string, context?: Partial<ErrorContext>, httpStatus?: number) {
     super(message)
     this.name = 'TracedError'
     this.code = code
     this.timestamp = Date.now()
     this.traceId = generateTraceId()
     this.severity = getErrorSeverity(code)
-    this.httpStatus = getHttpStatus(code)
+    this.httpStatus = httpStatus ?? getHttpStatus(code)
 
     // Merge provided context with current breadcrumbs
     this.context = {
