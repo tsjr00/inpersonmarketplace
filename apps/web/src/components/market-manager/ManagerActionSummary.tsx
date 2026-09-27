@@ -76,6 +76,16 @@ export default function ManagerActionSummary({
       </>,
     })
   }
+  // Owner 2026-09-27 (tester OB-034, TR-140): an invited vendor who hasn't
+  // answered is NOT "pending your approval" — the manager already said yes.
+  // Name it on its own line so the manager knows what the wait is.
+  if (stats.invitedAwaitingCount > 0) {
+    const n = stats.invitedAwaitingCount
+    items.push({
+      key: 'invited', icon: '📤', href: rosterHref, cta: 'See who →',
+      text: <><strong>{n}</strong> invited {n === 1 ? vendorOne : vendorMany} {n === 1 ? 'hasn’t' : 'haven’t'} answered yet.</>,
+    })
+  }
   if (ftSignals && ftSignals.holdRequests > 0) {
     items.push({
       key: 'holds', icon: '📌', href: '#vendors', cta: 'Decide →',

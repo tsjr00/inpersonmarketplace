@@ -13,7 +13,9 @@ Before every session: hard-refresh the page (Ctrl+F5 on Windows, Cmd+Shift+R on 
 ★ WHAT'S NEW (2026-09-27, v3.4): W4 gained steps 8–10 — the button at the top of a market's page follows your
   application status (Apply now → Applied → Book now); My Park Bookings offers "Book again", lists your weekly
   holds and lets you pay a held date; the Locations card button says "Manage"; and the weekly-hold precondition
-  is corrected (pay for a day first; Spot A needs "recurring OK"). Run them as soon as the build is on staging.
+  is corrected (pay for a day first; Spot A needs "recurring OK"). W4 step 2 is rewritten: Action Items no longer
+  counts an invited truck as "pending your approval" — it gets its own line. Run them as soon as the build is on
+  staging.
 ★ WHAT'S NEW (2026-09-25 build `3f71e947`): run W2 first, then W1, then W3, then W12, then W5.
   W2 is rewritten for a FRESH vendor at River Road (the owner prepares the accounts): the vendor Markets card now
   lists its buttons in the order the work happens, a vendor can get back to an unfinished payment, and saving a
@@ -318,15 +320,23 @@ Pick a different spot above." — which is what the 2026-09-27 tester saw (Spot 
     FARMERS-MARKET vendor, open /farmers_market/vendor/edit and the farmers-market vendor dashboard.
     Expect: the words "Pickup Capacity" appear NOWHERE for farmers-market vendors.
 
- 2. As the OPERATOR: /food_trucks/market-manager/[Sixth Street id]/dashboard.
-    Expect: the FIRST card is titled "Action Items" and shows two lines:
+ 2. As the OPERATOR: /food_trucks/market-manager/[Sixth Street id]/dashboard. Check first: invite one more truck
+    (Invite trucks card) that will NOT answer during this test.
+    Expect: the FIRST card is titled "Action Items" and shows three lines:
       "1 truck pending your approval — 1 has already booked this week." with a link "Review →"
+      "1 invited truck hasn't answered yet." with a link "See who →"            ← new 2026-09-27
       "1 recurring-hold request is waiting for your yes or no (Recurring holds tab)." with a link "Decide →"
-    Both links scroll to the "Your trucks" area. Scroll to the bottom of the page.
+    All links scroll to the "Your trucks" area. In "Your trucks", the "Pending approval" chip counts 1 (T1 only)
+    and the "Invited" chip counts 1 (the truck you invited). Scroll to the bottom of the page.
     Expect: the LAST section is titled "Communication & insights".
     Now approve T1 (Your trucks) and APPROVE T2's Saturday hold (Recurring holds tab).
-    Expect: the Action Items card now reads "Nothing needs you right now — truck approvals and recurring-hold
-    requests show up here."
+    Expect: the Action Items card shows ONLY "1 invited truck hasn't answered yet." — no "pending your approval"
+    line (the 2026-09-27 tester saw that line stay until the invited truck accepted; that was the bug). Now, as the
+    invited truck, DECLINE the invitation (vendor dashboard → the invitation card).
+    Expect: the Action Items card reads "Nothing needs you right now — truck approvals and recurring-hold requests
+    show up here." In "Your trucks" → "All", that truck's row reads "❌ Declined the invitation" (not "Pending
+    approval · declined"), and a truck you approved who had declined earlier reads "✅ Approved · declined the
+    invitation".
 
  3. As T2: /food_trucks/vendor/markets → "Your next two weeks".
     Expect: the approved Saturday hold appears on its Saturday even when that Saturday is MORE than 7 days
@@ -879,7 +889,7 @@ W2  (v3, fresh vendor at River Road) 1→TR-119 · 2→TR-083 · 3→TR-117 · 4
     · 13→(see W12)   (v2 steps that PASSED 2026-09-25 were removed — see TEST_REGISTRY OB-030 rows)
 W3  1→TR-091 TR-099 · 2→TR-091 · 3→TR-091 · 4→TR-092 (button now "Cancel this booking", OB-030 (e))
 W12 1→TR-122 · 2→TR-079 (setup) · 3→TR-122 TR-079 · 4→TR-079 · 5→TR-079 · 6→TR-079 · 7→TR-122   (W2 v3 step 13 now points here)
-W4  1→TR-034 · 2→TR-107 · 3→TR-043 · 4→TR-109 · 5→TR-109 · 6→TR-040 · 7→TR-109 · 8→TR-133 · 9→TR-137 TR-138 · 10→TR-136 (v3.4)
+W4  1→TR-034 · 2→TR-107 TR-140 (v3.4) · 3→TR-043 · 4→TR-109 · 5→TR-109 · 6→TR-040 · 7→TR-109 · 8→TR-133 · 9→TR-137 TR-138 · 10→TR-136 (v3.4)
 W5  (v3.1) 1→TR-069 · 2→TR-044 · 3→TR-044 · 4→TR-123 · 5→TR-042 · 6→TR-048
 W6  (v3.2) 1→TR-096 (boxes half) · 2→TR-094 (two FM questions)   (v3.1 steps 1–5 PASSED 2026-09-25, OB-032: TR-093 TR-095 pass)
 W7  1→TR-022 TR-064 · 2→TR-022 TR-064 · 3→TR-022 · 4→TR-065 · 5→TR-066 · 6→TR-067 · 7→TR-068 · 8→TR-026

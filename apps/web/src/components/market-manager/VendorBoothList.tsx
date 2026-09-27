@@ -7,6 +7,7 @@ import { term } from '@/lib/vertical/terminology'
 import BoothNumberPicker from './BoothNumberPicker'
 import BoothNumberingHelp from './BoothNumberingHelp'
 import { describeTierLabels, type BoothInventoryRow } from '@/lib/markets/booth-types'
+import { isInvitedAwaiting, isPendingApproval } from '@/lib/markets/roster-buckets'
 
 interface Vendor {
   market_vendor_id: string
@@ -382,20 +383,15 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
   // only where the roster hold is the way a vendor gets a number.
   const marketChargesBooths = vendors.some((v) => v.market_charges_booths)
   const needsBoothVendors = marketChargesBooths ? [] : activeVendors.filter((v) => !v.booth_number)
-  // NEW-8: pending-approval bucket excludes manager-initiated invitations
-  // (response_status='invited') so those don't double-count. Self-joined
-  // vendors awaiting manager approval have response_status=NULL.
-  // mig 217: a REVOKED vendor also has approved=false. Counting them here put a
-  // vendor the manager had just removed straight back on the to-do list, reading
-  // as a bug. They get their own bucket below, where the action is Reinstate.
-  const pendingApprovalVendors = vendors.filter(
-    (v) => !v.approved && !v.revoked_at && v.response_status !== 'invited'
-  )
+  // Owner 2026-09-27 (TR-107/TR-140): the SAME rule as the Action Items count
+  // (lib/markets/roster-buckets.ts) — pending = unapproved, not revoked, not an
+  // unanswered invitation, not a declined one. Before this the card counted
+  // invited trucks the list never showed here (mig 217 handled revoked the
+  // same way). A declined vendor still appears under "All".
+  const pendingApprovalVendors = vendors.filter(isPendingApproval)
   const revokedVendors = vendors.filter((v) => !v.approved && !!v.revoked_at)
   // NEW-8: manager-initiated invitations awaiting vendor response.
-  const invitedVendors = vendors.filter(
-    (v) => !v.approved && v.response_status === 'invited'
-  )
+  const invitedVendors = vendors.filter(isInvitedAwaiting)
   const displayedVendors =
     filter === 'all' ? vendors :
     filter === 'needs_booth' ? needsBoothVendors :
@@ -598,10 +594,18 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                     <span style={{ color: '#991b1b', fontWeight: typography.weights.semibold }}>
                       🚫 Approval revoked
                     </span>
+                  ) : v.response_status === 'declined' && !v.approved ? (
+                    /* Owner 2026-09-27 (TR-140): a vendor who said no to the
+                       invitation is not "pending approval" — say what happened. */
+                    <span>❌ Declined the invitation</span>
                   ) : (
                     <span>{v.approved ? '✅ Approved' : '⏳ Pending approval'}</span>
                   )}
-                  {v.response_status && v.response_status !== 'invited' && (
+                  {/* The invitation answer in words, never the raw column value
+                      (tester OB-034 read "Approved · declined" and asked why). */}
+                  {v.approved && v.response_status === 'declined' && <span>· declined the invitation</span>}
+                  {v.approved && v.response_status === 'accepted' && <span>· accepted the invitation</span>}
+                  {v.response_status && !['invited', 'declined', 'accepted'].includes(v.response_status) && (
                     <span>· {v.response_status.replace(/_/g, ' ')}</span>
                   )}
                   {!v.is_active_schedule && <span>· not scheduled</span>}

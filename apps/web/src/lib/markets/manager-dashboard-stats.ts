@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { calculateBoothRentalFees } from '@/lib/pricing'
 import { isBeforeSeason, isAfterSeason } from '@/lib/markets/season-window'
 import { observed } from '@/lib/errors'
+import { bucketRosterRows, type RosterBucketRow } from '@/lib/markets/roster-buckets'
 
 /**
  * Stats surfaced on the manager dashboard above the existing onboarding
@@ -35,10 +36,14 @@ export interface ManagerDashboardStats {
    *  =true) AND lack a booth_number. The actionable subset for "needs
    *  booth #" promotion. */
   activeVendorsNeedingBooth: number
-  /** Count of market_vendors rows at this market with approved=false.
-   *  Surfaces vendors who came in via the co-branded signup link (auto-
-   *  created with approved=false) and need manager review. */
+  /** market_vendors rows the manager can ACT on: approved=false, not revoked,
+   *  not an unanswered invitation, not a declined one (owner 2026-09-27,
+   *  TR-107 — same rule as the roster's "Pending approval" chip, via
+   *  lib/markets/roster-buckets.ts). */
   pendingApprovalCount: number
+  /** Invited by the manager, no answer yet — nothing to approve, but worth
+   *  a line of its own (owner 2026-09-27, TR-140). */
+  invitedAwaitingCount: number
   /** True when a schedule change at this market would notify someone —
    *  i.e., there's at least one approved market_vendor OR at least one
    *  paid weekly_booth_rental for the current/upcoming weeks. Used by
@@ -85,7 +90,8 @@ export async function getManagerDashboardStats(
   //  2. market_vendors approved + booth_number IS NULL at this market
   //  3. order_items at this market with pickup_date = next market day,
   //     status NOT in {fulfilled, cancelled, refunded}
-  //  4. market_vendors approved=false count (pending manager review)
+  //  4. market_vendors approved=false rows (bucketed: pending review vs
+  //     invited-unanswered; revoked and declined count as neither)
   //  5. market_vendors approved=true HEAD count (would receive
   //     schedule-change notifications)
   //  6. weekly_booth_rentals paid + week_start_date >= today HEAD count
@@ -122,15 +128,17 @@ export async function getManagerDashboardStats(
           .eq('pickup_date', nextMarketDateStr)
           .in('status', ['pending', 'confirmed', 'ready'])
       : Promise.resolve({ data: [] as Array<{ order_id: string }>, error: null }),
-    // "Pending your approval" means NEVER REVIEWED. mig 217: a vendor the
-    // manager deliberately revoked also has approved=false, and counting those
-    // put a just-removed vendor straight back on the manager's to-do list.
+    // "Pending your approval" = rows the manager can ACT on (owner 2026-09-27,
+    // TR-107). mig 217: a revoked vendor also has approved=false, and counting
+    // those put a just-removed vendor back on the to-do list; the 2026-09-27
+    // tester hit the same thing with an INVITED truck that had not answered.
+    // The unapproved rows are read and bucketed by lib/markets/roster-buckets.ts
+    // — the roster's chips use the same helper, so card and list agree.
     serviceClient
       .from('market_vendors')
-      .select('id', { count: 'exact', head: true })
+      .select('approved, revoked_at, response_status')
       .eq('market_id', marketId)
-      .eq('approved', false)
-      .is('revoked_at', null),
+      .eq('approved', false),
     serviceClient
       .from('market_vendors')
       .select('id', { count: 'exact', head: true })
@@ -162,7 +170,9 @@ export async function getManagerDashboardStats(
   )
   const nextMarketDayOrderCount = distinctOrderIds.size
 
-  const pendingApprovalCount = pendingApprovalResult.count ?? 0
+  const buckets = bucketRosterRows((pendingApprovalResult.data ?? []) as RosterBucketRow[])
+  const pendingApprovalCount = buckets.pendingApproval
+  const invitedAwaitingCount = buckets.invitedAwaiting
   const approvedVendorCount = approvedVendorsResult.count ?? 0
   const paidUpcomingRentalCount = paidRentersResult.count ?? 0
   const hasScheduleChangeRecipients =
@@ -173,6 +183,7 @@ export async function getManagerDashboardStats(
     nextMarketDayOrderCount,
     activeVendorsNeedingBooth,
     pendingApprovalCount,
+    invitedAwaitingCount,
     hasScheduleChangeRecipients,
     marketChargesBooths: (pricedTiersResult.count ?? 0) > 0,
   }

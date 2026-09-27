@@ -1372,6 +1372,25 @@ describe('Dashboard empty-state convention', () => {
     expect(card).not.toMatch(/\n\s*Edit\r?\n/)
   })
 
+  it('OB-034: "pending your approval" and the roster\'s Pending chip share ONE rule; invited-unanswered is its own Action Items line', () => {
+    // Owner 2026-09-27 (TR-107/TR-140). The card counted every unapproved,
+    // unrevoked row while the roster left invited trucks out — "1 pending" with
+    // nobody to approve. Both now read lib/markets/roster-buckets.ts.
+    const stats = bare('lib/markets/manager-dashboard-stats.ts')
+    expect(stats, 'the count comes from the shared buckets').toMatch(/bucketRosterRows\(\(pendingApprovalResult\.data \?\? \[\]\)/)
+    expect(stats, 'the unapproved rows are read with the columns the rule needs').toMatch(/\.select\('approved, revoked_at, response_status'\)\s*\n\s*\.eq\('market_id', marketId\)\s*\n\s*\.eq\('approved', false\)/)
+    expect(stats).toContain('invitedAwaitingCount')
+    const roster = bare('components/market-manager/VendorBoothList.tsx')
+    expect(roster, 'the Pending chip uses the shared rule').toContain('vendors.filter(isPendingApproval)')
+    expect(roster, 'the Invited chip uses the shared rule').toContain('vendors.filter(isInvitedAwaiting)')
+    expect(roster, 'a declined vendor is named, not "pending"').toContain('Declined the invitation')
+    const summary = bare('components/market-manager/ManagerActionSummary.tsx')
+    expect(summary, 'the card has its own invited line').toContain("key: 'invited'")
+    expect(summary).toContain('answered yet')
+    const rule = bare('lib/markets/roster-buckets.ts')
+    expect(rule, 'declined is never pending').toMatch(/response_status !== 'invited' && r\.response_status !== 'declined'/)
+  })
+
   it('OB-031: a vendor retrying their OWN held-booth week gets Continue payment, not "assigned booth is already booked"', () => {
     const book = bare('app/api/vendor/markets/[id]/book/route.ts')
     expect(book, 'both codes first look for this vendor\'s own live row').toMatch(/msg\.includes\('DUPLICATE'\) \|\| msg\.includes\('BOOTH_TAKEN'\)/)
