@@ -210,6 +210,11 @@ New user-facing strings go through `t()`, not hardcoded literals — the shared 
   withdraw · buyer cancel + cancel-bundle (Q1 pro-rata) · events cancel (organizer + admin) · event-reconfirm.
   Protected three wired 2026-09-26 with file-level approval: reject · checkout/success dead-order (rows) ·
   webhooks dead-order (rows) + charge.refunded (below). ALL 13 createRefund callers wired; pin owed-list empty.
+- `tax/flags.ts` — `TAX_STREAM1_PROD` (the committed production switch, false) · `TAX_STREAM1_STAGING_OVERRIDE`
+  (env `TAX_STREAM1_STAGING=true` on a NON-production Vercel env; `VERCEL_ENV === 'production'` short-circuits it) ·
+  `TAX_STREAM1_ENABLED` = PROD || override — the one value the checkout engine reads. Owner 2026-09-26 (option b): the
+  W13 staging rehearsal switches tax on from the Vercel dashboard, so no flip ever sits on `main` while Prod is owed a
+  push. Pinned (flow-integrity "Sales tax Batch 2") + 4 specs (`flags.test.ts`) incl. "production ignores the variable".
 - `tax/dashboard-refund.ts` — `reconcileChargeRefundTax(service, listRefunds, charge, orderId)`: what the
   charge.refunded webhook does about tax (owner Q2). Finds the triggering refund (charge.refunds when present, else
   one refunds.list by payment intent, newest); OURS (createRefund's `metadata.source='app'`, or a ledger row under

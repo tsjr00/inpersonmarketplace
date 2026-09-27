@@ -102,6 +102,7 @@ THE WORKFLOWS
   W10 Survey email                                                                  ~2 min
   W11 Platform admin: sales-tax readiness — filter, tax card, Form 01-116 report      Amarillo · ~10 min
   W12 Seasons — create one, open pre-sale, two vendors buy it                       Market 2 Test · ~30 min
+  W13 SALES-TAX REHEARSAL — one simulated month with tax ON (staging only)          Amarillo · ~2 hrs · NOT YET: see its "Check first"
 
 
 
@@ -693,6 +694,116 @@ number · the test card 4242 4242 4242 4242.
 
 
 ==================================================
+W13 — SALES-TAX REHEARSAL: ONE SIMULATED MONTH WITH TAX ON   (staging ONLY · Amarillo Community Market · ~2 hrs, spread over a few days is fine)
+===
+BACKGROUND: this is the dress rehearsal before real buyers ever pay sales tax. Tax is switched on for STAGING ONLY
+(the owner sets one setting in Vercel for the staging environment; production cannot read it), you place a handful of
+orders and refunds, and at the end the monthly tax report must add up to the cent against the tally you keep
+as you go. Every dollar here is Stripe TEST money (card 4242 4242 4242 4242). Keep a tally sheet: for each order
+write the order #, the "Sales tax" line at checkout, and for each refund the amount shown; the report is compared to
+that sheet in step 12. Rates used in the Expect lines assume Amarillo = TEXAS 6.25% + AMARILLO city 2.00% (8.25%
+total, no county tax) — if the card in step 1 shows different codes, tell the owner before going on; the cents below
+change.
+
+Check first (owner prepares ALL of these; do not start until each is ticked):
+  □ The owner has said "tax is on for staging" — in Vercel, the Preview/staging environment has the variable
+    TAX_STREAM1_STAGING = true and the staging deployment was redeployed after setting it. (Production ignores this
+    variable by construction; nothing about production changes.) Quick proof: as a buyer, a taxable item at Amarillo
+    shows a "Sales tax" line at checkout — if it does not, the variable is not in effect yet.
+  □ Amarillo Community Market's "Sales tax jurisdictions" card (platform admin → Markets → Amarillo → the card) shows
+    the TEXAS row AND a city row "AMARILLO", code 2188013, 2 % — confirmed by the owner at the Comptroller Rate Locator
+    using the card's coordinates — Rate version = the current quarter, "Last verified" today-ish. (Codes are
+    address-specific: if the Locator shows something else, the card must match the Locator, not this sheet.)
+  □ A vendor (Valley Verde Farm) with two PUBLISHED listings available at Amarillo: "Rehearsal salsa" — category
+    Prepared Foods, price $10.00, quantity 10 (the sales-tax box reads "Sales tax applies to this item") and
+    "Rehearsal tomatoes" — category Produce, price $10.00, quantity 10 ("This item is exempt from sales tax").
+  □ Amarillo's next market day is at least 2 days away (so orders don't hit the cutoff) and the vendor is declared for it.
+  □ Logins: a buyer (B1) · the vendor · the platform admin · the Stripe TEST dashboard (owner) · CRON_SECRET (owner, step 13).
+
+ 1. As B1: add "Rehearsal salsa" ×1 to the cart → checkout page.
+    Expect: a line "Sales tax" reading $0.88 sits above the total (the 6.5 % buyer fee is inside the taxed amount:
+    $10.00 + $0.65 = $10.65 × 8.25 %). Total = $11.68 (items $10.00 · fee $0.65 · Service Fee $0.15 · Sales tax $0.88).
+    Pay with the test card.
+    Expect: the success page shows the total $11.68 and the note "Includes $0.88 sales tax". Write on the tally:
+    order #, tax $0.88, refunds none yet.
+
+ 2. As B1: add "Rehearsal tomatoes" ×1 → checkout.
+    Expect: NO "Sales tax" line; total $10.80. Pay. Tally: tax $0.00.
+
+ 3. As B1: BOTH items in one cart → checkout.
+    Expect: "Sales tax" $0.88 (only the salsa is taxed); total $22.48. Pay. Tally: tax $0.88.
+    Open /farmers_market/buyer/orders → this order.
+    Expect: a "Sales tax" line of $0.88 on the order page.
+
+ 4. As B1, WITHIN ONE HOUR of placing it: cancel the salsa on order 1 (the item's Cancel).
+    Expect: the message ends "Full refund will be processed." and the order page shows a refund of $11.68 for the
+    item (all the money AND all the tax). Tally: refund $11.68, of which tax $0.88.
+
+ 5. Place a new salsa-only order (order 4). As the VENDOR: confirm it. Wait until at least 60 minutes have passed
+    since order 4 was placed (FM grace window), then as B1 cancel the salsa.
+    Expect: "A 25% cancellation fee was applied. You will be refunded $8.76." — that is 75 % of the $10.80 you paid
+    for the item PLUS 75 % of its tax (66¢ of the 88¢). The order page shows refund $8.76 and a cancellation fee
+    of $2.70. Tally: refund $8.76, of which tax $0.66.
+
+ 6. Place a new salsa-only order (order 5). As the VENDOR: reject it with any reason.
+    Expect: the buyer's order page shows refund $11.68 for the item (money + all the tax). Tally: refund $11.68,
+    tax $0.88.
+
+ 7. Place a new salsa-only order (order 6). Owner, in the Stripe TEST dashboard: Payments → this payment → Refund
+    → FULL refund. Wait a minute (webhook).
+    Expect: the buyer's order page shows the order as refunded. Platform admin → Money → "Tax Reversals".
+    Expect: the "Owed" tab does NOT list order 6 (a full dashboard refund is handled automatically). Tally: refund
+    $11.68, tax $0.88.
+
+ 8. Place a new order with BOTH items (order 7, total $22.48). Owner, Stripe TEST dashboard: Refund → PARTIAL,
+    amount $5.00. Wait a minute.
+    Expect: platform admin → Money → "Tax Reversals" → "Owed" lists order 7: "Dashboard refund of $5.00" with the
+    Stripe refund id, and the nav shows a badge count of 1. Tap "Allocate".
+    Expect: two items listed; "Rehearsal salsa" shows "tax paid $0.88 … $0.88 left"; "Rehearsal tomatoes" shows
+    "tax paid $0.00" and cannot be ticked. Tick the salsa, choose "50% of it", note "half the salsa returned",
+    tap "Record reversal".
+    Expect: "Recorded — $0.44 of tax reversed on the return." The "Owed" tab is now empty ("Nothing owed — every
+    dashboard refund on a taxed order has been allocated."), the badge is gone, and the "Resolved" tab shows order 7
+    with "Reversed: Rehearsal salsa $0.44" and your note. Tally: refund $5.00, tax $0.44.
+
+ 9. Same row: try to allocate again (there is no button — confirm the row is under Resolved only). As a VERTICAL
+    admin (not platform), open /admin/tax-reversals.
+    Expect: "Platform admin access required".
+
+10. NOT RUNNABLE ON STAGING — skip. The daily order cron (the expiry refund) refuses to run on any non-production
+    deployment by design, so an expired order cannot be produced here. That path is covered by the automated route
+    test instead (TR-126 lists it). Write "step 10 skipped — not runnable on staging" on the tally so the totals in
+    step 12 exclude it.
+
+11. Order 3 (salsa + tomatoes) is still open: as the VENDOR, fulfil it normally on market day (or leave it — it stays
+    a taxed sale either way). Nothing to check; it is on the tally as a $0.88 sale with no refund.
+
+12. THE RECONCILIATION. Platform admin → /admin/reports → Accounting → tick "Texas List Supplement (Form 01-116)" →
+    date range = the calendar month of the rehearsal → Download. Open the CSV.
+    Expect: rows for 7000000 TEXAS and 2188013 AMARILLO (plus TOTAL and PERIOD). On the TOTAL row:
+      "Sales Tax Collected" = the SUM of every tax figure you wrote for orders on the tally (each salsa order adds
+        $0.88; tomato-only orders add $0.00) — to the cent.
+      "Tax Refunded" = the SUM of the tax parts of every refund on the tally ($0.88 + $0.66 + $0.88 + $0.88 + $0.44
+        = $3.74) — to the cent.
+      "Tax Due (net)" = Collected − Refunded. "Taxed Items" = the number of salsa lines sold; "Reversal Rows" = the
+        number of refunds that reversed tax. The PERIOD row names the month in "America/Chicago (Central)".
+    On the TEXAS row, "Sales Base" = $10.65 × the number of salsa lines; on the AMARILLO row the same base with
+    "Rate %" 2 and its own tax cents. Any cent of difference between the CSV and your tally IS a finding — write the
+    two numbers down.
+
+13. (Owner) The quarter-refresh job on staging: curl -H "Authorization: Bearer $CRON_SECRET"
+    <staging>/api/cron/tax-rate-refresh
+    Expect: JSON with "fetchOk": true, "fileQuarter" = the Comptroller's current quarter, and Amarillo counted under
+    "markets"; nothing changes on the card unless the Comptroller's file disagrees with it (then the card's note gains
+    a dated "(auto)" line and the platform admin gets a "Sales tax rates: check Amarillo Community Market" notice).
+
+When W13 passes end to end: tax goes to production ONLY on the registration effective date, by the owner's word, after
+the production markets carry their real codes — that is a separate, committed code change (the production switch),
+never the Vercel variable. To end the rehearsal, the owner removes TAX_STREAM1_STAGING from the Vercel staging
+environment and redeploys; staging is dark again.
+
+
+
 NOT RUNNABLE YET — nothing for you to do
 ===
 • Event money on cancellation / de-selection — needs an event with a PAID vendor fee on staging.
@@ -729,6 +840,9 @@ W8  1→TR-010 · 2→TR-001 · 3→TR-005 · 4→TR-002 · 5→TR-003
 W9  (v3.3) 1→TR-015 (dashboard tile) TR-125 · 2→TR-125 · 3→TR-014   (v3.2 strip + "Order #FA-" PASSED 2026-09-26, OB-033)
 W10 1→TR-041
 W11 1→TR-112 · 2→TR-110 · 3→TR-110 · 4→TR-110 TR-112 · 5→TR-113 · 6→TR-114 · 7→TR-115   (TR-111 = W11.4-style address change, not scripted: needs an address edit)
+W13 (rehearsal, runs only when the owner says tax is on for staging) 1→TR-129 · 2→TR-129 · 3→TR-129 · 4→TR-126 · 5→TR-126 (Q1) · 6→TR-126
+    · 7→TR-126 (dashboard full) · 8→TR-127 · 9→TR-127 · 10→skipped (cron never runs on non-production; route-tested) · 12→TR-113 TR-130 · 13→TR-116   (expected cents: $10.00 taxable
+    item at 8.25 % on the fee-inclusive base $10.65 → 67¢ + 21¢ = 88¢; full refund $11.68; 25 %-fee refund $8.10 + 66¢ = $8.76)
 Passed already (removed): TR-100. Not runnable: TR-028 TR-029 TR-031 TR-060 TR-062.
 Wording quoted from code 2026-09-22 (BoothNumberingHelp, ManagerActionSummary, BoothNumberPicker, VendorBoothList,
 BoothOccupancyGrid, WeeklyBookingsList, week-sheet page, notifications/types.ts 889/1026-1035/1002/1194/1054,

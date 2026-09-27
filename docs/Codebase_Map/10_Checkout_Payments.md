@@ -28,7 +28,8 @@ src/app/[vertical]/checkout/**
 6. **Don't clean up the inline bug-history comments.** Tags like CHK-1, CHK-7, CRIT-1, F6, M12 each mark a production incident and the code preventing its recurrence — `inventory.ts:40-60` and `market-box-payout.ts:22-30` are the clearest examples.
 7a. **Sales tax (Batch 2, 2026-09-08) — wired DARK.** `lib/tax/checkout-tax.ts`
    `computeCheckoutTax` is the one tax engine (flag-gated on `lib/tax/flags.ts`
-   `TAX_STREAM1_ENABLED = false`); `checkout/session` computes after chip-in validation,
+   `TAX_STREAM1_PROD = false`; since 2026-09-26 a staging-only env override `TAX_STREAM1_STAGING=true` can turn it on
+   for a non-production deployment — production ignores it); `checkout/session` computes after chip-in validation,
    adds a "Sales tax" Stripe line + `+ taxTotalCents` into `total_cents`, writes
    `orders.tax_total_cents` and the per-item `order_items.tax_*` snapshot (mig 214;
    `tax_source='self_computed_v1'`) — all only when the flag is on; a not-tax-ready

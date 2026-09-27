@@ -3403,12 +3403,17 @@ describe('Sales tax Batch 2 — one engine, dark flag', () => {
   const SRC = path.resolve(__dirname, '../..')
   const rd = (p: string) => fs.readFileSync(path.join(SRC, p), 'utf-8')
 
-  it('TAX_STREAM1_ENABLED ships FALSE (dark until Batch 3+4 + owner flip)', () => {
-    // Flipping this is a go-live act: it requires the quarterly rate-refresh
-    // job, refund reversals, the event-order route wired, and entered
-    // jurisdiction codes (flags.ts header) — and OWNER approval. Update this
-    // pin in the SAME approved change that flips the flag.
-    expect(rd('lib/tax/flags.ts')).toMatch(/export const TAX_STREAM1_ENABLED = false/)
+  it('the PRODUCTION switch ships FALSE, and the staging override can never apply on production', () => {
+    // Flipping production is a go-live act: it requires the event-order route
+    // wired, jurisdiction codes on every live market, the registration date,
+    // and the W13 rehearsal passed (flags.ts header) — and OWNER approval.
+    // Update this pin in the SAME approved change that flips TAX_STREAM1_PROD.
+    // Owner 2026-09-26 (option b): a Vercel env var may switch tax on for a
+    // NON-production environment; the guard below is what keeps Prod dark.
+    const flags = rd('lib/tax/flags.ts')
+    expect(flags).toMatch(/export const TAX_STREAM1_PROD = false/)
+    expect(flags).toMatch(/process\.env\.VERCEL_ENV !== 'production' && process\.env\.TAX_STREAM1_STAGING === 'true'/)
+    expect(flags).toMatch(/export const TAX_STREAM1_ENABLED = TAX_STREAM1_PROD \|\| TAX_STREAM1_STAGING_OVERRIDE/)
   })
 
   it('checkout/session, discount-preview, and the bundle detail all use the ONE engine', () => {
