@@ -20,9 +20,11 @@ interface ApplyToMarketButtonProps {
    *  the form asks which size the vendor wants; the manager confirms or changes
    *  it at approval. Empty = the market has no priced booths, no question asked. */
   tiers?: ApplyTier[]
+  /** The button's text, localized by the server page (owner 2026-09-27: "Apply now"). */
+  label?: string
 }
 
-export default function ApplyToMarketButton({ marketId, vendorProfileId, vertical, tiers = [] }: ApplyToMarketButtonProps) {
+export default function ApplyToMarketButton({ marketId, vendorProfileId, vertical, tiers = [], label }: ApplyToMarketButtonProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
@@ -89,7 +91,7 @@ export default function ApplyToMarketButton({ marketId, vendorProfileId, vertica
           cursor: 'pointer',
         }}
       >
-        Apply to Sell Here
+        {label ?? 'Apply now'}
       </button>
     )
   }

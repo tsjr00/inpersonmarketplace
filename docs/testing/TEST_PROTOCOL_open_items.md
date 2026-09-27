@@ -1,5 +1,5 @@
 STAGING TEST WORKFLOWS — SELF-CONTAINED EDITION
-Version 3.3 · 2026-09-26 · written for a tester who has ONLY this document and the app.
+Version 3.4 · 2026-09-27 · written for a tester who has ONLY this document and the app.
 Nothing in here refers to any other document. If a step tells you to expect words on the screen, those are the
 words the app is supposed to show. If the screen shows something different, that difference IS your finding.
 
@@ -10,6 +10,8 @@ market, it is the long code after /market-manager/ or /markets/ in the address b
 
 Before every session: hard-refresh the page (Ctrl+F5 on Windows, Cmd+Shift+R on Mac) so you get the newest build.
 
+★ WHAT'S NEW (2026-09-27, v3.4): W4 gained step 8 — the button at the top of a market's page now follows your
+  application status (Apply now → Applied → Book now). Run it as soon as the build is on staging.
 ★ WHAT'S NEW (2026-09-25 build `3f71e947`): run W2 first, then W1, then W3, then W12, then W5.
   W2 is rewritten for a FRESH vendor at River Road (the owner prepares the accounts): the vendor Markets card now
   lists its buttons in the order the work happens, a vendor can get back to an unfinished payment, and saving a
@@ -347,6 +349,18 @@ THIS week (a spot booking, unpaid is fine). As T2, request a recurring hold for 
  7. (Optional, later) Wait until T2's Saturday booking has expired unpaid (T2 didn't pay by the Thursday
     before). As T3, book that Saturday on Spot A.
     Expect: it is allowed now.
+
+ 8. The button at the top of a market's page follows your application status (new 2026-09-27).
+    As T2 (approved at Sixth Street): /food_trucks/markets/[Sixth Street id].
+    Expect: next to the park's name, a blue button "Book now". Click it.
+    Expect: the spot-booking page for Sixth Street opens (if the park has not finished payment setup, a page
+    saying bookings are not open yet, with a link back — that is still a pass).
+    Now as a truck that has NEVER applied to Sixth Street: the same page.
+    Expect: a blue button "Apply now" (it used to say "Apply to Sell Here").
+    Now as a truck that applied (or was invited) and is still waiting on the operator: the same page.
+    Expect: a small label "Applied" — no button.
+    Check first: if you have a truck the operator REMOVED from Sixth Street, open the page as that truck.
+    Expect: neither a button nor a label next to the park's name. Skip if you have no removed truck.
 
 
 
@@ -837,7 +851,7 @@ W2  (v3, fresh vendor at River Road) 1→TR-119 · 2→TR-083 · 3→TR-117 · 4
     · 13→(see W12)   (v2 steps that PASSED 2026-09-25 were removed — see TEST_REGISTRY OB-030 rows)
 W3  1→TR-091 TR-099 · 2→TR-091 · 3→TR-091 · 4→TR-092 (button now "Cancel this booking", OB-030 (e))
 W12 1→TR-122 · 2→TR-079 (setup) · 3→TR-122 TR-079 · 4→TR-079 · 5→TR-079 · 6→TR-079 · 7→TR-122   (W2 v3 step 13 now points here)
-W4  1→TR-034 · 2→TR-107 · 3→TR-043 · 4→TR-109 · 5→TR-109 · 6→TR-040 · 7→TR-109
+W4  1→TR-034 · 2→TR-107 · 3→TR-043 · 4→TR-109 · 5→TR-109 · 6→TR-040 · 7→TR-109 · 8→TR-133 (v3.4)
 W5  (v3.1) 1→TR-069 · 2→TR-044 · 3→TR-044 · 4→TR-123 · 5→TR-042 · 6→TR-048
 W6  (v3.2) 1→TR-096 (boxes half) · 2→TR-094 (two FM questions)   (v3.1 steps 1–5 PASSED 2026-09-25, OB-032: TR-093 TR-095 pass)
 W7  1→TR-022 TR-064 · 2→TR-022 TR-064 · 3→TR-022 · 4→TR-065 · 5→TR-066 · 6→TR-067 · 7→TR-068 · 8→TR-026

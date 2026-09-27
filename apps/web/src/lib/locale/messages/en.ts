@@ -1237,6 +1237,8 @@ export const en: Record<string, string> = {
   // ── Market detail page ──────────────────────────────────────────
   'market_detail.back': 'Back to Markets',
   'market_detail.applied': 'Applied',
+  'market_detail.apply_now': 'Apply now',
+  'market_detail.book_now': 'Book now',
   'market_detail.event_website': 'Event website →',
   'market_detail.vendors_count': '{count} vendor{s}',
   'market_detail.next_date': 'Next: {date}',

@@ -1233,6 +1233,8 @@ export const es: Record<string, string> = {
   // ── Market detail page ──────────────────────────────────────────
   'market_detail.back': 'Volver a Mercados',
   'market_detail.applied': 'Solicitud Enviada',
+  'market_detail.apply_now': 'Solicitar ahora',
+  'market_detail.book_now': 'Reservar ahora',
   'market_detail.event_website': 'Sitio web del evento →',
   'market_detail.vendors_count': '{count} vendedor{s}',
   'market_detail.next_date': 'Próximo: {date}',

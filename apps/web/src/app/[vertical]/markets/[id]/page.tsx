@@ -16,6 +16,7 @@ import FollowMarketButton from './FollowMarketButton'
 import { getMarketVendorsWithListings } from '@/lib/markets/vendors-with-listings'
 import { getMarketBundleCards } from '@/lib/bundles/public'
 import MarketBundlesSection from '@/components/markets/MarketBundlesSection'
+import { rosterDisplayState, type RosterDisplayState } from '@/lib/markets/roster-display-state'
 
 interface MarketDetailPageProps {
   params: Promise<{ vertical: string; id: string }>
@@ -131,7 +132,9 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
   // Get current user's vendor profile for this vertical (for apply button)
   const { data: { user } } = await supabase.auth.getUser()
   let userVendorProfile = null
-  let hasApplied = false
+  // Which ONE header control this vendor sees (owner 2026-09-27, TR-133):
+  // Apply now · Applied · Book now · nothing. 'hidden' until a profile is found.
+  let rosterState: RosterDisplayState = 'hidden'
 
   if (user) {
     // FIX 2026-09-05 (option A, same bug as the apply route): this looked up
@@ -149,15 +152,17 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
     if (vendorProfile) {
       userVendorProfile = vendorProfile
 
-      // Check if already applied
-      const { data: existingApplication } = await supabase
+      // The vendor's roster row here → which header control they see. Approval
+      // is read the way the booking gate reads it (approved === true), so
+      // "Book now" only appears when the booking page will let them through.
+      const { data: rosterRow } = await supabase
         .from('market_vendors')
-        .select('id')
+        .select('approved, revoked_at, response_status')
         .eq('market_id', id)
         .eq('vendor_profile_id', vendorProfile.id)
-        .single()
+        .maybeSingle()
 
-      hasApplied = !!existingApplication
+      rosterState = rosterDisplayState(rosterRow, isEvent)
     }
   }
 
@@ -167,7 +172,7 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
   // food-truck park) shows no size question. Service client: the inventory
   // table is RLS-deny for non-managers.
   let applyTiers: Array<{ id: string; size_label: string; dimensions: string | null; weekly_price_cents: number }> = []
-  if (userVendorProfile && !hasApplied && hasActiveManager && !isEvent && vertical !== 'food_trucks') {
+  if (userVendorProfile && rosterState === 'apply' && hasActiveManager && !isEvent && vertical !== 'food_trucks') {
     const { data: tierRows } = await createServiceClient()
       .from('market_booth_inventory')
       .select('id, size_label, dimensions, weekly_price_cents')
@@ -342,17 +347,21 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
                 2026-09-07: "make sure we can facilitate an application before
                 we offer it"). An unmanaged market has no one to review the
                 application; the insights page routes those to contact info. */}
-            {userVendorProfile && !hasApplied && hasActiveManager && (
+            {userVendorProfile && rosterState === 'apply' && hasActiveManager && (
               <div style={{ marginLeft: 'auto' }}>
                 <ApplyToMarketButton
                   marketId={id}
                   vendorProfileId={userVendorProfile.id}
                   vertical={vertical}
                   tiers={applyTiers}
+                  label={t('market_detail.apply_now', locale)}
                 />
               </div>
             )}
-            {hasApplied && (
+            {/* Owner 2026-09-27 (TR-133): waiting on the manager → "Applied";
+                approved → "Book now" (the FM booking page forwards food trucks to
+                the spot page); removed or declined → nothing. */}
+            {userVendorProfile && rosterState === 'applied' && (
               <span style={{
                 marginLeft: 'auto',
                 padding: `${spacing['2xs']} ${spacing.sm}`,
@@ -362,8 +371,25 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
                 fontSize: typography.sizes.sm,
                 fontWeight: typography.weights.medium,
               }}>
-                Applied
+                {t('market_detail.applied', locale)}
               </span>
+            )}
+            {userVendorProfile && rosterState === 'book' && (
+              <Link
+                href={`/${vertical}/markets/${id}/book`}
+                style={{
+                  marginLeft: 'auto',
+                  padding: '10px 20px',
+                  backgroundColor: '#0070f3',
+                  color: 'white',
+                  borderRadius: 8,
+                  fontSize: 14,
+                  fontWeight: 500,
+                  textDecoration: 'none',
+                }}
+              >
+                {t('market_detail.book_now', locale)}
+              </Link>
             )}
           </div>
 
