@@ -339,9 +339,15 @@ Pick a different spot above." — which is what the 2026-09-27 tester saw (Spot 
     approval · declined"), and a truck you approved who had declined earlier reads "✅ Approved · declined the
     invitation".
 
- 3. As T2: /food_trucks/vendor/markets → "Your next two weeks".
-    Expect: the approved Saturday hold appears on its Saturday even when that Saturday is MORE than 7 days
-    away, with a note "Pay by <date> to keep your spot".
+ 3. As T2: /food_trucks/vendor/markets → "Your next two weeks" (rewritten 2026-09-27 — the old wording expected
+    the wrong note). Check first: T2 must NOT have a booking of its own on the Saturday you look at.
+    Expect (a Saturday MORE than 7 days away): the park appears on that Saturday with the note "Standing spot
+    hold — the pay-by window opens within 7 days of the date".
+    Expect (a Saturday WITHIN 7 days): the note "Pay by <date> to keep your spot" — BUT only after the owner has run
+    the daily job on staging (staging never runs it on its own; until then that Saturday still shows the "Standing
+    spot hold…" note, which is not a failure — tell the owner).
+    Expect (a Saturday T2 has PAID for): the row reads "booked" with the note "Your standing hold" (new 2026-09-27:
+    before this the hold was silent on a paid day).
 
  4. As T3: /food_trucks/markets/[Sixth Street id]/book-spot.
     Expect: Spot A's card carries the text "Held on Saturdays — recurring truck". In the list of days, every

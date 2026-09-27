@@ -189,4 +189,23 @@ describe('assembleStrip', () => {
     expect(days[1]!.entries).toHaveLength(1)
     expect(days[1]!.entries[0]!.status).toBe('payment_due')
   })
+
+  // Owner 2026-09-27 (tester OB-034, TR-043): a PAID day on the hold's weekday
+  // reads "booked" AND names the hold — one entry, both facts.
+  it('a paid booking on the hold weekday stays one "booked" entry and carries the "Your standing hold" note', () => {
+    const days = assembleStrip(DATES, {
+      ...base,
+      standingHolds: [{ marketId: 'm1', marketName: 'Park A', marketType: 'traditional', dayOfWeek: 2, startTime: '11:00', endTime: '14:00' }],
+      dateCommitments: [{ kind: 'park_booking' as const, marketId: 'm1', marketName: 'Park A', marketType: 'traditional', date: '2026-09-08', startTime: '11:00', endTime: '14:00' }],
+    })
+    expect(days[1]!.entries).toHaveLength(1)
+    expect(days[1]!.entries[0]).toMatchObject({ kind: 'park_booking', status: 'on', note: 'Your standing hold' })
+    // A payment_due occurrence keeps its own "Pay by" note (not overwritten).
+    const due = assembleStrip(DATES, {
+      ...base,
+      standingHolds: [{ marketId: 'm1', marketName: 'Park A', marketType: 'traditional', dayOfWeek: 2, startTime: '11:00', endTime: '14:00' }],
+      pendingOccurrences: [{ marketId: 'm1', marketName: 'Park A', marketType: 'traditional', date: '2026-09-08', payBy: '2026-09-06', startTime: '11:00', endTime: '14:00' }],
+    })
+    expect(due[1]!.entries[0]!.note).toContain('Pay by 2026-09-06')
+  })
 })

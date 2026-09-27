@@ -189,7 +189,17 @@ export function assembleStrip(dates: string[], input: StripAssembleInput): Strip
     // approval. A materialized occurrence (paid or payment_due) for the same
     // market+date pushed above already, so has() keeps this from doubling.
     for (const sh of input.standingHolds ?? []) {
-      if (sh.dayOfWeek !== dow || has(sh.marketId)) continue
+      if (sh.dayOfWeek !== dow) continue
+      const existing = entries.find(e => e.marketId === sh.marketId)
+      if (existing) {
+        // Owner 2026-09-27 (tester OB-034, TR-043): a PAID day on the hold's
+        // weekday still names the hold, so the truck sees both facts. A
+        // payment_due occurrence already carries its own "Pay by" note.
+        if (existing.kind === 'park_booking' && existing.status === 'on' && !existing.note) {
+          existing.note = 'Your standing hold'
+        }
+        continue
+      }
       entries.push({
         marketId: sh.marketId,
         name: sh.marketName,
