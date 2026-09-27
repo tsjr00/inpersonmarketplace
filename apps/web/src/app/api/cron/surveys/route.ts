@@ -502,6 +502,7 @@ async function generateForMarketDay(
 
       const result = await sendSurveyEmail({
         to: userProfile.email as string,
+        vertical,
         subject: buildBuyerSurveyEmailSubject({
           vendorName: null,
           marketName: market.name,

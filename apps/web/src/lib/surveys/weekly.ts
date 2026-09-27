@@ -302,7 +302,7 @@ export async function generateWeeklySurveys(
         ? `${baseUrl}/${b.vertical}/account/email-preferences?unsub=surveys&token=${b.unsubToken}`
         : null,
     })
-    const result = await sendSurveyEmail({ to: userProfile.email as string, subject: email.subject, html: email.html })
+    const result = await sendSurveyEmail({ to: userProfile.email as string, subject: email.subject, html: email.html, vertical: b.vertical })
     if (!result.ok) summary.emailsFailed++
   }
 

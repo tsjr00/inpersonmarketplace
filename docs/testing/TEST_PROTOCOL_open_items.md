@@ -14,8 +14,9 @@ Before every session: hard-refresh the page (Ctrl+F5 on Windows, Cmd+Shift+R on 
   application status (Apply now → Applied → Book now); My Park Bookings offers "Book again", lists your weekly
   holds and lets you pay a held date; the Locations card button says "Manage"; and the weekly-hold precondition
   is corrected (pay for a day first; Spot A needs "recurring OK"). W4 step 2 is rewritten: Action Items no longer
-  counts an invited truck as "pending your approval" — it gets its own line. Run them as soon as the build is on
-  staging.
+  counts an invited truck as "pending your approval" — it gets its own line. W10 (survey email) is rewritten so it
+  can be run: the owner triggers it, you prepare the accounts and read the inbox; food-truck survey emails now
+  come from "Food Truck'n". Run them as soon as the build is on staging.
 ★ WHAT'S NEW (2026-09-25 build `3f71e947`): run W2 first, then W1, then W3, then W12, then W5.
   W2 is rewritten for a FRESH vendor at River Road (the owner prepares the accounts): the vendor Markets card now
   lists its buttons in the order the work happens, a vendor can get back to an unfinished payment, and saving a
@@ -627,12 +628,32 @@ bought that box.
 
 
 ==================================================
-W10 — SURVEY EMAIL   (~2 min)
+W10 — SURVEY EMAIL   (~10 min + the owner's trigger · rewritten 2026-09-27)
 ===
- 1. Trigger a survey email from staging (manager dashboard → Communication & insights → Survey results, or wait
-    for the weekly one).
-    Expect: every link in the email points at the STAGING site (the address at the top of this document), not
-    at farmersmarketing.app.
+There is NO button in the app that sends a survey — surveys are created by a scheduled job, and staging never
+runs it on its own. The OWNER triggers the job on staging for this test; you only prepare the accounts and read
+the inbox. (Owner note: the survey pass inside the job only runs when it is called between 10:00 and 10:59 AM
+Central, daylight time; outside that hour it answers "skipped".)
+
+Check first — an email goes ONLY to someone who qualifies AND has not already seen the survey in the app:
+  · A FOOD TRUCK that is approved at a park, has picked its days there, and was scheduled at the park during the
+    most recent Monday-to-Sunday week — and has NOT opened its vendor dashboard since that Sunday 6:00 PM. Opening
+    the dashboard shows the survey in the app instead of emailing it (that is the rule, not a bug).
+  · A BUYER on their FIRST or SECOND ever purchase who picked up an order at a market yesterday or today — and has
+    NOT opened "My surveys" since. A buyer past two purchases gets one weekly email instead, same Sunday rule.
+  Use one truck at Sixth Street and one buyer at Amarillo Community Market so both brands are exercised.
+
+ 1. Tell the owner the accounts are ready; the owner runs the job. Then open each inbox.
+    Expect (food-truck inbox): the sender reads "Food Truck'n" and the address ends in @mail.foodtruckn.app; the
+    footer says "Sent by Food Truck'n". (If the owner has told you the food-truck mail domain is not yet verified,
+    expect the farmers-market sender instead and note it — that is a configuration finding, not an app bug.)
+    Expect (farmers-market inbox): the sender reads "Farmers Marketing" from @mail.farmersmarketing.app; the footer
+    says "Sent by Farmers Marketing for Amarillo Community Market".
+    Expect (both): EVERY link in the email — the survey button, "see all", unsubscribe — points at the STAGING
+    site (the address at the top of this document), never at farmersmarketing.app or foodtruckn.app.
+ 2. Click the survey button.
+    Expect: the survey form opens on staging for that market and date; submit it. Then open the same link again.
+    Expect: it says the survey was already submitted (or shows your answers), not a blank form.
 
 
 
@@ -896,7 +917,7 @@ W7  1→TR-022 TR-064 · 2→TR-022 TR-064 · 3→TR-022 · 4→TR-065 · 5→TR
     · 9→TR-025 · 10a→TR-023 · 10b→TR-024 · 10c→TR-030 · 10d→TR-032 · 10e→TR-033 · 10f→TR-035
 W8  1→TR-010 · 2→TR-001 · 3→TR-005 · 4→TR-002 · 5→TR-003
 W9  (v3.3) 1→TR-015 (dashboard tile) TR-125 · 2→TR-125 · 3→TR-014   (v3.2 strip + "Order #FA-" PASSED 2026-09-26, OB-033)
-W10 1→TR-041
+W10 (v3.4) 1→TR-041 (staging links · sender brand/domain by vertical) · 2→TR-041
 W11 1→TR-112 · 2→TR-110 · 3→TR-110 · 4→TR-110 TR-112 · 5→TR-113 · 6→TR-114 · 7→TR-115 · 8→TR-132   (TR-111 = W11.4-style address change, not scripted: needs an address edit)
 W13 (rehearsal, runs only when the owner says tax is on for staging) 1→TR-129 · 2→TR-129 · 3→TR-129 · 4→TR-126 · 5→TR-126 (Q1) · 6→TR-126
     · 7→TR-126 (dashboard full) · 8→TR-127 · 9→TR-127 · 10→skipped (cron never runs on non-production; route-tested) · 12→TR-113 TR-130 · 13→TR-116   (expected cents: $10.00 taxable

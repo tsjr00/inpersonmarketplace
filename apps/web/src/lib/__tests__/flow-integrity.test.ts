@@ -1391,6 +1391,17 @@ describe('Dashboard empty-state convention', () => {
     expect(rule, 'declined is never pending').toMatch(/response_status !== 'invited' && r\.response_status !== 'declined'/)
   })
 
+  it('OB-034: survey emails leave from the vertical\'s own brand + verified domain, like every other email', () => {
+    // Owner 2026-09-27. The From line was hard-coded "Farmers Marketing" for
+    // food-truck surveys too; the per-vertical rule already existed in
+    // notifications/email-config.ts and both survey senders now pass the vertical.
+    const email = bare('lib/surveys/email.ts')
+    expect(email, 'the sender comes from the shared per-vertical config').toMatch(/from: `\$\{getEmailBranding\(args\.vertical\)\.brandName\} <\$\{getEmailFromAddress\(args\.vertical\)\}>`/)
+    expect(email, 'no hard-coded sender remains').not.toContain("from: 'Farmers Marketing <")
+    expect(bare('lib/surveys/weekly.ts'), 'the weekly digest passes its vertical').toMatch(/sendSurveyEmail\(\{[^}]*vertical: b\.vertical/)
+    expect(bare('app/api/cron/surveys/route.ts'), 'the per-day buyer email passes its vertical').toMatch(/sendSurveyEmail\(\{\s*\n\s*to: userProfile\.email as string,\s*\n\s*vertical,/)
+  })
+
   it('OB-031: a vendor retrying their OWN held-booth week gets Continue payment, not "assigned booth is already booked"', () => {
     const book = bare('app/api/vendor/markets/[id]/book/route.ts')
     expect(book, 'both codes first look for this vendor\'s own live row').toMatch(/msg\.includes\('DUPLICATE'\) \|\| msg\.includes\('BOOTH_TAKEN'\)/)

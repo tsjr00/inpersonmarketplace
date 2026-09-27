@@ -20,6 +20,7 @@
  * injection through market_name + vendor_name + URLs.
  */
 import { term } from '@/lib/vertical'
+import { getEmailBranding, getEmailFromAddress } from '@/lib/notifications/email-config'
 
 /** Sender brand for the footer — the survey email is vertical-agnostic
  *  otherwise, but "Sent by Farmers Marketing" under a food-truck park
@@ -227,6 +228,11 @@ export async function sendSurveyEmail(args: {
   to: string
   subject: string
   html: string
+  /** Owner 2026-09-27 (tester OB-034): the sender brand + verified mail domain
+   *  follow the vertical — the same rule every other notification email uses
+   *  (notifications/service.ts). Before this every survey email left as
+   *  "Farmers Marketing" from the farmersmarketing.app domain, food trucks too. */
+  vertical: string
 }): Promise<{ ok: boolean; error?: string }> {
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) {
@@ -236,7 +242,7 @@ export async function sendSurveyEmail(args: {
     const { Resend } = await import('resend')
     const resend = new Resend(apiKey)
     const { error } = await resend.emails.send({
-      from: 'Farmers Marketing <updates@mail.farmersmarketing.app>',
+      from: `${getEmailBranding(args.vertical).brandName} <${getEmailFromAddress(args.vertical)}>`,
       to: args.to,
       subject: args.subject,
       html: args.html,
