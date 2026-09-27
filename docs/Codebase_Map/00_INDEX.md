@@ -104,7 +104,7 @@ Each domain file was verified against the code at the commit shown. A stamp far 
 | 10_Checkout_Payments.md | 2026-09-08 | d34eae7f |
 | 11_Vendor_Orders.md | 2026-09-25 | 7c118c36 |
 | 12_Market_Manager.md | 2026-09-27 | bcbde275 |
-| 13_FT_Park.md | 2026-07-18 | b9f82116 |
+| 13_FT_Park.md | 2026-09-27 | 7ed525ef |
 | 14_Events.md | 2026-09-17 | ae76681e |
 | 15_MarketBoxes_Subs.md | 2026-07-18 | b9f82116 |
 | 16_Auth_RLS_Verticals.md | 2026-07-18 | b9f82116 |

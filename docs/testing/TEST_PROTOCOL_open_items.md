@@ -10,8 +10,10 @@ market, it is the long code after /market-manager/ or /markets/ in the address b
 
 Before every session: hard-refresh the page (Ctrl+F5 on Windows, Cmd+Shift+R on Mac) so you get the newest build.
 
-★ WHAT'S NEW (2026-09-27, v3.4): W4 gained step 8 — the button at the top of a market's page now follows your
-  application status (Apply now → Applied → Book now). Run it as soon as the build is on staging.
+★ WHAT'S NEW (2026-09-27, v3.4): W4 gained steps 8–10 — the button at the top of a market's page follows your
+  application status (Apply now → Applied → Book now); My Park Bookings offers "Book again", lists your weekly
+  holds and lets you pay a held date; the Locations card button says "Manage"; and the weekly-hold precondition
+  is corrected (pay for a day first; Spot A needs "recurring OK"). Run them as soon as the build is on staging.
 ★ WHAT'S NEW (2026-09-25 build `3f71e947`): run W2 first, then W1, then W3, then W12, then W5.
   W2 is rewritten for a FRESH vendor at River Road (the owner prepares the accounts): the vendor Markets card now
   lists its buttons in the order the work happens, a vendor can get back to an unfinished payment, and saving a
@@ -301,8 +303,13 @@ W4 — FOOD-TRUCK PARK   (Sixth Street Food Park · ~30 min)
 ===
 YOU NEED: the Sixth Street OPERATOR login (the park's setup checklist must be complete). Three truck accounts:
 T1 (not yet approved at Sixth Street), T2 and T3 (both approved). Before you start: as T1, book any spot for
-THIS week (a spot booking, unpaid is fine). As T2, request a recurring hold for SATURDAYS on Spot A
-(/food_trucks/markets/[Sixth Street id] → the recurring-hold request) and leave it un-decided.
+THIS week (a spot booking, unpaid is fine). As T2, request a recurring hold for SATURDAYS on Spot A and leave
+it un-decided — the request lives on /food_trucks/markets/[Sixth Street id]/book-spot → the "Weekly hold" tab.
+Check first (this is the rule, not a bug): that tab stays locked, saying "Weekly holds unlock after your first
+PAID booking here", until T2 has PAID for at least one day at Sixth Street — an unpaid booking does not count.
+Check first: as the OPERATOR, in the Spots card, Spot A must show "recurring OK" (edit the spot → tick "Allow
+standing/recurring reservations"). With that box OFF the tab says "This spot isn't available for weekly holds.
+Pick a different spot above." — which is what the 2026-09-27 tester saw (Spot A had the box off).
 
  1. As any truck: /food_trucks/vendor/edit → the section "Pickup Capacity".
     Expect: under the heading, a paragraph beginning "Your Pickup Capacity is the amount of app pre-orders the
@@ -361,6 +368,27 @@ THIS week (a spot booking, unpaid is fine). As T2, request a recurring hold for 
     Expect: a small label "Applied" — no button.
     Check first: if you have a truck the operator REMOVED from Sixth Street, open the page as that truck.
     Expect: neither a button nor a label next to the park's name. Skip if you have no removed truck.
+
+ 9. My Park Bookings after a booking (new 2026-09-27). As T2 (has at least one booking at Sixth Street):
+    /food_trucks/vendor/park-bookings.
+    Expect: under the intro, a blue button "Book again at Sixth Street Food Park →" (one per park you have
+    booked at) and a link "Find another park →". If T2 has a weekly hold (step 2 / the precondition), a
+    section "Your weekly holds" lists it as "Sixth Street Food Park · Spot A · every Saturday" with "Active"
+    or "Pending review". Under "Upcoming", any date created by the hold that is not yet paid reads
+    "· weekly hold — you hold this spot" and has a "Pay now" button; clicking it opens Stripe (you may cancel).
+    Any unpaid ONE-OFF date (you started a booking and left Stripe) shows "Finish booking →" instead, which
+    opens the park's booking page.
+    Then: /food_trucks/vendor/dashboard → the card "Locations & Schedule".
+    Expect: its small top-right button reads "Manage" (it used to say "Edit").
+
+10. Weekly hold on Spot A, retest of the 2026-09-27 finding. As the OPERATOR: Spots card → edit Spot A →
+    tick "Allow standing/recurring reservations" → save. Expect: Spot A's row now shows "recurring OK".
+    As T2 (who has PAID for a day here): /food_trucks/markets/[Sixth Street id]/book-spot → pick Spot A →
+    "Weekly hold" tab → Saturday → any start date → "Request weekly hold".
+    Expect: "✓ Requested — the park operator will review it." (If T2 already holds Spot A on Saturdays, expect
+    the sentence starting "You've already requested this spot on this day" instead — also a pass.)
+    Now un-tick the box on Spot A again and reload the truck's page with Spot A picked.
+    Expect: the Weekly hold tab reads "This spot isn't available for weekly holds. Pick a different spot above."
 
 
 
@@ -851,7 +879,7 @@ W2  (v3, fresh vendor at River Road) 1→TR-119 · 2→TR-083 · 3→TR-117 · 4
     · 13→(see W12)   (v2 steps that PASSED 2026-09-25 were removed — see TEST_REGISTRY OB-030 rows)
 W3  1→TR-091 TR-099 · 2→TR-091 · 3→TR-091 · 4→TR-092 (button now "Cancel this booking", OB-030 (e))
 W12 1→TR-122 · 2→TR-079 (setup) · 3→TR-122 TR-079 · 4→TR-079 · 5→TR-079 · 6→TR-079 · 7→TR-122   (W2 v3 step 13 now points here)
-W4  1→TR-034 · 2→TR-107 · 3→TR-043 · 4→TR-109 · 5→TR-109 · 6→TR-040 · 7→TR-109 · 8→TR-133 (v3.4)
+W4  1→TR-034 · 2→TR-107 · 3→TR-043 · 4→TR-109 · 5→TR-109 · 6→TR-040 · 7→TR-109 · 8→TR-133 · 9→TR-137 TR-138 · 10→TR-136 (v3.4)
 W5  (v3.1) 1→TR-069 · 2→TR-044 · 3→TR-044 · 4→TR-123 · 5→TR-042 · 6→TR-048
 W6  (v3.2) 1→TR-096 (boxes half) · 2→TR-094 (two FM questions)   (v3.1 steps 1–5 PASSED 2026-09-25, OB-032: TR-093 TR-095 pass)
 W7  1→TR-022 TR-064 · 2→TR-022 TR-064 · 3→TR-022 · 4→TR-065 · 5→TR-066 · 6→TR-067 · 7→TR-068 · 8→TR-026

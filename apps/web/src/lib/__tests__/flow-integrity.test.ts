@@ -1353,6 +1353,25 @@ describe('Dashboard empty-state convention', () => {
     expect(box, 'the pickups tab says what it is for').toContain("tab === 'pickups' ? 'Manage Pickups' : tab")
   })
 
+  it('OB-034: a truck can book again, pay a held date and see its weekly holds from My Park Bookings; the Locations card says Manage', () => {
+    // Owner 2026-09-27 (TR-137/138). Stripe lands a truck on this list after
+    // paying; before this the way back to booking existed only while the list
+    // was empty, and an unpaid hold date could be paid only from the booking page.
+    const page = bare('app/[vertical]/vendor/park-bookings/page.tsx')
+    expect(page, 'one Book-again link per park the truck knows').toContain('Book again at {p.name}')
+    expect(page, 'the way to a new park stays').toContain('Find another park')
+    expect(page, 'a held date is paid with the SAME call the booking page makes').toContain('<PayParkOccurrenceButton bookingId={b.id} />')
+    expect(page, 'an abandoned one-off attempt goes back to the park\'s booking page').toMatch(/href=\{`\/\$\{vertical\}\/markets\/\$\{b\.market_id\}\/book-spot`\}/)
+    expect(page, 'the truck\'s holds are listed').toMatch(/from\('park_standing_reservations'\)[\s\S]{0,200}\.in\('status', \['requested', 'active'\]\)/)
+    expect(page, 'a hold row says what it is').toContain('weekly hold — you hold this spot')
+    const btn = bare('components/vendor/PayParkOccurrenceButton.tsx')
+    expect(btn).toContain('/api/vendor/park-occurrences/${bookingId}/pay')
+    const dash = bare('app/[vertical]/vendor/dashboard/page.tsx')
+    const card = dash.slice(dash.indexOf('title="Locations & Schedule"'), dash.indexOf('<MarketCheckInPrompt'))
+    expect(card, 'the Locations & Schedule card button reads Manage').toMatch(/\n\s*Manage\r?\n/)
+    expect(card).not.toMatch(/\n\s*Edit\r?\n/)
+  })
+
   it('OB-031: a vendor retrying their OWN held-booth week gets Continue payment, not "assigned booth is already booked"', () => {
     const book = bare('app/api/vendor/markets/[id]/book/route.ts')
     expect(book, 'both codes first look for this vendor\'s own live row').toMatch(/msg\.includes\('DUPLICATE'\) \|\| msg\.includes\('BOOTH_TAKEN'\)/)

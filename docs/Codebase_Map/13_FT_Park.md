@@ -98,7 +98,7 @@ Cross-domain but park-critical: `cancel-date-cascade.ts` path D, and `checkin-el
 
 ## UI
 
-`components/market-manager/FtParkDashboardBody.tsx` (the FT shell, rendered by the dashboard fork) · `ParkSpotsManager.tsx` ⚠ · `StandingReservationsCard.tsx` · `ParkWeekCard.tsx` · `ParkOnboardingChecklist.tsx` · `ParkRequiredDocsCard.tsx`. Truck-facing: `app/[vertical]/markets/[id]/book-spot/page.tsx` and `app/[vertical]/vendor/park-bookings/page.tsx`.
+`components/market-manager/FtParkDashboardBody.tsx` (the FT shell, rendered by the dashboard fork) · `ParkSpotsManager.tsx` ⚠ · `StandingReservationsCard.tsx` · `ParkWeekCard.tsx` · `ParkOnboardingChecklist.tsx` · `ParkRequiredDocsCard.tsx`. Truck-facing: `app/[vertical]/markets/[id]/book-spot/page.tsx` and `app/[vertical]/vendor/park-bookings/page.tsx` (the list Stripe lands the truck on after paying; since 2026-09-27 also "Book again at <park>" per park, the truck's weekly holds, and `components/vendor/PayParkOccurrenceButton.tsx` — "Pay now" on an unpaid held date via `api/vendor/park-occurrences/[bookingId]/pay`, the same call the booking page makes).
 
 ## Selling gate — paid parks sell only on paid dates
 

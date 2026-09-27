@@ -6,6 +6,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getBoothMapUrl } from '@/lib/markets/booth-map'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import { calculateBoothRentalFees } from '@/lib/pricing'
+import PayParkOccurrenceButton from '@/components/vendor/PayParkOccurrenceButton'
 
 /**
  * Food-truck "My park bookings" page — tester finding P9 (2026-07-15).
@@ -38,6 +39,17 @@ interface BookingRow {
   standing_reservation_id: string | null
   paid_at: string | null
 }
+
+/** The truck's own weekly holds (requested or active) — owner 2026-09-27, TR-137. */
+interface HoldRow {
+  id: string
+  market_id: string
+  spot_id: string
+  day_of_week: number
+  status: string
+}
+
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 function statusBadge(status: string): { bg: string; fg: string; label: string } {
   // Same palette as vendor/bookings/page.tsx statusBadge
@@ -108,7 +120,24 @@ export default async function VendorParkBookingsPage({ params }: PageProps) {
     paid_at: (b.paid_at as string | null) ?? null,
   }))
 
-  if (bookings.length === 0) {
+  // The truck's weekly holds (owner 2026-09-27, TR-137): listed here so a truck
+  // sees what it holds without opening each park's booking page. Same read the
+  // booking page makes; service client because the table is service-only.
+  const { data: holdsRaw } = await serviceClient
+    .from('park_standing_reservations')
+    .select('id, market_id, spot_id, day_of_week, status')
+    .eq('vendor_profile_id', vendorProfile.id)
+    .in('status', ['requested', 'active'])
+    .order('day_of_week', { ascending: true })
+  const holds: HoldRow[] = (holdsRaw ?? []).map((h) => ({
+    id: h.id as string,
+    market_id: h.market_id as string,
+    spot_id: h.spot_id as string,
+    day_of_week: h.day_of_week as number,
+    status: h.status as string,
+  }))
+
+  if (bookings.length === 0 && holds.length === 0) {
     return (
       <div style={{ maxWidth: containers.lg, margin: '0 auto', padding: spacing.md }}>
         <div style={{ marginBottom: spacing.md }}>
@@ -128,8 +157,8 @@ export default async function VendorParkBookingsPage({ params }: PageProps) {
   }
 
   // Stitch park names + spot labels (parallel; mirrors vendor/bookings)
-  const marketIds = Array.from(new Set(bookings.map((b) => b.market_id)))
-  const spotIds = Array.from(new Set(bookings.map((b) => b.spot_id)))
+  const marketIds = Array.from(new Set([...bookings.map((b) => b.market_id), ...holds.map((h) => h.market_id)]))
+  const spotIds = Array.from(new Set([...bookings.map((b) => b.spot_id), ...holds.map((h) => h.spot_id)]))
   const [marketsResult, spotsResult] = await Promise.all([
     serviceClient.from('markets').select('id, name').in('id', marketIds),
     serviceClient.from('park_spots').select('id, label').in('id', spotIds),
@@ -154,9 +183,16 @@ export default async function VendorParkBookingsPage({ params }: PageProps) {
   const upcoming = bookings.filter((b) => b.booking_date >= todayYmd).sort((a, b) => a.booking_date.localeCompare(b.booking_date))
   const past = bookings.filter((b) => b.booking_date < todayYmd)
 
+  // Parks the truck has booked at or holds a spot at — "Book again" targets
+  // (owner 2026-09-27, TR-137: the link used to exist only before the first booking).
+  const bookAgainParks = marketIds
+    .map((mid) => ({ id: mid, name: marketNameById.get(mid) ?? 'Unknown park' }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
   const renderRow = (b: BookingRow) => {
     const badge = statusBadge(b.status)
     const vendorPaid = calculateBoothRentalFees(b.price_cents).vendorPaysCents
+    const upcomingUnpaid = b.status === 'pending_payment' && b.booking_date >= todayYmd
     return (
       <li key={b.id} style={{
         display: 'flex',
@@ -174,8 +210,26 @@ export default async function VendorParkBookingsPage({ params }: PageProps) {
           </div>
           <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
             {marketNameById.get(b.market_id) ?? 'Unknown park'} · {spotLabelById.get(b.spot_id) ?? 'Spot'}
-            {b.standing_reservation_id ? ' · weekly hold' : ''}
+            {b.standing_reservation_id ? ' · weekly hold — you hold this spot' : ''}
           </div>
+          {/* Owner 2026-09-27 (TR-137): an unpaid upcoming date is payable from
+              here. A hold's date → the same pay call the booking page makes; a
+              one-off attempt the truck walked away from → back to the park's
+              booking page, which releases the abandoned attempt on re-booking. */}
+          {upcomingUnpaid && (
+            <div style={{ marginTop: spacing['2xs'] }}>
+              {b.standing_reservation_id ? (
+                <PayParkOccurrenceButton bookingId={b.id} />
+              ) : (
+                <Link
+                  href={`/${vertical}/markets/${b.market_id}/book-spot`}
+                  style={{ fontSize: typography.sizes.sm, color: colors.primary, fontWeight: typography.weights.semibold, textDecoration: 'none' }}
+                >
+                  Finish booking →
+                </Link>
+              )}
+            </div>
+          )}
           {boothMapByMarket.has(b.market_id) && (
             <a
               href={boothMapByMarket.get(b.market_id)}
@@ -223,6 +277,60 @@ export default async function VendorParkBookingsPage({ params }: PageProps) {
         Every park spot you&apos;ve booked — the date, the park, the spot, and what you paid.
         Check in through the platform on each day you operate.
       </p>
+
+      {/* Book again (owner 2026-09-27, TR-137): one link per park the truck knows,
+          plus the way to a new park — the same target the empty state offers. */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing.sm, alignItems: 'center', marginBottom: spacing.md }}>
+        {bookAgainParks.map((p) => (
+          <Link key={p.id} href={`/${vertical}/markets/${p.id}/book-spot`} style={ctaStyle}>
+            Book again at {p.name} →
+          </Link>
+        ))}
+        <Link href={`/${vertical}/vendor/markets`} style={{ fontSize: typography.sizes.sm, color: colors.primary, fontWeight: typography.weights.semibold, textDecoration: 'none' }}>
+          Find another park →
+        </Link>
+      </div>
+
+      {holds.length > 0 && (
+        <>
+          <h2 style={h2Style}>Your weekly holds</h2>
+          <ul style={listStyle}>
+            {holds.map((h) => (
+              <li key={h.id} style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                gap: spacing.sm,
+                padding: spacing.sm,
+                border: `1px solid ${colors.border}`,
+                borderRadius: radius.sm,
+                backgroundColor: colors.surfaceElevated,
+              }}>
+                <div style={{ flex: '1 1 240px' }}>
+                  <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
+                    {marketNameById.get(h.market_id) ?? 'Unknown park'} · {spotLabelById.get(h.spot_id) ?? 'Spot'} · every {WEEKDAYS[h.day_of_week] ?? `day ${h.day_of_week}`}
+                  </div>
+                  <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
+                    {h.status === 'active'
+                      ? 'Approved — each week’s date appears below as it opens; pay it to keep the spot.'
+                      : 'Waiting for the operator’s yes or no.'}
+                  </div>
+                </div>
+                <span style={{
+                  fontSize: typography.sizes.xs,
+                  fontWeight: typography.weights.semibold,
+                  padding: `${spacing['3xs']} ${spacing.xs}`,
+                  borderRadius: radius.sm,
+                  backgroundColor: h.status === 'active' ? '#dcfce7' : '#fef3c7',
+                  color: h.status === 'active' ? '#166534' : '#92400e',
+                }}>
+                  {h.status === 'active' ? 'Active' : 'Pending review'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
 
       {upcoming.length > 0 && (
         <>

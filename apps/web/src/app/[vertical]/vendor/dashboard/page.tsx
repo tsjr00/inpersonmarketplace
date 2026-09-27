@@ -631,7 +631,9 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                   borderRadius: radius.sm
                 }}
               >
-                Edit
+                {/* Owner 2026-09-27 (tester OB-034, TR-138): the card is about
+                    schedules and bookings, not editing a location's details. */}
+                Manage
               </Link>
             }
           >
