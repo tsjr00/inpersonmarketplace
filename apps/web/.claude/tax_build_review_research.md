@@ -531,3 +531,18 @@ Refund call sites re-read 2026-09-26 (steps 8–11 targets) — what the read ch
 - (7) Whole-order paths (events cancel :232, admin events :673, reconfirm :150, dead-order success:124 / webhooks:204) refund with no amount; ledger rows = full snapshot per un-cancelled item, kind order_refund, refund_ref = the Stripe refund id.
 - (8) handleChargeRefunded full branch (:1194-1238) apportions refund_amount_cents by subtotal — untouched; add ledger rows only for items with tax remaining (cap), kind dashboard_refund, same refund_ref rule.
 Proposed step-8 order: ledger I/O module + specs → resolve-issue → expire-orders → cancel-date-cascade → vendor-event-cancel → buyer cancel (Q1) → cancel-bundle → whole-order ×3 → protected ×3 (reject, success, webhooks) with per-file approval.
+
+## 🏁 2026-09-26 SESSION — Batch 3 + Q2 + staging switch: what shipped and what each taught
+| Piece | Commit | Learned |
+|---|---|---|
+| Full code re-read before building | `03788de2` (notes) | 4 plan corrections came only from reading every caller: the webhook fires for OUR refunds too; routes must keep the Stripe refund id; routes must select the snapshot; the reversal must be computed BEFORE the pre-Stripe `refund_amount_cents` write. |
+| Ledger I/O module + specs | `03788de2` | Read-before-refund THROWS (nothing moved yet); write-after-Stripe NEVER throws; `refund_ref` = Stripe refund id everywhere so UNIQUE(item, ref) makes retries and the webhook race converge. |
+| 10 unprotected sites, one per commit | `91f92c39`…`aba9311d` | Same template at every site; cancel-bundle and the resolve route read ALL reversals before the first write because they flip-then-refund. Whole-order paths = rows only via `recordOrderTaxReversals`. |
+| Pin + route-execution tests | `8601c277`, `0563a516` | Owner asked "is the pin enough?" — no: pins prove shape, not behaviour; the money-authorization harness runs real routes with a taxed item ($11.69 full · $8.77 under the fee · dark = $10.80, no ledger read). |
+| `createRefund` metadata tag | `9ca2ff2b` | Deterministic "ours" signal for the webhook; the ledger lookup alone was timing-dependent. 24-h idempotency-key edge documented. |
+| Protected three | `9f16ac28`, success, `47874c10` | The hook blocks the first edit per protected file — re-check Rule 3, retry once. `Charge.refunds` is optional in the SDK → list refunds by PI. |
+| Q2 admin queue | `70eff4b6` | Nav pin + owner-approved badge set: one new key `taxReversals`. Validation codes weren't in the status map → explicit 400s there, then the general fix. |
+| HTTP-status fix | `03786e65` | Codes are reused across intents (ERR_ORDER_001 = notFound AND validation) → the `traced.*` intent sets the status, not a code table. |
+| Staging-only switch (option b) + W13 | `6725ed83` | A flip commit on `main` would ride the owed Prod push; `TAX_STREAM1_STAGING` on a non-production Vercel env, short-circuited by `VERCEL_ENV==='production'`, needs no flip on main. The order cron refuses non-production → W13 step 10 not runnable on staging. |
+| `is_taxable` anomaly report | (see current_task) | Read-only CSV; the rule is the ListingForm's own category lists (FM) + FT all-taxable; conditional categories are never flagged. |
+**Where the next session starts:** anomaly report (if uncommitted) → W13 results → event order route (host-paid build decision) → Prod catch-up + codes + registration date (owner) → flip.

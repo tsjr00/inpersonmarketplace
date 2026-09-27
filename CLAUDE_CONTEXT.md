@@ -493,6 +493,10 @@ One rule written in two independently-editable places with silent drift is this 
 
 ---
 
+## Session History — 2026-09-26 (sales tax Batch 3 · Q2 queue · HTTP-status fix · staging-only tax switch + W13)
+
+Full code re-read of the tax build first (owner: "know what the actual code does"), then Batch 3 built one refund site per commit: `lib/tax/refund-ledger.ts` (read-before-refund throws, write-after-Stripe never throws, `refund_ref` = the Stripe refund id), 10 unprotected sites, then `reject` / `checkout/success` / `webhooks` with file-level approval; flow-integrity "Batch 3" pin (callers enumerated by scan; owed-list empty); route-execution tests with a taxed item; `createRefund` tags refunds `metadata.source='app'`; `lib/tax/dashboard-refund.ts` + the admin **Tax Reversals** queue (`/admin/tax-reversals`, Money nav, badge `taxReversals`) for partial Stripe-dashboard refunds (owner Q2). `traced.validation/notFound/auth` now answer 400/404/401 (unlisted codes were 500). **Staging-only tax switch (owner option b):** `TAX_STREAM1_PROD=false` stays the committed production switch; `TAX_STREAM1_STAGING=true` on a non-production Vercel env turns tax on — production ignores it by construction (spec'd). W13 rehearsal playbook written (exact cents). Six staging pushes, last `6725ed83`; Prod untouched `d704d3bb`. Flip prerequisites left: event order route (host-paid build), Prod markets' codes + registration date + Prod catch-up (owner), W13 passed, then `TAX_STREAM1_PROD = true` + pin as one approved commit.
+
 ## Session History — 2026-09-24 (sales tax rounds 1–3: TaxCloud out · pre-build review · certainty-first build · migs 259–260)
 
 **Staging tip = the close commit of this session (see `git log origin/staging -1`); Prod untouched at `d704d3bb` (owes

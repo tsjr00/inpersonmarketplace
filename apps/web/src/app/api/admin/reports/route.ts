@@ -245,6 +245,14 @@ export async function POST(request: NextRequest) {
           filename = `${verticalPrefix}tax_list_supplement_${dateFrom}_to_${dateTo}.csv`
           break
 
+        case 'tax_taxability_anomalies':
+          // Data hygiene before the flip (plan B4.5): published listings whose
+          // is_taxable flag disagrees with their category's Texas rule. Date
+          // range is irrelevant — it is a snapshot of the catalogue today.
+          csvContent = await generateTaxabilityAnomalies(supabaseService, verticalId)
+          filename = `${verticalPrefix}tax_taxability_anomalies_${dateTo}.csv`
+          break
+
         case 'monthly_pnl':
           csvContent = await generateMonthlyPnl(supabaseService, dateFromStart, dateToEnd, verticalId)
           filename = `${verticalPrefix}monthly_pnl_${dateFrom}_to_${dateTo}.csv`
@@ -1831,6 +1839,70 @@ async function generateSubscriptionRevenue(supabase: ReturnType<typeof createSer
     { key: 'expires', label: 'Expires' },
     { key: 'stripe_sub_id', label: 'Stripe Subscription ID' },
     { key: 'monthly_revenue', label: 'Monthly Revenue' },
+  ])
+}
+
+/**
+ * Taxability anomalies (tax build B4.5, 2026-09-26): published listings whose
+ * `is_taxable` flag contradicts the Texas rule for their category. The RULE is
+ * the listing form's own (ListingForm.tsx `getFmTaxStatus`, decision 2026-03-24):
+ *   FM always taxable — Prepared Foods · Plants & Flowers · Health & Wellness · Art & Decor · Home & Functional
+ *   FM always exempt  — Produce · Dairy & Eggs · Pantry
+ *   FM depends on preparation (never flagged) — Meat & Poultry · Baked Goods; unknown category → never flagged
+ *   FT — everything taxable (the form forces it)
+ * The form LOCKS the box for the fixed categories, so a mismatch means the row
+ * predates the rule, was edited around it, or the category changed later.
+ * Read-only: it lists, it never changes a flag. The vendor owns the flag.
+ */
+async function generateTaxabilityAnomalies(supabase: ReturnType<typeof createServiceClient>, verticalId?: string) {
+  const FM_TAXABLE = new Set(['Prepared Foods', 'Plants & Flowers', 'Health & Wellness', 'Art & Decor', 'Home & Functional'])
+  const FM_EXEMPT = new Set(['Produce', 'Dairy & Eggs', 'Pantry'])
+  const expectedFor = (vertical: string | null, category: string | null): { expected: boolean; rule: string } | null => {
+    if (vertical === 'food_trucks') return { expected: true, rule: 'Food trucks: prepared food is always taxable' }
+    if (!category) return null
+    if (FM_TAXABLE.has(category)) return { expected: true, rule: `${category} is always taxable in Texas` }
+    if (FM_EXEMPT.has(category)) return { expected: false, rule: `${category} is exempt when sold for home consumption` }
+    return null
+  }
+
+  let query = supabase
+    .from('listings')
+    .select('id, title, category, is_taxable, vertical_id, vendor_profile_id, vendor:vendor_profiles ( profile_data )')
+    .eq('status', 'published')
+    .is('deleted_at', null)
+  if (verticalId) query = query.eq('vertical_id', verticalId)
+  const { data: listings, error } = await query
+  if (error) throw error
+
+  const rows: Record<string, unknown>[] = []
+  for (const l of (listings || []) as Array<Record<string, unknown> & { vendor: { profile_data: Record<string, unknown> | null } | { profile_data: Record<string, unknown> | null }[] | null }>) {
+    const want = expectedFor(l.vertical_id as string | null, l.category as string | null)
+    if (!want || want.expected === !!l.is_taxable) continue
+    const vendor = Array.isArray(l.vendor) ? l.vendor[0] : l.vendor
+    const pd = vendor?.profile_data || {}
+    rows.push({
+      vertical: l.vertical_id,
+      vendor: (pd.business_name as string) || (pd.farm_name as string) || '',
+      listing_id: l.id,
+      title: l.title,
+      category: l.category || '(none)',
+      flag_now: l.is_taxable ? 'taxable' : 'exempt',
+      expected: want.expected ? 'taxable' : 'exempt',
+      rule: want.rule,
+    })
+  }
+  rows.sort((a, b) => String(a.vendor).localeCompare(String(b.vendor)) || String(a.title).localeCompare(String(b.title)))
+  rows.push({ vertical: 'TOTAL', vendor: '', listing_id: '', title: `${rows.length} listing(s) whose flag disagrees with the category rule (published, not deleted; conditional categories never listed)`, category: '', flag_now: '', expected: '', rule: '' })
+
+  return toCSV(rows, [
+    { key: 'vertical', label: 'Vertical' },
+    { key: 'vendor', label: 'Vendor' },
+    { key: 'listing_id', label: 'Listing ID' },
+    { key: 'title', label: 'Listing' },
+    { key: 'category', label: 'Category' },
+    { key: 'flag_now', label: 'Flag Now' },
+    { key: 'expected', label: 'Expected' },
+    { key: 'rule', label: 'Rule' },
   ])
 }
 

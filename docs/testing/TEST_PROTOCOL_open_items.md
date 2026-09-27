@@ -100,7 +100,7 @@ THE WORKFLOWS
   W8  Market bundles — three fresh orders                                           ~30 min + a 1-hour wait
   W9  Market boxes — dated pickup tile, "Manage Pickups", pickup progress            ~15 min
   W10 Survey email                                                                  ~2 min
-  W11 Platform admin: sales-tax readiness — filter, tax card, Form 01-116 report      Amarillo · ~10 min
+  W11 Platform admin: sales-tax readiness — filter, tax card, Form 01-116, anomalies  Amarillo · ~12 min
   W12 Seasons — create one, open pre-sale, two vendors buy it                       Market 2 Test · ~30 min
   W13 SALES-TAX REHEARSAL — one simulated month with tax ON (staging only)          Amarillo · ~2 hrs · NOT YET: see its "Check first"
 
@@ -642,6 +642,12 @@ jurisdiction rows. If the card shows only the TEXAS row and nothing else, STOP a
     time within the hour.
     Expect: NO second notification (one per market per day).
 
+ 8. /admin/reports → Accounting → tick "Taxability Anomalies (listing flags vs category)" → any dates → Download.
+    Expect: a CSV whose header is "Vertical","Vendor","Listing ID","Listing","Category","Flag Now","Expected","Rule"
+    and whose last row starts TOTAL and reads "N listing(s) whose flag disagrees with the category rule…". Every
+    listed row shows a Flag Now that differs from Expected (e.g. Category "Produce", Flag Now "taxable", Expected
+    "exempt"). A file with only the header and a "0 listing(s)…" TOTAL row is a PASS. (An error IS a finding.)
+
 
 
 ==================================================
@@ -839,7 +845,7 @@ W7  1→TR-022 TR-064 · 2→TR-022 TR-064 · 3→TR-022 · 4→TR-065 · 5→TR
 W8  1→TR-010 · 2→TR-001 · 3→TR-005 · 4→TR-002 · 5→TR-003
 W9  (v3.3) 1→TR-015 (dashboard tile) TR-125 · 2→TR-125 · 3→TR-014   (v3.2 strip + "Order #FA-" PASSED 2026-09-26, OB-033)
 W10 1→TR-041
-W11 1→TR-112 · 2→TR-110 · 3→TR-110 · 4→TR-110 TR-112 · 5→TR-113 · 6→TR-114 · 7→TR-115   (TR-111 = W11.4-style address change, not scripted: needs an address edit)
+W11 1→TR-112 · 2→TR-110 · 3→TR-110 · 4→TR-110 TR-112 · 5→TR-113 · 6→TR-114 · 7→TR-115 · 8→TR-132   (TR-111 = W11.4-style address change, not scripted: needs an address edit)
 W13 (rehearsal, runs only when the owner says tax is on for staging) 1→TR-129 · 2→TR-129 · 3→TR-129 · 4→TR-126 · 5→TR-126 (Q1) · 6→TR-126
     · 7→TR-126 (dashboard full) · 8→TR-127 · 9→TR-127 · 10→skipped (cron never runs on non-production; route-tested) · 12→TR-113 TR-130 · 13→TR-116   (expected cents: $10.00 taxable
     item at 8.25 % on the fee-inclusive base $10.65 → 67¢ + 21¢ = 88¢; full refund $11.68; 25 %-fee refund $8.10 + 66¢ = $8.76)
