@@ -1,3 +1,6 @@
+# ▶ 2026-09-27 — TESTER RESULTS W4/W5/W10 RECORDED (OB-034) · fix plan `apps/web/.claude/triage_2026-09-27_tester_W4W5W10.md` · NO code changed yet
+15 green / 9 red. Registry: TR-034/040/042/048/109 pass · TR-107 FAIL (invited-not-answered trucks counted as "pending your approval", `manager-dashboard-stats.ts:128-133`) · TR-043 partial (retest without a one-off booking) · TR-041 blocked (no survey trigger; cron-only) · new TR-133…140. Fix order proposed: F1 market-page button by status (owner rule given) → F2 (+F10) → F8 W10 rewrite + owner curl → F4 retest text → F5/F6/F7 locate-then-fix → F3 reproduce → F9 UX asks as ranked. Each fix = its own approval.
+
 # 🏁 2026-09-26 SESSION CLOSE — SALES TAX BATCH 3 + Q2 + STAGING SWITCH ON STAGING `6725ed83` · `origin/staging` = `main` = `6725ed83` · Prod untouched `d704d3bb` (owes ~65 commits + migs 252→261)
 
 **Read first:** `apps/web/.claude/tax_build_review_research.md` → "🏁 2026-09-26 SESSION" (what shipped, what each taught, where next starts) · `docs/testing/TEST_PROTOCOL_open_items.md` W13 · registry TR-126→132 · memory `project_session_2026-09-26`.

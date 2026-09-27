@@ -1,0 +1,32 @@
+# Triage — tester results 2026-09-27 (early) · W4 Sixth Street park · W5 listings/markets · W10 survey
+Source: `docs/testing/test results092726early.docx` (owner legend: green = passed · red = failed/partly · black = notes). Verbatim report + this triage recorded as OB-034. Staging build under test: `934bf028` or earlier (not stated).
+
+## Results at a glance
+| Step | Result | Registry |
+|---|---|---|
+| W4.1 Pickup Capacity copy (FT present / FM absent) | PASS | TR-034 → pass |
+| W4.2 Action Items card: two lines + links + last section | PASS, then **FAIL** after approvals: "1 truck pending your approval" persisted; cleared only when the INVITED truck accepted | TR-107 → fail (counting rule) + TR-140 (more information) |
+| W4.3 Week strip shows the approved Saturday hold >7 days out | **PARTIAL** — tester had booked that Saturday; strip showed "booked" rows; today's row carried the hold note | TR-043 → partial, retest without a one-off booking |
+| W4.4 T3 refused on a held Saturday (message) | PASS | TR-109 → pass |
+| W4.5 T2 (recurring truck) may book early | PASS | TR-109 → pass |
+| W4.6 Cancel-a-date card + result line | PASS | TR-040 → pass |
+| W4.7 optional expiry | not run (future date) | — |
+| W5.5 Day-of buyer copy | PASS (+ note: Closed pill missing on the truck PROFILE's listings section) | TR-042 → pass · TR-139 new |
+| W5.6 Cancelled count card | PASS | TR-048 → pass |
+| W10 Survey email | **BLOCKED** — no way to trigger a survey from the manager dashboard | TR-041 → blocked (instruction wrong) |
+
+## Findings → fix plan (numbers follow the owner's likely priority; each is its own approval)
+**F1 — Market page button ignores approval (owner rule given).** `app/[vertical]/markets/[id]/page.tsx:152-160` sets `hasApplied` from ANY `market_vendors` row and `:355-365` renders the pill "Applied" whenever one exists; the Apply button shows only when no row exists (`:345`). Owner: applied-not-approved → "Applied" · approved → "Book now" · not applied → "Apply now". Fix: select `approved, response_status, revoked_at` in that query; render "Book now" as a link to the book page (`/[vertical]/markets/[id]/book`, FT: `/book-spot`) when approved; keep "Applied" for pending; "Apply now" label on the button. Small, no money. Test: TR-133.
+**F2 — "pending your approval" counts trucks the manager cannot act on.** `lib/markets/manager-dashboard-stats.ts:128-133` counts `market_vendors` with `approved=false AND revoked_at IS NULL` — an INVITED truck that has not answered matches, so the card nagged until the truck accepted (tester: "when the vendor accepted the invite, the pending approval action item disappeared"). Fix: exclude rows whose `response_status` is still the invited/pending value (UNVERIFIED vocabulary — read `market_vendors.response_status` in the snapshot + the invite route before writing; likely `'pending'`), and consider a separate line "N invited trucks haven't answered yet" (owner: "needs more information" — name the truck(s)). Test: TR-107 retest + TR-140.
+**F3 — Recurring-hold request path confused the tester.** Told "book a day first" (UNVERIFIED which surface says this — the book-spot page's hold request?), booked Sat Oct 2 on Spot A, then the hold request for Spot A said not available → requested Spot 2. `api/vendor/markets/[id]/standing-reservation/route.ts:96-101` refuses only an inactive spot ("That spot is not available.") or one not `recurring_eligible` ("…not eligible for recurring holds"). So either Spot A is inactive/not-eligible on staging (check `park_spots` for Sixth Street — SQL with the schema gate) or the page's own availability check differs. Reproduce with the tester's account before designing. Test: TR-136.
+**F4 — Week strip after a one-off booking.** Matches the code, not the expectation: `lib/vendor/week-strip.ts:190-201` skips the hold line on a date that already has a booking (`has(marketId)`), so a booked Saturday reads "booked" and only unbooked Saturdays carry "Standing spot hold — the pay-by window opens within 7 days of the date". Today's row (Sat Sep 26) showed the hold note correctly. Retest TR-043 with NO one-off booking; optional UX: say "booked · standing hold" on a booked held day.
+**F5 — Typo "pickup locationes" (FT menu listings).** Not in `src` (grep 2026-09-27) → UNVERIFIED source; likely a stored string (verticals config / DB copy) or a pluraliser. Locate on staging before fixing. Test: TR-134.
+**F6 — FT listing page: pickup-time group lacks the red required outline** the other groups have (add to cart · pickup location · pickup options). Component UNVERIFIED (not found under `components/listings` by grep; likely inside the page or the FT slot picker). Test: TR-135.
+**F7 — "Closed" pill on the truck profile's listings section** (present on the menu page). Profile page path UNVERIFIED — locate first. Test: TR-139.
+**F8 — Survey email (W10).** No manual trigger exists; surveys are cron-driven and Vercel never fires crons on previews. Owner runs `curl -H "Authorization: Bearer $CRON_SECRET" <staging>/api/cron/surveys` to produce one; rewrite W10 accordingly. The 09-17 cross-branding finding ("Sent by Farmers Marketing for Sample Canyon Eats Park"): the footer uses `args.vertical` (`lib/surveys/email.ts:117,136,150,166,222`) and the sender passes `market.vertical_id || 'farmers_market'` (`:246`) — so a wrong brand means that market row's `vertical_id` (UNVERIFIED — check the Sample Canyon Eats Park row on staging) or a different caller. TR-041 stays open.
+**F9 — UX asks (backlog; owner to rank).** Park booking page: keep "Find a spot to book" visible after booking + a link back; show "you hold this spot" with a pay link when unpaid; list all future held bookings with pay links (helps prepayment, prevents double booking). Vendor dashboard Locations card: "Edit" → "Manage" (it's schedules/bookings, not location info). Tests: TR-137, TR-138.
+**F10 — Roster row "✅ Approved · declined" (Fuego).** Manager approved, truck later declined the invitation; truthful but reads oddly → wording "Declined the invitation" (low). Include with F2.
+**Not a defect:** FM `/vendor/edit` "How Many Customers Can You Serve Per Hour?" is the Private Events Readiness field (`lib/vendor/event-readiness-labels.ts:94`), not Pickup Capacity — TR-034 passes as written.
+
+## Order proposed
+F1 (small, owner rule given) → F2 (+F10) → F8 W10 instruction fix + owner curl → F4 retest instructions → F5/F6/F7 locate then fix (each small once found) → F3 reproduce → F9 as ruled.
