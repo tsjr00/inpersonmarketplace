@@ -68,6 +68,22 @@ describe('t() interpolation', () => {
     expect(t('notif.order_placed_msg', 'en', { orderNumber: '1' })).toContain('{brandName}')
   })
 
+  it('pickup-location plurals read correctly in both languages (tester OB-034: "pickup locationes")', () => {
+    // Owner 2026-09-27. The browse line is plural-only (one place shows its name),
+    // so the plural lives in the string; "+N more locations" can be singular, so
+    // it has its own string — Spanish changes the accent, which no suffix can do.
+    expect(t('browse.pickup_locations', 'en', { count: '3' })).toBe('3 pickup locations')
+    expect(t('browse.pickup_locations', 'es', { count: '3' })).toBe('3 ubicaciones de recogida')
+    expect(t('vendors.more_locations', 'en', { count: '2' })).toBe('+2 more locations')
+    expect(t('vendors.more_locations_one', 'en')).toBe('+1 more location')
+    expect(t('vendors.more_locations', 'es', { count: '2' })).toBe('+2 ubicaciones más')
+    expect(t('vendors.more_locations_one', 'es')).toBe('+1 ubicación más')
+    for (const key of ['browse.pickup_locations', 'vendors.more_locations', 'vendors.more_locations_one']) {
+      expect(en[key], `${key} must not rely on a {s} suffix`).not.toContain('{s}')
+      expect(es[key], `${key} must not rely on a {s} suffix`).not.toContain('{s}')
+    }
+  })
+
   it('falls back to English when a key is missing in the target locale', () => {
     const enOnly = Object.keys(en).find((k) => !(k in es))
     if (!enOnly) return

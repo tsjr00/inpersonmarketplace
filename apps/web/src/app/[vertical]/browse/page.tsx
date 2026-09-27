@@ -1188,7 +1188,10 @@ function ListingCard({
                 const prefix = market?.market_type === 'event' ? term(vertical, 'event') + ': ' : market?.market_type === 'private_pickup' ? term(vertical, 'private_pickup') + ': ' : term(vertical, 'traditional_market') + ': '
                 return prefix + (market?.name || 'Location')
               })()
-            : t('browse.pickup_locations', locale, { count: String(listing.listing_markets.length), s: listing.listing_markets.length !== 1 ? 'es' : '' })
+            /* Plural only — one place shows its name above. Tester OB-034 (owner
+               2026-09-27): the suffix used to be the Spanish "es" in every
+               language ("pickup locationes"); the plural now lives in the string. */
+            : t('browse.pickup_locations', locale, { count: String(listing.listing_markets.length) })
           }
         </div>
       )}

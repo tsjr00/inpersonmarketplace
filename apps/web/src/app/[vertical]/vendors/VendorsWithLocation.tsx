@@ -694,7 +694,12 @@ export default function VendorsWithLocation({
                         color: colors.textMuted,
                         paddingLeft: 20
                       }}>
-                        {t('vendors.more_locations', locale, { count: String(remaining), s: remaining !== 1 ? 's' : '' })}
+                        {/* Owner 2026-09-27: singular and plural are separate strings —
+                            Spanish changes the accent ("ubicación" → "ubicaciones"),
+                            which a suffix token cannot do ("ubicacións" shipped). */}
+                        {remaining === 1
+                          ? t('vendors.more_locations_one', locale)
+                          : t('vendors.more_locations', locale, { count: String(remaining) })}
                       </div>
                     )}
                   </div>
