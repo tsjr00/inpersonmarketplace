@@ -550,9 +550,16 @@ export function AddToCartButton({
         </div>
       )}
 
-      {/* Time Slot Picker - Food trucks only, after date selection */}
+      {/* Time Slot Picker - Food trucks only, after date selection.
+          Tester OB-034 (owner 2026-09-27): a required step — numbered "3." in the
+          same outlined box as sections 2 and 4; it read as a footnote without one. */}
       {vertical === 'food_trucks' && selectedPickup && timeSlots.length > 0 && (
-        <div style={{ marginBottom: 12 }}>
+        <div style={{
+          marginBottom: 12,
+          border: `1px solid ${primaryColor}`,
+          borderRadius: 6,
+          padding: 8,
+        }}>
           <label
             htmlFor="pickup-time-slot"
             style={{
@@ -565,7 +572,7 @@ export function AddToCartButton({
               marginBottom: 6
             }}
           >
-            <span style={{ color: primaryColor }}>✓</span>
+            <span style={{ fontWeight: 700, color: '#374151' }}>3.</span>
             {t('atc.select_time', locale)}
           </label>
           <div style={{ borderTop: '1px solid #e5e7eb', marginBottom: 8 }} />
@@ -609,7 +616,7 @@ export function AddToCartButton({
         </div>
       )}
 
-      {/* Section 3: Add to Cart */}
+      {/* Section 3 (FM) / 4 (FT — the pickup time is step 3): Add to Cart */}
       <div style={{
         marginTop: 12,
         border: `1px solid ${primaryColor}`,
@@ -625,7 +632,7 @@ export function AddToCartButton({
           color: '#374151',
           marginBottom: 6,
         }}>
-          <span style={{ fontWeight: 700, color: '#374151' }}>3.</span>
+          <span style={{ fontWeight: 700, color: '#374151' }}>{isFoodTruck ? '4.' : '3.'}</span>
           Add to Cart
         </label>
         <div style={{ borderTop: '1px solid #e5e7eb', marginBottom: 8 }} />

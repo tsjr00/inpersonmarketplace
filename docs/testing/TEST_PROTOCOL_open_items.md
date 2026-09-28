@@ -473,6 +473,14 @@ it); a food-truck listing set to allow same-day ordering ("0 days advance"); a b
     Expect: "+1 more location" when one is hidden, "+N more locations" when several are; in Spanish
     "+1 ubicación más" / "+N ubicaciones más".
 
+ 8. Pickup time is a numbered step (new 2026-09-27). As a BUYER: open any food-truck listing that is taking orders
+    (/food_trucks/listing/[id]) → the order section on the right.
+    Expect: boxes "1. Available Pickup Options" and "2." (choose the location), each outlined in the truck's red.
+    Pick a location.
+    Expect: a NEW box appears between them and Add to Cart, outlined in the same red, labelled "3." with the
+    pickup-time dropdown, and the Add to Cart box is now labelled "4." (farmers-market listings keep "3. Add to
+    Cart" — they have no pickup time).
+
 
 
 ==================================================
@@ -926,7 +934,7 @@ W2  (v3, fresh vendor at River Road) 1→TR-119 · 2→TR-083 · 3→TR-117 · 4
 W3  1→TR-091 TR-099 · 2→TR-091 · 3→TR-091 · 4→TR-092 (button now "Cancel this booking", OB-030 (e))
 W12 1→TR-122 · 2→TR-079 (setup) · 3→TR-122 TR-079 · 4→TR-079 · 5→TR-079 · 6→TR-079 · 7→TR-122   (W2 v3 step 13 now points here)
 W4  1→TR-034 · 2→TR-107 TR-140 (v3.4) · 3→TR-043 · 4→TR-109 · 5→TR-109 · 6→TR-040 · 7→TR-109 · 8→TR-133 · 9→TR-137 TR-138 · 10→TR-136 (v3.4)
-W5  (v3.1) 1→TR-069 · 2→TR-044 · 3→TR-044 · 4→TR-123 · 5→TR-042 · 6→TR-048 · 7→TR-134 (v3.4)
+W5  (v3.1) 1→TR-069 · 2→TR-044 · 3→TR-044 · 4→TR-123 · 5→TR-042 · 6→TR-048 · 7→TR-134 · 8→TR-135 (v3.4)
 W6  (v3.2) 1→TR-096 (boxes half) · 2→TR-094 (two FM questions)   (v3.1 steps 1–5 PASSED 2026-09-25, OB-032: TR-093 TR-095 pass)
 W7  1→TR-022 TR-064 · 2→TR-022 TR-064 · 3→TR-022 · 4→TR-065 · 5→TR-066 · 6→TR-067 · 7→TR-068 · 8→TR-026
     · 9→TR-025 · 10a→TR-023 · 10b→TR-024 · 10c→TR-030 · 10d→TR-032 · 10e→TR-033 · 10f→TR-035
