@@ -30,3 +30,17 @@ Source: `docs/testing/test results092726early.docx` (owner legend: green = passe
 
 ## Order proposed
 F1 (small, owner rule given) → F2 (+F10) → F8 W10 instruction fix + owner curl → F4 retest instructions → F5/F6/F7 locate then fix (each small once found) → F3 reproduce → F9 as ruled.
+
+## Built (same day, one commit per fix, staging `934bf028..ad29ed22`)
+| Item | Commit | What shipped |
+|---|---|---|
+| F1 | `7ed525ef` | `lib/markets/roster-display-state.ts` (pure, 8 tests) → page + ApplyToMarketButton `label`; en/es `market_detail.apply_now/book_now`; TR-133 |
+| F3 | `2cdb5ba0` | Not a bug: "book a day first" = holds unlock after a PAID day (`BookParkSpotForm.tsx:1124-1129`); "not available" = Spot A's "Allow standing/recurring reservations" box off (`:1130-1133`). Printable precondition + retest step; TR-136 |
+| F9.1–9.4 | `2cdb5ba0` | `park-bookings/page.tsx`: Book again per park · Your weekly holds · Pay now (`PayParkOccurrenceButton.tsx` → existing pay route) / Finish booking; dashboard Locations card "Manage"; TR-137/138 |
+| F2 + F10 | `3bb57df9` | `lib/markets/roster-buckets.ts` (6 tests) read by `manager-dashboard-stats.ts` (row read + bucket; `invitedAwaitingCount`) and `VendorBoothList.tsx` chips; Action Items invited line; "❌ Declined the invitation" / "· declined|accepted the invitation"; TR-107/140 |
+| F8 | `96c36978` | `surveys/email.ts` From via `email-config` (brand + verified domain by vertical); weekly.ts + cron route pass `vertical`; W10 rewritten (owner triggers; 15:00 UTC hour; opened dashboard = no email by design); TR-041 |
+| F4 | `301cf818` | `week-strip.ts`: paid day on the hold weekday keeps one "booked" entry + note "Your standing hold" (unit test); W4 step 3 corrected; TR-043 |
+| F5 | `da856628` | `browse/page.tsx` passed the Spanish suffix 'es' in every language → plural in the strings; sibling `vendors.more_locations` split `_one` + plural (accent); locale test; TR-134 |
+| F6 | `a8cd6807` | `AddToCartButton.tsx`: FT time picker = "3." in the brand-outlined box; Add to Cart "4." on FT; TR-135 |
+| F7 | `ad29ed22` | `vendor/[vendorId]/profile/page.tsx`: ONE `get_listings_accepting_status` call + `CutoffBadge` on each card; TR-139 |
+Not a defect (confirmed): FM `/vendor/edit` per-hour field = Private Events Readiness. Side finding logged: the survey email footer brand depends on the market row's `vertical_id` (the 09-17 park finding is data, not code).
