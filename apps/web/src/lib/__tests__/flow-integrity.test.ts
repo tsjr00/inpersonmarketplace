@@ -1402,6 +1402,17 @@ describe('Dashboard empty-state convention', () => {
     expect(bare('app/api/cron/surveys/route.ts'), 'the per-day buyer email passes its vertical').toMatch(/sendSurveyEmail\(\{\s*\n\s*to: userProfile\.email as string,\s*\n\s*vertical,/)
   })
 
+  it('OB-034: the vendor profile shows the same Open/Closed pill as the menu, from the same RPC', () => {
+    // Owner 2026-09-27 (TR-139). The profile listed the cards but never asked
+    // which were taking orders, so the "Closed" pill the menu shows never appeared.
+    const profile = bare('app/[vertical]/vendor/[vendorId]/profile/page.tsx')
+    expect(profile, 'one call to the single source of truth (VJ-R15)').toMatch(/\.rpc\('get_listings_accepting_status', \{\s*\n\s*p_listing_ids: listings\.map\(l => l\.id as string\),\s*\n\s*p_exclude_event_markets: true,/)
+    expect((profile.match(/get_listings_accepting_status/g) ?? []).length, 'exactly one RPC call site').toBe(1)
+    expect(profile, 'status derived the same way the menu derives it').toContain("import { deriveAvailabilityStatus } from '@/lib/utils/availability-status'")
+    expect(profile, 'the same pill component').toContain('<CutoffBadge')
+    expect(profile).toMatch(/preCalculatedStatus=\{availability\.status\}/)
+  })
+
   it('OB-031: a vendor retrying their OWN held-booth week gets Continue payment, not "assigned booth is already booked"', () => {
     const book = bare('app/api/vendor/markets/[id]/book/route.ts')
     expect(book, 'both codes first look for this vendor\'s own live row').toMatch(/msg\.includes\('DUPLICATE'\) \|\| msg\.includes\('BOOTH_TAKEN'\)/)

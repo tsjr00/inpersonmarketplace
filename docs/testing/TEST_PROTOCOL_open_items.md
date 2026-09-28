@@ -481,6 +481,12 @@ it); a food-truck listing set to allow same-day ordering ("0 days advance"); a b
     pickup-time dropdown, and the Add to Cart box is now labelled "4." (farmers-market listings keep "3. Add to
     Cart" — they have no pickup time).
 
+ 9. Closed pill on the truck's profile (new 2026-09-27). As a BUYER, at a time a truck is NOT taking orders (for
+    example a day it does not operate): /food_trucks/browse → note the red "Closed" pill on that truck's listing
+    cards. Then click the truck's name to open its profile and scroll to its listings.
+    Expect: the SAME red "Closed" pill on the same cards, top-right over the picture (before 2026-09-27 the profile
+    showed none). When the truck IS taking orders, neither page shows a pill — that is correct.
+
 
 
 ==================================================
@@ -934,7 +940,7 @@ W2  (v3, fresh vendor at River Road) 1→TR-119 · 2→TR-083 · 3→TR-117 · 4
 W3  1→TR-091 TR-099 · 2→TR-091 · 3→TR-091 · 4→TR-092 (button now "Cancel this booking", OB-030 (e))
 W12 1→TR-122 · 2→TR-079 (setup) · 3→TR-122 TR-079 · 4→TR-079 · 5→TR-079 · 6→TR-079 · 7→TR-122   (W2 v3 step 13 now points here)
 W4  1→TR-034 · 2→TR-107 TR-140 (v3.4) · 3→TR-043 · 4→TR-109 · 5→TR-109 · 6→TR-040 · 7→TR-109 · 8→TR-133 · 9→TR-137 TR-138 · 10→TR-136 (v3.4)
-W5  (v3.1) 1→TR-069 · 2→TR-044 · 3→TR-044 · 4→TR-123 · 5→TR-042 · 6→TR-048 · 7→TR-134 · 8→TR-135 (v3.4)
+W5  (v3.1) 1→TR-069 · 2→TR-044 · 3→TR-044 · 4→TR-123 · 5→TR-042 · 6→TR-048 · 7→TR-134 · 8→TR-135 · 9→TR-139 (v3.4)
 W6  (v3.2) 1→TR-096 (boxes half) · 2→TR-094 (two FM questions)   (v3.1 steps 1–5 PASSED 2026-09-25, OB-032: TR-093 TR-095 pass)
 W7  1→TR-022 TR-064 · 2→TR-022 TR-064 · 3→TR-022 · 4→TR-065 · 5→TR-066 · 6→TR-067 · 7→TR-068 · 8→TR-026
     · 9→TR-025 · 10a→TR-023 · 10b→TR-024 · 10c→TR-030 · 10d→TR-032 · 10e→TR-033 · 10f→TR-035

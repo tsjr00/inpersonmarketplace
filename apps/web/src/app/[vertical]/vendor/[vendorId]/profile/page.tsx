@@ -17,6 +17,8 @@ import HighlightEventItems from '@/components/vendor/HighlightEventItems'
 import { colors } from '@/lib/design-tokens'
 import { getLocale } from '@/lib/locale/server'
 import { t } from '@/lib/locale/messages'
+import CutoffBadge from '@/components/listings/CutoffBadge'
+import { deriveAvailabilityStatus } from '@/lib/utils/availability-status'
 import type { Metadata } from 'next'
 import {
   FM_DOC_BADGES,
@@ -241,6 +243,20 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
     .eq('status', 'published')
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
+
+  // Tester OB-034 (owner 2026-09-27, TR-139): the same Open/Closed pill the menu
+  // page shows on each card — ONE RPC call, the single source of truth for
+  // "taking orders" (VJ-R15); event-market dates excluded like the menu (mig 245).
+  const availabilityMap = new Map<string, { is_accepting: boolean; hours_until_cutoff: number | null; cutoff_hours: number | null }>()
+  if (listings && listings.length > 0) {
+    const { data: availData } = await supabase.rpc('get_listings_accepting_status', {
+      p_listing_ids: listings.map(l => l.id as string),
+      p_exclude_event_markets: true,
+    })
+    for (const a of (availData ?? []) as Array<{ listing_id: string; is_accepting: boolean; hours_until_cutoff: number | null; cutoff_hours: number | null }>) {
+      availabilityMap.set(a.listing_id, a)
+    }
+  }
 
   // Current time for premium window comparison
   const now = new Date().toISOString()
@@ -1028,6 +1044,9 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 const premiumWindowEndsAt = listing.premium_window_ends_at as string | null
                 const isInPremiumWindow = premiumEnabled && premiumWindowEndsAt && premiumWindowEndsAt > now
                 const showPremiumRestriction = isInPremiumWindow && !isPremiumBuyer
+                const availability = deriveAvailabilityStatus(
+                  availabilityMap.get(listingId) ? { ...availabilityMap.get(listingId)!, vertical } : undefined
+                )
 
                 return (
                   <Link
@@ -1085,6 +1104,14 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                           {listingCategory}
                         </span>
                       )}
+
+                      {/* Open/Closed pill — same component + spot as the menu page card. */}
+                      <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 1 }}>
+                        <CutoffBadge
+                          preCalculatedStatus={availability.status}
+                          hoursUntilCutoff={availability.hoursUntilCutoff}
+                        />
+                      </div>
 
                       {primaryImage?.url ? (
                         <Image
