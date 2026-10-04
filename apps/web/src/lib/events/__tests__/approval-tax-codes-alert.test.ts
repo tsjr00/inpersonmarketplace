@@ -9,7 +9,10 @@
  *
  *  - every admin for the vertical gets ONE `tax_codes_needed_admin` notice
  *    naming the event's market, its date, and the market id to open;
- *  - a non-Texas event is not alerted (the codes card accepts Texas only);
+ *  - the notice ALWAYS goes out (owner 2026-10-04). The tax engine taxes a
+ *    location only when its state reads exactly "TX" (compute-cart-tax.ts), so
+ *    for any other state — another state, "Texas" spelled out, or blank — the
+ *    notice says taxable items cannot be sold there until the state reads TX;
  *  - a notification failure never fails the approval;
  *  - the notice reads as an EVENT notice; the vendor-attach wording is unchanged.
  */
@@ -84,19 +87,30 @@ describe('Event approval alerts the admins that the new event market needs tax c
         dedupRef: 'market-evt-1',
       })
       expect(String((call[2] as { marketName: string }).marketName)).toContain('Acme Co')
+      expect(call[2]).not.toHaveProperty('stateNotTx')
       expect(call[3]).toEqual({ vertical: 'food_trucks' })
     }
   })
 
-  it('a non-Texas event is not alerted — the codes card accepts Texas markets only', async () => {
-    const result = await approveEventRequest(fakeClient(), { ...REQUEST, state: 'OK' })
-    expect(result.success).toBe(true)
-    expect(H.sendNotification).not.toHaveBeenCalled()
+  it('lower-case "tx" is Texas — the engine compares the state upper-cased', async () => {
+    await approveEventRequest(fakeClient(), { ...REQUEST, state: ' tx ' })
+    expect(H.sendNotification).toHaveBeenCalledTimes(2)
+    expect(H.sendNotification.mock.calls[0]![2]).not.toHaveProperty('stateNotTx')
   })
 
-  it('"Texas" spelled out counts as Texas', async () => {
-    await approveEventRequest(fakeClient(), { ...REQUEST, state: 'Texas' })
-    expect(H.sendNotification).toHaveBeenCalledTimes(2)
+  // Each of these is a state the tax engine refuses (anything but exactly TX).
+  it.each([
+    ['another state', 'OK', 'OK'],
+    ['"Texas" spelled out', 'Texas', 'Texas'],
+    ['a blank state', '', 'blank'],
+  ])('%s: the admins are still told, and told the state must read TX', async (_label, state, shown) => {
+    const result = await approveEventRequest(fakeClient(), { ...REQUEST, state })
+    expect(result.success).toBe(true)
+    const taxCalls = H.sendNotification.mock.calls.filter((c) => c[1] === 'tax_codes_needed_admin')
+    expect(taxCalls.map((c) => c[0])).toEqual(['admin-1', 'admin-2'])
+    for (const call of taxCalls) {
+      expect(call[2]).toMatchObject({ marketId: 'market-evt-1', eventDate: '2026-11-14', stateNotTx: shown })
+    }
   })
 
   it('a notification failure never fails the approval', async () => {
@@ -114,6 +128,17 @@ describe('Event approval alerts the admins that the new event market needs tax c
     expect(message).toContain('Acme Co Event (2026-11-14) was just approved')
     expect(message).toContain('Sales tax jurisdictions card')
     expect(message).not.toContain('vendor')
+    expect(cfg.actionUrl?.(data)).toBe('/food_trucks/admin/markets?edit=market-evt-1')
+  })
+
+  it('when the state is not TX the notice says taxable items cannot be sold until the state reads TX', () => {
+    const cfg = NOTIFICATION_REGISTRY.tax_codes_needed_admin
+    const data = { marketName: 'Acme Co Event', marketId: 'market-evt-1', eventDate: '2026-11-14', vertical: 'food_trucks', stateNotTx: 'Texas' }
+    expect(cfg.title(data)).toBe('Taxable items cannot be sold at a new event — Acme Co Event')
+    const message = cfg.message(data)
+    expect(message).toContain('its state reads "Texas"')
+    expect(message).toContain('taxable items cannot be sold at this event until the state reads TX')
+    expect(message).toContain('change State to TX')
     expect(cfg.actionUrl?.(data)).toBe('/food_trucks/admin/markets?edit=market-evt-1')
   })
 

@@ -376,6 +376,65 @@ If compressing a message would require dropping a verification, **the verificati
 
 ---
 
+## Rule 9: The Read Footer — Every Recommendation Shows What Was Read
+
+**Added 2026-10-04 (owner).** Rules 1–8 depend on Claude running a check the owner cannot see. This rule makes the reading visible, the same way the `?` gate makes permission visible.
+
+### THE GATE — Run before sending any message that recommends
+
+A message **recommends** when it advises a choice, proposes a change, or assesses a risk or a downside. (A plain factual answer stays under Rule 1.)
+
+Every such message MUST end with these four lines:
+
+```
+Scope search: <what was searched to build the list>
+Read in full: <files / units>
+Not read: <must be "none" for anything in the repo>
+Set aside: <search hits judged out of scope, each with a few words of reason>
+```
+
+**If `Not read:` would name a file in the repo, the message may not be sent. Read it first.**
+
+### What must be read — for EVERY recommendation, no category test
+
+1. **The code being proposed for change.**
+2. **The code behind every option presented — including the options being recommended AGAINST.**
+3. **Every writer and every reader of the thing the recommendation turns on** — the column, setting, switch, or function in question.
+4. **Every caller of any function that would change.**
+5. **The tests that pin those pieces.**
+
+Item 3 applies to all recommendations, not only money or tax ones (owner 2026-10-04). A "is this a money change?" test in front of the rule is a judgement Claude makes, and it is the same judgement that failed three times on 2026-10-03 ("this one is small"). In this app a state field decides whether a sale is taxed and a notification decides whether an admin acts in time — the line between money and not-money cannot be drawn from the outside.
+
+### What does NOT need to be read
+
+- Files that only display or label the thing without saving or checking it → list them under `Set aside:` with the reason.
+- Unrelated parts of the app.
+- Documents, plans, and notes — they are leads (Rule 1), not evidence.
+
+### What "read in full" means
+
+The whole unit, unfiltered (Rule 7): the whole function, route handler, or section of a screen. A short file = the whole file. A very long file = name the unit that was read. A protected money file (`change-discipline.md` Rule 3) = always the whole file.
+
+### How the boundary stays honest — and how cost is controlled
+
+- **The list comes from a search, not from judgement.** `Scope search:` says what was searched, so the owner can see how the boundary was drawn.
+- **`Set aside:` is the owner's lever.** Anything the search surfaced that Claude did not read is named there with a reason; the owner can say "go back and read it".
+- **Large sets pause.** When the scope search returns more than 10 files to read, show the owner the count and the list and ask before reading — the cost decision is the owner's, case by case. *(10 confirmed by the owner 2026-10-04.)*
+
+### "UNVERIFIED" is not an exit for things in the repo
+
+Rule 1 allows a claim to be labelled `UNVERIFIED`. That label is for things Claude **cannot** check with the tools it has — the live database, Vercel, Stripe, the rendered screen. For a file in the repo it is not an option (Rule 4: "Always verify"). Writing "I haven't read X" about a repo file and then recommending anyway is the failure this rule exists to stop.
+
+### Why (2026-10-03/04 incidents)
+
+Three times in one session Claude took a search result for understanding and built or recommended on it: "both approval paths" (there were three callers of `approveEventRequest` — never listed); "the one path that creates orders outside checkout" (written into the tax go-live checklist — the external-payments checkout is a second one, with no tax at all); and a recommendation to "leave the save routes alone" in the same message that said "I haven't read them all". Four wrong statements reached staging and a go-live condition was marked satisfied on one switch when it rested on two. Each was honest about its gap or silent about it; none had done the reading. The owner: *"why are you seeing routes that can provide more info … and then choosing not to read?"*
+
+### This rule is not "read everything"
+
+If the scope search returns three files, read three. Reading the whole repo for a wording change is its own failure (Rule 8: the owner's attention and money are finite). The rule fixes WHICH files — the ones the recommendation depends on — and makes the list visible.
+
+---
+
 ## Cannot Be Overridden
 
 No autonomy mode, no time pressure, no "just give me a quick summary" overrides the requirements above. Speed that produces wrong answers is slower than accuracy. A 10-finding report with 3 wrong findings is worse than a 7-finding report that's 100% correct — the user now has to verify everything because trust is broken.

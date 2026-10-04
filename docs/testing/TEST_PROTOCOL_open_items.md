@@ -784,7 +784,11 @@ WHY THIS ORDER: step 4 deliberately makes the rate quarter stale and then restor
     Expect: "Tax codes needed for a new event — [the event's name]". The text says the event was just approved, gives
     its date, and tells you to enter the codes on the "Sales tax jurisdictions" card before attendees order. Tap it.
     Expect: the markets admin page opens with THAT EVENT's edit form, and the "Sales tax jurisdictions" card is on it.
-    (An event approved by an admin from the Events admin page sends the same notice — check it if you approve one.)
+    (The same notice is sent when an admin approves a request, and when an admin creates an event directly, on the
+    Events admin page — check it if you do either.)
+    If an event's State is anything other than TX — an admin-created event with State typed as "Texas", for example —
+    the notice instead reads "Taxable items cannot be sold at a new event — [the event's name]" and tells you to open
+    the event's market, change State to TX and save, then enter the codes.
 
 
 

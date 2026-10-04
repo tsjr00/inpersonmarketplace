@@ -251,6 +251,11 @@ export interface NotificationTemplateData {
   // wasNotificationSent can match the SPECIFIC event, not just user+type/24h.
   // Not rendered in any template.
   dedupRef?: string
+  // Event tax-codes alert (2026-10-04): set when a newly approved event's
+  // state is NOT exactly "TX" — holds what the state reads ("OK", "Texas",
+  // "blank"). The tax engine taxes Texas locations only, so the notice says
+  // taxable items cannot be sold there until the state reads TX.
+  stateNotTx?: string
   // P8 (2026-07-15): human-readable booked-dates summary for park-spot paid
   // confirmations (e.g. "Thu, Jul 17 & Fri, Jul 18").
   datesText?: string
@@ -1258,12 +1263,18 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     // Two senders, one type. A NEW EVENT (lib/events/event-actions.ts
     // approveEventRequest — every event creates a fresh market with no codes)
     // passes `eventDate` and gets the event wording; the vendor listing-attach
-    // route passes none and keeps the "a vendor is waiting" wording.
+    // route passes none and keeps the "a vendor is waiting" wording. An event
+    // whose state is not exactly "TX" also passes `stateNotTx` (owner
+    // 2026-10-04): codes alone would not help there, so the notice says so.
     title: (d) => d.eventDate
-      ? `Tax codes needed for a new event — ${d.marketName || 'an event'}`
+      ? (d.stateNotTx
+        ? `Taxable items cannot be sold at a new event — ${d.marketName || 'an event'}`
+        : `Tax codes needed for a new event — ${d.marketName || 'an event'}`)
       : `Tax codes needed at ${d.marketName || 'a market'} — a vendor is waiting`,
     message: (d) => d.eventDate
-      ? `${d.marketName || 'A new event'} (${d.eventDate}) was just approved. Every event gets its own location in the app, and this one does not have its Texas sales-tax codes yet. Enter them on the market's Sales tax jurisdictions card before attendees start ordering — while sales tax is being collected, checkout refuses taxable items at a location without verified codes, and at a food-truck event every item is taxable.`
+      ? (d.stateNotTx
+        ? `${d.marketName || 'A new event'} (${d.eventDate}) was just approved, but its state reads "${d.stateNotTx}". Sales tax in the app is set up for Texas only, and a location counts as Texas only when its state reads exactly TX. While sales tax is being collected, taxable items cannot be sold at this event until the state reads TX. If the event is in Texas, open the event's market (this notice opens it), change State to TX and save, then enter its codes on the Sales tax jurisdictions card. If it really is outside Texas, taxable items cannot be sold there.`
+        : `${d.marketName || 'A new event'} (${d.eventDate}) was just approved. Every event gets its own location in the app, and this one does not have its Texas sales-tax codes yet. Enter them on the market's Sales tax jurisdictions card before attendees start ordering — while sales tax is being collected, checkout refuses taxable items at a location without verified codes, and food-truck items are taxable.`)
       : `${d.vendorName || 'A vendor'} added ${d.itemTitle ? `"${d.itemTitle}"` : 'a taxable item'} at ${d.marketName || 'a location'}, which does not have its Texas sales-tax codes entered and verified yet. Until you enter them on the market's Sales tax jurisdictions card, buyers cannot check out with taxable items there. The vendor has been told it may take a little while.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/admin/markets${d.marketId ? `?edit=${d.marketId}` : ''}`,
   },

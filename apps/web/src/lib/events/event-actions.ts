@@ -170,30 +170,37 @@ export async function approveEventRequest(
 
   // Sales tax (owner 2026-10-03): the market created above is brand new, so it
   // has no Texas tax codes — and the checkout tax engine refuses taxable items
-  // at a location without verified codes (every food-truck item is taxable).
-  // Nothing else tells the admins: the "tax codes needed" alert was only sent
-  // when a vendor attaches a listing to a regular market, and event menus go
-  // on sale by another path. Tell them now, at approval, when there is the
-  // most time before attendees order. Both approval paths (self-service and
-  // admin) run through this function, so this is the one place. The codes
-  // card accepts Texas markets only, so a non-Texas event is not alerted.
+  // at a location without verified codes. Nothing else tells the admins: the
+  // "tax codes needed" alert was only sent when a vendor attaches a listing to
+  // a regular market, and event menus go on sale by another path. Tell them
+  // now, at approval, when there is the most time before attendees order.
+  // All THREE approval paths run through this function — self-service
+  // (api/event-requests), an admin approving a request (api/admin/events/[id])
+  // and an admin creating an event directly (api/admin/events) — so this is
+  // the one place.
+  //
+  // The alert ALWAYS goes out (owner 2026-10-04). The tax engine taxes a
+  // location only when its state reads exactly "TX" (compute-cart-tax.ts — any
+  // other value, "Texas" spelled out or blank included, refuses every taxable
+  // item). So when the state is anything else the notice says THAT instead of
+  // asking for codes that would not help: `stateNotTx` picks the wording.
   // Additive + non-throwing: a notification problem never fails an approval.
-  const eventState = (request.state || '').trim().toUpperCase()
-  if (!eventState || eventState === 'TX' || eventState === 'TEXAS') {
-    try {
-      const admins = await adminRecipientsForVertical(serviceClient, request.vertical_id)
-      for (const adminId of admins) {
-        await sendNotification(adminId, 'tax_codes_needed_admin', {
-          marketName: eventName,
-          marketId: market.id as string,
-          eventDate: request.event_date,
-          vertical: request.vertical_id,
-          dedupRef: market.id as string,
-        }, { vertical: request.vertical_id })
-      }
-    } catch (notifyErr) {
-      console.error('[event-actions] tax_codes_needed_admin fan-out failed:', notifyErr)
+  const eventState = (request.state || '').trim()
+  const stateIsTx = eventState.toUpperCase() === 'TX'
+  try {
+    const admins = await adminRecipientsForVertical(serviceClient, request.vertical_id)
+    for (const adminId of admins) {
+      await sendNotification(adminId, 'tax_codes_needed_admin', {
+        marketName: eventName,
+        marketId: market.id as string,
+        eventDate: request.event_date,
+        vertical: request.vertical_id,
+        dedupRef: market.id as string,
+        ...(stateIsTx ? {} : { stateNotTx: eventState || 'blank' }),
+      }, { vertical: request.vertical_id })
     }
+  } catch (notifyErr) {
+    console.error('[event-actions] tax_codes_needed_admin fan-out failed:', notifyErr)
   }
 
   // Generate access code for company-paid and hybrid events

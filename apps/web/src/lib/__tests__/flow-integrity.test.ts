@@ -3771,9 +3771,10 @@ describe('Taxability rule: listing form and anomalies report agree (TR-132)', ()
 // ─────────────────────────────────────────────────────────────────────────────
 // Company-paid event ordering is switched off (owner 2026-10-03)
 //
-// POST /api/events/[token]/order is the ONE path that creates an order outside
+// POST /api/events/[token]/order creates an order outside
 // /api/checkout/session — so nothing it sold would carry sales tax
-// (tax/flags.ts condition 3). Host-paid events are not being built before the
+// (tax/flags.ts condition 3a; the external-payments checkout is 3b, pinned in
+// the next block). Host-paid events are not being built before the
 // next production push, so the path is switched off by ONE constant
 // (lib/events/company-paid.ts) read at the three places a company-paid event
 // could start or sell: the order route, the event-request API, the request form.
@@ -3833,5 +3834,92 @@ describe('Company-paid event ordering is switched off', () => {
 
   it('the tax go-live checklist names this switch as what keeps untaxed orders out', () => {
     expect(rd('lib/tax/flags.ts')).toContain('lib/events/company-paid.ts')
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// No order is created outside checkout untaxed (tax go-live condition 3)
+//
+// Sales tax is computed in ONE place — /api/checkout/session, through the tax
+// engine. Every other way an `orders` row can come into being sells untaxed,
+// so each must be switched off (or wired through the engine) before tax goes
+// live. Today there are exactly two, both off:
+//   a. /api/events/[token]/order  → the SQL function create_company_paid_order
+//      — COMPANY_PAID_ORDERING_ENABLED (pinned in the block above)
+//   b. /api/checkout/external (Venmo / Cash App / PayPal / cash)
+//      — EXTERNAL_PAYMENTS_ENABLED. Owner 2026-10-04: external payments are
+//      off and are not to be changed.
+// The inventory is taken by SCAN, not from memory: a new route or SQL function
+// that inserts an order fails here until it is taxed or switched off and added
+// to the checklist in tax/flags.ts. Changing either switch is an owner decision.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('No order is created outside checkout untaxed', () => {
+  const rd = (p: string) => fs.readFileSync(path.join(SRC_DIR, p), 'utf-8')
+  const EXTERNAL = 'app/api/checkout/external/route.ts'
+  const SESSION = 'app/api/checkout/session/route.ts'
+
+  it('external payments are switched off', () => {
+    expect(rd('lib/constants.ts')).toMatch(/export const EXTERNAL_PAYMENTS_ENABLED = false/)
+  })
+
+  it('the external checkout refuses before it reads the request or touches the database', () => {
+    const code = rd(EXTERNAL)
+    const refusal = code.indexOf('if (!EXTERNAL_PAYMENTS_ENABLED)')
+    expect(refusal, 'the external checkout must check the switch').toBeGreaterThan(-1)
+    expect(refusal).toBeLessThan(code.indexOf('await createClient()'))
+    expect(refusal).toBeLessThan(code.indexOf('request.json()'))
+    expect(refusal).toBeLessThan(code.indexOf(".from('orders')"))
+  })
+
+  it('only the taxed checkout and the switched-off external checkout insert orders from app code', () => {
+    const inserters: string[] = []
+    const walk = (dir: string) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name)
+        if (entry.isDirectory()) {
+          if (entry.name !== '__tests__' && entry.name !== 'node_modules') walk(full)
+        } else if (/\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name)) {
+          const src = fs.readFileSync(full, 'utf-8')
+          if (/\.from\('orders'\)\s*\.(insert|upsert)\(/.test(src)) {
+            inserters.push(path.relative(SRC_DIR, full).replace(/\\/g, '/'))
+          }
+        }
+      }
+    }
+    walk(SRC_DIR)
+    expect(inserters.sort()).toEqual([EXTERNAL, SESSION])
+  })
+
+  it('the taxed checkout computes tax before it inserts the order', () => {
+    const code = rd(SESSION)
+    const tax = code.indexOf('await computeCheckoutTax(')
+    expect(tax).toBeGreaterThan(-1)
+    expect(tax).toBeLessThan(code.search(/\.from\('orders'\)\s*\.insert\(/))
+  })
+
+  it('the only SQL function that inserts an order is the company-paid one', () => {
+    const migrationsDir = path.resolve(SRC_DIR, '../../../supabase/migrations')
+    const definers = new Set<string>()
+    const walk = (dir: string) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name)
+        if (entry.isDirectory()) { walk(full); continue }
+        if (!/^\d{8}_\d{3}_.*\.sql$/.test(entry.name)) continue
+        const sql = fs.readFileSync(full, 'utf-8')
+        // Each function, name + body up to its closing $$ — does it INSERT INTO orders?
+        for (const m of sql.matchAll(/CREATE (?:OR REPLACE )?FUNCTION\s+(?:public\.)?(\w+)\s*\(([\s\S]*?)\n\$\$/gi)) {
+          if (/INSERT INTO (?:public\.)?orders\b/i.test(m[2]!)) definers.add(m[1]!)
+        }
+      }
+    }
+    walk(migrationsDir)
+    expect([...definers].sort()).toEqual(['create_company_paid_order'])
+  })
+
+  it('the tax go-live checklist names both switches', () => {
+    const flags = rd('lib/tax/flags.ts')
+    expect(flags).toContain('COMPANY_PAID_ORDERING_ENABLED = false (lib/events/company-paid.ts)')
+    expect(flags).toContain('EXTERNAL_PAYMENTS_ENABLED = false')
+    expect(flags).toContain('/api/checkout/external')
   })
 })
