@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing, observed } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { sendNotification } from '@/lib/notifications'
+import { COMPANY_PAID_ORDERING_ENABLED, COMPANY_PAID_UNAVAILABLE_MESSAGE } from '@/lib/events/company-paid'
 
 interface RouteContext {
   params: Promise<{ token: string }>
@@ -27,6 +28,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Sign in to place your order' }, { status: 401 })
+    }
+
+    // Company-paid ordering is switched off until the host-paid build
+    // (lib/events/company-paid.ts): this route creates orders outside checkout,
+    // so they would carry no sales tax. Refuse before any database work.
+    if (!COMPANY_PAID_ORDERING_ENABLED) {
+      return NextResponse.json({ error: COMPANY_PAID_UNAVAILABLE_MESSAGE }, { status: 403 })
     }
 
     const { token } = await context.params

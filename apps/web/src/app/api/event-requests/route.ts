@@ -11,6 +11,7 @@ import { approveEventRequest, autoMatchAndInvite } from '@/lib/events/event-acti
 import { leadTimeStatus, tooSoonMessage } from '@/lib/events/lead-time'
 import { term } from '@/lib/vertical/terminology'
 import { observed } from '@/lib/errors'
+import { COMPANY_PAID_ORDERING_ENABLED } from '@/lib/events/company-paid'
 
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/event-requests', 'POST', async () => {
@@ -247,7 +248,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate new structured fields
-    const validPaymentModels = ['company_paid', 'attendee_paid', 'hybrid']
+    // Company-paid and hybrid are accepted only while company-paid ordering is
+    // switched on (lib/events/company-paid.ts — off until the host-paid build).
+    // A model that is not accepted is stored as none, which the event shop reads
+    // as "each person pays for themselves" — and approval mints no access code.
+    const validPaymentModels = COMPANY_PAID_ORDERING_ENABLED
+      ? ['company_paid', 'attendee_paid', 'hybrid']
+      : ['attendee_paid']
+    const storedPaymentModel: string | null =
+      payment_model && validPaymentModels.includes(payment_model) ? payment_model : null
     const validRecurringFreqs = ['weekly', 'biweekly', 'monthly', 'quarterly']
 
     const { data: insertedRow, error: insertError } = await supabase
@@ -262,7 +271,7 @@ export async function POST(request: NextRequest) {
           ? String(contact_phone).slice(0, 30)
           : null,
         event_type,
-        payment_model: payment_model && validPaymentModels.includes(payment_model) ? payment_model : null,
+        payment_model: storedPaymentModel,
         event_date,
         event_end_date: event_end_date || null,
         event_start_time,
@@ -313,7 +322,7 @@ export async function POST(request: NextRequest) {
         vendor_preferences: Array.isArray(vendor_preferences) ? vendor_preferences : null,
         vendor_stay_policy: ['may_leave_when_sold_out', 'stay_full_event', 'vendor_discretion'].includes(vendor_stay_policy)
           ? vendor_stay_policy : null,
-        company_max_per_attendee_cents: (payment_model === 'hybrid' && typeof company_max_per_attendee_cents === 'number' && company_max_per_attendee_cents > 0)
+        company_max_per_attendee_cents: (storedPaymentModel === 'hybrid' && typeof company_max_per_attendee_cents === 'number' && company_max_per_attendee_cents > 0)
           ? company_max_per_attendee_cents : null,
       })
       .select('id')
@@ -374,7 +383,7 @@ export async function POST(request: NextRequest) {
         cuisine_preferences: cuisine_preferences ? String(cuisine_preferences) : null,
         event_type,
         event_setting,
-        payment_model: payment_model || null,
+        payment_model: storedPaymentModel,
         children_present: !!children_present,
         contact_email: String(contact_email).toLowerCase().trim(),
         cutoff_hours: cutoff_hours ? Math.min(Math.max(parseInt(cutoff_hours, 10) || 24, 12), 168) : 24,

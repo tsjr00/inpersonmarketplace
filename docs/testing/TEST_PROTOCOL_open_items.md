@@ -682,6 +682,10 @@ Before you start: an organizer account · four vendor accounts A, B, C (accept a
        over the yellow box — side by side on a desktop, stacked on a phone.
     f. On an invitation-accept form, enter a number of orders LOWER than your profile's default. Expect: an amber
        advisory note under the field.
+    g. (New 2026-10-03 — company-paid events are switched off for now.) Open the event request form
+       (…/[vertical]/events → the request form) and find the question "Who's paying for the food?".
+       Expect: ONE choice only — "Each person pays for themselves". "Our company pays for everyone" is NOT offered.
+       Check both food_trucks and farmers_market.
 
 
 
@@ -872,7 +876,7 @@ W8  1→TR-096 (boxes half) · 2→TR-094 (two FM questions)
 W9  1→TR-015 TR-125 · 2→TR-125 · 3→TR-014
 W10 1→TR-010 · 2→TR-001 TR-005 · 3–5→TR-002 TR-003
 W11 1→TR-022 TR-064 · 2→TR-022 TR-064 · 3→TR-022 · 4→TR-065 · 5→TR-066 · 6→TR-067 · 7→TR-068 · 8→TR-026
-    · 9→TR-025 · 10a→TR-023 · 10b→TR-024 · 10c→TR-030 · 10d→TR-032 · 10e→TR-033 · 10f→TR-035
+    · 9→TR-025 · 10a→TR-023 · 10b→TR-024 · 10c→TR-030 · 10d→TR-032 · 10e→TR-033 · 10f→TR-035 · 10g→TR-141
 W12 1→TR-041 · 2→TR-041
 W13 1→TR-112 · 2→TR-110 · 3→TR-110 · 4→TR-110 TR-112 · 5→TR-111 · 6→TR-113 · 7→TR-114 · 8→TR-115 · 9→TR-132
 W14 1–3→TR-129 · 4→TR-126 · 5→TR-126 (Q1) · 6→TR-126 · 7→TR-126 (dashboard full) · 8→TR-127 · 9→TR-127

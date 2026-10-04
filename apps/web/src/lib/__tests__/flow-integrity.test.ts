@@ -3685,3 +3685,141 @@ describe('JSON-LD: no raw JSON.stringify inside a script tag', () => {
     expect(JSON.parse(out)).toEqual({ t: '\u2028\u2029' })
   })
 })
+
+// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// Taxability rule \u2014 the listing form and the Taxability Anomalies report must
+// apply the SAME category rule (TR-132, tax build B4.5)
+//
+// The rule is the owner's decision of 2026-03-24 (decisions.md "FM category-based
+// tax rules" + "FT listings always taxable", TX Comptroller 151.314):
+//   FM always taxable \u2014 Prepared Foods \u00b7 Plants & Flowers \u00b7 Health & Wellness \u00b7 Art & Decor \u00b7 Home & Functional
+//   FM always exempt  \u2014 Produce \u00b7 Dairy & Eggs \u00b7 Pantry
+//   FM depends on preparation \u2014 Meat & Poultry \u00b7 Baked Goods (the vendor answers; never an anomaly)
+//   FT \u2014 everything taxable
+// The form (ListingForm.tsx) LOCKS the tax box from these lists; the admin report
+// (api/admin/reports/route.ts generateTaxabilityAnomalies) flags listings that
+// disagree with them. The report holds its own hand copy of the lists, so each
+// copy is pinned to the decision here: change one without the other and the
+// report either accuses vendors the form forced, or goes quiet on real mismatches.
+// If the RULE changes, that is an owner decision \u2014 update decisions.md first,
+// then both files, then this spec.
+// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+describe('Taxability rule: listing form and anomalies report agree (TR-132)', () => {
+  const rd = (p: string) => fs.readFileSync(path.join(SRC_DIR, p), 'utf-8')
+  const FORM = 'app/[vertical]/vendor/listings/ListingForm.tsx'
+  const REPORT = 'app/api/admin/reports/route.ts'
+
+  const RULE_TAXABLE = ['Art & Decor', 'Health & Wellness', 'Home & Functional', 'Plants & Flowers', 'Prepared Foods']
+  const RULE_EXEMPT = ['Dairy & Eggs', 'Pantry', 'Produce']
+  const RULE_DEPENDS = ['Baked Goods', 'Meat & Poultry']
+
+  /** The string literals of `const NAME = [ ... ]` or `const NAME = new Set([ ... ])`, sorted. */
+  const listOf = (code: string, name: string): string[] => {
+    const m = code.match(new RegExp(`const ${name} = (?:new Set\\()?\\[([^\\]]*)\\]`))
+    expect(m, `could not find the list ${name}`).not.toBeNull()
+    return [...m![1]!.matchAll(/'([^']+)'/g)].map((x) => x[1]!).sort()
+  }
+
+  /** The report's generator only \u2014 the route file holds many other reports. */
+  const reportFn = (): string => {
+    const code = rd(REPORT)
+    const start = code.indexOf('async function generateTaxabilityAnomalies')
+    expect(start, 'generateTaxabilityAnomalies not found').toBeGreaterThan(-1)
+    const end = code.indexOf('\nasync function ', start + 1)
+    return code.slice(start, end === -1 ? undefined : end)
+  }
+
+  it('the listing form locks the tax box from the decided lists', () => {
+    const form = rd(FORM)
+    expect(listOf(form, 'FM_ALWAYS_TAXABLE')).toEqual(RULE_TAXABLE)
+    expect(listOf(form, 'FM_ALWAYS_EXEMPT')).toEqual(RULE_EXEMPT)
+    expect(listOf(form, 'FM_DEPENDS_ON_PREP')).toEqual(RULE_DEPENDS)
+  })
+
+  it('the anomalies report judges listings by the same lists', () => {
+    const fn = reportFn()
+    expect(listOf(fn, 'FM_TAXABLE')).toEqual(RULE_TAXABLE)
+    expect(listOf(fn, 'FM_EXEMPT')).toEqual(RULE_EXEMPT)
+  })
+
+  it('the report never flags a depends-on-preparation category', () => {
+    const fn = reportFn()
+    const flagged = [...listOf(fn, 'FM_TAXABLE'), ...listOf(fn, 'FM_EXEMPT')]
+    for (const category of RULE_DEPENDS) {
+      expect(flagged, `${category} depends on preparation \u2014 the vendor answers, the report must not judge it`).not.toContain(category)
+    }
+  })
+
+  it('food trucks: the form forces taxable and the report expects taxable', () => {
+    expect(rd(FORM)).toContain("vertical === 'food_trucks' ? true :")
+    expect(reportFn()).toMatch(/if \(vertical === 'food_trucks'\) return \{ expected: true,/)
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Company-paid event ordering is switched off (owner 2026-10-03)
+//
+// POST /api/events/[token]/order is the ONE path that creates an order outside
+// /api/checkout/session — so nothing it sold would carry sales tax
+// (tax/flags.ts condition 3). Host-paid events are not being built before the
+// next production push, so the path is switched off by ONE constant
+// (lib/events/company-paid.ts) read at the three places a company-paid event
+// could start or sell: the order route, the event-request API, the request form.
+//
+// Turning it on is an owner decision that comes WITH the host-paid build:
+// the order route must first go through the tax engine. Update this pin in the
+// same approved change — never to make a red test green.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('Company-paid event ordering is switched off', () => {
+  const rd = (p: string) => fs.readFileSync(path.join(SRC_DIR, p), 'utf-8')
+  const ROUTE = 'app/api/events/[token]/order/route.ts'
+
+  it('the switch is a committed constant, and it is off', () => {
+    expect(rd('lib/events/company-paid.ts')).toMatch(/export const COMPANY_PAID_ORDERING_ENABLED: boolean = false/)
+  })
+
+  it('the order route refuses before the event lookup and before the order function', () => {
+    const code = rd(ROUTE)
+    const refusal = code.indexOf('if (!COMPANY_PAID_ORDERING_ENABLED)')
+    expect(refusal, 'the order route must check the switch').toBeGreaterThan(-1)
+    expect(code.slice(refusal, refusal + 200)).toContain('COMPANY_PAID_UNAVAILABLE_MESSAGE')
+    expect(refusal).toBeLessThan(code.indexOf('createServiceClient()'))
+    expect(refusal).toBeLessThan(code.indexOf(".rpc('create_company_paid_order'"))
+  })
+
+  it('the order route is the only caller of the company-paid order function', () => {
+    const callers: string[] = []
+    const walk = (dir: string) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name)
+        if (entry.isDirectory()) {
+          if (entry.name !== '__tests__' && entry.name !== 'node_modules') walk(full)
+        } else if (/\.tsx?$/.test(entry.name) && fs.readFileSync(full, 'utf-8').includes(".rpc('create_company_paid_order'")) {
+          callers.push(path.relative(SRC_DIR, full).replace(/\\/g, '/'))
+        }
+      }
+    }
+    walk(SRC_DIR)
+    expect(callers).toEqual([ROUTE])
+  })
+
+  it('the event-request API stores company-paid or hybrid only while the switch is on', () => {
+    const code = rd('app/api/event-requests/route.ts')
+    expect(code).toMatch(/const validPaymentModels = COMPANY_PAID_ORDERING_ENABLED\s*\?\s*\['company_paid', 'attendee_paid', 'hybrid'\]\s*:\s*\['attendee_paid'\]/)
+    // Both the stored row and the approval input use the validated value — a raw
+    // `payment_model` reaching approval would mint an access code for an event
+    // that is stored as attendee-paid.
+    expect((code.match(/payment_model: storedPaymentModel,/g) ?? []).length).toBe(2)
+    expect(code).not.toMatch(/payment_model: payment_model/)
+  })
+
+  it('the request form offers "Our company pays for everyone" only while the switch is on', () => {
+    const form = rd('components/events/EventRequestForm.tsx')
+    expect(form).toMatch(/\.\.\.\(COMPANY_PAID_ORDERING_ENABLED\s*\?\s*\[\{ value: 'company_paid', label: 'Our company pays for everyone' \}\]\s*:\s*\[\]\)/)
+    expect(form).toContain("{ value: 'attendee_paid', label: 'Each person pays for themselves' }")
+  })
+
+  it('the tax go-live checklist names this switch as what keeps untaxed orders out', () => {
+    expect(rd('lib/tax/flags.ts')).toContain('lib/events/company-paid.ts')
+  })
+})

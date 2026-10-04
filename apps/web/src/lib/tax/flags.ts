@@ -11,8 +11,11 @@
  *   1. Quarterly rate-refresh job exists (Batch 4) — the seam's freshness
  *      guardrail HALTS taxable sales at every quarter-turn without it. ✅ 2026-09-25
  *   2. Refund-path tax reversals shipped (Batch 3). ✅ 2026-09-26
- *   3. Event order route (/api/events/[token]/order) wired through the seam —
- *      it creates orders outside checkout/session and would sell untaxed.
+ *   3. No order is created outside checkout/session untaxed. The company-paid
+ *      event order route (/api/events/[token]/order) is the one such path; it
+ *      is SWITCHED OFF (lib/events/company-paid.ts, pinned by flow-integrity).
+ *      ✅ 2026-10-03. Turning company-paid ordering on requires wiring that
+ *      route through the seam first (the host-paid build).
  *   4. Jurisdiction codes entered + verified for every live market (III.7),
  *      registration effective date reached (III.4 — never collect early).
  *   5. The W13 rehearsal month passed on Staging (docs/testing/TEST_PROTOCOL_open_items.md).

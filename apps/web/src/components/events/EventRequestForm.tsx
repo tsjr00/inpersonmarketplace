@@ -15,6 +15,7 @@ import {
   tooSoonMessage,
 } from '@/lib/events/lead-time'
 import { calculateWaveCount, estimateOrders, expectedPeakOrdersPerWave, suggestVendorCount } from '@/lib/events/demand-model'
+import { COMPANY_PAID_ORDERING_ENABLED } from '@/lib/events/company-paid'
 
 interface EventRequestFormProps {
   vertical: string
@@ -86,8 +87,13 @@ const EVENT_TYPES = [
   { value: 'other', label: 'Other' },
 ]
 
+// "Our company pays for everyone" is offered only while company-paid ordering
+// is switched on (lib/events/company-paid.ts — off until the host-paid build,
+// owner 2026-10-03). The API refuses to store it while the switch is off.
 const PAYMENT_MODELS = [
-  { value: 'company_paid', label: 'Our company pays for everyone' },
+  ...(COMPANY_PAID_ORDERING_ENABLED
+    ? [{ value: 'company_paid', label: 'Our company pays for everyone' }]
+    : []),
   { value: 'attendee_paid', label: 'Each person pays for themselves' },
 ]
 
