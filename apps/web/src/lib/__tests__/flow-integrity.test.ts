@@ -3694,7 +3694,8 @@ describe('JSON-LD: no raw JSON.stringify inside a script tag', () => {
 // tax rules" + "FT listings always taxable", TX Comptroller 151.314):
 //   FM always taxable \u2014 Prepared Foods \u00b7 Plants & Flowers \u00b7 Health & Wellness \u00b7 Art & Decor \u00b7 Home & Functional
 //   FM always exempt  \u2014 Produce \u00b7 Dairy & Eggs \u00b7 Pantry
-//   FM depends on preparation \u2014 Meat & Poultry \u00b7 Baked Goods (the vendor answers; never an anomaly)
+//   FM depends on preparation \u2014 Meat & Poultry \u00b7 Baked Goods (the vendor answers "sold ready to eat?";
+//     the report judges the flag against that saved answer \u2014 owner 2026-10-03)
 //   FT \u2014 everything taxable
 // The form (ListingForm.tsx) LOCKS the tax box from these lists; the admin report
 // (api/admin/reports/route.ts generateTaxabilityAnomalies) flags listings that
@@ -3742,12 +3743,23 @@ describe('Taxability rule: listing form and anomalies report agree (TR-132)', ()
     expect(listOf(fn, 'FM_EXEMPT')).toEqual(RULE_EXEMPT)
   })
 
-  it('the report never flags a depends-on-preparation category', () => {
+  // Owner 2026-10-03: the two depends-on-preparation categories are judged
+  // against the vendor's OWN saved answer to the form's ready-to-eat question
+  // (yes \u2192 taxable, no \u2192 exempt) \u2014 never against a fixed category rule, and
+  // never when the listing has no answer on file.
+  it('depends-on-preparation categories sit in neither fixed list and are judged by the vendor\'s saved answer', () => {
     const fn = reportFn()
-    const flagged = [...listOf(fn, 'FM_TAXABLE'), ...listOf(fn, 'FM_EXEMPT')]
+    expect(listOf(fn, 'FM_DEPENDS_ON_PREP')).toEqual(RULE_DEPENDS)
+    const fixed = [...listOf(fn, 'FM_TAXABLE'), ...listOf(fn, 'FM_EXEMPT')]
     for (const category of RULE_DEPENDS) {
-      expect(flagged, `${category} depends on preparation \u2014 the vendor answers, the report must not judge it`).not.toContain(category)
+      expect(fixed, `${category} depends on preparation \u2014 it has no fixed answer`).not.toContain(category)
     }
+    // The form saves the answer under this key; the report reads the same key.
+    expect(rd(FORM)).toContain('is_immediate_consumption: isImmediateConsumption,')
+    expect(fn).toMatch(/\.is_immediate_consumption\b/)
+    expect(fn).toContain("typeof saved === 'boolean' ? saved : null")
+    expect(fn).toMatch(/if \(readyToEat === null\) return null/)
+    expect(fn).toMatch(/return readyToEat\s*\?\s*\{ expected: true,[\s\S]*?\n\s*:\s*\{ expected: false,/)
   })
 
   it('food trucks: the form forces taxable and the report expects taxable', () => {

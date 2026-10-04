@@ -13,6 +13,7 @@
 import { randomBytes } from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendNotification } from '@/lib/notifications/service'
+import { adminRecipientsForVertical } from '@/lib/notifications/admin-recipients'
 import { scoreVendorMatch, type VendorMatchInput } from './viability'
 import { term } from '@/lib/vertical/terminology'
 import { observed } from '@/lib/errors'
@@ -165,6 +166,34 @@ export async function approveEventRequest(
   if (scheduleError) {
     console.error('[event-actions] Failed to create market schedule:', scheduleError)
     return { success: false, error: 'Failed to create market schedule' }
+  }
+
+  // Sales tax (owner 2026-10-03): the market created above is brand new, so it
+  // has no Texas tax codes — and the checkout tax engine refuses taxable items
+  // at a location without verified codes (every food-truck item is taxable).
+  // Nothing else tells the admins: the "tax codes needed" alert was only sent
+  // when a vendor attaches a listing to a regular market, and event menus go
+  // on sale by another path. Tell them now, at approval, when there is the
+  // most time before attendees order. Both approval paths (self-service and
+  // admin) run through this function, so this is the one place. The codes
+  // card accepts Texas markets only, so a non-Texas event is not alerted.
+  // Additive + non-throwing: a notification problem never fails an approval.
+  const eventState = (request.state || '').trim().toUpperCase()
+  if (!eventState || eventState === 'TX' || eventState === 'TEXAS') {
+    try {
+      const admins = await adminRecipientsForVertical(serviceClient, request.vertical_id)
+      for (const adminId of admins) {
+        await sendNotification(adminId, 'tax_codes_needed_admin', {
+          marketName: eventName,
+          marketId: market.id as string,
+          eventDate: request.event_date,
+          vertical: request.vertical_id,
+          dedupRef: market.id as string,
+        }, { vertical: request.vertical_id })
+      }
+    } catch (notifyErr) {
+      console.error('[event-actions] tax_codes_needed_admin fan-out failed:', notifyErr)
+    }
   }
 
   // Generate access code for company-paid and hybrid events

@@ -773,6 +773,18 @@ WHY THIS ORDER: step 4 deliberately makes the rate quarter stale and then restor
     Expect: a CSV with header "Vertical","Vendor","Listing ID","Listing","Category","Flag Now","Expected","Rule" whose
     last row starts TOTAL and reads "N listing(s) whose flag disagrees with the category rule…"; every listed row's
     Flag Now differs from Expected. Header + a "0 listing(s)…" TOTAL row is a PASS.
+    Then force one row (new 2026-10-03): as a farmers-market VENDOR, edit a PUBLISHED "Baked Goods" listing → leave
+    "Is this item sold as an individual serving for immediate consumption?" UNTICKED → tick the sales-tax box yourself
+    → Save. Download the report again.
+    Expect: that listing is now a row — Flag Now "taxable", Expected "exempt", and the Rule says the vendor answered it
+    is sold to take home. Untick the sales-tax box, Save, download again. Expect: the row is gone.
+
+10. (New 2026-10-03.) As an ORGANIZER, request a new self-service event on food_trucks WITH a full Texas address
+    (…/food_trucks/events → the request form) so it is approved straight away. Then as the PLATFORM ADMIN → the bell.
+    Expect: "Tax codes needed for a new event — [the event's name]". The text says the event was just approved, gives
+    its date, and tells you to enter the codes on the "Sales tax jurisdictions" card before attendees order. Tap it.
+    Expect: the markets admin page opens with THAT EVENT's edit form, and the "Sales tax jurisdictions" card is on it.
+    (An event approved by an admin from the Events admin page sends the same notice — check it if you approve one.)
 
 
 
@@ -878,7 +890,7 @@ W10 1→TR-010 · 2→TR-001 TR-005 · 3–5→TR-002 TR-003
 W11 1→TR-022 TR-064 · 2→TR-022 TR-064 · 3→TR-022 · 4→TR-065 · 5→TR-066 · 6→TR-067 · 7→TR-068 · 8→TR-026
     · 9→TR-025 · 10a→TR-023 · 10b→TR-024 · 10c→TR-030 · 10d→TR-032 · 10e→TR-033 · 10f→TR-035 · 10g→TR-141
 W12 1→TR-041 · 2→TR-041
-W13 1→TR-112 · 2→TR-110 · 3→TR-110 · 4→TR-110 TR-112 · 5→TR-111 · 6→TR-113 · 7→TR-114 · 8→TR-115 · 9→TR-132
+W13 1→TR-112 · 2→TR-110 · 3→TR-110 · 4→TR-110 TR-112 · 5→TR-111 · 6→TR-113 · 7→TR-114 · 8→TR-115 · 9→TR-132 · 10→TR-143
 W14 1–3→TR-129 · 4→TR-126 · 5→TR-126 (Q1) · 6→TR-126 · 7→TR-126 (dashboard full) · 8→TR-127 · 9→TR-127
     · 10→skipped (cron never runs on non-production; route-tested) · 12→TR-113 TR-130 · 13→TR-116
     (cents: $10.00 taxable at 8.25 % on the fee-inclusive base $10.65 → 67¢ + 21¢ = 88¢; full refund $11.68; 25 %-fee

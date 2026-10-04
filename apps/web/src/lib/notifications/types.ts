@@ -1255,9 +1255,16 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     urgency: 'standard',
     severity: 'warning',
     audience: 'admin',
-    title: (d) => `Tax codes needed at ${d.marketName || 'a market'} — a vendor is waiting`,
-    message: (d) =>
-      `${d.vendorName || 'A vendor'} added ${d.itemTitle ? `"${d.itemTitle}"` : 'a taxable item'} at ${d.marketName || 'a location'}, which does not have its Texas sales-tax codes entered and verified yet. Until you enter them on the market's Sales tax jurisdictions card, buyers cannot check out with taxable items there. The vendor has been told it may take a little while.`,
+    // Two senders, one type. A NEW EVENT (lib/events/event-actions.ts
+    // approveEventRequest — every event creates a fresh market with no codes)
+    // passes `eventDate` and gets the event wording; the vendor listing-attach
+    // route passes none and keeps the "a vendor is waiting" wording.
+    title: (d) => d.eventDate
+      ? `Tax codes needed for a new event — ${d.marketName || 'an event'}`
+      : `Tax codes needed at ${d.marketName || 'a market'} — a vendor is waiting`,
+    message: (d) => d.eventDate
+      ? `${d.marketName || 'A new event'} (${d.eventDate}) was just approved. Every event gets its own location in the app, and this one does not have its Texas sales-tax codes yet. Enter them on the market's Sales tax jurisdictions card before attendees start ordering — while sales tax is being collected, checkout refuses taxable items at a location without verified codes, and at a food-truck event every item is taxable.`
+      : `${d.vendorName || 'A vendor'} added ${d.itemTitle ? `"${d.itemTitle}"` : 'a taxable item'} at ${d.marketName || 'a location'}, which does not have its Texas sales-tax codes entered and verified yet. Until you enter them on the market's Sales tax jurisdictions card, buyers cannot check out with taxable items there. The vendor has been told it may take a little while.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/admin/markets${d.marketId ? `?edit=${d.marketId}` : ''}`,
   },
 

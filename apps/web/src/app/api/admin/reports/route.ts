@@ -1848,7 +1848,11 @@ async function generateSubscriptionRevenue(supabase: ReturnType<typeof createSer
  * the listing form's own (ListingForm.tsx `getFmTaxStatus`, decision 2026-03-24):
  *   FM always taxable — Prepared Foods · Plants & Flowers · Health & Wellness · Art & Decor · Home & Functional
  *   FM always exempt  — Produce · Dairy & Eggs · Pantry
- *   FM depends on preparation (never flagged) — Meat & Poultry · Baked Goods; unknown category → never flagged
+ *   FM depends on preparation — Meat & Poultry · Baked Goods: the vendor answers the form's
+ *     "sold ready to eat / for immediate consumption?" question (saved as
+ *     listing_data.is_immediate_consumption). Yes → taxable, no → exempt. The flag is judged
+ *     against THAT answer (owner 2026-10-03); a listing with no saved answer is never flagged.
+ *   Unknown category → never flagged
  *   FT — everything taxable (the form forces it)
  * The form LOCKS the box for the fixed categories, so a mismatch means the row
  * predates the rule, was edited around it, or the category changed later.
@@ -1857,17 +1861,26 @@ async function generateSubscriptionRevenue(supabase: ReturnType<typeof createSer
 async function generateTaxabilityAnomalies(supabase: ReturnType<typeof createServiceClient>, verticalId?: string) {
   const FM_TAXABLE = new Set(['Prepared Foods', 'Plants & Flowers', 'Health & Wellness', 'Art & Decor', 'Home & Functional'])
   const FM_EXEMPT = new Set(['Produce', 'Dairy & Eggs', 'Pantry'])
-  const expectedFor = (vertical: string | null, category: string | null): { expected: boolean; rule: string } | null => {
+  const FM_DEPENDS_ON_PREP = new Set(['Meat & Poultry', 'Baked Goods'])
+  // `readyToEat` = the vendor's saved answer to the form's immediate-consumption
+  // question; null when the listing has none on file (never judged).
+  const expectedFor = (vertical: string | null, category: string | null, readyToEat: boolean | null): { expected: boolean; rule: string } | null => {
     if (vertical === 'food_trucks') return { expected: true, rule: 'Food trucks: prepared food is always taxable' }
     if (!category) return null
     if (FM_TAXABLE.has(category)) return { expected: true, rule: `${category} is always taxable in Texas` }
     if (FM_EXEMPT.has(category)) return { expected: false, rule: `${category} is exempt when sold for home consumption` }
+    if (FM_DEPENDS_ON_PREP.has(category)) {
+      if (readyToEat === null) return null
+      return readyToEat
+        ? { expected: true, rule: `${category}: the vendor answered it is sold ready to eat — food for immediate consumption is taxable` }
+        : { expected: false, rule: `${category}: the vendor answered it is sold to take home — exempt` }
+    }
     return null
   }
 
   let query = supabase
     .from('listings')
-    .select('id, title, category, is_taxable, vertical_id, vendor_profile_id, vendor:vendor_profiles ( profile_data )')
+    .select('id, title, category, is_taxable, listing_data, vertical_id, vendor_profile_id, vendor:vendor_profiles ( profile_data )')
     .eq('status', 'published')
     .is('deleted_at', null)
   if (verticalId) query = query.eq('vertical_id', verticalId)
@@ -1876,7 +1889,8 @@ async function generateTaxabilityAnomalies(supabase: ReturnType<typeof createSer
 
   const rows: Record<string, unknown>[] = []
   for (const l of (listings || []) as Array<Record<string, unknown> & { vendor: { profile_data: Record<string, unknown> | null } | { profile_data: Record<string, unknown> | null }[] | null }>) {
-    const want = expectedFor(l.vertical_id as string | null, l.category as string | null)
+    const saved = (l.listing_data as Record<string, unknown> | null)?.is_immediate_consumption
+    const want = expectedFor(l.vertical_id as string | null, l.category as string | null, typeof saved === 'boolean' ? saved : null)
     if (!want || want.expected === !!l.is_taxable) continue
     const vendor = Array.isArray(l.vendor) ? l.vendor[0] : l.vendor
     const pd = vendor?.profile_data || {}
@@ -1892,7 +1906,7 @@ async function generateTaxabilityAnomalies(supabase: ReturnType<typeof createSer
     })
   }
   rows.sort((a, b) => String(a.vendor).localeCompare(String(b.vendor)) || String(a.title).localeCompare(String(b.title)))
-  rows.push({ vertical: 'TOTAL', vendor: '', listing_id: '', title: `${rows.length} listing(s) whose flag disagrees with the category rule (published, not deleted; conditional categories never listed)`, category: '', flag_now: '', expected: '', rule: '' })
+  rows.push({ vertical: 'TOTAL', vendor: '', listing_id: '', title: `${rows.length} listing(s) whose flag disagrees with the category rule (published, not deleted; Meat & Poultry and Baked Goods are judged against the vendor's own ready-to-eat answer)`, category: '', flag_now: '', expected: '', rule: '' })
 
   return toCSV(rows, [
     { key: 'vertical', label: 'Vertical' },
