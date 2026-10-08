@@ -1,5 +1,11 @@
 # Backlog
 
+## 🎨 CUSTOM ICON SET — owner's AI-drawn icons in `icons etc/` (parked 2026-10-08, owner: "something more pressing")
+Owner likes them "a lot more than the icons we currently have". Findings, the three options (A keep-drawings +
+technical fixes = recommended · B redraw to spec · C Claude cleans the PNGs), the paste-ready AI instructions and
+the app-side work are in `icons_research.md`. **Owner has not chosen an option.** Resume: owner picks → AI redoes
+files → extend `components/dashboard/icons.tsx` for image icons per vertical → update the spec docs.
+
 ## 🧪 TESTER W1/W2 ROUND — owner rulings 2026-09-25 (triage: `triage_2026-09-25_tester_W1W2.md`)
 - **(a) "Disconnect all listings from this market" — one action on the vendor Markets page** instead of editing every listing when leaving a market. Owner: "worth exploring". Open questions before design: what happens to open orders / pickup dates at that market, and whether it also ends the vendor's declared days and booth holds there.
 - **(g) Continue payment for an UNPAID SEASON purchase** (owner 2026-09-25: backlog). Same dead end the tester hit on one-off weeks (fixed as TR-118): `/[vertical]/vendor/bookings` shows an unpaid season group as "Pending payment" with no button (CancelSeasonButton renders only for PAID groups); release is Phase 18 of expire-orders (group-aware, Stripe-checked) — Prod-only, never on Staging. Design = the one-off pattern on `booth_booking_groups` (resume the SAME open session; expired → release via the existing `cancel_season_group` path). Money path — needs its own design read (book-season route, Phase 18, webhook season branch) before any build.

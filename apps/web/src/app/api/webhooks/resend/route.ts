@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { Webhook } from 'svix'
 import { withErrorTracing } from '@/lib/errors/with-error-tracing'
 import { sendNotification } from '@/lib/notifications'
+import { isPermanentBounce } from '@/lib/notifications/bounce'
 
 /**
  * POST /api/webhooks/resend
@@ -25,7 +26,11 @@ interface ResendWebhookPayload {
     // Bounce-specific
     bounce?: {
       message: string
-      type?: string // hard | soft
+      // Resend sends "Permanent" or "Temporary" (docs: webhooks/emails/bounced;
+      // a real Prod payload on 2026-10-08 carried "Permanent"). Older notes
+      // here said hard | soft — those values never arrive.
+      type?: string
+      subType?: string
     }
     // Complaint-specific
     complaint?: {
@@ -126,7 +131,13 @@ export async function POST(request: NextRequest) {
     // for suppressed users (in_app keeps delivering). Soft bounces and
     // delivery delays are transient → never suppress. Cleared automatically
     // when the user changes their profile email, or manually by an admin.
-    const isHardBounce = eventType === 'email.bounced' && bounceType !== 'soft'
+    //
+    // A bounce is HARD only when Resend says so: type "Permanent" (or the
+    // legacy "hard"). Until 2026-10-08 the test was `!== 'soft'`, a value
+    // Resend never sends — so a "Temporary" bounce (full mailbox, server
+    // busy) would have suppressed the user. Unknown or missing type → not
+    // suppressed: a wrongly silenced user is the costlier mistake.
+    const isHardBounce = eventType === 'email.bounced' && isPermanentBounce(bounceType)
     const isComplaint = eventType === 'email.complained'
     if ((isHardBounce || isComplaint) && emailTo) {
       const reason = isComplaint ? 'complaint' : 'hard_bounce'

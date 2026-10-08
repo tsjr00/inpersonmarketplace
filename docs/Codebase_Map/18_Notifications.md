@@ -93,7 +93,8 @@ Cost note: the suppression check rides the existing prefetch, so it adds **zero 
 | `app/api/notifications/count/route.ts` | GET — unread badge count, index-served |
 | `app/api/notifications/read-all/route.ts` · `[id]/read/route.ts` | Mark all / mark one read |
 | `app/api/notifications/push/subscribe/route.ts` | Register / remove a Web Push subscription |
-| `app/api/webhooks/resend/route.ts` | Svix-verified Resend webhook; stores bounce events and writes the suppression stamp |
+| `app/api/webhooks/resend/route.ts` | Svix-verified Resend webhook; stores bounce events and writes the suppression stamp. ⚠ Must be registered in Resend at the BARE domain (`https://farmersmarketing.app/...`): `www.` answers every request with a 307 to the bare domain and webhook senders do not follow redirects — Resend disabled the endpoint for that on 2026-10-08; fixed in the Resend dashboard, verified with a `bounced@resend.dev` send (200, event stored, admin alert received) |
+| `lib/notifications/bounce.ts` | `isPermanentBounce` — a bounce is HARD only when Resend's `bounce.type` is "Permanent" (or legacy "hard"); "Temporary" / unknown / missing never suppress. Replaced the route's `!== 'soft'` test (2026-10-08), a value Resend never sends, under which a Temporary bounce would have suppressed the user. Pinned + route executed by `api/__tests__/resend-webhook-bounce.test.ts` (18 specs; proven red under the old rule) |
 | `components/notifications/NotificationBell.tsx` | Header bell + unread badge + dropdown |
 | `components/notifications/DashboardNotifications.tsx` | In-dashboard notification list |
 | `components/notifications/PushOptInCard.tsx` | Push-permission opt-in prompt |
