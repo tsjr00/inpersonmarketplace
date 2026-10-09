@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { colors, spacing, typography, radius, statusColors } from '@/lib/design-tokens'
-import { DASHBOARD_ICONS } from './icons'
+import DashboardIcon from './DashboardIcon'
 import type { NavDestination } from '@/lib/dashboard/nav-destinations'
 
 /** Width of the rail itself. */
@@ -86,7 +86,6 @@ export default function DashboardNav({ destinations }: { destinations: NavDestin
       >
         <div style={{ display: 'flex', alignItems: 'stretch', justifyContent: 'space-around' }}>
           {destinations.map((d) => {
-            const Icon = DASHBOARD_ICONS[d.icon]
             const active = isActive(d.href)
             return (
               <Link
@@ -117,7 +116,7 @@ export default function DashboardNav({ destinations }: { destinations: NavDestin
                   borderTop: `3px solid ${active ? colors.primary : 'transparent'}`,
                 }}
               >
-                <Icon size={20} strokeWidth={active ? 2.25 : 1.75} aria-hidden />
+                <DashboardIcon name={d.icon} size={20} variant="small" strokeWidth={active ? 2.25 : 1.75} />
                 <span style={{ fontSize: typography.sizes.xs }}>{d.label}</span>
               </Link>
             )
@@ -159,7 +158,6 @@ export default function DashboardNav({ destinations }: { destinations: NavDestin
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {destinations.map((d) => {
-            const Icon = DASHBOARD_ICONS[d.icon]
             const active = isActive(d.href)
             return (
               <Link
@@ -180,7 +178,7 @@ export default function DashboardNav({ destinations }: { destinations: NavDestin
                   fontWeight: active ? typography.weights.semibold : typography.weights.normal,
                 }}
               >
-                <Icon size={18} strokeWidth={active ? 2.25 : 1.75} aria-hidden />
+                <DashboardIcon name={d.icon} size={18} variant="small" strokeWidth={active ? 2.25 : 1.75} />
                 <span>{d.label}</span>
               </Link>
             )

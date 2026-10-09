@@ -113,7 +113,7 @@ Each domain file was verified against the code at the commit shown. A stamp far 
 | 19_Admin.md | 2026-10-03 | c939ea04 |
 | 20_Buyer_Public.md | 2026-09-13 | 3f6b61ce |
 | 21_Lib_Reference.md | 2026-09-26 | 70eff4b6 |
-| 22_Components_UI.md | 2026-07-18 | b9f82116 |
+| 22_Components_UI.md | 2026-10-09 | 640ef8af |
 | 23_Test_Suites.md | 2026-07-18 | b9f82116 |
 
 **Bootstrap note:** this map was created 2026-07-18 against a frozen, fully-reviewed tree (the seven-day pre-relaunch review had just closed), so every domain starts from a verified baseline rather than an accumulated guess.

@@ -3851,6 +3851,8 @@ describe('Company-paid event ordering is switched off', () => {
 describe('Approval never fails on a schedule conflict elsewhere (mig 262)', () => {
   const rd = (p: string) => fs.readFileSync(path.join(SRC_DIR, p), 'utf-8')
   const MIG = path.resolve(SRC_DIR, '../../../supabase/migrations/20261009_262_approval_skips_conflicting_days.sql')
+  // Git normalises the migration file to CRLF on checkout; compare on LF.
+  const migText = () => fs.readFileSync(MIG, 'utf-8').replace(/\r\n/g, '\n')
   const fnBody = (sql: string, name: string) => {
     const start = sql.indexOf(`FUNCTION public.${name}()`)
     expect(start, `${name} missing from mig 262`).toBeGreaterThan(-1)
@@ -3859,13 +3861,13 @@ describe('Approval never fails on a schedule conflict elsewhere (mig 262)', () =
   }
 
   it('the conflict rule raises with its own SQLSTATE P0020 and an unchanged message', () => {
-    const body = fnBody(fs.readFileSync(MIG, 'utf-8'), 'check_vendor_schedule_conflict')
+    const body = fnBody(migText(), 'check_vendor_schedule_conflict')
     expect(body).toContain("USING ERRCODE = 'P0020'")
     expect(body).toContain("RAISE EXCEPTION 'Schedule conflict: overlapping times with \"%\" on the same day.")
   })
 
   it('all three auto-create functions insert one row at a time and skip ONLY P0020', () => {
-    const sql = fs.readFileSync(MIG, 'utf-8')
+    const sql = migText()
     for (const name of ['auto_create_vendor_schedules', 'auto_create_vendor_schedules_insert', 'auto_add_schedule_to_vendors']) {
       const body = fnBody(sql, name)
       expect(body, name).toMatch(/LOOP\s+BEGIN\s+INSERT INTO vendor_market_schedules/)
@@ -3876,7 +3878,7 @@ describe('Approval never fails on a schedule conflict elsewhere (mig 262)', () =
   })
 
   it('food trucks stay out of approval auto-create (both approval-side functions keep the early return)', () => {
-    const sql = fs.readFileSync(MIG, 'utf-8')
+    const sql = migText()
     for (const name of ['auto_create_vendor_schedules', 'auto_create_vendor_schedules_insert']) {
       expect(fnBody(sql, name)).toContain("vertical_id = 'food_trucks') THEN\n      RETURN NEW;")
     }

@@ -506,6 +506,14 @@ All steps happen on Amarillo's manager dashboard unless a step says otherwise.
     Expect: refused with "Schedule conflict: overlapping times with "A" on the same day…" — the rule itself still
     holds; only the approval no longer fails on it.
 
+ 9. (New 2026-10-09 — the owner's drawn icons.) On this dashboard and then the vendor dashboard and the shopper
+    dashboard, on BOTH verticals, look at the tiles and the bottom bar (phone) or left rail (laptop).
+    Expect: the park / booth, locations, listings or menu, vendor and events tiles show the new line drawings in the
+    brand colour, larger than before; orders, analytics, reviews and the rest keep their old simple glyphs; the bottom
+    bar / rail shows the simplified drawings. Add "?icons=library" to the end of the page address and reload.
+    Expect: every icon is back to the old glyphs, and stays that way as you move between dashboards. Add
+    "?icons=custom" to go back. Note anything that looks wrong at either size — this step is for your eyes.
+
 
 
 ==================================================
@@ -899,7 +907,7 @@ W3  1→TR-119 · 2→TR-083 TR-086 · 3→TR-117 · 4→TR-119 TR-084 TR-133(FM
     · 11→TR-118 TR-088(part 1) TR-082 · 12→TR-088(part 2)
 W4  1→TR-122 · 2→TR-079 (setup) · 3→TR-122 TR-079 · 4→TR-079 · 5→TR-079 · 6→TR-079 · 7→(W5 closes it)
 W5  1→TR-091 TR-099 · 2→TR-091 · 3→TR-091 · 4→TR-092 · 5→TR-122
-W6  1→TR-105 TR-106 · 2→TR-101 · 3→TR-101 TR-108 TR-120 · 4→TR-108 TR-120 · 5→TR-120 · 6→TR-124 · 7→TR-090 · 8→TR-145
+W6  1→TR-105 TR-106 · 2→TR-101 · 3→TR-101 TR-108 TR-120 · 4→TR-108 TR-120 · 5→TR-120 · 6→TR-124 · 7→TR-090 · 8→TR-145 · 9→TR-146
 W7  1→TR-069 · 2→TR-044 · 3→TR-044 · 4→TR-123
 W8  1→TR-096 (boxes half) · 2→TR-094 (two FM questions)
 W9  1→TR-015 TR-125 · 2→TR-125 · 3→TR-014

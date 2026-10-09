@@ -218,3 +218,11 @@ a {
   box-shadow: var(--shadow-lg);
   transform: translateY(-2px);
 }
+
+/* Custom-icons overlay (components/dashboard/custom-icons.ts, 2026-10-09).
+   Both renderings of a dashboard icon are in the DOM; the wrapper's
+   data-icon-set picks one. The per-vertical variables (--dash-icon-<name>-has /
+   -lib) hide lucide only where a drawing exists for that vertical, so the
+   custom set never shows a blank square. `library` wins over the variables. */
+[data-icon-set="library"] .dash-icon-custom { display: none !important; }
+[data-icon-set="library"] .dash-icon-library { display: inline-block !important; }

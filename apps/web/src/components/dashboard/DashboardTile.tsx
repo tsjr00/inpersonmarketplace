@@ -2,7 +2,9 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows, statusColors } from '@/lib/design-tokens'
 import { DASHBOARD_STATES, type DashboardState } from './states'
-import { DASHBOARD_ICONS, ICON_SIZE, ICON_STROKE, type DashboardIconName } from './icons'
+import { ICON_SIZE, ICON_STROKE, type DashboardIconName } from './icons'
+import { CUSTOM_TILE_ICON_SIZE } from './custom-icons'
+import DashboardIcon from './DashboardIcon'
 
 /**
  * A TILE is a door: the whole surface is clickable and takes you somewhere else.
@@ -64,7 +66,6 @@ export default function DashboardTile({
   targetBlank = false,
 }: DashboardTileProps) {
   const s = DASHBOARD_STATES[state]
-  const Icon = DASHBOARD_ICONS[icon]
 
   // Titles and icons use ONE colour each, NOT the state colour. State reads
   // through background and border instead.
@@ -95,7 +96,9 @@ export default function DashboardTile({
       width: '100%',
     }}>
       <div style={{ marginBottom: spacing['2xs'], color: iconColor, lineHeight: 0 }}>
-        <Icon size={ICON_SIZE} strokeWidth={ICON_STROKE} aria-hidden />
+        {/* Custom-icons overlay (2026-10-09): lucide at ICON_SIZE, the drawn
+            icon at CUSTOM_TILE_ICON_SIZE; which one shows is CSS (custom-icons.ts). */}
+        <DashboardIcon name={icon} size={ICON_SIZE} customSize={CUSTOM_TILE_ICON_SIZE} strokeWidth={ICON_STROKE} />
       </div>
       <h3 style={{
         color: titleColor,

@@ -1,4 +1,11 @@
-# Custom icon set — findings, options, AI instructions (2026-10-04 · parked 2026-10-08)
+# Custom icon set — findings, options, AI instructions (2026-10-04 · parked 2026-10-08 · BUILT 2026-10-09)
+
+## ▶ STATUS 2026-10-09 — option A built as an OVERLAY (owner: keep the library icons as backup, add the new ones to see how they look)
+- Files: `icons etc/final/` = 19 masters (10 originals centred + renamed, 6 small versions, Manager, 2 event icons) + review sheet; app copies at `apps/web/public/icons/custom/` (192 px, 159 KB total). The AI's third delivery (`100926 - 3`) was byte-identical to its second — nothing new.
+- Code: `components/dashboard/custom-icons.ts` (table per vertical, `DASHBOARD_ICON_SET='custom'`, `CUSTOM_TILE_ICON_SIZE=44`), `DashboardIcon.tsx` (both renderings, CSS mask in currentColor), `IconSetOverride.tsx` (staging `?icons=library|custom|default`), layout emits the per-vertical variables + `data-icon-set`, globals.css rules. 6 unit specs. TR-146 / printable W6 step 9.
+- STILL OWED FROM THE AI (follow-up prompt sent 2026-10-09): Manager_Icon_Small, both Event _Small, FoodTruck_EventManager_Icon (+_Small), FarmersMarket_EventManager_Icon_Small. Until then: events use the full drawing at small sizes; the manager destination keeps its lucide glyph (Manager_Icon is in `final/` but not yet mapped — the nav's `market-manager` destination uses the `locations` name).
+- NEXT after the owner looks on staging: tile size ruling (28 + small vs 44 + full) · map Manager_Icon to a nav name · rewrite the 4 spec docs to the kept style · event pages / landing / empty states.
+
 
 Owner: "I had an AI create these from my instructions … I like these a lot more than the icons we currently
 have." Files: repo root `icons etc/` (11 PNGs + 1 screenshot + 4 spec docs, all dated 2026-09-08).

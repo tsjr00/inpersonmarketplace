@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { HeaderWrapper } from '@/components/layout/HeaderWrapper'
 import { CartProviderWrapper } from '@/components/cart/CartProviderWrapper'
 import { getVerticalCSSVars } from '@/lib/design-tokens'
+import { customIconCssVars, DASHBOARD_ICON_SET } from '@/components/dashboard/custom-icons'
+import IconSetOverride from '@/components/dashboard/IconSetOverride'
 import { webSiteJsonLd } from '@/lib/marketing/json-ld'
 
 interface VerticalLayoutProps {
@@ -59,6 +61,11 @@ export default async function VerticalLayout({
 }: VerticalLayoutProps) {
   const { vertical } = await params
   const cssVars = getVerticalCSSVars(vertical)
+  // Custom-icons overlay (2026-10-09): the per-vertical drawn-icon files as CSS
+  // variables, read by DashboardIcon; `data-icon-set` is the switch. The
+  // staging override mounts only off production.
+  const iconVars = customIconCssVars(vertical)
+  const iconOverrideEnabled = process.env.VERCEL_ENV !== 'production'
   const meta = verticalMeta[vertical]
 
   const websiteSchema = meta ? webSiteJsonLd({
@@ -69,7 +76,8 @@ export default async function VerticalLayout({
 
   return (
     <CartProviderWrapper vertical={vertical}>
-      <div style={{ minHeight: '100vh', background: 'var(--color-surface-base)', ...cssVars } as React.CSSProperties}>
+      <div data-icon-set={DASHBOARD_ICON_SET} style={{ minHeight: '100vh', background: 'var(--color-surface-base)', ...cssVars, ...iconVars } as React.CSSProperties}>
+        {iconOverrideEnabled && <IconSetOverride />}
         {websiteSchema && (
           <script
             type="application/ld+json"
