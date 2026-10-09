@@ -1,5 +1,16 @@
 # Backlog
 
+## 🚫 FM APPROVAL FAILS ON A VENDOR'S SCHEDULE CONFLICT ELSEWHERE — option A, researched 2026-10-08, NOT built (owner: "more involved than I have time for now, but needs to be fixed right")
+Trace `mugcqpnz-n44s9t` (Staging 2026-09-25): manager approves an FM vendor → trigger auto-creates an active
+schedule row for EVERY market day → the conflict trigger (mig 253) refuses one day (vendor at River Road that
+weekday, no multi-location declaration) → the WHOLE approval rolls back; manager sees the vendor's rule text, owner
+gets an "unknown DB error" email. Same mechanism in TWO more triggers (vendor row inserted already approved; a
+MANAGER adding/reactivating a market day). **Mig 253 is Prod-PENDING — Prod cannot hit this until the catch-up
+lands it; fix must ship before or with 253 on Prod.** Full research, option A design sketch (one migration over
+three trigger functions skipping only the conflicting day + the route REPORTS the skipped day to the manager +
+P0001 error-mapping change + Dev integration test + docs), risks (mig 210/211/224 history, message-text coupling,
+listing-form silent drop) and the owed pre-reads/pre-checks: `approval_schedule_conflict_research.md`.
+
 ## 🎨 CUSTOM ICON SET — owner's AI-drawn icons in `icons etc/` (parked 2026-10-08, owner: "something more pressing")
 Owner likes them "a lot more than the icons we currently have". Findings, the three options (A keep-drawings +
 technical fixes = recommended · B redraw to spec · C Claude cleans the PNGs), the paste-ready AI instructions and
