@@ -3838,6 +3838,69 @@ describe('Company-paid event ordering is switched off', () => {
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Approval never fails on a vendor's schedule conflict elsewhere (mig 262)
+//
+// Owner 2026-10-09, option A. Approving a farmers-market vendor auto-creates
+// their schedule for every market day; a day refused by the conflict trigger
+// (own SQLSTATE P0020 since mig 262) is SKIPPED inside the trigger, never
+// rolled back — and because the trigger cannot report, the route tells the
+// manager and the vendor which day was skipped. These pin the SHAPE across the
+// migration text, the route, the notice and the manager's screen; the Dev
+// integration test (approval-conflict.integration.test.ts) runs the triggers.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('Approval never fails on a schedule conflict elsewhere (mig 262)', () => {
+  const rd = (p: string) => fs.readFileSync(path.join(SRC_DIR, p), 'utf-8')
+  const MIG = path.resolve(SRC_DIR, '../../../supabase/migrations/20261009_262_approval_skips_conflicting_days.sql')
+  const fnBody = (sql: string, name: string) => {
+    const start = sql.indexOf(`FUNCTION public.${name}()`)
+    expect(start, `${name} missing from mig 262`).toBeGreaterThan(-1)
+    const end = sql.indexOf('$function$;', start)
+    return sql.slice(start, end)
+  }
+
+  it('the conflict rule raises with its own SQLSTATE P0020 and an unchanged message', () => {
+    const body = fnBody(fs.readFileSync(MIG, 'utf-8'), 'check_vendor_schedule_conflict')
+    expect(body).toContain("USING ERRCODE = 'P0020'")
+    expect(body).toContain("RAISE EXCEPTION 'Schedule conflict: overlapping times with \"%\" on the same day.")
+  })
+
+  it('all three auto-create functions insert one row at a time and skip ONLY P0020', () => {
+    const sql = fs.readFileSync(MIG, 'utf-8')
+    for (const name of ['auto_create_vendor_schedules', 'auto_create_vendor_schedules_insert', 'auto_add_schedule_to_vendors']) {
+      const body = fnBody(sql, name)
+      expect(body, name).toMatch(/LOOP\s+BEGIN\s+INSERT INTO vendor_market_schedules/)
+      expect(body, name).toContain("EXCEPTION WHEN SQLSTATE 'P0020' THEN")
+      expect((body.match(/EXCEPTION WHEN/g) ?? []).length, `${name}: exactly one handler`).toBe(1)
+      expect(body, name).not.toMatch(/WHEN OTHERS/)
+    }
+  })
+
+  it('food trucks stay out of approval auto-create (both approval-side functions keep the early return)', () => {
+    const sql = fs.readFileSync(MIG, 'utf-8')
+    for (const name of ['auto_create_vendor_schedules', 'auto_create_vendor_schedules_insert']) {
+      expect(fnBody(sql, name)).toContain("vertical_id = 'food_trucks') THEN\n      RETURN NEW;")
+    }
+  })
+
+  it('the approval route reports the skipped days to the manager and the vendor, never for food trucks', () => {
+    const code = rd('app/api/market-manager/[marketId]/vendor-approval/route.ts')
+    expect(code).toContain("if (market?.vertical_id !== 'food_trucks') {")
+    expect(code).toContain('skippedDays = await findSkippedDays(serviceClient, marketId, vendorProfileId)')
+    expect(code).toContain("skippedDaysNote: vendorSkippedNote")
+    expect(code).toContain("skipped_days_note: skippedDaysSentence(skippedDays, 'manager')")
+    // The report follows a SUCCESSFUL approval — never computed on the error path.
+    expect(code.indexOf('findSkippedDays(serviceClient')).toBeGreaterThan(code.indexOf("throw traced.fromSupabase(error, { table: 'market_vendors', operation: 'update' })"))
+  })
+
+  it("the vendor's approval notice carries the skipped-day sentence and the manager's row shows it", () => {
+    expect(rd('lib/notifications/types.ts')).toContain('if (d.skippedDaysNote) parts.push(d.skippedDaysNote)')
+    const ui = rd('components/market-manager/VendorBoothList.tsx')
+    expect(ui).toContain("typeof data.skipped_days_note === 'string' ? data.skipped_days_note : ''")
+    expect(ui).toContain('{rowSuccess[v.vendor_profile_id] && rowSkipped[v.vendor_profile_id] && (')
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
 // No order is created outside checkout untaxed (tax go-live condition 3)
 //
 // Sales tax is computed in ONE place — /api/checkout/session, through the tax

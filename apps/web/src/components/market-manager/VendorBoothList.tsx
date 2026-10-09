@@ -113,6 +113,8 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [rowError, setRowError] = useState<Record<string, string>>({})
   const [rowSuccess, setRowSuccess] = useState<Record<string, boolean>>({})
+  // Mig 262: a day approval could not add (the vendor is at another market then) — shown under ✓ Approved.
+  const [rowSkipped, setRowSkipped] = useState<Record<string, string>>({})
   // Booth size tiers for this market — loaded once on mount; used to
   // populate the per-row tier <select>.
   const [tiers, setTiers] = useState<TierOption[]>([])
@@ -291,6 +293,7 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
     setApprovingId(vendorProfileId)
     setRowError((s) => ({ ...s, [vendorProfileId]: '' }))
     setRowSuccess((s) => ({ ...s, [vendorProfileId]: false }))
+    setRowSkipped((s) => ({ ...s, [vendorProfileId]: '' }))
     try {
       // BR-3: an FM approval carries the booth size + number the manager set in
       // the row's form (both optional) and the note to the vendor. Revoke and
@@ -316,6 +319,7 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
         setRowError((s) => ({ ...s, [vendorProfileId]: data.error || 'Approval update failed' }))
       } else {
         setRowSuccess((s) => ({ ...s, [vendorProfileId]: true }))
+        setRowSkipped((s) => ({ ...s, [vendorProfileId]: typeof data.skipped_days_note === 'string' ? data.skipped_days_note : '' }))
         setVendors((vs) =>
           (vs || []).map((v) =>
             v.vendor_profile_id === vendorProfileId
@@ -699,6 +703,11 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                   {rowSuccess[v.vendor_profile_id] && (
                     <span style={{ color: colors.primary, fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold }}>
                       ✓ Approved
+                    </span>
+                  )}
+                  {rowSuccess[v.vendor_profile_id] && rowSkipped[v.vendor_profile_id] && (
+                    <span role="status" style={{ display: 'block', flexBasis: '100%', color: '#a16207', fontSize: typography.sizes.xs, marginTop: 4 }}>
+                      {rowSkipped[v.vendor_profile_id]}
                     </span>
                   )}
                   {/* B3 — block a pending FT truck too (approve = vetted-good; block = vetted-bad). */}

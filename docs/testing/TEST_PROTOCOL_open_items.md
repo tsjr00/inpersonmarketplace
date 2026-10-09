@@ -493,6 +493,19 @@ All steps happen on Amarillo's manager dashboard unless a step says otherwise.
     Expect: "Your booth at Amarillo Community Market is now #<new> (was #7). The market manager moved you." Move it
     back to #7 afterwards. (Changing only the size, or approving with a first number, sends no extra message.)
 
+ 8. (New 2026-10-09 — needs migration 262 on staging first; skip if the owner says it is not applied.)
+    Check first: a VENDOR whose profile box "I can staff more than one location at the same time" is UNTICKED and who
+    is active at one market (call it A) on a weekday — say Saturday. A second market B (yours, as manager) runs that
+    same Saturday with overlapping hours plus at least one other day. The vendor has applied to B and is pending.
+    As the MANAGER of B: "Vendors at this market" → Approve the vendor.
+    Expect: the approval SUCCEEDS — "✓ Approved" and, under it, "Saturday (already at A that day) was not added: the
+    vendor is scheduled at another market at that time…". NO error on the row. As the VENDOR: the bell / inbox notice
+    "You're approved at B" ends with the same Saturday sentence and tells you to free the other schedule or tick the
+    profile box; your Markets page shows B with the other day(s) but NOT Saturday.
+    Then as the VENDOR, try to add Saturday at B yourself (Markets page → B → the Saturday toggle).
+    Expect: refused with "Schedule conflict: overlapping times with "A" on the same day…" — the rule itself still
+    holds; only the approval no longer fails on it.
+
 
 
 ==================================================
@@ -886,7 +899,7 @@ W3  1→TR-119 · 2→TR-083 TR-086 · 3→TR-117 · 4→TR-119 TR-084 TR-133(FM
     · 11→TR-118 TR-088(part 1) TR-082 · 12→TR-088(part 2)
 W4  1→TR-122 · 2→TR-079 (setup) · 3→TR-122 TR-079 · 4→TR-079 · 5→TR-079 · 6→TR-079 · 7→(W5 closes it)
 W5  1→TR-091 TR-099 · 2→TR-091 · 3→TR-091 · 4→TR-092 · 5→TR-122
-W6  1→TR-105 TR-106 · 2→TR-101 · 3→TR-101 TR-108 TR-120 · 4→TR-108 TR-120 · 5→TR-120 · 6→TR-124 · 7→TR-090
+W6  1→TR-105 TR-106 · 2→TR-101 · 3→TR-101 TR-108 TR-120 · 4→TR-108 TR-120 · 5→TR-120 · 6→TR-124 · 7→TR-090 · 8→TR-145
 W7  1→TR-069 · 2→TR-044 · 3→TR-044 · 4→TR-123
 W8  1→TR-096 (boxes half) · 2→TR-094 (two FM questions)
 W9  1→TR-015 TR-125 · 2→TR-125 · 3→TR-014

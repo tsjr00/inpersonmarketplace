@@ -4,6 +4,7 @@ import { isMarketManager } from '@/lib/markets/manager-auth'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing, traced, crumb, observed } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
+import { findSkippedDays, skippedDaysSentence, type SkippedDay } from '@/lib/markets/approval-skipped-days'
 
 /**
  * PATCH /api/market-manager/[marketId]/vendor-approval
@@ -182,6 +183,14 @@ export async function PATCH(
       )
     }
 
+    // Mig 262 (owner 2026-10-09): approval auto-creates the vendor's schedule
+    // for every active market day EXCEPT a day they are already scheduled at
+    // another market (the conflict trigger skips it instead of failing the
+    // approval). The trigger cannot report; this does — to the manager (row
+    // message) and the vendor (approval notice). Food trucks: approval creates
+    // no schedule (mig 210), so nothing to report there.
+    let skippedDays: SkippedDay[] = []
+
     // B-close-2 (2026-05-16): notify the vendor when their approval was
     // GRANTED (false → true). Silent on revoke (true → false) — revokes
     // are corrective actions the manager takes; no vendor-facing alert
@@ -202,6 +211,11 @@ export async function PATCH(
         .select('name, vertical_id')
         .eq('id', marketId)
         .maybeSingle(), { table: 'markets' })
+
+      if (market?.vertical_id !== 'food_trucks') {
+        skippedDays = await findSkippedDays(serviceClient, marketId, vendorProfileId)
+      }
+      const vendorSkippedNote = skippedDaysSentence(skippedDays, 'vendor')
 
       // Vendor email is in auth.users (not vendor_profiles.profile_data
       // reliably) — fetch separately for the email channel.
@@ -232,6 +246,8 @@ export async function PATCH(
             ...(sizeLabel ? { boothSizeLabel: sizeLabel } : {}),
             ...(data.booth_number ? { boothNumber: data.booth_number as string } : {}),
             ...(managerNote ? { managerNote } : {}),
+            // Mig 262: the day(s) approval could not add, and why.
+            ...(vendorSkippedNote ? { skippedDaysNote: vendorSkippedNote } : {}),
           },
           {
             vertical: (market?.vertical_id as string | undefined) || (vp.vertical_id as string | undefined) || 'farmers_market',
@@ -249,6 +265,10 @@ export async function PATCH(
       revoked_at: data.revoked_at ?? null,
       booth_number: (data.booth_number as string | null) ?? null,
       inventory_id: (data.inventory_id as string | null) ?? null,
+      // Mig 262: market days the approval could not give this vendor (conflict
+      // at another market); empty when every day was added.
+      skipped_days: skippedDays.map((s) => ({ day_of_week: s.dayOfWeek, day_name: s.dayName, elsewhere: s.elsewhere })),
+      skipped_days_note: skippedDaysSentence(skippedDays, 'manager'),
     })
   })
 }

@@ -407,6 +407,8 @@ export interface NotificationTemplateData {
   /** BR-3 (2026-09-19): the booth size tier the manager set at approval
    *  (market_booth_inventory.size_label). */
   boothSizeLabel?: string
+  // Mig 262: market day(s) an approval could not add (conflict elsewhere) — one sentence.
+  skippedDaysNote?: string
   /** BR-3: the manager's free-text note to the vendor at approval — why a
    *  different size than requested, where the booth is, etc. */
   managerNote?: string
@@ -908,6 +910,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
         )
       }
       if (d.managerNote) parts.push(`Note from the manager: ${d.managerNote}`)
+      if (d.skippedDaysNote) parts.push(d.skippedDaysNote)
       return parts.length > 0 ? `${base} ${parts.join(' ')}` : base
     },
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/markets`,

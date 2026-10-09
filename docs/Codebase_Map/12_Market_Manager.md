@@ -86,7 +86,7 @@ Shared with the park domain; FM is where it originated. Table: `booth_credits`. 
 | `[marketId]/documents/route.ts` · `[documentId]/route.ts` | Verification documents (≤3MB, typed); 1-hour signed URLs; delete is manager-only | No |
 | `[marketId]/optin/catalog/route.ts` · `selections/route.ts` | Read the curated statement catalog; PUT selections (delete-all + insert-all) | No |
 | `[marketId]/onboarding-acks/route.ts` | Acknowledgments that let a new market legitimately skip onboarding steps | No |
-| `[marketId]/vendors/route.ts` · `vendor-approval` · `vendor-invitations` · `vendor-booth` · `vendor-tier` | Vendor roster, approval toggle, bulk invitations, booth-number and size-tier assignment | No |
+| `[marketId]/vendors/route.ts` · `vendor-approval` · `vendor-invitations` · `vendor-booth` · `vendor-tier` | Vendor roster, approval toggle, bulk invitations, booth-number and size-tier assignment. **Mig 262 (2026-10-09):** approval no longer rolls back when the auto-created schedule hits the vendor's conflict at another market — the trigger skips that day; `vendor-approval` then returns `skipped_days` + `skipped_days_note` (manager's row) and adds `skippedDaysNote` to the vendor's approval notice | No |
 | `[marketId]/vendor-docs/[vendorProfileId]/route.ts` | Vendor verification docs, gated on the info-sharing consent statement in the acceptance snapshot | No |
 | `[marketId]/weekly-rental/[rentalId]/route.ts` | Per-week booth-number override | No |
 | `[marketId]/attendance/route.ts` | Vendor check-in/out rows for one market-local date | No |
@@ -130,6 +130,7 @@ Shared with the park domain; FM is where it originated. Table: `booth_credits`. 
 | `market-visibility.ts` · `visible-markets.ts` · `vendors-with-listings.ts` | The buyer-visibility gate (same vendor needs a published listing **and** an active schedule row, **and — at managed fee markets since 2026-09-18 — a paid current/upcoming booth week**) and its dashboard breakdown (`MarketVisibilityCard` names the extra clause when it applies). `vendors-with-listings` on an EVENT market lists ATTENDING vendors only (2026-09-17: accepted + not benched, and organizer-selected on self-service events — the public event page's rule); attendance is read with the service client (mig 226 closed public reads of `market_vendors` for event markets), so both callers pass one |
 | `market-audience.ts` | Resolves notify-target user IDs by audience tier (only `followers` wired today) |
 | `cancel-date-cascade.ts` ⚠ | The cancel-a-day engine — four paths, highest blast radius in the repo |
+| `approval-skipped-days.ts` | Mig 262: after an FM approval, which active market days the vendor got NO schedule row for (= skipped by the conflict trigger, P0020) and where they are instead that weekday; `skippedDaysSentence` for the manager's row and the vendor's notice. Pure core `computeSkippedDays` unit-tested; an inactive row is the vendor's own choice, never reported |
 
 ## UI
 

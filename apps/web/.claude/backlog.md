@@ -1,6 +1,6 @@
 # Backlog
 
-## 🚫 FM APPROVAL FAILS ON A VENDOR'S SCHEDULE CONFLICT ELSEWHERE — option A, researched 2026-10-08, NOT built (owner: "more involved than I have time for now, but needs to be fixed right")
+## ✅ FM APPROVAL FAILS ON A VENDOR'S SCHEDULE CONFLICT ELSEWHERE — option A BUILT 2026-10-09 (mig 262 + route + notice + manager row + Dev integration test + pins; TR-145). Remaining: owner applies 262 Dev → Staging (→ Prod with/after 253); tester W6 step 8. FOLLOW-UP TODO (owner 2026-10-09): map trigger refusals (P0001/P00xx) to a rule-refusal error class at the OTHER call sites so they stop emailing the owner as "unknown DB error" — separate change with its own blast-radius list (`supabase-errors.ts` is used by ~256 `fromSupabase` + ~1,011 `observed()` sites).
 Trace `mugcqpnz-n44s9t` (Staging 2026-09-25): manager approves an FM vendor → trigger auto-creates an active
 schedule row for EVERY market day → the conflict trigger (mig 253) refuses one day (vendor at River Road that
 weekday, no multi-location declaration) → the WHOLE approval rolls back; manager sees the vendor's rule text, owner
