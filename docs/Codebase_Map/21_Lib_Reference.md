@@ -186,7 +186,7 @@ New user-facing strings go through `t()`, not hardcoded literals — the shared 
   still at the OLD rate for a code a late file changed — same market, same quarter, sold before the correction was applied —
   at the new rate (per-line rounding as `computeItemTax`); returns the extra tax by code. Snapshots never edited. 12 tests
   (incl. Central-time periods). (2026-09-25)
-- `tax/readiness.ts` — `marketTaxReadiness(marketTaxColumns)` → no_codes | unverified | stale | ready: the ONE
+- `tax/readiness.ts` — `marketStateIsTexas(state)` (2026-10-09: exactly "TX" after trim/upper — the engine's test, now also the admin codes card's) · `marketTaxReadiness(marketTaxColumns)` → no_codes | unverified | stale | ready: the ONE
   answer to "would the engine tax a sale here today", mirroring the seam's three market guardrails in order.
   Consumed by the markets admin filter/chip, `api/vendor/market-stats` (→ the listing form's seller advisory,
   owner Q3 2026-09-24). Pure. (2026-09-24)

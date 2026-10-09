@@ -556,6 +556,15 @@ Amarillo.
     below." with a "Continue payment" button — NOT "Your assigned booth is already booked for that week…". Tap
     "Continue payment": the same Stripe page.
 
+ 5. (New 2026-10-09.) Check first: a farmers-market VENDOR whose profile box "I can staff more than one location at
+    the same time" is UNTICKED, active at market A on a weekday (say Saturday); a second market B that is NOT
+    manager-run (no manager, no booth fees), meets that same Saturday with overlapping hours plus one other day, and
+    is not yet on any of this vendor's listings.
+    As that VENDOR: create a listing (…/farmers_market/vendor/listings/new), tick B under "Available at", Save.
+    Expect: the listing saves and you land on its edit page with an amber note at the top beginning "Saved. This day
+    was not added: Saturday at B because you're already at A then." Open your Markets page: B shows its other day,
+    not Saturday. Then edit the listing and Save again. Expect: the listings page shows the same amber note once.
+
 
 
 ==================================================
@@ -811,6 +820,14 @@ WHY THIS ORDER: step 4 deliberately makes the rate quarter stale and then restor
     the notice instead reads "Taxable items cannot be sold at a new event — [the event's name]" and tells you to open
     the event's market, change State to TX and save, then enter the codes.
 
+11. (New 2026-10-09.) Markets admin (…/farmers_market/admin/markets) → edit any market → change State to "Texas"
+    (spelled out) → Save → on the "Sales tax jurisdictions" card press Search or paste codes → Save the card.
+    Expect: the card refuses: "This market's state reads "TEXAS". Sales tax is set up for Texas only, and the app
+    recognises a Texas location only when the state reads exactly TX. Change State to TX on the market form and
+    save, then enter the codes." Clear the State field entirely, Save, try the card again.
+    Expect: "This market has no state. Set State to TX on the market form and save, then enter the codes." Put the
+    State back to TX and Save — the card saves normally again.
+
 
 
 ==================================================
@@ -908,14 +925,14 @@ W3  1→TR-119 · 2→TR-083 TR-086 · 3→TR-117 · 4→TR-119 TR-084 TR-133(FM
 W4  1→TR-122 · 2→TR-079 (setup) · 3→TR-122 TR-079 · 4→TR-079 · 5→TR-079 · 6→TR-079 · 7→(W5 closes it)
 W5  1→TR-091 TR-099 · 2→TR-091 · 3→TR-091 · 4→TR-092 · 5→TR-122
 W6  1→TR-105 TR-106 · 2→TR-101 · 3→TR-101 TR-108 TR-120 · 4→TR-108 TR-120 · 5→TR-120 · 6→TR-124 · 7→TR-090 · 8→TR-145 · 9→TR-146
-W7  1→TR-069 · 2→TR-044 · 3→TR-044 · 4→TR-123
+W7  1→TR-069 · 2→TR-044 · 3→TR-044 · 4→TR-123 · 5→TR-147
 W8  1→TR-096 (boxes half) · 2→TR-094 (two FM questions)
 W9  1→TR-015 TR-125 · 2→TR-125 · 3→TR-014
 W10 1→TR-010 · 2→TR-001 TR-005 · 3–5→TR-002 TR-003
 W11 1→TR-022 TR-064 · 2→TR-022 TR-064 · 3→TR-022 · 4→TR-065 · 5→TR-066 · 6→TR-067 · 7→TR-068 · 8→TR-026
     · 9→TR-025 · 10a→TR-023 · 10b→TR-024 · 10c→TR-030 · 10d→TR-032 · 10e→TR-033 · 10f→TR-035 · 10g→TR-141
 W12 1→TR-041 · 2→TR-041
-W13 1→TR-112 · 2→TR-110 · 3→TR-110 · 4→TR-110 TR-112 · 5→TR-111 · 6→TR-113 · 7→TR-114 · 8→TR-115 · 9→TR-132 · 10→TR-143
+W13 1→TR-112 · 2→TR-110 · 3→TR-110 · 4→TR-110 TR-112 · 5→TR-111 · 6→TR-113 · 7→TR-114 · 8→TR-115 · 9→TR-132 · 10→TR-143 · 11→TR-148
 W14 1–3→TR-129 · 4→TR-126 · 5→TR-126 (Q1) · 6→TR-126 · 7→TR-126 (dashboard full) · 8→TR-127 · 9→TR-127
     · 10→skipped (cron never runs on non-production; route-tested) · 12→TR-113 TR-130 · 13→TR-116
     (cents: $10.00 taxable at 8.25 % on the fee-inclusive base $10.65 → 67¢ + 21¢ = 88¢; full refund $11.68; 25 %-fee

@@ -10,11 +10,12 @@ import { formatPrice, LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
 import { getTierLimits } from '@/lib/vendor-limits'
+import ScheduleNoticeBanner from '@/components/vendor/ScheduleNoticeBanner'
 import { deriveVendorAvailabilityStatus } from '@/lib/utils/availability-status'
 
 interface ListingsPageProps {
   params: Promise<{ vertical: string }>
-  searchParams: Promise<{ market?: string }>
+  searchParams: Promise<{ market?: string; schedule_note?: string }>
 }
 
 interface MarketSchedule {
@@ -187,7 +188,7 @@ function ListingCutoffStatusBadge({
 
 export default async function ListingsPage({ params, searchParams }: ListingsPageProps) {
   const { vertical } = await params
-  const { market: filterMarketId } = await searchParams
+  const { market: filterMarketId, schedule_note: scheduleNote } = await searchParams
   const supabase = await createClient()
 
   // Check auth + vertical membership
@@ -313,6 +314,9 @@ export default async function ListingsPage({ params, searchParams }: ListingsPag
           }}>
             {term(vertical, 'my_listings_nav')}
           </h1>
+
+          {/* A listing save that could not declare every market day (conflict elsewhere) says so here. */}
+          <ScheduleNoticeBanner notice={scheduleNote} />
 
           {/* Market Filter Indicator */}
           {filterMarketName && (

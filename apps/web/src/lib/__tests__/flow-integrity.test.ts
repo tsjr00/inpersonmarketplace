@@ -3903,6 +3903,39 @@ describe('Approval never fails on a schedule conflict elsewhere (mig 262)', () =
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
+// A listing save never silently drops a market day (owner 2026-10-09)
+//
+// Saving a listing at an unmanaged traditional market declares the vendor for
+// every active day there. One batch upsert used to fail as a whole on the first
+// day the conflict trigger refused — every day dropped, nothing said. The form
+// now writes one day at a time, skips a refused day, and hands a one-line
+// notice to the page it redirects to (lib/vendor/listing-schedule-days.ts).
+// ─────────────────────────────────────────────────────────────────────────────
+describe('A listing save never silently drops a market day', () => {
+  const rd = (p: string) => fs.readFileSync(path.join(SRC_DIR, p), 'utf-8')
+  const FORM = 'app/[vertical]/vendor/listings/ListingForm.tsx'
+
+  it('the form writes market days one at a time and records a refused day instead of dropping the batch', () => {
+    const form = rd(FORM)
+    expect(form).toContain("select('id, market_id, day_of_week')")
+    expect(form).toMatch(/for \(const ms of allSchedules\) \{\s+const \{ error: dayError \} = await supabase\s+\.from\('vendor_market_schedules'\)\s+\.upsert\(\{/)
+    expect(form).toContain('if (isScheduleConflictError(dayError)) {')
+    expect(form).toContain('skippedDays.push({')
+    // No batch upsert of the whole entries array remains.
+    expect(form).not.toMatch(/\.upsert\(entries,/)
+  })
+
+  it('the notice rides the redirect to BOTH destinations, and both pages show it', () => {
+    const form = rd(FORM)
+    expect(form).toContain('const notice = skippedListingDaysNotice(skippedDays)')
+    expect(form).toContain('/edit${noticeQuery}`)')
+    expect(form).toContain('/vendor/listings${noticeQuery}`)')
+    expect(rd('app/[vertical]/vendor/listings/page.tsx')).toContain('<ScheduleNoticeBanner notice={scheduleNote} />')
+    expect(rd('app/[vertical]/vendor/listings/[listingId]/edit/page.tsx')).toContain('<ScheduleNoticeBanner notice={scheduleNote} />')
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
 // No order is created outside checkout untaxed (tax go-live condition 3)
 //
 // Sales tax is computed in ONE place — /api/checkout/session, through the tax

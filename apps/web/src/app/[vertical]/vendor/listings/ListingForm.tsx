@@ -9,6 +9,7 @@ import { CATEGORIES, FOOD_TRUCK_CATEGORIES, QUANTITY_UNITS } from '@/lib/constan
 import Link from 'next/link'
 import MarketSelector from '@/components/vendor/MarketSelector'
 import { ListingImageUpload, ListingImage } from '@/components/vendor/ListingImageUpload'
+import { conflictMarketName, isScheduleConflictError, skippedListingDaysNotice, SCHEDULE_NOTICE_PARAM, type SkippedListingDay } from '@/lib/vendor/listing-schedule-days'
 
 // Category descriptions to help vendors categorize their products
 const CATEGORY_DESCRIPTIONS: Record<string, string> = {
@@ -361,6 +362,10 @@ export default function ListingForm({
     const savedListingId = result.data?.id
 
     // Session 70: use the server endpoint which enforces the per-tier
+    // Market days the save could NOT declare (conflict elsewhere) — reported
+    // on the page we redirect to, never silently dropped (owner 2026-10-09).
+    const skippedDays: SkippedListingDay[] = []
+
     // traditional market cap. Fall back to direct insert only on 5xx.
     if (savedListingId && selectedMarketIds.length > 0) {
       let marketAssignmentSucceeded = false
@@ -441,23 +446,38 @@ export default function ListingForm({
         // Batch fetch all schedules for selected traditional markets (avoids N+1)
         const { data: allSchedules } = await supabase
           .from('market_schedules')
-          .select('id, market_id')
+          .select('id, market_id, day_of_week')
           .in('market_id', traditionalIds)
           .eq('active', true)
 
         if (allSchedules && allSchedules.length > 0) {
-          const entries = allSchedules.map(ms => ({
-            vendor_profile_id: vendorProfileId,
-            market_id: ms.market_id,
-            schedule_id: ms.id,
-            is_active: true
-          }))
-          await supabase
-            .from('vendor_market_schedules')
-            .upsert(entries, {
-              onConflict: 'vendor_profile_id,schedule_id',
-              ignoreDuplicates: true
-            })
+          // ONE day per write (owner 2026-10-09; lib/vendor/listing-schedule-days.ts).
+          // A batch upsert failed as a whole on the first day the conflict trigger
+          // refused, silently dropping every day at that market. Now a refused day
+          // is skipped and the vendor is told on the page they land on.
+          for (const ms of allSchedules) {
+            const { error: dayError } = await supabase
+              .from('vendor_market_schedules')
+              .upsert({
+                vendor_profile_id: vendorProfileId,
+                market_id: ms.market_id,
+                schedule_id: ms.id,
+                is_active: true
+              }, {
+                onConflict: 'vendor_profile_id,schedule_id',
+                ignoreDuplicates: true
+              })
+            if (!dayError) continue
+            if (isScheduleConflictError(dayError)) {
+              skippedDays.push({
+                marketName: marketData.find(m => m.id === ms.market_id)?.name || 'a market',
+                dayOfWeek: ms.day_of_week as number,
+                conflictWith: conflictMarketName(dayError.message),
+              })
+            } else {
+              console.warn('[ListingForm] could not declare a market day:', dayError.message)
+            }
+          }
         }
       }
     }
@@ -493,10 +513,13 @@ export default function ListingForm({
     }
     // On create: redirect to edit page so vendor can immediately add images
     // On edit: redirect back to listings list
+    // A skipped market day rides along as ?schedule_note= — both destinations show it.
+    const notice = skippedListingDaysNotice(skippedDays)
+    const noticeQuery = notice ? `?${SCHEDULE_NOTICE_PARAM}=${encodeURIComponent(notice)}` : ''
     if (mode === 'create' && savedListingId) {
-      router.push(`/${vertical}/vendor/listings/${savedListingId}/edit`)
+      router.push(`/${vertical}/vendor/listings/${savedListingId}/edit${noticeQuery}`)
     } else {
-      router.push(`/${vertical}/vendor/listings`)
+      router.push(`/${vertical}/vendor/listings${noticeQuery}`)
     }
     router.refresh()
   }

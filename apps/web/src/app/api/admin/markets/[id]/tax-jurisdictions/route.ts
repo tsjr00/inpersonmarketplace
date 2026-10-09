@@ -11,6 +11,7 @@ import {
   type JurisdictionLevel,
 } from '@/lib/tax/jurisdictions'
 import { currentQuarterLabel, isRateVersionFresh } from '@/lib/tax/compute-cart-tax'
+import { marketStateIsTexas } from '@/lib/tax/readiness'
 
 /**
  * The tax engine treats `markets.tax_rate_version` as FRESH only when it
@@ -202,9 +203,19 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     // Guardrail: these are TEXAS jurisdictions. A market in another state must
     // never carry them — that would be silently wrong tax data, and the whole
     // rate model (6.25% state, 8.25% ceiling) is Texas-specific.
+    //
+    // 2026-10-09 (owner): the state must read exactly "TX" — the SAME test the
+    // checkout engine makes (compute-cart-tax.ts). This card used to accept
+    // "TEXAS" and a blank state, so an admin could save and verify codes for a
+    // market the engine would still refuse every taxable sale at. Prod and
+    // Staging had no such market when this tightened; Dev had one blank.
     const marketState = ((market.state as string | null) || '').trim().toUpperCase()
-    if (marketState && marketState !== 'TX' && marketState !== 'TEXAS') {
-      errors.push(`This market is in ${marketState}; only Texas jurisdictions are supported today.`)
+    if (!marketStateIsTexas(marketState)) {
+      errors.push(
+        marketState
+          ? `This market's state reads "${marketState}". Sales tax is set up for Texas only, and the app recognises a Texas location only when the state reads exactly TX. Change State to TX on the market form and save, then enter the codes.`
+          : 'This market has no state. Set State to TX on the market form and save, then enter the codes.'
+      )
     }
 
     // Rate version: blank → the current quarter (the Rate Locator shows current

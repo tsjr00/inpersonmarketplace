@@ -3,12 +3,15 @@ import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import { enforceVerticalAccess } from '@/lib/auth/vertical-gate'
 import ListingForm from '../../ListingForm'
+import ScheduleNoticeBanner from '@/components/vendor/ScheduleNoticeBanner'
 
 interface EditListingPageProps {
   params: Promise<{ vertical: string; listingId: string }>
+  searchParams: Promise<{ schedule_note?: string }>
 }
 
-export default async function EditListingPage({ params }: EditListingPageProps) {
+export default async function EditListingPage({ params, searchParams }: EditListingPageProps) {
+  const { schedule_note: scheduleNote } = await searchParams
   const { vertical, listingId } = await params
   const supabase = await createClient()
 
@@ -64,6 +67,9 @@ export default async function EditListingPage({ params }: EditListingPageProps) 
           Edit Listing
         </h1>
       </div>
+
+      {/* A create-save that could not declare every market day (conflict elsewhere) lands here with the notice. */}
+      <ScheduleNoticeBanner notice={scheduleNote} />
 
       <ListingForm
         vertical={vertical}

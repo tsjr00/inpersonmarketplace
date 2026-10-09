@@ -15,6 +15,17 @@ import { isRateVersionFresh } from './compute-cart-tax'
 
 export type TaxReadiness = 'no_codes' | 'unverified' | 'stale' | 'ready'
 
+/**
+ * The ONE spelling of Texas the tax engine accepts: `markets.state` trimmed and
+ * upper-cased must be exactly "TX" (compute-cart-tax.ts refuses anything else
+ * as not_texas — "Texas" spelled out and blank included). The admin codes card
+ * uses this same test since 2026-10-09 so it can never verify codes for a
+ * market the engine would refuse.
+ */
+export function marketStateIsTexas(state: string | null | undefined): boolean {
+  return (state || '').trim().toUpperCase() === 'TX'
+}
+
 export interface MarketTaxColumns {
   tax_jurisdictions?: unknown
   tax_jurisdiction_verified_at?: string | null
