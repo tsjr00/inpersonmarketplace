@@ -2,6 +2,7 @@ import {
   Package, PackageCheck, Calendar, MapPin, Tent, Receipt, ClipboardList,
   ShoppingBasket, Store, Truck, BarChart3, Star, Heart, Search,
   LayoutDashboard, FilePlus, Shield, Sparkles, Bell, MessageSquare,
+  UserCog, CalendarCheck,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -54,6 +55,12 @@ export const DASHBOARD_ICONS = {
   upgrade: Sparkles,
   notifications: Bell,
   feedback: MessageSquare,
+
+  // --- dashboard switcher (nav-destinations.ts), 2026-10-09 ---
+  // Own names so the drawn set (custom-icons.ts) can give the manager and the
+  // event manager their own pictures; these lucide glyphs are the fallback.
+  manager: UserCog,             // market manager / park operator (was `locations`)
+  eventManager: CalendarCheck,  // event organizer (was `events`)
 } satisfies Record<string, LucideIcon>
 
 export type DashboardIconName = keyof typeof DASHBOARD_ICONS

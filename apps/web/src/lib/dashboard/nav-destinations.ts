@@ -93,7 +93,7 @@ export async function getNavDestinations(
       key: 'market-manager',
       href: `/${vertical}/market-manager`,
       label: 'Markets',
-      icon: 'locations',
+      icon: 'manager',
     })
   }
 
@@ -102,7 +102,7 @@ export async function getNavDestinations(
       key: 'event-manager',
       href: `/${vertical}/event-manager`,
       label: 'Events',
-      icon: 'events',
+      icon: 'eventManager',
     })
   }
 

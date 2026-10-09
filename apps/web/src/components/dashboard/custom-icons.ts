@@ -64,8 +64,17 @@ export const CUSTOM_ICONS: Partial<Record<DashboardIconName, Partial<Record<Vert
     farmers_market: F('Market_Vendor_Icon'),
   },
   events: {
-    food_trucks: F('FoodTruck_Event_Icon'),
-    farmers_market: F('FarmersMarket_Event_Icon'),
+    food_trucks: F('FoodTruck_Event_Icon', 'FoodTruck_Event_Icon_Small'),
+    farmers_market: F('FarmersMarket_Event_Icon', 'FarmersMarket_Event_Icon_Small'),
+  },
+  // The dashboard switcher's own names (nav-destinations.ts).
+  manager: {
+    food_trucks: F('Manager_Icon', 'Manager_Icon_Small'),
+    farmers_market: F('Manager_Icon', 'Manager_Icon_Small'),
+  },
+  eventManager: {
+    food_trucks: F('FoodTruck_EventManager_Icon'),
+    farmers_market: F('FarmersMarket_EventManager_Icon'),
   },
 }
 
