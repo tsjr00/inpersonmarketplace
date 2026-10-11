@@ -71,7 +71,23 @@ export interface ParkWeekSchedule {
    *  not a manager-initiated invite). Surfaced once at the card header — NOT
    *  per day, since approval isn't date-scoped. */
   needingApproval: number
+  /** Of those, how many have a PAID booking inside this week's window — the
+   *  urgent subset the Action Items line names ("— N have already booked this
+   *  week"). TR-153 (owner 2026-10-10, option b): before this the line showed
+   *  `needingApproval` under that wording, claiming a booking it never counted. */
+  bookedNeedingApproval: number
   days: WeekDay[]
+}
+
+/** Pure: unapproved (non-invited) trucks that hold a PAID booking in the window. */
+export function countBookedNeedingApproval(
+  pendingVendorIds: Iterable<string>,
+  bookings: Array<{ vendor_profile_id: string; status: string }>
+): number {
+  const pending = new Set(pendingVendorIds)
+  const booked = new Set<string>()
+  for (const b of bookings) if (b.status === 'paid' && pending.has(b.vendor_profile_id)) booked.add(b.vendor_profile_id)
+  return booked.size
 }
 
 // ── Pure helpers ────────────────────────────────────────────────────────────
@@ -220,7 +236,7 @@ export async function getParkWeekSchedule(
     serviceClient.from('market_date_overrides').select('override_date')
       .eq('market_id', marketId).eq('status', 'cancelled').in('override_date', window),
     serviceClient.from('park_spots').select('id, label, active').eq('market_id', marketId),
-    serviceClient.from('market_vendors').select('response_status').eq('market_id', marketId).eq('approved', false),
+    serviceClient.from('market_vendors').select('vendor_profile_id, response_status').eq('market_id', marketId).eq('approved', false),
   ])
 
   const activeDows = new Set((schedRes.data ?? []).map((r) => r.day_of_week as number))
@@ -238,12 +254,14 @@ export async function getParkWeekSchedule(
   // Approval isn't date-scoped: count approved=false rows that aren't
   // manager-initiated invites (response_status='invited' is awaiting the
   // truck, not the operator). NULL response_status = a self-joined truck.
-  const needingApproval = (approvalRes.data ?? []).filter(
+  const pendingRows = (approvalRes.data ?? []).filter(
     (r) => (r.response_status as string | null) !== 'invited'
-  ).length
+  )
+  const needingApproval = pendingRows.length
+  const pendingVendorIds = pendingRows.map((r) => r.vendor_profile_id as string)
 
   if (dates.length === 0) {
-    return { spotsTotal, needingApproval, days: [] }
+    return { spotsTotal, needingApproval, bookedNeedingApproval: 0, days: [] }
   }
 
   const [bookingRes, standingRes] = await Promise.all([
@@ -294,5 +312,10 @@ export async function getParkWeekSchedule(
     for (const t of todayDay.trucks) t.checkedIn = present.has(t.vendorProfileId)
   }
 
-  return { spotsTotal, needingApproval, days }
+  return {
+    spotsTotal,
+    needingApproval,
+    bookedNeedingApproval: countBookedNeedingApproval(pendingVendorIds, bookings),
+    days,
+  }
 }

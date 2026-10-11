@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { term } from '@/lib/vertical/terminology'
@@ -115,6 +116,10 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
   const [rowSuccess, setRowSuccess] = useState<Record<string, boolean>>({})
   // Mig 262: a day approval could not add (the vendor is at another market then) — shown under ✓ Approved.
   const [rowSkipped, setRowSkipped] = useState<Record<string, string>>({})
+  // TR-152 (owner 2026-10-10): after an approval the server-rendered Action Items
+  // card re-renders instead of waiting for a manual reload. router.refresh()
+  // re-runs the page's server components; this list's own state is kept.
+  const router = useRouter()
   // Booth size tiers for this market — loaded once on mount; used to
   // populate the per-row tier <select>.
   const [tiers, setTiers] = useState<TierOption[]>([])
@@ -320,6 +325,7 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
       } else {
         setRowSuccess((s) => ({ ...s, [vendorProfileId]: true }))
         setRowSkipped((s) => ({ ...s, [vendorProfileId]: typeof data.skipped_days_note === 'string' ? data.skipped_days_note : '' }))
+        router.refresh()
         setVendors((vs) =>
           (vs || []).map((v) =>
             v.vendor_profile_id === vendorProfileId

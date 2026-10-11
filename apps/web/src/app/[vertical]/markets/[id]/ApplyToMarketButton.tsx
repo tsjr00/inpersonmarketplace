@@ -108,13 +108,20 @@ export default function ApplyToMarketButton({ marketId, vendorProfileId, vertica
         Apply to Market
       </h4>
 
-      {/* Owner 2026-09-07: tell the vendor what rides along + guide the
-          message. Their business profile goes with the application, so the
-          note should cover what the profile can't. */}
+      {/* Owner 2026-10-10 (tester OB-035, TR-149): the owner's words for food trucks;
+          the farmers-market variant swaps the manager's title and "sell here" → "set up
+          a booth". Their business profile goes with the application, so the note
+          should cover what the profile can't. */}
       <p style={{ margin: '0 0 10px 0', fontSize: 13, color: '#555', lineHeight: 1.45 }}>
-        Your business profile is shared with the market automatically — no need to repeat it.
-        Use this note for what the market can&apos;t see: what you&apos;d like to sell here,
-        which days you&apos;re hoping to attend, and anything that makes your booth a good fit.
+        {vertical === 'food_trucks'
+          ? <>Tell the food park manager why you want to set up &amp; sell here, why you are a good fit, what you
+              sell, which days you are available etc. Your business profile info will be shared with them as part
+              of the application so you don&apos;t need to repeat that part. This is your chance to tell them what
+              they don&apos;t know about you that you want them to know.</>
+          : <>Tell the market manager why you want to set up a booth here, why you are a good fit, what you sell
+              or make, which days you are available etc. Your business profile info will be shared with them as
+              part of the application so you don&apos;t need to repeat that part. This is your chance to tell them
+              what they don&apos;t know about you that you want them to know.</>}
       </p>
 
       <textarea
@@ -179,7 +186,9 @@ export default function ApplyToMarketButton({ marketId, vendorProfileId, vertica
         <span>
           <strong>Share my onboarding documents with this market&apos;s manager.</strong>{' '}
           Lets the manager review the licenses, permits and insurance you uploaded, so they can
-          approve you without asking for copies. Optional — you can apply without it.
+          approve you without asking for copies. Optional — you can apply without sharing documents now, but you
+          will need to arrange another time or method for the {vertical === 'food_trucks' ? 'park' : 'market'} manager
+          to review your necessary documents.
         </span>
       </label>
       {/* Owner 2026-09-19: say WHY, so the ask doesn't read as red tape. */}

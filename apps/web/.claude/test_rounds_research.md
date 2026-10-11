@@ -54,3 +54,9 @@ R4  1→TR-119 · 2→TR-083 TR-086 · 3→TR-117 · 4→TR-119 TR-084 TR-133(FM
 R5  1→TR-118 · 2→TR-118 · 3→TR-118 · 4→TR-119 · 5→TR-089 TR-072 TR-121 TR-075 (visibility branch)
 R6  1→(setup read) · 2→TR-044 · 3→TR-147 · 4→TR-145 · 5→TR-044 TR-145(rule intact)
 Not yet scheduled: TR-123 TR-090 TR-088 TR-082 (Amarillo holds → R7) · TR-069 (Pecan Creek → R7 or own) · TR-079 TR-122 TR-091 TR-092 TR-099 TR-040 (R8) · TR-014 TR-015 TR-125 TR-096 (R9) · TR-110–115 TR-132 TR-148 TR-143 TR-094 (R10) · events (R11) · TR-146 (R12) · bundles (R13) · TR-041 TR-116 (owner-triggered) · W14 (owner-gated).
+
+## Retest queue (owner 2026-10-10: passed items stay passed; fixes wait for a later round, compiled when asked)
+Passed, never retest: TR-133 TR-138 TR-071 TR-137 TR-043 TR-107 TR-140 TR-134 TR-135 TR-139. By-design: TR-155. Tracked only: TR-151.
+Queued (fixed-unverified, needs staging deploy first): TR-149 TR-150 (R1) · TR-152 TR-153 TR-154 (R2). Written as a RETEST QUEUE block
+at the bottom of ROUNDS.md; fold into the next FT-park round (R7 fits: same operator + trucks) when the owner asks.
+Still open from R1/R2 by sheet error → Round 7: TR-136 TR-109.

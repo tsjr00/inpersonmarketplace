@@ -3903,6 +3903,49 @@ describe('Approval never fails on a schedule conflict elsewhere (mig 262)', () =
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Tester round OB-035/036 fixes (owner 2026-10-10)
+// ─────────────────────────────────────────────────────────────────────────────
+describe('Tester round 2026-10-10 fixes', () => {
+  const rd = (p: string) => fs.readFileSync(path.join(SRC_DIR, p), 'utf-8')
+
+  it('TR-150: the duplicate-booking refusal never prefixes "Spot " to a label that already carries it', () => {
+    const route = rd('app/api/vendor/markets/[id]/book-park-spot/route.ts')
+    expect(route).not.toMatch(/`Spot \$\{spot\.label\}/)
+    expect(route).toContain("is already booked (or you already hold a spot) on ${which}. Adjust your dates.")
+  })
+
+  it("TR-149: the apply dialog carries the owner's wording per vertical and the document-sharing sentence", () => {
+    const dialog = rd('app/[vertical]/markets/[id]/ApplyToMarketButton.tsx')
+    expect(dialog).toContain('Tell the food park manager why you want to set up &amp; sell here')
+    expect(dialog).toContain('Tell the market manager why you want to set up a booth here')
+    expect(dialog).toContain('This is your chance to tell them what')
+    expect(dialog).toContain('Optional — you can apply without sharing documents now, but you')
+    expect(dialog).not.toContain('no need to repeat it')
+  })
+
+  it('TR-153: the Action Items "already booked this week" clause is fed by the real-booking count, not the pending count', () => {
+    const body = rd('components/market-manager/FtParkDashboardBody.tsx')
+    expect(body).toContain('trucksBookedNeedingApproval: parkWeek?.bookedNeedingApproval ?? 0')
+    expect(body).not.toContain('trucksBookedNeedingApproval: parkWeek?.needingApproval')
+    const sched = rd('lib/markets/park-week-schedule.ts')
+    expect(sched).toContain('bookedNeedingApproval: countBookedNeedingApproval(pendingVendorIds, bookings)')
+  })
+
+  it('TR-152: Action Items re-renders after an invitation is sent and after an approval (router.refresh)', () => {
+    const invite = rd('components/market-manager/InviteVendorBrowser.tsx')
+    const afterLoad = invite.slice(invite.indexOf('await load()'))
+    expect(afterLoad.slice(0, 250)).toContain('router.refresh()')
+    const roster = rd('components/market-manager/VendorBoothList.tsx')
+    const afterSkipped = roster.slice(roster.indexOf('setRowSkipped((s) => ({ ...s, [vendorProfileId]: typeof data.skipped_days_note'))
+    expect(afterSkipped.slice(0, 250)).toContain('router.refresh()')
+  })
+
+  it('TR-154: the vendor Markets page heading takes the brand colour like its sibling pages', () => {
+    expect(rd('app/[vertical]/vendor/markets/page.tsx')).toMatch(/<h1 style=\{\{ margin: 0, fontSize: 28, fontWeight: 'bold', color: colors\.primary \}\}>/)
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
 // A listing save never silently drops a market day (owner 2026-10-09)
 //
 // Saving a listing at an unmanaged traditional market declares the vendor for

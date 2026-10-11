@@ -117,3 +117,23 @@ describe('assembleParkWeekDays', () => {
     expect(anyGhost).toBe(false)
   })
 })
+
+// TR-153 (owner 2026-10-10, option b): the Action Items clause "— N have already
+// booked this week" counts PAID bookings in the window by trucks that are still
+// unapproved — never the plain pending count it used to show.
+import { countBookedNeedingApproval } from '../park-week-schedule'
+describe('countBookedNeedingApproval', () => {
+  const bookings = [
+    { vendor_profile_id: 'pending-1', status: 'paid' },
+    { vendor_profile_id: 'pending-1', status: 'paid' },           // two days, one truck
+    { vendor_profile_id: 'pending-2', status: 'pending_payment' }, // not paid → not urgent
+    { vendor_profile_id: 'approved-9', status: 'paid' },          // approved → not pending
+  ]
+  it('counts each unapproved truck with a paid booking once', () => {
+    expect(countBookedNeedingApproval(['pending-1', 'pending-2', 'pending-3'], bookings)).toBe(1)
+  })
+  it('a pending truck with no booking is NOT "already booked this week"', () => {
+    expect(countBookedNeedingApproval(['pending-3'], bookings)).toBe(0)
+    expect(countBookedNeedingApproval([], bookings)).toBe(0)
+  })
+})

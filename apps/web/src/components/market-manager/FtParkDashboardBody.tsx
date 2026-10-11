@@ -118,7 +118,7 @@ export default function FtParkDashboardBody({
         progress={onboardingProgress}
         stats={dashboardStats}
         setupComplete={parkSetupComplete}
-        ftSignals={{ trucksBookedNeedingApproval: parkWeek?.needingApproval ?? 0, holdRequests: pendingHoldRequests }}
+        ftSignals={{ trucksBookedNeedingApproval: parkWeek?.bookedNeedingApproval ?? 0, holdRequests: pendingHoldRequests }}
       />
       {/* OB-030 D5 (2026-09-25): "not visible to buyers" is bad news the manager
           must see — it sat inside Setup, which is collapsed once onboarding is

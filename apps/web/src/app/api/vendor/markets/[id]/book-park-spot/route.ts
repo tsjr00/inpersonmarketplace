@@ -487,7 +487,9 @@ export async function POST(
         const m = msg.match(/date=(\d{4}-\d{2}-\d{2})/)
         const which = m ? m[1] : 'one of those days'
         return NextResponse.json(
-          { error: `Spot ${spot.label} is already booked (or you already hold a spot) on ${which}. Adjust your dates.`, field: 'booking_dates' },
+          // TR-150: the label already reads "Spot 1" / "spot 1" — never prefix it (the other
+          // messages in this route use the label alone).
+          { error: `${(spot.label as string) || 'That spot'} is already booked (or you already hold a spot) on ${which}. Adjust your dates.`, field: 'booking_dates' },
           { status: 409 }
         )
       }

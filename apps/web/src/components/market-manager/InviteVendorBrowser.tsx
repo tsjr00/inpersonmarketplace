@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
 import DashboardCard from '@/components/dashboard/DashboardCard'
@@ -60,6 +61,7 @@ export default function InviteVendorBrowser({
   const [radiusMiles, setRadiusMiles] = useState<number>(DEFAULT_RADIUS)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [inviting, setInviting] = useState(false)
+  const router = useRouter()
   const [inviteFlash, setInviteFlash] = useState<string | null>(null)
 
   const load = useCallback(async () => {
@@ -148,6 +150,9 @@ export default function InviteVendorBrowser({
       setInviteFlash(msg)
       setSelectedIds(new Set())
       await load()
+      // TR-152 (owner 2026-10-10): Action Items (server-rendered) shows the new
+      // "invited … hasn't answered" line without a manual reload.
+      router.refresh()
     } catch {
       setInviteFlash('Network error sending invitations')
     } finally {

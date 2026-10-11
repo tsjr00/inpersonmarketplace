@@ -1,5 +1,6 @@
 STAGING TEST ROUNDS
-Written 2026-10-09 from the state of staging on that day (build fbf26467). One round = one sitting of about
+Written 2026-10-09 from the state of staging on that day (build fbf26467). Rounds 1–3 were reported on 2026-10-10
+(OB-035/036/037) and are kept below for reference; Round 7 redoes the two steps a sheet mistake made impossible. One round = one sitting of about
 20–30 minutes. Do the rounds in any order unless a round says "do this after Round N". Nothing needs setting
 up: every step names the account to use. Ask the owner for passwords.
 
@@ -27,30 +28,33 @@ WORDS
 ==================================================================================================
 ROUND 1 — A FOOD TRUCK JOINS A PARK AND ASKS FOR A WEEKLY SPOT   (Sixth Street Food Park · ~25 min)
 ==================================================================================================
+✅ DONE — reported 2026-10-10. Do not redo. Steps 1, 2, 3, 5 passed. Step 4 (the weekly hold) moved to Round 7.
+   Fixes built from this round, waiting in the RETEST QUEUE at the bottom: the apply-dialog wording, "Spot spot 1".
 You will use two trucks. Log out between them.
   Truck 4 Mojo ......... foodtrucknapp+truck4@gmail.com   (has never applied to Sixth Street)
   Smokestack BBQ ....... foodtrucknapp+truck2@gmail.com   (approved at Sixth Street, has never paid for a day there)
 
  1. Log in as Truck 4 Mojo. Open the Sixth Street Food Park page (Markets → Sixth Street Food Park).
-    You should see: a blue button "Apply now" next to the park's name. Tap it.
+    You should see: a red button "Apply now" next to the park's name (food-truck pages use red). Tap it.
     You should see: a form titled "Apply to Market" with a note box, the park's agreement and a tick box about
     sharing your documents. There is no "Booth size" question. Tick "I agree" and tap "Submit Application".
-    You should see: the page reloads and the blue button has become a small grey label "Applied".
+    You should see: the page reloads and the red button has become a small grey label "Applied".
     Then open your vendor dashboard and find the card "Locations & Schedule".
     You should see: the small button at the card's top-right says "Manage".
 
- 2. Log in as Smokestack BBQ. Open the Sixth Street page and tap the blue "Book now" button.
+ 2. Log in as Smokestack BBQ. Open the Sixth Street page and tap the red "Book now" button.
     You should see: the booking page, with two tabs: "Book a day" and "Weekly hold". Tap "Weekly hold" first.
     You should see: a dashed box saying "Weekly holds unlock after your first paid booking here. Book a day on the
     Book a day tab first…". That is correct — you have not paid for a day yet.
-    Now tap "Book a day". Pick any spot, choose "Single day", choose the FIRST Friday offered, tick the agreement
+    Now tap "Book a day". Pick SPOT A (the only spot that allows weekly holds), choose "Single day", choose the FIRST
+    Friday offered, tick the agreement
     and the compliance tick box, tap "Book & pay at Sixth Street Food Park", and pay with the test card.
-    You should see: you land on a page titled "My park bookings". Under the intro, a blue button "Book again at
+    You should see: you land on a page titled "My park bookings". Under the intro, a red button "Book again at
     Sixth Street Food Park →" and a link "Find another park →". Under "Upcoming", the Friday you paid for marked
     "Paid" with the amount. If it still says "Pending payment", wait a minute and reload.
     Write down the spot you picked and the Friday's date — Round 2 uses them.
 
- 3. Still as Smokestack BBQ: go back to the booking page, pick the SAME spot, and open the "Weekly hold" tab.
+ 3. Still as Smokestack BBQ: go back to the booking page, pick SPOT A again, and open the "Weekly hold" tab.
     You should see: the tab is now open — a box "Request a weekly hold" with "Day of week" and "Starting" dropdowns.
     Choose Friday, leave the start date as offered, tap "Request weekly hold".
     You should see: "✓ Requested — the park operator will review it."
@@ -71,6 +75,9 @@ That is the end of Round 1. Report, then Round 2 can run (same day or another da
 ==================================================================================================
 ROUND 2 — THE OPERATOR DEALS WITH THE TRUCKS   (Sixth Street Food Park · do this after Round 1 · ~20 min)
 ==================================================================================================
+✅ DONE — reported 2026-10-10. Do not redo. Steps 1, 2, 3, 5 passed (after a reload). Step 4 (held weekday) moved to Round 7.
+   Fixes built from this round, waiting in the RETEST QUEUE: Action Items updating by itself, the "has already booked" clause,
+   the red "My Locations" heading.
 Accounts:
   Park operator ........ foodtrucknapp+parkmgr1@gmail.com
   Drink Wagon .......... foodtrucknapp+truck9@gmail.com   (a truck the operator will invite)
@@ -80,7 +87,7 @@ Accounts:
  1. Log in as the park operator. Open the manager dashboard for Sixth Street Food Park. Scroll to the group
     "Your trucks", open the "Invite" tab, and invite Drink Wagon. Do NOT answer the invitation as Drink Wagon yet.
     Now scroll back up to the first card, "Action Items".
-    You should see: three lines, each with a link —
+    You should see (without reloading — the card updates by itself after the invitation): three lines, each with a link —
        "1 food truck pending your approval." with "Review →"                                  (Truck 4 Mojo)
        "1 invited food truck hasn't answered yet." with "See who →"                            (Drink Wagon)
        "1 recurring-hold request is waiting for your yes or no (Recurring holds tab)." with "Decide →" (Smokestack)
@@ -96,7 +103,7 @@ Accounts:
     "pending your approval" line is gone.
 
  3. Log in as Truck 4 Mojo. Open the Sixth Street page.
-    You should see: the grey "Applied" label is gone; a blue button "Book now" sits next to the park's name. Tap it.
+    You should see: the grey "Applied" label is gone; a red button "Book now" sits next to the park's name. Tap it.
     You should see: the booking page, titled "Book a spot at Sixth Street Food Park".
 
  4. Log in as Bao Down. Open the Sixth Street booking page, "Book a day", and pick the spot Smokestack BBQ chose
@@ -122,6 +129,7 @@ That is the end of Round 2.
 ==================================================================================================
 ROUND 3 — A SHOPPER ON THE FOOD-TRUCK MENU   (~15 min, any buyer login)
 ==================================================================================================
+✅ DONE — reported 2026-10-10. Do not redo. All five steps passed. "Food Trucks" in the Spanish menu stays as it is (owner).
 Account: any buyer login (ask the owner), or your own buyer account on staging.
 
  1. Open the food-truck menu (Browse; web address …/food_trucks/browse). Find a listing card from Fuego Street
@@ -139,8 +147,8 @@ Account: any buyer login (ask the owner), or your own buyer account on staging.
     You should see: the list ends with "+1 more location" when one is hidden, or "+N more locations" when several
     are. If no card is cut short, write "none were cut short" and move on.
 
- 4. Back on the menu, find a listing card WITH a red "Closed" pill (top-right of the card). Tap the truck's NAME
-    to open its profile and scroll down to its listings.
+ 4. Back on the menu, find a listing card WITH a red "Closed" pill (top-right of the card) and note the truck's name.
+    Open the "Food Trucks" page, open that truck's profile, and scroll down to its listings.
     You should see: the same red "Closed" pill on the same cards, top-right over the picture. Then open the
     profile of a truck whose cards had no pill: no pill there either.
 
@@ -292,12 +300,72 @@ That is the end of Round 6.
 
 
 ==================================================================================================
+ROUND 7 — THE WEEKLY HOLD, DONE RIGHT   (Sixth Street Food Park · ~20 min)
+==================================================================================================
+Round 1 sent Smokestack BBQ to a spot that does not allow weekly holds, so the hold was never requested. This round
+redoes just that part on Spot A, then lets the operator approve it and another truck run into it.
+Accounts: Smokestack BBQ (foodtrucknapp+truck2@gmail.com) · park operator (foodtrucknapp+parkmgr1@gmail.com) ·
+Bao Down (foodtrucknapp+truck3@gmail.com).
+
+ 1. Log in as Smokestack BBQ. Open the Sixth Street booking page (market page → "Book now"). Pick SPOT A, open
+    the "Weekly hold" tab.
+    You should see: because you have already paid for a day at this park, the tab is open — a box "Request a weekly
+    hold" with "Day of week" and "Starting" dropdowns. (If instead it says weekly holds unlock after your first paid
+    booking, write that down and stop — that would be a real finding.)
+    Choose Friday, leave the start date as offered, tap "Request weekly hold".
+    You should see: "✓ Requested — the park operator will review it."
+
+ 2. Still as Smokestack BBQ: open "My park bookings".
+    You should see: a section "Your weekly holds" with one row "Sixth Street Food Park · Spot A · every Friday" and
+    a yellow "Pending review" pill. Go back and request the same hold again (Spot A, Friday).
+    You should see: refused with a sentence beginning "You've already requested this spot on this day — it's pending
+    the operator's review."
+
+ 3. Log in as the park operator. Manager dashboard → reload the page → "Action Items".
+    You should see: a line "1 recurring-hold request is waiting for your yes or no (Recurring holds tab)." with
+    "Decide →". Open the "Recurring holds" tab (card "Recurring spot holds") and tap "Approve" on Smokestack BBQ's
+    Friday request. Reload the page.
+    You should see: that line is gone from Action Items.
+
+ 4. Log in as Bao Down. Open the Sixth Street booking page, "Book a day", and pick Spot A.
+    You should see: Spot A's card has the line "Held on Fridays — recurring truck"; in the day list every Friday is
+    greyed with "— held by a recurring truck"; under the list: "Held days open to other trucks only if the recurring
+    truck doesn't pay by the Thursday before." Now switch to "Prepay a week", pick a different spot, choose a week
+    that contains a Friday, switch the spot back to Spot A and tap "Book & pay…".
+    You should see: refused — "Spot A is held by a recurring truck on Fridays. It opens to other trucks only if they
+    don't pay by the <date> cutoff — check back after that, or pick another spot." Nothing is charged.
+
+ 5. Log in as Smokestack BBQ. Open the Markets page → the strip "Your next two weeks".
+    You should see: every Friday in the strip more than 7 days away shows Sixth Street Food Park with "Standing spot
+    hold — the pay-by window opens within 7 days of the date"; the Friday you paid for in Round 1 shows "booked" with
+    "Your standing hold".
+
+That is the end of Round 7.
+
+
+==================================================================================================
 COMING ROUNDS (written once the rounds above are reported)
 ==================================================================================================
-  Round 7  — Amarillo Community Market: the manager's dashboard, the week sheet, moving a held booth number.
-  Round 8  — Market 2 Test: a season, two vendors buy it, the manager cancels a market day and a paid week.
-  Round 9  — A shopper's market box (Sweet Rise Bakery's "wonk" box at Amarillo has one subscriber).
-  Round 10 — Platform admin: the sales-tax preparation tools and the two reports.
-  Round 11 — A fresh private event, start to shop.
-  Round 12 — The dashboards' new icons (any login; a look-and-tell round).
-  Round 13 — Market bundles (needs a fresh bundle with a future pickup date — the owner creates one).
+  Round 8  — Amarillo Community Market: the manager's dashboard, the week sheet, moving a held booth number.
+  Round 9  — Market 2 Test: a season, two vendors buy it, the manager cancels a market day and a paid week.
+  Round 10 — A shopper's market box (Sweet Rise Bakery's "wonk" box at Amarillo has one subscriber).
+  Round 11 — Platform admin: the sales-tax preparation tools and the two reports.
+  Round 12 — A fresh private event, start to shop.
+  Round 13 — The dashboards' new icons (any login; a look-and-tell round).
+  Round 14 — Market bundles (needs a fresh bundle with a future pickup date — the owner creates one).
+
+==================================================================================================
+RETEST QUEUE — fixes built after a round, to be folded into a later round (the owner says when to compile it)
+==================================================================================================
+Not a round yet. Each line becomes one step in a future round once the fix is on staging. Passed items are never retested.
+  From Round 1 (2026-10-10):
+    • Apply dialog wording — the note paragraph starts "Tell the food park manager why you want to set up & sell here…" and
+      the tick-box line ends "…for the park manager to review your necessary documents." (Truck 4 Mojo is now approved,
+      so use a truck that has never applied, e.g. Drink Wagon after declining, or any FM vendor for the market wording.)  [TR-149]
+    • Booking a spot and day you already hold refuses with "SPOT 1 is already booked…" — one "spot", not "Spot spot".  [TR-150]
+  From Round 2 (2026-10-10):
+    • Action Items updates by itself after "Sent 1 invitation" and after approving a truck — no reload.  [TR-152]
+    • The pending-approval line says "— N has already booked this week" only when a not-yet-approved truck really paid
+      for a day this week; otherwise the line is just "1 food truck pending your approval."  [TR-153]
+    • Vendor Markets page ("My Locations") heading is red on the food-truck site.  [TR-154]
+  Tracked, nothing to retest: page speed after applying / before Stripe (~3 s) — measured only, no change made.  [TR-151]

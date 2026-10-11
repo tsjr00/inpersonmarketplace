@@ -136,7 +136,9 @@ export default function VendorMarketsPage() {
           flexWrap: 'wrap',
           gap: 12
         }}>
-          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 'bold' }}>My {term(vertical, 'markets')}</h1>
+          {/* TR-154 (2026-10-10): brand colour like the dashboard and listings headings —
+              this h1 inherited the body text colour (olive on FM, charcoal on FT). */}
+          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 'bold', color: colors.primary }}>My {term(vertical, 'markets')}</h1>
           <Link
             href={`/${vertical}/vendor/dashboard`}
             style={{
