@@ -60,3 +60,9 @@ Passed, never retest: TR-133 TR-138 TR-071 TR-137 TR-043 TR-107 TR-140 TR-134 TR
 Queued (fixed-unverified, needs staging deploy first): TR-149 TR-150 (R1) · TR-152 TR-153 TR-154 (R2). Written as a RETEST QUEUE block
 at the bottom of ROUNDS.md; fold into the next FT-park round (R7 fits: same operator + trucks) when the owner asks.
 Still open from R1/R2 by sheet error → Round 7: TR-136 TR-109.
+
+## 2026-10-11 — Round 4 reported (OB-038)
+Passes: TR-119 TR-083 TR-086 TR-117 TR-084 (TR-133 FM again). Partial: TR-085 (notice text — Round 5 asks). Blocked on ruling: TR-087
+(approval trigger declares all active days at FM, mig 262:158-180 — Round 4 steps 5–6 were written against the wrong state; Round 6 already
+relied on the true one). Round 5 adjustments owed once ruled: direct URL for River Road's page (hidden from the list until a paid week,
+visible-markets.ts:67-84), the agreement tick before "Continue to payment" (BookBoothForm.tsx:487), ask the tester to read the bell message.

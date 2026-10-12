@@ -1,5 +1,10 @@
 # Backlog
 
+## 🗓️ VENDOR DAYS + BOOTH NUMBERS — unified rule DESIGNED 2026-10-11, NOTHING BUILT (owner: design session first) · spec `vendor_days_and_spots_design.md` · evidence `approval_days_rule_research.md`, `market_days_scenarios.md`
+Build list (§4 of the spec, in order): 1 mig 263 (one-day → record the day, else nothing; add-a-day trigger → no-op) · 2 approval-route notice branch · 3 listing save at unmanaged markets = same one-day rule · 4 `market_schedule_changed` copy · 5 free-market auto-assign at approval · 6 private-pickup overlap WARNING (two routes + one banner) · 7 provenance column on `vendor_market_schedules` (recommended) · 8 test rewrites (owner authorisation required) · 9 testing docs (TR-087 / TR-119 / Round 4 note).
+Open rulings before any build: §6 of the spec (rule sentence · T3 notice-only · FT early return · provenance now/later · test authorisation · free-market pin not frozen).
+Adjacent (same file §7): FT park page copy overstates the gate (book-then-vet) · manager-arrives-at-a-self-declared-market reconciliation · EVENTS PASS (multi-day attendance surfacing UNVERIFIED; event booth/spot numbers need an assigner role) · FT card "Set Schedule" Next at paid parks.
+
 ## ✅ FM APPROVAL FAILS ON A VENDOR'S SCHEDULE CONFLICT ELSEWHERE — option A BUILT 2026-10-09 (mig 262 + route + notice + manager row + Dev integration test + pins; TR-145). Remaining: owner applies 262 Dev → Staging (→ Prod with/after 253); tester W6 step 8. FOLLOW-UP TODO (owner 2026-10-09): map trigger refusals (P0001/P00xx) to a rule-refusal error class at the OTHER call sites so they stop emailing the owner as "unknown DB error" — separate change with its own blast-radius list (`supabase-errors.ts` is used by ~256 `fromSupabase` + ~1,011 `observed()` sites).
 Trace `mugcqpnz-n44s9t` (Staging 2026-09-25): manager approves an FM vendor → trigger auto-creates an active
 schedule row for EVERY market day → the conflict trigger (mig 253) refuses one day (vendor at River Road that

@@ -163,6 +163,11 @@ That is the end of Round 3.
 ==================================================================================================
 ROUND 4 — A FARMERS-MARKET VENDOR JOINS A MARKET THAT HAS A MANAGER   (River Road Farmers Market · ~30 min)
 ==================================================================================================
+✅ DONE — reported 2026-10-11. Do not redo. Steps 1–5 passed. Step 6: the sheet was wrong, not the app — at a farmers market
+   the manager's approval declares your market day for you (River Road = Saturday), so there is no "pick your days" box
+   and the card already reads "Manage Schedule ✓ · 3 NEXT: Book a Booth Space". Abuela's Kitchen is now approved at River
+   Road with Saturday declared and nothing paid — Round 5 starts there. River Road stays off the public Markets list until
+   a vendor there has paid for a week (by design); its page is …/farmers_market/markets/<River Road id>.
 Accounts:
   Abuela's Kitchen ..... farmersmarketingapp+cottagevendor2@gmail.com   (has never been at River Road)
   River Road manager ... farmersmarketingapp+marketmng1@gmail.com
