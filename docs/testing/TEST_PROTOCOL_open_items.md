@@ -22,6 +22,11 @@ Before every session: hard-refresh the page (Ctrl+F5 on Windows, Cmd+Shift+R on 
   the same "Closed" pill as the menu; survey emails come from the right brand.
   Run W1 (park) and W2 (buyer) first — they hold most of the new fixes.
 
+★ ADDED 2026-10-16 (Round 5 fixes — River Road booking page): the page after paying a week names your booth ("Your
+  booth is #6 · Small Tent. See you there."); once you hold a paid week the blue booth box says the number is yours
+  while you keep paying; and coming back from Stripe with the BROWSER's Back button now shows an amber "waiting for
+  payment" box above the Week dropdown with Continue payment. Steps W3 9 and W7 4 carry them.
+
 
 ==================================================
 HOW TO REPORT
@@ -330,7 +335,11 @@ Look first (write the answers down):
  9. As V4: open My Bookings (…/farmers_market/vendor/bookings).
     Expect: River Road's week shows "Pending payment" and a "Continue payment" button. Tap it and pay with the test
     card.
-    Expect: the confirmation shows a booth number.
+    Expect (2026-10-16): the "✓ Payment received" page says "Your booth is #<number> · <size>. See you there." — the
+    same number My Bookings shows. It must NOT say the manager will reach out with a booth number.
+    Then open River Road's booking page once more (market page → "Book now").
+    Expect (2026-10-16): the blue "Your booth at River Road Farmers Market" box ends "The number is yours while you keep
+    paying for weeks." — not "held for you … once you pay for a week".
 
 10. After paying:
     a. As V4, River Road's card on the Markets page: buttons 1–4 show ✓ and no button says NEXT.
@@ -550,8 +559,13 @@ Amarillo.
        Expect: the amber note is gone and the booking page lets you continue.
 
  4. As the vendor with a booth NUMBER held at Amarillo: Amarillo's booking page → choose a week → tick the agreement →
-    "Continue to payment" → leave Stripe with the browser's Back button. Choose the SAME week again → "Continue to
-    payment".
+    "Continue to payment" → leave Stripe with the browser's Back button (the browser's own button, not the ← link on
+    the Stripe page).
+    Expect (2026-10-16): the booking page comes back with an amber box above the Week dropdown — "You have a booking
+    for the week of <that week> waiting for payment — no charge was made yet…" — with a "Continue payment" button,
+    and the Week dropdown is already on that week. (Before this date the page came back blank with the first week
+    selected.)
+    Choose the SAME week again → "Continue to payment".
     Expect: a red box "You already started booking this week and it is waiting for payment. Continue the payment
     below." with a "Continue payment" button — NOT "Your assigned booth is already booked for that week…". Tap
     "Continue payment": the same Stripe page.
@@ -920,12 +934,12 @@ W1  1→TR-133 TR-138 · 2→TR-136(unlock rule) TR-137 · 3→TR-137 · 4→TR-
     · 7→TR-133 · 8→TR-109(regression only — passed 09-27) · 9→TR-140 · 10→TR-043 TR-137(Pay now) · 11→TR-133 · 12→TR-136
 W2  1→TR-134 · 2→TR-135 · 3→TR-134 · 4→TR-139 · 5→TR-134
 W3  1→TR-119 · 2→TR-083 TR-086 · 3→TR-117 · 4→TR-119 TR-084 TR-133(FM) TR-086 · 5→TR-119 TR-085 TR-133(FM)
-    · 6→TR-087 TR-086 TR-121 TR-075 · 7→TR-118 · 8→TR-118 · 9→TR-118 · 10→TR-119 TR-121 TR-075 TR-089 TR-072
+    · 6→TR-087 TR-086 TR-121 TR-075 · 7→TR-118 · 8→TR-118 · 9→TR-118 TR-156 TR-157 · 10→TR-119 TR-121 TR-075 TR-089 TR-072
     · 11→TR-118 TR-088(part 1) TR-082 · 12→TR-088(part 2)
 W4  1→TR-122 · 2→TR-079 (setup) · 3→TR-122 TR-079 · 4→TR-079 · 5→TR-079 · 6→TR-079 · 7→(W5 closes it)
 W5  1→TR-091 TR-099 · 2→TR-091 · 3→TR-091 · 4→TR-092 · 5→TR-122
 W6  1→TR-105 TR-106 · 2→TR-101 · 3→TR-101 TR-108 TR-120 · 4→TR-108 TR-120 · 5→TR-120 · 6→TR-124 · 7→TR-090 · 8→TR-145 · 9→TR-146
-W7  1→TR-069 · 2→TR-044 · 3→TR-044 · 4→TR-123 · 5→TR-147
+W7  1→TR-069 · 2→TR-044 · 3→TR-044 · 4→TR-123 TR-158 · 5→TR-147
 W8  1→TR-096 (boxes half) · 2→TR-094 (two FM questions)
 W9  1→TR-015 TR-125 · 2→TR-125 · 3→TR-014
 W10 1→TR-010 · 2→TR-001 TR-005 · 3–5→TR-002 TR-003

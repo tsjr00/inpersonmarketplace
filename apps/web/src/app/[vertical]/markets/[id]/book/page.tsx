@@ -8,6 +8,8 @@ import { getBoothMapUrl } from '@/lib/markets/booth-map'
 import SeasonBookingSection from '@/components/vendor/SeasonBookingSection'
 import { getVendorProfileForVertical } from '@/lib/vendor/getVendorProfile'
 import { checkBookingGates } from '@/lib/markets/booking-gates'
+import { getPaidWeekPairs, todayInZone } from '@/lib/markets/managed-fee-gate'
+import { observed } from '@/lib/errors'
 import DeclareDaysGate from '@/components/vendor/DeclareDaysGate'
 
 /**
@@ -22,9 +24,11 @@ import DeclareDaysGate from '@/components/vendor/DeclareDaysGate'
  *   - The day picker above a locked form (BR-13: no declared days here yet)
  *   - The booking form — size locked to the pin's tier when one exists (BR-4)
  *
- * No Stripe integration — the form's submit hits
- * /api/vendor/markets/[id]/book which writes a row with
- * status='pending_payment'. Stage 3 ships Stripe Checkout on top.
+ * The form's submit hits /api/vendor/markets/[id]/book, which writes the
+ * pending row and sends the vendor to Stripe Checkout (Stage 3). This page also
+ * loads what the form needs to speak plainly on return and on a plain load
+ * (OB-039): the booth just paid for, whether a paid week is on file, and any
+ * unpaid week still waiting for its payment page.
  */
 interface PageProps {
   params: Promise<{ vertical: string; id: string }>
@@ -297,6 +301,60 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
     .eq('market_id', marketId)
   const creditBalanceCents = (creditRows ?? []).reduce((sum, r) => sum + (r.amount_cents as number), 0)
 
+  // OB-039 (2026-10-16) — three facts the page did not have, so the form can
+  // say the right thing (TR-156/157/158). Nothing here touches money: reads only.
+  const marketTz = (market.timezone as string | null) || 'America/Chicago'
+
+  // TR-156: the booking Stripe just returned from. Looked up ONLY within this
+  // vendor's own rows — a UUID in the URL must never show another vendor's
+  // booth. The number is assigned when the booking starts (RPC), so it is
+  // already on the row; the paid notification has printed it since mig 144 and
+  // this page was the one surface still saying "the manager will reach out".
+  let returnBoothNumber: string | null = null
+  let returnSizeLabel: string | null = null
+  if (returnFlash === 'success' && returnRentalId) {
+    const { data: returnRental } = await observed(serviceClient
+      .from('weekly_booth_rentals')
+      .select('booth_number, inventory_id')
+      .eq('id', returnRentalId)
+      .eq('vendor_profile_id', profile.id)
+      .eq('market_id', marketId)
+      .maybeSingle(), { table: 'weekly_booth_rentals' })
+    returnBoothNumber = (returnRental?.booth_number as string | null) ?? null
+    returnSizeLabel = inventory.find((i) => i.id === (returnRental?.inventory_id as string | null))?.size_label ?? null
+  }
+
+  // TR-157: does this vendor hold a PAID current/upcoming week here? The SAME
+  // helper buyer visibility uses (managed-fee-gate), so "paid week" means one
+  // thing everywhere — 6-day lookback included. Decides whether the booth box
+  // says "held until you pay" or "yours while you keep paying".
+  const paidPairs = await getPaidWeekPairs(serviceClient, [marketId], todayInZone(marketTz))
+  const hasPaidWeek = paidPairs.has(`${marketId}|${profile.id}`)
+
+  // TR-158: a plain load (no ?session= — e.g. the BROWSER's Back button from
+  // Stripe, which never calls the cancel URL) must still tell the vendor about
+  // a week they already started. Only a one-off week that reached a Stripe
+  // page counts: season children belong to the group flow, and a row with no
+  // session id is an orphan the resume route refuses (the sweep frees it).
+  // Earliest such week; a second one still surfaces through the red
+  // "already started" box when picked.
+  let livePending: { id: string; weekStartDate: string } | null = null
+  if (!returnFlash) {
+    const { data: pendingRows } = await observed(serviceClient
+      .from('weekly_booth_rentals')
+      .select('id, week_start_date')
+      .eq('vendor_profile_id', profile.id)
+      .eq('market_id', marketId)
+      .eq('status', 'pending_payment')
+      .is('group_id', null)
+      .not('stripe_checkout_session_id', 'is', null)
+      .gte('week_start_date', weeks[0])
+      .order('week_start_date', { ascending: true })
+      .limit(1), { table: 'weekly_booth_rentals' })
+    const row = pendingRows?.[0]
+    if (row) livePending = { id: row.id as string, weekStartDate: row.week_start_date as string }
+  }
+
   // Booth map (mig 205) — tolerant read so this page renders pre-migration.
   const boothMapUrl = await getBoothMapUrl(serviceClient, marketId)
 
@@ -367,6 +425,10 @@ export default async function BookBoothPage({ params, searchParams }: PageProps)
         bookingBlockedReason={needsDeclaredDays ? `Pick at least one day you attend ${market.name} (above) to unlock booking.` : scheduleConflict}
         {...(returnFlash ? { returnFlash } : {})}
         returnRentalId={returnRentalId}
+        returnBoothNumber={returnBoothNumber}
+        returnSizeLabel={returnSizeLabel}
+        hasPaidWeek={hasPaidWeek}
+        livePending={livePending}
       />
 
       {/* Phase E — season pre-sale picker. Renders only when this market has

@@ -15,9 +15,10 @@ import ContinueBoothPaymentButton from '@/components/vendor/ContinueBoothPayment
  * page does all auth + approval checking; this form just collects the
  * three inputs and posts.
  *
- * Submit hits POST /api/vendor/markets/[id]/book. Stripe is not in this
- * flow — the booking is written with status='pending_payment' and the
- * vendor sees a success state explaining payment is coming.
+ * Submit hits POST /api/vendor/markets/[id]/book, which writes the
+ * status='pending_payment' row and returns the Stripe Checkout URL the form
+ * redirects to. On return (?session=success|cancel) the form renders a flash
+ * instead; on a plain load it names any unpaid week still waiting (OB-039).
  */
 interface InventoryRow {
   id: string
@@ -51,6 +52,21 @@ interface BookBoothFormProps {
   /** OB-030 D1: the booking the vendor just stepped away from (from Stripe's
    *  cancel link) — the cancel banner offers "Continue payment" for it. */
   returnRentalId?: string | null
+  /** OB-039 / TR-156: the booth the vendor just paid for (number assigned at
+   *  booking time; size from the inventory). Null only on legacy rows — then
+   *  the success flash falls back to "the manager will reach out". */
+  returnBoothNumber?: string | null
+  returnSizeLabel?: string | null
+  /** OB-039 / TR-157: the vendor holds a PAID current/upcoming week here
+   *  (same helper as buyer visibility). Flips the booth box from "held until
+   *  you pay" to "yours while you keep paying" — the roster's own split. */
+  hasPaidWeek?: boolean
+  /** OB-039 / TR-158: an unpaid one-off week of theirs that reached a Stripe
+   *  page (plain load only — the BROWSER's Back button from Stripe never calls
+   *  the cancel URL). Shown INSIDE the form, above the week picker, with that
+   *  week pre-selected — never as the full-page cancel flash, which would show
+   *  on every visit and stop the vendor booking a different week. */
+  livePending?: { id: string; weekStartDate: string } | null
 }
 
 function formatWeekLabel(yyyyMmDd: string): string {
@@ -84,8 +100,16 @@ export default function BookBoothForm({
   pinnedBoothNumber = null,
   bookingBlockedReason = null,
   returnRentalId = null,
+  returnBoothNumber = null,
+  returnSizeLabel = null,
+  hasPaidWeek = false,
+  livePending = null,
 }: BookBoothFormProps) {
-  const [selectedWeek, setSelectedWeek] = useState<string>(weeks[0] ?? '')
+  // TR-158: a week the vendor already started wins the dropdown, so "Continue
+  // payment" and the picker agree on which week is meant.
+  const [selectedWeek, setSelectedWeek] = useState<string>(
+    livePending && weeks.includes(livePending.weekStartDate) ? livePending.weekStartDate : (weeks[0] ?? '')
+  )
   // BR-4: a pin with a tier pre-selects and locks that tier.
   const lockedTierExists = !!lockedInventoryId && inventory.some((i) => i.id === lockedInventoryId)
   const [selectedInventoryId, setSelectedInventoryId] = useState<string>(
@@ -183,9 +207,15 @@ export default function BookBoothForm({
           ✓ Payment received
         </h2>
         <p style={{ margin: 0, marginBottom: spacing.sm, color: colors.textPrimary, fontSize: typography.sizes.sm, lineHeight: 1.6 }}>
-          Thanks — your booth booking at <strong>{marketName}</strong> is confirmed.
-          The manager will reach out with a booth number assignment before
-          your market day.
+          Thanks — your booth booking at <strong>{marketName}</strong> is confirmed.{' '}
+          {/* TR-156 (OB-039): the number is assigned when the booking starts,
+              so say it here — the paid notification has since mig 144. The
+              legacy sentence stays only for rows with no number. */}
+          {returnBoothNumber ? (
+            <>Your booth is <strong>#{returnBoothNumber}{returnSizeLabel ? ` · ${returnSizeLabel}` : ''}</strong>. See you there.</>
+          ) : (
+            <>The manager will reach out with a booth number assignment before your market day.</>
+          )}
         </p>
         <p style={{ margin: 0, marginBottom: spacing.md, color: colors.textMuted, fontSize: typography.sizes.sm, lineHeight: 1.5 }}>
           Your booking should appear on your dashboard within a minute as
@@ -299,6 +329,29 @@ export default function BookBoothForm({
         </div>
       )}
 
+      {/* TR-158 (OB-039): an unpaid week the vendor already started, surfaced on
+          a plain load (browser Back from Stripe lands here with no ?session=).
+          Inline on purpose — see the livePending prop note. */}
+      {livePending && (
+        <div data-live-pending style={{
+          padding: spacing.sm,
+          marginBottom: spacing.md,
+          backgroundColor: '#fff3cd',
+          border: '1px solid #ffeeba',
+          borderRadius: radius.sm,
+          color: '#856404',
+          fontSize: typography.sizes.sm,
+          lineHeight: 1.5,
+        }}>
+          <div style={{ marginBottom: spacing.xs }}>
+            You have a booking for the <strong>week of {formatWeekLabel(livePending.weekStartDate)}</strong> waiting
+            for payment — no charge was made yet, and its payment page stays open for up to 24 hours.
+            Finish it with Continue payment, or pick another week below.
+          </div>
+          <ContinueBoothPaymentButton rentalId={livePending.id} vertical={vertical} marketId={marketId} />
+        </div>
+      )}
+
       {/* Week picker */}
       <label style={{ display: 'block', marginBottom: spacing.md }}>
         <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary, marginBottom: spacing['2xs'] }}>
@@ -344,7 +397,13 @@ export default function BookBoothForm({
           {lockedTierExists ? ` · ${inventory.find((i) => i.id === lockedInventoryId)?.size_label ?? ''} size` : ''}
           {' — assigned by the manager. '}
           {lockedTierExists ? 'That is the size you will be charged for; ask the manager if you need a different one. ' : ''}
-          {pinnedBoothNumber ? 'The number is held for you and becomes yours once you pay for a week.' : ''}
+          {/* TR-157 (OB-039): the roster's split — a hold until the first paid
+              week, the vendor's own while they keep paying. */}
+          {pinnedBoothNumber
+            ? (hasPaidWeek
+              ? 'The number is yours while you keep paying for weeks.'
+              : 'The number is held for you and becomes yours once you pay for a week.')
+            : ''}
         </div>
       )}
 

@@ -225,6 +225,14 @@ That is the end of Round 4.
 ==================================================================================================
 ROUND 5 — THE SAME VENDOR PAYS FOR A WEEK   (River Road Farmers Market · do this after Round 4 · ~20 min)
 ==================================================================================================
+✅ DONE — reported 2026-10-16 (OB-039). Do not redo. The tester paid the FIRST week (Oct 18, Booth 6) before reaching "do NOT pay",
+   then ran the step-away / retry steps on the NEXT week (Oct 25) — which is now a live unpaid booking (its Stripe page stays open
+   up to 24 h, then Continue payment or the nightly sweep releases it). Passed: the Continue-payment loop (via Stripe's own ← link),
+   the red "already started booking" box, the "already have a booking" refusal for the paid week, the My Bookings row (Booth 6 ·
+   Paid), the manager's locked dropdowns + "no paid week yet" on other rows, the green "visible to buyers", River Road on the public
+   list. Found: the paid page's stale "manager will reach out" line (TR-156), the booth box still saying "held … once you pay" after
+   paying (TR-157), the browser Back button from Stripe showing nothing (TR-158). Not reported: step 4 (card ✓ 1–4), the approval
+   notice's wording (TR-085). Sheet correction: "Back" means Stripe's own ← link on its page, not the browser's Back button.
 Accounts: Abuela's Kitchen and the River Road manager (as in Round 4).
 Desk-checked against the code 2026-10-16 (staging ff0cb0d8): step 1 week wording, step 3 where the booth number
 shows, step 5 Setup is collapsed + the public list's 10-minute cache.
@@ -402,4 +410,12 @@ Not a round yet. Each line becomes one step in a future round once the fix is on
     • The pending-approval line says "— N has already booked this week" only when a not-yet-approved truck really paid
       for a day this week; otherwise the line is just "1 food truck pending your approval."  [TR-153]
     • Vendor Markets page ("My Locations") heading is red on the food-truck site.  [TR-154]
+  From Round 5 (2026-10-16) — all three on the River Road booking page as Abuela's Kitchen (she holds a paid week there):
+    • The page after paying a week says "Your booth is #<number> · <size>. See you there." — not "the manager will reach
+      out with a booth number".  [TR-156]
+    • With a paid week on file, the blue "Your booth at River Road…" box ends "The number is yours while you keep paying
+      for weeks." (not "held for you … once you pay").  [TR-157]
+    • Start a week, and on the Stripe page press the BROWSER's Back button: the booking page shows an amber "You have a
+      booking for the week of … waiting for payment" box above the Week dropdown, with Continue payment, and the
+      dropdown is already on that week. Continue payment opens the same Stripe page.  [TR-158]
   Tracked, nothing to retest: page speed after applying / before Stripe (~3 s) — measured only, no change made.  [TR-151]

@@ -1420,6 +1420,45 @@ describe('Dashboard empty-state convention', () => {
     expect(book, 'someone else\'s booking keeps the original refusal').toMatch(/if \(msg\.includes\('BOOTH_TAKEN'\) && !existingRow\)/)
   })
 
+  it('OB-039 (TR-156/157/158): the booking page knows the booth just paid for, whether a paid week is on file, and any unpaid week still waiting', () => {
+    // Owner 2026-10-16 (Round 5). Three facts the page did not have; the form
+    // said "the manager will reach out" after a number was already assigned,
+    // "held until you pay" after a week was paid, and nothing at all when the
+    // vendor came back from Stripe with the browser's Back button.
+    const page = bare('app/[vertical]/markets/[id]/book/page.tsx')
+    const form = bare('components/vendor/BookBoothForm.tsx')
+
+    // TR-156 — the booth just paid for is read ONLY from this vendor's own rows
+    // (a UUID in the URL must never show another vendor's booth), and only on
+    // the success return.
+    expect(page, 'success-return lookup is scoped to the vendor and the market').toMatch(
+      /if \(returnFlash === 'success' && returnRentalId\) \{[\s\S]{0,400}\.from\('weekly_booth_rentals'\)[\s\S]{0,200}\.eq\('id', returnRentalId\)\s*\.eq\('vendor_profile_id', profile\.id\)\s*\.eq\('market_id', marketId\)/
+    )
+    expect(form, 'the paid page names the booth when it has one').toMatch(/returnBoothNumber \? \(\s*<>Your booth is <strong>#\{returnBoothNumber\}/)
+    expect(form, 'the legacy sentence survives only as the no-number fallback').toMatch(/\) : \(\s*<>The manager will reach out with a booth number assignment/)
+
+    // TR-157 — "paid week" comes from the same helper buyer visibility uses,
+    // never a second definition; the box flips its last sentence on it.
+    expect(page, 'one definition of a paid week').toContain("import { getPaidWeekPairs, todayInZone } from '@/lib/markets/managed-fee-gate'")
+    expect(page).toMatch(/const paidPairs = await getPaidWeekPairs\(serviceClient, \[marketId\], todayInZone\(marketTz\)\)/)
+    expect(page).toMatch(/const hasPaidWeek = paidPairs\.has\(`\$\{marketId\}\|\$\{profile\.id\}`\)/)
+    expect(form, 'held → yours, decided by hasPaidWeek').toMatch(/\? \(hasPaidWeek\s*\? 'The number is yours while you keep paying for weeks\.'\s*: 'The number is held for you and becomes yours once you pay for a week\.'\)/)
+
+    // TR-158 — on a plain load the page looks for a one-off pending week that
+    // reached a Stripe page (season children and session-less orphans excluded),
+    // and the form shows it INSIDE the form, above the week picker, with that
+    // week pre-selected — never as the full-page cancel flash.
+    expect(page, 'plain load only').toMatch(/if \(!returnFlash\) \{[\s\S]{0,300}\.eq\('status', 'pending_payment'\)\s*\.is\('group_id', null\)\s*\.not\('stripe_checkout_session_id', 'is', null\)/)
+    expect(form, 'the started week wins the dropdown').toMatch(/useState<string>\(\s*livePending && weeks\.includes\(livePending\.weekStartDate\) \? livePending\.weekStartDate : \(weeks\[0\] \?\? ''\)/)
+    const formOpen = form.indexOf('<form')
+    const notice = form.indexOf('data-live-pending')
+    const weekPicker = form.indexOf('value={selectedWeek}') // the week <select> (comments are stripped by bare())
+    expect(formOpen, 'the form element exists').toBeGreaterThan(-1)
+    expect(notice, 'the notice lives inside the form').toBeGreaterThan(formOpen)
+    expect(weekPicker, 'and sits above the week picker').toBeGreaterThan(notice)
+    expect(form, 'the notice offers the same Continue payment control').toMatch(/data-live-pending[\s\S]{0,900}<ContinueBoothPaymentButton rentalId=\{livePending\.id\}/)
+  })
+
   it('OB-031: booking refuses a vendor scheduled at another market at the same time (no multi-location box); the profile shows the overlaps', () => {
     const gate = bare('lib/markets/booking-gates.ts')
     expect(gate, 'step 4 runs the day-picker overlap rule').toMatch(/const conflict = await findDeclaredDayConflict\(service, vendorProfileId, marketId\)/)
